@@ -1,0 +1,32 @@
+﻿<UserControl x:Class="BEditor.Views.ToolControl.Default.SceneManager"
+             xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006" 
+             xmlns:d="http://schemas.microsoft.com/expression/blend/2008" 
+             xmlns:local="clr-namespace:BEditor.Views.ToolControl.Default"
+             xmlns:i="http://schemas.microsoft.com/xaml/behaviors"
+             xmlns:vm="clr-namespace:BEditor.ViewModels.ToolControl"
+             mc:Ignorable="d" 
+             d:DesignHeight="450" d:DesignWidth="800">
+    <UserControl.DataContext>
+        <vm:SceneManagerViewModel/>
+    </UserControl.DataContext>
+    <Grid>
+        <Grid.RowDefinitions>
+            <RowDefinition/>
+            <RowDefinition Height="Auto"/>
+        </Grid.RowDefinitions>
+        
+        <ListView x:Name="list">
+            <ListView.View>
+                <GridView>
+                    <GridViewColumn Header="Name" DisplayMemberBinding="{Binding SceneName}"/>
+                    <GridViewColumn Header="Width" DisplayMemberBinding="{Binding Width}"/>
+                    <GridViewColumn Header="Height" DisplayMemberBinding="{Binding Height}"/>
+                </GridView>
+            </ListView.View>
+        </ListView>
+
+        <Button Grid.Row="1" Margin="10,10,10,10" HorizontalAlignment="Right" Content="追加" Command="{Binding AddScene, Mode=OneTime}"/>
+    </Grid>
+</UserControl>

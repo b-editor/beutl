@@ -1,0 +1,601 @@
+<?xml version="1.0"?>
+<doc>
+    <assembly>
+        <name>B_Editor</name>
+    </assembly>
+    <members>
+        <member name="T:B_Editor.App">
+            <summary>
+            App.xaml の相互作用ロジック
+            </summary>
+            <summary>
+            App
+            </summary>
+        </member>
+        <member name="M:B_Editor.App.InitializeComponent">
+            <summary>
+            InitializeComponent
+            </summary>
+        </member>
+        <member name="M:B_Editor.App.Main">
+            <summary>
+            Application Entry Point.
+            </summary>
+        </member>
+        <member name="M:B_Editor.FFmpeg.FFmpeg.avformat_open_input(System.IntPtr,System.String,System.IntPtr,System.IntPtr)">
+            <summary>
+            int avformat_open_input(AVFormatContext **ps, const char *url, ff_const59 AVInputFormat *fmt, AVDictionary **options);
+            </summary>
+            <returns></returns>
+        </member>
+        <member name="E:B_Editor.Models.ClipboardWatcher.DrawClipboard">
+            <summary>
+            クリップボードに内容に変更があると発生
+            </summary>
+        </member>
+        <member name="M:B_Editor.Models.ClipboardWatcher.Dispose">
+            <summary>
+            ClipBoardWatcherクラスを
+            クリップボードビューアチェインから削除します。
+            </summary>
+        </member>
+        <member name="M:B_Editor.Models.ImageHelper.Output_Image(System.String@)">
+            <summary>
+            フレームを画像出力
+            </summary>
+        </member>
+        <member name="M:B_Editor.Models.ImageHelper.OutputImage">
+            <summary>
+            フレームを画像出力
+            </summary>
+        </member>
+        <member name="T:B_Editor.ViewModels.BasePropertyChanged">
+            <summary>
+            プロパティの変更を通知するクラス
+            </summary>
+        </member>
+        <member name="T:B_Editor.ViewModels.Helper.DelegateProperty`1">
+            <summary>
+            できるだけNugetを少なくしたいので作ったクラス
+            </summary>
+            <typeparam name="T"></typeparam>
+        </member>
+        <member name="P:B_Editor.ViewModels.SettingsControl.SettingsWindowViewModel.ViewControl">
+            <summary>
+            表示されているコントロール
+            </summary>
+        </member>
+        <member name="P:B_Editor.ViewModels.TimeLines.ClipUIViewModel.Row">
+            <summary>
+            GUIのレイヤー
+            </summary>
+        </member>
+        <member name="P:B_Editor.ViewModels.TimeLines.ClipUIViewModel.IsExpanded">
+            <summary>
+            開いている場合True
+            </summary>
+        </member>
+        <member name="P:B_Editor.ViewModels.TimeLines.TimeLineViewModel.SeekbarIsMouseDown">
+            <summary>
+            シークバー移動 マウス押下中フラグ
+            </summary>
+        </member>
+        <member name="P:B_Editor.ViewModels.TimeLines.TimeLineViewModel.ClipMouseDown">
+            <summary>
+            ラベル移動 マウス押下中フラグ
+            </summary>
+        </member>
+        <member name="P:B_Editor.ViewModels.TimeLines.TimeLineViewModel.ClipStart">
+            <summary>
+            オブジェクト移動開始時のPoint
+            </summary>
+        </member>
+        <member name="P:B_Editor.ViewModels.TimeLines.TimeLineViewModel.ClipLeftRight">
+            <summary>
+            長さ変更
+            </summary>
+        </member>
+        <member name="P:B_Editor.ViewModels.TimeLines.TimeLineViewModel.ClipTimeChange">
+            <summary>
+            時間が未変更の場合True
+            </summary>
+        </member>
+        <member name="P:B_Editor.ViewModels.TimeLines.TimeLineViewModel.ClipSelect">
+            <summary>
+            選択オブジェクトのラベル
+            </summary>
+        </member>
+        <member name="P:B_Editor.ViewModels.TimeLines.TimeLineViewModel.ClipMovement">
+            <summary>
+            移動量
+            </summary>
+        </member>
+        <member name="F:B_Editor.ViewModels.TimeLines.TimeLineViewModel.KeyframeToggle">
+            <summary>
+            キーフレーム マウス押下中フラグ 移動中にfalse
+            </summary>
+        </member>
+        <member name="P:B_Editor.ViewModels.TimeLines.TimeLineViewModel.ResetScale">
+            <summary>
+            目盛りを追加するAction
+            <para>
+            arg1 : zoom
+            </para>
+            <para>
+            arg2 : max
+            </para>
+            <para>
+            arg3 : rate
+            </para>
+            </summary>
+        </member>
+        <member name="T:B_Editor.Views.ColorDialog">
+            <summary>
+            ToolWindow.xaml の相互作用ロジック
+            </summary>
+            <summary>
+            ColorDialog
+            </summary>
+        </member>
+        <member name="M:B_Editor.Views.ColorDialog.InitializeComponent">
+            <summary>
+            InitializeComponent
+            </summary>
+        </member>
+        <member name="T:B_Editor.Views.CreateSceneWindow">
+            <summary>
+            CreateSceneWindow.xaml の相互作用ロジック
+            </summary>
+            <summary>
+            CreateSceneWindow
+            </summary>
+        </member>
+        <member name="M:B_Editor.Views.CreateSceneWindow.InitializeComponent">
+            <summary>
+            InitializeComponent
+            </summary>
+        </member>
+        <member name="T:B_Editor.Views.CustomControl.ColorPalette">
+            <summary>
+            ColorPalette.xaml の相互作用ロジック
+            </summary>
+            <summary>
+            ColorPalette
+            </summary>
+        </member>
+        <member name="M:B_Editor.Views.CustomControl.ColorPalette.InitializeComponent">
+            <summary>
+            InitializeComponent
+            </summary>
+        </member>
+        <member name="T:B_Editor.Views.CustomControl.ColorPicker">
+            <summary>
+            ColorPicker.xaml の相互作用ロジック
+            </summary>
+            <summary>
+            ColorPicker
+            </summary>
+        </member>
+        <member name="M:B_Editor.Views.CustomControl.ColorPicker.InitializeComponent">
+            <summary>
+            InitializeComponent
+            </summary>
+        </member>
+        <member name="T:B_Editor.Views.CustomControl.CustomTreeView">
+            <summary>
+            CustomTree.xaml の相互作用ロジック
+            </summary>
+            <summary>
+            CustomTreeView
+            </summary>
+        </member>
+        <member name="M:B_Editor.Views.CustomControl.CustomTreeView.ExpanderUpdate">
+            <summary>
+            強制的にExpanderをアップデート
+            </summary>
+        </member>
+        <member name="P:B_Editor.Views.CustomControl.CustomTreeView.Content">
+            <summary>
+            自動でサイズがCustomTreeのActualWidthになります
+            </summary>
+        </member>
+        <member name="M:B_Editor.Views.CustomControl.CustomTreeView.InitializeComponent">
+            <summary>
+            InitializeComponent
+            </summary>
+        </member>
+        <member name="T:B_Editor.Views.CustomControl.PropertyTab">
+            <summary>
+            CustomTab.xaml の相互作用ロジック
+            </summary>
+            <summary>
+            PropertyTab
+            </summary>
+        </member>
+        <member name="M:B_Editor.Views.CustomControl.PropertyTab.InitializeComponent">
+            <summary>
+            InitializeComponent
+            </summary>
+        </member>
+        <member name="T:B_Editor.Views.MessageContent.Loading">
+            <summary>
+            Loading.xaml の相互作用ロジック
+            </summary>
+            <summary>
+            Loading
+            </summary>
+        </member>
+        <member name="M:B_Editor.Views.MessageContent.Loading.InitializeComponent">
+            <summary>
+            InitializeComponent
+            </summary>
+        </member>
+        <member name="T:B_Editor.Views.MessageContent.MessageUI">
+            <summary>
+            MessageUI.xaml の相互作用ロジック
+            </summary>
+            <summary>
+            MessageUI
+            </summary>
+        </member>
+        <member name="M:B_Editor.Views.MessageContent.MessageUI.InitializeComponent">
+            <summary>
+            InitializeComponent
+            </summary>
+        </member>
+        <member name="T:B_Editor.Views.NoneDialog">
+            <summary>
+            NoneWindow.xaml の相互作用ロジック
+            </summary>
+            <summary>
+            NoneDialog
+            </summary>
+        </member>
+        <member name="M:B_Editor.Views.NoneDialog.InitializeComponent">
+            <summary>
+            InitializeComponent
+            </summary>
+        </member>
+        <member name="T:B_Editor.Views.PropertyControls.CheckBox">
+            <summary>
+            CheckBox.xaml の相互作用ロジック
+            </summary>
+            <summary>
+            CheckBox
+            </summary>
+        </member>
+        <member name="M:B_Editor.Views.PropertyControls.CheckBox.InitializeComponent">
+            <summary>
+            InitializeComponent
+            </summary>
+        </member>
+        <member name="T:B_Editor.Views.PropertyControls.ColorPicker">
+            <summary>
+            ColorPicker.xaml の相互作用ロジック
+            </summary>
+            <summary>
+            ColorPicker
+            </summary>
+        </member>
+        <member name="M:B_Editor.Views.PropertyControls.ColorPicker.InitializeComponent">
+            <summary>
+            InitializeComponent
+            </summary>
+        </member>
+        <member name="T:B_Editor.Views.PropertyControls.Document">
+            <summary>
+            Document.xaml の相互作用ロジック
+            </summary>
+            <summary>
+            Document
+            </summary>
+        </member>
+        <member name="M:B_Editor.Views.PropertyControls.Document.InitializeComponent">
+            <summary>
+            InitializeComponent
+            </summary>
+        </member>
+        <member name="T:B_Editor.Views.PropertyControls.EaseControl">
+            <summary>
+            EasePropertyControl.xaml の相互作用ロジック
+            </summary>
+            <summary>
+            EaseControl
+            </summary>
+        </member>
+        <member name="M:B_Editor.Views.PropertyControls.EaseControl.#ctor(BEditorCore.Data.PropertyData.EaseProperty)">
+            <summary>
+            Value_Anmのコンストラクタ
+            </summary>
+            <param name="anm">EaseSettingのインスタンス</param>
+        </member>
+        <member name="M:B_Editor.Views.PropertyControls.EaseControl.InitializeComponent">
+            <summary>
+            InitializeComponent
+            </summary>
+        </member>
+        <member name="T:B_Editor.Views.PropertyControls.FileControl">
+            <summary>
+            FileControl.xaml の相互作用ロジック
+            </summary>
+            <summary>
+            FileControl
+            </summary>
+        </member>
+        <member name="M:B_Editor.Views.PropertyControls.FileControl.InitializeComponent">
+            <summary>
+            InitializeComponent
+            </summary>
+        </member>
+        <member name="T:B_Editor.Views.PropertyControls.Object_Setting">
+            <summary>
+            Object_Setting.xaml の相互作用ロジック
+            </summary>
+            <summary>
+            Object_Setting
+            </summary>
+        </member>
+        <member name="M:B_Editor.Views.PropertyControls.Object_Setting.InitializeComponent">
+            <summary>
+            InitializeComponent
+            </summary>
+        </member>
+        <member name="T:B_Editor.Views.PropertyControls.SelectorControl">
+            <summary>
+            SelectorControl.xaml の相互作用ロジック
+            </summary>
+            <summary>
+            SelectorControl
+            </summary>
+        </member>
+        <member name="M:B_Editor.Views.PropertyControls.SelectorControl.InitializeComponent">
+            <summary>
+            InitializeComponent
+            </summary>
+        </member>
+        <member name="T:B_Editor.Views.PropertyControl.ColorAnimation">
+            <summary>
+            ColorAnimation.xaml の相互作用ロジック
+            </summary>
+            <summary>
+            ColorAnimation
+            </summary>
+        </member>
+        <member name="M:B_Editor.Views.PropertyControl.ColorAnimation.InitializeComponent">
+            <summary>
+            InitializeComponent
+            </summary>
+        </member>
+        <member name="T:B_Editor.Views.SettingsControl.AppInfo">
+            <summary>
+            AppInfo.xaml の相互作用ロジック
+            </summary>
+            <summary>
+            AppInfo
+            </summary>
+        </member>
+        <member name="M:B_Editor.Views.SettingsControl.AppInfo.InitializeComponent">
+            <summary>
+            InitializeComponent
+            </summary>
+        </member>
+        <member name="T:B_Editor.Views.SettingsControl.General.Appearance">
+            <summary>
+            Appearance.xaml の相互作用ロジック
+            </summary>
+            <summary>
+            Appearance
+            </summary>
+        </member>
+        <member name="M:B_Editor.Views.SettingsControl.General.Appearance.InitializeComponent">
+            <summary>
+            InitializeComponent
+            </summary>
+        </member>
+        <member name="T:B_Editor.Views.SettingsControl.General.Other">
+            <summary>
+            Other.xaml の相互作用ロジック
+            </summary>
+            <summary>
+            Other
+            </summary>
+        </member>
+        <member name="M:B_Editor.Views.SettingsControl.General.Other.InitializeComponent">
+            <summary>
+            InitializeComponent
+            </summary>
+        </member>
+        <member name="T:B_Editor.Views.SettingsControl.General.Root">
+            <summary>
+            Root.xaml の相互作用ロジック
+            </summary>
+            <summary>
+            Root
+            </summary>
+        </member>
+        <member name="M:B_Editor.Views.SettingsControl.General.Root.InitializeComponent">
+            <summary>
+            InitializeComponent
+            </summary>
+        </member>
+        <member name="T:B_Editor.Views.SettingsControl.Plugins.InstalledPlugins">
+            <summary>
+            InstalledPlugins.xaml の相互作用ロジック
+            </summary>
+            <summary>
+            InstalledPlugins
+            </summary>
+        </member>
+        <member name="M:B_Editor.Views.SettingsControl.Plugins.InstalledPlugins.InitializeComponent">
+            <summary>
+            InitializeComponent
+            </summary>
+        </member>
+        <member name="T:B_Editor.Views.SettingsControl.ProjectSetting">
+            <summary>
+            ProjectSetting.xaml の相互作用ロジック
+            </summary>
+            <summary>
+            ProjectSetting
+            </summary>
+        </member>
+        <member name="M:B_Editor.Views.SettingsControl.ProjectSetting.InitializeComponent">
+            <summary>
+            InitializeComponent
+            </summary>
+        </member>
+        <member name="T:B_Editor.Views.SettingsControl.SettingsWindow">
+            <summary>
+            SettingsWindow.xaml の相互作用ロジック
+            </summary>
+            <summary>
+            SettingsWindow
+            </summary>
+        </member>
+        <member name="M:B_Editor.Views.SettingsControl.SettingsWindow.InitializeComponent">
+            <summary>
+            InitializeComponent
+            </summary>
+        </member>
+        <member name="T:B_Editor.Views.TimeLines.ClipUI">
+            <summary>
+            ClipUI.xaml の相互作用ロジック
+            </summary>
+            <summary>
+            ClipUI
+            </summary>
+        </member>
+        <member name="P:B_Editor.Views.TimeLines.ClipUI.IsExpanded">
+            <summary>
+            開いている場合True
+            </summary>
+        </member>
+        <member name="M:B_Editor.Views.TimeLines.ClipUI.InitializeComponent">
+            <summary>
+            InitializeComponent
+            </summary>
+        </member>
+        <member name="T:B_Editor.Views.TimeLines.ColorAnimation">
+            <summary>
+            ColorAnimation.xaml の相互作用ロジック
+            </summary>
+            <summary>
+            ColorAnimation
+            </summary>
+        </member>
+        <member name="M:B_Editor.Views.TimeLines.ColorAnimation.ZoomChange(System.Object,System.ComponentModel.PropertyChangedEventArgs)">
+            <summary>
+            拡大率変更
+            </summary>
+        </member>
+        <member name="M:B_Editor.Views.TimeLines.ColorAnimation.InitializeComponent">
+            <summary>
+            InitializeComponent
+            </summary>
+        </member>
+        <member name="T:B_Editor.Views.TimeLines.KeyFrame">
+            <summary>
+            KeyFrame.xaml の相互作用ロジック
+            </summary>
+            <summary>
+            KeyFrame
+            </summary>
+        </member>
+        <member name="M:B_Editor.Views.TimeLines.KeyFrame.ZoomChange(System.Object,System.ComponentModel.PropertyChangedEventArgs)">
+            <summary>
+            拡大率変更
+            </summary>
+        </member>
+        <member name="M:B_Editor.Views.TimeLines.KeyFrame.InitializeComponent">
+            <summary>
+            InitializeComponent
+            </summary>
+        </member>
+        <member name="T:B_Editor.Views.TimeLines.TimeLine">
+            <summary>
+            TimeLine.xaml の相互作用ロジック
+            </summary>
+            <summary>
+            TimeLine
+            </summary>
+        </member>
+        <member name="M:B_Editor.Views.TimeLines.TimeLine.AddScale(System.Single,System.Int32,System.Int32)">
+            <summary>
+            目盛りを追加するメソッド
+            </summary>
+            <param name="zoom">拡大率 1 - 100</param>
+            <param name="max">最大フレーム</param>
+            <param name="rate">フレームレート</param>
+        </member>
+        <member name="M:B_Editor.Views.TimeLines.TimeLine.InitializeComponent">
+            <summary>
+            InitializeComponent
+            </summary>
+        </member>
+        <member name="T:B_Editor.Views.ToolControl.Default.Library">
+            <summary>
+            Library.xaml の相互作用ロジック
+            </summary>
+            <summary>
+            Library
+            </summary>
+        </member>
+        <member name="M:B_Editor.Views.ToolControl.Default.Library.InitializeComponent">
+            <summary>
+            InitializeComponent
+            </summary>
+        </member>
+        <member name="T:B_Editor.Views.ToolControl.Default.SceneManager">
+            <summary>
+            SceneManager.xaml の相互作用ロジック
+            </summary>
+            <summary>
+            SceneManager
+            </summary>
+        </member>
+        <member name="M:B_Editor.Views.ToolControl.Default.SceneManager.InitializeComponent">
+            <summary>
+            InitializeComponent
+            </summary>
+        </member>
+        <member name="T:B_Editor.Views.ToolControl.PannelControl">
+            <summary>
+            PluginControl.xaml の相互作用ロジック
+            </summary>
+            <summary>
+            PannelControl
+            </summary>
+        </member>
+        <member name="M:B_Editor.Views.ToolControl.PannelControl.InitializeComponent">
+            <summary>
+            InitializeComponent
+            </summary>
+        </member>
+        <member name="T:B_Editor.CreateProjectWindow">
+            <summary>
+            CreateProjectWindow.xaml の相互作用ロジック
+            </summary>
+            <summary>
+            CreateProjectWindow
+            </summary>
+        </member>
+        <member name="M:B_Editor.CreateProjectWindow.InitializeComponent">
+            <summary>
+            InitializeComponent
+            </summary>
+        </member>
+        <member name="T:B_Editor.MainWindow">
+            <summary>
+            MainWindow.xaml の相互作用ロジック
+            </summary>
+            <summary>
+            MainWindow
+            </summary>
+        </member>
+        <member name="M:B_Editor.MainWindow.InitializeComponent">
+            <summary>
+            InitializeComponent
+            </summary>
+        </member>
+    </members>
+</doc>

@@ -1,0 +1,4 @@
+﻿[*.cs]
+
+# CS1591: 公開されている型またはメンバーの XML コメントがありません
+dotnet_diagnostic.CS1591.severity = none

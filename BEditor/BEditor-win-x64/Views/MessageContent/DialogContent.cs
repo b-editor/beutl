@@ -1,0 +1,13 @@
+﻿using System;
+using System.Collections.Generic;
+using System.Text;
+using System.Windows.Controls;
+
+using BEditorCore.Extesions.ViewCommand;
+
+namespace BEditor.Views.MessageContent {
+    public abstract class DialogContent : UserControl {
+        public abstract ButtonType DialogResult { get; protected set; }
+        public abstract event EventHandler ButtonClicked;
+    }
+}

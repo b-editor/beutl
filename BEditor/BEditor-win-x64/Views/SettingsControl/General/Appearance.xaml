@@ -1,0 +1,43 @@
+﻿<UserControl x:Class="BEditor.Views.SettingsControl.General.Appearance"
+             xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006" 
+             xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+             xmlns:properties="clr-namespace:BEditor.Properties"
+             xmlns:resources="clr-namespace:BEditorCore.Properties;assembly=BEditorCore"
+             xmlns:vm="clr-namespace:BEditor.ViewModels.SettingsControl.General"
+             mc:Ignorable="d" 
+             xmlns:md="http://materialdesigninxaml.net/winfx/xaml/themes"
+             d:DesignHeight="450" d:DesignWidth="800">
+    <UserControl.DataContext>
+        <vm:AppearanceViewModel/>
+    </UserControl.DataContext>
+    <VirtualizingStackPanel>
+
+
+        <md:ColorZone Content="{x:Static resources:Resources.General}" Foreground="White" Background="{StaticResource PrimaryHueMidBrush}" Margin="10,10,10,10" Padding="9,9,9,9" md:ShadowAssist.ShadowDepth="Depth2"/>
+
+        <VirtualizingStackPanel Orientation="Horizontal" Height="45">
+            <CheckBox Command="{Binding UseDarkModeClick, Mode=OneTime}" IsChecked="{Binding DarkMode, Source={x:Static properties:Settings.Default}, Mode=TwoWay}" Padding="0" Grid.Column="1" Margin="25,0,25,0" VerticalAlignment="Center"/>
+            <TextBlock Text="{x:Static resources:Resources.UseDarkMode}" FontSize="13" VerticalAlignment="Center"/>
+        </VirtualizingStackPanel>
+
+
+        <md:ColorZone Content="{x:Static resources:Resources.TimeLine}" Foreground="White" Background="{StaticResource PrimaryHueMidBrush}" Margin="10,10,10,10" Padding="9,9,9,9" md:ShadowAssist.ShadowDepth="Depth2"/>
+
+        <Grid>
+            <Grid.ColumnDefinitions>
+                <ColumnDefinition Width="Auto"/>
+                <ColumnDefinition/>
+            </Grid.ColumnDefinitions>
+            <VirtualizingStackPanel>
+                <Label Content="{x:Static resources:Resources.ClipHeight}" FontSize="13" Margin="25,0,25,0" VerticalAlignment="Center" Height="45" Padding="0,0,0,0" VerticalContentAlignment="Center"/>
+                <Label Content="{x:Static resources:Resources.WidthOf1Frame}" FontSize="13" Margin="25,0,25,0" VerticalAlignment="Center" Height="45" VerticalContentAlignment="Center" Padding="0,0,0,0"/>
+            </VirtualizingStackPanel>
+            <VirtualizingStackPanel Grid.Column="1">
+                <TextBox Text="{Binding ClipHeight, Source={x:Static properties:Settings.Default}, Mode=TwoWay}"  VerticalAlignment="Stretch" HorizontalAlignment="Right" Height="25" Margin="0,10,25,10" Width="80"/>
+                <TextBox Text="{Binding WidthOf1Frame, Source={x:Static properties:Settings.Default}, Mode=TwoWay}" VerticalAlignment="Stretch" HorizontalAlignment="Right" Height="25"  Margin="0,10,25,10" Width="80"/>
+            </VirtualizingStackPanel>
+        </Grid>
+    </VirtualizingStackPanel>
+</UserControl>

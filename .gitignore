@@ -348,3 +348,9 @@ MigrationBackup/
 
 # Ionide (cross platform F# VS Code tools) working folder
 .ionide/
+
+.BEditor/BEditor-win-x64/Runtimes/
+.Runtimes/
+/BEditor/BEditor-win-x64/Runtimes/opencv_videoio_ffmpeg450_64.dll
+/BEditor/BEditor-win-x64/Runtimes/opencv_world450.dll
+/BEditor/BEditor-win-x64/Runtimes/opencv_world450d.dll
