@@ -1,5 +1,4 @@
-﻿<UserControl
-             xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+﻿<UserControl xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
              xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
              xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006" 
              xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
@@ -12,6 +11,7 @@
              Background="{DynamicResource MaterialDesignCardBackground}"
              mc:Ignorable="d" 
              d:DesignHeight="504" d:DesignWidth="583"
+             ClipToBounds="True"
              AllowDrop="True" PreviewDrop="Preview_Drop">
     <UserControl.Resources>
         <vm:ClipTypeIconConverter x:Key="ClipTypeIconConverter"/>
@@ -66,6 +66,7 @@
                             VerticalAlignment="Stretch"
                             HorizontalContentAlignment="Stretch"
                             VerticalContentAlignment="Stretch"
+                            ClipToBounds="True"
                             Content="{Binding Converter={StaticResource EffectElementToProperty}}"/>
                     </DataTemplate>
                 </ItemsControl.ItemTemplate>

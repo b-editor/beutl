@@ -4,6 +4,7 @@
              xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006" 
              xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
              xmlns:i="http://schemas.microsoft.com/xaml/behaviors"
+             xmlns:views="clr-namespace:BEditor.Views"
              xmlns:convert="clr-namespace:BEditor.ViewModels.Converters"
              xmlns:easefunc="clr-namespace:BEditorCore.Data.PropertyData.EasingSetting;assembly=BEditorCore"
              mc:Ignorable="d" 
@@ -66,12 +67,13 @@
                         Margin="5, 3.75, 3.75, 0" 
                         Width="{Binding ElementName=itemscontol, Path=ActualWidth, Mode=OneWay}"
                         Height="25"
+                        ClipToBounds="True"
                         Text="{Binding Mode=OneWay}"
                         PreviewMouseWheel="TextBox_PreviewMouseWheel"
                         GotFocus="TextBox_GotFocus"
                         LostFocus="TextBox_LostFocus"
                         KeyDown="TextBox_KeyDown"
-                        ToolTip="{Binding RelativeSource={RelativeSource TemplatedParent}, Path=(ItemsControl.AlternationIndex)}"/>
+                        views:AttachmentProperty.Int="{Binding RelativeSource={RelativeSource TemplatedParent}, Path=(ItemsControl.AlternationIndex)}"/>
                 </DataTemplate>
             </ItemsControl.ItemTemplate>
         </ItemsControl>

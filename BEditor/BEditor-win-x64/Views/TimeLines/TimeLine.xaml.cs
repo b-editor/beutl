@@ -90,53 +90,18 @@ namespace BEditor.Views.TimeLines {
 
             //レイヤー名追加for
             for (int l = 1; l < 100; l++) {
-
-                Binding binding = new Binding("ActualHeight") {
-                    ElementName = "Track" + l.ToString()
-                };
                 Binding binding2 = new Binding("TrackHeight");
 
-                #region Labelの追加
-
-                Grid row2 = new Grid();
-
-                row2.ContextMenu = CreateMenu(l);
-
-                row2.SetBinding(Grid.HeightProperty, binding);
-
-                Label textBlock = new() {
-                    VerticalAlignment = VerticalAlignment.Top,
-                    VerticalContentAlignment = VerticalAlignment.Center,
-                    HorizontalAlignment = HorizontalAlignment.Center,
-                    FontSize = 14,
-                    Content = l.ToString(),
-                    Padding = new Thickness(0, 0, 0, 0)
-                };
-                textBlock.SetBinding(HeightProperty, binding2);
-
-                row2.Children.Add(textBlock);
-
-                LayerLabel.Children.Add(row2);
-
-                #endregion
-
-
-
-                Grid track = new Grid() {
-                    Height = float.NaN,
-                    HorizontalAlignment = HorizontalAlignment.Stretch,
-                    VerticalAlignment = VerticalAlignment.Stretch,
-                    Name = "Track" + l.ToString()
-                };
+                Grid track = new Grid();
 
                 Grid grid = new Grid() {
-                    Name = "Layer" + l.ToString(),
                     Margin = new Thickness(0, 1, 0, 0),
                     HorizontalAlignment = HorizontalAlignment.Left,
                     AllowDrop = true,
                     VerticalAlignment = VerticalAlignment.Top
                 };
 
+                grid.SetValue(AttachmentProperty.IntProperty, l);
                 grid.SetBinding(WidthProperty, new Binding("TrackWidth.Value") { Mode = BindingMode.OneWay });
                 grid.SetResourceReference(BackgroundProperty, "MaterialDesignCardBackground");
 
@@ -165,11 +130,36 @@ namespace BEditor.Views.TimeLines {
 
 
                 track.Children.Add(grid);
-
-                Layer.RegisterName(track.Name, track);
-                Layer.RegisterName(grid.Name, grid);
-
                 Layer.Children.Add(track);
+
+
+                Binding binding = new Binding("ActualHeight") {
+                    Source = track
+                };
+
+                #region Labelの追加
+
+                Grid row2 = new Grid();
+
+                row2.ContextMenu = CreateMenu(l);
+
+                row2.SetBinding(Grid.HeightProperty, binding);
+
+                Label textBlock = new() {
+                    VerticalAlignment = VerticalAlignment.Top,
+                    VerticalContentAlignment = VerticalAlignment.Center,
+                    HorizontalAlignment = HorizontalAlignment.Center,
+                    FontSize = 14,
+                    Content = l.ToString(),
+                    Padding = new Thickness(0, 0, 0, 0)
+                };
+                textBlock.SetBinding(HeightProperty, binding2);
+
+                row2.Children.Add(textBlock);
+
+                LayerLabel.Children.Add(row2);
+
+                #endregion
             }
 
             ScrollLabel.ScrollToVerticalOffset(Scene.TimeLineVerticalOffset);

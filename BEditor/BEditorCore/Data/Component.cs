@@ -74,7 +74,7 @@ namespace BEditorCore.Data {
         public Project Project { get => project; set => SetValue(value, ref project, nameof(Project)); }
 
         /// <summary>
-        /// アプリのステータス
+        /// ステータス
         /// </summary>
         public Status Status { get => status; set => SetValue(value, ref status, nameof(Status)); }
 

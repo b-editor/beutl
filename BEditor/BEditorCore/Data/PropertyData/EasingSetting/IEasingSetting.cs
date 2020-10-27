@@ -8,7 +8,7 @@ using BEditorCore.Data.ObjectData;
 namespace BEditorCore.Data.PropertyData.EasingSetting {
     public interface IEasingSetting {
         public EffectElement Parent { get; set; }
-        public dynamic ComponentData { get; }
+        public Dictionary<string, dynamic> ComponentData { get; }
 
         /// <summary>
         /// ロード時の呼び出す

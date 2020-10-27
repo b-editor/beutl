@@ -220,8 +220,9 @@ namespace BEditor.ViewModels.TimeLines {
 
         #region Select
         public void LayerSelect(object sender) {
-            Select_Layer = int.Parse(((Grid)sender).Name.Replace("Layer", ""));
-            Select_Frame = ToFrame(Mouse.GetPosition(((Grid)sender)).X);
+            var grid = (Grid)sender;
+            Select_Layer = AttachmentProperty.GetInt(grid);
+            Select_Frame = ToFrame(Mouse.GetPosition(grid).X);
         }
         #endregion
 
@@ -233,7 +234,7 @@ namespace BEditor.ViewModels.TimeLines {
                 int frame = ToFrame(de.GetPosition(Scene.GetCreateTimeLineView().Layer).X);
 
 
-                int addlayer = int.Parse(((Grid)sender).Name.Replace("Layer", ""));
+                int addlayer = AttachmentProperty.GetInt((Grid)sender);
 
 
                 if (de.Data.GetDataPresent(typeof(Type))) {
@@ -278,7 +279,7 @@ namespace BEditor.ViewModels.TimeLines {
         #endregion
 
         #region MouseMove
-        public void LayerMouseMove(object sender) => Mouse_Layer = int.Parse(((Grid)sender).Name.Replace("Layer", ""));
+        public void LayerMouseMove(object sender) => Mouse_Layer = AttachmentProperty.GetInt((Grid)sender);
         #endregion
 
         #endregion

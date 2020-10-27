@@ -136,15 +136,15 @@
         <Grid.RowDefinitions>
             <RowDefinition Height="Auto"/>
             <RowDefinition Height="*"/>
-            <RowDefinition Height="Auto"/>
+            <RowDefinition Height="10"/>
             <RowDefinition Height="*"/>
         </Grid.RowDefinitions>
         <Grid.ColumnDefinitions>
-            <ColumnDefinition Width="45*"/>
-            <ColumnDefinition Width="Auto"/>
-            <ColumnDefinition Width="56*"/>
-            <ColumnDefinition Width="Auto"/>
-            <ColumnDefinition Width="100*"/>
+            <ColumnDefinition Width="425.373"/>
+            <ColumnDefinition Width="10"/>
+            <ColumnDefinition Width="529*"/>
+            <ColumnDefinition Width="10"/>
+            <ColumnDefinition Width="945*"/>
         </Grid.ColumnDefinitions>
 
         <!--#region ToolBar-->
@@ -161,7 +161,7 @@
                         <md:PackIcon Kind="ContentSave" Height="20" Width="20"/>
                     </Button>
                     <Separator Margin="6,3,6,3" VerticalAlignment="Stretch"/>
-                    <Button Command="{Binding UndoCommand, Mode=OneTime}" Padding="0,0,0,0" Margin="5,0,5,0" IsEnabled="{Binding UndoIsEnabled, Mode=OneWay}">
+                    <Button Command="{Binding UndoCommand, Mode=OneTime}" Padding="0,0,0,0" Margin="5,0,5,0" IsEnabled="{Binding UndoIsEnabled.Value, Mode=OneWay}">
                         <md:PackIcon Kind="Undo" Width="18" Height="18"/>
                     </Button>
                     <Button Padding="0,0,0,0" Margin="0,0,5,0">
@@ -178,7 +178,7 @@
                             </ListView>
                         </md:PopupBox>
                     </Button>
-                    <Button Command="{Binding RedoCommand, Mode=OneTime}" Padding="0,0,0,0" Margin="5,0,5,0" IsEnabled="{Binding RedoIsEnabled, Mode=OneWay}">
+                    <Button Command="{Binding RedoCommand, Mode=OneTime}" Padding="0,0,0,0" Margin="5,0,5,0" IsEnabled="{Binding RedoIsEnabled.Value, Mode=OneWay}">
                         <md:PackIcon Kind="Redo" Width="18" Height="18"/>
                     </Button>
                     <Button  Padding="0,0,0,0" Margin="0,0,0,0">
@@ -196,9 +196,15 @@
                         </md:PopupBox>
                     </Button>
                     <Separator Margin="6,3,6,3" VerticalAlignment="Stretch"/>
-                    <ComboBox MinWidth="100" Margin="5,0,0,0" x:Name="PreviewSceneComboBox" ItemsSource="{Binding SceneList, Mode=OneWay}" SelectedItem="{Binding PreviewScene, Mode=TwoWay}" DisplayMemberPath="SceneName" DataContext="{Binding Source={x:Static core:Component.Current}, Path=Project, Mode=OneWay}"/>
+                    <ComboBox
+                        IsEnabled="{Binding ProjectIsOpened.Value, Mode=OneWay}"
+                        MinWidth="100"
+                        Margin="5,0,0,0"
+                        ItemsSource="{Binding Project.SceneList, Mode=OneWay, Source={x:Static core:Component.Current}}"
+                        SelectedItem="{Binding Project.PreviewScene, Mode=TwoWay, Source={x:Static core:Component.Current}}"
+                        DisplayMemberPath="SceneName"/>
                 </ToolBar>
-                <ToolBar ClipToBounds="False" Height="27" HorizontalContentAlignment="Center" VerticalContentAlignment="Center">
+                <ToolBar Height="27" HorizontalContentAlignment="Center" VerticalContentAlignment="Center">
                     <md:PackIcon Kind="Movie" Style="{StaticResource MouseOverIcon}" Foreground="{StaticResource VideoColor}"/>
                     <md:PackIcon Kind="Image" Style="{StaticResource MouseOverIcon}" Foreground="{StaticResource ImageColor}"/>
                     <md:PackIcon Kind="Audio" Style="{StaticResource MouseOverIcon}" Foreground="{StaticResource AudioColor}"/>
@@ -232,23 +238,23 @@
 
         <!--#region PropertyControl-->
         <md:Card
-                Background="{DynamicResource MaterialDesignCardBackground}"
-                Margin="10,5,5,10"
-                Content="{Binding PreviewScene, Converter={StaticResource SceneToPropertyTab}}"
-                DataContext="{Binding Source={x:Static core:Component.Current}, Path=Project, Mode=OneWay}"
-                HorizontalContentAlignment="Stretch"
-                VerticalContentAlignment="Stretch"
-                Padding="0,0,0,0" 
-                UniformCornerRadius="0" Grid.RowSpan="4" Grid.Row="1"/>
+            Background="{DynamicResource MaterialDesignCardBackground}"
+            Margin="10,5,5,10"
+            IsEnabled="{Binding ProjectIsOpened.Value, Mode=OneWay}"
+            Content="{Binding Project.PreviewScene, Converter={StaticResource SceneToPropertyTab},Source={x:Static core:Component.Current}, Mode=OneWay}"
+            HorizontalContentAlignment="Stretch"
+            VerticalContentAlignment="Stretch"
+            Padding="0,0,0,0" 
+            UniformCornerRadius="0" Grid.RowSpan="4" Grid.Row="1"/>
         <!--#endregion-->
 
-        <GridSplitter Width="10" HorizontalAlignment="Stretch" Grid.Column="1" Background="Transparent" Foreground="Transparent" Grid.RowSpan="3" Grid.Row="1" ShowsPreview="False"/>
+        <GridSplitter Width="10" HorizontalAlignment="Stretch" Grid.Column="1" Background="Transparent" Foreground="Transparent" Grid.RowSpan="3" Grid.Row="1" ShowsPreview="True"/>
 
         <tool:PannelControl Margin="0,5,5,5" Grid.Row="1" Grid.Column="2"/>
 
-        <GridSplitter Width="10" HorizontalAlignment="Stretch" Grid.Column="3" Background="Transparent" Foreground="Transparent" Grid.Row="1" ShowsPreview="True"/>
+        <GridSplitter Width="10" Grid.Column="3" Background="Transparent" Foreground="Transparent" Grid.Row="1" ShowsPreview="True" HorizontalAlignment="Stretch"/>
 
-        <Grid x:Name="imagehost" Grid.Column="4" Grid.Row="1">
+        <Grid Grid.Column="4" Grid.Row="1">
             <Grid.RowDefinitions>
                 <RowDefinition/>
                 <RowDefinition Height="Auto"/>
@@ -304,17 +310,15 @@
         <GridSplitter Height="10" HorizontalAlignment="Stretch" Background="Transparent" Foreground="Transparent" Grid.Row="2" Grid.Column="2" Grid.ColumnSpan="3" ShowsPreview="True"/>
 
         <!--#region タイムライン-->
-        <md:Card Margin="5,0,10,10" Grid.Row="3" Grid.Column="1" Grid.ColumnSpan="4" UniformCornerRadius="0">
-            <Grid>
-                <Label HorizontalContentAlignment="Stretch" VerticalContentAlignment="Stretch" Padding="0,0,0,0"  Content="{Binding PreviewScene, Converter={StaticResource SceneToTimeLine}}" DataContext="{Binding Source={x:Static core:Component.Current}, Path=Project, Mode=OneWay}"/>
-            </Grid>
+        <md:Card Margin="5,0,10,10" Grid.Row="3" Grid.Column="1" Grid.ColumnSpan="4" UniformCornerRadius="0" IsEnabled="{Binding ProjectIsOpened.Value, Mode=OneWay}">
+            <Label
+                HorizontalContentAlignment="Stretch"
+                VerticalContentAlignment="Stretch"
+                Padding="0,0,0,0"
+                Content="{Binding Project.PreviewScene, Converter={StaticResource SceneToTimeLine}, Source={x:Static core:Component.Current}, Mode=OneWay}"/>
         </md:Card>
         <!--#endregion-->
 
-        <VirtualizingStackPanel Orientation="Vertical" x:Name="messagestack" Grid.Row="1" Grid.RowSpan="3" Grid.ColumnSpan="5" VerticalAlignment="Top" HorizontalAlignment="Right" Margin="0,5,5,0" Width="325" MinWidth="325" MaxWidth="325">
-            <md:Snackbar x:Name="Snackbar" MessageQueue="{Binding MessageQueue, Mode=OneWay}" Margin="0,5,0,0"/>
-        </VirtualizingStackPanel>
-
-        <Label Background="{x:Null}" Content="{Binding ForegroundPanel.Value}" Grid.RowSpan="4" Grid.ColumnSpan="5" Padding="0,0,0,0" VerticalContentAlignment="Center" HorizontalContentAlignment="Center" />
+        <md:Snackbar x:Name="Snackbar" MessageQueue="{Binding MessageQueue, Mode=OneWay}" Margin="0,5,5,0" Grid.Column="5" HorizontalAlignment="Right" VerticalAlignment="Top"/>
     </Grid>
 </Controls:MetroWindow>

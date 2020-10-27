@@ -3,6 +3,7 @@
              xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
              xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006" 
              xmlns:d="http://schemas.microsoft.com/expression/blend/2008" 
+             xmlns:views="clr-namespace:BEditor.Views"
              xmlns:easefunc="clr-namespace:BEditorCore.Data.PropertyData.EasingSetting;assembly=BEditorCore"
              xmlns:convert="clr-namespace:BEditor.ViewModels.Converters"
              mc:Ignorable="d" 
@@ -66,12 +67,12 @@
                         Margin="5,7,5,7"
                         RadiusX="2"
                         RadiusY="2"
-                        x:Name="border"
                         Grid.Column="3"
+                        ClipToBounds="True"
                         Fill="{Binding Converter={StaticResource ColorToBrushConverter}, Mode=OneWay}"
                         VerticalAlignment="Center"
                         Height="18.5"
-                        ToolTip="{Binding RelativeSource={RelativeSource TemplatedParent}, Path=(ItemsControl.AlternationIndex)}"
+                        views:AttachmentProperty.Int="{Binding RelativeSource={RelativeSource TemplatedParent}, Path=(ItemsControl.AlternationIndex)}"
                         PreviewMouseDown="RectangleMouseDown"
                         />
                 </DataTemplate>

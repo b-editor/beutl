@@ -9,6 +9,7 @@ using System.Windows.Shapes;
 using BEditor.Models;
 using BEditor.ViewModels.PropertyControl;
 using BEditor.Views.CustomControl;
+
 using BEditorCore.Data;
 using BEditorCore.Data.PropertyData;
 
@@ -48,7 +49,7 @@ namespace BEditor.Views.PropertyControl {
         public ColorAnimation(ColorAnimationProperty color) {
             InitializeComponent();
             DataContext = new ColorAnimationViewModel(color);
-                ColorProperty = color;
+            ColorProperty = color;
             OpenHeight = (double)(OpenAnm.To = 32.5 * color.Value.Count + 10);
 
             Loaded += (_, _) => {
@@ -102,7 +103,7 @@ namespace BEditor.Views.PropertyControl {
         private void RectangleMouseDown(object sender, MouseButtonEventArgs e) {
             var rect = (Rectangle)sender;
 
-            int index = (int)rect.ToolTip;
+            int index = AttachmentProperty.GetInt(rect);
 
             var color = ColorProperty;
             var d = new ColorDialog(color);

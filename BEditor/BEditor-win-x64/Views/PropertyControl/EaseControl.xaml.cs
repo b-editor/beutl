@@ -46,7 +46,7 @@ namespace BEditor.Views.PropertyControls {
 
 
         /// <summary>
-        /// Value_Anmのコンストラクタ
+        /// 
         /// </summary>
         /// <param name="anm">EaseSettingのインスタンス</param>
         public EaseControl(EaseProperty anm) {
@@ -114,7 +114,7 @@ namespace BEditor.Views.PropertyControls {
             TextBox tb = (TextBox)sender;
 
 
-            int index = (int)tb.ToolTip;
+            int index = AttachmentProperty.GetInt(tb);
 
             oldvalue = EasingSetting.Value[index];
         }
@@ -124,7 +124,7 @@ namespace BEditor.Views.PropertyControls {
 
             TextBox tb = (TextBox)sender;
 
-            int index = (int)tb.ToolTip;
+            int index = AttachmentProperty.GetInt(tb);
 
             if (float.TryParse(tb.Text, out float _out)) {
                 EasingSetting.Value[index] = oldvalue;
@@ -138,7 +138,7 @@ namespace BEditor.Views.PropertyControls {
             TextBox textBox = (TextBox)sender;
 
             if (textBox.IsKeyboardFocused) {
-                int index = (int)textBox.ToolTip;
+                int index = AttachmentProperty.GetInt(textBox);
 
                 int v = 10;//定数増え幅
 
@@ -158,7 +158,7 @@ namespace BEditor.Views.PropertyControls {
 
         private void TextBox_KeyDown(object sender, KeyEventArgs e) {
             TextBox textBox = (TextBox)sender;
-            int index = (int)textBox.ToolTip;
+            int index = AttachmentProperty.GetInt(textBox);
 
 
             if (float.TryParse(textBox.Text, out float _out)) {

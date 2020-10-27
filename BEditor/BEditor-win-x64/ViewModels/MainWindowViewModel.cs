@@ -28,7 +28,6 @@ namespace BEditor.ViewModels {
 
         public DelegateProperty<Project> OpenProject { get; } = new DelegateProperty<Project>() { Value = Component.Current.Project };
         public DelegateProperty<ImageSource> PreviewImage { get; } = new DelegateProperty<ImageSource>();
-        public DelegateProperty<object> ForegroundPanel { get; } = new DelegateProperty<object>();
         public DelegateProperty<Brush> MainWindowColor { get; } = new DelegateProperty<Brush>();
 
         public DelegateCommand NowFramePlus { get; } = new DelegateCommand();
@@ -60,6 +59,7 @@ namespace BEditor.ViewModels {
                 }
 
                 Component.Current.Project.PreviewUpdate();
+                Component.Current.Status = Status.Edit;
             });
             RedoSelect.Subscribe(() => {
                 for (int i = 0; i < RedoSelectIndex.Value + 1; i++) {
@@ -67,6 +67,7 @@ namespace BEditor.ViewModels {
                 }
 
                 Component.Current.Project.PreviewUpdate();
+                Component.Current.Status = Status.Edit;
             });
 
             #endregion
@@ -75,11 +76,13 @@ namespace BEditor.ViewModels {
                 UndoRedoManager.Undo();
 
                 Component.Current.Project.PreviewUpdate();
+                Component.Current.Status = Status.Edit;
             });
             RedoCommand.Subscribe(() => {
                 UndoRedoManager.Redo();
 
                 Component.Current.Project.PreviewUpdate();
+                Component.Current.Status = Status.Edit;
             });
 
             UndoRedoManager.CanUndoChange += (sender, e) => UndoIsEnabled.Value = UndoRedoManager.CanUndo;

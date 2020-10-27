@@ -8,7 +8,6 @@ using System.Windows.Media;
 using System.Windows.Media.Animation;
 
 using BEditor.Models.Settings;
-using BEditor.ViewModels.PropertyControl;
 using BEditor.ViewModels.TimeLines;
 using BEditor.Views.CustomControl;
 

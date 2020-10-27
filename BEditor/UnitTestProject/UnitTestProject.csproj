@@ -14,7 +14,8 @@
   </ItemGroup>
 
   <ItemGroup>
-    <ProjectReference Include="..\BEditor\BEditor-win-x64.csproj" />
+    <ProjectReference Include="..\BEditor-win-x64\BEditor-win-x64.csproj" />
+    <ProjectReference Include="..\BEditorCore\BEditorCore.csproj" />
   </ItemGroup>
 
 </Project>

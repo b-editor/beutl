@@ -116,6 +116,7 @@ namespace BEditorCore.Data {
                 CommandCancel?.Invoke(null, EventArgs.Empty);
             }
 
+            Component.Current.Status = Status.Edit;
             DidEvent?.Invoke(command, CommandType.Do);
         }
 

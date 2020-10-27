@@ -480,12 +480,3 @@ DLLEXPORT ImageEllipse(int width, int height, int line, float r, float g, float 
 
 
 #pragma endregion
-
-/*
-core_Mat_new2(int rows, int cols, int type, cv::Mat **returnValue)
-{
-	BEGIN_WRAP
-	*returnValue = new cv::Mat(rows, cols, type);
-	END_WRAP
-}BEGIN_WRAP
-*/

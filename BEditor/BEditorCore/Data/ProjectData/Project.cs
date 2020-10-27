@@ -132,6 +132,7 @@ namespace BEditorCore.Data.ProjectData {
             }
 
             if (Serialize.SaveToFile(project, project.FoldPath)) {
+                Component.Current.Status = Status.Saved;
                 return true;
             }
             return false;
@@ -147,6 +148,7 @@ namespace BEditorCore.Data.ProjectData {
             }
 
             if (Serialize.SaveToFile(project, path)) {
+                Component.Current.Status = Status.Saved;
                 return true;
             }
             return false;
@@ -181,6 +183,7 @@ namespace BEditorCore.Data.ProjectData {
             }
 
             if (Serialize.SaveToFile(project, project.FoldPath)) {
+                Component.Current.Status = Status.Saved;
                 return true;
             }
             return false;
@@ -208,6 +211,7 @@ namespace BEditorCore.Data.ProjectData {
                 }
 
                 Component.Current.Project = project;
+                Component.Current.Status = Status.Edit;
                 ProjectOpend?.Invoke(null, EventArgs.Empty);
                 return project;
             }
@@ -235,6 +239,7 @@ namespace BEditorCore.Data.ProjectData {
             }
 
             Component.Current.Project = null;
+            Component.Current.Status = Status.Idle;
             ProjectClosed?.Invoke(null, null);
         }
         #endregion
@@ -258,6 +263,7 @@ namespace BEditorCore.Data.ProjectData {
             ProjectOpend?.Invoke(null, null);
 
             SaveAs(project);
+            Component.Current.Status = Status.Edit;
             return project;
         }
         #endregion

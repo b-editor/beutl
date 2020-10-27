@@ -125,7 +125,6 @@ namespace BEditor {
 
             Image.EllipseFunc = ObjectLoad.Ellipse;
             Image.RectangleFunc = ObjectLoad.Rectangle;
-            //Image.TextFunc = ObjectLoad.Text;
 
             Message.DialogFunc += (text, iconKind, types) => {
                 var control = new MessageUI(types, text, iconKind);
