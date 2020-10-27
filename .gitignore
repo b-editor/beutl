@@ -354,3 +354,7 @@ MigrationBackup/
 /BEditor/BEditor-win-x64/Runtimes/opencv_videoio_ffmpeg450_64.dll
 /BEditor/BEditor-win-x64/Runtimes/opencv_world450.dll
 /BEditor/BEditor-win-x64/Runtimes/opencv_world450d.dll
+/BEditor/BEditorCore/Runtimes/libfreetype-6.dll
+/BEditor/BEditorCore/Runtimes/SDL2.dll
+/BEditor/BEditorCore/Runtimes/SDL2_ttf.dll
+/BEditor/BEditorCore/Runtimes/zlib1.dll

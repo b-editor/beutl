@@ -31,8 +31,7 @@
         NonActiveGlowBrush="{DynamicResource MaterialDesignShadowBrush}"
     
         DataContext="{x:Static vm:MainWindowViewModel.Current}"
-        Focusable="True"
-        >
+        Focusable="True">
     <Controls:MetroWindow.Resources>
         <convert:AppStatusIconConverter x:Key="AppStatusIcon"/>
         <convert:AppStatusTextConverter x:Key="AppStatusText"/>

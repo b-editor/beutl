@@ -37,7 +37,7 @@ namespace BEditorCore.SDL2 {
             #region SDL2# Variables
 
             /* Used by DllImport to load the native library. */
-            private const string nativeLibName = "SDL2_image";
+            private const string nativeLibName = "Runtimes\\SDL2_image";
 
             #endregion
 

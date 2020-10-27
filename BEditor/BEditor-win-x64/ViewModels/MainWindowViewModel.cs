@@ -21,9 +21,7 @@ using Microsoft.WindowsAPICodePack.Dialogs;
 using Project = BEditorCore.Data.ProjectData.Project;
 
 namespace BEditor.ViewModels {
-
     public class MainWindowViewModel {
-
         public static MainWindowViewModel Current { get; } = new MainWindowViewModel();
 
         public DelegateProperty<Project> OpenProject { get; } = new DelegateProperty<Project>() { Value = Component.Current.Project };

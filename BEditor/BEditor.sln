@@ -13,6 +13,9 @@ EndProject
 Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "UnitTestProject", "UnitTestProject\UnitTestProject.csproj", "{57480F02-6783-4462-AD67-2BE451E56393}"
 EndProject
 Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "BEditorCore", "BEditorCore\BEditorCore.csproj", "{64A936C0-5B2A-4AF2-9AFE-5840BAEDF482}"
+	ProjectSection(ProjectDependencies) = postProject
+		{6F06DB5A-C0B0-4D88-9D13-0EF8B2B8CD26} = {6F06DB5A-C0B0-4D88-9D13-0EF8B2B8CD26}
+	EndProjectSection
 EndProject
 Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "Document", "Document", "{BF87B613-95C1-4AD0-915A-BB751D0A3E77}"
 EndProject

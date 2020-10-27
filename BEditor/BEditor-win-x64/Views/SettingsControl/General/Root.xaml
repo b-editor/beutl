@@ -13,10 +13,5 @@
         
         <md:ColorZone Content="{x:Static resources:Resources.General}" Foreground="White" Background="{StaticResource PrimaryHueMidBrush}" Margin="10,10,10,10" Padding="9,9,9,9" md:ShadowAssist.ShadowDepth="Depth2"/>
 
-        <VirtualizingStackPanel Orientation="Horizontal" Height="45">
-            <CheckBox IsChecked="{Binding UseGDI, Source={x:Static property:Settings.Default}, Mode=TwoWay}" Padding="0" Grid.Column="1" Margin="25,0,25,0" VerticalAlignment="Center"/>
-            <TextBlock Text="{x:Static resources:Resources.UseGDI}" FontSize="13" VerticalAlignment="Center"/>
-        </VirtualizingStackPanel>
-        
     </VirtualizingStackPanel>
 </UserControl>

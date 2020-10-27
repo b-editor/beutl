@@ -37,7 +37,7 @@ namespace BEditorCore.SDL2 {
     public static partial class SDL {
         #region SDL2# Variables
 
-        private const string nativeLibName = "SDL2";
+        private const string nativeLibName = "Runtimes\\SDL2";
 
         #endregion
 
