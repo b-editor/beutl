@@ -1,0 +1,49 @@
+﻿@page "/"
+@namespace BEditor_Electron.Pages
+@addTagHelper *, Microsoft.AspNetCore.Mvc.TagHelpers
+@{
+    Layout = null;
+}
+
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>B_Editor_Electron</title>
+    <base href="~/" />
+
+    @*<link rel="stylesheet" href="css/bootstrap/bootstrap.min.css" />*@
+    <link href="css/site.css" rel="stylesheet" />
+
+    <script src="_content/MatBlazor/dist/matBlazor.js"></script>
+    <link href="_content/MatBlazor/dist/matBlazor.css" rel="stylesheet" />
+</head>
+<body>
+    <app>
+        <component type="typeof(App)" render-mode="ServerPrerendered" />
+    </app>
+
+
+    <script src="_framework/blazor.server.js"></script>
+    <script>
+        const { BrowserWindow, dialog } = require('electron').remote;
+        function showOpenDialog(options) { // 「開く」ダイアログを呼ぶ
+            return dialog.showOpenDialog(win(), defaultNull(options));
+        }
+        function showErrorBox(title, content) { // エラーダイアログを呼ぶ
+            return dialog.showErrorBox(title || undefined, content || undefined);
+        }
+        function win() { // ダイアログに親ウインドウが必要なのでJS側でハンドリングする
+            return BrowserWindow.getFocusedWindow();
+        }
+        function defaultNull(obj) { // C#側から渡ってくるオプションは存在しないプロパティにnullが入っているが、electronのAPIはキー無し（undefined）を期待しているのでエラーを吐く場合があります。それの回避。
+            const newObj = { ...obj };
+            for (const key of Object.keys(newObj)) {
+                if (newObj[key] === null) delete newObj[key];
+            }
+            return newObj;
+        }
+    </script>
+</body>
+</html>

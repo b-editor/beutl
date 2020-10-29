@@ -1,0 +1,112 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<Project ToolsVersion="4.0" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
+  <ItemGroup>
+    <Filter Include="ソース ファイル">
+      <UniqueIdentifier>{4FC737F1-C7A5-4376-A066-2A32D752A2FF}</UniqueIdentifier>
+      <Extensions>cpp;c;cc;cxx;c++;cppm;ixx;def;odl;idl;hpj;bat;asm;asmx</Extensions>
+    </Filter>
+    <Filter Include="ヘッダー ファイル">
+      <UniqueIdentifier>{93995380-89BD-4b04-88EB-625FBE52EBFB}</UniqueIdentifier>
+      <Extensions>h;hh;hpp;hxx;h++;hm;inl;inc;ipp;xsd</Extensions>
+    </Filter>
+    <Filter Include="リソース ファイル">
+      <UniqueIdentifier>{67DA6AB6-F800-4c08-8B7A-83BB121AAD01}</UniqueIdentifier>
+      <Extensions>rc;ico;cur;bmp;dlg;rc2;rct;bin;rgs;gif;jpg;jpeg;jpe;resx;tiff;tif;png;wav;mfcribbon-ms</Extensions>
+    </Filter>
+    <Filter Include="ソース ファイル\Data">
+      <UniqueIdentifier>{cadc3116-8c8d-4553-b7e9-c2fbf1e0658b}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="ソース ファイル\Data\EffectData">
+      <UniqueIdentifier>{684f3f36-092f-48d0-b32c-a59b94100aca}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="ソース ファイル\Data\ObjectData">
+      <UniqueIdentifier>{dbc725c3-cbe2-45aa-9553-99125cdfcb63}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="ソース ファイル\Data\ProjectData">
+      <UniqueIdentifier>{939825af-3e10-4e22-8f60-f1f55c68a460}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="ソース ファイル\Data\PropertyData">
+      <UniqueIdentifier>{30d266a7-36d2-4e9f-8452-dbda7ce28e28}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="ヘッダー ファイル\Data">
+      <UniqueIdentifier>{676b229e-a26a-46f7-ae97-d9d6e2f8f229}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="ヘッダー ファイル\Data\EffectData">
+      <UniqueIdentifier>{2ee0462c-7b35-409e-9f7a-cf8249871a20}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="ヘッダー ファイル\Data\PropertyData">
+      <UniqueIdentifier>{081dbec3-7dfe-4c84-9cff-2f5c72ecb708}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="ヘッダー ファイル\Data\ProjectData">
+      <UniqueIdentifier>{0342493e-bc40-4de7-b750-8a36cfcf437b}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="ヘッダー ファイル\Data\ObjectData">
+      <UniqueIdentifier>{a5d19741-7f17-44e1-8fdf-405a12a62b46}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="ヘッダー ファイル\Plugin">
+      <UniqueIdentifier>{551aa527-35de-4874-8695-ef62d3ad0ca6}</UniqueIdentifier>
+    </Filter>
+  </ItemGroup>
+  <ItemGroup>
+    <ClInclude Include="Resource.h">
+      <Filter>ヘッダー ファイル</Filter>
+    </ClInclude>
+    <ClInclude Include="pch.h">
+      <Filter>ヘッダー ファイル</Filter>
+    </ClInclude>
+    <ClInclude Include="BasePropertyChanged.h">
+      <Filter>ヘッダー ファイル\Data</Filter>
+    </ClInclude>
+    <ClInclude Include="Component.h">
+      <Filter>ヘッダー ファイル\Data</Filter>
+    </ClInclude>
+    <ClInclude Include="ComponentObject.h">
+      <Filter>ヘッダー ファイル\Data</Filter>
+    </ClInclude>
+    <ClInclude Include="Project.h">
+      <Filter>ヘッダー ファイル\Data\ProjectData</Filter>
+    </ClInclude>
+    <ClInclude Include="Scene.h">
+      <Filter>ヘッダー ファイル\Data\ProjectData</Filter>
+    </ClInclude>
+    <ClInclude Include="PluginInterfaces.h">
+      <Filter>ヘッダー ファイル\Plugin</Filter>
+    </ClInclude>
+    <ClInclude Include="ClipData.h">
+      <Filter>ヘッダー ファイル\Data\ObjectData</Filter>
+    </ClInclude>
+    <ClInclude Include="EffectElement.h">
+      <Filter>ヘッダー ファイル\Data\EffectData</Filter>
+    </ClInclude>
+  </ItemGroup>
+  <ItemGroup>
+    <ClCompile Include="AssemblyInfo.cpp">
+      <Filter>ソース ファイル</Filter>
+    </ClCompile>
+    <ClCompile Include="pch.cpp">
+      <Filter>ソース ファイル</Filter>
+    </ClCompile>
+    <ClCompile Include="Project.cpp">
+      <Filter>ソース ファイル\Data\ProjectData</Filter>
+    </ClCompile>
+    <ClCompile Include="Scene.cpp">
+      <Filter>ソース ファイル\Data\ProjectData</Filter>
+    </ClCompile>
+    <ClCompile Include="BasePropertyChanged.cpp">
+      <Filter>ソース ファイル\Data</Filter>
+    </ClCompile>
+    <ClCompile Include="Component.cpp">
+      <Filter>ソース ファイル\Data</Filter>
+    </ClCompile>
+  </ItemGroup>
+  <ItemGroup>
+    <ResourceCompile Include="app.rc">
+      <Filter>リソース ファイル</Filter>
+    </ResourceCompile>
+  </ItemGroup>
+  <ItemGroup>
+    <Image Include="app.ico">
+      <Filter>リソース ファイル</Filter>
+    </Image>
+  </ItemGroup>
+</Project>

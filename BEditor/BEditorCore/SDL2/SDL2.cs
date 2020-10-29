@@ -71,7 +71,7 @@ namespace BEditorCore.SDL2 {
         /* Used for heap allocated string marshaling.
 		 * Returned byte* must be free'd with FreeHGlobal.
 		 */
-        private static unsafe byte* Utf8Encode(string str) {
+        internal static unsafe byte* Utf8Encode(string str) {
             Debug.Assert(str != null);
             int bufferSize = Utf8Size(str);
             byte* buffer = (byte*)Marshal.AllocHGlobal(bufferSize);

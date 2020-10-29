@@ -154,7 +154,7 @@ namespace BEditor.ViewModels.TimeLines {
             }
 
             //存在しない場合
-            TimeLineViewModel.SettingReset(ClipData);
+            Scene.SetCurrentClip(ClipData);
 
             TimeLineViewModel.ClipLeftRight = 0;
             TimeLineViewModel.LayerCursor.Value = Cursors.Arrow;

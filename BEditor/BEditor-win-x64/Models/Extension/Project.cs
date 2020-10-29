@@ -11,7 +11,7 @@ using BEditorCore.Data.ObjectData;
 namespace BEditor.Models.Extension {
     public static class Project {
         public static void PreviewUpdate(this BEditorCore.Data.ProjectData.Project project, ClipData clipData) {
-            var now = project.PreviewScene.NowFrame;
+            var now = project.PreviewScene.PreviewFrame;
             if (clipData.Start <= now && now <= clipData.End) {
                 project.PreviewUpdate();
             }

@@ -234,14 +234,14 @@ namespace BEditorCore.Data.ObjectData {
 
                 Scene.Add(data);
 
-                Scene.SettingReset(data);
+                Scene.SetCurrentClip(data);
             }
 
             /// <inheritdoc/>
             public void Redo() {
                 Scene.Add(data);
 
-                Scene.SettingReset(data);
+                Scene.SetCurrentClip(data);
             }
 
             /// <inheritdoc/>
@@ -359,8 +359,8 @@ namespace BEditorCore.Data.ObjectData {
                 data.Layer = tolayer;
 
 
-                if (data.End > Scene.LastFrame) {
-                    Scene.LastFrame = data.End;
+                if (data.End > Scene.TotalFrame) {
+                    Scene.TotalFrame = data.End;
                 }
             }
 

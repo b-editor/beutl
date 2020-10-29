@@ -33,7 +33,7 @@
             </Grid>
         </md:PopupBox>
 
-        <ScrollViewer Style="{StaticResource MaterialDesignScrollViewerStyle}" x:Name="ScrollLine" Grid.Row="0" Grid.Column="1" PreviewMouseWheel="ScrollLine_PreviewMouseWheel" HorizontalScrollBarVisibility="Visible" Background="{DynamicResource MaterialDesignCardBackground}" Grid.RowSpan="2">
+        <ScrollViewer Style="{StaticResource MaterialDesignScrollViewerStyle}" x:Name="ScrollLine" Grid.Row="0" Grid.Column="1" PreviewMouseWheel="ScrollLine_PreviewMouseWheel" HorizontalScrollBarVisibility="Visible" Background="{DynamicResource MaterialDesignCardBackground}" Grid.RowSpan="2" ScrollChanged="ScrollLine_ScrollChanged">
             <Grid Width="{Binding TrackWidth.Value, Mode=OneWay}" Height="Auto" Background="{DynamicResource MaterialDesignBodyLight}" HorizontalAlignment="Left" x:Name="timelinegrid">
                 <i:Interaction.Triggers>
                     <i:EventTrigger EventName="MouseMove">

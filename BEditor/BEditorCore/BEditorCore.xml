@@ -448,11 +448,6 @@
             <param name="framerate">フレームレート</param>
             <param name="path">保存するパス</param>
         </member>
-        <member name="P:BEditorCore.Data.ProjectData.Scene.SelectNames">
-            <summary>
-            読み取り専用
-            </summary>
-        </member>
         <member name="M:BEditorCore.Data.ProjectData.Scene.Rendering(System.Int32)">
             <summary>
             シーンをレンダリング

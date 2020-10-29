@@ -79,14 +79,14 @@
   </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">
     <LinkIncremental>true</LinkIncremental>
-    <IncludePath>E:\yuuto\lib\opencv\build\include;$(IncludePath)</IncludePath>
-    <LibraryPath>E:\yuuto\lib\opencv\build\x64\vc15\lib;$(LibraryPath)</LibraryPath>
+    <IncludePath>E:\yuuto\lib\opencv\build\include;E:\yuuto\lib\SDL2\SDL2-2.0.12\include;E:\yuuto\lib\SDL2\SDL2_ttf-2.0.15\include;E:\yuuto\lib\freetype-2.10.4\include;E:\yuuto\lib\freetype-2.10.4\include\freetype;$(IncludePath)</IncludePath>
+    <LibraryPath>E:\yuuto\lib\opencv\build\x64\vc15\lib;E:\yuuto\lib\SDL2\SDL2-2.0.12\lib\x64;E:\yuuto\lib\SDL2\SDL2_ttf-2.0.15\lib\x64;E:\yuuto\lib\freetype-2.10.4\objs\Win32\Release;$(LibraryPath)</LibraryPath>
     <OutDir>$(SolutionDir)$(Platform)\$(Configuration)\netcoreapp3.1\Runtimes</OutDir>
   </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release|x64'">
     <LinkIncremental>false</LinkIncremental>
-    <IncludePath>E:\yuuto\lib\opencv\build\include;$(IncludePath)</IncludePath>
-    <LibraryPath>E:\yuuto\lib\opencv\build\x64\vc15\lib;$(LibraryPath)</LibraryPath>
+    <IncludePath>E:\yuuto\lib\opencv\build\include;E:\yuuto\lib\SDL2\SDL2-2.0.12\include;E:\yuuto\lib\SDL2\SDL2_ttf-2.0.15\include;E:\yuuto\lib\freetype-2.10.4\include;E:\yuuto\lib\freetype-2.10.4\include\freetype;$(IncludePath)</IncludePath>
+    <LibraryPath>E:\yuuto\lib\opencv\build\x64\vc15\lib;E:\yuuto\lib\SDL2\SDL2-2.0.12\lib\x64;E:\yuuto\lib\SDL2\SDL2_ttf-2.0.15\lib\x64;E:\yuuto\lib\freetype-2.10.4\objs\Win32\Release;$(LibraryPath)</LibraryPath>
     <OutDir>$(SolutionDir)$(Platform)\$(Configuration)\netcoreapp3.1\Runtimes</OutDir>
   </PropertyGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">
@@ -132,13 +132,12 @@
       <PrecompiledHeader>NotUsing</PrecompiledHeader>
       <PrecompiledHeaderFile>pch.h</PrecompiledHeaderFile>
       <AdditionalIncludeDirectories>%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
-      <Optimization>MaxSpeed</Optimization>
     </ClCompile>
     <Link>
       <SubSystem>Windows</SubSystem>
       <GenerateDebugInformation>true</GenerateDebugInformation>
       <EnableUAC>false</EnableUAC>
-      <AdditionalDependencies>opencv_world450.lib;opencv_world450d.lib;%(AdditionalDependencies)</AdditionalDependencies>
+      <AdditionalDependencies>opencv_world450.lib;opencv_world450d.lib;SDL2.lib;SDL2_ttf.lib;freetype.lib;%(AdditionalDependencies)</AdditionalDependencies>
     </Link>
   </ItemDefinitionGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Release|x64'">
@@ -159,12 +158,14 @@
       <OptimizeReferences>true</OptimizeReferences>
       <GenerateDebugInformation>true</GenerateDebugInformation>
       <EnableUAC>false</EnableUAC>
-      <AdditionalDependencies>opencv_world450.lib;opencv_world450d.lib;%(AdditionalDependencies)</AdditionalDependencies>
+      <AdditionalDependencies>opencv_world450.lib;opencv_world450d.lib;SDL2.lib;SDL2_ttf.lib;freetype.lib;%(AdditionalDependencies)</AdditionalDependencies>
     </Link>
   </ItemDefinitionGroup>
   <ItemGroup>
     <ClCompile Include="DirectDraw.cpp" />
-    <ClCompile Include="image_extension.cpp" />
+    <ClCompile Include="Easing.cpp" />
+    <ClCompile Include="FontProcess.cpp" />
+    <ClCompile Include="ImageProcess.cpp" />
   </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
   <ImportGroup Label="ExtensionTargets" />

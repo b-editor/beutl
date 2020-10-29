@@ -43,14 +43,18 @@ namespace BEditor {
             SDL.TTF.Initialize();
 
             #region ダークモード設定
+
             if (BEditor.Properties.Settings.Default.DarkMode) {
                 PaletteHelper paletteHelper = new PaletteHelper();
                 ITheme theme = paletteHelper.GetTheme();
+
                 theme.SetBaseTheme(Theme.Dark);
+
                 paletteHelper.SetTheme(theme);
             }
 
             #endregion
+
             static string GetFontName(string file) {
                 string name;
                 using (var font = new Font(file, 10)) {

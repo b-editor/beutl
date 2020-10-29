@@ -24,29 +24,10 @@ namespace BEditorCore.Data {
             }
         }
 
-        protected virtual void RaisePropertyChanged(params string[] names) {
-
+        protected void RaisePropertyChanged(string name) {
             if (PropertyChanged == null) return;
 
-            CheckPropertyName(names);
-
-            foreach (var name in names) {
-                PropertyChanged(this, new PropertyChangedEventArgs(name));
-            }
-        }
-
-        [Conditional("DEBUG")]
-        private void CheckPropertyName(params string[] names) {
-            var props = GetType().GetProperties();
-            foreach (var name in names) {
-                var prop = props.Where(p => p.Name == name).SingleOrDefault();
-                if (prop == null) throw new ArgumentException(name);
-            }
-        }
-
-        protected void RaisePropertyChanged<T>(params Expression<Func<T>>[] propertyExpression) {
-            RaisePropertyChanged(
-                propertyExpression.Select(ex => ((MemberExpression)ex.Body).Member.Name).ToArray());
+            PropertyChanged(this, new PropertyChangedEventArgs(name));
         }
     }
 }

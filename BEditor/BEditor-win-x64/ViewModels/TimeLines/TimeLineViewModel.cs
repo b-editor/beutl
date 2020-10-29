@@ -93,7 +93,7 @@ namespace BEditor.ViewModels.TimeLines {
         public TimeLineViewModel(Scene scene) {
             Scene = scene;
 
-            TrackWidth.Value = ToPixel(Scene.LastFrame);
+            TrackWidth.Value = ToPixel(Scene.TotalFrame);
 
             Scene.PropertyChanged += (_, e) => {
                 if (e.PropertyName == nameof(Scene.TimeLineZoom)) {
@@ -106,7 +106,7 @@ namespace BEditor.ViewModels.TimeLines {
                     }
 
                     if (ViewLoaded) {
-                        int l = Scene.LastFrame;
+                        int l = Scene.TotalFrame;
 
                         TrackWidth.Value = ToPixel(l);
 
@@ -120,21 +120,21 @@ namespace BEditor.ViewModels.TimeLines {
                             vm.WidthProperty.Value = length;
                         }
 
-                        SeekbarMargin.Value = new Thickness(ToPixel(Scene.NowFrame), 0, 0, 0);
+                        SeekbarMargin.Value = new Thickness(ToPixel(Scene.PreviewFrame), 0, 0, 0);
 
-                        ResetScale?.Invoke(Scene.TimeLineZoom, Scene.LastFrame, Component.Current.Project.FrameRate);
+                        ResetScale?.Invoke(Scene.TimeLineZoom, Scene.TotalFrame, Component.Current.Project.FrameRate);
                     }
                 }
-                else if (e.PropertyName == nameof(Scene.NowFrame)) {
-                    SeekbarMargin.Value = new Thickness(ToPixel(Scene.NowFrame), 0, 0, 0);
+                else if (e.PropertyName == nameof(Scene.PreviewFrame)) {
+                    SeekbarMargin.Value = new Thickness(ToPixel(Scene.PreviewFrame), 0, 0, 0);
 
                     Component.Current.Project.PreviewUpdate();
                 }
-                else if (e.PropertyName == nameof(Scene.LastFrame)) {
-                    TrackWidth.Value = ToPixel(Scene.LastFrame);
+                else if (e.PropertyName == nameof(Scene.TotalFrame)) {
+                    TrackWidth.Value = ToPixel(Scene.TotalFrame);
 
                     //目盛り追加
-                    ResetScale?.Invoke(Scene.TimeLineZoom, Scene.LastFrame, Component.Current.Project.FrameRate);
+                    ResetScale?.Invoke(Scene.TimeLineZoom, Scene.TotalFrame, Component.Current.Project.FrameRate);
                 }
             };
 
@@ -306,16 +306,18 @@ namespace BEditor.ViewModels.TimeLines {
 
         #region Loaded
         public void TimeLineLoaded(Action<ObservableCollection<ClipData>> action) {
-            Scene.TimeLineZoom = Scene.timeLineZoom;
-
-            TrackWidth.Value = ToPixel(Scene.LastFrame);
+            var from = Scene.TimeLineZoom;
+            Scene.TimeLineZoom = 50;
+            Scene.TimeLineZoom = from; //遠回しにviewを更新する
+            
+            TrackWidth.Value = ToPixel(Scene.TotalFrame);
 
             //目盛り追加
-            ResetScale?.Invoke(Scene.TimeLineZoom, Scene.LastFrame, Component.Current.Project.FrameRate);
+            ResetScale?.Invoke(Scene.TimeLineZoom, Scene.TotalFrame, Component.Current.Project.FrameRate);
 
             action?.Invoke(Scene.Datas);
 
-            SeekbarMargin.Value = new Thickness(ToPixel(Scene.NowFrame), 0, 0, 0);
+            SeekbarMargin.Value = new Thickness(ToPixel(Scene.PreviewFrame), 0, 0, 0);
         }
         #endregion
 
@@ -330,7 +332,7 @@ namespace BEditor.ViewModels.TimeLines {
 
             var s = ToFrame(point.X);
 
-            Scene.NowFrame = s + 1;
+            Scene.PreviewFrame = s + 1;
         }
         #endregion
 
@@ -361,7 +363,7 @@ namespace BEditor.ViewModels.TimeLines {
             if (SeekbarIsMouseDown && KeyframeToggle) {
                 var s = ToFrame(point.X);
 
-                Scene.NowFrame = s + 1;
+                Scene.PreviewFrame = s + 1;
             }
             else if (ClipMouseDown) {
                 var selectviewmodel = ClipSelect.GetCreateClipViewModel();
@@ -447,16 +449,6 @@ namespace BEditor.ViewModels.TimeLines {
 
         #region 座標をフレーム番号に変換
         public int ToFrame(double pixel) => (int)(pixel / (Setting.WidthOf1Frame * (Scene.TimeLineZoom / 100)));
-        #endregion
-
-        #region プロパティコントロール初期化
-        public void SettingReset(ClipData data) {
-            Scene.SelectItem = data;
-
-            if (!Scene.SelectNames.Exists(x => x == data.Name)) {
-                Scene.SelectItems.Add(data);
-            }
-        }
         #endregion
     }
 }

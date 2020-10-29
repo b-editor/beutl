@@ -28,8 +28,8 @@ namespace BEditor.ViewModels {
         public DelegateProperty<ImageSource> PreviewImage { get; } = new DelegateProperty<ImageSource>();
         public DelegateProperty<Brush> MainWindowColor { get; } = new DelegateProperty<Brush>();
 
-        public DelegateCommand NowFramePlus { get; } = new DelegateCommand();
-        public DelegateCommand NowFrameMinus { get; } = new DelegateCommand();
+        public DelegateCommand PreviewFramePlus { get; } = new DelegateCommand();
+        public DelegateCommand PreviewFrameMinus { get; } = new DelegateCommand();
 
 
         public SnackbarMessageQueue MessageQueue { get; } = new SnackbarMessageQueue();
@@ -46,8 +46,8 @@ namespace BEditor.ViewModels {
 
             SettingShow.Subscribe(() => SettingShowCommand());
 
-            NowFramePlus.Subscribe(() => Component.Current.Project.PreviewScene.NowFrame++);
-            NowFrameMinus.Subscribe(() => Component.Current.Project.PreviewScene.NowFrame--);
+            PreviewFramePlus.Subscribe(() => Component.Current.Project.PreviewScene.PreviewFrame++);
+            PreviewFrameMinus.Subscribe(() => Component.Current.Project.PreviewScene.PreviewFrame--);
 
             #region UndoRedoRelect
 

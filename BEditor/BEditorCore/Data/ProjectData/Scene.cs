@@ -14,26 +14,30 @@ namespace BEditorCore.Data.ProjectData {
 
     [DataContract(Namespace = "")]
     public class Scene : ComponentObject {
+        private ObservableCollection<ClipData> datas;
+        private ClipData selectItem;
+        private ObservableCollection<ClipData> selectItems;
+        private int previewframe;
+        private int totalframe = 1000;
+        private float timeLineZoom = 50;
+        private double timeLineHorizonOffset;
+        private double timeLineVerticalOffset;
 
-        [DataMember(Name = "Width", Order = 0)]
+        [DataMember(Order = 0)]
         public virtual int Width { get; set; }
-        [DataMember(Name = "Height", Order = 1)]
+        [DataMember(Order = 1)]
         public virtual int Height { get; set; }
 
-        [DataMember(Name = "SceneName", Order = 2)]
+        [DataMember(Order = 2)]
         public virtual string SceneName { get; set; }
 
-        /// <summary>
-        /// 読み取り専用
-        /// </summary>
-        [DataMember(Name = "SelectNames", Order = 3)]
+        [DataMember(Order = 3)]
         public List<string> SelectNames { get; set; } = new List<string>();
 
-        [DataMember(Name = "SelectName", Order = 4)]
+        [DataMember(Order = 4)]
         public string SelectName { get; private set; }
 
-        private ObservableCollection<ClipData> datas;
-        [DataMember(Name = "Datas", Order = 10)]
+        [DataMember(Order = 10)]
         public ObservableCollection<ClipData> Datas {
             get => datas;
             set {
@@ -45,11 +49,10 @@ namespace BEditorCore.Data.ProjectData {
             }
         }
 
-        [DataMember(Name = "HideLayer", Order = 11)]
+        [DataMember(Order = 11)]
         public List<int> HideLayer { get; set; } = new List<int>();
 
 
-        private ClipData selectItem;
         public ClipData SelectItem {
             get => selectItem ??= Get(SelectName);
             set {
@@ -59,7 +62,6 @@ namespace BEditorCore.Data.ProjectData {
             }
         }
 
-        private ObservableCollection<ClipData> selectItems;
         public ObservableCollection<ClipData> SelectItems {
             get {
                 if (selectItems == null) {
@@ -89,50 +91,27 @@ namespace BEditorCore.Data.ProjectData {
         }
 
 
-        public Renderer.BaseRenderingContext RenderingContext { get; set; }
+        public BaseRenderingContext RenderingContext { get; set; }
 
         #region コントロールに関係
 
-        [DataMember(Name = "NowFrame", Order = 5)]
-        private int nowframe;
-        public int NowFrame {
-            get => nowframe;
-            set {
-                if (nowframe != value && value > 0) {
-                    nowframe = value;
+        [DataMember(Order = 5)]
+        public int PreviewFrame { get => previewframe; set => SetValue(value, ref previewframe, nameof(PreviewFrame)); }
 
-                    RaisePropertyChanged(nameof(NowFrame));
-                }
-            }
-        }
+        [DataMember(Order = 6)]
+        public int TotalFrame { get => totalframe; set => SetValue(value, ref totalframe, nameof(TotalFrame)); }
 
-        private int lastFrame = 1000;
-        [DataMember(Name = "MaxFrame", Order = 6)]
-        public int LastFrame { get => lastFrame; set => SetValue(value, ref lastFrame, nameof(LastFrame)); }
-
-        public float timeLineZoom = 50;
-        [DataMember(Name = "TimeLineZoom", Order = 7)]
-        public float TimeLineZoom {
-            get => timeLineZoom;
-            set => SetValue(value, ref timeLineZoom, nameof(TimeLineZoom));
-        }
+        [DataMember(Order = 7)]
+        public float TimeLineZoom { get => timeLineZoom; set => SetValue(value, ref timeLineZoom, nameof(TimeLineZoom)); }
 
         #region TimeLineScrollOffset
 
-        private double timeLineHorizonOffset;
-        [DataMember(Name = "TimeLineHorizonOffset", Order = 8)]
-        public double TimeLineHorizonOffset {
-            get => timeLineHorizonOffset;
-            set => SetValue(value, ref timeLineHorizonOffset, nameof(TimeLineHorizonOffset));
-        }
+        [DataMember(Order = 8)]
+        public double TimeLineHorizonOffset { get => timeLineHorizonOffset; set => SetValue(value, ref timeLineHorizonOffset, nameof(TimeLineHorizonOffset)); }
 
 
-        private double timeLineVerticalOffset;
-        [DataMember(Name = "TimeLineVerticalOffset", Order = 9)]
-        public double TimeLineVerticalOffset {
-            get => timeLineVerticalOffset;
-            set => SetValue(value, ref timeLineVerticalOffset, nameof(TimeLineVerticalOffset));
-        }
+        [DataMember(Order = 9)]
+        public double TimeLineVerticalOffset { get => timeLineVerticalOffset; set => SetValue(value, ref timeLineVerticalOffset, nameof(TimeLineVerticalOffset)); }
 
         #endregion
 
@@ -218,7 +197,7 @@ namespace BEditorCore.Data.ProjectData {
         }
 
         public Image Rendering() {
-            return Rendering(NowFrame);
+            return Rendering(PreviewFrame);
         }
         #endregion
 
@@ -230,11 +209,6 @@ namespace BEditorCore.Data.ProjectData {
         /// <param name="frame">フレーム番号</param>
         /// <returns>オブジェクトのリスト</returns>
         public List<ClipData> GetLayer(int frame) {
-            /*
-            List<ClipData> List = Datas
-                .Where(item => item.Start <= (frame) && (frame) < item.End)
-                .ToList();*/
-
             var List = (
                 from item in Datas
                 where item.Start <= (frame) && (frame) < item.End
@@ -271,7 +245,7 @@ namespace BEditorCore.Data.ProjectData {
 
         #endregion
 
-        internal void SettingReset(ClipData data) {
+        public void SetCurrentClip(ClipData data) {
             SelectItem = data;
 
             if (!SelectNames.Exists(x => x == data.Name)) {

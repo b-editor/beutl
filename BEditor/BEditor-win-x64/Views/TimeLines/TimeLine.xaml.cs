@@ -1,4 +1,5 @@
-﻿using System.Windows;
+﻿using System.Threading.Tasks;
+using System.Windows;
 using System.Windows.Controls;
 using System.Windows.Controls.Primitives;
 using System.Windows.Data;
@@ -23,7 +24,6 @@ namespace BEditor.Views.TimeLines {
     /// TimeLine.xaml の相互作用ロジック
     /// </summary>
     public partial class TimeLine : UserControl {
-
         private readonly Scene Scene;
         private readonly TimeLineViewModel TimeLineViewModel;
 
@@ -327,5 +327,12 @@ namespace BEditor.Views.TimeLines {
                 }
             }
         });
+
+        private void ScrollLine_ScrollChanged(object sender, ScrollChangedEventArgs e) {
+            Task.Run(() => {
+                Scene.TimeLineHorizonOffset = ScrollLine.HorizontalOffset;
+                Scene.TimeLineVerticalOffset = ScrollLine.VerticalOffset;
+            });
+        }
     }
 }
