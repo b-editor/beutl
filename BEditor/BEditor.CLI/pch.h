@@ -10,6 +10,11 @@
 // プリコンパイルするヘッダーをここに追加します
 #include "DisposableObject.h"
 #include "DisposableCollection.h"
+#include "Size.h"
+#include "Point2.h"
+#include "Point3.h"
+#include "Rectangle.h"
+#include "ImageType.h"
 #include "Image.h"
 
 #endif //PCH_H

@@ -16,6 +16,9 @@
     <Filter Include="ヘッダー ファイル\Media">
       <UniqueIdentifier>{a003fec1-338c-4e69-bd2c-abebc6801ec8}</UniqueIdentifier>
     </Filter>
+    <Filter Include="ソース ファイル\Media">
+      <UniqueIdentifier>{fcf57173-c101-43f3-b2fb-7e198bd9704b}</UniqueIdentifier>
+    </Filter>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="Resource.h">
@@ -36,6 +39,18 @@
     <ClInclude Include="ImageType.h">
       <Filter>ヘッダー ファイル\Media</Filter>
     </ClInclude>
+    <ClInclude Include="Rectangle.h">
+      <Filter>ヘッダー ファイル\Media</Filter>
+    </ClInclude>
+    <ClInclude Include="Size.h">
+      <Filter>ヘッダー ファイル\Media</Filter>
+    </ClInclude>
+    <ClInclude Include="Point2.h">
+      <Filter>ヘッダー ファイル\Media</Filter>
+    </ClInclude>
+    <ClInclude Include="Point3.h">
+      <Filter>ヘッダー ファイル\Media</Filter>
+    </ClInclude>
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="AssemblyInfo.cpp">
@@ -43,6 +58,21 @@
     </ClCompile>
     <ClCompile Include="pch.cpp">
       <Filter>ソース ファイル</Filter>
+    </ClCompile>
+    <ClCompile Include="ImageType.cpp">
+      <Filter>ソース ファイル\Media</Filter>
+    </ClCompile>
+    <ClCompile Include="Size.cpp">
+      <Filter>ソース ファイル\Media</Filter>
+    </ClCompile>
+    <ClCompile Include="Point2.cpp">
+      <Filter>ソース ファイル\Media</Filter>
+    </ClCompile>
+    <ClCompile Include="Point3.cpp">
+      <Filter>ソース ファイル\Media</Filter>
+    </ClCompile>
+    <ClCompile Include="Rectangle.cpp">
+      <Filter>ソース ファイル\Media</Filter>
     </ClCompile>
   </ItemGroup>
   <ItemGroup>

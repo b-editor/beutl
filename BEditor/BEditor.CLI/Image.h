@@ -1,4 +1,5 @@
 #pragma once
+#include "ImageType.h"
 #include <opencv2\opencv.hpp>
 
 using namespace System;
@@ -11,7 +12,10 @@ namespace BEditor {
 		namespace Media {
 			public ref class Image : DisposableObject {
 			public:
-				Image(int width, int height);
+				Image(int width, int height){ }
+				Image(int width, int height, ImageType type) { }
+				Image(int width, int height, ImageType type, IntPtr data){ }
+				Image(IntPtr mat){ }
 
 			};
 		}
