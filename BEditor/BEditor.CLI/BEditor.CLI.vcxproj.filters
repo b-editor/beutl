@@ -84,6 +84,9 @@
     <ClInclude Include="Exceptions.h">
       <Filter>ヘッダー ファイル\Exceptions</Filter>
     </ClInclude>
+    <ClInclude Include="Font.h">
+      <Filter>ヘッダー ファイル\Media\Font</Filter>
+    </ClInclude>
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="AssemblyInfo.cpp">
@@ -116,6 +119,18 @@
     <ClCompile Include="ImageInitialize.cpp">
       <Filter>ソース ファイル\Media\Image</Filter>
     </ClCompile>
+    <ClCompile Include="ImageProperty.cpp">
+      <Filter>ソース ファイル\Media\Image</Filter>
+    </ClCompile>
+    <ClCompile Include="ImageMethod.cpp">
+      <Filter>ソース ファイル\Media\Image</Filter>
+    </ClCompile>
+    <ClCompile Include="ImageEffect.cpp">
+      <Filter>ソース ファイル\Media\Image</Filter>
+    </ClCompile>
+    <ClCompile Include="Image.cpp">
+      <Filter>ソース ファイル\Media\Image</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <ResourceCompile Include="app.rc">
@@ -126,5 +141,8 @@
     <Image Include="app.ico">
       <Filter>リソース ファイル</Filter>
     </Image>
+  </ItemGroup>
+  <ItemGroup>
+    <None Include="packages.config" />
   </ItemGroup>
 </Project>

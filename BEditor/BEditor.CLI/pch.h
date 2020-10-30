@@ -22,6 +22,7 @@
 #include "Hinting.h"
 #include "Enums.h"
 #include "Color.h"
+#include "Font.h"
 #include "Image.h"
 
 #endif //PCH_H

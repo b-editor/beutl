@@ -40,9 +40,22 @@ namespace BEditor {
 				property int Channels { int get(); }
 				property long Total { long get(); }
 				property int Dimensions { int get(); }
-				property Image^ default[Rectangle] { Image^ get(Rectangle roi); void set(Rectangle roi, Image ^ value); }
+				property Image^ default[Rectangle] {
+					Image^ get(Rectangle roi) {
+						return SubMatrix(roi);
+					}
+					void set(Rectangle roi, Image^ value) {
+						if (value == nullptr) throw gcnew ArgumentNullException("value");
+						value->ThrowIfDisposed();
 
-				void ForEach(Action<int, int, int, int>^ action);
+						if (Dimensions != value->Dimensions) throw gcnew ArgumentException("value");
+						if (roi.Size != value->Size) throw gcnew ArgumentException("value");
+
+						auto sub = SubMatrix(roi);
+						value->CopyTo(sub);
+					}
+				}
+
 				Image^ Clone();
 				Image^ Clone(Rectangle rect);
 				bool Save(String^ file);
