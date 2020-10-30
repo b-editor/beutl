@@ -14,6 +14,7 @@
 #include "Point2.h"
 #include "Point3.h"
 #include "Rectangle.h"
+#include "Range.h"
 #include "ImageType.h"
 #include "Image.h"
 

@@ -1,10 +1,7 @@
 #pragma once
 
 using namespace System;
-using namespace System::Collections::Generic;
-using namespace System::Diagnostics::CodeAnalysis;
 using namespace System::Runtime::Serialization;
-using namespace System::Text;
 
 namespace BEditor {
 	namespace CLI {
@@ -33,7 +30,7 @@ namespace BEditor {
 				property Point2 TopLeft { Point2 get(); }
 				property Point2 BottomRight { Point2 get(); }
 				property Point2 Point { Point2 get(); void set(Point2 value); }
-				property Size Size { Size get(); void set(Media::Size value); }
+				property Media::Size Size { Media::Size get(); void set(Media::Size value); }
 
 				static Rectangle FromLTRB(int left, int top, int right, int bottom);
 				static Rectangle Inflate(Rectangle rect, int x, int y);

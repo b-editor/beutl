@@ -51,6 +51,9 @@
     <ClInclude Include="Point3.h">
       <Filter>ヘッダー ファイル\Media</Filter>
     </ClInclude>
+    <ClInclude Include="Range.h">
+      <Filter>ヘッダー ファイル\Media</Filter>
+    </ClInclude>
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="AssemblyInfo.cpp">
@@ -72,6 +75,9 @@
       <Filter>ソース ファイル\Media</Filter>
     </ClCompile>
     <ClCompile Include="Rectangle.cpp">
+      <Filter>ソース ファイル\Media</Filter>
+    </ClCompile>
+    <ClCompile Include="Range.cpp">
       <Filter>ソース ファイル\Media</Filter>
     </ClCompile>
   </ItemGroup>

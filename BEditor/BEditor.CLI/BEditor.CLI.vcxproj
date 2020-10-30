@@ -133,6 +133,7 @@
     <ClInclude Include="pch.h" />
     <ClInclude Include="Point2.h" />
     <ClInclude Include="Point3.h" />
+    <ClInclude Include="Range.h" />
     <ClInclude Include="Rectangle.h" />
     <ClInclude Include="Resource.h" />
     <ClInclude Include="Size.h" />
@@ -148,6 +149,7 @@
     </ClCompile>
     <ClCompile Include="Point2.cpp" />
     <ClCompile Include="Point3.cpp" />
+    <ClCompile Include="Range.cpp" />
     <ClCompile Include="Rectangle.cpp" />
     <ClCompile Include="Size.cpp" />
   </ItemGroup>
