@@ -24,5 +24,6 @@
 #include "Color.h"
 #include "Font.h"
 #include "Image.h"
+#include "GL.h"
 
 #endif //PCH_H

@@ -28,6 +28,15 @@
     <Filter Include="ヘッダー ファイル\Exceptions">
       <UniqueIdentifier>{9aa2bf4b-f93c-41d9-aedb-fd2945917b43}</UniqueIdentifier>
     </Filter>
+    <Filter Include="ヘッダー ファイル\Graphics">
+      <UniqueIdentifier>{cc73bf1f-f5a9-424b-bed4-369aae29467d}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="ソース ファイル\Graphics">
+      <UniqueIdentifier>{adcb995d-aa0c-4739-977d-1958af420d04}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="ヘッダー ファイル\Graphics\Enums">
+      <UniqueIdentifier>{35b9ab61-3e8b-4fca-b56b-0aac456c4a2f}</UniqueIdentifier>
+    </Filter>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="Resource.h">
@@ -87,6 +96,21 @@
     <ClInclude Include="Font.h">
       <Filter>ヘッダー ファイル\Media\Font</Filter>
     </ClInclude>
+    <ClInclude Include="GL.h">
+      <Filter>ヘッダー ファイル\Graphics</Filter>
+    </ClInclude>
+    <ClInclude Include="ReadBufferMode.h">
+      <Filter>ヘッダー ファイル\Graphics\Enums</Filter>
+    </ClInclude>
+    <ClInclude Include="PixelFormat.h">
+      <Filter>ヘッダー ファイル\Graphics\Enums</Filter>
+    </ClInclude>
+    <ClInclude Include="PixelType.h">
+      <Filter>ヘッダー ファイル\Graphics\Enums</Filter>
+    </ClInclude>
+    <ClInclude Include="GLEnums.h">
+      <Filter>ヘッダー ファイル\Graphics\Enums</Filter>
+    </ClInclude>
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="AssemblyInfo.cpp">
@@ -130,6 +154,9 @@
     </ClCompile>
     <ClCompile Include="Image.cpp">
       <Filter>ソース ファイル\Media\Image</Filter>
+    </ClCompile>
+    <ClCompile Include="GL.cpp">
+      <Filter>ソース ファイル\Graphics</Filter>
     </ClCompile>
   </ItemGroup>
   <ItemGroup>

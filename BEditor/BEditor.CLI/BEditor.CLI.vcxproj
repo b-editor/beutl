@@ -133,22 +133,28 @@
     <ClInclude Include="Exceptions.h" />
     <ClInclude Include="Font.h" />
     <ClInclude Include="FontStyle.h" />
+    <ClInclude Include="GL.h" />
     <ClInclude Include="Hinting.h" />
     <ClInclude Include="Image.h" />
     <ClInclude Include="ImageReadMode.h" />
     <ClInclude Include="ImageType.h" />
     <ClInclude Include="IntPtrZeroException.h" />
     <ClInclude Include="pch.h" />
+    <ClInclude Include="PixelFormat.h" />
+    <ClInclude Include="PixelType.h" />
     <ClInclude Include="Point2.h" />
     <ClInclude Include="Point3.h" />
     <ClInclude Include="Range.h" />
+    <ClInclude Include="ReadBufferMode.h" />
     <ClInclude Include="Rectangle.h" />
     <ClInclude Include="Resource.h" />
     <ClInclude Include="Size.h" />
+    <ClInclude Include="GLEnums.h" />
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="AssemblyInfo.cpp" />
     <ClCompile Include="Color.cpp" />
+    <ClCompile Include="GL.cpp" />
     <ClCompile Include="Image.cpp" />
     <ClCompile Include="ImageEffect.cpp" />
     <ClCompile Include="ImageInitialize.cpp" />
