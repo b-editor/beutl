@@ -7,7 +7,7 @@ using System.Windows.Media;
 
 using BEditor.Models.Extension;
 
-using BEditorCore.Media;
+using BEditor.NET.Media;
 
 namespace BEditor.ViewModels.Converters {
     public class ColorToBrush : IValueConverter {

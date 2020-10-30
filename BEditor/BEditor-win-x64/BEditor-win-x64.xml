@@ -303,7 +303,7 @@
             EaseControl
             </summary>
         </member>
-        <member name="M:B_Editor.Views.PropertyControls.EaseControl.#ctor(BEditorCore.Data.PropertyData.EaseProperty)">
+        <member name="M:B_Editor.Views.PropertyControls.EaseControl.#ctor(BEditor.NET.Data.PropertyData.EaseProperty)">
             <summary>
             Value_Anmのコンストラクタ
             </summary>

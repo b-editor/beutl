@@ -2,9 +2,9 @@
 using System.Collections.Generic;
 using System.Linq;
 using System.Threading.Tasks;
-using BEditorCore.Data.ProjectData;
-using BEditorCore.Extesions.ViewCommand;
-using BEditorCore.Properties;
+using BEditor.NET.Data.ProjectData;
+using BEditor.NET.Extesions.ViewCommand;
+using BEditor.NET.Properties;
 using ElectronNET.API;
 using ElectronNET.API.Entities;
 

@@ -4,7 +4,7 @@ using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
 
-using BEditorCore.Media;
+using BEditor.NET.Media;
 
 namespace BEditor.Models.Extension {
     public static class PointConverter {

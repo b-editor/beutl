@@ -16,22 +16,22 @@ using BEditor.Views;
 using BEditor.Views.CustomControl;
 using BEditor.Views.MessageContent;
 
-using BEditorCore.Data;
-using BEditorCore.Data.EffectData;
-using BEditorCore.Data.ObjectData;
-using BEditorCore.Data.ProjectData;
-using BEditorCore.Data.PropertyData;
-using BEditorCore.Extesions.ViewCommand;
-using BEditorCore.Interfaces;
-using BEditorCore.SDL2;
-using BEditorCore.SDL2.TTF;
+using BEditor.NET.Data;
+using BEditor.NET.Data.EffectData;
+using BEditor.NET.Data.ObjectData;
+using BEditor.NET.Data.ProjectData;
+using BEditor.NET.Data.PropertyData;
+using BEditor.NET.Extesions.ViewCommand;
+using BEditor.NET.Interfaces;
+using BEditor.NET.SDL2;
+using BEditor.NET.SDL2.TTF;
 
 using MaterialDesignThemes.Wpf;
 
 using Microsoft.WindowsAPICodePack.Dialogs;
 
-using Image = BEditorCore.Media.Image;
-using Resources_ = BEditorCore.Properties.Resources;
+using Image = BEditor.NET.Media.Image;
+using Resources_ = BEditor.NET.Properties.Resources;
 
 namespace BEditor {
     /// <summary>
@@ -69,20 +69,20 @@ namespace BEditor {
                 //var ffs = ifc.Families;
 
                 //foreach (var F in ffs) {
-                //    FontProperty.FontList.Add(new BEditorCore.Media.Font() { Name = F.Name });
+                //    FontProperty.FontList.Add(new BEditor.NET.Media.Font() { Name = F.Name });
                 //}
 
                 var files = Directory.GetFiles("C:\\Windows\\Fonts");
                 foreach (var file in files) {
                     if (Path.GetExtension(file) is ".ttf" or ".otf" or ".ttc" or ".otc") {
-                        FontProperty.FontList.Add(new BEditorCore.Media.Font() { Path = file, Name = GetFontName(file) });
+                        FontProperty.FontList.Add(new BEditor.NET.Media.Font() { Path = file, Name = GetFontName(file) });
                     }
                 }
 
                 files = Directory.GetFiles(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData) + "\\Microsoft\\Windows\\Fonts");
                 foreach (var file in files) {
                     if (Path.GetExtension(file) is ".ttf" or ".otf" or ".ttc" or ".otc") {
-                        FontProperty.FontList.Add(new BEditorCore.Media.Font() { Path = file, Name = GetFontName(file) });
+                        FontProperty.FontList.Add(new BEditor.NET.Media.Font() { Path = file, Name = GetFontName(file) });
                     }
                 }
             }
@@ -121,7 +121,7 @@ namespace BEditor {
 
             Component.Funcs.CreateRenderingContext = (width, height) => {
                 return new RenderingContext(width, height);
-                //return new BEditorCore.Renderer.RenderingContext(width, height);
+                //return new BEditor.NET.Renderer.RenderingContext(width, height);
             };
             Component.Funcs.SaveFileDialog = () => new SaveDialog();
             Component.Settings.AutoBackUp = () => BEditor.Properties.Settings.Default.AutoBackUp;

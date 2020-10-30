@@ -10,15 +10,15 @@ using BEditor.Views;
 using BEditor.Views.MessageContent;
 using BEditor.Views.SettingsControl;
 
-using BEditorCore.Data;
-using BEditorCore.Data.ObjectData;
-using BEditorCore.Extesions.ViewCommand;
+using BEditor.NET.Data;
+using BEditor.NET.Data.ObjectData;
+using BEditor.NET.Extesions.ViewCommand;
 
 using MaterialDesignThemes.Wpf;
 
 using Microsoft.WindowsAPICodePack.Dialogs;
 
-using Project = BEditorCore.Data.ProjectData.Project;
+using Project = BEditor.NET.Data.ProjectData.Project;
 
 namespace BEditor.ViewModels {
     public class MainWindowViewModel {

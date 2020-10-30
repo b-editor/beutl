@@ -3,8 +3,8 @@
 using BEditor.Models.Settings;
 using BEditor.ViewModels.Helper;
 
-using BEditorCore.Data;
-using BEditorCore.Data.PropertyData;
+using BEditor.NET.Data;
+using BEditor.NET.Data.PropertyData;
 
 namespace BEditor.ViewModels.TimeLines {
     public class KeyFrameViewModel {

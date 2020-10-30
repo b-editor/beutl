@@ -28,8 +28,8 @@
     <Folder Include="Models\Datas\" />
   </ItemGroup>
   <ItemGroup>
-    <Reference Include="BEditorCore">
-      <HintPath>..\x64\Debug\netcoreapp3.1\BEditorCore.dll</HintPath>
+    <Reference Include="BEditor.NET">
+      <HintPath>..\x64\Debug\netcoreapp3.1\BEditor.NET.dll</HintPath>
     </Reference>
   </ItemGroup>
 </Project>

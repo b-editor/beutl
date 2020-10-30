@@ -5,8 +5,8 @@ using System.Text;
 using BEditor.ViewModels.Helper;
 using BEditor.Views;
 
-using BEditorCore.Data;
-using BEditorCore.Data.ProjectData;
+using BEditor.NET.Data;
+using BEditor.NET.Data.ProjectData;
 
 namespace BEditor.ViewModels.ToolControl {
     public class SceneManagerViewModel : BasePropertyChanged {

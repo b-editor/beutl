@@ -11,13 +11,13 @@ using BEditor.Views.CustomControl;
 using BEditor.Views.PropertyControls;
 using BEditor.Views.TimeLines;
 
-using BEditorCore.Data;
-using BEditorCore.Data.EffectData;
-using BEditorCore.Data.ObjectData;
-using BEditorCore.Data.ProjectData;
-using BEditorCore.Data.PropertyData;
-using BEditorCore.Data.PropertyData.EasingSetting;
-using BEditorCore.Interfaces;
+using BEditor.NET.Data;
+using BEditor.NET.Data.EffectData;
+using BEditor.NET.Data.ObjectData;
+using BEditor.NET.Data.ProjectData;
+using BEditor.NET.Data.PropertyData;
+using BEditor.NET.Data.PropertyData.EasingSetting;
+using BEditor.NET.Interfaces;
 
 namespace BEditor.Views {
     public static class ModelToComponent {

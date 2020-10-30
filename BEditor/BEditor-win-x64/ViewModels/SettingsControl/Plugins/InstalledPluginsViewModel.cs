@@ -10,8 +10,8 @@ using System.Windows.Controls;
 
 using BEditor.Models;
 using BEditor.ViewModels.Helper;
-using BEditorCore.Extesions.ViewCommand;
-using BEditorCore.Plugin;
+using BEditor.NET.Extesions.ViewCommand;
+using BEditor.NET.Plugin;
 
 namespace BEditor.ViewModels.SettingsControl.Plugins {
     public class InstalledPluginsViewModel : BasePropertyChanged {

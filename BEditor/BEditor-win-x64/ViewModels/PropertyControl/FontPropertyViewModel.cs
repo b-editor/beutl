@@ -5,8 +5,8 @@ using System.Text;
 using System.Threading.Tasks;
 using BEditor.ViewModels.Helper;
 
-using BEditorCore.Data;
-using BEditorCore.Data.PropertyData;
+using BEditor.NET.Data;
+using BEditor.NET.Data.PropertyData;
 
 namespace BEditor.ViewModels.PropertyControl {
     public class FontPropertyViewModel {
@@ -16,7 +16,7 @@ namespace BEditor.ViewModels.PropertyControl {
         public FontPropertyViewModel(FontProperty property) {
             Property = property;
             Command = new DelegateCommand<(object, object)>(x => {
-                UndoRedoManager.Do(new FontProperty.ChangeSelect(property, (BEditorCore.Media.Font)x.Item2));
+                UndoRedoManager.Do(new FontProperty.ChangeSelect(property, (BEditor.NET.Media.Font)x.Item2));
             });
         }
     }

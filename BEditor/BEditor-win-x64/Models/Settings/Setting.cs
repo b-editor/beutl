@@ -1,7 +1,7 @@
 ﻿using System.IO;
 using System.Xml.Linq;
 
-using BEditorCore.Data;
+using BEditor.NET.Data;
 
 namespace BEditor.Models.Settings {
     public class Setting {

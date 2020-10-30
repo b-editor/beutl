@@ -3,7 +3,7 @@ using System.Collections.Generic;
 using System.Text;
 using System.Windows.Controls;
 
-using BEditorCore.Extesions.ViewCommand;
+using BEditor.NET.Extesions.ViewCommand;
 
 namespace BEditor.Views.MessageContent {
     public abstract class DialogContent : UserControl {

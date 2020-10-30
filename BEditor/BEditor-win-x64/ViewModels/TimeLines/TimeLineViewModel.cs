@@ -12,11 +12,11 @@ using BEditor.Views;
 using BEditor.Views.SettingsControl;
 using BEditor.Views.TimeLines;
 
-using BEditorCore.Data;
-using BEditorCore.Data.ObjectData;
-using BEditorCore.Data.ProjectData;
-using BEditorCore.Interfaces;
-using BEditorCore.Media;
+using BEditor.NET.Data;
+using BEditor.NET.Data.ObjectData;
+using BEditor.NET.Data.ProjectData;
+using BEditor.NET.Interfaces;
+using BEditor.NET.Media;
 
 namespace BEditor.ViewModels.TimeLines {
     public class TimeLineViewModel : BasePropertyChanged {

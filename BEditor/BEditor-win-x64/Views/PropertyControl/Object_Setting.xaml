@@ -3,7 +3,7 @@
              xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006" 
              xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
              xmlns:materialDesign="http://materialdesigninxaml.net/winfx/xaml/themes"
-             xmlns:property="clr-namespace:BEditorCore.Properties;assembly=BEditorCore"
+             xmlns:property="clr-namespace:BEditor.NET.Properties;assembly=BEditor.NET"
              xmlns:vm="clr-namespace:BEditor.ViewModels"
              xmlns:convert="clr-namespace:BEditor.ViewModels.Converters"
              x:Class="BEditor.Views.PropertyControls.Object_Setting"

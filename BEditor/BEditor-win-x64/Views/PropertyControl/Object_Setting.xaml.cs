@@ -8,9 +8,9 @@ using System.Windows.Data;
 using BEditor.Models;
 using BEditor.ViewModels.ToolControl;
 using BEditor.Views.ToolControl.Default;
-using BEditorCore.Data;
-using BEditorCore.Data.EffectData;
-using BEditorCore.Data.ObjectData;
+using BEditor.NET.Data;
+using BEditor.NET.Data.EffectData;
+using BEditor.NET.Data.ObjectData;
 
 namespace BEditor.Views.PropertyControls {
     /// <summary>

@@ -7,7 +7,7 @@
              xmlns:local="clr-namespace:BEditor.Views.CustomControl"
              xmlns:app="clr-namespace:BEditor"
              xmlns:main="clr-namespace:BEditor.ViewModels"
-             xmlns:data="clr-namespace:BEditorCore.Data.ObjectData;assembly=BEditorCore"
+             xmlns:data="clr-namespace:BEditor.NET.Data.ObjectData;assembly=BEditor.NET"
              xmlns:dragablz="http://dragablz.net/winfx/xaml/dragablz"
              xmlns:controlzex="urn:controlzex"
              xmlns:dockablz="http://dragablz.net/winfx/xaml/dockablz"

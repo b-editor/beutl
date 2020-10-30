@@ -1,0 +1,8 @@
+{
+  "profiles": {
+    "BEditor.NET": {
+      "commandName": "Project",
+      "nativeDebugging": true
+    }
+  }
+}

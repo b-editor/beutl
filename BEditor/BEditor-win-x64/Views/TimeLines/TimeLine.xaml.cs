@@ -10,14 +10,14 @@ using BEditor.Models.Settings;
 using BEditor.ViewModels;
 using BEditor.ViewModels.TimeLines;
 
-using BEditorCore.Data.ObjectData;
-using BEditorCore.Data.ProjectData;
+using BEditor.NET.Data.ObjectData;
+using BEditor.NET.Data.ProjectData;
 
 using MaterialDesignThemes.Wpf;
 
 using Microsoft.Xaml.Behaviors;
 
-using Resource = BEditorCore.Properties.Resources;
+using Resource = BEditor.NET.Properties.Resources;
 
 namespace BEditor.Views.TimeLines {
     /// <summary>

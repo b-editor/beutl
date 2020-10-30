@@ -6,10 +6,10 @@ using System.Windows.Data;
 
 using BEditor.Views;
 
-using BEditorCore.Data.EffectData;
-using BEditorCore.Data.ProjectData;
-using BEditorCore.Data.PropertyData;
-using BEditorCore.Data.PropertyData.EasingSetting;
+using BEditor.NET.Data.EffectData;
+using BEditor.NET.Data.ProjectData;
+using BEditor.NET.Data.PropertyData;
+using BEditor.NET.Data.PropertyData.EasingSetting;
 
 namespace BEditor.ViewModels.Converters {
     public class SceneToTimeLine : IValueConverter {
@@ -42,7 +42,7 @@ namespace BEditor.ViewModels.Converters {
     }
     public class ClipDataToProperty : IValueConverter {
         public object Convert(object value, Type targetType, object parameter, CultureInfo culture) {
-            if (value is BEditorCore.Data.ObjectData.ClipData data) return data.GetCreatePropertyView();
+            if (value is BEditor.NET.Data.ObjectData.ClipData data) return data.GetCreatePropertyView();
             throw new Exception();
         }
         public object ConvertBack(object value, Type targetType, object parameter, CultureInfo culture) => throw new NotImplementedException();

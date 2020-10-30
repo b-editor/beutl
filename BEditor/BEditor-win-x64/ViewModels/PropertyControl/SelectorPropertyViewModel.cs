@@ -5,8 +5,8 @@ using System.Text;
 using System.Threading.Tasks;
 
 using BEditor.ViewModels.Helper;
-using BEditorCore.Data;
-using BEditorCore.Data.PropertyData;
+using BEditor.NET.Data;
+using BEditor.NET.Data.PropertyData;
 
 namespace BEditor.ViewModels.PropertyControl {
     public class SelectorPropertyViewModel {

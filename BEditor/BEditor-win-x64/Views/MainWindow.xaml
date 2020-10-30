@@ -9,9 +9,9 @@
         xmlns:convert="clr-namespace:BEditor.ViewModels.Converters"
         xmlns:md="http://materialdesigninxaml.net/winfx/xaml/themes"
     
-        xmlns:properties="clr-namespace:BEditorCore.Properties;assembly=BEditorCore"
-        xmlns:core="clr-namespace:BEditorCore.Data;assembly=BEditorCore"
-        xmlns:objdata="clr-namespace:BEditorCore.Data.ObjectData;assembly=BEditorCore"
+        xmlns:properties="clr-namespace:BEditor.NET.Properties;assembly=BEditor.NET"
+        xmlns:core="clr-namespace:BEditor.NET.Data;assembly=BEditor.NET"
+        xmlns:objdata="clr-namespace:BEditor.NET.Data.ObjectData;assembly=BEditor.NET"
     
         xmlns:Controls="clr-namespace:MahApps.Metro.Controls;assembly=MahApps.Metro"
         xmlns:i="http://schemas.microsoft.com/xaml/behaviors"

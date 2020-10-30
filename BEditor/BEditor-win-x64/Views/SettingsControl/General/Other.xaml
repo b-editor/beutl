@@ -4,7 +4,7 @@
              xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006" 
              xmlns:d="http://schemas.microsoft.com/expression/blend/2008" 
              xmlns:properties="clr-namespace:BEditor.Properties"
-             xmlns:resources="clr-namespace:BEditorCore.Properties;assembly=BEditorCore"
+             xmlns:resources="clr-namespace:BEditor.NET.Properties;assembly=BEditor.NET"
              xmlns:local="clr-namespace:BEditor.Views.SettingsControl"
              xmlns:md="http://materialdesigninxaml.net/winfx/xaml/themes"
              mc:Ignorable="d" 

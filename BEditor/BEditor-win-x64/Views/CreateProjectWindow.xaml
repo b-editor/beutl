@@ -7,7 +7,7 @@
         xmlns:vm="clr-namespace:BEditor.ViewModels"
         xmlns:md="http://materialdesigninxaml.net/winfx/xaml/themes"
         xmlns:Controls="clr-namespace:MahApps.Metro.Controls;assembly=MahApps.Metro"
-        xmlns:properties="clr-namespace:BEditorCore.Properties;assembly=BEditorCore"
+        xmlns:properties="clr-namespace:BEditor.NET.Properties;assembly=BEditor.NET"
         mc:Ignorable="d" Background="{StaticResource MaterialDesignPaper}"
         Height="275" Width="450"
         TextElement.Foreground="{StaticResource MaterialDesignBody}"

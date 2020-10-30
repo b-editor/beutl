@@ -3,8 +3,8 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Threading.Tasks;
 
-using BEditorCore.Data.ObjectData;
-using BEditorCore.Data.ProjectData;
+using BEditor.NET.Data.ObjectData;
+using BEditor.NET.Data.ProjectData;
 
 namespace BEditor_Electron.Views.TimeLines {
     public partial class Layer {

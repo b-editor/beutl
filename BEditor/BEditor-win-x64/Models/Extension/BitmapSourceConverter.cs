@@ -4,7 +4,7 @@ using System.Drawing.Imaging;
 using System.Windows;
 using System.Windows.Media.Imaging;
 
-using Image = BEditorCore.Media.Image;
+using Image = BEditor.NET.Media.Image;
 
 namespace BEditor.Models.Extension {
     public static class BitmapSourceConverter {
