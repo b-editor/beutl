@@ -8,6 +8,7 @@
 #define PCH_H
 
 // プリコンパイルするヘッダーをここに追加します
+#include "Exceptions.h"
 #include "DisposableObject.h"
 #include "DisposableCollection.h"
 #include "Size.h"
@@ -16,6 +17,11 @@
 #include "Rectangle.h"
 #include "Range.h"
 #include "ImageType.h"
+#include "ImageReadMode.h"
+#include "FontStyle.h"
+#include "Hinting.h"
+#include "Enums.h"
+#include "Color.h"
 #include "Image.h"
 
 #endif //PCH_H

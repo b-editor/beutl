@@ -126,10 +126,17 @@
     </Link>
   </ItemDefinitionGroup>
   <ItemGroup>
+    <ClInclude Include="Color.h" />
     <ClInclude Include="DisposableCollection.h" />
     <ClInclude Include="DisposableObject.h" />
+    <ClInclude Include="Enums.h" />
+    <ClInclude Include="Exceptions.h" />
+    <ClInclude Include="FontStyle.h" />
+    <ClInclude Include="Hinting.h" />
     <ClInclude Include="Image.h" />
+    <ClInclude Include="ImageReadMode.h" />
     <ClInclude Include="ImageType.h" />
+    <ClInclude Include="IntPtrZeroException.h" />
     <ClInclude Include="pch.h" />
     <ClInclude Include="Point2.h" />
     <ClInclude Include="Point3.h" />
@@ -140,6 +147,8 @@
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="AssemblyInfo.cpp" />
+    <ClCompile Include="Color.cpp" />
+    <ClCompile Include="ImageInitialize.cpp" />
     <ClCompile Include="ImageType.cpp" />
     <ClCompile Include="pch.cpp">
       <PrecompiledHeader Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">Create</PrecompiledHeader>

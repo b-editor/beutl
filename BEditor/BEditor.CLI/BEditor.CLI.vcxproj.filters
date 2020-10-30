@@ -19,6 +19,15 @@
     <Filter Include="ソース ファイル\Media">
       <UniqueIdentifier>{fcf57173-c101-43f3-b2fb-7e198bd9704b}</UniqueIdentifier>
     </Filter>
+    <Filter Include="ヘッダー ファイル\Media\Font">
+      <UniqueIdentifier>{a4c1a6fb-0565-424d-b683-1fee974c8287}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="ソース ファイル\Media\Image">
+      <UniqueIdentifier>{95c5dadd-2b0e-4d36-9b6c-d29011c254c1}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="ヘッダー ファイル\Exceptions">
+      <UniqueIdentifier>{9aa2bf4b-f93c-41d9-aedb-fd2945917b43}</UniqueIdentifier>
+    </Filter>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="Resource.h">
@@ -54,6 +63,27 @@
     <ClInclude Include="Range.h">
       <Filter>ヘッダー ファイル\Media</Filter>
     </ClInclude>
+    <ClInclude Include="ImageReadMode.h">
+      <Filter>ヘッダー ファイル\Media</Filter>
+    </ClInclude>
+    <ClInclude Include="Color.h">
+      <Filter>ヘッダー ファイル\Media</Filter>
+    </ClInclude>
+    <ClInclude Include="FontStyle.h">
+      <Filter>ヘッダー ファイル\Media\Font</Filter>
+    </ClInclude>
+    <ClInclude Include="Hinting.h">
+      <Filter>ヘッダー ファイル\Media\Font</Filter>
+    </ClInclude>
+    <ClInclude Include="Enums.h">
+      <Filter>ヘッダー ファイル\Media</Filter>
+    </ClInclude>
+    <ClInclude Include="IntPtrZeroException.h">
+      <Filter>ヘッダー ファイル\Exceptions</Filter>
+    </ClInclude>
+    <ClInclude Include="Exceptions.h">
+      <Filter>ヘッダー ファイル\Exceptions</Filter>
+    </ClInclude>
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="AssemblyInfo.cpp">
@@ -79,6 +109,12 @@
     </ClCompile>
     <ClCompile Include="Range.cpp">
       <Filter>ソース ファイル\Media</Filter>
+    </ClCompile>
+    <ClCompile Include="Color.cpp">
+      <Filter>ソース ファイル\Media</Filter>
+    </ClCompile>
+    <ClCompile Include="ImageInitialize.cpp">
+      <Filter>ソース ファイル\Media\Image</Filter>
     </ClCompile>
   </ItemGroup>
   <ItemGroup>
