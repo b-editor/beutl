@@ -9,6 +9,8 @@ namespace BEditor {
 			[DataContract(Namespace = "")]
 			public value class Color : IEquatable<Color> {
 			public:
+				#pragma region Colors
+
 				static initonly Color White = Color(255, 255, 255, 255);
 				static initonly Color Black = Color(0, 0, 0, 255);
 				static initonly Color Red = Color(244, 67, 54, 255);
@@ -31,18 +33,25 @@ namespace BEditor {
 				static initonly Color Grey = Color(158, 158, 158, 255);
 				static initonly Color BlueGrey = Color(96, 125, 139, 255);
 
+				#pragma endregion
+
 				Color(int r, int g, int b, int a);
 				Color(Byte r, Byte g, Byte b, Byte a);
 				Color(float r, float g, float b, float a);
 
 				[DataMember(Order = 0)]
-				property float R;
+				property Byte R;
 				[DataMember(Order = 1)]
-				property float G;
+				property Byte G;
 				[DataMember(Order = 2)]
-				property float B;
+				property Byte B;
 				[DataMember(Order = 3)]
-				property float A;
+				property Byte A;
+
+				property float ScR { float get(); void set(float value); }
+				property float ScG { float get(); void set(float value); }
+				property float ScB { float get(); void set(float value); }
+				property float ScA { float get(); void set(float value); }
 
 				virtual bool Equals(Color color);
 				virtual bool Equals(Object^ obj) override;

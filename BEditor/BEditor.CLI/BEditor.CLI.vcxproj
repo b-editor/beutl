@@ -138,6 +138,7 @@
     <ClInclude Include="Image.h" />
     <ClInclude Include="ImageReadMode.h" />
     <ClInclude Include="ImageType.h" />
+    <ClInclude Include="ImageTypeConverter.h" />
     <ClInclude Include="IntPtrZeroException.h" />
     <ClInclude Include="pch.h" />
     <ClInclude Include="PixelFormat.h" />

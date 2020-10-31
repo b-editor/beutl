@@ -37,6 +37,9 @@
     <Filter Include="ヘッダー ファイル\Graphics\Enums">
       <UniqueIdentifier>{35b9ab61-3e8b-4fca-b56b-0aac456c4a2f}</UniqueIdentifier>
     </Filter>
+    <Filter Include="ヘッダー ファイル\Extensions">
+      <UniqueIdentifier>{dab597f5-e12d-4b05-a5af-c4e1a76c3a5c}</UniqueIdentifier>
+    </Filter>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="Resource.h">
@@ -110,6 +113,9 @@
     </ClInclude>
     <ClInclude Include="GLEnums.h">
       <Filter>ヘッダー ファイル\Graphics\Enums</Filter>
+    </ClInclude>
+    <ClInclude Include="ImageTypeConverter.h">
+      <Filter>ヘッダー ファイル\Extensions</Filter>
     </ClInclude>
   </ItemGroup>
   <ItemGroup>

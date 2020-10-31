@@ -60,9 +60,10 @@ inline Image::Image(Stream^ stream, ImageReadMode mode) {
 	stream->CopyTo(memory);
 	
 	auto manageArr = memory->ToArray();
-	pin_ptr<Byte> array = &manageArr[0]; //スコープ外に行くと固定が解除される
+	pin_ptr<Byte> array = &manageArr[0];
 	Ptr = ImgDecode(array, manageArr->Length, (int)mode);
 
+	array = nullptr;
 	delete memory;
 }
 inline Image::Image(Stream^ stream) : Image(stream, ImageReadMode::Color) {
@@ -71,6 +72,8 @@ inline Image::Image(Stream^ stream) : Image(stream, ImageReadMode::Color) {
 inline Image::Image(array<Byte>^ imageBytes, ImageReadMode mode) {
 	if (imageBytes == nullptr) throw gcnew ArgumentNullException("imageBytes");
 
-	pin_ptr<Byte> array = &imageBytes[0]; //スコープ外に行くと固定が解除される
+	pin_ptr<Byte> array = &imageBytes[0];
 	Ptr = ImgDecode(array, imageBytes->Length, (int)mode);
+
+	array = nullptr;
 }

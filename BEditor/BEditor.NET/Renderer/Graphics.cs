@@ -102,9 +102,9 @@ namespace BEditor.NET.Renderer {
 
         public static void DrawImage(
             Image img,
-            in float scalex = 0,
-            in float scaley = 0,
-            in float scalez = 0,
+            in float scalex = 1,
+            in float scaley = 1,
+            in float scalez = 1,
             in Color4? color = null,
             in Color4? ambient = null,
             in Color4? diffuse = null,
