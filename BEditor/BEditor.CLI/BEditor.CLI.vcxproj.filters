@@ -40,6 +40,9 @@
     <Filter Include="ヘッダー ファイル\Extensions">
       <UniqueIdentifier>{dab597f5-e12d-4b05-a5af-c4e1a76c3a5c}</UniqueIdentifier>
     </Filter>
+    <Filter Include="ソース ファイル\Media\Font">
+      <UniqueIdentifier>{93d584e2-f2f1-46bf-8146-2302bd678b96}</UniqueIdentifier>
+    </Filter>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="Resource.h">
@@ -211,6 +214,9 @@
     </ClCompile>
     <ClCompile Include="GLToolKit.cpp">
       <Filter>ソース ファイル\Graphics</Filter>
+    </ClCompile>
+    <ClCompile Include="Font.cpp">
+      <Filter>ソース ファイル\Media\Font</Filter>
     </ClCompile>
   </ItemGroup>
   <ItemGroup>
