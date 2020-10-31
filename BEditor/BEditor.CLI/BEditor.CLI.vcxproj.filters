@@ -117,6 +117,51 @@
     <ClInclude Include="ImageTypeConverter.h">
       <Filter>ヘッダー ファイル\Extensions</Filter>
     </ClInclude>
+    <ClInclude Include="GetPName.h">
+      <Filter>ヘッダー ファイル\Graphics\Enums</Filter>
+    </ClInclude>
+    <ClInclude Include="MatrixMode.h">
+      <Filter>ヘッダー ファイル\Graphics\Enums</Filter>
+    </ClInclude>
+    <ClInclude Include="TextureParameterName.h">
+      <Filter>ヘッダー ファイル\Graphics\Enums</Filter>
+    </ClInclude>
+    <ClInclude Include="TextureTarget.h">
+      <Filter>ヘッダー ファイル\Graphics\Enums</Filter>
+    </ClInclude>
+    <ClInclude Include="TextureFilter.h">
+      <Filter>ヘッダー ファイル\Graphics\Enums</Filter>
+    </ClInclude>
+    <ClInclude Include="TextureWrapMode.h">
+      <Filter>ヘッダー ファイル\Graphics\Enums</Filter>
+    </ClInclude>
+    <ClInclude Include="PixelInternalFormat.h">
+      <Filter>ヘッダー ファイル\Graphics\Enums</Filter>
+    </ClInclude>
+    <ClInclude Include="GenerateMipmapTarget.h">
+      <Filter>ヘッダー ファイル\Graphics\Enums</Filter>
+    </ClInclude>
+    <ClInclude Include="BlendEquationMode.h">
+      <Filter>ヘッダー ファイル\Graphics\Enums</Filter>
+    </ClInclude>
+    <ClInclude Include="BlendingFactor.h">
+      <Filter>ヘッダー ファイル\Graphics\Enums</Filter>
+    </ClInclude>
+    <ClInclude Include="EnableCap.h">
+      <Filter>ヘッダー ファイル\Graphics\Enums</Filter>
+    </ClInclude>
+    <ClInclude Include="Material.h">
+      <Filter>ヘッダー ファイル\Graphics\Enums</Filter>
+    </ClInclude>
+    <ClInclude Include="PrimitiveType.h">
+      <Filter>ヘッダー ファイル\Graphics\Enums</Filter>
+    </ClInclude>
+    <ClInclude Include="LightName.h">
+      <Filter>ヘッダー ファイル\Graphics\Enums</Filter>
+    </ClInclude>
+    <ClInclude Include="LightParameter.h">
+      <Filter>ヘッダー ファイル\Graphics\Enums</Filter>
+    </ClInclude>
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="AssemblyInfo.cpp">
@@ -164,6 +209,9 @@
     <ClCompile Include="GL.cpp">
       <Filter>ソース ファイル\Graphics</Filter>
     </ClCompile>
+    <ClCompile Include="GLToolKit.cpp">
+      <Filter>ソース ファイル\Graphics</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <ResourceCompile Include="app.rc">
@@ -174,8 +222,5 @@
     <Image Include="app.ico">
       <Filter>リソース ファイル</Filter>
     </Image>
-  </ItemGroup>
-  <ItemGroup>
-    <None Include="packages.config" />
   </ItemGroup>
 </Project>

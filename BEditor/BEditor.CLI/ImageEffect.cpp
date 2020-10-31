@@ -88,7 +88,8 @@ inline void Image::Dilate(int f) {
 	if (f < 0) throw gcnew ArgumentException("f < 0");
 	if (f == 0) {
 		delete Ptr;
-		Ptr = gcnew Image()->Ptr;
+		Image^ tmp = gcnew Image();
+		Ptr = tmp->Ptr;
 		return;
 	}
 	ThrowIfDisposed();
@@ -99,7 +100,8 @@ inline void Image::Erode(int f) {
 	if (f < 0) throw gcnew ArgumentException("f < 0");
 	if (f == 0) {
 		delete Ptr;
-		Ptr = gcnew Image()->Ptr;
+		Image^ tmp = gcnew Image();
+		Ptr = tmp->Ptr;
 		return;
 	}
 	ThrowIfDisposed();
@@ -245,7 +247,8 @@ inline void Image::Clip(int top, int bottom, int left, int right) {
 	ThrowIfDisposed();
 	if (Width < left + right || Height < top + bottom) {
 		delete Ptr;
-		Ptr = gcnew Image()->Ptr;
+		Image^ tmp = gcnew Image();
+		Ptr = tmp->Ptr;
 		
 		return;
 	}

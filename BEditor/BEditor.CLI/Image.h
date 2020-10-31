@@ -77,7 +77,7 @@ namespace BEditor {
 				void Clip(int top, int bottom, int left, int right);
 				static Image^ Ellipse(int width, int height, int line, Color color);
 				static Image^ Rectangle(int width, int height, int line, Color color);
-				static Image^ Text(int size, Color color, String^ text, String^ fontfile, FontStyle style);
+				//static Image^ Text(int size, Color color, String^ text, String^ fontfile, FontStyle style);
 				virtual String^ ToString() override;
 			protected:
 				virtual void OnDispose(bool disposing) override;

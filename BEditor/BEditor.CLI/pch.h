@@ -12,6 +12,8 @@
 #include "DisposableObject.h"
 #include "DisposableCollection.h"
 #include "Size.h"
+#include "GLEnums.h"
+#include "Enums.h"
 #include "Point2.h"
 #include "Point3.h"
 #include "Rectangle.h"
@@ -20,10 +22,14 @@
 #include "ImageReadMode.h"
 #include "FontStyle.h"
 #include "Hinting.h"
-#include "Enums.h"
 #include "Color.h"
 #include "Font.h"
 #include "Image.h"
+
+#include <GL\glew.h>
+#include <GL\freeglut.h>
+#include <GLFW\glfw3.h>
+
 #include "ImageTypeConverter.h"
 #include "GL.h"
 

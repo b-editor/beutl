@@ -77,3 +77,11 @@ inline Image::Image(array<Byte>^ imageBytes, ImageReadMode mode) {
 
 	array = nullptr;
 }
+inline Image::Image(array<Byte>^ imageBytes) {
+	if (imageBytes == nullptr) throw gcnew ArgumentNullException("imageBytes");
+
+	pin_ptr<Byte> array = &imageBytes[0];
+	Ptr = ImgDecode(array, imageBytes->Length, (int)ImageReadMode::Color);
+
+	array = nullptr;
+}

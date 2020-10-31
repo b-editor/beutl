@@ -74,12 +74,12 @@
   </ImportGroup>
   <PropertyGroup Label="UserMacros" />
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">
-    <IncludePath>E:\yuuto\lib\opencv\build\include;E:\yuuto\lib\SDL2\SDL2-2.0.12\include;E:\yuuto\lib\SDL2\SDL2_ttf-2.0.15\include;$(IncludePath)</IncludePath>
-    <LibraryPath>E:\yuuto\lib\opencv\build\x64\vc15\lib;E:\yuuto\lib\SDL2\SDL2-2.0.12\lib\x64;E:\yuuto\lib\SDL2\SDL2_ttf-2.0.15\lib\x64;$(LibraryPath)</LibraryPath>
+    <IncludePath>E:\yuuto\lib\glew-2.1.0\include;E:\yuuto\lib\glm\0.9.9.800\build\native\include;E:\yuuto\lib\glfw-3.3.2\include;E:\yuuto\lib\freeglut\2.8.1.15\build\native\include;E:\yuuto\lib\opencv\build\include;E:\yuuto\lib\SDL2\SDL2-2.0.12\include;E:\yuuto\lib\SDL2\SDL2_ttf-2.0.15\include;$(IncludePath)</IncludePath>
+    <LibraryPath>E:\yuuto\lib\glew-2.1.0\lib\Release\x64;E:\yuuto\lib\glfw-3.3.2\lib-vc2019;E:\yuuto\lib\freeglut\2.8.1.15\build\native\lib\v110\x64\Release\static;E:\yuuto\lib\opencv\build\x64\vc15\lib;E:\yuuto\lib\SDL2\SDL2-2.0.12\lib\x64;E:\yuuto\lib\SDL2\SDL2_ttf-2.0.15\lib\x64;$(LibraryPath)</LibraryPath>
   </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release|x64'">
-    <IncludePath>E:\yuuto\lib\opencv\build\include;E:\yuuto\lib\SDL2\SDL2-2.0.12\include;E:\yuuto\lib\SDL2\SDL2_ttf-2.0.15\include;$(IncludePath)</IncludePath>
-    <LibraryPath>E:\yuuto\lib\opencv\build\x64\vc15\lib;E:\yuuto\lib\SDL2\SDL2-2.0.12\lib\x64;E:\yuuto\lib\SDL2\SDL2_ttf-2.0.15\lib\x64;$(LibraryPath)</LibraryPath>
+    <IncludePath>E:\yuuto\lib\glew-2.1.0\include;E:\yuuto\lib\glm\0.9.9.800\build\native\include;E:\yuuto\lib\glfw-3.3.2\include;E:\yuuto\lib\freeglut\2.8.1.15\build\native\include;E:\yuuto\lib\opencv\build\include;E:\yuuto\lib\SDL2\SDL2-2.0.12\include;E:\yuuto\lib\SDL2\SDL2_ttf-2.0.15\include;$(IncludePath)</IncludePath>
+    <LibraryPath>E:\yuuto\lib\glew-2.1.0\lib\Release\x64;E:\yuuto\lib\glfw-3.3.2\lib-vc2019;E:\yuuto\lib\freeglut\2.8.1.15\build\native\lib\v110\x64\Release\static;E:\yuuto\lib\opencv\build\x64\vc15\lib;E:\yuuto\lib\SDL2\SDL2-2.0.12\lib\x64;E:\yuuto\lib\SDL2\SDL2_ttf-2.0.15\lib\x64;$(LibraryPath)</LibraryPath>
   </PropertyGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">
     <ClCompile>
@@ -89,7 +89,7 @@
       <PreprocessorDefinitions>_DEBUG;%(PreprocessorDefinitions)</PreprocessorDefinitions>
     </ClCompile>
     <Link>
-      <AdditionalDependencies>opencv_world450.lib;opencv_world450d.lib;SDL2.lib;SDL2_ttf.lib;%(AdditionalDependencies)</AdditionalDependencies>
+      <AdditionalDependencies>opencv_world450.lib;opencv_world450d.lib;glew32.lib;freeglut.lib;glfw3.lib;opengl32.lib;SDL2.lib;SDL2_ttf.lib;%(AdditionalDependencies)</AdditionalDependencies>
     </Link>
   </ItemDefinitionGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">
@@ -122,17 +122,22 @@
       <PreprocessorDefinitions>NDEBUG;%(PreprocessorDefinitions)</PreprocessorDefinitions>
     </ClCompile>
     <Link>
-      <AdditionalDependencies>opencv_world450.lib;opencv_world450d.lib;SDL2.lib;SDL2_ttf.lib;%(AdditionalDependencies)</AdditionalDependencies>
+      <AdditionalDependencies>opencv_world450.lib;opencv_world450d.lib;glew32.lib;freeglut.lib;glfw3.lib;opengl32.lib;SDL2.lib;SDL2_ttf.lib;%(AdditionalDependencies)</AdditionalDependencies>
     </Link>
   </ItemDefinitionGroup>
   <ItemGroup>
+    <ClInclude Include="BlendEquationMode.h" />
+    <ClInclude Include="BlendingFactor.h" />
     <ClInclude Include="Color.h" />
     <ClInclude Include="DisposableCollection.h" />
     <ClInclude Include="DisposableObject.h" />
+    <ClInclude Include="EnableCap.h" />
     <ClInclude Include="Enums.h" />
     <ClInclude Include="Exceptions.h" />
     <ClInclude Include="Font.h" />
     <ClInclude Include="FontStyle.h" />
+    <ClInclude Include="GenerateMipmapTarget.h" />
+    <ClInclude Include="GetPName.h" />
     <ClInclude Include="GL.h" />
     <ClInclude Include="Hinting.h" />
     <ClInclude Include="Image.h" />
@@ -140,22 +145,33 @@
     <ClInclude Include="ImageType.h" />
     <ClInclude Include="ImageTypeConverter.h" />
     <ClInclude Include="IntPtrZeroException.h" />
+    <ClInclude Include="LightName.h" />
+    <ClInclude Include="LightParameter.h" />
+    <ClInclude Include="Material.h" />
+    <ClInclude Include="MatrixMode.h" />
     <ClInclude Include="pch.h" />
     <ClInclude Include="PixelFormat.h" />
+    <ClInclude Include="PixelInternalFormat.h" />
     <ClInclude Include="PixelType.h" />
     <ClInclude Include="Point2.h" />
     <ClInclude Include="Point3.h" />
+    <ClInclude Include="PrimitiveType.h" />
     <ClInclude Include="Range.h" />
     <ClInclude Include="ReadBufferMode.h" />
     <ClInclude Include="Rectangle.h" />
     <ClInclude Include="Resource.h" />
     <ClInclude Include="Size.h" />
     <ClInclude Include="GLEnums.h" />
+    <ClInclude Include="TextureFilter.h" />
+    <ClInclude Include="TextureParameterName.h" />
+    <ClInclude Include="TextureTarget.h" />
+    <ClInclude Include="TextureWrapMode.h" />
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="AssemblyInfo.cpp" />
     <ClCompile Include="Color.cpp" />
     <ClCompile Include="GL.cpp" />
+    <ClCompile Include="GLToolKit.cpp" />
     <ClCompile Include="Image.cpp" />
     <ClCompile Include="ImageEffect.cpp" />
     <ClCompile Include="ImageInitialize.cpp" />
@@ -180,19 +196,6 @@
   <ItemGroup>
     <Image Include="app.ico" />
   </ItemGroup>
-  <ItemGroup>
-    <None Include="packages.config" />
-  </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
-  <ImportGroup Label="ExtensionTargets">
-    <Import Project="..\packages\nupengl.core.redist.0.1.0.1\build\native\nupengl.core.redist.targets" Condition="Exists('..\packages\nupengl.core.redist.0.1.0.1\build\native\nupengl.core.redist.targets')" />
-    <Import Project="..\packages\nupengl.core.0.1.0.1\build\native\nupengl.core.targets" Condition="Exists('..\packages\nupengl.core.0.1.0.1\build\native\nupengl.core.targets')" />
-  </ImportGroup>
-  <Target Name="EnsureNuGetPackageBuildImports" BeforeTargets="PrepareForBuild">
-    <PropertyGroup>
-      <ErrorText>このプロジェクトは、このコンピューター上にない NuGet パッケージを参照しています。それらのパッケージをダウンロードするには、[NuGet パッケージの復元] を使用します。詳細については、http://go.microsoft.com/fwlink/?LinkID=322105 を参照してください。見つからないファイルは {0} です。</ErrorText>
-    </PropertyGroup>
-    <Error Condition="!Exists('..\packages\nupengl.core.redist.0.1.0.1\build\native\nupengl.core.redist.targets')" Text="$([System.String]::Format('$(ErrorText)', '..\packages\nupengl.core.redist.0.1.0.1\build\native\nupengl.core.redist.targets'))" />
-    <Error Condition="!Exists('..\packages\nupengl.core.0.1.0.1\build\native\nupengl.core.targets')" Text="$([System.String]::Format('$(ErrorText)', '..\packages\nupengl.core.0.1.0.1\build\native\nupengl.core.targets'))" />
-  </Target>
+  <ImportGroup Label="ExtensionTargets" />
 </Project>

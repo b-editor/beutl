@@ -168,7 +168,7 @@ namespace BEditor.NET.Renderer {
                 // 視体積の設定
                 GL.MatrixMode(MatrixMode.Projection);
                 Matrix4 proj = Matrix4.CreatePerspectiveFieldOfView(MathHelper.DegreesToRadians(fov), (width / height), near, far);//描画範囲
-
+                
                 GL.LoadMatrix(ref proj);
 
                 GL.MatrixMode(MatrixMode.Modelview);

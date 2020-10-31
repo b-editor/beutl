@@ -8,15 +8,15 @@ namespace BEditor {
 		namespace Media {
 			public ref class Font : DisposableObject {
 			public:
-				Font(String^ file, int size);
-				Font(String^ file, int size, long index);
+				Font(String^ file, int size){ }
+				Font(String^ file, int size, long index){ }
 
 				property int Size {
 					int get() {
 						return size;
 					};
 				}
-				property FontStyle Style { FontStyle get(); void set(FontStyle value); }
+				/*property FontStyle Style { FontStyle get(); void set(FontStyle value); }
 				property int Outline { int get(); void set(int value); }
 				property Media::Hinting Hinting { Media::Hinting get(); void set(Media::Hinting value); }
 				property int Height { int get(); }
@@ -27,9 +27,9 @@ namespace BEditor {
 				property long Faces { long get(); }
 				property bool IsFixedWidth { bool get(); }
 				property String^ FaceFamilyName { String^ get(); }
-				property String^ FaceStyleName { String^ get(); }
+				property String^ FaceStyleName { String^ get(); }*/
 
-				int GlyphIsProvided(ushort ch);
+				/*int GlyphIsProvided(ushort ch);
 				int GlyphIsProvided(uint ch);
 				bool GlyphMetrics(ushort ch, [Out] int% minx, [Out] int% maxx, [Out] int% miny, [Out] int% maxy, [Out] int% advance);
 				bool GlyphMetrics(uint ch, [Out] int% minx, [Out] int% maxx, [Out] int% miny, [Out] int% maxy, [Out] int% advance);
@@ -42,12 +42,12 @@ namespace BEditor {
 				void RenderUTF8(String^ text, Color color, [Out] int% width, [Out] int% height, [Out] IntPtr% data);
 				void RenderText(String^ text, Color color, [Out] int% width, [Out] int% height, [Out] IntPtr% data);
 				static void Quit();
-				static bool Initialize();
+				static bool Initialize();*/
 			private:
 				TTF_Font* font;
 				int size;
 			protected:
-				virtual void OnDispose(bool disposing) override;
+				virtual void OnDispose(bool disposing) override{ }
 			};
 		}
 	}

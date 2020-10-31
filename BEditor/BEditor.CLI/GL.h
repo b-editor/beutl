@@ -1,12 +1,7 @@
 #pragma once
 
-#include <GL\glew.h>
-#include <GLFW\glfw3.h>
-#include "ReadBufferMode.h"
-#include "PixelFormat.h"
-#include "PixelType.h"
-#include "GLEnums.h"
-#include <opencv2\opencv.hpp>
+#include <glm/glm.hpp>
+#include <glm/gtc/matrix_transform.hpp>
 
 using namespace System;
 using namespace System::Runtime::InteropServices;
@@ -25,12 +20,196 @@ namespace BEditor {
 					glReadPixels(x, y, width, height, (uint)format, (uint)type, (void*)pixels);
 				}
 
+				static void Enable(uint cap) {
+					glEnable(cap);
+				}
 				static void Enable(EnableCap cap) {
 					glEnable((uint)cap);
+				}
+				static void Disable(uint cap) {
+					glDisable(cap);
 				}
 				static void Disable(EnableCap cap) {
 					glDisable((uint)cap);
 				}
+				static bool IsEnabled(uint cap) {
+					return glIsEnabled(cap) == GL_TRUE;
+				}
+				static bool IsEnabled(EnableCap cap) {
+					return glIsEnabled((uint)cap) == GL_TRUE;
+				}
+				
+				#pragma region Getter
+
+				static bool GetBoolean(GetPName pname) {
+					GLboolean result;
+					glGetBooleanv((uint)pname, &result);
+
+					return result == GL_TRUE;
+				}
+				static bool GetBoolean(uint pname) {
+					GLboolean result;
+					glGetBooleanv(pname, &result);
+
+					return result == GL_TRUE;
+				}
+
+				static double GetDouble(GetPName pname) {
+					double result;
+					glGetDoublev((uint)pname, &result);
+
+					return result;
+				}
+				static double GetDouble(uint pname) {
+					double result;
+					glGetDoublev(pname, &result);
+
+					return result;
+				}
+
+				static float GetFloat(GetPName pname) {
+					float result;
+					glGetFloatv((uint)pname, &result);
+
+					return result;
+				}
+				static float GetFloat(uint pname) {
+					float result;
+					glGetFloatv(pname, &result);
+
+					return result;
+				}
+
+				static void GetLight(LightName light, LightParameter pname, [Out] float% params) {
+					float result;
+					glGetLightfv((uint)light, (uint)pname, &result);
+
+					params = result;
+				}
+				static void GetLight(LightName light, LightParameter pname, array<float>^ params) {
+					pin_ptr<float> pin = &params[0];
+					glGetLightfv((uint)light, (uint)pname, pin);
+
+					pin = nullptr;
+				}
+				static void GetLight(LightName light, LightParameter pname, float* params) {
+					glGetLightfv((uint)light, (uint)pname, params);
+				}
+				static void GetLight(LightName light, LightParameter pname, [Out] int% params) {
+					int result;
+					glGetLightiv((uint)light, (uint)pname, &result);
+
+					params = result;
+				}
+				static void GetLight(LightName light, LightParameter pname, array<int>^ params) {
+					pin_ptr<int> pin = &params[0];
+					glGetLightiv((uint)light, (uint)pname, pin);
+
+					pin = nullptr;
+				}
+				static void GetLight(LightName light, LightParameter pname, int* params) {
+					glGetLightiv((uint)light, (uint)pname, params);
+				}
+				static void GetLight(uint light, uint pname, [Out] float% params) {
+					float result;
+					glGetLightfv(light, pname, &result);
+
+					params = result;
+				}
+				static void GetLight(uint light, uint pname, array<float>^ params) {
+					pin_ptr<float> pin = &params[0];
+					glGetLightfv(light, pname, pin);
+
+					pin = nullptr;
+				}
+				static void GetLight(uint light, uint pname, float* params) {
+					glGetLightfv(light, pname, params);
+				}
+				static void GetLight(uint light, uint pname, [Out] int% params) {
+					int result;
+					glGetLightiv(light, pname, &result);
+
+					params = result;
+				}
+				static void GetLight(uint light, uint pname, array<int>^ params) {
+					pin_ptr<int> pin = &params[0];
+					glGetLightiv(light, pname, pin);
+
+					pin = nullptr;
+				}
+				static void GetLight(uint light, uint pname, int* params) {
+					glGetLightiv(light, pname, params);
+				}
+
+				static void GetMaterial(MaterialFace face, MaterialParameter pname, [Out] int% params) {
+					int result;
+					glGetMaterialiv((uint)face, (uint)pname, &result);
+
+					params = result;
+				}
+				static void GetMaterial(MaterialFace face, MaterialParameter pname, array<int>^ params) {
+					pin_ptr<int> pin = &params[0];
+					glGetMaterialiv((uint)face, (uint)pname, pin);
+
+					pin = nullptr;
+				}
+				static void GetMaterial(MaterialFace face, MaterialParameter pname, int* params) {
+					glGetMaterialiv((uint)face, (uint)pname, params);
+				}
+				static void GetMaterial(MaterialFace face, MaterialParameter pname, [Out] float% params) {
+					float result;
+					glGetMaterialfv((uint)face, (uint)pname, &result);
+
+					params = result;
+				}
+				static void GetMaterial(MaterialFace face, MaterialParameter pname, array<float>^ params) {
+					pin_ptr<float> pin = &params[0];
+					glGetMaterialfv((uint)face, (uint)pname, pin);
+
+					pin = nullptr;
+				}
+				static void GetMaterial(MaterialFace face, MaterialParameter pname, float* params) {
+					glGetMaterialfv((uint)face, (uint)pname, params);
+				}
+				static void GetMaterial(uint face, uint pname, [Out] int% params) {
+					int result;
+					glGetMaterialiv(face, pname, &result);
+
+					params = result;
+				}
+				static void GetMaterial(uint face, uint pname, array<int>^ params) {
+					pin_ptr<int> pin = &params[0];
+					glGetMaterialiv(face, pname, pin);
+
+					pin = nullptr;
+				}
+				static void GetMaterial(uint face, uint pname, int* params) {
+					glGetMaterialiv(face, pname, params);
+				}
+				static void GetMaterial(uint face, uint pname, [Out] float% params) {
+					float result;
+					glGetMaterialfv(face, pname, &result);
+
+					params = result;
+				}
+				static void GetMaterial(uint face, uint pname, array<float>^ params) {
+					pin_ptr<float> pin = &params[0];
+					glGetMaterialfv(face, pname, pin);
+
+					pin = nullptr;
+				}
+				static void GetMaterial(uint face, uint pname, float* params) {
+					glGetMaterialfv(face, pname, params);
+				}
+
+				static void GetTexImage(TextureTarget target, int level, PixelFormat format, PixelType type, IntPtr pixels) {
+					glGetTexImage((uint)target, level, (uint)format, (uint)type, pixels.ToPointer());
+				}
+				static void GetTexImage(uint target, int level, uint format, uint type, IntPtr pixels) {
+					glGetTexImage(target, level, format, type, pixels.ToPointer());
+				}
+
+				#pragma endregion
 
 				#pragma region Texture
 				static void GenTexture(int n, [Out] int% textures) {
@@ -95,6 +274,8 @@ namespace BEditor {
 				static void BindTexture(TextureTarget target, uint texture) {
 					glBindTexture((uint)target, texture);
 				}
+				#if 0
+
 				static void BindTextures(uint first, int count, int* textures) {
 					glBindTextures(first, count, (uint*)textures);
 				}
@@ -114,6 +295,8 @@ namespace BEditor {
 					pin = nullptr;
 				}
 
+				#endif // 0
+
 				static void TexImage1D(TextureTarget target, int level, PixelInternalFormat internalformat, int width, int border, PixelFormat format, PixelType type, IntPtr pixels) {
 					glTexImage1D(
 						(uint)target,
@@ -121,6 +304,15 @@ namespace BEditor {
 						(uint)internalformat,
 						width,
 						border,
+						(uint)format,
+						(uint)type,
+						pixels.ToPointer());
+				}
+				static void TexSubImage1D(TextureTarget target, int level, int xoffset, int width, PixelFormat format, PixelType type, IntPtr pixels) {
+					glTexSubImage1D((uint)target,
+						level,
+						xoffset,
+						width,
 						(uint)format,
 						(uint)type,
 						pixels.ToPointer());
@@ -137,6 +329,20 @@ namespace BEditor {
 						(uint)type,
 						pixels.ToPointer());
 				}
+				static void TexSubImage2D(TextureTarget target, int level, int xoffset, int yoffset, int width, int height, PixelFormat format, PixelType type, IntPtr pixels) {
+					glTexSubImage2D((uint)target,
+						level,
+						xoffset,
+						yoffset,
+						width,
+						height,
+						(uint)format,
+						(uint)type,
+						pixels.ToPointer());
+				}
+				
+				#if 0
+
 				static void TexImage3D(TextureTarget target, int level, PixelInternalFormat internalformat, int width, int height, int depth, int border, PixelFormat format, PixelType type, IntPtr pixels) {
 					glTexImage3D(
 						(uint)target,
@@ -146,26 +352,6 @@ namespace BEditor {
 						height,
 						depth,
 						border,
-						(uint)format,
-						(uint)type,
-						pixels.ToPointer());
-				}
-				static void TexSubImage1D(TextureTarget target, int level, int xoffset, int width, PixelFormat format, PixelType type, IntPtr pixels) {
-					glTexSubImage1D((uint)target,
-						level,
-						xoffset,
-						width,
-						(uint)format,
-						(uint)type,
-						pixels.ToPointer());
-				}
-				static void TexSubImage2D(TextureTarget target, int level, int xoffset, int yoffset, int width, int height, PixelFormat format, PixelType type, IntPtr pixels) {
-					glTexSubImage2D((uint)target,
-						level,
-						xoffset,
-						yoffset,
-						width,
-						height,
 						(uint)format,
 						(uint)type,
 						pixels.ToPointer());
@@ -184,6 +370,8 @@ namespace BEditor {
 						pixels.ToPointer());
 				}
 
+				#endif // 0
+
 				static void DeleteTexture(uint texture) {
 					uint* tex = new uint[] { texture };
 
@@ -192,7 +380,7 @@ namespace BEditor {
 					delete tex;
 				}
 				static void DeleteTexture(int texture) {
-					uint* tex = new uint[] { texture };
+					uint* tex = new uint[] { (uint)texture };
 
 					glDeleteTextures(1, tex);
 
@@ -227,6 +415,7 @@ namespace BEditor {
 				#pragma endregion
 
 				#pragma region Blend
+
 				static void BlendEquation(BlendEquationMode mode) {
 					glBlendEquation((uint)mode);
 				}
@@ -247,7 +436,6 @@ namespace BEditor {
 					glBlendEquationSeparatei(buf, (uint)modeRGB, (uint)modeAlpha);
 				}
 
-
 				static void BlendFunc(int buf, BlendingFactorSrc src, BlendingFactorDest dst) {
 					glBlendFunci(buf, (uint)src, (uint)dst);
 				}
@@ -267,6 +455,7 @@ namespace BEditor {
 				static void BlendFuncSeparate(int buf, BlendingFactorSrc srcRGB, BlendingFactorDest dstRGB, BlendingFactorSrc srcAlpha, BlendingFactorDest dstAlpha) {
 					glBlendFuncSeparatei(buf, (uint)srcRGB, (uint)dstRGB, (uint)srcAlpha, (uint)dstAlpha);
 				}
+
 				#pragma endregion
 
 				static void PushMatrix() {
@@ -285,6 +474,8 @@ namespace BEditor {
 				static void Translate(float x, float y, float z) {
 					glTranslatef(x, y, z);
 				}
+
+				#pragma region Rotate
 
 				static void Rotate(double angle, double x, double y, double z) {
 					glRotated(angle, x, y, z);
@@ -311,6 +502,8 @@ namespace BEditor {
 					glRotatef(angle, 0, 0, 1);
 				}
 
+				#pragma endregion
+
 				static void Scale(float x, float y, float z) {
 					glScalef(x, y, z);
 				}
@@ -318,12 +511,62 @@ namespace BEditor {
 					glScaled(x, y, z);
 				}
 
+				#pragma region Color4
+
 				static void Color4(Color color) {
 					glColor4b(color.R, color.G, color.B, color.A);
+				}
+				static void Color4(Byte r, Byte g, Byte b, Byte a) {
+					glColor4b(r, g, b, a);
+				}
+				static void Color4(float r, float g, float b, float a) {
+					glColor4f(r, g, b, a);
+				}
+				static void Color4(array<float>^ v) {
+					pin_ptr<float> pin = &v[0];
+					glColor4fv(pin);
+					pin = nullptr;
+				}
+				static void Color4(array<SByte>^ v) {
+					pin_ptr<SByte> pin = &v[0];
+					glColor4bv(pin);
+					pin = nullptr;
+				}
+				static void Color4(SByte* v) {
+					glColor4bv(v);
+				}
+				static void Color4(float* v) {
+					glColor4fv(v);
 				}
 				static void Color3(Color color) {
 					glColor3b(color.R, color.G, color.B);
 				}
+				static void Color3(Byte r, Byte g, Byte b) {
+					glColor3b(r, g, b);
+				}
+				static void Color3(float r, float g, float b) {
+					glColor3f(r, g, b);
+				}
+				static void Color3(array<float>^ v) {
+					pin_ptr<float> pin = &v[0];
+					glColor3fv(pin);
+					pin = nullptr;
+				}
+				static void Color3(array<SByte>^ v) {
+					pin_ptr<SByte> pin = &v[0];
+					glColor3bv(pin);
+					pin = nullptr;
+				}
+				static void Color3(SByte* v) {
+					glColor3bv(v);
+				}
+				static void Color3(float* v) {
+					glColor3fv(v);
+				}
+
+				#pragma endregion
+
+				#pragma region Material
 
 				static void Material(MaterialFace face, MaterialParameter pname, Color params) {
 					float* params_ = new float[4] { params.ScR, params.ScG, params.ScB, params.ScA };
@@ -357,9 +600,46 @@ namespace BEditor {
 				static void Material(MaterialFace face, MaterialParameter pname, int param) {
 					glMateriali((uint)face, (uint)pname, param);
 				}
+				static void Material(uint face, uint pname, Color params) {
+					float* params_ = new float[4] { params.ScR, params.ScG, params.ScB, params.ScA };
+
+					glMaterialfv((uint)face, (uint)pname, params_);
+
+					delete[] params_;
+				}
+				static void Material(uint face, uint pname, array<float>^ params) {
+					pin_ptr<float> pined = &params[0];
+
+					glMaterialfv(face, pname, pined);
+					pined = nullptr;
+				}
+				static void Material(uint face, uint pname, array<int>^ params) {
+					pin_ptr<int> pined = &params[0];
+
+					glMaterialiv(face, pname, pined);
+
+					pined = nullptr;
+				}
+				static void Material(uint face, uint pname, float* params) {
+					glMaterialfv(face, pname, params);
+				}
+				static void Material(uint face, uint pname, int* params) {
+					glMaterialiv(face, pname, params);
+				}
+				static void Material(uint face, uint pname, float param) {
+					glMaterialf(face, pname, param);
+				}
+				static void Material(uint face, uint pname, int param) {
+					glMateriali(face, pname, param);
+				}
+
+				#pragma endregion
 
 				static void Begin(PrimitiveType mode) {
 					glBegin((uint)mode);
+				}
+				static void Begin(uint mode) {
+					glBegin(mode);
 				}
 				static void End() {
 					glEnd();
@@ -457,6 +737,8 @@ namespace BEditor {
 
 				#pragma endregion
 
+				#pragma region Normal
+
 				static void Normal3(float nx, float ny, float nz) {
 					glNormal3f(nx, ny, nz);
 				}
@@ -513,6 +795,8 @@ namespace BEditor {
 					pin = nullptr;
 				}
 
+				#pragma endregion
+
 				static void MatrixMode(MatrixMode mode) {
 					glMatrixMode((uint)mode);
 				}
@@ -539,27 +823,40 @@ namespace BEditor {
 				ref class Utility abstract sealed {
 				public:
 					static void Perspective(double fovy, double aspect, double zNear, double zFar) {
-						gluPerspective(fovy, aspect, zNear, zFar);
+						glm::mat4 matrix = glm::perspective(glm::radians(fovy), aspect, zNear, zFar);
+
+						glLoadMatrixf(&matrix[0][0]);
 					}
-					static void LookAt(double eyex, double eyey, double eyez, double centerx, double centery, double centerz, double upx, double upy, double upz) {
-						gluLookAt(eyex, eyey, eyez, centerx, centery, centerz, upx, upy, upz);
+					static void LookAt(double eyeX, double eyeY, double eyeZ, double targetX, double targetY, double targetZ, double upX, double upY, double upZ) {
+						glm::mat4 matrix = glm::lookAt(
+							glm::vec3(eyeX, eyeY, eyeZ),
+							glm::vec3(targetX, targetY, targetZ),
+							glm::vec3(upX, upY, upZ));
+
+						glLoadMatrixf(&matrix[0][0]);
 					}
-					
+
 					static void Orthographic(float width, float height, float zNear, float zFar) {
 						width /= 2;
 						height /= 2;
-						glOrthof(-width, width, -height, height, zNear, zFar);
+						
+						glm::mat4 matrix = glm::ortho(-width, width, -height, height, zNear, zFar);
+						glLoadMatrixf(&matrix[0][0]);
 					}
 					static void Orthographic(double width, double height, double zNear, double zFar) {
 						width /= 2;
 						height /= 2;
-						glOrtho(-width, width, -height, height, zNear, zFar);
+
+						glm::mat4 matrix = glm::ortho(-width, width, -height, height, zNear, zFar);
+						glLoadMatrixf(&matrix[0][0]);
 					}
 					static void Orthographic(float left, float right, float bottom, float top, float zNear, float zFar) {
-						glOrthof(left, right, bottom, top, zNear, zFar);
+						glm::mat4 matrix = glm::ortho(left, right, bottom, top, zNear, zFar);
+						glLoadMatrixf(&matrix[0][0]);
 					}
 					static void Orthographic(double left, double right, double bottom, double top, double zNear, double zFar) {
-						glOrtho(left, right, bottom, top, zNear, zFar);
+						glm::mat4 matrix = glm::ortho(left, right, bottom, top, zNear, zFar);
+						glLoadMatrixf(&matrix[0][0]);
 					}
 				};
 
@@ -568,11 +865,13 @@ namespace BEditor {
 					static void GetPixels(Image^ image);
 					static void BindTexture(Image^ image, [Out] int% texture);
 					static void Paint(Point3 coord, double nx, double ny, double nz, Point3 center, Action^ draw);
-					static void Paint(Point3 coord, double nx, double ny, double nz, Point3 center, Action^ draw, Action^ blendfunc);
-					
-					static void DrawImage(Image^ image, double scalex, double scaley, double scalez);
+					static void Paint(Point3 coord, double nx, double ny, double nz, Point3 center, Action^ draw, Action^ blendFunc);
+
+					static void DrawImage(Image^ image, double scaleX, double scaleY, double scaleZ);
 					static void DrawImage(Image^ image, Color color, Color ambient, Color diffuse, Color specular, float shininess);
-					static void DrawImage(Image^ image, double scalex, double scaley, double scalez, Color color, Color ambient, Color diffuse, Color specular, float shininess);
+					static void DrawImage(Image^ image, double scaleX, double scaleY, double scaleZ, Color color, Color ambient, Color diffuse, Color specular, float shininess);
+
+					static void LockAt(int width, int height, float x, float y, float z, float targetX, float targetY, float targetZ, float zNear, float zFar, float fov, bool perspective);
 				};
 			};
 		}
