@@ -14,7 +14,7 @@ using BEditor.Models;
 using BEditor.Models.ColorTool;
 using BEditor.ViewModels.CustomControl;
 using BEditor.ViewModels.PropertyControl;
-using BEditor.NET.Data.PropertyData;
+using BEditor.Core.Data.PropertyData;
 using MahApps.Metro.Controls;
 
 namespace BEditor.Views {

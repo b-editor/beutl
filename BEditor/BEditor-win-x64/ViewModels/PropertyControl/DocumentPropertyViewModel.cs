@@ -6,8 +6,8 @@ using System.Threading.Tasks;
 
 using BEditor.ViewModels.Helper;
 
-using BEditor.NET.Data;
-using BEditor.NET.Data.PropertyData;
+using BEditor.Core.Data;
+using BEditor.Core.Data.PropertyData;
 
 namespace BEditor.ViewModels.PropertyControl {
     public class DocumentPropertyViewModel {

@@ -6,9 +6,9 @@ using System.Windows.Controls.Primitives;
 using System.Windows.Input;
 
 using BEditor.ViewModels;
-using BEditor.NET.Data;
-using BEditor.NET.Data.ProjectData;
-using BEditor.NET.Plugin;
+using BEditor.Core.Data;
+using BEditor.Core.Data.ProjectData;
+using BEditor.Core.Plugin;
 using MahApps.Metro.Controls;
 
 using MaterialDesignThemes.Wpf;

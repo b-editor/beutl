@@ -4,7 +4,7 @@ using System.Windows;
 using System.Windows.Input;
 
 using BEditor.ViewModels.Helper;
-using BEditor.NET.Data.EffectData;
+using BEditor.Core.Data.EffectData;
 
 namespace BEditor.ViewModels.ToolControl {
     public class LibraryViewModel {

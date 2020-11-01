@@ -11,7 +11,7 @@ using OpenTK.Graphics;
 using OpenTK.Graphics.OpenGL;
 
 namespace BEditor.Models {
-    public class RenderingContext : BEditor.NET.Renderer.BaseRenderingContext {
+    public class RenderingContext : BEditor.Core.Renderer.BaseRenderingContext {
         public override int Width { get => GLControl.Width; protected set => GLControl.Width = value; }
         public override int Height { get => GLControl.Height; protected set => GLControl.Height = value; }
 

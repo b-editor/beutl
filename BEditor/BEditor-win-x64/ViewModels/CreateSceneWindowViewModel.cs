@@ -1,7 +1,7 @@
 ﻿using BEditor.ViewModels.Helper;
 
-using BEditor.NET.Data;
-using BEditor.NET.Data.ProjectData;
+using BEditor.Core.Data;
+using BEditor.Core.Data.ProjectData;
 
 namespace BEditor.ViewModels {
     public class CreateSceneWindowViewModel : BasePropertyChanged {

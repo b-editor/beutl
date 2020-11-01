@@ -4,9 +4,9 @@
              xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006" 
              xmlns:d="http://schemas.microsoft.com/expression/blend/2008" 
              xmlns:local="clr-namespace:BEditor.Views.SettingsControl.Plugins"
-             xmlns:properties="clr-namespace:BEditor.NET.Properties;assembly=BEditor.NET"
+             xmlns:properties="clr-namespace:BEditor.Core.Properties;assembly=BEditor.Core"
              xmlns:app="clr-namespace:BEditor"
-             xmlns:component="clr-namespace:BEditor.NET.Data;assembly=BEditor.NET"
+             xmlns:component="clr-namespace:BEditor.Core.Data;assembly=BEditor.Core"
              xmlns:vm="clr-namespace:BEditor.ViewModels.SettingsControl.Plugins"
              mc:Ignorable="d" 
              d:DesignHeight="450" d:DesignWidth="800" Background="{DynamicResource MaterialDesignPaper}">

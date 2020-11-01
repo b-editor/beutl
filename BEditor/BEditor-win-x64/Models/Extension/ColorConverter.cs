@@ -5,7 +5,7 @@ using System.Text;
 using System.Threading.Tasks;
 using System.Windows.Media;
 
-using BEditor.NET.Media;
+using BEditor.Core.Media;
 
 namespace BEditor.Models.Extension {
     public static class ColorConverter {

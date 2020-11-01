@@ -4,9 +4,9 @@ using System.Windows.Controls;
 using System.Windows.Media;
 using BEditor.ViewModels.Helper;
 
-using BEditor.NET.Extesions.ViewCommand;
+using BEditor.Core.Extesions.ViewCommand;
 
-using Resource = BEditor.NET.Properties.Resources;
+using Resource = BEditor.Core.Properties.Resources;
 
 namespace BEditor.Views.MessageContent {
     /// <summary>

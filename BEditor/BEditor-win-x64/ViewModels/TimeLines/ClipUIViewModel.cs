@@ -7,10 +7,10 @@ using BEditor.Models.Settings;
 using BEditor.ViewModels.Helper;
 using BEditor.Views;
 
-using BEditor.NET.Data;
-using BEditor.NET.Data.ObjectData;
-using BEditor.NET.Data.ProjectData;
-using BEditor.NET.Properties;
+using BEditor.Core.Data;
+using BEditor.Core.Data.ObjectData;
+using BEditor.Core.Data.ProjectData;
+using BEditor.Core.Properties;
 
 namespace BEditor.ViewModels.TimeLines {
     public class ClipUIViewModel {
@@ -211,7 +211,7 @@ namespace BEditor.ViewModels.TimeLines {
                 $"Start : {ClipData.Start}\n" +
                 $"End : {ClipData.End}";
 
-            BEditor.NET.Extesions.ViewCommand.Message.Dialog(text);
+            BEditor.Core.Extesions.ViewCommand.Message.Dialog(text);
         }
         #endregion
 

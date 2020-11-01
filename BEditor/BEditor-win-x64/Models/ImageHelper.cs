@@ -2,11 +2,11 @@
 using System.Windows;
 using System.Windows.Media.Imaging;
 
-using BEditor.NET.Data;
-using BEditor.NET.Extensions;
-using BEditor.NET.Extesions.ViewCommand;
-using BEditor.NET.Media;
-using BEditor.NET.Properties;
+using BEditor.Core.Data;
+using BEditor.Core.Extensions;
+using BEditor.Core.Extesions.ViewCommand;
+using BEditor.Core.Media;
+using BEditor.Core.Properties;
 
 using Microsoft.WindowsAPICodePack.Dialogs;
 

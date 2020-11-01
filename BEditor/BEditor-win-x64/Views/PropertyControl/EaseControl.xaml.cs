@@ -12,8 +12,8 @@ using BEditor.Models.Extension;
 using BEditor.ViewModels.PropertyControl;
 using BEditor.Views.CustomControl;
 using BEditor.Views.TimeLines;
-using BEditor.NET.Data;
-using BEditor.NET.Data.PropertyData;
+using BEditor.Core.Data;
+using BEditor.Core.Data.PropertyData;
 
 namespace BEditor.Views.PropertyControls {
     /// <summary>

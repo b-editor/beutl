@@ -7,7 +7,7 @@ using BEditor.ViewModels.Helper;
 using BEditor.Views.SettingsControl;
 using BEditor.Views.SettingsControl.General;
 using BEditor.Views.SettingsControl.Plugins;
-using BEditor.NET.Properties;
+using BEditor.Core.Properties;
 using MaterialDesignThemes.Wpf;
 
 namespace BEditor.ViewModels.SettingsControl {

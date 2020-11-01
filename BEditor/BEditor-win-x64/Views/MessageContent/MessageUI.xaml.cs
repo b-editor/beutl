@@ -11,18 +11,18 @@ using System.Windows.Media.Imaging;
 using System.Windows.Navigation;
 using System.Windows.Shapes;
 
-using BEditor.NET.Extesions.ViewCommand;
+using BEditor.Core.Extesions.ViewCommand;
 
 using MaterialDesignThemes.Wpf;
 
-using Resource = BEditor.NET.Properties.Resources;
+using Resource = BEditor.Core.Properties.Resources;
 
 namespace BEditor.Views.MessageContent {
     /// <summary>
     /// MessageUI.xaml の相互作用ロジック
     /// </summary>
     public partial class MessageUI : DialogContent {
-        public MessageUI(ButtonType[] buttons, object content, BEditor.NET.Extesions.ViewCommand.IconType iconKind) {
+        public MessageUI(ButtonType[] buttons, object content, BEditor.Core.Extesions.ViewCommand.IconType iconKind) {
             InitializeComponent();
 
             foreach (var button in buttons) {
@@ -56,7 +56,7 @@ namespace BEditor.Views.MessageContent {
                 };
             }
 
-            if (iconKind != BEditor.NET.Extesions.ViewCommand.IconType.None) {
+            if (iconKind != BEditor.Core.Extesions.ViewCommand.IconType.None) {
                 icon.Content = new PackIcon() {
                     Kind = (PackIconKind)Enum.ToObject(typeof(PackIconKind), (int)iconKind),
                     HorizontalAlignment = HorizontalAlignment.Center,

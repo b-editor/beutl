@@ -5,9 +5,9 @@ using System.Text;
 using System.Threading.Tasks;
 using BEditor.ViewModels.Helper;
 
-using BEditor.NET.Data;
-using BEditor.NET.Data.PropertyData;
-using BEditor.NET.Data.PropertyData.EasingSetting;
+using BEditor.Core.Data;
+using BEditor.Core.Data.PropertyData;
+using BEditor.Core.Data.PropertyData.EasingSetting;
 
 namespace BEditor.ViewModels.PropertyControl {
     public class EasePropertyViewModel {

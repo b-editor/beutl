@@ -73,7 +73,7 @@
   </ItemGroup>
 
   <ItemGroup>
-    <ProjectReference Include="..\BEditorCore\BEditor.NET.csproj" />
+    <ProjectReference Include="..\BEditor.Core\BEditor.Core.csproj" />
   </ItemGroup>
 
   <ItemGroup>

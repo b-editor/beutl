@@ -10,9 +10,7 @@ Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "Solution Items", "Solution 
 		.editorconfig = .editorconfig
 	EndProjectSection
 EndProject
-Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "UnitTestProject", "UnitTestProject\UnitTestProject.csproj", "{57480F02-6783-4462-AD67-2BE451E56393}"
-EndProject
-Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "BEditor.NET", "BEditor.NET\BEditor.NET.csproj", "{64A936C0-5B2A-4AF2-9AFE-5840BAEDF482}"
+Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "BEditor.Core", "BEditor.Core\BEditor.Core.csproj", "{64A936C0-5B2A-4AF2-9AFE-5840BAEDF482}"
 	ProjectSection(ProjectDependencies) = postProject
 		{6F06DB5A-C0B0-4D88-9D13-0EF8B2B8CD26} = {6F06DB5A-C0B0-4D88-9D13-0EF8B2B8CD26}
 	EndProjectSection
@@ -20,8 +18,6 @@ EndProject
 Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "Document", "Document", "{BF87B613-95C1-4AD0-915A-BB751D0A3E77}"
 EndProject
 Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "BEditorExtern", "BEditorExtern\BEditorExtern.vcxproj", "{6F06DB5A-C0B0-4D88-9D13-0EF8B2B8CD26}"
-EndProject
-Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "BEditor.CLI", "BEditor.CLI\BEditor.CLI.vcxproj", "{71B15FB5-9899-4B63-9A61-071ECCA7C86A}"
 EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
@@ -45,18 +41,6 @@ Global
 		{65EA9149-55FC-42CF-A5A2-EE2C75D18AE9}.Release|x64.Build.0 = Release|x64
 		{65EA9149-55FC-42CF-A5A2-EE2C75D18AE9}.Release|x86.ActiveCfg = Release|Any CPU
 		{65EA9149-55FC-42CF-A5A2-EE2C75D18AE9}.Release|x86.Build.0 = Release|Any CPU
-		{57480F02-6783-4462-AD67-2BE451E56393}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
-		{57480F02-6783-4462-AD67-2BE451E56393}.Debug|Any CPU.Build.0 = Debug|Any CPU
-		{57480F02-6783-4462-AD67-2BE451E56393}.Debug|x64.ActiveCfg = Debug|Any CPU
-		{57480F02-6783-4462-AD67-2BE451E56393}.Debug|x64.Build.0 = Debug|Any CPU
-		{57480F02-6783-4462-AD67-2BE451E56393}.Debug|x86.ActiveCfg = Debug|Any CPU
-		{57480F02-6783-4462-AD67-2BE451E56393}.Debug|x86.Build.0 = Debug|Any CPU
-		{57480F02-6783-4462-AD67-2BE451E56393}.Release|Any CPU.ActiveCfg = Release|Any CPU
-		{57480F02-6783-4462-AD67-2BE451E56393}.Release|Any CPU.Build.0 = Release|Any CPU
-		{57480F02-6783-4462-AD67-2BE451E56393}.Release|x64.ActiveCfg = Release|Any CPU
-		{57480F02-6783-4462-AD67-2BE451E56393}.Release|x64.Build.0 = Release|Any CPU
-		{57480F02-6783-4462-AD67-2BE451E56393}.Release|x86.ActiveCfg = Release|Any CPU
-		{57480F02-6783-4462-AD67-2BE451E56393}.Release|x86.Build.0 = Release|Any CPU
 		{64A936C0-5B2A-4AF2-9AFE-5840BAEDF482}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
 		{64A936C0-5B2A-4AF2-9AFE-5840BAEDF482}.Debug|Any CPU.Build.0 = Debug|Any CPU
 		{64A936C0-5B2A-4AF2-9AFE-5840BAEDF482}.Debug|x64.ActiveCfg = Debug|Any CPU
@@ -79,16 +63,6 @@ Global
 		{6F06DB5A-C0B0-4D88-9D13-0EF8B2B8CD26}.Release|x64.Build.0 = Release|x64
 		{6F06DB5A-C0B0-4D88-9D13-0EF8B2B8CD26}.Release|x86.ActiveCfg = Release|Win32
 		{6F06DB5A-C0B0-4D88-9D13-0EF8B2B8CD26}.Release|x86.Build.0 = Release|Win32
-		{71B15FB5-9899-4B63-9A61-071ECCA7C86A}.Debug|Any CPU.ActiveCfg = Debug|Win32
-		{71B15FB5-9899-4B63-9A61-071ECCA7C86A}.Debug|x64.ActiveCfg = Debug|x64
-		{71B15FB5-9899-4B63-9A61-071ECCA7C86A}.Debug|x64.Build.0 = Debug|x64
-		{71B15FB5-9899-4B63-9A61-071ECCA7C86A}.Debug|x86.ActiveCfg = Debug|Win32
-		{71B15FB5-9899-4B63-9A61-071ECCA7C86A}.Debug|x86.Build.0 = Debug|Win32
-		{71B15FB5-9899-4B63-9A61-071ECCA7C86A}.Release|Any CPU.ActiveCfg = Release|Win32
-		{71B15FB5-9899-4B63-9A61-071ECCA7C86A}.Release|x64.ActiveCfg = Release|x64
-		{71B15FB5-9899-4B63-9A61-071ECCA7C86A}.Release|x64.Build.0 = Release|x64
-		{71B15FB5-9899-4B63-9A61-071ECCA7C86A}.Release|x86.ActiveCfg = Release|Win32
-		{71B15FB5-9899-4B63-9A61-071ECCA7C86A}.Release|x86.Build.0 = Release|Win32
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE
