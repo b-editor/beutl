@@ -7,10 +7,8 @@ using BEditor.Core.Data.PropertyData;
 using BEditor.Core.Media;
 
 namespace BEditor.Core.Data.EffectData {
-
     [DataContract(Namespace = "")]
-    public class Shadow : ImageEffect {
-
+    public sealed class Shadow : ImageEffect {
         static readonly EasePropertyMetadata XMetadata = new EasePropertyMetadata(Properties.Resources.X, 10);
         static readonly EasePropertyMetadata YMetadata = new EasePropertyMetadata(Properties.Resources.Y, 10);
         static readonly EasePropertyMetadata BlurMetadata = new EasePropertyMetadata(Properties.Resources.Blur, 10, float.NaN, 0);
@@ -45,31 +43,27 @@ namespace BEditor.Core.Data.EffectData {
             Color
         };
 
-        public override void PropertyLoaded() {
-            base.PropertyLoaded();
-
-            X.PropertyMetadata = XMetadata;
-            Y.PropertyMetadata = YMetadata;
-            Blur.PropertyMetadata = BlurMetadata;
-            Alpha.PropertyMetadata = AlphaMetadata;
-            Color.PropertyMetadata = ColorMetadata;
-        }
         #endregion
 
 
         [DataMember(Order = 0)]
+        [PropertyMetadata(nameof(XMetadata), typeof(Shadow))]
         public EaseProperty X { get; set; }
 
         [DataMember(Order = 1)]
+        [PropertyMetadata(nameof(YMetadata), typeof(Shadow))]
         public EaseProperty Y { get; set; }
 
         [DataMember(Order = 2)]
+        [PropertyMetadata(nameof(BlurMetadata), typeof(Shadow))]
         public EaseProperty Blur { get; set; }
 
         [DataMember(Order = 3)]
+        [PropertyMetadata(nameof(AlphaMetadata), typeof(Shadow))]
         public EaseProperty Alpha { get; set; }
 
         [DataMember(Order = 4)]
+        [PropertyMetadata(nameof(ColorMetadata), typeof(Shadow))]
         public ColorProperty Color { get; set; }
     }
 }

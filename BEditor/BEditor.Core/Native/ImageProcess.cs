@@ -5,7 +5,7 @@ using System.Text;
 
 namespace BEditor.Core.Native {
     public unsafe static class ImageProcess {
-        private const string dll = "Runtimes\\BEditorExtern";
+        private const string dll = "Runtimes\\BEditor.Extern";
 
         [DllImport(dll, EntryPoint = "ImageCreate1")]
         public static extern string Create(out IntPtr returnmat);

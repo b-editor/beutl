@@ -7,7 +7,7 @@ namespace BEditor.Core.Data.PropertyData {
     /// 
     /// </summary>
     [DataContract(Namespace = "")]
-    public class ColorProperty : PropertyElement {
+    public sealed class ColorProperty : PropertyElement {
         private byte r;
         private byte g;
         private byte b;
@@ -46,13 +46,12 @@ namespace BEditor.Core.Data.PropertyData {
         [DataMember]
         public byte Alpha { get => a; set => SetValue(value, ref a, nameof(Alpha)); }
 
-        public static implicit operator Media.Color4(ColorProperty val) => Media.Color4.FromRgba(val.Red, val.Green, val.Blue, val.Alpha);
-        public static implicit operator Media.Color3(ColorProperty val) => Media.Color3.FromRgb(val.Red, val.Green, val.Blue);
+        public static implicit operator Media.Color(ColorProperty val) => new Media.Color(val.Red, val.Green, val.Blue, val.Alpha);
 
         /// <summary>
         /// 
         /// </summary>
-        public class ChangeColor : IUndoRedoCommand {
+        public sealed class ChangeColor : IUndoRedoCommand {
             private readonly ColorProperty Color;
             private readonly byte r, g, b, a;
             private readonly byte or, og, ob, oa;
@@ -91,8 +90,6 @@ namespace BEditor.Core.Data.PropertyData {
                 Color.Alpha = oa;
             }
         }
-
-
     }
 
     /// <summary>

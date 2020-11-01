@@ -7,18 +7,14 @@ using System.Text;
 using System.Threading.Tasks;
 using System.Xml.Linq;
 
-using BEditor.Core.Data.EffectData;
-using BEditor.Core.Data.ObjectData;
 using BEditor.Core.Data.ProjectData;
-using BEditor.Core.Data.PropertyData;
-using BEditor.Core.Data.PropertyData.EasingSetting;
 using BEditor.Core.Interfaces;
 using BEditor.Core.Media;
 using BEditor.Core.Plugin;
 using BEditor.Core.Renderer;
 
 namespace BEditor.Core.Data {
-    public class Component : BasePropertyChanged {
+    public sealed class Component : BasePropertyChanged {
         private Project project;
         private Status status;
 
@@ -81,7 +77,7 @@ namespace BEditor.Core.Data {
         public static class Funcs {
             private static Func<int, int, BaseRenderingContext> createRenderingContext;
 
-            public static Func<int, int, Renderer.BaseRenderingContext> CreateRenderingContext {
+            public static Func<int, int, BaseRenderingContext> CreateRenderingContext {
                 get => createRenderingContext;
                 set {
                     createRenderingContext = value;

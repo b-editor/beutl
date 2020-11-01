@@ -8,7 +8,7 @@ namespace BEditor.Core.Data.PropertyData {
     /// 
     /// </summary>
     [DataContract(Namespace = "")]
-    public class FileProperty : PropertyElement, IEasingSetting {
+    public sealed class FileProperty : PropertyElement, IEasingSetting {
         private string file;
 
         /// <summary>
@@ -35,7 +35,7 @@ namespace BEditor.Core.Data.PropertyData {
         /// <summary>
         /// 
         /// </summary>
-        public class ChangePath : IUndoRedoCommand {
+        public sealed class ChangePath : IUndoRedoCommand {
             private readonly FileProperty FileSetting;
             private readonly string path;
             private readonly string oldpath;

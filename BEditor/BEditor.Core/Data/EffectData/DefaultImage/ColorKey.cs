@@ -9,8 +9,7 @@ using BEditor.Core.Media;
 
 namespace BEditor.Core.Data.EffectData {
     [DataContract(Namespace = "")]
-    public class ColorKey : ImageEffect {
-
+    public sealed class ColorKey : ImageEffect {
         static readonly ColorPropertyMetadata MaxColorMetadata = new ColorPropertyMetadata(Properties.Resources.Color, 255, 255, 255);
         static readonly ColorPropertyMetadata MinColorMetadata = new ColorPropertyMetadata(Properties.Resources.Color, 100, 100, 100);
 
@@ -31,20 +30,15 @@ namespace BEditor.Core.Data.EffectData {
             MinColor
         };
 
-        public override void PropertyLoaded() {
-            base.PropertyLoaded();
-
-            MaxColor.PropertyMetadata = MaxColorMetadata;
-            MinColor.PropertyMetadata = MinColorMetadata;
-        }
-
         #endregion
 
 
         [DataMember(Order = 0)]
+        [PropertyMetadata(nameof(MaxColorMetadata), typeof(ColorKey))]
         public ColorProperty MaxColor { get; set; }
 
         [DataMember(Order = 1)]
+        [PropertyMetadata(nameof(MinColorMetadata), typeof(ColorKey))]
         public ColorProperty MinColor { get; set; }
     }
 }

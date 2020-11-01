@@ -8,7 +8,7 @@ using BEditor.Core.Renderer;
 
 namespace BEditor.Core.Data.ObjectData {
     [DataContract(Namespace = "")]
-    public class CameraObject : ObjectElement {
+    public sealed class CameraObject : ObjectElement {
         public static readonly EasePropertyMetadata XMetadata = new EasePropertyMetadata(Properties.Resources.X, 0);
         public static readonly EasePropertyMetadata YMetadata = new EasePropertyMetadata(Properties.Resources.Y, 0);
         public static readonly EasePropertyMetadata ZMetadata = new EasePropertyMetadata(Properties.Resources.Z, 1024);
@@ -43,9 +43,10 @@ namespace BEditor.Core.Data.ObjectData {
         #region Load
         public override void Load(EffectLoadArgs args) {
             int frame = args.Frame;
-            Scene.RenderingContext.MakeCurrent();
+            var scene = ClipData.Scene;
+            scene.RenderingContext.MakeCurrent();
             Graphics.LookAt(
-                Scene.Width, Scene.Height,
+                scene.Width, scene.Height,
                 X.GetValue(frame), Y.GetValue(frame), Z.GetValue(frame),
                 TargetX.GetValue(frame), TargetY.GetValue(frame), TargetZ.GetValue(frame),
                 ZNear.GetValue(frame), ZFar.GetValue(frame),

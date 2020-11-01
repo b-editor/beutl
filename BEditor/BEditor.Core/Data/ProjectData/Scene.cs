@@ -141,13 +141,11 @@ namespace BEditor.Core.Data.ProjectData {
         }
 
         #region コンストラクタ
-        public Scene() { }
-
-        public Scene(int width, int height) : this(width, height, new ObservableCollection<ClipData>()) {
+        public Scene(in int width, in int height) : this(width, height, new ObservableCollection<ClipData>()) {
 
         }
 
-        public Scene(int width, int height, ObservableCollection<ClipData> datas) {
+        public Scene(in int width, in int height, ObservableCollection<ClipData> datas) {
             Width = width;
             Height = height;
             Datas = datas;
@@ -161,7 +159,7 @@ namespace BEditor.Core.Data.ProjectData {
         /// </summary>
         /// <param name="frame">フレーム</param>
         /// <returns></returns>
-        public Image Rendering(int frame) {
+        public Image Rendering(in int frame) {
             FrameBuffer?.Dispose();
             FrameBuffer = new Image(Width, Height);
             var layer = GetLayer(frame);
@@ -256,11 +254,9 @@ namespace BEditor.Core.Data.ProjectData {
 
 
     [DataContract(Namespace = "")]
-    public class RootScene : Scene {
+    public sealed class RootScene : Scene {
         public override string SceneName { get => "root"; set { } }
 
-        public RootScene() { }
-
-        public RootScene(int width, int height) : base(width, height) { }
+        public RootScene(in int width, in int height) : base(width, height) { }
     }
 }

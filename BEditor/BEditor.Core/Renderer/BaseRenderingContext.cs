@@ -14,7 +14,7 @@ using OpenTK.Graphics.OpenGL;
 #if !OldOpenTK
 using OpenTK.Mathematics;
 #endif
-using Color4 = BEditor.Core.Media.Color4;
+using Color = BEditor.Core.Media.Color;
 using BEditor.Core.Data.PropertyData.Default;
 
 namespace BEditor.Core.Renderer {
@@ -38,7 +38,7 @@ namespace BEditor.Core.Renderer {
         protected int DepthTex;
         protected int FBO;
 
-        public BaseRenderingContext(int width, int height) {
+        public BaseRenderingContext(in int width, in int height) {
             Width = width;
             Height = height;
         }
@@ -66,7 +66,7 @@ namespace BEditor.Core.Renderer {
         /// <param name="tz">TargetZ</param>
         /// <param name="near">ZNear</param>
         /// <param name="far">ZFar</param>
-        public virtual void Clear(int width, int height, bool Perspective = false, float x = 0, float y = 0, float z = 1024, float tx = 0, float ty = 0, float tz = 0, float near = 0.1F, float far = 20000) {
+        public virtual void Clear(in int width, in int height, in bool Perspective = false, in float x = 0, in float y = 0, in float z = 1024, in float tx = 0, in float ty = 0, in float tz = 0, in float near = 0.1F, in float far = 20000) {
             MakeCurrent();
 
             Width = width;
@@ -147,7 +147,7 @@ namespace BEditor.Core.Renderer {
         }
 
 
-        internal void DrawImage(Image img, ClipData data, int frame) {
+        internal void DrawImage(Image img, ClipData data, in int frame) {
             if (img == null) return;
             ImageObject drawObject = (ImageObject)data.Effect[0];
 
@@ -171,13 +171,17 @@ namespace BEditor.Core.Renderer {
             float ny = drawObject.Angle.AngleY.GetValue(frame);
             float nz = drawObject.Angle.AngleZ.GetValue(frame);
 
-            Color4 ambient = drawObject.Material.Ambient.GetValue(frame);
-            Color4 diffuse = drawObject.Material.Diffuse.GetValue(frame);
-            Color4 specular = drawObject.Material.Specular.GetValue(frame);
+            Color ambient = drawObject.Material.Ambient.GetValue(frame);
+            Color diffuse = drawObject.Material.Diffuse.GetValue(frame);
+            Color specular = drawObject.Material.Specular.GetValue(frame);
             float shininess = drawObject.Material.Shininess.GetValue(frame);
-            Color4 color = drawObject.Blend.Color.GetValue(frame);
-            
-            color.A *= alpha;
+            Color color = drawObject.Blend.Color.GetValue(frame);
+
+            color = new Color(
+                color.ScR,
+                color.ScG,
+                color.ScB,
+                color.ScA * alpha);
 
             MakeCurrent();
             Graphics.Paint(coordinate, nx, ny, nz, center, () => Graphics.DrawImage(img, scalex, scaley, scalez, color, ambient, diffuse, specular, shininess), Blend.BlentFunc[drawObject.Blend.BlendType.Index]);

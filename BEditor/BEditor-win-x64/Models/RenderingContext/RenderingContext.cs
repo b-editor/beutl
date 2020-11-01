@@ -11,7 +11,7 @@ using OpenTK.Graphics;
 using OpenTK.Graphics.OpenGL;
 
 namespace BEditor.Models {
-    public class RenderingContext : BEditor.Core.Renderer.BaseRenderingContext {
+    public sealed class RenderingContext : BEditor.Core.Renderer.BaseRenderingContext {
         public override int Width { get => GLControl.Width; protected set => GLControl.Width = value; }
         public override int Height { get => GLControl.Height; protected set => GLControl.Height = value; }
 
@@ -24,7 +24,7 @@ namespace BEditor.Models {
         public override void MakeCurrent() => GLControl.MakeCurrent();
         public override void SwapBuffers() => GLControl.SwapBuffers();
 
-        public override void Clear(int width, int height, bool Perspective = false, float x = 0, float y = 0, float z = 1024, float tx = 0, float ty = 0, float tz = 0, float near = 0.1F, float far = 20000) {
+        public override void Clear(in int width, in int height, in bool Perspective = false, in float x = 0, in float y = 0,in float z = 1024, in float tx = 0, in float ty = 0, in float tz = 0, in float near = 0.1F, in float far = 20000) {
             Width = width;
             Height = height;
 

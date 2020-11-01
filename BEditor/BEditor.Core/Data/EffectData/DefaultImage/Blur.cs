@@ -1,19 +1,16 @@
 ﻿using System.Collections.Generic;
-using System.Collections.ObjectModel;
 using System.Runtime.Serialization;
 
-using BEditor.Core;
 using BEditor.Core.Data.ProjectData;
 using BEditor.Core.Data.PropertyData;
 using BEditor.Core.Media;
 
 namespace BEditor.Core.Data.EffectData {
-
     [DataContract(Namespace = "")]
-    public class Blur : ImageEffect {
+    public sealed class Blur : ImageEffect {
         static readonly EasePropertyMetadata SizeMetadata = new EasePropertyMetadata(Properties.Resources.Size, 70, float.NaN, 0);
         static readonly CheckPropertyMetadata AlphaBlurMetadata = new CheckPropertyMetadata(Properties.Resources.Diffusion, false);
-        static readonly SelectorPropertyMetadata ModeMetadata = new SelectorPropertyMetadata(Properties.Resources.BlurMode, 0, new string[3]{
+        static readonly SelectorPropertyMetadata ModeMetadata = new SelectorPropertyMetadata(Properties.Resources.BlurMode, new string[3]{
             Properties.Resources.Standard,
             Properties.Resources.Gauss,
             Properties.Resources.Median
@@ -52,24 +49,19 @@ namespace BEditor.Core.Data.EffectData {
             Mode
         };
 
-        public override void PropertyLoaded() {
-            base.PropertyLoaded();
-
-            Size.PropertyMetadata = SizeMetadata;
-            AlphaBlur.PropertyMetadata = AlphaBlurMetadata;
-            Mode.PropertyMetadata = ModeMetadata;
-        }
-
         #endregion
 
 
         [DataMember(Order = 0)]
+        [PropertyMetadata(nameof(SizeMetadata), typeof(Blur))]
         public EaseProperty Size { get; set; }
 
         [DataMember(Order = 1)]
+        [PropertyMetadata(nameof(AlphaBlurMetadata), typeof(Blur))]
         public CheckProperty AlphaBlur { get; set; }
 
         [DataMember(Order = 2)]
+        [PropertyMetadata(nameof(ModeMetadata), typeof(Blur))]
         public SelectorProperty Mode { get; set; }
     }
 }

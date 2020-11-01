@@ -1,8 +1,9 @@
 ﻿using System;
 using System.Reflection;
+using System.Threading.Tasks;
 
 namespace BEditor.Core.Data.PropertyData {
-    [AttributeUsage(AttributeTargets.Property | AttributeTargets.Field)]
+    [AttributeUsage(AttributeTargets.Property)]
     public class PropertyMetadataAttribute : Attribute {
         public PropertyElementMetadata PropertyMetadata { get; }
 

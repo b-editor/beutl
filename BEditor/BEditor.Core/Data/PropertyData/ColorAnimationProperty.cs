@@ -13,16 +13,16 @@ namespace BEditor.Core.Data.PropertyData {
     /// 
     /// </summary>
     [DataContract(Namespace = "")]
-    public class ColorAnimationProperty : PropertyElement, IKeyFrameProperty {
+    public sealed class ColorAnimationProperty : PropertyElement, IKeyFrameProperty {
 
         /// <summary>
         /// 
         /// </summary>
         /// <param name="metadata"></param>
         public ColorAnimationProperty(ColorAnimationPropertyMetadata metadata) {
-            Color4 color = Color4.FromRgba(metadata.Red, metadata.Green, metadata.Blue, metadata.Alpha);
+            Color color = new Color(metadata.Red, metadata.Green, metadata.Blue, metadata.Alpha);
 
-            Value = new ObservableCollection<Color4> { color, color };
+            Value = new ObservableCollection<Color> { color, color };
             Frame = new List<int>();
             EasingType = (EasingFunc)Activator.CreateInstance(metadata.DefaultEase.Type);
             PropertyMetadata = metadata;
@@ -56,7 +56,7 @@ namespace BEditor.Core.Data.PropertyData {
         /// 
         /// </summary>
         [DataMember]
-        public ObservableCollection<Color4> Value { get; set; }
+        public ObservableCollection<Color> Value { get; set; }
         /// <summary>
         /// 
         /// </summary>
@@ -90,7 +90,7 @@ namespace BEditor.Core.Data.PropertyData {
         /// 
         /// </summary>
         public EasingData EasingData { get => easingData; set => SetValue(value, ref easingData, nameof(EasingData)); }
-        internal int Length => ClipData.Length;
+        internal int Length => Parent.ClipData.Length;
 
 
         /// <summary>
@@ -98,7 +98,7 @@ namespace BEditor.Core.Data.PropertyData {
         /// </summary>
         /// <param name="frame">タイムライン基準のフレーム</param>
         /// <returns></returns>
-        public Color4 GetValue(int frame) {
+        public Color GetValue(int frame) {
 
             (int, int) GetFrame(int frame) {
                 if (Frame.Count == 0) {
@@ -123,7 +123,7 @@ namespace BEditor.Core.Data.PropertyData {
 
                 throw new Exception();
             }
-            (Color4, Color4) GetValues(int frame) {
+            (Color, Color) GetValues(int frame) {
                 if (Value.Count == 2) {
                     return (Value[0], Value[1]);
                 }
@@ -157,17 +157,17 @@ namespace BEditor.Core.Data.PropertyData {
 
 
 
-            byte red = (byte)EasingType.EaseFunc(now, end - start, stval.R, edval.R);
-            byte green = (byte)EasingType.EaseFunc(now, end - start, stval.G, edval.G);
-            byte blue = (byte)EasingType.EaseFunc(now, end - start, stval.B, edval.B);
-            byte alpha = (byte)EasingType.EaseFunc(now, end - start, stval.A, edval.A);
+            float red = EasingType.EaseFunc(now, end - start, stval.ScR, edval.ScR);
+            float green = EasingType.EaseFunc(now, end - start, stval.ScG, edval.ScG);
+            float blue = EasingType.EaseFunc(now, end - start, stval.ScB, edval.ScB);
+            float alpha = EasingType.EaseFunc(now, end - start, stval.ScA, edval.ScA);
 
-            return Color4.FromRgba(red, green, blue, alpha);
+            return new Color(red, green, blue, alpha);
         }
 
         #region キーフレーム操作
 
-        private int InsertKeyframe(int frame, Color4 value) {
+        private int InsertKeyframe(int frame, Color value) {
             Frame.Add(frame);
 
 
@@ -186,7 +186,7 @@ namespace BEditor.Core.Data.PropertyData {
             return stindex;
         }
 
-        private int RemoveKeyframe(int frame, out Color4 value) {
+        private int RemoveKeyframe(int frame, out Color value) {
             var index = Frame.IndexOf(frame) + 1;//値基準のindex
             value = Value[index];
 
@@ -204,7 +204,7 @@ namespace BEditor.Core.Data.PropertyData {
         /// <summary>
         /// 
         /// </summary>
-        public class ChangeColor : IUndoRedoCommand {
+        public sealed class ChangeColor : IUndoRedoCommand {
             private readonly ColorAnimationProperty Color;
             private readonly int index;
             private readonly byte r, g, b, a;
@@ -229,18 +229,18 @@ namespace BEditor.Core.Data.PropertyData {
 
 
             /// <inheritdoc/>
-            public void Do() => Color.Value[index] = Color4.FromRgba(r, g, b, a);
+            public void Do() => Color.Value[index] = new Color(r, g, b, a);
 
             /// <inheritdoc/>
             public void Redo() => Do();
 
             /// <inheritdoc/>
-            public void Undo() => Color.Value[index] = Color4.FromRgba(or, og, ob, oa);
+            public void Undo() => Color.Value[index] = new Color(or, og, ob, oa);
         }
         /// <summary>
         /// 
         /// </summary>
-        public class ChangeEase : IUndoRedoCommand {
+        public sealed class ChangeEase : IUndoRedoCommand {
             private readonly ColorAnimationProperty ColorProperty;
             private readonly EasingFunc EasingNumber;
             private readonly EasingFunc OldEasingNumber;
@@ -272,7 +272,7 @@ namespace BEditor.Core.Data.PropertyData {
         /// <summary>
         /// 
         /// </summary>
-        public class Add : IUndoRedoCommand {
+        public sealed class Add : IUndoRedoCommand {
             private readonly ColorAnimationProperty ColorProperty;
             private readonly int frame;
 
@@ -306,10 +306,10 @@ namespace BEditor.Core.Data.PropertyData {
         /// <summary>
         /// 
         /// </summary>
-        public class Remove : IUndoRedoCommand {
+        public sealed class Remove : IUndoRedoCommand {
             private readonly ColorAnimationProperty ColorProperty;
             private readonly int frame;
-            private Color4 value;
+            private Color value;
 
             /// <summary>
             /// 
@@ -341,7 +341,7 @@ namespace BEditor.Core.Data.PropertyData {
         /// <summary>
         /// 
         /// </summary>
-        public class Move : IUndoRedoCommand {
+        public sealed class Move : IUndoRedoCommand {
             private readonly ColorAnimationProperty ColorProperty;
             private readonly int fromIndex;
             private int toIndex;

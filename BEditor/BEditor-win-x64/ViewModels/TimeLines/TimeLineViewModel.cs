@@ -122,7 +122,7 @@ namespace BEditor.ViewModels.TimeLines {
 
                         SeekbarMargin.Value = new Thickness(ToPixel(Scene.PreviewFrame), 0, 0, 0);
 
-                        ResetScale?.Invoke(Scene.TimeLineZoom, Scene.TotalFrame, Component.Current.Project.FrameRate);
+                        ResetScale?.Invoke(Scene.TimeLineZoom, Scene.TotalFrame, Component.Current.Project.Framerate);
                     }
                 }
                 else if (e.PropertyName == nameof(Scene.PreviewFrame)) {
@@ -134,7 +134,7 @@ namespace BEditor.ViewModels.TimeLines {
                     TrackWidth.Value = ToPixel(Scene.TotalFrame);
 
                     //目盛り追加
-                    ResetScale?.Invoke(Scene.TimeLineZoom, Scene.TotalFrame, Component.Current.Project.FrameRate);
+                    ResetScale?.Invoke(Scene.TimeLineZoom, Scene.TotalFrame, Component.Current.Project.Framerate);
                 }
             };
 
@@ -313,7 +313,7 @@ namespace BEditor.ViewModels.TimeLines {
             TrackWidth.Value = ToPixel(Scene.TotalFrame);
 
             //目盛り追加
-            ResetScale?.Invoke(Scene.TimeLineZoom, Scene.TotalFrame, Component.Current.Project.FrameRate);
+            ResetScale?.Invoke(Scene.TimeLineZoom, Scene.TotalFrame, Component.Current.Project.Framerate);
 
             action?.Invoke(Scene.Datas);
 

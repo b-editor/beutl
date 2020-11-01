@@ -8,7 +8,7 @@ namespace BEditor.Core.Data.PropertyData {
     /// 
     /// </summary>
     [DataContract(Namespace = "")]
-    public class CheckProperty : PropertyElement, IEasingSetting {
+    public sealed class CheckProperty : PropertyElement, IEasingSetting {
         private bool isChecked;
 
         /// <summary>
@@ -29,7 +29,7 @@ namespace BEditor.Core.Data.PropertyData {
         /// <summary>
         /// 
         /// </summary>
-        public class ChangeChecked : IUndoRedoCommand {
+        public sealed class ChangeChecked : IUndoRedoCommand {
             private readonly CheckProperty CheckSetting;
             private readonly bool value;
 

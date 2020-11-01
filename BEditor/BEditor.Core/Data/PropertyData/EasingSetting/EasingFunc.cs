@@ -23,27 +23,29 @@ namespace BEditor.Core.Data.PropertyData.EasingSetting {
             get => parent;
             set {
                 parent = value;
-                foreach (var item in EasingSettings) {
-                    item.Parent = parent.Parent;
+                var tmp = EasingSettings;
+                var parent_ = parent.Parent;
+
+                for (int i = 0; i < tmp.Count; i++) {
+                    tmp[i].Parent = parent_;
                 }
             }
         }
 
-        public abstract float EaseFunc(int frame, int totalframe, float min, float max);
+        public abstract float EaseFunc(in int frame, in int totalframe, in float min, in float max);
 
         public virtual void PropertyLoaded() {
             var settings = EasingSettings;
 
-            Parallel.For(0, settings.Count, i => {
-                settings[i].PropertyLoaded();
-            });
+            void For1(int i) => settings[i].PropertyLoaded();
+            Parallel.For(0, settings.Count, For1);
 
             //フィールドがpublicのときだけなので注意
             var attributetype = typeof(PropertyMetadataAttribute);
             var type = GetType();
             var properties = type.GetProperties();
 
-            Parallel.For(0, properties.Length, i => {
+            void For2(int i) {
                 var property = properties[i];
 
                 //metadata属性の場合&プロパティがPropertyElement
@@ -52,7 +54,8 @@ namespace BEditor.Core.Data.PropertyData.EasingSetting {
 
                     propertyElement.PropertyMetadata = metadata.PropertyMetadata;
                 }
-            });
+            }
+            Parallel.For(0, properties.Length, For2);
         }
 
         /// <summary>

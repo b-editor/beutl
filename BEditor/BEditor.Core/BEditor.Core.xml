@@ -89,11 +89,6 @@
             クリップのデータ
             </summary>
         </member>
-        <member name="P:BEditor.Core.Data.EffectData.EffectElement.Scene">
-            <summary>
-            
-            </summary>
-        </member>
         <member name="M:BEditor.Core.Data.EffectData.EffectElement.PropertyLoaded">
             <summary>
             
@@ -231,12 +226,7 @@
             エフェクト描画時に呼び出されます
             </summary>
         </member>
-        <member name="T:BEditor.Core.Data.ObjectData.ObjectElement">
-            <summary>
-            オブジェクトのベースクラス
-            </summary>
-        </member>
-        <member name="M:BEditor.Core.Data.ObjectData.ClipData.#ctor(System.UInt32,System.Collections.ObjectModel.ObservableCollection{BEditor.Core.Data.EffectData.EffectElement},System.Int32,System.Int32,System.Type,System.Int32)">
+        <member name="M:BEditor.Core.Data.ObjectData.ClipData.#ctor(System.UInt32@,System.Collections.ObjectModel.ObservableCollection{BEditor.Core.Data.EffectData.EffectElement},System.Int32@,System.Int32@,System.Type,System.Int32@)">
             <summary>
             ClipDataのコンストラクタ
             </summary>
@@ -388,6 +378,11 @@
             <param name="file">ファイルの名前</param>
             <returns>System.Type</returns>
         </member>
+        <member name="T:BEditor.Core.Data.ObjectData.ObjectElement">
+            <summary>
+            オブジェクトのベースクラス
+            </summary>
+        </member>
         <member name="M:BEditor.Core.Data.ProjectData.Project.Dispose">
             <summary>
             OpenGLなどのFBOを廃棄
@@ -439,7 +434,7 @@
             現在開かれているプロジェクトを閉じます
             </summary>
         </member>
-        <member name="M:BEditor.Core.Data.ProjectData.Project.Create(System.Int32,System.Int32,System.Int32,System.String)">
+        <member name="M:BEditor.Core.Data.ProjectData.Project.Create(System.Int32@,System.Int32@,System.Int32@,System.String)">
             <summary>
             プロジェクトを作成します
             </summary>
@@ -448,7 +443,7 @@
             <param name="framerate">フレームレート</param>
             <param name="path">保存するパス</param>
         </member>
-        <member name="M:BEditor.Core.Data.ProjectData.Scene.Rendering(System.Int32)">
+        <member name="M:BEditor.Core.Data.ProjectData.Scene.Rendering(System.Int32@)">
             <summary>
             シーンをレンダリング
             </summary>
@@ -876,7 +871,7 @@
             </summary>
             <param name="text"></param>
         </member>
-        <member name="M:BEditor.Core.Data.PropertyData.DocumentPropertyMetadata.#ctor(System.String,System.Nullable{System.Int32})">
+        <member name="M:BEditor.Core.Data.PropertyData.DocumentPropertyMetadata.#ctor(System.String,System.Nullable{System.Int32}@)">
             <summary>
             
             </summary>
@@ -942,7 +937,7 @@
             <param name="frame">タイムライン基準のフレーム</param>
             <returns></returns>
         </member>
-        <member name="M:BEditor.Core.Data.PropertyData.EaseProperty.InRange(System.Single)">
+        <member name="M:BEditor.Core.Data.PropertyData.EaseProperty.InRange(System.Single@)">
             <summary>
             
             </summary>
@@ -954,7 +949,7 @@
             
             </summary>
         </member>
-        <member name="M:BEditor.Core.Data.PropertyData.EaseProperty.ChangeValue.#ctor(BEditor.Core.Data.PropertyData.EaseProperty,System.Int32,System.Single)">
+        <member name="M:BEditor.Core.Data.PropertyData.EaseProperty.ChangeValue.#ctor(BEditor.Core.Data.PropertyData.EaseProperty,System.Int32@,System.Single@)">
             <summary>
             
             </summary>
@@ -997,7 +992,7 @@
             
             </summary>
         </member>
-        <member name="M:BEditor.Core.Data.PropertyData.EaseProperty.Add.#ctor(BEditor.Core.Data.PropertyData.EaseProperty,System.Int32)">
+        <member name="M:BEditor.Core.Data.PropertyData.EaseProperty.Add.#ctor(BEditor.Core.Data.PropertyData.EaseProperty,System.Int32@)">
             <summary>
             
             </summary>
@@ -1018,7 +1013,7 @@
             
             </summary>
         </member>
-        <member name="M:BEditor.Core.Data.PropertyData.EaseProperty.Remove.#ctor(BEditor.Core.Data.PropertyData.EaseProperty,System.Int32)">
+        <member name="M:BEditor.Core.Data.PropertyData.EaseProperty.Remove.#ctor(BEditor.Core.Data.PropertyData.EaseProperty,System.Int32@)">
             <summary>
             
             </summary>
@@ -1039,7 +1034,7 @@
             
             </summary>
         </member>
-        <member name="M:BEditor.Core.Data.PropertyData.EaseProperty.Move.#ctor(BEditor.Core.Data.PropertyData.EaseProperty,System.Int32,System.Int32)">
+        <member name="M:BEditor.Core.Data.PropertyData.EaseProperty.Move.#ctor(BEditor.Core.Data.PropertyData.EaseProperty,System.Int32@,System.Int32@)">
             <summary>
             
             </summary>
@@ -1061,7 +1056,7 @@
             
             </summary>
         </member>
-        <member name="M:BEditor.Core.Data.PropertyData.EasePropertyMetadata.#ctor(System.String,System.Single,System.Single,System.Single,System.Boolean)">
+        <member name="M:BEditor.Core.Data.PropertyData.EasePropertyMetadata.#ctor(System.String,System.Single@,System.Single@,System.Single@,System.Boolean@)">
             <summary>
             
             </summary>
@@ -1071,7 +1066,7 @@
             <param name="min"></param>
             <param name="useoptional"></param>
         </member>
-        <member name="M:BEditor.Core.Data.PropertyData.EasePropertyMetadata.#ctor(System.String,System.Single,BEditor.Core.Data.PropertyData.EasingSetting.EasingData,System.Single,System.Single,System.Boolean)">
+        <member name="M:BEditor.Core.Data.PropertyData.EasePropertyMetadata.#ctor(System.String,System.Single@,BEditor.Core.Data.PropertyData.EasingSetting.EasingData,System.Single@,System.Single@,System.Boolean)">
             <summary>
             
             </summary>
@@ -1393,7 +1388,7 @@
             
             </summary>
         </member>
-        <member name="M:BEditor.Core.Data.PropertyData.SelectorProperty.ChangeSelect.#ctor(BEditor.Core.Data.PropertyData.SelectorProperty,System.Int32)">
+        <member name="M:BEditor.Core.Data.PropertyData.SelectorProperty.ChangeSelect.#ctor(BEditor.Core.Data.PropertyData.SelectorProperty,System.Int32@)">
             <summary>
             
             </summary>
@@ -1414,15 +1409,16 @@
             
             </summary>
         </member>
-        <member name="M:BEditor.Core.Data.PropertyData.SelectorPropertyMetadata.#ctor(System.String,System.Collections.IList,System.String)">
+        <member name="M:BEditor.Core.Data.PropertyData.SelectorPropertyMetadata.#ctor(System.String,System.Collections.IList,System.Int32@,System.String)">
             <summary>
             
             </summary>
             <param name="name"></param>
             <param name="itemsource"></param>
+            <param name="index"></param>
             <param name="memberpath"></param>
         </member>
-        <member name="M:BEditor.Core.Data.PropertyData.SelectorPropertyMetadata.#ctor(System.String,System.Int32,System.Collections.IList,System.String)">
+        <member name="M:BEditor.Core.Data.PropertyData.SelectorPropertyMetadata.#ctor(System.String,System.Int32@,System.Collections.IList,System.String)">
             <summary>
             
             </summary>
@@ -1557,9 +1553,6 @@
             
             </summary>
         </member>
-        <member name="M:BEditor.Core.Media.Color.Equals(System.Object)">
-            <inheritdoc/>
-        </member>
         <member name="M:BEditor.Core.Media.Color.Equals(BEditor.Core.Media.Color)">
             <inheritdoc/>
         </member>
@@ -1593,13 +1586,7 @@
             </summary>
             <param name="c"></param>
         </member>
-        <member name="M:BEditor.Core.Media.Color.op_Implicit(BEditor.Core.Media.Color)~BEditor.Core.Media.Color4">
-            <summary>
-            
-            </summary>
-            <param name="c"></param>
-        </member>
-        <member name="M:BEditor.Core.Media.Color.op_Implicit(BEditor.Core.Media.Color4)~BEditor.Core.Media.Color">
+        <member name="M:BEditor.Core.Media.Color.op_Implicit(OpenTK.Graphics.Color4)~BEditor.Core.Media.Color">
             <summary>
             
             </summary>
@@ -1621,72 +1608,12 @@
             <param name="right"></param>
             <returns></returns>
         </member>
-        <member name="T:BEditor.Core.Media.Color4">
-            <summary>
-            
-            </summary>
-        </member>
-        <member name="M:BEditor.Core.Media.Color4.Equals(BEditor.Core.Media.Color4)">
-            <inheritdoc/>
-        </member>
-        <member name="M:BEditor.Core.Media.Color4.GetHashCode">
-            <inheritdoc/>
-        </member>
-        <member name="M:BEditor.Core.Media.Color4.ToString">
-            <inheritdoc/>
-        </member>
-        <member name="M:BEditor.Core.Media.Color4.op_Implicit(BEditor.Core.Media.Color4)~System.Byte[]">
-            <summary>
-            
-            </summary>
-            <param name="c"></param>
-        </member>
-        <member name="M:BEditor.Core.Media.Color4.op_Implicit(BEditor.Core.Media.Color4)~System.Single[]">
-            <summary>
-            
-            </summary>
-            <param name="c"></param>
-        </member>
-        <member name="M:BEditor.Core.Media.Color4.op_Implicit(BEditor.Core.Media.Color4)~System.Drawing.Color">
-            <summary>
-            
-            </summary>
-            <param name="c"></param>
-        </member>
-        <member name="M:BEditor.Core.Media.Color4.op_Implicit(BEditor.Core.Media.Color4)~OpenTK.Graphics.Color4">
-            <summary>
-            
-            </summary>
-            <param name="c"></param>
-        </member>
-        <member name="M:BEditor.Core.Media.Color4.op_Implicit(OpenTK.Graphics.Color4)~BEditor.Core.Media.Color4">
-            <summary>
-            
-            </summary>
-            <param name="c"></param>
-        </member>
-        <member name="M:BEditor.Core.Media.Color4.op_Equality(BEditor.Core.Media.Color4,BEditor.Core.Media.Color4)">
-            <summary>
-            
-            </summary>
-            <param name="left"></param>
-            <param name="right"></param>
-            <returns></returns>
-        </member>
-        <member name="M:BEditor.Core.Media.Color4.op_Inequality(BEditor.Core.Media.Color4,BEditor.Core.Media.Color4)">
-            <summary>
-            
-            </summary>
-            <param name="left"></param>
-            <param name="right"></param>
-            <returns></returns>
-        </member>
         <member name="T:BEditor.Core.Media.Image">
             <summary>
             BGRA
             </summary>
         </member>
-        <member name="M:BEditor.Core.Media.Image.#ctor(System.Int32,System.Int32)">
+        <member name="M:BEditor.Core.Media.Image.#ctor(System.Int32@,System.Int32@)">
             <summary>
             
             </summary>
@@ -1694,7 +1621,7 @@
             <param name="height"></param>
             <exception cref="T:BEditor.Core.Exceptions.NativeException"/>
         </member>
-        <member name="M:BEditor.Core.Media.Image.#ctor(System.Int32,System.Int32,BEditor.Core.Media.ImageType)">
+        <member name="M:BEditor.Core.Media.Image.#ctor(System.Int32@,System.Int32@,BEditor.Core.Media.ImageType@)">
             <summary>
             
             </summary>
@@ -1703,7 +1630,7 @@
             <param name="type"></param>
             <exception cref="T:BEditor.Core.Exceptions.NativeException"/>
         </member>
-        <member name="M:BEditor.Core.Media.Image.#ctor(System.Int32,System.Int32,System.IntPtr,BEditor.Core.Media.ImageType)">
+        <member name="M:BEditor.Core.Media.Image.#ctor(System.Int32@,System.Int32@,System.IntPtr@,BEditor.Core.Media.ImageType@)">
             <summary>
             コピーしない
             </summary>
@@ -1714,7 +1641,7 @@
             <exception cref="T:BEditor.Core.Exceptions.IntPtrZeroException"/>
             <exception cref="T:BEditor.Core.Exceptions.NativeException"/>
         </member>
-        <member name="M:BEditor.Core.Media.Image.#ctor(System.IntPtr)">
+        <member name="M:BEditor.Core.Media.Image.#ctor(System.IntPtr@)">
             <summary>
             コピーしない
             </summary>
@@ -1740,7 +1667,7 @@
             <exception cref="T:System.ArgumentNullException"/>
             <exception cref="T:BEditor.Core.Exceptions.NativeException"/>
         </member>
-        <member name="M:BEditor.Core.Media.Image.#ctor(System.IO.Stream,BEditor.Core.Media.ImageReadMode)">
+        <member name="M:BEditor.Core.Media.Image.#ctor(System.IO.Stream,BEditor.Core.Media.ImageReadMode@)">
             <summary>
             
             </summary>
@@ -1750,7 +1677,7 @@
             <exception cref="T:System.ArgumentException"/>
             <exception cref="T:BEditor.Core.Exceptions.NativeException"/>
         </member>
-        <member name="M:BEditor.Core.Media.Image.#ctor(System.Byte[],BEditor.Core.Media.ImageReadMode)">
+        <member name="M:BEditor.Core.Media.Image.#ctor(System.Byte[],BEditor.Core.Media.ImageReadMode@)">
             <summary>
             
             </summary>
@@ -1908,7 +1835,7 @@
             <exception cref="T:BEditor.Core.Exceptions.NativeException"/>
             <exception cref="T:System.ArgumentNullException"/>
         </member>
-        <member name="M:BEditor.Core.Media.Image.SubMatrix(System.Int32,System.Int32,System.Int32,System.Int32)">
+        <member name="M:BEditor.Core.Media.Image.SubMatrix(System.Int32@,System.Int32@,System.Int32@,System.Int32@)">
             <summary>
             
             </summary>
@@ -1961,7 +1888,7 @@
             <exception cref="T:System.ObjectDisposedException"/>
             <exception cref="T:BEditor.Core.Exceptions.NativeException"/>
         </member>
-        <member name="M:BEditor.Core.Media.Image.Ellipse(System.Int32,System.Int32,System.Int32,BEditor.Core.Media.Color)">
+        <member name="M:BEditor.Core.Media.Image.Ellipse(System.Int32@,System.Int32@,System.Int32@,BEditor.Core.Media.Color)">
             <summary>
             
             </summary>
@@ -1972,7 +1899,7 @@
             <returns></returns>
             <exception cref="T:BEditor.Core.Exceptions.NativeException"/>
         </member>
-        <member name="M:BEditor.Core.Media.Image.Rectangle(System.Int32,System.Int32,System.Int32,BEditor.Core.Media.Color)">
+        <member name="M:BEditor.Core.Media.Image.Rectangle(System.Int32@,System.Int32@,System.Int32@,BEditor.Core.Media.Color)">
             <summary>
             
             </summary>
@@ -1982,7 +1909,7 @@
             <param name="color"></param>
             <returns></returns>
         </member>
-        <member name="M:BEditor.Core.Media.Image.Text(System.Int32,BEditor.Core.Media.Color,System.String,BEditor.Core.Media.Font,System.String,System.Boolean)">
+        <member name="M:BEditor.Core.Media.Image.Text(System.Int32@,BEditor.Core.Media.Color,System.String,BEditor.Core.Media.Font,System.String,System.Boolean@)">
             <summary>
             
             </summary>
@@ -1995,7 +1922,7 @@
             <returns></returns>
             <exception cref="T:System.NotImplementedException"/>
         </member>
-        <member name="M:BEditor.Core.Media.Image.Flip(BEditor.Core.Media.FlipMode)">
+        <member name="M:BEditor.Core.Media.Image.Flip(BEditor.Core.Media.FlipMode@)">
             <summary>
             
             </summary>
@@ -2003,7 +1930,7 @@
             <exception cref="T:System.ObjectDisposedException"/>
             <exception cref="T:BEditor.Core.Exceptions.NativeException"/>
         </member>
-        <member name="M:BEditor.Core.Media.Image.AreaExpansion(System.Int32,System.Int32,System.Int32,System.Int32)">
+        <member name="M:BEditor.Core.Media.Image.AreaExpansion(System.Int32@,System.Int32@,System.Int32@,System.Int32@)">
             <summary>
             
             </summary>
@@ -2014,7 +1941,7 @@
             <exception cref="T:System.ObjectDisposedException"/>
             <exception cref="T:BEditor.Core.Exceptions.NativeException"/>
         </member>
-        <member name="M:BEditor.Core.Media.Image.AreaExpansion(System.Int32,System.Int32)">
+        <member name="M:BEditor.Core.Media.Image.AreaExpansion(System.Int32@,System.Int32@)">
             <summary>
             
             </summary>
@@ -2023,7 +1950,7 @@
             <exception cref="T:System.ObjectDisposedException"/>
             <exception cref="T:BEditor.Core.Exceptions.NativeException"/>
         </member>
-        <member name="M:BEditor.Core.Media.Image.Blur(System.Int32,System.Boolean)">
+        <member name="M:BEditor.Core.Media.Image.Blur(System.Int32@,System.Boolean@)">
             <summary>
             
             </summary>
@@ -2033,7 +1960,7 @@
             <exception cref="T:System.ObjectDisposedException"/>
             <exception cref="T:BEditor.Core.Exceptions.NativeException"/>
         </member>
-        <member name="M:BEditor.Core.Media.Image.GaussianBlur(System.Int32,System.Boolean)">
+        <member name="M:BEditor.Core.Media.Image.GaussianBlur(System.Int32@,System.Boolean@)">
             <summary>
             
             </summary>
@@ -2043,7 +1970,7 @@
             <exception cref="T:System.ObjectDisposedException"/>
             <exception cref="T:BEditor.Core.Exceptions.NativeException"/>
         </member>
-        <member name="M:BEditor.Core.Media.Image.MedianBlur(System.Int32,System.Boolean)">
+        <member name="M:BEditor.Core.Media.Image.MedianBlur(System.Int32@,System.Boolean@)">
             <summary>
             
             </summary>
@@ -2053,7 +1980,7 @@
             <exception cref="T:System.ObjectDisposedException"/>
             <exception cref="T:BEditor.Core.Exceptions.NativeException"/>
         </member>
-        <member name="M:BEditor.Core.Media.Image.Border(System.Int32,BEditor.Core.Media.Color)">
+        <member name="M:BEditor.Core.Media.Image.Border(System.Int32@,BEditor.Core.Media.Color)">
             <summary>
             
             </summary>
@@ -2062,13 +1989,13 @@
             <exception cref="T:System.ArgumentException"/>
             <exception cref="T:System.ObjectDisposedException"/>
         </member>
-        <member name="M:BEditor.Core.Media.Image.SetColor(BEditor.Core.Media.Color4)">
+        <member name="M:BEditor.Core.Media.Image.SetColor(BEditor.Core.Media.Color)">
             <summary>
             
             </summary>
             <param name="color"></param>
         </member>
-        <member name="M:BEditor.Core.Media.Image.Shadow(System.Single,System.Single,System.Int32,System.Single,BEditor.Core.Media.Color)">
+        <member name="M:BEditor.Core.Media.Image.Shadow(System.Single@,System.Single@,System.Int32@,System.Single@,BEditor.Core.Media.Color)">
             <summary>
             
             </summary>
@@ -2080,7 +2007,7 @@
             <exception cref="T:System.ArgumentException"/>
             <exception cref="T:System.ObjectDisposedException"/>
         </member>
-        <member name="M:BEditor.Core.Media.Image.Dilate(System.Int32)">
+        <member name="M:BEditor.Core.Media.Image.Dilate(System.Int32@)">
             <summary>
             
             </summary>
@@ -2089,7 +2016,7 @@
             <exception cref="T:System.ObjectDisposedException"/>
             <exception cref="T:BEditor.Core.Exceptions.NativeException"/>
         </member>
-        <member name="M:BEditor.Core.Media.Image.Erode(System.Int32)">
+        <member name="M:BEditor.Core.Media.Image.Erode(System.Int32@)">
             <summary>
             
             </summary>
@@ -2098,7 +2025,7 @@
             <exception cref="T:System.ObjectDisposedException"/>
             <exception cref="T:BEditor.Core.Exceptions.NativeException"/>
         </member>
-        <member name="M:BEditor.Core.Media.Image.Clip(System.Int32,System.Int32,System.Int32,System.Int32)">
+        <member name="M:BEditor.Core.Media.Image.Clip(System.Int32@,System.Int32@,System.Int32@,System.Int32@)">
             <summary>
             
             </summary>
@@ -2487,7 +2414,7 @@
             
             </summary>
         </member>
-        <member name="M:BEditor.Core.Media.Range.#ctor(System.Int32,System.Int32)">
+        <member name="M:BEditor.Core.Media.Range.#ctor(System.Int32@,System.Int32@)">
             <summary>
             
             </summary>
@@ -2538,7 +2465,7 @@
             
             </summary>
         </member>
-        <member name="M:BEditor.Core.Media.Rectangle.#ctor(System.Int32,System.Int32,System.Int32,System.Int32)">
+        <member name="M:BEditor.Core.Media.Rectangle.#ctor(System.Int32@,System.Int32@,System.Int32@,System.Int32@)">
             <summary>
             コンストラクタ
             </summary>
@@ -2614,7 +2541,7 @@
             Rectangleのサイズ
             </summary>
         </member>
-        <member name="M:BEditor.Core.Media.Rectangle.FromLTRB(System.Int32,System.Int32,System.Int32,System.Int32)">
+        <member name="M:BEditor.Core.Media.Rectangle.FromLTRB(System.Int32@,System.Int32@,System.Int32@,System.Int32@)">
             <summary>
             指定した辺の位置を持つRectangleを作成します。
             </summary>
@@ -2624,7 +2551,7 @@
             <param name="bottom">右下のy座標</param>
             <returns>作られたRectangle</returns>
         </member>
-        <member name="M:BEditor.Core.Media.Rectangle.Inflate(BEditor.Core.Media.Rectangle,System.Int32,System.Int32)">
+        <member name="M:BEditor.Core.Media.Rectangle.Inflate(BEditor.Core.Media.Rectangle,System.Int32@,System.Int32@)">
             <summary>
             指定の量だけ膨張します
             </summary>
@@ -2642,7 +2569,7 @@
             2つのRectangleの和集合を表す矩形を取得します
             </summary>
         </member>
-        <member name="M:BEditor.Core.Media.Rectangle.Inflate(System.Int32,System.Int32)">
+        <member name="M:BEditor.Core.Media.Rectangle.Inflate(System.Int32@,System.Int32@)">
             <summary>
             指定の量だけ膨張します
             </summary>
@@ -2670,7 +2597,7 @@
             2つのRectangleの和集合を表す矩形を取得します
             </summary>
         </member>
-        <member name="M:BEditor.Core.Media.Rectangle.Contains(System.Int32,System.Int32)">
+        <member name="M:BEditor.Core.Media.Rectangle.Contains(System.Int32@,System.Int32@)">
             <summary>
             指定したPointがこのRectangleに含まれているかどうかを判断する
             </summary>
@@ -2764,7 +2691,7 @@
             
             </summary>
         </member>
-        <member name="M:BEditor.Core.Media.Size.#ctor(System.Int32,System.Int32)">
+        <member name="M:BEditor.Core.Media.Size.#ctor(System.Int32@,System.Int32@)">
             <summary>
             
             </summary>
@@ -2815,7 +2742,7 @@
             <param name="size2"></param>
             <returns></returns>
         </member>
-        <member name="M:BEditor.Core.Media.Size.op_Multiply(BEditor.Core.Media.Size,System.Int32)">
+        <member name="M:BEditor.Core.Media.Size.op_Multiply(BEditor.Core.Media.Size,System.Int32@)">
             <summary>
             
             </summary>
@@ -2823,7 +2750,7 @@
             <param name="right"></param>
             <returns></returns>
         </member>
-        <member name="M:BEditor.Core.Media.Size.op_Division(BEditor.Core.Media.Size,System.Int32)">
+        <member name="M:BEditor.Core.Media.Size.op_Division(BEditor.Core.Media.Size,System.Int32@)">
             <summary>
             
             </summary>
@@ -3824,7 +3751,7 @@
               Zoom に類似しているローカライズされた文字列を検索します。
             </summary>
         </member>
-        <member name="M:BEditor.Core.Renderer.BaseRenderingContext.Clear(System.Int32,System.Int32,System.Boolean,System.Single,System.Single,System.Single,System.Single,System.Single,System.Single,System.Single,System.Single)">
+        <member name="M:BEditor.Core.Renderer.BaseRenderingContext.Clear(System.Int32@,System.Int32@,System.Boolean@,System.Single@,System.Single@,System.Single@,System.Single@,System.Single@,System.Single@,System.Single@,System.Single@)">
             <summary>
             カメラを設定
             </summary>

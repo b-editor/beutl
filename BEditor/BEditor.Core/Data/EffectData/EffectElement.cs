@@ -90,13 +90,6 @@ namespace BEditor.Core.Data.EffectData {
         }
         #endregion
 
-        #region Scene
-        /// <summary>
-        /// 
-        /// </summary>
-        public Scene Scene => ClipData.Scene;
-        #endregion
-
         /// <summary>
         /// 
         /// </summary>
@@ -110,7 +103,7 @@ namespace BEditor.Core.Data.EffectData {
             var type = GetType();
             var properties = type.GetProperties();
 
-            Parallel.For(0, properties.Length, i => {
+            void For1(int i) {
                 var property = properties[i];
 
                 //metadata属性の場合&プロパティがPropertyElement
@@ -119,7 +112,8 @@ namespace BEditor.Core.Data.EffectData {
 
                     propertyElement.PropertyMetadata = metadata.PropertyMetadata;
                 }
-            });
+            }
+            Parallel.For(0, properties.Length, For1);
         }
 
 

@@ -40,7 +40,6 @@
 
   <ItemGroup>
     <Folder Include="Data\EffectData\" />
-    <Folder Include="Data\ObjectData\" />
   </ItemGroup>
 
   <ItemGroup>

@@ -6,9 +6,9 @@ using BEditor.Core.Data.PropertyData;
 using BEditor.Core.Media;
 
 namespace BEditor.Core.Data.ObjectData {
-    public partial class DefaultData {
+    public static partial class DefaultData {
         [DataContract(Namespace = "")]
-        public class Scene : DefaultImageObject {
+        public sealed class Scene : DefaultImageObject {
             public static readonly SelectorPropertyMetadata SelectSceneMetadata = new ScenesSelectorMetadata();
 
             #region DefaultImageObjectメンバー
@@ -19,7 +19,7 @@ namespace BEditor.Core.Data.ObjectData {
             };
 
             public override Media.Image Load(EffectLoadArgs args) {
-                var frame = args.Frame - ClipData.Start;//相対的なフレーム
+                var frame = args.Frame - Parent.ClipData.Start;//相対的なフレーム
                 ProjectData.Scene scene = SelectScene.SelectItem as ProjectData.Scene;
 
                 return scene.Rendering(frame + (int)Start.GetValue(args.Frame));

@@ -5,7 +5,7 @@ using BEditor.Core.Data.PropertyData;
 
 namespace BEditor.Core.Data.PropertyData.Default {
     [DataContract(Namespace = "")]
-    public class Zoom : ExpandGroup {
+    public sealed class Zoom : ExpandGroup {
         public static readonly EasePropertyMetadata ZoomMetadata = new EasePropertyMetadata(Properties.Resources.Zoom, 100);
         public static readonly EasePropertyMetadata ScaleXMetadata = new EasePropertyMetadata(Properties.Resources.X, 100);
         public static readonly EasePropertyMetadata ScaleYMetadata = new EasePropertyMetadata(Properties.Resources.Y, 100);

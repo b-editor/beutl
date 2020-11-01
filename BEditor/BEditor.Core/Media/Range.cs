@@ -23,7 +23,7 @@ namespace BEditor.Core.Media {
         /// </summary>
         /// <param name="start"></param>
         /// <param name="end"></param>
-        public Range(int start, int end) {
+        public Range(in int start, in int end) {
             Start = start;
             End = end;
         }

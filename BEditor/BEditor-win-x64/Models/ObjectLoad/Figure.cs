@@ -13,7 +13,7 @@ using BEditor.Models.Extension;
 
 namespace BEditor.Models {
     internal partial class ObjectLoad {
-        internal static BEditor.Core.Media.Image Ellipse(int width, int height, int line, Color3 color) {
+        internal static BEditor.Core.Media.Image Ellipse(int width, int height, int line, Core.Media.Color color) {
             BEditor.Core.Media.Image img = null;
 
             if ((line != 0) && (width != 0) && (height != 0)) {
@@ -46,7 +46,7 @@ namespace BEditor.Models {
             }
             return img;
         }
-        internal static BEditor.Core.Media.Image Rectangle(int width, int height, int line, Color3 color) {
+        internal static BEditor.Core.Media.Image Rectangle(int width, int height, int line, Core.Media.Color color) {
             BEditor.Core.Media.Image img = null;
 
             if ((line != 0) && (width != 0) && (height != 0)) {

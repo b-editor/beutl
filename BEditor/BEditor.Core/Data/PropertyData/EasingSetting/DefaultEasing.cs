@@ -69,8 +69,8 @@ namespace BEditor.Core.Data.PropertyData.EasingSetting {
     /// </list>
     /// </summary>
     [DataContract(Namespace = "")]
-    public class DefaultEasing : EasingFunc {
-        public static readonly SelectorPropertyMetadata propertyMetadata = new SelectorPropertyMetadata("EasingType", 0, new string[32] {
+    public sealed class DefaultEasing : EasingFunc {
+        public static readonly SelectorPropertyMetadata propertyMetadata = new SelectorPropertyMetadata("EasingType", new string[32] {
             "None",
             "Linear",
             "SineIn",    "SineOut",    "SineInOut",
@@ -91,20 +91,22 @@ namespace BEditor.Core.Data.PropertyData.EasingSetting {
             EasingType
         };
 
-        public override float EaseFunc(int frame, int totalframe, float min, float max) => currentfunc?.Invoke(frame, totalframe, min, max) ?? 0;
+        public override float EaseFunc(in int frame, in int totalframe, in float min, in float max) => currentfunc?.Invoke(frame, totalframe, min, max) ?? 0;
 
         private Func<float, float, float, float, float> currentfunc;
-
+        
         public override void PropertyLoaded() {
             base.PropertyLoaded();
 
             currentfunc = DefaultEase[EasingType.Index];
 
-            EasingType.PropertyChanged += (s, e) => {
-                if (e.PropertyName == nameof(SelectorProperty.Index)) {
-                    currentfunc = DefaultEase[EasingType.Index];
-                }
-            };
+            EasingType.PropertyChanged += EasingType_PropertyChanged;
+        }
+
+        private void EasingType_PropertyChanged(object sender, System.ComponentModel.PropertyChangedEventArgs e) {
+            if (e.PropertyName == nameof(SelectorProperty.Index)) {
+                currentfunc = DefaultEase[EasingType.Index];
+            }
         }
 
         #endregion
@@ -116,7 +118,8 @@ namespace BEditor.Core.Data.PropertyData.EasingSetting {
         #endregion
 
 
-        [DataMember(), PropertyMetadata("propertyMetadata", typeof(DefaultEasing))]
+        [DataMember()]
+        [PropertyMetadata("propertyMetadata", typeof(DefaultEasing))]
         public SelectorProperty EasingType { get; set; }
 
 
@@ -147,103 +150,293 @@ namespace BEditor.Core.Data.PropertyData.EasingSetting {
         };
 
         class Easing {
-            private const string dll = "BEditorExtern";
+            public static float QuadIn(float t, float totaltime, float min, float max) {
+                max -= min;
+                t /= totaltime;
+                return max * t * t + min;
+            }
 
-            [DllImport(dll)]
-            public static extern float QuadIn(float t, float totaltime, float min, float max);
+            public static float QuadOut(float t, float totaltime, float min, float max) {
+                max -= min;
+                t /= totaltime;
+                return -max * t * (t - 2) + min;
+            }
 
-            [DllImport(dll)]
-            public static extern float QuadOut(float t, float totaltime, float min, float max);
+            public static float QuadInOut(float t, float totaltime, float min, float max) {
+                max -= min;
+                t /= totaltime / 2;
+                if (t < 1) return max / 2 * t * t + min;
 
-            [DllImport(dll)]
-            public static extern float QuadInOut(float t, float totaltime, float min, float max);
+                t -= 1;
+                return -max / 2 * (t * (t - 2) - 1) + min;
+            }
 
-            [DllImport(dll)]
-            public static extern float CubicIn(float t, float totaltime, float min, float max);
+            public static float CubicIn(float t, float totaltime, float min, float max) {
+                max -= min;
+                t /= totaltime;
+                return max * t * t * t + min;
+            }
 
-            [DllImport(dll)]
-            public static extern float CubicOut(float t, float totaltime, float min, float max);
+            public static float CubicOut(float t, float totaltime, float min, float max) {
+                max -= min;
+                t = t / totaltime - 1;
+                return max * (t * t * t + 1) + min;
+            }
 
-            [DllImport(dll)]
-            public static extern float CubicInOut(float t, float totaltime, float min, float max);
+            public static float CubicInOut(float t, float totaltime, float min, float max) {
+                max -= min;
+                t /= totaltime / 2;
+                if (t < 1) return max / 2 * t * t * t + min;
 
-            [DllImport(dll)]
-            public static extern float QuartIn(float t, float totaltime, float min, float max);
+                t -= 2;
+                return max / 2 * (t * t * t + 2) + min;
+            }
 
-            [DllImport(dll)] 
-            public static extern float QuartOut(float t, float totaltime, float min, float max);
+            public static float QuartIn(float t, float totaltime, float min, float max) {
+                max -= min;
+                t /= totaltime;
+                return max * t * t * t * t + min;
+            }
 
-            [DllImport(dll)]
-            public static extern float QuartInOut(float t, float totaltime, float min, float max);
+            public static float QuartOut(float t, float totaltime, float min, float max) {
+                max -= min;
+                t = t / totaltime - 1;
+                return -max * (t * t * t * t - 1) + min;
+            }
 
-            [DllImport(dll)]
-            public static extern float QuintIn(float t, float totaltime, float min, float max);
+            public static float QuartInOut(float t, float totaltime, float min, float max) {
+                max -= min;
+                t /= totaltime / 2;
+                if (t < 1) return max / 2 * t * t * t * t + min;
 
-            [DllImport(dll)]
-            public static extern float QuintOut(float t, float totaltime, float min, float max);
+                t -= 2;
+                return -max / 2 * (t * t * t * t - 2) + min;
+            }
 
-            [DllImport(dll)]
-            public static extern float QuintInOut(float t, float totaltime, float min, float max);
+            public static float QuintIn(float t, float totaltime, float min, float max) {
+                max -= min;
+                t /= totaltime;
+                return max * t * t * t * t * t + min;
+            }
 
-            [DllImport(dll)]
-            public static extern float SineIn(float t, float totaltime, float min, float max);
+            public static float QuintOut(float t, float totaltime, float min, float max) {
+                max -= min;
+                t = t / totaltime - 1;
+                return max * (t * t * t * t * t + 1) + min;
+            }
 
-            [DllImport(dll)]
-            public static extern float SineOut(float t, float totaltime, float min, float max);
+            public static float QuintInOut(float t, float totaltime, float min, float max) {
+                max -= min;
+                t /= totaltime / 2;
+                if (t < 1) return max / 2 * t * t * t * t * t + min;
 
-            [DllImport(dll)]
-            public static extern float SineInOut(float t, float totaltime, float min, float max);
+                t -= 2;
+                return max / 2 * (t * t * t * t * t + 2) + min;
+            }
 
-            [DllImport(dll)]
-            public static extern float ExpIn(float t, float totaltime, float min, float max);
+            public static float SineIn(float t, float totaltime, float min, float max) {
+                max -= min;
+                return -max * MathF.Cos(t * (MathF.PI * 90 / 180) / totaltime) + max + min;
+            }
 
-            [DllImport(dll)]
-            public static extern float ExpOut(float t, float totaltime, float min, float max);
+            public static float SineOut(float t, float totaltime, float min, float max) {
+                max -= min;
+                return max * MathF.Sin(t * (MathF.PI * 90 / 180) / totaltime) + min;
+            }
 
-            [DllImport(dll)]
-            public static extern float ExpInOut(float t, float totaltime, float min, float max);
+            public static float SineInOut(float t, float totaltime, float min, float max) {
+                max -= min;
+                return -max / 2 * (MathF.Cos(t * MathF.PI / totaltime) - 1) + min;
+            }
 
-            [DllImport(dll)]
-            public static extern float CircIn(float t, float totaltime, float min, float max);
+            public static float ExpIn(float t, float totaltime, float min, float max) {
+                max -= min;
+                return t == 0.0 ? min : max * MathF.Pow(2, 10 * (t / totaltime - 1)) + min;
+            }
 
-            [DllImport(dll)]
-            public static extern float CircOut(float t, float totaltime, float min, float max);
+            public static float ExpOut(float t, float totaltime, float min, float max) {
+                max -= min;
+                return t == totaltime ? max + min : max * (-MathF.Pow(2, -10 * t / totaltime) + 1) + min;
+            }
 
-            [DllImport(dll)]
-            public static extern float CircInOut(float t, float totaltime, float min, float max);
+            public static float ExpInOut(float t, float totaltime, float min, float max) {
+                if (t == 0.0f) return min;
+                if (t == totaltime) return max;
+                max -= min;
+                t /= totaltime / 2;
 
-            [DllImport(dll)]
-            public static extern float ElasticIn(float t, float totaltime, float min, float max);
+                if (t < 1) return max / 2 * MathF.Pow(2, 10 * (t - 1)) + min;
 
-            [DllImport(dll)]
-            public static extern float ElasticOut(float t, float totaltime, float min, float max);
+                t -= 1;
+                return max / 2 * (-MathF.Pow(2, -10 * t) + 2) + min;
 
-            [DllImport(dll)]
-            public static extern float ElasticInOut(float t, float totaltime, float min, float max);
+            }
 
-            [DllImport(dll)]
-            public static extern float BackIn(float t, float totaltime, float min, float max);
+            public static float CircIn(float t, float totaltime, float min, float max) {
+                max -= min;
+                t /= totaltime;
+                return -max * (MathF.Sqrt(1 - t * t) - 1) + min;
+            }
 
-            [DllImport(dll)]
-            public static extern float BackOut(float t, float totaltime, float min, float max);
+            public static float CircOut(float t, float totaltime, float min, float max) {
+                max -= min;
+                t = t / totaltime - 1;
+                return max * MathF.Sqrt(1 - t * t) + min;
+            }
 
-            [DllImport(dll)]
-            public static extern float BackInOut(float t, float totaltime, float min, float max);
+            public static float CircInOut(float t, float totaltime, float min, float max) {
+                max -= min;
+                t /= totaltime / 2;
+                if (t < 1) return -max / 2 * (MathF.Sqrt(1 - t * t) - 1) + min;
 
-            [DllImport(dll)]
-            public static extern float BounceIn(float t, float totaltime, float min, float max);
+                t -= 2;
+                return max / 2 * (MathF.Sqrt(1 - t * t) + 1) + min;
+            }
 
-            [DllImport(dll)]
-            public static extern float BounceOut(float t, float totaltime, float min, float max);
+            public static float ElasticIn(float t, float totaltime, float min, float max) {
+                max -= min;
+                t /= totaltime;
+                float p = totaltime * 0.3f;
+                float a = max;
 
-            [DllImport(dll)]
-            public static extern float BounceInOut(float t, float totaltime, float min, float max);
+                if (t == 0) return min;
+                if (t == 1) return min + max;
 
-            [DllImport(dll)]
-            public static extern float Linear(float t, float totaltime, float min, float max);
-            
-            [DllImport(dll)]
-            public static extern float None(float t, float totaltime, float min, float max);
+
+                float s;
+                if (a < MathF.Abs(max)) {
+                    a = max;
+                    s = p / 4;
+                }
+                else {
+                    s = p / (2 * MathF.PI) * MathF.Asin(max / a);
+                }
+
+                t -= 1;
+                return -(a * MathF.Pow(2, 10 * t) * MathF.Sin((t * totaltime - s) * (2 * MathF.PI) / p)) + min;
+            }
+
+            public static float ElasticOut(float t, float totaltime, float min, float max) {
+                max -= min;
+                t /= totaltime;
+                float p = totaltime * 0.3f; ;
+                float a = max;
+
+                if (t == 0) return min;
+                if (t == 1) return min + max;
+
+
+                float s;
+                if (a < MathF.Abs(max)) {
+                    a = max;
+                    s = p / 4;
+                }
+                else {
+                    s = p / (2 * MathF.PI) * MathF.Asin(max / a);
+                }
+
+                return a * MathF.Pow(2, -10 * t) * MathF.Sin((t * totaltime - s) * (2 * MathF.PI) / p) + max + min;
+            }
+
+            public static float ElasticInOut(float t, float totaltime, float min, float max) {
+                max -= min;
+                t /= totaltime / 2;
+                float p = totaltime * (0.3f * 1.5f);
+                float a = max;
+
+                if (t == 0) return min;
+                if (t == 2) return min + max;
+
+
+                float s;
+                if (a < MathF.Abs(max)) {
+                    a = max;
+                    s = p / 4;
+                }
+                else {
+                    s = p / (2 * MathF.PI) * MathF.Asin(max / a);
+                }
+
+                if (t < 1) {
+                    return -0.5f * (a * MathF.Pow(2, 10 * (t -= 1)) * MathF.Sin((t * totaltime - s) * (2 * MathF.PI) / p)) + min;
+                }
+
+                t -= 1;
+                return a * MathF.Pow(2, -10 * t) * MathF.Sin((t * totaltime - s) * (2 * MathF.PI) / p) * 0.5f + max + min;
+            }
+
+            public static float BackIn(float t, float totaltime, float min, float max) {
+                float val = max - min;
+                float s = (float)(val * 0.01);
+
+                max -= min;
+                t /= totaltime;
+                return max * t * t * ((s + 1) * t - s) + min;
+            }
+
+            public static float BackOut(float t, float totaltime, float min, float max) {
+                float val = max - min;
+                float s = (float)(val * 0.001);
+
+                max -= min;
+                t = t / totaltime - 1;
+                return max * (t * t * ((s + 1) * t + s) + 1) + min;
+            }
+
+            public static float BackInOut(float t, float totaltime, float min, float max) {
+                float val = max - min;
+                float s = (float)(val * 0.01);
+
+                max -= min;
+                s *= 1.525f;
+                t /= totaltime / 2;
+                if (t < 1) return max / 2 * (t * t * ((s + 1) * t - s)) + min;
+
+                t -= 2;
+                return max / 2 * (t * t * ((s + 1) * t + s) + 2) + min;
+            }
+
+            public static float BounceIn(float t, float totaltime, float min, float max) {
+                max -= min;
+                return max - BounceOut(totaltime - t, totaltime, 0, max) + min;
+            }
+
+            public static float BounceOut(float t, float totaltime, float min, float max) {
+                max -= min;
+                t /= totaltime;
+
+                if (t < 1.0f / 2.75f) {
+                    return max * (7.5625f * t * t) + min;
+                }
+                else if (t < 2.0f / 2.75f) {
+                    t -= 1.5f / 2.75f;
+                    return max * (7.5625f * t * t + 0.75f) + min;
+                }
+                else if (t < 2.5f / 2.75f) {
+                    t -= 2.25f / 2.75f;
+                    return max * (7.5625f * t * t + 0.9375f) + min;
+                }
+                else {
+                    t -= 2.625f / 2.75f;
+                    return max * (7.5625f * t * t + 0.984375f) + min;
+                }
+            }
+
+            public static float BounceInOut(float t, float totaltime, float min, float max) {
+                if (t < totaltime / 2) {
+                    return BounceIn(t * 2, totaltime, 0, max - min) * 0.5f + min;
+                }
+                else {
+                    return BounceOut(t * 2 - totaltime, totaltime, 0, max - min) * 0.5f + min + (max - min) * 0.5f;
+                }
+            }
+
+            public static float Linear(float t, float totaltime, float min, float max) {
+                return (max - min) * t / totaltime + min;
+            }
+            public static float None(float t, float totaltime, float min, float max) {
+                return min;
+            }
         }
     }
 }

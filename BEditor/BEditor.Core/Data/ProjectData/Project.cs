@@ -7,25 +7,25 @@ using BEditor.Core.Interfaces;
 
 namespace BEditor.Core.Data.ProjectData {
     [DataContract(Namespace = "")]
-    public class Project : BasePropertyChanged, IExtensibleDataObject, IDisposable {
+    public sealed class Project : BasePropertyChanged, IExtensibleDataObject, IDisposable {
 
-        public Project(int width, int height, int framerate) {
-            FrameRate = framerate;
+        public Project(in int width, in int height, in int framerate) {
+            Framerate = framerate;
             SceneList.Add(new RootScene(width, height));
         }
 
         #region 保存するだけのプロパティ
 
-        [DataMember(Name = "Framerate", Order = 0)]
-        public int FrameRate { get; private set; }
+        [DataMember(Order = 0)]
+        public int Framerate { get; private set; }
 
-        [DataMember(Name = "Samplingrate", Order = 1)]
-        public int SamplingRate { get; private set; }
+        [DataMember(Order = 1)]
+        public int Samplingrate { get; private set; }
 
-        [DataMember(Name = "FilePath", Order = 2)]
-        public string FoldPath { get; set; }
+        [DataMember(Order = 2)]
+        public string Filename { get; set; }
 
-        [DataMember(Name = "SceneList", Order = 4)]
+        [DataMember(Order = 4)]
         public ObservableCollection<Scene> SceneList { get; set; } = new ObservableCollection<Scene>();
 
         [DataMember(Name = "PreviewScene", Order = 3)]
@@ -33,7 +33,7 @@ namespace BEditor.Core.Data.ProjectData {
 
         #endregion
 
-        public string GetBackUpName => Path.GetDirectoryName(FoldPath) + "\\" + Path.GetFileNameWithoutExtension(FoldPath) + ".backup";
+        public string GetBackUpName => Path.GetDirectoryName(Filename) + "\\" + Path.GetFileNameWithoutExtension(Filename) + ".backup";
 
 
         private Scene previewSceneProperty;
@@ -83,7 +83,7 @@ namespace BEditor.Core.Data.ProjectData {
         /// プロジェクトのバックアップを作成します
         /// </summary>
         public static void BackUp(Project project) {
-            if (project.FoldPath == null) {
+            if (project.Filename == null) {
                 //SaveFileDialogクラスのインスタンスを作成
                 ISaveFileDialog sfd = Component.Funcs.SaveFileDialog();
 
@@ -95,11 +95,11 @@ namespace BEditor.Core.Data.ProjectData {
                 //ダイアログを表示する
                 if (sfd.ShowDialog()) {
                     //OKボタンがクリックされたとき、選択されたファイル名を表示する
-                    project.FoldPath = sfd.FileName;
+                    project.Filename = sfd.FileName;
                 }
             }
 
-            Serialize.SaveToFile(project, Component.Current.Path + "\\user\\backup\\" + Path.GetFileNameWithoutExtension(project.FoldPath) + ".backup");
+            Serialize.SaveToFile(project, Component.Current.Path + "\\user\\backup\\" + Path.GetFileNameWithoutExtension(project.Filename) + ".backup");
         }
 
         #endregion
@@ -116,8 +116,8 @@ namespace BEditor.Core.Data.ProjectData {
             }
             //SaveFileDialogクラスのインスタンスを作成
             ISaveFileDialog sfd = Component.Funcs.SaveFileDialog();
-            if (project.FoldPath != null) {
-                sfd.DefaultFileName = Path.GetFileName(project.FoldPath);
+            if (project.Filename != null) {
+                sfd.DefaultFileName = Path.GetFileName(project.Filename);
             }
             else {
                 sfd.DefaultFileName = "新しいプロジェクト.bedit";
@@ -128,10 +128,10 @@ namespace BEditor.Core.Data.ProjectData {
             //ダイアログを表示する
             if (sfd.ShowDialog()) {
                 //OKボタンがクリックされたとき、選択されたファイル名を表示する
-                project.FoldPath = sfd.FileName;
+                project.Filename = sfd.FileName;
             }
 
-            if (Serialize.SaveToFile(project, project.FoldPath)) {
+            if (Serialize.SaveToFile(project, project.Filename)) {
                 Component.Current.Status = Status.Saved;
                 return true;
             }
@@ -163,7 +163,7 @@ namespace BEditor.Core.Data.ProjectData {
                 return false;
             }
 
-            if (project.FoldPath == null) {
+            if (project.Filename == null) {
                 //SaveFileDialogクラスのインスタンスを作成
                 ISaveFileDialog sfd = Component.Funcs.SaveFileDialog();
 
@@ -175,14 +175,14 @@ namespace BEditor.Core.Data.ProjectData {
                 //ダイアログを表示する
                 if (sfd.ShowDialog()) {
                     //OKボタンがクリックされたとき、選択されたファイル名を表示する
-                    project.FoldPath = sfd.FileName;
+                    project.Filename = sfd.FileName;
                 }
                 else {
                     return false;
                 }
             }
 
-            if (Serialize.SaveToFile(project, project.FoldPath)) {
+            if (Serialize.SaveToFile(project, project.Filename)) {
                 Component.Current.Status = Status.Saved;
                 return true;
             }
@@ -253,9 +253,9 @@ namespace BEditor.Core.Data.ProjectData {
         /// <param name="height">rootsceneの高さ</param>
         /// <param name="framerate">フレームレート</param>
         /// <param name="path">保存するパス</param>
-        public static Project Create(int width, int height, int framerate, string path) {
+        public static Project Create(in int width, in int height, in int framerate, string path) {
             var project = new Project(width, height, framerate) {
-                FoldPath = path
+                Filename = path
             };
 
             project.PreviewSceneIndex = 0;

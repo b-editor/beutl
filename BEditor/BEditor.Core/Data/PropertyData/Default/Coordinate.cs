@@ -5,7 +5,7 @@ using BEditor.Core.Data.PropertyData;
 
 namespace BEditor.Core.Data.PropertyData.Default {
     [DataContract(Namespace = "")]
-    public class Coordinate : ExpandGroup {
+    public sealed class Coordinate : ExpandGroup {
         public static readonly EasePropertyMetadata XMetadata = new EasePropertyMetadata(Properties.Resources.X, 0);
         public static readonly EasePropertyMetadata YMetadata = new EasePropertyMetadata(Properties.Resources.Y, 0);
         public static readonly EasePropertyMetadata ZMetadata = new EasePropertyMetadata(Properties.Resources.Z, 0);

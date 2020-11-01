@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.IO;
 using System.Runtime.Serialization.Json;
 using System.Text;
+using System.Threading.Tasks;
 
 using BEditor.Core.Data;
 using BEditor.Core.Data.EffectData;
@@ -35,7 +36,7 @@ namespace BEditor.Core.Data {
 
                 return obj;
             }
-            catch (Exception e) {
+            catch {
                 return null;
             }
         }
@@ -55,7 +56,7 @@ namespace BEditor.Core.Data {
 
                 return true;
             }
-            catch (Exception e) {
+            catch {
                 return false;
             }
         }
@@ -145,7 +146,9 @@ namespace BEditor.Core.Data {
                         typeof(EasingFunc)
                     };
 
-                    foreach (var type in Component.Current.LoadedPlugins) {
+                    var plugins = Component.Current.LoadedPlugins;
+                    void ForFunc(int i) {
+                        var type = plugins[i];
                         if (type is IEffects effectsPlugin) {
                             foreach (var (_, effecttype) in effectsPlugin.Effects) {
                                 serializeKnownTypes.Add(effecttype);
@@ -164,6 +167,8 @@ namespace BEditor.Core.Data {
                             }
                         }
                     }
+
+                    Parallel.For(0, plugins.Count, ForFunc);
                 }
 
                 return serializeKnownTypes;

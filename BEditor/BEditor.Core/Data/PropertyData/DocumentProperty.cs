@@ -6,7 +6,7 @@ namespace BEditor.Core.Data.PropertyData {
     /// 
     /// </summary>
     [DataContract(Namespace = "")]
-    public class DocumentProperty : PropertyElement {
+    public sealed class DocumentProperty : PropertyElement {
         private string textProperty;
 
         /// <summary>
@@ -38,7 +38,7 @@ namespace BEditor.Core.Data.PropertyData {
         /// <summary>
         /// 
         /// </summary>
-        public class TextChangedCommand : IUndoRedoCommand {
+        public sealed class TextChangedCommand : IUndoRedoCommand {
             private readonly DocumentProperty Document;
             private readonly string newtext;
             private readonly string oldtext;
@@ -82,7 +82,7 @@ namespace BEditor.Core.Data.PropertyData {
         /// </summary>
         /// <param name="text"></param>
         /// <param name="height"></param>
-        public DocumentPropertyMetadata(string text, int? height) : base("") {
+        public DocumentPropertyMetadata(string text, in int? height) : base("") {
             DefaultText = text;
             Height = height;
         }

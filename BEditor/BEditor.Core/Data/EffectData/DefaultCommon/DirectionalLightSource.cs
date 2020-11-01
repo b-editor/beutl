@@ -17,7 +17,7 @@ using GLColor = OpenTK.Mathematics.Color4;
 using static BEditor.Core.Data.PropertyData.Default.Coordinate;
 
 namespace BEditor.Core.Data.EffectData.DefaultCommon {
-    public class DirectionalLightSource : EffectElement {
+    public sealed class DirectionalLightSource : EffectElement {
 
         #region EffectElement
 

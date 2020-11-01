@@ -8,7 +8,7 @@ using System.Xml.Linq;
 using BEditor.Core.Data;
 
 namespace BEditor.Core.Extensions {
-    public class ActivityLog {
+    public static class ActivityLog {
         public static void ErrorLog(Exception e) {
             if (!Component.Settings.EnableErrorLog?.Invoke() ?? false) return;
 

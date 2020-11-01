@@ -1,19 +1,14 @@
 ﻿using System.Collections.Generic;
 using System.Runtime.Serialization;
 
-using BEditor.Core;
-using BEditor.Core.Data.ObjectData;
 using BEditor.Core.Data.ProjectData;
 using BEditor.Core.Data.PropertyData;
 using BEditor.Core.Media;
 
 namespace BEditor.Core.Data.EffectData {
-
     [DataContract(Namespace = "")]
-    public class Dilate : ImageEffect {
-
+    public sealed class Dilate : ImageEffect {
         public static readonly EasePropertyMetadata FrequencyMetadata = new EasePropertyMetadata(Properties.Resources.Frequency, 1, float.NaN, 0);
-
 
         public Dilate() {
             Frequency = new EaseProperty(FrequencyMetadata);
@@ -27,16 +22,11 @@ namespace BEditor.Core.Data.EffectData {
 
         public override IList<PropertyElement> PropertySettings => new List<PropertyElement> { Frequency };
 
-        public override void PropertyLoaded() {
-            base.PropertyLoaded();
-
-            Frequency.PropertyMetadata = FrequencyMetadata;
-        }
-
         #endregion
 
 
         [DataMember(Order = 0)]
+        [PropertyMetadata(nameof(FrequencyMetadata), typeof(Dilate))]
         public EaseProperty Frequency { get; set; }
     }
 }

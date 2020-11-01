@@ -10,9 +10,9 @@ using BEditor.Core.Media.Decoder;
 using BEditor.Core.Properties;
 
 namespace BEditor.Core.Data.ObjectData {
-    public partial class DefaultData {
+    public static partial class DefaultData {
         [DataContract(Namespace = "")]
-        public class Video : DefaultImageObject {
+        public sealed class Video : DefaultImageObject {
             public static readonly EasePropertyMetadata SpeedMetadata = new EasePropertyMetadata(Properties.Resources.Speed, 100);
             public static readonly EasePropertyMetadata StartMetadata = new EasePropertyMetadata(Properties.Resources.Start, 1, float.NaN, 0);
             public static readonly FilePropertyMetadata FileMetadata = new FilePropertyMetadata(Properties.Resources.File, "", "mp4,avi,wmv,mov", Properties.Resources.VideoFile);
@@ -39,7 +39,7 @@ namespace BEditor.Core.Data.ObjectData {
                 float speed = Speed.GetValue(args.Frame) / 100;
                 int start = (int)Start.GetValue(args.Frame);
 
-                return VideoDecoder.Read((int)((start + args.Frame - ClipData.Start) * speed), videoReader);
+                return VideoDecoder.Read((int)((start + args.Frame - Parent.ClipData.Start) * speed), videoReader);
             }
 
             public override void PropertyLoaded() {

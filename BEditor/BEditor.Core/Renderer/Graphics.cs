@@ -11,7 +11,7 @@ using OpenTK.Mathematics;
 #endif
 
 using BEditor.Core.Media;
-using Color4 = BEditor.Core.Media.Color4;
+using Color = BEditor.Core.Media.Color;
 
 namespace BEditor.Core.Renderer {
     public static class Graphics {
@@ -105,10 +105,10 @@ namespace BEditor.Core.Renderer {
             in float scalex = 0,
             in float scaley = 0,
             in float scalez = 0,
-            in Color4? color = null,
-            in Color4? ambient = null,
-            in Color4? diffuse = null,
-            in Color4? specular = null,
+            Color? color = null,
+            Color? ambient = null,
+            Color? diffuse = null,
+            Color? specular = null,
             in float shininess = 10) {
             if (img is null) {
                 throw new ArgumentNullException(nameof(img));
@@ -123,10 +123,10 @@ namespace BEditor.Core.Renderer {
                 throw e;
             }
 
-            GL.Color4((GLColor)(color ?? Color4.White));
-            GL.Material(MaterialFace.Front, MaterialParameter.Ambient, (GLColor)(ambient ?? Color4.White));
-            GL.Material(MaterialFace.Front, MaterialParameter.Diffuse, (GLColor)(diffuse ?? Color4.White));
-            GL.Material(MaterialFace.Front, MaterialParameter.Specular, (GLColor)(specular ?? Color4.White));
+            GL.Color4((GLColor)(color ?? Color.White));
+            GL.Material(MaterialFace.Front, MaterialParameter.Ambient, (GLColor)(ambient ?? Color.White));
+            GL.Material(MaterialFace.Front, MaterialParameter.Diffuse, (GLColor)(diffuse ?? Color.White));
+            GL.Material(MaterialFace.Front, MaterialParameter.Specular, (GLColor)(specular ?? Color.White));
             GL.Material(MaterialFace.Front, MaterialParameter.Shininess, shininess);
 
             GL.Enable(EnableCap.Texture2D);
@@ -239,7 +239,7 @@ namespace BEditor.Core.Renderer {
 
         #region DrawCube
 
-        public static void DrawCube(float width, float height, float weight, Media.Color4 ambient, Media.Color4 diffuse, Media.Color4 specular, float shininess) {
+        public static void DrawCube(float width, float height, float weight, Media.Color ambient, Media.Color diffuse, Media.Color specular, float shininess) {
 
             GL.Material(MaterialFace.Front, MaterialParameter.Ambient, (GLColor)ambient);
             GL.Material(MaterialFace.Front, MaterialParameter.Diffuse, (GLColor)diffuse);
@@ -323,7 +323,7 @@ namespace BEditor.Core.Renderer {
 
         #region DrawBall
 
-        public static void DrawBall(float radius, Media.Color4 ambient, Media.Color4 diffuse, Media.Color4 specular, float shininess, int count = 8) {
+        public static void DrawBall(float radius, Media.Color ambient, Media.Color diffuse, Media.Color specular, float shininess, int count = 8) {
             GL.Material(MaterialFace.Front, MaterialParameter.Ambient, (GLColor)ambient);
             GL.Material(MaterialFace.Front, MaterialParameter.Diffuse, (GLColor)diffuse);
             GL.Material(MaterialFace.Front, MaterialParameter.Specular, (GLColor)specular);

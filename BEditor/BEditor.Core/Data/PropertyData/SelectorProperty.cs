@@ -9,7 +9,7 @@ namespace BEditor.Core.Data.PropertyData {
     /// 
     /// </summary>
     [DataContract(Namespace = "")]
-    public class SelectorProperty : PropertyElement, IEasingSetting {
+    public sealed class SelectorProperty : PropertyElement, IEasingSetting {
         private int selectIndex;
 
         /// <summary>
@@ -42,7 +42,7 @@ namespace BEditor.Core.Data.PropertyData {
         /// <summary>
         /// 
         /// </summary>
-        public class ChangeSelect : IUndoRedoCommand {
+        public sealed class ChangeSelect : IUndoRedoCommand {
             private readonly SelectorProperty Selector;
             private readonly int select;
             private readonly int oldselect;
@@ -52,7 +52,7 @@ namespace BEditor.Core.Data.PropertyData {
             /// </summary>
             /// <param name="combo"></param>
             /// <param name="select"></param>
-            public ChangeSelect(SelectorProperty combo, int select) {
+            public ChangeSelect(SelectorProperty combo, in int select) {
                 Selector = combo;
                 this.select = select;
                 oldselect = combo.Index;
@@ -80,9 +80,10 @@ namespace BEditor.Core.Data.PropertyData {
         /// </summary>
         /// <param name="name"></param>
         /// <param name="itemsource"></param>
+        /// <param name="index"></param>
         /// <param name="memberpath"></param>
-        public SelectorPropertyMetadata(string name, IList itemsource, string memberpath = "") : base(name) {
-            DefaultIndex = 0;
+        public SelectorPropertyMetadata(string name, IList itemsource, in int index = 0, string memberpath = "") : base(name) {
+            DefaultIndex = index;
             ItemSource = itemsource;
             MemberPath = memberpath;
         }
@@ -93,7 +94,8 @@ namespace BEditor.Core.Data.PropertyData {
         /// <param name="index"></param>
         /// <param name="itemsource"></param>
         /// <param name="memberpath"></param>
-        public SelectorPropertyMetadata(string name, int index, IList itemsource, string memberpath = "") : base(name) {
+        [Obsolete]
+        public SelectorPropertyMetadata(string name, in int index, IList itemsource, string memberpath = "") : base(name) {
             DefaultIndex = index;
             ItemSource = itemsource;
             MemberPath = memberpath;

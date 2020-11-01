@@ -2,6 +2,7 @@
 using System.Runtime.InteropServices;
 
 using BEditor.Core.Media;
+using BEditor.Core.Native;
 
 namespace BEditor.Core.SDL2.TTF {
     public class Font : DisposableObject {
@@ -10,12 +11,12 @@ namespace BEditor.Core.SDL2.TTF {
         #region Constructor
 
         public Font(string file, int ptsize) {
-            ptr = SDL.TTF.OpenFont(file, ptsize);
+            FontProcess.Open(file, ptsize, out ptr);
             Size = ptsize;
         }
 
         public Font(string file, int ptsize, long index) {
-            ptr = SDL.TTF.OpenFontIndex(file, ptsize, index);
+            FontProcess.Open(file, ptsize, index, out ptr);
             Size = ptsize;
         }
 
@@ -29,106 +30,100 @@ namespace BEditor.Core.SDL2.TTF {
         public FontStyle Style {
             get {
                 ThrowIfDisposed();
-                return (FontStyle)Enum.ToObject(typeof(FontStyle), SDL.TTF.GetFontStyle(ptr));
+                return (FontStyle)Enum.ToObject(typeof(FontStyle), FontProcess.GetStyle(ptr));
             }
             set {
                 ThrowIfDisposed();
-                SDL.TTF.SetFontStyle(ptr, (int)value);
+                FontProcess.SetStyle(ptr, (int)value);
             }
         }
 
         public int Outline {
             get {
                 ThrowIfDisposed();
-                return SDL.TTF.GetFontOutline(ptr);
+                return FontProcess.GetOutline(ptr);
             }
             set {
                 ThrowIfDisposed();
-                SDL.TTF.SetFontOutline(ptr, value);
+                FontProcess.SetOutline(ptr, value);
             }
         }
 
         public Hinting Hinting {
             get {
                 ThrowIfDisposed();
-                return (Hinting)Enum.ToObject(typeof(Hinting), SDL.TTF.GetFontHinting(ptr));
+                return (Hinting)Enum.ToObject(typeof(Hinting), FontProcess.GetHinting(ptr));
             }
             set {
                 ThrowIfDisposed();
-                SDL.TTF.SetFontHinting(ptr, (int)value);
+                FontProcess.SetHinting(ptr, (int)value);
             }
         }
 
         public int Height {
             get {
                 ThrowIfDisposed();
-                return SDL.TTF.FontHeight(ptr);
+                return FontProcess.Height(ptr);
             }
         }
 
         public int Ascent {
             get {
                 ThrowIfDisposed();
-                return SDL.TTF.FontAscent(ptr);
+                return FontProcess.Ascent(ptr);
             }
         }
 
         public int Descent {
             get {
                 ThrowIfDisposed();
-                return SDL.TTF.FontDescent(ptr);
+                return FontProcess.Descent(ptr);
             }
         }
 
         public int LineSkip {
             get {
                 ThrowIfDisposed();
-                return SDL.TTF.FontLineSkip(ptr);
+                return FontProcess.LineSkip(ptr);
             }
         }
 
         public bool Kerning {
             get {
                 ThrowIfDisposed();
-                var val = SDL.TTF.TTF_GetFontKerning(ptr);
-                return val != 0;
+                return FontProcess.GetKerning(ptr);
             }
             set {
                 ThrowIfDisposed();
-                if (value) {
-                    SDL.TTF.TTF_SetFontKerning(ptr, 1);
-                }
-                else {
-                    SDL.TTF.TTF_SetFontKerning(ptr, 0);
-                }
+                FontProcess.SetKerning(ptr, value);
             }
         }
 
         public long Faces {
             get {
                 ThrowIfDisposed();
-                return SDL.TTF.TTF_FontFaces(ptr);
+                return FontProcess.Faces(ptr);
             }
         }
 
         public bool IsFixedWidth {
             get {
                 ThrowIfDisposed();
-                return SDL.TTF.TTF_FontFaceIsFixedWidth(ptr) != 0;
+                return FontProcess.IsFixedWidth(ptr);
             }
         }
 
         public string FaceFamilyName {
             get {
                 ThrowIfDisposed();
-                return SDL.TTF.TTF_FontFaceFamilyName(ptr);
+                return FontProcess.FamilyName(ptr);
             }
         }
 
         public string FaceStyleName {
             get {
                 ThrowIfDisposed();
-                return SDL.TTF.TTF_FontFaceStyleName(ptr);
+                return FontProcess.StyleName(ptr);
             }
         }
 
@@ -136,125 +131,60 @@ namespace BEditor.Core.SDL2.TTF {
 
         #region Methods
 
-        public int GlyphIsProvided(ushort ch) {
+        public int GlyphIsProvided(in ushort ch) {
             ThrowIfDisposed();
-            var result = SDL.TTF.TTF_GlyphIsProvided(ptr, ch);
+            var result = FontProcess.GlyphIsProvided(ptr, ch);
             return result;
         }
-        public int GlyphIsProvided32(uint ch) {
+        
+        public bool GlyphMetrics(in ushort ch, out int minx, out int maxx, out int miny, out int maxy, out int advance) {
             ThrowIfDisposed();
-            var result = SDL.TTF.TTF_GlyphIsProvided32(ptr, ch);
-            return result;
-        }
-
-        public bool GlyphMetrics(ushort ch, out int minx, out int maxx, out int miny, out int maxy, out int advance) {
-            ThrowIfDisposed();
-            return SDL.TTF.TTF_GlyphMetrics(ptr, ch, out minx, out maxx, out miny, out maxy, out advance) == 0;
-        }
-        public bool GlyphMetrics32(uint ch, out int minx, out int maxx, out int miny, out int maxy, out int advance) {
-            ThrowIfDisposed();
-            return SDL.TTF.TTF_GlyphMetrics32(ptr, ch, out minx, out maxx, out miny, out maxy, out advance) == 0;
+            return FontProcess.GlyphMetrics(ptr, ch, out minx, out maxx, out miny, out maxy, out advance) == 0;
         }
 
         public bool SizeText(string text, out int width, out int height) {
             ThrowIfDisposed();
-            return SDL.TTF.TTF_SizeText(ptr, text, out width, out height) == 0;
+            return FontProcess.SizeText(ptr, text, out width, out height);
         }
         public bool SizeUnicode(string text, out int width, out int height) {
             ThrowIfDisposed();
-            return SDL.TTF.TTF_SizeUNICODE(ptr, text, out width, out height) == 0;
+            return FontProcess.SizeUnicode(ptr, text, out width, out height);
         }
         public bool SizeUTF8(string text, out int width, out int height) {
             ThrowIfDisposed();
-            return SDL.TTF.TTF_SizeUTF8(ptr, text, out width, out height) == 0;
+            return FontProcess.SizeUTF8(ptr, text, out width, out height);
         }
 
-
-        public Image RenderGlyph32(uint ch, Color3 color) {
-            var surface = SDL.TTF.TTF_RenderGlyph32_Blended(ptr, ch, color.ToSDL());
-            SDL.SDL_LockSurface(surface);
-
-            SDL.SDL_Surface sur = (SDL.SDL_Surface)Marshal.PtrToStructure(surface, typeof(SDL.SDL_Surface));
-
-            var img = new Image(sur.w, sur.h, sur.pixels, ImageType.ByteChannel4);
-            SDL.SDL_UnlockSurface(surface);
-
-
-            img.Disposable.Add(Toolkit.CreateDisposable(() => SDL.SDL_FreeSurface(surface)));
-
-            return img;
+        public Image RenderGlyph(in ushort ch,Color color) {
+            FontProcess.RenderGlyph(ptr, ch, color.R, color.G, color.B, color.A, out var mat);
+            return new Image(mat);
         }
-        public Image RenderGlyph(ushort ch, Color3 color) {
-            var surface = SDL.TTF.TTF_RenderGlyph_Blended(ptr, ch, color.ToSDL());
-            SDL.SDL_LockSurface(surface);
-
-            SDL.SDL_Surface sur = (SDL.SDL_Surface)Marshal.PtrToStructure(surface, typeof(SDL.SDL_Surface));
-
-            var img = new Image(sur.w, sur.h, sur.pixels, ImageType.ByteChannel4);
-            SDL.SDL_UnlockSurface(surface);
-
-
-            img.Disposable.Add(Toolkit.CreateDisposable(() => SDL.SDL_FreeSurface(surface)));
-
-            return img;
+        public Image RenderUnicode(string text,Color color) {
+            FontProcess.RenderUnicode(ptr, text, color.R, color.G, color.B, color.A, out var mat);
+            return new Image(mat);
         }
-        public Image RenderUnicode(string text, Color3 color) {
-            var surface = SDL.TTF.TTF_RenderUNICODE_Blended(ptr, text, color.ToSDL());
-            SDL.SDL_LockSurface(surface);
-
-            SDL.SDL_Surface sur = (SDL.SDL_Surface)Marshal.PtrToStructure(surface, typeof(SDL.SDL_Surface));
-
-            var img = new Image(sur.w, sur.h, sur.pixels, ImageType.ByteChannel4);
-            SDL.SDL_UnlockSurface(surface);
-
-
-            img.Disposable.Add(Toolkit.CreateDisposable(() => SDL.SDL_FreeSurface(surface)));
-
-            return img;
+        public Image RenderUTF8(string text, Color color) {
+            FontProcess.RenderUTF8(ptr, text, color.R, color.G, color.B, color.A, out var mat);
+            return new Image(mat);
         }
-        public Image RenderUTF8(string text, Color3 color) {
-            var surface = SDL.TTF.TTF_RenderUTF8_Blended(ptr, text, color.ToSDL());
-            SDL.SDL_LockSurface(surface);
-
-            SDL.SDL_Surface sur = (SDL.SDL_Surface)Marshal.PtrToStructure(surface, typeof(SDL.SDL_Surface));
-
-            var img = new Image(sur.w, sur.h, sur.pixels, ImageType.ByteChannel4);
-            SDL.SDL_UnlockSurface(surface);
-
-            img.Disposable.Add(Toolkit.CreateDisposable(() => SDL.SDL_FreeSurface(surface)));
-
-            return img;
-        }
-        public Image RenderText(string text, Color3 color) {
-            var surface = SDL.TTF.TTF_RenderText_Blended(ptr, text, color.ToSDL());
-            SDL.SDL_LockSurface(surface);
-
-            SDL.SDL_Surface sur = (SDL.SDL_Surface)Marshal.PtrToStructure(surface, typeof(SDL.SDL_Surface));
-
-            var img = new Image(sur.w, sur.h, sur.pixels, ImageType.ByteChannel4);
-            SDL.SDL_UnlockSurface(surface);
-
-
-            img.Disposable.Add(Toolkit.CreateDisposable(() => SDL.SDL_FreeSurface(surface)));
-
-            return img;
+        public Image RenderText(string text, Color color) {
+            FontProcess.RenderText(ptr, text, color.R, color.G, color.B, color.A, out var mat);
+            return new Image(mat);
         }
 
         #endregion
 
         #region StaticMethods
 
-        public static void Quit() => SDL.TTF.TTF_Quit();
+        public static void Quit() => FontProcess.Quit();
 
-        public static bool Initialize() => SDL.TTF.Initialize() == 0;
-
-        public static string GetError() => SDL.SDL_GetError();
+        public static bool Initialize() => FontProcess.Init() == 0;
 
         #endregion
 
         protected override void OnDispose(bool disposing) {
             if (ptr != IntPtr.Zero && !IsDisposed) {
-                SDL.TTF.TTF_CloseFont(ptr);
+                FontProcess.Close(ptr);
 
                 ptr = IntPtr.Zero;
             }

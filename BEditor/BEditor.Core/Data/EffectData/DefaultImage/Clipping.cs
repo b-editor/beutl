@@ -11,7 +11,7 @@ using BEditor.Core.Properties;
 
 namespace BEditor.Core.Data.EffectData {
     [DataContract(Namespace = "")]
-    public class Clipping : ImageEffect {
+    public sealed class Clipping : ImageEffect {
         public static readonly EasePropertyMetadata TopMetadata = new EasePropertyMetadata(Resources.Top, 0, float.NaN, 0);
         public static readonly EasePropertyMetadata BottomMetadata = new EasePropertyMetadata(Resources.Bottom, 0, float.NaN, 0);
         public static readonly EasePropertyMetadata LeftMetadata = new EasePropertyMetadata(Resources.Left, 0, float.NaN, 0);

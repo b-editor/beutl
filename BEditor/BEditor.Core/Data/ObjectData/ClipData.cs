@@ -34,7 +34,7 @@ namespace BEditor.Core.Data.ObjectData {
         /// <param name="end">終了位置</param>
         /// <param name="type">クリップの種類</param>
         /// <param name="layer">配置されるレイヤー</param>
-        public ClipData(uint id, ObservableCollection<EffectElement> effects, int start, int end, Type type, int layer) {
+        public ClipData(in uint id, ObservableCollection<EffectElement> effects, in int start, in int end, Type type, in int layer) {
             Id = id;
             this.start = start;
             this.end = end;

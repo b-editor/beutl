@@ -31,17 +31,17 @@ namespace BEditor.Core.Data.PropertyData {
             base.PropertyLoaded();
 
             var g = GroupItems;
-            Parallel.For(0, GroupItems.Count, i => {
-                g[i].PropertyLoaded();
-            });
+            void For1(int index) => g[index].PropertyLoaded();
+
+            Parallel.For(0, GroupItems.Count, For1);
 
             //フィールドがpublicのときだけなので注意
             var attributetype = typeof(PropertyMetadataAttribute);
             var type = GetType();
             var properties = type.GetProperties();
 
-            Parallel.For(0, properties.Length, i => {
-                var property = properties[i];
+            void For2(int index) {
+                var property = properties[index];
 
                 //metadata属性の場合&プロパティがPropertyElement
                 if (Attribute.GetCustomAttribute(property, attributetype) is PropertyMetadataAttribute metadata &&
@@ -49,7 +49,9 @@ namespace BEditor.Core.Data.PropertyData {
 
                     propertyElement.PropertyMetadata = metadata.PropertyMetadata;
                 }
-            });
+            }
+
+            Parallel.For(0, properties.Length, For2);
         }
     }
 }

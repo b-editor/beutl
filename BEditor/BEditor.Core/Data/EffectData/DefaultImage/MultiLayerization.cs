@@ -18,7 +18,7 @@ using GLColor = OpenTK.Mathematics.Color4;
 #endif
 
 namespace BEditor.Core.Data.EffectData {
-    public class MultiLayerization : ImageEffect {
+    public sealed class MultiLayerization : ImageEffect {
         public static readonly EasePropertyMetadata ZMetadata = new EasePropertyMetadata(Resources.Z, 50, float.NaN, 0);
         public static readonly ColorAnimationPropertyMetadata ColorMetadata = new ColorAnimationPropertyMetadata(Resources.Color, 255, 255, 255, 255, true);
 
@@ -60,7 +60,7 @@ namespace BEditor.Core.Data.EffectData {
 
             //var points = BorderFinder.Find(source);
 
-            Scene.RenderingContext.MakeCurrent();
+            ClipData.Scene.RenderingContext.MakeCurrent();
             Graphics.Paint(coordinate, nx, ny, nz, center, () => {
                 GL.Color4((GLColor)Color.GetValue(frame));
                 GL.Material(MaterialFace.Front, MaterialParameter.Ambient, (GLColor)Material.Ambient.GetValue(frame));

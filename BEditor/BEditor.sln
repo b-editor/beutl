@@ -17,7 +17,7 @@ Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "BEditor.Core", "BEditor.Cor
 EndProject
 Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "Document", "Document", "{BF87B613-95C1-4AD0-915A-BB751D0A3E77}"
 EndProject
-Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "BEditorExtern", "BEditorExtern\BEditorExtern.vcxproj", "{6F06DB5A-C0B0-4D88-9D13-0EF8B2B8CD26}"
+Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "BEditor.Extern", "BEditor.Extern\BEditor.Extern.vcxproj", "{6F06DB5A-C0B0-4D88-9D13-0EF8B2B8CD26}"
 EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution

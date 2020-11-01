@@ -9,7 +9,7 @@ namespace BEditor.Core.Data.PropertyData {
     /// 
     /// </summary>
     [DataContract(Namespace = "")]
-    public class FontProperty : PropertyElement {
+    public sealed class FontProperty : PropertyElement {
         private Font selectItem;
 
         /// <summary>
@@ -38,7 +38,7 @@ namespace BEditor.Core.Data.PropertyData {
         /// <summary>
         /// 
         /// </summary>
-        public class ChangeSelect : IUndoRedoCommand {
+        public sealed class ChangeSelect : IUndoRedoCommand {
             private readonly FontProperty Selector;
             private readonly Font select;
             private readonly Font oldselect;

@@ -7,15 +7,14 @@ using BEditor.Core.Data.PropertyData;
 using BEditor.Core.Media;
 
 namespace BEditor.Core.Data.ObjectData {
-    public partial class DefaultData {
+    public static partial class DefaultData {
         [DataContract(Namespace = "")]
-        public class Figure : DefaultImageObject {
+        public sealed class Figure : DefaultImageObject {
             public static readonly EasePropertyMetadata WidthMetadata = new EasePropertyMetadata(Properties.Resources.Width, 100, float.NaN, 0);
             public static readonly EasePropertyMetadata HeightMetadata = new EasePropertyMetadata(Properties.Resources.Height, 100, float.NaN, 0);
             public static readonly EasePropertyMetadata LineMetadata = new EasePropertyMetadata(Properties.Resources.Line, 4000, float.NaN, 0);
             public static readonly ColorPropertyMetadata ColorMetadata = new ColorPropertyMetadata(Properties.Resources.Color, 255, 255, 255);
             public static readonly SelectorPropertyMetadata TypeMetadata = new SelectorPropertyMetadata(Properties.Resources.Type,
-                                                                                                 0,
                                                                                                  new string[2] {
                                                                                                      Properties.Resources.Circle,
                                                                                                      Properties.Resources.Square

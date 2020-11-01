@@ -5,10 +5,10 @@ namespace BEditor.Core.Media {
     public readonly struct ImageType : IEquatable<ImageType> {
         public int Value { get; }
 
-        public ImageType(int value) => Value = value;
+        public ImageType(in int value) => Value = value;
 
-        public static implicit operator int(ImageType type) => type.Value;
-        public static implicit operator OpenTK.Graphics.OpenGL.PixelType(ImageType type) {
+        public static implicit operator int(in ImageType type) => type.Value;
+        public static implicit operator OpenTK.Graphics.OpenGL.PixelType(in ImageType type) {
             OpenTK.Graphics.OpenGL.PixelType s = OpenTK.Graphics.OpenGL.PixelType.Bitmap;
             switch (type.Depth) {
                 case Byte:
@@ -39,7 +39,7 @@ namespace BEditor.Core.Media {
 
             return s;
         }
-        public static implicit operator OpenTK.Graphics.OpenGL.PixelInternalFormat(ImageType type) => type.Channels switch
+        public static implicit operator OpenTK.Graphics.OpenGL.PixelInternalFormat(in ImageType type) => type.Channels switch
         {
             1 => OpenTK.Graphics.OpenGL.PixelInternalFormat.One,
             2 => OpenTK.Graphics.OpenGL.PixelInternalFormat.Rg8,
@@ -47,7 +47,7 @@ namespace BEditor.Core.Media {
             4 => OpenTK.Graphics.OpenGL.PixelInternalFormat.Rgba,
             _ => throw new Exception(),
         };
-        public static implicit operator OpenTK.Graphics.OpenGL.PixelFormat(ImageType type) => type.Channels switch
+        public static implicit operator OpenTK.Graphics.OpenGL.PixelFormat(in ImageType type) => type.Channels switch
         {
             1 => OpenTK.Graphics.OpenGL.PixelFormat.Red,
             2 => OpenTK.Graphics.OpenGL.PixelFormat.Rg,
@@ -56,9 +56,9 @@ namespace BEditor.Core.Media {
             _ => throw new Exception(),
         };
 
-        public static implicit operator ImageType(int value) => new ImageType(value);
+        public static implicit operator ImageType(in int value) => new ImageType(value);
 
-        public static ImageType FromInt32(int value) => new ImageType(value);
+        public static ImageType FromInt32(in int value) => new ImageType(value);
 
         public int Depth => Value & (DepthMax - 1);
 
@@ -68,18 +68,11 @@ namespace BEditor.Core.Media {
 
         public int Bits {
             get {
-                return Depth switch
-                {
-                    Byte => 8,
-                    Char => 8,
-                    UShort => 16,
-                    Short => 16,
-                    Int => 32,
-                    Float => 32,
-                    Double => 64,
-                    CV_USRTYPE1 => 8,
-                    _ => throw new Exception(),
-                };
+                var depth = Depth;
+                if (depth is Byte or Char or CV_USRTYPE1) return 8;
+                else if (depth is UShort or Short) return 16;
+                else if (depth is Int or Float) return 32;
+                else return 64;
             }
         }
 
@@ -99,9 +92,9 @@ namespace BEditor.Core.Media {
             return Equals((ImageType)type);
         }
 
-        public static bool operator ==(ImageType left, ImageType right) => left.Equals(right);
+        public static bool operator ==(in ImageType left, in ImageType right) => left.Equals(right);
 
-        public static bool operator !=(ImageType left, ImageType right) => !left.Equals(right);
+        public static bool operator !=(in ImageType left, in ImageType right) => !left.Equals(right);
 
 
         public override int GetHashCode() => Value.GetHashCode();
@@ -164,54 +157,54 @@ namespace BEditor.Core.Media {
 
 
         public static readonly ImageType
-            ByteChannel1 = ByteChannel(1),
-            ByteChannel2 = ByteChannel(2),
-            ByteChannel3 = ByteChannel(3),
-            ByteChannel4 = ByteChannel(4),
-            CharChannel1 = CharChannel(1),
-            CharChannel2 = CharChannel(2),
-            CharChannel3 = CharChannel(3),
-            CharChannel4 = CharChannel(4),
-            UShortChannel1 = UShortChannel(1),
-            UShortChannel2 = UShortChannel(2),
-            UShortChannel3 = UShortChannel(3),
-            UShortChannel4 = UShortChannel(4),
-            ShortChannel1 = ShortChannel(1),
-            ShortChannel2 = ShortChannel(2),
-            ShortChannel3 = ShortChannel(3),
-            ShortChannel4 = ShortChannel(4),
-            IntChannel1 = IntChannel(1),
-            IntChannel2 = IntChannel(2),
-            IntChannel3 = IntChannel(3),
-            IntChannel4 = IntChannel(4),
-            FloatChannel1 = FloatChannel(1),
-            FloatChannel2 = FloatChannel(2),
-            FloatChannel3 = FloatChannel(3),
-            FloatChannel4 = FloatChannel(4),
-            DoubleChannel1 = DoubleChannel(1),
-            DoubleChannel2 = DoubleChannel(2),
-            DoubleChannel3 = DoubleChannel(3),
-            DoubleChannel4 = DoubleChannel(4);
+            ByteCh1 = ByteChannel(1),
+            ByteCh2 = ByteChannel(2),
+            ByteCh3 = ByteChannel(3),
+            ByteCh4 = ByteChannel(4),
+            CharCh1 = CharChannel(1),
+            CharCh2 = CharChannel(2),
+            CharCh3 = CharChannel(3),
+            CharCh4 = CharChannel(4),
+            UShortCh1 = UShortChannel(1),
+            UShortCh2 = UShortChannel(2),
+            UShortCh3 = UShortChannel(3),
+            UShortCh4 = UShortChannel(4),
+            ShortCh1 = ShortChannel(1),
+            ShortCh2 = ShortChannel(2),
+            ShortCh3 = ShortChannel(3),
+            ShortCh4 = ShortChannel(4),
+            IntCh1 = IntChannel(1),
+            IntCh2 = IntChannel(2),
+            IntCh3 = IntChannel(3),
+            IntCh4 = IntChannel(4),
+            FloatCh1 = FloatChannel(1),
+            FloatCh2 = FloatChannel(2),
+            FloatCh3 = FloatChannel(3),
+            FloatCh4 = FloatChannel(4),
+            DoubleCh1 = DoubleChannel(1),
+            DoubleCh2 = DoubleChannel(2),
+            DoubleCh3 = DoubleChannel(3),
+            DoubleCh4 = DoubleChannel(4);
 
         #region
 
         public static ImageType ByteChannel(int ch) => MakeType(Byte, ch);
 
-        public static ImageType CharChannel(int ch) => MakeType(Char, ch);
+        public static ImageType CharChannel(in int ch) => MakeType(Char, ch);
 
-        public static ImageType UShortChannel(int ch) => MakeType(UShort, ch);
+        public static ImageType UShortChannel(in int ch) => MakeType(UShort, ch);
 
-        public static ImageType ShortChannel(int ch) => MakeType(Short, ch);
+        public static ImageType ShortChannel(in int ch) => MakeType(Short, ch);
 
-        public static ImageType IntChannel(int ch) => MakeType(Int, ch);
+        public static ImageType IntChannel(in int ch) => MakeType(Int, ch);
 
-        public static ImageType FloatChannel(int ch) => MakeType(Float, ch);
+        public static ImageType FloatChannel(in int ch) => MakeType(Float, ch);
 
-        public static ImageType DoubleChannel(int ch) => MakeType(Double, ch);
+        public static ImageType DoubleChannel(in int ch) => MakeType(Double, ch);
 
         #endregion
 
-        public static ImageType MakeType(int depth, int channels) {
+        public static ImageType MakeType(in int depth, in int channels) {
             if (channels <= 0 || channels >= ChannelMax) {
                 throw new Exception("Channels count should be 1.." + (ChannelMax - 1));
             }

@@ -13,7 +13,7 @@ namespace BEditor.Core.Data.PropertyData {
     /// 
     /// </summary>
     [DataContract(Namespace = "")]
-    public class EaseProperty : PropertyElement, IKeyFrameProperty {
+    public sealed class EaseProperty : PropertyElement, IKeyFrameProperty {
         private EffectElement parent;
         private EasingFunc easingTypeProperty;
         private EasingData easingData;
@@ -107,7 +107,7 @@ namespace BEditor.Core.Data.PropertyData {
         /// <returns></returns>
         public float GetValue(int frame) {
 
-            (int, int) GetFrame(int frame) {
+            (int, int) GetFrame(in int frame) {
                 if (Time.Count == 0) {
                     return (0, Length);
                 }
@@ -130,7 +130,7 @@ namespace BEditor.Core.Data.PropertyData {
 
                 throw new Exception();
             }
-            (float, float) GetValues(int frame) {
+            (float, float) GetValues(in int frame) {
                 if (Value.Count == 2) {
                     return (Value[0], Value[1]);
                 }
@@ -177,7 +177,7 @@ namespace BEditor.Core.Data.PropertyData {
         /// </summary>
         /// <param name="value"></param>
         /// <returns></returns>
-        public float InRange(float value) {
+        public float InRange(in float value) {
             EasePropertyMetadata constant = (EasePropertyMetadata)PropertyMetadata;
             var max = constant.Max;
             var min = constant.Min;
@@ -192,7 +192,7 @@ namespace BEditor.Core.Data.PropertyData {
             return value;
         }
 
-        private int InsertKeyframe(int frame, float value) {
+        private int InsertKeyframe(in int frame, in float value) {
             Time.Add(frame);
 
 
@@ -210,7 +210,7 @@ namespace BEditor.Core.Data.PropertyData {
 
             return stindex;
         }
-        private int RemoveKeyframe(int frame, out float value) {
+        private int RemoveKeyframe(in int frame, out float value) {
             var index = Time.IndexOf(frame) + 1;//値基準のindex
 
             value = Value[index];
@@ -229,7 +229,7 @@ namespace BEditor.Core.Data.PropertyData {
         /// <summary>
         /// 
         /// </summary>
-        public class ChangeValue : IUndoRedoCommand {
+        public sealed class ChangeValue : IUndoRedoCommand {
             private readonly EaseProperty EaseSetting;
             private readonly int index;
             private readonly float newvalue;
@@ -241,7 +241,7 @@ namespace BEditor.Core.Data.PropertyData {
             /// <param name="property"></param>
             /// <param name="index"></param>
             /// <param name="newvalue"></param>
-            public ChangeValue(EaseProperty property, int index, float newvalue) {
+            public ChangeValue(EaseProperty property, in int index, in float newvalue) {
                 EaseSetting = property;
                 this.index = index;
                 this.newvalue = property.InRange(newvalue);
@@ -262,7 +262,7 @@ namespace BEditor.Core.Data.PropertyData {
         /// <summary>
         /// 
         /// </summary>
-        public class ChangeEase : IUndoRedoCommand {
+        public sealed class ChangeEase : IUndoRedoCommand {
             private readonly EaseProperty EaseSetting;
             private readonly EasingFunc EasingNumber;
             private readonly EasingFunc OldEasingNumber;
@@ -294,7 +294,7 @@ namespace BEditor.Core.Data.PropertyData {
         /// <summary>
         /// 
         /// </summary>
-        public class Add : IUndoRedoCommand {
+        public sealed class Add : IUndoRedoCommand {
             private readonly EaseProperty EaseProperty;
             private readonly int frame;
 
@@ -303,7 +303,7 @@ namespace BEditor.Core.Data.PropertyData {
             /// </summary>
             /// <param name="easeProperty"></param>
             /// <param name="frame"></param>
-            public Add(EaseProperty easeProperty, int frame) {
+            public Add(EaseProperty easeProperty, in int frame) {
                 EaseProperty = easeProperty;
                 this.frame = frame;
             }
@@ -328,7 +328,7 @@ namespace BEditor.Core.Data.PropertyData {
         /// <summary>
         /// 
         /// </summary>
-        public class Remove : IUndoRedoCommand {
+        public sealed class Remove : IUndoRedoCommand {
             private readonly EaseProperty EaseProperty;
             private readonly int frame;
             private float value;
@@ -338,7 +338,7 @@ namespace BEditor.Core.Data.PropertyData {
             /// </summary>
             /// <param name="easeProperty"></param>
             /// <param name="frame"></param>
-            public Remove(EaseProperty easeProperty, int frame) {
+            public Remove(EaseProperty easeProperty, in int frame) {
                 EaseProperty = easeProperty;
                 this.frame = frame;
             }
@@ -363,7 +363,7 @@ namespace BEditor.Core.Data.PropertyData {
         /// <summary>
         /// 
         /// </summary>
-        public class Move : IUndoRedoCommand {
+        public sealed class Move : IUndoRedoCommand {
             private readonly EaseProperty EaseProperty;
             private readonly int fromIndex;
             private int toIndex;
@@ -375,7 +375,7 @@ namespace BEditor.Core.Data.PropertyData {
             /// <param name="easeProperty"></param>
             /// <param name="fromIndex"></param>
             /// <param name="to"></param>
-            public Move(EaseProperty easeProperty, int fromIndex, int to) {
+            public Move(EaseProperty easeProperty, in int fromIndex, in int to) {
                 EaseProperty = easeProperty;
                 this.fromIndex = fromIndex;
                 this.to = to;
@@ -426,7 +426,7 @@ namespace BEditor.Core.Data.PropertyData {
         /// <param name="max"></param>
         /// <param name="min"></param>
         /// <param name="useoptional"></param>
-        public EasePropertyMetadata(string name, float defaultvalue = 0, float max = float.NaN, float min = float.NaN, bool useoptional = false) : base(name) {
+        public EasePropertyMetadata(string name, in float defaultvalue = 0, in float max = float.NaN, in float min = float.NaN, in bool useoptional = false) : base(name) {
             DefaultValue = defaultvalue;
             DefaultEase = EasingFunc.LoadedEasingFunc[0];
             Max = max;
@@ -442,7 +442,7 @@ namespace BEditor.Core.Data.PropertyData {
         /// <param name="max"></param>
         /// <param name="min"></param>
         /// <param name="useoptional"></param>
-        public EasePropertyMetadata(string name, float defaultvalue, EasingData easingType, float max = float.NaN, float min = float.NaN, bool useoptional = false) : base(name) {
+        public EasePropertyMetadata(string name,in float defaultvalue, EasingData easingType,in float max = float.NaN,in float min = float.NaN, bool useoptional = false) : base(name) {
             DefaultValue = defaultvalue;
             DefaultEase = easingType;
             Max = max;

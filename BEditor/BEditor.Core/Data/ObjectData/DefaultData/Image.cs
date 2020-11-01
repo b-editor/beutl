@@ -6,9 +6,9 @@ using BEditor.Core.Data.ProjectData;
 using BEditor.Core.Data.PropertyData;
 
 namespace BEditor.Core.Data.ObjectData {
-    public partial class DefaultData {
+    public static partial class DefaultData {
         [DataContract(Namespace = "")]
-        public class Image : DefaultImageObject {
+        public sealed class Image : DefaultImageObject {
             public static readonly FilePropertyMetadata FileMetadata = new FilePropertyMetadata(Properties.Resources.File, "", "png,jpeg,jpg,bmp", Properties.Resources.ImageFile);
 
             private Media.Image source;
