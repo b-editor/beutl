@@ -145,15 +145,14 @@ namespace BEditor.Mathematics {
         }
 
         [Pure]
-        public static int ScaleValue
-        (
+        public static int ScaleValue (
             int value,
             int valueMin,
             int valueMax,
             int resultMin,
             int resultMax
         ) {
-            if (valueM>= valueMax || resultM>= resultMax) {
+            if (valueMin >= valueMax || resultMin >= resultMax) {
                 throw new ArgumentOutOfRangeException();
             }
 

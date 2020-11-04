@@ -57,7 +57,7 @@ namespace BEditor.Core.Data.ObjectData {
                 action = () => {
                     GL.Color4(color4);
                     GL.Scale(scalex, scaley, scalez);
-                    Graphics.DrawCube(Width.GetValue(frame),
+                    BEditor.Core.Renderer.Graphics.DrawCube(Width.GetValue(frame),
                                         Height.GetValue(frame),
                                         Weight.GetValue(frame),
                                         Material.Ambient.GetValue(frame),
@@ -70,7 +70,7 @@ namespace BEditor.Core.Data.ObjectData {
                 action = () => {
                     GL.Color4(color4);
                     GL.Scale(scalex, scaley, scalez);
-                    Graphics.DrawBall(Weight.GetValue(frame),
+                    BEditor.Core.Renderer.Graphics.DrawBall(Weight.GetValue(frame),
                                         Material.Ambient.GetValue(frame),
                                         Material.Diffuse.GetValue(frame),
                                         Material.Specular.GetValue(frame),
@@ -79,7 +79,7 @@ namespace BEditor.Core.Data.ObjectData {
             }
 
             ClipData.Scene.RenderingContext.MakeCurrent();
-            Graphics.Paint(new Point3(Coordinate.X.GetValue(frame),
+            BEditor.Core.Renderer.Graphics.Paint(new Point3(Coordinate.X.GetValue(frame),
                                                            Coordinate.Y.GetValue(frame),
                                                            Coordinate.Z.GetValue(frame)),
                                         Angle.AngleX.GetValue(frame),

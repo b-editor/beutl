@@ -154,7 +154,7 @@ namespace BEditor.Core.Data.ObjectData {
         public void PreviewLoad(ObjectLoadArgs args) {
             var loadargs = new EffectLoadArgs(args.Frame, Effect.Where(x => x.IsEnabled).ToList());
 
-            foreach (var item loadargs.Schedules) {
+            foreach (var item in loadargs.Schedules) {
                 item.PreviewLoad(loadargs);
             }
         }

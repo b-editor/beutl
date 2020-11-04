@@ -9,6 +9,8 @@ using BEditor.Core.Exceptions;
 using BEditor.Core.Native;
 using BEditor.Core.Renderer;
 
+using Graphic = BEditor.Core.Renderer.Graphics;
+
 namespace BEditor.Core.Media {
     /// <summary>
     /// BGRA
@@ -797,17 +799,17 @@ namespace BEditor.Core.Media {
             mask.AreaExpansion(nwidth, nheight);
             mask.Dilate(size);
 
-            Graphics.Paint(new Point3(0, 0, 0), 0, 0, 0, new Point3(0, 0, 0), () => Graphics.DrawImage(mask));
+            Graphic.Paint(new Point3(0, 0, 0), 0, 0, 0, new Point3(0, 0, 0), () => Graphic.DrawImage(mask));
 
             mask.Dispose();
-            Graphics.Paint(new Point3(0, 0, 0), 0, 0, 0, new Point3(0, 0, 0), () => Graphics.DrawImage(this));
+            Graphic.Paint(new Point3(0, 0, 0), 0, 0, 0, new Point3(0, 0, 0), () => Graphic.DrawImage(this));
 
 
             ImageProcess.Delete(Ptr);
 
             var tmp = new Image(nwidth, nheight);
 
-            Graphics.GetPixels(tmp);
+            Graphic.GetPixels(tmp);
             this.Ptr = tmp.Ptr;
 
             GC.KeepAlive(this);
@@ -899,8 +901,8 @@ namespace BEditor.Core.Media {
 
 #if UseOpenGL
             ImageHelper.renderer.Resize(size_w, size_h);
-            Graphics.Paint(new Point3(x, y, 0), 0, 0, 0, new Point3(0, 0, 0), () => Graphics.DrawImage(shadow));
-            Graphics.Paint(new Point3(0, 0, 0), 0, 0, 0, new Point3(0, 0, 0), () => Graphics.DrawImage(this));
+            Graphic.Paint(new Point3(x, y, 0), 0, 0, 0, new Point3(0, 0, 0), () => Graphic.DrawImage(shadow));
+            Graphic.Paint(new Point3(0, 0, 0), 0, 0, 0, new Point3(0, 0, 0), () => Graphic.DrawImage(this));
 
             shadow.Dispose();
 
@@ -908,7 +910,7 @@ namespace BEditor.Core.Media {
 
             Ptr = new Image(size_w, size_h).Ptr;
 
-            Graphics.GetPixels(this);
+            Graphic.GetPixels(this);
 
             GC.KeepAlive(this);
 #else

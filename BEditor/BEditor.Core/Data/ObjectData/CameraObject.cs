@@ -45,7 +45,7 @@ namespace BEditor.Core.Data.ObjectData {
             int frame = args.Frame;
             var scene = ClipData.Scene;
             scene.RenderingContext.MakeCurrent();
-            Graphics.LookAt(
+            BEditor.Core.Renderer.Graphics.LookAt(
                 scene.Width, scene.Height,
                 X.GetValue(frame), Y.GetValue(frame), Z.GetValue(frame),
                 TargetX.GetValue(frame), TargetY.GetValue(frame), TargetZ.GetValue(frame),

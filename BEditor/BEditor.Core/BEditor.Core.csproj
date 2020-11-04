@@ -46,7 +46,6 @@
 
   <ItemGroup>
     <Folder Include="Data\EffectData\" />
-    <Folder Include="Graphics\" />
   </ItemGroup>
 
   <ItemGroup>

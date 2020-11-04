@@ -45,7 +45,7 @@ namespace BEditor.Models.ColorTool {
         private System.Windows.Media.Color ColorSet(double X, double Y) {
             Bitmap bitmap = new Bitmap((int)SystemParameters.PrimaryScreenWidth, (int)SystemParameters.PrimaryScreenHeight, System.Drawing.Imaging.PixelFormat.Format32bppArgb);
 
-            using (var bmpGraphics = Graphics.FromImage(bitmap)) {
+            using (var bmpGraphics = System.Drawing.Graphics.FromImage(bitmap)) {
                 bmpGraphics.CopyFromScreen(0, 0, 0, 0, bitmap.Size);
                 bitmap = Imaging.CreateBitmapSourceFromHBitmap(
                     bitmap.GetHbitmap(),
@@ -53,7 +53,7 @@ namespace BEditor.Models.ColorTool {
                     Int32Rect.Empty,
                     BitmapSizeOptions.FromEmptyOptions()).ToBitmap();
             }
-
+            
             PixelFormat pixelFormat = PixelFormat.Format32bppArgb;
             int pixelSize = 4;
             BitmapData bmpData = bitmap.LockBits(

@@ -180,7 +180,7 @@ namespace BEditor.Core.Data.PropertyData {
         public float InRange(float value) {
             EasePropertyMetadata constant = (EasePropertyMetadata)PropertyMetadata;
             var max = constant.Max;
-            var m= constant.Min;
+            var min = constant.Min;
 
             if (!float.IsNaN(min) && value <= min) {
                 return min;
@@ -426,11 +426,11 @@ namespace BEditor.Core.Data.PropertyData {
         /// <param name="max"></param>
         /// <param name="min"></param>
         /// <param name="useoptional"></param>
-        public EasePropertyMetadata(string name, float defaultvalue = 0, float max = float.NaN, float m= float.NaN, bool useoptional = false) : base(name) {
+        public EasePropertyMetadata(string name, float defaultvalue = 0, float max = float.NaN, float min = float.NaN, bool useoptional = false) : base(name) {
             DefaultValue = defaultvalue;
             DefaultEase = EasingFunc.LoadedEasingFunc[0];
             Max = max;
-            M= min;
+            Min = min;
             UseOptional = useoptional;
         }
         /// <summary>
@@ -442,11 +442,11 @@ namespace BEditor.Core.Data.PropertyData {
         /// <param name="max"></param>
         /// <param name="min"></param>
         /// <param name="useoptional"></param>
-        public EasePropertyMetadata(string name,float defaultvalue, EasingData easingType,float max = float.NaN,float m= float.NaN, bool useoptional = false) : base(name) {
+        public EasePropertyMetadata(string name,float defaultvalue, EasingData easingType,float max = float.NaN,float min = float.NaN, bool useoptional = false) : base(name) {
             DefaultValue = defaultvalue;
             DefaultEase = easingType;
             Max = max;
-            M= min;
+            Min = min;
             UseOptional = useoptional;
         }
 
@@ -465,7 +465,7 @@ namespace BEditor.Core.Data.PropertyData {
         /// <summary>
         /// 
         /// </summary>
-        public float M{ get; }
+        public float Min { get; }
         /// <summary>
         /// 
         /// </summary>

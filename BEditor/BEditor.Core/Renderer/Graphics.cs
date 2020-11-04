@@ -76,7 +76,7 @@ namespace BEditor.Core.Renderer {
                 GL.BlendFunc(BlendingFactor.SrcAlpha, BlendingFactor.OneMinusSrcAlpha);
             }
 
-            GL.PushMatrix();
+            BEditor.Graphics.GL.PushMatrix();
             {
                 GL.Translate((Vector3)coordinate);
 

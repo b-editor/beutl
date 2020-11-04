@@ -68,7 +68,7 @@ namespace BEditor.Core.Data.ProjectData {
                     selectItems = new ObservableCollection<ClipData>();
 
 
-                    foreach (var name SelectNames) {
+                    foreach (var name in SelectNames) {
                         selectItems.Add(Get(name));
                     }
 
@@ -170,7 +170,7 @@ namespace BEditor.Core.Data.ProjectData {
             var args = new ObjectLoadArgs(frame, layer);
 
             //Preview
-            foreach (var obj layer) {
+            foreach (var obj in layer) {
                 if (HideLayer.Exists(x => x == obj.Layer)) {
                     continue;
                 }
@@ -178,7 +178,7 @@ namespace BEditor.Core.Data.ProjectData {
                 obj.PreviewLoad(args);
             }
 
-            foreach (var obj layer) {
+            foreach (var obj in layer) {
                 if (HideLayer.Exists(x => x == obj.Layer)) {
                     continue;
                 }
@@ -189,7 +189,7 @@ namespace BEditor.Core.Data.ProjectData {
             RenderingContext.MakeCurrent();
             RenderingContext.SwapBuffers();
 
-            Graphics.GetPixels(FrameBuffer);
+            BEditor.Core.Renderer.Graphics.GetPixels(FrameBuffer);
 
             return FrameBuffer;
         }
@@ -208,7 +208,7 @@ namespace BEditor.Core.Data.ProjectData {
         /// <returns>オブジェクトのリスト</returns>
         public List<ClipData> GetLayer(int frame) {
             var List = (
-                from item Datas
+                from item in Datas
                 where item.Start <= (frame) && (frame) < item.End
                 select item
                 ).ToList();
@@ -232,7 +232,7 @@ namespace BEditor.Core.Data.ProjectData {
         }
         public ClipData Get(string name) {
             if (name != null) {
-                foreach (var a Datas) {
+                foreach (var a in Datas) {
                     if (a.Name == name) return a;
                 }
             }

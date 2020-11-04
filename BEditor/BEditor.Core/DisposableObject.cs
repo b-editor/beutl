@@ -30,7 +30,7 @@ namespace BEditor.Core {
 
     public class DisposableCollection : List<IDisposable>, ICollection<IDisposable>, IEnumerable<IDisposable>, IList<IDisposable>, IReadOnlyCollection<IDisposable>, IReadOnlyList<IDisposable>, IDisposable {
         public void Dispose() {
-            foreach(var disposable this) {
+            foreach(var disposable in this) {
                 disposable.Dispose();
             }
         }

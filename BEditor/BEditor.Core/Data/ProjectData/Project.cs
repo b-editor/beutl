@@ -53,7 +53,7 @@ namespace BEditor.Core.Data.ProjectData {
         public void Dispose() {
             Disposing?.Invoke(this, EventArgs.Empty);
 
-            foreach (var scene SceneList) {
+            foreach (var scene in SceneList) {
                 scene.RenderingContext.Dispose();
             }
 
@@ -205,7 +205,7 @@ namespace BEditor.Core.Data.ProjectData {
             if (o != null) {
                 var project = (Project)o;
 
-                foreach (var scene project.SceneList) {
+                foreach (var scene in project.SceneList) {
                     scene.RenderingContext = Component.Funcs.CreateRenderingContext(scene.Width, scene.Height);
 
                 }
@@ -216,7 +216,6 @@ namespace BEditor.Core.Data.ProjectData {
                 return project;
             }
             else {
-
                 return null;
             }
         }

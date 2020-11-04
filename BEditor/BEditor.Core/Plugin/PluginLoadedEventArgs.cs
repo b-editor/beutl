@@ -2,7 +2,7 @@
 using System.Collections.Generic;
 using System.Text;
 
-namespace BEditor.Core.Plug{
+namespace BEditor.Core.Plugin {
     public class PluginLoadedEventArgs : EventArgs {
 
         /// <summary>

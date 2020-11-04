@@ -12,7 +12,7 @@ using BEditor.Core.Extensions;
 using BEditor.Core.Extesions.ViewCommand;
 using BEditor.Core.Properties;
 
-namespace BEditor.Core.Plug{
+namespace BEditor.Core.Plugin {
     public class PluginManager {
         public static void Load() {
 
@@ -24,35 +24,35 @@ namespace BEditor.Core.Plug{
             var files = Directory.GetFiles(Component.Current.Path + "\\user\\plugins", "*.dll", SearchOption.TopDirectoryOnly);
 
 
-            foreach (var file files) {
+            foreach (var file in files) {
                 bool issuccessful = true;
                 Exception exception = null;
                 try {
                     var asm = Assembly.LoadFrom(file);
 
-                    foreach (var t asm.GetTypes()) {
+                    foreach (var t in asm.GetTypes()) {
                         if (t.IsInterface) continue;
 
                         var instance = Activator.CreateInstance(t);
 
-                        if (instance is IPlugplugin) {
+                        if (instance is IPlugin plugin) {
                             Component.Current.LoadedPlugins.Add(plugin);
 
 
-                            if (plugis IEffects effects) {
+                            if (plugin is IEffects effects) {
                                 var a = new EffectData() { Name = plugin.PluginName, Children = new() };
 
-                                foreach (var (name, type) effects.Effects) {
+                                foreach (var (name, type) in effects.Effects) {
                                     a.Children.Add(new() { Name = name, Type = type });
                                 }
 
                                 EffectData.LoadedEffects.Add(a);
                             }
 
-                            if (plugis IObjects objects) {
+                            if (plugin is IObjects objects) {
                                 var a = new ObjectData() { Name = plugin.PluginName, Children = new() };
 
-                                foreach (var (name, type) objects.Objects) {
+                                foreach (var (name, type) in objects.Objects) {
                                     a.Children.Add(new() { Name = name, Type = type });
                                 }
 
@@ -60,8 +60,8 @@ namespace BEditor.Core.Plug{
                             }
 
 
-                            if (plugis IEasingFunctions easing) {
-                                foreach (var (name, type) easing.EasingFunc) {
+                            if (plugin is IEasingFunctions easing) {
+                                foreach (var (name, type) in easing.EasingFunc) {
                                     EasingFunc.LoadedEasingFunc.Add(new EasingData() { Name = name, Type = type });
                                 }
                             }
