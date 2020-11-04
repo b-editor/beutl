@@ -131,13 +131,13 @@ namespace BEditor.Core.SDL2.TTF {
 
         #region Methods
 
-        public int GlyphIsProvided(in ushort ch) {
+        public int GlyphIsProvided(ushort ch) {
             ThrowIfDisposed();
             var result = FontProcess.GlyphIsProvided(ptr, ch);
             return result;
         }
         
-        public bool GlyphMetrics(in ushort ch, out int minx, out int maxx, out int miny, out int maxy, out int advance) {
+        public bool GlyphMetrics(ushort ch, out int minx, out int maxx, out int miny, out int maxy, out int advance) {
             ThrowIfDisposed();
             return FontProcess.GlyphMetrics(ptr, ch, out minx, out maxx, out miny, out maxy, out advance) == 0;
         }
@@ -155,7 +155,7 @@ namespace BEditor.Core.SDL2.TTF {
             return FontProcess.SizeUTF8(ptr, text, out width, out height);
         }
 
-        public Image RenderGlyph(in ushort ch,Color color) {
+        public Image RenderGlyph(ushort ch,Color color) {
             FontProcess.RenderGlyph(ptr, ch, color.R, color.G, color.B, color.A, out var mat);
             return new Image(mat);
         }

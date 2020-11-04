@@ -1,5 +1,7 @@
 ﻿using System;
 using System.Collections.Generic;
+using System.Runtime.InteropServices;
+using System.Runtime.Serialization;
 using System.Text;
 
 namespace BEditor.Core.Media {
@@ -7,6 +9,8 @@ namespace BEditor.Core.Media {
     /// <summary>
     /// 
     /// </summary>
+    [Serializable]
+    [StructLayout(LayoutKind.Sequential)]
     public struct Range : IEquatable<Range> {
         /// <summary>
         /// 
@@ -23,7 +27,7 @@ namespace BEditor.Core.Media {
         /// </summary>
         /// <param name="start"></param>
         /// <param name="end"></param>
-        public Range(in int start, in int end) {
+        public Range(int start, int end) {
             Start = start;
             End = end;
         }

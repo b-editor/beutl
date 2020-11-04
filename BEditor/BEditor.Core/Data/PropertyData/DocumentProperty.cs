@@ -82,7 +82,7 @@ namespace BEditor.Core.Data.PropertyData {
         /// </summary>
         /// <param name="text"></param>
         /// <param name="height"></param>
-        public DocumentPropertyMetadata(string text, in int? height) : base("") {
+        public DocumentPropertyMetadata(string text, int? height) : base("") {
             DefaultText = text;
             Height = height;
         }

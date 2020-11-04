@@ -10,7 +10,7 @@ using Microsoft.VisualBasic.CompilerServices;
 
 namespace BEditor.Core.Native {
     public unsafe static class FontProcess {
-        private const string dll = "Runtimes\\BEditor.Extern";
+        private const string dll = "BEditor.Extern";
 
         [DllImport(dll, EntryPoint = "FontOpen1")]
         private static extern void Open(byte* file, int size, out IntPtr font);
@@ -23,13 +23,13 @@ namespace BEditor.Core.Native {
         public static extern void Quit();
 
         public static void Open(string file, int size, out IntPtr font) {
-            byte* utf8File = SDL.Utf8Encode(file);
+            byte* utf8File = TextConvert.UTF8Encode(file);
             Open(utf8File, size, out font);
 
             Marshal.FreeHGlobal((IntPtr)utf8File);
         }
         public static void Open(string file, int size, long index, out IntPtr font) {
-            byte* utf8File = SDL.Utf8Encode(file);
+            byte* utf8File = TextConvert.UTF8Encode(file);
             Open(utf8File, size, index, out font);
 
             Marshal.FreeHGlobal((IntPtr)utf8File);
@@ -96,7 +96,7 @@ namespace BEditor.Core.Native {
         [DllImport(dll, EntryPoint = "FontSizeUTF8")]
         public static extern bool SizeUTF8(IntPtr font, byte* text, out int width, out int height);
         public static bool SizeUTF8(IntPtr font, string text, out int width, out int height) {
-            byte* utf8Text = TextConvert.Utf8Encode(text);
+            byte* utf8Text = TextConvert.UTF8Encode(text);
             bool result = SizeUTF8(font, utf8Text, out width, out height);
 
             Marshal.FreeHGlobal((IntPtr)utf8Text);
@@ -116,7 +116,7 @@ namespace BEditor.Core.Native {
         public static extern void RenderUnicode(IntPtr font, [In()][MarshalAs(UnmanagedType.LPStr)] string text, byte r, byte g, byte b, byte a, out IntPtr returnmat);
 
         public static void RenderUTF8(IntPtr font, string text, byte r, byte g, byte b, byte a, out IntPtr returnmat) {
-            byte* utf8Text = SDL.Utf8Encode(text);
+            byte* utf8Text = TextConvert.UTF8Encode(text);
             RenderUTF8(font, utf8Text, r, g, b, a, out returnmat);
 
             Marshal.FreeHGlobal((IntPtr)utf8Text);

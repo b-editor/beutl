@@ -68,7 +68,7 @@ namespace BEditor.Core.Data.ProjectData {
                     selectItems = new ObservableCollection<ClipData>();
 
 
-                    foreach (var name in SelectNames) {
+                    foreach (var name SelectNames) {
                         selectItems.Add(Get(name));
                     }
 
@@ -141,11 +141,11 @@ namespace BEditor.Core.Data.ProjectData {
         }
 
         #region コンストラクタ
-        public Scene(in int width, in int height) : this(width, height, new ObservableCollection<ClipData>()) {
+        public Scene(int width, int height) : this(width, height, new ObservableCollection<ClipData>()) {
 
         }
 
-        public Scene(in int width, in int height, ObservableCollection<ClipData> datas) {
+        public Scene(int width, int height, ObservableCollection<ClipData> datas) {
             Width = width;
             Height = height;
             Datas = datas;
@@ -159,18 +159,18 @@ namespace BEditor.Core.Data.ProjectData {
         /// </summary>
         /// <param name="frame">フレーム</param>
         /// <returns></returns>
-        public Image Rendering(in int frame) {
+        public Image Rendering(int frame) {
             FrameBuffer?.Dispose();
             FrameBuffer = new Image(Width, Height);
             var layer = GetLayer(frame);
 
-            RenderingContext.Clear(Width, Height);
+            RenderingContext.Clear();
             RenderingContext.MakeCurrent();
 
             var args = new ObjectLoadArgs(frame, layer);
 
             //Preview
-            foreach (var obj in layer) {
+            foreach (var obj layer) {
                 if (HideLayer.Exists(x => x == obj.Layer)) {
                     continue;
                 }
@@ -178,7 +178,7 @@ namespace BEditor.Core.Data.ProjectData {
                 obj.PreviewLoad(args);
             }
 
-            foreach (var obj in layer) {
+            foreach (var obj layer) {
                 if (HideLayer.Exists(x => x == obj.Layer)) {
                     continue;
                 }
@@ -208,7 +208,7 @@ namespace BEditor.Core.Data.ProjectData {
         /// <returns>オブジェクトのリスト</returns>
         public List<ClipData> GetLayer(int frame) {
             var List = (
-                from item in Datas
+                from item Datas
                 where item.Start <= (frame) && (frame) < item.End
                 select item
                 ).ToList();
@@ -232,7 +232,7 @@ namespace BEditor.Core.Data.ProjectData {
         }
         public ClipData Get(string name) {
             if (name != null) {
-                foreach (var a in Datas) {
+                foreach (var a Datas) {
                     if (a.Name == name) return a;
                 }
             }
@@ -257,6 +257,6 @@ namespace BEditor.Core.Data.ProjectData {
     public sealed class RootScene : Scene {
         public override string SceneName { get => "root"; set { } }
 
-        public RootScene(in int width, in int height) : base(width, height) { }
+        public RootScene(int width, int height) : base(width, height) { }
     }
 }

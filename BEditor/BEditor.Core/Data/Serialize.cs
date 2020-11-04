@@ -150,19 +150,19 @@ namespace BEditor.Core.Data {
                     void ForFunc(int i) {
                         var type = plugins[i];
                         if (type is IEffects effectsPlugin) {
-                            foreach (var (_, effecttype) in effectsPlugin.Effects) {
+                            foreach (var (_, effecttype) effectsPlugin.Effects) {
                                 serializeKnownTypes.Add(effecttype);
                             }
                         }
 
                         if (type is IObjects objectsPlugin) {
-                            foreach (var (_, objecttype) in objectsPlugin.Objects) {
+                            foreach (var (_, objecttype) objectsPlugin.Objects) {
                                 serializeKnownTypes.Add(objecttype);
                             }
                         }
 
                         if (type is IEasingFunctions funcsPlugin) {
-                            foreach (var (_, functype) in funcsPlugin.EasingFunc) {
+                            foreach (var (_, functype) funcsPlugin.EasingFunc) {
                                 serializeKnownTypes.Add(functype);
                             }
                         }

@@ -1,16 +1,18 @@
 ﻿using System;
 using System.Collections.Generic;
 using System.Diagnostics.CodeAnalysis;
+using System.Runtime.InteropServices;
 using System.Runtime.Serialization;
 using System.Text;
 
 namespace BEditor.Core.Media {
 #nullable enable
     /// <summary>
-    /// RectangleのサイズとPointを格納する構造体
-    /// <para>System.Drawing.Rectangleのパクリ</para>
+    /// 
     /// </summary>
     [DataContract(Namespace = "")]
+    [Serializable]
+    [StructLayout(LayoutKind.Sequential)]
     public struct Rectangle : IEquatable<Rectangle> {
         /// <summary>
         /// 
@@ -27,7 +29,7 @@ namespace BEditor.Core.Media {
         /// <param name="y">右上のY座標</param>
         /// <param name="width">横幅</param>
         /// <param name="height">高さ</param>
-        public Rectangle(in int x, in int y, in int width, in int height) {
+        public Rectangle(int x, int y, int width, int height) {
             X = x;
             Y = y;
             Width = width;
@@ -131,7 +133,7 @@ namespace BEditor.Core.Media {
         /// <param name="right">右下のx座標</param>
         /// <param name="bottom">右下のy座標</param>
         /// <returns>作られたRectangle</returns>
-        public static Rectangle FromLTRB(in int left, in int top, in int right, in int bottom) {
+        public static Rectangle FromLTRB(int left, int top, int right, int bottom) {
             var r = new Rectangle(
                 x: left,
                 y: top,
@@ -150,7 +152,7 @@ namespace BEditor.Core.Media {
         /// <param name="rect">対象のRectangle</param>
         /// <param name="x">水平方向に膨張量</param>
         /// <param name="y">垂直方向に膨張量</param>
-        public static Rectangle Inflate(Rectangle rect, in int x, in int y) {
+        public static Rectangle Inflate(Rectangle rect, int x, int y) {
             rect.Inflate(x, y);
             return rect;
         }
@@ -189,7 +191,7 @@ namespace BEditor.Core.Media {
         /// </summary>
         /// <param name="width">水平方向に膨張量</param>
         /// <param name="height">垂直方向に膨張量</param>
-        public void Inflate(in int width, in int height) {
+        public void Inflate(int width, int height) {
             X -= width;
             Y -= height;
             Width += (2 * width);
@@ -219,7 +221,7 @@ namespace BEditor.Core.Media {
         /// <summary>
         /// 指定したPointがこのRectangleに含まれているかどうかを判断する
         /// </summary>
-        public bool Contains(in int x, in int y) => (X <= x && Y <= y && X + Width > x && Y + Height > y);
+        public bool Contains(int x, int y) => (X <= x && Y <= y && X + Width > x && Y + Height > y);
         /// <summary>
         /// 指定したPointがこのRectangleに含まれているかどうかを判断する
         /// </summary>

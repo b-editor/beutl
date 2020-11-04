@@ -2,8 +2,8 @@
 using System;
 using System.Collections.Generic;
 
-namespace BEditor.Core.Plugin {
-    public interface IPlugin {
+namespace BEditor.Core.Plug{
+    public interface IPlug{
         /// <summary>
         /// プラグインの名前
         /// </summary>

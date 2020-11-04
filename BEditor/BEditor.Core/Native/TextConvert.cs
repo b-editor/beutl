@@ -3,25 +3,24 @@ using System.Collections.Generic;
 using System.Diagnostics;
 using System.Runtime.InteropServices;
 using System.Text;
-using static BEditor.Core.SDL2.SDL;
 
 namespace BEditor.Core.Native {
     internal static class TextConvert {
-        internal static int Utf8Size(string str) {
+        internal static int UTF8Size(string str) {
             Debug.Assert(str != null);
             return (str.Length * 4) + 1;
         }
-        internal static int Utf8SizeNullable(string str) {
+        internal static int UTF8SizeNullable(string str) {
             return str != null ? (str.Length * 4) + 1 : 0;
         }
-        internal static unsafe byte* Utf8Encode(string str, byte* buffer, int bufferSize) {
+        internal static unsafe byte* UTF8Encode(string str, byte* buffer, int bufferSize) {
             Debug.Assert(str != null);
             fixed (char* strPtr = str) {
                 Encoding.UTF8.GetBytes(strPtr, str.Length + 1, buffer, bufferSize);
             }
             return buffer;
         }
-        internal static unsafe byte* Utf8EncodeNullable(string str, byte* buffer, int bufferSize) {
+        internal static unsafe byte* UTF8EncodeNullable(string str, byte* buffer, int bufferSize) {
             if (str == null) {
                 return (byte*)0;
             }
@@ -31,20 +30,20 @@ namespace BEditor.Core.Native {
             return buffer;
         }
 
-        internal static unsafe byte* Utf8Encode(string str) {
+        internal static unsafe byte* UTF8Encode(string str) {
             Debug.Assert(str != null);
-            int bufferSize = Utf8Size(str);
+            int bufferSize = UTF8Size(str);
             byte* buffer = (byte*)Marshal.AllocHGlobal(bufferSize);
             fixed (char* strPtr = str) {
                 Encoding.UTF8.GetBytes(strPtr, str.Length + 1, buffer, bufferSize);
             }
             return buffer;
         }
-        internal static unsafe byte* Utf8EncodeNullable(string str) {
+        internal static unsafe byte* UTF8EncodeNullable(string str) {
             if (str == null) {
                 return (byte*)0;
             }
-            int bufferSize = Utf8Size(str);
+            int bufferSize = UTF8Size(str);
             byte* buffer = (byte*)Marshal.AllocHGlobal(bufferSize);
             fixed (char* strPtr = str) {
                 Encoding.UTF8.GetBytes(
@@ -57,7 +56,7 @@ namespace BEditor.Core.Native {
             return buffer;
         }
 
-        internal static unsafe string UTF8_ToManaged(IntPtr s, bool freePtr = false) {
+        internal static unsafe string UTF8_ToManaged(IntPtr s) {
             if (s == IntPtr.Zero) {
                 return null;
             }
@@ -85,10 +84,6 @@ namespace BEditor.Core.Native {
             string result = new string(chars, 0, strLen);
 #endif
 
-            /* Some SDL functions will malloc, we have to free! */
-            if (freePtr) {
-                SDL_free(s);
-            }
             return result;
         }
     }

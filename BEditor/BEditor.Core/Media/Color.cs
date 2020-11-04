@@ -1,13 +1,14 @@
 ﻿using System;
+using System.Runtime.InteropServices;
 using System.Runtime.Serialization;
-
-using BEditor.Core.SDL2;
 
 namespace BEditor.Core.Media {
     /// <summary>
     /// 
     /// </summary>
     [DataContract(Namespace = "")]
+    [Serializable]
+    [StructLayout(LayoutKind.Sequential)]
     public struct Color : IEquatable<Color> {
         public Color(byte r = 255, byte g = 255, byte b = 255, byte a = 255) {
             ScR = r / 255;
@@ -95,8 +96,6 @@ namespace BEditor.Core.Media {
         /// <param name="c"></param>
         public static implicit operator Color4(OpenTK.Mathematics.Color4 c) => Color4.new((byte)c.R, (byte)c.G, (byte)c.B, (byte)c.A);
 #endif
-
-        internal SDL.SDL_Color ToSDL() => new SDL.SDL_Color() { r = (byte)R, g = (byte)G, b = (byte)B, a = (byte)A };
 
         #endregion
 

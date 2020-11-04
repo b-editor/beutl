@@ -9,7 +9,7 @@ namespace BEditor.Core.Data.ProjectData {
     [DataContract(Namespace = "")]
     public sealed class Project : BasePropertyChanged, IExtensibleDataObject, IDisposable {
 
-        public Project(in int width, in int height, in int framerate) {
+        public Project(int width, int height, int framerate) {
             Framerate = framerate;
             SceneList.Add(new RootScene(width, height));
         }
@@ -53,7 +53,7 @@ namespace BEditor.Core.Data.ProjectData {
         public void Dispose() {
             Disposing?.Invoke(this, EventArgs.Empty);
 
-            foreach (var scene in SceneList) {
+            foreach (var scene SceneList) {
                 scene.RenderingContext.Dispose();
             }
 
@@ -205,7 +205,7 @@ namespace BEditor.Core.Data.ProjectData {
             if (o != null) {
                 var project = (Project)o;
 
-                foreach (var scene in project.SceneList) {
+                foreach (var scene project.SceneList) {
                     scene.RenderingContext = Component.Funcs.CreateRenderingContext(scene.Width, scene.Height);
 
                 }
@@ -253,7 +253,7 @@ namespace BEditor.Core.Data.ProjectData {
         /// <param name="height">rootsceneの高さ</param>
         /// <param name="framerate">フレームレート</param>
         /// <param name="path">保存するパス</param>
-        public static Project Create(in int width, in int height, in int framerate, string path) {
+        public static Project Create(int width, int height, int framerate, string path) {
             var project = new Project(width, height, framerate) {
                 Filename = path
             };

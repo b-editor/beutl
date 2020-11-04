@@ -76,7 +76,7 @@ namespace BEditor.Core.Data.EffectData {
                 GL.Scale(scalex, scaley, scalez);
                 GL.Begin(PrimitiveType.Quads);
                 {
-                    //foreach(var point in points) {
+                    //foreach(var point points) {
                     //    GL.Vertex3(point.X, point.Y, 0);
                     //}
                 }

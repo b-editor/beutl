@@ -1,4 +1,5 @@
 ﻿using System;
+using System.Runtime.InteropServices;
 using System.Runtime.Serialization;
 
 namespace BEditor.Core.Media {
@@ -7,6 +8,8 @@ namespace BEditor.Core.Media {
     /// 
     /// </summary>
     [DataContract(Namespace = "")]
+    [Serializable]
+    [StructLayout(LayoutKind.Sequential)]
     public struct Size : IEquatable<Size> {
         /// <summary>
         /// 
@@ -33,7 +36,7 @@ namespace BEditor.Core.Media {
         /// </summary>
         /// <param name="width"></param>
         /// <param name="height"></param>
-        public Size(in int width, in int height) {
+        public Size(int width, int height) {
             if (width < 0) throw new Exception("Width < 0");
             if (height < 0) throw new Exception("Height < 0");
 
@@ -86,14 +89,14 @@ namespace BEditor.Core.Media {
         /// <param name="left"></param>
         /// <param name="right"></param>
         /// <returns></returns>
-        public static Size operator *(Size left, in int right) => new Size(left.Width * right, left.Height * right);
+        public static Size operator *(Size left, int right) => new Size(left.Width * right, left.Height * right);
         /// <summary>
         /// 
         /// </summary>
         /// <param name="left"></param>
         /// <param name="right"></param>
         /// <returns></returns>
-        public static Size operator /(Size left, in int right) => new Size(left.Width / right, left.Height / right);
+        public static Size operator /(Size left, int right) => new Size(left.Width / right, left.Height / right);
         /// <summary>
         /// 
         /// </summary>

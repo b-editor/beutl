@@ -32,7 +32,7 @@ namespace BEditor.Core.Data.PropertyData.EasingSetting {
             }
         }
 
-        public abstract float EaseFunc(in int frame, in int totalframe, in float min, in float max);
+        public abstract float EaseFunc(int frame, int totalframe, float min, float max);
 
         public virtual void PropertyLoaded() {
             var settings = EasingSettings;

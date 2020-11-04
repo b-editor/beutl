@@ -5,10 +5,10 @@ namespace BEditor.Core.Media {
     public readonly struct ImageType : IEquatable<ImageType> {
         public int Value { get; }
 
-        public ImageType(in int value) => Value = value;
+        public ImageType(int value) => Value = value;
 
-        public static implicit operator int(in ImageType type) => type.Value;
-        public static implicit operator OpenTK.Graphics.OpenGL.PixelType(in ImageType type) {
+        public static implicit operator int(ImageType type) => type.Value;
+        public static implicit operator OpenTK.Graphics.OpenGL.PixelType(ImageType type) {
             OpenTK.Graphics.OpenGL.PixelType s = OpenTK.Graphics.OpenGL.PixelType.Bitmap;
             switch (type.Depth) {
                 case Byte:
@@ -39,7 +39,7 @@ namespace BEditor.Core.Media {
 
             return s;
         }
-        public static implicit operator OpenTK.Graphics.OpenGL.PixelInternalFormat(in ImageType type) => type.Channels switch
+        public static implicit operator OpenTK.Graphics.OpenGL.PixelInternalFormat(ImageType type) => type.Channels switch
         {
             1 => OpenTK.Graphics.OpenGL.PixelInternalFormat.One,
             2 => OpenTK.Graphics.OpenGL.PixelInternalFormat.Rg8,
@@ -47,7 +47,7 @@ namespace BEditor.Core.Media {
             4 => OpenTK.Graphics.OpenGL.PixelInternalFormat.Rgba,
             _ => throw new Exception(),
         };
-        public static implicit operator OpenTK.Graphics.OpenGL.PixelFormat(in ImageType type) => type.Channels switch
+        public static implicit operator OpenTK.Graphics.OpenGL.PixelFormat(ImageType type) => type.Channels switch
         {
             1 => OpenTK.Graphics.OpenGL.PixelFormat.Red,
             2 => OpenTK.Graphics.OpenGL.PixelFormat.Rg,
@@ -56,9 +56,9 @@ namespace BEditor.Core.Media {
             _ => throw new Exception(),
         };
 
-        public static implicit operator ImageType(in int value) => new ImageType(value);
+        public static implicit operator ImageType(int value) => new ImageType(value);
 
-        public static ImageType FromInt32(in int value) => new ImageType(value);
+        public static ImageType FromInt32(int value) => new ImageType(value);
 
         public int Depth => Value & (DepthMax - 1);
 
@@ -92,9 +92,9 @@ namespace BEditor.Core.Media {
             return Equals((ImageType)type);
         }
 
-        public static bool operator ==(in ImageType left, in ImageType right) => left.Equals(right);
+        public static bool operator ==(ImageType left, ImageType right) => left.Equals(right);
 
-        public static bool operator !=(in ImageType left, in ImageType right) => !left.Equals(right);
+        public static bool operator !=(ImageType left, ImageType right) => !left.Equals(right);
 
 
         public override int GetHashCode() => Value.GetHashCode();
@@ -190,21 +190,21 @@ namespace BEditor.Core.Media {
 
         public static ImageType ByteChannel(int ch) => MakeType(Byte, ch);
 
-        public static ImageType CharChannel(in int ch) => MakeType(Char, ch);
+        public static ImageType CharChannel(int ch) => MakeType(Char, ch);
 
-        public static ImageType UShortChannel(in int ch) => MakeType(UShort, ch);
+        public static ImageType UShortChannel(int ch) => MakeType(UShort, ch);
 
-        public static ImageType ShortChannel(in int ch) => MakeType(Short, ch);
+        public static ImageType ShortChannel(int ch) => MakeType(Short, ch);
 
-        public static ImageType IntChannel(in int ch) => MakeType(Int, ch);
+        public static ImageType IntChannel(int ch) => MakeType(Int, ch);
 
-        public static ImageType FloatChannel(in int ch) => MakeType(Float, ch);
+        public static ImageType FloatChannel(int ch) => MakeType(Float, ch);
 
-        public static ImageType DoubleChannel(in int ch) => MakeType(Double, ch);
+        public static ImageType DoubleChannel(int ch) => MakeType(Double, ch);
 
         #endregion
 
-        public static ImageType MakeType(in int depth, in int channels) {
+        public static ImageType MakeType(int depth, int channels) {
             if (channels <= 0 || channels >= ChannelMax) {
                 throw new Exception("Channels count should be 1.." + (ChannelMax - 1));
             }

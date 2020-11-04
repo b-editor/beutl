@@ -40,7 +40,7 @@ namespace BEditor {
     public partial class App : Application {
         private void Application_Startup(object sender, StartupEventArgs e) {
             Component.Current.Arguments = e.Args;
-            SDL.TTF.Initialize();
+            Font.Initialize();
 
             #region ダークモード設定
 
@@ -140,7 +140,7 @@ namespace BEditor {
             };
             Message.SnackberFunc += (text) => MainWindowViewModel.Current.MessageQueue.Enqueue(text);
         }
-
+        
         internal static (CustomTreeView, VirtualizingStackPanel) CreateTreeObject(ObjectElement obj) {
             CustomTreeView _expander = new CustomTreeView() {
                 HeaderHeight = 35F
@@ -312,7 +312,7 @@ namespace BEditor {
         }
 
         private void Application_Exit(object sender, ExitEventArgs e) {
-            SDL.TTF.TTF_Quit();
+            Font.Quit();
             BEditor.Properties.Settings.Default.Save();
         }
 

@@ -1486,7 +1486,7 @@ namespace BEditor.Core.Properties {
         /// <summary>
         ///   Uninstall {0} に類似しているローカライズされた文字列を検索します。
         /// </summary>
-        public static string UninstallPlugin {
+        public static string UninstallPlug{
             get {
                 return ResourceManager.GetString("UninstallPlugin", resourceCulture);
             }

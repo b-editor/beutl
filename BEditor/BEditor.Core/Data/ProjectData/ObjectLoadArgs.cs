@@ -6,7 +6,7 @@ using BEditor.Core.Data.ObjectData;
 namespace BEditor.Core.Data.ProjectData {
     public class ObjectLoadArgs {
 
-        public ObjectLoadArgs(in int frame, List<ClipData> schedules) {
+        public ObjectLoadArgs(int frame, List<ClipData> schedules) {
             Frame = frame;
             Schedules = schedules;
         }
@@ -18,7 +18,7 @@ namespace BEditor.Core.Data.ProjectData {
 
     public class EffectLoadArgs {
 
-        public EffectLoadArgs(in int frame, List<EffectElement> schedules) {
+        public EffectLoadArgs(int frame, List<EffectElement> schedules) {
             Frame = frame;
             Schedules = schedules;
         }

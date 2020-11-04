@@ -91,7 +91,7 @@ namespace BEditor.Core.Data.PropertyData.EasingSetting {
             EasingType
         };
 
-        public override float EaseFunc(in int frame, in int totalframe, in float min, in float max) => currentfunc?.Invoke(frame, totalframe, min, max) ?? 0;
+        public override float EaseFunc(int frame, int totalframe, float min, float max) => currentfunc?.Invoke(frame, totalframe, min, max) ?? 0;
 
         private Func<float, float, float, float, float> currentfunc;
         
@@ -251,12 +251,12 @@ namespace BEditor.Core.Data.PropertyData.EasingSetting {
 
             public static float ExpIn(float t, float totaltime, float min, float max) {
                 max -= min;
-                return t == 0.0 ? min : max * MathF.Pow(2, 10 * (t / totaltime - 1)) + min;
+                return t == 0.0 ? m: max * MathF.Pow(2, 10 * (t / totaltime - 1)) + min;
             }
 
             public static float ExpOut(float t, float totaltime, float min, float max) {
                 max -= min;
-                return t == totaltime ? max + min : max * (-MathF.Pow(2, -10 * t / totaltime) + 1) + min;
+                return t == totaltime ? max + m: max * (-MathF.Pow(2, -10 * t / totaltime) + 1) + min;
             }
 
             public static float ExpInOut(float t, float totaltime, float min, float max) {
@@ -300,7 +300,7 @@ namespace BEditor.Core.Data.PropertyData.EasingSetting {
                 float a = max;
 
                 if (t == 0) return min;
-                if (t == 1) return min + max;
+                if (t == 1) return m+ max;
 
 
                 float s;
@@ -323,7 +323,7 @@ namespace BEditor.Core.Data.PropertyData.EasingSetting {
                 float a = max;
 
                 if (t == 0) return min;
-                if (t == 1) return min + max;
+                if (t == 1) return m+ max;
 
 
                 float s;
@@ -345,7 +345,7 @@ namespace BEditor.Core.Data.PropertyData.EasingSetting {
                 float a = max;
 
                 if (t == 0) return min;
-                if (t == 2) return min + max;
+                if (t == 2) return m+ max;
 
 
                 float s;
@@ -427,7 +427,7 @@ namespace BEditor.Core.Data.PropertyData.EasingSetting {
                     return BounceIn(t * 2, totaltime, 0, max - min) * 0.5f + min;
                 }
                 else {
-                    return BounceOut(t * 2 - totaltime, totaltime, 0, max - min) * 0.5f + min + (max - min) * 0.5f;
+                    return BounceOut(t * 2 - totaltime, totaltime, 0, max - min) * 0.5f + m+ (max - min) * 0.5f;
                 }
             }
 

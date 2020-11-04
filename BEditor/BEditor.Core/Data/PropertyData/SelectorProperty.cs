@@ -52,7 +52,7 @@ namespace BEditor.Core.Data.PropertyData {
             /// </summary>
             /// <param name="combo"></param>
             /// <param name="select"></param>
-            public ChangeSelect(SelectorProperty combo, in int select) {
+            public ChangeSelect(SelectorProperty combo, int select) {
                 Selector = combo;
                 this.select = select;
                 oldselect = combo.Index;
@@ -82,7 +82,7 @@ namespace BEditor.Core.Data.PropertyData {
         /// <param name="itemsource"></param>
         /// <param name="index"></param>
         /// <param name="memberpath"></param>
-        public SelectorPropertyMetadata(string name, IList itemsource, in int index = 0, string memberpath = "") : base(name) {
+        public SelectorPropertyMetadata(string name, IList itemsource, int index = 0, string memberpath = "") : base(name) {
             DefaultIndex = index;
             ItemSource = itemsource;
             MemberPath = memberpath;
@@ -95,7 +95,7 @@ namespace BEditor.Core.Data.PropertyData {
         /// <param name="itemsource"></param>
         /// <param name="memberpath"></param>
         [Obsolete]
-        public SelectorPropertyMetadata(string name, in int index, IList itemsource, string memberpath = "") : base(name) {
+        public SelectorPropertyMetadata(string name, int index, IList itemsource, string memberpath = "") : base(name) {
             DefaultIndex = index;
             ItemSource = itemsource;
             MemberPath = memberpath;

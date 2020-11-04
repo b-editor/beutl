@@ -19,8 +19,8 @@ using BEditor.Core.Data.PropertyData.Default;
 
 namespace BEditor.Core.Renderer {
     public abstract class BaseRenderingContext : IDisposable {
-        public virtual int Width { get; protected set; }
-        public virtual int Height { get; protected set; }
+        public virtual int Width { get; private set; }
+        public virtual int Height { get; private set; }
         public float Aspect => Width / Height;
         public bool IsInitialized { get; private set; }
 
@@ -38,13 +38,13 @@ namespace BEditor.Core.Renderer {
         protected int DepthTex;
         protected int FBO;
 
-        public BaseRenderingContext(in int width, in int height) {
+        public BaseRenderingContext(int width, int height) {
             Width = width;
             Height = height;
         }
 
         protected void Initialize() {
-            Clear(Width, Height);
+            Resize(Width, Height);
 
             GL.Disable(EnableCap.DepthTest);
             GL.Disable(EnableCap.Lighting);
@@ -55,8 +55,6 @@ namespace BEditor.Core.Renderer {
         /// <summary>
         /// カメラを設定
         /// </summary>
-        /// <param name="width">ViewportWidth</param>
-        /// <param name="height">ViewportHeight</param>
         /// <param name="Perspective">遠近法を使うか</param>
         /// <param name="x">CameraX</param>
         /// <param name="y">CameraY</param>
@@ -66,7 +64,50 @@ namespace BEditor.Core.Renderer {
         /// <param name="tz">TargetZ</param>
         /// <param name="near">ZNear</param>
         /// <param name="far">ZFar</param>
-        public virtual void Clear(in int width, in int height, in bool Perspective = false, in float x = 0, in float y = 0, in float z = 1024, in float tx = 0, in float ty = 0, in float tz = 0, in float near = 0.1F, in float far = 20000) {
+        public virtual void Clear(bool Perspective = false, float x = 0, float y = 0, float z = 1024, float tx = 0, float ty = 0, float tz = 0, float near = 0.1F, float far = 20000) {
+            MakeCurrent();
+
+            //ビューポートの設定
+            GL.Viewport(0, 0, Width, Height);
+
+            if (Perspective) {
+                //視体積の設定
+                GL.MatrixMode(MatrixMode.Projection);
+                Matrix4 proj = Matrix4.CreatePerspectiveFieldOfView(MathHelper.PiOver4, Aspect, near, far);//描画範囲
+
+                GL.LoadMatrix(ref proj);
+            }
+            else {
+                GL.MatrixMode(MatrixMode.Projection);
+                //視体積の設定
+                Matrix4 proj = Matrix4.CreateOrthographic(Width, Height, near, far);
+                GL.LoadMatrix(ref proj);
+            }
+
+            GL.MatrixMode(MatrixMode.Modelview);
+
+            //視界の設定
+            Matrix4 look = Matrix4.LookAt(new Vector3(x, y, z), new Vector3(tx, ty, tz), Vector3.UnitY);
+            GL.LoadMatrix(ref look);
+
+
+            //法線の自動調節
+            GL.Enable(EnableCap.Normalize);
+
+
+            GL.Clear(ClearBufferMask.ColorBufferBit | ClearBufferMask.DepthBufferBit);
+
+            if (Perspective) {
+                GL.Enable(EnableCap.DepthTest);
+                GL.Disable(EnableCap.Lighting);
+            }
+            else {
+                GL.Disable(EnableCap.DepthTest);
+                GL.Disable(EnableCap.Lighting);
+            }
+        }
+
+        public virtual void Resize(int width, int height, bool Perspective = false, float x = 0, float y = 0, float z = 1024, float tx = 0, float ty = 0, float tz = 0, float near = 0.1F, float far = 20000) {
             MakeCurrent();
 
             Width = width;
@@ -146,8 +187,7 @@ namespace BEditor.Core.Renderer {
             }
         }
 
-
-        internal void DrawImage(Image img, ClipData data, in int frame) {
+        internal void DrawImage(Image img, ClipData data, int frame) {
             if (img == null) return;
             ImageObject drawObject = (ImageObject)data.Effect[0];
 
@@ -176,12 +216,7 @@ namespace BEditor.Core.Renderer {
             Color specular = drawObject.Material.Specular.GetValue(frame);
             float shininess = drawObject.Material.Shininess.GetValue(frame);
             Color color = drawObject.Blend.Color.GetValue(frame);
-
-            color = new Color(
-                color.ScR,
-                color.ScG,
-                color.ScB,
-                color.ScA * alpha);
+            color.ScA *= alpha;
 
             MakeCurrent();
             Graphics.Paint(coordinate, nx, ny, nz, center, () => Graphics.DrawImage(img, scalex, scaley, scalez, color, ambient, diffuse, specular, shininess), Blend.BlentFunc[drawObject.Blend.BlendType.Index]);

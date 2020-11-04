@@ -1,8 +1,7 @@
-#pragma once
+#include "pch.h"
 
-#pragma region Create
 
-DLLExport(const char*) ImageCreate1(cv::Mat** returnmat) {
+inline const char* ImageCreate1(cv::Mat** returnmat) {
 	try {
 		*returnmat = new cv::Mat();
 		return nullptr;
@@ -12,7 +11,7 @@ DLLExport(const char*) ImageCreate1(cv::Mat** returnmat) {
 	}
 }
 
-DLLExport(const char*) ImageCreate2(int width, int height, int type, cv::Mat** returnmat) {
+inline const char* ImageCreate2(int width, int height, int type, cv::Mat** returnmat) {
 	try {
 		*returnmat = new cv::Mat(height, width, type);
 		return nullptr;
@@ -22,7 +21,7 @@ DLLExport(const char*) ImageCreate2(int width, int height, int type, cv::Mat** r
 	}
 }
 
-DLLExport(const char*) ImageCreate3(int width, int height, void* data, int type, cv::Mat** returnmat) {
+inline const char* ImageCreate3(int width, int height, void* data, int type, cv::Mat** returnmat) {
 	try {
 		*returnmat = new cv::Mat(height, width, type, data);
 		return nullptr;
@@ -32,7 +31,7 @@ DLLExport(const char*) ImageCreate3(int width, int height, void* data, int type,
 	}
 }
 
-DLLExport(const char*) ImageCreate4(cv::Mat* mat, int x, int y, int width, int height, cv::Mat** returnmat) {
+inline const char* ImageCreate4(cv::Mat* mat, int x, int y, int width, int height, cv::Mat** returnmat) {
 	try {
 		*returnmat = new cv::Mat(*mat, cv::Rect(x, y, width, height));
 		return nullptr;
@@ -42,10 +41,8 @@ DLLExport(const char*) ImageCreate4(cv::Mat* mat, int x, int y, int width, int h
 	}
 }
 
-#pragma endregion
 
-
-DLLExport(const char*) ImageRead(const char* filename, cv::Mat** returnmat) {
+inline const char* ImageRead(const char* filename, cv::Mat** returnmat) {
 	try {
 		const auto ret = cv::imread(filename);
 		*returnmat = new cv::Mat(ret);
@@ -56,7 +53,7 @@ DLLExport(const char*) ImageRead(const char* filename, cv::Mat** returnmat) {
 	}
 }
 
-DLLExport(const char*) ImageDecode(uchar* buf, size_t bufLength, int flags, cv::Mat** returnmat) {
+inline const char* ImageDecode(uchar* buf, size_t bufLength, int flags, cv::Mat** returnmat) {
 	try {
 		const cv::Mat bufMat(1, bufLength, CV_8UC1, buf, cv::Mat::AUTO_STEP);
 		const auto ret = cv::imdecode(bufMat, flags);
@@ -69,7 +66,7 @@ DLLExport(const char*) ImageDecode(uchar* buf, size_t bufLength, int flags, cv::
 	}
 }
 
-DLLExport(const char*) ImageDelete(cv::Mat* mat) {
+inline const char* ImageDelete(cv::Mat* mat) {
 	try {
 		delete mat;
 		return nullptr;
@@ -79,7 +76,7 @@ DLLExport(const char*) ImageDelete(cv::Mat* mat) {
 	}
 }
 
-DLLExport(const char*) ImageSave1(cv::Mat* mat, const char* filename, int* params, int paramsLength, int* returnValue) {
+inline const char* ImageSave1(cv::Mat* mat, const char* filename, int* params, int paramsLength, int* returnValue) {
 	try {
 		std::vector<int> paramsVec;
 		paramsVec.assign(params, params + paramsLength);
@@ -91,7 +88,7 @@ DLLExport(const char*) ImageSave1(cv::Mat* mat, const char* filename, int* param
 	}
 }
 
-DLLExport(const char*) ImageSave2(cv::Mat* mat, const char* filename, int* returnValue) {
+inline const char* ImageSave2(cv::Mat* mat, const char* filename, int* returnValue) {
 	try {
 		//int* params[1];
 

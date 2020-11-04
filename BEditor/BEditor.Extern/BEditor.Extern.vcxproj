@@ -81,13 +81,13 @@
     <LinkIncremental>true</LinkIncremental>
     <IncludePath>E:\yuuto\lib\opencv\build\include;E:\yuuto\lib\SDL2\SDL2-2.0.12\include;E:\yuuto\lib\SDL2\SDL2_ttf-2.0.15\include;$(IncludePath)</IncludePath>
     <LibraryPath>E:\yuuto\lib\opencv\build\x64\vc15\lib;E:\yuuto\lib\SDL2\SDL2-2.0.12\lib\x64;E:\yuuto\lib\SDL2\SDL2_ttf-2.0.15\lib\x64;$(LibraryPath)</LibraryPath>
-    <OutDir>$(SolutionDir)$(Platform)\$(Configuration)\netcoreapp3.1\Runtimes</OutDir>
+    <OutDir>$(SolutionDir)$(Platform)\$(Configuration)\netcoreapp3.1</OutDir>
   </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release|x64'">
     <LinkIncremental>false</LinkIncremental>
     <IncludePath>E:\yuuto\lib\opencv\build\include;E:\yuuto\lib\SDL2\SDL2-2.0.12\include;E:\yuuto\lib\SDL2\SDL2_ttf-2.0.15\include;$(IncludePath)</IncludePath>
     <LibraryPath>E:\yuuto\lib\opencv\build\x64\vc15\lib;E:\yuuto\lib\SDL2\SDL2-2.0.12\lib\x64;E:\yuuto\lib\SDL2\SDL2_ttf-2.0.15\lib\x64;$(LibraryPath)</LibraryPath>
-    <OutDir>$(SolutionDir)$(Platform)\$(Configuration)\netcoreapp3.1\Runtimes</OutDir>
+    <OutDir>$(SolutionDir)$(Platform)\$(Configuration)\netcoreapp3.1</OutDir>
   </PropertyGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">
     <ClCompile>
@@ -138,6 +138,8 @@
       <GenerateDebugInformation>true</GenerateDebugInformation>
       <EnableUAC>false</EnableUAC>
       <AdditionalDependencies>opencv_world450.lib;opencv_world450d.lib;SDL2.lib;SDL2_ttf.lib;%(AdditionalDependencies)</AdditionalDependencies>
+      <AdditionalLibraryDirectories>%(AdditionalLibraryDirectories)</AdditionalLibraryDirectories>
+      <DelayLoadDLLs>%(DelayLoadDLLs)</DelayLoadDLLs>
     </Link>
   </ItemDefinitionGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Release|x64'">
@@ -159,20 +161,24 @@
       <GenerateDebugInformation>true</GenerateDebugInformation>
       <EnableUAC>false</EnableUAC>
       <AdditionalDependencies>opencv_world450.lib;opencv_world450d.lib;SDL2.lib;SDL2_ttf.lib;%(AdditionalDependencies)</AdditionalDependencies>
+      <AdditionalLibraryDirectories>%(AdditionalLibraryDirectories)</AdditionalLibraryDirectories>
+      <DelayLoadDLLs>%(DelayLoadDLLs)</DelayLoadDLLs>
     </Link>
   </ItemDefinitionGroup>
   <ItemGroup>
+    <ClCompile Include="FonrProcess.cpp" />
+    <ClCompile Include="FontProperty.cpp" />
+    <ClCompile Include="FontRender.cpp" />
+    <ClCompile Include="Image.cpp" />
+    <ClCompile Include="ImageEffect.cpp" />
+    <ClCompile Include="ImageIO.cpp" />
+    <ClCompile Include="ImageProperty.cpp" />
     <ClCompile Include="pch.cpp" />
   </ItemGroup>
   <ItemGroup>
-    <ClInclude Include="FontProcess.h" />
-    <ClInclude Include="FontProperty.h" />
+    <ClInclude Include="Font.h" />
     <ClInclude Include="Image.h" />
-    <ClInclude Include="ImageEffect.h" />
-    <ClInclude Include="ImageIO.h" />
-    <ClInclude Include="ImageProperty.h" />
     <ClInclude Include="pch.h" />
-    <ClInclude Include="FontRender.h" />
   </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
   <ImportGroup Label="ExtensionTargets" />

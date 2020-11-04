@@ -1,23 +1,22 @@
-#pragma once
+#include "pch.h"
 
-
-DLLExport(bool) FontGlyphMetrics(TTF_Font* font, Uint16 ch, int* minx, int* maxx, int* miny, int* maxy, int* advance) {
+inline bool FontGlyphMetrics(TTF_Font* font, Uint16 ch, int* minx, int* maxx, int* miny, int* maxy, int* advance) {
 	return TTF_GlyphMetrics(font, ch, minx, maxx, miny, maxy, advance);
 }
 
-DLLExport(bool) FontSizeText(TTF_Font* font, const char* text, int* width, int* height) {
+inline bool FontSizeText(TTF_Font* font, const char* text, int* width, int* height) {
 	return TTF_SizeText(font, text, width, height);
 }
 
-DLLExport(bool) FontSizeUNICODE(TTF_Font* font, const Uint16* text, int* width, int* height) {
+inline bool FontSizeUNICODE(TTF_Font* font, const Uint16* text, int* width, int* height) {
 	return TTF_SizeUNICODE(font, text, width, height);
 }
 
-DLLExport(bool) FontSizeUTF8(TTF_Font* font, const char* text, int* width, int* height) {
+inline bool FontSizeUTF8(TTF_Font* font, const char* text, int* width, int* height) {
 	return TTF_SizeUTF8(font, text, width, height);
 }
 
-DLLExport(void) FontRenderGlyph(TTF_Font* font, Uint16 ch, uchar r, uchar g, uchar b, uchar a, cv::Mat** returnmat) {
+inline void FontRenderGlyph(TTF_Font* font, Uint16 ch, uchar r, uchar g, uchar b, uchar a, cv::Mat** returnmat) {
 	SDL_Color color;
 	color.r = r;
 	color.g = g;
@@ -37,7 +36,7 @@ DLLExport(void) FontRenderGlyph(TTF_Font* font, Uint16 ch, uchar r, uchar g, uch
 	delete surface;
 }
 
-DLLExport(void) FontRenderText(TTF_Font* font, const char* text, uchar r, uchar g, uchar b, uchar a, cv::Mat** returnMat) {
+inline void FontRenderText(TTF_Font* font, const char* text, uchar r, uchar g, uchar b, uchar a, cv::Mat** returnMat) {
 	SDL_Color color;
 	color.r = r;
 	color.g = g;
@@ -48,11 +47,11 @@ DLLExport(void) FontRenderText(TTF_Font* font, const char* text, uchar r, uchar 
 
 	SDL_LockSurface(surface);
 	*returnMat = new cv::Mat(surface->h, surface->w, CV_8UC4, surface->pixels);
-	
+
 	SDL_UnlockSurface(surface);
 }
 
-DLLExport(void) FontRenderUNICODE(TTF_Font* font, const Uint16* text, uchar r, uchar g, uchar b, uchar a, cv::Mat** returnMat) {
+inline void FontRenderUNICODE(TTF_Font* font, const Uint16* text, uchar r, uchar g, uchar b, uchar a, cv::Mat** returnMat) {
 	SDL_Color color;
 	color.r = r;
 	color.g = g;
@@ -63,11 +62,11 @@ DLLExport(void) FontRenderUNICODE(TTF_Font* font, const Uint16* text, uchar r, u
 
 	SDL_LockSurface(surface);
 	*returnMat = new cv::Mat(surface->h, surface->w, CV_8UC4, surface->pixels);
-	
+
 	SDL_UnlockSurface(surface);
 }
 
-DLLExport(void) FontRenderUTF8(TTF_Font* font, const char* text, uchar r, uchar g, uchar b, uchar a, cv::Mat** returnmat) {
+inline void FontRenderUTF8(TTF_Font* font, const char* text, uchar r, uchar g, uchar b, uchar a, cv::Mat** returnmat) {
 	SDL_Color color;
 	color.r = r;
 	color.g = g;

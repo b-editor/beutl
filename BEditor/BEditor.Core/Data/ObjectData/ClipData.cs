@@ -34,7 +34,7 @@ namespace BEditor.Core.Data.ObjectData {
         /// <param name="end">終了位置</param>
         /// <param name="type">クリップの種類</param>
         /// <param name="layer">配置されるレイヤー</param>
-        public ClipData(in uint id, ObservableCollection<EffectElement> effects, in int start, in int end, Type type, in int layer) {
+        public ClipData(uint id, ObservableCollection<EffectElement> effects, int start, int end, Type type, int layer) {
             Id = id;
             this.start = start;
             this.end = end;
@@ -154,7 +154,7 @@ namespace BEditor.Core.Data.ObjectData {
         public void PreviewLoad(ObjectLoadArgs args) {
             var loadargs = new EffectLoadArgs(args.Frame, Effect.Where(x => x.IsEnabled).ToList());
 
-            foreach (var item in loadargs.Schedules) {
+            foreach (var item loadargs.Schedules) {
                 item.PreviewLoad(loadargs);
             }
         }

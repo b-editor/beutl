@@ -102,14 +102,14 @@ namespace BEditor.Core.Renderer {
 
         public static void DrawImage(
             Image img,
-            in float scalex = 0,
-            in float scaley = 0,
-            in float scalez = 0,
+            float scalex = 0,
+            float scaley = 0,
+            float scalez = 0,
             Color? color = null,
             Color? ambient = null,
             Color? diffuse = null,
             Color? specular = null,
-            in float shininess = 10) {
+            float shininess = 10) {
             if (img is null) {
                 throw new ArgumentNullException(nameof(img));
             }

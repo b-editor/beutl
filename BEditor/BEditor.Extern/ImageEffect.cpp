@@ -1,8 +1,7 @@
-#pragma once
+#include "pch.h"
 
-#pragma region Effect
 
-DLLExport(const char*) ImageFlip(cv::Mat* mat, int mode) {
+inline const char* ImageFlip(cv::Mat* mat, int mode) {
 	try {
 		cv::flip(*mat, *mat, mode);
 
@@ -13,7 +12,7 @@ DLLExport(const char*) ImageFlip(cv::Mat* mat, int mode) {
 	}
 }
 
-DLLExport(const char*) ImageAreaExpansion1(cv::Mat* mat, int top, int bottom, int left, int right) {
+inline const char* ImageAreaExpansion1(cv::Mat* mat, int top, int bottom, int left, int right) {
 	try {
 		cv::copyMakeBorder(*mat, *mat, top, bottom, left, right, cv::BORDER_CONSTANT);
 
@@ -24,7 +23,7 @@ DLLExport(const char*) ImageAreaExpansion1(cv::Mat* mat, int top, int bottom, in
 	}
 }
 
-DLLExport(const char*) ImageAreaExpansion2(cv::Mat* mat, int width, int height) {
+inline const char* ImageAreaExpansion2(cv::Mat* mat, int width, int height) {
 	try {
 		int v = (height - mat->rows) / 2;
 		int h = (width - mat->cols) / 2;
@@ -38,7 +37,7 @@ DLLExport(const char*) ImageAreaExpansion2(cv::Mat* mat, int width, int height) 
 	}
 }
 
-DLLExport(const char*) ImageBlur(cv::Mat* mat, int blursize, bool alphablur) {
+inline const char* ImageBlur(cv::Mat* mat, int blursize, bool alphablur) {
 	try {
 		cv::Size* size = new cv::Size(blursize, blursize);
 
@@ -61,7 +60,7 @@ DLLExport(const char*) ImageBlur(cv::Mat* mat, int blursize, bool alphablur) {
 	}
 }
 
-DLLExport(const char*) ImageGaussianBlur(cv::Mat* mat, int blursize, bool alphablur) {
+inline const char* ImageGaussianBlur(cv::Mat* mat, int blursize, bool alphablur) {
 	try {
 		if (blursize % 2 != 1) {
 			blursize++;
@@ -88,7 +87,7 @@ DLLExport(const char*) ImageGaussianBlur(cv::Mat* mat, int blursize, bool alphab
 	}
 }
 
-DLLExport(const char*) ImageMedianBlur(cv::Mat* mat, int blursize, bool alphablur) {
+inline const char* ImageMedianBlur(cv::Mat* mat, int blursize, bool alphablur) {
 	try {
 		if (blursize % 2 != 1) {
 			blursize++;
@@ -116,7 +115,7 @@ DLLExport(const char*) ImageMedianBlur(cv::Mat* mat, int blursize, bool alphablu
 	}
 }
 
-DLLExport(const char*) ImageAdd(cv::Mat* base, cv::Mat* src1) {
+inline const char* ImageAdd(cv::Mat* base, cv::Mat* src1) {
 	try {
 		cv::add(*base, *src1, *base);
 		return nullptr;
@@ -126,7 +125,7 @@ DLLExport(const char*) ImageAdd(cv::Mat* base, cv::Mat* src1) {
 	}
 }
 
-DLLExport(const char*) ImageDilate(cv::Mat* mat, int f) {
+inline const char* ImageDilate(cv::Mat* mat, int f) {
 	try {
 		cv::dilate(*mat, *mat, cv::noArray(), cv::Point(-1, -1), f);
 
@@ -137,7 +136,7 @@ DLLExport(const char*) ImageDilate(cv::Mat* mat, int f) {
 	}
 }
 
-DLLExport(const char*) ImageErode(cv::Mat* mat, int f) {
+inline const char* ImageErode(cv::Mat* mat, int f) {
 	try {
 		cv::erode(*mat, *mat, cv::noArray(), cv::Point(-1, -1), f);
 
@@ -148,7 +147,7 @@ DLLExport(const char*) ImageErode(cv::Mat* mat, int f) {
 	}
 }
 
-DLLExport(const char*) ImageClip(cv::Mat* mat, int top, int bottom, int left, int right, cv::Mat** returnmat) {
+inline const char* ImageClip(cv::Mat* mat, int top, int bottom, int left, int right, cv::Mat** returnmat) {
 	try {
 		int width = mat->cols - left - right;
 		int height = mat->rows - top - bottom;
@@ -167,11 +166,8 @@ DLLExport(const char*) ImageClip(cv::Mat* mat, int top, int bottom, int left, in
 	}
 }
 
-#pragma endregion
 
-#pragma region Load
-
-DLLExport(const char*) ImageEllipse(int width, int height, int line, float r, float g, float b, cv::Mat** mat) {
+inline const char* ImageEllipse(int width, int height, int line, float r, float g, float b, cv::Mat** mat) {
 	try {
 		*mat = new cv::Mat(width, height, CV_8UC4);
 
@@ -196,5 +192,3 @@ DLLExport(const char*) ImageEllipse(int width, int height, int line, float r, fl
 		return e.what();
 	}
 }
-
-#pragma endregion

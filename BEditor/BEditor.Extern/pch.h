@@ -14,13 +14,8 @@
 #include <SDL_ttf.h>
 #include <opencv2/opencv.hpp>
 
-#include "FontProcess.h"
-#include "FontProperty.h"
-#include "FontRender.h"
+#include "Font.h"
 
-#include "ImageIO.h"
-#include "ImageProperty.h"
-#include "ImageEffect.h"
 #include "Image.h"
 
 #endif //PCH_H
