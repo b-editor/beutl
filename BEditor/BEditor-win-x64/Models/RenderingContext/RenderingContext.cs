@@ -36,8 +36,8 @@ namespace BEditor.Models {
             GLControl.Height = height;
         }
 
-        ~RenderingContext() {
-            GLControl.Dispose();
-        }
+        //~RenderingContext() {
+        //    GLControl.Dispose();
+        //}
     }
 }

@@ -60,7 +60,8 @@ namespace BEditor.Core.Renderer {
             GL.TexParameter(TextureTarget.Texture2D, TextureParameterName.TextureWrapS, (int)TextureWrapMode.Repeat);
             GL.TexParameter(TextureTarget.Texture2D, TextureParameterName.TextureWrapT, (int)TextureWrapMode.Repeat);
 
-            GL.GenerateMipmap(GenerateMipmapTarget.Texture2D);
+
+            //GL.GenerateMipmap(GenerateMipmapTarget.Texture2D);
         }
 
         #endregion
@@ -76,7 +77,7 @@ namespace BEditor.Core.Renderer {
                 GL.BlendFunc(BlendingFactor.SrcAlpha, BlendingFactor.OneMinusSrcAlpha);
             }
 
-            BEditor.Graphics.GL.PushMatrix();
+            GL.PushMatrix();
             {
                 GL.Translate((Vector3)coordinate);
 

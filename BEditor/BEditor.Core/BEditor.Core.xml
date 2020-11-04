@@ -3764,50 +3764,5 @@
             <param name="near">ZNear</param>
             <param name="far">ZFar</param>
         </member>
-        <member name="M:BEditor.Mathematics.Quaternion.Equals(System.Object)">
-            <inheritdoc />
-        </member>
-        <member name="M:BEditor.Mathematics.Quaternion.Equals(BEditor.Mathematics.Quaternion)">
-            <inheritdoc />
-        </member>
-        <member name="M:BEditor.Mathematics.Quaternion.GetHashCode">
-            <inheritdoc />
-        </member>
-        <member name="M:BEditor.Mathematics.Vector2.ToString">
-            <inheritdoc/>
-        </member>
-        <member name="M:BEditor.Mathematics.Vector2.Equals(System.Object)">
-            <inheritdoc/>
-        </member>
-        <member name="M:BEditor.Mathematics.Vector2.Equals(BEditor.Mathematics.Vector2)">
-            <inheritdoc/>
-        </member>
-        <member name="M:BEditor.Mathematics.Vector2.GetHashCode">
-            <inheritdoc/>
-        </member>
-        <member name="M:BEditor.Mathematics.Vector3.ToString">
-            <inheritdoc />
-        </member>
-        <member name="M:BEditor.Mathematics.Vector3.Equals(System.Object)">
-            <inheritdoc />
-        </member>
-        <member name="M:BEditor.Mathematics.Vector3.Equals(BEditor.Mathematics.Vector3)">
-            <inheritdoc />
-        </member>
-        <member name="M:BEditor.Mathematics.Vector3.GetHashCode">
-            <inheritdoc />
-        </member>
-        <member name="M:BEditor.Mathematics.Vector4.ToString">
-            <inheritdoc />
-        </member>
-        <member name="M:BEditor.Mathematics.Vector4.Equals(System.Object)">
-            <inheritdoc />
-        </member>
-        <member name="M:BEditor.Mathematics.Vector4.Equals(BEditor.Mathematics.Vector4)">
-            <inheritdoc />
-        </member>
-        <member name="M:BEditor.Mathematics.Vector4.GetHashCode">
-            <inheritdoc />
-        </member>
     </members>
 </doc>
