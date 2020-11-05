@@ -11,11 +11,10 @@
 
 #define DLLExport(T) extern "C" __declspec(dllexport) T
 
-#include <SDL_ttf.h>
 #include <opencv2/opencv.hpp>
-
-#include "Font.h"
-
-#include "Image.h"
+#include "Color.h"
+#include "CvMat.h"
+#include "ImageFont.h"
+#include "ImageFontExtern.h"
 
 #endif //PCH_H

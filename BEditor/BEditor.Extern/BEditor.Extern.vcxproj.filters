@@ -16,8 +16,8 @@
     <Filter Include="ソース ファイル\Image">
       <UniqueIdentifier>{f422282f-ee6e-47ec-aebe-db15a5e94413}</UniqueIdentifier>
     </Filter>
-    <Filter Include="ソース ファイル\Font">
-      <UniqueIdentifier>{7d1238dd-2ef9-4d18-b4a8-9723a48eafd4}</UniqueIdentifier>
+    <Filter Include="ソース ファイル\Windows">
+      <UniqueIdentifier>{5f55dddc-6636-4732-828e-532d149feed0}</UniqueIdentifier>
     </Filter>
   </ItemGroup>
   <ItemGroup>
@@ -36,24 +36,24 @@
     <ClCompile Include="ImageProperty.cpp">
       <Filter>ソース ファイル\Image</Filter>
     </ClCompile>
-    <ClCompile Include="FonrProcess.cpp">
-      <Filter>ソース ファイル\Font</Filter>
-    </ClCompile>
-    <ClCompile Include="FontProperty.cpp">
-      <Filter>ソース ファイル\Font</Filter>
-    </ClCompile>
-    <ClCompile Include="FontRender.cpp">
-      <Filter>ソース ファイル\Font</Filter>
+    <ClCompile Include="RenderingContext.cpp">
+      <Filter>ソース ファイル\Windows</Filter>
     </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="pch.h">
       <Filter>ヘッダー ファイル</Filter>
     </ClInclude>
-    <ClInclude Include="Font.h">
+    <ClInclude Include="ImageFont.h">
       <Filter>ヘッダー ファイル</Filter>
     </ClInclude>
-    <ClInclude Include="Image.h">
+    <ClInclude Include="CvMat.h">
+      <Filter>ヘッダー ファイル</Filter>
+    </ClInclude>
+    <ClInclude Include="ImageFontExtern.h">
+      <Filter>ヘッダー ファイル</Filter>
+    </ClInclude>
+    <ClInclude Include="Color.h">
       <Filter>ヘッダー ファイル</Filter>
     </ClInclude>
   </ItemGroup>

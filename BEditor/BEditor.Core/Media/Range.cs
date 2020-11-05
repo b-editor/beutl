@@ -1,5 +1,6 @@
 ﻿using System;
 using System.Collections.Generic;
+using System.Diagnostics.Contracts;
 using System.Runtime.InteropServices;
 using System.Runtime.Serialization;
 using System.Text;
@@ -38,16 +39,19 @@ namespace BEditor.Core.Media {
         public static Range All => new Range(int.MinValue, int.MaxValue);
 
         /// <inheritdoc />
+        [Pure]
         public bool Equals(Range other) {
             return Start == other.Start && End == other.End;
         }
 
         /// <inheritdoc />
+        [Pure]
         public override bool Equals(object? obj) {
             return obj is Range other && Equals(other);
         }
 
         /// <inheritdoc />
+        [Pure]
         public override int GetHashCode() {
             unchecked {
                 return (Start * 397) ^ End;
@@ -55,6 +59,7 @@ namespace BEditor.Core.Media {
         }
 
         /// <inheritdoc/>
+        [Pure]
         public override string ToString() => $"(Start:{Start} End:{End})";
 
 
@@ -64,6 +69,7 @@ namespace BEditor.Core.Media {
         /// <param name="left"></param>
         /// <param name="right"></param>
         /// <returns></returns>
+        [Pure]
         public static bool operator ==(Range left, Range right) {
             return left.Equals(right);
         }
@@ -73,6 +79,7 @@ namespace BEditor.Core.Media {
         /// <param name="left"></param>
         /// <param name="right"></param>
         /// <returns></returns>
+        [Pure]
         public static bool operator !=(Range left, Range right) {
             return !(left == right);
         }

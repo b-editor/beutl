@@ -1058,7 +1058,7 @@ namespace BEditor.Core.Media {
 
         protected override void OnDispose(bool disposing) {
             if (ptr != IntPtr.Zero && !IsDisposed) {
-                Native.ImageProcess.Delete(ptr);
+                ImageProcess.Delete(ptr);
             }
 
             ptr = IntPtr.Zero;

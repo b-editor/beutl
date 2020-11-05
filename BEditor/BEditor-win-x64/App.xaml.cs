@@ -256,11 +256,11 @@ namespace BEditor {
 
             checkBox.Click += (sender, e) => UndoRedoManager.Do(new EffectElement.CheckEffect(effect, (bool)((System.Windows.Controls.CheckBox)sender).IsChecked));
 
-            upbutton.Click += (sender, e) => UndoRedoManager.Do(new EffectElement.UpEffect(data, effect));
+            upbutton.Click += (sender, e) => UndoRedoManager.Do(new EffectElement.UpEffect(effect));
 
-            downbutton.Click += (sender, e) => UndoRedoManager.Do(new EffectElement.DownEffect(data, effect));
+            downbutton.Click += (sender, e) => UndoRedoManager.Do(new EffectElement.DownEffect(effect));
 
-            Delete.Click += (sender, e) => UndoRedoManager.Do(new EffectElement.DeleteEffect(data, effect));
+            Delete.Click += (sender, e) => UndoRedoManager.Do(new EffectElement.DeleteEffect(effect));
 
             #endregion
 

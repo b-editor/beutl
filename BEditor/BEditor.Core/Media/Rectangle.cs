@@ -1,6 +1,7 @@
 ﻿using System;
 using System.Collections.Generic;
 using System.Diagnostics.CodeAnalysis;
+using System.Diagnostics.Contracts;
 using System.Runtime.InteropServices;
 using System.Runtime.Serialization;
 using System.Text;
@@ -133,6 +134,7 @@ namespace BEditor.Core.Media {
         /// <param name="right">右下のx座標</param>
         /// <param name="bottom">右下のy座標</param>
         /// <returns>作られたRectangle</returns>
+        [Pure]
         public static Rectangle FromLTRB(int left, int top, int right, int bottom) {
             var r = new Rectangle(
                 x: left,
@@ -152,6 +154,7 @@ namespace BEditor.Core.Media {
         /// <param name="rect">対象のRectangle</param>
         /// <param name="x">水平方向に膨張量</param>
         /// <param name="y">垂直方向に膨張量</param>
+        [Pure]
         public static Rectangle Inflate(Rectangle rect, int x, int y) {
             rect.Inflate(x, y);
             return rect;
@@ -159,6 +162,7 @@ namespace BEditor.Core.Media {
         /// <summary>
         /// 2つのRectangleの交差部分を表すRectangleを取得します
         /// </summary>
+        [Pure]
         public static Rectangle Intersect(Rectangle a, Rectangle b) {
             var x1 = Math.Max(a.X, b.X);
             var x2 = Math.Min(a.X + a.Width, b.X + b.Width);
@@ -172,6 +176,7 @@ namespace BEditor.Core.Media {
         /// <summary>
         /// 2つのRectangleの和集合を表す矩形を取得します
         /// </summary>
+        [Pure]
         public static Rectangle Union(Rectangle a, Rectangle b) {
             var x1 = Math.Min(a.X, b.X);
             var x2 = Math.Max(a.X + a.Width, b.X + b.Width);
@@ -205,10 +210,12 @@ namespace BEditor.Core.Media {
         /// <summary>
         /// 2つのRectangleの交差部分を表すRectangleを取得します
         /// </summary>
+        [Pure]
         public Rectangle Intersect(Rectangle rect) => Intersect(this, rect);
         /// <summary>
         /// 指定したRectangleがこのRectangleと交差するかどうか
         /// </summary>
+        [Pure]
         public bool IntersectsWith(Rectangle rect) => (X < rect.X + rect.Width) &&
                                                       (X + Width > rect.X) &&
                                                       (Y < rect.Y + rect.Height) &&
@@ -216,19 +223,23 @@ namespace BEditor.Core.Media {
         /// <summary>
         /// 2つのRectangleの和集合を表す矩形を取得します
         /// </summary>
+        [Pure]
         public Rectangle Union(Rectangle rect) => Union(this, rect);
 
         /// <summary>
         /// 指定したPointがこのRectangleに含まれているかどうかを判断する
         /// </summary>
+        [Pure]
         public bool Contains(int x, int y) => (X <= x && Y <= y && X + Width > x && Y + Height > y);
         /// <summary>
         /// 指定したPointがこのRectangleに含まれているかどうかを判断する
         /// </summary>
+        [Pure]
         public bool Contains(Point2 point) => Contains((int)point.X, (int)point.Y);
         /// <summary>
         /// 指定したRectangleがこのRectangleに含まれているかどうかを判断する
         /// </summary>
+        [Pure]
         public bool Contains(Rectangle rect) => X <= rect.X &&
                                                 Y <= rect.Y &&
                                                 (rect.X + rect.Width) <= (X + Width) &&
@@ -238,12 +249,16 @@ namespace BEditor.Core.Media {
 
 
         /// <inheritdoc/>
+        [Pure]
         public bool Equals(Rectangle other) => X == other.X && Y == other.Y && Width == other.Width && Height == other.Height;
         /// <inheritdoc/>
+        [Pure]
         public override bool Equals(object? obj) => obj is Rectangle other && Equals(other);
         /// <inheritdoc/>
+        [Pure]
         public override int GetHashCode() => HashCode.Combine(X, Y, Width, Height);
         /// <inheritdoc/>
+        [Pure]
         public override string ToString() => $"(X:{X} Y:{Y} Width:{Width} Height:{Height})";
 
 
@@ -253,27 +268,33 @@ namespace BEditor.Core.Media {
         /// <summary>
         /// 2つのRectangleの位置とサイズが等しいか
         /// </summary>
+        [Pure]
         public static bool operator ==(Rectangle left, Rectangle right) => left.Equals(right);
         /// <summary>
         /// 2つのRectangleの位置とサイズが等しくないか
         /// </summary>
+        [Pure]
         public static bool operator !=(Rectangle left, Rectangle right) => !left.Equals(right);
 
         /// <summary>
         /// Rectangleを移動させる
         /// </summary>
+        [Pure]
         public static Rectangle operator +(Rectangle rect, Point2 point) => new Rectangle((int)(rect.X + point.X), (int)(rect.Y + point.Y), rect.Width, rect.Height);
         /// <summary>
         /// Rectangleを移動させる
         /// </summary>
+        [Pure]
         public static Rectangle operator -(Rectangle rect, Point2 point) => new Rectangle((int)(rect.X - point.X), (int)(rect.Y - point.Y), rect.Width, rect.Height);
         /// <summary>
         /// Rectangleを膨張する
         /// </summary>
+        [Pure]
         public static Rectangle operator +(Rectangle rect, Size size) => new Rectangle(rect.X, rect.Y, rect.Width + size.Width, rect.Height + size.Height);
         /// <summary>
         /// Rectangleを縮小する
         /// </summary>
+        [Pure]
         public static Rectangle operator -(Rectangle rect, Size size) => new Rectangle(rect.X, rect.Y, rect.Width - size.Width, rect.Height - size.Height);
 
         #endregion
@@ -282,11 +303,13 @@ namespace BEditor.Core.Media {
         /// 
         /// </summary>
         /// <param name="rect"></param>
+        [Pure]
         public static explicit operator System.Drawing.Rectangle(Rectangle rect) => new System.Drawing.Rectangle(rect.X, rect.Y, rect.Width, rect.Height);
         /// <summary>
         /// 
         /// </summary>
         /// <param name="rect"></param>
+        [Pure]
         public static explicit operator Rectangle(System.Drawing.Rectangle rect) => new Rectangle(rect.X, rect.Y, rect.Width, rect.Height);
     }
 }

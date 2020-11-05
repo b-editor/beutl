@@ -79,14 +79,14 @@
   </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">
     <LinkIncremental>true</LinkIncremental>
-    <IncludePath>E:\yuuto\lib\opencv\build\include;E:\yuuto\lib\SDL2\SDL2-2.0.12\include;E:\yuuto\lib\SDL2\SDL2_ttf-2.0.15\include;$(IncludePath)</IncludePath>
-    <LibraryPath>E:\yuuto\lib\opencv\build\x64\vc15\lib;E:\yuuto\lib\SDL2\SDL2-2.0.12\lib\x64;E:\yuuto\lib\SDL2\SDL2_ttf-2.0.15\lib\x64;$(LibraryPath)</LibraryPath>
+    <IncludePath>E:\yuuto\lib\opencv\build\include;E:\yuuto\lib\SDL2\SDL2-2.0.12\include;E:\yuuto\lib\SDL2\SDL2_ttf-2.0.15\include;E:\yuuto\lib\freetype-2.10.4\include;$(IncludePath)</IncludePath>
+    <LibraryPath>E:\yuuto\lib\opencv\build\x64\vc15\lib;E:\yuuto\lib\SDL2\SDL2-2.0.12\lib\x64;E:\yuuto\lib\SDL2\SDL2_ttf-2.0.15\lib\x64;E:\yuuto\lib\freetype-2.10.4\objs\Win32\Release;$(LibraryPath)</LibraryPath>
     <OutDir>$(SolutionDir)$(Platform)\$(Configuration)\netcoreapp3.1</OutDir>
   </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release|x64'">
     <LinkIncremental>false</LinkIncremental>
-    <IncludePath>E:\yuuto\lib\opencv\build\include;E:\yuuto\lib\SDL2\SDL2-2.0.12\include;E:\yuuto\lib\SDL2\SDL2_ttf-2.0.15\include;$(IncludePath)</IncludePath>
-    <LibraryPath>E:\yuuto\lib\opencv\build\x64\vc15\lib;E:\yuuto\lib\SDL2\SDL2-2.0.12\lib\x64;E:\yuuto\lib\SDL2\SDL2_ttf-2.0.15\lib\x64;$(LibraryPath)</LibraryPath>
+    <IncludePath>E:\yuuto\lib\opencv\build\include;E:\yuuto\lib\SDL2\SDL2-2.0.12\include;E:\yuuto\lib\SDL2\SDL2_ttf-2.0.15\include;E:\yuuto\lib\freetype-2.10.4\include;$(IncludePath)</IncludePath>
+    <LibraryPath>E:\yuuto\lib\opencv\build\x64\vc15\lib;E:\yuuto\lib\SDL2\SDL2-2.0.12\lib\x64;E:\yuuto\lib\SDL2\SDL2_ttf-2.0.15\lib\x64;E:\yuuto\lib\freetype-2.10.4\objs\Win32\Release;$(LibraryPath)</LibraryPath>
     <OutDir>$(SolutionDir)$(Platform)\$(Configuration)\netcoreapp3.1</OutDir>
   </PropertyGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">
@@ -137,7 +137,7 @@
       <SubSystem>Windows</SubSystem>
       <GenerateDebugInformation>true</GenerateDebugInformation>
       <EnableUAC>false</EnableUAC>
-      <AdditionalDependencies>opencv_world450.lib;opencv_world450d.lib;SDL2.lib;SDL2_ttf.lib;%(AdditionalDependencies)</AdditionalDependencies>
+      <AdditionalDependencies>opencv_world450.lib;opencv_world450d.lib;opengl32.lib;freetype.lib;SDL2.lib;SDL2_ttf.lib;%(AdditionalDependencies)</AdditionalDependencies>
       <AdditionalLibraryDirectories>%(AdditionalLibraryDirectories)</AdditionalLibraryDirectories>
       <DelayLoadDLLs>%(DelayLoadDLLs)</DelayLoadDLLs>
     </Link>
@@ -160,24 +160,24 @@
       <OptimizeReferences>true</OptimizeReferences>
       <GenerateDebugInformation>true</GenerateDebugInformation>
       <EnableUAC>false</EnableUAC>
-      <AdditionalDependencies>opencv_world450.lib;opencv_world450d.lib;SDL2.lib;SDL2_ttf.lib;%(AdditionalDependencies)</AdditionalDependencies>
+      <AdditionalDependencies>opencv_world450.lib;opencv_world450d.lib;opengl32.lib;freetype.lib;SDL2.lib;SDL2_ttf.lib;%(AdditionalDependencies)</AdditionalDependencies>
       <AdditionalLibraryDirectories>%(AdditionalLibraryDirectories)</AdditionalLibraryDirectories>
       <DelayLoadDLLs>%(DelayLoadDLLs)</DelayLoadDLLs>
     </Link>
   </ItemDefinitionGroup>
   <ItemGroup>
-    <ClCompile Include="FonrProcess.cpp" />
-    <ClCompile Include="FontProperty.cpp" />
-    <ClCompile Include="FontRender.cpp" />
     <ClCompile Include="Image.cpp" />
     <ClCompile Include="ImageEffect.cpp" />
     <ClCompile Include="ImageIO.cpp" />
     <ClCompile Include="ImageProperty.cpp" />
     <ClCompile Include="pch.cpp" />
+    <ClCompile Include="RenderingContext.cpp" />
   </ItemGroup>
   <ItemGroup>
-    <ClInclude Include="Font.h" />
-    <ClInclude Include="Image.h" />
+    <ClInclude Include="Color.h" />
+    <ClInclude Include="CvMat.h" />
+    <ClInclude Include="ImageFont.h" />
+    <ClInclude Include="ImageFontExtern.h" />
     <ClInclude Include="pch.h" />
   </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />

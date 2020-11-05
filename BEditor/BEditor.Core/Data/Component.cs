@@ -81,7 +81,7 @@ namespace BEditor.Core.Data {
                 get => createRenderingContext;
                 set {
                     createRenderingContext = value;
-                    ImageHelper.renderer = createRenderingContext(1, 1);
+                    //ImageHelper.renderer = createRenderingContext(1, 1);
                 }
             }
             public static Func<ISaveFileDialog> SaveFileDialog { get; set; }

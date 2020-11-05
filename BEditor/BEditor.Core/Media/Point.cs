@@ -1,6 +1,7 @@
 ﻿using System;
 using System.Collections.Generic;
 using System.ComponentModel;
+using System.Diagnostics.Contracts;
 using System.Runtime.Serialization;
 using System.Text;
 #if OldOpenTK
@@ -62,6 +63,7 @@ namespace BEditor.Core.Media {
         /// <param name="point"></param>
         /// <param name="size"></param>
         /// <returns></returns>
+        [Pure]
         public static Point2 Add(Point2 point, Size size) => new Point2() {
             X = point.X + size.Width,
             Y = point.Y + size.Height
@@ -72,6 +74,7 @@ namespace BEditor.Core.Media {
         /// <param name="point1"></param>
         /// <param name="point2"></param>
         /// <returns></returns>
+        [Pure]
         public static Point2 Add(Point2 point1, Point2 point2) => new Point2() {
             X = point1.X + point2.X,
             Y = point1.Y + point2.Y
@@ -82,6 +85,7 @@ namespace BEditor.Core.Media {
         /// <param name="point"></param>
         /// <param name="size"></param>
         /// <returns></returns>
+        [Pure]
         public static Point2 Subtract(Point2 point, Size size) => new Point2() {
             X = point.X - size.Width,
             Y = point.Y - size.Height
@@ -92,6 +96,7 @@ namespace BEditor.Core.Media {
         /// <param name="point1"></param>
         /// <param name="point2"></param>
         /// <returns></returns>
+        [Pure]
         public static Point2 Subtract(Point2 point1, Point2 point2) => new Point2() {
             X = point1.X - point2.X,
             Y = point1.Y - point2.Y
@@ -100,12 +105,16 @@ namespace BEditor.Core.Media {
         #endregion
 
         /// <inheritdoc/>
+        [Pure]
         public override bool Equals(object? obj) => obj is Point2 point && Equals(point);
         /// <inheritdoc/>
+        [Pure]
         public bool Equals(Point2 other) => X == other.X && Y == other.Y;
         /// <inheritdoc/>
+        [Pure]
         public override int GetHashCode() => HashCode.Combine(X, Y);
         /// <inheritdoc/>
+        [Pure]
         public override string ToString() => $"(X:{X} Y:{Y})";
 
         #region 演算子
@@ -116,6 +125,7 @@ namespace BEditor.Core.Media {
         /// <param name="point1"></param>
         /// <param name="point2"></param>
         /// <returns></returns>
+        [Pure]
         public static Point2 operator +(Point2 point1, Point2 point2) => Add(point1, point2);
         /// <summary>
         /// 
@@ -123,6 +133,7 @@ namespace BEditor.Core.Media {
         /// <param name="point"></param>
         /// <param name="size"></param>
         /// <returns></returns>
+        [Pure]
         public static Point2 operator +(Point2 point, Size size) => Add(point, size);
         /// <summary>
         /// 
@@ -130,6 +141,7 @@ namespace BEditor.Core.Media {
         /// <param name="point1"></param>
         /// <param name="point2"></param>
         /// <returns></returns>
+        [Pure]
         public static Point2 operator -(Point2 point1, Point2 point2) => Subtract(point1, point2);
         /// <summary>
         /// 
@@ -137,6 +149,7 @@ namespace BEditor.Core.Media {
         /// <param name="point"></param>
         /// <param name="size"></param>
         /// <returns></returns>
+        [Pure]
         public static Point2 operator -(Point2 point, Size size) => Subtract(point, size);
         /// <summary>
         /// 
@@ -144,6 +157,7 @@ namespace BEditor.Core.Media {
         /// <param name="left"></param>
         /// <param name="right"></param>
         /// <returns></returns>
+        [Pure]
         public static bool operator ==(Point2 left, Point2 right) => left.Equals(right);
         /// <summary>
         /// 
@@ -151,17 +165,20 @@ namespace BEditor.Core.Media {
         /// <param name="left"></param>
         /// <param name="right"></param>
         /// <returns></returns>
+        [Pure]
         public static bool operator !=(Point2 left, Point2 right) => !left.Equals(right);
 
         /// <summary>
         /// 
         /// </summary>
         /// <param name="point"></param>
+        [Pure]
         public static explicit operator System.Drawing.Point(Point2 point) => new System.Drawing.Point((int)point.X, (int)point.Y);
         /// <summary>
         /// 
         /// </summary>
         /// <param name="point"></param>
+        [Pure]
         public static explicit operator Point2(System.Drawing.Point point) => new Point2(point.X, point.Y);
         
         #endregion
@@ -220,6 +237,7 @@ namespace BEditor.Core.Media {
         /// <param name="point"></param>
         /// <param name="size"></param>
         /// <returns></returns>
+        [Pure]
         public static Point3 Add(Point3 point, Size size) => new Point3() {
             X = point.X + size.Width,
             Y = point.Y + size.Height,
@@ -231,6 +249,7 @@ namespace BEditor.Core.Media {
         /// <param name="point1"></param>
         /// <param name="point2"></param>
         /// <returns></returns>
+        [Pure]
         public static Point3 Add(Point3 point1, Point3 point2) => new Point3() {
             X = point1.X + point2.X,
             Y = point1.Y + point2.Y,
@@ -242,6 +261,7 @@ namespace BEditor.Core.Media {
         /// <param name="point"></param>
         /// <param name="size"></param>
         /// <returns></returns>
+        [Pure]
         public static Point3 Subtract(Point3 point, Size size) => new Point3() {
             X = point.X - size.Width,
             Y = point.Y - size.Height,
@@ -253,6 +273,7 @@ namespace BEditor.Core.Media {
         /// <param name="point1"></param>
         /// <param name="point2"></param>
         /// <returns></returns>
+        [Pure]
         public static Point3 Subtract(Point3 point1, Point3 point2) => new Point3() {
             X = point1.X - point2.X,
             Y = point1.Y - point2.Y,
@@ -262,12 +283,16 @@ namespace BEditor.Core.Media {
         #endregion
 
         /// <inheritdoc/>
+        [Pure]
         public override bool Equals(object? obj) => obj is Point3 point && Equals(point);
         /// <inheritdoc/>
+        [Pure]
         public bool Equals(Point3 other) => X == other.X && Y == other.Y;
         /// <inheritdoc/>
+        [Pure]
         public override int GetHashCode() => HashCode.Combine(X, Y, Z);
         /// <inheritdoc/>
+        [Pure]
         public override string ToString() => $"(X:{X} Y:{Y} Z:{Z})";
 
         #region 演算子
@@ -278,6 +303,7 @@ namespace BEditor.Core.Media {
         /// <param name="point1"></param>
         /// <param name="point2"></param>
         /// <returns></returns>
+        [Pure]
         public static Point3 operator +(Point3 point1, Point3 point2) => Add(point1, point2);
         /// <summary>
         /// 
@@ -285,6 +311,7 @@ namespace BEditor.Core.Media {
         /// <param name="point"></param>
         /// <param name="size"></param>
         /// <returns></returns>
+        [Pure]
         public static Point3 operator +(Point3 point, Size size) => Add(point, size);
         /// <summary>
         /// 
@@ -292,6 +319,7 @@ namespace BEditor.Core.Media {
         /// <param name="point1"></param>
         /// <param name="point2"></param>
         /// <returns></returns>
+        [Pure]
         public static Point3 operator -(Point3 point1, Point3 point2) => Subtract(point1, point2);
         /// <summary>
         /// 
@@ -299,6 +327,7 @@ namespace BEditor.Core.Media {
         /// <param name="point"></param>
         /// <param name="size"></param>
         /// <returns></returns>
+        [Pure]
         public static Point3 operator -(Point3 point, Size size) => Subtract(point, size);
         /// <summary>
         /// 
@@ -306,6 +335,7 @@ namespace BEditor.Core.Media {
         /// <param name="left"></param>
         /// <param name="right"></param>
         /// <returns></returns>
+        [Pure]
         public static bool operator ==(Point3 left, Point3 right) => left.Equals(right);
         /// <summary>
         /// 
@@ -313,27 +343,32 @@ namespace BEditor.Core.Media {
         /// <param name="left"></param>
         /// <param name="right"></param>
         /// <returns></returns>
+        [Pure]
         public static bool operator !=(Point3 left, Point3 right) => !left.Equals(right);
 
         /// <summary>
         /// 
         /// </summary>
         /// <param name="point"></param>
+        [Pure]
         public static explicit operator System.Drawing.Point(Point3 point) => new System.Drawing.Point((int)point.X, (int)point.Y);
         /// <summary>
         /// 
         /// </summary>
         /// <param name="point"></param>
+        [Pure]
         public static explicit operator Point3(System.Drawing.Point point) => new Point3(point.X, point.Y, 0);
         /// <summary>
         /// 
         /// </summary>
         /// <param name="point"></param>
+        [Pure]
         public static explicit operator Vector3(Point3 point) => new Vector3(point.X, point.Y, point.Z);
         /// <summary>
         /// 
         /// </summary>
         /// <param name="point"></param>
+        [Pure]
         public static explicit operator Point3(Vector3 point) => new Point3(point.X, point.Y, point.Z);
         
         #endregion

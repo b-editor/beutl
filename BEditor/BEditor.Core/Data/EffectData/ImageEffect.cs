@@ -4,20 +4,19 @@ using BEditor.Core.Data.ProjectData;
 using BEditor.Core.Media;
 
 namespace BEditor.Core.Data.EffectData {
-
     /// <summary>
     /// 画像エフェクトのベースクラス
     /// </summary>
     [DataContract(Namespace = "")]
     public abstract class ImageEffect : EffectElement {
-
         /// <summary>
-        /// エフェクト描画時に呼び出されます
+        /// フレーム描画時に呼び出されます
         /// </summary>
-        public abstract void Draw(ref Image source, EffectLoadArgs args);
+        /// <param name="image">描画する<see cref="Image"/></param>
+        /// <param name="args">呼び出しの順番などのデータ</param>
+        public abstract void Draw(ref Image image, EffectLoadArgs args);
 
-        public override void Load(EffectLoadArgs args) {
-
-        }
+        /// <inheritdoc/>
+        public override void Load(EffectLoadArgs args) { }
     }
 }

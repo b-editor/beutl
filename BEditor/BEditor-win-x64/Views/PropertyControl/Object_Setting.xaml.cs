@@ -40,8 +40,8 @@ namespace BEditor.Views.PropertyControls {
 
 
             EffectElement effectinstance = (EffectElement)Activator.CreateInstance(effect.Type);
-
-            UndoRedoManager.Do(new EffectElement.AddEffect(Data, effectinstance));
+            effectinstance.ClipData = Data;
+            UndoRedoManager.Do(new EffectElement.AddEffect(effectinstance));
         }
     }
 }
