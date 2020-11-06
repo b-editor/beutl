@@ -1,5 +1,7 @@
 #include "pch.h"
 
+FT_Library m_piLibrary;
+
 static std::u32string GetUnicode32fromUTF8(const char* str) {
 	std::string		utf8 = str;
 	std::u32string	u32str;
@@ -135,15 +137,6 @@ inline ImageFont::~ImageFont() {
 	FT_Done_Face(m_piFace);
 }
 
-inline bool ImageFont::Init() {
-	ImageFont::m_piLibrary = NULL;
-
-	auto error = FT_Init_FreeType(&ImageFont::m_piLibrary);
-	return error == 0;
-}
-inline void ImageFont::Quit() {
-	FT_Done_FreeType(m_piLibrary);
-}
 
 inline int ImageFont::CalcRect(int* left, int* top, int* right, int* bottom, const char* str) {
 	return	CalcRect(left, top, right, bottom, GetUnicode32fromUTF8(str));
@@ -275,6 +268,7 @@ inline int ImageFont::DrawTextGRAY(int x, int y, const std::u32string& u32str, u
 	return	0;
 }
 
+
 inline int ImageFont::DrawTextBGRA(int x, int y, const char* str, Color color, uint8_t* image, int stride, int cx, int cy) {
 	return	DrawTextBGRA(x, y, GetUnicode32fromUTF8(str), color, image, stride, cx, cy);
 }
@@ -333,10 +327,10 @@ inline int ImageFont::DrawTextBGRA(int x, int y, const std::u32string& u32str, C
 								a += a >> 7;
 								a *= alpha;
 
-								dst_line[c * 4 + 0] = (uint8_t)(((d0 << 16) + (color.a - d0) * a) >> 16);
-								dst_line[c * 4 + 1] = (uint8_t)(((d1 << 16) + (color.r - d1) * a) >> 16);
-								dst_line[c * 4 + 2] = (uint8_t)(((d2 << 16) + (color.g - d2) * a) >> 16);
-								dst_line[c * 4 + 3] = (uint8_t)(((d3 << 16) + (color.b - d3) * a) >> 16);
+								dst_line[c * 4 + 0] = (uint8_t)(((d0 << 16) + (color.b - d0) * a) >> 16);
+								dst_line[c * 4 + 1] = (uint8_t)(((d1 << 16) + (color.g - d1) * a) >> 16);
+								dst_line[c * 4 + 2] = (uint8_t)(((d2 << 16) + (color.r - d2) * a) >> 16);
+								dst_line[c * 4 + 3] = (uint8_t)(((d3 << 16) + (color.a - d3) * a) >> 16);
 							}
 						}
 					}
@@ -352,12 +346,16 @@ inline int ImageFont::DrawTextBGRA(int x, int y, const std::u32string& u32str, C
 }
 
 
-inline bool FontInit() {
-	return ImageFont::Init();
+bool FontInit() {
+	m_piLibrary = NULL;
+
+	auto error = FT_Init_FreeType(&m_piLibrary);
+	return error == 0;
 }
-inline void FontQuit() {
-	return ImageFont::Quit();
+void FontQuit() {
+	FT_Done_FreeType(m_piLibrary);
 }
+
 
 inline ImageFont* ImageFontCreate1(const char* filename, uint32_t height, bool isFitHeight, long index) {
 	return new ImageFont(filename, height, isFitHeight, index);

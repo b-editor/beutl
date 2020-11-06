@@ -23,8 +23,6 @@ using BEditor.Core.Data.ProjectData;
 using BEditor.Core.Data.PropertyData;
 using BEditor.Core.Extesions.ViewCommand;
 using BEditor.Core.Interfaces;
-using BEditor.Core.SDL2;
-using BEditor.Core.SDL2.TTF;
 
 using MaterialDesignThemes.Wpf;
 
@@ -32,6 +30,7 @@ using Microsoft.WindowsAPICodePack.Dialogs;
 
 using Image = BEditor.Core.Media.Image;
 using Resources_ = BEditor.Core.Properties.Resources;
+using BEditor.Core.Media;
 
 namespace BEditor {
     /// <summary>
@@ -75,14 +74,14 @@ namespace BEditor {
                 var files = Directory.GetFiles("C:\\Windows\\Fonts");
                 foreach (var file in files) {
                     if (Path.GetExtension(file) is ".ttf" or ".otf" or ".ttc" or ".otc") {
-                        FontProperty.FontList.Add(new BEditor.Core.Media.Font() { Path = file, Name = GetFontName(file) });
+                        FontProperty.FontList.Add(new FontRecord() { Path = file, Name = GetFontName(file) });
                     }
                 }
 
                 files = Directory.GetFiles(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData) + "\\Microsoft\\Windows\\Fonts");
                 foreach (var file in files) {
                     if (Path.GetExtension(file) is ".ttf" or ".otf" or ".ttc" or ".otc") {
-                        FontProperty.FontList.Add(new BEditor.Core.Media.Font() { Path = file, Name = GetFontName(file) });
+                        FontProperty.FontList.Add(new FontRecord() { Path = file, Name = GetFontName(file) });
                     }
                 }
             }

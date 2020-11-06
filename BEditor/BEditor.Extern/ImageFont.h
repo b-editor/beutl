@@ -4,9 +4,6 @@
 #include <freetype\freetype.h>
 #include <freetype\ftstroke.h>
 
-#include <stdint.h>
-#include <string>
-
 #include "Color.h"
 
 class ImageFont {
@@ -24,10 +21,6 @@ public:
 	int DrawTextBGRA(int x, int y, const char* str, Color color, uint8_t* image, int stride, int cx, int cy);
 	int DrawTextBGRA(int x, int y, const std::u32string& u32str, Color color, uint8_t* image, int stride, int cx, int cy);
 
-	static bool Init();
-	static void Quit();
-
-	static FT_Library m_piLibrary;
 	FT_Face m_piFace;
 protected:
 	int	m_nBaseline;

@@ -79,14 +79,14 @@
   </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">
     <LinkIncremental>true</LinkIncremental>
-    <IncludePath>E:\yuuto\lib\opencv\build\include;E:\yuuto\lib\freetype-2.10.4\include;$(IncludePath)</IncludePath>
-    <LibraryPath>E:\yuuto\lib\opencv\build\x64\vc15\lib;E:\yuuto\lib\freetype-2.10.4\objs\Release;$(LibraryPath)</LibraryPath>
+    <IncludePath>E:\yuuto\lib\opencv\build\include;E:\yuuto\lib\freetype-win-bin-2.10.4\include;$(IncludePath)</IncludePath>
+    <LibraryPath>E:\yuuto\lib\opencv\build\x64\vc15\lib;E:\yuuto\lib\freetype-win-bin-2.10.4\win64;$(LibraryPath)</LibraryPath>
     <OutDir>$(SolutionDir)$(Platform)\$(Configuration)\netcoreapp3.1</OutDir>
   </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release|x64'">
     <LinkIncremental>false</LinkIncremental>
-    <IncludePath>E:\yuuto\lib\opencv\build\include;E:\yuuto\lib\freetype-2.10.4\include;$(IncludePath)</IncludePath>
-    <LibraryPath>E:\yuuto\lib\opencv\build\x64\vc15\lib;E:\yuuto\lib\freetype-2.10.4\objs\Release;$(LibraryPath)</LibraryPath>
+    <IncludePath>E:\yuuto\lib\opencv\build\include;E:\yuuto\lib\freetype-win-bin-2.10.4\include;$(IncludePath)</IncludePath>
+    <LibraryPath>E:\yuuto\lib\opencv\build\x64\vc15\lib;E:\yuuto\lib\freetype-win-bin-2.10.4\win64;$(LibraryPath)</LibraryPath>
     <OutDir>$(SolutionDir)$(Platform)\$(Configuration)\netcoreapp3.1</OutDir>
   </PropertyGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">

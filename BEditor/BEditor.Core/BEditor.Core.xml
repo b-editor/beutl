@@ -1547,7 +1547,7 @@
             
             </summary>
         </member>
-        <member name="M:BEditor.Core.Data.PropertyData.FontProperty.ChangeSelect.#ctor(BEditor.Core.Data.PropertyData.FontProperty,BEditor.Core.Media.Font)">
+        <member name="M:BEditor.Core.Data.PropertyData.FontProperty.ChangeSelect.#ctor(BEditor.Core.Data.PropertyData.FontProperty,BEditor.Core.Media.FontRecord)">
             <summary>
             
             </summary>
@@ -1883,7 +1883,7 @@
         </member>
         <member name="T:BEditor.Core.Media.Image">
             <summary>
-            BGRA
+            
             </summary>
         </member>
         <member name="M:BEditor.Core.Media.Image.#ctor(System.Int32,System.Int32)">
@@ -2182,7 +2182,7 @@
             <param name="color"></param>
             <returns></returns>
         </member>
-        <member name="M:BEditor.Core.Media.Image.Text(System.Int32,BEditor.Core.Media.Color,System.String,BEditor.Core.Media.Font,System.String,System.Boolean)">
+        <member name="M:BEditor.Core.Media.Image.Text(System.Int32,BEditor.Core.Media.Color,System.String,BEditor.Core.Media.FontRecord,System.String,System.Boolean)">
             <summary>
             
             </summary>

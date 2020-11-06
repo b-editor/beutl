@@ -5,13 +5,11 @@ using System.Net.Http;
 using System.Runtime.InteropServices;
 using System.Text;
 
-using BEditor.Core.SDL2;
-
 using Microsoft.VisualBasic.CompilerServices;
 
 namespace BEditor.Core.Native {
     public unsafe static class FontProcess {
-        private const string dll = "BEditor.Extern";
+        private const string dll = "BEditor.Extern.dll";
 
         [Pure, DllImport(dll, EntryPoint = "FontInit")]
         public static extern bool Init();
@@ -19,36 +17,12 @@ namespace BEditor.Core.Native {
         public static extern void Quit();
 
         [Pure, DllImport(dll, EntryPoint = "ImageFontCreate1")]
-        private static extern IntPtr Open(byte* filename, uint height, bool isFitHeight, long index);
+        public static extern IntPtr Open([In()][MarshalAs(UnmanagedType.LPStr)] string filename, uint height, bool isFitHeight, long index);
         [Pure, DllImport(dll, EntryPoint = "ImageFontCreate2")]
-        private static extern IntPtr Open(byte* filename, uint height, bool isFitHeight);
+        public static extern IntPtr Open([In()][MarshalAs(UnmanagedType.LPStr)] string filename, uint height, bool isFitHeight);
         [Pure, DllImport(dll, EntryPoint = "ImageFontCreate3")]
-        private static extern IntPtr Open(byte* filename, uint height);
+        public static extern IntPtr Open([In()][MarshalAs(UnmanagedType.LPStr)] string filename, uint height);
 
-        public static IntPtr Open(string filename, uint height, bool isFitHeight, long index) {
-            byte* utf8File = TextConvert.UTF8Encode(filename);
-            var ptr = Open(utf8File, height, isFitHeight, index);
-
-            Marshal.FreeHGlobal((IntPtr)utf8File);
-
-            return ptr;
-        }
-        public static IntPtr Open(string filename, uint height, bool isFitHeight) {
-            byte* utf8File = TextConvert.UTF8Encode(filename);
-            var ptr = Open(utf8File, height, isFitHeight);
-
-            Marshal.FreeHGlobal((IntPtr)utf8File);
-
-            return ptr;
-        }
-        public static IntPtr Open(string filename, uint height) {
-            byte* utf8File = TextConvert.UTF8Encode(filename);
-            var ptr = Open(utf8File, height);
-
-            Marshal.FreeHGlobal((IntPtr)utf8File);
-
-            return ptr;
-        }
 
         [Pure, DllImport(dll, EntryPoint = "ImageFontClose")]
         public static extern void Close(IntPtr font);

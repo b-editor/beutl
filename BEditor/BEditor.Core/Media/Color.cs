@@ -11,10 +11,10 @@ namespace BEditor.Core.Media {
     [StructLayout(LayoutKind.Sequential)]
     public struct Color : IEquatable<Color> {
         public Color(byte r = 255, byte g = 255, byte b = 255, byte a = 255) {
-            ScR = r / 255;
-            ScG = g / 255;
-            ScB = b / 255;
-            ScA = a / 255;
+            ScR = (float)r / 255;
+            ScG = (float)g / 255;
+            ScB = (float)b / 255;
+            ScA = (float)a / 255;
         }
         public Color(float r = 1, float g = 1, float b = 1, float a = 1) {
             ScR = r;
@@ -33,13 +33,25 @@ namespace BEditor.Core.Media {
 
         #region Properties
 
-        public byte R => (byte)(ScR * 255);
+        public byte R {
+            get => (byte)(ScR * 255);
+            set => ScR = (float)value / 255;
+        }
 
-        public byte G => (byte)(ScG * 255);
+        public byte G {
+            get => (byte)(ScG * 255);
+            set => ScG = (float)value / 255;
+        }
 
-        public byte B => (byte)(ScB * 255);
+        public byte B {
+            get => (byte)(ScB * 255);
+            set => ScB = (float)value / 255;
+        }
 
-        public byte A => (byte)(ScA * 255);
+        public byte A {
+            get => (byte)(ScA * 255);
+            set => ScA = (float)value / 255;
+        }
 
         [DataMember(Order = 0)]
         public float ScR { get; set; }

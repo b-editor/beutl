@@ -13,7 +13,7 @@ using Graphic = BEditor.Core.Renderer.Graphics;
 
 namespace BEditor.Core.Media {
     /// <summary>
-    /// BGRA
+    /// 
     /// </summary>
     public unsafe class Image : DisposableObject, IEquatable<Image> {
         #region Constructor
@@ -619,20 +619,20 @@ namespace BEditor.Core.Media {
         /// <param name="rightToLeft"></param>
         /// <returns></returns>
         /// <exception cref="NotImplementedException"/>
-        public static Image Text(int size, Color color, string text, Font font, string style, bool rightToLeft) {
+        public static Image Text(int size, Color color, string text, FontRecord font, string style, bool rightToLeft) {
             if (string.IsNullOrEmpty(text)) return null;
 
             //intへ変換
             var styleint = style switch
             {
-                "Normal" => SDL2.TTF.FontStyle.Normal,
-                "Bold" => SDL2.TTF.FontStyle.Bold,
-                "Italic" => SDL2.TTF.FontStyle.Italic,
-                "UnderLine" => SDL2.TTF.FontStyle.UnderLine,
-                "StrikeThrough" => SDL2.TTF.FontStyle.StrikeThrough,
+                "Normal" => FontStyle.Normal,
+                "Bold" => FontStyle.Bold,
+                "Italic" => FontStyle.Italic,
+                "UnderLine" => FontStyle.UnderLine,
+                "StrikeThrough" => FontStyle.StrikeThrough,
                 _ => throw new NotImplementedException(),
             };
-            var fontp = new SDL2.TTF.Font(font.Path, size) { Style = styleint };
+            var fontp = new Font(font.Path, size) { Style = styleint };
 
             var result = fontp.RenderText(text, color);
             fontp.Dispose();
