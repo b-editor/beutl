@@ -10,7 +10,9 @@ using BEditor.Core.Data.ProjectData;
 using BEditor.Core.Interfaces;
 
 namespace BEditor.Core.Data.ObjectData {
-
+    /// <summary>
+    /// タイムラインに配置されるクリップのデータ
+    /// </summary>
     [DataContract(Namespace = "", Name = "Data")]
     public class ClipData : ComponentObject, ICloneable {
 
@@ -26,7 +28,7 @@ namespace BEditor.Core.Data.ObjectData {
         #endregion
 
         /// <summary>
-        /// ClipDataのコンストラクタ
+        /// <see cref="ClipData"/>クラスの新しいインスタンスを初期化します
         /// </summary>
         /// <param name="id">Sceneから取得できるId</param>
         /// <param name="effects">エフェクトのリスト</param>
@@ -47,13 +49,14 @@ namespace BEditor.Core.Data.ObjectData {
         /// <summary>
         /// クリップのID
         /// </summary>
+        /// <remarks>このプロパティは <see cref="DataMemberAttribute"/> です</remarks>
         [DataMember(Name = "Id", Order = 0)]
         public uint Id { get; set; }
 
         /// <summary>
         /// オブジェクトの名前
-        /// 命名は種類+ID
         /// </summary>
+        /// <remarks>このプロパティはシリアル化されません</remarks>
         public string Name {
             get {
                 if (name == null) {
@@ -69,6 +72,7 @@ namespace BEditor.Core.Data.ObjectData {
         /// <summary>
         /// オブジェクトの種類
         /// </summary>
+        /// <remarks>このプロパティは <see cref="DataMemberAttribute"/> です</remarks>
         [DataMember(Name = "Type", Order = 1)]
         public string ClipType { get => Type.FullName; set => Type = Type.GetType(value); }
 
@@ -76,24 +80,27 @@ namespace BEditor.Core.Data.ObjectData {
 
         #region Start
         /// <summary>
-        /// オブジェクトの開始フレーム番号
+        /// オブジェクトの開始フレーム
         /// </summary>
+        /// <remarks>このプロパティは <see cref="DataMemberAttribute"/> です</remarks>
         [DataMember(Name = "Start", Order = 2)]
         public int Start { get => start; set => SetValue(value, ref start, nameof(Start)); }
         #endregion
 
         #region End
         /// <summary>
-        /// オブジェクトの終了フレーム番号
+        /// オブジェクトの終了フレーム
         /// </summary>
+        /// <remarks>このプロパティは <see cref="DataMemberAttribute"/> です</remarks>
         [DataMember(Name = "End", Order = 3)]
         public int End { get => end; set => SetValue(value, ref end, nameof(End)); }
         #endregion
 
         #region Length
         /// <summary>
-        /// オブジェクトの長さ（読み取りのみ）
+        /// オブジェクトの長さ
         /// </summary>
+        /// <remarks>このプロパティはシリアル化されません</remarks>
         public int Length => End - Start;
         #endregion
 
@@ -102,6 +109,7 @@ namespace BEditor.Core.Data.ObjectData {
         /// オブジェクトの配置レイヤー
         /// 1から
         /// </summary>
+        /// <remarks>このプロパティは <see cref="DataMemberAttribute"/> です</remarks>
         [DataMember(Name = "Layer", Order = 4)]
         public int Layer {
             get => layer;
@@ -117,15 +125,27 @@ namespace BEditor.Core.Data.ObjectData {
 
         #region ClipのText
 
+        /// <summary>
+        /// クリップに表示されるテキスト
+        /// </summary>
+        /// <remarks>このプロパティは <see cref="DataMemberAttribute"/> です</remarks>
         [DataMember(Name = "Text", Order = 5)]
         public string LabelText { get => labeltext; set => SetValue(value, ref labeltext, nameof(LabelText)); }
         #endregion
 
         #region Sceneのインスタンス
+        /// <summary>
+        /// <see cref="ProjectData.Scene"/>のインスタンス
+        /// </summary>
+        /// <remarks>このプロパティはシリアル化されません</remarks>
         public Scene Scene { get; set; }
         #endregion
 
-
+        
+        /// <summary>
+        /// クリップのエフェクト
+        /// </summary>
+        /// <remarks>このプロパティは <see cref="DataMemberAttribute"/> です</remarks>
         [DataMember(Name = "Effects", Order = 6)]
         public ObservableCollection<EffectElement> Effect {
             get => effect;
@@ -140,6 +160,11 @@ namespace BEditor.Core.Data.ObjectData {
         }
 
         #region Load
+
+
+        /// <summary>
+        /// フレーム描画時に呼び出されます
+        /// </summary>
         public void Load(ObjectLoadArgs args) {
             var loadargs = new EffectLoadArgs(args.Frame, Effect.Where(x => x.IsEnabled).ToList());
             if (Effect[0] is ObjectElement obj) {
@@ -151,6 +176,9 @@ namespace BEditor.Core.Data.ObjectData {
             }
         }
 
+        /// <summary>
+        /// フレーム描画前に呼び出されます
+        /// </summary>
         public void PreviewLoad(ObjectLoadArgs args) {
             var loadargs = new EffectLoadArgs(args.Frame, Effect.Where(x => x.IsEnabled).ToList());
 
@@ -173,14 +201,16 @@ namespace BEditor.Core.Data.ObjectData {
         }
         #endregion
 
+        /// <inheritdoc/>
         public object Clone() => this.DeepClone();
 
         #region Commands
 
         #region Add
         /// <summary>
-        /// 
+        /// クリップをシーンに追加するコマンド
         /// </summary>
+        /// <remarks>このクラスは<see cref="UndoRedoManager.Do(IUndoRedoCommand)"/>と併用することでコマンドを記録できます</remarks>
         public class Add : IUndoRedoCommand {
             private readonly Scene Scene;
             private readonly int AddFrame;
@@ -189,12 +219,12 @@ namespace BEditor.Core.Data.ObjectData {
             public ClipData data;
 
             /// <summary>
-            /// 
+            /// <see cref="Add"/>クラスの新しいインスタンスを初期化します
             /// </summary>
-            /// <param name="scene"></param>
-            /// <param name="addframe"></param>
-            /// <param name="layer"></param>
-            /// <param name="_Type"></param>
+            /// <param name="scene">対象のシーン</param>
+            /// <param name="addframe">配置するフレーム</param>
+            /// <param name="layer">配置するレイヤー</param>
+            /// <param name="_Type">クリップの種類</param>
             public Add(Scene scene, int addframe, int layer, Type _Type) {
                 Scene = scene;
                 AddFrame = addframe;
@@ -264,15 +294,16 @@ namespace BEditor.Core.Data.ObjectData {
 
         #region Remove
         /// <summary>
-        /// 
+        /// シーンからクリップを削除するコマンド
         /// </summary>
+        /// <remarks>このクラスは<see cref="UndoRedoManager.Do(IUndoRedoCommand)"/>と併用することでコマンドを記録できます</remarks>
         public class Remove : IUndoRedoCommand {
             private readonly ClipData data;
 
             /// <summary>
-            /// 
+            /// <see cref="Remove"/>クラスの新しいインスタンスを初期化します
             /// </summary>
-            /// <param name="data"></param>
+            /// <param name="data">対象のクリップ</param>
             public Remove(ClipData data) => this.data = data;
 
 
@@ -309,8 +340,9 @@ namespace BEditor.Core.Data.ObjectData {
 
         #region Move
         /// <summary>
-        /// 
+        /// クリップのフレームとレイヤーを移動するコマンド
         /// </summary>
+        /// <remarks>このクラスは<see cref="UndoRedoManager.Do(IUndoRedoCommand)"/>と併用することでコマンドを記録できます</remarks>
         public class Move : IUndoRedoCommand {
             private readonly ClipData data;
             private readonly int to;
@@ -321,11 +353,11 @@ namespace BEditor.Core.Data.ObjectData {
 
             #region コンストラクタ
             /// <summary>
-            /// 
+            /// <see cref="Move"/>クラスの新しいインスタンスを初期化します
             /// </summary>
-            /// <param name="data"></param>
-            /// <param name="to"></param>
-            /// <param name="tolayer"></param>
+            /// <param name="data">対象のクリップ</param>
+            /// <param name="to">新しい開始フレーム</param>
+            /// <param name="tolayer">新しい配置レイヤー</param>
             public Move(ClipData data, int to, int tolayer) {
                 this.data = data;
                 this.to = to;
@@ -335,13 +367,13 @@ namespace BEditor.Core.Data.ObjectData {
             }
 
             /// <summary>
-            /// 
+            /// <see cref="Move"/>クラスの新しいインスタンスを初期化します
             /// </summary>
-            /// <param name="data"></param>
-            /// <param name="to"></param>
-            /// <param name="from"></param>
-            /// <param name="tolayer"></param>
-            /// <param name="fromlayer"></param>
+            /// <param name="data">対象のクリップ</param>
+            /// <param name="to">新しい開始フレーム</param>
+            /// <param name="from">古い開始フレーム</param>
+            /// <param name="tolayer">新しい配置レイヤー</param>
+            /// <param name="fromlayer">古い配置レイヤー</param>
             public Move(ClipData data, int to, int from, int tolayer, int fromlayer) {
                 this.data = data;
                 this.to = to;
@@ -380,8 +412,9 @@ namespace BEditor.Core.Data.ObjectData {
 
         #region LengthChange
         /// <summary>
-        /// 
+        /// クリップの長さを変更するコマンド
         /// </summary>
+        /// <remarks>このクラスは<see cref="UndoRedoManager.Do(IUndoRedoCommand)"/>と併用することでコマンドを記録できます</remarks>
         public class LengthChange : IUndoRedoCommand {
             private readonly ClipData data;
             private readonly int start;
@@ -390,11 +423,11 @@ namespace BEditor.Core.Data.ObjectData {
             private readonly int oldend;
 
             /// <summary>
-            /// 
+            /// <see cref="LengthChange"/>クラスの新しいインスタンスを初期化します
             /// </summary>
-            /// <param name="data"></param>
-            /// <param name="start"></param>
-            /// <param name="end"></param>
+            /// <param name="data">対象のクリップ</param>
+            /// <param name="start">開始フレーム</param>
+            /// <param name="end">終了フレーム</param>
             public LengthChange(ClipData data, int start, int end) {
                 this.data = data;
                 this.start = start;
@@ -405,15 +438,18 @@ namespace BEditor.Core.Data.ObjectData {
 
 
             /// <inheritdoc/>
+            [Pure]
             public void Do() {
                 data.Start = start;
                 data.End = end;
             }
 
             /// <inheritdoc/>
+            [Pure]
             public void Redo() => Do();
 
             /// <inheritdoc/>
+            [Pure]
             public void Undo() {
                 data.Start = oldstart;
                 data.End = oldend;
@@ -424,7 +460,9 @@ namespace BEditor.Core.Data.ObjectData {
         #endregion
     }
 
-
+    /// <summary>
+    /// 標準のクリップの種類
+    /// </summary>
     public static class ClipType {
         public static readonly Type Video = typeof(DefaultData.Video);
         public static readonly Type Image = typeof(DefaultData.Image);
