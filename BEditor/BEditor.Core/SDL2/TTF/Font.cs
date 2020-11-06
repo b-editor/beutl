@@ -10,14 +10,9 @@ namespace BEditor.Core.SDL2.TTF {
 
         #region Constructor
 
-        public Font(string file, int ptsize) {
-            FontProcess.Open(file, ptsize, out ptr);
-            Size = ptsize;
-        }
-
-        public Font(string file, int ptsize, long index) {
-            FontProcess.Open(file, ptsize, index, out ptr);
-            Size = ptsize;
+        public Font(string file, int size, bool isFitHeight = true, uint index = 0) {
+            ptr = FontProcess.Open(file, (uint)size, isFitHeight, index);
+            Size = size;
         }
 
         #endregion
@@ -34,92 +29,32 @@ namespace BEditor.Core.SDL2.TTF {
             }
             set {
                 ThrowIfDisposed();
-                FontProcess.SetStyle(ptr, (int)value);
+                FontProcess.SetStyle(ptr, (long)value);
             }
         }
 
-        public int Outline {
-            get {
-                ThrowIfDisposed();
-                return FontProcess.GetOutline(ptr);
-            }
-            set {
-                ThrowIfDisposed();
-                FontProcess.SetOutline(ptr, value);
-            }
-        }
-
-        public Hinting Hinting {
-            get {
-                ThrowIfDisposed();
-                return (Hinting)Enum.ToObject(typeof(Hinting), FontProcess.GetHinting(ptr));
-            }
-            set {
-                ThrowIfDisposed();
-                FontProcess.SetHinting(ptr, (int)value);
-            }
-        }
 
         public int Height {
             get {
-                ThrowIfDisposed();
                 return FontProcess.Height(ptr);
             }
         }
-
-        public int Ascent {
+        public int Ascender {
             get {
-                ThrowIfDisposed();
-                return FontProcess.Ascent(ptr);
+                return FontProcess.Ascender(ptr);
             }
         }
-
-        public int Descent {
+        public int Descender {
             get {
-                ThrowIfDisposed();
-                return FontProcess.Descent(ptr);
+                return FontProcess.Descender(ptr);
             }
         }
-
-        public int LineSkip {
-            get {
-                ThrowIfDisposed();
-                return FontProcess.LineSkip(ptr);
-            }
-        }
-
-        public bool Kerning {
-            get {
-                ThrowIfDisposed();
-                return FontProcess.GetKerning(ptr);
-            }
-            set {
-                ThrowIfDisposed();
-                FontProcess.SetKerning(ptr, value);
-            }
-        }
-
-        public long Faces {
-            get {
-                ThrowIfDisposed();
-                return FontProcess.Faces(ptr);
-            }
-        }
-
-        public bool IsFixedWidth {
-            get {
-                ThrowIfDisposed();
-                return FontProcess.IsFixedWidth(ptr);
-            }
-        }
-
         public string FaceFamilyName {
             get {
                 ThrowIfDisposed();
                 return FontProcess.FamilyName(ptr);
             }
         }
-
         public string FaceStyleName {
             get {
                 ThrowIfDisposed();
@@ -131,45 +66,23 @@ namespace BEditor.Core.SDL2.TTF {
 
         #region Methods
 
-        public int GlyphIsProvided(ushort ch) {
+        public void SizeText(string text, out int width, out int height) {
             ThrowIfDisposed();
-            var result = FontProcess.GlyphIsProvided(ptr, ch);
-            return result;
-        }
-        
-        public bool GlyphMetrics(ushort ch, out int minx, out int maxx, out int miny, out int maxy, out int advance) {
-            ThrowIfDisposed();
-            return FontProcess.GlyphMetrics(ptr, ch, out minx, out maxx, out miny, out maxy, out advance) == 0;
+
+            FontProcess.SizeText(ptr, out var left, out var top, out var right, out var bottom, text);
+            
+            var rect = Rectangle.FromLTRB(left, top, right, bottom);
+            width = rect.Width;
+            height = rect.Height;
         }
 
-        public bool SizeText(string text, out int width, out int height) {
-            ThrowIfDisposed();
-            return FontProcess.SizeText(ptr, text, out width, out height);
-        }
-        public bool SizeUnicode(string text, out int width, out int height) {
-            ThrowIfDisposed();
-            return FontProcess.SizeUnicode(ptr, text, out width, out height);
-        }
-        public bool SizeUTF8(string text, out int width, out int height) {
-            ThrowIfDisposed();
-            return FontProcess.SizeUTF8(ptr, text, out width, out height);
-        }
-
-        public Image RenderGlyph(ushort ch,Color color) {
-            FontProcess.RenderGlyph(ptr, ch, color.R, color.G, color.B, color.A, out var mat);
-            return new Image(mat);
-        }
-        public Image RenderUnicode(string text,Color color) {
-            FontProcess.RenderUnicode(ptr, text, color.R, color.G, color.B, color.A, out var mat);
-            return new Image(mat);
-        }
-        public Image RenderUTF8(string text, Color color) {
-            FontProcess.RenderUTF8(ptr, text, color.R, color.G, color.B, color.A, out var mat);
-            return new Image(mat);
-        }
         public Image RenderText(string text, Color color) {
-            FontProcess.RenderText(ptr, text, color.R, color.G, color.B, color.A, out var mat);
-            return new Image(mat);
+            SizeText(text, out var width, out var height);
+            var img = new Image(width, height, ImageType.ByteCh4);
+
+            FontProcess.DrawText(ptr, 0, 0, text, color.R, color.G, color.B, img.Data, width * 4, width, height);
+
+            return img;
         }
 
         #endregion
@@ -178,7 +91,7 @@ namespace BEditor.Core.SDL2.TTF {
 
         public static void Quit() => FontProcess.Quit();
 
-        public static bool Initialize() => FontProcess.Init() == 0;
+        public static bool Initialize() => FontProcess.Init();
 
         #endregion
 
@@ -197,12 +110,5 @@ namespace BEditor.Core.SDL2.TTF {
         Italic = 0x02,
         UnderLine = 0x04,
         StrikeThrough = 0x08
-    }
-    public enum Hinting {
-        Normal = 0,
-        Light = 1,
-        Mono = 2,
-        None = 3,
-        LightSubPixel = 4
     }
 }

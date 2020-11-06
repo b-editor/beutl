@@ -41,7 +41,7 @@ namespace BEditor {
         private void Application_Startup(object sender, StartupEventArgs e) {
             Component.Current.Arguments = e.Args;
             Font.Initialize();
-
+            
             #region ダークモード設定
 
             if (BEditor.Properties.Settings.Default.DarkMode) {

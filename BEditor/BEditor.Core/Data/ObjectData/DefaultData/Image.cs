@@ -34,7 +34,7 @@ namespace BEditor.Core.Data.ObjectData {
 
             [DataMember(Order = 0)]
             [PropertyMetadata(nameof(FileMetadata), typeof(Image))]
-            public FileProperty File { get; set; }
+            public FileProperty File { get; private set; }
 
             #region PathChanged
             private void PathChanged(object sender, PropertyChangedEventArgs e) {

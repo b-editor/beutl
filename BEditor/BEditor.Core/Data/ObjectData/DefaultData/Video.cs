@@ -71,15 +71,15 @@ namespace BEditor.Core.Data.ObjectData {
 
             [DataMember(Order = 0)]
             [PropertyMetadata("SpeedMetadata", typeof(Video))]
-            public EaseProperty Speed { get; set; }
+            public EaseProperty Speed { get; private set; }
 
             [DataMember(Order = 1)]
             [PropertyMetadata("StartMetadata", typeof(Video))]
-            public EaseProperty Start { get; set; }
+            public EaseProperty Start { get; private set; }
 
             [DataMember(Order = 2)]
             [PropertyMetadata("FileMetadata", typeof(Video))]
-            public FileProperty File { get; set; }
+            public FileProperty File { get; private set; }
         }
     }
 }

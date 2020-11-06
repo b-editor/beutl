@@ -46,19 +46,19 @@ namespace BEditor.Core.Data.ObjectData {
 
             [DataMember(Order = 0)]
             [PropertyMetadata(nameof(SizeMetadata), typeof(Text))]
-            public EaseProperty Size { get; set; }
+            public EaseProperty Size { get; private set; }
 
             [DataMember(Order = 1)]
             [PropertyMetadata(nameof(ColorMetadata), typeof(Text))]
-            public ColorProperty Color { get; set; }
+            public ColorProperty Color { get; private set; }
 
             [DataMember(Order = 2)]
             [PropertyMetadata(nameof(DocumentMetadata), typeof(Text))]
-            public DocumentProperty Document { get; set; }
+            public DocumentProperty Document { get; private set; }
 
             [DataMember(Order = 3)]
             [PropertyMetadata(nameof(FontMetadata), typeof(Text))]
-            public FontProperty Font { get; set; }
+            public FontProperty Font { get; private set; }
 
 
             [DataContract(Namespace = "")]

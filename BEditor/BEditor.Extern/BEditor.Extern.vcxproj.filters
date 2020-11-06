@@ -39,6 +39,9 @@
     <ClCompile Include="RenderingContext.cpp">
       <Filter>ソース ファイル\Windows</Filter>
     </ClCompile>
+    <ClCompile Include="ImageFont.cpp">
+      <Filter>ソース ファイル</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="pch.h">
@@ -48,9 +51,6 @@
       <Filter>ヘッダー ファイル</Filter>
     </ClInclude>
     <ClInclude Include="CvMat.h">
-      <Filter>ヘッダー ファイル</Filter>
-    </ClInclude>
-    <ClInclude Include="ImageFontExtern.h">
       <Filter>ヘッダー ファイル</Filter>
     </ClInclude>
     <ClInclude Include="Color.h">

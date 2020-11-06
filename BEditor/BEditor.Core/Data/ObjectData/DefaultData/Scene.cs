@@ -35,11 +35,11 @@ namespace BEditor.Core.Data.ObjectData {
 
             [DataMember(Order = 0)]
             [PropertyMetadata(nameof(Video.StartMetadata), typeof(Video))]
-            public EaseProperty Start { get; set; }
+            public EaseProperty Start { get; private set; }
 
             [DataMember(Order = 1)]
             [PropertyMetadata(nameof(SelectSceneMetadata), typeof(Scene))]
-            public SelectorProperty SelectScene { get; set; }
+            public SelectorProperty SelectScene { get; private set; }
 
 
             internal class ScenesSelectorMetadata : SelectorPropertyMetadata {

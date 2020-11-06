@@ -75,7 +75,27 @@ namespace BEditor.Core.Native {
             int cx, int cy);
 
 
+        [Pure, DllImport(dll, EntryPoint = "ImageFontGetStyle")]
+        public static extern long GetStyle(IntPtr font);
+        [Pure, DllImport(dll, EntryPoint = "ImageFontSetStyle")]
+        public static extern void SetStyle(IntPtr font, long value);
 
+        [Pure, DllImport(dll, EntryPoint = "ImageFontHeight")]
+        public static extern int Height(IntPtr font);
+        [Pure, DllImport(dll, EntryPoint = "ImageFontAscender")]
+        public static extern int Ascender(IntPtr font);
+        [Pure, DllImport(dll, EntryPoint = "ImageFontDescender")]
+        public static extern int Descender(IntPtr font);
+        [Pure, DllImport(dll, EntryPoint = "ImageFontFamilyName")]
+        private static extern IntPtr FamilyName_(IntPtr font);
+        [Pure, DllImport(dll, EntryPoint ="ImageFontStyleName")]
+        private static extern IntPtr StyleName_(IntPtr font);
+        public static string FamilyName(IntPtr font) {
+            return TextConvert.UTF8_ToManaged(FamilyName_(font));
+        }
+        public static string StyleName(IntPtr font) {
+            return TextConvert.UTF8_ToManaged(StyleName_(font));
+        }
 
         //[DllImport(dll, EntryPoint = "FontHeight")]
         //public static extern int Height(IntPtr font);

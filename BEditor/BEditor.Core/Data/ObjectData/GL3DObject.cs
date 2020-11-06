@@ -111,39 +111,39 @@ namespace BEditor.Core.Data.ObjectData {
 
         [DataMember(Order = 0)]
         [PropertyMetadata(nameof(CoordinateMetadata), typeof(ImageObject))]
-        public Coordinate Coordinate { get; set; }
+        public Coordinate Coordinate { get; private set; }
 
         [DataMember(Order = 1)]
         [PropertyMetadata(nameof(ZoomMetadata), typeof(ImageObject))]
-        public Zoom Zoom { get; set; }
+        public Zoom Zoom { get; private set; }
 
         [DataMember(Order = 2)]
         [PropertyMetadata(nameof(BlendMetadata), typeof(ImageObject))]
-        public Blend Blend { get; set; }
+        public Blend Blend { get; private set; }
 
         [DataMember(Order = 3)]
         [PropertyMetadata(nameof(AngleMetadata), typeof(ImageObject))]
-        public Angle Angle { get; set; }
+        public Angle Angle { get; private set; }
 
         [DataMember(Order = 4)]
         [PropertyMetadata(nameof(MaterialMetadata), typeof(ImageObject))]
-        public Material Material { get; set; }
+        public Material Material { get; private set; }
 
         [DataMember(Order = 5)]
         [PropertyMetadata(nameof(TypeMetadata), typeof(GL3DObject))]
-        public SelectorProperty Type { get; set; }
+        public SelectorProperty Type { get; private set; }
 
         [DataMember(Order = 6)]
         [PropertyMetadata(nameof(WidthMetadata), typeof(DefaultData.Figure))]
-        public EaseProperty Width { get; set; }
+        public EaseProperty Width { get; private set; }
 
         [DataMember(Order = 7)]
         [PropertyMetadata(nameof(HeightMetadata), typeof(DefaultData.Figure))]
-        public EaseProperty Height { get; set; }
+        public EaseProperty Height { get; private set; }
 
         [DataMember(Order = 8)]
         [PropertyMetadata(nameof(WeightMetadata), typeof(GL3DObject))]
-        public EaseProperty Weight { get; set; }
+        public EaseProperty Weight { get; private set; }
 
     }
 }

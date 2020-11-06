@@ -11,7 +11,9 @@ using BEditor.Core.Media;
 using BEditor.Core.Renderer;
 
 namespace BEditor.Core.Data.ProjectData {
-
+    /// <summary>
+    /// シーンクラス
+    /// </summary>
     [DataContract(Namespace = "")]
     public class Scene : ComponentObject {
         private ObservableCollection<ClipData> datas;
@@ -23,24 +25,42 @@ namespace BEditor.Core.Data.ProjectData {
         private double timeLineHorizonOffset;
         private double timeLineVerticalOffset;
 
+        /// <summary>
+        /// フレームバッファの横幅を取得または設定します
+        /// </summary>
         [DataMember(Order = 0)]
-        public virtual int Width { get; set; }
+        public virtual int Width { get; protected set; }
+        /// <summary>
+        /// フレームバッファの高さを取得または設定します
+        /// </summary>
         [DataMember(Order = 1)]
-        public virtual int Height { get; set; }
+        public virtual int Height { get; protected set; }
 
+        /// <summary>
+        /// 名前を取得または設定します
+        /// </summary>
         [DataMember(Order = 2)]
         public virtual string SceneName { get; set; }
 
+        /// <summary>
+        /// 選択されているクリップの <see cref="ClipData.Name"/> を取得します
+        /// </summary>
         [DataMember(Order = 3)]
-        public List<string> SelectNames { get; set; } = new List<string>();
+        public List<string> SelectNames { get; private set; } = new List<string>();
 
+        /// <summary>
+        /// 選択中のクリップの <see cref="ClipData.Name"/> を取得します
+        /// </summary>
         [DataMember(Order = 4)]
         public string SelectName { get; private set; }
 
+        /// <summary>
+        /// タイムライン上の <see cref="ClipData"/> を取得します
+        /// </summary>
         [DataMember(Order = 10)]
         public ObservableCollection<ClipData> Datas {
             get => datas;
-            set {
+            private set {
                 datas = value;
 
                 for (int i = 0; i < datas.Count; i++) {
@@ -49,10 +69,15 @@ namespace BEditor.Core.Data.ProjectData {
             }
         }
 
+        /// <summary>
+        /// 隠されているレイヤーの番号を取得します
+        /// </summary>
         [DataMember(Order = 11)]
-        public List<int> HideLayer { get; set; } = new List<int>();
+        public List<int> HideLayer { get; private set; } = new List<int>();
 
-
+        /// <summary>
+        /// 選択中の <see cref="ClipData"/> を取得または設定します
+        /// </summary>
         public ClipData SelectItem {
             get => selectItem ??= Get(SelectName);
             set {
@@ -62,6 +87,9 @@ namespace BEditor.Core.Data.ProjectData {
             }
         }
 
+        /// <summary>
+        /// 選択されている <see cref="ClipData"/> を取得します
+        /// </summary>
         public ObservableCollection<ClipData> SelectItems {
             get {
                 if (selectItems == null) {
@@ -90,26 +118,43 @@ namespace BEditor.Core.Data.ProjectData {
             }
         }
 
-
-        public BaseRenderingContext RenderingContext { get; set; }
+        /// <summary>
+        /// レンダリングコンテキストを取得します
+        /// </summary>
+        public BaseRenderingContext RenderingContext { get; internal set; }
 
         #region コントロールに関係
 
+        /// <summary>
+        /// プレビュー中のフレームを取得または設定します
+        /// </summary>
         [DataMember(Order = 5)]
         public int PreviewFrame { get => previewframe; set => SetValue(value, ref previewframe, nameof(PreviewFrame)); }
 
+        /// <summary>
+        /// 最大フレームを取得または設定します
+        /// </summary>
         [DataMember(Order = 6)]
         public int TotalFrame { get => totalframe; set => SetValue(value, ref totalframe, nameof(TotalFrame)); }
 
+        /// <summary>
+        /// タイムラインの拡大率を取得または設定します
+        /// </summary>
         [DataMember(Order = 7)]
         public float TimeLineZoom { get => timeLineZoom; set => SetValue(value, ref timeLineZoom, nameof(TimeLineZoom)); }
 
         #region TimeLineScrollOffset
 
+        /// <summary>
+        /// タイムラインの水平方向のスクロールのオフセットを取得または設定します
+        /// </summary>
         [DataMember(Order = 8)]
         public double TimeLineHorizonOffset { get => timeLineHorizonOffset; set => SetValue(value, ref timeLineHorizonOffset, nameof(TimeLineHorizonOffset)); }
 
 
+        /// <summary>
+        /// タイムラインの垂直方向のスクロールのオフセットを取得または設定します
+        /// </summary>
         [DataMember(Order = 9)]
         public double TimeLineVerticalOffset { get => timeLineVerticalOffset; set => SetValue(value, ref timeLineVerticalOffset, nameof(TimeLineVerticalOffset)); }
 
@@ -141,24 +186,27 @@ namespace BEditor.Core.Data.ProjectData {
         }
 
         #region コンストラクタ
-        public Scene(int width, int height) : this(width, height, new ObservableCollection<ClipData>()) {
 
-        }
-
-        public Scene(int width, int height, ObservableCollection<ClipData> datas) {
+        /// <summary>
+        /// <see cref="Scene"/> クラスの新しいインスタンスを初期化します
+        /// </summary>
+        /// <param name="width">フレームバッファの横幅</param>
+        /// <param name="height">フレームバッファの高さ</param>
+        public Scene(int width, int height) {
             Width = width;
             Height = height;
-            Datas = datas;
+            Datas = new ObservableCollection<ClipData>();
             RenderingContext = Component.Funcs.CreateRenderingContext(width, height);
         }
+
         #endregion
 
         #region Rendering
         /// <summary>
-        /// シーンをレンダリング
+        /// シーンをレンダリングします
         /// </summary>
-        /// <param name="frame">フレーム</param>
-        /// <returns></returns>
+        /// <param name="frame">タイムライン基準のレンダリングするフレーム</param>
+        /// <returns>レンダリングされた <seealso cref="Image"/></returns>
         public Image Rendering(int frame) {
             FrameBuffer?.Dispose();
             FrameBuffer = new Image(Width, Height);
@@ -189,11 +237,15 @@ namespace BEditor.Core.Data.ProjectData {
             RenderingContext.MakeCurrent();
             RenderingContext.SwapBuffers();
 
-            BEditor.Core.Renderer.Graphics.GetPixels(FrameBuffer);
+            Graphics.GetPixels(FrameBuffer);
 
             return FrameBuffer;
         }
 
+        /// <summary>
+        /// <seealso cref="PreviewFrame"/> のフレームをレンダリングします
+        /// </summary>
+        /// <returns>レンダリングされた <seealso cref="Image"/></returns>
         public Image Rendering() {
             return Rendering(PreviewFrame);
         }
@@ -202,10 +254,10 @@ namespace BEditor.Core.Data.ProjectData {
 
         #region GetLayer
         /// <summary>
-        /// フレーム上にあるオブジェクトを取得しソートします
+        /// フレーム上にあるクリップを取得しソートします
         /// </summary>
-        /// <param name="frame">フレーム番号</param>
-        /// <returns>オブジェクトのリスト</returns>
+        /// <param name="frame">タイムライン基準のフレーム</param>
+        /// <returns>クリップのリスト</returns>
         public List<ClipData> GetLayer(int frame) {
             var List = (
                 from item in Datas
@@ -221,15 +273,28 @@ namespace BEditor.Core.Data.ProjectData {
 
 
         #region Listの操作
+        /// <summary>
+        /// クリップを追加し、<seealso cref="ClipData.Scene"/> にこのシーンを設定します
+        /// </summary>
+        /// <param name="data">追加するクリップ</param>
         public void Add(ClipData data) {
             data.Scene = this;
 
             Datas.Add(data);
         }
-
+        /// <summary>
+        /// シーンからクリップを削除します
+        /// </summary>
+        /// <param name="data">削除するクリップ</param>
+        /// <returns>アイテムが正常に削除された場合は <see langword="true"/>、そうでない場合は <see langword="false"/> となります。このメソッドは、元の <see cref="Collection{T}"/> でアイテムが見つからなかった場合も <see langword="false"/> を返します</returns>
         public bool Remove(ClipData data) {
             return Datas.Remove(data);
         }
+        /// <summary>
+        /// クリップの <seealso cref="ClipData.Name"/> から <seealso cref="ClipData"/> を取得します
+        /// </summary>
+        /// <param name="name">取得するクリップの名前</param>
+        /// <returns>存在する場合 <see cref="ClipData"/> のインスタンス、そうでない場合は <see langword="null"/> となります。 <paramref name="name"/> が <see langword="null"/> の場合も <see langword="null"/> を返します</returns>
         public ClipData Get(string name) {
             if (name != null) {
                 foreach (var a in Datas) {
@@ -239,12 +304,15 @@ namespace BEditor.Core.Data.ProjectData {
             return null;
         }
 
-        public int Count => Datas.Count;
-
         #endregion
 
+        /// <summary>
+        /// 選択中の <see cref="ClipData"/> を設定し、<see cref="SelectNames"/> に名前が存在しない場合追加します
+        /// </summary>
+        /// <param name="data">対象の <see cref="ClipData"/></param>
+        /// <exception cref="ArgumentNullException"><paramref name="data"/> が <see langword="null"/> です</exception>
         public void SetCurrentClip(ClipData data) {
-            SelectItem = data;
+            SelectItem = data ?? throw new ArgumentNullException(nameof(data));
 
             if (!SelectNames.Exists(x => x == data.Name)) {
                 SelectItems.Add(data);
@@ -255,8 +323,14 @@ namespace BEditor.Core.Data.ProjectData {
 
     [DataContract(Namespace = "")]
     public sealed class RootScene : Scene {
+        /// <inheritdoc/>
         public override string SceneName { get => "root"; set { } }
 
+        /// <summary>
+        /// <see cref="RootScene"/> クラスの新しいインスタンスを初期化します
+        /// </summary>
+        /// <param name="width">フレームバッファの横幅</param>
+        /// <param name="height">フレームバッファの高さ</param>
         public RootScene(int width, int height) : base(width, height) { }
     }
 }

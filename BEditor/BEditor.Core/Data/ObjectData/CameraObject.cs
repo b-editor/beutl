@@ -79,46 +79,46 @@ namespace BEditor.Core.Data.ObjectData {
 
         [DataMember(Order = 0)]
         [PropertyMetadata(nameof(XMetadata), typeof(CameraObject))]
-        public EaseProperty X { get; set; }
+        public EaseProperty X { get; private set; }
 
         [DataMember(Order = 1)]
         [PropertyMetadata(nameof(YMetadata), typeof(CameraObject))]
-        public EaseProperty Y { get; set; }
+        public EaseProperty Y { get; private set; }
 
         [DataMember(Order = 2)]
         [PropertyMetadata(nameof(ZMetadata), typeof(CameraObject))]
-        public EaseProperty Z { get; set; }
+        public EaseProperty Z { get; private set; }
 
         [DataMember(Order = 3)]
         [PropertyMetadata(nameof(TargetXMetadata), typeof(CameraObject))]
-        public EaseProperty TargetX { get; set; }
+        public EaseProperty TargetX { get; private set; }
 
         [DataMember(Order = 4)]
         [PropertyMetadata(nameof(TargetYMetadata), typeof(CameraObject))]
-        public EaseProperty TargetY { get; set; }
+        public EaseProperty TargetY { get; private set; }
 
         [DataMember(Order = 5)]
         [PropertyMetadata(nameof(TargetZMetadata), typeof(CameraObject))]
-        public EaseProperty TargetZ { get; set; }
+        public EaseProperty TargetZ { get; private set; }
 
         [DataMember(Order = 6)]
         [PropertyMetadata(nameof(ZNearMetadata), typeof(CameraObject))]
-        public EaseProperty ZNear { get; set; }
+        public EaseProperty ZNear { get; private set; }
 
         [DataMember(Order = 7)]
         [PropertyMetadata(nameof(ZFarMetadata), typeof(CameraObject))]
-        public EaseProperty ZFar { get; set; }
+        public EaseProperty ZFar { get; private set; }
 
         [DataMember(Order = 8)]
         [PropertyMetadata(nameof(AngleMetadata), typeof(CameraObject))]
-        public EaseProperty Angle { get; set; }
+        public EaseProperty Angle { get; private set; }
 
         [DataMember(Order = 9)]
         [PropertyMetadata(nameof(FovMetadata), typeof(CameraObject))]
-        public EaseProperty Fov { get; set; }
+        public EaseProperty Fov { get; private set; }
 
         [DataMember(Order = 10)]
         [PropertyMetadata(nameof(ModeMetadata), typeof(CameraObject))]
-        public CheckProperty Mode { get; set; }
+        public CheckProperty Mode { get; private set; }
     }
 }

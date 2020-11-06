@@ -634,7 +634,7 @@ namespace BEditor.Core.Media {
             };
             var fontp = new SDL2.TTF.Font(font.Path, size) { Style = styleint };
 
-            var result = fontp.RenderUTF8(text, color);
+            var result = fontp.RenderText(text, color);
             fontp.Dispose();
 
             return result;

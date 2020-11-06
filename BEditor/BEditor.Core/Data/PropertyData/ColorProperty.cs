@@ -4,7 +4,7 @@ using System.Runtime.Serialization;
 
 namespace BEditor.Core.Data.PropertyData {
     /// <summary>
-    /// 
+    /// 色のプロパティクラス
     /// </summary>
     [DataContract(Namespace = "")]
     public sealed class ColorProperty : PropertyElement {
@@ -14,10 +14,13 @@ namespace BEditor.Core.Data.PropertyData {
         private byte a;
 
         /// <summary>
-        /// 
+        /// <see cref="ColorProperty"/> クラスの新しいインスタンスを初期化します
         /// </summary>
-        /// <param name="metadata"></param>
+        /// <param name="metadata">このプロパティの <see cref="ColorPropertyMetadata"/></param>
+        /// <exception cref="ArgumentNullException"><paramref name="metadata"/> が <see langword="null"/> です</exception>
         public ColorProperty(ColorPropertyMetadata metadata) {
+            if (metadata is null) throw new ArgumentNullException(nameof(metadata));
+
             Red = metadata.Red;
             Green = metadata.Green;
             Blue = metadata.Blue;
@@ -26,46 +29,50 @@ namespace BEditor.Core.Data.PropertyData {
         }
 
         /// <summary>
-        /// 
+        /// Red
         /// </summary>
         [DataMember]
         public byte Red { get => r; set => SetValue(value, ref r, nameof(Red)); }
         /// <summary>
-        /// 
+        /// Green
         /// </summary>
         [DataMember]
         public byte Green { get => g; set => SetValue(value, ref g, nameof(Green)); }
         /// <summary>
-        /// 
+        /// Blue
         /// </summary>
         [DataMember]
         public byte Blue { get => b; set => SetValue(value, ref b, nameof(Blue)); }
         /// <summary>
-        /// 
+        /// Alpha
         /// </summary>
         [DataMember]
         public byte Alpha { get => a; set => SetValue(value, ref a, nameof(Alpha)); }
 
         public static implicit operator Media.Color(ColorProperty val) => new Media.Color(val.Red, val.Green, val.Blue, val.Alpha);
+        /// <inheritdoc/>
+        public override string ToString() => $"(R:{Red} G:{Green} B:{Blue} A:{Alpha} Name:{PropertyMetadata?.Name})";
 
         /// <summary>
-        /// 
+        /// 色を変更するコマンド
         /// </summary>
+        /// <remarks>このクラスは <see cref="UndoRedoManager.Do(IUndoRedoCommand)"/> と併用することでコマンドを記録できます</remarks>
         public sealed class ChangeColor : IUndoRedoCommand {
             private readonly ColorProperty Color;
             private readonly byte r, g, b, a;
             private readonly byte or, og, ob, oa;
 
             /// <summary>
-            /// 
+            /// <see cref="ChangeColor"/> クラスの新しいインスタンスを初期化します
             /// </summary>
-            /// <param name="property"></param>
-            /// <param name="r"></param>
-            /// <param name="g"></param>
-            /// <param name="b"></param>
-            /// <param name="a"></param>
+            /// <param name="property">対象の <see cref="ChangeColor"/></param>
+            /// <param name="r">新しい <see cref="Red"/> の値</param>
+            /// <param name="g">新しい <see cref="Green"/> の値</param>
+            /// <param name="b">新しい <see cref="Blue"/> の値</param>
+            /// <param name="a">新しい <see cref="Alpha"/> の値</param>
+            /// <exception cref="ArgumentNullException"><paramref name="property"/> が <see langword="null"/> です</exception>
             public ChangeColor(ColorProperty property, byte r, byte g, byte b, byte a) {
-                Color = property;
+                Color = property ?? throw new ArgumentNullException(nameof(property));
                 (this.r, this.g, this.b, this.a) = (r, g, b, a);
                 (or, og, ob, oa) = (property.Red, property.Green, property.Blue, property.Alpha);
             }
@@ -93,30 +100,13 @@ namespace BEditor.Core.Data.PropertyData {
     }
 
     /// <summary>
-    /// 
+    /// <see cref="ColorProperty"/> のメタデータ
     /// </summary>
     public class ColorPropertyMetadata : PropertyElementMetadata {
         /// <summary>
-        /// 
+        /// <see cref="ColorPropertyMetadata"/> クラスの新しいインスタンスを初期化します
         /// </summary>
-        /// <param name="name"></param>
-        public ColorPropertyMetadata(string name) : base(name) {
-            Red = 255;
-            Green = 255;
-            Blue = 255;
-            Alpha = 255;
-            UseAlpha = false;
-        }
-        /// <summary>
-        /// 
-        /// </summary>
-        /// <param name="name"></param>
-        /// <param name="r"></param>
-        /// <param name="g"></param>
-        /// <param name="b"></param>
-        /// <param name="a"></param>
-        /// <param name="usealpha"></param>
-        public ColorPropertyMetadata(string name, byte r, byte g, byte b, byte a = 255, bool usealpha = false) : base(name) {
+        public ColorPropertyMetadata(string name, byte r = 255, byte g = 255, byte b = 255, byte a = 255, bool usealpha = false) : base(name) {
             Red = r;
             Green = g;
             Blue = b;
@@ -125,23 +115,23 @@ namespace BEditor.Core.Data.PropertyData {
         }
 
         /// <summary>
-        /// 
+        /// <see cref="ColorProperty.Red"/> のデフォルト値を取得します
         /// </summary>
         public byte Red { get; }
         /// <summary>
-        /// 
+        /// <see cref="ColorProperty.Green"/> のデフォルト値を取得します
         /// </summary>
         public byte Green { get; }
         /// <summary>
-        /// 
+        /// <see cref="ColorProperty.Blue"/> のデフォルト値を取得します
         /// </summary>
         public byte Blue { get; }
         /// <summary>
-        /// 
+        /// <see cref="ColorProperty.Alpha"/> のデフォルト値を取得します
         /// </summary>
         public byte Alpha { get; }
         /// <summary>
-        /// 
+        /// Alphaチャンネルを表示する場合 <see langword="true"/>、そうでない場合は <see langword="false"/> となります
         /// </summary>
         public bool UseAlpha { get; }
     }

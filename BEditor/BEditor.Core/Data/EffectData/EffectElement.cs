@@ -13,7 +13,6 @@ using BEditor.Core.Data.PropertyData;
 using BEditor.Core.Properties;
 
 namespace BEditor.Core.Data.EffectData {
-
     /// <summary>
     /// エフェクトのベースクラス
     /// </summary>
@@ -21,37 +20,35 @@ namespace BEditor.Core.Data.EffectData {
     public abstract class EffectElement : ComponentObject {
         private bool isEnabled = true;
         private bool isExpanded = true;
-        private ClipData clipData;
+        private ObjectData.ClipData clipData;
 
 
         /// <summary>
-        /// エフェクトの名前
+        /// エフェクトの名前を取得します
         /// </summary>
-        /// <remarks>このプロパティはシリアル化されません</remarks>
         public abstract string Name { get; }
 
         /// <summary>
-        /// エフェクトが有効かのブーリアン
+        /// エフェクトが有効かを取得または設定します
         /// </summary>
-        /// <remarks>このプロパティは <see cref="DataMemberAttribute"/> です</remarks>
+        /// <remarks>エフェクトが有効な場合 <see langword="true"/> そうでない場合は <see langword="false"/> となります</remarks>
         [DataMember]
         public bool IsEnabled { get => isEnabled; set => SetValue(value, ref isEnabled, nameof(IsEnabled)); }
 
         /// <summary>
-        /// エクスパンダーが開いているかのブーリアン
+        /// エクスパンダーが開いているかを取得または設定します
         /// </summary>
-        /// <remarks>このプロパティは <see cref="DataMemberAttribute"/> です</remarks>
+        /// <remarks>エクスパンダーが開いている場合は <see langword="true"/>、そうでない場合は <see langword="false"/> となります</remarks>
         [DataMember]
         public bool IsExpanded { get => isExpanded; set => SetValue(value, ref isExpanded, nameof(IsExpanded)); }
 
         #region ClipData
         /// <summary>
-        /// クリップのデータ
+        /// <see cref="ObjectData.ClipData"/> を取得します
         /// </summary>
-        /// <remarks>このプロパティはシリアル化されません</remarks>
         public virtual ClipData ClipData {
             get => clipData;
-            set {
+            internal set {
                 clipData = value;
 
                 Parallel.For(0, PropertySettings.Count, i => {
@@ -99,7 +96,7 @@ namespace BEditor.Core.Data.EffectData {
 
 
         /// <summary>
-        /// GUIに表示する<seealso cref="PropertyElement"/>を<see cref="IList{PropertyElement}"/>で渡してください
+        /// GUIに表示する<seealso cref="PropertyElement"/>を<see cref="IList{PropertyElement}"/>を取得します
         /// </summary>
         public abstract IList<PropertyElement> PropertySettings { get; }
 
@@ -120,15 +117,15 @@ namespace BEditor.Core.Data.EffectData {
         /// <summary>
         /// エフェクトが有効かのブーリアンを変更するコマンド
         /// </summary>
-        /// <remarks>このクラスは<see cref="UndoRedoManager.Do(IUndoRedoCommand)"/>と併用することでコマンドを記録できます</remarks>
+        /// <remarks>このクラスは <see cref="UndoRedoManager.Do(IUndoRedoCommand)"/> と併用することでコマンドを記録できます</remarks>
         public class CheckEffect : IUndoRedoCommand {
             private readonly EffectElement effect;
             private readonly bool value;
 
             /// <summary>
-            /// <see cref="CheckEffect"/>クラスの新しいインスタンスを初期化します
+            /// <see cref="CheckEffect"/> クラスの新しいインスタンスを初期化します
             /// </summary>
-            /// <param name="effect">対象のエフェクト</param>
+            /// <param name="effect">対象の <see cref="EffectElement"/></param>
             /// <param name="value">セットする値</param>
             public CheckEffect(EffectElement effect, bool value) {
                 this.effect = effect;
@@ -154,15 +151,15 @@ namespace BEditor.Core.Data.EffectData {
         /// <summary>
         /// エフェクトの順番を上げるコマンド
         /// </summary>
-        /// <remarks>このクラスは<see cref="UndoRedoManager.Do(IUndoRedoCommand)"/>と併用することでコマンドを記録できます</remarks>
+        /// <remarks>このクラスは <see cref="UndoRedoManager.Do(IUndoRedoCommand)"/> と併用することでコマンドを記録できます</remarks>
         public class UpEffect : IUndoRedoCommand {
-            private readonly ClipData data;
+            private readonly ObjectData.ClipData data;
             private readonly EffectElement effect;
 
             /// <summary>
-            /// <see cref="UpEffect"/>クラスの新しいインスタンスを初期化します
+            /// <see cref="UpEffect"/> クラスの新しいインスタンスを初期化します
             /// </summary>
-            /// <param name="effect">対象のエフェクト</param>
+            /// <param name="effect">対象の <see cref="EffectElement"/></param>
             public UpEffect(EffectElement effect) {
                 data = effect.ClipData;
                 this.effect = effect;
@@ -206,15 +203,15 @@ namespace BEditor.Core.Data.EffectData {
         /// <summary>
         /// エフェクトの順番を下げるコマンド
         /// </summary>
-        /// <remarks>このクラスは<see cref="UndoRedoManager.Do(IUndoRedoCommand)"/>と併用することでコマンドを記録できます</remarks>
+        /// <remarks>このクラスは <see cref="UndoRedoManager.Do(IUndoRedoCommand)"/> と併用することでコマンドを記録できます</remarks>
         public class DownEffect : IUndoRedoCommand {
-            private readonly ClipData data;
+            private readonly ObjectData.ClipData data;
             private readonly EffectElement effect;
 
             /// <summary>
-            /// <see cref="DownEffect"/>クラスの新しいインスタンスを初期化します
+            /// <see cref="DownEffect"/> クラスの新しいインスタンスを初期化します
             /// </summary>
-            /// <param name="effect">対象のエフェクト</param>
+            /// <param name="effect">対象の <see cref="EffectElement"/></param>
             public DownEffect(EffectElement effect) {
                 data = effect.ClipData;
                 this.effect = effect;
@@ -256,16 +253,16 @@ namespace BEditor.Core.Data.EffectData {
         /// <summary>
         /// エフェクトを削除するコマンド
         /// </summary>
-        /// <remarks>このクラスは<see cref="UndoRedoManager.Do(IUndoRedoCommand)"/>と併用することでコマンドを記録できます</remarks>
+        /// <remarks>このクラスは <see cref="UndoRedoManager.Do(IUndoRedoCommand)"/> と併用することでコマンドを記録できます</remarks>
         public class DeleteEffect : IUndoRedoCommand {
-            private readonly ClipData data;
+            private readonly ObjectData.ClipData data;
             private readonly EffectElement effect;
             private readonly int index;
 
             /// <summary>
-            /// <see cref="DeleteEffect"/>クラスの新しいインスタンスを初期化します
+            /// <see cref="DeleteEffect"/> クラスの新しいインスタンスを初期化します
             /// </summary>
-            /// <param name="effect">対象のエフェクト</param>
+            /// <param name="effect">対象の <see cref="EffectElement"/></param>
             public DeleteEffect(EffectElement effect) {
                 this.data = effect.ClipData;
                 this.effect = effect;
@@ -291,7 +288,7 @@ namespace BEditor.Core.Data.EffectData {
         /// <summary>
         /// エフェクトを追加するコマンド
         /// </summary>
-        /// <remarks>このクラスは<see cref="UndoRedoManager.Do(IUndoRedoCommand)"/>と併用することでコマンドを記録できます</remarks>
+        /// <remarks>このクラスは <see cref="UndoRedoManager.Do(IUndoRedoCommand)"/> と併用することでコマンドを記録できます</remarks>
         public class AddEffect : IUndoRedoCommand {
             private readonly ClipData data;
             private readonly EffectElement effect;
@@ -305,6 +302,21 @@ namespace BEditor.Core.Data.EffectData {
                 if (effect.ClipData is null) throw new ArgumentException("effect.ClipData is null", nameof(effect));
 
                 this.data = effect.ClipData;
+                this.effect = effect;
+
+                effect.PropertyLoaded();
+            }
+            /// <summary>
+            /// <see cref="AddEffect"/> クラスの新しいインスタンスを初期化します
+            /// </summary>
+            /// <param name="effect">対象の <see cref="EffectElement"/></param>
+            /// <param name="clip"></param>
+            /// <exception cref="ArgumentException">effect.ClipDataがnullです</exception>
+            public AddEffect(EffectElement effect, ClipData clip) {
+                if (clip is null) throw new ArgumentNullException(nameof(clip));
+
+                this.data = clip;
+                effect.ClipData = clip;
                 this.effect = effect;
 
                 effect.PropertyLoaded();

@@ -53,23 +53,23 @@ namespace BEditor.Core.Data.ObjectData {
 
             [DataMember(Order = 0)]
             [PropertyMetadata(nameof(WidthMetadata), typeof(Figure))]
-            public EaseProperty Width { get; set; }
+            public EaseProperty Width { get; private set; }
 
             [DataMember(Order = 1)]
             [PropertyMetadata(nameof(HeightMetadata), typeof(Figure))]
-            public EaseProperty Height { get; set; }
+            public EaseProperty Height { get; private set; }
 
             [DataMember(Order = 2)]
             [PropertyMetadata(nameof(LineMetadata), typeof(Figure))]
-            public EaseProperty Line { get; set; }
+            public EaseProperty Line { get; private set; }
 
             [DataMember(Order = 3)]
             [PropertyMetadata(nameof(ColorMetadata), typeof(Figure))]
-            public ColorProperty Color { get; set; }
+            public ColorProperty Color { get; private set; }
 
             [DataMember(Order = 4)]
             [PropertyMetadata(nameof(TypeMetadata), typeof(Figure))]
-            public SelectorProperty Type { get; set; }
+            public SelectorProperty Type { get; private set; }
         }
     }
 }

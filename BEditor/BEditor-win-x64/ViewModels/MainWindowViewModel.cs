@@ -21,7 +21,7 @@ using Microsoft.WindowsAPICodePack.Dialogs;
 using Project = BEditor.Core.Data.ProjectData.Project;
 
 namespace BEditor.ViewModels {
-    public class MainWindowViewModel {
+    public sealed class MainWindowViewModel {
         public static MainWindowViewModel Current { get; } = new MainWindowViewModel();
 
         public DelegateProperty<Project> OpenProject { get; } = new DelegateProperty<Project>() { Value = Component.Current.Project };
@@ -165,7 +165,7 @@ namespace BEditor.ViewModels {
             Debug.WriteLine("ProjectOpened");
         }
 
-        public void ProjectCloseCommand() => Project.Close(Component.Current.Project);
+        public void ProjectCloseCommand() => Project.Close();
 
         public void ProjectCreateCommand() => new CreateProjectWindow { Owner = App.Current.MainWindow }.ShowDialog();
 

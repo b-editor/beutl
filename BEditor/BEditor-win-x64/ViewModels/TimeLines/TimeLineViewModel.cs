@@ -110,7 +110,7 @@ namespace BEditor.ViewModels.TimeLines {
 
                         TrackWidth.Value = ToPixel(l);
 
-                        for (int index = 0; index < Scene.Count; index++) {
+                        for (int index = 0; index < Scene.Datas.Count; index++) {
                             var info = Scene.Datas[index];
                             double start = ToPixel(info.Start);
                             double length = ToPixel(info.Length);

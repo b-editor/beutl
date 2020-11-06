@@ -85,25 +85,25 @@ namespace BEditor.Core.Data.ObjectData {
 
         [DataMember(Order = 0)]
         [PropertyMetadata(nameof(CoordinateMetadata), typeof(ImageObject))]
-        public Coordinate Coordinate { get; set; }
+        public Coordinate Coordinate { get; private set; }
 
         [DataMember(Order = 1)]
         [PropertyMetadata(nameof(ZoomMetadata), typeof(ImageObject))]
-        public Zoom Zoom { get; set; }
+        public Zoom Zoom { get; private set; }
 
         [DataMember(Order = 2)]
         [PropertyMetadata(nameof(BlendMetadata), typeof(ImageObject))]
-        public Blend Blend { get; set; }
+        public Blend Blend { get; private set; }
 
         [DataMember(Order = 3)]
         [PropertyMetadata(nameof(AngleMetadata), typeof(ImageObject))]
-        public Angle Angle { get; set; }
+        public Angle Angle { get; private set; }
 
         [DataMember(Order = 4)]
         [PropertyMetadata(nameof(MaterialMetadata), typeof(ImageObject))]
-        public Material Material { get; set; }
+        public Material Material { get; private set; }
 
         [DataMember(Order = 5)]
-        public DefaultImageObject Custom { get; set; }
+        public DefaultImageObject Custom { get; internal set; }
     }
 }

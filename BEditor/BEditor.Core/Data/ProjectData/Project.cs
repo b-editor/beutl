@@ -6,9 +6,19 @@ using System.Runtime.Serialization;
 using BEditor.Core.Interfaces;
 
 namespace BEditor.Core.Data.ProjectData {
+    /// <summary>
+    /// プロジェクトクラス
+    /// </summary>
     [DataContract(Namespace = "")]
     public sealed class Project : BasePropertyChanged, IExtensibleDataObject, IDisposable {
+        private Scene previewScene;
 
+        /// <summary>
+        /// <see cref="Project"/> クラスの新しいインスタンスを初期化します
+        /// </summary>
+        /// <param name="width">rootsceneの横幅</param>
+        /// <param name="height">rootsceneの高さ</param>
+        /// <param name="framerate">フレームレート</param>
         public Project(int width, int height, int framerate) {
             Framerate = framerate;
             SceneList.Add(new RootScene(width, height));
@@ -16,71 +26,89 @@ namespace BEditor.Core.Data.ProjectData {
 
         #region 保存するだけのプロパティ
 
+        /// <summary>
+        /// フレームレートを取得します
+        /// </summary>
         [DataMember(Order = 0)]
         public int Framerate { get; private set; }
 
+        /// <summary>
+        /// サンプリングレートを取得します
+        /// </summary>
         [DataMember(Order = 1)]
         public int Samplingrate { get; private set; }
 
+        /// <summary>
+        /// ファイル名を取得または設定します
+        /// </summary>
         [DataMember(Order = 2)]
         public string Filename { get; set; }
 
+        /// <summary>
+        /// <see cref="Scene"/> のリストを取得します
+        /// </summary>
         [DataMember(Order = 4)]
-        public ObservableCollection<Scene> SceneList { get; set; } = new ObservableCollection<Scene>();
+        public ObservableCollection<Scene> SceneList { get; private set; } = new ObservableCollection<Scene>();
 
+        /// <summary>
+        /// プレビュー中のシーンのインデックスを取得します
+        /// </summary>
         [DataMember(Name = "PreviewScene", Order = 3)]
-        public int PreviewSceneIndex { get; set; }
+        public int PreviewSceneIndex { get; private set; }
 
         #endregion
 
+        /// <summary>
+        /// バックアップ先のファイル名を取得します
+        /// </summary>
         public string GetBackUpName => Path.GetDirectoryName(Filename) + "\\" + Path.GetFileNameWithoutExtension(Filename) + ".backup";
 
-
-        private Scene previewSceneProperty;
+        /// <summary>
+        /// プレビューしている <see cref="Scene"/> を取得または設定します
+        /// </summary>
         public Scene PreviewScene {
-            get => previewSceneProperty ??= SceneList[PreviewSceneIndex];
+            get => previewScene ??= SceneList[PreviewSceneIndex];
             set {
-                SetValue(value, ref previewSceneProperty, nameof(PreviewScene));
+                SetValue(value, ref previewScene, nameof(PreviewScene));
                 PreviewSceneIndex = SceneList.IndexOf(value);
             }
         }
 
-
-        public bool IsDisposed { get; private set; }
         /// <summary>
-        /// OpenGLなどのFBOを廃棄
+        /// オブジェクトが廃棄されているかを取得します
         /// </summary>
+        public bool IsDisposed { get; private set; }
+        /// <inheritdoc/>
         public void Dispose() {
-            Disposing?.Invoke(this, EventArgs.Empty);
-
             foreach (var scene in SceneList) {
                 scene.RenderingContext.Dispose();
             }
 
+            previewScene = null;
+            SceneList = null;
+            GC.Collect();
             IsDisposed = true;
-            Disposed?.Invoke(this, EventArgs.Empty);
         }
 
-        public event EventHandler Disposed;
-        public event EventHandler Disposing;
+        /// <inheritdoc/>
         public ExtensionDataObject ExtensionData { get; set; }
 
 
 
         /// <summary>
-        /// プロジェクトを閉じたあとに発生
+        /// プロジェクトを閉じたあとに発生します
         /// </summary>
         public static event EventHandler ProjectClosed;
 
         /// <summary>
-        /// プロジェクト開かれたあとに発生
+        /// プロジェクトが開かれたあとに発生します
         /// </summary>
         public static event EventHandler ProjectOpend;
 
         #region Backup
 
         /// <summary>
-        /// プロジェクトのバックアップを作成します
+        /// <see cref="Project"/> のバックアップを保存します
         /// </summary>
         public static void BackUp(Project project) {
             if (project.Filename == null) {
@@ -107,7 +135,7 @@ namespace BEditor.Core.Data.ProjectData {
 
         #region Save
         /// <summary>
-        /// プロジェクトを名前をつけて保存します
+        /// <see cref="Project"/> を名前をつけて保存します
         /// </summary>
         /// <param name="project">保存するプロジェクト</param>
         public static bool Save(Project project) {
@@ -138,10 +166,11 @@ namespace BEditor.Core.Data.ProjectData {
             return false;
         }
         /// <summary>
-        /// プロジェクトを名前をつけて保存します
+        /// <see cref="Project"/> を名前をつけて保存します
         /// </summary>
         /// <param name="project">保存するプロジェクト</param>
         /// <param name="path">保存するパス</param>
+        /// <returns>保存に成功した場合は <see langword="true"/>、そうでない場合は <see langword="false"/> となります。<paramref name="project"/> が <see langword="null"/> の場合も <see langword="false"/> を返します</returns>
         public static bool Save(Project project, string path) {
             if (project == null) {
                 return false;
@@ -155,9 +184,10 @@ namespace BEditor.Core.Data.ProjectData {
         }
 
         /// <summary>
-        /// プロジェクトを上書き保存します
+        /// <see cref="Project"/> を上書き保存します
         /// </summary>
         /// <param name="project">保存するプロジェクト</param>
+        /// <returns>保存に成功した場合は <see langword="true"/>、そうでない場合は <see langword="false"/> となります。<paramref name="project"/> が <see langword="null"/> の場合も <see langword="false"/> を返します</returns>
         public static bool SaveAs(Project project) {
             if (project == null) {
                 return false;
@@ -195,10 +225,10 @@ namespace BEditor.Core.Data.ProjectData {
 
         #region Open
         /// <summary>
-        /// プロジェクトを開きます
+        /// <see cref="Project"/> を開き、編集可能な状態にします
         /// </summary>
         /// <param name="path">プロジェクトのパス</param>
-        /// <returns>プロジェクト 失敗した場合null</returns>
+        /// <returns>成功した場合は <see cref="Project"/> のインスタンス、そうでない場合は <see langword="null"/> を返します</returns>
         public static Project Open(string path) {
             var o = Serialize.LoadFromFile(path, typeof(Project));
 
@@ -226,16 +256,11 @@ namespace BEditor.Core.Data.ProjectData {
         /// <summary>
         /// 現在開かれているプロジェクトを閉じます
         /// </summary>
-        public static void Close(Project project) {
-            if (project == null) {
-                return;
-            }
+        public static void Close() {
+            var project = Component.Current.Project;
+            if (project is null) return;
 
-            for (int i = 0; i < project.SceneList.Count; i++) {
-                Scene scene = project.SceneList[i];
-
-                scene.RenderingContext.Dispose();
-            }
+            project.Dispose();
 
             Component.Current.Project = null;
             Component.Current.Status = Status.Idle;
@@ -246,12 +271,13 @@ namespace BEditor.Core.Data.ProjectData {
 
         #region Create
         /// <summary>
-        /// プロジェクトを作成します
+        /// プロジェクトを作成し、編集可能な状態にします
         /// </summary>
         /// <param name="width">rootsceneの横幅</param>
         /// <param name="height">rootsceneの高さ</param>
         /// <param name="framerate">フレームレート</param>
         /// <param name="path">保存するパス</param>
+        /// <returns>作成された <see cref="Project"/> を返します</returns>
         public static Project Create(int width, int height, int framerate, string path) {
             var project = new Project(width, height, framerate) {
                 Filename = path
