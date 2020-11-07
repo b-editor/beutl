@@ -164,12 +164,12 @@ namespace BEditor.Core.Renderer {
 
         #region LookAt
 
-        public static void LookAt(int width, int height, float x, float y, float z, float tx, float ty, float tz, float near, float far, float fov, bool perspective) {
+        public static void LookAt(float width, float height, float x, float y, float z, float tx, float ty, float tz, float near, float far, float fov, bool perspective) {
             if (perspective) {
                 // 視体積の設定
                 GL.MatrixMode(MatrixMode.Projection);
-                Matrix4 proj = Matrix4.CreatePerspectiveFieldOfView(MathHelper.DegreesToRadians(fov), (width / height), near, far);//描画範囲
-
+                Matrix4.CreatePerspectiveFieldOfView(MathHelper.DegreesToRadians(fov), (width / height), near, far, out var proj);//描画範囲
+                
                 GL.LoadMatrix(ref proj);
 
                 GL.MatrixMode(MatrixMode.Modelview);
@@ -177,7 +177,6 @@ namespace BEditor.Core.Renderer {
                 // 視界の設定
                 Matrix4 look = Matrix4.LookAt(new Vector3(x, y, z), new Vector3(tx, ty, tz), Vector3.UnitY);
                 GL.LoadMatrix(ref look);
-
 
                 GL.Enable(EnableCap.DepthTest);
                 GL.Disable(EnableCap.Lighting);

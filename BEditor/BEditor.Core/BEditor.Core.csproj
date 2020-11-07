@@ -31,7 +31,7 @@
   </ItemGroup>
 
   <ItemGroup>
-    <PackageReference Include="OpenTK" Version="3.2.1" />
+    <PackageReference Include="OpenTK" Version="3.3.0" />
   </ItemGroup>
 
   <ItemGroup>
@@ -46,6 +46,12 @@
 
   <ItemGroup>
     <Folder Include="Data\EffectData\" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <Reference Include="B_Editor">
+      <HintPath>..\..\..\..\ダウンロード\B_Editor.dll</HintPath>
+    </Reference>
   </ItemGroup>
 
   <ItemGroup>

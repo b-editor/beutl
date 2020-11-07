@@ -10,7 +10,7 @@ namespace BEditor.Core.Media {
 
         #region Constructor
 
-        public Font(string file, int size, bool isFitHeight = false, uint index = 0) {
+        public Font(string file, int size, bool isFitHeight = true, uint index = 0) {
             ptr = FontProcess.Open(file, (uint)size, isFitHeight, index);
             Size = size;
         }

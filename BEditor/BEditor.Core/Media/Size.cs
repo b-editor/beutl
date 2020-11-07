@@ -30,7 +30,7 @@ namespace BEditor.Core.Media {
         /// <summary>
         /// 
         /// </summary>
-        public float Aspect => Width / Height;
+        public float Aspect => ((float)Width) / ((float)Height);
 
         /// <summary>
         /// 
@@ -44,7 +44,6 @@ namespace BEditor.Core.Media {
             Width = width;
             Height = height;
         }
-
 
         /// <summary>
         /// 

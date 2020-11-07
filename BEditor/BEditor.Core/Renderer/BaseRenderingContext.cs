@@ -21,7 +21,7 @@ namespace BEditor.Core.Renderer {
     public abstract class BaseRenderingContext : IDisposable {
         public virtual int Width { get; private set; }
         public virtual int Height { get; private set; }
-        public float Aspect => Width / Height;
+        public float Aspect => ((float)Width) / ((float)Height);
         public bool IsInitialized { get; private set; }
 
         public abstract void MakeCurrent();
@@ -94,9 +94,6 @@ namespace BEditor.Core.Renderer {
             //法線の自動調節
             GL.Enable(EnableCap.Normalize);
 
-
-            GL.Clear(ClearBufferMask.ColorBufferBit | ClearBufferMask.DepthBufferBit);
-
             if (Perspective) {
                 GL.Enable(EnableCap.DepthTest);
                 GL.Disable(EnableCap.Lighting);
@@ -105,6 +102,8 @@ namespace BEditor.Core.Renderer {
                 GL.Disable(EnableCap.DepthTest);
                 GL.Disable(EnableCap.Lighting);
             }
+
+            GL.Clear(ClearBufferMask.ColorBufferBit | ClearBufferMask.DepthBufferBit);
         }
 
         public virtual void Resize(int width, int height, bool Perspective = false, float x = 0, float y = 0, float z = 1024, float tx = 0, float ty = 0, float tz = 0, float near = 0.1F, float far = 20000) {
@@ -174,9 +173,6 @@ namespace BEditor.Core.Renderer {
             //法線の自動調節
             GL.Enable(EnableCap.Normalize);
 
-
-            GL.Clear(ClearBufferMask.ColorBufferBit | ClearBufferMask.DepthBufferBit);
-
             if (Perspective) {
                 GL.Enable(EnableCap.DepthTest);
                 GL.Disable(EnableCap.Lighting);
@@ -185,6 +181,9 @@ namespace BEditor.Core.Renderer {
                 GL.Disable(EnableCap.DepthTest);
                 GL.Disable(EnableCap.Lighting);
             }
+
+            GL.Clear(ClearBufferMask.ColorBufferBit | ClearBufferMask.DepthBufferBit);
+
         }
 
         internal void DrawImage(Image img, ClipData data, int frame) {
