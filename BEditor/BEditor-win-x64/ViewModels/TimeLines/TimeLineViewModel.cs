@@ -19,7 +19,7 @@ using BEditor.Core.Interfaces;
 using BEditor.Core.Media;
 
 namespace BEditor.ViewModels.TimeLines {
-    public class TimeLineViewModel : BasePropertyChanged {
+    public sealed class TimeLineViewModel : BasePropertyChanged {
         #region 
         public bool ViewLoaded { get; set; }
         public Scene Scene { get; set; }
@@ -219,7 +219,7 @@ namespace BEditor.ViewModels.TimeLines {
 
 
         #region Select
-        public void LayerSelect(object sender) {
+        private void LayerSelect(object sender) {
             var grid = (Grid)sender;
             Select_Layer = AttachmentProperty.GetInt(grid);
             Select_Frame = ToFrame(Mouse.GetPosition(grid).X);
@@ -227,7 +227,22 @@ namespace BEditor.ViewModels.TimeLines {
         #endregion
 
         #region Drop
-        public void LayerDrop(object sender, EventArgs e) {
+        private static Type FileTypeConvert(string file) {
+            var ex = Path.GetExtension(file);
+            if (ex is ".avi" or ".mp4") {
+                return ClipType.Video;
+            }
+            else if (ex is ".jpg" or ".jpeg" or ".png" or ".bmp") {
+                return ClipType.Image;
+            }
+            else if (ex is ".txt") {
+                return ClipType.Text;
+            }
+
+            return ClipType.Figure;
+        }
+
+        private void LayerDrop(object sender, EventArgs e) {
             if (e is DragEventArgs de) {
                 de.Effects = DragDropEffects.Copy; // マウスカーソルをコピーにする。
 
@@ -238,15 +253,15 @@ namespace BEditor.ViewModels.TimeLines {
 
 
                 if (de.Data.GetDataPresent(typeof(Type))) {
-                    var command = new ClipData.Add(Scene, frame, addlayer, (Type)de.Data.GetData(typeof(Type)));
+                    var command = new ClipData.AddCommand(Scene, frame, addlayer, (Type)de.Data.GetData(typeof(Type)));
                     UndoRedoManager.Do(command);
                 }
                 else if (de.Data.GetDataPresent(DataFormats.FileDrop, true)) {
                     string file = (de.Data.GetData(DataFormats.FileDrop) as string[])[0];
 
                     if (Path.GetExtension(file) != ".beo") {
-                        var type_ = DataTools.FileTypeConvert(file);
-                        var a = new ClipData.Add(Scene, frame, addlayer, type_);
+                        var type_ = FileTypeConvert(file);
+                        var a = new ClipData.AddCommand(Scene, frame, addlayer, type_);
                         UndoRedoManager.Do(a);
 
                         if (type_ == ClipType.Image) {
@@ -269,7 +284,7 @@ namespace BEditor.ViewModels.TimeLines {
         #endregion
 
         #region DragOver
-        public void LayerDragOver(object sender, EventArgs e) {
+        private void LayerDragOver(object sender, EventArgs e) {
             if (e is DragEventArgs de) {
                 de.Effects = DragDropEffects.Copy;
 
@@ -279,7 +294,7 @@ namespace BEditor.ViewModels.TimeLines {
         #endregion
 
         #region MouseMove
-        public void LayerMouseMove(object sender) => Mouse_Layer = AttachmentProperty.GetInt((Grid)sender);
+        private void LayerMouseMove(object sender) => Mouse_Layer = AttachmentProperty.GetInt((Grid)sender);
         #endregion
 
         #endregion
@@ -348,7 +363,7 @@ namespace BEditor.ViewModels.TimeLines {
                 int start = ToFrame(ClipSelect.GetCreateClipViewModel().MarginLeftProperty);
                 int end = ToFrame(ClipSelect.GetCreateClipViewModel().WidthProperty.Value) + start;//変更後の最大フレーム
 
-                UndoRedoManager.Do(new ClipData.LengthChange(ClipSelect, start, end));
+                UndoRedoManager.Do(new ClipData.LengthChangeCommand(ClipSelect, start, end));
 
                 ClipLeftRight = 0;
             }
@@ -430,7 +445,7 @@ namespace BEditor.ViewModels.TimeLines {
             if (ClipTimeChange) {
                 ClipData data = ClipSelect;
 
-                UndoRedoManager.Do(new ClipData.Move(data: data,
+                UndoRedoManager.Do(new ClipData.MoveCommand(data: data,
                                                      to: ToFrame(data.GetCreateClipViewModel().MarginLeftProperty),
                                                      tolayer: ClipSelect.GetCreateClipViewModel().Row));
 

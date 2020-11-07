@@ -5,48 +5,51 @@ using BEditor.Core.Data.PropertyData.EasingSetting;
 
 namespace BEditor.Core.Data.PropertyData {
     /// <summary>
-    /// 
+    /// ファイルを選択するプロパティを表します
     /// </summary>
     [DataContract(Namespace = "")]
     public sealed class FileProperty : PropertyElement, IEasingSetting {
         private string file;
 
         /// <summary>
-        /// 
+        /// <see cref="FileProperty"/> クラスの新しいインスタンスを初期化します
         /// </summary>
-        /// <param name="file"></param>
-        public FileProperty(FilePropertyMetadata file) {
-            File = file.DefaultFile;
-            PropertyMetadata = file;
+        /// <param name="metadata">このプロパティの <see cref="FilePropertyMetadata"/></param>
+        /// <exception cref="ArgumentNullException"><paramref name="metadata"/> が <see langword="null"/> です</exception>
+        public FileProperty(FilePropertyMetadata metadata) {
+            PropertyMetadata = metadata??throw new ArgumentNullException(nameof(metadata));
+            File = metadata.DefaultFile;
         }
 
         /// <summary>
-        /// 
+        /// ファイルの名前を取得または設定します
         /// </summary>
         [DataMember]
         public string File { get => file; set => SetValue(value, ref file, nameof(File)); }
 
-        public static implicit operator string(FileProperty property) => property.File;
+        /// <inheritdoc/>
         public override string ToString() => $"(File:{File} Name:{PropertyMetadata?.Name})";
 
 
         #region Commands
 
         /// <summary>
-        /// 
+        /// ファイルの名前を変更するコマンド
         /// </summary>
-        public sealed class ChangePath : IUndoRedoCommand {
+        /// <remarks>このクラスは <see cref="UndoRedoManager.Do(IUndoRedoCommand)"/> と併用することでコマンドを記録できます</remarks>
+        public sealed class ChangeFileCommand : IUndoRedoCommand {
             private readonly FileProperty FileSetting;
             private readonly string path;
             private readonly string oldpath;
 
             /// <summary>
-            /// 
+            /// <see cref="ChangeFileCommand"/> クラスの新しいインスタンスを初期化します
             /// </summary>
-            /// <param name="property"></param>
-            /// <param name="path"></param>
-            public ChangePath(FileProperty property, string path) {
-                FileSetting = property;
+            /// <param name="property">対象の <see cref="FileProperty"/></param>
+            /// <param name="path">新しい値</param>
+            /// <exception cref="ArgumentNullException"><paramref name="property"/> が <see langword="null"/> です</exception>
+            public ChangeFileCommand(FileProperty property, string path) {
+                FileSetting = property ?? throw new ArgumentNullException(nameof(property));
                 this.path = path;
                 oldpath = FileSetting.File;
             }
@@ -66,40 +69,29 @@ namespace BEditor.Core.Data.PropertyData {
     }
 
     /// <summary>
-    /// 
+    /// <see cref="FileProperty"/> のメタデータを表します
     /// </summary>
     public class FilePropertyMetadata : PropertyElementMetadata {
         /// <summary>
-        /// 
+        /// <see cref="FilePropertyMetadata"/> クラスの新しいインスタンスを初期化します
         /// </summary>
-        /// <param name="name"></param>
-        public FilePropertyMetadata(string name) : base(name) {
-
-        }
-        /// <summary>
-        /// 
-        /// </summary>
-        /// <param name="name"></param>
-        /// <param name="defaultfile"></param>
-        /// <param name="defaultfilter"></param>
-        /// <param name="defaultfiltername"></param>
-        public FilePropertyMetadata(string name, string defaultfile, string defaultfilter, string defaultfiltername) : base(name) {
+        public FilePropertyMetadata(string name, string defaultfile=null, string filter=null, string filtername=null) : base(name) {
             DefaultFile = defaultfile;
-            Filter = defaultfilter;
-            FilterName = defaultfiltername;
+            Filter = filter;
+            FilterName = filtername;
         }
 
         /// <summary>
-        /// 
+        /// デフォルトのファイル名を取得します
         /// </summary>
-        public string DefaultFile { get; private set; }
+        public string DefaultFile { get; }
         /// <summary>
-        /// 
+        /// フィルターを取得します
         /// </summary>
-        public string Filter { get; private set; }
+        public string Filter { get; }
         /// <summary>
-        /// 
+        /// フィルターの名前を取得します
         /// </summary>
-        public string FilterName { get; private set; }
+        public string FilterName { get; }
     }
 }

@@ -3,7 +3,7 @@ using System.Runtime.Serialization;
 
 namespace BEditor.Core.Data.PropertyData {
     /// <summary>
-    /// 複数行の文字のプロパティクラス
+    /// 複数行の文字のプロパティを表します
     /// </summary>
     [DataContract(Namespace = "")]
     public sealed class DocumentProperty : PropertyElement {
@@ -29,7 +29,7 @@ namespace BEditor.Core.Data.PropertyData {
         [DataMember]
         public string Text { get => textProperty; set => SetValue(value, ref textProperty, nameof(Text)); }
         /// <summary>
-        /// 
+        /// 高さを取得または設定します
         /// </summary>
         public int? HeightProperty { get; set; }
 
@@ -42,18 +42,18 @@ namespace BEditor.Core.Data.PropertyData {
         /// 文字を変更するコマンド
         /// </summary>
         /// <remarks>このクラスは <see cref="UndoRedoManager.Do(IUndoRedoCommand)"/> と併用することでコマンドを記録できます</remarks>
-        public sealed class TextChangedCommand : IUndoRedoCommand {
+        public sealed class TextChangeCommand : IUndoRedoCommand {
             private readonly DocumentProperty Document;
             private readonly string newtext;
             private readonly string oldtext;
 
             /// <summary>
-            /// <see cref="TextChangedCommand"/> クラスの新しいインスタンスを初期化します
+            /// <see cref="TextChangeCommand"/> クラスの新しいインスタンスを初期化します
             /// </summary>
             /// <param name="property"></param>
             /// <param name="text"></param>
             /// <exception cref="ArgumentNullException"><paramref name="property"/> が <see langword="null"/> です</exception>
-            public TextChangedCommand(DocumentProperty property, string text) {
+            public TextChangeCommand(DocumentProperty property, string text) {
                 Document = property ?? throw new ArgumentNullException(nameof(property));
                 newtext = text;
                 oldtext = property.Text;
@@ -72,33 +72,28 @@ namespace BEditor.Core.Data.PropertyData {
 
         #endregion
     }
-    //TODO : xmlドキュメント ここまで
+
     /// <summary>
-    /// 
+    /// <see cref="DocumentProperty"/> のメタデータを表します
     /// </summary>
     public class DocumentPropertyMetadata : PropertyElementMetadata {
         /// <summary>
-        /// 
+        /// <see cref="DocumentPropertyMetadata"/> クラスの新しいインスタンスを初期化します
         /// </summary>
-        /// <param name="text"></param>
-        public DocumentPropertyMetadata(string text) : base("") => DefaultText = text;
-        /// <summary>
-        /// 
-        /// </summary>
-        /// <param name="text"></param>
-        /// <param name="height"></param>
-        public DocumentPropertyMetadata(string text, int? height) : base("") {
+        /// <param name="text">デフォルトのテキスト</param>
+        /// <param name="height">高さ</param>
+        public DocumentPropertyMetadata(string text, int? height = null) : base("") {
             DefaultText = text;
             Height = height;
         }
 
         /// <summary>
-        /// 
+        /// デフォルトのテキストを取得します
         /// </summary>
-        public string DefaultText { get; private set; }
+        public string DefaultText { get; }
         /// <summary>
-        /// 
+        /// 高さを取得します
         /// </summary>
-        public int? Height { get; private set; }
+        public int? Height { get; }
     }
 }

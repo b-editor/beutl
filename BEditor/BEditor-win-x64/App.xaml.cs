@@ -181,7 +181,7 @@ namespace BEditor {
 
             #region イベント
             checkBox.Click += (sender, e) => {
-                UndoRedoManager.Do(new EffectElement.CheckEffect(obj, (bool)((System.Windows.Controls.CheckBox)sender).IsChecked));
+                UndoRedoManager.Do(new EffectElement.CheckCommand(obj, (bool)((System.Windows.Controls.CheckBox)sender).IsChecked));
             };
 
             #endregion
@@ -253,13 +253,13 @@ namespace BEditor {
 
             #region イベント
 
-            checkBox.Click += (sender, e) => UndoRedoManager.Do(new EffectElement.CheckEffect(effect, (bool)((System.Windows.Controls.CheckBox)sender).IsChecked));
+            checkBox.Click += (sender, e) => UndoRedoManager.Do(new EffectElement.CheckCommand(effect, (bool)((System.Windows.Controls.CheckBox)sender).IsChecked));
 
-            upbutton.Click += (sender, e) => UndoRedoManager.Do(new EffectElement.UpEffect(effect));
+            upbutton.Click += (sender, e) => UndoRedoManager.Do(new EffectElement.UpCommand(effect));
 
-            downbutton.Click += (sender, e) => UndoRedoManager.Do(new EffectElement.DownEffect(effect));
+            downbutton.Click += (sender, e) => UndoRedoManager.Do(new EffectElement.DownCommand(effect));
 
-            Delete.Click += (sender, e) => UndoRedoManager.Do(new EffectElement.DeleteEffect(effect));
+            Delete.Click += (sender, e) => UndoRedoManager.Do(new EffectElement.RemoveCommand(effect));
 
             #endregion
 

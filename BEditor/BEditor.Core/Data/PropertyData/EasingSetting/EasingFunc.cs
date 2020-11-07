@@ -8,17 +8,21 @@ using System.Threading.Tasks;
 using BEditor.Core.Data.ObjectData;
 
 namespace BEditor.Core.Data.PropertyData.EasingSetting {
+    /// <summary>
+    /// <see cref="EaseProperty"/>, <see cref="ColorAnimationProperty"/> などで利用可能なイージング関数を表します
+    /// </summary>
     [DataContract(Namespace = "")]
     public abstract class EasingFunc : ComponentObject {
         private PropertyElement parent;
-        protected object CreatedControl;
 
 
         /// <summary>
-        /// IEasingSettingを実装するクラスをListにする
+        /// UIに表示するプロパティを取得します
         /// </summary>
         public abstract IList<IEasingSetting> EasingSettings { get; }
-        public ClipData ClipData => parent.ClipData;
+        /// <summary>
+        /// 親要素を取得します
+        /// </summary>
         public PropertyElement Parent {
             get => parent;
             set {
@@ -32,20 +36,30 @@ namespace BEditor.Core.Data.PropertyData.EasingSetting {
             }
         }
 
+        /// <summary>
+        /// イージング関数
+        /// </summary>
+        /// <param name="frame">取得するフレーム</param>
+        /// <param name="totalframe">全体のフレーム</param>
+        /// <param name="min">最小の値</param>
+        /// <param name="max">最大の値</param>
+        /// <returns>イージングされた値</returns>
         public abstract float EaseFunc(int frame, int totalframe, float min, float max);
 
+        /// <summary>
+        /// 初期化時とデシリアライズ時に呼び出されます
+        /// </summary>
         public virtual void PropertyLoaded() {
             var settings = EasingSettings;
 
-            void For1(int i) => settings[i].PropertyLoaded();
-            Parallel.For(0, settings.Count, For1);
+            Parallel.For(0, settings.Count, i => settings[i].PropertyLoaded());
 
             //フィールドがpublicのときだけなので注意
             var attributetype = typeof(PropertyMetadataAttribute);
             var type = GetType();
             var properties = type.GetProperties();
 
-            void For2(int i) {
+            Parallel.For(0, properties.Length, i => {
                 var property = properties[i];
 
                 //metadata属性の場合&プロパティがPropertyElement
@@ -54,8 +68,7 @@ namespace BEditor.Core.Data.PropertyData.EasingSetting {
 
                     propertyElement.PropertyMetadata = metadata.PropertyMetadata;
                 }
-            }
-            Parallel.For(0, properties.Length, For2);
+            });
         }
 
         /// <summary>

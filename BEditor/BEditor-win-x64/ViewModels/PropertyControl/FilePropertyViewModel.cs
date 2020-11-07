@@ -18,7 +18,7 @@ namespace BEditor.ViewModels.PropertyControl {
                 var file = x?.Invoke((property.PropertyMetadata as FilePropertyMetadata)?.FilterName, (property.PropertyMetadata as FilePropertyMetadata)?.Filter);
 
                 if (file != null) {
-                    UndoRedoManager.Do(new FileProperty.ChangePath(property, file));
+                    UndoRedoManager.Do(new FileProperty.ChangeFileCommand(property, file));
                 }
             });
         }

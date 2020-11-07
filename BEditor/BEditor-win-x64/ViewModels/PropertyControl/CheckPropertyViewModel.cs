@@ -17,7 +17,7 @@ namespace BEditor.ViewModels.PropertyControl {
         public CheckPropertyViewModel(CheckProperty property) {
             Property = property;
             Command = new DelegateCommand<bool>(x => {
-                UndoRedoManager.Do(new CheckProperty.ChangeChecked(property, x));
+                UndoRedoManager.Do(new CheckProperty.ChangeCheckedCommand(property, x));
             });
         }
     }

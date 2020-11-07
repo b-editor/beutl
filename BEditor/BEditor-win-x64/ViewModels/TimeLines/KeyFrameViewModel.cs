@@ -13,9 +13,9 @@ namespace BEditor.ViewModels.TimeLines {
 
         public KeyFrameViewModel(EaseProperty easeProperty) {
             EaseProperty = easeProperty;
-            AddKeyFrameCommand.Subscribe(x => UndoRedoManager.Do(new EaseProperty.Add(EaseProperty, x)));
-            RemoveKeyFrameCommand.Subscribe(x => UndoRedoManager.Do(new EaseProperty.Remove(EaseProperty, x)));
-            MoveKeyFrameCommand.Subscribe(x => UndoRedoManager.Do(new EaseProperty.Move(EaseProperty, x.Item1, x.Item2)));
+            AddKeyFrameCommand.Subscribe(x => UndoRedoManager.Do(new EaseProperty.AddCommand(EaseProperty, x)));
+            RemoveKeyFrameCommand.Subscribe(x => UndoRedoManager.Do(new EaseProperty.RemoveCommand(EaseProperty, x)));
+            MoveKeyFrameCommand.Subscribe(x => UndoRedoManager.Do(new EaseProperty.MoveCommand(EaseProperty, x.Item1, x.Item2)));
 
             easeProperty.AddKeyFrameEvent += (_, value) => AddKeyFrameIcon?.Invoke(value.frame, value.index);
             easeProperty.DeleteKeyFrameEvent += (_, value) => DeleteKeyFrameIcon?.Invoke(value);

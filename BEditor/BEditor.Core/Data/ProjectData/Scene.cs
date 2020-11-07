@@ -95,26 +95,27 @@ namespace BEditor.Core.Data.ProjectData {
                 if (selectItems == null) {
                     selectItems = new ObservableCollection<ClipData>();
 
-
                     foreach (var name in SelectNames) {
                         selectItems.Add(Get(name));
                     }
 
-                    selectItems.CollectionChanged += (s, e) => {
-                        if (e.Action == System.Collections.Specialized.NotifyCollectionChangedAction.Add) {
-                            SelectNames.Insert(e.NewStartingIndex, selectItems[e.NewStartingIndex].Name);
-                        }
-                        else if (e.Action == System.Collections.Specialized.NotifyCollectionChangedAction.Remove) {
-                            if (SelectName == SelectNames[e.OldStartingIndex] || SelectItems.Count == 0) {
-                                SelectItem = null;
-                            }
-
-                            SelectNames.RemoveAt(e.OldStartingIndex);
-                        }
-                    };
+                    selectItems.CollectionChanged += SelectItems_CollectionChanged;
                 }
 
                 return selectItems;
+            }
+        }
+
+        private void SelectItems_CollectionChanged(object sender, System.Collections.Specialized.NotifyCollectionChangedEventArgs e) {
+            if (e.Action == System.Collections.Specialized.NotifyCollectionChangedAction.Add) {
+                SelectNames.Insert(e.NewStartingIndex, selectItems[e.NewStartingIndex].Name);
+            }
+            else if (e.Action == System.Collections.Specialized.NotifyCollectionChangedAction.Remove) {
+                if (SelectName == SelectNames[e.OldStartingIndex] || SelectItems.Count == 0) {
+                    SelectItem = null;
+                }
+
+                SelectNames.RemoveAt(e.OldStartingIndex);
             }
         }
 

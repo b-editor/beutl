@@ -215,7 +215,7 @@ namespace BEditor.Views.TimeLines {
                     ClipData info = (ClipData)e.OldItems[e.OldStartingIndex];
 
                     Grid grid = (Grid)Layer.Children[info.Layer];
-
+                                        
                     grid.Children.Remove(info.GetCreateClipView());
                 }
             };

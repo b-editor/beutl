@@ -8,17 +8,21 @@ using BEditor.Core.Data.ObjectData;
 using BEditor.Core.Data.PropertyData.EasingSetting;
 
 namespace BEditor.Core.Data.PropertyData {
+    /// <summary>
+    /// <see cref="PropertyElement"/> をまとめるクラス
+    /// </summary>
     [DataContract(Namespace = "")]
     public abstract class Group : PropertyElement, IKeyFrameProperty, IEasingSetting {
-        protected object CreatedKeyFrame;
-        protected EffectElement parent;
-
+        /// <summary>
+        /// グループにする <see cref="PropertyElement"/> を取得します
+        /// </summary>
         public abstract IList<PropertyElement> GroupItems { get; }
 
+        /// <inheritdoc/>
         public override EffectElement Parent {
-            get => parent;
+            get => base.Parent;
             set {
-                parent = value;
+                base.Parent = value;
 
                 for (int i = 0; i < GroupItems.Count; i++) {
                     GroupItems[i].Parent = value;
@@ -26,21 +30,20 @@ namespace BEditor.Core.Data.PropertyData {
             }
         }
 
-
+        /// <inheritdoc/>
         public override void PropertyLoaded() {
             base.PropertyLoaded();
 
             var g = GroupItems;
-            void For1(int index) => g[index].PropertyLoaded();
 
-            Parallel.For(0, GroupItems.Count, For1);
+            Parallel.For(0, GroupItems.Count, index => g[index].PropertyLoaded());
 
             //フィールドがpublicのときだけなので注意
             var attributetype = typeof(PropertyMetadataAttribute);
             var type = GetType();
             var properties = type.GetProperties();
 
-            void For2(int index) {
+            Parallel.For(0, properties.Length, index => {
                 var property = properties[index];
 
                 //metadata属性の場合&プロパティがPropertyElement
@@ -49,9 +52,7 @@ namespace BEditor.Core.Data.PropertyData {
 
                     propertyElement.PropertyMetadata = metadata.PropertyMetadata;
                 }
-            }
-
-            Parallel.For(0, properties.Length, For2);
+            });
         }
     }
 }

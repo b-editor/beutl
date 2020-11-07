@@ -17,7 +17,7 @@ namespace BEditor.ViewModels.PropertyControl {
         public DocumentPropertyViewModel(DocumentProperty property) {
             Property = property;
             TextChangeCommand = new DelegateCommand<string>(x => {
-                UndoRedoManager.Do(new DocumentProperty.TextChangedCommand(property, x));
+                UndoRedoManager.Do(new DocumentProperty.TextChangeCommand(property, x));
             });
         }
     }

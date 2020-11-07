@@ -15,7 +15,7 @@ namespace BEditor.ViewModels.PropertyControl {
 
         public SelectorPropertyViewModel(SelectorProperty selector) {
             Property = selector;
-            Command = new DelegateCommand<(object, object)>(x => UndoRedoManager.Do(new SelectorProperty.ChangeSelect(selector, (int)x.Item1)));
+            Command = new DelegateCommand<(object, object)>(x => UndoRedoManager.Do(new SelectorProperty.ChangeSelectCommand(selector, (int)x.Item1)));
         }
     }
 }

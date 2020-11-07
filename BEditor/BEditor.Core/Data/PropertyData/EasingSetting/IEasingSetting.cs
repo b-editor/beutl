@@ -6,15 +6,22 @@ using BEditor.Core.Data.EffectData;
 using BEditor.Core.Data.ObjectData;
 
 namespace BEditor.Core.Data.PropertyData.EasingSetting {
+    /// <summary>
+    /// <see cref="EasingFunc"/> で利用可能なプロパティを表します
+    /// </summary>
     public interface IEasingSetting {
+        /// <summary>
+        /// 親要素を取得します
+        /// </summary>
         public EffectElement Parent { get; set; }
+        /// <summary>
+        /// UIなどのキャッシュを入れる配列を取得します
+        /// </summary>
         public Dictionary<string, dynamic> ComponentData { get; }
 
         /// <summary>
-        /// ロード時の呼び出す
+        /// 初期化時とデシリアライズ時に呼び出されます
         /// </summary>
-        public virtual void PropertyLoaded() {
-
-        }
+        public void PropertyLoaded();
     }
 }

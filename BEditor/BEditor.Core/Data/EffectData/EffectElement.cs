@@ -1,7 +1,6 @@
 ﻿using System;
 using System.Collections.Generic;
 using System.Collections.ObjectModel;
-using System.Diagnostics.Contracts;
 using System.Linq;
 using System.Runtime.Serialization;
 using System.Threading.Tasks;
@@ -20,7 +19,7 @@ namespace BEditor.Core.Data.EffectData {
     public abstract class EffectElement : ComponentObject {
         private bool isEnabled = true;
         private bool isExpanded = true;
-        private ObjectData.ClipData clipData;
+        private ClipData clipData;
 
 
         /// <summary>
@@ -81,7 +80,7 @@ namespace BEditor.Core.Data.EffectData {
             var type = GetType();
             var properties = type.GetProperties();
 
-            void For1(int i) {
+            Parallel.For(0, properties.Length, i => {
                 var property = properties[i];
 
                 //metadata属性の場合&プロパティがPropertyElement
@@ -90,8 +89,7 @@ namespace BEditor.Core.Data.EffectData {
 
                     propertyElement.PropertyMetadata = metadata.PropertyMetadata;
                 }
-            }
-            Parallel.For(0, properties.Length, For1);
+            });
         }
 
 
@@ -118,30 +116,28 @@ namespace BEditor.Core.Data.EffectData {
         /// エフェクトが有効かのブーリアンを変更するコマンド
         /// </summary>
         /// <remarks>このクラスは <see cref="UndoRedoManager.Do(IUndoRedoCommand)"/> と併用することでコマンドを記録できます</remarks>
-        public class CheckEffect : IUndoRedoCommand {
+        public sealed class CheckCommand : IUndoRedoCommand {
             private readonly EffectElement effect;
             private readonly bool value;
 
             /// <summary>
-            /// <see cref="CheckEffect"/> クラスの新しいインスタンスを初期化します
+            /// <see cref="CheckCommand"/> クラスの新しいインスタンスを初期化します
             /// </summary>
             /// <param name="effect">対象の <see cref="EffectElement"/></param>
             /// <param name="value">セットする値</param>
-            public CheckEffect(EffectElement effect, bool value) {
-                this.effect = effect;
+            /// <exception cref="ArgumentNullException"><paramref name="effect"/> が <see langword="null"/> です</exception>
+            public CheckCommand(EffectElement effect, bool value) {
+                this.effect = effect ?? throw new ArgumentNullException(nameof(effect));
                 this.value = value;
             }
 
             /// <inheritdoc/>
-            [Pure]
             public void Do() => effect.IsEnabled = value;
 
             /// <inheritdoc/>
-            [Pure]
             public void Redo() => Do();
 
             /// <inheritdoc/>
-            [Pure]
             public void Undo() => effect.IsEnabled = !value;
         }
         #endregion
@@ -152,23 +148,22 @@ namespace BEditor.Core.Data.EffectData {
         /// エフェクトの順番を上げるコマンド
         /// </summary>
         /// <remarks>このクラスは <see cref="UndoRedoManager.Do(IUndoRedoCommand)"/> と併用することでコマンドを記録できます</remarks>
-        public class UpEffect : IUndoRedoCommand {
-            private readonly ObjectData.ClipData data;
+        public sealed class UpCommand : IUndoRedoCommand {
+            private readonly ClipData data;
             private readonly EffectElement effect;
 
             /// <summary>
-            /// <see cref="UpEffect"/> クラスの新しいインスタンスを初期化します
+            /// <see cref="UpCommand"/> クラスの新しいインスタンスを初期化します
             /// </summary>
             /// <param name="effect">対象の <see cref="EffectElement"/></param>
-            public UpEffect(EffectElement effect) {
+            /// <exception cref="ArgumentNullException"><paramref name="effect"/> が <see langword="null"/> です</exception>
+            public UpCommand(EffectElement effect) {
+                this.effect = effect ?? throw new ArgumentNullException(nameof(effect));
                 data = effect.ClipData;
-                this.effect = effect;
             }
 
 
-            #region Do
             /// <inheritdoc/>
-            [Pure]
             public void Do() {
                 //変更前のインデックス
                 int index = data.Effect.IndexOf(effect);
@@ -177,15 +172,11 @@ namespace BEditor.Core.Data.EffectData {
                     data.Effect.Move(index, index - 1);
                 }
             }
-            #endregion
 
             /// <inheritdoc/>
-            [Pure]
             public void Redo() => Do();
 
-            #region Undo
             /// <inheritdoc/>
-            [Pure]
             public void Undo() {
                 //変更前のインデックス
                 int index = data.Effect.IndexOf(effect);
@@ -194,7 +185,6 @@ namespace BEditor.Core.Data.EffectData {
                     data.Effect.Move(index, index + 1);
                 }
             }
-            #endregion
         }
         #endregion
 
@@ -204,22 +194,22 @@ namespace BEditor.Core.Data.EffectData {
         /// エフェクトの順番を下げるコマンド
         /// </summary>
         /// <remarks>このクラスは <see cref="UndoRedoManager.Do(IUndoRedoCommand)"/> と併用することでコマンドを記録できます</remarks>
-        public class DownEffect : IUndoRedoCommand {
-            private readonly ObjectData.ClipData data;
+        public sealed class DownCommand : IUndoRedoCommand {
+            private readonly ClipData data;
             private readonly EffectElement effect;
 
             /// <summary>
-            /// <see cref="DownEffect"/> クラスの新しいインスタンスを初期化します
+            /// <see cref="DownCommand"/> クラスの新しいインスタンスを初期化します
             /// </summary>
             /// <param name="effect">対象の <see cref="EffectElement"/></param>
-            public DownEffect(EffectElement effect) {
+            /// <exception cref="ArgumentNullException"><paramref name="effect"/> が <see langword="null"/> です</exception>
+            public DownCommand(EffectElement effect) {
+                this.effect = effect ?? throw new ArgumentNullException(nameof(effect));
                 data = effect.ClipData;
-                this.effect = effect;
             }
 
-            #region Do
+
             /// <inheritdoc/>
-            [Pure]
             public void Do() {
                 //変更前のインデックス
                 int index = data.Effect.IndexOf(effect);
@@ -228,15 +218,11 @@ namespace BEditor.Core.Data.EffectData {
                     data.Effect.Move(index, index + 1);
                 }
             }
-            #endregion
 
             /// <inheritdoc/>
-            [Pure]
             public void Redo() => Do();
 
-            #region Undo
             /// <inheritdoc/>
-            [Pure]
             public void Undo() {
                 //変更前のインデックス
                 int index = data.Effect.IndexOf(effect);
@@ -245,40 +231,37 @@ namespace BEditor.Core.Data.EffectData {
                     data.Effect.Move(index, index - 1);
                 }
             }
-            #endregion
         }
         #endregion
 
-        #region Delete
+        #region Remove
         /// <summary>
         /// エフェクトを削除するコマンド
         /// </summary>
         /// <remarks>このクラスは <see cref="UndoRedoManager.Do(IUndoRedoCommand)"/> と併用することでコマンドを記録できます</remarks>
-        public class DeleteEffect : IUndoRedoCommand {
-            private readonly ObjectData.ClipData data;
+        public class RemoveCommand : IUndoRedoCommand {
+            private readonly ClipData data;
             private readonly EffectElement effect;
             private readonly int index;
 
             /// <summary>
-            /// <see cref="DeleteEffect"/> クラスの新しいインスタンスを初期化します
+            /// <see cref="RemoveCommand"/> クラスの新しいインスタンスを初期化します
             /// </summary>
             /// <param name="effect">対象の <see cref="EffectElement"/></param>
-            public DeleteEffect(EffectElement effect) {
+            /// <exception cref="ArgumentNullException"><paramref name="effect"/> が <see langword="null"/> です</exception>
+            public RemoveCommand(EffectElement effect) {
+                this.effect = effect ?? throw new ArgumentNullException(nameof(effect));
                 this.data = effect.ClipData;
-                this.effect = effect;
                 index = data.Effect.IndexOf(effect);
             }
 
             /// <inheritdoc/>
-            [Pure]
             public void Do() => data.Effect.RemoveAt(index);
 
             /// <inheritdoc/>
-            [Pure]
             public void Redo() => Do();
 
             /// <inheritdoc/>
-            [Pure]
             public void Undo() => data.Effect.Insert(index, effect);
         }
         #endregion
@@ -289,50 +272,49 @@ namespace BEditor.Core.Data.EffectData {
         /// エフェクトを追加するコマンド
         /// </summary>
         /// <remarks>このクラスは <see cref="UndoRedoManager.Do(IUndoRedoCommand)"/> と併用することでコマンドを記録できます</remarks>
-        public class AddEffect : IUndoRedoCommand {
+        public class AddCommand : IUndoRedoCommand {
             private readonly ClipData data;
             private readonly EffectElement effect;
 
             /// <summary>
-            /// <see cref="AddEffect"/>クラスの新しいインスタンスを初期化します
+            /// <see cref="AddCommand"/>クラスの新しいインスタンスを初期化します
             /// </summary>
             /// <param name="effect">対象のエフェクト</param>
             /// <exception cref="ArgumentException">effect.ClipDataがnullです</exception>
-            public AddEffect(EffectElement effect) {
+            /// <exception cref="ArgumentNullException"><paramref name="effect"/> が <see langword="null"/> です</exception>
+            public AddCommand(EffectElement effect) {
                 if (effect.ClipData is null) throw new ArgumentException("effect.ClipData is null", nameof(effect));
+                this.effect = effect ?? throw new ArgumentNullException(nameof(effect));
 
                 this.data = effect.ClipData;
-                this.effect = effect;
 
                 effect.PropertyLoaded();
             }
             /// <summary>
-            /// <see cref="AddEffect"/> クラスの新しいインスタンスを初期化します
+            /// <see cref="AddCommand"/> クラスの新しいインスタンスを初期化します
             /// </summary>
             /// <param name="effect">対象の <see cref="EffectElement"/></param>
             /// <param name="clip"></param>
-            /// <exception cref="ArgumentException">effect.ClipDataがnullです</exception>
-            public AddEffect(EffectElement effect, ClipData clip) {
+            /// <exception cref="ArgumentException">effect.ClipDataが <see langword="null"/> です</exception>
+            /// <exception cref="ArgumentNullException"><paramref name="effect"/> が <see langword="null"/> です</exception>
+            public AddCommand(EffectElement effect, ClipData clip) {
                 if (clip is null) throw new ArgumentNullException(nameof(clip));
 
+                this.effect = effect ?? throw new ArgumentNullException(nameof(effect));
                 this.data = clip;
                 effect.ClipData = clip;
-                this.effect = effect;
 
                 effect.PropertyLoaded();
             }
 
 
             /// <inheritdoc/>
-            [Pure]
             public void Do() => data.Effect.Add(effect);
 
             /// <inheritdoc/>
-            [Pure]
             public void Redo() => Do();
 
             /// <inheritdoc/>
-            [Pure]
             public void Undo() => data.Effect.Remove(effect);
         }
 

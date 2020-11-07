@@ -17,7 +17,7 @@ namespace BEditor.ViewModels.PropertyControl {
         public ColorAnimationViewModel(ColorAnimationProperty property) {
             Property = property;
             EasingChangeCommand = new DelegateCommand<EasingData>(x => {
-                UndoRedoManager.Do(new ColorAnimationProperty.ChangeEase(property, x.Name));
+                UndoRedoManager.Do(new ColorAnimationProperty.ChangeEaseCommand(property, x.Name));
             });
         }
     }

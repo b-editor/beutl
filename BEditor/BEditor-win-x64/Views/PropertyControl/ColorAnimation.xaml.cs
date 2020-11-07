@@ -114,7 +114,7 @@ namespace BEditor.Views.PropertyControl {
             d.col.Alpha = (byte)color.Value[index].A;
 
             d.ok_button.Click += (_, _) => {
-                UndoRedoManager.Do(new ColorAnimationProperty.ChangeColor(color, index, d.col.Red, d.col.Green, d.col.Blue, d.col.Alpha));
+                UndoRedoManager.Do(new ColorAnimationProperty.ChangeColorCommand(color, index, d.col.Red, d.col.Green, d.col.Blue, d.col.Alpha));
             };
 
             d.ShowDialog();

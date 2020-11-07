@@ -129,7 +129,7 @@ namespace BEditor.Views.PropertyControls {
             if (float.TryParse(tb.Text, out float _out)) {
                 EasingSetting.Value[index] = oldvalue;
 
-                UndoRedoManager.Do(new EaseProperty.ChangeValue(EasingSetting, index, _out));
+                UndoRedoManager.Do(new EaseProperty.ChangeValueCommand(EasingSetting, index, _out));
             }
         }
 

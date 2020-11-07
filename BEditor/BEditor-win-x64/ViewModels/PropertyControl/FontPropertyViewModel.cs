@@ -17,7 +17,7 @@ namespace BEditor.ViewModels.PropertyControl {
         public FontPropertyViewModel(FontProperty property) {
             Property = property;
             Command = new DelegateCommand<(object, object)>(x => {
-                UndoRedoManager.Do(new FontProperty.ChangeSelect(property, (FontRecord)x.Item2));
+                UndoRedoManager.Do(new FontProperty.ChangeSelectCommand(property, (FontRecord)x.Item2));
             });
         }
     }

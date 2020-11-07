@@ -23,7 +23,7 @@ namespace BEditor.ViewModels.PropertyControl {
         public ColorPickerViewModel(ColorProperty property) {
             Property = property;
             Command = new DelegateCommand<(byte, byte, byte, byte)>(x => {
-                UndoRedoManager.Do(new ColorProperty.ChangeColor(property, x.Item1, x.Item2, x.Item3, x.Item4));
+                UndoRedoManager.Do(new ColorProperty.ChangeColorCommand(property, x.Item1, x.Item2, x.Item3, x.Item4));
             });
             property.PropertyChanged += (s, e) => {
                 RaisePropertyChanged(nameof(Brush));

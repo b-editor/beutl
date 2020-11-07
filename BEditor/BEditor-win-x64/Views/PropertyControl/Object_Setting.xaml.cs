@@ -41,7 +41,7 @@ namespace BEditor.Views.PropertyControls {
 
             EffectElement effectinstance = (EffectElement)Activator.CreateInstance(effect.Type);
 
-            UndoRedoManager.Do(new EffectElement.AddEffect(effectinstance, Data));
+            UndoRedoManager.Do(new EffectElement.AddCommand(effectinstance, Data));
         }
     }
 }

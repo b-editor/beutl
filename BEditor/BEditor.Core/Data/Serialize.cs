@@ -5,7 +5,6 @@ using System.Runtime.Serialization.Json;
 using System.Text;
 using System.Threading.Tasks;
 
-using BEditor.Core.Data;
 using BEditor.Core.Data.EffectData;
 using BEditor.Core.Data.EffectData.DefaultCommon;
 using BEditor.Core.Data.ObjectData;
@@ -16,15 +15,17 @@ using BEditor.Core.Data.PropertyData.EasingSetting;
 using BEditor.Core.Plugin;
 
 namespace BEditor.Core.Data {
-
+    /// <summary>
+    /// <see cref="DataContractJsonSerializer"/> を利用してシリアル化やクローンなどの関数を提供するクラスを表します
+    /// </summary>
     public static class Serialize {
 
         /// <summary>
-        /// オブジェクトの内容をファイルから読み込み復元する
+        /// オブジェクトの内容をファイルから読み込み復元します
         /// </summary>
         /// <param name="path">読み込むファイル名</param>
         /// <param name="type"></param>
-        /// <returns>復元されたオブジェクト</returns>
+        /// <returns>成功した場合は復元されたオブジェクト、そうでない場合は <see langword="null"/> を返します</returns>
         public static object LoadFromFile(string path, Type type) {
             try {
                 object obj;
@@ -42,7 +43,7 @@ namespace BEditor.Core.Data {
         }
 
         /// <summary>
-        /// オブジェクトの内容をファイルに保存する
+        /// オブジェクトの内容をファイルに保存します
         /// </summary>
         /// <param name="obj">保存するオブジェクト</param>
         /// <param name="path">保存先のファイル名</param>
@@ -62,7 +63,7 @@ namespace BEditor.Core.Data {
         }
 
         /// <summary>
-        /// DataContractを使用したDeepClone
+        /// DataContractを使用してDeepCloneを行います
         /// </summary>
         /// <typeparam name="T"></typeparam>
         /// <param name="obj"></param>
@@ -89,6 +90,9 @@ namespace BEditor.Core.Data {
             return result;
         }
 
+        /// <summary>
+        /// <see cref="DataContractJsonSerializer"/> で使用するKnownTypeを取得します
+        /// </summary>
         public static List<Type> SerializeKnownTypes {
             get {
                 if (serializeKnownTypes == null) {

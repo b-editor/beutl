@@ -13,9 +13,9 @@ namespace BEditor.ViewModels.TimeLines {
 
         public ColorAnimationViewModel(ColorAnimationProperty colorProperty) {
             ColorAnimationProperty = colorProperty;
-            AddKeyFrameCommand.Subscribe(x => UndoRedoManager.Do(new ColorAnimationProperty.Add(colorProperty, x)));
-            RemoveKeyFrameCommand.Subscribe(x => UndoRedoManager.Do(new ColorAnimationProperty.Remove(colorProperty, x)));
-            MoveKeyFrameCommand.Subscribe(x => UndoRedoManager.Do(new ColorAnimationProperty.Move(colorProperty, x.Item1, x.Item2)));
+            AddKeyFrameCommand.Subscribe(x => UndoRedoManager.Do(new ColorAnimationProperty.AddCommand(colorProperty, x)));
+            RemoveKeyFrameCommand.Subscribe(x => UndoRedoManager.Do(new ColorAnimationProperty.RemoveCommand(colorProperty, x)));
+            MoveKeyFrameCommand.Subscribe(x => UndoRedoManager.Do(new ColorAnimationProperty.MoveCommand(colorProperty, x.Item1, x.Item2)));
 
             colorProperty.AddKeyFrameEvent += (_, value) => AddKeyFrameIcon?.Invoke(value.frame, value.index);
             colorProperty.DeleteKeyFrameEvent += (_, value) => DeleteKeyFrameIcon?.Invoke(value);

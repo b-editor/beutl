@@ -17,7 +17,7 @@ namespace BEditor.ViewModels.PropertyControl {
         public EasePropertyViewModel(EaseProperty property) {
             Property = property;
             EasingChangeCommand = new DelegateCommand<EasingData>(x => {
-                UndoRedoManager.Do(new EaseProperty.ChangeEase(property, x.Name));
+                UndoRedoManager.Do(new EaseProperty.ChangeEaseCommand(property, x.Name));
             });
         }
     }

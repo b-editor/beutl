@@ -93,6 +93,16 @@ namespace BEditor.Core.Renderer {
 
             //法線の自動調節
             GL.Enable(EnableCap.Normalize);
+            //アンチエイリアス
+            GL.Enable(EnableCap.LineSmooth);
+            GL.Enable(EnableCap.PolygonSmooth);
+            GL.Enable(EnableCap.PointSmooth);
+
+            GL.Hint(HintTarget.FogHint, HintMode.Nicest);
+            GL.Hint(HintTarget.LineSmoothHint, HintMode.Nicest);
+            GL.Hint(HintTarget.PerspectiveCorrectionHint, HintMode.Nicest);
+            GL.Hint(HintTarget.PointSmoothHint, HintMode.Nicest);
+            GL.Hint(HintTarget.PolygonSmoothHint, HintMode.Nicest);
 
             if (Perspective) {
                 GL.Enable(EnableCap.DepthTest);
@@ -172,6 +182,16 @@ namespace BEditor.Core.Renderer {
 
             //法線の自動調節
             GL.Enable(EnableCap.Normalize);
+            //アンチエイリアス
+            GL.Enable(EnableCap.LineSmooth);
+            GL.Enable(EnableCap.PolygonSmooth);
+            GL.Enable(EnableCap.PointSmooth);
+
+            GL.Hint(HintTarget.FogHint, HintMode.Nicest);
+            GL.Hint(HintTarget.LineSmoothHint, HintMode.Nicest);
+            GL.Hint(HintTarget.PerspectiveCorrectionHint, HintMode.Nicest);
+            GL.Hint(HintTarget.PointSmoothHint, HintMode.Nicest);
+            GL.Hint(HintTarget.PolygonSmoothHint, HintMode.Nicest);
 
             if (Perspective) {
                 GL.Enable(EnableCap.DepthTest);

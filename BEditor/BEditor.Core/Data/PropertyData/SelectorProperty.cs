@@ -6,56 +6,60 @@ using BEditor.Core.Data.PropertyData.EasingSetting;
 
 namespace BEditor.Core.Data.PropertyData {
     /// <summary>
-    /// 
+    /// 配列から一つのアイテムを選択するプロパティを表します
     /// </summary>
     [DataContract(Namespace = "")]
     public sealed class SelectorProperty : PropertyElement, IEasingSetting {
         private int selectIndex;
 
         /// <summary>
-        /// 
+        /// <see cref="SelectorProperty"/> クラスの新しいインスタンスを初期化します
         /// </summary>
-        /// <param name="metadata"></param>
+        /// <param name="metadata">このプロパティの <see cref="SelectorPropertyMetadata"/></param>
+        /// <exception cref="ArgumentNullException"><paramref name="metadata"/> が <see langword="null"/> です</exception>
         public SelectorProperty(SelectorPropertyMetadata metadata) {
+            PropertyMetadata = metadata ?? throw new ArgumentNullException(nameof(metadata));
             Index = metadata.DefaultIndex;
-            PropertyMetadata = metadata;
         }
 
         /// <summary>
-        /// 
+        /// 選択されているアイテムを取得します
         /// </summary>
         public object SelectItem => (PropertyMetadata as SelectorPropertyMetadata).ItemSource[Index];
 
         /// <summary>
-        /// 
+        /// 選択されている <see cref="SelectorPropertyMetadata.ItemSource"/> のインデックスを取得または設定します
         /// </summary>
         [DataMember]
         public int Index { get => selectIndex; set => SetValue(value, ref selectIndex, nameof(Index)); }
 
 
         public static implicit operator int(SelectorProperty selector) => selector.Index;
+        /// <inheritdoc/>
         public override string ToString() => $"(Index:{Index} Item:{SelectItem} Name:{PropertyMetadata?.Name})";
 
 
         #region Commands
 
         /// <summary>
-        /// 
+        /// 選択されているアイテムを変更するコマンド
         /// </summary>
-        public sealed class ChangeSelect : IUndoRedoCommand {
+        /// <remarks>このクラスは <see cref="UndoRedoManager.Do(IUndoRedoCommand)"/> と併用することでコマンドを記録できます</remarks>
+        public sealed class ChangeSelectCommand : IUndoRedoCommand {
             private readonly SelectorProperty Selector;
             private readonly int select;
             private readonly int oldselect;
 
             /// <summary>
-            /// 
+            /// <see cref="ChangeSelectCommand"/> クラスの新しいインスタンスを初期化します
             /// </summary>
-            /// <param name="combo"></param>
-            /// <param name="select"></param>
-            public ChangeSelect(SelectorProperty combo, int select) {
-                Selector = combo;
+            /// <param name="property">対象の <see cref="SelectorProperty"/></param>
+            /// <param name="select">新しいインデックス</param>
+            /// <exception cref="ArgumentNullException"><paramref name="property"/> が <see langword="null"/> です</exception>
+            public ChangeSelectCommand(SelectorProperty property, int select) {
+                Selector = property ?? throw new ArgumentNullException(nameof(property));
                 this.select = select;
-                oldselect = combo.Index;
+                oldselect = property.Index;
             }
 
             /// <inheritdoc/>
@@ -72,30 +76,13 @@ namespace BEditor.Core.Data.PropertyData {
     }
 
     /// <summary>
-    /// 
+    /// <see cref="SelectorProperty"/> のメタデータを表します
     /// </summary>
     public class SelectorPropertyMetadata : PropertyElementMetadata {
         /// <summary>
-        /// 
+        /// <see cref="SelectorPropertyMetadata"/> の新しいインスタンスを初期化します
         /// </summary>
-        /// <param name="name"></param>
-        /// <param name="itemsource"></param>
-        /// <param name="index"></param>
-        /// <param name="memberpath"></param>
         public SelectorPropertyMetadata(string name, IList itemsource, int index = 0, string memberpath = "") : base(name) {
-            DefaultIndex = index;
-            ItemSource = itemsource;
-            MemberPath = memberpath;
-        }
-        /// <summary>
-        /// 
-        /// </summary>
-        /// <param name="name"></param>
-        /// <param name="index"></param>
-        /// <param name="itemsource"></param>
-        /// <param name="memberpath"></param>
-        [Obsolete]
-        public SelectorPropertyMetadata(string name, int index, IList itemsource, string memberpath = "") : base(name) {
             DefaultIndex = index;
             ItemSource = itemsource;
             MemberPath = memberpath;

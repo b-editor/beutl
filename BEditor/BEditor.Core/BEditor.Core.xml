@@ -30,6 +30,19 @@
             ステータス
             </summary>
         </member>
+        <member name="T:BEditor.Core.Data.ComponentObject">
+            <summary>
+            継承するクラスに対応するUIのデータのキャッシュを表します
+            </summary>
+        </member>
+        <member name="P:BEditor.Core.Data.ComponentObject.ComponentData">
+            <summary>
+            UIなどのキャッシュを入れる配列を取得します
+            </summary>
+        </member>
+        <member name="P:BEditor.Core.Data.ComponentObject.ExtensionData">
+            <inheritdoc/>
+        </member>
         <member name="T:BEditor.Core.Data.EffectData.EffectElement">
             <summary>
             エフェクトのベースクラス
@@ -91,119 +104,125 @@
             <param name="args">呼び出しの順番などのデータ</param>
             <remarks>ここでエフェクトの順番などを変更できます</remarks>
         </member>
-        <member name="T:BEditor.Core.Data.EffectData.EffectElement.CheckEffect">
+        <member name="T:BEditor.Core.Data.EffectData.EffectElement.CheckCommand">
             <summary>
             エフェクトが有効かのブーリアンを変更するコマンド
             </summary>
             <remarks>このクラスは <see cref="M:BEditor.Core.Data.UndoRedoManager.Do(BEditor.Core.Data.IUndoRedoCommand)"/> と併用することでコマンドを記録できます</remarks>
         </member>
-        <member name="M:BEditor.Core.Data.EffectData.EffectElement.CheckEffect.#ctor(BEditor.Core.Data.EffectData.EffectElement,System.Boolean)">
+        <member name="M:BEditor.Core.Data.EffectData.EffectElement.CheckCommand.#ctor(BEditor.Core.Data.EffectData.EffectElement,System.Boolean)">
             <summary>
-            <see cref="T:BEditor.Core.Data.EffectData.EffectElement.CheckEffect"/> クラスの新しいインスタンスを初期化します
+            <see cref="T:BEditor.Core.Data.EffectData.EffectElement.CheckCommand"/> クラスの新しいインスタンスを初期化します
             </summary>
             <param name="effect">対象の <see cref="T:BEditor.Core.Data.EffectData.EffectElement"/></param>
             <param name="value">セットする値</param>
+            <exception cref="T:System.ArgumentNullException"><paramref name="effect"/> が <see langword="null"/> です</exception>
         </member>
-        <member name="M:BEditor.Core.Data.EffectData.EffectElement.CheckEffect.Do">
+        <member name="M:BEditor.Core.Data.EffectData.EffectElement.CheckCommand.Do">
             <inheritdoc/>
         </member>
-        <member name="M:BEditor.Core.Data.EffectData.EffectElement.CheckEffect.Redo">
+        <member name="M:BEditor.Core.Data.EffectData.EffectElement.CheckCommand.Redo">
             <inheritdoc/>
         </member>
-        <member name="M:BEditor.Core.Data.EffectData.EffectElement.CheckEffect.Undo">
+        <member name="M:BEditor.Core.Data.EffectData.EffectElement.CheckCommand.Undo">
             <inheritdoc/>
         </member>
-        <member name="T:BEditor.Core.Data.EffectData.EffectElement.UpEffect">
+        <member name="T:BEditor.Core.Data.EffectData.EffectElement.UpCommand">
             <summary>
             エフェクトの順番を上げるコマンド
             </summary>
             <remarks>このクラスは <see cref="M:BEditor.Core.Data.UndoRedoManager.Do(BEditor.Core.Data.IUndoRedoCommand)"/> と併用することでコマンドを記録できます</remarks>
         </member>
-        <member name="M:BEditor.Core.Data.EffectData.EffectElement.UpEffect.#ctor(BEditor.Core.Data.EffectData.EffectElement)">
+        <member name="M:BEditor.Core.Data.EffectData.EffectElement.UpCommand.#ctor(BEditor.Core.Data.EffectData.EffectElement)">
             <summary>
-            <see cref="T:BEditor.Core.Data.EffectData.EffectElement.UpEffect"/> クラスの新しいインスタンスを初期化します
+            <see cref="T:BEditor.Core.Data.EffectData.EffectElement.UpCommand"/> クラスの新しいインスタンスを初期化します
             </summary>
             <param name="effect">対象の <see cref="T:BEditor.Core.Data.EffectData.EffectElement"/></param>
+            <exception cref="T:System.ArgumentNullException"><paramref name="effect"/> が <see langword="null"/> です</exception>
         </member>
-        <member name="M:BEditor.Core.Data.EffectData.EffectElement.UpEffect.Do">
+        <member name="M:BEditor.Core.Data.EffectData.EffectElement.UpCommand.Do">
             <inheritdoc/>
         </member>
-        <member name="M:BEditor.Core.Data.EffectData.EffectElement.UpEffect.Redo">
+        <member name="M:BEditor.Core.Data.EffectData.EffectElement.UpCommand.Redo">
             <inheritdoc/>
         </member>
-        <member name="M:BEditor.Core.Data.EffectData.EffectElement.UpEffect.Undo">
+        <member name="M:BEditor.Core.Data.EffectData.EffectElement.UpCommand.Undo">
             <inheritdoc/>
         </member>
-        <member name="T:BEditor.Core.Data.EffectData.EffectElement.DownEffect">
+        <member name="T:BEditor.Core.Data.EffectData.EffectElement.DownCommand">
             <summary>
             エフェクトの順番を下げるコマンド
             </summary>
             <remarks>このクラスは <see cref="M:BEditor.Core.Data.UndoRedoManager.Do(BEditor.Core.Data.IUndoRedoCommand)"/> と併用することでコマンドを記録できます</remarks>
         </member>
-        <member name="M:BEditor.Core.Data.EffectData.EffectElement.DownEffect.#ctor(BEditor.Core.Data.EffectData.EffectElement)">
+        <member name="M:BEditor.Core.Data.EffectData.EffectElement.DownCommand.#ctor(BEditor.Core.Data.EffectData.EffectElement)">
             <summary>
-            <see cref="T:BEditor.Core.Data.EffectData.EffectElement.DownEffect"/> クラスの新しいインスタンスを初期化します
+            <see cref="T:BEditor.Core.Data.EffectData.EffectElement.DownCommand"/> クラスの新しいインスタンスを初期化します
             </summary>
             <param name="effect">対象の <see cref="T:BEditor.Core.Data.EffectData.EffectElement"/></param>
+            <exception cref="T:System.ArgumentNullException"><paramref name="effect"/> が <see langword="null"/> です</exception>
         </member>
-        <member name="M:BEditor.Core.Data.EffectData.EffectElement.DownEffect.Do">
+        <member name="M:BEditor.Core.Data.EffectData.EffectElement.DownCommand.Do">
             <inheritdoc/>
         </member>
-        <member name="M:BEditor.Core.Data.EffectData.EffectElement.DownEffect.Redo">
+        <member name="M:BEditor.Core.Data.EffectData.EffectElement.DownCommand.Redo">
             <inheritdoc/>
         </member>
-        <member name="M:BEditor.Core.Data.EffectData.EffectElement.DownEffect.Undo">
+        <member name="M:BEditor.Core.Data.EffectData.EffectElement.DownCommand.Undo">
             <inheritdoc/>
         </member>
-        <member name="T:BEditor.Core.Data.EffectData.EffectElement.DeleteEffect">
+        <member name="T:BEditor.Core.Data.EffectData.EffectElement.RemoveCommand">
             <summary>
             エフェクトを削除するコマンド
             </summary>
             <remarks>このクラスは <see cref="M:BEditor.Core.Data.UndoRedoManager.Do(BEditor.Core.Data.IUndoRedoCommand)"/> と併用することでコマンドを記録できます</remarks>
         </member>
-        <member name="M:BEditor.Core.Data.EffectData.EffectElement.DeleteEffect.#ctor(BEditor.Core.Data.EffectData.EffectElement)">
+        <member name="M:BEditor.Core.Data.EffectData.EffectElement.RemoveCommand.#ctor(BEditor.Core.Data.EffectData.EffectElement)">
             <summary>
-            <see cref="T:BEditor.Core.Data.EffectData.EffectElement.DeleteEffect"/> クラスの新しいインスタンスを初期化します
+            <see cref="T:BEditor.Core.Data.EffectData.EffectElement.RemoveCommand"/> クラスの新しいインスタンスを初期化します
             </summary>
             <param name="effect">対象の <see cref="T:BEditor.Core.Data.EffectData.EffectElement"/></param>
+            <exception cref="T:System.ArgumentNullException"><paramref name="effect"/> が <see langword="null"/> です</exception>
         </member>
-        <member name="M:BEditor.Core.Data.EffectData.EffectElement.DeleteEffect.Do">
+        <member name="M:BEditor.Core.Data.EffectData.EffectElement.RemoveCommand.Do">
             <inheritdoc/>
         </member>
-        <member name="M:BEditor.Core.Data.EffectData.EffectElement.DeleteEffect.Redo">
+        <member name="M:BEditor.Core.Data.EffectData.EffectElement.RemoveCommand.Redo">
             <inheritdoc/>
         </member>
-        <member name="M:BEditor.Core.Data.EffectData.EffectElement.DeleteEffect.Undo">
+        <member name="M:BEditor.Core.Data.EffectData.EffectElement.RemoveCommand.Undo">
             <inheritdoc/>
         </member>
-        <member name="T:BEditor.Core.Data.EffectData.EffectElement.AddEffect">
+        <member name="T:BEditor.Core.Data.EffectData.EffectElement.AddCommand">
             <summary>
             エフェクトを追加するコマンド
             </summary>
             <remarks>このクラスは <see cref="M:BEditor.Core.Data.UndoRedoManager.Do(BEditor.Core.Data.IUndoRedoCommand)"/> と併用することでコマンドを記録できます</remarks>
         </member>
-        <member name="M:BEditor.Core.Data.EffectData.EffectElement.AddEffect.#ctor(BEditor.Core.Data.EffectData.EffectElement)">
+        <member name="M:BEditor.Core.Data.EffectData.EffectElement.AddCommand.#ctor(BEditor.Core.Data.EffectData.EffectElement)">
             <summary>
-            <see cref="T:BEditor.Core.Data.EffectData.EffectElement.AddEffect"/>クラスの新しいインスタンスを初期化します
+            <see cref="T:BEditor.Core.Data.EffectData.EffectElement.AddCommand"/>クラスの新しいインスタンスを初期化します
             </summary>
             <param name="effect">対象のエフェクト</param>
             <exception cref="T:System.ArgumentException">effect.ClipDataがnullです</exception>
+            <exception cref="T:System.ArgumentNullException"><paramref name="effect"/> が <see langword="null"/> です</exception>
         </member>
-        <member name="M:BEditor.Core.Data.EffectData.EffectElement.AddEffect.#ctor(BEditor.Core.Data.EffectData.EffectElement,BEditor.Core.Data.ObjectData.ClipData)">
+        <member name="M:BEditor.Core.Data.EffectData.EffectElement.AddCommand.#ctor(BEditor.Core.Data.EffectData.EffectElement,BEditor.Core.Data.ObjectData.ClipData)">
             <summary>
-            <see cref="T:BEditor.Core.Data.EffectData.EffectElement.AddEffect"/> クラスの新しいインスタンスを初期化します
+            <see cref="T:BEditor.Core.Data.EffectData.EffectElement.AddCommand"/> クラスの新しいインスタンスを初期化します
             </summary>
             <param name="effect">対象の <see cref="T:BEditor.Core.Data.EffectData.EffectElement"/></param>
             <param name="clip"></param>
-            <exception cref="T:System.ArgumentException">effect.ClipDataがnullです</exception>
+            <exception cref="T:System.ArgumentException">effect.ClipDataが <see langword="null"/> です</exception>
+            <exception cref="T:System.ArgumentNullException"><paramref name="effect"/> が <see langword="null"/> です</exception>
         </member>
-        <member name="M:BEditor.Core.Data.EffectData.EffectElement.AddEffect.Do">
+        <member name="M:BEditor.Core.Data.EffectData.EffectElement.AddCommand.Do">
             <inheritdoc/>
         </member>
-        <member name="M:BEditor.Core.Data.EffectData.EffectElement.AddEffect.Redo">
+        <member name="M:BEditor.Core.Data.EffectData.EffectElement.AddCommand.Redo">
             <inheritdoc/>
         </member>
-        <member name="M:BEditor.Core.Data.EffectData.EffectElement.AddEffect.Undo">
+        <member name="M:BEditor.Core.Data.EffectData.EffectElement.AddCommand.Undo">
             <inheritdoc/>
         </member>
         <member name="T:BEditor.Core.Data.EffectData.ImageEffect">
@@ -305,118 +324,122 @@
         <member name="M:BEditor.Core.Data.ObjectData.ClipData.Clone">
             <inheritdoc/>
         </member>
-        <member name="T:BEditor.Core.Data.ObjectData.ClipData.Add">
+        <member name="T:BEditor.Core.Data.ObjectData.ClipData.AddCommand">
             <summary>
             <see cref="T:BEditor.Core.Data.ObjectData.ClipData"/> を <see cref="T:BEditor.Core.Data.ProjectData.Scene"/> に追加するコマンド
             </summary>
             <remarks>このクラスは <see cref="M:BEditor.Core.Data.UndoRedoManager.Do(BEditor.Core.Data.IUndoRedoCommand)"/> と併用することでコマンドを記録できます</remarks>
         </member>
-        <member name="M:BEditor.Core.Data.ObjectData.ClipData.Add.#ctor(BEditor.Core.Data.ProjectData.Scene,System.Int32,System.Int32,System.Type)">
+        <member name="M:BEditor.Core.Data.ObjectData.ClipData.AddCommand.#ctor(BEditor.Core.Data.ProjectData.Scene,System.Int32,System.Int32,System.Type)">
             <summary>
-            <see cref="T:BEditor.Core.Data.ObjectData.ClipData.Add"/> クラスの新しいインスタンスを初期化します
+            <see cref="T:BEditor.Core.Data.ObjectData.ClipData.AddCommand"/> クラスの新しいインスタンスを初期化します
             </summary>
             <param name="scene">対象のシーン</param>
             <param name="addframe">配置するフレーム</param>
             <param name="layer">配置するレイヤー</param>
             <param name="type">クリップの種類</param>
+            <exception cref="T:System.ArgumentNullException"><paramref name="scene"/> が <see langword="null"/> です</exception>
+            <exception cref="T:System.ArgumentNullException"><paramref name="type"/> が <see langword="null"/> です</exception>
+            <exception cref="T:System.ArgumentOutOfRangeException"><paramref name="addframe"/> が0以下です</exception>
+            <exception cref="T:System.ArgumentOutOfRangeException"><paramref name="layer"/> が0以下です</exception>
         </member>
-        <member name="M:BEditor.Core.Data.ObjectData.ClipData.Add.Do">
+        <member name="M:BEditor.Core.Data.ObjectData.ClipData.AddCommand.Do">
             <inheritdoc/>
         </member>
-        <member name="M:BEditor.Core.Data.ObjectData.ClipData.Add.Redo">
+        <member name="M:BEditor.Core.Data.ObjectData.ClipData.AddCommand.Redo">
             <inheritdoc/>
         </member>
-        <member name="M:BEditor.Core.Data.ObjectData.ClipData.Add.Undo">
+        <member name="M:BEditor.Core.Data.ObjectData.ClipData.AddCommand.Undo">
             <inheritdoc/>
         </member>
-        <member name="T:BEditor.Core.Data.ObjectData.ClipData.Remove">
+        <member name="T:BEditor.Core.Data.ObjectData.ClipData.RemoveCommand">
             <summary>
             <see cref="T:BEditor.Core.Data.ProjectData.Scene"/> から <see cref="T:BEditor.Core.Data.ObjectData.ClipData"/> を削除するコマンド
             </summary>
             <remarks>このクラスは <see cref="M:BEditor.Core.Data.UndoRedoManager.Do(BEditor.Core.Data.IUndoRedoCommand)"/> と併用することでコマンドを記録できます</remarks>
         </member>
-        <member name="M:BEditor.Core.Data.ObjectData.ClipData.Remove.#ctor(BEditor.Core.Data.ObjectData.ClipData)">
+        <member name="M:BEditor.Core.Data.ObjectData.ClipData.RemoveCommand.#ctor(BEditor.Core.Data.ObjectData.ClipData)">
             <summary>
-            <see cref="T:BEditor.Core.Data.ObjectData.ClipData.Remove"/> クラスの新しいインスタンスを初期化します
+            <see cref="T:BEditor.Core.Data.ObjectData.ClipData.RemoveCommand"/> クラスの新しいインスタンスを初期化します
             </summary>
             <param name="data">対象の <see cref="T:BEditor.Core.Data.ObjectData.ClipData"/></param>
+            <exception cref="T:System.ArgumentNullException"><paramref name="data"/> が <see langword="null"/> です</exception>
         </member>
-        <member name="M:BEditor.Core.Data.ObjectData.ClipData.Remove.Do">
+        <member name="M:BEditor.Core.Data.ObjectData.ClipData.RemoveCommand.Do">
             <inheritdoc/>
         </member>
-        <member name="M:BEditor.Core.Data.ObjectData.ClipData.Remove.Redo">
+        <member name="M:BEditor.Core.Data.ObjectData.ClipData.RemoveCommand.Redo">
             <inheritdoc/>
         </member>
-        <member name="M:BEditor.Core.Data.ObjectData.ClipData.Remove.Undo">
+        <member name="M:BEditor.Core.Data.ObjectData.ClipData.RemoveCommand.Undo">
             <inheritdoc/>
         </member>
-        <member name="T:BEditor.Core.Data.ObjectData.ClipData.Move">
+        <member name="T:BEditor.Core.Data.ObjectData.ClipData.MoveCommand">
             <summary>
             <see cref="T:BEditor.Core.Data.ObjectData.ClipData"/> のフレームとレイヤーを移動するコマンド
             </summary>
             <remarks>このクラスは <see cref="M:BEditor.Core.Data.UndoRedoManager.Do(BEditor.Core.Data.IUndoRedoCommand)"/> と併用することでコマンドを記録できます</remarks>
         </member>
-        <member name="M:BEditor.Core.Data.ObjectData.ClipData.Move.#ctor(BEditor.Core.Data.ObjectData.ClipData,System.Int32,System.Int32)">
+        <member name="M:BEditor.Core.Data.ObjectData.ClipData.MoveCommand.#ctor(BEditor.Core.Data.ObjectData.ClipData,System.Int32,System.Int32)">
             <summary>
-            <see cref="T:BEditor.Core.Data.ObjectData.ClipData.Move"/> クラスの新しいインスタンスを初期化します
+            <see cref="T:BEditor.Core.Data.ObjectData.ClipData.MoveCommand"/> クラスの新しいインスタンスを初期化します
             </summary>
             <param name="data">対象のクリップ</param>
             <param name="to">新しい開始フレーム</param>
             <param name="tolayer">新しい配置レイヤー</param>
+            <exception cref="T:System.ArgumentNullException"><paramref name="data"/> が <see langword="null"/> です</exception>
+            <exception cref="T:System.ArgumentOutOfRangeException"><paramref name="to"/> または <paramref name="tolayer"/> が0以下です</exception>
         </member>
-        <member name="M:BEditor.Core.Data.ObjectData.ClipData.Move.#ctor(BEditor.Core.Data.ObjectData.ClipData,System.Int32,System.Int32,System.Int32,System.Int32)">
+        <member name="M:BEditor.Core.Data.ObjectData.ClipData.MoveCommand.#ctor(BEditor.Core.Data.ObjectData.ClipData,System.Int32,System.Int32,System.Int32,System.Int32)">
             <summary>
-            <see cref="T:BEditor.Core.Data.ObjectData.ClipData.Move"/>クラスの新しいインスタンスを初期化します
+            <see cref="T:BEditor.Core.Data.ObjectData.ClipData.MoveCommand"/>クラスの新しいインスタンスを初期化します
             </summary>
             <param name="data">対象のクリップ</param>
             <param name="to">新しい開始フレーム</param>
             <param name="from">古い開始フレーム</param>
             <param name="tolayer">新しい配置レイヤー</param>
             <param name="fromlayer">古い配置レイヤー</param>
+            <exception cref="T:System.ArgumentNullException"><paramref name="data"/> が <see langword="null"/> です</exception>
+            <exception cref="T:System.ArgumentOutOfRangeException"><paramref name="to"/>, <paramref name="from"/>, <paramref name="tolayer"/>, <paramref name="fromlayer"/> が0以下です</exception>
         </member>
-        <member name="M:BEditor.Core.Data.ObjectData.ClipData.Move.Do">
+        <member name="M:BEditor.Core.Data.ObjectData.ClipData.MoveCommand.Do">
             <inheritdoc/>
         </member>
-        <member name="M:BEditor.Core.Data.ObjectData.ClipData.Move.Redo">
+        <member name="M:BEditor.Core.Data.ObjectData.ClipData.MoveCommand.Redo">
             <inheritdoc/>
         </member>
-        <member name="M:BEditor.Core.Data.ObjectData.ClipData.Move.Undo">
+        <member name="M:BEditor.Core.Data.ObjectData.ClipData.MoveCommand.Undo">
             <inheritdoc/>
         </member>
-        <member name="T:BEditor.Core.Data.ObjectData.ClipData.LengthChange">
+        <member name="T:BEditor.Core.Data.ObjectData.ClipData.LengthChangeCommand">
             <summary>
             <see cref="T:BEditor.Core.Data.ObjectData.ClipData"/> の長さを変更するコマンド
             </summary>
             <remarks>このクラスは <see cref="M:BEditor.Core.Data.UndoRedoManager.Do(BEditor.Core.Data.IUndoRedoCommand)"/> と併用することでコマンドを記録できます</remarks>
         </member>
-        <member name="M:BEditor.Core.Data.ObjectData.ClipData.LengthChange.#ctor(BEditor.Core.Data.ObjectData.ClipData,System.Int32,System.Int32)">
+        <member name="M:BEditor.Core.Data.ObjectData.ClipData.LengthChangeCommand.#ctor(BEditor.Core.Data.ObjectData.ClipData,System.Int32,System.Int32)">
             <summary>
-            <see cref="T:BEditor.Core.Data.ObjectData.ClipData.LengthChange"/> クラスの新しいインスタンスを初期化します
+            <see cref="T:BEditor.Core.Data.ObjectData.ClipData.LengthChangeCommand"/> クラスの新しいインスタンスを初期化します
             </summary>
             <param name="data">対象のクリップ</param>
             <param name="start">開始フレーム</param>
             <param name="end">終了フレーム</param>
+            <exception cref="T:System.ArgumentNullException"><paramref name="data"/> が <see langword="null"/> です</exception>
+            <exception cref="T:System.ArgumentOutOfRangeException"><paramref name="start"/> または <paramref name="end"/> が0以下です</exception>
         </member>
-        <member name="M:BEditor.Core.Data.ObjectData.ClipData.LengthChange.Do">
+        <member name="M:BEditor.Core.Data.ObjectData.ClipData.LengthChangeCommand.Do">
             <inheritdoc/>
         </member>
-        <member name="M:BEditor.Core.Data.ObjectData.ClipData.LengthChange.Redo">
+        <member name="M:BEditor.Core.Data.ObjectData.ClipData.LengthChangeCommand.Redo">
             <inheritdoc/>
         </member>
-        <member name="M:BEditor.Core.Data.ObjectData.ClipData.LengthChange.Undo">
+        <member name="M:BEditor.Core.Data.ObjectData.ClipData.LengthChangeCommand.Undo">
             <inheritdoc/>
         </member>
         <member name="T:BEditor.Core.Data.ObjectData.ClipType">
             <summary>
             標準のクリップの種類
             </summary>
-        </member>
-        <member name="M:BEditor.Core.Data.ObjectData.DataTools.FileTypeConvert(System.String)">
-            <summary>
-            ファイルの名前から適切なクリップの種類を返します
-            </summary>
-            <param name="file">ファイルの名前</param>
-            <returns>System.Type</returns>
         </member>
         <member name="T:BEditor.Core.Data.ObjectData.ObjectElement">
             <summary>
@@ -740,7 +763,7 @@
         </member>
         <member name="T:BEditor.Core.Data.PropertyData.CheckProperty">
             <summary>
-            チェックボックスのプロパティクラス
+            チェックボックスのプロパティを表します
             </summary>
         </member>
         <member name="M:BEditor.Core.Data.PropertyData.CheckProperty.#ctor(BEditor.Core.Data.PropertyData.CheckPropertyMetadata)">
@@ -758,27 +781,27 @@
         <member name="M:BEditor.Core.Data.PropertyData.CheckProperty.ToString">
             <inheritdoc/>
         </member>
-        <member name="T:BEditor.Core.Data.PropertyData.CheckProperty.ChangeChecked">
+        <member name="T:BEditor.Core.Data.PropertyData.CheckProperty.ChangeCheckedCommand">
             <summary>
             チェックされているかを変更するコマンド
             </summary>
             <remarks>このクラスは <see cref="M:BEditor.Core.Data.UndoRedoManager.Do(BEditor.Core.Data.IUndoRedoCommand)"/> と併用することでコマンドを記録できます</remarks>
         </member>
-        <member name="M:BEditor.Core.Data.PropertyData.CheckProperty.ChangeChecked.#ctor(BEditor.Core.Data.PropertyData.CheckProperty,System.Boolean)">
+        <member name="M:BEditor.Core.Data.PropertyData.CheckProperty.ChangeCheckedCommand.#ctor(BEditor.Core.Data.PropertyData.CheckProperty,System.Boolean)">
             <summary>
-            <see cref="T:BEditor.Core.Data.PropertyData.CheckProperty.ChangeChecked"/> クラスの新しいインスタンスを初期化します
+            <see cref="T:BEditor.Core.Data.PropertyData.CheckProperty.ChangeCheckedCommand"/> クラスの新しいインスタンスを初期化します
             </summary>
             <param name="property">対象の <see cref="T:BEditor.Core.Data.PropertyData.CheckProperty"/></param>
             <param name="value">新しい値</param>
             <exception cref="T:System.ArgumentNullException"><paramref name="property"/> が <see langword="null"/> です</exception>
         </member>
-        <member name="M:BEditor.Core.Data.PropertyData.CheckProperty.ChangeChecked.Do">
+        <member name="M:BEditor.Core.Data.PropertyData.CheckProperty.ChangeCheckedCommand.Do">
             <inheritdoc/>
         </member>
-        <member name="M:BEditor.Core.Data.PropertyData.CheckProperty.ChangeChecked.Redo">
+        <member name="M:BEditor.Core.Data.PropertyData.CheckProperty.ChangeCheckedCommand.Redo">
             <inheritdoc/>
         </member>
-        <member name="M:BEditor.Core.Data.PropertyData.CheckProperty.ChangeChecked.Undo">
+        <member name="M:BEditor.Core.Data.PropertyData.CheckProperty.ChangeCheckedCommand.Undo">
             <inheritdoc/>
         </member>
         <member name="T:BEditor.Core.Data.PropertyData.CheckPropertyMetadata">
@@ -840,12 +863,12 @@
             <param name="frame">タイムライン基準のフレーム</param>
             <returns></returns>
         </member>
-        <member name="T:BEditor.Core.Data.PropertyData.ColorAnimationProperty.ChangeColor">
+        <member name="T:BEditor.Core.Data.PropertyData.ColorAnimationProperty.ChangeColorCommand">
             <summary>
             
             </summary>
         </member>
-        <member name="M:BEditor.Core.Data.PropertyData.ColorAnimationProperty.ChangeColor.#ctor(BEditor.Core.Data.PropertyData.ColorAnimationProperty,System.Int32,System.Byte,System.Byte,System.Byte,System.Byte)">
+        <member name="M:BEditor.Core.Data.PropertyData.ColorAnimationProperty.ChangeColorCommand.#ctor(BEditor.Core.Data.PropertyData.ColorAnimationProperty,System.Int32,System.Byte,System.Byte,System.Byte,System.Byte)">
             <summary>
             
             </summary>
@@ -856,84 +879,84 @@
             <param name="b"></param>
             <param name="a"></param>
         </member>
-        <member name="M:BEditor.Core.Data.PropertyData.ColorAnimationProperty.ChangeColor.Do">
+        <member name="M:BEditor.Core.Data.PropertyData.ColorAnimationProperty.ChangeColorCommand.Do">
             <inheritdoc/>
         </member>
-        <member name="M:BEditor.Core.Data.PropertyData.ColorAnimationProperty.ChangeColor.Redo">
+        <member name="M:BEditor.Core.Data.PropertyData.ColorAnimationProperty.ChangeColorCommand.Redo">
             <inheritdoc/>
         </member>
-        <member name="M:BEditor.Core.Data.PropertyData.ColorAnimationProperty.ChangeColor.Undo">
+        <member name="M:BEditor.Core.Data.PropertyData.ColorAnimationProperty.ChangeColorCommand.Undo">
             <inheritdoc/>
         </member>
-        <member name="T:BEditor.Core.Data.PropertyData.ColorAnimationProperty.ChangeEase">
+        <member name="T:BEditor.Core.Data.PropertyData.ColorAnimationProperty.ChangeEaseCommand">
             <summary>
             
             </summary>
         </member>
-        <member name="M:BEditor.Core.Data.PropertyData.ColorAnimationProperty.ChangeEase.#ctor(BEditor.Core.Data.PropertyData.ColorAnimationProperty,System.String)">
+        <member name="M:BEditor.Core.Data.PropertyData.ColorAnimationProperty.ChangeEaseCommand.#ctor(BEditor.Core.Data.PropertyData.ColorAnimationProperty,System.String)">
             <summary>
             
             </summary>
             <param name="easingList"></param>
             <param name="type"></param>
         </member>
-        <member name="M:BEditor.Core.Data.PropertyData.ColorAnimationProperty.ChangeEase.Do">
+        <member name="M:BEditor.Core.Data.PropertyData.ColorAnimationProperty.ChangeEaseCommand.Do">
             <inheritdoc/>
         </member>
-        <member name="M:BEditor.Core.Data.PropertyData.ColorAnimationProperty.ChangeEase.Redo">
+        <member name="M:BEditor.Core.Data.PropertyData.ColorAnimationProperty.ChangeEaseCommand.Redo">
             <inheritdoc/>
         </member>
-        <member name="M:BEditor.Core.Data.PropertyData.ColorAnimationProperty.ChangeEase.Undo">
+        <member name="M:BEditor.Core.Data.PropertyData.ColorAnimationProperty.ChangeEaseCommand.Undo">
             <inheritdoc/>
         </member>
-        <member name="T:BEditor.Core.Data.PropertyData.ColorAnimationProperty.Add">
+        <member name="T:BEditor.Core.Data.PropertyData.ColorAnimationProperty.AddCommand">
             <summary>
             
             </summary>
         </member>
-        <member name="M:BEditor.Core.Data.PropertyData.ColorAnimationProperty.Add.#ctor(BEditor.Core.Data.PropertyData.ColorAnimationProperty,System.Int32)">
-            <summary>
-            
-            </summary>
-            <param name="colorProperty"></param>
-            <param name="frame"></param>
-        </member>
-        <member name="M:BEditor.Core.Data.PropertyData.ColorAnimationProperty.Add.Do">
-            <inheritdoc/>
-        </member>
-        <member name="M:BEditor.Core.Data.PropertyData.ColorAnimationProperty.Add.Redo">
-            <inheritdoc/>
-        </member>
-        <member name="M:BEditor.Core.Data.PropertyData.ColorAnimationProperty.Add.Undo">
-            <inheritdoc/>
-        </member>
-        <member name="T:BEditor.Core.Data.PropertyData.ColorAnimationProperty.Remove">
-            <summary>
-            
-            </summary>
-        </member>
-        <member name="M:BEditor.Core.Data.PropertyData.ColorAnimationProperty.Remove.#ctor(BEditor.Core.Data.PropertyData.ColorAnimationProperty,System.Int32)">
+        <member name="M:BEditor.Core.Data.PropertyData.ColorAnimationProperty.AddCommand.#ctor(BEditor.Core.Data.PropertyData.ColorAnimationProperty,System.Int32)">
             <summary>
             
             </summary>
             <param name="colorProperty"></param>
             <param name="frame"></param>
         </member>
-        <member name="M:BEditor.Core.Data.PropertyData.ColorAnimationProperty.Remove.Do">
+        <member name="M:BEditor.Core.Data.PropertyData.ColorAnimationProperty.AddCommand.Do">
             <inheritdoc/>
         </member>
-        <member name="M:BEditor.Core.Data.PropertyData.ColorAnimationProperty.Remove.Redo">
+        <member name="M:BEditor.Core.Data.PropertyData.ColorAnimationProperty.AddCommand.Redo">
             <inheritdoc/>
         </member>
-        <member name="M:BEditor.Core.Data.PropertyData.ColorAnimationProperty.Remove.Undo">
+        <member name="M:BEditor.Core.Data.PropertyData.ColorAnimationProperty.AddCommand.Undo">
             <inheritdoc/>
         </member>
-        <member name="T:BEditor.Core.Data.PropertyData.ColorAnimationProperty.Move">
+        <member name="T:BEditor.Core.Data.PropertyData.ColorAnimationProperty.RemoveCommand">
             <summary>
             
             </summary>
         </member>
-        <member name="M:BEditor.Core.Data.PropertyData.ColorAnimationProperty.Move.#ctor(BEditor.Core.Data.PropertyData.ColorAnimationProperty,System.Int32,System.Int32)">
+        <member name="M:BEditor.Core.Data.PropertyData.ColorAnimationProperty.RemoveCommand.#ctor(BEditor.Core.Data.PropertyData.ColorAnimationProperty,System.Int32)">
+            <summary>
+            
+            </summary>
+            <param name="colorProperty"></param>
+            <param name="frame"></param>
+        </member>
+        <member name="M:BEditor.Core.Data.PropertyData.ColorAnimationProperty.RemoveCommand.Do">
+            <inheritdoc/>
+        </member>
+        <member name="M:BEditor.Core.Data.PropertyData.ColorAnimationProperty.RemoveCommand.Redo">
+            <inheritdoc/>
+        </member>
+        <member name="M:BEditor.Core.Data.PropertyData.ColorAnimationProperty.RemoveCommand.Undo">
+            <inheritdoc/>
+        </member>
+        <member name="T:BEditor.Core.Data.PropertyData.ColorAnimationProperty.MoveCommand">
+            <summary>
+            
+            </summary>
+        </member>
+        <member name="M:BEditor.Core.Data.PropertyData.ColorAnimationProperty.MoveCommand.#ctor(BEditor.Core.Data.PropertyData.ColorAnimationProperty,System.Int32,System.Int32)">
             <summary>
             
             </summary>
@@ -941,13 +964,13 @@
             <param name="fromIndex"></param>
             <param name="to"></param>
         </member>
-        <member name="M:BEditor.Core.Data.PropertyData.ColorAnimationProperty.Move.Do">
+        <member name="M:BEditor.Core.Data.PropertyData.ColorAnimationProperty.MoveCommand.Do">
             <inheritdoc/>
         </member>
-        <member name="M:BEditor.Core.Data.PropertyData.ColorAnimationProperty.Move.Redo">
+        <member name="M:BEditor.Core.Data.PropertyData.ColorAnimationProperty.MoveCommand.Redo">
             <inheritdoc/>
         </member>
-        <member name="M:BEditor.Core.Data.PropertyData.ColorAnimationProperty.Move.Undo">
+        <member name="M:BEditor.Core.Data.PropertyData.ColorAnimationProperty.MoveCommand.Undo">
             <inheritdoc/>
         </member>
         <member name="T:BEditor.Core.Data.PropertyData.ColorAnimationPropertyMetadata">
@@ -991,7 +1014,7 @@
         </member>
         <member name="T:BEditor.Core.Data.PropertyData.ColorProperty">
             <summary>
-            色のプロパティクラス
+            色を選択するプロパティを表します
             </summary>
         </member>
         <member name="M:BEditor.Core.Data.PropertyData.ColorProperty.#ctor(BEditor.Core.Data.PropertyData.ColorPropertyMetadata)">
@@ -1024,30 +1047,30 @@
         <member name="M:BEditor.Core.Data.PropertyData.ColorProperty.ToString">
             <inheritdoc/>
         </member>
-        <member name="T:BEditor.Core.Data.PropertyData.ColorProperty.ChangeColor">
+        <member name="T:BEditor.Core.Data.PropertyData.ColorProperty.ChangeColorCommand">
             <summary>
             色を変更するコマンド
             </summary>
             <remarks>このクラスは <see cref="M:BEditor.Core.Data.UndoRedoManager.Do(BEditor.Core.Data.IUndoRedoCommand)"/> と併用することでコマンドを記録できます</remarks>
         </member>
-        <member name="M:BEditor.Core.Data.PropertyData.ColorProperty.ChangeColor.#ctor(BEditor.Core.Data.PropertyData.ColorProperty,System.Byte,System.Byte,System.Byte,System.Byte)">
+        <member name="M:BEditor.Core.Data.PropertyData.ColorProperty.ChangeColorCommand.#ctor(BEditor.Core.Data.PropertyData.ColorProperty,System.Byte,System.Byte,System.Byte,System.Byte)">
             <summary>
-            <see cref="T:BEditor.Core.Data.PropertyData.ColorProperty.ChangeColor"/> クラスの新しいインスタンスを初期化します
+            <see cref="T:BEditor.Core.Data.PropertyData.ColorProperty.ChangeColorCommand"/> クラスの新しいインスタンスを初期化します
             </summary>
-            <param name="property">対象の <see cref="T:BEditor.Core.Data.PropertyData.ColorProperty.ChangeColor"/></param>
+            <param name="property">対象の <see cref="T:BEditor.Core.Data.PropertyData.ColorProperty"/></param>
             <param name="r">新しい <see cref="P:BEditor.Core.Data.PropertyData.ColorProperty.Red"/> の値</param>
             <param name="g">新しい <see cref="P:BEditor.Core.Data.PropertyData.ColorProperty.Green"/> の値</param>
             <param name="b">新しい <see cref="P:BEditor.Core.Data.PropertyData.ColorProperty.Blue"/> の値</param>
             <param name="a">新しい <see cref="P:BEditor.Core.Data.PropertyData.ColorProperty.Alpha"/> の値</param>
             <exception cref="T:System.ArgumentNullException"><paramref name="property"/> が <see langword="null"/> です</exception>
         </member>
-        <member name="M:BEditor.Core.Data.PropertyData.ColorProperty.ChangeColor.Do">
+        <member name="M:BEditor.Core.Data.PropertyData.ColorProperty.ChangeColorCommand.Do">
             <inheritdoc/>
         </member>
-        <member name="M:BEditor.Core.Data.PropertyData.ColorProperty.ChangeColor.Redo">
+        <member name="M:BEditor.Core.Data.PropertyData.ColorProperty.ChangeColorCommand.Redo">
             <inheritdoc/>
         </member>
-        <member name="M:BEditor.Core.Data.PropertyData.ColorProperty.ChangeColor.Undo">
+        <member name="M:BEditor.Core.Data.PropertyData.ColorProperty.ChangeColorCommand.Undo">
             <inheritdoc/>
         </member>
         <member name="T:BEditor.Core.Data.PropertyData.ColorPropertyMetadata">
@@ -1087,7 +1110,7 @@
         </member>
         <member name="T:BEditor.Core.Data.PropertyData.DocumentProperty">
             <summary>
-            複数行の文字のプロパティクラス
+            複数行の文字のプロパティを表します
             </summary>
         </member>
         <member name="M:BEditor.Core.Data.PropertyData.DocumentProperty.#ctor(BEditor.Core.Data.PropertyData.DocumentPropertyMetadata)">
@@ -1104,98 +1127,142 @@
         </member>
         <member name="P:BEditor.Core.Data.PropertyData.DocumentProperty.HeightProperty">
             <summary>
-            
+            高さを取得または設定します
             </summary>
         </member>
         <member name="M:BEditor.Core.Data.PropertyData.DocumentProperty.ToString">
             <inheritdoc/>
         </member>
-        <member name="T:BEditor.Core.Data.PropertyData.DocumentProperty.TextChangedCommand">
+        <member name="T:BEditor.Core.Data.PropertyData.DocumentProperty.TextChangeCommand">
             <summary>
             文字を変更するコマンド
             </summary>
             <remarks>このクラスは <see cref="M:BEditor.Core.Data.UndoRedoManager.Do(BEditor.Core.Data.IUndoRedoCommand)"/> と併用することでコマンドを記録できます</remarks>
         </member>
-        <member name="M:BEditor.Core.Data.PropertyData.DocumentProperty.TextChangedCommand.#ctor(BEditor.Core.Data.PropertyData.DocumentProperty,System.String)">
+        <member name="M:BEditor.Core.Data.PropertyData.DocumentProperty.TextChangeCommand.#ctor(BEditor.Core.Data.PropertyData.DocumentProperty,System.String)">
             <summary>
-            <see cref="T:BEditor.Core.Data.PropertyData.DocumentProperty.TextChangedCommand"/> クラスの新しいインスタンスを初期化します
+            <see cref="T:BEditor.Core.Data.PropertyData.DocumentProperty.TextChangeCommand"/> クラスの新しいインスタンスを初期化します
             </summary>
             <param name="property"></param>
             <param name="text"></param>
             <exception cref="T:System.ArgumentNullException"><paramref name="property"/> が <see langword="null"/> です</exception>
         </member>
-        <member name="M:BEditor.Core.Data.PropertyData.DocumentProperty.TextChangedCommand.Do">
+        <member name="M:BEditor.Core.Data.PropertyData.DocumentProperty.TextChangeCommand.Do">
             <inheritdoc/>
         </member>
-        <member name="M:BEditor.Core.Data.PropertyData.DocumentProperty.TextChangedCommand.Redo">
+        <member name="M:BEditor.Core.Data.PropertyData.DocumentProperty.TextChangeCommand.Redo">
             <inheritdoc/>
         </member>
-        <member name="M:BEditor.Core.Data.PropertyData.DocumentProperty.TextChangedCommand.Undo">
+        <member name="M:BEditor.Core.Data.PropertyData.DocumentProperty.TextChangeCommand.Undo">
             <inheritdoc/>
         </member>
         <member name="T:BEditor.Core.Data.PropertyData.DocumentPropertyMetadata">
             <summary>
-            
+            <see cref="T:BEditor.Core.Data.PropertyData.DocumentProperty"/> のメタデータ
             </summary>
-        </member>
-        <member name="M:BEditor.Core.Data.PropertyData.DocumentPropertyMetadata.#ctor(System.String)">
-            <summary>
-            
-            </summary>
-            <param name="text"></param>
         </member>
         <member name="M:BEditor.Core.Data.PropertyData.DocumentPropertyMetadata.#ctor(System.String,System.Nullable{System.Int32})">
             <summary>
-            
+            <see cref="T:BEditor.Core.Data.PropertyData.DocumentPropertyMetadata"/> クラスの新しいインスタンスを初期化します
             </summary>
-            <param name="text"></param>
-            <param name="height"></param>
+            <param name="text">デフォルトのテキスト</param>
+            <param name="height">高さ</param>
         </member>
         <member name="P:BEditor.Core.Data.PropertyData.DocumentPropertyMetadata.DefaultText">
             <summary>
-            
+            デフォルトのテキストを取得します
             </summary>
         </member>
         <member name="P:BEditor.Core.Data.PropertyData.DocumentPropertyMetadata.Height">
             <summary>
-            
+            高さを取得します
             </summary>
         </member>
         <member name="T:BEditor.Core.Data.PropertyData.EaseProperty">
             <summary>
-            
+            <see cref="T:System.Single"/> 型の値をイージングするプロパティを表します
             </summary>
         </member>
         <member name="P:BEditor.Core.Data.PropertyData.EaseProperty.Value">
             <summary>
-            
+            <see cref="P:BEditor.Core.Data.PropertyData.EaseProperty.Time"/> に対応する <see langword="float"/> 型の値の <see cref="T:System.Collections.ObjectModel.ObservableCollection`1"/> を取得します
             </summary>
+            <remarks>値の追加を行う場合は <see cref="M:BEditor.Core.Data.PropertyData.EaseProperty.InsertKeyframe(System.Int32,System.Single)"/> 、削除は <see cref="M:BEditor.Core.Data.PropertyData.EaseProperty.RemoveKeyframe(System.Int32,System.Single@)"/> を使用してください</remarks>
         </member>
         <member name="P:BEditor.Core.Data.PropertyData.EaseProperty.Time">
             <summary>
-            
+            <see cref="P:BEditor.Core.Data.PropertyData.EaseProperty.Value"/> に対応するフレーム番号の <see cref="T:System.Collections.Generic.List`1"/> を取得します
             </summary>
+            <remarks>値の追加を行う場合は <see cref="M:BEditor.Core.Data.PropertyData.EaseProperty.InsertKeyframe(System.Int32,System.Single)"/> 、削除は <see cref="M:BEditor.Core.Data.PropertyData.EaseProperty.RemoveKeyframe(System.Int32,System.Single@)"/> を使用してください</remarks>
         </member>
         <member name="P:BEditor.Core.Data.PropertyData.EaseProperty.EasingType">
             <summary>
-            
+            現在のイージング関数を取得または設定します
             </summary>
+        </member>
+        <member name="E:BEditor.Core.Data.PropertyData.EaseProperty.AddKeyFrameEvent">
+            <summary>
+            UIにキーフレームの追加を要求する場合に発生します
+            </summary>
+            <remarks>
+            <list type="bullet">
+            <item>
+            <term>frame</term>
+            <description>追加するフレーム番号</description>
+            </item>
+            <item>
+            <term>index</term>
+            <description><see cref="P:BEditor.Core.Data.PropertyData.EaseProperty.Time"/> のインデックス</description>
+            </item>
+            </list>
+            </remarks>
+        </member>
+        <member name="E:BEditor.Core.Data.PropertyData.EaseProperty.DeleteKeyFrameEvent">
+            <summary>
+            UIにキーフレームの削除を要求する場合に発生します
+            </summary>
+            <remarks>
+            <list type="bullet">
+            <item>
+            <term>e</term>
+            <description><see cref="P:BEditor.Core.Data.PropertyData.EaseProperty.Value"/> の削除するインデックス</description>
+            </item>
+            </list>
+            </remarks>
+        </member>
+        <member name="E:BEditor.Core.Data.PropertyData.EaseProperty.MoveKeyFrameEvent">
+            <summary>
+            UIにキーフレームの移動を要求する場合に発生します
+            </summary>
+            <remarks>
+            <list type="bullet">
+            <item>
+            <term>toindex</term>
+            <description><see cref="P:BEditor.Core.Data.PropertyData.EaseProperty.Time"/> の移動元のインデックス</description>
+            </item>
+            <item>
+            <term>toindex</term>
+            <description><see cref="P:BEditor.Core.Data.PropertyData.EaseProperty.Time"/> の移動先のインデックス</description>
+            </item>
+            </list>
+            </remarks>
         </member>
         <member name="P:BEditor.Core.Data.PropertyData.EaseProperty.Optional">
             <summary>
-            
+            追加の値を取得または設定します
             </summary>
         </member>
         <member name="P:BEditor.Core.Data.PropertyData.EaseProperty.EasingData">
             <summary>
-            
+            現在のイージングのデータを取得または設定します
             </summary>
         </member>
         <member name="M:BEditor.Core.Data.PropertyData.EaseProperty.#ctor(BEditor.Core.Data.PropertyData.EasePropertyMetadata)">
             <summary>
-            
+            <see cref="T:BEditor.Core.Data.PropertyData.EaseProperty"/> クラスの新しいインスタンスを初期化します
             </summary>
-            <param name="metadata"></param>
+            <param name="metadata">このプロパティの <see cref="T:BEditor.Core.Data.PropertyData.EasePropertyMetadata"/></param>
+            <exception cref="T:System.ArgumentNullException"><paramref name="metadata"/> が <see langword="null"/> です</exception>
         </member>
         <member name="P:BEditor.Core.Data.PropertyData.EaseProperty.Parent">
             <inheritdoc/>
@@ -1212,167 +1279,192 @@
         </member>
         <member name="M:BEditor.Core.Data.PropertyData.EaseProperty.InRange(System.Single)">
             <summary>
-            
+            <paramref name="value"/> が範囲外の場合その範囲に収まる値を、範囲内の場合 <paramref name="value"/> を返します
             </summary>
-            <param name="value"></param>
-            <returns></returns>
+            <param name="value">対象の値</param>
         </member>
-        <member name="T:BEditor.Core.Data.PropertyData.EaseProperty.ChangeValue">
+        <member name="M:BEditor.Core.Data.PropertyData.EaseProperty.InsertKeyframe(System.Int32,System.Single)">
             <summary>
-            
+            特定のフレームにキーフレームを挿入します
             </summary>
+            <param name="frame">追加するフレーム</param>
+            <param name="value">追加する値</param>
+            <returns>追加された <see cref="P:BEditor.Core.Data.PropertyData.EaseProperty.Value"/> のインデックス</returns>
+            <exception cref="T:System.ArgumentOutOfRangeException"><paramref name="frame"/> が 親要素の範囲外です</exception>
         </member>
-        <member name="M:BEditor.Core.Data.PropertyData.EaseProperty.ChangeValue.#ctor(BEditor.Core.Data.PropertyData.EaseProperty,System.Int32,System.Single)">
+        <member name="M:BEditor.Core.Data.PropertyData.EaseProperty.RemoveKeyframe(System.Int32,System.Single@)">
             <summary>
-            
+            特定のフレームのキーフレームを削除します
             </summary>
-            <param name="property"></param>
-            <param name="index"></param>
-            <param name="newvalue"></param>
+            <param name="frame">削除するフレーム</param>
+            <param name="value">削除された値</param>
+            <returns>削除された <see cref="P:BEditor.Core.Data.PropertyData.EaseProperty.Value"/> のインデックス</returns>
+            <exception cref="T:System.ArgumentOutOfRangeException"><paramref name="frame"/> が 親要素の範囲外です</exception>
         </member>
-        <member name="M:BEditor.Core.Data.PropertyData.EaseProperty.ChangeValue.Do">
+        <member name="M:BEditor.Core.Data.PropertyData.EaseProperty.ToString">
             <inheritdoc/>
         </member>
-        <member name="M:BEditor.Core.Data.PropertyData.EaseProperty.ChangeValue.Redo">
-            <inheritdoc/>
-        </member>
-        <member name="M:BEditor.Core.Data.PropertyData.EaseProperty.ChangeValue.Undo">
-            <inheritdoc/>
-        </member>
-        <member name="T:BEditor.Core.Data.PropertyData.EaseProperty.ChangeEase">
+        <member name="T:BEditor.Core.Data.PropertyData.EaseProperty.ChangeValueCommand">
             <summary>
-            
+            値を変更するコマンド
             </summary>
+            <remarks>このクラスは <see cref="M:BEditor.Core.Data.UndoRedoManager.Do(BEditor.Core.Data.IUndoRedoCommand)"/> と併用することでコマンドを記録できます</remarks>
         </member>
-        <member name="M:BEditor.Core.Data.PropertyData.EaseProperty.ChangeEase.#ctor(BEditor.Core.Data.PropertyData.EaseProperty,System.String)">
+        <member name="M:BEditor.Core.Data.PropertyData.EaseProperty.ChangeValueCommand.#ctor(BEditor.Core.Data.PropertyData.EaseProperty,System.Int32,System.Single)">
             <summary>
-            
+            <see cref="T:BEditor.Core.Data.PropertyData.EaseProperty.ChangeEaseCommand"/> クラスの新しいインスタンスを初期化します
             </summary>
-            <param name="property"></param>
-            <param name="type"></param>
+            <param name="property">対象の <see cref="T:BEditor.Core.Data.PropertyData.EaseProperty"/></param>
+            <param name="index">変更する <see cref="P:BEditor.Core.Data.PropertyData.EaseProperty.Value"/> のインデックス</param>
+            <param name="newvalue"><see cref="P:BEditor.Core.Data.PropertyData.EaseProperty.Value"/> の新しい値</param>
+            <exception cref="T:System.ArgumentNullException"><paramref name="property"/> が <see langword="null"/> です</exception>
+            <exception cref="T:System.IndexOutOfRangeException"><paramref name="index"/> が <see cref="P:BEditor.Core.Data.PropertyData.EaseProperty.Value"/> の範囲外です</exception>
         </member>
-        <member name="M:BEditor.Core.Data.PropertyData.EaseProperty.ChangeEase.Do">
+        <member name="M:BEditor.Core.Data.PropertyData.EaseProperty.ChangeValueCommand.Do">
             <inheritdoc/>
         </member>
-        <member name="M:BEditor.Core.Data.PropertyData.EaseProperty.ChangeEase.Redo">
+        <member name="M:BEditor.Core.Data.PropertyData.EaseProperty.ChangeValueCommand.Redo">
             <inheritdoc/>
         </member>
-        <member name="M:BEditor.Core.Data.PropertyData.EaseProperty.ChangeEase.Undo">
+        <member name="M:BEditor.Core.Data.PropertyData.EaseProperty.ChangeValueCommand.Undo">
             <inheritdoc/>
         </member>
-        <member name="T:BEditor.Core.Data.PropertyData.EaseProperty.Add">
+        <member name="T:BEditor.Core.Data.PropertyData.EaseProperty.ChangeEaseCommand">
             <summary>
-            
+            イージング関数を変更するコマンド
             </summary>
+            <remarks>このクラスは <see cref="M:BEditor.Core.Data.UndoRedoManager.Do(BEditor.Core.Data.IUndoRedoCommand)"/> と併用することでコマンドを記録できます</remarks>
         </member>
-        <member name="M:BEditor.Core.Data.PropertyData.EaseProperty.Add.#ctor(BEditor.Core.Data.PropertyData.EaseProperty,System.Int32)">
+        <member name="M:BEditor.Core.Data.PropertyData.EaseProperty.ChangeEaseCommand.#ctor(BEditor.Core.Data.PropertyData.EaseProperty,System.String)">
             <summary>
-            
+            <see cref="T:BEditor.Core.Data.PropertyData.EaseProperty.ChangeEaseCommand"/> クラスの新しいインスタンスを初期化します
             </summary>
-            <param name="easeProperty"></param>
-            <param name="frame"></param>
+            <param name="property">対象の <see cref="T:BEditor.Core.Data.PropertyData.EaseProperty"/></param>
+            <param name="type">新しいイージング関数の名前</param>
+            <exception cref="T:System.ArgumentNullException"><paramref name="property"/> が <see langword="null"/> です</exception>
+            <exception cref="T:System.Collections.Generic.KeyNotFoundException"><paramref name="type"/> という名前のイージング関数が見つかりませんでした</exception>
         </member>
-        <member name="M:BEditor.Core.Data.PropertyData.EaseProperty.Add.Do">
+        <member name="M:BEditor.Core.Data.PropertyData.EaseProperty.ChangeEaseCommand.Do">
             <inheritdoc/>
         </member>
-        <member name="M:BEditor.Core.Data.PropertyData.EaseProperty.Add.Redo">
+        <member name="M:BEditor.Core.Data.PropertyData.EaseProperty.ChangeEaseCommand.Redo">
             <inheritdoc/>
         </member>
-        <member name="M:BEditor.Core.Data.PropertyData.EaseProperty.Add.Undo">
+        <member name="M:BEditor.Core.Data.PropertyData.EaseProperty.ChangeEaseCommand.Undo">
             <inheritdoc/>
         </member>
-        <member name="T:BEditor.Core.Data.PropertyData.EaseProperty.Remove">
+        <member name="T:BEditor.Core.Data.PropertyData.EaseProperty.AddCommand">
             <summary>
-            
+            キーフレームを追加するコマンド
             </summary>
+            <remarks>このクラスは <see cref="M:BEditor.Core.Data.UndoRedoManager.Do(BEditor.Core.Data.IUndoRedoCommand)"/> と併用することでコマンドを記録できます</remarks>
         </member>
-        <member name="M:BEditor.Core.Data.PropertyData.EaseProperty.Remove.#ctor(BEditor.Core.Data.PropertyData.EaseProperty,System.Int32)">
+        <member name="M:BEditor.Core.Data.PropertyData.EaseProperty.AddCommand.#ctor(BEditor.Core.Data.PropertyData.EaseProperty,System.Int32)">
             <summary>
-            
+            <see cref="T:BEditor.Core.Data.PropertyData.EaseProperty.AddCommand"/> クラスの新しいインスタンスを初期化します
             </summary>
-            <param name="easeProperty"></param>
-            <param name="frame"></param>
+            <param name="property">対象の <see cref="T:BEditor.Core.Data.PropertyData.EaseProperty"/></param>
+            <param name="frame">追加するフレーム</param>
+            <exception cref="T:System.ArgumentNullException"><paramref name="property"/> が <see langword="null"/> です</exception>
+            <exception cref="T:System.ArgumentOutOfRangeException"><paramref name="frame"/> が 親要素の範囲外です</exception>
         </member>
-        <member name="M:BEditor.Core.Data.PropertyData.EaseProperty.Remove.Do">
+        <member name="M:BEditor.Core.Data.PropertyData.EaseProperty.AddCommand.Do">
             <inheritdoc/>
         </member>
-        <member name="M:BEditor.Core.Data.PropertyData.EaseProperty.Remove.Redo">
+        <member name="M:BEditor.Core.Data.PropertyData.EaseProperty.AddCommand.Redo">
             <inheritdoc/>
         </member>
-        <member name="M:BEditor.Core.Data.PropertyData.EaseProperty.Remove.Undo">
+        <member name="M:BEditor.Core.Data.PropertyData.EaseProperty.AddCommand.Undo">
             <inheritdoc/>
         </member>
-        <member name="T:BEditor.Core.Data.PropertyData.EaseProperty.Move">
+        <member name="T:BEditor.Core.Data.PropertyData.EaseProperty.RemoveCommand">
             <summary>
-            
+            キーフレームを削除するコマンド
             </summary>
+            <remarks>このクラスは <see cref="M:BEditor.Core.Data.UndoRedoManager.Do(BEditor.Core.Data.IUndoRedoCommand)"/> と併用することでコマンドを記録できます</remarks>
         </member>
-        <member name="M:BEditor.Core.Data.PropertyData.EaseProperty.Move.#ctor(BEditor.Core.Data.PropertyData.EaseProperty,System.Int32,System.Int32)">
+        <member name="M:BEditor.Core.Data.PropertyData.EaseProperty.RemoveCommand.#ctor(BEditor.Core.Data.PropertyData.EaseProperty,System.Int32)">
             <summary>
-            
+            <see cref="T:BEditor.Core.Data.PropertyData.EaseProperty.RemoveCommand"/> クラスの新しいインスタンスを初期化します
             </summary>
-            <param name="easeProperty"></param>
-            <param name="fromIndex"></param>
-            <param name="to"></param>
+            <param name="property">対象の <see cref="T:BEditor.Core.Data.PropertyData.EaseProperty"/></param>
+            <param name="frame">削除するフレーム</param>
+            <exception cref="T:System.ArgumentNullException"><paramref name="property"/> が <see langword="null"/> です</exception>
+            <exception cref="T:System.ArgumentOutOfRangeException"><paramref name="frame"/> が 親要素の範囲外です</exception>
         </member>
-        <member name="M:BEditor.Core.Data.PropertyData.EaseProperty.Move.Do">
+        <member name="M:BEditor.Core.Data.PropertyData.EaseProperty.RemoveCommand.Do">
             <inheritdoc/>
         </member>
-        <member name="M:BEditor.Core.Data.PropertyData.EaseProperty.Move.Redo">
+        <member name="M:BEditor.Core.Data.PropertyData.EaseProperty.RemoveCommand.Redo">
             <inheritdoc/>
         </member>
-        <member name="M:BEditor.Core.Data.PropertyData.EaseProperty.Move.Undo">
+        <member name="M:BEditor.Core.Data.PropertyData.EaseProperty.RemoveCommand.Undo">
+            <inheritdoc/>
+        </member>
+        <member name="T:BEditor.Core.Data.PropertyData.EaseProperty.MoveCommand">
+            <summary>
+            キーフレームを移動するコマンド
+            </summary>
+            <remarks>このクラスは <see cref="M:BEditor.Core.Data.UndoRedoManager.Do(BEditor.Core.Data.IUndoRedoCommand)"/> と併用することでコマンドを記録できます</remarks>
+        </member>
+        <member name="M:BEditor.Core.Data.PropertyData.EaseProperty.MoveCommand.#ctor(BEditor.Core.Data.PropertyData.EaseProperty,System.Int32,System.Int32)">
+            <summary>
+            <see cref="T:BEditor.Core.Data.PropertyData.EaseProperty.MoveCommand"/> クラスの新しいインスタンスを初期化します
+            </summary>
+            <param name="property">対象の <see cref="T:BEditor.Core.Data.PropertyData.EaseProperty"/></param>
+            <param name="fromIndex">移動するキーフレームの <see cref="P:BEditor.Core.Data.PropertyData.EaseProperty.Value"/> のインデックス</param>
+            <param name="to">移動先のフレーム番号</param>
+            <exception cref="T:System.ArgumentNullException"><paramref name="property"/> が <see langword="null"/> です</exception>
+            <exception cref="T:System.IndexOutOfRangeException"><paramref name="fromIndex"/> が <see cref="P:BEditor.Core.Data.PropertyData.EaseProperty.Value"/> の範囲外です</exception>
+            <exception cref="T:System.ArgumentOutOfRangeException"><paramref name="to"/> が 親要素の範囲外です</exception>
+        </member>
+        <member name="M:BEditor.Core.Data.PropertyData.EaseProperty.MoveCommand.Do">
+            <inheritdoc/>
+        </member>
+        <member name="M:BEditor.Core.Data.PropertyData.EaseProperty.MoveCommand.Redo">
+            <inheritdoc/>
+        </member>
+        <member name="M:BEditor.Core.Data.PropertyData.EaseProperty.MoveCommand.Undo">
             <inheritdoc/>
         </member>
         <member name="T:BEditor.Core.Data.PropertyData.EasePropertyMetadata">
             <summary>
-            
+            <see cref="T:BEditor.Core.Data.PropertyData.EaseProperty"/> のメタデータ
             </summary>
         </member>
         <member name="M:BEditor.Core.Data.PropertyData.EasePropertyMetadata.#ctor(System.String,System.Single,System.Single,System.Single,System.Boolean)">
             <summary>
-            
+            <see cref="T:BEditor.Core.Data.PropertyData.EasePropertyMetadata"/> クラスの新しいインスタンスを初期化します
             </summary>
-            <param name="name"></param>
-            <param name="defaultvalue"></param>
-            <param name="max"></param>
-            <param name="min"></param>
-            <param name="useoptional"></param>
         </member>
         <member name="M:BEditor.Core.Data.PropertyData.EasePropertyMetadata.#ctor(System.String,System.Single,BEditor.Core.Data.PropertyData.EasingSetting.EasingData,System.Single,System.Single,System.Boolean)">
             <summary>
-            
+            <see cref="T:BEditor.Core.Data.PropertyData.EasePropertyMetadata"/> クラスの新しいインスタンスを初期化します
             </summary>
-            <param name="name"></param>
-            <param name="defaultvalue"></param>
-            <param name="easingType"></param>
-            <param name="max"></param>
-            <param name="min"></param>
-            <param name="useoptional"></param>
         </member>
         <member name="P:BEditor.Core.Data.PropertyData.EasePropertyMetadata.DefaultValue">
             <summary>
-            
+            デフォルトの値を取得します
             </summary>
         </member>
         <member name="P:BEditor.Core.Data.PropertyData.EasePropertyMetadata.DefaultEase">
             <summary>
-            
+            デフォルトのイージングデータを取得します
             </summary>
         </member>
         <member name="P:BEditor.Core.Data.PropertyData.EasePropertyMetadata.Max">
             <summary>
-            
+            最大の値を取得します
             </summary>
         </member>
         <member name="P:BEditor.Core.Data.PropertyData.EasePropertyMetadata.Min">
             <summary>
-            
+            最小の値を取得します
             </summary>
         </member>
         <member name="P:BEditor.Core.Data.PropertyData.EasePropertyMetadata.UseOptional">
             <summary>
-            
+            追加の値を使用するかを取得します
             </summary>
         </member>
         <member name="T:BEditor.Core.Data.PropertyData.EasingSetting.DefaultEasing">
@@ -1454,123 +1546,155 @@
             ロード時の呼び出す
             </summary>
         </member>
+        <member name="T:BEditor.Core.Data.PropertyData.ExpandGroup">
+            <summary>
+            複数の <see cref="T:BEditor.Core.Data.PropertyData.PropertyElement"/> をエクスパンダーでまとめるクラス
+            </summary>
+        </member>
+        <member name="P:BEditor.Core.Data.PropertyData.ExpandGroup.IsExpanded">
+            <summary>
+            エクスパンダーが開いているかを取得または設定します
+            </summary>
+        </member>
+        <member name="M:BEditor.Core.Data.PropertyData.ExpandGroup.#ctor(BEditor.Core.Data.PropertyData.PropertyElementMetadata)">
+            <summary>
+            <see cref="T:BEditor.Core.Data.PropertyData.ExpandGroup"/> クラスの新しいインスタンスを初期化します
+            </summary>
+            <param name="metadata">このプロパティの <see cref="T:BEditor.Core.Data.PropertyData.PropertyElementMetadata"/></param>
+            <exception cref="T:System.ArgumentNullException"><paramref name="metadata"/> が <see langword="null"/> です</exception>
+        </member>
+        <member name="M:BEditor.Core.Data.PropertyData.ExpandGroup.ToString">
+            <inheritdoc/>
+        </member>
         <member name="T:BEditor.Core.Data.PropertyData.FileProperty">
             <summary>
-            
+            ファイルを選択するプロパティを表します
             </summary>
         </member>
         <member name="M:BEditor.Core.Data.PropertyData.FileProperty.#ctor(BEditor.Core.Data.PropertyData.FilePropertyMetadata)">
             <summary>
-            
+            <see cref="T:BEditor.Core.Data.PropertyData.FileProperty"/> クラスの新しいインスタンスを初期化します
             </summary>
-            <param name="file"></param>
+            <param name="metadata">このプロパティの <see cref="T:BEditor.Core.Data.PropertyData.FilePropertyMetadata"/></param>
+            <exception cref="T:System.ArgumentNullException"><paramref name="metadata"/> が <see langword="null"/> です</exception>
         </member>
         <member name="P:BEditor.Core.Data.PropertyData.FileProperty.File">
             <summary>
-            
+            ファイルの名前を取得または設定します
             </summary>
         </member>
-        <member name="T:BEditor.Core.Data.PropertyData.FileProperty.ChangePath">
-            <summary>
-            
-            </summary>
-        </member>
-        <member name="M:BEditor.Core.Data.PropertyData.FileProperty.ChangePath.#ctor(BEditor.Core.Data.PropertyData.FileProperty,System.String)">
-            <summary>
-            
-            </summary>
-            <param name="property"></param>
-            <param name="path"></param>
-        </member>
-        <member name="M:BEditor.Core.Data.PropertyData.FileProperty.ChangePath.Do">
+        <member name="M:BEditor.Core.Data.PropertyData.FileProperty.ToString">
             <inheritdoc/>
         </member>
-        <member name="M:BEditor.Core.Data.PropertyData.FileProperty.ChangePath.Redo">
+        <member name="T:BEditor.Core.Data.PropertyData.FileProperty.ChangeFileCommand">
+            <summary>
+            ファイルの名前を変更するコマンド
+            </summary>
+            <remarks>このクラスは <see cref="M:BEditor.Core.Data.UndoRedoManager.Do(BEditor.Core.Data.IUndoRedoCommand)"/> と併用することでコマンドを記録できます</remarks>
+        </member>
+        <member name="M:BEditor.Core.Data.PropertyData.FileProperty.ChangeFileCommand.#ctor(BEditor.Core.Data.PropertyData.FileProperty,System.String)">
+            <summary>
+            <see cref="T:BEditor.Core.Data.PropertyData.FileProperty.ChangeFileCommand"/> クラスの新しいインスタンスを初期化します
+            </summary>
+            <param name="property">対象の <see cref="T:BEditor.Core.Data.PropertyData.FileProperty"/></param>
+            <param name="path">新しい値</param>
+            <exception cref="T:System.ArgumentNullException"><paramref name="property"/> が <see langword="null"/> です</exception>
+        </member>
+        <member name="M:BEditor.Core.Data.PropertyData.FileProperty.ChangeFileCommand.Do">
             <inheritdoc/>
         </member>
-        <member name="M:BEditor.Core.Data.PropertyData.FileProperty.ChangePath.Undo">
+        <member name="M:BEditor.Core.Data.PropertyData.FileProperty.ChangeFileCommand.Redo">
+            <inheritdoc/>
+        </member>
+        <member name="M:BEditor.Core.Data.PropertyData.FileProperty.ChangeFileCommand.Undo">
             <inheritdoc/>
         </member>
         <member name="T:BEditor.Core.Data.PropertyData.FilePropertyMetadata">
             <summary>
-            
+            <see cref="T:BEditor.Core.Data.PropertyData.FileProperty"/> のメタデータを表します
             </summary>
-        </member>
-        <member name="M:BEditor.Core.Data.PropertyData.FilePropertyMetadata.#ctor(System.String)">
-            <summary>
-            
-            </summary>
-            <param name="name"></param>
         </member>
         <member name="M:BEditor.Core.Data.PropertyData.FilePropertyMetadata.#ctor(System.String,System.String,System.String,System.String)">
             <summary>
-            
+            <see cref="T:BEditor.Core.Data.PropertyData.FilePropertyMetadata"/> クラスの新しいインスタンスを初期化します
             </summary>
-            <param name="name"></param>
-            <param name="defaultfile"></param>
-            <param name="defaultfilter"></param>
-            <param name="defaultfiltername"></param>
         </member>
         <member name="P:BEditor.Core.Data.PropertyData.FilePropertyMetadata.DefaultFile">
             <summary>
-            
+            デフォルトのファイル名を取得します
             </summary>
         </member>
         <member name="P:BEditor.Core.Data.PropertyData.FilePropertyMetadata.Filter">
             <summary>
-            
+            フィルターを取得します
             </summary>
         </member>
         <member name="P:BEditor.Core.Data.PropertyData.FilePropertyMetadata.FilterName">
             <summary>
-            
+            フィルターの名前を取得します
             </summary>
         </member>
         <member name="T:BEditor.Core.Data.PropertyData.FontProperty">
             <summary>
-            
+            フォントを選択するプロパティ表します
             </summary>
         </member>
         <member name="M:BEditor.Core.Data.PropertyData.FontProperty.#ctor(BEditor.Core.Data.PropertyData.FontPropertyMetadata)">
             <summary>
-            
+            <see cref="T:BEditor.Core.Data.PropertyData.FontProperty"/> クラスの新しいインスタンスを初期化します
             </summary>
-            <param name="metadata"></param>
+            <param name="metadata">このプロパティの <see cref="T:BEditor.Core.Data.PropertyData.FontPropertyMetadata"/></param>
+            <exception cref="T:System.ArgumentNullException"><paramref name="metadata"/> が <see langword="null"/> です</exception>
         </member>
         <member name="P:BEditor.Core.Data.PropertyData.FontProperty.Select">
             <summary>
-            
+            選択されているフォントを取得または設定します
             </summary>
         </member>
-        <member name="T:BEditor.Core.Data.PropertyData.FontProperty.ChangeSelect">
+        <member name="M:BEditor.Core.Data.PropertyData.FontProperty.ToString">
+            <inheritdoc/>
+        </member>
+        <member name="T:BEditor.Core.Data.PropertyData.FontProperty.ChangeSelectCommand">
             <summary>
-            
+            フォントを変更するコマンド
             </summary>
+            <remarks>このクラスは <see cref="M:BEditor.Core.Data.UndoRedoManager.Do(BEditor.Core.Data.IUndoRedoCommand)"/> と併用することでコマンドを記録できます</remarks>
         </member>
-        <member name="M:BEditor.Core.Data.PropertyData.FontProperty.ChangeSelect.#ctor(BEditor.Core.Data.PropertyData.FontProperty,BEditor.Core.Media.FontRecord)">
+        <member name="M:BEditor.Core.Data.PropertyData.FontProperty.ChangeSelectCommand.#ctor(BEditor.Core.Data.PropertyData.FontProperty,BEditor.Core.Media.FontRecord)">
             <summary>
-            
+            <see cref="T:BEditor.Core.Data.PropertyData.FontProperty.ChangeSelectCommand"/> クラスの新しいインスタンスを初期化します
             </summary>
-            <param name="property"></param>
-            <param name="select"></param>
+            <param name="property">対象の <see cref="T:BEditor.Core.Data.PropertyData.FontProperty"/></param>
+            <param name="select">新しい値</param>
+            <exception cref="T:System.ArgumentNullException"><paramref name="property"/> または <paramref name="select"/> が <see langword="null"/> です</exception>
         </member>
-        <member name="M:BEditor.Core.Data.PropertyData.FontProperty.ChangeSelect.Do">
+        <member name="M:BEditor.Core.Data.PropertyData.FontProperty.ChangeSelectCommand.Do">
             <inheritdoc/>
         </member>
-        <member name="M:BEditor.Core.Data.PropertyData.FontProperty.ChangeSelect.Redo">
+        <member name="M:BEditor.Core.Data.PropertyData.FontProperty.ChangeSelectCommand.Redo">
             <inheritdoc/>
         </member>
-        <member name="M:BEditor.Core.Data.PropertyData.FontProperty.ChangeSelect.Undo">
+        <member name="M:BEditor.Core.Data.PropertyData.FontProperty.ChangeSelectCommand.Undo">
             <inheritdoc/>
+        </member>
+        <member name="F:BEditor.Core.Data.PropertyData.FontProperty.FontList">
+            <summary>
+            読み込まれているフォントのリスト
+            </summary>
+        </member>
+        <member name="F:BEditor.Core.Data.PropertyData.FontProperty.FontStylesList">
+            <summary>
+            フォントのスタイルのリスト
+            </summary>
         </member>
         <member name="T:BEditor.Core.Data.PropertyData.FontPropertyMetadata">
             <summary>
-            
+            <see cref="T:BEditor.Core.Data.PropertyData.FontProperty"/> のメタデータを表します
             </summary>
         </member>
         <member name="M:BEditor.Core.Data.PropertyData.FontPropertyMetadata.#ctor">
             <summary>
-            
+            <see cref="T:BEditor.Core.Data.PropertyData.FontPropertyMetadata"/> クラスの新しいインスタンスを初期化します
             </summary>
         </member>
         <member name="P:BEditor.Core.Data.PropertyData.FontPropertyMetadata.ItemSource">
@@ -1588,40 +1712,73 @@
             
             </summary>
         </member>
+        <member name="T:BEditor.Core.Data.PropertyData.Group">
+            <summary>
+            <see cref="T:BEditor.Core.Data.PropertyData.PropertyElement"/> をまとめるクラス
+            </summary>
+        </member>
+        <member name="P:BEditor.Core.Data.PropertyData.Group.GroupItems">
+            <summary>
+            グループにする <see cref="T:BEditor.Core.Data.PropertyData.PropertyElement"/> を取得します
+            </summary>
+        </member>
+        <member name="P:BEditor.Core.Data.PropertyData.Group.Parent">
+            <inheritdoc/>
+        </member>
+        <member name="M:BEditor.Core.Data.PropertyData.Group.PropertyLoaded">
+            <inheritdoc/>
+        </member>
+        <member name="T:BEditor.Core.Data.PropertyData.IKeyFrameProperty">
+            <summary>
+            タイムライン上に編集画面を持つプロパティを表します
+            </summary>
+        </member>
+        <member name="P:BEditor.Core.Data.PropertyData.IKeyFrameProperty.Scene">
+            <summary>
+            シーンを取得します
+            </summary>
+        </member>
+        <member name="P:BEditor.Core.Data.PropertyData.IKeyFrameProperty.ComponentData">
+            <summary>
+            UIなどのキャッシュを入れる配列を取得します
+            </summary>
+        </member>
         <member name="T:BEditor.Core.Data.PropertyData.PropertyElement">
             <summary>
-            プロパティのベースクラス
-            <para>UIへのアクセスが必要な場合SettingControlのGetterでアクセス</para>
+            編集画面を持つプロパティを表します
             </summary>
         </member>
         <member name="P:BEditor.Core.Data.PropertyData.PropertyElement.Parent">
             <summary>
-            
+            このプロパティの親要素を取得します
             </summary>
         </member>
         <member name="P:BEditor.Core.Data.PropertyData.PropertyElement.ClipData">
             <summary>
-            
+            <see cref="P:BEditor.Core.Data.PropertyData.PropertyElement.Parent"/> から <see cref="T:BEditor.Core.Data.ObjectData.ClipData"/> を取得します
             </summary>
         </member>
         <member name="P:BEditor.Core.Data.PropertyData.PropertyElement.Scene">
             <summary>
-            
+            <see cref="P:BEditor.Core.Data.PropertyData.PropertyElement.ClipData"/> から <see cref="T:BEditor.Core.Data.ProjectData.Scene"/> を取得します
             </summary>
         </member>
         <member name="P:BEditor.Core.Data.PropertyData.PropertyElement.PropertyMetadata">
             <summary>
-            
+            プロパティのメタデータを取得または設定します
             </summary>
         </member>
         <member name="M:BEditor.Core.Data.PropertyData.PropertyElement.PropertyLoaded">
             <summary>
-            初期化時とデシリアライズ時に呼び出される
+            初期化時とデシリアライズ時に呼び出されます
             </summary>
+        </member>
+        <member name="M:BEditor.Core.Data.PropertyData.PropertyElement.ToString">
+            <inheritdoc/>
         </member>
         <member name="T:BEditor.Core.Data.PropertyData.PropertyElementMetadata">
             <summary>
-            
+            <see cref="T:BEditor.Core.Data.PropertyData.PropertyElement"/> のメタデータを表します
             </summary>
         </member>
         <member name="M:BEditor.Core.Data.PropertyData.PropertyElementMetadata.#ctor(System.String)">

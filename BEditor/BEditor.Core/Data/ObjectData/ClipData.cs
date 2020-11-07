@@ -1,5 +1,6 @@
 ﻿using System;
 using System.Collections.ObjectModel;
+using System.ComponentModel.DataAnnotations;
 using System.Diagnostics.Contracts;
 using System.IO;
 using System.Linq;
@@ -50,22 +51,13 @@ namespace BEditor.Core.Data.ObjectData {
         /// <summary>
         /// IDを取得します
         /// </summary>
-        [DataMember(Name = "Id", Order = 0)]
+        [DataMember(Order = 0)]
         public uint Id { get; private set; }
 
         /// <summary>
         /// 名前を取得します
         /// </summary>
-        public string Name {
-            get {
-                if (name == null) {
-                    name = $"{Type.Name}{Id}";
-                }
-
-                return name;
-            }
-            private set => name = value;
-        }
+        public string Name => name ??= $"{Type.Name}{Id}";
 
 
         /// <summary>
@@ -204,7 +196,7 @@ namespace BEditor.Core.Data.ObjectData {
         /// <see cref="ClipData"/> を <see cref="ProjectData.Scene"/> に追加するコマンド
         /// </summary>
         /// <remarks>このクラスは <see cref="UndoRedoManager.Do(IUndoRedoCommand)"/> と併用することでコマンドを記録できます</remarks>
-        public class Add : IUndoRedoCommand {
+        public class AddCommand : IUndoRedoCommand {
             private readonly Scene Scene;
             private readonly int AddFrame;
             private readonly int AddLayer;
@@ -212,17 +204,21 @@ namespace BEditor.Core.Data.ObjectData {
             public ClipData data;
 
             /// <summary>
-            /// <see cref="Add"/> クラスの新しいインスタンスを初期化します
+            /// <see cref="AddCommand"/> クラスの新しいインスタンスを初期化します
             /// </summary>
             /// <param name="scene">対象のシーン</param>
             /// <param name="addframe">配置するフレーム</param>
             /// <param name="layer">配置するレイヤー</param>
             /// <param name="type">クリップの種類</param>
-            public Add(Scene scene, int addframe, int layer, Type type) {
-                Scene = scene;
-                AddFrame = addframe;
-                AddLayer = layer;
-                Type = type;
+            /// <exception cref="ArgumentNullException"><paramref name="scene"/> が <see langword="null"/> です</exception>
+            /// <exception cref="ArgumentNullException"><paramref name="type"/> が <see langword="null"/> です</exception>
+            /// <exception cref="ArgumentOutOfRangeException"><paramref name="addframe"/> が0以下です</exception>
+            /// <exception cref="ArgumentOutOfRangeException"><paramref name="layer"/> が0以下です</exception>
+            public AddCommand(Scene scene, int addframe, int layer, Type type) {
+                Scene = scene ?? throw new ArgumentNullException(nameof(scene));
+                AddFrame = (0 > addframe) ? throw new ArgumentOutOfRangeException(nameof(addframe)) : addframe;
+                AddLayer = (0 > layer) ? throw new ArgumentOutOfRangeException(nameof(layer)) : layer;
+                Type = type ?? throw new ArgumentNullException(nameof(type));
             }
 
 
@@ -290,14 +286,15 @@ namespace BEditor.Core.Data.ObjectData {
         /// <see cref="ProjectData.Scene"/> から <see cref="ClipData"/> を削除するコマンド
         /// </summary>
         /// <remarks>このクラスは <see cref="UndoRedoManager.Do(IUndoRedoCommand)"/> と併用することでコマンドを記録できます</remarks>
-        public class Remove : IUndoRedoCommand {
+        public class RemoveCommand : IUndoRedoCommand {
             private readonly ClipData data;
 
             /// <summary>
-            /// <see cref="Remove"/> クラスの新しいインスタンスを初期化します
+            /// <see cref="RemoveCommand"/> クラスの新しいインスタンスを初期化します
             /// </summary>
             /// <param name="data">対象の <see cref="ClipData"/></param>
-            public Remove(ClipData data) => this.data = data;
+            /// <exception cref="ArgumentNullException"><paramref name="data"/> が <see langword="null"/> です</exception>
+            public RemoveCommand(ClipData data) => this.data = data ?? throw new ArgumentNullException(nameof(data));
 
 
             /// <inheritdoc/>
@@ -336,7 +333,7 @@ namespace BEditor.Core.Data.ObjectData {
         /// <see cref="ClipData"/> のフレームとレイヤーを移動するコマンド
         /// </summary>
         /// <remarks>このクラスは <see cref="UndoRedoManager.Do(IUndoRedoCommand)"/> と併用することでコマンドを記録できます</remarks>
-        public class Move : IUndoRedoCommand {
+        public class MoveCommand : IUndoRedoCommand {
             private readonly ClipData data;
             private readonly int to;
             private readonly int from;
@@ -346,33 +343,37 @@ namespace BEditor.Core.Data.ObjectData {
 
             #region コンストラクタ
             /// <summary>
-            /// <see cref="Move"/> クラスの新しいインスタンスを初期化します
+            /// <see cref="MoveCommand"/> クラスの新しいインスタンスを初期化します
             /// </summary>
             /// <param name="data">対象のクリップ</param>
             /// <param name="to">新しい開始フレーム</param>
             /// <param name="tolayer">新しい配置レイヤー</param>
-            public Move(ClipData data, int to, int tolayer) {
-                this.data = data;
-                this.to = to;
+            /// <exception cref="ArgumentNullException"><paramref name="data"/> が <see langword="null"/> です</exception>
+            /// <exception cref="ArgumentOutOfRangeException"><paramref name="to"/> または <paramref name="tolayer"/> が0以下です</exception>
+            public MoveCommand(ClipData data, int to, int tolayer) {
+                this.data = data ?? throw new ArgumentNullException(nameof(data));
+                this.to = (0 > to) ? throw new ArgumentOutOfRangeException(nameof(to)) : to;
                 from = data.Start;
-                this.tolayer = tolayer;
+                this.tolayer = (0 > tolayer) ? throw new ArgumentOutOfRangeException(nameof(tolayer)) : tolayer;
                 fromlayer = data.Layer;
             }
 
             /// <summary>
-            /// <see cref="Move"/>クラスの新しいインスタンスを初期化します
+            /// <see cref="MoveCommand"/>クラスの新しいインスタンスを初期化します
             /// </summary>
             /// <param name="data">対象のクリップ</param>
             /// <param name="to">新しい開始フレーム</param>
             /// <param name="from">古い開始フレーム</param>
             /// <param name="tolayer">新しい配置レイヤー</param>
             /// <param name="fromlayer">古い配置レイヤー</param>
-            public Move(ClipData data, int to, int from, int tolayer, int fromlayer) {
-                this.data = data;
-                this.to = to;
-                this.from = from;
-                this.tolayer = tolayer;
-                this.fromlayer = fromlayer;
+            /// <exception cref="ArgumentNullException"><paramref name="data"/> が <see langword="null"/> です</exception>
+            /// <exception cref="ArgumentOutOfRangeException"><paramref name="to"/>, <paramref name="from"/>, <paramref name="tolayer"/>, <paramref name="fromlayer"/> が0以下です</exception>
+            public MoveCommand(ClipData data, int to, int from, int tolayer, int fromlayer) {
+                this.data = data ?? throw new ArgumentNullException(nameof(data));
+                this.to = (0 > to) ? throw new ArgumentOutOfRangeException(nameof(to)) : to;
+                this.from = (0 > from) ? throw new ArgumentOutOfRangeException(nameof(from)) : from;
+                this.tolayer = (0 > tolayer) ? throw new ArgumentOutOfRangeException(nameof(tolayer)) : tolayer;
+                this.fromlayer = (0 > fromlayer) ? throw new ArgumentOutOfRangeException(nameof(fromlayer)) : fromlayer;
             }
             #endregion
 
@@ -408,7 +409,7 @@ namespace BEditor.Core.Data.ObjectData {
         /// <see cref="ClipData"/> の長さを変更するコマンド
         /// </summary>
         /// <remarks>このクラスは <see cref="UndoRedoManager.Do(IUndoRedoCommand)"/> と併用することでコマンドを記録できます</remarks>
-        public class LengthChange : IUndoRedoCommand {
+        public class LengthChangeCommand : IUndoRedoCommand {
             private readonly ClipData data;
             private readonly int start;
             private readonly int end;
@@ -416,33 +417,32 @@ namespace BEditor.Core.Data.ObjectData {
             private readonly int oldend;
 
             /// <summary>
-            /// <see cref="LengthChange"/> クラスの新しいインスタンスを初期化します
+            /// <see cref="LengthChangeCommand"/> クラスの新しいインスタンスを初期化します
             /// </summary>
             /// <param name="data">対象のクリップ</param>
             /// <param name="start">開始フレーム</param>
             /// <param name="end">終了フレーム</param>
-            public LengthChange(ClipData data, int start, int end) {
-                this.data = data;
-                this.start = start;
-                this.end = end;
+            /// <exception cref="ArgumentNullException"><paramref name="data"/> が <see langword="null"/> です</exception>
+            /// <exception cref="ArgumentOutOfRangeException"><paramref name="start"/> または <paramref name="end"/> が0以下です</exception>
+            public LengthChangeCommand(ClipData data, int start, int end) {
+                this.data = data ?? throw new ArgumentNullException(nameof(data));
+                this.start = (0 > start) ? throw new ArgumentOutOfRangeException(nameof(start)) : start;
+                this.end = (0 > end) ? throw new ArgumentOutOfRangeException(nameof(end)) : end;
                 oldstart = data.Start;
                 oldend = data.End;
             }
 
 
             /// <inheritdoc/>
-            [Pure]
             public void Do() {
                 data.Start = start;
                 data.End = end;
             }
 
             /// <inheritdoc/>
-            [Pure]
             public void Redo() => Do();
 
             /// <inheritdoc/>
-            [Pure]
             public void Undo() {
                 data.Start = oldstart;
                 data.End = oldend;
@@ -464,28 +464,5 @@ namespace BEditor.Core.Data.ObjectData {
         public static readonly Type Camera = typeof(CameraObject);
         public static readonly Type GL3DObject = typeof(GL3DObject);
         public static readonly Type Scene = typeof(DefaultData.Scene);
-    }
-
-    public static class DataTools {
-
-        /// <summary>
-        /// ファイルの名前から適切なクリップの種類を返します
-        /// </summary>
-        /// <param name="file">ファイルの名前</param>
-        /// <returns>System.Type</returns>
-        public static Type FileTypeConvert(string file) {
-            var ex = Path.GetExtension(file);
-            if (ex is ".avi" or ".mp4") {
-                return ClipType.Video;
-            }
-            else if (ex is ".jpg" or ".jpeg" or ".png" or ".bmp") {
-                return ClipType.Image;
-            }
-            else if (ex is ".txt") {
-                return ClipType.Text;
-            }
-
-            return ClipType.Figure;
-        }
     }
 }

@@ -167,7 +167,7 @@ namespace BEditor.Core.Data.PropertyData {
 
         #region キーフレーム操作
 
-        private int InsertKeyframe(int frame, Color value) {
+        public int InsertKeyframe(int frame, Color value) {
             Frame.Add(frame);
 
 
@@ -186,7 +186,7 @@ namespace BEditor.Core.Data.PropertyData {
             return stindex;
         }
 
-        private int RemoveKeyframe(int frame, out Color value) {
+        public int RemoveKeyframe(int frame, out Color value) {
             var index = Frame.IndexOf(frame) + 1;//値基準のindex
             value = Value[index];
 
@@ -204,7 +204,7 @@ namespace BEditor.Core.Data.PropertyData {
         /// <summary>
         /// 
         /// </summary>
-        public sealed class ChangeColor : IUndoRedoCommand {
+        public sealed class ChangeColorCommand : IUndoRedoCommand {
             private readonly ColorAnimationProperty Color;
             private readonly int index;
             private readonly byte r, g, b, a;
@@ -219,7 +219,7 @@ namespace BEditor.Core.Data.PropertyData {
             /// <param name="g"></param>
             /// <param name="b"></param>
             /// <param name="a"></param>
-            public ChangeColor(ColorAnimationProperty color, int index, byte r, byte g, byte b, byte a) {
+            public ChangeColorCommand(ColorAnimationProperty color, int index, byte r, byte g, byte b, byte a) {
                 Color = color;
                 this.index = index;
 
@@ -240,7 +240,7 @@ namespace BEditor.Core.Data.PropertyData {
         /// <summary>
         /// 
         /// </summary>
-        public sealed class ChangeEase : IUndoRedoCommand {
+        public sealed class ChangeEaseCommand : IUndoRedoCommand {
             private readonly ColorAnimationProperty ColorProperty;
             private readonly EasingFunc EasingNumber;
             private readonly EasingFunc OldEasingNumber;
@@ -250,7 +250,7 @@ namespace BEditor.Core.Data.PropertyData {
             /// </summary>
             /// <param name="easingList"></param>
             /// <param name="type"></param>
-            public ChangeEase(ColorAnimationProperty easingList, string type) {
+            public ChangeEaseCommand(ColorAnimationProperty easingList, string type) {
                 ColorProperty = easingList;
                 EasingNumber = (EasingFunc)Activator.CreateInstance(EasingFunc.LoadedEasingFunc.Find(x => x.Name == type).Type);
                 EasingNumber.Parent = easingList;
@@ -272,7 +272,7 @@ namespace BEditor.Core.Data.PropertyData {
         /// <summary>
         /// 
         /// </summary>
-        public sealed class Add : IUndoRedoCommand {
+        public sealed class AddCommand : IUndoRedoCommand {
             private readonly ColorAnimationProperty ColorProperty;
             private readonly int frame;
 
@@ -281,7 +281,7 @@ namespace BEditor.Core.Data.PropertyData {
             /// </summary>
             /// <param name="colorProperty"></param>
             /// <param name="frame"></param>
-            public Add(ColorAnimationProperty colorProperty, int frame) {
+            public AddCommand(ColorAnimationProperty colorProperty, int frame) {
                 ColorProperty = colorProperty;
                 this.frame = frame;
             }
@@ -306,7 +306,7 @@ namespace BEditor.Core.Data.PropertyData {
         /// <summary>
         /// 
         /// </summary>
-        public sealed class Remove : IUndoRedoCommand {
+        public sealed class RemoveCommand : IUndoRedoCommand {
             private readonly ColorAnimationProperty ColorProperty;
             private readonly int frame;
             private Color value;
@@ -316,7 +316,7 @@ namespace BEditor.Core.Data.PropertyData {
             /// </summary>
             /// <param name="colorProperty"></param>
             /// <param name="frame"></param>
-            public Remove(ColorAnimationProperty colorProperty, int frame) {
+            public RemoveCommand(ColorAnimationProperty colorProperty, int frame) {
                 ColorProperty = colorProperty;
                 this.frame = frame;
             }
@@ -341,7 +341,7 @@ namespace BEditor.Core.Data.PropertyData {
         /// <summary>
         /// 
         /// </summary>
-        public sealed class Move : IUndoRedoCommand {
+        public sealed class MoveCommand : IUndoRedoCommand {
             private readonly ColorAnimationProperty ColorProperty;
             private readonly int fromIndex;
             private int toIndex;
@@ -353,7 +353,7 @@ namespace BEditor.Core.Data.PropertyData {
             /// <param name="colorProperty"></param>
             /// <param name="fromIndex"></param>
             /// <param name="to"></param>
-            public Move(ColorAnimationProperty colorProperty, int fromIndex, int to) {
+            public MoveCommand(ColorAnimationProperty colorProperty, int fromIndex, int to) {
                 ColorProperty = colorProperty;
                 this.fromIndex = fromIndex;
                 this.to = to;

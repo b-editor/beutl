@@ -5,7 +5,7 @@ using BEditor.Core.Data.PropertyData.EasingSetting;
 
 namespace BEditor.Core.Data.PropertyData {
     /// <summary>
-    /// チェックボックスのプロパティクラス
+    /// チェックボックスのプロパティを表します
     /// </summary>
     [DataContract(Namespace = "")]
     public sealed class CheckProperty : PropertyElement, IEasingSetting {
@@ -36,17 +36,17 @@ namespace BEditor.Core.Data.PropertyData {
         /// チェックされているかを変更するコマンド
         /// </summary>
         /// <remarks>このクラスは <see cref="UndoRedoManager.Do(IUndoRedoCommand)"/> と併用することでコマンドを記録できます</remarks>
-        public sealed class ChangeChecked : IUndoRedoCommand {
+        public sealed class ChangeCheckedCommand : IUndoRedoCommand {
             private readonly CheckProperty CheckSetting;
             private readonly bool value;
 
             /// <summary>
-            /// <see cref="ChangeChecked"/> クラスの新しいインスタンスを初期化します
+            /// <see cref="ChangeCheckedCommand"/> クラスの新しいインスタンスを初期化します
             /// </summary>
             /// <param name="property">対象の <see cref="CheckProperty"/></param>
             /// <param name="value">新しい値</param>
             /// <exception cref="ArgumentNullException"><paramref name="property"/> が <see langword="null"/> です</exception>
-            public ChangeChecked(CheckProperty property, bool value) {
+            public ChangeCheckedCommand(CheckProperty property, bool value) {
                 CheckSetting = property ?? throw new ArgumentNullException(nameof(property));
                 this.value = value;
             }
@@ -63,7 +63,7 @@ namespace BEditor.Core.Data.PropertyData {
     }
 
     /// <summary>
-    /// <see cref="CheckProperty"/> のメタデータ
+    /// <see cref="CheckProperty"/> のメタデータを表します
     /// </summary>
     public class CheckPropertyMetadata : PropertyElementMetadata {
         /// <summary>

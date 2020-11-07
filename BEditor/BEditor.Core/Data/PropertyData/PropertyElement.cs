@@ -7,56 +7,55 @@ using BEditor.Core.Data.ProjectData;
 
 namespace BEditor.Core.Data.PropertyData {
     /// <summary>
-    /// プロパティのベースクラス
-    /// <para>UIへのアクセスが必要な場合SettingControlのGetterでアクセス</para>
+    /// 編集画面を持つプロパティを表します
     /// </summary>
     [DataContract(Namespace = "")]
     public abstract class PropertyElement : ComponentObject {
+        private PropertyElementMetadata propertyMetadata;
+
+
         /// <summary>
-        /// 
+        /// このプロパティの親要素を取得します
         /// </summary>
         public virtual EffectElement Parent { get; set; }
         /// <summary>
-        /// 
+        /// <see cref="Parent"/> から <see cref="ObjectData.ClipData"/> を取得します
         /// </summary>
         public ClipData ClipData => Parent.ClipData;
         /// <summary>
-        /// 
+        /// <see cref="ClipData"/> から <see cref="ProjectData.Scene"/> を取得します
         /// </summary>
         public Scene Scene => ClipData.Scene;
 
-
-        private PropertyElementMetadata propertyMetadata;
-
         /// <summary>
-        /// 
+        /// プロパティのメタデータを取得または設定します
         /// </summary>
         public PropertyElementMetadata PropertyMetadata { get => propertyMetadata; set => SetValue(value, ref propertyMetadata, nameof(PropertyMetadata)); }
 
         /// <summary>
-        /// 初期化時とデシリアライズ時に呼び出される
+        /// 初期化時とデシリアライズ時に呼び出されます
         /// </summary>
         public virtual void PropertyLoaded() {
 
         }
 
+        /// <inheritdoc/>
         public override string ToString() => $"(Name:{PropertyMetadata?.Name})";
     }
 
     /// <summary>
-    /// 
+    /// <see cref="PropertyElement"/> のメタデータを表します
     /// </summary>
     public class PropertyElementMetadata {
 
         /// <summary>
-        /// 
+        /// <see cref="PropertyElementMetadata"/> クラスの新しいインスタンスを初期化します
         /// </summary>
-        /// <param name="name"></param>
         public PropertyElementMetadata(string name) => Name = name;
 
         /// <summary>
-        /// 
+        /// プロパティの名前を取得します
         /// </summary>
-        public string Name { get; protected set; }
+        public string Name { get; }
     }
 }
