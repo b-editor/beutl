@@ -27,7 +27,6 @@ using BEditor.Core.Interfaces;
 using MaterialDesignThemes.Wpf;
 
 using Microsoft.WindowsAPICodePack.Dialogs;
-
 using Image = BEditor.Core.Media.Image;
 using Resources_ = BEditor.Core.Properties.Resources;
 using BEditor.Core.Media;
@@ -115,7 +114,7 @@ namespace BEditor {
 
             SetFont();
             SetColor();
-
+            
             //Componentにset
 
             Component.Funcs.CreateRenderingContext = (width, height) => {
@@ -140,7 +139,7 @@ namespace BEditor {
             Message.SnackberFunc += (text) => MainWindowViewModel.Current.MessageQueue.Enqueue(text);
         }
         
-        internal static (CustomTreeView, VirtualizingStackPanel) CreateTreeObject(ObjectElement obj) {
+        public static (CustomTreeView, VirtualizingStackPanel) CreateTreeObject(ObjectElement obj) {
             CustomTreeView _expander = new CustomTreeView() {
                 HeaderHeight = 35F
             };
@@ -205,7 +204,7 @@ namespace BEditor {
 
             return (_expander, stack);
         }
-        internal static (CustomTreeView, VirtualizingStackPanel) CreateTreeEffect(EffectElement effect) {
+        public static (CustomTreeView, VirtualizingStackPanel) CreateTreeEffect(EffectElement effect) {
             var data = effect.ClipData;
 
             CustomTreeView _expander = new CustomTreeView() { HeaderHeight = 35F };
@@ -284,7 +283,7 @@ namespace BEditor {
         }
 
 
-        internal class SaveDialog : ISaveFileDialog {
+        public class SaveDialog : ISaveFileDialog {
             public List<(string name, string extension)> Filters { get; } = new List<(string name, string extension)>();
 
             public string DefaultFileName { get; set; }

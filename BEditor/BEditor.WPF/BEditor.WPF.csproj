@@ -39,7 +39,7 @@
     <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
     <PlatformTarget>x64</PlatformTarget>
     <DocumentationFile></DocumentationFile>
-    <Optimize>true</Optimize>
+    <Optimize>false</Optimize>
     <OutputPath>$(SolutionDir)$(Platform)\$(Configuration)\</OutputPath>
   </PropertyGroup>
 

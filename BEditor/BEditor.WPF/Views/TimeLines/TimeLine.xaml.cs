@@ -215,7 +215,7 @@ namespace BEditor.Views.TimeLines {
                     ClipData info = (ClipData)e.OldItems[e.OldStartingIndex];
 
                     Grid grid = (Grid)Layer.Children[info.Layer];
-                                        
+
                     grid.Children.Remove(info.GetCreateClipView());
                 }
             };
@@ -225,14 +225,18 @@ namespace BEditor.Views.TimeLines {
         #region Scrollbarの移動量を変更
 
         private void ScrollLine_PreviewMouseWheel(object sender, MouseWheelEventArgs e) {
+            ScrollViewer scrollviewer = (ScrollViewer)sender;
 
             if (Keyboard.IsKeyDown(Key.LeftCtrl)) {
-                if (!(Scene.TimeLineZoom > 100 || Scene.TimeLineZoom < 1)) {
+                if (!(Scene.TimeLineZoom > 200 || Scene.TimeLineZoom < 1)) {
+                    var offset = scrollviewer.HorizontalOffset;
+                    var frame = TimeLineViewModel.ToFrame(offset);
                     Scene.TimeLineZoom += (e.Delta / 120) * 5;
+
+                    scrollviewer.ScrollToHorizontalOffset(TimeLineViewModel.ToPixel(frame));
                 }
             }
             else {
-                ScrollViewer scrollviewer = (ScrollViewer)sender;
                 if (e.Delta > 0) {
                     for (int i = 0; i < 4; i++) {
                         scrollviewer.LineLeft();
@@ -253,72 +257,93 @@ namespace BEditor.Views.TimeLines {
         /// <summary>
         /// 目盛りを追加するメソッド
         /// </summary>
-        /// <param name="zoom">拡大率 1 - 100</param>
+        /// <param name="zoom">拡大率 1 - 200</param>
         /// <param name="max">最大フレーム</param>
         /// <param name="rate">フレームレート</param>
         private void AddScale(float zoom, int max, int rate) => App.Current?.Dispatcher?.Invoke(() => {
-            double ToPixel(int frame) => Setting.WidthOf1Frame * (zoom / 100) * frame;
+            double ToPixel(int frame) => Setting.WidthOf1Frame * (zoom / 200) * frame;
+            double SecToPixel(float sec) => ToPixel((int)(sec * rate));
+            double MinToPixel(float min) => SecToPixel(min * 60);
 
             scale.Children.Clear();
+            //max 1000
+            if (zoom <= 200 && zoom >= 100) {
+                //iは秒数
+                for (int s = 0; s < (max / rate); s++) {
+                    //一秒毎
+                    Border border = new Border {
+                        Width = 1,
+                        HorizontalAlignment = HorizontalAlignment.Left,
+                        VerticalAlignment = VerticalAlignment.Stretch,
 
-            //iは秒数
-            for (int i = 0; i < (max / rate); i++) {
-                Border border = new Border {
-                    Width = 1,
-                    HorizontalAlignment = HorizontalAlignment.Left,
-                    VerticalAlignment = VerticalAlignment.Stretch,
+                        Margin = new Thickness(ToPixel(s * rate - 1), 5, 0, 0)
+                    };
+                    border.SetResourceReference(BackgroundProperty, "MaterialDesignBody");
+                    scale.Children.Add(border);
 
-                    Margin = new Thickness(ToPixel(i * rate - 1), 5, 0, 0)
-                };
-                border.SetResourceReference(BackgroundProperty, "MaterialDesignBody");
-                scale.Children.Add(border);
+                    //以下はフレーム
+                    if (zoom <= 200 && zoom >= 166.7) {
+                        for (int m = 1; m < rate; m++) {
+                            Border border2 = new Border {
+                                Width = 1,
+                                HorizontalAlignment = HorizontalAlignment.Left,
 
-                if (zoom <= 100 && zoom >= 75) {
-                    for (int m = 1; m < rate; m++) {
-                        Border border2 = new Border {
-                            Width = 1,
-                            HorizontalAlignment = HorizontalAlignment.Left,
+                                Margin = new Thickness(ToPixel(s * rate - 1 + m), 15, 0, 0)
+                            };
 
-                            Margin = new Thickness(ToPixel(i * rate - 1 + m), 15, 0, 0)
-                        };
+                            border2.SetResourceReference(BackgroundProperty, "MaterialDesignBodyLight");
+                            scale.Children.Add(border2);
+                        }
+                    }
+                    else if (zoom < 166.7 && zoom >= 133.4) {
+                        for (int m = 1; m < rate / 2; m++) {
+                            Border border2 = new Border {
+                                Width = 1,
+                                HorizontalAlignment = HorizontalAlignment.Left,
 
-                        border2.SetResourceReference(BackgroundProperty, "MaterialDesignBodyLight");
-                        scale.Children.Add(border2);
+                                Margin = new Thickness(ToPixel(s * rate - 1 + m * 2), 15, 0, 0)
+                            };
+
+                            border2.SetResourceReference(BackgroundProperty, "MaterialDesignBodyLight");
+                            scale.Children.Add(border2);
+                        }
+                    }
+                    else if (zoom < 133.4 && zoom >= 100) {
+                        for (int m = 1; m < rate / 4; m++) {
+                            Border border2 = new Border {
+                                Width = 1,
+                                HorizontalAlignment = HorizontalAlignment.Left,
+
+                                Margin = new Thickness(ToPixel(s * rate - 1 + m * 4), 15, 0, 0)
+                            };
+
+                            border2.SetResourceReference(BackgroundProperty, "MaterialDesignBodyLight");
+                            scale.Children.Add(border2);
+                        }
                     }
                 }
-                else if (zoom < 75 && zoom >= 50) {
-                    for (int m = 1; m < rate / 2; m++) {
+            }
+            else {
+                //TODO : ユーザーコントロール（仮想化パネル）を使う
+                //m は分数
+                //最大の分
+                for (int m = 1; m < (max / rate) / 60; m++) {
+                    Border border = new Border() {
+                        Width = 1,
+                        HorizontalAlignment = HorizontalAlignment.Left,
+                        VerticalAlignment = VerticalAlignment.Stretch,
+
+                        Margin = new Thickness(MinToPixel(m), 5, 0, 0)
+                    };
+                    border.SetResourceReference(BackgroundProperty, "MaterialDesignBody");
+                    scale.Children.Add(border);
+
+                    for (int s = 1; s < 60; s++) {
                         Border border2 = new Border {
                             Width = 1,
                             HorizontalAlignment = HorizontalAlignment.Left,
 
-                            Margin = new Thickness(ToPixel(i * rate - 1 + m * 2), 15, 0, 0)
-                        };
-
-                        border2.SetResourceReference(BackgroundProperty, "MaterialDesignBodyLight");
-                        scale.Children.Add(border2);
-                    }
-                }
-                else if (zoom < 50 && zoom >= 25) {
-                    for (int m = 1; m < rate / 4; m++) {
-                        Border border2 = new Border {
-                            Width = 1,
-                            HorizontalAlignment = HorizontalAlignment.Left,
-
-                            Margin = new Thickness(ToPixel(i * rate - 1 + m * 4), 15, 0, 0)
-                        };
-
-                        border2.SetResourceReference(BackgroundProperty, "MaterialDesignBodyLight");
-                        scale.Children.Add(border2);
-                    }
-                }
-                else {
-                    for (int m = 1; m < rate / 10; m++) {
-                        Border border2 = new Border {
-                            Width = 1,
-                            HorizontalAlignment = HorizontalAlignment.Left,
-
-                            Margin = new Thickness(ToPixel(i * rate - 1 + m * 10), 15, 0, 0)
+                            Margin = new Thickness(SecToPixel(s + m / 60), 15, 0, 0)
                         };
 
                         border2.SetResourceReference(BackgroundProperty, "MaterialDesignBodyLight");

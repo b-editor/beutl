@@ -70,7 +70,7 @@ namespace BEditor.Core.Media {
             ThrowIfDisposed();
 
             FontProcess.SizeText(ptr, out var left, out var top, out var right, out var bottom, text);
-            
+
             var rect = Rectangle.FromLTRB(left, top, right, bottom);
             width = rect.Width;
             height = rect.Height;
@@ -80,7 +80,7 @@ namespace BEditor.Core.Media {
             SizeText(text, out var width, out var height);
 
             //width *= 2;
-            //height *= 2;
+            height *= 2;
 
             var img = new Image(width, height, ImageType.ByteCh4);
 

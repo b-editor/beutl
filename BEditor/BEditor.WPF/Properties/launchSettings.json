@@ -3,7 +3,7 @@
     "BEditor": {
       "commandName": "Executable",
       "executablePath": "E:\\yuuto\\source\\BEditor\\BEditor\\x64\\Debug\\netcoreapp3.1\\BEditor.exe",
-      "nativeDebugging": true
+      "nativeDebugging": false
     }
   }
 }

@@ -27,7 +27,7 @@
         <comment>This is a comment</comment>
     </data>
                 
-    There are any number of "resheader" rows that contasimple 
+    There are any number of "resheader" rows that contain simple 
     name/value pairs.
     
     Each data row contains a name, and value. The row also contains a 
@@ -447,6 +447,9 @@
   </data>
   <data name="Outputs" xml:space="preserve">
     <value>出力</value>
+  </data>
+  <data name="Panel" xml:space="preserve">
+    <value>パネル</value>
   </data>
   <data name="Paste" xml:space="preserve">
     <value>貼り付け</value>

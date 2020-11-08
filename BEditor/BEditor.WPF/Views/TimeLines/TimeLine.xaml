@@ -25,11 +25,11 @@
                 <VirtualizingStackPanel Orientation="Horizontal" VerticalAlignment="Center" HorizontalAlignment="Center">
                     <md:PackIcon Foreground="{DynamicResource MaterialDesignBody}" Kind="Layers" HorizontalAlignment="Left" VerticalAlignment="Center" VerticalContentAlignment="Center" HorizontalContentAlignment="Center" Width="25" Height="25" Margin="10,0,0,0"/>
 
-                    <TextBlock Foreground="{DynamicResource MaterialDesignBody}" Text="{x:Static properties:Resources.Menu}" Margin="20,0,0,0" VerticalAlignment="Center" FontSize="15" FontWeight="Normal" FontFamily="Yu Gothic UI Semibold"/>
+                    <TextBlock Foreground="{DynamicResource MaterialDesignBody}" Text="{x:Static properties:Resources.Menu}" Margin="20,0,0,0" VerticalAlignment="Center" FontSize="15" FontWeight="Normal"/>
                 </VirtualizingStackPanel>
             </md:PopupBox.ToggleContent>
             <Grid>
-                <Slider Value="{Binding Scene.TimeLineZoom, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}" Margin="10" VerticalAlignment="Center" Maximum="100" Minimum="1" Width="250" Height="Auto"/>
+                <Slider Value="{Binding Scene.TimeLineZoom, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}" Margin="10" VerticalAlignment="Center" Maximum="200" Minimum="1" Width="250" Height="Auto"/>
             </Grid>
         </md:PopupBox>
 

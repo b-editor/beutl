@@ -279,6 +279,8 @@ inline int ImageFont::DrawTextBGRA(int x, int y, const std::u32string& u32str, C
 	FT_Vector pen = { 0, 0 };
 	uint32_t alpha = color.a;
 
+	//FT_Load_Glyph
+
 	for (size_t i = 0; i < u32str.size(); i++) {
 		switch (u32str[i]) {
 			case '\r':

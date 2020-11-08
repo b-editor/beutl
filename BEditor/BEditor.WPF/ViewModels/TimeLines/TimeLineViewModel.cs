@@ -101,8 +101,8 @@ namespace BEditor.ViewModels.TimeLines {
                         Scene.TimeLineZoom = 1;
                     }
 
-                    if (Scene.TimeLineZoom >= 101) {
-                        Scene.TimeLineZoom = 100;
+                    if (Scene.TimeLineZoom >= 201) {
+                        Scene.TimeLineZoom = 200;
                     }
 
                     if (ViewLoaded) {
@@ -459,11 +459,11 @@ namespace BEditor.ViewModels.TimeLines {
 
 
         #region フレーム番号を座標に変換
-        public double ToPixel(int number) => Setting.WidthOf1Frame * (Scene.TimeLineZoom / 100) * number;
+        public double ToPixel(int number) => Setting.WidthOf1Frame * (Scene.TimeLineZoom / 200) * number;
         #endregion
 
         #region 座標をフレーム番号に変換
-        public int ToFrame(double pixel) => (int)(pixel / (Setting.WidthOf1Frame * (Scene.TimeLineZoom / 100)));
+        public int ToFrame(double pixel) => (int)(pixel / (Setting.WidthOf1Frame * (Scene.TimeLineZoom / 200)));
         #endregion
     }
 }

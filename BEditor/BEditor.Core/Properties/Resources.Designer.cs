@@ -1124,6 +1124,15 @@ namespace BEditor.Core.Properties {
         }
         
         /// <summary>
+        ///   Panel に類似しているローカライズされた文字列を検索します。
+        /// </summary>
+        public static string Panel {
+            get {
+                return ResourceManager.GetString("Panel", resourceCulture);
+            }
+        }
+        
+        /// <summary>
         ///   Paste に類似しているローカライズされた文字列を検索します。
         /// </summary>
         public static string Paste {
@@ -1486,7 +1495,7 @@ namespace BEditor.Core.Properties {
         /// <summary>
         ///   Uninstall {0} に類似しているローカライズされた文字列を検索します。
         /// </summary>
-        public static string UninstallPlug{
+        public static string UninstallPlugin {
             get {
                 return ResourceManager.GetString("UninstallPlugin", resourceCulture);
             }

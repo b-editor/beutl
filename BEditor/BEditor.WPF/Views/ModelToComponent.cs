@@ -23,7 +23,7 @@ namespace BEditor.Views {
     public static class ModelToComponent {
         public static List<PropertyViewCreater> PropertyViewCreaters { get; } = new List<PropertyViewCreater>();
         public static List<KeyFrameViewCreater> KeyFrameViewCreaters { get; } = new List<KeyFrameViewCreater>();
-
+        
         static ModelToComponent() {
 
             #region CreatePropertyView

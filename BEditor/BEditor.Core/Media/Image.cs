@@ -621,6 +621,7 @@ namespace BEditor.Core.Media {
         /// <exception cref="NotImplementedException"/>
         public static Image Text(int size, Color color, string text, FontRecord font, string style, bool rightToLeft) {
             if (string.IsNullOrEmpty(text)) return null;
+            if (font is null) return null;
 
             //intへ変換
             var styleint = style switch

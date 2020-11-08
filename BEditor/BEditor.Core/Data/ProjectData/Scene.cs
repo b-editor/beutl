@@ -6,7 +6,6 @@ using System.Runtime.Serialization;
 using System.Threading.Tasks;
 
 using BEditor.Core.Data.ObjectData;
-using BEditor.Core.Interfaces;
 using BEditor.Core.Media;
 using BEditor.Core.Renderer;
 
@@ -239,6 +238,9 @@ namespace BEditor.Core.Data.ProjectData {
             RenderingContext.SwapBuffers();
 
             Graphics.GetPixels(FrameBuffer);
+
+            if (frame % Component.Current.Project.Framerate * 5 == 1)
+                Task.Run(GC.Collect);
 
             return FrameBuffer;
         }

@@ -9,25 +9,104 @@
             プロパティの変更を通知するクラス
             </summary>
         </member>
+        <member name="T:BEditor.Core.Data.Component">
+            <summary>
+            シングルトンで現在のプロジェクトやステータスなどを取得できるクラスを表します
+            </summary>
+        </member>
+        <member name="P:BEditor.Core.Data.Component.Current">
+            <summary>
+            
+            </summary>
+        </member>
         <member name="P:BEditor.Core.Data.Component.Path">
             <summary>
             Exeファイルが有るフォルダ
-            \\はつかない
+            </summary>
+        </member>
+        <member name="P:BEditor.Core.Data.Component.Arguments">
+            <summary>
+            コマンドライン引数を取得します
             </summary>
         </member>
         <member name="P:BEditor.Core.Data.Component.LoadedPlugins">
             <summary>
-            読み込まれたプラグイン
+            読み込まれたプラグインを取得します
             </summary>
         </member>
         <member name="P:BEditor.Core.Data.Component.Project">
             <summary>
-            開かれているプロジェクト
+            開かれている <see cref="T:BEditor.Core.Data.ProjectData.Project"/> を取得または設定します
             </summary>
         </member>
         <member name="P:BEditor.Core.Data.Component.Status">
             <summary>
-            ステータス
+            現在のステータスを取得または設定します
+            </summary>
+        </member>
+        <member name="T:BEditor.Core.Data.Component.Funcs">
+            <summary>
+            プラットフォームに依存する関数を共有するフィールド
+            </summary>
+        </member>
+        <member name="P:BEditor.Core.Data.Component.Funcs.CreateRenderingContext">
+            <summary>
+            レンダリングコンテキストを作成する関数を取得または設定します
+            </summary>
+        </member>
+        <member name="P:BEditor.Core.Data.Component.Funcs.SaveFileDialog">
+            <summary>
+            ファイルを保存するダイアログを作成する関数を取得または設定します
+            </summary>
+        </member>
+        <member name="T:BEditor.Core.Data.Component.Settings">
+            <summary>
+            Model側で必要な設定を取得する関数を共有するフィールド
+            </summary>
+        </member>
+        <member name="P:BEditor.Core.Data.Component.Settings.AutoBackUp">
+            <summary>
+            自動バックアップが有効かを取得する関数
+            </summary>
+        </member>
+        <member name="P:BEditor.Core.Data.Component.Settings.EnableErrorLog">
+            <summary>
+            エラーログが有効かを取得する関数
+            </summary>
+        </member>
+        <member name="T:BEditor.Core.Data.Status">
+            <summary>
+            アプリケーションのステータスを表します
+            </summary>
+        </member>
+        <member name="F:BEditor.Core.Data.Status.Idle">
+            <summary>
+            作業をしていない状態を表します
+            </summary>
+        </member>
+        <member name="F:BEditor.Core.Data.Status.Edit">
+            <summary>
+            編集中であることを表します
+            </summary>
+        </member>
+        <member name="F:BEditor.Core.Data.Status.Saved">
+            <summary>
+            保存直後であることを表します
+            </summary>
+        </member>
+        <member name="F:BEditor.Core.Data.Status.Playing">
+            <summary>
+            プレビュー再生中であることを表します
+            </summary>
+        </member>
+        <member name="F:BEditor.Core.Data.Status.Pause">
+            <summary>
+            一時停止している状態を表します
+            </summary>
+        </member>
+        <member name="F:BEditor.Core.Data.Status.Output">
+            <summary>
+            出力中であることを表します
             </summary>
         </member>
         <member name="T:BEditor.Core.Data.ComponentObject">
@@ -806,7 +885,7 @@
         </member>
         <member name="T:BEditor.Core.Data.PropertyData.CheckPropertyMetadata">
             <summary>
-            <see cref="T:BEditor.Core.Data.PropertyData.CheckProperty"/> のメタデータ
+            <see cref="T:BEditor.Core.Data.PropertyData.CheckProperty"/> のメタデータを表します
             </summary>
         </member>
         <member name="M:BEditor.Core.Data.PropertyData.CheckPropertyMetadata.#ctor(System.String,System.Boolean)">
@@ -1075,7 +1154,7 @@
         </member>
         <member name="T:BEditor.Core.Data.PropertyData.ColorPropertyMetadata">
             <summary>
-            <see cref="T:BEditor.Core.Data.PropertyData.ColorProperty"/> のメタデータ
+            <see cref="T:BEditor.Core.Data.PropertyData.ColorProperty"/> のメタデータを表します
             </summary>
         </member>
         <member name="M:BEditor.Core.Data.PropertyData.ColorPropertyMetadata.#ctor(System.String,System.Byte,System.Byte,System.Byte,System.Byte,System.Boolean)">
@@ -1158,7 +1237,7 @@
         </member>
         <member name="T:BEditor.Core.Data.PropertyData.DocumentPropertyMetadata">
             <summary>
-            <see cref="T:BEditor.Core.Data.PropertyData.DocumentProperty"/> のメタデータ
+            <see cref="T:BEditor.Core.Data.PropertyData.DocumentProperty"/> のメタデータを表します
             </summary>
         </member>
         <member name="M:BEditor.Core.Data.PropertyData.DocumentPropertyMetadata.#ctor(System.String,System.Nullable{System.Int32})">
@@ -1429,7 +1508,7 @@
         </member>
         <member name="T:BEditor.Core.Data.PropertyData.EasePropertyMetadata">
             <summary>
-            <see cref="T:BEditor.Core.Data.PropertyData.EaseProperty"/> のメタデータ
+            <see cref="T:BEditor.Core.Data.PropertyData.EaseProperty"/> のメタデータを表します
             </summary>
         </member>
         <member name="M:BEditor.Core.Data.PropertyData.EasePropertyMetadata.#ctor(System.String,System.Single,System.Single,System.Single,System.Boolean)">
@@ -1531,9 +1610,34 @@
             </list>
             </summary>
         </member>
+        <member name="T:BEditor.Core.Data.PropertyData.EasingSetting.EasingFunc">
+            <summary>
+            <see cref="T:BEditor.Core.Data.PropertyData.EaseProperty"/>, <see cref="T:BEditor.Core.Data.PropertyData.ColorAnimationProperty"/> などで利用可能なイージング関数を表します
+            </summary>
+        </member>
         <member name="P:BEditor.Core.Data.PropertyData.EasingSetting.EasingFunc.EasingSettings">
             <summary>
-            IEasingSettingを実装するクラスをListにする
+            UIに表示するプロパティを取得します
+            </summary>
+        </member>
+        <member name="P:BEditor.Core.Data.PropertyData.EasingSetting.EasingFunc.Parent">
+            <summary>
+            親要素を取得します
+            </summary>
+        </member>
+        <member name="M:BEditor.Core.Data.PropertyData.EasingSetting.EasingFunc.EaseFunc(System.Int32,System.Int32,System.Single,System.Single)">
+            <summary>
+            イージング関数
+            </summary>
+            <param name="frame">取得するフレーム</param>
+            <param name="totalframe">全体のフレーム</param>
+            <param name="min">最小の値</param>
+            <param name="max">最大の値</param>
+            <returns>イージングされた値</returns>
+        </member>
+        <member name="M:BEditor.Core.Data.PropertyData.EasingSetting.EasingFunc.PropertyLoaded">
+            <summary>
+            初期化時とデシリアライズ時に呼び出されます
             </summary>
         </member>
         <member name="P:BEditor.Core.Data.PropertyData.EasingSetting.EasingFunc.LoadedEasingFunc">
@@ -1541,9 +1645,24 @@
             読み込まれているイージング関数のType
             </summary>
         </member>
+        <member name="T:BEditor.Core.Data.PropertyData.EasingSetting.IEasingSetting">
+            <summary>
+            <see cref="T:BEditor.Core.Data.PropertyData.EasingSetting.EasingFunc"/> で利用可能なプロパティを表します
+            </summary>
+        </member>
+        <member name="P:BEditor.Core.Data.PropertyData.EasingSetting.IEasingSetting.Parent">
+            <summary>
+            親要素を取得します
+            </summary>
+        </member>
+        <member name="P:BEditor.Core.Data.PropertyData.EasingSetting.IEasingSetting.ComponentData">
+            <summary>
+            UIなどのキャッシュを入れる配列を取得します
+            </summary>
+        </member>
         <member name="M:BEditor.Core.Data.PropertyData.EasingSetting.IEasingSetting.PropertyLoaded">
             <summary>
-            ロード時の呼び出す
+            初期化時とデシリアライズ時に呼び出されます
             </summary>
         </member>
         <member name="T:BEditor.Core.Data.PropertyData.ExpandGroup">
@@ -1783,79 +1902,88 @@
         </member>
         <member name="M:BEditor.Core.Data.PropertyData.PropertyElementMetadata.#ctor(System.String)">
             <summary>
-            
+            <see cref="T:BEditor.Core.Data.PropertyData.PropertyElementMetadata"/> クラスの新しいインスタンスを初期化します
             </summary>
-            <param name="name"></param>
         </member>
         <member name="P:BEditor.Core.Data.PropertyData.PropertyElementMetadata.Name">
             <summary>
-            
+            プロパティの名前を取得します
             </summary>
+        </member>
+        <member name="T:BEditor.Core.Data.PropertyData.PropertyMetadataAttribute">
+            <summary>
+            <see cref="M:BEditor.Core.Data.PropertyData.PropertyElement.PropertyLoaded"/> で自動で <see cref="T:BEditor.Core.Data.PropertyData.PropertyElementMetadata"/> を設定します
+            </summary>
+        </member>
+        <member name="P:BEditor.Core.Data.PropertyData.PropertyMetadataAttribute.PropertyMetadata">
+            <summary>
+            <see cref="T:BEditor.Core.Data.PropertyData.PropertyElementMetadata"/> を取得します
+            </summary>
+        </member>
+        <member name="M:BEditor.Core.Data.PropertyData.PropertyMetadataAttribute.#ctor(System.String,System.Type)">
+            <summary>
+            <see cref="T:BEditor.Core.Data.PropertyData.PropertyMetadataAttribute"/> クラスの新しいインスタンスを初期化します
+            </summary>
+            <param name="Fieldpath"><see cref="T:BEditor.Core.Data.PropertyData.PropertyElementMetadata"/> の静的フィールドの名前</param>
+            <param name="Type"><paramref name="Fieldpath"/> があるクラスの <see cref="T:System.Type"/></param>
         </member>
         <member name="T:BEditor.Core.Data.PropertyData.SelectorProperty">
             <summary>
-            
+            配列から一つのアイテムを選択するプロパティを表します
             </summary>
         </member>
         <member name="M:BEditor.Core.Data.PropertyData.SelectorProperty.#ctor(BEditor.Core.Data.PropertyData.SelectorPropertyMetadata)">
             <summary>
-            
+            <see cref="T:BEditor.Core.Data.PropertyData.SelectorProperty"/> クラスの新しいインスタンスを初期化します
             </summary>
-            <param name="metadata"></param>
+            <param name="metadata">このプロパティの <see cref="T:BEditor.Core.Data.PropertyData.SelectorPropertyMetadata"/></param>
+            <exception cref="T:System.ArgumentNullException"><paramref name="metadata"/> が <see langword="null"/> です</exception>
         </member>
         <member name="P:BEditor.Core.Data.PropertyData.SelectorProperty.SelectItem">
             <summary>
-            
+            選択されているアイテムを取得します
             </summary>
         </member>
         <member name="P:BEditor.Core.Data.PropertyData.SelectorProperty.Index">
             <summary>
-            
+            選択されている <see cref="P:BEditor.Core.Data.PropertyData.SelectorPropertyMetadata.ItemSource"/> のインデックスを取得または設定します
             </summary>
         </member>
-        <member name="T:BEditor.Core.Data.PropertyData.SelectorProperty.ChangeSelect">
-            <summary>
-            
-            </summary>
-        </member>
-        <member name="M:BEditor.Core.Data.PropertyData.SelectorProperty.ChangeSelect.#ctor(BEditor.Core.Data.PropertyData.SelectorProperty,System.Int32)">
-            <summary>
-            
-            </summary>
-            <param name="combo"></param>
-            <param name="select"></param>
-        </member>
-        <member name="M:BEditor.Core.Data.PropertyData.SelectorProperty.ChangeSelect.Do">
+        <member name="M:BEditor.Core.Data.PropertyData.SelectorProperty.ToString">
             <inheritdoc/>
         </member>
-        <member name="M:BEditor.Core.Data.PropertyData.SelectorProperty.ChangeSelect.Redo">
+        <member name="T:BEditor.Core.Data.PropertyData.SelectorProperty.ChangeSelectCommand">
+            <summary>
+            選択されているアイテムを変更するコマンド
+            </summary>
+            <remarks>このクラスは <see cref="M:BEditor.Core.Data.UndoRedoManager.Do(BEditor.Core.Data.IUndoRedoCommand)"/> と併用することでコマンドを記録できます</remarks>
+        </member>
+        <member name="M:BEditor.Core.Data.PropertyData.SelectorProperty.ChangeSelectCommand.#ctor(BEditor.Core.Data.PropertyData.SelectorProperty,System.Int32)">
+            <summary>
+            <see cref="T:BEditor.Core.Data.PropertyData.SelectorProperty.ChangeSelectCommand"/> クラスの新しいインスタンスを初期化します
+            </summary>
+            <param name="property">対象の <see cref="T:BEditor.Core.Data.PropertyData.SelectorProperty"/></param>
+            <param name="select">新しいインデックス</param>
+            <exception cref="T:System.ArgumentNullException"><paramref name="property"/> が <see langword="null"/> です</exception>
+        </member>
+        <member name="M:BEditor.Core.Data.PropertyData.SelectorProperty.ChangeSelectCommand.Do">
             <inheritdoc/>
         </member>
-        <member name="M:BEditor.Core.Data.PropertyData.SelectorProperty.ChangeSelect.Undo">
+        <member name="M:BEditor.Core.Data.PropertyData.SelectorProperty.ChangeSelectCommand.Redo">
+            <inheritdoc/>
+        </member>
+        <member name="M:BEditor.Core.Data.PropertyData.SelectorProperty.ChangeSelectCommand.Undo">
             <inheritdoc/>
         </member>
         <member name="T:BEditor.Core.Data.PropertyData.SelectorPropertyMetadata">
             <summary>
-            
+            <see cref="T:BEditor.Core.Data.PropertyData.SelectorProperty"/> のメタデータを表します
             </summary>
         </member>
         <member name="M:BEditor.Core.Data.PropertyData.SelectorPropertyMetadata.#ctor(System.String,System.Collections.IList,System.Int32,System.String)">
             <summary>
-            
+            <see cref="T:BEditor.Core.Data.PropertyData.SelectorPropertyMetadata"/> の新しいインスタンスを初期化します
             </summary>
-            <param name="name"></param>
-            <param name="itemsource"></param>
-            <param name="index"></param>
-            <param name="memberpath"></param>
-        </member>
-        <member name="M:BEditor.Core.Data.PropertyData.SelectorPropertyMetadata.#ctor(System.String,System.Int32,System.Collections.IList,System.String)">
-            <summary>
-            
-            </summary>
-            <param name="name"></param>
-            <param name="index"></param>
-            <param name="itemsource"></param>
-            <param name="memberpath"></param>
         </member>
         <member name="P:BEditor.Core.Data.PropertyData.SelectorPropertyMetadata.ItemSource">
             <summary>
@@ -1872,104 +2000,154 @@
             
             </summary>
         </member>
+        <member name="T:BEditor.Core.Data.Serialize">
+            <summary>
+            <see cref="T:System.Runtime.Serialization.Json.DataContractJsonSerializer"/> を利用してシリアル化やクローンなどの関数を提供するクラスを表します
+            </summary>
+        </member>
         <member name="M:BEditor.Core.Data.Serialize.LoadFromFile(System.String,System.Type)">
             <summary>
-            オブジェクトの内容をファイルから読み込み復元する
+            オブジェクトの内容をファイルから読み込み復元します
             </summary>
             <param name="path">読み込むファイル名</param>
             <param name="type"></param>
-            <returns>復元されたオブジェクト</returns>
+            <returns>成功した場合は復元されたオブジェクト、そうでない場合は <see langword="null"/> を返します</returns>
         </member>
         <member name="M:BEditor.Core.Data.Serialize.SaveToFile(System.Object,System.String)">
             <summary>
-            オブジェクトの内容をファイルに保存する
+            オブジェクトの内容をファイルに保存します
             </summary>
             <param name="obj">保存するオブジェクト</param>
             <param name="path">保存先のファイル名</param>
         </member>
         <member name="M:BEditor.Core.Data.Serialize.DeepClone``1(``0)">
             <summary>
-            DataContractを使用したDeepClone
+            DataContractを使用してDeepCloneを行います
             </summary>
             <typeparam name="T"></typeparam>
             <param name="obj"></param>
             <returns></returns>
         </member>
+        <member name="P:BEditor.Core.Data.Serialize.SerializeKnownTypes">
+            <summary>
+            <see cref="T:System.Runtime.Serialization.Json.DataContractJsonSerializer"/> で使用するKnownTypeを取得します
+            </summary>
+        </member>
         <member name="T:BEditor.Core.Data.IUndoRedoCommand">
             <summary>
-            実行、元に戻す(undo)、やり直す(redo)の各動作を定義するインターフェース
+            実行、元に戻す(undo)、やり直す(redo)の動作を表します
             </summary>
         </member>
         <member name="M:BEditor.Core.Data.IUndoRedoCommand.Do">
             <summary>
-            操作を実行するメソッド
+            操作を実行します
             <para>例外を投げた場合キャンセルされます</para>
             </summary>
         </member>
         <member name="M:BEditor.Core.Data.IUndoRedoCommand.Undo">
             <summary>
-            操作を元に戻すメソッド
+            操作を元に戻します
             </summary>
         </member>
         <member name="M:BEditor.Core.Data.IUndoRedoCommand.Redo">
             <summary>
-            操作をやり直すメソッド
+            操作をやり直します
             </summary>
         </member>
         <member name="T:BEditor.Core.Data.UndoRedoManager">
             <summary>
-            行なった操作の履歴を蓄積することでUndo,Redoの機能を提供するクラス
+            行なった操作の履歴を蓄積することでUndo,Redoの機能を表します
             </summary>
         </member>
-        <member name="F:BEditor.Core.Data.UndoRedoManager.process">
+        <member name="P:BEditor.Core.Data.UndoRedoManager.CommandTypeDictionary">
             <summary>
-            実行中の場合False
+            コマンドに対応する名前が入った配列を取得します
+            </summary>
+        </member>
+        <member name="P:BEditor.Core.Data.UndoRedoManager.UndoStack">
+            <summary>
+            実行後またはRedo後に記録
+            </summary>
+        </member>
+        <member name="P:BEditor.Core.Data.UndoRedoManager.RedoStack">
+            <summary>
+            Undo後に記録
             </summary>
         </member>
         <member name="M:BEditor.Core.Data.UndoRedoManager.Do(BEditor.Core.Data.IUndoRedoCommand)">
             <summary>
-            操作を実行し、かつその内容をStackに追加
+            操作を実行し、かつその内容をStackに追加します
             </summary>
-            <param name="command">IUndoRedoCommandインターフェースを実装するオブジェクト</param>
+            <param name="command">実行するコマンド</param>
         </member>
         <member name="M:BEditor.Core.Data.UndoRedoManager.Undo">
             <summary>
-            行なったコマンドを取り消してひとつ前の状態に戻す
+            行なったコマンドを取り消してひとつ前の状態に戻します
             </summary>
         </member>
         <member name="M:BEditor.Core.Data.UndoRedoManager.Redo">
             <summary>
-            取り消したコマンドをやり直す
+            取り消したコマンドをやり直します
             </summary>
         </member>
         <member name="M:BEditor.Core.Data.UndoRedoManager.Clear">
             <summary>
-            コマンドをリセット
+            記録されたコマンドを初期化
             </summary>
         </member>
         <member name="P:BEditor.Core.Data.UndoRedoManager.CanUndo">
             <summary>
-            Undo出来るかどうかを返す
+            Undo出来るか取得します
             </summary>
         </member>
         <member name="P:BEditor.Core.Data.UndoRedoManager.CanRedo">
             <summary>
-            Redo出来るかどうかを返す
+            Redo出来るかを取得します
             </summary>
         </member>
         <member name="E:BEditor.Core.Data.UndoRedoManager.CanUndoChange">
             <summary>
-            Undo出来るかどうかの状態が変化すると発生
+            Undo出来るかどうかの状態が変化すると発生します
             </summary>
         </member>
         <member name="E:BEditor.Core.Data.UndoRedoManager.CanRedoChange">
             <summary>
-            Redo出来るかどうかの状態が変化すると発生
+            Redo出来るかどうかの状態が変化すると発生します
             </summary>
         </member>
         <member name="E:BEditor.Core.Data.UndoRedoManager.DidEvent">
             <summary>
-            UnDo ReDo Do時に発生
+            UnDo ReDo Do時に発生します
+            </summary>
+        </member>
+        <member name="E:BEditor.Core.Data.UndoRedoManager.CommandCancel">
+            <summary>
+            コマンドがキャンセルされたときに発生します
+            </summary>
+        </member>
+        <member name="E:BEditor.Core.Data.UndoRedoManager.CommandsClear">
+            <summary>
+            <see cref="M:BEditor.Core.Data.UndoRedoManager.Clear"/> 後に発生します
+            </summary>
+        </member>
+        <member name="T:BEditor.Core.Data.CommandType">
+            <summary>
+            コマンドの種類を表します
+            </summary>
+        </member>
+        <member name="F:BEditor.Core.Data.CommandType.Do">
+            <summary>
+            
+            </summary>
+        </member>
+        <member name="F:BEditor.Core.Data.CommandType.Undo">
+            <summary>
+            
+            </summary>
+        </member>
+        <member name="F:BEditor.Core.Data.CommandType.Redo">
+            <summary>
+            
             </summary>
         </member>
         <member name="M:BEditor.Core.DisposableObject.ThrowIfDisposed">
@@ -3885,6 +4063,11 @@
               Outputs に類似しているローカライズされた文字列を検索します。
             </summary>
         </member>
+        <member name="P:BEditor.Core.Properties.Resources.Panel">
+            <summary>
+              Panel に類似しているローカライズされた文字列を検索します。
+            </summary>
+        </member>
         <member name="P:BEditor.Core.Properties.Resources.Paste">
             <summary>
               Paste に類似しているローカライズされた文字列を検索します。
@@ -4085,7 +4268,7 @@
               Uninstall に類似しているローカライズされた文字列を検索します。
             </summary>
         </member>
-        <member name="P:BEditor.Core.Properties.Resources.UninstallPlug">
+        <member name="P:BEditor.Core.Properties.Resources.UninstallPlugin">
             <summary>
               Uninstall {0} に類似しているローカライズされた文字列を検索します。
             </summary>
