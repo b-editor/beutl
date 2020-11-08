@@ -1,5 +1,6 @@
 ﻿using System.Collections.Generic;
 using System.ComponentModel;
+using System.IO;
 using System.Runtime.Serialization;
 
 using BEditor.Core.Data.ProjectData;
@@ -43,7 +44,8 @@ namespace BEditor.Core.Data.ObjectData {
                 }
 
                 if (System.IO.File.Exists(File.File)) {
-                    source = new Media.Image(File.File);
+                    FileStream file = new FileStream(File.File, FileMode.Open);
+                    source = new Media.Image(file, Media.ImageReadMode.UnChanged);
                 }
             }
             #endregion
@@ -51,7 +53,8 @@ namespace BEditor.Core.Data.ObjectData {
             public Media.Image Source {
                 get {
                     if (source == null && System.IO.File.Exists(File.File)) {
-                        source = new Media.Image(File.File);
+                        FileStream file = new FileStream(File.File, FileMode.Open);
+                        source = new Media.Image(file, Media.ImageReadMode.UnChanged);
                     }
 
                     return source;

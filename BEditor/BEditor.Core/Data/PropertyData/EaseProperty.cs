@@ -383,7 +383,7 @@ namespace BEditor.Core.Data.PropertyData {
             public AddCommand(EaseProperty property, int frame) {
                 EaseProperty = property ?? throw new ArgumentNullException(nameof(property));
 
-                this.frame = (frame <= property.ClipData.Start || property.ClipData.End <= frame) ?
+                this.frame = (frame <= 0|| property.ClipData.Length <= frame) ?
                              throw new ArgumentOutOfRangeException(nameof(frame))
                              : frame;
             }
@@ -424,7 +424,7 @@ namespace BEditor.Core.Data.PropertyData {
             public RemoveCommand(EaseProperty property, int frame) {
                 EaseProperty = property ?? throw new ArgumentNullException(nameof(property));
 
-                this.frame = (frame <= property.ClipData.Start || property.ClipData.End <= frame) ?
+                this.frame = (frame <= 0 || property.ClipData.Length <= frame) ?
                              throw new ArgumentOutOfRangeException(nameof(frame))
                              : frame;
             }
@@ -472,7 +472,7 @@ namespace BEditor.Core.Data.PropertyData {
                                  throw new IndexOutOfRangeException()
                                  : fromIndex;
 
-                this.to = (to <= property.ClipData.Start || property.ClipData.End <= to) ?
+                this.to = (to <= 0 || property.ClipData.Length <= to) ?
                           throw new ArgumentOutOfRangeException(nameof(to))
                           : to;
             }

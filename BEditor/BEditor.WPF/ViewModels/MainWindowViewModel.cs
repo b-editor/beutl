@@ -12,7 +12,7 @@ using BEditor.Views.SettingsControl;
 
 using BEditor.Core.Data;
 using BEditor.Core.Data.ObjectData;
-using BEditor.Core.Extesions.ViewCommand;
+using BEditor.Core.Extensions.ViewCommand;
 
 using MaterialDesignThemes.Wpf;
 
@@ -193,33 +193,38 @@ namespace BEditor.ViewModels {
         public ObservableCollection<string> ReDoList { get; } = new();
 
         private void DidEvent(object sender, CommandType type) {
-            if (type == CommandType.Do) { //上を見てUnDoListに追加
-                ReDoList.Clear();
+            try {
+                if (type == CommandType.Do) { //上を見てUnDoListに追加
+                    ReDoList.Clear();
 
-                var command = UndoRedoManager.UndoStack.Peek();
+                    var command = UndoRedoManager.UndoStack.Peek();
 
-                UnDoList.Insert(0, UndoRedoManager.CommandTypeDictionary[command.GetType()]);
+                    UnDoList.Insert(0, UndoRedoManager.CommandTypeDictionary[command.GetType()]);
 
-                Component.Current.Project.PreviewUpdate();
-            }
-            else if (type == CommandType.Undo) { //ReDoListに移動
-                if (UnDoList.Count == 0) {
-                    return;
+                    Component.Current.Project.PreviewUpdate();
                 }
+                else if (type == CommandType.Undo) { //ReDoListに移動
+                    if (UnDoList.Count == 0) {
+                        return;
+                    }
 
-                string name = UnDoList[0];
-                UnDoList.Remove(name);
-                ReDoList.Insert(0, name);
+                    string name = UnDoList[0];
+                    UnDoList.Remove(name);
+                    ReDoList.Insert(0, name);
 
-            }
-            else if (type == CommandType.Redo) { //UnDoListに移動
-                if (ReDoList.Count == 0) {
-                    return;
                 }
+                else if (type == CommandType.Redo) { //UnDoListに移動
+                    if (ReDoList.Count == 0) {
+                        return;
+                    }
 
-                string name = ReDoList[0];
-                ReDoList.Remove(name);
-                UnDoList.Insert(0, name);
+                    string name = ReDoList[0];
+                    ReDoList.Remove(name);
+                    UnDoList.Insert(0, name);
+
+                }
+            }
+            catch {
 
             }
         }

@@ -392,12 +392,12 @@
         </member>
         <member name="M:BEditor.Core.Data.ObjectData.ClipData.Load(BEditor.Core.Data.ProjectData.ObjectLoadArgs)">
             <summary>
-            フレーム描画時に呼び出されます
+            レンダリング時に呼び出されます
             </summary>
         </member>
         <member name="M:BEditor.Core.Data.ObjectData.ClipData.PreviewLoad(BEditor.Core.Data.ProjectData.ObjectLoadArgs)">
             <summary>
-            フレーム描画前に呼び出されます
+            レンダリング前に呼び出されます
             </summary>
         </member>
         <member name="M:BEditor.Core.Data.ObjectData.ClipData.Clone">
@@ -413,7 +413,7 @@
             <summary>
             <see cref="T:BEditor.Core.Data.ObjectData.ClipData.AddCommand"/> クラスの新しいインスタンスを初期化します
             </summary>
-            <param name="scene">対象のシーン</param>
+            <param name="scene">対象の <see cref="F:BEditor.Core.Data.ObjectData.ClipData.AddCommand.Scene"/></param>
             <param name="addframe">配置するフレーム</param>
             <param name="layer">配置するレイヤー</param>
             <param name="type">クリップの種類</param>
@@ -441,8 +441,8 @@
             <summary>
             <see cref="T:BEditor.Core.Data.ObjectData.ClipData.RemoveCommand"/> クラスの新しいインスタンスを初期化します
             </summary>
-            <param name="data">対象の <see cref="T:BEditor.Core.Data.ObjectData.ClipData"/></param>
-            <exception cref="T:System.ArgumentNullException"><paramref name="data"/> が <see langword="null"/> です</exception>
+            <param name="clip">対象の <see cref="T:BEditor.Core.Data.ObjectData.ClipData"/></param>
+            <exception cref="T:System.ArgumentNullException"><paramref name="clip"/> が <see langword="null"/> です</exception>
         </member>
         <member name="M:BEditor.Core.Data.ObjectData.ClipData.RemoveCommand.Do">
             <inheritdoc/>
@@ -463,22 +463,22 @@
             <summary>
             <see cref="T:BEditor.Core.Data.ObjectData.ClipData.MoveCommand"/> クラスの新しいインスタンスを初期化します
             </summary>
-            <param name="data">対象のクリップ</param>
+            <param name="clip">対象の <see cref="T:BEditor.Core.Data.ObjectData.ClipData"/></param>
             <param name="to">新しい開始フレーム</param>
             <param name="tolayer">新しい配置レイヤー</param>
-            <exception cref="T:System.ArgumentNullException"><paramref name="data"/> が <see langword="null"/> です</exception>
+            <exception cref="T:System.ArgumentNullException"><paramref name="clip"/> が <see langword="null"/> です</exception>
             <exception cref="T:System.ArgumentOutOfRangeException"><paramref name="to"/> または <paramref name="tolayer"/> が0以下です</exception>
         </member>
         <member name="M:BEditor.Core.Data.ObjectData.ClipData.MoveCommand.#ctor(BEditor.Core.Data.ObjectData.ClipData,System.Int32,System.Int32,System.Int32,System.Int32)">
             <summary>
             <see cref="T:BEditor.Core.Data.ObjectData.ClipData.MoveCommand"/>クラスの新しいインスタンスを初期化します
             </summary>
-            <param name="data">対象のクリップ</param>
+            <param name="clip">対象のクリップ</param>
             <param name="to">新しい開始フレーム</param>
             <param name="from">古い開始フレーム</param>
             <param name="tolayer">新しい配置レイヤー</param>
             <param name="fromlayer">古い配置レイヤー</param>
-            <exception cref="T:System.ArgumentNullException"><paramref name="data"/> が <see langword="null"/> です</exception>
+            <exception cref="T:System.ArgumentNullException"><paramref name="clip"/> が <see langword="null"/> です</exception>
             <exception cref="T:System.ArgumentOutOfRangeException"><paramref name="to"/>, <paramref name="from"/>, <paramref name="tolayer"/>, <paramref name="fromlayer"/> が0以下です</exception>
         </member>
         <member name="M:BEditor.Core.Data.ObjectData.ClipData.MoveCommand.Do">
@@ -500,10 +500,10 @@
             <summary>
             <see cref="T:BEditor.Core.Data.ObjectData.ClipData.LengthChangeCommand"/> クラスの新しいインスタンスを初期化します
             </summary>
-            <param name="data">対象のクリップ</param>
+            <param name="clip">対象の <see cref="T:BEditor.Core.Data.ObjectData.ClipData"/></param>
             <param name="start">開始フレーム</param>
             <param name="end">終了フレーム</param>
-            <exception cref="T:System.ArgumentNullException"><paramref name="data"/> が <see langword="null"/> です</exception>
+            <exception cref="T:System.ArgumentNullException"><paramref name="clip"/> が <see langword="null"/> です</exception>
             <exception cref="T:System.ArgumentOutOfRangeException"><paramref name="start"/> または <paramref name="end"/> が0以下です</exception>
         </member>
         <member name="M:BEditor.Core.Data.ObjectData.ClipData.LengthChangeCommand.Do">
@@ -2156,10 +2156,317 @@
             </summary>
             <exception cref="T:System.ObjectDisposedException"/>
         </member>
+        <member name="M:BEditor.Core.Extensions.ExtensionCommand.Check(BEditor.Core.Data.EffectData.EffectElement,System.Boolean,BEditor.Core.Extensions.CommandMode)">
+            <summary>
+            <see cref="T:BEditor.Core.Data.EffectData.EffectElement.CheckCommand"/> を実行します
+            </summary>
+            <param name="effect">対象の <see cref="T:BEditor.Core.Data.EffectData.EffectElement"/></param>
+            <param name="value">セットする値</param>
+            <param name="mode"><see cref="F:BEditor.Core.Extensions.CommandMode.Execute"/> を指定するとコマンドが <see cref="T:BEditor.Core.Data.UndoRedoManager"/> に記録されません</param>
+            <exception cref="T:System.ArgumentNullException"><paramref name="effect"/> が <see langword="null"/> です</exception>
+            <returns>作成されたコマンド</returns>
+        </member>
+        <member name="M:BEditor.Core.Extensions.ExtensionCommand.Up(BEditor.Core.Data.EffectData.EffectElement,BEditor.Core.Extensions.CommandMode)">
+            <summary>
+            <see cref="T:BEditor.Core.Data.EffectData.EffectElement.UpCommand"/> を実行します
+            </summary>
+            <param name="effect">対象の <see cref="T:BEditor.Core.Data.EffectData.EffectElement"/></param>
+            <param name="mode"><see cref="F:BEditor.Core.Extensions.CommandMode.Execute"/> を指定するとコマンドが <see cref="T:BEditor.Core.Data.UndoRedoManager"/> に記録されません</param>
+            <exception cref="T:System.ArgumentNullException"><paramref name="effect"/> が <see langword="null"/> です</exception>
+            <returns>作成されたコマンド</returns>
+        </member>
+        <member name="M:BEditor.Core.Extensions.ExtensionCommand.Down(BEditor.Core.Data.EffectData.EffectElement,BEditor.Core.Extensions.CommandMode)">
+            <summary>
+            <see cref="T:BEditor.Core.Data.EffectData.EffectElement.DownCommand"/> を実行します
+            </summary>
+            <param name="effect">対象の <see cref="T:BEditor.Core.Data.EffectData.EffectElement"/></param>
+            <param name="mode"><see cref="F:BEditor.Core.Extensions.CommandMode.Execute"/> を指定するとコマンドが <see cref="T:BEditor.Core.Data.UndoRedoManager"/> に記録されません</param>
+            <exception cref="T:System.ArgumentNullException"><paramref name="effect"/> が <see langword="null"/> です</exception>
+            <returns>作成されたコマンド</returns>
+        </member>
+        <member name="M:BEditor.Core.Extensions.ExtensionCommand.Remove(BEditor.Core.Data.EffectData.EffectElement,BEditor.Core.Extensions.CommandMode)">
+            <summary>
+            <see cref="T:BEditor.Core.Data.EffectData.EffectElement.RemoveCommand"/> を実行します
+            </summary>
+            <param name="effect">対象の <see cref="T:BEditor.Core.Data.EffectData.EffectElement"/></param>
+            <param name="mode"><see cref="F:BEditor.Core.Extensions.CommandMode.Execute"/> を指定するとコマンドが <see cref="T:BEditor.Core.Data.UndoRedoManager"/> に記録されません</param>
+            <exception cref="T:System.ArgumentNullException"><paramref name="effect"/> が <see langword="null"/> です</exception>
+            <returns>作成されたコマンド</returns>
+        </member>
+        <member name="M:BEditor.Core.Extensions.ExtensionCommand.Add(BEditor.Core.Data.EffectData.EffectElement,BEditor.Core.Extensions.CommandMode)">
+            <summary>
+            <see cref="T:BEditor.Core.Data.EffectData.EffectElement.AddCommand"/> を実行します
+            </summary>
+            <param name="effect">対象の <see cref="T:BEditor.Core.Data.EffectData.EffectElement"/></param>
+            <param name="mode"><see cref="F:BEditor.Core.Extensions.CommandMode.Execute"/> を指定するとコマンドが <see cref="T:BEditor.Core.Data.UndoRedoManager"/> に記録されません</param>
+            <exception cref="T:System.ArgumentNullException"><paramref name="effect"/> が <see langword="null"/> です</exception>
+            <returns>作成されたコマンド</returns>
+        </member>
+        <member name="M:BEditor.Core.Extensions.ExtensionCommand.Add(BEditor.Core.Data.EffectData.EffectElement,BEditor.Core.Data.ObjectData.ClipData,BEditor.Core.Extensions.CommandMode)">
+            <summary>
+            <see cref="T:BEditor.Core.Data.EffectData.EffectElement.DownCommand"/> を実行します
+            </summary>
+            <param name="effect">対象の <see cref="T:BEditor.Core.Data.EffectData.EffectElement"/></param>
+            <param name="clip"></param>
+            <param name="mode"><see cref="F:BEditor.Core.Extensions.CommandMode.Execute"/> を指定するとコマンドが <see cref="T:BEditor.Core.Data.UndoRedoManager"/> に記録されません</param>
+            <exception cref="T:System.ArgumentNullException"><paramref name="effect"/> が <see langword="null"/> です</exception>
+            <returns>作成されたコマンド</returns>
+        </member>
+        <member name="M:BEditor.Core.Extensions.ExtensionCommand.Add(BEditor.Core.Data.ProjectData.Scene,System.Int32,System.Int32,System.Type,BEditor.Core.Extensions.CommandMode)">
+            <summary>
+            <see cref="T:BEditor.Core.Data.ObjectData.ClipData.AddCommand"/> を実行します
+            </summary>
+            <param name="scene">対象の <see cref="T:BEditor.Core.Data.ProjectData.Scene"/></param>
+            <param name="addframe">配置するフレーム</param>
+            <param name="layer">配置するレイヤー</param>
+            <param name="type">クリップの種類</param>
+            <param name="mode"><see cref="F:BEditor.Core.Extensions.CommandMode.Execute"/> を指定するとコマンドが <see cref="T:BEditor.Core.Data.UndoRedoManager"/> に記録されません</param>
+            <exception cref="T:System.ArgumentNullException"><paramref name="scene"/> が <see langword="null"/> です</exception>
+            <exception cref="T:System.ArgumentNullException"><paramref name="type"/> が <see langword="null"/> です</exception>
+            <exception cref="T:System.ArgumentOutOfRangeException"><paramref name="addframe"/> が0以下です</exception>
+            <exception cref="T:System.ArgumentOutOfRangeException"><paramref name="layer"/> が0以下です</exception>
+            <returns>作成されたコマンド</returns>
+        </member>
+        <member name="M:BEditor.Core.Extensions.ExtensionCommand.Remove(BEditor.Core.Data.ObjectData.ClipData,BEditor.Core.Extensions.CommandMode)">
+            <summary>
+            <see cref="T:BEditor.Core.Data.ObjectData.ClipData.RemoveCommand"/> を実行します
+            </summary>
+            <param name="clip">対象の <see cref="T:BEditor.Core.Data.ObjectData.ClipData"/></param>
+            <param name="mode"><see cref="F:BEditor.Core.Extensions.CommandMode.Execute"/> を指定するとコマンドが <see cref="T:BEditor.Core.Data.UndoRedoManager"/> に記録されません</param>
+            <exception cref="T:System.ArgumentNullException"><paramref name="clip"/> が <see langword="null"/> です</exception>
+            <returns>作成されたコマンド</returns>
+        </member>
+        <member name="M:BEditor.Core.Extensions.ExtensionCommand.Move(BEditor.Core.Data.ObjectData.ClipData,System.Int32,System.Int32,BEditor.Core.Extensions.CommandMode)">
+            <summary>
+            <see cref="T:BEditor.Core.Data.ObjectData.ClipData.MoveCommand"/> を実行します
+            </summary>
+            <param name="clip">対象の <see cref="T:BEditor.Core.Data.ObjectData.ClipData"/></param>
+            <param name="to">新しい開始フレーム</param>
+            <param name="tolayer">新しい配置レイヤー</param>
+            <param name="mode"><see cref="F:BEditor.Core.Extensions.CommandMode.Execute"/> を指定するとコマンドが <see cref="T:BEditor.Core.Data.UndoRedoManager"/> に記録されません</param>
+            <exception cref="T:System.ArgumentNullException"><paramref name="clip"/> が <see langword="null"/> です</exception>
+            <exception cref="T:System.ArgumentOutOfRangeException"><paramref name="to"/> または <paramref name="tolayer"/> が0以下です</exception>
+            <returns>作成されたコマンド</returns>
+        </member>
+        <member name="M:BEditor.Core.Extensions.ExtensionCommand.Move(BEditor.Core.Data.ObjectData.ClipData,System.Int32,System.Int32,System.Int32,System.Int32,BEditor.Core.Extensions.CommandMode)">
+            <summary>
+            <see cref="T:BEditor.Core.Data.ObjectData.ClipData.MoveCommand"/> を実行します
+            </summary>
+            <param name="clip">対象の <see cref="T:BEditor.Core.Data.ObjectData.ClipData"/></param>
+            <param name="to">新しい開始フレーム</param>
+            <param name="from">古い開始フレーム</param>
+            <param name="tolayer">新しい配置レイヤー</param>
+            <param name="fromlayer">古い配置レイヤー</param>
+            <param name="mode"><see cref="F:BEditor.Core.Extensions.CommandMode.Execute"/> を指定するとコマンドが <see cref="T:BEditor.Core.Data.UndoRedoManager"/> に記録されません</param>
+            <exception cref="T:System.ArgumentNullException"><paramref name="clip"/> が <see langword="null"/> です</exception>
+            <exception cref="T:System.ArgumentOutOfRangeException"><paramref name="to"/>, <paramref name="from"/>, <paramref name="tolayer"/>, <paramref name="fromlayer"/> が0以下です</exception>
+            <returns>作成されたコマンド</returns>
+        </member>
+        <member name="M:BEditor.Core.Extensions.ExtensionCommand.LengthChange(BEditor.Core.Data.ObjectData.ClipData,System.Int32,System.Int32,BEditor.Core.Extensions.CommandMode)">
+            <summary>
+            <see cref="T:BEditor.Core.Data.ObjectData.ClipData.LengthChangeCommand"/> を実行します
+            </summary>
+            <param name="clip">対象の <see cref="T:BEditor.Core.Data.ObjectData.ClipData"/></param>
+            <param name="start">開始フレーム</param>
+            <param name="end">終了フレーム</param>
+            <param name="mode"><see cref="F:BEditor.Core.Extensions.CommandMode.Execute"/> を指定するとコマンドが <see cref="T:BEditor.Core.Data.UndoRedoManager"/> に記録されません</param>
+            <exception cref="T:System.ArgumentNullException"><paramref name="clip"/> が <see langword="null"/> です</exception>
+            <exception cref="T:System.ArgumentOutOfRangeException"><paramref name="start"/> または <paramref name="end"/> が0以下です</exception>
+            <returns>作成されたコマンド</returns>
+        </member>
         <member name="T:BEditor.Core.Media.Color">
             <summary>
-            
+            RGBA (red, green, blue, alpha) の色を表します
             </summary>
+        </member>
+        <member name="F:BEditor.Core.Media.Color.White">
+            <summary>
+            Red:255 
+            Green:255 
+            Blue:255 
+            Alpha:255 
+            </summary>
+        </member>
+        <member name="F:BEditor.Core.Media.Color.Black">
+            <summary>
+            Red:0 
+            Green:0 
+            Blue:0 
+            Alpha:255 
+            </summary>
+        </member>
+        <member name="F:BEditor.Core.Media.Color.Red">
+            <summary>
+            Red:244 
+            Green:67
+            Blue:54 
+            Alpha:255 
+            </summary>
+        </member>
+        <member name="F:BEditor.Core.Media.Color.Pink">
+            <summary>
+            Red:233 
+            Green:30 
+            Blue:99 
+            Alpha:255 
+            </summary>
+        </member>
+        <member name="F:BEditor.Core.Media.Color.Purple">
+            <summary>
+            Red:156 
+            Green:39 
+            Blue:176 
+            Alpha:255 
+            </summary>
+        </member>
+        <member name="F:BEditor.Core.Media.Color.DeepPurple">
+            <summary>
+            Red:103 
+            Green:58 
+            Blue:182 
+            Alpha:255 
+            </summary>
+        </member>
+        <member name="F:BEditor.Core.Media.Color.Indigo">
+            <summary>
+            Red:63 
+            Green:81 
+            Blue:181 
+            Alpha:255 
+            </summary>
+        </member>
+        <member name="F:BEditor.Core.Media.Color.Blue">
+            <summary>
+            Red:33 
+            Green:150 
+            Blue:243 
+            Alpha:255 
+            </summary>
+        </member>
+        <member name="F:BEditor.Core.Media.Color.LightBlue">
+            <summary>
+            Red:3 
+            Green:169 
+            Blue:244 
+            Alpha:255 
+            </summary>
+        </member>
+        <member name="F:BEditor.Core.Media.Color.Cyan">
+            <summary>
+            Red:0 
+            Green:188 
+            Blue:212 
+            Alpha:255 
+            </summary>
+        </member>
+        <member name="F:BEditor.Core.Media.Color.Teal">
+            <summary>
+            Red:0 
+            Green:150 
+            Blue:136 
+            Alpha:255 
+            </summary>
+        </member>
+        <member name="F:BEditor.Core.Media.Color.Green">
+            <summary>
+            Red:76 
+            Green:175 
+            Blue:80 
+            Alpha:255 
+            </summary>
+        </member>
+        <member name="F:BEditor.Core.Media.Color.LightGreen">
+            <summary>
+            Red:139 
+            Green:195 
+            Blue:74 
+            Alpha:255 
+            </summary>
+        </member>
+        <member name="F:BEditor.Core.Media.Color.Lime">
+            <summary>
+            Red:205 
+            Green:220 
+            Blue:57 
+            Alpha:255 
+            </summary>
+        </member>
+        <member name="F:BEditor.Core.Media.Color.Yellow">
+            <summary>
+            Red:255 
+            Green:235 
+            Blue:59 
+            Alpha:255 
+            </summary>
+        </member>
+        <member name="F:BEditor.Core.Media.Color.Amber">
+            <summary>
+            Red:255 
+            Green:193 
+            Blue:7 
+            Alpha:255 
+            </summary>
+        </member>
+        <member name="F:BEditor.Core.Media.Color.Orange">
+            <summary>
+            Red:255 
+            Green:152 
+            Blue:0 
+            Alpha:255 
+            </summary>
+        </member>
+        <member name="F:BEditor.Core.Media.Color.DeepOrange">
+            <summary>
+            Red:255 
+            Green:87 
+            Blue:34 
+            Alpha:255 
+            </summary>
+        </member>
+        <member name="F:BEditor.Core.Media.Color.Brown">
+            <summary>
+            Red:121 
+            Green:85 
+            Blue:72 
+            Alpha:255 
+            </summary>
+        </member>
+        <member name="F:BEditor.Core.Media.Color.Grey">
+            <summary>
+            Red:158 
+            Green:158 
+            Blue:158 
+            Alpha:255 
+            </summary>
+        </member>
+        <member name="F:BEditor.Core.Media.Color.BlueGrey">
+            <summary>
+            Red:96 
+            Green:125 
+            Blue:139 
+            Alpha:255 
+            </summary>
+        </member>
+        <member name="M:BEditor.Core.Media.Color.#ctor(System.Byte,System.Byte,System.Byte,System.Byte)">
+            <summary>
+            <see cref="T:BEditor.Core.Media.Color"/> 構造体の新しいインスタンスを初期化します
+            </summary>
+            <param name="r"><see cref="P:BEditor.Core.Media.Color.R"/> の値</param>
+            <param name="g"><see cref="P:BEditor.Core.Media.Color.G"/> の値</param>
+            <param name="b"><see cref="P:BEditor.Core.Media.Color.B"/> の値</param>
+            <param name="a"><see cref="P:BEditor.Core.Media.Color.A"/> の値</param>
+        </member>
+        <member name="M:BEditor.Core.Media.Color.#ctor(System.Single,System.Single,System.Single,System.Single)">
+            <summary>
+            <see cref="T:BEditor.Core.Media.Color"/> 構造体の新しいインスタンスを初期化します
+            </summary>
+            <param name="r"><see cref="P:BEditor.Core.Media.Color.ScR"/> の値</param>
+            <param name="g"><see cref="P:BEditor.Core.Media.Color.ScG"/> の値</param>
+            <param name="b"><see cref="P:BEditor.Core.Media.Color.ScB"/> の値</param>
+            <param name="a"><see cref="P:BEditor.Core.Media.Color.ScA"/> の値</param>
+        </member>
+        <member name="M:BEditor.Core.Media.Color.Equals(System.Object)">
+            <inheritdoc/>
         </member>
         <member name="M:BEditor.Core.Media.Color.Equals(BEditor.Core.Media.Color)">
             <inheritdoc/>
@@ -2170,90 +2477,189 @@
         <member name="M:BEditor.Core.Media.Color.ToString">
             <inheritdoc/>
         </member>
+        <member name="P:BEditor.Core.Media.Color.R">
+            <summary>
+            赤の値を取得または設定します
+            </summary>
+        </member>
+        <member name="P:BEditor.Core.Media.Color.G">
+            <summary>
+            緑の値を取得または設定します
+            </summary>
+        </member>
+        <member name="P:BEditor.Core.Media.Color.B">
+            <summary>
+            青の値を取得または設定します
+            </summary>
+        </member>
+        <member name="P:BEditor.Core.Media.Color.A">
+            <summary>
+            アルファの値を取得または設定します
+            </summary>
+        </member>
+        <member name="P:BEditor.Core.Media.Color.ScR">
+            <summary>
+            赤の値を取得または設定します
+            </summary>
+        </member>
+        <member name="P:BEditor.Core.Media.Color.ScG">
+            <summary>
+            緑の値を取得または設定します
+            </summary>
+        </member>
+        <member name="P:BEditor.Core.Media.Color.ScB">
+            <summary>
+            青の値を取得または設定します
+            </summary>
+        </member>
+        <member name="P:BEditor.Core.Media.Color.ScA">
+            <summary>
+            アルファの値を取得または設定します
+            </summary>
+        </member>
         <member name="M:BEditor.Core.Media.Color.op_Implicit(BEditor.Core.Media.Color)~System.Byte[]">
             <summary>
-            
+            <see cref="T:BEditor.Core.Media.Color"/> 構造体から <see cref="T:System.Byte"/> の配列を作成します
             </summary>
-            <param name="c"></param>
         </member>
         <member name="M:BEditor.Core.Media.Color.op_Implicit(BEditor.Core.Media.Color)~System.Single[]">
             <summary>
-            
+            <see cref="T:BEditor.Core.Media.Color"/> 構造体から <see cref="T:System.Single"/>　の配列を作成します
             </summary>
-            <param name="c"></param>
         </member>
         <member name="M:BEditor.Core.Media.Color.op_Implicit(BEditor.Core.Media.Color)~System.Drawing.Color">
             <summary>
-            
+            <see cref="T:BEditor.Core.Media.Color"/> 構造体から <see cref="T:System.Drawing.Color"/> を作成します
             </summary>
-            <param name="c"></param>
         </member>
         <member name="M:BEditor.Core.Media.Color.op_Implicit(BEditor.Core.Media.Color)~OpenTK.Graphics.Color4">
             <summary>
-            
+            <see cref="T:BEditor.Core.Media.Color"/> 構造体から <see cref="T:OpenTK.Graphics.Color4"/> を作成します
             </summary>
-            <param name="c"></param>
         </member>
         <member name="M:BEditor.Core.Media.Color.op_Implicit(OpenTK.Graphics.Color4)~BEditor.Core.Media.Color">
             <summary>
-            
+            <see cref="T:OpenTK.Graphics.Color4"/> 構造体から <see cref="T:BEditor.Core.Media.Color"/> を作成します
             </summary>
             <param name="c"></param>
         </member>
         <member name="M:BEditor.Core.Media.Color.op_Equality(BEditor.Core.Media.Color,BEditor.Core.Media.Color)">
             <summary>
-            
+            2つの <see cref="T:BEditor.Core.Media.Color"/> 構造体を比較します
             </summary>
-            <param name="left"></param>
-            <param name="right"></param>
-            <returns></returns>
+            <returns>2つの <see cref="T:BEditor.Core.Media.Color"/> 構造体が等しい場合は <see langword="true"/> 、そうでない場合は <see langword="false"/> です</returns>
         </member>
         <member name="M:BEditor.Core.Media.Color.op_Inequality(BEditor.Core.Media.Color,BEditor.Core.Media.Color)">
             <summary>
-            
+            2つの <see cref="T:BEditor.Core.Media.Color"/> 構造体を比較します
             </summary>
-            <param name="left"></param>
-            <param name="right"></param>
-            <returns></returns>
+            <returns>2つの <see cref="T:BEditor.Core.Media.Color"/> 構造体が異なる場合は <see langword="true"/> 、そうでない場合は <see langword="false"/> です</returns>
+        </member>
+        <member name="T:BEditor.Core.Media.Font">
+            <summary>
+            FreeTypeのFaceの一部をカプセル化します
+            </summary>
+        </member>
+        <member name="M:BEditor.Core.Media.Font.#ctor(System.String,System.Int32,System.Boolean,System.UInt32)">
+            <summary>
+            <see cref="T:BEditor.Core.Media.Font"/> クラスの新しいインスタンスを初期化します
+            </summary>
+        </member>
+        <member name="P:BEditor.Core.Media.Font.Style">
+            <summary>
+            フォントのスタイルを取得または設定します
+            </summary>
+        </member>
+        <member name="P:BEditor.Core.Media.Font.Height">
+            <summary>
+            フォントの高さを取得します
+            </summary>
+        </member>
+        <member name="P:BEditor.Core.Media.Font.Ascender">
+            <summary>
+            https://www.freetype.org/freetype2/docs/tutorial/step2.html を参照してください
+            </summary>
+        </member>
+        <member name="P:BEditor.Core.Media.Font.Descender">
+            <summary>
+            https://www.freetype.org/freetype2/docs/tutorial/step2.html を参照してください
+            </summary>
+        </member>
+        <member name="P:BEditor.Core.Media.Font.FaceFamilyName">
+            <summary>
+            フォントファミリー名を取得します
+            </summary>
+        </member>
+        <member name="P:BEditor.Core.Media.Font.FaceStyleName">
+            <summary>
+            現在のフォントスタイル名を取得します
+            </summary>
+        </member>
+        <member name="M:BEditor.Core.Media.Font.SizeText(System.String,System.Int32@,System.Int32@)">
+            <summary>
+            指定した文字からサイズを測ります
+            </summary>
+        </member>
+        <member name="M:BEditor.Core.Media.Font.RenderText(System.String,BEditor.Core.Media.Color)">
+            <summary>
+            指定した文字から <see cref="T:BEditor.Core.Media.Image"/> にレンダリングします
+            </summary>
+        </member>
+        <member name="M:BEditor.Core.Media.Font.Quit">
+            <summary>
+            ライブラリを終了します
+            </summary>
+        </member>
+        <member name="M:BEditor.Core.Media.Font.Initialize">
+            <summary>
+            ライブラリを初期化します
+            </summary>
+        </member>
+        <member name="T:BEditor.Core.Media.FontStyle">
+            <summary>
+            フォントスタイルを表します
+            </summary>
         </member>
         <member name="T:BEditor.Core.Media.Image">
             <summary>
-            
+            OpenCv Mat を利用した画像オブジェクトを表します
             </summary>
         </member>
         <member name="M:BEditor.Core.Media.Image.#ctor(System.Int32,System.Int32)">
             <summary>
-            
+            <see cref="T:BEditor.Core.Media.Image"/> クラスの新しいインスタンスを初期化します
             </summary>
-            <param name="width"></param>
-            <param name="height"></param>
+            <param name="width">画像の横幅</param>
+            <param name="height">画像の高さ</param>
             <exception cref="T:BEditor.Core.Exceptions.NativeException"/>
         </member>
         <member name="M:BEditor.Core.Media.Image.#ctor(System.Int32,System.Int32,BEditor.Core.Media.ImageType)">
             <summary>
-            
+            <see cref="T:BEditor.Core.Media.Image"/> クラスの新しいインスタンスを初期化します
             </summary>
-            <param name="width"></param>
-            <param name="height"></param>
-            <param name="type"></param>
+            <param name="width">画像の横幅</param>
+            <param name="height">画像の高さ</param>
+            <param name="type">画像のチャンネル数などの情報</param>
             <exception cref="T:BEditor.Core.Exceptions.NativeException"/>
         </member>
-        <member name="M:BEditor.Core.Media.Image.#ctor(System.Int32,System.Int32,System.IntPtr,BEditor.Core.Media.ImageType)">
+        <member name="M:BEditor.Core.Media.Image.#ctor(System.Int32,System.Int32,BEditor.Core.Media.ImageType,System.IntPtr)">
             <summary>
-            コピーしない
+            画像データから <see cref="T:BEditor.Core.Media.Image"/> クラスの新しいインスタンスを初期化します
             </summary>
-            <param name="width"></param>
-            <param name="height"></param>
-            <param name="ptr"></param>
-            <param name="type"></param>
+            <param name="width">画像の横幅</param>
+            <param name="height">画像の高さ</param>
+            <param name="type">画像のチャンネル数などの情報</param>
+            <param name="data">画像のデータ</param>
+            <remarks>画像のデータはコピーされません</remarks>
             <exception cref="T:BEditor.Core.Exceptions.IntPtrZeroException"/>
             <exception cref="T:BEditor.Core.Exceptions.NativeException"/>
         </member>
         <member name="M:BEditor.Core.Media.Image.#ctor(System.IntPtr)">
             <summary>
-            コピーしない
+            OpenCv Matのポインタから <see cref="T:BEditor.Core.Media.Image"/> クラスの新しいインスタンスを初期化します
             </summary>
-            <param name="ptr"></param>
+            <param name="ptr">OpenCv Matのポインタ</param>
+            <remarks>画像のデータはコピーされません</remarks>
             <exception cref="T:BEditor.Core.Exceptions.IntPtrZeroException"/>
         </member>
         <member name="M:BEditor.Core.Media.Image.#ctor(BEditor.Core.Media.Image,BEditor.Core.Media.Rectangle)">
@@ -2644,22 +3050,7 @@
             <exception cref="T:System.ArgumentException"/>
             <exception cref="T:System.ObjectDisposedException"/>
         </member>
-        <member name="M:BEditor.Core.Media.Image.Equals(System.Object)">
-            <inheritdoc/>
-        </member>
-        <member name="M:BEditor.Core.Media.Image.Equals(BEditor.Core.Media.Image)">
-            <inheritdoc/>
-        </member>
-        <member name="M:BEditor.Core.Media.Image.GetHashCode">
-            <inheritdoc/>
-        </member>
         <member name="M:BEditor.Core.Media.Image.ToString">
-            <inheritdoc/>
-        </member>
-        <member name="M:BEditor.Core.Media.Image.op_Equality(BEditor.Core.Media.Image,BEditor.Core.Media.Image)">
-            <inheritdoc/>
-        </member>
-        <member name="M:BEditor.Core.Media.Image.op_Inequality(BEditor.Core.Media.Image,BEditor.Core.Media.Image)">
             <inheritdoc/>
         </member>
         <member name="F:BEditor.Core.Media.ImageReadMode.UnChanged">

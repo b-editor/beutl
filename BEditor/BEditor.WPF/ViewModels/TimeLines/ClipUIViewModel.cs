@@ -137,8 +137,8 @@ namespace BEditor.ViewModels.TimeLines {
                 int start = TimeLineViewModel.ToFrame(TimeLineViewModel.ClipSelect.GetCreateClipViewModel().MarginLeftProperty);
                 int end = TimeLineViewModel.ToFrame(TimeLineViewModel.ClipSelect.GetCreateClipViewModel().WidthProperty.Value) + start;//変更後の最大フレーム
 
-                UndoRedoManager.Do(new ClipData.LengthChangeCommand(data, start, end));
-
+                if (0 < start && 0 < end)
+                    UndoRedoManager.Do(new ClipData.LengthChangeCommand(data, start, end));
             }
 
             if (TimeLineViewModel.ClipTimeChange) {
@@ -211,7 +211,7 @@ namespace BEditor.ViewModels.TimeLines {
                 $"Start : {ClipData.Start}\n" +
                 $"End : {ClipData.End}";
 
-            BEditor.Core.Extesions.ViewCommand.Message.Dialog(text);
+            BEditor.Core.Extensions.ViewCommand.Message.Dialog(text);
         }
         #endregion
 

@@ -4,7 +4,7 @@ using System.Windows.Controls;
 using System.Windows.Media;
 using BEditor.ViewModels.Helper;
 
-using BEditor.Core.Extesions.ViewCommand;
+using BEditor.Core.Extensions.ViewCommand;
 
 using Resource = BEditor.Core.Properties.Resources;
 

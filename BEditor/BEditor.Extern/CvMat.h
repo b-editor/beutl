@@ -44,6 +44,8 @@ DLLExport(const char*) ImageRead(const char* filename, cv::Mat** returnmat);
 
 DLLExport(const char*) ImageDecode(uchar* buf, size_t bufLength, int flags, cv::Mat** returnmat);
 
+DLLExport(const char*) ImageRelease(cv::Mat* mat);
+
 DLLExport(const char*) ImageDelete(cv::Mat* mat);
 
 DLLExport(const char*) ImageSave1(cv::Mat* mat, const char* filename, int* params, int paramsLength, int* returnValue);

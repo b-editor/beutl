@@ -362,8 +362,8 @@ namespace BEditor.ViewModels.TimeLines {
 
                 int start = ToFrame(ClipSelect.GetCreateClipViewModel().MarginLeftProperty);
                 int end = ToFrame(ClipSelect.GetCreateClipViewModel().WidthProperty.Value) + start;//変更後の最大フレーム
-
-                UndoRedoManager.Do(new ClipData.LengthChangeCommand(ClipSelect, start, end));
+                if (0 < start && 0 < end)
+                    UndoRedoManager.Do(new ClipData.LengthChangeCommand(ClipSelect, start, end));
 
                 ClipLeftRight = 0;
             }
@@ -445,7 +445,7 @@ namespace BEditor.ViewModels.TimeLines {
             if (ClipTimeChange) {
                 ClipData data = ClipSelect;
 
-                UndoRedoManager.Do(new ClipData.MoveCommand(data: data,
+                UndoRedoManager.Do(new ClipData.MoveCommand(clip: data,
                                                      to: ToFrame(data.GetCreateClipViewModel().MarginLeftProperty),
                                                      tolayer: ClipSelect.GetCreateClipViewModel().Row));
 

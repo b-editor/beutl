@@ -5,7 +5,7 @@ using System.Runtime.Serialization;
 using BEditor.Core.Data.ProjectData;
 using BEditor.Core.Data.PropertyData;
 using BEditor.Core.Extensions;
-using BEditor.Core.Extesions.ViewCommand;
+using BEditor.Core.Extensions.ViewCommand;
 using BEditor.Core.Media.Decoder;
 using BEditor.Core.Properties;
 

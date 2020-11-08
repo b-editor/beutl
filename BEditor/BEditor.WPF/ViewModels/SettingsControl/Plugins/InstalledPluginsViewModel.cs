@@ -10,7 +10,7 @@ using System.Windows.Controls;
 
 using BEditor.Models;
 using BEditor.ViewModels.Helper;
-using BEditor.Core.Extesions.ViewCommand;
+using BEditor.Core.Extensions.ViewCommand;
 using BEditor.Core.Plugin;
 
 namespace BEditor.ViewModels.SettingsControl.Plugins {

@@ -30,6 +30,9 @@ namespace BEditor.Core.Native {
         [Pure, DllImport(dll, EntryPoint = "ImageDecode")]
         public static extern unsafe string Decode(byte* buf, IntPtr bufLength, int flags, out IntPtr returnmat);
 
+        [Pure, DllImport(dll, EntryPoint = "ImageRelease")]
+        public static extern string Release(IntPtr mat);
+
         [Pure, DllImport(dll, EntryPoint = "ImageDelete")]
         public static extern string Delete(IntPtr mat);
 

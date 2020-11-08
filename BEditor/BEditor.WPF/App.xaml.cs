@@ -21,7 +21,7 @@ using BEditor.Core.Data.EffectData;
 using BEditor.Core.Data.ObjectData;
 using BEditor.Core.Data.ProjectData;
 using BEditor.Core.Data.PropertyData;
-using BEditor.Core.Extesions.ViewCommand;
+using BEditor.Core.Extensions.ViewCommand;
 using BEditor.Core.Interfaces;
 
 using MaterialDesignThemes.Wpf;
@@ -30,6 +30,7 @@ using Microsoft.WindowsAPICodePack.Dialogs;
 using Image = BEditor.Core.Media.Image;
 using Resources_ = BEditor.Core.Properties.Resources;
 using BEditor.Core.Media;
+using System.Timers;
 
 namespace BEditor {
     /// <summary>
@@ -137,8 +138,18 @@ namespace BEditor {
                 return control.DialogResult;
             };
             Message.SnackberFunc += (text) => MainWindowViewModel.Current.MessageQueue.Enqueue(text);
+
+            Timer timer = new Timer() {
+                Interval = 2500,
+                Enabled = true
+            };
+            timer.Elapsed += Timer_Elapsed;
         }
-        
+
+        private void Timer_Elapsed(object sender, ElapsedEventArgs e) {
+            System.Threading.Tasks.Task.Run(GC.Collect); //TODO : 廃止
+        }
+
         public static (CustomTreeView, VirtualizingStackPanel) CreateTreeObject(ObjectElement obj) {
             CustomTreeView _expander = new CustomTreeView() {
                 HeaderHeight = 35F

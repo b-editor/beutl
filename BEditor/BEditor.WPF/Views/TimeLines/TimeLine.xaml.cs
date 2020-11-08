@@ -179,13 +179,12 @@ namespace BEditor.Views.TimeLines {
                 vm.Row = layer;
 
                 App.Current?.Dispatcher?.Invoke(() => {
-                    Grid fromgrid = (Grid)Layer.Children[from];//移動もと
-
                     Grid togrid = (Grid)Layer.Children[layer];
 
+                    var ui = data.GetCreateClipView();
+                    (ui.Parent as Grid)?.Children?.Remove(ui);
 
-                    fromgrid.Children.Remove(data.GetCreateClipView());
-                    togrid.Children.Add(data.GetCreateClipView());
+                    togrid.Children.Add(ui);
                 });
             };
             TimeLineViewModel.GetLayerMousePosition = () => Mouse.GetPosition(Layer).ToMedia();
@@ -214,9 +213,8 @@ namespace BEditor.Views.TimeLines {
                 else if (e.Action == System.Collections.Specialized.NotifyCollectionChangedAction.Remove) {
                     ClipData info = (ClipData)e.OldItems[e.OldStartingIndex];
 
-                    Grid grid = (Grid)Layer.Children[info.Layer];
-
-                    grid.Children.Remove(info.GetCreateClipView());
+                    var ui = info.GetCreateClipView();
+                    (ui.Parent as Grid)?.Children?.Remove(ui);
                 }
             };
         }

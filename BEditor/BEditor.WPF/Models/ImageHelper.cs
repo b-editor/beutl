@@ -4,7 +4,7 @@ using System.Windows.Media.Imaging;
 
 using BEditor.Core.Data;
 using BEditor.Core.Extensions;
-using BEditor.Core.Extesions.ViewCommand;
+using BEditor.Core.Extensions.ViewCommand;
 using BEditor.Core.Media;
 using BEditor.Core.Properties;
 

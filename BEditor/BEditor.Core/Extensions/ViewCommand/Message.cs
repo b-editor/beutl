@@ -2,7 +2,7 @@
 using System.Collections.Generic;
 using System.Text;
 
-namespace BEditor.Core.Extesions.ViewCommand {
+namespace BEditor.Core.Extensions.ViewCommand {
     public static class Message {
         public static event Func<string, IconType, ButtonType[], ButtonType> DialogFunc;
         public static event Action<string> SnackberFunc;

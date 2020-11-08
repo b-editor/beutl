@@ -9,7 +9,7 @@ using BEditor.Core.Data.EffectData;
 using BEditor.Core.Data.ObjectData;
 using BEditor.Core.Data.PropertyData.EasingSetting;
 using BEditor.Core.Extensions;
-using BEditor.Core.Extesions.ViewCommand;
+using BEditor.Core.Extensions.ViewCommand;
 using BEditor.Core.Properties;
 
 namespace BEditor.Core.Plugin {

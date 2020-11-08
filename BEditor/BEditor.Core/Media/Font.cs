@@ -5,14 +5,19 @@ using BEditor.Core.Media;
 using BEditor.Core.Native;
 
 namespace BEditor.Core.Media {
+    /// <summary>
+    /// FreeTypeのFaceの一部をカプセル化します
+    /// </summary>
     public class Font : DisposableObject {
         private IntPtr ptr;
 
         #region Constructor
 
+        /// <summary>
+        /// <see cref="Font"/> クラスの新しいインスタンスを初期化します
+        /// </summary>
         public Font(string file, int size, bool isFitHeight = true, uint index = 0) {
             ptr = FontProcess.Open(file, (uint)size, isFitHeight, index);
-            Size = size;
         }
 
         #endregion
@@ -20,8 +25,9 @@ namespace BEditor.Core.Media {
 
         #region Properties
 
-        public int Size { get; }
-
+        /// <summary>
+        /// フォントのスタイルを取得または設定します
+        /// </summary>
         public FontStyle Style {
             get {
                 ThrowIfDisposed();
@@ -33,28 +39,42 @@ namespace BEditor.Core.Media {
             }
         }
 
-
+        /// <summary>
+        /// フォントの高さを取得します
+        /// </summary>
         public int Height {
             get {
                 return FontProcess.Height(ptr);
             }
         }
+        /// <summary>
+        /// https://www.freetype.org/freetype2/docs/tutorial/step2.html を参照してください
+        /// </summary>
         public int Ascender {
             get {
                 return FontProcess.Ascender(ptr);
             }
         }
+        /// <summary>
+        /// https://www.freetype.org/freetype2/docs/tutorial/step2.html を参照してください
+        /// </summary>
         public int Descender {
             get {
                 return FontProcess.Descender(ptr);
             }
         }
+        /// <summary>
+        /// フォントファミリー名を取得します
+        /// </summary>
         public string FaceFamilyName {
             get {
                 ThrowIfDisposed();
                 return FontProcess.FamilyName(ptr);
             }
         }
+        /// <summary>
+        /// 現在のフォントスタイル名を取得します
+        /// </summary>
         public string FaceStyleName {
             get {
                 ThrowIfDisposed();
@@ -66,6 +86,9 @@ namespace BEditor.Core.Media {
 
         #region Methods
 
+        /// <summary>
+        /// 指定した文字からサイズを測ります
+        /// </summary>
         public void SizeText(string text, out int width, out int height) {
             ThrowIfDisposed();
 
@@ -76,6 +99,9 @@ namespace BEditor.Core.Media {
             height = rect.Height;
         }
 
+        /// <summary>
+        /// 指定した文字から <see cref="Image"/> にレンダリングします
+        /// </summary>
         public Image RenderText(string text, Color color) {
             SizeText(text, out var width, out var height);
 
@@ -93,8 +119,14 @@ namespace BEditor.Core.Media {
 
         #region StaticMethods
 
+        /// <summary>
+        /// ライブラリを終了します
+        /// </summary>
         public static void Quit() => FontProcess.Quit();
 
+        /// <summary>
+        /// ライブラリを初期化します
+        /// </summary>
         public static bool Initialize() => FontProcess.Init();
 
         #endregion
@@ -108,6 +140,9 @@ namespace BEditor.Core.Media {
         }
     }
 
+    /// <summary>
+    /// フォントスタイルを表します
+    /// </summary>
     public enum FontStyle {
         Normal = 0x00,
         Bold = 0x01,

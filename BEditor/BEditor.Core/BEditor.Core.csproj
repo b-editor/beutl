@@ -5,6 +5,7 @@
     <Nullable>disable</Nullable>
     <LangVersion>preview</LangVersion>
     <AssemblyName>BEditor.Core</AssemblyName>
+    <Version>0.0.1</Version>
   </PropertyGroup>
 
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|AnyCPU'">
@@ -42,12 +43,6 @@
       <Generator>PublicResXFileCodeGenerator</Generator>
       <LastGenOutput>Resources.Designer.cs</LastGenOutput>
     </EmbeddedResource>
-  </ItemGroup>
-
-  <ItemGroup>
-    <Reference Include="B_Editor">
-      <HintPath>..\..\..\..\ダウンロード\B_Editor.dll</HintPath>
-    </Reference>
   </ItemGroup>
 
   <ItemGroup>

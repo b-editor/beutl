@@ -157,7 +157,7 @@ inline const char* ImageClip(cv::Mat* mat, int top, int bottom, int left, int ri
 		cv::Mat* tmp = new cv::Mat(*mat, cv::Rect(x, y, width, height));
 		delete mat;
 
-		*returnmat = tmp; //TODO : “®‚©‚È‚¢ê‡‚±‚±‚ğ•ÏX
+		*returnmat = tmp;
 
 		return nullptr;
 	}

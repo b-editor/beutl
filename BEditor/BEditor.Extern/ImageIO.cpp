@@ -66,6 +66,16 @@ inline const char* ImageDecode(uchar* buf, size_t bufLength, int flags, cv::Mat*
 	}
 }
 
+inline const char* ImageRelease(cv::Mat* mat) {
+	try {
+		mat->release();
+		return nullptr;
+	}
+	catch (std::exception e) {
+		return e.what();
+	}
+}
+
 inline const char* ImageDelete(cv::Mat* mat) {
 	try {
 		delete mat;

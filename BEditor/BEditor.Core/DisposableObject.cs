@@ -8,11 +8,13 @@ namespace BEditor.Core {
         public bool IsDisposed { get; private set; }
 
         public void Dispose() {
-            OnDispose(true);
+            if (!IsDisposed)
+                OnDispose(true);
             GC.SuppressFinalize(this);
         }
 
         ~DisposableObject() {
+            if(!IsDisposed)
             OnDispose(false);
         }
 

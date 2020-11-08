@@ -11,7 +11,7 @@ using System.Windows.Media.Imaging;
 using System.Windows.Navigation;
 using System.Windows.Shapes;
 
-using BEditor.Core.Extesions.ViewCommand;
+using BEditor.Core.Extensions.ViewCommand;
 
 using MaterialDesignThemes.Wpf;
 
@@ -22,7 +22,7 @@ namespace BEditor.Views.MessageContent {
     /// MessageUI.xaml の相互作用ロジック
     /// </summary>
     public partial class MessageUI : DialogContent {
-        public MessageUI(ButtonType[] buttons, object content, BEditor.Core.Extesions.ViewCommand.IconType iconKind) {
+        public MessageUI(ButtonType[] buttons, object content, BEditor.Core.Extensions.ViewCommand.IconType iconKind) {
             InitializeComponent();
 
             foreach (var button in buttons) {
@@ -56,7 +56,7 @@ namespace BEditor.Views.MessageContent {
                 };
             }
 
-            if (iconKind != BEditor.Core.Extesions.ViewCommand.IconType.None) {
+            if (iconKind != BEditor.Core.Extensions.ViewCommand.IconType.None) {
                 icon.Content = new PackIcon() {
                     Kind = (PackIconKind)Enum.ToObject(typeof(PackIconKind), (int)iconKind),
                     HorizontalAlignment = HorizontalAlignment.Center,

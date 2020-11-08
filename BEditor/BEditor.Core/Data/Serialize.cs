@@ -130,6 +130,8 @@ namespace BEditor.Core.Data {
                         typeof(ImageEffect),
                         typeof(Monoc),
                         typeof(Shadow),
+                        typeof(Clipping),
+                        typeof(AreaExpansion),
                         typeof(DepthTest),
                         typeof(DirectionalLightSource),
                         typeof(PointLightSource),

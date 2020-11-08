@@ -124,7 +124,7 @@ namespace BEditor.Core.Data.ObjectData {
         /// <summary>
         /// <see cref="ProjectData.Scene"/> のインスタンスを取得します
         /// </summary>
-        public Scene Scene { get; internal set; }//TODO : privateに変更する
+        public Scene Scene { get; internal set; }
         #endregion
 
 
@@ -148,7 +148,7 @@ namespace BEditor.Core.Data.ObjectData {
 
 
         /// <summary>
-        /// フレーム描画時に呼び出されます
+        /// レンダリング時に呼び出されます
         /// </summary>
         public void Load(ObjectLoadArgs args) {
             var loadargs = new EffectLoadArgs(args.Frame, Effect.Where(x => x.IsEnabled).ToList());
@@ -162,7 +162,7 @@ namespace BEditor.Core.Data.ObjectData {
         }
 
         /// <summary>
-        /// フレーム描画前に呼び出されます
+        /// レンダリング前に呼び出されます
         /// </summary>
         public void PreviewLoad(ObjectLoadArgs args) {
             var loadargs = new EffectLoadArgs(args.Frame, Effect.Where(x => x.IsEnabled).ToList());
@@ -206,7 +206,7 @@ namespace BEditor.Core.Data.ObjectData {
             /// <summary>
             /// <see cref="AddCommand"/> クラスの新しいインスタンスを初期化します
             /// </summary>
-            /// <param name="scene">対象のシーン</param>
+            /// <param name="scene">対象の <see cref="Scene"/></param>
             /// <param name="addframe">配置するフレーム</param>
             /// <param name="layer">配置するレイヤー</param>
             /// <param name="type">クリップの種類</param>
@@ -292,9 +292,9 @@ namespace BEditor.Core.Data.ObjectData {
             /// <summary>
             /// <see cref="RemoveCommand"/> クラスの新しいインスタンスを初期化します
             /// </summary>
-            /// <param name="data">対象の <see cref="ClipData"/></param>
-            /// <exception cref="ArgumentNullException"><paramref name="data"/> が <see langword="null"/> です</exception>
-            public RemoveCommand(ClipData data) => this.data = data ?? throw new ArgumentNullException(nameof(data));
+            /// <param name="clip">対象の <see cref="ClipData"/></param>
+            /// <exception cref="ArgumentNullException"><paramref name="clip"/> が <see langword="null"/> です</exception>
+            public RemoveCommand(ClipData clip) => this.data = clip ?? throw new ArgumentNullException(nameof(clip));
 
 
             /// <inheritdoc/>
@@ -345,31 +345,31 @@ namespace BEditor.Core.Data.ObjectData {
             /// <summary>
             /// <see cref="MoveCommand"/> クラスの新しいインスタンスを初期化します
             /// </summary>
-            /// <param name="data">対象のクリップ</param>
+            /// <param name="clip">対象の <see cref="ClipData"/></param>
             /// <param name="to">新しい開始フレーム</param>
             /// <param name="tolayer">新しい配置レイヤー</param>
-            /// <exception cref="ArgumentNullException"><paramref name="data"/> が <see langword="null"/> です</exception>
+            /// <exception cref="ArgumentNullException"><paramref name="clip"/> が <see langword="null"/> です</exception>
             /// <exception cref="ArgumentOutOfRangeException"><paramref name="to"/> または <paramref name="tolayer"/> が0以下です</exception>
-            public MoveCommand(ClipData data, int to, int tolayer) {
-                this.data = data ?? throw new ArgumentNullException(nameof(data));
+            public MoveCommand(ClipData clip, int to, int tolayer) {
+                this.data = clip ?? throw new ArgumentNullException(nameof(clip));
                 this.to = (0 > to) ? throw new ArgumentOutOfRangeException(nameof(to)) : to;
-                from = data.Start;
+                from = clip.Start;
                 this.tolayer = (0 > tolayer) ? throw new ArgumentOutOfRangeException(nameof(tolayer)) : tolayer;
-                fromlayer = data.Layer;
+                fromlayer = clip.Layer;
             }
 
             /// <summary>
             /// <see cref="MoveCommand"/>クラスの新しいインスタンスを初期化します
             /// </summary>
-            /// <param name="data">対象のクリップ</param>
+            /// <param name="clip">対象のクリップ</param>
             /// <param name="to">新しい開始フレーム</param>
             /// <param name="from">古い開始フレーム</param>
             /// <param name="tolayer">新しい配置レイヤー</param>
             /// <param name="fromlayer">古い配置レイヤー</param>
-            /// <exception cref="ArgumentNullException"><paramref name="data"/> が <see langword="null"/> です</exception>
+            /// <exception cref="ArgumentNullException"><paramref name="clip"/> が <see langword="null"/> です</exception>
             /// <exception cref="ArgumentOutOfRangeException"><paramref name="to"/>, <paramref name="from"/>, <paramref name="tolayer"/>, <paramref name="fromlayer"/> が0以下です</exception>
-            public MoveCommand(ClipData data, int to, int from, int tolayer, int fromlayer) {
-                this.data = data ?? throw new ArgumentNullException(nameof(data));
+            public MoveCommand(ClipData clip, int to, int from, int tolayer, int fromlayer) {
+                this.data = clip ?? throw new ArgumentNullException(nameof(clip));
                 this.to = (0 > to) ? throw new ArgumentOutOfRangeException(nameof(to)) : to;
                 this.from = (0 > from) ? throw new ArgumentOutOfRangeException(nameof(from)) : from;
                 this.tolayer = (0 > tolayer) ? throw new ArgumentOutOfRangeException(nameof(tolayer)) : tolayer;
@@ -419,17 +419,17 @@ namespace BEditor.Core.Data.ObjectData {
             /// <summary>
             /// <see cref="LengthChangeCommand"/> クラスの新しいインスタンスを初期化します
             /// </summary>
-            /// <param name="data">対象のクリップ</param>
+            /// <param name="clip">対象の <see cref="ClipData"/></param>
             /// <param name="start">開始フレーム</param>
             /// <param name="end">終了フレーム</param>
-            /// <exception cref="ArgumentNullException"><paramref name="data"/> が <see langword="null"/> です</exception>
+            /// <exception cref="ArgumentNullException"><paramref name="clip"/> が <see langword="null"/> です</exception>
             /// <exception cref="ArgumentOutOfRangeException"><paramref name="start"/> または <paramref name="end"/> が0以下です</exception>
-            public LengthChangeCommand(ClipData data, int start, int end) {
-                this.data = data ?? throw new ArgumentNullException(nameof(data));
+            public LengthChangeCommand(ClipData clip, int start, int end) {
+                this.data = clip ?? throw new ArgumentNullException(nameof(clip));
                 this.start = (0 > start) ? throw new ArgumentOutOfRangeException(nameof(start)) : start;
                 this.end = (0 > end) ? throw new ArgumentOutOfRangeException(nameof(end)) : end;
-                oldstart = data.Start;
-                oldend = data.End;
+                oldstart = clip.Start;
+                oldend = clip.End;
             }
 
 
