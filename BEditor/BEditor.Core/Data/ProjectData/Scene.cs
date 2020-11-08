@@ -20,7 +20,7 @@ namespace BEditor.Core.Data.ProjectData {
         private ObservableCollection<ClipData> selectItems;
         private int previewframe;
         private int totalframe = 1000;
-        private float timeLineZoom = 50;
+        private float timeLineZoom = 150;
         private double timeLineHorizonOffset;
         private double timeLineVerticalOffset;
 

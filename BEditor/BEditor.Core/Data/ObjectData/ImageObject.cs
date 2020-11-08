@@ -81,7 +81,7 @@ namespace BEditor.Core.Data.ObjectData {
             Material = new Material(MaterialMetadata);
         }
 
-
+        //TODO : .NET5のソースジェネレーターを使う
 
         [DataMember(Order = 0)]
         [PropertyMetadata(nameof(CoordinateMetadata), typeof(ImageObject))]
