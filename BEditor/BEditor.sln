@@ -19,7 +19,7 @@ Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "Document", "Document", "{BF
 EndProject
 Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "BEditor.Extern", "BEditor.Extern\BEditor.Extern.vcxproj", "{6F06DB5A-C0B0-4D88-9D13-0EF8B2B8CD26}"
 EndProject
-Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "BEditor.Page", "BEditor.Page\BEditor.Page.csproj", "{ACB52ABE-D62A-4769-8604-3E6641E4E1B1}"
+Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "BEditor.Page", "BEditor.Page\BEditor.Page.csproj", "{ACB52ABE-D62A-4769-8604-3E6641E4E1B1}"
 EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
