@@ -12,6 +12,8 @@ using OpenTK.Mathematics;
 
 using BEditor.Core.Media;
 using Color = BEditor.Core.Media.Color;
+using Image = BEditor.Core.Media.Image;
+using Size = BEditor.Core.Media.Size;
 
 namespace BEditor.Core.Renderer {
     public static class Graphics {

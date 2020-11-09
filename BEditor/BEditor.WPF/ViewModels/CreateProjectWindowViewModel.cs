@@ -1,6 +1,7 @@
 ﻿using BEditor.ViewModels.Helper;
 using BEditor.Core.Data.ProjectData;
 using Microsoft.WindowsAPICodePack.Dialogs;
+using BEditor.Core.Data;
 
 namespace BEditor.ViewModels {
     public class CreateProjectWindowViewModel : BasePropertyChanged {
@@ -8,12 +9,12 @@ namespace BEditor.ViewModels {
         private int height = 1080;
         private int franerate = 30;
         private int samlingrate = 0;
-        private string name = Properties.Settings.Default.LastTimeNum.ToString();
-        private string path = Properties.Settings.Default.LastTimeFolder;
+        private string name = Settings.Default.LastTimeNum.ToString();
+        private string path = Settings.Default.LastTimeFolder;
 
         public CreateProjectWindowViewModel() {
-            OpenFolerDialog.Subscribe(() => OpenFolder());
-            CreateCommand.Subscribe(() => Create());
+            OpenFolerDialog.Subscribe(OpenFolder);
+            CreateCommand.Subscribe(Create);
         }
 
         public int Width { get => width; set => SetValue(value, ref width, nameof(Width)); }
@@ -36,17 +37,17 @@ namespace BEditor.ViewModels {
             if (dialog.ShowDialog() == CommonFileDialogResult.Ok) {
                 Path = dialog.FileName;
 
-                Properties.Settings.Default.LastTimeFolder = dialog.FileName;
+                Settings.Default.LastTimeFolder = dialog.FileName;
 
-                Properties.Settings.Default.Save();
+                Settings.Default.Save();
             }
         }
 
         private void Create() {
             Project.Create(Width, Height, Framerate, Path + "\\" + Name + ".bedit");
 
-            Properties.Settings.Default.LastTimeNum++;
-            Properties.Settings.Default.Save();
+            Settings.Default.LastTimeNum++;
+            Settings.Default.Save();
         }
     }
 }

@@ -171,20 +171,22 @@ inline const char* ImageEllipse(int width, int height, int line, float r, float 
 	try {
 		*mat = new cv::Mat(width, height, CV_8UC4);
 
-		if (width % 2 == 1) width++;
-		if (height % 2 == 1) height++;
+		//if (width % 2 == 1) width++;
+		//if (height % 2 == 1) height++;
 
-		auto min = cv::min(width, height);
+		//auto min = cv::min(width, height);
 
-		if (line >= min / 2)
-			line = min / 2;
+		//if (line >= min / 2)
+		//	line = min / 2;
 
-		if (line < min) min = line;
-		if (min < 0) min = 0;
+		//if (line < min) min = line;
+		//if (min < 0) min = 0;
 
 
 
-		cv::ellipse(**mat, cv::Point(width / 2, height / 2), cv::Size(width, height), 0, 0, 360, cv::Scalar(b, g, r, 255), min, cv::LineTypes::LINE_8);
+		//cv::ellipse(**mat, cv::Point(width / 2, height / 2), cv::Size(width, height), 0, 0, 360, cv::Scalar(b, g, r, 255), min, cv::LineTypes::LINE_8);
+
+		cv::ellipse(**mat, cv::Point(width / 2, height / 2), cv::Size(width, height), 0, 0, 360, cv::Scalar(b, g, r, 255), -1, cv::LineTypes::LINE_8);
 
 		return nullptr;
 	}

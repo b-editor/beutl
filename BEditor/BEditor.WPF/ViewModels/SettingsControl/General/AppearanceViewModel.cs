@@ -1,6 +1,7 @@
 ﻿using System;
 using System.Collections.Generic;
 using System.Text;
+using BEditor.Core.Data;
 using BEditor.ViewModels.Helper;
 using MaterialDesignThemes.Wpf;
 
@@ -14,7 +15,7 @@ namespace BEditor.ViewModels.SettingsControl.General {
                 if (darkmodecommand == null) {
                     darkmodecommand = new DelegateCommand<object>();
                     darkmodecommand.Subscribe(_ => {
-                        if (Properties.Settings.Default.DarkMode) {
+                        if (Settings.Default.UseDarkMode) {
                             PaletteHelper paletteHelper = new PaletteHelper();
                             ITheme theme = paletteHelper.GetTheme();
                             theme.SetBaseTheme(Theme.Dark);

@@ -1,16 +1,10 @@
-﻿using System;
-using System.Collections.Generic;
-using System.Collections.ObjectModel;
-using System.Linq;
-using System.Text;
-using System.Threading.Tasks;
+﻿using System.Collections.ObjectModel;
 using System.Windows.Media;
-
-using BEditor.ViewModels.CustomControl;
-using BEditor.ViewModels.Helper;
 
 using BEditor.Core.Data;
 using BEditor.Core.Data.PropertyData;
+using BEditor.ViewModels.CustomControl;
+using BEditor.ViewModels.Helper;
 
 namespace BEditor.ViewModels.PropertyControl {
     public class ColorPickerViewModel : BasePropertyChanged {

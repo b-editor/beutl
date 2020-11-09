@@ -4,14 +4,14 @@
              xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006" 
              xmlns:d="http://schemas.microsoft.com/expression/blend/2008" 
              xmlns:local="clr-namespace:BEditor.Views.SettingsControl"
-             xmlns:properties="clr-namespace:BEditor.Properties"
+             xmlns:data="clr-namespace:BEditor.Core.Data;assembly=BEditor.Core"
              xmlns:resource="clr-namespace:BEditor.Core.Properties;assembly=BEditor.Core"
              mc:Ignorable="d"
              d:DesignHeight="450" d:DesignWidth="800">
     <Grid>
         <VirtualizingStackPanel>
             <VirtualizingStackPanel Orientation="Horizontal" Height="45">
-                <CheckBox Margin="25,0,25,0" IsChecked="{Binding AutoBackUp, Source={x:Static properties:Settings.Default}, Mode=TwoWay}" VerticalAlignment="Center"/>
+                <CheckBox Margin="25,0,25,0" IsChecked="{Binding AutoBackUp, Source={x:Static data:Settings.Default}, Mode=TwoWay}" VerticalAlignment="Center"/>
                 <TextBlock Text="{x:Static resource:Resources.UseAutoBackup}" FontSize="13" VerticalAlignment="Center"/>
             </VirtualizingStackPanel>
         </VirtualizingStackPanel>

@@ -103,19 +103,6 @@ namespace BEditor.Core.Data {
             /// </summary>
             public static Func<ISaveFileDialog> SaveFileDialog { get; set; }
         }
-        /// <summary>
-        /// Model側で必要な設定を取得する関数を共有するフィールド
-        /// </summary>
-        public static class Settings {
-            /// <summary>
-            /// 自動バックアップが有効かを取得する関数
-            /// </summary>
-            public static Func<bool> AutoBackUp { get; set; }
-            /// <summary>
-            /// エラーログが有効かを取得する関数
-            /// </summary>
-            public static Func<bool> EnableErrorLog { get; set; }
-        }
     }
 
     /// <summary>

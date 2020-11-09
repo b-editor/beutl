@@ -16,6 +16,7 @@ using OpenTK.Mathematics;
 #endif
 using Color = BEditor.Core.Media.Color;
 using BEditor.Core.Data.PropertyData.Default;
+using Image = BEditor.Core.Media.Image;
 
 namespace BEditor.Core.Renderer {
     public abstract class BaseRenderingContext : IDisposable {

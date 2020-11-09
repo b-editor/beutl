@@ -59,21 +59,6 @@
             ファイルを保存するダイアログを作成する関数を取得または設定します
             </summary>
         </member>
-        <member name="T:BEditor.Core.Data.Component.Settings">
-            <summary>
-            Model側で必要な設定を取得する関数を共有するフィールド
-            </summary>
-        </member>
-        <member name="P:BEditor.Core.Data.Component.Settings.AutoBackUp">
-            <summary>
-            自動バックアップが有効かを取得する関数
-            </summary>
-        </member>
-        <member name="P:BEditor.Core.Data.Component.Settings.EnableErrorLog">
-            <summary>
-            エラーログが有効かを取得する関数
-            </summary>
-        </member>
         <member name="T:BEditor.Core.Data.Status">
             <summary>
             アプリケーションのステータスを表します
@@ -2004,6 +1989,13 @@
             <summary>
             <see cref="T:System.Runtime.Serialization.Json.DataContractJsonSerializer"/> を利用してシリアル化やクローンなどの関数を提供するクラスを表します
             </summary>
+        </member>
+        <member name="M:BEditor.Core.Data.Serialize.LoadFromFile``1(System.String)">
+            <summary>
+            オブジェクトの内容をファイルから読み込み復元します
+            </summary>
+            <param name="path">読み込むファイル名</param>
+            <returns>成功した場合は復元されたオブジェクト、そうでない場合は <see langword="null"/> を返します</returns>
         </member>
         <member name="M:BEditor.Core.Data.Serialize.LoadFromFile(System.String,System.Type)">
             <summary>

@@ -3,7 +3,7 @@
              xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
              xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006" 
              xmlns:d="http://schemas.microsoft.com/expression/blend/2008" 
-             xmlns:properties="clr-namespace:BEditor.Properties"
+             xmlns:data="clr-namespace:BEditor.Core.Data;assembly=BEditor.Core"
              xmlns:resources="clr-namespace:BEditor.Core.Properties;assembly=BEditor.Core"
              xmlns:local="clr-namespace:BEditor.Views.SettingsControl"
              xmlns:md="http://materialdesigninxaml.net/winfx/xaml/themes"
@@ -14,7 +14,7 @@
         <md:ColorZone Content="{x:Static resources:Resources.ActivityLog}" Foreground="White" Background="{StaticResource PrimaryHueMidBrush}" Margin="10,10,10,10" Padding="9,9,9,9" md:ShadowAssist.ShadowDepth="Depth2"/>
         
         <VirtualizingStackPanel Orientation="Horizontal" Height="45">
-            <CheckBox IsChecked="{Binding EnableErrorLog, Source={x:Static properties:Settings.Default}, Mode=TwoWay}" Margin="25,0,25,0" VerticalAlignment="Center"/>
+            <CheckBox IsChecked="{Binding EnableErrorLog, Source={x:Static data:Settings.Default}, Mode=TwoWay}" Margin="25,0,25,0" VerticalAlignment="Center"/>
             <TextBlock Text="{x:Static resources:Resources.EnableErrorLog}" FontSize="13" VerticalAlignment="Center"/>
         </VirtualizingStackPanel>
         

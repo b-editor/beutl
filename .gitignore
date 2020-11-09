@@ -349,6 +349,7 @@ MigrationBackup/
 # Ionide (cross platform F# VS Code tools) working folder
 .ionide/
 
+BEditor/BEditor.Avalonia/
 !/docs/_framework/
 !/docs/_framework/_bin/
 !/docs/_content/

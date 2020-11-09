@@ -10,7 +10,7 @@ using BEditor.Core.Data;
 namespace BEditor.Core.Extensions {
     public static class ActivityLog {
         public static void ErrorLog(Exception e) {
-            if (!Component.Settings.EnableErrorLog?.Invoke() ?? false) return;
+            if (!Settings.Default.EnableErrorLog) return;
 
             Task.Run(() => {
                 var xdoc = XDocument.Load(Component.Current.Path + "\\user\\logs\\errorlog.xml");
@@ -27,7 +27,7 @@ namespace BEditor.Core.Extensions {
         }
 
         public static void ErrorLog(Exception e, string message) {
-            if (!Component.Settings.EnableErrorLog?.Invoke() ?? false) return;
+            if (!Settings.Default.EnableErrorLog) return;
 
             Task.Run(() => {
                 var xdoc = XDocument.Load(Component.Current.Path + "\\user\\logs\\errorlog.xml");

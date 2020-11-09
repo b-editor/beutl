@@ -9,6 +9,7 @@ using BEditor.Views.SettingsControl.General;
 using BEditor.Views.SettingsControl.Plugins;
 using BEditor.Core.Properties;
 using MaterialDesignThemes.Wpf;
+using BEditor.Core.Data;
 
 namespace BEditor.ViewModels.SettingsControl {
     public class SettingsWindowViewModel : BasePropertyChanged {
@@ -20,7 +21,7 @@ namespace BEditor.ViewModels.SettingsControl {
                     ViewControl = child.Control;
                 }
             });
-            UnloadedCommand.Subscribe(_ => Properties.Settings.Default.Save());
+            UnloadedCommand.Subscribe(_ => Settings.Default.Save());
 
 
             #region General

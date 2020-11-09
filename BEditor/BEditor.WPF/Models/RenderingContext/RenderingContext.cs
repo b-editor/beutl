@@ -20,10 +20,16 @@ namespace BEditor.Models {
         public override int Width { get => GLControl.Width; }
         public override int Height { get => GLControl.Height; }
 
-        private GLControl GLControl = new GLControl();
-        //private IntPtr HDC;
-        //private IntPtr HRC;
-        //private IntPtr BMP;
+        private GLControl GLControl = new GLControl(GraphicsMode);
+
+        static GraphicsMode GraphicsMode = new GraphicsMode(
+            GraphicsMode.Default.ColorFormat,
+            GraphicsMode.Default.Depth,
+            8,//GraphicsMode.Default.Stencil,
+            8,//GraphicsMode.Default.Samples,
+            GraphicsMode.Default.AccumulatorFormat,
+            GraphicsMode.Default.Buffers,
+            GraphicsMode.Default.Stereo);
 
         public RenderingContext(int width, int height) : base(width, height) {
             GLControl.Width = width;
@@ -52,16 +58,5 @@ namespace BEditor.Models {
 
             //DeleteRenderingContext(HDC, HRC, BMP);
         }
-
-        //~RenderingContext() {
-        //    GLControl.Dispose();
-        //}
-
-        [DllImport("BEditor.Extern")]
-        static extern void CreateRenderingContext(int width, int height, out IntPtr hDC, out IntPtr hRC, out IntPtr hbmp);
-        [DllImport("BEditor.Extern")]
-        static extern void MakeCurrent(IntPtr hdc, IntPtr hrc);
-        [DllImport("BEditor.Extern")]
-        static extern void DeleteRenderingContext(IntPtr hDC, IntPtr hRC, IntPtr hbmp);
     }
 }

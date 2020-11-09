@@ -630,7 +630,7 @@ namespace BEditor.Core.Media {
 
         #endregion
 
-
+        
         #region Flip
 
         /// <summary>

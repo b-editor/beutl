@@ -43,7 +43,7 @@ namespace BEditor {
             
             #region ダークモード設定
 
-            if (BEditor.Properties.Settings.Default.DarkMode) {
+            if (Settings.Default.UseDarkMode) {
                 PaletteHelper paletteHelper = new PaletteHelper();
                 ITheme theme = paletteHelper.GetTheme();
 
@@ -123,8 +123,6 @@ namespace BEditor {
                 //return new BEditor.Core.Renderer.RenderingContext(width, height);
             };
             Component.Funcs.SaveFileDialog = () => new SaveDialog();
-            Component.Settings.AutoBackUp = () => BEditor.Properties.Settings.Default.AutoBackUp;
-            Component.Settings.EnableErrorLog = () => BEditor.Properties.Settings.Default.EnableErrorLog;
 
             Image.EllipseFunc = ObjectLoad.Ellipse;
             Image.RectangleFunc = ObjectLoad.Rectangle;
@@ -322,7 +320,7 @@ namespace BEditor {
 
         private void Application_Exit(object sender, ExitEventArgs e) {
             Font.Quit();
-            BEditor.Properties.Settings.Default.Save();
+            Settings.Default.Save();
         }
 
         private void Application_DispatcherUnhandledException(object sender, DispatcherUnhandledExceptionEventArgs e) {
