@@ -11,48 +11,68 @@ using BEditor.Core.Data.ObjectData;
 using OpenTK;
 using OpenTK.Graphics;
 using OpenTK.Graphics.OpenGL;
+
 #if !OldOpenTK
 using OpenTK.Mathematics;
+using OpenTK.Windowing.Desktop;
+#else
+
 #endif
 using Color = BEditor.Core.Media.Color;
 using BEditor.Core.Data.PropertyData.Default;
 using Image = BEditor.Core.Media.Image;
+using OpenTK.Windowing.Common;
+using OpenTK.Windowing.GraphicsLibraryFramework;
 
 namespace BEditor.Core.Renderer {
-    public abstract class BaseRenderingContext : IDisposable {
+    public unsafe class BaseRenderingContext : IBaseRenderingContext {
+        protected int Color;
+        protected int Depth;
+        protected int FBO;
+        protected int Renderbuffer;
+        protected GameWindow GameWindow;
+
+
+        public BaseRenderingContext(int width, int height) {
+            Width = width;
+            Height = height;
+
+            GameWindow = new GameWindow(GameWindowSettings.Default, new NativeWindowSettings() {
+                Flags = ContextFlags.Offscreen | ContextFlags.Default,
+                Size = new Vector2i(width, height)
+            });
+            GLFW.HideWindow(GameWindow.WindowPtr);
+            Initialize();
+        }
+
+
         public virtual int Width { get; private set; }
         public virtual int Height { get; private set; }
         public float Aspect => ((float)Width) / ((float)Height);
         public bool IsInitialized { get; private set; }
 
-        public abstract void MakeCurrent();
-        public abstract void SwapBuffers();
-        public virtual void Dispose() {
+
+        public virtual void UnMakeCurrent() {
+            GL.Ext.BindFramebuffer(FramebufferTarget.FramebufferExt, 0);
+        }
+        public virtual void MakeCurrent() {
+            //GameWindow.MakeCurrent();
             if (IsInitialized) {
-                GL.DeleteTexture(ColorTex);
-                GL.DeleteTexture(DepthTex);
-                GL.DeleteFramebuffers(1, ref FBO);
+                // fbo 有効化
+                GL.Ext.BindFramebuffer(FramebufferTarget.FramebufferExt, FBO);
             }
         }
-
-        protected int ColorTex;
-        protected int DepthTex;
-        protected int FBO;
-
-        public BaseRenderingContext(int width, int height) {
-            Width = width;
-            Height = height;
+        public void SwapBuffers() {
+            GameWindow.SwapBuffers();
         }
-
-        protected void Initialize() {
-            Resize(Width, Height);
-
-            GL.Disable(EnableCap.DepthTest);
-            GL.Disable(EnableCap.Lighting);
-
-            IsInitialized = true;
+        public virtual void Dispose() {
+            if (IsInitialized) {
+                GL.DeleteTexture(Color);
+                GL.DeleteTexture(Depth);
+                GL.Ext.DeleteFramebuffer(FBO);
+                GL.Ext.DeleteRenderbuffer(Renderbuffer);
+            }
         }
-
         /// <summary>
         /// カメラを設定
         /// </summary>
@@ -67,9 +87,6 @@ namespace BEditor.Core.Renderer {
         /// <param name="far">ZFar</param>
         public virtual void Clear(bool Perspective = false, float x = 0, float y = 0, float z = 1024, float tx = 0, float ty = 0, float tz = 0, float near = 0.1F, float far = 20000) {
             MakeCurrent();
-
-            //ビューポートの設定
-            GL.Viewport(0, 0, Width, Height);
 
             if (Perspective) {
                 //視体積の設定
@@ -124,41 +141,55 @@ namespace BEditor.Core.Renderer {
             Height = height;
 
             if (IsInitialized) {
-                GL.DeleteTexture(ColorTex);
-                GL.DeleteTexture(DepthTex);
-                GL.DeleteFramebuffers(1, ref FBO);
+                GL.DeleteTexture(Color);
+                GL.DeleteTexture(Depth);
+                GL.Ext.DeleteFramebuffer(FBO);
+                GL.Ext.DeleteRenderbuffer(Renderbuffer);
             }
 
-            #region FBO
+            #region RenderBuffer FBO
+            //https://ryo1miya.hatenablog.com/entry/2013/09/05/001047
+            // renderbuffer object の生成
+            GL.Ext.GenRenderbuffers(1, out Renderbuffer);
+            GL.Ext.BindRenderbuffer(RenderbufferTarget.RenderbufferExt, Renderbuffer);
+
+            // 第二引数は 色 GL_RGB, GL_RGBA, デプス値 GL_DEPTH_COMPONENT, ステンシル値 GL_STENCIL_INDEX　などを指定できる
+            GL.Ext.RenderbufferStorage(RenderbufferTarget.RenderbufferExt, RenderbufferStorage.Rgba16, width, height);
 
             //色
-            GL.GenTextures(1, out ColorTex);
-            GL.BindTexture(TextureTarget.Texture2D, ColorTex);
-            GL.TexImage2D(TextureTarget.Texture2D, 0, PixelInternalFormat.Rgba, Width, Height, 0, OpenTK.Graphics.OpenGL.PixelFormat.Bgra, PixelType.UnsignedByte, IntPtr.Zero);
+            GL.GenTextures(1, out Color);
+            GL.BindTexture(TextureTarget.Texture2D, Color);
+            GL.TexImage2D(TextureTarget.Texture2D, 0, PixelInternalFormat.Rgba, Width, Height, 0, PixelFormat.Bgra, PixelType.UnsignedByte, IntPtr.Zero);
             GL.TexParameter(TextureTarget.Texture2D, TextureParameterName.TextureMinFilter, (int)TextureMinFilter.Linear);
             GL.TexParameter(TextureTarget.Texture2D, TextureParameterName.TextureMagFilter, (int)TextureMagFilter.Linear);
 
             //深度
-            GL.GenTextures(1, out DepthTex);
-            GL.BindTexture(TextureTarget.Texture2D, DepthTex);
-            GL.TexImage2D(TextureTarget.Texture2D, 0, (PixelInternalFormat)All.DepthComponent32, Width, Height, 0, OpenTK.Graphics.OpenGL.PixelFormat.DepthComponent, PixelType.UnsignedInt, IntPtr.Zero);
+            GL.GenTextures(1, out Depth);
+            GL.BindTexture(TextureTarget.Texture2D, Depth);
+            GL.TexImage2D(TextureTarget.Texture2D, 0, (PixelInternalFormat)All.DepthComponent32, Width, Height, 0, PixelFormat.DepthComponent, PixelType.UnsignedInt, IntPtr.Zero);
             GL.TexParameter(TextureTarget.Texture2D, TextureParameterName.TextureMinFilter, (int)TextureMinFilter.Linear);
             GL.TexParameter(TextureTarget.Texture2D, TextureParameterName.TextureMagFilter, (int)TextureMagFilter.Linear);
 
             //FBO
             GL.Ext.GenFramebuffers(1, out FBO);
             GL.Ext.BindFramebuffer(FramebufferTarget.FramebufferExt, FBO);
-            GL.Ext.FramebufferTexture2D(FramebufferTarget.FramebufferExt, FramebufferAttachment.ColorAttachment0Ext, TextureTarget.Texture2D, ColorTex, 0);
-            GL.Ext.FramebufferTexture2D(FramebufferTarget.FramebufferExt, FramebufferAttachment.DepthAttachmentExt, TextureTarget.Texture2D, DepthTex, 0);
-            GL.Ext.BindFramebuffer(FramebufferTarget.FramebufferExt, 0);
+            GL.Ext.FramebufferTexture2D(FramebufferTarget.FramebufferExt, FramebufferAttachment.ColorAttachment0Ext, TextureTarget.Texture2D, Color, 0);
+            GL.Ext.FramebufferTexture2D(FramebufferTarget.FramebufferExt, FramebufferAttachment.DepthAttachmentExt, TextureTarget.Texture2D, Depth, 0);
 
 
-            GL.Ext.BindFramebuffer(FramebufferTarget.FramebufferExt, FBO);
+            // renderbufferをframebuffer objectに結びつける
+            // 第二引数は GL_COLOR_ATTACHMENTn_EXT, GL_DEPTH_ATTACHMENT_EXT, GL_STENCIL_ATTACHMENT_EXT など
+            GL.Ext.FramebufferRenderbuffer(FramebufferTarget.FramebufferExt, FramebufferAttachment.ColorAttachment0, RenderbufferTarget.RenderbufferExt, Renderbuffer);
+
+            //GL.Ext.BindFramebuffer(FramebufferTarget.FramebufferExt, 0);
+
+
+            //GL.Ext.BindFramebuffer(FramebufferTarget.FramebufferExt, FBO);
 
             #endregion
 
             //ビューポートの設定
-            GL.Viewport(0, 0, Width, Height);
+            GL.Viewport(0, 0, width, height);
 
             if (Perspective) {
                 //視体積の設定
@@ -204,7 +235,15 @@ namespace BEditor.Core.Renderer {
             }
 
             GL.Clear(ClearBufferMask.ColorBufferBit | ClearBufferMask.DepthBufferBit);
+        }
 
+        protected void Initialize() {
+            Resize(Width, Height);
+
+            GL.Disable(EnableCap.DepthTest);
+            GL.Disable(EnableCap.Lighting);
+
+            IsInitialized = true;
         }
 
         internal void DrawImage(Image img, ClipData data, int frame) {
@@ -241,6 +280,5 @@ namespace BEditor.Core.Renderer {
             MakeCurrent();
             Graphics.Paint(coordinate, nx, ny, nz, center, () => Graphics.DrawImage(img, scalex, scaley, scalez, color, ambient, diffuse, specular, shininess), Blend.BlentFunc[drawObject.Blend.BlendType.Index]);
         }
-
     }
 }

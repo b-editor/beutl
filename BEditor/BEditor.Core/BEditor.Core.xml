@@ -842,6 +842,12 @@
             チェックされている場合 <see langword="true"/>、そうでない場合は <see langword="false"/> となります
             </summary>
         </member>
+        <member name="M:BEditor.Core.Data.PropertyData.CheckProperty.Subscribe(System.IObserver{System.Boolean})">
+            <inheritdoc/>
+        </member>
+        <member name="M:BEditor.Core.Data.PropertyData.CheckProperty.PropertyLoaded">
+            <inheritdoc/>
+        </member>
         <member name="M:BEditor.Core.Data.PropertyData.CheckProperty.ToString">
             <inheritdoc/>
         </member>
@@ -1193,6 +1199,12 @@
             <summary>
             高さを取得または設定します
             </summary>
+        </member>
+        <member name="M:BEditor.Core.Data.PropertyData.DocumentProperty.Subscribe(System.IObserver{System.String})">
+            <inheritdoc/>
+        </member>
+        <member name="M:BEditor.Core.Data.PropertyData.DocumentProperty.PropertyLoaded">
+            <inheritdoc/>
         </member>
         <member name="M:BEditor.Core.Data.PropertyData.DocumentProperty.ToString">
             <inheritdoc/>
@@ -1667,7 +1679,13 @@
             <param name="metadata">このプロパティの <see cref="T:BEditor.Core.Data.PropertyData.PropertyElementMetadata"/></param>
             <exception cref="T:System.ArgumentNullException"><paramref name="metadata"/> が <see langword="null"/> です</exception>
         </member>
+        <member name="M:BEditor.Core.Data.PropertyData.ExpandGroup.PropertyLoaded">
+            <inheritdoc/>
+        </member>
         <member name="M:BEditor.Core.Data.PropertyData.ExpandGroup.ToString">
+            <inheritdoc/>
+        </member>
+        <member name="M:BEditor.Core.Data.PropertyData.ExpandGroup.Subscribe(System.IObserver{System.Boolean})">
             <inheritdoc/>
         </member>
         <member name="T:BEditor.Core.Data.PropertyData.FileProperty">
@@ -1686,6 +1704,12 @@
             <summary>
             ファイルの名前を取得または設定します
             </summary>
+        </member>
+        <member name="M:BEditor.Core.Data.PropertyData.FileProperty.Subscribe(System.IObserver{System.String})">
+            <inheritdoc/>
+        </member>
+        <member name="M:BEditor.Core.Data.PropertyData.FileProperty.PropertyLoaded">
+            <inheritdoc/>
         </member>
         <member name="M:BEditor.Core.Data.PropertyData.FileProperty.ToString">
             <inheritdoc/>
@@ -1755,7 +1779,13 @@
             選択されているフォントを取得または設定します
             </summary>
         </member>
+        <member name="M:BEditor.Core.Data.PropertyData.FontProperty.PropertyLoaded">
+            <inheritdoc/>
+        </member>
         <member name="M:BEditor.Core.Data.PropertyData.FontProperty.ToString">
+            <inheritdoc/>
+        </member>
+        <member name="M:BEditor.Core.Data.PropertyData.FontProperty.Subscribe(System.IObserver{BEditor.Core.Media.FontRecord})">
             <inheritdoc/>
         </member>
         <member name="T:BEditor.Core.Data.PropertyData.FontProperty.ChangeSelectCommand">
@@ -1934,7 +1964,13 @@
             選択されている <see cref="P:BEditor.Core.Data.PropertyData.SelectorPropertyMetadata.ItemSource"/> のインデックスを取得または設定します
             </summary>
         </member>
+        <member name="M:BEditor.Core.Data.PropertyData.SelectorProperty.PropertyLoaded">
+            <inheritdoc/>
+        </member>
         <member name="M:BEditor.Core.Data.PropertyData.SelectorProperty.ToString">
+            <inheritdoc/>
+        </member>
+        <member name="M:BEditor.Core.Data.PropertyData.SelectorProperty.Subscribe(System.IObserver{System.Int32})">
             <inheritdoc/>
         </member>
         <member name="T:BEditor.Core.Data.PropertyData.SelectorProperty.ChangeSelectCommand">
@@ -2524,14 +2560,15 @@
             <see cref="T:BEditor.Core.Media.Color"/> 構造体から <see cref="T:System.Drawing.Color"/> を作成します
             </summary>
         </member>
-        <member name="M:BEditor.Core.Media.Color.op_Implicit(BEditor.Core.Media.Color)~OpenTK.Graphics.Color4">
+        <member name="M:BEditor.Core.Media.Color.op_Implicit(BEditor.Core.Media.Color)~OpenTK.Mathematics.Color4">
             <summary>
-            <see cref="T:BEditor.Core.Media.Color"/> 構造体から <see cref="T:OpenTK.Graphics.Color4"/> を作成します
+            <see cref="T:BEditor.Core.Media.Color"/> 構造体から <see cref="T:OpenTK.Mathematics.Color4"/> を作成します
             </summary>
+            <param name="c"></param>
         </member>
-        <member name="M:BEditor.Core.Media.Color.op_Implicit(OpenTK.Graphics.Color4)~BEditor.Core.Media.Color">
+        <member name="M:BEditor.Core.Media.Color.op_Implicit(OpenTK.Mathematics.Color4)~BEditor.Core.Media.Color">
             <summary>
-            <see cref="T:OpenTK.Graphics.Color4"/> 構造体から <see cref="T:BEditor.Core.Media.Color"/> を作成します
+            <see cref="T:OpenTK.Mathematics.Color4"/> 構造体から <see cref="T:BEditor.Core.Media.Color"/> を作成します
             </summary>
             <param name="c"></param>
         </member>
@@ -3378,13 +3415,13 @@
             </summary>
             <param name="point"></param>
         </member>
-        <member name="M:BEditor.Core.Media.Point3.op_Explicit(BEditor.Core.Media.Point3)~OpenTK.Vector3">
+        <member name="M:BEditor.Core.Media.Point3.op_Explicit(BEditor.Core.Media.Point3)~OpenTK.Mathematics.Vector3">
             <summary>
             
             </summary>
             <param name="point"></param>
         </member>
-        <member name="M:BEditor.Core.Media.Point3.op_Explicit(OpenTK.Vector3)~BEditor.Core.Media.Point3">
+        <member name="M:BEditor.Core.Media.Point3.op_Explicit(OpenTK.Mathematics.Vector3)~BEditor.Core.Media.Point3">
             <summary>
             
             </summary>

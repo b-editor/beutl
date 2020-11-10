@@ -1,30 +1,57 @@
 ﻿@page "/"
 
-<h1>Hello, world!</h1>
-
-Welcome to your new app.
-
-<SurveyPrompt Title="How is Blazor working for you?" />
-
 <style>
-    .undericontext {
+    .centertext {
         text-align: center;
     }
+
+    .description-text {
+        margin-left: 50px;
+        margin-right: 50px;
+    }
+
+    .description-block {
+        margin-top: 25px;
+        margin-bottom: 25px;
+    }
 </style>
+<MatHidden BreakPoint="@MatBreakpoint.XS" Direction="@MatHiddenDirection.Down">
+    <h1 class="centertext" style="font-size: 4em;">
+        <MatIcon Icon="movie" Style="color: #651FFF; font-size: 98px; vertical-align: top;"></MatIcon>
+        BEditor
+    </h1>
+</MatHidden>
+<MatHidden BreakPoint="@MatBreakpoint.SM" Direction="@MatHiddenDirection.Up">
+    <h1 class="centertext" style="font-size: 4em;">
+        <MatIcon Icon="movie" Style="color: #651FFF; font-size: 98px; vertical-align: top; display: block;"></MatIcon>
+        BEditor
+    </h1>
+</MatHidden>
+
+
+
+<div style="display: flex;">
+    <MatButton Raised="true" Style="margin-right: auto; margin-left: auto; padding: 25px;">ダウンロード</MatButton>
+</div>
+
+
 
 <div class="mat-layout-grid mat-layout-grid-align-left">
     <div class="mat-layout-grid-inner">
-        <div class="mat-layout-grid-cell">
+        <div class="mat-layout-grid-cell description-block">
             <MatIcon Icon="code" Style="font-size: 50px; display: block; text-align: center;"></MatIcon>
-            <h2 class="undericontext">オープンソース</h2>
+            <h2 class="centertext">@ResourceManager.Current.OpenSource</h2>
+            <div class="description-text">@ResourceManager.Current.OpenSourceDescription</div>
         </div>
-        <div class="mat-layout-grid-cell">
+        <div class="mat-layout-grid-cell description-block">
             <MatIcon Icon="money_off" Style="font-size: 50px; display: block; text-align: center;"></MatIcon>
-            <h2 class="undericontext">無料</h2>
+            <h2 class="centertext">@ResourceManager.Current.Free</h2>
+            <div class="description-text">@ResourceManager.Current.FreeDescription</div>
         </div>
-        <div class="mat-layout-grid-cell">
+        <div class="mat-layout-grid-cell description-block">
             <MatIcon Icon="extension" Style="font-size: 50px; display: block; text-align: center;"></MatIcon>
-            <h2 class="undericontext">プラグイン</h2>
+            <h2 class="centertext">@ResourceManager.Current.Extension</h2>
+            <div class="description-text">@ResourceManager.Current.ExtensionDescription</div>
         </div>
     </div>
 </div>

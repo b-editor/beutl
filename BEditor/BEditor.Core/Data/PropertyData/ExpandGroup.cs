@@ -1,5 +1,9 @@
 ﻿using System;
+using System.Collections.Generic;
+using System.ComponentModel;
+using System.Reactive.Disposables;
 using System.Runtime.Serialization;
+using System.Threading.Tasks;
 
 using BEditor.Core.Data.PropertyData.EasingSetting;
 
@@ -8,8 +12,10 @@ namespace BEditor.Core.Data.PropertyData {
     /// 複数の <see cref="PropertyElement"/> をエクスパンダーでまとめるクラス
     /// </summary>
     [DataContract(Namespace = "")]
-    public abstract class ExpandGroup : Group, IEasingSetting {
+    public abstract class ExpandGroup : Group, IEasingSetting, IObservable<bool>, INotifyPropertyChanged, IExtensibleDataObject {
         private bool isOpen;
+        private List<IObserver<bool>> list;
+        private List<IObserver<bool>> collection => list ??= new List<IObserver<bool>>();
 
         /// <summary>
         /// エクスパンダーが開いているかを取得または設定します
@@ -26,7 +32,31 @@ namespace BEditor.Core.Data.PropertyData {
             PropertyMetadata = metadata??throw new ArgumentNullException(nameof(metadata));
         }
 
+        private void ExpandGroup_PropertyChanged(object sender, PropertyChangedEventArgs e) {
+            if (e.PropertyName == nameof(IsExpanded)) {
+                Parallel.For(0, collection.Count, i => {
+                    var observer = collection[i];
+                    try {
+                        observer.OnNext(isOpen);
+                        observer.OnCompleted();
+                    }
+                    catch (Exception ex) {
+                        observer.OnError(ex);
+                    }
+                });
+            }
+        }
+        /// <inheritdoc/>
+        public override void PropertyLoaded() {
+            base.PropertyLoaded();
+            PropertyChanged += ExpandGroup_PropertyChanged;
+        }
         /// <inheritdoc/>
         public override string ToString() => $"(IsExpanded:{IsExpanded} Name:{PropertyMetadata?.Name})";
+        /// <inheritdoc/>
+        public IDisposable Subscribe(IObserver<bool> observer) {
+            collection.Add(observer);
+            return Disposable.Create(() => collection.Remove(observer));
+        }
     }
 }

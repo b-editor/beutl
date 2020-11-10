@@ -1,7 +1,10 @@
 ﻿using System;
 using System.Collections.Generic;
 using System.Collections.ObjectModel;
+using System.ComponentModel;
+using System.Reactive.Disposables;
 using System.Runtime.Serialization;
+using System.Threading.Tasks;
 
 using BEditor.Core.Media;
 
@@ -10,8 +13,10 @@ namespace BEditor.Core.Data.PropertyData {
     /// フォントを選択するプロパティ表します
     /// </summary>
     [DataContract(Namespace = "")]
-    public sealed class FontProperty : PropertyElement {
+    public sealed class FontProperty : PropertyElement, IObservable<FontRecord>, INotifyPropertyChanged, IExtensibleDataObject {
         private FontRecord selectItem;
+        private List<IObserver<FontRecord>> list;
+        private List<IObserver<FontRecord>> collection => list ??= new List<IObserver<FontRecord>>();
 
         /// <summary>
         /// <see cref="FontProperty"/> クラスの新しいインスタンスを初期化します
@@ -30,8 +35,32 @@ namespace BEditor.Core.Data.PropertyData {
         [DataMember]
         public FontRecord Select { get => selectItem; set => SetValue(value, ref selectItem, nameof(Select)); }
 
+        private void FontProperty_PropertyChanged(object sender, PropertyChangedEventArgs e) {
+            if (e.PropertyName == nameof(Select)) {
+                Parallel.For(0, collection.Count, i => {
+                    var observer = collection[i];
+                    try {
+                        observer.OnNext(selectItem);
+                        observer.OnCompleted();
+                    }
+                    catch (Exception ex) {
+                        observer.OnError(ex);
+                    }
+                });
+            }
+        }
+        /// <inheritdoc/>
+        public override void PropertyLoaded() {
+            base.PropertyLoaded();
+            PropertyChanged += FontProperty_PropertyChanged;
+        }
         /// <inheritdoc/>
         public override string ToString() => $"(Select:{Select} Name:{PropertyMetadata?.Name})";
+        /// <inheritdoc/>
+        public IDisposable Subscribe(IObserver<FontRecord> observer) {
+            collection.Add(observer);
+            return Disposable.Create(() => collection.Remove(observer));
+        }
 
 
         #region Commands

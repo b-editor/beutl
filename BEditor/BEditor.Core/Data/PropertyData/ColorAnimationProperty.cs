@@ -1,6 +1,7 @@
 ﻿using System;
 using System.Collections.Generic;
 using System.Collections.ObjectModel;
+using System.ComponentModel;
 using System.Linq;
 using System.Runtime.Serialization;
 
@@ -13,7 +14,7 @@ namespace BEditor.Core.Data.PropertyData {
     /// 
     /// </summary>
     [DataContract(Namespace = "")]
-    public sealed class ColorAnimationProperty : PropertyElement, IKeyFrameProperty {
+    public sealed class ColorAnimationProperty : PropertyElement, IKeyFrameProperty, INotifyPropertyChanged, IExtensibleDataObject {
 
         /// <summary>
         /// 
@@ -51,7 +52,7 @@ namespace BEditor.Core.Data.PropertyData {
         private EffectElement parent;
         private EasingFunc easingTypeProperty;
         private EasingData easingData;
-        
+
         /// <summary>
         /// 
         /// </summary>

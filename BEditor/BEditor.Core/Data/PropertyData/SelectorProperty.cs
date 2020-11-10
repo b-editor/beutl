@@ -1,6 +1,10 @@
 ﻿using System;
 using System.Collections;
+using System.Collections.Generic;
+using System.ComponentModel;
+using System.Reactive.Disposables;
 using System.Runtime.Serialization;
+using System.Threading.Tasks;
 
 using BEditor.Core.Data.PropertyData.EasingSetting;
 
@@ -9,8 +13,10 @@ namespace BEditor.Core.Data.PropertyData {
     /// 配列から一つのアイテムを選択するプロパティを表します
     /// </summary>
     [DataContract(Namespace = "")]
-    public sealed class SelectorProperty : PropertyElement, IEasingSetting {
+    public sealed class SelectorProperty : PropertyElement, IEasingSetting, IObservable<int>, INotifyPropertyChanged, IExtensibleDataObject {
         private int selectIndex;
+        private List<IObserver<int>> list;
+        private List<IObserver<int>> collection => list ??= new List<IObserver<int>>();
 
         /// <summary>
         /// <see cref="SelectorProperty"/> クラスの新しいインスタンスを初期化します
@@ -35,8 +41,32 @@ namespace BEditor.Core.Data.PropertyData {
 
 
         public static implicit operator int(SelectorProperty selector) => selector.Index;
+        private void SelectorProperty_PropertyChanged(object sender, PropertyChangedEventArgs e) {
+            if (e.PropertyName == nameof(Index)) {
+                Parallel.For(0, collection.Count, i => {
+                    var observer = collection[i];
+                    try {
+                        observer.OnNext(selectIndex);
+                        observer.OnCompleted();
+                    }
+                    catch (Exception ex) {
+                        observer.OnError(ex);
+                    }
+                });
+            }
+        }
+        /// <inheritdoc/>
+        public override void PropertyLoaded() {
+            base.PropertyLoaded();
+            PropertyChanged += SelectorProperty_PropertyChanged;
+        }
         /// <inheritdoc/>
         public override string ToString() => $"(Index:{Index} Item:{SelectItem} Name:{PropertyMetadata?.Name})";
+        /// <inheritdoc/>
+        public IDisposable Subscribe(IObserver<int> observer) {
+            collection.Add(observer);
+            return Disposable.Create(() => collection.Remove(observer));
+        }
 
 
         #region Commands

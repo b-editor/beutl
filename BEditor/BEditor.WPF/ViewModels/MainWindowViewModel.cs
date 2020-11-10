@@ -145,6 +145,7 @@ namespace BEditor.ViewModels {
             };
 
             if (dialog.ShowDialog() == CommonFileDialogResult.Ok) {
+                App.Current.Dispatcher.Invoke(() => {
                 var loading = new Loading();
                 loading.IsIndeterminate.Value = true;
 
@@ -160,6 +161,7 @@ namespace BEditor.ViewModels {
                 }
 
                 dialog1.Close();
+                });
             }
 
             Debug.WriteLine("ProjectOpened");

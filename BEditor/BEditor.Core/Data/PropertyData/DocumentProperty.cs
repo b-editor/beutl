@@ -1,13 +1,19 @@
 ﻿using System;
+using System.Collections.Generic;
+using System.ComponentModel;
+using System.Reactive.Disposables;
 using System.Runtime.Serialization;
+using System.Threading.Tasks;
 
 namespace BEditor.Core.Data.PropertyData {
     /// <summary>
     /// 複数行の文字のプロパティを表します
     /// </summary>
     [DataContract(Namespace = "")]
-    public sealed class DocumentProperty : PropertyElement {
+    public sealed class DocumentProperty : PropertyElement, IObservable<string>, INotifyPropertyChanged, IExtensibleDataObject {
         private string textProperty;
+        private List<IObserver<string>> list;
+        private List<IObserver<string>> collection => list ??= new List<IObserver<string>>();
 
         /// <summary>
         /// <see cref="DocumentProperty"/> クラスの新しいインスタンスを初期化します
@@ -33,6 +39,30 @@ namespace BEditor.Core.Data.PropertyData {
         /// </summary>
         public int? HeightProperty { get; set; }
 
+        private void DocumentProperty_PropertyChanged(object sender, PropertyChangedEventArgs e) {
+            if (e.PropertyName == nameof(Text)) {
+                Parallel.For(0, collection.Count, i => {
+                    var observer = collection[i];
+                    try {
+                        observer.OnNext(textProperty);
+                        observer.OnCompleted();
+                    }
+                    catch (Exception ex) {
+                        observer.OnError(ex);
+                    }
+                });
+            }
+        }
+        /// <inheritdoc/>
+        public IDisposable Subscribe(IObserver<string> observer) {
+            collection.Add(observer);
+            return Disposable.Create(() => collection.Remove(observer));
+        }
+        /// <inheritdoc/>
+        public override void PropertyLoaded() {
+            base.PropertyLoaded();
+            PropertyChanged += DocumentProperty_PropertyChanged;
+        }
         /// <inheritdoc/>
         public override string ToString() => $"(Text:{Text} Name:{PropertyMetadata?.Name})";
 

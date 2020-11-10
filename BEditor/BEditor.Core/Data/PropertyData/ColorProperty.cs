@@ -1,5 +1,6 @@
 ﻿using System;
 using System.Collections.ObjectModel;
+using System.ComponentModel;
 using System.Runtime.Serialization;
 
 namespace BEditor.Core.Data.PropertyData {
@@ -7,7 +8,7 @@ namespace BEditor.Core.Data.PropertyData {
     /// 色を選択するプロパティを表します
     /// </summary>
     [DataContract(Namespace = "")]
-    public sealed class ColorProperty : PropertyElement {
+    public sealed class ColorProperty : PropertyElement, INotifyPropertyChanged, IExtensibleDataObject {
         private byte r;
         private byte g;
         private byte b;

@@ -119,8 +119,7 @@ namespace BEditor {
             //Componentにset
 
             Component.Funcs.CreateRenderingContext = (width, height) => {
-                return new RenderingContext(width, height);
-                //return new BEditor.Core.Renderer.RenderingContext(width, height);
+                return new Core.Renderer.BaseRenderingContext(width, height);
             };
             Component.Funcs.SaveFileDialog = () => new SaveDialog();
 

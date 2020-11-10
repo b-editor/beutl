@@ -12,6 +12,12 @@ using BEditor.Core.Renderer;
 using OpenTK.Graphics;
 using OpenTK.Graphics.OpenGL;
 
+#if OldOpenTK
+using GLColor = OpenTK.Graphics.Color4;
+#else
+using GLColor = OpenTK.Mathematics.Color4;
+#endif
+
 using static BEditor.Core.Data.ObjectData.DefaultData.Figure;
 using static BEditor.Core.Data.ObjectData.ImageObject;
 
@@ -43,7 +49,7 @@ namespace BEditor.Core.Data.ObjectData {
         public override void Load(EffectLoadArgs args) {
             int frame = args.Frame;
             Action action;
-            OpenTK.Graphics.Color4 color4 = Blend.Color.GetValue(frame);
+            GLColor color4 = Blend.Color.GetValue(frame);
             color4.A *= Blend.Alpha.GetValue(frame);
 
 

@@ -234,10 +234,12 @@ namespace BEditor.Core.Data.ProjectData {
                 obj.Load(args);
             }
 
-            RenderingContext.MakeCurrent();
             RenderingContext.SwapBuffers();
+            RenderingContext.MakeCurrent();
 
             Graphics.GetPixels(FrameBuffer);
+
+            RenderingContext.UnMakeCurrent();
 
             if (frame % Component.Current.Project.Framerate * 5 == 1)
                 Task.Run(GC.Collect);

@@ -25,6 +25,7 @@ namespace BEditor.Core.Renderer {
             image.ThrowIfDisposed();
 
             GL.ReadBuffer(ReadBufferMode.Front);
+            
             GL.ReadPixels(0, 0, image.Width, image.Height, image.Type, image.Type, image.Data);
 
             image.Flip(FlipMode.X);

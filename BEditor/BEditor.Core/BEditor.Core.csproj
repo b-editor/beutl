@@ -11,7 +11,7 @@
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|AnyCPU'">
     <DocumentationFile>E:\yuuto\source\BEditor\BEditor\BEditor.Core\BEditor.Core.xml</DocumentationFile>
     <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
-    <DefineConstants>TRACE;OldOpenTK</DefineConstants>
+    <DefineConstants>TRACE</DefineConstants>
     <Optimize>false</Optimize>
     <PlatformTarget>x64</PlatformTarget>
     <OutputPath>E:\yuuto\source\BEditor\BEditor\x64\Debug\</OutputPath>
@@ -32,7 +32,9 @@
   </ItemGroup>
 
   <ItemGroup>
-    <PackageReference Include="OpenTK.NetStandard" Version="1.0.5.32" />
+    <PackageReference Include="OpenTK" Version="4.1.0" />
+    <PackageReference Include="ReactiveProperty" Version="7.5.1" />
+    <PackageReference Include="System.Reactive" Version="4.4.1" />
   </ItemGroup>
 
   <ItemGroup>

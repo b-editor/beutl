@@ -4,6 +4,7 @@ using System.ComponentModel;
 using System.Diagnostics;
 using System.Linq;
 using System.Linq.Expressions;
+using System.Reactive.Concurrency;
 using System.Runtime.Serialization;
 using System.Text;
 
@@ -25,7 +26,7 @@ namespace BEditor.Core.Data {
         protected void RaisePropertyChanged(string name) {
             if (PropertyChanged == null) return;
 
-            PropertyChanged(this, new PropertyChangedEventArgs(name));
+            PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(name));
         }
     }
 }

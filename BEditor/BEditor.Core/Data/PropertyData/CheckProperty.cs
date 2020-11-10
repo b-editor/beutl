@@ -1,5 +1,9 @@
 ﻿using System;
+using System.Collections.Generic;
+using System.ComponentModel;
+using System.Reactive.Disposables;
 using System.Runtime.Serialization;
+using System.Threading.Tasks;
 
 using BEditor.Core.Data.PropertyData.EasingSetting;
 
@@ -8,8 +12,10 @@ namespace BEditor.Core.Data.PropertyData {
     /// チェックボックスのプロパティを表します
     /// </summary>
     [DataContract(Namespace = "")]
-    public sealed class CheckProperty : PropertyElement, IEasingSetting {
+    public sealed class CheckProperty : PropertyElement, IEasingSetting, IObservable<bool>, INotifyPropertyChanged, IExtensibleDataObject {
         private bool isChecked;
+        private List<IObserver<bool>> list;
+        private List<IObserver<bool>> collection => list ??= new List<IObserver<bool>>();
 
         /// <summary>
         /// <see cref="CheckProperty"/> クラスの新しいインスタンスを初期化します
@@ -29,6 +35,30 @@ namespace BEditor.Core.Data.PropertyData {
         [DataMember]
         public bool IsChecked { get => isChecked; set => SetValue(value, ref isChecked, nameof(IsChecked)); }
 
+        private void CheckProperty_PropertyChanged(object sender, PropertyChangedEventArgs e) {
+            if (e.PropertyName == nameof(IsChecked)) {
+                Parallel.For(0, collection.Count, i => {
+                    var observer = collection[i];
+                    try {
+                        observer.OnNext(isChecked);
+                        observer.OnCompleted();
+                    }
+                    catch (Exception ex) {
+                        observer.OnError(ex);
+                    }
+                });
+            }
+        }
+        /// <inheritdoc/>
+        public IDisposable Subscribe(IObserver<bool> observer) {
+            collection.Add(observer);
+            return Disposable.Create(() => collection.Remove(observer));
+        }
+        /// <inheritdoc/>
+        public override void PropertyLoaded() {
+            base.PropertyLoaded();
+            PropertyChanged += CheckProperty_PropertyChanged;
+        }
         /// <inheritdoc/>
         public override string ToString() => $"(IsChecked:{IsChecked} Name:{PropertyMetadata?.Name})";
 
