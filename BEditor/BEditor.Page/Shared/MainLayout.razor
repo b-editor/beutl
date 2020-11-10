@@ -18,8 +18,15 @@
         <MatAppBarRow>
             <MatAppBarSection>
                 <MatIconButton Icon="menu" OnClick="MenuButtonClicked"></MatIconButton>
-                <MatIconButton Icon="movie" Link=""></MatIconButton>
+                <MatHidden BreakPoint="@MatBreakpoint.XS" Direction="@MatHiddenDirection.Down">
+                    <MatIconButton Icon="movie" Link="" Style="align-self: center;"></MatIconButton>
+                </MatHidden>
             </MatAppBarSection>
+
+            <MatHidden BreakPoint="@MatBreakpoint.SM" Direction="@MatHiddenDirection.Up">
+                <MatIconButton Icon="movie" Link="" Style="align-self: center;"></MatIconButton>
+            </MatHidden>
+
             <MatAppBarSection Align="@MatAppBarSectionAlign.End">
 
                 <MatHidden BreakPoint="@MatBreakpoint.XS" Direction="@MatHiddenDirection.Down">
@@ -48,19 +55,28 @@
         </MatAppBarRow>
     </MatAppBar>
 
+    <MatDrawerContainer Style="width: 100%; height: 100%;">
+        <!--width: 100vw; height: 100vh;-->
+        <MatDrawer @bind-Opened="@Opened" Mode="@MatDrawerMode.Modal">
+            <MatNavMenu @onclick="MenuButtonClicked">
+                <MatNavItem href="">Home</MatNavItem>
+                <MatNavItem href="counter">Counter</MatNavItem>
+                <MatNavItem href="fetchdata">Fetch data</MatNavItem>
+                <MatNavItem href="">Home</MatNavItem>
+                <MatNavItem href="counter">Counter</MatNavItem>
+                <MatNavItem href="fetchdata">Fetch data</MatNavItem>
+                <MatNavItem href="">Home</MatNavItem>
+                <MatNavItem href="counter">Counter</MatNavItem>
+                <MatNavItem href="fetchdata">Fetch data</MatNavItem>
+                <MatNavItem href="">Home</MatNavItem>
+                <MatNavItem href="counter">Counter</MatNavItem>
+                <MatNavItem href="fetchdata">Fetch data</MatNavItem>
+            </MatNavMenu>
+        </MatDrawer>
+    </MatDrawerContainer>
+
     <MatAppBarContent>
-        <MatDrawerContainer Style="width: 100vw; height: 100vh;">
-            <MatDrawer @bind-Opened="@Opened" Mode="@MatDrawerMode.Modal">
-                <MatNavMenu @onclick="MenuButtonClicked">
-                    <MatNavItem href="">Home</MatNavItem>
-                    <MatNavItem href="counter">Counter</MatNavItem>
-                    <MatNavItem href="fetchdata">Fetch data</MatNavItem>
-                </MatNavMenu>
-            </MatDrawer>
-            <MatDrawerContent>
-                @Body
-            </MatDrawerContent>
-        </MatDrawerContainer>
+        @Body
     </MatAppBarContent>
 </MatAppBarContainer>
 
