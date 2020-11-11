@@ -10,7 +10,7 @@ namespace BEditor.Core.Data.ObjectData {
         [DataContract(Namespace = "")]
         public sealed class Scene : DefaultImageObject {
             public static readonly SelectorPropertyMetadata SelectSceneMetadata = new ScenesSelectorMetadata();
-
+            
             #region DefaultImageObjectメンバー
 
             public override IList<PropertyElement> GroupItems => new List<PropertyElement> {
@@ -32,7 +32,6 @@ namespace BEditor.Core.Data.ObjectData {
                 SelectScene = new(SelectSceneMetadata);
             }
 
-
             [DataMember(Order = 0)]
             [PropertyMetadata(nameof(Video.StartMetadata), typeof(Video))]
             public EaseProperty Start { get; private set; }
@@ -42,7 +41,7 @@ namespace BEditor.Core.Data.ObjectData {
             public SelectorProperty SelectScene { get; private set; }
 
 
-            internal class ScenesSelectorMetadata : SelectorPropertyMetadata {
+            internal record ScenesSelectorMetadata : SelectorPropertyMetadata {
                 internal ScenesSelectorMetadata() : base(Properties.Resources.Scenes, null) {
                     MemberPath = "SceneName";
                     ItemSource = Component.Current.Project.SceneList;

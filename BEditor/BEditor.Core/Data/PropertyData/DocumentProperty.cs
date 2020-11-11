@@ -106,7 +106,7 @@ namespace BEditor.Core.Data.PropertyData {
     /// <summary>
     /// <see cref="DocumentProperty"/> のメタデータを表します
     /// </summary>
-    public class DocumentPropertyMetadata : PropertyElementMetadata {
+    public record DocumentPropertyMetadata : PropertyElementMetadata {
         /// <summary>
         /// <see cref="DocumentPropertyMetadata"/> クラスの新しいインスタンスを初期化します
         /// </summary>

@@ -398,7 +398,7 @@ namespace BEditor.Core.Data.PropertyData {
     /// <summary>
     /// 
     /// </summary>
-    public class ColorAnimationPropertyMetadata : ColorPropertyMetadata {
+    public record ColorAnimationPropertyMetadata : ColorPropertyMetadata {
         /// <summary>
         /// 
         /// </summary>

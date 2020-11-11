@@ -23,6 +23,7 @@ using BEditor.Core.Data.PropertyData.Default;
 using Image = BEditor.Core.Media.Image;
 using OpenTK.Windowing.Common;
 using OpenTK.Windowing.GraphicsLibraryFramework;
+using System.Runtime.InteropServices;
 
 namespace BEditor.Core.Renderer {
     public unsafe class BaseRenderingContext : IBaseRenderingContext {
@@ -280,5 +281,6 @@ namespace BEditor.Core.Renderer {
             MakeCurrent();
             Graphics.Paint(coordinate, nx, ny, nz, center, () => Graphics.DrawImage(img, scalex, scaley, scalez, color, ambient, diffuse, specular, shininess), Blend.BlentFunc[drawObject.Blend.BlendType.Index]);
         }
+
     }
 }

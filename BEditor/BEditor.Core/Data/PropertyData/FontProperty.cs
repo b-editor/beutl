@@ -123,7 +123,7 @@ namespace BEditor.Core.Data.PropertyData {
     /// <summary>
     /// <see cref="FontProperty"/> のメタデータを表します
     /// </summary>
-    public class FontPropertyMetadata : PropertyElementMetadata {
+    public record FontPropertyMetadata : PropertyElementMetadata {
         /// <summary>
         /// <see cref="FontPropertyMetadata"/> クラスの新しいインスタンスを初期化します
         /// </summary>

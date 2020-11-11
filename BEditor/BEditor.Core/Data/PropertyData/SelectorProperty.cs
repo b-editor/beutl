@@ -108,7 +108,7 @@ namespace BEditor.Core.Data.PropertyData {
     /// <summary>
     /// <see cref="SelectorProperty"/> のメタデータを表します
     /// </summary>
-    public class SelectorPropertyMetadata : PropertyElementMetadata {
+    public record SelectorPropertyMetadata : PropertyElementMetadata {
         /// <summary>
         /// <see cref="SelectorPropertyMetadata"/> の新しいインスタンスを初期化します
         /// </summary>

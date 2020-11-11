@@ -513,7 +513,7 @@ namespace BEditor.Core.Data.PropertyData {
     /// <summary>
     /// <see cref="EaseProperty"/> のメタデータを表します
     /// </summary>
-    public class EasePropertyMetadata : PropertyElementMetadata {
+    public record EasePropertyMetadata : PropertyElementMetadata {
         /// <summary>
         /// <see cref="EasePropertyMetadata"/> クラスの新しいインスタンスを初期化します
         /// </summary>
