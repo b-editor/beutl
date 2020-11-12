@@ -14,9 +14,9 @@ namespace BEditor.Core.Data.EffectData {
         /// </summary>
         /// <param name="image">描画する<see cref="Image"/></param>
         /// <param name="args">呼び出しの順番などのデータ</param>
-        public abstract void Draw(ref Image image, EffectLoadArgs args);
+        public abstract void Draw(ref Image image, EffectRenderArgs args);
 
         /// <inheritdoc/>
-        public override void Load(EffectLoadArgs args) { }
+        public override void Render(EffectRenderArgs args) { }
     }
 }

@@ -98,13 +98,13 @@ namespace BEditor.Core.Data.EffectData {
         /// フレーム描画時に呼び出されます
         /// </summary>
         /// <param name="args">呼び出しの順番などのデータ</param>
-        public abstract void Load(EffectLoadArgs args);
+        public abstract void Render(EffectRenderArgs args);
         /// <summary>
         /// フレーム描画前に呼び出されます
         /// </summary>
         /// <param name="args">呼び出しの順番などのデータ</param>
         /// <remarks>ここでエフェクトの順番などを変更できます</remarks>
-        public virtual void PreviewLoad(EffectLoadArgs args) { }
+        public virtual void PreviewRender(EffectRenderArgs args) { }
 
 
         #region Check
@@ -112,7 +112,7 @@ namespace BEditor.Core.Data.EffectData {
         /// エフェクトが有効かのブーリアンを変更するコマンド
         /// </summary>
         /// <remarks>このクラスは <see cref="UndoRedoManager.Do(IUndoRedoCommand)"/> と併用することでコマンドを記録できます</remarks>
-        public class CheckCommand : IUndoRedoCommand {
+        public sealed class CheckCommand : IUndoRedoCommand {
             private readonly EffectElement effect;
             private readonly bool value;
 
@@ -144,7 +144,7 @@ namespace BEditor.Core.Data.EffectData {
         /// エフェクトの順番を上げるコマンド
         /// </summary>
         /// <remarks>このクラスは <see cref="UndoRedoManager.Do(IUndoRedoCommand)"/> と併用することでコマンドを記録できます</remarks>
-        public class UpCommand : IUndoRedoCommand {
+        public sealed class UpCommand : IUndoRedoCommand {
             private readonly ClipData data;
             private readonly EffectElement effect;
 
@@ -190,7 +190,7 @@ namespace BEditor.Core.Data.EffectData {
         /// エフェクトの順番を下げるコマンド
         /// </summary>
         /// <remarks>このクラスは <see cref="UndoRedoManager.Do(IUndoRedoCommand)"/> と併用することでコマンドを記録できます</remarks>
-        public class DownCommand : IUndoRedoCommand {
+        public sealed class DownCommand : IUndoRedoCommand {
             private readonly ClipData data;
             private readonly EffectElement effect;
 
@@ -235,7 +235,7 @@ namespace BEditor.Core.Data.EffectData {
         /// エフェクトを削除するコマンド
         /// </summary>
         /// <remarks>このクラスは <see cref="UndoRedoManager.Do(IUndoRedoCommand)"/> と併用することでコマンドを記録できます</remarks>
-        public class RemoveCommand : IUndoRedoCommand {
+        public sealed class RemoveCommand : IUndoRedoCommand {
             private readonly ClipData data;
             private readonly EffectElement effect;
             private readonly int index;
@@ -268,7 +268,7 @@ namespace BEditor.Core.Data.EffectData {
         /// エフェクトを追加するコマンド
         /// </summary>
         /// <remarks>このクラスは <see cref="UndoRedoManager.Do(IUndoRedoCommand)"/> と併用することでコマンドを記録できます</remarks>
-        public class AddCommand : IUndoRedoCommand {
+        public sealed class AddCommand : IUndoRedoCommand {
             private readonly ClipData data;
             private readonly EffectElement effect;
 

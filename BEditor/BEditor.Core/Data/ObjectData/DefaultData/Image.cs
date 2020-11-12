@@ -18,7 +18,7 @@ namespace BEditor.Core.Data.ObjectData {
 
 
             #region DefaultImageObjectメンバー
-            public override Media.Image Load(EffectLoadArgs args) => Source?.Clone();
+            public override Media.Image Load(EffectRenderArgs args) => Source?.Clone();
 
             public override IList<PropertyElement> GroupItems => new List<PropertyElement>() {
                 File

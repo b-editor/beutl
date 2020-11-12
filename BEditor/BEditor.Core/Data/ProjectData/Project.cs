@@ -239,7 +239,7 @@ namespace BEditor.Core.Data.ProjectData {
                 var project = (Project)o;
 
                 foreach (var scene in project.SceneList) {
-                    scene.RenderingContext = Component.Funcs.CreateRenderingContext(scene.Width, scene.Height);
+                    scene.RenderingContext = Component.Funcs.CreateGraphicsContext(scene.Width, scene.Height);
 
                 }
 

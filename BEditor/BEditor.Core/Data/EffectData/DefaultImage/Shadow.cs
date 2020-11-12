@@ -27,7 +27,7 @@ namespace BEditor.Core.Data.EffectData {
         #region EffectProperty
         public override string Name => Properties.Resources.DropShadow;
 
-        public override void Draw(ref Image source, EffectLoadArgs args) => source.Shadow
+        public override void Draw(ref Image source, EffectRenderArgs args) => source.Shadow
             (X.GetValue(args.Frame),
              Y.GetValue(args.Frame),
              (int)Blur.GetValue(args.Frame),

@@ -7,13 +7,13 @@ namespace BEditor.Core.Data.ProjectData {
     /// <summary>
     /// フレーム描画時にクリップに渡されるデータ
     /// </summary>
-    public class ObjectLoadArgs {
+    public class ClipRenderArgs {
         /// <summary>
-        /// <see cref="ObjectLoadArgs"/> クラスの新しいインスタンスを初期化します
+        /// <see cref="ClipRenderArgs"/> クラスの新しいインスタンスを初期化します
         /// </summary>
         /// <param name="frame">タイムライン基準のフレーム</param>
         /// <param name="schedules">クリップのリスト</param>
-        public ObjectLoadArgs(int frame, List<ClipData> schedules) {
+        public ClipRenderArgs(int frame, List<ClipData> schedules) {
             Frame = frame;
             Schedules = schedules;
         }
@@ -35,13 +35,13 @@ namespace BEditor.Core.Data.ProjectData {
     /// <summary>
     /// フレーム描画時にエフェクトに渡されるデータ
     /// </summary>
-    public class EffectLoadArgs {
+    public class EffectRenderArgs {
         /// <summary>
-        /// <see cref="EffectLoadArgs"/> クラスの新しいインスタンスを初期化します
+        /// <see cref="EffectRenderArgs"/> クラスの新しいインスタンスを初期化します
         /// </summary>
         /// <param name="frame">タイムライン基準のフレーム</param>
         /// <param name="schedules">エフェクトのリスト</param>
-        public EffectLoadArgs(int frame, List<EffectElement> schedules) {
+        public EffectRenderArgs(int frame, List<EffectElement> schedules) {
             Frame = frame;
             Schedules = schedules;
         }

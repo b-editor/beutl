@@ -293,7 +293,7 @@ namespace BEditor.Core.Data.PropertyData {
         /// 値を変更するコマンド
         /// </summary>
         /// <remarks>このクラスは <see cref="UndoRedoManager.Do(IUndoRedoCommand)"/> と併用することでコマンドを記録できます</remarks>
-        public class ChangeValueCommand : IUndoRedoCommand {
+        public sealed class ChangeValueCommand : IUndoRedoCommand {
             private readonly EaseProperty EaseSetting;
             private readonly int index;
             private readonly float newvalue;
@@ -332,7 +332,7 @@ namespace BEditor.Core.Data.PropertyData {
         /// イージング関数を変更するコマンド
         /// </summary>
         /// <remarks>このクラスは <see cref="UndoRedoManager.Do(IUndoRedoCommand)"/> と併用することでコマンドを記録できます</remarks>
-        public class ChangeEaseCommand : IUndoRedoCommand {
+        public sealed class ChangeEaseCommand : IUndoRedoCommand {
             private readonly EaseProperty EaseSetting;
             private readonly EasingFunc EasingNumber;
             private readonly EasingFunc OldEasingNumber;
@@ -369,7 +369,7 @@ namespace BEditor.Core.Data.PropertyData {
         /// キーフレームを追加するコマンド
         /// </summary>
         /// <remarks>このクラスは <see cref="UndoRedoManager.Do(IUndoRedoCommand)"/> と併用することでコマンドを記録できます</remarks>
-        public class AddCommand : IUndoRedoCommand {
+        public sealed class AddCommand : IUndoRedoCommand {
             private readonly EaseProperty EaseProperty;
             private readonly int frame;
 
@@ -409,7 +409,7 @@ namespace BEditor.Core.Data.PropertyData {
         /// キーフレームを削除するコマンド
         /// </summary>
         /// <remarks>このクラスは <see cref="UndoRedoManager.Do(IUndoRedoCommand)"/> と併用することでコマンドを記録できます</remarks>
-        public class RemoveCommand : IUndoRedoCommand {
+        public sealed class RemoveCommand : IUndoRedoCommand {
             private readonly EaseProperty EaseProperty;
             private readonly int frame;
             private float value;
@@ -450,7 +450,7 @@ namespace BEditor.Core.Data.PropertyData {
         /// キーフレームを移動するコマンド
         /// </summary>
         /// <remarks>このクラスは <see cref="UndoRedoManager.Do(IUndoRedoCommand)"/> と併用することでコマンドを記録できます</remarks>
-        public class MoveCommand : IUndoRedoCommand {
+        public sealed class MoveCommand : IUndoRedoCommand {
             private readonly EaseProperty EaseProperty;
             private readonly int fromIndex;
             private int toIndex;

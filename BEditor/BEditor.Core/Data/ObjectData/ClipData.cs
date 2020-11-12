@@ -154,27 +154,27 @@ namespace BEditor.Core.Data.ObjectData {
         /// <summary>
         /// レンダリング時に呼び出されます
         /// </summary>
-        public void Load(ObjectLoadArgs args) {
-            var loadargs = new EffectLoadArgs(args.Frame, Effect.Where(x => x.IsEnabled).ToList());
+        public void Render(ClipRenderArgs args) {
+            var loadargs = new EffectRenderArgs(args.Frame, Effect.Where(x => x.IsEnabled).ToList());
 
             if (Effect[0] is ObjectElement obj) {
                 if (!obj.IsEnabled) {
                     return;
                 }
 
-                obj.Load(loadargs);
+                obj.Render(loadargs);
             }
         }
 
         /// <summary>
         /// レンダリング前に呼び出されます
         /// </summary>
-        public void PreviewLoad(ObjectLoadArgs args) {
+        public void PreviewRender(ClipRenderArgs args) {
             var enableEffects = Effect.Where(x => x.IsEnabled);
-            var loadargs = new EffectLoadArgs(args.Frame, enableEffects.ToList());
+            var loadargs = new EffectRenderArgs(args.Frame, enableEffects.ToList());
 
             foreach (var item in enableEffects) {
-                item.PreviewLoad(loadargs);
+                item.PreviewRender(loadargs);
             }
         }
 
@@ -201,7 +201,7 @@ namespace BEditor.Core.Data.ObjectData {
         /// <see cref="ClipData"/> を <see cref="ProjectData.Scene"/> に追加するコマンド
         /// </summary>
         /// <remarks>このクラスは <see cref="UndoRedoManager.Do(IUndoRedoCommand)"/> と併用することでコマンドを記録できます</remarks>
-        public class AddCommand : IUndoRedoCommand {
+        public sealed class AddCommand : IUndoRedoCommand {
             private readonly Scene Scene;
             private readonly int AddFrame;
             private readonly int AddLayer;
@@ -291,7 +291,7 @@ namespace BEditor.Core.Data.ObjectData {
         /// <see cref="ProjectData.Scene"/> から <see cref="ClipData"/> を削除するコマンド
         /// </summary>
         /// <remarks>このクラスは <see cref="UndoRedoManager.Do(IUndoRedoCommand)"/> と併用することでコマンドを記録できます</remarks>
-        public class RemoveCommand : IUndoRedoCommand {
+        public sealed class RemoveCommand : IUndoRedoCommand {
             private readonly ClipData data;
 
             /// <summary>
@@ -338,7 +338,7 @@ namespace BEditor.Core.Data.ObjectData {
         /// <see cref="ClipData"/> のフレームとレイヤーを移動するコマンド
         /// </summary>
         /// <remarks>このクラスは <see cref="UndoRedoManager.Do(IUndoRedoCommand)"/> と併用することでコマンドを記録できます</remarks>
-        public class MoveCommand : IUndoRedoCommand {
+        public sealed class MoveCommand : IUndoRedoCommand {
             private readonly ClipData data;
             private readonly int to;
             private readonly int from;
@@ -414,7 +414,7 @@ namespace BEditor.Core.Data.ObjectData {
         /// <see cref="ClipData"/> の長さを変更するコマンド
         /// </summary>
         /// <remarks>このクラスは <see cref="UndoRedoManager.Do(IUndoRedoCommand)"/> と併用することでコマンドを記録できます</remarks>
-        public class LengthChangeCommand : IUndoRedoCommand {
+        public sealed class LengthChangeCommand : IUndoRedoCommand {
             private readonly ClipData data;
             private readonly int start;
             private readonly int end;

@@ -18,11 +18,11 @@ namespace BEditor.Core.Data.ObjectData {
                 SelectScene
             };
 
-            public override Media.Image Load(EffectLoadArgs args) {
+            public override Media.Image Load(EffectRenderArgs args) {
                 var frame = args.Frame - Parent.ClipData.Start;//相対的なフレーム
                 ProjectData.Scene scene = SelectScene.SelectItem as ProjectData.Scene;
 
-                return scene.Rendering(frame + (int)Start.GetValue(args.Frame));
+                return scene.Render(frame + (int)Start.GetValue(args.Frame)).Image;
             }
 
             #endregion

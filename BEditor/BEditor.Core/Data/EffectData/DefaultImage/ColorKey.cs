@@ -22,7 +22,7 @@ namespace BEditor.Core.Data.EffectData {
         #region ImageEffect
         public override string Name => Properties.Resources.ColorKey;
 
-        public override void Draw(ref Image source, EffectLoadArgs args) { }
+        public override void Draw(ref Image source, EffectRenderArgs args) { }
 
 
         public override IList<PropertyElement> PropertySettings => new List<PropertyElement> {

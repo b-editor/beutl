@@ -86,12 +86,12 @@ namespace BEditor.Core.Data {
         /// プラットフォームに依存する関数を共有するフィールド
         /// </summary>
         public static class Funcs {
-            private static Func<int, int, BaseGraphicsContext> createRenderingContext;
+            private static Func<int, int, BaseGraphicsContext> createRenderingContext = (width, height) => new GraphicsContext(width, height);
 
             /// <summary>
             /// レンダリングコンテキストを作成する関数を取得または設定します
             /// </summary>
-            public static Func<int, int, BaseGraphicsContext> CreateRenderingContext {
+            public static Func<int, int, BaseGraphicsContext> CreateGraphicsContext {
                 get => createRenderingContext;
                 set {
                     createRenderingContext = value;

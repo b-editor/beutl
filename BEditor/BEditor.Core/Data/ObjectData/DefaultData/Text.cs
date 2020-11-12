@@ -25,7 +25,7 @@ namespace BEditor.Core.Data.ObjectData {
 
 
             #region DefaultImageObjectメンバー
-            public override Media.Image Load(EffectLoadArgs args) => Media.Image.Text(
+            public override Media.Image Load(EffectRenderArgs args) => Media.Image.Text(
                 (int)Size.GetValue(args.Frame),
                 Color,
                 Document.Text,

@@ -20,7 +20,7 @@ namespace BEditor.Models {
 
             int nowframe = Component.Current.Project.PreviewScene.PreviewFrame;
 
-            Image img = Component.Current.Project.PreviewScene.Rendering(nowframe);
+            Image img = Component.Current.Project.PreviewScene.Render(nowframe).Image;
 
             try {
 

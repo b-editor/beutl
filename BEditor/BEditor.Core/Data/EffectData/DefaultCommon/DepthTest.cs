@@ -65,7 +65,7 @@ namespace BEditor.Core.Data.EffectData.DefaultCommon {
             Far
         };
 
-        public override void Load(EffectLoadArgs args) {
+        public override void Render(EffectRenderArgs args) {
             if (Enabled.IsChecked) GL.Enable(EnableCap.DepthTest);
             else GL.Disable(EnableCap.DepthTest);
 

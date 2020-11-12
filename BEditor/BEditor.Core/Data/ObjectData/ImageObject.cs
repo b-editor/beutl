@@ -39,7 +39,7 @@ namespace BEditor.Core.Data.ObjectData {
 
         #region Rendering
 
-        public override void Load(EffectLoadArgs args) {
+        public override void Render(EffectRenderArgs args) {
             Image base_img = Custom.Load(args);
 
             if (base_img == null) {
@@ -53,7 +53,7 @@ namespace BEditor.Core.Data.ObjectData {
                 if (effect is ImageEffect imageEffect) {
                     imageEffect.Draw(ref base_img, args);
                 }
-                effect.Load(args);
+                effect.Render(args);
 
 
                 if (args.Handled) {

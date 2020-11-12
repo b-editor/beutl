@@ -29,7 +29,7 @@ namespace BEditor.Core.Data.EffectData.DefaultCommon {
             Z
         };
 
-        public override void Load(EffectLoadArgs args) {
+        public override void Render(EffectRenderArgs args) {
             GL.Enable(EnableCap.Lighting);
 
             float[] position = new float[] { X.GetValue(args.Frame), Y.GetValue(args.Frame), Z.GetValue(args.Frame), 0f };

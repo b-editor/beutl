@@ -10,7 +10,7 @@ namespace BEditor.Core.Data.PropertyData {
     /// 複数行の文字のプロパティを表します
     /// </summary>
     [DataContract(Namespace = "")]
-    public class DocumentProperty : PropertyElement, IObservable<string>, INotifyPropertyChanged, IExtensibleDataObject {
+    public class DocumentProperty : PropertyElement, IObservable<string> {
         private string textProperty;
         private List<IObserver<string>> list;
         private List<IObserver<string>> collection => list ??= new List<IObserver<string>>();
@@ -72,7 +72,7 @@ namespace BEditor.Core.Data.PropertyData {
         /// 文字を変更するコマンド
         /// </summary>
         /// <remarks>このクラスは <see cref="UndoRedoManager.Do(IUndoRedoCommand)"/> と併用することでコマンドを記録できます</remarks>
-        public class TextChangeCommand : IUndoRedoCommand {
+        public sealed class TextChangeCommand : IUndoRedoCommand {
             private readonly DocumentProperty Document;
             private readonly string newtext;
             private readonly string oldtext;

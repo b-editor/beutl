@@ -46,7 +46,7 @@ namespace BEditor.Core.Data.ObjectData {
             Weight
         };
 
-        public override void Load(EffectLoadArgs args) {
+        public override void Render(EffectRenderArgs args) {
             int frame = args.Frame;
             Action action;
             GLColor color4 = Blend.Color.GetValue(frame);

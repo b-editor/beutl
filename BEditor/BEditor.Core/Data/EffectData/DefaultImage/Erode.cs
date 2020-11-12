@@ -18,7 +18,7 @@ namespace BEditor.Core.Data.EffectData {
         #region EffectProperty
         public override string Name => Properties.Resources.Erode;
 
-        public override void Draw(ref Image source, EffectLoadArgs args) => source.Erode((int)Frequency.GetValue(args.Frame));
+        public override void Draw(ref Image source, EffectRenderArgs args) => source.Erode((int)Frequency.GetValue(args.Frame));
 
 
         public override IList<PropertyElement> PropertySettings => new List<PropertyElement> {

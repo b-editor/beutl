@@ -8,7 +8,7 @@ namespace BEditor.Core.Data.ObjectData {
     public static partial class DefaultData {
         [DataContract(Namespace = "")]
         public abstract class DefaultImageObject : Group {
-            public abstract Media.Image Load(EffectLoadArgs args);
+            public abstract Media.Image Load(EffectRenderArgs args);
         }
     }
 }

@@ -14,7 +14,7 @@ namespace BEditor.Core.Data.PropertyData {
     /// 
     /// </summary>
     [DataContract(Namespace = "")]
-    public class ColorAnimationProperty : PropertyElement, IKeyFrameProperty, INotifyPropertyChanged, IExtensibleDataObject {
+    public class ColorAnimationProperty : PropertyElement, IKeyFrameProperty {
 
         /// <summary>
         /// 
@@ -205,7 +205,7 @@ namespace BEditor.Core.Data.PropertyData {
         /// <summary>
         /// 
         /// </summary>
-        public class ChangeColorCommand : IUndoRedoCommand {
+        public sealed class ChangeColorCommand : IUndoRedoCommand {
             private readonly ColorAnimationProperty Color;
             private readonly int index;
             private readonly byte r, g, b, a;
@@ -241,7 +241,7 @@ namespace BEditor.Core.Data.PropertyData {
         /// <summary>
         /// 
         /// </summary>
-        public class ChangeEaseCommand : IUndoRedoCommand {
+        public sealed class ChangeEaseCommand : IUndoRedoCommand {
             private readonly ColorAnimationProperty ColorProperty;
             private readonly EasingFunc EasingNumber;
             private readonly EasingFunc OldEasingNumber;
@@ -273,7 +273,7 @@ namespace BEditor.Core.Data.PropertyData {
         /// <summary>
         /// 
         /// </summary>
-        public class AddCommand : IUndoRedoCommand {
+        public sealed class AddCommand : IUndoRedoCommand {
             private readonly ColorAnimationProperty ColorProperty;
             private readonly int frame;
 
@@ -307,7 +307,7 @@ namespace BEditor.Core.Data.PropertyData {
         /// <summary>
         /// 
         /// </summary>
-        public class RemoveCommand : IUndoRedoCommand {
+        public sealed class RemoveCommand : IUndoRedoCommand {
             private readonly ColorAnimationProperty ColorProperty;
             private readonly int frame;
             private Color value;
@@ -342,7 +342,7 @@ namespace BEditor.Core.Data.PropertyData {
         /// <summary>
         /// 
         /// </summary>
-        public class MoveCommand : IUndoRedoCommand {
+        public sealed class MoveCommand : IUndoRedoCommand {
             private readonly ColorAnimationProperty ColorProperty;
             private readonly int fromIndex;
             private int toIndex;

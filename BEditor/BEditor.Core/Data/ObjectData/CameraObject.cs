@@ -41,7 +41,7 @@ namespace BEditor.Core.Data.ObjectData {
         public override string Name => Properties.Resources.Camera;
 
         #region Load
-        public override void Load(EffectLoadArgs args) {
+        public override void Render(EffectRenderArgs args) {
             int frame = args.Frame;
             var scene = ClipData.Scene;
             scene.RenderingContext.MakeCurrent();
@@ -56,7 +56,7 @@ namespace BEditor.Core.Data.ObjectData {
             for (int i = 1; i < args.Schedules.Count; i++) {
                 var effect = args.Schedules[i];
 
-                effect.Load(args);
+                effect.Render(args);
             }
         }
         #endregion

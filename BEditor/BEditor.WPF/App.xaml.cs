@@ -118,9 +118,6 @@ namespace BEditor {
             
             //Componentにset
 
-            Component.Funcs.CreateRenderingContext = (width, height) => {
-                return new GraphicsContext(width, height);
-            };
             Component.Funcs.SaveFileDialog = () => new SaveDialog();
 
             Image.EllipseFunc = ObjectLoad.Ellipse;

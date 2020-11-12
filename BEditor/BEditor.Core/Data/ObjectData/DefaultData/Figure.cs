@@ -31,7 +31,7 @@ namespace BEditor.Core.Data.ObjectData {
 
 
             #region DefaultImageObjectメンバー
-            public override Media.Image Load(EffectLoadArgs args) {
+            public override Media.Image Load(EffectRenderArgs args) {
                 if (Type.Index == 0) {
                     return Media.Image.Ellipse((int)Width.GetValue(args.Frame), (int)Height.GetValue(args.Frame), (int)Line.GetValue(args.Frame), Color);
                 }

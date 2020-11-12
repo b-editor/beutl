@@ -35,7 +35,7 @@ namespace BEditor.Core.Data.ObjectData {
                 File
             };
 
-            public override Media.Image Load(EffectLoadArgs args) {
+            public override Media.Image Load(EffectRenderArgs args) {
                 float speed = Speed.GetValue(args.Frame) / 100;
                 int start = (int)Start.GetValue(args.Frame);
 

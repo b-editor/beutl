@@ -10,7 +10,7 @@ namespace BEditor.Core.Data.PropertyData {
     /// 編集画面を持つプロパティを表します
     /// </summary>
     [DataContract(Namespace = "")]
-    public abstract class PropertyElement : ComponentObject {
+    public abstract class PropertyElement : ComponentObject, IChild<EffectElement> {
         private PropertyElementMetadata propertyMetadata;
 
 

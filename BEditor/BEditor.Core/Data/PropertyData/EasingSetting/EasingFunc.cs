@@ -13,7 +13,7 @@ namespace BEditor.Core.Data.PropertyData.EasingSetting {
     /// <see cref="EaseProperty"/>, <see cref="ColorAnimationProperty"/> などで利用可能なイージング関数を表します
     /// </summary>
     [DataContract(Namespace = "")]
-    public abstract class EasingFunc : ComponentObject {
+    public abstract class EasingFunc : ComponentObject, IChild<PropertyElement> {
         private PropertyElement parent;
 
 

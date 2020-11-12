@@ -25,7 +25,7 @@ namespace BEditor.Core.Data.EffectData {
             AdjustCoordinates
         };
 
-        public override void Draw(ref Image source, EffectLoadArgs args) {
+        public override void Draw(ref Image source, EffectRenderArgs args) {
             int top = (int)Top.GetValue(args.Frame);
             int bottom = (int)Bottom.GetValue(args.Frame);
             int left = (int)Left.GetValue(args.Frame);

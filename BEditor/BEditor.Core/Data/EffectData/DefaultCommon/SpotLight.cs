@@ -8,6 +8,6 @@ namespace BEditor.Core.Data.EffectData.DefaultCommon {
     public class SpotLight : EffectElement {
         public override string Name => throw new NotImplementedException();
         public override IList<PropertyElement> PropertySettings => throw new NotImplementedException();
-        public override void Load(EffectLoadArgs args) => throw new NotImplementedException();
+        public override void Render(EffectRenderArgs args) => throw new NotImplementedException();
     }
 }

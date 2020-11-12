@@ -31,14 +31,14 @@ namespace BEditor.Core.Data.EffectData {
             Color
         };
 
-        public override void PreviewLoad(EffectLoadArgs args) {
-            base.PreviewLoad(args);
+        public override void PreviewRender(EffectRenderArgs args) {
+            base.PreviewRender(args);
 
             args.Schedules.Remove(this);
             args.Schedules.Add(this);
         }
 
-        public override void Draw(ref Image source, EffectLoadArgs args) {
+        public override void Draw(ref Image source, EffectRenderArgs args) {
             var drawObject = (ImageObject)ClipData.Effect[0];
             var frame = args.Frame;
 

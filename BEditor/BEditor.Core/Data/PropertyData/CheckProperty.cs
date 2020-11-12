@@ -12,7 +12,7 @@ namespace BEditor.Core.Data.PropertyData {
     /// チェックボックスのプロパティを表します
     /// </summary>
     [DataContract(Namespace = "")]
-    public class CheckProperty : PropertyElement, IEasingSetting, IObservable<bool>, INotifyPropertyChanged, IExtensibleDataObject {
+    public class CheckProperty : PropertyElement, IEasingSetting, IObservable<bool> {
         private bool isChecked;
         private List<IObserver<bool>> list;
         private List<IObserver<bool>> collection => list ??= new List<IObserver<bool>>();
@@ -66,7 +66,7 @@ namespace BEditor.Core.Data.PropertyData {
         /// チェックされているかを変更するコマンド
         /// </summary>
         /// <remarks>このクラスは <see cref="UndoRedoManager.Do(IUndoRedoCommand)"/> と併用することでコマンドを記録できます</remarks>
-        public class ChangeCheckedCommand : IUndoRedoCommand {
+        public sealed class ChangeCheckedCommand : IUndoRedoCommand {
             private readonly CheckProperty CheckSetting;
             private readonly bool value;
 

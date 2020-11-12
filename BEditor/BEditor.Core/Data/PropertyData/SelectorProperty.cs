@@ -75,7 +75,7 @@ namespace BEditor.Core.Data.PropertyData {
         /// 選択されているアイテムを変更するコマンド
         /// </summary>
         /// <remarks>このクラスは <see cref="UndoRedoManager.Do(IUndoRedoCommand)"/> と併用することでコマンドを記録できます</remarks>
-        public class ChangeSelectCommand : IUndoRedoCommand {
+        public sealed class ChangeSelectCommand : IUndoRedoCommand {
             private readonly SelectorProperty Selector;
             private readonly int select;
             private readonly int oldselect;

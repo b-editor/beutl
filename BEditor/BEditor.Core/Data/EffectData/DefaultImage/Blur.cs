@@ -28,7 +28,7 @@ namespace BEditor.Core.Data.EffectData {
         public override string Name => Properties.Resources.Blur;
 
         #region Draw
-        public override void Draw(ref Image source, EffectLoadArgs args) {
+        public override void Draw(ref Image source, EffectRenderArgs args) {
             if (Mode.Index == 0) {
                 source.Blur((int)Size.GetValue(args.Frame), AlphaBlur.IsChecked);
             }

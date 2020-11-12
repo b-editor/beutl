@@ -35,7 +35,7 @@ namespace BEditor.Core.Data.EffectData.DefaultCommon {
             QuadraticAttenuation
         };
 
-        public override void Load(EffectLoadArgs args) {
+        public override void Render(EffectRenderArgs args) {
             int frame = args.Frame;
             GL.Enable(EnableCap.Lighting);
 

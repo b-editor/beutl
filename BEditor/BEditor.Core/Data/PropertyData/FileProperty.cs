@@ -67,7 +67,7 @@ namespace BEditor.Core.Data.PropertyData {
         /// ファイルの名前を変更するコマンド
         /// </summary>
         /// <remarks>このクラスは <see cref="UndoRedoManager.Do(IUndoRedoCommand)"/> と併用することでコマンドを記録できます</remarks>
-        public class ChangeFileCommand : IUndoRedoCommand {
+        public sealed class ChangeFileCommand : IUndoRedoCommand {
             private readonly FileProperty FileSetting;
             private readonly string path;
             private readonly string oldpath;

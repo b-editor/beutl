@@ -158,7 +158,7 @@ namespace BEditor.Core.Data.ProjectData {
         #endregion
 
 
-        public Image FrameBuffer;
+        private Image FrameBuffer;
 
         internal uint NewId {
             get {
@@ -196,18 +196,19 @@ namespace BEditor.Core.Data.ProjectData {
             Width = width;
             Height = height;
             Datas = new ObservableCollection<ClipData>();
-            RenderingContext = Component.Funcs.CreateRenderingContext(width, height);
+            RenderingContext = Component.Funcs.CreateGraphicsContext(width, height);
         }
 
         #endregion
 
         #region Rendering
+
         /// <summary>
         /// シーンをレンダリングします
         /// </summary>
         /// <param name="frame">タイムライン基準のレンダリングするフレーム</param>
         /// <returns>レンダリングされた <seealso cref="Image"/></returns>
-        public Image Rendering(int frame) {
+        public RenderingResult Render(int frame) {
             FrameBuffer?.Dispose();
             FrameBuffer = new Image(Width, Height);
             var layer = GetLayer(frame).ToList();
@@ -215,30 +216,32 @@ namespace BEditor.Core.Data.ProjectData {
             RenderingContext.Clear();
             RenderingContext.MakeCurrent();
 
-            var args = new ObjectLoadArgs(frame, layer);
+            var args = new ClipRenderArgs(frame, layer);
 
             //Preview
-            layer.ForEach(clip => clip.PreviewLoad(args));
+            layer.ForEach(clip => clip.PreviewRender(args));
             
-            layer.ForEach(clip => clip.Load(args));
+            layer.ForEach(clip => clip.Render(args));
             
             RenderingContext.SwapBuffers();
 
             Graphics.GetPixels(FrameBuffer);
 
+#if DEBUG
             if (frame % Component.Current.Project.Framerate * 5 == 1)
                 Task.Run(GC.Collect);
-
-            return FrameBuffer;
+#endif
+            return new RenderingResult { Image = FrameBuffer };
         }
 
         /// <summary>
         /// <seealso cref="PreviewFrame"/> のフレームをレンダリングします
         /// </summary>
         /// <returns>レンダリングされた <seealso cref="Image"/></returns>
-        public Image Rendering() {
-            return Rendering(PreviewFrame);
+        public RenderingResult Rendering() {
+            return Render(PreviewFrame);
         }
+
         #endregion
 
 

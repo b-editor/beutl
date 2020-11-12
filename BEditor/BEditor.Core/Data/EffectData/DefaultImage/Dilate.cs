@@ -17,7 +17,7 @@ namespace BEditor.Core.Data.EffectData {
         #region EffectProperty
         public override string Name => Properties.Resources.Dilate;
 
-        public override void Draw(ref Image source, EffectLoadArgs args) => source.Dilate((int)Frequency.GetValue(args.Frame));
+        public override void Draw(ref Image source, EffectRenderArgs args) => source.Dilate((int)Frequency.GetValue(args.Frame));
 
 
         public override IList<PropertyElement> PropertySettings => new List<PropertyElement> { Frequency };

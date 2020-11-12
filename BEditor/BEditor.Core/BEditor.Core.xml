@@ -49,7 +49,7 @@
             プラットフォームに依存する関数を共有するフィールド
             </summary>
         </member>
-        <member name="P:BEditor.Core.Data.Component.Funcs.CreateRenderingContext">
+        <member name="P:BEditor.Core.Data.Component.Funcs.CreateGraphicsContext">
             <summary>
             レンダリングコンテキストを作成する関数を取得または設定します
             </summary>
@@ -158,13 +158,13 @@
         <member name="P:BEditor.Core.Data.EffectData.EffectElement.BEditor#Core#Data#IChild{BEditor#Core#Data#ObjectData#ClipData}#Parent">
             <inheritdoc/>
         </member>
-        <member name="M:BEditor.Core.Data.EffectData.EffectElement.Load(BEditor.Core.Data.ProjectData.EffectLoadArgs)">
+        <member name="M:BEditor.Core.Data.EffectData.EffectElement.Render(BEditor.Core.Data.ProjectData.EffectRenderArgs)">
             <summary>
             フレーム描画時に呼び出されます
             </summary>
             <param name="args">呼び出しの順番などのデータ</param>
         </member>
-        <member name="M:BEditor.Core.Data.EffectData.EffectElement.PreviewLoad(BEditor.Core.Data.ProjectData.EffectLoadArgs)">
+        <member name="M:BEditor.Core.Data.EffectData.EffectElement.PreviewRender(BEditor.Core.Data.ProjectData.EffectRenderArgs)">
             <summary>
             フレーム描画前に呼び出されます
             </summary>
@@ -297,14 +297,14 @@
             画像エフェクトのベースクラス
             </summary>
         </member>
-        <member name="M:BEditor.Core.Data.EffectData.ImageEffect.Draw(BEditor.Core.Media.Image@,BEditor.Core.Data.ProjectData.EffectLoadArgs)">
+        <member name="M:BEditor.Core.Data.EffectData.ImageEffect.Draw(BEditor.Core.Media.Image@,BEditor.Core.Data.ProjectData.EffectRenderArgs)">
             <summary>
             フレーム描画時に呼び出されます
             </summary>
             <param name="image">描画する<see cref="T:BEditor.Core.Media.Image"/></param>
             <param name="args">呼び出しの順番などのデータ</param>
         </member>
-        <member name="M:BEditor.Core.Data.EffectData.ImageEffect.Load(BEditor.Core.Data.ProjectData.EffectLoadArgs)">
+        <member name="M:BEditor.Core.Data.EffectData.ImageEffect.Render(BEditor.Core.Data.ProjectData.EffectRenderArgs)">
             <inheritdoc/>
         </member>
         <member name="T:BEditor.Core.Data.ObjectData.ClipData">
@@ -384,12 +384,12 @@
         <member name="P:BEditor.Core.Data.ObjectData.ClipData.BEditor#Core#Data#IChild{BEditor#Core#Data#ProjectData#Scene}#Parent">
             <inheritdoc/>
         </member>
-        <member name="M:BEditor.Core.Data.ObjectData.ClipData.Load(BEditor.Core.Data.ProjectData.ObjectLoadArgs)">
+        <member name="M:BEditor.Core.Data.ObjectData.ClipData.Render(BEditor.Core.Data.ProjectData.ClipRenderArgs)">
             <summary>
             レンダリング時に呼び出されます
             </summary>
         </member>
-        <member name="M:BEditor.Core.Data.ObjectData.ClipData.PreviewLoad(BEditor.Core.Data.ProjectData.ObjectLoadArgs)">
+        <member name="M:BEditor.Core.Data.ObjectData.ClipData.PreviewRender(BEditor.Core.Data.ProjectData.ClipRenderArgs)">
             <summary>
             レンダリング前に呼び出されます
             </summary>
@@ -529,56 +529,56 @@
             親要素を取得します
             </summary>
         </member>
-        <member name="T:BEditor.Core.Data.ProjectData.ObjectLoadArgs">
+        <member name="T:BEditor.Core.Data.ProjectData.ClipRenderArgs">
             <summary>
             フレーム描画時にクリップに渡されるデータ
             </summary>
         </member>
-        <member name="M:BEditor.Core.Data.ProjectData.ObjectLoadArgs.#ctor(System.Int32,System.Collections.Generic.List{BEditor.Core.Data.ObjectData.ClipData})">
+        <member name="M:BEditor.Core.Data.ProjectData.ClipRenderArgs.#ctor(System.Int32,System.Collections.Generic.List{BEditor.Core.Data.ObjectData.ClipData})">
             <summary>
-            <see cref="T:BEditor.Core.Data.ProjectData.ObjectLoadArgs"/> クラスの新しいインスタンスを初期化します
+            <see cref="T:BEditor.Core.Data.ProjectData.ClipRenderArgs"/> クラスの新しいインスタンスを初期化します
             </summary>
             <param name="frame">タイムライン基準のフレーム</param>
             <param name="schedules">クリップのリスト</param>
         </member>
-        <member name="P:BEditor.Core.Data.ProjectData.ObjectLoadArgs.Frame">
+        <member name="P:BEditor.Core.Data.ProjectData.ClipRenderArgs.Frame">
             <summary>
             タイムライン基準のフレームを取得します
             </summary>
         </member>
-        <member name="P:BEditor.Core.Data.ProjectData.ObjectLoadArgs.Schedules">
+        <member name="P:BEditor.Core.Data.ProjectData.ClipRenderArgs.Schedules">
             <summary>
             読み込むクリップのリストを取得します
             </summary>
         </member>
-        <member name="P:BEditor.Core.Data.ProjectData.ObjectLoadArgs.Handled">
+        <member name="P:BEditor.Core.Data.ProjectData.ClipRenderArgs.Handled">
             <summary>
             処理の現在の状態を示す値を取得または設定します
             </summary>
         </member>
-        <member name="T:BEditor.Core.Data.ProjectData.EffectLoadArgs">
+        <member name="T:BEditor.Core.Data.ProjectData.EffectRenderArgs">
             <summary>
             フレーム描画時にエフェクトに渡されるデータ
             </summary>
         </member>
-        <member name="M:BEditor.Core.Data.ProjectData.EffectLoadArgs.#ctor(System.Int32,System.Collections.Generic.List{BEditor.Core.Data.EffectData.EffectElement})">
+        <member name="M:BEditor.Core.Data.ProjectData.EffectRenderArgs.#ctor(System.Int32,System.Collections.Generic.List{BEditor.Core.Data.EffectData.EffectElement})">
             <summary>
-            <see cref="T:BEditor.Core.Data.ProjectData.EffectLoadArgs"/> クラスの新しいインスタンスを初期化します
+            <see cref="T:BEditor.Core.Data.ProjectData.EffectRenderArgs"/> クラスの新しいインスタンスを初期化します
             </summary>
             <param name="frame">タイムライン基準のフレーム</param>
             <param name="schedules">エフェクトのリスト</param>
         </member>
-        <member name="P:BEditor.Core.Data.ProjectData.EffectLoadArgs.Frame">
+        <member name="P:BEditor.Core.Data.ProjectData.EffectRenderArgs.Frame">
             <summary>
             タイムライン基準のフレームを取得します
             </summary>
         </member>
-        <member name="P:BEditor.Core.Data.ProjectData.EffectLoadArgs.Schedules">
+        <member name="P:BEditor.Core.Data.ProjectData.EffectRenderArgs.Schedules">
             <summary>
             読み込むエフェクトのリストを取得します
             </summary>
         </member>
-        <member name="P:BEditor.Core.Data.ProjectData.EffectLoadArgs.Handled">
+        <member name="P:BEditor.Core.Data.ProjectData.EffectRenderArgs.Handled">
             <summary>
             処理の現在の状態を示す値を取得または設定します
             </summary>
@@ -796,7 +796,7 @@
             <param name="width">フレームバッファの横幅</param>
             <param name="height">フレームバッファの高さ</param>
         </member>
-        <member name="M:BEditor.Core.Data.ProjectData.Scene.Rendering(System.Int32)">
+        <member name="M:BEditor.Core.Data.ProjectData.Scene.Render(System.Int32)">
             <summary>
             シーンをレンダリングします
             </summary>

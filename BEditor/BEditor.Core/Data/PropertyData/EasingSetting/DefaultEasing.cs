@@ -69,7 +69,7 @@ namespace BEditor.Core.Data.PropertyData.EasingSetting {
     /// </list>
     /// </summary>
     [DataContract(Namespace = "")]
-    public class DefaultEasing : EasingFunc {
+    public sealed class DefaultEasing : EasingFunc {
         public static readonly SelectorPropertyMetadata propertyMetadata = new SelectorPropertyMetadata("EasingType", new string[32] {
             "None",
             "Linear",

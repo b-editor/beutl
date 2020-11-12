@@ -69,7 +69,7 @@ namespace BEditor.Core.Data.PropertyData {
         /// フォントを変更するコマンド
         /// </summary>
         /// <remarks>このクラスは <see cref="UndoRedoManager.Do(IUndoRedoCommand)"/> と併用することでコマンドを記録できます</remarks>
-        public class ChangeSelectCommand : IUndoRedoCommand {
+        public sealed class ChangeSelectCommand : IUndoRedoCommand {
             private readonly FontProperty Selector;
             private readonly FontRecord select;
             private readonly FontRecord oldselect;
