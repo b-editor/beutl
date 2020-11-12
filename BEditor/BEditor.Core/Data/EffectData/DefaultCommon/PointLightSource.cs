@@ -16,7 +16,7 @@ using GLColor = OpenTK.Mathematics.Color4;
 #endif
 
 namespace BEditor.Core.Data.EffectData.DefaultCommon {
-    public sealed class PointLightSource : EffectElement {
+    public class PointLightSource : EffectElement {
         public static readonly EasePropertyMetadata ConstantAttenuationMetadata = new EasePropertyMetadata("ConstantAttenuation", 100, float.NaN, 1);
         public static readonly EasePropertyMetadata LinearAttenuationMetadata = new EasePropertyMetadata("LinearAttenuation", 0, 100, 0);
         public static readonly EasePropertyMetadata QuadraticAttenuationMetadata = new EasePropertyMetadata("QuadraticAttenuation", 0, 100, 0);

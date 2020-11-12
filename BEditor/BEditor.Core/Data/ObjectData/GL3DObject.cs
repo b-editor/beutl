@@ -23,7 +23,7 @@ using static BEditor.Core.Data.ObjectData.ImageObject;
 
 namespace BEditor.Core.Data.ObjectData {
     [DataContract(Namespace = "")]
-    public sealed class GL3DObject : ObjectElement {
+    public class GL3DObject : ObjectElement {
         static readonly SelectorPropertyMetadata TypeMetadata = new SelectorPropertyMetadata(Properties.Resources.Type, new string[2] {
             Properties.Resources.Cube,
             Properties.Resources.Ball

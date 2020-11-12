@@ -26,7 +26,7 @@ namespace BEditor.Core.Data.PropertyData {
                 base.Parent = value;
                 var items = GroupItems;
 
-                items.AsParallel().ForAll(item => item.Parent = value);
+                Parallel.ForEach(items, item => item.Parent = value);
             }
         }
 
@@ -35,14 +35,14 @@ namespace BEditor.Core.Data.PropertyData {
             base.PropertyLoaded();
             var g = GroupItems;
 
-            g.AsParallel().ForAll(item => item.PropertyLoaded());
+            Parallel.ForEach(g, item => item.PropertyLoaded());
 
             //フィールドがpublicのときだけなので注意
             var attributetype = typeof(PropertyMetadataAttribute);
             var type = GetType();
             var properties = type.GetProperties();
 
-            properties.AsParallel().ForAll(property => {
+            Parallel.ForEach(properties, property => {
                 //metadata属性の場合&プロパティがPropertyElement
                 if (Attribute.GetCustomAttribute(property, attributetype) is PropertyMetadataAttribute metadata &&
                                     property.GetValue(this) is PropertyElement propertyElement) {

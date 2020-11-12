@@ -119,7 +119,7 @@ namespace BEditor {
             //Componentにset
 
             Component.Funcs.CreateRenderingContext = (width, height) => {
-                return new Core.Renderer.BaseRenderingContext(width, height);
+                return new GraphicsContext(width, height);
             };
             Component.Funcs.SaveFileDialog = () => new SaveDialog();
 
@@ -136,6 +136,7 @@ namespace BEditor {
             };
             Message.SnackberFunc += (text) => MainWindowViewModel.Current.MessageQueue.Enqueue(text);
 
+#if DEBUG
             Timer timer = new Timer() {
                 Interval = 2500,
                 Enabled = true
@@ -144,8 +145,11 @@ namespace BEditor {
         }
 
         private void Timer_Elapsed(object sender, ElapsedEventArgs e) {
-            System.Threading.Tasks.Task.Run(GC.Collect); //TODO : 廃止
+            System.Threading.Tasks.Task.Run(GC.Collect);
         }
+#else
+}
+#endif
 
         public static (CustomTreeView, VirtualizingStackPanel) CreateTreeObject(ObjectElement obj) {
             CustomTreeView _expander = new CustomTreeView() {

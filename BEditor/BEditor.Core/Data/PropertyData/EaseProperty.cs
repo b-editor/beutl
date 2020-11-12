@@ -13,7 +13,7 @@ namespace BEditor.Core.Data.PropertyData {
     /// <see cref="float"/> 型の値をイージングするプロパティを表します
     /// </summary>
     [DataContract(Namespace = "")]
-    public sealed class EaseProperty : PropertyElement, IKeyFrameProperty {
+    public class EaseProperty : PropertyElement, IKeyFrameProperty {
         private EffectElement parent;
         private EasingFunc easingTypeProperty;
         private EasingData easingData;
@@ -293,7 +293,7 @@ namespace BEditor.Core.Data.PropertyData {
         /// 値を変更するコマンド
         /// </summary>
         /// <remarks>このクラスは <see cref="UndoRedoManager.Do(IUndoRedoCommand)"/> と併用することでコマンドを記録できます</remarks>
-        public sealed class ChangeValueCommand : IUndoRedoCommand {
+        public class ChangeValueCommand : IUndoRedoCommand {
             private readonly EaseProperty EaseSetting;
             private readonly int index;
             private readonly float newvalue;
@@ -332,7 +332,7 @@ namespace BEditor.Core.Data.PropertyData {
         /// イージング関数を変更するコマンド
         /// </summary>
         /// <remarks>このクラスは <see cref="UndoRedoManager.Do(IUndoRedoCommand)"/> と併用することでコマンドを記録できます</remarks>
-        public sealed class ChangeEaseCommand : IUndoRedoCommand {
+        public class ChangeEaseCommand : IUndoRedoCommand {
             private readonly EaseProperty EaseSetting;
             private readonly EasingFunc EasingNumber;
             private readonly EasingFunc OldEasingNumber;
@@ -369,7 +369,7 @@ namespace BEditor.Core.Data.PropertyData {
         /// キーフレームを追加するコマンド
         /// </summary>
         /// <remarks>このクラスは <see cref="UndoRedoManager.Do(IUndoRedoCommand)"/> と併用することでコマンドを記録できます</remarks>
-        public sealed class AddCommand : IUndoRedoCommand {
+        public class AddCommand : IUndoRedoCommand {
             private readonly EaseProperty EaseProperty;
             private readonly int frame;
 
@@ -409,7 +409,7 @@ namespace BEditor.Core.Data.PropertyData {
         /// キーフレームを削除するコマンド
         /// </summary>
         /// <remarks>このクラスは <see cref="UndoRedoManager.Do(IUndoRedoCommand)"/> と併用することでコマンドを記録できます</remarks>
-        public sealed class RemoveCommand : IUndoRedoCommand {
+        public class RemoveCommand : IUndoRedoCommand {
             private readonly EaseProperty EaseProperty;
             private readonly int frame;
             private float value;
@@ -450,7 +450,7 @@ namespace BEditor.Core.Data.PropertyData {
         /// キーフレームを移動するコマンド
         /// </summary>
         /// <remarks>このクラスは <see cref="UndoRedoManager.Do(IUndoRedoCommand)"/> と併用することでコマンドを記録できます</remarks>
-        public sealed class MoveCommand : IUndoRedoCommand {
+        public class MoveCommand : IUndoRedoCommand {
             private readonly EaseProperty EaseProperty;
             private readonly int fromIndex;
             private int toIndex;
@@ -538,22 +538,22 @@ namespace BEditor.Core.Data.PropertyData {
         /// <summary>
         /// デフォルトの値を取得します
         /// </summary>
-        public float DefaultValue { get; }
+        public float DefaultValue { get; init; }
         /// <summary>
         /// デフォルトのイージングデータを取得します
         /// </summary>
-        public EasingData DefaultEase { get; }
+        public EasingData DefaultEase { get; init; }
         /// <summary>
         /// 最大の値を取得します
         /// </summary>
-        public float Max { get; }
+        public float Max { get; init; }
         /// <summary>
         /// 最小の値を取得します
         /// </summary>
-        public float Min { get; }
+        public float Min { get; init; }
         /// <summary>
         /// 追加の値を使用するかを取得します
         /// </summary>
-        public bool UseOptional { get; }
+        public bool UseOptional { get; init; }
     }
 }

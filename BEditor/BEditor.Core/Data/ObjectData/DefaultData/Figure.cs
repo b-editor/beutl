@@ -9,7 +9,7 @@ using BEditor.Core.Media;
 namespace BEditor.Core.Data.ObjectData {
     public static partial class DefaultData {
         [DataContract(Namespace = "")]
-        public sealed class Figure : DefaultImageObject {
+        public class Figure : DefaultImageObject {
             public static readonly EasePropertyMetadata WidthMetadata = new EasePropertyMetadata(Properties.Resources.Width, 100, float.NaN, 0);
             public static readonly EasePropertyMetadata HeightMetadata = new EasePropertyMetadata(Properties.Resources.Height, 100, float.NaN, 0);
             public static readonly EasePropertyMetadata LineMetadata = new EasePropertyMetadata(Properties.Resources.Line, 4000, float.NaN, 0);

@@ -9,7 +9,7 @@ using BEditor.Core.Media;
 
 namespace BEditor.Core.Data.EffectData {
     [DataContract(Namespace = "")]
-    public sealed class Border : ImageEffect {
+    public class Border : ImageEffect {
         static readonly EasePropertyMetadata SizeMetadata = new EasePropertyMetadata(Properties.Resources.Size, 10, float.NaN, 1);
         static readonly ColorPropertyMetadata ColorMetadata = new ColorPropertyMetadata(Properties.Resources.Color, 255, 255, 255);
 

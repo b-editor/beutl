@@ -17,7 +17,7 @@ namespace BEditor.Core.Data.ObjectData {
     /// タイムラインに配置されるクリップのデータ
     /// </summary>
     [DataContract(Namespace = "", Name = "Data")]
-    public class ClipData : ComponentObject, ICloneable {
+    public class ClipData : ComponentObject, ICloneable, IParent<EffectElement>, IChild<Scene> {
 
         #region ClipDataフィールド
 
@@ -26,7 +26,7 @@ namespace BEditor.Core.Data.ObjectData {
         private int end;
         private int layer;
         private string labeltext;
-        private ObservableCollection<EffectElement> effect;
+        private ObservableCollection<EffectElement> effects;
 
         #endregion
 
@@ -133,17 +133,21 @@ namespace BEditor.Core.Data.ObjectData {
         /// </summary>
         [DataMember(Name = "Effects", Order = 6)]
         public ObservableCollection<EffectElement> Effect {
-            get => effect;
+            get => effects;
             private set {
-                effect = value;
-                List<EffectElement> aa = new();
+                effects = value;
 
-                effect.AsParallel().ForAll(effect => {
+                Parallel.ForEach(effects, effect => {
                     effect.ClipData = this;
                     effect.PropertyLoaded();
                 });
             }
         }
+
+        /// <inheritdoc/>
+        IEnumerable<EffectElement> IParent<EffectElement>.Children => Effect;
+        /// <inheritdoc/>
+        Scene IChild<Scene>.Parent => Scene;
 
 
 

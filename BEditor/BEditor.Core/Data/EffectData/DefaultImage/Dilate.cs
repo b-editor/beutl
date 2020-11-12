@@ -7,7 +7,7 @@ using BEditor.Core.Media;
 
 namespace BEditor.Core.Data.EffectData {
     [DataContract(Namespace = "")]
-    public sealed class Dilate : ImageEffect {
+    public class Dilate : ImageEffect {
         public static readonly EasePropertyMetadata FrequencyMetadata = new EasePropertyMetadata(Properties.Resources.Frequency, 1, float.NaN, 0);
 
         public Dilate() {

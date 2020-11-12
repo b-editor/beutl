@@ -155,6 +155,9 @@
             GUIに表示する<seealso cref="T:BEditor.Core.Data.PropertyData.PropertyElement"/>を<see cref="T:System.Collections.Generic.IList`1"/>を取得します
             </summary>
         </member>
+        <member name="P:BEditor.Core.Data.EffectData.EffectElement.BEditor#Core#Data#IChild{BEditor#Core#Data#ObjectData#ClipData}#Parent">
+            <inheritdoc/>
+        </member>
         <member name="M:BEditor.Core.Data.EffectData.EffectElement.Load(BEditor.Core.Data.ProjectData.EffectLoadArgs)">
             <summary>
             フレーム描画時に呼び出されます
@@ -375,6 +378,12 @@
             エフェクトを取得します
             </summary>
         </member>
+        <member name="P:BEditor.Core.Data.ObjectData.ClipData.BEditor#Core#Data#IParent{BEditor#Core#Data#EffectData#EffectElement}#Children">
+            <inheritdoc/>
+        </member>
+        <member name="P:BEditor.Core.Data.ObjectData.ClipData.BEditor#Core#Data#IChild{BEditor#Core#Data#ProjectData#Scene}#Parent">
+            <inheritdoc/>
+        </member>
         <member name="M:BEditor.Core.Data.ObjectData.ClipData.Load(BEditor.Core.Data.ProjectData.ObjectLoadArgs)">
             <summary>
             レンダリング時に呼び出されます
@@ -510,6 +519,16 @@
             オブジェクトのベースクラス
             </summary>
         </member>
+        <member name="P:BEditor.Core.Data.IParent`1.Children">
+            <summary>
+            子要素を取得します
+            </summary>
+        </member>
+        <member name="P:BEditor.Core.Data.IChild`1.Parent">
+            <summary>
+            親要素を取得します
+            </summary>
+        </member>
         <member name="T:BEditor.Core.Data.ProjectData.ObjectLoadArgs">
             <summary>
             フレーム描画時にクリップに渡されるデータ
@@ -623,6 +642,9 @@
         <member name="P:BEditor.Core.Data.ProjectData.Project.ExtensionData">
             <inheritdoc/>
         </member>
+        <member name="P:BEditor.Core.Data.ProjectData.Project.BEditor#Core#Data#IParent{BEditor#Core#Data#ProjectData#Scene}#Children">
+            <inheritdoc/>
+        </member>
         <member name="E:BEditor.Core.Data.ProjectData.Project.ProjectClosed">
             <summary>
             プロジェクトを閉じたあとに発生します
@@ -733,7 +755,7 @@
         </member>
         <member name="P:BEditor.Core.Data.ProjectData.Scene.RenderingContext">
             <summary>
-            レンダリングコンテキストを取得します
+            グラフィックコンテキストを取得します
             </summary>
         </member>
         <member name="P:BEditor.Core.Data.ProjectData.Scene.PreviewFrame">
@@ -760,6 +782,12 @@
             <summary>
             タイムラインの垂直方向のスクロールのオフセットを取得または設定します
             </summary>
+        </member>
+        <member name="P:BEditor.Core.Data.ProjectData.Scene.BEditor#Core#Data#IParent{BEditor#Core#Data#ObjectData#ClipData}#Children">
+            <inheritdoc/>
+        </member>
+        <member name="P:BEditor.Core.Data.ProjectData.Scene.BEditor#Core#Data#IChild{BEditor#Core#Data#ProjectData#Project}#Parent">
+            <inheritdoc/>
         </member>
         <member name="M:BEditor.Core.Data.ProjectData.Scene.#ctor(System.Int32,System.Int32)">
             <summary>
@@ -876,17 +904,12 @@
         </member>
         <member name="T:BEditor.Core.Data.PropertyData.CheckPropertyMetadata">
             <summary>
-            <see cref="T:BEditor.Core.Data.PropertyData.CheckProperty"/> のメタデータを表します
+            <see cref="!:CheckProperty"/> のメタデータを表します
             </summary>
         </member>
         <member name="M:BEditor.Core.Data.PropertyData.CheckPropertyMetadata.#ctor(System.String,System.Boolean)">
             <summary>
-            <see cref="T:BEditor.Core.Data.PropertyData.CheckPropertyMetadata"/> クラスの新しいインスタンスを初期化します
-            </summary>
-        </member>
-        <member name="P:BEditor.Core.Data.PropertyData.CheckPropertyMetadata.DefaultIsChecked">
-            <summary>
-            デフォルトの値を取得します
+            <see cref="!:CheckProperty"/> のメタデータを表します
             </summary>
         </member>
         <member name="T:BEditor.Core.Data.PropertyData.ColorAnimationProperty">
@@ -1234,24 +1257,12 @@
         </member>
         <member name="T:BEditor.Core.Data.PropertyData.DocumentPropertyMetadata">
             <summary>
-            <see cref="T:BEditor.Core.Data.PropertyData.DocumentProperty"/> のメタデータを表します
+            <see cref="!:DocumentProperty"/> のメタデータを表します
             </summary>
         </member>
         <member name="M:BEditor.Core.Data.PropertyData.DocumentPropertyMetadata.#ctor(System.String,System.Nullable{System.Int32})">
             <summary>
-            <see cref="T:BEditor.Core.Data.PropertyData.DocumentPropertyMetadata"/> クラスの新しいインスタンスを初期化します
-            </summary>
-            <param name="text">デフォルトのテキスト</param>
-            <param name="height">高さ</param>
-        </member>
-        <member name="P:BEditor.Core.Data.PropertyData.DocumentPropertyMetadata.DefaultText">
-            <summary>
-            デフォルトのテキストを取得します
-            </summary>
-        </member>
-        <member name="P:BEditor.Core.Data.PropertyData.DocumentPropertyMetadata.Height">
-            <summary>
-            高さを取得します
+            <see cref="!:DocumentProperty"/> のメタデータを表します
             </summary>
         </member>
         <member name="T:BEditor.Core.Data.PropertyData.EaseProperty">
@@ -1739,27 +1750,12 @@
         </member>
         <member name="T:BEditor.Core.Data.PropertyData.FilePropertyMetadata">
             <summary>
-            <see cref="T:BEditor.Core.Data.PropertyData.FileProperty"/> のメタデータを表します
+            <see cref="!:FileProperty"/> のメタデータを表します
             </summary>
         </member>
         <member name="M:BEditor.Core.Data.PropertyData.FilePropertyMetadata.#ctor(System.String,System.String,System.String,System.String)">
             <summary>
-            <see cref="T:BEditor.Core.Data.PropertyData.FilePropertyMetadata"/> クラスの新しいインスタンスを初期化します
-            </summary>
-        </member>
-        <member name="P:BEditor.Core.Data.PropertyData.FilePropertyMetadata.DefaultFile">
-            <summary>
-            デフォルトのファイル名を取得します
-            </summary>
-        </member>
-        <member name="P:BEditor.Core.Data.PropertyData.FilePropertyMetadata.Filter">
-            <summary>
-            フィルターを取得します
-            </summary>
-        </member>
-        <member name="P:BEditor.Core.Data.PropertyData.FilePropertyMetadata.FilterName">
-            <summary>
-            フィルターの名前を取得します
+            <see cref="!:FileProperty"/> のメタデータを表します
             </summary>
         </member>
         <member name="T:BEditor.Core.Data.PropertyData.FontProperty">
@@ -1912,17 +1908,12 @@
         </member>
         <member name="T:BEditor.Core.Data.PropertyData.PropertyElementMetadata">
             <summary>
-            <see cref="T:BEditor.Core.Data.PropertyData.PropertyElement"/> のメタデータを表します
+            <see cref="!:PropertyElement"/> のメタデータを表します
             </summary>
         </member>
         <member name="M:BEditor.Core.Data.PropertyData.PropertyElementMetadata.#ctor(System.String)">
             <summary>
-            <see cref="T:BEditor.Core.Data.PropertyData.PropertyElementMetadata"/> クラスの新しいインスタンスを初期化します
-            </summary>
-        </member>
-        <member name="P:BEditor.Core.Data.PropertyData.PropertyElementMetadata.Name">
-            <summary>
-            プロパティの名前を取得します
+            <see cref="!:PropertyElement"/> のメタデータを表します
             </summary>
         </member>
         <member name="T:BEditor.Core.Data.PropertyData.PropertyMetadataAttribute">
@@ -2560,15 +2551,14 @@
             <see cref="T:BEditor.Core.Media.Color"/> 構造体から <see cref="T:System.Drawing.Color"/> を作成します
             </summary>
         </member>
-        <member name="M:BEditor.Core.Media.Color.op_Implicit(BEditor.Core.Media.Color)~OpenTK.Mathematics.Color4">
+        <member name="M:BEditor.Core.Media.Color.op_Implicit(BEditor.Core.Media.Color)~OpenTK.Graphics.Color4">
             <summary>
-            <see cref="T:BEditor.Core.Media.Color"/> 構造体から <see cref="T:OpenTK.Mathematics.Color4"/> を作成します
+            <see cref="T:BEditor.Core.Media.Color"/> 構造体から <see cref="T:OpenTK.Graphics.Color4"/> を作成します
             </summary>
-            <param name="c"></param>
         </member>
-        <member name="M:BEditor.Core.Media.Color.op_Implicit(OpenTK.Mathematics.Color4)~BEditor.Core.Media.Color">
+        <member name="M:BEditor.Core.Media.Color.op_Implicit(OpenTK.Graphics.Color4)~BEditor.Core.Media.Color">
             <summary>
-            <see cref="T:OpenTK.Mathematics.Color4"/> 構造体から <see cref="T:BEditor.Core.Media.Color"/> を作成します
+            <see cref="T:OpenTK.Graphics.Color4"/> 構造体から <see cref="T:BEditor.Core.Media.Color"/> を作成します
             </summary>
             <param name="c"></param>
         </member>
@@ -3415,13 +3405,13 @@
             </summary>
             <param name="point"></param>
         </member>
-        <member name="M:BEditor.Core.Media.Point3.op_Explicit(BEditor.Core.Media.Point3)~OpenTK.Mathematics.Vector3">
+        <member name="M:BEditor.Core.Media.Point3.op_Explicit(BEditor.Core.Media.Point3)~OpenTK.Vector3">
             <summary>
             
             </summary>
             <param name="point"></param>
         </member>
-        <member name="M:BEditor.Core.Media.Point3.op_Explicit(OpenTK.Mathematics.Vector3)~BEditor.Core.Media.Point3">
+        <member name="M:BEditor.Core.Media.Point3.op_Explicit(OpenTK.Vector3)~BEditor.Core.Media.Point3">
             <summary>
             
             </summary>
@@ -4783,7 +4773,7 @@
               Zoom に類似しているローカライズされた文字列を検索します。
             </summary>
         </member>
-        <member name="M:BEditor.Core.Renderer.BaseRenderingContext.Clear(System.Boolean,System.Single,System.Single,System.Single,System.Single,System.Single,System.Single,System.Single,System.Single)">
+        <member name="M:BEditor.Core.Renderer.BaseGraphicsContext.Clear(System.Boolean,System.Single,System.Single,System.Single,System.Single,System.Single,System.Single,System.Single,System.Single)">
             <summary>
             カメラを設定
             </summary>

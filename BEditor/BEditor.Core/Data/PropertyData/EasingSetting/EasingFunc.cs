@@ -53,14 +53,14 @@ namespace BEditor.Core.Data.PropertyData.EasingSetting {
         public virtual void PropertyLoaded() {
             var settings = EasingSettings;
 
-            settings.AsParallel().ForAll(setting => setting.PropertyLoaded());
+            Parallel.ForEach(settings, setting => setting.PropertyLoaded());
 
             //フィールドがpublicのときだけなので注意
             var attributetype = typeof(PropertyMetadataAttribute);
             var type = GetType();
             var properties = type.GetProperties();
 
-            properties.AsParallel().ForAll(property => {
+            Parallel.ForEach(properties, property => {
                 //metadata属性の場合&プロパティがPropertyElement
                 if (Attribute.GetCustomAttribute(property, attributetype) is PropertyMetadataAttribute metadata &&
                                     property.GetValue(this) is PropertyElement propertyElement) {

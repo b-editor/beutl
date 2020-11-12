@@ -18,7 +18,7 @@ using GLColor = OpenTK.Mathematics.Color4;
 #endif
 
 namespace BEditor.Core.Data.EffectData {
-    public sealed class MultiLayerization : ImageEffect {
+    public class MultiLayerization : ImageEffect {
         public static readonly EasePropertyMetadata ZMetadata = new EasePropertyMetadata(Resources.Z, 50, float.NaN, 0);
         public static readonly ColorAnimationPropertyMetadata ColorMetadata = new ColorAnimationPropertyMetadata(Resources.Color, 255, 255, 255, 255, true);
 

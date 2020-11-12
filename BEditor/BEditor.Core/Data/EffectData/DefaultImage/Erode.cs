@@ -9,7 +9,7 @@ using static BEditor.Core.Data.EffectData.Dilate;
 
 namespace BEditor.Core.Data.EffectData {
     [DataContract(Namespace = "")]
-    public sealed class Erode : ImageEffect {
+    public class Erode : ImageEffect {
         public Erode() {
             Frequency = new EaseProperty(FrequencyMetadata);
         }

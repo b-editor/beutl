@@ -11,7 +11,7 @@ using OpenTK.Graphics.OpenGL;
 
 namespace BEditor.Core.Data.EffectData.DefaultCommon {
     [DataContract(Namespace = "")]
-    public sealed class DepthTest : EffectElement {
+    public class DepthTest : EffectElement {
         public static readonly CheckPropertyMetadata EnabledMetadata = new CheckPropertyMetadata(Properties.Resources.DepthTestEneble, true);
         public static readonly SelectorPropertyMetadata FunctionMetadata = new SelectorPropertyMetadata(Properties.Resources.DepthFunction, new string[] {
                 "Never",

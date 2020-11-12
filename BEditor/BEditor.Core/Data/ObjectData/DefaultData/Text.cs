@@ -10,7 +10,7 @@ using DocumentProperty = BEditor.Core.Data.PropertyData.DocumentProperty;
 namespace BEditor.Core.Data.ObjectData {
     public static partial class DefaultData {
         [DataContract(Namespace = "")]
-        public sealed class Text : DefaultImageObject {
+        public class Text : DefaultImageObject {
             public static readonly EasePropertyMetadata SizeMetadata = new EasePropertyMetadata(Properties.Resources.Size, 100, float.NaN, 0);
             public static readonly ColorPropertyMetadata ColorMetadata = new ColorPropertyMetadata(Properties.Resources.Color, 255, 255, 255);
             public static readonly PropertyElementMetadata FontMetadata = new PropertyElementMetadata(Properties.Resources.DetailedSettings);

@@ -25,7 +25,7 @@ namespace BEditor.Core.Renderer {
             image.ThrowIfDisposed();
 
             GL.ReadBuffer(ReadBufferMode.Front);
-            
+
             GL.ReadPixels(0, 0, image.Width, image.Height, image.Type, image.Type, image.Data);
 
             image.Flip(FlipMode.X);
@@ -119,13 +119,7 @@ namespace BEditor.Core.Renderer {
             }
             img.ThrowIfDisposed();
 
-            int id;
-            try {
-                BindTexture(img, out id);
-            }
-            catch (Exception e) {
-                throw e;
-            }
+            BindTexture(img, out int id);
 
             GL.Color4((GLColor)(color ?? Color.White));
             GL.Material(MaterialFace.Front, MaterialParameter.Ambient, (GLColor)(ambient ?? Color.White));
@@ -172,7 +166,7 @@ namespace BEditor.Core.Renderer {
                 // 視体積の設定
                 GL.MatrixMode(MatrixMode.Projection);
                 Matrix4.CreatePerspectiveFieldOfView(MathHelper.DegreesToRadians(fov), (width / height), near, far, out var proj);//描画範囲
-                
+
                 GL.LoadMatrix(ref proj);
 
                 GL.MatrixMode(MatrixMode.Modelview);

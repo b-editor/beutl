@@ -21,28 +21,17 @@ using OpenTK.Windowing.Desktop;
 using Color = BEditor.Core.Media.Color;
 using BEditor.Core.Data.PropertyData.Default;
 using Image = BEditor.Core.Media.Image;
-using OpenTK.Windowing.Common;
-using OpenTK.Windowing.GraphicsLibraryFramework;
 using System.Runtime.InteropServices;
 
 namespace BEditor.Core.Renderer {
-    public unsafe class BaseRenderingContext : IBaseRenderingContext {
+    public abstract class BaseGraphicsContext : IBaseGraphicsContext {
         protected int Color;
         protected int Depth;
         protected int FBO;
-        protected int Renderbuffer;
-        protected GameWindow GameWindow;
 
-        public BaseRenderingContext(int width, int height) {
+        public BaseGraphicsContext(int width, int height) {
             Width = width;
             Height = height;
-
-            GameWindow = new GameWindow(GameWindowSettings.Default, new NativeWindowSettings() {
-                Flags = ContextFlags.Offscreen | ContextFlags.Default,
-                Size = new Vector2i(width, height)
-            });
-            GLFW.HideWindow(GameWindow.WindowPtr);
-            Initialize();
         }
 
 
@@ -52,25 +41,13 @@ namespace BEditor.Core.Renderer {
         public bool IsInitialized { get; private set; }
 
 
-        public virtual void UnMakeCurrent() {
-            GL.Ext.BindFramebuffer(FramebufferTarget.FramebufferExt, 0);
-        }
-        public virtual void MakeCurrent() {
-            //GameWindow.MakeCurrent();
-            if (IsInitialized) {
-                // fbo 有効化
-                GL.Ext.BindFramebuffer(FramebufferTarget.FramebufferExt, FBO);
-            }
-        }
-        public void SwapBuffers() {
-            GameWindow.SwapBuffers();
-        }
+        public abstract void MakeCurrent();
+        public abstract void SwapBuffers();
         public virtual void Dispose() {
             if (IsInitialized) {
                 GL.DeleteTexture(Color);
                 GL.DeleteTexture(Depth);
                 GL.Ext.DeleteFramebuffer(FBO);
-                GL.Ext.DeleteRenderbuffer(Renderbuffer);
             }
         }
         /// <summary>
@@ -144,18 +121,11 @@ namespace BEditor.Core.Renderer {
                 GL.DeleteTexture(Color);
                 GL.DeleteTexture(Depth);
                 GL.Ext.DeleteFramebuffer(FBO);
-                GL.Ext.DeleteRenderbuffer(Renderbuffer);
             }
 
-            #region RenderBuffer FBO
-            //https://ryo1miya.hatenablog.com/entry/2013/09/05/001047
-            // renderbuffer object の生成
-            GL.Ext.GenRenderbuffers(1, out Renderbuffer);
-            GL.Ext.BindRenderbuffer(RenderbufferTarget.RenderbufferExt, Renderbuffer);
+            #region FBO
 
-            // 第二引数は 色 GL_RGB, GL_RGBA, デプス値 GL_DEPTH_COMPONENT, ステンシル値 GL_STENCIL_INDEX　などを指定できる
-            GL.Ext.RenderbufferStorage(RenderbufferTarget.RenderbufferExt, RenderbufferStorage.Rgba16, width, height);
-
+            //TODO : Gitから復元
             //色
             GL.GenTextures(1, out Color);
             GL.BindTexture(TextureTarget.Texture2D, Color);
@@ -175,18 +145,11 @@ namespace BEditor.Core.Renderer {
             GL.Ext.BindFramebuffer(FramebufferTarget.FramebufferExt, FBO);
             GL.Ext.FramebufferTexture2D(FramebufferTarget.FramebufferExt, FramebufferAttachment.ColorAttachment0Ext, TextureTarget.Texture2D, Color, 0);
             GL.Ext.FramebufferTexture2D(FramebufferTarget.FramebufferExt, FramebufferAttachment.DepthAttachmentExt, TextureTarget.Texture2D, Depth, 0);
-
-
-            // renderbufferをframebuffer objectに結びつける
-            // 第二引数は GL_COLOR_ATTACHMENTn_EXT, GL_DEPTH_ATTACHMENT_EXT, GL_STENCIL_ATTACHMENT_EXT など
-            GL.Ext.FramebufferRenderbuffer(FramebufferTarget.FramebufferExt, FramebufferAttachment.ColorAttachment0, RenderbufferTarget.RenderbufferExt, Renderbuffer);
-
-            //GL.Ext.BindFramebuffer(FramebufferTarget.FramebufferExt, 0);
-
-
-            //GL.Ext.BindFramebuffer(FramebufferTarget.FramebufferExt, FBO);
+            GL.Ext.BindFramebuffer(FramebufferTarget.FramebufferExt, 0);
 
             #endregion
+
+            GL.Ext.BindFramebuffer(FramebufferTarget.FramebufferExt, FBO);
 
             //ビューポートの設定
             GL.Viewport(0, 0, width, height);

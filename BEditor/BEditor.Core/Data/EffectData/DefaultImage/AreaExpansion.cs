@@ -11,7 +11,7 @@ using BEditor.Core.Properties;
 
 namespace BEditor.Core.Data.EffectData {
     [DataContract(Namespace = "")]
-    public sealed class AreaExpansion : ImageEffect {
+    public class AreaExpansion : ImageEffect {
 
         #region ImageEffect
 

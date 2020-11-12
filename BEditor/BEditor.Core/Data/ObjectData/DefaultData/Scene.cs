@@ -8,7 +8,7 @@ using BEditor.Core.Media;
 namespace BEditor.Core.Data.ObjectData {
     public static partial class DefaultData {
         [DataContract(Namespace = "")]
-        public sealed class Scene : DefaultImageObject {
+        public class Scene : DefaultImageObject {
             public static readonly SelectorPropertyMetadata SelectSceneMetadata = new ScenesSelectorMetadata();
             
             #region DefaultImageObjectメンバー

@@ -12,7 +12,7 @@ using BEditor.Core.Properties;
 namespace BEditor.Core.Data.ObjectData {
     public static partial class DefaultData {
         [DataContract(Namespace = "")]
-        public sealed class Video : DefaultImageObject {
+        public class Video : DefaultImageObject {
             public static readonly EasePropertyMetadata SpeedMetadata = new EasePropertyMetadata(Properties.Resources.Speed, 100);
             public static readonly EasePropertyMetadata StartMetadata = new EasePropertyMetadata(Properties.Resources.Start, 1, float.NaN, 0);
             public static readonly FilePropertyMetadata FileMetadata = new FilePropertyMetadata(Properties.Resources.File, "", "mp4,avi,wmv,mov", Properties.Resources.VideoFile);

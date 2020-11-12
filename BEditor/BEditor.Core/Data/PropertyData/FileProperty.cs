@@ -12,7 +12,7 @@ namespace BEditor.Core.Data.PropertyData {
     /// ファイルを選択するプロパティを表します
     /// </summary>
     [DataContract(Namespace = "")]
-    public sealed class FileProperty : PropertyElement, IEasingSetting, IObservable<string>, INotifyPropertyChanged, IExtensibleDataObject {
+    public class FileProperty : PropertyElement, IEasingSetting, IObservable<string>, INotifyPropertyChanged, IExtensibleDataObject {
         private string file;
         private List<IObserver<string>> list;
         private List<IObserver<string>> collection => list ??= new List<IObserver<string>>();
@@ -67,7 +67,7 @@ namespace BEditor.Core.Data.PropertyData {
         /// ファイルの名前を変更するコマンド
         /// </summary>
         /// <remarks>このクラスは <see cref="UndoRedoManager.Do(IUndoRedoCommand)"/> と併用することでコマンドを記録できます</remarks>
-        public sealed class ChangeFileCommand : IUndoRedoCommand {
+        public class ChangeFileCommand : IUndoRedoCommand {
             private readonly FileProperty FileSetting;
             private readonly string path;
             private readonly string oldpath;
@@ -101,27 +101,6 @@ namespace BEditor.Core.Data.PropertyData {
     /// <summary>
     /// <see cref="FileProperty"/> のメタデータを表します
     /// </summary>
-    public record FilePropertyMetadata : PropertyElementMetadata {
-        /// <summary>
-        /// <see cref="FilePropertyMetadata"/> クラスの新しいインスタンスを初期化します
-        /// </summary>
-        public FilePropertyMetadata(string name, string defaultfile = null, string filter = null, string filtername = null) : base(name) {
-            DefaultFile = defaultfile;
-            Filter = filter;
-            FilterName = filtername;
-        }
-
-        /// <summary>
-        /// デフォルトのファイル名を取得します
-        /// </summary>
-        public string DefaultFile { get; }
-        /// <summary>
-        /// フィルターを取得します
-        /// </summary>
-        public string Filter { get; }
-        /// <summary>
-        /// フィルターの名前を取得します
-        /// </summary>
-        public string FilterName { get; }
-    }
+    public record FilePropertyMetadata(string Name, string DefaultFile = null, string Filter = null, string FilterName = null)
+        : PropertyElementMetadata(Name);
 }

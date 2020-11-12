@@ -8,7 +8,7 @@ using BEditor.Core.Media;
 
 namespace BEditor.Core.Data.EffectData {
     [DataContract(Namespace = "")]
-    public sealed class Shadow : ImageEffect {
+    public class Shadow : ImageEffect {
         static readonly EasePropertyMetadata XMetadata = new EasePropertyMetadata(Properties.Resources.X, 10);
         static readonly EasePropertyMetadata YMetadata = new EasePropertyMetadata(Properties.Resources.Y, 10);
         static readonly EasePropertyMetadata BlurMetadata = new EasePropertyMetadata(Properties.Resources.Blur, 10, float.NaN, 0);

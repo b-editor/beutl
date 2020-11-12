@@ -17,7 +17,7 @@ namespace BEditor.Core.Data {
     /// <summary>
     /// シングルトンで現在のプロジェクトやステータスなどを取得できるクラスを表します
     /// </summary>
-    public sealed class Component : BasePropertyChanged {
+    public class Component : BasePropertyChanged {
         private Project project;
         private Status status;
 
@@ -86,12 +86,12 @@ namespace BEditor.Core.Data {
         /// プラットフォームに依存する関数を共有するフィールド
         /// </summary>
         public static class Funcs {
-            private static Func<int, int, BaseRenderingContext> createRenderingContext;
+            private static Func<int, int, BaseGraphicsContext> createRenderingContext;
 
             /// <summary>
             /// レンダリングコンテキストを作成する関数を取得または設定します
             /// </summary>
-            public static Func<int, int, BaseRenderingContext> CreateRenderingContext {
+            public static Func<int, int, BaseGraphicsContext> CreateRenderingContext {
                 get => createRenderingContext;
                 set {
                     createRenderingContext = value;

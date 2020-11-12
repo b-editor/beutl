@@ -1,4 +1,5 @@
 ﻿using System;
+using System.Collections.Generic;
 using System.Collections.ObjectModel;
 using System.IO;
 using System.Runtime.Serialization;
@@ -10,7 +11,7 @@ namespace BEditor.Core.Data.ProjectData {
     /// プロジェクトクラス
     /// </summary>
     [DataContract(Namespace = "")]
-    public sealed class Project : BasePropertyChanged, IExtensibleDataObject, IDisposable {
+    public class Project : BasePropertyChanged, IExtensibleDataObject, IDisposable, IParent<Scene> {
         private Scene previewScene;
 
         /// <summary>
@@ -92,6 +93,8 @@ namespace BEditor.Core.Data.ProjectData {
 
         /// <inheritdoc/>
         public ExtensionDataObject ExtensionData { get; set; }
+        /// <inheritdoc/>
+        IEnumerable<Scene> IParent<Scene>.Children => SceneList;
 
 
 

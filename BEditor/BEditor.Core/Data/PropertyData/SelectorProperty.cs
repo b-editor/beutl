@@ -13,7 +13,7 @@ namespace BEditor.Core.Data.PropertyData {
     /// 配列から一つのアイテムを選択するプロパティを表します
     /// </summary>
     [DataContract(Namespace = "")]
-    public sealed class SelectorProperty : PropertyElement, IEasingSetting, IObservable<int>, INotifyPropertyChanged, IExtensibleDataObject {
+    public class SelectorProperty : PropertyElement, IEasingSetting, IObservable<int>, INotifyPropertyChanged, IExtensibleDataObject {
         private int selectIndex;
         private List<IObserver<int>> list;
         private List<IObserver<int>> collection => list ??= new List<IObserver<int>>();
@@ -75,7 +75,7 @@ namespace BEditor.Core.Data.PropertyData {
         /// 選択されているアイテムを変更するコマンド
         /// </summary>
         /// <remarks>このクラスは <see cref="UndoRedoManager.Do(IUndoRedoCommand)"/> と併用することでコマンドを記録できます</remarks>
-        public sealed class ChangeSelectCommand : IUndoRedoCommand {
+        public class ChangeSelectCommand : IUndoRedoCommand {
             private readonly SelectorProperty Selector;
             private readonly int select;
             private readonly int oldselect;

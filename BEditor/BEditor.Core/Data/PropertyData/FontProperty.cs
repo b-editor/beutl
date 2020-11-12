@@ -13,7 +13,7 @@ namespace BEditor.Core.Data.PropertyData {
     /// フォントを選択するプロパティ表します
     /// </summary>
     [DataContract(Namespace = "")]
-    public sealed class FontProperty : PropertyElement, IObservable<FontRecord>, INotifyPropertyChanged, IExtensibleDataObject {
+    public class FontProperty : PropertyElement, IObservable<FontRecord>, INotifyPropertyChanged, IExtensibleDataObject {
         private FontRecord selectItem;
         private List<IObserver<FontRecord>> list;
         private List<IObserver<FontRecord>> collection => list ??= new List<IObserver<FontRecord>>();
@@ -69,7 +69,7 @@ namespace BEditor.Core.Data.PropertyData {
         /// フォントを変更するコマンド
         /// </summary>
         /// <remarks>このクラスは <see cref="UndoRedoManager.Do(IUndoRedoCommand)"/> と併用することでコマンドを記録できます</remarks>
-        public sealed class ChangeSelectCommand : IUndoRedoCommand {
+        public class ChangeSelectCommand : IUndoRedoCommand {
             private readonly FontProperty Selector;
             private readonly FontRecord select;
             private readonly FontRecord oldselect;
@@ -137,7 +137,7 @@ namespace BEditor.Core.Data.PropertyData {
         /// <summary>
         /// 
         /// </summary>
-        public FontRecord SelectItem { get; private set; }
+        public FontRecord SelectItem { get; init; }
         /// <summary>
         /// 
         /// </summary>

@@ -8,7 +8,7 @@ using BEditor.Core.Renderer;
 
 namespace BEditor.Core.Data.ObjectData {
     [DataContract(Namespace = "")]
-    public sealed class CameraObject : ObjectElement {
+    public class CameraObject : ObjectElement {
         public static readonly EasePropertyMetadata XMetadata = new EasePropertyMetadata(Properties.Resources.X, 0);
         public static readonly EasePropertyMetadata YMetadata = new EasePropertyMetadata(Properties.Resources.Y, 0);
         public static readonly EasePropertyMetadata ZMetadata = new EasePropertyMetadata(Properties.Resources.Z, 1024);

@@ -27,6 +27,6 @@ namespace BEditor.Core.Media {
         }
         #endregion
 
-        internal static BaseRenderingContext renderer;
+        internal static BaseGraphicsContext renderer;
     }
 }

@@ -14,7 +14,7 @@ using Image = BEditor.Core.Media.Image;
 
 namespace BEditor.Core.Data.ObjectData {
     [DataContract(Namespace = "")]
-    public sealed class ImageObject : ObjectElement {
+    public class ImageObject : ObjectElement {
         public static readonly PropertyElementMetadata CoordinateMetadata = new PropertyElementMetadata(Resources.Coordinate);
         public static readonly PropertyElementMetadata ZoomMetadata = new PropertyElementMetadata(Resources.Zoom);
         public static readonly PropertyElementMetadata BlendMetadata = new PropertyElementMetadata(Resources.Blend);

@@ -8,7 +8,7 @@ namespace BEditor.Core.Data.PropertyData {
     /// 色を選択するプロパティを表します
     /// </summary>
     [DataContract(Namespace = "")]
-    public sealed class ColorProperty : PropertyElement, INotifyPropertyChanged, IExtensibleDataObject {
+    public class ColorProperty : PropertyElement, INotifyPropertyChanged, IExtensibleDataObject {
         private byte r;
         private byte g;
         private byte b;
@@ -58,7 +58,7 @@ namespace BEditor.Core.Data.PropertyData {
         /// 色を変更するコマンド
         /// </summary>
         /// <remarks>このクラスは <see cref="UndoRedoManager.Do(IUndoRedoCommand)"/> と併用することでコマンドを記録できます</remarks>
-        public sealed class ChangeColorCommand : IUndoRedoCommand {
+        public class ChangeColorCommand : IUndoRedoCommand {
             private readonly ColorProperty Color;
             private readonly byte r, g, b, a;
             private readonly byte or, og, ob, oa;

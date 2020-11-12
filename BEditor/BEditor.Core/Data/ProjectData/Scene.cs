@@ -14,7 +14,7 @@ namespace BEditor.Core.Data.ProjectData {
     /// シーンクラス
     /// </summary>
     [DataContract(Namespace = "")]
-    public class Scene : ComponentObject {
+    public class Scene : ComponentObject, IParent<ClipData>,IChild<Project> {
         private ObservableCollection<ClipData> datas;
         private ClipData selectItem;
         private ObservableCollection<ClipData> selectItems;
@@ -61,7 +61,7 @@ namespace BEditor.Core.Data.ProjectData {
             get => datas;
             private set {
                 datas = value;
-                datas.AsParallel().ForAll(data => data.Scene = this);
+                Parallel.ForEach(datas, data => data.Scene = this);
             }
         }
 
@@ -91,7 +91,7 @@ namespace BEditor.Core.Data.ProjectData {
                 if (selectItems == null) {
                     selectItems = new ObservableCollection<ClipData>();
 
-                    SelectNames.AsParallel().ForAll(name => selectItems.Add(Get(name)));
+                    Parallel.ForEach(SelectNames, name => selectItems.Add(Get(name)));
 
                     selectItems.CollectionChanged += SelectItems_CollectionChanged;
                 }
@@ -114,9 +114,9 @@ namespace BEditor.Core.Data.ProjectData {
         }
 
         /// <summary>
-        /// レンダリングコンテキストを取得します
+        /// グラフィックコンテキストを取得します
         /// </summary>
-        public BaseRenderingContext RenderingContext { get; internal set; }
+        public BaseGraphicsContext RenderingContext { get; internal set; }
 
         #region コントロールに関係
 
@@ -180,6 +180,11 @@ namespace BEditor.Core.Data.ProjectData {
             }
         }
 
+        /// <inheritdoc/>
+        IEnumerable<ClipData> IParent<ClipData>.Children => Datas;
+        /// <inheritdoc/>
+        Project IChild<Project>.Parent => Component.Current.Project;
+
         #region コンストラクタ
 
         /// <summary>
@@ -218,11 +223,8 @@ namespace BEditor.Core.Data.ProjectData {
             layer.ForEach(clip => clip.Load(args));
             
             RenderingContext.SwapBuffers();
-            RenderingContext.MakeCurrent();
 
             Graphics.GetPixels(FrameBuffer);
-
-            RenderingContext.UnMakeCurrent();
 
             if (frame % Component.Current.Project.Framerate * 5 == 1)
                 Task.Run(GC.Collect);
@@ -250,7 +252,7 @@ namespace BEditor.Core.Data.ProjectData {
         public IEnumerable<ClipData> GetLayer(int frame) {
             return Datas
                 .Where(item => item.Start <= (frame) && (frame) < item.End)
-                .Where(item => HideLayer.Exists(x => x == item.Layer))
+                .Where(item => !HideLayer.Exists(x => x == item.Layer))
                 .OrderBy(item => item.Layer);
         }
 
@@ -307,7 +309,7 @@ namespace BEditor.Core.Data.ProjectData {
 
 
     [DataContract(Namespace = "")]
-    public sealed class RootScene : Scene {
+    public class RootScene : Scene {
         /// <inheritdoc/>
         public override string SceneName { get => "root"; set { } }
 

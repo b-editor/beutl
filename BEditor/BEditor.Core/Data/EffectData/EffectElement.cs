@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.Collections.ObjectModel;
 using System.Linq;
 using System.Runtime.Serialization;
+using System.Threading.Tasks;
 
 using BEditor.Core.Data.EffectData.DefaultCommon;
 using BEditor.Core.Data.ObjectData;
@@ -15,7 +16,7 @@ namespace BEditor.Core.Data.EffectData {
     /// エフェクトのベースクラス
     /// </summary>
     [DataContract(Namespace = "")]
-    public abstract class EffectElement : ComponentObject {
+    public abstract class EffectElement : ComponentObject, IChild<ClipData> {
         private bool isEnabled = true;
         private bool isExpanded = true;
         private ClipData clipData;
@@ -40,7 +41,6 @@ namespace BEditor.Core.Data.EffectData {
         [DataMember]
         public bool IsExpanded { get => isExpanded; set => SetValue(value, ref isExpanded, nameof(IsExpanded)); }
 
-        #region ClipData
         /// <summary>
         /// <see cref="ObjectData.ClipData"/> を取得します
         /// </summary>
@@ -49,10 +49,9 @@ namespace BEditor.Core.Data.EffectData {
             internal set {
                 clipData = value;
 
-                PropertySettings.AsParallel().ForAll(property => property.Parent = this);
+                Parallel.ForEach(PropertySettings, property => property.Parent = this);
             }
         }
-        #endregion
 
         /// <summary>
         /// コンストラクタの後やデシリアル化の後に呼び出されます
@@ -71,14 +70,13 @@ namespace BEditor.Core.Data.EffectData {
         public virtual void PropertyLoaded() {
             var settings = PropertySettings;
 
-            settings.AsParallel().ForAll(p => p.PropertyLoaded());
-            
+            Parallel.ForEach(settings, p => p.PropertyLoaded());
 
             var attributetype = typeof(PropertyMetadataAttribute);
             var type = GetType();
             var properties = type.GetProperties();
 
-            properties.AsParallel().ForAll(property => {
+            Parallel.ForEach(properties, property => {
                 //metadata属性の場合&プロパティがPropertyElement
                 if (Attribute.GetCustomAttribute(property, attributetype) is PropertyMetadataAttribute metadata &&
                                     property.GetValue(this) is PropertyElement propertyElement) {
@@ -93,6 +91,8 @@ namespace BEditor.Core.Data.EffectData {
         /// GUIに表示する<seealso cref="PropertyElement"/>を<see cref="IList{PropertyElement}"/>を取得します
         /// </summary>
         public abstract IList<PropertyElement> PropertySettings { get; }
+        /// <inheritdoc/>
+        ClipData IChild<ClipData>.Parent => ClipData;
 
         /// <summary>
         /// フレーム描画時に呼び出されます
@@ -112,7 +112,7 @@ namespace BEditor.Core.Data.EffectData {
         /// エフェクトが有効かのブーリアンを変更するコマンド
         /// </summary>
         /// <remarks>このクラスは <see cref="UndoRedoManager.Do(IUndoRedoCommand)"/> と併用することでコマンドを記録できます</remarks>
-        public sealed class CheckCommand : IUndoRedoCommand {
+        public class CheckCommand : IUndoRedoCommand {
             private readonly EffectElement effect;
             private readonly bool value;
 
@@ -144,7 +144,7 @@ namespace BEditor.Core.Data.EffectData {
         /// エフェクトの順番を上げるコマンド
         /// </summary>
         /// <remarks>このクラスは <see cref="UndoRedoManager.Do(IUndoRedoCommand)"/> と併用することでコマンドを記録できます</remarks>
-        public sealed class UpCommand : IUndoRedoCommand {
+        public class UpCommand : IUndoRedoCommand {
             private readonly ClipData data;
             private readonly EffectElement effect;
 
@@ -190,7 +190,7 @@ namespace BEditor.Core.Data.EffectData {
         /// エフェクトの順番を下げるコマンド
         /// </summary>
         /// <remarks>このクラスは <see cref="UndoRedoManager.Do(IUndoRedoCommand)"/> と併用することでコマンドを記録できます</remarks>
-        public sealed class DownCommand : IUndoRedoCommand {
+        public class DownCommand : IUndoRedoCommand {
             private readonly ClipData data;
             private readonly EffectElement effect;
 

@@ -5,7 +5,7 @@ using System.Text;
 
 namespace BEditor.Core.Data.ObjectData {
     [DataContract(Namespace = "")]
-    public sealed class Audio {
+    public class Audio {
 
     }
 }

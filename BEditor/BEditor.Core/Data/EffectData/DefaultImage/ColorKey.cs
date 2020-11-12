@@ -9,7 +9,7 @@ using BEditor.Core.Media;
 
 namespace BEditor.Core.Data.EffectData {
     [DataContract(Namespace = "")]
-    public sealed class ColorKey : ImageEffect {
+    public class ColorKey : ImageEffect {
         static readonly ColorPropertyMetadata MaxColorMetadata = new ColorPropertyMetadata(Properties.Resources.Color, 255, 255, 255);
         static readonly ColorPropertyMetadata MinColorMetadata = new ColorPropertyMetadata(Properties.Resources.Color, 100, 100, 100);
 

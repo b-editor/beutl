@@ -7,7 +7,7 @@ using BEditor.Core.Data.PropertyData;
 
 namespace BEditor.Core.Data.PropertyData.Default {
     [DataContract(Namespace = "")]
-    public sealed class Material : ExpandGroup {
+    public class Material : ExpandGroup {
         public static readonly ColorAnimationPropertyMetadata AmbientMetadata = new ColorAnimationPropertyMetadata(Properties.Resources.Ambient, 255, 255, 255, 255, true);
         public static readonly ColorAnimationPropertyMetadata DiffuseMetadata = new ColorAnimationPropertyMetadata(Properties.Resources.Diffuse, 255, 255, 255, 255, true);
         public static readonly ColorAnimationPropertyMetadata SpecularMetadata = new ColorAnimationPropertyMetadata(Properties.Resources.Specular, 255, 255, 255, 255, true);

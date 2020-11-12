@@ -7,7 +7,7 @@ using BEditor.Core.Media;
 
 namespace BEditor.Core.Data.EffectData {
     [DataContract(Namespace = "")]
-    public sealed class Blur : ImageEffect {
+    public class Blur : ImageEffect {
         static readonly EasePropertyMetadata SizeMetadata = new EasePropertyMetadata(Properties.Resources.Size, 70, float.NaN, 0);
         static readonly CheckPropertyMetadata AlphaBlurMetadata = new CheckPropertyMetadata(Properties.Resources.Diffusion, false);
         static readonly SelectorPropertyMetadata ModeMetadata = new SelectorPropertyMetadata(Properties.Resources.BlurMode, new string[3]{
