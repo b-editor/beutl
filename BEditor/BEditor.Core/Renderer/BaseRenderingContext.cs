@@ -33,7 +33,6 @@ namespace BEditor.Core.Renderer {
         protected int Renderbuffer;
         protected GameWindow GameWindow;
 
-
         public BaseRenderingContext(int width, int height) {
             Width = width;
             Height = height;

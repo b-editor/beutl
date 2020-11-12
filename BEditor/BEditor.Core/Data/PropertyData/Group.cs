@@ -1,5 +1,6 @@
 ﻿using System;
 using System.Collections.Generic;
+using System.Linq;
 using System.Runtime.Serialization;
 using System.Threading.Tasks;
 
@@ -23,29 +24,25 @@ namespace BEditor.Core.Data.PropertyData {
             get => base.Parent;
             set {
                 base.Parent = value;
+                var items = GroupItems;
 
-                for (int i = 0; i < GroupItems.Count; i++) {
-                    GroupItems[i].Parent = value;
-                }
+                items.AsParallel().ForAll(item => item.Parent = value);
             }
         }
 
         /// <inheritdoc/>
         public override void PropertyLoaded() {
             base.PropertyLoaded();
-
             var g = GroupItems;
 
-            Parallel.For(0, GroupItems.Count, index => g[index].PropertyLoaded());
+            g.AsParallel().ForAll(item => item.PropertyLoaded());
 
             //フィールドがpublicのときだけなので注意
             var attributetype = typeof(PropertyMetadataAttribute);
             var type = GetType();
             var properties = type.GetProperties();
 
-            Parallel.For(0, properties.Length, index => {
-                var property = properties[index];
-
+            properties.AsParallel().ForAll(property => {
                 //metadata属性の場合&プロパティがPropertyElement
                 if (Attribute.GetCustomAttribute(property, attributetype) is PropertyMetadataAttribute metadata &&
                                     property.GetValue(this) is PropertyElement propertyElement) {

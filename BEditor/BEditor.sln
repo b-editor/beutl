@@ -21,7 +21,7 @@ Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "BEditor.Extern", "BEditor.E
 EndProject
 Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "BEditor.Page", "BEditor.Page\BEditor.Page.csproj", "{ACB52ABE-D62A-4769-8604-3E6641E4E1B1}"
 EndProject
-Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "OpenTKTest", "OpenTKTest\OpenTKTest.csproj", "{13AF5A6A-C0A8-4649-A2A6-CD3272209BF6}"
+Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "OpenTKTest", "OpenTKTest\OpenTKTest.csproj", "{13AF5A6A-C0A8-4649-A2A6-CD3272209BF6}"
 EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution

@@ -353,3 +353,5 @@ BEditor/BEditor.Avalonia/
 !/docs/_framework/
 !/docs/_framework/_bin/
 !/docs/_content/
+*.dll
+/BEditor/lib

@@ -1,6 +1,7 @@
 ﻿using System;
 using System.Collections.Generic;
 using System.Collections.ObjectModel;
+using System.Linq;
 using System.Runtime.Serialization;
 using System.Text;
 using System.Threading.Tasks;
@@ -52,16 +53,14 @@ namespace BEditor.Core.Data.PropertyData.EasingSetting {
         public virtual void PropertyLoaded() {
             var settings = EasingSettings;
 
-            Parallel.For(0, settings.Count, i => settings[i].PropertyLoaded());
+            settings.AsParallel().ForAll(setting => setting.PropertyLoaded());
 
             //フィールドがpublicのときだけなので注意
             var attributetype = typeof(PropertyMetadataAttribute);
             var type = GetType();
             var properties = type.GetProperties();
 
-            Parallel.For(0, properties.Length, i => {
-                var property = properties[i];
-
+            properties.AsParallel().ForAll(property => {
                 //metadata属性の場合&プロパティがPropertyElement
                 if (Attribute.GetCustomAttribute(property, attributetype) is PropertyMetadataAttribute metadata &&
                                     property.GetValue(this) is PropertyElement propertyElement) {

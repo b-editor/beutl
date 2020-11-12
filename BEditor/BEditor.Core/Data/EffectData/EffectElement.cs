@@ -3,7 +3,6 @@ using System.Collections.Generic;
 using System.Collections.ObjectModel;
 using System.Linq;
 using System.Runtime.Serialization;
-using System.Threading.Tasks;
 
 using BEditor.Core.Data.EffectData.DefaultCommon;
 using BEditor.Core.Data.ObjectData;
@@ -50,9 +49,7 @@ namespace BEditor.Core.Data.EffectData {
             internal set {
                 clipData = value;
 
-                Parallel.For(0, PropertySettings.Count, i => {
-                    PropertySettings[i].Parent = this;
-                });
+                PropertySettings.AsParallel().ForAll(property => property.Parent = this);
             }
         }
         #endregion
@@ -72,17 +69,16 @@ namespace BEditor.Core.Data.EffectData {
         /// </list>
         /// </remarks>
         public virtual void PropertyLoaded() {
-            Parallel.For(0, PropertySettings.Count, i => {
-                PropertySettings[i].PropertyLoaded();
-            });
+            var settings = PropertySettings;
+
+            settings.AsParallel().ForAll(p => p.PropertyLoaded());
+            
 
             var attributetype = typeof(PropertyMetadataAttribute);
             var type = GetType();
             var properties = type.GetProperties();
 
-            Parallel.For(0, properties.Length, i => {
-                var property = properties[i];
-
+            properties.AsParallel().ForAll(property => {
                 //metadata属性の場合&プロパティがPropertyElement
                 if (Attribute.GetCustomAttribute(property, attributetype) is PropertyMetadataAttribute metadata &&
                                     property.GetValue(this) is PropertyElement propertyElement) {

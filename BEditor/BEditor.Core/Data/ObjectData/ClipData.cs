@@ -1,4 +1,5 @@
 ﻿using System;
+using System.Collections.Generic;
 using System.Collections.ObjectModel;
 using System.ComponentModel.DataAnnotations;
 using System.Diagnostics.Contracts;
@@ -64,37 +65,39 @@ namespace BEditor.Core.Data.ObjectData {
         /// 種類を取得します
         /// </summary>
         [DataMember(Name = "Type", Order = 1)]
-        public string ClipType { get => Type.FullName; private set => Type = Type.GetType(value); }
+        public string ClipType {
+            get => Type.FullName;
+            private set => Type = Type.GetType(value);
+        }
 
         /// <summary>
         /// 種類を取得します
         /// </summary>
         public Type Type { get; private set; }
 
-        #region Start
         /// <summary>
         /// 開始フレームを取得または設定します
         /// </summary>
         [DataMember(Order = 2)]
-        public int Start { get => start; set => SetValue(value, ref start, nameof(Start)); }
-        #endregion
+        public int Start {
+            get => start;
+            set => SetValue(value, ref start, nameof(Start));
+        }
 
-        #region End
         /// <summary>
         /// 終了フレームを取得または設定します
         /// </summary>
         [DataMember(Order = 3)]
-        public int End { get => end; set => SetValue(value, ref end, nameof(End)); }
-        #endregion
+        public int End {
+            get => end;
+            set => SetValue(value, ref end, nameof(End));
+        }
 
-        #region Length
         /// <summary>
         /// 長さを取得します
         /// </summary>
         public int Length => End - Start;
-        #endregion
 
-        #region Layer
         /// <summary>
         /// 配置レイヤーを取得または設定します
         /// </summary>
@@ -109,23 +112,20 @@ namespace BEditor.Core.Data.ObjectData {
                 SetValue(value, ref layer, nameof(Layer));
             }
         }
-        #endregion
-
-        #region ClipのText
 
         /// <summary>
         /// 表示されるテキストを取得または設定します
         /// </summary>
         [DataMember(Name = "Text", Order = 5)]
-        public string LabelText { get => labeltext; set => SetValue(value, ref labeltext, nameof(LabelText)); }
-        #endregion
+        public string LabelText {
+            get => labeltext;
+            set => SetValue(value, ref labeltext, nameof(LabelText));
+        }
 
-        #region Sceneのインスタンス
         /// <summary>
         /// <see cref="ProjectData.Scene"/> のインスタンスを取得します
         /// </summary>
         public Scene Scene { get; internal set; }
-        #endregion
 
 
         /// <summary>
@@ -136,15 +136,15 @@ namespace BEditor.Core.Data.ObjectData {
             get => effect;
             private set {
                 effect = value;
+                List<EffectElement> aa = new();
 
-                Parallel.For(0, Effect.Count, i => {
-                    Effect[i].ClipData = this;
-                    Effect[i].PropertyLoaded();
+                effect.AsParallel().ForAll(effect => {
+                    effect.ClipData = this;
+                    effect.PropertyLoaded();
                 });
             }
         }
 
-        #region Load
 
 
         /// <summary>
@@ -152,6 +152,7 @@ namespace BEditor.Core.Data.ObjectData {
         /// </summary>
         public void Load(ObjectLoadArgs args) {
             var loadargs = new EffectLoadArgs(args.Frame, Effect.Where(x => x.IsEnabled).ToList());
+
             if (Effect[0] is ObjectElement obj) {
                 if (!obj.IsEnabled) {
                     return;
@@ -165,13 +166,13 @@ namespace BEditor.Core.Data.ObjectData {
         /// レンダリング前に呼び出されます
         /// </summary>
         public void PreviewLoad(ObjectLoadArgs args) {
-            var loadargs = new EffectLoadArgs(args.Frame, Effect.Where(x => x.IsEnabled).ToList());
+            var enableEffects = Effect.Where(x => x.IsEnabled);
+            var loadargs = new EffectLoadArgs(args.Frame, enableEffects.ToList());
 
-            foreach (var item in loadargs.Schedules) {
+            foreach (var item in enableEffects) {
                 item.PreviewLoad(loadargs);
             }
         }
-        #endregion
 
         #region MoveTime
         internal void MoveFrame(int f) {

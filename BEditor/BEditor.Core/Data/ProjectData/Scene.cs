@@ -61,10 +61,7 @@ namespace BEditor.Core.Data.ProjectData {
             get => datas;
             private set {
                 datas = value;
-
-                for (int i = 0; i < datas.Count; i++) {
-                    datas[i].Scene = this;
-                }
+                datas.AsParallel().ForAll(data => data.Scene = this);
             }
         }
 
@@ -94,9 +91,7 @@ namespace BEditor.Core.Data.ProjectData {
                 if (selectItems == null) {
                     selectItems = new ObservableCollection<ClipData>();
 
-                    foreach (var name in SelectNames) {
-                        selectItems.Add(Get(name));
-                    }
+                    SelectNames.AsParallel().ForAll(name => selectItems.Add(Get(name)));
 
                     selectItems.CollectionChanged += SelectItems_CollectionChanged;
                 }
@@ -210,7 +205,7 @@ namespace BEditor.Core.Data.ProjectData {
         public Image Rendering(int frame) {
             FrameBuffer?.Dispose();
             FrameBuffer = new Image(Width, Height);
-            var layer = GetLayer(frame);
+            var layer = GetLayer(frame).ToList();
 
             RenderingContext.Clear();
             RenderingContext.MakeCurrent();
@@ -218,22 +213,10 @@ namespace BEditor.Core.Data.ProjectData {
             var args = new ObjectLoadArgs(frame, layer);
 
             //Preview
-            foreach (var obj in layer) {
-                if (HideLayer.Exists(x => x == obj.Layer)) {
-                    continue;
-                }
-
-                obj.PreviewLoad(args);
-            }
-
-            foreach (var obj in layer) {
-                if (HideLayer.Exists(x => x == obj.Layer)) {
-                    continue;
-                }
-
-                obj.Load(args);
-            }
-
+            layer.ForEach(clip => clip.PreviewLoad(args));
+            
+            layer.ForEach(clip => clip.Load(args));
+            
             RenderingContext.SwapBuffers();
             RenderingContext.MakeCurrent();
 
@@ -258,20 +241,17 @@ namespace BEditor.Core.Data.ProjectData {
 
 
         #region GetLayer
+
         /// <summary>
         /// フレーム上にあるクリップを取得しソートします
         /// </summary>
         /// <param name="frame">タイムライン基準のフレーム</param>
         /// <returns>クリップのリスト</returns>
-        public List<ClipData> GetLayer(int frame) {
-            var List = (
-                from item in Datas
-                where item.Start <= (frame) && (frame) < item.End
-                select item
-                ).ToList();
-            List.Sort((a, b) => a.Layer - b.Layer);
-
-            return List;
+        public IEnumerable<ClipData> GetLayer(int frame) {
+            return Datas
+                .Where(item => item.Start <= (frame) && (frame) < item.End)
+                .Where(item => HideLayer.Exists(x => x == item.Layer))
+                .OrderBy(item => item.Layer);
         }
 
         #endregion
