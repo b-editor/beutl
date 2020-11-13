@@ -23,13 +23,16 @@ using BEditor.Core.Data.PropertyData.Default;
 using Image = BEditor.Core.Media.Image;
 using System.Runtime.InteropServices;
 
-namespace BEditor.Core.Renderer {
-    public abstract class BaseGraphicsContext : IBaseGraphicsContext {
+namespace BEditor.Core.Renderer
+{
+    public abstract class BaseGraphicsContext : IBaseGraphicsContext
+    {
         protected int Color;
         protected int Depth;
         protected int FBO;
 
-        public BaseGraphicsContext(int width, int height) {
+        public BaseGraphicsContext(int width, int height)
+        {
             Width = width;
             Height = height;
         }
@@ -43,8 +46,10 @@ namespace BEditor.Core.Renderer {
 
         public abstract void MakeCurrent();
         public abstract void SwapBuffers();
-        public virtual void Dispose() {
-            if (IsInitialized) {
+        public virtual void Dispose()
+        {
+            if (IsInitialized)
+            {
                 GL.DeleteTexture(Color);
                 GL.DeleteTexture(Depth);
                 GL.Ext.DeleteFramebuffer(FBO);
@@ -62,17 +67,24 @@ namespace BEditor.Core.Renderer {
         /// <param name="tz">TargetZ</param>
         /// <param name="near">ZNear</param>
         /// <param name="far">ZFar</param>
-        public virtual void Clear(bool Perspective = false, float x = 0, float y = 0, float z = 1024, float tx = 0, float ty = 0, float tz = 0, float near = 0.1F, float far = 20000) {
+        public virtual void Clear(
+            bool Perspective = false,
+            float x = 0, float y = 0, float z = 1024,
+            float tx = 0, float ty = 0, float tz = 0,
+            float near = 0.1F, float far = 20000)
+        {
             MakeCurrent();
 
-            if (Perspective) {
+            if (Perspective)
+            {
                 //視体積の設定
                 GL.MatrixMode(MatrixMode.Projection);
                 Matrix4 proj = Matrix4.CreatePerspectiveFieldOfView(MathHelper.PiOver4, Aspect, near, far);//描画範囲
 
                 GL.LoadMatrix(ref proj);
             }
-            else {
+            else
+            {
                 GL.MatrixMode(MatrixMode.Projection);
                 //視体積の設定
                 Matrix4 proj = Matrix4.CreateOrthographic(Width, Height, near, far);
@@ -99,11 +111,13 @@ namespace BEditor.Core.Renderer {
             GL.Hint(HintTarget.PointSmoothHint, HintMode.Nicest);
             GL.Hint(HintTarget.PolygonSmoothHint, HintMode.Nicest);
 
-            if (Perspective) {
+            if (Perspective)
+            {
                 GL.Enable(EnableCap.DepthTest);
                 GL.Disable(EnableCap.Lighting);
             }
-            else {
+            else
+            {
                 GL.Disable(EnableCap.DepthTest);
                 GL.Disable(EnableCap.Lighting);
             }
@@ -111,13 +125,19 @@ namespace BEditor.Core.Renderer {
             GL.Clear(ClearBufferMask.ColorBufferBit | ClearBufferMask.DepthBufferBit);
         }
 
-        public virtual void Resize(int width, int height, bool Perspective = false, float x = 0, float y = 0, float z = 1024, float tx = 0, float ty = 0, float tz = 0, float near = 0.1F, float far = 20000) {
+        public virtual void Resize(
+            int width, int height, bool Perspective = false,
+            float x = 0, float y = 0, float z = 1024,
+            float tx = 0, float ty = 0, float tz = 0,
+            float near = 0.1F, float far = 20000)
+        {
             MakeCurrent();
 
             Width = width;
             Height = height;
 
-            if (IsInitialized) {
+            if (IsInitialized)
+            {
                 GL.DeleteTexture(Color);
                 GL.DeleteTexture(Depth);
                 GL.Ext.DeleteFramebuffer(FBO);
@@ -125,7 +145,6 @@ namespace BEditor.Core.Renderer {
 
             #region FBO
 
-            //TODO : Gitから復元
             //色
             GL.GenTextures(1, out Color);
             GL.BindTexture(TextureTarget.Texture2D, Color);
@@ -154,14 +173,16 @@ namespace BEditor.Core.Renderer {
             //ビューポートの設定
             GL.Viewport(0, 0, width, height);
 
-            if (Perspective) {
+            if (Perspective)
+            {
                 //視体積の設定
                 GL.MatrixMode(MatrixMode.Projection);
                 Matrix4 proj = Matrix4.CreatePerspectiveFieldOfView(MathHelper.PiOver4, Aspect, near, far);//描画範囲
 
                 GL.LoadMatrix(ref proj);
             }
-            else {
+            else
+            {
                 GL.MatrixMode(MatrixMode.Projection);
                 //視体積の設定
                 Matrix4 proj = Matrix4.CreateOrthographic(Width, Height, near, far);
@@ -188,11 +209,13 @@ namespace BEditor.Core.Renderer {
             GL.Hint(HintTarget.PointSmoothHint, HintMode.Nicest);
             GL.Hint(HintTarget.PolygonSmoothHint, HintMode.Nicest);
 
-            if (Perspective) {
+            if (Perspective)
+            {
                 GL.Enable(EnableCap.DepthTest);
                 GL.Disable(EnableCap.Lighting);
             }
-            else {
+            else
+            {
                 GL.Disable(EnableCap.DepthTest);
                 GL.Disable(EnableCap.Lighting);
             }
@@ -200,7 +223,8 @@ namespace BEditor.Core.Renderer {
             GL.Clear(ClearBufferMask.ColorBufferBit | ClearBufferMask.DepthBufferBit);
         }
 
-        protected void Initialize() {
+        protected void Initialize()
+        {
             Resize(Width, Height);
 
             GL.Disable(EnableCap.DepthTest);
@@ -209,7 +233,8 @@ namespace BEditor.Core.Renderer {
             IsInitialized = true;
         }
 
-        internal void DrawImage(Image img, ClipData data, int frame) {
+        internal void DrawImage(Image img, ClipData data, int frame)
+        {
             if (img == null) return;
             ImageObject drawObject = (ImageObject)data.Effect[0];
 

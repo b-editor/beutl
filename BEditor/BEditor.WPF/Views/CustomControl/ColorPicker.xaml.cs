@@ -12,21 +12,25 @@ using System.Windows.Media.Imaging;
 using System.Windows.Navigation;
 using System.Windows.Shapes;
 
-namespace BEditor.Views.CustomControl {
+namespace BEditor.Views.CustomControl
+{
     /// <summary>
     /// ColorPicker.xaml の相互作用ロジック
     /// </summary>
-    public partial class ColorPicker : UserControl, INotifyPropertyChanged {
+    public partial class ColorPicker : UserControl, INotifyPropertyChanged
+    {
         public static readonly DependencyProperty RedProperty = DependencyProperty.Register("Red", typeof(byte), typeof(ColorPicker), new FrameworkPropertyMetadata((byte)255, FrameworkPropertyMetadataOptions.BindsTwoWayByDefault, ColorChanged));
         public static readonly DependencyProperty GreenProperty = DependencyProperty.Register("Green", typeof(byte), typeof(ColorPicker), new FrameworkPropertyMetadata((byte)255, FrameworkPropertyMetadataOptions.BindsTwoWayByDefault, ColorChanged));
         public static readonly DependencyProperty BlueProperty = DependencyProperty.Register("Blue", typeof(byte), typeof(ColorPicker), new FrameworkPropertyMetadata((byte)255, FrameworkPropertyMetadataOptions.BindsTwoWayByDefault, ColorChanged));
         public static readonly DependencyProperty AlphaProperty = DependencyProperty.Register("Alpha", typeof(byte), typeof(ColorPicker), new FrameworkPropertyMetadata((byte)255, FrameworkPropertyMetadataOptions.BindsTwoWayByDefault, ColorChanged));
         public static readonly DependencyProperty UseAlphaProperty = DependencyProperty.Register("UseAlpha", typeof(bool), typeof(ColorPicker), new FrameworkPropertyMetadata(false, FrameworkPropertyMetadataOptions.BindsTwoWayByDefault));
 
-        private static void ColorChanged(DependencyObject d, DependencyPropertyChangedEventArgs e) {
+        private static void ColorChanged(DependencyObject d, DependencyPropertyChangedEventArgs e)
+        {
             if (e.NewValue == e.OldValue) return;
 
-            if (d is ColorPicker picker) {
+            if (d is ColorPicker picker)
+            {
                 picker.PropertyChanged?.Invoke(picker, new PropertyChangedEventArgs(nameof(SelectedColor)));
             }
         }
@@ -34,38 +38,46 @@ namespace BEditor.Views.CustomControl {
 
         public event PropertyChangedEventHandler PropertyChanged;
 
-        public ColorPicker() {
+        public ColorPicker()
+        {
             InitializeComponent();
         }
 
-        public byte Red {
+        public byte Red
+        {
             get => (byte)GetValue(RedProperty);
             set => SetValue(RedProperty, value);
         }
 
-        public byte Green {
+        public byte Green
+        {
             get => (byte)GetValue(GreenProperty);
             set => SetValue(GreenProperty, value);
         }
 
-        public byte Blue {
+        public byte Blue
+        {
             get => (byte)GetValue(BlueProperty);
             set => SetValue(BlueProperty, value);
         }
 
-        public byte Alpha {
+        public byte Alpha
+        {
             get => (byte)GetValue(AlphaProperty);
             set => SetValue(AlphaProperty, value);
         }
 
-        public bool UseAlpha {
+        public bool UseAlpha
+        {
             get => (bool)GetValue(UseAlphaProperty);
             set => SetValue(UseAlphaProperty, value);
         }
 
-        public Color SelectedColor {
+        public Color SelectedColor
+        {
             get => Color.FromArgb(Alpha, Red, Green, Blue);
-            set {
+            set
+            {
                 Red = value.R;
                 Green = value.G;
                 Blue = value.B;
@@ -73,28 +85,32 @@ namespace BEditor.Views.CustomControl {
             }
         }
 
-        private void TextBox_Red_MouseWheel(object sender, MouseWheelEventArgs e) {
+        private void TextBox_Red_MouseWheel(object sender, MouseWheelEventArgs e)
+        {
             int v = 10;
 
             if (Keyboard.IsKeyDown(Key.LeftShift)) v = 1;
             Red += (byte)(e.Delta / 120 * v);
         }
 
-        private void TextBox_Green_MouseWheel(object sender, MouseWheelEventArgs e) {
+        private void TextBox_Green_MouseWheel(object sender, MouseWheelEventArgs e)
+        {
             int v = 10;
 
             if (Keyboard.IsKeyDown(Key.LeftShift)) v = 1;
             Green += (byte)(e.Delta / 120 * v);
         }
 
-        private void TextBox_Blue_MouseWheel(object sender, MouseWheelEventArgs e) {
+        private void TextBox_Blue_MouseWheel(object sender, MouseWheelEventArgs e)
+        {
             int v = 10;
 
             if (Keyboard.IsKeyDown(Key.LeftShift)) v = 1;
             Blue += (byte)(e.Delta / 120 * v);
         }
 
-        private void TextBox_Alpha_MouseWheel(object sender, MouseWheelEventArgs e) {
+        private void TextBox_Alpha_MouseWheel(object sender, MouseWheelEventArgs e)
+        {
             int v = 10;
 
             if (Keyboard.IsKeyDown(Key.LeftShift)) v = 1;

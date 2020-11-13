@@ -8,22 +8,27 @@ using System.Reactive.Concurrency;
 using System.Runtime.Serialization;
 using System.Text;
 
-namespace BEditor.Core.Data {
+namespace BEditor.Core.Data
+{
     /// <summary>
     /// プロパティの変更を通知するクラス
     /// </summary>
     [DataContract(Namespace = "")]
-    public abstract class BasePropertyChanged : INotifyPropertyChanged {
+    public abstract class BasePropertyChanged : INotifyPropertyChanged
+    {
         public event PropertyChangedEventHandler PropertyChanged;
 
-        protected void SetValue<T>(T src, ref T dst, string name) {
-            if (src == null || !src.Equals(dst)) {
+        protected void SetValue<T>(T src, ref T dst, string name)
+        {
+            if (src == null || !src.Equals(dst))
+            {
                 dst = src;
                 RaisePropertyChanged(name);
             }
         }
 
-        protected void RaisePropertyChanged(string name) {
+        protected void RaisePropertyChanged(string name)
+        {
             if (PropertyChanged == null) return;
 
             PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(name));

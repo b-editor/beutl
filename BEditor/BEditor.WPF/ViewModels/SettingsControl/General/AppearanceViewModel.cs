@@ -6,22 +6,30 @@ using BEditor.ViewModels.Helper;
 using MaterialDesignThemes.Wpf;
 
 
-namespace BEditor.ViewModels.SettingsControl.General {
-    public class AppearanceViewModel : BasePropertyChanged {
+namespace BEditor.ViewModels.SettingsControl.General
+{
+    public class AppearanceViewModel : BasePropertyChanged
+    {
 
         private DelegateCommand<object> darkmodecommand;
-        public DelegateCommand<object> UseDarkModeClick {
-            get {
-                if (darkmodecommand == null) {
+        public DelegateCommand<object> UseDarkModeClick
+        {
+            get
+            {
+                if (darkmodecommand == null)
+                {
                     darkmodecommand = new DelegateCommand<object>();
-                    darkmodecommand.Subscribe(_ => {
-                        if (Settings.Default.UseDarkMode) {
+                    darkmodecommand.Subscribe(_ =>
+                    {
+                        if (Settings.Default.UseDarkMode)
+                        {
                             PaletteHelper paletteHelper = new PaletteHelper();
                             ITheme theme = paletteHelper.GetTheme();
                             theme.SetBaseTheme(Theme.Dark);
                             paletteHelper.SetTheme(theme);
                         }
-                        else {
+                        else
+                        {
                             PaletteHelper paletteHelper = new PaletteHelper();
                             ITheme theme = paletteHelper.GetTheme();
                             theme.SetBaseTheme(Theme.Light);

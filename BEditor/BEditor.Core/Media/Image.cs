@@ -12,11 +12,13 @@ using BEditor.Core.Renderer;
 
 using Graphic = BEditor.Core.Renderer.Graphics;
 
-namespace BEditor.Core.Media {
+namespace BEditor.Core.Media
+{
     /// <summary>
     /// OpenCv Mat を利用した画像オブジェクトを表します
     /// </summary>
-    public unsafe class Image : DisposableObject {
+    public unsafe class Image : DisposableObject
+    {
         #region Constructor
 
         /// <summary>
@@ -25,10 +27,12 @@ namespace BEditor.Core.Media {
         /// <param name="width">画像の横幅</param>
         /// <param name="height">画像の高さ</param>
         /// <exception cref="NativeException"/>
-        public Image(int width, int height) {
+        public Image(int width, int height)
+        {
             var result = ImageProcess.Create(width, height, ImageType.ByteCh4, out ptr);
 
-            if (result != null) {
+            if (result != null)
+            {
                 throw new NativeException(result);
             }
         }
@@ -39,10 +43,12 @@ namespace BEditor.Core.Media {
         /// <param name="height">画像の高さ</param>
         /// <param name="type">画像のチャンネル数などの情報</param>
         /// <exception cref="NativeException"/>
-        public Image(int width, int height, ImageType type) {
+        public Image(int width, int height, ImageType type)
+        {
             var result = ImageProcess.Create(width, height, type, out ptr);
 
-            if (result != null) {
+            if (result != null)
+            {
                 throw new NativeException(result);
             }
         }
@@ -56,12 +62,14 @@ namespace BEditor.Core.Media {
         /// <remarks>画像のデータはコピーされません</remarks>
         /// <exception cref="IntPtrZeroException"/>
         /// <exception cref="NativeException"/>
-        public Image(int width, int height, ImageType type, IntPtr data) {
+        public Image(int width, int height, ImageType type, IntPtr data)
+        {
             if (data == IntPtr.Zero) throw new IntPtrZeroException(nameof(data));
 
             var result = ImageProcess.Create(width, height, data, type, out this.ptr);
 
-            if (result != null) {
+            if (result != null)
+            {
                 throw new NativeException(result);
             }
         }
@@ -71,7 +79,8 @@ namespace BEditor.Core.Media {
         /// <param name="ptr">OpenCv Matのポインタ</param>
         /// <remarks>画像のデータはコピーされません</remarks>
         /// <exception cref="IntPtrZeroException"/>
-        public Image(IntPtr ptr) {
+        public Image(IntPtr ptr)
+        {
             if (ptr == IntPtr.Zero) throw new IntPtrZeroException(nameof(ptr));
 
             this.ptr = ptr;
@@ -85,14 +94,16 @@ namespace BEditor.Core.Media {
         /// <exception cref="ArgumentNullException"/>
         /// <exception cref="NativeException"/>
         /// <exception cref="ObjectDisposedException"/>
-        public Image(Image image, Rectangle rect) {
+        public Image(Image image, Rectangle rect)
+        {
             if (image == null)
                 throw new ArgumentNullException(nameof(image));
             image.ThrowIfDisposed();
 
             var result = ImageProcess.Create(image.ptr, rect.X, rect.Y, rect.Width, rect.Height, out ptr);
 
-            if (result != null) {
+            if (result != null)
+            {
                 throw new NativeException(result);
             }
         }
@@ -104,13 +115,15 @@ namespace BEditor.Core.Media {
         /// <exception cref="ArgumentNullException"/>
         /// <exception cref="NativeException"/>
         [Obsolete("未調整です")] //TODO : Imageコンストラクタ
-        public Image(string file) {
+        public Image(string file)
+        {
             if (string.IsNullOrEmpty(file))
                 throw new ArgumentNullException(nameof(file));
 
             var result = ImageProcess.Decode(file, out ptr);
 
-            if (result != null) {
+            if (result != null)
+            {
                 throw new NativeException(result);
             }
 
@@ -125,7 +138,8 @@ namespace BEditor.Core.Media {
         /// <exception cref="ArgumentNullException"/>
         /// <exception cref="ArgumentException"/>
         /// <exception cref="NativeException"/>
-        public Image(Stream stream, ImageReadMode mode = ImageReadMode.Color) {
+        public Image(Stream stream, ImageReadMode mode = ImageReadMode.Color)
+        {
             if (stream == null)
                 throw new ArgumentNullException(nameof(stream));
             if (stream.Length > int.MaxValue)
@@ -146,7 +160,8 @@ namespace BEditor.Core.Media {
         /// <param name="mode"></param>
         /// <exception cref="ArgumentNullException"/>
         /// <exception cref="NativeException"/>
-        public Image(byte[] imageBytes, ImageReadMode mode = ImageReadMode.Color) {
+        public Image(byte[] imageBytes, ImageReadMode mode = ImageReadMode.Color)
+        {
             if (imageBytes == null)
                 throw new ArgumentNullException(nameof(imageBytes));
 
@@ -158,10 +173,12 @@ namespace BEditor.Core.Media {
         /// 
         /// </summary>
         /// <exception cref="Exception"/>
-        public Image() {
+        public Image()
+        {
             var result = ImageProcess.Create(out ptr);
 
-            if (result != null) {
+            if (result != null)
+            {
                 throw new Exception(result);
             }
         }
@@ -186,8 +203,10 @@ namespace BEditor.Core.Media {
         /// </summary>
         /// <exception cref="ObjectDisposedException"/>
         /// <exception cref="NativeException"/>
-        public IntPtr DataEnd {
-            get {
+        public IntPtr DataEnd
+        {
+            get
+            {
                 ThrowIfDisposed();
                 var result = ImageProcess.DataEnd(ptr, out var ret);
                 if (result != null) throw new NativeException(result);
@@ -200,8 +219,10 @@ namespace BEditor.Core.Media {
         /// </summary>
         /// <exception cref="ObjectDisposedException"/>
         /// <exception cref="NativeException"/>
-        public byte* DataPointer {
-            get {
+        public byte* DataPointer
+        {
+            get
+            {
                 ThrowIfDisposed();
                 var result = ImageProcess.Data(ptr, out var ret);
 
@@ -215,8 +236,10 @@ namespace BEditor.Core.Media {
         /// </summary>
         /// <exception cref="ObjectDisposedException"/>
         /// <exception cref="NativeException"/>
-        public int Width {
-            get {
+        public int Width
+        {
+            get
+            {
                 ThrowIfDisposed();
                 var result = ImageProcess.Width(ptr, out var ret);
 
@@ -230,8 +253,10 @@ namespace BEditor.Core.Media {
         /// </summary>
         /// <exception cref="ObjectDisposedException"/>
         /// <exception cref="NativeException"/>
-        public int Height {
-            get {
+        public int Height
+        {
+            get
+            {
                 ThrowIfDisposed();
                 var result = ImageProcess.Height(ptr, out var ret);
 
@@ -251,8 +276,10 @@ namespace BEditor.Core.Media {
         /// </summary>
         /// <exception cref="ObjectDisposedException"/>
         /// <exception cref="NativeException"/>
-        public ImageType Type {
-            get {
+        public ImageType Type
+        {
+            get
+            {
                 ThrowIfDisposed();
                 var result = ImageProcess.Type(ptr, out var ret);
 
@@ -266,8 +293,10 @@ namespace BEditor.Core.Media {
         /// </summary>
         /// <exception cref="ObjectDisposedException"/>
         /// <exception cref="NativeException"/>
-        public long Step {
-            get {
+        public long Step
+        {
+            get
+            {
                 ThrowIfDisposed();
                 var result = ImageProcess.Step(ptr, out var ret);
 
@@ -281,8 +310,10 @@ namespace BEditor.Core.Media {
         /// </summary>
         /// <exception cref="ObjectDisposedException"/>
         /// <exception cref="NativeException"/>
-        public int ElemSize {
-            get {
+        public int ElemSize
+        {
+            get
+            {
                 ThrowIfDisposed();
                 var result = ImageProcess.ElemSize(ptr, out var ret);
 
@@ -296,8 +327,10 @@ namespace BEditor.Core.Media {
         /// </summary>
         /// <exception cref="ObjectDisposedException"/>
         /// <exception cref="NativeException"/>
-        public bool IsContinuous {
-            get {
+        public bool IsContinuous
+        {
+            get
+            {
                 ThrowIfDisposed();
                 var result = ImageProcess.IsContinuous(ptr, out var ret);
 
@@ -311,8 +344,10 @@ namespace BEditor.Core.Media {
         /// </summary>
         /// <exception cref="ObjectDisposedException"/>
         /// <exception cref="NativeException"/>
-        public bool IsSubmatrix {
-            get {
+        public bool IsSubmatrix
+        {
+            get
+            {
                 ThrowIfDisposed();
                 var result = ImageProcess.IsSubmatrix(ptr, out var ret);
 
@@ -326,8 +361,10 @@ namespace BEditor.Core.Media {
         /// </summary>
         /// <exception cref="ObjectDisposedException"/>
         /// <exception cref="NativeException"/>
-        public int Depth {
-            get {
+        public int Depth
+        {
+            get
+            {
                 ThrowIfDisposed();
                 var result = ImageProcess.Depth(ptr, out var ret);
 
@@ -341,8 +378,10 @@ namespace BEditor.Core.Media {
         /// </summary>
         /// <exception cref="ObjectDisposedException"/>
         /// <exception cref="NativeException"/>
-        public int Channels {
-            get {
+        public int Channels
+        {
+            get
+            {
                 ThrowIfDisposed();
                 var result = ImageProcess.Channels(ptr, out var ret);
 
@@ -356,8 +395,10 @@ namespace BEditor.Core.Media {
         /// </summary>
         /// <exception cref="ObjectDisposedException"/>
         /// <exception cref="NativeException"/>
-        public long Total {
-            get {
+        public long Total
+        {
+            get
+            {
                 ThrowIfDisposed();
                 var result = ImageProcess.Total(ptr, out var ret);
 
@@ -371,8 +412,10 @@ namespace BEditor.Core.Media {
         /// </summary>
         /// <exception cref="ObjectDisposedException"/>
         /// <exception cref="NativeException"/>
-        public int Dimension {
-            get {
+        public int Dimension
+        {
+            get
+            {
                 ThrowIfDisposed();
                 var result = ImageProcess.Dimension(ptr, out var ret);
 
@@ -392,7 +435,8 @@ namespace BEditor.Core.Media {
         /// </summary>
         /// <param name="action"></param>
         /// <exception cref="ObjectDisposedException"/>
-        public void ForEach(Action<int, int, int, int> action) {
+        public void ForEach(Action<int, int, int, int> action)
+        {
             ThrowIfDisposed();
             //int bitcount = Width * Height * Channels * Type.Bits / 8;
 
@@ -401,8 +445,10 @@ namespace BEditor.Core.Media {
             var elemsize = ElemSize;
 
 
-            Parallel.For(0, Height, y => {
-                Parallel.For(0, Width, x => {
+            Parallel.For(0, Height, y =>
+            {
+                Parallel.For(0, Width, x =>
+                {
                     //ピクセルデータでのピクセル(x,y)の開始位置を計算する
                     int pos = y * step + x * elemsize;
 
@@ -418,7 +464,8 @@ namespace BEditor.Core.Media {
         /// <returns></returns>
         /// <exception cref="ObjectDisposedException"/>
         /// <exception cref="NativeException"/>
-        public Image Clone() {
+        public Image Clone()
+        {
             ThrowIfDisposed();
             var result = ImageProcess.Clone(ptr, out var ret);
 
@@ -434,7 +481,8 @@ namespace BEditor.Core.Media {
         /// <returns></returns>
         /// <exception cref="ObjectDisposedException"/>
         /// <exception cref="NativeException"/>
-        public Image Clone(Rectangle rect) {
+        public Image Clone(Rectangle rect)
+        {
             using var part = new Image(this, rect);
             return part.Clone();
         }
@@ -447,7 +495,8 @@ namespace BEditor.Core.Media {
         /// <exception cref="ObjectDisposedException"/>
         /// <exception cref="NativeException"/>
         /// <exception cref="ArgumentNullException"/>
-        public bool Save(string file) {
+        public bool Save(string file)
+        {
             if (string.IsNullOrEmpty(file))
                 throw new ArgumentNullException(nameof(file));
             ThrowIfDisposed();
@@ -470,7 +519,8 @@ namespace BEditor.Core.Media {
         /// <exception cref="ObjectDisposedException"/>
         /// <exception cref="NativeException"/>
         /// <exception cref="ArgumentException"/>
-        public Image SubMatrix(int rowStart, int rowEnd, int colStart, int colEnd) {
+        public Image SubMatrix(int rowStart, int rowEnd, int colStart, int colEnd)
+        {
             if (colStart >= colEnd)
                 throw new ArgumentException("heightStart >= heightEnd");
             if (rowStart >= rowEnd)
@@ -493,7 +543,8 @@ namespace BEditor.Core.Media {
         /// <exception cref="ObjectDisposedException"/>
         /// <exception cref="NativeException"/>
         /// <exception cref="ArgumentException"/>
-        public Image SubMatrix(Range rowRange, Range colRange) {
+        public Image SubMatrix(Range rowRange, Range colRange)
+        {
             return SubMatrix(rowRange.Start, rowRange.End, colRange.Start, colRange.End);
         }
         /// <summary>
@@ -504,7 +555,8 @@ namespace BEditor.Core.Media {
         /// <exception cref="ObjectDisposedException"/>
         /// <exception cref="NativeException"/>
         /// <exception cref="ArgumentException"/>
-        public Image SubMatrix(Rectangle roi) {
+        public Image SubMatrix(Rectangle roi)
+        {
             return SubMatrix(roi.Y, roi.Y + roi.Height, roi.X, roi.X + roi.Width);
         }
         /// <summary>
@@ -514,7 +566,8 @@ namespace BEditor.Core.Media {
         /// <exception cref="ArgumentNullException"/>
         /// <exception cref="ObjectDisposedException"/>
         /// <exception cref="NativeException"/>
-        public void CopyTo(Image image) {
+        public void CopyTo(Image image)
+        {
             ThrowIfDisposed();
             if (image == null)
                 throw new ArgumentNullException(nameof(image));
@@ -538,9 +591,11 @@ namespace BEditor.Core.Media {
         /// <exception cref="ArgumentNullException"/>
         /// <exception cref="ObjectDisposedException"/>
         /// <exception cref="NativeException"/>
-        public Image this[Rectangle roi] {
+        public Image this[Rectangle roi]
+        {
             get => SubMatrix(roi);
-            set {
+            set
+            {
                 if (value == null)
                     throw new ArgumentNullException(nameof(value));
                 value.ThrowIfDisposed();
@@ -567,15 +622,18 @@ namespace BEditor.Core.Media {
         /// <param name="color"></param>
         /// <returns></returns>
         /// <exception cref="NativeException"/>
-        public static Image Ellipse(int width, int height, int line, Color color) {
-            if (EllipseFunc == null) {
+        public static Image Ellipse(int width, int height, int line, Color color)
+        {
+            if (EllipseFunc == null)
+            {
                 var result = ImageProcess.Ellipse(width, height, line, color.R, color.G, color.B, out var ptr);
 
                 if (result != null) throw new NativeException(result);
 
                 return new Image(ptr);
             }
-            else {
+            else
+            {
                 return EllipseFunc(width, height, line, color);
             }
         }
@@ -588,7 +646,8 @@ namespace BEditor.Core.Media {
         /// <param name="line"></param>
         /// <param name="color"></param>
         /// <returns></returns>
-        public static Image Rectangle(int width, int height, int line, Color color) {
+        public static Image Rectangle(int width, int height, int line, Color color)
+        {
             return RectangleFunc?.Invoke(width, height, line, color);
         }
 
@@ -603,7 +662,8 @@ namespace BEditor.Core.Media {
         /// <param name="rightToLeft"></param>
         /// <returns></returns>
         /// <exception cref="NotImplementedException"/>
-        public static Image Text(int size, Color color, string text, FontRecord font, string style, bool rightToLeft) {
+        public static Image Text(int size, Color color, string text, FontRecord font, string style, bool rightToLeft)
+        {
             if (string.IsNullOrEmpty(text)) return null;
             if (font is null) return null;
 
@@ -630,7 +690,7 @@ namespace BEditor.Core.Media {
 
         #endregion
 
-        
+
         #region Flip
 
         /// <summary>
@@ -639,7 +699,8 @@ namespace BEditor.Core.Media {
         /// <param name="mode"></param>
         /// <exception cref="ObjectDisposedException"/>
         /// <exception cref="NativeException"/>
-        public void Flip(FlipMode mode) {
+        public void Flip(FlipMode mode)
+        {
             ThrowIfDisposed();
 
             var result = ImageProcess.Flip(ptr, (int)mode);
@@ -660,7 +721,8 @@ namespace BEditor.Core.Media {
         /// <param name="right"></param>
         /// <exception cref="ObjectDisposedException"/>
         /// <exception cref="NativeException"/>
-        public void AreaExpansion(int top, int bottom, int left, int right) {
+        public void AreaExpansion(int top, int bottom, int left, int right)
+        {
             ThrowIfDisposed();
             var result = ImageProcess.AreaExpansion(ptr, top, bottom, left, right);
 
@@ -674,7 +736,8 @@ namespace BEditor.Core.Media {
         /// <param name="height"></param>
         /// <exception cref="ObjectDisposedException"/>
         /// <exception cref="NativeException"/>
-        public void AreaExpansion(int width, int height) {
+        public void AreaExpansion(int width, int height)
+        {
             ThrowIfDisposed();
 
             int v = (height - Height) / 2;
@@ -695,7 +758,8 @@ namespace BEditor.Core.Media {
         /// <exception cref="ArgumentException"/>
         /// <exception cref="ObjectDisposedException"/>
         /// <exception cref="NativeException"/>
-        public void Blur(int blurSize, bool alphaBlur) {
+        public void Blur(int blurSize, bool alphaBlur)
+        {
             ThrowIfDisposed();
 
             if (blurSize < 0) throw new ArgumentException("blursize < 0");
@@ -714,7 +778,8 @@ namespace BEditor.Core.Media {
         /// <exception cref="ArgumentException"/>
         /// <exception cref="ObjectDisposedException"/>
         /// <exception cref="NativeException"/>
-        public void GaussianBlur(int blurSize, bool alphaBlur) {
+        public void GaussianBlur(int blurSize, bool alphaBlur)
+        {
             ThrowIfDisposed();
 
             if (blurSize < 0) throw new ArgumentException("blurSize < 0");
@@ -733,7 +798,8 @@ namespace BEditor.Core.Media {
         /// <exception cref="ArgumentException"/>
         /// <exception cref="ObjectDisposedException"/>
         /// <exception cref="NativeException"/>
-        public void MedianBlur(int blurSize, bool alphaBlur) {
+        public void MedianBlur(int blurSize, bool alphaBlur)
+        {
             ThrowIfDisposed();
 
             if (blurSize < 0) throw new ArgumentException("blurSize < 0", nameof(blurSize));
@@ -755,7 +821,8 @@ namespace BEditor.Core.Media {
         /// <param name="color"></param>
         /// <exception cref="ArgumentException"/>
         /// <exception cref="ObjectDisposedException"/>
-        public void Border(int size, Color color) {
+        public void Border(int size, Color color)
+        {
             if (size <= 0) throw new ArgumentException("size <= 0");
             ThrowIfDisposed();
 
@@ -818,7 +885,8 @@ namespace BEditor.Core.Media {
         /// 
         /// </summary>
         /// <param name="color"></param>
-        public unsafe void SetColor(Color color) {
+        public unsafe void SetColor(Color color)
+        {
             ThrowIfDisposed();
 
             int bitcount = Width * Height * Channels * Type.Bits / 8;
@@ -827,8 +895,10 @@ namespace BEditor.Core.Media {
             var step = (int)Step;
             var elemsize = ElemSize;
 
-            Parallel.For(0, Height, y => {
-                Parallel.For(0, Width, x => {
+            Parallel.For(0, Height, y =>
+            {
+                Parallel.For(0, Width, x =>
+                {
                     //ピクセルデータでのピクセル(x,y)の開始位置を計算する
                     //int pos = y * Stride + x * 4;
                     int pos = y * step + x * elemsize;
@@ -855,7 +925,8 @@ namespace BEditor.Core.Media {
         /// <param name="color"></param>
         /// <exception cref="ArgumentException"/>
         /// <exception cref="ObjectDisposedException"/>
-        public void Shadow(float x, float y, int blur, float alpha, Color color) {
+        public void Shadow(float x, float y, int blur, float alpha, Color color)
+        {
             if (blur < 0) throw new ArgumentException("blur < 0");
             ThrowIfDisposed();
 
@@ -907,9 +978,11 @@ namespace BEditor.Core.Media {
         /// <exception cref="ArgumentException"/>
         /// <exception cref="ObjectDisposedException"/>
         /// <exception cref="NativeException"/>
-        public void Dilate(int f) {
+        public void Dilate(int f)
+        {
             if (f < 0) throw new ArgumentException("f < 0");
-            if (f == 0) {
+            if (f == 0)
+            {
                 ImageProcess.Release(ptr);
 
                 Ptr = new Image().Ptr;
@@ -933,9 +1006,11 @@ namespace BEditor.Core.Media {
         /// <exception cref="ArgumentException"/>
         /// <exception cref="ObjectDisposedException"/>
         /// <exception cref="NativeException"/>
-        public void Erode(int f) {
+        public void Erode(int f)
+        {
             if (f < 0) throw new ArgumentException("f < 0");
-            if (f == 0) {
+            if (f == 0)
+            {
                 ImageProcess.Release(ptr);
 
                 Ptr = new Image().Ptr;
@@ -961,10 +1036,12 @@ namespace BEditor.Core.Media {
         /// <param name="right"></param>
         /// <exception cref="ArgumentException"/>
         /// <exception cref="ObjectDisposedException"/>
-        public void Clip(int top, int bottom, int left, int right) {
+        public void Clip(int top, int bottom, int left, int right)
+        {
             if (top < 0 || bottom < 0 || left < 0 || right < 0) throw new ArgumentException();
             ThrowIfDisposed();
-            if (Width <= left + right || Height <= top + bottom) {
+            if (Width <= left + right || Height <= top + bottom)
+            {
                 ImageProcess.Release(this.ptr);
                 var ptr = new Image(1, 1, ImageType.ByteCh4).Ptr;
                 Ptr = ptr;
@@ -978,8 +1055,10 @@ namespace BEditor.Core.Media {
 
         #region Draw
 
-        public void DrawImage(Point2 point, Image image) {
-            if (image is null) {
+        public void DrawImage(Point2 point, Image image)
+        {
+            if (image is null)
+            {
                 throw new ArgumentNullException(nameof(image));
             }
             ThrowIfDisposed();
@@ -996,16 +1075,20 @@ namespace BEditor.Core.Media {
         #endregion
 
         /// <inheritdoc/>
-        public override string ToString() {
+        public override string ToString()
+        {
             if (Ptr == IntPtr.Zero) return base.ToString();
             return $"(Width:{Width} Height:{Height} Type:{Type} Data:{Data})";
         }
 
-        protected override void OnDispose(bool disposing) {
-            if (ptr != IntPtr.Zero) {
+        protected override void OnDispose(bool disposing)
+        {
+            if (ptr != IntPtr.Zero)
+            {
                 ImageProcess.Release(ptr);
             }
-            else {
+            else
+            {
                 Message.Snackbar("Image が二重廃棄されました");
             }
 
@@ -1013,7 +1096,8 @@ namespace BEditor.Core.Media {
         }
     }
 
-    public enum FlipMode {
+    public enum FlipMode
+    {
         XY = -1,
         X = 0,
         Y = 1

@@ -3,8 +3,10 @@ using BEditor.Core.Data.ProjectData;
 using Microsoft.WindowsAPICodePack.Dialogs;
 using BEditor.Core.Data;
 
-namespace BEditor.ViewModels {
-    public class CreateProjectWindowViewModel : BasePropertyChanged {
+namespace BEditor.ViewModels
+{
+    public class CreateProjectWindowViewModel : BasePropertyChanged
+    {
         private int width = 1920;
         private int height = 1080;
         private int franerate = 30;
@@ -12,7 +14,8 @@ namespace BEditor.ViewModels {
         private string name = Settings.Default.LastTimeNum.ToString();
         private string path = Settings.Default.LastTimeFolder;
 
-        public CreateProjectWindowViewModel() {
+        public CreateProjectWindowViewModel()
+        {
             OpenFolerDialog.Subscribe(OpenFolder);
             CreateCommand.Subscribe(Create);
         }
@@ -27,14 +30,17 @@ namespace BEditor.ViewModels {
         public DelegateCommand OpenFolerDialog { get; } = new();
         public DelegateCommand CreateCommand { get; } = new();
 
-        private void OpenFolder() {
+        private void OpenFolder()
+        {
             // ダイアログのインスタンスを生成
-            var dialog = new CommonOpenFileDialog {
+            var dialog = new CommonOpenFileDialog
+            {
                 IsFolderPicker = true
             };
 
             // ダイアログを表示する
-            if (dialog.ShowDialog() == CommonFileDialogResult.Ok) {
+            if (dialog.ShowDialog() == CommonFileDialogResult.Ok)
+            {
                 Path = dialog.FileName;
 
                 Settings.Default.LastTimeFolder = dialog.FileName;
@@ -43,7 +49,8 @@ namespace BEditor.ViewModels {
             }
         }
 
-        private void Create() {
+        private void Create()
+        {
             Project.Create(Width, Height, Framerate, Path + "\\" + Name + ".bedit");
 
             Settings.Default.LastTimeNum++;

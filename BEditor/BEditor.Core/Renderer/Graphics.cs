@@ -15,13 +15,15 @@ using Color = BEditor.Core.Media.Color;
 using Image = BEditor.Core.Media.Image;
 using Size = BEditor.Core.Media.Size;
 
-namespace BEditor.Core.Renderer {
-    public static class Graphics {
-
+namespace BEditor.Core.Renderer
+{
+    public static class Graphics
+    {
         #region GetPixels
 
-        public static void GetPixels(Image image) {
-            if (image == null) throw new ArgumentNullException("image");
+        public unsafe static void GetPixels(Image image)
+        {
+            if (image == null) throw new ArgumentNullException(nameof(image));
             image.ThrowIfDisposed();
 
             GL.ReadBuffer(ReadBufferMode.Front);
@@ -31,7 +33,8 @@ namespace BEditor.Core.Renderer {
             image.Flip(FlipMode.X);
         }
 
-        public static void GetPixels(int width, int height, ImageType type, IntPtr ptr) {
+        public static void GetPixels(int width, int height, ImageType type, IntPtr ptr)
+        {
             if (ptr == IntPtr.Zero) throw new Exception();
 
             GL.ReadBuffer(ReadBufferMode.Front);
@@ -42,8 +45,10 @@ namespace BEditor.Core.Renderer {
 
         #region BindTexture
 
-        public static void BindTexture(Image img, out int id) {
-            if (img is null) {
+        public static void BindTexture(Image img, out int id)
+        {
+            if (img is null)
+            {
                 throw new ArgumentNullException(nameof(img));
             }
             img.ThrowIfDisposed();
@@ -71,11 +76,13 @@ namespace BEditor.Core.Renderer {
 
         #region Paint
 
-        public static void Paint(Point3 coordinate, double nx, double ny, double nz, Point3 center, Action draw, Action blentfunc = null) {
+        public static void Paint(Point3 coordinate, double nx, double ny, double nz, Point3 center, Action draw, Action blentfunc = null)
+        {
             GL.Enable(EnableCap.Blend);
 
             blentfunc?.Invoke();
-            if (blentfunc == null) {
+            if (blentfunc == null)
+            {
                 GL.BlendEquationSeparate(BlendEquationMode.FuncAdd, BlendEquationMode.FuncAdd);
                 GL.BlendFunc(BlendingFactor.SrcAlpha, BlendingFactor.OneMinusSrcAlpha);
             }
@@ -113,8 +120,10 @@ namespace BEditor.Core.Renderer {
             Color? ambient = null,
             Color? diffuse = null,
             Color? specular = null,
-            float shininess = 10) {
-            if (img is null) {
+            float shininess = 10)
+        {
+            if (img is null)
+            {
                 throw new ArgumentNullException(nameof(img));
             }
             img.ThrowIfDisposed();
@@ -161,8 +170,10 @@ namespace BEditor.Core.Renderer {
 
         #region LookAt
 
-        public static void LookAt(float width, float height, float x, float y, float z, float tx, float ty, float tz, float near, float far, float fov, bool perspective) {
-            if (perspective) {
+        public static void LookAt(float width, float height, float x, float y, float z, float tx, float ty, float tz, float near, float far, float fov, bool perspective)
+        {
+            if (perspective)
+            {
                 // 視体積の設定
                 GL.MatrixMode(MatrixMode.Projection);
                 Matrix4.CreatePerspectiveFieldOfView(MathHelper.DegreesToRadians(fov), (width / height), near, far, out var proj);//描画範囲
@@ -178,7 +189,8 @@ namespace BEditor.Core.Renderer {
                 GL.Enable(EnableCap.DepthTest);
                 GL.Disable(EnableCap.Lighting);
             }
-            else {
+            else
+            {
                 GL.MatrixMode(MatrixMode.Projection);
                 // 視体積の設定
                 Matrix4 proj = Matrix4.CreateOrthographic(width, height, near, far);
@@ -196,8 +208,10 @@ namespace BEditor.Core.Renderer {
             }
         }
 
-        public static void LookAt(Size size, Point3 point, Point3 target, float near, float far, float fov, bool perspective) {
-            if (perspective) {
+        public static void LookAt(Size size, Point3 point, Point3 target, float near, float far, float fov, bool perspective)
+        {
+            if (perspective)
+            {
                 // 視体積の設定
                 GL.MatrixMode(MatrixMode.Projection);
                 Matrix4 proj = Matrix4.CreatePerspectiveFieldOfView(MathHelper.DegreesToRadians(fov), size.Aspect, near, far);//描画範囲
@@ -214,7 +228,8 @@ namespace BEditor.Core.Renderer {
                 GL.Enable(EnableCap.DepthTest);
                 GL.Disable(EnableCap.Lighting);
             }
-            else {
+            else
+            {
                 GL.MatrixMode(MatrixMode.Projection);
                 // 視体積の設定
                 Matrix4 proj = Matrix4.CreateOrthographic(size.Width, size.Height, near, far);
@@ -236,7 +251,8 @@ namespace BEditor.Core.Renderer {
 
         #region DrawCube
 
-        public static void DrawCube(float width, float height, float weight, Media.Color ambient, Media.Color diffuse, Media.Color specular, float shininess) {
+        public static void DrawCube(float width, float height, float weight, Media.Color ambient, Media.Color diffuse, Media.Color specular, float shininess)
+        {
 
             GL.Material(MaterialFace.Front, MaterialParameter.Ambient, (GLColor)ambient);
             GL.Material(MaterialFace.Front, MaterialParameter.Diffuse, (GLColor)diffuse);
@@ -320,7 +336,8 @@ namespace BEditor.Core.Renderer {
 
         #region DrawBall
 
-        public static void DrawBall(float radius, Media.Color ambient, Media.Color diffuse, Media.Color specular, float shininess, int count = 8) {
+        public static void DrawBall(float radius, Media.Color ambient, Media.Color diffuse, Media.Color specular, float shininess, int count = 8)
+        {
             GL.Material(MaterialFace.Front, MaterialParameter.Ambient, (GLColor)ambient);
             GL.Material(MaterialFace.Front, MaterialParameter.Diffuse, (GLColor)diffuse);
             GL.Material(MaterialFace.Front, MaterialParameter.Specular, (GLColor)specular);
@@ -331,8 +348,10 @@ namespace BEditor.Core.Renderer {
 
             GL.Begin(PrimitiveType.TriangleStrip);
             {
-                for (int k = -count + 1; k <= count; k++) {
-                    for (int i = 0; i <= count * 4; i++) {
+                for (int k = -count + 1; k <= count; k++)
+                {
+                    for (int i = 0; i <= count * 4; i++)
+                    {
                         Vector3 vec1 = new Vector3(radius * MathF.Cos(b * k) * MathF.Cos(a * i), radius * MathF.Cos(b * k) * MathF.Sin(a * i), radius * MathF.Sin(b * k));
                         GL.Normal3(vec1);
                         GL.Vertex3(vec1);

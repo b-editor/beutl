@@ -3,9 +3,11 @@ using System.Runtime.Serialization;
 
 using BEditor.Core.Data.PropertyData;
 
-namespace BEditor.Core.Data.PropertyData.Default {
+namespace BEditor.Core.Data.PropertyData.Default
+{
     [DataContract(Namespace = "")]
-    public sealed class Coordinate : ExpandGroup {
+    public sealed class Coordinate : ExpandGroup
+    {
         public static readonly EasePropertyMetadata XMetadata = new EasePropertyMetadata(Properties.Resources.X, 0);
         public static readonly EasePropertyMetadata YMetadata = new EasePropertyMetadata(Properties.Resources.Y, 0);
         public static readonly EasePropertyMetadata ZMetadata = new EasePropertyMetadata(Properties.Resources.Z, 0);
@@ -13,7 +15,8 @@ namespace BEditor.Core.Data.PropertyData.Default {
         public static readonly EasePropertyMetadata CenterYMetadata = new EasePropertyMetadata(Properties.Resources.CenterY, 0, float.NaN, float.NaN, true);
         public static readonly EasePropertyMetadata CenterZMetadata = new EasePropertyMetadata(Properties.Resources.CenterZ, 0, float.NaN, float.NaN, true);
 
-        public Coordinate(PropertyElementMetadata constant) : base(constant) {
+        public Coordinate(PropertyElementMetadata constant) : base(constant)
+        {
             X = new EaseProperty(XMetadata);
             Y = new EaseProperty(YMetadata);
             Z = new EaseProperty(ZMetadata);
@@ -60,7 +63,8 @@ namespace BEditor.Core.Data.PropertyData.Default {
         [PropertyMetadata("CenterZMetadata", typeof(Coordinate))]
         public EaseProperty CenterZ { get; set; }
 
-        public void ResetOptional() {
+        public void ResetOptional()
+        {
             CenterX.Optional = 0;
             CenterY.Optional = 0;
             CenterZ.Optional = 0;

@@ -4,8 +4,10 @@ using System.Diagnostics.Contracts;
 using System.Runtime.InteropServices;
 using System.Text;
 
-namespace BEditor.Core.Native {
-    public unsafe static class ImageProcess {
+namespace BEditor.Core.Native
+{
+    public unsafe static class ImageProcess
+    {
         private const string dll = "BEditor.Extern";
 
         [Pure, DllImport(dll, EntryPoint = "ImageCreate1")]

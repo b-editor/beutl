@@ -1,10 +1,12 @@
 ﻿using System.Windows.Controls;
 
-namespace BEditor.Views.SettingsControl.Plugins {
+namespace BEditor.Views.SettingsControl.Plugins
+{
     /// <summary>
     /// InstalledPlugins.xaml の相互作用ロジック
     /// </summary>
-    public partial class InstalledPlugins : UserControl {
+    public partial class InstalledPlugins : UserControl
+    {
         public InstalledPlugins() => InitializeComponent();
     }
 }

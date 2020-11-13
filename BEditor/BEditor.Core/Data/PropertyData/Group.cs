@@ -8,21 +8,25 @@ using BEditor.Core.Data.EffectData;
 using BEditor.Core.Data.ObjectData;
 using BEditor.Core.Data.PropertyData.EasingSetting;
 
-namespace BEditor.Core.Data.PropertyData {
+namespace BEditor.Core.Data.PropertyData
+{
     /// <summary>
     /// <see cref="PropertyElement"/> をまとめるクラス
     /// </summary>
     [DataContract(Namespace = "")]
-    public abstract class Group : PropertyElement, IKeyFrameProperty, IEasingSetting {
+    public abstract class Group : PropertyElement, IKeyFrameProperty, IEasingSetting
+    {
         /// <summary>
         /// グループにする <see cref="PropertyElement"/> を取得します
         /// </summary>
         public abstract IList<PropertyElement> GroupItems { get; }
 
         /// <inheritdoc/>
-        public override EffectElement Parent {
+        public override EffectElement Parent
+        {
             get => base.Parent;
-            set {
+            set
+            {
                 base.Parent = value;
                 var items = GroupItems;
 
@@ -31,7 +35,8 @@ namespace BEditor.Core.Data.PropertyData {
         }
 
         /// <inheritdoc/>
-        public override void PropertyLoaded() {
+        public override void PropertyLoaded()
+        {
             base.PropertyLoaded();
             var g = GroupItems;
 
@@ -42,10 +47,12 @@ namespace BEditor.Core.Data.PropertyData {
             var type = GetType();
             var properties = type.GetProperties();
 
-            Parallel.ForEach(properties, property => {
+            Parallel.ForEach(properties, property =>
+            {
                 //metadata属性の場合&プロパティがPropertyElement
                 if (Attribute.GetCustomAttribute(property, attributetype) is PropertyMetadataAttribute metadata &&
-                                    property.GetValue(this) is PropertyElement propertyElement) {
+                                    property.GetValue(this) is PropertyElement propertyElement)
+                {
 
                     propertyElement.PropertyMetadata = metadata.PropertyMetadata;
                 }

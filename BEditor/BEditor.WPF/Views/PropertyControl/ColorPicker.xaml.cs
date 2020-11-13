@@ -12,14 +12,18 @@ using BEditor.Views.CustomControl;
 using BEditor.Core.Data.PropertyData;
 using MaterialDesignThemes.Wpf;
 
-namespace BEditor.Views.PropertyControls {
+namespace BEditor.Views.PropertyControls
+{
     /// <summary>
     /// ColorPicker.xaml の相互作用ロジック
     /// </summary>
-    public partial class ColorPicker : UserControl, ICustomTreeViewItem {
+    public partial class ColorPicker : UserControl, ICustomTreeViewItem
+    {
         public double LogicHeight => 42.5;
-        private ColorDialog dialog {
-            get {
+        private ColorDialog dialog
+        {
+            get
+            {
                 var color = DataContext as ColorPickerViewModel;
                 var d = new ColorDialog(color);
 
@@ -32,12 +36,14 @@ namespace BEditor.Views.PropertyControls {
             }
         }
 
-        public ColorPicker(ColorProperty color) {
+        public ColorPicker(ColorProperty color)
+        {
             InitializeComponent();
             DataContext = new ColorPickerViewModel(color);
         }
 
-        private void Palette_Click(object sender, RoutedEventArgs e) {
+        private void Palette_Click(object sender, RoutedEventArgs e)
+        {
             dialog.ShowDialog();
         }
     }

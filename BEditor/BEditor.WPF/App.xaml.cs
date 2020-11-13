@@ -32,18 +32,22 @@ using Resources_ = BEditor.Core.Properties.Resources;
 using BEditor.Core.Media;
 using System.Timers;
 
-namespace BEditor {
+namespace BEditor
+{
     /// <summary>
     /// App.xaml の相互作用ロジック
     /// </summary>
-    public partial class App : Application {
-        private void Application_Startup(object sender, StartupEventArgs e) {
+    public partial class App : Application
+    {
+        private void Application_Startup(object sender, StartupEventArgs e)
+        {
             Component.Current.Arguments = e.Args;
             Font.Initialize();
-            
+
             #region ダークモード設定
 
-            if (Settings.Default.UseDarkMode) {
+            if (Settings.Default.UseDarkMode)
+            {
                 PaletteHelper paletteHelper = new PaletteHelper();
                 ITheme theme = paletteHelper.GetTheme();
 
@@ -54,15 +58,18 @@ namespace BEditor {
 
             #endregion
 
-            static string GetFontName(string file) {
+            static string GetFontName(string file)
+            {
                 string name;
-                using (var font = new Font(file, 10)) {
+                using (var font = new Font(file, 10))
+                {
                     name = $"{font.FaceFamilyName} {font.FaceStyleName}";
                 }
                 return name;
             }
 
-            static void SetFont() {
+            static void SetFont()
+            {
                 //var ifc = new System.Drawing.Text.InstalledFontCollection();
                 ////インストールされているすべてのフォントファミリアを取得
                 //var ffs = ifc.Families;
@@ -72,24 +79,30 @@ namespace BEditor {
                 //}
 
                 var files = Directory.GetFiles("C:\\Windows\\Fonts");
-                foreach (var file in files) {
-                    if (Path.GetExtension(file) is ".ttf" or ".otf" or ".ttc" or ".otc") {
+                foreach (var file in files)
+                {
+                    if (Path.GetExtension(file) is ".ttf" or ".otf" or ".ttc" or ".otc")
+                    {
                         FontProperty.FontList.Add(new FontRecord() { Path = file, Name = GetFontName(file) });
                     }
                 }
 
                 files = Directory.GetFiles(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData) + "\\Microsoft\\Windows\\Fonts");
-                foreach (var file in files) {
-                    if (Path.GetExtension(file) is ".ttf" or ".otf" or ".ttc" or ".otc") {
+                foreach (var file in files)
+                {
+                    if (Path.GetExtension(file) is ".ttf" or ".otf" or ".ttc" or ".otc")
+                    {
                         FontProperty.FontList.Add(new FontRecord() { Path = file, Name = GetFontName(file) });
                     }
                 }
             }
 
-            static void SetColor() {
+            static void SetColor()
+            {
                 var files = Directory.GetFiles(Component.Current.Path + "\\user\\colors", "*.xml", SearchOption.AllDirectories);
 
-                foreach (var file in files) {
+                foreach (var file in files)
+                {
 
                     // ファイルの読み込み
                     XDocument xml = XDocument.Load(file);
@@ -100,7 +113,8 @@ namespace BEditor {
 
                     ObservableCollection<ColorListProperty> colors = new();
 
-                    foreach (XElement col in cols) {
+                    foreach (XElement col in cols)
+                    {
                         string name = col.Attribute("Name")?.Value ?? "?";
                         byte red = byte.Parse(col.Attribute("Red")?.Value ?? "0");
                         byte green = byte.Parse(col.Attribute("Green")?.Value ?? "0");
@@ -115,7 +129,7 @@ namespace BEditor {
 
             SetFont();
             SetColor();
-            
+
             //Componentにset
 
             Component.Funcs.SaveFileDialog = () => new SaveDialog();
@@ -123,7 +137,8 @@ namespace BEditor {
             Image.EllipseFunc = ObjectLoad.Ellipse;
             Image.RectangleFunc = ObjectLoad.Rectangle;
 
-            Message.DialogFunc += (text, iconKind, types) => {
+            Message.DialogFunc += (text, iconKind, types) =>
+            {
                 var control = new MessageUI(types, text, iconKind);
                 var dialog = new NoneDialog(control);
 
@@ -134,22 +149,26 @@ namespace BEditor {
             Message.SnackberFunc += (text) => MainWindowViewModel.Current.MessageQueue.Enqueue(text);
 
 #if DEBUG
-            Timer timer = new Timer() {
+            Timer timer = new Timer()
+            {
                 Interval = 2500,
                 Enabled = true
             };
             timer.Elapsed += Timer_Elapsed;
         }
 
-        private void Timer_Elapsed(object sender, ElapsedEventArgs e) {
+        private void Timer_Elapsed(object sender, ElapsedEventArgs e)
+        {
             System.Threading.Tasks.Task.Run(GC.Collect);
         }
 #else
 }
 #endif
 
-        public static (CustomTreeView, VirtualizingStackPanel) CreateTreeObject(ObjectElement obj) {
-            CustomTreeView _expander = new CustomTreeView() {
+        public static (CustomTreeView, VirtualizingStackPanel) CreateTreeObject(ObjectElement obj)
+        {
+            CustomTreeView _expander = new CustomTreeView()
+            {
                 HeaderHeight = 35F
             };
 
@@ -188,7 +207,8 @@ namespace BEditor {
             #endregion
 
             #region イベント
-            checkBox.Click += (sender, e) => {
+            checkBox.Click += (sender, e) =>
+            {
                 UndoRedoManager.Do(new EffectElement.CheckCommand(obj, (bool)((System.Windows.Controls.CheckBox)sender).IsChecked));
             };
 
@@ -213,8 +233,9 @@ namespace BEditor {
 
             return (_expander, stack);
         }
-        public static (CustomTreeView, VirtualizingStackPanel) CreateTreeEffect(EffectElement effect) {
-            var data = effect.ClipData;
+        public static (CustomTreeView, VirtualizingStackPanel) CreateTreeEffect(EffectElement effect)
+        {
+            var data = effect.Parent;
 
             CustomTreeView _expander = new CustomTreeView() { HeaderHeight = 35F };
 
@@ -292,24 +313,29 @@ namespace BEditor {
         }
 
 
-        public class SaveDialog : ISaveFileDialog {
+        public class SaveDialog : ISaveFileDialog
+        {
             public List<(string name, string extension)> Filters { get; } = new List<(string name, string extension)>();
 
             public string DefaultFileName { get; set; }
             public string FileName { get; set; }
 
-            public bool ShowDialog() {
+            public bool ShowDialog()
+            {
                 fileDialog.DefaultFileName = DefaultFileName;
-                foreach (var item in Filters) {
+                foreach (var item in Filters)
+                {
                     fileDialog.Filters.Add(new CommonFileDialogFilter(item.name, item.extension));
                 }
 
                 var result = fileDialog.ShowDialog();
 
-                if (result == CommonFileDialogResult.Ok) {
+                if (result == CommonFileDialogResult.Ok)
+                {
                     return true;
                 }
-                else {
+                else
+                {
                     return false;
                 }
             }
@@ -318,12 +344,14 @@ namespace BEditor {
             private readonly CommonSaveFileDialog fileDialog = new CommonSaveFileDialog();
         }
 
-        private void Application_Exit(object sender, ExitEventArgs e) {
+        private void Application_Exit(object sender, ExitEventArgs e)
+        {
             Font.Quit();
             Settings.Default.Save();
         }
 
-        private void Application_DispatcherUnhandledException(object sender, DispatcherUnhandledExceptionEventArgs e) {
+        private void Application_DispatcherUnhandledException(object sender, DispatcherUnhandledExceptionEventArgs e)
+        {
             var text = $"[{Resources_.ExceptionMesssage}]\n" +
                 $"{e.Exception.Message}\n" +
                 $"\n" +
@@ -332,7 +360,8 @@ namespace BEditor {
 
             var path = $"{Component.Current.Path}\\user\\backup\\{DateTime.Now:yyyy_MM_dd__HH_mm_ss}.bedit";
 
-            TaskDialog dialog = new TaskDialog() {
+            TaskDialog dialog = new TaskDialog()
+            {
                 Caption = Resources_.ErrorHasOccurred,
                 Text = Resources_.ErrorMessage + "\n" + string.Format(Resources_.ExceptionOpenFileSaved, path),
                 InstructionText = Resources_.ErrorHasOccurred,
@@ -342,18 +371,22 @@ namespace BEditor {
                 Icon = TaskDialogStandardIcon.Error
             };
 
-            var contractButton = new TaskDialogButton {
+            var contractButton = new TaskDialogButton
+            {
                 Text = Resources_.AppClose
             };
-            contractButton.Click += (sender, e) => {
+            contractButton.Click += (sender, e) =>
+            {
                 dialog.Close();
             };
             dialog.Controls.Add(contractButton);
 
-            var continueButton = new TaskDialogButton {
+            var continueButton = new TaskDialogButton
+            {
                 Text = Resources_.Continue
             };
-            continueButton.Click += (sender, e) => {
+            continueButton.Click += (sender, e) =>
+            {
                 dialog.Close();
             };
             dialog.Controls.Add(continueButton);

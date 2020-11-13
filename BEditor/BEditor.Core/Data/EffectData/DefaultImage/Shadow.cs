@@ -6,16 +6,19 @@ using BEditor.Core.Data.ProjectData;
 using BEditor.Core.Data.PropertyData;
 using BEditor.Core.Media;
 
-namespace BEditor.Core.Data.EffectData {
+namespace BEditor.Core.Data.EffectData
+{
     [DataContract(Namespace = "")]
-    public class Shadow : ImageEffect {
+    public class Shadow : ImageEffect
+    {
         static readonly EasePropertyMetadata XMetadata = new EasePropertyMetadata(Properties.Resources.X, 10);
         static readonly EasePropertyMetadata YMetadata = new EasePropertyMetadata(Properties.Resources.Y, 10);
         static readonly EasePropertyMetadata BlurMetadata = new EasePropertyMetadata(Properties.Resources.Blur, 10, float.NaN, 0);
         static readonly EasePropertyMetadata AlphaMetadata = new EasePropertyMetadata(Properties.Resources.Alpha, 75, 100, 0);
         static readonly ColorPropertyMetadata ColorMetadata = new ColorPropertyMetadata(Properties.Resources.Color, 0, 0, 0);
 
-        public Shadow() {
+        public Shadow()
+        {
             X = new EaseProperty(XMetadata);
             Y = new EaseProperty(YMetadata);
             Blur = new EaseProperty(BlurMetadata);

@@ -5,20 +5,46 @@ using OpenTK.Graphics;
 using OpenCvSharp;
 using OpenTK;
 using OpenTK.Input;
+using OpenTK.Mathematics;
+using System.Runtime.InteropServices;
+using OpenTK.Windowing.GraphicsLibraryFramework;
+using System.Diagnostics;
+using System.Text;
+using OpenTK.Windowing.Desktop;
 
-namespace OpenTKTest {
-    class Program {
+namespace OpenTKTest
+{
+    unsafe class Program
+    {
         const int width = 500;
         const int height = 500;
 
         static int fbID, rbID, texID;
         const int FB_WIDTH = 500, FB_HEIGHT = 500;
+        private const string LibraryName = "glfw3.dll";
 
-        static void Main(string[] args) {
-            GameWindow window = new();
-            window.MakeCurrent();
+        [DllImport(LibraryName)]
+        public static extern int glfwInit();
 
-            #region
+        [DllImport(LibraryName)]
+        public static extern OpenTK.Windowing.GraphicsLibraryFramework.Window* glfwCreateWindow(int width, int height, byte* title, Monitor* monitor, OpenTK.Windowing.GraphicsLibraryFramework.Window* share);
+
+        [DllImport(LibraryName)]
+        public static extern void glfwWindowHint(WindowHintBool hint, int value);
+
+        [DllImport(LibraryName)]
+        public static extern void glfwMakeContextCurrent(OpenTK.Windowing.GraphicsLibraryFramework.Window* window);
+
+        static void Main(string[] args)
+        {
+            using (GameWindow aa = new GameWindow(GameWindowSettings.Default, NativeWindowSettings.Default)) ;
+
+            glfwInit();
+            glfwWindowHint(WindowHintBool.Visible, 0);
+
+            var window = glfwCreateWindow(width, height, UTF8Encode("aaa"), null, null);
+            glfwMakeContextCurrent(window);
+
 
             #region Renderbuffer
 
@@ -68,23 +94,39 @@ namespace OpenTKTest {
 
                 GL.Color4(new float[] { 1.0f, 0.0f, 0.0f, 1.0f });  //配列で指定
                 GL.Vertex3(-10f, -10f, 40f);
-                
+
                 GL.Color4(0.0f, 1.0f, 0.0f, 1.0f);                  //4つの引数にfloat型で指定
                 GL.Vertex3(10f, -10f, 40f);
-                
+
                 GL.Color4((byte)0, (byte)0, (byte)255, (byte)255);  //byte型で指定
                 GL.Vertex3(10f, 10f, 40f);
             }
             GL.End();
 
 
-            GL.ReadBuffer(ReadBufferMode.ColorAttachment0);
+            GL.ReadBuffer(ReadBufferMode.Front);
             Mat mat = new Mat(height, width, MatType.CV_8UC4);
             GL.ReadPixels(0, 0, width, height, PixelFormat.Bgra, PixelType.UnsignedByte, mat.Data);
 
             mat.SaveImage(@"E:\yuuto\OneDrive\画像\Test.png");
+        }
 
-            #endregion
+
+        internal static int UTF8Size(string str)
+        {
+            Debug.Assert(str != null);
+            return (str.Length * 4) + 1;
+        }
+        internal static unsafe byte* UTF8Encode(string str)
+        {
+            Debug.Assert(str != null);
+            int bufferSize = UTF8Size(str);
+            byte* buffer = (byte*)Marshal.AllocHGlobal(bufferSize);
+            fixed (char* strPtr = str)
+            {
+                Encoding.UTF8.GetBytes(strPtr, str.Length + 1, buffer, bufferSize);
+            }
+            return buffer;
         }
     }
 }

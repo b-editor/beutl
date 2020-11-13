@@ -1,8 +1,10 @@
 ﻿using System;
 
-namespace BEditor.Core.Extensions.ViewCommand {
+namespace BEditor.Core.Extensions.ViewCommand
+{
     [Flags]
-    public enum ButtonType {
+    public enum ButtonType
+    {
         Ok = 1,
         Yes = 2,
         No = 4,

@@ -3,7 +3,8 @@ using System.Diagnostics.Contracts;
 using System.Runtime.InteropServices;
 using System.Runtime.Serialization;
 
-namespace BEditor.Core.Media {
+namespace BEditor.Core.Media
+{
 #nullable enable
     /// <summary>
     /// 
@@ -11,7 +12,8 @@ namespace BEditor.Core.Media {
     [DataContract(Namespace = "")]
     [Serializable]
     [StructLayout(LayoutKind.Sequential)]
-    public struct Size : IEquatable<Size> {
+    public struct Size : IEquatable<Size>
+    {
         /// <summary>
         /// 
         /// </summary>
@@ -37,7 +39,8 @@ namespace BEditor.Core.Media {
         /// </summary>
         /// <param name="width"></param>
         /// <param name="height"></param>
-        public Size(int width, int height) {
+        public Size(int width, int height)
+        {
             if (width < 0) throw new Exception("Width < 0");
             if (height < 0) throw new Exception("Height < 0");
 

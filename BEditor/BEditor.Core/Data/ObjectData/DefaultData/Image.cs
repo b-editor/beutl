@@ -6,10 +6,13 @@ using System.Runtime.Serialization;
 using BEditor.Core.Data.ProjectData;
 using BEditor.Core.Data.PropertyData;
 
-namespace BEditor.Core.Data.ObjectData {
-    public static partial class DefaultData {
+namespace BEditor.Core.Data.ObjectData
+{
+    public static partial class DefaultData
+    {
         [DataContract(Namespace = "")]
-        public class Image : DefaultImageObject {
+        public class Image : DefaultImageObject
+        {
             public static readonly FilePropertyMetadata FileMetadata = new FilePropertyMetadata(Properties.Resources.File, "", "png,jpeg,jpg,bmp", Properties.Resources.ImageFile);
 
             private Media.Image source;
@@ -24,7 +27,8 @@ namespace BEditor.Core.Data.ObjectData {
                 File
             };
 
-            public override void PropertyLoaded() {
+            public override void PropertyLoaded()
+            {
                 base.PropertyLoaded();
 
                 File.PropertyChanged += PathChanged;
@@ -38,21 +42,27 @@ namespace BEditor.Core.Data.ObjectData {
             public FileProperty File { get; private set; }
 
             #region PathChanged
-            private void PathChanged(object sender, PropertyChangedEventArgs e) {
-                if (e.PropertyName != nameof(FileProperty.File)) {
+            private void PathChanged(object sender, PropertyChangedEventArgs e)
+            {
+                if (e.PropertyName != nameof(FileProperty.File))
+                {
                     return;
                 }
 
-                if (System.IO.File.Exists(File.File)) {
+                if (System.IO.File.Exists(File.File))
+                {
                     FileStream file = new FileStream(File.File, FileMode.Open);
                     source = new Media.Image(file, Media.ImageReadMode.UnChanged);
                 }
             }
             #endregion
 
-            public Media.Image Source {
-                get {
-                    if (source == null && System.IO.File.Exists(File.File)) {
+            public Media.Image Source
+            {
+                get
+                {
+                    if (source == null && System.IO.File.Exists(File.File))
+                    {
                         FileStream file = new FileStream(File.File, FileMode.Open);
                         source = new Media.Image(file, Media.ImageReadMode.UnChanged);
                     }

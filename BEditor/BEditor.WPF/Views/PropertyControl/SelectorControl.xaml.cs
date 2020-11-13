@@ -6,12 +6,15 @@ using BEditor.Views.CustomControl;
 
 using BEditor.Core.Data.PropertyData;
 
-namespace BEditor.Views.PropertyControls {
+namespace BEditor.Views.PropertyControls
+{
     /// <summary>
     /// SelectorControl.xaml の相互作用ロジック
     /// </summary>
-    public partial class SelectorControl : UserControl, ICustomTreeViewItem {
-        public SelectorControl(SelectorProperty selector) {
+    public partial class SelectorControl : UserControl, ICustomTreeViewItem
+    {
+        public SelectorControl(SelectorProperty selector)
+        {
             InitializeComponent();
             DataContext = new SelectorPropertyViewModel(selector);
 
@@ -19,7 +22,8 @@ namespace BEditor.Views.PropertyControls {
             combo.SetBinding(System.Windows.Controls.Primitives.Selector.SelectedIndexProperty, binding);
         }
 
-        public SelectorControl(FontProperty selector) {
+        public SelectorControl(FontProperty selector)
+        {
             InitializeComponent();
             DataContext = new FontPropertyViewModel(selector);
 

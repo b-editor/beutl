@@ -2,8 +2,10 @@
 using System;
 using System.Collections.Generic;
 
-namespace BEditor.Core.Plugin {
-    public interface IPlugin {
+namespace BEditor.Core.Plugin
+{
+    public interface IPlugin
+    {
         /// <summary>
         /// プラグインの名前
         /// </summary>
@@ -20,21 +22,24 @@ namespace BEditor.Core.Plugin {
         public void SettingCommand();
     }
 
-    public interface IEasingFunctions {
+    public interface IEasingFunctions
+    {
         /// <summary>
         /// B_Editor.Models.Datas.PropertyData.EasingSetting.EasingFuncを継承しているクラスのTypeと名前が入ったList
         /// </summary>
         public List<(string, Type)> EasingFunc { get; }
     }
 
-    public interface IEffects {
+    public interface IEffects
+    {
         /// <summary>
         /// B_Editor.Models.Datas.EffectData.EffectElementを継承しているクラスのTypeと名前が入ったList
         /// </summary>
         public List<(string, Type)> Effects { get; }
     }
 
-    public interface IObjects {
+    public interface IObjects
+    {
         /// <summary>
         /// B_Editor.Models.Datas.ObjectData.ObjectElement又はB_Editor.Models.Datas.ObjectData.DefaultData.DefaultImageObjectを継承しているクラスのTypeと名前が入ったList
         /// </summary>

@@ -16,8 +16,10 @@ using GLColor = OpenTK.Mathematics.Color4;
 
 using static BEditor.Core.Data.PropertyData.Default.Coordinate;
 
-namespace BEditor.Core.Data.EffectData.DefaultCommon {
-    public class DirectionalLightSource : EffectElement {
+namespace BEditor.Core.Data.EffectData.DefaultCommon
+{
+    public class DirectionalLightSource : EffectElement
+    {
 
         #region EffectElement
 
@@ -29,7 +31,8 @@ namespace BEditor.Core.Data.EffectData.DefaultCommon {
             Z
         };
 
-        public override void Render(EffectRenderArgs args) {
+        public override void Render(EffectRenderArgs args)
+        {
             GL.Enable(EnableCap.Lighting);
 
             float[] position = new float[] { X.GetValue(args.Frame), Y.GetValue(args.Frame), Z.GetValue(args.Frame), 0f };
@@ -45,7 +48,8 @@ namespace BEditor.Core.Data.EffectData.DefaultCommon {
         #endregion
 
 
-        public DirectionalLightSource() {
+        public DirectionalLightSource()
+        {
             X = new EaseProperty(XMetadata);
             Y = new EaseProperty(YMetadata);
             Z = new EaseProperty(ZMetadata);

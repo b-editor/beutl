@@ -13,21 +13,27 @@ using BEditor.Views.CustomControl;
 using BEditor.Core.Data;
 using BEditor.Core.Data.PropertyData;
 
-namespace BEditor.Views.PropertyControl {
+namespace BEditor.Views.PropertyControl
+{
     /// <summary>
     /// ColorAnimation.xaml の相互作用ロジック
     /// </summary>
-    public partial class ColorAnimation : UserControl, ICustomTreeViewItem, ISizeChangeMarker {
+    public partial class ColorAnimation : UserControl, ICustomTreeViewItem, ISizeChangeMarker
+    {
 
         #region インターフェース
 
-        public double LogicHeight {
-            get {
+        public double LogicHeight
+        {
+            get
+            {
                 double h;
-                if ((bool)togglebutton.IsChecked) {
+                if ((bool)togglebutton.IsChecked)
+                {
                     h = OpenHeight;
                 }
-                else {
+                else
+                {
                     h = 32.5;
                 }
 
@@ -46,13 +52,15 @@ namespace BEditor.Views.PropertyControl {
 
         #endregion
 
-        public ColorAnimation(ColorAnimationProperty color) {
+        public ColorAnimation(ColorAnimationProperty color)
+        {
             InitializeComponent();
             DataContext = new ColorAnimationViewModel(color);
             ColorProperty = color;
             OpenHeight = (double)(OpenAnm.To = 32.5 * color.Value.Count + 10);
 
-            Loaded += (_, _) => {
+            Loaded += (_, _) =>
+            {
                 color.Value.CollectionChanged += Value_CollectionChanged;
 
 
@@ -69,8 +77,10 @@ namespace BEditor.Views.PropertyControl {
 
         #region ColorCollection変更イベント
 
-        private void Value_CollectionChanged(object sender, NotifyCollectionChangedEventArgs e) {
-            if (e.Action is NotifyCollectionChangedAction.Add or NotifyCollectionChangedAction.Remove) {
+        private void Value_CollectionChanged(object sender, NotifyCollectionChangedEventArgs e)
+        {
+            if (e.Action is NotifyCollectionChangedAction.Add or NotifyCollectionChangedAction.Remove)
+            {
                 OpenHeight = (double)(OpenAnm.To = 32.5 * ColorProperty.Value.Count + 10);
                 ListToggleClick(null, null);
             }
@@ -86,12 +96,15 @@ namespace BEditor.Views.PropertyControl {
         private readonly DoubleAnimation OpenAnm = new DoubleAnimation() { Duration = TimeSpan.FromSeconds(0.25) };
         private readonly DoubleAnimation CloseAnm = new DoubleAnimation() { Duration = TimeSpan.FromSeconds(0.25), To = 32.5 };
 
-        private void ListToggleClick(object sender, RoutedEventArgs e) {
+        private void ListToggleClick(object sender, RoutedEventArgs e)
+        {
             //開く
-            if ((bool)togglebutton.IsChecked) {
+            if ((bool)togglebutton.IsChecked)
+            {
                 OpenStoryboard.Begin();
             }
-            else {
+            else
+            {
                 CloseStoryboard.Begin();
             }
 
@@ -100,7 +113,8 @@ namespace BEditor.Views.PropertyControl {
 
         #endregion
 
-        private void RectangleMouseDown(object sender, MouseButtonEventArgs e) {
+        private void RectangleMouseDown(object sender, MouseButtonEventArgs e)
+        {
             var rect = (Rectangle)sender;
 
             int index = AttachmentProperty.GetInt(rect);
@@ -113,7 +127,8 @@ namespace BEditor.Views.PropertyControl {
             d.col.Blue = (byte)color.Value[index].B;
             d.col.Alpha = (byte)color.Value[index].A;
 
-            d.ok_button.Click += (_, _) => {
+            d.ok_button.Click += (_, _) =>
+            {
                 UndoRedoManager.Do(new ColorAnimationProperty.ChangeColorCommand(color, index, d.col.Red, d.col.Green, d.col.Blue, d.col.Alpha));
             };
 

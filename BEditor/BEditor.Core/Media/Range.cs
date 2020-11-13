@@ -5,14 +5,16 @@ using System.Runtime.InteropServices;
 using System.Runtime.Serialization;
 using System.Text;
 
-namespace BEditor.Core.Media {
+namespace BEditor.Core.Media
+{
 #nullable enable
     /// <summary>
     /// 
     /// </summary>
     [Serializable]
     [StructLayout(LayoutKind.Sequential)]
-    public struct Range : IEquatable<Range> {
+    public struct Range : IEquatable<Range>
+    {
         /// <summary>
         /// 
         /// </summary>
@@ -28,7 +30,8 @@ namespace BEditor.Core.Media {
         /// </summary>
         /// <param name="start"></param>
         /// <param name="end"></param>
-        public Range(int start, int end) {
+        public Range(int start, int end)
+        {
             Start = start;
             End = end;
         }
@@ -40,20 +43,24 @@ namespace BEditor.Core.Media {
 
         /// <inheritdoc />
         [Pure]
-        public bool Equals(Range other) {
+        public bool Equals(Range other)
+        {
             return Start == other.Start && End == other.End;
         }
 
         /// <inheritdoc />
         [Pure]
-        public override bool Equals(object? obj) {
+        public override bool Equals(object? obj)
+        {
             return obj is Range other && Equals(other);
         }
 
         /// <inheritdoc />
         [Pure]
-        public override int GetHashCode() {
-            unchecked {
+        public override int GetHashCode()
+        {
+            unchecked
+            {
                 return (Start * 397) ^ End;
             }
         }
@@ -70,7 +77,8 @@ namespace BEditor.Core.Media {
         /// <param name="right"></param>
         /// <returns></returns>
         [Pure]
-        public static bool operator ==(Range left, Range right) {
+        public static bool operator ==(Range left, Range right)
+        {
             return left.Equals(right);
         }
         /// <summary>
@@ -80,7 +88,8 @@ namespace BEditor.Core.Media {
         /// <param name="right"></param>
         /// <returns></returns>
         [Pure]
-        public static bool operator !=(Range left, Range right) {
+        public static bool operator !=(Range left, Range right)
+        {
             return !(left == right);
         }
     }

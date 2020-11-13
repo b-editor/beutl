@@ -1,11 +1,14 @@
 ﻿using MahApps.Metro.Controls;
 
-namespace BEditor {
+namespace BEditor
+{
     /// <summary>
     /// CreateProjectWindow.xaml の相互作用ロジック
     /// </summary>
-    public partial class CreateProjectWindow : MetroWindow {
-        public CreateProjectWindow() {
+    public partial class CreateProjectWindow : MetroWindow
+    {
+        public CreateProjectWindow()
+        {
             InitializeComponent();
         }
 

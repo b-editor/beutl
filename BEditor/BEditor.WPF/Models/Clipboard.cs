@@ -6,15 +6,21 @@ using System.Text;
 using System.Windows.Forms;
 using System.Windows.Interop;
 
-namespace BEditor.Models {
-    public static class Clipboard {
-        static Clipboard() {
+namespace BEditor.Models
+{
+    public static class Clipboard
+    {
+        static Clipboard()
+        {
             clipboardWatcher = new ClipboardWatcher(new WindowInteropHelper(App.Current.MainWindow).Handle);
-            clipboardWatcher.DrawClipboard += (sender, e) => {
-                if (System.Windows.Forms.Clipboard.ContainsText()) {
+            clipboardWatcher.DrawClipboard += (sender, e) =>
+            {
+                if (System.Windows.Forms.Clipboard.ContainsText())
+                {
                     SetData(Data = System.Windows.Forms.Clipboard.GetText());
                 }
-                else if (System.Windows.Forms.Clipboard.ContainsFileDropList()) {
+                else if (System.Windows.Forms.Clipboard.ContainsFileDropList())
+                {
                     SetData(System.Windows.Forms.Clipboard.GetFileDropList());
                 }
             };
@@ -23,14 +29,16 @@ namespace BEditor.Models {
         public static ClipboardWatcher clipboardWatcher = null;
         public static object Data;
 
-        public static void SetData(object data) {
+        public static void SetData(object data)
+        {
             Data = data;
         }
 
         public static object GetData() => Data;
     }
 
-    public class ClipboardWatcher : IDisposable {
+    public class ClipboardWatcher : IDisposable
+    {
         [DllImport("user32.dll")]
         private static extern IntPtr SetClipboardViewer(IntPtr hwnd);
         [DllImport("user32.dll")]
@@ -51,24 +59,30 @@ namespace BEditor.Models {
         public event EventHandler DrawClipboard;
 
 
-        public ClipboardWatcher(IntPtr handle) {
+        public ClipboardWatcher(IntPtr handle)
+        {
             hwndSource = HwndSource.FromHwnd(handle);
             hwndSource.AddHook(WndProc);
             this.handle = handle;
             nextHandle = SetClipboardViewer(this.handle);
         }
 
-        private IntPtr WndProc(IntPtr hwnd, int msg, IntPtr wParam, IntPtr lParam, ref bool handled) {
-            if (msg == WM_DRAWCLIPBOARD) {
+        private IntPtr WndProc(IntPtr hwnd, int msg, IntPtr wParam, IntPtr lParam, ref bool handled)
+        {
+            if (msg == WM_DRAWCLIPBOARD)
+            {
                 SendMessage(nextHandle, msg, wParam, lParam);
                 RaiseDrawClipboard();
                 handled = true;
             }
-            else if (msg == WM_CHANGECBCHAIN) {
-                if (wParam == nextHandle) {
+            else if (msg == WM_CHANGECBCHAIN)
+            {
+                if (wParam == nextHandle)
+                {
                     nextHandle = lParam;
                 }
-                else {
+                else
+                {
                     SendMessage(nextHandle, msg, wParam, lParam);
                 }
                 handled = true;
@@ -77,7 +91,8 @@ namespace BEditor.Models {
             return IntPtr.Zero;
         }
 
-        private void RaiseDrawClipboard() {
+        private void RaiseDrawClipboard()
+        {
             DrawClipboard?.Invoke(this, EventArgs.Empty);
         }
 
@@ -85,7 +100,8 @@ namespace BEditor.Models {
         /// ClipBoardWatcherクラスを
         /// クリップボードビューアチェインから削除します。
         /// </summary>
-        public void Dispose() {
+        public void Dispose()
+        {
             ChangeClipboardChain(handle, nextHandle);
             hwndSource.Dispose();
         }

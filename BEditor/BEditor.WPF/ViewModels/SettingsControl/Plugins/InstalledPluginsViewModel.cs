@@ -13,13 +13,17 @@ using BEditor.ViewModels.Helper;
 using BEditor.Core.Extensions.ViewCommand;
 using BEditor.Core.Plugin;
 
-namespace BEditor.ViewModels.SettingsControl.Plugins {
-    public class InstalledPluginsViewModel : BasePropertyChanged {
+namespace BEditor.ViewModels.SettingsControl.Plugins
+{
+    public class InstalledPluginsViewModel : BasePropertyChanged
+    {
 
         private IPlugin selectplugin;
-        public InstalledPluginsViewModel() {
+        public InstalledPluginsViewModel()
+        {
 
-            SettingClick.Subscribe(_ => {
+            SettingClick.Subscribe(_ =>
+            {
                 Message.Snackbar(SelectPlugin?.PluginName);
 
                 SelectPlugin.SettingCommand();

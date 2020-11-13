@@ -6,12 +6,15 @@ using BEditor.ViewModels.Helper;
 using BEditor.Core.Data;
 using BEditor.Core.Data.PropertyData;
 
-namespace BEditor.ViewModels.TimeLines {
-    public class KeyFrameViewModel {
+namespace BEditor.ViewModels.TimeLines
+{
+    public class KeyFrameViewModel
+    {
         public double TrackHeight => Setting.ClipHeight;
         public EaseProperty EaseProperty { get; }
 
-        public KeyFrameViewModel(EaseProperty easeProperty) {
+        public KeyFrameViewModel(EaseProperty easeProperty)
+        {
             EaseProperty = easeProperty;
             AddKeyFrameCommand.Subscribe(x => UndoRedoManager.Do(new EaseProperty.AddCommand(EaseProperty, x)));
             RemoveKeyFrameCommand.Subscribe(x => UndoRedoManager.Do(new EaseProperty.RemoveCommand(EaseProperty, x)));

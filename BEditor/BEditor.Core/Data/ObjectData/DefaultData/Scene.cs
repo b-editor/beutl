@@ -5,12 +5,15 @@ using BEditor.Core.Data.ProjectData;
 using BEditor.Core.Data.PropertyData;
 using BEditor.Core.Media;
 
-namespace BEditor.Core.Data.ObjectData {
-    public static partial class DefaultData {
+namespace BEditor.Core.Data.ObjectData
+{
+    public static partial class DefaultData
+    {
         [DataContract(Namespace = "")]
-        public class Scene : DefaultImageObject {
+        public class Scene : DefaultImageObject
+        {
             public static readonly SelectorPropertyMetadata SelectSceneMetadata = new ScenesSelectorMetadata();
-            
+
             #region DefaultImageObjectメンバー
 
             public override IList<PropertyElement> GroupItems => new List<PropertyElement> {
@@ -18,8 +21,9 @@ namespace BEditor.Core.Data.ObjectData {
                 SelectScene
             };
 
-            public override Media.Image Load(EffectRenderArgs args) {
-                var frame = args.Frame - Parent.ClipData.Start;//相対的なフレーム
+            public override Media.Image Load(EffectRenderArgs args)
+            {
+                var frame = args.Frame - Parent.Parent.Start;//相対的なフレーム
                 ProjectData.Scene scene = SelectScene.SelectItem as ProjectData.Scene;
 
                 return scene.Render(frame + (int)Start.GetValue(args.Frame)).Image;
@@ -27,7 +31,8 @@ namespace BEditor.Core.Data.ObjectData {
 
             #endregion
 
-            public Scene() {
+            public Scene()
+            {
                 Start = new(Video.SpeedMetadata);
                 SelectScene = new(SelectSceneMetadata);
             }
@@ -41,8 +46,10 @@ namespace BEditor.Core.Data.ObjectData {
             public SelectorProperty SelectScene { get; private set; }
 
 
-            internal record ScenesSelectorMetadata : SelectorPropertyMetadata {
-                internal ScenesSelectorMetadata() : base(Properties.Resources.Scenes, null) {
+            internal record ScenesSelectorMetadata : SelectorPropertyMetadata
+            {
+                internal ScenesSelectorMetadata() : base(Properties.Resources.Scenes, null)
+                {
                     MemberPath = "SceneName";
                     ItemSource = Component.Current.Project.SceneList;
                     Project.ProjectOpend += (_, _) => ItemSource = Component.Current.Project.SceneList;

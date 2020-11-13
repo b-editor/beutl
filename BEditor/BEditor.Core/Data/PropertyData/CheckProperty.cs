@@ -7,12 +7,14 @@ using System.Threading.Tasks;
 
 using BEditor.Core.Data.PropertyData.EasingSetting;
 
-namespace BEditor.Core.Data.PropertyData {
+namespace BEditor.Core.Data.PropertyData
+{
     /// <summary>
     /// チェックボックスのプロパティを表します
     /// </summary>
     [DataContract(Namespace = "")]
-    public class CheckProperty : PropertyElement, IEasingSetting, IObservable<bool> {
+    public class CheckProperty : PropertyElement, IEasingSetting, IObservable<bool>
+    {
         private bool isChecked;
         private List<IObserver<bool>> list;
         private List<IObserver<bool>> collection => list ??= new List<IObserver<bool>>();
@@ -22,7 +24,8 @@ namespace BEditor.Core.Data.PropertyData {
         /// </summary>
         /// <param name="metadata">このプロパティの <see cref="CheckPropertyMetadata"/></param>
         /// <exception cref="ArgumentNullException"><paramref name="metadata"/> が <see langword="null"/> です</exception>
-        public CheckProperty(CheckPropertyMetadata metadata) {
+        public CheckProperty(CheckPropertyMetadata metadata)
+        {
             if (metadata is null) throw new ArgumentNullException(nameof(metadata));
 
             PropertyMetadata = metadata;
@@ -35,27 +38,34 @@ namespace BEditor.Core.Data.PropertyData {
         [DataMember]
         public bool IsChecked { get => isChecked; set => SetValue(value, ref isChecked, nameof(IsChecked)); }
 
-        private void CheckProperty_PropertyChanged(object sender, PropertyChangedEventArgs e) {
-            if (e.PropertyName == nameof(IsChecked)) {
-                Parallel.For(0, collection.Count, i => {
+        private void CheckProperty_PropertyChanged(object sender, PropertyChangedEventArgs e)
+        {
+            if (e.PropertyName == nameof(IsChecked))
+            {
+                Parallel.For(0, collection.Count, i =>
+                {
                     var observer = collection[i];
-                    try {
+                    try
+                    {
                         observer.OnNext(isChecked);
                         observer.OnCompleted();
                     }
-                    catch (Exception ex) {
+                    catch (Exception ex)
+                    {
                         observer.OnError(ex);
                     }
                 });
             }
         }
         /// <inheritdoc/>
-        public IDisposable Subscribe(IObserver<bool> observer) {
+        public IDisposable Subscribe(IObserver<bool> observer)
+        {
             collection.Add(observer);
             return Disposable.Create(() => collection.Remove(observer));
         }
         /// <inheritdoc/>
-        public override void PropertyLoaded() {
+        public override void PropertyLoaded()
+        {
             base.PropertyLoaded();
             PropertyChanged += CheckProperty_PropertyChanged;
         }
@@ -66,7 +76,8 @@ namespace BEditor.Core.Data.PropertyData {
         /// チェックされているかを変更するコマンド
         /// </summary>
         /// <remarks>このクラスは <see cref="UndoRedoManager.Do(IUndoRedoCommand)"/> と併用することでコマンドを記録できます</remarks>
-        public sealed class ChangeCheckedCommand : IUndoRedoCommand {
+        public sealed class ChangeCheckedCommand : IUndoRedoCommand
+        {
             private readonly CheckProperty CheckSetting;
             private readonly bool value;
 
@@ -76,7 +87,8 @@ namespace BEditor.Core.Data.PropertyData {
             /// <param name="property">対象の <see cref="CheckProperty"/></param>
             /// <param name="value">新しい値</param>
             /// <exception cref="ArgumentNullException"><paramref name="property"/> が <see langword="null"/> です</exception>
-            public ChangeCheckedCommand(CheckProperty property, bool value) {
+            public ChangeCheckedCommand(CheckProperty property, bool value)
+            {
                 CheckSetting = property ?? throw new ArgumentNullException(nameof(property));
                 this.value = value;
             }

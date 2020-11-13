@@ -15,11 +15,13 @@ using BEditor.Views.TimeLines;
 using BEditor.Core.Data;
 using BEditor.Core.Data.PropertyData;
 
-namespace BEditor.Views.PropertyControls {
+namespace BEditor.Views.PropertyControls
+{
     /// <summary>
     /// EasePropertyControl.xaml の相互作用ロジック
     /// </summary>
-    public partial class EaseControl : UserControl, ICustomTreeViewItem, ISizeChangeMarker {
+    public partial class EaseControl : UserControl, ICustomTreeViewItem, ISizeChangeMarker
+    {
 
         #region EaseControlメンバー
 
@@ -30,13 +32,17 @@ namespace BEditor.Views.PropertyControls {
         #endregion
 
         public event EventHandler SizeChange;
-        public double LogicHeight {
-            get {
+        public double LogicHeight
+        {
+            get
+            {
                 double h;
-                if ((bool)togglebutton.IsChecked) {
+                if ((bool)togglebutton.IsChecked)
+                {
                     h = OpenHeight;
                 }
-                else {
+                else
+                {
                     h = 32.5;
                 }
 
@@ -49,7 +55,8 @@ namespace BEditor.Views.PropertyControls {
         /// 
         /// </summary>
         /// <param name="anm">EaseSettingのインスタンス</param>
-        public EaseControl(EaseProperty anm) {
+        public EaseControl(EaseProperty anm)
+        {
             InitializeComponent();
 
             DataContext = new EasePropertyViewModel(anm);
@@ -57,7 +64,8 @@ namespace BEditor.Views.PropertyControls {
 
             OpenHeight = (double)(OpenAnm.To = 32.5 * anm.Value.Count + 10);
 
-            Loaded += (_, _) => {
+            Loaded += (_, _) =>
+            {
                 anm.Value.CollectionChanged += Value_CollectionChanged;
 
                 OpenStoryboard.Children.Add(OpenAnm);
@@ -74,8 +82,10 @@ namespace BEditor.Views.PropertyControls {
 
         #region 値変更時のイベント
 
-        private void Value_CollectionChanged(object sender, NotifyCollectionChangedEventArgs e) {
-            if (e.Action is NotifyCollectionChangedAction.Add or NotifyCollectionChangedAction.Remove) {
+        private void Value_CollectionChanged(object sender, NotifyCollectionChangedEventArgs e)
+        {
+            if (e.Action is NotifyCollectionChangedAction.Add or NotifyCollectionChangedAction.Remove)
+            {
                 OpenHeight = (double)(OpenAnm.To = 32.5 * EasingSetting.Value.Count + 10);
                 ListToggleClick(null, null);
             }
@@ -91,12 +101,15 @@ namespace BEditor.Views.PropertyControls {
         private DoubleAnimation CloseAnm = new DoubleAnimation() { Duration = TimeSpan.FromSeconds(0.25), To = 32.5 };
 
 
-        private void ListToggleClick(object sender, RoutedEventArgs e) {
+        private void ListToggleClick(object sender, RoutedEventArgs e)
+        {
             //開く
-            if ((bool)togglebutton.IsChecked) {
+            if ((bool)togglebutton.IsChecked)
+            {
                 OpenStoryboard.Begin();
             }
-            else {
+            else
+            {
                 CloseStoryboard.Begin();
             }
 
@@ -108,7 +121,8 @@ namespace BEditor.Views.PropertyControls {
         float oldvalue;
 
 
-        private void TextBox_GotFocus(object sender, RoutedEventArgs e) {
+        private void TextBox_GotFocus(object sender, RoutedEventArgs e)
+        {
             if (!IsLoaded) return;
 
             TextBox tb = (TextBox)sender;
@@ -119,14 +133,16 @@ namespace BEditor.Views.PropertyControls {
             oldvalue = EasingSetting.Value[index];
         }
 
-        private void TextBox_LostFocus(object sender, RoutedEventArgs e) {
+        private void TextBox_LostFocus(object sender, RoutedEventArgs e)
+        {
             if (!IsLoaded) return;
 
             TextBox tb = (TextBox)sender;
 
             int index = AttachmentProperty.GetInt(tb);
 
-            if (float.TryParse(tb.Text, out float _out)) {
+            if (float.TryParse(tb.Text, out float _out))
+            {
                 EasingSetting.Value[index] = oldvalue;
 
                 UndoRedoManager.Do(new EaseProperty.ChangeValueCommand(EasingSetting, index, _out));
@@ -134,10 +150,12 @@ namespace BEditor.Views.PropertyControls {
         }
 
         #region MouseEvent
-        private void TextBox_PreviewMouseWheel(object sender, MouseWheelEventArgs e) {
+        private void TextBox_PreviewMouseWheel(object sender, MouseWheelEventArgs e)
+        {
             TextBox textBox = (TextBox)sender;
 
-            if (textBox.IsKeyboardFocused) {
+            if (textBox.IsKeyboardFocused)
+            {
                 int index = AttachmentProperty.GetInt(textBox);
 
                 int v = 10;//定数増え幅
@@ -156,12 +174,14 @@ namespace BEditor.Views.PropertyControls {
         }
         #endregion
 
-        private void TextBox_KeyDown(object sender, KeyEventArgs e) {
+        private void TextBox_KeyDown(object sender, KeyEventArgs e)
+        {
             TextBox textBox = (TextBox)sender;
             int index = AttachmentProperty.GetInt(textBox);
 
 
-            if (float.TryParse(textBox.Text, out float _out)) {
+            if (float.TryParse(textBox.Text, out float _out))
+            {
                 EasingSetting.Value[index] = EasingSetting.InRange(_out);
 
                 Component.Current.Project.PreviewUpdate(EasingSetting.ClipData);

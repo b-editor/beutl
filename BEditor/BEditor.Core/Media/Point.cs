@@ -12,12 +12,14 @@ using OpenTK.Mathematics;
 
 #nullable enable
 
-namespace BEditor.Core.Media {
+namespace BEditor.Core.Media
+{
     /// <summary>
     /// 
     /// </summary>
     [DataContract(Namespace = "")]
-    public struct Point2 : IEquatable<Point2> {
+    public struct Point2 : IEquatable<Point2>
+    {
         /// <summary>
         /// 
         /// </summary>
@@ -28,17 +30,20 @@ namespace BEditor.Core.Media {
         /// </summary>
         /// <param name="x"></param>
         /// <param name="y"></param>
-        public Point2(int x, int y) {
+        public Point2(int x, int y)
+        {
             X = x;
             Y = y;
         }
 
-        public Point2(float x, float y) {
+        public Point2(float x, float y)
+        {
             X = x;
             Y = y;
         }
 
-        public Point2(double x, double y) {
+        public Point2(double x, double y)
+        {
             X = (float)x;
             Y = (float)y;
         }
@@ -64,7 +69,8 @@ namespace BEditor.Core.Media {
         /// <param name="size"></param>
         /// <returns></returns>
         [Pure]
-        public static Point2 Add(Point2 point, Size size) => new Point2() {
+        public static Point2 Add(Point2 point, Size size) => new Point2()
+        {
             X = point.X + size.Width,
             Y = point.Y + size.Height
         };
@@ -75,7 +81,8 @@ namespace BEditor.Core.Media {
         /// <param name="point2"></param>
         /// <returns></returns>
         [Pure]
-        public static Point2 Add(Point2 point1, Point2 point2) => new Point2() {
+        public static Point2 Add(Point2 point1, Point2 point2) => new Point2()
+        {
             X = point1.X + point2.X,
             Y = point1.Y + point2.Y
         };
@@ -86,7 +93,8 @@ namespace BEditor.Core.Media {
         /// <param name="size"></param>
         /// <returns></returns>
         [Pure]
-        public static Point2 Subtract(Point2 point, Size size) => new Point2() {
+        public static Point2 Subtract(Point2 point, Size size) => new Point2()
+        {
             X = point.X - size.Width,
             Y = point.Y - size.Height
         };
@@ -97,7 +105,8 @@ namespace BEditor.Core.Media {
         /// <param name="point2"></param>
         /// <returns></returns>
         [Pure]
-        public static Point2 Subtract(Point2 point1, Point2 point2) => new Point2() {
+        public static Point2 Subtract(Point2 point1, Point2 point2) => new Point2()
+        {
             X = point1.X - point2.X,
             Y = point1.Y - point2.Y
         };
@@ -180,7 +189,7 @@ namespace BEditor.Core.Media {
         /// <param name="point"></param>
         [Pure]
         public static explicit operator Point2(System.Drawing.Point point) => new Point2(point.X, point.Y);
-        
+
         #endregion
     }
 
@@ -188,7 +197,8 @@ namespace BEditor.Core.Media {
     /// 
     /// </summary>
     [DataContract(Namespace = "")]
-    public struct Point3 : IEquatable<Point3> {
+    public struct Point3 : IEquatable<Point3>
+    {
         /// <summary>
         /// 
         /// </summary>
@@ -200,13 +210,15 @@ namespace BEditor.Core.Media {
         /// <param name="x"></param>
         /// <param name="y"></param>
         /// <param name="z"></param>
-        public Point3(int x, int y, int z) {
+        public Point3(int x, int y, int z)
+        {
             X = x;
             Y = y;
             Z = z;
         }
 
-        public Point3(float x, float y, float z) {
+        public Point3(float x, float y, float z)
+        {
             X = x;
             Y = y;
             Z = z;
@@ -238,7 +250,8 @@ namespace BEditor.Core.Media {
         /// <param name="size"></param>
         /// <returns></returns>
         [Pure]
-        public static Point3 Add(Point3 point, Size size) => new Point3() {
+        public static Point3 Add(Point3 point, Size size) => new Point3()
+        {
             X = point.X + size.Width,
             Y = point.Y + size.Height,
             Z = point.Z
@@ -250,7 +263,8 @@ namespace BEditor.Core.Media {
         /// <param name="point2"></param>
         /// <returns></returns>
         [Pure]
-        public static Point3 Add(Point3 point1, Point3 point2) => new Point3() {
+        public static Point3 Add(Point3 point1, Point3 point2) => new Point3()
+        {
             X = point1.X + point2.X,
             Y = point1.Y + point2.Y,
             Z = point1.Z + point2.Z
@@ -262,7 +276,8 @@ namespace BEditor.Core.Media {
         /// <param name="size"></param>
         /// <returns></returns>
         [Pure]
-        public static Point3 Subtract(Point3 point, Size size) => new Point3() {
+        public static Point3 Subtract(Point3 point, Size size) => new Point3()
+        {
             X = point.X - size.Width,
             Y = point.Y - size.Height,
             Z = point.Z
@@ -274,7 +289,8 @@ namespace BEditor.Core.Media {
         /// <param name="point2"></param>
         /// <returns></returns>
         [Pure]
-        public static Point3 Subtract(Point3 point1, Point3 point2) => new Point3() {
+        public static Point3 Subtract(Point3 point1, Point3 point2) => new Point3()
+        {
             X = point1.X - point2.X,
             Y = point1.Y - point2.Y,
             Z = point1.Z - point2.Z
@@ -370,7 +386,7 @@ namespace BEditor.Core.Media {
         /// <param name="point"></param>
         [Pure]
         public static explicit operator Point3(Vector3 point) => new Point3(point.X, point.Y, point.Z);
-        
+
         #endregion
     }
 }

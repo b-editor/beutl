@@ -14,29 +14,35 @@ using BEditor.Core.Data.PropertyData.Default;
 using BEditor.Core.Data.PropertyData.EasingSetting;
 using BEditor.Core.Plugin;
 
-namespace BEditor.Core.Data {
+namespace BEditor.Core.Data
+{
     /// <summary>
     /// <see cref="DataContractJsonSerializer"/> を利用してシリアル化やクローンなどの関数を提供するクラスを表します
     /// </summary>
-    public static class Serialize {
+    public static class Serialize
+    {
 
         /// <summary>
         /// オブジェクトの内容をファイルから読み込み復元します
         /// </summary>
         /// <param name="path">読み込むファイル名</param>
         /// <returns>成功した場合は復元されたオブジェクト、そうでない場合は <see langword="null"/> を返します</returns>
-        public static T LoadFromFile<T>(string path) {
-            try {
+        public static T LoadFromFile<T>(string path)
+        {
+            try
+            {
                 object obj;
 
-                using (FileStream file = new FileStream(path, FileMode.Open)) {
+                using (FileStream file = new FileStream(path, FileMode.Open))
+                {
                     var serializer = new DataContractJsonSerializer(typeof(T), SerializeKnownTypes);
                     obj = serializer.ReadObject(file);
                 }
 
                 return (T)obj;
             }
-            catch {
+            catch
+            {
                 return default;
             }
         }
@@ -46,18 +52,22 @@ namespace BEditor.Core.Data {
         /// <param name="path">読み込むファイル名</param>
         /// <param name="type"></param>
         /// <returns>成功した場合は復元されたオブジェクト、そうでない場合は <see langword="null"/> を返します</returns>
-        public static object LoadFromFile(string path, Type type) {
-            try {
+        public static object LoadFromFile(string path, Type type)
+        {
+            try
+            {
                 object obj;
 
-                using (FileStream file = new FileStream(path, FileMode.Open)) {
+                using (FileStream file = new FileStream(path, FileMode.Open))
+                {
                     var serializer = new DataContractJsonSerializer(type, SerializeKnownTypes);
                     obj = serializer.ReadObject(file);
                 }
 
                 return obj;
             }
-            catch {
+            catch
+            {
                 return null;
             }
         }
@@ -67,17 +77,21 @@ namespace BEditor.Core.Data {
         /// </summary>
         /// <param name="obj">保存するオブジェクト</param>
         /// <param name="path">保存先のファイル名</param>
-        public static bool SaveToFile(object obj, string path) {
-            try {
+        public static bool SaveToFile(object obj, string path)
+        {
+            try
+            {
                 using (FileStream file = new FileStream(path, FileMode.Create))
-                using (var writer = JsonReaderWriterFactory.CreateJsonWriter(file, Encoding.UTF8, true, true, "  ")) {
+                using (var writer = JsonReaderWriterFactory.CreateJsonWriter(file, Encoding.UTF8, true, true, "  "))
+                {
                     var serializer = new DataContractJsonSerializer(obj.GetType(), SerializeKnownTypes);
                     serializer.WriteObject(writer, obj);
                 }
 
                 return true;
             }
-            catch {
+            catch
+            {
                 return false;
             }
         }
@@ -88,7 +102,8 @@ namespace BEditor.Core.Data {
         /// <typeparam name="T"></typeparam>
         /// <param name="obj"></param>
         /// <returns></returns>
-        public static T DeepClone<T>(this T obj) {
+        public static T DeepClone<T>(this T obj)
+        {
 
             var serializer = new DataContractJsonSerializer(obj.GetType(), SerializeKnownTypes);
             var ms = new MemoryStream();
@@ -113,9 +128,12 @@ namespace BEditor.Core.Data {
         /// <summary>
         /// <see cref="DataContractJsonSerializer"/> で使用するKnownTypeを取得します
         /// </summary>
-        public static List<Type> SerializeKnownTypes {
-            get {
-                if (serializeKnownTypes == null) {
+        public static List<Type> SerializeKnownTypes
+        {
+            get
+            {
+                if (serializeKnownTypes == null)
+                {
                     serializeKnownTypes = new List<Type>()
                     {
                         typeof(Project),
@@ -173,22 +191,29 @@ namespace BEditor.Core.Data {
                     };
 
                     var plugins = Component.Current.LoadedPlugins;
-                    void ForFunc(int i) {
+                    void ForFunc(int i)
+                    {
                         var type = plugins[i];
-                        if (type is IEffects effectsPlugin) {
-                            foreach (var (_, effecttype) in effectsPlugin.Effects) {
+                        if (type is IEffects effectsPlugin)
+                        {
+                            foreach (var (_, effecttype) in effectsPlugin.Effects)
+                            {
                                 serializeKnownTypes.Add(effecttype);
                             }
                         }
 
-                        if (type is IObjects objectsPlugin) {
-                            foreach (var (_, objecttype) in objectsPlugin.Objects) {
+                        if (type is IObjects objectsPlugin)
+                        {
+                            foreach (var (_, objecttype) in objectsPlugin.Objects)
+                            {
                                 serializeKnownTypes.Add(objecttype);
                             }
                         }
 
-                        if (type is IEasingFunctions funcsPlugin) {
-                            foreach (var (_, functype) in funcsPlugin.EasingFunc) {
+                        if (type is IEasingFunctions funcsPlugin)
+                        {
+                            foreach (var (_, functype) in funcsPlugin.EasingFunc)
+                            {
                                 serializeKnownTypes.Add(functype);
                             }
                         }

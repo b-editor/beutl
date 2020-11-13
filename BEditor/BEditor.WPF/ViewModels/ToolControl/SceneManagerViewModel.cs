@@ -8,11 +8,15 @@ using BEditor.Views;
 using BEditor.Core.Data;
 using BEditor.Core.Data.ProjectData;
 
-namespace BEditor.ViewModels.ToolControl {
-    public class SceneManagerViewModel : BasePropertyChanged {
+namespace BEditor.ViewModels.ToolControl
+{
+    public class SceneManagerViewModel : BasePropertyChanged
+    {
 
-        public SceneManagerViewModel() {
-            AddScene.Subscribe(() => {
+        public SceneManagerViewModel()
+        {
+            AddScene.Subscribe(() =>
+            {
                 new CreateSceneWindow().ShowDialog();
             });
             Project.ProjectOpend += (_, _) => RaisePropertyChanged(nameof(GetProject));

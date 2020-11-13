@@ -13,11 +13,13 @@ using BEditor.Core.Media;
 using BEditor.Core.Plugin;
 using BEditor.Core.Renderer;
 
-namespace BEditor.Core.Data {
+namespace BEditor.Core.Data
+{
     /// <summary>
     /// シングルトンで現在のプロジェクトやステータスなどを取得できるクラスを表します
     /// </summary>
-    public class Component : BasePropertyChanged {
+    public class Component : BasePropertyChanged
+    {
         private Project project;
         private Status status;
 
@@ -26,26 +28,32 @@ namespace BEditor.Core.Data {
         /// </summary>
         public static Component Current { get; } = new Component();
 
-        private Component() {
+        private Component()
+        {
             #region Xmlの作成
 
-            if (!Directory.Exists(Path + "\\user\\colors")) {
+            if (!Directory.Exists(Path + "\\user\\colors"))
+            {
                 Directory.CreateDirectory(Path + "\\user\\colors");
             }
 
-            if (!Directory.Exists(Path + "\\user\\logs")) {
+            if (!Directory.Exists(Path + "\\user\\logs"))
+            {
                 Directory.CreateDirectory(Path + "\\user\\logs");
             }
 
-            if (!Directory.Exists(Path + "\\user\\backup")) {
+            if (!Directory.Exists(Path + "\\user\\backup"))
+            {
                 Directory.CreateDirectory(Path + "\\user\\backup");
             }
 
-            if (!Directory.Exists(Path + "\\user\\plugins")) {
+            if (!Directory.Exists(Path + "\\user\\plugins"))
+            {
                 Directory.CreateDirectory(Path + "\\user\\plugins");
             }
 
-            if (!File.Exists(Path + "\\user\\logs\\errorlog.xml")) {
+            if (!File.Exists(Path + "\\user\\logs\\errorlog.xml"))
+            {
                 XDocument XDoc = new XDocument(
                     new XDeclaration("1.0", "utf-8", "true"),
                     new XElement("Logs")
@@ -85,15 +93,18 @@ namespace BEditor.Core.Data {
         /// <summary>
         /// プラットフォームに依存する関数を共有するフィールド
         /// </summary>
-        public static class Funcs {
+        public static class Funcs
+        {
             private static Func<int, int, BaseGraphicsContext> createRenderingContext = (width, height) => new GraphicsContext(width, height);
 
             /// <summary>
             /// レンダリングコンテキストを作成する関数を取得または設定します
             /// </summary>
-            public static Func<int, int, BaseGraphicsContext> CreateGraphicsContext {
+            public static Func<int, int, BaseGraphicsContext> CreateGraphicsContext
+            {
                 get => createRenderingContext;
-                set {
+                set
+                {
                     createRenderingContext = value;
                     //ImageHelper.renderer = createRenderingContext(1, 1);
                 }
@@ -108,7 +119,8 @@ namespace BEditor.Core.Data {
     /// <summary>
     /// アプリケーションのステータスを表します
     /// </summary>
-    public enum Status {
+    public enum Status
+    {
         /// <summary>
         /// 作業をしていない状態を表します
         /// </summary>

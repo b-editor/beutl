@@ -13,21 +13,27 @@ using MahApps.Metro.Controls;
 
 using MaterialDesignThemes.Wpf;
 
-namespace BEditor {
+namespace BEditor
+{
     /// <summary>
     /// MainWindow.xaml の相互作用ロジック
     /// </summary>
-    public partial class MainWindow : MetroWindow {
-        public MainWindow() {
+    public partial class MainWindow : MetroWindow
+    {
+        public MainWindow()
+        {
             InitializeComponent();
 
-            Loaded += (sender, e) => {
+            Loaded += (sender, e) =>
+            {
                 object Data = null;
 
-                if (System.Windows.Forms.Clipboard.ContainsText()) {
+                if (System.Windows.Forms.Clipboard.ContainsText())
+                {
                     Data = System.Windows.Forms.Clipboard.GetText();
                 }
-                else if (System.Windows.Forms.Clipboard.ContainsFileDropList()) {
+                else if (System.Windows.Forms.Clipboard.ContainsFileDropList())
+                {
                     Data = System.Windows.Forms.Clipboard.GetFileDropList();
                 }
 
@@ -38,8 +44,10 @@ namespace BEditor {
 
 
                 //コマンドライン引数から開く
-                if (Component.Current.Arguments.Length != 0 && File.Exists(Component.Current.Arguments[0])) {
-                    if (Path.GetExtension(Component.Current.Arguments[0]) == ".bedit") {
+                if (Component.Current.Arguments.Length != 0 && File.Exists(Component.Current.Arguments[0]))
+                {
+                    if (Path.GetExtension(Component.Current.Arguments[0]) == ".bedit")
+                    {
                         Component.Current.Project = Project.Open(Component.Current.Arguments[0]);
                     }
                 }
@@ -53,8 +61,10 @@ namespace BEditor {
 
         private void MetroWindow_Closing(object sender, System.ComponentModel.CancelEventArgs e) => Models.Clipboard.clipboardWatcher.Dispose();
 
-        private void ObjectMouseDown(object sender, MouseButtonEventArgs e) {
-            if (e.LeftButton == MouseButtonState.Pressed) {
+        private void ObjectMouseDown(object sender, MouseButtonEventArgs e)
+        {
+            if (e.LeftButton == MouseButtonState.Pressed)
+            {
                 PackIcon packIcon = (PackIcon)sender;
                 Type s = ClipTypeIconConverter.ToClipType(packIcon.Kind);
                 DataObject dataObject = new DataObject(typeof(Type), s);
@@ -63,10 +73,12 @@ namespace BEditor {
             }
         }
 
-        private void Button_Click(object sender, RoutedEventArgs e) {
+        private void Button_Click(object sender, RoutedEventArgs e)
+        {
             var btn = (Button)sender;
 
-            if (btn.ContextMenu == null) {
+            if (btn.ContextMenu == null)
+            {
                 return;
             }
 

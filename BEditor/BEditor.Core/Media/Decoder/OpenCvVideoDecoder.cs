@@ -2,9 +2,12 @@
 using System.Collections.Generic;
 using System.Text;
 
-namespace BEditor.Core.Media.Decoder {
-    public class OpenCvVideoDecoder : VideoDecoder {
-        public OpenCvVideoDecoder(string fileName) : base(fileName) {
+namespace BEditor.Core.Media.Decoder
+{
+    public class OpenCvVideoDecoder : VideoDecoder
+    {
+        public OpenCvVideoDecoder(string fileName) : base(fileName)
+        {
             //VideoCapture = new VideoCapture(FileName);
             //Fps = (int)VideoCapture.Fps;
             //FrameCount = VideoCapture.FrameCount;
@@ -22,11 +25,13 @@ namespace BEditor.Core.Media.Decoder {
 
         public override int Height { get; }
 
-        public override void Dispose() {
+        public override void Dispose()
+        {
             //VideoCapture.Dispose();
         }
 
-        public override Image Read(int frame) {
+        public override Image Read(int frame)
+        {
             //VideoCapture.PosFrames = frame;
 
             //Mat mat = new Mat();

@@ -3,14 +3,17 @@ using System.Runtime.Serialization;
 
 using BEditor.Core.Data.PropertyData;
 
-namespace BEditor.Core.Data.PropertyData.Default {
+namespace BEditor.Core.Data.PropertyData.Default
+{
     [DataContract(Namespace = "")]
-    public sealed class Angle : ExpandGroup {
+    public sealed class Angle : ExpandGroup
+    {
         public static readonly EasePropertyMetadata AngleXMetadata = new EasePropertyMetadata(Properties.Resources.AngleX);
         public static readonly EasePropertyMetadata AngleYMetadata = new EasePropertyMetadata(Properties.Resources.AngleY);
         public static readonly EasePropertyMetadata AngleZMetadata = new EasePropertyMetadata(Properties.Resources.AngleZ);
 
-        public Angle(PropertyElementMetadata constant) : base(constant) {
+        public Angle(PropertyElementMetadata constant) : base(constant)
+        {
             AngleX = new EaseProperty(AngleXMetadata);
             AngleY = new EaseProperty(AngleYMetadata);
             AngleZ = new EaseProperty(AngleZMetadata);

@@ -1,7 +1,9 @@
 ﻿using System;
 
-namespace BEditor.Core.Renderer {
-    public interface IBaseGraphicsContext : IDisposable {
+namespace BEditor.Core.Renderer
+{
+    public interface IBaseGraphicsContext : IDisposable
+    {
         int Height { get; }
         bool IsInitialized { get; }
         int Width { get; }

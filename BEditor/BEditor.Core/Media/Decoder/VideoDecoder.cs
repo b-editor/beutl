@@ -2,9 +2,12 @@
 using System.Collections.Generic;
 using System.Text;
 
-namespace BEditor.Core.Media.Decoder {
-    public abstract class VideoDecoder : IDisposable {
-        public VideoDecoder(string fileName) {
+namespace BEditor.Core.Media.Decoder
+{
+    public abstract class VideoDecoder : IDisposable
+    {
+        public VideoDecoder(string fileName)
+        {
             FileName = fileName;
         }
 
@@ -18,14 +21,17 @@ namespace BEditor.Core.Media.Decoder {
 
         public abstract void Dispose();
 
-        public static Image Read(int frame, VideoDecoder reader) {
-            if (reader == null) {
+        public static Image Read(int frame, VideoDecoder reader)
+        {
+            if (reader == null)
+            {
                 return null;
             }
 
             var source = reader.Read(frame);
 
-            if (source == null) {
+            if (source == null)
+            {
                 return null;
             }
 

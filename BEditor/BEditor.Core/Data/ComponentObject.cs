@@ -4,12 +4,14 @@ using System.Dynamic;
 using System.Linq.Expressions;
 using System.Runtime.Serialization;
 
-namespace BEditor.Core.Data {
+namespace BEditor.Core.Data
+{
     /// <summary>
     /// 継承するクラスに対応するUIのデータのキャッシュを表します
     /// </summary>
     [DataContract(Namespace = "")]
-    public class ComponentObject : BasePropertyChanged, IExtensibleDataObject {
+    public class ComponentObject : BasePropertyChanged, IExtensibleDataObject
+    {
         private Dictionary<string, dynamic> componentData;
 
         /// <summary>

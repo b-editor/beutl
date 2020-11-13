@@ -5,8 +5,10 @@ using System.Windows.Controls;
 
 using BEditor.Core.Extensions.ViewCommand;
 
-namespace BEditor.Views.MessageContent {
-    public abstract class DialogContent : UserControl {
+namespace BEditor.Views.MessageContent
+{
+    public abstract class DialogContent : UserControl
+    {
         public abstract ButtonType DialogResult { get; protected set; }
         public abstract event EventHandler ButtonClicked;
     }

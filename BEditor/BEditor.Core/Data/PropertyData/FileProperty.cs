@@ -7,12 +7,14 @@ using System.Threading.Tasks;
 
 using BEditor.Core.Data.PropertyData.EasingSetting;
 
-namespace BEditor.Core.Data.PropertyData {
+namespace BEditor.Core.Data.PropertyData
+{
     /// <summary>
     /// ファイルを選択するプロパティを表します
     /// </summary>
     [DataContract(Namespace = "")]
-    public class FileProperty : PropertyElement, IEasingSetting, IObservable<string>, INotifyPropertyChanged, IExtensibleDataObject {
+    public class FileProperty : PropertyElement, IEasingSetting, IObservable<string>, INotifyPropertyChanged, IExtensibleDataObject
+    {
         private string file;
         private List<IObserver<string>> list;
         private List<IObserver<string>> collection => list ??= new List<IObserver<string>>();
@@ -22,7 +24,8 @@ namespace BEditor.Core.Data.PropertyData {
         /// </summary>
         /// <param name="metadata">このプロパティの <see cref="FilePropertyMetadata"/></param>
         /// <exception cref="ArgumentNullException"><paramref name="metadata"/> が <see langword="null"/> です</exception>
-        public FileProperty(FilePropertyMetadata metadata) {
+        public FileProperty(FilePropertyMetadata metadata)
+        {
             PropertyMetadata = metadata ?? throw new ArgumentNullException(nameof(metadata));
             File = metadata.DefaultFile;
         }
@@ -33,27 +36,34 @@ namespace BEditor.Core.Data.PropertyData {
         [DataMember]
         public string File { get => file; set => SetValue(value, ref file, nameof(File)); }
 
-        private void FileProperty_PropertyChanged(object sender, PropertyChangedEventArgs e) {
-            if (e.PropertyName == nameof(File)) {
-                Parallel.For(0, collection.Count, i => {
+        private void FileProperty_PropertyChanged(object sender, PropertyChangedEventArgs e)
+        {
+            if (e.PropertyName == nameof(File))
+            {
+                Parallel.For(0, collection.Count, i =>
+                {
                     var observer = collection[i];
-                    try {
+                    try
+                    {
                         observer.OnNext(file);
                         observer.OnCompleted();
                     }
-                    catch(Exception ex) {
+                    catch (Exception ex)
+                    {
                         observer.OnError(ex);
                     }
                 });
             }
         }
         /// <inheritdoc/>
-        public IDisposable Subscribe(IObserver<string> observer) {
+        public IDisposable Subscribe(IObserver<string> observer)
+        {
             collection.Add(observer);
             return Disposable.Create(() => collection.Remove(observer));
         }
         /// <inheritdoc/>
-        public override void PropertyLoaded() {
+        public override void PropertyLoaded()
+        {
             base.PropertyLoaded();
             PropertyChanged += FileProperty_PropertyChanged;
         }
@@ -67,7 +77,8 @@ namespace BEditor.Core.Data.PropertyData {
         /// ファイルの名前を変更するコマンド
         /// </summary>
         /// <remarks>このクラスは <see cref="UndoRedoManager.Do(IUndoRedoCommand)"/> と併用することでコマンドを記録できます</remarks>
-        public sealed class ChangeFileCommand : IUndoRedoCommand {
+        public sealed class ChangeFileCommand : IUndoRedoCommand
+        {
             private readonly FileProperty FileSetting;
             private readonly string path;
             private readonly string oldpath;
@@ -78,7 +89,8 @@ namespace BEditor.Core.Data.PropertyData {
             /// <param name="property">対象の <see cref="FileProperty"/></param>
             /// <param name="path">新しい値</param>
             /// <exception cref="ArgumentNullException"><paramref name="property"/> が <see langword="null"/> です</exception>
-            public ChangeFileCommand(FileProperty property, string path) {
+            public ChangeFileCommand(FileProperty property, string path)
+            {
                 FileSetting = property ?? throw new ArgumentNullException(nameof(property));
                 this.path = path;
                 oldpath = FileSetting.File;

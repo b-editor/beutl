@@ -12,9 +12,11 @@ using BEditor.Core.Data.ObjectData;
 using BEditor.Core.Data.ProjectData;
 using BEditor.Core.Properties;
 
-namespace BEditor.ViewModels.TimeLines {
-    public class ClipUIViewModel {
-        public Scene Scene => ClipData.Scene;
+namespace BEditor.ViewModels.TimeLines
+{
+    public class ClipUIViewModel
+    {
+        public Scene Scene => ClipData.Parent;
         private TimeLineViewModel TimeLineViewModel => Scene.GetCreateTimeLineViewModel();
         public ClipData ClipData { get; }
         /// <summary>
@@ -30,9 +32,11 @@ namespace BEditor.ViewModels.TimeLines {
         public DelegateProperty<double> WidthProperty { get; } = new DelegateProperty<double>();
         public DelegateProperty<Thickness> MarginProperty { get; } = new DelegateProperty<Thickness>();
 
-        public double MarginLeftProperty {
+        public double MarginLeftProperty
+        {
             get => MarginProperty.Value.Left;
-            set {
+            set
+            {
                 var tmp = MarginProperty.Value;
                 MarginProperty.Value = new Thickness(value, tmp.Top, tmp.Right, tmp.Bottom);
             }
@@ -47,7 +51,8 @@ namespace BEditor.ViewModels.TimeLines {
         #endregion
 
 
-        public ClipUIViewModel(ClipData clip) {
+        public ClipUIViewModel(ClipData clip)
+        {
             ClipData = clip;
             WidthProperty.Value = TimeLineViewModel.ToPixel(ClipData.Length);
             MarginProperty.Value = new Thickness(TimeLineViewModel.ToPixel(ClipData.Start), 1, 0, 0);
@@ -74,15 +79,19 @@ namespace BEditor.ViewModels.TimeLines {
             ClipDataLogCommand.Subscribe(() => ClipDataLog());
             ClipSeparateCommand.Subscribe(() => ClipSeparate());
 
-            clip.PropertyChanged += (_, e) => {
-                if (e.PropertyName == nameof(ClipData.End)) {
+            clip.PropertyChanged += (_, e) =>
+            {
+                if (e.PropertyName == nameof(ClipData.End))
+                {
                     WidthProperty.Value = TimeLineViewModel.ToPixel(clip.Length);
                 }
-                else if (e.PropertyName == nameof(ClipData.Start)) {
+                else if (e.PropertyName == nameof(ClipData.Start))
+                {
                     MarginLeftProperty = TimeLineViewModel.ToPixel(ClipData.Start);
                     WidthProperty.Value = TimeLineViewModel.ToPixel(clip.Length);
                 }
-                else if (e.PropertyName == nameof(ClipData.Layer)) {
+                else if (e.PropertyName == nameof(ClipData.Layer))
+                {
                     TimeLineViewModel.ClipLayerMoveCommand?.Invoke(clip, clip.Layer);
                 }
             };
@@ -105,7 +114,8 @@ namespace BEditor.ViewModels.TimeLines {
 
 
         #region MouseDown
-        private void ClipMouseDown() {
+        private void ClipMouseDown()
+        {
             TimeLineViewModel.ClipMouseDown = true;
 
             TimeLineViewModel.ClipStart = TimeLineViewModel.GetLayerMousePosition?.Invoke().ToWin() ?? TimeLineViewModel.ClipStart;
@@ -114,24 +124,28 @@ namespace BEditor.ViewModels.TimeLines {
             TimeLineViewModel.ClipSelect = ClipData;
 
 
-            if (TimeLineViewModel.ClipSelect.GetCreateClipViewModel().ClipCursor.Value == Cursors.SizeWE) {
+            if (TimeLineViewModel.ClipSelect.GetCreateClipViewModel().ClipCursor.Value == Cursors.SizeWE)
+            {
                 TimeLineViewModel.LayerCursor.Value = Cursors.SizeWE;
             }
         }
         #endregion
 
         #region MouseUp
-        private void ClipMouseUp() {
+        private void ClipMouseUp()
+        {
             TimeLineViewModel.SeekbarIsMouseDown = false;
 
-            if (TimeLineViewModel.ClipSelect == null) {
+            if (TimeLineViewModel.ClipSelect == null)
+            {
                 return;
             }
 
             TimeLineViewModel.ClipMouseDown = false;
 
             //保存
-            if (TimeLineViewModel.ClipLeftRight != 0) {
+            if (TimeLineViewModel.ClipLeftRight != 0)
+            {
                 ClipData data = TimeLineViewModel.ClipSelect;
 
                 int start = TimeLineViewModel.ToFrame(TimeLineViewModel.ClipSelect.GetCreateClipViewModel().MarginLeftProperty);
@@ -141,7 +155,8 @@ namespace BEditor.ViewModels.TimeLines {
                     UndoRedoManager.Do(new ClipData.LengthChangeCommand(data, start, end));
             }
 
-            if (TimeLineViewModel.ClipTimeChange) {
+            if (TimeLineViewModel.ClipTimeChange)
+            {
                 ClipData data = TimeLineViewModel.ClipSelect;
 
                 int frame = TimeLineViewModel.ToFrame(data.GetCreateClipViewModel().MarginLeftProperty);
@@ -162,19 +177,23 @@ namespace BEditor.ViewModels.TimeLines {
         #endregion
 
         #region MouseMove
-        private void ClipMouseMove(Point point) {
+        private void ClipMouseMove(Point point)
+        {
 
             double horizon = point.X;
 
-            if (horizon < 10) {
+            if (horizon < 10)
+            {
                 ClipCursor.Value = Cursors.SizeWE;//右側なら左右矢印↔
                 TimeLineViewModel.ClipLeftRight = 1;
             }
-            else if (horizon > TimeLineViewModel.ToPixel(ClipData.Length) - 10) {
+            else if (horizon > TimeLineViewModel.ToPixel(ClipData.Length) - 10)
+            {
                 ClipCursor.Value = Cursors.SizeWE;
                 TimeLineViewModel.ClipLeftRight = 2;
             }
-            else {
+            else
+            {
                 ClipCursor.Value = Cursors.Arrow;
             }
         }
@@ -185,13 +204,15 @@ namespace BEditor.ViewModels.TimeLines {
         #endregion
 
         #region Copy
-        private void ClipCopy() {
+        private void ClipCopy()
+        {
             //UndoRedoManager.Do(new CopyClip(ClipData));
         }
         #endregion
 
         #region Cut
-        private void ClipCut() {
+        private void ClipCut()
+        {
             //UndoRedoManager.Do(new CutClip(ClipData));
         }
         #endregion
@@ -201,7 +222,8 @@ namespace BEditor.ViewModels.TimeLines {
         #endregion
 
         #region DataLog
-        private void ClipDataLog() {
+        private void ClipDataLog()
+        {
             string text =
                 $"ID : {ClipData.Id}\n" +
                 $"Name : {ClipData.Name}\n" +
@@ -216,7 +238,8 @@ namespace BEditor.ViewModels.TimeLines {
         #endregion
 
         #region Sparate
-        private void ClipSeparate() {
+        private void ClipSeparate()
+        {
 
         }
         #endregion

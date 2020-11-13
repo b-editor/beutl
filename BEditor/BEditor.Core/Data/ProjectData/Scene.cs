@@ -9,12 +9,14 @@ using BEditor.Core.Data.ObjectData;
 using BEditor.Core.Media;
 using BEditor.Core.Renderer;
 
-namespace BEditor.Core.Data.ProjectData {
+namespace BEditor.Core.Data.ProjectData
+{
     /// <summary>
     /// シーンクラス
     /// </summary>
     [DataContract(Namespace = "")]
-    public class Scene : ComponentObject, IParent<ClipData>,IChild<Project> {
+    public class Scene : ComponentObject, IParent<ClipData>, IChild<Project>
+    {
         private ObservableCollection<ClipData> datas;
         private ClipData selectItem;
         private ObservableCollection<ClipData> selectItems;
@@ -57,11 +59,13 @@ namespace BEditor.Core.Data.ProjectData {
         /// タイムライン上の <see cref="ClipData"/> を取得します
         /// </summary>
         [DataMember(Order = 10)]
-        public ObservableCollection<ClipData> Datas {
+        public ObservableCollection<ClipData> Datas
+        {
             get => datas;
-            private set {
+            private set
+            {
                 datas = value;
-                Parallel.ForEach(datas, data => data.Scene = this);
+                Parallel.ForEach(datas, data => data.Parent = this);
             }
         }
 
@@ -74,9 +78,11 @@ namespace BEditor.Core.Data.ProjectData {
         /// <summary>
         /// 選択中の <see cref="ClipData"/> を取得または設定します
         /// </summary>
-        public ClipData SelectItem {
+        public ClipData SelectItem
+        {
             get => selectItem ??= Get(SelectName);
-            set {
+            set
+            {
                 SelectName = selectItem?.Name;
                 selectItem = value;
                 RaisePropertyChanged(nameof(SelectItem));
@@ -86,9 +92,12 @@ namespace BEditor.Core.Data.ProjectData {
         /// <summary>
         /// 選択されている <see cref="ClipData"/> を取得します
         /// </summary>
-        public ObservableCollection<ClipData> SelectItems {
-            get {
-                if (selectItems == null) {
+        public ObservableCollection<ClipData> SelectItems
+        {
+            get
+            {
+                if (selectItems == null)
+                {
                     selectItems = new ObservableCollection<ClipData>();
 
                     Parallel.ForEach(SelectNames, name => selectItems.Add(Get(name)));
@@ -100,12 +109,16 @@ namespace BEditor.Core.Data.ProjectData {
             }
         }
 
-        private void SelectItems_CollectionChanged(object sender, System.Collections.Specialized.NotifyCollectionChangedEventArgs e) {
-            if (e.Action == System.Collections.Specialized.NotifyCollectionChangedAction.Add) {
+        private void SelectItems_CollectionChanged(object sender, System.Collections.Specialized.NotifyCollectionChangedEventArgs e)
+        {
+            if (e.Action == System.Collections.Specialized.NotifyCollectionChangedAction.Add)
+            {
                 SelectNames.Insert(e.NewStartingIndex, selectItems[e.NewStartingIndex].Name);
             }
-            else if (e.Action == System.Collections.Specialized.NotifyCollectionChangedAction.Remove) {
-                if (SelectName == SelectNames[e.OldStartingIndex] || SelectItems.Count == 0) {
+            else if (e.Action == System.Collections.Specialized.NotifyCollectionChangedAction.Remove)
+            {
+                if (SelectName == SelectNames[e.OldStartingIndex] || SelectItems.Count == 0)
+                {
                     SelectItem = null;
                 }
 
@@ -160,19 +173,23 @@ namespace BEditor.Core.Data.ProjectData {
 
         private Image FrameBuffer;
 
-        internal uint NewId {
-            get {
+        internal uint NewId
+        {
+            get
+            {
                 int count = Datas.Count;
                 uint max;
 
-                if (count > 0) {
+                if (count > 0)
+                {
                     List<uint> tmp = new List<uint>();
 
                     Parallel.For(0, count, i => tmp.Add(Datas[i].Id));
 
                     max = tmp.Max() + 1;
                 }
-                else {
+                else
+                {
                     max = 0;
                 }
 
@@ -192,7 +209,8 @@ namespace BEditor.Core.Data.ProjectData {
         /// </summary>
         /// <param name="width">フレームバッファの横幅</param>
         /// <param name="height">フレームバッファの高さ</param>
-        public Scene(int width, int height) {
+        public Scene(int width, int height)
+        {
             Width = width;
             Height = height;
             Datas = new ObservableCollection<ClipData>();
@@ -208,7 +226,8 @@ namespace BEditor.Core.Data.ProjectData {
         /// </summary>
         /// <param name="frame">タイムライン基準のレンダリングするフレーム</param>
         /// <returns>レンダリングされた <seealso cref="Image"/></returns>
-        public RenderingResult Render(int frame) {
+        public RenderingResult Render(int frame)
+        {
             FrameBuffer?.Dispose();
             FrameBuffer = new Image(Width, Height);
             var layer = GetLayer(frame).ToList();
@@ -220,9 +239,9 @@ namespace BEditor.Core.Data.ProjectData {
 
             //Preview
             layer.ForEach(clip => clip.PreviewRender(args));
-            
+
             layer.ForEach(clip => clip.Render(args));
-            
+
             RenderingContext.SwapBuffers();
 
             Graphics.GetPixels(FrameBuffer);
@@ -238,7 +257,8 @@ namespace BEditor.Core.Data.ProjectData {
         /// <seealso cref="PreviewFrame"/> のフレームをレンダリングします
         /// </summary>
         /// <returns>レンダリングされた <seealso cref="Image"/></returns>
-        public RenderingResult Rendering() {
+        public RenderingResult Rendering()
+        {
             return Render(PreviewFrame);
         }
 
@@ -252,7 +272,8 @@ namespace BEditor.Core.Data.ProjectData {
         /// </summary>
         /// <param name="frame">タイムライン基準のフレーム</param>
         /// <returns>クリップのリスト</returns>
-        public IEnumerable<ClipData> GetLayer(int frame) {
+        public IEnumerable<ClipData> GetLayer(int frame)
+        {
             return Datas
                 .Where(item => item.Start <= (frame) && (frame) < item.End)
                 .Where(item => !HideLayer.Exists(x => x == item.Layer))
@@ -264,11 +285,12 @@ namespace BEditor.Core.Data.ProjectData {
 
         #region Listの操作
         /// <summary>
-        /// クリップを追加し、<seealso cref="ClipData.Scene"/> にこのシーンを設定します
+        /// クリップを追加し、<seealso cref="ClipData.Parent"/> にこのシーンを設定します
         /// </summary>
         /// <param name="data">追加するクリップ</param>
-        public void Add(ClipData data) {
-            data.Scene = this;
+        public void Add(ClipData data)
+        {
+            data.Parent = this;
 
             Datas.Add(data);
         }
@@ -277,7 +299,8 @@ namespace BEditor.Core.Data.ProjectData {
         /// </summary>
         /// <param name="data">削除するクリップ</param>
         /// <returns>アイテムが正常に削除された場合は <see langword="true"/>、そうでない場合は <see langword="false"/> となります。このメソッドは、元の <see cref="Collection{T}"/> でアイテムが見つからなかった場合も <see langword="false"/> を返します</returns>
-        public bool Remove(ClipData data) {
+        public bool Remove(ClipData data)
+        {
             return Datas.Remove(data);
         }
         /// <summary>
@@ -285,9 +308,12 @@ namespace BEditor.Core.Data.ProjectData {
         /// </summary>
         /// <param name="name">取得するクリップの名前</param>
         /// <returns>存在する場合 <see cref="ClipData"/> のインスタンス、そうでない場合は <see langword="null"/> となります。 <paramref name="name"/> が <see langword="null"/> の場合も <see langword="null"/> を返します</returns>
-        public ClipData Get(string name) {
-            if (name != null) {
-                foreach (var a in Datas) {
+        public ClipData Get(string name)
+        {
+            if (name != null)
+            {
+                foreach (var a in Datas)
+                {
                     if (a.Name == name) return a;
                 }
             }
@@ -301,10 +327,12 @@ namespace BEditor.Core.Data.ProjectData {
         /// </summary>
         /// <param name="data">対象の <see cref="ClipData"/></param>
         /// <exception cref="ArgumentNullException"><paramref name="data"/> が <see langword="null"/> です</exception>
-        public void SetCurrentClip(ClipData data) {
+        public void SetCurrentClip(ClipData data)
+        {
             SelectItem = data ?? throw new ArgumentNullException(nameof(data));
 
-            if (!SelectNames.Exists(x => x == data.Name)) {
+            if (!SelectNames.Exists(x => x == data.Name))
+            {
                 SelectItems.Add(data);
             }
         }
@@ -312,7 +340,8 @@ namespace BEditor.Core.Data.ProjectData {
 
 
     [DataContract(Namespace = "")]
-    public class RootScene : Scene {
+    public class RootScene : Scene
+    {
         /// <inheritdoc/>
         public override string SceneName { get => "root"; set { } }
 

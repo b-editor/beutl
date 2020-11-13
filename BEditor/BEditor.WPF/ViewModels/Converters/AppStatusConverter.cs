@@ -7,10 +7,14 @@ using BEditor.Core.Data;
 using BEditor.Core.Properties;
 using MaterialDesignThemes.Wpf;
 
-namespace BEditor.ViewModels.Converters {
-    public class AppStatusIconConverter : IValueConverter {
-        public object Convert(object value, Type targetType, object parameter, CultureInfo culture) {
-            if (value is Status status) {
+namespace BEditor.ViewModels.Converters
+{
+    public class AppStatusIconConverter : IValueConverter
+    {
+        public object Convert(object value, Type targetType, object parameter, CultureInfo culture)
+        {
+            if (value is Status status)
+            {
                 return status switch
                 {
                     Status.Idle => PackIconKind.ContainStart,
@@ -25,14 +29,18 @@ namespace BEditor.ViewModels.Converters {
             else return null;
         }
 
-        public object ConvertBack(object value, Type targetType, object parameter, CultureInfo culture) {
+        public object ConvertBack(object value, Type targetType, object parameter, CultureInfo culture)
+        {
             return null;
         }
     }
 
-    public class AppStatusTextConverter : IValueConverter {
-        public object Convert(object value, Type targetType, object parameter, CultureInfo culture) {
-            if (value is Status status) {
+    public class AppStatusTextConverter : IValueConverter
+    {
+        public object Convert(object value, Type targetType, object parameter, CultureInfo culture)
+        {
+            if (value is Status status)
+            {
                 return status switch
                 {
                     Status.Idle => "",
@@ -47,7 +55,8 @@ namespace BEditor.ViewModels.Converters {
             else return null;
         }
 
-        public object ConvertBack(object value, Type targetType, object parameter, CultureInfo culture) {
+        public object ConvertBack(object value, Type targetType, object parameter, CultureInfo culture)
+        {
             return null;
         }
     }

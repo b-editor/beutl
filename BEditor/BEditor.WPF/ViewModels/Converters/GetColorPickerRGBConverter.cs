@@ -4,9 +4,12 @@ using System.Globalization;
 using System.Text;
 using System.Windows.Data;
 
-namespace BEditor.ViewModels.Converters {
-    public class GetColorPickerRGBConverter : IMultiValueConverter {
-        public object Convert(object[] values, Type targetType, object parameter, CultureInfo culture) {
+namespace BEditor.ViewModels.Converters
+{
+    public class GetColorPickerRGBConverter : IMultiValueConverter
+    {
+        public object Convert(object[] values, Type targetType, object parameter, CultureInfo culture)
+        {
 
             return ((byte)values[0], (byte)values[1], (byte)values[2], (byte)values[3]);
         }

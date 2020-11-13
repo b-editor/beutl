@@ -7,9 +7,12 @@ using System.Threading.Tasks;
 
 using BEditor.Core.Media;
 
-namespace BEditor.Core.Media.Decoder {
-    public class FFmpegVideoDecoder : VideoDecoder {
-        public FFmpegVideoDecoder(string fileName) : base(fileName) {
+namespace BEditor.Core.Media.Decoder
+{
+    public class FFmpegVideoDecoder : VideoDecoder
+    {
+        public FFmpegVideoDecoder(string fileName) : base(fileName)
+        {
             //using (var video = new VideoCapture(fileName)) {
             //    Fps = (int)video.Fps;
             //    FrameCount = video.FrameCount;
@@ -30,13 +33,16 @@ namespace BEditor.Core.Media.Decoder {
 
         public override int Height { get; }
 
-        public override void Dispose() {
-            Parallel.For(0, FrameCount, i => {
+        public override void Dispose()
+        {
+            Parallel.For(0, FrameCount, i =>
+            {
                 Frames[i]?.DisposeAsync();
             });
         }
 
-        public override Image Read(int frame) {
+        public override Image Read(int frame)
+        {
             #region MyRegion
 
             /*

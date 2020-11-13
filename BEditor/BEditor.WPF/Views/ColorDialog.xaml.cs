@@ -17,36 +17,44 @@ using BEditor.ViewModels.PropertyControl;
 using BEditor.Core.Data.PropertyData;
 using MahApps.Metro.Controls;
 
-namespace BEditor.Views {
+namespace BEditor.Views
+{
     /// <summary>
     /// ToolWindow.xaml の相互作用ロジック
     /// </summary>
-    public partial class ColorDialog : MetroWindow {
-        public ColorDialog(ColorPickerViewModel color) {
+    public partial class ColorDialog : MetroWindow
+    {
+        public ColorDialog(ColorPickerViewModel color)
+        {
             InitializeComponent();
             DataContext = color;
             ok_button.SetBinding(Button.CommandProperty, new Binding("Command") { Mode = BindingMode.OneWay });
         }
 
-        public ColorDialog(ColorAnimationProperty color) {
+        public ColorDialog(ColorAnimationProperty color)
+        {
             InitializeComponent();
             DataContext = color;
         }
 
-        private void Button_Click(object sender, RoutedEventArgs e) {
+        private void Button_Click(object sender, RoutedEventArgs e)
+        {
             Close();
         }
 
         private void ColPick_Dropper(object sender, RoutedEventArgs e) =>
-        ColorDropper.Run(x => {
+        ColorDropper.Run(x =>
+        {
             col.Red = x.R;
             col.Green = x.G;
             col.Blue = x.B;
             col.Alpha = x.A;
         });
 
-        private void ColorPalette_SelectedEvent(object sender, RoutedPropertyChangedEventArgs<object> e) {
-            if (sender is TreeView tree && tree.SelectedItem is ColorListProperty color) {
+        private void ColorPalette_SelectedEvent(object sender, RoutedPropertyChangedEventArgs<object> e)
+        {
+            if (sender is TreeView tree && tree.SelectedItem is ColorListProperty color)
+            {
                 col.Red = color.Red;
                 col.Green = color.Green;
                 col.Blue = color.Blue;

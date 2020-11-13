@@ -11,12 +11,15 @@ using System.Windows.Media.Imaging;
 using System.Windows.Navigation;
 using System.Windows.Shapes;
 
-namespace BEditor.Views.SettingsControl.General {
+namespace BEditor.Views.SettingsControl.General
+{
     /// <summary>
     /// Other.xaml の相互作用ロジック
     /// </summary>
-    public partial class Other : UserControl {
-        public Other() {
+    public partial class Other : UserControl
+    {
+        public Other()
+        {
             InitializeComponent();
         }
     }

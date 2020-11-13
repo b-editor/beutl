@@ -8,19 +8,23 @@ using System.Windows.Media.Imaging;
 using System.Windows.Threading;
 using BEditor.Models.Extension;
 
-namespace BEditor.Models.ColorTool {
-    public class ColorDropper {
+namespace BEditor.Models.ColorTool
+{
+    public class ColorDropper
+    {
         public static void Run(Action<System.Windows.Media.Color> action) => new ColorDropper(action).Start();
 
         private readonly DispatcherTimer timer = new DispatcherTimer(DispatcherPriority.Normal);
         private readonly Action<System.Windows.Media.Color> Action;
 
-        public ColorDropper(Action<System.Windows.Media.Color> action) {
+        public ColorDropper(Action<System.Windows.Media.Color> action)
+        {
             Action = action;
             timer.Interval = new TimeSpan(0, 0, 0, 0, 10);
         }
 
-        public void Start() {
+        public void Start()
+        {
             timer.Start();
             timer.Tick += Timer_Tick;
         }
@@ -31,8 +35,10 @@ namespace BEditor.Models.ColorTool {
         //クリック判定
         private bool IsClickDown => GetKeyState(0x01) < 0;
 
-        private void Timer_Tick(object sender, EventArgs e) {
-            if (IsClickDown) {
+        private void Timer_Tick(object sender, EventArgs e)
+        {
+            if (IsClickDown)
+            {
                 timer.Stop();
                 timer.Tick -= Timer_Tick;
 
@@ -42,10 +48,12 @@ namespace BEditor.Models.ColorTool {
             }
         }
 
-        private System.Windows.Media.Color ColorSet(double X, double Y) {
+        private System.Windows.Media.Color ColorSet(double X, double Y)
+        {
             Bitmap bitmap = new Bitmap((int)SystemParameters.PrimaryScreenWidth, (int)SystemParameters.PrimaryScreenHeight, System.Drawing.Imaging.PixelFormat.Format32bppArgb);
 
-            using (var bmpGraphics = System.Drawing.Graphics.FromImage(bitmap)) {
+            using (var bmpGraphics = System.Drawing.Graphics.FromImage(bitmap))
+            {
                 bmpGraphics.CopyFromScreen(0, 0, 0, 0, bitmap.Size);
                 bitmap = Imaging.CreateBitmapSourceFromHBitmap(
                     bitmap.GetHbitmap(),
@@ -53,7 +61,7 @@ namespace BEditor.Models.ColorTool {
                     Int32Rect.Empty,
                     BitmapSizeOptions.FromEmptyOptions()).ToBitmap();
             }
-            
+
             PixelFormat pixelFormat = PixelFormat.Format32bppArgb;
             int pixelSize = 4;
             BitmapData bmpData = bitmap.LockBits(
@@ -62,7 +70,8 @@ namespace BEditor.Models.ColorTool {
               pixelFormat
             );
 
-            if (bmpData.Stride < 0) {
+            if (bmpData.Stride < 0)
+            {
                 bitmap.UnlockBits(bmpData);
                 return new System.Windows.Media.Color();
             }

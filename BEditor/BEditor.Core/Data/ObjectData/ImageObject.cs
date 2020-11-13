@@ -12,9 +12,11 @@ using static BEditor.Core.Data.ObjectData.DefaultData;
 
 using Image = BEditor.Core.Media.Image;
 
-namespace BEditor.Core.Data.ObjectData {
+namespace BEditor.Core.Data.ObjectData
+{
     [DataContract(Namespace = "")]
-    public class ImageObject : ObjectElement {
+    public class ImageObject : ObjectElement
+    {
         public static readonly PropertyElementMetadata CoordinateMetadata = new PropertyElementMetadata(Resources.Coordinate);
         public static readonly PropertyElementMetadata ZoomMetadata = new PropertyElementMetadata(Resources.Zoom);
         public static readonly PropertyElementMetadata BlendMetadata = new PropertyElementMetadata(Resources.Blend);
@@ -39,32 +41,38 @@ namespace BEditor.Core.Data.ObjectData {
 
         #region Rendering
 
-        public override void Render(EffectRenderArgs args) {
+        public override void Render(EffectRenderArgs args)
+        {
             Image base_img = Custom.Load(args);
 
-            if (base_img == null) {
+            if (base_img == null)
+            {
                 Coordinate.ResetOptional();
                 return;
             }
 
-            for (int i = 1; i < args.Schedules.Count; i++) {
+            for (int i = 1; i < args.Schedules.Count; i++)
+            {
                 var effect = args.Schedules[i];
 
-                if (effect is ImageEffect imageEffect) {
+                if (effect is ImageEffect imageEffect)
+                {
                     imageEffect.Draw(ref base_img, args);
                 }
                 effect.Render(args);
 
 
-                if (args.Handled) {
+                if (args.Handled)
+                {
                     Coordinate.ResetOptional();
                     return;
                 }
             }
 
 
-            ClipData.Scene.RenderingContext.DrawImage(base_img, ClipData, args.Frame);
-            if (!(base_img?.IsDisposed ?? true)) {
+            Parent.Parent.RenderingContext.DrawImage(base_img, Parent, args.Frame);
+            if (!(base_img?.IsDisposed ?? true))
+            {
                 base_img.Dispose();
             }
 
@@ -73,7 +81,8 @@ namespace BEditor.Core.Data.ObjectData {
 
         #endregion
 
-        public ImageObject() {
+        public ImageObject()
+        {
             Coordinate = new Coordinate(CoordinateMetadata);
             Zoom = new Zoom(ZoomMetadata);
             Blend = new Blend(BlendMetadata);

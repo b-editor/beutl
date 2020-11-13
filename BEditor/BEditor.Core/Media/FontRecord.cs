@@ -3,9 +3,11 @@ using System.Collections.Generic;
 using System.Runtime.Serialization;
 using System.Text;
 
-namespace BEditor.Core.Media {
-    [DataContract(Namespace ="")]
-    public record FontRecord {
+namespace BEditor.Core.Media
+{
+    [DataContract(Namespace = "")]
+    public record FontRecord
+    {
         [DataMember()]
         public string Name { get; set; }
         [DataMember()]

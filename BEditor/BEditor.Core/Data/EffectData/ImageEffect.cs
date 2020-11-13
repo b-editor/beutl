@@ -3,12 +3,14 @@
 using BEditor.Core.Data.ProjectData;
 using BEditor.Core.Media;
 
-namespace BEditor.Core.Data.EffectData {
+namespace BEditor.Core.Data.EffectData
+{
     /// <summary>
     /// 画像エフェクトのベースクラス
     /// </summary>
     [DataContract(Namespace = "")]
-    public abstract class ImageEffect : EffectElement {
+    public abstract class ImageEffect : EffectElement
+    {
         /// <summary>
         /// フレーム描画時に呼び出されます
         /// </summary>

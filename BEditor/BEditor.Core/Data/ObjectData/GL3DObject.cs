@@ -21,9 +21,11 @@ using GLColor = OpenTK.Mathematics.Color4;
 using static BEditor.Core.Data.ObjectData.DefaultData.Figure;
 using static BEditor.Core.Data.ObjectData.ImageObject;
 
-namespace BEditor.Core.Data.ObjectData {
+namespace BEditor.Core.Data.ObjectData
+{
     [DataContract(Namespace = "")]
-    public class GL3DObject : ObjectElement {
+    public class GL3DObject : ObjectElement
+    {
         static readonly SelectorPropertyMetadata TypeMetadata = new SelectorPropertyMetadata(Properties.Resources.Type, new string[2] {
             Properties.Resources.Cube,
             Properties.Resources.Ball
@@ -46,7 +48,8 @@ namespace BEditor.Core.Data.ObjectData {
             Weight
         };
 
-        public override void Render(EffectRenderArgs args) {
+        public override void Render(EffectRenderArgs args)
+        {
             int frame = args.Frame;
             Action action;
             GLColor color4 = Blend.Color.GetValue(frame);
@@ -59,8 +62,10 @@ namespace BEditor.Core.Data.ObjectData {
             float scalez = (float)(Zoom.ScaleZ.GetValue(frame) / 100) * scale;
 
 
-            if (Type.Index == 0) {
-                action = () => {
+            if (Type.Index == 0)
+            {
+                action = () =>
+                {
                     GL.Color4(color4);
                     GL.Scale(scalex, scaley, scalez);
                     BEditor.Core.Renderer.Graphics.DrawCube(Width.GetValue(frame),
@@ -72,8 +77,10 @@ namespace BEditor.Core.Data.ObjectData {
                                         Material.Shininess.GetValue(frame));
                 };
             }
-            else {
-                action = () => {
+            else
+            {
+                action = () =>
+                {
                     GL.Color4(color4);
                     GL.Scale(scalex, scaley, scalez);
                     BEditor.Core.Renderer.Graphics.DrawBall(Weight.GetValue(frame),
@@ -84,7 +91,7 @@ namespace BEditor.Core.Data.ObjectData {
                 };
             }
 
-            ClipData.Scene.RenderingContext.MakeCurrent();
+            Parent.Parent.RenderingContext.MakeCurrent();
             BEditor.Core.Renderer.Graphics.Paint(new Point3(Coordinate.X.GetValue(frame),
                                                            Coordinate.Y.GetValue(frame),
                                                            Coordinate.Z.GetValue(frame)),
@@ -103,7 +110,8 @@ namespace BEditor.Core.Data.ObjectData {
 
         #endregion
 
-        public GL3DObject() {
+        public GL3DObject()
+        {
             Coordinate = new Coordinate(CoordinateMetadata);
             Zoom = new Zoom(ZoomMetadata);
             Blend = new Blend(BlendMetadata);

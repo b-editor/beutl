@@ -1,9 +1,11 @@
 ﻿using System.IO;
 using System.Runtime.Serialization;
 
-namespace BEditor.Core.Data {
+namespace BEditor.Core.Data
+{
     [DataContract(Namespace = "")]
-    public class Settings : BasePropertyChanged {
+    public class Settings : BasePropertyChanged
+    {
         private int clipHeight = 25;
         private bool darkMode = true;
         private bool autoBackUp = true;
@@ -14,13 +16,16 @@ namespace BEditor.Core.Data {
 
         public static Settings Default { get; }
 
-        static Settings() {
+        static Settings()
+        {
             var path = $"{Component.Current.Path}\\user\\settings.json";
-            if (!File.Exists(path)) {
+            if (!File.Exists(path))
+            {
                 Default = new Settings();
                 Serialize.SaveToFile(Default, path);
             }
-            else {
+            else
+            {
                 Default = Serialize.LoadFromFile<Settings>(path);
             }
         }
@@ -28,37 +33,44 @@ namespace BEditor.Core.Data {
         public void Save() => Serialize.SaveToFile(this, $"{Component.Current.Path}\\user\\settings.json");
 
         [DataMember]
-        public int ClipHeight {
+        public int ClipHeight
+        {
             get => clipHeight;
             set => SetValue(value, ref clipHeight, nameof(ClipHeight));
         }
         [DataMember]
-        public bool UseDarkMode {
+        public bool UseDarkMode
+        {
             get => darkMode;
             set => SetValue(value, ref darkMode, nameof(UseDarkMode));
         }
         [DataMember]
-        public bool AutoBackUp {
+        public bool AutoBackUp
+        {
             get => autoBackUp;
             set => SetValue(value, ref autoBackUp, nameof(AutoBackUp));
         }
         [DataMember]
-        public string LastTimeFolder {
+        public string LastTimeFolder
+        {
             get => lastTimeFolder;
             set => SetValue(value, ref lastTimeFolder, nameof(LastTimeFolder));
         }
         [DataMember]
-        public int LastTimeNum {
+        public int LastTimeNum
+        {
             get => lastTimeNum;
             set => SetValue(value, ref lastTimeNum, nameof(LastTimeNum));
         }
         [DataMember]
-        public int WidthOf1Frame {
+        public int WidthOf1Frame
+        {
             get => widthOf1Frame;
             set => SetValue(value, ref widthOf1Frame, nameof(WidthOf1Frame));
         }
         [DataMember]
-        public bool EnableErrorLog {
+        public bool EnableErrorLog
+        {
             get => enableErrorLog;
             set => SetValue(value, ref enableErrorLog, nameof(EnableErrorLog));
         }

@@ -17,8 +17,10 @@ using GLColor = OpenTK.Graphics.Color4;
 using GLColor = OpenTK.Mathematics.Color4;
 #endif
 
-namespace BEditor.Core.Data.EffectData {
-    public class MultiLayerization : ImageEffect {
+namespace BEditor.Core.Data.EffectData
+{
+    public class MultiLayerization : ImageEffect
+    {
         public static readonly EasePropertyMetadata ZMetadata = new EasePropertyMetadata(Resources.Z, 50, float.NaN, 0);
         public static readonly ColorAnimationPropertyMetadata ColorMetadata = new ColorAnimationPropertyMetadata(Resources.Color, 255, 255, 255, 255, true);
 
@@ -31,15 +33,17 @@ namespace BEditor.Core.Data.EffectData {
             Color
         };
 
-        public override void PreviewRender(EffectRenderArgs args) {
+        public override void PreviewRender(EffectRenderArgs args)
+        {
             base.PreviewRender(args);
 
             args.Schedules.Remove(this);
             args.Schedules.Add(this);
         }
 
-        public override void Draw(ref Image source, EffectRenderArgs args) {
-            var drawObject = (ImageObject)ClipData.Effect[0];
+        public override void Draw(ref Image source, EffectRenderArgs args)
+        {
+            var drawObject = (ImageObject)Parent.Effect[0];
             var frame = args.Frame;
 
             Point3 coordinate = new Point3(x: drawObject.Coordinate.X.GetValue(frame),
@@ -60,8 +64,9 @@ namespace BEditor.Core.Data.EffectData {
 
             //var points = BorderFinder.Find(source);
 
-            ClipData.Scene.RenderingContext.MakeCurrent();
-            BEditor.Core.Renderer.Graphics.Paint(coordinate, nx, ny, nz, center, () => {
+            Parent.Parent.RenderingContext.MakeCurrent();
+            BEditor.Core.Renderer.Graphics.Paint(coordinate, nx, ny, nz, center, () =>
+            {
                 GL.Color4((GLColor)Color.GetValue(frame));
                 GL.Material(MaterialFace.Front, MaterialParameter.Ambient, (GLColor)Material.Ambient.GetValue(frame));
                 GL.Material(MaterialFace.Front, MaterialParameter.Diffuse, (GLColor)Material.Diffuse.GetValue(frame));
@@ -88,7 +93,8 @@ namespace BEditor.Core.Data.EffectData {
 
         #endregion
 
-        public MultiLayerization() {
+        public MultiLayerization()
+        {
             Z = new EaseProperty(ZMetadata);
             Material = new Material(ImageObject.MaterialMetadata);
             Color = new ColorAnimationProperty(ColorMetadata);

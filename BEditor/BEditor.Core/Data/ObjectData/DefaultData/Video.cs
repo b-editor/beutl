@@ -9,10 +9,13 @@ using BEditor.Core.Extensions.ViewCommand;
 using BEditor.Core.Media.Decoder;
 using BEditor.Core.Properties;
 
-namespace BEditor.Core.Data.ObjectData {
-    public static partial class DefaultData {
+namespace BEditor.Core.Data.ObjectData
+{
+    public static partial class DefaultData
+    {
         [DataContract(Namespace = "")]
-        public class Video : DefaultImageObject {
+        public class Video : DefaultImageObject
+        {
             public static readonly EasePropertyMetadata SpeedMetadata = new EasePropertyMetadata(Properties.Resources.Speed, 100);
             public static readonly EasePropertyMetadata StartMetadata = new EasePropertyMetadata(Properties.Resources.Start, 1, float.NaN, 0);
             public static readonly FilePropertyMetadata FileMetadata = new FilePropertyMetadata(Properties.Resources.File, "", "mp4,avi,wmv,mov", Properties.Resources.VideoFile);
@@ -20,7 +23,8 @@ namespace BEditor.Core.Data.ObjectData {
             private VideoDecoder videoReader;
 
 
-            public Video() {
+            public Video()
+            {
                 Speed = new EaseProperty(SpeedMetadata);
                 Start = new EaseProperty(StartMetadata);
                 File = new FileProperty(FileMetadata);
@@ -35,31 +39,38 @@ namespace BEditor.Core.Data.ObjectData {
                 File
             };
 
-            public override Media.Image Load(EffectRenderArgs args) {
+            public override Media.Image Load(EffectRenderArgs args)
+            {
                 float speed = Speed.GetValue(args.Frame) / 100;
                 int start = (int)Start.GetValue(args.Frame);
 
-                return VideoDecoder.Read((int)((start + args.Frame - Parent.ClipData.Start) * speed), videoReader);
+                return VideoDecoder.Read((int)((start + args.Frame - Parent.Parent.Start) * speed), videoReader);
             }
 
-            public override void PropertyLoaded() {
+            public override void PropertyLoaded()
+            {
                 base.PropertyLoaded();
 
-                if (System.IO.File.Exists(File.File)) {
+                if (System.IO.File.Exists(File.File))
+                {
                     videoReader = new FFmpegVideoDecoder(File.File);
                 }
 
-                File.PropertyChanged += (s, e) => {
-                    if (e.PropertyName != nameof(FileProperty.File)) {
+                File.PropertyChanged += (s, e) =>
+                {
+                    if (e.PropertyName != nameof(FileProperty.File))
+                    {
                         return;
                     }
 
                     videoReader?.Dispose();
 
-                    try {
+                    try
+                    {
                         videoReader = new FFmpegVideoDecoder(File.File);
                     }
-                    catch (Exception ex) {
+                    catch (Exception ex)
+                    {
                         Message.Snackbar(string.Format(Resources.FailedToLoad, File.File));
                         ActivityLog.ErrorLog(ex);
                     }

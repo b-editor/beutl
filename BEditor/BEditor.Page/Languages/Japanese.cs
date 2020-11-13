@@ -3,8 +3,10 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Threading.Tasks;
 
-namespace BEditor.Page.Languages {
-    public class Japanese : IResources {
+namespace BEditor.Page.Languages
+{
+    public class Japanese : IResources
+    {
         public string OpenSource => "オープンソース";
         public string Free => "無料";
         public string Extension => "拡張";

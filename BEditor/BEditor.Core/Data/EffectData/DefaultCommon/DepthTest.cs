@@ -9,9 +9,11 @@ using BEditor.Core.Data.PropertyData;
 
 using OpenTK.Graphics.OpenGL;
 
-namespace BEditor.Core.Data.EffectData.DefaultCommon {
+namespace BEditor.Core.Data.EffectData.DefaultCommon
+{
     [DataContract(Namespace = "")]
-    public class DepthTest : EffectElement {
+    public class DepthTest : EffectElement
+    {
         public static readonly CheckPropertyMetadata EnabledMetadata = new CheckPropertyMetadata(Properties.Resources.DepthTestEneble, true);
         public static readonly SelectorPropertyMetadata FunctionMetadata = new SelectorPropertyMetadata(Properties.Resources.DepthFunction, new string[] {
                 "Never",
@@ -44,7 +46,8 @@ namespace BEditor.Core.Data.EffectData.DefaultCommon {
 
         #region コンストラクタ
 
-        public DepthTest() {
+        public DepthTest()
+        {
             Enabled = new CheckProperty(EnabledMetadata);
             Function = new SelectorProperty(FunctionMetadata);
             Mask = new CheckProperty(MaskMetadata);
@@ -65,7 +68,8 @@ namespace BEditor.Core.Data.EffectData.DefaultCommon {
             Far
         };
 
-        public override void Render(EffectRenderArgs args) {
+        public override void Render(EffectRenderArgs args)
+        {
             if (Enabled.IsChecked) GL.Enable(EnableCap.DepthTest);
             else GL.Disable(EnableCap.DepthTest);
 

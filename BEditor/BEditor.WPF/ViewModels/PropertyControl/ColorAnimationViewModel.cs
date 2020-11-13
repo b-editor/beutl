@@ -9,14 +9,18 @@ using BEditor.Core.Data;
 using BEditor.Core.Data.PropertyData;
 using BEditor.Core.Data.PropertyData.EasingSetting;
 
-namespace BEditor.ViewModels.PropertyControl {
-    public class ColorAnimationViewModel {
+namespace BEditor.ViewModels.PropertyControl
+{
+    public class ColorAnimationViewModel
+    {
         public ColorAnimationProperty Property { get; }
         public DelegateCommand<EasingData> EasingChangeCommand { get; }
 
-        public ColorAnimationViewModel(ColorAnimationProperty property) {
+        public ColorAnimationViewModel(ColorAnimationProperty property)
+        {
             Property = property;
-            EasingChangeCommand = new DelegateCommand<EasingData>(x => {
+            EasingChangeCommand = new DelegateCommand<EasingData>(x =>
+            {
                 UndoRedoManager.Do(new ColorAnimationProperty.ChangeEaseCommand(property, x.Name));
             });
         }

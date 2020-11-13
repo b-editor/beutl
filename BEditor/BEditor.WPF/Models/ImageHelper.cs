@@ -10,28 +10,34 @@ using BEditor.Core.Properties;
 
 using Microsoft.WindowsAPICodePack.Dialogs;
 
-namespace BEditor.Models {
-    internal static class ImageHelper {
+namespace BEditor.Models
+{
+    internal static class ImageHelper
+    {
         #region フレームの画像出力
         /// <summary>
         /// フレームを画像出力
         /// </summary>
-        internal static void Output_Image(in string path) {
+        internal static void Output_Image(in string path)
+        {
 
             int nowframe = Component.Current.Project.PreviewScene.PreviewFrame;
 
             Image img = Component.Current.Project.PreviewScene.Render(nowframe).Image;
 
-            try {
+            try
+            {
 
-                if (img != null) {
+                if (img != null)
+                {
                     //img.SaveImage(path);
                     img.Save(path);
 
                     img.Dispose();
                 }
             }
-            catch (Exception e) {
+            catch (Exception e)
+            {
                 Message.Snackbar($"保存できませんでした : {e.Message}");
             }
         }
@@ -39,12 +45,14 @@ namespace BEditor.Models {
         /// <summary>
         /// フレームを画像出力
         /// </summary>
-        internal static void OutputImage() {
+        internal static void OutputImage()
+        {
             CommonSaveFileDialog saveFileDialog = new CommonSaveFileDialog();
             saveFileDialog.Filters.Add(new CommonFileDialogFilter(Resources.ImageFile, "png,jpeg,jpg,bmp"));
             saveFileDialog.RestoreDirectory = true;
 
-            if (saveFileDialog.ShowDialog() == CommonFileDialogResult.Ok) {
+            if (saveFileDialog.ShowDialog() == CommonFileDialogResult.Ok)
+            {
                 Output_Image(saveFileDialog.FileName);
             }
         }
@@ -53,8 +61,10 @@ namespace BEditor.Models {
 
 
         #region UIElement_Renderer
-        internal static BitmapSource RenderToBitmap(this UIElement element, System.Windows.Size size) {
-            try {
+        internal static BitmapSource RenderToBitmap(this UIElement element, System.Windows.Size size)
+        {
+            try
+            {
                 element.Measure(size);
                 element.Arrange(new System.Windows.Rect(size));
                 element.UpdateLayout();
@@ -65,7 +75,8 @@ namespace BEditor.Models {
                 bitmap.Render(element);
                 return bitmap;
             }
-            catch (Exception e) {
+            catch (Exception e)
+            {
                 ActivityLog.ErrorLog(e);
             }
 

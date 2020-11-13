@@ -3,8 +3,10 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Threading.Tasks;
 
-namespace BEditor.Page.Languages {
-    public interface IResources {
+namespace BEditor.Page.Languages
+{
+    public interface IResources
+    {
         public string OpenSource { get; }
         public string OpenSourceDescription { get; }
         public string Free { get; }

@@ -6,7 +6,8 @@ using System.Runtime.InteropServices;
 using System.Runtime.Serialization;
 using System.Text;
 
-namespace BEditor.Core.Media {
+namespace BEditor.Core.Media
+{
 #nullable enable
     /// <summary>
     /// 
@@ -14,7 +15,8 @@ namespace BEditor.Core.Media {
     [DataContract(Namespace = "")]
     [Serializable]
     [StructLayout(LayoutKind.Sequential)]
-    public struct Rectangle : IEquatable<Rectangle> {
+    public struct Rectangle : IEquatable<Rectangle>
+    {
         /// <summary>
         /// 
         /// </summary>
@@ -30,7 +32,8 @@ namespace BEditor.Core.Media {
         /// <param name="y">右上のY座標</param>
         /// <param name="width">横幅</param>
         /// <param name="height">高さ</param>
-        public Rectangle(int x, int y, int width, int height) {
+        public Rectangle(int x, int y, int width, int height)
+        {
             X = x;
             Y = y;
             Width = width;
@@ -42,7 +45,8 @@ namespace BEditor.Core.Media {
         /// </summary>
         /// <param name="point">右上のpoint</param>
         /// <param name="size">サイズ</param>
-        public Rectangle(Point2 point, Size size) {
+        public Rectangle(Point2 point, Size size)
+        {
             X = (int)point.X;
             Y = (int)point.Y;
             Width = size.Width;
@@ -104,9 +108,11 @@ namespace BEditor.Core.Media {
         /// <summary>
         /// Rectangleの左上のPoint
         /// </summary>
-        public Point2 Point {
+        public Point2 Point
+        {
             get => new Point2(X, Y);
-            set {
+            set
+            {
                 X = (int)value.X;
                 Y = (int)value.Y;
             }
@@ -114,9 +120,11 @@ namespace BEditor.Core.Media {
         /// <summary>
         /// Rectangleのサイズ
         /// </summary>
-        public Size Size {
+        public Size Size
+        {
             get => new Size(Width, Height);
-            set {
+            set
+            {
                 Width = value.Width;
                 Height = value.Height;
             }
@@ -135,7 +143,8 @@ namespace BEditor.Core.Media {
         /// <param name="bottom">右下のy座標</param>
         /// <returns>作られたRectangle</returns>
         [Pure]
-        public static Rectangle FromLTRB(int left, int top, int right, int bottom) {
+        public static Rectangle FromLTRB(int left, int top, int right, int bottom)
+        {
             var r = new Rectangle(
                 x: left,
                 y: top,
@@ -155,7 +164,8 @@ namespace BEditor.Core.Media {
         /// <param name="x">水平方向に膨張量</param>
         /// <param name="y">垂直方向に膨張量</param>
         [Pure]
-        public static Rectangle Inflate(Rectangle rect, int x, int y) {
+        public static Rectangle Inflate(Rectangle rect, int x, int y)
+        {
             rect.Inflate(x, y);
             return rect;
         }
@@ -163,7 +173,8 @@ namespace BEditor.Core.Media {
         /// 2つのRectangleの交差部分を表すRectangleを取得します
         /// </summary>
         [Pure]
-        public static Rectangle Intersect(Rectangle a, Rectangle b) {
+        public static Rectangle Intersect(Rectangle a, Rectangle b)
+        {
             var x1 = Math.Max(a.X, b.X);
             var x2 = Math.Min(a.X + a.Width, b.X + b.Width);
             var y1 = Math.Max(a.Y, b.Y);
@@ -177,7 +188,8 @@ namespace BEditor.Core.Media {
         /// 2つのRectangleの和集合を表す矩形を取得します
         /// </summary>
         [Pure]
-        public static Rectangle Union(Rectangle a, Rectangle b) {
+        public static Rectangle Union(Rectangle a, Rectangle b)
+        {
             var x1 = Math.Min(a.X, b.X);
             var x2 = Math.Max(a.X + a.Width, b.X + b.Width);
             var y1 = Math.Min(a.Y, b.Y);
@@ -196,7 +208,8 @@ namespace BEditor.Core.Media {
         /// </summary>
         /// <param name="width">水平方向に膨張量</param>
         /// <param name="height">垂直方向に膨張量</param>
-        public void Inflate(int width, int height) {
+        public void Inflate(int width, int height)
+        {
             X -= width;
             Y -= height;
             Width += (2 * width);

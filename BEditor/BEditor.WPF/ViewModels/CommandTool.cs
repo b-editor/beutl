@@ -12,14 +12,19 @@ using Microsoft.Xaml.Behaviors;
 
 using EventTrigger = Microsoft.Xaml.Behaviors.EventTrigger;
 
-namespace BEditor.ViewModels {
-    public static class CommandTool {
-        public static EventTrigger CreateEvent(string eventname, ICommand command) {
-            EventTrigger trigger = new EventTrigger {
+namespace BEditor.ViewModels
+{
+    public static class CommandTool
+    {
+        public static EventTrigger CreateEvent(string eventname, ICommand command)
+        {
+            EventTrigger trigger = new EventTrigger
+            {
                 EventName = eventname
             };
 
-            InvokeCommandAction action = new() {
+            InvokeCommandAction action = new()
+            {
                 Command = command
             };
 
@@ -28,12 +33,15 @@ namespace BEditor.ViewModels {
             return trigger;
         }
 
-        public static EventTrigger CreateEvent(string eventname, ICommand command, IValueConverter converter, object ConverterParameter) {
-            EventTrigger trigger = new EventTrigger {
+        public static EventTrigger CreateEvent(string eventname, ICommand command, IValueConverter converter, object ConverterParameter)
+        {
+            EventTrigger trigger = new EventTrigger
+            {
                 EventName = eventname
             };
 
-            InvokeCommandAction action = new InvokeCommandAction() {
+            InvokeCommandAction action = new InvokeCommandAction()
+            {
                 Command = command,
                 EventArgsConverter = converter,
                 EventArgsConverterParameter = ConverterParameter
@@ -45,12 +53,15 @@ namespace BEditor.ViewModels {
             return trigger;
         }
 
-        public static EventTrigger CreateEvent(string eventname, ICommand command, object commandparam) {
-            EventTrigger trigger = new EventTrigger {
+        public static EventTrigger CreateEvent(string eventname, ICommand command, object commandparam)
+        {
+            EventTrigger trigger = new EventTrigger
+            {
                 EventName = eventname
             };
 
-            InvokeCommandAction action = new InvokeCommandAction() {
+            InvokeCommandAction action = new InvokeCommandAction()
+            {
                 Command = command,
                 CommandParameter = commandparam
             };
@@ -61,7 +72,8 @@ namespace BEditor.ViewModels {
             return trigger;
         }
 
-        public static DelegateCommand CreateCommand(Action action) {
+        public static DelegateCommand CreateCommand(Action action)
+        {
             var command = new DelegateCommand();
             command.Subscribe(() => action());
             return command;
@@ -69,16 +81,20 @@ namespace BEditor.ViewModels {
     }
 
 
-    public class EventArgsConverter : IValueConverter {
+    public class EventArgsConverter : IValueConverter
+    {
         public object Convert(object value, Type targetType, object parameter, CultureInfo culture) => (parameter, (EventArgs)value);
         public object ConvertBack(object value, Type targetType, object parameter, CultureInfo culture) => throw new NotImplementedException();
 
         public static EventArgsConverter Converter = new EventArgsConverter();
     }
 
-    public class MousePositionConverter : IValueConverter {
-        public object Convert(object value, Type targetType, object parameter, CultureInfo culture) {
-            if (value is MouseEventArgs a) {
+    public class MousePositionConverter : IValueConverter
+    {
+        public object Convert(object value, Type targetType, object parameter, CultureInfo culture)
+        {
+            if (value is MouseEventArgs a)
+            {
                 return a.GetPosition((IInputElement)parameter);
             }
             return null;
@@ -88,67 +104,89 @@ namespace BEditor.ViewModels {
         public static MousePositionConverter Converter = new MousePositionConverter();
     }
 
-    public class ClipTypeIconConverter : IValueConverter {
-        public object Convert(object value, Type targetType, object parameter, CultureInfo culture) {
-            if (value is Type clipType) {
-                if (clipType == ClipType.Video) {
+    public class ClipTypeIconConverter : IValueConverter
+    {
+        public object Convert(object value, Type targetType, object parameter, CultureInfo culture)
+        {
+            if (value is Type clipType)
+            {
+                if (clipType == ClipType.Video)
+                {
                     return PackIconKind.Movie;
                 }
-                else if (clipType == ClipType.Image) {
+                else if (clipType == ClipType.Image)
+                {
                     return PackIconKind.Image;
                 }
-                else if (clipType == ClipType.Text) {
+                else if (clipType == ClipType.Text)
+                {
                     return PackIconKind.TextBox;
                 }
-                else if (clipType == ClipType.Figure) {
+                else if (clipType == ClipType.Figure)
+                {
                     return PackIconKind.Shape;
                 }
-                else if (clipType == ClipType.Camera) {
+                else if (clipType == ClipType.Camera)
+                {
                     return PackIconKind.Videocam;
                 }
-                else if (clipType == ClipType.GL3DObject) {
+                else if (clipType == ClipType.GL3DObject)
+                {
                     return PackIconKind.Cube;
                 }
-                else if (clipType == ClipType.Scene) {
+                else if (clipType == ClipType.Scene)
+                {
                     return PackIconKind.MovieOpen;
                 }
-                else {
+                else
+                {
                     return PackIconKind.None;
                 }
             }
-            else {
+            else
+            {
                 return PackIconKind.None;
             }
         }
 
-        public object ConvertBack(object value, Type targetType, object parameter, CultureInfo culture) {
-            if (value is PackIconKind kind) {
+        public object ConvertBack(object value, Type targetType, object parameter, CultureInfo culture)
+        {
+            if (value is PackIconKind kind)
+            {
                 return ToClipType(kind);
             }
 
             return ClipType.Video;
         }
 
-        public static Type ToClipType(PackIconKind kind) {
-            if (kind == PackIconKind.Movie) {
+        public static Type ToClipType(PackIconKind kind)
+        {
+            if (kind == PackIconKind.Movie)
+            {
                 return ClipType.Video;
             }
-            else if (kind == PackIconKind.Image) {
+            else if (kind == PackIconKind.Image)
+            {
                 return ClipType.Image;
             }
-            else if (kind == PackIconKind.TextBox) {
+            else if (kind == PackIconKind.TextBox)
+            {
                 return ClipType.Text;
             }
-            else if (kind == PackIconKind.Shape) {
+            else if (kind == PackIconKind.Shape)
+            {
                 return ClipType.Figure;
             }
-            else if (kind == PackIconKind.Videocam) {
+            else if (kind == PackIconKind.Videocam)
+            {
                 return ClipType.Camera;
             }
-            else if (kind == PackIconKind.Cube) {
+            else if (kind == PackIconKind.Cube)
+            {
                 return ClipType.GL3DObject;
             }
-            else if (kind == PackIconKind.MovieOpen) {
+            else if (kind == PackIconKind.MovieOpen)
+            {
                 return ClipType.Scene;
             }
 

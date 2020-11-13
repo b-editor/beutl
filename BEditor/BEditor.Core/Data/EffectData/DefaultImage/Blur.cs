@@ -5,9 +5,11 @@ using BEditor.Core.Data.ProjectData;
 using BEditor.Core.Data.PropertyData;
 using BEditor.Core.Media;
 
-namespace BEditor.Core.Data.EffectData {
+namespace BEditor.Core.Data.EffectData
+{
     [DataContract(Namespace = "")]
-    public class Blur : ImageEffect {
+    public class Blur : ImageEffect
+    {
         static readonly EasePropertyMetadata SizeMetadata = new EasePropertyMetadata(Properties.Resources.Size, 70, float.NaN, 0);
         static readonly CheckPropertyMetadata AlphaBlurMetadata = new CheckPropertyMetadata(Properties.Resources.Diffusion, false);
         static readonly SelectorPropertyMetadata ModeMetadata = new SelectorPropertyMetadata(Properties.Resources.BlurMode, new string[3]{
@@ -17,7 +19,8 @@ namespace BEditor.Core.Data.EffectData {
         });
 
 
-        public Blur() {
+        public Blur()
+        {
             Size = new EaseProperty(SizeMetadata);
             AlphaBlur = new CheckProperty(AlphaBlurMetadata);
             Mode = new SelectorProperty(ModeMetadata);
@@ -28,14 +31,18 @@ namespace BEditor.Core.Data.EffectData {
         public override string Name => Properties.Resources.Blur;
 
         #region Draw
-        public override void Draw(ref Image source, EffectRenderArgs args) {
-            if (Mode.Index == 0) {
+        public override void Draw(ref Image source, EffectRenderArgs args)
+        {
+            if (Mode.Index == 0)
+            {
                 source.Blur((int)Size.GetValue(args.Frame), AlphaBlur.IsChecked);
             }
-            else if (Mode.Index == 1) {
+            else if (Mode.Index == 1)
+            {
                 source.GaussianBlur((int)Size.GetValue(args.Frame), AlphaBlur.IsChecked);
             }
-            else {
+            else
+            {
                 source.MedianBlur((int)Size.GetValue(args.Frame), AlphaBlur.IsChecked);
             }
         }

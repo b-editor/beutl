@@ -20,8 +20,10 @@ using Microsoft.WindowsAPICodePack.Dialogs;
 
 using Project = BEditor.Core.Data.ProjectData.Project;
 
-namespace BEditor.ViewModels {
-    public sealed class MainWindowViewModel {
+namespace BEditor.ViewModels
+{
+    public sealed class MainWindowViewModel
+    {
         public static MainWindowViewModel Current { get; } = new MainWindowViewModel();
 
         public DelegateProperty<Project> OpenProject { get; } = new DelegateProperty<Project>() { Value = Component.Current.Project };
@@ -34,7 +36,8 @@ namespace BEditor.ViewModels {
 
         public SnackbarMessageQueue MessageQueue { get; } = new SnackbarMessageQueue();
 
-        private MainWindowViewModel() {
+        private MainWindowViewModel()
+        {
             OutputImage.Subscribe(() => OutputImageCommand());
             OutputVideo.Subscribe(() => OutputVideoCommand());
 
@@ -51,16 +54,20 @@ namespace BEditor.ViewModels {
 
             #region UndoRedoRelect
 
-            UndoSelect.Subscribe(() => {
-                for (int i = 0; i < UndoSelectIndex.Value + 1; i++) {
+            UndoSelect.Subscribe(() =>
+            {
+                for (int i = 0; i < UndoSelectIndex.Value + 1; i++)
+                {
                     UndoRedoManager.Undo();
                 }
 
                 Component.Current.Project.PreviewUpdate();
                 Component.Current.Status = Status.Edit;
             });
-            RedoSelect.Subscribe(() => {
-                for (int i = 0; i < RedoSelectIndex.Value + 1; i++) {
+            RedoSelect.Subscribe(() =>
+            {
+                for (int i = 0; i < RedoSelectIndex.Value + 1; i++)
+                {
                     UndoRedoManager.Redo();
                 }
 
@@ -70,13 +77,15 @@ namespace BEditor.ViewModels {
 
             #endregion
 
-            UndoCommand.Subscribe(() => {
+            UndoCommand.Subscribe(() =>
+            {
                 UndoRedoManager.Undo();
 
                 Component.Current.Project.PreviewUpdate();
                 Component.Current.Status = Status.Edit;
             });
-            RedoCommand.Subscribe(() => {
+            RedoCommand.Subscribe(() =>
+            {
                 UndoRedoManager.Redo();
 
                 Component.Current.Project.PreviewUpdate();
@@ -95,13 +104,15 @@ namespace BEditor.ViewModels {
 
         #region IOイベント
 
-        private void Project_Opend(object sender, EventArgs e) {
+        private void Project_Opend(object sender, EventArgs e)
+        {
             UndoRedoManager.Clear();
 
             ProjectIsOpened.Value = true;
         }
 
-        private void Project_Closed(object sender, EventArgs e) {
+        private void Project_Closed(object sender, EventArgs e)
+        {
             UndoRedoManager.Clear();
 
             ProjectIsOpened.Value = false;
@@ -135,8 +146,10 @@ namespace BEditor.ViewModels {
 
         public void ProjectSaveCommand() => Project.Save(Component.Current.Project);
 
-        public void ProjectOpenCommand() {
-            var dialog = new CommonOpenFileDialog() {
+        public void ProjectOpenCommand()
+        {
+            var dialog = new CommonOpenFileDialog()
+            {
                 Filters = {
                     new CommonFileDialogFilter("プロジェクトファイル", "bedit"),
                     new CommonFileDialogFilter("バックアップファイル", "backup")
@@ -144,23 +157,27 @@ namespace BEditor.ViewModels {
                 RestoreDirectory = true
             };
 
-            if (dialog.ShowDialog() == CommonFileDialogResult.Ok) {
-                App.Current.Dispatcher.Invoke(() => {
-                var loading = new Loading();
-                loading.IsIndeterminate.Value = true;
+            if (dialog.ShowDialog() == CommonFileDialogResult.Ok)
+            {
+                App.Current.Dispatcher.Invoke(() =>
+                {
+                    var loading = new Loading();
+                    loading.IsIndeterminate.Value = true;
 
-                NoneDialog dialog1 = new NoneDialog(loading);
-                dialog1.Show();
+                    NoneDialog dialog1 = new NoneDialog(loading);
+                    dialog1.Show();
 
-                var project = Project.Open(dialog.FileName);
-                if (project != null) {
-                    Component.Current.Project = project;
-                }
-                else {
-                    Message.Snackbar("読み込みに失敗しました");
-                }
+                    var project = Project.Open(dialog.FileName);
+                    if (project != null)
+                    {
+                        Component.Current.Project = project;
+                    }
+                    else
+                    {
+                        Message.Snackbar("読み込みに失敗しました");
+                    }
 
-                dialog1.Close();
+                    dialog1.Close();
                 });
             }
 
@@ -194,9 +211,12 @@ namespace BEditor.ViewModels {
         public ObservableCollection<string> UnDoList { get; } = new();
         public ObservableCollection<string> ReDoList { get; } = new();
 
-        private void DidEvent(object sender, CommandType type) {
-            try {
-                if (type == CommandType.Do) { //上を見てUnDoListに追加
+        private void DidEvent(object sender, CommandType type)
+        {
+            try
+            {
+                if (type == CommandType.Do)
+                { //上を見てUnDoListに追加
                     ReDoList.Clear();
 
                     var command = UndoRedoManager.UndoStack.Peek();
@@ -205,8 +225,10 @@ namespace BEditor.ViewModels {
 
                     Component.Current.Project.PreviewUpdate();
                 }
-                else if (type == CommandType.Undo) { //ReDoListに移動
-                    if (UnDoList.Count == 0) {
+                else if (type == CommandType.Undo)
+                { //ReDoListに移動
+                    if (UnDoList.Count == 0)
+                    {
                         return;
                     }
 
@@ -215,8 +237,10 @@ namespace BEditor.ViewModels {
                     ReDoList.Insert(0, name);
 
                 }
-                else if (type == CommandType.Redo) { //UnDoListに移動
-                    if (ReDoList.Count == 0) {
+                else if (type == CommandType.Redo)
+                { //UnDoListに移動
+                    if (ReDoList.Count == 0)
+                    {
                         return;
                     }
 
@@ -226,7 +250,8 @@ namespace BEditor.ViewModels {
 
                 }
             }
-            catch {
+            catch
+            {
 
             }
         }

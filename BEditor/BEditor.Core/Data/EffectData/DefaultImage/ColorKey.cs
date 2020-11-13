@@ -7,13 +7,16 @@ using BEditor.Core.Data.ProjectData;
 using BEditor.Core.Data.PropertyData;
 using BEditor.Core.Media;
 
-namespace BEditor.Core.Data.EffectData {
+namespace BEditor.Core.Data.EffectData
+{
     [DataContract(Namespace = "")]
-    public class ColorKey : ImageEffect {
+    public class ColorKey : ImageEffect
+    {
         static readonly ColorPropertyMetadata MaxColorMetadata = new ColorPropertyMetadata(Properties.Resources.Color, 255, 255, 255);
         static readonly ColorPropertyMetadata MinColorMetadata = new ColorPropertyMetadata(Properties.Resources.Color, 100, 100, 100);
 
-        public ColorKey() {
+        public ColorKey()
+        {
             MaxColor = new ColorProperty(MaxColorMetadata);
             MinColor = new ColorProperty(MinColorMetadata);
         }

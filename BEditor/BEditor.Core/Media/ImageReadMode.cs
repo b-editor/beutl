@@ -2,8 +2,10 @@
 using System.Collections.Generic;
 using System.Text;
 
-namespace BEditor.Core.Media {
-    public enum ImageReadMode {
+namespace BEditor.Core.Media
+{
+    public enum ImageReadMode
+    {
         /// <summary>
         /// IMREAD_UNCHANGED
         /// </summary>

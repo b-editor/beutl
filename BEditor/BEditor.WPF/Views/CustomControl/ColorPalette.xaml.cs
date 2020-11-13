@@ -11,16 +11,20 @@ using System.Windows.Media.Imaging;
 using System.Windows.Navigation;
 using System.Windows.Shapes;
 
-namespace BEditor.Views.CustomControl {
+namespace BEditor.Views.CustomControl
+{
     /// <summary>
     /// ColorPalette.xaml の相互作用ロジック
     /// </summary>
-    public partial class ColorPalette : UserControl {
-        public ColorPalette() {
+    public partial class ColorPalette : UserControl
+    {
+        public ColorPalette()
+        {
             InitializeComponent();
         }
 
-        private void Selected(object sender, RoutedPropertyChangedEventArgs<object> e) {
+        private void Selected(object sender, RoutedPropertyChangedEventArgs<object> e)
+        {
             SelectedEvent?.Invoke(sender, e);
         }
 

@@ -3,17 +3,20 @@
 using BEditor.Core.Data.EffectData;
 using BEditor.Core.Data.ObjectData;
 
-namespace BEditor.Core.Data.ProjectData {
+namespace BEditor.Core.Data.ProjectData
+{
     /// <summary>
     /// フレーム描画時にクリップに渡されるデータ
     /// </summary>
-    public class ClipRenderArgs {
+    public record ClipRenderArgs
+    {
         /// <summary>
         /// <see cref="ClipRenderArgs"/> クラスの新しいインスタンスを初期化します
         /// </summary>
         /// <param name="frame">タイムライン基準のフレーム</param>
         /// <param name="schedules">クリップのリスト</param>
-        public ClipRenderArgs(int frame, List<ClipData> schedules) {
+        public ClipRenderArgs(int frame, List<ClipData> schedules)
+        {
             Frame = frame;
             Schedules = schedules;
         }
@@ -35,13 +38,15 @@ namespace BEditor.Core.Data.ProjectData {
     /// <summary>
     /// フレーム描画時にエフェクトに渡されるデータ
     /// </summary>
-    public class EffectRenderArgs {
+    public record EffectRenderArgs
+    {
         /// <summary>
         /// <see cref="EffectRenderArgs"/> クラスの新しいインスタンスを初期化します
         /// </summary>
         /// <param name="frame">タイムライン基準のフレーム</param>
         /// <param name="schedules">エフェクトのリスト</param>
-        public EffectRenderArgs(int frame, List<EffectElement> schedules) {
+        public EffectRenderArgs(int frame, List<EffectElement> schedules)
+        {
             Frame = frame;
             Schedules = schedules;
         }

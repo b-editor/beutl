@@ -1,8 +1,11 @@
 ﻿using System;
 
-namespace BEditor.Core.Media.Encoder {
-    public abstract class VideoEncoder : IDisposable {
-        public VideoEncoder(string fileName, int fps, int width, int height) {
+namespace BEditor.Core.Media.Encoder
+{
+    public abstract class VideoEncoder : IDisposable
+    {
+        public VideoEncoder(string fileName, int fps, int width, int height)
+        {
             FileName = fileName;
             Fps = fps;
             Width = width;

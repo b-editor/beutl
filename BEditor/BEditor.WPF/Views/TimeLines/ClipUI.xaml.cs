@@ -9,39 +9,47 @@ using BEditor.ViewModels.TimeLines;
 using BEditor.Views.CustomControl;
 using BEditor.Core.Data.ObjectData;
 
-namespace BEditor.Views.TimeLines {
+namespace BEditor.Views.TimeLines
+{
 
     /// <summary>
     /// ClipUI.xaml の相互作用ロジック
     /// </summary>
-    public partial class ClipUI : UserControl, ICustomTreeViewItem {
+    public partial class ClipUI : UserControl, ICustomTreeViewItem
+    {
 
         public static readonly DependencyProperty IsExpandedProperty = DependencyProperty.Register("IsExpanded", typeof(bool), typeof(ClipUI), new FrameworkPropertyMetadata(false, FrameworkPropertyMetadataOptions.BindsTwoWayByDefault, IsExpandedChanged));
 
 
-        private static void IsExpandedChanged(DependencyObject d, DependencyPropertyChangedEventArgs e) {
+        private static void IsExpandedChanged(DependencyObject d, DependencyPropertyChangedEventArgs e)
+        {
             if (e.NewValue == e.OldValue) return;
 
-            if (d is ClipUI clip) {
-                if (clip.IsExpanded) {
+            if (d is ClipUI clip)
+            {
+                if (clip.IsExpanded)
+                {
                     clip.OpenAnm.To = clip.LogicHeight;
 
                     clip.OpenStoryboard.Begin();
                 }
-                else {
+                else
+                {
                     clip.CloseStoryboard.Begin();
                 }
             }
         }
 
-        public ClipUI(ClipData _Data) {
+        public ClipUI(ClipData _Data)
+        {
             InitializeComponent();
             ClipData = _Data;
             DataContext = _Data.GetCreateClipViewModel();
 
             SetBinding(IsExpandedProperty, new Binding("IsExpanded.Value") { Mode = BindingMode.TwoWay });
 
-            _Data.Effect.CollectionChanged += (s, e) => {
+            _Data.Effect.CollectionChanged += (s, e) =>
+            {
                 Value_SizeChange(this, null);
             };
 
@@ -58,11 +66,14 @@ namespace BEditor.Views.TimeLines {
         }
 
         #region ICustomTreeViewItem
-        public double LogicHeight {
-            get {
+        public double LogicHeight
+        {
+            get
+            {
                 double tmp = Setting.ClipHeight;
 
-                foreach (var effect in ClipData.Effect) {
+                foreach (var effect in ClipData.Effect)
+                {
                     var control = (CustomTreeView)effect.GetCreateKeyFrameView();
                     tmp += control.LogicHeight;
 
@@ -75,14 +86,18 @@ namespace BEditor.Views.TimeLines {
             }
         }
 
-        private void Value_SizeChange(object sender, EventArgs e) {
-            Dispatcher.Invoke(() => {
-                if (IsExpanded) {
+        private void Value_SizeChange(object sender, EventArgs e)
+        {
+            Dispatcher.Invoke(() =>
+            {
+                if (IsExpanded)
+                {
                     OpenAnm.To = LogicHeight;
 
                     OpenStoryboard.Begin();
                 }
-                else {
+                else
+                {
                     CloseStoryboard.Begin();
                 }
             });
@@ -106,7 +121,8 @@ namespace BEditor.Views.TimeLines {
         /// <summary>
         /// 開いている場合True
         /// </summary>
-        public bool IsExpanded {
+        public bool IsExpanded
+        {
             get => (bool)GetValue(IsExpandedProperty);
             set => SetValue(IsExpandedProperty, value);
         }

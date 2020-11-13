@@ -5,11 +5,13 @@ using System.Text;
 using BEditor.Core.Data.EffectData;
 using BEditor.Core.Data.ObjectData;
 
-namespace BEditor.Core.Data.PropertyData.EasingSetting {
+namespace BEditor.Core.Data.PropertyData.EasingSetting
+{
     /// <summary>
     /// <see cref="EasingFunc"/> で利用可能なプロパティを表します
     /// </summary>
-    public interface IEasingSetting {
+    public interface IEasingSetting
+    {
         /// <summary>
         /// 親要素を取得します
         /// </summary>

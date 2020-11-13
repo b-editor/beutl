@@ -5,12 +5,14 @@ using BEditor.Core.Data.EffectData;
 using BEditor.Core.Data.ObjectData;
 using BEditor.Core.Data.ProjectData;
 
-namespace BEditor.Core.Data.PropertyData {
+namespace BEditor.Core.Data.PropertyData
+{
     /// <summary>
     /// 編集画面を持つプロパティを表します
     /// </summary>
     [DataContract(Namespace = "")]
-    public abstract class PropertyElement : ComponentObject, IChild<EffectElement> {
+    public abstract class PropertyElement : ComponentObject, IChild<EffectElement>
+    {
         private PropertyElementMetadata propertyMetadata;
 
 
@@ -21,21 +23,24 @@ namespace BEditor.Core.Data.PropertyData {
         /// <summary>
         /// <see cref="Parent"/> から <see cref="ObjectData.ClipData"/> を取得します
         /// </summary>
-        public ClipData ClipData => Parent.ClipData;
+        public ClipData ClipData => Parent.Parent;
         /// <summary>
         /// <see cref="ClipData"/> から <see cref="ProjectData.Scene"/> を取得します
         /// </summary>
-        public Scene Scene => ClipData.Scene;
-
+        public Scene Scene => ClipData.Parent;
         /// <summary>
         /// プロパティのメタデータを取得または設定します
         /// </summary>
-        public PropertyElementMetadata PropertyMetadata { get => propertyMetadata; set => SetValue(value, ref propertyMetadata, nameof(PropertyMetadata)); }
-
+        public PropertyElementMetadata PropertyMetadata
+        { 
+            get => propertyMetadata;
+            set => SetValue(value, ref propertyMetadata, nameof(PropertyMetadata));
+        }
         /// <summary>
         /// 初期化時とデシリアライズ時に呼び出されます
         /// </summary>
-        public virtual void PropertyLoaded() {
+        public virtual void PropertyLoaded()
+        {
 
         }
 

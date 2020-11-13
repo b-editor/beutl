@@ -6,11 +6,13 @@ using BEditor.Views.CustomControl;
 
 using BEditor.Core.Data.PropertyData;
 
-namespace BEditor.Views.PropertyControls {
+namespace BEditor.Views.PropertyControls
+{
     /// <summary>
     /// Document.xaml の相互作用ロジック
     /// </summary>
-    public partial class Document : UserControl, ICustomTreeViewItem {
+    public partial class Document : UserControl, ICustomTreeViewItem
+    {
         //ICustomTreeViewItem
         public double LogicHeight => document.HeightProperty ?? 125;
 
@@ -18,7 +20,8 @@ namespace BEditor.Views.PropertyControls {
         DocumentProperty document;
 
 
-        public Document(DocumentProperty document) {
+        public Document(DocumentProperty document)
+        {
             InitializeComponent();
 
             DataContext = new DocumentPropertyViewModel(document);

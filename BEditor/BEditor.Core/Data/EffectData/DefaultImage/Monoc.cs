@@ -7,12 +7,15 @@ using BEditor.Core.Data.ProjectData;
 using BEditor.Core.Data.PropertyData;
 using BEditor.Core.Media;
 
-namespace BEditor.Core.Data.EffectData {
+namespace BEditor.Core.Data.EffectData
+{
     [DataContract(Namespace = "")]
-    public class Monoc : ImageEffect {
+    public class Monoc : ImageEffect
+    {
         static readonly ColorPropertyMetadata ColorMetadata = new ColorPropertyMetadata(Properties.Resources.Color, 255, 255, 255);
 
-        public Monoc() {
+        public Monoc()
+        {
             Color = new ColorProperty(ColorMetadata);
         }
 
@@ -32,7 +35,7 @@ namespace BEditor.Core.Data.EffectData {
 
 
         [DataMember(Order = 0)]
-        [PropertyMetadata(nameof(ColorMetadata),typeof(Monoc))]
+        [PropertyMetadata(nameof(ColorMetadata), typeof(Monoc))]
         public ColorProperty Color { get; set; }
     }
 }

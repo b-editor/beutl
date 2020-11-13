@@ -4,11 +4,13 @@ using System.Text;
 
 using BEditor.Core.Data.ProjectData;
 
-namespace BEditor.Core.Data.PropertyData {
+namespace BEditor.Core.Data.PropertyData
+{
     /// <summary>
     /// タイムライン上に編集画面を持つプロパティを表します
     /// </summary>
-    public interface IKeyFrameProperty {
+    public interface IKeyFrameProperty
+    {
         /// <summary>
         /// シーンを取得します
         /// </summary>

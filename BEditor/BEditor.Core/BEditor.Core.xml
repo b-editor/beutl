@@ -129,10 +129,13 @@
             </summary>
             <remarks>エクスパンダーが開いている場合は <see langword="true"/>、そうでない場合は <see langword="false"/> となります</remarks>
         </member>
-        <member name="P:BEditor.Core.Data.EffectData.EffectElement.ClipData">
+        <member name="P:BEditor.Core.Data.EffectData.EffectElement.PropertySettings">
             <summary>
-            <see cref="T:BEditor.Core.Data.ObjectData.ClipData"/> を取得します
+            GUIに表示する<seealso cref="T:BEditor.Core.Data.PropertyData.PropertyElement"/>を<see cref="T:System.Collections.Generic.IList`1"/>を取得します
             </summary>
+        </member>
+        <member name="P:BEditor.Core.Data.EffectData.EffectElement.Parent">
+            <inheritdoc/>
         </member>
         <member name="M:BEditor.Core.Data.EffectData.EffectElement.PropertyLoaded">
             <summary>
@@ -149,14 +152,6 @@
             </item>
             </list>
             </remarks>
-        </member>
-        <member name="P:BEditor.Core.Data.EffectData.EffectElement.PropertySettings">
-            <summary>
-            GUIに表示する<seealso cref="T:BEditor.Core.Data.PropertyData.PropertyElement"/>を<see cref="T:System.Collections.Generic.IList`1"/>を取得します
-            </summary>
-        </member>
-        <member name="P:BEditor.Core.Data.EffectData.EffectElement.BEditor#Core#Data#IChild{BEditor#Core#Data#ObjectData#ClipData}#Parent">
-            <inheritdoc/>
         </member>
         <member name="M:BEditor.Core.Data.EffectData.EffectElement.Render(BEditor.Core.Data.ProjectData.EffectRenderArgs)">
             <summary>
@@ -368,10 +363,8 @@
             表示されるテキストを取得または設定します
             </summary>
         </member>
-        <member name="P:BEditor.Core.Data.ObjectData.ClipData.Scene">
-            <summary>
-            <see cref="T:BEditor.Core.Data.ProjectData.Scene"/> のインスタンスを取得します
-            </summary>
+        <member name="P:BEditor.Core.Data.ObjectData.ClipData.Parent">
+            <inheritdoc/>
         </member>
         <member name="P:BEditor.Core.Data.ObjectData.ClipData.Effect">
             <summary>
@@ -379,9 +372,6 @@
             </summary>
         </member>
         <member name="P:BEditor.Core.Data.ObjectData.ClipData.BEditor#Core#Data#IParent{BEditor#Core#Data#EffectData#EffectElement}#Children">
-            <inheritdoc/>
-        </member>
-        <member name="P:BEditor.Core.Data.ObjectData.ClipData.BEditor#Core#Data#IChild{BEditor#Core#Data#ProjectData#Scene}#Parent">
             <inheritdoc/>
         </member>
         <member name="M:BEditor.Core.Data.ObjectData.ClipData.Render(BEditor.Core.Data.ProjectData.ClipRenderArgs)">
@@ -818,7 +808,7 @@
         </member>
         <member name="M:BEditor.Core.Data.ProjectData.Scene.Add(BEditor.Core.Data.ObjectData.ClipData)">
             <summary>
-            クリップを追加し、<seealso cref="P:BEditor.Core.Data.ObjectData.ClipData.Scene"/> にこのシーンを設定します
+            クリップを追加し、<seealso cref="P:BEditor.Core.Data.ObjectData.ClipData.Parent"/> にこのシーンを設定します
             </summary>
             <param name="data">追加するクリップ</param>
         </member>

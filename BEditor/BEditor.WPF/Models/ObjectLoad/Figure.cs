@@ -11,12 +11,16 @@ using BEditor.Core;
 using Pen = System.Drawing.Pen;
 using BEditor.Models.Extension;
 
-namespace BEditor.Models {
-    internal partial class ObjectLoad {
-        internal static BEditor.Core.Media.Image Ellipse(int width, int height, int line, Core.Media.Color color) {
+namespace BEditor.Models
+{
+    internal partial class ObjectLoad
+    {
+        internal static BEditor.Core.Media.Image Ellipse(int width, int height, int line, Core.Media.Color color)
+        {
             BEditor.Core.Media.Image img = null;
 
-            if ((line != 0) && (width != 0) && (height != 0)) {
+            if ((line != 0) && (width != 0) && (height != 0))
+            {
                 if (width % 2 == 1) width++;
                 if (height % 2 == 1) height++;
 
@@ -29,8 +33,10 @@ namespace BEditor.Models {
                 if (line < min) min = line;
                 if (min < 0) min = 0;
 
-                UnitTestInvoker.Invoke(() => {
-                    Ellipse ellipse = new Ellipse() {
+                UnitTestInvoker.Invoke(() =>
+                {
+                    Ellipse ellipse = new Ellipse()
+                    {
                         Stroke = color.ToBrush(),
                         Width = width,
                         Height = height,
@@ -46,10 +52,12 @@ namespace BEditor.Models {
             }
             return img;
         }
-        internal static BEditor.Core.Media.Image Rectangle(int width, int height, int line, Core.Media.Color color) {
+        internal static BEditor.Core.Media.Image Rectangle(int width, int height, int line, Core.Media.Color color)
+        {
             BEditor.Core.Media.Image img = null;
 
-            if ((line != 0) && (width != 0) && (height != 0)) {
+            if ((line != 0) && (width != 0) && (height != 0))
+            {
                 if (width % 2 == 1) width++;
                 if (height % 2 == 1) height++;
 
@@ -64,8 +72,10 @@ namespace BEditor.Models {
 
 
 
-                UnitTestInvoker.Invoke(() => {
-                    System.Windows.Shapes.Rectangle rectangle = new System.Windows.Shapes.Rectangle() {
+                UnitTestInvoker.Invoke(() =>
+                {
+                    System.Windows.Shapes.Rectangle rectangle = new System.Windows.Shapes.Rectangle()
+                    {
                         Stroke = color.ToBrush(),
                         Width = width,
                         Height = height,

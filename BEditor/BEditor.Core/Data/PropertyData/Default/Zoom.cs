@@ -3,16 +3,19 @@ using System.Runtime.Serialization;
 
 using BEditor.Core.Data.PropertyData;
 
-namespace BEditor.Core.Data.PropertyData.Default {
+namespace BEditor.Core.Data.PropertyData.Default
+{
     [DataContract(Namespace = "")]
-    public sealed class Zoom : ExpandGroup {
+    public sealed class Zoom : ExpandGroup
+    {
         public static readonly EasePropertyMetadata ZoomMetadata = new EasePropertyMetadata(Properties.Resources.Zoom, 100);
         public static readonly EasePropertyMetadata ScaleXMetadata = new EasePropertyMetadata(Properties.Resources.X, 100);
         public static readonly EasePropertyMetadata ScaleYMetadata = new EasePropertyMetadata(Properties.Resources.Y, 100);
         public static readonly EasePropertyMetadata ScaleZMetadata = new EasePropertyMetadata(Properties.Resources.Z, 100);
 
 
-        public Zoom(PropertyElementMetadata constant) : base(constant) {
+        public Zoom(PropertyElementMetadata constant) : base(constant)
+        {
             Scale = new EaseProperty(ZoomMetadata);
             ScaleX = new EaseProperty(ScaleXMetadata);
             ScaleY = new EaseProperty(ScaleYMetadata);

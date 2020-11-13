@@ -4,10 +4,13 @@ using BEditor.Core.Data.ProjectData;
 using BEditor.Core.Data.PropertyData;
 using BEditor.Core.Media;
 
-namespace BEditor.Core.Data.ObjectData {
-    public static partial class DefaultData {
+namespace BEditor.Core.Data.ObjectData
+{
+    public static partial class DefaultData
+    {
         [DataContract(Namespace = "")]
-        public abstract class DefaultImageObject : Group {
+        public abstract class DefaultImageObject : Group
+        {
             public abstract Media.Image Load(EffectRenderArgs args);
         }
     }

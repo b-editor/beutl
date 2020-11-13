@@ -6,11 +6,13 @@ using BEditor.Core.Data.EffectData;
 using BEditor.Core.Data.ObjectData;
 using BEditor.Core.Data.PropertyData;
 
-namespace BEditor.Core.Data {
+namespace BEditor.Core.Data
+{
     /// <summary>
     /// 実行、元に戻す(undo)、やり直す(redo)の動作を表します
     /// </summary>
-    public interface IUndoRedoCommand {
+    public interface IUndoRedoCommand
+    {
         /// <summary>
         /// 操作を実行します
         /// <para>例外を投げた場合キャンセルされます</para>
@@ -31,7 +33,8 @@ namespace BEditor.Core.Data {
     /// <summary>
     /// 行なった操作の履歴を蓄積することでUndo,Redoの機能を表します
     /// </summary>
-    public static class UndoRedoManager {
+    public static class UndoRedoManager
+    {
         /// <summary>
         /// コマンドに対応する名前が入った配列を取得します
         /// </summary>
@@ -102,12 +105,14 @@ namespace BEditor.Core.Data {
         /// 操作を実行し、かつその内容をStackに追加します
         /// </summary>
         /// <param name="command">実行するコマンド</param>
-        public static void Do(IUndoRedoCommand command) {
+        public static void Do(IUndoRedoCommand command)
+        {
             if (!process) return;
 
             CanUndo = UndoStack.Count > 0;
 
-            try {
+            try
+            {
                 process = false;
                 command.Do();
 
@@ -116,7 +121,8 @@ namespace BEditor.Core.Data {
                 RedoStack.Clear();
                 CanRedo = RedoStack.Count > 0;
             }
-            catch {
+            catch
+            {
                 CommandCancel?.Invoke(null, EventArgs.Empty);
             }
 
@@ -128,14 +134,17 @@ namespace BEditor.Core.Data {
         /// <summary>
         /// 行なったコマンドを取り消してひとつ前の状態に戻します
         /// </summary>
-        public static void Undo() {
+        public static void Undo()
+        {
             if (!process) return;
 
-            if (UndoStack.Count >= 1) {
+            if (UndoStack.Count >= 1)
+            {
                 IUndoRedoCommand command = UndoStack.Pop();
                 CanUndo = UndoStack.Count > 0;
 
-                try {
+                try
+                {
                     process = false;
                     command.Undo();
 
@@ -152,14 +161,17 @@ namespace BEditor.Core.Data {
         /// <summary>
         /// 取り消したコマンドをやり直します
         /// </summary>
-        public static void Redo() {
+        public static void Redo()
+        {
             if (!process) return;
 
-            if (RedoStack.Count >= 1) {
+            if (RedoStack.Count >= 1)
+            {
                 IUndoRedoCommand command = RedoStack.Pop();
                 CanRedo = RedoStack.Count > 0;
 
-                try {
+                try
+                {
                     process = false;
                     command.Redo();
 
@@ -176,7 +188,8 @@ namespace BEditor.Core.Data {
         /// <summary>
         /// 記録されたコマンドを初期化
         /// </summary>
-        public static void Clear() {
+        public static void Clear()
+        {
             UndoStack.Clear();
             RedoStack.Clear();
             CanUndo = false;
@@ -188,15 +201,19 @@ namespace BEditor.Core.Data {
         /// <summary>
         /// Undo出来るか取得します
         /// </summary>
-        public static bool CanUndo {
-            private set {
-                if (canUndo != value) {
+        public static bool CanUndo
+        {
+            private set
+            {
+                if (canUndo != value)
+                {
                     canUndo = value;
 
                     CanUndoChange?.Invoke(null, EventArgs.Empty);
                 }
             }
-            get {
+            get
+            {
                 return canUndo;
             }
         }
@@ -204,15 +221,19 @@ namespace BEditor.Core.Data {
         /// <summary>
         /// Redo出来るかを取得します
         /// </summary>
-        public static bool CanRedo {
-            private set {
-                if (canRedo != value) {
+        public static bool CanRedo
+        {
+            private set
+            {
+                if (canRedo != value)
+                {
                     canRedo = value;
 
                     CanRedoChange?.Invoke(null, EventArgs.Empty);
                 }
             }
-            get {
+            get
+            {
                 return canRedo;
             }
         }
@@ -245,7 +266,8 @@ namespace BEditor.Core.Data {
     /// <summary>
     /// コマンドの種類を表します
     /// </summary>
-    public enum CommandType {
+    public enum CommandType
+    {
         /// <summary>
         /// 
         /// </summary>

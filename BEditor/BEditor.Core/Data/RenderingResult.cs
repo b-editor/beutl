@@ -6,8 +6,10 @@ using System.Threading.Tasks;
 
 using BEditor.Core.Media;
 
-namespace BEditor.Core.Data {
-    public readonly ref struct RenderingResult {
+namespace BEditor.Core.Data
+{
+    public readonly ref struct RenderingResult
+    {
         public Image Image { get; init; }
     }
 }

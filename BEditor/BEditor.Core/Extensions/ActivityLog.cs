@@ -7,12 +7,16 @@ using System.Xml.Linq;
 
 using BEditor.Core.Data;
 
-namespace BEditor.Core.Extensions {
-    public static class ActivityLog {
-        public static void ErrorLog(Exception e) {
+namespace BEditor.Core.Extensions
+{
+    public static class ActivityLog
+    {
+        public static void ErrorLog(Exception e)
+        {
             if (!Settings.Default.EnableErrorLog) return;
 
-            Task.Run(() => {
+            Task.Run(() =>
+            {
                 var xdoc = XDocument.Load(Component.Current.Path + "\\user\\logs\\errorlog.xml");
 
                 var xelm = new XElement("Error",
@@ -26,10 +30,12 @@ namespace BEditor.Core.Extensions {
             });
         }
 
-        public static void ErrorLog(Exception e, string message) {
+        public static void ErrorLog(Exception e, string message)
+        {
             if (!Settings.Default.EnableErrorLog) return;
 
-            Task.Run(() => {
+            Task.Run(() =>
+            {
                 var xdoc = XDocument.Load(Component.Current.Path + "\\user\\logs\\errorlog.xml");
 
                 var xelm = new XElement("Error",

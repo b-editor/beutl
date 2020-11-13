@@ -7,16 +7,19 @@ using BEditor.Core.Data.EffectData;
 using BEditor.Core.Data.ProjectData;
 using BEditor.Core.Properties;
 
-namespace BEditor.Core.Data.ObjectData {
+namespace BEditor.Core.Data.ObjectData
+{
     /// <summary>
     /// オブジェクトのベースクラス
     /// </summary>
     [DataContract(Namespace = "")]
-    public abstract class ObjectElement : EffectElement {
+    public abstract class ObjectElement : EffectElement
+    {
 
     }
 
-    public class ObjectData {
+    public class ObjectData
+    {
         public string Name { get; set; }
         public Type Type { get; set; }
         public List<ObjectData> Children { get; set; }

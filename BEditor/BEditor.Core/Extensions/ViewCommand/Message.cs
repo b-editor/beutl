@@ -2,12 +2,15 @@
 using System.Collections.Generic;
 using System.Text;
 
-namespace BEditor.Core.Extensions.ViewCommand {
-    public static class Message {
+namespace BEditor.Core.Extensions.ViewCommand
+{
+    public static class Message
+    {
         public static event Func<string, IconType, ButtonType[], ButtonType> DialogFunc;
         public static event Action<string> SnackberFunc;
-    
-        public static ButtonType? Dialog(string text, IconType icon = IconType.Info, ButtonType[] types = null) {
+
+        public static ButtonType? Dialog(string text, IconType icon = IconType.Info, ButtonType[] types = null)
+        {
             if (types is null) types = new ButtonType[] { ButtonType.Ok, ButtonType.Close };
 
             return DialogFunc?.Invoke(text, icon, types);

@@ -7,8 +7,10 @@ using System.Text;
 
 using Microsoft.VisualBasic.CompilerServices;
 
-namespace BEditor.Core.Native {
-    public unsafe static class FontProcess {
+namespace BEditor.Core.Native
+{
+    public unsafe static class FontProcess
+    {
         private const string dll = "BEditor.Extern.dll";
         //private const string ft_lib = "freetype.dll";
 
@@ -63,12 +65,14 @@ namespace BEditor.Core.Native {
         public static extern int Descender(IntPtr font);
         [Pure, DllImport(dll, EntryPoint = "ImageFontFamilyName")]
         private static extern IntPtr FamilyName_(IntPtr font);
-        [Pure, DllImport(dll, EntryPoint ="ImageFontStyleName")]
+        [Pure, DllImport(dll, EntryPoint = "ImageFontStyleName")]
         private static extern IntPtr StyleName_(IntPtr font);
-        public static string FamilyName(IntPtr font) {
+        public static string FamilyName(IntPtr font)
+        {
             return TextConvert.UTF8_ToManaged(FamilyName_(font));
         }
-        public static string StyleName(IntPtr font) {
+        public static string StyleName(IntPtr font)
+        {
             return TextConvert.UTF8_ToManaged(StyleName_(font));
         }
 

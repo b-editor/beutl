@@ -2,14 +2,16 @@
 using System.Runtime.InteropServices;
 using System.Runtime.Serialization;
 
-namespace BEditor.Core.Media {
+namespace BEditor.Core.Media
+{
     /// <summary>
     /// RGBA (red, green, blue, alpha) の色を表します
     /// </summary>
     [DataContract(Namespace = "")]
     [Serializable]
     [StructLayout(LayoutKind.Sequential)]
-    public struct Color : IEquatable<Color> {
+    public struct Color : IEquatable<Color>
+    {
         private float scR;
         private float scG;
         private float scB;
@@ -173,7 +175,8 @@ namespace BEditor.Core.Media {
         /// <param name="g"><see cref="G"/> の値</param>
         /// <param name="b"><see cref="B"/> の値</param>
         /// <param name="a"><see cref="A"/> の値</param>
-        public Color(byte r = 255, byte g = 255, byte b = 255, byte a = 255) {
+        public Color(byte r = 255, byte g = 255, byte b = 255, byte a = 255)
+        {
             scR = (float)r / 255;
             scG = (float)g / 255;
             scB = (float)b / 255;
@@ -186,7 +189,8 @@ namespace BEditor.Core.Media {
         /// <param name="g"><see cref="ScG"/> の値</param>
         /// <param name="b"><see cref="ScB"/> の値</param>
         /// <param name="a"><see cref="ScA"/> の値</param>
-        public Color(float r = 1, float g = 1, float b = 1, float a = 1) {
+        public Color(float r = 1, float g = 1, float b = 1, float a = 1)
+        {
             scR = r;
             scG = g;
             scB = b;
@@ -207,7 +211,8 @@ namespace BEditor.Core.Media {
         /// <summary>
         /// 赤の値を取得または設定します
         /// </summary>
-        public byte R {
+        public byte R
+        {
             get => (byte)(ScR * 255);
             set => ScR = (float)value / 255;
         }
@@ -215,7 +220,8 @@ namespace BEditor.Core.Media {
         /// <summary>
         /// 緑の値を取得または設定します
         /// </summary>
-        public byte G {
+        public byte G
+        {
             get => (byte)(ScG * 255);
             set => ScG = (float)value / 255;
         }
@@ -223,7 +229,8 @@ namespace BEditor.Core.Media {
         /// <summary>
         /// 青の値を取得または設定します
         /// </summary>
-        public byte B {
+        public byte B
+        {
             get => (byte)(ScB * 255);
             set => ScB = (float)value / 255;
         }
@@ -231,7 +238,8 @@ namespace BEditor.Core.Media {
         /// <summary>
         /// アルファの値を取得または設定します
         /// </summary>
-        public byte A {
+        public byte A
+        {
             get => (byte)(ScA * 255);
             set => ScA = (float)value / 255;
         }

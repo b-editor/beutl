@@ -6,19 +6,26 @@ using System.Windows.Input;
 using BEditor.ViewModels.Helper;
 using BEditor.Core.Data.EffectData;
 
-namespace BEditor.ViewModels.ToolControl {
-    public class LibraryViewModel {
+namespace BEditor.ViewModels.ToolControl
+{
+    public class LibraryViewModel
+    {
         #region シングルトン
 
         public static LibraryViewModel Current { get; } = new LibraryViewModel();
-        private LibraryViewModel() {
-            MouseDownCommand.Subscribe(obj => {
-                if (!Trigger) {
+        private LibraryViewModel()
+        {
+            MouseDownCommand.Subscribe(obj =>
+            {
+                if (!Trigger)
+                {
                     return;
                 }
-                if (Mouse.LeftButton == MouseButtonState.Pressed) {
+                if (Mouse.LeftButton == MouseButtonState.Pressed)
+                {
 
-                    if (!(obj is EffectData select) || select.Type == null) {
+                    if (!(obj is EffectData select) || select.Type == null)
+                    {
                         return;
                     }
 
@@ -30,7 +37,8 @@ namespace BEditor.ViewModels.ToolControl {
                 Trigger = false;
             });
 
-            MouseMoveCommand.Subscribe(() => {
+            MouseMoveCommand.Subscribe(() =>
+            {
                 Trigger = true;
             });
         }

@@ -7,16 +7,20 @@ using BEditor.Core.Data.PropertyData;
 
 using DocumentProperty = BEditor.Core.Data.PropertyData.DocumentProperty;
 
-namespace BEditor.Core.Data.ObjectData {
-    public static partial class DefaultData {
+namespace BEditor.Core.Data.ObjectData
+{
+    public static partial class DefaultData
+    {
         [DataContract(Namespace = "")]
-        public class Text : DefaultImageObject {
+        public class Text : DefaultImageObject
+        {
             public static readonly EasePropertyMetadata SizeMetadata = new EasePropertyMetadata(Properties.Resources.Size, 100, float.NaN, 0);
             public static readonly ColorPropertyMetadata ColorMetadata = new ColorPropertyMetadata(Properties.Resources.Color, 255, 255, 255);
             public static readonly PropertyElementMetadata FontMetadata = new PropertyElementMetadata(Properties.Resources.DetailedSettings);
             public static readonly DocumentPropertyMetadata DocumentMetadata = new DocumentPropertyMetadata("");
 
-            public Text() {
+            public Text()
+            {
                 Size = new EaseProperty(SizeMetadata);
                 Color = new ColorProperty(ColorMetadata);
                 Font = new FontProperty(FontMetadata);
@@ -62,14 +66,16 @@ namespace BEditor.Core.Data.ObjectData {
 
 
             [DataContract(Namespace = "")]
-            public class FontProperty : ExpandGroup {
+            public class FontProperty : ExpandGroup
+            {
                 public static readonly FontPropertyMetadata FontMetadata = new FontPropertyMetadata();
                 public static readonly SelectorPropertyMetadata FontStyleMetadata = new SelectorPropertyMetadata(Properties.Resources.FontStyles,
                                                                                                           PropertyData.FontProperty.FontStylesList);
                 public static readonly CheckPropertyMetadata RightToLeftMetadata = new CheckPropertyMetadata("RightToLeft", false);
 
                 #region コンストラクタ
-                public FontProperty(PropertyElementMetadata constant) : base(constant) {
+                public FontProperty(PropertyElementMetadata constant) : base(constant)
+                {
                     Font = new(FontMetadata);
                     Style = new(FontStyleMetadata);
                     RightToLeft = new(RightToLeftMetadata);

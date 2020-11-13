@@ -5,16 +5,19 @@ using System.Text;
 
 using BEditor.Core.Data.PropertyData;
 
-namespace BEditor.Core.Data.PropertyData.Default {
+namespace BEditor.Core.Data.PropertyData.Default
+{
     [DataContract(Namespace = "")]
-    public sealed class Material : ExpandGroup {
+    public sealed class Material : ExpandGroup
+    {
         public static readonly ColorAnimationPropertyMetadata AmbientMetadata = new ColorAnimationPropertyMetadata(Properties.Resources.Ambient, 255, 255, 255, 255, true);
         public static readonly ColorAnimationPropertyMetadata DiffuseMetadata = new ColorAnimationPropertyMetadata(Properties.Resources.Diffuse, 255, 255, 255, 255, true);
         public static readonly ColorAnimationPropertyMetadata SpecularMetadata = new ColorAnimationPropertyMetadata(Properties.Resources.Specular, 255, 255, 255, 255, true);
         public static readonly EasePropertyMetadata ShininessMetadata = new EasePropertyMetadata(Properties.Resources.Shininess, 10, float.NaN, 1);
 
 
-        public Material(PropertyElementMetadata constant) : base(constant) {
+        public Material(PropertyElementMetadata constant) : base(constant)
+        {
             Ambient = new ColorAnimationProperty(AmbientMetadata);
             Diffuse = new ColorAnimationProperty(DiffuseMetadata);
             Specular = new ColorAnimationProperty(SpecularMetadata);

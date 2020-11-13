@@ -7,8 +7,10 @@ using BEditor.Core.Data.EffectData;
 using BEditor.Core.Data.ObjectData;
 using BEditor.Core.Data.ProjectData;
 
-namespace BEditor.Core.Extensions {
-    public static class ExtensionCommand {
+namespace BEditor.Core.Extensions
+{
+    public static class ExtensionCommand
+    {
         /// <summary>
         /// <see cref="EffectElement.CheckCommand"/> を実行します
         /// </summary>
@@ -17,12 +19,15 @@ namespace BEditor.Core.Extensions {
         /// <param name="mode"><see cref="CommandMode.Execute"/> を指定するとコマンドが <see cref="UndoRedoManager"/> に記録されません</param>
         /// <exception cref="ArgumentNullException"><paramref name="effect"/> が <see langword="null"/> です</exception>
         /// <returns>作成されたコマンド</returns>
-        public static EffectElement.CheckCommand Check(this EffectElement effect, bool value, CommandMode mode = CommandMode.Recode) {
+        public static EffectElement.CheckCommand Check(this EffectElement effect, bool value, CommandMode mode = CommandMode.Recode)
+        {
             var command = new EffectElement.CheckCommand(effect, value);
-            if (mode == CommandMode.Recode) {
+            if (mode == CommandMode.Recode)
+            {
                 UndoRedoManager.Do(command);
             }
-            else {
+            else
+            {
                 command.Do();
             }
             return command;
@@ -34,12 +39,15 @@ namespace BEditor.Core.Extensions {
         /// <param name="mode"><see cref="CommandMode.Execute"/> を指定するとコマンドが <see cref="UndoRedoManager"/> に記録されません</param>
         /// <exception cref="ArgumentNullException"><paramref name="effect"/> が <see langword="null"/> です</exception>
         /// <returns>作成されたコマンド</returns>
-        public static EffectElement.UpCommand Up(this EffectElement effect, CommandMode mode = CommandMode.Recode) {
+        public static EffectElement.UpCommand Up(this EffectElement effect, CommandMode mode = CommandMode.Recode)
+        {
             var command = new EffectElement.UpCommand(effect);
-            if (mode == CommandMode.Recode) {
+            if (mode == CommandMode.Recode)
+            {
                 UndoRedoManager.Do(command);
             }
-            else {
+            else
+            {
                 command.Do();
             }
             return command;
@@ -51,12 +59,15 @@ namespace BEditor.Core.Extensions {
         /// <param name="mode"><see cref="CommandMode.Execute"/> を指定するとコマンドが <see cref="UndoRedoManager"/> に記録されません</param>
         /// <exception cref="ArgumentNullException"><paramref name="effect"/> が <see langword="null"/> です</exception>
         /// <returns>作成されたコマンド</returns>
-        public static EffectElement.DownCommand Down(this EffectElement effect, CommandMode mode = CommandMode.Recode) {
+        public static EffectElement.DownCommand Down(this EffectElement effect, CommandMode mode = CommandMode.Recode)
+        {
             var command = new EffectElement.DownCommand(effect);
-            if (mode == CommandMode.Recode) {
+            if (mode == CommandMode.Recode)
+            {
                 UndoRedoManager.Do(command);
             }
-            else {
+            else
+            {
                 command.Do();
             }
             return command;
@@ -68,12 +79,15 @@ namespace BEditor.Core.Extensions {
         /// <param name="mode"><see cref="CommandMode.Execute"/> を指定するとコマンドが <see cref="UndoRedoManager"/> に記録されません</param>
         /// <exception cref="ArgumentNullException"><paramref name="effect"/> が <see langword="null"/> です</exception>
         /// <returns>作成されたコマンド</returns>
-        public static EffectElement.RemoveCommand Remove(this EffectElement effect, CommandMode mode = CommandMode.Recode) {
+        public static EffectElement.RemoveCommand Remove(this EffectElement effect, CommandMode mode = CommandMode.Recode)
+        {
             var command = new EffectElement.RemoveCommand(effect);
-            if (mode == CommandMode.Recode) {
+            if (mode == CommandMode.Recode)
+            {
                 UndoRedoManager.Do(command);
             }
-            else {
+            else
+            {
                 command.Do();
             }
             return command;
@@ -85,12 +99,15 @@ namespace BEditor.Core.Extensions {
         /// <param name="mode"><see cref="CommandMode.Execute"/> を指定するとコマンドが <see cref="UndoRedoManager"/> に記録されません</param>
         /// <exception cref="ArgumentNullException"><paramref name="effect"/> が <see langword="null"/> です</exception>
         /// <returns>作成されたコマンド</returns>
-        public static EffectElement.AddCommand Add(this EffectElement effect, CommandMode mode = CommandMode.Recode) {
+        public static EffectElement.AddCommand Add(this EffectElement effect, CommandMode mode = CommandMode.Recode)
+        {
             var command = new EffectElement.AddCommand(effect);
-            if (mode == CommandMode.Recode) {
+            if (mode == CommandMode.Recode)
+            {
                 UndoRedoManager.Do(command);
             }
-            else {
+            else
+            {
                 command.Do();
             }
             return command;
@@ -103,12 +120,15 @@ namespace BEditor.Core.Extensions {
         /// <param name="mode"><see cref="CommandMode.Execute"/> を指定するとコマンドが <see cref="UndoRedoManager"/> に記録されません</param>
         /// <exception cref="ArgumentNullException"><paramref name="effect"/> が <see langword="null"/> です</exception>
         /// <returns>作成されたコマンド</returns>
-        public static EffectElement.AddCommand Add(this EffectElement effect, ClipData clip, CommandMode mode = CommandMode.Recode) {
+        public static EffectElement.AddCommand Add(this EffectElement effect, ClipData clip, CommandMode mode = CommandMode.Recode)
+        {
             var command = new EffectElement.AddCommand(effect, clip);
-            if (mode == CommandMode.Recode) {
+            if (mode == CommandMode.Recode)
+            {
                 UndoRedoManager.Do(command);
             }
-            else {
+            else
+            {
                 command.Do();
             }
             return command;
@@ -128,12 +148,15 @@ namespace BEditor.Core.Extensions {
         /// <exception cref="ArgumentOutOfRangeException"><paramref name="addframe"/> が0以下です</exception>
         /// <exception cref="ArgumentOutOfRangeException"><paramref name="layer"/> が0以下です</exception>
         /// <returns>作成されたコマンド</returns>
-        public static ClipData.AddCommand Add(this Scene scene, int addframe, int layer, Type type, CommandMode mode = CommandMode.Recode) {
+        public static ClipData.AddCommand Add(this Scene scene, int addframe, int layer, Type type, CommandMode mode = CommandMode.Recode)
+        {
             var command = new ClipData.AddCommand(scene, addframe, layer, type);
-            if (mode == CommandMode.Recode) {
+            if (mode == CommandMode.Recode)
+            {
                 UndoRedoManager.Do(command);
             }
-            else {
+            else
+            {
                 command.Do();
             }
             return command;
@@ -145,12 +168,15 @@ namespace BEditor.Core.Extensions {
         /// <param name="mode"><see cref="CommandMode.Execute"/> を指定するとコマンドが <see cref="UndoRedoManager"/> に記録されません</param>
         /// <exception cref="ArgumentNullException"><paramref name="clip"/> が <see langword="null"/> です</exception>
         /// <returns>作成されたコマンド</returns>
-        public static ClipData.RemoveCommand Remove(this ClipData clip, CommandMode mode = CommandMode.Recode) {
+        public static ClipData.RemoveCommand Remove(this ClipData clip, CommandMode mode = CommandMode.Recode)
+        {
             var command = new ClipData.RemoveCommand(clip);
-            if (mode == CommandMode.Recode) {
+            if (mode == CommandMode.Recode)
+            {
                 UndoRedoManager.Do(command);
             }
-            else {
+            else
+            {
                 command.Do();
             }
             return command;
@@ -165,12 +191,15 @@ namespace BEditor.Core.Extensions {
         /// <exception cref="ArgumentNullException"><paramref name="clip"/> が <see langword="null"/> です</exception>
         /// <exception cref="ArgumentOutOfRangeException"><paramref name="to"/> または <paramref name="tolayer"/> が0以下です</exception>
         /// <returns>作成されたコマンド</returns>
-        public static ClipData.MoveCommand Move(this ClipData clip, int to, int tolayer, CommandMode mode = CommandMode.Recode) {
+        public static ClipData.MoveCommand Move(this ClipData clip, int to, int tolayer, CommandMode mode = CommandMode.Recode)
+        {
             var command = new ClipData.MoveCommand(clip, to, tolayer);
-            if (mode == CommandMode.Recode) {
+            if (mode == CommandMode.Recode)
+            {
                 UndoRedoManager.Do(command);
             }
-            else {
+            else
+            {
                 command.Do();
             }
             return command;
@@ -187,12 +216,15 @@ namespace BEditor.Core.Extensions {
         /// <exception cref="ArgumentNullException"><paramref name="clip"/> が <see langword="null"/> です</exception>
         /// <exception cref="ArgumentOutOfRangeException"><paramref name="to"/>, <paramref name="from"/>, <paramref name="tolayer"/>, <paramref name="fromlayer"/> が0以下です</exception>
         /// <returns>作成されたコマンド</returns>
-        public static ClipData.MoveCommand Move(this ClipData clip, int to, int from, int tolayer, int fromlayer, CommandMode mode = CommandMode.Recode) {
+        public static ClipData.MoveCommand Move(this ClipData clip, int to, int from, int tolayer, int fromlayer, CommandMode mode = CommandMode.Recode)
+        {
             var command = new ClipData.MoveCommand(clip, to, from, tolayer, fromlayer);
-            if (mode == CommandMode.Recode) {
+            if (mode == CommandMode.Recode)
+            {
                 UndoRedoManager.Do(command);
             }
-            else {
+            else
+            {
                 command.Do();
             }
             return command;
@@ -207,19 +239,23 @@ namespace BEditor.Core.Extensions {
         /// <exception cref="ArgumentNullException"><paramref name="clip"/> が <see langword="null"/> です</exception>
         /// <exception cref="ArgumentOutOfRangeException"><paramref name="start"/> または <paramref name="end"/> が0以下です</exception>
         /// <returns>作成されたコマンド</returns>
-        public static ClipData.LengthChangeCommand LengthChange(this ClipData clip, int start, int end, CommandMode mode = CommandMode.Recode) {
+        public static ClipData.LengthChangeCommand LengthChange(this ClipData clip, int start, int end, CommandMode mode = CommandMode.Recode)
+        {
             var command = new ClipData.LengthChangeCommand(clip, start, end);
-            if (mode == CommandMode.Recode) {
+            if (mode == CommandMode.Recode)
+            {
                 UndoRedoManager.Do(command);
             }
-            else {
+            else
+            {
                 command.Do();
             }
             return command;
         }
     }
 
-    public enum CommandMode {
+    public enum CommandMode
+    {
         Recode,
         Execute
     }

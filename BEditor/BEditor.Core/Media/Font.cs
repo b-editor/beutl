@@ -4,11 +4,13 @@ using System.Runtime.InteropServices;
 using BEditor.Core.Media;
 using BEditor.Core.Native;
 
-namespace BEditor.Core.Media {
+namespace BEditor.Core.Media
+{
     /// <summary>
     /// FreeTypeのFaceの一部をカプセル化します
     /// </summary>
-    public class Font : DisposableObject {
+    public class Font : DisposableObject
+    {
         private IntPtr ptr;
 
         #region Constructor
@@ -16,7 +18,8 @@ namespace BEditor.Core.Media {
         /// <summary>
         /// <see cref="Font"/> クラスの新しいインスタンスを初期化します
         /// </summary>
-        public Font(string file, int size, bool isFitHeight = true, uint index = 0) {
+        public Font(string file, int size, bool isFitHeight = true, uint index = 0)
+        {
             ptr = FontProcess.Open(file, (uint)size, isFitHeight, index);
         }
 
@@ -28,12 +31,15 @@ namespace BEditor.Core.Media {
         /// <summary>
         /// フォントのスタイルを取得または設定します
         /// </summary>
-        public FontStyle Style {
-            get {
+        public FontStyle Style
+        {
+            get
+            {
                 ThrowIfDisposed();
                 return (FontStyle)Enum.ToObject(typeof(FontStyle), FontProcess.GetStyle(ptr));
             }
-            set {
+            set
+            {
                 ThrowIfDisposed();
                 FontProcess.SetStyle(ptr, (long)value);
             }
@@ -42,32 +48,40 @@ namespace BEditor.Core.Media {
         /// <summary>
         /// フォントの高さを取得します
         /// </summary>
-        public int Height {
-            get {
+        public int Height
+        {
+            get
+            {
                 return FontProcess.Height(ptr);
             }
         }
         /// <summary>
         /// https://www.freetype.org/freetype2/docs/tutorial/step2.html を参照してください
         /// </summary>
-        public int Ascender {
-            get {
+        public int Ascender
+        {
+            get
+            {
                 return FontProcess.Ascender(ptr);
             }
         }
         /// <summary>
         /// https://www.freetype.org/freetype2/docs/tutorial/step2.html を参照してください
         /// </summary>
-        public int Descender {
-            get {
+        public int Descender
+        {
+            get
+            {
                 return FontProcess.Descender(ptr);
             }
         }
         /// <summary>
         /// フォントファミリー名を取得します
         /// </summary>
-        public string FaceFamilyName {
-            get {
+        public string FaceFamilyName
+        {
+            get
+            {
                 ThrowIfDisposed();
                 return FontProcess.FamilyName(ptr);
             }
@@ -75,8 +89,10 @@ namespace BEditor.Core.Media {
         /// <summary>
         /// 現在のフォントスタイル名を取得します
         /// </summary>
-        public string FaceStyleName {
-            get {
+        public string FaceStyleName
+        {
+            get
+            {
                 ThrowIfDisposed();
                 return FontProcess.StyleName(ptr);
             }
@@ -89,7 +105,8 @@ namespace BEditor.Core.Media {
         /// <summary>
         /// 指定した文字からサイズを測ります
         /// </summary>
-        public void SizeText(string text, out int width, out int height) {
+        public void SizeText(string text, out int width, out int height)
+        {
             ThrowIfDisposed();
 
             FontProcess.SizeText(ptr, out var left, out var top, out var right, out var bottom, text);
@@ -102,7 +119,8 @@ namespace BEditor.Core.Media {
         /// <summary>
         /// 指定した文字から <see cref="Image"/> にレンダリングします
         /// </summary>
-        public Image RenderText(string text, Color color) {
+        public Image RenderText(string text, Color color)
+        {
             SizeText(text, out var width, out var height);
 
             //width *= 2;
@@ -131,8 +149,10 @@ namespace BEditor.Core.Media {
 
         #endregion
 
-        protected override void OnDispose(bool disposing) {
-            if (ptr != IntPtr.Zero && !IsDisposed) {
+        protected override void OnDispose(bool disposing)
+        {
+            if (ptr != IntPtr.Zero && !IsDisposed)
+            {
                 FontProcess.Close(ptr);
 
                 ptr = IntPtr.Zero;
@@ -143,7 +163,8 @@ namespace BEditor.Core.Media {
     /// <summary>
     /// フォントスタイルを表します
     /// </summary>
-    public enum FontStyle {
+    public enum FontStyle
+    {
         Normal = 0x00,
         Bold = 0x01,
         Italic = 0x02,

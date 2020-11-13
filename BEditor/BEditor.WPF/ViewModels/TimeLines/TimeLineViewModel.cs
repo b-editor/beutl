@@ -18,8 +18,10 @@ using BEditor.Core.Data.ProjectData;
 using BEditor.Core.Interfaces;
 using BEditor.Core.Media;
 
-namespace BEditor.ViewModels.TimeLines {
-    public sealed class TimeLineViewModel : BasePropertyChanged {
+namespace BEditor.ViewModels.TimeLines
+{
+    public sealed class TimeLineViewModel : BasePropertyChanged
+    {
         #region 
         public bool ViewLoaded { get; set; }
         public Scene Scene { get; set; }
@@ -90,27 +92,34 @@ namespace BEditor.ViewModels.TimeLines {
         #endregion
 
 
-        public TimeLineViewModel(Scene scene) {
+        public TimeLineViewModel(Scene scene)
+        {
             Scene = scene;
 
             TrackWidth.Value = ToPixel(Scene.TotalFrame);
 
-            Scene.PropertyChanged += (_, e) => {
-                if (e.PropertyName == nameof(Scene.TimeLineZoom)) {
-                    if (Scene.TimeLineZoom <= 0) {
+            Scene.PropertyChanged += (_, e) =>
+            {
+                if (e.PropertyName == nameof(Scene.TimeLineZoom))
+                {
+                    if (Scene.TimeLineZoom <= 0)
+                    {
                         Scene.TimeLineZoom = 1;
                     }
 
-                    if (Scene.TimeLineZoom >= 201) {
+                    if (Scene.TimeLineZoom >= 201)
+                    {
                         Scene.TimeLineZoom = 200;
                     }
 
-                    if (ViewLoaded) {
+                    if (ViewLoaded)
+                    {
                         int l = Scene.TotalFrame;
 
                         TrackWidth.Value = ToPixel(l);
 
-                        for (int index = 0; index < Scene.Datas.Count; index++) {
+                        for (int index = 0; index < Scene.Datas.Count; index++)
+                        {
                             var info = Scene.Datas[index];
                             double start = ToPixel(info.Start);
                             double length = ToPixel(info.Length);
@@ -125,12 +134,14 @@ namespace BEditor.ViewModels.TimeLines {
                         ResetScale?.Invoke(Scene.TimeLineZoom, Scene.TotalFrame, Component.Current.Project.Framerate);
                     }
                 }
-                else if (e.PropertyName == nameof(Scene.PreviewFrame)) {
+                else if (e.PropertyName == nameof(Scene.PreviewFrame))
+                {
                     SeekbarMargin.Value = new Thickness(ToPixel(Scene.PreviewFrame), 0, 0, 0);
 
                     Component.Current.Project.PreviewUpdate();
                 }
-                else if (e.PropertyName == nameof(Scene.TotalFrame)) {
+                else if (e.PropertyName == nameof(Scene.TotalFrame))
+                {
                     TrackWidth.Value = ToPixel(Scene.TotalFrame);
 
                     //目盛り追加
@@ -143,11 +154,13 @@ namespace BEditor.ViewModels.TimeLines {
             SettingShowCommand.Subscribe(() => SettingWindow());
             PasteCommand.Subscribe(() => PasteClick());
 
-            ScrollLineCommand.Subscribe(() => {
+            ScrollLineCommand.Subscribe(() =>
+            {
                 var timeline = Scene.GetCreateTimeLineView();
                 timeline.ScrollLabel.ScrollToVerticalOffset(timeline.ScrollLine.VerticalOffset);
             });
-            ScrollLabelCommand.Subscribe(() => {
+            ScrollLabelCommand.Subscribe(() =>
+            {
                 var timeline = Scene.GetCreateTimeLineView();
                 timeline.ScrollLine.ScrollToVerticalOffset(timeline.ScrollLabel.VerticalOffset);
             });
@@ -197,7 +210,8 @@ namespace BEditor.ViewModels.TimeLines {
         #endregion
 
         #region Paste
-        public void PasteClick() {
+        public void PasteClick()
+        {
             //UndoRedoManager.Do(new PasteClip(Scene, Select_Frame, Select_Layer));
         }
         #endregion
@@ -219,7 +233,8 @@ namespace BEditor.ViewModels.TimeLines {
 
 
         #region Select
-        private void LayerSelect(object sender) {
+        private void LayerSelect(object sender)
+        {
             var grid = (Grid)sender;
             Select_Layer = AttachmentProperty.GetInt(grid);
             Select_Frame = ToFrame(Mouse.GetPosition(grid).X);
@@ -227,23 +242,29 @@ namespace BEditor.ViewModels.TimeLines {
         #endregion
 
         #region Drop
-        private static Type FileTypeConvert(string file) {
+        private static Type FileTypeConvert(string file)
+        {
             var ex = Path.GetExtension(file);
-            if (ex is ".avi" or ".mp4") {
+            if (ex is ".avi" or ".mp4")
+            {
                 return ClipType.Video;
             }
-            else if (ex is ".jpg" or ".jpeg" or ".png" or ".bmp") {
+            else if (ex is ".jpg" or ".jpeg" or ".png" or ".bmp")
+            {
                 return ClipType.Image;
             }
-            else if (ex is ".txt") {
+            else if (ex is ".txt")
+            {
                 return ClipType.Text;
             }
 
             return ClipType.Figure;
         }
 
-        private void LayerDrop(object sender, EventArgs e) {
-            if (e is DragEventArgs de) {
+        private void LayerDrop(object sender, EventArgs e)
+        {
+            if (e is DragEventArgs de)
+            {
                 de.Effects = DragDropEffects.Copy; // マウスカーソルをコピーにする。
 
                 int frame = ToFrame(de.GetPosition(Scene.GetCreateTimeLineView().Layer).X);
@@ -252,25 +273,31 @@ namespace BEditor.ViewModels.TimeLines {
                 int addlayer = AttachmentProperty.GetInt((Grid)sender);
 
 
-                if (de.Data.GetDataPresent(typeof(Type))) {
+                if (de.Data.GetDataPresent(typeof(Type)))
+                {
                     var command = new ClipData.AddCommand(Scene, frame, addlayer, (Type)de.Data.GetData(typeof(Type)));
                     UndoRedoManager.Do(command);
                 }
-                else if (de.Data.GetDataPresent(DataFormats.FileDrop, true)) {
+                else if (de.Data.GetDataPresent(DataFormats.FileDrop, true))
+                {
                     string file = (de.Data.GetData(DataFormats.FileDrop) as string[])[0];
 
-                    if (Path.GetExtension(file) != ".beo") {
+                    if (Path.GetExtension(file) != ".beo")
+                    {
                         var type_ = FileTypeConvert(file);
                         var a = new ClipData.AddCommand(Scene, frame, addlayer, type_);
                         UndoRedoManager.Do(a);
 
-                        if (type_ == ClipType.Image) {
+                        if (type_ == ClipType.Image)
+                        {
                             ((DefaultData.Image)((ImageObject)a.data.Effect[0]).Custom).File.File = file;
                         }
-                        else if (type_ == ClipType.Video) {
+                        else if (type_ == ClipType.Video)
+                        {
                             ((DefaultData.Video)((ImageObject)a.data.Effect[0]).Custom).File.File = file;
                         }
-                        else if (type_ == ClipType.Text) {
+                        else if (type_ == ClipType.Text)
+                        {
                             var reader = new StreamReader(file);
                             ((DefaultData.Text)((ImageObject)a.data.Effect[0]).Custom).Document.Text = reader.ReadToEnd();
                             reader.Close();
@@ -284,8 +311,10 @@ namespace BEditor.ViewModels.TimeLines {
         #endregion
 
         #region DragOver
-        private void LayerDragOver(object sender, EventArgs e) {
-            if (e is DragEventArgs de) {
+        private void LayerDragOver(object sender, EventArgs e)
+        {
+            if (e is DragEventArgs de)
+            {
                 de.Effects = DragDropEffects.Copy;
 
                 de.Handled = true;
@@ -320,11 +349,12 @@ namespace BEditor.ViewModels.TimeLines {
 
 
         #region Loaded
-        public void TimeLineLoaded(Action<ObservableCollection<ClipData>> action) {
+        public void TimeLineLoaded(Action<ObservableCollection<ClipData>> action)
+        {
             var from = Scene.TimeLineZoom;
             Scene.TimeLineZoom = 50;
             Scene.TimeLineZoom = from; //遠回しにviewを更新する
-            
+
             TrackWidth.Value = ToPixel(Scene.TotalFrame);
 
             //目盛り追加
@@ -337,8 +367,10 @@ namespace BEditor.ViewModels.TimeLines {
         #endregion
 
         #region MouseLeftDown
-        public void TimeLineMouseLeftDown(Point point) {
-            if (ClipMouseDown || !KeyframeToggle) {
+        public void TimeLineMouseLeftDown(Point point)
+        {
+            if (ClipMouseDown || !KeyframeToggle)
+            {
                 return;
             }
 
@@ -352,13 +384,15 @@ namespace BEditor.ViewModels.TimeLines {
         #endregion
 
         #region MouseLeftUp
-        public void TimeLineMouseLeftUp() {
+        public void TimeLineMouseLeftUp()
+        {
             // マウス押下中フラグを落とす
             SeekbarIsMouseDown = false;
             LayerCursor.Value = Cursors.Arrow;
 
             //保存
-            if (ClipLeftRight != 0 && ClipSelect != null) {
+            if (ClipLeftRight != 0 && ClipSelect != null)
+            {
 
                 int start = ToFrame(ClipSelect.GetCreateClipViewModel().MarginLeftProperty);
                 int end = ToFrame(ClipSelect.GetCreateClipViewModel().WidthProperty.Value) + start;//変更後の最大フレーム
@@ -371,28 +405,34 @@ namespace BEditor.ViewModels.TimeLines {
         #endregion
 
         #region MouseMove
-        public void TimeLineMouseMove(Point point) {
+        public void TimeLineMouseMove(Point point)
+        {
             //マウスの現在フレーム
             Point obj_Now;
 
-            if (SeekbarIsMouseDown && KeyframeToggle) {
+            if (SeekbarIsMouseDown && KeyframeToggle)
+            {
                 var s = ToFrame(point.X);
 
                 Scene.PreviewFrame = s + 1;
             }
-            else if (ClipMouseDown) {
+            else if (ClipMouseDown)
+            {
                 var selectviewmodel = ClipSelect.GetCreateClipViewModel();
-                if (selectviewmodel.ClipCursor.Value == Cursors.Arrow && LayerCursor.Value == Cursors.Arrow) {
+                if (selectviewmodel.ClipCursor.Value == Cursors.Arrow && LayerCursor.Value == Cursors.Arrow)
+                {
                     #region 横の移動
 
                     obj_Now = point; //現在のマウス
 
                     var column = ToFrame(obj_Now.X) - ToFrame(ClipStart.X) + ToFrame(selectviewmodel.MarginProperty.Value.Left);
 
-                    if (column < 0) {
+                    if (column < 0)
+                    {
                         selectviewmodel.MarginProperty.Value = new Thickness(0, 1, 0, 0);
                     }
-                    else {
+                    else
+                    {
                         selectviewmodel.MarginProperty.Value = new Thickness(ToPixel(column), 1, 0, 0);
                     }
 
@@ -403,7 +443,8 @@ namespace BEditor.ViewModels.TimeLines {
 
                     int tolayer = Mouse_Layer;
 
-                    if (selectviewmodel.Row != tolayer && tolayer != 0) {
+                    if (selectviewmodel.Row != tolayer && tolayer != 0)
+                    {
                         ClipLayerMoveCommand?.Invoke(ClipSelect, tolayer);
                     }
 
@@ -413,16 +454,19 @@ namespace BEditor.ViewModels.TimeLines {
 
                     ClipTimeChange = true;
                 }
-                else {
+                else
+                {
                     obj_Now = point; //現在のマウスの位置
 
 
                     ClipMovement = ToPixel(ToFrame(obj_Now.X) - ToFrame(ClipStart.X)); //一時的な移動量
 
-                    if (ClipLeftRight == 2) { //左
+                    if (ClipLeftRight == 2)
+                    { //左
                         selectviewmodel.WidthProperty.Value += ClipMovement;
                     }
-                    else if (ClipLeftRight == 1) {
+                    else if (ClipLeftRight == 1)
+                    {
                         var a = ClipMovement;
                         selectviewmodel.WidthProperty.Value -= a;
                         selectviewmodel.MarginProperty.Value = new Thickness(selectviewmodel.MarginProperty.Value.Left + a, 1, 0, 0);
@@ -435,14 +479,16 @@ namespace BEditor.ViewModels.TimeLines {
         #endregion
 
         #region MouseLeave
-        public void TimeLineMouseLeave() {
+        public void TimeLineMouseLeave()
+        {
             SeekbarIsMouseDown = false;
 
             ClipMouseDown = false;
             LayerCursor.Value = Cursors.Arrow;
 
 
-            if (ClipTimeChange) {
+            if (ClipTimeChange)
+            {
                 ClipData data = ClipSelect;
 
                 UndoRedoManager.Do(new ClipData.MoveCommand(clip: data,

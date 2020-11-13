@@ -8,12 +8,14 @@ using System.Threading.Tasks;
 
 using BEditor.Core.Data.PropertyData.EasingSetting;
 
-namespace BEditor.Core.Data.PropertyData {
+namespace BEditor.Core.Data.PropertyData
+{
     /// <summary>
     /// 配列から一つのアイテムを選択するプロパティを表します
     /// </summary>
     [DataContract(Namespace = "")]
-    public class SelectorProperty : PropertyElement, IEasingSetting, IObservable<int>, INotifyPropertyChanged, IExtensibleDataObject {
+    public class SelectorProperty : PropertyElement, IEasingSetting, IObservable<int>, INotifyPropertyChanged, IExtensibleDataObject
+    {
         private int selectIndex;
         private List<IObserver<int>> list;
         private List<IObserver<int>> collection => list ??= new List<IObserver<int>>();
@@ -23,7 +25,8 @@ namespace BEditor.Core.Data.PropertyData {
         /// </summary>
         /// <param name="metadata">このプロパティの <see cref="SelectorPropertyMetadata"/></param>
         /// <exception cref="ArgumentNullException"><paramref name="metadata"/> が <see langword="null"/> です</exception>
-        public SelectorProperty(SelectorPropertyMetadata metadata) {
+        public SelectorProperty(SelectorPropertyMetadata metadata)
+        {
             PropertyMetadata = metadata ?? throw new ArgumentNullException(nameof(metadata));
             Index = metadata.DefaultIndex;
         }
@@ -41,29 +44,36 @@ namespace BEditor.Core.Data.PropertyData {
 
 
         public static implicit operator int(SelectorProperty selector) => selector.Index;
-        private void SelectorProperty_PropertyChanged(object sender, PropertyChangedEventArgs e) {
-            if (e.PropertyName == nameof(Index)) {
-                Parallel.For(0, collection.Count, i => {
+        private void SelectorProperty_PropertyChanged(object sender, PropertyChangedEventArgs e)
+        {
+            if (e.PropertyName == nameof(Index))
+            {
+                Parallel.For(0, collection.Count, i =>
+                {
                     var observer = collection[i];
-                    try {
+                    try
+                    {
                         observer.OnNext(selectIndex);
                         observer.OnCompleted();
                     }
-                    catch (Exception ex) {
+                    catch (Exception ex)
+                    {
                         observer.OnError(ex);
                     }
                 });
             }
         }
         /// <inheritdoc/>
-        public override void PropertyLoaded() {
+        public override void PropertyLoaded()
+        {
             base.PropertyLoaded();
             PropertyChanged += SelectorProperty_PropertyChanged;
         }
         /// <inheritdoc/>
         public override string ToString() => $"(Index:{Index} Item:{SelectItem} Name:{PropertyMetadata?.Name})";
         /// <inheritdoc/>
-        public IDisposable Subscribe(IObserver<int> observer) {
+        public IDisposable Subscribe(IObserver<int> observer)
+        {
             collection.Add(observer);
             return Disposable.Create(() => collection.Remove(observer));
         }
@@ -75,7 +85,8 @@ namespace BEditor.Core.Data.PropertyData {
         /// 選択されているアイテムを変更するコマンド
         /// </summary>
         /// <remarks>このクラスは <see cref="UndoRedoManager.Do(IUndoRedoCommand)"/> と併用することでコマンドを記録できます</remarks>
-        public sealed class ChangeSelectCommand : IUndoRedoCommand {
+        public sealed class ChangeSelectCommand : IUndoRedoCommand
+        {
             private readonly SelectorProperty Selector;
             private readonly int select;
             private readonly int oldselect;
@@ -86,7 +97,8 @@ namespace BEditor.Core.Data.PropertyData {
             /// <param name="property">対象の <see cref="SelectorProperty"/></param>
             /// <param name="select">新しいインデックス</param>
             /// <exception cref="ArgumentNullException"><paramref name="property"/> が <see langword="null"/> です</exception>
-            public ChangeSelectCommand(SelectorProperty property, int select) {
+            public ChangeSelectCommand(SelectorProperty property, int select)
+            {
                 Selector = property ?? throw new ArgumentNullException(nameof(property));
                 this.select = select;
                 oldselect = property.Index;
@@ -108,11 +120,13 @@ namespace BEditor.Core.Data.PropertyData {
     /// <summary>
     /// <see cref="SelectorProperty"/> のメタデータを表します
     /// </summary>
-    public record SelectorPropertyMetadata : PropertyElementMetadata {
+    public record SelectorPropertyMetadata : PropertyElementMetadata
+    {
         /// <summary>
         /// <see cref="SelectorPropertyMetadata"/> の新しいインスタンスを初期化します
         /// </summary>
-        public SelectorPropertyMetadata(string name, IList itemsource, int index = 0, string memberpath = "") : base(name) {
+        public SelectorPropertyMetadata(string name, IList itemsource, int index = 0, string memberpath = "") : base(name)
+        {
             DefaultIndex = index;
             ItemSource = itemsource;
             MemberPath = memberpath;

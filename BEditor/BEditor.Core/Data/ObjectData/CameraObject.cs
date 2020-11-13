@@ -6,9 +6,11 @@ using BEditor.Core.Data.ProjectData;
 using BEditor.Core.Data.PropertyData;
 using BEditor.Core.Renderer;
 
-namespace BEditor.Core.Data.ObjectData {
+namespace BEditor.Core.Data.ObjectData
+{
     [DataContract(Namespace = "")]
-    public class CameraObject : ObjectElement {
+    public class CameraObject : ObjectElement
+    {
         public static readonly EasePropertyMetadata XMetadata = new EasePropertyMetadata(Properties.Resources.X, 0);
         public static readonly EasePropertyMetadata YMetadata = new EasePropertyMetadata(Properties.Resources.Y, 0);
         public static readonly EasePropertyMetadata ZMetadata = new EasePropertyMetadata(Properties.Resources.Z, 1024);
@@ -22,7 +24,8 @@ namespace BEditor.Core.Data.ObjectData {
         public static readonly CheckPropertyMetadata ModeMetadata = new CheckPropertyMetadata(Properties.Resources.Perspective, true);
 
 
-        public CameraObject() {
+        public CameraObject()
+        {
             X = new EaseProperty(XMetadata);
             Y = new EaseProperty(YMetadata);
             Z = new EaseProperty(ZMetadata);
@@ -41,9 +44,10 @@ namespace BEditor.Core.Data.ObjectData {
         public override string Name => Properties.Resources.Camera;
 
         #region Load
-        public override void Render(EffectRenderArgs args) {
+        public override void Render(EffectRenderArgs args)
+        {
             int frame = args.Frame;
-            var scene = ClipData.Scene;
+            var scene = Parent.Parent;
             scene.RenderingContext.MakeCurrent();
             Graphics.LookAt(
                 scene.Width, scene.Height,
@@ -53,7 +57,8 @@ namespace BEditor.Core.Data.ObjectData {
                 Fov.GetValue(frame),
                 Mode.IsChecked);
 
-            for (int i = 1; i < args.Schedules.Count; i++) {
+            for (int i = 1; i < args.Schedules.Count; i++)
+            {
                 var effect = args.Schedules[i];
 
                 effect.Render(args);

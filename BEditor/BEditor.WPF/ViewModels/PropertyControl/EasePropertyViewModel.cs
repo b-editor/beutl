@@ -9,14 +9,18 @@ using BEditor.Core.Data;
 using BEditor.Core.Data.PropertyData;
 using BEditor.Core.Data.PropertyData.EasingSetting;
 
-namespace BEditor.ViewModels.PropertyControl {
-    public class EasePropertyViewModel {
+namespace BEditor.ViewModels.PropertyControl
+{
+    public class EasePropertyViewModel
+    {
         public EaseProperty Property { get; }
         public DelegateCommand<EasingData> EasingChangeCommand { get; }
 
-        public EasePropertyViewModel(EaseProperty property) {
+        public EasePropertyViewModel(EaseProperty property)
+        {
             Property = property;
-            EasingChangeCommand = new DelegateCommand<EasingData>(x => {
+            EasingChangeCommand = new DelegateCommand<EasingData>(x =>
+            {
                 UndoRedoManager.Do(new EaseProperty.ChangeEaseCommand(property, x.Name));
             });
         }

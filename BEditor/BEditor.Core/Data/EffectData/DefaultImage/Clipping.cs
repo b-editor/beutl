@@ -9,9 +9,11 @@ using BEditor.Core.Data.PropertyData;
 using BEditor.Core.Media;
 using BEditor.Core.Properties;
 
-namespace BEditor.Core.Data.EffectData {
+namespace BEditor.Core.Data.EffectData
+{
     [DataContract(Namespace = "")]
-    public class Clipping : ImageEffect {
+    public class Clipping : ImageEffect
+    {
         public static readonly EasePropertyMetadata TopMetadata = new EasePropertyMetadata(Resources.Top, 0, float.NaN, 0);
         public static readonly EasePropertyMetadata BottomMetadata = new EasePropertyMetadata(Resources.Bottom, 0, float.NaN, 0);
         public static readonly EasePropertyMetadata LeftMetadata = new EasePropertyMetadata(Resources.Left, 0, float.NaN, 0);
@@ -30,13 +32,15 @@ namespace BEditor.Core.Data.EffectData {
             AdjustCoordinates
         };
 
-        public override void Draw(ref Image source, EffectRenderArgs args) {
+        public override void Draw(ref Image source, EffectRenderArgs args)
+        {
             int top = (int)Top.GetValue(args.Frame);
             int bottom = (int)Bottom.GetValue(args.Frame);
             int left = (int)Left.GetValue(args.Frame);
             int right = (int)Right.GetValue(args.Frame);
 
-            if (AdjustCoordinates.IsChecked && ClipData.Effect[0] is ImageObject image) {
+            if (AdjustCoordinates.IsChecked && Parent.Effect[0] is ImageObject image)
+            {
                 image.Coordinate.CenterX.Optional += -(right / 2) + (left / 2);
                 image.Coordinate.CenterY.Optional += -(top / 2) + (bottom / 2);
             }
@@ -46,7 +50,8 @@ namespace BEditor.Core.Data.EffectData {
 
         #endregion
 
-        public Clipping() {
+        public Clipping()
+        {
             Top = new EaseProperty(TopMetadata);
             Bottom = new EaseProperty(BottomMetadata);
             Left = new EaseProperty(LeftMetadata);

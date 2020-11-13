@@ -2,8 +2,10 @@
 using System.Collections.Generic;
 using System.Text;
 
-namespace BEditor.Core.Plugin {
-    public class PluginLoadedEventArgs : EventArgs {
+namespace BEditor.Core.Plugin
+{
+    public class PluginLoadedEventArgs : EventArgs
+    {
 
         /// <summary>
         /// PluginLoadedEventArgsのコンストラクタ
@@ -11,7 +13,8 @@ namespace BEditor.Core.Plugin {
         /// <param name="filename">Dllのファイル</param>
         /// <param name="issuccesful">成功したかのブーリアン</param>
         /// <param name="e">失敗した場合のException</param>
-        public PluginLoadedEventArgs(string filename, bool issuccesful, Exception e) {
+        public PluginLoadedEventArgs(string filename, bool issuccesful, Exception e)
+        {
             FileName = filename;
             IsSuccessful = issuccesful;
             Exception = e;

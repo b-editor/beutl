@@ -1,16 +1,20 @@
 ﻿using System;
 
-namespace BEditor.Core.Media {
+namespace BEditor.Core.Media
+{
 #nullable enable
-    public readonly struct ImageType : IEquatable<ImageType> {
+    public readonly struct ImageType : IEquatable<ImageType>
+    {
         public int Value { get; }
 
         public ImageType(int value) => Value = value;
 
         public static implicit operator int(ImageType type) => type.Value;
-        public static implicit operator OpenTK.Graphics.OpenGL.PixelType(ImageType type) {
+        public static implicit operator OpenTK.Graphics.OpenGL.PixelType(ImageType type)
+        {
             OpenTK.Graphics.OpenGL.PixelType s = OpenTK.Graphics.OpenGL.PixelType.Bitmap;
-            switch (type.Depth) {
+            switch (type.Depth)
+            {
                 case Byte:
                     s = OpenTK.Graphics.OpenGL.PixelType.UnsignedByte;
                     break;
@@ -66,8 +70,10 @@ namespace BEditor.Core.Media {
 
         public int Channels => (Value >> ChannelShift) + 1;
 
-        public int Bits {
-            get {
+        public int Bits
+        {
+            get
+            {
                 var depth = Depth;
                 if (depth is Byte or Char or CV_USRTYPE1) return 8;
                 else if (depth is UShort or Short) return 16;
@@ -80,12 +86,15 @@ namespace BEditor.Core.Media {
         public bool Equals(ImageType type) => Value == type.Value;
 
 
-        public override bool Equals(object? type) {
-            if (type is null) {
+        public override bool Equals(object? type)
+        {
+            if (type is null)
+            {
                 return false;
             }
 
-            if (type.GetType() != typeof(ImageType)) {
+            if (type.GetType() != typeof(ImageType))
+            {
                 return false;
             }
 
@@ -100,9 +109,11 @@ namespace BEditor.Core.Media {
         public override int GetHashCode() => Value.GetHashCode();
 
 
-        public override string ToString() {
+        public override string ToString()
+        {
             string s;
-            switch (Depth) {
+            switch (Depth)
+            {
                 case Byte:
                     s = "Byte";
                     break;
@@ -132,10 +143,12 @@ namespace BEditor.Core.Media {
             }
 
             var ch = Channels;
-            if (ch <= 4) {
+            if (ch <= 4)
+            {
                 return s + "Channel" + ch;
             }
-            else {
+            else
+            {
                 return s + "Channel(" + ch + ")";
             }
         }
@@ -204,12 +217,15 @@ namespace BEditor.Core.Media {
 
         #endregion
 
-        public static ImageType MakeType(int depth, int channels) {
-            if (channels <= 0 || channels >= ChannelMax) {
+        public static ImageType MakeType(int depth, int channels)
+        {
+            if (channels <= 0 || channels >= ChannelMax)
+            {
                 throw new Exception("Channels count should be 1.." + (ChannelMax - 1));
             }
 
-            if (depth < 0 || depth >= DepthMax) {
+            if (depth < 0 || depth >= DepthMax)
+            {
                 throw new Exception("Data type depth should be 0.." + (DepthMax - 1));
             }
 

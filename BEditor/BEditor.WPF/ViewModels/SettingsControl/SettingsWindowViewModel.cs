@@ -11,13 +11,18 @@ using BEditor.Core.Properties;
 using MaterialDesignThemes.Wpf;
 using BEditor.Core.Data;
 
-namespace BEditor.ViewModels.SettingsControl {
-    public class SettingsWindowViewModel : BasePropertyChanged {
+namespace BEditor.ViewModels.SettingsControl
+{
+    public class SettingsWindowViewModel : BasePropertyChanged
+    {
         private object viewControl;
 
-        public SettingsWindowViewModel() {
-            TreeSelectCommand.Subscribe(obj => {
-                if (obj is TreeViewChild child) {
+        public SettingsWindowViewModel()
+        {
+            TreeSelectCommand.Subscribe(obj =>
+            {
+                if (obj is TreeViewChild child)
+                {
                     ViewControl = child.Control;
                 }
             });
@@ -26,21 +31,24 @@ namespace BEditor.ViewModels.SettingsControl {
 
             #region General
 
-            var general = new TreeViewChild() {
+            var general = new TreeViewChild()
+            {
                 Text = Resources.General,
                 PackIconKind = PackIconKind.Settings,
                 Control = new Root()
             };
 
             //外観
-            general.TreeViewChildren.Add(new TreeViewChild() {
+            general.TreeViewChildren.Add(new TreeViewChild()
+            {
                 Text = Resources.Appearance,
                 PackIconKind = PackIconKind.WindowMaximize,
                 Control = new Appearance()
             });
 
             //その他
-            general.TreeViewChildren.Add(new TreeViewChild() {
+            general.TreeViewChildren.Add(new TreeViewChild()
+            {
                 Text = Resources.Others,
                 PackIconKind = PackIconKind.DotsVertical,
                 Control = new Other()
@@ -50,7 +58,8 @@ namespace BEditor.ViewModels.SettingsControl {
 
             #region Project
 
-            var project = new TreeViewChild() {
+            var project = new TreeViewChild()
+            {
                 Text = Resources.ProjectFile,
                 PackIconKind = PackIconKind.File,
                 Control = new ProjectSetting()
@@ -60,17 +69,20 @@ namespace BEditor.ViewModels.SettingsControl {
 
             #region Plugins
 
-            var plugins = new TreeViewChild() {
+            var plugins = new TreeViewChild()
+            {
                 Text = Resources.Plugins,
                 PackIconKind = PackIconKind.Puzzle
             };
 
-            plugins.TreeViewChildren.Add(new TreeViewChild() {
+            plugins.TreeViewChildren.Add(new TreeViewChild()
+            {
                 Text = Resources.InstalledPlugins,
                 Control = new InstalledPlugins()
             });
 
-            plugins.TreeViewChildren.Add(new TreeViewChild() {
+            plugins.TreeViewChildren.Add(new TreeViewChild()
+            {
                 Text = Resources.Install,
                 PackIconKind = PackIconKind.PuzzlePlus
             });
@@ -79,7 +91,8 @@ namespace BEditor.ViewModels.SettingsControl {
 
             #region AppInfo
 
-            var appInfo = new TreeViewChild() {
+            var appInfo = new TreeViewChild()
+            {
                 Text = Resources.Infomation,
                 PackIconKind = PackIconKind.Information,
                 Control = new AppInfo()
@@ -105,7 +118,8 @@ namespace BEditor.ViewModels.SettingsControl {
         public ObservableCollection<TreeViewChild> TreeViewProperty { get; set; } = new ObservableCollection<TreeViewChild>();
     }
 
-    public class TreeViewChild {
+    public class TreeViewChild
+    {
 
         public string Text { get; set; }
         public PackIconKind PackIconKind { get; set; } = PackIconKind.None;

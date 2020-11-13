@@ -6,12 +6,15 @@ using BEditor.ViewModels.Helper;
 using BEditor.Core.Data;
 using BEditor.Core.Data.PropertyData;
 
-namespace BEditor.ViewModels.TimeLines {
-    public class ColorAnimationViewModel {
+namespace BEditor.ViewModels.TimeLines
+{
+    public class ColorAnimationViewModel
+    {
         public double TrackHeight => Setting.ClipHeight;
         public ColorAnimationProperty ColorAnimationProperty { get; }
 
-        public ColorAnimationViewModel(ColorAnimationProperty colorProperty) {
+        public ColorAnimationViewModel(ColorAnimationProperty colorProperty)
+        {
             ColorAnimationProperty = colorProperty;
             AddKeyFrameCommand.Subscribe(x => UndoRedoManager.Do(new ColorAnimationProperty.AddCommand(colorProperty, x)));
             RemoveKeyFrameCommand.Subscribe(x => UndoRedoManager.Do(new ColorAnimationProperty.RemoveCommand(colorProperty, x)));

@@ -20,8 +20,7 @@
         Background="{DynamicResource MaterialDesignPaper}"
         TextElement.Foreground="{DynamicResource MaterialDesignBody}"
         Closing="MetroWindow_Closing"
-        Height="1000" Width="1920"
-        WindowState="Maximized"
+        
         
         WindowTitleBrush="{StaticResource PrimaryHueMidBrush}"
         GlowBrush="{DynamicResource MaterialDesignShadowBrush}"

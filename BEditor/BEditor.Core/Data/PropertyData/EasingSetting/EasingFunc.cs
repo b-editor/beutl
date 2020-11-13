@@ -8,12 +8,14 @@ using System.Threading.Tasks;
 
 using BEditor.Core.Data.ObjectData;
 
-namespace BEditor.Core.Data.PropertyData.EasingSetting {
+namespace BEditor.Core.Data.PropertyData.EasingSetting
+{
     /// <summary>
     /// <see cref="EaseProperty"/>, <see cref="ColorAnimationProperty"/> などで利用可能なイージング関数を表します
     /// </summary>
     [DataContract(Namespace = "")]
-    public abstract class EasingFunc : ComponentObject, IChild<PropertyElement> {
+    public abstract class EasingFunc : ComponentObject, IChild<PropertyElement>
+    {
         private PropertyElement parent;
 
 
@@ -24,14 +26,17 @@ namespace BEditor.Core.Data.PropertyData.EasingSetting {
         /// <summary>
         /// 親要素を取得します
         /// </summary>
-        public PropertyElement Parent {
+        public PropertyElement Parent
+        {
             get => parent;
-            set {
+            set
+            {
                 parent = value;
                 var tmp = EasingSettings;
                 var parent_ = parent.Parent;
 
-                for (int i = 0; i < tmp.Count; i++) {
+                for (int i = 0; i < tmp.Count; i++)
+                {
                     tmp[i].Parent = parent_;
                 }
             }
@@ -50,7 +55,8 @@ namespace BEditor.Core.Data.PropertyData.EasingSetting {
         /// <summary>
         /// 初期化時とデシリアライズ時に呼び出されます
         /// </summary>
-        public virtual void PropertyLoaded() {
+        public virtual void PropertyLoaded()
+        {
             var settings = EasingSettings;
 
             Parallel.ForEach(settings, setting => setting.PropertyLoaded());
@@ -60,10 +66,12 @@ namespace BEditor.Core.Data.PropertyData.EasingSetting {
             var type = GetType();
             var properties = type.GetProperties();
 
-            Parallel.ForEach(properties, property => {
+            Parallel.ForEach(properties, property =>
+            {
                 //metadata属性の場合&プロパティがPropertyElement
                 if (Attribute.GetCustomAttribute(property, attributetype) is PropertyMetadataAttribute metadata &&
-                                    property.GetValue(this) is PropertyElement propertyElement) {
+                                    property.GetValue(this) is PropertyElement propertyElement)
+                {
 
                     propertyElement.PropertyMetadata = metadata.PropertyMetadata;
                 }
@@ -78,7 +86,8 @@ namespace BEditor.Core.Data.PropertyData.EasingSetting {
         };
     }
 
-    public class EasingData {
+    public class EasingData
+    {
         public string Name { get; set; }
         public Type Type { get; set; }
     }

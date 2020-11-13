@@ -6,8 +6,10 @@ using System.Threading.Tasks;
 
 using BEditor.Core.Media;
 
-namespace BEditor.Models.Extension {
-    public static class PointConverter {
+namespace BEditor.Models.Extension
+{
+    public static class PointConverter
+    {
         public static System.Windows.Point ToWin(this Point2 point) => new System.Windows.Point(point.X, point.Y);
         public static Point2 ToMedia(this System.Windows.Point point) => new Point2(point.X, point.Y);
     }

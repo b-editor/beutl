@@ -8,12 +8,15 @@ using BEditor.Core.Extensions.ViewCommand;
 
 using Resource = BEditor.Core.Properties.Resources;
 
-namespace BEditor.Views.MessageContent {
+namespace BEditor.Views.MessageContent
+{
     /// <summary>
     /// Loading.xaml の相互作用ロジック
     /// </summary>
-    public partial class Loading : DialogContent {
-        public Loading(ButtonType[] buttons) {
+    public partial class Loading : DialogContent
+    {
+        public Loading(ButtonType[] buttons)
+        {
             InitializeComponent();
 
             DataContext = this;
@@ -21,7 +24,8 @@ namespace BEditor.Views.MessageContent {
 
             #region ボタンの追加
 
-            foreach (var button in buttons) {
+            foreach (var button in buttons)
+            {
                 var text = button switch
                 {
                     ButtonType.Ok => Resource.OK,
@@ -33,7 +37,8 @@ namespace BEditor.Views.MessageContent {
                     _ => "",
                 };
 
-                var button_ = new Button() {
+                var button_ = new Button()
+                {
                     Style = (Style)FindResource("MaterialDesignFlatButton"),
                     Content = text,
                     CommandParameter = button,
@@ -46,15 +51,18 @@ namespace BEditor.Views.MessageContent {
 
             #endregion
 
-            foreach (Button b in stack.Children) {
-                b.Click += (sender, e) => {
+            foreach (Button b in stack.Children)
+            {
+                b.Click += (sender, e) =>
+                {
                     DialogResult = (ButtonType)b.CommandParameter;
                     ButtonClicked?.Invoke(sender, e);
                 };
             }
         }
 
-        public Loading() {
+        public Loading()
+        {
             InitializeComponent();
 
             DataContext = this;

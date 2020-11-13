@@ -17,15 +17,19 @@ using MaterialDesignThemes.Wpf;
 
 using Resource = BEditor.Core.Properties.Resources;
 
-namespace BEditor.Views.MessageContent {
+namespace BEditor.Views.MessageContent
+{
     /// <summary>
     /// MessageUI.xaml の相互作用ロジック
     /// </summary>
-    public partial class MessageUI : DialogContent {
-        public MessageUI(ButtonType[] buttons, object content, BEditor.Core.Extensions.ViewCommand.IconType iconKind) {
+    public partial class MessageUI : DialogContent
+    {
+        public MessageUI(ButtonType[] buttons, object content, BEditor.Core.Extensions.ViewCommand.IconType iconKind)
+        {
             InitializeComponent();
 
-            foreach (var button in buttons) {
+            foreach (var button in buttons)
+            {
                 var text = button switch
                 {
                     ButtonType.Ok => Resource.OK,
@@ -37,7 +41,8 @@ namespace BEditor.Views.MessageContent {
                     _ => "",
                 };
 
-                var button_ = new Button() {
+                var button_ = new Button()
+                {
                     Style = (Style)FindResource("MaterialDesignFlatButton"),
                     Content = text,
                     CommandParameter = button,
@@ -49,15 +54,19 @@ namespace BEditor.Views.MessageContent {
             }
 
 
-            foreach (Button b in stack.Children) {
-                b.Click += (sender, e) => {
+            foreach (Button b in stack.Children)
+            {
+                b.Click += (sender, e) =>
+                {
                     DialogResult = (ButtonType)b.CommandParameter;
                     ButtonClicked?.Invoke(sender, e);
                 };
             }
 
-            if (iconKind != BEditor.Core.Extensions.ViewCommand.IconType.None) {
-                icon.Content = new PackIcon() {
+            if (iconKind != BEditor.Core.Extensions.ViewCommand.IconType.None)
+            {
+                icon.Content = new PackIcon()
+                {
                     Kind = (PackIconKind)Enum.ToObject(typeof(PackIconKind), (int)iconKind),
                     HorizontalAlignment = HorizontalAlignment.Center,
                     VerticalAlignment = VerticalAlignment.Center,

@@ -11,12 +11,15 @@ using System.Windows.Media.Imaging;
 using System.Windows.Navigation;
 using System.Windows.Shapes;
 
-namespace BEditor.Views.CustomControl {
+namespace BEditor.Views.CustomControl
+{
     /// <summary>
     /// CustomTab.xaml の相互作用ロジック
     /// </summary>
-    public partial class PropertyTab : UserControl {
-        public PropertyTab() {
+    public partial class PropertyTab : UserControl
+    {
+        public PropertyTab()
+        {
             InitializeComponent();
         }
     }

@@ -8,9 +8,11 @@ using OpenTK;
 using OpenTK.Graphics;
 using OpenTK.Graphics.OpenGL;
 
-namespace BEditor.Core.Data.PropertyData.Default {
+namespace BEditor.Core.Data.PropertyData.Default
+{
     [DataContract(Namespace = "")]
-    public sealed class Blend : ExpandGroup {
+    public sealed class Blend : ExpandGroup
+    {
         public static readonly EasePropertyMetadata AlphaMetadata = new EasePropertyMetadata(Properties.Resources.Alpha, 100, 100, 0);
         public static readonly ColorAnimationPropertyMetadata ColorMetadata = new ColorAnimationPropertyMetadata(Properties.Resources.Color, 255, 255, 255, 255, false);
         public static readonly SelectorPropertyMetadata BlendTypeMetadata = new SelectorPropertyMetadata(Properties.Resources.Blend, new string[4] { "通常", "加算", "減算", "乗算" });
@@ -34,7 +36,8 @@ namespace BEditor.Core.Data.PropertyData.Default {
                 }
             };
 
-        public Blend(PropertyElementMetadata constant) : base(constant) {
+        public Blend(PropertyElementMetadata constant) : base(constant)
+        {
             Alpha = new EaseProperty(AlphaMetadata);
             BlendType = new(BlendTypeMetadata);
             Color = new ColorAnimationProperty(ColorMetadata);

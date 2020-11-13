@@ -3,12 +3,14 @@ using System.Collections.ObjectModel;
 using System.ComponentModel;
 using System.Runtime.Serialization;
 
-namespace BEditor.Core.Data.PropertyData {
+namespace BEditor.Core.Data.PropertyData
+{
     /// <summary>
     /// 色を選択するプロパティを表します
     /// </summary>
     [DataContract(Namespace = "")]
-    public class ColorProperty : PropertyElement {
+    public class ColorProperty : PropertyElement
+    {
         private byte r;
         private byte g;
         private byte b;
@@ -19,7 +21,8 @@ namespace BEditor.Core.Data.PropertyData {
         /// </summary>
         /// <param name="metadata">このプロパティの <see cref="ColorPropertyMetadata"/></param>
         /// <exception cref="ArgumentNullException"><paramref name="metadata"/> が <see langword="null"/> です</exception>
-        public ColorProperty(ColorPropertyMetadata metadata) {
+        public ColorProperty(ColorPropertyMetadata metadata)
+        {
             if (metadata is null) throw new ArgumentNullException(nameof(metadata));
 
             Red = metadata.Red;
@@ -58,7 +61,8 @@ namespace BEditor.Core.Data.PropertyData {
         /// 色を変更するコマンド
         /// </summary>
         /// <remarks>このクラスは <see cref="UndoRedoManager.Do(IUndoRedoCommand)"/> と併用することでコマンドを記録できます</remarks>
-        public sealed class ChangeColorCommand : IUndoRedoCommand {
+        public sealed class ChangeColorCommand : IUndoRedoCommand
+        {
             private readonly ColorProperty Color;
             private readonly byte r, g, b, a;
             private readonly byte or, og, ob, oa;
@@ -72,7 +76,8 @@ namespace BEditor.Core.Data.PropertyData {
             /// <param name="b">新しい <see cref="Blue"/> の値</param>
             /// <param name="a">新しい <see cref="Alpha"/> の値</param>
             /// <exception cref="ArgumentNullException"><paramref name="property"/> が <see langword="null"/> です</exception>
-            public ChangeColorCommand(ColorProperty property, byte r, byte g, byte b, byte a) {
+            public ChangeColorCommand(ColorProperty property, byte r, byte g, byte b, byte a)
+            {
                 Color = property ?? throw new ArgumentNullException(nameof(property));
                 (this.r, this.g, this.b, this.a) = (r, g, b, a);
                 (or, og, ob, oa) = (property.Red, property.Green, property.Blue, property.Alpha);
@@ -80,7 +85,8 @@ namespace BEditor.Core.Data.PropertyData {
 
 
             /// <inheritdoc/>
-            public void Do() {
+            public void Do()
+            {
                 Color.Red = r;
                 Color.Green = g;
                 Color.Blue = b;
@@ -91,7 +97,8 @@ namespace BEditor.Core.Data.PropertyData {
             public void Redo() => Do();
 
             /// <inheritdoc/>
-            public void Undo() {
+            public void Undo()
+            {
                 Color.Red = or;
                 Color.Green = og;
                 Color.Blue = ob;
@@ -103,11 +110,13 @@ namespace BEditor.Core.Data.PropertyData {
     /// <summary>
     /// <see cref="ColorProperty"/> のメタデータを表します
     /// </summary>
-    public record ColorPropertyMetadata : PropertyElementMetadata {
+    public record ColorPropertyMetadata : PropertyElementMetadata
+    {
         /// <summary>
         /// <see cref="ColorPropertyMetadata"/> クラスの新しいインスタンスを初期化します
         /// </summary>
-        public ColorPropertyMetadata(string name, byte r = 255, byte g = 255, byte b = 255, byte a = 255, bool usealpha = false) : base(name) {
+        public ColorPropertyMetadata(string name, byte r = 255, byte g = 255, byte b = 255, byte a = 255, bool usealpha = false) : base(name)
+        {
             Red = r;
             Green = g;
             Blue = b;

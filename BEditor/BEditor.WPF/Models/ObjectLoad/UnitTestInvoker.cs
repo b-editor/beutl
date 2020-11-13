@@ -3,13 +3,18 @@ using System.Collections.Generic;
 using System.Text;
 using System.Threading;
 
-namespace BEditor.Models {
-    public static class UnitTestInvoker {
+namespace BEditor.Models
+{
+    public static class UnitTestInvoker
+    {
         public static bool IsUse { get; set; }
 
-        public static void Invoke(Action action) {
-            if (IsUse) {
-                var thread = new Thread(() => {
+        public static void Invoke(Action action)
+        {
+            if (IsUse)
+            {
+                var thread = new Thread(() =>
+                {
                     action?.Invoke();
                 });
 
@@ -17,7 +22,8 @@ namespace BEditor.Models {
                 thread.Start();
                 thread.Join();
             }
-            else {
+            else
+            {
                 action?.Invoke();
             }
         }

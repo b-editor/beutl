@@ -19,21 +19,25 @@ using Microsoft.Xaml.Behaviors;
 
 using Resource = BEditor.Core.Properties.Resources;
 
-namespace BEditor.Views.TimeLines {
+namespace BEditor.Views.TimeLines
+{
     /// <summary>
     /// TimeLine.xaml の相互作用ロジック
     /// </summary>
-    public partial class TimeLine : UserControl {
+    public partial class TimeLine : UserControl
+    {
         private readonly Scene Scene;
         private readonly TimeLineViewModel TimeLineViewModel;
 
-        public TimeLine(Scene scene) {
+        public TimeLine(Scene scene)
+        {
             Scene = scene;
             this.DataContext = this.TimeLineViewModel = scene.GetCreateTimeLineViewModel();
 
             InitializeComponent();
 
-            ContextMenu CreateMenu(int layer) {
+            ContextMenu CreateMenu(int layer)
+            {
                 ContextMenu contextMenu = new ContextMenu();
 
                 #region 削除
@@ -55,7 +59,8 @@ namespace BEditor.Views.TimeLines {
                 #region 非表示
                 MenuItem Hidden = new MenuItem();
 
-                var hidemenu = new VirtualizingStackPanel() {
+                var hidemenu = new VirtualizingStackPanel()
+                {
                     Orientation = Orientation.Horizontal,
                     HorizontalAlignment = HorizontalAlignment.Center
                 };
@@ -67,16 +72,20 @@ namespace BEditor.Views.TimeLines {
 
                 Hidden.Header = hidemenu;
 
-                toggle.Click += (_, _) => {
-                    if ((bool)toggle.IsChecked) {
+                toggle.Click += (_, _) =>
+                {
+                    if ((bool)toggle.IsChecked)
+                    {
                         Scene.HideLayer.Remove(layer);
                     }
-                    else {
+                    else
+                    {
                         Scene.HideLayer.Add(layer);
                     }
                 };
 
-                if (Scene.HideLayer.Exists(x => x == layer)) {
+                if (Scene.HideLayer.Exists(x => x == layer))
+                {
                     toggle.IsChecked = false;
                 }
 
@@ -89,12 +98,14 @@ namespace BEditor.Views.TimeLines {
 
 
             //レイヤー名追加for
-            for (int l = 1; l < 100; l++) {
+            for (int l = 1; l < 100; l++)
+            {
                 Binding binding2 = new Binding("TrackHeight");
 
                 Grid track = new Grid();
 
-                Grid grid = new Grid() {
+                Grid grid = new Grid()
+                {
                     Margin = new Thickness(0, 1, 0, 0),
                     HorizontalAlignment = HorizontalAlignment.Left,
                     AllowDrop = true,
@@ -133,7 +144,8 @@ namespace BEditor.Views.TimeLines {
                 Layer.Children.Add(track);
 
 
-                Binding binding = new Binding("ActualHeight") {
+                Binding binding = new Binding("ActualHeight")
+                {
                     Source = track
                 };
 
@@ -145,7 +157,8 @@ namespace BEditor.Views.TimeLines {
 
                 row2.SetBinding(Grid.HeightProperty, binding);
 
-                Label textBlock = new() {
+                Label textBlock = new()
+                {
                     VerticalAlignment = VerticalAlignment.Top,
                     VerticalContentAlignment = VerticalAlignment.Center,
                     HorizontalAlignment = HorizontalAlignment.Center,
@@ -173,12 +186,14 @@ namespace BEditor.Views.TimeLines {
             labeltrigger.Add(CommandTool.CreateEvent("ScrollChanged", TimeLineViewModel.ScrollLabelCommand));
 
             TimeLineViewModel.ResetScale = (zoom, max, rate) => AddScale(zoom, max, rate);
-            TimeLineViewModel.ClipLayerMoveCommand = (data, layer) => {
+            TimeLineViewModel.ClipLayerMoveCommand = (data, layer) =>
+            {
                 var vm = data.GetCreateClipViewModel();
                 var from = vm.Row;
                 vm.Row = layer;
 
-                App.Current?.Dispatcher?.Invoke(() => {
+                App.Current?.Dispatcher?.Invoke(() =>
+                {
                     Grid togrid = (Grid)Layer.Children[layer];
 
                     var ui = data.GetCreateClipView();
@@ -190,8 +205,10 @@ namespace BEditor.Views.TimeLines {
             TimeLineViewModel.GetLayerMousePosition = () => Mouse.GetPosition(Layer).ToMedia();
 
             TimeLineViewModel.ViewLoaded = true;
-            TimeLineViewModel.TimeLineLoaded(list => {
-                for (int index = 0; index < list.Count; index++) {
+            TimeLineViewModel.TimeLineLoaded(list =>
+            {
+                for (int index = 0; index < list.Count; index++)
+                {
                     var info = list[index];
 
 
@@ -202,15 +219,18 @@ namespace BEditor.Views.TimeLines {
                 Layer.Focus();
             });
 
-            Scene.Datas.CollectionChanged += (s, e) => {
-                if (e.Action == System.Collections.Specialized.NotifyCollectionChangedAction.Add) {
+            Scene.Datas.CollectionChanged += (s, e) =>
+            {
+                if (e.Action == System.Collections.Specialized.NotifyCollectionChangedAction.Add)
+                {
                     var info = Scene.Datas[e.NewStartingIndex];
 
                     Grid grid = (Grid)Layer.Children[info.Layer];
 
                     grid.Children.Add(info.GetCreateClipView());
                 }
-                else if (e.Action == System.Collections.Specialized.NotifyCollectionChangedAction.Remove) {
+                else if (e.Action == System.Collections.Specialized.NotifyCollectionChangedAction.Remove)
+                {
                     ClipData info = (ClipData)e.OldItems[e.OldStartingIndex];
 
                     var ui = info.GetCreateClipView();
@@ -222,11 +242,14 @@ namespace BEditor.Views.TimeLines {
 
         #region Scrollbarの移動量を変更
 
-        private void ScrollLine_PreviewMouseWheel(object sender, MouseWheelEventArgs e) {
+        private void ScrollLine_PreviewMouseWheel(object sender, MouseWheelEventArgs e)
+        {
             ScrollViewer scrollviewer = (ScrollViewer)sender;
 
-            if (Keyboard.IsKeyDown(Key.LeftCtrl)) {
-                if (!(Scene.TimeLineZoom > 200 || Scene.TimeLineZoom < 1)) {
+            if (Keyboard.IsKeyDown(Key.LeftCtrl))
+            {
+                if (!(Scene.TimeLineZoom > 200 || Scene.TimeLineZoom < 1))
+                {
                     var offset = scrollviewer.HorizontalOffset;
                     var frame = TimeLineViewModel.ToFrame(offset);
                     Scene.TimeLineZoom += (e.Delta / 120) * 5;
@@ -234,14 +257,19 @@ namespace BEditor.Views.TimeLines {
                     scrollviewer.ScrollToHorizontalOffset(TimeLineViewModel.ToPixel(frame));
                 }
             }
-            else {
-                if (e.Delta > 0) {
-                    for (int i = 0; i < 4; i++) {
+            else
+            {
+                if (e.Delta > 0)
+                {
+                    for (int i = 0; i < 4; i++)
+                    {
                         scrollviewer.LineLeft();
                     }
                 }
-                else {
-                    for (int i = 0; i < 4; i++) {
+                else
+                {
+                    for (int i = 0; i < 4; i++)
+                    {
                         scrollviewer.LineRight();
                     }
                 }
@@ -258,18 +286,22 @@ namespace BEditor.Views.TimeLines {
         /// <param name="zoom">拡大率 1 - 200</param>
         /// <param name="max">最大フレーム</param>
         /// <param name="rate">フレームレート</param>
-        private void AddScale(float zoom, int max, int rate) => App.Current?.Dispatcher?.Invoke(() => {
+        private void AddScale(float zoom, int max, int rate) => App.Current?.Dispatcher?.Invoke(() =>
+        {
             double ToPixel(int frame) => Setting.WidthOf1Frame * (zoom / 200) * frame;
             double SecToPixel(float sec) => ToPixel((int)(sec * rate));
             double MinToPixel(float min) => SecToPixel(min * 60);
 
             scale.Children.Clear();
             //max 1000
-            if (zoom <= 200 && zoom >= 100) {
+            if (zoom <= 200 && zoom >= 100)
+            {
                 //iは秒数
-                for (int s = 0; s < (max / rate); s++) {
+                for (int s = 0; s < (max / rate); s++)
+                {
                     //一秒毎
-                    Border border = new Border {
+                    Border border = new Border
+                    {
                         Width = 1,
                         HorizontalAlignment = HorizontalAlignment.Left,
                         VerticalAlignment = VerticalAlignment.Stretch,
@@ -280,9 +312,12 @@ namespace BEditor.Views.TimeLines {
                     scale.Children.Add(border);
 
                     //以下はフレーム
-                    if (zoom <= 200 && zoom >= 166.7) {
-                        for (int m = 1; m < rate; m++) {
-                            Border border2 = new Border {
+                    if (zoom <= 200 && zoom >= 166.7)
+                    {
+                        for (int m = 1; m < rate; m++)
+                        {
+                            Border border2 = new Border
+                            {
                                 Width = 1,
                                 HorizontalAlignment = HorizontalAlignment.Left,
 
@@ -293,9 +328,12 @@ namespace BEditor.Views.TimeLines {
                             scale.Children.Add(border2);
                         }
                     }
-                    else if (zoom < 166.7 && zoom >= 133.4) {
-                        for (int m = 1; m < rate / 2; m++) {
-                            Border border2 = new Border {
+                    else if (zoom < 166.7 && zoom >= 133.4)
+                    {
+                        for (int m = 1; m < rate / 2; m++)
+                        {
+                            Border border2 = new Border
+                            {
                                 Width = 1,
                                 HorizontalAlignment = HorizontalAlignment.Left,
 
@@ -306,9 +344,12 @@ namespace BEditor.Views.TimeLines {
                             scale.Children.Add(border2);
                         }
                     }
-                    else if (zoom < 133.4 && zoom >= 100) {
-                        for (int m = 1; m < rate / 4; m++) {
-                            Border border2 = new Border {
+                    else if (zoom < 133.4 && zoom >= 100)
+                    {
+                        for (int m = 1; m < rate / 4; m++)
+                        {
+                            Border border2 = new Border
+                            {
                                 Width = 1,
                                 HorizontalAlignment = HorizontalAlignment.Left,
 
@@ -321,12 +362,15 @@ namespace BEditor.Views.TimeLines {
                     }
                 }
             }
-            else {
+            else
+            {
                 //TODO : ユーザーコントロール（仮想化パネル）を使う
                 //m は分数
                 //最大の分
-                for (int m = 1; m < (max / rate) / 60; m++) {
-                    Border border = new Border() {
+                for (int m = 1; m < (max / rate) / 60; m++)
+                {
+                    Border border = new Border()
+                    {
                         Width = 1,
                         HorizontalAlignment = HorizontalAlignment.Left,
                         VerticalAlignment = VerticalAlignment.Stretch,
@@ -336,8 +380,10 @@ namespace BEditor.Views.TimeLines {
                     border.SetResourceReference(BackgroundProperty, "MaterialDesignBody");
                     scale.Children.Add(border);
 
-                    for (int s = 1; s < 60; s++) {
-                        Border border2 = new Border {
+                    for (int s = 1; s < 60; s++)
+                    {
+                        Border border2 = new Border
+                        {
                             Width = 1,
                             HorizontalAlignment = HorizontalAlignment.Left,
 
@@ -351,8 +397,10 @@ namespace BEditor.Views.TimeLines {
             }
         });
 
-        private void ScrollLine_ScrollChanged(object sender, ScrollChangedEventArgs e) {
-            Task.Run(() => {
+        private void ScrollLine_ScrollChanged(object sender, ScrollChangedEventArgs e)
+        {
+            Task.Run(() =>
+            {
                 Scene.TimeLineHorizonOffset = ScrollLine.HorizontalOffset;
                 Scene.TimeLineVerticalOffset = ScrollLine.VerticalOffset;
             });
