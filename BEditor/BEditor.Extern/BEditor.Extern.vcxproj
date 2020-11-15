@@ -172,7 +172,6 @@
     <ClCompile Include="ImageIO.cpp" />
     <ClCompile Include="ImageProperty.cpp" />
     <ClCompile Include="pch.cpp" />
-    <ClCompile Include="RenderingContext.cpp" />
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="Color.h" />

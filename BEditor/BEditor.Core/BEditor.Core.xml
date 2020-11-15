@@ -109,34 +109,32 @@
         </member>
         <member name="T:BEditor.Core.Data.EffectData.EffectElement">
             <summary>
-            エフェクトのベースクラス
+            Represents the base class of the effect.
             </summary>
         </member>
-        <member name="P:BEditor.Core.Data.EffectData.EffectElement.CachedProperties">
-            <summary>
-            キャッシュされた <see cref="P:BEditor.Core.Data.EffectData.EffectElement.Properties"/> を取得します
-            </summary>
+        <member name="P:BEditor.Core.Data.EffectData.EffectElement.Children">
+            <inheritdoc/>
         </member>
         <member name="P:BEditor.Core.Data.EffectData.EffectElement.Name">
             <summary>
-            エフェクトの名前を取得します
+            Get the name of the <see cref="T:BEditor.Core.Data.EffectData.EffectElement"/>.
             </summary>
         </member>
         <member name="P:BEditor.Core.Data.EffectData.EffectElement.IsEnabled">
             <summary>
-            エフェクトが有効かを取得または設定します
+            Get or set if the <see cref="T:BEditor.Core.Data.EffectData.EffectElement"/> is enabled.
             </summary>
-            <remarks>エフェクトが有効な場合 <see langword="true"/> そうでない場合は <see langword="false"/> となります</remarks>
+            <remarks><see langword="true"/> if the <see cref="T:BEditor.Core.Data.EffectData.EffectElement"/> is enabled or <see langword="false"/> otherwise.</remarks>
         </member>
         <member name="P:BEditor.Core.Data.EffectData.EffectElement.IsExpanded">
             <summary>
-            エクスパンダーが開いているかを取得または設定します
+            Get or set whether the expander is open.
             </summary>
-            <remarks>エクスパンダーが開いている場合は <see langword="true"/>、そうでない場合は <see langword="false"/> となります</remarks>
+            <remarks><see langword="true"/> if the expander is open, otherwise <see langword="false"/>.</remarks>
         </member>
         <member name="P:BEditor.Core.Data.EffectData.EffectElement.Properties">
             <summary>
-            GUIに表示する<seealso cref="T:BEditor.Core.Data.PropertyData.PropertyElement"/>を<see cref="T:System.Collections.Generic.IEnumerable`1"/>を取得します
+            Get the <see cref="T:BEditor.Core.Data.PropertyData.PropertyElement"/> to display on the GUI.
             </summary>
         </member>
         <member name="P:BEditor.Core.Data.EffectData.EffectElement.Parent">
@@ -147,46 +145,31 @@
         </member>
         <member name="M:BEditor.Core.Data.EffectData.EffectElement.PropertyLoaded">
             <summary>
-            コンストラクタの後やデシリアル化の後に呼び出されます
+            Called after the constructor or after deserialization.
             </summary>
-            <remarks>
-            <para>通常は </para>
-            <list type="bullet">
-            <item>
-               <seealso cref="P:BEditor.Core.Data.EffectData.EffectElement.Properties"/>内のアイテムのPropertyLoaded
-            </item>
-            <item>
-               リフレクションで<see cref="T:BEditor.Core.Data.PropertyData.PropertyMetadataAttribute"/>がついているプロパティに<seealso cref="T:BEditor.Core.Data.PropertyData.PropertyElementMetadata"/>をセットします
-            </item>
-            </list>
-            </remarks>
         </member>
         <member name="M:BEditor.Core.Data.EffectData.EffectElement.Render(BEditor.Core.Data.ProjectData.EffectRenderArgs)">
             <summary>
-            フレーム描画時に呼び出されます
+            It is called at rendering time
             </summary>
-            <param name="args">呼び出しの順番などのデータ</param>
         </member>
         <member name="M:BEditor.Core.Data.EffectData.EffectElement.PreviewRender(BEditor.Core.Data.ProjectData.EffectRenderArgs)">
             <summary>
-            フレーム描画前に呼び出されます
+            It will be called before rendering.
             </summary>
-            <param name="args">呼び出しの順番などのデータ</param>
-            <remarks>ここでエフェクトの順番などを変更できます</remarks>
         </member>
         <member name="T:BEditor.Core.Data.EffectData.EffectElement.CheckCommand">
             <summary>
-            エフェクトが有効かのブーリアンを変更するコマンド
+            Represents a command that changes the boolean for which an effect is enabled.
             </summary>
-            <remarks>このクラスは <see cref="M:BEditor.Core.Data.UndoRedoManager.Do(BEditor.Core.Data.IUndoRedoCommand)"/> と併用することでコマンドを記録できます</remarks>
         </member>
         <member name="M:BEditor.Core.Data.EffectData.EffectElement.CheckCommand.#ctor(BEditor.Core.Data.EffectData.EffectElement,System.Boolean)">
             <summary>
-            <see cref="T:BEditor.Core.Data.EffectData.EffectElement.CheckCommand"/> クラスの新しいインスタンスを初期化します
+            <see cref="T:BEditor.Core.Data.EffectData.EffectElement.CheckCommand"/> Initialize a new instance of the class.
             </summary>
-            <param name="effect">対象の <see cref="T:BEditor.Core.Data.EffectData.EffectElement"/></param>
-            <param name="value">セットする値</param>
-            <exception cref="T:System.ArgumentNullException"><paramref name="effect"/> が <see langword="null"/> です</exception>
+            <param name="effect">The target <see cref="T:BEditor.Core.Data.EffectData.EffectElement"/>.</param>
+            <param name="value">New value</param>
+            <exception cref="T:System.ArgumentNullException"><paramref name="effect"/> is <see langword="null"/>.</exception>
         </member>
         <member name="M:BEditor.Core.Data.EffectData.EffectElement.CheckCommand.Do">
             <inheritdoc/>
@@ -199,16 +182,15 @@
         </member>
         <member name="T:BEditor.Core.Data.EffectData.EffectElement.UpCommand">
             <summary>
-            エフェクトの順番を上げるコマンド
+            Represents a command that changes the order of the effects.
             </summary>
-            <remarks>このクラスは <see cref="M:BEditor.Core.Data.UndoRedoManager.Do(BEditor.Core.Data.IUndoRedoCommand)"/> と併用することでコマンドを記録できます</remarks>
         </member>
         <member name="M:BEditor.Core.Data.EffectData.EffectElement.UpCommand.#ctor(BEditor.Core.Data.EffectData.EffectElement)">
             <summary>
-            <see cref="T:BEditor.Core.Data.EffectData.EffectElement.UpCommand"/> クラスの新しいインスタンスを初期化します
+            <see cref="T:BEditor.Core.Data.EffectData.EffectElement.UpCommand"/> Initialize a new instance of the class.
             </summary>
-            <param name="effect">対象の <see cref="T:BEditor.Core.Data.EffectData.EffectElement"/></param>
-            <exception cref="T:System.ArgumentNullException"><paramref name="effect"/> が <see langword="null"/> です</exception>
+            <param name="effect">The target <see cref="T:BEditor.Core.Data.EffectData.EffectElement"/>.</param>
+            <exception cref="T:System.ArgumentNullException"><paramref name="effect"/> is <see langword="null"/>.</exception>
         </member>
         <member name="M:BEditor.Core.Data.EffectData.EffectElement.UpCommand.Do">
             <inheritdoc/>
@@ -221,16 +203,15 @@
         </member>
         <member name="T:BEditor.Core.Data.EffectData.EffectElement.DownCommand">
             <summary>
-            エフェクトの順番を下げるコマンド
+            Represents a command that changes the order of the effects.
             </summary>
-            <remarks>このクラスは <see cref="M:BEditor.Core.Data.UndoRedoManager.Do(BEditor.Core.Data.IUndoRedoCommand)"/> と併用することでコマンドを記録できます</remarks>
         </member>
         <member name="M:BEditor.Core.Data.EffectData.EffectElement.DownCommand.#ctor(BEditor.Core.Data.EffectData.EffectElement)">
             <summary>
-            <see cref="T:BEditor.Core.Data.EffectData.EffectElement.DownCommand"/> クラスの新しいインスタンスを初期化します
+            <see cref="T:BEditor.Core.Data.EffectData.EffectElement.DownCommand"/> Initialize a new instance of the class.
             </summary>
-            <param name="effect">対象の <see cref="T:BEditor.Core.Data.EffectData.EffectElement"/></param>
-            <exception cref="T:System.ArgumentNullException"><paramref name="effect"/> が <see langword="null"/> です</exception>
+            <param name="effect">The target <see cref="T:BEditor.Core.Data.EffectData.EffectElement"/>.</param>
+            <exception cref="T:System.ArgumentNullException"><paramref name="effect"/> is <see langword="null"/>.</exception>
         </member>
         <member name="M:BEditor.Core.Data.EffectData.EffectElement.DownCommand.Do">
             <inheritdoc/>
@@ -243,16 +224,15 @@
         </member>
         <member name="T:BEditor.Core.Data.EffectData.EffectElement.RemoveCommand">
             <summary>
-            エフェクトを削除するコマンド
+            Represents a command that removes the effect from the parent element.
             </summary>
-            <remarks>このクラスは <see cref="M:BEditor.Core.Data.UndoRedoManager.Do(BEditor.Core.Data.IUndoRedoCommand)"/> と併用することでコマンドを記録できます</remarks>
         </member>
         <member name="M:BEditor.Core.Data.EffectData.EffectElement.RemoveCommand.#ctor(BEditor.Core.Data.EffectData.EffectElement)">
             <summary>
-            <see cref="T:BEditor.Core.Data.EffectData.EffectElement.RemoveCommand"/> クラスの新しいインスタンスを初期化します
+            <see cref="T:BEditor.Core.Data.EffectData.EffectElement.RemoveCommand"/> Initialize a new instance of the class.
             </summary>
-            <param name="effect">対象の <see cref="T:BEditor.Core.Data.EffectData.EffectElement"/></param>
-            <exception cref="T:System.ArgumentNullException"><paramref name="effect"/> が <see langword="null"/> です</exception>
+            <param name="effect">The target <see cref="T:BEditor.Core.Data.EffectData.EffectElement"/>.</param>
+            <exception cref="T:System.ArgumentNullException"><paramref name="effect"/> is <see langword="null"/>.</exception>
         </member>
         <member name="M:BEditor.Core.Data.EffectData.EffectElement.RemoveCommand.Do">
             <inheritdoc/>
@@ -265,26 +245,25 @@
         </member>
         <member name="T:BEditor.Core.Data.EffectData.EffectElement.AddCommand">
             <summary>
-            エフェクトを追加するコマンド
+            Represents a command to add an effect.
             </summary>
-            <remarks>このクラスは <see cref="M:BEditor.Core.Data.UndoRedoManager.Do(BEditor.Core.Data.IUndoRedoCommand)"/> と併用することでコマンドを記録できます</remarks>
         </member>
         <member name="M:BEditor.Core.Data.EffectData.EffectElement.AddCommand.#ctor(BEditor.Core.Data.EffectData.EffectElement)">
             <summary>
-            <see cref="T:BEditor.Core.Data.EffectData.EffectElement.AddCommand"/>クラスの新しいインスタンスを初期化します
+            <see cref="T:BEditor.Core.Data.EffectData.EffectElement.AddCommand"/>Initialize a new instance of the class.
             </summary>
-            <param name="effect">対象のエフェクト</param>
-            <exception cref="T:System.ArgumentException">effect.ClipDataがnullです</exception>
-            <exception cref="T:System.ArgumentNullException"><paramref name="effect"/> が <see langword="null"/> です</exception>
+            <param name="effect">The target <see cref="T:BEditor.Core.Data.EffectData.EffectElement"/>.</param>
+            <exception cref="T:System.ArgumentException">effect.ClipData is null.</exception>
+            <exception cref="T:System.ArgumentNullException"><paramref name="effect"/> is <see langword="null"/>.</exception>
         </member>
         <member name="M:BEditor.Core.Data.EffectData.EffectElement.AddCommand.#ctor(BEditor.Core.Data.EffectData.EffectElement,BEditor.Core.Data.ObjectData.ClipData)">
             <summary>
-            <see cref="T:BEditor.Core.Data.EffectData.EffectElement.AddCommand"/> クラスの新しいインスタンスを初期化します
+            <see cref="T:BEditor.Core.Data.EffectData.EffectElement.AddCommand"/> Initialize a new instance of the class.
             </summary>
-            <param name="effect">対象の <see cref="T:BEditor.Core.Data.EffectData.EffectElement"/></param>
+            <param name="effect">The target <see cref="T:BEditor.Core.Data.EffectData.EffectElement"/>.</param>
             <param name="clip"></param>
-            <exception cref="T:System.ArgumentException">effect.ClipDataが <see langword="null"/> です</exception>
-            <exception cref="T:System.ArgumentNullException"><paramref name="effect"/> が <see langword="null"/> です</exception>
+            <exception cref="T:System.ArgumentException">effect.ClipData is <see langword="null"/>.</exception>
+            <exception cref="T:System.ArgumentNullException"><paramref name="effect"/> is <see langword="null"/>.</exception>
         </member>
         <member name="M:BEditor.Core.Data.EffectData.EffectElement.AddCommand.Do">
             <inheritdoc/>
@@ -297,78 +276,70 @@
         </member>
         <member name="T:BEditor.Core.Data.EffectData.ImageEffect">
             <summary>
-            画像エフェクトのベースクラス
+            Represents an effect that can be added to an <see cref="T:BEditor.Core.Data.ObjectData.ImageObject"/>.
             </summary>
         </member>
         <member name="M:BEditor.Core.Data.EffectData.ImageEffect.Render(BEditor.Core.Media.Image@,BEditor.Core.Data.ProjectData.EffectRenderArgs)">
             <summary>
-            フレーム描画時に呼び出されます
+            It is called at rendering time
             </summary>
-            <param name="image">描画する<see cref="T:BEditor.Core.Media.Image"/></param>
-            <param name="args">呼び出しの順番などのデータ</param>
         </member>
         <member name="M:BEditor.Core.Data.EffectData.ImageEffect.Render(BEditor.Core.Data.ProjectData.EffectRenderArgs)">
             <inheritdoc/>
         </member>
         <member name="T:BEditor.Core.Data.ObjectData.ClipData">
             <summary>
-            タイムラインに配置されるクリップのデータ
+            Represents the data of a clip to be placed in the timeline.
             </summary>
         </member>
         <member name="M:BEditor.Core.Data.ObjectData.ClipData.#ctor(System.UInt32,System.Collections.ObjectModel.ObservableCollection{BEditor.Core.Data.EffectData.EffectElement},System.Int32,System.Int32,System.Type,System.Int32)">
             <summary>
-            <see cref="T:BEditor.Core.Data.ObjectData.ClipData"/> クラスの新しいインスタンスを初期化します
+            <see cref="T:BEditor.Core.Data.ObjectData.ClipData"/> Initialize a new instance of the class.
             </summary>
-            <param name="id">Sceneから取得できるId</param>
-            <param name="effects">エフェクトのリスト</param>
-            <param name="start">開始位置</param>
-            <param name="end">終了位置</param>
-            <param name="type">クリップの種類</param>
-            <param name="layer">配置されるレイヤー</param>
         </member>
         <member name="P:BEditor.Core.Data.ObjectData.ClipData.Id">
             <summary>
-            IDを取得します
+            Get the ID for this <see cref="T:BEditor.Core.Data.ObjectData.ClipData"/>
             </summary>
         </member>
         <member name="P:BEditor.Core.Data.ObjectData.ClipData.Name">
             <summary>
-            名前を取得します
+            Get the name of this <see cref="T:BEditor.Core.Data.ObjectData.ClipData"/>.
             </summary>
         </member>
         <member name="P:BEditor.Core.Data.ObjectData.ClipData.ClipType">
             <summary>
-            種類を取得します
+            Get the type of this <see cref="T:BEditor.Core.Data.ObjectData.ClipData"/>.
             </summary>
         </member>
         <member name="P:BEditor.Core.Data.ObjectData.ClipData.Type">
             <summary>
-            種類を取得します
+            Get the type of this <see cref="T:BEditor.Core.Data.ObjectData.ClipData"/>.
             </summary>
         </member>
         <member name="P:BEditor.Core.Data.ObjectData.ClipData.Start">
             <summary>
-            開始フレームを取得または設定します
+            Get or set the start frame for this <see cref="T:BEditor.Core.Data.ObjectData.ClipData"/>.
             </summary>
         </member>
         <member name="P:BEditor.Core.Data.ObjectData.ClipData.End">
             <summary>
-            終了フレームを取得または設定します
+            Get or set the end frame for this <see cref="T:BEditor.Core.Data.ObjectData.ClipData"/>.
             </summary>
         </member>
         <member name="P:BEditor.Core.Data.ObjectData.ClipData.Length">
             <summary>
-            長さを取得します
+            Get the length of this <see cref="T:BEditor.Core.Data.ObjectData.ClipData"/>.
             </summary>
         </member>
         <member name="P:BEditor.Core.Data.ObjectData.ClipData.Layer">
             <summary>
-            配置レイヤーを取得または設定します
+            Get or set the layer where this <see cref="T:BEditor.Core.Data.ObjectData.ClipData"/> will be placed.
             </summary>
         </member>
         <member name="P:BEditor.Core.Data.ObjectData.ClipData.LabelText">
             <summary>
-            表示されるテキストを取得または設定します
+            Gets or sets the character displayed in this <see cref="T:BEditor.Core.Data.ObjectData.ClipData"/>.
             </summary>
         </member>
         <member name="P:BEditor.Core.Data.ObjectData.ClipData.Parent">
@@ -376,7 +347,7 @@
         </member>
         <member name="P:BEditor.Core.Data.ObjectData.ClipData.Effect">
             <summary>
-            エフェクトを取得します
+            Get the effects included in this <see cref="T:BEditor.Core.Data.ObjectData.ClipData"/>.
             </summary>
         </member>
         <member name="P:BEditor.Core.Data.ObjectData.ClipData.BEditor#Core#Data#IParent{BEditor#Core#Data#EffectData#EffectElement}#Children">
@@ -384,12 +355,12 @@
         </member>
         <member name="M:BEditor.Core.Data.ObjectData.ClipData.Render(BEditor.Core.Data.ProjectData.ClipRenderArgs)">
             <summary>
-            レンダリング時に呼び出されます
+            It is called at rendering time
             </summary>
         </member>
         <member name="M:BEditor.Core.Data.ObjectData.ClipData.PreviewRender(BEditor.Core.Data.ProjectData.ClipRenderArgs)">
             <summary>
-            レンダリング前に呼び出されます
+            It will be called before rendering.
             </summary>
         </member>
         <member name="M:BEditor.Core.Data.ObjectData.ClipData.ToString">
@@ -400,22 +371,17 @@
         </member>
         <member name="T:BEditor.Core.Data.ObjectData.ClipData.AddCommand">
             <summary>
-            <see cref="T:BEditor.Core.Data.ObjectData.ClipData"/> を <see cref="T:BEditor.Core.Data.ProjectData.Scene"/> に追加するコマンド
+            Represents a command that adds <see cref="T:BEditor.Core.Data.ObjectData.ClipData"/> to a <see cref="T:BEditor.Core.Data.ProjectData.Scene"/>.
             </summary>
-            <remarks>このクラスは <see cref="M:BEditor.Core.Data.UndoRedoManager.Do(BEditor.Core.Data.IUndoRedoCommand)"/> と併用することでコマンドを記録できます</remarks>
         </member>
         <member name="M:BEditor.Core.Data.ObjectData.ClipData.AddCommand.#ctor(BEditor.Core.Data.ProjectData.Scene,System.Int32,System.Int32,System.Type)">
             <summary>
-            <see cref="T:BEditor.Core.Data.ObjectData.ClipData.AddCommand"/> クラスの新しいインスタンスを初期化します
+            <see cref="T:BEditor.Core.Data.ObjectData.ClipData.AddCommand"/> Initialize a new instance of the class.
             </summary>
-            <param name="scene">対象の <see cref="F:BEditor.Core.Data.ObjectData.ClipData.AddCommand.Scene"/></param>
-            <param name="addframe">配置するフレーム</param>
-            <param name="layer">配置するレイヤー</param>
-            <param name="type">クリップの種類</param>
-            <exception cref="T:System.ArgumentNullException"><paramref name="scene"/> が <see langword="null"/> です</exception>
-            <exception cref="T:System.ArgumentNullException"><paramref name="type"/> が <see langword="null"/> です</exception>
-            <exception cref="T:System.ArgumentOutOfRangeException"><paramref name="addframe"/> が0以下です</exception>
-            <exception cref="T:System.ArgumentOutOfRangeException"><paramref name="layer"/> が0以下です</exception>
+            <exception cref="T:System.ArgumentNullException"><paramref name="scene"/> is <see langword="null"/>.</exception>
+            <exception cref="T:System.ArgumentNullException"><paramref name="type"/> が <see langword="null"/>.</exception>
+            <exception cref="T:System.ArgumentOutOfRangeException"><paramref name="startFrame"/> is less than 0.</exception>
+            <exception cref="T:System.ArgumentOutOfRangeException"><paramref name="layer"/> is less than 0</exception>
         </member>
         <member name="M:BEditor.Core.Data.ObjectData.ClipData.AddCommand.Do">
             <inheritdoc/>
@@ -428,16 +394,15 @@
         </member>
         <member name="T:BEditor.Core.Data.ObjectData.ClipData.RemoveCommand">
             <summary>
-            <see cref="T:BEditor.Core.Data.ProjectData.Scene"/> から <see cref="T:BEditor.Core.Data.ObjectData.ClipData"/> を削除するコマンド
+            Represents a command to remove <see cref="T:BEditor.Core.Data.ObjectData.ClipData"/> from a <see cref="T:BEditor.Core.Data.ProjectData.Scene"/>
             </summary>
-            <remarks>このクラスは <see cref="M:BEditor.Core.Data.UndoRedoManager.Do(BEditor.Core.Data.IUndoRedoCommand)"/> と併用することでコマンドを記録できます</remarks>
         </member>
         <member name="M:BEditor.Core.Data.ObjectData.ClipData.RemoveCommand.#ctor(BEditor.Core.Data.ObjectData.ClipData)">
             <summary>
-            <see cref="T:BEditor.Core.Data.ObjectData.ClipData.RemoveCommand"/> クラスの新しいインスタンスを初期化します
+            <see cref="T:BEditor.Core.Data.ObjectData.ClipData.RemoveCommand"/> Initialize a new instance of the class.
             </summary>
-            <param name="clip">対象の <see cref="T:BEditor.Core.Data.ObjectData.ClipData"/></param>
-            <exception cref="T:System.ArgumentNullException"><paramref name="clip"/> が <see langword="null"/> です</exception>
+            <param name="clip">The target <see cref="T:BEditor.Core.Data.ObjectData.ClipData"/>.</param>
+            <exception cref="T:System.ArgumentNullException"><paramref name="clip"/> is <see langword="null"/>.</exception>
         </member>
         <member name="M:BEditor.Core.Data.ObjectData.ClipData.RemoveCommand.Do">
             <inheritdoc/>
@@ -450,31 +415,22 @@
         </member>
         <member name="T:BEditor.Core.Data.ObjectData.ClipData.MoveCommand">
             <summary>
-            <see cref="T:BEditor.Core.Data.ObjectData.ClipData"/> のフレームとレイヤーを移動するコマンド
+            Represents a command to move <see cref="T:BEditor.Core.Data.ObjectData.ClipData"/> frames and layers.
             </summary>
-            <remarks>このクラスは <see cref="M:BEditor.Core.Data.UndoRedoManager.Do(BEditor.Core.Data.IUndoRedoCommand)"/> と併用することでコマンドを記録できます</remarks>
         </member>
         <member name="M:BEditor.Core.Data.ObjectData.ClipData.MoveCommand.#ctor(BEditor.Core.Data.ObjectData.ClipData,System.Int32,System.Int32)">
             <summary>
-            <see cref="T:BEditor.Core.Data.ObjectData.ClipData.MoveCommand"/> クラスの新しいインスタンスを初期化します
+            <see cref="T:BEditor.Core.Data.ObjectData.ClipData.MoveCommand"/> Initialize a new instance of the class.
             </summary>
-            <param name="clip">対象の <see cref="T:BEditor.Core.Data.ObjectData.ClipData"/></param>
-            <param name="to">新しい開始フレーム</param>
-            <param name="tolayer">新しい配置レイヤー</param>
-            <exception cref="T:System.ArgumentNullException"><paramref name="clip"/> が <see langword="null"/> です</exception>
-            <exception cref="T:System.ArgumentOutOfRangeException"><paramref name="to"/> または <paramref name="tolayer"/> が0以下です</exception>
+            <exception cref="T:System.ArgumentNullException"><paramref name="clip"/> is <see langword="null"/>.</exception>
+            <exception cref="T:System.ArgumentOutOfRangeException"><paramref name="toFrame"/> or <paramref name="toLayer"/> is less than 0.</exception>
         </member>
         <member name="M:BEditor.Core.Data.ObjectData.ClipData.MoveCommand.#ctor(BEditor.Core.Data.ObjectData.ClipData,System.Int32,System.Int32,System.Int32,System.Int32)">
             <summary>
-            <see cref="T:BEditor.Core.Data.ObjectData.ClipData.MoveCommand"/>クラスの新しいインスタンスを初期化します
+            <see cref="T:BEditor.Core.Data.ObjectData.ClipData.MoveCommand"/> Initialize a new instance of the class.
             </summary>
-            <param name="clip">対象のクリップ</param>
-            <param name="to">新しい開始フレーム</param>
-            <param name="from">古い開始フレーム</param>
-            <param name="tolayer">新しい配置レイヤー</param>
-            <param name="fromlayer">古い配置レイヤー</param>
-            <exception cref="T:System.ArgumentNullException"><paramref name="clip"/> が <see langword="null"/> です</exception>
-            <exception cref="T:System.ArgumentOutOfRangeException"><paramref name="to"/>, <paramref name="from"/>, <paramref name="tolayer"/>, <paramref name="fromlayer"/> が0以下です</exception>
+            <exception cref="T:System.ArgumentNullException"><paramref name="clip"/> is <see langword="null"/>.</exception>
+            <exception cref="T:System.ArgumentOutOfRangeException"><paramref name="to"/>, <paramref name="from"/>, <paramref name="tolayer"/>, <paramref name="fromlayer"/> is less than 0.</exception>
         </member>
         <member name="M:BEditor.Core.Data.ObjectData.ClipData.MoveCommand.Do">
             <inheritdoc/>
@@ -487,19 +443,15 @@
         </member>
         <member name="T:BEditor.Core.Data.ObjectData.ClipData.LengthChangeCommand">
             <summary>
-            <see cref="T:BEditor.Core.Data.ObjectData.ClipData"/> の長さを変更するコマンド
+            Represents a command to change the length of <see cref="T:BEditor.Core.Data.ObjectData.ClipData"/>.
             </summary>
-            <remarks>このクラスは <see cref="M:BEditor.Core.Data.UndoRedoManager.Do(BEditor.Core.Data.IUndoRedoCommand)"/> と併用することでコマンドを記録できます</remarks>
         </member>
         <member name="M:BEditor.Core.Data.ObjectData.ClipData.LengthChangeCommand.#ctor(BEditor.Core.Data.ObjectData.ClipData,System.Int32,System.Int32)">
             <summary>
-            <see cref="T:BEditor.Core.Data.ObjectData.ClipData.LengthChangeCommand"/> クラスの新しいインスタンスを初期化します
+            <see cref="T:BEditor.Core.Data.ObjectData.ClipData.LengthChangeCommand"/> Initialize a new instance of the class.
             </summary>
-            <param name="clip">対象の <see cref="T:BEditor.Core.Data.ObjectData.ClipData"/></param>
-            <param name="start">開始フレーム</param>
-            <param name="end">終了フレーム</param>
-            <exception cref="T:System.ArgumentNullException"><paramref name="clip"/> が <see langword="null"/> です</exception>
-            <exception cref="T:System.ArgumentOutOfRangeException"><paramref name="start"/> または <paramref name="end"/> が0以下です</exception>
+            <exception cref="T:System.ArgumentNullException"><paramref name="clip"/> is <see langword="null"/>.</exception>
+            <exception cref="T:System.ArgumentOutOfRangeException"><paramref name="start"/> or <paramref name="end"/> is less than 0.</exception>
         </member>
         <member name="M:BEditor.Core.Data.ObjectData.ClipData.LengthChangeCommand.Do">
             <inheritdoc/>
@@ -510,14 +462,9 @@
         <member name="M:BEditor.Core.Data.ObjectData.ClipData.LengthChangeCommand.Undo">
             <inheritdoc/>
         </member>
-        <member name="T:BEditor.Core.Data.ObjectData.ClipType">
-            <summary>
-            標準のクリップの種類
-            </summary>
-        </member>
         <member name="T:BEditor.Core.Data.ObjectData.ObjectElement">
             <summary>
-            オブジェクトのベースクラス
+            Represents the base class of the object.
             </summary>
         </member>
         <member name="P:BEditor.Core.Data.IParent`1.Children">
@@ -532,56 +479,62 @@
         </member>
         <member name="T:BEditor.Core.Data.ProjectData.ClipRenderArgs">
             <summary>
-            フレーム描画時にクリップに渡されるデータ
+            Represents the data to be passed to the <see cref="T:BEditor.Core.Data.ObjectData.ClipData"/> at rendering time.
             </summary>
         </member>
         <member name="M:BEditor.Core.Data.ProjectData.ClipRenderArgs.#ctor(System.Int32,System.Collections.Generic.List{BEditor.Core.Data.ObjectData.ClipData})">
             <summary>
-            <see cref="T:BEditor.Core.Data.ProjectData.ClipRenderArgs"/> クラスの新しいインスタンスを初期化します
+            <see cref="T:BEditor.Core.Data.ProjectData.ClipRenderArgs"/> Initialize a new instance of the record.
             </summary>
-            <param name="frame">タイムライン基準のフレーム</param>
-            <param name="schedules">クリップのリスト</param>
+        </member>
+        <member name="M:BEditor.Core.Data.ProjectData.ClipRenderArgs.#ctor">
+            <summary>
+            <see cref="T:BEditor.Core.Data.ProjectData.ClipRenderArgs"/> Initialize a new instance of the record.
+            </summary>
         </member>
         <member name="P:BEditor.Core.Data.ProjectData.ClipRenderArgs.Frame">
             <summary>
-            タイムライン基準のフレームを取得します
+            Get the frame to render.
             </summary>
         </member>
         <member name="P:BEditor.Core.Data.ProjectData.ClipRenderArgs.Schedules">
             <summary>
-            読み込むクリップのリストを取得します
+            Get the <see cref="T:BEditor.Core.Data.ObjectData.ClipData"/> to render.
             </summary>
         </member>
         <member name="P:BEditor.Core.Data.ProjectData.ClipRenderArgs.Handled">
             <summary>
-            処理の現在の状態を示す値を取得または設定します
+            Gets or sets a value that indicates the current state of the process.
             </summary>
         </member>
         <member name="T:BEditor.Core.Data.ProjectData.EffectRenderArgs">
             <summary>
-            フレーム描画時にエフェクトに渡されるデータ
+            Represents the data to be passed to the <see cref="T:BEditor.Core.Data.EffectData.EffectElement"/> at rendering time.
+            </summary>
+        </member>
+        <member name="M:BEditor.Core.Data.ProjectData.EffectRenderArgs.#ctor">
+            <summary>
+            <see cref="T:BEditor.Core.Data.ProjectData.EffectRenderArgs"/> Initialize a new instance of the record.
             </summary>
         </member>
         <member name="M:BEditor.Core.Data.ProjectData.EffectRenderArgs.#ctor(System.Int32,System.Collections.Generic.List{BEditor.Core.Data.EffectData.EffectElement})">
             <summary>
-            <see cref="T:BEditor.Core.Data.ProjectData.EffectRenderArgs"/> クラスの新しいインスタンスを初期化します
+            <see cref="T:BEditor.Core.Data.ProjectData.EffectRenderArgs"/> Initialize a new instance of the record.
             </summary>
-            <param name="frame">タイムライン基準のフレーム</param>
-            <param name="schedules">エフェクトのリスト</param>
         </member>
         <member name="P:BEditor.Core.Data.ProjectData.EffectRenderArgs.Frame">
             <summary>
-            タイムライン基準のフレームを取得します
+            Get the frame to render.
             </summary>
         </member>
         <member name="P:BEditor.Core.Data.ProjectData.EffectRenderArgs.Schedules">
             <summary>
-            読み込むエフェクトのリストを取得します
+            Get the <see cref="T:BEditor.Core.Data.EffectData.EffectElement"/> to render.
             </summary>
         </member>
         <member name="P:BEditor.Core.Data.ProjectData.EffectRenderArgs.Handled">
             <summary>
-            処理の現在の状態を示す値を取得または設定します
+            Gets or sets a value that indicates the current state of the process.
             </summary>
         </member>
         <member name="T:BEditor.Core.Data.ProjectData.Project">
@@ -872,6 +825,15 @@
             </summary>
         </member>
         <member name="M:BEditor.Core.Data.PropertyData.CheckProperty.Subscribe(System.IObserver{System.Boolean})">
+            <inheritdoc/>
+        </member>
+        <member name="M:BEditor.Core.Data.PropertyData.CheckProperty.OnCompleted">
+            <inheritdoc/>
+        </member>
+        <member name="M:BEditor.Core.Data.PropertyData.CheckProperty.OnError(System.Exception)">
+            <inheritdoc/>
+        </member>
+        <member name="M:BEditor.Core.Data.PropertyData.CheckProperty.OnNext(System.Boolean)">
             <inheritdoc/>
         </member>
         <member name="M:BEditor.Core.Data.PropertyData.CheckProperty.PropertyLoaded">
@@ -1629,7 +1591,7 @@
             UIに表示するプロパティを取得します
             </summary>
         </member>
-        <member name="P:BEditor.Core.Data.PropertyData.EasingSetting.EasingFunc.CachedProperties">
+        <member name="P:BEditor.Core.Data.PropertyData.EasingSetting.EasingFunc.Children">
             <summary>
             キャッシュされた <see cref="P:BEditor.Core.Data.PropertyData.EasingSetting.EasingFunc.Properties"/> を取得します
             </summary>
@@ -1705,6 +1667,15 @@
         <member name="M:BEditor.Core.Data.PropertyData.ExpandGroup.Subscribe(System.IObserver{System.Boolean})">
             <inheritdoc/>
         </member>
+        <member name="M:BEditor.Core.Data.PropertyData.ExpandGroup.OnCompleted">
+            <inheritdoc/>
+        </member>
+        <member name="M:BEditor.Core.Data.PropertyData.ExpandGroup.OnError(System.Exception)">
+            <inheritdoc/>
+        </member>
+        <member name="M:BEditor.Core.Data.PropertyData.ExpandGroup.OnNext(System.Boolean)">
+            <inheritdoc/>
+        </member>
         <member name="T:BEditor.Core.Data.PropertyData.FileProperty">
             <summary>
             ファイルを選択するプロパティを表します
@@ -1729,6 +1700,15 @@
             <inheritdoc/>
         </member>
         <member name="M:BEditor.Core.Data.PropertyData.FileProperty.ToString">
+            <inheritdoc/>
+        </member>
+        <member name="M:BEditor.Core.Data.PropertyData.FileProperty.OnCompleted">
+            <inheritdoc/>
+        </member>
+        <member name="M:BEditor.Core.Data.PropertyData.FileProperty.OnError(System.Exception)">
+            <inheritdoc/>
+        </member>
+        <member name="M:BEditor.Core.Data.PropertyData.FileProperty.OnNext(System.String)">
             <inheritdoc/>
         </member>
         <member name="T:BEditor.Core.Data.PropertyData.FileProperty.ChangeFileCommand">
@@ -1790,6 +1770,15 @@
         <member name="M:BEditor.Core.Data.PropertyData.FontProperty.Subscribe(System.IObserver{BEditor.Core.Media.FontRecord})">
             <inheritdoc/>
         </member>
+        <member name="M:BEditor.Core.Data.PropertyData.FontProperty.OnCompleted">
+            <inheritdoc/>
+        </member>
+        <member name="M:BEditor.Core.Data.PropertyData.FontProperty.OnError(System.Exception)">
+            <inheritdoc/>
+        </member>
+        <member name="M:BEditor.Core.Data.PropertyData.FontProperty.OnNext(BEditor.Core.Media.FontRecord)">
+            <inheritdoc/>
+        </member>
         <member name="T:BEditor.Core.Data.PropertyData.FontProperty.ChangeSelectCommand">
             <summary>
             フォントを変更するコマンド
@@ -1848,6 +1837,84 @@
             
             </summary>
         </member>
+        <member name="T:BEditor.Core.Data.PropertyData.Generic.SelectorProperty`1">
+            <summary>
+            配列から一つのアイテムを選択するプロパティを表します
+            </summary>
+        </member>
+        <member name="M:BEditor.Core.Data.PropertyData.Generic.SelectorProperty`1.#ctor(BEditor.Core.Data.PropertyData.Generic.SelectorPropertyMetadata{`0})">
+            <summary>
+            <see cref="T:BEditor.Core.Data.PropertyData.Generic.SelectorProperty`1"/> クラスの新しいインスタンスを初期化します
+            </summary>
+            <param name="metadata">このプロパティの <see cref="T:BEditor.Core.Data.PropertyData.Generic.SelectorPropertyMetadata`1"/></param>
+            <exception cref="T:System.ArgumentNullException"><paramref name="metadata"/> が <see langword="null"/> です</exception>
+        </member>
+        <member name="P:BEditor.Core.Data.PropertyData.Generic.SelectorProperty`1.SelectItem">
+            <summary>
+            選択されているアイテムを取得します
+            </summary>
+        </member>
+        <member name="P:BEditor.Core.Data.PropertyData.Generic.SelectorProperty`1.Index">
+            <summary>
+            選択されている <see cref="P:BEditor.Core.Data.PropertyData.Generic.SelectorPropertyMetadata`1.ItemSource"/> のインデックスを取得または設定します
+            </summary>
+        </member>
+        <member name="M:BEditor.Core.Data.PropertyData.Generic.SelectorProperty`1.PropertyLoaded">
+            <inheritdoc/>
+        </member>
+        <member name="M:BEditor.Core.Data.PropertyData.Generic.SelectorProperty`1.ToString">
+            <inheritdoc/>
+        </member>
+        <member name="M:BEditor.Core.Data.PropertyData.Generic.SelectorProperty`1.Subscribe(System.IObserver{`0})">
+            <inheritdoc/>
+        </member>
+        <member name="M:BEditor.Core.Data.PropertyData.Generic.SelectorProperty`1.OnCompleted">
+            <inheritdoc/>
+        </member>
+        <member name="M:BEditor.Core.Data.PropertyData.Generic.SelectorProperty`1.OnError(System.Exception)">
+            <inheritdoc/>
+        </member>
+        <member name="M:BEditor.Core.Data.PropertyData.Generic.SelectorProperty`1.OnNext(`0)">
+            <inheritdoc/>
+        </member>
+        <member name="T:BEditor.Core.Data.PropertyData.Generic.SelectorProperty`1.ChangeSelectCommand">
+            <summary>
+            選択されているアイテムを変更するコマンド
+            </summary>
+            <remarks>このクラスは <see cref="M:BEditor.Core.Data.UndoRedoManager.Do(BEditor.Core.Data.IUndoRedoCommand)"/> と併用することでコマンドを記録できます</remarks>
+        </member>
+        <member name="M:BEditor.Core.Data.PropertyData.Generic.SelectorProperty`1.ChangeSelectCommand.#ctor(BEditor.Core.Data.PropertyData.Generic.SelectorProperty{`0},System.Int32)">
+            <summary>
+            <see cref="T:BEditor.Core.Data.PropertyData.Generic.SelectorProperty`1.ChangeSelectCommand"/> クラスの新しいインスタンスを初期化します
+            </summary>
+            <param name="property">対象の <see cref="T:BEditor.Core.Data.PropertyData.SelectorProperty"/></param>
+            <param name="select">新しいインデックス</param>
+            <exception cref="T:System.ArgumentNullException"><paramref name="property"/> が <see langword="null"/> です</exception>
+        </member>
+        <member name="M:BEditor.Core.Data.PropertyData.Generic.SelectorProperty`1.ChangeSelectCommand.Do">
+            <inheritdoc/>
+        </member>
+        <member name="M:BEditor.Core.Data.PropertyData.Generic.SelectorProperty`1.ChangeSelectCommand.Redo">
+            <inheritdoc/>
+        </member>
+        <member name="M:BEditor.Core.Data.PropertyData.Generic.SelectorProperty`1.ChangeSelectCommand.Undo">
+            <inheritdoc/>
+        </member>
+        <member name="T:BEditor.Core.Data.PropertyData.Generic.SelectorPropertyMetadata`1">
+            <summary>
+            <see cref="T:BEditor.Core.Data.PropertyData.SelectorProperty"/> のメタデータを表します
+            </summary>
+        </member>
+        <member name="M:BEditor.Core.Data.PropertyData.Generic.SelectorPropertyMetadata`1.#ctor(System.String,System.Collections.Generic.IList{`0},System.Int32,System.String)">
+            <summary>
+            <see cref="T:BEditor.Core.Data.PropertyData.SelectorPropertyMetadata"/> の新しいインスタンスを初期化します
+            </summary>
+        </member>
+        <member name="P:BEditor.Core.Data.PropertyData.Generic.SelectorPropertyMetadata`1.ItemSource">
+            <summary>
+            
+            </summary>
+        </member>
         <member name="T:BEditor.Core.Data.PropertyData.Group">
             <summary>
             <see cref="T:BEditor.Core.Data.PropertyData.PropertyElement"/> をまとめるクラス
@@ -1858,7 +1925,7 @@
             グループにする <see cref="T:BEditor.Core.Data.PropertyData.PropertyElement"/> を取得します
             </summary>
         </member>
-        <member name="P:BEditor.Core.Data.PropertyData.Group.CachedProperties">
+        <member name="P:BEditor.Core.Data.PropertyData.Group.Children">
             <summary>
             キャッシュされた <see cref="P:BEditor.Core.Data.PropertyData.Group.Properties"/> を取得します
             </summary>
@@ -1975,6 +2042,15 @@
         <member name="M:BEditor.Core.Data.PropertyData.SelectorProperty.Subscribe(System.IObserver{System.Int32})">
             <inheritdoc/>
         </member>
+        <member name="M:BEditor.Core.Data.PropertyData.SelectorProperty.OnCompleted">
+            <inheritdoc/>
+        </member>
+        <member name="M:BEditor.Core.Data.PropertyData.SelectorProperty.OnError(System.Exception)">
+            <inheritdoc/>
+        </member>
+        <member name="M:BEditor.Core.Data.PropertyData.SelectorProperty.OnNext(System.Int32)">
+            <inheritdoc/>
+        </member>
         <member name="T:BEditor.Core.Data.PropertyData.SelectorProperty.ChangeSelectCommand">
             <summary>
             選択されているアイテムを変更するコマンド
@@ -2019,6 +2095,16 @@
             </summary>
         </member>
         <member name="P:BEditor.Core.Data.PropertyData.SelectorPropertyMetadata.MemberPath">
+            <summary>
+            
+            </summary>
+        </member>
+        <member name="T:BEditor.Core.Data.RenderingResult">
+            <summary>
+            レンダリング結果を表します
+            </summary>
+        </member>
+        <member name="P:BEditor.Core.Data.RenderingResult.Image">
             <summary>
             
             </summary>
