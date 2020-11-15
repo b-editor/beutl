@@ -13,17 +13,18 @@ namespace BEditor.Core.Data.ObjectData
         [DataContract(Namespace = "")]
         public class Image : DefaultImageObject
         {
-            public static readonly FilePropertyMetadata FileMetadata = new FilePropertyMetadata(Properties.Resources.File, "", "png,jpeg,jpg,bmp", Properties.Resources.ImageFile);
+            public static readonly FilePropertyMetadata FileMetadata = new(Core.Properties.Resources.File, "", "png,jpeg,jpg,bmp", Core.Properties.Resources.ImageFile);
 
             private Media.Image source;
 
-            public Image() => File = new FileProperty(FileMetadata);
+            public Image() => File = new(FileMetadata);
 
 
             #region DefaultImageObjectメンバー
-            public override Media.Image Load(EffectRenderArgs args) => Source?.Clone();
+            public override Media.Image Render(EffectRenderArgs args) => Source?.Clone();
 
-            public override IList<PropertyElement> GroupItems => new List<PropertyElement>() {
+            public override IEnumerable<PropertyElement> Properties => new PropertyElement[]
+            {
                 File
             };
 

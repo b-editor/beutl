@@ -4,6 +4,7 @@ using System.Runtime.Serialization;
 using BEditor.Core.Data.EffectData;
 using BEditor.Core.Data.ProjectData;
 using BEditor.Core.Data.PropertyData;
+using BEditor.Core.Properties;
 using BEditor.Core.Renderer;
 
 namespace BEditor.Core.Data.ObjectData
@@ -11,37 +12,37 @@ namespace BEditor.Core.Data.ObjectData
     [DataContract(Namespace = "")]
     public class CameraObject : ObjectElement
     {
-        public static readonly EasePropertyMetadata XMetadata = new EasePropertyMetadata(Properties.Resources.X, 0);
-        public static readonly EasePropertyMetadata YMetadata = new EasePropertyMetadata(Properties.Resources.Y, 0);
-        public static readonly EasePropertyMetadata ZMetadata = new EasePropertyMetadata(Properties.Resources.Z, 1024);
-        public static readonly EasePropertyMetadata TargetXMetadata = new EasePropertyMetadata(Properties.Resources.TargetX, 0);
-        public static readonly EasePropertyMetadata TargetYMetadata = new EasePropertyMetadata(Properties.Resources.TargetY, 0);
-        public static readonly EasePropertyMetadata TargetZMetadata = new EasePropertyMetadata(Properties.Resources.TargetZ, 0);
-        public static readonly EasePropertyMetadata ZNearMetadata = new EasePropertyMetadata(Properties.Resources.ZNear, 0.1F);
-        public static readonly EasePropertyMetadata ZFarMetadata = new EasePropertyMetadata(Properties.Resources.ZFar, 20000);
-        public static readonly EasePropertyMetadata AngleMetadata = new EasePropertyMetadata(Properties.Resources.Angle, 0);
-        public static readonly EasePropertyMetadata FovMetadata = new EasePropertyMetadata(Properties.Resources.Fov, 55, 179, 1);
-        public static readonly CheckPropertyMetadata ModeMetadata = new CheckPropertyMetadata(Properties.Resources.Perspective, true);
+        public static readonly EasePropertyMetadata XMetadata = new(Resources.X, 0);
+        public static readonly EasePropertyMetadata YMetadata = new(Resources.Y, 0);
+        public static readonly EasePropertyMetadata ZMetadata = new(Resources.Z, 1024);
+        public static readonly EasePropertyMetadata TargetXMetadata = new(Resources.TargetX, 0);
+        public static readonly EasePropertyMetadata TargetYMetadata = new(Resources.TargetY, 0);
+        public static readonly EasePropertyMetadata TargetZMetadata = new(Resources.TargetZ, 0);
+        public static readonly EasePropertyMetadata ZNearMetadata = new(Resources.ZNear, 0.1F);
+        public static readonly EasePropertyMetadata ZFarMetadata = new(Resources.ZFar, 20000);
+        public static readonly EasePropertyMetadata AngleMetadata = new(Resources.Angle, 0);
+        public static readonly EasePropertyMetadata FovMetadata = new(Resources.Fov, 55, 179, 1);
+        public static readonly CheckPropertyMetadata ModeMetadata = new(Resources.Perspective, true);
 
 
         public CameraObject()
         {
-            X = new EaseProperty(XMetadata);
-            Y = new EaseProperty(YMetadata);
-            Z = new EaseProperty(ZMetadata);
-            TargetX = new EaseProperty(TargetXMetadata);
-            TargetY = new EaseProperty(TargetYMetadata);
-            TargetZ = new EaseProperty(TargetZMetadata);
-            ZNear = new EaseProperty(ZNearMetadata);
-            ZFar = new EaseProperty(ZFarMetadata);
-            Angle = new EaseProperty(AngleMetadata);
-            Fov = new EaseProperty(FovMetadata);
-            Mode = new CheckProperty(ModeMetadata);
+            X = new(XMetadata);
+            Y = new(YMetadata);
+            Z = new(ZMetadata);
+            TargetX = new(TargetXMetadata);
+            TargetY = new(TargetYMetadata);
+            TargetZ = new(TargetZMetadata);
+            ZNear = new(ZNearMetadata);
+            ZFar = new(ZFarMetadata);
+            Angle = new(AngleMetadata);
+            Fov = new(FovMetadata);
+            Mode = new(ModeMetadata);
         }
 
 
         #region ObjectElement
-        public override string Name => Properties.Resources.Camera;
+        public override string Name => Core.Properties.Resources.Camera;
 
         #region Load
         public override void Render(EffectRenderArgs args)
@@ -67,7 +68,7 @@ namespace BEditor.Core.Data.ObjectData
         #endregion
 
         #region PropertySettings
-        public override IList<PropertyElement> PropertySettings => new List<PropertyElement>
+        public override IEnumerable<PropertyElement> Properties => new PropertyElement[]
                     {
                         X, Y, Z,
                         TargetX, TargetY, TargetZ,

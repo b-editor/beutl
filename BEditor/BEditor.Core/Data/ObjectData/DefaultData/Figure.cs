@@ -13,29 +13,31 @@ namespace BEditor.Core.Data.ObjectData
         [DataContract(Namespace = "")]
         public class Figure : DefaultImageObject
         {
-            public static readonly EasePropertyMetadata WidthMetadata = new EasePropertyMetadata(Properties.Resources.Width, 100, float.NaN, 0);
-            public static readonly EasePropertyMetadata HeightMetadata = new EasePropertyMetadata(Properties.Resources.Height, 100, float.NaN, 0);
-            public static readonly EasePropertyMetadata LineMetadata = new EasePropertyMetadata(Properties.Resources.Line, 4000, float.NaN, 0);
-            public static readonly ColorPropertyMetadata ColorMetadata = new ColorPropertyMetadata(Properties.Resources.Color, 255, 255, 255);
-            public static readonly SelectorPropertyMetadata TypeMetadata = new SelectorPropertyMetadata(Properties.Resources.Type,
-                                                                                                 new string[2] {
-                                                                                                     Properties.Resources.Circle,
-                                                                                                     Properties.Resources.Square
-                                                                                                 });
+            public static readonly EasePropertyMetadata WidthMetadata = new(Core.Properties.Resources.Width, 100, float.NaN, 0);
+            public static readonly EasePropertyMetadata HeightMetadata = new(Core.Properties.Resources.Height, 100, float.NaN, 0);
+            public static readonly EasePropertyMetadata LineMetadata = new(Core.Properties.Resources.Line, 4000, float.NaN, 0);
+            public static readonly ColorPropertyMetadata ColorMetadata = new(Core.Properties.Resources.Color, 255, 255, 255);
+            public static readonly SelectorPropertyMetadata TypeMetadata = new(
+                Core.Properties.Resources.Type,
+                new string[]
+                {
+                    Core.Properties.Resources.Circle,
+                    Core.Properties.Resources.Square
+                });
 
             public Figure()
             {
-                Width = new EaseProperty(WidthMetadata);
-                Height = new EaseProperty(HeightMetadata);
-                Line = new EaseProperty(LineMetadata);
-                Color = new ColorProperty(ColorMetadata);
-                Type = new SelectorProperty(TypeMetadata);
+                Width = new(WidthMetadata);
+                Height = new(HeightMetadata);
+                Line = new(LineMetadata);
+                Color = new(ColorMetadata);
+                Type = new(TypeMetadata);
             }
 
 
 
             #region DefaultImageObjectメンバー
-            public override Media.Image Load(EffectRenderArgs args)
+            public override Media.Image Render(EffectRenderArgs args)
             {
                 if (Type.Index == 0)
                 {
@@ -47,7 +49,8 @@ namespace BEditor.Core.Data.ObjectData
                 }
             }
 
-            public override IList<PropertyElement> GroupItems => new List<PropertyElement>() {
+            public override IEnumerable<PropertyElement> Properties => new PropertyElement[]
+            {
                 Width,
                 Height,
                 Line,

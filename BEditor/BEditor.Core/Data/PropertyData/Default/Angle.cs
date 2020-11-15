@@ -2,27 +2,29 @@
 using System.Runtime.Serialization;
 
 using BEditor.Core.Data.PropertyData;
+using BEditor.Core.Properties;
 
 namespace BEditor.Core.Data.PropertyData.Default
 {
     [DataContract(Namespace = "")]
     public sealed class Angle : ExpandGroup
     {
-        public static readonly EasePropertyMetadata AngleXMetadata = new EasePropertyMetadata(Properties.Resources.AngleX);
-        public static readonly EasePropertyMetadata AngleYMetadata = new EasePropertyMetadata(Properties.Resources.AngleY);
-        public static readonly EasePropertyMetadata AngleZMetadata = new EasePropertyMetadata(Properties.Resources.AngleZ);
+        public static readonly EasePropertyMetadata AngleXMetadata = new(Resources.AngleX);
+        public static readonly EasePropertyMetadata AngleYMetadata = new(Resources.AngleY);
+        public static readonly EasePropertyMetadata AngleZMetadata = new(Resources.AngleZ);
 
         public Angle(PropertyElementMetadata constant) : base(constant)
         {
-            AngleX = new EaseProperty(AngleXMetadata);
-            AngleY = new EaseProperty(AngleYMetadata);
-            AngleZ = new EaseProperty(AngleZMetadata);
+            AngleX = new(AngleXMetadata);
+            AngleY = new(AngleYMetadata);
+            AngleZ = new(AngleZMetadata);
         }
 
 
         #region ExpandGroup
 
-        public override IList<PropertyElement> GroupItems => new List<PropertyElement>() {
+        public override IEnumerable<PropertyElement> Properties => new PropertyElement[]
+        {
             AngleX,
             AngleY,
             AngleZ
@@ -32,15 +34,15 @@ namespace BEditor.Core.Data.PropertyData.Default
 
 
         [DataMember(Order = 0)]
-        [PropertyMetadata("AngleXMetadata", typeof(Angle))]
-        public EaseProperty AngleX { get; set; }
+        [PropertyMetadata(nameof(AngleXMetadata), typeof(Angle))]
+        public EaseProperty AngleX { get; private set; }
 
         [DataMember(Order = 1)]
-        [PropertyMetadata("AngleYMetadata", typeof(Angle))]
-        public EaseProperty AngleY { get; set; }
+        [PropertyMetadata(nameof(AngleYMetadata), typeof(Angle))]
+        public EaseProperty AngleY { get; private set; }
 
         [DataMember(Order = 2)]
-        [PropertyMetadata("AngleZMetadata", typeof(Angle))]
-        public EaseProperty AngleZ { get; set; }
+        [PropertyMetadata(nameof(AngleZMetadata), typeof(Angle))]
+        public EaseProperty AngleZ { get; private set; }
     }
 }

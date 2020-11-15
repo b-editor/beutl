@@ -1,6 +1,7 @@
 ﻿using System;
 using System.Collections.Generic;
 using System.Collections.ObjectModel;
+using System.ComponentModel;
 using System.Linq;
 using System.Runtime.Serialization;
 
@@ -14,7 +15,7 @@ namespace BEditor.Core.Data.PropertyData
     /// <see cref="float"/> 型の値をイージングするプロパティを表します
     /// </summary>
     [DataContract(Namespace = "")]
-    public class EaseProperty : PropertyElement, IKeyFrameProperty
+    public class EaseProperty : PropertyElement, IKeyFrameProperty, INotifyPropertyChanged, IExtensibleDataObject, IChild<EffectElement>
     {
         private EffectElement parent;
         private EasingFunc easingTypeProperty;

@@ -6,45 +6,49 @@ using BEditor.Core.Data.ObjectData;
 namespace BEditor.Core.Data.ProjectData
 {
     /// <summary>
-    /// フレーム描画時にクリップに渡されるデータ
+    /// Represents the data to be passed to the <see cref="ClipData"/> at rendering time.
     /// </summary>
     public record ClipRenderArgs
     {
         /// <summary>
-        /// <see cref="ClipRenderArgs"/> クラスの新しいインスタンスを初期化します
+        /// <see cref="ClipRenderArgs"/> Initialize a new instance of the record.
         /// </summary>
-        /// <param name="frame">タイムライン基準のフレーム</param>
-        /// <param name="schedules">クリップのリスト</param>
         public ClipRenderArgs(int frame, List<ClipData> schedules)
         {
             Frame = frame;
             Schedules = schedules;
         }
+        /// <summary>
+        /// <see cref="ClipRenderArgs"/> Initialize a new instance of the record.
+        /// </summary>
+        public ClipRenderArgs() { }
 
         /// <summary>
-        /// タイムライン基準のフレームを取得します
+        /// Get the frame to render.
         /// </summary>
-        public int Frame { get; }
+        public int Frame { get; init; }
         /// <summary>
-        /// 読み込むクリップのリストを取得します
+        /// Get the <see cref="ClipData"/> to render.
         /// </summary>
-        public List<ClipData> Schedules { get; }
+        public List<ClipData> Schedules { get; init; }
         /// <summary>
-        /// 処理の現在の状態を示す値を取得または設定します
+        /// Gets or sets a value that indicates the current state of the process.
         /// </summary>
         public bool Handled { get; set; }
     }
 
     /// <summary>
-    /// フレーム描画時にエフェクトに渡されるデータ
+    /// Represents the data to be passed to the <see cref="EffectElement"/> at rendering time.
     /// </summary>
     public record EffectRenderArgs
     {
         /// <summary>
-        /// <see cref="EffectRenderArgs"/> クラスの新しいインスタンスを初期化します
+        /// <see cref="EffectRenderArgs"/> Initialize a new instance of the record.
         /// </summary>
-        /// <param name="frame">タイムライン基準のフレーム</param>
-        /// <param name="schedules">エフェクトのリスト</param>
+        public EffectRenderArgs() { }
+        /// <summary>
+        /// <see cref="EffectRenderArgs"/> Initialize a new instance of the record.
+        /// </summary>
         public EffectRenderArgs(int frame, List<EffectElement> schedules)
         {
             Frame = frame;
@@ -52,15 +56,15 @@ namespace BEditor.Core.Data.ProjectData
         }
 
         /// <summary>
-        /// タイムライン基準のフレームを取得します
+        /// Get the frame to render.
         /// </summary>
-        public int Frame { get; }
+        public int Frame { get; init; }
         /// <summary>
-        /// 読み込むエフェクトのリストを取得します
+        /// Get the <see cref="EffectElement"/> to render.
         /// </summary>
-        public List<EffectElement> Schedules { get; }
+        public List<EffectElement> Schedules { get; init; }
         /// <summary>
-        /// 処理の現在の状態を示す値を取得または設定します
+        /// Gets or sets a value that indicates the current state of the process.
         /// </summary>
         public bool Handled { get; set; }
     }

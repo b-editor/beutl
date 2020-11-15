@@ -16,12 +16,13 @@ namespace BEditor.Core.Data.ObjectData
 
             #region DefaultImageObjectメンバー
 
-            public override IList<PropertyElement> GroupItems => new List<PropertyElement> {
+            public override IEnumerable<PropertyElement> Properties => new PropertyElement[]
+            {
                 Start,
                 SelectScene
             };
 
-            public override Media.Image Load(EffectRenderArgs args)
+            public override Media.Image Render(EffectRenderArgs args)
             {
                 var frame = args.Frame - Parent.Parent.Start;//相対的なフレーム
                 ProjectData.Scene scene = SelectScene.SelectItem as ProjectData.Scene;
@@ -48,7 +49,7 @@ namespace BEditor.Core.Data.ObjectData
 
             internal record ScenesSelectorMetadata : SelectorPropertyMetadata
             {
-                internal ScenesSelectorMetadata() : base(Properties.Resources.Scenes, null)
+                internal ScenesSelectorMetadata() : base(Core.Properties.Resources.Scenes, null)
                 {
                     MemberPath = "SceneName";
                     ItemSource = Component.Current.Project.SceneList;

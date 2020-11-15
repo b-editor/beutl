@@ -15,7 +15,7 @@ namespace BEditor.Core.Data.PropertyData
     /// 
     /// </summary>
     [DataContract(Namespace = "")]
-    public class ColorAnimationProperty : PropertyElement, IKeyFrameProperty
+    public class ColorAnimationProperty : PropertyElement, IKeyFrameProperty, INotifyPropertyChanged, IExtensibleDataObject, IChild<EffectElement>
     {
 
         /// <summary>
@@ -24,10 +24,10 @@ namespace BEditor.Core.Data.PropertyData
         /// <param name="metadata"></param>
         public ColorAnimationProperty(ColorAnimationPropertyMetadata metadata)
         {
-            Color color = new Color(metadata.Red, metadata.Green, metadata.Blue, metadata.Alpha);
+            Color color = new(metadata.Red, metadata.Green, metadata.Blue, metadata.Alpha);
 
-            Value = new ObservableCollection<Color> { color, color };
-            Frame = new List<int>();
+            Value = new() { color, color };
+            Frame = new();
             EasingType = (EasingFunc)Activator.CreateInstance(metadata.DefaultEase.Type);
             PropertyMetadata = metadata;
         }

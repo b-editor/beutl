@@ -112,6 +112,11 @@
             エフェクトのベースクラス
             </summary>
         </member>
+        <member name="P:BEditor.Core.Data.EffectData.EffectElement.CachedProperties">
+            <summary>
+            キャッシュされた <see cref="P:BEditor.Core.Data.EffectData.EffectElement.Properties"/> を取得します
+            </summary>
+        </member>
         <member name="P:BEditor.Core.Data.EffectData.EffectElement.Name">
             <summary>
             エフェクトの名前を取得します
@@ -129,12 +134,15 @@
             </summary>
             <remarks>エクスパンダーが開いている場合は <see langword="true"/>、そうでない場合は <see langword="false"/> となります</remarks>
         </member>
-        <member name="P:BEditor.Core.Data.EffectData.EffectElement.PropertySettings">
+        <member name="P:BEditor.Core.Data.EffectData.EffectElement.Properties">
             <summary>
-            GUIに表示する<seealso cref="T:BEditor.Core.Data.PropertyData.PropertyElement"/>を<see cref="T:System.Collections.Generic.IList`1"/>を取得します
+            GUIに表示する<seealso cref="T:BEditor.Core.Data.PropertyData.PropertyElement"/>を<see cref="T:System.Collections.Generic.IEnumerable`1"/>を取得します
             </summary>
         </member>
         <member name="P:BEditor.Core.Data.EffectData.EffectElement.Parent">
+            <inheritdoc/>
+        </member>
+        <member name="M:BEditor.Core.Data.EffectData.EffectElement.Clone">
             <inheritdoc/>
         </member>
         <member name="M:BEditor.Core.Data.EffectData.EffectElement.PropertyLoaded">
@@ -145,7 +153,7 @@
             <para>通常は </para>
             <list type="bullet">
             <item>
-               <seealso cref="P:BEditor.Core.Data.EffectData.EffectElement.PropertySettings"/>内のアイテムのPropertyLoaded
+               <seealso cref="P:BEditor.Core.Data.EffectData.EffectElement.Properties"/>内のアイテムのPropertyLoaded
             </item>
             <item>
                リフレクションで<see cref="T:BEditor.Core.Data.PropertyData.PropertyMetadataAttribute"/>がついているプロパティに<seealso cref="T:BEditor.Core.Data.PropertyData.PropertyElementMetadata"/>をセットします
@@ -292,7 +300,7 @@
             画像エフェクトのベースクラス
             </summary>
         </member>
-        <member name="M:BEditor.Core.Data.EffectData.ImageEffect.Draw(BEditor.Core.Media.Image@,BEditor.Core.Data.ProjectData.EffectRenderArgs)">
+        <member name="M:BEditor.Core.Data.EffectData.ImageEffect.Render(BEditor.Core.Media.Image@,BEditor.Core.Data.ProjectData.EffectRenderArgs)">
             <summary>
             フレーム描画時に呼び出されます
             </summary>
@@ -383,6 +391,9 @@
             <summary>
             レンダリング前に呼び出されます
             </summary>
+        </member>
+        <member name="M:BEditor.Core.Data.ObjectData.ClipData.ToString">
+            <inheritdoc/>
         </member>
         <member name="M:BEditor.Core.Data.ObjectData.ClipData.Clone">
             <inheritdoc/>
@@ -1613,9 +1624,14 @@
             <see cref="T:BEditor.Core.Data.PropertyData.EaseProperty"/>, <see cref="T:BEditor.Core.Data.PropertyData.ColorAnimationProperty"/> などで利用可能なイージング関数を表します
             </summary>
         </member>
-        <member name="P:BEditor.Core.Data.PropertyData.EasingSetting.EasingFunc.EasingSettings">
+        <member name="P:BEditor.Core.Data.PropertyData.EasingSetting.EasingFunc.Properties">
             <summary>
             UIに表示するプロパティを取得します
+            </summary>
+        </member>
+        <member name="P:BEditor.Core.Data.PropertyData.EasingSetting.EasingFunc.CachedProperties">
+            <summary>
+            キャッシュされた <see cref="P:BEditor.Core.Data.PropertyData.EasingSetting.EasingFunc.Properties"/> を取得します
             </summary>
         </member>
         <member name="P:BEditor.Core.Data.PropertyData.EasingSetting.EasingFunc.Parent">
@@ -1837,9 +1853,14 @@
             <see cref="T:BEditor.Core.Data.PropertyData.PropertyElement"/> をまとめるクラス
             </summary>
         </member>
-        <member name="P:BEditor.Core.Data.PropertyData.Group.GroupItems">
+        <member name="P:BEditor.Core.Data.PropertyData.Group.Properties">
             <summary>
             グループにする <see cref="T:BEditor.Core.Data.PropertyData.PropertyElement"/> を取得します
+            </summary>
+        </member>
+        <member name="P:BEditor.Core.Data.PropertyData.Group.CachedProperties">
+            <summary>
+            キャッシュされた <see cref="P:BEditor.Core.Data.PropertyData.Group.Properties"/> を取得します
             </summary>
         </member>
         <member name="P:BEditor.Core.Data.PropertyData.Group.Parent">

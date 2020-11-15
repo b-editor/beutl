@@ -2,29 +2,31 @@
 using System.Runtime.Serialization;
 
 using BEditor.Core.Data.PropertyData;
+using BEditor.Core.Properties;
 
 namespace BEditor.Core.Data.PropertyData.Default
 {
     [DataContract(Namespace = "")]
     public sealed class Zoom : ExpandGroup
     {
-        public static readonly EasePropertyMetadata ZoomMetadata = new EasePropertyMetadata(Properties.Resources.Zoom, 100);
-        public static readonly EasePropertyMetadata ScaleXMetadata = new EasePropertyMetadata(Properties.Resources.X, 100);
-        public static readonly EasePropertyMetadata ScaleYMetadata = new EasePropertyMetadata(Properties.Resources.Y, 100);
-        public static readonly EasePropertyMetadata ScaleZMetadata = new EasePropertyMetadata(Properties.Resources.Z, 100);
+        public static readonly EasePropertyMetadata ZoomMetadata = new(Resources.Zoom, 100);
+        public static readonly EasePropertyMetadata ScaleXMetadata = new(Resources.X, 100);
+        public static readonly EasePropertyMetadata ScaleYMetadata = new(Resources.Y, 100);
+        public static readonly EasePropertyMetadata ScaleZMetadata = new(Resources.Z, 100);
 
 
         public Zoom(PropertyElementMetadata constant) : base(constant)
         {
-            Scale = new EaseProperty(ZoomMetadata);
-            ScaleX = new EaseProperty(ScaleXMetadata);
-            ScaleY = new EaseProperty(ScaleYMetadata);
-            ScaleZ = new EaseProperty(ScaleZMetadata);
+            Scale = new(ZoomMetadata);
+            ScaleX = new(ScaleXMetadata);
+            ScaleY = new(ScaleYMetadata);
+            ScaleZ = new(ScaleZMetadata);
         }
 
 
         #region ExpandGroup
-        public override IList<PropertyElement> GroupItems => new List<PropertyElement>() {
+        public override IEnumerable<PropertyElement> Properties => new PropertyElement[]
+        {
             Scale,
             ScaleX,
             ScaleY,
@@ -36,18 +38,18 @@ namespace BEditor.Core.Data.PropertyData.Default
 
         [DataMember(Name = "Zoom", Order = 0)]
         [PropertyMetadata(nameof(ZoomMetadata), typeof(Zoom))]
-        public EaseProperty Scale { get; set; }
+        public EaseProperty Scale { get; private set; }
 
         [DataMember(Order = 1)]
         [PropertyMetadata(nameof(ScaleXMetadata), typeof(Zoom))]
-        public EaseProperty ScaleX { get; set; }
+        public EaseProperty ScaleX { get; private set; }
 
         [DataMember(Order = 2)]
         [PropertyMetadata(nameof(ScaleYMetadata), typeof(Zoom))]
-        public EaseProperty ScaleY { get; set; }
+        public EaseProperty ScaleY { get; private set; }
 
         [DataMember(Order = 3)]
         [PropertyMetadata(nameof(ScaleZMetadata), typeof(Zoom))]
-        public EaseProperty ScaleZ { get; set; }
+        public EaseProperty ScaleZ { get; private set; }
     }
 }

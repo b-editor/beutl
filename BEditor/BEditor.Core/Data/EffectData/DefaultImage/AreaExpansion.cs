@@ -14,12 +14,12 @@ namespace BEditor.Core.Data.EffectData
     [DataContract(Namespace = "")]
     public class AreaExpansion : ImageEffect
     {
-
         #region ImageEffect
 
         public override string Name => Resources.AreaExpansion;
 
-        public override IList<PropertyElement> PropertySettings => new List<PropertyElement> {
+        public override IEnumerable<PropertyElement> Properties => new PropertyElement[]
+        {
             Top,
             Bottom,
             Left,
@@ -27,7 +27,7 @@ namespace BEditor.Core.Data.EffectData
             AdjustCoordinates
         };
 
-        public override void Draw(ref Image source, EffectRenderArgs args)
+        public override void Render(ref Image source, EffectRenderArgs args)
         {
             int top = (int)Top.GetValue(args.Frame);
             int bottom = (int)Bottom.GetValue(args.Frame);
@@ -47,33 +47,33 @@ namespace BEditor.Core.Data.EffectData
 
         public AreaExpansion()
         {
-            Top = new EaseProperty(Clipping.TopMetadata);
-            Bottom = new EaseProperty(Clipping.BottomMetadata);
-            Left = new EaseProperty(Clipping.LeftMetadata);
-            Right = new EaseProperty(Clipping.RightMetadata);
-            AdjustCoordinates = new CheckProperty(Clipping.AdjustCoordinatesMetadata);
+            Top = new(Clipping.TopMetadata);
+            Bottom = new(Clipping.BottomMetadata);
+            Left = new(Clipping.LeftMetadata);
+            Right = new(Clipping.RightMetadata);
+            AdjustCoordinates = new(Clipping.AdjustCoordinatesMetadata);
         }
 
 
         [DataMember(Order = 0)]
         [PropertyMetadata(nameof(Clipping.TopMetadata), typeof(Clipping))]
-        public EaseProperty Top { get; set; }
+        public EaseProperty Top { get; private set; }
 
         [DataMember(Order = 1)]
         [PropertyMetadata(nameof(Clipping.BottomMetadata), typeof(Clipping))]
-        public EaseProperty Bottom { get; set; }
+        public EaseProperty Bottom { get; private set; }
 
         [DataMember(Order = 2)]
         [PropertyMetadata(nameof(Clipping.LeftMetadata), typeof(Clipping))]
-        public EaseProperty Left { get; set; }
+        public EaseProperty Left { get; private set; }
 
         [DataMember(Order = 3)]
         [PropertyMetadata(nameof(Clipping.RightMetadata), typeof(Clipping))]
-        public EaseProperty Right { get; set; }
+        public EaseProperty Right { get; private set; }
 
         [DataMember(Order = 4)]
         [PropertyMetadata(nameof(Clipping.AdjustCoordinatesMetadata), typeof(Clipping))]
-        public CheckProperty AdjustCoordinates { get; set; }
+        public CheckProperty AdjustCoordinates { get; private set; }
 
     }
 }

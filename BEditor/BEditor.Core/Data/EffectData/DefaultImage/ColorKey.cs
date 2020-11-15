@@ -6,29 +6,31 @@ using BEditor.Core.Data.ObjectData;
 using BEditor.Core.Data.ProjectData;
 using BEditor.Core.Data.PropertyData;
 using BEditor.Core.Media;
+using BEditor.Core.Properties;
 
 namespace BEditor.Core.Data.EffectData
 {
     [DataContract(Namespace = "")]
     public class ColorKey : ImageEffect
     {
-        static readonly ColorPropertyMetadata MaxColorMetadata = new ColorPropertyMetadata(Properties.Resources.Color, 255, 255, 255);
-        static readonly ColorPropertyMetadata MinColorMetadata = new ColorPropertyMetadata(Properties.Resources.Color, 100, 100, 100);
+        public static readonly ColorPropertyMetadata MaxColorMetadata = new(Resources.Color, 255, 255, 255);
+        public static readonly ColorPropertyMetadata MinColorMetadata = new(Resources.Color, 100, 100, 100);
 
         public ColorKey()
         {
-            MaxColor = new ColorProperty(MaxColorMetadata);
-            MinColor = new ColorProperty(MinColorMetadata);
+            MaxColor = new(MaxColorMetadata);
+            MinColor = new(MinColorMetadata);
         }
 
 
         #region ImageEffect
-        public override string Name => Properties.Resources.ColorKey;
+        public override string Name => Resources.ColorKey;
 
-        public override void Draw(ref Image source, EffectRenderArgs args) { }
+        public override void Render(ref Image source, EffectRenderArgs args) { }
 
 
-        public override IList<PropertyElement> PropertySettings => new List<PropertyElement> {
+        public override IEnumerable<PropertyElement> Properties => new PropertyElement[]
+        {
             MaxColor,
             MinColor
         };
@@ -38,10 +40,10 @@ namespace BEditor.Core.Data.EffectData
 
         [DataMember(Order = 0)]
         [PropertyMetadata(nameof(MaxColorMetadata), typeof(ColorKey))]
-        public ColorProperty MaxColor { get; set; }
+        public ColorProperty MaxColor { get; private set; }
 
         [DataMember(Order = 1)]
         [PropertyMetadata(nameof(MinColorMetadata), typeof(ColorKey))]
-        public ColorProperty MinColor { get; set; }
+        public ColorProperty MinColor { get; private set; }
     }
 }

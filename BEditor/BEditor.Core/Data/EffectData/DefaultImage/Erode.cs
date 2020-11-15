@@ -14,17 +14,18 @@ namespace BEditor.Core.Data.EffectData
     {
         public Erode()
         {
-            Frequency = new EaseProperty(FrequencyMetadata);
+            Frequency = new(FrequencyMetadata);
         }
 
 
         #region EffectProperty
-        public override string Name => Properties.Resources.Erode;
+        public override string Name => Core.Properties.Resources.Erode;
 
-        public override void Draw(ref Image source, EffectRenderArgs args) => source.Erode((int)Frequency.GetValue(args.Frame));
+        public override void Render(ref Image source, EffectRenderArgs args) => source.Erode((int)Frequency.GetValue(args.Frame));
 
 
-        public override IList<PropertyElement> PropertySettings => new List<PropertyElement> {
+        public override IEnumerable<PropertyElement> Properties => new PropertyElement[]
+        {
             Frequency
         };
 
@@ -33,6 +34,6 @@ namespace BEditor.Core.Data.EffectData
 
         [DataMember(Order = 0)]
         [PropertyMetadata(nameof(FrequencyMetadata), typeof(Dilate))]
-        public EaseProperty Frequency { get; set; }
+        public EaseProperty Frequency { get; private set; }
     }
 }

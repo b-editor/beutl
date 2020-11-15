@@ -8,8 +8,14 @@ using BEditor.Core.Media;
 
 namespace BEditor.Core.Data
 {
+    /// <summary>
+    /// レンダリング結果を表します
+    /// </summary>
     public readonly ref struct RenderingResult
     {
+        /// <summary>
+        /// 
+        /// </summary>
         public Image Image { get; init; }
     }
 }

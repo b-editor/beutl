@@ -1,23 +1,22 @@
 ﻿using System.Runtime.Serialization;
 
+using BEditor.Core.Data.ObjectData;
 using BEditor.Core.Data.ProjectData;
 using BEditor.Core.Media;
 
 namespace BEditor.Core.Data.EffectData
 {
     /// <summary>
-    /// 画像エフェクトのベースクラス
+    /// Represents an effect that can be added to an <see cref="ImageObject"/>.
     /// </summary>
     [DataContract(Namespace = "")]
     public abstract class ImageEffect : EffectElement
     {
         /// <summary>
-        /// フレーム描画時に呼び出されます
+        /// It is called at rendering time
         /// </summary>
-        /// <param name="image">描画する<see cref="Image"/></param>
-        /// <param name="args">呼び出しの順番などのデータ</param>
-        public abstract void Draw(ref Image image, EffectRenderArgs args);
-
+        public abstract void Render(ref Image image, EffectRenderArgs args);
+        
         /// <inheritdoc/>
         public override void Render(EffectRenderArgs args) { }
     }

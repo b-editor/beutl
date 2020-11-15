@@ -11,7 +11,7 @@ namespace BEditor.Page.Languages
         public string Free => "無料";
         public string Extension => "拡張";
 
-        public string OpenSourceDescription => "BEditorはオープンソースです。Viewに依存しない形で開発しているので .NET Core に対応しているプラットフォームなら動かすことができます";
+        public string OpenSourceDescription => "BEditorはオープンソースです。Viewに依存しない形で開発しているので .NET5 に対応しているプラットフォームなら動かすことができます";
         public string FreeDescription => "BEditorは無料で使うことができます。ライセンスは MIT Licenseです。";
         public string ExtensionDescription => "ユーザーが作った拡張機能でエフェクトなどを追加することができます。<br/> BEditor.Core をCOM参照するだけで拡張機能開発をすることができます";
     }

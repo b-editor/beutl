@@ -20,23 +20,26 @@ using GLColor = OpenTK.Mathematics.Color4;
 
 using static BEditor.Core.Data.ObjectData.DefaultData.Figure;
 using static BEditor.Core.Data.ObjectData.ImageObject;
+using BEditor.Core.Properties;
 
 namespace BEditor.Core.Data.ObjectData
 {
     [DataContract(Namespace = "")]
     public class GL3DObject : ObjectElement
     {
-        static readonly SelectorPropertyMetadata TypeMetadata = new SelectorPropertyMetadata(Properties.Resources.Type, new string[2] {
-            Properties.Resources.Cube,
-            Properties.Resources.Ball
+        public static readonly SelectorPropertyMetadata TypeMetadata = new(Resources.Type, new string[2]
+        {
+            Core.Properties.Resources.Cube,
+            Core.Properties.Resources.Ball
         });
-        static readonly EasePropertyMetadata WeightMetadata = new EasePropertyMetadata("Weight", 100, float.NaN, 0);
+        public static readonly EasePropertyMetadata WeightMetadata = new("Weight", 100, float.NaN, 0);
 
         #region ObjectElement
 
-        public override string Name => Properties.Resources._3DObject;
+        public override string Name => Core.Properties.Resources._3DObject;
 
-        public override IList<PropertyElement> PropertySettings => new List<PropertyElement> {
+        public override IEnumerable<PropertyElement> Properties => new PropertyElement[]
+        {
             Coordinate,
             Zoom,
             Blend,
@@ -112,15 +115,15 @@ namespace BEditor.Core.Data.ObjectData
 
         public GL3DObject()
         {
-            Coordinate = new Coordinate(CoordinateMetadata);
-            Zoom = new Zoom(ZoomMetadata);
-            Blend = new Blend(BlendMetadata);
-            Angle = new Angle(AngleMetadata);
-            Material = new Material(MaterialMetadata);
-            Type = new SelectorProperty(TypeMetadata);
-            Width = new EaseProperty(WidthMetadata);
-            Height = new EaseProperty(HeightMetadata);
-            Weight = new EaseProperty(WeightMetadata);
+            Coordinate = new(CoordinateMetadata);
+            Zoom = new(ZoomMetadata);
+            Blend = new(BlendMetadata);
+            Angle = new(AngleMetadata);
+            Material = new(MaterialMetadata);
+            Type = new(TypeMetadata);
+            Width = new(WidthMetadata);
+            Height = new(HeightMetadata);
+            Weight = new(WeightMetadata);
         }
 
         [DataMember(Order = 0)]

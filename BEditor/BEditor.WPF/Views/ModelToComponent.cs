@@ -30,38 +30,37 @@ namespace BEditor.Views
         {
 
             #region CreatePropertyView
-            PropertyViewCreaters.Add(new PropertyViewCreater()
+            PropertyViewCreaters.Add(new()
             {
                 PropertyType = typeof(CheckProperty),
                 CreateFunc = (elm) => new PropertyControls.CheckBox((CheckProperty)elm)
             });
-            PropertyViewCreaters.Add(new PropertyViewCreater()
+            PropertyViewCreaters.Add(new()
             {
                 PropertyType = typeof(ColorAnimationProperty),
                 CreateFunc = (elm) => new PropertyControl.ColorAnimation((ColorAnimationProperty)elm)
             });
-            PropertyViewCreaters.Add(new PropertyViewCreater()
+            PropertyViewCreaters.Add(new()
             {
                 PropertyType = typeof(ColorProperty),
                 CreateFunc = (elm) => new PropertyControls.ColorPicker((ColorProperty)elm)
             });
-            PropertyViewCreaters.Add(new PropertyViewCreater()
+            PropertyViewCreaters.Add(new()
             {
                 PropertyType = typeof(DocumentProperty),
                 CreateFunc = (elm) => new Document((DocumentProperty)elm)
             });
-            PropertyViewCreaters.Add(new PropertyViewCreater()
+            PropertyViewCreaters.Add(new()
             {
                 PropertyType = typeof(EaseProperty),
                 CreateFunc = (elm) => new EaseControl((EaseProperty)elm)
             });
-            PropertyViewCreaters.Add(new PropertyViewCreater()
+            PropertyViewCreaters.Add(new()
             {
                 PropertyType = typeof(ExpandGroup),
                 CreateFunc = (elm) =>
                 {
                     var group = elm as ExpandGroup;
-                    var items = group.GroupItems;
                     var _settingcontrol = new CustomTreeView()
                     {
                         Header = group.PropertyMetadata.Name,
@@ -74,9 +73,9 @@ namespace BEditor.Views
 
                     var margin = new Thickness(32.5, 0, 0, 0);
 
-                    for (int i = 0; i < items.Count; i++)
+                    foreach (var item in group.Children)
                     {
-                        var content = items[i].GetCreatePropertyView();
+                        var content = item.GetCreatePropertyView();
 
                         if (content is FrameworkElement fe)
                         {
@@ -96,17 +95,17 @@ namespace BEditor.Views
                     return _settingcontrol;
                 }
             });
-            PropertyViewCreaters.Add(new PropertyViewCreater()
+            PropertyViewCreaters.Add(new()
             {
                 PropertyType = typeof(FileProperty),
                 CreateFunc = (elm) => new FileControl((FileProperty)elm)
             });
-            PropertyViewCreaters.Add(new PropertyViewCreater()
+            PropertyViewCreaters.Add(new()
             {
                 PropertyType = typeof(FontProperty),
                 CreateFunc = (elm) => new SelectorControl((FontProperty)elm)
             });
-            PropertyViewCreaters.Add(new PropertyViewCreater()
+            PropertyViewCreaters.Add(new()
             {
                 PropertyType = typeof(Group),
                 CreateFunc = (elm) =>
@@ -116,10 +115,10 @@ namespace BEditor.Views
                     VirtualizingPanel.SetVirtualizationMode(stack, VirtualizationMode.Recycling);
 
                     var group = elm as Group;
-                    var items = group.GroupItems;
-                    for (int i = 0; i < items.Count; i++)
+
+                    foreach (var item in group.Children)
                     {
-                        var content = items[i].GetCreatePropertyView();
+                        var content = item.GetCreatePropertyView();
 
                         stack.Children.Add(content);
                     }
@@ -127,7 +126,7 @@ namespace BEditor.Views
                     return stack;
                 }
             });
-            PropertyViewCreaters.Add(new PropertyViewCreater()
+            PropertyViewCreaters.Add(new()
             {
                 PropertyType = typeof(SelectorProperty),
                 CreateFunc = (elm) => new SelectorControl((SelectorProperty)elm)
@@ -135,32 +134,31 @@ namespace BEditor.Views
             #endregion
 
             #region CreateKeyFrameView
-            KeyFrameViewCreaters.Add(new KeyFrameViewCreater()
+            KeyFrameViewCreaters.Add(new()
             {
                 PropertyType = typeof(EaseProperty),
                 CreateFunc = (elm) => new KeyFrame(elm.Scene, (EaseProperty)elm)
             });
-            KeyFrameViewCreaters.Add(new KeyFrameViewCreater()
+            KeyFrameViewCreaters.Add(new()
             {
                 PropertyType = typeof(ColorAnimationProperty),
                 CreateFunc = (elm) => new ColorAnimation((ColorAnimationProperty)elm)
             });
-            KeyFrameViewCreaters.Add(new KeyFrameViewCreater()
+            KeyFrameViewCreaters.Add(new()
             {
                 PropertyType = typeof(ExpandGroup),
                 CreateFunc = (elm) =>
                 {
                     var group = elm as ExpandGroup;
-                    var items = group.GroupItems;
 
-                    CustomTreeView expander = new CustomTreeView()
+                    var expander = new CustomTreeView()
                     {
                         Header = group.PropertyMetadata.Name,
                         HeaderHeight = (float)(Setting.ClipHeight + 1),
                         TreeStair = 1
                     };
 
-                    VirtualizingStackPanel stack = new VirtualizingStackPanel();
+                    var stack = new VirtualizingStackPanel();
                     VirtualizingPanel.SetIsVirtualizing(stack, true);
                     VirtualizingPanel.SetVirtualizationMode(stack, VirtualizationMode.Recycling);
 
@@ -168,15 +166,15 @@ namespace BEditor.Views
 
                     var binding = new Binding("ActualWidth") { Mode = BindingMode.OneWay, Source = stack };
 
-                    for (int i = 0; i < items.Count; i++)
+                    foreach (var item in group.Children)
                     {
-                        if (items[i] is IKeyFrameProperty easing)
+                        if (item is IKeyFrameProperty easing)
                         {
                             var tmp = easing.GetCreateKeyFrameView();
 
                             (tmp as FrameworkElement)?.SetBinding(FrameworkElement.WidthProperty, binding);
 
-                            stack.Children.Add((UIElement)tmp);
+                            stack.Children.Add(tmp);
                         }
                     }
 
@@ -187,27 +185,26 @@ namespace BEditor.Views
                     return expander;
                 }
             });
-            KeyFrameViewCreaters.Add(new KeyFrameViewCreater()
+            KeyFrameViewCreaters.Add(new()
             {
                 PropertyType = typeof(Group),
                 CreateFunc = (elm) =>
                 {
                     var group = elm as Group;
-                    var items = group.GroupItems;
 
-                    VirtualizingStackPanel stack = new VirtualizingStackPanel();
+                    var stack = new VirtualizingStackPanel();
                     VirtualizingPanel.SetIsVirtualizing(stack, true);
                     VirtualizingPanel.SetVirtualizationMode(stack, VirtualizationMode.Recycling);
 
                     var binding = new Binding("ActualWidth") { Mode = BindingMode.OneWay, Source = stack };
 
-                    for (int i = 0; i < items.Count; i++)
+                    foreach (var item in group.Children)
                     {
-                        if (items[i] is IKeyFrameProperty easing)
+                        if (item is IKeyFrameProperty easing)
                         {
                             var tmp = easing.GetCreateKeyFrameView();
                             (tmp as FrameworkElement)?.SetBinding(FrameworkElement.WidthProperty, binding);
-                            stack.Children.Add((UIElement)tmp);
+                            stack.Children.Add(tmp);
                         }
                     }
 
@@ -289,19 +286,18 @@ namespace BEditor.Views
                 }
 
                 //Get毎にnewされると非効率なのでローカルに置く
-                var list = effect.PropertySettings;
 
                 var margin = new Thickness(0, 0, 32.5, 0);
-                for (int i = 0; i < list.Count; i++)
+                foreach (var item in effect.Children)
                 {
-                    var tmp = list[i].GetCreatePropertyView();
+                    var tmp = item.GetCreatePropertyView();
 
                     if (tmp is FrameworkElement element)
                     {
                         element.Margin = margin;
                     }
 
-                    stack.Children.Add((UIElement)tmp);
+                    stack.Children.Add(tmp);
                 }
 
                 //エクスパンダーをアップデート
@@ -324,12 +320,11 @@ namespace BEditor.Views
                 keyFrame.Content = stack;
 
                 //Get毎にnewされると非効率なのでローカルに置く
-                var list = effect.PropertySettings;
                 var binding = new Binding("ActualWidth") { Mode = BindingMode.OneWay, Source = keyFrame };
 
-                for (int i = 0; i < list.Count; i++)
+                foreach (var item in effect.Children)
                 {
-                    if (list[i] is IKeyFrameProperty e)
+                    if (item is IKeyFrameProperty e)
                     {
 
                         var tmp = e.GetCreateKeyFrameView();
@@ -391,7 +386,7 @@ namespace BEditor.Views
                     HorizontalAlignment = HorizontalAlignment.Stretch
                 };
 
-                foreach (var setting in easing.EasingSettings)
+                foreach (var setting in easing.Children)
                 {
                     _createdControl.Children.Add(((PropertyElement)setting).GetCreatePropertyView());
                 }

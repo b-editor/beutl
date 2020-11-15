@@ -11,7 +11,7 @@ namespace BEditor.Core.Data.ObjectData
         [DataContract(Namespace = "")]
         public abstract class DefaultImageObject : Group
         {
-            public abstract Media.Image Load(EffectRenderArgs args);
+            public abstract Media.Image Render(EffectRenderArgs args);
         }
     }
 }

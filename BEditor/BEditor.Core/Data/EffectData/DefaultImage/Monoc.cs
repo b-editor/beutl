@@ -6,27 +6,29 @@ using BEditor.Core.Data.ObjectData;
 using BEditor.Core.Data.ProjectData;
 using BEditor.Core.Data.PropertyData;
 using BEditor.Core.Media;
+using BEditor.Core.Properties;
 
 namespace BEditor.Core.Data.EffectData
 {
     [DataContract(Namespace = "")]
     public class Monoc : ImageEffect
     {
-        static readonly ColorPropertyMetadata ColorMetadata = new ColorPropertyMetadata(Properties.Resources.Color, 255, 255, 255);
+        public static readonly ColorPropertyMetadata ColorMetadata = new(Resources.Color, 255, 255, 255);
 
         public Monoc()
         {
-            Color = new ColorProperty(ColorMetadata);
+            Color = new(ColorMetadata);
         }
 
 
         #region EffectProperty
-        public override string Name => Properties.Resources.Monoc;
+        public override string Name => Resources.Monoc;
 
-        public override void Draw(ref Image source, EffectRenderArgs args) => source.SetColor(Color);
+        public override void Render(ref Image source, EffectRenderArgs args) => source.SetColor(Color);
 
 
-        public override IList<PropertyElement> PropertySettings => new List<PropertyElement> {
+        public override IEnumerable<PropertyElement> Properties => new PropertyElement[]
+        {
             Color
         };
 
@@ -36,6 +38,6 @@ namespace BEditor.Core.Data.EffectData
 
         [DataMember(Order = 0)]
         [PropertyMetadata(nameof(ColorMetadata), typeof(Monoc))]
-        public ColorProperty Color { get; set; }
+        public ColorProperty Color { get; private set; }
     }
 }

@@ -16,30 +16,31 @@ namespace BEditor.Core.Data.ObjectData
         [DataContract(Namespace = "")]
         public class Video : DefaultImageObject
         {
-            public static readonly EasePropertyMetadata SpeedMetadata = new EasePropertyMetadata(Properties.Resources.Speed, 100);
-            public static readonly EasePropertyMetadata StartMetadata = new EasePropertyMetadata(Properties.Resources.Start, 1, float.NaN, 0);
-            public static readonly FilePropertyMetadata FileMetadata = new FilePropertyMetadata(Properties.Resources.File, "", "mp4,avi,wmv,mov", Properties.Resources.VideoFile);
+            public static readonly EasePropertyMetadata SpeedMetadata = new(Resources.Speed, 100);
+            public static readonly EasePropertyMetadata StartMetadata = new(Resources.Start, 1, float.NaN, 0);
+            public static readonly FilePropertyMetadata FileMetadata = new(Resources.File, "", "mp4,avi,wmv,mov", Resources.VideoFile);
 
             private VideoDecoder videoReader;
 
 
             public Video()
             {
-                Speed = new EaseProperty(SpeedMetadata);
-                Start = new EaseProperty(StartMetadata);
-                File = new FileProperty(FileMetadata);
+                Speed = new(SpeedMetadata);
+                Start = new(StartMetadata);
+                File = new(FileMetadata);
             }
 
 
 
             #region DefaultImageObjectメンバー
-            public override IList<PropertyElement> GroupItems => new List<PropertyElement>() {
+            public override IEnumerable<PropertyElement> Properties => new PropertyElement[]
+            {
                 Speed,
                 Start,
                 File
             };
 
-            public override Media.Image Load(EffectRenderArgs args)
+            public override Media.Image Render(EffectRenderArgs args)
             {
                 float speed = Speed.GetValue(args.Frame) / 100;
                 int start = (int)Start.GetValue(args.Frame);
@@ -81,15 +82,15 @@ namespace BEditor.Core.Data.ObjectData
 
 
             [DataMember(Order = 0)]
-            [PropertyMetadata("SpeedMetadata", typeof(Video))]
+            [PropertyMetadata(nameof(SpeedMetadata), typeof(Video))]
             public EaseProperty Speed { get; private set; }
 
             [DataMember(Order = 1)]
-            [PropertyMetadata("StartMetadata", typeof(Video))]
+            [PropertyMetadata(nameof(StartMetadata), typeof(Video))]
             public EaseProperty Start { get; private set; }
 
             [DataMember(Order = 2)]
-            [PropertyMetadata("FileMetadata", typeof(Video))]
+            [PropertyMetadata(nameof(FileMetadata), typeof(Video))]
             public FileProperty File { get; private set; }
         }
     }

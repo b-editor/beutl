@@ -14,23 +14,26 @@ using BEditor.Core.Properties;
 namespace BEditor.Core.Data.EffectData
 {
     /// <summary>
-    /// エフェクトのベースクラス
+    /// Represents the base class of the effect.
     /// </summary>
     [DataContract(Namespace = "")]
-    public abstract class EffectElement : ComponentObject, IChild<ClipData>
+    public abstract class EffectElement : ComponentObject, IChild<ClipData>, IParent<PropertyElement>, ICloneable
     {
         private bool isEnabled = true;
         private bool isExpanded = true;
         private ClipData clipData;
-
+        private IEnumerable<PropertyElement> cachedlist;
+        
+        /// <inheritdoc/>
+        public IEnumerable<PropertyElement> Children => cachedlist ??= Properties;
         /// <summary>
-        /// エフェクトの名前を取得します
+        /// Get the name of the <see cref="EffectElement"/>.
         /// </summary>
         public abstract string Name { get; }
         /// <summary>
-        /// エフェクトが有効かを取得または設定します
+        /// Get or set if the <see cref="EffectElement"/> is enabled.
         /// </summary>
-        /// <remarks>エフェクトが有効な場合 <see langword="true"/> そうでない場合は <see langword="false"/> となります</remarks>
+        /// <remarks><see langword="true"/> if the <see cref="EffectElement"/> is enabled or <see langword="false"/> otherwise.</remarks>
         [DataMember]
         public bool IsEnabled
         {
@@ -38,9 +41,9 @@ namespace BEditor.Core.Data.EffectData
             set => SetValue(value, ref isEnabled, nameof(IsEnabled));
         }
         /// <summary>
-        /// エクスパンダーが開いているかを取得または設定します
+        /// Get or set whether the expander is open.
         /// </summary>
-        /// <remarks>エクスパンダーが開いている場合は <see langword="true"/>、そうでない場合は <see langword="false"/> となります</remarks>
+        /// <remarks><see langword="true"/> if the expander is open, otherwise <see langword="false"/>.</remarks>
         [DataMember]
         public bool IsExpanded
         {
@@ -48,9 +51,9 @@ namespace BEditor.Core.Data.EffectData
             set => SetValue(value, ref isExpanded, nameof(IsExpanded));
         }
         /// <summary>
-        /// GUIに表示する<seealso cref="PropertyElement"/>を<see cref="IList{PropertyElement}"/>を取得します
+        /// Get the <see cref="PropertyElement"/> to display on the GUI.
         /// </summary>
-        public abstract IList<PropertyElement> PropertySettings { get; }
+        public abstract IEnumerable<PropertyElement> Properties { get; }
         /// <inheritdoc/>
         public virtual ClipData Parent
         {
@@ -59,29 +62,22 @@ namespace BEditor.Core.Data.EffectData
             {
                 clipData = value;
 
-                Parallel.ForEach(PropertySettings, property => property.Parent = this);
+                Parallel.ForEach(Children, property => property.Parent = this);
             }
         }
 
+        /// <inheritdoc/>
+        public object Clone()
+        {
+            return this.DeepClone();
+        }
+
         /// <summary>
-        /// コンストラクタの後やデシリアル化の後に呼び出されます
+        /// Called after the constructor or after deserialization.
         /// </summary>
-        /// <remarks>
-        /// <para>通常は </para>
-        /// <list type="bullet">
-        /// <item>
-        ///    <seealso cref="PropertySettings"/>内のアイテムのPropertyLoaded
-        /// </item>
-        /// <item>
-        ///    リフレクションで<see cref="PropertyMetadataAttribute"/>がついているプロパティに<seealso cref="PropertyElementMetadata"/>をセットします
-        /// </item>
-        /// </list>
-        /// </remarks>
         public virtual void PropertyLoaded()
         {
-            var settings = PropertySettings;
-
-            Parallel.ForEach(settings, p => p.PropertyLoaded());
+            Parallel.ForEach(Children, p => p.PropertyLoaded());
 
             var attributetype = typeof(PropertyMetadataAttribute);
             var type = GetType();
@@ -99,32 +95,28 @@ namespace BEditor.Core.Data.EffectData
             });
         }
         /// <summary>
-        /// フレーム描画時に呼び出されます
+        /// It is called at rendering time
         /// </summary>
-        /// <param name="args">呼び出しの順番などのデータ</param>
         public abstract void Render(EffectRenderArgs args);
         /// <summary>
-        /// フレーム描画前に呼び出されます
+        /// It will be called before rendering.
         /// </summary>
-        /// <param name="args">呼び出しの順番などのデータ</param>
-        /// <remarks>ここでエフェクトの順番などを変更できます</remarks>
         public virtual void PreviewRender(EffectRenderArgs args) { }
 
         /// <summary>
-        /// エフェクトが有効かのブーリアンを変更するコマンド
+        /// Represents a command that changes the boolean for which an effect is enabled.
         /// </summary>
-        /// <remarks>このクラスは <see cref="UndoRedoManager.Do(IUndoRedoCommand)"/> と併用することでコマンドを記録できます</remarks>
         public sealed class CheckCommand : IUndoRedoCommand
         {
             private readonly EffectElement effect;
             private readonly bool value;
 
             /// <summary>
-            /// <see cref="CheckCommand"/> クラスの新しいインスタンスを初期化します
+            /// <see cref="CheckCommand"/> Initialize a new instance of the class.
             /// </summary>
-            /// <param name="effect">対象の <see cref="EffectElement"/></param>
-            /// <param name="value">セットする値</param>
-            /// <exception cref="ArgumentNullException"><paramref name="effect"/> が <see langword="null"/> です</exception>
+            /// <param name="effect">The target <see cref="EffectElement"/>.</param>
+            /// <param name="value">New value</param>
+            /// <exception cref="ArgumentNullException"><paramref name="effect"/> is <see langword="null"/>.</exception>
             public CheckCommand(EffectElement effect, bool value)
             {
                 this.effect = effect ?? throw new ArgumentNullException(nameof(effect));
@@ -139,19 +131,18 @@ namespace BEditor.Core.Data.EffectData
             public void Undo() => effect.IsEnabled = !value;
         }
         /// <summary>
-        /// エフェクトの順番を上げるコマンド
+        /// Represents a command that changes the order of the effects.
         /// </summary>
-        /// <remarks>このクラスは <see cref="UndoRedoManager.Do(IUndoRedoCommand)"/> と併用することでコマンドを記録できます</remarks>
         public sealed class UpCommand : IUndoRedoCommand
         {
             private readonly ClipData data;
             private readonly EffectElement effect;
 
             /// <summary>
-            /// <see cref="UpCommand"/> クラスの新しいインスタンスを初期化します
+            /// <see cref="UpCommand"/> Initialize a new instance of the class.
             /// </summary>
-            /// <param name="effect">対象の <see cref="EffectElement"/></param>
-            /// <exception cref="ArgumentNullException"><paramref name="effect"/> が <see langword="null"/> です</exception>
+            /// <param name="effect">The target <see cref="EffectElement"/>.</param>
+            /// <exception cref="ArgumentNullException"><paramref name="effect"/> is <see langword="null"/>.</exception>
             public UpCommand(EffectElement effect)
             {
                 this.effect = effect ?? throw new ArgumentNullException(nameof(effect));
@@ -185,19 +176,18 @@ namespace BEditor.Core.Data.EffectData
             }
         }
         /// <summary>
-        /// エフェクトの順番を下げるコマンド
+        /// Represents a command that changes the order of the effects.
         /// </summary>
-        /// <remarks>このクラスは <see cref="UndoRedoManager.Do(IUndoRedoCommand)"/> と併用することでコマンドを記録できます</remarks>
         public sealed class DownCommand : IUndoRedoCommand
         {
             private readonly ClipData data;
             private readonly EffectElement effect;
 
             /// <summary>
-            /// <see cref="DownCommand"/> クラスの新しいインスタンスを初期化します
+            /// <see cref="DownCommand"/> Initialize a new instance of the class.
             /// </summary>
-            /// <param name="effect">対象の <see cref="EffectElement"/></param>
-            /// <exception cref="ArgumentNullException"><paramref name="effect"/> が <see langword="null"/> です</exception>
+            /// <param name="effect">The target <see cref="EffectElement"/>.</param>
+            /// <exception cref="ArgumentNullException"><paramref name="effect"/> is <see langword="null"/>.</exception>
             public DownCommand(EffectElement effect)
             {
                 this.effect = effect ?? throw new ArgumentNullException(nameof(effect));
@@ -231,9 +221,8 @@ namespace BEditor.Core.Data.EffectData
             }
         }
         /// <summary>
-        /// エフェクトを削除するコマンド
+        /// Represents a command that removes the effect from the parent element.
         /// </summary>
-        /// <remarks>このクラスは <see cref="UndoRedoManager.Do(IUndoRedoCommand)"/> と併用することでコマンドを記録できます</remarks>
         public sealed class RemoveCommand : IUndoRedoCommand
         {
             private readonly ClipData data;
@@ -241,10 +230,10 @@ namespace BEditor.Core.Data.EffectData
             private readonly int index;
 
             /// <summary>
-            /// <see cref="RemoveCommand"/> クラスの新しいインスタンスを初期化します
+            /// <see cref="RemoveCommand"/> Initialize a new instance of the class.
             /// </summary>
-            /// <param name="effect">対象の <see cref="EffectElement"/></param>
-            /// <exception cref="ArgumentNullException"><paramref name="effect"/> が <see langword="null"/> です</exception>
+            /// <param name="effect">The target <see cref="EffectElement"/>.</param>
+            /// <exception cref="ArgumentNullException"><paramref name="effect"/> is <see langword="null"/>.</exception>
             public RemoveCommand(EffectElement effect)
             {
                 this.effect = effect ?? throw new ArgumentNullException(nameof(effect));
@@ -260,20 +249,19 @@ namespace BEditor.Core.Data.EffectData
             public void Undo() => data.Effect.Insert(index, effect);
         }
         /// <summary>
-        /// エフェクトを追加するコマンド
+        /// Represents a command to add an effect.
         /// </summary>
-        /// <remarks>このクラスは <see cref="UndoRedoManager.Do(IUndoRedoCommand)"/> と併用することでコマンドを記録できます</remarks>
         public sealed class AddCommand : IUndoRedoCommand
         {
             private readonly ClipData data;
             private readonly EffectElement effect;
 
             /// <summary>
-            /// <see cref="AddCommand"/>クラスの新しいインスタンスを初期化します
+            /// <see cref="AddCommand"/>Initialize a new instance of the class.
             /// </summary>
-            /// <param name="effect">対象のエフェクト</param>
-            /// <exception cref="ArgumentException">effect.ClipDataがnullです</exception>
-            /// <exception cref="ArgumentNullException"><paramref name="effect"/> が <see langword="null"/> です</exception>
+            /// <param name="effect">The target <see cref="EffectElement"/>.</param>
+            /// <exception cref="ArgumentException">effect.ClipData is null.</exception>
+            /// <exception cref="ArgumentNullException"><paramref name="effect"/> is <see langword="null"/>.</exception>
             public AddCommand(EffectElement effect)
             {
                 if (effect.Parent is null) throw new ArgumentException("effect.ClipData is null", nameof(effect));
@@ -284,12 +272,12 @@ namespace BEditor.Core.Data.EffectData
                 effect.PropertyLoaded();
             }
             /// <summary>
-            /// <see cref="AddCommand"/> クラスの新しいインスタンスを初期化します
+            /// <see cref="AddCommand"/> Initialize a new instance of the class.
             /// </summary>
-            /// <param name="effect">対象の <see cref="EffectElement"/></param>
+            /// <param name="effect">The target <see cref="EffectElement"/>.</param>
             /// <param name="clip"></param>
-            /// <exception cref="ArgumentException">effect.ClipDataが <see langword="null"/> です</exception>
-            /// <exception cref="ArgumentNullException"><paramref name="effect"/> が <see langword="null"/> です</exception>
+            /// <exception cref="ArgumentException">effect.ClipData is <see langword="null"/>.</exception>
+            /// <exception cref="ArgumentNullException"><paramref name="effect"/> is <see langword="null"/>.</exception>
             public AddCommand(EffectElement effect, ClipData clip)
             {
                 if (clip is null) throw new ArgumentNullException(nameof(clip));

@@ -21,14 +21,15 @@ namespace BEditor.Core.Data.EffectData
 {
     public class MultiLayerization : ImageEffect
     {
-        public static readonly EasePropertyMetadata ZMetadata = new EasePropertyMetadata(Resources.Z, 50, float.NaN, 0);
-        public static readonly ColorAnimationPropertyMetadata ColorMetadata = new ColorAnimationPropertyMetadata(Resources.Color, 255, 255, 255, 255, true);
+        public static readonly EasePropertyMetadata ZMetadata = new(Resources.Z, 50, float.NaN, 0);
+        public static readonly ColorAnimationPropertyMetadata ColorMetadata = new(Resources.Color, 255, 255, 255, 255, true);
 
         #region ImageEffect
 
         public override string Name => Resources.MultiLayerization;
 
-        public override IList<PropertyElement> PropertySettings => new List<PropertyElement> {
+        public override IEnumerable<PropertyElement> Properties => new PropertyElement[]
+        {
             Z,
             Color
         };
@@ -41,7 +42,7 @@ namespace BEditor.Core.Data.EffectData
             args.Schedules.Add(this);
         }
 
-        public override void Draw(ref Image source, EffectRenderArgs args)
+        public override void Render(ref Image source, EffectRenderArgs args)
         {
             var drawObject = (ImageObject)Parent.Effect[0];
             var frame = args.Frame;
@@ -95,22 +96,22 @@ namespace BEditor.Core.Data.EffectData
 
         public MultiLayerization()
         {
-            Z = new EaseProperty(ZMetadata);
-            Material = new Material(ImageObject.MaterialMetadata);
-            Color = new ColorAnimationProperty(ColorMetadata);
+            Z = new(ZMetadata);
+            Material = new(ImageObject.MaterialMetadata);
+            Color = new(ColorMetadata);
         }
 
 
         [DataMember(Order = 0)]
         [PropertyMetadata(nameof(ZMetadata), typeof(MultiLayerization))]
-        public EaseProperty Z { get; set; }
+        public EaseProperty Z { get;private set; }
 
         [DataMember(Order = 1)]
         [PropertyMetadata(nameof(ImageObject.MaterialMetadata), typeof(ImageObject))]
-        public Material Material { get; set; }
+        public Material Material { get;private set; }
 
         [DataMember(Order = 2)]
         [PropertyMetadata(nameof(ColorMetadata), typeof(MultiLayerization))]
-        public ColorAnimationProperty Color { get; set; }
+        public ColorAnimationProperty Color { get;private set; }
     }
 }

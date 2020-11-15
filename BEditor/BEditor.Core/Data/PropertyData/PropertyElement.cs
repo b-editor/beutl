@@ -1,4 +1,5 @@
 ﻿using System;
+using System.ComponentModel;
 using System.Runtime.Serialization;
 
 using BEditor.Core.Data.EffectData;
@@ -11,7 +12,7 @@ namespace BEditor.Core.Data.PropertyData
     /// 編集画面を持つプロパティを表します
     /// </summary>
     [DataContract(Namespace = "")]
-    public abstract class PropertyElement : ComponentObject, IChild<EffectElement>
+    public abstract class PropertyElement : ComponentObject, IChild<EffectElement>, IExtensibleDataObject, INotifyPropertyChanged
     {
         private PropertyElementMetadata propertyMetadata;
 

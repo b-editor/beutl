@@ -15,7 +15,7 @@ using BEditor.Core.Interfaces;
 namespace BEditor.Core.Data.ObjectData
 {
     /// <summary>
-    /// タイムラインに配置されるクリップのデータ
+    /// Represents the data of a clip to be placed in the timeline.
     /// </summary>
     [DataContract(Namespace = "", Name = "Data")]
     public class ClipData : ComponentObject, ICloneable, IParent<EffectElement>, IChild<Scene>
@@ -29,14 +29,8 @@ namespace BEditor.Core.Data.ObjectData
 
         
         /// <summary>
-        /// <see cref="ClipData"/> クラスの新しいインスタンスを初期化します
+        /// <see cref="ClipData"/> Initialize a new instance of the class.
         /// </summary>
-        /// <param name="id">Sceneから取得できるId</param>
-        /// <param name="effects">エフェクトのリスト</param>
-        /// <param name="start">開始位置</param>
-        /// <param name="end">終了位置</param>
-        /// <param name="type">クリップの種類</param>
-        /// <param name="layer">配置されるレイヤー</param>
         public ClipData(uint id, ObservableCollection<EffectElement> effects, int start, int end, Type type, int layer)
         {
             Id = id;
@@ -48,20 +42,19 @@ namespace BEditor.Core.Data.ObjectData
             LabelText = Name;
         }
 
-        
         /// <summary>
-        /// IDを取得します
+        /// Get the ID for this <see cref="ClipData"/>
         /// </summary>
         [DataMember(Order = 0)]
         public uint Id { get; private set; }
-        
+
         /// <summary>
-        /// 名前を取得します
+        /// Get the name of this <see cref="ClipData"/>.
         /// </summary>
         public string Name => name ??= $"{Type.Name}{Id}";
-        
+
         /// <summary>
-        /// 種類を取得します
+        /// Get the type of this <see cref="ClipData"/>.
         /// </summary>
         [DataMember(Name = "Type", Order = 1)]
         public string ClipType
@@ -69,14 +62,14 @@ namespace BEditor.Core.Data.ObjectData
             get => Type.FullName;
             private set => Type = Type.GetType(value);
         }
-        
+
         /// <summary>
-        /// 種類を取得します
+        /// Get the type of this <see cref="ClipData"/>.
         /// </summary>
         public Type Type { get; private set; }
-        
+
         /// <summary>
-        /// 開始フレームを取得または設定します
+        /// Get or set the start frame for this <see cref="ClipData"/>.
         /// </summary>
         [DataMember(Order = 2)]
         public int Start
@@ -84,9 +77,9 @@ namespace BEditor.Core.Data.ObjectData
             get => start;
             set => SetValue(value, ref start, nameof(Start));
         }
-        
+
         /// <summary>
-        /// 終了フレームを取得または設定します
+        /// Get or set the end frame for this <see cref="ClipData"/>.
         /// </summary>
         [DataMember(Order = 3)]
         public int End
@@ -94,14 +87,14 @@ namespace BEditor.Core.Data.ObjectData
             get => end;
             set => SetValue(value, ref end, nameof(End));
         }
-        
+
         /// <summary>
-        /// 長さを取得します
+        /// Get the length of this <see cref="ClipData"/>.
         /// </summary>
         public int Length => End - Start;
-        
+
         /// <summary>
-        /// 配置レイヤーを取得または設定します
+        /// Get or set the layer where this <see cref="ClipData"/> will be placed.
         /// </summary>
         [DataMember(Order = 4)]
         public int Layer
@@ -115,7 +108,7 @@ namespace BEditor.Core.Data.ObjectData
         }
 
         /// <summary>
-        /// 表示されるテキストを取得または設定します
+        /// Gets or sets the character displayed in this <see cref="ClipData"/>.
         /// </summary>
         [DataMember(Name = "Text", Order = 5)]
         public string LabelText
@@ -128,7 +121,7 @@ namespace BEditor.Core.Data.ObjectData
         public Scene Parent { get; internal set; }
 
         /// <summary>
-        /// エフェクトを取得します
+        /// Get the effects included in this <see cref="ClipData"/>.
         /// </summary>
         [DataMember(Name = "Effects", Order = 6)]
         public ObservableCollection<EffectElement> Effect
@@ -151,7 +144,7 @@ namespace BEditor.Core.Data.ObjectData
 
 
         /// <summary>
-        /// レンダリング時に呼び出されます
+        /// It is called at rendering time
         /// </summary>
         public void Render(ClipRenderArgs args)
         {
@@ -165,7 +158,7 @@ namespace BEditor.Core.Data.ObjectData
             }
         }
         /// <summary>
-        /// レンダリング前に呼び出されます
+        /// It will be called before rendering.
         /// </summary>
         public void PreviewRender(ClipRenderArgs args)
         {
@@ -191,12 +184,13 @@ namespace BEditor.Core.Data.ObjectData
         }
 
         /// <inheritdoc/>
+        public override string ToString() => $"(Name:{Name} Id:{Id} Start:{Start} End:{End})";
+        /// <inheritdoc/>
         public object Clone() => this.DeepClone();
 
         /// <summary>
-        /// <see cref="ClipData"/> を <see cref="ProjectData.Scene"/> に追加するコマンド
+        /// Represents a command that adds <see cref="ClipData"/> to a <see cref="ProjectData.Scene"/>.
         /// </summary>
-        /// <remarks>このクラスは <see cref="UndoRedoManager.Do(IUndoRedoCommand)"/> と併用することでコマンドを記録できます</remarks>
         public sealed class AddCommand : IUndoRedoCommand
         {
             private readonly Scene Scene;
@@ -206,20 +200,16 @@ namespace BEditor.Core.Data.ObjectData
             public ClipData data;
 
             /// <summary>
-            /// <see cref="AddCommand"/> クラスの新しいインスタンスを初期化します
+            /// <see cref="AddCommand"/> Initialize a new instance of the class.
             /// </summary>
-            /// <param name="scene">対象の <see cref="Scene"/></param>
-            /// <param name="addframe">配置するフレーム</param>
-            /// <param name="layer">配置するレイヤー</param>
-            /// <param name="type">クリップの種類</param>
-            /// <exception cref="ArgumentNullException"><paramref name="scene"/> が <see langword="null"/> です</exception>
-            /// <exception cref="ArgumentNullException"><paramref name="type"/> が <see langword="null"/> です</exception>
-            /// <exception cref="ArgumentOutOfRangeException"><paramref name="addframe"/> が0以下です</exception>
-            /// <exception cref="ArgumentOutOfRangeException"><paramref name="layer"/> が0以下です</exception>
-            public AddCommand(Scene scene, int addframe, int layer, Type type)
+            /// <exception cref="ArgumentNullException"><paramref name="scene"/> is <see langword="null"/>.</exception>
+            /// <exception cref="ArgumentNullException"><paramref name="type"/> が <see langword="null"/>.</exception>
+            /// <exception cref="ArgumentOutOfRangeException"><paramref name="startFrame"/> is less than 0.</exception>
+            /// <exception cref="ArgumentOutOfRangeException"><paramref name="layer"/> is less than 0</exception>
+            public AddCommand(Scene scene, int startFrame, int layer, Type type)
             {
                 Scene = scene ?? throw new ArgumentNullException(nameof(scene));
-                AddFrame = (0 > addframe) ? throw new ArgumentOutOfRangeException(nameof(addframe)) : addframe;
+                AddFrame = (0 > startFrame) ? throw new ArgumentOutOfRangeException(nameof(startFrame)) : startFrame;
                 AddLayer = (0 > layer) ? throw new ArgumentOutOfRangeException(nameof(layer)) : layer;
                 Type = type ?? throw new ArgumentNullException(nameof(type));
             }
@@ -286,18 +276,17 @@ namespace BEditor.Core.Data.ObjectData
             }
         }
         /// <summary>
-        /// <see cref="ProjectData.Scene"/> から <see cref="ClipData"/> を削除するコマンド
+        /// Represents a command to remove <see cref="ClipData"/> from a <see cref="ProjectData.Scene"/>
         /// </summary>
-        /// <remarks>このクラスは <see cref="UndoRedoManager.Do(IUndoRedoCommand)"/> と併用することでコマンドを記録できます</remarks>
         public sealed class RemoveCommand : IUndoRedoCommand
         {
             private readonly ClipData data;
 
             /// <summary>
-            /// <see cref="RemoveCommand"/> クラスの新しいインスタンスを初期化します
+            /// <see cref="RemoveCommand"/> Initialize a new instance of the class.
             /// </summary>
-            /// <param name="clip">対象の <see cref="ClipData"/></param>
-            /// <exception cref="ArgumentNullException"><paramref name="clip"/> が <see langword="null"/> です</exception>
+            /// <param name="clip">The target <see cref="ClipData"/>.</param>
+            /// <exception cref="ArgumentNullException"><paramref name="clip"/> is <see langword="null"/>.</exception>
             public RemoveCommand(ClipData clip) => this.data = clip ?? throw new ArgumentNullException(nameof(clip));
 
             /// <inheritdoc/>
@@ -334,9 +323,8 @@ namespace BEditor.Core.Data.ObjectData
             public void Undo() => data.Parent.Add(data);
         }
         /// <summary>
-        /// <see cref="ClipData"/> のフレームとレイヤーを移動するコマンド
+        /// Represents a command to move <see cref="ClipData"/> frames and layers.
         /// </summary>
-        /// <remarks>このクラスは <see cref="UndoRedoManager.Do(IUndoRedoCommand)"/> と併用することでコマンドを記録できます</remarks>
         public sealed class MoveCommand : IUndoRedoCommand
         {
             private readonly ClipData data;
@@ -348,32 +336,24 @@ namespace BEditor.Core.Data.ObjectData
 
             #region コンストラクタ
             /// <summary>
-            /// <see cref="MoveCommand"/> クラスの新しいインスタンスを初期化します
+            /// <see cref="MoveCommand"/> Initialize a new instance of the class.
             /// </summary>
-            /// <param name="clip">対象の <see cref="ClipData"/></param>
-            /// <param name="to">新しい開始フレーム</param>
-            /// <param name="tolayer">新しい配置レイヤー</param>
-            /// <exception cref="ArgumentNullException"><paramref name="clip"/> が <see langword="null"/> です</exception>
-            /// <exception cref="ArgumentOutOfRangeException"><paramref name="to"/> または <paramref name="tolayer"/> が0以下です</exception>
-            public MoveCommand(ClipData clip, int to, int tolayer)
+            /// <exception cref="ArgumentNullException"><paramref name="clip"/> is <see langword="null"/>.</exception>
+            /// <exception cref="ArgumentOutOfRangeException"><paramref name="toFrame"/> or <paramref name="toLayer"/> is less than 0.</exception>
+            public MoveCommand(ClipData clip, int toFrame, int toLayer)
             {
                 this.data = clip ?? throw new ArgumentNullException(nameof(clip));
-                this.to = (0 > to) ? throw new ArgumentOutOfRangeException(nameof(to)) : to;
+                this.to = (0 > toFrame) ? throw new ArgumentOutOfRangeException(nameof(toFrame)) : toFrame;
                 from = clip.Start;
-                this.tolayer = (0 > tolayer) ? throw new ArgumentOutOfRangeException(nameof(tolayer)) : tolayer;
+                this.tolayer = (0 > toLayer) ? throw new ArgumentOutOfRangeException(nameof(toLayer)) : toLayer;
                 fromlayer = clip.Layer;
             }
 
             /// <summary>
-            /// <see cref="MoveCommand"/>クラスの新しいインスタンスを初期化します
+            /// <see cref="MoveCommand"/> Initialize a new instance of the class.
             /// </summary>
-            /// <param name="clip">対象のクリップ</param>
-            /// <param name="to">新しい開始フレーム</param>
-            /// <param name="from">古い開始フレーム</param>
-            /// <param name="tolayer">新しい配置レイヤー</param>
-            /// <param name="fromlayer">古い配置レイヤー</param>
-            /// <exception cref="ArgumentNullException"><paramref name="clip"/> が <see langword="null"/> です</exception>
-            /// <exception cref="ArgumentOutOfRangeException"><paramref name="to"/>, <paramref name="from"/>, <paramref name="tolayer"/>, <paramref name="fromlayer"/> が0以下です</exception>
+            /// <exception cref="ArgumentNullException"><paramref name="clip"/> is <see langword="null"/>.</exception>
+            /// <exception cref="ArgumentOutOfRangeException"><paramref name="to"/>, <paramref name="from"/>, <paramref name="tolayer"/>, <paramref name="fromlayer"/> is less than 0.</exception>
             public MoveCommand(ClipData clip, int to, int from, int tolayer, int fromlayer)
             {
                 this.data = clip ?? throw new ArgumentNullException(nameof(clip));
@@ -409,9 +389,8 @@ namespace BEditor.Core.Data.ObjectData
             }
         }
         /// <summary>
-        /// <see cref="ClipData"/> の長さを変更するコマンド
+        /// Represents a command to change the length of <see cref="ClipData"/>.
         /// </summary>
-        /// <remarks>このクラスは <see cref="UndoRedoManager.Do(IUndoRedoCommand)"/> と併用することでコマンドを記録できます</remarks>
         public sealed class LengthChangeCommand : IUndoRedoCommand
         {
             private readonly ClipData data;
@@ -421,13 +400,10 @@ namespace BEditor.Core.Data.ObjectData
             private readonly int oldend;
 
             /// <summary>
-            /// <see cref="LengthChangeCommand"/> クラスの新しいインスタンスを初期化します
+            /// <see cref="LengthChangeCommand"/> Initialize a new instance of the class.
             /// </summary>
-            /// <param name="clip">対象の <see cref="ClipData"/></param>
-            /// <param name="start">開始フレーム</param>
-            /// <param name="end">終了フレーム</param>
-            /// <exception cref="ArgumentNullException"><paramref name="clip"/> が <see langword="null"/> です</exception>
-            /// <exception cref="ArgumentOutOfRangeException"><paramref name="start"/> または <paramref name="end"/> が0以下です</exception>
+            /// <exception cref="ArgumentNullException"><paramref name="clip"/> is <see langword="null"/>.</exception>
+            /// <exception cref="ArgumentOutOfRangeException"><paramref name="start"/> or <paramref name="end"/> is less than 0.</exception>
             public LengthChangeCommand(ClipData clip, int start, int end)
             {
                 this.data = clip ?? throw new ArgumentNullException(nameof(clip));
@@ -454,9 +430,6 @@ namespace BEditor.Core.Data.ObjectData
         }
     }
 
-    /// <summary>
-    /// 標準のクリップの種類
-    /// </summary>
     public static class ClipType
     {
         public static readonly Type Video = typeof(DefaultData.Video);

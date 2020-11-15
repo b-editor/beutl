@@ -1,5 +1,6 @@
 ﻿using System;
 using System.Collections.Generic;
+using System.ComponentModel;
 using System.IO;
 using System.Linq;
 using System.Reflection;
@@ -15,10 +16,11 @@ using BEditor.Core.Renderer;
 
 namespace BEditor.Core.Data
 {
+    //TODO : Componentクラスへの依存を少なくする
     /// <summary>
     /// シングルトンで現在のプロジェクトやステータスなどを取得できるクラスを表します
     /// </summary>
-    public class Component : BasePropertyChanged
+    public class Component : BasePropertyChanged, INotifyPropertyChanged
     {
         private Project project;
         private Status status;

@@ -14,17 +14,18 @@ namespace BEditor.Core.Data.EffectData
     [DataContract(Namespace = "")]
     public class Clipping : ImageEffect
     {
-        public static readonly EasePropertyMetadata TopMetadata = new EasePropertyMetadata(Resources.Top, 0, float.NaN, 0);
-        public static readonly EasePropertyMetadata BottomMetadata = new EasePropertyMetadata(Resources.Bottom, 0, float.NaN, 0);
-        public static readonly EasePropertyMetadata LeftMetadata = new EasePropertyMetadata(Resources.Left, 0, float.NaN, 0);
-        public static readonly EasePropertyMetadata RightMetadata = new EasePropertyMetadata(Resources.Right, 0, float.NaN, 0);
-        public static readonly CheckPropertyMetadata AdjustCoordinatesMetadata = new CheckPropertyMetadata(Resources.Adjust_coordinates);
+        public static readonly EasePropertyMetadata TopMetadata = new(Resources.Top, 0, float.NaN, 0);
+        public static readonly EasePropertyMetadata BottomMetadata = new(Resources.Bottom, 0, float.NaN, 0);
+        public static readonly EasePropertyMetadata LeftMetadata = new(Resources.Left, 0, float.NaN, 0);
+        public static readonly EasePropertyMetadata RightMetadata = new(Resources.Right, 0, float.NaN, 0);
+        public static readonly CheckPropertyMetadata AdjustCoordinatesMetadata = new(Resources.Adjust_coordinates);
 
         #region ImageEffect
 
         public override string Name => Resources.Clipping;
 
-        public override IList<PropertyElement> PropertySettings => new List<PropertyElement> {
+        public override IEnumerable<PropertyElement> Properties => new PropertyElement[]
+        {
             Top,
             Bottom,
             Left,
@@ -32,7 +33,7 @@ namespace BEditor.Core.Data.EffectData
             AdjustCoordinates
         };
 
-        public override void Draw(ref Image source, EffectRenderArgs args)
+        public override void Render(ref Image source, EffectRenderArgs args)
         {
             int top = (int)Top.GetValue(args.Frame);
             int bottom = (int)Bottom.GetValue(args.Frame);
@@ -52,32 +53,32 @@ namespace BEditor.Core.Data.EffectData
 
         public Clipping()
         {
-            Top = new EaseProperty(TopMetadata);
-            Bottom = new EaseProperty(BottomMetadata);
-            Left = new EaseProperty(LeftMetadata);
-            Right = new EaseProperty(RightMetadata);
-            AdjustCoordinates = new CheckProperty(AdjustCoordinatesMetadata);
+            Top = new(TopMetadata);
+            Bottom = new(BottomMetadata);
+            Left = new(LeftMetadata);
+            Right = new(RightMetadata);
+            AdjustCoordinates = new(AdjustCoordinatesMetadata);
         }
 
 
         [DataMember(Order = 0)]
         [PropertyMetadata(nameof(TopMetadata), typeof(Clipping))]
-        public EaseProperty Top { get; set; }
+        public EaseProperty Top { get;private set; }
 
         [DataMember(Order = 1)]
         [PropertyMetadata(nameof(BottomMetadata), typeof(Clipping))]
-        public EaseProperty Bottom { get; set; }
+        public EaseProperty Bottom { get;private set; }
 
         [DataMember(Order = 2)]
         [PropertyMetadata(nameof(LeftMetadata), typeof(Clipping))]
-        public EaseProperty Left { get; set; }
+        public EaseProperty Left { get;private set; }
 
         [DataMember(Order = 3)]
         [PropertyMetadata(nameof(RightMetadata), typeof(Clipping))]
-        public EaseProperty Right { get; set; }
+        public EaseProperty Right { get;private set; }
 
         [DataMember(Order = 4)]
         [PropertyMetadata(nameof(AdjustCoordinatesMetadata), typeof(Clipping))]
-        public CheckProperty AdjustCoordinates { get; set; }
+        public CheckProperty AdjustCoordinates { get;private set; }
     }
 }

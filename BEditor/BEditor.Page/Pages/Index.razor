@@ -31,27 +31,33 @@
 
 
 <div style="display: flex;">
-    <MatButton Raised="true" Style="margin-right: auto; margin-left: auto; padding: 25px;">ダウンロード</MatButton>
+    <MatButton Raised="true" Style="margin-right: auto; margin-left: auto; padding: 25px;" Link="https://github.com/indigo-san/BEditor/releases">ダウンロード</MatButton>
 </div>
 
 
-
-<div class="mat-layout-grid mat-layout-grid-align-left">
+<div class="mat-layout-grid">
     <div class="mat-layout-grid-inner">
-        <div class="mat-layout-grid-cell description-block">
-            <MatIcon Icon="code" Style="font-size: 50px; display: block; text-align: center;"></MatIcon>
-            <h2 class="centertext">@ResourceManager.Current.OpenSource</h2>
-            <div class="description-text">@ResourceManager.Current.OpenSourceDescription</div>
-        </div>
-        <div class="mat-layout-grid-cell description-block">
-            <MatIcon Icon="money_off" Style="font-size: 50px; display: block; text-align: center;"></MatIcon>
-            <h2 class="centertext">@ResourceManager.Current.Free</h2>
-            <div class="description-text">@ResourceManager.Current.FreeDescription</div>
-        </div>
-        <div class="mat-layout-grid-cell description-block">
-            <MatIcon Icon="extension" Style="font-size: 50px; display: block; text-align: center;"></MatIcon>
-            <h2 class="centertext">@ResourceManager.Current.Extension</h2>
-            <div class="description-text">@ResourceManager.Current.ExtensionDescription</div>
+        <div class="mat-layout-grid-cell-span-12">
+
+            <div class="mat-layout-grid mat-layout-grid-align-left">
+                <div class="mat-layout-grid-inner">
+                    <div class="mat-layout-grid-cell description-block">
+                        <MatIcon Icon="code" Style="font-size: 50px; display: block; text-align: center;"></MatIcon>
+                        <h2 class="centertext">@ResourceManager.Current.OpenSource</h2>
+                        <div class="description-text">@ResourceManager.Current.OpenSourceDescription</div>
+                    </div>
+                    <div class="mat-layout-grid-cell description-block">
+                        <MatIcon Icon="money_off" Style="font-size: 50px; display: block; text-align: center;"></MatIcon>
+                        <h2 class="centertext">@ResourceManager.Current.Free</h2>
+                        <div class="description-text">@ResourceManager.Current.FreeDescription</div>
+                    </div>
+                    <div class="mat-layout-grid-cell description-block">
+                        <MatIcon Icon="extension" Style="font-size: 50px; display: block; text-align: center;"></MatIcon>
+                        <h2 class="centertext">@ResourceManager.Current.Extension</h2>
+                        <div class="description-text">@ResourceManager.Current.ExtensionDescription</div>
+                    </div>
+                </div>
+            </div>
         </div>
     </div>
 </div>

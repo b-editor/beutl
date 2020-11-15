@@ -6,7 +6,7 @@ using System.Threading.Tasks;
 
 namespace BEditor.Core.Data
 {
-    public interface IParent<T>
+    public interface IParent<out T>
     {
         /// <summary>
         /// 子要素を取得します
@@ -14,7 +14,7 @@ namespace BEditor.Core.Data
         public IEnumerable<T> Children { get; }
     }
 
-    public interface IChild<T>
+    public interface IChild<out T>
     {
         /// <summary>
         /// 親要素を取得します

@@ -10,7 +10,7 @@ using BEditor.Core.Properties;
 namespace BEditor.Core.Data.ObjectData
 {
     /// <summary>
-    /// オブジェクトのベースクラス
+    /// Represents the base class of the object.
     /// </summary>
     [DataContract(Namespace = "")]
     public abstract class ObjectElement : EffectElement

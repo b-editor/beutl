@@ -5,6 +5,7 @@ using System.Reactive.Disposables;
 using System.Runtime.Serialization;
 using System.Threading.Tasks;
 
+using BEditor.Core.Data.EffectData;
 using BEditor.Core.Data.PropertyData.EasingSetting;
 
 namespace BEditor.Core.Data.PropertyData
@@ -13,11 +14,11 @@ namespace BEditor.Core.Data.PropertyData
     /// ファイルを選択するプロパティを表します
     /// </summary>
     [DataContract(Namespace = "")]
-    public class FileProperty : PropertyElement, IEasingSetting, IObservable<string>, INotifyPropertyChanged, IExtensibleDataObject
+    public class FileProperty : PropertyElement, IEasingSetting, IObservable<string>, IObserver<string>, INotifyPropertyChanged, IExtensibleDataObject, IChild<EffectElement>
     {
         private string file;
         private List<IObserver<string>> list;
-        private List<IObserver<string>> collection => list ??= new List<IObserver<string>>();
+        private List<IObserver<string>> collection => list ??= new();
 
         /// <summary>
         /// <see cref="FileProperty"/> クラスの新しいインスタンスを初期化します
@@ -40,9 +41,8 @@ namespace BEditor.Core.Data.PropertyData
         {
             if (e.PropertyName == nameof(File))
             {
-                Parallel.For(0, collection.Count, i =>
+                foreach (var observer in collection)
                 {
-                    var observer = collection[i];
                     try
                     {
                         observer.OnNext(file);
@@ -52,7 +52,7 @@ namespace BEditor.Core.Data.PropertyData
                     {
                         observer.OnError(ex);
                     }
-                });
+                }
             }
         }
         /// <inheritdoc/>
@@ -61,6 +61,7 @@ namespace BEditor.Core.Data.PropertyData
             collection.Add(observer);
             return Disposable.Create(() => collection.Remove(observer));
         }
+
         /// <inheritdoc/>
         public override void PropertyLoaded()
         {
@@ -69,6 +70,17 @@ namespace BEditor.Core.Data.PropertyData
         }
         /// <inheritdoc/>
         public override string ToString() => $"(File:{File} Name:{PropertyMetadata?.Name})";
+
+        /// <inheritdoc/>
+        public void OnCompleted() { }
+        /// <inheritdoc/>
+        public void OnError(Exception error) { }
+        /// <inheritdoc/>
+        public void OnNext(string value)
+        {
+            if (System.IO.File.Exists(value))
+                File = value;
+        }
 
 
         #region Commands

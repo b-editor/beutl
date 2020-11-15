@@ -6,6 +6,7 @@ using System.Reactive.Disposables;
 using System.Runtime.Serialization;
 using System.Threading.Tasks;
 
+using BEditor.Core.Data.EffectData;
 using BEditor.Core.Media;
 
 namespace BEditor.Core.Data.PropertyData
@@ -14,7 +15,7 @@ namespace BEditor.Core.Data.PropertyData
     /// フォントを選択するプロパティ表します
     /// </summary>
     [DataContract(Namespace = "")]
-    public class FontProperty : PropertyElement, IObservable<FontRecord>, INotifyPropertyChanged, IExtensibleDataObject
+    public class FontProperty : PropertyElement, IObservable<FontRecord>, IObserver<FontRecord>, INotifyPropertyChanged, IExtensibleDataObject, IChild<EffectElement>
     {
         private FontRecord selectItem;
         private List<IObserver<FontRecord>> list;
@@ -42,9 +43,8 @@ namespace BEditor.Core.Data.PropertyData
         {
             if (e.PropertyName == nameof(Select))
             {
-                Parallel.For(0, collection.Count, i =>
+                foreach (var observer in collection)
                 {
-                    var observer = collection[i];
                     try
                     {
                         observer.OnNext(selectItem);
@@ -54,7 +54,7 @@ namespace BEditor.Core.Data.PropertyData
                     {
                         observer.OnError(ex);
                     }
-                });
+                }
             }
         }
         /// <inheritdoc/>
@@ -70,6 +70,16 @@ namespace BEditor.Core.Data.PropertyData
         {
             collection.Add(observer);
             return Disposable.Create(() => collection.Remove(observer));
+        }
+
+        /// <inheritdoc/>
+        public void OnCompleted() { }
+        /// <inheritdoc/>
+        public void OnError(Exception error) { }
+        /// <inheritdoc/>
+        public void OnNext(FontRecord value)
+        {
+            Select = value;
         }
 
 
@@ -121,13 +131,14 @@ namespace BEditor.Core.Data.PropertyData
         /// <summary>
         /// フォントのスタイルのリスト
         /// </summary>
-        public static readonly ReadOnlyCollection<string> FontStylesList = new(new List<string>() {
+        public static readonly string[] FontStylesList = new string[]
+        {
             Properties.Resources.FontStyle_Normal,
             Properties.Resources.FontStyle_Bold,
             Properties.Resources.FontStyle_Italic,
             Properties.Resources.FontStyle_UnderLine,
             Properties.Resources.FontStyle_StrikeThrough
-        });
+        };
 
         #endregion
     }
@@ -147,7 +158,7 @@ namespace BEditor.Core.Data.PropertyData
         /// <summary>
         /// 
         /// </summary>
-        public List<FontRecord> ItemSource => FontProperty.FontList;
+        public IEnumerable<FontRecord> ItemSource => FontProperty.FontList;
         /// <summary>
         /// 
         /// </summary>

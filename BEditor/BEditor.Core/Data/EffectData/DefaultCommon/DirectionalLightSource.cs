@@ -7,6 +7,7 @@ using BEditor.Core.Data.PropertyData.Default;
 using BEditor.Core.Media;
 
 using OpenTK.Graphics.OpenGL;
+using BEditor.Core.Properties;
 
 #if OldOpenTK
 using GLColor = OpenTK.Graphics.Color4;
@@ -23,9 +24,10 @@ namespace BEditor.Core.Data.EffectData.DefaultCommon
 
         #region EffectElement
 
-        public override string Name => Properties.Resources.DirectionalLightSource;
+        public override string Name => Resources.DirectionalLightSource;
 
-        public override IList<PropertyElement> PropertySettings => new List<PropertyElement> {
+        public override IEnumerable<PropertyElement> Properties => new PropertyElement[]
+        {
             X,
             Y,
             Z
@@ -50,21 +52,21 @@ namespace BEditor.Core.Data.EffectData.DefaultCommon
 
         public DirectionalLightSource()
         {
-            X = new EaseProperty(XMetadata);
-            Y = new EaseProperty(YMetadata);
-            Z = new EaseProperty(ZMetadata);
+            X = new(XMetadata);
+            Y = new(YMetadata);
+            Z = new(ZMetadata);
         }
 
         [DataMember(Order = 0)]
-        [PropertyMetadata("XMetadata", typeof(Coordinate))]
-        public EaseProperty X { get; set; }
+        [PropertyMetadata(nameof(XMetadata), typeof(Coordinate))]
+        public EaseProperty X { get; private set; }
 
         [DataMember(Order = 1)]
-        [PropertyMetadata("YMetadata", typeof(Coordinate))]
-        public EaseProperty Y { get; set; }
+        [PropertyMetadata(nameof(YMetadata), typeof(Coordinate))]
+        public EaseProperty Y { get; private set; }
 
         [DataMember(Order = 2)]
-        [PropertyMetadata("ZMetadata", typeof(Coordinate))]
-        public EaseProperty Z { get; set; }
+        [PropertyMetadata(nameof(ZMetadata), typeof(Coordinate))]
+        public EaseProperty Z { get; private set; }
     }
 }

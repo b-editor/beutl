@@ -2,32 +2,34 @@
 using System.Runtime.Serialization;
 
 using BEditor.Core.Data.PropertyData;
+using BEditor.Core.Properties;
 
 namespace BEditor.Core.Data.PropertyData.Default
 {
     [DataContract(Namespace = "")]
     public sealed class Coordinate : ExpandGroup
     {
-        public static readonly EasePropertyMetadata XMetadata = new EasePropertyMetadata(Properties.Resources.X, 0);
-        public static readonly EasePropertyMetadata YMetadata = new EasePropertyMetadata(Properties.Resources.Y, 0);
-        public static readonly EasePropertyMetadata ZMetadata = new EasePropertyMetadata(Properties.Resources.Z, 0);
-        public static readonly EasePropertyMetadata CenterXMetadata = new EasePropertyMetadata(Properties.Resources.CenterX, 0, float.NaN, float.NaN, true);
-        public static readonly EasePropertyMetadata CenterYMetadata = new EasePropertyMetadata(Properties.Resources.CenterY, 0, float.NaN, float.NaN, true);
-        public static readonly EasePropertyMetadata CenterZMetadata = new EasePropertyMetadata(Properties.Resources.CenterZ, 0, float.NaN, float.NaN, true);
+        public static readonly EasePropertyMetadata XMetadata = new(Resources.X, 0);
+        public static readonly EasePropertyMetadata YMetadata = new(Resources.Y, 0);
+        public static readonly EasePropertyMetadata ZMetadata = new(Resources.Z, 0);
+        public static readonly EasePropertyMetadata CenterXMetadata = new(Resources.CenterX, 0, float.NaN, float.NaN, true);
+        public static readonly EasePropertyMetadata CenterYMetadata = new(Resources.CenterY, 0, float.NaN, float.NaN, true);
+        public static readonly EasePropertyMetadata CenterZMetadata = new(Resources.CenterZ, 0, float.NaN, float.NaN, true);
 
         public Coordinate(PropertyElementMetadata constant) : base(constant)
         {
-            X = new EaseProperty(XMetadata);
-            Y = new EaseProperty(YMetadata);
-            Z = new EaseProperty(ZMetadata);
-            CenterX = new EaseProperty(CenterXMetadata);
-            CenterY = new EaseProperty(CenterYMetadata);
-            CenterZ = new EaseProperty(CenterZMetadata);
+            X = new(XMetadata);
+            Y = new(YMetadata);
+            Z = new(ZMetadata);
+            CenterX = new(CenterXMetadata);
+            CenterY = new(CenterYMetadata);
+            CenterZ = new(CenterZMetadata);
         }
 
 
         #region ExpandGroup
-        public override IList<PropertyElement> GroupItems => new List<PropertyElement>() {
+        public override IEnumerable<PropertyElement> Properties => new PropertyElement[]
+        {
             X,
             Y,
             Z,
@@ -40,28 +42,28 @@ namespace BEditor.Core.Data.PropertyData.Default
 
 
         [DataMember(Order = 0)]
-        [PropertyMetadata("XMetadata", typeof(Coordinate))]
-        public EaseProperty X { get; set; }
+        [PropertyMetadata(nameof(XMetadata), typeof(Coordinate))]
+        public EaseProperty X { get; private set; }
 
         [DataMember(Order = 1)]
-        [PropertyMetadata("YMetadata", typeof(Coordinate))]
-        public EaseProperty Y { get; set; }
+        [PropertyMetadata(nameof(YMetadata), typeof(Coordinate))]
+        public EaseProperty Y { get; private set; }
 
         [DataMember(Order = 2)]
-        [PropertyMetadata("ZMetadata", typeof(Coordinate))]
-        public EaseProperty Z { get; set; }
+        [PropertyMetadata(nameof(ZMetadata), typeof(Coordinate))]
+        public EaseProperty Z { get; private set; }
 
         [DataMember(Order = 3)]
-        [PropertyMetadata("CenterXMetadata", typeof(Coordinate))]
-        public EaseProperty CenterX { get; set; }
+        [PropertyMetadata(nameof(CenterXMetadata), typeof(Coordinate))]
+        public EaseProperty CenterX { get; private set; }
 
         [DataMember(Order = 4)]
-        [PropertyMetadata("CenterYMetadata", typeof(Coordinate))]
-        public EaseProperty CenterY { get; set; }
+        [PropertyMetadata(nameof(CenterYMetadata), typeof(Coordinate))]
+        public EaseProperty CenterY { get; private set; }
 
         [DataMember(Order = 5)]
-        [PropertyMetadata("CenterZMetadata", typeof(Coordinate))]
-        public EaseProperty CenterZ { get; set; }
+        [PropertyMetadata(nameof(CenterZMetadata), typeof(Coordinate))]
+        public EaseProperty CenterZ { get; private set; }
 
         public void ResetOptional()
         {

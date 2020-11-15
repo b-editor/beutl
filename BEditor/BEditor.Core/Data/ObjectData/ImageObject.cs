@@ -17,18 +17,19 @@ namespace BEditor.Core.Data.ObjectData
     [DataContract(Namespace = "")]
     public class ImageObject : ObjectElement
     {
-        public static readonly PropertyElementMetadata CoordinateMetadata = new PropertyElementMetadata(Resources.Coordinate);
-        public static readonly PropertyElementMetadata ZoomMetadata = new PropertyElementMetadata(Resources.Zoom);
-        public static readonly PropertyElementMetadata BlendMetadata = new PropertyElementMetadata(Resources.Blend);
-        public static readonly PropertyElementMetadata AngleMetadata = new PropertyElementMetadata(Resources.Angle);
-        public static readonly PropertyElementMetadata MaterialMetadata = new PropertyElementMetadata(Resources.Material);
+        public static readonly PropertyElementMetadata CoordinateMetadata = new(Resources.Coordinate);
+        public static readonly PropertyElementMetadata ZoomMetadata = new(Resources.Zoom);
+        public static readonly PropertyElementMetadata BlendMetadata = new(Resources.Blend);
+        public static readonly PropertyElementMetadata AngleMetadata = new(Resources.Angle);
+        public static readonly PropertyElementMetadata MaterialMetadata = new(Resources.Material);
 
 
         #region ObjectElement
 
         public override string Name => Resources.TypeOfDraw;
 
-        public override IList<PropertyElement> PropertySettings => new List<PropertyElement>() {
+        public override IEnumerable<PropertyElement> Properties => new PropertyElement[]
+        {
             Coordinate,
             Zoom,
             Blend,
@@ -43,7 +44,7 @@ namespace BEditor.Core.Data.ObjectData
 
         public override void Render(EffectRenderArgs args)
         {
-            Image base_img = Custom.Load(args);
+            Image base_img = Custom.Render(args);
 
             if (base_img == null)
             {
@@ -57,7 +58,7 @@ namespace BEditor.Core.Data.ObjectData
 
                 if (effect is ImageEffect imageEffect)
                 {
-                    imageEffect.Draw(ref base_img, args);
+                    imageEffect.Render(ref base_img, args);
                 }
                 effect.Render(args);
 
@@ -83,11 +84,11 @@ namespace BEditor.Core.Data.ObjectData
 
         public ImageObject()
         {
-            Coordinate = new Coordinate(CoordinateMetadata);
-            Zoom = new Zoom(ZoomMetadata);
-            Blend = new Blend(BlendMetadata);
-            Angle = new Angle(AngleMetadata);
-            Material = new Material(MaterialMetadata);
+            Coordinate = new(CoordinateMetadata);
+            Zoom = new(ZoomMetadata);
+            Blend = new(BlendMetadata);
+            Angle = new(AngleMetadata);
+            Material = new(MaterialMetadata);
         }
 
         //TODO : .NET5のソースジェネレーターを使う

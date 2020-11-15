@@ -3,13 +3,16 @@ using System.Collections.ObjectModel;
 using System.ComponentModel;
 using System.Runtime.Serialization;
 
+using BEditor.Core.Data.EffectData;
+
 namespace BEditor.Core.Data.PropertyData
 {
+    //TODO : ColorPropertyにIObserver, IObserbleを実装
     /// <summary>
     /// 色を選択するプロパティを表します
     /// </summary>
     [DataContract(Namespace = "")]
-    public class ColorProperty : PropertyElement
+    public class ColorProperty : PropertyElement, INotifyPropertyChanged, IExtensibleDataObject, IChild<EffectElement>
     {
         private byte r;
         private byte g;
@@ -53,7 +56,7 @@ namespace BEditor.Core.Data.PropertyData
         [DataMember]
         public byte Alpha { get => a; set => SetValue(value, ref a, nameof(Alpha)); }
 
-        public static implicit operator Media.Color(ColorProperty val) => new Media.Color(val.Red, val.Green, val.Blue, val.Alpha);
+        public static implicit operator Media.Color(ColorProperty val) => new(val.Red, val.Green, val.Blue, val.Alpha);
         /// <inheritdoc/>
         public override string ToString() => $"(R:{Red} G:{Green} B:{Blue} A:{Alpha} Name:{PropertyMetadata?.Name})";
 

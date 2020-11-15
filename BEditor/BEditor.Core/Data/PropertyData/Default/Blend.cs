@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.Runtime.Serialization;
 
 using BEditor.Core.Data.PropertyData;
+using BEditor.Core.Properties;
 
 using OpenTK;
 using OpenTK.Graphics;
@@ -13,11 +14,11 @@ namespace BEditor.Core.Data.PropertyData.Default
     [DataContract(Namespace = "")]
     public sealed class Blend : ExpandGroup
     {
-        public static readonly EasePropertyMetadata AlphaMetadata = new EasePropertyMetadata(Properties.Resources.Alpha, 100, 100, 0);
-        public static readonly ColorAnimationPropertyMetadata ColorMetadata = new ColorAnimationPropertyMetadata(Properties.Resources.Color, 255, 255, 255, 255, false);
-        public static readonly SelectorPropertyMetadata BlendTypeMetadata = new SelectorPropertyMetadata(Properties.Resources.Blend, new string[4] { "通常", "加算", "減算", "乗算" });
+        public static readonly EasePropertyMetadata AlphaMetadata = new(Resources.Alpha, 100, 100, 0);
+        public static readonly ColorAnimationPropertyMetadata ColorMetadata = new(Resources.Color, 255, 255, 255, 255, false);
+        public static readonly SelectorPropertyMetadata BlendTypeMetadata = new(Resources.Blend, new string[4] { "通常", "加算", "減算", "乗算" });
 
-        public static readonly List<Action> BlentFunc = new List<Action> {
+        public static readonly Action[] BlentFunc = new Action[] {
                 () => {
                     GL.BlendEquationSeparate(BlendEquationMode.FuncAdd, BlendEquationMode.FuncAdd);
                     GL.BlendFunc(BlendingFactor.SrcAlpha, BlendingFactor.OneMinusSrcAlpha);
@@ -38,15 +39,16 @@ namespace BEditor.Core.Data.PropertyData.Default
 
         public Blend(PropertyElementMetadata constant) : base(constant)
         {
-            Alpha = new EaseProperty(AlphaMetadata);
+            Alpha = new(AlphaMetadata);
             BlendType = new(BlendTypeMetadata);
-            Color = new ColorAnimationProperty(ColorMetadata);
+            Color = new(ColorMetadata);
         }
 
 
         #region ExpandGroup
 
-        public override IList<PropertyElement> GroupItems => new List<PropertyElement>() {
+        public override IEnumerable<PropertyElement> Properties => new PropertyElement[]
+        {
             Alpha,
             Color,
             BlendType
@@ -56,15 +58,15 @@ namespace BEditor.Core.Data.PropertyData.Default
 
 
         [DataMember(Order = 0)]
-        [PropertyMetadata("AlphaMetadata", typeof(Blend))]
-        public EaseProperty Alpha { get; set; }
+        [PropertyMetadata(nameof(AlphaMetadata), typeof(Blend))]
+        public EaseProperty Alpha { get; private set; }
 
         [DataMember(Order = 1)]
-        [PropertyMetadata("ColorMetadata", typeof(Blend))]
-        public ColorAnimationProperty Color { get; set; }
+        [PropertyMetadata(nameof(ColorMetadata), typeof(Blend))]
+        public ColorAnimationProperty Color { get; private set; }
 
         [DataMember(Order = 2)]
-        [PropertyMetadata("BlendTypeMetadata", typeof(Blend))]
-        public SelectorProperty BlendType { get; set; }
+        [PropertyMetadata(nameof(BlendTypeMetadata), typeof(Blend))]
+        public SelectorProperty BlendType { get; private set; }
     }
 }

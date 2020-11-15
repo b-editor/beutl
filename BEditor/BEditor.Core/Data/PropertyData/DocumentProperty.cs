@@ -5,17 +5,19 @@ using System.Reactive.Disposables;
 using System.Runtime.Serialization;
 using System.Threading.Tasks;
 
+using BEditor.Core.Data.EffectData;
+
 namespace BEditor.Core.Data.PropertyData
 {
     /// <summary>
     /// 複数行の文字のプロパティを表します
     /// </summary>
     [DataContract(Namespace = "")]
-    public class DocumentProperty : PropertyElement, IObservable<string>
+    public class DocumentProperty : PropertyElement, IObservable<string>, IObserver<string>, INotifyPropertyChanged, IExtensibleDataObject, IChild<EffectElement>
     {
         private string textProperty;
         private List<IObserver<string>> list;
-        private List<IObserver<string>> collection => list ??= new List<IObserver<string>>();
+        private List<IObserver<string>> collection => list ??= new();
 
         /// <summary>
         /// <see cref="DocumentProperty"/> クラスの新しいインスタンスを初期化します
@@ -46,9 +48,8 @@ namespace BEditor.Core.Data.PropertyData
         {
             if (e.PropertyName == nameof(Text))
             {
-                Parallel.For(0, collection.Count, i =>
+                foreach (var observer in collection)
                 {
-                    var observer = collection[i];
                     try
                     {
                         observer.OnNext(textProperty);
@@ -58,7 +59,7 @@ namespace BEditor.Core.Data.PropertyData
                     {
                         observer.OnError(ex);
                     }
-                });
+                }
             }
         }
         /// <inheritdoc/>
@@ -67,6 +68,18 @@ namespace BEditor.Core.Data.PropertyData
             collection.Add(observer);
             return Disposable.Create(() => collection.Remove(observer));
         }
+
+        #region Ibserver
+
+        public void OnCompleted() { }
+        public void OnError(Exception error) { }
+        public void OnNext(string value)
+        {
+            Text = value;
+        }
+
+        #endregion
+
         /// <inheritdoc/>
         public override void PropertyLoaded()
         {

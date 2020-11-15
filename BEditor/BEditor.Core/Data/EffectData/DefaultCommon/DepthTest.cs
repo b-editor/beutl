@@ -6,6 +6,7 @@ using System.Text;
 
 using BEditor.Core.Data.ProjectData;
 using BEditor.Core.Data.PropertyData;
+using BEditor.Core.Properties;
 
 using OpenTK.Graphics.OpenGL;
 
@@ -14,8 +15,9 @@ namespace BEditor.Core.Data.EffectData.DefaultCommon
     [DataContract(Namespace = "")]
     public class DepthTest : EffectElement
     {
-        public static readonly CheckPropertyMetadata EnabledMetadata = new CheckPropertyMetadata(Properties.Resources.DepthTestEneble, true);
-        public static readonly SelectorPropertyMetadata FunctionMetadata = new SelectorPropertyMetadata(Properties.Resources.DepthFunction, new string[] {
+        public static readonly CheckPropertyMetadata EnabledMetadata = new(Resources.DepthTestEneble, true);
+        public static readonly SelectorPropertyMetadata FunctionMetadata = new(Resources.DepthFunction, new string[]
+        {
                 "Never",
                 "Less",
                 "Equal",
@@ -24,14 +26,15 @@ namespace BEditor.Core.Data.EffectData.DefaultCommon
                 "Notequal",
                 "Gequal",
                 "Always"
-            });//初期値はless
-        public static readonly CheckPropertyMetadata MaskMetadata = new CheckPropertyMetadata("Mask", true);
-        public static readonly EasePropertyMetadata NearMetadata = new EasePropertyMetadata("Near", 0, 100, 0);
-        public static readonly EasePropertyMetadata FarMetadata = new EasePropertyMetadata("Far", 100, 100, 0);
+        });//初期値はless
+        public static readonly CheckPropertyMetadata MaskMetadata = new("Mask", true);
+        public static readonly EasePropertyMetadata NearMetadata = new("Near", 0, 100, 0);
+        public static readonly EasePropertyMetadata FarMetadata = new("Far", 100, 100, 0);
 
         #region Function用
 
-        static readonly ReadOnlyCollection<DepthFunction> DepthFunctions = new ReadOnlyCollection<DepthFunction>(new DepthFunction[] {
+        static readonly ReadOnlyCollection<DepthFunction> DepthFunctions = new ReadOnlyCollection<DepthFunction>(new DepthFunction[]
+        {
             DepthFunction.Never,
             DepthFunction.Less,
             DepthFunction.Equal,
@@ -48,19 +51,20 @@ namespace BEditor.Core.Data.EffectData.DefaultCommon
 
         public DepthTest()
         {
-            Enabled = new CheckProperty(EnabledMetadata);
-            Function = new SelectorProperty(FunctionMetadata);
-            Mask = new CheckProperty(MaskMetadata);
-            Near = new EaseProperty(NearMetadata);
-            Far = new EaseProperty(FarMetadata);
+            Enabled = new(EnabledMetadata);
+            Function = new(FunctionMetadata);
+            Mask = new(MaskMetadata);
+            Near = new(NearMetadata);
+            Far = new(FarMetadata);
         }
 
         #endregion
 
         #region CommonEffect
-        public override string Name => Properties.Resources.DepthTest;
+        public override string Name => Resources.DepthTest;
 
-        public override IList<PropertyElement> PropertySettings => new List<PropertyElement> {
+        public override IEnumerable<PropertyElement> Properties => new PropertyElement[]
+        {
             Enabled,
             Function,
             Mask,
@@ -84,23 +88,23 @@ namespace BEditor.Core.Data.EffectData.DefaultCommon
 
 
         [DataMember(Order = 0)]
-        [PropertyMetadata("EnabledMetadata", typeof(DepthTest))]
-        public CheckProperty Enabled { get; set; }
+        [PropertyMetadata(nameof(EnabledMetadata), typeof(DepthTest))]
+        public CheckProperty Enabled { get; private set; }
 
         [DataMember(Order = 1)]
-        [PropertyMetadata("FunctionMetadata", typeof(DepthTest))]
-        public SelectorProperty Function { get; set; }
+        [PropertyMetadata(nameof(FunctionMetadata), typeof(DepthTest))]
+        public SelectorProperty Function { get; private set; }
 
         [DataMember(Order = 2)]
-        [PropertyMetadata("MaskMetadata", typeof(DepthTest))]
-        public CheckProperty Mask { get; set; }
+        [PropertyMetadata(nameof(MaskMetadata), typeof(DepthTest))]
+        public CheckProperty Mask { get; private set; }
 
         [DataMember(Order = 3)]
-        [PropertyMetadata("NearMetadata", typeof(DepthTest))]
-        public EaseProperty Near { get; set; }
+        [PropertyMetadata(nameof(NearMetadata), typeof(DepthTest))]
+        public EaseProperty Near { get; private set; }
 
         [DataMember(Order = 4)]
-        [PropertyMetadata("FarMetadata", typeof(DepthTest))]
-        public EaseProperty Far { get; set; }
+        [PropertyMetadata(nameof(FarMetadata), typeof(DepthTest))]
+        public EaseProperty Far { get; private set; }
     }
 }

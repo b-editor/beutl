@@ -492,8 +492,8 @@ namespace BEditor.ViewModels.TimeLines
                 ClipData data = ClipSelect;
 
                 UndoRedoManager.Do(new ClipData.MoveCommand(clip: data,
-                                                     to: ToFrame(data.GetCreateClipViewModel().MarginLeftProperty),
-                                                     tolayer: ClipSelect.GetCreateClipViewModel().Row));
+                                                     toFrame: ToFrame(data.GetCreateClipViewModel().MarginLeftProperty),
+                                                     toLayer: ClipSelect.GetCreateClipViewModel().Row));
 
                 ClipTimeChange = false;
             }

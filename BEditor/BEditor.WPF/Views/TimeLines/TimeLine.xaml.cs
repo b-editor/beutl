@@ -231,7 +231,7 @@ namespace BEditor.Views.TimeLines
                 }
                 else if (e.Action == System.Collections.Specialized.NotifyCollectionChangedAction.Remove)
                 {
-                    ClipData info = (ClipData)e.OldItems[e.OldStartingIndex];
+                    ClipData info = (ClipData)e.OldItems[0];
 
                     var ui = info.GetCreateClipView();
                     (ui.Parent as Grid)?.Children?.Remove(ui);

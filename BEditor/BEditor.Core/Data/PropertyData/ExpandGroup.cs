@@ -5,6 +5,7 @@ using System.Reactive.Disposables;
 using System.Runtime.Serialization;
 using System.Threading.Tasks;
 
+using BEditor.Core.Data.EffectData;
 using BEditor.Core.Data.PropertyData.EasingSetting;
 
 namespace BEditor.Core.Data.PropertyData
@@ -13,11 +14,11 @@ namespace BEditor.Core.Data.PropertyData
     /// 複数の <see cref="PropertyElement"/> をエクスパンダーでまとめるクラス
     /// </summary>
     [DataContract(Namespace = "")]
-    public abstract class ExpandGroup : Group, IEasingSetting, IObservable<bool>, INotifyPropertyChanged, IExtensibleDataObject
+    public abstract class ExpandGroup : Group, IEasingSetting, IObservable<bool>, IObserver<bool>, INotifyPropertyChanged, IExtensibleDataObject, IChild<EffectElement>, IParent<PropertyElement>
     {
         private bool isOpen;
         private List<IObserver<bool>> list;
-        private List<IObserver<bool>> collection => list ??= new List<IObserver<bool>>();
+        private List<IObserver<bool>> collection => list ??= new();
 
         /// <summary>
         /// エクスパンダーが開いているかを取得または設定します
@@ -67,6 +68,16 @@ namespace BEditor.Core.Data.PropertyData
         {
             collection.Add(observer);
             return Disposable.Create(() => collection.Remove(observer));
+        }
+
+        /// <inheritdoc/>
+        public void OnCompleted() { }
+        /// <inheritdoc/>
+        public void OnError(Exception error) { }
+        /// <inheritdoc/>
+        public void OnNext(bool value)
+        {
+            IsExpanded = value;
         }
     }
 }

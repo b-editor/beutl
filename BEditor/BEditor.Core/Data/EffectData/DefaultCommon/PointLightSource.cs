@@ -19,16 +19,17 @@ namespace BEditor.Core.Data.EffectData.DefaultCommon
 {
     public class PointLightSource : EffectElement
     {
-        public static readonly EasePropertyMetadata ConstantAttenuationMetadata = new EasePropertyMetadata("ConstantAttenuation", 100, float.NaN, 1);
-        public static readonly EasePropertyMetadata LinearAttenuationMetadata = new EasePropertyMetadata("LinearAttenuation", 0, 100, 0);
-        public static readonly EasePropertyMetadata QuadraticAttenuationMetadata = new EasePropertyMetadata("QuadraticAttenuation", 0, 100, 0);
+        public static readonly EasePropertyMetadata ConstantAttenuationMetadata = new("ConstantAttenuation", 100, float.NaN, 1);
+        public static readonly EasePropertyMetadata LinearAttenuationMetadata = new("LinearAttenuation", 0, 100, 0);
+        public static readonly EasePropertyMetadata QuadraticAttenuationMetadata = new("QuadraticAttenuation", 0, 100, 0);
 
 
         #region EffectElement
 
-        public override string Name => Properties.Resources.PointLightSource;
+        public override string Name => Core.Properties.Resources.PointLightSource;
 
-        public override IList<PropertyElement> PropertySettings => new List<PropertyElement> {
+        public override IEnumerable<PropertyElement> Properties => new PropertyElement[]
+        {
             X,
             Y,
             Z,
@@ -61,37 +62,37 @@ namespace BEditor.Core.Data.EffectData.DefaultCommon
 
         public PointLightSource()
         {
-            X = new EaseProperty(XMetadata);
-            Y = new EaseProperty(YMetadata);
-            Z = new EaseProperty(ZMetadata);
-            ConstantAttenuation = new EaseProperty(ConstantAttenuationMetadata);
-            LinearAttenuation = new EaseProperty(LinearAttenuationMetadata);
-            QuadraticAttenuation = new EaseProperty(QuadraticAttenuationMetadata);
+            X = new(XMetadata);
+            Y = new(YMetadata);
+            Z = new(ZMetadata);
+            ConstantAttenuation = new(ConstantAttenuationMetadata);
+            LinearAttenuation = new(LinearAttenuationMetadata);
+            QuadraticAttenuation = new(QuadraticAttenuationMetadata);
         }
 
 
         [DataMember(Order = 0)]
-        [PropertyMetadata("XMetadata", typeof(Coordinate))]
-        public EaseProperty X { get; set; }
+        [PropertyMetadata(nameof(XMetadata), typeof(Coordinate))]
+        public EaseProperty X { get; private set; }
 
         [DataMember(Order = 1)]
-        [PropertyMetadata("YMetadata", typeof(Coordinate))]
-        public EaseProperty Y { get; set; }
+        [PropertyMetadata(nameof(YMetadata), typeof(Coordinate))]
+        public EaseProperty Y { get; private set; }
 
         [DataMember(Order = 2)]
-        [PropertyMetadata("ZMetadata", typeof(Coordinate))]
-        public EaseProperty Z { get; set; }
+        [PropertyMetadata(nameof(ZMetadata), typeof(Coordinate))]
+        public EaseProperty Z { get; private set; }
 
         [DataMember(Order = 3)]
-        [PropertyMetadata("ConstantAttenuationMetadata", typeof(PointLightSource))]
-        public EaseProperty ConstantAttenuation { get; set; }
+        [PropertyMetadata(nameof(ConstantAttenuationMetadata), typeof(PointLightSource))]
+        public EaseProperty ConstantAttenuation { get; private set; }
 
         [DataMember(Order = 4)]
-        [PropertyMetadata("LinearAttenuationMetadata", typeof(PointLightSource))]
-        public EaseProperty LinearAttenuation { get; set; }
+        [PropertyMetadata(nameof(LinearAttenuationMetadata), typeof(PointLightSource))]
+        public EaseProperty LinearAttenuation { get; private set; }
 
         [DataMember(Order = 5)]
-        [PropertyMetadata("QuadraticAttenuationMetadata", typeof(PointLightSource))]
-        public EaseProperty QuadraticAttenuation { get; set; }
+        [PropertyMetadata(nameof(QuadraticAttenuationMetadata), typeof(PointLightSource))]
+        public EaseProperty QuadraticAttenuation { get; private set; }
     }
 }

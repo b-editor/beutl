@@ -23,28 +23,17 @@ namespace OpenTKTest
         const int FB_WIDTH = 500, FB_HEIGHT = 500;
         private const string LibraryName = "glfw3.dll";
 
-        [DllImport(LibraryName)]
-        public static extern int glfwInit();
-
-        [DllImport(LibraryName)]
-        public static extern OpenTK.Windowing.GraphicsLibraryFramework.Window* glfwCreateWindow(int width, int height, byte* title, Monitor* monitor, OpenTK.Windowing.GraphicsLibraryFramework.Window* share);
-
-        [DllImport(LibraryName)]
-        public static extern void glfwWindowHint(WindowHintBool hint, int value);
-
-        [DllImport(LibraryName)]
-        public static extern void glfwMakeContextCurrent(OpenTK.Windowing.GraphicsLibraryFramework.Window* window);
-
         static void Main(string[] args)
         {
-            using (GameWindow aa = new GameWindow(GameWindowSettings.Default, NativeWindowSettings.Default)) ;
-
-            glfwInit();
-            glfwWindowHint(WindowHintBool.Visible, 0);
-
-            var window = glfwCreateWindow(width, height, UTF8Encode("aaa"), null, null);
-            glfwMakeContextCurrent(window);
-
+            //GameWindow aa = new GameWindow(GameWindowSettings.Default, new NativeWindowSettings()
+            //{
+            //    Flags = OpenTK.Windowing.Common.ContextFlags.Offscreen,
+            //    API = OpenTK.Windowing.Common.ContextAPI.OpenGL,
+            //    Size = new Vector2i(width, height)
+            //});
+            //aa.MakeCurrent();
+            
+            GL.LoadBindings(new GLFWBindingsContext());
 
             #region Renderbuffer
 
@@ -78,13 +67,14 @@ namespace OpenTKTest
 
             GL.Viewport(0, 0, width, height);
             GL.MatrixMode(MatrixMode.Projection);
-            Matrix4 projection = Matrix4.CreatePerspectiveFieldOfView((float)Math.PI / 4, width / height, 1.0f, 64.0f);
+            //Matrix4 projection = Matrix4.CreatePerspectiveFieldOfView((float)Math.PI / 4, width / height, 1.0f, 64.0f);
+            var projection = Matrix4.CreateOrthographic(width, height, 1.0f, 64.0f);
             GL.LoadMatrix(ref projection);
 
             GL.Clear(ClearBufferMask.ColorBufferBit | ClearBufferMask.DepthBufferBit);
 
             GL.MatrixMode(MatrixMode.Modelview);
-            Matrix4 modelview = Matrix4.LookAt(Vector3.Zero, Vector3.UnitZ, Vector3.UnitY);
+            Matrix4 modelview = Matrix4.LookAt(new Vector3(0, 0, 1024), Vector3.Zero, Vector3.UnitY);
             GL.LoadMatrix(ref modelview);
 
             GL.Begin(PrimitiveType.Quads);
@@ -92,13 +82,13 @@ namespace OpenTKTest
                 GL.Color4(Color4.White);                            //色名で指定
                 GL.Vertex3(-10f, 10f, 40f);
 
-                GL.Color4(new float[] { 1.0f, 0.0f, 0.0f, 1.0f });  //配列で指定
+                //GL.Color4(new float[] { 1.0f, 0.0f, 0.0f, 1.0f });  //配列で指定
                 GL.Vertex3(-10f, -10f, 40f);
 
-                GL.Color4(0.0f, 1.0f, 0.0f, 1.0f);                  //4つの引数にfloat型で指定
+                //GL.Color4(0.0f, 1.0f, 0.0f, 1.0f);                  //4つの引数にfloat型で指定
                 GL.Vertex3(10f, -10f, 40f);
 
-                GL.Color4((byte)0, (byte)0, (byte)255, (byte)255);  //byte型で指定
+                //GL.Color4((byte)0, (byte)0, (byte)255, (byte)255);  //byte型で指定
                 GL.Vertex3(10f, 10f, 40f);
             }
             GL.End();
@@ -108,7 +98,7 @@ namespace OpenTKTest
             Mat mat = new Mat(height, width, MatType.CV_8UC4);
             GL.ReadPixels(0, 0, width, height, PixelFormat.Bgra, PixelType.UnsignedByte, mat.Data);
 
-            mat.SaveImage(@"E:\yuuto\OneDrive\画像\Test.png");
+            mat.SaveImage("Test.png");
         }
 
 

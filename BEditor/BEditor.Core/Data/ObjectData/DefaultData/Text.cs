@@ -14,22 +14,22 @@ namespace BEditor.Core.Data.ObjectData
         [DataContract(Namespace = "")]
         public class Text : DefaultImageObject
         {
-            public static readonly EasePropertyMetadata SizeMetadata = new EasePropertyMetadata(Properties.Resources.Size, 100, float.NaN, 0);
-            public static readonly ColorPropertyMetadata ColorMetadata = new ColorPropertyMetadata(Properties.Resources.Color, 255, 255, 255);
-            public static readonly PropertyElementMetadata FontMetadata = new PropertyElementMetadata(Properties.Resources.DetailedSettings);
-            public static readonly DocumentPropertyMetadata DocumentMetadata = new DocumentPropertyMetadata("");
+            public static readonly EasePropertyMetadata SizeMetadata = new(Core.Properties.Resources.Size, 100, float.NaN, 0);
+            public static readonly ColorPropertyMetadata ColorMetadata = new(Core.Properties.Resources.Color, 255, 255, 255);
+            public static readonly PropertyElementMetadata FontMetadata = new(Core.Properties.Resources.DetailedSettings);
+            public static readonly DocumentPropertyMetadata DocumentMetadata = new("");
 
             public Text()
             {
-                Size = new EaseProperty(SizeMetadata);
-                Color = new ColorProperty(ColorMetadata);
-                Font = new FontProperty(FontMetadata);
-                Document = new DocumentProperty(DocumentMetadata);
+                Size = new(SizeMetadata);
+                Color = new(ColorMetadata);
+                Font = new(FontMetadata);
+                Document = new(DocumentMetadata);
             }
 
 
             #region DefaultImageObjectメンバー
-            public override Media.Image Load(EffectRenderArgs args) => Media.Image.Text(
+            public override Media.Image Render(EffectRenderArgs args) => Media.Image.Text(
                 (int)Size.GetValue(args.Frame),
                 Color,
                 Document.Text,
@@ -37,7 +37,8 @@ namespace BEditor.Core.Data.ObjectData
                 (string)Font.Style.SelectItem,
                 Font.RightToLeft.IsChecked);
 
-            public override IList<PropertyElement> GroupItems => new List<PropertyElement>() {
+            public override IEnumerable<PropertyElement> Properties => new PropertyElement[]
+            {
                 Size,
                 Color,
                 Document,
@@ -68,10 +69,10 @@ namespace BEditor.Core.Data.ObjectData
             [DataContract(Namespace = "")]
             public class FontProperty : ExpandGroup
             {
-                public static readonly FontPropertyMetadata FontMetadata = new FontPropertyMetadata();
-                public static readonly SelectorPropertyMetadata FontStyleMetadata = new SelectorPropertyMetadata(Properties.Resources.FontStyles,
+                public static readonly FontPropertyMetadata FontMetadata = new();
+                public static readonly SelectorPropertyMetadata FontStyleMetadata = new(Core.Properties.Resources.FontStyles,
                                                                                                           PropertyData.FontProperty.FontStylesList);
-                public static readonly CheckPropertyMetadata RightToLeftMetadata = new CheckPropertyMetadata("RightToLeft", false);
+                public static readonly CheckPropertyMetadata RightToLeftMetadata = new("RightToLeft", false);
 
                 #region コンストラクタ
                 public FontProperty(PropertyElementMetadata constant) : base(constant)
@@ -83,7 +84,8 @@ namespace BEditor.Core.Data.ObjectData
                 #endregion
 
                 #region WrapGroup
-                public override IList<PropertyElement> GroupItems => new List<PropertyElement>() {
+                public override IEnumerable<PropertyElement> Properties => new PropertyElement[]
+                {
                     Font,
                     Style,
                     RightToLeft
@@ -94,15 +96,15 @@ namespace BEditor.Core.Data.ObjectData
 
                 [DataMember(Order = 0)]
                 [PropertyMetadata(nameof(FontMetadata), typeof(FontProperty))]
-                public PropertyData.FontProperty Font { get; set; }
+                public PropertyData.FontProperty Font { get; private set; }
 
                 [DataMember(Order = 1)]
                 [PropertyMetadata(nameof(FontStyleMetadata), typeof(FontProperty))]
-                public SelectorProperty Style { get; set; }
+                public SelectorProperty Style { get; private set; }
 
                 [DataMember(Order = 2)]
                 [PropertyMetadata(nameof(RightToLeftMetadata), typeof(FontProperty))]
-                public CheckProperty RightToLeft { get; set; }
+                public CheckProperty RightToLeft { get; private set; }
             }
         }
     }

@@ -5,6 +5,7 @@ using System.Reactive.Disposables;
 using System.Runtime.Serialization;
 using System.Threading.Tasks;
 
+using BEditor.Core.Data.EffectData;
 using BEditor.Core.Data.PropertyData.EasingSetting;
 
 namespace BEditor.Core.Data.PropertyData
@@ -13,11 +14,11 @@ namespace BEditor.Core.Data.PropertyData
     /// チェックボックスのプロパティを表します
     /// </summary>
     [DataContract(Namespace = "")]
-    public class CheckProperty : PropertyElement, IEasingSetting, IObservable<bool>
+    public class CheckProperty : PropertyElement, IEasingSetting, IObservable<bool>, IObserver<bool>, INotifyPropertyChanged, IExtensibleDataObject, IChild<EffectElement>
     {
         private bool isChecked;
         private List<IObserver<bool>> list;
-        private List<IObserver<bool>> collection => list ??= new List<IObserver<bool>>();
+        private List<IObserver<bool>> collection => list ??= new();
 
         /// <summary>
         /// <see cref="CheckProperty"/> クラスの新しいインスタンスを初期化します
@@ -42,9 +43,8 @@ namespace BEditor.Core.Data.PropertyData
         {
             if (e.PropertyName == nameof(IsChecked))
             {
-                Parallel.For(0, collection.Count, i =>
+                foreach (var observer in collection)
                 {
-                    var observer = collection[i];
                     try
                     {
                         observer.OnNext(isChecked);
@@ -54,7 +54,7 @@ namespace BEditor.Core.Data.PropertyData
                     {
                         observer.OnError(ex);
                     }
-                });
+                }
             }
         }
         /// <inheritdoc/>
@@ -63,6 +63,21 @@ namespace BEditor.Core.Data.PropertyData
             collection.Add(observer);
             return Disposable.Create(() => collection.Remove(observer));
         }
+
+        #region IObserver
+
+        /// <inheritdoc/>
+        public void OnCompleted() { }
+        /// <inheritdoc/>
+        public void OnError(Exception error) { }
+        /// <inheritdoc/>
+        public void OnNext(bool value)
+        {
+            IsChecked = value;
+        }
+
+        #endregion
+
         /// <inheritdoc/>
         public override void PropertyLoaded()
         {

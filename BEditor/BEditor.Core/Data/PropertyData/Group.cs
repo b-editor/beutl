@@ -1,5 +1,6 @@
 ﻿using System;
 using System.Collections.Generic;
+using System.ComponentModel;
 using System.Linq;
 using System.Runtime.Serialization;
 using System.Threading.Tasks;
@@ -14,12 +15,18 @@ namespace BEditor.Core.Data.PropertyData
     /// <see cref="PropertyElement"/> をまとめるクラス
     /// </summary>
     [DataContract(Namespace = "")]
-    public abstract class Group : PropertyElement, IKeyFrameProperty, IEasingSetting
+    public abstract class Group : PropertyElement, IKeyFrameProperty, IEasingSetting, INotifyPropertyChanged, IExtensibleDataObject, IChild<EffectElement>, IParent<PropertyElement>
     {
+        private IEnumerable<PropertyElement> cachedlist;
+        
         /// <summary>
         /// グループにする <see cref="PropertyElement"/> を取得します
         /// </summary>
-        public abstract IList<PropertyElement> GroupItems { get; }
+        public abstract IEnumerable<PropertyElement> Properties { get; }
+        /// <summary>
+        /// キャッシュされた <see cref="Properties"/> を取得します
+        /// </summary>
+        public IEnumerable<PropertyElement> Children => cachedlist ??= Properties;
 
         /// <inheritdoc/>
         public override EffectElement Parent
@@ -28,9 +35,8 @@ namespace BEditor.Core.Data.PropertyData
             set
             {
                 base.Parent = value;
-                var items = GroupItems;
 
-                Parallel.ForEach(items, item => item.Parent = value);
+                Parallel.ForEach(Children, item => item.Parent = value);
             }
         }
 
@@ -38,11 +44,10 @@ namespace BEditor.Core.Data.PropertyData
         public override void PropertyLoaded()
         {
             base.PropertyLoaded();
-            var g = GroupItems;
 
-            Parallel.ForEach(g, item => item.PropertyLoaded());
+            Parallel.ForEach(Children, item => item.PropertyLoaded());
 
-            //フィールドがpublicのときだけなので注意
+            //TODO : ソースジェネレーターへ移行
             var attributetype = typeof(PropertyMetadataAttribute);
             var type = GetType();
             var properties = type.GetProperties();

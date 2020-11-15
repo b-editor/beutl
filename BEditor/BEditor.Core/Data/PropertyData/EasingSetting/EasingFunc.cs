@@ -1,6 +1,7 @@
 ﻿using System;
 using System.Collections.Generic;
 using System.Collections.ObjectModel;
+using System.ComponentModel;
 using System.Linq;
 using System.Runtime.Serialization;
 using System.Text;
@@ -14,15 +15,19 @@ namespace BEditor.Core.Data.PropertyData.EasingSetting
     /// <see cref="EaseProperty"/>, <see cref="ColorAnimationProperty"/> などで利用可能なイージング関数を表します
     /// </summary>
     [DataContract(Namespace = "")]
-    public abstract class EasingFunc : ComponentObject, IChild<PropertyElement>
+    public abstract class EasingFunc : ComponentObject, IChild<PropertyElement>, IParent<IEasingSetting>, INotifyPropertyChanged, IExtensibleDataObject
     {
         private PropertyElement parent;
-
+        private IEnumerable<IEasingSetting> cachedlist;
 
         /// <summary>
         /// UIに表示するプロパティを取得します
         /// </summary>
-        public abstract IList<IEasingSetting> EasingSettings { get; }
+        public abstract IEnumerable<IEasingSetting> Properties { get; }
+        /// <summary>
+        /// キャッシュされた <see cref="Properties"/> を取得します
+        /// </summary>
+        public IEnumerable<IEasingSetting> Children => cachedlist ??= Properties;
         /// <summary>
         /// 親要素を取得します
         /// </summary>
@@ -32,13 +37,9 @@ namespace BEditor.Core.Data.PropertyData.EasingSetting
             set
             {
                 parent = value;
-                var tmp = EasingSettings;
                 var parent_ = parent.Parent;
 
-                for (int i = 0; i < tmp.Count; i++)
-                {
-                    tmp[i].Parent = parent_;
-                }
+                Parallel.ForEach(Children, item => item.Parent = parent_);
             }
         }
 
@@ -57,11 +58,8 @@ namespace BEditor.Core.Data.PropertyData.EasingSetting
         /// </summary>
         public virtual void PropertyLoaded()
         {
-            var settings = EasingSettings;
+            Parallel.ForEach(Children, setting => setting.PropertyLoaded());
 
-            Parallel.ForEach(settings, setting => setting.PropertyLoaded());
-
-            //フィールドがpublicのときだけなので注意
             var attributetype = typeof(PropertyMetadataAttribute);
             var type = GetType();
             var properties = type.GetProperties();

@@ -2,8 +2,7 @@
 
   <PropertyGroup>
     <TargetFramework>net5.0</TargetFramework>
-    <Nullable>disable</Nullable>
-    <LangVersion>preview</LangVersion>
+    <Nullable>annotations</Nullable>
     <AssemblyName>BEditor.Core</AssemblyName>
     <Version>0.0.1</Version>
   </PropertyGroup>
@@ -15,6 +14,7 @@
     <Optimize>false</Optimize>
     <PlatformTarget>x64</PlatformTarget>
     <OutputPath>..\Build\Debug\</OutputPath>
+    <NoWarn>1701;1702;1591</NoWarn>
   </PropertyGroup>
 
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release|AnyCPU'">
