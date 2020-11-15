@@ -4,12 +4,13 @@ using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
 
-namespace BEditor.Core.Extensions
+namespace BEditor.Core.Rendering
 {
-    public interface IRenderer
+    public interface IRenderer<T>
     {
         public void OnCompleted();
+        public void OnFinally();
         public void OnError(Exception error);
-        public void OnNext();
+        public void OnRender(T value);
     }
 }

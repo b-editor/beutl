@@ -1,7 +1,7 @@
 ﻿
 using OpenTK;
 
-namespace BEditor.Core.Renderer
+namespace BEditor.Core.Rendering
 {
     public sealed class GraphicsContext : BaseGraphicsContext
     {

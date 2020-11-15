@@ -12,7 +12,7 @@ using BEditor.Core.Data.ProjectData;
 using BEditor.Core.Interfaces;
 using BEditor.Core.Media;
 using BEditor.Core.Plugin;
-using BEditor.Core.Renderer;
+using BEditor.Core.Rendering;
 
 namespace BEditor.Core.Data
 {

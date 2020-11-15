@@ -5,7 +5,7 @@ using BEditor.Core.Data.EffectData;
 using BEditor.Core.Data.ProjectData;
 using BEditor.Core.Data.PropertyData;
 using BEditor.Core.Properties;
-using BEditor.Core.Renderer;
+using BEditor.Core.Rendering;
 
 namespace BEditor.Core.Data.ObjectData
 {

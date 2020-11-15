@@ -3,22 +3,23 @@
 using System;
 using System.Collections.Generic;
 using System.IO;
+using System.Reactive.Linq;
 using System.Threading.Tasks;
 
 using BEditor.Core.Exceptions;
+using BEditor.Core.Extensions;
 using BEditor.Core.Extensions.ViewCommand;
 using BEditor.Core.Native;
-using BEditor.Core.Renderer;
+using BEditor.Core.Rendering;
 
-using Graphic = BEditor.Core.Renderer.Graphics;
+using Graphic = BEditor.Core.Rendering.Graphics;
 
 namespace BEditor.Core.Media
 {
-    //TODO : クエリ的な使い方でエフェクトや描画をする
     /// <summary>
     /// OpenCv Mat を利用した画像オブジェクトを表します
     /// </summary>
-    public unsafe class Image : DisposableObject
+    public unsafe class Image : DisposableObject, IRenderable<Image>
     {
         #region Constructor
 
@@ -426,6 +427,17 @@ namespace BEditor.Core.Media
             }
         }
 
+        public Point3 Coord { get; set; }
+        public Point3 Center { get; set; }
+        public Point3 Rotate { get; set; }
+        public Point3 Scale { get; set; } = new(1f, 1f, 1f);
+        public Material Material { get; set; } = new Material(
+            new(1f, 1f, 1f, 1f),
+            new(1f, 1f, 1f, 1f),
+            new(1f, 1f, 1f, 1f),
+            16f,
+            new(1f, 1f, 1f, 1f));
+
         #endregion
 
 
@@ -691,389 +703,22 @@ namespace BEditor.Core.Media
 
         #endregion
 
-
-        #region Flip
-
-        /// <summary>
-        /// 
-        /// </summary>
-        /// <param name="mode"></param>
-        /// <exception cref="ObjectDisposedException"/>
-        /// <exception cref="NativeException"/>
-        public void Flip(FlipMode mode)
+        public void Render(IRenderer<Image> renderer)
         {
-            ThrowIfDisposed();
-
-            var result = ImageProcess.Flip(ptr, (int)mode);
-
-            if (result != null) throw new NativeException(result);
-        }
-
-        #endregion
-
-        #region AreaExpansion
-
-        /// <summary>
-        /// 
-        /// </summary>
-        /// <param name="top"></param>
-        /// <param name="bottom"></param>
-        /// <param name="left"></param>
-        /// <param name="right"></param>
-        /// <exception cref="ObjectDisposedException"/>
-        /// <exception cref="NativeException"/>
-        public void AreaExpansion(int top, int bottom, int left, int right)
-        {
-            ThrowIfDisposed();
-            var result = ImageProcess.AreaExpansion(ptr, top, bottom, left, right);
-
-            if (result != null) throw new NativeException(result);
-        }
-
-        /// <summary>
-        /// 
-        /// </summary>
-        /// <param name="width"></param>
-        /// <param name="height"></param>
-        /// <exception cref="ObjectDisposedException"/>
-        /// <exception cref="NativeException"/>
-        public void AreaExpansion(int width, int height)
-        {
-            ThrowIfDisposed();
-
-            int v = (height - Height) / 2;
-            int h = (width - Width) / 2;
-
-            AreaExpansion(v, v, h, h);
-        }
-
-        #endregion
-
-        #region Blurs
-
-        /// <summary>
-        /// 
-        /// </summary>
-        /// <param name="blurSize"></param>
-        /// <param name="alphaBlur"></param>
-        /// <exception cref="ArgumentException"/>
-        /// <exception cref="ObjectDisposedException"/>
-        /// <exception cref="NativeException"/>
-        public void Blur(int blurSize, bool alphaBlur)
-        {
-            ThrowIfDisposed();
-
-            if (blurSize < 0) throw new ArgumentException("blursize < 0");
-            if (blurSize == 0) return;
-
-            var result = ImageProcess.Blur(ptr, blurSize, alphaBlur);
-
-            if (result != null) throw new NativeException(result);
-        }
-
-        /// <summary>
-        /// 
-        /// </summary>
-        /// <param name="blurSize"></param>
-        /// <param name="alphaBlur"></param>
-        /// <exception cref="ArgumentException"/>
-        /// <exception cref="ObjectDisposedException"/>
-        /// <exception cref="NativeException"/>
-        public void GaussianBlur(int blurSize, bool alphaBlur)
-        {
-            ThrowIfDisposed();
-
-            if (blurSize < 0) throw new ArgumentException("blurSize < 0");
-            if (blurSize == 0) return;
-
-            var result = ImageProcess.GaussianBlur(ptr, blurSize, alphaBlur);
-
-            if (result != null) throw new NativeException(result);
-        }
-
-        /// <summary>
-        /// 
-        /// </summary>
-        /// <param name="blurSize"></param>
-        /// <param name="alphaBlur"></param>
-        /// <exception cref="ArgumentException"/>
-        /// <exception cref="ObjectDisposedException"/>
-        /// <exception cref="NativeException"/>
-        public void MedianBlur(int blurSize, bool alphaBlur)
-        {
-            ThrowIfDisposed();
-
-            if (blurSize < 0) throw new ArgumentException("blurSize < 0", nameof(blurSize));
-            if (blurSize == 0) return;
-
-            var result = ImageProcess.MedianBlur(ptr, blurSize, alphaBlur);
-
-            if (result != null) throw new NativeException(result);
-        }
-
-        #endregion
-
-        #region Border
-
-        /// <summary>
-        /// 
-        /// </summary>
-        /// <param name="size"></param>
-        /// <param name="color"></param>
-        /// <exception cref="ArgumentException"/>
-        /// <exception cref="ObjectDisposedException"/>
-        public void Border(int size, Color color)
-        {
-            if (size <= 0) throw new ArgumentException("size <= 0");
-            ThrowIfDisposed();
-
-            int nwidth = Width + (size + 5) * 2;
-            int nheight = Height + (size + 5) * 2;
-
-#if UseOpenGL
-            ImageHelper.renderer.Resize(nwidth, nheight);
-
-
-            //縁取りを描画
-            var mask = Clone();
-            mask.SetColor(color);
-            mask.AreaExpansion(nwidth, nheight);
-            mask.Dilate(size);
-
-            Graphic.Paint(new Point3(0, 0, 0), 0, 0, 0, new Point3(0, 0, 0), () => Graphic.DrawImage(mask));
-
-            mask.Dispose();
-            Graphic.Paint(new Point3(0, 0, 0), 0, 0, 0, new Point3(0, 0, 0), () => Graphic.DrawImage(this));
-
-
-            ImageProcess.Release(Ptr);
-
-            var tmp = new Image(nwidth, nheight);
-
-            Graphic.GetPixels(tmp);
-            this.Ptr = tmp.Ptr;
-#else
-
-            #region OpenCv
-
-                        AreaExpansion(nwidth, nheight);
-
-                        //縁取りを描画
-                        var mask = Clone();
-                        mask.SetColor(color);
-                        mask.Dilate(size);
-                        var maskoutptr = mask.OutputArray;
-
-                        //HASK ; 加算合成時に終了する場合がある
-                        NativeMethods.HandleException(NativeMethods.core_add(mask.InputArray, InputArray, maskoutptr, IntPtr.Zero, 0));
-
-                        NativeMethods.HandleException(NativeMethods.core_Mat_delete(Ptr));
-                        Disposable.Dispose();
-
-                        Ptr = mask.Ptr;
-
-                        NativeMethods.HandleException(NativeMethods.core_OutputArray_delete(maskoutptr));
-
-            #endregion
-#endif
-        }
-
-        #endregion
-
-        #region SetColor
-
-        /// <summary>
-        /// 
-        /// </summary>
-        /// <param name="color"></param>
-        public unsafe void SetColor(Color color)
-        {
-            ThrowIfDisposed();
-
-            int bitcount = Width * Height * Channels * Type.Bits / 8;
-
-            byte* pixelPtr = DataPointer;
-            var step = (int)Step;
-            var elemsize = ElemSize;
-
-            Parallel.For(0, Height, y =>
+            try
             {
-                Parallel.For(0, Width, x =>
-                {
-                    //ピクセルデータでのピクセル(x,y)の開始位置を計算する
-                    //int pos = y * Stride + x * 4;
-                    int pos = y * step + x * elemsize;
-
-                    // BGRA
-                    pixelPtr[pos] = (byte)color.B;
-                    pixelPtr[pos + 1] = (byte)color.G;
-                    pixelPtr[pos + 2] = (byte)color.R;
-                });
-            });
-        }
-
-        #endregion
-
-        #region Shadow
-
-        /// <summary>
-        /// 
-        /// </summary>
-        /// <param name="x"></param>
-        /// <param name="y"></param>
-        /// <param name="blur"></param>
-        /// <param name="alpha"></param>
-        /// <param name="color"></param>
-        /// <exception cref="ArgumentException"/>
-        /// <exception cref="ObjectDisposedException"/>
-        public void Shadow(float x, float y, int blur, float alpha, Color color)
-        {
-            if (blur < 0) throw new ArgumentException("blur < 0");
-            ThrowIfDisposed();
-
-            Image shadow = Clone();
-            shadow.Blur(blur, true);
-            shadow.SetColor(color);
-            ImageHelper.DrawAlpha(shadow, (float)(alpha / 100));
-
-            //キャンバスのサイズ
-            int size_w = (int)((Math.Abs(x) + (shadow.Width / 2)) * 2);
-            int size_h = (int)((Math.Abs(x) + (shadow.Height / 2)) * 2);
-
-#if UseOpenGL
-            ImageHelper.renderer.Resize(size_w, size_h);
-            Graphic.Paint(new Point3(x, y, 0), 0, 0, 0, new Point3(0, 0, 0), () => Graphic.DrawImage(shadow));
-            Graphic.Paint(new Point3(0, 0, 0), 0, 0, 0, new Point3(0, 0, 0), () => Graphic.DrawImage(this));
-
-            shadow.Dispose();
-
-            Native.ImageProcess.Release(ptr);
-
-            Ptr = new Image(size_w, size_h).Ptr;
-
-            Graphic.GetPixels(this);
-#else
-            var canvas = new Image(size_w, size_h);
-
-            canvas.DrawImage(new Point2(x + (size_w / 2), y + (size_h / 2)), shadow); //影の描画
-            canvas.DrawImage(new Point2(size_w / 2, size_h / 2), this);
-
-            shadow.Dispose();
-            NativeMethods.HandleException(NativeMethods.core_Mat_delete(Ptr));
-            Disposable.Dispose();
-
-            Ptr = canvas.Ptr;
-
-            //GC.KeepAlive(this);
-#endif
-        }
-
-        #endregion
-
-        #region Dilate
-
-        /// <summary>
-        /// 
-        /// </summary>
-        /// <param name="f"></param>
-        /// <exception cref="ArgumentException"/>
-        /// <exception cref="ObjectDisposedException"/>
-        /// <exception cref="NativeException"/>
-        public void Dilate(int f)
-        {
-            if (f < 0) throw new ArgumentException("f < 0");
-            if (f == 0)
-            {
-                ImageProcess.Release(ptr);
-
-                Ptr = new Image().Ptr;
-                return;
+                renderer.OnRender(this);
+                renderer.OnCompleted();
             }
-            ThrowIfDisposed();
-
-            var result = ImageProcess.Dilate(ptr, f);
-
-            if (result != null) throw new NativeException(result);
-        }
-
-        #endregion
-
-        #region Erode
-
-        /// <summary>
-        /// 
-        /// </summary>
-        /// <param name="f"></param>
-        /// <exception cref="ArgumentException"/>
-        /// <exception cref="ObjectDisposedException"/>
-        /// <exception cref="NativeException"/>
-        public void Erode(int f)
-        {
-            if (f < 0) throw new ArgumentException("f < 0");
-            if (f == 0)
+            catch (Exception e)
             {
-                ImageProcess.Release(ptr);
-
-                Ptr = new Image().Ptr;
-                return;
+                renderer.OnError(e);
             }
-            ThrowIfDisposed();
-
-            var result = ImageProcess.Erode(ptr, f);
-
-            if (result != null) throw new NativeException(result);
-        }
-
-        #endregion
-
-        #region Clip
-
-        /// <summary>
-        /// 
-        /// </summary>
-        /// <param name="top"></param>
-        /// <param name="bottom"></param>
-        /// <param name="left"></param>
-        /// <param name="right"></param>
-        /// <exception cref="ArgumentException"/>
-        /// <exception cref="ObjectDisposedException"/>
-        public void Clip(int top, int bottom, int left, int right)
-        {
-            if (top < 0 || bottom < 0 || left < 0 || right < 0) throw new ArgumentException();
-            ThrowIfDisposed();
-            if (Width <= left + right || Height <= top + bottom)
+            finally
             {
-                ImageProcess.Release(this.ptr);
-                var ptr = new Image(1, 1, ImageType.ByteCh4).Ptr;
-                Ptr = ptr;
-                return;
+                renderer.OnFinally();
             }
-
-            ImageProcess.Clip(Ptr, top, bottom, left, right, out ptr);
         }
-
-        #endregion
-
-        #region Draw
-
-        public void DrawImage(Point2 point, Image image)
-        {
-            if (image is null)
-            {
-                throw new ArgumentNullException(nameof(image));
-            }
-            ThrowIfDisposed();
-            image.ThrowIfDisposed();
-
-            var rect = new Rectangle(point, image.Size);
-            var a = this[rect];
-
-            ImageProcess.Add(a.Ptr, image.Ptr);
-
-            this[rect] = a;
-        }
-
-        #endregion
 
         /// <inheritdoc/>
         public override string ToString()
@@ -1096,6 +741,8 @@ namespace BEditor.Core.Media
             ptr = IntPtr.Zero;
         }
     }
+
+    public record Material(Color Ambient, Color Diffuse, Color Specular, float Shininess, Color Color);
 
     public enum FlipMode
     {

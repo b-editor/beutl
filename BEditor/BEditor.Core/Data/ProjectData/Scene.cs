@@ -7,7 +7,7 @@ using System.Threading.Tasks;
 
 using BEditor.Core.Data.ObjectData;
 using BEditor.Core.Media;
-using BEditor.Core.Renderer;
+using BEditor.Core.Rendering;
 
 namespace BEditor.Core.Data.ProjectData
 {

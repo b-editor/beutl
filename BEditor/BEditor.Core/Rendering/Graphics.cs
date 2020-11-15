@@ -15,7 +15,7 @@ using Color = BEditor.Core.Media.Color;
 using Image = BEditor.Core.Media.Image;
 using Size = BEditor.Core.Media.Size;
 
-namespace BEditor.Core.Renderer
+namespace BEditor.Core.Rendering
 {
     public static class Graphics
     {

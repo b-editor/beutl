@@ -7,7 +7,7 @@ using BEditor.Core.Data.PropertyData;
 using BEditor.Core.Data.PropertyData.Default;
 using BEditor.Core.Media;
 using BEditor.Core.Properties;
-using BEditor.Core.Renderer;
+using BEditor.Core.Rendering;
 
 using OpenTK.Graphics.OpenGL;
 
@@ -66,7 +66,7 @@ namespace BEditor.Core.Data.EffectData
             //var points = BorderFinder.Find(source);
 
             Parent.Parent.GraphicsContext.MakeCurrent();
-            BEditor.Core.Renderer.Graphics.Paint(coordinate, nx, ny, nz, center, () =>
+            BEditor.Core.Rendering.Graphics.Paint(coordinate, nx, ny, nz, center, () =>
             {
                 GL.Color4((GLColor)Color.GetValue(frame));
                 GL.Material(MaterialFace.Front, MaterialParameter.Ambient, (GLColor)Material.Ambient.GetValue(frame));

@@ -23,9 +23,9 @@ using BEditor.Core.Data.PropertyData.Default;
 using Image = BEditor.Core.Media.Image;
 using System.Runtime.InteropServices;
 
-namespace BEditor.Core.Renderer
+namespace BEditor.Core.Rendering
 {
-    public abstract class BaseGraphicsContext : IBaseGraphicsContext
+    public abstract class BaseGraphicsContext : IDisposable, IRenderer<Image>
     {
         protected int Color;
         protected int Depth;
@@ -269,5 +269,29 @@ namespace BEditor.Core.Renderer
             Graphics.Paint(coordinate, nx, ny, nz, center, () => Graphics.DrawImage(img, scalex, scaley, scalez, color, ambient, diffuse, specular, shininess), Blend.BlentFunc[drawObject.Blend.BlendType.Index]);
         }
 
+        public void OnCompleted() { }
+        public void OnFinally() { }
+        public void OnError(Exception error) { }
+        public void OnRender(Image value)
+        {
+            MakeCurrent();
+
+            Graphics.Paint(
+                value.Coord,
+                value.Rotate.X,
+                value.Rotate.Y,
+                value.Rotate.Z,
+                value.Center,
+                () => Graphics.DrawImage(
+                    value,
+                    value.Scale.X,
+                    value.Scale.Y,
+                    value.Scale.Z,
+                    value.Material.Color,
+                    value.Material.Ambient,
+                    value.Material.Diffuse,
+                    value.Material.Specular,
+                    value.Material.Shininess));
+        }
     }
 }

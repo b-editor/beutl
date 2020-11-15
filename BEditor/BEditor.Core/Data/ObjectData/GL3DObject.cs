@@ -7,7 +7,7 @@ using BEditor.Core.Data.ProjectData;
 using BEditor.Core.Data.PropertyData;
 using BEditor.Core.Data.PropertyData.Default;
 using BEditor.Core.Media;
-using BEditor.Core.Renderer;
+using BEditor.Core.Rendering;
 
 using OpenTK.Graphics;
 using OpenTK.Graphics.OpenGL;
@@ -71,7 +71,7 @@ namespace BEditor.Core.Data.ObjectData
                 {
                     GL.Color4(color4);
                     GL.Scale(scalex, scaley, scalez);
-                    BEditor.Core.Renderer.Graphics.DrawCube(Width.GetValue(frame),
+                    BEditor.Core.Rendering.Graphics.DrawCube(Width.GetValue(frame),
                                         Height.GetValue(frame),
                                         Weight.GetValue(frame),
                                         Material.Ambient.GetValue(frame),
@@ -86,7 +86,7 @@ namespace BEditor.Core.Data.ObjectData
                 {
                     GL.Color4(color4);
                     GL.Scale(scalex, scaley, scalez);
-                    BEditor.Core.Renderer.Graphics.DrawBall(Weight.GetValue(frame),
+                    BEditor.Core.Rendering.Graphics.DrawBall(Weight.GetValue(frame),
                                         Material.Ambient.GetValue(frame),
                                         Material.Diffuse.GetValue(frame),
                                         Material.Specular.GetValue(frame),
@@ -95,7 +95,7 @@ namespace BEditor.Core.Data.ObjectData
             }
 
             Parent.Parent.GraphicsContext.MakeCurrent();
-            BEditor.Core.Renderer.Graphics.Paint(new Point3(Coordinate.X.GetValue(frame),
+            BEditor.Core.Rendering.Graphics.Paint(new Point3(Coordinate.X.GetValue(frame),
                                                            Coordinate.Y.GetValue(frame),
                                                            Coordinate.Z.GetValue(frame)),
                                         Angle.AngleX.GetValue(frame),
