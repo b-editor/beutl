@@ -19,11 +19,7 @@ namespace BEditor.ViewModels.ToolControl
             {
                 new CreateSceneWindow().ShowDialog();
             });
-            Project.ProjectOpend += (_, _) => RaisePropertyChanged(nameof(GetProject));
-            Project.ProjectClosed += (_, _) => RaisePropertyChanged(nameof(GetProject));
         }
-
-        public Project GetProject => Component.Current.Project;
 
         public DelegateCommand AddScene { get; } = new DelegateCommand();
     }

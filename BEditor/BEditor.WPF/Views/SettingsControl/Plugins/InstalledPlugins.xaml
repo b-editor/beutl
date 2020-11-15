@@ -6,7 +6,7 @@
              xmlns:local="clr-namespace:BEditor.Views.SettingsControl.Plugins"
              xmlns:properties="clr-namespace:BEditor.Core.Properties;assembly=BEditor.Core"
              xmlns:app="clr-namespace:BEditor"
-             xmlns:component="clr-namespace:BEditor.Core.Data;assembly=BEditor.Core"
+             xmlns:component="clr-namespace:BEditor.Models"
              xmlns:vm="clr-namespace:BEditor.ViewModels.SettingsControl.Plugins"
              mc:Ignorable="d" 
              d:DesignHeight="450" d:DesignWidth="800" Background="{DynamicResource MaterialDesignPaper}">
@@ -18,7 +18,7 @@
             <RowDefinition/>
             <RowDefinition Height="Auto"/>
         </Grid.RowDefinitions>
-        <ListBox ItemsSource="{Binding LoadedPlugins, Source={x:Static component:Component.Current}}"  HorizontalContentAlignment="Stretch" VerticalContentAlignment="Stretch" SelectedItem="{Binding SelectPlugin, Mode=TwoWay}">
+        <ListBox ItemsSource="{Binding LoadedPlugins, Source={x:Static component:AppData.Current}}"  HorizontalContentAlignment="Stretch" VerticalContentAlignment="Stretch" SelectedItem="{Binding SelectPlugin, Mode=TwoWay}">
             <ListBox.ItemTemplate>
                 <DataTemplate>
                     <Grid Height="60">

@@ -41,7 +41,8 @@ namespace BEditor
     {
         private void Application_Startup(object sender, StartupEventArgs e)
         {
-            Component.Current.Arguments = e.Args;
+            AppData.Current.Arguments = e.Args;
+            Component.Funcs.GetApp = () => AppData.Current;
             Font.Initialize();
 
             #region ダークモード設定
@@ -99,7 +100,7 @@ namespace BEditor
 
             static void SetColor()
             {
-                var files = Directory.GetFiles(Component.Current.Path + "\\user\\colors", "*.xml", SearchOption.AllDirectories);
+                var files = Directory.GetFiles(AppData.Current.Path + "\\user\\colors", "*.xml", SearchOption.AllDirectories);
 
                 foreach (var file in files)
                 {
@@ -358,7 +359,7 @@ namespace BEditor
                 $"[{Resources_.ExceptionStackTrace}]\n" +
                 $"{e.Exception.StackTrace}";
 
-            var path = $"{Component.Current.Path}\\user\\backup\\{DateTime.Now:yyyy_MM_dd__HH_mm_ss}.bedit";
+            var path = $"{AppData.Current.Path}\\user\\backup\\{DateTime.Now:yyyy_MM_dd__HH_mm_ss}.bedit";
 
             TaskDialog dialog = new TaskDialog()
             {
@@ -391,7 +392,8 @@ namespace BEditor
             };
             dialog.Controls.Add(continueButton);
 
-            Project.Save(Component.Current.Project, path);
+            AppData.Current.Project.Save(path);
+
 
             dialog.Show();
             //e.Handled = true;

@@ -8,6 +8,7 @@ using System.Runtime.Serialization;
 using BEditor.Core.Data.EffectData;
 using BEditor.Core.Data.ObjectData;
 using BEditor.Core.Data.PropertyData.EasingSetting;
+using BEditor.Core.Extensions;
 
 namespace BEditor.Core.Data.PropertyData
 {
@@ -114,7 +115,7 @@ namespace BEditor.Core.Data.PropertyData
         /// </summary>
         public EasingData EasingData { get => easingData; set => SetValue(value, ref easingData, nameof(EasingData)); }
 
-        internal int Length => ClipData.Length;
+        internal int Length => this.GetClipData().Length;
 
 
         /// <summary>
@@ -226,7 +227,7 @@ namespace BEditor.Core.Data.PropertyData
                 throw new Exception();
             }
 
-            frame -= ClipData.Start;
+            frame -= this.GetClipData().Start;
 
             var (start, end) = GetFrame(frame);
 
@@ -276,7 +277,7 @@ namespace BEditor.Core.Data.PropertyData
         /// <exception cref="ArgumentOutOfRangeException"><paramref name="frame"/> が 親要素の範囲外です</exception>
         public int InsertKeyframe(int frame, float value)
         {
-            if (frame <= ClipData.Start || ClipData.End <= frame) throw new ArgumentOutOfRangeException(nameof(frame));
+            if (frame <= this.GetClipData().Start || this.GetClipData().End <= frame) throw new ArgumentOutOfRangeException(nameof(frame));
 
             Time.Add(frame);
 
@@ -304,7 +305,7 @@ namespace BEditor.Core.Data.PropertyData
         /// <exception cref="ArgumentOutOfRangeException"><paramref name="frame"/> が 親要素の範囲外です</exception>
         public int RemoveKeyframe(int frame, out float value)
         {
-            if (frame <= ClipData.Start || ClipData.End <= frame) throw new ArgumentOutOfRangeException(nameof(frame));
+            if (frame <= this.GetClipData().Start || this.GetClipData().End <= frame) throw new ArgumentOutOfRangeException(nameof(frame));
 
             var index = Time.IndexOf(frame) + 1;//値基準のindex
 
@@ -423,7 +424,7 @@ namespace BEditor.Core.Data.PropertyData
             {
                 EaseProperty = property ?? throw new ArgumentNullException(nameof(property));
 
-                this.frame = (frame <= 0 || property.ClipData.Length <= frame) ?
+                this.frame = (frame <= 0 || property.GetClipData().Length <= frame) ?
                              throw new ArgumentOutOfRangeException(nameof(frame))
                              : frame;
             }
@@ -432,7 +433,7 @@ namespace BEditor.Core.Data.PropertyData
             /// <inheritdoc/>
             public void Do()
             {
-                int index = EaseProperty.InsertKeyframe(frame, EaseProperty.GetValue(frame + EaseProperty.ClipData.Start));
+                int index = EaseProperty.InsertKeyframe(frame, EaseProperty.GetValue(frame + EaseProperty.GetClipData().Start));
                 EaseProperty.AddKeyFrameEvent?.Invoke(EaseProperty, (frame, index - 1));
             }
 
@@ -468,7 +469,7 @@ namespace BEditor.Core.Data.PropertyData
             {
                 EaseProperty = property ?? throw new ArgumentNullException(nameof(property));
 
-                this.frame = (frame <= 0 || property.ClipData.Length <= frame) ?
+                this.frame = (frame <= 0 || property.GetClipData().Length <= frame) ?
                              throw new ArgumentOutOfRangeException(nameof(frame))
                              : frame;
             }
@@ -520,7 +521,7 @@ namespace BEditor.Core.Data.PropertyData
                                  throw new IndexOutOfRangeException()
                                  : fromIndex;
 
-                this.to = (to <= 0 || property.ClipData.Length <= to) ?
+                this.to = (to <= 0 || property.GetClipData().Length <= to) ?
                           throw new ArgumentOutOfRangeException(nameof(to))
                           : to;
             }

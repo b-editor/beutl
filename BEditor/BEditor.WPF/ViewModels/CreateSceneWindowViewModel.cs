@@ -2,30 +2,31 @@
 
 using BEditor.Core.Data;
 using BEditor.Core.Data.ProjectData;
+using BEditor.Models;
 
 namespace BEditor.ViewModels
 {
     public class CreateSceneWindowViewModel : BasePropertyChanged
     {
 
-        private int width = Component.Current.Project.SceneList[0].Width;
-        private int height = Component.Current.Project.SceneList[0].Height;
-        private string name = $"Scene{Component.Current.Project.SceneList.Count}";
+        private int width = AppData.Current.Project.SceneList[0].Width;
+        private int height = AppData.Current.Project.SceneList[0].Height;
+        private string name = $"Scene{AppData.Current.Project.SceneList.Count}";
 
         public CreateSceneWindowViewModel()
         {
             ResetCommand.Subscribe(() =>
             {
-                Width = Component.Current.Project.SceneList[0].Width;
-                Height = Component.Current.Project.SceneList[0].Height;
-                Name = $"Scene{Component.Current.Project.SceneList.Count}";
+                Width = AppData.Current.Project.SceneList[0].Width;
+                Height = AppData.Current.Project.SceneList[0].Height;
+                Name = $"Scene{AppData.Current.Project.SceneList.Count}";
             });
 
             CreateCommand.Subscribe(() =>
             {
                 var scene = new Scene(Width, Height) { SceneName = Name };
-                Component.Current.Project.SceneList.Add(scene);
-                Component.Current.Project.PreviewScene = scene;
+                AppData.Current.Project.SceneList.Add(scene);
+                AppData.Current.Project.PreviewScene = scene;
             });
         }
 

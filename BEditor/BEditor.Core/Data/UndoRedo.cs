@@ -127,7 +127,7 @@ namespace BEditor.Core.Data
             }
 
             process = true;
-            Component.Current.Status = Status.Edit;
+            Component.Funcs.GetApp().AppStatus = Status.Edit;
             DidEvent?.Invoke(command, CommandType.Do);
         }
 

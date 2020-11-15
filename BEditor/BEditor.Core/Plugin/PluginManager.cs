@@ -18,13 +18,10 @@ namespace BEditor.Core.Plugin
     {
         public static void Load()
         {
-
-            //各Listの初期化
-            Component.Current.LoadedPlugins.Clear();
             //EasingFunc.LoadedEasingFunc.Clear();
             //Library.EffectLibraryList.Clear();
-
-            var files = Directory.GetFiles(Component.Current.Path + "\\user\\plugins", "*.dll", SearchOption.TopDirectoryOnly);
+            var app = Component.Funcs.GetApp();
+            var files = Directory.GetFiles(app.Path + "\\user\\plugins", "*.dll", SearchOption.TopDirectoryOnly);
 
 
             foreach (var file in files)
@@ -43,7 +40,7 @@ namespace BEditor.Core.Plugin
 
                         if (instance is IPlugin plugin)
                         {
-                            Component.Current.LoadedPlugins.Add(plugin);
+                            app.LoadedPlugins.Add(plugin);
 
 
                             if (plugin is IEffects effects)

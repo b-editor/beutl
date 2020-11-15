@@ -21,9 +21,9 @@ namespace BEditor.Models
         internal static void Output_Image(in string path)
         {
 
-            int nowframe = Component.Current.Project.PreviewScene.PreviewFrame;
+            int nowframe = AppData.Current.Project.PreviewScene.PreviewFrame;
 
-            Image img = Component.Current.Project.PreviewScene.Render(nowframe).Image;
+            Image img = AppData.Current.Project.PreviewScene.Render(nowframe).Image;
 
             try
             {

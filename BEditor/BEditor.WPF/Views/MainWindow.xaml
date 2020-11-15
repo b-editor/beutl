@@ -6,6 +6,7 @@
         xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
         xmlns:tool="clr-namespace:BEditor.Views.ToolControl"
         xmlns:vm="clr-namespace:BEditor.ViewModels"
+        xmlns:model="clr-namespace:BEditor.Models"
         xmlns:convert="clr-namespace:BEditor.ViewModels.Converters"
         xmlns:md="http://materialdesigninxaml.net/winfx/xaml/themes"
     
@@ -198,8 +199,8 @@
                         IsEnabled="{Binding ProjectIsOpened.Value, Mode=OneWay}"
                         MinWidth="100"
                         Margin="5,0,0,0"
-                        ItemsSource="{Binding Project.SceneList, Mode=OneWay, Source={x:Static core:Component.Current}}"
-                        SelectedItem="{Binding Project.PreviewScene, Mode=TwoWay, Source={x:Static core:Component.Current}}"
+                        ItemsSource="{Binding Project.SceneList, Mode=OneWay, Source={x:Static model:AppData.Current}}"
+                        SelectedItem="{Binding Project.PreviewScene, Mode=TwoWay, Source={x:Static model:AppData.Current}}"
                         DisplayMemberPath="SceneName"/>
                 </ToolBar>
                 <ToolBar Height="27" HorizontalContentAlignment="Center" VerticalContentAlignment="Center">
@@ -228,8 +229,8 @@
                 </ToolBar>
             </ToolBarTray>
             <VirtualizingStackPanel Orientation="Horizontal" HorizontalAlignment="Right">
-                <md:PackIcon Kind="{Binding Status, Source={x:Static core:Component.Current}, Converter={StaticResource AppStatusIcon}, Mode=OneWay}" VerticalAlignment="Center" Margin="5,0,5,0"/>
-                <TextBlock Text="{Binding Status, Source={x:Static core:Component.Current}, Converter={StaticResource AppStatusText}, Mode=OneWay}" VerticalAlignment="Center" Margin="5,0,10,0"/>
+                <md:PackIcon Kind="{Binding AppStatus, Source={x:Static model:AppData.Current}, Converter={StaticResource AppStatusIcon}, Mode=OneWay}" VerticalAlignment="Center" Margin="5,0,5,0"/>
+                <TextBlock Text="{Binding AppStatus, Source={x:Static model:AppData.Current}, Converter={StaticResource AppStatusText}, Mode=OneWay}" VerticalAlignment="Center" Margin="5,0,10,0"/>
             </VirtualizingStackPanel>
         </Grid>
         <!--#endregion-->
@@ -239,7 +240,7 @@
             Background="{DynamicResource MaterialDesignCardBackground}"
             Margin="10,5,5,10"
             IsEnabled="{Binding ProjectIsOpened.Value, Mode=OneWay}"
-            Content="{Binding Project.PreviewScene, Converter={StaticResource SceneToPropertyTab},Source={x:Static core:Component.Current}, Mode=OneWay}"
+            Content="{Binding Project.PreviewScene, Converter={StaticResource SceneToPropertyTab},Source={x:Static model:AppData.Current}, Mode=OneWay}"
             HorizontalContentAlignment="Stretch"
             VerticalContentAlignment="Stretch"
             Padding="0,0,0,0" 
@@ -265,7 +266,7 @@
                     <ColumnDefinition/>
                     <ColumnDefinition Width="Auto"/>
                 </Grid.ColumnDefinitions>
-                <Slider VerticalAlignment="Center" Margin="10,0" Maximum="{Binding Source={x:Static core:Component.Current}, Path=Project.PreviewScene.TotalFrame, Mode=OneWay}" Value="{Binding Source={x:Static core:Component.Current}, Path=Project.PreviewScene.PreviewFrame, Mode=TwoWay}" Foreground="{Binding MainWindowColor.Value, Mode=OneWay}"/>
+                <Slider VerticalAlignment="Center" Margin="10,0" Maximum="{Binding Source={x:Static model:AppData.Current}, Path=Project.PreviewScene.TotalFrame, Mode=OneWay}" Value="{Binding Source={x:Static model:AppData.Current}, Path=Project.PreviewScene.PreviewFrame, Mode=TwoWay}" Foreground="{Binding MainWindowColor.Value, Mode=OneWay}"/>
                 <VirtualizingStackPanel Orientation="Horizontal" VerticalAlignment="Stretch" Grid.Column="1">
                     <Button Background="{x:Null}" BorderBrush="{x:Null}" Height="35" Width="35" Padding="0"  Command="{Binding PreviewFrameMinus}">
                         <md:PackIcon Kind="StepForward" Foreground="{DynamicResource MaterialDesignBody}" Width="20" Height="20" HorizontalAlignment="Stretch" VerticalAlignment="Stretch" RenderTransformOrigin="0.5,0.5">
@@ -313,7 +314,7 @@
                 HorizontalContentAlignment="Stretch"
                 VerticalContentAlignment="Stretch"
                 Padding="0,0,0,0"
-                Content="{Binding Project.PreviewScene, Converter={StaticResource SceneToTimeLine}, Source={x:Static core:Component.Current}, Mode=OneWay}"/>
+                Content="{Binding Project.PreviewScene, Converter={StaticResource SceneToTimeLine}, Source={x:Static model:AppData.Current}, Mode=OneWay}"/>
         </md:Card>
         <!--#endregion-->
 

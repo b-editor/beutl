@@ -49,7 +49,7 @@ namespace BEditor.Core.Data.ObjectData
         {
             int frame = args.Frame;
             var scene = Parent.Parent;
-            scene.RenderingContext.MakeCurrent();
+            scene.GraphicsContext.MakeCurrent();
             Graphics.LookAt(
                 scene.Width, scene.Height,
                 X.GetValue(frame), Y.GetValue(frame), Z.GetValue(frame),

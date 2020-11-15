@@ -65,7 +65,7 @@ namespace BEditor.Core.Data.EffectData
 
             //var points = BorderFinder.Find(source);
 
-            Parent.Parent.RenderingContext.MakeCurrent();
+            Parent.Parent.GraphicsContext.MakeCurrent();
             BEditor.Core.Renderer.Graphics.Paint(coordinate, nx, ny, nz, center, () =>
             {
                 GL.Color4((GLColor)Color.GetValue(frame));

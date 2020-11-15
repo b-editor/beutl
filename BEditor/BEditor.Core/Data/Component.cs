@@ -16,82 +16,11 @@ using BEditor.Core.Renderer;
 
 namespace BEditor.Core.Data
 {
-    //TODO : Componentクラスへの依存を少なくする
     /// <summary>
     /// シングルトンで現在のプロジェクトやステータスなどを取得できるクラスを表します
     /// </summary>
-    public class Component : BasePropertyChanged, INotifyPropertyChanged
+    public static class Component
     {
-        private Project project;
-        private Status status;
-
-        /// <summary>
-        /// 
-        /// </summary>
-        public static Component Current { get; } = new Component();
-
-        private Component()
-        {
-            #region Xmlの作成
-
-            if (!Directory.Exists(Path + "\\user\\colors"))
-            {
-                Directory.CreateDirectory(Path + "\\user\\colors");
-            }
-
-            if (!Directory.Exists(Path + "\\user\\logs"))
-            {
-                Directory.CreateDirectory(Path + "\\user\\logs");
-            }
-
-            if (!Directory.Exists(Path + "\\user\\backup"))
-            {
-                Directory.CreateDirectory(Path + "\\user\\backup");
-            }
-
-            if (!Directory.Exists(Path + "\\user\\plugins"))
-            {
-                Directory.CreateDirectory(Path + "\\user\\plugins");
-            }
-
-            if (!File.Exists(Path + "\\user\\logs\\errorlog.xml"))
-            {
-                XDocument XDoc = new XDocument(
-                    new XDeclaration("1.0", "utf-8", "true"),
-                    new XElement("Logs")
-                );
-
-                XDoc.Save(Path + "\\user\\logs\\errorlog.xml");
-            }
-
-            #endregion
-        }
-
-        /// <summary>
-        /// Exeファイルが有るフォルダ
-        /// </summary>
-        public string Path { get; } = System.IO.Path.GetDirectoryName(Assembly.GetEntryAssembly().Location);
-
-        /// <summary>
-        /// コマンドライン引数を取得します
-        /// </summary>
-        public string[] Arguments { get; set; }
-
-        /// <summary>
-        /// 読み込まれたプラグインを取得します
-        /// </summary>
-        public List<IPlugin> LoadedPlugins { get; } = new List<IPlugin>();
-
-        /// <summary>
-        /// 開かれている <see cref="ProjectData.Project"/> を取得または設定します
-        /// </summary>
-        public Project Project { get => project; set => SetValue(value, ref project, nameof(Project)); }
-
-        /// <summary>
-        /// 現在のステータスを取得または設定します
-        /// </summary>
-        public Status Status { get => status; set => SetValue(value, ref status, nameof(Status)); }
-
         /// <summary>
         /// プラットフォームに依存する関数を共有するフィールド
         /// </summary>
@@ -115,6 +44,7 @@ namespace BEditor.Core.Data
             /// ファイルを保存するダイアログを作成する関数を取得または設定します
             /// </summary>
             public static Func<ISaveFileDialog> SaveFileDialog { get; set; }
+            public static Func<IApplication> GetApp { get; set; }
         }
     }
 

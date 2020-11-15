@@ -71,7 +71,7 @@ namespace BEditor.Core.Data.ObjectData
             }
 
 
-            Parent.Parent.RenderingContext.DrawImage(base_img, Parent, args.Frame);
+            Parent.Parent.GraphicsContext.DrawImage(base_img, Parent, args.Frame);
             if (!(base_img?.IsDisposed ?? true))
             {
                 base_img.Dispose();

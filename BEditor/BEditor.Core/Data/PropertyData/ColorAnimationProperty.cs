@@ -7,6 +7,7 @@ using System.Runtime.Serialization;
 
 using BEditor.Core.Data.EffectData;
 using BEditor.Core.Data.PropertyData.EasingSetting;
+using BEditor.Core.Extensions;
 using BEditor.Core.Media;
 
 namespace BEditor.Core.Data.PropertyData
@@ -173,7 +174,7 @@ namespace BEditor.Core.Data.PropertyData
                 throw new Exception();
             }
 
-            frame -= ClipData.Start;
+            frame -= this.GetClipData().Start;
 
             var (start, end) = GetFrame(frame);
 
@@ -326,7 +327,7 @@ namespace BEditor.Core.Data.PropertyData
             /// <inheritdoc/>
             public void Do()
             {
-                int index = ColorProperty.InsertKeyframe(frame, ColorProperty.GetValue(frame + ColorProperty.ClipData.Start));
+                int index = ColorProperty.InsertKeyframe(frame, ColorProperty.GetValue(frame + ColorProperty.GetClipData().Start));
                 ColorProperty.AddKeyFrameEvent?.Invoke(ColorProperty, (frame, index - 1));
             }
 

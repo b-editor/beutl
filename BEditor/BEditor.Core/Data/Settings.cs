@@ -18,7 +18,7 @@ namespace BEditor.Core.Data
 
         static Settings()
         {
-            var path = $"{Component.Current.Path}\\user\\settings.json";
+            var path = $"{Component.Funcs.GetApp().Path}\\user\\settings.json";
             if (!File.Exists(path))
             {
                 Default = new Settings();
@@ -30,7 +30,7 @@ namespace BEditor.Core.Data
             }
         }
         private Settings() { }
-        public void Save() => Serialize.SaveToFile(this, $"{Component.Current.Path}\\user\\settings.json");
+        public void Save() => Serialize.SaveToFile(this, $"{Component.Funcs.GetApp().Path}\\user\\settings.json");
 
         [DataMember]
         public int ClipHeight

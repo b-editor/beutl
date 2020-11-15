@@ -14,6 +14,7 @@ using Graphic = BEditor.Core.Renderer.Graphics;
 
 namespace BEditor.Core.Media
 {
+    //TODO : クエリ的な使い方でエフェクトや描画をする
     /// <summary>
     /// OpenCv Mat を利用した画像オブジェクトを表します
     /// </summary>

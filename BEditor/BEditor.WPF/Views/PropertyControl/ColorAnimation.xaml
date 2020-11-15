@@ -34,7 +34,7 @@
                     <MultiBinding Converter="{StaticResource PropertyHeaderTextConverter}">
                         <Binding Path="Property.PropertyMetadata.Name" Mode="OneTime"/>
                         <Binding Path="Property.Parent.Name" Mode="OneTime"/>
-                        <Binding Path="Property.ClipData.LabelText" Mode="OneWay"/>
+                        <Binding Path="Property.Parent.Parent.LabelText" Mode="OneWay"/>
                     </MultiBinding>
                 </TextBlock.ToolTip>
             </TextBlock>

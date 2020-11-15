@@ -18,6 +18,7 @@ using BEditor.Core.Data.ProjectData;
 using BEditor.Core.Data.PropertyData;
 using BEditor.Core.Data.PropertyData.EasingSetting;
 using BEditor.Core.Interfaces;
+using BEditor.Core.Extensions;
 
 namespace BEditor.Views
 {
@@ -137,7 +138,7 @@ namespace BEditor.Views
             KeyFrameViewCreaters.Add(new()
             {
                 PropertyType = typeof(EaseProperty),
-                CreateFunc = (elm) => new KeyFrame(elm.Scene, (EaseProperty)elm)
+                CreateFunc = (elm) => new KeyFrame(elm.GetScene(), (EaseProperty)elm)
             });
             KeyFrameViewCreaters.Add(new()
             {

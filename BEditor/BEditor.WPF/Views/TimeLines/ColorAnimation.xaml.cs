@@ -15,6 +15,7 @@ using BEditor.Core.Data.PropertyData;
 using MaterialDesignThemes.Wpf;
 
 using Resource = BEditor.Core.Properties.Resources;
+using BEditor.Core.Extensions;
 
 namespace BEditor.Views.TimeLines
 {
@@ -44,7 +45,7 @@ namespace BEditor.Views.TimeLines
         }
 
         private readonly ColorAnimationProperty Color;
-        private Scene Scene => Color.Scene;
+        private Scene Scene => Color.GetScene();
 
         public ColorAnimation(ColorAnimationProperty color)
         {
@@ -107,7 +108,7 @@ namespace BEditor.Views.TimeLines
                 viewModel.AddKeyFrameIcon(color.Frame[index], index);
             }
 
-            var tmp = Scene.GetCreateTimeLineViewModel().ToPixel(color.ClipData.Length);
+            var tmp = Scene.GetCreateTimeLineViewModel().ToPixel(color.GetClipData().Length);
             if (tmp > 0)
             {
                 Width = tmp;
@@ -158,7 +159,7 @@ namespace BEditor.Views.TimeLines
                 }
             }
 
-            Width = Scene.GetCreateTimeLineViewModel().ToPixel(Color.ClipData.Length);
+            Width = Scene.GetCreateTimeLineViewModel().ToPixel(Color.GetClipData().Length);
         }
         #endregion
 

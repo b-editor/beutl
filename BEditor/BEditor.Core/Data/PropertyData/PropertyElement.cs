@@ -22,14 +22,6 @@ namespace BEditor.Core.Data.PropertyData
         /// </summary>
         public virtual EffectElement Parent { get; set; }
         /// <summary>
-        /// <see cref="Parent"/> から <see cref="ObjectData.ClipData"/> を取得します
-        /// </summary>
-        public ClipData ClipData => Parent.Parent;
-        /// <summary>
-        /// <see cref="ClipData"/> から <see cref="ProjectData.Scene"/> を取得します
-        /// </summary>
-        public Scene Scene => ClipData.Parent;
-        /// <summary>
         /// プロパティのメタデータを取得または設定します
         /// </summary>
         public PropertyElementMetadata PropertyMetadata

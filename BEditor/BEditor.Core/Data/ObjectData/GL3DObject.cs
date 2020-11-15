@@ -94,7 +94,7 @@ namespace BEditor.Core.Data.ObjectData
                 };
             }
 
-            Parent.Parent.RenderingContext.MakeCurrent();
+            Parent.Parent.GraphicsContext.MakeCurrent();
             BEditor.Core.Renderer.Graphics.Paint(new Point3(Coordinate.X.GetValue(frame),
                                                            Coordinate.Y.GetValue(frame),
                                                            Coordinate.Z.GetValue(frame)),

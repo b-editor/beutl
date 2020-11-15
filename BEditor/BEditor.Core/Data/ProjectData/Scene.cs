@@ -129,7 +129,7 @@ namespace BEditor.Core.Data.ProjectData
         /// <summary>
         /// グラフィックコンテキストを取得します
         /// </summary>
-        public BaseGraphicsContext RenderingContext { get; internal set; }
+        public BaseGraphicsContext GraphicsContext { get; internal set; }
 
         #region コントロールに関係
 
@@ -198,9 +198,9 @@ namespace BEditor.Core.Data.ProjectData
         }
 
         /// <inheritdoc/>
-        IEnumerable<ClipData> IParent<ClipData>.Children => Datas;
+        public IEnumerable<ClipData> Children => Datas;
         /// <inheritdoc/>
-        Project IChild<Project>.Parent => Component.Current.Project;
+        public Project Parent { get; internal set; }
 
         #region コンストラクタ
 
@@ -214,7 +214,7 @@ namespace BEditor.Core.Data.ProjectData
             Width = width;
             Height = height;
             Datas = new ObservableCollection<ClipData>();
-            RenderingContext = Component.Funcs.CreateGraphicsContext(width, height);
+            GraphicsContext = Component.Funcs.CreateGraphicsContext(width, height);
         }
 
         #endregion
@@ -232,8 +232,8 @@ namespace BEditor.Core.Data.ProjectData
             FrameBuffer = new Image(Width, Height);
             var layer = GetLayer(frame).ToList();
 
-            RenderingContext.Clear();
-            RenderingContext.MakeCurrent();
+            GraphicsContext.Clear();
+            GraphicsContext.MakeCurrent();
 
             var args = new ClipRenderArgs(frame, layer);
 
@@ -242,12 +242,12 @@ namespace BEditor.Core.Data.ProjectData
 
             layer.ForEach(clip => clip.Render(args));
 
-            RenderingContext.SwapBuffers();
+            GraphicsContext.SwapBuffers();
 
             Graphics.GetPixels(FrameBuffer);
 
 #if DEBUG
-            if (frame % Component.Current.Project.Framerate * 5 == 1)
+            if (frame % Parent.Framerate * 5 == 1)
                 Task.Run(GC.Collect);
 #endif
             return new RenderingResult { Image = FrameBuffer };

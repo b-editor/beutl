@@ -1,8 +1,10 @@
 ﻿using System;
 using System.Collections.Generic;
 using System.Collections.ObjectModel;
+using System.ComponentModel;
 using System.IO;
 using System.Runtime.Serialization;
+using System.Threading.Tasks;
 
 using BEditor.Core.Interfaces;
 
@@ -12,50 +14,123 @@ namespace BEditor.Core.Data.ProjectData
     /// プロジェクトクラス
     /// </summary>
     [DataContract(Namespace = "")]
-    public class Project : BasePropertyChanged, IExtensibleDataObject, IDisposable, IParent<Scene>
+    public class Project : BasePropertyChanged, IExtensibleDataObject, IDisposable, IParent<Scene>, IChild<IApplication>, INotifyPropertyChanged
     {
         private Scene previewScene;
+        private ObservableCollection<Scene> sceneList = new ObservableCollection<Scene>();
+        private IApplication parent;
 
         /// <summary>
-        /// <see cref="Project"/> クラスの新しいインスタンスを初期化します
+        /// <see cref="Project"/> Initialize a new instance of the class.
         /// </summary>
-        /// <param name="width">rootsceneの横幅</param>
-        /// <param name="height">rootsceneの高さ</param>
-        /// <param name="framerate">フレームレート</param>
-        public Project(int width, int height, int framerate)
+        public Project(IApplication app, int width, int height, int framerate, int samplingrate = 0)
+        {
+            Parent = app;
+            Framerate = framerate;
+            Samplingrate = samplingrate;
+            SceneList.Add(new(width, height)
+            {
+                Parent = this
+            });
+        }
+        /// <summary>
+        /// <see cref="Project"/> Initialize a new instance of the class.
+        /// </summary>
+        public Project(int width, int height, int framerate, int samplingrate = 0) //TODO : サンプリングレート実装
         {
             Framerate = framerate;
-            SceneList.Add(new RootScene(width, height));
+            Samplingrate = samplingrate;
+            SceneList.Add(new(width, height)
+            {
+                Parent = this
+            });
+        }
+        /// <summary>
+        /// <see cref="Project"/> Initialize a new instance of the class.
+        /// </summary>
+        public Project(IApplication app, string file)
+        {
+            var o = Serialize.LoadFromFile(file, typeof(Project));
+
+            if (o != null)
+            {
+                var project = (Project)o;
+
+                foreach (var scene in project.SceneList)
+                {
+                    scene.GraphicsContext = Component.Funcs.CreateGraphicsContext(scene.Width, scene.Height);
+
+                }
+
+                project.CopyTo(this);
+                Parent = app;
+            }
+            else
+            {
+                throw new Exception();
+            }
+        }
+        /// <summary>
+        /// <see cref="Project"/> Initialize a new instance of the class.
+        /// </summary>
+        public Project(string file)
+        {
+            var o = Serialize.LoadFromFile(file, typeof(Project));
+
+            if (o != null)
+            {
+                var project = (Project)o;
+
+                foreach (var scene in project.SceneList)
+                {
+                    scene.GraphicsContext = Component.Funcs.CreateGraphicsContext(scene.Width, scene.Height);
+
+                }
+
+                project.CopyTo(this);
+            }
+            else
+            {
+                throw new Exception();
+            }
         }
 
         #region 保存するだけのプロパティ
 
         /// <summary>
-        /// フレームレートを取得します
+        /// Get the framerate for this <see cref="Project"/>.
         /// </summary>
         [DataMember(Order = 0)]
         public int Framerate { get; private set; }
 
         /// <summary>
-        /// サンプリングレートを取得します
+        /// Get the sampling rate for this <see cref="Project"/>.
         /// </summary>
         [DataMember(Order = 1)]
         public int Samplingrate { get; private set; }
 
         /// <summary>
-        /// ファイル名を取得または設定します
+        /// Get or set the file name of this <see cref="Project"/>.
         /// </summary>
         [DataMember(Order = 2)]
         public string Filename { get; set; }
 
         /// <summary>
-        /// <see cref="Scene"/> のリストを取得します
+        /// Get a list of Scenes in this <see cref="Project"/>.
         /// </summary>
         [DataMember(Order = 4)]
-        public ObservableCollection<Scene> SceneList { get; private set; } = new ObservableCollection<Scene>();
+        public ObservableCollection<Scene> SceneList
+        {
+            get => sceneList;
+            private set
+            {
+                sceneList = value;
+                Parallel.ForEach(value, scene => scene.Parent = this);
+            }
+        }
 
         /// <summary>
-        /// プレビュー中のシーンのインデックスを取得します
+        /// Get an index of the <see cref="SceneList"/> being previewed.
         /// </summary>
         [DataMember(Name = "PreviewScene", Order = 3)]
         public int PreviewSceneIndex { get; private set; }
@@ -63,12 +138,7 @@ namespace BEditor.Core.Data.ProjectData
         #endregion
 
         /// <summary>
-        /// バックアップ先のファイル名を取得します
-        /// </summary>
-        public string GetBackUpName => Path.GetDirectoryName(Filename) + "\\" + Path.GetFileNameWithoutExtension(Filename) + ".backup";
-
-        /// <summary>
-        /// プレビューしている <see cref="Scene"/> を取得または設定します
+        /// Get or set the <see cref="Scene"/> that is being previewed
         /// </summary>
         public Scene PreviewScene
         {
@@ -79,50 +149,29 @@ namespace BEditor.Core.Data.ProjectData
                 PreviewSceneIndex = SceneList.IndexOf(value);
             }
         }
-
         /// <summary>
-        /// オブジェクトが廃棄されているかを取得します
+        /// Get whether an object has been discarded.
         /// </summary>
         public bool IsDisposed { get; private set; }
         /// <inheritdoc/>
-        public void Dispose()
-        {
-            foreach (var scene in SceneList)
-            {
-                scene.RenderingContext.Dispose();
-            }
-
-            previewScene = null;
-            SceneList = null;
-            GC.Collect();
-            IsDisposed = true;
-        }
-
-        /// <inheritdoc/>
         public ExtensionDataObject ExtensionData { get; set; }
         /// <inheritdoc/>
-        IEnumerable<Scene> IParent<Scene>.Children => SceneList;
-
-
-
-        /// <summary>
-        /// プロジェクトを閉じたあとに発生します
-        /// </summary>
-        public static event EventHandler ProjectClosed;
-
-        /// <summary>
-        /// プロジェクトが開かれたあとに発生します
-        /// </summary>
-        public static event EventHandler ProjectOpend;
-
-        #region Backup
-
-        /// <summary>
-        /// <see cref="Project"/> のバックアップを保存します
-        /// </summary>
-        public static void BackUp(Project project)
+        public IEnumerable<Scene> Children => SceneList;
+        /// <inheritdoc/>
+        public IApplication Parent
         {
-            if (project.Filename == null)
+            get => parent;
+            init => parent = value;
+        }
+
+        public event EventHandler<ProjectSavedEventArgs> Saved;
+
+        /// <summary>
+        /// 
+        /// </summary>
+        public void BackUp()
+        {
+            if (Filename == null)
             {
                 //SaveFileDialogクラスのインスタンスを作成
                 ISaveFileDialog sfd = Component.Funcs.SaveFileDialog();
@@ -136,32 +185,37 @@ namespace BEditor.Core.Data.ProjectData
                 if (sfd.ShowDialog())
                 {
                     //OKボタンがクリックされたとき、選択されたファイル名を表示する
-                    project.Filename = sfd.FileName;
+                    Filename = sfd.FileName;
                 }
             }
 
-            Serialize.SaveToFile(project, Component.Current.Path + "\\user\\backup\\" + Path.GetFileNameWithoutExtension(project.Filename) + ".backup");
+            Serialize.SaveToFile(this, Parent.Path + "\\user\\backup\\" + Path.GetFileNameWithoutExtension(Filename) + ".backup");
+        }
+        /// <inheritdoc/>
+        public void Dispose()
+        {
+            foreach (var scene in SceneList)
+            {
+                scene.GraphicsContext.Dispose();
+            }
+
+            previewScene = null;
+            SceneList = null;
+            GC.Collect();
+            IsDisposed = true;
         }
 
-        #endregion
-
-
-        #region Save
         /// <summary>
-        /// <see cref="Project"/> を名前をつけて保存します
+        /// 
         /// </summary>
-        /// <param name="project">保存するプロジェクト</param>
-        public static bool Save(Project project)
+        /// <returns></returns>
+        public bool Save()
         {
-            if (project == null)
-            {
-                return false;
-            }
             //SaveFileDialogクラスのインスタンスを作成
             ISaveFileDialog sfd = Component.Funcs.SaveFileDialog();
-            if (project.Filename != null)
+            if (Filename != null)
             {
-                sfd.DefaultFileName = Path.GetFileName(project.Filename);
+                sfd.DefaultFileName = Path.GetFileName(Filename);
             }
             else
             {
@@ -174,50 +228,38 @@ namespace BEditor.Core.Data.ProjectData
             if (sfd.ShowDialog())
             {
                 //OKボタンがクリックされたとき、選択されたファイル名を表示する
-                project.Filename = sfd.FileName;
+                Filename = sfd.FileName;
             }
 
-            if (Serialize.SaveToFile(project, project.Filename))
+            if (Serialize.SaveToFile(this, Filename))
             {
-                Component.Current.Status = Status.Saved;
+                Saved?.Invoke(this, new(SaveType.Save));
                 return true;
             }
             return false;
         }
         /// <summary>
-        /// <see cref="Project"/> を名前をつけて保存します
+        /// 
         /// </summary>
-        /// <param name="project">保存するプロジェクト</param>
-        /// <param name="path">保存するパス</param>
-        /// <returns>保存に成功した場合は <see langword="true"/>、そうでない場合は <see langword="false"/> となります。<paramref name="project"/> が <see langword="null"/> の場合も <see langword="false"/> を返します</returns>
-        public static bool Save(Project project, string path)
+        /// <param name="file"></param>
+        /// <returns></returns>
+        public bool Save(string file)
         {
-            if (project == null)
+            Filename = file;
+            if (Serialize.SaveToFile(this, file))
             {
-                return false;
-            }
-
-            if (Serialize.SaveToFile(project, path))
-            {
-                Component.Current.Status = Status.Saved;
+                Saved?.Invoke(this, new(SaveType.Save));
                 return true;
             }
             return false;
         }
-
         /// <summary>
-        /// <see cref="Project"/> を上書き保存します
+        /// 
         /// </summary>
-        /// <param name="project">保存するプロジェクト</param>
-        /// <returns>保存に成功した場合は <see langword="true"/>、そうでない場合は <see langword="false"/> となります。<paramref name="project"/> が <see langword="null"/> の場合も <see langword="false"/> を返します</returns>
-        public static bool SaveAs(Project project)
+        /// <returns></returns>
+        public bool SaveAs()
         {
-            if (project == null)
-            {
-                return false;
-            }
-
-            if (project.Filename == null)
+            if (Filename == null)
             {
                 //SaveFileDialogクラスのインスタンスを作成
                 ISaveFileDialog sfd = Component.Funcs.SaveFileDialog();
@@ -231,7 +273,7 @@ namespace BEditor.Core.Data.ProjectData
                 if (sfd.ShowDialog())
                 {
                     //OKボタンがクリックされたとき、選択されたファイル名を表示する
-                    project.Filename = sfd.FileName;
+                    Filename = sfd.FileName;
                 }
                 else
                 {
@@ -239,95 +281,35 @@ namespace BEditor.Core.Data.ProjectData
                 }
             }
 
-            if (Serialize.SaveToFile(project, project.Filename))
+            if (Serialize.SaveToFile(this, Filename))
             {
-                Component.Current.Status = Status.Saved;
+                Saved?.Invoke(this, new(SaveType.SaveAs));
                 return true;
             }
             return false;
         }
 
-
-        #endregion
-
-
-        #region Open
-        /// <summary>
-        /// <see cref="Project"/> を開き、編集可能な状態にします
-        /// </summary>
-        /// <param name="path">プロジェクトのパス</param>
-        /// <returns>成功した場合は <see cref="Project"/> のインスタンス、そうでない場合は <see langword="null"/> を返します</returns>
-        public static Project Open(string path)
+        private void CopyTo(Project project)
         {
-            var o = Serialize.LoadFromFile(path, typeof(Project));
-
-            if (o != null)
-            {
-                var project = (Project)o;
-
-                foreach (var scene in project.SceneList)
-                {
-                    scene.RenderingContext = Component.Funcs.CreateGraphicsContext(scene.Width, scene.Height);
-
-                }
-
-                Component.Current.Project = project;
-                Component.Current.Status = Status.Edit;
-                ProjectOpend?.Invoke(null, EventArgs.Empty);
-                return project;
-            }
-            else
-            {
-                return null;
-            }
+            project.Filename = Filename;
+            project.Framerate = Framerate;
+            project.parent = parent;
+            project.PreviewScene = PreviewScene;
+            project.PreviewSceneIndex = PreviewSceneIndex;
+            project.Samplingrate = Samplingrate;
+            project.SceneList = SceneList;
         }
-        #endregion
+    }
 
+    public enum SaveType
+    {
+        Save,
+        SaveAs
+    }
+    public class ProjectSavedEventArgs : EventArgs
+    {
+        public ProjectSavedEventArgs(SaveType type) => Type = type;
 
-        #region Close
-        /// <summary>
-        /// 現在開かれているプロジェクトを閉じます
-        /// </summary>
-        public static void Close()
-        {
-            var project = Component.Current.Project;
-            if (project is null) return;
-
-            project.Dispose();
-
-            Component.Current.Project = null;
-            Component.Current.Status = Status.Idle;
-            ProjectClosed?.Invoke(null, null);
-        }
-        #endregion
-
-
-        #region Create
-        /// <summary>
-        /// プロジェクトを作成し、編集可能な状態にします
-        /// </summary>
-        /// <param name="width">rootsceneの横幅</param>
-        /// <param name="height">rootsceneの高さ</param>
-        /// <param name="framerate">フレームレート</param>
-        /// <param name="path">保存するパス</param>
-        /// <returns>作成された <see cref="Project"/> を返します</returns>
-        public static Project Create(int width, int height, int framerate, string path)
-        {
-            var project = new Project(width, height, framerate)
-            {
-                Filename = path
-            };
-
-            project.PreviewSceneIndex = 0;
-            Component.Current.Project = project;
-            ProjectOpend?.Invoke(null, null);
-
-            SaveAs(project);
-            Component.Current.Status = Status.Edit;
-            return project;
-        }
-        #endregion
-
-
+        public SaveType Type { get; }
     }
 }

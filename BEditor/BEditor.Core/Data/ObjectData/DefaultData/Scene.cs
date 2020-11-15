@@ -12,7 +12,7 @@ namespace BEditor.Core.Data.ObjectData
         [DataContract(Namespace = "")]
         public class Scene : DefaultImageObject
         {
-            public static readonly SelectorPropertyMetadata SelectSceneMetadata = new ScenesSelectorMetadata();
+            readonly SelectorPropertyMetadata SelectSceneMetadata;
 
             #region DefaultImageObjectメンバー
 
@@ -34,6 +34,7 @@ namespace BEditor.Core.Data.ObjectData
 
             public Scene()
             {
+                SelectSceneMetadata = new ScenesSelectorMetadata(this);
                 Start = new(Video.SpeedMetadata);
                 SelectScene = new(SelectSceneMetadata);
             }
@@ -49,12 +50,10 @@ namespace BEditor.Core.Data.ObjectData
 
             internal record ScenesSelectorMetadata : SelectorPropertyMetadata
             {
-                internal ScenesSelectorMetadata() : base(Core.Properties.Resources.Scenes, null)
+                internal ScenesSelectorMetadata(Scene scene) : base(Core.Properties.Resources.Scenes, null)
                 {
                     MemberPath = "SceneName";
-                    ItemSource = Component.Current.Project.SceneList;
-                    Project.ProjectOpend += (_, _) => ItemSource = Component.Current.Project.SceneList;
-                    Project.ProjectClosed += (_, _) => ItemSource = null;
+                    ItemSource = scene.Parent.Parent.Parent.Parent.SceneList;
                 }
             }
         }

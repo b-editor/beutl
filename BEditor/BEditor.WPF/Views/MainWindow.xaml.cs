@@ -12,6 +12,7 @@ using BEditor.Core.Plugin;
 using MahApps.Metro.Controls;
 
 using MaterialDesignThemes.Wpf;
+using BEditor.Models;
 
 namespace BEditor
 {
@@ -44,11 +45,12 @@ namespace BEditor
 
 
                 //コマンドライン引数から開く
-                if (Component.Current.Arguments.Length != 0 && File.Exists(Component.Current.Arguments[0]))
+                if (AppData.Current.Arguments.Length != 0 && File.Exists(AppData.Current.Arguments[0]))
                 {
-                    if (Path.GetExtension(Component.Current.Arguments[0]) == ".bedit")
+                    if (Path.GetExtension(AppData.Current.Arguments[0]) == ".bedit")
                     {
-                        Component.Current.Project = Project.Open(Component.Current.Arguments[0]);
+                        AppData.Current.Project = new(AppData.Current.Arguments[0]);
+                        AppData.Current.AppStatus = Status.Edit;
                     }
                 }
             };

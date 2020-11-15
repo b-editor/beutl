@@ -24,17 +24,17 @@ namespace BEditor.ViewModels
 {
     public sealed class MainWindowViewModel
     {
-        public static MainWindowViewModel Current { get; } = new MainWindowViewModel();
+        public static MainWindowViewModel Current { get; } = new();
 
-        public DelegateProperty<Project> OpenProject { get; } = new DelegateProperty<Project>() { Value = Component.Current.Project };
-        public DelegateProperty<ImageSource> PreviewImage { get; } = new DelegateProperty<ImageSource>();
-        public DelegateProperty<Brush> MainWindowColor { get; } = new DelegateProperty<Brush>();
+        public DelegateProperty<Project> OpenProject { get; } = new() { Value = AppData.Current.Project };
+        public DelegateProperty<ImageSource> PreviewImage { get; } = new();
+        public DelegateProperty<Brush> MainWindowColor { get; } = new();
 
-        public DelegateCommand PreviewFramePlus { get; } = new DelegateCommand();
-        public DelegateCommand PreviewFrameMinus { get; } = new DelegateCommand();
+        public DelegateCommand PreviewFramePlus { get; } = new();
+        public DelegateCommand PreviewFrameMinus { get; } = new();
 
 
-        public SnackbarMessageQueue MessageQueue { get; } = new SnackbarMessageQueue();
+        public SnackbarMessageQueue MessageQueue { get; } = new();
 
         private MainWindowViewModel()
         {
@@ -49,8 +49,8 @@ namespace BEditor.ViewModels
 
             SettingShow.Subscribe(() => SettingShowCommand());
 
-            PreviewFramePlus.Subscribe(() => Component.Current.Project.PreviewScene.PreviewFrame++);
-            PreviewFrameMinus.Subscribe(() => Component.Current.Project.PreviewScene.PreviewFrame--);
+            PreviewFramePlus.Subscribe(() => AppData.Current.Project.PreviewScene.PreviewFrame++);
+            PreviewFrameMinus.Subscribe(() => AppData.Current.Project.PreviewScene.PreviewFrame--);
 
             #region UndoRedoRelect
 
@@ -61,8 +61,8 @@ namespace BEditor.ViewModels
                     UndoRedoManager.Undo();
                 }
 
-                Component.Current.Project.PreviewUpdate();
-                Component.Current.Status = Status.Edit;
+                AppData.Current.Project.PreviewUpdate();
+                AppData.Current.AppStatus = Status.Edit;
             });
             RedoSelect.Subscribe(() =>
             {
@@ -71,8 +71,8 @@ namespace BEditor.ViewModels
                     UndoRedoManager.Redo();
                 }
 
-                Component.Current.Project.PreviewUpdate();
-                Component.Current.Status = Status.Edit;
+                AppData.Current.Project.PreviewUpdate();
+                AppData.Current.AppStatus = Status.Edit;
             });
 
             #endregion
@@ -81,15 +81,15 @@ namespace BEditor.ViewModels
             {
                 UndoRedoManager.Undo();
 
-                Component.Current.Project.PreviewUpdate();
-                Component.Current.Status = Status.Edit;
+                AppData.Current.Project.PreviewUpdate();
+                AppData.Current.AppStatus = Status.Edit;
             });
             RedoCommand.Subscribe(() =>
             {
                 UndoRedoManager.Redo();
 
-                Component.Current.Project.PreviewUpdate();
-                Component.Current.Status = Status.Edit;
+                AppData.Current.Project.PreviewUpdate();
+                AppData.Current.AppStatus = Status.Edit;
             });
 
             UndoRedoManager.CanUndoChange += (sender, e) => UndoIsEnabled.Value = UndoRedoManager.CanUndo;
@@ -97,21 +97,27 @@ namespace BEditor.ViewModels
 
             UndoRedoManager.DidEvent += DidEvent;
 
-            Project.ProjectClosed += Project_Closed;
-            Project.ProjectOpend += Project_Opend;
+            AppData.Current.PropertyChanged += (_, e) =>
+            {
+                if (e.PropertyName == nameof(AppData.Project))
+                {
+                    if (AppData.Current.Project is null) Project_Closed();
+                    else Project_Opend();
+                }
+            };
         }
 
 
         #region IOイベント
 
-        private void Project_Opend(object sender, EventArgs e)
+        private void Project_Opend()
         {
             UndoRedoManager.Clear();
 
             ProjectIsOpened.Value = true;
         }
 
-        private void Project_Closed(object sender, EventArgs e)
+        private void Project_Closed()
         {
             UndoRedoManager.Clear();
 
@@ -123,8 +129,8 @@ namespace BEditor.ViewModels
 
         #region OutputsCommands
 
-        public DelegateCommand OutputImage { get; } = new DelegateCommand();
-        public DelegateCommand OutputVideo { get; } = new DelegateCommand();
+        public DelegateCommand OutputImage { get; } = new();
+        public DelegateCommand OutputVideo { get; } = new();
 
 
         public void OutputImageCommand() => ImageHelper.OutputImage();
@@ -134,19 +140,19 @@ namespace BEditor.ViewModels
 
         #region Project
 
-        public DelegateCommand ProjectSaveAs { get; } = new DelegateCommand();
-        public DelegateCommand ProjectSave { get; } = new DelegateCommand();
-        public DelegateCommand ProjectOpen { get; } = new DelegateCommand();
-        public DelegateCommand ProjectClose { get; } = new DelegateCommand();
-        public DelegateCommand ProjectCreate { get; } = new DelegateCommand();
+        public DelegateCommand ProjectSaveAs { get; } = new();
+        public DelegateCommand ProjectSave { get; } = new();
+        public DelegateCommand ProjectOpen { get; } = new();
+        public DelegateCommand ProjectClose { get; } = new();
+        public DelegateCommand ProjectCreate { get; } = new();
 
-        public DelegateProperty<bool> ProjectIsOpened { get; } = new DelegateProperty<bool>() { Value = false };
+        public DelegateProperty<bool> ProjectIsOpened { get; } = new() { Value = false };
 
-        public void ProjectSaveAsCommand() => Project.SaveAs(Component.Current.Project);
+        private static void ProjectSaveAsCommand() => AppData.Current.Project?.SaveAs();
 
-        public void ProjectSaveCommand() => Project.Save(Component.Current.Project);
+        private static void ProjectSaveCommand() => AppData.Current.Project?.Save();
 
-        public void ProjectOpenCommand()
+        private static void ProjectOpenCommand()
         {
             var dialog = new CommonOpenFileDialog()
             {
@@ -167,12 +173,12 @@ namespace BEditor.ViewModels
                     NoneDialog dialog1 = new NoneDialog(loading);
                     dialog1.Show();
 
-                    var project = Project.Open(dialog.FileName);
-                    if (project != null)
+                    try
                     {
-                        Component.Current.Project = project;
+                        AppData.Current.Project = new Project(dialog.FileName);
+                        AppData.Current.AppStatus = Status.Edit;
                     }
-                    else
+                    catch
                     {
                         Message.Snackbar("読み込みに失敗しました");
                     }
@@ -184,28 +190,33 @@ namespace BEditor.ViewModels
             Debug.WriteLine("ProjectOpened");
         }
 
-        public void ProjectCloseCommand() => Project.Close();
+        private static void ProjectCloseCommand()
+        {
+            AppData.Current.Project?.Dispose();
+            AppData.Current.Project = null;
+            AppData.Current.AppStatus = Status.Idle;
+        }
 
-        public void ProjectCreateCommand() => new CreateProjectWindow { Owner = App.Current.MainWindow }.ShowDialog();
+        private static void ProjectCreateCommand() => new CreateProjectWindow { Owner = App.Current.MainWindow }.ShowDialog();
 
         #endregion
 
 
-        public DelegateCommand SettingShow { get; } = new DelegateCommand();
+        public DelegateCommand SettingShow { get; } = new();
 
         public void SettingShowCommand() => new SettingsWindow() { Owner = App.Current.MainWindow }.ShowDialog();
 
 
         #region UndoRedoCommands
 
-        public DelegateCommand UndoCommand { get; } = new DelegateCommand();
-        public DelegateCommand UndoSelect { get; } = new DelegateCommand();
-        public DelegateProperty<int> UndoSelectIndex { get; } = new DelegateProperty<int>();
-        public DelegateProperty<bool> UndoIsEnabled { get; } = new DelegateProperty<bool>() { Value = UndoRedoManager.CanUndo };
-        public DelegateCommand RedoCommand { get; } = new DelegateCommand();
-        public DelegateCommand RedoSelect { get; } = new DelegateCommand();
-        public DelegateProperty<int> RedoSelectIndex { get; } = new DelegateProperty<int>();
-        public DelegateProperty<bool> RedoIsEnabled { get; } = new DelegateProperty<bool>() { Value = UndoRedoManager.CanRedo };
+        public DelegateCommand UndoCommand { get; } = new();
+        public DelegateCommand UndoSelect { get; } = new();
+        public DelegateProperty<int> UndoSelectIndex { get; } = new();
+        public DelegateProperty<bool> UndoIsEnabled { get; } = new() { Value = UndoRedoManager.CanUndo };
+        public DelegateCommand RedoCommand { get; } = new();
+        public DelegateCommand RedoSelect { get; } = new();
+        public DelegateProperty<int> RedoSelectIndex { get; } = new();
+        public DelegateProperty<bool> RedoIsEnabled { get; } = new() { Value = UndoRedoManager.CanRedo };
 
 
         public ObservableCollection<string> UnDoList { get; } = new();
@@ -223,7 +234,7 @@ namespace BEditor.ViewModels
 
                     UnDoList.Insert(0, UndoRedoManager.CommandTypeDictionary[command.GetType()]);
 
-                    Component.Current.Project.PreviewUpdate();
+                    AppData.Current.Project.PreviewUpdate();
                 }
                 else if (type == CommandType.Undo)
                 { //ReDoListに移動
@@ -259,7 +270,8 @@ namespace BEditor.ViewModels
         #endregion
 
 
-        public ObservableCollection<ObjectData> AddedObjects { get; } = new ObservableCollection<ObjectData>() {
+        public ObservableCollection<ObjectData> AddedObjects { get; } = new()
+        {
             new() { Name = "Test", Type = ClipType.Figure }
         };
     }

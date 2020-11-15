@@ -14,36 +14,6 @@
             シングルトンで現在のプロジェクトやステータスなどを取得できるクラスを表します
             </summary>
         </member>
-        <member name="P:BEditor.Core.Data.Component.Current">
-            <summary>
-            
-            </summary>
-        </member>
-        <member name="P:BEditor.Core.Data.Component.Path">
-            <summary>
-            Exeファイルが有るフォルダ
-            </summary>
-        </member>
-        <member name="P:BEditor.Core.Data.Component.Arguments">
-            <summary>
-            コマンドライン引数を取得します
-            </summary>
-        </member>
-        <member name="P:BEditor.Core.Data.Component.LoadedPlugins">
-            <summary>
-            読み込まれたプラグインを取得します
-            </summary>
-        </member>
-        <member name="P:BEditor.Core.Data.Component.Project">
-            <summary>
-            開かれている <see cref="T:BEditor.Core.Data.ProjectData.Project"/> を取得または設定します
-            </summary>
-        </member>
-        <member name="P:BEditor.Core.Data.Component.Status">
-            <summary>
-            現在のステータスを取得または設定します
-            </summary>
-        </member>
         <member name="T:BEditor.Core.Data.Component.Funcs">
             <summary>
             プラットフォームに依存する関数を共有するフィールド
@@ -542,120 +512,96 @@
             プロジェクトクラス
             </summary>
         </member>
-        <member name="M:BEditor.Core.Data.ProjectData.Project.#ctor(System.Int32,System.Int32,System.Int32)">
+        <member name="M:BEditor.Core.Data.ProjectData.Project.#ctor(BEditor.Core.Data.IApplication,System.Int32,System.Int32,System.Int32,System.Int32)">
             <summary>
-            <see cref="T:BEditor.Core.Data.ProjectData.Project"/> クラスの新しいインスタンスを初期化します
+            <see cref="T:BEditor.Core.Data.ProjectData.Project"/> Initialize a new instance of the class.
             </summary>
-            <param name="width">rootsceneの横幅</param>
-            <param name="height">rootsceneの高さ</param>
-            <param name="framerate">フレームレート</param>
+        </member>
+        <member name="M:BEditor.Core.Data.ProjectData.Project.#ctor(System.Int32,System.Int32,System.Int32,System.Int32)">
+            <summary>
+            <see cref="T:BEditor.Core.Data.ProjectData.Project"/> Initialize a new instance of the class.
+            </summary>
+        </member>
+        <member name="M:BEditor.Core.Data.ProjectData.Project.#ctor(BEditor.Core.Data.IApplication,System.String)">
+            <summary>
+            <see cref="T:BEditor.Core.Data.ProjectData.Project"/> Initialize a new instance of the class.
+            </summary>
+        </member>
+        <member name="M:BEditor.Core.Data.ProjectData.Project.#ctor(System.String)">
+            <summary>
+            <see cref="T:BEditor.Core.Data.ProjectData.Project"/> Initialize a new instance of the class.
+            </summary>
         </member>
         <member name="P:BEditor.Core.Data.ProjectData.Project.Framerate">
             <summary>
-            フレームレートを取得します
+            Get the framerate for this <see cref="T:BEditor.Core.Data.ProjectData.Project"/>.
             </summary>
         </member>
         <member name="P:BEditor.Core.Data.ProjectData.Project.Samplingrate">
             <summary>
-            サンプリングレートを取得します
+            Get the sampling rate for this <see cref="T:BEditor.Core.Data.ProjectData.Project"/>.
             </summary>
         </member>
         <member name="P:BEditor.Core.Data.ProjectData.Project.Filename">
             <summary>
-            ファイル名を取得または設定します
+            Get or set the file name of this <see cref="T:BEditor.Core.Data.ProjectData.Project"/>.
             </summary>
         </member>
         <member name="P:BEditor.Core.Data.ProjectData.Project.SceneList">
             <summary>
-            <see cref="T:BEditor.Core.Data.ProjectData.Scene"/> のリストを取得します
+            Get a list of Scenes in this <see cref="T:BEditor.Core.Data.ProjectData.Project"/>.
             </summary>
         </member>
         <member name="P:BEditor.Core.Data.ProjectData.Project.PreviewSceneIndex">
             <summary>
-            プレビュー中のシーンのインデックスを取得します
-            </summary>
-        </member>
-        <member name="P:BEditor.Core.Data.ProjectData.Project.GetBackUpName">
-            <summary>
-            バックアップ先のファイル名を取得します
+            Get an index of the <see cref="P:BEditor.Core.Data.ProjectData.Project.SceneList"/> being previewed.
             </summary>
         </member>
         <member name="P:BEditor.Core.Data.ProjectData.Project.PreviewScene">
             <summary>
-            プレビューしている <see cref="T:BEditor.Core.Data.ProjectData.Scene"/> を取得または設定します
+            Get or set the <see cref="T:BEditor.Core.Data.ProjectData.Scene"/> that is being previewed
             </summary>
         </member>
         <member name="P:BEditor.Core.Data.ProjectData.Project.IsDisposed">
             <summary>
-            オブジェクトが廃棄されているかを取得します
+            Get whether an object has been discarded.
+            </summary>
+        </member>
+        <member name="P:BEditor.Core.Data.ProjectData.Project.ExtensionData">
+            <inheritdoc/>
+        </member>
+        <member name="P:BEditor.Core.Data.ProjectData.Project.Children">
+            <inheritdoc/>
+        </member>
+        <member name="P:BEditor.Core.Data.ProjectData.Project.Parent">
+            <inheritdoc/>
+        </member>
+        <member name="M:BEditor.Core.Data.ProjectData.Project.BackUp">
+            <summary>
+            
             </summary>
         </member>
         <member name="M:BEditor.Core.Data.ProjectData.Project.Dispose">
             <inheritdoc/>
         </member>
-        <member name="P:BEditor.Core.Data.ProjectData.Project.ExtensionData">
-            <inheritdoc/>
-        </member>
-        <member name="P:BEditor.Core.Data.ProjectData.Project.BEditor#Core#Data#IParent{BEditor#Core#Data#ProjectData#Scene}#Children">
-            <inheritdoc/>
-        </member>
-        <member name="E:BEditor.Core.Data.ProjectData.Project.ProjectClosed">
+        <member name="M:BEditor.Core.Data.ProjectData.Project.Save">
             <summary>
-            プロジェクトを閉じたあとに発生します
+            
             </summary>
+            <returns></returns>
         </member>
-        <member name="E:BEditor.Core.Data.ProjectData.Project.ProjectOpend">
+        <member name="M:BEditor.Core.Data.ProjectData.Project.Save(System.String)">
             <summary>
-            プロジェクトが開かれたあとに発生します
+            
             </summary>
+            <param name="file"></param>
+            <returns></returns>
         </member>
-        <member name="M:BEditor.Core.Data.ProjectData.Project.BackUp(BEditor.Core.Data.ProjectData.Project)">
+        <member name="M:BEditor.Core.Data.ProjectData.Project.SaveAs">
             <summary>
-            <see cref="T:BEditor.Core.Data.ProjectData.Project"/> のバックアップを保存します
+            
             </summary>
-        </member>
-        <member name="M:BEditor.Core.Data.ProjectData.Project.Save(BEditor.Core.Data.ProjectData.Project)">
-            <summary>
-            <see cref="T:BEditor.Core.Data.ProjectData.Project"/> を名前をつけて保存します
-            </summary>
-            <param name="project">保存するプロジェクト</param>
-        </member>
-        <member name="M:BEditor.Core.Data.ProjectData.Project.Save(BEditor.Core.Data.ProjectData.Project,System.String)">
-            <summary>
-            <see cref="T:BEditor.Core.Data.ProjectData.Project"/> を名前をつけて保存します
-            </summary>
-            <param name="project">保存するプロジェクト</param>
-            <param name="path">保存するパス</param>
-            <returns>保存に成功した場合は <see langword="true"/>、そうでない場合は <see langword="false"/> となります。<paramref name="project"/> が <see langword="null"/> の場合も <see langword="false"/> を返します</returns>
-        </member>
-        <member name="M:BEditor.Core.Data.ProjectData.Project.SaveAs(BEditor.Core.Data.ProjectData.Project)">
-            <summary>
-            <see cref="T:BEditor.Core.Data.ProjectData.Project"/> を上書き保存します
-            </summary>
-            <param name="project">保存するプロジェクト</param>
-            <returns>保存に成功した場合は <see langword="true"/>、そうでない場合は <see langword="false"/> となります。<paramref name="project"/> が <see langword="null"/> の場合も <see langword="false"/> を返します</returns>
-        </member>
-        <member name="M:BEditor.Core.Data.ProjectData.Project.Open(System.String)">
-            <summary>
-            <see cref="T:BEditor.Core.Data.ProjectData.Project"/> を開き、編集可能な状態にします
-            </summary>
-            <param name="path">プロジェクトのパス</param>
-            <returns>成功した場合は <see cref="T:BEditor.Core.Data.ProjectData.Project"/> のインスタンス、そうでない場合は <see langword="null"/> を返します</returns>
-        </member>
-        <member name="M:BEditor.Core.Data.ProjectData.Project.Close">
-            <summary>
-            現在開かれているプロジェクトを閉じます
-            </summary>
-        </member>
-        <member name="M:BEditor.Core.Data.ProjectData.Project.Create(System.Int32,System.Int32,System.Int32,System.String)">
-            <summary>
-            プロジェクトを作成し、編集可能な状態にします
-            </summary>
-            <param name="width">rootsceneの横幅</param>
-            <param name="height">rootsceneの高さ</param>
-            <param name="framerate">フレームレート</param>
-            <param name="path">保存するパス</param>
-            <returns>作成された <see cref="T:BEditor.Core.Data.ProjectData.Project"/> を返します</returns>
+            <returns></returns>
         </member>
         <member name="T:BEditor.Core.Data.ProjectData.Scene">
             <summary>
@@ -707,7 +653,7 @@
             選択されている <see cref="T:BEditor.Core.Data.ObjectData.ClipData"/> を取得します
             </summary>
         </member>
-        <member name="P:BEditor.Core.Data.ProjectData.Scene.RenderingContext">
+        <member name="P:BEditor.Core.Data.ProjectData.Scene.GraphicsContext">
             <summary>
             グラフィックコンテキストを取得します
             </summary>
@@ -737,10 +683,10 @@
             タイムラインの垂直方向のスクロールのオフセットを取得または設定します
             </summary>
         </member>
-        <member name="P:BEditor.Core.Data.ProjectData.Scene.BEditor#Core#Data#IParent{BEditor#Core#Data#ObjectData#ClipData}#Children">
+        <member name="P:BEditor.Core.Data.ProjectData.Scene.Children">
             <inheritdoc/>
         </member>
-        <member name="P:BEditor.Core.Data.ProjectData.Scene.BEditor#Core#Data#IChild{BEditor#Core#Data#ProjectData#Project}#Parent">
+        <member name="P:BEditor.Core.Data.ProjectData.Scene.Parent">
             <inheritdoc/>
         </member>
         <member name="M:BEditor.Core.Data.ProjectData.Scene.#ctor(System.Int32,System.Int32)">
@@ -1941,11 +1887,6 @@
             タイムライン上に編集画面を持つプロパティを表します
             </summary>
         </member>
-        <member name="P:BEditor.Core.Data.PropertyData.IKeyFrameProperty.Scene">
-            <summary>
-            シーンを取得します
-            </summary>
-        </member>
         <member name="P:BEditor.Core.Data.PropertyData.IKeyFrameProperty.ComponentData">
             <summary>
             UIなどのキャッシュを入れる配列を取得します
@@ -1959,16 +1900,6 @@
         <member name="P:BEditor.Core.Data.PropertyData.PropertyElement.Parent">
             <summary>
             このプロパティの親要素を取得します
-            </summary>
-        </member>
-        <member name="P:BEditor.Core.Data.PropertyData.PropertyElement.ClipData">
-            <summary>
-            <see cref="P:BEditor.Core.Data.PropertyData.PropertyElement.Parent"/> から <see cref="T:BEditor.Core.Data.ObjectData.ClipData"/> を取得します
-            </summary>
-        </member>
-        <member name="P:BEditor.Core.Data.PropertyData.PropertyElement.Scene">
-            <summary>
-            <see cref="P:BEditor.Core.Data.PropertyData.PropertyElement.ClipData"/> から <see cref="T:BEditor.Core.Data.ProjectData.Scene"/> を取得します
             </summary>
         </member>
         <member name="P:BEditor.Core.Data.PropertyData.PropertyElement.PropertyMetadata">

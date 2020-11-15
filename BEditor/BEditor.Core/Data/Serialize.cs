@@ -190,7 +190,7 @@ namespace BEditor.Core.Data
                         typeof(EasingFunc)
                     };
 
-                    var plugins = Component.Current.LoadedPlugins;
+                    var plugins = Component.Funcs.GetApp().LoadedPlugins;
                     void ForFunc(int i)
                     {
                         var type = plugins[i];

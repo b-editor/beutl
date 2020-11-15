@@ -17,6 +17,7 @@ using BEditor.Core.Data.PropertyData;
 using MaterialDesignThemes.Wpf;
 
 using Resource = BEditor.Core.Properties.Resources;
+using BEditor.Core.Extensions;
 
 namespace BEditor.Views.TimeLines
 {
@@ -115,7 +116,7 @@ namespace BEditor.Views.TimeLines
                 viewmodel.AddKeyFrameIcon(EaseList.Time[index], index);
             }
 
-            var tmp = Scene.GetCreateTimeLineViewModel().ToPixel(EaseList.ClipData.Length);
+            var tmp = Scene.GetCreateTimeLineViewModel().ToPixel(EaseList.GetClipData().Length);
             if (tmp > 0)
             {
                 Width = tmp;
@@ -168,7 +169,7 @@ namespace BEditor.Views.TimeLines
                 }
             }
 
-            Width = Scene.GetCreateTimeLineViewModel().ToPixel(EaseList.ClipData.Length);
+            Width = Scene.GetCreateTimeLineViewModel().ToPixel(EaseList.GetClipData().Length);
         }
         #endregion
 

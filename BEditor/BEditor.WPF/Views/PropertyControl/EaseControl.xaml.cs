@@ -14,6 +14,7 @@ using BEditor.Views.CustomControl;
 using BEditor.Views.TimeLines;
 using BEditor.Core.Data;
 using BEditor.Core.Data.PropertyData;
+using BEditor.Core.Extensions;
 
 namespace BEditor.Views.PropertyControls
 {
@@ -167,7 +168,7 @@ namespace BEditor.Views.PropertyControls
 
                 EasingSetting.Value[index] = EasingSetting.InRange(val);
 
-                Component.Current.Project.PreviewUpdate(EasingSetting.ClipData);
+                AppData.Current.Project.PreviewUpdate(EasingSetting.GetClipData());
 
                 e.Handled = true;
             }
@@ -184,7 +185,7 @@ namespace BEditor.Views.PropertyControls
             {
                 EasingSetting.Value[index] = EasingSetting.InRange(_out);
 
-                Component.Current.Project.PreviewUpdate(EasingSetting.ClipData);
+                AppData.Current.Project.PreviewUpdate(EasingSetting.GetClipData());
             }
         }
     }

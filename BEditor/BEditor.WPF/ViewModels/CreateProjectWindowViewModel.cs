@@ -2,6 +2,7 @@
 using BEditor.Core.Data.ProjectData;
 using Microsoft.WindowsAPICodePack.Dialogs;
 using BEditor.Core.Data;
+using BEditor.Models;
 
 namespace BEditor.ViewModels
 {
@@ -51,7 +52,15 @@ namespace BEditor.ViewModels
 
         private void Create()
         {
-            Project.Create(Width, Height, Framerate, Path + "\\" + Name + ".bedit");
+            var project = new Project(AppData.Current, Width, Height, Framerate)
+            {
+                Filename = path
+            };
+
+            AppData.Current.Project = project;
+
+            project.Save(Path + "\\" + Name + ".bedit");
+            AppData.Current.AppStatus = Status.Edit;
 
             Settings.Default.LastTimeNum++;
             Settings.Default.Save();
