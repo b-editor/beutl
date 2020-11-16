@@ -5,7 +5,7 @@ using System.Windows.Controls;
 using System.Windows.Media;
 using System.Windows.Shapes;
 
-using BEditor.Core.Media;
+using BEditor.Media;
 using BEditor.Core;
 
 using Pen = System.Drawing.Pen;
@@ -15,9 +15,9 @@ namespace BEditor.Models
 {
     internal partial class ObjectLoad
     {
-        internal static BEditor.Core.Media.Image Ellipse(int width, int height, int line, Core.Media.Color color)
+        internal static BEditor.Media.Image Ellipse(int width, int height, int line, Media.Color color)
         {
-            BEditor.Core.Media.Image img = null;
+            BEditor.Media.Image img = null;
 
             if ((line != 0) && (width != 0) && (height != 0))
             {
@@ -46,15 +46,15 @@ namespace BEditor.Models
                     RenderOptions.SetClearTypeHint(ellipse, ClearTypeHint.Enabled);
                     RenderOptions.SetEdgeMode(ellipse, EdgeMode.Unspecified);
 
-                    img = new BEditor.Core.Media.Image(width, height);
+                    img = new BEditor.Media.Image(width, height);
                     ellipse.RenderToBitmap(new System.Windows.Size(width, height)).ToImage(img);
                 });
             }
             return img;
         }
-        internal static BEditor.Core.Media.Image Rectangle(int width, int height, int line, Core.Media.Color color)
+        internal static BEditor.Media.Image Rectangle(int width, int height, int line, Media.Color color)
         {
-            BEditor.Core.Media.Image img = null;
+            BEditor.Media.Image img = null;
 
             if ((line != 0) && (width != 0) && (height != 0))
             {
@@ -85,7 +85,7 @@ namespace BEditor.Models
                     RenderOptions.SetClearTypeHint(rectangle, ClearTypeHint.Enabled);
                     RenderOptions.SetEdgeMode(rectangle, EdgeMode.Unspecified);
 
-                    img = new BEditor.Core.Media.Image(width, height);
+                    img = new BEditor.Media.Image(width, height);
                     rectangle.RenderToBitmap(new System.Windows.Size(width, height)).ToImage(img);
                 });
             }

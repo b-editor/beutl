@@ -4,7 +4,7 @@ using System.Windows.Data;
 using BEditor.ViewModels.PropertyControl;
 using BEditor.Views.CustomControl;
 
-using BEditor.Core.Data.PropertyData;
+using BEditor.ObjectModel.PropertyData;
 
 namespace BEditor.Views.PropertyControls
 {

@@ -1,7 +1,7 @@
 ﻿using System;
 using System.Collections.Generic;
 using System.Text;
-using BEditor.Core.Data;
+using BEditor.ObjectModel;
 using BEditor.ViewModels.Helper;
 using MaterialDesignThemes.Wpf;
 

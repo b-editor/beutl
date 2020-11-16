@@ -3,7 +3,7 @@ using System.Collections.Generic;
 using System.Runtime.Serialization;
 using System.Text;
 
-namespace BEditor.Core.Media
+namespace BEditor.Media
 {
     [DataContract(Namespace = "")]
     public record FontRecord

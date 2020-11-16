@@ -8,8 +8,8 @@ using System.Text;
 using System.Threading.Tasks;
 using System.Xml.Linq;
 
-using BEditor.Core.Data;
-using BEditor.Core.Data.ProjectData;
+using BEditor.ObjectModel;
+using BEditor.ObjectModel.ProjectData;
 using BEditor.Core.Plugin;
 
 namespace BEditor.Models
@@ -59,6 +59,8 @@ namespace BEditor.Models
             }
 
             #endregion
+
+            UndoRedoManager.DidEvent += (_, _) => AppStatus = Status.Edit;
         }
 
         /// <inheritdoc/>
@@ -66,7 +68,7 @@ namespace BEditor.Models
         /// <inheritdoc/>
         public string[] Arguments { get; set; }
         /// <inheritdoc/>
-        public List<IPlugin> LoadedPlugins { get; } = new List<IPlugin>();
+        public List<IPlugin> LoadedPlugins { get; set; }
         /// <inheritdoc/>
         public Project Project { get => project; set => SetValue(value, ref project, nameof(Project)); }
         /// <inheritdoc/>

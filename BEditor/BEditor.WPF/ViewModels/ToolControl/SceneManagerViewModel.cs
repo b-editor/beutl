@@ -5,8 +5,8 @@ using System.Text;
 using BEditor.ViewModels.Helper;
 using BEditor.Views;
 
-using BEditor.Core.Data;
-using BEditor.Core.Data.ProjectData;
+using BEditor.ObjectModel;
+using BEditor.ObjectModel.ProjectData;
 
 namespace BEditor.ViewModels.ToolControl
 {

@@ -4,11 +4,13 @@ using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
 
-namespace BEditor.Core.Rendering.Extensions
+using BEditor.Rendering;
+
+namespace BEditor.Rendering.Extensions
 {
     public static class RendererExtensions
     {
-        public static void Render<T>(this IRenderable<T> renderable, Action<T> onRender, Action onCompleted = null, Action<Exception> onError = null, Action onFinally = null)
+        public static IRenderable<T> Render<T>(this IRenderable<T> renderable, Action<T> onRender, Action onCompleted = null, Action<Exception> onError = null, Action onFinally = null)
         {
             renderable.Render(new PrivateRenderer<T>()
             {
@@ -17,8 +19,10 @@ namespace BEditor.Core.Rendering.Extensions
                 onError = onError,
                 onFinally = onFinally
             });
+
+            return renderable;
         }
-        public static void Render<T>(this IRenderable<T> renderable, Action onRender, Action onCompleted = null, Action<Exception> onError = null, Action onFinally = null)
+        public static IRenderable<T> Render<T>(this IRenderable<T> renderable, Action onRender, Action onCompleted = null, Action<Exception> onError = null, Action onFinally = null)
         {
             renderable.Render(new PrivateRenderer<T>()
             {
@@ -27,6 +31,8 @@ namespace BEditor.Core.Rendering.Extensions
                 onError = onError,
                 onFinally = onFinally
             });
+
+            return renderable;
         }
 
         private class PrivateRenderer<T> : IRenderer<T>

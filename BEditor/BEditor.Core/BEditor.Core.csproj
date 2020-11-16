@@ -5,6 +5,7 @@
     <Nullable>annotations</Nullable>
     <AssemblyName>BEditor.Core</AssemblyName>
     <Version>0.0.1</Version>
+    <RootNamespace>BEditor</RootNamespace>
   </PropertyGroup>
 
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|AnyCPU'">

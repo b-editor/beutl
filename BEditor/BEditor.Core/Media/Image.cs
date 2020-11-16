@@ -6,15 +6,17 @@ using System.IO;
 using System.Reactive.Linq;
 using System.Threading.Tasks;
 
+using BEditor.Core;
 using BEditor.Core.Exceptions;
 using BEditor.Core.Extensions;
 using BEditor.Core.Extensions.ViewCommand;
 using BEditor.Core.Native;
 using BEditor.Core.Rendering;
+using BEditor.Rendering;
 
-using Graphic = BEditor.Core.Rendering.Graphics;
+using Graphic = BEditor.Graphics.GLTK;
 
-namespace BEditor.Core.Media
+namespace BEditor.Media
 {
     /// <summary>
     /// OpenCv Mat を利用した画像オブジェクトを表します
@@ -431,7 +433,7 @@ namespace BEditor.Core.Media
         public Point3 Center { get; set; }
         public Point3 Rotate { get; set; }
         public Point3 Scale { get; set; } = new(1f, 1f, 1f);
-        public Material Material { get; set; } = new Material(
+        public MaterialRecord Material { get; set; } = new MaterialRecord(
             new(1f, 1f, 1f, 1f),
             new(1f, 1f, 1f, 1f),
             new(1f, 1f, 1f, 1f),
@@ -703,7 +705,7 @@ namespace BEditor.Core.Media
 
         #endregion
 
-        public void Render(IRenderer<Image> renderer)
+        public Image Render(IRenderer<Image> renderer)
         {
             try
             {
@@ -718,6 +720,8 @@ namespace BEditor.Core.Media
             {
                 renderer.OnFinally();
             }
+
+            return this;
         }
 
         /// <inheritdoc/>
@@ -742,7 +746,7 @@ namespace BEditor.Core.Media
         }
     }
 
-    public record Material(Color Ambient, Color Diffuse, Color Specular, float Shininess, Color Color);
+    public record MaterialRecord(Color Ambient, Color Diffuse, Color Specular, float Shininess, Color Color);
 
     public enum FlipMode
     {

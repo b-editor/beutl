@@ -7,7 +7,7 @@ using System.Windows.Media;
 
 using BEditor.Models.Extension;
 
-using BEditor.Core.Media;
+using BEditor.Media;
 
 namespace BEditor.ViewModels.Converters
 {

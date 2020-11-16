@@ -11,12 +11,12 @@ using BEditor.Models.Settings;
 using BEditor.ViewModels.TimeLines;
 using BEditor.Views.CustomControl;
 
-using BEditor.Core.Data.ProjectData;
-using BEditor.Core.Data.PropertyData;
+using BEditor.ObjectModel.ProjectData;
+using BEditor.ObjectModel.PropertyData;
 
 using MaterialDesignThemes.Wpf;
 
-using Resource = BEditor.Core.Properties.Resources;
+using Resource = BEditor.Properties.Resources;
 using BEditor.Core.Extensions;
 
 namespace BEditor.Views.TimeLines

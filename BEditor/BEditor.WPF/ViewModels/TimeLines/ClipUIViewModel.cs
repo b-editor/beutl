@@ -7,10 +7,10 @@ using BEditor.Models.Settings;
 using BEditor.ViewModels.Helper;
 using BEditor.Views;
 
-using BEditor.Core.Data;
-using BEditor.Core.Data.ObjectData;
-using BEditor.Core.Data.ProjectData;
-using BEditor.Core.Properties;
+using BEditor.ObjectModel;
+using BEditor.ObjectModel.ObjectData;
+using BEditor.ObjectModel.ProjectData;
+using BEditor.Properties;
 
 namespace BEditor.ViewModels.TimeLines
 {

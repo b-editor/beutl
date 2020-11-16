@@ -3,8 +3,8 @@ using System.Collections.Generic;
 using System.Globalization;
 using System.Text;
 using System.Windows.Data;
-using BEditor.Core.Data;
-using BEditor.Core.Properties;
+using BEditor.ObjectModel;
+using BEditor.Properties;
 using MaterialDesignThemes.Wpf;
 
 namespace BEditor.ViewModels.Converters

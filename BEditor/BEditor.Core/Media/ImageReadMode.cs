@@ -2,7 +2,7 @@
 using System.Collections.Generic;
 using System.Text;
 
-namespace BEditor.Core.Media
+namespace BEditor.Media
 {
     public enum ImageReadMode
     {

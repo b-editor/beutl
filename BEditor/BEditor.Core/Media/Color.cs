@@ -2,7 +2,7 @@
 using System.Runtime.InteropServices;
 using System.Runtime.Serialization;
 
-namespace BEditor.Core.Media
+namespace BEditor.Media
 {
     /// <summary>
     /// RGBA (red, green, blue, alpha) の色を表します

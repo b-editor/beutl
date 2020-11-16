@@ -10,8 +10,8 @@ using BEditor.Models;
 using BEditor.ViewModels.PropertyControl;
 using BEditor.Views.CustomControl;
 
-using BEditor.Core.Data;
-using BEditor.Core.Data.PropertyData;
+using BEditor.ObjectModel;
+using BEditor.ObjectModel.PropertyData;
 
 namespace BEditor.Views.PropertyControl
 {

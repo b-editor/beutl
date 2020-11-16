@@ -1,6 +1,6 @@
 ﻿using System.Diagnostics;
 
-namespace BEditor.Core.Media.Encoder
+namespace BEditor.Media.Encoder
 {
     public class FFmpegVideoEncoder : VideoEncoder
     {

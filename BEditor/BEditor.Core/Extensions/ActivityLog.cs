@@ -5,7 +5,7 @@ using System.Text;
 using System.Threading.Tasks;
 using System.Xml.Linq;
 
-using BEditor.Core.Data;
+using BEditor.ObjectModel;
 
 namespace BEditor.Core.Extensions
 {
@@ -14,10 +14,10 @@ namespace BEditor.Core.Extensions
         public static void ErrorLog(Exception e)
         {
             if (!Settings.Default.EnableErrorLog) return;
-            var app = Component.Funcs.GetApp();
+
             Task.Run(() =>
             {
-                var xdoc = XDocument.Load(app.Path + "\\user\\logs\\errorlog.xml");
+                var xdoc = XDocument.Load(Component.Path + "\\user\\logs\\errorlog.xml");
 
                 var xelm = new XElement("Error",
                     new XElement("ExceptionMessage", e.Message),
@@ -26,7 +26,7 @@ namespace BEditor.Core.Extensions
 
                 xdoc.Elements().First().Add(xelm);
 
-                xdoc.Save(app.Path + "\\user\\logs\\errorlog.xml");
+                xdoc.Save(Component.Path + "\\user\\logs\\errorlog.xml");
             });
         }
 
@@ -34,10 +34,9 @@ namespace BEditor.Core.Extensions
         {
             if (!Settings.Default.EnableErrorLog) return;
 
-            var app = Component.Funcs.GetApp();
             Task.Run(() =>
             {
-                var xdoc = XDocument.Load(app.Path + "\\user\\logs\\errorlog.xml");
+                var xdoc = XDocument.Load(Component.Path + "\\user\\logs\\errorlog.xml");
 
                 var xelm = new XElement("Error",
                     new XElement("ExceptionMessage", e.Message),
@@ -47,7 +46,7 @@ namespace BEditor.Core.Extensions
 
                 xdoc.Elements().First().Add(xelm);
 
-                xdoc.Save(app.Path + "\\user\\logs\\errorlog.xml");
+                xdoc.Save(Component.Path + "\\user\\logs\\errorlog.xml");
             });
         }
     }

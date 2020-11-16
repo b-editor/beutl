@@ -3,8 +3,8 @@
 using BEditor.Models.Settings;
 using BEditor.ViewModels.Helper;
 
-using BEditor.Core.Data;
-using BEditor.Core.Data.PropertyData;
+using BEditor.ObjectModel;
+using BEditor.ObjectModel.PropertyData;
 
 namespace BEditor.ViewModels.TimeLines
 {

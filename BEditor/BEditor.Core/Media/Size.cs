@@ -3,7 +3,7 @@ using System.Diagnostics.Contracts;
 using System.Runtime.InteropServices;
 using System.Runtime.Serialization;
 
-namespace BEditor.Core.Media
+namespace BEditor.Media
 {
 #nullable enable
     /// <summary>

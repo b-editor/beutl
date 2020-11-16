@@ -6,7 +6,7 @@ using System.Windows.Media.Animation;
 
 using BEditor.ViewModels.PropertyControl;
 using BEditor.Views.CustomControl;
-using BEditor.Core.Data.PropertyData;
+using BEditor.ObjectModel.PropertyData;
 using Microsoft.WindowsAPICodePack.Dialogs;
 
 namespace BEditor.Views.PropertyControls

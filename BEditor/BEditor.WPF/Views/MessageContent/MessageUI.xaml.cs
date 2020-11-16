@@ -15,7 +15,7 @@ using BEditor.Core.Extensions.ViewCommand;
 
 using MaterialDesignThemes.Wpf;
 
-using Resource = BEditor.Core.Properties.Resources;
+using Resource = BEditor.Properties.Resources;
 
 namespace BEditor.Views.MessageContent
 {

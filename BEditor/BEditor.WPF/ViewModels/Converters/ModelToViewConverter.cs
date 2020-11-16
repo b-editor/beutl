@@ -6,10 +6,10 @@ using System.Windows.Data;
 
 using BEditor.Views;
 
-using BEditor.Core.Data.EffectData;
-using BEditor.Core.Data.ProjectData;
-using BEditor.Core.Data.PropertyData;
-using BEditor.Core.Data.PropertyData.EasingSetting;
+using BEditor.ObjectModel.EffectData;
+using BEditor.ObjectModel.ProjectData;
+using BEditor.ObjectModel.PropertyData;
+using BEditor.ObjectModel.PropertyData.EasingSetting;
 
 namespace BEditor.ViewModels.Converters
 {
@@ -53,7 +53,7 @@ namespace BEditor.ViewModels.Converters
     {
         public object Convert(object value, Type targetType, object parameter, CultureInfo culture)
         {
-            if (value is BEditor.Core.Data.ObjectData.ClipData data) return data.GetCreatePropertyView();
+            if (value is BEditor.ObjectModel.ObjectData.ClipData data) return data.GetCreatePropertyView();
             throw new Exception();
         }
         public object ConvertBack(object value, Type targetType, object parameter, CultureInfo culture) => throw new NotImplementedException();

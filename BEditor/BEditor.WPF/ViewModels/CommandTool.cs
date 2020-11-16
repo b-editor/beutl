@@ -5,7 +5,7 @@ using System.Windows.Data;
 using System.Windows.Input;
 
 using BEditor.ViewModels.Helper;
-using BEditor.Core.Data.ObjectData;
+using BEditor.ObjectModel.ObjectData;
 using MaterialDesignThemes.Wpf;
 
 using Microsoft.Xaml.Behaviors;

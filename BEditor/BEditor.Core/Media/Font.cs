@@ -1,10 +1,11 @@
 ﻿using System;
 using System.Runtime.InteropServices;
 
-using BEditor.Core.Media;
+using BEditor.Media;
 using BEditor.Core.Native;
+using BEditor.Core;
 
-namespace BEditor.Core.Media
+namespace BEditor.Media
 {
     /// <summary>
     /// FreeTypeのFaceの一部をカプセル化します

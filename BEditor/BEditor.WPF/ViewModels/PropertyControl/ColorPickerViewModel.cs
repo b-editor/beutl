@@ -1,8 +1,8 @@
 ﻿using System.Collections.ObjectModel;
 using System.Windows.Media;
 
-using BEditor.Core.Data;
-using BEditor.Core.Data.PropertyData;
+using BEditor.ObjectModel;
+using BEditor.ObjectModel.PropertyData;
 using BEditor.ViewModels.CustomControl;
 using BEditor.ViewModels.Helper;
 

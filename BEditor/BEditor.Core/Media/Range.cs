@@ -5,7 +5,7 @@ using System.Runtime.InteropServices;
 using System.Runtime.Serialization;
 using System.Text;
 
-namespace BEditor.Core.Media
+namespace BEditor.Media
 {
 #nullable enable
     /// <summary>

@@ -7,7 +7,7 @@
         xmlns:md="http://materialdesigninxaml.net/winfx/xaml/themes"
         xmlns:local="clr-namespace:BEditor.Views"
         xmlns:colpick="clr-namespace:BEditor.Views.CustomControl"
-        xmlns:property="clr-namespace:BEditor.Core.Properties;assembly=BEditor.Core"
+        xmlns:property="clr-namespace:BEditor.Properties;assembly=BEditor.Core"
         xmlns:convert="clr-namespace:BEditor.ViewModels.Converters"
                       
         WindowTitleBrush="{StaticResource MaterialDesignCardBackground}"
