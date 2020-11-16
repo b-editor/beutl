@@ -1,7 +1,7 @@
 ﻿using BEditor.ViewModels.Helper;
 
-using BEditor.ObjectModel;
-using BEditor.ObjectModel.ProjectData;
+using BEditor.Core.Data;
+using BEditor.Core.Data.ProjectData;
 using BEditor.Models;
 
 namespace BEditor.ViewModels

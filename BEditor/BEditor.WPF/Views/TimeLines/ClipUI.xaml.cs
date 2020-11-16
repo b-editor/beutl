@@ -7,7 +7,7 @@ using System.Windows.Media.Animation;
 using BEditor.Models.Settings;
 using BEditor.ViewModels.TimeLines;
 using BEditor.Views.CustomControl;
-using BEditor.ObjectModel.ObjectData;
+using BEditor.Core.Data.ObjectData;
 
 namespace BEditor.Views.TimeLines
 {

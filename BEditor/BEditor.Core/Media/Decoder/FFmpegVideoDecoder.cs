@@ -5,9 +5,9 @@ using System.IO;
 using System.Text;
 using System.Threading.Tasks;
 
-using BEditor.Media;
+using BEditor.Core.Media;
 
-namespace BEditor.Media.Decoder
+namespace BEditor.Core.Media.Decoder
 {
     public class FFmpegVideoDecoder : VideoDecoder
     {

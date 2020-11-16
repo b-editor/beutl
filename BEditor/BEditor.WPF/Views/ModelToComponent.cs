@@ -11,12 +11,12 @@ using BEditor.Views.CustomControl;
 using BEditor.Views.PropertyControls;
 using BEditor.Views.TimeLines;
 
-using BEditor.ObjectModel;
-using BEditor.ObjectModel.EffectData;
-using BEditor.ObjectModel.ObjectData;
-using BEditor.ObjectModel.ProjectData;
-using BEditor.ObjectModel.PropertyData;
-using BEditor.ObjectModel.PropertyData.EasingSetting;
+using BEditor.Core.Data;
+using BEditor.Core.Data.EffectData;
+using BEditor.Core.Data.ObjectData;
+using BEditor.Core.Data.ProjectData;
+using BEditor.Core.Data.PropertyData;
+using BEditor.Core.Data.PropertyData.EasingSetting;
 using BEditor.Core.Interfaces;
 using BEditor.Core.Extensions;
 

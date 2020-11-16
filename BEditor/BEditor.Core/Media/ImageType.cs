@@ -1,6 +1,6 @@
 ﻿using System;
 
-namespace BEditor.Media
+namespace BEditor.Core.Media
 {
 #nullable enable
     public readonly struct ImageType : IEquatable<ImageType>

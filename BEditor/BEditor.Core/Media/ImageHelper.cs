@@ -2,9 +2,8 @@
 using System.Threading.Tasks;
 
 using BEditor.Core.Rendering;
-using BEditor.Rendering;
 
-namespace BEditor.Media
+namespace BEditor.Core.Media
 {
     public static class ImageHelper
     {

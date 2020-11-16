@@ -4,25 +4,25 @@ using System.IO;
 using System.Reflection;
 using System.Text;
 
-using BEditor.ObjectModel;
-using BEditor.ObjectModel.EffectData;
-using BEditor.ObjectModel.ObjectData;
-using BEditor.ObjectModel.PropertyData.EasingSetting;
+using BEditor.Core.Data;
+using BEditor.Core.Data.EffectData;
+using BEditor.Core.Data.ObjectData;
+using BEditor.Core.Data.PropertyData.EasingSetting;
 using BEditor.Core.Extensions;
 using BEditor.Core.Extensions.ViewCommand;
-using BEditor.Properties;
+using BEditor.Core.Properties;
 
 namespace BEditor.Core.Plugin
 {
     public class PluginManager
     {
-        public static List<IPlugin> Load()
+        public static void Load()
         {
             //EasingFunc.LoadedEasingFunc.Clear();
             //Library.EffectLibraryList.Clear();
+            var app = Component.Funcs.GetApp();
+            var files = Directory.GetFiles(app.Path + "\\user\\plugins", "*.dll", SearchOption.TopDirectoryOnly);
 
-            var files = Directory.GetFiles($"{Component.Path}\\user\\plugins", "*.dll", SearchOption.TopDirectoryOnly);
-            var list = new List<IPlugin>();
 
             foreach (var file in files)
             {
@@ -40,7 +40,7 @@ namespace BEditor.Core.Plugin
 
                         if (instance is IPlugin plugin)
                         {
-                            list.Add(plugin);
+                            app.LoadedPlugins.Add(plugin);
 
 
                             if (plugin is IEffects effects)
@@ -50,7 +50,6 @@ namespace BEditor.Core.Plugin
                                 foreach (var (name, type) in effects.Effects)
                                 {
                                     a.Children.Add(new() { Name = name, Type = type });
-                                    Serialize.SerializeKnownTypes.Add(type);
                                 }
 
                                 EffectData.LoadedEffects.Add(a);
@@ -63,7 +62,6 @@ namespace BEditor.Core.Plugin
                                 foreach (var (name, type) in objects.Objects)
                                 {
                                     a.Children.Add(new() { Name = name, Type = type });
-                                    Serialize.SerializeKnownTypes.Add(type);
                                 }
 
                                 ObjectData.LoadedObjects.Add(a);
@@ -75,7 +73,6 @@ namespace BEditor.Core.Plugin
                                 foreach (var (name, type) in easing.EasingFunc)
                                 {
                                     EasingFunc.LoadedEasingFunc.Add(new EasingData() { Name = name, Type = type });
-                                    Serialize.SerializeKnownTypes.Add(type);
                                 }
                             }
                         }
@@ -94,8 +91,6 @@ namespace BEditor.Core.Plugin
             }
 
             PluginsLoaded?.Invoke(null, EventArgs.Empty);
-
-            return list;
         }
 
         /// <summary>

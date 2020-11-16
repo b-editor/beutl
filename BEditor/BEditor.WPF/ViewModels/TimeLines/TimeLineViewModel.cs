@@ -12,11 +12,11 @@ using BEditor.Views;
 using BEditor.Views.SettingsControl;
 using BEditor.Views.TimeLines;
 
-using BEditor.ObjectModel;
-using BEditor.ObjectModel.ObjectData;
-using BEditor.ObjectModel.ProjectData;
+using BEditor.Core.Data;
+using BEditor.Core.Data.ObjectData;
+using BEditor.Core.Data.ProjectData;
 using BEditor.Core.Interfaces;
-using BEditor.Media;
+using BEditor.Core.Media;
 using BEditor.Models;
 
 namespace BEditor.ViewModels.TimeLines

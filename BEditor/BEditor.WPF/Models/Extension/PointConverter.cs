@@ -4,7 +4,7 @@ using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
 
-using BEditor.Media;
+using BEditor.Core.Media;
 
 namespace BEditor.Models.Extension
 {

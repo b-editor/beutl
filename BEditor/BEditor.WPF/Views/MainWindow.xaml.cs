@@ -6,8 +6,8 @@ using System.Windows.Controls.Primitives;
 using System.Windows.Input;
 
 using BEditor.ViewModels;
-using BEditor.ObjectModel;
-using BEditor.ObjectModel.ProjectData;
+using BEditor.Core.Data;
+using BEditor.Core.Data.ProjectData;
 using BEditor.Core.Plugin;
 using MahApps.Metro.Controls;
 
@@ -41,7 +41,7 @@ namespace BEditor
                 Models.Clipboard.Data = Data;
 
 
-                AppData.Current.LoadedPlugins = PluginManager.Load();
+                PluginManager.Load();
 
 
                 //コマンドライン引数から開く

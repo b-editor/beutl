@@ -2,10 +2,10 @@
 using System.Collections.Generic;
 using System.Text;
 
-using BEditor.ObjectModel;
-using BEditor.ObjectModel.EffectData;
-using BEditor.ObjectModel.ObjectData;
-using BEditor.ObjectModel.ProjectData;
+using BEditor.Core.Data;
+using BEditor.Core.Data.EffectData;
+using BEditor.Core.Data.ObjectData;
+using BEditor.Core.Data.ProjectData;
 
 namespace BEditor.Core.Extensions
 {

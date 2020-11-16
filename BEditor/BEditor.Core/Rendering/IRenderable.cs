@@ -4,10 +4,10 @@ using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
 
-namespace BEditor.Rendering
+namespace BEditor.Core.Rendering
 {
     public interface IRenderable<T>
     {
-        public T Render(IRenderer<T> renderer);
+        public void Render(IRenderer<T> renderer);
     }
 }

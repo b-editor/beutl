@@ -1,7 +1,7 @@
 ﻿using BEditor.ViewModels.Helper;
-using BEditor.ObjectModel.ProjectData;
+using BEditor.Core.Data.ProjectData;
 using Microsoft.WindowsAPICodePack.Dialogs;
-using BEditor.ObjectModel;
+using BEditor.Core.Data;
 using BEditor.Models;
 
 namespace BEditor.ViewModels

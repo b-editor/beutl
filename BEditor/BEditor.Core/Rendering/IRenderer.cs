@@ -4,7 +4,7 @@ using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
 
-namespace BEditor.Rendering
+namespace BEditor.Core.Rendering
 {
     public interface IRenderer<T>
     {

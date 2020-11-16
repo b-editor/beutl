@@ -9,12 +9,12 @@ using System.Windows.Media.Animation;
 
 using BEditor.ViewModels.TimeLines;
 
-using BEditor.ObjectModel.ProjectData;
-using BEditor.ObjectModel.PropertyData;
+using BEditor.Core.Data.ProjectData;
+using BEditor.Core.Data.PropertyData;
 
 using MaterialDesignThemes.Wpf;
 
-using Resource = BEditor.Properties.Resources;
+using Resource = BEditor.Core.Properties.Resources;
 using BEditor.Core.Extensions;
 
 namespace BEditor.Views.TimeLines

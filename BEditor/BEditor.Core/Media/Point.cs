@@ -12,7 +12,7 @@ using OpenTK.Mathematics;
 
 #nullable enable
 
-namespace BEditor.Media
+namespace BEditor.Core.Media
 {
     /// <summary>
     /// 

@@ -1,6 +1,6 @@
 ﻿using System;
 
-namespace BEditor.Media.Encoder
+namespace BEditor.Core.Media.Encoder
 {
     public abstract class VideoEncoder : IDisposable
     {

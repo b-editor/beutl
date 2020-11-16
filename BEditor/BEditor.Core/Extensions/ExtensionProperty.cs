@@ -4,11 +4,11 @@ using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
 
-using BEditor.ObjectModel;
-using BEditor.ObjectModel.EffectData;
-using BEditor.ObjectModel.ObjectData;
-using BEditor.ObjectModel.ProjectData;
-using BEditor.ObjectModel.PropertyData;
+using BEditor.Core.Data;
+using BEditor.Core.Data.EffectData;
+using BEditor.Core.Data.ObjectData;
+using BEditor.Core.Data.ProjectData;
+using BEditor.Core.Data.PropertyData;
 
 namespace BEditor.Core.Extensions
 {

@@ -2,7 +2,7 @@
 using System.Collections.Generic;
 using System.Text;
 
-namespace BEditor.Media.Decoder
+namespace BEditor.Core.Media.Decoder
 {
     public abstract class VideoDecoder : IDisposable
     {

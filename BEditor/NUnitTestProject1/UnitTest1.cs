@@ -1,7 +1,7 @@
 using NUnit.Framework;
 using System.IO;
 
-using BEditor.Media;
+using BEditor.Core.Media;
 using BEditor.Core.Rendering;
 using BEditor.Core.Rendering.Extensions;
 using System;

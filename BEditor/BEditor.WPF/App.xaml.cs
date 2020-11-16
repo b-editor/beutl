@@ -16,20 +16,20 @@ using BEditor.Views;
 using BEditor.Views.CustomControl;
 using BEditor.Views.MessageContent;
 
-using BEditor.ObjectModel;
-using BEditor.ObjectModel.EffectData;
-using BEditor.ObjectModel.ObjectData;
-using BEditor.ObjectModel.ProjectData;
-using BEditor.ObjectModel.PropertyData;
+using BEditor.Core.Data;
+using BEditor.Core.Data.EffectData;
+using BEditor.Core.Data.ObjectData;
+using BEditor.Core.Data.ProjectData;
+using BEditor.Core.Data.PropertyData;
 using BEditor.Core.Extensions.ViewCommand;
 using BEditor.Core.Interfaces;
 
 using MaterialDesignThemes.Wpf;
 
 using Microsoft.WindowsAPICodePack.Dialogs;
-using Image = BEditor.Media.Image;
-using Resources_ = BEditor.Properties.Resources;
-using BEditor.Media;
+using Image = BEditor.Core.Media.Image;
+using Resources_ = BEditor.Core.Properties.Resources;
+using BEditor.Core.Media;
 using System.Timers;
 
 namespace BEditor
@@ -42,6 +42,7 @@ namespace BEditor
         private void Application_Startup(object sender, StartupEventArgs e)
         {
             AppData.Current.Arguments = e.Args;
+            Component.Funcs.GetApp = () => AppData.Current;
             Font.Initialize();
 
             #region ダークモード設定
@@ -75,7 +76,7 @@ namespace BEditor
                 //var ffs = ifc.Families;
 
                 //foreach (var F in ffs) {
-                //    FontProperty.FontList.Add(new BEditor.Media.Font() { Name = F.Name });
+                //    FontProperty.FontList.Add(new BEditor.Core.Media.Font() { Name = F.Name });
                 //}
 
                 var files = Directory.GetFiles("C:\\Windows\\Fonts");

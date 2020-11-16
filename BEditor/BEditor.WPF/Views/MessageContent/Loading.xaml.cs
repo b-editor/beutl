@@ -6,7 +6,7 @@ using BEditor.ViewModels.Helper;
 
 using BEditor.Core.Extensions.ViewCommand;
 
-using Resource = BEditor.Properties.Resources;
+using Resource = BEditor.Core.Properties.Resources;
 
 namespace BEditor.Views.MessageContent
 {

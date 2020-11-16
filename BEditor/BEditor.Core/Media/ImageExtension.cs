@@ -10,7 +10,7 @@ using BEditor.Core.Exceptions;
 using BEditor.Core.Native;
 using BEditor.Core.Rendering;
 
-namespace BEditor.Media
+namespace BEditor.Core.Media
 {
     public unsafe static class ImageExtension
     {

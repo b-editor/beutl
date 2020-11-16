@@ -2,7 +2,7 @@
 using System.Collections.Generic;
 using System.Text;
 
-namespace BEditor.Media.Decoder
+namespace BEditor.Core.Media.Decoder
 {
     public class OpenCvVideoDecoder : VideoDecoder
     {
