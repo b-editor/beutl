@@ -3,6 +3,9 @@ using System.Collections.Generic;
 using System.Text;
 using System.Threading;
 
+using BEditor.Core.Extensions;
+using BEditor.Core.Extensions.ViewCommand;
+
 namespace BEditor.Core
 {
     public abstract class DisposableObject : IDisposable
@@ -13,6 +16,16 @@ namespace BEditor.Core
         {
             if (!IsDisposed)
                 OnDispose(true);
+            else
+            {
+                var str = $"{GetType().Name} が二重廃棄されようとしました";
+                Message.Snackbar(str);
+
+#if DEBUG
+                ActivityLog.ErrorLogStackTrace(new Exception(str), Environment.StackTrace);
+#endif
+            }
+
             GC.SuppressFinalize(this);
         }
 

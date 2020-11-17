@@ -12,6 +12,7 @@ using BEditor.Core.Data.ProjectData;
 using BEditor.Core.Data.PropertyData;
 using BEditor.Core.Data.PropertyData.Default;
 using BEditor.Core.Data.PropertyData.EasingSetting;
+using BEditor.Core.Extensions;
 using BEditor.Core.Plugin;
 
 namespace BEditor.Core.Data
@@ -66,8 +67,9 @@ namespace BEditor.Core.Data
 
                 return obj;
             }
-            catch
+            catch(Exception e)
             {
+                ActivityLog.ErrorLog(e);
                 return null;
             }
         }

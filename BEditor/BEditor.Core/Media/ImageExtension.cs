@@ -60,7 +60,7 @@ namespace BEditor.Core.Media
 
             return image;
         }
-        public static Image GaussianBlur(this Image image,int blurSize, bool alphaBlur)
+        public static Image GaussianBlur(this Image image, int blurSize, bool alphaBlur)
         {
             image.ThrowIfDisposed();
 
@@ -95,15 +95,14 @@ namespace BEditor.Core.Media
             int nwidth = image.Width + (size + 5) * 2;
             int nheight = image.Height + (size + 5) * 2;
 
-#if UseOpenGL
             ImageHelper.renderer.Resize(nwidth, nheight);
 
 
             //縁取りを描画
-            var mask = image.Clone();
-            mask.SetColor(color);
-            mask.AreaExpansion(nwidth, nheight);
-            mask.Dilate(size);
+            var mask = image.Clone()
+                .SetColor(color)
+                .AreaExpansion(nwidth, nheight)
+                .Dilate(size);
 
             GLTK.Paint(Point3.Empty, 0, 0, 0, Point3.Empty, () => GLTK.DrawImage(mask));
 
@@ -111,36 +110,15 @@ namespace BEditor.Core.Media
             GLTK.Paint(Point3.Empty, 0, 0, 0, Point3.Empty, () => GLTK.DrawImage(image));
 
 
-            ImageProcess.Release(image.Ptr);
+            ImageProcess.Delete(image.Ptr);
 
-            var tmp = new Image(nwidth, nheight);
+            var tmp = new Image(nwidth, nheight, ImageType.ByteCh4);
 
             GLTK.GetPixels(tmp);
             image.Ptr = tmp.Ptr;
-#else
 
-            #region OpenCv
+            GC.SuppressFinalize(tmp);
 
-                        AreaExpansion(nwidth, nheight);
-
-                        //縁取りを描画
-                        var mask = Clone();
-                        mask.SetColor(color);
-                        mask.Dilate(size);
-                        var maskoutptr = mask.OutputArray;
-
-                        //HASK ; 加算合成時に終了する場合がある
-                        NativeMethods.HandleException(NativeMethods.core_add(mask.InputArray, InputArray, maskoutptr, IntPtr.Zero, 0));
-
-                        NativeMethods.HandleException(NativeMethods.core_Mat_delete(Ptr));
-                        Disposable.Dispose();
-
-                        Ptr = mask.Ptr;
-
-                        NativeMethods.HandleException(NativeMethods.core_OutputArray_delete(maskoutptr));
-
-            #endregion
-#endif
             return image;
         }
 
@@ -177,41 +155,36 @@ namespace BEditor.Core.Media
             if (blur < 0) throw new ArgumentException("blur < 0");
             image.ThrowIfDisposed();
 
-            Image shadow = image.Clone();
-            shadow.Blur(blur, true);
-            shadow.SetColor(color);
-            ImageHelper.DrawAlpha(shadow, (float)(alpha / 100));
+            Image shadow = image
+                .Clone()
+                .Blur(blur, true)
+                .SetColor(color)
+                .DrawAlpha((float)(alpha / 100));
 
             //キャンバスのサイズ
             int size_w = (int)((Math.Abs(x) + (shadow.Width / 2)) * 2);
             int size_h = (int)((Math.Abs(x) + (shadow.Height / 2)) * 2);
 
-#if UseOpenGL
+
             ImageHelper.renderer.Resize(size_w, size_h);
-            GLTK.Paint(new Point3(x, y, 0), 0, 0, 0, Point3.Empty, () => GLTK.DrawImage(shadow));
-            GLTK.Paint(Point3.Empty, 0, 0, 0, Point3.Empty, () => GLTK.DrawImage(image));
 
-            shadow.Dispose();
+            shadow
+                .SetCoord(x, y,0)
+                .Render(BaseGraphicsContext.Default)
+                .Dispose();
 
-            ImageProcess.Release(image.Ptr);
+            image
+                .Render(BaseGraphicsContext.Default);
 
-            image.Ptr = new Image(size_w, size_h).Ptr;
+            ImageProcess.Delete(image.Ptr);
+
+            var tmp = new Image(size_w, size_h, ImageType.ByteCh4);
+            image.Ptr = tmp.Ptr;
 
             GLTK.GetPixels(image);
-#else
-            var canvas = new Image(size_w, size_h);
 
-            canvas.DrawImage(new Point2(x + (size_w / 2), y + (size_h / 2)), shadow); //影の描画
-            canvas.DrawImage(new Point2(size_w / 2, size_h / 2), this);
+            GC.SuppressFinalize(tmp);
 
-            shadow.Dispose();
-            NativeMethods.HandleException(NativeMethods.core_Mat_delete(Ptr));
-            Disposable.Dispose();
-
-            Ptr = canvas.Ptr;
-
-            //GC.KeepAlive(this);
-#endif
             return image;
         }
 
@@ -220,9 +193,9 @@ namespace BEditor.Core.Media
             if (f < 0) throw new ArgumentException("f < 0");
             if (f == 0)
             {
-                ImageProcess.Release(image.Ptr);
+                ImageProcess.Delete(image.Ptr);
 
-                image.Ptr = new Image().Ptr;
+                image.Ptr = Image.UnmanageAlloc();
                 return image;
             }
             image.ThrowIfDisposed();
@@ -238,9 +211,9 @@ namespace BEditor.Core.Media
             if (f < 0) throw new ArgumentException("f < 0");
             if (f == 0)
             {
-                ImageProcess.Release(image.Ptr);
+                ImageProcess.Delete(image.Ptr);
 
-                image.Ptr = new Image().Ptr;
+                image.Ptr = Image.UnmanageAlloc();
                 return image;
             }
             image.ThrowIfDisposed();
@@ -258,8 +231,8 @@ namespace BEditor.Core.Media
             image.ThrowIfDisposed();
             if (image.Width <= left + right || image.Height <= top + bottom)
             {
-                ImageProcess.Release(image.Ptr);
-                var ptr = new Image(1, 1, ImageType.ByteCh4).Ptr;
+                ImageProcess.Delete(image.Ptr);
+                var ptr = Image.UnmanageAlloc();
                 image.Ptr = ptr;
                 return image;
             }
@@ -270,5 +243,77 @@ namespace BEditor.Core.Media
             return image;
         }
 
+        public static Image DrawAlpha(this Image image, float alpha)
+        {
+            ImageHelper.DrawAlpha(image, alpha);
+            return image;
+        }
+
+
+
+        public static Image SetCoord(this Image image, Point3 coord)
+        {
+            image.Coord = coord;
+            return image;
+        }
+        public static Image SetCoord(this Image image, float x, float y, float z)
+        {
+            image.Coord = new Point3(x, y, z);
+            return image;
+        }
+        public static Image SetCoord(this Image image, int x, int y, int z)
+        {
+            image.Coord = new Point3(x, y, z);
+            return image;
+        }
+
+        public static Image SetCenter(this Image image, Point3 center)
+        {
+            image.Center = center;
+            return image;
+        }
+        public static Image SetCenter(this Image image, float cx, float cy, float cz)
+        {
+            image.Center = new Point3(cx, cy, cz);
+            return image;
+        }
+        public static Image SetCenter(this Image image, int cx, int cy, int cz)
+        {
+            image.Center = new Point3(cx, cy, cz);
+            return image;
+        }
+
+        public static Image SetRotate(this Image image, Point3 rotate)
+        {
+            image.Rotate = rotate;
+            return image;
+        }
+        public static Image SetRotate(this Image image, float rx, float ry, float rz)
+        {
+            image.Rotate = new Point3(rx, ry, rz);
+            return image;
+        }
+        public static Image SetRotate(this Image image, int rx, int ry, int rz)
+        {
+            image.Rotate = new Point3(rx, ry, rz);
+            return image;
+        }
+
+        public static Image SetScale(this Image image, Point3 scale)
+        {
+            image.Scale = scale;
+            return image;
+        }
+        public static Image SetScale(this Image image, float sx, float sy, float sz)
+        {
+            image.Scale = new Point3(sx, sy, sz);
+            return image;
+        }
+
+        public static Image SetMaterial(this Image image, MaterialRecord material)
+        {
+            image.Material = material;
+            return image;
+        }
     }
 }

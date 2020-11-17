@@ -80,7 +80,7 @@ namespace BEditor.Core.Data.EffectData
         /// </summary>
         public virtual void PropertyLoaded()
         {
-            //TODO : .NET5のソースジェネレーターを使う
+            //Todo : .NET5のソースジェネレーターを使う
 
             Parallel.ForEach(Children, p => p.PropertyLoaded());
 

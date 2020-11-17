@@ -36,13 +36,14 @@ namespace BEditor.Core.Data.ObjectData
         /// <summary>
         /// <see cref="ClipData"/> Initialize a new instance of the class.
         /// </summary>
-        public ClipData(uint id, ObservableCollection<EffectElement> effects, int start, int end, Type type, int layer)
+        public ClipData(uint id, ObservableCollection<EffectElement> effects, int start, int end, Type type, int layer, Scene scene)
         {
             Id = id;
             this.start = start;
             this.end = end;
             Type = type;
             this.layer = layer;
+            Parent = scene;
             Effect = effects;
             LabelText = Name;
         }
@@ -248,9 +249,7 @@ namespace BEditor.Core.Data.ObjectData
                 list.Add(index0);
 
                 //オブジェクトの情報
-                data = new ClipData(idmax, list, AddFrame, AddFrame + 180, Type, AddLayer);
-
-                index0.Parent = data;
+                data = new ClipData(idmax, list, AddFrame, AddFrame + 180, Type, AddLayer, Scene);
 
                 Scene.Add(data);
 

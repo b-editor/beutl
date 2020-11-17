@@ -27,7 +27,7 @@ namespace BEditor.ViewModels
 
             CreateCommand.Subscribe(() =>
             {
-                var scene = new Scene(Width, Height) { SceneName = Name };
+                var scene = new Scene(Width, Height) { SceneName = Name, Parent = AppData.Current.Project };
                 AppData.Current.Project.SceneList.Add(scene);
                 AppData.Current.Project.PreviewScene = scene;
             });

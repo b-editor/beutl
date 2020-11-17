@@ -30,7 +30,7 @@ namespace BEditor.Core.Data.ProjectData
             Parent = app;
             Framerate = framerate;
             Samplingrate = samplingrate;
-            SceneList.Add(new(width, height)
+            SceneList.Add(new RootScene(width, height)
             {
                 Parent = this
             });
@@ -91,7 +91,7 @@ namespace BEditor.Core.Data.ProjectData
             private set
             {
                 sceneList = value;
-                Parallel.ForEach(value, scene => scene.Parent = this);
+                Parallel.ForEach(value, scene => scene.SetParent(this));
             }
         }
 
@@ -130,7 +130,7 @@ namespace BEditor.Core.Data.ProjectData
             init => parent = value;
         }
 
-        //TODO : xml英語ここまで
+        //Memo : xml英語ここまで
         public event EventHandler<ProjectSavedEventArgs> Saved;
 
         /// <summary>
@@ -167,7 +167,7 @@ namespace BEditor.Core.Data.ProjectData
             }
 
             previewScene = null;
-            SceneList = null;
+            sceneList = null;
             GC.Collect();
             IsDisposed = true;
         }

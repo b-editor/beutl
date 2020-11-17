@@ -113,9 +113,9 @@ namespace BEditor.Core.Graphics
 
         public static void DrawImage(
             Image img,
-            float scalex = 0,
-            float scaley = 0,
-            float scalez = 0,
+            float scalex = 1,
+            float scaley = 1,
+            float scalez = 1,
             Color? color = null,
             Color? ambient = null,
             Color? diffuse = null,

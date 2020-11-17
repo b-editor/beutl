@@ -269,7 +269,11 @@ namespace BEditor.Core.Graphics
             MakeCurrent();
             GLTK.Paint(coordinate, nx, ny, nz, center, () => GLTK.DrawImage(img, scalex, scaley, scalez, color, ambient, diffuse, specular, shininess), Blend.BlentFunc[drawObject.Blend.BlendType.Index]);
         }
-        
+        public void ReadPixels(Image image)
+        {
+            MakeCurrent();
+            GLTK.GetPixels(image);
+        }
 
         public void OnCompleted() { }
         public void OnFinally() { }
@@ -295,5 +299,7 @@ namespace BEditor.Core.Graphics
                     value.Material.Specular,
                     value.Material.Shininess));
         }
+
+        public static BaseGraphicsContext Default => ImageHelper.renderer;
     }
 }

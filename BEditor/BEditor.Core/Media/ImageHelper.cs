@@ -6,7 +6,7 @@ using BEditor.Core.Renderings;
 
 namespace BEditor.Core.Media
 {
-    public static class ImageHelper
+    internal static class ImageHelper
     {
         #region 透明度
         public static void DrawAlpha(Media.Image image, float alpha)
@@ -34,6 +34,6 @@ namespace BEditor.Core.Media
         }
         #endregion
 
-        internal static BaseGraphicsContext renderer;
+        internal static readonly BaseGraphicsContext renderer = new GraphicsContext(1, 1);
     }
 }

@@ -84,6 +84,7 @@ namespace BEditor.Core.Data.ObjectData
             Blend.ExecuteLoaded(BlendMetadata);
             Angle.ExecuteLoaded(AngleMetadata);
             Material.ExecuteLoaded(MaterialMetadata);
+            Custom?.ExecuteLoaded(null);
         }
 
         #endregion

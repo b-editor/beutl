@@ -7,7 +7,7 @@ using BEditor.Core.Data.EffectData;
 
 namespace BEditor.Core.Data.PropertyData
 {
-    //TODO : ColorPropertyにIObserver, IObserbleを実装
+    //Todo : ColorPropertyにIObserver, IObserbleを実装
     /// <summary>
     /// 色を選択するプロパティを表します
     /// </summary>

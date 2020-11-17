@@ -257,7 +257,7 @@
             Represents the data of a clip to be placed in the timeline.
             </summary>
         </member>
-        <member name="M:BEditor.Core.Data.ObjectData.ClipData.#ctor(System.UInt32,System.Collections.ObjectModel.ObservableCollection{BEditor.Core.Data.EffectData.EffectElement},System.Int32,System.Int32,System.Type,System.Int32)">
+        <member name="M:BEditor.Core.Data.ObjectData.ClipData.#ctor(System.UInt32,System.Collections.ObjectModel.ObservableCollection{BEditor.Core.Data.EffectData.EffectElement},System.Int32,System.Int32,System.Type,System.Int32,BEditor.Core.Data.ProjectData.Scene)">
             <summary>
             <see cref="T:BEditor.Core.Data.ObjectData.ClipData"/> Initialize a new instance of the class.
             </summary>

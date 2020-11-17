@@ -21,7 +21,8 @@ namespace BEditor.Core.Extensions
 
                 var xelm = new XElement("Error",
                     new XElement("ExceptionMessage", e.Message),
-                    new XElement("Source", e.Source)
+                    new XElement("Source", e.Source),
+                    new XElement("StackTrace", e.StackTrace)
                 );
 
                 xdoc.Elements().First().Add(xelm);
@@ -41,7 +42,27 @@ namespace BEditor.Core.Extensions
                 var xelm = new XElement("Error",
                     new XElement("ExceptionMessage", e.Message),
                     new XElement("Source", e.Source),
-                    new XElement("Message", message)
+                    new XElement("Message", message),
+                    new XElement("StackTrace", e.StackTrace)
+                );
+
+                xdoc.Elements().First().Add(xelm);
+
+                xdoc.Save(xmlpath);
+            });
+        }
+        public static void ErrorLogStackTrace(Exception e, string stackTrace)
+        {
+            if (!Settings.Default.EnableErrorLog) return;
+
+            Task.Run(() =>
+            {
+                var xdoc = XDocument.Load(xmlpath);
+
+                var xelm = new XElement("Error",
+                    new XElement("ExceptionMessage", e.Message),
+                    new XElement("Source", e.Source),
+                    new XElement("StackTrace", stackTrace)
                 );
 
                 xdoc.Elements().First().Add(xelm);

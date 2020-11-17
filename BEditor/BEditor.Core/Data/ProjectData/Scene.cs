@@ -33,6 +33,7 @@ namespace BEditor.Core.Data.ProjectData
         private float timeLineZoom = 150;
         private double timeLineHorizonOffset;
         private double timeLineVerticalOffset;
+        private Project parent;
 
         /// <summary>
         /// フレームバッファの横幅を取得または設定します
@@ -228,7 +229,8 @@ namespace BEditor.Core.Data.ProjectData
         /// <inheritdoc/>
         public IEnumerable<ClipData> Children => Datas;
         /// <inheritdoc/>
-        public Project Parent { get; internal set; }
+        public Project Parent { get => parent; init => parent = value; }
+        internal void SetParent(Project project) => parent = project;
 
         #region コンストラクタ
 
@@ -260,8 +262,8 @@ namespace BEditor.Core.Data.ProjectData
             FrameBuffer = new Image(Width, Height);
             var layer = GetLayer(frame).ToList();
 
-            GraphicsContext.Clear();
             GraphicsContext.MakeCurrent();
+            GraphicsContext.Clear();
 
             var args = new ClipRenderArgs(frame, layer);
 
@@ -271,6 +273,7 @@ namespace BEditor.Core.Data.ProjectData
             layer.ForEach(clip => clip.Render(args));
 
             GraphicsContext.SwapBuffers();
+            GraphicsContext.MakeCurrent();
 
             GLTK.GetPixels(FrameBuffer);
 

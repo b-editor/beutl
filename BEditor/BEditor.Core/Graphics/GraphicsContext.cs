@@ -1,20 +1,28 @@
 ﻿
+using BEditor.Core.Media;
+
 using OpenTK;
+using OpenTK.Graphics;
+using OpenTK.Graphics.OpenGL;
 
 namespace BEditor.Core.Graphics
 {
     public sealed class GraphicsContext : BaseGraphicsContext
     {
         private readonly GameWindow GameWindow;
-
+        
         public GraphicsContext(int width, int height) : base(width, height)
         {
+            //Memo : static化したらProjection行列関連が微妙
             GameWindow = new GameWindow(width, height);
 
             Initialize();
         }
 
-        public override void MakeCurrent() => GameWindow.MakeCurrent();
+        public override void MakeCurrent()
+        {
+            GameWindow.MakeCurrent();
+        }
 
         public override void SwapBuffers() => GameWindow.SwapBuffers();
 

@@ -85,7 +85,7 @@ namespace BEditor.Core.Media
 
             this.ptr = ptr;
         }
-        //TODO : Xmlここまで
+        //Memo : Xmlここまで
         /// <summary>
         /// 
         /// </summary>
@@ -114,7 +114,7 @@ namespace BEditor.Core.Media
         /// <exception cref="Exception"/>
         /// <exception cref="ArgumentNullException"/>
         /// <exception cref="NativeException"/>
-        [Obsolete("未調整です")] //TODO : Imageコンストラクタ
+        [Obsolete("未調整のため public Image(Stram, ImageReadMode)を利用してください")] //Todo : Imageのファイル名から初期化を調整
         public Image(string file)
         {
             if (string.IsNullOrEmpty(file))
@@ -731,14 +731,22 @@ namespace BEditor.Core.Media
         {
             if (ptr != IntPtr.Zero)
             {
-                ImageProcess.Release(ptr);
-            }
-            else
-            {
-                Message.Snackbar("Image が二重廃棄されました");
+                //ImageProcess.Release(ptr);
+                ImageProcess.Delete(ptr);
             }
 
             ptr = IntPtr.Zero;
+        }
+        internal static IntPtr UnmanageAlloc()
+        {
+            var result = ImageProcess.Create(1, 1, ImageType.ByteCh4, out var ptr);
+
+            if (result != null)
+            {
+                throw new Exception(result);
+            }
+
+            return ptr;
         }
     }
 

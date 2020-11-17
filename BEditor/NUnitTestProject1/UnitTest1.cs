@@ -19,13 +19,14 @@ namespace NUnitTestProject1
         [Test]
         public void Test1()
         {
+            const int width = 1000, height = 1000;
             using var stream = new FileStream(@"2020-06-26_19.11.28.png", FileMode.Open);
-            using var renderer = new GraphicsContext(500, 500);
+            using var renderer = new GraphicsContext(width, height);
             using var image = new Image(stream);
 
-            image
-                .AreaExpansion(50, 50, 50, 50)
+            image[new Rectangle(0, 0, width, height)]
                 .GaussianBlur(25, true)
+                .SetColor(Color.Teal)
                 .Render(renderer)
                 // ラムダバージョン
                 .Render(
@@ -35,7 +36,10 @@ namespace NUnitTestProject1
                     () => Console.WriteLine("ファイナライズ"))
                 .Dispose();
 
-            
+            using var result = new Image(width, height, ImageType.ByteCh4);
+            renderer.ReadPixels(result);
+
+            result.Save("OutImage.png");
         }
     }
 }
