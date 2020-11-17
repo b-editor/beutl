@@ -14,8 +14,10 @@ using BEditor.Core.Plugin;
 
 namespace BEditor.Models
 {
-    public class AppData : BasePropertyChanged, IApplication
+    public class AppData : BasePropertyChanged, IApplication, INotifyPropertyChanged
     {
+        private static readonly PropertyChangedEventArgs projectArgs = new(nameof(Project));
+        private static readonly PropertyChangedEventArgs statusArgs = new(nameof(AppStatus));
         private Project project;
         private Status status;
 
@@ -59,6 +61,8 @@ namespace BEditor.Models
             }
 
             #endregion
+
+            UndoRedoManager.DidEvent += (_, _) => AppStatus = Status.Edit;
         }
 
         /// <inheritdoc/>
@@ -66,10 +70,18 @@ namespace BEditor.Models
         /// <inheritdoc/>
         public string[] Arguments { get; set; }
         /// <inheritdoc/>
-        public List<IPlugin> LoadedPlugins { get; } = new List<IPlugin>();
+        public List<IPlugin> LoadedPlugins { get; set; }
         /// <inheritdoc/>
-        public Project Project { get => project; set => SetValue(value, ref project, nameof(Project)); }
+        public Project Project
+        {
+            get => project;
+            set => SetValue(value, ref project, projectArgs);
+        }
         /// <inheritdoc/>
-        public Status AppStatus { get => status; set => SetValue(value, ref status, nameof(Status)); }
+        public Status AppStatus
+        {
+            get => status;
+            set => SetValue(value, ref status, statusArgs);
+        }
     }
 }

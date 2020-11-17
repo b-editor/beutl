@@ -4,6 +4,7 @@ using System.Runtime.Serialization;
 using BEditor.Core;
 using BEditor.Core.Data.ProjectData;
 using BEditor.Core.Data.PropertyData;
+using BEditor.Core.Extensions;
 
 using DocumentProperty = BEditor.Core.Data.PropertyData.DocumentProperty;
 
@@ -45,24 +46,28 @@ namespace BEditor.Core.Data.ObjectData
                 Font
             };
 
+            public override void PropertyLoaded()
+            {
+                Size.ExecuteLoaded(SizeMetadata);
+                Color.ExecuteLoaded(ColorMetadata);
+                Font.ExecuteLoaded(FontMetadata);
+                Document.ExecuteLoaded(DocumentMetadata);
+            }
+
             #endregion
 
 
 
             [DataMember(Order = 0)]
-            [PropertyMetadata(nameof(SizeMetadata), typeof(Text))]
             public EaseProperty Size { get; private set; }
 
             [DataMember(Order = 1)]
-            [PropertyMetadata(nameof(ColorMetadata), typeof(Text))]
             public ColorProperty Color { get; private set; }
 
             [DataMember(Order = 2)]
-            [PropertyMetadata(nameof(DocumentMetadata), typeof(Text))]
             public DocumentProperty Document { get; private set; }
 
             [DataMember(Order = 3)]
-            [PropertyMetadata(nameof(FontMetadata), typeof(Text))]
             public FontProperty Font { get; private set; }
 
 
@@ -91,19 +96,23 @@ namespace BEditor.Core.Data.ObjectData
                     RightToLeft
                 };
 
+                public override void PropertyLoaded()
+                {
+                    Font.ExecuteLoaded(FontMetadata);
+                    Style.ExecuteLoaded(FontStyleMetadata);
+                    RightToLeft.ExecuteLoaded(RightToLeftMetadata);
+                }
+
                 #endregion
 
 
                 [DataMember(Order = 0)]
-                [PropertyMetadata(nameof(FontMetadata), typeof(FontProperty))]
                 public PropertyData.FontProperty Font { get; private set; }
 
                 [DataMember(Order = 1)]
-                [PropertyMetadata(nameof(FontStyleMetadata), typeof(FontProperty))]
                 public SelectorProperty Style { get; private set; }
 
                 [DataMember(Order = 2)]
-                [PropertyMetadata(nameof(RightToLeftMetadata), typeof(FontProperty))]
                 public CheckProperty RightToLeft { get; private set; }
             }
         }

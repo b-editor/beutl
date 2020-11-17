@@ -7,8 +7,9 @@ using System.Text;
 using System.Threading.Tasks;
 
 using BEditor.Core.Exceptions;
+using BEditor.Core.Graphics;
 using BEditor.Core.Native;
-using BEditor.Core.Rendering;
+using BEditor.Core.Renderings;
 
 namespace BEditor.Core.Media
 {
@@ -104,17 +105,17 @@ namespace BEditor.Core.Media
             mask.AreaExpansion(nwidth, nheight);
             mask.Dilate(size);
 
-            Graphics.Paint(new Point3(0, 0, 0), 0, 0, 0, new Point3(0, 0, 0), () => Graphics.DrawImage(mask));
+            GLTK.Paint(Point3.Empty, 0, 0, 0, Point3.Empty, () => GLTK.DrawImage(mask));
 
             mask.Dispose();
-            Graphics.Paint(new Point3(0, 0, 0), 0, 0, 0, new Point3(0, 0, 0), () => Graphics.DrawImage(image));
+            GLTK.Paint(Point3.Empty, 0, 0, 0, Point3.Empty, () => GLTK.DrawImage(image));
 
 
             ImageProcess.Release(image.Ptr);
 
             var tmp = new Image(nwidth, nheight);
 
-            Graphics.GetPixels(tmp);
+            GLTK.GetPixels(tmp);
             image.Ptr = tmp.Ptr;
 #else
 
@@ -187,16 +188,16 @@ namespace BEditor.Core.Media
 
 #if UseOpenGL
             ImageHelper.renderer.Resize(size_w, size_h);
-            Graphics.Paint(new Point3(x, y, 0), 0, 0, 0, new Point3(0, 0, 0), () => Graphics.DrawImage(shadow));
-            Graphics.Paint(new Point3(0, 0, 0), 0, 0, 0, new Point3(0, 0, 0), () => Graphics.DrawImage(image));
+            GLTK.Paint(new Point3(x, y, 0), 0, 0, 0, Point3.Empty, () => GLTK.DrawImage(shadow));
+            GLTK.Paint(Point3.Empty, 0, 0, 0, Point3.Empty, () => GLTK.DrawImage(image));
 
             shadow.Dispose();
 
-            Native.ImageProcess.Release(image.Ptr);
+            ImageProcess.Release(image.Ptr);
 
             image.Ptr = new Image(size_w, size_h).Ptr;
 
-            Graphics.GetPixels(image);
+            GLTK.GetPixels(image);
 #else
             var canvas = new Image(size_w, size_h);
 

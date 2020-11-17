@@ -5,6 +5,7 @@ using BEditor.Core;
 using BEditor.Core.Data.ObjectData;
 using BEditor.Core.Data.ProjectData;
 using BEditor.Core.Data.PropertyData;
+using BEditor.Core.Extensions;
 using BEditor.Core.Media;
 using BEditor.Core.Properties;
 
@@ -28,12 +29,17 @@ namespace BEditor.Core.Data.EffectData
 
         public override void Render(ref Image source, EffectRenderArgs args) { }
 
-
         public override IEnumerable<PropertyElement> Properties => new PropertyElement[]
         {
             MaxColor,
             MinColor
         };
+
+        public override void PropertyLoaded()
+        {
+            MaxColor.ExecuteLoaded(MaxColorMetadata);
+            MinColor.ExecuteLoaded(MinColorMetadata);
+        }
 
         #endregion
 

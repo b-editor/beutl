@@ -6,6 +6,7 @@ using System.IO;
 using System.Runtime.Serialization;
 using System.Threading.Tasks;
 
+using BEditor.Core.Graphics;
 using BEditor.Core.Interfaces;
 
 namespace BEditor.Core.Data.ProjectData
@@ -16,6 +17,7 @@ namespace BEditor.Core.Data.ProjectData
     [DataContract(Namespace = "")]
     public class Project : BasePropertyChanged, IExtensibleDataObject, IDisposable, IParent<Scene>, IChild<IApplication>, INotifyPropertyChanged
     {
+        private static readonly PropertyChangedEventArgs previreSceneArgs = new(nameof(PreviewScene));
         private Scene previewScene;
         private ObservableCollection<Scene> sceneList = new ObservableCollection<Scene>();
         private IApplication parent;
@@ -23,7 +25,7 @@ namespace BEditor.Core.Data.ProjectData
         /// <summary>
         /// <see cref="Project"/> Initialize a new instance of the class.
         /// </summary>
-        public Project(IApplication app, int width, int height, int framerate, int samplingrate = 0)
+        public Project(int width, int height, int framerate, int samplingrate = 0, IApplication app = null)
         {
             Parent = app;
             Framerate = framerate;
@@ -36,19 +38,7 @@ namespace BEditor.Core.Data.ProjectData
         /// <summary>
         /// <see cref="Project"/> Initialize a new instance of the class.
         /// </summary>
-        public Project(int width, int height, int framerate, int samplingrate = 0) //TODO : サンプリングレート実装
-        {
-            Framerate = framerate;
-            Samplingrate = samplingrate;
-            SceneList.Add(new(width, height)
-            {
-                Parent = this
-            });
-        }
-        /// <summary>
-        /// <see cref="Project"/> Initialize a new instance of the class.
-        /// </summary>
-        public Project(IApplication app, string file)
+        public Project(string file, IApplication app = null)
         {
             var o = Serialize.LoadFromFile(file, typeof(Project));
 
@@ -58,36 +48,12 @@ namespace BEditor.Core.Data.ProjectData
 
                 foreach (var scene in project.SceneList)
                 {
-                    scene.GraphicsContext = Component.Funcs.CreateGraphicsContext(scene.Width, scene.Height);
+                    scene.GraphicsContext = new GraphicsContext(scene.Width, scene.Height);
 
                 }
 
                 project.CopyTo(this);
                 Parent = app;
-            }
-            else
-            {
-                throw new Exception();
-            }
-        }
-        /// <summary>
-        /// <see cref="Project"/> Initialize a new instance of the class.
-        /// </summary>
-        public Project(string file)
-        {
-            var o = Serialize.LoadFromFile(file, typeof(Project));
-
-            if (o != null)
-            {
-                var project = (Project)o;
-
-                foreach (var scene in project.SceneList)
-                {
-                    scene.GraphicsContext = Component.Funcs.CreateGraphicsContext(scene.Width, scene.Height);
-
-                }
-
-                project.CopyTo(this);
             }
             else
             {
@@ -145,7 +111,7 @@ namespace BEditor.Core.Data.ProjectData
             get => previewScene ??= SceneList[PreviewSceneIndex];
             set
             {
-                SetValue(value, ref previewScene, nameof(PreviewScene));
+                SetValue(value, ref previewScene, previreSceneArgs);
                 PreviewSceneIndex = SceneList.IndexOf(value);
             }
         }
@@ -164,6 +130,7 @@ namespace BEditor.Core.Data.ProjectData
             init => parent = value;
         }
 
+        //TODO : xml英語ここまで
         public event EventHandler<ProjectSavedEventArgs> Saved;
 
         /// <summary>
@@ -189,7 +156,7 @@ namespace BEditor.Core.Data.ProjectData
                 }
             }
 
-            Serialize.SaveToFile(this, Parent.Path + "\\user\\backup\\" + Path.GetFileNameWithoutExtension(Filename) + ".backup");
+            Serialize.SaveToFile(this, $"{Component.Path}\\user\\backup\\" + Path.GetFileNameWithoutExtension(Filename) + ".backup");
         }
         /// <inheritdoc/>
         public void Dispose()

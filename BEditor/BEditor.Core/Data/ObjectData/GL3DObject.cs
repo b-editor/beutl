@@ -7,7 +7,7 @@ using BEditor.Core.Data.ProjectData;
 using BEditor.Core.Data.PropertyData;
 using BEditor.Core.Data.PropertyData.Default;
 using BEditor.Core.Media;
-using BEditor.Core.Rendering;
+using BEditor.Core.Renderings;
 
 using OpenTK.Graphics;
 using OpenTK.Graphics.OpenGL;
@@ -21,6 +21,8 @@ using GLColor = OpenTK.Mathematics.Color4;
 using static BEditor.Core.Data.ObjectData.DefaultData.Figure;
 using static BEditor.Core.Data.ObjectData.ImageObject;
 using BEditor.Core.Properties;
+using BEditor.Core.Graphics;
+using BEditor.Core.Extensions;
 
 namespace BEditor.Core.Data.ObjectData
 {
@@ -29,14 +31,14 @@ namespace BEditor.Core.Data.ObjectData
     {
         public static readonly SelectorPropertyMetadata TypeMetadata = new(Resources.Type, new string[2]
         {
-            Core.Properties.Resources.Cube,
-            Core.Properties.Resources.Ball
+            Resources.Cube,
+            Resources.Ball
         });
         public static readonly EasePropertyMetadata WeightMetadata = new("Weight", 100, float.NaN, 0);
 
         #region ObjectElement
 
-        public override string Name => Core.Properties.Resources._3DObject;
+        public override string Name => Resources._3DObject;
 
         public override IEnumerable<PropertyElement> Properties => new PropertyElement[]
         {
@@ -71,7 +73,7 @@ namespace BEditor.Core.Data.ObjectData
                 {
                     GL.Color4(color4);
                     GL.Scale(scalex, scaley, scalez);
-                    BEditor.Core.Rendering.Graphics.DrawCube(Width.GetValue(frame),
+                    GLTK.DrawCube(Width.GetValue(frame),
                                         Height.GetValue(frame),
                                         Weight.GetValue(frame),
                                         Material.Ambient.GetValue(frame),
@@ -86,7 +88,7 @@ namespace BEditor.Core.Data.ObjectData
                 {
                     GL.Color4(color4);
                     GL.Scale(scalex, scaley, scalez);
-                    BEditor.Core.Rendering.Graphics.DrawBall(Weight.GetValue(frame),
+                    GLTK.DrawBall(Weight.GetValue(frame),
                                         Material.Ambient.GetValue(frame),
                                         Material.Diffuse.GetValue(frame),
                                         Material.Specular.GetValue(frame),
@@ -95,7 +97,7 @@ namespace BEditor.Core.Data.ObjectData
             }
 
             Parent.Parent.GraphicsContext.MakeCurrent();
-            BEditor.Core.Rendering.Graphics.Paint(new Point3(Coordinate.X.GetValue(frame),
+            GLTK.Paint(new Point3(Coordinate.X.GetValue(frame),
                                                            Coordinate.Y.GetValue(frame),
                                                            Coordinate.Z.GetValue(frame)),
                                         Angle.AngleX.GetValue(frame),
@@ -109,6 +111,19 @@ namespace BEditor.Core.Data.ObjectData
                                         );
 
             Coordinate.ResetOptional();
+        }
+
+        public override void PropertyLoaded()
+        {
+            Coordinate.ExecuteLoaded(CoordinateMetadata);
+            Zoom.ExecuteLoaded(ZoomMetadata);
+            Blend.ExecuteLoaded(BlendMetadata);
+            Angle.ExecuteLoaded(AngleMetadata);
+            Material.ExecuteLoaded(MaterialMetadata);
+            Type.ExecuteLoaded(TypeMetadata);
+            Width.ExecuteLoaded(WidthMetadata);
+            Height.ExecuteLoaded(HeightMetadata);
+            Weight.ExecuteLoaded(WeightMetadata);
         }
 
         #endregion
@@ -127,39 +142,30 @@ namespace BEditor.Core.Data.ObjectData
         }
 
         [DataMember(Order = 0)]
-        [PropertyMetadata(nameof(CoordinateMetadata), typeof(ImageObject))]
         public Coordinate Coordinate { get; private set; }
 
         [DataMember(Order = 1)]
-        [PropertyMetadata(nameof(ZoomMetadata), typeof(ImageObject))]
         public Zoom Zoom { get; private set; }
 
         [DataMember(Order = 2)]
-        [PropertyMetadata(nameof(BlendMetadata), typeof(ImageObject))]
         public Blend Blend { get; private set; }
 
         [DataMember(Order = 3)]
-        [PropertyMetadata(nameof(AngleMetadata), typeof(ImageObject))]
         public Angle Angle { get; private set; }
 
         [DataMember(Order = 4)]
-        [PropertyMetadata(nameof(MaterialMetadata), typeof(ImageObject))]
         public Material Material { get; private set; }
 
         [DataMember(Order = 5)]
-        [PropertyMetadata(nameof(TypeMetadata), typeof(GL3DObject))]
         public SelectorProperty Type { get; private set; }
 
         [DataMember(Order = 6)]
-        [PropertyMetadata(nameof(WidthMetadata), typeof(DefaultData.Figure))]
         public EaseProperty Width { get; private set; }
 
         [DataMember(Order = 7)]
-        [PropertyMetadata(nameof(HeightMetadata), typeof(DefaultData.Figure))]
         public EaseProperty Height { get; private set; }
 
         [DataMember(Order = 8)]
-        [PropertyMetadata(nameof(WeightMetadata), typeof(GL3DObject))]
         public EaseProperty Weight { get; private set; }
 
     }

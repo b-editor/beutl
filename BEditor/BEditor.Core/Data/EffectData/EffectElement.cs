@@ -1,6 +1,7 @@
 ﻿using System;
 using System.Collections.Generic;
 using System.Collections.ObjectModel;
+using System.ComponentModel;
 using System.Linq;
 using System.Runtime.Serialization;
 using System.Threading.Tasks;
@@ -17,8 +18,10 @@ namespace BEditor.Core.Data.EffectData
     /// Represents the base class of the effect.
     /// </summary>
     [DataContract(Namespace = "")]
-    public abstract class EffectElement : ComponentObject, IChild<ClipData>, IParent<PropertyElement>, ICloneable
+    public abstract class EffectElement : ComponentObject, IChild<ClipData>, IParent<PropertyElement>, ICloneable, INotifyPropertyChanged
     {
+        private static readonly PropertyChangedEventArgs isEnabledArgs = new(nameof(IsEnabled));
+        private static readonly PropertyChangedEventArgs isExpandedArgs = new(nameof(IsExpanded));
         private bool isEnabled = true;
         private bool isExpanded = true;
         private ClipData clipData;
@@ -38,7 +41,7 @@ namespace BEditor.Core.Data.EffectData
         public bool IsEnabled
         {
             get => isEnabled;
-            set => SetValue(value, ref isEnabled, nameof(IsEnabled));
+            set => SetValue(value, ref isEnabled, isEnabledArgs);
         }
         /// <summary>
         /// Get or set whether the expander is open.
@@ -48,7 +51,7 @@ namespace BEditor.Core.Data.EffectData
         public bool IsExpanded
         {
             get => isExpanded;
-            set => SetValue(value, ref isExpanded, nameof(IsExpanded));
+            set => SetValue(value, ref isExpanded, isExpandedArgs);
         }
         /// <summary>
         /// Get the <see cref="PropertyElement"/> to display on the GUI.
@@ -77,6 +80,8 @@ namespace BEditor.Core.Data.EffectData
         /// </summary>
         public virtual void PropertyLoaded()
         {
+            //TODO : .NET5のソースジェネレーターを使う
+
             Parallel.ForEach(Children, p => p.PropertyLoaded());
 
             var attributetype = typeof(PropertyMetadataAttribute);

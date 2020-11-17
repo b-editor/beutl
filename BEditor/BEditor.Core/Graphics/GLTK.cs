@@ -15,9 +15,9 @@ using Color = BEditor.Core.Media.Color;
 using Image = BEditor.Core.Media.Image;
 using Size = BEditor.Core.Media.Size;
 
-namespace BEditor.Core.Rendering
+namespace BEditor.Core.Graphics
 {
-    public static class Graphics
+    public static class GLTK
     {
         #region GetPixels
 

@@ -1,13 +1,15 @@
 ﻿using System;
 using System.Collections.Generic;
 using System.Collections.ObjectModel;
+using System.ComponentModel;
 using System.Linq;
 using System.Runtime.Serialization;
 using System.Threading.Tasks;
 
 using BEditor.Core.Data.ObjectData;
+using BEditor.Core.Graphics;
 using BEditor.Core.Media;
-using BEditor.Core.Rendering;
+using BEditor.Core.Renderings;
 
 namespace BEditor.Core.Data.ProjectData
 {
@@ -15,8 +17,14 @@ namespace BEditor.Core.Data.ProjectData
     /// シーンクラス
     /// </summary>
     [DataContract(Namespace = "")]
-    public class Scene : ComponentObject, IParent<ClipData>, IChild<Project>
+    public class Scene : ComponentObject, IParent<ClipData>, IChild<Project>, INotifyPropertyChanged, IExtensibleDataObject
     {
+        private static readonly PropertyChangedEventArgs selectItemArgs = new(nameof(SelectItem));
+        private static readonly PropertyChangedEventArgs previreFrameArgs = new(nameof(PreviewFrame));
+        private static readonly PropertyChangedEventArgs totalFrameArgs = new(nameof(TotalFrame));
+        private static readonly PropertyChangedEventArgs zoomArgs = new(nameof(TimeLineZoom));
+        private static readonly PropertyChangedEventArgs hoffsetArgs = new(nameof(TimeLineHorizonOffset));
+        private static readonly PropertyChangedEventArgs voffsetArgs = new(nameof(TimeLineVerticalOffset));
         private ObservableCollection<ClipData> datas;
         private ClipData selectItem;
         private ObservableCollection<ClipData> selectItems;
@@ -85,7 +93,7 @@ namespace BEditor.Core.Data.ProjectData
             {
                 SelectName = selectItem?.Name;
                 selectItem = value;
-                RaisePropertyChanged(nameof(SelectItem));
+                RaisePropertyChanged(selectItemArgs);
             }
         }
 
@@ -137,19 +145,31 @@ namespace BEditor.Core.Data.ProjectData
         /// プレビュー中のフレームを取得または設定します
         /// </summary>
         [DataMember(Order = 5)]
-        public int PreviewFrame { get => previewframe; set => SetValue(value, ref previewframe, nameof(PreviewFrame)); }
+        public int PreviewFrame
+        {
+            get => previewframe;
+            set => SetValue(value, ref previewframe, previreFrameArgs);
+        }
 
         /// <summary>
         /// 最大フレームを取得または設定します
         /// </summary>
         [DataMember(Order = 6)]
-        public int TotalFrame { get => totalframe; set => SetValue(value, ref totalframe, nameof(TotalFrame)); }
+        public int TotalFrame
+        {
+            get => totalframe;
+            set => SetValue(value, ref totalframe, totalFrameArgs);
+        }
 
         /// <summary>
         /// タイムラインの拡大率を取得または設定します
         /// </summary>
         [DataMember(Order = 7)]
-        public float TimeLineZoom { get => timeLineZoom; set => SetValue(value, ref timeLineZoom, nameof(TimeLineZoom)); }
+        public float TimeLineZoom
+        {
+            get => timeLineZoom;
+            set => SetValue(value, ref timeLineZoom, zoomArgs);
+        }
 
         #region TimeLineScrollOffset
 
@@ -157,14 +177,22 @@ namespace BEditor.Core.Data.ProjectData
         /// タイムラインの水平方向のスクロールのオフセットを取得または設定します
         /// </summary>
         [DataMember(Order = 8)]
-        public double TimeLineHorizonOffset { get => timeLineHorizonOffset; set => SetValue(value, ref timeLineHorizonOffset, nameof(TimeLineHorizonOffset)); }
+        public double TimeLineHorizonOffset
+        {
+            get => timeLineHorizonOffset;
+            set => SetValue(value, ref timeLineHorizonOffset, hoffsetArgs);
+        }
 
 
         /// <summary>
         /// タイムラインの垂直方向のスクロールのオフセットを取得または設定します
         /// </summary>
         [DataMember(Order = 9)]
-        public double TimeLineVerticalOffset { get => timeLineVerticalOffset; set => SetValue(value, ref timeLineVerticalOffset, nameof(TimeLineVerticalOffset)); }
+        public double TimeLineVerticalOffset
+        {
+            get => timeLineVerticalOffset;
+            set => SetValue(value, ref timeLineVerticalOffset, voffsetArgs);
+        }
 
         #endregion
 
@@ -214,7 +242,7 @@ namespace BEditor.Core.Data.ProjectData
             Width = width;
             Height = height;
             Datas = new ObservableCollection<ClipData>();
-            GraphicsContext = Component.Funcs.CreateGraphicsContext(width, height);
+            GraphicsContext = new GraphicsContext(width, height);
         }
 
         #endregion
@@ -244,7 +272,7 @@ namespace BEditor.Core.Data.ProjectData
 
             GraphicsContext.SwapBuffers();
 
-            Graphics.GetPixels(FrameBuffer);
+            GLTK.GetPixels(FrameBuffer);
 
 #if DEBUG
             if (frame % Parent.Framerate * 5 == 1)

@@ -17,6 +17,7 @@ namespace BEditor.Core.Data.PropertyData
     [DataContract(Namespace = "")]
     public class FontProperty : PropertyElement, IObservable<FontRecord>, IObserver<FontRecord>, INotifyPropertyChanged, IExtensibleDataObject, IChild<EffectElement>
     {
+        private static readonly PropertyChangedEventArgs selectArgs = new(nameof(Select));
         private FontRecord selectItem;
         private List<IObserver<FontRecord>> list;
         private List<IObserver<FontRecord>> collection => list ??= new List<IObserver<FontRecord>>();
@@ -37,7 +38,11 @@ namespace BEditor.Core.Data.PropertyData
         /// 選択されているフォントを取得または設定します
         /// </summary>
         [DataMember]
-        public FontRecord Select { get => selectItem; set => SetValue(value, ref selectItem, nameof(Select)); }
+        public FontRecord Select
+        {
+            get => selectItem;
+            set => SetValue(value, ref selectItem, selectArgs);
+        }
 
         private void FontProperty_PropertyChanged(object sender, PropertyChangedEventArgs e)
         {

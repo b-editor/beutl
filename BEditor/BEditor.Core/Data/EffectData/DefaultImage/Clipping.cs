@@ -6,6 +6,7 @@ using System.Text;
 using BEditor.Core.Data.ObjectData;
 using BEditor.Core.Data.ProjectData;
 using BEditor.Core.Data.PropertyData;
+using BEditor.Core.Extensions;
 using BEditor.Core.Media;
 using BEditor.Core.Properties;
 
@@ -49,6 +50,15 @@ namespace BEditor.Core.Data.EffectData
             source.Clip(top, bottom, left, right);
         }
 
+        public override void PropertyLoaded()
+        {
+            Top.ExecuteLoaded(TopMetadata);
+            Bottom.ExecuteLoaded(BottomMetadata);
+            Left.ExecuteLoaded(LeftMetadata);
+            Right.ExecuteLoaded(RightMetadata);
+            AdjustCoordinates.ExecuteLoaded(AdjustCoordinatesMetadata);
+        }
+
         #endregion
 
         public Clipping()
@@ -62,23 +72,18 @@ namespace BEditor.Core.Data.EffectData
 
 
         [DataMember(Order = 0)]
-        [PropertyMetadata(nameof(TopMetadata), typeof(Clipping))]
-        public EaseProperty Top { get;private set; }
+        public EaseProperty Top { get; private set; }
 
         [DataMember(Order = 1)]
-        [PropertyMetadata(nameof(BottomMetadata), typeof(Clipping))]
-        public EaseProperty Bottom { get;private set; }
+        public EaseProperty Bottom { get; private set; }
 
         [DataMember(Order = 2)]
-        [PropertyMetadata(nameof(LeftMetadata), typeof(Clipping))]
-        public EaseProperty Left { get;private set; }
+        public EaseProperty Left { get; private set; }
 
         [DataMember(Order = 3)]
-        [PropertyMetadata(nameof(RightMetadata), typeof(Clipping))]
-        public EaseProperty Right { get;private set; }
+        public EaseProperty Right { get; private set; }
 
         [DataMember(Order = 4)]
-        [PropertyMetadata(nameof(AdjustCoordinatesMetadata), typeof(Clipping))]
-        public CheckProperty AdjustCoordinates { get;private set; }
+        public CheckProperty AdjustCoordinates { get; private set; }
     }
 }

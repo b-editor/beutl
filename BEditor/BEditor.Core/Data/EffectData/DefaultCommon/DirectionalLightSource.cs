@@ -8,6 +8,7 @@ using BEditor.Core.Media;
 
 using OpenTK.Graphics.OpenGL;
 using BEditor.Core.Properties;
+using BEditor.Core.Extensions;
 
 #if OldOpenTK
 using GLColor = OpenTK.Graphics.Color4;
@@ -47,6 +48,13 @@ namespace BEditor.Core.Data.EffectData.DefaultCommon
             GL.Enable(EnableCap.Light0);
         }
 
+        public override void PropertyLoaded()
+        {
+            X.ExecuteLoaded(XMetadata);
+            Y.ExecuteLoaded(YMetadata);
+            Z.ExecuteLoaded(ZMetadata);
+        }
+
         #endregion
 
 
@@ -58,15 +66,12 @@ namespace BEditor.Core.Data.EffectData.DefaultCommon
         }
 
         [DataMember(Order = 0)]
-        [PropertyMetadata(nameof(XMetadata), typeof(Coordinate))]
         public EaseProperty X { get; private set; }
 
         [DataMember(Order = 1)]
-        [PropertyMetadata(nameof(YMetadata), typeof(Coordinate))]
         public EaseProperty Y { get; private set; }
 
         [DataMember(Order = 2)]
-        [PropertyMetadata(nameof(ZMetadata), typeof(Coordinate))]
         public EaseProperty Z { get; private set; }
     }
 }

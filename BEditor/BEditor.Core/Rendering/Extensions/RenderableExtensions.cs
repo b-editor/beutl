@@ -4,7 +4,7 @@ using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
 
-namespace BEditor.Core.Rendering.Extensions
+namespace BEditor.Core.Renderings.Extensions
 {
     public static class RenderableExtensions
     {

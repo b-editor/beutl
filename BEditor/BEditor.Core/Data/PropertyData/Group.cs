@@ -47,7 +47,6 @@ namespace BEditor.Core.Data.PropertyData
 
             Parallel.ForEach(Children, item => item.PropertyLoaded());
 
-            //TODO : ソースジェネレーターへ移行
             var attributetype = typeof(PropertyMetadataAttribute);
             var type = GetType();
             var properties = type.GetProperties();

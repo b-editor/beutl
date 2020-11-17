@@ -14,6 +14,7 @@ namespace BEditor.Core.Data.PropertyData
     [DataContract(Namespace = "")]
     public abstract class PropertyElement : ComponentObject, IChild<EffectElement>, IExtensibleDataObject, INotifyPropertyChanged
     {
+        private static readonly PropertyChangedEventArgs metadataArgs = new(nameof(PropertyMetadata));
         private PropertyElementMetadata propertyMetadata;
 
 
@@ -27,7 +28,7 @@ namespace BEditor.Core.Data.PropertyData
         public PropertyElementMetadata PropertyMetadata
         { 
             get => propertyMetadata;
-            set => SetValue(value, ref propertyMetadata, nameof(PropertyMetadata));
+            set => SetValue(value, ref propertyMetadata, metadataArgs);
         }
         /// <summary>
         /// 初期化時とデシリアライズ時に呼び出されます

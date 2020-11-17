@@ -2,6 +2,7 @@
 using System.Runtime.Serialization;
 
 using BEditor.Core.Data.PropertyData;
+using BEditor.Core.Extensions;
 using BEditor.Core.Properties;
 
 namespace BEditor.Core.Data.PropertyData.Default
@@ -38,31 +39,35 @@ namespace BEditor.Core.Data.PropertyData.Default
             CenterZ
         };
 
+        public override void PropertyLoaded()
+        {
+            X.ExecuteLoaded(XMetadata);
+            Y.ExecuteLoaded(YMetadata);
+            Z.ExecuteLoaded(ZMetadata);
+            CenterX.ExecuteLoaded(CenterXMetadata);
+            CenterY.ExecuteLoaded(CenterYMetadata);
+            CenterZ.ExecuteLoaded(CenterZMetadata);
+        }
+
         #endregion
 
 
         [DataMember(Order = 0)]
-        [PropertyMetadata(nameof(XMetadata), typeof(Coordinate))]
         public EaseProperty X { get; private set; }
 
         [DataMember(Order = 1)]
-        [PropertyMetadata(nameof(YMetadata), typeof(Coordinate))]
         public EaseProperty Y { get; private set; }
 
         [DataMember(Order = 2)]
-        [PropertyMetadata(nameof(ZMetadata), typeof(Coordinate))]
         public EaseProperty Z { get; private set; }
 
         [DataMember(Order = 3)]
-        [PropertyMetadata(nameof(CenterXMetadata), typeof(Coordinate))]
         public EaseProperty CenterX { get; private set; }
 
         [DataMember(Order = 4)]
-        [PropertyMetadata(nameof(CenterYMetadata), typeof(Coordinate))]
         public EaseProperty CenterY { get; private set; }
 
         [DataMember(Order = 5)]
-        [PropertyMetadata(nameof(CenterZMetadata), typeof(Coordinate))]
         public EaseProperty CenterZ { get; private set; }
 
         public void ResetOptional()

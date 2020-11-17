@@ -4,6 +4,8 @@ using System.Runtime.InteropServices;
 using System.Runtime.Serialization;
 using System.Text;
 
+using BEditor.Core.Extensions;
+
 namespace BEditor.Core.Data.PropertyData.EasingSetting
 {
 
@@ -96,11 +98,11 @@ namespace BEditor.Core.Data.PropertyData.EasingSetting
 
         public override float EaseFunc(int frame, int totalframe, float min, float max) => currentfunc?.Invoke(frame, totalframe, min, max) ?? 0;
 
-        private Func<float, float, float, float, float> currentfunc;
+        private Func<float, float, float, float, float> currentfunc = Easing.None;
 
         public override void PropertyLoaded()
         {
-            base.PropertyLoaded();
+            EasingType.ExecuteLoaded(propertyMetadata);
 
             currentfunc = DefaultEase[EasingType.Index];
 

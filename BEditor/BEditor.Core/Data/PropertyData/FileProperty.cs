@@ -16,6 +16,7 @@ namespace BEditor.Core.Data.PropertyData
     [DataContract(Namespace = "")]
     public class FileProperty : PropertyElement, IEasingSetting, IObservable<string>, IObserver<string>, INotifyPropertyChanged, IExtensibleDataObject, IChild<EffectElement>
     {
+        private static readonly PropertyChangedEventArgs fileArgs = new(nameof(File));
         private string file;
         private List<IObserver<string>> list;
         private List<IObserver<string>> collection => list ??= new();
@@ -35,7 +36,11 @@ namespace BEditor.Core.Data.PropertyData
         /// ファイルの名前を取得または設定します
         /// </summary>
         [DataMember]
-        public string File { get => file; set => SetValue(value, ref file, nameof(File)); }
+        public string File
+        {
+            get => file;
+            set => SetValue(value, ref file, fileArgs);
+        }
 
         private void FileProperty_PropertyChanged(object sender, PropertyChangedEventArgs e)
         {

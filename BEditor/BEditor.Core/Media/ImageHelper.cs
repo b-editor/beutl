@@ -1,7 +1,8 @@
 ﻿using System;
 using System.Threading.Tasks;
 
-using BEditor.Core.Rendering;
+using BEditor.Core.Graphics;
+using BEditor.Core.Renderings;
 
 namespace BEditor.Core.Media
 {

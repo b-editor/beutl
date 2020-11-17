@@ -5,6 +5,7 @@ using System.Runtime.Serialization;
 
 using BEditor.Core.Data.ProjectData;
 using BEditor.Core.Data.PropertyData;
+using BEditor.Core.Extensions;
 
 namespace BEditor.Core.Data.ObjectData
 {
@@ -30,7 +31,7 @@ namespace BEditor.Core.Data.ObjectData
 
             public override void PropertyLoaded()
             {
-                base.PropertyLoaded();
+                File.ExecuteLoaded(FileMetadata);
 
                 File.PropertyChanged += PathChanged;
             }
@@ -39,7 +40,6 @@ namespace BEditor.Core.Data.ObjectData
 
 
             [DataMember(Order = 0)]
-            [PropertyMetadata(nameof(FileMetadata), typeof(Image))]
             public FileProperty File { get; private set; }
 
             #region PathChanged

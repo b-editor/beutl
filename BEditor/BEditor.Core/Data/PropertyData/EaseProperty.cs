@@ -18,6 +18,8 @@ namespace BEditor.Core.Data.PropertyData
     [DataContract(Namespace = "")]
     public class EaseProperty : PropertyElement, IKeyFrameProperty, INotifyPropertyChanged, IExtensibleDataObject, IChild<EffectElement>
     {
+        private static readonly PropertyChangedEventArgs easingFuncArgs = new(nameof(EasingType));
+        private static readonly PropertyChangedEventArgs easingDataArgs = new(nameof(EasingData));
         private EffectElement parent;
         private EasingFunc easingTypeProperty;
         private EasingData easingData;
@@ -53,7 +55,7 @@ namespace BEditor.Core.Data.PropertyData
             }
             set
             {
-                SetValue(value, ref easingTypeProperty, nameof(EasingFunc));
+                SetValue(value, ref easingTypeProperty, easingDataArgs);
 
                 EasingData = EasingFunc.LoadedEasingFunc.Find(x => x.Type == value.GetType());
             }
@@ -113,7 +115,11 @@ namespace BEditor.Core.Data.PropertyData
         /// <summary>
         /// 現在のイージングのデータを取得または設定します
         /// </summary>
-        public EasingData EasingData { get => easingData; set => SetValue(value, ref easingData, nameof(EasingData)); }
+        public EasingData EasingData
+        {
+            get => easingData; 
+            set => SetValue(value, ref easingData, easingDataArgs);
+        }
 
         internal int Length => this.GetClipData().Length;
 

@@ -18,6 +18,7 @@ namespace BEditor.Core.Data.PropertyData.Generic
     [DataContract(Namespace = "")]
     public class SelectorProperty<T> : PropertyElement, IEasingSetting, IObservable<T>, IObserver<T>, INotifyPropertyChanged, IExtensibleDataObject, IChild<EffectElement>
     {
+        private static readonly PropertyChangedEventArgs indexArgs = new(nameof(Index));
         private int selectIndex;
         private List<IObserver<T>> list;
         private List<IObserver<T>> collection => list ??= new();
@@ -45,7 +46,7 @@ namespace BEditor.Core.Data.PropertyData.Generic
         public int Index
         {
             get => selectIndex;
-            set => SetValue(value, ref selectIndex, nameof(Index));
+            set => SetValue(value, ref selectIndex, indexArgs);
         }
 
         private void SelectorProperty_PropertyChanged(object sender, PropertyChangedEventArgs e)

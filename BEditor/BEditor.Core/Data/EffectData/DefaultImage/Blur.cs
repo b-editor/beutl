@@ -3,6 +3,7 @@ using System.Runtime.Serialization;
 
 using BEditor.Core.Data.ProjectData;
 using BEditor.Core.Data.PropertyData;
+using BEditor.Core.Extensions;
 using BEditor.Core.Media;
 using BEditor.Core.Properties;
 
@@ -30,9 +31,9 @@ namespace BEditor.Core.Data.EffectData
 
 
         #region ImageEffect
+
         public override string Name => Resources.Blur;
 
-        #region Draw
         public override void Render(ref Image source, EffectRenderArgs args)
         {
             if (Mode.Index == 0)
@@ -48,7 +49,6 @@ namespace BEditor.Core.Data.EffectData
                 source.MedianBlur((int)Size.GetValue(args.Frame), AlphaBlur.IsChecked);
             }
         }
-        #endregion
 
         public override IEnumerable<PropertyElement> Properties => new PropertyElement[]
         {
@@ -57,19 +57,23 @@ namespace BEditor.Core.Data.EffectData
             Mode
         };
 
+        public override void PropertyLoaded()
+        {
+            Size.ExecuteLoaded(SizeMetadata);
+            AlphaBlur.ExecuteLoaded(AlphaBlurMetadata);
+            Mode.ExecuteLoaded(ModeMetadata);
+        }
+
         #endregion
 
 
         [DataMember(Order = 0)]
-        [PropertyMetadata(nameof(SizeMetadata), typeof(Blur))]
         public EaseProperty Size { get; private set; }
 
         [DataMember(Order = 1)]
-        [PropertyMetadata(nameof(AlphaBlurMetadata), typeof(Blur))]
         public CheckProperty AlphaBlur { get; private set; }
 
         [DataMember(Order = 2)]
-        [PropertyMetadata(nameof(ModeMetadata), typeof(Blur))]
         public SelectorProperty Mode { get; private set; }
     }
 }

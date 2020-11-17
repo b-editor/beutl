@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.ComponentModel;
 using System.Text;
 
+using BEditor.Core.Data;
 
 namespace BEditor.ViewModels.Helper
 {
@@ -13,9 +14,10 @@ namespace BEditor.ViewModels.Helper
     public class DelegateProperty<T> : BasePropertyChanged
     {
         private T value;
+        private static readonly PropertyChangedEventArgs eventArgs = new(nameof(Value));
 
 
-        public T Value { get => value; set => SetValue(value, ref this.value, nameof(Value)); }
+        public T Value { get => value; set => SetValue(value, ref this.value, eventArgs); }
 
         public DelegateProperty()
         {

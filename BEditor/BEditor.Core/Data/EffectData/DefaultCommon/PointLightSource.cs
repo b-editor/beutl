@@ -4,6 +4,8 @@ using System.Runtime.Serialization;
 using BEditor.Core.Data.ProjectData;
 using BEditor.Core.Data.PropertyData;
 using BEditor.Core.Data.PropertyData.Default;
+using BEditor.Core.Extensions;
+using BEditor.Core.Properties;
 
 using OpenTK.Graphics.OpenGL;
 
@@ -26,7 +28,7 @@ namespace BEditor.Core.Data.EffectData.DefaultCommon
 
         #region EffectElement
 
-        public override string Name => Core.Properties.Resources.PointLightSource;
+        public override string Name => Resources.PointLightSource;
 
         public override IEnumerable<PropertyElement> Properties => new PropertyElement[]
         {
@@ -58,6 +60,16 @@ namespace BEditor.Core.Data.EffectData.DefaultCommon
             GL.Enable(EnableCap.Light0);
         }
 
+        public override void PropertyLoaded()
+        {
+            X.ExecuteLoaded(XMetadata);
+            Y.ExecuteLoaded(YMetadata);
+            Z.ExecuteLoaded(ZMetadata);
+            ConstantAttenuation.ExecuteLoaded(ConstantAttenuationMetadata);
+            LinearAttenuation.ExecuteLoaded(LinearAttenuationMetadata);
+            QuadraticAttenuation.ExecuteLoaded(QuadraticAttenuationMetadata);
+        }
+
         #endregion
 
         public PointLightSource()
@@ -72,27 +84,21 @@ namespace BEditor.Core.Data.EffectData.DefaultCommon
 
 
         [DataMember(Order = 0)]
-        [PropertyMetadata(nameof(XMetadata), typeof(Coordinate))]
         public EaseProperty X { get; private set; }
 
         [DataMember(Order = 1)]
-        [PropertyMetadata(nameof(YMetadata), typeof(Coordinate))]
         public EaseProperty Y { get; private set; }
 
         [DataMember(Order = 2)]
-        [PropertyMetadata(nameof(ZMetadata), typeof(Coordinate))]
         public EaseProperty Z { get; private set; }
 
         [DataMember(Order = 3)]
-        [PropertyMetadata(nameof(ConstantAttenuationMetadata), typeof(PointLightSource))]
         public EaseProperty ConstantAttenuation { get; private set; }
 
         [DataMember(Order = 4)]
-        [PropertyMetadata(nameof(LinearAttenuationMetadata), typeof(PointLightSource))]
         public EaseProperty LinearAttenuation { get; private set; }
 
         [DataMember(Order = 5)]
-        [PropertyMetadata(nameof(QuadraticAttenuationMetadata), typeof(PointLightSource))]
         public EaseProperty QuadraticAttenuation { get; private set; }
     }
 }

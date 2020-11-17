@@ -2,6 +2,7 @@
 using System.Runtime.Serialization;
 
 using BEditor.Core.Data.PropertyData;
+using BEditor.Core.Extensions;
 using BEditor.Core.Properties;
 
 namespace BEditor.Core.Data.PropertyData.Default
@@ -33,23 +34,27 @@ namespace BEditor.Core.Data.PropertyData.Default
             ScaleZ
         };
 
+        public override void PropertyLoaded()
+        {
+            Scale.ExecuteLoaded(ZoomMetadata);
+            ScaleX.ExecuteLoaded(ScaleXMetadata);
+            ScaleY.ExecuteLoaded(ScaleYMetadata);
+            ScaleZ.ExecuteLoaded(ScaleZMetadata);
+        }
+
         #endregion
 
 
         [DataMember(Name = "Zoom", Order = 0)]
-        [PropertyMetadata(nameof(ZoomMetadata), typeof(Zoom))]
         public EaseProperty Scale { get; private set; }
 
         [DataMember(Order = 1)]
-        [PropertyMetadata(nameof(ScaleXMetadata), typeof(Zoom))]
         public EaseProperty ScaleX { get; private set; }
 
         [DataMember(Order = 2)]
-        [PropertyMetadata(nameof(ScaleYMetadata), typeof(Zoom))]
         public EaseProperty ScaleY { get; private set; }
 
         [DataMember(Order = 3)]
-        [PropertyMetadata(nameof(ScaleZMetadata), typeof(Zoom))]
         public EaseProperty ScaleZ { get; private set; }
     }
 }

@@ -1,6 +1,7 @@
 ﻿using System;
 using System.Collections.Generic;
 using System.Collections.ObjectModel;
+using System.ComponentModel;
 using System.ComponentModel.DataAnnotations;
 using System.Diagnostics.Contracts;
 using System.IO;
@@ -18,8 +19,12 @@ namespace BEditor.Core.Data.ObjectData
     /// Represents the data of a clip to be placed in the timeline.
     /// </summary>
     [DataContract(Namespace = "", Name = "Data")]
-    public class ClipData : ComponentObject, ICloneable, IParent<EffectElement>, IChild<Scene>
+    public class ClipData : ComponentObject, ICloneable, IParent<EffectElement>, IChild<Scene>, INotifyPropertyChanged
     {
+        private static readonly PropertyChangedEventArgs startArgs = new(nameof(Start));
+        private static readonly PropertyChangedEventArgs endArgs = new(nameof(End));
+        private static readonly PropertyChangedEventArgs layerArgs = new(nameof(Layer));
+        private static readonly PropertyChangedEventArgs textArgs = new(nameof(LabelText));
         private string name;
         private int start;
         private int end;
@@ -75,7 +80,7 @@ namespace BEditor.Core.Data.ObjectData
         public int Start
         {
             get => start;
-            set => SetValue(value, ref start, nameof(Start));
+            set => SetValue(value, ref start, startArgs);
         }
 
         /// <summary>
@@ -85,7 +90,7 @@ namespace BEditor.Core.Data.ObjectData
         public int End
         {
             get => end;
-            set => SetValue(value, ref end, nameof(End));
+            set => SetValue(value, ref end, endArgs);
         }
 
         /// <summary>
@@ -103,7 +108,7 @@ namespace BEditor.Core.Data.ObjectData
             set
             {
                 if (value == 0) return;
-                SetValue(value, ref layer, nameof(Layer));
+                SetValue(value, ref layer, layerArgs);
             }
         }
 
@@ -114,7 +119,7 @@ namespace BEditor.Core.Data.ObjectData
         public string LabelText
         {
             get => labeltext;
-            set => SetValue(value, ref labeltext, nameof(LabelText));
+            set => SetValue(value, ref labeltext, textArgs);
         }
 
         /// <inheritdoc/>

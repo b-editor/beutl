@@ -17,9 +17,10 @@ namespace BEditor.Core.Data.PropertyData
     [DataContract(Namespace = "")]
     public class SelectorProperty : PropertyElement, IEasingSetting, IObservable<int>, IObserver<int>, INotifyPropertyChanged, IExtensibleDataObject, IChild<EffectElement>
     {
+        private static readonly PropertyChangedEventArgs indexArgs = new(nameof(Index));
         private int selectIndex;
         private List<IObserver<int>> list;
-        private List<IObserver<int>> collection => list ??= new List<IObserver<int>>();
+        private List<IObserver<int>> collection => list ??= new();
 
         /// <summary>
         /// <see cref="SelectorProperty"/> クラスの新しいインスタンスを初期化します
@@ -41,7 +42,11 @@ namespace BEditor.Core.Data.PropertyData
         /// 選択されている <see cref="SelectorPropertyMetadata.ItemSource"/> のインデックスを取得または設定します
         /// </summary>
         [DataMember]
-        public int Index { get => selectIndex; set => SetValue(value, ref selectIndex, nameof(Index)); }
+        public int Index
+        {
+            get => selectIndex;
+            set => SetValue(value, ref selectIndex, indexArgs);
+        }
 
 
         public static implicit operator int(SelectorProperty selector) => selector.Index;

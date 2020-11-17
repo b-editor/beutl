@@ -4,8 +4,10 @@ using System.Runtime.Serialization;
 using BEditor.Core.Data.EffectData;
 using BEditor.Core.Data.ProjectData;
 using BEditor.Core.Data.PropertyData;
+using BEditor.Core.Extensions;
+using BEditor.Core.Graphics;
 using BEditor.Core.Properties;
-using BEditor.Core.Rendering;
+using BEditor.Core.Renderings;
 
 namespace BEditor.Core.Data.ObjectData
 {
@@ -42,15 +44,14 @@ namespace BEditor.Core.Data.ObjectData
 
 
         #region ObjectElement
-        public override string Name => Core.Properties.Resources.Camera;
+        public override string Name => Resources.Camera;
 
-        #region Load
         public override void Render(EffectRenderArgs args)
         {
             int frame = args.Frame;
             var scene = Parent.Parent;
             scene.GraphicsContext.MakeCurrent();
-            Graphics.LookAt(
+            GLTK.LookAt(
                 scene.Width, scene.Height,
                 X.GetValue(frame), Y.GetValue(frame), Z.GetValue(frame),
                 TargetX.GetValue(frame), TargetY.GetValue(frame), TargetZ.GetValue(frame),
@@ -65,66 +66,66 @@ namespace BEditor.Core.Data.ObjectData
                 effect.Render(args);
             }
         }
-        #endregion
 
-        #region PropertySettings
         public override IEnumerable<PropertyElement> Properties => new PropertyElement[]
-                    {
-                        X, Y, Z,
-                        TargetX, TargetY, TargetZ,
-                        ZNear, ZFar,
-                        Angle,
-                        Fov,
-                        Mode
-                    };
+        {
+            X, Y, Z,
+            TargetX, TargetY, TargetZ,
+            ZNear, ZFar,
+            Angle,
+            Fov,
+            Mode
+        };
 
-        #endregion
+        public override void PropertyLoaded()
+        {
+            X.ExecuteLoaded(XMetadata);
+            Y.ExecuteLoaded(YMetadata);
+            Z.ExecuteLoaded(ZMetadata);
+            TargetX.ExecuteLoaded(TargetXMetadata);
+            TargetY.ExecuteLoaded(TargetYMetadata);
+            TargetZ.ExecuteLoaded(TargetZMetadata);
+            ZNear.ExecuteLoaded(ZNearMetadata);
+            ZFar.ExecuteLoaded(ZFarMetadata);
+            Angle.ExecuteLoaded(AngleMetadata);
+            Fov.ExecuteLoaded(FovMetadata);
+            Mode.ExecuteLoaded(ModeMetadata);
+        }
 
         #endregion
 
 
         [DataMember(Order = 0)]
-        [PropertyMetadata(nameof(XMetadata), typeof(CameraObject))]
         public EaseProperty X { get; private set; }
 
         [DataMember(Order = 1)]
-        [PropertyMetadata(nameof(YMetadata), typeof(CameraObject))]
         public EaseProperty Y { get; private set; }
 
         [DataMember(Order = 2)]
-        [PropertyMetadata(nameof(ZMetadata), typeof(CameraObject))]
         public EaseProperty Z { get; private set; }
 
         [DataMember(Order = 3)]
-        [PropertyMetadata(nameof(TargetXMetadata), typeof(CameraObject))]
         public EaseProperty TargetX { get; private set; }
 
         [DataMember(Order = 4)]
-        [PropertyMetadata(nameof(TargetYMetadata), typeof(CameraObject))]
         public EaseProperty TargetY { get; private set; }
 
         [DataMember(Order = 5)]
-        [PropertyMetadata(nameof(TargetZMetadata), typeof(CameraObject))]
         public EaseProperty TargetZ { get; private set; }
 
         [DataMember(Order = 6)]
-        [PropertyMetadata(nameof(ZNearMetadata), typeof(CameraObject))]
         public EaseProperty ZNear { get; private set; }
 
         [DataMember(Order = 7)]
-        [PropertyMetadata(nameof(ZFarMetadata), typeof(CameraObject))]
         public EaseProperty ZFar { get; private set; }
 
         [DataMember(Order = 8)]
-        [PropertyMetadata(nameof(AngleMetadata), typeof(CameraObject))]
         public EaseProperty Angle { get; private set; }
 
         [DataMember(Order = 9)]
-        [PropertyMetadata(nameof(FovMetadata), typeof(CameraObject))]
         public EaseProperty Fov { get; private set; }
 
         [DataMember(Order = 10)]
-        [PropertyMetadata(nameof(ModeMetadata), typeof(CameraObject))]
         public CheckProperty Mode { get; private set; }
     }
 }

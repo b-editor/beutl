@@ -22,8 +22,9 @@ using Color = BEditor.Core.Media.Color;
 using BEditor.Core.Data.PropertyData.Default;
 using Image = BEditor.Core.Media.Image;
 using System.Runtime.InteropServices;
+using BEditor.Core.Renderings;
 
-namespace BEditor.Core.Rendering
+namespace BEditor.Core.Graphics
 {
     public abstract class BaseGraphicsContext : IDisposable, IRenderer<Image>
     {
@@ -266,8 +267,9 @@ namespace BEditor.Core.Rendering
             color.ScA *= alpha;
 
             MakeCurrent();
-            Graphics.Paint(coordinate, nx, ny, nz, center, () => Graphics.DrawImage(img, scalex, scaley, scalez, color, ambient, diffuse, specular, shininess), Blend.BlentFunc[drawObject.Blend.BlendType.Index]);
+            GLTK.Paint(coordinate, nx, ny, nz, center, () => GLTK.DrawImage(img, scalex, scaley, scalez, color, ambient, diffuse, specular, shininess), Blend.BlentFunc[drawObject.Blend.BlendType.Index]);
         }
+        
 
         public void OnCompleted() { }
         public void OnFinally() { }
@@ -276,13 +278,13 @@ namespace BEditor.Core.Rendering
         {
             MakeCurrent();
 
-            Graphics.Paint(
+            GLTK.Paint(
                 value.Coord,
                 value.Rotate.X,
                 value.Rotate.Y,
                 value.Rotate.Z,
                 value.Center,
-                () => Graphics.DrawImage(
+                () => GLTK.DrawImage(
                     value,
                     value.Scale.X,
                     value.Scale.Y,

@@ -1,4 +1,5 @@
 ﻿using System.Collections.ObjectModel;
+using System.ComponentModel;
 using System.Windows.Media;
 
 using BEditor.Core.Data;
@@ -10,6 +11,7 @@ namespace BEditor.ViewModels.PropertyControl
 {
     public class ColorPickerViewModel : BasePropertyChanged
     {
+        private static readonly PropertyChangedEventArgs brushArgs = new(nameof(Brush));
         public static ObservableCollection<ColorList> ColorList { get; } = new ObservableCollection<ColorList>();
 
         public ColorProperty Property { get; }
@@ -25,7 +27,7 @@ namespace BEditor.ViewModels.PropertyControl
             });
             property.PropertyChanged += (s, e) =>
             {
-                RaisePropertyChanged(nameof(Brush));
+                RaisePropertyChanged(brushArgs);
             };
         }
     }

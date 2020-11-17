@@ -11,13 +11,13 @@ namespace BEditor.Core.Extensions
 {
     public static class ActivityLog
     {
+        private static readonly string xmlpath = $"{Component.Path}\\user\\logs\\errorlog.xml";
         public static void ErrorLog(Exception e)
         {
             if (!Settings.Default.EnableErrorLog) return;
-            var app = Component.Funcs.GetApp();
             Task.Run(() =>
             {
-                var xdoc = XDocument.Load(app.Path + "\\user\\logs\\errorlog.xml");
+                var xdoc = XDocument.Load(xmlpath);
 
                 var xelm = new XElement("Error",
                     new XElement("ExceptionMessage", e.Message),
@@ -26,7 +26,7 @@ namespace BEditor.Core.Extensions
 
                 xdoc.Elements().First().Add(xelm);
 
-                xdoc.Save(app.Path + "\\user\\logs\\errorlog.xml");
+                xdoc.Save(xmlpath);
             });
         }
 
@@ -34,10 +34,9 @@ namespace BEditor.Core.Extensions
         {
             if (!Settings.Default.EnableErrorLog) return;
 
-            var app = Component.Funcs.GetApp();
             Task.Run(() =>
             {
-                var xdoc = XDocument.Load(app.Path + "\\user\\logs\\errorlog.xml");
+                var xdoc = XDocument.Load(xmlpath);
 
                 var xelm = new XElement("Error",
                     new XElement("ExceptionMessage", e.Message),
@@ -47,7 +46,7 @@ namespace BEditor.Core.Extensions
 
                 xdoc.Elements().First().Add(xelm);
 
-                xdoc.Save(app.Path + "\\user\\logs\\errorlog.xml");
+                xdoc.Save(xmlpath);
             });
         }
     }

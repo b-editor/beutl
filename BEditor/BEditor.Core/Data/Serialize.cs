@@ -128,13 +128,7 @@ namespace BEditor.Core.Data
         /// <summary>
         /// <see cref="DataContractJsonSerializer"/> で使用するKnownTypeを取得します
         /// </summary>
-        public static List<Type> SerializeKnownTypes
-        {
-            get
-            {
-                if (serializeKnownTypes == null)
-                {
-                    serializeKnownTypes = new List<Type>()
+        internal static List<Type> SerializeKnownTypes = new List<Type>()
                     {
                         typeof(Project),
                         typeof(Scene),
@@ -189,43 +183,5 @@ namespace BEditor.Core.Data
                         typeof(DefaultEasing),
                         typeof(EasingFunc)
                     };
-
-                    var plugins = Component.Funcs.GetApp().LoadedPlugins;
-                    void ForFunc(int i)
-                    {
-                        var type = plugins[i];
-                        if (type is IEffects effectsPlugin)
-                        {
-                            foreach (var (_, effecttype) in effectsPlugin.Effects)
-                            {
-                                serializeKnownTypes.Add(effecttype);
-                            }
-                        }
-
-                        if (type is IObjects objectsPlugin)
-                        {
-                            foreach (var (_, objecttype) in objectsPlugin.Objects)
-                            {
-                                serializeKnownTypes.Add(objecttype);
-                            }
-                        }
-
-                        if (type is IEasingFunctions funcsPlugin)
-                        {
-                            foreach (var (_, functype) in funcsPlugin.EasingFunc)
-                            {
-                                serializeKnownTypes.Add(functype);
-                            }
-                        }
-                    }
-
-                    Parallel.For(0, plugins.Count, ForFunc);
-                }
-
-                return serializeKnownTypes;
-            }
-        }
-
-        private static List<Type> serializeKnownTypes;
     }
 }

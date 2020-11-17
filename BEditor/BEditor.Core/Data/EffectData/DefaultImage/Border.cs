@@ -5,6 +5,7 @@ using BEditor.Core;
 using BEditor.Core.Data.ObjectData;
 using BEditor.Core.Data.ProjectData;
 using BEditor.Core.Data.PropertyData;
+using BEditor.Core.Extensions;
 using BEditor.Core.Media;
 using BEditor.Core.Properties;
 
@@ -28,22 +29,25 @@ namespace BEditor.Core.Data.EffectData
 
         public override void Render(ref Image source, EffectRenderArgs args) => source.Border((int)Size.GetValue(args.Frame), Color);
 
-
         public override IEnumerable<PropertyElement> Properties => new PropertyElement[]
         {
             Size,
             Color
         };
 
+        public override void PropertyLoaded()
+        {
+            Size.ExecuteLoaded(SizeMetadata);
+            Color.ExecuteLoaded(ColorMetadata);
+        }
+
         #endregion
 
 
         [DataMember(Order = 0)]
-        [PropertyMetadata(nameof(SizeMetadata), typeof(Border))]
         public EaseProperty Size { get; private set; }
 
         [DataMember(Order = 1)]
-        [PropertyMetadata(nameof(ColorMetadata), typeof(Border))]
         public ColorProperty Color { get;private set; }
     }
 }

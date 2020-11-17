@@ -1,11 +1,15 @@
 ﻿using System.Collections.ObjectModel;
+using System.ComponentModel;
 using System.Windows.Media;
+
+using BEditor.Core.Data;
 using BEditor.ViewModels.PropertyControl;
 
 namespace BEditor.ViewModels.CustomControl
 {
     public class ColorList : BasePropertyChanged
     {
+        private static readonly PropertyChangedEventArgs nameArgs = new(nameof(Name));
         private string name;
 
         public ColorList(ObservableCollection<ColorListProperty> colors, string name)
@@ -14,12 +18,21 @@ namespace BEditor.ViewModels.CustomControl
             Colors = colors;
         }
 
-        public string Name { get => name; set => SetValue(value, ref name, nameof(Name)); }
+        public string Name
+        {
+            get => name;
+            set => SetValue(value, ref name, nameArgs);
+        }
         public ObservableCollection<ColorListProperty> Colors { get; }
     }
 
     public class ColorListProperty : BasePropertyChanged
     {
+        private static readonly PropertyChangedEventArgs redArgs = new(nameof(Red));
+        private static readonly PropertyChangedEventArgs greenArgs = new(nameof(Green));
+        private static readonly PropertyChangedEventArgs blueArgs = new(nameof(Blue));
+        private static readonly PropertyChangedEventArgs nameArgs = new(nameof(Name));
+        private static readonly PropertyChangedEventArgs brushArgs = new(nameof(Brush));
         private byte red;
         private byte green;
         private byte blue;
@@ -38,7 +51,7 @@ namespace BEditor.ViewModels.CustomControl
             get => red;
             set
             {
-                SetValue(value, ref red, nameof(Red));
+                SetValue(value, ref red, redArgs);
                 RaiseEvent();
             }
         }
@@ -47,7 +60,7 @@ namespace BEditor.ViewModels.CustomControl
             get => green;
             set
             {
-                SetValue(value, ref green, nameof(Green));
+                SetValue(value, ref green, greenArgs);
                 RaiseEvent();
             }
         }
@@ -56,14 +69,18 @@ namespace BEditor.ViewModels.CustomControl
             get => blue;
             set
             {
-                SetValue(value, ref blue, nameof(Blue));
+                SetValue(value, ref blue, blueArgs);
                 RaiseEvent();
             }
         }
 
-        public string Name { get => name; set => SetValue(value, ref name, nameof(Name)); }
+        public string Name
+        {
+            get => name;
+            set => SetValue(value, ref name, nameArgs);
+        }
 
-        private void RaiseEvent() => base.RaisePropertyChanged(nameof(Brush));
+        private void RaiseEvent() => base.RaisePropertyChanged(brushArgs);
         public Brush Brush => new SolidColorBrush(Color.FromRgb(Red, Green, Blue));
     }
 }

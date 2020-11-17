@@ -24,6 +24,7 @@ namespace BEditor.Views.CustomControl
         public static readonly DependencyProperty BlueProperty = DependencyProperty.Register("Blue", typeof(byte), typeof(ColorPicker), new FrameworkPropertyMetadata((byte)255, FrameworkPropertyMetadataOptions.BindsTwoWayByDefault, ColorChanged));
         public static readonly DependencyProperty AlphaProperty = DependencyProperty.Register("Alpha", typeof(byte), typeof(ColorPicker), new FrameworkPropertyMetadata((byte)255, FrameworkPropertyMetadataOptions.BindsTwoWayByDefault, ColorChanged));
         public static readonly DependencyProperty UseAlphaProperty = DependencyProperty.Register("UseAlpha", typeof(bool), typeof(ColorPicker), new FrameworkPropertyMetadata(false, FrameworkPropertyMetadataOptions.BindsTwoWayByDefault));
+        private static readonly PropertyChangedEventArgs selectcolorArgs = new(nameof(SelectedColor));
 
         private static void ColorChanged(DependencyObject d, DependencyPropertyChangedEventArgs e)
         {
@@ -31,7 +32,7 @@ namespace BEditor.Views.CustomControl
 
             if (d is ColorPicker picker)
             {
-                picker.PropertyChanged?.Invoke(picker, new PropertyChangedEventArgs(nameof(SelectedColor)));
+                picker.PropertyChanged?.Invoke(picker, selectcolorArgs);
             }
         }
 

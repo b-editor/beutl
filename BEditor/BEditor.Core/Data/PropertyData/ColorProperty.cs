@@ -14,6 +14,10 @@ namespace BEditor.Core.Data.PropertyData
     [DataContract(Namespace = "")]
     public class ColorProperty : PropertyElement, INotifyPropertyChanged, IExtensibleDataObject, IChild<EffectElement>
     {
+        private static readonly PropertyChangedEventArgs rArgs = new(nameof(Red));
+        private static readonly PropertyChangedEventArgs gArgs = new(nameof(Green));
+        private static readonly PropertyChangedEventArgs bArgs = new(nameof(Blue));
+        private static readonly PropertyChangedEventArgs aArgs = new(nameof(Alpha));
         private byte r;
         private byte g;
         private byte b;
@@ -39,22 +43,38 @@ namespace BEditor.Core.Data.PropertyData
         /// Red
         /// </summary>
         [DataMember]
-        public byte Red { get => r; set => SetValue(value, ref r, nameof(Red)); }
+        public byte Red
+        {
+            get => r;
+            set => SetValue(value, ref r, rArgs);
+        }
         /// <summary>
         /// Green
         /// </summary>
         [DataMember]
-        public byte Green { get => g; set => SetValue(value, ref g, nameof(Green)); }
+        public byte Green
+        {
+            get => g;
+            set => SetValue(value, ref g, gArgs);
+        }
         /// <summary>
         /// Blue
         /// </summary>
         [DataMember]
-        public byte Blue { get => b; set => SetValue(value, ref b, nameof(Blue)); }
+        public byte Blue
+        {
+            get => b;
+            set => SetValue(value, ref b, bArgs);
+        }
         /// <summary>
         /// Alpha
         /// </summary>
         [DataMember]
-        public byte Alpha { get => a; set => SetValue(value, ref a, nameof(Alpha)); }
+        public byte Alpha
+        {
+            get => a;
+            set => SetValue(value, ref a, aArgs);
+        }
 
         public static implicit operator Media.Color(ColorProperty val) => new(val.Red, val.Green, val.Blue, val.Alpha);
         /// <inheritdoc/>

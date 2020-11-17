@@ -3,6 +3,7 @@ using System.Runtime.Serialization;
 
 using BEditor.Core.Data.ProjectData;
 using BEditor.Core.Data.PropertyData;
+using BEditor.Core.Extensions;
 using BEditor.Core.Media;
 using BEditor.Core.Properties;
 
@@ -37,7 +38,6 @@ namespace BEditor.Core.Data.EffectData
              Alpha.GetValue(args.Frame),
              Color);
 
-
         public override IEnumerable<PropertyElement> Properties => new PropertyElement[]
         {
             X,
@@ -47,27 +47,31 @@ namespace BEditor.Core.Data.EffectData
             Color
         };
 
+        public override void PropertyLoaded()
+        {
+            X.ExecuteLoaded(XMetadata);
+            Y.ExecuteLoaded(YMetadata);
+            Blur.ExecuteLoaded(BlurMetadata);
+            Alpha.ExecuteLoaded(AlphaMetadata);
+            Color.ExecuteLoaded(ColorMetadata);
+        }
+
         #endregion
 
 
         [DataMember(Order = 0)]
-        [PropertyMetadata(nameof(XMetadata), typeof(Shadow))]
         public EaseProperty X { get; private set; }
 
         [DataMember(Order = 1)]
-        [PropertyMetadata(nameof(YMetadata), typeof(Shadow))]
         public EaseProperty Y { get; private set; }
 
         [DataMember(Order = 2)]
-        [PropertyMetadata(nameof(BlurMetadata), typeof(Shadow))]
         public EaseProperty Blur { get; private set; }
 
         [DataMember(Order = 3)]
-        [PropertyMetadata(nameof(AlphaMetadata), typeof(Shadow))]
         public EaseProperty Alpha { get; private set; }
 
         [DataMember(Order = 4)]
-        [PropertyMetadata(nameof(ColorMetadata), typeof(Shadow))]
         public ColorProperty Color { get; private set; }
     }
 }

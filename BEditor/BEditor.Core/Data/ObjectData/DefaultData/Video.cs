@@ -50,7 +50,9 @@ namespace BEditor.Core.Data.ObjectData
 
             public override void PropertyLoaded()
             {
-                base.PropertyLoaded();
+                Speed.ExecuteLoaded(SpeedMetadata);
+                Start.ExecuteLoaded(StartMetadata);
+                File.ExecuteLoaded(FileMetadata);
 
                 if (System.IO.File.Exists(File.File))
                 {
@@ -82,15 +84,12 @@ namespace BEditor.Core.Data.ObjectData
 
 
             [DataMember(Order = 0)]
-            [PropertyMetadata(nameof(SpeedMetadata), typeof(Video))]
             public EaseProperty Speed { get; private set; }
 
             [DataMember(Order = 1)]
-            [PropertyMetadata(nameof(StartMetadata), typeof(Video))]
             public EaseProperty Start { get; private set; }
 
             [DataMember(Order = 2)]
-            [PropertyMetadata(nameof(FileMetadata), typeof(Video))]
             public FileProperty File { get; private set; }
         }
     }

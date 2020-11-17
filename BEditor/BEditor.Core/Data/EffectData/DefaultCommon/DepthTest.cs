@@ -6,6 +6,7 @@ using System.Text;
 
 using BEditor.Core.Data.ProjectData;
 using BEditor.Core.Data.PropertyData;
+using BEditor.Core.Extensions;
 using BEditor.Core.Properties;
 
 using OpenTK.Graphics.OpenGL;
@@ -61,6 +62,7 @@ namespace BEditor.Core.Data.EffectData.DefaultCommon
         #endregion
 
         #region CommonEffect
+
         public override string Name => Resources.DepthTest;
 
         public override IEnumerable<PropertyElement> Properties => new PropertyElement[]
@@ -84,27 +86,31 @@ namespace BEditor.Core.Data.EffectData.DefaultCommon
             GL.DepthRange(Near.GetValue(args.Frame) / 100, Far.GetValue(args.Frame) / 100);
         }
 
+        public override void PropertyLoaded()
+        {
+            Enabled.ExecuteLoaded(EnabledMetadata);
+            Function.ExecuteLoaded(FunctionMetadata);
+            Mask.ExecuteLoaded(MaskMetadata);
+            Near.ExecuteLoaded(NearMetadata);
+            Far.ExecuteLoaded(FarMetadata);
+        }
+
         #endregion
 
 
         [DataMember(Order = 0)]
-        [PropertyMetadata(nameof(EnabledMetadata), typeof(DepthTest))]
         public CheckProperty Enabled { get; private set; }
 
         [DataMember(Order = 1)]
-        [PropertyMetadata(nameof(FunctionMetadata), typeof(DepthTest))]
         public SelectorProperty Function { get; private set; }
 
         [DataMember(Order = 2)]
-        [PropertyMetadata(nameof(MaskMetadata), typeof(DepthTest))]
         public CheckProperty Mask { get; private set; }
 
         [DataMember(Order = 3)]
-        [PropertyMetadata(nameof(NearMetadata), typeof(DepthTest))]
         public EaseProperty Near { get; private set; }
 
         [DataMember(Order = 4)]
-        [PropertyMetadata(nameof(FarMetadata), typeof(DepthTest))]
         public EaseProperty Far { get; private set; }
     }
 }

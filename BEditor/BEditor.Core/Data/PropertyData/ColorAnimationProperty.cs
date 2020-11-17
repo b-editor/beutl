@@ -18,6 +18,11 @@ namespace BEditor.Core.Data.PropertyData
     [DataContract(Namespace = "")]
     public class ColorAnimationProperty : PropertyElement, IKeyFrameProperty, INotifyPropertyChanged, IExtensibleDataObject, IChild<EffectElement>
     {
+        private static readonly PropertyChangedEventArgs easingFuncArgs = new(nameof(EasingType));
+        private static readonly PropertyChangedEventArgs easingDataArgs = new(nameof(EasingData));
+        private EffectElement parent;
+        private EasingFunc easingTypeProperty;
+        private EasingData easingData;
 
         /// <summary>
         /// 
@@ -56,9 +61,6 @@ namespace BEditor.Core.Data.PropertyData
         #endregion
 
 
-        private EffectElement parent;
-        private EasingFunc easingTypeProperty;
-        private EasingData easingData;
 
         /// <summary>
         /// 
@@ -88,7 +90,7 @@ namespace BEditor.Core.Data.PropertyData
             }
             set
             {
-                SetValue(value, ref easingTypeProperty, nameof(EasingFunc));
+                SetValue(value, ref easingTypeProperty, easingFuncArgs);
 
                 EasingData = EasingFunc.LoadedEasingFunc.Find(x => x.Type == value.GetType());
             }
@@ -101,7 +103,11 @@ namespace BEditor.Core.Data.PropertyData
         /// <summary>
         /// 
         /// </summary>
-        public EasingData EasingData { get => easingData; set => SetValue(value, ref easingData, nameof(EasingData)); }
+        public EasingData EasingData
+        {
+            get => easingData;
+            set => SetValue(value, ref easingData, easingDataArgs);
+        }
         internal int Length => Parent.Parent.Length;
 
 

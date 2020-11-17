@@ -3,11 +3,18 @@ using BEditor.Core.Data.ProjectData;
 using Microsoft.WindowsAPICodePack.Dialogs;
 using BEditor.Core.Data;
 using BEditor.Models;
+using System.ComponentModel;
 
 namespace BEditor.ViewModels
 {
     public class CreateProjectWindowViewModel : BasePropertyChanged
     {
+        private static readonly PropertyChangedEventArgs widthArgs = new(nameof(Width));
+        private static readonly PropertyChangedEventArgs heightArgs = new(nameof(Height));
+        private static readonly PropertyChangedEventArgs framerateArgs = new(nameof(Framerate));
+        private static readonly PropertyChangedEventArgs samplingrateArgs = new(nameof(Samplingrate));
+        private static readonly PropertyChangedEventArgs nameArgs = new(nameof(Name));
+        private static readonly PropertyChangedEventArgs pathArgs = new(nameof(Path));
         private int width = 1920;
         private int height = 1080;
         private int franerate = 30;
@@ -21,12 +28,36 @@ namespace BEditor.ViewModels
             CreateCommand.Subscribe(Create);
         }
 
-        public int Width { get => width; set => SetValue(value, ref width, nameof(Width)); }
-        public int Height { get => height; set => SetValue(value, ref height, nameof(Height)); }
-        public int Framerate { get => franerate; set => SetValue(value, ref franerate, nameof(Framerate)); }
-        public int Samplingrate { get => samlingrate; set => SetValue(value, ref samlingrate, nameof(Samplingrate)); }
-        public string Name { get => name; set => SetValue(value, ref name, nameof(Name)); }
-        public string Path { get => path; set => SetValue(value, ref path, nameof(Path)); }
+        public int Width
+        {
+            get => width;
+            set => SetValue(value, ref width, widthArgs);
+        }
+        public int Height
+        {
+            get => height;
+            set => SetValue(value, ref height, heightArgs);
+        }
+        public int Framerate
+        {
+            get => franerate;
+            set => SetValue(value, ref franerate, framerateArgs);
+        }
+        public int Samplingrate
+        {
+            get => samlingrate;
+            set => SetValue(value, ref samlingrate, samplingrateArgs);
+        }
+        public string Name
+        {
+            get => name;
+            set => SetValue(value, ref name, nameArgs);
+        }
+        public string Path
+        {
+            get => path;
+            set => SetValue(value, ref path, pathArgs);
+        }
 
         public DelegateCommand OpenFolerDialog { get; } = new();
         public DelegateCommand CreateCommand { get; } = new();
@@ -52,7 +83,7 @@ namespace BEditor.ViewModels
 
         private void Create()
         {
-            var project = new Project(AppData.Current, Width, Height, Framerate)
+            var project = new Project(Width, Height, Framerate)
             {
                 Filename = path
             };

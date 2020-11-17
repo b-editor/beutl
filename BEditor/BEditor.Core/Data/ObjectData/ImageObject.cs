@@ -5,6 +5,7 @@ using BEditor.Core.Data.EffectData;
 using BEditor.Core.Data.ProjectData;
 using BEditor.Core.Data.PropertyData;
 using BEditor.Core.Data.PropertyData.Default;
+using BEditor.Core.Extensions;
 using BEditor.Core.Media;
 using BEditor.Core.Properties;
 
@@ -37,10 +38,6 @@ namespace BEditor.Core.Data.ObjectData
             Material,
             Custom
         };
-
-        #endregion
-
-        #region Rendering
 
         public override void Render(EffectRenderArgs args)
         {
@@ -80,6 +77,15 @@ namespace BEditor.Core.Data.ObjectData
             Coordinate.ResetOptional();
         }
 
+        public override void PropertyLoaded()
+        {
+            Coordinate.ExecuteLoaded(CoordinateMetadata);
+            Zoom.ExecuteLoaded(ZoomMetadata);
+            Blend.ExecuteLoaded(BlendMetadata);
+            Angle.ExecuteLoaded(AngleMetadata);
+            Material.ExecuteLoaded(MaterialMetadata);
+        }
+
         #endregion
 
         public ImageObject()
@@ -91,26 +97,19 @@ namespace BEditor.Core.Data.ObjectData
             Material = new(MaterialMetadata);
         }
 
-        //TODO : .NET5のソースジェネレーターを使う
-
         [DataMember(Order = 0)]
-        [PropertyMetadata(nameof(CoordinateMetadata), typeof(ImageObject))]
         public Coordinate Coordinate { get; private set; }
 
         [DataMember(Order = 1)]
-        [PropertyMetadata(nameof(ZoomMetadata), typeof(ImageObject))]
         public Zoom Zoom { get; private set; }
 
         [DataMember(Order = 2)]
-        [PropertyMetadata(nameof(BlendMetadata), typeof(ImageObject))]
         public Blend Blend { get; private set; }
 
         [DataMember(Order = 3)]
-        [PropertyMetadata(nameof(AngleMetadata), typeof(ImageObject))]
         public Angle Angle { get; private set; }
 
         [DataMember(Order = 4)]
-        [PropertyMetadata(nameof(MaterialMetadata), typeof(ImageObject))]
         public Material Material { get; private set; }
 
         [DataMember(Order = 5)]

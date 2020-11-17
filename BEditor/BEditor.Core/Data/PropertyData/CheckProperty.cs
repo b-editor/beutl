@@ -16,6 +16,7 @@ namespace BEditor.Core.Data.PropertyData
     [DataContract(Namespace = "")]
     public class CheckProperty : PropertyElement, IEasingSetting, IObservable<bool>, IObserver<bool>, INotifyPropertyChanged, IExtensibleDataObject, IChild<EffectElement>
     {
+        private static readonly PropertyChangedEventArgs checkedArgs = new(nameof(IsChecked));
         private bool isChecked;
         private List<IObserver<bool>> list;
         private List<IObserver<bool>> collection => list ??= new();
@@ -37,7 +38,11 @@ namespace BEditor.Core.Data.PropertyData
         /// チェックされている場合 <see langword="true"/>、そうでない場合は <see langword="false"/> となります
         /// </summary>
         [DataMember]
-        public bool IsChecked { get => isChecked; set => SetValue(value, ref isChecked, nameof(IsChecked)); }
+        public bool IsChecked
+        {
+            get => isChecked;
+            set => SetValue(value, ref isChecked, checkedArgs);
+        }
 
         private void CheckProperty_PropertyChanged(object sender, PropertyChangedEventArgs e)
         {

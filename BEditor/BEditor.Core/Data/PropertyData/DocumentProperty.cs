@@ -15,6 +15,7 @@ namespace BEditor.Core.Data.PropertyData
     [DataContract(Namespace = "")]
     public class DocumentProperty : PropertyElement, IObservable<string>, IObserver<string>, INotifyPropertyChanged, IExtensibleDataObject, IChild<EffectElement>
     {
+        private static readonly PropertyChangedEventArgs textArgs = new(nameof(Text));
         private string textProperty;
         private List<IObserver<string>> list;
         private List<IObserver<string>> collection => list ??= new();
@@ -38,7 +39,11 @@ namespace BEditor.Core.Data.PropertyData
         /// 入力されている文字列を取得または設定します
         /// </summary>
         [DataMember]
-        public string Text { get => textProperty; set => SetValue(value, ref textProperty, nameof(Text)); }
+        public string Text
+        {
+            get => textProperty;
+            set => SetValue(value, ref textProperty, textArgs);
+        }
         /// <summary>
         /// 高さを取得または設定します
         /// </summary>

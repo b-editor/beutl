@@ -41,7 +41,7 @@ namespace BEditor
                 Models.Clipboard.Data = Data;
 
 
-                PluginManager.Load();
+                AppData.Current.LoadedPlugins = PluginManager.Load();
 
 
                 //コマンドライン引数から開く

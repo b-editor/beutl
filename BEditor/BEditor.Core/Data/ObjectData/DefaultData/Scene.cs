@@ -3,6 +3,7 @@ using System.Runtime.Serialization;
 
 using BEditor.Core.Data.ProjectData;
 using BEditor.Core.Data.PropertyData;
+using BEditor.Core.Extensions;
 using BEditor.Core.Media;
 
 namespace BEditor.Core.Data.ObjectData
@@ -12,7 +13,7 @@ namespace BEditor.Core.Data.ObjectData
         [DataContract(Namespace = "")]
         public class Scene : DefaultImageObject
         {
-            readonly SelectorPropertyMetadata SelectSceneMetadata;
+            SelectorPropertyMetadata SelectSceneMetadata;
 
             #region DefaultImageObjectメンバー
 
@@ -30,6 +31,13 @@ namespace BEditor.Core.Data.ObjectData
                 return scene.Render(frame + (int)Start.GetValue(args.Frame)).Image;
             }
 
+            public override void PropertyLoaded()
+            {
+                SelectSceneMetadata = new ScenesSelectorMetadata(this);
+                Start.ExecuteLoaded(Video.SpeedMetadata);
+                SelectScene.ExecuteLoaded(SelectSceneMetadata);
+            }
+
             #endregion
 
             public Scene()
@@ -40,11 +48,9 @@ namespace BEditor.Core.Data.ObjectData
             }
 
             [DataMember(Order = 0)]
-            [PropertyMetadata(nameof(Video.StartMetadata), typeof(Video))]
             public EaseProperty Start { get; private set; }
 
             [DataMember(Order = 1)]
-            [PropertyMetadata(nameof(SelectSceneMetadata), typeof(Scene))]
             public SelectorProperty SelectScene { get; private set; }
 
 

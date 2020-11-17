@@ -5,9 +5,11 @@ using BEditor.Core.Data.ObjectData;
 using BEditor.Core.Data.ProjectData;
 using BEditor.Core.Data.PropertyData;
 using BEditor.Core.Data.PropertyData.Default;
+using BEditor.Core.Extensions;
+using BEditor.Core.Graphics;
 using BEditor.Core.Media;
 using BEditor.Core.Properties;
-using BEditor.Core.Rendering;
+using BEditor.Core.Renderings;
 
 using OpenTK.Graphics.OpenGL;
 
@@ -66,7 +68,7 @@ namespace BEditor.Core.Data.EffectData
             //var points = BorderFinder.Find(source);
 
             Parent.Parent.GraphicsContext.MakeCurrent();
-            BEditor.Core.Rendering.Graphics.Paint(coordinate, nx, ny, nz, center, () =>
+            GLTK.Paint(coordinate, nx, ny, nz, center, () =>
             {
                 GL.Color4((GLColor)Color.GetValue(frame));
                 GL.Material(MaterialFace.Front, MaterialParameter.Ambient, (GLColor)Material.Ambient.GetValue(frame));
@@ -92,6 +94,13 @@ namespace BEditor.Core.Data.EffectData
             });
         }
 
+        public override void PropertyLoaded()
+        {
+            Z.ExecuteLoaded(ZMetadata);
+            Material.ExecuteLoaded(ImageObject.MaterialMetadata);
+            Color.ExecuteLoaded(ColorMetadata);
+        }
+
         #endregion
 
         public MultiLayerization()
@@ -103,15 +112,12 @@ namespace BEditor.Core.Data.EffectData
 
 
         [DataMember(Order = 0)]
-        [PropertyMetadata(nameof(ZMetadata), typeof(MultiLayerization))]
-        public EaseProperty Z { get;private set; }
+        public EaseProperty Z { get; private set; }
 
         [DataMember(Order = 1)]
-        [PropertyMetadata(nameof(ImageObject.MaterialMetadata), typeof(ImageObject))]
-        public Material Material { get;private set; }
+        public Material Material { get; private set; }
 
         [DataMember(Order = 2)]
-        [PropertyMetadata(nameof(ColorMetadata), typeof(MultiLayerization))]
-        public ColorAnimationProperty Color { get;private set; }
+        public ColorAnimationProperty Color { get; private set; }
     }
 }

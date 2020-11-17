@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.Runtime.Serialization;
 
 using BEditor.Core.Data.PropertyData;
+using BEditor.Core.Extensions;
 using BEditor.Core.Properties;
 
 using OpenTK;
@@ -54,19 +55,23 @@ namespace BEditor.Core.Data.PropertyData.Default
             BlendType
         };
 
+        public override void PropertyLoaded()
+        {
+            Alpha.ExecuteLoaded(AlphaMetadata);
+            BlendType.ExecuteLoaded(BlendTypeMetadata);
+            Color.ExecuteLoaded(ColorMetadata);
+        }
+
         #endregion
 
 
         [DataMember(Order = 0)]
-        [PropertyMetadata(nameof(AlphaMetadata), typeof(Blend))]
         public EaseProperty Alpha { get; private set; }
 
         [DataMember(Order = 1)]
-        [PropertyMetadata(nameof(ColorMetadata), typeof(Blend))]
         public ColorAnimationProperty Color { get; private set; }
 
         [DataMember(Order = 2)]
-        [PropertyMetadata(nameof(BlendTypeMetadata), typeof(Blend))]
         public SelectorProperty BlendType { get; private set; }
     }
 }

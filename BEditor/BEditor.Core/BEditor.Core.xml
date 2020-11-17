@@ -19,11 +19,6 @@
             プラットフォームに依存する関数を共有するフィールド
             </summary>
         </member>
-        <member name="P:BEditor.Core.Data.Component.Funcs.CreateGraphicsContext">
-            <summary>
-            レンダリングコンテキストを作成する関数を取得または設定します
-            </summary>
-        </member>
         <member name="P:BEditor.Core.Data.Component.Funcs.SaveFileDialog">
             <summary>
             ファイルを保存するダイアログを作成する関数を取得または設定します
@@ -512,22 +507,12 @@
             プロジェクトクラス
             </summary>
         </member>
-        <member name="M:BEditor.Core.Data.ProjectData.Project.#ctor(BEditor.Core.Data.IApplication,System.Int32,System.Int32,System.Int32,System.Int32)">
+        <member name="M:BEditor.Core.Data.ProjectData.Project.#ctor(System.Int32,System.Int32,System.Int32,System.Int32,BEditor.Core.Data.IApplication)">
             <summary>
             <see cref="T:BEditor.Core.Data.ProjectData.Project"/> Initialize a new instance of the class.
             </summary>
         </member>
-        <member name="M:BEditor.Core.Data.ProjectData.Project.#ctor(System.Int32,System.Int32,System.Int32,System.Int32)">
-            <summary>
-            <see cref="T:BEditor.Core.Data.ProjectData.Project"/> Initialize a new instance of the class.
-            </summary>
-        </member>
-        <member name="M:BEditor.Core.Data.ProjectData.Project.#ctor(BEditor.Core.Data.IApplication,System.String)">
-            <summary>
-            <see cref="T:BEditor.Core.Data.ProjectData.Project"/> Initialize a new instance of the class.
-            </summary>
-        </member>
-        <member name="M:BEditor.Core.Data.ProjectData.Project.#ctor(System.String)">
+        <member name="M:BEditor.Core.Data.ProjectData.Project.#ctor(System.String,BEditor.Core.Data.IApplication)">
             <summary>
             <see cref="T:BEditor.Core.Data.ProjectData.Project"/> Initialize a new instance of the class.
             </summary>
@@ -2075,7 +2060,7 @@
             <param name="obj"></param>
             <returns></returns>
         </member>
-        <member name="P:BEditor.Core.Data.Serialize.SerializeKnownTypes">
+        <member name="F:BEditor.Core.Data.Serialize.SerializeKnownTypes">
             <summary>
             <see cref="T:System.Runtime.Serialization.Json.DataContractJsonSerializer"/> で使用するKnownTypeを取得します
             </summary>
@@ -2320,6 +2305,20 @@
             <exception cref="T:System.ArgumentNullException"><paramref name="clip"/> が <see langword="null"/> です</exception>
             <exception cref="T:System.ArgumentOutOfRangeException"><paramref name="start"/> または <paramref name="end"/> が0以下です</exception>
             <returns>作成されたコマンド</returns>
+        </member>
+        <member name="M:BEditor.Core.Graphics.BaseGraphicsContext.Clear(System.Boolean,System.Single,System.Single,System.Single,System.Single,System.Single,System.Single,System.Single,System.Single)">
+            <summary>
+            カメラを設定
+            </summary>
+            <param name="Perspective">遠近法を使うか</param>
+            <param name="x">CameraX</param>
+            <param name="y">CameraY</param>
+            <param name="z">CameraZ</param>
+            <param name="tx">TargetX</param>
+            <param name="ty">TargetY</param>
+            <param name="tz">TargetZ</param>
+            <param name="near">ZNear</param>
+            <param name="far">ZFar</param>
         </member>
         <member name="T:BEditor.Core.Media.Color">
             <summary>
@@ -2982,120 +2981,6 @@
             <param name="rightToLeft"></param>
             <returns></returns>
             <exception cref="T:System.NotImplementedException"/>
-        </member>
-        <member name="M:BEditor.Core.Media.Image.Flip(BEditor.Core.Media.FlipMode)">
-            <summary>
-            
-            </summary>
-            <param name="mode"></param>
-            <exception cref="T:System.ObjectDisposedException"/>
-            <exception cref="T:BEditor.Core.Exceptions.NativeException"/>
-        </member>
-        <member name="M:BEditor.Core.Media.Image.AreaExpansion(System.Int32,System.Int32,System.Int32,System.Int32)">
-            <summary>
-            
-            </summary>
-            <param name="top"></param>
-            <param name="bottom"></param>
-            <param name="left"></param>
-            <param name="right"></param>
-            <exception cref="T:System.ObjectDisposedException"/>
-            <exception cref="T:BEditor.Core.Exceptions.NativeException"/>
-        </member>
-        <member name="M:BEditor.Core.Media.Image.AreaExpansion(System.Int32,System.Int32)">
-            <summary>
-            
-            </summary>
-            <param name="width"></param>
-            <param name="height"></param>
-            <exception cref="T:System.ObjectDisposedException"/>
-            <exception cref="T:BEditor.Core.Exceptions.NativeException"/>
-        </member>
-        <member name="M:BEditor.Core.Media.Image.Blur(System.Int32,System.Boolean)">
-            <summary>
-            
-            </summary>
-            <param name="blurSize"></param>
-            <param name="alphaBlur"></param>
-            <exception cref="T:System.ArgumentException"/>
-            <exception cref="T:System.ObjectDisposedException"/>
-            <exception cref="T:BEditor.Core.Exceptions.NativeException"/>
-        </member>
-        <member name="M:BEditor.Core.Media.Image.GaussianBlur(System.Int32,System.Boolean)">
-            <summary>
-            
-            </summary>
-            <param name="blurSize"></param>
-            <param name="alphaBlur"></param>
-            <exception cref="T:System.ArgumentException"/>
-            <exception cref="T:System.ObjectDisposedException"/>
-            <exception cref="T:BEditor.Core.Exceptions.NativeException"/>
-        </member>
-        <member name="M:BEditor.Core.Media.Image.MedianBlur(System.Int32,System.Boolean)">
-            <summary>
-            
-            </summary>
-            <param name="blurSize"></param>
-            <param name="alphaBlur"></param>
-            <exception cref="T:System.ArgumentException"/>
-            <exception cref="T:System.ObjectDisposedException"/>
-            <exception cref="T:BEditor.Core.Exceptions.NativeException"/>
-        </member>
-        <member name="M:BEditor.Core.Media.Image.Border(System.Int32,BEditor.Core.Media.Color)">
-            <summary>
-            
-            </summary>
-            <param name="size"></param>
-            <param name="color"></param>
-            <exception cref="T:System.ArgumentException"/>
-            <exception cref="T:System.ObjectDisposedException"/>
-        </member>
-        <member name="M:BEditor.Core.Media.Image.SetColor(BEditor.Core.Media.Color)">
-            <summary>
-            
-            </summary>
-            <param name="color"></param>
-        </member>
-        <member name="M:BEditor.Core.Media.Image.Shadow(System.Single,System.Single,System.Int32,System.Single,BEditor.Core.Media.Color)">
-            <summary>
-            
-            </summary>
-            <param name="x"></param>
-            <param name="y"></param>
-            <param name="blur"></param>
-            <param name="alpha"></param>
-            <param name="color"></param>
-            <exception cref="T:System.ArgumentException"/>
-            <exception cref="T:System.ObjectDisposedException"/>
-        </member>
-        <member name="M:BEditor.Core.Media.Image.Dilate(System.Int32)">
-            <summary>
-            
-            </summary>
-            <param name="f"></param>
-            <exception cref="T:System.ArgumentException"/>
-            <exception cref="T:System.ObjectDisposedException"/>
-            <exception cref="T:BEditor.Core.Exceptions.NativeException"/>
-        </member>
-        <member name="M:BEditor.Core.Media.Image.Erode(System.Int32)">
-            <summary>
-            
-            </summary>
-            <param name="f"></param>
-            <exception cref="T:System.ArgumentException"/>
-            <exception cref="T:System.ObjectDisposedException"/>
-            <exception cref="T:BEditor.Core.Exceptions.NativeException"/>
-        </member>
-        <member name="M:BEditor.Core.Media.Image.Clip(System.Int32,System.Int32,System.Int32,System.Int32)">
-            <summary>
-            
-            </summary>
-            <param name="top"></param>
-            <param name="bottom"></param>
-            <param name="left"></param>
-            <param name="right"></param>
-            <exception cref="T:System.ArgumentException"/>
-            <exception cref="T:System.ObjectDisposedException"/>
         </member>
         <member name="M:BEditor.Core.Media.Image.ToString">
             <inheritdoc/>
@@ -4800,20 +4685,6 @@
             <summary>
               Zoom に類似しているローカライズされた文字列を検索します。
             </summary>
-        </member>
-        <member name="M:BEditor.Core.Renderer.BaseGraphicsContext.Clear(System.Boolean,System.Single,System.Single,System.Single,System.Single,System.Single,System.Single,System.Single,System.Single)">
-            <summary>
-            カメラを設定
-            </summary>
-            <param name="Perspective">遠近法を使うか</param>
-            <param name="x">CameraX</param>
-            <param name="y">CameraY</param>
-            <param name="z">CameraZ</param>
-            <param name="tx">TargetX</param>
-            <param name="ty">TargetY</param>
-            <param name="tz">TargetZ</param>
-            <param name="near">ZNear</param>
-            <param name="far">ZFar</param>
         </member>
     </members>
 </doc>

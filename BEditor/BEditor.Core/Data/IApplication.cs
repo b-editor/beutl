@@ -12,8 +12,6 @@ namespace BEditor.Core.Data
     public interface IApplication
     {
         public Status AppStatus { get; set; }
-        public Project Project { get; set; }
         public List<IPlugin> LoadedPlugins { get; }
-        public string Path { get; }
     }
 }

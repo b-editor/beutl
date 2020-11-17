@@ -16,6 +16,7 @@ namespace BEditor.Core.Data.PropertyData
     [DataContract(Namespace = "")]
     public abstract class ExpandGroup : Group, IEasingSetting, IObservable<bool>, IObserver<bool>, INotifyPropertyChanged, IExtensibleDataObject, IChild<EffectElement>, IParent<PropertyElement>
     {
+        private static readonly PropertyChangedEventArgs isExpandedArgs = new(nameof(IsExpanded));
         private bool isOpen;
         private List<IObserver<bool>> list;
         private List<IObserver<bool>> collection => list ??= new();
@@ -24,7 +25,11 @@ namespace BEditor.Core.Data.PropertyData
         /// エクスパンダーが開いているかを取得または設定します
         /// </summary>
         [DataMember]
-        public bool IsExpanded { get => isOpen; set => SetValue(value, ref isOpen, nameof(IsExpanded)); }
+        public bool IsExpanded
+        {
+            get => isOpen;
+            set => SetValue(value, ref isOpen, isExpandedArgs);
+        }
 
         /// <summary>
         /// <see cref="ExpandGroup"/> クラスの新しいインスタンスを初期化します

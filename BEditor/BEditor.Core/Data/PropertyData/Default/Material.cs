@@ -4,6 +4,7 @@ using System.Runtime.Serialization;
 using System.Text;
 
 using BEditor.Core.Data.PropertyData;
+using BEditor.Core.Extensions;
 using BEditor.Core.Properties;
 
 namespace BEditor.Core.Data.PropertyData.Default
@@ -35,23 +36,27 @@ namespace BEditor.Core.Data.PropertyData.Default
             Shininess
         };
 
+        public override void PropertyLoaded()
+        {
+            Ambient.ExecuteLoaded(AmbientMetadata);
+            Diffuse.ExecuteLoaded(DiffuseMetadata);
+            Specular.ExecuteLoaded(SpecularMetadata);
+            Shininess.ExecuteLoaded(ShininessMetadata);
+        }
+
         #endregion
 
 
         [DataMember(Order = 0)]
-        [PropertyMetadata(nameof(AmbientMetadata), typeof(Material))]
         public ColorAnimationProperty Ambient { get; private set; }
 
         [DataMember(Order = 1)]
-        [PropertyMetadata(nameof(DiffuseMetadata), typeof(Material))]
         public ColorAnimationProperty Diffuse { get; private set; }
 
         [DataMember(Order = 2)]
-        [PropertyMetadata(nameof(SpecularMetadata), typeof(Material))]
         public ColorAnimationProperty Specular { get; private set; }
 
         [DataMember(Order = 3)]
-        [PropertyMetadata(nameof(ShininessMetadata), typeof(Material))]
         public EaseProperty Shininess { get; private set; }
     }
 }

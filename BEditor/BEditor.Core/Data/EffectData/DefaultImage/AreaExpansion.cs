@@ -6,6 +6,7 @@ using System.Text;
 using BEditor.Core.Data.ObjectData;
 using BEditor.Core.Data.ProjectData;
 using BEditor.Core.Data.PropertyData;
+using BEditor.Core.Extensions;
 using BEditor.Core.Media;
 using BEditor.Core.Properties;
 
@@ -43,6 +44,15 @@ namespace BEditor.Core.Data.EffectData
             source.AreaExpansion(top, bottom, left, right);
         }
 
+        public override void PropertyLoaded()
+        {
+            Top.ExecuteLoaded(Clipping.TopMetadata);
+            Bottom.ExecuteLoaded(Clipping.BottomMetadata);
+            Left.ExecuteLoaded(Clipping.LeftMetadata);
+            Right.ExecuteLoaded(Clipping.RightMetadata);
+            AdjustCoordinates.ExecuteLoaded(Clipping.AdjustCoordinatesMetadata);
+        }
+
         #endregion
 
         public AreaExpansion()
@@ -56,24 +66,18 @@ namespace BEditor.Core.Data.EffectData
 
 
         [DataMember(Order = 0)]
-        [PropertyMetadata(nameof(Clipping.TopMetadata), typeof(Clipping))]
         public EaseProperty Top { get; private set; }
 
         [DataMember(Order = 1)]
-        [PropertyMetadata(nameof(Clipping.BottomMetadata), typeof(Clipping))]
         public EaseProperty Bottom { get; private set; }
 
         [DataMember(Order = 2)]
-        [PropertyMetadata(nameof(Clipping.LeftMetadata), typeof(Clipping))]
         public EaseProperty Left { get; private set; }
 
         [DataMember(Order = 3)]
-        [PropertyMetadata(nameof(Clipping.RightMetadata), typeof(Clipping))]
         public EaseProperty Right { get; private set; }
 
         [DataMember(Order = 4)]
-        [PropertyMetadata(nameof(Clipping.AdjustCoordinatesMetadata), typeof(Clipping))]
         public CheckProperty AdjustCoordinates { get; private set; }
-
     }
 }

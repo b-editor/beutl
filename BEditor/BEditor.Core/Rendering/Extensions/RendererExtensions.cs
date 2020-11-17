@@ -4,25 +4,15 @@ using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
 
-namespace BEditor.Core.Rendering.Extensions
+namespace BEditor.Core.Renderings.Extensions
 {
     public static class RendererExtensions
     {
-        public static void Render<T>(this IRenderable<T> renderable, Action<T> onRender, Action onCompleted = null, Action<Exception> onError = null, Action onFinally = null)
+        public static T Render<T>(this IRenderable<T> renderable, Action<T> onRender, Action onCompleted = null, Action<Exception> onError = null, Action onFinally = null)
         {
-            renderable.Render(new PrivateRenderer<T>()
+            return renderable.Render(new PrivateRenderer<T>()
             {
                 onRender = onRender,
-                onCompleted = onCompleted,
-                onError = onError,
-                onFinally = onFinally
-            });
-        }
-        public static void Render<T>(this IRenderable<T> renderable, Action onRender, Action onCompleted = null, Action<Exception> onError = null, Action onFinally = null)
-        {
-            renderable.Render(new PrivateRenderer<T>()
-            {
-                onRender = _ => onRender?.Invoke(),
                 onCompleted = onCompleted,
                 onError = onError,
                 onFinally = onFinally

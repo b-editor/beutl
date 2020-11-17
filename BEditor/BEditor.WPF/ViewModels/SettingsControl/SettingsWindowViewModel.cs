@@ -10,11 +10,13 @@ using BEditor.Views.SettingsControl.Plugins;
 using BEditor.Core.Properties;
 using MaterialDesignThemes.Wpf;
 using BEditor.Core.Data;
+using System.ComponentModel;
 
 namespace BEditor.ViewModels.SettingsControl
 {
     public class SettingsWindowViewModel : BasePropertyChanged
     {
+        private static readonly PropertyChangedEventArgs Args = new(nameof(ViewControl));
         private object viewControl;
 
         public SettingsWindowViewModel()
@@ -109,7 +111,7 @@ namespace BEditor.ViewModels.SettingsControl
         /// <summary>
         /// 表示されているコントロール
         /// </summary>
-        public object ViewControl { get => viewControl; set => SetValue(value, ref viewControl, nameof(ViewControl)); }
+        public object ViewControl { get => viewControl; set => SetValue(value, ref viewControl, Args); }
 
 
         public DelegateCommand<object> TreeSelectCommand { get; } = new DelegateCommand<object>();

@@ -6,6 +6,7 @@ using BEditor.Core.Data;
 using BEditor.Core.Data.EffectData;
 using BEditor.Core.Data.ObjectData;
 using BEditor.Core.Data.ProjectData;
+using BEditor.Core.Data.PropertyData;
 
 namespace BEditor.Core.Extensions
 {
@@ -251,6 +252,12 @@ namespace BEditor.Core.Extensions
                 command.Do();
             }
             return command;
+        }
+
+        internal static void ExecuteLoaded(this PropertyElement property, PropertyElementMetadata metadata)
+        {
+            property.PropertyLoaded();
+            property.PropertyMetadata = metadata;
         }
     }
 

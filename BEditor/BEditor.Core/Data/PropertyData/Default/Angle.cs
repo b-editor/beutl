@@ -2,6 +2,7 @@
 using System.Runtime.Serialization;
 
 using BEditor.Core.Data.PropertyData;
+using BEditor.Core.Extensions;
 using BEditor.Core.Properties;
 
 namespace BEditor.Core.Data.PropertyData.Default
@@ -30,19 +31,23 @@ namespace BEditor.Core.Data.PropertyData.Default
             AngleZ
         };
 
+        public override void PropertyLoaded()
+        {
+            AngleX.ExecuteLoaded(AngleXMetadata);
+            AngleY.ExecuteLoaded(AngleYMetadata);
+            AngleZ.ExecuteLoaded(AngleZMetadata);
+        }
+
         #endregion
 
 
         [DataMember(Order = 0)]
-        [PropertyMetadata(nameof(AngleXMetadata), typeof(Angle))]
         public EaseProperty AngleX { get; private set; }
 
         [DataMember(Order = 1)]
-        [PropertyMetadata(nameof(AngleYMetadata), typeof(Angle))]
         public EaseProperty AngleY { get; private set; }
 
         [DataMember(Order = 2)]
-        [PropertyMetadata(nameof(AngleZMetadata), typeof(Angle))]
         public EaseProperty AngleZ { get; private set; }
     }
 }
