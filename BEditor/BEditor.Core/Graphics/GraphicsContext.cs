@@ -37,5 +37,7 @@ namespace BEditor.Core.Graphics
             base.Dispose();
             GameWindow.Dispose();
         }
+
+        public static GraphicsContext Default { get; } = new GraphicsContext(1, 1);
     }
 }

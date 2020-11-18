@@ -299,7 +299,5 @@ namespace BEditor.Core.Graphics
                     value.Material.Specular,
                     value.Material.Shininess));
         }
-
-        public static BaseGraphicsContext Default => ImageHelper.renderer;
     }
 }

@@ -22,7 +22,6 @@ using BEditor.Core.Data.ObjectData;
 using BEditor.Core.Data.ProjectData;
 using BEditor.Core.Data.PropertyData;
 using BEditor.Core.Extensions.ViewCommand;
-using BEditor.Core.Interfaces;
 
 using MaterialDesignThemes.Wpf;
 
@@ -31,6 +30,7 @@ using Image = BEditor.Core.Media.Image;
 using Resources_ = BEditor.Core.Properties.Resources;
 using BEditor.Core.Media;
 using System.Timers;
+using BEditor.Models.Services;
 
 namespace BEditor
 {
@@ -133,10 +133,8 @@ namespace BEditor
 
             //Componentにset
 
-            Component.Funcs.SaveFileDialog = () => new SaveDialog();
-
-            Image.EllipseFunc = ObjectLoad.Ellipse;
-            Image.RectangleFunc = ObjectLoad.Rectangle;
+            Services.FileDialogService = new FileDialogService();
+            Services.ImageRenderService = new WPFImageRenderSevice();
 
             Message.DialogFunc += (text, iconKind, types) =>
             {
@@ -311,38 +309,6 @@ namespace BEditor
             _expander.Content = stack;
 
             return (_expander, stack);
-        }
-
-
-        public class SaveDialog : ISaveFileDialog
-        {
-            public List<(string name, string extension)> Filters { get; } = new List<(string name, string extension)>();
-
-            public string DefaultFileName { get; set; }
-            public string FileName { get; set; }
-
-            public bool ShowDialog()
-            {
-                fileDialog.DefaultFileName = DefaultFileName;
-                foreach (var item in Filters)
-                {
-                    fileDialog.Filters.Add(new CommonFileDialogFilter(item.name, item.extension));
-                }
-
-                var result = fileDialog.ShowDialog();
-
-                if (result == CommonFileDialogResult.Ok)
-                {
-                    return true;
-                }
-                else
-                {
-                    return false;
-                }
-            }
-
-
-            private readonly CommonSaveFileDialog fileDialog = new CommonSaveFileDialog();
         }
 
         private void Application_Exit(object sender, ExitEventArgs e)

@@ -10,30 +10,19 @@ using System.Xml.Linq;
 
 using BEditor.Core.Data.ProjectData;
 using BEditor.Core.Graphics;
-using BEditor.Core.Interfaces;
+using BEditor.Core.DI;
 using BEditor.Core.Media;
 using BEditor.Core.Plugin;
 using BEditor.Core.Renderings;
 
 namespace BEditor.Core.Data
 {
-    /// <summary>
-    /// シングルトンで現在のプロジェクトやステータスなどを取得できるクラスを表します
-    /// </summary>
-    public static class Component
+    public static class Services
     {
         public static string Path { get; } = System.IO.Path.GetDirectoryName(Assembly.GetEntryAssembly().Location);
 
-        /// <summary>
-        /// プラットフォームに依存する関数を共有するフィールド
-        /// </summary>
-        public static class Funcs
-        {
-            /// <summary>
-            /// ファイルを保存するダイアログを作成する関数を取得または設定します
-            /// </summary>
-            public static Func<ISaveFileDialog> SaveFileDialog { get; set; }
-        }
+        public static IFileDialogService FileDialogService { get; set; }
+        public static IImageRenderService ImageRenderService { get; set; } = new ImageRenderService();
     }
 
     /// <summary>

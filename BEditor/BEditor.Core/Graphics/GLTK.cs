@@ -30,7 +30,7 @@ namespace BEditor.Core.Graphics
 
             GL.ReadPixels(0, 0, image.Width, image.Height, image.Type, image.Type, image.Data);
 
-            image.Flip(FlipMode.X);
+            image.ToRenderable().Flip(FlipMode.X);
         }
 
         public static void GetPixels(int width, int height, ImageType type, IntPtr ptr)

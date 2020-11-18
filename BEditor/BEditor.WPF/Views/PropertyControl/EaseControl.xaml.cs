@@ -168,7 +168,7 @@ namespace BEditor.Views.PropertyControls
 
                 EasingSetting.Value[index] = EasingSetting.InRange(val);
 
-                AppData.Current.Project.PreviewUpdate(EasingSetting.GetClipData());
+                AppData.Current.Project.PreviewUpdate(EasingSetting.GetParent2());
 
                 e.Handled = true;
             }
@@ -185,7 +185,7 @@ namespace BEditor.Views.PropertyControls
             {
                 EasingSetting.Value[index] = EasingSetting.InRange(_out);
 
-                AppData.Current.Project.PreviewUpdate(EasingSetting.GetClipData());
+                AppData.Current.Project.PreviewUpdate(EasingSetting.GetParent2());
             }
         }
     }

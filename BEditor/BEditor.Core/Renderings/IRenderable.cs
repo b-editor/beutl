@@ -6,9 +6,9 @@ using System.Threading.Tasks;
 
 namespace BEditor.Core.Renderings
 {
-    public interface IRenderable<T>
+    public interface IRenderable<T> : IDisposable
     {
-        public T Render(IRenderer<T> renderer);
-
+        public IRenderable<T> Render(IRenderer<T> renderer);
+        public T Source { get; }
     }
 }

@@ -9,56 +9,6 @@
             プロパティの変更を通知するクラス
             </summary>
         </member>
-        <member name="T:BEditor.Core.Data.Component">
-            <summary>
-            シングルトンで現在のプロジェクトやステータスなどを取得できるクラスを表します
-            </summary>
-        </member>
-        <member name="T:BEditor.Core.Data.Component.Funcs">
-            <summary>
-            プラットフォームに依存する関数を共有するフィールド
-            </summary>
-        </member>
-        <member name="P:BEditor.Core.Data.Component.Funcs.SaveFileDialog">
-            <summary>
-            ファイルを保存するダイアログを作成する関数を取得または設定します
-            </summary>
-        </member>
-        <member name="T:BEditor.Core.Data.Status">
-            <summary>
-            アプリケーションのステータスを表します
-            </summary>
-        </member>
-        <member name="F:BEditor.Core.Data.Status.Idle">
-            <summary>
-            作業をしていない状態を表します
-            </summary>
-        </member>
-        <member name="F:BEditor.Core.Data.Status.Edit">
-            <summary>
-            編集中であることを表します
-            </summary>
-        </member>
-        <member name="F:BEditor.Core.Data.Status.Saved">
-            <summary>
-            保存直後であることを表します
-            </summary>
-        </member>
-        <member name="F:BEditor.Core.Data.Status.Playing">
-            <summary>
-            プレビュー再生中であることを表します
-            </summary>
-        </member>
-        <member name="F:BEditor.Core.Data.Status.Pause">
-            <summary>
-            一時停止している状態を表します
-            </summary>
-        </member>
-        <member name="F:BEditor.Core.Data.Status.Output">
-            <summary>
-            出力中であることを表します
-            </summary>
-        </member>
         <member name="T:BEditor.Core.Data.ComponentObject">
             <summary>
             継承するクラスに対応するUIのデータのキャッシュを表します
@@ -2063,6 +2013,41 @@
         <member name="F:BEditor.Core.Data.Serialize.SerializeKnownTypes">
             <summary>
             <see cref="T:System.Runtime.Serialization.Json.DataContractJsonSerializer"/> で使用するKnownTypeを取得します
+            </summary>
+        </member>
+        <member name="T:BEditor.Core.Data.Status">
+            <summary>
+            アプリケーションのステータスを表します
+            </summary>
+        </member>
+        <member name="F:BEditor.Core.Data.Status.Idle">
+            <summary>
+            作業をしていない状態を表します
+            </summary>
+        </member>
+        <member name="F:BEditor.Core.Data.Status.Edit">
+            <summary>
+            編集中であることを表します
+            </summary>
+        </member>
+        <member name="F:BEditor.Core.Data.Status.Saved">
+            <summary>
+            保存直後であることを表します
+            </summary>
+        </member>
+        <member name="F:BEditor.Core.Data.Status.Playing">
+            <summary>
+            プレビュー再生中であることを表します
+            </summary>
+        </member>
+        <member name="F:BEditor.Core.Data.Status.Pause">
+            <summary>
+            一時停止している状態を表します
+            </summary>
+        </member>
+        <member name="F:BEditor.Core.Data.Status.Output">
+            <summary>
+            出力中であることを表します
             </summary>
         </member>
         <member name="T:BEditor.Core.Data.IUndoRedoCommand">

@@ -11,13 +11,11 @@ using BEditor.Views.CustomControl;
 using BEditor.Views.PropertyControls;
 using BEditor.Views.TimeLines;
 
-using BEditor.Core.Data;
 using BEditor.Core.Data.EffectData;
 using BEditor.Core.Data.ObjectData;
 using BEditor.Core.Data.ProjectData;
 using BEditor.Core.Data.PropertyData;
 using BEditor.Core.Data.PropertyData.EasingSetting;
-using BEditor.Core.Interfaces;
 using BEditor.Core.Extensions;
 
 namespace BEditor.Views
@@ -138,7 +136,7 @@ namespace BEditor.Views
             KeyFrameViewCreaters.Add(new()
             {
                 PropertyType = typeof(EaseProperty),
-                CreateFunc = (elm) => new KeyFrame(elm.GetScene(), (EaseProperty)elm)
+                CreateFunc = (elm) => new KeyFrame(elm.GetParent3(), (EaseProperty)elm)
             });
             KeyFrameViewCreaters.Add(new()
             {

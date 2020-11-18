@@ -41,7 +41,7 @@ namespace BEditor.Core.Data.EffectData
                 image.Coordinate.CenterY.Optional = (top / 2) - (bottom / 2);
             }
 
-            source.AreaExpansion(top, bottom, left, right);
+            source.ToRenderable().AreaExpansion(top, bottom, left, right);
         }
 
         public override void PropertyLoaded()

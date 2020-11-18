@@ -38,15 +38,15 @@ namespace BEditor.Core.Data.EffectData
         {
             if (Mode.Index == 0)
             {
-                source.Blur((int)Size.GetValue(args.Frame), AlphaBlur.IsChecked);
+                source.ToRenderable().Blur((int)Size.GetValue(args.Frame), AlphaBlur.IsChecked);
             }
             else if (Mode.Index == 1)
             {
-                source.GaussianBlur((int)Size.GetValue(args.Frame), AlphaBlur.IsChecked);
+                source.ToRenderable().GaussianBlur((int)Size.GetValue(args.Frame), AlphaBlur.IsChecked);
             }
             else
             {
-                source.MedianBlur((int)Size.GetValue(args.Frame), AlphaBlur.IsChecked);
+                source.ToRenderable().MedianBlur((int)Size.GetValue(args.Frame), AlphaBlur.IsChecked);
             }
         }
 

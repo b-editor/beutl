@@ -8,7 +8,7 @@ namespace BEditor.Core.Renderings.Extensions
 {
     public static class RendererExtensions
     {
-        public static T Render<T>(this IRenderable<T> renderable, Action<T> onRender, Action onCompleted = null, Action<Exception> onError = null, Action onFinally = null)
+        public static IRenderable<T> Render<T>(this IRenderable<T> renderable, Action<T> onRender, Action onCompleted = null, Action<Exception> onError = null, Action onFinally = null)
         {
             return renderable.Render(new PrivateRenderer<T>()
             {

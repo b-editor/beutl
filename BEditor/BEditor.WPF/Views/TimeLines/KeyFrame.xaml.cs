@@ -116,7 +116,7 @@ namespace BEditor.Views.TimeLines
                 viewmodel.AddKeyFrameIcon(EaseList.Time[index], index);
             }
 
-            var tmp = Scene.GetCreateTimeLineViewModel().ToPixel(EaseList.GetClipData().Length);
+            var tmp = Scene.GetCreateTimeLineViewModel().ToPixel(EaseList.GetParent2().Length);
             if (tmp > 0)
             {
                 Width = tmp;
@@ -169,7 +169,7 @@ namespace BEditor.Views.TimeLines
                 }
             }
 
-            Width = Scene.GetCreateTimeLineViewModel().ToPixel(EaseList.GetClipData().Length);
+            Width = Scene.GetCreateTimeLineViewModel().ToPixel(EaseList.GetParent2().Length);
         }
         #endregion
 

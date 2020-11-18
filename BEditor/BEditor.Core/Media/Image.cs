@@ -2,10 +2,12 @@
 
 using System;
 using System.Collections.Generic;
+using System.Diagnostics.CodeAnalysis;
 using System.IO;
 using System.Reactive.Linq;
 using System.Threading.Tasks;
 
+using BEditor.Core.Data;
 using BEditor.Core.Exceptions;
 using BEditor.Core.Extensions;
 using BEditor.Core.Extensions.ViewCommand;
@@ -17,7 +19,7 @@ namespace BEditor.Core.Media
     /// <summary>
     /// OpenCv Mat を利用した画像オブジェクトを表します
     /// </summary>
-    public unsafe class Image : DisposableObject, IRenderable<Image>
+    public unsafe class Image : DisposableObject
     {
         #region Constructor
 
@@ -633,20 +635,10 @@ namespace BEditor.Core.Media
         /// <param name="color"></param>
         /// <returns></returns>
         /// <exception cref="NativeException"/>
+        [return: MaybeNull()]
         public static Image Ellipse(int width, int height, int line, Color color)
         {
-            if (EllipseFunc == null)
-            {
-                var result = ImageProcess.Ellipse(width, height, line, color.R, color.G, color.B, out var ptr);
-
-                if (result != null) throw new NativeException(result);
-
-                return new Image(ptr);
-            }
-            else
-            {
-                return EllipseFunc(width, height, line, color);
-            }
+            return Services.ImageRenderService.Ellipse(width, height, line, color);
         }
 
         /// <summary>
@@ -657,9 +649,10 @@ namespace BEditor.Core.Media
         /// <param name="line"></param>
         /// <param name="color"></param>
         /// <returns></returns>
+        [return: MaybeNull()]
         public static Image Rectangle(int width, int height, int line, Color color)
         {
-            return RectangleFunc?.Invoke(width, height, line, color);
+            return Services.ImageRenderService.Rectangle(width, height, line, color);
         }
 
         /// <summary>
@@ -673,52 +666,13 @@ namespace BEditor.Core.Media
         /// <param name="rightToLeft"></param>
         /// <returns></returns>
         /// <exception cref="NotImplementedException"/>
+        [return: MaybeNull()]
         public static Image Text(int size, Color color, string text, FontRecord font, string style, bool rightToLeft)
         {
-            if (string.IsNullOrEmpty(text)) return null;
-            if (font is null) return null;
-
-            //intへ変換
-            var styleint = style switch
-            {
-                "Normal" => FontStyle.Normal,
-                "Bold" => FontStyle.Bold,
-                "Italic" => FontStyle.Italic,
-                "UnderLine" => FontStyle.UnderLine,
-                "StrikeThrough" => FontStyle.StrikeThrough,
-                _ => throw new NotImplementedException(),
-            };
-            var fontp = new Font(font.Path, size) { Style = styleint };
-
-            var result = fontp.RenderText(text, color);
-            fontp.Dispose();
-
-            return result;
+            return Services.ImageRenderService.Text(size, color, text, font, style, rightToLeft);
         }
-
-        public static Func<int, int, int, Color, Image> EllipseFunc { get; set; }
-        public static Func<int, int, int, Color, Image> RectangleFunc { get; set; }
 
         #endregion
-
-        public Image Render(IRenderer<Image> renderer)
-        {
-            try
-            {
-                renderer.OnRender(this);
-                renderer.OnCompleted();
-            }
-            catch (Exception e)
-            {
-                renderer.OnError(e);
-            }
-            finally
-            {
-                renderer.OnFinally();
-            }
-
-            return this;
-        }
 
         /// <inheritdoc/>
         public override string ToString()

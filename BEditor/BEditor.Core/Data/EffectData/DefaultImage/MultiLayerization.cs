@@ -63,7 +63,7 @@ namespace BEditor.Core.Data.EffectData
             float nz = drawObject.Angle.AngleZ.GetValue(frame);
 
             //サイズを再設定
-            source.AreaExpansion(1, 1, 1, 1);
+            source.ToRenderable().AreaExpansion(1, 1, 1, 1);
 
             //var points = BorderFinder.Find(source);
 

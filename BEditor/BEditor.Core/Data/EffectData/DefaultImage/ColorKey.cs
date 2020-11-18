@@ -45,11 +45,9 @@ namespace BEditor.Core.Data.EffectData
 
 
         [DataMember(Order = 0)]
-        [PropertyMetadata(nameof(MaxColorMetadata), typeof(ColorKey))]
         public ColorProperty MaxColor { get; private set; }
 
         [DataMember(Order = 1)]
-        [PropertyMetadata(nameof(MinColorMetadata), typeof(ColorKey))]
         public ColorProperty MinColor { get; private set; }
     }
 }

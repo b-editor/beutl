@@ -22,7 +22,7 @@ namespace BEditor.Core.Data.EffectData
         #region EffectProperty
         public override string Name => Core.Properties.Resources.Erode;
 
-        public override void Render(ref Image source, EffectRenderArgs args) => source.Erode((int)Frequency.GetValue(args.Frame));
+        public override void Render(ref Image source, EffectRenderArgs args) => source.ToRenderable().Erode((int)Frequency.GetValue(args.Frame));
 
         public override IEnumerable<PropertyElement> Properties => new PropertyElement[]
         {

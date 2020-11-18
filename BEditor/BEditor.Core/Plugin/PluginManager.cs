@@ -20,7 +20,7 @@ namespace BEditor.Core.Plugin
         {
             //EasingFunc.LoadedEasingFunc.Clear();
             //Library.EffectLibraryList.Clear();
-            var files = Directory.GetFiles($"{Component.Path}\\user\\plugins", "*.dll", SearchOption.TopDirectoryOnly);
+            var files = Directory.GetFiles($"{Services.Path}\\user\\plugins", "*.dll", SearchOption.TopDirectoryOnly);
 
             var list = new List<IPlugin>();
 

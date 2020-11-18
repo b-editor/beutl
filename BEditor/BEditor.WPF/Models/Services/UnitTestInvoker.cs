@@ -3,9 +3,9 @@ using System.Collections.Generic;
 using System.Text;
 using System.Threading;
 
-namespace BEditor.Models
+namespace BEditor.Models.Services
 {
-    public static class UnitTestInvoker
+    internal static class UnitTestInvoker
     {
         public static bool IsUse { get; set; }
 

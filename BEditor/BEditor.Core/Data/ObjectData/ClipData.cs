@@ -11,7 +11,7 @@ using System.Threading.Tasks;
 
 using BEditor.Core.Data.EffectData;
 using BEditor.Core.Data.ProjectData;
-using BEditor.Core.Interfaces;
+using BEditor.Core.DI;
 
 namespace BEditor.Core.Data.ObjectData
 {

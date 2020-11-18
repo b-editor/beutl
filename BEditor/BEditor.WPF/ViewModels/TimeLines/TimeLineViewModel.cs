@@ -10,12 +10,10 @@ using BEditor.Models.Settings;
 using BEditor.ViewModels.Helper;
 using BEditor.Views;
 using BEditor.Views.SettingsControl;
-using BEditor.Views.TimeLines;
 
 using BEditor.Core.Data;
 using BEditor.Core.Data.ObjectData;
 using BEditor.Core.Data.ProjectData;
-using BEditor.Core.Interfaces;
 using BEditor.Core.Media;
 using BEditor.Models;
 

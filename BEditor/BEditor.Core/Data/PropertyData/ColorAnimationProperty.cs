@@ -180,7 +180,7 @@ namespace BEditor.Core.Data.PropertyData
                 throw new Exception();
             }
 
-            frame -= this.GetClipData().Start;
+            frame -= this.GetParent2().Start;
 
             var (start, end) = GetFrame(frame);
 
@@ -333,7 +333,7 @@ namespace BEditor.Core.Data.PropertyData
             /// <inheritdoc/>
             public void Do()
             {
-                int index = ColorProperty.InsertKeyframe(frame, ColorProperty.GetValue(frame + ColorProperty.GetClipData().Start));
+                int index = ColorProperty.InsertKeyframe(frame, ColorProperty.GetValue(frame + ColorProperty.GetParent2().Start));
                 ColorProperty.AddKeyFrameEvent?.Invoke(ColorProperty, (frame, index - 1));
             }
 

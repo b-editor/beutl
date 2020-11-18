@@ -45,7 +45,7 @@ namespace BEditor.Views.TimeLines
         }
 
         private readonly ColorAnimationProperty Color;
-        private Scene Scene => Color.GetScene();
+        private Scene Scene => Color.GetParent3();
 
         public ColorAnimation(ColorAnimationProperty color)
         {
@@ -108,7 +108,7 @@ namespace BEditor.Views.TimeLines
                 viewModel.AddKeyFrameIcon(color.Frame[index], index);
             }
 
-            var tmp = Scene.GetCreateTimeLineViewModel().ToPixel(color.GetClipData().Length);
+            var tmp = Scene.GetCreateTimeLineViewModel().ToPixel(color.GetParent2().Length);
             if (tmp > 0)
             {
                 Width = tmp;
@@ -159,7 +159,7 @@ namespace BEditor.Views.TimeLines
                 }
             }
 
-            Width = Scene.GetCreateTimeLineViewModel().ToPixel(Color.GetClipData().Length);
+            Width = Scene.GetCreateTimeLineViewModel().ToPixel(Color.GetParent2().Length);
         }
         #endregion
 

@@ -29,7 +29,7 @@ namespace BEditor.Core.Data.EffectData
 
         public override void Render(ref Image source, EffectRenderArgs args)
         {
-            source.Border((int)Size.GetValue(args.Frame), Color);
+            source.ToRenderable().Border((int)Size.GetValue(args.Frame), Color);
         }
 
         public override IEnumerable<PropertyElement> Properties => new PropertyElement[]
@@ -51,6 +51,6 @@ namespace BEditor.Core.Data.EffectData
         public EaseProperty Size { get; private set; }
 
         [DataMember(Order = 1)]
-        public ColorProperty Color { get;private set; }
+        public ColorProperty Color { get; private set; }
     }
 }

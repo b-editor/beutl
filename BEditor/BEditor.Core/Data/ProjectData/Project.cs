@@ -7,7 +7,8 @@ using System.Runtime.Serialization;
 using System.Threading.Tasks;
 
 using BEditor.Core.Graphics;
-using BEditor.Core.Interfaces;
+using BEditor.Core.DI;
+using BEditor.Core.Properties;
 
 namespace BEditor.Core.Data.ProjectData
 {
@@ -140,23 +141,24 @@ namespace BEditor.Core.Data.ProjectData
         {
             if (Filename == null)
             {
-                //SaveFileDialogクラスのインスタンスを作成
-                ISaveFileDialog sfd = Component.Funcs.SaveFileDialog();
-
-                sfd.DefaultFileName = "新しいプロジェクト.bedit";
-
-
-                sfd.Filters.Add((Properties.Resources.ProjectFile, "bedit"));
+                var record = new SaveFileRecord
+                {
+                    DefaultFileName = "新しいプロジェクト.bedit",
+                    Filters =
+                    {
+                        new(Resources.ProjectFile, "bedit")
+                    }
+                };
 
                 //ダイアログを表示する
-                if (sfd.ShowDialog())
+                if (Services.FileDialogService.ShowSaveFileDialog(record))
                 {
                     //OKボタンがクリックされたとき、選択されたファイル名を表示する
-                    Filename = sfd.FileName;
+                    Filename = record.FileName;
                 }
             }
 
-            Serialize.SaveToFile(this, $"{Component.Path}\\user\\backup\\" + Path.GetFileNameWithoutExtension(Filename) + ".backup");
+            Serialize.SaveToFile(this, $"{Services.Path}\\user\\backup\\" + Path.GetFileNameWithoutExtension(Filename) + ".backup");
         }
         /// <inheritdoc/>
         public void Dispose()
@@ -179,23 +181,20 @@ namespace BEditor.Core.Data.ProjectData
         public bool Save()
         {
             //SaveFileDialogクラスのインスタンスを作成
-            ISaveFileDialog sfd = Component.Funcs.SaveFileDialog();
-            if (Filename != null)
+            var record = new SaveFileRecord
             {
-                sfd.DefaultFileName = Path.GetFileName(Filename);
-            }
-            else
-            {
-                sfd.DefaultFileName = "新しいプロジェクト.bedit";
-            }
-
-            sfd.Filters.Add((Properties.Resources.ProjectFile, "bedit"));
+                DefaultFileName = (Filename is not null) ? Path.GetFileName(Filename) : "新しいプロジェクト.bedit",
+                Filters =
+                {
+                    new(Resources.ProjectFile, "bedit")
+                }
+            };
 
             //ダイアログを表示する
-            if (sfd.ShowDialog())
+            if (Services.FileDialogService.ShowSaveFileDialog(record))
             {
                 //OKボタンがクリックされたとき、選択されたファイル名を表示する
-                Filename = sfd.FileName;
+                Filename = record.FileName;
             }
 
             if (Serialize.SaveToFile(this, Filename))
@@ -228,19 +227,20 @@ namespace BEditor.Core.Data.ProjectData
         {
             if (Filename == null)
             {
-                //SaveFileDialogクラスのインスタンスを作成
-                ISaveFileDialog sfd = Component.Funcs.SaveFileDialog();
-
-                sfd.DefaultFileName = "新しいプロジェクト.bedit";
-
-
-                sfd.Filters.Add((Properties.Resources.ProjectFile, "bedit"));
+                var record = new SaveFileRecord
+                {
+                    DefaultFileName = "新しいプロジェクト.bedit",
+                    Filters =
+                    {
+                        new(Properties.Resources.ProjectFile, "bedit")
+                    }
+                };
 
                 //ダイアログを表示する
-                if (sfd.ShowDialog())
+                if (Services.FileDialogService.ShowSaveFileDialog(record))
                 {
                     //OKボタンがクリックされたとき、選択されたファイル名を表示する
-                    Filename = sfd.FileName;
+                    Filename = record.FileName;
                 }
                 else
                 {
