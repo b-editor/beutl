@@ -15,19 +15,19 @@ namespace BEditor.Core.Data.PropertyData.EasingSetting
     /// <see cref="EaseProperty"/>, <see cref="ColorAnimationProperty"/> などで利用可能なイージング関数を表します
     /// </summary>
     [DataContract(Namespace = "")]
-    public abstract class EasingFunc : ComponentObject, IChild<PropertyElement>, IParent<IEasingSetting>, INotifyPropertyChanged, IExtensibleDataObject
+    public abstract class EasingFunc : ComponentObject, IChild<PropertyElement>, IParent<IEasingProperty>, INotifyPropertyChanged, IExtensibleDataObject
     {
         private PropertyElement parent;
-        private IEnumerable<IEasingSetting> cachedlist;
+        private IEnumerable<IEasingProperty> cachedlist;
 
         /// <summary>
         /// UIに表示するプロパティを取得します
         /// </summary>
-        public abstract IEnumerable<IEasingSetting> Properties { get; }
+        public abstract IEnumerable<IEasingProperty> Properties { get; }
         /// <summary>
         /// キャッシュされた <see cref="Properties"/> を取得します
         /// </summary>
-        public IEnumerable<IEasingSetting> Children => cachedlist ??= Properties;
+        public IEnumerable<IEasingProperty> Children => cachedlist ??= Properties;
         /// <summary>
         /// 親要素を取得します
         /// </summary>

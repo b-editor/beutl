@@ -10,7 +10,7 @@ using System.Windows.Controls;
 using System.Windows.Media;
 using System.Windows.Shapes;
 
-using BEditor.Core.DI;
+using BEditor.Core.Service;
 using BEditor.Core.Media;
 using BEditor.Models.Extension;
 

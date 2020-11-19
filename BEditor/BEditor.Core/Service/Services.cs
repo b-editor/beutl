@@ -1,21 +1,6 @@
-﻿using System;
-using System.Collections.Generic;
-using System.ComponentModel;
-using System.IO;
-using System.Linq;
-using System.Reflection;
-using System.Text;
-using System.Threading.Tasks;
-using System.Xml.Linq;
+﻿using System.Reflection;
 
-using BEditor.Core.Data.ProjectData;
-using BEditor.Core.Graphics;
-using BEditor.Core.DI;
-using BEditor.Core.Media;
-using BEditor.Core.Plugin;
-using BEditor.Core.Renderings;
-
-namespace BEditor.Core.Data
+namespace BEditor.Core.Service
 {
     public static class Services
     {

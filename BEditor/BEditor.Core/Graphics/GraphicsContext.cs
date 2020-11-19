@@ -1,4 +1,7 @@
 ﻿
+using System;
+using System.Collections.Generic;
+
 using BEditor.Core.Media;
 
 using OpenTK;
@@ -13,7 +16,7 @@ namespace BEditor.Core.Graphics
         
         public GraphicsContext(int width, int height) : base(width, height)
         {
-            //Memo : static化したらProjection行列関連が微妙
+            // static化したらProjection行列関連が微妙
             GameWindow = new GameWindow(width, height);
 
             Initialize();

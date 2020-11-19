@@ -6,6 +6,7 @@ using System.Threading.Tasks;
 using System.Xml.Linq;
 
 using BEditor.Core.Data;
+using BEditor.Core.Service;
 
 namespace BEditor.Core.Extensions
 {

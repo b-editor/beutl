@@ -19,6 +19,7 @@ using MaterialDesignThemes.Wpf;
 using Microsoft.WindowsAPICodePack.Dialogs;
 
 using Project = BEditor.Core.Data.ProjectData.Project;
+using BEditor.Core.Service;
 
 namespace BEditor.ViewModels
 {

@@ -4,6 +4,7 @@ using Microsoft.WindowsAPICodePack.Dialogs;
 using BEditor.Core.Data;
 using BEditor.Models;
 using System.ComponentModel;
+using BEditor.Core.Service;
 
 namespace BEditor.ViewModels
 {

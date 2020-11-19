@@ -14,7 +14,7 @@ namespace BEditor.Core.Data.PropertyData
     /// ファイルを選択するプロパティを表します
     /// </summary>
     [DataContract(Namespace = "")]
-    public class FileProperty : PropertyElement, IEasingSetting, IObservable<string>, IObserver<string>, INotifyPropertyChanged, IExtensibleDataObject, IChild<EffectElement>
+    public class FileProperty : PropertyElement, IEasingProperty, IObservable<string>, IObserver<string>, INotifyPropertyChanged, IExtensibleDataObject, IChild<EffectElement>
     {
         private static readonly PropertyChangedEventArgs fileArgs = new(nameof(File));
         private string file;

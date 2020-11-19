@@ -11,7 +11,7 @@ using System.Threading.Tasks;
 
 using BEditor.Core.Data.EffectData;
 using BEditor.Core.Data.ProjectData;
-using BEditor.Core.DI;
+using BEditor.Core.Service;
 
 namespace BEditor.Core.Data.ObjectData
 {
@@ -19,8 +19,10 @@ namespace BEditor.Core.Data.ObjectData
     /// Represents the data of a clip to be placed in the timeline.
     /// </summary>
     [DataContract(Namespace = "", Name = "Data")]
-    public class ClipData : ComponentObject, ICloneable, IParent<EffectElement>, IChild<Scene>, INotifyPropertyChanged
+    public class ClipData : ComponentObject, ICloneable, IParent<EffectElement>, IChild<Scene>, INotifyPropertyChanged, IHadName, IHadId
     {
+        #region フィールド
+
         private static readonly PropertyChangedEventArgs startArgs = new(nameof(Start));
         private static readonly PropertyChangedEventArgs endArgs = new(nameof(End));
         private static readonly PropertyChangedEventArgs layerArgs = new(nameof(Layer));
@@ -32,11 +34,15 @@ namespace BEditor.Core.Data.ObjectData
         private string labeltext;
         private ObservableCollection<EffectElement> effects;
 
-        
+        #endregion
+
+
+        #region コンストラクタ
+
         /// <summary>
         /// <see cref="ClipData"/> Initialize a new instance of the class.
         /// </summary>
-        public ClipData(uint id, ObservableCollection<EffectElement> effects, int start, int end, Type type, int layer, Scene scene)
+        public ClipData(int id, ObservableCollection<EffectElement> effects, int start, int end, Type type, int layer, Scene scene)
         {
             Id = id;
             this.start = start;
@@ -48,11 +54,16 @@ namespace BEditor.Core.Data.ObjectData
             LabelText = Name;
         }
 
+        #endregion
+
+
+        #region プロパティ
+
         /// <summary>
         /// Get the ID for this <see cref="ClipData"/>
         /// </summary>
         [DataMember(Order = 0)]
-        public uint Id { get; private set; }
+        public int Id { get; private set; }
 
         /// <summary>
         /// Get the name of this <see cref="ClipData"/>.
@@ -148,6 +159,7 @@ namespace BEditor.Core.Data.ObjectData
         /// <inheritdoc/>
         IEnumerable<EffectElement> IParent<EffectElement>.Children => Effect;
 
+        #endregion
 
         /// <summary>
         /// It is called at rendering time
@@ -224,7 +236,7 @@ namespace BEditor.Core.Data.ObjectData
             public void Do()
             {
                 //新しいidを取得
-                uint idmax = Scene.NewId;
+                int idmax = Scene.NewId;
 
                 //描画情報
                 ObservableCollection<EffectElement> list = new();

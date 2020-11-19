@@ -5,6 +5,8 @@ using System.Text;
 using System.Windows.Data;
 using BEditor.Core.Data;
 using BEditor.Core.Properties;
+using BEditor.Core.Service;
+
 using MaterialDesignThemes.Wpf;
 
 namespace BEditor.ViewModels.Converters

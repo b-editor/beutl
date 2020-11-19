@@ -1,4 +1,4 @@
-﻿using BEditor.Core.DI;
+﻿using BEditor.Core.Service;
 
 using Microsoft.WindowsAPICodePack.Dialogs;
 

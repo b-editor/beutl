@@ -11,6 +11,7 @@ using BEditor.Core.Data.PropertyData.EasingSetting;
 using BEditor.Core.Extensions;
 using BEditor.Core.Extensions.ViewCommand;
 using BEditor.Core.Properties;
+using BEditor.Core.Service;
 
 namespace BEditor.Core.Plugin
 {

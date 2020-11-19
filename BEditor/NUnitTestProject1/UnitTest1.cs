@@ -6,6 +6,10 @@ using BEditor.Core.Renderings;
 using BEditor.Core.Renderings.Extensions;
 using System;
 using BEditor.Core.Graphics;
+using BEditor.Core.Data.ProjectData;
+using BEditor.Core.Data.ObjectData;
+using BEditor.Core.Extensions;
+using BEditor.Core.Data.EffectData;
 
 namespace NUnitTestProject1
 {
@@ -17,29 +21,34 @@ namespace NUnitTestProject1
         }
 
         [Test]
-        public void Test1()
+        public void BindableTest()
         {
-            const int width = 1000, height = 1000;
-            using var stream = new FileStream(@"2020-06-26_19.11.28.png", FileMode.Open);
-            using var renderer = new GraphicsContext(width, height);
-            using var image = new Image(stream);
+            var blur1 = new Blur() { AlphaBlur = { IsChecked = false } };
+            var blur2 = new Blur() { AlphaBlur = { IsChecked = true } };
 
-            image[new Rectangle(0, 0, width, height)]
-                .GaussianBlur(25, true)
-                .SetColor(Color.Teal)
-                .Render(renderer)
-                // ラムダバージョン
-                .Render(
-                    img => Console.WriteLine("レンダリング"),
-                    () => Console.WriteLine("完了"),
-                    ex => Console.WriteLine("エラー"),
-                    () => Console.WriteLine("ファイナライズ"))
-                .Dispose();
 
-            using var result = new Image(width, height, ImageType.ByteCh4);
-            renderer.ReadPixels(result);
+            blur1.PropertyLoaded();
+            blur2.PropertyLoaded();
 
-            result.Save("OutImage.png");
+            // blur1に合わせる
+            blur2.AlphaBlur.Bind(blur1.AlphaBlur);
+
+            // 両方true
+            Console.WriteLine($"blur1: {blur1.AlphaBlur.IsChecked}");
+            Console.WriteLine($"blur2: {blur2.AlphaBlur.IsChecked}");
+
+            blur2.AlphaBlur.IsChecked = false;
+
+            Console.WriteLine("blur2変更");
+            Console.WriteLine($"blur1: {blur1.AlphaBlur.IsChecked}");
+            Console.WriteLine($"blur2: {blur2.AlphaBlur.IsChecked}");
+
+            blur1.AlphaBlur.IsChecked = true;
+
+            Console.WriteLine("blur1変更");
+            Console.WriteLine($"blur1: {blur1.AlphaBlur.IsChecked}");
+            Console.WriteLine($"blur2: {blur2.AlphaBlur.IsChecked}");
+            
         }
     }
 }

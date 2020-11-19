@@ -91,7 +91,7 @@ namespace BEditor.Core.Data.PropertyData.EasingSetting
 
         #region EasingFunc
 
-        public override IEnumerable<IEasingSetting> Properties => new IEasingSetting[]
+        public override IEnumerable<IEasingProperty> Properties => new IEasingProperty[]
         {
             EasingType
         };

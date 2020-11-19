@@ -13,6 +13,7 @@ using BEditor.Core.Extensions;
 using BEditor.Core.Extensions.ViewCommand;
 using BEditor.Core.Native;
 using BEditor.Core.Renderings;
+using BEditor.Core.Service;
 
 namespace BEditor.Core.Media
 {

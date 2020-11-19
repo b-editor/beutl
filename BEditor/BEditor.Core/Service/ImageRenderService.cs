@@ -9,7 +9,7 @@ using BEditor.Core.Exceptions;
 using BEditor.Core.Media;
 using BEditor.Core.Native;
 
-namespace BEditor.Core.DI
+namespace BEditor.Core.Service
 {
     public class ImageRenderService : IImageRenderService
     {

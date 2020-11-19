@@ -7,13 +7,13 @@ using System.Runtime.Serialization;
 using System.Threading.Tasks;
 
 using BEditor.Core.Graphics;
-using BEditor.Core.DI;
+using BEditor.Core.Service;
 using BEditor.Core.Properties;
 
 namespace BEditor.Core.Data.ProjectData
 {
     /// <summary>
-    /// プロジェクトクラス
+    /// Represents the project to be used in editing.
     /// </summary>
     [DataContract(Namespace = "")]
     public class Project : BasePropertyChanged, IExtensibleDataObject, IDisposable, IParent<Scene>, IChild<IApplication>, INotifyPropertyChanged
@@ -131,11 +131,13 @@ namespace BEditor.Core.Data.ProjectData
             init => parent = value;
         }
 
-        //Memo : xml英語ここまで
+        /// <summary>
+        /// Occurs after saving this <see cref="Project"/>.
+        /// </summary>
         public event EventHandler<ProjectSavedEventArgs> Saved;
 
         /// <summary>
-        /// 
+        /// Create a backup of this <see cref="Project"/>.
         /// </summary>
         public void BackUp()
         {
@@ -175,9 +177,9 @@ namespace BEditor.Core.Data.ProjectData
         }
 
         /// <summary>
-        /// 
+        /// Save this <see cref="Project"/>.
         /// </summary>
-        /// <returns></returns>
+        /// <returns><see langword="true"/> if the save is successful, otherwise <see langword="false"/>.</returns>
         public bool Save()
         {
             //SaveFileDialogクラスのインスタンスを作成
@@ -205,14 +207,14 @@ namespace BEditor.Core.Data.ProjectData
             return false;
         }
         /// <summary>
-        /// 
+        /// Save this <see cref="Project"/> with a name.
         /// </summary>
-        /// <param name="file"></param>
-        /// <returns></returns>
-        public bool Save(string file)
+        /// <param name="filename">New File Name</param>
+        /// <returns><see langword="true"/> if the save is successful, otherwise <see langword="false"/>.</returns>
+        public bool Save(string filename)
         {
-            Filename = file;
-            if (Serialize.SaveToFile(this, file))
+            Filename = filename;
+            if (Serialize.SaveToFile(this, filename))
             {
                 Saved?.Invoke(this, new(SaveType.Save));
                 return true;
@@ -220,9 +222,10 @@ namespace BEditor.Core.Data.ProjectData
             return false;
         }
         /// <summary>
-        /// 
+        /// Save this <see cref="Project"/> overwrite.
         /// </summary>
-        /// <returns></returns>
+        /// <remarks>If <see cref="Filename"/> is <see langword="null"/>, a dialog will appear</remarks>
+        /// <returns><see langword="true"/> if the save is successful, otherwise <see langword="false"/>.</returns>
         public bool SaveAs()
         {
             if (Filename == null)
@@ -268,15 +271,34 @@ namespace BEditor.Core.Data.ProjectData
         }
     }
 
+    /// <summary>
+    /// Represents the type of save used in <see cref="ProjectSavedEventArgs"/>.
+    /// </summary>
     public enum SaveType
     {
+        /// <summary>
+        /// 
+        /// </summary>
         Save,
+        /// <summary>
+        /// 
+        /// </summary>
         SaveAs
     }
+
+    /// <summary>
+    /// Provides data for the <see cref="Project.Saved"/> event.
+    /// </summary>
     public class ProjectSavedEventArgs : EventArgs
     {
+        /// <summary>
+        /// <see cref="ProjectSavedEventArgs"/> Initialize a new instance of the class.
+        /// </summary>
         public ProjectSavedEventArgs(SaveType type) => Type = type;
 
+        /// <summary>
+        /// 
+        /// </summary>
         public SaveType Type { get; }
     }
 }

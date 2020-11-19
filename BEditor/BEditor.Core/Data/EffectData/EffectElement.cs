@@ -18,7 +18,7 @@ namespace BEditor.Core.Data.EffectData
     /// Represents the base class of the effect.
     /// </summary>
     [DataContract(Namespace = "")]
-    public abstract class EffectElement : ComponentObject, IChild<ClipData>, IParent<PropertyElement>, ICloneable, INotifyPropertyChanged
+    public abstract class EffectElement : ComponentObject, IChild<ClipData>, IParent<PropertyElement>, ICloneable, INotifyPropertyChanged, IHadId
     {
         private static readonly PropertyChangedEventArgs isEnabledArgs = new(nameof(IsEnabled));
         private static readonly PropertyChangedEventArgs isExpandedArgs = new(nameof(IsExpanded));
@@ -26,9 +26,10 @@ namespace BEditor.Core.Data.EffectData
         private bool isExpanded = true;
         private ClipData clipData;
         private IEnumerable<PropertyElement> cachedlist;
-        
+        private int? id;
+
         /// <inheritdoc/>
-        public IEnumerable<PropertyElement> Children => cachedlist ??= Properties;
+        public IEnumerable<PropertyElement> Children => cachedlist ??= Properties.ToArray();
         /// <summary>
         /// Get the name of the <see cref="EffectElement"/>.
         /// </summary>
@@ -68,6 +69,8 @@ namespace BEditor.Core.Data.EffectData
                 Parallel.ForEach(Children, property => property.Parent = this);
             }
         }
+
+        public int Id => id ??= Parent.Effect.IndexOf(this);
 
         /// <inheritdoc/>
         public object Clone()

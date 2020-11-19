@@ -11,6 +11,7 @@ using System.Xml.Linq;
 using BEditor.Core.Data;
 using BEditor.Core.Data.ProjectData;
 using BEditor.Core.Plugin;
+using BEditor.Core.Service;
 
 namespace BEditor.Models
 {

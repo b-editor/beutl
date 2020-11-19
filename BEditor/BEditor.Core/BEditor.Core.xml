@@ -207,7 +207,7 @@
             Represents the data of a clip to be placed in the timeline.
             </summary>
         </member>
-        <member name="M:BEditor.Core.Data.ObjectData.ClipData.#ctor(System.UInt32,System.Collections.ObjectModel.ObservableCollection{BEditor.Core.Data.EffectData.EffectElement},System.Int32,System.Int32,System.Type,System.Int32,BEditor.Core.Data.ProjectData.Scene)">
+        <member name="M:BEditor.Core.Data.ObjectData.ClipData.#ctor(System.Int32,System.Collections.ObjectModel.ObservableCollection{BEditor.Core.Data.EffectData.EffectElement},System.Int32,System.Int32,System.Type,System.Int32,BEditor.Core.Data.ProjectData.Scene)">
             <summary>
             <see cref="T:BEditor.Core.Data.ObjectData.ClipData"/> Initialize a new instance of the class.
             </summary>
@@ -454,7 +454,7 @@
         </member>
         <member name="T:BEditor.Core.Data.ProjectData.Project">
             <summary>
-            プロジェクトクラス
+            Represents the project to be used in editing.
             </summary>
         </member>
         <member name="M:BEditor.Core.Data.ProjectData.Project.#ctor(System.Int32,System.Int32,System.Int32,System.Int32,BEditor.Core.Data.IApplication)">
@@ -511,9 +511,14 @@
         <member name="P:BEditor.Core.Data.ProjectData.Project.Parent">
             <inheritdoc/>
         </member>
+        <member name="E:BEditor.Core.Data.ProjectData.Project.Saved">
+            <summary>
+            Occurs after saving this <see cref="T:BEditor.Core.Data.ProjectData.Project"/>.
+            </summary>
+        </member>
         <member name="M:BEditor.Core.Data.ProjectData.Project.BackUp">
             <summary>
-            
+            Create a backup of this <see cref="T:BEditor.Core.Data.ProjectData.Project"/>.
             </summary>
         </member>
         <member name="M:BEditor.Core.Data.ProjectData.Project.Dispose">
@@ -521,101 +526,132 @@
         </member>
         <member name="M:BEditor.Core.Data.ProjectData.Project.Save">
             <summary>
-            
+            Save this <see cref="T:BEditor.Core.Data.ProjectData.Project"/>.
             </summary>
-            <returns></returns>
+            <returns><see langword="true"/> if the save is successful, otherwise <see langword="false"/>.</returns>
         </member>
         <member name="M:BEditor.Core.Data.ProjectData.Project.Save(System.String)">
             <summary>
-            
+            Save this <see cref="T:BEditor.Core.Data.ProjectData.Project"/> with a name.
             </summary>
-            <param name="file"></param>
-            <returns></returns>
+            <param name="filename">New File Name</param>
+            <returns><see langword="true"/> if the save is successful, otherwise <see langword="false"/>.</returns>
         </member>
         <member name="M:BEditor.Core.Data.ProjectData.Project.SaveAs">
             <summary>
+            Save this <see cref="T:BEditor.Core.Data.ProjectData.Project"/> overwrite.
+            </summary>
+            <remarks>If <see cref="P:BEditor.Core.Data.ProjectData.Project.Filename"/> is <see langword="null"/>, a dialog will appear</remarks>
+            <returns><see langword="true"/> if the save is successful, otherwise <see langword="false"/>.</returns>
+        </member>
+        <member name="T:BEditor.Core.Data.ProjectData.SaveType">
+            <summary>
+            Represents the type of save used in <see cref="T:BEditor.Core.Data.ProjectData.ProjectSavedEventArgs"/>.
+            </summary>
+        </member>
+        <member name="F:BEditor.Core.Data.ProjectData.SaveType.Save">
+            <summary>
             
             </summary>
-            <returns></returns>
+        </member>
+        <member name="F:BEditor.Core.Data.ProjectData.SaveType.SaveAs">
+            <summary>
+            
+            </summary>
+        </member>
+        <member name="T:BEditor.Core.Data.ProjectData.ProjectSavedEventArgs">
+            <summary>
+            Provides data for the <see cref="E:BEditor.Core.Data.ProjectData.Project.Saved"/> event.
+            </summary>
+        </member>
+        <member name="M:BEditor.Core.Data.ProjectData.ProjectSavedEventArgs.#ctor(BEditor.Core.Data.ProjectData.SaveType)">
+            <summary>
+            <see cref="T:BEditor.Core.Data.ProjectData.ProjectSavedEventArgs"/> Initialize a new instance of the class.
+            </summary>
+        </member>
+        <member name="P:BEditor.Core.Data.ProjectData.ProjectSavedEventArgs.Type">
+            <summary>
+            
+            </summary>
         </member>
         <member name="T:BEditor.Core.Data.ProjectData.Scene">
             <summary>
-            シーンクラス
+            Represents a scene to be included in the <see cref="T:BEditor.Core.Data.ProjectData.Project"/>.
             </summary>
         </member>
         <member name="P:BEditor.Core.Data.ProjectData.Scene.Width">
             <summary>
-            フレームバッファの横幅を取得または設定します
+            Get or set the width of the frame buffer.
             </summary>
         </member>
         <member name="P:BEditor.Core.Data.ProjectData.Scene.Height">
             <summary>
-            フレームバッファの高さを取得または設定します
+            Get or set the height of the frame buffer
             </summary>
         </member>
         <member name="P:BEditor.Core.Data.ProjectData.Scene.SceneName">
             <summary>
-            名前を取得または設定します
+            Get or set the name of this <see cref="T:BEditor.Core.Data.ProjectData.Scene"/>.
             </summary>
         </member>
         <member name="P:BEditor.Core.Data.ProjectData.Scene.SelectNames">
             <summary>
-            選択されているクリップの <see cref="P:BEditor.Core.Data.ObjectData.ClipData.Name"/> を取得します
+            Get the names of the selected <see cref="T:BEditor.Core.Data.ObjectData.ClipData"/>.
             </summary>
         </member>
         <member name="P:BEditor.Core.Data.ProjectData.Scene.SelectName">
             <summary>
-            選択中のクリップの <see cref="P:BEditor.Core.Data.ObjectData.ClipData.Name"/> を取得します
+            Get the name of the selected <see cref="T:BEditor.Core.Data.ObjectData.ClipData"/>.
             </summary>
         </member>
         <member name="P:BEditor.Core.Data.ProjectData.Scene.Datas">
             <summary>
-            タイムライン上の <see cref="T:BEditor.Core.Data.ObjectData.ClipData"/> を取得します
+            Get the <see cref="T:BEditor.Core.Data.ObjectData.ClipData"/> contained in this <see cref="T:BEditor.Core.Data.ProjectData.Scene"/>.
             </summary>
         </member>
         <member name="P:BEditor.Core.Data.ProjectData.Scene.HideLayer">
             <summary>
-            隠されているレイヤーの番号を取得します
+            Get the number of the hidden layer.
             </summary>
         </member>
         <member name="P:BEditor.Core.Data.ProjectData.Scene.SelectItem">
             <summary>
-            選択中の <see cref="T:BEditor.Core.Data.ObjectData.ClipData"/> を取得または設定します
+            Get or set the selected <see cref="T:BEditor.Core.Data.ObjectData.ClipData"/>.
             </summary>
         </member>
         <member name="P:BEditor.Core.Data.ProjectData.Scene.SelectItems">
             <summary>
-            選択されている <see cref="T:BEditor.Core.Data.ObjectData.ClipData"/> を取得します
+            Get or set the selected <see cref="T:BEditor.Core.Data.ObjectData.ClipData"/>.
             </summary>
         </member>
         <member name="P:BEditor.Core.Data.ProjectData.Scene.GraphicsContext">
             <summary>
-            グラフィックコンテキストを取得します
+            Get graphic context.
             </summary>
         </member>
         <member name="P:BEditor.Core.Data.ProjectData.Scene.PreviewFrame">
             <summary>
-            プレビュー中のフレームを取得または設定します
+            Gets or sets the frame number during preview.
             </summary>
         </member>
         <member name="P:BEditor.Core.Data.ProjectData.Scene.TotalFrame">
             <summary>
-            最大フレームを取得または設定します
+            Get or set the total frame.
             </summary>
         </member>
         <member name="P:BEditor.Core.Data.ProjectData.Scene.TimeLineZoom">
             <summary>
-            タイムラインの拡大率を取得または設定します
+            Get or set the scale of the timeline.
             </summary>
         </member>
         <member name="P:BEditor.Core.Data.ProjectData.Scene.TimeLineHorizonOffset">
             <summary>
-            タイムラインの水平方向のスクロールのオフセットを取得または設定します
+            Get or set the horizontal scrolling offset of the timeline.
             </summary>
         </member>
         <member name="P:BEditor.Core.Data.ProjectData.Scene.TimeLineVerticalOffset">
             <summary>
-            タイムラインの垂直方向のスクロールのオフセットを取得または設定します
+            Get or set the vertical scrolling offset of the timeline.
             </summary>
         </member>
         <member name="P:BEditor.Core.Data.ProjectData.Scene.Children">
@@ -624,69 +660,68 @@
         <member name="P:BEditor.Core.Data.ProjectData.Scene.Parent">
             <inheritdoc/>
         </member>
+        <member name="P:BEditor.Core.Data.ProjectData.Scene.Name">
+            <inheritdoc/>
+        </member>
+        <member name="P:BEditor.Core.Data.ProjectData.Scene.Id">
+            <inheritdoc/>
+        </member>
         <member name="M:BEditor.Core.Data.ProjectData.Scene.#ctor(System.Int32,System.Int32)">
             <summary>
-            <see cref="T:BEditor.Core.Data.ProjectData.Scene"/> クラスの新しいインスタンスを初期化します
+            <see cref="T:BEditor.Core.Data.ProjectData.Scene"/> Initialize a new instance of the class.
             </summary>
-            <param name="width">フレームバッファの横幅</param>
-            <param name="height">フレームバッファの高さ</param>
+            <param name="width">The width of the frame buffer.</param>
+            <param name="height">The height of the frame buffer</param>
         </member>
         <member name="M:BEditor.Core.Data.ProjectData.Scene.Render(System.Int32)">
             <summary>
-            シーンをレンダリングします
+            Render this <see cref="T:BEditor.Core.Data.ProjectData.Scene"/>.
             </summary>
-            <param name="frame">タイムライン基準のレンダリングするフレーム</param>
-            <returns>レンダリングされた <seealso cref="T:BEditor.Core.Media.Image"/></returns>
+            <param name="frame">The frame to render</param>
         </member>
-        <member name="M:BEditor.Core.Data.ProjectData.Scene.Rendering">
+        <member name="M:BEditor.Core.Data.ProjectData.Scene.Render">
             <summary>
-            <seealso cref="P:BEditor.Core.Data.ProjectData.Scene.PreviewFrame"/> のフレームをレンダリングします
+            Render a frame of <see cref="P:BEditor.Core.Data.ProjectData.Scene.PreviewFrame"/>.
             </summary>
-            <returns>レンダリングされた <seealso cref="T:BEditor.Core.Media.Image"/></returns>
         </member>
         <member name="M:BEditor.Core.Data.ProjectData.Scene.GetLayer(System.Int32)">
             <summary>
-            フレーム上にあるクリップを取得しソートします
+            Get and sort the clips on the specified frame.
             </summary>
-            <param name="frame">タイムライン基準のフレーム</param>
-            <returns>クリップのリスト</returns>
+            <param name="frame">Target frame number.</param>
         </member>
         <member name="M:BEditor.Core.Data.ProjectData.Scene.Add(BEditor.Core.Data.ObjectData.ClipData)">
             <summary>
-            クリップを追加し、<seealso cref="P:BEditor.Core.Data.ObjectData.ClipData.Parent"/> にこのシーンを設定します
+            Add a <see cref="T:BEditor.Core.Data.ObjectData.ClipData"/> to this <see cref="T:BEditor.Core.Data.ProjectData.Scene"/>.
             </summary>
-            <param name="data">追加するクリップ</param>
+            <param name="clip">A <see cref="T:BEditor.Core.Data.ObjectData.ClipData"/> to add</param>
         </member>
         <member name="M:BEditor.Core.Data.ProjectData.Scene.Remove(BEditor.Core.Data.ObjectData.ClipData)">
             <summary>
-            シーンからクリップを削除します
+            Remove certain a <see cref="T:BEditor.Core.Data.ObjectData.ClipData"/> from this <see cref="T:BEditor.Core.Data.ProjectData.Scene"/>.
             </summary>
-            <param name="data">削除するクリップ</param>
-            <returns>アイテムが正常に削除された場合は <see langword="true"/>、そうでない場合は <see langword="false"/> となります。このメソッドは、元の <see cref="T:System.Collections.ObjectModel.Collection`1"/> でアイテムが見つからなかった場合も <see langword="false"/> を返します</returns>
-        </member>
-        <member name="M:BEditor.Core.Data.ProjectData.Scene.Get(System.String)">
-            <summary>
-            クリップの <seealso cref="P:BEditor.Core.Data.ObjectData.ClipData.Name"/> から <seealso cref="T:BEditor.Core.Data.ObjectData.ClipData"/> を取得します
-            </summary>
-            <param name="name">取得するクリップの名前</param>
-            <returns>存在する場合 <see cref="T:BEditor.Core.Data.ObjectData.ClipData"/> のインスタンス、そうでない場合は <see langword="null"/> となります。 <paramref name="name"/> が <see langword="null"/> の場合も <see langword="null"/> を返します</returns>
+            <param name="clip"><see cref="T:BEditor.Core.Data.ObjectData.ClipData"/> to be removed.</param>
+            <returns>
+            <see langword="true"/> if item is successfully removed; otherwise, <see langword="false"/>. This method also returns
+            <see langword="false"/> if item was not found in the original <see cref="T:System.Collections.ObjectModel.Collection`1"/>.
+            </returns>
         </member>
         <member name="M:BEditor.Core.Data.ProjectData.Scene.SetCurrentClip(BEditor.Core.Data.ObjectData.ClipData)">
             <summary>
-            選択中の <see cref="T:BEditor.Core.Data.ObjectData.ClipData"/> を設定し、<see cref="P:BEditor.Core.Data.ProjectData.Scene.SelectNames"/> に名前が存在しない場合追加します
+            Set the selected <see cref="T:BEditor.Core.Data.ObjectData.ClipData"/> and add the name to <see cref="P:BEditor.Core.Data.ProjectData.Scene.SelectNames"/> if it does not exist.
             </summary>
-            <param name="data">対象の <see cref="T:BEditor.Core.Data.ObjectData.ClipData"/></param>
-            <exception cref="T:System.ArgumentNullException"><paramref name="data"/> が <see langword="null"/> です</exception>
+            <param name="data">Target <see cref="T:BEditor.Core.Data.ObjectData.ClipData"/>.</param>
+            <exception cref="T:System.ArgumentNullException"><paramref name="data"/> is <see langword="null"/>.</exception>
         </member>
         <member name="P:BEditor.Core.Data.ProjectData.RootScene.SceneName">
             <inheritdoc/>
         </member>
         <member name="M:BEditor.Core.Data.ProjectData.RootScene.#ctor(System.Int32,System.Int32)">
             <summary>
-            <see cref="T:BEditor.Core.Data.ProjectData.RootScene"/> クラスの新しいインスタンスを初期化します
+            <see cref="T:BEditor.Core.Data.ProjectData.RootScene"/> Initialize a new instance of the class.
             </summary>
-            <param name="width">フレームバッファの横幅</param>
-            <param name="height">フレームバッファの高さ</param>
+            <param name="width">The width of the frame buffer.</param>
+            <param name="height">The height of the frame buffer</param>
         </member>
         <member name="T:BEditor.Core.Data.PropertyData.CheckProperty">
             <summary>
@@ -704,6 +739,14 @@
             <summary>
             チェックされている場合 <see langword="true"/>、そうでない場合は <see langword="false"/> となります
             </summary>
+        </member>
+        <member name="P:BEditor.Core.Data.PropertyData.CheckProperty.BindHint">
+            <summary>
+            
+            </summary>
+        </member>
+        <member name="P:BEditor.Core.Data.PropertyData.CheckProperty.Value">
+            <inheritdoc/>
         </member>
         <member name="M:BEditor.Core.Data.PropertyData.CheckProperty.Subscribe(System.IObserver{System.Boolean})">
             <inheritdoc/>
@@ -1502,24 +1545,9 @@
             読み込まれているイージング関数のType
             </summary>
         </member>
-        <member name="T:BEditor.Core.Data.PropertyData.EasingSetting.IEasingSetting">
+        <member name="T:BEditor.Core.Data.PropertyData.EasingSetting.IEasingProperty">
             <summary>
             <see cref="T:BEditor.Core.Data.PropertyData.EasingSetting.EasingFunc"/> で利用可能なプロパティを表します
-            </summary>
-        </member>
-        <member name="P:BEditor.Core.Data.PropertyData.EasingSetting.IEasingSetting.Parent">
-            <summary>
-            親要素を取得します
-            </summary>
-        </member>
-        <member name="P:BEditor.Core.Data.PropertyData.EasingSetting.IEasingSetting.ComponentData">
-            <summary>
-            UIなどのキャッシュを入れる配列を取得します
-            </summary>
-        </member>
-        <member name="M:BEditor.Core.Data.PropertyData.EasingSetting.IEasingSetting.PropertyLoaded">
-            <summary>
-            初期化時とデシリアライズ時に呼び出されます
             </summary>
         </member>
         <member name="T:BEditor.Core.Data.PropertyData.ExpandGroup">
@@ -1718,84 +1746,6 @@
             
             </summary>
         </member>
-        <member name="T:BEditor.Core.Data.PropertyData.Generic.SelectorProperty`1">
-            <summary>
-            配列から一つのアイテムを選択するプロパティを表します
-            </summary>
-        </member>
-        <member name="M:BEditor.Core.Data.PropertyData.Generic.SelectorProperty`1.#ctor(BEditor.Core.Data.PropertyData.Generic.SelectorPropertyMetadata{`0})">
-            <summary>
-            <see cref="T:BEditor.Core.Data.PropertyData.Generic.SelectorProperty`1"/> クラスの新しいインスタンスを初期化します
-            </summary>
-            <param name="metadata">このプロパティの <see cref="T:BEditor.Core.Data.PropertyData.Generic.SelectorPropertyMetadata`1"/></param>
-            <exception cref="T:System.ArgumentNullException"><paramref name="metadata"/> が <see langword="null"/> です</exception>
-        </member>
-        <member name="P:BEditor.Core.Data.PropertyData.Generic.SelectorProperty`1.SelectItem">
-            <summary>
-            選択されているアイテムを取得します
-            </summary>
-        </member>
-        <member name="P:BEditor.Core.Data.PropertyData.Generic.SelectorProperty`1.Index">
-            <summary>
-            選択されている <see cref="P:BEditor.Core.Data.PropertyData.Generic.SelectorPropertyMetadata`1.ItemSource"/> のインデックスを取得または設定します
-            </summary>
-        </member>
-        <member name="M:BEditor.Core.Data.PropertyData.Generic.SelectorProperty`1.PropertyLoaded">
-            <inheritdoc/>
-        </member>
-        <member name="M:BEditor.Core.Data.PropertyData.Generic.SelectorProperty`1.ToString">
-            <inheritdoc/>
-        </member>
-        <member name="M:BEditor.Core.Data.PropertyData.Generic.SelectorProperty`1.Subscribe(System.IObserver{`0})">
-            <inheritdoc/>
-        </member>
-        <member name="M:BEditor.Core.Data.PropertyData.Generic.SelectorProperty`1.OnCompleted">
-            <inheritdoc/>
-        </member>
-        <member name="M:BEditor.Core.Data.PropertyData.Generic.SelectorProperty`1.OnError(System.Exception)">
-            <inheritdoc/>
-        </member>
-        <member name="M:BEditor.Core.Data.PropertyData.Generic.SelectorProperty`1.OnNext(`0)">
-            <inheritdoc/>
-        </member>
-        <member name="T:BEditor.Core.Data.PropertyData.Generic.SelectorProperty`1.ChangeSelectCommand">
-            <summary>
-            選択されているアイテムを変更するコマンド
-            </summary>
-            <remarks>このクラスは <see cref="M:BEditor.Core.Data.UndoRedoManager.Do(BEditor.Core.Data.IUndoRedoCommand)"/> と併用することでコマンドを記録できます</remarks>
-        </member>
-        <member name="M:BEditor.Core.Data.PropertyData.Generic.SelectorProperty`1.ChangeSelectCommand.#ctor(BEditor.Core.Data.PropertyData.Generic.SelectorProperty{`0},System.Int32)">
-            <summary>
-            <see cref="T:BEditor.Core.Data.PropertyData.Generic.SelectorProperty`1.ChangeSelectCommand"/> クラスの新しいインスタンスを初期化します
-            </summary>
-            <param name="property">対象の <see cref="T:BEditor.Core.Data.PropertyData.SelectorProperty"/></param>
-            <param name="select">新しいインデックス</param>
-            <exception cref="T:System.ArgumentNullException"><paramref name="property"/> が <see langword="null"/> です</exception>
-        </member>
-        <member name="M:BEditor.Core.Data.PropertyData.Generic.SelectorProperty`1.ChangeSelectCommand.Do">
-            <inheritdoc/>
-        </member>
-        <member name="M:BEditor.Core.Data.PropertyData.Generic.SelectorProperty`1.ChangeSelectCommand.Redo">
-            <inheritdoc/>
-        </member>
-        <member name="M:BEditor.Core.Data.PropertyData.Generic.SelectorProperty`1.ChangeSelectCommand.Undo">
-            <inheritdoc/>
-        </member>
-        <member name="T:BEditor.Core.Data.PropertyData.Generic.SelectorPropertyMetadata`1">
-            <summary>
-            <see cref="T:BEditor.Core.Data.PropertyData.SelectorProperty"/> のメタデータを表します
-            </summary>
-        </member>
-        <member name="M:BEditor.Core.Data.PropertyData.Generic.SelectorPropertyMetadata`1.#ctor(System.String,System.Collections.Generic.IList{`0},System.Int32,System.String)">
-            <summary>
-            <see cref="T:BEditor.Core.Data.PropertyData.SelectorPropertyMetadata"/> の新しいインスタンスを初期化します
-            </summary>
-        </member>
-        <member name="P:BEditor.Core.Data.PropertyData.Generic.SelectorPropertyMetadata`1.ItemSource">
-            <summary>
-            
-            </summary>
-        </member>
         <member name="T:BEditor.Core.Data.PropertyData.Group">
             <summary>
             <see cref="T:BEditor.Core.Data.PropertyData.PropertyElement"/> をまとめるクラス
@@ -1829,7 +1779,7 @@
         </member>
         <member name="T:BEditor.Core.Data.PropertyData.PropertyElement">
             <summary>
-            編集画面を持つプロパティを表します
+            Represents the property used by <see cref="T:BEditor.Core.Data.EffectData.EffectElement"/>.
             </summary>
         </member>
         <member name="P:BEditor.Core.Data.PropertyData.PropertyElement.Parent">
@@ -1841,6 +1791,9 @@
             <summary>
             プロパティのメタデータを取得または設定します
             </summary>
+        </member>
+        <member name="P:BEditor.Core.Data.PropertyData.PropertyElement.Id">
+            <inheritdoc/>
         </member>
         <member name="M:BEditor.Core.Data.PropertyData.PropertyElement.PropertyLoaded">
             <summary>
@@ -2013,41 +1966,6 @@
         <member name="F:BEditor.Core.Data.Serialize.SerializeKnownTypes">
             <summary>
             <see cref="T:System.Runtime.Serialization.Json.DataContractJsonSerializer"/> で使用するKnownTypeを取得します
-            </summary>
-        </member>
-        <member name="T:BEditor.Core.Data.Status">
-            <summary>
-            アプリケーションのステータスを表します
-            </summary>
-        </member>
-        <member name="F:BEditor.Core.Data.Status.Idle">
-            <summary>
-            作業をしていない状態を表します
-            </summary>
-        </member>
-        <member name="F:BEditor.Core.Data.Status.Edit">
-            <summary>
-            編集中であることを表します
-            </summary>
-        </member>
-        <member name="F:BEditor.Core.Data.Status.Saved">
-            <summary>
-            保存直後であることを表します
-            </summary>
-        </member>
-        <member name="F:BEditor.Core.Data.Status.Playing">
-            <summary>
-            プレビュー再生中であることを表します
-            </summary>
-        </member>
-        <member name="F:BEditor.Core.Data.Status.Pause">
-            <summary>
-            一時停止している状態を表します
-            </summary>
-        </member>
-        <member name="F:BEditor.Core.Data.Status.Output">
-            <summary>
-            出力中であることを表します
             </summary>
         </member>
         <member name="T:BEditor.Core.Data.IUndoRedoCommand">
@@ -4669,6 +4587,41 @@
         <member name="P:BEditor.Core.Properties.Resources.Zoom">
             <summary>
               Zoom に類似しているローカライズされた文字列を検索します。
+            </summary>
+        </member>
+        <member name="T:BEditor.Core.Service.Status">
+            <summary>
+            アプリケーションのステータスを表します
+            </summary>
+        </member>
+        <member name="F:BEditor.Core.Service.Status.Idle">
+            <summary>
+            作業をしていない状態を表します
+            </summary>
+        </member>
+        <member name="F:BEditor.Core.Service.Status.Edit">
+            <summary>
+            編集中であることを表します
+            </summary>
+        </member>
+        <member name="F:BEditor.Core.Service.Status.Saved">
+            <summary>
+            保存直後であることを表します
+            </summary>
+        </member>
+        <member name="F:BEditor.Core.Service.Status.Playing">
+            <summary>
+            プレビュー再生中であることを表します
+            </summary>
+        </member>
+        <member name="F:BEditor.Core.Service.Status.Pause">
+            <summary>
+            一時停止している状態を表します
+            </summary>
+        </member>
+        <member name="F:BEditor.Core.Service.Status.Output">
+            <summary>
+            出力中であることを表します
             </summary>
         </member>
     </members>

@@ -28,8 +28,8 @@ namespace BEditor.Views.SettingsControl
         internal class AppInfoViewModel
         {
             public string AppVersion => "B Editor 0.0.3";
-            public string OpenCVVersion => "OpenCvSharp 4.5.0.20201013";
-            public string OpenGLVersion => "OpenTK 3.2.1";
+            public string OpenCVVersion => "OpenCv 4.5.0";
+            public string OpenGLVersion => "OpenTK 3.3.1";
         }
     }
 }

@@ -13,6 +13,7 @@ using MahApps.Metro.Controls;
 
 using MaterialDesignThemes.Wpf;
 using BEditor.Models;
+using BEditor.Core.Service;
 
 namespace BEditor
 {

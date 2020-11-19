@@ -18,7 +18,7 @@
         <md:ColorZone Content="{x:Static resources:Resources.General}" Foreground="White" Background="{StaticResource PrimaryHueMidBrush}" Margin="10,10,10,10" Padding="9,9,9,9" md:ShadowAssist.ShadowDepth="Depth2"/>
 
         <VirtualizingStackPanel Orientation="Horizontal" Height="45">
-            <CheckBox Command="{Binding UseDarkModeClick, Mode=OneTime}" IsChecked="{Binding DarkMode, Source={x:Static data:Settings.Default}, Mode=TwoWay}" Padding="0" Grid.Column="1" Margin="25,0,25,0" VerticalAlignment="Center"/>
+            <CheckBox Command="{Binding UseDarkModeClick, Mode=OneTime}" IsChecked="{Binding UseDarkMode, Source={x:Static data:Settings.Default}, Mode=TwoWay}" Padding="0" Grid.Column="1" Margin="25,0,25,0" VerticalAlignment="Center"/>
             <TextBlock Text="{x:Static resources:Resources.UseDarkMode}" FontSize="13" VerticalAlignment="Center"/>
         </VirtualizingStackPanel>
 

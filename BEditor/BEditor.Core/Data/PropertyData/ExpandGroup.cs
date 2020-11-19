@@ -14,7 +14,7 @@ namespace BEditor.Core.Data.PropertyData
     /// 複数の <see cref="PropertyElement"/> をエクスパンダーでまとめるクラス
     /// </summary>
     [DataContract(Namespace = "")]
-    public abstract class ExpandGroup : Group, IEasingSetting, IObservable<bool>, IObserver<bool>, INotifyPropertyChanged, IExtensibleDataObject, IChild<EffectElement>, IParent<PropertyElement>
+    public abstract class ExpandGroup : Group, IEasingProperty, IObservable<bool>, IObserver<bool>, INotifyPropertyChanged, IExtensibleDataObject, IChild<EffectElement>, IParent<PropertyElement>
     {
         private static readonly PropertyChangedEventArgs isExpandedArgs = new(nameof(IsExpanded));
         private bool isOpen;

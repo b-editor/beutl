@@ -31,6 +31,7 @@ using Resources_ = BEditor.Core.Properties.Resources;
 using BEditor.Core.Media;
 using System.Timers;
 using BEditor.Models.Services;
+using BEditor.Core.Service;
 
 namespace BEditor
 {
@@ -130,8 +131,6 @@ namespace BEditor
 
             SetFont();
             SetColor();
-
-            //Componentにset
 
             Services.FileDialogService = new FileDialogService();
             Services.ImageRenderService = new WPFImageRenderSevice();

@@ -2,6 +2,8 @@
 using System.IO;
 using System.Runtime.Serialization;
 
+using BEditor.Core.Service;
+
 namespace BEditor.Core.Data
 {
     [DataContract(Namespace = "")]

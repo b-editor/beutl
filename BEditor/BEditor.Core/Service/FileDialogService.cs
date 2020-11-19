@@ -4,7 +4,7 @@ using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
 
-namespace BEditor.Core.DI
+namespace BEditor.Core.Service
 {
     public interface IFileDialogService
     {

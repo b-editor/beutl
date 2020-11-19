@@ -15,7 +15,7 @@ namespace BEditor.Core.Data.PropertyData
     /// 配列から一つのアイテムを選択するプロパティを表します
     /// </summary>
     [DataContract(Namespace = "")]
-    public class SelectorProperty : PropertyElement, IEasingSetting, IObservable<int>, IObserver<int>, INotifyPropertyChanged, IExtensibleDataObject, IChild<EffectElement>
+    public class SelectorProperty : PropertyElement, IEasingProperty, IObservable<int>, IObserver<int>, INotifyPropertyChanged, IExtensibleDataObject, IChild<EffectElement>
     {
         private static readonly PropertyChangedEventArgs indexArgs = new(nameof(Index));
         private int selectIndex;
