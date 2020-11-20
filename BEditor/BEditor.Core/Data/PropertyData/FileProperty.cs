@@ -5,6 +5,7 @@ using System.Reactive.Disposables;
 using System.Runtime.Serialization;
 using System.Threading.Tasks;
 
+using BEditor.Core.Bindings;
 using BEditor.Core.Data.EffectData;
 using BEditor.Core.Data.PropertyData.EasingSetting;
 
@@ -14,12 +15,18 @@ namespace BEditor.Core.Data.PropertyData
     /// ファイルを選択するプロパティを表します
     /// </summary>
     [DataContract(Namespace = "")]
-    public class FileProperty : PropertyElement, IEasingProperty, IObservable<string>, IObserver<string>, INotifyPropertyChanged, IExtensibleDataObject, IChild<EffectElement>
+    public class FileProperty : PropertyElement, IEasingProperty, IBindable<string>
     {
+        #region フィールド
+
         private static readonly PropertyChangedEventArgs fileArgs = new(nameof(File));
         private string file;
         private List<IObserver<string>> list;
-        private List<IObserver<string>> collection => list ??= new();
+
+        private IDisposable BindDispose;
+
+        #endregion
+
 
         /// <summary>
         /// <see cref="FileProperty"/> クラスの新しいインスタンスを初期化します
@@ -32,6 +39,7 @@ namespace BEditor.Core.Data.PropertyData
             File = metadata.DefaultFile;
         }
 
+        private List<IObserver<string>> collection => list ??= new();
         /// <summary>
         /// ファイルの名前を取得または設定します
         /// </summary>
@@ -39,42 +47,44 @@ namespace BEditor.Core.Data.PropertyData
         public string File
         {
             get => file;
-            set => SetValue(value, ref file, fileArgs);
-        }
-
-        private void FileProperty_PropertyChanged(object sender, PropertyChangedEventArgs e)
-        {
-            if (e.PropertyName == nameof(File))
-            {
-                foreach (var observer in collection)
-                {
-                    try
-                    {
-                        observer.OnNext(file);
-                        observer.OnCompleted();
-                    }
-                    catch (Exception ex)
-                    {
-                        observer.OnError(ex);
-                    }
-                }
-            }
+            set => SetValue(value, ref file, fileArgs, FileProperty_PropertyChanged);
         }
         /// <inheritdoc/>
-        public IDisposable Subscribe(IObserver<string> observer)
+        public string Value => File;
+        /// <inheritdoc/>
+        [DataMember]
+        public string BindHint { get; private set; }
+
+        private void FileProperty_PropertyChanged()
         {
-            collection.Add(observer);
-            return Disposable.Create(() => collection.Remove(observer));
+            foreach (var observer in collection)
+            {
+                try
+                {
+                    observer.OnNext(file);
+                    observer.OnCompleted();
+                }
+                catch (Exception ex)
+                {
+                    observer.OnError(ex);
+                }
+            }
         }
 
         /// <inheritdoc/>
         public override void PropertyLoaded()
         {
             base.PropertyLoaded();
-            PropertyChanged += FileProperty_PropertyChanged;
+
+            if (BindHint is not null && this.GetBindable(BindHint, out var b))
+            {
+                Bind(b);
+            }
         }
         /// <inheritdoc/>
         public override string ToString() => $"(File:{File} Name:{PropertyMetadata?.Name})";
+
+        #region Ibindable
 
         /// <inheritdoc/>
         public void OnCompleted() { }
@@ -86,6 +96,30 @@ namespace BEditor.Core.Data.PropertyData
             if (System.IO.File.Exists(value))
                 File = value;
         }
+
+        /// <inheritdoc/>
+        public IDisposable Subscribe(IObserver<string> observer)
+        {
+            collection.Add(observer);
+            return Disposable.Create(() => collection.Remove(observer));
+        }
+
+        /// <inheritdoc/>
+        public void Bind(IBindable<string> bindable)
+        {
+            BindDispose?.Dispose();
+
+            if (bindable is not null)
+            {
+                BindHint = bindable.GetString();
+                File = bindable.Value;
+
+                // bindableが変更時にthisが変更
+                BindDispose = bindable.Subscribe(this);
+            }
+        }
+
+        #endregion
 
 
         #region Commands

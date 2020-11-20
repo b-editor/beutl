@@ -10,7 +10,7 @@ namespace BEditor.Core.Data
     /// 継承するクラスに対応するUIのデータのキャッシュを表します
     /// </summary>
     [DataContract(Namespace = "")]
-    public class ComponentObject : BasePropertyChanged, IExtensibleDataObject, INotifyPropertyChanged
+    public class ComponentObject : BasePropertyChanged, IExtensibleDataObject
     {
         private Dictionary<string, dynamic> componentData;
 

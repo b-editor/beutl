@@ -6,8 +6,8 @@ using System.Runtime.Serialization;
 using System.Text.RegularExpressions;
 using System.Threading.Tasks;
 
+using BEditor.Core.Bindings;
 using BEditor.Core.Data.EffectData;
-using BEditor.Core.Data.PropertyData.Bindings;
 using BEditor.Core.Data.PropertyData.EasingSetting;
 using BEditor.Core.Extensions;
 
@@ -17,15 +17,18 @@ namespace BEditor.Core.Data.PropertyData
     /// チェックボックスのプロパティを表します
     /// </summary>
     [DataContract(Namespace = "")]
-    public class CheckProperty : PropertyElement, IEasingProperty, IObservable<bool>, IObserver<bool>, INotifyPropertyChanged, IExtensibleDataObject, IChild<EffectElement>, IBindable<bool>
+    public class CheckProperty : PropertyElement, IEasingProperty, IBindable<bool>
     {
+        #region フィールド
+
         private static readonly PropertyChangedEventArgs checkedArgs = new(nameof(IsChecked));
         private bool isChecked;
         private List<IObserver<bool>> list;
-        private IBindable<bool> Bindable;
+
         private IDisposable BindDispose;
 
-        private List<IObserver<bool>> Collection => list ??= new();
+        #endregion
+ 
 
         /// <summary>
         /// <see cref="CheckProperty"/> クラスの新しいインスタンスを初期化します
@@ -40,6 +43,8 @@ namespace BEditor.Core.Data.PropertyData
             isChecked = metadata.DefaultIsChecked;
         }
 
+
+        private List<IObserver<bool>> Collection => list ??= new();
         /// <summary>
         /// チェックされている場合 <see langword="true"/>、そうでない場合は <see langword="false"/> となります
         /// </summary>
@@ -47,80 +52,32 @@ namespace BEditor.Core.Data.PropertyData
         public bool IsChecked
         {
             get => isChecked;
-            set => SetValue(value, ref isChecked, checkedArgs);
+            set => SetValue(value, ref isChecked, checkedArgs, CheckProperty_PropertyChanged);
         }
-        /// <summary>
-        /// 
-        /// </summary>
+        /// <inheritdoc/>
         [DataMember]
-        public string BindHint
-        {
-            get => (Bindable is null) ? null : $"{Bindable.GetParent3().SceneName}.{Bindable.GetParent2().Name}[{Bindable.GetParent().Id}][{Bindable.Id}]";
-            private set
-            {
-                var regex1 = new Regex(@"^([\da-zA-Z]+)\.([\da-zA-Z]+)\[([\d]+)\]\[([\d]+)\]\z");
-                if (regex1.IsMatch(value))
-                {
-                    var match = regex1.Match(value);
-
-                    // PropertyLoaded後
-                    var scene = this.GetParent4().Find(match.Groups[1].Value);
-                    var clip = scene.Find(match.Groups[2].Value);
-                    var effect = (int.TryParse(match.Groups[3].Value, out var id) ? clip.Find(id) : throw new Exception()) ?? throw new Exception();
-                    Bindable = (int.TryParse(match.Groups[4].Value, out var id1) ? effect.Find(id1) as IBindable<bool> : throw new Exception()) ?? throw new Exception();
-
-                    Bind(Bindable);
-                }
-            }
-        }
+        public string BindHint { get; private set; }
         /// <inheritdoc/>
         public bool Value => IsChecked;
 
 
-        private void CheckProperty_PropertyChanged(object sender, PropertyChangedEventArgs e)
+        private void CheckProperty_PropertyChanged()
         {
-            if (e.PropertyName == nameof(IsChecked))
+            foreach (var observer in Collection)
             {
-                foreach (var observer in Collection)
+                try
                 {
-                    try
-                    {
-                        observer.OnNext(isChecked);
-                        observer.OnCompleted();
-                    }
-                    catch (Exception ex)
-                    {
-                        observer.OnError(ex);
-                    }
+                    observer.OnNext(isChecked);
+                    observer.OnCompleted();
+                }
+                catch (Exception ex)
+                {
+                    observer.OnError(ex);
                 }
             }
         }
-        /// <inheritdoc/>
-        public IDisposable Subscribe(IObserver<bool> observer)
-        {
-            Collection.Add(observer);
-            return Disposable.Create(() => Collection.Remove(observer));
-        }
 
-        public void Bind(IBindable<bool>? bindable)
-        {
-            BindDispose?.Dispose();
-            Bindable = bindable;
-            if (bindable is not null)
-            {
-                IsChecked = bindable.Value;
-                var d1 = Bindable.Subscribe(this);
-                var d2 = this.Subscribe(Bindable);
-
-                BindDispose = Disposable.Create(() =>
-                {
-                    d1.Dispose();
-                    d2.Dispose();
-                });
-            }
-        }
-
-        #region IObserver
+        #region IBindable
 
         /// <inheritdoc/>
         public void OnCompleted() { }
@@ -132,13 +89,42 @@ namespace BEditor.Core.Data.PropertyData
             IsChecked = value;
         }
 
+        /// <inheritdoc/>
+        public IDisposable Subscribe(IObserver<bool> observer)
+        {
+            Collection.Add(observer);
+            return Disposable.Create(() => Collection.Remove(observer));
+        }
+
+        /// <inheritdoc/>
+        public void Bind(IBindable<bool>? bindable)
+        {
+            BindDispose?.Dispose();
+
+            if (bindable is not null)
+            {
+                BindHint = bindable.GetString();
+                IsChecked = bindable.Value;
+
+                // bindableが変更時にthisが変更
+                BindDispose = bindable.Subscribe(this);
+            }
+        }
+
         #endregion
 
         /// <inheritdoc/>
         public override void PropertyLoaded()
         {
             base.PropertyLoaded();
-            PropertyChanged += CheckProperty_PropertyChanged;
+            
+            if(BindHint is not null)
+            {
+                if (this.GetBindable(BindHint, out var b))
+                {
+                    Bind(b);
+                }
+            }
         }
         /// <inheritdoc/>
         public override string ToString() => $"(IsChecked:{IsChecked} Name:{PropertyMetadata?.Name})";

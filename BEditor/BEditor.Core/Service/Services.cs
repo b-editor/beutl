@@ -8,6 +8,7 @@ namespace BEditor.Core.Service
 
         public static IFileDialogService FileDialogService { get; set; }
         public static IImageRenderService ImageRenderService { get; set; } = new ImageRenderService();
+        public static IGraphicsContextService GraphicsContextService { get; set; } = new GraphicsContextService();
     }
 
     /// <summary>

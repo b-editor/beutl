@@ -47,32 +47,6 @@ namespace BEditor.Core.Data
                 return default;
             }
         }
-        /// <summary>
-        /// オブジェクトの内容をファイルから読み込み復元します
-        /// </summary>
-        /// <param name="path">読み込むファイル名</param>
-        /// <param name="type"></param>
-        /// <returns>成功した場合は復元されたオブジェクト、そうでない場合は <see langword="null"/> を返します</returns>
-        public static object LoadFromFile(string path, Type type)
-        {
-            try
-            {
-                object obj;
-
-                using (FileStream file = new FileStream(path, FileMode.Open))
-                {
-                    var serializer = new DataContractJsonSerializer(type, SerializeKnownTypes);
-                    obj = serializer.ReadObject(file);
-                }
-
-                return obj;
-            }
-            catch(Exception e)
-            {
-                ActivityLog.ErrorLog(e);
-                return null;
-            }
-        }
 
         /// <summary>
         /// オブジェクトの内容をファイルに保存します

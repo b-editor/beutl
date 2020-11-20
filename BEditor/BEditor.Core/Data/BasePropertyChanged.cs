@@ -26,12 +26,13 @@ namespace BEditor.Core.Data
                 RaisePropertyChanged(name);
             }
         }
-        protected void SetValue<T>(T src, ref T dst, PropertyChangedEventArgs args)
+        protected void SetValue<T>(T src, ref T dst, PropertyChangedEventArgs args, Action action = null)
         {
             if (src == null || !src.Equals(dst))
             {
                 dst = src;
                 RaisePropertyChanged(args);
+                action?.Invoke();
             }
         }
 

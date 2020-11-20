@@ -8,7 +8,7 @@ using BEditor.Core.Media;
 
 namespace BEditor.Core.Renderings
 {
-    public struct RenderableImage : IRenderable<Image>
+    public class RenderableImage : IRenderable<Image>
     {
         public Image Source { get; init; }
 

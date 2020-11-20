@@ -5,7 +5,9 @@ using System.Reactive.Disposables;
 using System.Runtime.Serialization;
 using System.Threading.Tasks;
 
+using BEditor.Core.Bindings;
 using BEditor.Core.Data.EffectData;
+using BEditor.Core.Extensions;
 
 namespace BEditor.Core.Data.PropertyData
 {
@@ -13,12 +15,17 @@ namespace BEditor.Core.Data.PropertyData
     /// 複数行の文字のプロパティを表します
     /// </summary>
     [DataContract(Namespace = "")]
-    public class DocumentProperty : PropertyElement, IObservable<string>, IObserver<string>, INotifyPropertyChanged, IExtensibleDataObject, IChild<EffectElement>
+    public class DocumentProperty : PropertyElement, IBindable<string>
     {
+        #region フィールド
+
         private static readonly PropertyChangedEventArgs textArgs = new(nameof(Text));
         private string textProperty;
         private List<IObserver<string>> list;
-        private List<IObserver<string>> collection => list ??= new();
+
+        private IDisposable BindDispose;
+
+        #endregion
 
         /// <summary>
         /// <see cref="DocumentProperty"/> クラスの新しいインスタンスを初期化します
@@ -35,6 +42,7 @@ namespace BEditor.Core.Data.PropertyData
         }
 
 
+        private List<IObserver<string>> collection => list ??= new();
         /// <summary>
         /// 入力されている文字列を取得または設定します
         /// </summary>
@@ -42,45 +50,66 @@ namespace BEditor.Core.Data.PropertyData
         public string Text
         {
             get => textProperty;
-            set => SetValue(value, ref textProperty, textArgs);
+            set => SetValue(value, ref textProperty, textArgs, DocumentProperty_PropertyChanged);
         }
         /// <summary>
         /// 高さを取得または設定します
         /// </summary>
         public int? HeightProperty { get; set; }
+        /// <inheritdoc/>
+        public string Value => Text;
+        /// <inheritdoc/>
+        [DataMember]
+        public string BindHint { get; private set; }
 
-        private void DocumentProperty_PropertyChanged(object sender, PropertyChangedEventArgs e)
+        private void DocumentProperty_PropertyChanged()
         {
-            if (e.PropertyName == nameof(Text))
+            foreach (var observer in collection)
             {
-                foreach (var observer in collection)
+                try
                 {
-                    try
-                    {
-                        observer.OnNext(textProperty);
-                        observer.OnCompleted();
-                    }
-                    catch (Exception ex)
-                    {
-                        observer.OnError(ex);
-                    }
+                    observer.OnNext(textProperty);
+                    observer.OnCompleted();
+                }
+                catch (Exception ex)
+                {
+                    observer.OnError(ex);
                 }
             }
         }
+
+
+        #region IBindable
+
+        /// <inheritdoc/>
+        public void OnCompleted() { }
+        /// <inheritdoc/>
+        public void OnError(Exception error) { }
+        /// <inheritdoc/>
+        public void OnNext(string value)
+        {
+            Text = value;
+        }
+
         /// <inheritdoc/>
         public IDisposable Subscribe(IObserver<string> observer)
         {
             collection.Add(observer);
             return Disposable.Create(() => collection.Remove(observer));
         }
-
-        #region Ibserver
-
-        public void OnCompleted() { }
-        public void OnError(Exception error) { }
-        public void OnNext(string value)
+        /// <inheritdoc/>
+        public void Bind(IBindable<string> bindable)
         {
-            Text = value;
+            BindDispose?.Dispose();
+
+            if (bindable is not null)
+            {
+                BindHint = bindable.GetString();
+                Text = bindable.Value;
+
+                // bindableが変更時にthisが変更
+                BindDispose = bindable.Subscribe(this);
+            }
         }
 
         #endregion
@@ -89,7 +118,10 @@ namespace BEditor.Core.Data.PropertyData
         public override void PropertyLoaded()
         {
             base.PropertyLoaded();
-            PropertyChanged += DocumentProperty_PropertyChanged;
+            if (BindHint is not null && this.GetBindable(BindHint, out var b))
+            {
+                Bind(b);
+            }
         }
         /// <inheritdoc/>
         public override string ToString() => $"(Text:{Text} Name:{PropertyMetadata?.Name})";

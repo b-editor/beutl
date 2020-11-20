@@ -278,6 +278,11 @@
             It will be called before rendering.
             </summary>
         </member>
+        <member name="M:BEditor.Core.Data.ObjectData.ClipData.PropertyLoaded">
+            <summary>
+            
+            </summary>
+        </member>
         <member name="M:BEditor.Core.Data.ObjectData.ClipData.ToString">
             <inheritdoc/>
         </member>
@@ -665,6 +670,11 @@
         </member>
         <member name="P:BEditor.Core.Data.ProjectData.Scene.Id">
             <inheritdoc/>
+        </member>
+        <member name="M:BEditor.Core.Data.ProjectData.Scene.PropertyLoaded">
+            <summary>
+            
+            </summary>
         </member>
         <member name="M:BEditor.Core.Data.ProjectData.Scene.#ctor(System.Int32,System.Int32)">
             <summary>
@@ -1938,14 +1948,6 @@
             オブジェクトの内容をファイルから読み込み復元します
             </summary>
             <param name="path">読み込むファイル名</param>
-            <returns>成功した場合は復元されたオブジェクト、そうでない場合は <see langword="null"/> を返します</returns>
-        </member>
-        <member name="M:BEditor.Core.Data.Serialize.LoadFromFile(System.String,System.Type)">
-            <summary>
-            オブジェクトの内容をファイルから読み込み復元します
-            </summary>
-            <param name="path">読み込むファイル名</param>
-            <param name="type"></param>
             <returns>成功した場合は復元されたオブジェクト、そうでない場合は <see langword="null"/> を返します</returns>
         </member>
         <member name="M:BEditor.Core.Data.Serialize.SaveToFile(System.Object,System.String)">

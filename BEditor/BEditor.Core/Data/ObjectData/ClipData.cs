@@ -32,7 +32,6 @@ namespace BEditor.Core.Data.ObjectData
         private int end;
         private int layer;
         private string labeltext;
-        private ObservableCollection<EffectElement> effects;
 
         #endregion
 
@@ -141,20 +140,7 @@ namespace BEditor.Core.Data.ObjectData
         /// Get the effects included in this <see cref="ClipData"/>.
         /// </summary>
         [DataMember(Name = "Effects", Order = 6)]
-        public ObservableCollection<EffectElement> Effect
-        {
-            get => effects;
-            private set
-            {
-                effects = value;
-
-                Parallel.ForEach(effects, effect =>
-                {
-                    effect.Parent = this;
-                    effect.PropertyLoaded();
-                });
-            }
-        }
+        public ObservableCollection<EffectElement> Effect { get; private set; }
 
         /// <inheritdoc/>
         IEnumerable<EffectElement> IParent<EffectElement>.Children => Effect;
@@ -187,6 +173,18 @@ namespace BEditor.Core.Data.ObjectData
             {
                 item.PreviewRender(loadargs);
             }
+        }
+
+        /// <summary>
+        /// 
+        /// </summary>
+        public void PropertyLoaded()
+        {
+            Parallel.ForEach(Effect, effect =>
+            {
+                effect.Parent = this;
+                effect.PropertyLoaded();
+            });
         }
 
         internal void MoveFrame(int f)

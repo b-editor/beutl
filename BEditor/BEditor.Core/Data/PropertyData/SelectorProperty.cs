@@ -6,6 +6,7 @@ using System.Reactive.Disposables;
 using System.Runtime.Serialization;
 using System.Threading.Tasks;
 
+using BEditor.Core.Bindings;
 using BEditor.Core.Data.EffectData;
 using BEditor.Core.Data.PropertyData.EasingSetting;
 
@@ -15,12 +16,18 @@ namespace BEditor.Core.Data.PropertyData
     /// 配列から一つのアイテムを選択するプロパティを表します
     /// </summary>
     [DataContract(Namespace = "")]
-    public class SelectorProperty : PropertyElement, IEasingProperty, IObservable<int>, IObserver<int>, INotifyPropertyChanged, IExtensibleDataObject, IChild<EffectElement>
+    public class SelectorProperty : PropertyElement, IEasingProperty, IBindable<int>
     {
+        #region フィールド
+
         private static readonly PropertyChangedEventArgs indexArgs = new(nameof(Index));
         private int selectIndex;
         private List<IObserver<int>> list;
-        private List<IObserver<int>> collection => list ??= new();
+
+        private IDisposable BindDispose;
+
+        #endregion
+
 
         /// <summary>
         /// <see cref="SelectorProperty"/> クラスの新しいインスタンスを初期化します
@@ -33,6 +40,8 @@ namespace BEditor.Core.Data.PropertyData
             Index = metadata.DefaultIndex;
         }
 
+
+        private List<IObserver<int>> Collection => list ??= new();
         /// <summary>
         /// 選択されているアイテムを取得します
         /// </summary>
@@ -45,26 +54,27 @@ namespace BEditor.Core.Data.PropertyData
         public int Index
         {
             get => selectIndex;
-            set => SetValue(value, ref selectIndex, indexArgs);
+            set => SetValue(value, ref selectIndex, indexArgs, SelectorProperty_PropertyChanged);
         }
-
+        /// <inheritdoc/>
+        public int Value => Index;
+        /// <inheritdoc/>
+        [DataMember]
+        public string BindHint { get; private set; }
 
         public static implicit operator int(SelectorProperty selector) => selector.Index;
-        private void SelectorProperty_PropertyChanged(object sender, PropertyChangedEventArgs e)
+        private void SelectorProperty_PropertyChanged()
         {
-            if (e.PropertyName == nameof(Index))
+            foreach (var observer in Collection)
             {
-                foreach (var observer in collection)
+                try
                 {
-                    try
-                    {
-                        observer.OnNext(selectIndex);
-                        observer.OnCompleted();
-                    }
-                    catch (Exception ex)
-                    {
-                        observer.OnError(ex);
-                    }
+                    observer.OnNext(selectIndex);
+                    observer.OnCompleted();
+                }
+                catch (Exception ex)
+                {
+                    observer.OnError(ex);
                 }
             }
         }
@@ -72,15 +82,22 @@ namespace BEditor.Core.Data.PropertyData
         public override void PropertyLoaded()
         {
             base.PropertyLoaded();
-            PropertyChanged += SelectorProperty_PropertyChanged;
+
+            if (BindHint is not null && this.GetBindable(BindHint, out var b))
+            {
+                Bind(b);
+            }
         }
         /// <inheritdoc/>
         public override string ToString() => $"(Index:{Index} Item:{SelectItem} Name:{PropertyMetadata?.Name})";
+
+        #region IBindable
+
         /// <inheritdoc/>
         public IDisposable Subscribe(IObserver<int> observer)
         {
-            collection.Add(observer);
-            return Disposable.Create(() => collection.Remove(observer));
+            Collection.Add(observer);
+            return Disposable.Create(() => Collection.Remove(observer));
         }
 
         /// <inheritdoc/>
@@ -92,6 +109,22 @@ namespace BEditor.Core.Data.PropertyData
         {
             Index = value;
         }
+
+        public void Bind(IBindable<int> bindable)
+        {
+            BindDispose?.Dispose();
+
+            if (bindable is not null)
+            {
+                BindHint = bindable.GetString();
+                Index = bindable.Value;
+
+                // bindableが変更時にthisが変更
+                BindDispose = bindable.Subscribe(this);
+            }
+        }
+
+        #endregion
 
 
         #region Commands

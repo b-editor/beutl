@@ -41,11 +41,11 @@ namespace BEditor.Core.Data.ProjectData
         /// </summary>
         public Project(string file, IApplication app = null)
         {
-            var o = Serialize.LoadFromFile(file, typeof(Project));
+            var o = Serialize.LoadFromFile<Project>(file);
 
             if (o != null)
             {
-                var project = (Project)o;
+                var project = o;
 
                 foreach (var scene in project.SceneList)
                 {
@@ -92,7 +92,11 @@ namespace BEditor.Core.Data.ProjectData
             private set
             {
                 sceneList = value;
-                Parallel.ForEach(value, scene => scene.SetParent(this));
+                Parallel.ForEach(value, scene =>
+                {
+                    scene.SetParent(this);
+                    scene.PropertyLoaded();
+                });
             }
         }
 

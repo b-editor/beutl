@@ -29,7 +29,6 @@ namespace BEditor.Core.Data.ProjectData
         private static readonly PropertyChangedEventArgs hoffsetArgs = new(nameof(TimeLineHorizonOffset));
         private static readonly PropertyChangedEventArgs voffsetArgs = new(nameof(TimeLineVerticalOffset));
         private static readonly PropertyChangedEventArgs sceneNameArgs = new(nameof(SceneName));
-        private ObservableCollection<ClipData> datas;
         private ClipData selectItem;
         private ObservableCollection<ClipData> selectItems;
         private int previewframe;
@@ -81,15 +80,7 @@ namespace BEditor.Core.Data.ProjectData
         /// Get the <see cref="ClipData"/> contained in this <see cref="Scene"/>.
         /// </summary>
         [DataMember(Order = 10)]
-        public ObservableCollection<ClipData> Datas
-        {
-            get => datas;
-            private set
-            {
-                datas = value;
-                Parallel.ForEach(datas, data => data.Parent = this);
-            }
-        }
+        public ObservableCollection<ClipData> Datas { get; private set; }
 
         /// <summary>
         /// Get the number of the hidden layer.
@@ -252,6 +243,17 @@ namespace BEditor.Core.Data.ProjectData
             }
         }
         internal void SetParent(Project project) => parent = project;
+        /// <summary>
+        /// 
+        /// </summary>
+        public void PropertyLoaded()
+        {
+            Parallel.ForEach(Datas, data =>
+            {
+                data.Parent = this;
+                data.PropertyLoaded();
+            });
+        }
 
         #region コンストラクタ
 

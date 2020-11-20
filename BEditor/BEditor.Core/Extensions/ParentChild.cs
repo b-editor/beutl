@@ -51,6 +51,13 @@ namespace BEditor.Core.Extensions
         {
             return parent.Children.ToList().Find(item => item.Name == name);
         }
+        [Pure]
+        [return: MaybeNull]
+        public static bool Contains<T>(this IParent<T> parent, T item)
+        {
+            return parent.Children.ToList().Contains(item);
+        }
+
 
         #endregion
     }

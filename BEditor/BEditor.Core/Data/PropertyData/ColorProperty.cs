@@ -12,7 +12,7 @@ namespace BEditor.Core.Data.PropertyData
     /// 色を選択するプロパティを表します
     /// </summary>
     [DataContract(Namespace = "")]
-    public class ColorProperty : PropertyElement, INotifyPropertyChanged, IExtensibleDataObject, IChild<EffectElement>
+    public class ColorProperty : PropertyElement
     {
         private static readonly PropertyChangedEventArgs rArgs = new(nameof(Red));
         private static readonly PropertyChangedEventArgs gArgs = new(nameof(Green));

@@ -16,7 +16,7 @@ namespace BEditor.Core.Data.PropertyData
     /// 
     /// </summary>
     [DataContract(Namespace = "")]
-    public class ColorAnimationProperty : PropertyElement, IKeyFrameProperty, INotifyPropertyChanged, IExtensibleDataObject, IChild<EffectElement>
+    public class ColorAnimationProperty : PropertyElement, IKeyFrameProperty
     {
         private static readonly PropertyChangedEventArgs easingFuncArgs = new(nameof(EasingType));
         private static readonly PropertyChangedEventArgs easingDataArgs = new(nameof(EasingData));
