@@ -16,7 +16,7 @@ namespace BEditor.Core.Data.PropertyData
     /// <see cref="float"/> 型の値をイージングするプロパティを表します
     /// </summary>
     [DataContract(Namespace = "")]
-    public class EaseProperty : PropertyElement, IKeyFrameProperty, INotifyPropertyChanged, IExtensibleDataObject, IChild<EffectElement>
+    public class EaseProperty : PropertyElement, IKeyFrameProperty
     {
         private static readonly PropertyChangedEventArgs easingFuncArgs = new(nameof(EasingType));
         private static readonly PropertyChangedEventArgs easingDataArgs = new(nameof(EasingData));

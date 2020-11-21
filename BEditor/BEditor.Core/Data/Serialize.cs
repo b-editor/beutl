@@ -122,7 +122,6 @@ namespace BEditor.Core.Data
                         typeof(Zoom),
                         typeof(Material),
 
-                        typeof(DefaultData.DefaultImageObject),
                         typeof(DefaultData.Figure),
                         typeof(DefaultData.Image),
                         typeof(DefaultData.Text),

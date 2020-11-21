@@ -289,16 +289,16 @@ namespace BEditor.ViewModels.TimeLines
 
                         if (type_ == ClipType.Image)
                         {
-                            ((DefaultData.Image)((ImageObject)a.data.Effect[0]).Custom).File.File = file;
+                            ((DefaultData.Image)a.data.Effect[0]).File.File = file;
                         }
                         else if (type_ == ClipType.Video)
                         {
-                            ((DefaultData.Video)((ImageObject)a.data.Effect[0]).Custom).File.File = file;
+                            ((DefaultData.Video)a.data.Effect[0]).File.File = file;
                         }
                         else if (type_ == ClipType.Text)
                         {
                             var reader = new StreamReader(file);
-                            ((DefaultData.Text)((ImageObject)a.data.Effect[0]).Custom).Document.Text = reader.ReadToEnd();
+                            ((DefaultData.Text)a.data.Effect[0]).Document.Text = reader.ReadToEnd();
                             reader.Close();
                         }
 

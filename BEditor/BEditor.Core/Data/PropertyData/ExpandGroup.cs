@@ -26,10 +26,10 @@ namespace BEditor.Core.Data.PropertyData
         private List<IObserver<bool>> list;
 
         private IDisposable BindDispose;
-        private List<IObserver<bool>> collection => list ??= new();
 
         #endregion
 
+        private List<IObserver<bool>> collection => list ??= new();
         /// <summary>
         /// エクスパンダーが開いているかを取得または設定します
         /// </summary>

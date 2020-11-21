@@ -36,7 +36,7 @@ namespace BEditor.Core.Data.EffectData
              Y.GetValue(args.Frame),
              (int)Blur.GetValue(args.Frame),
              Alpha.GetValue(args.Frame),
-             Color);
+             Color.Color);
 
         public override IEnumerable<PropertyElement> Properties => new PropertyElement[]
         {

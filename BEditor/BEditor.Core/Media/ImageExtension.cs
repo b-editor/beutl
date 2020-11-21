@@ -87,7 +87,7 @@ namespace BEditor.Core.Media
             return image;
         }
 
-        public static IRenderable<Image> Border(this IRenderable<Image> image, int size, Color color)
+        public static IRenderable<Image> Border(this IRenderable<Image> image, int size, in ReadOnlyColor color)
         {
             if (size <= 0) throw new ArgumentException("size <= 0");
             image.Source.ThrowIfDisposed();
@@ -125,7 +125,7 @@ namespace BEditor.Core.Media
             return image;
         }
 
-        public static IRenderable<Image> SetColor(this IRenderable<Image> image, Color color)
+        public static IRenderable<Image> SetColor(this IRenderable<Image> image, ReadOnlyColor color)
         {
             image.Source.ThrowIfDisposed();
 
@@ -153,7 +153,7 @@ namespace BEditor.Core.Media
             return image;
         }
 
-        public static IRenderable<Image> Shadow(this IRenderable<Image> image, float x, float y, int blur, float alpha, Color color)
+        public static IRenderable<Image> Shadow(this IRenderable<Image> image, float x, float y, int blur, float alpha, in ReadOnlyColor color)
         {
             if (blur < 0) throw new ArgumentException("blur < 0");
             image.Source.ThrowIfDisposed();

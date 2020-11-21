@@ -6,19 +6,20 @@ using BEditor.Core.Data.ProjectData;
 using BEditor.Core.Data.PropertyData;
 using BEditor.Core.Extensions;
 using BEditor.Core.Media;
+using BEditor.Core.Properties;
 
 namespace BEditor.Core.Data.ObjectData
 {
     public static partial class DefaultData
     {
         [DataContract(Namespace = "")]
-        public class Figure : DefaultImageObject
+        public class Figure : ImageObject
         {
-            public static readonly EasePropertyMetadata WidthMetadata = new(Core.Properties.Resources.Width, 100, float.NaN, 0);
-            public static readonly EasePropertyMetadata HeightMetadata = new(Core.Properties.Resources.Height, 100, float.NaN, 0);
-            public static readonly EasePropertyMetadata LineMetadata = new(Core.Properties.Resources.Line, 4000, float.NaN, 0);
-            public static readonly ColorPropertyMetadata ColorMetadata = new(Core.Properties.Resources.Color, 255, 255, 255);
-            public static readonly SelectorPropertyMetadata TypeMetadata = new(Core.Properties.Resources.Type, new string[]
+            public static readonly EasePropertyMetadata WidthMetadata = new(Resources.Width, 100, float.NaN, 0);
+            public static readonly EasePropertyMetadata HeightMetadata = new(Resources.Height, 100, float.NaN, 0);
+            public static readonly EasePropertyMetadata LineMetadata = new(Resources.Line, 4000, float.NaN, 0);
+            public static readonly ColorPropertyMetadata ColorMetadata = new(Resources.Color, 255, 255, 255);
+            public static readonly SelectorPropertyMetadata TypeMetadata = new(Resources.Type, new string[]
             {
                 Core.Properties.Resources.Circle,
                 Core.Properties.Resources.Square
@@ -37,20 +38,25 @@ namespace BEditor.Core.Data.ObjectData
 
             #region DefaultImageObjectメンバー
 
-            public override Media.Image Render(EffectRenderArgs args)
+            public override Media.Image OnRender(EffectRenderArgs args)
             {
                 if (Type.Index == 0)
                 {
-                    return Media.Image.Ellipse((int)Width.GetValue(args.Frame), (int)Height.GetValue(args.Frame), (int)Line.GetValue(args.Frame), Color);
+                    return Media.Image.Ellipse((int)Width.GetValue(args.Frame), (int)Height.GetValue(args.Frame), (int)Line.GetValue(args.Frame), Color.Color);
                 }
                 else
                 {
-                    return Media.Image.Rectangle((int)Width.GetValue(args.Frame), (int)Height.GetValue(args.Frame), (int)Line.GetValue(args.Frame), Color);
+                    return Media.Image.Rectangle((int)Width.GetValue(args.Frame), (int)Height.GetValue(args.Frame), (int)Line.GetValue(args.Frame), Color.Color);
                 }
             }
 
             public override IEnumerable<PropertyElement> Properties => new PropertyElement[]
             {
+                Coordinate,
+                Zoom,
+                Blend,
+                Angle,
+                Material,
                 Width,
                 Height,
                 Line,
@@ -60,6 +66,7 @@ namespace BEditor.Core.Data.ObjectData
 
             public override void PropertyLoaded()
             {
+                base.PropertyLoaded();
                 Width.ExecuteLoaded(WidthMetadata);
                 Height.ExecuteLoaded(HeightMetadata);
                 Line.ExecuteLoaded(LineMetadata);

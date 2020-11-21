@@ -12,7 +12,7 @@ namespace BEditor.Core.Data.ObjectData
     public static partial class DefaultData
     {
         [DataContract(Namespace = "")]
-        public class Image : DefaultImageObject
+        public class Image : ImageObject
         {
             public static readonly FilePropertyMetadata FileMetadata = new(Core.Properties.Resources.File, "", "png,jpeg,jpg,bmp", Core.Properties.Resources.ImageFile);
 
@@ -22,15 +22,21 @@ namespace BEditor.Core.Data.ObjectData
 
 
             #region DefaultImageObjectメンバー
-            public override Media.Image Render(EffectRenderArgs args) => Source?.Clone();
+            public override Media.Image OnRender(EffectRenderArgs args) => Source?.Clone();
 
             public override IEnumerable<PropertyElement> Properties => new PropertyElement[]
             {
+                Coordinate,
+                Zoom,
+                Blend,
+                Angle,
+                Material,
                 File
             };
 
             public override void PropertyLoaded()
             {
+                base.PropertyLoaded();
                 File.ExecuteLoaded(FileMetadata);
 
                 File.PropertyChanged += PathChanged;

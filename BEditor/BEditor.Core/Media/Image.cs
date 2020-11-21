@@ -637,7 +637,7 @@ namespace BEditor.Core.Media
         /// <returns></returns>
         /// <exception cref="NativeException"/>
         [return: MaybeNull()]
-        public static Image Ellipse(int width, int height, int line, Color color)
+        public static Image Ellipse(int width, int height, int line, in ReadOnlyColor color)
         {
             return Services.ImageRenderService.Ellipse(width, height, line, color);
         }
@@ -651,7 +651,7 @@ namespace BEditor.Core.Media
         /// <param name="color"></param>
         /// <returns></returns>
         [return: MaybeNull()]
-        public static Image Rectangle(int width, int height, int line, Color color)
+        public static Image Rectangle(int width, int height, int line, in ReadOnlyColor color)
         {
             return Services.ImageRenderService.Rectangle(width, height, line, color);
         }
@@ -668,7 +668,7 @@ namespace BEditor.Core.Media
         /// <returns></returns>
         /// <exception cref="NotImplementedException"/>
         [return: MaybeNull()]
-        public static Image Text(int size, Color color, string text, FontRecord font, string style, bool rightToLeft)
+        public static Image Text(int size, in ReadOnlyColor color, string text, FontRecord font, string style, bool rightToLeft)
         {
             return Services.ImageRenderService.Text(size, color, text, font, style, rightToLeft);
         }

@@ -241,13 +241,7 @@ namespace BEditor.Core.Data.ObjectData
 
 
                 EffectElement index0;
-                if (Type.IsSubclassOf(typeof(DefaultData.DefaultImageObject)))
-                {
-                    DefaultData.DefaultImageObject _Custom_info = (DefaultData.DefaultImageObject)Activator.CreateInstance(Type);
-
-                    index0 = new ImageObject() { Custom = _Custom_info };
-                }
-                else if (Type.IsSubclassOf(typeof(ObjectElement)))
+                if (Type.IsSubclassOf(typeof(ObjectElement)))
                 {
                     index0 = (ObjectElement)Activator.CreateInstance(Type);
                 }
@@ -262,6 +256,7 @@ namespace BEditor.Core.Data.ObjectData
                 data = new ClipData(idmax, list, AddFrame, AddFrame + 180, Type, AddLayer, Scene);
 
                 Scene.Add(data);
+                data.PropertyLoaded();
 
                 Scene.SetCurrentClip(data);
             }

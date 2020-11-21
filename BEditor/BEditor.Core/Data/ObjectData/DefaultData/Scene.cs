@@ -12,7 +12,7 @@ namespace BEditor.Core.Data.ObjectData
     public static partial class DefaultData
     {
         [DataContract(Namespace = "")]
-        public class Scene : DefaultImageObject
+        public class Scene : ImageObject
         {
             SelectorPropertyMetadata SelectSceneMetadata;
 
@@ -20,21 +20,27 @@ namespace BEditor.Core.Data.ObjectData
 
             public override IEnumerable<PropertyElement> Properties => new PropertyElement[]
             {
+                Coordinate,
+                Zoom,
+                Blend,
+                Angle,
+                Material,
                 Start,
                 SelectScene
             };
 
-            public override Media.Image Render(EffectRenderArgs args)
+            public override Media.Image OnRender(EffectRenderArgs args)
             {
                 ProjectData.Scene scene = SelectScene.SelectItem as ProjectData.Scene;
                 // Clipの相対的なフレーム
-                var frame = args.Frame - Parent.Parent.Start;
+                var frame = args.Frame - Parent.Start;
 
                 return scene.Render(frame + (int)Start.GetValue(args.Frame)).Image;
             }
 
             public override void PropertyLoaded()
             {
+                base.PropertyLoaded();
                 SelectSceneMetadata = new ScenesSelectorMetadata(this);
                 Start.ExecuteLoaded(Video.StartMetadata);
                 SelectScene.ExecuteLoaded(SelectSceneMetadata);
@@ -63,12 +69,9 @@ namespace BEditor.Core.Data.ObjectData
                 {
                     MemberPath = "SceneName";
                     ItemSource = scene
-                        .Parent
-                        .Parent
-                        .Parent
-                        .Parent
+                        .GetParent3()
                         .SceneList
-                        .Where(scene1=>scene1 != scene.Parent.Parent.Parent)
+                        .Where(scene1 => scene1 != scene.GetParent2())
                         .ToList();
                 }
             }

@@ -13,7 +13,7 @@ namespace BEditor.Core.Data.ObjectData
     public static partial class DefaultData
     {
         [DataContract(Namespace = "")]
-        public class Text : DefaultImageObject
+        public class Text : ImageObject
         {
             public static readonly EasePropertyMetadata SizeMetadata = new(Core.Properties.Resources.Size, 100, float.NaN, 0);
             public static readonly ColorPropertyMetadata ColorMetadata = new(Core.Properties.Resources.Color, 255, 255, 255);
@@ -30,9 +30,9 @@ namespace BEditor.Core.Data.ObjectData
 
 
             #region DefaultImageObjectメンバー
-            public override Media.Image Render(EffectRenderArgs args) => Media.Image.Text(
+            public override Media.Image OnRender(EffectRenderArgs args) => Media.Image.Text(
                 (int)Size.GetValue(args.Frame),
-                Color,
+                Color.Color,
                 Document.Text,
                 Font.Font.Select,
                 (string)Font.Style.SelectItem,
@@ -40,6 +40,11 @@ namespace BEditor.Core.Data.ObjectData
 
             public override IEnumerable<PropertyElement> Properties => new PropertyElement[]
             {
+                Coordinate,
+                Zoom,
+                Blend,
+                Angle,
+                Material,
                 Size,
                 Color,
                 Document,

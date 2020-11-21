@@ -25,7 +25,7 @@ namespace BEditor.Core.Data.EffectData
         #region EffectProperty
         public override string Name => Resources.Monoc;
 
-        public override void Render(ref Image source, EffectRenderArgs args) => source.ToRenderable().SetColor(Color);
+        public override void Render(ref Image source, EffectRenderArgs args) => source.ToRenderable().SetColor(Color.Value);
 
         public override IEnumerable<PropertyElement> Properties => new PropertyElement[]
         {

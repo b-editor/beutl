@@ -27,10 +27,10 @@ namespace BEditor.Views.PropertyControls
                 var color = DataContext as ColorPickerViewModel;
                 var d = new ColorDialog(color);
 
-                d.col.Red = color.Property.Red;
-                d.col.Green = color.Property.Green;
-                d.col.Blue = color.Property.Blue;
-                d.col.Alpha = color.Property.Alpha;
+                d.col.Red = color.Property.Color.R;
+                d.col.Green = color.Property.Color.G;
+                d.col.Blue = color.Property.Color.B;
+                d.col.Alpha = color.Property.Color.A;
 
                 return d;
             }

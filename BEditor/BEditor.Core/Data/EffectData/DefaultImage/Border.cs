@@ -29,7 +29,7 @@ namespace BEditor.Core.Data.EffectData
 
         public override void Render(ref Image source, EffectRenderArgs args)
         {
-            source.ToRenderable().Border((int)Size.GetValue(args.Frame), Color);
+            source.ToRenderable().Border((int)Size.GetValue(args.Frame), Color.Color);
         }
 
         public override IEnumerable<PropertyElement> Properties => new PropertyElement[]

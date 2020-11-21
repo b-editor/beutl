@@ -16,14 +16,14 @@ namespace BEditor.ViewModels.PropertyControl
 
         public ColorProperty Property { get; }
         public DelegateCommand<(byte, byte, byte, byte)> Command { get; }
-        public SolidColorBrush Brush => new SolidColorBrush(Color.FromArgb(Property.Alpha, Property.Red, Property.Green, Property.Blue));
+        public SolidColorBrush Brush => new SolidColorBrush(Color.FromArgb(Property.Color.A, Property.Color.R, Property.Color.G, Property.Color.B));
 
         public ColorPickerViewModel(ColorProperty property)
         {
             Property = property;
             Command = new DelegateCommand<(byte, byte, byte, byte)>(x =>
             {
-                UndoRedoManager.Do(new ColorProperty.ChangeColorCommand(property, x.Item1, x.Item2, x.Item3, x.Item4));
+                UndoRedoManager.Do(new ColorProperty.ChangeColorCommand(property, new(x.Item1, x.Item2, x.Item3, x.Item4)));
             });
             property.PropertyChanged += (s, e) =>
             {

@@ -751,14 +751,9 @@
             </summary>
         </member>
         <member name="P:BEditor.Core.Data.PropertyData.CheckProperty.BindHint">
-            <summary>
-            
-            </summary>
-        </member>
-        <member name="P:BEditor.Core.Data.PropertyData.CheckProperty.Value">
             <inheritdoc/>
         </member>
-        <member name="M:BEditor.Core.Data.PropertyData.CheckProperty.Subscribe(System.IObserver{System.Boolean})">
+        <member name="P:BEditor.Core.Data.PropertyData.CheckProperty.Value">
             <inheritdoc/>
         </member>
         <member name="M:BEditor.Core.Data.PropertyData.CheckProperty.OnCompleted">
@@ -768,6 +763,12 @@
             <inheritdoc/>
         </member>
         <member name="M:BEditor.Core.Data.PropertyData.CheckProperty.OnNext(System.Boolean)">
+            <inheritdoc/>
+        </member>
+        <member name="M:BEditor.Core.Data.PropertyData.CheckProperty.Subscribe(System.IObserver{System.Boolean})">
+            <inheritdoc/>
+        </member>
+        <member name="M:BEditor.Core.Data.PropertyData.CheckProperty.Bind(BEditor.Core.Bindings.IBindable{System.Boolean})">
             <inheritdoc/>
         </member>
         <member name="M:BEditor.Core.Data.PropertyData.CheckProperty.PropertyLoaded">
@@ -1014,27 +1015,21 @@
             <param name="metadata">このプロパティの <see cref="T:BEditor.Core.Data.PropertyData.ColorPropertyMetadata"/></param>
             <exception cref="T:System.ArgumentNullException"><paramref name="metadata"/> が <see langword="null"/> です</exception>
         </member>
-        <member name="P:BEditor.Core.Data.PropertyData.ColorProperty.Red">
+        <member name="P:BEditor.Core.Data.PropertyData.ColorProperty.Color">
             <summary>
-            Red
+            
             </summary>
         </member>
-        <member name="P:BEditor.Core.Data.PropertyData.ColorProperty.Green">
-            <summary>
-            Green
-            </summary>
+        <member name="P:BEditor.Core.Data.PropertyData.ColorProperty.Value">
+            <inheritdoc/>
         </member>
-        <member name="P:BEditor.Core.Data.PropertyData.ColorProperty.Blue">
-            <summary>
-            Blue
-            </summary>
-        </member>
-        <member name="P:BEditor.Core.Data.PropertyData.ColorProperty.Alpha">
-            <summary>
-            Alpha
-            </summary>
+        <member name="P:BEditor.Core.Data.PropertyData.ColorProperty.BindHint">
+            <inheritdoc/>
         </member>
         <member name="M:BEditor.Core.Data.PropertyData.ColorProperty.ToString">
+            <inheritdoc/>
+        </member>
+        <member name="M:BEditor.Core.Data.PropertyData.ColorProperty.PropertyLoaded">
             <inheritdoc/>
         </member>
         <member name="T:BEditor.Core.Data.PropertyData.ColorProperty.ChangeColorCommand">
@@ -1043,15 +1038,12 @@
             </summary>
             <remarks>このクラスは <see cref="M:BEditor.Core.Data.UndoRedoManager.Do(BEditor.Core.Data.IUndoRedoCommand)"/> と併用することでコマンドを記録できます</remarks>
         </member>
-        <member name="M:BEditor.Core.Data.PropertyData.ColorProperty.ChangeColorCommand.#ctor(BEditor.Core.Data.PropertyData.ColorProperty,System.Byte,System.Byte,System.Byte,System.Byte)">
+        <member name="M:BEditor.Core.Data.PropertyData.ColorProperty.ChangeColorCommand.#ctor(BEditor.Core.Data.PropertyData.ColorProperty,BEditor.Core.Media.ReadOnlyColor@)">
             <summary>
             <see cref="T:BEditor.Core.Data.PropertyData.ColorProperty.ChangeColorCommand"/> クラスの新しいインスタンスを初期化します
             </summary>
             <param name="property">対象の <see cref="T:BEditor.Core.Data.PropertyData.ColorProperty"/></param>
-            <param name="r">新しい <see cref="P:BEditor.Core.Data.PropertyData.ColorProperty.Red"/> の値</param>
-            <param name="g">新しい <see cref="P:BEditor.Core.Data.PropertyData.ColorProperty.Green"/> の値</param>
-            <param name="b">新しい <see cref="P:BEditor.Core.Data.PropertyData.ColorProperty.Blue"/> の値</param>
-            <param name="a">新しい <see cref="P:BEditor.Core.Data.PropertyData.ColorProperty.Alpha"/> の値</param>
+            <param name="color"></param>
             <exception cref="T:System.ArgumentNullException"><paramref name="property"/> が <see langword="null"/> です</exception>
         </member>
         <member name="M:BEditor.Core.Data.PropertyData.ColorProperty.ChangeColorCommand.Do">
@@ -1075,22 +1067,22 @@
         </member>
         <member name="P:BEditor.Core.Data.PropertyData.ColorPropertyMetadata.Red">
             <summary>
-            <see cref="P:BEditor.Core.Data.PropertyData.ColorProperty.Red"/> のデフォルト値を取得します
+            <see cref="!:ColorProperty.Red"/> のデフォルト値を取得します
             </summary>
         </member>
         <member name="P:BEditor.Core.Data.PropertyData.ColorPropertyMetadata.Green">
             <summary>
-            <see cref="P:BEditor.Core.Data.PropertyData.ColorProperty.Green"/> のデフォルト値を取得します
+            <see cref="!:ColorProperty.Green"/> のデフォルト値を取得します
             </summary>
         </member>
         <member name="P:BEditor.Core.Data.PropertyData.ColorPropertyMetadata.Blue">
             <summary>
-            <see cref="P:BEditor.Core.Data.PropertyData.ColorProperty.Blue"/> のデフォルト値を取得します
+            <see cref="!:ColorProperty.Blue"/> のデフォルト値を取得します
             </summary>
         </member>
         <member name="P:BEditor.Core.Data.PropertyData.ColorPropertyMetadata.Alpha">
             <summary>
-            <see cref="P:BEditor.Core.Data.PropertyData.ColorProperty.Alpha"/> のデフォルト値を取得します
+            <see cref="!:ColorProperty.Alpha"/> のデフォルト値を取得します
             </summary>
         </member>
         <member name="P:BEditor.Core.Data.PropertyData.ColorPropertyMetadata.UseAlpha">
@@ -1120,7 +1112,25 @@
             高さを取得または設定します
             </summary>
         </member>
+        <member name="P:BEditor.Core.Data.PropertyData.DocumentProperty.Value">
+            <inheritdoc/>
+        </member>
+        <member name="P:BEditor.Core.Data.PropertyData.DocumentProperty.BindHint">
+            <inheritdoc/>
+        </member>
+        <member name="M:BEditor.Core.Data.PropertyData.DocumentProperty.OnCompleted">
+            <inheritdoc/>
+        </member>
+        <member name="M:BEditor.Core.Data.PropertyData.DocumentProperty.OnError(System.Exception)">
+            <inheritdoc/>
+        </member>
+        <member name="M:BEditor.Core.Data.PropertyData.DocumentProperty.OnNext(System.String)">
+            <inheritdoc/>
+        </member>
         <member name="M:BEditor.Core.Data.PropertyData.DocumentProperty.Subscribe(System.IObserver{System.String})">
+            <inheritdoc/>
+        </member>
+        <member name="M:BEditor.Core.Data.PropertyData.DocumentProperty.Bind(BEditor.Core.Bindings.IBindable{System.String})">
             <inheritdoc/>
         </member>
         <member name="M:BEditor.Core.Data.PropertyData.DocumentProperty.PropertyLoaded">
@@ -1570,6 +1580,12 @@
             エクスパンダーが開いているかを取得または設定します
             </summary>
         </member>
+        <member name="P:BEditor.Core.Data.PropertyData.ExpandGroup.BindHint">
+            <inheritdoc/>
+        </member>
+        <member name="P:BEditor.Core.Data.PropertyData.ExpandGroup.Value">
+            <inheritdoc/>
+        </member>
         <member name="M:BEditor.Core.Data.PropertyData.ExpandGroup.#ctor(BEditor.Core.Data.PropertyData.PropertyElementMetadata)">
             <summary>
             <see cref="T:BEditor.Core.Data.PropertyData.ExpandGroup"/> クラスの新しいインスタンスを初期化します
@@ -1583,9 +1599,6 @@
         <member name="M:BEditor.Core.Data.PropertyData.ExpandGroup.ToString">
             <inheritdoc/>
         </member>
-        <member name="M:BEditor.Core.Data.PropertyData.ExpandGroup.Subscribe(System.IObserver{System.Boolean})">
-            <inheritdoc/>
-        </member>
         <member name="M:BEditor.Core.Data.PropertyData.ExpandGroup.OnCompleted">
             <inheritdoc/>
         </member>
@@ -1593,6 +1606,12 @@
             <inheritdoc/>
         </member>
         <member name="M:BEditor.Core.Data.PropertyData.ExpandGroup.OnNext(System.Boolean)">
+            <inheritdoc/>
+        </member>
+        <member name="M:BEditor.Core.Data.PropertyData.ExpandGroup.Subscribe(System.IObserver{System.Boolean})">
+            <inheritdoc/>
+        </member>
+        <member name="M:BEditor.Core.Data.PropertyData.ExpandGroup.Bind(BEditor.Core.Bindings.IBindable{System.Boolean})">
             <inheritdoc/>
         </member>
         <member name="T:BEditor.Core.Data.PropertyData.FileProperty">
@@ -1612,7 +1631,10 @@
             ファイルの名前を取得または設定します
             </summary>
         </member>
-        <member name="M:BEditor.Core.Data.PropertyData.FileProperty.Subscribe(System.IObserver{System.String})">
+        <member name="P:BEditor.Core.Data.PropertyData.FileProperty.Value">
+            <inheritdoc/>
+        </member>
+        <member name="P:BEditor.Core.Data.PropertyData.FileProperty.BindHint">
             <inheritdoc/>
         </member>
         <member name="M:BEditor.Core.Data.PropertyData.FileProperty.PropertyLoaded">
@@ -1628,6 +1650,12 @@
             <inheritdoc/>
         </member>
         <member name="M:BEditor.Core.Data.PropertyData.FileProperty.OnNext(System.String)">
+            <inheritdoc/>
+        </member>
+        <member name="M:BEditor.Core.Data.PropertyData.FileProperty.Subscribe(System.IObserver{System.String})">
+            <inheritdoc/>
+        </member>
+        <member name="M:BEditor.Core.Data.PropertyData.FileProperty.Bind(BEditor.Core.Bindings.IBindable{System.String})">
             <inheritdoc/>
         </member>
         <member name="T:BEditor.Core.Data.PropertyData.FileProperty.ChangeFileCommand">
@@ -1679,6 +1707,12 @@
             <summary>
             選択されているフォントを取得または設定します
             </summary>
+        </member>
+        <member name="P:BEditor.Core.Data.PropertyData.FontProperty.Value">
+            <inheritdoc/>
+        </member>
+        <member name="P:BEditor.Core.Data.PropertyData.FontProperty.BindHint">
+            <inheritdoc/>
         </member>
         <member name="M:BEditor.Core.Data.PropertyData.FontProperty.PropertyLoaded">
             <inheritdoc/>
@@ -1861,6 +1895,12 @@
             <summary>
             選択されている <see cref="P:BEditor.Core.Data.PropertyData.SelectorPropertyMetadata.ItemSource"/> のインデックスを取得または設定します
             </summary>
+        </member>
+        <member name="P:BEditor.Core.Data.PropertyData.SelectorProperty.Value">
+            <inheritdoc/>
+        </member>
+        <member name="P:BEditor.Core.Data.PropertyData.SelectorProperty.BindHint">
+            <inheritdoc/>
         </member>
         <member name="M:BEditor.Core.Data.PropertyData.SelectorProperty.PropertyLoaded">
             <inheritdoc/>
@@ -2853,7 +2893,7 @@
             <exception cref="T:System.ObjectDisposedException"/>
             <exception cref="T:BEditor.Core.Exceptions.NativeException"/>
         </member>
-        <member name="M:BEditor.Core.Media.Image.Ellipse(System.Int32,System.Int32,System.Int32,BEditor.Core.Media.Color)">
+        <member name="M:BEditor.Core.Media.Image.Ellipse(System.Int32,System.Int32,System.Int32,BEditor.Core.Media.ReadOnlyColor@)">
             <summary>
             
             </summary>
@@ -2864,7 +2904,7 @@
             <returns></returns>
             <exception cref="T:BEditor.Core.Exceptions.NativeException"/>
         </member>
-        <member name="M:BEditor.Core.Media.Image.Rectangle(System.Int32,System.Int32,System.Int32,BEditor.Core.Media.Color)">
+        <member name="M:BEditor.Core.Media.Image.Rectangle(System.Int32,System.Int32,System.Int32,BEditor.Core.Media.ReadOnlyColor@)">
             <summary>
             
             </summary>
@@ -2874,7 +2914,7 @@
             <param name="color"></param>
             <returns></returns>
         </member>
-        <member name="M:BEditor.Core.Media.Image.Text(System.Int32,BEditor.Core.Media.Color,System.String,BEditor.Core.Media.FontRecord,System.String,System.Boolean)">
+        <member name="M:BEditor.Core.Media.Image.Text(System.Int32,BEditor.Core.Media.ReadOnlyColor@,System.String,BEditor.Core.Media.FontRecord,System.String,System.Boolean)">
             <summary>
             
             </summary>
@@ -3289,6 +3329,129 @@
             <param name="left"></param>
             <param name="right"></param>
             <returns></returns>
+        </member>
+        <member name="T:BEditor.Core.Media.ReadOnlyColor">
+            <summary>
+            RGBA (red, green, blue, alpha) の色を表します
+            </summary>
+        </member>
+        <member name="M:BEditor.Core.Media.ReadOnlyColor.#ctor(System.Byte,System.Byte,System.Byte,System.Byte)">
+            <summary>
+            <see cref="T:BEditor.Core.Media.ReadOnlyColor"/> 構造体の新しいインスタンスを初期化します
+            </summary>
+            <param name="r"><see cref="P:BEditor.Core.Media.ReadOnlyColor.R"/> の値</param>
+            <param name="g"><see cref="P:BEditor.Core.Media.ReadOnlyColor.G"/> の値</param>
+            <param name="b"><see cref="P:BEditor.Core.Media.ReadOnlyColor.B"/> の値</param>
+            <param name="a"><see cref="P:BEditor.Core.Media.ReadOnlyColor.A"/> の値</param>
+        </member>
+        <member name="M:BEditor.Core.Media.ReadOnlyColor.#ctor(System.Single,System.Single,System.Single,System.Single)">
+            <summary>
+            <see cref="T:BEditor.Core.Media.ReadOnlyColor"/> 構造体の新しいインスタンスを初期化します
+            </summary>
+            <param name="r"><see cref="P:BEditor.Core.Media.ReadOnlyColor.ScR"/> の値</param>
+            <param name="g"><see cref="P:BEditor.Core.Media.ReadOnlyColor.ScG"/> の値</param>
+            <param name="b"><see cref="P:BEditor.Core.Media.ReadOnlyColor.ScB"/> の値</param>
+            <param name="a"><see cref="P:BEditor.Core.Media.ReadOnlyColor.ScA"/> の値</param>
+        </member>
+        <member name="M:BEditor.Core.Media.ReadOnlyColor.Equals(System.Object)">
+            <inheritdoc/>
+        </member>
+        <member name="M:BEditor.Core.Media.ReadOnlyColor.Equals(BEditor.Core.Media.ReadOnlyColor)">
+            <inheritdoc/>
+        </member>
+        <member name="M:BEditor.Core.Media.ReadOnlyColor.GetHashCode">
+            <inheritdoc/>
+        </member>
+        <member name="M:BEditor.Core.Media.ReadOnlyColor.ToString">
+            <inheritdoc/>
+        </member>
+        <member name="P:BEditor.Core.Media.ReadOnlyColor.R">
+            <summary>
+            赤の値を取得または設定します
+            </summary>
+        </member>
+        <member name="P:BEditor.Core.Media.ReadOnlyColor.G">
+            <summary>
+            緑の値を取得または設定します
+            </summary>
+        </member>
+        <member name="P:BEditor.Core.Media.ReadOnlyColor.B">
+            <summary>
+            青の値を取得または設定します
+            </summary>
+        </member>
+        <member name="P:BEditor.Core.Media.ReadOnlyColor.A">
+            <summary>
+            アルファの値を取得または設定します
+            </summary>
+        </member>
+        <member name="P:BEditor.Core.Media.ReadOnlyColor.ScR">
+            <summary>
+            赤の値を取得または設定します
+            </summary>
+        </member>
+        <member name="P:BEditor.Core.Media.ReadOnlyColor.ScG">
+            <summary>
+            緑の値を取得または設定します
+            </summary>
+        </member>
+        <member name="P:BEditor.Core.Media.ReadOnlyColor.ScB">
+            <summary>
+            青の値を取得または設定します
+            </summary>
+        </member>
+        <member name="P:BEditor.Core.Media.ReadOnlyColor.ScA">
+            <summary>
+            アルファの値を取得または設定します
+            </summary>
+        </member>
+        <member name="M:BEditor.Core.Media.ReadOnlyColor.op_Implicit(BEditor.Core.Media.ReadOnlyColor)~System.Byte[]">
+            <summary>
+            <see cref="T:BEditor.Core.Media.ReadOnlyColor"/> 構造体から <see cref="T:System.Byte"/> の配列を作成します
+            </summary>
+        </member>
+        <member name="M:BEditor.Core.Media.ReadOnlyColor.op_Implicit(BEditor.Core.Media.ReadOnlyColor)~System.Single[]">
+            <summary>
+            <see cref="T:BEditor.Core.Media.ReadOnlyColor"/> 構造体から <see cref="T:System.Single"/>　の配列を作成します
+            </summary>
+        </member>
+        <member name="M:BEditor.Core.Media.ReadOnlyColor.op_Implicit(BEditor.Core.Media.ReadOnlyColor)~System.Drawing.Color">
+            <summary>
+            <see cref="T:BEditor.Core.Media.ReadOnlyColor"/> 構造体から <see cref="T:System.Drawing.Color"/> を作成します
+            </summary>
+        </member>
+        <member name="M:BEditor.Core.Media.ReadOnlyColor.op_Implicit(BEditor.Core.Media.ReadOnlyColor)~BEditor.Core.Media.Color">
+            <summary>
+            <see cref="T:BEditor.Core.Media.ReadOnlyColor"/> 構造体から <see cref="T:BEditor.Core.Media.Color"/> を作成します
+            </summary>
+        </member>
+        <member name="M:BEditor.Core.Media.ReadOnlyColor.op_Implicit(BEditor.Core.Media.Color)~BEditor.Core.Media.ReadOnlyColor">
+            <summary>
+            <see cref="T:BEditor.Core.Media.Color"/> 構造体から <see cref="T:BEditor.Core.Media.ReadOnlyColor"/> を作成します
+            </summary>
+        </member>
+        <member name="M:BEditor.Core.Media.ReadOnlyColor.op_Implicit(BEditor.Core.Media.ReadOnlyColor)~OpenTK.Graphics.Color4">
+            <summary>
+            <see cref="T:BEditor.Core.Media.ReadOnlyColor"/> 構造体から <see cref="T:OpenTK.Graphics.Color4"/> を作成します
+            </summary>
+        </member>
+        <member name="M:BEditor.Core.Media.ReadOnlyColor.op_Implicit(OpenTK.Graphics.Color4)~BEditor.Core.Media.ReadOnlyColor">
+            <summary>
+            <see cref="T:OpenTK.Graphics.Color4"/> 構造体から <see cref="T:BEditor.Core.Media.ReadOnlyColor"/> を作成します
+            </summary>
+            <param name="c"></param>
+        </member>
+        <member name="M:BEditor.Core.Media.ReadOnlyColor.op_Equality(BEditor.Core.Media.ReadOnlyColor,BEditor.Core.Media.ReadOnlyColor)">
+            <summary>
+            2つの <see cref="T:BEditor.Core.Media.ReadOnlyColor"/> 構造体を比較します
+            </summary>
+            <returns>2つの <see cref="T:BEditor.Core.Media.ReadOnlyColor"/> 構造体が等しい場合は <see langword="true"/> 、そうでない場合は <see langword="false"/> です</returns>
+        </member>
+        <member name="M:BEditor.Core.Media.ReadOnlyColor.op_Inequality(BEditor.Core.Media.ReadOnlyColor,BEditor.Core.Media.ReadOnlyColor)">
+            <summary>
+            2つの <see cref="T:BEditor.Core.Media.ReadOnlyColor"/> 構造体を比較します
+            </summary>
+            <returns>2つの <see cref="T:BEditor.Core.Media.ReadOnlyColor"/> 構造体が異なる場合は <see langword="true"/> 、そうでない場合は <see langword="false"/> です</returns>
         </member>
         <member name="T:BEditor.Core.Media.Rectangle">
             <summary>

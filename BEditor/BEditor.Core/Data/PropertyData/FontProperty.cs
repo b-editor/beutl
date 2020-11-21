@@ -6,7 +6,9 @@ using System.Reactive.Disposables;
 using System.Runtime.Serialization;
 using System.Threading.Tasks;
 
+using BEditor.Core.Bindings;
 using BEditor.Core.Data.EffectData;
+using BEditor.Core.Data.PropertyData.EasingSetting;
 using BEditor.Core.Media;
 
 namespace BEditor.Core.Data.PropertyData
@@ -15,12 +17,17 @@ namespace BEditor.Core.Data.PropertyData
     /// フォントを選択するプロパティ表します
     /// </summary>
     [DataContract(Namespace = "")]
-    public class FontProperty : PropertyElement, IObservable<FontRecord>, IObserver<FontRecord>, INotifyPropertyChanged, IExtensibleDataObject, IChild<EffectElement>
+    public class FontProperty : PropertyElement, IEasingProperty, IBindable<FontRecord>
     {
+        #region フィールド
+
         private static readonly PropertyChangedEventArgs selectArgs = new(nameof(Select));
         private FontRecord selectItem;
         private List<IObserver<FontRecord>> list;
-        private List<IObserver<FontRecord>> collection => list ??= new List<IObserver<FontRecord>>();
+
+        private IDisposable BindDispose;
+
+        #endregion
 
         /// <summary>
         /// <see cref="FontProperty"/> クラスの新しいインスタンスを初期化します
@@ -34,6 +41,7 @@ namespace BEditor.Core.Data.PropertyData
         }
 
 
+        private List<IObserver<FontRecord>> collection => list ??= new();
         /// <summary>
         /// 選択されているフォントを取得または設定します
         /// </summary>
@@ -41,24 +49,26 @@ namespace BEditor.Core.Data.PropertyData
         public FontRecord Select
         {
             get => selectItem;
-            set => SetValue(value, ref selectItem, selectArgs);
+            set => SetValue(value, ref selectItem, selectArgs, FontProperty_PropertyChanged);
         }
+        /// <inheritdoc/>
+        public FontRecord Value { get; }
+        /// <inheritdoc/>
+        [DataMember]
+        public string BindHint { get; private set; }
 
-        private void FontProperty_PropertyChanged(object sender, PropertyChangedEventArgs e)
+        private void FontProperty_PropertyChanged()
         {
-            if (e.PropertyName == nameof(Select))
+            foreach (var observer in collection)
             {
-                foreach (var observer in collection)
+                try
                 {
-                    try
-                    {
-                        observer.OnNext(selectItem);
-                        observer.OnCompleted();
-                    }
-                    catch (Exception ex)
-                    {
-                        observer.OnError(ex);
-                    }
+                    observer.OnNext(selectItem);
+                    observer.OnCompleted();
+                }
+                catch (Exception ex)
+                {
+                    observer.OnError(ex);
                 }
             }
         }
@@ -66,10 +76,17 @@ namespace BEditor.Core.Data.PropertyData
         public override void PropertyLoaded()
         {
             base.PropertyLoaded();
-            PropertyChanged += FontProperty_PropertyChanged;
+
+            if (BindHint is not null && this.GetBindable(BindHint, out var b))
+            {
+                Bind(b);
+            }
         }
         /// <inheritdoc/>
         public override string ToString() => $"(Select:{Select} Name:{PropertyMetadata?.Name})";
+
+        #region IBindable
+
         /// <inheritdoc/>
         public IDisposable Subscribe(IObserver<FontRecord> observer)
         {
@@ -86,6 +103,22 @@ namespace BEditor.Core.Data.PropertyData
         {
             Select = value;
         }
+
+        public void Bind(IBindable<FontRecord> bindable)
+        {
+            BindDispose?.Dispose();
+
+            if (bindable is not null)
+            {
+                BindHint = bindable.GetString();
+                Select = bindable.Value;
+
+                // bindableが変更時にthisが変更
+                BindDispose = bindable.Subscribe(this);
+            }
+        }
+
+        #endregion
 
 
         #region Commands

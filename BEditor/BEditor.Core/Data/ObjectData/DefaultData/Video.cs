@@ -14,7 +14,7 @@ namespace BEditor.Core.Data.ObjectData
     public static partial class DefaultData
     {
         [DataContract(Namespace = "")]
-        public class Video : DefaultImageObject
+        public class Video : ImageObject
         {
             public static readonly EasePropertyMetadata SpeedMetadata = new(Resources.Speed, 100);
             public static readonly EasePropertyMetadata StartMetadata = new(Resources.Start, 1, float.NaN, 0);
@@ -35,21 +35,27 @@ namespace BEditor.Core.Data.ObjectData
             #region DefaultImageObjectメンバー
             public override IEnumerable<PropertyElement> Properties => new PropertyElement[]
             {
+                Coordinate,
+                Zoom,
+                Blend,
+                Angle,
+                Material,
                 Speed,
                 Start,
                 File
             };
 
-            public override Media.Image Render(EffectRenderArgs args)
+            public override Media.Image OnRender(EffectRenderArgs args)
             {
                 float speed = Speed.GetValue(args.Frame) / 100;
                 int start = (int)Start.GetValue(args.Frame);
 
-                return VideoDecoder.Read((int)((start + args.Frame - Parent.Parent.Start) * speed), videoReader);
+                return VideoDecoder.Read((int)((start + args.Frame - Parent.Start) * speed), videoReader);
             }
 
             public override void PropertyLoaded()
             {
+                base.PropertyLoaded();
                 Speed.ExecuteLoaded(SpeedMetadata);
                 Start.ExecuteLoaded(StartMetadata);
                 File.ExecuteLoaded(FileMetadata);

@@ -16,7 +16,7 @@ using Image = BEditor.Core.Media.Image;
 namespace BEditor.Core.Data.ObjectData
 {
     [DataContract(Namespace = "")]
-    public class ImageObject : ObjectElement
+    public abstract class ImageObject : ObjectElement
     {
         public static readonly PropertyElementMetadata CoordinateMetadata = new(Resources.Coordinate);
         public static readonly PropertyElementMetadata ZoomMetadata = new(Resources.Zoom);
@@ -29,19 +29,9 @@ namespace BEditor.Core.Data.ObjectData
 
         public override string Name => Resources.TypeOfDraw;
 
-        public override IEnumerable<PropertyElement> Properties => new PropertyElement[]
-        {
-            Coordinate,
-            Zoom,
-            Blend,
-            Angle,
-            Material,
-            Custom
-        };
-
         public override void Render(EffectRenderArgs args)
         {
-            Image base_img = Custom.Render(args);
+            Image base_img = OnRender(args);
 
             if (base_img == null)
             {
@@ -84,10 +74,11 @@ namespace BEditor.Core.Data.ObjectData
             Blend.ExecuteLoaded(BlendMetadata);
             Angle.ExecuteLoaded(AngleMetadata);
             Material.ExecuteLoaded(MaterialMetadata);
-            Custom?.ExecuteLoaded(null);
         }
 
         #endregion
+
+        public abstract Image OnRender(EffectRenderArgs args);
 
         public ImageObject()
         {
@@ -112,8 +103,5 @@ namespace BEditor.Core.Data.ObjectData
 
         [DataMember(Order = 4)]
         public Material Material { get; private set; }
-
-        [DataMember(Order = 5)]
-        public DefaultImageObject Custom { get; internal set; }
     }
 }

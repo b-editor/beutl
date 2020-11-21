@@ -1,9 +1,14 @@
 ﻿using System;
+using System.Collections.Generic;
 using System.Collections.ObjectModel;
 using System.ComponentModel;
+using System.Reactive.Disposables;
 using System.Runtime.Serialization;
 
+using BEditor.Core.Bindings;
 using BEditor.Core.Data.EffectData;
+using BEditor.Core.Data.PropertyData.EasingSetting;
+using BEditor.Core.Media;
 
 namespace BEditor.Core.Data.PropertyData
 {
@@ -12,16 +17,13 @@ namespace BEditor.Core.Data.PropertyData
     /// 色を選択するプロパティを表します
     /// </summary>
     [DataContract(Namespace = "")]
-    public class ColorProperty : PropertyElement
+    public class ColorProperty : PropertyElement, IEasingProperty, IBindable<ReadOnlyColor>
     {
-        private static readonly PropertyChangedEventArgs rArgs = new(nameof(Red));
-        private static readonly PropertyChangedEventArgs gArgs = new(nameof(Green));
-        private static readonly PropertyChangedEventArgs bArgs = new(nameof(Blue));
-        private static readonly PropertyChangedEventArgs aArgs = new(nameof(Alpha));
-        private byte r;
-        private byte g;
-        private byte b;
-        private byte a;
+        private static readonly PropertyChangedEventArgs colorArgs = new(nameof(Color));
+        private Color color;
+        private List<IObserver<ReadOnlyColor>> list;
+
+        private IDisposable BindDispose;
 
         /// <summary>
         /// <see cref="ColorProperty"/> クラスの新しいインスタンスを初期化します
@@ -32,53 +34,87 @@ namespace BEditor.Core.Data.PropertyData
         {
             if (metadata is null) throw new ArgumentNullException(nameof(metadata));
 
-            Red = metadata.Red;
-            Green = metadata.Green;
-            Blue = metadata.Blue;
-            Alpha = metadata.Alpha;
+            Color = new(metadata.Red, metadata.Green, metadata.Blue, metadata.Alpha);
             PropertyMetadata = metadata;
         }
 
+        private List<IObserver<ReadOnlyColor>> collection => list ??= new();
         /// <summary>
-        /// Red
+        /// 
         /// </summary>
         [DataMember]
-        public byte Red
+        public Color Color
         {
-            get => r;
-            set => SetValue(value, ref r, rArgs);
+            get => color;
+            set => SetValue(value, ref color, colorArgs, ColorChanged);
         }
-        /// <summary>
-        /// Green
-        /// </summary>
+        /// <inheritdoc/>
+        public ReadOnlyColor Value => color;
+
+        /// <inheritdoc/>
         [DataMember]
-        public byte Green
+        public string BindHint { get; private set; }
+
+
+        /// <inheritdoc/>
+        public override string ToString() => $"(R:{color.R} G:{color.G} B:{color.B} A:{color.A} Name:{PropertyMetadata?.Name})";
+        /// <inheritdoc/>
+        public override void PropertyLoaded()
         {
-            get => g;
-            set => SetValue(value, ref g, gArgs);
-        }
-        /// <summary>
-        /// Blue
-        /// </summary>
-        [DataMember]
-        public byte Blue
-        {
-            get => b;
-            set => SetValue(value, ref b, bArgs);
-        }
-        /// <summary>
-        /// Alpha
-        /// </summary>
-        [DataMember]
-        public byte Alpha
-        {
-            get => a;
-            set => SetValue(value, ref a, aArgs);
+            base.PropertyLoaded();
+
+            if (BindHint is not null && this.GetBindable(BindHint, out var b))
+            {
+                Bind(b);
+            }
         }
 
-        public static implicit operator Media.Color(ColorProperty val) => new(val.Red, val.Green, val.Blue, val.Alpha);
-        /// <inheritdoc/>
-        public override string ToString() => $"(R:{Red} G:{Green} B:{Blue} A:{Alpha} Name:{PropertyMetadata?.Name})";
+        #region IBindable
+
+        private void ColorChanged()
+        {
+            foreach (var observer in collection)
+            {
+                try
+                {
+                    observer.OnNext(color);
+                    observer.OnCompleted();
+                }
+                catch (Exception ex)
+                {
+                    observer.OnError(ex);
+                }
+            }
+        }
+
+        public void Bind(IBindable<ReadOnlyColor> bindable)
+        {
+            BindDispose?.Dispose();
+
+            if (bindable is not null)
+            {
+                BindHint = bindable.GetString();
+                Color = bindable.Value;
+
+                // bindableが変更時にthisが変更
+                BindDispose = bindable.Subscribe(this);
+            }
+        }
+
+        public IDisposable Subscribe(IObserver<ReadOnlyColor> observer)
+        {
+            collection.Add(observer);
+            return Disposable.Create(() => collection.Remove(observer));
+        }
+
+        public void OnCompleted() { }
+        public void OnError(Exception error) { }
+        public void OnNext(ReadOnlyColor value)
+        {
+            Color = value;
+        }
+
+        #endregion
 
         /// <summary>
         /// 色を変更するコマンド
@@ -87,33 +123,27 @@ namespace BEditor.Core.Data.PropertyData
         public sealed class ChangeColorCommand : IUndoRedoCommand
         {
             private readonly ColorProperty Color;
-            private readonly byte r, g, b, a;
-            private readonly byte or, og, ob, oa;
+            private readonly ReadOnlyColor newest;
+            private readonly ReadOnlyColor old;
 
             /// <summary>
             /// <see cref="ChangeColorCommand"/> クラスの新しいインスタンスを初期化します
             /// </summary>
             /// <param name="property">対象の <see cref="ColorProperty"/></param>
-            /// <param name="r">新しい <see cref="Red"/> の値</param>
-            /// <param name="g">新しい <see cref="Green"/> の値</param>
-            /// <param name="b">新しい <see cref="Blue"/> の値</param>
-            /// <param name="a">新しい <see cref="Alpha"/> の値</param>
+            /// <param name="color"></param>
             /// <exception cref="ArgumentNullException"><paramref name="property"/> が <see langword="null"/> です</exception>
-            public ChangeColorCommand(ColorProperty property, byte r, byte g, byte b, byte a)
+            public ChangeColorCommand(ColorProperty property, in ReadOnlyColor color)
             {
                 Color = property ?? throw new ArgumentNullException(nameof(property));
-                (this.r, this.g, this.b, this.a) = (r, g, b, a);
-                (or, og, ob, oa) = (property.Red, property.Green, property.Blue, property.Alpha);
+                newest = color;
+                old = property.Value;
             }
 
 
             /// <inheritdoc/>
             public void Do()
             {
-                Color.Red = r;
-                Color.Green = g;
-                Color.Blue = b;
-                Color.Alpha = a;
+                Color.Color = newest;
             }
 
             /// <inheritdoc/>
@@ -122,10 +152,7 @@ namespace BEditor.Core.Data.PropertyData
             /// <inheritdoc/>
             public void Undo()
             {
-                Color.Red = or;
-                Color.Green = og;
-                Color.Blue = ob;
-                Color.Alpha = oa;
+                Color.Color = old;
             }
         }
     }
