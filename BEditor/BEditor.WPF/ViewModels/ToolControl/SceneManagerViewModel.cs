@@ -6,7 +6,6 @@ using BEditor.ViewModels.Helper;
 using BEditor.Views;
 
 using BEditor.Core.Data;
-using BEditor.Core.Data.ProjectData;
 
 namespace BEditor.ViewModels.ToolControl
 {

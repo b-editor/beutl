@@ -1,5 +1,4 @@
 ﻿using BEditor.ViewModels.Helper;
-using BEditor.Core.Data.ProjectData;
 using Microsoft.WindowsAPICodePack.Dialogs;
 using BEditor.Core.Data;
 using BEditor.Models;

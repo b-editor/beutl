@@ -2,8 +2,10 @@
 using System.ComponentModel;
 using System.Windows.Media;
 
+using BEditor.Core.Command;
 using BEditor.Core.Data;
-using BEditor.Core.Data.PropertyData;
+using BEditor.Core.Data.Primitive.Properties;
+using BEditor.Core.Data.Property;
 using BEditor.ViewModels.CustomControl;
 using BEditor.ViewModels.Helper;
 
@@ -23,7 +25,7 @@ namespace BEditor.ViewModels.PropertyControl
             Property = property;
             Command = new DelegateCommand<(byte, byte, byte, byte)>(x =>
             {
-                UndoRedoManager.Do(new ColorProperty.ChangeColorCommand(property, new(x.Item1, x.Item2, x.Item3, x.Item4)));
+                CommandManager.Do(new ColorProperty.ChangeColorCommand(property, new(x.Item1, x.Item2, x.Item3, x.Item4)));
             });
             property.PropertyChanged += (s, e) =>
             {

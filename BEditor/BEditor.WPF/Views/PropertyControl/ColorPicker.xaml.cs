@@ -9,8 +9,9 @@ using BEditor.ViewModels.CustomControl;
 using BEditor.ViewModels.PropertyControl;
 using BEditor.Views;
 using BEditor.Views.CustomControl;
-using BEditor.Core.Data.PropertyData;
+using BEditor.Core.Data.Property;
 using MaterialDesignThemes.Wpf;
+using BEditor.Core.Data.Primitive.Properties;
 
 namespace BEditor.Views.PropertyControls
 {

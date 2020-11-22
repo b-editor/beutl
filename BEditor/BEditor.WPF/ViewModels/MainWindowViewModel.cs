@@ -11,15 +11,15 @@ using BEditor.Views.MessageContent;
 using BEditor.Views.SettingsControl;
 
 using BEditor.Core.Data;
-using BEditor.Core.Data.ObjectData;
 using BEditor.Core.Extensions.ViewCommand;
 
 using MaterialDesignThemes.Wpf;
 
 using Microsoft.WindowsAPICodePack.Dialogs;
 
-using Project = BEditor.Core.Data.ProjectData.Project;
+using Project = BEditor.Core.Data.Project;
 using BEditor.Core.Service;
+using BEditor.Core.Command;
 
 namespace BEditor.ViewModels
 {
@@ -59,7 +59,7 @@ namespace BEditor.ViewModels
             {
                 for (int i = 0; i < UndoSelectIndex.Value + 1; i++)
                 {
-                    UndoRedoManager.Undo();
+                    CommandManager.Undo();
                 }
 
                 AppData.Current.Project.PreviewUpdate();
@@ -69,7 +69,7 @@ namespace BEditor.ViewModels
             {
                 for (int i = 0; i < RedoSelectIndex.Value + 1; i++)
                 {
-                    UndoRedoManager.Redo();
+                    CommandManager.Redo();
                 }
 
                 AppData.Current.Project.PreviewUpdate();
@@ -80,23 +80,23 @@ namespace BEditor.ViewModels
 
             UndoCommand.Subscribe(() =>
             {
-                UndoRedoManager.Undo();
+                CommandManager.Undo();
 
                 AppData.Current.Project.PreviewUpdate();
                 AppData.Current.AppStatus = Status.Edit;
             });
             RedoCommand.Subscribe(() =>
             {
-                UndoRedoManager.Redo();
+                CommandManager.Redo();
 
                 AppData.Current.Project.PreviewUpdate();
                 AppData.Current.AppStatus = Status.Edit;
             });
 
-            UndoRedoManager.CanUndoChange += (sender, e) => UndoIsEnabled.Value = UndoRedoManager.CanUndo;
-            UndoRedoManager.CanRedoChange += (sender, e) => RedoIsEnabled.Value = UndoRedoManager.CanRedo;
+            CommandManager.CanUndoChange += (sender, e) => UndoIsEnabled.Value = CommandManager.CanUndo;
+            CommandManager.CanRedoChange += (sender, e) => RedoIsEnabled.Value = CommandManager.CanRedo;
 
-            UndoRedoManager.DidEvent += DidEvent;
+            CommandManager.DidEvent += DidEvent;
 
             AppData.Current.PropertyChanged += (_, e) =>
             {
@@ -113,14 +113,14 @@ namespace BEditor.ViewModels
 
         private void Project_Opend()
         {
-            UndoRedoManager.Clear();
+            CommandManager.Clear();
 
             ProjectIsOpened.Value = true;
         }
 
         private void Project_Closed()
         {
-            UndoRedoManager.Clear();
+            CommandManager.Clear();
 
             ProjectIsOpened.Value = false;
         }
@@ -213,11 +213,11 @@ namespace BEditor.ViewModels
         public DelegateCommand UndoCommand { get; } = new();
         public DelegateCommand UndoSelect { get; } = new();
         public DelegateProperty<int> UndoSelectIndex { get; } = new();
-        public DelegateProperty<bool> UndoIsEnabled { get; } = new() { Value = UndoRedoManager.CanUndo };
+        public DelegateProperty<bool> UndoIsEnabled { get; } = new() { Value = CommandManager.CanUndo };
         public DelegateCommand RedoCommand { get; } = new();
         public DelegateCommand RedoSelect { get; } = new();
         public DelegateProperty<int> RedoSelectIndex { get; } = new();
-        public DelegateProperty<bool> RedoIsEnabled { get; } = new() { Value = UndoRedoManager.CanRedo };
+        public DelegateProperty<bool> RedoIsEnabled { get; } = new() { Value = CommandManager.CanRedo };
 
 
         public ObservableCollection<string> UnDoList { get; } = new();
@@ -231,9 +231,9 @@ namespace BEditor.ViewModels
                 { //上を見てUnDoListに追加
                     ReDoList.Clear();
 
-                    var command = UndoRedoManager.UndoStack.Peek();
+                    var command = CommandManager.UndoStack.Peek();
 
-                    UnDoList.Insert(0, UndoRedoManager.CommandTypeDictionary[command.GetType()]);
+                    UnDoList.Insert(0, CommandManager.CommandTypeDictionary[command.GetType()]);
 
                     AppData.Current.Project.PreviewUpdate();
                 }
@@ -271,7 +271,7 @@ namespace BEditor.ViewModels
         #endregion
 
 
-        public ObservableCollection<ObjectData> AddedObjects { get; } = new()
+        public ObservableCollection<ObjectMetadata> AddedObjects { get; } = new()
         {
             new() { Name = "Test", Type = ClipType.Figure }
         };

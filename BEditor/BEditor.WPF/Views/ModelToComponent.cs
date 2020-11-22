@@ -11,19 +11,19 @@ using BEditor.Views.CustomControl;
 using BEditor.Views.PropertyControls;
 using BEditor.Views.TimeLines;
 
-using BEditor.Core.Data.EffectData;
-using BEditor.Core.Data.ObjectData;
-using BEditor.Core.Data.ProjectData;
-using BEditor.Core.Data.PropertyData;
-using BEditor.Core.Data.PropertyData.EasingSetting;
+using BEditor.Core.Data.Property;
+using BEditor.Core.Data.Property.EasingProperty;
 using BEditor.Core.Extensions;
+using BEditor.Core.Data.Primitive.Properties;
+using BEditor.Core.Data.Control;
+using BEditor.Core.Data;
 
 namespace BEditor.Views
 {
     public static class ModelToComponent
     {
-        public static List<PropertyViewCreater> PropertyViewCreaters { get; } = new List<PropertyViewCreater>();
-        public static List<KeyFrameViewCreater> KeyFrameViewCreaters { get; } = new List<KeyFrameViewCreater>();
+        public static List<PropertyViewBuilder> PropertyViewCreaters { get; } = new List<PropertyViewBuilder>();
+        public static List<KeyFrameViewBuilder> KeyFrameViewCreaters { get; } = new List<KeyFrameViewBuilder>();
 
         static ModelToComponent()
         {
@@ -32,27 +32,27 @@ namespace BEditor.Views
             PropertyViewCreaters.Add(new()
             {
                 PropertyType = typeof(CheckProperty),
-                CreateFunc = (elm) => new PropertyControls.CheckBox((CheckProperty)elm)
+                CreateFunc = (elm) => new PropertyControls.CheckBox(elm as CheckProperty)
             });
             PropertyViewCreaters.Add(new()
             {
                 PropertyType = typeof(ColorAnimationProperty),
-                CreateFunc = (elm) => new PropertyControl.ColorAnimation((ColorAnimationProperty)elm)
+                CreateFunc = (elm) => new PropertyControl.ColorAnimation(elm as ColorAnimationProperty)
             });
             PropertyViewCreaters.Add(new()
             {
                 PropertyType = typeof(ColorProperty),
-                CreateFunc = (elm) => new PropertyControls.ColorPicker((ColorProperty)elm)
+                CreateFunc = (elm) => new PropertyControls.ColorPicker(elm as ColorProperty)
             });
             PropertyViewCreaters.Add(new()
             {
                 PropertyType = typeof(DocumentProperty),
-                CreateFunc = (elm) => new Document((DocumentProperty)elm)
+                CreateFunc = (elm) => new Document(elm as DocumentProperty)
             });
             PropertyViewCreaters.Add(new()
             {
                 PropertyType = typeof(EaseProperty),
-                CreateFunc = (elm) => new EaseControl((EaseProperty)elm)
+                CreateFunc = (elm) => new EaseControl(elm as EaseProperty)
             });
             PropertyViewCreaters.Add(new()
             {
@@ -97,12 +97,12 @@ namespace BEditor.Views
             PropertyViewCreaters.Add(new()
             {
                 PropertyType = typeof(FileProperty),
-                CreateFunc = (elm) => new FileControl((FileProperty)elm)
+                CreateFunc = (elm) => new FileControl(elm as FileProperty)
             });
             PropertyViewCreaters.Add(new()
             {
                 PropertyType = typeof(FontProperty),
-                CreateFunc = (elm) => new SelectorControl((FontProperty)elm)
+                CreateFunc = (elm) => new SelectorControl(elm as FontProperty)
             });
             PropertyViewCreaters.Add(new()
             {
@@ -128,7 +128,7 @@ namespace BEditor.Views
             PropertyViewCreaters.Add(new()
             {
                 PropertyType = typeof(SelectorProperty),
-                CreateFunc = (elm) => new SelectorControl((SelectorProperty)elm)
+                CreateFunc = (elm) => new SelectorControl(elm as SelectorProperty)
             });
             #endregion
 
@@ -136,12 +136,12 @@ namespace BEditor.Views
             KeyFrameViewCreaters.Add(new()
             {
                 PropertyType = typeof(EaseProperty),
-                CreateFunc = (elm) => new KeyFrame(elm.GetParent3(), (EaseProperty)elm)
+                CreateFunc = (elm) => new KeyFrame(elm.GetParent3(), elm as EaseProperty)
             });
             KeyFrameViewCreaters.Add(new()
             {
                 PropertyType = typeof(ColorAnimationProperty),
-                CreateFunc = (elm) => new ColorAnimation((ColorAnimationProperty)elm)
+                CreateFunc = (elm) => new ColorAnimation(elm as ColorAnimationProperty)
             });
             KeyFrameViewCreaters.Add(new()
             {
@@ -213,13 +213,13 @@ namespace BEditor.Views
             #endregion
         }
 
-        public class PropertyViewCreater
+        public class PropertyViewBuilder
         {
             public Type PropertyType { get; set; }
             public Func<PropertyElement, UIElement> CreateFunc { get; set; }
         }
 
-        public class KeyFrameViewCreater
+        public class KeyFrameViewBuilder
         {
             public Type PropertyType { get; set; }
             public Func<IKeyFrameProperty, UIElement> CreateFunc { get; set; }

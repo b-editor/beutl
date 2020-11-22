@@ -3,8 +3,8 @@ using System.Collections.ObjectModel;
 using System.Windows;
 using System.Windows.Input;
 
+using BEditor.Core.Data;
 using BEditor.ViewModels.Helper;
-using BEditor.Core.Data.EffectData;
 
 namespace BEditor.ViewModels.ToolControl
 {
@@ -24,7 +24,7 @@ namespace BEditor.ViewModels.ToolControl
                 if (Mouse.LeftButton == MouseButtonState.Pressed)
                 {
 
-                    if (!(obj is EffectData select) || select.Type == null)
+                    if (obj is not EffectMetadata select || select.Type == null)
                     {
                         return;
                     }

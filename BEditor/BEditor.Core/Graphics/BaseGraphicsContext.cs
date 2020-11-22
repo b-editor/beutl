@@ -6,7 +6,6 @@ using System.Threading.Tasks;
 
 using BEditor.Core.Media;
 using BEditor.Core.Data;
-using BEditor.Core.Data.ObjectData;
 
 using OpenTK;
 using OpenTK.Graphics;
@@ -19,10 +18,11 @@ using OpenTK.Windowing.Desktop;
 
 #endif
 using Color = BEditor.Core.Media.Color;
-using BEditor.Core.Data.PropertyData.Default;
 using Image = BEditor.Core.Media.Image;
 using System.Runtime.InteropServices;
 using BEditor.Core.Renderings;
+using BEditor.Core.Data.Primitive.Objects;
+using BEditor.Core.Data.Primitive.Properties.PrimitiveGroup;
 
 namespace BEditor.Core.Graphics
 {
@@ -237,7 +237,7 @@ namespace BEditor.Core.Graphics
         internal void DrawImage(Image img, ClipData data, int frame)
         {
             if (img == null) return;
-            ImageObject drawObject = (ImageObject)data.Effect[0];
+            var drawObject = data.Effect[0] as ImageObject;
 
             float alpha = (float)(drawObject.Blend.Alpha.GetValue(frame) / 100);
 

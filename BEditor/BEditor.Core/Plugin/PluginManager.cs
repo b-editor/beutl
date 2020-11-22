@@ -5,9 +5,7 @@ using System.Reflection;
 using System.Text;
 
 using BEditor.Core.Data;
-using BEditor.Core.Data.EffectData;
-using BEditor.Core.Data.ObjectData;
-using BEditor.Core.Data.PropertyData.EasingSetting;
+using BEditor.Core.Data.Property.EasingProperty;
 using BEditor.Core.Extensions;
 using BEditor.Core.Extensions.ViewCommand;
 using BEditor.Core.Properties;
@@ -46,7 +44,7 @@ namespace BEditor.Core.Plugin
 
                             if (plugin is IEffects effects)
                             {
-                                var a = new EffectData() { Name = plugin.PluginName, Children = new() };
+                                var a = new EffectMetadata() { Name = plugin.PluginName, Children = new() };
 
                                 foreach (var (name, type) in effects.Effects)
                                 {
@@ -54,12 +52,12 @@ namespace BEditor.Core.Plugin
                                     Serialize.SerializeKnownTypes.Add(type);
                                 }
 
-                                EffectData.LoadedEffects.Add(a);
+                                EffectMetadata.LoadedEffects.Add(a);
                             }
 
                             if (plugin is IObjects objects)
                             {
-                                var a = new ObjectData() { Name = plugin.PluginName, Children = new() };
+                                var a = new ObjectMetadata() { Name = plugin.PluginName, Children = new() };
 
                                 foreach (var (name, type) in objects.Objects)
                                 {
@@ -67,7 +65,7 @@ namespace BEditor.Core.Plugin
                                     Serialize.SerializeKnownTypes.Add(type);
                                 }
 
-                                ObjectData.LoadedObjects.Add(a);
+                                ObjectMetadata.LoadedObjects.Add(a);
                             }
 
 

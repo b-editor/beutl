@@ -7,7 +7,9 @@ using System.Threading.Tasks;
 using BEditor.ViewModels.Helper;
 
 using BEditor.Core.Data;
-using BEditor.Core.Data.PropertyData;
+using BEditor.Core.Data.Property;
+using BEditor.Core.Data.Primitive.Properties;
+using BEditor.Core.Command;
 
 namespace BEditor.ViewModels.PropertyControl
 {
@@ -21,7 +23,7 @@ namespace BEditor.ViewModels.PropertyControl
             Property = property;
             Command = new DelegateCommand<bool>(x =>
             {
-                UndoRedoManager.Do(new CheckProperty.ChangeCheckedCommand(property, x));
+                CommandManager.Do(new CheckProperty.ChangeCheckedCommand(property, x));
             });
         }
     }

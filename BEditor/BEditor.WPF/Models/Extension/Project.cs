@@ -4,15 +4,14 @@ using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
 
+using BEditor.Core.Data;
 using BEditor.ViewModels;
-
-using BEditor.Core.Data.ObjectData;
 
 namespace BEditor.Models.Extension
 {
     public static class Project
     {
-        public static void PreviewUpdate(this BEditor.Core.Data.ProjectData.Project project, ClipData clipData)
+        public static void PreviewUpdate(this Core.Data.Project project, ClipData clipData)
         {
             var now = project.PreviewScene.PreviewFrame;
             if (clipData.Start <= now && now <= clipData.End)
@@ -21,7 +20,7 @@ namespace BEditor.Models.Extension
             }
         }
 
-        public static void PreviewUpdate(this BEditor.Core.Data.ProjectData.Project project)
+        public static void PreviewUpdate(this Core.Data.Project project)
         {
             var img = project.PreviewScene.Render().Image;
             MainWindowViewModel.Current.PreviewImage.Value = img.ToBitmapSource();

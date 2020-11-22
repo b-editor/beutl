@@ -11,7 +11,8 @@ using BEditor.ViewModels.PropertyControl;
 using BEditor.Views.CustomControl;
 
 using BEditor.Core.Data;
-using BEditor.Core.Data.PropertyData;
+using BEditor.Core.Data.Property;
+using BEditor.Core.Data.Primitive.Properties;
 
 namespace BEditor.Views.PropertyControl
 {
@@ -122,14 +123,14 @@ namespace BEditor.Views.PropertyControl
             var color = ColorProperty;
             var d = new ColorDialog(color);
 
-            d.col.Red = (byte)color.Value[index].R;
-            d.col.Green = (byte)color.Value[index].G;
-            d.col.Blue = (byte)color.Value[index].B;
-            d.col.Alpha = (byte)color.Value[index].A;
+            d.col.Red = color.Value[index].R;
+            d.col.Green = color.Value[index].G;
+            d.col.Blue = color.Value[index].B;
+            d.col.Alpha = color.Value[index].A;
 
             d.ok_button.Click += (_, _) =>
             {
-                UndoRedoManager.Do(new ColorAnimationProperty.ChangeColorCommand(color, index, d.col.Red, d.col.Green, d.col.Blue, d.col.Alpha));
+                Core.Command.CommandManager.Do(new ColorAnimationProperty.ChangeColorCommand(color, index, d.col.Red, d.col.Green, d.col.Blue, d.col.Alpha));
             };
 
             d.ShowDialog();

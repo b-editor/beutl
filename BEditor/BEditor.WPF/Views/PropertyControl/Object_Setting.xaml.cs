@@ -9,8 +9,7 @@ using BEditor.Models;
 using BEditor.ViewModels.ToolControl;
 using BEditor.Views.ToolControl.Default;
 using BEditor.Core.Data;
-using BEditor.Core.Data.EffectData;
-using BEditor.Core.Data.ObjectData;
+using BEditor.Core.Command;
 
 namespace BEditor.Views.PropertyControls
 {
@@ -32,12 +31,12 @@ namespace BEditor.Views.PropertyControls
         private void Preview_Drop(object sender, DragEventArgs e)
         {
             e.Effects = DragDropEffects.Copy;
-            Type datatype = typeof(EffectData);
-            EffectData effect;
+            Type datatype = typeof(EffectMetadata);
+            EffectMetadata effect;
 
             try
             {
-                effect = (EffectData)e.Data.GetData(datatype);
+                effect = (EffectMetadata)e.Data.GetData(datatype);
             }
             catch
             {
@@ -45,9 +44,9 @@ namespace BEditor.Views.PropertyControls
             }
 
 
-            EffectElement effectinstance = (EffectElement)Activator.CreateInstance(effect.Type);
+            var effectinstance = effect.CreateFunc?.Invoke() ?? Activator.CreateInstance(effect.Type) as EffectElement;
 
-            UndoRedoManager.Do(new EffectElement.AddCommand(effectinstance, Data));
+            CommandManager.Do(new EffectElement.AddCommand(effectinstance, Data));
         }
     }
 }

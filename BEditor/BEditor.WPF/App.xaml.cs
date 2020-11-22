@@ -17,10 +17,7 @@ using BEditor.Views.CustomControl;
 using BEditor.Views.MessageContent;
 
 using BEditor.Core.Data;
-using BEditor.Core.Data.EffectData;
-using BEditor.Core.Data.ObjectData;
-using BEditor.Core.Data.ProjectData;
-using BEditor.Core.Data.PropertyData;
+using BEditor.Core.Data.Property;
 using BEditor.Core.Extensions.ViewCommand;
 
 using MaterialDesignThemes.Wpf;
@@ -32,6 +29,8 @@ using BEditor.Core.Media;
 using System.Timers;
 using BEditor.Models.Services;
 using BEditor.Core.Service;
+using BEditor.Core.Command;
+using BEditor.Core.Data.Primitive.Properties;
 
 namespace BEditor
 {
@@ -207,7 +206,7 @@ namespace BEditor
             #region イベント
             checkBox.Click += (sender, e) =>
             {
-                UndoRedoManager.Do(new EffectElement.CheckCommand(obj, (bool)((System.Windows.Controls.CheckBox)sender).IsChecked));
+                CommandManager.Do(new EffectElement.CheckCommand(obj, (bool)((System.Windows.Controls.CheckBox)sender).IsChecked));
             };
 
             #endregion
@@ -280,13 +279,13 @@ namespace BEditor
 
             #region イベント
 
-            checkBox.Click += (sender, e) => UndoRedoManager.Do(new EffectElement.CheckCommand(effect, (bool)((System.Windows.Controls.CheckBox)sender).IsChecked));
+            checkBox.Click += (sender, e) => CommandManager.Do(new EffectElement.CheckCommand(effect, (bool)((System.Windows.Controls.CheckBox)sender).IsChecked));
 
-            upbutton.Click += (sender, e) => UndoRedoManager.Do(new EffectElement.UpCommand(effect));
+            upbutton.Click += (sender, e) => CommandManager.Do(new EffectElement.UpCommand(effect));
 
-            downbutton.Click += (sender, e) => UndoRedoManager.Do(new EffectElement.DownCommand(effect));
+            downbutton.Click += (sender, e) => CommandManager.Do(new EffectElement.DownCommand(effect));
 
-            Delete.Click += (sender, e) => UndoRedoManager.Do(new EffectElement.RemoveCommand(effect));
+            Delete.Click += (sender, e) => CommandManager.Do(new EffectElement.RemoveCommand(effect));
 
             #endregion
 

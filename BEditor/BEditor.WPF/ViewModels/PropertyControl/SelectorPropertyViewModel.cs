@@ -6,7 +6,9 @@ using System.Threading.Tasks;
 
 using BEditor.ViewModels.Helper;
 using BEditor.Core.Data;
-using BEditor.Core.Data.PropertyData;
+using BEditor.Core.Data.Property;
+using BEditor.Core.Data.Primitive.Properties;
+using BEditor.Core.Command;
 
 namespace BEditor.ViewModels.PropertyControl
 {
@@ -18,7 +20,7 @@ namespace BEditor.ViewModels.PropertyControl
         public SelectorPropertyViewModel(SelectorProperty selector)
         {
             Property = selector;
-            Command = new DelegateCommand<(object, object)>(x => UndoRedoManager.Do(new SelectorProperty.ChangeSelectCommand(selector, (int)x.Item1)));
+            Command = new DelegateCommand<(object, object)>(x => CommandManager.Do(new SelectorProperty.ChangeSelectCommand(selector, (int)x.Item1)));
         }
     }
 }

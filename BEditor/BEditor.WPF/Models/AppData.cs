@@ -8,8 +8,9 @@ using System.Text;
 using System.Threading.Tasks;
 using System.Xml.Linq;
 
+using BEditor.Core;
+using BEditor.Core.Command;
 using BEditor.Core.Data;
-using BEditor.Core.Data.ProjectData;
 using BEditor.Core.Plugin;
 using BEditor.Core.Service;
 
@@ -63,7 +64,7 @@ namespace BEditor.Models
 
             #endregion
 
-            UndoRedoManager.DidEvent += (_, _) => AppStatus = Status.Edit;
+            CommandManager.DidEvent += (_, _) => AppStatus = Status.Edit;
         }
 
         /// <inheritdoc/>

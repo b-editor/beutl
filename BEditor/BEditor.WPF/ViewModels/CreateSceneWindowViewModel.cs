@@ -1,7 +1,6 @@
 ﻿using BEditor.ViewModels.Helper;
 
 using BEditor.Core.Data;
-using BEditor.Core.Data.ProjectData;
 using BEditor.Models;
 using System.ComponentModel;
 

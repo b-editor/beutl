@@ -4,7 +4,7 @@
              xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006" 
              xmlns:d="http://schemas.microsoft.com/expression/blend/2008" 
              xmlns:views="clr-namespace:BEditor.Views"
-             xmlns:easefunc="clr-namespace:BEditor.Core.Data.PropertyData.EasingSetting;assembly=BEditor.Core"
+             xmlns:easefunc="clr-namespace:BEditor.Core.Data.Property.EasingProperty;assembly=BEditor.Core"
              xmlns:convert="clr-namespace:BEditor.ViewModels.Converters"
              mc:Ignorable="d" 
              xmlns:md="http://materialdesigninxaml.net/winfx/xaml/themes"

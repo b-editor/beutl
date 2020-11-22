@@ -4,7 +4,9 @@ using BEditor.Models.Settings;
 using BEditor.ViewModels.Helper;
 
 using BEditor.Core.Data;
-using BEditor.Core.Data.PropertyData;
+using BEditor.Core.Data.Property;
+using BEditor.Core.Data.Primitive.Properties;
+using BEditor.Core.Command;
 
 namespace BEditor.ViewModels.TimeLines
 {
@@ -16,9 +18,9 @@ namespace BEditor.ViewModels.TimeLines
         public ColorAnimationViewModel(ColorAnimationProperty colorProperty)
         {
             ColorAnimationProperty = colorProperty;
-            AddKeyFrameCommand.Subscribe(x => UndoRedoManager.Do(new ColorAnimationProperty.AddCommand(colorProperty, x)));
-            RemoveKeyFrameCommand.Subscribe(x => UndoRedoManager.Do(new ColorAnimationProperty.RemoveCommand(colorProperty, x)));
-            MoveKeyFrameCommand.Subscribe(x => UndoRedoManager.Do(new ColorAnimationProperty.MoveCommand(colorProperty, x.Item1, x.Item2)));
+            AddKeyFrameCommand.Subscribe(x => CommandManager.Do(new ColorAnimationProperty.AddCommand(colorProperty, x)));
+            RemoveKeyFrameCommand.Subscribe(x => CommandManager.Do(new ColorAnimationProperty.RemoveCommand(colorProperty, x)));
+            MoveKeyFrameCommand.Subscribe(x => CommandManager.Do(new ColorAnimationProperty.MoveCommand(colorProperty, x.Item1, x.Item2)));
 
             colorProperty.AddKeyFrameEvent += (_, value) => AddKeyFrameIcon?.Invoke(value.frame, value.index);
             colorProperty.DeleteKeyFrameEvent += (_, value) => DeleteKeyFrameIcon?.Invoke(value);

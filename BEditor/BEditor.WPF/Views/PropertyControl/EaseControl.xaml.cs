@@ -13,8 +13,10 @@ using BEditor.ViewModels.PropertyControl;
 using BEditor.Views.CustomControl;
 using BEditor.Views.TimeLines;
 using BEditor.Core.Data;
-using BEditor.Core.Data.PropertyData;
+using BEditor.Core.Data.Property;
 using BEditor.Core.Extensions;
+using BEditor.Core.Data.Primitive.Properties;
+using BEditor.Core.Data.Control;
 
 namespace BEditor.Views.PropertyControls
 {
@@ -146,7 +148,7 @@ namespace BEditor.Views.PropertyControls
             {
                 EasingSetting.Value[index] = oldvalue;
 
-                UndoRedoManager.Do(new EaseProperty.ChangeValueCommand(EasingSetting, index, _out));
+                Core.Command.CommandManager.Do(new EaseProperty.ChangeValueCommand(EasingSetting, index, _out));
             }
         }
 

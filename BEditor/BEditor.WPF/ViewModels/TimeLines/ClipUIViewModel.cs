@@ -8,9 +8,9 @@ using BEditor.ViewModels.Helper;
 using BEditor.Views;
 
 using BEditor.Core.Data;
-using BEditor.Core.Data.ObjectData;
-using BEditor.Core.Data.ProjectData;
 using BEditor.Core.Properties;
+
+using CommandManager = BEditor.Core.Command.CommandManager;
 
 namespace BEditor.ViewModels.TimeLines
 {
@@ -26,11 +26,11 @@ namespace BEditor.ViewModels.TimeLines
 
 
         #region Binding用プロパティ
-        public DelegateProperty<string> ClipText { get; set; } = new DelegateProperty<string>();
-        public DelegateProperty<Brush> ClipColor { get; set; } = new DelegateProperty<Brush>();
+        public DelegateProperty<string> ClipText { get; set; } = new();
+        public DelegateProperty<Brush> ClipColor { get; set; } = new();
         public double TrackHeight => Setting.ClipHeight;
-        public DelegateProperty<double> WidthProperty { get; } = new DelegateProperty<double>();
-        public DelegateProperty<Thickness> MarginProperty { get; } = new DelegateProperty<Thickness>();
+        public DelegateProperty<double> WidthProperty { get; } = new();
+        public DelegateProperty<Thickness> MarginProperty { get; } = new();
 
         public double MarginLeftProperty
         {
@@ -38,16 +38,16 @@ namespace BEditor.ViewModels.TimeLines
             set
             {
                 var tmp = MarginProperty.Value;
-                MarginProperty.Value = new Thickness(value, tmp.Top, tmp.Right, tmp.Bottom);
+                MarginProperty.Value = new(value, tmp.Top, tmp.Right, tmp.Bottom);
             }
         }
 
         /// <summary>
         /// 開いている場合True
         /// </summary>
-        public DelegateProperty<bool> IsExpanded { get; } = new DelegateProperty<bool>();
+        public DelegateProperty<bool> IsExpanded { get; } = new();
 
-        public DelegateProperty<Cursor> ClipCursor { get; } = new DelegateProperty<Cursor>();
+        public DelegateProperty<Cursor> ClipCursor { get; } = new();
         #endregion
 
 
@@ -101,15 +101,15 @@ namespace BEditor.ViewModels.TimeLines
         #region クリップ操作
 
         #region Properties
-        public DelegateCommand ClipMouseDownCommand { get; } = new DelegateCommand();
-        public DelegateCommand ClipMouseUpCommand { get; } = new DelegateCommand();
-        public DelegateCommand<Point> ClipMouseMoveCommand { get; } = new DelegateCommand<Point>();
-        public DelegateCommand ClipMouseDoubleClickCommand { get; } = new DelegateCommand();
-        public DelegateCommand ClipCopyCommand { get; } = new DelegateCommand();
-        public DelegateCommand ClipCutCommand { get; } = new DelegateCommand();
-        public DelegateCommand ClipDeleteCommand { get; } = new DelegateCommand();
-        public DelegateCommand ClipDataLogCommand { get; } = new DelegateCommand();
-        public DelegateCommand ClipSeparateCommand { get; } = new DelegateCommand();
+        public DelegateCommand ClipMouseDownCommand { get; } = new();
+        public DelegateCommand ClipMouseUpCommand { get; } = new();
+        public DelegateCommand<Point> ClipMouseMoveCommand { get; } = new();
+        public DelegateCommand ClipMouseDoubleClickCommand { get; } = new();
+        public DelegateCommand ClipCopyCommand { get; } = new();
+        public DelegateCommand ClipCutCommand { get; } = new();
+        public DelegateCommand ClipDeleteCommand { get; } = new();
+        public DelegateCommand ClipDataLogCommand { get; } = new();
+        public DelegateCommand ClipSeparateCommand { get; } = new();
         #endregion
 
 
@@ -152,7 +152,7 @@ namespace BEditor.ViewModels.TimeLines
                 int end = TimeLineViewModel.ToFrame(TimeLineViewModel.ClipSelect.GetCreateClipViewModel().WidthProperty.Value) + start;//変更後の最大フレーム
 
                 if (0 < start && 0 < end)
-                    UndoRedoManager.Do(new ClipData.LengthChangeCommand(data, start, end));
+                    CommandManager.Do(new ClipData.LengthChangeCommand(data, start, end));
             }
 
             if (TimeLineViewModel.ClipTimeChange)
@@ -163,7 +163,7 @@ namespace BEditor.ViewModels.TimeLines
                 int layer = data.GetCreateClipViewModel().Row;
 
 
-                UndoRedoManager.Do(new ClipData.MoveCommand(data, frame, layer));
+                CommandManager.Do(new ClipData.MoveCommand(data, frame, layer));
 
                 TimeLineViewModel.ClipTimeChange = false;
             }
@@ -218,7 +218,7 @@ namespace BEditor.ViewModels.TimeLines
         #endregion
 
         #region Delete
-        private void ClipDelete() => UndoRedoManager.Do(new ClipData.RemoveCommand(ClipData));
+        private void ClipDelete() => CommandManager.Do(new ClipData.RemoveCommand(ClipData));
         #endregion
 
         #region DataLog

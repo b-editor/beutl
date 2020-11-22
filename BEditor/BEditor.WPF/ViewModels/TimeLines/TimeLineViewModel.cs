@@ -12,10 +12,10 @@ using BEditor.Views;
 using BEditor.Views.SettingsControl;
 
 using BEditor.Core.Data;
-using BEditor.Core.Data.ObjectData;
-using BEditor.Core.Data.ProjectData;
 using BEditor.Core.Media;
 using BEditor.Models;
+
+using CommandManager = BEditor.Core.Command.CommandManager;
 
 namespace BEditor.ViewModels.TimeLines
 {
@@ -275,7 +275,7 @@ namespace BEditor.ViewModels.TimeLines
                 if (de.Data.GetDataPresent(typeof(Type)))
                 {
                     var command = new ClipData.AddCommand(Scene, frame, addlayer, (Type)de.Data.GetData(typeof(Type)));
-                    UndoRedoManager.Do(command);
+                    CommandManager.Do(command);
                 }
                 else if (de.Data.GetDataPresent(DataFormats.FileDrop, true))
                 {
@@ -285,20 +285,20 @@ namespace BEditor.ViewModels.TimeLines
                     {
                         var type_ = FileTypeConvert(file);
                         var a = new ClipData.AddCommand(Scene, frame, addlayer, type_);
-                        UndoRedoManager.Do(a);
+                        CommandManager.Do(a);
 
                         if (type_ == ClipType.Image)
                         {
-                            ((DefaultData.Image)a.data.Effect[0]).File.File = file;
+                            (a.data.Effect[0] as Core.Data.Primitive.Objects.PrimitiveImages.Image).File.File = file;
                         }
                         else if (type_ == ClipType.Video)
                         {
-                            ((DefaultData.Video)a.data.Effect[0]).File.File = file;
+                            (a.data.Effect[0] as Core.Data.Primitive.Objects.PrimitiveImages.Video).File.File = file;
                         }
                         else if (type_ == ClipType.Text)
                         {
                             var reader = new StreamReader(file);
-                            ((DefaultData.Text)a.data.Effect[0]).Document.Text = reader.ReadToEnd();
+                            (a.data.Effect[0] as Core.Data.Primitive.Objects.PrimitiveImages.Text).Document.Text = reader.ReadToEnd();
                             reader.Close();
                         }
 
@@ -396,7 +396,7 @@ namespace BEditor.ViewModels.TimeLines
                 int start = ToFrame(ClipSelect.GetCreateClipViewModel().MarginLeftProperty);
                 int end = ToFrame(ClipSelect.GetCreateClipViewModel().WidthProperty.Value) + start;//変更後の最大フレーム
                 if (0 < start && 0 < end)
-                    UndoRedoManager.Do(new ClipData.LengthChangeCommand(ClipSelect, start, end));
+                    CommandManager.Do(new ClipData.LengthChangeCommand(ClipSelect, start, end));
 
                 ClipLeftRight = 0;
             }
@@ -490,7 +490,7 @@ namespace BEditor.ViewModels.TimeLines
             {
                 ClipData data = ClipSelect;
 
-                UndoRedoManager.Do(new ClipData.MoveCommand(clip: data,
+                CommandManager.Do(new ClipData.MoveCommand(clip: data,
                                                      toFrame: ToFrame(data.GetCreateClipViewModel().MarginLeftProperty),
                                                      toLayer: ClipSelect.GetCreateClipViewModel().Row));
 

@@ -6,8 +6,10 @@ using System.Threading.Tasks;
 using BEditor.ViewModels.Helper;
 
 using BEditor.Core.Data;
-using BEditor.Core.Data.PropertyData;
-using BEditor.Core.Data.PropertyData.EasingSetting;
+using BEditor.Core.Data.Property;
+using BEditor.Core.Data.Property.EasingProperty;
+using BEditor.Core.Data.Primitive.Properties;
+using BEditor.Core.Command;
 
 namespace BEditor.ViewModels.PropertyControl
 {
@@ -21,7 +23,7 @@ namespace BEditor.ViewModels.PropertyControl
             Property = property;
             EasingChangeCommand = new DelegateCommand<EasingData>(x =>
             {
-                UndoRedoManager.Do(new EaseProperty.ChangeEaseCommand(property, x.Name));
+                CommandManager.Do(new EaseProperty.ChangeEaseCommand(property, x.Name));
             });
         }
     }

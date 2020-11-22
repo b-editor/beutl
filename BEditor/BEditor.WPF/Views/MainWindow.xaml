@@ -12,7 +12,7 @@
     
         xmlns:properties="clr-namespace:BEditor.Core.Properties;assembly=BEditor.Core"
         xmlns:core="clr-namespace:BEditor.Core.Data;assembly=BEditor.Core"
-        xmlns:objdata="clr-namespace:BEditor.Core.Data.ObjectData;assembly=BEditor.Core"
+        xmlns:objdata="clr-namespace:BEditor.Core.Data;assembly=BEditor.Core"
     
         xmlns:Controls="clr-namespace:MahApps.Metro.Controls;assembly=MahApps.Metro"
         xmlns:i="http://schemas.microsoft.com/xaml/behaviors"
@@ -219,7 +219,7 @@
                             </md:PopupBox.ToggleContent>
                             <TreeView Width="250" Height="300" ItemsSource="{Binding AddedObjects, Mode=OneWay}">
                                 <TreeView.Resources>
-                                    <HierarchicalDataTemplate DataType="{x:Type objdata:ObjectData}" ItemsSource="{Binding Children}">
+                                    <HierarchicalDataTemplate DataType="{x:Type objdata:ObjectMetadata}" ItemsSource="{Binding Children}">
                                         <TextBlock Text="{Binding Name}" Margin="3 2"/>
                                     </HierarchicalDataTemplate>
                                 </TreeView.Resources>

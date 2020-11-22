@@ -7,7 +7,6 @@ using System.Windows.Input;
 
 using BEditor.ViewModels;
 using BEditor.Core.Data;
-using BEditor.Core.Data.ProjectData;
 using BEditor.Core.Plugin;
 using MahApps.Metro.Controls;
 

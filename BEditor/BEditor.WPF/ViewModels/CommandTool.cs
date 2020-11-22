@@ -5,12 +5,12 @@ using System.Windows.Data;
 using System.Windows.Input;
 
 using BEditor.ViewModels.Helper;
-using BEditor.Core.Data.ObjectData;
 using MaterialDesignThemes.Wpf;
 
 using Microsoft.Xaml.Behaviors;
 
 using EventTrigger = Microsoft.Xaml.Behaviors.EventTrigger;
+using BEditor.Core.Data;
 
 namespace BEditor.ViewModels
 {

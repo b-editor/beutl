@@ -2,7 +2,8 @@
 
 using BEditor.ViewModels.PropertyControl;
 using BEditor.Views.CustomControl;
-using BEditor.Core.Data.PropertyData;
+using BEditor.Core.Data.Property;
+using BEditor.Core.Data.Primitive.Properties;
 
 namespace BEditor.Views.PropertyControls
 {
