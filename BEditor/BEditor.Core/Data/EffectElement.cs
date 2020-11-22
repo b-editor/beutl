@@ -327,24 +327,80 @@ namespace BEditor.Core.Data
                     new()
                     {
                         Name = Resources.ColorKey,
-                        Type = typeof(ColorKey)
+                        Type = typeof(ColorKey),
+                        CreateFunc = () => new ColorKey()
                     },
-                    new() { Name = Resources.DropShadow, Type = typeof(Shadow) },
-                    new() { Name = Resources.Blur, Type = typeof(Blur) },
-                    new() { Name = Resources.Monoc, Type = typeof(Monoc) },
-                    new() { Name = Resources.Dilate, Type = typeof(Dilate) },
-                    new() { Name = Resources.Erode, Type = typeof(Erode) },
-                    new() { Name = Resources.Clipping, Type = typeof(Clipping) },
-                    new() { Name = Resources.AreaExpansion, Type = typeof(AreaExpansion) }
+                    new()
+                    {
+                        Name = Resources.DropShadow,
+                        Type = typeof(Shadow),
+                        CreateFunc = () => new Shadow()
+                    },
+                    new()
+                    {
+                        Name = Resources.Blur,
+                        Type = typeof(Blur),
+                        CreateFunc = () => new Blur()
+                    },
+                    new()
+                    {
+                        Name = Resources.Monoc,
+                        Type = typeof(Monoc),
+                        CreateFunc = () => new Monoc()
+                    },
+                    new()
+                    {
+                        Name = Resources.Dilate,
+                        Type = typeof(Dilate),
+                        CreateFunc = () => new Dilate()
+                    },
+                    new()
+                    {
+                        Name = Resources.Erode,
+                        Type = typeof(Erode),
+                        CreateFunc = () => new Erode()
+                    },
+                    new()
+                    {
+                        Name = Resources.Clipping,
+                        Type = typeof(Clipping),
+                        CreateFunc = () => new Clipping()
+                    },
+                    new()
+                    {
+                        Name = Resources.AreaExpansion,
+                        Type = typeof(AreaExpansion),
+                        CreateFunc = () => new AreaExpansion()
+                    }
                 }
             },
             new() {
                 Name = Resources.Camera,
                 Children = new() {
-                    new() { Name = Resources.DepthTest, Type = typeof(DepthTest) },
-                    new() { Name = Resources.DirectionalLightSource, Type = typeof(DirectionalLightSource) },
-                    new() { Name = Resources.PointLightSource, Type = typeof(PointLightSource) },
-                    new() { Name = Resources.SpotLight, Type = typeof(SpotLight) }
+                    new()
+                    {
+                        Name = Resources.DepthTest,
+                        Type = typeof(DepthTest),
+                        CreateFunc = () => new DepthTest()
+                    },
+                    new()
+                    {
+                        Name = Resources.DirectionalLightSource,
+                        Type = typeof(DirectionalLightSource),
+                        CreateFunc = () => new DirectionalLightSource()
+                    },
+                    new()
+                    {
+                        Name = Resources.PointLightSource,
+                        Type = typeof(PointLightSource),
+                        CreateFunc = () => new PointLightSource()
+                    },
+                    new()
+                    {
+                        Name = Resources.SpotLight,
+                        Type = typeof(SpotLight),
+                        CreateFunc = () => new SpotLight()
+                    }
                 }
             }
         };
