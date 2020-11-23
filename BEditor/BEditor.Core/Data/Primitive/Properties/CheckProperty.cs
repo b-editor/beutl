@@ -21,7 +21,7 @@ namespace BEditor.Core.Data.Primitive.Properties
     [DataContract(Namespace = "")]
     public class CheckProperty : PropertyElement, IEasingProperty, IBindable<bool>
     {
-        #region フィールド
+        #region Fields
 
         private static readonly PropertyChangedEventArgs checkedArgs = new(nameof(IsChecked));
         private bool isChecked;
@@ -54,7 +54,21 @@ namespace BEditor.Core.Data.Primitive.Properties
         public bool IsChecked
         {
             get => isChecked;
-            set => SetValue(value, ref isChecked, checkedArgs, CheckProperty_PropertyChanged);
+            set => SetValue(value, ref isChecked, checkedArgs, ()=>
+            {
+                foreach (var observer in Collection)
+                {
+                    try
+                    {
+                        observer.OnNext(isChecked);
+                        observer.OnCompleted();
+                    }
+                    catch (Exception ex)
+                    {
+                        observer.OnError(ex);
+                    }
+                }
+            });
         }
         /// <inheritdoc/>
         [DataMember]
@@ -63,21 +77,7 @@ namespace BEditor.Core.Data.Primitive.Properties
         public bool Value => IsChecked;
 
 
-        private void CheckProperty_PropertyChanged()
-        {
-            foreach (var observer in Collection)
-            {
-                try
-                {
-                    observer.OnNext(isChecked);
-                    observer.OnCompleted();
-                }
-                catch (Exception ex)
-                {
-                    observer.OnError(ex);
-                }
-            }
-        }
+        #region Methods
 
         #region IBindable
 
@@ -130,6 +130,9 @@ namespace BEditor.Core.Data.Primitive.Properties
         }
         /// <inheritdoc/>
         public override string ToString() => $"(IsChecked:{IsChecked} Name:{PropertyMetadata?.Name})";
+
+        #endregion
+
 
         /// <summary>
         /// チェックされているかを変更するコマンド

@@ -11,6 +11,7 @@ using BEditor.Views.MessageContent;
 using BEditor.Views.SettingsControl;
 
 using BEditor.Core.Data;
+using BEditor.Core.Data.Control;
 using BEditor.Core.Extensions.ViewCommand;
 
 using MaterialDesignThemes.Wpf;
@@ -98,14 +99,13 @@ namespace BEditor.ViewModels
 
             CommandManager.DidEvent += DidEvent;
 
-            AppData.Current.PropertyChanged += (_, e) =>
-            {
-                if (e.PropertyName == nameof(AppData.Project))
+            AppData.Current
+                .ObserveProperty(app => app.Project)
+                .Subscribe(_ =>
                 {
                     if (AppData.Current.Project is null) Project_Closed();
                     else Project_Opend();
-                }
-            };
+                });
         }
 
 

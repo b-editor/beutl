@@ -13,6 +13,16 @@ namespace BEditor.Core.Command
     /// </summary>
     public static class CommandManager
     {
+        #region Fields
+
+        internal static bool process = true;
+        private static bool canUndo = false;
+        private static bool canRedo = false;
+
+        #endregion
+
+        #region Properties
+
         /// <summary>
         /// コマンドに対応する名前が入った配列を取得します
         /// </summary>
@@ -66,8 +76,6 @@ namespace BEditor.Core.Command
             { typeof(FileProperty.ChangeFileCommand), "ファイル変更" }
             #endregion
         };
-
-        internal static bool process = true;
         /// <summary>
         /// 実行後またはRedo後に記録
         /// </summary>
@@ -76,8 +84,76 @@ namespace BEditor.Core.Command
         /// Undo後に記録
         /// </summary>
         public static Stack<IRecordCommand> RedoStack { get; } = new Stack<IRecordCommand>();
-        private static bool canUndo = false;
-        private static bool canRedo = false;
+        /// <summary>
+        /// Undo出来るか取得します
+        /// </summary>
+        public static bool CanUndo
+        {
+            private set
+            {
+                if (canUndo != value)
+                {
+                    canUndo = value;
+
+                    CanUndoChange?.Invoke(null, EventArgs.Empty);
+                }
+            }
+            get
+            {
+                return canUndo;
+            }
+        }
+        /// <summary>
+        /// Redo出来るかを取得します
+        /// </summary>
+        public static bool CanRedo
+        {
+            private set
+            {
+                if (canRedo != value)
+                {
+                    canRedo = value;
+
+                    CanRedoChange?.Invoke(null, EventArgs.Empty);
+                }
+            }
+            get
+            {
+                return canRedo;
+            }
+        }
+
+        #endregion
+
+        #region Events
+
+        /// <summary>
+        /// Undo出来るかどうかの状態が変化すると発生します
+        /// </summary>
+        public static event EventHandler CanUndoChange;
+
+        /// <summary>
+        /// Redo出来るかどうかの状態が変化すると発生します
+        /// </summary>
+        public static event EventHandler CanRedoChange;
+
+        /// <summary>
+        /// UnDo ReDo Do時に発生します
+        /// </summary>
+        public static event EventHandler<CommandType> DidEvent;
+
+        /// <summary>
+        /// コマンドがキャンセルされたときに発生します
+        /// </summary>
+        public static event EventHandler CommandCancel;
+        /// <summary>
+        /// <see cref="Clear"/> 後に発生します
+        /// </summary>
+        public static event EventHandler CommandsClear;
+
+        #endregion
+
+        #region Methods
 
         /// <summary>
         /// 操作を実行し、かつその内容をStackに追加します
@@ -107,7 +183,6 @@ namespace BEditor.Core.Command
             process = true;
             DidEvent?.Invoke(command, CommandType.Do);
         }
-
         /// <summary>
         /// 行なったコマンドを取り消してひとつ前の状態に戻します
         /// </summary>
@@ -134,7 +209,6 @@ namespace BEditor.Core.Command
                 DidEvent?.Invoke(command, CommandType.Undo);
             }
         }
-
         /// <summary>
         /// 取り消したコマンドをやり直します
         /// </summary>
@@ -161,7 +235,6 @@ namespace BEditor.Core.Command
                 DidEvent?.Invoke(command, CommandType.Redo);
             }
         }
-
         /// <summary>
         /// 記録されたコマンドを初期化
         /// </summary>
@@ -175,69 +248,7 @@ namespace BEditor.Core.Command
             CommandsClear?.Invoke(null, EventArgs.Empty);
         }
 
-        /// <summary>
-        /// Undo出来るか取得します
-        /// </summary>
-        public static bool CanUndo
-        {
-            private set
-            {
-                if (canUndo != value)
-                {
-                    canUndo = value;
-
-                    CanUndoChange?.Invoke(null, EventArgs.Empty);
-                }
-            }
-            get
-            {
-                return canUndo;
-            }
-        }
-
-        /// <summary>
-        /// Redo出来るかを取得します
-        /// </summary>
-        public static bool CanRedo
-        {
-            private set
-            {
-                if (canRedo != value)
-                {
-                    canRedo = value;
-
-                    CanRedoChange?.Invoke(null, EventArgs.Empty);
-                }
-            }
-            get
-            {
-                return canRedo;
-            }
-        }
-
-        /// <summary>
-        /// Undo出来るかどうかの状態が変化すると発生します
-        /// </summary>
-        public static event EventHandler CanUndoChange;
-
-        /// <summary>
-        /// Redo出来るかどうかの状態が変化すると発生します
-        /// </summary>
-        public static event EventHandler CanRedoChange;
-
-        /// <summary>
-        /// UnDo ReDo Do時に発生します
-        /// </summary>
-        public static event EventHandler<CommandType> DidEvent;
-
-        /// <summary>
-        /// コマンドがキャンセルされたときに発生します
-        /// </summary>
-        public static event EventHandler CommandCancel;
-        /// <summary>
-        /// <see cref="Clear"/> 後に発生します
-        /// </summary>
-        public static event EventHandler CommandsClear;
+        #endregion
     }
 
     /// <summary>

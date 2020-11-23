@@ -49,7 +49,6 @@ namespace BEditor.Core.Data.Primitive.Effects
 
         #endregion
 
-        #region コンストラクタ
 
         public DepthTest()
         {
@@ -60,7 +59,6 @@ namespace BEditor.Core.Data.Primitive.Effects
             Far = new(FarMetadata);
         }
 
-        #endregion
 
         #region EffectElement
 
@@ -74,6 +72,25 @@ namespace BEditor.Core.Data.Primitive.Effects
             Near,
             Far
         };
+
+
+        [DataMember(Order = 0)]
+        public CheckProperty Enabled { get; private set; }
+
+        [DataMember(Order = 1)]
+        public SelectorProperty Function { get; private set; }
+
+        [DataMember(Order = 2)]
+        public CheckProperty Mask { get; private set; }
+
+        [DataMember(Order = 3)]
+        public EaseProperty Near { get; private set; }
+
+        [DataMember(Order = 4)]
+        public EaseProperty Far { get; private set; }
+
+        #endregion
+
 
         public override void Render(EffectRenderArgs args)
         {
@@ -95,23 +112,5 @@ namespace BEditor.Core.Data.Primitive.Effects
             Near.ExecuteLoaded(NearMetadata);
             Far.ExecuteLoaded(FarMetadata);
         }
-
-        #endregion
-
-
-        [DataMember(Order = 0)]
-        public CheckProperty Enabled { get; private set; }
-
-        [DataMember(Order = 1)]
-        public SelectorProperty Function { get; private set; }
-
-        [DataMember(Order = 2)]
-        public CheckProperty Mask { get; private set; }
-
-        [DataMember(Order = 3)]
-        public EaseProperty Near { get; private set; }
-
-        [DataMember(Order = 4)]
-        public EaseProperty Far { get; private set; }
     }
 }

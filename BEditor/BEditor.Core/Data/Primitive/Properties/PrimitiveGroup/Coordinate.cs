@@ -18,6 +18,7 @@ namespace BEditor.Core.Data.Primitive.Properties.PrimitiveGroup
         public static readonly EasePropertyMetadata CenterYMetadata = new(Resources.CenterY, 0, float.NaN, float.NaN, true);
         public static readonly EasePropertyMetadata CenterZMetadata = new(Resources.CenterZ, 0, float.NaN, float.NaN, true);
 
+
         public Coordinate(PropertyElementMetadata constant) : base(constant)
         {
             X = new(XMetadata);
@@ -29,7 +30,6 @@ namespace BEditor.Core.Data.Primitive.Properties.PrimitiveGroup
         }
 
 
-        #region ExpandGroup
         public override IEnumerable<PropertyElement> Properties => new PropertyElement[]
         {
             X,
@@ -39,19 +39,6 @@ namespace BEditor.Core.Data.Primitive.Properties.PrimitiveGroup
             CenterY,
             CenterZ
         };
-
-        public override void PropertyLoaded()
-        {
-            X.ExecuteLoaded(XMetadata);
-            Y.ExecuteLoaded(YMetadata);
-            Z.ExecuteLoaded(ZMetadata);
-            CenterX.ExecuteLoaded(CenterXMetadata);
-            CenterY.ExecuteLoaded(CenterYMetadata);
-            CenterZ.ExecuteLoaded(CenterZMetadata);
-        }
-
-        #endregion
-
 
         [DataMember(Order = 0)]
         public EaseProperty X { get; private set; }
@@ -70,6 +57,17 @@ namespace BEditor.Core.Data.Primitive.Properties.PrimitiveGroup
 
         [DataMember(Order = 5)]
         public EaseProperty CenterZ { get; private set; }
+
+
+        public override void PropertyLoaded()
+        {
+            X.ExecuteLoaded(XMetadata);
+            Y.ExecuteLoaded(YMetadata);
+            Z.ExecuteLoaded(ZMetadata);
+            CenterX.ExecuteLoaded(CenterXMetadata);
+            CenterY.ExecuteLoaded(CenterYMetadata);
+            CenterZ.ExecuteLoaded(CenterZMetadata);
+        }
 
         public void ResetOptional()
         {

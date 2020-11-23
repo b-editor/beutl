@@ -18,7 +18,6 @@ namespace BEditor.Core.Data.Primitive.Objects.PrimitiveImages
         public static readonly EasePropertyMetadata SpeedMetadata = new(Resources.Speed, 100);
         public static readonly EasePropertyMetadata StartMetadata = new(Resources.Start, 1, float.NaN, 0);
         public static readonly FilePropertyMetadata FileMetadata = new(Resources.File, "", "mp4,avi,wmv,mov", Resources.VideoFile);
-
         private VideoDecoder videoReader;
 
 
@@ -30,8 +29,8 @@ namespace BEditor.Core.Data.Primitive.Objects.PrimitiveImages
         }
 
 
+        #region Properties
 
-        #region ImageObject
         public override IEnumerable<PropertyElement> Properties => new PropertyElement[]
         {
                 Coordinate,
@@ -43,6 +42,19 @@ namespace BEditor.Core.Data.Primitive.Objects.PrimitiveImages
                 Start,
                 File
         };
+
+
+        [DataMember(Order = 0)]
+        public EaseProperty Speed { get; private set; }
+
+        [DataMember(Order = 1)]
+        public EaseProperty Start { get; private set; }
+
+        [DataMember(Order = 2)]
+        public FileProperty File { get; private set; }
+
+        #endregion
+
 
         public override Media.Image OnRender(EffectRenderArgs args)
         {
@@ -64,37 +76,20 @@ namespace BEditor.Core.Data.Primitive.Objects.PrimitiveImages
                 videoReader = new FFmpegVideoDecoder(File.File);
             }
 
-            File.PropertyChanged += (s, e) =>
+            File.Subscribe(filename =>
             {
-                if (e.PropertyName != nameof(FileProperty.File))
-                {
-                    return;
-                }
-
                 videoReader?.Dispose();
 
                 try
                 {
-                    videoReader = new FFmpegVideoDecoder(File.File);
+                    videoReader = new FFmpegVideoDecoder(filename);
                 }
                 catch (Exception ex)
                 {
-                    Message.Snackbar(string.Format(Resources.FailedToLoad, File.File));
+                    Message.Snackbar(string.Format(Resources.FailedToLoad, filename));
                     ActivityLog.ErrorLog(ex);
                 }
-            };
+            });
         }
-
-        #endregion
-
-
-        [DataMember(Order = 0)]
-        public EaseProperty Speed { get; private set; }
-
-        [DataMember(Order = 1)]
-        public EaseProperty Start { get; private set; }
-
-        [DataMember(Order = 2)]
-        public FileProperty File { get; private set; }
     }
 }

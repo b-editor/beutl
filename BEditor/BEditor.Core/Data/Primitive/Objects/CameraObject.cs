@@ -42,29 +42,9 @@ namespace BEditor.Core.Data.Primitive.Objects
         }
 
 
-        #region ObjectElement
+        #region Properties
+
         public override string Name => Resources.Camera;
-
-        public override void Render(EffectRenderArgs args)
-        {
-            int frame = args.Frame;
-            var scene = Parent.Parent;
-            scene.GraphicsContext.MakeCurrent();
-            GLTK.LookAt(
-                scene.Width, scene.Height,
-                X.GetValue(frame), Y.GetValue(frame), Z.GetValue(frame),
-                TargetX.GetValue(frame), TargetY.GetValue(frame), TargetZ.GetValue(frame),
-                ZNear.GetValue(frame), ZFar.GetValue(frame),
-                Fov.GetValue(frame),
-                Mode.IsChecked);
-
-            for (int i = 1; i < args.Schedules.Count; i++)
-            {
-                var effect = args.Schedules[i];
-
-                effect.Render(args);
-            }
-        }
 
         public override IEnumerable<PropertyElement> Properties => new PropertyElement[]
         {
@@ -75,23 +55,6 @@ namespace BEditor.Core.Data.Primitive.Objects
             Fov,
             Mode
         };
-
-        public override void PropertyLoaded()
-        {
-            X.ExecuteLoaded(XMetadata);
-            Y.ExecuteLoaded(YMetadata);
-            Z.ExecuteLoaded(ZMetadata);
-            TargetX.ExecuteLoaded(TargetXMetadata);
-            TargetY.ExecuteLoaded(TargetYMetadata);
-            TargetZ.ExecuteLoaded(TargetZMetadata);
-            ZNear.ExecuteLoaded(ZNearMetadata);
-            ZFar.ExecuteLoaded(ZFarMetadata);
-            Angle.ExecuteLoaded(AngleMetadata);
-            Fov.ExecuteLoaded(FovMetadata);
-            Mode.ExecuteLoaded(ModeMetadata);
-        }
-
-        #endregion
 
 
         [DataMember(Order = 0)]
@@ -126,5 +89,44 @@ namespace BEditor.Core.Data.Primitive.Objects
 
         [DataMember(Order = 10)]
         public CheckProperty Mode { get; private set; }
+
+        #endregion
+
+
+        public override void Render(EffectRenderArgs args)
+        {
+            int frame = args.Frame;
+            var scene = Parent.Parent;
+            scene.GraphicsContext.MakeCurrent();
+            GLTK.LookAt(
+                scene.Width, scene.Height,
+                X.GetValue(frame), Y.GetValue(frame), Z.GetValue(frame),
+                TargetX.GetValue(frame), TargetY.GetValue(frame), TargetZ.GetValue(frame),
+                ZNear.GetValue(frame), ZFar.GetValue(frame),
+                Fov.GetValue(frame),
+                Mode.IsChecked);
+
+            for (int i = 1; i < args.Schedules.Count; i++)
+            {
+                var effect = args.Schedules[i];
+
+                effect.Render(args);
+            }
+        }
+
+        public override void PropertyLoaded()
+        {
+            X.ExecuteLoaded(XMetadata);
+            Y.ExecuteLoaded(YMetadata);
+            Z.ExecuteLoaded(ZMetadata);
+            TargetX.ExecuteLoaded(TargetXMetadata);
+            TargetY.ExecuteLoaded(TargetYMetadata);
+            TargetZ.ExecuteLoaded(TargetZMetadata);
+            ZNear.ExecuteLoaded(ZNearMetadata);
+            ZFar.ExecuteLoaded(ZFarMetadata);
+            Angle.ExecuteLoaded(AngleMetadata);
+            Fov.ExecuteLoaded(FovMetadata);
+            Mode.ExecuteLoaded(ModeMetadata);
+        }
     }
 }

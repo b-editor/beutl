@@ -15,6 +15,17 @@ namespace BEditor.Core.Plugin
 {
     public class PluginManager
     {
+        /// <summary>
+        /// すべてのDllがロードされたあとに発生します
+        /// </summary>
+        public static event EventHandler PluginsLoaded;
+
+        /// <summary>
+        /// 一つのDllが読み込まれたあとに発生します
+        /// </summary>
+        public static event EventHandler<PluginLoadedEventArgs> PluginLoaded;
+
+
         public static List<IPlugin> Load()
         {
             //EasingFunc.LoadedEasingFunc.Clear();
@@ -96,15 +107,5 @@ namespace BEditor.Core.Plugin
 
             return list;
         }
-
-        /// <summary>
-        /// すべてのDllがロードされたあとに発生します
-        /// </summary>
-        public static event EventHandler PluginsLoaded;
-
-        /// <summary>
-        /// 一つのDllが読み込まれたあとに発生します
-        /// </summary>
-        public static event EventHandler<PluginLoadedEventArgs> PluginLoaded;
     }
 }

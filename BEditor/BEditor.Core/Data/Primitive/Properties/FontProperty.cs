@@ -21,7 +21,23 @@ namespace BEditor.Core.Data.Primitive.Properties
     [DataContract(Namespace = "")]
     public class FontProperty : PropertyElement, IEasingProperty, IBindable<FontRecord>
     {
-        #region フィールド
+        #region Fields
+
+        /// <summary>
+        /// 読み込まれているフォントのリスト
+        /// </summary>
+        public static readonly List<FontRecord> FontList = new();
+        /// <summary>
+        /// フォントのスタイルのリスト
+        /// </summary>
+        public static readonly string[] FontStylesList = new string[]
+        {
+            Resources.FontStyle_Normal,
+            Resources.FontStyle_Bold,
+            Resources.FontStyle_Italic,
+            Resources.FontStyle_UnderLine,
+            Resources.FontStyle_StrikeThrough
+        };
 
         private static readonly PropertyChangedEventArgs selectArgs = new(nameof(Select));
         private FontRecord selectItem;
@@ -30,6 +46,7 @@ namespace BEditor.Core.Data.Primitive.Properties
         private IDisposable BindDispose;
 
         #endregion
+
 
         /// <summary>
         /// <see cref="FontProperty"/> クラスの新しいインスタンスを初期化します
@@ -51,7 +68,21 @@ namespace BEditor.Core.Data.Primitive.Properties
         public FontRecord Select
         {
             get => selectItem;
-            set => SetValue(value, ref selectItem, selectArgs, FontProperty_PropertyChanged);
+            set => SetValue(value, ref selectItem, selectArgs, () =>
+            {
+                foreach (var observer in collection)
+                {
+                    try
+                    {
+                        observer.OnNext(selectItem);
+                        observer.OnCompleted();
+                    }
+                    catch (Exception ex)
+                    {
+                        observer.OnError(ex);
+                    }
+                }
+            });
         }
         /// <inheritdoc/>
         public FontRecord Value { get; }
@@ -59,21 +90,9 @@ namespace BEditor.Core.Data.Primitive.Properties
         [DataMember]
         public string BindHint { get; private set; }
 
-        private void FontProperty_PropertyChanged()
-        {
-            foreach (var observer in collection)
-            {
-                try
-                {
-                    observer.OnNext(selectItem);
-                    observer.OnCompleted();
-                }
-                catch (Exception ex)
-                {
-                    observer.OnError(ex);
-                }
-            }
-        }
+
+        #region Methods
+
         /// <inheritdoc/>
         public override void PropertyLoaded()
         {
@@ -122,6 +141,8 @@ namespace BEditor.Core.Data.Primitive.Properties
 
         #endregion
 
+        #endregion
+
 
         #region Commands
 
@@ -158,27 +179,6 @@ namespace BEditor.Core.Data.Primitive.Properties
             /// <inheritdoc/>
             public void Undo() => Selector.Select = oldselect;
         }
-
-        #endregion
-
-        #region StaticMember
-
-        /// <summary>
-        /// 読み込まれているフォントのリスト
-        /// </summary>
-        public static readonly List<FontRecord> FontList = new();
-
-        /// <summary>
-        /// フォントのスタイルのリスト
-        /// </summary>
-        public static readonly string[] FontStylesList = new string[]
-        {
-            Resources.FontStyle_Normal,
-            Resources.FontStyle_Bold,
-            Resources.FontStyle_Italic,
-            Resources.FontStyle_UnderLine,
-            Resources.FontStyle_StrikeThrough
-        };
 
         #endregion
     }

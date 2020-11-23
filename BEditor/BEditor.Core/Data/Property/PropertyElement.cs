@@ -35,6 +35,7 @@ namespace BEditor.Core.Data.Property
         /// <inheritdoc/>
         public int Id => id ??= Parent.Children.ToList().IndexOf(this);
 
+
         /// <summary>
         /// 初期化時とデシリアライズ時に呼び出されます
         /// </summary>
@@ -42,7 +43,6 @@ namespace BEditor.Core.Data.Property
         {
 
         }
-
         /// <inheritdoc/>
         public override string ToString() => $"(Name:{PropertyMetadata?.Name})";
     }

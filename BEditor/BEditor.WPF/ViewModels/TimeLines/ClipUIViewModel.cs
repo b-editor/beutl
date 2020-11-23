@@ -1,4 +1,5 @@
-﻿using System.Windows;
+﻿using System;
+using System.Windows;
 using System.Windows.Input;
 using System.Windows.Media;
 
@@ -8,6 +9,7 @@ using BEditor.ViewModels.Helper;
 using BEditor.Views;
 
 using BEditor.Core.Data;
+using BEditor.Core.Data.Control;
 using BEditor.Core.Properties;
 
 using CommandManager = BEditor.Core.Command.CommandManager;
@@ -67,6 +69,7 @@ namespace BEditor.ViewModels.TimeLines
             else if (type == ClipType.GL3DObject) { ClipText.Value = Resources._3DObject; ClipColor.Value = (Brush)App.Current?.FindResource("VideoColor"); }
             else if (type == ClipType.Scene) { ClipText.Value = Resources.Scenes; ClipColor.Value = (Brush)App.Current?.FindResource("VideoColor"); }
 
+            #region Subscribe
 
             ClipMouseDownCommand.Subscribe(() => ClipMouseDown());
             ClipMouseUpCommand.Subscribe(() => ClipMouseUp());
@@ -79,22 +82,20 @@ namespace BEditor.ViewModels.TimeLines
             ClipDataLogCommand.Subscribe(() => ClipDataLog());
             ClipSeparateCommand.Subscribe(() => ClipSeparate());
 
-            clip.PropertyChanged += (_, e) =>
-            {
-                if (e.PropertyName == nameof(ClipData.End))
+            #endregion
+
+            clip.ObserveProperty(c => c.End)
+                .Subscribe(c => WidthProperty.Value = TimeLineViewModel.ToPixel(c.Length));
+
+            clip.ObserveProperty(c => c.Start)
+                .Subscribe(c =>
                 {
-                    WidthProperty.Value = TimeLineViewModel.ToPixel(clip.Length);
-                }
-                else if (e.PropertyName == nameof(ClipData.Start))
-                {
-                    MarginLeftProperty = TimeLineViewModel.ToPixel(ClipData.Start);
-                    WidthProperty.Value = TimeLineViewModel.ToPixel(clip.Length);
-                }
-                else if (e.PropertyName == nameof(ClipData.Layer))
-                {
-                    TimeLineViewModel.ClipLayerMoveCommand?.Invoke(clip, clip.Layer);
-                }
-            };
+                    MarginLeftProperty = TimeLineViewModel.ToPixel(c.Start);
+                    WidthProperty.Value = TimeLineViewModel.ToPixel(c.Length);
+                });
+
+            clip.ObserveProperty(c => c.Layer)
+                .Subscribe(c => TimeLineViewModel.ClipLayerMoveCommand?.Invoke(c, c.Layer));
         }
 
 

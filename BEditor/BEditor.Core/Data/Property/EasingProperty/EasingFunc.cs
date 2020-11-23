@@ -17,19 +17,26 @@ namespace BEditor.Core.Data.Property.EasingProperty
     /// <see cref="EaseProperty"/>, <see cref="ColorAnimationProperty"/> などで利用可能なイージング関数を表します
     /// </summary>
     [DataContract(Namespace = "")]
-    public abstract class EasingFunc : ComponentObject, IChild<PropertyElement>, IParent<IEasingProperty>, INotifyPropertyChanged, IExtensibleDataObject
+    public abstract class EasingFunc : ComponentObject, IChild<PropertyElement>, IParent<IEasingProperty>
     {
+        #region Fields
+
         private PropertyElement parent;
         private IEnumerable<IEasingProperty> cachedlist;
+
+        #endregion
+        
 
         /// <summary>
         /// UIに表示するプロパティを取得します
         /// </summary>
         public abstract IEnumerable<IEasingProperty> Properties { get; }
+
         /// <summary>
         /// キャッシュされた <see cref="Properties"/> を取得します
         /// </summary>
         public IEnumerable<IEasingProperty> Children => cachedlist ??= Properties;
+
         /// <summary>
         /// 親要素を取得します
         /// </summary>
@@ -46,6 +53,14 @@ namespace BEditor.Core.Data.Property.EasingProperty
         }
 
         /// <summary>
+        /// 読み込まれているイージング関数のType
+        /// </summary>
+        public static List<EasingData> LoadedEasingFunc { get; } = new List<EasingData>() {
+            new EasingData() { Name = "デフォルト", Type = typeof(DefaultEasing) }
+        };
+
+
+        /// <summary>
         /// イージング関数
         /// </summary>
         /// <param name="frame">取得するフレーム</param>
@@ -60,30 +75,7 @@ namespace BEditor.Core.Data.Property.EasingProperty
         /// </summary>
         public virtual void PropertyLoaded()
         {
-            Parallel.ForEach(Children, setting => setting.PropertyLoaded());
-
-            var attributetype = typeof(PropertyMetadataAttribute);
-            var type = GetType();
-            var properties = type.GetProperties();
-
-            Parallel.ForEach(properties, property =>
-            {
-                //metadata属性の場合&プロパティがPropertyElement
-                if (Attribute.GetCustomAttribute(property, attributetype) is PropertyMetadataAttribute metadata &&
-                                    property.GetValue(this) is PropertyElement propertyElement)
-                {
-
-                    propertyElement.PropertyMetadata = metadata.PropertyMetadata;
-                }
-            });
         }
-
-        /// <summary>
-        /// 読み込まれているイージング関数のType
-        /// </summary>
-        public static List<EasingData> LoadedEasingFunc { get; } = new List<EasingData>() {
-            new EasingData() { Name = "デフォルト", Type = typeof(DefaultEasing) }
-        };
     }
 
     public class EasingData

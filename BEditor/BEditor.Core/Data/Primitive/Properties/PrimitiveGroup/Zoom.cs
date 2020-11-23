@@ -26,7 +26,6 @@ namespace BEditor.Core.Data.Primitive.Properties.PrimitiveGroup
         }
 
 
-        #region ExpandGroup
         public override IEnumerable<PropertyElement> Properties => new PropertyElement[]
         {
             Scale,
@@ -34,17 +33,6 @@ namespace BEditor.Core.Data.Primitive.Properties.PrimitiveGroup
             ScaleY,
             ScaleZ
         };
-
-        public override void PropertyLoaded()
-        {
-            Scale.ExecuteLoaded(ZoomMetadata);
-            ScaleX.ExecuteLoaded(ScaleXMetadata);
-            ScaleY.ExecuteLoaded(ScaleYMetadata);
-            ScaleZ.ExecuteLoaded(ScaleZMetadata);
-        }
-
-        #endregion
-
 
         [DataMember(Name = "Zoom", Order = 0)]
         public EaseProperty Scale { get; private set; }
@@ -57,5 +45,14 @@ namespace BEditor.Core.Data.Primitive.Properties.PrimitiveGroup
 
         [DataMember(Order = 3)]
         public EaseProperty ScaleZ { get; private set; }
+
+
+        public override void PropertyLoaded()
+        {
+            Scale.ExecuteLoaded(ZoomMetadata);
+            ScaleX.ExecuteLoaded(ScaleXMetadata);
+            ScaleY.ExecuteLoaded(ScaleYMetadata);
+            ScaleZ.ExecuteLoaded(ScaleZMetadata);
+        }
     }
 }

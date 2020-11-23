@@ -8,19 +8,25 @@ using BEditor.Core.Data.Property;
 
 namespace BEditor.Core.Command
 {
+    public enum CommandMode
+    {
+        Recode,
+        Execute
+    }
+
     public static class ExtensionCommand
     {
         /// <summary>
         /// <see cref="EffectElement.CheckCommand"/> を実行します
         /// </summary>
-        /// <param name="effect">対象の <see cref="EffectElement"/></param>
+        /// <param name="self">対象の <see cref="EffectElement"/></param>
         /// <param name="value">セットする値</param>
         /// <param name="mode"><see cref="CommandMode.Execute"/> を指定するとコマンドが <see cref="CommandManager"/> に記録されません</param>
-        /// <exception cref="ArgumentNullException"><paramref name="effect"/> が <see langword="null"/> です</exception>
+        /// <exception cref="ArgumentNullException"><paramref name="self"/> が <see langword="null"/> です</exception>
         /// <returns>作成されたコマンド</returns>
-        public static EffectElement.CheckCommand Check(this EffectElement effect, bool value, CommandMode mode = CommandMode.Recode)
+        public static EffectElement.CheckCommand Check(this EffectElement self, bool value, CommandMode mode = CommandMode.Recode)
         {
-            var command = new EffectElement.CheckCommand(effect, value);
+            var command = new EffectElement.CheckCommand(self, value);
             if (mode == CommandMode.Recode)
             {
                 CommandManager.Do(command);
@@ -34,13 +40,13 @@ namespace BEditor.Core.Command
         /// <summary>
         /// <see cref="EffectElement.UpCommand"/> を実行します
         /// </summary>
-        /// <param name="effect">対象の <see cref="EffectElement"/></param>
+        /// <param name="self">対象の <see cref="EffectElement"/></param>
         /// <param name="mode"><see cref="CommandMode.Execute"/> を指定するとコマンドが <see cref="CommandManager"/> に記録されません</param>
-        /// <exception cref="ArgumentNullException"><paramref name="effect"/> が <see langword="null"/> です</exception>
+        /// <exception cref="ArgumentNullException"><paramref name="self"/> が <see langword="null"/> です</exception>
         /// <returns>作成されたコマンド</returns>
-        public static EffectElement.UpCommand Up(this EffectElement effect, CommandMode mode = CommandMode.Recode)
+        public static EffectElement.UpCommand Up(this EffectElement self, CommandMode mode = CommandMode.Recode)
         {
-            var command = new EffectElement.UpCommand(effect);
+            var command = new EffectElement.UpCommand(self);
             if (mode == CommandMode.Recode)
             {
                 CommandManager.Do(command);
@@ -54,13 +60,13 @@ namespace BEditor.Core.Command
         /// <summary>
         /// <see cref="EffectElement.DownCommand"/> を実行します
         /// </summary>
-        /// <param name="effect">対象の <see cref="EffectElement"/></param>
+        /// <param name="self">対象の <see cref="EffectElement"/></param>
         /// <param name="mode"><see cref="CommandMode.Execute"/> を指定するとコマンドが <see cref="CommandManager"/> に記録されません</param>
-        /// <exception cref="ArgumentNullException"><paramref name="effect"/> が <see langword="null"/> です</exception>
+        /// <exception cref="ArgumentNullException"><paramref name="self"/> が <see langword="null"/> です</exception>
         /// <returns>作成されたコマンド</returns>
-        public static EffectElement.DownCommand Down(this EffectElement effect, CommandMode mode = CommandMode.Recode)
+        public static EffectElement.DownCommand Down(this EffectElement self, CommandMode mode = CommandMode.Recode)
         {
-            var command = new EffectElement.DownCommand(effect);
+            var command = new EffectElement.DownCommand(self);
             if (mode == CommandMode.Recode)
             {
                 CommandManager.Do(command);
@@ -74,13 +80,13 @@ namespace BEditor.Core.Command
         /// <summary>
         /// <see cref="EffectElement.RemoveCommand"/> を実行します
         /// </summary>
-        /// <param name="effect">対象の <see cref="EffectElement"/></param>
+        /// <param name="self">対象の <see cref="EffectElement"/></param>
         /// <param name="mode"><see cref="CommandMode.Execute"/> を指定するとコマンドが <see cref="CommandManager"/> に記録されません</param>
-        /// <exception cref="ArgumentNullException"><paramref name="effect"/> が <see langword="null"/> です</exception>
+        /// <exception cref="ArgumentNullException"><paramref name="self"/> が <see langword="null"/> です</exception>
         /// <returns>作成されたコマンド</returns>
-        public static EffectElement.RemoveCommand Remove(this EffectElement effect, CommandMode mode = CommandMode.Recode)
+        public static EffectElement.RemoveCommand Remove(this EffectElement self, CommandMode mode = CommandMode.Recode)
         {
-            var command = new EffectElement.RemoveCommand(effect);
+            var command = new EffectElement.RemoveCommand(self);
             if (mode == CommandMode.Recode)
             {
                 CommandManager.Do(command);
@@ -94,13 +100,13 @@ namespace BEditor.Core.Command
         /// <summary>
         /// <see cref="EffectElement.AddCommand"/> を実行します
         /// </summary>
-        /// <param name="effect">対象の <see cref="EffectElement"/></param>
+        /// <param name="self">対象の <see cref="EffectElement"/></param>
         /// <param name="mode"><see cref="CommandMode.Execute"/> を指定するとコマンドが <see cref="CommandManager"/> に記録されません</param>
-        /// <exception cref="ArgumentNullException"><paramref name="effect"/> が <see langword="null"/> です</exception>
+        /// <exception cref="ArgumentNullException"><paramref name="self"/> が <see langword="null"/> です</exception>
         /// <returns>作成されたコマンド</returns>
-        public static EffectElement.AddCommand Add(this EffectElement effect, CommandMode mode = CommandMode.Recode)
+        public static EffectElement.AddCommand Add(this EffectElement self, CommandMode mode = CommandMode.Recode)
         {
-            var command = new EffectElement.AddCommand(effect);
+            var command = new EffectElement.AddCommand(self);
             if (mode == CommandMode.Recode)
             {
                 CommandManager.Do(command);
@@ -114,14 +120,14 @@ namespace BEditor.Core.Command
         /// <summary>
         /// <see cref="EffectElement.DownCommand"/> を実行します
         /// </summary>
-        /// <param name="effect">対象の <see cref="EffectElement"/></param>
+        /// <param name="self">対象の <see cref="EffectElement"/></param>
         /// <param name="clip"></param>
         /// <param name="mode"><see cref="CommandMode.Execute"/> を指定するとコマンドが <see cref="CommandManager"/> に記録されません</param>
-        /// <exception cref="ArgumentNullException"><paramref name="effect"/> が <see langword="null"/> です</exception>
+        /// <exception cref="ArgumentNullException"><paramref name="self"/> が <see langword="null"/> です</exception>
         /// <returns>作成されたコマンド</returns>
-        public static EffectElement.AddCommand Add(this EffectElement effect, ClipData clip, CommandMode mode = CommandMode.Recode)
+        public static EffectElement.AddCommand Add(this EffectElement self, ClipData clip, CommandMode mode = CommandMode.Recode)
         {
-            var command = new EffectElement.AddCommand(effect, clip);
+            var command = new EffectElement.AddCommand(self, clip);
             if (mode == CommandMode.Recode)
             {
                 CommandManager.Do(command);
@@ -137,19 +143,19 @@ namespace BEditor.Core.Command
         /// <summary>
         /// <see cref="ClipData.AddCommand"/> を実行します
         /// </summary>
-        /// <param name="scene">対象の <see cref="Scene"/></param>
+        /// <param name="self">対象の <see cref="Scene"/></param>
         /// <param name="addframe">配置するフレーム</param>
         /// <param name="layer">配置するレイヤー</param>
         /// <param name="type">クリップの種類</param>
         /// <param name="mode"><see cref="CommandMode.Execute"/> を指定するとコマンドが <see cref="CommandManager"/> に記録されません</param>
-        /// <exception cref="ArgumentNullException"><paramref name="scene"/> が <see langword="null"/> です</exception>
+        /// <exception cref="ArgumentNullException"><paramref name="self"/> が <see langword="null"/> です</exception>
         /// <exception cref="ArgumentNullException"><paramref name="type"/> が <see langword="null"/> です</exception>
         /// <exception cref="ArgumentOutOfRangeException"><paramref name="addframe"/> が0以下です</exception>
         /// <exception cref="ArgumentOutOfRangeException"><paramref name="layer"/> が0以下です</exception>
         /// <returns>作成されたコマンド</returns>
-        public static ClipData.AddCommand Add(this Scene scene, int addframe, int layer, Type type, CommandMode mode = CommandMode.Recode)
+        public static ClipData.AddCommand Add(this Scene self, int addframe, int layer, Type type, CommandMode mode = CommandMode.Recode)
         {
-            var command = new ClipData.AddCommand(scene, addframe, layer, type);
+            var command = new ClipData.AddCommand(self, addframe, layer, type);
             if (mode == CommandMode.Recode)
             {
                 CommandManager.Do(command);
@@ -163,13 +169,13 @@ namespace BEditor.Core.Command
         /// <summary>
         /// <see cref="ClipData.RemoveCommand"/> を実行します
         /// </summary>
-        /// <param name="clip">対象の <see cref="ClipData"/></param>
+        /// <param name="self">対象の <see cref="ClipData"/></param>
         /// <param name="mode"><see cref="CommandMode.Execute"/> を指定するとコマンドが <see cref="CommandManager"/> に記録されません</param>
-        /// <exception cref="ArgumentNullException"><paramref name="clip"/> が <see langword="null"/> です</exception>
+        /// <exception cref="ArgumentNullException"><paramref name="self"/> が <see langword="null"/> です</exception>
         /// <returns>作成されたコマンド</returns>
-        public static ClipData.RemoveCommand Remove(this ClipData clip, CommandMode mode = CommandMode.Recode)
+        public static ClipData.RemoveCommand Remove(this ClipData self, CommandMode mode = CommandMode.Recode)
         {
-            var command = new ClipData.RemoveCommand(clip);
+            var command = new ClipData.RemoveCommand(self);
             if (mode == CommandMode.Recode)
             {
                 CommandManager.Do(command);
@@ -183,16 +189,16 @@ namespace BEditor.Core.Command
         /// <summary>
         /// <see cref="ClipData.MoveCommand"/> を実行します
         /// </summary>
-        /// <param name="clip">対象の <see cref="ClipData"/></param>
+        /// <param name="self">対象の <see cref="ClipData"/></param>
         /// <param name="to">新しい開始フレーム</param>
         /// <param name="tolayer">新しい配置レイヤー</param>
         /// <param name="mode"><see cref="CommandMode.Execute"/> を指定するとコマンドが <see cref="CommandManager"/> に記録されません</param>
-        /// <exception cref="ArgumentNullException"><paramref name="clip"/> が <see langword="null"/> です</exception>
+        /// <exception cref="ArgumentNullException"><paramref name="self"/> が <see langword="null"/> です</exception>
         /// <exception cref="ArgumentOutOfRangeException"><paramref name="to"/> または <paramref name="tolayer"/> が0以下です</exception>
         /// <returns>作成されたコマンド</returns>
-        public static ClipData.MoveCommand Move(this ClipData clip, int to, int tolayer, CommandMode mode = CommandMode.Recode)
+        public static ClipData.MoveCommand Move(this ClipData self, int to, int tolayer, CommandMode mode = CommandMode.Recode)
         {
-            var command = new ClipData.MoveCommand(clip, to, tolayer);
+            var command = new ClipData.MoveCommand(self, to, tolayer);
             if (mode == CommandMode.Recode)
             {
                 CommandManager.Do(command);
@@ -206,18 +212,18 @@ namespace BEditor.Core.Command
         /// <summary>
         /// <see cref="ClipData.MoveCommand"/> を実行します
         /// </summary>
-        /// <param name="clip">対象の <see cref="ClipData"/></param>
+        /// <param name="self">対象の <see cref="ClipData"/></param>
         /// <param name="to">新しい開始フレーム</param>
         /// <param name="from">古い開始フレーム</param>
         /// <param name="tolayer">新しい配置レイヤー</param>
         /// <param name="fromlayer">古い配置レイヤー</param>
         /// <param name="mode"><see cref="CommandMode.Execute"/> を指定するとコマンドが <see cref="CommandManager"/> に記録されません</param>
-        /// <exception cref="ArgumentNullException"><paramref name="clip"/> が <see langword="null"/> です</exception>
+        /// <exception cref="ArgumentNullException"><paramref name="self"/> が <see langword="null"/> です</exception>
         /// <exception cref="ArgumentOutOfRangeException"><paramref name="to"/>, <paramref name="from"/>, <paramref name="tolayer"/>, <paramref name="fromlayer"/> が0以下です</exception>
         /// <returns>作成されたコマンド</returns>
-        public static ClipData.MoveCommand Move(this ClipData clip, int to, int from, int tolayer, int fromlayer, CommandMode mode = CommandMode.Recode)
+        public static ClipData.MoveCommand Move(this ClipData self, int to, int from, int tolayer, int fromlayer, CommandMode mode = CommandMode.Recode)
         {
-            var command = new ClipData.MoveCommand(clip, to, from, tolayer, fromlayer);
+            var command = new ClipData.MoveCommand(self, to, from, tolayer, fromlayer);
             if (mode == CommandMode.Recode)
             {
                 CommandManager.Do(command);
@@ -231,16 +237,16 @@ namespace BEditor.Core.Command
         /// <summary>
         /// <see cref="ClipData.LengthChangeCommand"/> を実行します
         /// </summary>
-        /// <param name="clip">対象の <see cref="ClipData"/></param>
+        /// <param name="elf">対象の <see cref="ClipData"/></param>
         /// <param name="start">開始フレーム</param>
         /// <param name="end">終了フレーム</param>
         /// <param name="mode"><see cref="CommandMode.Execute"/> を指定するとコマンドが <see cref="CommandManager"/> に記録されません</param>
-        /// <exception cref="ArgumentNullException"><paramref name="clip"/> が <see langword="null"/> です</exception>
+        /// <exception cref="ArgumentNullException"><paramref name="elf"/> が <see langword="null"/> です</exception>
         /// <exception cref="ArgumentOutOfRangeException"><paramref name="start"/> または <paramref name="end"/> が0以下です</exception>
         /// <returns>作成されたコマンド</returns>
-        public static ClipData.LengthChangeCommand LengthChange(this ClipData clip, int start, int end, CommandMode mode = CommandMode.Recode)
+        public static ClipData.LengthChangeCommand LengthChange(this ClipData elf, int start, int end, CommandMode mode = CommandMode.Recode)
         {
-            var command = new ClipData.LengthChangeCommand(clip, start, end);
+            var command = new ClipData.LengthChangeCommand(elf, start, end);
             if (mode == CommandMode.Recode)
             {
                 CommandManager.Do(command);
@@ -257,11 +263,5 @@ namespace BEditor.Core.Command
             property.PropertyLoaded();
             property.PropertyMetadata = metadata;
         }
-    }
-
-    public enum CommandMode
-    {
-        Recode,
-        Execute
     }
 }

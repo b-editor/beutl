@@ -16,32 +16,36 @@ namespace BEditor.Core.Data.Primitive.Effects.PrimitiveImages
     {
         public static readonly ColorPropertyMetadata ColorMetadata = new(Resources.Color, 255, 255, 255);
 
+
         public Monoc()
         {
             Color = new(ColorMetadata);
         }
 
 
-        #region ImageEffect
-        public override string Name => Resources.Monoc;
+        #region Properties
 
-        public override void Render(ref Image source, EffectRenderArgs args) => source.ToRenderable().SetColor(Color.Value);
+        public override string Name => Resources.Monoc;
 
         public override IEnumerable<PropertyElement> Properties => new PropertyElement[]
         {
             Color
         };
 
-        public override void PropertyLoaded()
-        {
-            Color.ExecuteLoaded(ColorMetadata);
-        }
+
+        [DataMember(Order = 0)]
+        public ColorProperty Color { get; private set; }
 
         #endregion
 
 
+        public override void Render(ref Image source, EffectRenderArgs args) =>
+            source.ToRenderable()
+                .SetColor(Color.Value);
 
-        [DataMember(Order = 0)]
-        public ColorProperty Color { get; private set; }
+        public override void PropertyLoaded()
+        {
+            Color.ExecuteLoaded(ColorMetadata);
+        }
     }
 }

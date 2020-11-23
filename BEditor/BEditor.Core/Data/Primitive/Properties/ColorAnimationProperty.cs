@@ -20,11 +20,16 @@ namespace BEditor.Core.Data.Primitive.Properties
     [DataContract(Namespace = "")]
     public class ColorAnimationProperty : PropertyElement, IKeyFrameProperty
     {
+        #region Fields
+
         private static readonly PropertyChangedEventArgs easingFuncArgs = new(nameof(EasingType));
         private static readonly PropertyChangedEventArgs easingDataArgs = new(nameof(EasingData));
         private EffectElement parent;
         private EasingFunc easingTypeProperty;
         private EasingData easingData;
+
+        #endregion
+
 
         /// <summary>
         /// 
@@ -40,7 +45,11 @@ namespace BEditor.Core.Data.Primitive.Properties
             PropertyMetadata = metadata;
         }
 
-        #region PropertyElement
+
+        public event EventHandler<(int frame, int index)> AddKeyFrameEvent;
+        public event EventHandler<int> DeleteKeyFrameEvent;
+        public event EventHandler<(int fromindex, int toindex)> MoveKeyFrameEvent;
+
 
         /// <inheritdoc/>
         public override EffectElement Parent
@@ -52,17 +61,6 @@ namespace BEditor.Core.Data.Primitive.Properties
                 EasingType.Parent = this;
             }
         }
-
-        /// <inheritdoc/>
-        public override void PropertyLoaded()
-        {
-            base.PropertyLoaded();
-            EasingType.PropertyLoaded();
-        }
-
-        #endregion
-
-
 
         /// <summary>
         /// 
@@ -97,11 +95,6 @@ namespace BEditor.Core.Data.Primitive.Properties
                 EasingData = EasingFunc.LoadedEasingFunc.Find(x => x.Type == value.GetType());
             }
         }
-
-        public event EventHandler<(int frame, int index)> AddKeyFrameEvent;
-        public event EventHandler<int> DeleteKeyFrameEvent;
-        public event EventHandler<(int fromindex, int toindex)> MoveKeyFrameEvent;
-
         /// <summary>
         /// 
         /// </summary>
@@ -112,6 +105,8 @@ namespace BEditor.Core.Data.Primitive.Properties
         }
         internal int Length => Parent.Parent.Length;
 
+
+        #region Methods
 
         /// <summary>
         /// イージングします
@@ -235,6 +230,15 @@ namespace BEditor.Core.Data.Primitive.Properties
 
             return index;
         }
+        #endregion
+
+        /// <inheritdoc/>
+        public override void PropertyLoaded()
+        {
+            base.PropertyLoaded();
+            EasingType.PropertyLoaded();
+        }
+
         #endregion
 
 

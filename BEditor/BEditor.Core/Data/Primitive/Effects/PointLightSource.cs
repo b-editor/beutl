@@ -4,7 +4,6 @@ using System.Runtime.Serialization;
 using BEditor.Core.Command;
 using BEditor.Core.Data.Primitive.Properties;
 using BEditor.Core.Data.Property;
-using BEditor.Core.Extensions;
 using BEditor.Core.Properties;
 
 using OpenTK.Graphics.OpenGL;
@@ -26,7 +25,18 @@ namespace BEditor.Core.Data.Primitive.Effects
         public static readonly EasePropertyMetadata QuadraticAttenuationMetadata = new("QuadraticAttenuation", 0, 100, 0);
 
 
-        #region EffectElement
+        public PointLightSource()
+        {
+            X = new(XMetadata);
+            Y = new(YMetadata);
+            Z = new(ZMetadata);
+            ConstantAttenuation = new(ConstantAttenuationMetadata);
+            LinearAttenuation = new(LinearAttenuationMetadata);
+            QuadraticAttenuation = new(QuadraticAttenuationMetadata);
+        }
+
+
+        #region Properties
 
         public override string Name => Resources.PointLightSource;
 
@@ -39,6 +49,28 @@ namespace BEditor.Core.Data.Primitive.Effects
             LinearAttenuation,
             QuadraticAttenuation
         };
+
+
+        [DataMember(Order = 0)]
+        public EaseProperty X { get; private set; }
+
+        [DataMember(Order = 1)]
+        public EaseProperty Y { get; private set; }
+
+        [DataMember(Order = 2)]
+        public EaseProperty Z { get; private set; }
+
+        [DataMember(Order = 3)]
+        public EaseProperty ConstantAttenuation { get; private set; }
+
+        [DataMember(Order = 4)]
+        public EaseProperty LinearAttenuation { get; private set; }
+
+        [DataMember(Order = 5)]
+        public EaseProperty QuadraticAttenuation { get; private set; }
+
+        #endregion
+
 
         public override void Render(EffectRenderArgs args)
         {
@@ -69,36 +101,5 @@ namespace BEditor.Core.Data.Primitive.Effects
             LinearAttenuation.ExecuteLoaded(LinearAttenuationMetadata);
             QuadraticAttenuation.ExecuteLoaded(QuadraticAttenuationMetadata);
         }
-
-        #endregion
-
-        public PointLightSource()
-        {
-            X = new(XMetadata);
-            Y = new(YMetadata);
-            Z = new(ZMetadata);
-            ConstantAttenuation = new(ConstantAttenuationMetadata);
-            LinearAttenuation = new(LinearAttenuationMetadata);
-            QuadraticAttenuation = new(QuadraticAttenuationMetadata);
-        }
-
-
-        [DataMember(Order = 0)]
-        public EaseProperty X { get; private set; }
-
-        [DataMember(Order = 1)]
-        public EaseProperty Y { get; private set; }
-
-        [DataMember(Order = 2)]
-        public EaseProperty Z { get; private set; }
-
-        [DataMember(Order = 3)]
-        public EaseProperty ConstantAttenuation { get; private set; }
-
-        [DataMember(Order = 4)]
-        public EaseProperty LinearAttenuation { get; private set; }
-
-        [DataMember(Order = 5)]
-        public EaseProperty QuadraticAttenuation { get; private set; }
     }
 }

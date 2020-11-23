@@ -21,6 +21,8 @@ namespace BEditor.Core.Data
     [DataContract(Namespace = "")]
     public abstract class EffectElement : ComponentObject, IChild<ClipData>, IParent<PropertyElement>, ICloneable, INotifyPropertyChanged, IHadId
     {
+        #region Fields
+
         private static readonly PropertyChangedEventArgs isEnabledArgs = new(nameof(IsEnabled));
         private static readonly PropertyChangedEventArgs isExpandedArgs = new(nameof(IsExpanded));
         private bool isEnabled = true;
@@ -28,6 +30,9 @@ namespace BEditor.Core.Data
         private ClipData clipData;
         private IEnumerable<PropertyElement> cachedlist;
         private int? id;
+
+        #endregion
+
 
         /// <inheritdoc/>
         public IEnumerable<PropertyElement> Children => cachedlist ??= Properties.ToArray();
@@ -60,7 +65,7 @@ namespace BEditor.Core.Data
         /// </summary>
         public abstract IEnumerable<PropertyElement> Properties { get; }
         /// <inheritdoc/>
-        public virtual ClipData Parent
+        public ClipData Parent
         {
             get => clipData;
             internal set
@@ -73,6 +78,9 @@ namespace BEditor.Core.Data
 
         public int Id => id ??= Parent.Effect.IndexOf(this);
 
+
+        #region Methods
+
         /// <inheritdoc/>
         public object Clone()
         {
@@ -84,24 +92,7 @@ namespace BEditor.Core.Data
         /// </summary>
         public virtual void PropertyLoaded()
         {
-            //Todo : .NET5のソースジェネレーターを使う
 
-            Parallel.ForEach(Children, p => p.PropertyLoaded());
-
-            var attributetype = typeof(PropertyMetadataAttribute);
-            var type = GetType();
-            var properties = type.GetProperties();
-
-            Parallel.ForEach(properties, property =>
-            {
-                //metadata属性の場合&プロパティがPropertyElement
-                if (Attribute.GetCustomAttribute(property, attributetype) is PropertyMetadataAttribute metadata &&
-                                    property.GetValue(this) is PropertyElement propertyElement)
-                {
-
-                    propertyElement.PropertyMetadata = metadata.PropertyMetadata;
-                }
-            });
         }
         /// <summary>
         /// It is called at rendering time
@@ -111,6 +102,9 @@ namespace BEditor.Core.Data
         /// It will be called before rendering.
         /// </summary>
         public virtual void PreviewRender(EffectRenderArgs args) { }
+
+        #endregion
+
 
         /// <summary>
         /// Represents a command that changes the boolean for which an effect is enabled.

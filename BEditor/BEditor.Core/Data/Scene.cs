@@ -18,9 +18,9 @@ namespace BEditor.Core.Data
     /// Represents a scene to be included in the <see cref="Project"/>.
     /// </summary>
     [DataContract(Namespace = "")]
-    public class Scene : ComponentObject, IParent<ClipData>, IChild<Project>, INotifyPropertyChanged, IExtensibleDataObject, IHadName, IHadId
+    public class Scene : ComponentObject, IParent<ClipData>, IChild<Project>, IHadName, IHadId
     {
-        #region フィールド
+        #region Fields
 
         private static readonly PropertyChangedEventArgs selectItemArgs = new(nameof(SelectItem));
         private static readonly PropertyChangedEventArgs previreFrameArgs = new(nameof(PreviewFrame));
@@ -36,13 +36,30 @@ namespace BEditor.Core.Data
         private float timeLineZoom = 150;
         private double timeLineHorizonOffset;
         private double timeLineVerticalOffset;
-        private Project parent;
         private string sceneName;
-        private Image FrameBuffer;
 
         #endregion
 
-        #region プロパティ
+
+        #region Contructor
+
+        /// <summary>
+        /// <see cref="Scene"/> Initialize a new instance of the class.
+        /// </summary>
+        /// <param name="width">The width of the frame buffer.</param>
+        /// <param name="height">The height of the frame buffer</param>
+        public Scene(int width, int height)
+        {
+            Width = width;
+            Height = height;
+            Datas = new ObservableCollection<ClipData>();
+            GraphicsContext = new GraphicsContext(width, height);
+        }
+
+        #endregion
+
+
+        #region Properties
 
         /// <summary>
         /// Get or set the width of the frame buffer.
@@ -190,11 +207,7 @@ namespace BEditor.Core.Data
         /// <inheritdoc/>
         public IEnumerable<ClipData> Children => Datas;
         /// <inheritdoc/>
-        public Project Parent
-        {
-            get => parent;
-            init => parent = value;
-        }
+        public Project Parent { get; set; }
         /// <inheritdoc/>
         public string Name => SceneName;
         /// <inheritdoc/>
@@ -226,6 +239,8 @@ namespace BEditor.Core.Data
 
         #endregion
 
+        #region Methods
+
         private void SelectItems_CollectionChanged(object sender, System.Collections.Specialized.NotifyCollectionChangedEventArgs e)
         {
             if (e.Action == System.Collections.Specialized.NotifyCollectionChangedAction.Add)
@@ -242,7 +257,6 @@ namespace BEditor.Core.Data
                 SelectNames.RemoveAt(e.OldStartingIndex);
             }
         }
-        internal void SetParent(Project project) => parent = project;
         /// <summary>
         /// 
         /// </summary>
@@ -255,24 +269,6 @@ namespace BEditor.Core.Data
             });
         }
 
-        #region コンストラクタ
-
-        /// <summary>
-        /// <see cref="Scene"/> Initialize a new instance of the class.
-        /// </summary>
-        /// <param name="width">The width of the frame buffer.</param>
-        /// <param name="height">The height of the frame buffer</param>
-        public Scene(int width, int height)
-        {
-            Width = width;
-            Height = height;
-            Datas = new ObservableCollection<ClipData>();
-            GraphicsContext = new GraphicsContext(width, height);
-        }
-
-        #endregion
-
-        #region Rendering
 
         /// <summary>
         /// Render this <see cref="Scene"/>.
@@ -280,8 +276,7 @@ namespace BEditor.Core.Data
         /// <param name="frame">The frame to render</param>
         public RenderingResult Render(int frame)
         {
-            FrameBuffer?.Dispose();
-            FrameBuffer = new Image(Width, Height);
+            var buffer = new Image(Width, Height);
             var layer = GetLayer(frame).ToList();
 
             GraphicsContext.MakeCurrent();
@@ -297,15 +292,14 @@ namespace BEditor.Core.Data
             GraphicsContext.SwapBuffers();
             GraphicsContext.MakeCurrent();
 
-            GLTK.GetPixels(FrameBuffer);
+            GLTK.GetPixels(buffer);
 
 #if DEBUG
             if (frame % Parent.Framerate * 5 == 1)
                 Task.Run(GC.Collect);
 #endif
-            return new RenderingResult { Image = FrameBuffer };
+            return new RenderingResult { Image = buffer };
         }
-
         /// <summary>
         /// Render a frame of <see cref="PreviewFrame"/>.
         /// </summary>
@@ -314,10 +308,6 @@ namespace BEditor.Core.Data
             return Render(PreviewFrame);
         }
 
-        #endregion
-
-
-        #region GetLayer
 
         /// <summary>
         /// Get and sort the clips on the specified frame.
@@ -330,11 +320,6 @@ namespace BEditor.Core.Data
                 .Where(item => !HideLayer.Exists(x => x == item.Layer))
                 .OrderBy(item => item.Layer);
         }
-
-        #endregion
-
-
-        #region Listの操作
 
         /// <summary>
         /// Add a <see cref="ClipData"/> to this <see cref="Scene"/>.
@@ -359,8 +344,6 @@ namespace BEditor.Core.Data
             return Datas.Remove(clip);
         }
 
-        #endregion
-
         /// <summary>
         /// Set the selected <see cref="ClipData"/> and add the name to <see cref="SelectNames"/> if it does not exist.
         /// </summary>
@@ -375,20 +358,22 @@ namespace BEditor.Core.Data
                 SelectItems.Add(data);
             }
         }
+
+        #endregion
     }
 
 
     [DataContract(Namespace = "")]
     public class RootScene : Scene
     {
-        /// <inheritdoc/>
-        public override string SceneName { get => "root"; set { } }
-
         /// <summary>
         /// <see cref="RootScene"/> Initialize a new instance of the class.
         /// </summary>
         /// <param name="width">The width of the frame buffer.</param>
         /// <param name="height">The height of the frame buffer</param>
         public RootScene(int width, int height) : base(width, height) { }
+
+        /// <inheritdoc/>
+        public override string SceneName { get => "root"; set { } }
     }
 }

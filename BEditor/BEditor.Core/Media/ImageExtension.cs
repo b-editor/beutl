@@ -6,7 +6,6 @@ using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
 
-using BEditor.Core.Exceptions;
 using BEditor.Core.Graphics;
 using BEditor.Core.Native;
 using BEditor.Core.Renderings;
@@ -21,7 +20,7 @@ namespace BEditor.Core.Media
 
             var result = ImageProcess.Flip(image.Source.Ptr, (int)mode);
 
-            if (result != null) throw new NativeException(result);
+            if (result != null) throw new Exception(result);
 
             return image;
         }
@@ -31,7 +30,7 @@ namespace BEditor.Core.Media
             image.Source.ThrowIfDisposed();
             var result = ImageProcess.AreaExpansion(image.Source.Ptr, top, bottom, left, right);
 
-            if (result != null) throw new NativeException(result);
+            if (result != null) throw new Exception(result);
 
             return image;
         }
@@ -56,7 +55,7 @@ namespace BEditor.Core.Media
 
             var result = ImageProcess.Blur(image.Source.Ptr, blurSize, alphaBlur);
 
-            if (result != null) throw new NativeException(result);
+            if (result != null) throw new Exception(result);
 
             return image;
         }
@@ -69,7 +68,7 @@ namespace BEditor.Core.Media
 
             var result = ImageProcess.GaussianBlur(image.Source.Ptr, blurSize, alphaBlur);
 
-            if (result != null) throw new NativeException(result);
+            if (result != null) throw new Exception(result);
 
             return image;
         }
@@ -82,7 +81,7 @@ namespace BEditor.Core.Media
 
             var result = ImageProcess.MedianBlur(image.Source.Ptr, blurSize, alphaBlur);
 
-            if (result != null) throw new NativeException(result);
+            if (result != null) throw new Exception(result);
 
             return image;
         }
@@ -204,7 +203,7 @@ namespace BEditor.Core.Media
 
             var result = ImageProcess.Dilate(image.Source.Ptr, f);
 
-            if (result != null) throw new NativeException(result);
+            if (result != null) throw new Exception(result);
 
             return image;
         }
@@ -222,7 +221,7 @@ namespace BEditor.Core.Media
 
             var result = ImageProcess.Erode(image.Source.Ptr, f);
 
-            if (result != null) throw new NativeException(result);
+            if (result != null) throw new Exception(result);
 
             return image;
         }

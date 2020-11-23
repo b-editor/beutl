@@ -2,7 +2,6 @@
 
 namespace BEditor.Core.Extensions.ViewCommand
 {
-    [Flags]
     public enum ButtonType
     {
         Ok = 1,

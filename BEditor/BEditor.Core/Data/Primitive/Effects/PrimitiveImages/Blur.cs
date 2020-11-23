@@ -31,9 +31,29 @@ namespace BEditor.Core.Data.Primitive.Effects.PrimitiveImages
         }
 
 
-        #region ImageEffect
+        #region Properties
 
         public override string Name => Resources.Blur;
+
+        public override IEnumerable<PropertyElement> Properties => new PropertyElement[]
+        {
+            Size,
+            AlphaBlur,
+            Mode
+        };
+
+
+        [DataMember(Order = 0)]
+        public EaseProperty Size { get; private set; }
+
+        [DataMember(Order = 1)]
+        public CheckProperty AlphaBlur { get; private set; }
+
+        [DataMember(Order = 2)]
+        public SelectorProperty Mode { get; private set; }
+
+        #endregion
+
 
         public override void Render(ref Image source, EffectRenderArgs args)
         {
@@ -51,13 +71,6 @@ namespace BEditor.Core.Data.Primitive.Effects.PrimitiveImages
             }
         }
 
-        public override IEnumerable<PropertyElement> Properties => new PropertyElement[]
-        {
-            Size,
-            AlphaBlur,
-            Mode
-        };
-
         public override void PropertyLoaded()
         {
             Size.ExecuteLoaded(SizeMetadata);
@@ -65,16 +78,5 @@ namespace BEditor.Core.Data.Primitive.Effects.PrimitiveImages
             Mode.ExecuteLoaded(ModeMetadata);
         }
 
-        #endregion
-
-
-        [DataMember(Order = 0)]
-        public EaseProperty Size { get; private set; }
-
-        [DataMember(Order = 1)]
-        public CheckProperty AlphaBlur { get; private set; }
-
-        [DataMember(Order = 2)]
-        public SelectorProperty Mode { get; private set; }
     }
 }

@@ -17,6 +17,7 @@ namespace BEditor.Core.Data.Primitive.Objects.PrimitiveImages
         public static readonly PropertyElementMetadata FontMetadata = new(Core.Properties.Resources.DetailedSettings);
         public static readonly DocumentPropertyMetadata DocumentMetadata = new("");
 
+
         public Text()
         {
             Size = new(SizeMetadata);
@@ -26,14 +27,7 @@ namespace BEditor.Core.Data.Primitive.Objects.PrimitiveImages
         }
 
 
-        #region ImageObject
-        public override Media.Image OnRender(EffectRenderArgs args) => Media.Image.Text(
-            (int)Size.GetValue(args.Frame),
-            Color.Color,
-            Document.Text,
-            Font.Font.Select,
-            (string)Font.Style.SelectItem,
-            Font.RightToLeft.IsChecked);
+        #region Properties
 
         public override IEnumerable<PropertyElement> Properties => new PropertyElement[]
         {
@@ -48,17 +42,6 @@ namespace BEditor.Core.Data.Primitive.Objects.PrimitiveImages
                 Font
         };
 
-        public override void PropertyLoaded()
-        {
-            Size.ExecuteLoaded(SizeMetadata);
-            Color.ExecuteLoaded(ColorMetadata);
-            Font.ExecuteLoaded(FontMetadata);
-            Document.ExecuteLoaded(DocumentMetadata);
-        }
-
-        #endregion
-
-
 
         [DataMember(Order = 0)]
         public EaseProperty Size { get; private set; }
@@ -71,6 +54,25 @@ namespace BEditor.Core.Data.Primitive.Objects.PrimitiveImages
 
         [DataMember(Order = 3)]
         public FontProperty Font { get; private set; }
+
+        #endregion
+
+
+        public override Media.Image OnRender(EffectRenderArgs args) => Media.Image.Text(
+            (int)Size.GetValue(args.Frame),
+            Color.Color,
+            Document.Text,
+            Font.Font.Select,
+            (string)Font.Style.SelectItem,
+            Font.RightToLeft.IsChecked);
+
+        public override void PropertyLoaded()
+        {
+            Size.ExecuteLoaded(SizeMetadata);
+            Color.ExecuteLoaded(ColorMetadata);
+            Font.ExecuteLoaded(FontMetadata);
+            Document.ExecuteLoaded(DocumentMetadata);
+        }
 
 
         [DataContract(Namespace = "")]

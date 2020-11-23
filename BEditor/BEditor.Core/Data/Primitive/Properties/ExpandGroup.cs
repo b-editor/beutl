@@ -19,7 +19,7 @@ namespace BEditor.Core.Data.Primitive.Properties
     [DataContract(Namespace = "")]
     public abstract class ExpandGroup : Group, IEasingProperty, IBindable<bool>
     {
-        #region フィールド
+        #region Fields
 
         private static readonly PropertyChangedEventArgs isExpandedArgs = new(nameof(IsExpanded));
         private bool isOpen;
@@ -29,21 +29,6 @@ namespace BEditor.Core.Data.Primitive.Properties
 
         #endregion
 
-        private List<IObserver<bool>> collection => list ??= new();
-        /// <summary>
-        /// エクスパンダーが開いているかを取得または設定します
-        /// </summary>
-        [DataMember]
-        public bool IsExpanded
-        {
-            get => isOpen;
-            set => SetValue(value, ref isOpen, isExpandedArgs, ExpandGroup_PropertyChanged);
-        }
-        /// <inheritdoc/>
-        [DataMember]
-        public string BindHint { get; private set; }
-        /// <inheritdoc/>
-        public bool Value => IsExpanded;
 
         /// <summary>
         /// <see cref="ExpandGroup"/> クラスの新しいインスタンスを初期化します
@@ -55,21 +40,40 @@ namespace BEditor.Core.Data.Primitive.Properties
             PropertyMetadata = metadata ?? throw new ArgumentNullException(nameof(metadata));
         }
 
-        private void ExpandGroup_PropertyChanged()
+
+        private List<IObserver<bool>> collection => list ??= new();
+        /// <summary>
+        /// エクスパンダーが開いているかを取得または設定します
+        /// </summary>
+        [DataMember]
+        public bool IsExpanded
         {
-            foreach (var observer in collection)
+            get => isOpen;
+            set => SetValue(value, ref isOpen, isExpandedArgs, () =>
             {
-                try
+                foreach (var observer in collection)
                 {
-                    observer.OnNext(isOpen);
-                    observer.OnCompleted();
+                    try
+                    {
+                        observer.OnNext(isOpen);
+                        observer.OnCompleted();
+                    }
+                    catch (Exception ex)
+                    {
+                        observer.OnError(ex);
+                    }
                 }
-                catch (Exception ex)
-                {
-                    observer.OnError(ex);
-                }
-            }
+            });
         }
+        /// <inheritdoc/>
+        [DataMember]
+        public string BindHint { get; private set; }
+        /// <inheritdoc/>
+        public bool Value => IsExpanded;
+
+
+        #region Methods
+
         /// <inheritdoc/>
         public override void PropertyLoaded()
         {
@@ -116,6 +120,8 @@ namespace BEditor.Core.Data.Primitive.Properties
                 BindDispose = bindable.Subscribe(this);
             }
         }
+
+        #endregion
 
         #endregion
     }

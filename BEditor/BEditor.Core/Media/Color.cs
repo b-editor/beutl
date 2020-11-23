@@ -16,6 +16,7 @@ namespace BEditor.Core.Media
         private float scG;
         private float scB;
         private float scA;
+
         #region Colors
 
         /// <summary>
@@ -168,6 +169,7 @@ namespace BEditor.Core.Media
 
         #endregion
 
+
         /// <summary>
         /// <see cref="Color"/> 構造体の新しいインスタンスを初期化します
         /// </summary>
@@ -197,14 +199,6 @@ namespace BEditor.Core.Media
             scA = a;
         }
 
-        /// <inheritdoc/>
-        public override bool Equals(object obj) => obj is Color color && Equals(color);
-        /// <inheritdoc/>
-        public bool Equals(Color other) => R == other.R && G == other.G && B == other.B && A == other.A;
-        /// <inheritdoc/>
-        public override int GetHashCode() => HashCode.Combine(R, G, B, A);
-        /// <inheritdoc/>
-        public override string ToString() => $"(Red:{R} Green:{G} Blue:{B} Alpha:{A})";
 
         #region Properties
 
@@ -271,6 +265,16 @@ namespace BEditor.Core.Media
         #endregion
 
 
+        /// <inheritdoc/>
+        public override bool Equals(object obj) => obj is Color color && Equals(color);
+        /// <inheritdoc/>
+        public bool Equals(Color other) => R == other.R && G == other.G && B == other.B && A == other.A;
+        /// <inheritdoc/>
+        public override int GetHashCode() => HashCode.Combine(R, G, B, A);
+        /// <inheritdoc/>
+        public override string ToString() => $"(Red:{R} Green:{G} Blue:{B} Alpha:{A})";
+
+
         #region キャスト
 
         /// <summary>
@@ -310,6 +314,7 @@ namespace BEditor.Core.Media
 #endif
 
         #endregion
+
 
         /// <summary>
         /// 2つの <see cref="Color"/> 構造体を比較します

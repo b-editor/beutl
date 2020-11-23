@@ -24,6 +24,7 @@ namespace BEditor.Core.Data.Primitive.Objects.PrimitiveImages
                 Resources.Square
         });
 
+
         public Figure()
         {
             Width = new(WidthMetadata);
@@ -34,20 +35,7 @@ namespace BEditor.Core.Data.Primitive.Objects.PrimitiveImages
         }
 
 
-
-        #region ImageObject
-
-        public override Media.Image OnRender(EffectRenderArgs args)
-        {
-            if (Type.Index == 0)
-            {
-                return Media.Image.Ellipse((int)Width.GetValue(args.Frame), (int)Height.GetValue(args.Frame), (int)Line.GetValue(args.Frame), Color.Color);
-            }
-            else
-            {
-                return Media.Image.Rectangle((int)Width.GetValue(args.Frame), (int)Height.GetValue(args.Frame), (int)Line.GetValue(args.Frame), Color.Color);
-            }
-        }
+        #region Properties
 
         public override IEnumerable<PropertyElement> Properties => new PropertyElement[]
         {
@@ -62,18 +50,6 @@ namespace BEditor.Core.Data.Primitive.Objects.PrimitiveImages
                 Color,
                 Type
         };
-
-        public override void PropertyLoaded()
-        {
-            base.PropertyLoaded();
-            Width.ExecuteLoaded(WidthMetadata);
-            Height.ExecuteLoaded(HeightMetadata);
-            Line.ExecuteLoaded(LineMetadata);
-            Color.ExecuteLoaded(ColorMetadata);
-            Type.ExecuteLoaded(TypeMetadata);
-        }
-
-        #endregion
 
 
         [DataMember(Order = 0)]
@@ -90,5 +66,30 @@ namespace BEditor.Core.Data.Primitive.Objects.PrimitiveImages
 
         [DataMember(Order = 4)]
         public SelectorProperty Type { get; private set; }
+
+        #endregion
+
+
+        public override Media.Image OnRender(EffectRenderArgs args)
+        {
+            if (Type.Index == 0)
+            {
+                return Media.Image.Ellipse((int)Width.GetValue(args.Frame), (int)Height.GetValue(args.Frame), (int)Line.GetValue(args.Frame), Color.Color);
+            }
+            else
+            {
+                return Media.Image.Rectangle((int)Width.GetValue(args.Frame), (int)Height.GetValue(args.Frame), (int)Line.GetValue(args.Frame), Color.Color);
+            }
+        }
+
+        public override void PropertyLoaded()
+        {
+            base.PropertyLoaded();
+            Width.ExecuteLoaded(WidthMetadata);
+            Height.ExecuteLoaded(HeightMetadata);
+            Line.ExecuteLoaded(LineMetadata);
+            Color.ExecuteLoaded(ColorMetadata);
+            Type.ExecuteLoaded(TypeMetadata);
+        }
     }
 }

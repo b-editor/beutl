@@ -31,7 +31,22 @@ namespace BEditor.Core.Data.Primitive.Objects
         });
         public static readonly EasePropertyMetadata WeightMetadata = new("Weight", 100, float.NaN, 0);
 
-        #region ObjectElement
+
+        public GL3DObject()
+        {
+            Coordinate = new(ImageObject.CoordinateMetadata);
+            Zoom = new(ImageObject.ZoomMetadata);
+            Blend = new(ImageObject.BlendMetadata);
+            Angle = new(ImageObject.AngleMetadata);
+            Material = new(ImageObject.MaterialMetadata);
+            Type = new(TypeMetadata);
+            Width = new(Figure.WidthMetadata);
+            Height = new(Figure.HeightMetadata);
+            Weight = new(WeightMetadata);
+        }
+
+
+        #region Properties
 
         public override string Name => Resources._3DObject;
 
@@ -47,6 +62,37 @@ namespace BEditor.Core.Data.Primitive.Objects
             Height,
             Weight
         };
+
+
+        [DataMember(Order = 0)]
+        public Coordinate Coordinate { get; private set; }
+
+        [DataMember(Order = 1)]
+        public Zoom Zoom { get; private set; }
+
+        [DataMember(Order = 2)]
+        public Blend Blend { get; private set; }
+
+        [DataMember(Order = 3)]
+        public Angle Angle { get; private set; }
+
+        [DataMember(Order = 4)]
+        public Material Material { get; private set; }
+
+        [DataMember(Order = 5)]
+        public SelectorProperty Type { get; private set; }
+
+        [DataMember(Order = 6)]
+        public EaseProperty Width { get; private set; }
+
+        [DataMember(Order = 7)]
+        public EaseProperty Height { get; private set; }
+
+        [DataMember(Order = 8)]
+        public EaseProperty Weight { get; private set; }
+
+        #endregion
+
 
         public override void Render(EffectRenderArgs args)
         {
@@ -124,48 +170,5 @@ namespace BEditor.Core.Data.Primitive.Objects
             Height.ExecuteLoaded(Figure.HeightMetadata);
             Weight.ExecuteLoaded(WeightMetadata);
         }
-
-        #endregion
-
-        public GL3DObject()
-        {
-            Coordinate = new(ImageObject.CoordinateMetadata);
-            Zoom = new(ImageObject.ZoomMetadata);
-            Blend = new(ImageObject.BlendMetadata);
-            Angle = new(ImageObject.AngleMetadata);
-            Material = new(ImageObject.MaterialMetadata);
-            Type = new(TypeMetadata);
-            Width = new(Figure.WidthMetadata);
-            Height = new(Figure.HeightMetadata);
-            Weight = new(WeightMetadata);
-        }
-
-        [DataMember(Order = 0)]
-        public Coordinate Coordinate { get; private set; }
-
-        [DataMember(Order = 1)]
-        public Zoom Zoom { get; private set; }
-
-        [DataMember(Order = 2)]
-        public Blend Blend { get; private set; }
-
-        [DataMember(Order = 3)]
-        public Angle Angle { get; private set; }
-
-        [DataMember(Order = 4)]
-        public Material Material { get; private set; }
-
-        [DataMember(Order = 5)]
-        public SelectorProperty Type { get; private set; }
-
-        [DataMember(Order = 6)]
-        public EaseProperty Width { get; private set; }
-
-        [DataMember(Order = 7)]
-        public EaseProperty Height { get; private set; }
-
-        [DataMember(Order = 8)]
-        public EaseProperty Weight { get; private set; }
-
     }
 }

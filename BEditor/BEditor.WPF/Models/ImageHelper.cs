@@ -23,8 +23,7 @@ namespace BEditor.Models
 
             int nowframe = AppData.Current.Project.PreviewScene.PreviewFrame;
 
-            Image img = AppData.Current.Project.PreviewScene.Render(nowframe).Image;
-
+            using var img = AppData.Current.Project.PreviewScene.Render(nowframe).Image;
             try
             {
 
@@ -32,8 +31,6 @@ namespace BEditor.Models
                 {
                     //img.SaveImage(path);
                     img.Save(path);
-
-                    img.Dispose();
                 }
             }
             catch (Exception e)

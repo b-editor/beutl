@@ -15,30 +15,36 @@ namespace BEditor.Core.Data.Primitive.Effects.PrimitiveImages
     {
         public static readonly EasePropertyMetadata FrequencyMetadata = new(Resources.Frequency, 1, float.NaN, 0);
 
+
         public Dilate()
         {
             Frequency = new(FrequencyMetadata);
         }
 
-        #region EffectProperty
-        public override string Name => Resources.Dilate;
 
-        public override void Render(ref Image source, EffectRenderArgs args) => source.ToRenderable().Dilate((int)Frequency.GetValue(args.Frame));
+        #region Properties
+
+        public override string Name => Resources.Dilate;
 
         public override IEnumerable<PropertyElement> Properties => new PropertyElement[]
         {
             Frequency
         };
 
-        public override void PropertyLoaded()
-        {
-            Frequency.ExecuteLoaded(FrequencyMetadata);
-        }
+
+        [DataMember(Order = 0)]
+        public EaseProperty Frequency { get; private set; }
 
         #endregion
 
 
-        [DataMember(Order = 0)]
-        public EaseProperty Frequency { get; private set; }
+        public override void Render(ref Image source, EffectRenderArgs args) =>
+            source.ToRenderable()
+                .Dilate((int)Frequency.GetValue(args.Frame));
+
+        public override void PropertyLoaded()
+        {
+            Frequency.ExecuteLoaded(FrequencyMetadata);
+        }
     }
 }

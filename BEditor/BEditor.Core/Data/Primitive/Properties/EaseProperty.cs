@@ -19,47 +19,30 @@ namespace BEditor.Core.Data.Primitive.Properties
     [DataContract(Namespace = "")]
     public class EaseProperty : PropertyElement, IKeyFrameProperty
     {
+        #region Fields
+
         private static readonly PropertyChangedEventArgs easingFuncArgs = new(nameof(EasingType));
         private static readonly PropertyChangedEventArgs easingDataArgs = new(nameof(EasingData));
         private EffectElement parent;
         private EasingFunc easingTypeProperty;
         private EasingData easingData;
 
+        #endregion
+
 
         /// <summary>
-        /// <see cref="Time"/> に対応する <see langword="float"/> 型の値の <see cref="ObservableCollection{T}"/> を取得します
+        /// <see cref="EaseProperty"/> クラスの新しいインスタンスを初期化します
         /// </summary>
-        /// <remarks>値の追加を行う場合は <see cref="InsertKeyframe(int, float)"/> 、削除は <see cref="RemoveKeyframe(int, out float)"/> を使用してください</remarks>
-        [DataMember]
-        public ObservableCollection<float> Value { get; private set; }
-        /// <summary>
-        /// <see cref="Value"/> に対応するフレーム番号の <see cref="List{T}"/> を取得します
-        /// </summary>
-        /// <remarks>値の追加を行う場合は <see cref="InsertKeyframe(int, float)"/> 、削除は <see cref="RemoveKeyframe(int, out float)"/> を使用してください</remarks>
-        [DataMember]
-        public List<int> Time { get; private set; }
-        /// <summary>
-        /// 現在のイージング関数を取得または設定します
-        /// </summary>
-        [DataMember]
-        public EasingFunc EasingType
+        /// <param name="metadata">このプロパティの <see cref="EasePropertyMetadata"/></param>
+        /// <exception cref="ArgumentNullException"><paramref name="metadata"/> が <see langword="null"/> です</exception>
+        public EaseProperty(EasePropertyMetadata metadata)
         {
-            get
-            {
-                if (easingTypeProperty == null || EasingData.Type != easingTypeProperty.GetType())
-                {
-                    easingTypeProperty = (EasingFunc)Activator.CreateInstance(EasingData.Type);
-                    easingTypeProperty.Parent = this;
-                }
+            if (metadata is null) throw new ArgumentNullException(nameof(metadata));
 
-                return easingTypeProperty;
-            }
-            set
-            {
-                SetValue(value, ref easingTypeProperty, easingDataArgs);
-
-                EasingData = EasingFunc.LoadedEasingFunc.Find(x => x.Type == value.GetType());
-            }
+            Value = new ObservableCollection<float> { metadata.DefaultValue, metadata.DefaultValue };
+            Time = new List<int>();
+            EasingType = (EasingFunc)Activator.CreateInstance(metadata.DefaultEase.Type);
+            PropertyMetadata = metadata;
         }
 
 
@@ -108,11 +91,46 @@ namespace BEditor.Core.Data.Primitive.Properties
         /// </remarks>
         public event EventHandler<(int fromindex, int toindex)> MoveKeyFrameEvent;
 
+
+        /// <summary>
+        /// <see cref="Time"/> に対応する <see langword="float"/> 型の値の <see cref="ObservableCollection{T}"/> を取得します
+        /// </summary>
+        /// <remarks>値の追加を行う場合は <see cref="InsertKeyframe(int, float)"/> 、削除は <see cref="RemoveKeyframe(int, out float)"/> を使用してください</remarks>
+        [DataMember]
+        public ObservableCollection<float> Value { get; private set; }
+        /// <summary>
+        /// <see cref="Value"/> に対応するフレーム番号の <see cref="List{T}"/> を取得します
+        /// </summary>
+        /// <remarks>値の追加を行う場合は <see cref="InsertKeyframe(int, float)"/> 、削除は <see cref="RemoveKeyframe(int, out float)"/> を使用してください</remarks>
+        [DataMember]
+        public List<int> Time { get; private set; }
+        /// <summary>
+        /// 現在のイージング関数を取得または設定します
+        /// </summary>
+        [DataMember]
+        public EasingFunc EasingType
+        {
+            get
+            {
+                if (easingTypeProperty == null || EasingData.Type != easingTypeProperty.GetType())
+                {
+                    easingTypeProperty = (EasingFunc)Activator.CreateInstance(EasingData.Type);
+                    easingTypeProperty.Parent = this;
+                }
+
+                return easingTypeProperty;
+            }
+            set
+            {
+                SetValue(value, ref easingTypeProperty, easingDataArgs);
+
+                EasingData = EasingFunc.LoadedEasingFunc.Find(x => x.Type == value.GetType());
+            }
+        }
         /// <summary>
         /// 追加の値を取得または設定します
         /// </summary>
         public float Optional { get; set; }
-
         /// <summary>
         /// 現在のイージングのデータを取得または設定します
         /// </summary>
@@ -121,27 +139,7 @@ namespace BEditor.Core.Data.Primitive.Properties
             get => easingData; 
             set => SetValue(value, ref easingData, easingDataArgs);
         }
-
         internal int Length => this.GetParent2().Length;
-
-
-        /// <summary>
-        /// <see cref="EaseProperty"/> クラスの新しいインスタンスを初期化します
-        /// </summary>
-        /// <param name="metadata">このプロパティの <see cref="EasePropertyMetadata"/></param>
-        /// <exception cref="ArgumentNullException"><paramref name="metadata"/> が <see langword="null"/> です</exception>
-        public EaseProperty(EasePropertyMetadata metadata)
-        {
-            if (metadata is null) throw new ArgumentNullException(nameof(metadata));
-
-            Value = new ObservableCollection<float> { metadata.DefaultValue, metadata.DefaultValue };
-            Time = new List<int>();
-            EasingType = (EasingFunc)Activator.CreateInstance(metadata.DefaultEase.Type);
-            PropertyMetadata = metadata;
-        }
-
-
-        #region PropertyElementメンバー
 
         /// <inheritdoc/>
         public override EffectElement Parent
@@ -154,16 +152,8 @@ namespace BEditor.Core.Data.Primitive.Properties
             }
         }
 
-        /// <inheritdoc/>
-        public override void PropertyLoaded()
-        {
-            base.PropertyLoaded();
-            EasingType.PropertyLoaded();
-        }
 
-        #endregion
-
-
+        #region Methods
 
         /// <summary>
         /// イージングをして、Optionalを追加します
@@ -328,6 +318,16 @@ namespace BEditor.Core.Data.Primitive.Properties
 
         /// <inheritdoc/>
         public override string ToString() => $"(Count:{Value.Count} Easing:{EasingData?.Name} Name:{PropertyMetadata?.Name})";
+
+        /// <inheritdoc/>
+        public override void PropertyLoaded()
+        {
+            base.PropertyLoaded();
+            EasingType.PropertyLoaded();
+        }
+
+        #endregion
+
 
         #region Commands
 

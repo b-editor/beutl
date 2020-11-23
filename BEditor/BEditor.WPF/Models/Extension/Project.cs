@@ -22,7 +22,7 @@ namespace BEditor.Models.Extension
 
         public static void PreviewUpdate(this Core.Data.Project project)
         {
-            var img = project.PreviewScene.Render().Image;
+            using var img = project.PreviewScene.Render().Image;
             MainWindowViewModel.Current.PreviewImage.Value = img.ToBitmapSource();
         }
     }

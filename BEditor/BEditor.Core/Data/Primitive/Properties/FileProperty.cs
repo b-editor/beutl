@@ -18,7 +18,7 @@ namespace BEditor.Core.Data.Primitive.Properties
     [DataContract(Namespace = "")]
     public class FileProperty : PropertyElement, IEasingProperty, IBindable<string>
     {
-        #region フィールド
+        #region Fields
 
         private static readonly PropertyChangedEventArgs fileArgs = new(nameof(File));
         private string file;
@@ -40,6 +40,7 @@ namespace BEditor.Core.Data.Primitive.Properties
             File = metadata.DefaultFile;
         }
 
+
         private List<IObserver<string>> collection => list ??= new();
         /// <summary>
         /// ファイルの名前を取得または設定します
@@ -48,7 +49,21 @@ namespace BEditor.Core.Data.Primitive.Properties
         public string File
         {
             get => file;
-            set => SetValue(value, ref file, fileArgs, FileProperty_PropertyChanged);
+            set => SetValue(value, ref file, fileArgs, () =>
+            {
+                foreach (var observer in collection)
+                {
+                    try
+                    {
+                        observer.OnNext(file);
+                        observer.OnCompleted();
+                    }
+                    catch (Exception ex)
+                    {
+                        observer.OnError(ex);
+                    }
+                }
+            });
         }
         /// <inheritdoc/>
         public string Value => File;
@@ -56,21 +71,8 @@ namespace BEditor.Core.Data.Primitive.Properties
         [DataMember]
         public string BindHint { get; private set; }
 
-        private void FileProperty_PropertyChanged()
-        {
-            foreach (var observer in collection)
-            {
-                try
-                {
-                    observer.OnNext(file);
-                    observer.OnCompleted();
-                }
-                catch (Exception ex)
-                {
-                    observer.OnError(ex);
-                }
-            }
-        }
+
+        #region Methods
 
         /// <inheritdoc/>
         public override void PropertyLoaded()
@@ -119,6 +121,8 @@ namespace BEditor.Core.Data.Primitive.Properties
                 BindDispose = bindable.Subscribe(this);
             }
         }
+
+        #endregion
 
         #endregion
 

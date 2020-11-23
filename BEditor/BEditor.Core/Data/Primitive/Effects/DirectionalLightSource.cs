@@ -2,11 +2,10 @@
 using System.Runtime.Serialization;
 
 using BEditor.Core.Data.Property;
-using BEditor.Core.Media;
 
 using OpenTK.Graphics.OpenGL;
+
 using BEditor.Core.Properties;
-using BEditor.Core.Extensions;
 using BEditor.Core.Data.Primitive.Properties;
 using BEditor.Core.Command;
 
@@ -22,8 +21,14 @@ namespace BEditor.Core.Data.Primitive.Effects
 {
     public class DirectionalLightSource : EffectElement
     {
+        public DirectionalLightSource()
+        {
+            X = new(XMetadata);
+            Y = new(YMetadata);
+            Z = new(ZMetadata);
+        }
 
-        #region EffectElement
+        #region Properties
 
         public override string Name => Resources.DirectionalLightSource;
 
@@ -33,6 +38,19 @@ namespace BEditor.Core.Data.Primitive.Effects
             Y,
             Z
         };
+
+
+        [DataMember(Order = 0)]
+        public EaseProperty X { get; private set; }
+
+        [DataMember(Order = 1)]
+        public EaseProperty Y { get; private set; }
+
+        [DataMember(Order = 2)]
+        public EaseProperty Z { get; private set; }
+
+        #endregion
+
 
         public override void Render(EffectRenderArgs args)
         {
@@ -54,24 +72,5 @@ namespace BEditor.Core.Data.Primitive.Effects
             Y.ExecuteLoaded(YMetadata);
             Z.ExecuteLoaded(ZMetadata);
         }
-
-        #endregion
-
-
-        public DirectionalLightSource()
-        {
-            X = new(XMetadata);
-            Y = new(YMetadata);
-            Z = new(ZMetadata);
-        }
-
-        [DataMember(Order = 0)]
-        public EaseProperty X { get; private set; }
-
-        [DataMember(Order = 1)]
-        public EaseProperty Y { get; private set; }
-
-        [DataMember(Order = 2)]
-        public EaseProperty Z { get; private set; }
     }
 }

@@ -18,7 +18,7 @@ namespace BEditor.Core.Data.Primitive.Properties
     [DataContract(Namespace = "")]
     public class DocumentProperty : PropertyElement, IBindable<string>
     {
-        #region フィールド
+        #region Fields
 
         private static readonly PropertyChangedEventArgs textArgs = new(nameof(Text));
         private string textProperty;
@@ -27,6 +27,7 @@ namespace BEditor.Core.Data.Primitive.Properties
         private IDisposable BindDispose;
 
         #endregion
+
 
         /// <summary>
         /// <see cref="DocumentProperty"/> クラスの新しいインスタンスを初期化します
@@ -51,7 +52,21 @@ namespace BEditor.Core.Data.Primitive.Properties
         public string Text
         {
             get => textProperty;
-            set => SetValue(value, ref textProperty, textArgs, DocumentProperty_PropertyChanged);
+            set => SetValue(value, ref textProperty, textArgs, () =>
+            {
+                foreach (var observer in collection)
+                {
+                    try
+                    {
+                        observer.OnNext(textProperty);
+                        observer.OnCompleted();
+                    }
+                    catch (Exception ex)
+                    {
+                        observer.OnError(ex);
+                    }
+                }
+            });
         }
         /// <summary>
         /// 高さを取得または設定します
@@ -63,22 +78,8 @@ namespace BEditor.Core.Data.Primitive.Properties
         [DataMember]
         public string BindHint { get; private set; }
 
-        private void DocumentProperty_PropertyChanged()
-        {
-            foreach (var observer in collection)
-            {
-                try
-                {
-                    observer.OnNext(textProperty);
-                    observer.OnCompleted();
-                }
-                catch (Exception ex)
-                {
-                    observer.OnError(ex);
-                }
-            }
-        }
 
+        #region Methods
 
         #region IBindable
 
@@ -126,6 +127,9 @@ namespace BEditor.Core.Data.Primitive.Properties
         }
         /// <inheritdoc/>
         public override string ToString() => $"(Text:{Text} Name:{PropertyMetadata?.Name})";
+
+        #endregion
+
 
         #region Commands
 

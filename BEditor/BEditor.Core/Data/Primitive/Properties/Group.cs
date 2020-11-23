@@ -39,28 +39,5 @@ namespace BEditor.Core.Data.Primitive.Properties
                 Parallel.ForEach(Children, item => item.Parent = value);
             }
         }
-
-        /// <inheritdoc/>
-        public override void PropertyLoaded()
-        {
-            base.PropertyLoaded();
-
-            Parallel.ForEach(Children, item => item.PropertyLoaded());
-
-            var attributetype = typeof(PropertyMetadataAttribute);
-            var type = GetType();
-            var properties = type.GetProperties();
-
-            Parallel.ForEach(properties, property =>
-            {
-                //metadata属性の場合&プロパティがPropertyElement
-                if (Attribute.GetCustomAttribute(property, attributetype) is PropertyMetadataAttribute metadata &&
-                                    property.GetValue(this) is PropertyElement propertyElement)
-                {
-
-                    propertyElement.PropertyMetadata = metadata.PropertyMetadata;
-                }
-            });
-        }
     }
 }

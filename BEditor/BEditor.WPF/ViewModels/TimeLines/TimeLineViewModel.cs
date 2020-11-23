@@ -4,6 +4,8 @@ using System.IO;
 using System.Windows;
 using System.Windows.Controls;
 using System.Windows.Input;
+using System.Reactive;
+using System.Reactive.Linq;
 
 using BEditor.Models.Extension;
 using BEditor.Models.Settings;
@@ -12,6 +14,7 @@ using BEditor.Views;
 using BEditor.Views.SettingsControl;
 
 using BEditor.Core.Data;
+using BEditor.Core.Data.Control;
 using BEditor.Core.Media;
 using BEditor.Models;
 
@@ -97,19 +100,11 @@ namespace BEditor.ViewModels.TimeLines
 
             TrackWidth.Value = ToPixel(Scene.TotalFrame);
 
-            Scene.PropertyChanged += (_, e) =>
-            {
-                if (e.PropertyName == nameof(Scene.TimeLineZoom))
+            scene.ObserveProperty(s => s.TimeLineZoom)
+                .Subscribe(_ =>
                 {
-                    if (Scene.TimeLineZoom <= 0)
-                    {
-                        Scene.TimeLineZoom = 1;
-                    }
-
-                    if (Scene.TimeLineZoom >= 201)
-                    {
-                        Scene.TimeLineZoom = 200;
-                    }
+                    if (Scene.TimeLineZoom <= 0) Scene.TimeLineZoom = 1;
+                    if (Scene.TimeLineZoom >= 201) Scene.TimeLineZoom = 200;
 
                     if (ViewLoaded)
                     {
@@ -132,21 +127,25 @@ namespace BEditor.ViewModels.TimeLines
 
                         ResetScale?.Invoke(Scene.TimeLineZoom, Scene.TotalFrame, AppData.Current.Project.Framerate);
                     }
-                }
-                else if (e.PropertyName == nameof(Scene.PreviewFrame))
+
+                });
+
+            scene.ObserveProperty(s => s.PreviewFrame)
+                .Subscribe(_ =>
                 {
                     SeekbarMargin.Value = new Thickness(ToPixel(Scene.PreviewFrame), 0, 0, 0);
 
                     AppData.Current.Project.PreviewUpdate();
-                }
-                else if (e.PropertyName == nameof(Scene.TotalFrame))
+                });
+
+            scene.ObserveProperty(s => s.TotalFrame)
+                .Subscribe(_ =>
                 {
                     TrackWidth.Value = ToPixel(Scene.TotalFrame);
 
                     //目盛り追加
                     ResetScale?.Invoke(Scene.TimeLineZoom, Scene.TotalFrame, AppData.Current.Project.Framerate);
-                }
-            };
+                });
 
             #region Commandの購読
 

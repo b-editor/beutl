@@ -21,6 +21,7 @@ namespace BEditor.Core.Media
         private readonly float scB;
         private readonly float scA;
 
+
         /// <summary>
         /// <see cref="ReadOnlyColor"/> 構造体の新しいインスタンスを初期化します
         /// </summary>
@@ -50,14 +51,6 @@ namespace BEditor.Core.Media
             scA = a;
         }
 
-        /// <inheritdoc/>
-        public override bool Equals(object obj) => obj is ReadOnlyColor color && Equals(color);
-        /// <inheritdoc/>
-        public bool Equals(ReadOnlyColor other) => ScR == other.ScR && ScG == other.ScG && ScB == other.ScB && ScA == other.ScA;
-        /// <inheritdoc/>
-        public override int GetHashCode() => HashCode.Combine(ScR, ScG, ScB, ScA);
-        /// <inheritdoc/>
-        public override string ToString() => $"(Red:{R} Green:{G} Blue:{B} Alpha:{A})";
 
         #region Properties
 
@@ -108,6 +101,16 @@ namespace BEditor.Core.Media
         #endregion
 
 
+        /// <inheritdoc/>
+        public override bool Equals(object obj) => obj is ReadOnlyColor color && Equals(color);
+        /// <inheritdoc/>
+        public bool Equals(ReadOnlyColor other) => ScR == other.ScR && ScG == other.ScG && ScB == other.ScB && ScA == other.ScA;
+        /// <inheritdoc/>
+        public override int GetHashCode() => HashCode.Combine(ScR, ScG, ScB, ScA);
+        /// <inheritdoc/>
+        public override string ToString() => $"(Red:{R} Green:{G} Blue:{B} Alpha:{A})";
+
+
         #region キャスト
 
         /// <summary>
@@ -155,6 +158,7 @@ namespace BEditor.Core.Media
 #endif
 
         #endregion
+
 
         /// <summary>
         /// 2つの <see cref="ReadOnlyColor"/> 構造体を比較します

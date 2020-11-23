@@ -17,6 +17,9 @@ using BEditor.Core.Data.Primitive.Properties;
 using BEditor.Core.Data;
 using BEditor.Core.Data.Control;
 
+using System.Reactive;
+using System.Reactive.Linq;
+
 namespace BEditor.Views.TimeLines
 {
     /// <summary>
@@ -114,7 +117,8 @@ namespace BEditor.Views.TimeLines
                 Width = tmp;
             }
 
-            Scene.PropertyChanged += ZoomChange;
+            Scene.ObserveProperty(nameof(Scene.TimeLineZoom))
+                .Subscribe(ZoomChange);
 
             //StoryBoard
             Storyboard.SetTarget(GetAnm, text);
@@ -144,13 +148,8 @@ namespace BEditor.Views.TimeLines
         /// <summary>
         /// 拡大率変更
         /// </summary>
-        private void ZoomChange(object sender, PropertyChangedEventArgs e)
+        private void ZoomChange(PropertyChangedEventArgs e)
         {
-            if (e.PropertyName != nameof(Scene.TimeLineZoom))
-            {
-                return;
-            }
-
             for (int frame = 0; frame < Color.Frame.Count; frame++)
             {
                 if (grid.Children[frame] is PackIcon icon)

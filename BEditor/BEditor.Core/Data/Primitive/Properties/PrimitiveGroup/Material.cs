@@ -27,7 +27,6 @@ namespace BEditor.Core.Data.Primitive.Properties.PrimitiveGroup
             Shininess = new(ShininessMetadata);
         }
 
-        #region ExpandGroup
 
         public override IEnumerable<PropertyElement> Properties => new PropertyElement[]
         {
@@ -36,17 +35,6 @@ namespace BEditor.Core.Data.Primitive.Properties.PrimitiveGroup
             Specular,
             Shininess
         };
-
-        public override void PropertyLoaded()
-        {
-            Ambient.ExecuteLoaded(AmbientMetadata);
-            Diffuse.ExecuteLoaded(DiffuseMetadata);
-            Specular.ExecuteLoaded(SpecularMetadata);
-            Shininess.ExecuteLoaded(ShininessMetadata);
-        }
-
-        #endregion
-
 
         [DataMember(Order = 0)]
         public ColorAnimationProperty Ambient { get; private set; }
@@ -59,5 +47,14 @@ namespace BEditor.Core.Data.Primitive.Properties.PrimitiveGroup
 
         [DataMember(Order = 3)]
         public EaseProperty Shininess { get; private set; }
+
+
+        public override void PropertyLoaded()
+        {
+            Ambient.ExecuteLoaded(AmbientMetadata);
+            Diffuse.ExecuteLoaded(DiffuseMetadata);
+            Specular.ExecuteLoaded(SpecularMetadata);
+            Shininess.ExecuteLoaded(ShininessMetadata);
+        }
     }
 }

@@ -77,63 +77,6 @@ namespace BEditor.Core.Data.Primitive.Properties.PrimitiveEasing
     [DataContract(Namespace = "")]
     public sealed class DefaultEasing : EasingFunc
     {
-        public static readonly SelectorPropertyMetadata propertyMetadata = new SelectorPropertyMetadata("EasingType", new string[32] {
-            "None",
-            "Linear",
-            "SineIn",    "SineOut",    "SineInOut",
-            "QuadIn",    "QuadOut",    "QuadInOut",
-            "CubicIn",   "CubicOut",   "CubicInOut",
-            "QuartIn",   "QuartOut",   "QuartInOut",
-            "QuintIn",   "QuintOut",   "QuintInOut",
-            "ExpIn",     "ExpOut",     "ExpInOut",
-            "CircIn",    "CircOut",    "CircInOut",
-            "BackIn",    "BackOut",    "BackInOut",
-            "ElasticIn", "ElasticOut", "ElasticInOut",
-            "BounceIn",  "BounceOut",  "BounceInOut"
-        });
-
-        #region EasingFunc
-
-        public override IEnumerable<IEasingProperty> Properties => new IEasingProperty[]
-        {
-            EasingType
-        };
-
-        public override float EaseFunc(int frame, int totalframe, float min, float max) => currentfunc?.Invoke(frame, totalframe, min, max) ?? 0;
-
-        private Func<float, float, float, float, float> currentfunc = Easing.None;
-
-        public override void PropertyLoaded()
-        {
-            EasingType.ExecuteLoaded(propertyMetadata);
-
-            currentfunc = DefaultEase[EasingType.Index];
-
-            EasingType.PropertyChanged += EasingType_PropertyChanged;
-        }
-
-        private void EasingType_PropertyChanged(object sender, System.ComponentModel.PropertyChangedEventArgs e)
-        {
-            if (e.PropertyName == nameof(SelectorProperty.Index))
-            {
-                currentfunc = DefaultEase[EasingType.Index];
-            }
-        }
-
-        #endregion
-
-        #region コンストラクタ
-        public DefaultEasing()
-        {
-            EasingType = new SelectorProperty(propertyMetadata);
-        }
-        #endregion
-
-
-        [DataMember()]
-        public SelectorProperty EasingType { get; set; }
-
-
         public static readonly Func<float, float, float, float, float>[] DefaultEase = new Func<float, float, float, float, float>[] {
             Easing.None,
 
@@ -159,6 +102,46 @@ namespace BEditor.Core.Data.Primitive.Properties.PrimitiveEasing
 
             Easing.BounceIn,   Easing.BounceOut,  Easing.BounceInOut,
         };
+        public static readonly SelectorPropertyMetadata propertyMetadata = new SelectorPropertyMetadata("EasingType", new string[32] {
+            "None",
+            "Linear",
+            "SineIn",    "SineOut",    "SineInOut",
+            "QuadIn",    "QuadOut",    "QuadInOut",
+            "CubicIn",   "CubicOut",   "CubicInOut",
+            "QuartIn",   "QuartOut",   "QuartInOut",
+            "QuintIn",   "QuintOut",   "QuintInOut",
+            "ExpIn",     "ExpOut",     "ExpInOut",
+            "CircIn",    "CircOut",    "CircInOut",
+            "BackIn",    "BackOut",    "BackInOut",
+            "ElasticIn", "ElasticOut", "ElasticInOut",
+            "BounceIn",  "BounceOut",  "BounceInOut"
+        });
+        private Func<float, float, float, float, float> currentfunc = Easing.None;
+
+
+        public DefaultEasing()
+        {
+            EasingType = new SelectorProperty(propertyMetadata);
+        }
+
+
+        public override IEnumerable<IEasingProperty> Properties => new IEasingProperty[] { EasingType };
+
+        [DataMember()]
+        public SelectorProperty EasingType { get; set; }
+
+
+        public override float EaseFunc(int frame, int totalframe, float min, float max) => currentfunc?.Invoke(frame, totalframe, min, max) ?? 0;
+
+        public override void PropertyLoaded()
+        {
+            EasingType.ExecuteLoaded(propertyMetadata);
+
+            currentfunc = DefaultEase[EasingType.Index];
+
+            EasingType.Subscribe(index => currentfunc = DefaultEase[index]);
+        }
+
 
         class Easing
         {

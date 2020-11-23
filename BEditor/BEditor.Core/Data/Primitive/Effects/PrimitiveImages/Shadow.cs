@@ -19,6 +19,7 @@ namespace BEditor.Core.Data.Primitive.Effects.PrimitiveImages
         public static readonly EasePropertyMetadata AlphaMetadata = new(Resources.Alpha, 75, 100, 0);
         public static readonly ColorPropertyMetadata ColorMetadata = new(Resources.Color, 0, 0, 0);
 
+
         public Shadow()
         {
             X = new(XMetadata);
@@ -29,15 +30,9 @@ namespace BEditor.Core.Data.Primitive.Effects.PrimitiveImages
         }
 
 
-        #region EffectProperty
-        public override string Name => Resources.DropShadow;
+        #region Properties
 
-        public override void Render(ref Image source, EffectRenderArgs args) => source.ToRenderable().Shadow
-            (X.GetValue(args.Frame),
-             Y.GetValue(args.Frame),
-             (int)Blur.GetValue(args.Frame),
-             Alpha.GetValue(args.Frame),
-             Color.Color);
+        public override string Name => Resources.DropShadow;
 
         public override IEnumerable<PropertyElement> Properties => new PropertyElement[]
         {
@@ -47,17 +42,6 @@ namespace BEditor.Core.Data.Primitive.Effects.PrimitiveImages
             Alpha,
             Color
         };
-
-        public override void PropertyLoaded()
-        {
-            X.ExecuteLoaded(XMetadata);
-            Y.ExecuteLoaded(YMetadata);
-            Blur.ExecuteLoaded(BlurMetadata);
-            Alpha.ExecuteLoaded(AlphaMetadata);
-            Color.ExecuteLoaded(ColorMetadata);
-        }
-
-        #endregion
 
 
         [DataMember(Order = 0)]
@@ -74,5 +58,24 @@ namespace BEditor.Core.Data.Primitive.Effects.PrimitiveImages
 
         [DataMember(Order = 4)]
         public ColorProperty Color { get; private set; }
+
+        #endregion
+
+
+        public override void Render(ref Image source, EffectRenderArgs args) => source.ToRenderable().Shadow
+            (X.GetValue(args.Frame),
+             Y.GetValue(args.Frame),
+             (int)Blur.GetValue(args.Frame),
+             Alpha.GetValue(args.Frame),
+             Color.Color);
+
+        public override void PropertyLoaded()
+        {
+            X.ExecuteLoaded(XMetadata);
+            Y.ExecuteLoaded(YMetadata);
+            Blur.ExecuteLoaded(BlurMetadata);
+            Alpha.ExecuteLoaded(AlphaMetadata);
+            Color.ExecuteLoaded(ColorMetadata);
+        }
     }
 }

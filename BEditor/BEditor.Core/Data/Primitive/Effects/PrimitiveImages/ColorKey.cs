@@ -17,6 +17,7 @@ namespace BEditor.Core.Data.Primitive.Effects.PrimitiveImages
         public static readonly ColorPropertyMetadata MaxColorMetadata = new(Resources.Color, 255, 255, 255);
         public static readonly ColorPropertyMetadata MinColorMetadata = new(Resources.Color, 100, 100, 100);
 
+
         public ColorKey()
         {
             MaxColor = new(MaxColorMetadata);
@@ -24,10 +25,9 @@ namespace BEditor.Core.Data.Primitive.Effects.PrimitiveImages
         }
 
 
-        #region ImageEffect
-        public override string Name => Resources.ColorKey;
+        #region Properties
 
-        public override void Render(ref Image source, EffectRenderArgs args) { }
+        public override string Name => Resources.ColorKey;
 
         public override IEnumerable<PropertyElement> Properties => new PropertyElement[]
         {
@@ -35,19 +35,22 @@ namespace BEditor.Core.Data.Primitive.Effects.PrimitiveImages
             MinColor
         };
 
-        public override void PropertyLoaded()
-        {
-            MaxColor.ExecuteLoaded(MaxColorMetadata);
-            MinColor.ExecuteLoaded(MinColorMetadata);
-        }
-
-        #endregion
-
 
         [DataMember(Order = 0)]
         public ColorProperty MaxColor { get; private set; }
 
         [DataMember(Order = 1)]
         public ColorProperty MinColor { get; private set; }
+
+        #endregion
+
+
+        public override void Render(ref Image source, EffectRenderArgs args) { }
+
+        public override void PropertyLoaded()
+        {
+            MaxColor.ExecuteLoaded(MaxColorMetadata);
+            MinColor.ExecuteLoaded(MinColorMetadata);
+        }
     }
 }

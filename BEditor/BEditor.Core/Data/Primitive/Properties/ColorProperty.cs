@@ -20,11 +20,16 @@ namespace BEditor.Core.Data.Primitive.Properties
     [DataContract(Namespace = "")]
     public class ColorProperty : PropertyElement, IEasingProperty, IBindable<ReadOnlyColor>
     {
+        #region Fields
+
         private static readonly PropertyChangedEventArgs colorArgs = new(nameof(Color));
         private Color color;
         private List<IObserver<ReadOnlyColor>> list;
 
         private IDisposable BindDispose;
+
+        #endregion
+
 
         /// <summary>
         /// <see cref="ColorProperty"/> クラスの新しいインスタンスを初期化します
@@ -39,6 +44,7 @@ namespace BEditor.Core.Data.Primitive.Properties
             PropertyMetadata = metadata;
         }
 
+
         private List<IObserver<ReadOnlyColor>> collection => list ??= new();
         /// <summary>
         /// 
@@ -47,15 +53,30 @@ namespace BEditor.Core.Data.Primitive.Properties
         public Color Color
         {
             get => color;
-            set => SetValue(value, ref color, colorArgs, ColorChanged);
+            set => SetValue(value, ref color, colorArgs, () =>
+            {
+                foreach (var observer in collection)
+                {
+                    try
+                    {
+                        observer.OnNext(color);
+                        observer.OnCompleted();
+                    }
+                    catch (Exception ex)
+                    {
+                        observer.OnError(ex);
+                    }
+                }
+            });
         }
         /// <inheritdoc/>
         public ReadOnlyColor Value => color;
-
         /// <inheritdoc/>
         [DataMember]
         public string BindHint { get; private set; }
 
+
+        #region Methods
 
         /// <inheritdoc/>
         public override string ToString() => $"(R:{color.R} G:{color.G} B:{color.B} A:{color.A} Name:{PropertyMetadata?.Name})";
@@ -71,22 +92,6 @@ namespace BEditor.Core.Data.Primitive.Properties
         }
 
         #region IBindable
-
-        private void ColorChanged()
-        {
-            foreach (var observer in collection)
-            {
-                try
-                {
-                    observer.OnNext(color);
-                    observer.OnCompleted();
-                }
-                catch (Exception ex)
-                {
-                    observer.OnError(ex);
-                }
-            }
-        }
 
         public void Bind(IBindable<ReadOnlyColor> bindable)
         {
@@ -116,6 +121,9 @@ namespace BEditor.Core.Data.Primitive.Properties
         }
 
         #endregion
+
+        #endregion
+
 
         /// <summary>
         /// 色を変更するコマンド
@@ -175,15 +183,15 @@ namespace BEditor.Core.Data.Primitive.Properties
             UseAlpha = usealpha;
         }
 
-        
+
         public byte Red { get; init; }
-        
+
         public byte Green { get; init; }
-        
+
         public byte Blue { get; init; }
-        
+
         public byte Alpha { get; init; }
-        
+
         public bool UseAlpha { get; init; }
     }
 }

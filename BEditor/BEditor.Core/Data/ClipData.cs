@@ -22,7 +22,7 @@ namespace BEditor.Core.Data
     [DataContract(Namespace = "", Name = "Data")]
     public class ClipData : ComponentObject, ICloneable, IParent<EffectElement>, IChild<Scene>, INotifyPropertyChanged, IHadName, IHadId
     {
-        #region フィールド
+        #region Fields
 
         private static readonly PropertyChangedEventArgs startArgs = new(nameof(Start));
         private static readonly PropertyChangedEventArgs endArgs = new(nameof(End));
@@ -37,7 +37,7 @@ namespace BEditor.Core.Data
         #endregion
 
 
-        #region コンストラクタ
+        #region Contructor
 
         /// <summary>
         /// <see cref="ClipData"/> Initialize a new instance of the class.
@@ -57,7 +57,7 @@ namespace BEditor.Core.Data
         #endregion
 
 
-        #region プロパティ
+        #region Properties
 
         /// <summary>
         /// Get the ID for this <see cref="ClipData"/>
@@ -148,6 +148,9 @@ namespace BEditor.Core.Data
 
         #endregion
 
+
+        #region Methods
+
         /// <summary>
         /// It is called at rendering time
         /// </summary>
@@ -204,6 +207,9 @@ namespace BEditor.Core.Data
         public override string ToString() => $"(Name:{Name} Id:{Id} Start:{Start} End:{End})";
         /// <inheritdoc/>
         public object Clone() => this.DeepClone();
+
+        #endregion
+
 
         /// <summary>
         /// Represents a command that adds <see cref="ClipData"/> to a <see cref="ProjectData.Scene"/>.

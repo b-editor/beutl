@@ -13,7 +13,17 @@ namespace BEditor.Core.Data.Primitive.Effects.PrimitiveImages
     [DataContract(Namespace = "")]
     public class AreaExpansion : ImageEffect
     {
-        #region ImageEffect
+        public AreaExpansion()
+        {
+            Top = new(Clipping.TopMetadata);
+            Bottom = new(Clipping.BottomMetadata);
+            Left = new(Clipping.LeftMetadata);
+            Right = new(Clipping.RightMetadata);
+            AdjustCoordinates = new(Clipping.AdjustCoordinatesMetadata);
+        }
+
+
+        #region Properties
 
         public override string Name => Resources.AreaExpansion;
 
@@ -25,6 +35,25 @@ namespace BEditor.Core.Data.Primitive.Effects.PrimitiveImages
             Right,
             AdjustCoordinates
         };
+
+
+        [DataMember(Order = 0)]
+        public EaseProperty Top { get; private set; }
+
+        [DataMember(Order = 1)]
+        public EaseProperty Bottom { get; private set; }
+
+        [DataMember(Order = 2)]
+        public EaseProperty Left { get; private set; }
+
+        [DataMember(Order = 3)]
+        public EaseProperty Right { get; private set; }
+
+        [DataMember(Order = 4)]
+        public CheckProperty AdjustCoordinates { get; private set; }
+
+        #endregion
+
 
         public override void Render(ref Image source, EffectRenderArgs args)
         {
@@ -50,32 +79,5 @@ namespace BEditor.Core.Data.Primitive.Effects.PrimitiveImages
             Right.ExecuteLoaded(Clipping.RightMetadata);
             AdjustCoordinates.ExecuteLoaded(Clipping.AdjustCoordinatesMetadata);
         }
-
-        #endregion
-
-        public AreaExpansion()
-        {
-            Top = new(Clipping.TopMetadata);
-            Bottom = new(Clipping.BottomMetadata);
-            Left = new(Clipping.LeftMetadata);
-            Right = new(Clipping.RightMetadata);
-            AdjustCoordinates = new(Clipping.AdjustCoordinatesMetadata);
-        }
-
-
-        [DataMember(Order = 0)]
-        public EaseProperty Top { get; private set; }
-
-        [DataMember(Order = 1)]
-        public EaseProperty Bottom { get; private set; }
-
-        [DataMember(Order = 2)]
-        public EaseProperty Left { get; private set; }
-
-        [DataMember(Order = 3)]
-        public EaseProperty Right { get; private set; }
-
-        [DataMember(Order = 4)]
-        public CheckProperty AdjustCoordinates { get; private set; }
     }
 }

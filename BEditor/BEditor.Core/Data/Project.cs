@@ -17,12 +17,19 @@ namespace BEditor.Core.Data
     /// Represents the project to be used in editing.
     /// </summary>
     [DataContract(Namespace = "")]
-    public class Project : BasePropertyChanged, IExtensibleDataObject, IDisposable, IParent<Scene>, IChild<IApplication>, INotifyPropertyChanged
+    public class Project : BasePropertyChanged, IExtensibleDataObject, IDisposable, IParent<Scene>, IChild<IApplication>
     {
+        #region Fields
+
         private static readonly PropertyChangedEventArgs previreSceneArgs = new(nameof(PreviewScene));
         private Scene previewScene;
         private ObservableCollection<Scene> sceneList = new ObservableCollection<Scene>();
         private IApplication parent;
+
+        #endregion
+
+
+        #region Contructor
 
         /// <summary>
         /// <see cref="Project"/> Initialize a new instance of the class.
@@ -63,7 +70,18 @@ namespace BEditor.Core.Data
             }
         }
 
-        #region 保存するだけのプロパティ
+        #endregion
+
+
+        /// <summary>
+        /// Occurs after saving this <see cref="Project"/>.
+        /// </summary>
+        public event EventHandler<ProjectSavedEventArgs> Saved;
+
+
+        #region Properties
+
+        #region 保存用
 
         /// <summary>
         /// Get the framerate for this <see cref="Project"/>.
@@ -95,7 +113,7 @@ namespace BEditor.Core.Data
                 sceneList = value;
                 Parallel.ForEach(value, scene =>
                 {
-                    scene.SetParent(this);
+                    scene.Parent = this;
                     scene.PropertyLoaded();
                 });
             }
@@ -136,10 +154,10 @@ namespace BEditor.Core.Data
             init => parent = value;
         }
 
-        /// <summary>
-        /// Occurs after saving this <see cref="Project"/>.
-        /// </summary>
-        public event EventHandler<ProjectSavedEventArgs> Saved;
+        #endregion
+
+
+        #region Methods
 
         /// <summary>
         /// Create a backup of this <see cref="Project"/>.
@@ -274,6 +292,8 @@ namespace BEditor.Core.Data
             project.Samplingrate = Samplingrate;
             project.SceneList = SceneList;
         }
+
+        #endregion
     }
 
     /// <summary>

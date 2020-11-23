@@ -16,7 +16,17 @@ namespace BEditor.Core.Data.Primitive.Objects.PrimitiveImages
     {
         SelectorPropertyMetadata SelectSceneMetadata;
 
-        #region ImageObject
+
+        public Scene()
+        {
+            Start = new(Video.StartMetadata);
+
+            // この時点で親要素を取得できないので適当なデータを渡す
+            SelectScene = new(new SelectorPropertyMetadata("", new string[1]));
+        }
+
+
+        #region Properties
 
         public override IEnumerable<PropertyElement> Properties => new PropertyElement[]
         {
@@ -28,6 +38,16 @@ namespace BEditor.Core.Data.Primitive.Objects.PrimitiveImages
                 Start,
                 SelectScene
         };
+
+
+        [DataMember(Order = 0)]
+        public EaseProperty Start { get; private set; }
+
+        [DataMember(Order = 1)]
+        public SelectorProperty SelectScene { get; private set; }
+
+        #endregion
+
 
         public override Media.Image OnRender(EffectRenderArgs args)
         {
@@ -45,22 +65,6 @@ namespace BEditor.Core.Data.Primitive.Objects.PrimitiveImages
             Start.ExecuteLoaded(Video.StartMetadata);
             SelectScene.ExecuteLoaded(SelectSceneMetadata);
         }
-
-        #endregion
-
-        public Scene()
-        {
-            Start = new(Video.StartMetadata);
-
-            // この時点で親要素を取得できないので適当なデータを渡す
-            SelectScene = new(new SelectorPropertyMetadata("", new string[1]));
-        }
-
-        [DataMember(Order = 0)]
-        public EaseProperty Start { get; private set; }
-
-        [DataMember(Order = 1)]
-        public SelectorProperty SelectScene { get; private set; }
 
 
         internal record ScenesSelectorMetadata : SelectorPropertyMetadata

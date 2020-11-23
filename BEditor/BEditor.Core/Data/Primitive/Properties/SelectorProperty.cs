@@ -19,7 +19,7 @@ namespace BEditor.Core.Data.Primitive.Properties
     [DataContract(Namespace = "")]
     public class SelectorProperty : PropertyElement, IEasingProperty, IBindable<int>
     {
-        #region フィールド
+        #region Fields
 
         private static readonly PropertyChangedEventArgs indexArgs = new(nameof(Index));
         private int selectIndex;
@@ -47,7 +47,6 @@ namespace BEditor.Core.Data.Primitive.Properties
         /// 選択されているアイテムを取得します
         /// </summary>
         public object SelectItem => (PropertyMetadata as SelectorPropertyMetadata).ItemSource[Index];
-
         /// <summary>
         /// 選択されている <see cref="SelectorPropertyMetadata.ItemSource"/> のインデックスを取得または設定します
         /// </summary>
@@ -55,7 +54,21 @@ namespace BEditor.Core.Data.Primitive.Properties
         public int Index
         {
             get => selectIndex;
-            set => SetValue(value, ref selectIndex, indexArgs, SelectorProperty_PropertyChanged);
+            set => SetValue(value, ref selectIndex, indexArgs, () =>
+            {
+                foreach (var observer in Collection)
+                {
+                    try
+                    {
+                        observer.OnNext(selectIndex);
+                        observer.OnCompleted();
+                    }
+                    catch (Exception ex)
+                    {
+                        observer.OnError(ex);
+                    }
+                }
+            });
         }
         /// <inheritdoc/>
         public int Value => Index;
@@ -63,22 +76,9 @@ namespace BEditor.Core.Data.Primitive.Properties
         [DataMember]
         public string BindHint { get; private set; }
 
-        public static implicit operator int(SelectorProperty selector) => selector.Index;
-        private void SelectorProperty_PropertyChanged()
-        {
-            foreach (var observer in Collection)
-            {
-                try
-                {
-                    observer.OnNext(selectIndex);
-                    observer.OnCompleted();
-                }
-                catch (Exception ex)
-                {
-                    observer.OnError(ex);
-                }
-            }
-        }
+
+        #region Methods
+
         /// <inheritdoc/>
         public override void PropertyLoaded()
         {
@@ -126,6 +126,11 @@ namespace BEditor.Core.Data.Primitive.Properties
         }
 
         #endregion
+
+        #endregion
+
+
+        public static implicit operator int(SelectorProperty selector) => selector.Index;
 
 
         #region Commands

@@ -7,8 +7,10 @@ using BEditor.Core.Service;
 namespace BEditor.Core.Data
 {
     [DataContract(Namespace = "")]
-    public class Settings : BasePropertyChanged, INotifyPropertyChanged
+    public class Settings : BasePropertyChanged
     {
+        #region Fields
+
         private static readonly PropertyChangedEventArgs clipHeightArgs = new(nameof(ClipHeight));
         private static readonly PropertyChangedEventArgs darkModeArgs = new(nameof(UseDarkMode));
         private static readonly PropertyChangedEventArgs autoBackUpArgs = new(nameof(AutoBackUp));
@@ -24,8 +26,9 @@ namespace BEditor.Core.Data
         private int widthOf1Frame = 5;
         private bool enableErrorLog = false;
 
-        public static Settings Default { get; }
+        #endregion
 
+        
         static Settings()
         {
             var path = $"{Services.Path}\\user\\settings.json";
@@ -40,8 +43,11 @@ namespace BEditor.Core.Data
             }
         }
         private Settings() { }
-        public void Save() => Serialize.SaveToFile(this, $"{Services.Path}\\user\\settings.json");
 
+
+        #region Properties
+
+        public static Settings Default { get; }
         [DataMember]
         public int ClipHeight
         {
@@ -84,5 +90,10 @@ namespace BEditor.Core.Data
             get => enableErrorLog;
             set => SetValue(value, ref enableErrorLog, enableErrorLogArgs);
         }
+
+        #endregion
+
+
+        public void Save() => Serialize.SaveToFile(this, $"{Services.Path}\\user\\settings.json");
     }
 }

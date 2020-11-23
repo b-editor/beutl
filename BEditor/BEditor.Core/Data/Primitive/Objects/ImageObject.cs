@@ -21,9 +21,38 @@ namespace BEditor.Core.Data.Primitive.Objects
         public static readonly PropertyElementMetadata MaterialMetadata = new(Resources.Material);
 
 
-        #region ObjectElement
+        public ImageObject()
+        {
+            Coordinate = new(CoordinateMetadata);
+            Zoom = new(ZoomMetadata);
+            Blend = new(BlendMetadata);
+            Angle = new(AngleMetadata);
+            Material = new(MaterialMetadata);
+        }
+
+
+        #region Properties
 
         public override string Name => Resources.TypeOfDraw;
+
+
+        [DataMember(Order = 0)]
+        public Coordinate Coordinate { get; private set; }
+
+        [DataMember(Order = 1)]
+        public Zoom Zoom { get; private set; }
+
+        [DataMember(Order = 2)]
+        public Blend Blend { get; private set; }
+
+        [DataMember(Order = 3)]
+        public Angle Angle { get; private set; }
+
+        [DataMember(Order = 4)]
+        public Material Material { get; private set; }
+
+        #endregion
+
 
         public override void Render(EffectRenderArgs args)
         {
@@ -63,6 +92,8 @@ namespace BEditor.Core.Data.Primitive.Objects
             Coordinate.ResetOptional();
         }
 
+        public abstract Image OnRender(EffectRenderArgs args);
+
         public override void PropertyLoaded()
         {
             Coordinate.ExecuteLoaded(CoordinateMetadata);
@@ -71,33 +102,5 @@ namespace BEditor.Core.Data.Primitive.Objects
             Angle.ExecuteLoaded(AngleMetadata);
             Material.ExecuteLoaded(MaterialMetadata);
         }
-
-        #endregion
-
-        public abstract Image OnRender(EffectRenderArgs args);
-
-        public ImageObject()
-        {
-            Coordinate = new(CoordinateMetadata);
-            Zoom = new(ZoomMetadata);
-            Blend = new(BlendMetadata);
-            Angle = new(AngleMetadata);
-            Material = new(MaterialMetadata);
-        }
-
-        [DataMember(Order = 0)]
-        public Coordinate Coordinate { get; private set; }
-
-        [DataMember(Order = 1)]
-        public Zoom Zoom { get; private set; }
-
-        [DataMember(Order = 2)]
-        public Blend Blend { get; private set; }
-
-        [DataMember(Order = 3)]
-        public Angle Angle { get; private set; }
-
-        [DataMember(Order = 4)]
-        public Material Material { get; private set; }
     }
 }

@@ -19,7 +19,6 @@ namespace BEditor.Core.Data.Primitive.Properties.PrimitiveGroup
         public static readonly EasePropertyMetadata AlphaMetadata = new(Resources.Alpha, 100, 100, 0);
         public static readonly ColorAnimationPropertyMetadata ColorMetadata = new(Resources.Color, 255, 255, 255, 255, false);
         public static readonly SelectorPropertyMetadata BlendTypeMetadata = new(Resources.Blend, new string[4] { "通常", "加算", "減算", "乗算" });
-
         public static readonly Action[] BlentFunc = new Action[] {
                 () => {
                     GL.BlendEquationSeparate(BlendEquationMode.FuncAdd, BlendEquationMode.FuncAdd);
@@ -39,6 +38,7 @@ namespace BEditor.Core.Data.Primitive.Properties.PrimitiveGroup
                 }
             };
 
+
         public Blend(PropertyElementMetadata constant) : base(constant)
         {
             Alpha = new(AlphaMetadata);
@@ -47,24 +47,12 @@ namespace BEditor.Core.Data.Primitive.Properties.PrimitiveGroup
         }
 
 
-        #region ExpandGroup
-
         public override IEnumerable<PropertyElement> Properties => new PropertyElement[]
         {
             Alpha,
             Color,
             BlendType
         };
-
-        public override void PropertyLoaded()
-        {
-            Alpha.ExecuteLoaded(AlphaMetadata);
-            BlendType.ExecuteLoaded(BlendTypeMetadata);
-            Color.ExecuteLoaded(ColorMetadata);
-        }
-
-        #endregion
-
 
         [DataMember(Order = 0)]
         public EaseProperty Alpha { get; private set; }
@@ -74,5 +62,13 @@ namespace BEditor.Core.Data.Primitive.Properties.PrimitiveGroup
 
         [DataMember(Order = 2)]
         public SelectorProperty BlendType { get; private set; }
+
+
+        public override void PropertyLoaded()
+        {
+            Alpha.ExecuteLoaded(AlphaMetadata);
+            BlendType.ExecuteLoaded(BlendTypeMetadata);
+            Color.ExecuteLoaded(ColorMetadata);
+        }
     }
 }

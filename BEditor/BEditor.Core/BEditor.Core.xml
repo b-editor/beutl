@@ -104,68 +104,68 @@
             <summary>
             <see cref="T:BEditor.Core.Data.EffectElement.CheckCommand"/> を実行します
             </summary>
-            <param name="effect">対象の <see cref="T:BEditor.Core.Data.EffectElement"/></param>
+            <param name="self">対象の <see cref="T:BEditor.Core.Data.EffectElement"/></param>
             <param name="value">セットする値</param>
             <param name="mode"><see cref="F:BEditor.Core.Command.CommandMode.Execute"/> を指定するとコマンドが <see cref="T:BEditor.Core.Command.CommandManager"/> に記録されません</param>
-            <exception cref="T:System.ArgumentNullException"><paramref name="effect"/> が <see langword="null"/> です</exception>
+            <exception cref="T:System.ArgumentNullException"><paramref name="self"/> が <see langword="null"/> です</exception>
             <returns>作成されたコマンド</returns>
         </member>
         <member name="M:BEditor.Core.Command.ExtensionCommand.Up(BEditor.Core.Data.EffectElement,BEditor.Core.Command.CommandMode)">
             <summary>
             <see cref="T:BEditor.Core.Data.EffectElement.UpCommand"/> を実行します
             </summary>
-            <param name="effect">対象の <see cref="T:BEditor.Core.Data.EffectElement"/></param>
+            <param name="self">対象の <see cref="T:BEditor.Core.Data.EffectElement"/></param>
             <param name="mode"><see cref="F:BEditor.Core.Command.CommandMode.Execute"/> を指定するとコマンドが <see cref="T:BEditor.Core.Command.CommandManager"/> に記録されません</param>
-            <exception cref="T:System.ArgumentNullException"><paramref name="effect"/> が <see langword="null"/> です</exception>
+            <exception cref="T:System.ArgumentNullException"><paramref name="self"/> が <see langword="null"/> です</exception>
             <returns>作成されたコマンド</returns>
         </member>
         <member name="M:BEditor.Core.Command.ExtensionCommand.Down(BEditor.Core.Data.EffectElement,BEditor.Core.Command.CommandMode)">
             <summary>
             <see cref="T:BEditor.Core.Data.EffectElement.DownCommand"/> を実行します
             </summary>
-            <param name="effect">対象の <see cref="T:BEditor.Core.Data.EffectElement"/></param>
+            <param name="self">対象の <see cref="T:BEditor.Core.Data.EffectElement"/></param>
             <param name="mode"><see cref="F:BEditor.Core.Command.CommandMode.Execute"/> を指定するとコマンドが <see cref="T:BEditor.Core.Command.CommandManager"/> に記録されません</param>
-            <exception cref="T:System.ArgumentNullException"><paramref name="effect"/> が <see langword="null"/> です</exception>
+            <exception cref="T:System.ArgumentNullException"><paramref name="self"/> が <see langword="null"/> です</exception>
             <returns>作成されたコマンド</returns>
         </member>
         <member name="M:BEditor.Core.Command.ExtensionCommand.Remove(BEditor.Core.Data.EffectElement,BEditor.Core.Command.CommandMode)">
             <summary>
             <see cref="T:BEditor.Core.Data.EffectElement.RemoveCommand"/> を実行します
             </summary>
-            <param name="effect">対象の <see cref="T:BEditor.Core.Data.EffectElement"/></param>
+            <param name="self">対象の <see cref="T:BEditor.Core.Data.EffectElement"/></param>
             <param name="mode"><see cref="F:BEditor.Core.Command.CommandMode.Execute"/> を指定するとコマンドが <see cref="T:BEditor.Core.Command.CommandManager"/> に記録されません</param>
-            <exception cref="T:System.ArgumentNullException"><paramref name="effect"/> が <see langword="null"/> です</exception>
+            <exception cref="T:System.ArgumentNullException"><paramref name="self"/> が <see langword="null"/> です</exception>
             <returns>作成されたコマンド</returns>
         </member>
         <member name="M:BEditor.Core.Command.ExtensionCommand.Add(BEditor.Core.Data.EffectElement,BEditor.Core.Command.CommandMode)">
             <summary>
             <see cref="T:BEditor.Core.Data.EffectElement.AddCommand"/> を実行します
             </summary>
-            <param name="effect">対象の <see cref="T:BEditor.Core.Data.EffectElement"/></param>
+            <param name="self">対象の <see cref="T:BEditor.Core.Data.EffectElement"/></param>
             <param name="mode"><see cref="F:BEditor.Core.Command.CommandMode.Execute"/> を指定するとコマンドが <see cref="T:BEditor.Core.Command.CommandManager"/> に記録されません</param>
-            <exception cref="T:System.ArgumentNullException"><paramref name="effect"/> が <see langword="null"/> です</exception>
+            <exception cref="T:System.ArgumentNullException"><paramref name="self"/> が <see langword="null"/> です</exception>
             <returns>作成されたコマンド</returns>
         </member>
         <member name="M:BEditor.Core.Command.ExtensionCommand.Add(BEditor.Core.Data.EffectElement,BEditor.Core.Data.ClipData,BEditor.Core.Command.CommandMode)">
             <summary>
             <see cref="T:BEditor.Core.Data.EffectElement.DownCommand"/> を実行します
             </summary>
-            <param name="effect">対象の <see cref="T:BEditor.Core.Data.EffectElement"/></param>
+            <param name="self">対象の <see cref="T:BEditor.Core.Data.EffectElement"/></param>
             <param name="clip"></param>
             <param name="mode"><see cref="F:BEditor.Core.Command.CommandMode.Execute"/> を指定するとコマンドが <see cref="T:BEditor.Core.Command.CommandManager"/> に記録されません</param>
-            <exception cref="T:System.ArgumentNullException"><paramref name="effect"/> が <see langword="null"/> です</exception>
+            <exception cref="T:System.ArgumentNullException"><paramref name="self"/> が <see langword="null"/> です</exception>
             <returns>作成されたコマンド</returns>
         </member>
         <member name="M:BEditor.Core.Command.ExtensionCommand.Add(BEditor.Core.Data.Scene,System.Int32,System.Int32,System.Type,BEditor.Core.Command.CommandMode)">
             <summary>
             <see cref="T:BEditor.Core.Data.ClipData.AddCommand"/> を実行します
             </summary>
-            <param name="scene">対象の <see cref="T:BEditor.Core.Data.Scene"/></param>
+            <param name="self">対象の <see cref="T:BEditor.Core.Data.Scene"/></param>
             <param name="addframe">配置するフレーム</param>
             <param name="layer">配置するレイヤー</param>
             <param name="type">クリップの種類</param>
             <param name="mode"><see cref="F:BEditor.Core.Command.CommandMode.Execute"/> を指定するとコマンドが <see cref="T:BEditor.Core.Command.CommandManager"/> に記録されません</param>
-            <exception cref="T:System.ArgumentNullException"><paramref name="scene"/> が <see langword="null"/> です</exception>
+            <exception cref="T:System.ArgumentNullException"><paramref name="self"/> が <see langword="null"/> です</exception>
             <exception cref="T:System.ArgumentNullException"><paramref name="type"/> が <see langword="null"/> です</exception>
             <exception cref="T:System.ArgumentOutOfRangeException"><paramref name="addframe"/> が0以下です</exception>
             <exception cref="T:System.ArgumentOutOfRangeException"><paramref name="layer"/> が0以下です</exception>
@@ -175,20 +175,20 @@
             <summary>
             <see cref="T:BEditor.Core.Data.ClipData.RemoveCommand"/> を実行します
             </summary>
-            <param name="clip">対象の <see cref="T:BEditor.Core.Data.ClipData"/></param>
+            <param name="self">対象の <see cref="T:BEditor.Core.Data.ClipData"/></param>
             <param name="mode"><see cref="F:BEditor.Core.Command.CommandMode.Execute"/> を指定するとコマンドが <see cref="T:BEditor.Core.Command.CommandManager"/> に記録されません</param>
-            <exception cref="T:System.ArgumentNullException"><paramref name="clip"/> が <see langword="null"/> です</exception>
+            <exception cref="T:System.ArgumentNullException"><paramref name="self"/> が <see langword="null"/> です</exception>
             <returns>作成されたコマンド</returns>
         </member>
         <member name="M:BEditor.Core.Command.ExtensionCommand.Move(BEditor.Core.Data.ClipData,System.Int32,System.Int32,BEditor.Core.Command.CommandMode)">
             <summary>
             <see cref="T:BEditor.Core.Data.ClipData.MoveCommand"/> を実行します
             </summary>
-            <param name="clip">対象の <see cref="T:BEditor.Core.Data.ClipData"/></param>
+            <param name="self">対象の <see cref="T:BEditor.Core.Data.ClipData"/></param>
             <param name="to">新しい開始フレーム</param>
             <param name="tolayer">新しい配置レイヤー</param>
             <param name="mode"><see cref="F:BEditor.Core.Command.CommandMode.Execute"/> を指定するとコマンドが <see cref="T:BEditor.Core.Command.CommandManager"/> に記録されません</param>
-            <exception cref="T:System.ArgumentNullException"><paramref name="clip"/> が <see langword="null"/> です</exception>
+            <exception cref="T:System.ArgumentNullException"><paramref name="self"/> が <see langword="null"/> です</exception>
             <exception cref="T:System.ArgumentOutOfRangeException"><paramref name="to"/> または <paramref name="tolayer"/> が0以下です</exception>
             <returns>作成されたコマンド</returns>
         </member>
@@ -196,13 +196,13 @@
             <summary>
             <see cref="T:BEditor.Core.Data.ClipData.MoveCommand"/> を実行します
             </summary>
-            <param name="clip">対象の <see cref="T:BEditor.Core.Data.ClipData"/></param>
+            <param name="self">対象の <see cref="T:BEditor.Core.Data.ClipData"/></param>
             <param name="to">新しい開始フレーム</param>
             <param name="from">古い開始フレーム</param>
             <param name="tolayer">新しい配置レイヤー</param>
             <param name="fromlayer">古い配置レイヤー</param>
             <param name="mode"><see cref="F:BEditor.Core.Command.CommandMode.Execute"/> を指定するとコマンドが <see cref="T:BEditor.Core.Command.CommandManager"/> に記録されません</param>
-            <exception cref="T:System.ArgumentNullException"><paramref name="clip"/> が <see langword="null"/> です</exception>
+            <exception cref="T:System.ArgumentNullException"><paramref name="self"/> が <see langword="null"/> です</exception>
             <exception cref="T:System.ArgumentOutOfRangeException"><paramref name="to"/>, <paramref name="from"/>, <paramref name="tolayer"/>, <paramref name="fromlayer"/> が0以下です</exception>
             <returns>作成されたコマンド</returns>
         </member>
@@ -210,11 +210,11 @@
             <summary>
             <see cref="T:BEditor.Core.Data.ClipData.LengthChangeCommand"/> を実行します
             </summary>
-            <param name="clip">対象の <see cref="T:BEditor.Core.Data.ClipData"/></param>
+            <param name="elf">対象の <see cref="T:BEditor.Core.Data.ClipData"/></param>
             <param name="start">開始フレーム</param>
             <param name="end">終了フレーム</param>
             <param name="mode"><see cref="F:BEditor.Core.Command.CommandMode.Execute"/> を指定するとコマンドが <see cref="T:BEditor.Core.Command.CommandManager"/> に記録されません</param>
-            <exception cref="T:System.ArgumentNullException"><paramref name="clip"/> が <see langword="null"/> です</exception>
+            <exception cref="T:System.ArgumentNullException"><paramref name="elf"/> が <see langword="null"/> です</exception>
             <exception cref="T:System.ArgumentOutOfRangeException"><paramref name="start"/> または <paramref name="end"/> が0以下です</exception>
             <returns>作成されたコマンド</returns>
         </member>
@@ -1579,9 +1579,6 @@
             </summary>
         </member>
         <member name="P:BEditor.Core.Data.Primitive.Properties.Group.Parent">
-            <inheritdoc/>
-        </member>
-        <member name="M:BEditor.Core.Data.Primitive.Properties.Group.PropertyLoaded">
             <inheritdoc/>
         </member>
         <member name="T:BEditor.Core.Data.Primitive.Properties.PrimitiveEasing.DefaultEasing">

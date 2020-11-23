@@ -18,7 +18,7 @@ namespace BEditor.Core.Service
         {
             var result = ImageProcess.Ellipse(width, height, line, color.R, color.G, color.B, out var ptr);
 
-            if (result != null) throw new NativeException(result);
+            if (result != null) throw new Exception(result);
 
             return new Image(ptr);
         }

@@ -16,6 +16,7 @@ namespace BEditor.Core.Data.Primitive.Effects.PrimitiveImages
         public static readonly EasePropertyMetadata SizeMetadata = new(Resources.Size, 10, float.NaN, 1);
         public static readonly ColorPropertyMetadata ColorMetadata = new(Resources.Color, 255, 255, 255);
 
+
         public Border()
         {
             Size = new(SizeMetadata);
@@ -23,10 +24,9 @@ namespace BEditor.Core.Data.Primitive.Effects.PrimitiveImages
         }
 
 
-        #region EffectProperty
-        public override string Name => Resources.Border;
+        #region Properties
 
-        public override void Render(ref Image source, EffectRenderArgs args) => source.ToRenderable().Border((int)Size.GetValue(args.Frame), Color.Color);
+        public override string Name => Resources.Border;
 
         public override IEnumerable<PropertyElement> Properties => new PropertyElement[]
         {
@@ -34,19 +34,22 @@ namespace BEditor.Core.Data.Primitive.Effects.PrimitiveImages
             Color
         };
 
-        public override void PropertyLoaded()
-        {
-            Size.ExecuteLoaded(SizeMetadata);
-            Color.ExecuteLoaded(ColorMetadata);
-        }
-
-        #endregion
-
 
         [DataMember(Order = 0)]
         public EaseProperty Size { get; private set; }
 
         [DataMember(Order = 1)]
         public ColorProperty Color { get; private set; }
+
+        #endregion
+
+
+        public override void Render(ref Image source, EffectRenderArgs args) => source.ToRenderable().Border((int)Size.GetValue(args.Frame), Color.Color);
+
+        public override void PropertyLoaded()
+        {
+            Size.ExecuteLoaded(SizeMetadata);
+            Color.ExecuteLoaded(ColorMetadata);
+        }
     }
 }

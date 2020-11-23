@@ -27,7 +27,16 @@ namespace BEditor.Core.Data.Primitive.Effects.PrimitiveImages
         public static readonly EasePropertyMetadata ZMetadata = new(Resources.Z, 50, float.NaN, 0);
         public static readonly ColorAnimationPropertyMetadata ColorMetadata = new(Resources.Color, 255, 255, 255, 255, true);
 
-        #region ImageEffect
+
+        public MultiLayerization()
+        {
+            Z = new(ZMetadata);
+            Material = new(ImageObject.MaterialMetadata);
+            Color = new(ColorMetadata);
+        }
+
+
+        #region Properties
 
         public override string Name => Resources.MultiLayerization;
 
@@ -36,6 +45,19 @@ namespace BEditor.Core.Data.Primitive.Effects.PrimitiveImages
             Z,
             Color
         };
+
+
+        [DataMember(Order = 0)]
+        public EaseProperty Z { get; private set; }
+
+        [DataMember(Order = 1)]
+        public Material Material { get; private set; }
+
+        [DataMember(Order = 2)]
+        public ColorAnimationProperty Color { get; private set; }
+
+        #endregion
+
 
         public override void PreviewRender(EffectRenderArgs args)
         {
@@ -101,24 +123,5 @@ namespace BEditor.Core.Data.Primitive.Effects.PrimitiveImages
             Material.ExecuteLoaded(ImageObject.MaterialMetadata);
             Color.ExecuteLoaded(ColorMetadata);
         }
-
-        #endregion
-
-        public MultiLayerization()
-        {
-            Z = new(ZMetadata);
-            Material = new(ImageObject.MaterialMetadata);
-            Color = new(ColorMetadata);
-        }
-
-
-        [DataMember(Order = 0)]
-        public EaseProperty Z { get; private set; }
-
-        [DataMember(Order = 1)]
-        public Material Material { get; private set; }
-
-        [DataMember(Order = 2)]
-        public ColorAnimationProperty Color { get; private set; }
     }
 }
