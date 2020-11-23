@@ -128,6 +128,7 @@ namespace BEditor.Core.Data.Primitive.Properties
         public void Bind(IBindable<FontRecord> bindable)
         {
             BindDispose?.Dispose();
+            BindHint = null;
 
             if (bindable is not null)
             {

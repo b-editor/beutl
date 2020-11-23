@@ -50,6 +50,7 @@
             </md:PopupBox.ToggleContent>
             <VirtualizingStackPanel>
                 <Button Content="Reset"/>
+                <Button Content="Bind" Click="BindClick"/>
             </VirtualizingStackPanel>
         </md:PopupBox>
     </Grid>

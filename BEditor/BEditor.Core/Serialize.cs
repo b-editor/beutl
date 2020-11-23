@@ -15,6 +15,7 @@ using BEditor.Core.Data.Property;
 using BEditor.Core.Data.Property.EasingProperty;
 using BEditor.Core.Data.Primitive.Objects.PrimitiveImages;
 using BEditor.Core.Data;
+using System.Collections.ObjectModel;
 
 namespace BEditor.Core
 {
@@ -53,14 +54,14 @@ namespace BEditor.Core
         /// </summary>
         /// <param name="obj">保存するオブジェクト</param>
         /// <param name="path">保存先のファイル名</param>
-        public static bool SaveToFile(object obj, string path)
+        public static bool SaveToFile<T>(T obj, string path)
         {
             try
             {
                 using (FileStream file = new FileStream(path, FileMode.Create))
                 using (var writer = JsonReaderWriterFactory.CreateJsonWriter(file, Encoding.UTF8, true, true, "  "))
                 {
-                    var serializer = new DataContractJsonSerializer(obj.GetType(), SerializeKnownTypes);
+                    var serializer = new DataContractJsonSerializer(typeof(T), SerializeKnownTypes);
                     serializer.WriteObject(writer, obj);
                 }
 
@@ -91,7 +92,7 @@ namespace BEditor.Core
             var ms2 = new MemoryStream();
             ms2.Write(bytes, 0, bytes.Length);
 
-            //デシリアライズを実行する
+            // デシリアライズを実行する
             ms2.Position = 0;
             T result = (T)serializer.ReadObject(ms2);
 
@@ -106,9 +107,12 @@ namespace BEditor.Core
         /// </summary>
         public static List<Type> SerializeKnownTypes = new List<Type>()
         {
+            typeof(BasePropertyChanged),
+            typeof(ComponentObject),
+            
             typeof(Project),
-            typeof(Data.Scene),
             typeof(RootScene),
+            typeof(Data.Scene),
 
             typeof(ClipData),
             typeof(ImageObject),
@@ -139,12 +143,12 @@ namespace BEditor.Core
             typeof(Shadow),
             typeof(Clipping),
             typeof(AreaExpansion),
-            
+
             typeof(DepthTest),
             typeof(DirectionalLightSource),
             typeof(PointLightSource),
             typeof(SpotLight),
-            
+
             typeof(CheckProperty),
             typeof(ColorProperty),
             typeof(DocumentProperty),

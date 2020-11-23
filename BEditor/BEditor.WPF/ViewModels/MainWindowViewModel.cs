@@ -21,6 +21,7 @@ using Microsoft.WindowsAPICodePack.Dialogs;
 using Project = BEditor.Core.Data.Project;
 using BEditor.Core.Service;
 using BEditor.Core.Command;
+using System.Reactive.Linq;
 
 namespace BEditor.ViewModels
 {
@@ -103,8 +104,14 @@ namespace BEditor.ViewModels
                 .ObserveProperty(app => app.Project)
                 .Subscribe(_ =>
                 {
-                    if (AppData.Current.Project is null) Project_Closed();
-                    else Project_Opend();
+                    if (AppData.Current.Project is null)
+                    {
+                        Project_Closed();
+                    }
+                    else
+                    {
+                        Project_Opend();
+                    }
                 });
         }
 
@@ -116,6 +123,7 @@ namespace BEditor.ViewModels
             CommandManager.Clear();
 
             ProjectIsOpened.Value = true;
+            AppData.Current.Project.Saved += (_, _) => AppData.Current.AppStatus = Status.Saved;
         }
 
         private void Project_Closed()

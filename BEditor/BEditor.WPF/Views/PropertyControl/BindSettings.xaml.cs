@@ -16,7 +16,7 @@ using BEditor.Core.Data.Bindings;
 
 using MahApps.Metro.Controls;
 
-namespace BEditor.Views.PropertyControl
+namespace BEditor.Views.PropertyControls
 {
     /// <summary>
     /// BindSettings.xaml の相互作用ロジック
@@ -25,7 +25,12 @@ namespace BEditor.Views.PropertyControl
     {
         public BindSettings()
         {
-            
+            InitializeComponent();
+        }
+
+        private void CloseButton(object sender, RoutedEventArgs e)
+        {
+            Close();
         }
     }
 }

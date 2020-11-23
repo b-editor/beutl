@@ -24,27 +24,6 @@
             Undo後に記録
             </summary>
         </member>
-        <member name="M:BEditor.Core.Command.CommandManager.Do(BEditor.Core.Command.IRecordCommand)">
-            <summary>
-            操作を実行し、かつその内容をStackに追加します
-            </summary>
-            <param name="command">実行するコマンド</param>
-        </member>
-        <member name="M:BEditor.Core.Command.CommandManager.Undo">
-            <summary>
-            行なったコマンドを取り消してひとつ前の状態に戻します
-            </summary>
-        </member>
-        <member name="M:BEditor.Core.Command.CommandManager.Redo">
-            <summary>
-            取り消したコマンドをやり直します
-            </summary>
-        </member>
-        <member name="M:BEditor.Core.Command.CommandManager.Clear">
-            <summary>
-            記録されたコマンドを初期化
-            </summary>
-        </member>
         <member name="P:BEditor.Core.Command.CommandManager.CanUndo">
             <summary>
             Undo出来るか取得します
@@ -78,6 +57,27 @@
         <member name="E:BEditor.Core.Command.CommandManager.CommandsClear">
             <summary>
             <see cref="M:BEditor.Core.Command.CommandManager.Clear"/> 後に発生します
+            </summary>
+        </member>
+        <member name="M:BEditor.Core.Command.CommandManager.Do(BEditor.Core.Command.IRecordCommand)">
+            <summary>
+            操作を実行し、かつその内容をStackに追加します
+            </summary>
+            <param name="command">実行するコマンド</param>
+        </member>
+        <member name="M:BEditor.Core.Command.CommandManager.Undo">
+            <summary>
+            行なったコマンドを取り消してひとつ前の状態に戻します
+            </summary>
+        </member>
+        <member name="M:BEditor.Core.Command.CommandManager.Redo">
+            <summary>
+            取り消したコマンドをやり直します
+            </summary>
+        </member>
+        <member name="M:BEditor.Core.Command.CommandManager.Clear">
+            <summary>
+            記録されたコマンドを初期化
             </summary>
         </member>
         <member name="T:BEditor.Core.Command.CommandType">
@@ -731,9 +731,6 @@
         <member name="P:BEditor.Core.Data.Primitive.Properties.ColorAnimationProperty.Parent">
             <inheritdoc/>
         </member>
-        <member name="M:BEditor.Core.Data.Primitive.Properties.ColorAnimationProperty.PropertyLoaded">
-            <inheritdoc/>
-        </member>
         <member name="P:BEditor.Core.Data.Primitive.Properties.ColorAnimationProperty.Value">
             <summary>
             
@@ -760,6 +757,9 @@
             </summary>
             <param name="frame">タイムライン基準のフレーム</param>
             <returns></returns>
+        </member>
+        <member name="M:BEditor.Core.Data.Primitive.Properties.ColorAnimationProperty.PropertyLoaded">
+            <inheritdoc/>
         </member>
         <member name="T:BEditor.Core.Data.Primitive.Properties.ColorAnimationProperty.ChangeColorCommand">
             <summary>
@@ -1059,22 +1059,12 @@
             <see cref="T:System.Single"/> 型の値をイージングするプロパティを表します
             </summary>
         </member>
-        <member name="P:BEditor.Core.Data.Primitive.Properties.EaseProperty.Value">
+        <member name="M:BEditor.Core.Data.Primitive.Properties.EaseProperty.#ctor(BEditor.Core.Data.Primitive.Properties.EasePropertyMetadata)">
             <summary>
-            <see cref="P:BEditor.Core.Data.Primitive.Properties.EaseProperty.Time"/> に対応する <see langword="float"/> 型の値の <see cref="T:System.Collections.ObjectModel.ObservableCollection`1"/> を取得します
+            <see cref="T:BEditor.Core.Data.Primitive.Properties.EaseProperty"/> クラスの新しいインスタンスを初期化します
             </summary>
-            <remarks>値の追加を行う場合は <see cref="M:BEditor.Core.Data.Primitive.Properties.EaseProperty.InsertKeyframe(System.Int32,System.Single)"/> 、削除は <see cref="M:BEditor.Core.Data.Primitive.Properties.EaseProperty.RemoveKeyframe(System.Int32,System.Single@)"/> を使用してください</remarks>
-        </member>
-        <member name="P:BEditor.Core.Data.Primitive.Properties.EaseProperty.Time">
-            <summary>
-            <see cref="P:BEditor.Core.Data.Primitive.Properties.EaseProperty.Value"/> に対応するフレーム番号の <see cref="T:System.Collections.Generic.List`1"/> を取得します
-            </summary>
-            <remarks>値の追加を行う場合は <see cref="M:BEditor.Core.Data.Primitive.Properties.EaseProperty.InsertKeyframe(System.Int32,System.Single)"/> 、削除は <see cref="M:BEditor.Core.Data.Primitive.Properties.EaseProperty.RemoveKeyframe(System.Int32,System.Single@)"/> を使用してください</remarks>
-        </member>
-        <member name="P:BEditor.Core.Data.Primitive.Properties.EaseProperty.EasingType">
-            <summary>
-            現在のイージング関数を取得または設定します
-            </summary>
+            <param name="metadata">このプロパティの <see cref="T:BEditor.Core.Data.Primitive.Properties.EasePropertyMetadata"/></param>
+            <exception cref="T:System.ArgumentNullException"><paramref name="metadata"/> が <see langword="null"/> です</exception>
         </member>
         <member name="E:BEditor.Core.Data.Primitive.Properties.EaseProperty.AddKeyFrameEvent">
             <summary>
@@ -1123,6 +1113,23 @@
             </list>
             </remarks>
         </member>
+        <member name="P:BEditor.Core.Data.Primitive.Properties.EaseProperty.Value">
+            <summary>
+            <see cref="P:BEditor.Core.Data.Primitive.Properties.EaseProperty.Time"/> に対応する <see langword="float"/> 型の値の <see cref="T:System.Collections.ObjectModel.ObservableCollection`1"/> を取得します
+            </summary>
+            <remarks>値の追加を行う場合は <see cref="M:BEditor.Core.Data.Primitive.Properties.EaseProperty.InsertKeyframe(System.Int32,System.Single)"/> 、削除は <see cref="M:BEditor.Core.Data.Primitive.Properties.EaseProperty.RemoveKeyframe(System.Int32,System.Single@)"/> を使用してください</remarks>
+        </member>
+        <member name="P:BEditor.Core.Data.Primitive.Properties.EaseProperty.Time">
+            <summary>
+            <see cref="P:BEditor.Core.Data.Primitive.Properties.EaseProperty.Value"/> に対応するフレーム番号の <see cref="T:System.Collections.Generic.List`1"/> を取得します
+            </summary>
+            <remarks>値の追加を行う場合は <see cref="M:BEditor.Core.Data.Primitive.Properties.EaseProperty.InsertKeyframe(System.Int32,System.Single)"/> 、削除は <see cref="M:BEditor.Core.Data.Primitive.Properties.EaseProperty.RemoveKeyframe(System.Int32,System.Single@)"/> を使用してください</remarks>
+        </member>
+        <member name="P:BEditor.Core.Data.Primitive.Properties.EaseProperty.EasingType">
+            <summary>
+            現在のイージング関数を取得または設定します
+            </summary>
+        </member>
         <member name="P:BEditor.Core.Data.Primitive.Properties.EaseProperty.Optional">
             <summary>
             追加の値を取得または設定します
@@ -1133,17 +1140,7 @@
             現在のイージングのデータを取得または設定します
             </summary>
         </member>
-        <member name="M:BEditor.Core.Data.Primitive.Properties.EaseProperty.#ctor(BEditor.Core.Data.Primitive.Properties.EasePropertyMetadata)">
-            <summary>
-            <see cref="T:BEditor.Core.Data.Primitive.Properties.EaseProperty"/> クラスの新しいインスタンスを初期化します
-            </summary>
-            <param name="metadata">このプロパティの <see cref="T:BEditor.Core.Data.Primitive.Properties.EasePropertyMetadata"/></param>
-            <exception cref="T:System.ArgumentNullException"><paramref name="metadata"/> が <see langword="null"/> です</exception>
-        </member>
         <member name="P:BEditor.Core.Data.Primitive.Properties.EaseProperty.Parent">
-            <inheritdoc/>
-        </member>
-        <member name="M:BEditor.Core.Data.Primitive.Properties.EaseProperty.PropertyLoaded">
             <inheritdoc/>
         </member>
         <member name="M:BEditor.Core.Data.Primitive.Properties.EaseProperty.GetValue(System.Int32)">
@@ -1178,6 +1175,9 @@
             <exception cref="T:System.ArgumentOutOfRangeException"><paramref name="frame"/> が 親要素の範囲外です</exception>
         </member>
         <member name="M:BEditor.Core.Data.Primitive.Properties.EaseProperty.ToString">
+            <inheritdoc/>
+        </member>
+        <member name="M:BEditor.Core.Data.Primitive.Properties.EaseProperty.PropertyLoaded">
             <inheritdoc/>
         </member>
         <member name="T:BEditor.Core.Data.Primitive.Properties.EaseProperty.ChangeValueCommand">
@@ -1348,6 +1348,13 @@
             複数の <see cref="T:BEditor.Core.Data.Property.PropertyElement"/> をエクスパンダーでまとめるクラス
             </summary>
         </member>
+        <member name="M:BEditor.Core.Data.Primitive.Properties.ExpandGroup.#ctor(BEditor.Core.Data.Property.PropertyElementMetadata)">
+            <summary>
+            <see cref="T:BEditor.Core.Data.Primitive.Properties.ExpandGroup"/> クラスの新しいインスタンスを初期化します
+            </summary>
+            <param name="metadata">このプロパティの <see cref="T:BEditor.Core.Data.Property.PropertyElementMetadata"/></param>
+            <exception cref="T:System.ArgumentNullException"><paramref name="metadata"/> が <see langword="null"/> です</exception>
+        </member>
         <member name="P:BEditor.Core.Data.Primitive.Properties.ExpandGroup.IsExpanded">
             <summary>
             エクスパンダーが開いているかを取得または設定します
@@ -1358,13 +1365,6 @@
         </member>
         <member name="P:BEditor.Core.Data.Primitive.Properties.ExpandGroup.Value">
             <inheritdoc/>
-        </member>
-        <member name="M:BEditor.Core.Data.Primitive.Properties.ExpandGroup.#ctor(BEditor.Core.Data.Property.PropertyElementMetadata)">
-            <summary>
-            <see cref="T:BEditor.Core.Data.Primitive.Properties.ExpandGroup"/> クラスの新しいインスタンスを初期化します
-            </summary>
-            <param name="metadata">このプロパティの <see cref="T:BEditor.Core.Data.Property.PropertyElementMetadata"/></param>
-            <exception cref="T:System.ArgumentNullException"><paramref name="metadata"/> が <see langword="null"/> です</exception>
         </member>
         <member name="M:BEditor.Core.Data.Primitive.Properties.ExpandGroup.PropertyLoaded">
             <inheritdoc/>
@@ -1469,6 +1469,16 @@
             フォントを選択するプロパティ表します
             </summary>
         </member>
+        <member name="F:BEditor.Core.Data.Primitive.Properties.FontProperty.FontList">
+            <summary>
+            読み込まれているフォントのリスト
+            </summary>
+        </member>
+        <member name="F:BEditor.Core.Data.Primitive.Properties.FontProperty.FontStylesList">
+            <summary>
+            フォントのスタイルのリスト
+            </summary>
+        </member>
         <member name="M:BEditor.Core.Data.Primitive.Properties.FontProperty.#ctor(BEditor.Core.Data.Primitive.Properties.FontPropertyMetadata)">
             <summary>
             <see cref="T:BEditor.Core.Data.Primitive.Properties.FontProperty"/> クラスの新しいインスタンスを初期化します
@@ -1527,16 +1537,6 @@
         </member>
         <member name="M:BEditor.Core.Data.Primitive.Properties.FontProperty.ChangeSelectCommand.Undo">
             <inheritdoc/>
-        </member>
-        <member name="F:BEditor.Core.Data.Primitive.Properties.FontProperty.FontList">
-            <summary>
-            読み込まれているフォントのリスト
-            </summary>
-        </member>
-        <member name="F:BEditor.Core.Data.Primitive.Properties.FontProperty.FontStylesList">
-            <summary>
-            フォントのスタイルのリスト
-            </summary>
         </member>
         <member name="T:BEditor.Core.Data.Primitive.Properties.FontPropertyMetadata">
             <summary>
@@ -1754,6 +1754,11 @@
             <see cref="T:BEditor.Core.Data.Project"/> Initialize a new instance of the class.
             </summary>
         </member>
+        <member name="E:BEditor.Core.Data.Project.Saved">
+            <summary>
+            Occurs after saving this <see cref="T:BEditor.Core.Data.Project"/>.
+            </summary>
+        </member>
         <member name="P:BEditor.Core.Data.Project.Framerate">
             <summary>
             Get the framerate for this <see cref="T:BEditor.Core.Data.Project"/>.
@@ -1797,11 +1802,6 @@
         </member>
         <member name="P:BEditor.Core.Data.Project.Parent">
             <inheritdoc/>
-        </member>
-        <member name="E:BEditor.Core.Data.Project.Saved">
-            <summary>
-            Occurs after saving this <see cref="T:BEditor.Core.Data.Project"/>.
-            </summary>
         </member>
         <member name="M:BEditor.Core.Data.Project.BackUp">
             <summary>
@@ -1881,6 +1881,11 @@
             親要素を取得します
             </summary>
         </member>
+        <member name="P:BEditor.Core.Data.Property.EasingProperty.EasingFunc.LoadedEasingFunc">
+            <summary>
+            読み込まれているイージング関数のType
+            </summary>
+        </member>
         <member name="M:BEditor.Core.Data.Property.EasingProperty.EasingFunc.EaseFunc(System.Int32,System.Int32,System.Single,System.Single)">
             <summary>
             イージング関数
@@ -1894,11 +1899,6 @@
         <member name="M:BEditor.Core.Data.Property.EasingProperty.EasingFunc.PropertyLoaded">
             <summary>
             初期化時とデシリアライズ時に呼び出されます
-            </summary>
-        </member>
-        <member name="P:BEditor.Core.Data.Property.EasingProperty.EasingFunc.LoadedEasingFunc">
-            <summary>
-            読み込まれているイージング関数のType
             </summary>
         </member>
         <member name="T:BEditor.Core.Data.Property.EasingProperty.IEasingProperty">
@@ -1951,23 +1951,6 @@
             <summary>
             <see cref="!:PropertyElement"/> のメタデータを表します
             </summary>
-        </member>
-        <member name="T:BEditor.Core.Data.Property.PropertyMetadataAttribute">
-            <summary>
-            <see cref="M:BEditor.Core.Data.Property.PropertyElement.PropertyLoaded"/> で自動で <see cref="T:BEditor.Core.Data.Property.PropertyElementMetadata"/> を設定します
-            </summary>
-        </member>
-        <member name="P:BEditor.Core.Data.Property.PropertyMetadataAttribute.PropertyMetadata">
-            <summary>
-            <see cref="T:BEditor.Core.Data.Property.PropertyElementMetadata"/> を取得します
-            </summary>
-        </member>
-        <member name="M:BEditor.Core.Data.Property.PropertyMetadataAttribute.#ctor(System.String,System.Type)">
-            <summary>
-            <see cref="T:BEditor.Core.Data.Property.PropertyMetadataAttribute"/> クラスの新しいインスタンスを初期化します
-            </summary>
-            <param name="Fieldpath"><see cref="T:BEditor.Core.Data.Property.PropertyElementMetadata"/> の静的フィールドの名前</param>
-            <param name="Type"><paramref name="Fieldpath"/> があるクラスの <see cref="T:System.Type"/></param>
         </member>
         <member name="T:BEditor.Core.Data.ClipRenderArgs">
             <summary>
@@ -2033,6 +2016,13 @@
             <summary>
             Represents a scene to be included in the <see cref="T:BEditor.Core.Data.Project"/>.
             </summary>
+        </member>
+        <member name="M:BEditor.Core.Data.Scene.#ctor(System.Int32,System.Int32)">
+            <summary>
+            <see cref="T:BEditor.Core.Data.Scene"/> Initialize a new instance of the class.
+            </summary>
+            <param name="width">The width of the frame buffer.</param>
+            <param name="height">The height of the frame buffer</param>
         </member>
         <member name="P:BEditor.Core.Data.Scene.Width">
             <summary>
@@ -2126,13 +2116,6 @@
             
             </summary>
         </member>
-        <member name="M:BEditor.Core.Data.Scene.#ctor(System.Int32,System.Int32)">
-            <summary>
-            <see cref="T:BEditor.Core.Data.Scene"/> Initialize a new instance of the class.
-            </summary>
-            <param name="width">The width of the frame buffer.</param>
-            <param name="height">The height of the frame buffer</param>
-        </member>
         <member name="M:BEditor.Core.Data.Scene.Render(System.Int32)">
             <summary>
             Render this <see cref="T:BEditor.Core.Data.Scene"/>.
@@ -2172,16 +2155,6 @@
             </summary>
             <param name="data">Target <see cref="T:BEditor.Core.Data.ClipData"/>.</param>
             <exception cref="T:System.ArgumentNullException"><paramref name="data"/> is <see langword="null"/>.</exception>
-        </member>
-        <member name="P:BEditor.Core.Data.RootScene.SceneName">
-            <inheritdoc/>
-        </member>
-        <member name="M:BEditor.Core.Data.RootScene.#ctor(System.Int32,System.Int32)">
-            <summary>
-            <see cref="T:BEditor.Core.Data.RootScene"/> Initialize a new instance of the class.
-            </summary>
-            <param name="width">The width of the frame buffer.</param>
-            <param name="height">The height of the frame buffer</param>
         </member>
         <member name="M:BEditor.Core.DisposableObject.ThrowIfDisposed">
             <summary>
@@ -2394,18 +2367,6 @@
             <param name="b"><see cref="P:BEditor.Core.Media.Color.ScB"/> の値</param>
             <param name="a"><see cref="P:BEditor.Core.Media.Color.ScA"/> の値</param>
         </member>
-        <member name="M:BEditor.Core.Media.Color.Equals(System.Object)">
-            <inheritdoc/>
-        </member>
-        <member name="M:BEditor.Core.Media.Color.Equals(BEditor.Core.Media.Color)">
-            <inheritdoc/>
-        </member>
-        <member name="M:BEditor.Core.Media.Color.GetHashCode">
-            <inheritdoc/>
-        </member>
-        <member name="M:BEditor.Core.Media.Color.ToString">
-            <inheritdoc/>
-        </member>
         <member name="P:BEditor.Core.Media.Color.R">
             <summary>
             赤の値を取得または設定します
@@ -2445,6 +2406,18 @@
             <summary>
             アルファの値を取得または設定します
             </summary>
+        </member>
+        <member name="M:BEditor.Core.Media.Color.Equals(System.Object)">
+            <inheritdoc/>
+        </member>
+        <member name="M:BEditor.Core.Media.Color.Equals(BEditor.Core.Media.Color)">
+            <inheritdoc/>
+        </member>
+        <member name="M:BEditor.Core.Media.Color.GetHashCode">
+            <inheritdoc/>
+        </member>
+        <member name="M:BEditor.Core.Media.Color.ToString">
+            <inheritdoc/>
         </member>
         <member name="M:BEditor.Core.Media.Color.op_Implicit(BEditor.Core.Media.Color)~System.Byte[]">
             <summary>
@@ -2560,7 +2533,7 @@
             </summary>
             <param name="width">画像の横幅</param>
             <param name="height">画像の高さ</param>
-            <exception cref="T:BEditor.Core.Exceptions.NativeException"/>
+            <exception cref="T:System.Exception"/>
         </member>
         <member name="M:BEditor.Core.Media.Image.#ctor(System.Int32,System.Int32,BEditor.Core.Media.ImageType)">
             <summary>
@@ -2569,7 +2542,7 @@
             <param name="width">画像の横幅</param>
             <param name="height">画像の高さ</param>
             <param name="type">画像のチャンネル数などの情報</param>
-            <exception cref="T:BEditor.Core.Exceptions.NativeException"/>
+            <exception cref="T:System.Exception"/>
         </member>
         <member name="M:BEditor.Core.Media.Image.#ctor(System.Int32,System.Int32,BEditor.Core.Media.ImageType,System.IntPtr)">
             <summary>
@@ -2580,8 +2553,8 @@
             <param name="type">画像のチャンネル数などの情報</param>
             <param name="data">画像のデータ</param>
             <remarks>画像のデータはコピーされません</remarks>
-            <exception cref="T:BEditor.Core.Exceptions.IntPtrZeroException"/>
-            <exception cref="T:BEditor.Core.Exceptions.NativeException"/>
+            <exception cref="T:System.ArgumentNullException"/>
+            <exception cref="T:System.Exception"/>
         </member>
         <member name="M:BEditor.Core.Media.Image.#ctor(System.IntPtr)">
             <summary>
@@ -2589,7 +2562,7 @@
             </summary>
             <param name="ptr">OpenCv Matのポインタ</param>
             <remarks>画像のデータはコピーされません</remarks>
-            <exception cref="T:BEditor.Core.Exceptions.IntPtrZeroException"/>
+            <exception cref="T:System.ArgumentNullException"/>
         </member>
         <member name="M:BEditor.Core.Media.Image.#ctor(BEditor.Core.Media.Image,BEditor.Core.Media.Rectangle)">
             <summary>
@@ -2598,7 +2571,7 @@
             <param name="image"></param>
             <param name="rect"></param>
             <exception cref="T:System.ArgumentNullException"/>
-            <exception cref="T:BEditor.Core.Exceptions.NativeException"/>
+            <exception cref="T:System.Exception"/>
             <exception cref="T:System.ObjectDisposedException"/>
         </member>
         <member name="M:BEditor.Core.Media.Image.#ctor(System.String)">
@@ -2608,7 +2581,7 @@
             <param name="file"></param>
             <exception cref="T:System.Exception"/>
             <exception cref="T:System.ArgumentNullException"/>
-            <exception cref="T:BEditor.Core.Exceptions.NativeException"/>
+            <exception cref="T:System.Exception"/>
         </member>
         <member name="M:BEditor.Core.Media.Image.#ctor(System.IO.Stream,BEditor.Core.Media.ImageReadMode)">
             <summary>
@@ -2618,7 +2591,7 @@
             <param name="mode"></param>
             <exception cref="T:System.ArgumentNullException"/>
             <exception cref="T:System.ArgumentException"/>
-            <exception cref="T:BEditor.Core.Exceptions.NativeException"/>
+            <exception cref="T:System.Exception"/>
         </member>
         <member name="M:BEditor.Core.Media.Image.#ctor(System.Byte[],BEditor.Core.Media.ImageReadMode)">
             <summary>
@@ -2627,7 +2600,7 @@
             <param name="imageBytes"></param>
             <param name="mode"></param>
             <exception cref="T:System.ArgumentNullException"/>
-            <exception cref="T:BEditor.Core.Exceptions.NativeException"/>
+            <exception cref="T:System.Exception"/>
         </member>
         <member name="M:BEditor.Core.Media.Image.#ctor">
             <summary>
@@ -2651,98 +2624,108 @@
             
             </summary>
             <exception cref="T:System.ObjectDisposedException"/>
-            <exception cref="T:BEditor.Core.Exceptions.NativeException"/>
+            <exception cref="T:System.Exception"/>
         </member>
         <member name="P:BEditor.Core.Media.Image.DataPointer">
             <summary>
             
             </summary>
             <exception cref="T:System.ObjectDisposedException"/>
-            <exception cref="T:BEditor.Core.Exceptions.NativeException"/>
+            <exception cref="T:System.Exception"/>
         </member>
         <member name="P:BEditor.Core.Media.Image.Width">
             <summary>
             
             </summary>
             <exception cref="T:System.ObjectDisposedException"/>
-            <exception cref="T:BEditor.Core.Exceptions.NativeException"/>
+            <exception cref="T:System.Exception"/>
         </member>
         <member name="P:BEditor.Core.Media.Image.Height">
             <summary>
             
             </summary>
             <exception cref="T:System.ObjectDisposedException"/>
-            <exception cref="T:BEditor.Core.Exceptions.NativeException"/>
+            <exception cref="T:System.Exception"/>
         </member>
         <member name="P:BEditor.Core.Media.Image.Size">
             <summary>
             
             </summary>
             <exception cref="T:System.ObjectDisposedException"/>
-            <exception cref="T:BEditor.Core.Exceptions.NativeException"/>
+            <exception cref="T:System.Exception"/>
         </member>
         <member name="P:BEditor.Core.Media.Image.Type">
             <summary>
             
             </summary>
             <exception cref="T:System.ObjectDisposedException"/>
-            <exception cref="T:BEditor.Core.Exceptions.NativeException"/>
+            <exception cref="T:System.Exception"/>
         </member>
         <member name="P:BEditor.Core.Media.Image.Step">
             <summary>
             
             </summary>
             <exception cref="T:System.ObjectDisposedException"/>
-            <exception cref="T:BEditor.Core.Exceptions.NativeException"/>
+            <exception cref="T:System.Exception"/>
         </member>
         <member name="P:BEditor.Core.Media.Image.ElemSize">
             <summary>
             
             </summary>
             <exception cref="T:System.ObjectDisposedException"/>
-            <exception cref="T:BEditor.Core.Exceptions.NativeException"/>
+            <exception cref="T:System.Exception"/>
         </member>
         <member name="P:BEditor.Core.Media.Image.IsContinuous">
             <summary>
             
             </summary>
             <exception cref="T:System.ObjectDisposedException"/>
-            <exception cref="T:BEditor.Core.Exceptions.NativeException"/>
+            <exception cref="T:System.Exception"/>
         </member>
         <member name="P:BEditor.Core.Media.Image.IsSubmatrix">
             <summary>
             
             </summary>
             <exception cref="T:System.ObjectDisposedException"/>
-            <exception cref="T:BEditor.Core.Exceptions.NativeException"/>
+            <exception cref="T:System.Exception"/>
         </member>
         <member name="P:BEditor.Core.Media.Image.Depth">
             <summary>
             
             </summary>
             <exception cref="T:System.ObjectDisposedException"/>
-            <exception cref="T:BEditor.Core.Exceptions.NativeException"/>
+            <exception cref="T:System.Exception"/>
         </member>
         <member name="P:BEditor.Core.Media.Image.Channels">
             <summary>
             
             </summary>
             <exception cref="T:System.ObjectDisposedException"/>
-            <exception cref="T:BEditor.Core.Exceptions.NativeException"/>
+            <exception cref="T:System.Exception"/>
         </member>
         <member name="P:BEditor.Core.Media.Image.Total">
             <summary>
             
             </summary>
             <exception cref="T:System.ObjectDisposedException"/>
-            <exception cref="T:BEditor.Core.Exceptions.NativeException"/>
+            <exception cref="T:System.Exception"/>
         </member>
         <member name="P:BEditor.Core.Media.Image.Dimension">
             <summary>
             
             </summary>
             <exception cref="T:System.ObjectDisposedException"/>
-            <exception cref="T:BEditor.Core.Exceptions.NativeException"/>
+            <exception cref="T:System.Exception"/>
+        </member>
+        <member name="P:BEditor.Core.Media.Image.Item(BEditor.Core.Media.Rectangle)">
+            <summary>
+            
+            </summary>
+            <param name="roi"></param>
+            <returns></returns>
+            <exception cref="T:System.ArgumentNullException"/>
+            <exception cref="T:System.ObjectDisposedException"/>
+            <exception cref="T:System.Exception"/>
         </member>
         <member name="M:BEditor.Core.Media.Image.ForEach(System.Action{System.Int32,System.Int32,System.Int32,System.Int32})">
             <summary>
@@ -2757,7 +2740,7 @@
             </summary>
             <returns></returns>
             <exception cref="T:System.ObjectDisposedException"/>
-            <exception cref="T:BEditor.Core.Exceptions.NativeException"/>
+            <exception cref="T:System.Exception"/>
         </member>
         <member name="M:BEditor.Core.Media.Image.Clone(BEditor.Core.Media.Rectangle)">
             <summary>
@@ -2766,7 +2749,7 @@
             <param name="rect"></param>
             <returns></returns>
             <exception cref="T:System.ObjectDisposedException"/>
-            <exception cref="T:BEditor.Core.Exceptions.NativeException"/>
+            <exception cref="T:System.Exception"/>
         </member>
         <member name="M:BEditor.Core.Media.Image.Save(System.String)">
             <summary>
@@ -2775,7 +2758,7 @@
             <param name="file"></param>
             <returns></returns>
             <exception cref="T:System.ObjectDisposedException"/>
-            <exception cref="T:BEditor.Core.Exceptions.NativeException"/>
+            <exception cref="T:System.Exception"/>
             <exception cref="T:System.ArgumentNullException"/>
         </member>
         <member name="M:BEditor.Core.Media.Image.SubMatrix(System.Int32,System.Int32,System.Int32,System.Int32)">
@@ -2788,7 +2771,7 @@
             <param name="colEnd"></param>
             <returns></returns>
             <exception cref="T:System.ObjectDisposedException"/>
-            <exception cref="T:BEditor.Core.Exceptions.NativeException"/>
+            <exception cref="T:System.Exception"/>
             <exception cref="T:System.ArgumentException"/>
         </member>
         <member name="M:BEditor.Core.Media.Image.SubMatrix(BEditor.Core.Media.Range,BEditor.Core.Media.Range)">
@@ -2799,7 +2782,7 @@
             <param name="colRange"></param>
             <returns></returns>
             <exception cref="T:System.ObjectDisposedException"/>
-            <exception cref="T:BEditor.Core.Exceptions.NativeException"/>
+            <exception cref="T:System.Exception"/>
             <exception cref="T:System.ArgumentException"/>
         </member>
         <member name="M:BEditor.Core.Media.Image.SubMatrix(BEditor.Core.Media.Rectangle)">
@@ -2809,7 +2792,7 @@
             <param name="roi"></param>
             <returns></returns>
             <exception cref="T:System.ObjectDisposedException"/>
-            <exception cref="T:BEditor.Core.Exceptions.NativeException"/>
+            <exception cref="T:System.Exception"/>
             <exception cref="T:System.ArgumentException"/>
         </member>
         <member name="M:BEditor.Core.Media.Image.CopyTo(BEditor.Core.Media.Image)">
@@ -2819,17 +2802,7 @@
             <param name="image"></param>
             <exception cref="T:System.ArgumentNullException"/>
             <exception cref="T:System.ObjectDisposedException"/>
-            <exception cref="T:BEditor.Core.Exceptions.NativeException"/>
-        </member>
-        <member name="P:BEditor.Core.Media.Image.Item(BEditor.Core.Media.Rectangle)">
-            <summary>
-            
-            </summary>
-            <param name="roi"></param>
-            <returns></returns>
-            <exception cref="T:System.ArgumentNullException"/>
-            <exception cref="T:System.ObjectDisposedException"/>
-            <exception cref="T:BEditor.Core.Exceptions.NativeException"/>
+            <exception cref="T:System.Exception"/>
         </member>
         <member name="M:BEditor.Core.Media.Image.Ellipse(System.Int32,System.Int32,System.Int32,BEditor.Core.Media.ReadOnlyColor@)">
             <summary>
@@ -2840,7 +2813,7 @@
             <param name="line"></param>
             <param name="color"></param>
             <returns></returns>
-            <exception cref="T:BEditor.Core.Exceptions.NativeException"/>
+            <exception cref="T:System.Exception"/>
         </member>
         <member name="M:BEditor.Core.Media.Image.Rectangle(System.Int32,System.Int32,System.Int32,BEditor.Core.Media.ReadOnlyColor@)">
             <summary>
@@ -3291,18 +3264,6 @@
             <param name="b"><see cref="P:BEditor.Core.Media.ReadOnlyColor.ScB"/> の値</param>
             <param name="a"><see cref="P:BEditor.Core.Media.ReadOnlyColor.ScA"/> の値</param>
         </member>
-        <member name="M:BEditor.Core.Media.ReadOnlyColor.Equals(System.Object)">
-            <inheritdoc/>
-        </member>
-        <member name="M:BEditor.Core.Media.ReadOnlyColor.Equals(BEditor.Core.Media.ReadOnlyColor)">
-            <inheritdoc/>
-        </member>
-        <member name="M:BEditor.Core.Media.ReadOnlyColor.GetHashCode">
-            <inheritdoc/>
-        </member>
-        <member name="M:BEditor.Core.Media.ReadOnlyColor.ToString">
-            <inheritdoc/>
-        </member>
         <member name="P:BEditor.Core.Media.ReadOnlyColor.R">
             <summary>
             赤の値を取得または設定します
@@ -3342,6 +3303,18 @@
             <summary>
             アルファの値を取得または設定します
             </summary>
+        </member>
+        <member name="M:BEditor.Core.Media.ReadOnlyColor.Equals(System.Object)">
+            <inheritdoc/>
+        </member>
+        <member name="M:BEditor.Core.Media.ReadOnlyColor.Equals(BEditor.Core.Media.ReadOnlyColor)">
+            <inheritdoc/>
+        </member>
+        <member name="M:BEditor.Core.Media.ReadOnlyColor.GetHashCode">
+            <inheritdoc/>
+        </member>
+        <member name="M:BEditor.Core.Media.ReadOnlyColor.ToString">
+            <inheritdoc/>
         </member>
         <member name="M:BEditor.Core.Media.ReadOnlyColor.op_Implicit(BEditor.Core.Media.ReadOnlyColor)~System.Byte[]">
             <summary>
@@ -4111,6 +4084,11 @@
               Directional Light Source に類似しているローカライズされた文字列を検索します。
             </summary>
         </member>
+        <member name="P:BEditor.Core.Properties.Resources.Disconnect">
+            <summary>
+              Disconnect に類似しているローカライズされた文字列を検索します。
+            </summary>
+        </member>
         <member name="P:BEditor.Core.Properties.Resources.DropShadow">
             <summary>
               DropShadow に類似しているローカライズされた文字列を検索します。
@@ -4714,7 +4692,7 @@
             <param name="path">読み込むファイル名</param>
             <returns>成功した場合は復元されたオブジェクト、そうでない場合は <see langword="null"/> を返します</returns>
         </member>
-        <member name="M:BEditor.Core.Serialize.SaveToFile(System.Object,System.String)">
+        <member name="M:BEditor.Core.Serialize.SaveToFile``1(``0,System.String)">
             <summary>
             オブジェクトの内容をファイルに保存します
             </summary>

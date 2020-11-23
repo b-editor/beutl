@@ -309,6 +309,9 @@
   <data name="DirectionalLightSource" xml:space="preserve">
     <value>Directional Light Source</value>
   </data>
+  <data name="Disconnect" xml:space="preserve">
+    <value>Disconnect</value>
+  </data>
   <data name="DropShadow" xml:space="preserve">
     <value>DropShadow</value>
   </data>

@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.Threading.Tasks;
 
 using BEditor.Core.Data;
+using BEditor.Core.Data.Bindings;
 using BEditor.Core.Data.Primitive.Properties;
 using BEditor.Core.Data.Property;
 
@@ -26,7 +27,8 @@ namespace BEditor.Core.Command
         /// <summary>
         /// コマンドに対応する名前が入った配列を取得します
         /// </summary>
-        public static Dictionary<Type, string> CommandTypeDictionary { get; } = new Dictionary<Type, string>() {
+        public static Dictionary<Type, string> CommandTypeDictionary { get; } = new()
+        {
             #region キーフレーム操作
             { typeof(EaseProperty.AddCommand),    "キーフレームを追加" },
             { typeof(EaseProperty.RemoveCommand), "キーフレームを削除" },
@@ -73,8 +75,19 @@ namespace BEditor.Core.Command
             { typeof(CheckProperty.ChangeCheckedCommand), "チェックボックス変更" },
 
 
-            { typeof(FileProperty.ChangeFileCommand), "ファイル変更" }
+            { typeof(FileProperty.ChangeFileCommand), "ファイル変更" },
             #endregion
+
+            #region バインディング
+
+            // Todo : コマンドの説明を属性で設定する
+            { typeof(Bindings.BindCommand<int>), "" },
+            { typeof(Bindings.BindCommand<bool>), "" },
+            { typeof(Bindings.BindCommand<Media.Color>), "" },
+            { typeof(Bindings.BindCommand<Media.ReadOnlyColor>), "" },
+            { typeof(Bindings.BindCommand<Media.FontRecord>), "" }
+
+	        #endregion
         };
         /// <summary>
         /// 実行後またはRedo後に記録

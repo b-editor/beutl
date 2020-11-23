@@ -105,6 +105,7 @@ namespace BEditor.Models.Services
         [Obsolete]
         public Image Text(int size, Color color, string text, FontRecord font, string style, bool rightToLeft)
         {
+            if (font is null) return null;
             Image img = null;
 
             var fontFamily = new FontFamily(font.Name);

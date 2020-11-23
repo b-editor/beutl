@@ -309,6 +309,9 @@
   <data name="DirectionalLightSource" xml:space="preserve">
     <value>平行光源</value>
   </data>
+  <data name="Disconnect" xml:space="preserve">
+    <value>切断</value>
+  </data>
   <data name="DropShadow" xml:space="preserve">
     <value>ドロップシャドー</value>
   </data>

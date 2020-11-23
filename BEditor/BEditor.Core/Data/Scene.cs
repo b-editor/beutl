@@ -362,18 +362,11 @@ namespace BEditor.Core.Data
         #endregion
     }
 
-
     [DataContract(Namespace = "")]
     public class RootScene : Scene
     {
-        /// <summary>
-        /// <see cref="RootScene"/> Initialize a new instance of the class.
-        /// </summary>
-        /// <param name="width">The width of the frame buffer.</param>
-        /// <param name="height">The height of the frame buffer</param>
         public RootScene(int width, int height) : base(width, height) { }
 
-        /// <inheritdoc/>
         public override string SceneName { get => "root"; set { } }
     }
 }

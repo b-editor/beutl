@@ -96,6 +96,7 @@ namespace BEditor.Core.Data.Primitive.Properties
         public void Bind(IBindable<ReadOnlyColor> bindable)
         {
             BindDispose?.Dispose();
+            BindHint = null;
 
             if (bindable is not null)
             {

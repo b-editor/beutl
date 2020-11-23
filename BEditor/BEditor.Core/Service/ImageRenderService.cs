@@ -5,7 +5,6 @@ using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
 
-using BEditor.Core.Exceptions;
 using BEditor.Core.Media;
 using BEditor.Core.Native;
 

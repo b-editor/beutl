@@ -110,6 +110,7 @@ namespace BEditor.Core.Data.Primitive.Properties
         public void Bind(IBindable<bool> bindable)
         {
             BindDispose?.Dispose();
+            BindHint = null;
 
             if (bindable is not null)
             {

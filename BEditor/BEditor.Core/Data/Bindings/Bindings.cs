@@ -17,6 +17,12 @@ namespace BEditor.Core.Data.Bindings
     {
         public static bool GetBindable<T>(this IBindable<T> bindable, string text, out IBindable<T> result)
         {
+            if (text is null)
+            {
+                result = null;
+                return false;
+            }
+
             // Scene.Clip[Effect][Property]の場合
             var regex1 = new Regex(@"^([\da-zA-Z]+)\.([\da-zA-Z]+)\[([\d]+)\]\[([\d]+)\]\z");
             // Scene.Clip[Effect][Group][Property]の場合
@@ -81,11 +87,21 @@ namespace BEditor.Core.Data.Bindings
             return $"{bindable.GetParent3().SceneName}.{bindable.GetParent2().Name}[{bindable.GetParent().Id}][{bindable.Id}]";
         }
 
+        public static bool IsTwoWay<T>(this IBindable<T> bindable)
+        {
+            if (bindable.GetBindable(bindable.BindHint, out var ret))
+            {
+                return ret.BindHint == bindable.GetString();
+            }
+
+            return false;
+        }
+
         public sealed class BindCommand<T> : IRecordCommand
         {
-            public readonly IBindable<T> source;
-            public readonly IBindable<T> target;
-            public readonly bool useTwoWay;
+            private readonly IBindable<T> source;
+            private readonly IBindable<T> target;
+            private readonly bool useTwoWay;
 
             /// <summary>
             /// 
@@ -100,9 +116,20 @@ namespace BEditor.Core.Data.Bindings
                 this.useTwoWay = useTwoWay;
             }
 
-            public void Do() => throw new NotImplementedException();
+            // target変更時にsourceが変更
+            // targetを観察
+
+            public void Do()
+            {
+                source?.Bind(target);
+                if (useTwoWay) target?.Bind(source);
+            }
             public void Redo() => Do();
-            public void Undo() => throw new NotImplementedException();
+            public void Undo()
+            {
+                source?.Bind(null);
+                if (useTwoWay) target?.Bind(null);
+            }
         }
     }
 }

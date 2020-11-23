@@ -619,6 +619,15 @@ namespace BEditor.Core.Properties {
         }
         
         /// <summary>
+        ///   Disconnect に類似しているローカライズされた文字列を検索します。
+        /// </summary>
+        public static string Disconnect {
+            get {
+                return ResourceManager.GetString("Disconnect", resourceCulture);
+            }
+        }
+        
+        /// <summary>
         ///   DropShadow に類似しているローカライズされた文字列を検索します。
         /// </summary>
         public static string DropShadow {
