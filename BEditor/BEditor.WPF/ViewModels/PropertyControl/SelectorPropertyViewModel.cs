@@ -14,13 +14,15 @@ namespace BEditor.ViewModels.PropertyControl
 {
     public class SelectorPropertyViewModel
     {
-        public SelectorProperty Property { get; }
-        public DelegateCommand<(object, object)> Command { get; }
-
         public SelectorPropertyViewModel(SelectorProperty selector)
         {
             Property = selector;
-            Command = new DelegateCommand<(object, object)>(x => CommandManager.Do(new SelectorProperty.ChangeSelectCommand(selector, (int)x.Item1)));
+            Command = new(x => CommandManager.Do(new SelectorProperty.ChangeSelectCommand(Property, (int)x.Item1)));
+            Reset = new(() => CommandManager.Do(new SelectorProperty.ChangeSelectCommand(Property, Property.PropertyMetadata.DefaultIndex)));
         }
+
+        public SelectorProperty Property { get; }
+        public DelegateCommand<(object, object)> Command { get; }
+        public DelegateCommand Reset { get; }
     }
 }

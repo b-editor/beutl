@@ -263,5 +263,10 @@ namespace BEditor.Core.Command
             property.PropertyLoaded();
             property.PropertyMetadata = metadata;
         }
+        internal static void ExecuteLoaded<T>(this PropertyElement<T> property, T metadata) where T : PropertyElementMetadata
+        {
+            property.PropertyLoaded();
+            property.PropertyMetadata = metadata;
+        }
     }
 }

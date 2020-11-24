@@ -15,9 +15,6 @@ namespace BEditor.ViewModels.PropertyControl
 {
     public class FontPropertyViewModel
     {
-        public FontProperty Property { get; }
-        public DelegateCommand<(object, object)> Command { get; }
-
         public FontPropertyViewModel(FontProperty property)
         {
             Property = property;
@@ -25,6 +22,11 @@ namespace BEditor.ViewModels.PropertyControl
             {
                 CommandManager.Do(new FontProperty.ChangeSelectCommand(property, (FontRecord)x.Item2));
             });
+            Reset = new(() => CommandManager.Do(new FontProperty.ChangeSelectCommand(Property, Property.PropertyMetadata.SelectItem)));
         }
+
+        public FontProperty Property { get; }
+        public DelegateCommand<(object, object)> Command { get; }
+        public DelegateCommand Reset { get; }
     }
 }

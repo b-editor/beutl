@@ -57,10 +57,10 @@ namespace BEditor.Core.Plugin
                             {
                                 var a = new EffectMetadata() { Name = plugin.PluginName, Children = new() };
 
-                                foreach (var (name, type) in effects.Effects)
+                                foreach (var metadata in effects.Effects)
                                 {
-                                    a.Children.Add(new() { Name = name, Type = type });
-                                    Serialize.SerializeKnownTypes.Add(type);
+                                    a.Children.Add(metadata);
+                                    Serialize.SerializeKnownTypes.Add(metadata.Type);
                                 }
 
                                 EffectMetadata.LoadedEffects.Add(a);
@@ -70,10 +70,10 @@ namespace BEditor.Core.Plugin
                             {
                                 var a = new ObjectMetadata() { Name = plugin.PluginName, Children = new() };
 
-                                foreach (var (name, type) in objects.Objects)
+                                foreach (var metadata in objects.Objects)
                                 {
-                                    a.Children.Add(new() { Name = name, Type = type });
-                                    Serialize.SerializeKnownTypes.Add(type);
+                                    a.Children.Add(metadata);
+                                    Serialize.SerializeKnownTypes.Add(metadata.Type);
                                 }
 
                                 ObjectMetadata.LoadedObjects.Add(a);
@@ -82,10 +82,10 @@ namespace BEditor.Core.Plugin
 
                             if (plugin is IEasingFunctions easing)
                             {
-                                foreach (var (name, type) in easing.EasingFunc)
+                                foreach (var data in easing.EasingFunc)
                                 {
-                                    EasingFunc.LoadedEasingFunc.Add(new EasingData() { Name = name, Type = type });
-                                    Serialize.SerializeKnownTypes.Add(type);
+                                    EasingFunc.LoadedEasingFunc.Add(data);
+                                    Serialize.SerializeKnownTypes.Add(data.Type);
                                 }
                             }
                         }

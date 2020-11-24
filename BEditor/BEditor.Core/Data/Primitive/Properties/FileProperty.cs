@@ -16,7 +16,7 @@ namespace BEditor.Core.Data.Primitive.Properties
     /// ファイルを選択するプロパティを表します
     /// </summary>
     [DataContract(Namespace = "")]
-    public class FileProperty : PropertyElement, IEasingProperty, IBindable<string>
+    public class FileProperty : PropertyElement<FilePropertyMetadata>, IEasingProperty, IBindable<string>
     {
         #region Fields
 
@@ -41,7 +41,7 @@ namespace BEditor.Core.Data.Primitive.Properties
         }
 
 
-        private List<IObserver<string>> collection => list ??= new();
+        private List<IObserver<string>> Collection => list ??= new();
         /// <summary>
         /// ファイルの名前を取得または設定します
         /// </summary>
@@ -51,7 +51,7 @@ namespace BEditor.Core.Data.Primitive.Properties
             get => file;
             set => SetValue(value, ref file, fileArgs, () =>
             {
-                foreach (var observer in collection)
+                foreach (var observer in Collection)
                 {
                     try
                     {
@@ -103,8 +103,8 @@ namespace BEditor.Core.Data.Primitive.Properties
         /// <inheritdoc/>
         public IDisposable Subscribe(IObserver<string> observer)
         {
-            collection.Add(observer);
-            return Disposable.Create(() => collection.Remove(observer));
+            Collection.Add(observer);
+            return Disposable.Create(() => Collection.Remove(observer));
         }
 
         /// <inheritdoc/>

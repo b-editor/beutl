@@ -1,17 +1,10 @@
-﻿using System.IO;
-using System.Windows;
+﻿using System.Windows;
 using System.Windows.Controls;
-using System.Windows.Data;
-using System.Windows.Media;
 
-using BEditor.Models;
-using BEditor.ViewModels.CustomControl;
-using BEditor.ViewModels.PropertyControl;
-using BEditor.Views;
-using BEditor.Views.CustomControl;
-using BEditor.Core.Data.Property;
-using MaterialDesignThemes.Wpf;
 using BEditor.Core.Data.Primitive.Properties;
+using BEditor.Core.Media;
+using BEditor.ViewModels.PropertyControl;
+using BEditor.Views.CustomControl;
 
 namespace BEditor.Views.PropertyControls
 {
@@ -20,8 +13,17 @@ namespace BEditor.Views.PropertyControls
     /// </summary>
     public partial class ColorPicker : UserControl, ICustomTreeViewItem
     {
+        private readonly ColorProperty property;
+
+        public ColorPicker(ColorProperty color)
+        {
+            InitializeComponent();
+
+            DataContext = new ColorPickerViewModel(property = color);
+        }
+
         public double LogicHeight => 42.5;
-        private ColorDialog dialog
+        private ColorDialog Dialog
         {
             get
             {
@@ -37,15 +39,14 @@ namespace BEditor.Views.PropertyControls
             }
         }
 
-        public ColorPicker(ColorProperty color)
+        private void Palette_Click(object sender, RoutedEventArgs e) => Dialog.ShowDialog();
+        private void BindClick(object sender, RoutedEventArgs e)
         {
-            InitializeComponent();
-            DataContext = new ColorPickerViewModel(color);
-        }
-
-        private void Palette_Click(object sender, RoutedEventArgs e)
-        {
-            dialog.ShowDialog();
+            var window = new BindSettings()
+            {
+                DataContext = new BindSettingsViewModel<ReadOnlyColor>(property)
+            };
+            window.ShowDialog();
         }
     }
 }

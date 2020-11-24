@@ -17,10 +17,12 @@ namespace BEditor.Views.PropertyControls
     /// </summary>
     public partial class FileControl : UserControl, ICustomTreeViewItem
     {
+        private readonly FileProperty property;
+
         public FileControl(FileProperty fileSetting)
         {
             InitializeComponent();
-            DataContext = new FilePropertyViewModel(fileSetting);
+            DataContext = new FilePropertyViewModel(property = fileSetting);
 
 
             FileChangeCommand = new Func<string, string, string>((filtername, filter) =>
@@ -43,7 +45,15 @@ namespace BEditor.Views.PropertyControls
         }
 
         public Func<string, string, string> FileChangeCommand { get; }
-
         public double LogicHeight => 42.5;
+
+        private void BindClick(object sender, RoutedEventArgs e)
+        {
+            var window = new BindSettings()
+            {
+                DataContext = new BindSettingsViewModel<string>(property)
+            };
+            window.ShowDialog();
+        }
     }
 }

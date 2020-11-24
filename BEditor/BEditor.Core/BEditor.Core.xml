@@ -972,6 +972,11 @@
             <see cref="T:BEditor.Core.Data.Primitive.Properties.ColorPropertyMetadata"/> クラスの新しいインスタンスを初期化します
             </summary>
         </member>
+        <member name="M:BEditor.Core.Data.Primitive.Properties.ColorPropertyMetadata.#ctor(System.String,BEditor.Core.Media.ReadOnlyColor@,System.Boolean)">
+            <summary>
+            <see cref="T:BEditor.Core.Data.Primitive.Properties.ColorPropertyMetadata"/> クラスの新しいインスタンスを初期化します
+            </summary>
+        </member>
         <member name="T:BEditor.Core.Data.Primitive.Properties.DocumentProperty">
             <summary>
             複数行の文字のプロパティを表します
@@ -1527,7 +1532,7 @@
             </summary>
             <param name="property">対象の <see cref="T:BEditor.Core.Data.Primitive.Properties.FontProperty"/></param>
             <param name="select">新しい値</param>
-            <exception cref="T:System.ArgumentNullException"><paramref name="property"/> または <paramref name="select"/> が <see langword="null"/> です</exception>
+            <exception cref="T:System.ArgumentNullException"><paramref name="property"/> が <see langword="null"/> です</exception>
         </member>
         <member name="M:BEditor.Core.Data.Primitive.Properties.FontProperty.ChangeSelectCommand.Do">
             <inheritdoc/>
@@ -3708,21 +3713,6 @@
         <member name="M:BEditor.Core.Plugin.IPlugin.SettingCommand">
             <summary>
             プラグインの設定を開くときに呼び出されます
-            </summary>
-        </member>
-        <member name="P:BEditor.Core.Plugin.IEasingFunctions.EasingFunc">
-            <summary>
-            B_Editor.Models.Datas.PropertyData.EasingSetting.EasingFuncを継承しているクラスのTypeと名前が入ったList
-            </summary>
-        </member>
-        <member name="P:BEditor.Core.Plugin.IEffects.Effects">
-            <summary>
-            B_Editor.Models.Datas.EffectData.EffectElementを継承しているクラスのTypeと名前が入ったList
-            </summary>
-        </member>
-        <member name="P:BEditor.Core.Plugin.IObjects.Objects">
-            <summary>
-            B_Editor.Models.Datas.ObjectData.ObjectElement又はB_Editor.Models.Datas.ObjectData.DefaultData.DefaultImageObjectを継承しているクラスのTypeと名前が入ったList
             </summary>
         </member>
         <member name="M:BEditor.Core.Plugin.PluginLoadedEventArgs.#ctor(System.String,System.Boolean,System.Exception)">

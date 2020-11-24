@@ -19,7 +19,7 @@ namespace BEditor.Core.Data.Primitive.Properties
     /// チェックボックスのプロパティを表します
     /// </summary>
     [DataContract(Namespace = "")]
-    public class CheckProperty : PropertyElement, IEasingProperty, IBindable<bool>
+    public class CheckProperty : PropertyElement<CheckPropertyMetadata>, IEasingProperty, IBindable<bool>
     {
         #region Fields
 

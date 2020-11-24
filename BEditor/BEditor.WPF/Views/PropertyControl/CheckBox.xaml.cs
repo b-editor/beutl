@@ -13,16 +13,15 @@ namespace BEditor.Views.PropertyControls
     /// </summary>
     public partial class CheckBox : UserControl, ICustomTreeViewItem
     {
-        private CheckProperty property;
+        private readonly CheckProperty property;
 
         public CheckBox(CheckProperty check)
         {
             InitializeComponent();
-            property = check;
-            DataContext = new CheckPropertyViewModel(check);
+
+            DataContext = new CheckPropertyViewModel(property = check);
         }
 
-        
         public double LogicHeight => 32.5;
 
         private void BindClick(object sender, RoutedEventArgs e)

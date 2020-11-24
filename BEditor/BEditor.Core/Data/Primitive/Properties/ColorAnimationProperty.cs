@@ -18,7 +18,7 @@ namespace BEditor.Core.Data.Primitive.Properties
     /// 
     /// </summary>
     [DataContract(Namespace = "")]
-    public class ColorAnimationProperty : PropertyElement, IKeyFrameProperty
+    public class ColorAnimationProperty : PropertyElement<ColorAnimationPropertyMetadata>, IKeyFrameProperty
     {
         #region Fields
 
@@ -133,7 +133,7 @@ namespace BEditor.Core.Data.Primitive.Properties
                 else
                 {
                     int index = 0;
-                    for (int f = 0; f < Frame.Count() - 1; f++)
+                    for (int f = 0; f < Frame.Count - 1; f++)
                     {
                         if (Frame[f] <= frame && frame <= Frame[f + 1])
                         {
@@ -163,7 +163,7 @@ namespace BEditor.Core.Data.Primitive.Properties
                 else
                 {
                     int index = 0;
-                    for (int f = 0; f < Frame.Count() - 1; f++)
+                    for (int f = 0; f < Frame.Count - 1; f++)
                     {
                         if (Frame[f] <= frame && frame <= Frame[f + 1])
                         {
@@ -269,7 +269,7 @@ namespace BEditor.Core.Data.Primitive.Properties
                 this.index = index;
 
                 (this.r, this.g, this.b, this.a) = (r, g, b, a);
-                (or, og, ob, oa) = ((byte)color.Value[index].R, (byte)color.Value[index].G, (byte)color.Value[index].B, (byte)color.Value[index].A);
+                (or, og, ob, oa) = (color.Value[index].R, color.Value[index].G, color.Value[index].B, color.Value[index].A);
             }
 
 
@@ -299,7 +299,8 @@ namespace BEditor.Core.Data.Primitive.Properties
             public ChangeEaseCommand(ColorAnimationProperty easingList, string type)
             {
                 ColorProperty = easingList;
-                EasingNumber = (EasingFunc)Activator.CreateInstance(EasingFunc.LoadedEasingFunc.Find(x => x.Name == type).Type);
+                var data = EasingFunc.LoadedEasingFunc.Find(x => x.Name == type);
+                EasingNumber = data.CreateFunc?.Invoke() ?? (EasingFunc)Activator.CreateInstance(data.Type);
                 EasingNumber.Parent = easingList;
                 OldEasingNumber = ColorProperty.EasingType;
             }
@@ -462,7 +463,7 @@ namespace BEditor.Core.Data.Primitive.Properties
         /// 
         /// </summary>
         /// <param name="name"></param>
-        public ColorAnimationPropertyMetadata(string name) : base(name) => DefaultEase = EasingFunc.LoadedEasingFunc[0];
+        public ColorAnimationPropertyMetadata(string name) : base(name, 255, 255, 255, 255) => DefaultEase = EasingFunc.LoadedEasingFunc[0];
         /// <summary>
         /// 
         /// </summary>

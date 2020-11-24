@@ -17,7 +17,7 @@ namespace BEditor.Core.Data.Primitive.Properties
     /// <see cref="float"/> 型の値をイージングするプロパティを表します
     /// </summary>
     [DataContract(Namespace = "")]
-    public class EaseProperty : PropertyElement, IKeyFrameProperty
+    public class EaseProperty : PropertyElement<EasePropertyMetadata>, IKeyFrameProperty
     {
         #region Fields
 
@@ -180,7 +180,7 @@ namespace BEditor.Core.Data.Primitive.Properties
                 else
                 {
                     int index = 0;
-                    for (int f = 0; f < Time.Count() - 1; f++)
+                    for (int f = 0; f < Time.Count - 1; f++)
                     {
                         if (Time[f] <= frame && frame <= Time[f + 1])
                         {
@@ -210,7 +210,7 @@ namespace BEditor.Core.Data.Primitive.Properties
                 else
                 {
                     int index = 0;
-                    for (int f = 0; f < Time.Count() - 1; f++)
+                    for (int f = 0; f < Time.Count - 1; f++)
                     {
                         if (Time[f] <= frame && frame <= Time[f + 1])
                         {
@@ -236,7 +236,7 @@ namespace BEditor.Core.Data.Primitive.Properties
 
             float out_ = EasingType.EaseFunc(now, end - start, stval, edval);
 
-            if ((PropertyMetadata as EasePropertyMetadata).UseOptional)
+            if (PropertyMetadata.UseOptional)
             {
                 return InRange(out_ + Optional);
             }
@@ -249,7 +249,7 @@ namespace BEditor.Core.Data.Primitive.Properties
         /// <param name="value">対象の値</param>
         public float InRange(float value)
         {
-            EasePropertyMetadata constant = (EasePropertyMetadata)PropertyMetadata;
+            EasePropertyMetadata constant = PropertyMetadata;
             var max = constant.Max;
             var min = constant.Min;
 
@@ -278,7 +278,7 @@ namespace BEditor.Core.Data.Primitive.Properties
 
             Time.Add(frame);
 
-            List<int> tmp = new List<int>(Time);
+            var tmp = new List<int>(Time);
             tmp.Sort((a, b) => a - b);
 
 
@@ -287,7 +287,7 @@ namespace BEditor.Core.Data.Primitive.Properties
                 Time[i] = tmp[i];
             }
 
-            int stindex = Time.IndexOf(frame) + 1;
+            var stindex = Time.IndexOf(frame) + 1;
 
             Value.Insert(stindex, value);
 
@@ -394,7 +394,7 @@ namespace BEditor.Core.Data.Primitive.Properties
                 EaseSetting = property ?? throw new ArgumentNullException(nameof(property));
                 var easingFunc = EasingFunc.LoadedEasingFunc.Find(x => x.Name == type) ?? throw new KeyNotFoundException($"No easing function named {type} was found");
 
-                EasingNumber = (EasingFunc)Activator.CreateInstance(easingFunc.Type);
+                EasingNumber = easingFunc.CreateFunc?.Invoke() ?? (EasingFunc)Activator.CreateInstance(easingFunc.Type);
                 EasingNumber.Parent = property;
                 OldEasingNumber = EaseSetting.EasingType;
             }

@@ -41,7 +41,7 @@ namespace BEditor.Core.Data.Primitive.Properties
         }
 
 
-        private List<IObserver<bool>> collection => list ??= new();
+        private List<IObserver<bool>> Collection => list ??= new();
         /// <summary>
         /// エクスパンダーが開いているかを取得または設定します
         /// </summary>
@@ -51,7 +51,7 @@ namespace BEditor.Core.Data.Primitive.Properties
             get => isOpen;
             set => SetValue(value, ref isOpen, isExpandedArgs, () =>
             {
-                foreach (var observer in collection)
+                foreach (var observer in Collection)
                 {
                     try
                     {
@@ -102,8 +102,8 @@ namespace BEditor.Core.Data.Primitive.Properties
         /// <inheritdoc/>
         public IDisposable Subscribe(IObserver<bool> observer)
         {
-            collection.Add(observer);
-            return Disposable.Create(() => collection.Remove(observer));
+            Collection.Add(observer);
+            return Disposable.Create(() => Collection.Remove(observer));
         }
 
         /// <inheritdoc/>

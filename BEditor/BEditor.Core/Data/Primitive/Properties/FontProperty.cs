@@ -19,7 +19,7 @@ namespace BEditor.Core.Data.Primitive.Properties
     /// フォントを選択するプロパティ表します
     /// </summary>
     [DataContract(Namespace = "")]
-    public class FontProperty : PropertyElement, IEasingProperty, IBindable<FontRecord>
+    public class FontProperty : PropertyElement<FontPropertyMetadata>, IEasingProperty, IBindable<FontRecord>
     {
         #region Fields
 
@@ -60,7 +60,7 @@ namespace BEditor.Core.Data.Primitive.Properties
         }
 
 
-        private List<IObserver<FontRecord>> collection => list ??= new();
+        private List<IObserver<FontRecord>> Collection => list ??= new();
         /// <summary>
         /// 選択されているフォントを取得または設定します
         /// </summary>
@@ -70,7 +70,7 @@ namespace BEditor.Core.Data.Primitive.Properties
             get => selectItem;
             set => SetValue(value, ref selectItem, selectArgs, () =>
             {
-                foreach (var observer in collection)
+                foreach (var observer in Collection)
                 {
                     try
                     {
@@ -111,8 +111,8 @@ namespace BEditor.Core.Data.Primitive.Properties
         /// <inheritdoc/>
         public IDisposable Subscribe(IObserver<FontRecord> observer)
         {
-            collection.Add(observer);
-            return Disposable.Create(() => collection.Remove(observer));
+            Collection.Add(observer);
+            return Disposable.Create(() => Collection.Remove(observer));
         }
 
         /// <inheritdoc/>
@@ -162,11 +162,11 @@ namespace BEditor.Core.Data.Primitive.Properties
             /// </summary>
             /// <param name="property">対象の <see cref="FontProperty"/></param>
             /// <param name="select">新しい値</param>
-            /// <exception cref="ArgumentNullException"><paramref name="property"/> または <paramref name="select"/> が <see langword="null"/> です</exception>
+            /// <exception cref="ArgumentNullException"><paramref name="property"/> が <see langword="null"/> です</exception>
             public ChangeSelectCommand(FontProperty property, FontRecord select)
             {
                 Selector = property ?? throw new ArgumentNullException(nameof(property));
-                this.select = select ?? throw new ArgumentNullException(nameof(select));
+                this.select = select;
                 oldselect = property.Select;
             }
 

@@ -81,6 +81,7 @@ namespace BEditor.Core.Data.Property.EasingProperty
     public class EasingData
     {
         public string Name { get; set; }
+        public Func<EasingFunc> CreateFunc { get; set; }
         public Type Type { get; set; }
     }
 }

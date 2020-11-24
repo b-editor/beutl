@@ -47,6 +47,15 @@ namespace BEditor.Core.Data.Property
         public override string ToString() => $"(Name:{PropertyMetadata?.Name})";
     }
 
+    public abstract class PropertyElement<T> : PropertyElement where T : PropertyElementMetadata
+    {
+        public new T PropertyMetadata
+        {
+            get => base.PropertyMetadata as T;
+            set => base.PropertyMetadata = value;
+        }
+    }
+
     /// <summary>
     /// <see cref="PropertyElement"/> のメタデータを表します
     /// </summary>

@@ -6,6 +6,7 @@ using BEditor.Views.CustomControl;
 
 using BEditor.Core.Data.Property;
 using BEditor.Core.Data.Primitive.Properties;
+using System.Windows;
 
 namespace BEditor.Views.PropertyControls
 {
@@ -14,19 +15,23 @@ namespace BEditor.Views.PropertyControls
     /// </summary>
     public partial class Document : UserControl, ICustomTreeViewItem
     {
-        //ICustomTreeViewItem
         public double LogicHeight => document.HeightProperty ?? 125;
-
-
-        DocumentProperty document;
-
+        private readonly DocumentProperty document;
 
         public Document(DocumentProperty document)
         {
             InitializeComponent();
 
-            DataContext = new DocumentPropertyViewModel(document);
-            this.document = document;
+            DataContext = new DocumentPropertyViewModel(this.document = document);
+        }
+
+        private void BindClick(object sender, RoutedEventArgs e)
+        {
+            var window = new BindSettings()
+            {
+                DataContext = new BindSettingsViewModel<string>(document)
+            };
+            window.ShowDialog();
         }
     }
 }

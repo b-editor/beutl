@@ -1,30 +1,27 @@
-﻿using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Text;
-using System.Threading.Tasks;
-
-using BEditor.ViewModels.Helper;
-
-using BEditor.Core.Data;
-using BEditor.Core.Data.Property;
-using BEditor.Core.Data.Primitive.Properties;
+﻿
 using BEditor.Core.Command;
+using BEditor.Core.Data.Primitive.Properties;
+using BEditor.ViewModels.Helper;
 
 namespace BEditor.ViewModels.PropertyControl
 {
     public class DocumentPropertyViewModel
     {
-        public DocumentProperty Property { get; }
-        public DelegateCommand<string> TextChangeCommand { get; }
-
         public DocumentPropertyViewModel(DocumentProperty property)
         {
             Property = property;
-            TextChangeCommand = new DelegateCommand<string>(x =>
+            TextChangeCommand = new(x =>
             {
-                CommandManager.Do(new DocumentProperty.TextChangeCommand(property, x));
+                CommandManager.Do(new DocumentProperty.TextChangeCommand(Property, x));
+            });
+            Reset = new(() =>
+            {
+                CommandManager.Do(new DocumentProperty.TextChangeCommand(Property, Property.PropertyMetadata.DefaultText));
             });
         }
+
+        public DocumentProperty Property { get; }
+        public DelegateCommand<string> TextChangeCommand { get; }
+        public DelegateCommand Reset { get; }
     }
 }

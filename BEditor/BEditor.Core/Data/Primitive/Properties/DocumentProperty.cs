@@ -16,7 +16,7 @@ namespace BEditor.Core.Data.Primitive.Properties
     /// 複数行の文字のプロパティを表します
     /// </summary>
     [DataContract(Namespace = "")]
-    public class DocumentProperty : PropertyElement, IBindable<string>
+    public class DocumentProperty : PropertyElement<DocumentPropertyMetadata>, IBindable<string>
     {
         #region Fields
 
@@ -44,7 +44,7 @@ namespace BEditor.Core.Data.Primitive.Properties
         }
 
 
-        private List<IObserver<string>> collection => list ??= new();
+        private List<IObserver<string>> Collection => list ??= new();
         /// <summary>
         /// 入力されている文字列を取得または設定します
         /// </summary>
@@ -54,7 +54,7 @@ namespace BEditor.Core.Data.Primitive.Properties
             get => textProperty;
             set => SetValue(value, ref textProperty, textArgs, () =>
             {
-                foreach (var observer in collection)
+                foreach (var observer in Collection)
                 {
                     try
                     {
@@ -96,8 +96,8 @@ namespace BEditor.Core.Data.Primitive.Properties
         /// <inheritdoc/>
         public IDisposable Subscribe(IObserver<string> observer)
         {
-            collection.Add(observer);
-            return Disposable.Create(() => collection.Remove(observer));
+            Collection.Add(observer);
+            return Disposable.Create(() => Collection.Remove(observer));
         }
         /// <inheritdoc/>
         public void Bind(IBindable<string> bindable)

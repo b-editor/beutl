@@ -48,7 +48,8 @@
                 <md:PackIcon Kind="DotsVertical" Width="16" Height="16" Foreground="{DynamicResource MaterialDesignBody}" VerticalAlignment="Stretch" HorizontalAlignment="Stretch"/>
             </md:PopupBox.ToggleContent>
             <VirtualizingStackPanel>
-                <Button Content="Reset"/>
+                <Button Content="Reset" Command="{Binding Reset, Mode=OneTime}"/>
+                <Button Content="Bind" Click="BindClick"/>
             </VirtualizingStackPanel>
         </md:PopupBox>
     </Grid>

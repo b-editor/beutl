@@ -15,16 +15,16 @@ namespace BEditor.ViewModels.PropertyControl
 {
     public class EasePropertyViewModel
     {
-        public EaseProperty Property { get; }
-        public DelegateCommand<EasingData> EasingChangeCommand { get; }
-
         public EasePropertyViewModel(EaseProperty property)
         {
             Property = property;
             EasingChangeCommand = new DelegateCommand<EasingData>(x =>
             {
-                CommandManager.Do(new EaseProperty.ChangeEaseCommand(property, x.Name));
+                CommandManager.Do(new EaseProperty.ChangeEaseCommand(Property, x.Name));
             });
         }
+
+        public EaseProperty Property { get; }
+        public DelegateCommand<EasingData> EasingChangeCommand { get; }
     }
 }

@@ -18,7 +18,7 @@ namespace BEditor.Core.Data.Primitive.Properties
     /// 色を選択するプロパティを表します
     /// </summary>
     [DataContract(Namespace = "")]
-    public class ColorProperty : PropertyElement, IEasingProperty, IBindable<ReadOnlyColor>
+    public class ColorProperty : PropertyElement<ColorPropertyMetadata>, IEasingProperty, IBindable<ReadOnlyColor>
     {
         #region Fields
 
@@ -40,12 +40,12 @@ namespace BEditor.Core.Data.Primitive.Properties
         {
             if (metadata is null) throw new ArgumentNullException(nameof(metadata));
 
-            Color = new(metadata.Red, metadata.Green, metadata.Blue, metadata.Alpha);
+            Color = metadata.DefaultColor;
             PropertyMetadata = metadata;
         }
 
 
-        private List<IObserver<ReadOnlyColor>> collection => list ??= new();
+        private List<IObserver<ReadOnlyColor>> Collection => list ??= new();
         /// <summary>
         /// 
         /// </summary>
@@ -55,7 +55,7 @@ namespace BEditor.Core.Data.Primitive.Properties
             get => color;
             set => SetValue(value, ref color, colorArgs, () =>
             {
-                foreach (var observer in collection)
+                foreach (var observer in Collection)
                 {
                     try
                     {
@@ -110,8 +110,8 @@ namespace BEditor.Core.Data.Primitive.Properties
 
         public IDisposable Subscribe(IObserver<ReadOnlyColor> observer)
         {
-            collection.Add(observer);
-            return Disposable.Create(() => collection.Remove(observer));
+            Collection.Add(observer);
+            return Disposable.Create(() => Collection.Remove(observer));
         }
 
         public void OnCompleted() { }
@@ -177,21 +177,28 @@ namespace BEditor.Core.Data.Primitive.Properties
         /// </summary>
         public ColorPropertyMetadata(string name, byte r = 255, byte g = 255, byte b = 255, byte a = 255, bool usealpha = false) : base(name)
         {
-            Red = r;
-            Green = g;
-            Blue = b;
-            Alpha = a;
+            DefaultColor = new(r, g, b, a);
+            UseAlpha = usealpha;
+        }
+        /// <summary>
+        /// <see cref="ColorPropertyMetadata"/> クラスの新しいインスタンスを初期化します
+        /// </summary>
+        public ColorPropertyMetadata(string name, in ReadOnlyColor defaultColor = default, bool usealpha = false) : base(name)
+        {
+            DefaultColor = defaultColor;
             UseAlpha = usealpha;
         }
 
 
-        public byte Red { get; init; }
+        public byte Red => DefaultColor.R;
 
-        public byte Green { get; init; }
+        public byte Green => DefaultColor.G;
 
-        public byte Blue { get; init; }
+        public byte Blue => DefaultColor.B;
 
-        public byte Alpha { get; init; }
+        public byte Alpha => DefaultColor.A;
+
+        public ReadOnlyColor DefaultColor { get; init; }
 
         public bool UseAlpha { get; init; }
     }

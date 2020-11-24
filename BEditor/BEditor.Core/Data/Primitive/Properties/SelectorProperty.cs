@@ -17,7 +17,7 @@ namespace BEditor.Core.Data.Primitive.Properties
     /// 配列から一つのアイテムを選択するプロパティを表します
     /// </summary>
     [DataContract(Namespace = "")]
-    public class SelectorProperty : PropertyElement, IEasingProperty, IBindable<int>
+    public class SelectorProperty : PropertyElement<SelectorPropertyMetadata>, IEasingProperty, IBindable<int>
     {
         #region Fields
 

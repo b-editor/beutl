@@ -13,21 +13,26 @@ namespace BEditor.ViewModels.PropertyControl
 {
     public class FilePropertyViewModel
     {
-        public FileProperty Property { get; }
-        public DelegateCommand<Func<string, string, string>> Command { get; }
-
         public FilePropertyViewModel(FileProperty property)
         {
             Property = property;
-            Command = new DelegateCommand<Func<string, string, string>>(x =>
+            Command = new(x =>
             {
-                var file = x?.Invoke((property.PropertyMetadata as FilePropertyMetadata)?.FilterName, (property.PropertyMetadata as FilePropertyMetadata)?.Filter);
+                var file = x?.Invoke(Property.PropertyMetadata?.FilterName, Property.PropertyMetadata?.Filter);
 
                 if (file != null)
                 {
-                    CommandManager.Do(new FileProperty.ChangeFileCommand(property, file));
+                    CommandManager.Do(new FileProperty.ChangeFileCommand(Property, file));
                 }
             });
+            Reset = new(() =>
+            {
+                CommandManager.Do(new FileProperty.ChangeFileCommand(Property, Property.PropertyMetadata.DefaultFile));
+            });
         }
+
+        public FileProperty Property { get; }
+        public DelegateCommand<Func<string, string, string>> Command { get; }
+        public DelegateCommand Reset { get; }
     }
 }
