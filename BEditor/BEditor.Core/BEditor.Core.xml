@@ -1744,6 +1744,33 @@
             
             </summary>
         </member>
+        <member name="P:BEditor.Core.Data.Primitive.Properties.ValueProperty.Value">
+            <inheritdoc/>
+        </member>
+        <member name="P:BEditor.Core.Data.Primitive.Properties.ValueProperty.BindHint">
+            <inheritdoc/>
+        </member>
+        <member name="M:BEditor.Core.Data.Primitive.Properties.ValueProperty.Bind(BEditor.Core.Data.Bindings.IBindable{System.Single})">
+            <inheritdoc/>
+        </member>
+        <member name="M:BEditor.Core.Data.Primitive.Properties.ValueProperty.OnCompleted">
+            <inheritdoc/>
+        </member>
+        <member name="M:BEditor.Core.Data.Primitive.Properties.ValueProperty.OnError(System.Exception)">
+            <inheritdoc/>
+        </member>
+        <member name="M:BEditor.Core.Data.Primitive.Properties.ValueProperty.OnNext(System.Single)">
+            <inheritdoc/>
+        </member>
+        <member name="M:BEditor.Core.Data.Primitive.Properties.ValueProperty.Subscribe(System.IObserver{System.Single})">
+            <inheritdoc/>
+        </member>
+        <member name="M:BEditor.Core.Data.Primitive.Properties.ValueProperty.PropertyLoaded">
+            <inheritdoc/>
+        </member>
+        <member name="M:BEditor.Core.Data.Primitive.Properties.ValueProperty.ToString">
+            <inheritdoc/>
+        </member>
         <member name="T:BEditor.Core.Data.Project">
             <summary>
             Represents the project to be used in editing.

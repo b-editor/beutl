@@ -25,16 +25,40 @@ namespace BEditor.Views.PropertyControls
     /// </summary>
     public partial class EaseControl : UserControl, ICustomTreeViewItem, ISizeChangeMarker
     {
-
-        #region EaseControlメンバー
-
-        private EaseProperty EasingSetting;
-
+        private readonly EaseProperty property;
         private double OpenHeight;
+        private float oldvalue;
+        private readonly Storyboard OpenStoryboard = new();
+        private readonly Storyboard CloseStoryboard = new();
+        private readonly DoubleAnimation OpenAnm = new() { Duration = TimeSpan.FromSeconds(0.25) };
+        private readonly DoubleAnimation CloseAnm = new() { Duration = TimeSpan.FromSeconds(0.25), To = 32.5 };
 
-        #endregion
+        public EaseControl(EaseProperty property)
+        {
+            InitializeComponent();
+
+            DataContext = new EasePropertyViewModel(property);
+            this.property = property;
+
+            OpenHeight = (double)(OpenAnm.To = 32.5 * property.Value.Count + 10);
+
+            Loaded += (_, _) =>
+            {
+                this.property.Value.CollectionChanged += Value_CollectionChanged;
+
+                OpenStoryboard.Children.Add(OpenAnm);
+                CloseStoryboard.Children.Add(CloseAnm);
+
+                Storyboard.SetTarget(OpenAnm, this);
+                Storyboard.SetTargetProperty(OpenAnm, new PropertyPath("(Height)"));
+
+                Storyboard.SetTarget(CloseAnm, this);
+                Storyboard.SetTargetProperty(CloseAnm, new PropertyPath("(Height)"));
+            };
+        }
 
         public event EventHandler SizeChange;
+
         public double LogicHeight
         {
             get
@@ -53,56 +77,14 @@ namespace BEditor.Views.PropertyControls
             }
         }
 
-
-        /// <summary>
-        /// 
-        /// </summary>
-        /// <param name="anm">EaseSettingのインスタンス</param>
-        public EaseControl(EaseProperty anm)
-        {
-            InitializeComponent();
-
-            DataContext = new EasePropertyViewModel(anm);
-            EasingSetting = anm;
-
-            OpenHeight = (double)(OpenAnm.To = 32.5 * anm.Value.Count + 10);
-
-            Loaded += (_, _) =>
-            {
-                anm.Value.CollectionChanged += Value_CollectionChanged;
-
-                OpenStoryboard.Children.Add(OpenAnm);
-                CloseStoryboard.Children.Add(CloseAnm);
-
-                Storyboard.SetTarget(OpenAnm, this);
-                Storyboard.SetTargetProperty(OpenAnm, new PropertyPath("(Height)"));
-
-                Storyboard.SetTarget(CloseAnm, this);
-                Storyboard.SetTargetProperty(CloseAnm, new PropertyPath("(Height)"));
-            };
-        }
-
-
-        #region 値変更時のイベント
-
         private void Value_CollectionChanged(object sender, NotifyCollectionChangedEventArgs e)
         {
             if (e.Action is NotifyCollectionChangedAction.Add or NotifyCollectionChangedAction.Remove)
             {
-                OpenHeight = (double)(OpenAnm.To = 32.5 * EasingSetting.Value.Count + 10);
+                OpenHeight = (double)(OpenAnm.To = 32.5 * property.Value.Count + 10);
                 ListToggleClick(null, null);
             }
         }
-
-        #endregion
-
-        #region View関係
-
-        private Storyboard OpenStoryboard = new Storyboard();
-        private Storyboard CloseStoryboard = new Storyboard();
-        private DoubleAnimation OpenAnm = new DoubleAnimation() { Duration = TimeSpan.FromSeconds(0.25) };
-        private DoubleAnimation CloseAnm = new DoubleAnimation() { Duration = TimeSpan.FromSeconds(0.25), To = 32.5 };
-
 
         private void ListToggleClick(object sender, RoutedEventArgs e)
         {
@@ -119,11 +101,6 @@ namespace BEditor.Views.PropertyControls
             SizeChange?.Invoke(this, EventArgs.Empty);
         }
 
-        #endregion
-
-        float oldvalue;
-
-
         private void TextBox_GotFocus(object sender, RoutedEventArgs e)
         {
             if (!IsLoaded) return;
@@ -133,9 +110,8 @@ namespace BEditor.Views.PropertyControls
 
             int index = AttachmentProperty.GetInt(tb);
 
-            oldvalue = EasingSetting.Value[index];
+            oldvalue = property.Value[index];
         }
-
         private void TextBox_LostFocus(object sender, RoutedEventArgs e)
         {
             if (!IsLoaded) return;
@@ -146,18 +122,16 @@ namespace BEditor.Views.PropertyControls
 
             if (float.TryParse(tb.Text, out float _out))
             {
-                EasingSetting.Value[index] = oldvalue;
+                property.Value[index] = oldvalue;
 
-                Core.Command.CommandManager.Do(new EaseProperty.ChangeValueCommand(EasingSetting, index, _out));
+                Core.Command.CommandManager.Do(new EaseProperty.ChangeValueCommand(property, index, _out));
             }
         }
-
-        #region MouseEvent
         private void TextBox_PreviewMouseWheel(object sender, MouseWheelEventArgs e)
         {
             TextBox textBox = (TextBox)sender;
 
-            if (textBox.IsKeyboardFocused)
+            if (textBox.IsKeyboardFocused && float.TryParse(textBox.Text, out var val))
             {
                 int index = AttachmentProperty.GetInt(textBox);
 
@@ -165,18 +139,15 @@ namespace BEditor.Views.PropertyControls
 
                 if (Keyboard.IsKeyDown(Key.LeftShift)) v = 1;
 
-                float val = float.Parse(textBox.Text);
                 val += e.Delta / 120 * v;
 
-                EasingSetting.Value[index] = EasingSetting.InRange(val);
+                property.Value[index] = property.InRange(val);
 
-                AppData.Current.Project.PreviewUpdate(EasingSetting.GetParent2());
+                AppData.Current.Project.PreviewUpdate(property.GetParent2());
 
                 e.Handled = true;
             }
         }
-        #endregion
-
         private void TextBox_KeyDown(object sender, KeyEventArgs e)
         {
             TextBox textBox = (TextBox)sender;
@@ -185,9 +156,9 @@ namespace BEditor.Views.PropertyControls
 
             if (float.TryParse(textBox.Text, out float _out))
             {
-                EasingSetting.Value[index] = EasingSetting.InRange(_out);
+                property.Value[index] = property.InRange(_out);
 
-                AppData.Current.Project.PreviewUpdate(EasingSetting.GetParent2());
+                AppData.Current.Project.PreviewUpdate(property.GetParent2());
             }
         }
     }

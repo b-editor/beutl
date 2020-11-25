@@ -39,16 +39,16 @@ namespace BEditor.Core.Data.Primitive.Objects.PrimitiveImages
 
         public override IEnumerable<PropertyElement> Properties => new PropertyElement[]
         {
-                Coordinate,
-                Zoom,
-                Blend,
-                Angle,
-                Material,
-                Width,
-                Height,
-                Line,
-                Color,
-                Type
+            Coordinate,
+            Zoom,
+            Blend,
+            Angle,
+            Material,
+            Width,
+            Height,
+            Line,
+            Color,
+            Type
         };
 
 

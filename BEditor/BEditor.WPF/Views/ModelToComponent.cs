@@ -130,6 +130,11 @@ namespace BEditor.Views
                 PropertyType = typeof(SelectorProperty),
                 CreateFunc = (elm) => new SelectorControl(elm as SelectorProperty)
             });
+            PropertyViewCreaters.Add(new()
+            {
+                PropertyType = typeof(ValueProperty),
+                CreateFunc = (elm) => new ValueControl(elm as ValueProperty)
+            });
             #endregion
 
             #region CreateKeyFrameView
