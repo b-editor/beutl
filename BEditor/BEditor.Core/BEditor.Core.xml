@@ -1744,6 +1744,33 @@
             
             </summary>
         </member>
+        <member name="P:BEditor.Core.Data.Primitive.Properties.TextProperty.Value">
+            <inheritdoc/>
+        </member>
+        <member name="P:BEditor.Core.Data.Primitive.Properties.TextProperty.BindHint">
+            <inheritdoc/>
+        </member>
+        <member name="M:BEditor.Core.Data.Primitive.Properties.TextProperty.Bind(BEditor.Core.Data.Bindings.IBindable{System.String})">
+            <inheritdoc/>
+        </member>
+        <member name="M:BEditor.Core.Data.Primitive.Properties.TextProperty.OnCompleted">
+            <inheritdoc/>
+        </member>
+        <member name="M:BEditor.Core.Data.Primitive.Properties.TextProperty.OnError(System.Exception)">
+            <inheritdoc/>
+        </member>
+        <member name="M:BEditor.Core.Data.Primitive.Properties.TextProperty.OnNext(System.String)">
+            <inheritdoc/>
+        </member>
+        <member name="M:BEditor.Core.Data.Primitive.Properties.TextProperty.Subscribe(System.IObserver{System.String})">
+            <inheritdoc/>
+        </member>
+        <member name="M:BEditor.Core.Data.Primitive.Properties.TextProperty.PropertyLoaded">
+            <inheritdoc/>
+        </member>
+        <member name="M:BEditor.Core.Data.Primitive.Properties.TextProperty.ToString">
+            <inheritdoc/>
+        </member>
         <member name="P:BEditor.Core.Data.Primitive.Properties.ValueProperty.Value">
             <inheritdoc/>
         </member>

@@ -135,6 +135,11 @@ namespace BEditor.Views
                 PropertyType = typeof(ValueProperty),
                 CreateFunc = (elm) => new ValueControl(elm as ValueProperty)
             });
+            PropertyViewCreaters.Add(new()
+            {
+                PropertyType = typeof(TextProperty),
+                CreateFunc = (elm) => new TextControl(elm as TextProperty)
+            });
             #endregion
 
             #region CreateKeyFrameView

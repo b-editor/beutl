@@ -17,13 +17,15 @@
             <ColumnDefinition/>
             <ColumnDefinition Width="20"/>
         </Grid.ColumnDefinitions>
-        <TextBox Margin="5,5,5,5" AcceptsTab="True" AcceptsReturn="True" Text="{Binding Property.Text, Mode=OneWay}" x:Name="TextBox">
-            <i:Interaction.Triggers>
-                <i:EventTrigger EventName="LostFocus">
-                    <i:InvokeCommandAction Command="{Binding TextChangeCommand, Mode=OneTime}" CommandParameter="{Binding ElementName=TextBox, Path=Text}"/>
-                </i:EventTrigger>
-            </i:Interaction.Triggers>
-        </TextBox>
+        <TextBox
+            Margin="5,5,5,5"
+            AcceptsTab="True"
+            AcceptsReturn="True"
+            Text="{Binding Property.Text, Mode=OneWay}"
+            x:Name="TextBox"
+            GotFocus="TextBox_GotFocus"
+            LostFocus="TextBox_LostFocus"
+            TextChanged="TextBox_TextChanged"/>
 
         <md:PopupBox Width="20" Grid.Column="1" StaysOpen="False" Height="32.5" HorizontalAlignment="Stretch" VerticalContentAlignment="Center" HorizontalContentAlignment="Center" VerticalAlignment="Stretch">
             <md:PopupBox.ToggleContent>

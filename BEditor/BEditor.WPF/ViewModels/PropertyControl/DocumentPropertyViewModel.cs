@@ -10,10 +10,6 @@ namespace BEditor.ViewModels.PropertyControl
         public DocumentPropertyViewModel(DocumentProperty property)
         {
             Property = property;
-            TextChangeCommand = new(x =>
-            {
-                CommandManager.Do(new DocumentProperty.TextChangeCommand(Property, x));
-            });
             Reset = new(() =>
             {
                 CommandManager.Do(new DocumentProperty.TextChangeCommand(Property, Property.PropertyMetadata.DefaultText));
@@ -21,7 +17,6 @@ namespace BEditor.ViewModels.PropertyControl
         }
 
         public DocumentProperty Property { get; }
-        public DelegateCommand<string> TextChangeCommand { get; }
         public DelegateCommand Reset { get; }
     }
 }

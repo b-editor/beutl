@@ -15,25 +15,25 @@ using BEditor.Core.Data.Property.EasingProperty;
 namespace BEditor.Core.Data.Primitive.Properties
 {
     [DataContract(Namespace = "")]
-    public class ValueProperty : PropertyElement<ValuePropertyMetadata>, IBindable<float>, IEasingProperty
+    public class TextProperty : PropertyElement<TextPropertyMetadata>, IEasingProperty, IBindable<string>
     {
         #region Fields
         private static readonly PropertyChangedEventArgs valueArgs = new(nameof(Value));
-        private float value;
-        private List<IObserver<float>> list;
+        private string value;
+        private List<IObserver<string>> list;
         private IDisposable BindDispose;
         #endregion
 
-        public ValueProperty(ValuePropertyMetadata metadata)
+        public TextProperty(TextPropertyMetadata metadata)
         {
             PropertyMetadata = metadata ?? throw new ArgumentNullException(nameof(metadata));
-            value = metadata.DefaultValue;
+            value = metadata.DefaultText;
         }
 
-        private List<IObserver<float>> Collection => list ??= new();
+        private List<IObserver<string>> Collection => list ??= new();
         /// <inheritdoc/>
         [DataMember]
-        public float Value
+        public string Value
         {
             get => value;
             set => SetValue(value, ref this.value, valueArgs, () =>
@@ -57,9 +57,8 @@ namespace BEditor.Core.Data.Primitive.Properties
         public string BindHint { get; private set; }
 
         #region Methods
-
         /// <inheritdoc/>
-        public void Bind(IBindable<float> bindable)
+        public void Bind(IBindable<string> bindable)
         {
             BindDispose?.Dispose();
             BindHint = null;
@@ -78,12 +77,12 @@ namespace BEditor.Core.Data.Primitive.Properties
         /// <inheritdoc/>
         public void OnError(Exception error) { }
         /// <inheritdoc/>
-        public void OnNext(float value)
+        public void OnNext(string value)
         {
-            this.Value = value;
+            Value = value;
         }
         /// <inheritdoc/>
-        public IDisposable Subscribe(IObserver<float> observer)
+        public IDisposable Subscribe(IObserver<string> observer)
         {
             Collection.Add(observer);
             return Disposable.Create(() => Collection.Remove(observer));
@@ -103,37 +102,19 @@ namespace BEditor.Core.Data.Primitive.Properties
         }
         /// <inheritdoc/>
         public override string ToString() => $"(Value:{Value} Name:{PropertyMetadata?.Name})";
-        public float InRange(float value)
-        {
-            var constant = PropertyMetadata;
-            var max = constant.Max;
-            var min = constant.Min;
-
-            if (!float.IsNaN(min) && value <= min)
-            {
-                return min;
-            }
-            else if (!float.IsNaN(max) && max <= value)
-            {
-                return max;
-            }
-
-            return value;
-        }
-
         #endregion
 
-        public sealed class ChangeValueCommand : IRecordCommand
+        public sealed class ChangeTextCommand : IRecordCommand
         {
-            private readonly ValueProperty property;
-            private readonly float value;
-            private readonly float old;
+            private readonly TextProperty property;
+            private readonly string value;
+            private readonly string old;
 
-            public ChangeValueCommand(ValueProperty property, float value)
+            public ChangeTextCommand(TextProperty property, string value)
             {
                 this.property = property ?? throw new ArgumentNullException(nameof(property));
                 this.old = property.Value;
-                this.value = property.InRange(value);
+                this.value = value;
             }
 
             public void Do() => property.Value = value;
@@ -142,6 +123,5 @@ namespace BEditor.Core.Data.Primitive.Properties
         }
     }
 
-    public record ValuePropertyMetadata(string Name, float DefaultValue = 0, float Max = float.NaN, float Min = float.NaN)
-        : PropertyElementMetadata(Name);
+    public record TextPropertyMetadata(string Name, string DefaultText = "") : PropertyElementMetadata(Name);
 }

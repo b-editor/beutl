@@ -78,6 +78,7 @@ namespace BEditor.Core.Command
             { typeof(FileProperty.ChangeFileCommand), "ファイル変更" },
 
             { typeof(ValueProperty.ChangeValueCommand), "値の変更" },
+            { typeof(TextProperty.ChangeTextCommand), "値の変更" },
 
             #endregion
 
