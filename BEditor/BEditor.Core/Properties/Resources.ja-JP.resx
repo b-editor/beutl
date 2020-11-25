@@ -219,6 +219,9 @@
   <data name="Bottom" xml:space="preserve">
     <value>下</value>
   </data>
+  <data name="BoxFilter" xml:space="preserve">
+    <value>BoxFilter</value>
+  </data>
   <data name="Camera" xml:space="preserve">
     <value>カメラ</value>
   </data>
@@ -475,14 +478,14 @@
   <data name="ProjectFilePath" xml:space="preserve">
     <value>プロジェクトファイルがあるフォルダ</value>
   </data>
-  <data name="Python" xml:space="preserve">
-    <value>Python</value>
-  </data>
   <data name="Range" xml:space="preserve">
     <value>範囲</value>
   </data>
   <data name="Remove" xml:space="preserve">
     <value>削除</value>
+  </data>
+  <data name="Resize" xml:space="preserve">
+    <value>リサイズ</value>
   </data>
   <data name="Retry" xml:space="preserve">
     <value>再試行</value>
@@ -504,9 +507,6 @@
   </data>
   <data name="Scenes" xml:space="preserve">
     <value>シーン</value>
-  </data>
-  <data name="Script" xml:space="preserve">
-    <value>スクリプト</value>
   </data>
   <data name="Separate" xml:space="preserve">
     <value>分割</value>

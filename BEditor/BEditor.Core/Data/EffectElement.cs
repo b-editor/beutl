@@ -19,7 +19,7 @@ namespace BEditor.Core.Data
     /// Represents the base class of the effect.
     /// </summary>
     [DataContract(Namespace = "")]
-    public abstract class EffectElement : ComponentObject, IChild<ClipData>, IParent<PropertyElement>, ICloneable, INotifyPropertyChanged, IHadId
+    public abstract class EffectElement : ComponentObject, IChild<ClipData>, IParent<PropertyElement>, ICloneable, IHadId
     {
         #region Fields
 
@@ -332,9 +332,21 @@ namespace BEditor.Core.Data
                     },
                     new()
                     {
-                        Name = Resources.Blur,
-                        Type = typeof(Blur),
-                        CreateFunc = () => new Blur()
+                        Name = Resources.BoxFilter,
+                        Type = typeof(BoxFilter),
+                        CreateFunc = () => new BoxFilter()
+                    },
+                    new()
+                    {
+                        Name = Resources.Gauss,
+                        Type = typeof(GaussBlur),
+                        CreateFunc = () => new GaussBlur()
+                    },
+                    new()
+                    {
+                        Name = Resources.Median,
+                        Type = typeof(MedianBlur),
+                        CreateFunc = () => new MedianBlur()
                     },
                     new()
                     {

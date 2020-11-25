@@ -349,6 +349,15 @@ namespace BEditor.Core.Properties {
         }
         
         /// <summary>
+        ///   BoxFilter に類似しているローカライズされた文字列を検索します。
+        /// </summary>
+        public static string BoxFilter {
+            get {
+                return ResourceManager.GetString("BoxFilter", resourceCulture);
+            }
+        }
+        
+        /// <summary>
         ///   Camera に類似しているローカライズされた文字列を検索します。
         /// </summary>
         public static string Camera {
@@ -1205,15 +1214,6 @@ namespace BEditor.Core.Properties {
         }
         
         /// <summary>
-        ///   Python に類似しているローカライズされた文字列を検索します。
-        /// </summary>
-        public static string Python {
-            get {
-                return ResourceManager.GetString("Python", resourceCulture);
-            }
-        }
-        
-        /// <summary>
         ///   Range に類似しているローカライズされた文字列を検索します。
         /// </summary>
         public static string Range {
@@ -1228,6 +1228,15 @@ namespace BEditor.Core.Properties {
         public static string Remove {
             get {
                 return ResourceManager.GetString("Remove", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Resize に類似しているローカライズされた文字列を検索します。
+        /// </summary>
+        public static string Resize {
+            get {
+                return ResourceManager.GetString("Resize", resourceCulture);
             }
         }
         
@@ -1291,15 +1300,6 @@ namespace BEditor.Core.Properties {
         public static string Scenes {
             get {
                 return ResourceManager.GetString("Scenes", resourceCulture);
-            }
-        }
-        
-        /// <summary>
-        ///   Script に類似しているローカライズされた文字列を検索します。
-        /// </summary>
-        public static string Script {
-            get {
-                return ResourceManager.GetString("Script", resourceCulture);
             }
         }
         

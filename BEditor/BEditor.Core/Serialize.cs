@@ -132,7 +132,9 @@ namespace BEditor.Core
             typeof(Video),
             typeof(Data.Primitive.Objects.PrimitiveImages.Scene),
 
-            typeof(Blur),
+            typeof(BoxFilter),
+            typeof(GaussBlur),
+            typeof(MedianBlur),
             typeof(Border),
             typeof(ColorKey),
             typeof(Dilate),

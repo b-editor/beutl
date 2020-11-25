@@ -3924,6 +3924,11 @@
               Bottom に類似しているローカライズされた文字列を検索します。
             </summary>
         </member>
+        <member name="P:BEditor.Core.Properties.Resources.BoxFilter">
+            <summary>
+              BoxFilter に類似しているローカライズされた文字列を検索します。
+            </summary>
+        </member>
         <member name="P:BEditor.Core.Properties.Resources.Camera">
             <summary>
               Camera に類似しているローカライズされた文字列を検索します。
@@ -4400,11 +4405,6 @@
               The folder with project files に類似しているローカライズされた文字列を検索します。
             </summary>
         </member>
-        <member name="P:BEditor.Core.Properties.Resources.Python">
-            <summary>
-              Python に類似しているローカライズされた文字列を検索します。
-            </summary>
-        </member>
         <member name="P:BEditor.Core.Properties.Resources.Range">
             <summary>
               Range に類似しているローカライズされた文字列を検索します。
@@ -4413,6 +4413,11 @@
         <member name="P:BEditor.Core.Properties.Resources.Remove">
             <summary>
               Remove に類似しているローカライズされた文字列を検索します。
+            </summary>
+        </member>
+        <member name="P:BEditor.Core.Properties.Resources.Resize">
+            <summary>
+              Resize に類似しているローカライズされた文字列を検索します。
             </summary>
         </member>
         <member name="P:BEditor.Core.Properties.Resources.Retry">
@@ -4448,11 +4453,6 @@
         <member name="P:BEditor.Core.Properties.Resources.Scenes">
             <summary>
               Scenes に類似しているローカライズされた文字列を検索します。
-            </summary>
-        </member>
-        <member name="P:BEditor.Core.Properties.Resources.Script">
-            <summary>
-              Script に類似しているローカライズされた文字列を検索します。
             </summary>
         </member>
         <member name="P:BEditor.Core.Properties.Resources.Separate">
