@@ -37,7 +37,7 @@ namespace BEditor.Core.Data.Primitive.Effects.PrimitiveImages
         public CheckProperty Resize { get; private set; }
 
         public override void Render(ref Image image, EffectRenderArgs args) => 
-            image.ToRenderable().Blur((int)Size.GetValue(args.Frame), Resize.IsChecked);
+            image.ToRenderable().BoxFilter((int)Size.GetValue(args.Frame), Resize.IsChecked);
         public override void PropertyLoaded()
         {
             Size.ExecuteLoaded(SizeMetadata);

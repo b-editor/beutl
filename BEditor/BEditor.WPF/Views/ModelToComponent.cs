@@ -17,6 +17,7 @@ using BEditor.Core.Extensions;
 using BEditor.Core.Data.Primitive.Properties;
 using BEditor.Core.Data.Control;
 using BEditor.Core.Data;
+using BEditor.Core.Data.Primitive.Components;
 
 namespace BEditor.Views
 {
@@ -139,6 +140,11 @@ namespace BEditor.Views
             {
                 PropertyType = typeof(TextProperty),
                 CreateFunc = (elm) => new TextControl(elm as TextProperty)
+            });
+            PropertyViewCreaters.Add(new()
+            {
+                PropertyType = typeof(ButtonComponent),
+                CreateFunc = (elm) => new ButtonControl(elm as ButtonComponent)
             });
             #endregion
 

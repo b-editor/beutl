@@ -59,7 +59,7 @@ namespace BEditor.Core.Data
                 foreach (var scene in project.SceneList)
                 {
                     scene.GraphicsContext = new GraphicsContext(scene.Width, scene.Height);
-
+                    scene.PropertyLoaded();
                 }
 
                 project.CopyTo(this);

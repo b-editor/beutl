@@ -6,6 +6,7 @@ using BEditor.Core.Command;
 using BEditor.Core.Data.Primitive.Properties;
 using BEditor.Core.Data.Property;
 using BEditor.Core.Extensions;
+using BEditor.Core.Media;
 
 namespace BEditor.Core.Data.Primitive.Objects.PrimitiveImages
 {
@@ -64,10 +65,14 @@ namespace BEditor.Core.Data.Primitive.Objects.PrimitiveImages
             Document.Text,
             Font.Font.Select,
             (string)Font.Style.SelectItem,
-            Font.RightToLeft.IsChecked);
+            Font.RightToLeft.IsChecked)
+                .ToRenderable()
+                .BoxFilter(3, false)
+                .Source;
 
         public override void PropertyLoaded()
         {
+            base.PropertyLoaded();
             Size.ExecuteLoaded(SizeMetadata);
             Color.ExecuteLoaded(ColorMetadata);
             Font.ExecuteLoaded(FontMetadata);

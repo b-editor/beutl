@@ -81,7 +81,7 @@ namespace BEditor.Core
                 }
                 else
                 {
-                    using var writer = JsonReaderWriterFactory.CreateJsonWriter(file, Encoding.UTF8, true, true, "    ");
+                    using var writer = JsonReaderWriterFactory.CreateJsonWriter(file, Encoding.UTF8, true, true, "  ");
 
                     var serializer = new DataContractJsonSerializer(typeof(T), SerializeKnownTypes);
                     serializer.WriteObject(writer, obj);

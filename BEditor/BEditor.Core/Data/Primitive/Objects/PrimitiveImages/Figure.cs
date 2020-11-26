@@ -74,11 +74,17 @@ namespace BEditor.Core.Data.Primitive.Objects.PrimitiveImages
         {
             if (Type.Index == 0)
             {
-                return Media.Image.Ellipse((int)Width.GetValue(args.Frame), (int)Height.GetValue(args.Frame), (int)Line.GetValue(args.Frame), Color.Color);
+                return Media.Image.Ellipse((int)Width.GetValue(args.Frame), (int)Height.GetValue(args.Frame), (int)Line.GetValue(args.Frame), Color.Color)
+                    .ToRenderable()
+                    .BoxFilter(3, false)
+                    .Source;
             }
             else
             {
-                return Media.Image.Rectangle((int)Width.GetValue(args.Frame), (int)Height.GetValue(args.Frame), (int)Line.GetValue(args.Frame), Color.Color);
+                return Media.Image.Rectangle((int)Width.GetValue(args.Frame), (int)Height.GetValue(args.Frame), (int)Line.GetValue(args.Frame), Color.Color)
+                    .ToRenderable()
+                    .BoxFilter(3, false)
+                    .Source;
             }
         }
 

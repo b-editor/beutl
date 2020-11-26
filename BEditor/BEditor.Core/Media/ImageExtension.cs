@@ -46,7 +46,7 @@ namespace BEditor.Core.Media
             return image;
         }
 
-        public static IRenderable<Image> Blur(this IRenderable<Image> image, int blurSize, bool alphaBlur)
+        public static IRenderable<Image> BoxFilter(this IRenderable<Image> image, int blurSize, bool alphaBlur)
         {
             image.Source.ThrowIfDisposed();
 
@@ -114,6 +114,7 @@ namespace BEditor.Core.Media
 
             ImageProcess.Delete(image.Source.Ptr);
 
+
             var tmp = new Image(nwidth, nheight, ImageType.ByteCh4);
 
             GLTK.GetPixels(tmp);
@@ -158,7 +159,7 @@ namespace BEditor.Core.Media
             image.Source.ThrowIfDisposed();
 
             var shadow = image.Source.Clone().ToRenderable()
-                .Blur(blur, true)
+                .BoxFilter(blur, true)
                 .SetColor(color)
                 .DrawAlpha((float)(alpha / 100));
 

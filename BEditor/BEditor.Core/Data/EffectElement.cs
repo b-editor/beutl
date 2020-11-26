@@ -29,7 +29,6 @@ namespace BEditor.Core.Data
         private bool isExpanded = true;
         private ClipData clipData;
         private IEnumerable<PropertyElement> cachedlist;
-        private int? id;
 
         #endregion
 
@@ -76,7 +75,7 @@ namespace BEditor.Core.Data
             }
         }
 
-        public int Id => id ??= Parent.Effect.IndexOf(this);
+        public int Id => Parent.Effect.IndexOf(this);
 
 
         #region Methods
