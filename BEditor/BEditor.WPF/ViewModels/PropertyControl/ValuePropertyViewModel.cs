@@ -1,7 +1,8 @@
 ﻿
 using BEditor.Core.Command;
 using BEditor.Core.Data.Primitive.Properties;
-using BEditor.ViewModels.Helper;
+
+using Reactive.Bindings;
 
 namespace BEditor.ViewModels.PropertyControl
 {
@@ -10,10 +11,10 @@ namespace BEditor.ViewModels.PropertyControl
         public ValuePropertyViewModel(ValueProperty property)
         {
             Property = property;
-            Reset = new(() => CommandManager.Do(new ValueProperty.ChangeValueCommand(Property, Property.PropertyMetadata.DefaultValue)));
+            Reset.Subscribe(() => CommandManager.Do(new ValueProperty.ChangeValueCommand(Property, Property.PropertyMetadata.DefaultValue)));
         }
 
         public ValueProperty Property { get; }
-        public DelegateCommand Reset { get; }
+        public ReactiveCommand Reset { get; }
     }
 }

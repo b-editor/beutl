@@ -1,9 +1,9 @@
-﻿using BEditor.ViewModels.Helper;
-using Microsoft.WindowsAPICodePack.Dialogs;
+﻿using Microsoft.WindowsAPICodePack.Dialogs;
 using BEditor.Core.Data;
 using BEditor.Models;
 using System.ComponentModel;
 using BEditor.Core.Service;
+using Reactive.Bindings;
 
 namespace BEditor.ViewModels
 {
@@ -59,8 +59,8 @@ namespace BEditor.ViewModels
             set => SetValue(value, ref path, pathArgs);
         }
 
-        public DelegateCommand OpenFolerDialog { get; } = new();
-        public DelegateCommand CreateCommand { get; } = new();
+        public ReactiveCommand OpenFolerDialog { get; } = new();
+        public ReactiveCommand CreateCommand { get; } = new();
 
         private void OpenFolder()
         {

@@ -8,7 +8,7 @@ using System.Threading.Tasks;
 using BEditor.Core.Data.Bindings;
 using BEditor.Core.Data;
 using System.Windows.Input;
-using BEditor.ViewModels.Helper;
+using Reactive.Bindings;
 
 namespace BEditor.ViewModels.PropertyControl
 {
@@ -26,7 +26,7 @@ namespace BEditor.ViewModels.PropertyControl
             UseTwoWay = bindable.IsTwoWay();
             BindPath = bindable.BindHint;
 
-            OKCommand = new DelegateCommand(() =>
+            OKCommand.Subscribe(() =>
             {
                 if (Bindable.GetBindable(bindPath, out var ret))
                 {
@@ -34,10 +34,7 @@ namespace BEditor.ViewModels.PropertyControl
                 }
             });
 
-            DisconnectCommand = new DelegateCommand(() =>
-            {
-                Core.Command.CommandManager.Do(new Bindings.BindCommand<T>(Bindable, null, UseTwoWay));
-            });
+            DisconnectCommand.Subscribe(() => Core.Command.CommandManager.Do(new Bindings.BindCommand<T>(Bindable, null, UseTwoWay)));
         }
 
 
@@ -52,7 +49,7 @@ namespace BEditor.ViewModels.PropertyControl
             get => bindPath;
             set => SetValue(value, ref bindPath, bindpathArgs);
         }
-        public ICommand OKCommand { get; }
-        public ICommand DisconnectCommand { get; }
+        public ReactiveCommand OKCommand { get; } = new();
+        public ReactiveCommand DisconnectCommand { get; } = new();
     }
 }

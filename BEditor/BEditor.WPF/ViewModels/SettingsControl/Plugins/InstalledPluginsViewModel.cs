@@ -9,11 +9,11 @@ using System.Threading.Tasks;
 using System.Windows.Controls;
 
 using BEditor.Models;
-using BEditor.ViewModels.Helper;
 using BEditor.Core.Extensions.ViewCommand;
 using BEditor.Core.Plugin;
 using BEditor.Core.Data;
 using System.ComponentModel;
+using Reactive.Bindings;
 
 namespace BEditor.ViewModels.SettingsControl.Plugins
 {
@@ -34,6 +34,6 @@ namespace BEditor.ViewModels.SettingsControl.Plugins
         }
 
         public IPlugin SelectPlugin { get => selectplugin; set => SetValue(value, ref selectplugin, selectArgs); }
-        public DelegateCommand<object> SettingClick { get; } = new DelegateCommand<object>();
+        public ReactiveCommand<object> SettingClick { get; } = new();
     }
 }

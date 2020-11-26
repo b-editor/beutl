@@ -2,11 +2,11 @@
 using System.Windows;
 using System.Windows.Controls;
 using System.Windows.Media;
-using BEditor.ViewModels.Helper;
 
 using BEditor.Core.Extensions.ViewCommand;
 
 using Resource = BEditor.Core.Properties.Resources;
+using Reactive.Bindings;
 
 namespace BEditor.Views.MessageContent
 {
@@ -68,12 +68,12 @@ namespace BEditor.Views.MessageContent
             DataContext = this;
         }
 
-        public DelegateProperty<string> Text { get; } = new DelegateProperty<string>();
-        public DelegateProperty<bool> IsIndeterminate { get; } = new DelegateProperty<bool>() { Value = false };
+        public ReactiveProperty<string> Text { get; } = new();
+        public ReactiveProperty<bool> IsIndeterminate { get; } = new() { Value = false };
 
-        public DelegateProperty<int> Maximum { get; } = new DelegateProperty<int>() { Value = 0 };
-        public DelegateProperty<int> Minimum { get; } = new DelegateProperty<int>() { Value = 0 };
-        public DelegateProperty<int> NowValue { get; } = new DelegateProperty<int>() { Value = 0 };
+        public ReactiveProperty<int> Maximum { get; } = new() { Value = 0 };
+        public ReactiveProperty<int> Minimum { get; } = new() { Value = 0 };
+        public ReactiveProperty<int> NowValue { get; } = new() { Value = 0 };
 
 
 

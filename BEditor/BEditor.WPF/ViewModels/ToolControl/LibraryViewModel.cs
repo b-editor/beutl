@@ -4,7 +4,8 @@ using System.Windows;
 using System.Windows.Input;
 
 using BEditor.Core.Data;
-using BEditor.ViewModels.Helper;
+
+using Reactive.Bindings;
 
 namespace BEditor.ViewModels.ToolControl
 {
@@ -46,7 +47,7 @@ namespace BEditor.ViewModels.ToolControl
         #endregion
 
         private bool Trigger;
-        public DelegateCommand MouseMoveCommand { get; } = new DelegateCommand();
-        public DelegateCommand<object> MouseDownCommand { get; } = new DelegateCommand<object>();
+        public ReactiveCommand MouseMoveCommand { get; } = new();
+        public ReactiveCommand<object> MouseDownCommand { get; } = new();
     }
 }

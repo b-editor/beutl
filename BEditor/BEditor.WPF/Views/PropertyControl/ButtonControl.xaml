@@ -20,7 +20,7 @@
         <Button
             Style="{StaticResource MaterialDesignFlatButton}"
             Foreground="{DynamicResource MaterialDesignBody}"
-            Content="{Binding Metadata.Value.Name, Mode=OneTime}"
+            Content="{Binding Property.PropertyMetadata.Name, Mode=OneTime}"
             Command="{Binding ClickCommand, Mode=OneTime}"/>
 
 

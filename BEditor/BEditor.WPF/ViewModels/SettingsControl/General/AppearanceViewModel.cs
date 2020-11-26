@@ -2,23 +2,23 @@
 using System.Collections.Generic;
 using System.Text;
 using BEditor.Core.Data;
-using BEditor.ViewModels.Helper;
 using MaterialDesignThemes.Wpf;
 
+using Reactive.Bindings;
 
 namespace BEditor.ViewModels.SettingsControl.General
 {
     public class AppearanceViewModel : BasePropertyChanged
     {
 
-        private DelegateCommand<object> darkmodecommand;
-        public DelegateCommand<object> UseDarkModeClick
+        private ReactiveCommand<object> darkmodecommand;
+        public ReactiveCommand<object> UseDarkModeClick
         {
             get
             {
                 if (darkmodecommand == null)
                 {
-                    darkmodecommand = new DelegateCommand<object>();
+                    darkmodecommand = new();
                     darkmodecommand.Subscribe(_ =>
                     {
                         if (Settings.Default.UseDarkMode)

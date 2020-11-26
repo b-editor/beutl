@@ -9,7 +9,6 @@ using System.Reactive.Linq;
 
 using BEditor.Models.Extension;
 using BEditor.Models.Settings;
-using BEditor.ViewModels.Helper;
 using BEditor.Views;
 using BEditor.Views.SettingsControl;
 
@@ -19,6 +18,7 @@ using BEditor.Core.Media;
 using BEditor.Models;
 
 using CommandManager = BEditor.Core.Command.CommandManager;
+using Reactive.Bindings;
 
 namespace BEditor.ViewModels.TimeLines
 {
@@ -71,9 +71,9 @@ namespace BEditor.ViewModels.TimeLines
         #region Properties
 
         public double TrackHeight { get; } = Setting.ClipHeight;
-        public DelegateProperty<Thickness> SeekbarMargin { get; } = new();
-        public DelegateProperty<double> TrackWidth { get; } = new();
-        public DelegateProperty<Cursor> LayerCursor { get; } = new();
+        public ReactiveProperty<Thickness> SeekbarMargin { get; } = new();
+        public ReactiveProperty<double> TrackWidth { get; } = new();
+        public ReactiveProperty<Cursor> LayerCursor { get; } = new();
 
         /// <summary>
         /// 目盛りを追加するAction
@@ -149,8 +149,8 @@ namespace BEditor.ViewModels.TimeLines
 
             #region Commandの購読
 
-            SettingShowCommand.Subscribe(() => SettingWindow());
-            PasteCommand.Subscribe(() => PasteClick());
+            SettingShowCommand.Subscribe(SettingWindow);
+            PasteCommand.Subscribe(PasteClick);
 
             ScrollLineCommand.Subscribe(() =>
             {
@@ -163,15 +163,15 @@ namespace BEditor.ViewModels.TimeLines
                 timeline.ScrollLine.ScrollToVerticalOffset(timeline.ScrollLabel.VerticalOffset);
             });
 
-            LayerSelectCommand.Subscribe(x => LayerSelect(x));
+            LayerSelectCommand.Subscribe(LayerSelect);
             LayerDropCommand.Subscribe(x => LayerDrop(x.sender, x.args));
             LayerDragOverCommand.Subscribe(x => LayerDragOver(x.sender, x.args));
-            LayerMoveCommand.Subscribe(x => LayerMouseMove(x));
+            LayerMoveCommand.Subscribe(LayerMouseMove);
 
-            TimeLineMouseLeftDownCommand.Subscribe(point => TimeLineMouseLeftDown(point));
-            TimeLineMouseLeftUpCommand.Subscribe(() => TimeLineMouseLeftUp());
-            TimeLineMouseMoveCommand.Subscribe(point => TimeLineMouseMove(point));
-            TimeLineMouseLeaveCommand.Subscribe(() => TimeLineMouseLeave());
+            TimeLineMouseLeftDownCommand.Subscribe(TimeLineMouseLeftDown);
+            TimeLineMouseLeftUpCommand.Subscribe(TimeLineMouseLeftUp);
+            TimeLineMouseMoveCommand.Subscribe(TimeLineMouseMove);
+            TimeLineMouseLeaveCommand.Subscribe(TimeLineMouseLeave);
 
             #endregion
 
@@ -199,8 +199,8 @@ namespace BEditor.ViewModels.TimeLines
 
         #region ContextMenuCommand
 
-        public DelegateCommand SettingShowCommand { get; } = new DelegateCommand();
-        public DelegateCommand PasteCommand { get; } = new DelegateCommand();
+        public ReactiveCommand SettingShowCommand { get; } = new();
+        public ReactiveCommand PasteCommand { get; } = new();
 
 
         #region SettingWindow
@@ -218,16 +218,16 @@ namespace BEditor.ViewModels.TimeLines
 
 
         #region Scroll同期
-        public DelegateCommand ScrollLineCommand { get; } = new DelegateCommand();
-        public DelegateCommand ScrollLabelCommand { get; } = new DelegateCommand();
+        public ReactiveCommand ScrollLineCommand { get; } = new();
+        public ReactiveCommand ScrollLabelCommand { get; } = new();
         #endregion
 
         #region レイヤー操作
 
-        public DelegateCommand<object> LayerSelectCommand { get; } = new DelegateCommand<object>();
-        public DelegateCommand<(object sender, EventArgs args)> LayerDropCommand { get; } = new DelegateCommand<(object sender, EventArgs args)>();
-        public DelegateCommand<(object sender, EventArgs args)> LayerDragOverCommand { get; } = new DelegateCommand<(object sender, EventArgs args)>();
-        public DelegateCommand<object> LayerMoveCommand { get; } = new DelegateCommand<object>();
+        public ReactiveCommand<object> LayerSelectCommand { get; } = new();
+        public ReactiveCommand<(object sender, EventArgs args)> LayerDropCommand { get; } = new();
+        public ReactiveCommand<(object sender, EventArgs args)> LayerDragOverCommand { get; } = new();
+        public ReactiveCommand<object> LayerMoveCommand { get; } = new();
 
 
         #region Select
@@ -328,21 +328,21 @@ namespace BEditor.ViewModels.TimeLines
 
         #region ショートカット
 
-        public DelegateCommand CopyCommand { get; }
+        public ReactiveCommand CopyCommand { get; } = new();
 
-        public DelegateCommand CutCommand { get; }
+        public ReactiveCommand CutCommand { get; } = new();
 
-        public DelegateCommand DeleteCommand { get; }
+        public ReactiveCommand DeleteCommand { get; } = new();
 
         #endregion
 
 
         #region タイムライン操作
 
-        public DelegateCommand<Point> TimeLineMouseLeftDownCommand { get; } = new();
-        public DelegateCommand TimeLineMouseLeftUpCommand { get; } = new();
-        public DelegateCommand<Point> TimeLineMouseMoveCommand { get; } = new();
-        public DelegateCommand TimeLineMouseLeaveCommand { get; } = new();
+        public ReactiveCommand<Point> TimeLineMouseLeftDownCommand { get; } = new();
+        public ReactiveCommand TimeLineMouseLeftUpCommand { get; } = new();
+        public ReactiveCommand<Point> TimeLineMouseMoveCommand { get; } = new();
+        public ReactiveCommand TimeLineMouseLeaveCommand { get; } = new();
 
 
 

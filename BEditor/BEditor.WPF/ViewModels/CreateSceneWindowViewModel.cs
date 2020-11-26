@@ -1,8 +1,7 @@
-﻿using BEditor.ViewModels.Helper;
-
-using BEditor.Core.Data;
+﻿using BEditor.Core.Data;
 using BEditor.Models;
 using System.ComponentModel;
+using Reactive.Bindings;
 
 namespace BEditor.ViewModels
 {
@@ -48,7 +47,7 @@ namespace BEditor.ViewModels
             set => SetValue(value, ref name, nameArgs);
         }
 
-        public DelegateCommand CreateCommand { get; } = new DelegateCommand();
-        public DelegateCommand ResetCommand { get; } = new DelegateCommand();
+        public ReactiveCommand CreateCommand { get; } = new();
+        public ReactiveCommand ResetCommand { get; } = new();
     }
 }

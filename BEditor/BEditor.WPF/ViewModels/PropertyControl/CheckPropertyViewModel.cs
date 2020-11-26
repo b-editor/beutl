@@ -1,7 +1,12 @@
 ﻿
+using System;
+using System.Reactive.Linq;
+
 using BEditor.Core.Command;
+using BEditor.Core.Data.Control;
 using BEditor.Core.Data.Primitive.Properties;
-using BEditor.ViewModels.Helper;
+
+using Reactive.Bindings;
 
 namespace BEditor.ViewModels.PropertyControl
 {
@@ -10,18 +15,13 @@ namespace BEditor.ViewModels.PropertyControl
         public CheckPropertyViewModel(CheckProperty property)
         {
             Property = property;
-            Command = new DelegateCommand<bool>(x =>
-            {
-                CommandManager.Do(new CheckProperty.ChangeCheckedCommand(Property, x));
-            });
-            Reset = new(() =>
-            {
-                CommandManager.Do(new CheckProperty.ChangeCheckedCommand(Property, Property.PropertyMetadata.DefaultIsChecked));
-            });
+
+            Command.Subscribe(x => CommandManager.Do(new CheckProperty.ChangeCheckedCommand(Property, x)));
+            Reset.Subscribe(() => CommandManager.Do(new CheckProperty.ChangeCheckedCommand(Property, Property.PropertyMetadata.DefaultIsChecked)));
         }
 
         public CheckProperty Property { get; }
-        public DelegateCommand<bool> Command { get; }
-        public DelegateCommand Reset { get; }
+        public ReactiveCommand<bool> Command { get; } = new();
+        public ReactiveCommand Reset { get; } = new();
     }
 }

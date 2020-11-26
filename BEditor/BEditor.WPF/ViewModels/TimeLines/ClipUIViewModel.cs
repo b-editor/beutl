@@ -5,7 +5,6 @@ using System.Windows.Media;
 
 using BEditor.Models.Extension;
 using BEditor.Models.Settings;
-using BEditor.ViewModels.Helper;
 using BEditor.Views;
 
 using BEditor.Core.Data;
@@ -13,6 +12,7 @@ using BEditor.Core.Data.Control;
 using BEditor.Core.Properties;
 
 using CommandManager = BEditor.Core.Command.CommandManager;
+using Reactive.Bindings;
 
 namespace BEditor.ViewModels.TimeLines
 {
@@ -28,11 +28,11 @@ namespace BEditor.ViewModels.TimeLines
 
 
         #region Binding用プロパティ
-        public DelegateProperty<string> ClipText { get; set; } = new();
-        public DelegateProperty<Brush> ClipColor { get; set; } = new();
+        public ReactiveProperty<string> ClipText { get; set; } = new();
+        public ReactiveProperty<Brush> ClipColor { get; set; } = new();
         public double TrackHeight => Setting.ClipHeight;
-        public DelegateProperty<double> WidthProperty { get; } = new();
-        public DelegateProperty<Thickness> MarginProperty { get; } = new();
+        public ReactiveProperty<double> WidthProperty { get; } = new();
+        public ReactiveProperty<Thickness> MarginProperty { get; } = new();
 
         public double MarginLeftProperty
         {
@@ -47,9 +47,9 @@ namespace BEditor.ViewModels.TimeLines
         /// <summary>
         /// 開いている場合True
         /// </summary>
-        public DelegateProperty<bool> IsExpanded { get; } = new();
+        public ReactiveProperty<bool> IsExpanded { get; } = new();
 
-        public DelegateProperty<Cursor> ClipCursor { get; } = new();
+        public ReactiveProperty<Cursor> ClipCursor { get; } = new();
         #endregion
 
 
@@ -71,16 +71,16 @@ namespace BEditor.ViewModels.TimeLines
 
             #region Subscribe
 
-            ClipMouseDownCommand.Subscribe(() => ClipMouseDown());
-            ClipMouseUpCommand.Subscribe(() => ClipMouseUp());
-            ClipMouseMoveCommand.Subscribe(point => ClipMouseMove(point));
-            ClipMouseDoubleClickCommand.Subscribe(() => ClipMouseDoubleClick());
+            ClipMouseDownCommand.Subscribe(ClipMouseDown);
+            ClipMouseUpCommand.Subscribe(ClipMouseUp);
+            ClipMouseMoveCommand.Subscribe(ClipMouseMove);
+            ClipMouseDoubleClickCommand.Subscribe(ClipMouseDoubleClick);
 
-            ClipCopyCommand.Subscribe(() => ClipCopy());
-            ClipCutCommand.Subscribe(() => ClipCut());
-            ClipDeleteCommand.Subscribe(() => ClipDelete());
-            ClipDataLogCommand.Subscribe(() => ClipDataLog());
-            ClipSeparateCommand.Subscribe(() => ClipSeparate());
+            ClipCopyCommand.Subscribe(ClipCopy);
+            ClipCutCommand.Subscribe(ClipCut);
+            ClipDeleteCommand.Subscribe(ClipDelete);
+            ClipDataLogCommand.Subscribe(ClipDataLog);
+            ClipSeparateCommand.Subscribe(ClipSeparate);
 
             #endregion
 
@@ -102,15 +102,15 @@ namespace BEditor.ViewModels.TimeLines
         #region クリップ操作
 
         #region Properties
-        public DelegateCommand ClipMouseDownCommand { get; } = new();
-        public DelegateCommand ClipMouseUpCommand { get; } = new();
-        public DelegateCommand<Point> ClipMouseMoveCommand { get; } = new();
-        public DelegateCommand ClipMouseDoubleClickCommand { get; } = new();
-        public DelegateCommand ClipCopyCommand { get; } = new();
-        public DelegateCommand ClipCutCommand { get; } = new();
-        public DelegateCommand ClipDeleteCommand { get; } = new();
-        public DelegateCommand ClipDataLogCommand { get; } = new();
-        public DelegateCommand ClipSeparateCommand { get; } = new();
+        public ReactiveCommand ClipMouseDownCommand { get; } = new();
+        public ReactiveCommand ClipMouseUpCommand { get; } = new();
+        public ReactiveCommand<Point> ClipMouseMoveCommand { get; } = new();
+        public ReactiveCommand ClipMouseDoubleClickCommand { get; } = new();
+        public ReactiveCommand ClipCopyCommand { get; } = new();
+        public ReactiveCommand ClipCutCommand { get; } = new();
+        public ReactiveCommand ClipDeleteCommand { get; } = new();
+        public ReactiveCommand ClipDataLogCommand { get; } = new();
+        public ReactiveCommand ClipSeparateCommand { get; } = new();
         #endregion
 
 

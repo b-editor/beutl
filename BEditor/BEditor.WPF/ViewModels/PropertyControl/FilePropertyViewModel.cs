@@ -3,11 +3,12 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
-using BEditor.ViewModels.Helper;
+
 using BEditor.Core.Data;
 using BEditor.Core.Data.Property;
 using BEditor.Core.Data.Primitive.Properties;
 using BEditor.Core.Command;
+using Reactive.Bindings;
 
 namespace BEditor.ViewModels.PropertyControl
 {
@@ -16,7 +17,7 @@ namespace BEditor.ViewModels.PropertyControl
         public FilePropertyViewModel(FileProperty property)
         {
             Property = property;
-            Command = new(x =>
+            Command.Subscribe(x =>
             {
                 var file = x?.Invoke(Property.PropertyMetadata?.FilterName, Property.PropertyMetadata?.Filter);
 
@@ -25,14 +26,11 @@ namespace BEditor.ViewModels.PropertyControl
                     CommandManager.Do(new FileProperty.ChangeFileCommand(Property, file));
                 }
             });
-            Reset = new(() =>
-            {
-                CommandManager.Do(new FileProperty.ChangeFileCommand(Property, Property.PropertyMetadata.DefaultFile));
-            });
+            Reset.Subscribe(() => CommandManager.Do(new FileProperty.ChangeFileCommand(Property, Property.PropertyMetadata.DefaultFile)));
         }
 
         public FileProperty Property { get; }
-        public DelegateCommand<Func<string, string, string>> Command { get; }
-        public DelegateCommand Reset { get; }
+        public ReactiveCommand<Func<string, string, string>> Command { get; } = new();
+        public ReactiveCommand Reset { get; } = new();
     }
 }

@@ -3,7 +3,6 @@ using System.Collections.Generic;
 using System.Collections.ObjectModel;
 using System.Text;
 using System.Windows.Controls;
-using BEditor.ViewModels.Helper;
 using BEditor.Views.SettingsControl;
 using BEditor.Views.SettingsControl.General;
 using BEditor.Views.SettingsControl.Plugins;
@@ -11,6 +10,7 @@ using BEditor.Core.Properties;
 using MaterialDesignThemes.Wpf;
 using BEditor.Core.Data;
 using System.ComponentModel;
+using Reactive.Bindings;
 
 namespace BEditor.ViewModels.SettingsControl
 {
@@ -114,8 +114,8 @@ namespace BEditor.ViewModels.SettingsControl
         public object ViewControl { get => viewControl; set => SetValue(value, ref viewControl, Args); }
 
 
-        public DelegateCommand<object> TreeSelectCommand { get; } = new DelegateCommand<object>();
-        public DelegateCommand<object> UnloadedCommand { get; } = new DelegateCommand<object>();
+        public ReactiveCommand<object> TreeSelectCommand { get; } = new();
+        public ReactiveCommand<object> UnloadedCommand { get; } = new();
 
         public ObservableCollection<TreeViewChild> TreeViewProperty { get; set; } = new ObservableCollection<TreeViewChild>();
     }

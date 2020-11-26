@@ -5,7 +5,6 @@ using System.Windows.Media;
 
 using BEditor.Models;
 using BEditor.Models.Extension;
-using BEditor.ViewModels.Helper;
 using BEditor.Views;
 using BEditor.Views.MessageContent;
 using BEditor.Views.SettingsControl;
@@ -22,6 +21,7 @@ using Project = BEditor.Core.Data.Project;
 using BEditor.Core.Service;
 using BEditor.Core.Command;
 using System.Reactive.Linq;
+using Reactive.Bindings;
 
 namespace BEditor.ViewModels
 {
@@ -29,12 +29,12 @@ namespace BEditor.ViewModels
     {
         public static MainWindowViewModel Current { get; } = new();
 
-        public DelegateProperty<Project> OpenProject { get; } = new() { Value = AppData.Current.Project };
-        public DelegateProperty<ImageSource> PreviewImage { get; } = new();
-        public DelegateProperty<Brush> MainWindowColor { get; } = new();
+        public ReactiveProperty<Project> OpenProject { get; } = new() { Value = AppData.Current.Project };
+        public ReactiveProperty<ImageSource> PreviewImage { get; } = new();
+        public ReactiveProperty<Brush> MainWindowColor { get; } = new();
 
-        public DelegateCommand PreviewFramePlus { get; } = new();
-        public DelegateCommand PreviewFrameMinus { get; } = new();
+        public ReactiveCommand PreviewFramePlus { get; } = new();
+        public ReactiveCommand PreviewFrameMinus { get; } = new();
 
 
         public SnackbarMessageQueue MessageQueue { get; } = new();
@@ -138,8 +138,8 @@ namespace BEditor.ViewModels
 
         #region OutputsCommands
 
-        public DelegateCommand OutputImage { get; } = new();
-        public DelegateCommand OutputVideo { get; } = new();
+        public ReactiveCommand OutputImage { get; } = new();
+        public ReactiveCommand OutputVideo { get; } = new();
 
 
         public void OutputImageCommand() => ImageHelper.OutputImage();
@@ -149,13 +149,13 @@ namespace BEditor.ViewModels
 
         #region Project
 
-        public DelegateCommand ProjectSaveAs { get; } = new();
-        public DelegateCommand ProjectSave { get; } = new();
-        public DelegateCommand ProjectOpen { get; } = new();
-        public DelegateCommand ProjectClose { get; } = new();
-        public DelegateCommand ProjectCreate { get; } = new();
+        public ReactiveCommand ProjectSaveAs { get; } = new();
+        public ReactiveCommand ProjectSave { get; } = new();
+        public ReactiveCommand ProjectOpen { get; } = new();
+        public ReactiveCommand ProjectClose { get; } = new();
+        public ReactiveCommand ProjectCreate { get; } = new();
 
-        public DelegateProperty<bool> ProjectIsOpened { get; } = new() { Value = false };
+        public ReactiveProperty<bool> ProjectIsOpened { get; } = new() { Value = false };
 
         private static void ProjectSaveAsCommand() => AppData.Current.Project?.SaveAs();
 
@@ -211,21 +211,21 @@ namespace BEditor.ViewModels
         #endregion
 
 
-        public DelegateCommand SettingShow { get; } = new();
+        public ReactiveCommand SettingShow { get; } = new();
 
         public void SettingShowCommand() => new SettingsWindow() { Owner = App.Current.MainWindow }.ShowDialog();
 
 
         #region UndoRedoCommands
 
-        public DelegateCommand UndoCommand { get; } = new();
-        public DelegateCommand UndoSelect { get; } = new();
-        public DelegateProperty<int> UndoSelectIndex { get; } = new();
-        public DelegateProperty<bool> UndoIsEnabled { get; } = new() { Value = CommandManager.CanUndo };
-        public DelegateCommand RedoCommand { get; } = new();
-        public DelegateCommand RedoSelect { get; } = new();
-        public DelegateProperty<int> RedoSelectIndex { get; } = new();
-        public DelegateProperty<bool> RedoIsEnabled { get; } = new() { Value = CommandManager.CanRedo };
+        public ReactiveCommand UndoCommand { get; } = new();
+        public ReactiveCommand UndoSelect { get; } = new();
+        public ReactiveProperty<int> UndoSelectIndex { get; } = new();
+        public ReactiveProperty<bool> UndoIsEnabled { get; } = new() { Value = CommandManager.CanUndo };
+        public ReactiveCommand RedoCommand { get; } = new();
+        public ReactiveCommand RedoSelect { get; } = new();
+        public ReactiveProperty<int> RedoSelectIndex { get; } = new();
+        public ReactiveProperty<bool> RedoIsEnabled { get; } = new() { Value = CommandManager.CanRedo };
 
 
         public ObservableCollection<string> UnDoList { get; } = new();

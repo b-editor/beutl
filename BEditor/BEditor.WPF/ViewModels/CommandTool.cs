@@ -4,13 +4,13 @@ using System.Windows;
 using System.Windows.Data;
 using System.Windows.Input;
 
-using BEditor.ViewModels.Helper;
 using MaterialDesignThemes.Wpf;
 
 using Microsoft.Xaml.Behaviors;
 
 using EventTrigger = Microsoft.Xaml.Behaviors.EventTrigger;
 using BEditor.Core.Data;
+using Reactive.Bindings;
 
 namespace BEditor.ViewModels
 {
@@ -70,13 +70,6 @@ namespace BEditor.ViewModels
             trigger.Actions.Add(action);
 
             return trigger;
-        }
-
-        public static DelegateCommand CreateCommand(Action action)
-        {
-            var command = new DelegateCommand();
-            command.Subscribe(() => action());
-            return command;
         }
     }
 

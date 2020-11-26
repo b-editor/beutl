@@ -2,10 +2,10 @@
 using System.Collections.Generic;
 using System.Text;
 
-using BEditor.ViewModels.Helper;
 using BEditor.Views;
 
 using BEditor.Core.Data;
+using Reactive.Bindings;
 
 namespace BEditor.ViewModels.ToolControl
 {
@@ -20,6 +20,6 @@ namespace BEditor.ViewModels.ToolControl
             });
         }
 
-        public DelegateCommand AddScene { get; } = new DelegateCommand();
+        public ReactiveCommand AddScene { get; } = new();
     }
 }

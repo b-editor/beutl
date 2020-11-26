@@ -1,12 +1,12 @@
 ﻿using System;
 
 using BEditor.Models.Settings;
-using BEditor.ViewModels.Helper;
 
 using BEditor.Core.Data;
 using BEditor.Core.Data.Property;
 using BEditor.Core.Data.Primitive.Properties;
 using BEditor.Core.Command;
+using Reactive.Bindings;
 
 namespace BEditor.ViewModels.TimeLines
 {
@@ -35,8 +35,8 @@ namespace BEditor.ViewModels.TimeLines
 
         #endregion
 
-        public DelegateCommand<int> AddKeyFrameCommand { get; } = new DelegateCommand<int>();
-        public DelegateCommand<int> RemoveKeyFrameCommand { get; } = new DelegateCommand<int>();
-        public DelegateCommand<(int, int)> MoveKeyFrameCommand { get; } = new DelegateCommand<(int, int)>();
+        public ReactiveCommand<int> AddKeyFrameCommand { get; } = new();
+        public ReactiveCommand<int> RemoveKeyFrameCommand { get; } = new();
+        public ReactiveCommand<(int, int)> MoveKeyFrameCommand { get; } = new();
     }
 }
