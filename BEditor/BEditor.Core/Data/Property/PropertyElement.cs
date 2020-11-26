@@ -5,6 +5,7 @@ using System.Runtime.Serialization;
 using System.Threading.Tasks;
 
 using BEditor.Core.Data.Control;
+using BEditor.Core.Data.Primitive.Properties;
 
 namespace BEditor.Core.Data.Property
 {
@@ -47,6 +48,7 @@ namespace BEditor.Core.Data.Property
         public override string ToString() => $"(Name:{PropertyMetadata?.Name})";
     }
 
+    [DataContract(Namespace = "")]
     public abstract class PropertyElement<T> : PropertyElement where T : PropertyElementMetadata
     {
         public new T PropertyMetadata

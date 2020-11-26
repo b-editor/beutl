@@ -2,6 +2,7 @@
 using System.Collections.Generic;
 using System.IO;
 using System.Runtime.Serialization.Json;
+using System.Runtime.Serialization;
 using System.Text;
 using System.Threading.Tasks;
 
@@ -16,32 +17,43 @@ using BEditor.Core.Data.Property.EasingProperty;
 using BEditor.Core.Data.Primitive.Objects.PrimitiveImages;
 using BEditor.Core.Data;
 using System.Collections.ObjectModel;
+using System.Xml;
 
 namespace BEditor.Core
 {
     /// <summary>
     /// <see cref="DataContractJsonSerializer"/> を利用してシリアル化やクローンなどの関数を提供するクラスを表します
     /// </summary>
-    internal static class Serialize
+    public static class Serialize
     {
         /// <summary>
         /// オブジェクトの内容をファイルから読み込み復元します
         /// </summary>
         /// <param name="path">読み込むファイル名</param>
+        /// <param name="mode"></param>
         /// <returns>成功した場合は復元されたオブジェクト、そうでない場合は <see langword="null"/> を返します</returns>
-        public static T LoadFromFile<T>(string path)
+        public static T LoadFromFile<T>(string path, SerializeMode mode = SerializeMode.Binary)
         {
             try
             {
-                object obj;
+                T obj;
 
                 using (FileStream file = new FileStream(path, FileMode.Open))
                 {
-                    var serializer = new DataContractJsonSerializer(typeof(T), SerializeKnownTypes);
-                    obj = serializer.ReadObject(file);
+                    if (mode == SerializeMode.Binary)
+                    {
+                        using var reader = XmlDictionaryReader.CreateBinaryReader(file, new XmlDictionaryReaderQuotas());
+                        var serializer = new DataContractSerializer(typeof(T), SerializeKnownTypes);
+                        obj = (T?)serializer.ReadObject(reader);
+                    }
+                    else
+                    {
+                        var serializer = new DataContractJsonSerializer(typeof(T), SerializeKnownTypes);
+                        obj = (T?)serializer.ReadObject(file);
+                    }
                 }
 
-                return (T)obj;
+                return obj;
             }
             catch
             {
@@ -54,13 +66,23 @@ namespace BEditor.Core
         /// </summary>
         /// <param name="obj">保存するオブジェクト</param>
         /// <param name="path">保存先のファイル名</param>
-        public static bool SaveToFile<T>(T obj, string path)
+        /// <param name="mode"></param>
+        public static bool SaveToFile<T>(T obj, string path, SerializeMode mode = SerializeMode.Binary)
         {
             try
             {
-                using (FileStream file = new FileStream(path, FileMode.Create))
-                using (var writer = JsonReaderWriterFactory.CreateJsonWriter(file, Encoding.UTF8, true, true, "  "))
+                using var file = new FileStream(path, FileMode.Create);
+                if (mode == SerializeMode.Binary)
                 {
+                    using var writer = XmlDictionaryWriter.CreateBinaryWriter(file);
+
+                    var serializer = new DataContractSerializer(typeof(T), SerializeKnownTypes);
+                    serializer.WriteObject(writer, obj);
+                }
+                else
+                {
+                    using var writer = JsonReaderWriterFactory.CreateJsonWriter(file, Encoding.UTF8, true, true, "    ");
+
                     var serializer = new DataContractJsonSerializer(typeof(T), SerializeKnownTypes);
                     serializer.WriteObject(writer, obj);
                 }
@@ -109,10 +131,10 @@ namespace BEditor.Core
         {
             typeof(BasePropertyChanged),
             typeof(ComponentObject),
-            
+
             typeof(Project),
             typeof(RootScene),
-            typeof(Data.Scene),
+            typeof(Scene),
 
             typeof(ClipData),
             typeof(ImageObject),
@@ -130,7 +152,7 @@ namespace BEditor.Core
             typeof(Image),
             typeof(Text),
             typeof(Video),
-            typeof(Data.Primitive.Objects.PrimitiveImages.Scene),
+            typeof(SceneObject),
 
             typeof(BoxFilter),
             typeof(GaussBlur),
@@ -165,5 +187,11 @@ namespace BEditor.Core
             typeof(DefaultEasing),
             typeof(EasingFunc)
         };
+    }
+
+    public enum SerializeMode
+    {
+        Binary,
+        Json
     }
 }

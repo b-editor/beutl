@@ -12,12 +12,12 @@ using BEditor.Core.Media;
 namespace BEditor.Core.Data.Primitive.Objects.PrimitiveImages
 {
     [DataContract(Namespace = "")]
-    public class Scene : ImageObject
+    public class SceneObject : ImageObject
     {
         SelectorPropertyMetadata SelectSceneMetadata;
 
 
-        public Scene()
+        public SceneObject()
         {
             Start = new(Video.StartMetadata);
 
@@ -69,7 +69,7 @@ namespace BEditor.Core.Data.Primitive.Objects.PrimitiveImages
 
         internal record ScenesSelectorMetadata : SelectorPropertyMetadata
         {
-            internal ScenesSelectorMetadata(Scene scene) : base(Core.Properties.Resources.Scenes, null)
+            internal ScenesSelectorMetadata(SceneObject scene) : base(Core.Properties.Resources.Scenes, null)
             {
                 MemberPath = "SceneName";
                 ItemSource = scene

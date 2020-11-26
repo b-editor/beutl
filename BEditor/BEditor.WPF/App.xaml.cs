@@ -43,7 +43,6 @@ namespace BEditor
         {
             AppData.Current.Arguments = e.Args;
 
-            Font.Initialize();
 
             #region ダークモード設定
 
@@ -59,42 +58,15 @@ namespace BEditor
 
             #endregion
 
-            static string GetFontName(string file)
-            {
-                string name;
-                using (var font = new Font(file, 10))
-                {
-                    name = $"{font.FaceFamilyName} {font.FaceStyleName}";
-                }
-                return name;
-            }
-
             static void SetFont()
             {
-                //var ifc = new System.Drawing.Text.InstalledFontCollection();
-                ////インストールされているすべてのフォントファミリアを取得
-                //var ffs = ifc.Families;
+                var ifc = new System.Drawing.Text.InstalledFontCollection();
+                //インストールされているすべてのフォントファミリアを取得
+                var ffs = ifc.Families;
 
-                //foreach (var F in ffs) {
-                //    FontProperty.FontList.Add(new BEditor.Core.Media.Font() { Name = F.Name });
-                //}
-
-                var files = Directory.GetFiles("C:\\Windows\\Fonts");
-                foreach (var file in files)
+                foreach (var F in ffs)
                 {
-                    if (Path.GetExtension(file) is ".ttf" or ".otf" or ".ttc" or ".otc")
-                    {
-                        FontProperty.FontList.Add(new FontRecord() { Path = file, Name = GetFontName(file) });
-                    }
-                }
-
-                files = Directory.GetFiles(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData) + "\\Microsoft\\Windows\\Fonts");
-                foreach (var file in files)
-                {
-                    if (Path.GetExtension(file) is ".ttf" or ".otf" or ".ttc" or ".otc")
-                    {
-                        FontProperty.FontList.Add(new FontRecord() { Path = file, Name = GetFontName(file) });
-                    }
+                    FontProperty.FontList.Add(new FontRecord() { Name = F.Name });
                 }
             }
 
@@ -311,7 +283,6 @@ namespace BEditor
 
         private void Application_Exit(object sender, ExitEventArgs e)
         {
-            Font.Quit();
             Settings.Default.Save();
         }
 

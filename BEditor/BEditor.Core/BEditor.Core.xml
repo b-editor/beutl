@@ -2516,71 +2516,6 @@
             </summary>
             <returns>2つの <see cref="T:BEditor.Core.Media.Color"/> 構造体が異なる場合は <see langword="true"/> 、そうでない場合は <see langword="false"/> です</returns>
         </member>
-        <member name="T:BEditor.Core.Media.Font">
-            <summary>
-            FreeTypeのFaceの一部をカプセル化します
-            </summary>
-        </member>
-        <member name="M:BEditor.Core.Media.Font.#ctor(System.String,System.Int32,System.Boolean,System.UInt32)">
-            <summary>
-            <see cref="T:BEditor.Core.Media.Font"/> クラスの新しいインスタンスを初期化します
-            </summary>
-        </member>
-        <member name="P:BEditor.Core.Media.Font.Style">
-            <summary>
-            フォントのスタイルを取得または設定します
-            </summary>
-        </member>
-        <member name="P:BEditor.Core.Media.Font.Height">
-            <summary>
-            フォントの高さを取得します
-            </summary>
-        </member>
-        <member name="P:BEditor.Core.Media.Font.Ascender">
-            <summary>
-            https://www.freetype.org/freetype2/docs/tutorial/step2.html を参照してください
-            </summary>
-        </member>
-        <member name="P:BEditor.Core.Media.Font.Descender">
-            <summary>
-            https://www.freetype.org/freetype2/docs/tutorial/step2.html を参照してください
-            </summary>
-        </member>
-        <member name="P:BEditor.Core.Media.Font.FaceFamilyName">
-            <summary>
-            フォントファミリー名を取得します
-            </summary>
-        </member>
-        <member name="P:BEditor.Core.Media.Font.FaceStyleName">
-            <summary>
-            現在のフォントスタイル名を取得します
-            </summary>
-        </member>
-        <member name="M:BEditor.Core.Media.Font.SizeText(System.String,System.Int32@,System.Int32@)">
-            <summary>
-            指定した文字からサイズを測ります
-            </summary>
-        </member>
-        <member name="M:BEditor.Core.Media.Font.RenderText(System.String,BEditor.Core.Media.Color)">
-            <summary>
-            指定した文字から <see cref="T:BEditor.Core.Media.Image"/> にレンダリングします
-            </summary>
-        </member>
-        <member name="M:BEditor.Core.Media.Font.Quit">
-            <summary>
-            ライブラリを終了します
-            </summary>
-        </member>
-        <member name="M:BEditor.Core.Media.Font.Initialize">
-            <summary>
-            ライブラリを初期化します
-            </summary>
-        </member>
-        <member name="T:BEditor.Core.Media.FontStyle">
-            <summary>
-            フォントスタイルを表します
-            </summary>
-        </member>
         <member name="T:BEditor.Core.Media.Image">
             <summary>
             OpenCv Mat を利用した画像オブジェクトを表します
@@ -4729,19 +4664,21 @@
             <see cref="T:System.Runtime.Serialization.Json.DataContractJsonSerializer"/> を利用してシリアル化やクローンなどの関数を提供するクラスを表します
             </summary>
         </member>
-        <member name="M:BEditor.Core.Serialize.LoadFromFile``1(System.String)">
+        <member name="M:BEditor.Core.Serialize.LoadFromFile``1(System.String,BEditor.Core.SerializeMode)">
             <summary>
             オブジェクトの内容をファイルから読み込み復元します
             </summary>
             <param name="path">読み込むファイル名</param>
+            <param name="mode"></param>
             <returns>成功した場合は復元されたオブジェクト、そうでない場合は <see langword="null"/> を返します</returns>
         </member>
-        <member name="M:BEditor.Core.Serialize.SaveToFile``1(``0,System.String)">
+        <member name="M:BEditor.Core.Serialize.SaveToFile``1(``0,System.String,BEditor.Core.SerializeMode)">
             <summary>
             オブジェクトの内容をファイルに保存します
             </summary>
             <param name="obj">保存するオブジェクト</param>
             <param name="path">保存先のファイル名</param>
+            <param name="mode"></param>
         </member>
         <member name="M:BEditor.Core.Serialize.DeepClone``1(``0)">
             <summary>

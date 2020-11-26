@@ -65,8 +65,8 @@ namespace BEditor.Core.Data
             new()
             {
                 Name = Resources.Scenes,
-                Type = typeof(Primitive.Objects.PrimitiveImages.Scene),
-                CreateFunc = () => new Primitive.Objects.PrimitiveImages.Scene()
+                Type = typeof(Primitive.Objects.PrimitiveImages.SceneObject),
+                CreateFunc = () => new Primitive.Objects.PrimitiveImages.SceneObject()
             }
         };
     }

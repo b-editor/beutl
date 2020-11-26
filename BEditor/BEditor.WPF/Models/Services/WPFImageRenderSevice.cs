@@ -19,10 +19,10 @@ using Image = BEditor.Core.Media.Image;
 
 namespace BEditor.Models.Services
 {
-    public class WPFImageRenderSevice : IImageRenderService
+    public class WPFImageRenderSevice : ImageRenderService
     {
         [return: MaybeNull]
-        public Image Ellipse(int width, int height, int line, Color color)
+        public override Image Ellipse(int width, int height, int line, Color color)
         {
             Image img = null;
 
@@ -61,7 +61,7 @@ namespace BEditor.Models.Services
         }
         
         [return: MaybeNull]
-        public Image Rectangle(int width, int height, int line, Color color)
+        public override Image Rectangle(int width, int height, int line, Color color)
         {
             Image img = null;
 
@@ -100,10 +100,9 @@ namespace BEditor.Models.Services
             }
             return img;
         }
-        
+
         [return: MaybeNull]
-        [Obsolete]
-        public Image Text(int size, Color color, string text, FontRecord font, string style, bool rightToLeft)
+        public override Image Text(int size, Color color, string text, FontRecord font, string style, bool rightToLeft)
         {
             if (font is null) return null;
             Image img = null;
@@ -126,6 +125,7 @@ namespace BEditor.Models.Services
             };
             var weightEnum = (style is "Bold") ? FontWeights.Bold : FontWeights.Normal;
 
+#pragma warning disable CS0618 // 型またはメンバーが旧型式です
             var formattedText = new FormattedText(
                 text,
                 CultureInfo.CurrentCulture,
@@ -137,6 +137,7 @@ namespace BEditor.Models.Services
                     FontStretches.Normal),
                 size,
                 Brushes.Green);
+#pragma warning restore CS0618 // 型またはメンバーが旧型式です
 
             int width = (int)formattedText.Width;
             int height = (int)formattedText.Height;

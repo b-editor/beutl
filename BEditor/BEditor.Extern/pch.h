@@ -16,6 +16,4 @@
 #include "Color.h"
 #include "CvMat.h"
 
-#include "ImageFont.h"
-
 #endif //PCH_H

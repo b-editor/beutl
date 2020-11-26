@@ -454,6 +454,6 @@ namespace BEditor.Core.Data
         public static readonly Type Figure = typeof(Primitive.Objects.PrimitiveImages.Figure);
         public static readonly Type Camera = typeof(CameraObject);
         public static readonly Type GL3DObject = typeof(GL3DObject);
-        public static readonly Type Scene = typeof(Primitive.Objects.PrimitiveImages.Scene);
+        public static readonly Type Scene = typeof(Primitive.Objects.PrimitiveImages.SceneObject);
     }
 }

@@ -35,11 +35,11 @@ namespace BEditor.Core.Data
             if (!File.Exists(path))
             {
                 Default = new Settings();
-                Serialize.SaveToFile(Default, path);
+                Serialize.SaveToFile(Default, path, SerializeMode.Json);
             }
             else
             {
-                Default = Serialize.LoadFromFile<Settings>(path);
+                Default = Serialize.LoadFromFile<Settings>(path, SerializeMode.Json);
             }
         }
         private Settings() { }
@@ -94,6 +94,6 @@ namespace BEditor.Core.Data
         #endregion
 
 
-        public void Save() => Serialize.SaveToFile(this, $"{Services.Path}\\user\\settings.json");
+        public void Save() => Serialize.SaveToFile(this, $"{Services.Path}\\user\\settings.json", SerializeMode.Json);
     }
 }
