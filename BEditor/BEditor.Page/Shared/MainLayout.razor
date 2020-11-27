@@ -42,10 +42,10 @@
                     <MatIconButton Icon="more_vert" OnClick="@OpenSmallMenu" @ref="SmallMenuButton"></MatIconButton>
                     <MatMenu @ref="SmallMenu" style="z-index: 100;">
                         <MatList>
-                            <MatListItem Href="https://twitter.com/bakugatou_kuba" target="_blank">
+                            <MatListItem Href="@Consts.TwitterLink" target="_blank">
                                 Twitter
                             </MatListItem>
-                            <MatListItem Href="https://github.com/indigo-san/BEditor" target="_blank">
+                            <MatListItem Href="@Consts.GithubLink" target="_blank">
                                 Github
                             </MatListItem>
                         </MatList>
@@ -58,11 +58,21 @@
     <MatDrawerContainer Style="width: 100%; height: 100%;">
         <!--width: 100vw; height: 100vh;-->
         <MatDrawer @bind-Opened="@Opened" Mode="@MatDrawerMode.Modal">
-            <MatNavMenu @onclick="MenuButtonClicked">
-                <MatNavItem href="">Home</MatNavItem>
-                <MatNavItem href="https://github.com/indigo-san/BEditor/releases">Download</MatNavItem>
-                <MatNavItem href="https://twitter.com/bakugatou_kuba">Twitter</MatNavItem>
-                <MatNavItem href="https://github.com/indigo-san/BEditor">Github</MatNavItem>
+            <MatNavMenu>
+                <MatNavItem @onclick="MenuButtonClicked" href="">Home</MatNavItem>
+                <MatNavSubMenu>
+                    <MatNavSubMenuHeader>
+                        <MatNavItem AllowSelection="false">Download</MatNavItem>
+                    </MatNavSubMenuHeader>
+                    <MatNavSubMenuList>
+                        <MatNavItem Href="@Consts.GithubReleasesLink">GitHub Releases</MatNavItem>
+                        <MatNavItem Href="@Consts.BEditor_002_Link">BEditor 0.0.2</MatNavItem>
+                        <MatNavItem Href="@Consts.BEditor_001_Link">BEditor 0.0.1</MatNavItem>
+                    </MatNavSubMenuList>
+                </MatNavSubMenu>
+
+                <MatNavItem @onclick="MenuButtonClicked" href="@Consts.TwitterLink">Twitter</MatNavItem>
+                <MatNavItem @onclick="MenuButtonClicked" href="@Consts.GithubLink">Github</MatNavItem>
             </MatNavMenu>
         </MatDrawer>
     </MatDrawerContainer>
@@ -76,6 +86,7 @@
     private BaseMatIconButton SmallMenuButton;
     private BaseMatMenu SmallMenu;
     private bool Opened = false;
+    private bool navSubMenuOpenState;
 
     private void MenuButtonClicked(MouseEventArgs e)
     {

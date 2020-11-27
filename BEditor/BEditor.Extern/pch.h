@@ -13,7 +13,6 @@
 
 #include <opencv2/opencv.hpp>
 
-#include "Color.h"
 #include "CvMat.h"
 
 #endif //PCH_H

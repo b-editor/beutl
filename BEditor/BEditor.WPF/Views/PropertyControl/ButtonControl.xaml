@@ -20,8 +20,11 @@
         <Button
             Style="{StaticResource MaterialDesignFlatButton}"
             Foreground="{DynamicResource MaterialDesignBody}"
-            Content="{Binding Property.PropertyMetadata.Name, Mode=OneTime}"
-            Command="{Binding ClickCommand, Mode=OneTime}"/>
+            Content="{Binding Component.PropertyMetadata.Name, Mode=OneTime}"
+            FontWeight="Normal"
+            HorizontalContentAlignment="Right"
+            FontSize="13"
+            Command="{Binding ClickCommand, Mode=OneTime}" Cursor="Hand"/>
 
 
         <md:PopupBox Width="20" Grid.Column="1" StaysOpen="False" Height="32.5" HorizontalAlignment="Stretch" VerticalContentAlignment="Center" HorizontalContentAlignment="Center" VerticalAlignment="Stretch">

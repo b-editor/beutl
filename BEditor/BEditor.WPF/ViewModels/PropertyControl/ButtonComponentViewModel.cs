@@ -18,7 +18,7 @@ namespace BEditor.ViewModels.PropertyControl
         public ButtonComponentViewModel(ButtonComponent button)
         {
             Component = button;
-            ClickCommand.Subscribe(Component.Execute);
+            ClickCommand.Subscribe(() => Component.Execute());
         }
 
         public ButtonComponent Component { get; }

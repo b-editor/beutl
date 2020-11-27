@@ -9,36 +9,18 @@ using BEditor.Core.Data.Property;
 
 namespace BEditor.Core.Data.Primitive.Components
 {
-    public class ButtonComponent : ComponentElement<PropertyElementMetadata>, IObservable<object>
+    public class ButtonComponent : ComponentElement<PropertyElementMetadata>
     {
-        private List<IObserver<object>> list;
-
         public ButtonComponent(PropertyElementMetadata metadata)
         {
             PropertyMetadata = metadata ?? throw new ArgumentNullException(nameof(metadata));
         }
 
-        private List<IObserver<object>> Collection => list ??= new();
+        public event EventHandler Click;
 
-        public IDisposable Subscribe(IObserver<object> observer)
-        {
-            Collection.Add(observer);
-            return Disposable.Create(() => Collection.Remove(observer));
-        }
         public void Execute()
         {
-            foreach (var observer in Collection)
-            {
-                try
-                {
-                    observer.OnNext(null);
-                    observer.OnCompleted();
-                }
-                catch (Exception ex)
-                {
-                    observer.OnError(ex);
-                }
-            }
+            Click?.Invoke(this, EventArgs.Empty);
         }
     }
 }

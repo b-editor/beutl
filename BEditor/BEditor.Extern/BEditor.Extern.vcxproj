@@ -173,7 +173,6 @@
     <ClCompile Include="pch.cpp" />
   </ItemGroup>
   <ItemGroup>
-    <ClInclude Include="Color.h" />
     <ClInclude Include="CvMat.h" />
     <ClInclude Include="pch.h" />
   </ItemGroup>

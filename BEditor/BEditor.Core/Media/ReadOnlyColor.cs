@@ -149,12 +149,12 @@ namespace BEditor.Core.Media
         /// <see cref="Color"/> 構造体から <see cref="OpenTK.Mathematics.Color4"/> を作成します
         /// </summary>
         /// <param name="c"></param>
-        public static implicit operator OpenTK.Mathematics.Color4(Color c) => new(c.R, c.G, c.B, c.A);
+        public static implicit operator OpenTK.Mathematics.Color4(ReadOnlyColor c) => new(c.R, c.G, c.B, c.A);
         /// <summary>
         /// <see cref="OpenTK.Mathematics.Color4"/> 構造体から <see cref="Color"/> を作成します
         /// </summary>
         /// <param name="c"></param>
-        public static implicit operator Color(OpenTK.Mathematics.Color4 c) => new((byte)c.R, (byte)c.G, (byte)c.B, (byte)c.A);
+        public static implicit operator ReadOnlyColor(OpenTK.Mathematics.Color4 c) => new((byte)c.R, (byte)c.G, (byte)c.B, (byte)c.A);
 #endif
 
         #endregion
