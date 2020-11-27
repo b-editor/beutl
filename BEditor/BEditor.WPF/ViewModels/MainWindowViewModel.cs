@@ -29,7 +29,6 @@ namespace BEditor.ViewModels
     {
         public static MainWindowViewModel Current { get; } = new();
 
-        public ReactiveProperty<Project> OpenProject { get; } = new() { Value = AppData.Current.Project };
         public ReactiveProperty<ImageSource> PreviewImage { get; } = new();
         public ReactiveProperty<Brush> MainWindowColor { get; } = new();
 

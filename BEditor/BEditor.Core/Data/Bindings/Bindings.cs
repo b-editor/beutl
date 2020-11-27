@@ -56,7 +56,7 @@ namespace BEditor.Core.Data.Bindings
             return false;
         }
 
-        public static string GetString<T>(this IBindable<T> bindable)
+        public static string GetString(this IBindable bindable)
         {
             if (bindable is PropertyElement p && bindable.Id == -1)
             {
@@ -96,7 +96,7 @@ namespace BEditor.Core.Data.Bindings
 
             return false;
         }
-
+        
         public sealed class BindCommand<T> : IRecordCommand
         {
             private readonly IBindable<T> source;
@@ -130,6 +130,12 @@ namespace BEditor.Core.Data.Bindings
                 source?.Bind(null);
                 if (useTwoWay) target?.Bind(null);
             }
+        }
+        public sealed class Disconnect<T> : IRecordCommand
+        {
+            public void Do() => throw new NotImplementedException();
+            public void Redo() => throw new NotImplementedException();
+            public void Undo() => throw new NotImplementedException();
         }
     }
 }

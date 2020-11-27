@@ -442,6 +442,9 @@
   <data name="No" xml:space="preserve">
     <value>いいえ</value>
   </data>
+  <data name="ObjectViewer" xml:space="preserve">
+    <value>オブジェクトビューアー</value>
+  </data>
   <data name="OK" xml:space="preserve">
     <value>OK</value>
   </data>

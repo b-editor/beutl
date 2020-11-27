@@ -27,23 +27,23 @@
         </Style>
     </UserControl.Resources>
     <dragablz:TabablzControl BorderBrush="{Binding Source={x:Static mainvm:MainWindowViewModel.Current}, Path=MainWindowColor.Value}" Background="{StaticResource MaterialDesignPaper}" BorderThickness="0,0,0,0">
-            <TabItem>
-                <TabItem.Header>
-                    <TextBlock Text="{x:Static properties:Resources.Library}" FontSize="12" VerticalAlignment="Center"/>
-                </TabItem.Header>
-                <tool:Library/>
-            </TabItem>
-            <TabItem>
-                <TabItem.Header>
-                    <TextBlock Text="{x:Static properties:Resources.Scenes}" FontSize="12" VerticalAlignment="Center"/>
-                </TabItem.Header>
-                <tool:SceneManager/>
-            </TabItem>
-            <TabItem>
-                <TabItem.Header>
-                    <TextBlock Text="{Binding Source={x:Static properties:Resources.Panel}, StringFormat={}{0} 1}" FontSize="12" VerticalAlignment="Center"/>
-                </TabItem.Header>
-
-            </TabItem>
-        </dragablz:TabablzControl>
+        <TabItem>
+            <TabItem.Header>
+                <TextBlock Text="{x:Static properties:Resources.Library}" FontSize="12" VerticalAlignment="Center"/>
+            </TabItem.Header>
+            <tool:Library/>
+        </TabItem>
+        <TabItem>
+            <TabItem.Header>
+                <TextBlock Text="{x:Static properties:Resources.Scenes}" FontSize="12" VerticalAlignment="Center"/>
+            </TabItem.Header>
+            <tool:SceneManager/>
+        </TabItem>
+        <TabItem>
+            <TabItem.Header>
+                <TextBlock Text="{x:Static properties:Resources.ObjectViewer}" FontSize="12" VerticalAlignment="Center"/>
+            </TabItem.Header>
+            <tool:ObjectViewer/>
+        </TabItem>
+    </dragablz:TabablzControl>
 </UserControl>

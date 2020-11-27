@@ -1106,6 +1106,15 @@ namespace BEditor.Core.Properties {
         }
         
         /// <summary>
+        ///   ObjectViewer に類似しているローカライズされた文字列を検索します。
+        /// </summary>
+        public static string ObjectViewer {
+            get {
+                return ResourceManager.GetString("ObjectViewer", resourceCulture);
+            }
+        }
+        
+        /// <summary>
         ///   OK に類似しているローカライズされた文字列を検索します。
         /// </summary>
         public static string OK {

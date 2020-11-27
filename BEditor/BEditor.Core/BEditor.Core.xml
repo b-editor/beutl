@@ -315,7 +315,7 @@
             Get the effects included in this <see cref="T:BEditor.Core.Data.ClipData"/>.
             </summary>
         </member>
-        <member name="P:BEditor.Core.Data.ClipData.BEditor#Core#Data#Control#IParent{BEditor#Core#Data#EffectElement}#Children">
+        <member name="P:BEditor.Core.Data.ClipData.Children">
             <inheritdoc/>
         </member>
         <member name="M:BEditor.Core.Data.ClipData.Render(BEditor.Core.Data.ClipRenderArgs)">
@@ -1991,6 +1991,9 @@
             </summary>
         </member>
         <member name="P:BEditor.Core.Data.Property.PropertyElement.Id">
+            <inheritdoc/>
+        </member>
+        <member name="P:BEditor.Core.Data.Property.PropertyElement.Name">
             <inheritdoc/>
         </member>
         <member name="M:BEditor.Core.Data.Property.PropertyElement.PropertyLoaded">
@@ -4332,6 +4335,11 @@
         <member name="P:BEditor.Core.Properties.Resources.No">
             <summary>
               No に類似しているローカライズされた文字列を検索します。
+            </summary>
+        </member>
+        <member name="P:BEditor.Core.Properties.Resources.ObjectViewer">
+            <summary>
+              ObjectViewer に類似しているローカライズされた文字列を検索します。
             </summary>
         </member>
         <member name="P:BEditor.Core.Properties.Resources.OK">

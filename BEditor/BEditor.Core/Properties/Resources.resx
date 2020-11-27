@@ -472,6 +472,9 @@ Please let the developer know.</value>
   <data name="No" xml:space="preserve">
     <value>No</value>
   </data>
+  <data name="ObjectViewer" xml:space="preserve">
+    <value>ObjectViewer</value>
+  </data>
   <data name="OK" xml:space="preserve">
     <value>OK</value>
   </data>
