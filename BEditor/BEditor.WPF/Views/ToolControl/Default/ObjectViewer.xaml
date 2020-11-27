@@ -11,11 +11,8 @@
              xmlns:vmtool="clr-namespace:BEditor.ViewModels.ToolControl"
              IsEnabled="{Binding ProjectIsOpened.Value, Mode=OneWay, Source={x:Static vm:MainWindowViewModel.Current}}"
              d:DesignHeight="450" d:DesignWidth="800">
-    <UserControl.DataContext>
-        <vmtool:ObjectViewerViewModel/>
-    </UserControl.DataContext>
-    <ScrollViewer Margin="5,5,5,5">
-        <TreeView x:Name="TreeView" ItemsSource="{Binding Project.SceneList, Source={x:Static model:AppData.Current}}">
+    <ScrollViewer Margin="5,5,5,5" x:Name="scrollViewer">
+        <TreeView x:Name="TreeView" ItemsSource="{Binding Project.SceneList, Source={x:Static model:AppData.Current}}" PreviewMouseWheel="TreeView_PreviewMouseWheel">
             <TreeView.ItemTemplate>
                 <HierarchicalDataTemplate ItemsSource="{Binding Children, TargetNullValue={x:Static local:ObjectViewer.Empty}}">
                     <TextBlock Text="{Binding Name}"/>
@@ -24,6 +21,16 @@
             <TreeView.ContextMenu>
                 <ContextMenu>
                     <MenuItem Header="パスを取得" Click="GetPath_Click"/>
+                    <MenuItem Header="削除">
+                        <MenuItem Header="Scene" Click="DeleteScene"/>
+                        <MenuItem Header="Clip" Click="RemoveClip"/>
+                        <MenuItem Header="Effect" Click="RemoveEffect"/>
+                    </MenuItem>
+                    <MenuItem Header="追加">
+                        <MenuItem Header="Scene" Click="AddScene"/>
+                        <MenuItem Header="Clip" Click="AddClip"/>
+                        <MenuItem Header="Effect" Click="AddEffect"/>
+                    </MenuItem>
                 </ContextMenu>
             </TreeView.ContextMenu>
         </TreeView>

@@ -87,21 +87,10 @@ namespace BEditor.Core.Data.Bindings
             return $"{bindable.GetParent3().SceneName}.{bindable.GetParent2().Name}[{bindable.GetParent().Id}][{bindable.Id}]";
         }
 
-        public static bool IsTwoWay<T>(this IBindable<T> bindable)
-        {
-            if (bindable.GetBindable(bindable.BindHint, out var ret))
-            {
-                return ret.BindHint == bindable.GetString();
-            }
-
-            return false;
-        }
-        
         public sealed class BindCommand<T> : IRecordCommand
         {
             private readonly IBindable<T> source;
             private readonly IBindable<T> target;
-            private readonly bool useTwoWay;
 
             /// <summary>
             /// 
@@ -109,11 +98,10 @@ namespace BEditor.Core.Data.Bindings
             /// <param name="source">バインド先のオブジェクト</param>
             /// <param name="target">バインドするオブジェクト</param>
             /// <param name="useTwoWay">双方向バインディングを使用</param>
-            public BindCommand(IBindable<T> source, IBindable<T> target, bool useTwoWay)
+            public BindCommand(IBindable<T> source, IBindable<T> target)
             {
                 this.source = source;
                 this.target = target;
-                this.useTwoWay = useTwoWay;
             }
 
             // target変更時にsourceが変更
@@ -122,20 +110,37 @@ namespace BEditor.Core.Data.Bindings
             public void Do()
             {
                 source?.Bind(target);
-                if (useTwoWay) target?.Bind(source);
+                target?.Bind(source);
             }
             public void Redo() => Do();
             public void Undo()
             {
                 source?.Bind(null);
-                if (useTwoWay) target?.Bind(null);
+                target?.Bind(null);
             }
         }
         public sealed class Disconnect<T> : IRecordCommand
         {
-            public void Do() => throw new NotImplementedException();
-            public void Redo() => throw new NotImplementedException();
-            public void Undo() => throw new NotImplementedException();
+            private readonly IBindable<T> bindable;
+            private readonly IBindable<T> twoway;
+
+            public Disconnect(IBindable<T> bindable)
+            {
+                this.bindable = bindable;
+                bindable.GetBindable(bindable.BindHint, out twoway);
+            }
+
+            public void Do()
+            {
+                bindable.Bind(null);
+                twoway?.Bind(null);
+            }
+            public void Redo() => Do();
+            public void Undo()
+            {
+                bindable.Bind(twoway);
+                twoway.Bind(bindable);
+            }
         }
     }
 }

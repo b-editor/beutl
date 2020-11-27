@@ -14,36 +14,28 @@ namespace BEditor.ViewModels.PropertyControl
 {
     public class BindSettingsViewModel<T> : BasePropertyChanged
     {
-        private static readonly PropertyChangedEventArgs usetwowatArgs = new(nameof(UseTwoWay));
         private static readonly PropertyChangedEventArgs bindpathArgs = new(nameof(BindPath));
-        private bool useTwoWay;
         private string bindPath;
 
 
         public BindSettingsViewModel(IBindable<T> bindable)
         {
             Bindable = bindable;
-            UseTwoWay = bindable.IsTwoWay();
             BindPath = bindable.BindHint;
 
             OKCommand.Subscribe(() =>
             {
                 if (Bindable.GetBindable(bindPath, out var ret))
                 {
-                    Core.Command.CommandManager.Do(new Bindings.BindCommand<T>(Bindable, ret, UseTwoWay));
+                    Core.Command.CommandManager.Do(new Bindings.BindCommand<T>(Bindable, ret));
                 }
             });
 
-            DisconnectCommand.Subscribe(() => Core.Command.CommandManager.Do(new Bindings.BindCommand<T>(Bindable, null, UseTwoWay)));
+            DisconnectCommand.Subscribe(() => Core.Command.CommandManager.Do(new Bindings.Disconnect<T>(Bindable)));
         }
 
 
         public IBindable<T> Bindable { get; }
-        public bool UseTwoWay
-        {
-            get => useTwoWay;
-            set => SetValue(value, ref useTwoWay, usetwowatArgs);
-        }
         public string BindPath
         {
             get => bindPath;

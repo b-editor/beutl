@@ -244,7 +244,7 @@
             プロパティの変更を通知するクラス
             </summary>
         </member>
-        <member name="M:BEditor.Core.Data.Bindings.Bindings.BindCommand`1.#ctor(BEditor.Core.Data.Bindings.IBindable{`0},BEditor.Core.Data.Bindings.IBindable{`0},System.Boolean)">
+        <member name="M:BEditor.Core.Data.Bindings.Bindings.BindCommand`1.#ctor(BEditor.Core.Data.Bindings.IBindable{`0},BEditor.Core.Data.Bindings.IBindable{`0})">
             <summary>
             
             </summary>
