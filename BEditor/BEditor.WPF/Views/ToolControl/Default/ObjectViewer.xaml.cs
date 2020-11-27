@@ -141,7 +141,8 @@ namespace BEditor.Views.ToolControl.Default
         {
             try
             {
-                var scene = GetScene();
+                //var scene = GetScene();
+                Message.Snackbar("未実装");
             }
             catch (IndexOutOfRangeException)
             {
@@ -150,7 +151,7 @@ namespace BEditor.Views.ToolControl.Default
         }
         private void AddEffect(object sender, RoutedEventArgs e)
         {
-
+            Message.Snackbar("未実装");
         }
     }
 }
