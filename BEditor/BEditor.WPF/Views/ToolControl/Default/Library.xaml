@@ -11,8 +11,8 @@
              xmlns:vm="clr-namespace:BEditor.ViewModels.ToolControl"
              mc:Ignorable="d"
              DataContext="{x:Static vm:LibraryViewModel.Current}">
-    <ScrollViewer Margin="5,5,5,5">
-        <TreeView x:Name="TreeView" ItemsSource="{x:Static listsource:EffectMetadata.LoadedEffects}" md:RippleAssist.IsDisabled="True">
+    <ScrollViewer x:Name="scrollViewer" Margin="5,5,5,5">
+        <TreeView x:Name="TreeView" ItemsSource="{x:Static listsource:EffectMetadata.LoadedEffects}" md:RippleAssist.IsDisabled="True" PreviewMouseWheel="TreeView_PreviewMouseWheel">
             <TreeView.Resources>
                 <HierarchicalDataTemplate DataType="{x:Type listsource:EffectMetadata}" ItemsSource="{Binding Children}">
                     <TextBlock Text="{Binding Name}" Margin="3 2"/>

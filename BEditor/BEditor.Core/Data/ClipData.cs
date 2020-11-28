@@ -144,7 +144,7 @@ namespace BEditor.Core.Data
         public ObservableCollection<EffectElement> Effect { get; private set; }
 
         /// <inheritdoc/>
-        IEnumerable<EffectElement> IParent<EffectElement>.Children => Effect;
+        public IEnumerable<EffectElement> Children => Effect;
 
         #endregion
 

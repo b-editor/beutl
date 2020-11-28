@@ -1,13 +1,13 @@
 ﻿using MahApps.Metro.Controls;
 
-namespace BEditor.Views
+namespace BEditor.Views.CreateDialog
 {
     /// <summary>
     /// CreateSceneWindow.xaml の相互作用ロジック
     /// </summary>
-    public partial class CreateSceneWindow : MetroWindow
+    public partial class SceneCreateDialog : MetroWindow
     {
-        public CreateSceneWindow() => InitializeComponent();
+        public SceneCreateDialog() => InitializeComponent();
 
         private void CloseClick(object sender, System.Windows.RoutedEventArgs e) => Close();
     }

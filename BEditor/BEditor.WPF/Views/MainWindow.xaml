@@ -31,7 +31,8 @@
         NonActiveGlowBrush="{DynamicResource MaterialDesignShadowBrush}"
     
         DataContext="{x:Static vm:MainWindowViewModel.Current}"
-        Focusable="True">
+        Focusable="True"
+        d:DesignWidth="1920" d:DesignHeight="1080">
     <Controls:MetroWindow.Resources>
         <convert:AppStatusIconConverter x:Key="AppStatusIcon"/>
         <convert:AppStatusTextConverter x:Key="AppStatusText"/>
@@ -318,6 +319,6 @@
         </md:Card>
         <!--#endregion-->
 
-        <md:Snackbar x:Name="Snackbar" MessageQueue="{Binding MessageQueue, Mode=OneWay}" Margin="0,5,5,0" Grid.Column="5" HorizontalAlignment="Right" VerticalAlignment="Top"/>
+        <md:Snackbar x:Name="Snackbar" MessageQueue="{Binding MessageQueue, Mode=OneWay}" Margin="0,5,5,0" Grid.Column="5" HorizontalAlignment="Right" VerticalAlignment="Top" Grid.RowSpan="4"/>
     </Grid>
 </Controls:MetroWindow>

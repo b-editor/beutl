@@ -244,7 +244,7 @@
             プロパティの変更を通知するクラス
             </summary>
         </member>
-        <member name="M:BEditor.Core.Data.Bindings.Bindings.BindCommand`1.#ctor(BEditor.Core.Data.Bindings.IBindable{`0},BEditor.Core.Data.Bindings.IBindable{`0},System.Boolean)">
+        <member name="M:BEditor.Core.Data.Bindings.Bindings.BindCommand`1.#ctor(BEditor.Core.Data.Bindings.IBindable{`0},BEditor.Core.Data.Bindings.IBindable{`0})">
             <summary>
             
             </summary>
@@ -315,7 +315,7 @@
             Get the effects included in this <see cref="T:BEditor.Core.Data.ClipData"/>.
             </summary>
         </member>
-        <member name="P:BEditor.Core.Data.ClipData.BEditor#Core#Data#Control#IParent{BEditor#Core#Data#EffectElement}#Children">
+        <member name="P:BEditor.Core.Data.ClipData.Children">
             <inheritdoc/>
         </member>
         <member name="M:BEditor.Core.Data.ClipData.Render(BEditor.Core.Data.ClipRenderArgs)">
@@ -1991,6 +1991,9 @@
             </summary>
         </member>
         <member name="P:BEditor.Core.Data.Property.PropertyElement.Id">
+            <inheritdoc/>
+        </member>
+        <member name="P:BEditor.Core.Data.Property.PropertyElement.Name">
             <inheritdoc/>
         </member>
         <member name="M:BEditor.Core.Data.Property.PropertyElement.PropertyLoaded">
@@ -3813,9 +3816,19 @@
               ActivityLog に類似しているローカライズされた文字列を検索します。
             </summary>
         </member>
+        <member name="P:BEditor.Core.Properties.Resources.Add">
+            <summary>
+              Add に類似しているローカライズされた文字列を検索します。
+            </summary>
+        </member>
         <member name="P:BEditor.Core.Properties.Resources.AddClip">
             <summary>
               Add a clip に類似しているローカライズされた文字列を検索します。
+            </summary>
+        </member>
+        <member name="P:BEditor.Core.Properties.Resources.AddEffect">
+            <summary>
+              Add a effect に類似しているローカライズされた文字列を検索します。
             </summary>
         </member>
         <member name="P:BEditor.Core.Properties.Resources.AddKeyframe">
@@ -3948,6 +3961,11 @@
               Circle に類似しているローカライズされた文字列を検索します。
             </summary>
         </member>
+        <member name="P:BEditor.Core.Properties.Resources.Clip">
+            <summary>
+              Clip に類似しているローカライズされた文字列を検索します。
+            </summary>
+        </member>
         <member name="P:BEditor.Core.Properties.Resources.ClipHeight">
             <summary>
               Clip height (changes apply after restarting the application) に類似しているローカライズされた文字列を検索します。
@@ -3988,6 +4006,12 @@
               ColorPicker に類似しているローカライズされた文字列を検索します。
             </summary>
         </member>
+        <member name="P:BEditor.Core.Properties.Resources.CommandQ1">
+             <summary>
+               This operation can not be undone
+            Do you want to perform the operation? に類似しているローカライズされた文字列を検索します。
+             </summary>
+        </member>
         <member name="P:BEditor.Core.Properties.Resources.Continue">
             <summary>
               Continue に類似しているローカライズされた文字列を検索します。
@@ -4026,6 +4050,11 @@
         <member name="P:BEditor.Core.Properties.Resources.Cut">
             <summary>
               Cut に類似しているローカライズされた文字列を検索します。
+            </summary>
+        </member>
+        <member name="P:BEditor.Core.Properties.Resources.Delete">
+            <summary>
+              Delete に類似しているローカライズされた文字列を検索します。
             </summary>
         </member>
         <member name="P:BEditor.Core.Properties.Resources.DepthFunction">
@@ -4083,6 +4112,11 @@
               Edit に類似しているローカライズされた文字列を検索します。
             </summary>
         </member>
+        <member name="P:BEditor.Core.Properties.Resources.Effect">
+            <summary>
+              Effect に類似しているローカライズされた文字列を検索します。
+            </summary>
+        </member>
         <member name="P:BEditor.Core.Properties.Resources.EffectFailed">
             <summary>
               The effect failed. [{0}] に類似しているローカライズされた文字列を検索します。
@@ -4113,6 +4147,16 @@
                An error has occurred.
             Please let the developer know. に類似しているローカライズされた文字列を検索します。
              </summary>
+        </member>
+        <member name="P:BEditor.Core.Properties.Resources.ErrorObjectViewer1">
+            <summary>
+              Select a {0} or its child elements に類似しているローカライズされた文字列を検索します。
+            </summary>
+        </member>
+        <member name="P:BEditor.Core.Properties.Resources.ErrorObjectViewer2">
+            <summary>
+              Please select {0} に類似しているローカライズされた文字列を検索します。
+            </summary>
         </member>
         <member name="P:BEditor.Core.Properties.Resources.ExceptionInfomationHidden">
             <summary>
@@ -4239,6 +4283,11 @@
               General に類似しているローカライズされた文字列を検索します。
             </summary>
         </member>
+        <member name="P:BEditor.Core.Properties.Resources.GetPath">
+            <summary>
+              Get the path に類似しているローカライズされた文字列を検索します。
+            </summary>
+        </member>
         <member name="P:BEditor.Core.Properties.Resources.Height">
             <summary>
               Height に類似しているローカライズされた文字列を検索します。
@@ -4279,9 +4328,19 @@
               Installed plug-ins に類似しているローカライズされた文字列を検索します。
             </summary>
         </member>
+        <member name="P:BEditor.Core.Properties.Resources.Layer">
+            <summary>
+              Layer に類似しているローカライズされた文字列を検索します。
+            </summary>
+        </member>
         <member name="P:BEditor.Core.Properties.Resources.Left">
             <summary>
               Left に類似しているローカライズされた文字列を検索します。
+            </summary>
+        </member>
+        <member name="P:BEditor.Core.Properties.Resources.Length">
+            <summary>
+              Length に類似しているローカライズされた文字列を検索します。
             </summary>
         </member>
         <member name="P:BEditor.Core.Properties.Resources.Library">
@@ -4332,6 +4391,11 @@
         <member name="P:BEditor.Core.Properties.Resources.No">
             <summary>
               No に類似しているローカライズされた文字列を検索します。
+            </summary>
+        </member>
+        <member name="P:BEditor.Core.Properties.Resources.ObjectViewer">
+            <summary>
+              ObjectViewer に類似しているローカライズされた文字列を検索します。
             </summary>
         </member>
         <member name="P:BEditor.Core.Properties.Resources.OK">
@@ -4399,6 +4463,11 @@
               Range に類似しているローカライズされた文字列を検索します。
             </summary>
         </member>
+        <member name="P:BEditor.Core.Properties.Resources.RangeAbove">
+            <summary>
+              Enter a value of {0} or greater に類似しているローカライズされた文字列を検索します。
+            </summary>
+        </member>
         <member name="P:BEditor.Core.Properties.Resources.Remove">
             <summary>
               Remove に類似しているローカライズされた文字列を検索します。
@@ -4437,6 +4506,11 @@
         <member name="P:BEditor.Core.Properties.Resources.SaveFolder">
             <summary>
               Save folder に類似しているローカライズされた文字列を検索します。
+            </summary>
+        </member>
+        <member name="P:BEditor.Core.Properties.Resources.Scene">
+            <summary>
+              Scene に類似しているローカライズされた文字列を検索します。
             </summary>
         </member>
         <member name="P:BEditor.Core.Properties.Resources.Scenes">

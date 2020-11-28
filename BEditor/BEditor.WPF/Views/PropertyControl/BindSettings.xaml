@@ -43,15 +43,11 @@
             </Grid.ColumnDefinitions>
             <VirtualizingStackPanel>
                 <Label Content="パス" VerticalAlignment="Stretch" Height="45" Padding="10,0,0,0" VerticalContentAlignment="Center"/>
-                <Label Content="TwoWay" VerticalAlignment="Stretch" Height="45" Padding="10,0,0,0" VerticalContentAlignment="Center"/>
             </VirtualizingStackPanel>
 
             <VirtualizingStackPanel Grid.Column="1">
                 <Label VerticalContentAlignment="Center" HorizontalContentAlignment="Stretch" Padding="0,0,0,0" Height="45">
                     <TextBox VerticalAlignment="Center" VerticalContentAlignment="Center" Margin="10,0,10,0" Text="{Binding BindPath, Mode=TwoWay}"/>
-                </Label>
-                <Label VerticalContentAlignment="Center" HorizontalContentAlignment="Stretch" Padding="0,0,0,0" Height="45" HorizontalAlignment="Stretch">
-                    <CheckBox HorizontalAlignment="Right" Margin="0,0,10,0" IsChecked="{Binding UseTwoWay, Mode=TwoWay}"/>
                 </Label>
             </VirtualizingStackPanel>
         </Grid>

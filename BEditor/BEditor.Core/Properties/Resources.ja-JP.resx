@@ -159,8 +159,14 @@
   <data name="ActivityLog" xml:space="preserve">
     <value>アクティビティログ</value>
   </data>
+  <data name="Add" xml:space="preserve">
+    <value>追加</value>
+  </data>
   <data name="AddClip" xml:space="preserve">
     <value>クリップを追加</value>
+  </data>
+  <data name="AddEffect" xml:space="preserve">
+    <value>エフェクトを追加</value>
   </data>
   <data name="AddKeyframe" xml:space="preserve">
     <value>キーフレームを追加</value>
@@ -240,6 +246,9 @@
   <data name="Circle" xml:space="preserve">
     <value>円</value>
   </data>
+  <data name="Clip" xml:space="preserve">
+    <value>クリップ</value>
+  </data>
   <data name="ClipHeight" xml:space="preserve">
     <value>クリップの高さ（変更はアプリケーションの再起動後に適用されます）</value>
   </data>
@@ -264,6 +273,10 @@
   <data name="ColorPicker" xml:space="preserve">
     <value>カラーピッカー</value>
   </data>
+  <data name="CommandQ1" xml:space="preserve">
+    <value>この操作はもとに戻すことができません
+操作を実行しますか？</value>
+  </data>
   <data name="Continue" xml:space="preserve">
     <value>続ける</value>
   </data>
@@ -287,6 +300,9 @@
   </data>
   <data name="Cut" xml:space="preserve">
     <value>切り取り</value>
+  </data>
+  <data name="Delete" xml:space="preserve">
+    <value>消去</value>
   </data>
   <data name="DepthFunction" xml:space="preserve">
     <value>DepthFunction</value>
@@ -321,6 +337,9 @@
   <data name="Edit" xml:space="preserve">
     <value>編集</value>
   </data>
+  <data name="Effect" xml:space="preserve">
+    <value>エフェクト</value>
+  </data>
   <data name="EffectFailed" xml:space="preserve">
     <value>エフェクトに失敗しました [{0}]</value>
   </data>
@@ -339,6 +358,12 @@
   <data name="ErrorMessage" xml:space="preserve">
     <value>エラーが発生しました。
 開発元にお知らせください</value>
+  </data>
+  <data name="ErrorObjectViewer1" xml:space="preserve">
+    <value>{0} またはその子要素を選択してください</value>
+  </data>
+  <data name="ErrorObjectViewer2" xml:space="preserve">
+    <value>{0} を選択してください</value>
   </data>
   <data name="ExceptionInfomationHidden" xml:space="preserve">
     <value>エラー情報を非表示</value>
@@ -388,6 +413,9 @@
   <data name="General" xml:space="preserve">
     <value>全般</value>
   </data>
+  <data name="GetPath" xml:space="preserve">
+    <value>パスを取得</value>
+  </data>
   <data name="Height" xml:space="preserve">
     <value>高さ</value>
   </data>
@@ -412,8 +440,14 @@
   <data name="InstalledPlugins" xml:space="preserve">
     <value>インストール済みのプラグイン</value>
   </data>
+  <data name="Layer" xml:space="preserve">
+    <value>レイヤー</value>
+  </data>
   <data name="Left" xml:space="preserve">
     <value>左</value>
+  </data>
+  <data name="Length" xml:space="preserve">
+    <value>長さ</value>
   </data>
   <data name="Library" xml:space="preserve">
     <value>ライブラリ</value>
@@ -441,6 +475,9 @@
   </data>
   <data name="No" xml:space="preserve">
     <value>いいえ</value>
+  </data>
+  <data name="ObjectViewer" xml:space="preserve">
+    <value>オブジェクトビューアー</value>
   </data>
   <data name="OK" xml:space="preserve">
     <value>OK</value>
@@ -481,6 +518,9 @@
   <data name="Range" xml:space="preserve">
     <value>範囲</value>
   </data>
+  <data name="RangeAbove" xml:space="preserve">
+    <value>{0} 以上の値を入力してください</value>
+  </data>
   <data name="Remove" xml:space="preserve">
     <value>削除</value>
   </data>
@@ -504,6 +544,9 @@
   </data>
   <data name="Save_as" xml:space="preserve">
     <value>上書き保存</value>
+  </data>
+  <data name="Scene" xml:space="preserve">
+    <value>シーン</value>
   </data>
   <data name="Scenes" xml:space="preserve">
     <value>シーン</value>
@@ -568,9 +611,6 @@
   <data name="TypeOfDraw" xml:space="preserve">
     <value>標準描画</value>
   </data>
-  <data name="TypeOfDrawPlus" xml:space="preserve">
-    <value>拡張描画</value>
-  </data>
   <data name="Uninstall" xml:space="preserve">
     <value>アンインストール</value>
   </data>
@@ -582,9 +622,6 @@
   </data>
   <data name="UseDarkMode" xml:space="preserve">
     <value>ダークモードを使用する（アプリケーションの再起動後に有効）</value>
-  </data>
-  <data name="UseGDI" xml:space="preserve">
-    <value>図形のレンダリングにGDIを使用します(Offの場合WPFを使用)</value>
   </data>
   <data name="ValueIsNotValid" xml:space="preserve">
     <value>値が無効です</value>

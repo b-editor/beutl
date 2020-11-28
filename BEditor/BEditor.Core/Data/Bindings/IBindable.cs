@@ -8,11 +8,15 @@ using BEditor.Core.Data.Property;
 
 namespace BEditor.Core.Data.Bindings
 {
-    public interface IBindable<T> : IObservable<T>, IObserver<T>, IPropertyElement
+    public interface IBindable<T> : IBindable, IObservable<T>, IObserver<T>
     {
         public T Value { get; }
-        public string BindHint { get; }
 
         public void Bind(IBindable<T> bindable);
+    }
+
+    public interface IBindable : IPropertyElement
+    {
+        public string BindHint { get; }
     }
 }

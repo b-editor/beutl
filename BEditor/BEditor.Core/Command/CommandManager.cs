@@ -89,7 +89,13 @@ namespace BEditor.Core.Command
             { typeof(Bindings.BindCommand<bool>), "" },
             { typeof(Bindings.BindCommand<Media.Color>), "" },
             { typeof(Bindings.BindCommand<Media.ReadOnlyColor>), "" },
-            { typeof(Bindings.BindCommand<Media.FontRecord>), "" }
+            { typeof(Bindings.BindCommand<Media.FontRecord>), "" },
+            
+            { typeof(Bindings.Disconnect<int>), "" },
+            { typeof(Bindings.Disconnect<bool>), "" },
+            { typeof(Bindings.Disconnect<Media.Color>), "" },
+            { typeof(Bindings.Disconnect<Media.ReadOnlyColor>), "" },
+            { typeof(Bindings.Disconnect<Media.FontRecord>), "" }
 
 	        #endregion
         };
