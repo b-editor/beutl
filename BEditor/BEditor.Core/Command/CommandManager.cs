@@ -80,6 +80,8 @@ namespace BEditor.Core.Command
             { typeof(ValueProperty.ChangeValueCommand), "値の変更" },
             { typeof(TextProperty.ChangeTextCommand), "値の変更" },
 
+            { typeof(FolderProperty.ChangeFolderCommand), "フォルダ変更" },
+
             #endregion
 
             #region バインディング

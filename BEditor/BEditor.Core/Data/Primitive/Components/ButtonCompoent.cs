@@ -6,10 +6,11 @@ using System.Text;
 using System.Threading.Tasks;
 
 using BEditor.Core.Data.Property;
+using BEditor.Core.Data.Property.EasingProperty;
 
 namespace BEditor.Core.Data.Primitive.Components
 {
-    public class ButtonComponent : ComponentElement<PropertyElementMetadata>, IObservable<object>
+    public class ButtonComponent : ComponentElement<PropertyElementMetadata>, IEasingProperty, IObservable<object>
     {
         private List<IObserver<object>> list;
 
