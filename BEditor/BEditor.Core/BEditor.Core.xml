@@ -3821,6 +3821,11 @@
               Add a clip に類似しているローカライズされた文字列を検索します。
             </summary>
         </member>
+        <member name="P:BEditor.Core.Properties.Resources.AddEffect">
+            <summary>
+              Add a effect に類似しているローカライズされた文字列を検索します。
+            </summary>
+        </member>
         <member name="P:BEditor.Core.Properties.Resources.AddKeyframe">
             <summary>
               Add a keyframe に類似しているローカライズされた文字列を検索します。
@@ -3949,6 +3954,11 @@
         <member name="P:BEditor.Core.Properties.Resources.Circle">
             <summary>
               Circle に類似しているローカライズされた文字列を検索します。
+            </summary>
+        </member>
+        <member name="P:BEditor.Core.Properties.Resources.Clip">
+            <summary>
+              Clip に類似しているローカライズされた文字列を検索します。
             </summary>
         </member>
         <member name="P:BEditor.Core.Properties.Resources.ClipHeight">
@@ -4282,9 +4292,19 @@
               Installed plug-ins に類似しているローカライズされた文字列を検索します。
             </summary>
         </member>
+        <member name="P:BEditor.Core.Properties.Resources.Layer">
+            <summary>
+              Layer に類似しているローカライズされた文字列を検索します。
+            </summary>
+        </member>
         <member name="P:BEditor.Core.Properties.Resources.Left">
             <summary>
               Left に類似しているローカライズされた文字列を検索します。
+            </summary>
+        </member>
+        <member name="P:BEditor.Core.Properties.Resources.Length">
+            <summary>
+              Length に類似しているローカライズされた文字列を検索します。
             </summary>
         </member>
         <member name="P:BEditor.Core.Properties.Resources.Library">

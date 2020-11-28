@@ -20,6 +20,8 @@ using BEditor.Core.Data.Control;
 using BEditor.Core.Data.Property;
 using BEditor.Core.Extensions.ViewCommand;
 using BEditor.Models;
+using BEditor.ViewModels.CreateDialog;
+using BEditor.Views.CreateDialog;
 
 using Clipboard = System.Windows.Clipboard;
 
@@ -117,7 +119,7 @@ namespace BEditor.Views.ToolControl.Default
             {
                 GetClip().Remove();
             }
-            catch(IndexOutOfRangeException)
+            catch (IndexOutOfRangeException)
             {
                 Message.Snackbar("ClipData またはその子要素を選択してください");
             }
@@ -128,30 +130,55 @@ namespace BEditor.Views.ToolControl.Default
             {
                 GetEffect().Remove();
             }
-            catch(IndexOutOfRangeException)
+            catch (IndexOutOfRangeException)
             {
                 Message.Snackbar("EffectElement またはその子要素を選択してください");
             }
         }
         private void AddScene(object sender, RoutedEventArgs e)
         {
-            new CreateSceneWindow().ShowDialog();
+            new SceneCreateDialog().ShowDialog();
         }
         private void AddClip(object sender, RoutedEventArgs e)
         {
+            var viewmodel = new ClipCreateDialogViewModel();
+            var dialog = new ClipCreateDialog()
+            {
+                DataContext = viewmodel
+            };
+
             try
             {
-                //var scene = GetScene();
-                Message.Snackbar("未実装");
+                var scene = GetScene();
+                viewmodel.Scene.Value = scene;
             }
-            catch (IndexOutOfRangeException)
+            finally
             {
-                Message.Snackbar("Scene またはその子要素を選択してください");
+                dialog.ShowDialog();
             }
         }
         private void AddEffect(object sender, RoutedEventArgs e)
         {
-            Message.Snackbar("未実装");
+            var viewmodel = new EffectAddDialogViewModel();
+            var dialog = new EffectAddDialog()
+            {
+                DataContext = viewmodel
+            };
+
+            try
+            {
+                viewmodel.Scene.Value = GetScene();
+            }
+            catch(IndexOutOfRangeException)
+            {
+                var clip = GetClip();
+                viewmodel.Scene.Value = clip.Parent;
+                viewmodel.TargetClip.Value = clip;
+            }
+            finally
+            {
+                dialog.ShowDialog();
+            }
         }
     }
 }

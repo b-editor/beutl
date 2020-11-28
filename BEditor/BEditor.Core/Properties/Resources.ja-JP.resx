@@ -162,6 +162,9 @@
   <data name="AddClip" xml:space="preserve">
     <value>クリップを追加</value>
   </data>
+  <data name="AddEffect" xml:space="preserve">
+    <value>エフェクトを追加</value>
+  </data>
   <data name="AddKeyframe" xml:space="preserve">
     <value>キーフレームを追加</value>
   </data>
@@ -239,6 +242,9 @@
   </data>
   <data name="Circle" xml:space="preserve">
     <value>円</value>
+  </data>
+  <data name="Clip" xml:space="preserve">
+    <value>クリップ</value>
   </data>
   <data name="ClipHeight" xml:space="preserve">
     <value>クリップの高さ（変更はアプリケーションの再起動後に適用されます）</value>
@@ -412,8 +418,14 @@
   <data name="InstalledPlugins" xml:space="preserve">
     <value>インストール済みのプラグイン</value>
   </data>
+  <data name="Layer" xml:space="preserve">
+    <value>レイヤー</value>
+  </data>
   <data name="Left" xml:space="preserve">
     <value>左</value>
+  </data>
+  <data name="Length" xml:space="preserve">
+    <value>長さ</value>
   </data>
   <data name="Library" xml:space="preserve">
     <value>ライブラリ</value>

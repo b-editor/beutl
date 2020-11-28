@@ -162,6 +162,9 @@
   <data name="AddClip" xml:space="preserve">
     <value>Add a clip</value>
   </data>
+  <data name="AddEffect" xml:space="preserve">
+    <value>Add a effect</value>
+  </data>
   <data name="AddKeyframe" xml:space="preserve">
     <value>Add a keyframe</value>
   </data>
@@ -239,6 +242,9 @@
   </data>
   <data name="Circle" xml:space="preserve">
     <value>Circle</value>
+  </data>
+  <data name="Clip" xml:space="preserve">
+    <value>Clip</value>
   </data>
   <data name="ClipHeight" xml:space="preserve">
     <value>Clip height (changes apply after restarting the application)</value>
@@ -439,8 +445,14 @@ Please let the developer know.</value>
   <data name="InstalledPlugins" xml:space="preserve">
     <value>Installed plug-ins</value>
   </data>
+  <data name="Layer" xml:space="preserve">
+    <value>Layer</value>
+  </data>
   <data name="Left" xml:space="preserve">
     <value>Left</value>
+  </data>
+  <data name="Length" xml:space="preserve">
+    <value>Length</value>
   </data>
   <data name="Library" xml:space="preserve">
     <value>Library</value>
