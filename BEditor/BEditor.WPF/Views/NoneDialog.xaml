@@ -21,7 +21,7 @@
         NonActiveBorderBrush="{StaticResource PrimaryHueDarkBrush}"
         NonActiveGlowBrush="{DynamicResource MaterialDesignShadowBrush}"
         BorderThickness="0"
-        
+        MaxWidth="500"
         SizeToContent="WidthAndHeight"
     >
     <Controls:MetroWindow.LeftWindowCommands>

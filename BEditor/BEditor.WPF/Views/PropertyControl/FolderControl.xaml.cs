@@ -31,10 +31,6 @@ namespace BEditor.Views.PropertyControl
 
         public FolderControl(FolderProperty property)
         {
-            InitializeComponent();
-            DataContext = new FolderPropertyViewModel(this.property = property);
-
-
             FolderChangeCommand = () =>
             {
                 // ダイアログのインスタンスを生成
@@ -52,6 +48,9 @@ namespace BEditor.Views.PropertyControl
 
                 return null;
             };
+
+            InitializeComponent();
+            DataContext = new FolderPropertyViewModel(this.property = property);
         }
 
         public Func<string> FolderChangeCommand { get; }

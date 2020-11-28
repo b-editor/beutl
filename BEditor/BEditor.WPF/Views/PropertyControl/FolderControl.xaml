@@ -36,10 +36,10 @@
         </Grid>
 
         <!--text box-->
-        <TextBox Grid.Column="3" VerticalAlignment="Center" Margin="5,0,5,0" Text="{Binding Property.File, Mode=OneWay}" VerticalContentAlignment="Center" IsReadOnly="True"/>
+        <TextBox Grid.Column="3" VerticalAlignment="Center" Margin="5,0,5,0" Text="{Binding Property.Folder, Mode=OneWay}" VerticalContentAlignment="Center" IsReadOnly="True"/>
 
         <!--button-->
-        <Button Margin="10,0,0,0" Grid.Column="2" Padding="0,0,0,0" Background="{x:Null}" BorderBrush="{x:Null}" Command="{Binding Command, Mode=OneTime}" CommandParameter="{Binding RelativeSource={RelativeSource AncestorType=local:FolderControl}, Path=FolderChangeCommand}" HorizontalAlignment="Left" Width="32">
+        <Button Margin="10,0,0,0" Grid.Column="2" Padding="0,0,0,0" Background="{x:Null}" BorderBrush="{x:Null}" Command="{Binding Command, Mode=OneTime}" CommandParameter="{Binding ElementName=root, Path=FolderChangeCommand}" HorizontalAlignment="Left" Width="32" Cursor="Hand">
             <md:PackIcon Kind="Folder" Foreground="{DynamicResource MaterialDesignBody}"/>
         </Button>
 

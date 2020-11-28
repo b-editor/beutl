@@ -2,6 +2,7 @@
 using System.Collections.Generic;
 using System.Linq;
 using System.Reactive.Disposables;
+using System.Runtime.Serialization;
 using System.Text;
 using System.Threading.Tasks;
 
@@ -10,6 +11,7 @@ using BEditor.Core.Data.Property.EasingProperty;
 
 namespace BEditor.Core.Data.Primitive.Components
 {
+    [DataContract(Namespace = "")]
     public class ButtonComponent : ComponentElement<PropertyElementMetadata>, IEasingProperty, IObservable<object>
     {
         private List<IObserver<object>> list;
