@@ -22,5 +22,11 @@ namespace BEditor.Views
                 Close();
             };
         }
+        public NoneDialog(object content)
+        {
+            InitializeComponent();
+
+            label.Content = content;
+        }
     }
 }

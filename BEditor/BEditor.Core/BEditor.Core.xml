@@ -1469,6 +1469,68 @@
             <see cref="!:FileProperty"/> のメタデータを表します
             </summary>
         </member>
+        <member name="M:BEditor.Core.Data.Primitive.Properties.FolderProperty.#ctor(BEditor.Core.Data.Primitive.Properties.FolderPropertyMetadata)">
+            <summary>
+            <see cref="T:BEditor.Core.Data.Primitive.Properties.FolderProperty"/> クラスの新しいインスタンスを初期化します
+            </summary>
+            <param name="metadata">このプロパティの <see cref="T:BEditor.Core.Data.Primitive.Properties.FolderPropertyMetadata"/></param>
+            <exception cref="T:System.ArgumentNullException"><paramref name="metadata"/> が <see langword="null"/> です</exception>
+        </member>
+        <member name="P:BEditor.Core.Data.Primitive.Properties.FolderProperty.Folder">
+            <summary>
+            フォルダの名前を取得または設定します
+            </summary>
+        </member>
+        <member name="P:BEditor.Core.Data.Primitive.Properties.FolderProperty.Value">
+            <inheritdoc/>
+        </member>
+        <member name="P:BEditor.Core.Data.Primitive.Properties.FolderProperty.BindHint">
+            <inheritdoc/>
+        </member>
+        <member name="M:BEditor.Core.Data.Primitive.Properties.FolderProperty.PropertyLoaded">
+            <inheritdoc/>
+        </member>
+        <member name="M:BEditor.Core.Data.Primitive.Properties.FolderProperty.ToString">
+            <inheritdoc/>
+        </member>
+        <member name="M:BEditor.Core.Data.Primitive.Properties.FolderProperty.OnCompleted">
+            <inheritdoc/>
+        </member>
+        <member name="M:BEditor.Core.Data.Primitive.Properties.FolderProperty.OnError(System.Exception)">
+            <inheritdoc/>
+        </member>
+        <member name="M:BEditor.Core.Data.Primitive.Properties.FolderProperty.OnNext(System.String)">
+            <inheritdoc/>
+        </member>
+        <member name="M:BEditor.Core.Data.Primitive.Properties.FolderProperty.Subscribe(System.IObserver{System.String})">
+            <inheritdoc/>
+        </member>
+        <member name="M:BEditor.Core.Data.Primitive.Properties.FolderProperty.Bind(BEditor.Core.Data.Bindings.IBindable{System.String})">
+            <inheritdoc/>
+        </member>
+        <member name="T:BEditor.Core.Data.Primitive.Properties.FolderProperty.ChangeFolderCommand">
+            <summary>
+            ファイルの名前を変更するコマンド
+            </summary>
+            <remarks>このクラスは <see cref="M:BEditor.Core.Command.CommandManager.Do(BEditor.Core.Command.IRecordCommand)"/> と併用することでコマンドを記録できます</remarks>
+        </member>
+        <member name="M:BEditor.Core.Data.Primitive.Properties.FolderProperty.ChangeFolderCommand.#ctor(BEditor.Core.Data.Primitive.Properties.FolderProperty,System.String)">
+            <summary>
+            <see cref="T:BEditor.Core.Data.Primitive.Properties.FolderProperty.ChangeFolderCommand"/> クラスの新しいインスタンスを初期化します
+            </summary>
+            <param name="property">対象の <see cref="T:BEditor.Core.Data.Primitive.Properties.FolderProperty"/></param>
+            <param name="path">新しい値</param>
+            <exception cref="T:System.ArgumentNullException"><paramref name="property"/> が <see langword="null"/> です</exception>
+        </member>
+        <member name="M:BEditor.Core.Data.Primitive.Properties.FolderProperty.ChangeFolderCommand.Do">
+            <inheritdoc/>
+        </member>
+        <member name="M:BEditor.Core.Data.Primitive.Properties.FolderProperty.ChangeFolderCommand.Redo">
+            <inheritdoc/>
+        </member>
+        <member name="M:BEditor.Core.Data.Primitive.Properties.FolderProperty.ChangeFolderCommand.Undo">
+            <inheritdoc/>
+        </member>
         <member name="T:BEditor.Core.Data.Primitive.Properties.FontProperty">
             <summary>
             フォントを選択するプロパティ表します

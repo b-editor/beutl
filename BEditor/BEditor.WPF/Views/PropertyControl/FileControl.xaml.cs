@@ -19,10 +19,10 @@ namespace BEditor.Views.PropertyControls
     {
         private readonly FileProperty property;
 
-        public FileControl(FileProperty fileSetting)
+        public FileControl(FileProperty property)
         {
             InitializeComponent();
-            DataContext = new FilePropertyViewModel(property = fileSetting);
+            DataContext = new FilePropertyViewModel(this.property = property);
 
 
             FileChangeCommand = new Func<string, string, string>((filtername, filter) =>
