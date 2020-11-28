@@ -32,21 +32,20 @@ namespace BEditor.Views.PropertyControls
         {
             e.Effects = DragDropEffects.Copy;
             Type datatype = typeof(EffectMetadata);
-            EffectMetadata effect;
-
+            
             try
             {
-                effect = (EffectMetadata)e.Data.GetData(datatype);
+                var effect = (EffectMetadata)e.Data.GetData(datatype);
+
+
+                var effectinstance = effect.CreateFunc?.Invoke() ?? Activator.CreateInstance(effect.Type) as EffectElement;
+
+                CommandManager.Do(new EffectElement.AddCommand(effectinstance, Data));
             }
             catch
             {
                 return;
             }
-
-
-            var effectinstance = effect.CreateFunc?.Invoke() ?? Activator.CreateInstance(effect.Type) as EffectElement;
-
-            CommandManager.Do(new EffectElement.AddCommand(effectinstance, Data));
         }
     }
 }

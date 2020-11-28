@@ -116,23 +116,7 @@ namespace BEditor
                 return control.DialogResult;
             };
             Message.SnackberFunc += (text) => MainWindowViewModel.Current.MessageQueue.Enqueue(text);
-
-#if DEBUG
-            Timer timer = new Timer()
-            {
-                Interval = 2500,
-                Enabled = true
-            };
-            timer.Elapsed += Timer_Elapsed;
         }
-
-        private void Timer_Elapsed(object sender, ElapsedEventArgs e)
-        {
-            System.Threading.Tasks.Task.Run(GC.Collect);
-        }
-#else
-}
-#endif
 
         public static (CustomTreeView, VirtualizingStackPanel) CreateTreeObject(ObjectElement obj)
         {

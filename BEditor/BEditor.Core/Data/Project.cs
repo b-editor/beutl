@@ -194,9 +194,6 @@ namespace BEditor.Core.Data
                 scene.GraphicsContext.Dispose();
             }
 
-            previewScene = null;
-            sceneList = null;
-            GC.Collect();
             IsDisposed = true;
         }
 

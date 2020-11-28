@@ -22,7 +22,17 @@ namespace BEditor.Page.Pages
 
 ## BEditor 0.0.3
 
+* [ダウンロード]({Consts.BEditor_003_Link})
 * [マイルストーン]({Consts.BEditor_003_MileStone_Link})
+
+### 変更
+
+* ランタイムが.NET5になりました
+* 3Dオブジェクトの追加
+* シーン, クリップを管理する ObjectViewer を追加
+* クリッピング, 領域拡張エフェクトの追加
+* 光源エフェクトの追加
+
 
 ## BEditor 0.0.2
 

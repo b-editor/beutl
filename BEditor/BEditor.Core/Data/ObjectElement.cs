@@ -15,7 +15,7 @@ namespace BEditor.Core.Data
     [DataContract(Namespace = "")]
     public abstract class ObjectElement : EffectElement
     {
-
+        public virtual bool EffectFilter(EffectElement effect) => true;
     }
 
     public class ObjectMetadata
@@ -25,7 +25,7 @@ namespace BEditor.Core.Data
         public Func<EffectElement> CreateFunc { get; set; }
         public List<ObjectMetadata> Children { get; set; }
 
-        public static List<ObjectMetadata> LoadedObjects { get; } = new List<ObjectMetadata>() {
+        public static List<ObjectMetadata> LoadedObjects { get; } = new() {
             new()
             {
                 Name = Resources.Video,
@@ -65,8 +65,8 @@ namespace BEditor.Core.Data
             new()
             {
                 Name = Resources.Scenes,
-                Type = typeof(Primitive.Objects.PrimitiveImages.SceneObject),
-                CreateFunc = () => new Primitive.Objects.PrimitiveImages.SceneObject()
+                Type = typeof(SceneObject),
+                CreateFunc = () => new SceneObject()
             }
         };
     }

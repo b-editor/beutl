@@ -270,6 +270,7 @@ namespace BEditor.Core.Data
                 this.effect = effect ?? throw new ArgumentNullException(nameof(effect));
 
                 this.data = effect.Parent;
+                if (!(data.Effect[0] as ObjectElement).EffectFilter(effect)) throw new NotSupportedException();
 
                 effect.PropertyLoaded();
             }
@@ -287,6 +288,7 @@ namespace BEditor.Core.Data
                 this.effect = effect ?? throw new ArgumentNullException(nameof(effect));
                 this.data = clip;
                 effect.Parent = clip;
+                if (!(data.Effect[0] as ObjectElement).EffectFilter(effect)) throw new NotSupportedException();
 
                 effect.PropertyLoaded();
             }
@@ -407,13 +409,13 @@ namespace BEditor.Core.Data
                         CreateFunc = () => new SpotLight()
                     }
                 }
-            },
-            new()
-            {
-                Name = "TestEffect",
-                Type = typeof(TestEffect),
-                CreateFunc = () => new TestEffect()
-            }
+            }//},
+            //new()
+            //{
+            //    Name = "TestEffect",
+            //    Type = typeof(TestEffect),
+            //    CreateFunc = () => new TestEffect()
+            //}
         };
     }
 }

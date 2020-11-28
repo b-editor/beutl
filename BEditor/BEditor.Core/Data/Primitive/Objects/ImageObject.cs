@@ -102,5 +102,7 @@ namespace BEditor.Core.Data.Primitive.Objects
             Angle.ExecuteLoaded(AngleMetadata);
             Material.ExecuteLoaded(MaterialMetadata);
         }
+
+        public override bool EffectFilter(EffectElement effect) => effect is ImageEffect;
     }
 }

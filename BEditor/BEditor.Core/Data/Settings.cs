@@ -28,7 +28,7 @@ namespace BEditor.Core.Data
 
         #endregion
 
-        
+
         static Settings()
         {
             var path = $"{Services.Path}\\user\\settings.json";
@@ -69,7 +69,7 @@ namespace BEditor.Core.Data
         [DataMember]
         public string LastTimeFolder
         {
-            get => lastTimeFolder;
+            get => lastTimeFolder ??= "";
             set => SetValue(value, ref lastTimeFolder, lastTimeFolderArgs);
         }
         [DataMember]

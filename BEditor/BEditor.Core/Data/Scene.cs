@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.Collections.ObjectModel;
 using System.ComponentModel;
 using System.Linq;
+using System.Reactive.Linq;
 using System.Runtime.Serialization;
 using System.Threading.Tasks;
 
@@ -110,7 +111,7 @@ namespace BEditor.Core.Data
         /// </summary>
         public ClipData SelectItem
         {
-            get => selectItem ??= this.Find(SelectName);
+            get => selectItem ??= this[SelectName];
             set
             {
                 SelectName = selectItem?.Name;
@@ -127,11 +128,24 @@ namespace BEditor.Core.Data
             {
                 if (selectItems == null)
                 {
-                    selectItems = new ObservableCollection<ClipData>();
+                    selectItems = new ObservableCollection<ClipData>(SelectNames.Select(name => this.Find(name)));
 
-                    Parallel.ForEach(SelectNames, name => selectItems.Add(this.Find(name)));
+                    selectItems.CollectionChanged += (s, e) =>
+                    {
+                        if (e.Action == System.Collections.Specialized.NotifyCollectionChangedAction.Add)
+                        {
+                            SelectNames.Insert(e.NewStartingIndex, selectItems[e.NewStartingIndex].Name);
+                        }
+                        else if (e.Action == System.Collections.Specialized.NotifyCollectionChangedAction.Remove)
+                        {
+                            if (SelectName == SelectNames[e.OldStartingIndex] || SelectItems.Count == 0)
+                            {
+                                SelectItem = null;
+                            }
 
-                    selectItems.CollectionChanged += SelectItems_CollectionChanged;
+                            SelectNames.RemoveAt(e.OldStartingIndex);
+                        }
+                    };
                 }
 
                 return selectItems;
@@ -239,24 +253,10 @@ namespace BEditor.Core.Data
 
         #endregion
 
+        public ClipData this[string name] => this.Find(name);
+
         #region Methods
 
-        private void SelectItems_CollectionChanged(object sender, System.Collections.Specialized.NotifyCollectionChangedEventArgs e)
-        {
-            if (e.Action == System.Collections.Specialized.NotifyCollectionChangedAction.Add)
-            {
-                SelectNames.Insert(e.NewStartingIndex, selectItems[e.NewStartingIndex].Name);
-            }
-            else if (e.Action == System.Collections.Specialized.NotifyCollectionChangedAction.Remove)
-            {
-                if (SelectName == SelectNames[e.OldStartingIndex] || SelectItems.Count == 0)
-                {
-                    SelectItem = null;
-                }
-
-                SelectNames.RemoveAt(e.OldStartingIndex);
-            }
-        }
         /// <summary>
         /// 
         /// </summary>
@@ -276,7 +276,6 @@ namespace BEditor.Core.Data
         /// <param name="frame">The frame to render</param>
         public RenderingResult Render(int frame)
         {
-            var buffer = new Image(Width, Height);
             var layer = GetLayer(frame).ToList();
 
             GraphicsContext.MakeCurrent();
@@ -290,14 +289,10 @@ namespace BEditor.Core.Data
             layer.ForEach(clip => clip.Render(args));
 
             GraphicsContext.SwapBuffers();
-            GraphicsContext.MakeCurrent();
 
+            Image buffer = new Image(Width, Height);
             GLTK.GetPixels(buffer);
 
-#if DEBUG
-            if (frame % Parent.Framerate * 5 == 1)
-                Task.Run(GC.Collect);
-#endif
             return new RenderingResult { Image = buffer };
         }
         /// <summary>

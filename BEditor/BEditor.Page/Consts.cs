@@ -12,6 +12,7 @@ namespace BEditor.Page
         public const string GithubReleasesLink = "https://github.com/indigo-san/BEditor/releases";
         public const string BEditor_001_Link = "https://drive.google.com/file/d/19w8gj_la7JAaCQjlEVldbbpos9xyMjrL/view?usp=sharing";
         public const string BEditor_002_Link = "https://drive.google.com/file/d/15BZabYO3jz_bGCnBT3IyMnxiJWHLAb-o/view?usp=sharing";
+        public const string BEditor_003_Link = "https://github.com/indigo-san/BEditor/releases/tag/v0.0.3-alpha";
         public const string BEditor_003_MileStone_Link = "https://github.com/indigo-san/BEditor/milestone/1";
         public const string BEditor_License_Link = "https://github.com/indigo-san/BEditor/blob/main/LICENSE";
         public const string OpenTK_License_Link = "https://github.com/opentk/opentk/blob/master/LICENSE.md";

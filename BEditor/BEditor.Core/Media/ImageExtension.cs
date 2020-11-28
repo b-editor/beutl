@@ -17,7 +17,7 @@ namespace BEditor.Core.Media
         public static IRenderable<Image> Flip(this IRenderable<Image> image, FlipMode mode)
         {
             image.Source.ThrowIfDisposed();
-
+            
             var result = ImageProcess.Flip(image.Source.Ptr, (int)mode);
 
             if (result != null) throw new Exception(result);
