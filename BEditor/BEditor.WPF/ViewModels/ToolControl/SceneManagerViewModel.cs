@@ -6,6 +6,7 @@ using BEditor.Views;
 
 using BEditor.Core.Data;
 using Reactive.Bindings;
+using BEditor.Views.CreateDialog;
 
 namespace BEditor.ViewModels.ToolControl
 {
@@ -16,7 +17,7 @@ namespace BEditor.ViewModels.ToolControl
         {
             AddScene.Subscribe(() =>
             {
-                new CreateSceneWindow().ShowDialog();
+                new SceneCreateDialog().ShowDialog();
             });
         }
 

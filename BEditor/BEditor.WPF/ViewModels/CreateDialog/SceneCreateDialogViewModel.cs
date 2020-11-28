@@ -3,9 +3,9 @@ using BEditor.Models;
 using System.ComponentModel;
 using Reactive.Bindings;
 
-namespace BEditor.ViewModels
+namespace BEditor.ViewModels.CreateDialog
 {
-    public class CreateSceneWindowViewModel : BasePropertyChanged
+    public class SceneCreateDialogViewModel : BasePropertyChanged
     {
         private static readonly PropertyChangedEventArgs widthArgs = new(nameof(Width));
         private static readonly PropertyChangedEventArgs heightArgs = new(nameof(Height));
@@ -14,7 +14,7 @@ namespace BEditor.ViewModels
         private int height = AppData.Current.Project.SceneList[0].Height;
         private string name = $"Scene{AppData.Current.Project.SceneList.Count}";
 
-        public CreateSceneWindowViewModel()
+        public SceneCreateDialogViewModel()
         {
             ResetCommand.Subscribe(() =>
             {

@@ -7,6 +7,7 @@
              xmlns:model="clr-namespace:BEditor.Models"
              xmlns:data="clr-namespace:BEditor.Core.Data;assembly=BEditor.Core"
              mc:Ignorable="d"
+             xmlns:md="http://materialdesigninxaml.net/winfx/xaml/themes"
              xmlns:vm="clr-namespace:BEditor.ViewModels"
              xmlns:vmtool="clr-namespace:BEditor.ViewModels.ToolControl"
              IsEnabled="{Binding ProjectIsOpened.Value, Mode=OneWay, Source={x:Static vm:MainWindowViewModel.Current}}"

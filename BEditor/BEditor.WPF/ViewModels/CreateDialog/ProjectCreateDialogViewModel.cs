@@ -5,9 +5,9 @@ using System.ComponentModel;
 using BEditor.Core.Service;
 using Reactive.Bindings;
 
-namespace BEditor.ViewModels
+namespace BEditor.ViewModels.CreateDialog
 {
-    public class CreateProjectWindowViewModel : BasePropertyChanged
+    public class ProjectCreateDialogViewModel : BasePropertyChanged
     {
         private static readonly PropertyChangedEventArgs widthArgs = new(nameof(Width));
         private static readonly PropertyChangedEventArgs heightArgs = new(nameof(Height));
@@ -22,7 +22,7 @@ namespace BEditor.ViewModels
         private string name = Settings.Default.LastTimeNum.ToString();
         private string path = Settings.Default.LastTimeFolder;
 
-        public CreateProjectWindowViewModel()
+        public ProjectCreateDialogViewModel()
         {
             OpenFolerDialog.Subscribe(OpenFolder);
             CreateCommand.Subscribe(Create);

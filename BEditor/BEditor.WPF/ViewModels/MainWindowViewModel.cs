@@ -22,6 +22,7 @@ using BEditor.Core.Service;
 using BEditor.Core.Command;
 using System.Reactive.Linq;
 using Reactive.Bindings;
+using BEditor.Views.CreateDialog;
 
 namespace BEditor.ViewModels
 {
@@ -205,7 +206,7 @@ namespace BEditor.ViewModels
             AppData.Current.AppStatus = Status.Idle;
         }
 
-        private static void ProjectCreateCommand() => new CreateProjectWindow { Owner = App.Current.MainWindow }.ShowDialog();
+        private static void ProjectCreateCommand() => new ProjectCreateDialog { Owner = App.Current.MainWindow }.ShowDialog();
 
         #endregion
 

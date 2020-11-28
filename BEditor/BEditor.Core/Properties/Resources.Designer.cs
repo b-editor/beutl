@@ -178,6 +178,15 @@ namespace BEditor.Core.Properties {
         }
         
         /// <summary>
+        ///   Add a effect に類似しているローカライズされた文字列を検索します。
+        /// </summary>
+        public static string AddEffect {
+            get {
+                return ResourceManager.GetString("AddEffect", resourceCulture);
+            }
+        }
+        
+        /// <summary>
         ///   Add a keyframe に類似しているローカライズされた文字列を検索します。
         /// </summary>
         public static string AddKeyframe {
@@ -408,6 +417,15 @@ namespace BEditor.Core.Properties {
         public static string Circle {
             get {
                 return ResourceManager.GetString("Circle", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Clip に類似しているローカライズされた文字列を検索します。
+        /// </summary>
+        public static string Clip {
+            get {
+                return ResourceManager.GetString("Clip", resourceCulture);
             }
         }
         
@@ -1007,11 +1025,29 @@ namespace BEditor.Core.Properties {
         }
         
         /// <summary>
+        ///   Layer に類似しているローカライズされた文字列を検索します。
+        /// </summary>
+        public static string Layer {
+            get {
+                return ResourceManager.GetString("Layer", resourceCulture);
+            }
+        }
+        
+        /// <summary>
         ///   Left に類似しているローカライズされた文字列を検索します。
         /// </summary>
         public static string Left {
             get {
                 return ResourceManager.GetString("Left", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Length に類似しているローカライズされた文字列を検索します。
+        /// </summary>
+        public static string Length {
+            get {
+                return ResourceManager.GetString("Length", resourceCulture);
             }
         }
         
