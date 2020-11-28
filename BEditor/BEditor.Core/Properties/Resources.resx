@@ -159,6 +159,9 @@
   <data name="ActivityLog" xml:space="preserve">
     <value>ActivityLog</value>
   </data>
+  <data name="Add" xml:space="preserve">
+    <value>Add</value>
+  </data>
   <data name="AddClip" xml:space="preserve">
     <value>Add a clip</value>
   </data>
@@ -270,6 +273,10 @@
   <data name="ColorPicker" xml:space="preserve">
     <value>ColorPicker</value>
   </data>
+  <data name="CommandQ1" xml:space="preserve">
+    <value>This operation can not be undone
+Do you want to perform the operation?</value>
+  </data>
   <data name="Continue" xml:space="preserve">
     <value>Continue</value>
   </data>
@@ -293,6 +300,9 @@
   </data>
   <data name="Cut" xml:space="preserve">
     <value>Cut</value>
+  </data>
+  <data name="Delete" xml:space="preserve">
+    <value>Delete</value>
   </data>
   <data name="DepthFunction" xml:space="preserve">
     <value>DepthFunction</value>
@@ -327,6 +337,9 @@
   <data name="Edit" xml:space="preserve">
     <value>Edit</value>
   </data>
+  <data name="Effect" xml:space="preserve">
+    <value>Effect</value>
+  </data>
   <data name="EffectFailed" xml:space="preserve">
     <value>The effect failed. [{0}]</value>
   </data>
@@ -345,6 +358,12 @@
   <data name="ErrorMessage" xml:space="preserve">
     <value>An error has occurred.
 Please let the developer know.</value>
+  </data>
+  <data name="ErrorObjectViewer1" xml:space="preserve">
+    <value>Select a {0} or its child elements</value>
+  </data>
+  <data name="ErrorObjectViewer2" xml:space="preserve">
+    <value>Please select {0}</value>
   </data>
   <data name="ExceptionInfomationHidden" xml:space="preserve">
     <value>Hide error information</value>
@@ -420,6 +439,9 @@ Please let the developer know.</value>
   </data>
   <data name="General" xml:space="preserve">
     <value>General</value>
+  </data>
+  <data name="GetPath" xml:space="preserve">
+    <value>Get the path</value>
   </data>
   <data name="Height" xml:space="preserve">
     <value>Height</value>
@@ -526,6 +548,9 @@ Please let the developer know.</value>
   <data name="Range" xml:space="preserve">
     <value>Range</value>
   </data>
+  <data name="RangeAbove" xml:space="preserve">
+    <value>Enter a value of {0} or greater</value>
+  </data>
   <data name="Remove" xml:space="preserve">
     <value>Remove</value>
   </data>
@@ -549,6 +574,9 @@ Please let the developer know.</value>
   </data>
   <data name="Save_as" xml:space="preserve">
     <value>Save as</value>
+  </data>
+  <data name="Scene" xml:space="preserve">
+    <value>Scene</value>
   </data>
   <data name="Scenes" xml:space="preserve">
     <value>Scenes</value>

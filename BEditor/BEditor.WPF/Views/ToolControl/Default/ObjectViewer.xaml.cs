@@ -48,7 +48,7 @@ namespace BEditor.Views.ToolControl.Default
             }
             else
             {
-                Message.Snackbar("IBindable を選択してください");
+                Message.Snackbar(string.Format(Core.Properties.Resources.ErrorObjectViewer2, nameof(IBindable)));
             }
         }
         private void TreeView_PreviewMouseWheel(object sender, MouseWheelEventArgs e)
@@ -101,7 +101,7 @@ namespace BEditor.Views.ToolControl.Default
                 }
 
                 if (Message.Dialog(
-                    "この操作はもとに戻すことができません\n操作を実行しますか？",
+                    Core.Properties.Resources.CommandQ1,
                     types: new ButtonType[] { ButtonType.Yes, ButtonType.No }) == ButtonType.Yes)
                 {
                     scene.Parent.PreviewScene = scene.Parent.SceneList[0];
@@ -110,7 +110,7 @@ namespace BEditor.Views.ToolControl.Default
             }
             catch (IndexOutOfRangeException)
             {
-                Message.Snackbar("Scene またはその子要素を選択してください");
+                Message.Snackbar(string.Format(Core.Properties.Resources.ErrorObjectViewer1, nameof(Scene)));
             }
         }
         private void RemoveClip(object sender, RoutedEventArgs e)
@@ -121,7 +121,7 @@ namespace BEditor.Views.ToolControl.Default
             }
             catch (IndexOutOfRangeException)
             {
-                Message.Snackbar("ClipData またはその子要素を選択してください");
+                Message.Snackbar(string.Format(Core.Properties.Resources.ErrorObjectViewer1, nameof(ClipData)));
             }
         }
         private void RemoveEffect(object sender, RoutedEventArgs e)
@@ -132,7 +132,7 @@ namespace BEditor.Views.ToolControl.Default
             }
             catch (IndexOutOfRangeException)
             {
-                Message.Snackbar("EffectElement またはその子要素を選択してください");
+                Message.Snackbar(string.Format(Core.Properties.Resources.ErrorObjectViewer1, nameof(EffectElement)));
             }
         }
         private void AddScene(object sender, RoutedEventArgs e)

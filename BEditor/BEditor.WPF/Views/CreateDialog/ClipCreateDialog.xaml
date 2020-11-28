@@ -62,7 +62,7 @@
         </Grid.RowDefinitions>
 
         <VirtualizingStackPanel>
-            <Label Content="{x:Static properties:Resources.Scenes}" Style="{StaticResource HeaderLabel}"/>
+            <Label Content="{x:Static properties:Resources.Scene}" Style="{StaticResource HeaderLabel}"/>
             <Label Content="{x:Static properties:Resources.Type}" Style="{StaticResource HeaderLabel}"/>
             <Separator Margin="5,5,5,5" Background="{x:Null}"/>
             <Label Content="{x:Static properties:Resources.Start}" Style="{StaticResource HeaderLabel}"/>

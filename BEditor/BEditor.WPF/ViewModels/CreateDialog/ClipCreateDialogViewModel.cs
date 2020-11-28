@@ -6,6 +6,7 @@ using System.Threading.Tasks;
 
 using BEditor.Core.Command;
 using BEditor.Core.Data;
+using BEditor.Core.Properties;
 using BEditor.Models;
 
 using Reactive.Bindings;
@@ -17,11 +18,11 @@ namespace BEditor.ViewModels.CreateDialog
         public ClipCreateDialogViewModel()
         {
             Start = new ReactiveProperty<int>(1)
-                .SetValidateNotifyError(value => (value <= 0) ? "1以上の値を指定してください" : null);
+                .SetValidateNotifyError(value => (value <= 0) ? string.Format(Resources.RangeAbove, "0") : null);
             Length = new ReactiveProperty<int>(180)
-                .SetValidateNotifyError(value => (value <= 0) ? "1以上の値を指定してください" : null);
+                .SetValidateNotifyError(value => (value <= 0) ? string.Format(Resources.RangeAbove, "0") : null);
             Layer = new ReactiveProperty<int>(1)
-                .SetValidateNotifyError(value => (value <= 0) ? "1以上の値を指定してください" : null);
+                .SetValidateNotifyError(value => (value <= 0) ? string.Format(Resources.RangeAbove, "0") : null);
 
             AddCommand.Subscribe(() =>
             {

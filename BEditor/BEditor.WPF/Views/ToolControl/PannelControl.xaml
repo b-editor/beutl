@@ -35,12 +35,6 @@
         </TabItem>
         <TabItem>
             <TabItem.Header>
-                <TextBlock Text="{x:Static properties:Resources.Scenes}" FontSize="12" VerticalAlignment="Center"/>
-            </TabItem.Header>
-            <tool:SceneManager/>
-        </TabItem>
-        <TabItem>
-            <TabItem.Header>
                 <TextBlock Text="{x:Static properties:Resources.ObjectViewer}" FontSize="12" VerticalAlignment="Center"/>
             </TabItem.Header>
             <tool:ObjectViewer/>

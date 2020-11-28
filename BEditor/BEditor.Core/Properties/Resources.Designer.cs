@@ -169,6 +169,15 @@ namespace BEditor.Core.Properties {
         }
         
         /// <summary>
+        ///   Add に類似しているローカライズされた文字列を検索します。
+        /// </summary>
+        public static string Add {
+            get {
+                return ResourceManager.GetString("Add", resourceCulture);
+            }
+        }
+        
+        /// <summary>
         ///   Add a clip に類似しているローカライズされた文字列を検索します。
         /// </summary>
         public static string AddClip {
@@ -502,6 +511,16 @@ namespace BEditor.Core.Properties {
         }
         
         /// <summary>
+        ///   This operation can not be undone
+        ///Do you want to perform the operation? に類似しているローカライズされた文字列を検索します。
+        /// </summary>
+        public static string CommandQ1 {
+            get {
+                return ResourceManager.GetString("CommandQ1", resourceCulture);
+            }
+        }
+        
+        /// <summary>
         ///   Continue に類似しているローカライズされた文字列を検索します。
         /// </summary>
         public static string Continue {
@@ -570,6 +589,15 @@ namespace BEditor.Core.Properties {
         public static string Cut {
             get {
                 return ResourceManager.GetString("Cut", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Delete に類似しているローカライズされた文字列を検索します。
+        /// </summary>
+        public static string Delete {
+            get {
+                return ResourceManager.GetString("Delete", resourceCulture);
             }
         }
         
@@ -673,6 +701,15 @@ namespace BEditor.Core.Properties {
         }
         
         /// <summary>
+        ///   Effect に類似しているローカライズされた文字列を検索します。
+        /// </summary>
+        public static string Effect {
+            get {
+                return ResourceManager.GetString("Effect", resourceCulture);
+            }
+        }
+        
+        /// <summary>
         ///   The effect failed. [{0}] に類似しているローカライズされた文字列を検索します。
         /// </summary>
         public static string EffectFailed {
@@ -724,6 +761,24 @@ namespace BEditor.Core.Properties {
         public static string ErrorMessage {
             get {
                 return ResourceManager.GetString("ErrorMessage", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Select a {0} or its child elements に類似しているローカライズされた文字列を検索します。
+        /// </summary>
+        public static string ErrorObjectViewer1 {
+            get {
+                return ResourceManager.GetString("ErrorObjectViewer1", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Please select {0} に類似しているローカライズされた文字列を検索します。
+        /// </summary>
+        public static string ErrorObjectViewer2 {
+            get {
+                return ResourceManager.GetString("ErrorObjectViewer2", resourceCulture);
             }
         }
         
@@ -949,6 +1004,15 @@ namespace BEditor.Core.Properties {
         public static string General {
             get {
                 return ResourceManager.GetString("General", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Get the path に類似しているローカライズされた文字列を検索します。
+        /// </summary>
+        public static string GetPath {
+            get {
+                return ResourceManager.GetString("GetPath", resourceCulture);
             }
         }
         
@@ -1268,6 +1332,15 @@ namespace BEditor.Core.Properties {
         }
         
         /// <summary>
+        ///   Enter a value of {0} or greater に類似しているローカライズされた文字列を検索します。
+        /// </summary>
+        public static string RangeAbove {
+            get {
+                return ResourceManager.GetString("RangeAbove", resourceCulture);
+            }
+        }
+        
+        /// <summary>
         ///   Remove に類似しているローカライズされた文字列を検索します。
         /// </summary>
         public static string Remove {
@@ -1336,6 +1409,15 @@ namespace BEditor.Core.Properties {
         public static string SaveFolder {
             get {
                 return ResourceManager.GetString("SaveFolder", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Scene に類似しているローカライズされた文字列を検索します。
+        /// </summary>
+        public static string Scene {
+            get {
+                return ResourceManager.GetString("Scene", resourceCulture);
             }
         }
         
