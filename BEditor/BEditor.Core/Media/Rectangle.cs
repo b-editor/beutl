@@ -262,16 +262,12 @@ namespace BEditor.Core.Media
 
 
         /// <inheritdoc/>
-        [Pure]
         public bool Equals(Rectangle other) => X == other.X && Y == other.Y && Width == other.Width && Height == other.Height;
         /// <inheritdoc/>
-        [Pure]
         public override bool Equals(object? obj) => obj is Rectangle other && Equals(other);
         /// <inheritdoc/>
-        [Pure]
         public override int GetHashCode() => HashCode.Combine(X, Y, Width, Height);
         /// <inheritdoc/>
-        [Pure]
         public override string ToString() => $"(X:{X} Y:{Y} Width:{Width} Height:{Height})";
 
 
@@ -316,13 +312,11 @@ namespace BEditor.Core.Media
         /// 
         /// </summary>
         /// <param name="rect"></param>
-        [Pure]
         public static explicit operator System.Drawing.Rectangle(Rectangle rect) => new System.Drawing.Rectangle(rect.X, rect.Y, rect.Width, rect.Height);
         /// <summary>
         /// 
         /// </summary>
         /// <param name="rect"></param>
-        [Pure]
         public static explicit operator Rectangle(System.Drawing.Rectangle rect) => new Rectangle(rect.X, rect.Y, rect.Width, rect.Height);
     }
 }
