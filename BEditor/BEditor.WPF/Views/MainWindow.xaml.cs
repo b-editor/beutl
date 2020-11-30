@@ -13,6 +13,11 @@ using MahApps.Metro.Controls;
 using MaterialDesignThemes.Wpf;
 using BEditor.Models;
 using BEditor.Core.Service;
+using System.Linq;
+using BEditor.Core.Data.Primitive.Properties;
+using BEditor.Views.MessageContent;
+using BEditor.ViewModels.MessageContent;
+using BEditor.Views;
 
 namespace BEditor
 {
@@ -41,8 +46,7 @@ namespace BEditor
                 Models.Clipboard.Data = Data;
 
 
-                AppData.Current.LoadedPlugins = PluginManager.Load();
-
+                PluginInit();
 
                 //コマンドライン引数から開く
                 if (AppData.Current.Arguments.Length != 0 && File.Exists(AppData.Current.Arguments[0]))
@@ -61,6 +65,46 @@ namespace BEditor
             Focus();
         }
 
+        private static void PluginInit()
+        {
+            // すべて
+            var all = PluginManager.GetNames();
+            // 無効なプラグイン
+            var disable = all.Except(Settings.Default.EnablePlugins)
+                .Except(Settings.Default.DisablePlugins)
+                .ToArray();
+
+            // ここで確認ダイアログを表示
+            if (disable.Length != 0)
+            {
+                var control = new PluginCheckHost();
+                var controlvm = new PluginCheckHostViewModel
+                {
+                    Plugins = new(disable.Select(name => new PluginCheckViewModel() { Name = { Value = name } }))
+                };
+
+                control.DataContext = controlvm;
+
+                new NoneDialog(control).ShowDialog();
+
+                foreach (var vm in controlvm.Plugins)
+                {
+                    if (vm.IsEnabled.Value)
+                    {
+                        Settings.Default.EnablePlugins.Add(vm.Name.Value);
+                    }
+                    else
+                    {
+                        Settings.Default.DisablePlugins.Add(vm.Name.Value);
+                    }
+                }
+
+                Settings.Default.Save();
+            }
+
+            AppData.Current.LoadedPlugins = PluginManager.Load(Settings.Default.EnablePlugins).ToList();
+        }
+
         private void MetroWindow_Closing(object sender, System.ComponentModel.CancelEventArgs e) => Models.Clipboard.clipboardWatcher.Dispose();
 
         private void ObjectMouseDown(object sender, MouseButtonEventArgs e)
@@ -68,8 +112,8 @@ namespace BEditor
             if (e.LeftButton == MouseButtonState.Pressed)
             {
                 PackIcon packIcon = (PackIcon)sender;
-                Type s = ClipTypeIconConverter.ToClipType(packIcon.Kind);
-                DataObject dataObject = new DataObject(typeof(Type), s);
+                Func<ObjectMetadata> s = () => ClipTypeIconConverter.ToClipMetadata(packIcon.Kind);
+                DataObject dataObject = new DataObject(typeof(Func<ObjectMetadata>), s);
                 // ドラッグ開始
                 DragDrop.DoDragDrop(this, dataObject, DragDropEffects.Copy);
             }
@@ -79,10 +123,7 @@ namespace BEditor
         {
             var btn = (Button)sender;
 
-            if (btn.ContextMenu == null)
-            {
-                return;
-            }
+            if (btn.ContextMenu == null) return;
 
             btn.ContextMenu.IsOpen = true;
             btn.ContextMenu.PlacementTarget = btn;

@@ -146,16 +146,16 @@ namespace BEditor.Core.Command
         /// <param name="self">対象の <see cref="Scene"/></param>
         /// <param name="addframe">配置するフレーム</param>
         /// <param name="layer">配置するレイヤー</param>
-        /// <param name="type">クリップの種類</param>
+        /// <param name="metadata">クリップの種類</param>
         /// <param name="mode"><see cref="CommandMode.Execute"/> を指定するとコマンドが <see cref="CommandManager"/> に記録されません</param>
         /// <exception cref="ArgumentNullException"><paramref name="self"/> が <see langword="null"/> です</exception>
-        /// <exception cref="ArgumentNullException"><paramref name="type"/> が <see langword="null"/> です</exception>
+        /// <exception cref="ArgumentNullException"><paramref name="metadata"/> が <see langword="null"/> です</exception>
         /// <exception cref="ArgumentOutOfRangeException"><paramref name="addframe"/> が0以下です</exception>
         /// <exception cref="ArgumentOutOfRangeException"><paramref name="layer"/> が0以下です</exception>
         /// <returns>作成されたコマンド</returns>
-        public static ClipData.AddCommand Add(this Scene self, int addframe, int layer, Type type, CommandMode mode = CommandMode.Recode)
+        public static ClipData.AddCommand Add(this Scene self, int addframe, int layer, ObjectMetadata metadata, CommandMode mode = CommandMode.Recode)
         {
-            var command = new ClipData.AddCommand(self, addframe, layer, type);
+            var command = new ClipData.AddCommand(self, addframe, layer, metadata);
             if (mode == CommandMode.Recode)
             {
                 CommandManager.Do(command);

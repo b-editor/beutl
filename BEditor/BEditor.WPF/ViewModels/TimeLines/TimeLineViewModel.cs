@@ -240,23 +240,23 @@ namespace BEditor.ViewModels.TimeLines
         #endregion
 
         #region Drop
-        private static Type FileTypeConvert(string file)
+        private static ObjectMetadata FileTypeConvert(string file)
         {
             var ex = Path.GetExtension(file);
             if (ex is ".avi" or ".mp4")
             {
-                return ClipType.Video;
+                return ClipType.VideoMetadata;
             }
             else if (ex is ".jpg" or ".jpeg" or ".png" or ".bmp")
             {
-                return ClipType.Image;
+                return ClipType.ImageMetadata;
             }
             else if (ex is ".txt")
             {
-                return ClipType.Text;
+                return ClipType.TextMetadata;
             }
 
-            return ClipType.Figure;
+            return ClipType.FigureMetadata;
         }
 
         private void LayerDrop(object sender, EventArgs e)
@@ -271,9 +271,13 @@ namespace BEditor.ViewModels.TimeLines
                 int addlayer = AttachmentProperty.GetInt((Grid)sender);
 
 
-                if (de.Data.GetDataPresent(typeof(Type)))
+                if (de.Data.GetDataPresent(typeof(Func<ObjectMetadata>)))
                 {
-                    var command = new ClipData.AddCommand(Scene, frame, addlayer, (Type)de.Data.GetData(typeof(Type)));
+                    var command = new ClipData.AddCommand(
+                        Scene,
+                        frame,
+                        addlayer,
+                        ((Func<ObjectMetadata>)de.Data.GetData(typeof(Func<ObjectMetadata>))).Invoke());
                     CommandManager.Do(command);
                 }
                 else if (de.Data.GetDataPresent(DataFormats.FileDrop, true))
@@ -286,15 +290,15 @@ namespace BEditor.ViewModels.TimeLines
                         var a = new ClipData.AddCommand(Scene, frame, addlayer, type_);
                         CommandManager.Do(a);
 
-                        if (type_ == ClipType.Image)
+                        if (type_ == ClipType.ImageMetadata)
                         {
                             (a.data.Effect[0] as Core.Data.Primitive.Objects.PrimitiveImages.Image).File.File = file;
                         }
-                        else if (type_ == ClipType.Video)
+                        else if (type_ == ClipType.VideoMetadata)
                         {
                             (a.data.Effect[0] as Core.Data.Primitive.Objects.PrimitiveImages.Video).File.File = file;
                         }
-                        else if (type_ == ClipType.Text)
+                        else if (type_ == ClipType.TextMetadata)
                         {
                             var reader = new StreamReader(file);
                             (a.data.Effect[0] as Core.Data.Primitive.Objects.PrimitiveImages.Text).Document.Text = reader.ReadToEnd();

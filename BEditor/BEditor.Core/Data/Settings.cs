@@ -1,4 +1,6 @@
-﻿using System.ComponentModel;
+﻿using System.Collections.Generic;
+using System.Collections.ObjectModel;
+using System.ComponentModel;
 using System.IO;
 using System.Runtime.Serialization;
 
@@ -25,6 +27,8 @@ namespace BEditor.Core.Data
         private int lastTimeNum = 0;
         private int widthOf1Frame = 5;
         private bool enableErrorLog = false;
+        private ObservableCollection<string> enablePlugins;
+        private ObservableCollection<string> disablePlugins;
 
         #endregion
 
@@ -89,6 +93,18 @@ namespace BEditor.Core.Data
         {
             get => enableErrorLog;
             set => SetValue(value, ref enableErrorLog, enableErrorLogArgs);
+        }
+        [DataMember]
+        public ObservableCollection<string> EnablePlugins
+        {
+            get => enablePlugins ??= new();
+            set => enablePlugins = value;
+        }
+        [DataMember]
+        public ObservableCollection<string> DisablePlugins
+        {
+            get => disablePlugins??=new();
+            set => disablePlugins = value;
         }
 
         #endregion

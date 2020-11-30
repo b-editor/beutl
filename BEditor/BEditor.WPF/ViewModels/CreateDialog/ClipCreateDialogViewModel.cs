@@ -26,7 +26,7 @@ namespace BEditor.ViewModels.CreateDialog
 
             AddCommand.Subscribe(() =>
             {
-                var command = new ClipData.AddCommand(Scene.Value, Start.Value, Layer.Value, Type.Value.Type);
+                var command = new ClipData.AddCommand(Scene.Value, Start.Value, Layer.Value, Type.Value);
 
                 CommandManager.Do(command);
 

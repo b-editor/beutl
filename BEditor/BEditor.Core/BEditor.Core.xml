@@ -156,17 +156,17 @@
             <exception cref="T:System.ArgumentNullException"><paramref name="self"/> が <see langword="null"/> です</exception>
             <returns>作成されたコマンド</returns>
         </member>
-        <member name="M:BEditor.Core.Command.ExtensionCommand.Add(BEditor.Core.Data.Scene,System.Int32,System.Int32,System.Type,BEditor.Core.Command.CommandMode)">
+        <member name="M:BEditor.Core.Command.ExtensionCommand.Add(BEditor.Core.Data.Scene,System.Int32,System.Int32,BEditor.Core.Data.ObjectMetadata,BEditor.Core.Command.CommandMode)">
             <summary>
             <see cref="T:BEditor.Core.Data.ClipData.AddCommand"/> を実行します
             </summary>
             <param name="self">対象の <see cref="T:BEditor.Core.Data.Scene"/></param>
             <param name="addframe">配置するフレーム</param>
             <param name="layer">配置するレイヤー</param>
-            <param name="type">クリップの種類</param>
+            <param name="metadata">クリップの種類</param>
             <param name="mode"><see cref="F:BEditor.Core.Command.CommandMode.Execute"/> を指定するとコマンドが <see cref="T:BEditor.Core.Command.CommandManager"/> に記録されません</param>
             <exception cref="T:System.ArgumentNullException"><paramref name="self"/> が <see langword="null"/> です</exception>
-            <exception cref="T:System.ArgumentNullException"><paramref name="type"/> が <see langword="null"/> です</exception>
+            <exception cref="T:System.ArgumentNullException"><paramref name="metadata"/> が <see langword="null"/> です</exception>
             <exception cref="T:System.ArgumentOutOfRangeException"><paramref name="addframe"/> が0以下です</exception>
             <exception cref="T:System.ArgumentOutOfRangeException"><paramref name="layer"/> が0以下です</exception>
             <returns>作成されたコマンド</returns>
@@ -343,6 +343,15 @@
             <summary>
             Represents a command that adds <see cref="T:BEditor.Core.Data.ClipData"/> to a <see cref="!:ProjectData.Scene"/>.
             </summary>
+        </member>
+        <member name="M:BEditor.Core.Data.ClipData.AddCommand.#ctor(BEditor.Core.Data.Scene,System.Int32,System.Int32,BEditor.Core.Data.ObjectMetadata)">
+            <summary>
+            <see cref="T:BEditor.Core.Data.ClipData.AddCommand"/> Initialize a new instance of the class.
+            </summary>
+            <exception cref="T:System.ArgumentNullException"><paramref name="scene"/> is <see langword="null"/>.</exception>
+            <exception cref="T:System.ArgumentNullException"><paramref name="metadata"/> is <see langword="null"/>.</exception>
+            <exception cref="T:System.ArgumentOutOfRangeException"><paramref name="startFrame"/> is less than 0.</exception>
+            <exception cref="T:System.ArgumentOutOfRangeException"><paramref name="layer"/> is less than 0</exception>
         </member>
         <member name="M:BEditor.Core.Data.ClipData.AddCommand.#ctor(BEditor.Core.Data.Scene,System.Int32,System.Int32,System.Type)">
             <summary>
@@ -3792,15 +3801,11 @@
             失敗した場合のException
             </summary>
         </member>
-        <member name="E:BEditor.Core.Plugin.PluginManager.PluginsLoaded">
+        <member name="M:BEditor.Core.Plugin.PluginManager.GetNames">
             <summary>
-            すべてのDllがロードされたあとに発生します
+            すべてのプラグイン名を取得
             </summary>
-        </member>
-        <member name="E:BEditor.Core.Plugin.PluginManager.PluginLoaded">
-            <summary>
-            一つのDllが読み込まれたあとに発生します
-            </summary>
+            <returns></returns>
         </member>
         <member name="T:BEditor.Core.Properties.Resources">
             <summary>

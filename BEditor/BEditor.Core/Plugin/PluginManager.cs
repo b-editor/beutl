@@ -1,6 +1,9 @@
 ﻿using System;
 using System.Collections.Generic;
+using System.Diagnostics;
 using System.IO;
+using System.Linq;
+using System.Reactive.Linq;
 using System.Reflection;
 using System.Text;
 
@@ -16,96 +19,66 @@ namespace BEditor.Core.Plugin
     public class PluginManager
     {
         /// <summary>
-        /// すべてのDllがロードされたあとに発生します
+        /// すべてのプラグイン名を取得
         /// </summary>
-        public static event EventHandler PluginsLoaded;
-
-        /// <summary>
-        /// 一つのDllが読み込まれたあとに発生します
-        /// </summary>
-        public static event EventHandler<PluginLoadedEventArgs> PluginLoaded;
-
-
-        public static List<IPlugin> Load()
+        /// <returns></returns>
+        public static IEnumerable<string> GetNames()
         {
-            //EasingFunc.LoadedEasingFunc.Clear();
-            //Library.EffectLibraryList.Clear();
-            var files = Directory.GetFiles($"{Services.Path}\\user\\plugins", "*.dll", SearchOption.TopDirectoryOnly);
+            return Directory.GetDirectories($"{Services.Path}\\user\\plugins")
+                .Select(folder => Path.GetFileName(folder));
+        }
 
-            var list = new List<IPlugin>();
+        // 許可されたプラグインのリストを読み込む
+        public static IEnumerable<IPlugin> Load(IEnumerable<string> pluginName)
+        {
+            var pluginss = pluginName
+                .Select(f => $"{Services.Path}\\user\\plugins\\{f}\\{f}.dll")
+                .Where(f => File.Exists(f))
+                .Select(f => Assembly.LoadFrom(f).GetTypes())
+                .Select(types => types
+                    .Select(t => Activator.CreateInstance(t) as IPlugin)
+                    .Where(t => t is not null))
+                .SelectMany(f => f);
 
-            foreach (var file in files)
+            foreach (var plugin in pluginss)
             {
-                bool issuccessful = true;
-                Exception exception = null;
-                try
+                if (plugin is IEffects effects)
                 {
-                    var asm = Assembly.LoadFrom(file);
+                    var a = new EffectMetadata() { Name = plugin.PluginName, Children = new() };
 
-                    foreach (var t in asm.GetTypes())
+                    foreach (var metadata in effects.Effects)
                     {
-                        if (t.IsInterface) continue;
+                        a.Children.Add(metadata);
+                        Serialize.SerializeKnownTypes.Add(metadata.Type);
+                    }
 
-                        var instance = Activator.CreateInstance(t);
+                    EffectMetadata.LoadedEffects.Add(a);
+                }
 
-                        if (instance is IPlugin plugin)
-                        {
-                            list.Add(plugin);
+                if (plugin is IObjects objects)
+                {
+                    var a = new ObjectMetadata() { Name = plugin.PluginName, Children = new() };
 
+                    foreach (var metadata in objects.Objects)
+                    {
+                        a.Children.Add(metadata);
+                        Serialize.SerializeKnownTypes.Add(metadata.Type);
+                    }
 
-                            if (plugin is IEffects effects)
-                            {
-                                var a = new EffectMetadata() { Name = plugin.PluginName, Children = new() };
+                    ObjectMetadata.LoadedObjects.Add(a);
+                }
 
-                                foreach (var metadata in effects.Effects)
-                                {
-                                    a.Children.Add(metadata);
-                                    Serialize.SerializeKnownTypes.Add(metadata.Type);
-                                }
-
-                                EffectMetadata.LoadedEffects.Add(a);
-                            }
-
-                            if (plugin is IObjects objects)
-                            {
-                                var a = new ObjectMetadata() { Name = plugin.PluginName, Children = new() };
-
-                                foreach (var metadata in objects.Objects)
-                                {
-                                    a.Children.Add(metadata);
-                                    Serialize.SerializeKnownTypes.Add(metadata.Type);
-                                }
-
-                                ObjectMetadata.LoadedObjects.Add(a);
-                            }
-
-
-                            if (plugin is IEasingFunctions easing)
-                            {
-                                foreach (var data in easing.EasingFunc)
-                                {
-                                    EasingFunc.LoadedEasingFunc.Add(data);
-                                    Serialize.SerializeKnownTypes.Add(data.Type);
-                                }
-                            }
-                        }
+                if (plugin is IEasingFunctions easing)
+                {
+                    foreach (var data in easing.EasingFunc)
+                    {
+                        EasingFunc.LoadedEasingFunc.Add(data);
+                        Serialize.SerializeKnownTypes.Add(data.Type);
                     }
                 }
-                catch (Exception e)
-                {
-                    issuccessful = false;
-                    exception = e;
 
-                    Message.Snackbar(string.Format(Resources.FailedToLoad, Path.GetFileNameWithoutExtension(file)));
-                    ActivityLog.ErrorLog(e);
-                }
-
-                PluginLoaded?.Invoke(null, new PluginLoadedEventArgs(file, issuccessful, exception));
+                yield return plugin;
             }
-
-            PluginsLoaded?.Invoke(null, EventArgs.Empty);
-
-            return list;
         }
     }
 }

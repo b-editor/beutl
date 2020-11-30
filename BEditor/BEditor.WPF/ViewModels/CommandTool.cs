@@ -154,36 +154,27 @@ namespace BEditor.ViewModels
 
         public static Type ToClipType(PackIconKind kind)
         {
-            if (kind == PackIconKind.Movie)
-            {
-                return ClipType.Video;
-            }
-            else if (kind == PackIconKind.Image)
-            {
-                return ClipType.Image;
-            }
-            else if (kind == PackIconKind.TextBox)
-            {
-                return ClipType.Text;
-            }
-            else if (kind == PackIconKind.Shape)
-            {
-                return ClipType.Figure;
-            }
-            else if (kind == PackIconKind.Videocam)
-            {
-                return ClipType.Camera;
-            }
-            else if (kind == PackIconKind.Cube)
-            {
-                return ClipType.GL3DObject;
-            }
-            else if (kind == PackIconKind.MovieOpen)
-            {
-                return ClipType.Scene;
-            }
+            if (kind == PackIconKind.Movie) return ClipType.Video;
+            else if (kind == PackIconKind.Image) return ClipType.Image;
+            else if (kind == PackIconKind.TextBox) return ClipType.Text;
+            else if (kind == PackIconKind.Shape) return ClipType.Figure;
+            else if (kind == PackIconKind.Videocam) return ClipType.Camera;
+            else if (kind == PackIconKind.Cube) return ClipType.GL3DObject;
+            else if (kind == PackIconKind.MovieOpen) return ClipType.Scene;
 
             return ClipType.Video;
+        }
+        public static ObjectMetadata ToClipMetadata(PackIconKind kind)
+        {
+            if (kind == PackIconKind.Movie) return ClipType.VideoMetadata;
+            else if (kind == PackIconKind.Image) return ClipType.ImageMetadata;
+            else if (kind == PackIconKind.TextBox) return ClipType.TextMetadata;
+            else if (kind == PackIconKind.Shape) return ClipType.FigureMetadata;
+            else if (kind == PackIconKind.Videocam) return ClipType.CameraMetadata;
+            else if (kind == PackIconKind.Cube) return ClipType.GL3DObjectMetadata;
+            else if (kind == PackIconKind.MovieOpen) return ClipType.SceneMetadata;
+
+            return ClipType.VideoMetadata;
         }
     }
 }

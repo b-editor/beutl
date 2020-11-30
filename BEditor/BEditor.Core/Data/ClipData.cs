@@ -12,6 +12,7 @@ using System.Threading.Tasks;
 using BEditor.Core.Command;
 using BEditor.Core.Data.Control;
 using BEditor.Core.Data.Primitive.Objects;
+using BEditor.Core.Properties;
 using BEditor.Core.Service;
 
 namespace BEditor.Core.Data
@@ -219,9 +220,23 @@ namespace BEditor.Core.Data
             private readonly Scene Scene;
             private readonly int AddFrame;
             private readonly int AddLayer;
-            private readonly Type Type;
+            private readonly ObjectMetadata Metadata;
             public ClipData data;
 
+            /// <summary>
+            /// <see cref="AddCommand"/> Initialize a new instance of the class.
+            /// </summary>
+            /// <exception cref="ArgumentNullException"><paramref name="scene"/> is <see langword="null"/>.</exception>
+            /// <exception cref="ArgumentNullException"><paramref name="metadata"/> is <see langword="null"/>.</exception>
+            /// <exception cref="ArgumentOutOfRangeException"><paramref name="startFrame"/> is less than 0.</exception>
+            /// <exception cref="ArgumentOutOfRangeException"><paramref name="layer"/> is less than 0</exception>
+            public AddCommand(Scene scene, int startFrame, int layer, ObjectMetadata metadata)
+            {
+                Scene = scene ?? throw new ArgumentNullException(nameof(scene));
+                AddFrame = (0 > startFrame) ? throw new ArgumentOutOfRangeException(nameof(startFrame)) : startFrame;
+                AddLayer = (0 > layer) ? throw new ArgumentOutOfRangeException(nameof(layer)) : layer;
+                Metadata = metadata ?? throw new ArgumentNullException(nameof(metadata));
+            }
             /// <summary>
             /// <see cref="AddCommand"/> Initialize a new instance of the class.
             /// </summary>
@@ -229,12 +244,15 @@ namespace BEditor.Core.Data
             /// <exception cref="ArgumentNullException"><paramref name="type"/> が <see langword="null"/>.</exception>
             /// <exception cref="ArgumentOutOfRangeException"><paramref name="startFrame"/> is less than 0.</exception>
             /// <exception cref="ArgumentOutOfRangeException"><paramref name="layer"/> is less than 0</exception>
+            [Obsolete]
             public AddCommand(Scene scene, int startFrame, int layer, Type type)
             {
                 Scene = scene ?? throw new ArgumentNullException(nameof(scene));
                 AddFrame = (0 > startFrame) ? throw new ArgumentOutOfRangeException(nameof(startFrame)) : startFrame;
                 AddLayer = (0 > layer) ? throw new ArgumentOutOfRangeException(nameof(layer)) : layer;
-                Type = type ?? throw new ArgumentNullException(nameof(type));
+                _ = type ?? throw new ArgumentNullException(nameof(type));
+
+                Metadata = ObjectMetadata.LoadedObjects.Find(o => o.Type == type);
             }
 
             /// <inheritdoc/>
@@ -244,23 +262,13 @@ namespace BEditor.Core.Data
                 int idmax = Scene.NewId;
 
                 //描画情報
-                ObservableCollection<EffectElement> list = new();
-
-
-                EffectElement index0;
-                if (Type.IsSubclassOf(typeof(ObjectElement)))
+                var list = new ObservableCollection<EffectElement>
                 {
-                    index0 = (ObjectElement)Activator.CreateInstance(Type);
-                }
-                else
-                {
-                    throw new Exception();
-                }
-
-                list.Add(index0);
+                    (EffectElement)(Metadata.CreateFunc?.Invoke() ?? Activator.CreateInstance(Metadata.Type))
+                };
 
                 //オブジェクトの情報
-                data = new ClipData(idmax, list, AddFrame, AddFrame + 180, Type, AddLayer, Scene);
+                data = new ClipData(idmax, list, AddFrame, AddFrame + 180, Metadata.Type, AddLayer, Scene);
 
                 Scene.Add(data);
                 data.PropertyLoaded();
@@ -455,5 +463,47 @@ namespace BEditor.Core.Data
         public static readonly Type Camera = typeof(CameraObject);
         public static readonly Type GL3DObject = typeof(GL3DObject);
         public static readonly Type Scene = typeof(Primitive.Objects.PrimitiveImages.SceneObject);
+        public static readonly ObjectMetadata VideoMetadata = new()
+        {
+            Name = Resources.Video,
+            Type = typeof(Primitive.Objects.PrimitiveImages.Video),
+            CreateFunc = () => new Primitive.Objects.PrimitiveImages.Video()
+        };
+        public static readonly ObjectMetadata ImageMetadata = new()
+        {
+            Name = Resources.Image,
+            Type = typeof(Primitive.Objects.PrimitiveImages.Image),
+            CreateFunc = () => new Primitive.Objects.PrimitiveImages.Image()
+        };
+        public static readonly ObjectMetadata TextMetadata = new()
+        {
+            Name = Resources.Text,
+            Type = typeof(Primitive.Objects.PrimitiveImages.Text),
+            CreateFunc = () => new Primitive.Objects.PrimitiveImages.Text()
+        };
+        public static readonly ObjectMetadata FigureMetadata = new()
+        {
+            Name = Resources.Figure,
+            Type = typeof(Primitive.Objects.PrimitiveImages.Figure),
+            CreateFunc = () => new Primitive.Objects.PrimitiveImages.Figure()
+        };
+        public static readonly ObjectMetadata CameraMetadata = new()
+        {
+            Name = Resources.Camera,
+            Type = typeof(CameraObject),
+            CreateFunc = () => new CameraObject()
+        };
+        public static readonly ObjectMetadata GL3DObjectMetadata = new()
+        {
+            Name = Resources._3DObject,
+            Type = typeof(GL3DObject),
+            CreateFunc = () => new GL3DObject()
+        };
+        public static readonly ObjectMetadata SceneMetadata = new()
+        {
+            Name = Resources.Scene,
+            Type = typeof(Primitive.Objects.PrimitiveImages.SceneObject),
+            CreateFunc = () => new Primitive.Objects.PrimitiveImages.SceneObject()
+        };
     }
 }
