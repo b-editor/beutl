@@ -143,7 +143,6 @@ namespace BEditor.Core.Media
         public static bool operator ==(ImageType left, ImageType right) => left.Equals(right);
         public static bool operator !=(ImageType left, ImageType right) => !left.Equals(right);
 
-
         public static ImageType MakeType(int depth, int channels)
         {
             if (channels <= 0 || channels >= ChannelMax)
