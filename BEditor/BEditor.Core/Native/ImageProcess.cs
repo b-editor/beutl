@@ -128,6 +128,5 @@ namespace BEditor.Core.Native
 
         [DllImport(dll, EntryPoint = "ImageEllipse")]
         public static extern string Ellipse(int width, int height, int line, float r, float g, float b, out IntPtr mat);
-        internal static object Erode(object ptr, int f) => throw new NotImplementedException();
     }
 }
