@@ -5,7 +5,7 @@ using System.Runtime.InteropServices;
 using System.Text;
 using System.Threading.Tasks;
 
-namespace BEditor.Core.Media.Managed
+namespace BEditor.Drawing
 {
     [StructLayout(LayoutKind.Sequential)]
     public struct RGBA32 : IPixel<RGBA32>

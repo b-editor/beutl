@@ -4,7 +4,7 @@ using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
 
-namespace BEditor.Core.Media.Managed
+namespace BEditor.Drawing
 {
     public interface IPixel<T> where T : unmanaged, IPixel<T>
     {

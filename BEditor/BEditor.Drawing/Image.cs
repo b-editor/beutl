@@ -9,7 +9,9 @@ using System.Runtime.InteropServices;
 using System.Text;
 using System.Threading.Tasks;
 
-namespace BEditor.Core.Media.Managed
+using BEditor.Drawing.Interop;
+
+namespace BEditor.Drawing
 {
     public unsafe class Image<T> : ICloneable where T : unmanaged, IPixel<T>
     {
@@ -17,7 +19,6 @@ namespace BEditor.Core.Media.Managed
         private static readonly T s = new();
 
         #region Constructors
-
         public Image(int width, int height)
         {
             Width = width;
@@ -45,10 +46,6 @@ namespace BEditor.Core.Media.Managed
         {
 
         }
-        public Image(Stream stream, ImageReadMode mode = ImageReadMode.Color)
-        {
-
-        }
 
         #endregion
 
@@ -72,6 +69,8 @@ namespace BEditor.Core.Media.Managed
          |------------|
          BGRA BGRA BGRA
          BGRA BGRA BGRA
+
+         byte* のときに使用
          */
         #endregion
 
@@ -115,9 +114,22 @@ namespace BEditor.Core.Media.Managed
 
         #region Methods
 
+        public static Image<T> FromStream(Stream stream, ImageReadMode mode = ImageReadMode.Color)
+        {
+            using var memoryStream = new MemoryStream();
+            stream.CopyTo(memoryStream);
+
+            var array = memoryStream.ToArray();
+            Native.Image_Decode(array, new IntPtr(array.Length), (int)mode, out var image);
+
+            var ret = new Image<T>(image.Width, image.Height, (T*)image.Data);
+            Marshal.FreeHGlobal((IntPtr)image.Data);
+
+            return ret;
+        }
+
         public object Clone() =>
             new Image<T>(Width, Height, Data);
-
         public void Clear() =>
             Array.Clear(Data, 0, Width * Height);
 
@@ -131,6 +143,45 @@ namespace BEditor.Core.Media.Managed
             var span = new Span<T>(Data);
             src.CopyTo(span.Slice(y * Width, Width));
         }
+
+        public bool Save(string filename)
+        {
+            fixed (T* data = &Data[0])
+            {
+                return Native.Image_Save(new()
+                {
+                    Width = Width,
+                    Height = Height,
+                    CvType = s.CvType,
+                    Data = data
+                },
+                filename);
+            }
+        }
+
+        public void Flip(FlipMode mode)
+        {
+            fixed (T* data = Data)
+            {
+                Native.Image_Flip(ToStruct(data), (int)mode);
+            }
+        }
+        public void AreaExpansion(int top, int bottom, int left, int right)
+        {
+            fixed (T* data = Data)
+            {
+                Native.Image_AreaExpansion(ToStruct(data), top, bottom, left, right);
+            }
+        }
+
+
+        internal ImageStruct ToStruct(T* data) => new()
+        {
+            Width = Width,
+            Height = Height,
+            CvType = s.CvType,
+            Data = data
+        };
 
         #endregion
 
