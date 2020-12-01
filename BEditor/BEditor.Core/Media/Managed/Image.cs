@@ -1,4 +1,5 @@
 ﻿using System;
+using System.Buffers;
 using System.Collections.Generic;
 using System.ComponentModel.DataAnnotations;
 using System.Diagnostics;
@@ -17,18 +18,14 @@ namespace BEditor.Core.Media.Managed
 
         #region Constructors
 
-        public Image(
-            [Range(1, float.NaN)] int width,
-            [Range(1, float.NaN)] int height)
+        public Image(int width, int height)
         {
             Width = width;
             Height = height;
+            // Todo: ArrayPool
             Data = new T[width * height];
         }
-        public Image(
-            [Range(1, float.NaN)] int width,
-            [Range(1, float.NaN)] int height,
-            [Required] T[] data) : this(width, height)
+        public Image(int width, int height, T[] data) : this(width, height)
         {
             fixed (T* src = &data[0], dst = &Data[0])
             {
@@ -36,10 +33,7 @@ namespace BEditor.Core.Media.Managed
                 Buffer.MemoryCopy(src, dst, size, size);
             }
         }
-        public Image(
-            [Range(1, float.NaN)] int width,
-            [Range(1, float.NaN)] int height,
-            [Required] T* data) : this(width, height)
+        public Image(int width, int height, T* data) : this(width, height)
         {
             fixed (T* dst = &Data[0])
             {
@@ -47,18 +41,11 @@ namespace BEditor.Core.Media.Managed
                 Buffer.MemoryCopy(data, dst, size, size);
             }
         }
-        public Image(
-            [Range(1, float.NaN)] int width,
-            [Range(1, float.NaN)] int height,
-            [Required] IntPtr data) : this(width, height, (T*)data)
+        public Image(int width, int height, IntPtr data) : this(width, height, (T*)data)
         {
 
         }
         public Image(Stream stream, ImageReadMode mode = ImageReadMode.Color)
-        {
-
-        }
-        public Image(Image<T> image, Rectangle roi) : this(roi.Width, roi.Height)
         {
 
         }
@@ -70,6 +57,8 @@ namespace BEditor.Core.Media.Managed
         public int Width { get; }
         public int Height { get; }
         public int DataSize => Width * Height * sizeof(T);
+        // Data は ArrayPool からの可能性があるのでサイズから求める
+        public int Length => Width * Height;
         public T[] Data { get; }
         public Size Size => new(Width, Height);
         public int Stride => Width * sizeof(T);
@@ -93,30 +82,44 @@ namespace BEditor.Core.Media.Managed
         {
             set
             {
-                var pos = Stride * y + x * s.Channels;
-                Data[pos] = value;
+                GetRowSpan(y)[x] = value;
             }
             get
             {
-                var pos = Stride * y + x * s.Channels;
-                return Data[pos];
+                return GetRowSpan(y)[x];
             }
+        }
+        public Span<T> this[int y]
+        {
+            get => GetRowSpan(y);
+            set => SetRowSpan(y, value);
         }
 
         public Image<T> this[Rectangle roi]
         {
             set
             {
-                Parallel.For(roi.Y, roi.Height, y =>
-                {
+                var rowop = new RowOperation(roi, value, this);
 
-                });
+                Parallel.For(0, roi.Y, rowop.Invoke);
+            }
+            get
+            {
+                var value = new Image<T>(roi.Width, roi.Height);
+                var rowop = new RowOperation(roi, this, value);
+                Parallel.For(0, roi.Y, rowop.Invoke);
+
+                return value;
             }
         }
 
         #region Methods
 
-        public object Clone() => new Image<T>(Width, Height, Data);
+        public object Clone() =>
+            new Image<T>(Width, Height, Data);
+
+        public void Clear() =>
+            Array.Clear(Data, 0, Width * Height);
 
         public Span<T> GetRowSpan(int y)
         {
