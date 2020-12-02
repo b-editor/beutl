@@ -13,7 +13,7 @@ using BEditor.Drawing.Interop;
 
 namespace BEditor.Drawing
 {
-    public unsafe class Image<T> : ICloneable where T : unmanaged, IPixel<T>
+    public unsafe class Image<T> : ICloneable, IDisposable where T : unmanaged, IPixel<T>
     {
         // 同じImage<T>型のみで共有される
         private static readonly T s = new();
@@ -24,7 +24,7 @@ namespace BEditor.Drawing
             Width = width;
             Height = height;
             // Todo: ArrayPool
-            Data = new T[width * height];
+            Data = new T[width * height];//ArrayPool<T>.Shared.Rent(width * height);
         }
         public Image(int width, int height, T[] data) : this(width, height)
         {
@@ -46,6 +46,10 @@ namespace BEditor.Drawing
         {
 
         }
+        public Image(int width, int height, T fill) : this(width, height)
+        {
+            Fill(fill);
+        }
 
         #endregion
 
@@ -56,9 +60,10 @@ namespace BEditor.Drawing
         public int DataSize => Width * Height * sizeof(T);
         // Data は ArrayPool からの可能性があるのでサイズから求める
         public int Length => Width * Height;
-        public T[] Data { get; }
+        public T[] Data { get; private set; }
         public Size Size => new(Width, Height);
         public int Stride => Width * sizeof(T);
+        public bool IsDisposed { get; private set; }
 
         #region Strideの説明
         /*
@@ -98,15 +103,25 @@ namespace BEditor.Drawing
         {
             set
             {
-                var rowop = new RowOperation(roi, value, this);
+                Parallel.For(roi.Y, roi.Height, y =>
+                 {
+                     var sourceRow = value.GetRowSpan(y - roi.Y);
+                     var targetRow = this.GetRowSpan(y).Slice(roi.X, roi.Width);
 
-                Parallel.For(0, roi.Y, rowop.Invoke);
+                     sourceRow.CopyTo(targetRow);
+                 });
             }
             get
             {
                 var value = new Image<T>(roi.Width, roi.Height);
-                var rowop = new RowOperation(roi, this, value);
-                Parallel.For(0, roi.Y, rowop.Invoke);
+
+                Parallel.For(roi.Y, roi.Height, y =>
+                {
+                    var sourceRow = this.GetRowSpan(y).Slice(roi.X, roi.Width);
+                    var targetRow = value.GetRowSpan(y - roi.Y);
+
+                    sourceRow.Slice(0, roi.Width).CopyTo(targetRow);
+                });
 
                 return value;
             }
@@ -132,6 +147,13 @@ namespace BEditor.Drawing
             new Image<T>(Width, Height, Data);
         public void Clear() =>
             Array.Clear(Data, 0, Width * Height);
+        public void Fill(T fill)
+        {
+            Parallel.For(0, Height, y =>
+            {
+                GetRowSpan(y).Fill(fill);
+            });
+        }
 
         public Span<T> GetRowSpan(int y)
         {
@@ -161,9 +183,27 @@ namespace BEditor.Drawing
 
         public void Flip(FlipMode mode)
         {
-            fixed (T* data = Data)
+            if (mode is FlipMode.Y)
             {
-                Native.Image_Flip(ToStruct(data), (int)mode);
+                Parallel.For(0, Height, y =>
+                {
+                    GetRowSpan(y).Reverse();
+                });
+            }
+            else
+            {
+                Parallel.For(0, Height / 2, top =>
+                {
+                    Span<T> tmp = stackalloc T[Width];
+                    var bottom = Height - top - 1;
+
+                    var topSpan = GetRowSpan(bottom);
+                    var bottomSpan = GetRowSpan(top);
+
+                    topSpan.CopyTo(tmp);
+                    bottomSpan.CopyTo(topSpan);
+                    tmp.CopyTo(bottomSpan);
+                });
             }
         }
         public void AreaExpansion(int top, int bottom, int left, int right)
@@ -182,29 +222,16 @@ namespace BEditor.Drawing
             CvType = s.CvType,
             Data = data
         };
+        public void Dispose()
+        {
+            //if (!IsDisposed)
+            //{
+            //    ArrayPool<T>.Shared.Return(Data, true);
+            //    Data = null;
+            //}
+        }
 
         #endregion
 
-
-        private readonly struct RowOperation
-        {
-            private readonly Rectangle bounds;
-            private readonly Image<T> src;
-            private readonly Image<T> dst;
-
-            public RowOperation(Rectangle bounds, Image<T> src, Image<T> dst)
-            {
-                this.bounds = bounds;
-                this.src = src;
-                this.dst = dst;
-            }
-
-            public void Invoke(int y)
-            {
-                Span<T> sourceRow = src.GetRowSpan(y).Slice(bounds.Left);
-                Span<T> targetRow = dst.GetRowSpan(y - bounds.Top);
-                sourceRow.Slice(0, bounds.Width).CopyTo(targetRow);
-            }
-        }
     }
 }

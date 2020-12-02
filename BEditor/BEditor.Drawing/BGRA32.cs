@@ -8,11 +8,11 @@ using System.Threading.Tasks;
 namespace BEditor.Drawing
 {
     [StructLayout(LayoutKind.Sequential)]
-    public struct RGBA32 : IPixel<RGBA32>
+    public struct BGRA32 : IPixel<BGRA32>
     {
-        public byte R;
-        public byte G;
         public byte B;
+        public byte G;
+        public byte R;
         public byte A;
 
         public int CvType=> (0 & (DepthMax - 1)) + ((Channels - 1) << ChannelShift);

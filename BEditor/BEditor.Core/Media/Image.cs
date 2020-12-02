@@ -703,6 +703,17 @@ namespace BEditor.Core.Media
             return ptr;
         }
 
+        public static implicit operator Image(Drawing.Image<Drawing.BGRA32> v)
+        {
+            fixed(Drawing.BGRA32* data = v.Data)
+            {
+                var r = new Image(v.Width, v.Height);
+
+                Buffer.MemoryCopy(data, (void*)r.Data, v.DataSize, v.DataSize);
+                return r;
+            }
+        }
+
         #endregion
 
     }

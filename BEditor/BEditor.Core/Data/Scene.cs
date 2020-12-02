@@ -12,6 +12,7 @@ using BEditor.Core.Extensions;
 using BEditor.Core.Graphics;
 using BEditor.Core.Media;
 using BEditor.Core.Renderings;
+using BEditor.Drawing;
 
 namespace BEditor.Core.Data
 {
@@ -290,7 +291,7 @@ namespace BEditor.Core.Data
 
             GraphicsContext.SwapBuffers();
 
-            Image buffer = new Image(Width, Height);
+            var buffer = new Image<BGRA32>(Width, Height);
             GLTK.GetPixels(buffer);
 
             return new RenderingResult { Image = buffer };
@@ -298,9 +299,28 @@ namespace BEditor.Core.Data
         /// <summary>
         /// Render a frame of <see cref="PreviewFrame"/>.
         /// </summary>
-        public RenderingResult Render()
+        public Image<BGRA32> Render()
         {
-            return Render(PreviewFrame);
+            //return Render(PreviewFrame);
+            var frame = PreviewFrame;
+            var layer = GetLayer(frame).ToList();
+
+            GraphicsContext.MakeCurrent();
+            GraphicsContext.Clear();
+
+            var args = new ClipRenderArgs(frame, layer);
+
+            //Preview
+            layer.ForEach(clip => clip.PreviewRender(args));
+
+            layer.ForEach(clip => clip.Render(args));
+
+            GraphicsContext.SwapBuffers();
+
+            var buffer = new Image<BGRA32>(Width, Height);
+            GLTK.GetPixels(buffer);
+
+            return buffer;
         }
 
 

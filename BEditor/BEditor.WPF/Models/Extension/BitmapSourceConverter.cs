@@ -23,6 +23,12 @@ namespace BEditor.Models.Extension
             ToWriteableBitmap(src, Bitmap);
             return Bitmap;
         }
+        public static BitmapSource ToBitmapSource(this Drawing.Image<Drawing.BGRA32> src)
+        {
+            var Bitmap = new WriteableBitmap(src.Width, src.Height, 96, 96, System.Windows.Media.PixelFormats.Bgra32, null);
+            ToWriteableBitmap(src, Bitmap);
+            return Bitmap;
+        }
 
         public static void ToWriteableBitmap(Image src, WriteableBitmap dst)
         {
@@ -135,6 +141,28 @@ namespace BEditor.Models.Extension
                     dst.Unlock();
                 }
             }
+        }
+        public static unsafe void ToWriteableBitmap(Drawing.Image<Drawing.BGRA32> src, WriteableBitmap dst)
+        {
+            if (src == null)
+            {
+                throw new ArgumentNullException(nameof(src));
+            }
+
+            if (dst == null)
+            {
+                throw new ArgumentNullException(nameof(dst));
+            }
+
+            if (src.Width != dst.PixelWidth || src.Height != dst.PixelHeight)
+            {
+                throw new ArgumentException("size of src must be equal to size of dst");
+            }
+
+            int w = src.Width;
+            int h = src.Height;
+
+            dst.WritePixels(new Int32Rect(0, 0, w, h), src.Data, src.Stride, 0);
         }
         private unsafe static void CopyMemory(void* outDest, void* inSrc, int inNumOfBytes) => Buffer.MemoryCopy(inSrc, outDest, inNumOfBytes, inNumOfBytes);
 

@@ -14,6 +14,8 @@ using BEditor.Core.Media;
 using Color = BEditor.Core.Media.Color;
 using Image = BEditor.Core.Media.Image;
 using Size = BEditor.Core.Media.Size;
+using BEditor.Drawing;
+using Point3 = BEditor.Core.Media.Point3;
 
 namespace BEditor.Core.Graphics
 {
@@ -30,7 +32,19 @@ namespace BEditor.Core.Graphics
 
             GL.ReadPixels(0, 0, image.Width, image.Height, image.Type, image.Type, image.Data);
 
-            image.ToRenderable().Flip(FlipMode.X);
+            image.ToRenderable().Flip(Media.FlipMode.X);
+        }
+        
+        public unsafe static void GetPixels<T>(Image<T> image) where T : unmanaged, IPixel<T>
+        {
+            if (image == null) throw new ArgumentNullException(nameof(image));
+            //image.ThrowIfDisposed();
+
+            GL.ReadBuffer(ReadBufferMode.Front);
+
+            GL.ReadPixels(0, 0, image.Width, image.Height, PixelFormat.Bgra, PixelType.UnsignedByte, image.Data);
+
+            image.Flip(Drawing.FlipMode.X);
         }
 
         public static void GetPixels(int width, int height, ImageType type, IntPtr ptr)
