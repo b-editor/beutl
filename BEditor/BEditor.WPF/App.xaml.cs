@@ -31,6 +31,8 @@ using BEditor.Models.Services;
 using BEditor.Core.Service;
 using BEditor.Core.Command;
 using BEditor.Core.Data.Primitive.Properties;
+using BEditor.Drawing;
+using System.Globalization;
 
 namespace BEditor
 {
@@ -41,6 +43,19 @@ namespace BEditor
     {
         private void Application_Startup(object sender, StartupEventArgs e)
         {
+            //var small = new Image<BGRA32>(100, 100, new BGRA32() { A = 255, R = 255, G = 255, B = 255 })
+            //    .MakeBorder(25, 25, 25, 25)
+            //    .Dilate(10);
+
+            var img = Drawing.Image.FromFile("2020-06-26_19.11.28.png").Dilate(10);
+            //img.DrawImage(new(1, 1), small);
+            img.Save("Test.png");
+
+            App.Current.Shutdown();
+
+            CultureInfo.CurrentCulture = CultureInfo.GetCultureInfo("en-US");
+            CultureInfo.CurrentUICulture = CultureInfo.GetCultureInfo("en-US");
+
             AppData.Current.Arguments = e.Args;
 
 

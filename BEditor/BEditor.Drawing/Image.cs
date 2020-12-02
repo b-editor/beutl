@@ -3,6 +3,7 @@ using System.Buffers;
 using System.Collections.Generic;
 using System.ComponentModel.DataAnnotations;
 using System.Diagnostics;
+using System.Drawing;
 using System.IO;
 using System.Linq;
 using System.Runtime.InteropServices;
@@ -24,7 +25,7 @@ namespace BEditor.Drawing
             Width = width;
             Height = height;
             // Todo: ArrayPool
-            Data = new T[width * height];//ArrayPool<T>.Shared.Rent(width * height);
+            Data = ArrayPool<T>.Shared.Rent(width * height);
         }
         public Image(int width, int height, T[] data) : this(width, height)
         {
@@ -49,6 +50,19 @@ namespace BEditor.Drawing
         public Image(int width, int height, T fill) : this(width, height)
         {
             Fill(fill);
+        }
+        private Image(ImageStruct image)
+        {
+            Width = image.Width;
+            Height = image.Height;
+
+            Data = ArrayPool<T>.Shared.Rent(Width * Height);
+
+            fixed (T* dst = &Data[0])
+            {
+                var size = DataSize;
+                Buffer.MemoryCopy(image.Data, dst, size, size);
+            }
         }
 
         #endregion
@@ -84,32 +98,26 @@ namespace BEditor.Drawing
 
         public T this[int x, int y]
         {
-            set
-            {
-                GetRowSpan(y)[x] = value;
-            }
-            get
-            {
-                return GetRowSpan(y)[x];
-            }
+            set => this[y][x] = value;
+            get => this[y][x];
         }
         public Span<T> this[int y]
         {
-            get => GetRowSpan(y);
-            set => SetRowSpan(y, value);
+            get => new Span<T>(Data).Slice(y * Width, Width);
+            set => value.CopyTo(new Span<T>(Data).Slice(y * Width, Width));
         }
 
         public Image<T> this[Rectangle roi]
         {
             set
             {
-                Parallel.For(roi.Y, roi.Height, y =>
-                 {
-                     var sourceRow = value.GetRowSpan(y - roi.Y);
-                     var targetRow = this.GetRowSpan(y).Slice(roi.X, roi.Width);
+                Parallel.For(0, roi.Height, y =>
+                {
+                    var sourceRow = value[y];
+                    var targetRow = this[y + roi.Y].Slice(roi.X, roi.Width);
 
-                     sourceRow.CopyTo(targetRow);
-                 });
+                    sourceRow.CopyTo(targetRow);
+                });
             }
             get
             {
@@ -117,8 +125,8 @@ namespace BEditor.Drawing
 
                 Parallel.For(roi.Y, roi.Height, y =>
                 {
-                    var sourceRow = this.GetRowSpan(y).Slice(roi.X, roi.Width);
-                    var targetRow = value.GetRowSpan(y - roi.Y);
+                    var sourceRow = this[y].Slice(roi.X, roi.Width);
+                    var targetRow = value[y - roi.Y];
 
                     sourceRow.Slice(0, roi.Width).CopyTo(targetRow);
                 });
@@ -129,20 +137,6 @@ namespace BEditor.Drawing
 
         #region Methods
 
-        public static Image<T> FromStream(Stream stream, ImageReadMode mode = ImageReadMode.Color)
-        {
-            using var memoryStream = new MemoryStream();
-            stream.CopyTo(memoryStream);
-
-            var array = memoryStream.ToArray();
-            Native.Image_Decode(array, new IntPtr(array.Length), (int)mode, out var image);
-
-            var ret = new Image<T>(image.Width, image.Height, (T*)image.Data);
-            Marshal.FreeHGlobal((IntPtr)image.Data);
-
-            return ret;
-        }
-
         public object Clone() =>
             new Image<T>(Width, Height, Data);
         public void Clear() =>
@@ -151,19 +145,8 @@ namespace BEditor.Drawing
         {
             Parallel.For(0, Height, y =>
             {
-                GetRowSpan(y).Fill(fill);
+                this[y].Fill(fill);
             });
-        }
-
-        public Span<T> GetRowSpan(int y)
-        {
-            var span = new Span<T>(Data);
-            return span.Slice(y * Width, Width);
-        }
-        public void SetRowSpan(int y, Span<T> src)
-        {
-            var span = new Span<T>(Data);
-            src.CopyTo(span.Slice(y * Width, Width));
         }
 
         public bool Save(string filename)
@@ -187,7 +170,7 @@ namespace BEditor.Drawing
             {
                 Parallel.For(0, Height, y =>
                 {
-                    GetRowSpan(y).Reverse();
+                    this[y].Reverse();
                 });
             }
             else
@@ -197,8 +180,8 @@ namespace BEditor.Drawing
                     Span<T> tmp = stackalloc T[Width];
                     var bottom = Height - top - 1;
 
-                    var topSpan = GetRowSpan(bottom);
-                    var bottomSpan = GetRowSpan(top);
+                    var topSpan = this[bottom];
+                    var bottomSpan = this[top];
 
                     topSpan.CopyTo(tmp);
                     bottomSpan.CopyTo(topSpan);
@@ -206,14 +189,71 @@ namespace BEditor.Drawing
                 });
             }
         }
-        public void AreaExpansion(int top, int bottom, int left, int right)
+        public Image<T> MakeBorder(int top, int bottom, int left, int right)
         {
+            var width = left + right + Width;
+            var height = top + bottom + Height;
+            var img = new Image<T>(width, height);
+
+            img[new Rectangle(left, top, Width, Height)] = this;
+
+            return img;
+        }
+        public Image<T> BoxBlur(float size)
+        {
+            var img = new Image<T>(Width, Height);
             fixed (T* data = Data)
+            fixed (T* outdata = img.Data)
             {
-                Native.Image_AreaExpansion(ToStruct(data), top, bottom, left, right);
+                Native.Image_BoxBlur(ToStruct(data), size, img.ToStruct(outdata));
+
+                return img;
             }
         }
+        public Image<T> GanssBlur(float size)
+        {
+            var img = new Image<T>(Width, Height);
+            fixed (T* data = Data)
+            fixed (T* outdata = img.Data)
+            {
+                Native.Image_GaussBlur(ToStruct(data), size, img.ToStruct(outdata));
 
+                return img;
+            }
+        }
+        public Image<T> MedianBlur(int size)
+        {
+            var img = new Image<T>(Width, Height);
+            fixed (T* data = Data)
+            fixed (T* outdata = img.Data)
+            {
+                Native.Image_MedianBlur(ToStruct(data), size, img.ToStruct(outdata));
+
+                return img;
+            }
+        }
+        public Image<T> Dilate(int f)
+        {
+            var img = new Image<T>(Width, Height);
+            fixed (T* data = Data)
+            fixed (T* outdata = img.Data)
+            {
+                Native.Image_Dilate(ToStruct(data), f, img.ToStruct(outdata));
+
+                return img;
+            }
+        }
+        public Image<T> Erode(int f)
+        {
+            var img = new Image<T>(Width, Height);
+            fixed (T* data = Data)
+            fixed (T* outdata = img.Data)
+            {
+                Native.Image_Erode(ToStruct(data), f, img.ToStruct(outdata));
+
+                return img;
+            }
+        }
 
         internal ImageStruct ToStruct(T* data) => new()
         {
@@ -224,14 +264,38 @@ namespace BEditor.Drawing
         };
         public void Dispose()
         {
-            //if (!IsDisposed)
-            //{
-            //    ArrayPool<T>.Shared.Return(Data, true);
-            //    Data = null;
-            //}
+            if (!IsDisposed)
+            {
+                ArrayPool<T>.Shared.Return(Data, true);
+                Data = null;
+            }
         }
 
         #endregion
 
+#if DEBUG
+        ~Image()
+        {
+            Debug.WriteLine($"Delete: Image<{typeof(T).Name}> Width:{Width} Height:{Height}");
+        }
+#endif
+    }
+
+    public static partial class Image
+    {
+        public static Image<BGRA32> FromStream(Stream stream)
+        {
+            using var bmp = new Bitmap(stream);
+            var r = bmp.ToImage();
+
+            return r;
+        }
+        public static Image<BGRA32> FromFile(string filename)
+        {
+            using var bmp = new Bitmap(filename);
+            var r = bmp.ToImage();
+
+            return r;
+        }
     }
 }

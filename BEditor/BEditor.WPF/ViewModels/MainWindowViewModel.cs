@@ -23,6 +23,7 @@ using BEditor.Core.Command;
 using System.Reactive.Linq;
 using Reactive.Bindings;
 using BEditor.Views.CreateDialog;
+using System.Windows.Media.Imaging;
 
 namespace BEditor.ViewModels
 {
@@ -30,7 +31,7 @@ namespace BEditor.ViewModels
     {
         public static MainWindowViewModel Current { get; } = new();
 
-        public ReactiveProperty<ImageSource> PreviewImage { get; } = new();
+        public ReactiveProperty<WriteableBitmap> PreviewImage { get; } = new();
         public ReactiveProperty<Brush> MainWindowColor { get; } = new();
 
         public ReactiveCommand PreviewFramePlus { get; } = new();

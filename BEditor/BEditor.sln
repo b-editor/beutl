@@ -30,6 +30,9 @@ EndProject
 Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "TestPlugin2", "TestPlugin2\TestPlugin2.csproj", "{340484FD-BBDE-4247-9E9A-832C4FCAC38F}"
 EndProject
 Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "BEditor.Drawing", "BEditor.Drawing\BEditor.Drawing.csproj", "{8EF33D67-8CE7-463C-B26E-EE75B091660F}"
+	ProjectSection(ProjectDependencies) = postProject
+		{A3C3A643-02E2-4FD2-A57B-B205274FD12E} = {A3C3A643-02E2-4FD2-A57B-B205274FD12E}
+	EndProjectSection
 EndProject
 Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "BEditor.Drawing.Interop", "BEditor.Drawing.Interop\BEditor.Drawing.Interop.vcxproj", "{A3C3A643-02E2-4FD2-A57B-B205274FD12E}"
 EndProject
