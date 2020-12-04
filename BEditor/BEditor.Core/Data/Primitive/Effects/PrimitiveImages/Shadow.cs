@@ -7,6 +7,7 @@ using BEditor.Core.Data.Property;
 using BEditor.Core.Extensions;
 using BEditor.Core.Media;
 using BEditor.Core.Properties;
+using BEditor.Drawing;
 
 namespace BEditor.Core.Data.Primitive.Effects.PrimitiveImages
 {
@@ -19,7 +20,6 @@ namespace BEditor.Core.Data.Primitive.Effects.PrimitiveImages
         public static readonly EasePropertyMetadata AlphaMetadata = new(Resources.Alpha, 75, 100, 0);
         public static readonly ColorPropertyMetadata ColorMetadata = new(Resources.Color, 0, 0, 0);
 
-
         public Shadow()
         {
             X = new(XMetadata);
@@ -28,7 +28,6 @@ namespace BEditor.Core.Data.Primitive.Effects.PrimitiveImages
             Alpha = new(AlphaMetadata);
             Color = new(ColorMetadata);
         }
-
 
         #region Properties
 
@@ -61,14 +60,13 @@ namespace BEditor.Core.Data.Primitive.Effects.PrimitiveImages
 
         #endregion
 
-
-        public override void Render(ref Image source, EffectRenderArgs args) => source.ToRenderable().Shadow
-            (X.GetValue(args.Frame),
-             Y.GetValue(args.Frame),
-             (int)Blur.GetValue(args.Frame),
-             Alpha.GetValue(args.Frame),
-             Color.Color);
-
+        public override void Render(EffectRenderArgs<Image<BGRA32>> args) =>
+            args.Value = args.Value.Shadow(
+                (int)X.GetValue(args.Frame),
+                (int)Y.GetValue(args.Frame),
+                (int)Blur.GetValue(args.Frame),
+                Alpha.GetValue(args.Frame),
+                Color.Color);
         public override void PropertyLoaded()
         {
             X.ExecuteLoaded(XMetadata);

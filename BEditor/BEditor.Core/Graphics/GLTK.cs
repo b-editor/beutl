@@ -12,10 +12,8 @@ using OpenTK.Mathematics;
 
 using BEditor.Core.Media;
 using Color = BEditor.Core.Media.Color;
-using Image = BEditor.Core.Media.Image;
-using Size = BEditor.Core.Media.Size;
 using BEditor.Drawing;
-using Point3 = BEditor.Core.Media.Point3;
+using System.Drawing;
 
 namespace BEditor.Core.Graphics
 {
@@ -23,18 +21,6 @@ namespace BEditor.Core.Graphics
     {
         #region GetPixels
 
-        public unsafe static void GetPixels(Image image)
-        {
-            if (image == null) throw new ArgumentNullException(nameof(image));
-            image.ThrowIfDisposed();
-
-            GL.ReadBuffer(ReadBufferMode.Front);
-
-            GL.ReadPixels(0, 0, image.Width, image.Height, image.Type, image.Type, image.Data);
-
-            image.ToRenderable().Flip(Media.FlipMode.X);
-        }
-        
         public unsafe static void GetPixels<T>(Image<T> image) where T : unmanaged, IPixel<T>
         {
             if (image == null) throw new ArgumentNullException(nameof(image));
@@ -47,19 +33,11 @@ namespace BEditor.Core.Graphics
             image.Flip(Drawing.FlipMode.X);
         }
 
-        public static void GetPixels(int width, int height, ImageType type, IntPtr ptr)
-        {
-            if (ptr == IntPtr.Zero) throw new Exception();
-
-            GL.ReadBuffer(ReadBufferMode.Front);
-            GL.ReadPixels(0, 0, width, height, type, type, ptr);
-        }
-
         #endregion
 
         #region BindTexture
 
-        public static void BindTexture(Image img, out int id)
+        public static void BindTexture(Image<BGRA32> img, out int id)
         {
             if (img is null)
             {
@@ -69,16 +47,15 @@ namespace BEditor.Core.Graphics
 
             int width = img.Width;
             int height = img.Height;
-            var type = img.Type;
 
             GL.GenTextures(1, out id);
             GL.BindTexture(TextureTarget.Texture2D, id);
 
-            GL.TexImage2D(TextureTarget.Texture2D, 0, type, width, height, 0,
-                type, type, img.Data);
+            GL.TexImage2D(TextureTarget.Texture2D, 0, PixelInternalFormat.Rgba, width, height, 0,
+                PixelFormat.Bgra, PixelType.UnsignedByte, img.Data);
 
-            GL.TexParameter(TextureTarget.Texture2D, TextureParameterName.TextureMinFilter, (int)TextureMinFilter.Linear);//必要
-            GL.TexParameter(TextureTarget.Texture2D, TextureParameterName.TextureMagFilter, (int)TextureMagFilter.Linear);//必要
+            GL.TexParameter(TextureTarget.Texture2D, TextureParameterName.TextureMinFilter, (int)TextureMinFilter.Linear);
+            GL.TexParameter(TextureTarget.Texture2D, TextureParameterName.TextureMagFilter, (int)TextureMagFilter.Linear);
             GL.TexParameter(TextureTarget.Texture2D, TextureParameterName.TextureWrapS, (int)TextureWrapMode.Repeat);
             GL.TexParameter(TextureTarget.Texture2D, TextureParameterName.TextureWrapT, (int)TextureWrapMode.Repeat);
 
@@ -90,7 +67,7 @@ namespace BEditor.Core.Graphics
 
         #region Paint
 
-        public static void Paint(Point3 coordinate, double nx, double ny, double nz, Point3 center, Action draw, Action blentfunc = null)
+        public static void Paint(System.Numerics.Vector3 coordinate, double nx, double ny, double nz, System.Numerics.Vector3 center, Action draw, Action blentfunc = null)
         {
             GL.Enable(EnableCap.Blend);
 
@@ -103,7 +80,7 @@ namespace BEditor.Core.Graphics
 
             GL.PushMatrix();
             {
-                GL.Translate((Vector3)coordinate);
+                GL.Translate(coordinate.ToOpenTK());
 
                 GL.PushMatrix();
                 {
@@ -114,7 +91,7 @@ namespace BEditor.Core.Graphics
 
                     GL.PushMatrix();
                     {
-                        GL.Translate((Vector3)center);
+                        GL.Translate(center.ToOpenTK());
 
                         draw?.Invoke();
                     }
@@ -126,7 +103,7 @@ namespace BEditor.Core.Graphics
         }
 
         public static void DrawImage(
-            Image img,
+            Image<BGRA32> img,
             float scalex = 1,
             float scaley = 1,
             float scalez = 1,
@@ -214,45 +191,6 @@ namespace BEditor.Core.Graphics
 
                 // 視界の設定
                 Matrix4 look = Matrix4.LookAt(new Vector3(x, y, z), new Vector3(tx, ty, tz), Vector3.UnitY);
-                GL.LoadMatrix(ref look);
-
-
-                GL.Disable(EnableCap.DepthTest);
-                GL.Disable(EnableCap.Lighting);
-            }
-        }
-
-        public static void LookAt(Size size, Point3 point, Point3 target, float near, float far, float fov, bool perspective)
-        {
-            if (perspective)
-            {
-                // 視体積の設定
-                GL.MatrixMode(MatrixMode.Projection);
-                Matrix4 proj = Matrix4.CreatePerspectiveFieldOfView(MathHelper.DegreesToRadians(fov), size.Aspect, near, far);//描画範囲
-
-                GL.LoadMatrix(ref proj);
-
-                GL.MatrixMode(MatrixMode.Modelview);
-
-                // 視界の設定
-                Matrix4 look = Matrix4.LookAt((Vector3)point, (Vector3)target, Vector3.UnitY);
-                GL.LoadMatrix(ref look);
-
-
-                GL.Enable(EnableCap.DepthTest);
-                GL.Disable(EnableCap.Lighting);
-            }
-            else
-            {
-                GL.MatrixMode(MatrixMode.Projection);
-                // 視体積の設定
-                Matrix4 proj = Matrix4.CreateOrthographic(size.Width, size.Height, near, far);
-                GL.LoadMatrix(ref proj);
-
-                GL.MatrixMode(MatrixMode.Modelview);
-
-                // 視界の設定
-                Matrix4 look = Matrix4.LookAt((Vector3)point, (Vector3)target, Vector3.UnitY);
                 GL.LoadMatrix(ref look);
 
 
@@ -380,5 +318,10 @@ namespace BEditor.Core.Graphics
         }
 
         #endregion
+
+        internal static Vector3 ToOpenTK(this ref System.Numerics.Vector3 vector3) => new Vector3(vector3.X, vector3.Y, vector3.Z);
+        internal static Vector2 ToOpenTK(this ref System.Numerics.Vector2 vector3) => new Vector2(vector3.X, vector3.Y);
+        internal static System.Numerics.Vector3 ToNumerics(this ref Vector3 vector3) => new(vector3.X, vector3.Y, vector3.Z);
+        internal static System.Numerics.Vector2 ToNumerics(this ref Vector2 vector3) => new(vector3.X, vector3.Y);
     }
 }

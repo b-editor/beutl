@@ -7,6 +7,7 @@ using BEditor.Core.Data.Primitive.Properties;
 using BEditor.Core.Data.Property;
 using BEditor.Core.Media;
 using BEditor.Core.Properties;
+using BEditor.Drawing;
 
 namespace BEditor.Core.Data.Primitive.Effects.PrimitiveImages
 {
@@ -55,7 +56,7 @@ namespace BEditor.Core.Data.Primitive.Effects.PrimitiveImages
         #endregion
 
 
-        public override void Render(ref Image source, EffectRenderArgs args)
+        public override void Render(EffectRenderArgs<Image<BGRA32>> args)
         {
             int top = (int)Top.GetValue(args.Frame);
             int bottom = (int)Bottom.GetValue(args.Frame);
@@ -68,7 +69,7 @@ namespace BEditor.Core.Data.Primitive.Effects.PrimitiveImages
                 image.Coordinate.CenterY.Optional = (top / 2) - (bottom / 2);
             }
 
-            source.ToRenderable().AreaExpansion(top, bottom, left, right);
+            args.Value = args.Value.MakeBorder(top, bottom, left, right);
         }
 
         public override void PropertyLoaded()

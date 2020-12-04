@@ -10,6 +10,7 @@ using BEditor.Core.Data.Primitive.Properties;
 using BEditor.Core.Data.Property;
 using BEditor.Core.Media;
 using BEditor.Core.Properties;
+using BEditor.Drawing;
 
 namespace BEditor.Core.Data.Primitive.Effects.PrimitiveImages
 {
@@ -36,8 +37,18 @@ namespace BEditor.Core.Data.Primitive.Effects.PrimitiveImages
         [DataMember(Order = 1)]
         public CheckProperty Resize { get; private set; }
 
-        public override void Render(ref Image image, EffectRenderArgs args) => 
-            image.ToRenderable().BoxFilter((int)Size.GetValue(args.Frame), Resize.IsChecked);
+        public override void Render(EffectRenderArgs<Image<BGRA32>> args)
+        {
+            var size = (int)Size.GetValue(args.Frame);
+            if (Resize.IsChecked)
+            {
+                var w = args.Value.Width + size;
+                var h = args.Value.Height + size;
+                args.Value = args.Value.MakeBorder(w, h);
+            }
+
+            args.Value = args.Value.BoxBlur(size);
+        }
         public override void PropertyLoaded()
         {
             Size.ExecuteLoaded(SizeMetadata);

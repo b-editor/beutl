@@ -19,6 +19,7 @@ using BEditor.Models;
 
 using CommandManager = BEditor.Core.Command.CommandManager;
 using Reactive.Bindings;
+using BEditor.Drawing;
 
 namespace BEditor.ViewModels.TimeLines
 {
@@ -89,7 +90,7 @@ namespace BEditor.ViewModels.TimeLines
         /// </summary>
         public Action<float, int, int> ResetScale { get; set; }
         public Action<ClipData, int> ClipLayerMoveCommand { get; set; }
-        public Func<Point2> GetLayerMousePosition { get; set; }
+        public Func<Point> GetLayerMousePosition { get; set; }
 
         #endregion
 

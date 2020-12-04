@@ -23,7 +23,6 @@ using BEditor.Core.Extensions.ViewCommand;
 using MaterialDesignThemes.Wpf;
 
 using Microsoft.WindowsAPICodePack.Dialogs;
-using Image = BEditor.Core.Media.Image;
 using Resources_ = BEditor.Core.Properties.Resources;
 using BEditor.Core.Media;
 using System.Timers;
@@ -47,11 +46,11 @@ namespace BEditor
             //    .MakeBorder(25, 25, 25, 25)
             //    .Dilate(10);
 
-            var img = Drawing.Image.FromFile("2020-06-26_19.11.28.png").Dilate(10);
-            //img.DrawImage(new(1, 1), small);
-            img.Save("Test.png");
+            //var img = Drawing.Image.FromFile("2020-06-26_19.11.28.png").Dilate(10);
+            ////img.DrawImage(new(1, 1), small);
+            //img.Save("Test.png");
 
-            App.Current.Shutdown();
+            //App.Current.Shutdown();
 
             CultureInfo.CurrentCulture = CultureInfo.GetCultureInfo("en-US");
             CultureInfo.CurrentUICulture = CultureInfo.GetCultureInfo("en-US");

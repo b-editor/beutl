@@ -299,28 +299,9 @@ namespace BEditor.Core.Data
         /// <summary>
         /// Render a frame of <see cref="PreviewFrame"/>.
         /// </summary>
-        public Image<BGRA32> Render()
+        public RenderingResult Render()
         {
-            //return Render(PreviewFrame);
-            var frame = PreviewFrame;
-            var layer = GetLayer(frame).ToList();
-
-            GraphicsContext.MakeCurrent();
-            GraphicsContext.Clear();
-
-            var args = new ClipRenderArgs(frame, layer);
-
-            //Preview
-            layer.ForEach(clip => clip.PreviewRender(args));
-
-            layer.ForEach(clip => clip.Render(args));
-
-            GraphicsContext.SwapBuffers();
-
-            var buffer = new Image<BGRA32>(Width, Height);
-            GLTK.GetPixels(buffer);
-
-            return buffer;
+            return Render(PreviewFrame);
         }
 
 

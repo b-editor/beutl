@@ -65,4 +65,23 @@ namespace BEditor.Core.Data
         /// </summary>
         public bool Handled { get; set; }
     }
+    /// <summary>
+    /// Represents the data to be passed to the <see cref="EffectElement"/> at rendering time.
+    /// </summary>
+    public record EffectRenderArgs<T> : EffectRenderArgs
+    {
+        /// <summary>
+        /// <see cref="EffectRenderArgs"/> Initialize a new instance of the record.
+        /// </summary>
+        public EffectRenderArgs() { }
+        /// <summary>
+        /// <see cref="EffectRenderArgs"/> Initialize a new instance of the record.
+        /// </summary>
+        public EffectRenderArgs(int frame, List<EffectElement> schedules) : base(frame, schedules)
+        {
+        }
+
+
+        public T Value { get; set; }
+    }
 }

@@ -68,7 +68,7 @@ namespace BEditor.Models
         }
 
         /// <inheritdoc/>
-        public string Path { get; } = System.IO.Path.GetDirectoryName(Assembly.GetEntryAssembly().Location);
+        public string Path => Core.Service.Services.Path;
         /// <inheritdoc/>
         public string[] Arguments { get; set; }
         /// <inheritdoc/>

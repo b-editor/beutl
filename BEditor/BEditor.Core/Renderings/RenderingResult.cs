@@ -5,6 +5,7 @@ using System.Text;
 using System.Threading.Tasks;
 
 using BEditor.Core.Media;
+using BEditor.Drawing;
 
 namespace BEditor.Core.Renderings
 {
@@ -16,6 +17,6 @@ namespace BEditor.Core.Renderings
         /// <summary>
         /// 
         /// </summary>
-        public Image Image { get; init; }
+        public Image<BGRA32> Image { get; init; }
     }
 }

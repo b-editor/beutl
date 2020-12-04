@@ -22,7 +22,7 @@ namespace BEditor.Models.Extension
 
         public static void PreviewUpdate(this Core.Data.Project project)
         {
-            using var img = project.PreviewScene.Render();
+            using var img = project.PreviewScene.Render().Image;
             var outimg = MainWindowViewModel.Current.PreviewImage.Value;
             if (outimg is null || outimg.Width != img.Width || outimg.Height != img.Height)
             {

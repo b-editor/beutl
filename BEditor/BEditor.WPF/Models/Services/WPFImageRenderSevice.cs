@@ -15,16 +15,16 @@ using BEditor.Core.Media;
 using BEditor.Models.Extension;
 
 using Color = BEditor.Core.Media.Color;
-using Image = BEditor.Core.Media.Image;
+using BEditor.Drawing;
 
 namespace BEditor.Models.Services
 {
-    public class WPFImageRenderSevice : ImageRenderService
+    public class WPFImageRenderSevice : IImageRenderService
     {
         [return: MaybeNull]
-        public override Image Ellipse(int width, int height, int line, Color color)
+        public Image<BGRA32> Ellipse(int width, int height, int line, Color color)
         {
-            Image img = null;
+            Image<BGRA32> img = null;
 
             if ((line != 0) && (width != 0) && (height != 0))
             {
@@ -53,7 +53,7 @@ namespace BEditor.Models.Services
                     RenderOptions.SetClearTypeHint(ellipse, ClearTypeHint.Enabled);
                     RenderOptions.SetEdgeMode(ellipse, EdgeMode.Unspecified);
 
-                    img = new Image(width, height);
+                    img = new(width, height);
                     ellipse.RenderToBitmap(new System.Windows.Size(width, height)).ToImage(img);
                 });
             }
@@ -61,9 +61,9 @@ namespace BEditor.Models.Services
         }
         
         [return: MaybeNull]
-        public override Image Rectangle(int width, int height, int line, Color color)
+        public Image<BGRA32> Rectangle(int width, int height, int line, Color color)
         {
-            Image img = null;
+            Image<BGRA32> img = null;
 
             if ((line != 0) && (width != 0) && (height != 0))
             {
@@ -94,7 +94,7 @@ namespace BEditor.Models.Services
                     RenderOptions.SetClearTypeHint(rectangle, ClearTypeHint.Enabled);
                     RenderOptions.SetEdgeMode(rectangle, EdgeMode.Unspecified);
 
-                    img = new Image(width, height);
+                    img = new(width, height);
                     rectangle.RenderToBitmap(new System.Windows.Size(width, height)).ToImage(img);
                 });
             }
@@ -102,10 +102,10 @@ namespace BEditor.Models.Services
         }
 
         [return: MaybeNull]
-        public override Image Text(int size, Color color, string text, FontRecord font, string style, bool rightToLeft)
+        public Image<BGRA32> Text(int size, Color color, string text, FontRecord font, string style, bool rightToLeft)
         {
             if (font is null) return null;
-            Image img = null;
+            Image<BGRA32> img = null;
 
             var fontFamily = new FontFamily(font.Name);
             var flowDirection = FlowDirection.LeftToRight;
@@ -162,7 +162,7 @@ namespace BEditor.Models.Services
                     TextOptions.SetTextFormattingMode(element, TextFormattingMode.Ideal);
                     TextOptions.SetTextRenderingMode(element, TextRenderingMode.ClearType);
 
-                    img = new Image(width, height);
+                    img = new(width, height);
                     element.RenderToBitmap(new System.Windows.Size(width, height)).ToImage(img);
                 });
             }

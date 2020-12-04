@@ -7,6 +7,8 @@ using BEditor.Core.Data.Primitive.Properties;
 using BEditor.Core.Data.Property;
 using BEditor.Core.Extensions;
 using BEditor.Core.Media;
+using BEditor.Core.Service;
+using BEditor.Drawing;
 
 namespace BEditor.Core.Data.Primitive.Objects.PrimitiveImages
 {
@@ -18,7 +20,6 @@ namespace BEditor.Core.Data.Primitive.Objects.PrimitiveImages
         public static readonly PropertyElementMetadata FontMetadata = new(Core.Properties.Resources.DetailedSettings);
         public static readonly DocumentPropertyMetadata DocumentMetadata = new("");
 
-
         public Text()
         {
             Size = new(SizeMetadata);
@@ -26,7 +27,6 @@ namespace BEditor.Core.Data.Primitive.Objects.PrimitiveImages
             Font = new(FontMetadata);
             Document = new(DocumentMetadata);
         }
-
 
         #region Properties
 
@@ -58,18 +58,13 @@ namespace BEditor.Core.Data.Primitive.Objects.PrimitiveImages
 
         #endregion
 
-
-        public override Media.Image OnRender(EffectRenderArgs args) => Media.Image.Text(
+        public override Image<BGRA32> OnRender(EffectRenderArgs args) => Services.ImageRenderService.Text(
             (int)Size.GetValue(args.Frame),
             Color.Color,
             Document.Text,
             Font.Font.Select,
             (string)Font.Style.SelectItem,
-            Font.RightToLeft.IsChecked)
-                .ToRenderable()
-                .BoxFilter(3, false)
-                .Source;
-
+            Font.RightToLeft.IsChecked);
         public override void PropertyLoaded()
         {
             base.PropertyLoaded();
@@ -78,7 +73,6 @@ namespace BEditor.Core.Data.Primitive.Objects.PrimitiveImages
             Font.ExecuteLoaded(FontMetadata);
             Document.ExecuteLoaded(DocumentMetadata);
         }
-
 
         [DataContract(Namespace = "")]
         public class FontProperty : ExpandGroup

@@ -200,7 +200,7 @@ namespace BEditor.Views.TimeLines
                     togrid.Children.Add(ui);
                 });
             };
-            TimeLineViewModel.GetLayerMousePosition = () => Mouse.GetPosition(Layer).ToMedia();
+            TimeLineViewModel.GetLayerMousePosition = () => Mouse.GetPosition(Layer);
 
             TimeLineViewModel.ViewLoaded = true;
             TimeLineViewModel.TimeLineLoaded(list =>

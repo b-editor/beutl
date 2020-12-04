@@ -8,6 +8,7 @@ using BEditor.Core.Data.Property;
 using BEditor.Core.Extensions;
 using BEditor.Core.Media;
 using BEditor.Core.Properties;
+using BEditor.Drawing;
 
 namespace BEditor.Core.Data.Primitive.Effects.PrimitiveImages
 {
@@ -45,7 +46,7 @@ namespace BEditor.Core.Data.Primitive.Effects.PrimitiveImages
         #endregion
 
 
-        public override void Render(ref Image source, EffectRenderArgs args) { }
+        public override void Render(EffectRenderArgs<Image<BGRA32>> args) { }
 
         public override void PropertyLoaded()
         {

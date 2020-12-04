@@ -14,7 +14,7 @@ using BEditor.Drawing.Interop;
 
 namespace BEditor.Drawing
 {
-    public unsafe class Image<T> : ICloneable, IDisposable where T : unmanaged, IPixel<T>
+    public unsafe class Image<T> : IDisposable where T : unmanaged, IPixel<T>
     {
         // 同じImage<T>型のみで共有される
         private static readonly T s = new();
@@ -137,7 +137,7 @@ namespace BEditor.Drawing
 
         #region Methods
 
-        public object Clone() =>
+        public Image<T> Clone() =>
             new Image<T>(Width, Height, Data);
         public void Clear() =>
             Array.Clear(Data, 0, Width * Height);
@@ -199,6 +199,15 @@ namespace BEditor.Drawing
 
             return img;
         }
+        public Image<T> MakeBorder(int width, int height)
+        {
+            ThrowIfDisposed();
+
+            int v = (height - Height) / 2;
+            int h = (width - Width) / 2;
+
+            return MakeBorder(v, v, h, h);
+        }
         public Image<T> BoxBlur(float size)
         {
             var img = new Image<T>(Width, Height);
@@ -254,6 +263,7 @@ namespace BEditor.Drawing
                 return img;
             }
         }
+        
 
         internal ImageStruct ToStruct(T* data) => new()
         {
@@ -269,6 +279,11 @@ namespace BEditor.Drawing
                 ArrayPool<T>.Shared.Return(Data, true);
                 Data = null;
             }
+        }
+
+        public void ThrowIfDisposed()
+        {
+            if (IsDisposed) throw new ObjectDisposedException(nameof(Image<T>));
         }
 
         #endregion
