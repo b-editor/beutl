@@ -10,6 +10,7 @@ using BEditor.Core.Extensions.ViewCommand;
 using BEditor.Core.Media.Decoder;
 using BEditor.Core.Properties;
 using BEditor.Drawing;
+using BEditor.Drawing.Pixel;
 
 namespace BEditor.Core.Data.Primitive.Objects.PrimitiveImages
 {

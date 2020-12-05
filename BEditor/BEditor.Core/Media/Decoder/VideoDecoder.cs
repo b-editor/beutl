@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.Text;
 
 using BEditor.Drawing;
+using BEditor.Drawing.Pixel;
 
 namespace BEditor.Core.Media.Decoder
 {

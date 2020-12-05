@@ -1,6 +1,7 @@
 ﻿using System.Diagnostics;
 
 using BEditor.Drawing;
+using BEditor.Drawing.Pixel;
 
 namespace BEditor.Core.Media.Encoder
 {

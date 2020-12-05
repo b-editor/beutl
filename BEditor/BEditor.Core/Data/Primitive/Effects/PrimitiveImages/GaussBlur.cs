@@ -8,6 +8,7 @@ using BEditor.Core.Extensions;
 using BEditor.Core.Media;
 using BEditor.Core.Properties;
 using BEditor.Drawing;
+using BEditor.Drawing.Pixel;
 
 namespace BEditor.Core.Data.Primitive.Effects.PrimitiveImages
 {
@@ -41,7 +42,7 @@ namespace BEditor.Core.Data.Primitive.Effects.PrimitiveImages
                 args.Value = args.Value.MakeBorder(w, h);
             }
 
-            args.Value = args.Value.GanssBlur(size);
+            args.Value.GanssBlur(size);
         }
         public override void PropertyLoaded()
         {

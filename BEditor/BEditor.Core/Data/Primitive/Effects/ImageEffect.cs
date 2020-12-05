@@ -3,6 +3,7 @@
 using BEditor.Core.Data.Primitive.Objects;
 using BEditor.Core.Media;
 using BEditor.Drawing;
+using BEditor.Drawing.Pixel;
 
 namespace BEditor.Core.Data.Primitive.Effects
 {

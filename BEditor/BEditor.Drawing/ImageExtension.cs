@@ -6,6 +6,10 @@ using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
 
+using BEditor.Drawing.Interop;
+using BEditor.Drawing.Pixel;
+using BEditor.Drawing.Process;
+
 namespace BEditor.Drawing
 {
     public unsafe static partial class Image
@@ -43,10 +47,11 @@ namespace BEditor.Drawing
         }
         public static Image<BGRA32> ToImage(this Bitmap self)
         {
-            var data = self.LockBits(new(0, 0, self.Width, self.Height), ImageLockMode.WriteOnly, PixelFormat.Format32bppArgb);
+            using var c = self.Clone(new(0, 0, self.Width, self.Height), PixelFormat.Format32bppArgb);
+            var data = c.LockBits(new(0, 0, c.Width, c.Height), ImageLockMode.ReadOnly, PixelFormat.Format32bppArgb);
             var result = new Image<BGRA32>(data.Width, data.Height, data.Scan0);
 
-            self.UnlockBits(data);
+            c.UnlockBits(data);
 
             return result;
         }
@@ -55,7 +60,7 @@ namespace BEditor.Drawing
         {
             self.ThrowIfDisposed();
 
-            fixed(BGRA32* data = self.Data)
+            fixed (BGRA32* data = self.Data)
             {
                 var p = new SetAlphaProcess(data, alpha);
                 Parallel.For(0, self.Length, p.Invoke);
@@ -63,7 +68,7 @@ namespace BEditor.Drawing
         }
         public static void SetColor(this Image<BGRA32> self, BGRA32 color)
         {
-            fixed(BGRA32* data = self.Data)
+            fixed (BGRA32* data = self.Data)
             {
                 var p = new SetColorProcess(data, color);
                 Parallel.For(0, self.Length, p.Invoke);
@@ -79,16 +84,17 @@ namespace BEditor.Drawing
             var result = new Image<BGRA32>(nwidth, nheight);
 
             // 縁を描画
-            var border = self.Clone();
-            border.Fill(color);
-            border = border.MakeBorder(nwidth, nheight).Dilate(size);
+            using var border = self.Clone();
+            border.SetColor(color);
+            using var border_ = border.MakeBorder(nwidth, nheight);
+            border_.Dilate(size);
 
-            result.DrawImage(Point.Empty, border);
-            
+            result.DrawImage(Point.Empty, border_);
+
             var x = nwidth / 2 - self.Width / 2;
             var y = nheight / 2 - self.Height / 2;
 
-            result.DrawImage(new Point(x, y), self);
+            //result.DrawImage(new Point(x, y), self);
 
             return result;
         }
@@ -115,7 +121,7 @@ namespace BEditor.Drawing
                     (result.Width / 2 - shadow.Width / 2) + x,
                     (result.Height / 2 - shadow.Height / 2) + y),
                 shadow);
-            
+
             result.DrawImage(
                 new(
                     (result.Width / 2 - self.Width / 2) + x,
@@ -127,63 +133,50 @@ namespace BEditor.Drawing
             return result;
         }
 
-        private unsafe readonly struct SetAlphaProcess
+        public static void BoxBlur<T>(this Image<T> self, float size) where T : unmanaged, IPixel<T>
         {
-            private readonly BGRA32* data;
-            private readonly float alpha;
+            if (size <= 0) throw new ArgumentOutOfRangeException(nameof(size));
 
-            public SetAlphaProcess(BGRA32* data, float alpha)
+            fixed (T* data = self.Data)
             {
-                this.data = data;
-                this.alpha = alpha;
-            }
-
-            public readonly void Invoke(int pos)
-            {
-                data[pos].A = (byte)(data[pos].A * alpha);
+                var str = self.ToStruct(data);
+                Native.Image_BoxBlur(str, size, str);
             }
         }
-        private unsafe readonly struct SetColorProcess
+        public static void GanssBlur<T>(this Image<T> self, float size) where T : unmanaged, IPixel<T>
         {
-            private readonly BGRA32* data;
-            private readonly BGRA32 color;
+            if (size <= 0) throw new ArgumentOutOfRangeException(nameof(size));
 
-            public SetColorProcess(BGRA32* data, BGRA32 color)
+            fixed (T* data = self.Data)
             {
-                this.data = data;
-                this.color = color;
-            }
-
-            public readonly void Invoke(int pos)
-            {
-                data[pos].B = color.B;
-                data[pos].G = color.G;
-                data[pos].R = color.R;
+                var str = self.ToStruct(data);
+                Native.Image_GaussBlur(str, size, str);
             }
         }
-        private unsafe readonly struct AlphaBlendProcess
+        public static void MedianBlur<T>(this Image<T> self, int size) where T : unmanaged, IPixel<T>
         {
-            readonly BGRA32* dst;
-            readonly BGRA32* src;
+            if (size <= 0) throw new ArgumentOutOfRangeException(nameof(size));
 
-            public AlphaBlendProcess(BGRA32* dst, BGRA32* src)
+            fixed (T* data = self.Data)
             {
-                this.dst = dst;
-                this.src = src;
+                var str = self.ToStruct(data);
+                Native.Image_MedianBlur(str, size, str);
             }
-
-            public readonly void Invoke(int pos)
+        }
+        public static void Dilate<T>(this Image<T> self, int f) where T : unmanaged, IPixel<T>
+        {
+            fixed (T* data = self.Data)
             {
-                var srcA = src[pos].A;
-
-                if (srcA is 0) return;
-
-                var dstA = dst[pos].A;
-                var blendA = (srcA + dstA) - srcA * dstA / 255;
-
-                dst[pos].B = (byte)((src[pos].B * srcA + dst[pos].B * (255 - srcA) * dstA / 255) / blendA);
-                dst[pos].G = (byte)((src[pos].G * srcA + dst[pos].G * (255 - srcA) * dstA / 255) / blendA);
-                dst[pos].R = (byte)((src[pos].R * srcA + dst[pos].R * (255 - srcA) * dstA / 255) / blendA);
+                var str = self.ToStruct(data);
+                Native.Image_Dilate(str, f, str);
+            }
+        }
+        public static void Erode<T>(this Image<T> self, int f) where T : unmanaged, IPixel<T>
+        {
+            fixed (T* data = self.Data)
+            {
+                var str = self.ToStruct(data);
+                Native.Image_Erode(str, f, str);
             }
         }
     }

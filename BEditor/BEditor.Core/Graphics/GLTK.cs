@@ -14,6 +14,7 @@ using BEditor.Core.Media;
 using Color = BEditor.Core.Media.Color;
 using BEditor.Drawing;
 using System.Drawing;
+using BEditor.Drawing.Pixel;
 
 namespace BEditor.Core.Graphics
 {

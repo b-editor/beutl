@@ -641,7 +641,7 @@
             Represents an effect that can be added to an <see cref="T:BEditor.Core.Data.Primitive.Objects.ImageObject"/>.
             </summary>
         </member>
-        <member name="M:BEditor.Core.Data.Primitive.Effects.ImageEffect.Render(BEditor.Core.Data.EffectRenderArgs{BEditor.Drawing.Image{BEditor.Drawing.BGRA32}})">
+        <member name="M:BEditor.Core.Data.Primitive.Effects.ImageEffect.Render(BEditor.Core.Data.EffectRenderArgs{BEditor.Drawing.Image{BEditor.Drawing.Pixel.BGRA32}})">
             <summary>
             It is called at rendering time
             </summary>
@@ -2577,7 +2577,7 @@
             <see cref="T:BEditor.Core.Media.Color"/> 構造体から <see cref="T:System.Single"/>　の配列を作成します
             </summary>
         </member>
-        <member name="M:BEditor.Core.Media.Color.op_Implicit(BEditor.Core.Media.Color)~BEditor.Drawing.BGRA32">
+        <member name="M:BEditor.Core.Media.Color.op_Implicit(BEditor.Core.Media.Color)~BEditor.Drawing.Pixel.BGRA32">
             <summary>
             <see cref="T:BEditor.Core.Media.Color"/> 構造体から <see cref="!:BEditor.Drawing.Color"/> を作成します
             </summary>

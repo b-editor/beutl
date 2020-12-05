@@ -8,6 +8,7 @@ using BEditor.Core.Extensions;
 using BEditor.Core.Media;
 using BEditor.Core.Properties;
 using BEditor.Drawing;
+using BEditor.Drawing.Pixel;
 
 namespace BEditor.Core.Data.Primitive.Effects.PrimitiveImages
 {
@@ -43,11 +44,14 @@ namespace BEditor.Core.Data.Primitive.Effects.PrimitiveImages
                 int nwidth = img.Width + (size + 5) * 2;
                 int nheight = img.Height + (size + 5) * 2;
 
-                args.Value = img.MakeBorder(nwidth, nheight).Dilate(size);
+                args.Value = img.MakeBorder(nwidth, nheight);
+                args.Value.Dilate(size);
+
+                img.Dispose();
             }
             else
             {
-                args.Value = img.Dilate(size);
+                img.Dilate(size);
             }
         }
         public override void PropertyLoaded()

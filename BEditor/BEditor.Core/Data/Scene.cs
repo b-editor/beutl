@@ -13,6 +13,7 @@ using BEditor.Core.Graphics;
 using BEditor.Core.Media;
 using BEditor.Core.Renderings;
 using BEditor.Drawing;
+using BEditor.Drawing.Pixel;
 
 namespace BEditor.Core.Data
 {

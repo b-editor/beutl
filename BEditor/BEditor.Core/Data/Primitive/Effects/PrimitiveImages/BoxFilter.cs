@@ -11,6 +11,7 @@ using BEditor.Core.Data.Property;
 using BEditor.Core.Media;
 using BEditor.Core.Properties;
 using BEditor.Drawing;
+using BEditor.Drawing.Pixel;
 
 namespace BEditor.Core.Data.Primitive.Effects.PrimitiveImages
 {
@@ -40,6 +41,8 @@ namespace BEditor.Core.Data.Primitive.Effects.PrimitiveImages
         public override void Render(EffectRenderArgs<Image<BGRA32>> args)
         {
             var size = (int)Size.GetValue(args.Frame);
+            if (size is 0) return;
+
             if (Resize.IsChecked)
             {
                 var w = args.Value.Width + size;
@@ -47,7 +50,7 @@ namespace BEditor.Core.Data.Primitive.Effects.PrimitiveImages
                 args.Value = args.Value.MakeBorder(w, h);
             }
 
-            args.Value = args.Value.BoxBlur(size);
+            args.Value.BoxBlur(size);
         }
         public override void PropertyLoaded()
         {

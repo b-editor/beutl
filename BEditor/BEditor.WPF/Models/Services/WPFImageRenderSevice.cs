@@ -16,6 +16,7 @@ using BEditor.Models.Extension;
 
 using Color = BEditor.Core.Media.Color;
 using BEditor.Drawing;
+using BEditor.Drawing.Pixel;
 
 namespace BEditor.Models.Services
 {

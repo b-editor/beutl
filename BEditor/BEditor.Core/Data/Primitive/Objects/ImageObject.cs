@@ -7,6 +7,7 @@ using BEditor.Core.Data.Property;
 using BEditor.Core.Extensions;
 using BEditor.Core.Properties;
 using BEditor.Drawing;
+using BEditor.Drawing.Pixel;
 
 namespace BEditor.Core.Data.Primitive.Objects
 {
@@ -88,11 +89,9 @@ namespace BEditor.Core.Data.Primitive.Objects
             }
 
 
-            Parent.Parent.GraphicsContext.DrawImage(base_img, Parent, args.Frame);
-            if (!(base_img?.IsDisposed ?? true))
-            {
-                base_img.Dispose();
-            }
+            Parent.Parent.GraphicsContext.DrawImage(imageArgs.Value, Parent, args.Frame);
+            base_img?.Dispose();
+            imageArgs.Value?.Dispose();
 
             Coordinate.ResetOptional();
         }

@@ -1,14 +1,17 @@
 ﻿using System;
 using System.Collections.Generic;
 using System.IO;
+using System.Reactive;
 using System.Reactive.Linq;
 using System.Runtime.Serialization;
 
 using BEditor.Core.Command;
 using BEditor.Core.Data.Primitive.Properties;
 using BEditor.Core.Data.Property;
+using BEditor.Core.Data.Control;
 using BEditor.Core.Properties;
 using BEditor.Drawing;
+using BEditor.Drawing.Pixel;
 
 namespace BEditor.Core.Data.Primitive.Objects.PrimitiveImages
 {
@@ -42,7 +45,8 @@ namespace BEditor.Core.Data.Primitive.Objects.PrimitiveImages
             {
                 if (source == null && System.IO.File.Exists(File.File))
                 {
-                    source = Drawing.Image.FromFile(File.File);
+                    using var stream = new FileStream(File.File, FileMode.Open);
+                    source = Drawing.Image.FromStream(stream);
                 }
 
                 return source;
@@ -60,11 +64,13 @@ namespace BEditor.Core.Data.Primitive.Objects.PrimitiveImages
             base.PropertyLoaded();
             File.ExecuteLoaded(FileMetadata);
 
-            File.Subscribe(filename =>
+            File.ObserveProperty(p=>p.File)
+                .Subscribe(file =>
             {
-                if (System.IO.File.Exists(filename))
+                if (System.IO.File.Exists(file.File))
                 {
-                    source = Drawing.Image.FromFile(filename);
+                    using var stream = new FileStream(file.File, FileMode.Open);
+                    source = Drawing.Image.FromStream(stream);
                 }
             });
         }

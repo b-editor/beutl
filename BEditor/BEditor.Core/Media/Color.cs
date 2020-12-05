@@ -289,7 +289,7 @@ namespace BEditor.Core.Media
         /// <summary>
         /// <see cref="Color"/> 構造体から <see cref="BEditor.Drawing.Color"/> を作成します
         /// </summary>
-        public static implicit operator BEditor.Drawing.BGRA32(Color c) => new()
+        public static implicit operator BEditor.Drawing.Pixel.BGRA32(Color c) => new()
         {
             A = c.A,
             R = c.R,

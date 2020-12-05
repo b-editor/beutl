@@ -5,19 +5,20 @@ using System.Windows;
 using System.Windows.Media.Imaging;
 
 using BEditor.Drawing;
+using BEditor.Drawing.Pixel;
 
 namespace BEditor.Models.Extension
 {
     public static class BitmapSourceConverter
     {
-        public static BitmapSource ToBitmapSource(this Drawing.Image<Drawing.BGRA32> src)
+        public static BitmapSource ToBitmapSource(this Image<BGRA32> src)
         {
             var Bitmap = new WriteableBitmap(src.Width, src.Height, 96, 96, System.Windows.Media.PixelFormats.Bgra32, null);
             ToWriteableBitmap(src, Bitmap);
             return Bitmap;
         }
 
-        public static unsafe void ToWriteableBitmap(Drawing.Image<Drawing.BGRA32> src, WriteableBitmap dst)
+        public static unsafe void ToWriteableBitmap(Image<BGRA32> src, WriteableBitmap dst)
         {
             if (src == null)
             {

@@ -11,15 +11,27 @@ using System.Text;
 using System.Threading.Tasks;
 
 using BEditor.Drawing.Interop;
+using BEditor.Drawing.Pixel;
 
 namespace BEditor.Drawing
 {
     public unsafe class Image<T> : IDisposable where T : unmanaged, IPixel<T>
     {
         // 同じImage<T>型のみで共有される
-        private static readonly T s = new();
+        private static readonly PixelFormatAttribute formatAttribute;
 
         #region Constructors
+        static Image()
+        {
+            if(Attribute.GetCustomAttribute(typeof(T), typeof(PixelFormatAttribute)) is PixelFormatAttribute attribute)
+            {
+                formatAttribute = attribute;
+            }
+            else
+            {
+                Debug.Assert(false);
+            }
+        }
         public Image(int width, int height)
         {
             Width = width;
@@ -123,10 +135,10 @@ namespace BEditor.Drawing
             {
                 var value = new Image<T>(roi.Width, roi.Height);
 
-                Parallel.For(roi.Y, roi.Height, y =>
+                Parallel.For(0, roi.Height, y =>
                 {
-                    var sourceRow = this[y].Slice(roi.X, roi.Width);
-                    var targetRow = value[y - roi.Y];
+                    var sourceRow = this[y + roi.Y].Slice(roi.X, roi.Width);
+                    var targetRow = value[y];
 
                     sourceRow.Slice(0, roi.Width).CopyTo(targetRow);
                 });
@@ -157,7 +169,7 @@ namespace BEditor.Drawing
                 {
                     Width = Width,
                     Height = Height,
-                    CvType = s.CvType,
+                    CvType = formatAttribute.Channels,
                     Data = data
                 },
                 filename);
@@ -208,68 +220,13 @@ namespace BEditor.Drawing
 
             return MakeBorder(v, v, h, h);
         }
-        public Image<T> BoxBlur(float size)
-        {
-            var img = new Image<T>(Width, Height);
-            fixed (T* data = Data)
-            fixed (T* outdata = img.Data)
-            {
-                Native.Image_BoxBlur(ToStruct(data), size, img.ToStruct(outdata));
 
-                return img;
-            }
-        }
-        public Image<T> GanssBlur(float size)
-        {
-            var img = new Image<T>(Width, Height);
-            fixed (T* data = Data)
-            fixed (T* outdata = img.Data)
-            {
-                Native.Image_GaussBlur(ToStruct(data), size, img.ToStruct(outdata));
-
-                return img;
-            }
-        }
-        public Image<T> MedianBlur(int size)
-        {
-            var img = new Image<T>(Width, Height);
-            fixed (T* data = Data)
-            fixed (T* outdata = img.Data)
-            {
-                Native.Image_MedianBlur(ToStruct(data), size, img.ToStruct(outdata));
-
-                return img;
-            }
-        }
-        public Image<T> Dilate(int f)
-        {
-            var img = new Image<T>(Width, Height);
-            fixed (T* data = Data)
-            fixed (T* outdata = img.Data)
-            {
-                Native.Image_Dilate(ToStruct(data), f, img.ToStruct(outdata));
-
-                return img;
-            }
-        }
-        public Image<T> Erode(int f)
-        {
-            var img = new Image<T>(Width, Height);
-            fixed (T* data = Data)
-            fixed (T* outdata = img.Data)
-            {
-                Native.Image_Erode(ToStruct(data), f, img.ToStruct(outdata));
-
-                return img;
-            }
-        }
-        
 
         internal ImageStruct ToStruct(T* data) => new()
         {
             Width = Width,
             Height = Height,
-            CvType = s.CvType,
+            CvType = formatAttribute.MatType,
             Data = data
         };
         public void Dispose()
@@ -278,6 +235,7 @@ namespace BEditor.Drawing
             {
                 ArrayPool<T>.Shared.Return(Data, true);
                 Data = null;
+                IsDisposed = true;
             }
         }
 

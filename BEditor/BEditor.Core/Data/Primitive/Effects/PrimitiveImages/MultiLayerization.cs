@@ -12,6 +12,7 @@ using BEditor.Core.Media;
 using BEditor.Core.Properties;
 using BEditor.Core.Renderings;
 using BEditor.Drawing;
+using BEditor.Drawing.Pixel;
 
 using OpenTK.Graphics.OpenGL;
 

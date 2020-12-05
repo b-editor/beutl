@@ -23,6 +23,7 @@ using BEditor.Core.Renderings;
 using BEditor.Core.Data.Primitive.Objects;
 using BEditor.Core.Data.Primitive.Properties.PrimitiveGroup;
 using BEditor.Drawing;
+using BEditor.Drawing.Pixel;
 
 namespace BEditor.Core.Graphics
 {
