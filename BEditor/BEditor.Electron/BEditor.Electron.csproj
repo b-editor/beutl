@@ -4,6 +4,7 @@
   </PropertyGroup>
   <ItemGroup>
     <PackageReference Include="ElectronNET.API" Version="9.31.2" />
+    <PackageReference Include="MatBlazor" Version="2.8.0" />
   </ItemGroup>
   <ItemGroup>
     <Content Update="electron.manifest.json">
