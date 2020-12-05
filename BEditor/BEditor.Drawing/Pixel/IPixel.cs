@@ -4,9 +4,10 @@ using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
 
-namespace BEditor.Core.Renderings.Extensions
+namespace BEditor.Drawing.Pixel
 {
-    public static class RenderableExtensions
+    public interface IPixel<T> where T : unmanaged, IPixel<T>
     {
+        public T Blend(T foreground);
     }
 }

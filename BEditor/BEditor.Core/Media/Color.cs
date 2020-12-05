@@ -287,6 +287,16 @@ namespace BEditor.Core.Media
         /// </summary>
         public static implicit operator float[](Color c) => new float[] { c.ScR, c.ScG, c.ScB, c.ScA };
         /// <summary>
+        /// <see cref="Color"/> 構造体から <see cref="BEditor.Drawing.Color"/> を作成します
+        /// </summary>
+        public static implicit operator BEditor.Drawing.Pixel.BGRA32(Color c) => new()
+        {
+            A = c.A,
+            R = c.R,
+            G = c.G,
+            B = c.B,
+        };
+        /// <summary>
         /// <see cref="Color"/> 構造体から <see cref="System.Drawing.Color"/> を作成します
         /// </summary>
         public static implicit operator System.Drawing.Color(Color c) => System.Drawing.Color.FromArgb((int)c.A, (int)c.R, (int)c.G, (int)c.B);

@@ -31,7 +31,6 @@ namespace BEditor.Core.Data.Primitive.Objects
         });
         public static readonly EasePropertyMetadata WeightMetadata = new("Weight", 100, float.NaN, 0);
 
-
         public GL3DObject()
         {
             Coordinate = new(ImageObject.CoordinateMetadata);
@@ -44,7 +43,6 @@ namespace BEditor.Core.Data.Primitive.Objects
             Height = new(Figure.HeightMetadata);
             Weight = new(WeightMetadata);
         }
-
 
         #region Properties
 
@@ -93,7 +91,6 @@ namespace BEditor.Core.Data.Primitive.Objects
 
         #endregion
 
-
         public override void Render(EffectRenderArgs args)
         {
             int frame = args.Frame;
@@ -141,14 +138,14 @@ namespace BEditor.Core.Data.Primitive.Objects
 
             Parent.Parent.GraphicsContext.MakeCurrent();
             GLTK.Paint(
-                new Point3(
+                new System.Numerics.Vector3(
                     Coordinate.X.GetValue(frame),
                     Coordinate.Y.GetValue(frame),
                     Coordinate.Z.GetValue(frame)),
                 Angle.AngleX.GetValue(frame),
                 Angle.AngleY.GetValue(frame),
                 Angle.AngleZ.GetValue(frame),
-                new Point3(
+                new System.Numerics.Vector3(
                     Coordinate.CenterX.GetValue(frame),
                     Coordinate.CenterY.GetValue(frame),
                     Coordinate.CenterZ.GetValue(frame)),
@@ -157,7 +154,6 @@ namespace BEditor.Core.Data.Primitive.Objects
 
             Coordinate.ResetOptional();
         }
-
         public override void PropertyLoaded()
         {
             Coordinate.ExecuteLoaded(ImageObject.CoordinateMetadata);

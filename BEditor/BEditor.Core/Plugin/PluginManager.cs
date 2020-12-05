@@ -39,7 +39,7 @@ namespace BEditor.Core.Plugin
                     .Select(t => Activator.CreateInstance(t) as IPlugin)
                     .Where(t => t is not null))
                 .SelectMany(f => f);
-
+            
             foreach (var plugin in pluginss)
             {
                 if (plugin is IEffects effects)

@@ -57,7 +57,7 @@ namespace BEditor.Core.Data.Primitive.Properties
                 {
                     try
                     {
-                        observer.OnNext(file);
+                        observer.OnNext(File);
                         observer.OnCompleted();
                     }
                     catch (Exception ex)

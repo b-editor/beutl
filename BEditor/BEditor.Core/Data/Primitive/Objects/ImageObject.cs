@@ -6,8 +6,8 @@ using BEditor.Core.Data.Primitive.Properties.PrimitiveGroup;
 using BEditor.Core.Data.Property;
 using BEditor.Core.Extensions;
 using BEditor.Core.Properties;
-
-using Image = BEditor.Core.Media.Image;
+using BEditor.Drawing;
+using BEditor.Drawing.Pixel;
 
 namespace BEditor.Core.Data.Primitive.Objects
 {
@@ -56,7 +56,7 @@ namespace BEditor.Core.Data.Primitive.Objects
 
         public override void Render(EffectRenderArgs args)
         {
-            Image base_img = OnRender(args);
+            var base_img = OnRender(args);
 
             if (base_img == null)
             {
@@ -64,13 +64,19 @@ namespace BEditor.Core.Data.Primitive.Objects
                 return;
             }
 
+            var imageArgs = new EffectRenderArgs<Image<BGRA32>>
+            {
+                Frame = args.Frame,
+                Schedules = args.Schedules,
+                Value = base_img
+            };
             for (int i = 1; i < args.Schedules.Count; i++)
             {
                 var effect = args.Schedules[i];
 
                 if (effect is ImageEffect imageEffect)
                 {
-                    imageEffect.Render(ref base_img, args);
+                    imageEffect.Render(imageArgs);
                 }
                 effect.Render(args);
 
@@ -83,16 +89,14 @@ namespace BEditor.Core.Data.Primitive.Objects
             }
 
 
-            Parent.Parent.GraphicsContext.DrawImage(base_img, Parent, args.Frame);
-            if (!(base_img?.IsDisposed ?? true))
-            {
-                base_img.Dispose();
-            }
+            Parent.Parent.GraphicsContext.DrawImage(imageArgs.Value, Parent, args.Frame);
+            base_img?.Dispose();
+            imageArgs.Value?.Dispose();
 
             Coordinate.ResetOptional();
         }
 
-        public abstract Image OnRender(EffectRenderArgs args);
+        public abstract Image<BGRA32> OnRender(EffectRenderArgs args);
 
         public override void PropertyLoaded()
         {

@@ -37,6 +37,10 @@
   </ItemGroup>
 
   <ItemGroup>
+    <ProjectReference Include="..\BEditor.Drawing\BEditor.Drawing.csproj" />
+  </ItemGroup>
+
+  <ItemGroup>
     <EmbeddedResource Update="Properties\Resources.ja-JP.resx">
       <Generator>PublicResXFileCodeGenerator</Generator>
     </EmbeddedResource>

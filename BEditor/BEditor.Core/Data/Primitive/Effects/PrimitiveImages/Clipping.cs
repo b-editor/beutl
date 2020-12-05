@@ -1,4 +1,5 @@
 ﻿using System.Collections.Generic;
+using System.Drawing;
 using System.Runtime.Serialization;
 
 using BEditor.Core.Command;
@@ -8,6 +9,8 @@ using BEditor.Core.Data.Property;
 using BEditor.Core.Extensions;
 using BEditor.Core.Media;
 using BEditor.Core.Properties;
+using BEditor.Drawing;
+using BEditor.Drawing.Pixel;
 
 namespace BEditor.Core.Data.Primitive.Effects.PrimitiveImages
 {
@@ -20,7 +23,6 @@ namespace BEditor.Core.Data.Primitive.Effects.PrimitiveImages
         public static readonly EasePropertyMetadata RightMetadata = new(Resources.Right, 0, float.NaN, 0);
         public static readonly CheckPropertyMetadata AdjustCoordinatesMetadata = new(Resources.Adjust_coordinates);
 
-
         public Clipping()
         {
             Top = new(TopMetadata);
@@ -29,7 +31,6 @@ namespace BEditor.Core.Data.Primitive.Effects.PrimitiveImages
             Right = new(RightMetadata);
             AdjustCoordinates = new(AdjustCoordinatesMetadata);
         }
-
 
         #region Properties
 
@@ -62,13 +63,13 @@ namespace BEditor.Core.Data.Primitive.Effects.PrimitiveImages
 
         #endregion
 
-
-        public override void Render(ref Image source, EffectRenderArgs args)
+        public override void Render(EffectRenderArgs<Image<BGRA32>> args)
         {
-            int top = (int)Top.GetValue(args.Frame);
-            int bottom = (int)Bottom.GetValue(args.Frame);
-            int left = (int)Left.GetValue(args.Frame);
-            int right = (int)Right.GetValue(args.Frame);
+            var top = (int)Top.GetValue(args.Frame);
+            var bottom = (int)Bottom.GetValue(args.Frame);
+            var left = (int)Left.GetValue(args.Frame);
+            var right = (int)Right.GetValue(args.Frame);
+            var img = args.Value;
 
             if (AdjustCoordinates.IsChecked && Parent.Effect[0] is ImageObject image)
             {
@@ -76,9 +77,20 @@ namespace BEditor.Core.Data.Primitive.Effects.PrimitiveImages
                 image.Coordinate.CenterY.Optional += -(top / 2) + (bottom / 2);
             }
 
-            source.ToRenderable().Clip(top, bottom, left, right);
-        }
+            if (img.Width <= left + right || img.Height <= top + bottom)
+            {
+                img.Dispose();
+                args.Value = new(1, 1);
+                return;
+            }
 
+            int width = img.Width - left - right;
+            int height = img.Height - top - bottom;
+            int x = left;
+            int y = top;
+
+            args.Value = img[new Rectangle(x, y, width, height)];
+        }
         public override void PropertyLoaded()
         {
             Top.ExecuteLoaded(TopMetadata);
@@ -87,6 +99,5 @@ namespace BEditor.Core.Data.Primitive.Effects.PrimitiveImages
             Right.ExecuteLoaded(RightMetadata);
             AdjustCoordinates.ExecuteLoaded(AdjustCoordinatesMetadata);
         }
-
     }
 }

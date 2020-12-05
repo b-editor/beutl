@@ -8,6 +8,8 @@ using BEditor.Core.Data.Primitive.Properties;
 using BEditor.Core.Data.Property;
 using BEditor.Core.Extensions;
 using BEditor.Core.Media;
+using BEditor.Drawing;
+using BEditor.Drawing.Pixel;
 
 namespace BEditor.Core.Data.Primitive.Objects.PrimitiveImages
 {
@@ -49,9 +51,9 @@ namespace BEditor.Core.Data.Primitive.Objects.PrimitiveImages
         #endregion
 
 
-        public override Media.Image OnRender(EffectRenderArgs args)
+        public override Image<BGRA32> OnRender(EffectRenderArgs args)
         {
-            var scene = SelectScene.SelectItem as Data.Scene;
+            var scene = SelectScene.SelectItem as Scene;
             // Clipの相対的なフレーム
             var frame = args.Frame - Parent.Start;
 

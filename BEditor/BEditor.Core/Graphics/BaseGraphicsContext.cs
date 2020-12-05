@@ -18,15 +18,16 @@ using OpenTK.Windowing.Desktop;
 
 #endif
 using Color = BEditor.Core.Media.Color;
-using Image = BEditor.Core.Media.Image;
 using System.Runtime.InteropServices;
 using BEditor.Core.Renderings;
 using BEditor.Core.Data.Primitive.Objects;
 using BEditor.Core.Data.Primitive.Properties.PrimitiveGroup;
+using BEditor.Drawing;
+using BEditor.Drawing.Pixel;
 
 namespace BEditor.Core.Graphics
 {
-    public abstract class BaseGraphicsContext : IDisposable, IRenderer<Image>
+    public abstract class BaseGraphicsContext : IDisposable
     {
         protected int Color;
         protected int Depth;
@@ -234,30 +235,32 @@ namespace BEditor.Core.Graphics
             IsInitialized = true;
         }
 
-        internal void DrawImage(Image img, ClipData data, int frame)
+        internal void DrawImage(Image<BGRA32> img, ClipData data, int frame)
         {
             if (img == null) return;
             var drawObject = data.Effect[0] as ImageObject;
 
             float alpha = (float)(drawObject.Blend.Alpha.GetValue(frame) / 100);
 
-            float scale = (float)(drawObject.Zoom.Scale.GetValue(frame) / 100);
-            float scalex = (float)(drawObject.Zoom.ScaleX.GetValue(frame) / 100) * scale;
-            float scaley = (float)(drawObject.Zoom.ScaleY.GetValue(frame) / 100) * scale;
-            float scalez = (float)(drawObject.Zoom.ScaleZ.GetValue(frame) / 100) * scale;
+            var scale = (float)(drawObject.Zoom.Scale.GetValue(frame) / 100);
+            var scalex = (float)(drawObject.Zoom.ScaleX.GetValue(frame) / 100) * scale;
+            var scaley = (float)(drawObject.Zoom.ScaleY.GetValue(frame) / 100) * scale;
+            var scalez = (float)(drawObject.Zoom.ScaleZ.GetValue(frame) / 100) * scale;
 
-            Point3 coordinate = new Point3(x: drawObject.Coordinate.X.GetValue(frame),
-                                             y: drawObject.Coordinate.Y.GetValue(frame),
-                                             z: drawObject.Coordinate.Z.GetValue(frame));
+            var coordinate = new System.Numerics.Vector3(
+                drawObject.Coordinate.X.GetValue(frame),
+                drawObject.Coordinate.Y.GetValue(frame),
+                drawObject.Coordinate.Z.GetValue(frame));
 
-            Point3 center = new Point3(x: drawObject.Coordinate.CenterX.GetValue(frame),
-                                         y: drawObject.Coordinate.CenterY.GetValue(frame),
-                                         z: drawObject.Coordinate.CenterZ.GetValue(frame));
+            var center = new System.Numerics.Vector3(
+                drawObject.Coordinate.CenterX.GetValue(frame),
+                drawObject.Coordinate.CenterY.GetValue(frame),
+                drawObject.Coordinate.CenterZ.GetValue(frame));
 
 
-            float nx = drawObject.Angle.AngleX.GetValue(frame);
-            float ny = drawObject.Angle.AngleY.GetValue(frame);
-            float nz = drawObject.Angle.AngleZ.GetValue(frame);
+            var nx = drawObject.Angle.AngleX.GetValue(frame);
+            var ny = drawObject.Angle.AngleY.GetValue(frame);
+            var nz = drawObject.Angle.AngleZ.GetValue(frame);
 
             Color ambient = drawObject.Material.Ambient.GetValue(frame);
             Color diffuse = drawObject.Material.Diffuse.GetValue(frame);
@@ -269,35 +272,10 @@ namespace BEditor.Core.Graphics
             MakeCurrent();
             GLTK.Paint(coordinate, nx, ny, nz, center, () => GLTK.DrawImage(img, scalex, scaley, scalez, color, ambient, diffuse, specular, shininess), Blend.BlentFunc[drawObject.Blend.BlendType.Index]);
         }
-        public void ReadPixels(Image image)
+        public void ReadPixels(Image<BGRA32> image)
         {
             MakeCurrent();
             GLTK.GetPixels(image);
-        }
-
-        public void OnCompleted() { }
-        public void OnFinally() { }
-        public void OnError(Exception error) { }
-        public void OnRender(Image value)
-        {
-            MakeCurrent();
-
-            GLTK.Paint(
-                value.Coord,
-                value.Rotate.X,
-                value.Rotate.Y,
-                value.Rotate.Z,
-                value.Center,
-                () => GLTK.DrawImage(
-                    value,
-                    value.Scale.X,
-                    value.Scale.Y,
-                    value.Scale.Z,
-                    value.Material.Color,
-                    value.Material.Ambient,
-                    value.Material.Diffuse,
-                    value.Material.Specular,
-                    value.Material.Shininess));
         }
     }
 }

@@ -1,5 +1,8 @@
 ﻿using System;
 
+using BEditor.Drawing;
+using BEditor.Drawing.Pixel;
+
 namespace BEditor.Core.Media.Encoder
 {
     public abstract class VideoEncoder : IDisposable
@@ -17,7 +20,7 @@ namespace BEditor.Core.Media.Encoder
         public int Width { get; set; }
         public int Height { get; set; }
 
-        public abstract void Write(Image image);
+        public abstract void Write(Image<BGRA32> image);
 
         public abstract void Dispose();
     }

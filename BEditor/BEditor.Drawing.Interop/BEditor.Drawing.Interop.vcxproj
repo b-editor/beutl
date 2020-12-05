@@ -74,21 +74,25 @@
     <LinkIncremental>true</LinkIncremental>
     <IncludePath>..\..\..\lib\opencv\build\include;$(IncludePath)</IncludePath>
     <LibraryPath>..\..\..\lib\opencv\build\x64\vc15\lib;$(LibraryPath)</LibraryPath>
+    <OutDir>..\Build\Debug\net5.0-windows</OutDir>
   </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">
     <LinkIncremental>false</LinkIncremental>
     <IncludePath>..\..\..\lib\opencv\build\include;$(IncludePath)</IncludePath>
     <LibraryPath>..\..\..\lib\opencv\build\x64\vc15\lib;$(LibraryPath)</LibraryPath>
+    <OutDir>..\Build\Debug\net5.0-windows</OutDir>
   </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">
     <LinkIncremental>true</LinkIncremental>
     <IncludePath>..\..\..\lib\opencv\build\include;$(IncludePath)</IncludePath>
     <LibraryPath>..\..\..\lib\opencv\build\x64\vc15\lib;$(LibraryPath)</LibraryPath>
+    <OutDir>..\Build\Debug\net5.0-windows</OutDir>
   </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release|x64'">
     <LinkIncremental>false</LinkIncremental>
     <IncludePath>..\..\..\lib\opencv\build\include;$(IncludePath)</IncludePath>
     <LibraryPath>..\..\..\lib\opencv\build\x64\vc15\lib;$(LibraryPath)</LibraryPath>
+    <OutDir>..\Build\Debug\net5.0-windows</OutDir>
   </PropertyGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">
     <ClCompile>

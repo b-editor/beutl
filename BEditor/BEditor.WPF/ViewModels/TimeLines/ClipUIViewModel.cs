@@ -119,7 +119,7 @@ namespace BEditor.ViewModels.TimeLines
         {
             TimeLineViewModel.ClipMouseDown = true;
 
-            TimeLineViewModel.ClipStart = TimeLineViewModel.GetLayerMousePosition?.Invoke().ToWin() ?? TimeLineViewModel.ClipStart;
+            TimeLineViewModel.ClipStart = TimeLineViewModel.GetLayerMousePosition?.Invoke() ?? TimeLineViewModel.ClipStart;
 
 
             TimeLineViewModel.ClipSelect = ClipData;

@@ -1,13 +1,17 @@
 ﻿using System;
 using System.Collections.Generic;
 using System.IO;
+using System.Reactive;
 using System.Reactive.Linq;
 using System.Runtime.Serialization;
 
 using BEditor.Core.Command;
 using BEditor.Core.Data.Primitive.Properties;
 using BEditor.Core.Data.Property;
+using BEditor.Core.Data.Control;
 using BEditor.Core.Properties;
+using BEditor.Drawing;
+using BEditor.Drawing.Pixel;
 
 namespace BEditor.Core.Data.Primitive.Objects.PrimitiveImages
 {
@@ -15,7 +19,7 @@ namespace BEditor.Core.Data.Primitive.Objects.PrimitiveImages
     public class Image : ImageObject
     {
         public static readonly FilePropertyMetadata FileMetadata = new(Resources.File, "", "png,jpeg,jpg,bmp", Resources.ImageFile);
-        private Media.Image source;
+        private Image<BGRA32> source;
 
         public Image() => File = new(FileMetadata);
 
@@ -35,14 +39,14 @@ namespace BEditor.Core.Data.Primitive.Objects.PrimitiveImages
         [DataMember(Order = 0)]
         public FileProperty File { get; private set; }
 
-        public Media.Image Source
+        public Image<BGRA32> Source
         {
             get
             {
                 if (source == null && System.IO.File.Exists(File.File))
                 {
-                    var file = new FileStream(File.File, FileMode.Open);
-                    source = new(file, Media.ImageReadMode.UnChanged);
+                    using var stream = new FileStream(File.File, FileMode.Open);
+                    source = Drawing.Image.FromStream(stream);
                 }
 
                 return source;
@@ -53,19 +57,20 @@ namespace BEditor.Core.Data.Primitive.Objects.PrimitiveImages
         #endregion
 
 
-        public override Media.Image OnRender(EffectRenderArgs args) => Source?.Clone();
+        public override Image<BGRA32> OnRender(EffectRenderArgs args) => Source?.Clone();
 
         public override void PropertyLoaded()
         {
             base.PropertyLoaded();
             File.ExecuteLoaded(FileMetadata);
 
-            File.Subscribe(filename =>
+            File.ObserveProperty(p=>p.File)
+                .Subscribe(file =>
             {
-                if (System.IO.File.Exists(filename))
+                if (System.IO.File.Exists(file.File))
                 {
-                    var file = new FileStream(File.File, FileMode.Open);
-                    source = new(file, Media.ImageReadMode.UnChanged);
+                    using var stream = new FileStream(file.File, FileMode.Open);
+                    source = Drawing.Image.FromStream(stream);
                 }
             });
         }

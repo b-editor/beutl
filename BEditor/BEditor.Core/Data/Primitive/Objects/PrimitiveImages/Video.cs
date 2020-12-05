@@ -9,6 +9,8 @@ using BEditor.Core.Extensions;
 using BEditor.Core.Extensions.ViewCommand;
 using BEditor.Core.Media.Decoder;
 using BEditor.Core.Properties;
+using BEditor.Drawing;
+using BEditor.Drawing.Pixel;
 
 namespace BEditor.Core.Data.Primitive.Objects.PrimitiveImages
 {
@@ -20,14 +22,12 @@ namespace BEditor.Core.Data.Primitive.Objects.PrimitiveImages
         public static readonly FilePropertyMetadata FileMetadata = new(Resources.File, "", "mp4,avi,wmv,mov", Resources.VideoFile);
         private VideoDecoder videoReader;
 
-
         public Video()
         {
             Speed = new(SpeedMetadata);
             Start = new(StartMetadata);
             File = new(FileMetadata);
         }
-
 
         #region Properties
 
@@ -55,15 +55,13 @@ namespace BEditor.Core.Data.Primitive.Objects.PrimitiveImages
 
         #endregion
 
-
-        public override Media.Image OnRender(EffectRenderArgs args)
+        public override Image<BGRA32> OnRender(EffectRenderArgs args)
         {
             float speed = Speed.GetValue(args.Frame) / 100;
             int start = (int)Start.GetValue(args.Frame);
 
-            return VideoDecoder.Read((int)((start + args.Frame - Parent.Start) * speed), videoReader);
+            return videoReader.Read((int)((start + args.Frame - Parent.Start) * speed));
         }
-
         public override void PropertyLoaded()
         {
             base.PropertyLoaded();

@@ -1,10 +1,11 @@
-﻿using System.Reflection;
+﻿using System;
+using System.Reflection;
 
 namespace BEditor.Core.Service
 {
     public static class Services
     {
-        public static string Path { get; } = System.IO.Path.GetDirectoryName(Assembly.GetEntryAssembly().Location);
+        public static string Path { get; } = System.IO.Path.GetDirectoryName(AppContext.BaseDirectory);
 
         public static IFileDialogService FileDialogService { get; set; }
         public static IImageRenderService ImageRenderService { get; set; }// = new ImageRenderService();

@@ -8,6 +8,8 @@ using BEditor.Core.Media;
 
 using static BEditor.Core.Data.Primitive.Effects.PrimitiveImages.Dilate;
 using BEditor.Core.Command;
+using BEditor.Drawing;
+using BEditor.Drawing.Pixel;
 
 namespace BEditor.Core.Data.Primitive.Effects.PrimitiveImages
 {
@@ -31,17 +33,20 @@ namespace BEditor.Core.Data.Primitive.Effects.PrimitiveImages
         [DataMember(Order =1)]
         public CheckProperty Resize { get; private set; }
 
-        public override void Render(ref Image source, EffectRenderArgs args)
+        public override void Render(EffectRenderArgs<Image<BGRA32>> args)
         {
-            var img = source.ToRenderable();
+            var img = args.Value;
             var size = (int)Frequency.GetValue(args.Frame);
 
             if (Resize.IsChecked)
             {
-                int nwidth = source.Width - (size + 5) * 2;
-                int nheight = source.Height - (size + 5) * 2;
+                int nwidth = img.Width - (size + 5) * 2;
+                int nheight = img.Height - (size + 5) * 2;
 
-                img.AreaExpansion(nwidth, nheight).Erode(size);
+                args.Value = img.MakeBorder(nwidth, nheight);
+                args.Value.Erode(size);
+
+                img.Dispose();
             }
             else
             {

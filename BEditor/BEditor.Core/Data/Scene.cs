@@ -12,6 +12,8 @@ using BEditor.Core.Extensions;
 using BEditor.Core.Graphics;
 using BEditor.Core.Media;
 using BEditor.Core.Renderings;
+using BEditor.Drawing;
+using BEditor.Drawing.Pixel;
 
 namespace BEditor.Core.Data
 {
@@ -290,7 +292,7 @@ namespace BEditor.Core.Data
 
             GraphicsContext.SwapBuffers();
 
-            Image buffer = new Image(Width, Height);
+            var buffer = new Image<BGRA32>(Width, Height);
             GLTK.GetPixels(buffer);
 
             return new RenderingResult { Image = buffer };

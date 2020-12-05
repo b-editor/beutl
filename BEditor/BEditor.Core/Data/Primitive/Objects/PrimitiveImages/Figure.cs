@@ -8,6 +8,9 @@ using BEditor.Core.Data.Property;
 using BEditor.Core.Extensions;
 using BEditor.Core.Media;
 using BEditor.Core.Properties;
+using BEditor.Core.Service;
+using BEditor.Drawing;
+using BEditor.Drawing.Pixel;
 
 namespace BEditor.Core.Data.Primitive.Objects.PrimitiveImages
 {
@@ -24,7 +27,6 @@ namespace BEditor.Core.Data.Primitive.Objects.PrimitiveImages
                 Resources.Square
         });
 
-
         public Figure()
         {
             Width = new(WidthMetadata);
@@ -33,7 +35,6 @@ namespace BEditor.Core.Data.Primitive.Objects.PrimitiveImages
             Color = new(ColorMetadata);
             Type = new(TypeMetadata);
         }
-
 
         #region Properties
 
@@ -69,22 +70,25 @@ namespace BEditor.Core.Data.Primitive.Objects.PrimitiveImages
 
         #endregion
 
-
-        public override Media.Image OnRender(EffectRenderArgs args)
+        public override Image<BGRA32> OnRender(EffectRenderArgs args)
         {
             if (Type.Index == 0)
             {
-                return Media.Image.Ellipse((int)Width.GetValue(args.Frame), (int)Height.GetValue(args.Frame), (int)Line.GetValue(args.Frame), Color.Color)
-                    .ToRenderable()
-                    .BoxFilter(3, false)
-                    .Source;
+                return Services.ImageRenderService.Ellipse(
+                    (int)Width.GetValue(args.Frame),
+                    (int)Height.GetValue(args.Frame),
+                    (int)Line.GetValue(args.Frame),
+                    Color.Color);
             }
             else
             {
-                return Media.Image.Rectangle((int)Width.GetValue(args.Frame), (int)Height.GetValue(args.Frame), (int)Line.GetValue(args.Frame), Color.Color);
+                return Services.ImageRenderService.Rectangle(
+                    (int)Width.GetValue(args.Frame),
+                    (int)Height.GetValue(args.Frame),
+                    (int)Line.GetValue(args.Frame),
+                    Color.Color);
             }
         }
-
         public override void PropertyLoaded()
         {
             base.PropertyLoaded();
