@@ -70,6 +70,31 @@ namespace BEditor.Core.Data
                 throw new Exception();
             }
         }
+        /// <summary>
+        /// <see cref="Project"/> Initialize a new instance of the class.
+        /// </summary>
+        public Project(Stream stream, IApplication app = null)
+        {
+            var o = Serialize.LoadFromStream<Project>(stream);
+
+            if (o != null)
+            {
+                var project = o;
+
+                foreach (var scene in project.SceneList)
+                {
+                    scene.GraphicsContext = new GraphicsContext(scene.Width, scene.Height);
+                    scene.PropertyLoaded();
+                }
+
+                project.CopyTo(this);
+                Parent = app;
+            }
+            else
+            {
+                throw new Exception();
+            }
+        }
 
         #endregion
 

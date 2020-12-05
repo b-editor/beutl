@@ -29,6 +29,38 @@ namespace BEditor.Core
         /// <summary>
         /// オブジェクトの内容をファイルから読み込み復元します
         /// </summary>
+        /// <param name="stream">読み込むストリーム</param>
+        /// <param name="mode"></param>
+        /// <returns>成功した場合は復元されたオブジェクト、そうでない場合は <see langword="null"/> を返します</returns>
+        public static T LoadFromStream<T>(Stream stream, SerializeMode mode = SerializeMode.Binary)
+        {
+            try
+            {
+                T obj;
+
+                if (mode == SerializeMode.Binary)
+                {
+                    using var reader = XmlDictionaryReader.CreateBinaryReader(stream, new XmlDictionaryReaderQuotas());
+                    var serializer = new DataContractSerializer(typeof(T), SerializeKnownTypes);
+                    obj = (T?)serializer.ReadObject(reader);
+                }
+                else
+                {
+                    var serializer = new DataContractJsonSerializer(typeof(T), SerializeKnownTypes);
+                    obj = (T?)serializer.ReadObject(stream);
+                }
+
+                return obj;
+            }
+            catch
+            {
+                return default;
+            }
+        }
+
+        /// <summary>
+        /// オブジェクトの内容をファイルから読み込み復元します
+        /// </summary>
         /// <param name="path">読み込むファイル名</param>
         /// <param name="mode"></param>
         /// <returns>成功した場合は復元されたオブジェクト、そうでない場合は <see langword="null"/> を返します</returns>
@@ -61,6 +93,39 @@ namespace BEditor.Core
             }
         }
 
+        /// <summary>
+        /// オブジェクトの内容をファイルに保存します
+        /// </summary>
+        /// <param name="obj">保存するオブジェクト</param>
+        /// <param name="stream">保存先のストリーム</param>
+        /// <param name="mode"></param>
+        public static bool SaveToStream<T>(T obj, Stream stream, SerializeMode mode = SerializeMode.Binary)
+        {
+            try
+            {
+                if (mode == SerializeMode.Binary)
+                {
+                    using var writer = XmlDictionaryWriter.CreateBinaryWriter(stream);
+
+                    var serializer = new DataContractSerializer(typeof(T), SerializeKnownTypes);
+                    serializer.WriteObject(writer, obj);
+                }
+                else
+                {
+                    using var writer = JsonReaderWriterFactory.CreateJsonWriter(stream, Encoding.UTF8, true, true, "  ");
+
+                    var serializer = new DataContractJsonSerializer(typeof(T), SerializeKnownTypes);
+                    serializer.WriteObject(writer, obj);
+                }
+
+                return true;
+            }
+            catch
+            {
+                return false;
+            }
+        }
+        
         /// <summary>
         /// オブジェクトの内容をファイルに保存します
         /// </summary>

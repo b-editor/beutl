@@ -3,7 +3,7 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Threading.Tasks;
 
-using BEditor.Electron.Data;
+using BEditor.Data;
 
 using Microsoft.AspNetCore.Builder;
 using Microsoft.AspNetCore.Components;
@@ -13,7 +13,7 @@ using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
 
-namespace BEditor.Electron
+namespace BEditor
 {
     public class Startup
     {
@@ -57,8 +57,6 @@ namespace BEditor.Electron
                 endpoints.MapBlazorHub();
                 endpoints.MapFallbackToPage("/_Host");
             });
-
-            Task.Run(async () => await ElectronNET.API.Electron.WindowManager.CreateWindowAsync());
         }
     }
 }
