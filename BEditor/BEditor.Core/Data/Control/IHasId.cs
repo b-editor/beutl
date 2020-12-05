@@ -6,7 +6,7 @@ using System.Threading.Tasks;
 
 namespace BEditor.Core.Data.Control
 {
-    public interface IHadId
+    public interface IHasId
     {
         public int Id { get; }
     }

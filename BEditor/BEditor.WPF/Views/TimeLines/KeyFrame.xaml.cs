@@ -19,6 +19,7 @@ using BEditor.Core.Extensions;
 using BEditor.Core.Data.Primitive.Properties;
 using BEditor.Core.Data;
 using BEditor.Core.Data.Control;
+using Reactive.Bindings.Extensions;
 
 namespace BEditor.Views.TimeLines
 {
@@ -123,8 +124,8 @@ namespace BEditor.Views.TimeLines
                 Width = tmp;
             }
 
-            Scene.ObserveProperty(nameof(Scene.TimeLineZoom))
-                .Subscribe(ZoomChange);
+            Scene.ObserveProperty(p => p.TimeLineZoom)
+                .Subscribe(_ => ZoomChange());
 
             //StoryBoard
             Storyboard.SetTarget(GetAnm, text);
@@ -156,7 +157,7 @@ namespace BEditor.Views.TimeLines
         /// <summary>
         /// 拡大率変更
         /// </summary>
-        private void ZoomChange(PropertyChangedEventArgs e)
+        private void ZoomChange()
         {
             for (int frame = 0; frame < EaseList.Time.Count; frame++)
             {

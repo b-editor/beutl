@@ -23,20 +23,13 @@ namespace BEditor.Core.Data.Primitive.Effects.PrimitiveImages
             Color = new(ColorMetadata);
         }
 
-        #region Properties
-
         public override string Name => Resources.Monoc;
-
         public override IEnumerable<PropertyElement> Properties => new PropertyElement[]
         {
             Color
         };
-
-
         [DataMember(Order = 0)]
         public ColorProperty Color { get; private set; }
-
-        #endregion
 
         public override void Render(EffectRenderArgs<Image<BGRA32>> args) =>
             args.Value.SetColor(Color.Color);

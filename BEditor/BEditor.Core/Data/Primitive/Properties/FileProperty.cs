@@ -174,7 +174,7 @@ namespace BEditor.Core.Data.Primitive.Properties
     }
 
     /// <summary>
-    /// <see cref="FileProperty"/> のメタデータを表します
+    /// <see cref="BEditor.Core.Data.Primitive.Properties.FileProperty"/> のメタデータを表します
     /// </summary>
     public record FilePropertyMetadata(string Name, string DefaultFile = null, string Filter = null, string FilterName = null)
         : PropertyElementMetadata(Name);

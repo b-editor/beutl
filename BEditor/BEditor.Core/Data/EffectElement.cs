@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.Collections.ObjectModel;
 using System.ComponentModel;
 using System.Linq;
+using System.Linq.Expressions;
 using System.Runtime.Serialization;
 using System.Threading.Tasks;
 
@@ -19,7 +20,7 @@ namespace BEditor.Core.Data
     /// Represents the base class of the effect.
     /// </summary>
     [DataContract(Namespace = "")]
-    public abstract class EffectElement : ComponentObject, IChild<ClipData>, IParent<PropertyElement>, ICloneable, IHadId
+    public abstract class EffectElement : ComponentObject, IChild<ClipData>, IParent<PropertyElement>, ICloneable, IHasId
     {
         #region Fields
 
@@ -74,7 +75,7 @@ namespace BEditor.Core.Data
                 Parallel.ForEach(Children, property => property.Parent = this);
             }
         }
-
+        /// <inheritdoc/>
         public int Id => Parent.Effect.IndexOf(this);
 
 
@@ -284,7 +285,7 @@ namespace BEditor.Core.Data
             public AddCommand(EffectElement effect, ClipData clip)
             {
                 if (clip is null) throw new ArgumentNullException(nameof(clip));
-
+                
                 this.effect = effect ?? throw new ArgumentNullException(nameof(effect));
                 this.data = clip;
                 effect.Parent = clip;

@@ -36,7 +36,7 @@ namespace BEditor.Drawing
         {
             Width = width;
             Height = height;
-            // Todo: ArrayPool
+
             Data = ArrayPool<T>.Shared.Rent(width * height);
         }
         public Image(int width, int height, T[] data) : this(width, height)
@@ -249,7 +249,7 @@ namespace BEditor.Drawing
 #if DEBUG
         ~Image()
         {
-            Debug.WriteLine($"Delete: Image<{typeof(T).Name}> Width:{Width} Height:{Height}");
+            //Debug.WriteLine($"Delete: Image<{typeof(T).Name}> Width:{Width} Height:{Height}");
         }
 #endif
     }

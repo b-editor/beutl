@@ -28,29 +28,19 @@ namespace BEditor.Core.Data.Primitive.Effects
             Z = new(ZMetadata);
         }
 
-        #region Properties
-
         public override string Name => Resources.DirectionalLightSource;
-
         public override IEnumerable<PropertyElement> Properties => new PropertyElement[]
         {
             X,
             Y,
             Z
         };
-
-
         [DataMember(Order = 0)]
         public EaseProperty X { get; private set; }
-
         [DataMember(Order = 1)]
         public EaseProperty Y { get; private set; }
-
         [DataMember(Order = 2)]
         public EaseProperty Z { get; private set; }
-
-        #endregion
-
 
         public override void Render(EffectRenderArgs args)
         {
@@ -65,7 +55,6 @@ namespace BEditor.Core.Data.Primitive.Effects
             GL.Light(LightName.Light0, LightParameter.Position, position);
             GL.Enable(EnableCap.Light0);
         }
-
         public override void PropertyLoaded()
         {
             X.ExecuteLoaded(XMetadata);

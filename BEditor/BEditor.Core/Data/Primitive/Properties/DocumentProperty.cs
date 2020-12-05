@@ -178,7 +178,7 @@ namespace BEditor.Core.Data.Primitive.Properties
     }
 
     /// <summary>
-    /// <see cref="DocumentProperty"/> のメタデータを表します
+    /// <see cref="BEditor.Core.Data.Primitive.Properties.DocumentProperty"/> のメタデータを表します
     /// </summary>
     public record DocumentPropertyMetadata(string DefaultText, int? Height = null) : PropertyElementMetadata(string.Empty);
 }

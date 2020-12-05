@@ -15,7 +15,6 @@ namespace BEditor.Core.Data.Primitive.Properties.PrimitiveGroup
         public static readonly EasePropertyMetadata AngleYMetadata = new(Resources.AngleY);
         public static readonly EasePropertyMetadata AngleZMetadata = new(Resources.AngleZ);
 
-
         public Angle(PropertyElementMetadata constant) : base(constant)
         {
             AngleX = new(AngleXMetadata);
@@ -23,23 +22,18 @@ namespace BEditor.Core.Data.Primitive.Properties.PrimitiveGroup
             AngleZ = new(AngleZMetadata);
         }
 
-
         public override IEnumerable<PropertyElement> Properties => new PropertyElement[]
         {
             AngleX,
             AngleY,
             AngleZ
         };
-
         [DataMember(Order = 0)]
         public EaseProperty AngleX { get; private set; }
-
         [DataMember(Order = 1)]
         public EaseProperty AngleY { get; private set; }
-
         [DataMember(Order = 2)]
         public EaseProperty AngleZ { get; private set; }
-
 
         public override void PropertyLoaded()
         {

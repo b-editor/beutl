@@ -11,6 +11,7 @@ using BEditor.Core.Data.Primitive.Properties;
 using BEditor.ViewModels.CustomControl;
 
 using Reactive.Bindings;
+using Reactive.Bindings.Extensions;
 
 namespace BEditor.ViewModels.PropertyControl
 {
@@ -22,11 +23,15 @@ namespace BEditor.ViewModels.PropertyControl
         {
             Property = property;
             property.PropertyChanged += (s, e) => RaisePropertyChanged(brushArgs);
+            Metadata = property.ObserveProperty(p => p.PropertyMetadata)
+                .ToReadOnlyReactiveProperty();
+
             Command.Subscribe(x => CommandManager.Do(new ColorProperty.ChangeColorCommand(Property, new(x.Item1, x.Item2, x.Item3, x.Item4))));
             Reset.Subscribe(() => CommandManager.Do(new ColorProperty.ChangeColorCommand(Property, Property.PropertyMetadata.DefaultColor)));
         }
 
         public static ObservableCollection<ColorList> ColorList { get; } = new();
+        public ReadOnlyReactiveProperty<ColorPropertyMetadata> Metadata { get; }
         public ColorProperty Property { get; }
         public ReactiveCommand<(byte, byte, byte, byte)> Command { get; } = new();
         public ReactiveCommand Reset { get; } = new();

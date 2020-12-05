@@ -20,7 +20,7 @@
         <Button
             Style="{StaticResource MaterialDesignFlatButton}"
             Foreground="{DynamicResource MaterialDesignBody}"
-            Content="{Binding Component.PropertyMetadata.Name, Mode=OneTime}"
+            Content="{Binding Metadata.Value.Name, Mode=OneTime}"
             FontWeight="Normal"
             HorizontalContentAlignment="Right"
             FontSize="13"

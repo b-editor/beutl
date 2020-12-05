@@ -20,6 +20,7 @@ using BEditor.Models;
 using CommandManager = BEditor.Core.Command.CommandManager;
 using Reactive.Bindings;
 using BEditor.Drawing;
+using Reactive.Bindings.Extensions;
 
 namespace BEditor.ViewModels.TimeLines
 {

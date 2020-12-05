@@ -7,6 +7,7 @@ using BEditor.Core.Data.Property;
 using BEditor.Core.Data.Primitive.Properties;
 using BEditor.Core.Command;
 using Reactive.Bindings;
+using Reactive.Bindings.Extensions;
 
 namespace BEditor.ViewModels.TimeLines
 {
@@ -18,6 +19,8 @@ namespace BEditor.ViewModels.TimeLines
         public KeyFrameViewModel(EaseProperty easeProperty)
         {
             EaseProperty = easeProperty;
+            Metadata = easeProperty.ObserveProperty(p => p.PropertyMetadata)
+                .ToReadOnlyReactiveProperty();
             AddKeyFrameCommand.Subscribe(x => CommandManager.Do(new EaseProperty.AddCommand(EaseProperty, x)));
             RemoveKeyFrameCommand.Subscribe(x => CommandManager.Do(new EaseProperty.RemoveCommand(EaseProperty, x)));
             MoveKeyFrameCommand.Subscribe(x => CommandManager.Do(new EaseProperty.MoveCommand(EaseProperty, x.Item1, x.Item2)));
@@ -35,6 +38,7 @@ namespace BEditor.ViewModels.TimeLines
 
         #endregion
 
+        public ReadOnlyReactiveProperty<EasePropertyMetadata> Metadata { get; }
         public ReactiveCommand<int> AddKeyFrameCommand { get; } = new();
         public ReactiveCommand<int> RemoveKeyFrameCommand { get; } = new();
         public ReactiveCommand<(int, int)> MoveKeyFrameCommand { get; } = new();

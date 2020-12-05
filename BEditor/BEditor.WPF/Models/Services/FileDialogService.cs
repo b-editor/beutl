@@ -1,4 +1,8 @@
-﻿using BEditor.Core.Service;
+﻿using System;
+using System.Collections.Generic;
+using System.Threading.Tasks;
+
+using BEditor.Core.Service;
 
 using Microsoft.WindowsAPICodePack.Dialogs;
 

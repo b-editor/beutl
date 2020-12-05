@@ -7,6 +7,7 @@ using BEditor.Core.Data.Property;
 using BEditor.Core.Data.Primitive.Properties;
 using BEditor.Core.Command;
 using Reactive.Bindings;
+using Reactive.Bindings.Extensions;
 
 namespace BEditor.ViewModels.TimeLines
 {
@@ -18,6 +19,9 @@ namespace BEditor.ViewModels.TimeLines
         public ColorAnimationViewModel(ColorAnimationProperty colorProperty)
         {
             ColorAnimationProperty = colorProperty;
+            Metadata = colorProperty.ObserveProperty(p => p.PropertyMetadata)
+                .ToReadOnlyReactiveProperty();
+
             AddKeyFrameCommand.Subscribe(x => CommandManager.Do(new ColorAnimationProperty.AddCommand(colorProperty, x)));
             RemoveKeyFrameCommand.Subscribe(x => CommandManager.Do(new ColorAnimationProperty.RemoveCommand(colorProperty, x)));
             MoveKeyFrameCommand.Subscribe(x => CommandManager.Do(new ColorAnimationProperty.MoveCommand(colorProperty, x.Item1, x.Item2)));
@@ -35,6 +39,7 @@ namespace BEditor.ViewModels.TimeLines
 
         #endregion
 
+        public ReadOnlyReactiveProperty<ColorAnimationPropertyMetadata> Metadata { get; }
         public ReactiveCommand<int> AddKeyFrameCommand { get; } = new();
         public ReactiveCommand<int> RemoveKeyFrameCommand { get; } = new();
         public ReactiveCommand<(int, int)> MoveKeyFrameCommand { get; } = new();
