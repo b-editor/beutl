@@ -16,6 +16,7 @@ namespace BEditor.Drawing
     {
         public static void DrawImage(this Image<BGRA32> self, Point point, Image<BGRA32> image)
         {
+            self.ThrowIfDisposed();
             var rect = new Rectangle(point, image.Size);
             var blended = self[rect];
 
@@ -30,6 +31,7 @@ namespace BEditor.Drawing
         }
         public static Bitmap ToBitmap(this Image<BGRA32> self)
         {
+            self.ThrowIfDisposed();
             var width = self.Width;
             var height = self.Height;
 
@@ -68,6 +70,8 @@ namespace BEditor.Drawing
         }
         public static void SetColor(this Image<BGRA32> self, BGRA32 color)
         {
+            self.ThrowIfDisposed();
+
             fixed (BGRA32* data = self.Data)
             {
                 var p = new SetColorProcess(data, color);
@@ -136,6 +140,7 @@ namespace BEditor.Drawing
         public static void BoxBlur<T>(this Image<T> self, float size) where T : unmanaged, IPixel<T>
         {
             if (size <= 0) throw new ArgumentOutOfRangeException(nameof(size));
+            self.ThrowIfDisposed();
 
             fixed (T* data = self.Data)
             {
@@ -146,6 +151,7 @@ namespace BEditor.Drawing
         public static void GanssBlur<T>(this Image<T> self, float size) where T : unmanaged, IPixel<T>
         {
             if (size <= 0) throw new ArgumentOutOfRangeException(nameof(size));
+            self.ThrowIfDisposed();
 
             fixed (T* data = self.Data)
             {
@@ -156,6 +162,7 @@ namespace BEditor.Drawing
         public static void MedianBlur<T>(this Image<T> self, int size) where T : unmanaged, IPixel<T>
         {
             if (size <= 0) throw new ArgumentOutOfRangeException(nameof(size));
+            self.ThrowIfDisposed();
 
             fixed (T* data = self.Data)
             {
@@ -165,6 +172,8 @@ namespace BEditor.Drawing
         }
         public static void Dilate<T>(this Image<T> self, int f) where T : unmanaged, IPixel<T>
         {
+            self.ThrowIfDisposed();
+
             fixed (T* data = self.Data)
             {
                 var str = self.ToStruct(data);
@@ -173,6 +182,8 @@ namespace BEditor.Drawing
         }
         public static void Erode<T>(this Image<T> self, int f) where T : unmanaged, IPixel<T>
         {
+            self.ThrowIfDisposed();
+
             fixed (T* data = self.Data)
             {
                 var str = self.ToStruct(data);
