@@ -1,10 +1,15 @@
 ﻿using System;
 using System.Collections.Generic;
+using System.IO;
 using System.Linq;
 using System.Threading.Tasks;
 
+using BEditor.Core.Data;
+using BEditor.Models;
+
 using MatBlazor;
 
+using Microsoft.AspNetCore.Components;
 using Microsoft.AspNetCore.Components.Forms;
 
 namespace BEditor.Shared
@@ -14,6 +19,7 @@ namespace BEditor.Shared
         private bool SnackbarIsOpened = false;
         private string SnackbarText = "";
         private MatDrawer Drawer;
+        private ElementReference Image;
         private MatTheme Theme = new()
         {
             OnSurface = "#ffffff",
@@ -31,7 +37,14 @@ namespace BEditor.Shared
                 var files = e.GetMultipleFiles();
                 var file = files[0];
 
-                var stream = file.OpenReadStream();
+                var buffers = new byte[file.Size];
+                await file.OpenReadStream().ReadAsync(buffers);
+
+                using var stream = new MemoryStream(buffers);
+
+                AppData.Current.Project.Value = new Project(stream, AppData.Current);
+
+                await this.InvokeAsync(StateHasChanged);
             }
         }
     }

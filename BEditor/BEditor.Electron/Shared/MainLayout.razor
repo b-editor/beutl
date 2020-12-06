@@ -1,4 +1,5 @@
 ﻿@inherits LayoutComponentBase
+@using BEditor.Models
 @*<div class="page">
         <div class="sidebar">
             <NavMenu />
@@ -43,7 +44,7 @@
                     <MatAppBarRow Style="height: 45px;">
                         <MatAppBarSection>
                             <MatIconButton Icon="menu" OnClick="@MenuButtonClicked"></MatIconButton>
-                            <MatAppBarTitle>Edit</MatAppBarTitle>
+                            <MatAppBarTitle>@(AppData.Current.Project.Value?.Filename ?? "")</MatAppBarTitle>
                         </MatAppBarSection>
                         <MatAppBarSection Align="@MatAppBarSectionAlign.End">
                             <MatIconButton Icon="@MatIconNames.Insert_drive_file">
@@ -68,12 +69,14 @@
                     <div class="mat-layout-grid-cell mat-layout-grid-cell-span-9">
                         <div class="mat-layout-grid-inner" style="height: 100%;">
                             <div class="mat-layout-grid-cell mat-layout-grid-cell-span-12" style="height: 50%;">
-                                <span>Second level</span>
+                                <span>Preview</span>
+                                <img @ref="@Image" />
                             </div>
+                            @*calc(50vh - 45px - 24px)*@
                             <div class="mat-layout-grid-cell mat-layout-grid-cell-span-12" style="height: 100%;">
                                 <MatCard Class="mat-card">
-                                    <div>CardTest</div>
-                                    <MatButton>SetValue</MatButton>
+                                    @*<div>Timeline</div>*@
+                                    <BEditor.Views.Timelines.Timeline></BEditor.Views.Timelines.Timeline>
                                 </MatCard>
                             </div>
                         </div>

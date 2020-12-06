@@ -1,0 +1,18 @@
+﻿@*<div class="mat-layout-grid" style="margin: 0px; padding: 0px;">
+        <div class="mat-layout-grid-inner">
+            <div class="mat-layout-grid-cell">AAA</div>
+            <div class="mat-layout-grid-cell">BBB</div>
+        </div>
+    </div>*@
+
+<div style="display: inline-flex; height: 100%; overflow: scroll;">
+    <div style="width: 150px;">
+        <div style="height: 25px;">Menu</div>
+
+        @for (int i = 0; i < 100; i++)
+        {
+            <div style="height: 25px;">@i.ToString()</div>
+        }
+    </div>
+    <div style="width: 100%;">BBB</div>
+</div>

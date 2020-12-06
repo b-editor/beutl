@@ -1884,6 +1884,11 @@
             <see cref="T:BEditor.Core.Data.Project"/> Initialize a new instance of the class.
             </summary>
         </member>
+        <member name="M:BEditor.Core.Data.Project.#ctor(System.IO.Stream,BEditor.Core.IApplication)">
+            <summary>
+            <see cref="T:BEditor.Core.Data.Project"/> Initialize a new instance of the class.
+            </summary>
+        </member>
         <member name="E:BEditor.Core.Data.Project.Saved">
             <summary>
             Occurs after saving this <see cref="T:BEditor.Core.Data.Project"/>.
@@ -3775,6 +3780,14 @@
             <see cref="T:System.Runtime.Serialization.Json.DataContractJsonSerializer"/> を利用してシリアル化やクローンなどの関数を提供するクラスを表します
             </summary>
         </member>
+        <member name="M:BEditor.Core.Serialize.LoadFromStream``1(System.IO.Stream,BEditor.Core.SerializeMode)">
+            <summary>
+            オブジェクトの内容をファイルから読み込み復元します
+            </summary>
+            <param name="stream">読み込むストリーム</param>
+            <param name="mode"></param>
+            <returns>成功した場合は復元されたオブジェクト、そうでない場合は <see langword="null"/> を返します</returns>
+        </member>
         <member name="M:BEditor.Core.Serialize.LoadFromFile``1(System.String,BEditor.Core.SerializeMode)">
             <summary>
             オブジェクトの内容をファイルから読み込み復元します
@@ -3782,6 +3795,14 @@
             <param name="path">読み込むファイル名</param>
             <param name="mode"></param>
             <returns>成功した場合は復元されたオブジェクト、そうでない場合は <see langword="null"/> を返します</returns>
+        </member>
+        <member name="M:BEditor.Core.Serialize.SaveToStream``1(``0,System.IO.Stream,BEditor.Core.SerializeMode)">
+            <summary>
+            オブジェクトの内容をファイルに保存します
+            </summary>
+            <param name="obj">保存するオブジェクト</param>
+            <param name="stream">保存先のストリーム</param>
+            <param name="mode"></param>
         </member>
         <member name="M:BEditor.Core.Serialize.SaveToFile``1(``0,System.String,BEditor.Core.SerializeMode)">
             <summary>
