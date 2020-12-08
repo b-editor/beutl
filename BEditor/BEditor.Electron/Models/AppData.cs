@@ -16,7 +16,7 @@ namespace BEditor.Models
     {
         private AppData()
         {
-
+            //Project.Value = new Project(1920, 1080, 30, 0, this);
         }
 
         public static AppData Current { get; } = new();

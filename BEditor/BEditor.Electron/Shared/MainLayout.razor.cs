@@ -19,7 +19,6 @@ namespace BEditor.Shared
         private bool SnackbarIsOpened = false;
         private string SnackbarText = "";
         private MatDrawer Drawer;
-        private ElementReference Image;
         private MatTheme Theme = new()
         {
             OnSurface = "#ffffff",

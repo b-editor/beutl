@@ -1,5 +1,7 @@
 ﻿@inherits LayoutComponentBase
 @using BEditor.Models
+@using BEditor.Views
+@using BEditor.Views.Timelines
 @*<div class="page">
         <div class="sidebar">
             <NavMenu />
@@ -68,15 +70,17 @@
                     </div>
                     <div class="mat-layout-grid-cell mat-layout-grid-cell-span-9">
                         <div class="mat-layout-grid-inner" style="height: 100%;">
-                            <div class="mat-layout-grid-cell mat-layout-grid-cell-span-12" style="height: 50%;">
+                            <div class="mat-layout-grid-cell mat-layout-grid-cell-span-12" style="height: calc(50vh - 45px);">
                                 <span>Preview</span>
-                                <img @ref="@Image" />
                             </div>
-                            @*calc(50vh - 45px - 24px)*@
-                            <div class="mat-layout-grid-cell mat-layout-grid-cell-span-12" style="height: 100%;">
+                            @*calc(50vh - 45px)*@
+                            <div class="mat-layout-grid-cell mat-layout-grid-cell-span-12" style="height: calc(50vh - 45px);">
                                 <MatCard Class="mat-card">
                                     @*<div>Timeline</div>*@
-                                    <BEditor.Views.Timelines.Timeline></BEditor.Views.Timelines.Timeline>
+                                    @if (AppData.Current.Project.Value is not null)
+                                    {
+                                        <TimelineView></TimelineView>
+                                    }
                                 </MatCard>
                             </div>
                         </div>

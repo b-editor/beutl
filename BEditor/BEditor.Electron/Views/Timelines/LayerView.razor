@@ -1,0 +1,9 @@
+﻿<div style="background: #424242; height: 35px; margin-top: 1px;">
+    @foreach (var clip in Scene.Datas)
+    {
+        if (clip.Layer == Layer)
+        {
+            <ClipView Clip="clip"></ClipView>
+        }
+    }
+</div>
