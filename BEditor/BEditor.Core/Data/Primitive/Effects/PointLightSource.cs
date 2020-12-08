@@ -24,6 +24,7 @@ namespace BEditor.Core.Data.Primitive.Effects
         public static readonly EasePropertyMetadata LinearAttenuationMetadata = new("LinearAttenuation", 0, 100, 0);
         public static readonly EasePropertyMetadata QuadraticAttenuationMetadata = new("QuadraticAttenuation", 0, 100, 0);
 
+
         public PointLightSource()
         {
             X = new(XMetadata);
@@ -34,7 +35,11 @@ namespace BEditor.Core.Data.Primitive.Effects
             QuadraticAttenuation = new(QuadraticAttenuationMetadata);
         }
 
+
+        #region Properties
+
         public override string Name => Resources.PointLightSource;
+
         public override IEnumerable<PropertyElement> Properties => new PropertyElement[]
         {
             X,
@@ -44,18 +49,28 @@ namespace BEditor.Core.Data.Primitive.Effects
             LinearAttenuation,
             QuadraticAttenuation
         };
+
+
         [DataMember(Order = 0)]
         public EaseProperty X { get; private set; }
+
         [DataMember(Order = 1)]
         public EaseProperty Y { get; private set; }
+
         [DataMember(Order = 2)]
         public EaseProperty Z { get; private set; }
+
         [DataMember(Order = 3)]
         public EaseProperty ConstantAttenuation { get; private set; }
+
         [DataMember(Order = 4)]
         public EaseProperty LinearAttenuation { get; private set; }
+
         [DataMember(Order = 5)]
         public EaseProperty QuadraticAttenuation { get; private set; }
+
+        #endregion
+
 
         public override void Render(EffectRenderArgs args)
         {
@@ -76,6 +91,7 @@ namespace BEditor.Core.Data.Primitive.Effects
 
             GL.Enable(EnableCap.Light0);
         }
+
         public override void PropertyLoaded()
         {
             X.ExecuteLoaded(XMetadata);

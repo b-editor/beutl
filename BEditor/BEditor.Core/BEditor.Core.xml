@@ -250,6 +250,7 @@
             </summary>
             <param name="source">バインド先のオブジェクト</param>
             <param name="target">バインドするオブジェクト</param>
+            <param name="useTwoWay">双方向バインディングを使用</param>
         </member>
         <member name="T:BEditor.Core.Data.ClipData">
             <summary>
@@ -496,9 +497,6 @@
         <member name="P:BEditor.Core.Data.EffectElement.Parent">
             <inheritdoc/>
         </member>
-        <member name="P:BEditor.Core.Data.EffectElement.Id">
-            <inheritdoc/>
-        </member>
         <member name="M:BEditor.Core.Data.EffectElement.Clone">
             <inheritdoc/>
         </member>
@@ -720,12 +718,12 @@
         </member>
         <member name="T:BEditor.Core.Data.Primitive.Properties.CheckPropertyMetadata">
             <summary>
-            <see cref="T:BEditor.Core.Data.Primitive.Properties.CheckProperty"/> のメタデータを表します
+            <see cref="!:CheckProperty"/> のメタデータを表します
             </summary>
         </member>
         <member name="M:BEditor.Core.Data.Primitive.Properties.CheckPropertyMetadata.#ctor(System.String,System.Boolean)">
             <summary>
-            <see cref="T:BEditor.Core.Data.Primitive.Properties.CheckProperty"/> のメタデータを表します
+            <see cref="!:CheckProperty"/> のメタデータを表します
             </summary>
         </member>
         <member name="T:BEditor.Core.Data.Primitive.Properties.ColorAnimationProperty">
@@ -1062,12 +1060,12 @@
         </member>
         <member name="T:BEditor.Core.Data.Primitive.Properties.DocumentPropertyMetadata">
             <summary>
-            <see cref="T:BEditor.Core.Data.Primitive.Properties.DocumentProperty"/> のメタデータを表します
+            <see cref="!:DocumentProperty"/> のメタデータを表します
             </summary>
         </member>
         <member name="M:BEditor.Core.Data.Primitive.Properties.DocumentPropertyMetadata.#ctor(System.String,System.Nullable{System.Int32})">
             <summary>
-            <see cref="T:BEditor.Core.Data.Primitive.Properties.DocumentProperty"/> のメタデータを表します
+            <see cref="!:DocumentProperty"/> のメタデータを表します
             </summary>
         </member>
         <member name="T:BEditor.Core.Data.Primitive.Properties.EaseProperty">
@@ -1472,12 +1470,12 @@
         </member>
         <member name="T:BEditor.Core.Data.Primitive.Properties.FilePropertyMetadata">
             <summary>
-            <see cref="T:BEditor.Core.Data.Primitive.Properties.FileProperty"/> のメタデータを表します
+            <see cref="!:FileProperty"/> のメタデータを表します
             </summary>
         </member>
         <member name="M:BEditor.Core.Data.Primitive.Properties.FilePropertyMetadata.#ctor(System.String,System.String,System.String,System.String)">
             <summary>
-            <see cref="T:BEditor.Core.Data.Primitive.Properties.FileProperty"/> のメタデータを表します
+            <see cref="!:FileProperty"/> のメタデータを表します
             </summary>
         </member>
         <member name="M:BEditor.Core.Data.Primitive.Properties.FolderProperty.#ctor(BEditor.Core.Data.Primitive.Properties.FolderPropertyMetadata)">
@@ -2594,15 +2592,14 @@
             <see cref="T:BEditor.Core.Media.Color"/> 構造体から <see cref="T:System.Drawing.Color"/> を作成します
             </summary>
         </member>
-        <member name="M:BEditor.Core.Media.Color.op_Implicit(BEditor.Core.Media.Color)~OpenTK.Mathematics.Color4">
+        <member name="M:BEditor.Core.Media.Color.op_Implicit(BEditor.Core.Media.Color)~OpenTK.Graphics.Color4">
             <summary>
-            <see cref="T:BEditor.Core.Media.Color"/> 構造体から <see cref="T:OpenTK.Mathematics.Color4"/> を作成します
+            <see cref="T:BEditor.Core.Media.Color"/> 構造体から <see cref="T:OpenTK.Graphics.Color4"/> を作成します
             </summary>
-            <param name="c"></param>
         </member>
-        <member name="M:BEditor.Core.Media.Color.op_Implicit(OpenTK.Mathematics.Color4)~BEditor.Core.Media.Color">
+        <member name="M:BEditor.Core.Media.Color.op_Implicit(OpenTK.Graphics.Color4)~BEditor.Core.Media.Color">
             <summary>
-            <see cref="T:OpenTK.Mathematics.Color4"/> 構造体から <see cref="T:BEditor.Core.Media.Color"/> を作成します
+            <see cref="T:OpenTK.Graphics.Color4"/> 構造体から <see cref="T:BEditor.Core.Media.Color"/> を作成します
             </summary>
             <param name="c"></param>
         </member>
@@ -2718,15 +2715,14 @@
             <see cref="T:BEditor.Core.Media.Color"/> 構造体から <see cref="T:BEditor.Core.Media.ReadOnlyColor"/> を作成します
             </summary>
         </member>
-        <member name="M:BEditor.Core.Media.ReadOnlyColor.op_Implicit(BEditor.Core.Media.ReadOnlyColor)~OpenTK.Mathematics.Color4">
+        <member name="M:BEditor.Core.Media.ReadOnlyColor.op_Implicit(BEditor.Core.Media.ReadOnlyColor)~OpenTK.Graphics.Color4">
             <summary>
-            <see cref="T:BEditor.Core.Media.Color"/> 構造体から <see cref="T:OpenTK.Mathematics.Color4"/> を作成します
+            <see cref="T:BEditor.Core.Media.ReadOnlyColor"/> 構造体から <see cref="T:OpenTK.Graphics.Color4"/> を作成します
             </summary>
-            <param name="c"></param>
         </member>
-        <member name="M:BEditor.Core.Media.ReadOnlyColor.op_Implicit(OpenTK.Mathematics.Color4)~BEditor.Core.Media.ReadOnlyColor">
+        <member name="M:BEditor.Core.Media.ReadOnlyColor.op_Implicit(OpenTK.Graphics.Color4)~BEditor.Core.Media.ReadOnlyColor">
             <summary>
-            <see cref="T:OpenTK.Mathematics.Color4"/> 構造体から <see cref="T:BEditor.Core.Media.Color"/> を作成します
+            <see cref="T:OpenTK.Graphics.Color4"/> 構造体から <see cref="T:BEditor.Core.Media.ReadOnlyColor"/> を作成します
             </summary>
             <param name="c"></param>
         </member>

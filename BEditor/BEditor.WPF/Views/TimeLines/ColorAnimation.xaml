@@ -24,6 +24,6 @@
                 </ContextMenu>
             </Grid.ContextMenu>
         </Grid>
-        <TextBlock x:Name="text" Background="{x:Null}" Foreground="{DynamicResource MaterialDesignCardBackground}" Text="{Binding Metadata.Value.Name, Mode=OneTime}" HorizontalAlignment="Left" VerticalAlignment="Center" Margin="20,0,0,0"/>
+        <TextBlock x:Name="text" Background="{x:Null}" Foreground="{DynamicResource MaterialDesignCardBackground}" Text="{Binding ColorAnimationProperty.PropertyMetadata.Name, Mode=OneTime}" HorizontalAlignment="Left" VerticalAlignment="Center" Margin="20,0,0,0"/>
     </Grid>
 </UserControl>

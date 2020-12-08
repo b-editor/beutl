@@ -30,7 +30,10 @@ namespace BEditor.Core.Data.Primitive.Effects.PrimitiveImages
             Color = new(ColorMetadata);
         }
 
+        #region Properties
+
         public override string Name => Resources.DropShadow;
+
         public override IEnumerable<PropertyElement> Properties => new PropertyElement[]
         {
             X,
@@ -39,16 +42,24 @@ namespace BEditor.Core.Data.Primitive.Effects.PrimitiveImages
             Alpha,
             Color
         };
+
+
         [DataMember(Order = 0)]
         public EaseProperty X { get; private set; }
+
         [DataMember(Order = 1)]
         public EaseProperty Y { get; private set; }
+
         [DataMember(Order = 2)]
         public EaseProperty Blur { get; private set; }
+
         [DataMember(Order = 3)]
         public EaseProperty Alpha { get; private set; }
+
         [DataMember(Order = 4)]
         public ColorProperty Color { get; private set; }
+
+        #endregion
 
         public override void Render(EffectRenderArgs<Image<BGRA32>> args) =>
             args.Value = args.Value.Shadow(

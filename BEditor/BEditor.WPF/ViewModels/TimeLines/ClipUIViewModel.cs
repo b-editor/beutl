@@ -1,5 +1,4 @@
 ﻿using System;
-using System.Reactive;
 using System.Windows;
 using System.Windows.Input;
 using System.Windows.Media;
@@ -14,9 +13,6 @@ using BEditor.Core.Properties;
 
 using CommandManager = BEditor.Core.Command.CommandManager;
 using Reactive.Bindings;
-using Reactive.Bindings.Extensions;
-using System.Reactive.Linq;
-using System.ComponentModel;
 
 namespace BEditor.ViewModels.TimeLines
 {
@@ -88,23 +84,18 @@ namespace BEditor.ViewModels.TimeLines
 
             #endregion
 
-            var observable = Observable.FromEvent<PropertyChangedEventHandler, PropertyChangedEventArgs>(
-                h => (s, e) => h(e),
-                h => clip.PropertyChanged += h,
-                h => clip.PropertyChanged -= h);
+            clip.ObserveProperty(c => c.End)
+                .Subscribe(c => WidthProperty.Value = TimeLineViewModel.ToPixel(c.Length));
 
-            observable.Where(e => e.PropertyName is nameof(ClipData.End))
-                .Subscribe(_ => WidthProperty.Value = TimeLineViewModel.ToPixel(ClipData.Length));
-
-            observable.Where(e => e.PropertyName is nameof(ClipData.Start))
-                .Subscribe(_ =>
+            clip.ObserveProperty(c => c.Start)
+                .Subscribe(c =>
                 {
-                    MarginLeftProperty = TimeLineViewModel.ToPixel(ClipData.Start);
-                    WidthProperty.Value = TimeLineViewModel.ToPixel(ClipData.Length);
+                    MarginLeftProperty = TimeLineViewModel.ToPixel(c.Start);
+                    WidthProperty.Value = TimeLineViewModel.ToPixel(c.Length);
                 });
 
-            observable.Where(e => e.PropertyName is nameof(ClipData.Layer))
-                .Subscribe(_ => TimeLineViewModel.ClipLayerMoveCommand?.Invoke(ClipData, ClipData.Layer));
+            clip.ObserveProperty(c => c.Layer)
+                .Subscribe(c => TimeLineViewModel.ClipLayerMoveCommand?.Invoke(c, c.Layer));
         }
 
 

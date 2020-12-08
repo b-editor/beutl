@@ -16,6 +16,7 @@ namespace BEditor.Core.Data.Primitive.Properties.PrimitiveGroup
         public static readonly EasePropertyMetadata ScaleYMetadata = new(Resources.Y, 100);
         public static readonly EasePropertyMetadata ScaleZMetadata = new(Resources.Z, 100);
 
+
         public Zoom(PropertyElementMetadata constant) : base(constant)
         {
             Scale = new(ZoomMetadata);
@@ -24,6 +25,7 @@ namespace BEditor.Core.Data.Primitive.Properties.PrimitiveGroup
             ScaleZ = new(ScaleZMetadata);
         }
 
+
         public override IEnumerable<PropertyElement> Properties => new PropertyElement[]
         {
             Scale,
@@ -31,14 +33,19 @@ namespace BEditor.Core.Data.Primitive.Properties.PrimitiveGroup
             ScaleY,
             ScaleZ
         };
+
         [DataMember(Name = "Zoom", Order = 0)]
         public EaseProperty Scale { get; private set; }
+
         [DataMember(Order = 1)]
         public EaseProperty ScaleX { get; private set; }
+
         [DataMember(Order = 2)]
         public EaseProperty ScaleY { get; private set; }
+
         [DataMember(Order = 3)]
         public EaseProperty ScaleZ { get; private set; }
+
 
         public override void PropertyLoaded()
         {

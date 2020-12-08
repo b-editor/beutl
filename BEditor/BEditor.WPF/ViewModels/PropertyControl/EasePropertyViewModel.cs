@@ -10,7 +10,6 @@ using BEditor.Core.Data.Property.EasingProperty;
 using BEditor.Core.Data.Primitive.Properties;
 using BEditor.Core.Command;
 using Reactive.Bindings;
-using Reactive.Bindings.Extensions;
 
 namespace BEditor.ViewModels.PropertyControl
 {
@@ -19,12 +18,9 @@ namespace BEditor.ViewModels.PropertyControl
         public EasePropertyViewModel(EaseProperty property)
         {
             Property = property;
-            Metadata = property.ObserveProperty(p => p.PropertyMetadata)
-                .ToReadOnlyReactiveProperty();
             EasingChangeCommand.Subscribe(x => CommandManager.Do(new EaseProperty.ChangeEaseCommand(Property, x.Name)));
         }
 
-        public ReadOnlyReactiveProperty<EasePropertyMetadata> Metadata { get; }
         public EaseProperty Property { get; }
         public ReactiveCommand<EasingData> EasingChangeCommand { get; } = new();
     }

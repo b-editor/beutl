@@ -4,14 +4,5 @@
         <name>BEditor.Drawing</name>
     </assembly>
     <members>
-        <member name="M:BEditor.Drawing.Image`1.#ctor(System.Int32,System.Int32)">
-            <summary>
-            
-            </summary>
-            <param name="width"></param>
-            <param name="height"></param>
-            <exception cref="T:System.ArgumentNullException"><paramref name="width"/> is <see langword="null"/>.</exception>
-            <exception cref="T:System.ArgumentNullException"><paramref name="height"/> is <see langword="null"/>.</exception>
-        </member>
     </members>
 </doc>

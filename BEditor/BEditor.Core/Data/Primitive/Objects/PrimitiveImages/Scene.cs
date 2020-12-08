@@ -18,6 +18,7 @@ namespace BEditor.Core.Data.Primitive.Objects.PrimitiveImages
     {
         SelectorPropertyMetadata SelectSceneMetadata;
 
+
         public SceneObject()
         {
             Start = new(Video.StartMetadata);
@@ -26,20 +27,29 @@ namespace BEditor.Core.Data.Primitive.Objects.PrimitiveImages
             SelectScene = new(new SelectorPropertyMetadata("", new string[1]));
         }
 
+
+        #region Properties
+
         public override IEnumerable<PropertyElement> Properties => new PropertyElement[]
         {
-            Coordinate,
-            Zoom,
-            Blend,
-            Angle,
-            Material,
-            Start,
-            SelectScene
+                Coordinate,
+                Zoom,
+                Blend,
+                Angle,
+                Material,
+                Start,
+                SelectScene
         };
+
+
         [DataMember(Order = 0)]
         public EaseProperty Start { get; private set; }
+
         [DataMember(Order = 1)]
         public SelectorProperty SelectScene { get; private set; }
+
+        #endregion
+
 
         public override Image<BGRA32> OnRender(EffectRenderArgs args)
         {
@@ -49,6 +59,7 @@ namespace BEditor.Core.Data.Primitive.Objects.PrimitiveImages
 
             return scene.Render(frame + (int)Start.GetValue(args.Frame)).Image;
         }
+
         public override void PropertyLoaded()
         {
             base.PropertyLoaded();
@@ -56,6 +67,7 @@ namespace BEditor.Core.Data.Primitive.Objects.PrimitiveImages
             Start.ExecuteLoaded(Video.StartMetadata);
             SelectScene.ExecuteLoaded(SelectSceneMetadata);
         }
+
 
         internal record ScenesSelectorMetadata : SelectorPropertyMetadata
         {

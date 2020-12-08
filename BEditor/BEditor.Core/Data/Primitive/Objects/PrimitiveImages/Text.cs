@@ -29,26 +29,35 @@ namespace BEditor.Core.Data.Primitive.Objects.PrimitiveImages
             Document = new(DocumentMetadata);
         }
 
+        #region Properties
+
         public override IEnumerable<PropertyElement> Properties => new PropertyElement[]
         {
-            Coordinate,
-            Zoom,
-            Blend,
-            Angle,
-            Material,
-            Size,
-            Color,
-            Document,
-            Font
+                Coordinate,
+                Zoom,
+                Blend,
+                Angle,
+                Material,
+                Size,
+                Color,
+                Document,
+                Font
         };
+
+
         [DataMember(Order = 0)]
         public EaseProperty Size { get; private set; }
+
         [DataMember(Order = 1)]
         public ColorProperty Color { get; private set; }
+
         [DataMember(Order = 2)]
         public DocumentProperty Document { get; private set; }
+
         [DataMember(Order = 3)]
         public FontProperty Font { get; private set; }
+
+        #endregion
 
         public override Image<BGRA32> OnRender(EffectRenderArgs args) => Services.ImageRenderService.Text(
             (int)Size.GetValue(args.Frame),

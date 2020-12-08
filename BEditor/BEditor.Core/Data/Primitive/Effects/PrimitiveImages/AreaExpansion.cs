@@ -24,7 +24,11 @@ namespace BEditor.Core.Data.Primitive.Effects.PrimitiveImages
             AdjustCoordinates = new(Clipping.AdjustCoordinatesMetadata);
         }
 
+
+        #region Properties
+
         public override string Name => Resources.AreaExpansion;
+
         public override IEnumerable<PropertyElement> Properties => new PropertyElement[]
         {
             Top,
@@ -33,16 +37,25 @@ namespace BEditor.Core.Data.Primitive.Effects.PrimitiveImages
             Right,
             AdjustCoordinates
         };
+
+
         [DataMember(Order = 0)]
         public EaseProperty Top { get; private set; }
+
         [DataMember(Order = 1)]
         public EaseProperty Bottom { get; private set; }
+
         [DataMember(Order = 2)]
         public EaseProperty Left { get; private set; }
+
         [DataMember(Order = 3)]
         public EaseProperty Right { get; private set; }
+
         [DataMember(Order = 4)]
         public CheckProperty AdjustCoordinates { get; private set; }
+
+        #endregion
+
 
         public override void Render(EffectRenderArgs<Image<BGRA32>> args)
         {
@@ -59,6 +72,7 @@ namespace BEditor.Core.Data.Primitive.Effects.PrimitiveImages
 
             args.Value = args.Value.MakeBorder(top, bottom, left, right);
         }
+
         public override void PropertyLoaded()
         {
             Top.ExecuteLoaded(Clipping.TopMetadata);

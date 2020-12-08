@@ -166,7 +166,7 @@ namespace BEditor.Core.Data
             }
         }
         /// <summary>
-        /// Get whether an object has been disposed.
+        /// Get whether an object has been discarded.
         /// </summary>
         public bool IsDisposed { get; private set; }
         /// <inheritdoc/>

@@ -174,7 +174,7 @@ namespace BEditor.Core.Data.Primitive.Properties
     }
 
     /// <summary>
-    /// <see cref="BEditor.Core.Data.Primitive.Properties.CheckProperty"/> のメタデータを表します
+    /// <see cref="CheckProperty"/> のメタデータを表します
     /// </summary>
     public record CheckPropertyMetadata(string Name, bool DefaultIsChecked = false) : PropertyElementMetadata(Name);
 }

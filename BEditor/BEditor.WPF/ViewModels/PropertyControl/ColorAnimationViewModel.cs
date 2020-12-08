@@ -7,7 +7,6 @@ using BEditor.Core.Data.Primitive.Properties;
 using BEditor.Core.Data.Property.EasingProperty;
 
 using Reactive.Bindings;
-using Reactive.Bindings.Extensions;
 
 namespace BEditor.ViewModels.PropertyControl
 {
@@ -16,13 +15,9 @@ namespace BEditor.ViewModels.PropertyControl
         public ColorAnimationViewModel(ColorAnimationProperty property)
         {
             Property = property;
-            Metadata = property.ObserveProperty(p => p.PropertyMetadata)
-                .ToReadOnlyReactiveProperty();
-
             EasingChangeCommand.Subscribe(x => CommandManager.Do(new ColorAnimationProperty.ChangeEaseCommand(Property, x.Name)));
         }
 
-        public ReadOnlyReactiveProperty<ColorAnimationPropertyMetadata> Metadata { get; }
         public ColorAnimationProperty Property { get; }
         public ReactiveCommand<EasingData> EasingChangeCommand { get; } = new();
     }

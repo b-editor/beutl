@@ -22,10 +22,10 @@
         </Grid.ColumnDefinitions>
 
         <Grid Margin="0,0,0,1">
-            <TextBlock Text="{Binding Metadata.Value.Name, Mode=OneTime}" VerticalAlignment="Center" HorizontalAlignment="Left" FontSize="13" Margin="10,0,0,0" TextTrimming="CharacterEllipsis">
+            <TextBlock Text="{Binding Property.PropertyMetadata.Name, Mode=OneTime}" VerticalAlignment="Center" HorizontalAlignment="Left" FontSize="13" Margin="10,0,0,0" TextTrimming="CharacterEllipsis">
                 <TextBlock.ToolTip>
                     <MultiBinding Converter="{StaticResource PropertyHeaderTextConverter}">
-                        <Binding Path="Metadata.Value.Name" Mode="OneTime"/>
+                        <Binding Path="Property.PropertyMetadata.Name" Mode="OneTime"/>
                         <Binding Path="Property.Parent.Name" Mode="OneTime"/>
                         <Binding Path="Property.Parent.Parent.LabelText" Mode="OneWay"/>
                     </MultiBinding>

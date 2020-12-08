@@ -14,7 +14,7 @@ namespace BEditor.Core.Data.Property
     /// Represents the property used by <see cref="EffectElement"/>.
     /// </summary>
     [DataContract(Namespace = "")]
-    public abstract class PropertyElement : ComponentObject, IChild<EffectElement>, IPropertyElement, IHasId, IHasName
+    public abstract class PropertyElement : ComponentObject, IChild<EffectElement>, IPropertyElement, IHadId, IHadName
     {
         private static readonly PropertyChangedEventArgs metadataArgs = new(nameof(PropertyMetadata));
         private PropertyElementMetadata propertyMetadata;

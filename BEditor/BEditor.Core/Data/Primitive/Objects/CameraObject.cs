@@ -25,6 +25,7 @@ namespace BEditor.Core.Data.Primitive.Objects
         public static readonly EasePropertyMetadata FovMetadata = new(Resources.Fov, 55, 179, 1);
         public static readonly CheckPropertyMetadata ModeMetadata = new(Resources.Perspective, true);
 
+
         public CameraObject()
         {
             X = new(XMetadata);
@@ -40,7 +41,11 @@ namespace BEditor.Core.Data.Primitive.Objects
             Mode = new(ModeMetadata);
         }
 
+
+        #region Properties
+
         public override string Name => Resources.Camera;
+
         public override IEnumerable<PropertyElement> Properties => new PropertyElement[]
         {
             X, Y, Z,
@@ -50,28 +55,43 @@ namespace BEditor.Core.Data.Primitive.Objects
             Fov,
             Mode
         };
+
+
         [DataMember(Order = 0)]
         public EaseProperty X { get; private set; }
+
         [DataMember(Order = 1)]
         public EaseProperty Y { get; private set; }
+
         [DataMember(Order = 2)]
         public EaseProperty Z { get; private set; }
+
         [DataMember(Order = 3)]
         public EaseProperty TargetX { get; private set; }
+
         [DataMember(Order = 4)]
         public EaseProperty TargetY { get; private set; }
+
         [DataMember(Order = 5)]
         public EaseProperty TargetZ { get; private set; }
+
         [DataMember(Order = 6)]
         public EaseProperty ZNear { get; private set; }
+
         [DataMember(Order = 7)]
         public EaseProperty ZFar { get; private set; }
+
         [DataMember(Order = 8)]
         public EaseProperty Angle { get; private set; }
+
         [DataMember(Order = 9)]
         public EaseProperty Fov { get; private set; }
+
         [DataMember(Order = 10)]
         public CheckProperty Mode { get; private set; }
+
+        #endregion
+
 
         public override void Render(EffectRenderArgs args)
         {
@@ -93,6 +113,7 @@ namespace BEditor.Core.Data.Primitive.Objects
                 effect.Render(args);
             }
         }
+
         public override void PropertyLoaded()
         {
             X.ExecuteLoaded(XMetadata);

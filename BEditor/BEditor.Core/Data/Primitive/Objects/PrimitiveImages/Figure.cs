@@ -36,6 +36,8 @@ namespace BEditor.Core.Data.Primitive.Objects.PrimitiveImages
             Type = new(TypeMetadata);
         }
 
+        #region Properties
+
         public override IEnumerable<PropertyElement> Properties => new PropertyElement[]
         {
             Coordinate,
@@ -49,16 +51,24 @@ namespace BEditor.Core.Data.Primitive.Objects.PrimitiveImages
             Color,
             Type
         };
+
+
         [DataMember(Order = 0)]
         public EaseProperty Width { get; private set; }
+
         [DataMember(Order = 1)]
         public EaseProperty Height { get; private set; }
+
         [DataMember(Order = 2)]
         public EaseProperty Line { get; private set; }
+
         [DataMember(Order = 3)]
         public ColorProperty Color { get; private set; }
+
         [DataMember(Order = 4)]
         public SelectorProperty Type { get; private set; }
+
+        #endregion
 
         public override Image<BGRA32> OnRender(EffectRenderArgs args)
         {

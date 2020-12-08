@@ -9,7 +9,6 @@ using BEditor.Core.Data.Property;
 using BEditor.Core.Data.Primitive.Properties;
 using BEditor.Core.Command;
 using Reactive.Bindings;
-using Reactive.Bindings.Extensions;
 
 namespace BEditor.ViewModels.PropertyControl
 {
@@ -18,9 +17,6 @@ namespace BEditor.ViewModels.PropertyControl
         public FilePropertyViewModel(FileProperty property)
         {
             Property = property;
-            Metadata = property.ObserveProperty(p => p.PropertyMetadata)
-                .ToReadOnlyReactiveProperty();
-
             Command.Subscribe(x =>
             {
                 var file = x?.Invoke(Property.PropertyMetadata?.FilterName, Property.PropertyMetadata?.Filter);
@@ -33,7 +29,6 @@ namespace BEditor.ViewModels.PropertyControl
             Reset.Subscribe(() => CommandManager.Do(new FileProperty.ChangeFileCommand(Property, Property.PropertyMetadata.DefaultFile)));
         }
 
-        public ReadOnlyReactiveProperty<FilePropertyMetadata> Metadata { get; }
         public FileProperty Property { get; }
         public ReactiveCommand<Func<string, string, string>> Command { get; } = new();
         public ReactiveCommand Reset { get; } = new();

@@ -21,7 +21,7 @@ namespace BEditor.Core.Data
     /// Represents a scene to be included in the <see cref="Project"/>.
     /// </summary>
     [DataContract(Namespace = "")]
-    public class Scene : ComponentObject, IParent<ClipData>, IChild<Project>, IHasName, IHasId
+    public class Scene : ComponentObject, IParent<ClipData>, IChild<Project>, IHadName, IHadId
     {
         #region Fields
 

@@ -58,9 +58,9 @@ namespace BEditor.Core.Data.Primitive.Components
 
         private class Observer : IObserver<object>
         {
-            public Action<object> _OnNext { get; init; }
-            public Action<Exception> _OnError { get; init; }
-            public Action _OnCompleted { get; init; }
+            public Action<object> _OnNext;
+            public Action<Exception> _OnError;
+            public Action _OnCompleted;
 
             public void OnCompleted() => _OnCompleted?.Invoke();
             public void OnError(Exception error) => _OnError?.Invoke(error);

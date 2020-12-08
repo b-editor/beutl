@@ -26,10 +26,10 @@
         </Grid.ColumnDefinitions>
 
         <Grid>
-            <TextBlock Text="{Binding Metadata.Value.Name, Mode=OneTime}" VerticalAlignment="Center" HorizontalAlignment="Left" FontSize="13" Margin="10,0,0,0" TextTrimming="CharacterEllipsis">
+            <TextBlock Text="{Binding Property.PropertyMetadata.Name, Mode=OneTime}" VerticalAlignment="Center" HorizontalAlignment="Left" FontSize="13" Margin="10,0,0,0" TextTrimming="CharacterEllipsis">
                 <TextBlock.ToolTip>
                     <MultiBinding Converter="{StaticResource PropertyHeaderTextConverter}">
-                        <Binding Path="Metadata.Value.Name" Mode="OneTime"/>
+                        <Binding Path="Property.PropertyMetadata.Name" Mode="OneTime"/>
                         <Binding Path="Property.Parent.Name" Mode="OneTime"/>
                         <Binding Path="Property.Parent.Parent.LabelText" Mode="OneWay"/>
                     </MultiBinding>
@@ -39,7 +39,7 @@
 
 
         <!--Combo box-->
-        <ComboBox x:Name="combo" ItemsSource="{Binding Metadata.Value.ItemSource, Mode=OneWay}" DisplayMemberPath="{Binding Metadata.Value.MemberPath, Mode=OneTime}" Grid.Column="3" Margin="5,0,5,0">
+        <ComboBox x:Name="combo" ItemsSource="{Binding Property.PropertyMetadata.ItemSource, Mode=OneWay}" DisplayMemberPath="{Binding Property.PropertyMetadata.MemberPath, Mode=OneTime}" Grid.Column="3" Margin="5,0,5,0">
             <i:Interaction.Triggers>
                 <i:EventTrigger EventName="SelectionChanged">
                     <i:InvokeCommandAction Command="{Binding Command, Mode=OneTime}">

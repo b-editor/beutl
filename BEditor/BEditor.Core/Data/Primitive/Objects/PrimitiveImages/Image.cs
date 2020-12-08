@@ -21,11 +21,10 @@ namespace BEditor.Core.Data.Primitive.Objects.PrimitiveImages
         public static readonly FilePropertyMetadata FileMetadata = new(Resources.File, "", "png,jpeg,jpg,bmp", Resources.ImageFile);
         private Image<BGRA32> source;
 
-        public Image()
-        {
-            File = new(FileMetadata);
-        }
+        public Image() => File = new(FileMetadata);
 
+
+        #region Properties
         public override IEnumerable<PropertyElement> Properties => new PropertyElement[]
         {
             Coordinate,
@@ -35,8 +34,11 @@ namespace BEditor.Core.Data.Primitive.Objects.PrimitiveImages
             Material,
             File
         };
+
+
         [DataMember(Order = 0)]
         public FileProperty File { get; private set; }
+
         public Image<BGRA32> Source
         {
             get
@@ -52,17 +54,22 @@ namespace BEditor.Core.Data.Primitive.Objects.PrimitiveImages
             set => source = value;
         }
 
+        #endregion
+
+
         public override Image<BGRA32> OnRender(EffectRenderArgs args) => Source?.Clone();
+
         public override void PropertyLoaded()
         {
             base.PropertyLoaded();
             File.ExecuteLoaded(FileMetadata);
 
-            File.Subscribe(file =>
+            File.ObserveProperty(p=>p.File)
+                .Subscribe(file =>
             {
-                if (System.IO.File.Exists(file))
+                if (System.IO.File.Exists(file.File))
                 {
-                    using var stream = new FileStream(file, FileMode.Open);
+                    using var stream = new FileStream(file.File, FileMode.Open);
                     source = Drawing.Image.FromStream(stream);
                 }
             });

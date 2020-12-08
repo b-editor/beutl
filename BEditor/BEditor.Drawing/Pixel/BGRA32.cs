@@ -21,7 +21,7 @@ namespace BEditor.Drawing.Pixel
             ChannelShift = 3,
             DepthMax = 1 << ChannelShift;
 
-        public readonly BGRA32 Blend(BGRA32 foreground)
+        public BGRA32 Blend(BGRA32 foreground)
         {
             if (A is 0) return this;
 

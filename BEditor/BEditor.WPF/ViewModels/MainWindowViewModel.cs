@@ -24,7 +24,6 @@ using System.Reactive.Linq;
 using Reactive.Bindings;
 using BEditor.Views.CreateDialog;
 using System.Windows.Media.Imaging;
-using Reactive.Bindings.Extensions;
 
 namespace BEditor.ViewModels
 {

@@ -8,7 +8,6 @@ using BEditor.Core.Command;
 using BEditor.Core.Data.Primitive.Properties;
 
 using Reactive.Bindings;
-using Reactive.Bindings.Extensions;
 
 namespace BEditor.ViewModels.PropertyControl
 {
@@ -17,9 +16,6 @@ namespace BEditor.ViewModels.PropertyControl
         public FolderPropertyViewModel(FolderProperty property)
         {
             Property = property;
-            Metadata = property.ObserveProperty(p => p.PropertyMetadata)
-                .ToReadOnlyReactiveProperty();
-
             Command.Subscribe(x =>
             {
                 var file = x?.Invoke();
@@ -32,7 +28,6 @@ namespace BEditor.ViewModels.PropertyControl
             Reset.Subscribe(() => CommandManager.Do(new FolderProperty.ChangeFolderCommand(Property, Property.PropertyMetadata.Default)));
         }
 
-        public ReadOnlyReactiveProperty<FolderPropertyMetadata> Metadata { get; }
         public FolderProperty Property { get; }
         public ReactiveCommand<Func<string>> Command { get; } = new();
         public ReactiveCommand Reset { get; } = new();

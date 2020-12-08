@@ -97,6 +97,7 @@ namespace BEditor.Core.Data.Bindings
             /// </summary>
             /// <param name="source">バインド先のオブジェクト</param>
             /// <param name="target">バインドするオブジェクト</param>
+            /// <param name="useTwoWay">双方向バインディングを使用</param>
             public BindCommand(IBindable<T> source, IBindable<T> target)
             {
                 this.source = source;
