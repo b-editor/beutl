@@ -44,10 +44,7 @@ namespace BEditor.Core.Data.Primitive.Objects
             Weight = new(WeightMetadata);
         }
 
-        #region Properties
-
         public override string Name => Resources._3DObject;
-
         public override IEnumerable<PropertyElement> Properties => new PropertyElement[]
         {
             Coordinate,
@@ -60,36 +57,24 @@ namespace BEditor.Core.Data.Primitive.Objects
             Height,
             Weight
         };
-
-
         [DataMember(Order = 0)]
         public Coordinate Coordinate { get; private set; }
-
         [DataMember(Order = 1)]
         public Zoom Zoom { get; private set; }
-
         [DataMember(Order = 2)]
         public Blend Blend { get; private set; }
-
         [DataMember(Order = 3)]
         public Angle Angle { get; private set; }
-
         [DataMember(Order = 4)]
         public Material Material { get; private set; }
-
         [DataMember(Order = 5)]
         public SelectorProperty Type { get; private set; }
-
         [DataMember(Order = 6)]
         public EaseProperty Width { get; private set; }
-
         [DataMember(Order = 7)]
         public EaseProperty Height { get; private set; }
-
         [DataMember(Order = 8)]
         public EaseProperty Weight { get; private set; }
-
-        #endregion
 
         public override void Render(EffectRenderArgs args)
         {

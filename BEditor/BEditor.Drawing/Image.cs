@@ -15,7 +15,7 @@ using BEditor.Drawing.Pixel;
 
 namespace BEditor.Drawing
 {
-    public unsafe class Image<T> : IDisposable where T : unmanaged, IPixel<T>
+    public unsafe class Image<T> : IDisposable, ICloneable where T : unmanaged, IPixel<T>
     {
         // 同じImage<T>型のみで共有される
         private static readonly PixelFormatAttribute formatAttribute;
@@ -23,7 +23,7 @@ namespace BEditor.Drawing
         #region Constructors
         static Image()
         {
-            if(Attribute.GetCustomAttribute(typeof(T), typeof(PixelFormatAttribute)) is PixelFormatAttribute attribute)
+            if (Attribute.GetCustomAttribute(typeof(T), typeof(PixelFormatAttribute)) is PixelFormatAttribute attribute)
             {
                 formatAttribute = attribute;
             }
@@ -32,37 +32,76 @@ namespace BEditor.Drawing
                 Debug.Assert(false);
             }
         }
+        /// <summary>
+        /// <see cref="Image{T}"/> Initialize a new instance of the class.
+        /// </summary>
+        /// <exception cref="ArgumentOutOfRangeException"><paramref name="width"/> is less than 0.</exception>
+        /// <exception cref="ArgumentOutOfRangeException"><paramref name="height"/> is less than 0.</exception>
         public Image(int width, int height)
         {
+            if (width is <= 0) throw new ArgumentOutOfRangeException(nameof(width));
+            if (height is <= 0) throw new ArgumentOutOfRangeException(nameof(height));
+
             Width = width;
             Height = height;
-            // Todo: ArrayPool
+
             Data = ArrayPool<T>.Shared.Rent(width * height);
         }
+        /// <summary>
+        /// <see cref="Image{T}"/> Initialize a new instance of the class.
+        /// </summary>
+        /// <exception cref="ArgumentOutOfRangeException"><paramref name="width"/> is less than 0.</exception>
+        /// <exception cref="ArgumentOutOfRangeException"><paramref name="height"/> is less than 0.</exception>
+        /// <exception cref="ArgumentNullException"><paramref name="data"/> is <see langword="null"/>.</exception>
         public Image(int width, int height, T[] data) : this(width, height)
         {
-            fixed (T* src = &data[0], dst = &Data[0])
+            if (data is null) throw new ArgumentNullException(nameof(data));
+
+            fixed (T* src = &data[0])
+            fixed (T* dst = &Data![0])
             {
                 var size = DataSize;
                 Buffer.MemoryCopy(src, dst, size, size);
             }
         }
+        /// <summary>
+        /// <see cref="Image{T}"/> Initialize a new instance of the class.
+        /// </summary>
+        /// <exception cref="ArgumentOutOfRangeException"><paramref name="width"/> is less than 0.</exception>
+        /// <exception cref="ArgumentOutOfRangeException"><paramref name="height"/> is less than 0.</exception>
+        /// <exception cref="ArgumentNullException"><paramref name="data"/> is <see langword="null"/>.</exception>
         public Image(int width, int height, T* data) : this(width, height)
         {
-            fixed (T* dst = &Data[0])
+            if ((IntPtr)data == IntPtr.Zero) throw new ArgumentNullException(nameof(data));
+
+            fixed (T* dst = &Data![0])
             {
                 var size = DataSize;
                 Buffer.MemoryCopy(data, dst, size, size);
             }
         }
+        /// <summary>
+        /// <see cref="Image{T}"/> Initialize a new instance of the class.
+        /// </summary>
+        /// <exception cref="ArgumentOutOfRangeException"><paramref name="width"/> is less than 0.</exception>
+        /// <exception cref="ArgumentOutOfRangeException"><paramref name="height"/> is less than 0.</exception>
+        /// <exception cref="ArgumentNullException"><paramref name="data"/> is <see langword="null"/>.</exception>
         public Image(int width, int height, IntPtr data) : this(width, height, (T*)data)
         {
 
         }
+        /// <summary>
+        /// <see cref="Image{T}"/> Initialize a new instance of the class.
+        /// </summary>
+        /// <exception cref="ArgumentOutOfRangeException"><paramref name="width"/> is less than 0.</exception>
+        /// <exception cref="ArgumentOutOfRangeException"><paramref name="height"/> is less than 0.</exception>
         public Image(int width, int height, T fill) : this(width, height)
         {
             Fill(fill);
         }
+        /// <summary>
+        /// <see cref="Image{T}"/> Initialize a new instance of the class.
+        /// </summary>
         private Image(ImageStruct image)
         {
             Width = image.Width;
@@ -81,14 +120,38 @@ namespace BEditor.Drawing
 
         #region Properties
 
+        /// <summary>
+        /// Get the width of this <see cref="Image{T}"/>.
+        /// </summary>
         public int Width { get; }
+        /// <summary>
+        /// Get the height of this <see cref="Image{T}"/>.
+        /// </summary>
         public int Height { get; }
+        /// <summary>
+        /// Get the data size of this <see cref="Image{T}"/>.
+        /// </summary>
         public int DataSize => Width * Height * sizeof(T);
         // Data は ArrayPool からの可能性があるのでサイズから求める
+        /// <summary>
+        /// Get the data length of this <see cref="Image{T}"/>.
+        /// </summary>
         public int Length => Width * Height;
-        public T[] Data { get; private set; }
+        /// <summary>
+        /// Get the data of this <see cref="Image{T}"/>.
+        /// </summary>
+        public T[]? Data { get; private set; }
+        /// <summary>
+        /// Get the size of this <see cref="Image{T}"/>.
+        /// </summary>
         public Size Size => new(Width, Height);
+        /// <summary>
+        /// Get the stride width of this <see cref="Image{T}"/>.
+        /// </summary>
         public int Stride => Width * sizeof(T);
+        /// <summary>
+        /// Get whether an object has been disposed
+        /// </summary>
         public bool IsDisposed { get; private set; }
 
         #region Strideの説明
@@ -108,21 +171,39 @@ namespace BEditor.Drawing
 
         #endregion
 
+        /// <summary>
+        /// Get or set the pixel of this <see cref="Image{T}"/>.
+        /// </summary>
         public T this[int x, int y]
         {
             set => this[y][x] = value;
             get => this[y][x];
         }
+        /// <summary>
+        /// Get or set this <see cref="Image{T}"/> row.
+        /// </summary>
         public Span<T> this[int y]
         {
-            get => new Span<T>(Data).Slice(y * Width, Width);
-            set => value.CopyTo(new Span<T>(Data).Slice(y * Width, Width));
+            get
+            {
+                ThrowIfDisposed();
+                return new Span<T>(Data).Slice(y * Width, Width);
+            }
+            set
+            {
+                ThrowIfDisposed();
+                value.CopyTo(new Span<T>(Data).Slice(y * Width, Width));
+            }
         }
 
+        /// <summary>
+        /// Crop or replace an image with a range.
+        /// </summary>
         public Image<T> this[Rectangle roi]
         {
             set
             {
+                ThrowIfDisposed();
                 Parallel.For(0, roi.Height, y =>
                 {
                     var sourceRow = value[y];
@@ -133,6 +214,7 @@ namespace BEditor.Drawing
             }
             get
             {
+                ThrowIfDisposed();
                 var value = new Image<T>(roi.Width, roi.Height);
 
                 Parallel.For(0, roi.Height, y =>
@@ -149,12 +231,23 @@ namespace BEditor.Drawing
 
         #region Methods
 
-        public Image<T> Clone() =>
-            new Image<T>(Width, Height, Data);
-        public void Clear() =>
-            Array.Clear(Data, 0, Width * Height);
+        public Image<T> Clone()
+        {
+            ThrowIfDisposed();
+
+            return new Image<T>(Width, Height, Data!);
+        }
+
+        public void Clear()
+        {
+            ThrowIfDisposed();
+
+            Array.Clear(Data!, 0, Width * Height);
+        }
+
         public void Fill(T fill)
         {
+                ThrowIfDisposed();
             Parallel.For(0, Height, y =>
             {
                 this[y].Fill(fill);
@@ -163,7 +256,9 @@ namespace BEditor.Drawing
 
         public bool Save(string filename)
         {
-            fixed (T* data = &Data[0])
+            ThrowIfDisposed();
+
+            fixed (T* data = &Data![0])
             {
                 return Native.Image_Save(new()
                 {
@@ -178,6 +273,7 @@ namespace BEditor.Drawing
 
         public void Flip(FlipMode mode)
         {
+                ThrowIfDisposed();
             if (mode is FlipMode.Y)
             {
                 Parallel.For(0, Height, y =>
@@ -203,6 +299,8 @@ namespace BEditor.Drawing
         }
         public Image<T> MakeBorder(int top, int bottom, int left, int right)
         {
+            ThrowIfDisposed();
+
             var width = left + right + Width;
             var height = top + bottom + Height;
             var img = new Image<T>(width, height);
@@ -233,7 +331,7 @@ namespace BEditor.Drawing
         {
             if (!IsDisposed)
             {
-                ArrayPool<T>.Shared.Return(Data, true);
+                ArrayPool<T>.Shared.Return(Data!, true);
                 Data = null;
                 IsDisposed = true;
             }
@@ -244,12 +342,14 @@ namespace BEditor.Drawing
             if (IsDisposed) throw new ObjectDisposedException(nameof(Image<T>));
         }
 
+        object ICloneable.Clone() => this.Clone();
+
         #endregion
 
 #if DEBUG
         ~Image()
         {
-            Debug.WriteLine($"Delete: Image<{typeof(T).Name}> Width:{Width} Height:{Height}");
+            //Debug.WriteLine($"Delete: Image<{typeof(T).Name}> Width:{Width} Height:{Height}");
         }
 #endif
     }

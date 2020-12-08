@@ -118,21 +118,16 @@ namespace BEditor.Core.Data.Primitive.Properties.PrimitiveEasing
         });
         private Func<float, float, float, float, float> currentfunc = Easing.None;
 
-
         public DefaultEasing()
         {
             EasingType = new SelectorProperty(propertyMetadata);
         }
 
-
         public override IEnumerable<IEasingProperty> Properties => new IEasingProperty[] { EasingType };
-
         [DataMember()]
         public SelectorProperty EasingType { get; set; }
 
-
         public override float EaseFunc(int frame, int totalframe, float min, float max) => currentfunc?.Invoke(frame, totalframe, min, max) ?? 0;
-
         public override void PropertyLoaded()
         {
             EasingType.ExecuteLoaded(propertyMetadata);
@@ -141,7 +136,6 @@ namespace BEditor.Core.Data.Primitive.Properties.PrimitiveEasing
 
             EasingType.Subscribe(index => currentfunc = DefaultEase[index]);
         }
-
 
         class Easing
         {

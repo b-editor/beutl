@@ -32,10 +32,7 @@ namespace BEditor.Core.Data.Primitive.Effects
         public static readonly CheckPropertyMetadata MaskMetadata = new("Mask", true);
         public static readonly EasePropertyMetadata NearMetadata = new("Near", 0, 100, 0);
         public static readonly EasePropertyMetadata FarMetadata = new("Far", 100, 100, 0);
-
-        #region Function用
-
-        static readonly ReadOnlyCollection<DepthFunction> DepthFunctions = new ReadOnlyCollection<DepthFunction>(new DepthFunction[]
+        public static readonly ReadOnlyCollection<DepthFunction> DepthFunctions = new ReadOnlyCollection<DepthFunction>(new DepthFunction[]
         {
             DepthFunction.Never,
             DepthFunction.Less,
@@ -47,9 +44,6 @@ namespace BEditor.Core.Data.Primitive.Effects
             DepthFunction.Always
         });
 
-        #endregion
-
-
         public DepthTest()
         {
             Enabled = new(EnabledMetadata);
@@ -59,11 +53,7 @@ namespace BEditor.Core.Data.Primitive.Effects
             Far = new(FarMetadata);
         }
 
-
-        #region EffectElement
-
         public override string Name => Resources.DepthTest;
-
         public override IEnumerable<PropertyElement> Properties => new PropertyElement[]
         {
             Enabled,
@@ -72,25 +62,16 @@ namespace BEditor.Core.Data.Primitive.Effects
             Near,
             Far
         };
-
-
         [DataMember(Order = 0)]
         public CheckProperty Enabled { get; private set; }
-
         [DataMember(Order = 1)]
         public SelectorProperty Function { get; private set; }
-
         [DataMember(Order = 2)]
         public CheckProperty Mask { get; private set; }
-
         [DataMember(Order = 3)]
         public EaseProperty Near { get; private set; }
-
         [DataMember(Order = 4)]
         public EaseProperty Far { get; private set; }
-
-        #endregion
-
 
         public override void Render(EffectRenderArgs args)
         {
@@ -103,7 +84,6 @@ namespace BEditor.Core.Data.Primitive.Effects
 
             GL.DepthRange(Near.GetValue(args.Frame) / 100, Far.GetValue(args.Frame) / 100);
         }
-
         public override void PropertyLoaded()
         {
             Enabled.ExecuteLoaded(EnabledMetadata);

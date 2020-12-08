@@ -29,31 +29,23 @@ namespace BEditor.Core.Data.Primitive.Objects.PrimitiveImages
             File = new(FileMetadata);
         }
 
-        #region Properties
-
         public override IEnumerable<PropertyElement> Properties => new PropertyElement[]
         {
-                Coordinate,
-                Zoom,
-                Blend,
-                Angle,
-                Material,
-                Speed,
-                Start,
-                File
+            Coordinate,
+            Zoom,
+            Blend,
+            Angle,
+            Material,
+            Speed,
+            Start,
+            File
         };
-
-
         [DataMember(Order = 0)]
         public EaseProperty Speed { get; private set; }
-
         [DataMember(Order = 1)]
         public EaseProperty Start { get; private set; }
-
         [DataMember(Order = 2)]
         public FileProperty File { get; private set; }
-
-        #endregion
 
         public override Image<BGRA32> OnRender(EffectRenderArgs args)
         {

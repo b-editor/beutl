@@ -51,13 +51,13 @@ namespace BEditor.Core.Data.Control
 
         [Pure]
         [return: MaybeNull]
-        public static T? Find<T>(this IParent<T> self, int id) where T : IHadId
+        public static T? Find<T>(this IParent<T> self, int id) where T : IHasId
         {
             return self.Children.ToList().Find(item => item.Id == id);
         }
         [Pure]
         [return: MaybeNull]
-        public static T? Find<T>(this IParent<T> self, string name) where T : IHadName
+        public static T? Find<T>(this IParent<T> self, string name) where T : IHasName
         {
             return self.Children.ToList().Find(item => item.Name == name);
         }
