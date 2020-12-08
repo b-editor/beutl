@@ -1,6 +1,6 @@
 using System;
 
-namespace BEditor.Electron.Data
+namespace BEditor.Data
 {
     public class WeatherForecast
     {

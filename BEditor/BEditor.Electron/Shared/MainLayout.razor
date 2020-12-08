@@ -1,17 +1,96 @@
 ﻿@inherits LayoutComponentBase
-
-<div class="page">
-    <div class="sidebar">
-        <NavMenu />
-    </div>
-
-    <div class="main">
-        <div class="top-row px-4">
-            <a href="https://docs.microsoft.com/aspnet/" target="_blank">About</a>
+@using BEditor.Models
+@using BEditor.Views
+@using BEditor.Views.Timelines
+@*<div class="page">
+        <div class="sidebar">
+            <NavMenu />
         </div>
 
-        <div class="content px-4">
-            @Body
+        <div class="main">
+            <div class="top-row px-4">
+                <a href="https://docs.microsoft.com/aspnet/" target="_blank">About</a>
+            </div>
+
+            <div class="content px-4">
+                @Body
+            </div>
         </div>
-    </div>
-</div>
+    </div>*@
+
+<style>
+    .mat-card {
+        width: inherit;
+        height: inherit;
+        align-content: stretch;
+        align-items: stretch;
+        align-self: stretch;
+    }
+
+    .mat-drawer-content-style {
+        width: inherit;
+        align-content: stretch;
+        align-items: stretch;
+        align-self: stretch;
+    }
+</style>
+
+<MatThemeProvider Theme="@Theme">
+    <MatDrawerContainer Class="main">
+        <MatDrawer @ref="@Drawer" Mode="@MatDrawerMode.Modal">
+            Drawer Content
+        </MatDrawer>
+        <MatDrawerContent>
+            <MatAppBarContainer>
+                <MatAppBar>
+                    <MatAppBarRow Style="height: 45px;">
+                        <MatAppBarSection>
+                            <MatIconButton Icon="menu" OnClick="@MenuButtonClicked"></MatIconButton>
+                            <MatAppBarTitle>@(AppData.Current.Project.Value?.Filename ?? "")</MatAppBarTitle>
+                        </MatAppBarSection>
+                        <MatAppBarSection Align="@MatAppBarSectionAlign.End">
+                            <MatIconButton Icon="@MatIconNames.Insert_drive_file">
+                                <InputFile OnChange="LoadFile"></InputFile>
+                            </MatIconButton>
+
+                            <MatIconButton Icon="@MatIconNames.Folder_open"></MatIconButton>
+
+                        </MatAppBarSection>
+                    </MatAppBarRow>
+                </MatAppBar>
+            </MatAppBarContainer>
+
+            <div class="mat-layout-grid" style="height: 100%; width: 100%; margin-top: 45px; padding: 10px;">
+                <div class="mat-layout-grid-inner" style="height: calc(100vh - 45px - 24px);">
+                    <!--ここをサイズ固定-->
+                    <div class="mat-layout-grid-cell mat-layout-grid-cell-span-3" style="height: 100%;">
+                        <MatCard Class="mat-card">
+                            <div>Property</div>
+                        </MatCard>
+                    </div>
+                    <div class="mat-layout-grid-cell mat-layout-grid-cell-span-9">
+                        <div class="mat-layout-grid-inner" style="height: 100%;">
+                            <div class="mat-layout-grid-cell mat-layout-grid-cell-span-12" style="height: calc(50vh - 45px);">
+                                <span>Preview</span>
+                            </div>
+                            @*calc(50vh - 45px)*@
+                            <div class="mat-layout-grid-cell mat-layout-grid-cell-span-12" style="height: calc(50vh - 45px);">
+                                <MatCard Class="mat-card">
+                                    @*<div>Timeline</div>*@
+                                    @if (AppData.Current.Project.Value is not null)
+                                    {
+                                        <TimelineView></TimelineView>
+                                    }
+                                </MatCard>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <MatSnackbar @bind-IsOpen="@SnackbarIsOpened" Leading="true">
+                <MatSnackbarContent>@SnackbarText</MatSnackbarContent>
+            </MatSnackbar>
+        </MatDrawerContent>
+    </MatDrawerContainer>
+</MatThemeProvider>

@@ -1,0 +1,26 @@
+﻿@*<div class="mat-layout-grid" style="margin: 0px; padding: 0px;">
+        <div class="mat-layout-grid-inner">
+            <div class="mat-layout-grid-cell">AAA</div>
+            <div class="mat-layout-grid-cell">BBB</div>
+        </div>
+    </div>*@
+
+<div style="display: inline-flex; height: 100%; overflow: scroll;">
+    <div style="width: 150px;">
+        <div style="height: 35px; padding-left: 8px;">Menu</div>
+
+        @for (int i = 1; i < 100; i++)
+        {
+            <div style="height: 35px; padding-left: 8px; margin-top: 1px;">@i.ToString()</div>
+        }
+    </div>
+    <div style="width: 100%; background: #FAFAFA;">
+        <div style="background: #424242; height: 35px;">
+            @*目盛り*@
+        </div>
+        @for (int i = 1; i < 100; i++)
+        {
+            <LayerView Layer="i"></LayerView>
+        }
+    </div>
+</div>

@@ -2,7 +2,7 @@ using System;
 using System.Linq;
 using System.Threading.Tasks;
 
-namespace BEditor.Electron.Data
+namespace BEditor.Data
 {
     public class WeatherForecastService
     {
