@@ -16,6 +16,7 @@ using BEditor.Drawing.Pixel;
 namespace BEditor.Core.Data.Primitive.Objects.PrimitiveImages
 {
     [DataContract(Namespace = "")]
+    [CustomClipUI(Color = 0x0091ea)]
     public class Image : ImageObject
     {
         public static readonly FilePropertyMetadata FileMetadata = new(Resources.File, "", "png,jpeg,jpg,bmp", Resources.ImageFile);

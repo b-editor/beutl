@@ -3,6 +3,7 @@ using System.Runtime.Serialization;
 
 using BEditor.Core;
 using BEditor.Core.Command;
+using BEditor.Core.Data.Control;
 using BEditor.Core.Data.Primitive.Properties;
 using BEditor.Core.Data.Property;
 using BEditor.Core.Extensions;
@@ -14,6 +15,7 @@ using BEditor.Drawing.Pixel;
 namespace BEditor.Core.Data.Primitive.Objects.PrimitiveImages
 {
     [DataContract(Namespace = "")]
+    [CustomClipUI(Color = 0x6200ea)]
     public class Text : ImageObject
     {
         public static readonly EasePropertyMetadata SizeMetadata = new(Core.Properties.Resources.Size, 100, float.NaN, 0);

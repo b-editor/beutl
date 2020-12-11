@@ -16,6 +16,7 @@ namespace BEditor.Shared
 {
     public partial class MainLayout
     {
+        private bool FileDialogIsOpened = false;
         private bool SnackbarIsOpened = false;
         private string SnackbarText = "";
         private MatDrawer Drawer;
@@ -43,6 +44,7 @@ namespace BEditor.Shared
 
                 AppData.Current.Project.Value = new Project(stream, AppData.Current);
 
+                FileDialogIsOpened = false;
                 await this.InvokeAsync(StateHasChanged);
             }
         }

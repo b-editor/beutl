@@ -12,6 +12,10 @@ namespace BEditor.Core.Media
     [StructLayout(LayoutKind.Sequential)]
     public struct Color : IEquatable<Color>
     {
+        internal const int ARGBAlphaShift = 24;
+        internal const int ARGBRedShift = 16;
+        internal const int ARGBGreenShift = 8;
+        internal const int ARGBBlueShift = 0;
         private float scR;
         private float scG;
         private float scB;
@@ -264,6 +268,14 @@ namespace BEditor.Core.Media
 
         #endregion
 
+        public static Color FromARGB(int argb)
+            => FromARGB(unchecked(argb));
+        public static Color FromARGB(uint argb)
+            => new(
+                unchecked((byte)(argb >> ARGBRedShift)),
+                unchecked((byte)(argb >> ARGBGreenShift)),
+                unchecked((byte)(argb >> ARGBBlueShift)),
+                unchecked((byte)(argb >> ARGBAlphaShift)));
 
         /// <inheritdoc/>
         public override bool Equals(object obj) => obj is Color color && Equals(color);

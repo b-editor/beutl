@@ -1,9 +1,19 @@
 ﻿@using BEditor.Models
+@using BEditor.Core.Data
 <div style="
-    height: 35px;
-    position: absolute;
-    margin-left: @($"{Clip.Parent.ToPixel(Clip.Start)}px");">
-    <div>
+    height: @($"{Settings.Default.ClipHeight}px");
+    /*position: absolute; */
+    position: sticky;
+    display: inline-block;
+    margin-left: @($"{Clip.Parent.ToPixel(Clip.Start) - Margin_Left}px");
+    width: @($"{Clip.Parent.ToPixel(Clip.Length)}px")">
+    <div style="
+        height: @($"{Settings.Default.ClipHeight}px");
+        cursor: move;
+        background: @($"{Element.GetAttribute().GetColor.ToHTMLColor()}");"
+        draggable="true"
+        @ondragstart="@OnDragStart"
+        @ondragend="@OnDragEnd">
 
     </div>
 </div>

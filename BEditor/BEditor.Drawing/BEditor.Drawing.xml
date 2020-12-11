@@ -6,12 +6,101 @@
     <members>
         <member name="M:BEditor.Drawing.Image`1.#ctor(System.Int32,System.Int32)">
             <summary>
-            
+            <see cref="T:BEditor.Drawing.Image`1"/> Initialize a new instance of the class.
             </summary>
-            <param name="width"></param>
-            <param name="height"></param>
-            <exception cref="T:System.ArgumentNullException"><paramref name="width"/> is <see langword="null"/>.</exception>
-            <exception cref="T:System.ArgumentNullException"><paramref name="height"/> is <see langword="null"/>.</exception>
+            <exception cref="T:System.ArgumentOutOfRangeException"><paramref name="width"/> is less than 0.</exception>
+            <exception cref="T:System.ArgumentOutOfRangeException"><paramref name="height"/> is less than 0.</exception>
+        </member>
+        <member name="M:BEditor.Drawing.Image`1.#ctor(System.Int32,System.Int32,`0[])">
+            <summary>
+            <see cref="T:BEditor.Drawing.Image`1"/> Initialize a new instance of the class.
+            </summary>
+            <exception cref="T:System.ArgumentOutOfRangeException"><paramref name="width"/> is less than 0.</exception>
+            <exception cref="T:System.ArgumentOutOfRangeException"><paramref name="height"/> is less than 0.</exception>
+            <exception cref="T:System.ArgumentNullException"><paramref name="data"/> is <see langword="null"/>.</exception>
+        </member>
+        <member name="M:BEditor.Drawing.Image`1.#ctor(System.Int32,System.Int32,`0*)">
+            <summary>
+            <see cref="T:BEditor.Drawing.Image`1"/> Initialize a new instance of the class.
+            </summary>
+            <exception cref="T:System.ArgumentOutOfRangeException"><paramref name="width"/> is less than 0.</exception>
+            <exception cref="T:System.ArgumentOutOfRangeException"><paramref name="height"/> is less than 0.</exception>
+            <exception cref="T:System.ArgumentNullException"><paramref name="data"/> is <see langword="null"/>.</exception>
+        </member>
+        <member name="M:BEditor.Drawing.Image`1.#ctor(System.Int32,System.Int32,System.IntPtr)">
+            <summary>
+            <see cref="T:BEditor.Drawing.Image`1"/> Initialize a new instance of the class.
+            </summary>
+            <exception cref="T:System.ArgumentOutOfRangeException"><paramref name="width"/> is less than 0.</exception>
+            <exception cref="T:System.ArgumentOutOfRangeException"><paramref name="height"/> is less than 0.</exception>
+            <exception cref="T:System.ArgumentNullException"><paramref name="data"/> is <see langword="null"/>.</exception>
+        </member>
+        <member name="M:BEditor.Drawing.Image`1.#ctor(System.Int32,System.Int32,`0)">
+            <summary>
+            <see cref="T:BEditor.Drawing.Image`1"/> Initialize a new instance of the class.
+            </summary>
+            <exception cref="T:System.ArgumentOutOfRangeException"><paramref name="width"/> is less than 0.</exception>
+            <exception cref="T:System.ArgumentOutOfRangeException"><paramref name="height"/> is less than 0.</exception>
+        </member>
+        <member name="M:BEditor.Drawing.Image`1.#ctor(BEditor.Drawing.Interop.ImageStruct)">
+            <summary>
+            <see cref="T:BEditor.Drawing.Image`1"/> Initialize a new instance of the class.
+            </summary>
+        </member>
+        <member name="P:BEditor.Drawing.Image`1.Width">
+            <summary>
+            Get the width of this <see cref="T:BEditor.Drawing.Image`1"/>.
+            </summary>
+        </member>
+        <member name="P:BEditor.Drawing.Image`1.Height">
+            <summary>
+            Get the height of this <see cref="T:BEditor.Drawing.Image`1"/>.
+            </summary>
+        </member>
+        <member name="P:BEditor.Drawing.Image`1.DataSize">
+            <summary>
+            Get the data size of this <see cref="T:BEditor.Drawing.Image`1"/>.
+            </summary>
+        </member>
+        <member name="P:BEditor.Drawing.Image`1.Length">
+            <summary>
+            Get the data length of this <see cref="T:BEditor.Drawing.Image`1"/>.
+            </summary>
+        </member>
+        <member name="P:BEditor.Drawing.Image`1.Data">
+            <summary>
+            Get the data of this <see cref="T:BEditor.Drawing.Image`1"/>.
+            </summary>
+        </member>
+        <member name="P:BEditor.Drawing.Image`1.Size">
+            <summary>
+            Get the size of this <see cref="T:BEditor.Drawing.Image`1"/>.
+            </summary>
+        </member>
+        <member name="P:BEditor.Drawing.Image`1.Stride">
+            <summary>
+            Get the stride width of this <see cref="T:BEditor.Drawing.Image`1"/>.
+            </summary>
+        </member>
+        <member name="P:BEditor.Drawing.Image`1.IsDisposed">
+            <summary>
+            Get whether an object has been disposed
+            </summary>
+        </member>
+        <member name="P:BEditor.Drawing.Image`1.Item(System.Int32,System.Int32)">
+            <summary>
+            Get or set the pixel of this <see cref="T:BEditor.Drawing.Image`1"/>.
+            </summary>
+        </member>
+        <member name="P:BEditor.Drawing.Image`1.Item(System.Int32)">
+            <summary>
+            Get or set this <see cref="T:BEditor.Drawing.Image`1"/> row.
+            </summary>
+        </member>
+        <member name="P:BEditor.Drawing.Image`1.Item(System.Drawing.Rectangle)">
+            <summary>
+            Crop or replace an image with a range.
+            </summary>
         </member>
     </members>
 </doc>

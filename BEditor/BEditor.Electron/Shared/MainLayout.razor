@@ -49,9 +49,7 @@
                             <MatAppBarTitle>@(AppData.Current.Project.Value?.Filename ?? "")</MatAppBarTitle>
                         </MatAppBarSection>
                         <MatAppBarSection Align="@MatAppBarSectionAlign.End">
-                            <MatIconButton Icon="@MatIconNames.Insert_drive_file">
-                                <InputFile OnChange="LoadFile"></InputFile>
-                            </MatIconButton>
+                            <MatIconButton Icon="@MatIconNames.Insert_drive_file" OnClick="@(e => FileDialogIsOpened = true)"></MatIconButton>
 
                             <MatIconButton Icon="@MatIconNames.Folder_open"></MatIconButton>
 
@@ -93,4 +91,14 @@
             </MatSnackbar>
         </MatDrawerContent>
     </MatDrawerContainer>
+
+    <MatDialog @bind-IsOpen="@FileDialogIsOpened">
+        <MatDialogTitle>Open project</MatDialogTitle>
+        <MatDialogContent>
+            <InputFile OnChange="@LoadFile"></InputFile>
+        </MatDialogContent>
+        <MatDialogActions>
+            <MatButton OnClick="@(e => FileDialogIsOpened = false)">Close</MatButton>
+        </MatDialogActions>
+    </MatDialog>
 </MatThemeProvider>

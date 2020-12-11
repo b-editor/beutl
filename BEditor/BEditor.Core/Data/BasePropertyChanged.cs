@@ -5,6 +5,7 @@ using System.Diagnostics;
 using System.Linq;
 using System.Linq.Expressions;
 using System.Reactive.Concurrency;
+using System.Reactive.Linq;
 using System.Runtime.Serialization;
 using System.Text;
 
@@ -47,6 +48,15 @@ namespace BEditor.Core.Data
             if (PropertyChanged == null) return;
 
             PropertyChanged?.Invoke(this, args);
+        }
+
+        public IObservable<PropertyChangedEventArgs> ToObservable(string name)
+        {
+            return Observable.FromEvent<PropertyChangedEventHandler, PropertyChangedEventArgs>(
+                h => (s, e) => h(e),
+                h => PropertyChanged += h,
+                h => PropertyChanged -= h)
+                .Where(e => e.PropertyName == name);
         }
     }
 }

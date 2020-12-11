@@ -4,23 +4,41 @@
             <div class="mat-layout-grid-cell">BBB</div>
         </div>
     </div>*@
-
-<div style="display: inline-flex; height: 100%; overflow: scroll;">
-    <div style="width: 150px;">
-        <div style="height: 35px; padding-left: 8px;">Menu</div>
+@using BEditor.Models
+@using BEditor.Core.Data
+<div style="
+    display: inline-flex;
+    height: 100%;
+    overflow: scroll;">
+    <div style="width: 150px; display: inline-table;">
+        <div style="height: @($"{Settings.Default.ClipHeight}px"); padding-left: 8px;">Menu</div>
 
         @for (int i = 1; i < 100; i++)
         {
-            <div style="height: 35px; padding-left: 8px; margin-top: 1px;">@i.ToString()</div>
+            <div style="height: @($"{Settings.Default.ClipHeight}px"); padding-left: 8px; margin-top: 1px;">@i.ToString()</div>
         }
     </div>
-    <div style="width: 100%; background: #FAFAFA;">
-        <div style="background: #424242; height: 35px;">
+    <div style="width: @($"{Scene.ToPixel(Scene.TotalFrame)}px"); background: #FAFAFA;"
+         ondragover="event.preventDefault()"
+         @ondrop="@OnDrop"
+         @onmousemove="@TimelineMouseMove"
+         @onmousedown="@TimelineMouseDown"
+         @onmouseup="@TimelineMouseUp"
+         @onmouseover="@TimelineMouseOver"
+         @onmouseout="@TimelineMouseOut">
+        <div style="background: #424242; height: @($"{Settings.Default.ClipHeight}px"); width: @($"{Scene.ToPixel(Scene.TotalFrame)}px");">
             @*目盛り*@
         </div>
         @for (int i = 1; i < 100; i++)
         {
-            <LayerView Layer="i"></LayerView>
+            <LayerView Layer="i" OnMouseMove="@LayerMouseMove"></LayerView>
         }
     </div>
+
+    <div style="
+    background: #ff0000;
+    height: 100%;
+    width: 2px;
+    margin-left: @($"{- Scene.ToPixel(Scene.TotalFrame) + Scene.ToPixel(Scene.PreviewFrame)}px");
+    z-index: 1;"></div>
 </div>

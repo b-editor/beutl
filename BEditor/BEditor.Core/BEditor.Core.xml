@@ -1928,7 +1928,7 @@
         </member>
         <member name="P:BEditor.Core.Data.Project.IsDisposed">
             <summary>
-            Get whether an object has been discarded.
+            Get whether an object has been disposed.
             </summary>
         </member>
         <member name="P:BEditor.Core.Data.Project.ExtensionData">
@@ -2594,15 +2594,14 @@
             <see cref="T:BEditor.Core.Media.Color"/> 構造体から <see cref="T:System.Drawing.Color"/> を作成します
             </summary>
         </member>
-        <member name="M:BEditor.Core.Media.Color.op_Implicit(BEditor.Core.Media.Color)~OpenTK.Mathematics.Color4">
+        <member name="M:BEditor.Core.Media.Color.op_Implicit(BEditor.Core.Media.Color)~OpenTK.Graphics.Color4">
             <summary>
-            <see cref="T:BEditor.Core.Media.Color"/> 構造体から <see cref="T:OpenTK.Mathematics.Color4"/> を作成します
+            <see cref="T:BEditor.Core.Media.Color"/> 構造体から <see cref="T:OpenTK.Graphics.Color4"/> を作成します
             </summary>
-            <param name="c"></param>
         </member>
-        <member name="M:BEditor.Core.Media.Color.op_Implicit(OpenTK.Mathematics.Color4)~BEditor.Core.Media.Color">
+        <member name="M:BEditor.Core.Media.Color.op_Implicit(OpenTK.Graphics.Color4)~BEditor.Core.Media.Color">
             <summary>
-            <see cref="T:OpenTK.Mathematics.Color4"/> 構造体から <see cref="T:BEditor.Core.Media.Color"/> を作成します
+            <see cref="T:OpenTK.Graphics.Color4"/> 構造体から <see cref="T:BEditor.Core.Media.Color"/> を作成します
             </summary>
             <param name="c"></param>
         </member>
@@ -2718,15 +2717,14 @@
             <see cref="T:BEditor.Core.Media.Color"/> 構造体から <see cref="T:BEditor.Core.Media.ReadOnlyColor"/> を作成します
             </summary>
         </member>
-        <member name="M:BEditor.Core.Media.ReadOnlyColor.op_Implicit(BEditor.Core.Media.ReadOnlyColor)~OpenTK.Mathematics.Color4">
+        <member name="M:BEditor.Core.Media.ReadOnlyColor.op_Implicit(BEditor.Core.Media.ReadOnlyColor)~OpenTK.Graphics.Color4">
             <summary>
-            <see cref="T:BEditor.Core.Media.Color"/> 構造体から <see cref="T:OpenTK.Mathematics.Color4"/> を作成します
+            <see cref="T:BEditor.Core.Media.ReadOnlyColor"/> 構造体から <see cref="T:OpenTK.Graphics.Color4"/> を作成します
             </summary>
-            <param name="c"></param>
         </member>
-        <member name="M:BEditor.Core.Media.ReadOnlyColor.op_Implicit(OpenTK.Mathematics.Color4)~BEditor.Core.Media.ReadOnlyColor">
+        <member name="M:BEditor.Core.Media.ReadOnlyColor.op_Implicit(OpenTK.Graphics.Color4)~BEditor.Core.Media.ReadOnlyColor">
             <summary>
-            <see cref="T:OpenTK.Mathematics.Color4"/> 構造体から <see cref="T:BEditor.Core.Media.Color"/> を作成します
+            <see cref="T:OpenTK.Graphics.Color4"/> 構造体から <see cref="T:BEditor.Core.Media.ReadOnlyColor"/> を作成します
             </summary>
             <param name="c"></param>
         </member>
