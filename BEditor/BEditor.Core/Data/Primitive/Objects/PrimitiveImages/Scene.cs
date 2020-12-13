@@ -8,6 +8,7 @@ using BEditor.Core.Data.Primitive.Properties;
 using BEditor.Core.Data.Property;
 using BEditor.Core.Extensions;
 using BEditor.Core.Media;
+using BEditor.Core.Properties;
 using BEditor.Drawing;
 using BEditor.Drawing.Pixel;
 
@@ -26,6 +27,7 @@ namespace BEditor.Core.Data.Primitive.Objects.PrimitiveImages
             SelectScene = new(new SelectorPropertyMetadata("", new string[1]));
         }
 
+        public override string Name => Resources.Scene;
         public override IEnumerable<PropertyElement> Properties => new PropertyElement[]
         {
             Coordinate,

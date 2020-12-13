@@ -29,6 +29,7 @@ namespace BEditor.Core.Data.Primitive.Objects.PrimitiveImages
             File = new(FileMetadata);
         }
 
+        public override string Name => Resources.Video;
         public override IEnumerable<PropertyElement> Properties => new PropertyElement[]
         {
             Coordinate,

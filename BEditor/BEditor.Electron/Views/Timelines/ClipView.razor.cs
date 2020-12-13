@@ -4,6 +4,7 @@ using System.Linq;
 using System.Threading.Tasks;
 
 using BEditor.Core.Data;
+using BEditor.Shared;
 using BEditor.ViewModels.Timelines;
 
 using Microsoft.AspNetCore.Components;
@@ -22,6 +23,8 @@ namespace BEditor.Views.Timelines
 
         private void OnDragStart(DragEventArgs e)
         {
+            Clip.Parent.SetCurrentClip(Clip);
+
             Clip.Parent.GetCreateTimeLineViewModel().ClipDragStart(new((float)e.OffsetX, (float)e.OffsetY), ViewModel);
         }
         private void OnDragEnd(DragEventArgs e)

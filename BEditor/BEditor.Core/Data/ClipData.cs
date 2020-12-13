@@ -213,7 +213,7 @@ namespace BEditor.Core.Data
 
 
         /// <summary>
-        /// Represents a command that adds <see cref="ClipData"/> to a <see cref="ProjectData.Scene"/>.
+        /// Represents a command that adds <see cref="ClipData"/> to a <see cref="Data.Scene"/>.
         /// </summary>
         public sealed class AddCommand : IRecordCommand
         {
@@ -236,23 +236,6 @@ namespace BEditor.Core.Data
                 AddFrame = (0 > startFrame) ? throw new ArgumentOutOfRangeException(nameof(startFrame)) : startFrame;
                 AddLayer = (0 > layer) ? throw new ArgumentOutOfRangeException(nameof(layer)) : layer;
                 Metadata = metadata ?? throw new ArgumentNullException(nameof(metadata));
-            }
-            /// <summary>
-            /// <see cref="AddCommand"/> Initialize a new instance of the class.
-            /// </summary>
-            /// <exception cref="ArgumentNullException"><paramref name="scene"/> is <see langword="null"/>.</exception>
-            /// <exception cref="ArgumentNullException"><paramref name="type"/> が <see langword="null"/>.</exception>
-            /// <exception cref="ArgumentOutOfRangeException"><paramref name="startFrame"/> is less than 0.</exception>
-            /// <exception cref="ArgumentOutOfRangeException"><paramref name="layer"/> is less than 0</exception>
-            [Obsolete]
-            public AddCommand(Scene scene, int startFrame, int layer, Type type)
-            {
-                Scene = scene ?? throw new ArgumentNullException(nameof(scene));
-                AddFrame = (0 > startFrame) ? throw new ArgumentOutOfRangeException(nameof(startFrame)) : startFrame;
-                AddLayer = (0 > layer) ? throw new ArgumentOutOfRangeException(nameof(layer)) : layer;
-                _ = type ?? throw new ArgumentNullException(nameof(type));
-
-                Metadata = ObjectMetadata.LoadedObjects.Find(o => o.Type == type);
             }
 
             /// <inheritdoc/>
@@ -300,7 +283,7 @@ namespace BEditor.Core.Data
             }
         }
         /// <summary>
-        /// Represents a command to remove <see cref="ClipData"/> from a <see cref="ProjectData.Scene"/>
+        /// Represents a command to remove <see cref="ClipData"/> from a <see cref="Data.Scene"/>
         /// </summary>
         public sealed class RemoveCommand : IRecordCommand
         {

@@ -8,6 +8,7 @@ using BEditor.Core.Data.Primitive.Properties;
 using BEditor.Core.Data.Property;
 using BEditor.Core.Extensions;
 using BEditor.Core.Media;
+using BEditor.Core.Properties;
 using BEditor.Core.Service;
 using BEditor.Drawing;
 using BEditor.Drawing.Pixel;
@@ -18,9 +19,9 @@ namespace BEditor.Core.Data.Primitive.Objects.PrimitiveImages
     [CustomClipUI(Color = 0x6200ea)]
     public class Text : ImageObject
     {
-        public static readonly EasePropertyMetadata SizeMetadata = new(Core.Properties.Resources.Size, 100, float.NaN, 0);
-        public static readonly ColorPropertyMetadata ColorMetadata = new(Core.Properties.Resources.Color, 255, 255, 255);
-        public static readonly PropertyElementMetadata FontMetadata = new(Core.Properties.Resources.DetailedSettings);
+        public static readonly EasePropertyMetadata SizeMetadata = new(Resources.Size, 100, float.NaN, 0);
+        public static readonly ColorPropertyMetadata ColorMetadata = new(Resources.Color, 255, 255, 255);
+        public static readonly PropertyElementMetadata FontMetadata = new(Resources.DetailedSettings);
         public static readonly DocumentPropertyMetadata DocumentMetadata = new("");
 
         public Text()
@@ -31,6 +32,7 @@ namespace BEditor.Core.Data.Primitive.Objects.PrimitiveImages
             Document = new(DocumentMetadata);
         }
 
+        public override string Name => Resources.Text;
         public override IEnumerable<PropertyElement> Properties => new PropertyElement[]
         {
             Coordinate,

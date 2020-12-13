@@ -16,6 +16,7 @@ namespace BEditor.Shared
 {
     public partial class MainLayout
     {
+        public static MainLayout Current { get; private set; }
         private bool FileDialogIsOpened = false;
         private bool SnackbarIsOpened = false;
         private string SnackbarText = "";
@@ -23,8 +24,16 @@ namespace BEditor.Shared
         private MatTheme Theme = new()
         {
             OnSurface = "#ffffff",
-            Surface = "#424242"
+            Surface = "#424242",
+            OnPrimary = "#ffffff",
+            OnSecondary = "#ffffff"
         };
+
+        protected override void OnInitialized()
+        {
+            base.OnInitialized();
+            Current = this;
+        }
 
         private void MenuButtonClicked()
         {
@@ -43,7 +52,7 @@ namespace BEditor.Shared
                 using var stream = new MemoryStream(buffers);
 
                 AppData.Current.Project.Value = new Project(stream, AppData.Current);
-
+                
                 FileDialogIsOpened = false;
                 await this.InvokeAsync(StateHasChanged);
             }

@@ -38,6 +38,7 @@ namespace BEditor.Core.Data.Primitive.Objects.PrimitiveImages
             Type = new(TypeMetadata);
         }
 
+        public override string Name => Resources.Figure;
         public override IEnumerable<PropertyElement> Properties => new PropertyElement[]
         {
             Coordinate,

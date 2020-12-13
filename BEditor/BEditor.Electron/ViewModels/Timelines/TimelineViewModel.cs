@@ -93,12 +93,14 @@ namespace BEditor.ViewModels.Timelines
             SeekbarIsMouseDown = false;
             ClipDrag = false;
 
-            if (ClipSelect is null) return;
+            var frame = Scene.ToFrame(point.X) - Scene.ToFrame(ClipStart.X);
+
+            if (ClipSelect is null && frame < 0) return;
 
             CommandManager.Do(
                 new ClipData.MoveCommand(
                     ClipSelect,
-                    Scene.ToFrame(point.X) - Scene.ToFrame(ClipStart.X),
+                    frame,
                     MouseLayer));
         }
     }

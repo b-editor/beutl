@@ -1,0 +1,46 @@
+﻿@using BEditor.Core.Data
+
+@*<div class="mat-layout-grid" style="padding: 8px;">
+    <div class="mat-layout-grid-inner">
+        <div class="mat-layout-grid-cell mat-layout-grid-cell-span-10">
+            <MatTextField
+                Style="color: #ffffff; height: 30px;"
+                @bind-Value="@Clip.LabelText"
+                InputStyle="color: #ffffff; height: 30px; padding: 0; padding-left: 8px;"
+                FullWidth="true"></MatTextField>
+        </div>
+        <div class="mat-layout-grid-cell mat-layout-grid-cell-span-2">
+            <MatIconButton Icon="more_vert" Style="padding: 0; width: auto;"></MatIconButton>
+        </div>
+
+        <div>
+            PropertyContent
+        </div>
+    </div>
+</div>*@
+
+<div style="padding: 8px;">
+    <div style="display: flex;">
+        <div style="width: calc(100% - 48px);">
+            <MatTextField Style="color: #ffffff; height: 30px;"
+                          @bind-Value="@Clip.LabelText"
+                          InputStyle="color: #ffffff; height: 30px; padding: 0; padding-left: 8px;"
+                          FullWidth="true"></MatTextField>
+        </div>
+        <div>
+            <MatIconButton Icon="more_vert" Style="padding: 0;"></MatIconButton>
+        </div>
+    </div>
+    <div>
+        @foreach(var effect in Clip.Children)
+        {
+
+        }
+    </div>
+</div>
+
+@code
+{
+    [Parameter]
+    public ClipData Clip { get; set; }
+}

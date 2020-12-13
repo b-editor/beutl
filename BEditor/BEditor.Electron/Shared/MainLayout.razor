@@ -2,6 +2,7 @@
 @using BEditor.Models
 @using BEditor.Views
 @using BEditor.Views.Timelines
+@using BEditor.Views.Properties
 @*<div class="page">
         <div class="sidebar">
             <NavMenu />
@@ -63,7 +64,11 @@
                     <!--ここをサイズ固定-->
                     <div class="mat-layout-grid-cell mat-layout-grid-cell-span-3" style="height: 100%;">
                         <MatCard Class="mat-card">
-                            <div>Property</div>
+                            @*<div>Property</div>*@
+                            @if (AppData.Current.Project.Value is not null)
+                            {
+                                <PropertyView></PropertyView>
+                            }
                         </MatCard>
                     </div>
                     <div class="mat-layout-grid-cell mat-layout-grid-cell-span-9">
@@ -93,7 +98,7 @@
     </MatDrawerContainer>
 
     <MatDialog @bind-IsOpen="@FileDialogIsOpened">
-        <MatDialogTitle>Open project</MatDialogTitle>
+        <MatDialogTitle Style="color: #ffffff;">Open project</MatDialogTitle>
         <MatDialogContent>
             <InputFile OnChange="@LoadFile"></InputFile>
         </MatDialogContent>

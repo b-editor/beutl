@@ -7,9 +7,11 @@ using System.Threading.Tasks;
 using BEditor.Core.Data;
 using BEditor.ViewModels.Timelines;
 
+using Microsoft.AspNetCore.Components;
+
 namespace BEditor.Views
 {
-    public static class ViewModelCache
+    public static class Tool
     {
         public static ClipViewModel GetCreateClipViewModel(this ClipData clip)
         {
@@ -29,5 +31,9 @@ namespace BEditor.Views
             }
             return scene.ComponentData[key];
         }
+        //public static RenderFragment CreatePropertyView(this EffectElement effect)
+        //{
+
+        //}
     }
 }

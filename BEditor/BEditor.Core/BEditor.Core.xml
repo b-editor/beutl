@@ -340,7 +340,7 @@
         </member>
         <member name="T:BEditor.Core.Data.ClipData.AddCommand">
             <summary>
-            Represents a command that adds <see cref="T:BEditor.Core.Data.ClipData"/> to a <see cref="!:ProjectData.Scene"/>.
+            Represents a command that adds <see cref="T:BEditor.Core.Data.ClipData"/> to a <see cref="T:BEditor.Core.Data.Scene"/>.
             </summary>
         </member>
         <member name="M:BEditor.Core.Data.ClipData.AddCommand.#ctor(BEditor.Core.Data.Scene,System.Int32,System.Int32,BEditor.Core.Data.ObjectMetadata)">
@@ -349,15 +349,6 @@
             </summary>
             <exception cref="T:System.ArgumentNullException"><paramref name="scene"/> is <see langword="null"/>.</exception>
             <exception cref="T:System.ArgumentNullException"><paramref name="metadata"/> is <see langword="null"/>.</exception>
-            <exception cref="T:System.ArgumentOutOfRangeException"><paramref name="startFrame"/> is less than 0.</exception>
-            <exception cref="T:System.ArgumentOutOfRangeException"><paramref name="layer"/> is less than 0</exception>
-        </member>
-        <member name="M:BEditor.Core.Data.ClipData.AddCommand.#ctor(BEditor.Core.Data.Scene,System.Int32,System.Int32,System.Type)">
-            <summary>
-            <see cref="T:BEditor.Core.Data.ClipData.AddCommand"/> Initialize a new instance of the class.
-            </summary>
-            <exception cref="T:System.ArgumentNullException"><paramref name="scene"/> is <see langword="null"/>.</exception>
-            <exception cref="T:System.ArgumentNullException"><paramref name="type"/> が <see langword="null"/>.</exception>
             <exception cref="T:System.ArgumentOutOfRangeException"><paramref name="startFrame"/> is less than 0.</exception>
             <exception cref="T:System.ArgumentOutOfRangeException"><paramref name="layer"/> is less than 0</exception>
         </member>
@@ -372,7 +363,7 @@
         </member>
         <member name="T:BEditor.Core.Data.ClipData.RemoveCommand">
             <summary>
-            Represents a command to remove <see cref="T:BEditor.Core.Data.ClipData"/> from a <see cref="!:ProjectData.Scene"/>
+            Represents a command to remove <see cref="T:BEditor.Core.Data.ClipData"/> from a <see cref="T:BEditor.Core.Data.Scene"/>
             </summary>
         </member>
         <member name="M:BEditor.Core.Data.ClipData.RemoveCommand.#ctor(BEditor.Core.Data.ClipData)">
