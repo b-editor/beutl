@@ -14,7 +14,7 @@ using BEditor.Drawing.Pixel;
 
 namespace BEditor.Core.Data.Primitive.Effects.PrimitiveImages
 {
-    [DataContract(Namespace = "")]
+    [DataContract]
     public class Clipping : ImageEffect
     {
         public static readonly EasePropertyMetadata TopMetadata = new(Resources.Top, 0, float.NaN, 0);

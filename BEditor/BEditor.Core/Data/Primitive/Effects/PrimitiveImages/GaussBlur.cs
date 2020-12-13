@@ -12,7 +12,7 @@ using BEditor.Drawing.Pixel;
 
 namespace BEditor.Core.Data.Primitive.Effects.PrimitiveImages
 {
-    [DataContract(Namespace = "")]
+    [DataContract]
     public class GaussBlur : ImageEffect
     {
         public GaussBlur()

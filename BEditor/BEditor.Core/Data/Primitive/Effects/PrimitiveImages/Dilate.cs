@@ -12,7 +12,7 @@ using BEditor.Drawing.Pixel;
 
 namespace BEditor.Core.Data.Primitive.Effects.PrimitiveImages
 {
-    [DataContract(Namespace = "")]
+    [DataContract]
     public class Dilate : ImageEffect
     {
         public static readonly EasePropertyMetadata FrequencyMetadata = new(Resources.Frequency, 1, float.NaN, 0);

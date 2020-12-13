@@ -676,6 +676,7 @@
         </member>
         <member name="M:BEditor.Core.Data.Primitive.Properties.CheckProperty.Subscribe(System.IObserver{System.Boolean})">
             <inheritdoc/>
+            <exception cref="T:System.ArgumentNullException"><paramref name="observer"/> is <see langword="null"/>.</exception>
         </member>
         <member name="M:BEditor.Core.Data.Primitive.Properties.CheckProperty.Bind(BEditor.Core.Data.Bindings.IBindable{System.Boolean})">
             <inheritdoc/>
@@ -768,16 +769,13 @@
             
             </summary>
         </member>
-        <member name="M:BEditor.Core.Data.Primitive.Properties.ColorAnimationProperty.ChangeColorCommand.#ctor(BEditor.Core.Data.Primitive.Properties.ColorAnimationProperty,System.Int32,System.Byte,System.Byte,System.Byte,System.Byte)">
+        <member name="M:BEditor.Core.Data.Primitive.Properties.ColorAnimationProperty.ChangeColorCommand.#ctor(BEditor.Core.Data.Primitive.Properties.ColorAnimationProperty,System.Int32,BEditor.Core.Media.ReadOnlyColor@)">
             <summary>
             
             </summary>
-            <param name="color"></param>
+            <param name="property"></param>
             <param name="index"></param>
-            <param name="r"></param>
-            <param name="g"></param>
-            <param name="b"></param>
-            <param name="a"></param>
+            <param name="color"></param>
         </member>
         <member name="M:BEditor.Core.Data.Primitive.Properties.ColorAnimationProperty.ChangeColorCommand.Do">
             <inheritdoc/>
@@ -797,7 +795,7 @@
             <summary>
             
             </summary>
-            <param name="easingList"></param>
+            <param name="property"></param>
             <param name="type"></param>
         </member>
         <member name="M:BEditor.Core.Data.Primitive.Properties.ColorAnimationProperty.ChangeEaseCommand.Do">
@@ -818,7 +816,7 @@
             <summary>
             
             </summary>
-            <param name="colorProperty"></param>
+            <param name="property"></param>
             <param name="frame"></param>
         </member>
         <member name="M:BEditor.Core.Data.Primitive.Properties.ColorAnimationProperty.AddCommand.Do">
@@ -839,7 +837,7 @@
             <summary>
             
             </summary>
-            <param name="colorProperty"></param>
+            <param name="property"></param>
             <param name="frame"></param>
         </member>
         <member name="M:BEditor.Core.Data.Primitive.Properties.ColorAnimationProperty.RemoveCommand.Do">
@@ -860,7 +858,7 @@
             <summary>
             
             </summary>
-            <param name="colorProperty"></param>
+            <param name="property"></param>
             <param name="fromIndex"></param>
             <param name="to"></param>
         </member>

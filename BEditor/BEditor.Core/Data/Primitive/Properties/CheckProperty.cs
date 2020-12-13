@@ -18,7 +18,7 @@ namespace BEditor.Core.Data.Primitive.Properties
     /// <summary>
     /// チェックボックスのプロパティを表します
     /// </summary>
-    [DataContract(Namespace = "")]
+    [DataContract]
     public class CheckProperty : PropertyElement<CheckPropertyMetadata>, IEasingProperty, IBindable<bool>
     {
         #region Fields
@@ -41,9 +41,7 @@ namespace BEditor.Core.Data.Primitive.Properties
         /// <exception cref="ArgumentNullException"><paramref name="metadata"/> が <see langword="null"/> です</exception>
         public CheckProperty(CheckPropertyMetadata metadata)
         {
-            if (metadata is null) throw new ArgumentNullException(nameof(metadata));
-
-            PropertyMetadata = metadata;
+            PropertyMetadata = metadata ?? throw new ArgumentNullException(nameof(metadata));
             isChecked = metadata.DefaultIsChecked;
         }
 
@@ -56,14 +54,13 @@ namespace BEditor.Core.Data.Primitive.Properties
         public bool IsChecked
         {
             get => isChecked;
-            set => SetValue(value, ref isChecked, checkedArgs, () =>
+            set => SetValue(value, ref isChecked, checkedArgs, this, state =>
             {
-                foreach (var observer in Collection)
+                foreach (var observer in state.Collection)
                 {
                     try
                     {
-                        observer.OnNext(isChecked);
-                        observer.OnCompleted();
+                        observer.OnNext(state.isChecked);
                     }
                     catch (Exception ex)
                     {
@@ -98,10 +95,17 @@ namespace BEditor.Core.Data.Primitive.Properties
         }
 
         /// <inheritdoc/>
+        /// <exception cref="ArgumentNullException"><paramref name="observer"/> is <see langword="null"/>.</exception>
         public IDisposable Subscribe(IObserver<bool> observer)
         {
+            if (observer is null) throw new ArgumentNullException(nameof(observer));
+
             Collection.Add(observer);
-            return Disposable.Create(() => Collection.Remove(observer));
+            return Disposable.Create((observer, this), o =>
+            {
+                o.observer.OnCompleted();
+                o.Item2.Collection.Remove(o.observer);
+            });
         }
 
         /// <inheritdoc/>
@@ -164,10 +168,8 @@ namespace BEditor.Core.Data.Primitive.Properties
 
             /// <inheritdoc/>
             public void Do() => CheckSetting.IsChecked = value;
-
             /// <inheritdoc/>
             public void Redo() => Do();
-
             /// <inheritdoc/>
             public void Undo() => CheckSetting.IsChecked = !value;
         }

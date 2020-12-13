@@ -14,7 +14,7 @@ using BEditor.Core.Data.Property.EasingProperty;
 
 namespace BEditor.Core.Data.Primitive.Properties
 {
-    [DataContract(Namespace = "")]
+    [DataContract]
     public class FolderProperty : PropertyElement<FolderPropertyMetadata>, IEasingProperty, IBindable<string>
     {
         #region Fields
@@ -28,7 +28,6 @@ namespace BEditor.Core.Data.Primitive.Properties
         private string bindHint;
 
         #endregion
-        // Todo : DialogProperty
 
         /// <summary>
         /// <see cref="FolderProperty"/> クラスの新しいインスタンスを初期化します
@@ -50,14 +49,13 @@ namespace BEditor.Core.Data.Primitive.Properties
         public string Folder
         {
             get => folder;
-            set => SetValue(value, ref folder, folderArgs, () =>
+            set => SetValue(value, ref folder, folderArgs, this, state =>
             {
-                foreach (var observer in Collection)
+                foreach (var observer in state.Collection)
                 {
                     try
                     {
-                        observer.OnNext(folder);
-                        observer.OnCompleted();
+                        observer.OnNext(state.folder);
                     }
                     catch (Exception ex)
                     {
@@ -109,12 +107,18 @@ namespace BEditor.Core.Data.Primitive.Properties
         /// <inheritdoc/>
         public IDisposable Subscribe(IObserver<string> observer)
         {
+            if (observer is null) throw new ArgumentNullException(nameof(observer));
+
             Collection.Add(observer);
-            return Disposable.Create(() => Collection.Remove(observer));
+            return Disposable.Create((observer, this), state =>
+             {
+                 state.observer.OnCompleted();
+                 state.Item2.Collection.Remove(state.observer);
+             });
         }
 
         /// <inheritdoc/>
-        public void Bind(IBindable<string> bindable)
+        public void Bind(IBindable<string>? bindable)
         {
             BindDispose?.Dispose();
             Bindable = bindable;
@@ -142,8 +146,8 @@ namespace BEditor.Core.Data.Primitive.Properties
         public sealed class ChangeFolderCommand : IRecordCommand
         {
             private readonly FolderProperty property;
-            private readonly string path;
-            private readonly string oldpath;
+            private readonly string @new;
+            private readonly string old;
 
             /// <summary>
             /// <see cref="ChangeFolderCommand"/> クラスの新しいインスタンスを初期化します
@@ -154,19 +158,19 @@ namespace BEditor.Core.Data.Primitive.Properties
             public ChangeFolderCommand(FolderProperty property, string path)
             {
                 this.property = property ?? throw new ArgumentNullException(nameof(property));
-                this.path = path;
-                oldpath = this.property.Folder;
+                this.@new = path;
+                old = this.property.Folder;
             }
 
 
             /// <inheritdoc/>
-            public void Do() => property.Folder = path;
+            public void Do() => property.Folder = @new;
 
             /// <inheritdoc/>
             public void Redo() => Do();
 
             /// <inheritdoc/>
-            public void Undo() => property.Folder = oldpath;
+            public void Undo() => property.Folder = old;
         }
 
         #endregion

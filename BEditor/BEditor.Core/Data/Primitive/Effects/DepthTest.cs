@@ -14,7 +14,7 @@ using OpenTK.Graphics.OpenGL;
 
 namespace BEditor.Core.Data.Primitive.Effects
 {
-    [DataContract(Namespace = "")]
+    [DataContract]
     public class DepthTest : EffectElement
     {
         public static readonly CheckPropertyMetadata EnabledMetadata = new(Resources.DepthTestEneble, true);

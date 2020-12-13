@@ -11,7 +11,7 @@ using BEditor.Drawing.Pixel;
 
 namespace BEditor.Core.Data.Primitive.Objects
 {
-    [DataContract(Namespace = "")]
+    [DataContract]
     public abstract class ImageObject : ObjectElement
     {
         public static readonly PropertyElementMetadata CoordinateMetadata = new(Resources.Coordinate);

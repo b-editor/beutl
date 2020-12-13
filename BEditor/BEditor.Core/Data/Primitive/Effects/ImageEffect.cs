@@ -10,7 +10,7 @@ namespace BEditor.Core.Data.Primitive.Effects
     /// <summary>
     /// Represents an effect that can be added to an <see cref="ImageObject"/>.
     /// </summary>
-    [DataContract(Namespace = "")]
+    [DataContract]
     public abstract class ImageEffect : EffectElement
     {
         /// <summary>

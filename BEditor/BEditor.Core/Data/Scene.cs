@@ -20,7 +20,7 @@ namespace BEditor.Core.Data
     /// <summary>
     /// Represents a scene to be included in the <see cref="Project"/>.
     /// </summary>
-    [DataContract(Namespace = "")]
+    [DataContract]
     public class Scene : ComponentObject, IParent<ClipData>, IChild<Project>, IHasName, IHasId
     {
         #region Fields
@@ -359,7 +359,7 @@ namespace BEditor.Core.Data
         #endregion
     }
 
-    [DataContract(Namespace = "")]
+    [DataContract]
     public class RootScene : Scene
     {
         public RootScene(int width, int height) : base(width, height) { }

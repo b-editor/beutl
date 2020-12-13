@@ -15,7 +15,7 @@ namespace BEditor.Core.Data.Primitive.Properties
     /// <summary>
     /// ファイルを選択するプロパティを表します
     /// </summary>
-    [DataContract(Namespace = "")]
+    [DataContract]
     public class FileProperty : PropertyElement<FilePropertyMetadata>, IEasingProperty, IBindable<string>
     {
         #region Fields
@@ -51,14 +51,13 @@ namespace BEditor.Core.Data.Primitive.Properties
         public string File
         {
             get => file;
-            set => SetValue(value, ref file, fileArgs, () =>
+            set => SetValue(value, ref file, fileArgs, this, state =>
             {
-                foreach (var observer in Collection)
+                foreach (var observer in state.Collection)
                 {
                     try
                     {
-                        observer.OnNext(File);
-                        //observer.OnCompleted();
+                        observer.OnNext(state.File);
                     }
                     catch (Exception ex)
                     {
@@ -110,12 +109,18 @@ namespace BEditor.Core.Data.Primitive.Properties
         /// <inheritdoc/>
         public IDisposable Subscribe(IObserver<string> observer)
         {
+            if (observer is null) throw new ArgumentNullException(nameof(observer));
+
             Collection.Add(observer);
-            return Disposable.Create(() => Collection.Remove(observer));
+            return Disposable.Create((observer, this), state =>
+            {
+                state.observer.OnCompleted();
+                state.Item2.Collection.Remove(state.observer);
+            });
         }
 
         /// <inheritdoc/>
-        public void Bind(IBindable<string> bindable)
+        public void Bind(IBindable<string>? bindable)
         {
             BindDispose?.Dispose();
             Bindable = bindable;
@@ -142,9 +147,9 @@ namespace BEditor.Core.Data.Primitive.Properties
         /// <remarks>このクラスは <see cref="CommandManager.Do(IRecordCommand)"/> と併用することでコマンドを記録できます</remarks>
         public sealed class ChangeFileCommand : IRecordCommand
         {
-            private readonly FileProperty FileSetting;
-            private readonly string path;
-            private readonly string oldpath;
+            private readonly FileProperty property;
+            private readonly string @new;
+            private readonly string old;
 
             /// <summary>
             /// <see cref="ChangeFileCommand"/> クラスの新しいインスタンスを初期化します
@@ -154,20 +159,20 @@ namespace BEditor.Core.Data.Primitive.Properties
             /// <exception cref="ArgumentNullException"><paramref name="property"/> が <see langword="null"/> です</exception>
             public ChangeFileCommand(FileProperty property, string path)
             {
-                FileSetting = property ?? throw new ArgumentNullException(nameof(property));
-                this.path = path;
-                oldpath = FileSetting.File;
+                this.property = property ?? throw new ArgumentNullException(nameof(property));
+                this.@new = path;
+                old = this.property.File;
             }
 
 
             /// <inheritdoc/>
-            public void Do() => FileSetting.File = path;
+            public void Do() => property.File = @new;
 
             /// <inheritdoc/>
             public void Redo() => Do();
 
             /// <inheritdoc/>
-            public void Undo() => FileSetting.File = oldpath;
+            public void Undo() => property.File = old;
         }
 
         #endregion

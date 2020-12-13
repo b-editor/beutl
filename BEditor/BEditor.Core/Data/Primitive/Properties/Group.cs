@@ -14,7 +14,7 @@ namespace BEditor.Core.Data.Primitive.Properties
     /// <summary>
     /// <see cref="PropertyElement"/> をまとめるクラス
     /// </summary>
-    [DataContract(Namespace = "")]
+    [DataContract]
     public abstract class Group : PropertyElement, IKeyFrameProperty, IEasingProperty, IParent<PropertyElement>
     {
         private IEnumerable<PropertyElement> cachedlist;

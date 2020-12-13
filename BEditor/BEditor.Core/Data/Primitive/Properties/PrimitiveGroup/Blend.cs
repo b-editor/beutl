@@ -13,7 +13,7 @@ using OpenTK.Graphics.OpenGL;
 
 namespace BEditor.Core.Data.Primitive.Properties.PrimitiveGroup
 {
-    [DataContract(Namespace = "")]
+    [DataContract]
     public sealed class Blend : ExpandGroup
     {
         public static readonly EasePropertyMetadata AlphaMetadata = new(Resources.Alpha, 100, 100, 0);
@@ -38,7 +38,7 @@ namespace BEditor.Core.Data.Primitive.Properties.PrimitiveGroup
                 }
             };
 
-        public Blend(PropertyElementMetadata constant) : base(constant)
+        public Blend(PropertyElementMetadata metadata) : base(metadata)
         {
             Alpha = new(AlphaMetadata);
             BlendType = new(BlendTypeMetadata);

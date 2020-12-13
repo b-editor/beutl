@@ -9,7 +9,7 @@ using BEditor.Core.Data.Property.EasingProperty;
 
 namespace BEditor.Core.Data.Property
 {
-    [DataContract(Namespace = "")]
+    [DataContract]
     public class ComponentElement<T> : PropertyElement<T> where T : PropertyElementMetadata
     {
 

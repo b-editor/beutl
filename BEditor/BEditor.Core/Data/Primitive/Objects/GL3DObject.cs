@@ -21,7 +21,7 @@ using GLColor = OpenTK.Mathematics.Color4;
 
 namespace BEditor.Core.Data.Primitive.Objects
 {
-    [DataContract(Namespace = "")]
+    [DataContract]
     public class GL3DObject : ObjectElement
     {
         public static readonly SelectorPropertyMetadata TypeMetadata = new(Resources.Type, new string[2]

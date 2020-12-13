@@ -15,7 +15,7 @@ using BEditor.Drawing.Pixel;
 
 namespace BEditor.Core.Data.Primitive.Objects.PrimitiveImages
 {
-    [DataContract(Namespace = "")]
+    [DataContract]
     [CustomClipUI(Color = 0x0091ea)]
     public class Figure : ImageObject
     {

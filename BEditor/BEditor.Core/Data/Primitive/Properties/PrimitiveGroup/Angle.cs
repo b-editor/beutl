@@ -8,14 +8,14 @@ using BEditor.Core.Properties;
 
 namespace BEditor.Core.Data.Primitive.Properties.PrimitiveGroup
 {
-    [DataContract(Namespace = "")]
+    [DataContract]
     public sealed class Angle : ExpandGroup
     {
         public static readonly EasePropertyMetadata AngleXMetadata = new(Resources.AngleX);
         public static readonly EasePropertyMetadata AngleYMetadata = new(Resources.AngleY);
         public static readonly EasePropertyMetadata AngleZMetadata = new(Resources.AngleZ);
 
-        public Angle(PropertyElementMetadata constant) : base(constant)
+        public Angle(PropertyElementMetadata metadata) : base(metadata)
         {
             AngleX = new(AngleXMetadata);
             AngleY = new(AngleYMetadata);

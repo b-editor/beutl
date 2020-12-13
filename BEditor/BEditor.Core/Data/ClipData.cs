@@ -20,7 +20,7 @@ namespace BEditor.Core.Data
     /// <summary>
     /// Represents the data of a clip to be placed in the timeline.
     /// </summary>
-    [DataContract(Namespace = "", Name = "Data")]
+    [DataContract]
     public class ClipData : ComponentObject, ICloneable, IParent<EffectElement>, IChild<Scene>, IHasName, IHasId
     {
         #region Fields

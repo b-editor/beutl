@@ -16,7 +16,7 @@ namespace BEditor.Core.Data.Primitive.Properties
     /// <summary>
     /// <see cref="float"/> 型の値をイージングするプロパティを表します
     /// </summary>
-    [DataContract(Namespace = "")]
+    [DataContract]
     public class EaseProperty : PropertyElement<EasePropertyMetadata>, IKeyFrameProperty
     {
         #region Fields
@@ -37,12 +37,11 @@ namespace BEditor.Core.Data.Primitive.Properties
         /// <exception cref="ArgumentNullException"><paramref name="metadata"/> が <see langword="null"/> です</exception>
         public EaseProperty(EasePropertyMetadata metadata)
         {
-            if (metadata is null) throw new ArgumentNullException(nameof(metadata));
+            PropertyMetadata = metadata ?? throw new ArgumentNullException(nameof(metadata));
 
             Value = new ObservableCollection<float> { metadata.DefaultValue, metadata.DefaultValue };
             Time = new List<int>();
             EasingType = (EasingFunc)Activator.CreateInstance(metadata.DefaultEase.Type);
-            PropertyMetadata = metadata;
         }
 
 
@@ -136,7 +135,7 @@ namespace BEditor.Core.Data.Primitive.Properties
         /// </summary>
         public EasingData EasingData
         {
-            get => easingData; 
+            get => easingData;
             set => SetValue(value, ref easingData, easingDataArgs);
         }
         internal int Length => this.GetParent2().Length;
@@ -163,62 +162,62 @@ namespace BEditor.Core.Data.Primitive.Properties
         public float GetValue(int frame)
         {
 
-            (int, int) GetFrame(int frame)
+            static (int, int) GetFrame(EaseProperty property, int frame)
             {
-                if (Time.Count == 0)
+                if (property.Time.Count == 0)
                 {
-                    return (0, Length);
+                    return (0, property.Length);
                 }
-                else if (0 <= frame && frame <= Time[0])
+                else if (0 <= frame && frame <= property.Time[0])
                 {
-                    return (0, Time[0]);
+                    return (0, property.Time[0]);
                 }
-                else if (Time[^1] <= frame && frame <= Length)
+                else if (property.Time[^1] <= frame && frame <= property.Length)
                 {
-                    return (Time[^1], Length);
+                    return (property.Time[^1], property.Length);
                 }
                 else
                 {
                     int index = 0;
-                    for (int f = 0; f < Time.Count - 1; f++)
+                    for (int f = 0; f < property.Time.Count - 1; f++)
                     {
-                        if (Time[f] <= frame && frame <= Time[f + 1])
+                        if (property.Time[f] <= frame && frame <= property.Time[f + 1])
                         {
                             index = f;
                         }
                     }
 
-                    return (Time[index], Time[index + 1]);
+                    return (property.Time[index], property.Time[index + 1]);
                 }
 
                 throw new Exception();
             }
-            (float, float) GetValues(int frame)
+            static (float, float) GetValues(EaseProperty property, int frame)
             {
-                if (Value.Count == 2)
+                if (property.Value.Count == 2)
                 {
-                    return (Value[0], Value[1]);
+                    return (property.Value[0], property.Value[1]);
                 }
-                else if (0 <= frame && frame <= Time[0])
+                else if (0 <= frame && frame <= property.Time[0])
                 {
-                    return (Value[0], Value[1]);
+                    return (property.Value[0], property.Value[1]);
                 }
-                else if (Time[^1] <= frame && frame <= Length)
+                else if (property.Time[^1] <= frame && frame <= property.Length)
                 {
-                    return (Value[^2], Value[^1]);
+                    return (property.Value[^2], property.Value[^1]);
                 }
                 else
                 {
                     int index = 0;
-                    for (int f = 0; f < Time.Count - 1; f++)
+                    for (int f = 0; f < property.Time.Count - 1; f++)
                     {
-                        if (Time[f] <= frame && frame <= Time[f + 1])
+                        if (property.Time[f] <= frame && frame <= property.Time[f + 1])
                         {
                             index = f + 1;
                         }
                     }
 
-                    return (Value[index], Value[index + 1]);
+                    return (property.Value[index], property.Value[index + 1]);
                 }
 
                 throw new Exception();
@@ -226,13 +225,11 @@ namespace BEditor.Core.Data.Primitive.Properties
 
             frame -= this.GetParent2().Start;
 
-            var (start, end) = GetFrame(frame);
+            var (start, end) = GetFrame(this, frame);
 
-            var (stval, edval) = GetValues(frame);
+            var (stval, edval) = GetValues(this, frame);
 
             int now = frame - start;//相対的な現在フレーム
-
-
 
             float out_ = EasingType.EaseFunc(now, end - start, stval, edval);
 
@@ -378,9 +375,9 @@ namespace BEditor.Core.Data.Primitive.Properties
         /// <remarks>このクラスは <see cref="CommandManager.Do(IRecordCommand)"/> と併用することでコマンドを記録できます</remarks>
         public sealed class ChangeEaseCommand : IRecordCommand
         {
-            private readonly EaseProperty EaseSetting;
-            private readonly EasingFunc EasingNumber;
-            private readonly EasingFunc OldEasingNumber;
+            private readonly EaseProperty property;
+            private readonly EasingFunc @new;
+            private readonly EasingFunc old;
 
             /// <summary>
             /// <see cref="ChangeEaseCommand"/> クラスの新しいインスタンスを初期化します
@@ -391,23 +388,23 @@ namespace BEditor.Core.Data.Primitive.Properties
             /// <exception cref="KeyNotFoundException"><paramref name="type"/> という名前のイージング関数が見つかりませんでした</exception>
             public ChangeEaseCommand(EaseProperty property, string type)
             {
-                EaseSetting = property ?? throw new ArgumentNullException(nameof(property));
+                this.property = property ?? throw new ArgumentNullException(nameof(property));
                 var easingFunc = EasingFunc.LoadedEasingFunc.Find(x => x.Name == type) ?? throw new KeyNotFoundException($"No easing function named {type} was found");
 
-                EasingNumber = easingFunc.CreateFunc?.Invoke() ?? (EasingFunc)Activator.CreateInstance(easingFunc.Type);
-                EasingNumber.Parent = property;
-                OldEasingNumber = EaseSetting.EasingType;
+                @new = easingFunc.CreateFunc?.Invoke() ?? (EasingFunc)Activator.CreateInstance(easingFunc.Type);
+                @new.Parent = property;
+                old = this.property.EasingType;
             }
 
 
             /// <inheritdoc/>
-            public void Do() => EaseSetting.EasingType = EasingNumber;
+            public void Do() => property.EasingType = @new;
 
             /// <inheritdoc/>
             public void Redo() => Do();
 
             /// <inheritdoc/>
-            public void Undo() => EaseSetting.EasingType = OldEasingNumber;
+            public void Undo() => property.EasingType = old;
         }
 
 
@@ -417,7 +414,7 @@ namespace BEditor.Core.Data.Primitive.Properties
         /// <remarks>このクラスは <see cref="CommandManager.Do(IRecordCommand)"/> と併用することでコマンドを記録できます</remarks>
         public sealed class AddCommand : IRecordCommand
         {
-            private readonly EaseProperty EaseProperty;
+            private readonly EaseProperty property;
             private readonly int frame;
 
             /// <summary>
@@ -429,7 +426,7 @@ namespace BEditor.Core.Data.Primitive.Properties
             /// <exception cref="ArgumentOutOfRangeException"><paramref name="frame"/> が 親要素の範囲外です</exception>
             public AddCommand(EaseProperty property, int frame)
             {
-                EaseProperty = property ?? throw new ArgumentNullException(nameof(property));
+                this.property = property ?? throw new ArgumentNullException(nameof(property));
 
                 this.frame = (frame <= 0 || property.GetParent2().Length <= frame) ?
                              throw new ArgumentOutOfRangeException(nameof(frame))
@@ -440,8 +437,8 @@ namespace BEditor.Core.Data.Primitive.Properties
             /// <inheritdoc/>
             public void Do()
             {
-                int index = EaseProperty.InsertKeyframe(frame, EaseProperty.GetValue(frame + EaseProperty.GetParent2().Start));
-                EaseProperty.AddKeyFrameEvent?.Invoke(EaseProperty, (frame, index - 1));
+                int index = property.InsertKeyframe(frame, property.GetValue(frame + property.GetParent2().Start));
+                property.AddKeyFrameEvent?.Invoke(property, (frame, index - 1));
             }
 
             /// <inheritdoc/>
@@ -450,8 +447,8 @@ namespace BEditor.Core.Data.Primitive.Properties
             /// <inheritdoc/>
             public void Undo()
             {
-                int index = EaseProperty.RemoveKeyframe(frame, out _);
-                EaseProperty.DeleteKeyFrameEvent?.Invoke(EaseProperty, index - 1);
+                int index = property.RemoveKeyframe(frame, out _);
+                property.DeleteKeyFrameEvent?.Invoke(property, index - 1);
             }
         }
 
@@ -461,7 +458,7 @@ namespace BEditor.Core.Data.Primitive.Properties
         /// <remarks>このクラスは <see cref="CommandManager.Do(IRecordCommand)"/> と併用することでコマンドを記録できます</remarks>
         public sealed class RemoveCommand : IRecordCommand
         {
-            private readonly EaseProperty EaseProperty;
+            private readonly EaseProperty property;
             private readonly int frame;
             private float value;
 
@@ -474,7 +471,7 @@ namespace BEditor.Core.Data.Primitive.Properties
             /// <exception cref="ArgumentOutOfRangeException"><paramref name="frame"/> が 親要素の範囲外です</exception>
             public RemoveCommand(EaseProperty property, int frame)
             {
-                EaseProperty = property ?? throw new ArgumentNullException(nameof(property));
+                this.property = property ?? throw new ArgumentNullException(nameof(property));
 
                 this.frame = (frame <= 0 || property.GetParent2().Length <= frame) ?
                              throw new ArgumentOutOfRangeException(nameof(frame))
@@ -484,9 +481,9 @@ namespace BEditor.Core.Data.Primitive.Properties
             /// <inheritdoc/>
             public void Do()
             {
-                int index = EaseProperty.RemoveKeyframe(frame, out value);
+                int index = property.RemoveKeyframe(frame, out value);
 
-                EaseProperty.DeleteKeyFrameEvent?.Invoke(EaseProperty, index - 1);
+                property.DeleteKeyFrameEvent?.Invoke(property, index - 1);
             }
 
             /// <inheritdoc/>
@@ -495,8 +492,8 @@ namespace BEditor.Core.Data.Primitive.Properties
             /// <inheritdoc/>
             public void Undo()
             {
-                int index = EaseProperty.InsertKeyframe(frame, value);
-                EaseProperty.AddKeyFrameEvent?.Invoke(EaseProperty, (frame, index - 1));
+                int index = property.InsertKeyframe(frame, value);
+                property.AddKeyFrameEvent?.Invoke(property, (frame, index - 1));
             }
         }
 
@@ -506,7 +503,7 @@ namespace BEditor.Core.Data.Primitive.Properties
         /// <remarks>このクラスは <see cref="CommandManager.Do(IRecordCommand)"/> と併用することでコマンドを記録できます</remarks>
         public sealed class MoveCommand : IRecordCommand
         {
-            private readonly EaseProperty EaseProperty;
+            private readonly EaseProperty property;
             private readonly int fromIndex;
             private int toIndex;
             private readonly int to;
@@ -522,7 +519,7 @@ namespace BEditor.Core.Data.Primitive.Properties
             /// <exception cref="ArgumentOutOfRangeException"><paramref name="to"/> が 親要素の範囲外です</exception>
             public MoveCommand(EaseProperty property, int fromIndex, int to)
             {
-                EaseProperty = property ?? throw new ArgumentNullException(nameof(property));
+                this.property = property ?? throw new ArgumentNullException(nameof(property));
 
                 this.fromIndex = (0 > fromIndex || fromIndex > property.Value.Count) ?
                                  throw new IndexOutOfRangeException()
@@ -536,15 +533,15 @@ namespace BEditor.Core.Data.Primitive.Properties
             /// <inheritdoc/>
             public void Do()
             {
-                EaseProperty.Time[fromIndex] = to;
-                EaseProperty.Time.Sort((a_, b_) => a_ - b_);
+                property.Time[fromIndex] = to;
+                property.Time.Sort((a_, b_) => a_ - b_);
 
 
-                toIndex = EaseProperty.Time.FindIndex(x => x == to);//新しいindex
+                toIndex = property.Time.FindIndex(x => x == to);//新しいindex
 
-                EaseProperty.Value.Move(fromIndex + 1, toIndex + 1);
+                property.Value.Move(fromIndex + 1, toIndex + 1);
 
-                EaseProperty.MoveKeyFrameEvent?.Invoke(EaseProperty, (fromIndex, toIndex));//GUIのIndexの正規化
+                property.MoveKeyFrameEvent?.Invoke(property, (fromIndex, toIndex));//GUIのIndexの正規化
             }
 
             /// <inheritdoc/>
@@ -553,15 +550,15 @@ namespace BEditor.Core.Data.Primitive.Properties
             /// <inheritdoc/>
             public void Undo()
             {
-                int frame = EaseProperty.Time[toIndex];
+                int frame = property.Time[toIndex];
 
-                EaseProperty.Time.RemoveAt(toIndex);
-                EaseProperty.Time.Insert(fromIndex, frame);
+                property.Time.RemoveAt(toIndex);
+                property.Time.Insert(fromIndex, frame);
 
 
-                EaseProperty.Value.Move(toIndex + 1, fromIndex + 1);
+                property.Value.Move(toIndex + 1, fromIndex + 1);
 
-                EaseProperty.MoveKeyFrameEvent?.Invoke(EaseProperty, (toIndex, fromIndex));
+                property.MoveKeyFrameEvent?.Invoke(property, (toIndex, fromIndex));
             }
         }
 

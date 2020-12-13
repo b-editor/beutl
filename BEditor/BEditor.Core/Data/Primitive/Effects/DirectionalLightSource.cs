@@ -19,6 +19,7 @@ using static BEditor.Core.Data.Primitive.Properties.PrimitiveGroup.Coordinate;
 
 namespace BEditor.Core.Data.Primitive.Effects
 {
+    [DataContract]
     public class DirectionalLightSource : EffectElement
     {
         public DirectionalLightSource()

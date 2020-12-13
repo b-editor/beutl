@@ -18,7 +18,7 @@ namespace BEditor.Core.Data.Primitive.Properties
     /// <summary>
     /// フォントを選択するプロパティ表します
     /// </summary>
-    [DataContract(Namespace = "")]
+    [DataContract]
     public class FontProperty : PropertyElement<FontPropertyMetadata>, IEasingProperty, IBindable<FontRecord>
     {
         #region Fields
@@ -70,14 +70,13 @@ namespace BEditor.Core.Data.Primitive.Properties
         public FontRecord Select
         {
             get => selectItem;
-            set => SetValue(value, ref selectItem, selectArgs, () =>
+            set => SetValue(value, ref selectItem, selectArgs, this, state =>
             {
-                foreach (var observer in Collection)
+                foreach (var observer in state.Collection)
                 {
                     try
                     {
-                        observer.OnNext(selectItem);
-                        observer.OnCompleted();
+                        observer.OnNext(state.selectItem);
                     }
                     catch (Exception ex)
                     {
@@ -118,8 +117,14 @@ namespace BEditor.Core.Data.Primitive.Properties
         /// <inheritdoc/>
         public IDisposable Subscribe(IObserver<FontRecord> observer)
         {
+            if (observer is null) throw new ArgumentNullException(nameof(observer));
+
             Collection.Add(observer);
-            return Disposable.Create(() => Collection.Remove(observer));
+            return Disposable.Create((observer, this), state =>
+            {
+                state.observer.OnCompleted();
+                state.Item2.Collection.Remove(state.observer);
+            });
         }
 
         /// <inheritdoc/>
@@ -132,7 +137,7 @@ namespace BEditor.Core.Data.Primitive.Properties
             Select = value;
         }
 
-        public void Bind(IBindable<FontRecord> bindable)
+        public void Bind(IBindable<FontRecord>? bindable)
         {
             BindDispose?.Dispose();
             Bindable = bindable;
@@ -159,9 +164,9 @@ namespace BEditor.Core.Data.Primitive.Properties
         /// <remarks>このクラスは <see cref="CommandManager.Do(IRecordCommand)"/> と併用することでコマンドを記録できます</remarks>
         public sealed class ChangeSelectCommand : IRecordCommand
         {
-            private readonly FontProperty Selector;
-            private readonly FontRecord select;
-            private readonly FontRecord oldselect;
+            private readonly FontProperty property;
+            private readonly FontRecord @new;
+            private readonly FontRecord old;
 
             /// <summary>
             /// <see cref="ChangeSelectCommand"/> クラスの新しいインスタンスを初期化します
@@ -171,20 +176,20 @@ namespace BEditor.Core.Data.Primitive.Properties
             /// <exception cref="ArgumentNullException"><paramref name="property"/> が <see langword="null"/> です</exception>
             public ChangeSelectCommand(FontProperty property, FontRecord select)
             {
-                Selector = property ?? throw new ArgumentNullException(nameof(property));
-                this.select = select;
-                oldselect = property.Select;
+                this.property = property ?? throw new ArgumentNullException(nameof(property));
+                this.@new = select;
+                old = property.Select;
             }
 
 
             /// <inheritdoc/>
-            public void Do() => Selector.Select = select;
+            public void Do() => property.Select = @new;
 
             /// <inheritdoc/>
             public void Redo() => Do();
 
             /// <inheritdoc/>
-            public void Undo() => Selector.Select = oldselect;
+            public void Undo() => property.Select = old;
         }
 
         #endregion

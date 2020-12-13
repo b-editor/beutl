@@ -17,7 +17,7 @@ namespace BEditor.Core.Data.Primitive.Properties
     /// <summary>
     /// 
     /// </summary>
-    [DataContract(Namespace = "")]
+    [DataContract]
     public class ColorAnimationProperty : PropertyElement<ColorAnimationPropertyMetadata>, IKeyFrameProperty
     {
         #region Fields
@@ -37,12 +37,12 @@ namespace BEditor.Core.Data.Primitive.Properties
         /// <param name="metadata"></param>
         public ColorAnimationProperty(ColorAnimationPropertyMetadata metadata)
         {
+            PropertyMetadata = metadata ?? throw new ArgumentNullException(nameof(metadata));
             Color color = new(metadata.Red, metadata.Green, metadata.Blue, metadata.Alpha);
 
             Value = new() { color, color };
             Frame = new();
             EasingType = (EasingFunc)Activator.CreateInstance(metadata.DefaultEase.Type);
-            PropertyMetadata = metadata;
         }
 
 
@@ -116,62 +116,62 @@ namespace BEditor.Core.Data.Primitive.Properties
         public Color GetValue(int frame)
         {
 
-            (int, int) GetFrame(int frame)
+            static (int, int) GetFrame(ColorAnimationProperty property, int frame)
             {
-                if (Frame.Count == 0)
+                if (property.Frame.Count == 0)
                 {
-                    return (0, Length);
+                    return (0, property.Length);
                 }
-                else if (0 <= frame && frame <= Frame[0])
+                else if (0 <= frame && frame <= property.Frame[0])
                 {
-                    return (0, Frame[0]);
+                    return (0, property.Frame[0]);
                 }
-                else if (Frame[^1] <= frame && frame <= Length)
+                else if (property.Frame[^1] <= frame && frame <= property.Length)
                 {
-                    return (Frame[^1], Length);
+                    return (property.Frame[^1], property.Length);
                 }
                 else
                 {
                     int index = 0;
-                    for (int f = 0; f < Frame.Count - 1; f++)
+                    for (int f = 0; f < property.Frame.Count - 1; f++)
                     {
-                        if (Frame[f] <= frame && frame <= Frame[f + 1])
+                        if (property.Frame[f] <= frame && frame <= property.Frame[f + 1])
                         {
                             index = f;
                         }
                     }
 
-                    return (Frame[index], Frame[index + 1]);
+                    return (property.Frame[index], property.Frame[index + 1]);
                 }
 
                 throw new Exception();
             }
-            (Color, Color) GetValues(int frame)
+            static (Color, Color) GetValues(ColorAnimationProperty property, int frame)
             {
-                if (Value.Count == 2)
+                if (property.Value.Count == 2)
                 {
-                    return (Value[0], Value[1]);
+                    return (property.Value[0], property.Value[1]);
                 }
-                else if (0 <= frame && frame <= Frame[0])
+                else if (0 <= frame && frame <= property.Frame[0])
                 {
-                    return (Value[0], Value[1]);
+                    return (property.Value[0], property.Value[1]);
                 }
-                else if (Frame[^1] <= frame && frame <= Length)
+                else if (property.Frame[^1] <= frame && frame <= property.Length)
                 {
-                    return (Value[^2], Value[^1]);
+                    return (property.Value[^2], property.Value[^1]);
                 }
                 else
                 {
                     int index = 0;
-                    for (int f = 0; f < Frame.Count - 1; f++)
+                    for (int f = 0; f < property.Frame.Count - 1; f++)
                     {
-                        if (Frame[f] <= frame && frame <= Frame[f + 1])
+                        if (property.Frame[f] <= frame && frame <= property.Frame[f + 1])
                         {
                             index = f + 1;
                         }
                     }
 
-                    return (Value[index], Value[index + 1]);
+                    return (property.Value[index], property.Value[index + 1]);
                 }
 
                 throw new Exception();
@@ -179,9 +179,9 @@ namespace BEditor.Core.Data.Primitive.Properties
 
             frame -= this.GetParent2().Start;
 
-            var (start, end) = GetFrame(frame);
+            var (start, end) = GetFrame(this, frame);
 
-            var (stval, edval) = GetValues(frame);
+            var (stval, edval) = GetValues(this, frame);
 
             int now = frame - start;//相対的な現在フレーム
 
@@ -249,71 +249,69 @@ namespace BEditor.Core.Data.Primitive.Properties
         /// </summary>
         public sealed class ChangeColorCommand : IRecordCommand
         {
-            private readonly ColorAnimationProperty Color;
+            private readonly ColorAnimationProperty property;
             private readonly int index;
-            private readonly byte r, g, b, a;
-            private readonly byte or, og, ob, oa;
+            private readonly ReadOnlyColor @new;
+            private readonly ReadOnlyColor old;
 
             /// <summary>
             /// 
             /// </summary>
-            /// <param name="color"></param>
+            /// <param name="property"></param>
             /// <param name="index"></param>
-            /// <param name="r"></param>
-            /// <param name="g"></param>
-            /// <param name="b"></param>
-            /// <param name="a"></param>
-            public ChangeColorCommand(ColorAnimationProperty color, int index, byte r, byte g, byte b, byte a)
+            /// <param name="color"></param>
+            public ChangeColorCommand(ColorAnimationProperty property, int index, in ReadOnlyColor color)
             {
-                Color = color;
+                this.property = property ?? throw new ArgumentNullException(nameof(property));
                 this.index = index;
 
-                (this.r, this.g, this.b, this.a) = (r, g, b, a);
-                (or, og, ob, oa) = (color.Value[index].R, color.Value[index].G, color.Value[index].B, color.Value[index].A);
+                this.@new = color;
+                old = property.Value[index];
             }
 
 
             /// <inheritdoc/>
-            public void Do() => Color.Value[index] = new Color(r, g, b, a);
+            public void Do() => property.Value[index] = @new;
 
             /// <inheritdoc/>
             public void Redo() => Do();
 
             /// <inheritdoc/>
-            public void Undo() => Color.Value[index] = new Color(or, og, ob, oa);
+            public void Undo() => property.Value[index] = old;
         }
         /// <summary>
         /// 
         /// </summary>
         public sealed class ChangeEaseCommand : IRecordCommand
         {
-            private readonly ColorAnimationProperty ColorProperty;
-            private readonly EasingFunc EasingNumber;
-            private readonly EasingFunc OldEasingNumber;
+            private readonly ColorAnimationProperty property;
+            private readonly EasingFunc @new;
+            private readonly EasingFunc old;
 
             /// <summary>
             /// 
             /// </summary>
-            /// <param name="easingList"></param>
+            /// <param name="property"></param>
             /// <param name="type"></param>
-            public ChangeEaseCommand(ColorAnimationProperty easingList, string type)
+            public ChangeEaseCommand(ColorAnimationProperty property, string type)
             {
-                ColorProperty = easingList;
+                this.property = property ?? throw new ArgumentNullException(nameof(property));
+
                 var data = EasingFunc.LoadedEasingFunc.Find(x => x.Name == type);
-                EasingNumber = data.CreateFunc?.Invoke() ?? (EasingFunc)Activator.CreateInstance(data.Type);
-                EasingNumber.Parent = easingList;
-                OldEasingNumber = ColorProperty.EasingType;
+                @new = data.CreateFunc?.Invoke() ?? (EasingFunc)Activator.CreateInstance(data.Type);
+                @new.Parent = property;
+                old = this.property.EasingType;
             }
 
 
             /// <inheritdoc/>
-            public void Do() => ColorProperty.EasingType = EasingNumber;
+            public void Do() => property.EasingType = @new;
 
             /// <inheritdoc/>
             public void Redo() => Do();
 
             /// <inheritdoc/>
-            public void Undo() => ColorProperty.EasingType = OldEasingNumber;
+            public void Undo() => property.EasingType = old;
         }
 
 
@@ -322,17 +320,17 @@ namespace BEditor.Core.Data.Primitive.Properties
         /// </summary>
         public sealed class AddCommand : IRecordCommand
         {
-            private readonly ColorAnimationProperty ColorProperty;
+            private readonly ColorAnimationProperty property;
             private readonly int frame;
 
             /// <summary>
             /// 
             /// </summary>
-            /// <param name="colorProperty"></param>
+            /// <param name="property"></param>
             /// <param name="frame"></param>
-            public AddCommand(ColorAnimationProperty colorProperty, int frame)
+            public AddCommand(ColorAnimationProperty property, int frame)
             {
-                ColorProperty = colorProperty;
+                this.property = property ?? throw new ArgumentNullException(nameof(property));
                 this.frame = frame;
             }
 
@@ -340,8 +338,8 @@ namespace BEditor.Core.Data.Primitive.Properties
             /// <inheritdoc/>
             public void Do()
             {
-                int index = ColorProperty.InsertKeyframe(frame, ColorProperty.GetValue(frame + ColorProperty.GetParent2().Start));
-                ColorProperty.AddKeyFrameEvent?.Invoke(ColorProperty, (frame, index - 1));
+                int index = property.InsertKeyframe(frame, property.GetValue(frame + property.GetParent2().Start));
+                property.AddKeyFrameEvent?.Invoke(property, (frame, index - 1));
             }
 
             /// <inheritdoc/>
@@ -350,8 +348,8 @@ namespace BEditor.Core.Data.Primitive.Properties
             /// <inheritdoc/>
             public void Undo()
             {
-                int index = ColorProperty.RemoveKeyframe(frame, out _);
-                ColorProperty.DeleteKeyFrameEvent?.Invoke(ColorProperty, index - 1);
+                int index = property.RemoveKeyframe(frame, out _);
+                property.DeleteKeyFrameEvent?.Invoke(property, index - 1);
             }
         }
 
@@ -360,18 +358,18 @@ namespace BEditor.Core.Data.Primitive.Properties
         /// </summary>
         public sealed class RemoveCommand : IRecordCommand
         {
-            private readonly ColorAnimationProperty ColorProperty;
+            private readonly ColorAnimationProperty property;
             private readonly int frame;
             private Color value;
 
             /// <summary>
             /// 
             /// </summary>
-            /// <param name="colorProperty"></param>
+            /// <param name="property"></param>
             /// <param name="frame"></param>
-            public RemoveCommand(ColorAnimationProperty colorProperty, int frame)
+            public RemoveCommand(ColorAnimationProperty property, int frame)
             {
-                ColorProperty = colorProperty;
+                this.property = property ?? throw new ArgumentNullException(nameof(property));
                 this.frame = frame;
             }
 
@@ -379,8 +377,8 @@ namespace BEditor.Core.Data.Primitive.Properties
             /// <inheritdoc/>
             public void Do()
             {
-                int index = ColorProperty.RemoveKeyframe(frame, out value);
-                ColorProperty.DeleteKeyFrameEvent?.Invoke(ColorProperty, index - 1);
+                int index = property.RemoveKeyframe(frame, out value);
+                property.DeleteKeyFrameEvent?.Invoke(property, index - 1);
             }
 
             /// <inheritdoc/>
@@ -389,8 +387,8 @@ namespace BEditor.Core.Data.Primitive.Properties
             /// <inheritdoc/>
             public void Undo()
             {
-                int index = ColorProperty.InsertKeyframe(frame, value);
-                ColorProperty.AddKeyFrameEvent?.Invoke(ColorProperty, (frame, index - 1));
+                int index = property.InsertKeyframe(frame, value);
+                property.AddKeyFrameEvent?.Invoke(property, (frame, index - 1));
             }
         }
 
@@ -399,7 +397,7 @@ namespace BEditor.Core.Data.Primitive.Properties
         /// </summary>
         public sealed class MoveCommand : IRecordCommand
         {
-            private readonly ColorAnimationProperty ColorProperty;
+            private readonly ColorAnimationProperty property;
             private readonly int fromIndex;
             private int toIndex;
             private readonly int to;
@@ -407,12 +405,12 @@ namespace BEditor.Core.Data.Primitive.Properties
             /// <summary>
             /// 
             /// </summary>
-            /// <param name="colorProperty"></param>
+            /// <param name="property"></param>
             /// <param name="fromIndex"></param>
             /// <param name="to"></param>
-            public MoveCommand(ColorAnimationProperty colorProperty, int fromIndex, int to)
+            public MoveCommand(ColorAnimationProperty property, int fromIndex, int to)
             {
-                ColorProperty = colorProperty;
+                this.property = property ?? throw new ArgumentNullException(nameof(property));
                 this.fromIndex = fromIndex;
                 this.to = to;
             }
@@ -421,16 +419,16 @@ namespace BEditor.Core.Data.Primitive.Properties
             /// <inheritdoc/>
             public void Do()
             {
-                ColorProperty.Frame[fromIndex] = to;
-                ColorProperty.Frame.Sort((a_, b_) => a_ - b_);
+                property.Frame[fromIndex] = to;
+                property.Frame.Sort((a_, b_) => a_ - b_);
 
 
-                toIndex = ColorProperty.Frame.FindIndex(x => x == to);//新しいindex
+                toIndex = property.Frame.FindIndex(x => x == to);//新しいindex
 
                 //Indexの正規化
-                ColorProperty.Value.Move(fromIndex + 1, toIndex + 1);
+                property.Value.Move(fromIndex + 1, toIndex + 1);
 
-                ColorProperty.MoveKeyFrameEvent?.Invoke(ColorProperty, (fromIndex, toIndex));//GUIのIndexの正規化 UIスレッドで動作
+                property.MoveKeyFrameEvent?.Invoke(property, (fromIndex, toIndex));//GUIのIndexの正規化 UIスレッドで動作
             }
 
             /// <inheritdoc/>
@@ -439,15 +437,15 @@ namespace BEditor.Core.Data.Primitive.Properties
             /// <inheritdoc/>
             public void Undo()
             {
-                int frame = ColorProperty.Frame[toIndex];
+                int frame = property.Frame[toIndex];
 
-                ColorProperty.Frame.RemoveAt(toIndex);
-                ColorProperty.Frame.Insert(fromIndex, frame);
+                property.Frame.RemoveAt(toIndex);
+                property.Frame.Insert(fromIndex, frame);
 
-                ColorProperty.Value.Move(toIndex + 1, fromIndex + 1);
+                property.Value.Move(toIndex + 1, fromIndex + 1);
 
 
-                ColorProperty.MoveKeyFrameEvent?.Invoke(ColorProperty, (toIndex, fromIndex));
+                property.MoveKeyFrameEvent?.Invoke(property, (toIndex, fromIndex));
             }
         }
 

@@ -12,7 +12,7 @@ using BEditor.Drawing.Pixel;
 
 namespace BEditor.Core.Data.Primitive.Effects.PrimitiveImages
 {
-    [DataContract(Namespace = "")]
+    [DataContract]
     public class Border : ImageEffect
     {
         public static readonly EasePropertyMetadata SizeMetadata = new(Resources.Size, 10, float.NaN, 1);

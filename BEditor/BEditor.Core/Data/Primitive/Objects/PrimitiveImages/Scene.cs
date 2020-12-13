@@ -14,7 +14,7 @@ using BEditor.Drawing.Pixel;
 
 namespace BEditor.Core.Data.Primitive.Objects.PrimitiveImages
 {
-    [DataContract(Namespace = "")]
+    [DataContract]
     public class SceneObject : ImageObject
     {
         SelectorPropertyMetadata SelectSceneMetadata;
@@ -46,6 +46,8 @@ namespace BEditor.Core.Data.Primitive.Objects.PrimitiveImages
         public override Image<BGRA32> OnRender(EffectRenderArgs args)
         {
             var scene = SelectScene.SelectItem as Scene;
+            if (scene.Equals(this.GetParent2())) return null;
+
             // Clipの相対的なフレーム
             var frame = args.Frame - Parent.Start;
 
@@ -61,14 +63,10 @@ namespace BEditor.Core.Data.Primitive.Objects.PrimitiveImages
 
         internal record ScenesSelectorMetadata : SelectorPropertyMetadata
         {
-            internal ScenesSelectorMetadata(SceneObject scene) : base(Core.Properties.Resources.Scenes, null)
+            internal ScenesSelectorMetadata(SceneObject scene) : base(Resources.Scenes, null)
             {
                 MemberPath = "SceneName";
-                ItemSource = scene
-                    .GetParent3()
-                    .SceneList
-                    .Where(scene1 => scene1 != scene.GetParent2())
-                    .ToList();
+                ItemSource = scene.GetParent3().SceneList;
             }
         }
     }

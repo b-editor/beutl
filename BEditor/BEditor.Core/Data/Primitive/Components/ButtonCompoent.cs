@@ -11,7 +11,7 @@ using BEditor.Core.Data.Property.EasingProperty;
 
 namespace BEditor.Core.Data.Primitive.Components
 {
-    [DataContract(Namespace = "")]
+    [DataContract]
     public class ButtonComponent : ComponentElement<PropertyElementMetadata>, IEasingProperty, IObservable<object>
     {
         private List<IObserver<object>> list;
@@ -25,46 +25,30 @@ namespace BEditor.Core.Data.Primitive.Components
 
         public IDisposable Subscribe(IObserver<object> observer)
         {
+            if (observer is null) throw new ArgumentNullException(nameof(observer));
+
             Collection.Add(observer);
-            return Disposable.Create(() => Collection.Remove(observer));
-        }
-        public IDisposable Subscribe(Action onNext)
-        {
-            var observer = new Observer()
+            return Disposable.Create((observer, this), state =>
             {
-                _OnNext = _ => onNext?.Invoke()
-            };
-            Collection.Add(observer);
-            return Disposable.Create(() => Collection.Remove(observer));
+                state.observer.OnCompleted();
+                state.Item2.Collection.Remove(state.observer);
+            });
         }
 
         public void Execute()
         {
-            // Rxの拡張メソッド対策
             var tmp = new object();
             foreach (var observer in Collection)
             {
                 try
                 {
                     observer.OnNext(tmp);
-                    observer.OnCompleted();
                 }
                 catch (Exception ex)
                 {
                     observer.OnError(ex);
                 }
             }
-        }
-
-        private class Observer : IObserver<object>
-        {
-            public Action<object> _OnNext { get; init; }
-            public Action<Exception> _OnError { get; init; }
-            public Action _OnCompleted { get; init; }
-
-            public void OnCompleted() => _OnCompleted?.Invoke();
-            public void OnError(Exception error) => _OnError?.Invoke(error);
-            public void OnNext(object value) => _OnNext?.Invoke(value);
         }
     }
 }

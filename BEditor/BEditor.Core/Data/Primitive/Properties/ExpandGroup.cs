@@ -16,7 +16,7 @@ namespace BEditor.Core.Data.Primitive.Properties
     /// <summary>
     /// 複数の <see cref="PropertyElement"/> をエクスパンダーでまとめるクラス
     /// </summary>
-    [DataContract(Namespace = "")]
+    [DataContract]
     public abstract class ExpandGroup : Group, IEasingProperty, IBindable<bool>
     {
         #region Fields
@@ -51,14 +51,13 @@ namespace BEditor.Core.Data.Primitive.Properties
         public bool IsExpanded
         {
             get => isOpen;
-            set => SetValue(value, ref isOpen, isExpandedArgs, () =>
+            set => SetValue(value, ref isOpen, isExpandedArgs, this, state =>
             {
-                foreach (var observer in Collection)
+                foreach (var observer in state.Collection)
                 {
                     try
                     {
-                        observer.OnNext(isOpen);
-                        observer.OnCompleted();
+                        observer.OnNext(state.isOpen);
                     }
                     catch (Exception ex)
                     {
@@ -109,12 +108,18 @@ namespace BEditor.Core.Data.Primitive.Properties
         /// <inheritdoc/>
         public IDisposable Subscribe(IObserver<bool> observer)
         {
+            if (observer is null) throw new ArgumentNullException(nameof(observer));
+
             Collection.Add(observer);
-            return Disposable.Create(() => Collection.Remove(observer));
+            return Disposable.Create((observer, this), state =>
+            {
+                state.observer.OnCompleted();
+                state.Item2.Collection.Remove(state.observer);
+            });
         }
 
         /// <inheritdoc/>
-        public void Bind(IBindable<bool> bindable)
+        public void Bind(IBindable<bool>? bindable)
         {
             BindDispose?.Dispose();
             Bindable = bindable;

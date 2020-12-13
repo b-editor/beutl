@@ -8,7 +8,7 @@ using BEditor.Core.Properties;
 
 namespace BEditor.Core.Data.Primitive.Properties.PrimitiveGroup
 {
-    [DataContract(Namespace = "")]
+    [DataContract]
     public sealed class Zoom : ExpandGroup
     {
         public static readonly EasePropertyMetadata ZoomMetadata = new(Resources.Zoom, 100);
@@ -16,7 +16,7 @@ namespace BEditor.Core.Data.Primitive.Properties.PrimitiveGroup
         public static readonly EasePropertyMetadata ScaleYMetadata = new(Resources.Y, 100);
         public static readonly EasePropertyMetadata ScaleZMetadata = new(Resources.Z, 100);
 
-        public Zoom(PropertyElementMetadata constant) : base(constant)
+        public Zoom(PropertyElementMetadata metadata) : base(metadata)
         {
             Scale = new(ZoomMetadata);
             ScaleX = new(ScaleXMetadata);

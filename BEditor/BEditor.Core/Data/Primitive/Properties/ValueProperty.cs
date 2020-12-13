@@ -14,7 +14,7 @@ using BEditor.Core.Data.Property.EasingProperty;
 
 namespace BEditor.Core.Data.Primitive.Properties
 {
-    [DataContract(Namespace = "")]
+    [DataContract]
     public class ValueProperty : PropertyElement<ValuePropertyMetadata>, IBindable<float>, IEasingProperty
     {
         #region Fields
@@ -38,14 +38,13 @@ namespace BEditor.Core.Data.Primitive.Properties
         public float Value
         {
             get => value;
-            set => SetValue(value, ref this.value, valueArgs, () =>
+            set => SetValue(value, ref this.value, valueArgs, this, state =>
             {
-                foreach (var observer in Collection)
+                foreach (var observer in state.Collection)
                 {
                     try
                     {
-                        observer.OnNext(this.value);
-                        observer.OnCompleted();
+                        observer.OnNext(state.value);
                     }
                     catch (Exception ex)
                     {
@@ -65,7 +64,7 @@ namespace BEditor.Core.Data.Primitive.Properties
         #region Methods
 
         /// <inheritdoc/>
-        public void Bind(IBindable<float> bindable)
+        public void Bind(IBindable<float>? bindable)
         {
             BindDispose?.Dispose();
             Bindable = bindable;
@@ -90,8 +89,14 @@ namespace BEditor.Core.Data.Primitive.Properties
         /// <inheritdoc/>
         public IDisposable Subscribe(IObserver<float> observer)
         {
+            if (observer is null) throw new ArgumentNullException(nameof(observer));
+
             Collection.Add(observer);
-            return Disposable.Create(() => Collection.Remove(observer));
+            return Disposable.Create((observer, this), state =>
+            {
+                state.observer.OnCompleted();
+                state.Item2.Collection.Remove(state.observer);
+            });
         }
         /// <inheritdoc/>
         public override void PropertyLoaded()
@@ -132,17 +137,17 @@ namespace BEditor.Core.Data.Primitive.Properties
         public sealed class ChangeValueCommand : IRecordCommand
         {
             private readonly ValueProperty property;
-            private readonly float value;
+            private readonly float @new;
             private readonly float old;
 
             public ChangeValueCommand(ValueProperty property, float value)
             {
                 this.property = property ?? throw new ArgumentNullException(nameof(property));
                 this.old = property.Value;
-                this.value = property.InRange(value);
+                this.@new = property.InRange(value);
             }
 
-            public void Do() => property.Value = value;
+            public void Do() => property.Value = @new;
             public void Redo() => Do();
             public void Undo() => property.Value = old;
         }

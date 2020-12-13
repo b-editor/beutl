@@ -13,7 +13,7 @@ using BEditor.Drawing.Pixel;
 
 namespace BEditor.Core.Data.Primitive.Effects.PrimitiveImages
 {
-    [DataContract(Namespace = "")]
+    [DataContract]
     public class ColorKey : ImageEffect
     {
         public static readonly ColorPropertyMetadata MaxColorMetadata = new(Resources.Color, 255, 255, 255);

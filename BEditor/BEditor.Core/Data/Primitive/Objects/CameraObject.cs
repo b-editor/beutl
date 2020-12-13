@@ -10,7 +10,7 @@ using BEditor.Core.Properties;
 
 namespace BEditor.Core.Data.Primitive.Objects
 {
-    [DataContract(Namespace = "")]
+    [DataContract]
     public class CameraObject : ObjectElement
     {
         public static readonly EasePropertyMetadata XMetadata = new(Resources.X, 0);

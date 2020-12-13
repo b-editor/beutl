@@ -12,7 +12,7 @@ namespace BEditor.Core.Data
     /// <summary>
     /// Represents the base class of the object.
     /// </summary>
-    [DataContract(Namespace = "")]
+    [DataContract]
     public abstract class ObjectElement : EffectElement
     {
         public virtual bool EffectFilter(EffectElement effect) => true;

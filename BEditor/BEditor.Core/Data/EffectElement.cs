@@ -19,7 +19,7 @@ namespace BEditor.Core.Data
     /// <summary>
     /// Represents the base class of the effect.
     /// </summary>
-    [DataContract(Namespace = "")]
+    [DataContract]
     public abstract class EffectElement : ComponentObject, IChild<ClipData>, IParent<PropertyElement>, ICloneable, IHasId
     {
         #region Fields

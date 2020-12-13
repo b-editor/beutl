@@ -12,7 +12,7 @@ using BEditor.Core.Data.Property.EasingProperty;
 
 namespace BEditor.Core.Data.Primitive.Components
 {
-    [DataContract(Namespace = "")]
+    [DataContract]
     public class LabelComponent : ComponentElement<PropertyElementMetadata>, IEasingProperty, IObservable<string>, IObserver<string>
     {
         private static readonly PropertyChangedEventArgs textArgs = new(nameof(Text));
@@ -24,13 +24,13 @@ namespace BEditor.Core.Data.Primitive.Components
         public string Text
         {
             get => text;
-            set => SetValue(value, ref text, textArgs, () =>
+            set => SetValue(value, ref text, textArgs, this, state =>
             {
-                foreach (var observer in Collection)
+                foreach (var observer in state.Collection)
                 {
                     try
                     {
-                        observer.OnNext(text);
+                        observer.OnNext(state.text);
                         observer.OnCompleted();
                     }
                     catch (Exception ex)
@@ -55,8 +55,14 @@ namespace BEditor.Core.Data.Primitive.Components
         }
         public IDisposable Subscribe(IObserver<string> observer)
         {
+            if (observer is null) throw new ArgumentNullException(nameof(observer));
+
             Collection.Add(observer);
-            return Disposable.Create(() => Collection.Remove(observer));
+            return Disposable.Create((observer, this), state =>
+            {
+                state.observer.OnCompleted();
+                state.Item2.Collection.Remove(state.observer);
+            });
         }
         public override string ToString() => $"(Text:{Text} Name:{PropertyMetadata?.Name})";
     }

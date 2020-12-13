@@ -15,7 +15,7 @@ using BEditor.Drawing.Pixel;
 
 namespace BEditor.Core.Data.Primitive.Objects.PrimitiveImages
 {
-    [DataContract(Namespace = "")]
+    [DataContract]
     [CustomClipUI(Color = 0x6200ea)]
     public class Text : ImageObject
     {
@@ -70,7 +70,7 @@ namespace BEditor.Core.Data.Primitive.Objects.PrimitiveImages
             Document.ExecuteLoaded(DocumentMetadata);
         }
 
-        [DataContract(Namespace = "")]
+        [DataContract]
         public class FontProperty : ExpandGroup
         {
             public static readonly FontPropertyMetadata FontMetadata = new();

@@ -8,7 +8,7 @@ using BEditor.Core.Properties;
 
 namespace BEditor.Core.Data.Primitive.Properties.PrimitiveGroup
 {
-    [DataContract(Namespace = "")]
+    [DataContract]
     public sealed class Coordinate : ExpandGroup
     {
         public static readonly EasePropertyMetadata XMetadata = new(Resources.X, 0);
@@ -18,7 +18,7 @@ namespace BEditor.Core.Data.Primitive.Properties.PrimitiveGroup
         public static readonly EasePropertyMetadata CenterYMetadata = new(Resources.CenterY, 0, float.NaN, float.NaN, true);
         public static readonly EasePropertyMetadata CenterZMetadata = new(Resources.CenterZ, 0, float.NaN, float.NaN, true);
 
-        public Coordinate(PropertyElementMetadata constant) : base(constant)
+        public Coordinate(PropertyElementMetadata metadata) : base(metadata)
         {
             X = new(XMetadata);
             Y = new(YMetadata);

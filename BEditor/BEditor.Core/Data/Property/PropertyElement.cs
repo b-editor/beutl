@@ -13,7 +13,7 @@ namespace BEditor.Core.Data.Property
     /// <summary>
     /// Represents the property used by <see cref="EffectElement"/>.
     /// </summary>
-    [DataContract(Namespace = "")]
+    [DataContract]
     public abstract class PropertyElement : ComponentObject, IChild<EffectElement>, IPropertyElement, IHasId, IHasName
     {
         private static readonly PropertyChangedEventArgs metadataArgs = new(nameof(PropertyMetadata));
@@ -50,7 +50,7 @@ namespace BEditor.Core.Data.Property
         public override string ToString() => $"(Name:{PropertyMetadata?.Name})";
     }
 
-    [DataContract(Namespace = "")]
+    [DataContract]
     public abstract class PropertyElement<T> : PropertyElement where T : PropertyElementMetadata
     {
         public new T PropertyMetadata
@@ -61,7 +61,7 @@ namespace BEditor.Core.Data.Property
     }
 
     /// <summary>
-    /// <see cref="PropertyElement"/> のメタデータを表します
+    /// <see cref="BEditor.Core.Data.Property.PropertyElement"/> のメタデータを表します
     /// </summary>
     public record PropertyElementMetadata(string Name);
 }

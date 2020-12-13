@@ -12,7 +12,7 @@ using BEditor.Core.Data.Property;
 
 namespace BEditor.Core.Data.Primitive.Effects
 {
-    [DataContract(Namespace ="")]
+    [DataContract]
     public class TestEffect : EffectElement
     {
         public static readonly FolderPropertyMetadata FolderMetadata = new("Folder", "");
@@ -45,7 +45,7 @@ namespace BEditor.Core.Data.Primitive.Effects
             Dialog.ExecuteLoaded(null);
         }
 
-        [DataContract(Namespace ="")]
+        [DataContract]
         public class TestDialog : DialogProperty
         {
             public TestDialog()
@@ -76,7 +76,7 @@ namespace BEditor.Core.Data.Primitive.Effects
                 Label.ExecuteLoaded(null);
                 Button.ExecuteLoaded(new PropertyElementMetadata("sssssss"));
 
-                Button.Subscribe(() =>
+                Button.Subscribe(_ =>
                 {
                     Label.Text = "Clicked";
                 });

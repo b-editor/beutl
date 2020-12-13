@@ -130,7 +130,7 @@ namespace BEditor.Views.PropertyControl
 
             d.ok_button.Click += (_, _) =>
             {
-                Core.Command.CommandManager.Do(new ColorAnimationProperty.ChangeColorCommand(color, index, d.col.Red, d.col.Green, d.col.Blue, d.col.Alpha));
+                Core.Command.CommandManager.Do(new ColorAnimationProperty.ChangeColorCommand(color, index, new(d.col.Red, d.col.Green, d.col.Blue, d.col.Alpha)));
             };
 
             d.ShowDialog();

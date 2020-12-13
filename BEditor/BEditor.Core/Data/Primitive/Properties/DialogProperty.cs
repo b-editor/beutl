@@ -7,7 +7,7 @@ using System.Threading.Tasks;
 
 namespace BEditor.Core.Data.Primitive.Properties
 {
-    [DataContract(Namespace = "")]
+    [DataContract]
     public abstract class DialogProperty : Group
     {
         public event EventHandler Showed;

@@ -74,7 +74,7 @@ namespace BEditor.Core.Data.Primitive.Properties.PrimitiveEasing
     /// </item>
     /// </list>
     /// </summary>
-    [DataContract(Namespace = "")]
+    [DataContract]
     public sealed class DefaultEasing : EasingFunc
     {
         public static readonly Func<float, float, float, float, float>[] DefaultEase = new Func<float, float, float, float, float>[] {

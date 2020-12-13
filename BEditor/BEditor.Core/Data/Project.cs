@@ -17,7 +17,7 @@ namespace BEditor.Core.Data
     /// <summary>
     /// Represents the project to be used in editing.
     /// </summary>
-    [DataContract(Namespace = "")]
+    [DataContract]
     public class Project : BasePropertyChanged, IExtensibleDataObject, IDisposable, IParent<Scene>, IChild<IApplication>
     {
         #region Fields

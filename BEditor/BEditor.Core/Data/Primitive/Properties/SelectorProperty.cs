@@ -16,7 +16,7 @@ namespace BEditor.Core.Data.Primitive.Properties
     /// <summary>
     /// 配列から一つのアイテムを選択するプロパティを表します
     /// </summary>
-    [DataContract(Namespace = "")]
+    [DataContract]
     public class SelectorProperty : PropertyElement<SelectorPropertyMetadata>, IEasingProperty, IBindable<int>
     {
         #region Fields
@@ -48,7 +48,7 @@ namespace BEditor.Core.Data.Primitive.Properties
         /// <summary>
         /// 選択されているアイテムを取得します
         /// </summary>
-        public object SelectItem => (PropertyMetadata as SelectorPropertyMetadata).ItemSource[Index];
+        public object SelectItem => PropertyMetadata.ItemSource[Index];
         /// <summary>
         /// 選択されている <see cref="SelectorPropertyMetadata.ItemSource"/> のインデックスを取得または設定します
         /// </summary>
@@ -56,14 +56,13 @@ namespace BEditor.Core.Data.Primitive.Properties
         public int Index
         {
             get => selectIndex;
-            set => SetValue(value, ref selectIndex, indexArgs, () =>
+            set => SetValue(value, ref selectIndex, indexArgs, this, state =>
             {
-                foreach (var observer in Collection)
+                foreach (var observer in state.Collection)
                 {
                     try
                     {
-                        observer.OnNext(selectIndex);
-                        observer.OnCompleted();
+                        observer.OnNext(state.selectIndex);
                     }
                     catch (Exception ex)
                     {
@@ -103,8 +102,14 @@ namespace BEditor.Core.Data.Primitive.Properties
         /// <inheritdoc/>
         public IDisposable Subscribe(IObserver<int> observer)
         {
+            if (observer is null) throw new ArgumentNullException(nameof(observer));
+
             Collection.Add(observer);
-            return Disposable.Create(() => Collection.Remove(observer));
+            return Disposable.Create((observer, this), state =>
+            {
+                state.observer.OnCompleted();
+                state.Item2.Collection.Remove(state.observer);
+            });
         }
 
         /// <inheritdoc/>
@@ -117,7 +122,7 @@ namespace BEditor.Core.Data.Primitive.Properties
             Index = value;
         }
 
-        public void Bind(IBindable<int> bindable)
+        public void Bind(IBindable<int>? bindable)
         {
             BindDispose?.Dispose();
             Bindable = bindable;
@@ -147,9 +152,9 @@ namespace BEditor.Core.Data.Primitive.Properties
         /// <remarks>このクラスは <see cref="CommandManager.Do(IRecordCommand)"/> と併用することでコマンドを記録できます</remarks>
         public sealed class ChangeSelectCommand : IRecordCommand
         {
-            private readonly SelectorProperty Selector;
-            private readonly int select;
-            private readonly int oldselect;
+            private readonly SelectorProperty property;
+            private readonly int @new;
+            private readonly int old;
 
             /// <summary>
             /// <see cref="ChangeSelectCommand"/> クラスの新しいインスタンスを初期化します
@@ -159,19 +164,19 @@ namespace BEditor.Core.Data.Primitive.Properties
             /// <exception cref="ArgumentNullException"><paramref name="property"/> が <see langword="null"/> です</exception>
             public ChangeSelectCommand(SelectorProperty property, int select)
             {
-                Selector = property ?? throw new ArgumentNullException(nameof(property));
-                this.select = select;
-                oldselect = property.Index;
+                this.property = property ?? throw new ArgumentNullException(nameof(property));
+                this.@new = select;
+                old = property.Index;
             }
 
             /// <inheritdoc/>
-            public void Do() => Selector.Index = select;
+            public void Do() => property.Index = @new;
 
             /// <inheritdoc/>
             public void Redo() => Do();
 
             /// <inheritdoc/>
-            public void Undo() => Selector.Index = oldselect;
+            public void Undo() => property.Index = old;
         }
 
         #endregion

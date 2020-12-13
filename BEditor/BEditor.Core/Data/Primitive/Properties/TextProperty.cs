@@ -14,7 +14,7 @@ using BEditor.Core.Data.Property.EasingProperty;
 
 namespace BEditor.Core.Data.Primitive.Properties
 {
-    [DataContract(Namespace = "")]
+    [DataContract]
     public class TextProperty : PropertyElement<TextPropertyMetadata>, IEasingProperty, IBindable<string>
     {
         #region Fields
@@ -38,14 +38,13 @@ namespace BEditor.Core.Data.Primitive.Properties
         public string Value
         {
             get => value;
-            set => SetValue(value, ref this.value, valueArgs, () =>
+            set => SetValue(value, ref this.value, valueArgs, this, state =>
             {
-                foreach (var observer in Collection)
+                foreach (var observer in state.Collection)
                 {
                     try
                     {
-                        observer.OnNext(this.value);
-                        observer.OnCompleted();
+                        observer.OnNext(state.value);
                     }
                     catch (Exception ex)
                     {
@@ -64,7 +63,7 @@ namespace BEditor.Core.Data.Primitive.Properties
 
         #region Methods
         /// <inheritdoc/>
-        public void Bind(IBindable<string> bindable)
+        public void Bind(IBindable<string>? bindable)
         {
             BindDispose?.Dispose();
             Bindable = bindable;
@@ -89,8 +88,14 @@ namespace BEditor.Core.Data.Primitive.Properties
         /// <inheritdoc/>
         public IDisposable Subscribe(IObserver<string> observer)
         {
+            if (observer is null) throw new ArgumentNullException(nameof(observer));
+
             Collection.Add(observer);
-            return Disposable.Create(() => Collection.Remove(observer));
+            return Disposable.Create((observer, this), state =>
+            {
+                state.observer.OnCompleted();
+                state.Item2.Collection.Remove(state.observer);
+            });
         }
         /// <inheritdoc/>
         public override void PropertyLoaded()
@@ -113,17 +118,17 @@ namespace BEditor.Core.Data.Primitive.Properties
         public sealed class ChangeTextCommand : IRecordCommand
         {
             private readonly TextProperty property;
-            private readonly string value;
+            private readonly string @new;
             private readonly string old;
 
             public ChangeTextCommand(TextProperty property, string value)
             {
                 this.property = property ?? throw new ArgumentNullException(nameof(property));
                 this.old = property.Value;
-                this.value = value;
+                this.@new = value;
             }
 
-            public void Do() => property.Value = value;
+            public void Do() => property.Value = @new;
             public void Redo() => Do();
             public void Undo() => property.Value = old;
         }

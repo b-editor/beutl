@@ -15,7 +15,7 @@ namespace BEditor.Core.Data.Primitive.Properties
     /// <summary>
     /// 複数行の文字のプロパティを表します
     /// </summary>
-    [DataContract(Namespace = "")]
+    [DataContract]
     public class DocumentProperty : PropertyElement<DocumentPropertyMetadata>, IBindable<string>
     {
         #region Fields
@@ -38,11 +38,9 @@ namespace BEditor.Core.Data.Primitive.Properties
         /// <exception cref="ArgumentNullException"><paramref name="metadata"/> が <see langword="null"/> です</exception>
         public DocumentProperty(DocumentPropertyMetadata metadata)
         {
-            if (metadata is null) throw new ArgumentNullException(nameof(metadata));
-
+            PropertyMetadata = metadata ?? throw new ArgumentNullException(nameof(metadata));
             Text = metadata.DefaultText;
             HeightProperty = metadata.Height;
-            PropertyMetadata = metadata;
         }
 
 
@@ -54,14 +52,13 @@ namespace BEditor.Core.Data.Primitive.Properties
         public string Text
         {
             get => textProperty;
-            set => SetValue(value, ref textProperty, textArgs, () =>
+            set => SetValue(value, ref textProperty, textArgs, this, state =>
             {
-                foreach (var observer in Collection)
+                foreach (var observer in state.Collection)
                 {
                     try
                     {
-                        observer.OnNext(textProperty);
-                        observer.OnCompleted();
+                        observer.OnNext(state.textProperty);
                     }
                     catch (Exception ex)
                     {
@@ -102,11 +99,17 @@ namespace BEditor.Core.Data.Primitive.Properties
         /// <inheritdoc/>
         public IDisposable Subscribe(IObserver<string> observer)
         {
+            if (observer is null) throw new ArgumentNullException(nameof(observer));
+
             Collection.Add(observer);
-            return Disposable.Create(() => Collection.Remove(observer));
+            return Disposable.Create((observer, this), state =>
+            {
+                state.observer.OnCompleted();
+                state.Item2.Collection.Remove(state.observer);
+            });
         }
         /// <inheritdoc/>
-        public void Bind(IBindable<string> bindable)
+        public void Bind(IBindable<string>? bindable)
         {
             BindDispose?.Dispose();
             Bindable = bindable;
@@ -146,9 +149,9 @@ namespace BEditor.Core.Data.Primitive.Properties
         /// <remarks>このクラスは <see cref="CommandManager.Do(IRecordCommand)"/> と併用することでコマンドを記録できます</remarks>
         public sealed class TextChangeCommand : IRecordCommand
         {
-            private readonly DocumentProperty Document;
-            private readonly string newtext;
-            private readonly string oldtext;
+            private readonly DocumentProperty property;
+            private readonly string @new;
+            private readonly string old;
 
             /// <summary>
             /// <see cref="TextChangeCommand"/> クラスの新しいインスタンスを初期化します
@@ -158,20 +161,20 @@ namespace BEditor.Core.Data.Primitive.Properties
             /// <exception cref="ArgumentNullException"><paramref name="property"/> が <see langword="null"/> です</exception>
             public TextChangeCommand(DocumentProperty property, string text)
             {
-                Document = property ?? throw new ArgumentNullException(nameof(property));
-                newtext = text;
-                oldtext = property.Text;
+                this.property = property ?? throw new ArgumentNullException(nameof(property));
+                @new = text;
+                old = property.Text;
             }
 
 
             /// <inheritdoc/>
-            public void Do() => Document.Text = newtext;
+            public void Do() => property.Text = @new;
 
             /// <inheritdoc/>
             public void Redo() => Do();
 
             /// <inheritdoc/>
-            public void Undo() => Document.Text = oldtext;
+            public void Undo() => property.Text = old;
         }
 
         #endregion

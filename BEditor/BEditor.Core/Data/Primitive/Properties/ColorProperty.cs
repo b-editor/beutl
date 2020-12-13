@@ -13,11 +13,10 @@ using BEditor.Core.Media;
 
 namespace BEditor.Core.Data.Primitive.Properties
 {
-    //Todo : ColorPropertyにIObserver, IObserbleを実装
     /// <summary>
     /// 色を選択するプロパティを表します
     /// </summary>
-    [DataContract(Namespace = "")]
+    [DataContract]
     public class ColorProperty : PropertyElement<ColorPropertyMetadata>, IEasingProperty, IBindable<ReadOnlyColor>
     {
         #region Fields
@@ -40,10 +39,8 @@ namespace BEditor.Core.Data.Primitive.Properties
         /// <exception cref="ArgumentNullException"><paramref name="metadata"/> が <see langword="null"/> です</exception>
         public ColorProperty(ColorPropertyMetadata metadata)
         {
-            if (metadata is null) throw new ArgumentNullException(nameof(metadata));
-
+            PropertyMetadata = metadata ?? throw new ArgumentNullException(nameof(metadata));
             Color = metadata.DefaultColor;
-            PropertyMetadata = metadata;
         }
 
 
@@ -55,14 +52,13 @@ namespace BEditor.Core.Data.Primitive.Properties
         public Color Color
         {
             get => color;
-            set => SetValue(value, ref color, colorArgs, () =>
+            set => SetValue(value, ref color, colorArgs, this, state =>
             {
-                foreach (var observer in Collection)
+                foreach (var observer in state.Collection)
                 {
                     try
                     {
-                        observer.OnNext(color);
-                        observer.OnCompleted();
+                        observer.OnNext(state.color);
                     }
                     catch (Exception ex)
                     {
@@ -100,7 +96,7 @@ namespace BEditor.Core.Data.Primitive.Properties
 
         #region IBindable
 
-        public void Bind(IBindable<ReadOnlyColor> bindable)
+        public void Bind(IBindable<ReadOnlyColor>? bindable)
         {
             BindDispose?.Dispose();
             Bindable = bindable;
@@ -116,8 +112,14 @@ namespace BEditor.Core.Data.Primitive.Properties
 
         public IDisposable Subscribe(IObserver<ReadOnlyColor> observer)
         {
+            if (observer is null) throw new ArgumentNullException(nameof(observer));
+
             Collection.Add(observer);
-            return Disposable.Create(() => Collection.Remove(observer));
+            return Disposable.Create((observer, this), state =>
+             {
+                 state.observer.OnCompleted();
+                 state.Item2.Collection.Remove(state.observer);
+             });
         }
 
         public void OnCompleted() { }
@@ -138,8 +140,8 @@ namespace BEditor.Core.Data.Primitive.Properties
         /// <remarks>このクラスは <see cref="CommandManager.Do(IRecordCommand)"/> と併用することでコマンドを記録できます</remarks>
         public sealed class ChangeColorCommand : IRecordCommand
         {
-            private readonly ColorProperty Color;
-            private readonly ReadOnlyColor newest;
+            private readonly ColorProperty property;
+            private readonly ReadOnlyColor @new;
             private readonly ReadOnlyColor old;
 
             /// <summary>
@@ -150,8 +152,8 @@ namespace BEditor.Core.Data.Primitive.Properties
             /// <exception cref="ArgumentNullException"><paramref name="property"/> が <see langword="null"/> です</exception>
             public ChangeColorCommand(ColorProperty property, in ReadOnlyColor color)
             {
-                Color = property ?? throw new ArgumentNullException(nameof(property));
-                newest = color;
+                this.property = property ?? throw new ArgumentNullException(nameof(property));
+                @new = color;
                 old = property.Value;
             }
 
@@ -159,7 +161,7 @@ namespace BEditor.Core.Data.Primitive.Properties
             /// <inheritdoc/>
             public void Do()
             {
-                Color.Color = newest;
+                property.Color = @new;
             }
 
             /// <inheritdoc/>
@@ -168,7 +170,7 @@ namespace BEditor.Core.Data.Primitive.Properties
             /// <inheritdoc/>
             public void Undo()
             {
-                Color.Color = old;
+                property.Color = old;
             }
         }
     }

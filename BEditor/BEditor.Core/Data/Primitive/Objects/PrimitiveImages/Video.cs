@@ -14,7 +14,7 @@ using BEditor.Drawing.Pixel;
 
 namespace BEditor.Core.Data.Primitive.Objects.PrimitiveImages
 {
-    [DataContract(Namespace = "")]
+    [DataContract]
     public class Video : ImageObject
     {
         public static readonly EasePropertyMetadata SpeedMetadata = new(Resources.Speed, 100);
