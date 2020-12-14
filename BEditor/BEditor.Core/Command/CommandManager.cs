@@ -6,6 +6,7 @@ using BEditor.Core.Data;
 using BEditor.Core.Data.Bindings;
 using BEditor.Core.Data.Primitive.Properties;
 using BEditor.Core.Data.Property;
+using BEditor.Drawing;
 
 namespace BEditor.Core.Command
 {
@@ -91,13 +92,13 @@ namespace BEditor.Core.Command
             { typeof(Bindings.BindCommand<bool>), "" },
             { typeof(Bindings.BindCommand<Media.Color>), "" },
             { typeof(Bindings.BindCommand<Media.ReadOnlyColor>), "" },
-            { typeof(Bindings.BindCommand<Media.FontRecord>), "" },
+            { typeof(Bindings.BindCommand<Font>), "" },
             
             { typeof(Bindings.Disconnect<int>), "" },
             { typeof(Bindings.Disconnect<bool>), "" },
             { typeof(Bindings.Disconnect<Media.Color>), "" },
             { typeof(Bindings.Disconnect<Media.ReadOnlyColor>), "" },
-            { typeof(Bindings.Disconnect<Media.FontRecord>), "" }
+            { typeof(Bindings.Disconnect<Font>), "" }
 
 	        #endregion
         };

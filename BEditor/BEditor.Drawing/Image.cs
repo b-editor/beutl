@@ -228,7 +228,7 @@ namespace BEditor.Drawing
                 return value;
             }
         }
-
+        
         #region Methods
 
         public Image<T> Clone()
@@ -345,13 +345,6 @@ namespace BEditor.Drawing
         object ICloneable.Clone() => this.Clone();
 
         #endregion
-
-#if DEBUG
-        ~Image()
-        {
-            //Debug.WriteLine($"Delete: Image<{typeof(T).Name}> Width:{Width} Height:{Height}");
-        }
-#endif
     }
 
     public static partial class Image

@@ -32,6 +32,7 @@ using BEditor.Core.Command;
 using BEditor.Core.Data.Primitive.Properties;
 using BEditor.Drawing;
 using System.Globalization;
+using System.Linq;
 
 namespace BEditor
 {
@@ -42,18 +43,8 @@ namespace BEditor
     {
         private void Application_Startup(object sender, StartupEventArgs e)
         {
-            //var small = new Image<BGRA32>(100, 100, new BGRA32() { A = 255, R = 255, G = 255, B = 255 })
-            //    .MakeBorder(25, 25, 25, 25)
-            //    .Dilate(10);
-
-            //var img = Drawing.Image.FromFile("2020-06-26_19.11.28.png").Dilate(10);
-            ////img.DrawImage(new(1, 1), small);
-            //img.Save("Test.png");
-
-            //App.Current.Shutdown();
-
-            CultureInfo.CurrentCulture = CultureInfo.GetCultureInfo("en-US");
-            CultureInfo.CurrentUICulture = CultureInfo.GetCultureInfo("en-US");
+            //CultureInfo.CurrentCulture = CultureInfo.GetCultureInfo("en-US");
+            //CultureInfo.CurrentUICulture = CultureInfo.GetCultureInfo("en-US");
 
             AppData.Current.Arguments = e.Args;
 
@@ -74,14 +65,12 @@ namespace BEditor
 
             static void SetFont()
             {
-                var ifc = new System.Drawing.Text.InstalledFontCollection();
-                //インストールされているすべてのフォントファミリアを取得
-                var ffs = ifc.Families;
-
-                foreach (var F in ffs)
-                {
-                    FontProperty.FontList.Add(new FontRecord() { Name = F.Name });
-                }
+                FontProperty.FontList.AddRange(
+                    Settings.Default.IncludeFontDir
+                        .Select(dir => Directory.GetFiles(dir))
+                        .SelectMany(files => files)
+                        .Where(file => Path.GetExtension(file) is ".ttf" or ".ttc" or ".otf")
+                        .Select(file => new Font(file)));
             }
 
             static void SetColor()
@@ -118,7 +107,6 @@ namespace BEditor
             SetColor();
 
             Services.FileDialogService = new FileDialogService();
-            Services.ImageRenderService = new WPFImageRenderSevice();
 
             Message.DialogFunc += (text, iconKind, types) =>
             {

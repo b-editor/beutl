@@ -11,6 +11,7 @@ using BEditor.Core.Data.Primitive.Properties;
 using BEditor.Core.Command;
 using Reactive.Bindings;
 using Reactive.Bindings.Extensions;
+using BEditor.Drawing;
 
 namespace BEditor.ViewModels.PropertyControl
 {
@@ -22,7 +23,7 @@ namespace BEditor.ViewModels.PropertyControl
             Metadata = property.ObserveProperty(p => p.PropertyMetadata)
                 .ToReadOnlyReactiveProperty();
 
-            Command.Subscribe(x => CommandManager.Do(new FontProperty.ChangeSelectCommand(property, (FontRecord)x.Item2)));
+            Command.Subscribe(x => CommandManager.Do(new FontProperty.ChangeSelectCommand(property, (Font)x.Item2)));
             Reset.Subscribe(() => CommandManager.Do(new FontProperty.ChangeSelectCommand(Property, Property.PropertyMetadata.SelectItem)));
         }
 

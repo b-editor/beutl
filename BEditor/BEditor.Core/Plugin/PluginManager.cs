@@ -18,13 +18,15 @@ namespace BEditor.Core.Plugin
 {
     public class PluginManager
     {
+        private static readonly string pluginsDir = Path.Combine(AppContext.BaseDirectory, "user", "plugins");
+
         /// <summary>
         /// すべてのプラグイン名を取得
         /// </summary>
         /// <returns></returns>
         public static IEnumerable<string> GetNames()
         {
-            return Directory.GetDirectories($"{Services.Path}\\user\\plugins")
+            return Directory.GetDirectories(pluginsDir)
                 .Select(folder => Path.GetFileName(folder));
         }
 
@@ -32,7 +34,7 @@ namespace BEditor.Core.Plugin
         public static IEnumerable<IPlugin> Load(IEnumerable<string> pluginName)
         {
             var pluginss = pluginName
-                .Select(f => $"{Services.Path}\\user\\plugins\\{f}\\{f}.dll")
+                .Select(f => Path.Combine(AppContext.BaseDirectory, "user", "plugins", f, $"{f}.dll"))
                 .Where(f => File.Exists(f))
                 .Select(f => Assembly.LoadFrom(f).GetTypes())
                 .Select(types => types

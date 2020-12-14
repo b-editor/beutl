@@ -1,4 +1,5 @@
 ﻿using System.Collections.Generic;
+using System.Linq;
 using System.Runtime.Serialization;
 
 using BEditor.Core;
@@ -21,7 +22,7 @@ namespace BEditor.Core.Data.Primitive.Objects.PrimitiveImages
     {
         public static readonly EasePropertyMetadata SizeMetadata = new(Resources.Size, 100, float.NaN, 0);
         public static readonly ColorPropertyMetadata ColorMetadata = new(Resources.Color, 255, 255, 255);
-        public static readonly PropertyElementMetadata FontMetadata = new(Resources.DetailedSettings);
+        public static readonly FontPropertyMetadata FontMetadata = new();
         public static readonly DocumentPropertyMetadata DocumentMetadata = new("");
 
         public Text()
@@ -54,13 +55,12 @@ namespace BEditor.Core.Data.Primitive.Objects.PrimitiveImages
         [DataMember(Order = 3)]
         public FontProperty Font { get; private set; }
 
-        public override Image<BGRA32> OnRender(EffectRenderArgs args) => Services.ImageRenderService.Text(
-            (int)Size.GetValue(args.Frame),
-            Color.Color,
-            Document.Text,
-            Font.Font.Select,
-            (string)Font.Style.SelectItem,
-            Font.RightToLeft.IsChecked);
+        public override Image<BGRA32> OnRender(EffectRenderArgs args)
+            => Drawing.Image.Text(
+                Document.Text,
+                Font.Select,
+                Size.GetValue(args.Frame),
+                Color.Color);
         public override void PropertyLoaded()
         {
             base.PropertyLoaded();
@@ -68,51 +68,6 @@ namespace BEditor.Core.Data.Primitive.Objects.PrimitiveImages
             Color.ExecuteLoaded(ColorMetadata);
             Font.ExecuteLoaded(FontMetadata);
             Document.ExecuteLoaded(DocumentMetadata);
-        }
-
-        [DataContract]
-        public class FontProperty : ExpandGroup
-        {
-            public static readonly FontPropertyMetadata FontMetadata = new();
-            public static readonly SelectorPropertyMetadata FontStyleMetadata = new(Core.Properties.Resources.FontStyles,
-                                                                                                      Primitive.Properties.FontProperty.FontStylesList);
-            public static readonly CheckPropertyMetadata RightToLeftMetadata = new("RightToLeft", false);
-
-            #region コンストラクタ
-            public FontProperty(PropertyElementMetadata constant) : base(constant)
-            {
-                Font = new(FontMetadata);
-                Style = new(FontStyleMetadata);
-                RightToLeft = new(RightToLeftMetadata);
-            }
-            #endregion
-
-            #region WrapGroup
-            public override IEnumerable<PropertyElement> Properties => new PropertyElement[]
-            {
-                Font,
-                Style,
-                RightToLeft
-            };
-
-            public override void PropertyLoaded()
-            {
-                Font.ExecuteLoaded(FontMetadata);
-                Style.ExecuteLoaded(FontStyleMetadata);
-                RightToLeft.ExecuteLoaded(RightToLeftMetadata);
-            }
-
-            #endregion
-
-
-            [DataMember(Order = 0)]
-            public Properties.FontProperty Font { get; private set; }
-
-            [DataMember(Order = 1)]
-            public SelectorProperty Style { get; private set; }
-
-            [DataMember(Order = 2)]
-            public CheckProperty RightToLeft { get; private set; }
         }
     }
 }

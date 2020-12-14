@@ -873,87 +873,6 @@ namespace BEditor.Core.Properties {
         }
         
         /// <summary>
-        ///   FontStretches に類似しているローカライズされた文字列を検索します。
-        /// </summary>
-        public static string FontStretches {
-            get {
-                return ResourceManager.GetString("FontStretches", resourceCulture);
-            }
-        }
-        
-        /// <summary>
-        ///   Bold に類似しているローカライズされた文字列を検索します。
-        /// </summary>
-        public static string FontStyle_Bold {
-            get {
-                return ResourceManager.GetString("FontStyle.Bold", resourceCulture);
-            }
-        }
-        
-        /// <summary>
-        ///   Italic に類似しているローカライズされた文字列を検索します。
-        /// </summary>
-        public static string FontStyle_Italic {
-            get {
-                return ResourceManager.GetString("FontStyle.Italic", resourceCulture);
-            }
-        }
-        
-        /// <summary>
-        ///   Normal に類似しているローカライズされた文字列を検索します。
-        /// </summary>
-        public static string FontStyle_Normal {
-            get {
-                return ResourceManager.GetString("FontStyle.Normal", resourceCulture);
-            }
-        }
-        
-        /// <summary>
-        ///   Oblique に類似しているローカライズされた文字列を検索します。
-        /// </summary>
-        public static string FontStyle_Oblique {
-            get {
-                return ResourceManager.GetString("FontStyle.Oblique", resourceCulture);
-            }
-        }
-        
-        /// <summary>
-        ///   StrikeThrough に類似しているローカライズされた文字列を検索します。
-        /// </summary>
-        public static string FontStyle_StrikeThrough {
-            get {
-                return ResourceManager.GetString("FontStyle.StrikeThrough", resourceCulture);
-            }
-        }
-        
-        /// <summary>
-        ///   UnderLine に類似しているローカライズされた文字列を検索します。
-        /// </summary>
-        public static string FontStyle_UnderLine {
-            get {
-                return ResourceManager.GetString("FontStyle.UnderLine", resourceCulture);
-            }
-        }
-        
-        /// <summary>
-        ///   FontStyles に類似しているローカライズされた文字列を検索します。
-        /// </summary>
-        public static string FontStyles {
-            get {
-                return ResourceManager.GetString("FontStyles", resourceCulture);
-            }
-        }
-        
-        /// <summary>
-        ///   FontWeights に類似しているローカライズされた文字列を検索します。
-        /// </summary>
-        public static string FontWeights {
-            get {
-                return ResourceManager.GetString("FontWeights", resourceCulture);
-            }
-        }
-        
-        /// <summary>
         ///   viewing angle に類似しているローカライズされた文字列を検索します。
         /// </summary>
         public static string Fov {
@@ -1652,15 +1571,6 @@ namespace BEditor.Core.Properties {
         public static string UseDarkMode {
             get {
                 return ResourceManager.GetString("UseDarkMode", resourceCulture);
-            }
-        }
-        
-        /// <summary>
-        ///   Use GDI for rendering 2D shapes (WPF is used when off) に類似しているローカライズされた文字列を検索します。
-        /// </summary>
-        public static string UseGDI {
-            get {
-                return ResourceManager.GetString("UseGDI", resourceCulture);
             }
         }
         

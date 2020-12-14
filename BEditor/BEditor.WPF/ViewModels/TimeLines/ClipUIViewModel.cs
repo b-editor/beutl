@@ -64,14 +64,18 @@ namespace BEditor.ViewModels.TimeLines
             MarginProperty.Value = new Thickness(TimeLineViewModel.ToPixel(ClipData.Start), 1, 0, 0);
             Row = clip.Layer;
 
-            var type = clip.Type;
-            if (type == ClipType.Video) { ClipText.Value = Resources.Video; ClipColor.Value = (Brush)App.Current?.FindResource("VideoColor"); }
-            else if (type == ClipType.Image) { ClipText.Value = Resources.Image; ClipColor.Value = (Brush)App.Current?.FindResource("ImageColor"); }
-            else if (type == ClipType.Text) { ClipText.Value = Resources.Text; ClipColor.Value = (Brush)App.Current?.FindResource("TextColor"); }
-            else if (type == ClipType.Figure) { ClipText.Value = Resources.Figure; ClipColor.Value = (Brush)App.Current?.FindResource("ImageColor"); }
-            else if (type == ClipType.Camera) { ClipText.Value = Resources.Camera; ClipColor.Value = (Brush)App.Current.FindResource("VideoColor"); }
-            else if (type == ClipType.GL3DObject) { ClipText.Value = Resources._3DObject; ClipColor.Value = (Brush)App.Current?.FindResource("VideoColor"); }
-            else if (type == ClipType.Scene) { ClipText.Value = Resources.Scenes; ClipColor.Value = (Brush)App.Current?.FindResource("VideoColor"); }
+            if (clip.Effect[0] is ObjectElement @object)
+            {
+                var color = @object.GetAttribute().GetColor;
+                ClipColor.Value = new SolidColorBrush(new Color()
+                {
+                    R = color.R,
+                    G = color.G,
+                    B = color.B,
+                    A = 255
+                });
+                ClipText.Value = @object.Name;
+            }
 
             #region Subscribe
 

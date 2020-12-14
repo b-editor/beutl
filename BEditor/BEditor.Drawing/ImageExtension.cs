@@ -10,6 +10,8 @@ using BEditor.Drawing.Interop;
 using BEditor.Drawing.Pixel;
 using BEditor.Drawing.Process;
 
+using SkiaSharp;
+
 namespace BEditor.Drawing
 {
     public unsafe static partial class Image
@@ -46,6 +48,21 @@ namespace BEditor.Drawing
             result.UnlockBits(data);
 
             return result;
+        }
+        public static Image<BGRA32> ToImage(this SKBitmap self)
+        {
+            var result = new Image<BGRA32>(self.Width, self.Height);
+            CopyTo(self.Bytes, result.Data!, result.DataSize);
+
+            return result;
+        }
+        private static void CopyTo(byte[] src, BGRA32[] dst, int length)
+        {
+            fixed (BGRA32* dstPtr = dst)
+            fixed (byte* srcPtr = src)
+            {
+                Buffer.MemoryCopy(srcPtr, dstPtr, length, length);
+            }
         }
         public static Image<BGRA32> ToImage(this Bitmap self)
         {
@@ -139,6 +156,7 @@ namespace BEditor.Drawing
 
         public static void BoxBlur<T>(this Image<T> self, float size) where T : unmanaged, IPixel<T>
         {
+
             if (size <= 0) throw new ArgumentOutOfRangeException(nameof(size));
             self.ThrowIfDisposed();
 
@@ -189,6 +207,87 @@ namespace BEditor.Drawing
                 var str = self.ToStruct(data);
                 Native.Image_Erode(str, f, str);
             }
+        }
+        public static Image<BGRA32> Ellipse(int width, int height, int line, BGRA32 color)
+        {
+            if (line >= Math.Min(width, height) / 2)
+                line = Math.Min(width, height) / 2;
+
+            var min = Math.Min(width, height);
+
+            if (line < min) min = line;
+            if (min < 0) min = 0;
+
+
+            using var bmp = new SKBitmap(new SKImageInfo(width, height, SKColorType.Bgra8888));
+            using var canvas = new SKCanvas(bmp);
+
+            using var paint = new SKPaint()
+            {
+                Color = new SKColor(color.R, color.G, color.B, color.A),
+                IsAntialias = true,
+                Style = SKPaintStyle.Stroke,
+                StrokeWidth = min
+            };
+
+            canvas.DrawOval(
+                new SKPoint(width / 2, height / 2),
+                new SKSize(width / 2 - min / 2, height / 2 - min / 2),
+                paint);
+
+            canvas.Flush();
+
+            return bmp.ToImage();
+        }
+        public static Image<BGRA32> Rectangle(int width, int height, int line, BGRA32 color)
+        {
+            using var bmp = new SKBitmap(new SKImageInfo(width, height, SKColorType.Bgra8888));
+            using var canvas = new SKCanvas(bmp);
+
+            using var paint = new SKPaint()
+            {
+                Color = new SKColor(color.R, color.G, color.B, color.A),
+                IsAntialias = true,
+                Style = SKPaintStyle.Stroke,
+                StrokeWidth = line
+            };
+
+            canvas.DrawRect(
+                0, 0,
+                width, height,
+                paint);
+
+            canvas.Flush();
+
+            return bmp.ToImage();
+        }
+        public static Image<BGRA32> Text(string text, Font font, float size, BGRA32 color)
+        {
+            if (string.IsNullOrEmpty(text)) return new Image<BGRA32>(1, 1);
+
+            using var face = SKTypeface.FromFile(font.Filename);
+            using var fontObj = new SKFont(face, size);
+            using var paint = new SKPaint(fontObj)
+            {
+                Color = new SKColor(color.R, color.G, color.B, color.A),
+                IsAntialias = true
+            };
+
+            SKRect textBounds = new SKRect();
+            paint.MeasureText(text, ref textBounds);
+
+
+            using var bmp = new SKBitmap(new SKImageInfo((int)textBounds.Width, (int)textBounds.Height, SKColorType.Bgra8888));
+            using var canvas = new SKCanvas(bmp);
+            
+            float xText = textBounds.Width / 2 - textBounds.MidX;
+            float yText = textBounds.Height / 2 - textBounds.MidY;
+
+            canvas.DrawText(text, new SKPoint(xText, yText), paint);
+
+            canvas.Flush();
+
+            return bmp.ToImage();
         }
     }
 }

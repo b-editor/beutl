@@ -2,6 +2,7 @@
 using System.Collections.Generic;
 using System.Collections.ObjectModel;
 using System.ComponentModel;
+using System.Linq;
 using System.Reactive.Disposables;
 using System.Runtime.Serialization;
 using System.Threading.Tasks;
@@ -12,6 +13,7 @@ using BEditor.Core.Data.Property;
 using BEditor.Core.Data.Property.EasingProperty;
 using BEditor.Core.Media;
 using BEditor.Core.Properties;
+using BEditor.Drawing;
 
 namespace BEditor.Core.Data.Primitive.Properties
 {
@@ -19,32 +21,21 @@ namespace BEditor.Core.Data.Primitive.Properties
     /// フォントを選択するプロパティ表します
     /// </summary>
     [DataContract]
-    public class FontProperty : PropertyElement<FontPropertyMetadata>, IEasingProperty, IBindable<FontRecord>
+    public class FontProperty : PropertyElement<FontPropertyMetadata>, IEasingProperty, IBindable<Font>
     {
         #region Fields
 
         /// <summary>
         /// 読み込まれているフォントのリスト
         /// </summary>
-        public static readonly List<FontRecord> FontList = new();
-        /// <summary>
-        /// フォントのスタイルのリスト
-        /// </summary>
-        public static readonly string[] FontStylesList = new string[]
-        {
-            Resources.FontStyle_Normal,
-            Resources.FontStyle_Bold,
-            Resources.FontStyle_Italic,
-            Resources.FontStyle_UnderLine,
-            Resources.FontStyle_StrikeThrough
-        };
+        public static readonly List<Font> FontList = new();
 
         private static readonly PropertyChangedEventArgs selectArgs = new(nameof(Select));
-        private FontRecord selectItem;
-        private List<IObserver<FontRecord>> list;
+        private Font selectItem;
+        private List<IObserver<Font>> list;
 
         private IDisposable BindDispose;
-        private IBindable<FontRecord> Bindable;
+        private IBindable<Font> Bindable;
         private string bindHint;
 
         #endregion
@@ -62,12 +53,12 @@ namespace BEditor.Core.Data.Primitive.Properties
         }
 
 
-        private List<IObserver<FontRecord>> Collection => list ??= new();
+        private List<IObserver<Font>> Collection => list ??= new();
         /// <summary>
         /// 選択されているフォントを取得または設定します
         /// </summary>
         [DataMember]
-        public FontRecord Select
+        public Font Select
         {
             get => selectItem;
             set => SetValue(value, ref selectItem, selectArgs, this, state =>
@@ -86,7 +77,7 @@ namespace BEditor.Core.Data.Primitive.Properties
             });
         }
         /// <inheritdoc/>
-        public FontRecord Value => Select;
+        public Font Value => Select;
         /// <inheritdoc/>
         [DataMember]
         public string BindHint
@@ -115,7 +106,7 @@ namespace BEditor.Core.Data.Primitive.Properties
         #region IBindable
 
         /// <inheritdoc/>
-        public IDisposable Subscribe(IObserver<FontRecord> observer)
+        public IDisposable Subscribe(IObserver<Font> observer)
         {
             if (observer is null) throw new ArgumentNullException(nameof(observer));
 
@@ -132,12 +123,12 @@ namespace BEditor.Core.Data.Primitive.Properties
         /// <inheritdoc/>
         public void OnError(Exception error) { }
         /// <inheritdoc/>
-        public void OnNext(FontRecord value)
+        public void OnNext(Font value)
         {
             Select = value;
         }
 
-        public void Bind(IBindable<FontRecord>? bindable)
+        public void Bind(IBindable<Font>? bindable)
         {
             BindDispose?.Dispose();
             Bindable = bindable;
@@ -165,8 +156,8 @@ namespace BEditor.Core.Data.Primitive.Properties
         public sealed class ChangeSelectCommand : IRecordCommand
         {
             private readonly FontProperty property;
-            private readonly FontRecord @new;
-            private readonly FontRecord old;
+            private readonly Font @new;
+            private readonly Font old;
 
             /// <summary>
             /// <see cref="ChangeSelectCommand"/> クラスの新しいインスタンスを初期化します
@@ -174,7 +165,7 @@ namespace BEditor.Core.Data.Primitive.Properties
             /// <param name="property">対象の <see cref="FontProperty"/></param>
             /// <param name="select">新しい値</param>
             /// <exception cref="ArgumentNullException"><paramref name="property"/> が <see langword="null"/> です</exception>
-            public ChangeSelectCommand(FontProperty property, FontRecord select)
+            public ChangeSelectCommand(FontProperty property, Font select)
             {
                 this.property = property ?? throw new ArgumentNullException(nameof(property));
                 this.@new = select;
@@ -205,16 +196,17 @@ namespace BEditor.Core.Data.Primitive.Properties
         /// </summary>
         public FontPropertyMetadata() : base(Resources.Font)
         {
+            SelectItem = FontProperty.FontList.FirstOrDefault();
         }
 
         /// <summary>
         /// 
         /// </summary>
-        public IEnumerable<FontRecord> ItemSource => FontProperty.FontList;
+        public IEnumerable<Font> ItemSource => FontProperty.FontList;
         /// <summary>
         /// 
         /// </summary>
-        public FontRecord SelectItem { get; init; }
+        public Font SelectItem { get; init; }
         /// <summary>
         /// 
         /// </summary>

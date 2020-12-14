@@ -7,7 +7,7 @@ namespace BEditor.Models.Settings
 {
     public class Setting
     {
-        public static double ClipHeight { get; } = Core.Data.Settings.Default.ClipHeight;
-        public static float WidthOf1Frame { get; } = Core.Data.Settings.Default.WidthOf1Frame;
+        public static double ClipHeight { get; } = BEditor.Settings.Default.ClipHeight;
+        public static float WidthOf1Frame { get; } = BEditor.Settings.Default.WidthOf1Frame;
     }
 }

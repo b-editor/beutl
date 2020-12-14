@@ -395,33 +395,6 @@ Please let the developer know.</value>
   <data name="Font" xml:space="preserve">
     <value>Font</value>
   </data>
-  <data name="FontStretches" xml:space="preserve">
-    <value>FontStretches</value>
-  </data>
-  <data name="FontStyle.Bold" xml:space="preserve">
-    <value>Bold</value>
-  </data>
-  <data name="FontStyle.Italic" xml:space="preserve">
-    <value>Italic</value>
-  </data>
-  <data name="FontStyle.Normal" xml:space="preserve">
-    <value>Normal</value>
-  </data>
-  <data name="FontStyle.Oblique" xml:space="preserve">
-    <value>Oblique</value>
-  </data>
-  <data name="FontStyle.StrikeThrough" xml:space="preserve">
-    <value>StrikeThrough</value>
-  </data>
-  <data name="FontStyle.UnderLine" xml:space="preserve">
-    <value>UnderLine</value>
-  </data>
-  <data name="FontStyles" xml:space="preserve">
-    <value>FontStyles</value>
-  </data>
-  <data name="FontWeights" xml:space="preserve">
-    <value>FontWeights</value>
-  </data>
   <data name="Fov" xml:space="preserve">
     <value>viewing angle</value>
   </data>
@@ -655,9 +628,6 @@ Please let the developer know.</value>
   </data>
   <data name="UseDarkMode" xml:space="preserve">
     <value>Use dark mode (effective after restarting the application)</value>
-  </data>
-  <data name="UseGDI" xml:space="preserve">
-    <value>Use GDI for rendering 2D shapes (WPF is used when off)</value>
   </data>
   <data name="ValueIsNotValid" xml:space="preserve">
     <value>value is not valid</value>

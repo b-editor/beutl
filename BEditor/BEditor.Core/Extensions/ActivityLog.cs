@@ -12,7 +12,7 @@ namespace BEditor.Core.Extensions
 {
     public static class ActivityLog
     {
-        private static readonly string xmlpath = $"{Services.Path}\\user\\logs\\errorlog.xml";
+        private static readonly string xmlpath = System.IO.Path.Combine(AppContext.BaseDirectory, "user", "logs", "errorlog.xml");
         public static void ErrorLog(Exception e)
         {
             if (!Settings.Default.EnableErrorLog) return;

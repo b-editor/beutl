@@ -8,7 +8,6 @@ namespace BEditor.Core.Service
         public static string Path { get; } = System.IO.Path.GetDirectoryName(AppContext.BaseDirectory);
 
         public static IFileDialogService FileDialogService { get; set; }
-        public static IImageRenderService ImageRenderService { get; set; }// = new ImageRenderService();
         public static IGraphicsContextService GraphicsContextService { get; set; } = new GraphicsContextService();
     }
 

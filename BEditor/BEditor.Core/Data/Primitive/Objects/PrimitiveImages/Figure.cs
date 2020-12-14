@@ -67,7 +67,7 @@ namespace BEditor.Core.Data.Primitive.Objects.PrimitiveImages
         {
             if (Type.Index == 0)
             {
-                return Services.ImageRenderService.Ellipse(
+                return Drawing.Image.Ellipse(
                     (int)Width.GetValue(args.Frame),
                     (int)Height.GetValue(args.Frame),
                     (int)Line.GetValue(args.Frame),
@@ -75,7 +75,7 @@ namespace BEditor.Core.Data.Primitive.Objects.PrimitiveImages
             }
             else
             {
-                return Services.ImageRenderService.Rectangle(
+                return Drawing.Image.Rectangle(
                     (int)Width.GetValue(args.Frame),
                     (int)Height.GetValue(args.Frame),
                     (int)Line.GetValue(args.Frame),

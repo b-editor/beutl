@@ -1541,11 +1541,6 @@
             読み込まれているフォントのリスト
             </summary>
         </member>
-        <member name="F:BEditor.Core.Data.Primitive.Properties.FontProperty.FontStylesList">
-            <summary>
-            フォントのスタイルのリスト
-            </summary>
-        </member>
         <member name="M:BEditor.Core.Data.Primitive.Properties.FontProperty.#ctor(BEditor.Core.Data.Primitive.Properties.FontPropertyMetadata)">
             <summary>
             <see cref="T:BEditor.Core.Data.Primitive.Properties.FontProperty"/> クラスの新しいインスタンスを初期化します
@@ -1570,7 +1565,7 @@
         <member name="M:BEditor.Core.Data.Primitive.Properties.FontProperty.ToString">
             <inheritdoc/>
         </member>
-        <member name="M:BEditor.Core.Data.Primitive.Properties.FontProperty.Subscribe(System.IObserver{BEditor.Core.Media.FontRecord})">
+        <member name="M:BEditor.Core.Data.Primitive.Properties.FontProperty.Subscribe(System.IObserver{BEditor.Drawing.Font})">
             <inheritdoc/>
         </member>
         <member name="M:BEditor.Core.Data.Primitive.Properties.FontProperty.OnCompleted">
@@ -1579,7 +1574,7 @@
         <member name="M:BEditor.Core.Data.Primitive.Properties.FontProperty.OnError(System.Exception)">
             <inheritdoc/>
         </member>
-        <member name="M:BEditor.Core.Data.Primitive.Properties.FontProperty.OnNext(BEditor.Core.Media.FontRecord)">
+        <member name="M:BEditor.Core.Data.Primitive.Properties.FontProperty.OnNext(BEditor.Drawing.Font)">
             <inheritdoc/>
         </member>
         <member name="T:BEditor.Core.Data.Primitive.Properties.FontProperty.ChangeSelectCommand">
@@ -1588,7 +1583,7 @@
             </summary>
             <remarks>このクラスは <see cref="M:BEditor.Core.Command.CommandManager.Do(BEditor.Core.Command.IRecordCommand)"/> と併用することでコマンドを記録できます</remarks>
         </member>
-        <member name="M:BEditor.Core.Data.Primitive.Properties.FontProperty.ChangeSelectCommand.#ctor(BEditor.Core.Data.Primitive.Properties.FontProperty,BEditor.Core.Media.FontRecord)">
+        <member name="M:BEditor.Core.Data.Primitive.Properties.FontProperty.ChangeSelectCommand.#ctor(BEditor.Core.Data.Primitive.Properties.FontProperty,BEditor.Drawing.Font)">
             <summary>
             <see cref="T:BEditor.Core.Data.Primitive.Properties.FontProperty.ChangeSelectCommand"/> クラスの新しいインスタンスを初期化します
             </summary>
@@ -2073,12 +2068,12 @@
         </member>
         <member name="T:BEditor.Core.Data.Property.PropertyElementMetadata">
             <summary>
-            <see cref="!:PropertyElement"/> のメタデータを表します
+            <see cref="T:BEditor.Core.Data.Property.PropertyElement"/> のメタデータを表します
             </summary>
         </member>
         <member name="M:BEditor.Core.Data.Property.PropertyElementMetadata.#ctor(System.String)">
             <summary>
-            <see cref="!:PropertyElement"/> のメタデータを表します
+            <see cref="T:BEditor.Core.Data.Property.PropertyElement"/> のメタデータを表します
             </summary>
         </member>
         <member name="T:BEditor.Core.Data.ClipRenderArgs">
@@ -3241,51 +3236,6 @@
               Font に類似しているローカライズされた文字列を検索します。
             </summary>
         </member>
-        <member name="P:BEditor.Core.Properties.Resources.FontStretches">
-            <summary>
-              FontStretches に類似しているローカライズされた文字列を検索します。
-            </summary>
-        </member>
-        <member name="P:BEditor.Core.Properties.Resources.FontStyle_Bold">
-            <summary>
-              Bold に類似しているローカライズされた文字列を検索します。
-            </summary>
-        </member>
-        <member name="P:BEditor.Core.Properties.Resources.FontStyle_Italic">
-            <summary>
-              Italic に類似しているローカライズされた文字列を検索します。
-            </summary>
-        </member>
-        <member name="P:BEditor.Core.Properties.Resources.FontStyle_Normal">
-            <summary>
-              Normal に類似しているローカライズされた文字列を検索します。
-            </summary>
-        </member>
-        <member name="P:BEditor.Core.Properties.Resources.FontStyle_Oblique">
-            <summary>
-              Oblique に類似しているローカライズされた文字列を検索します。
-            </summary>
-        </member>
-        <member name="P:BEditor.Core.Properties.Resources.FontStyle_StrikeThrough">
-            <summary>
-              StrikeThrough に類似しているローカライズされた文字列を検索します。
-            </summary>
-        </member>
-        <member name="P:BEditor.Core.Properties.Resources.FontStyle_UnderLine">
-            <summary>
-              UnderLine に類似しているローカライズされた文字列を検索します。
-            </summary>
-        </member>
-        <member name="P:BEditor.Core.Properties.Resources.FontStyles">
-            <summary>
-              FontStyles に類似しているローカライズされた文字列を検索します。
-            </summary>
-        </member>
-        <member name="P:BEditor.Core.Properties.Resources.FontWeights">
-            <summary>
-              FontWeights に類似しているローカライズされた文字列を検索します。
-            </summary>
-        </member>
         <member name="P:BEditor.Core.Properties.Resources.Fov">
             <summary>
               viewing angle に類似しているローカライズされた文字列を検索します。
@@ -3674,11 +3624,6 @@
         <member name="P:BEditor.Core.Properties.Resources.UseDarkMode">
             <summary>
               Use dark mode (effective after restarting the application) に類似しているローカライズされた文字列を検索します。
-            </summary>
-        </member>
-        <member name="P:BEditor.Core.Properties.Resources.UseGDI">
-            <summary>
-              Use GDI for rendering 2D shapes (WPF is used when off) に類似しているローカライズされた文字列を検索します。
             </summary>
         </member>
         <member name="P:BEditor.Core.Properties.Resources.ValueIsNotValid">

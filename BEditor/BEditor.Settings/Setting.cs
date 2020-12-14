@@ -1,15 +1,15 @@
-﻿using System.Collections.Generic;
+﻿using System;
+using System.Collections.Generic;
 using System.Collections.ObjectModel;
 using System.ComponentModel;
 using System.IO;
+using System.Runtime.InteropServices;
 using System.Runtime.Serialization;
 
-using BEditor.Core.Service;
-
-namespace BEditor.Core.Data
+namespace BEditor
 {
-    [DataContract(Namespace = "")]
-    public class Settings : BasePropertyChanged
+    [DataContract]
+    public class Settings : INotifyPropertyChanged
     {
         #region Fields
 
@@ -27,27 +27,29 @@ namespace BEditor.Core.Data
         private int lastTimeNum = 0;
         private int widthOf1Frame = 5;
         private bool enableErrorLog = false;
-        private ObservableCollection<string> enablePlugins;
-        private ObservableCollection<string> disablePlugins;
+        private ObservableCollection<string>? enablePlugins;
+        private ObservableCollection<string>? disablePlugins;
+        private ObservableCollection<string>? includeFonts;
 
         #endregion
 
 
         static Settings()
         {
-            var path = $"{Services.Path}\\user\\settings.json";
+            var path = Path.Combine(AppContext.BaseDirectory, "user", "settings.json");
             if (!File.Exists(path))
             {
                 Default = new Settings();
-                Serialize.SaveToFile(Default, path, SerializeMode.Json);
+                Serialize.SaveToFile(Default, path);
             }
             else
             {
-                Default = Serialize.LoadFromFile<Settings>(path, SerializeMode.Json);
+                Default = Serialize.LoadFromFile<Settings>(path) ?? new Settings();
             }
         }
         private Settings() { }
 
+        public event PropertyChangedEventHandler? PropertyChanged;
 
         #region Properties
 
@@ -103,13 +105,45 @@ namespace BEditor.Core.Data
         [DataMember]
         public ObservableCollection<string> DisablePlugins
         {
-            get => disablePlugins??=new();
+            get => disablePlugins ??= new();
             set => disablePlugins = value;
+        }
+        [DataMember]
+        public ObservableCollection<string> IncludeFontDir
+        {
+            get
+            {
+                if (includeFonts is null)
+                {
+                    includeFonts = new();
+
+                    if (RuntimeInformation.IsOSPlatform(OSPlatform.Windows))
+                    {
+                        var user = Environment.GetFolderPath(Environment.SpecialFolder.UserProfile);
+                        includeFonts.Add($"{user}\\AppData\\Local\\Microsoft\\Windows\\Fonts");
+                        includeFonts.Add("C:\\Windows\\Fonts");
+                    }
+                }
+
+                return includeFonts;
+            }
+            set => includeFonts = value;
         }
 
         #endregion
 
-
-        public void Save() => Serialize.SaveToFile(this, $"{Services.Path}\\user\\settings.json", SerializeMode.Json);
+        private void RaisePropertyChanged(PropertyChangedEventArgs args)
+        {
+            PropertyChanged?.Invoke(this, args);
+        }
+        private void SetValue<T1>(T1 src, ref T1 dst, PropertyChangedEventArgs args)
+        {
+            if (src == null || !src.Equals(dst))
+            {
+                dst = src;
+                RaisePropertyChanged(args);
+            }
+        }
+        public void Save() => Serialize.SaveToFile(this, Path.Combine(AppContext.BaseDirectory, "user", "settings.json"));
     }
 }
