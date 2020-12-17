@@ -40,7 +40,7 @@ namespace BEditor.Views.PropertyControls
 
                 var effectinstance = effect.CreateFunc?.Invoke() ?? Activator.CreateInstance(effect.Type) as EffectElement;
 
-                CommandManager.Do(new EffectElement.AddCommand(effectinstance, Data));
+                Data.CreateAddCommand(effectinstance).Execute();
             }
             catch
             {

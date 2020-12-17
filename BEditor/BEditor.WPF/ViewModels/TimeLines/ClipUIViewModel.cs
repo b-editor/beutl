@@ -17,6 +17,7 @@ using Reactive.Bindings;
 using Reactive.Bindings.Extensions;
 using System.Reactive.Linq;
 using System.ComponentModel;
+using BEditor.Core.Command;
 
 namespace BEditor.ViewModels.TimeLines
 {
@@ -166,7 +167,7 @@ namespace BEditor.ViewModels.TimeLines
                 int end = TimeLineViewModel.ToFrame(TimeLineViewModel.ClipSelect.GetCreateClipViewModel().WidthProperty.Value) + start;//変更後の最大フレーム
 
                 if (0 < start && 0 < end)
-                    CommandManager.Do(new ClipData.LengthChangeCommand(data, start, end));
+                    data.CreateLengthChangeCommand(start, end).Execute();
             }
 
             if (TimeLineViewModel.ClipTimeChange)
@@ -177,7 +178,7 @@ namespace BEditor.ViewModels.TimeLines
                 int layer = data.GetCreateClipViewModel().Row;
 
 
-                CommandManager.Do(new ClipData.MoveCommand(data, frame, layer));
+                data.CreateMoveCommand(frame, layer).Execute();
 
                 TimeLineViewModel.ClipTimeChange = false;
             }
@@ -232,7 +233,7 @@ namespace BEditor.ViewModels.TimeLines
         #endregion
 
         #region Delete
-        private void ClipDelete() => CommandManager.Do(new ClipData.RemoveCommand(ClipData));
+        private void ClipDelete() => ClipData.Parent.CreateRemoveCommand(ClipData).Execute();
         #endregion
 
         #region DataLog

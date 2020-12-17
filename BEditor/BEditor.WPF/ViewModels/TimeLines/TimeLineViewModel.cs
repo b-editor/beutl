@@ -12,6 +12,7 @@ using BEditor.Models.Settings;
 using BEditor.Views;
 using BEditor.Views.SettingsControl;
 
+using BEditor.Core.Command;
 using BEditor.Core.Data;
 using BEditor.Core.Data.Control;
 using BEditor.Core.Media;
@@ -275,12 +276,12 @@ namespace BEditor.ViewModels.TimeLines
 
                 if (de.Data.GetDataPresent(typeof(Func<ObjectMetadata>)))
                 {
-                    var command = new ClipData.AddCommand(
-                        Scene,
+                    Scene.CreateAddCommand(
                         frame,
                         addlayer,
-                        ((Func<ObjectMetadata>)de.Data.GetData(typeof(Func<ObjectMetadata>))).Invoke());
-                    CommandManager.Do(command);
+                        ((Func<ObjectMetadata>)de.Data.GetData(typeof(Func<ObjectMetadata>))).Invoke(),
+                        out _)
+                        .Execute();
                 }
                 else if (de.Data.GetDataPresent(DataFormats.FileDrop, true))
                 {
@@ -289,25 +290,24 @@ namespace BEditor.ViewModels.TimeLines
                     if (Path.GetExtension(file) != ".beo")
                     {
                         var type_ = FileTypeConvert(file);
-                        var a = new ClipData.AddCommand(Scene, frame, addlayer, type_);
-                        CommandManager.Do(a);
+                        Scene.CreateAddCommand(frame, addlayer, type_, out var clip).Execute();
 
                         if (type_ == ClipType.ImageMetadata)
                         {
-                            (a.data.Effect[0] as Core.Data.Primitive.Objects.PrimitiveImages.Image).File.File = file;
+                            (clip.Effect[0] as Core.Data.Primitive.Objects.PrimitiveImages.Image).File.File = file;
                         }
                         else if (type_ == ClipType.VideoMetadata)
                         {
-                            (a.data.Effect[0] as Core.Data.Primitive.Objects.PrimitiveImages.Video).File.File = file;
+                            (clip.Effect[0] as Core.Data.Primitive.Objects.PrimitiveImages.Video).File.File = file;
                         }
                         else if (type_ == ClipType.TextMetadata)
                         {
                             var reader = new StreamReader(file);
-                            (a.data.Effect[0] as Core.Data.Primitive.Objects.PrimitiveImages.Text).Document.Text = reader.ReadToEnd();
+                            (clip.Effect[0] as Core.Data.Primitive.Objects.PrimitiveImages.Text).Document.Text = reader.ReadToEnd();
                             reader.Close();
                         }
 
-                        AppData.Current.Project.PreviewUpdate(a.data);
+                        AppData.Current.Project.PreviewUpdate(clip);
                     }
                 }
             }
@@ -401,7 +401,7 @@ namespace BEditor.ViewModels.TimeLines
                 int start = ToFrame(ClipSelect.GetCreateClipViewModel().MarginLeftProperty);
                 int end = ToFrame(ClipSelect.GetCreateClipViewModel().WidthProperty.Value) + start;//変更後の最大フレーム
                 if (0 < start && 0 < end)
-                    CommandManager.Do(new ClipData.LengthChangeCommand(ClipSelect, start, end));
+                    ClipSelect.CreateLengthChangeCommand(start, end).Execute();
 
                 ClipLeftRight = 0;
             }
@@ -495,9 +495,9 @@ namespace BEditor.ViewModels.TimeLines
             {
                 ClipData data = ClipSelect;
 
-                CommandManager.Do(new ClipData.MoveCommand(clip: data,
-                                                     toFrame: ToFrame(data.GetCreateClipViewModel().MarginLeftProperty),
-                                                     toLayer: ClipSelect.GetCreateClipViewModel().Row));
+                data.CreateMoveCommand(
+                    ToFrame(data.GetCreateClipViewModel().MarginLeftProperty),
+                    ClipSelect.GetCreateClipViewModel().Row).Execute();
 
                 ClipTimeChange = false;
             }

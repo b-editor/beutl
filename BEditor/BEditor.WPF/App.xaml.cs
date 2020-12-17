@@ -164,7 +164,7 @@ namespace BEditor
             #region イベント
             checkBox.Click += (sender, e) =>
             {
-                CommandManager.Do(new EffectElement.CheckCommand(obj, (bool)((System.Windows.Controls.CheckBox)sender).IsChecked));
+                obj.CreateCheckCommand((bool)((CheckBox)sender).IsChecked).Execute();
             };
 
             #endregion
@@ -237,13 +237,13 @@ namespace BEditor
 
             #region イベント
 
-            checkBox.Click += (sender, e) => CommandManager.Do(new EffectElement.CheckCommand(effect, (bool)((System.Windows.Controls.CheckBox)sender).IsChecked));
+            checkBox.Click += (sender, e) => effect.CreateCheckCommand((bool)((CheckBox)sender).IsChecked).Execute();
 
-            upbutton.Click += (sender, e) => CommandManager.Do(new EffectElement.UpCommand(effect));
+            upbutton.Click += (sender, e) => effect.CreateUpCommand().Execute();
 
-            downbutton.Click += (sender, e) => CommandManager.Do(new EffectElement.DownCommand(effect));
+            downbutton.Click += (sender, e) => effect.CreateDownCommand().Execute();
 
-            Delete.Click += (sender, e) => CommandManager.Do(new EffectElement.RemoveCommand(effect));
+            Delete.Click += (sender, e) => effect.Parent.CreateRemoveCommand(effect).Execute();
 
             #endregion
 

@@ -38,6 +38,7 @@
 
   <ItemGroup>
     <ProjectReference Include="..\BEditor.Drawing\BEditor.Drawing.csproj" />
+    <ProjectReference Include="..\BEditor.Media\BEditor.Media.csproj" />
     <ProjectReference Include="..\BEditor.Settings\BEditor.Settings.csproj" />
   </ItemGroup>
 

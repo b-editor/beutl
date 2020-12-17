@@ -26,12 +26,11 @@ namespace BEditor.ViewModels.CreateDialog
 
             AddCommand.Subscribe(() =>
             {
-                var command = new ClipData.AddCommand(Scene.Value, Start.Value, Layer.Value, Type.Value);
+                Scene.Value.CreateAddCommand(Start.Value, Layer.Value, Type.Value, out var data).Execute();
 
-                CommandManager.Do(command);
+                if (Name.Value != string.Empty) data.LabelText = Name.Value;
 
-                if (Name.Value != string.Empty) command.data.LabelText = Name.Value;
-                command.data.End = Start.Value + Length.Value;
+                data.End = Start.Value + Length.Value;
             });
         }
 

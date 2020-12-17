@@ -7,6 +7,7 @@ using System.Reactive.Linq;
 using System.Runtime.Serialization;
 using System.Threading.Tasks;
 
+using BEditor.Core.Command;
 using BEditor.Core.Data.Control;
 using BEditor.Core.Extensions;
 using BEditor.Core.Graphics;

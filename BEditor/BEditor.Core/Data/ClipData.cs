@@ -215,7 +215,7 @@ namespace BEditor.Core.Data
         /// <summary>
         /// Represents a command that adds <see cref="ClipData"/> to a <see cref="Data.Scene"/>.
         /// </summary>
-        public sealed class AddCommand : IRecordCommand
+        internal sealed class AddCommand : IRecordCommand
         {
             private readonly Scene Scene;
             private readonly int AddFrame;
@@ -285,7 +285,7 @@ namespace BEditor.Core.Data
         /// <summary>
         /// Represents a command to remove <see cref="ClipData"/> from a <see cref="Data.Scene"/>
         /// </summary>
-        public sealed class RemoveCommand : IRecordCommand
+        internal sealed class RemoveCommand : IRecordCommand
         {
             private readonly ClipData data;
 
@@ -332,7 +332,7 @@ namespace BEditor.Core.Data
         /// <summary>
         /// Represents a command to move <see cref="ClipData"/> frames and layers.
         /// </summary>
-        public sealed class MoveCommand : IRecordCommand
+        internal sealed class MoveCommand : IRecordCommand
         {
             private readonly ClipData data;
             private readonly int to;
@@ -398,7 +398,7 @@ namespace BEditor.Core.Data
         /// <summary>
         /// Represents a command to change the length of <see cref="ClipData"/>.
         /// </summary>
-        public sealed class LengthChangeCommand : IRecordCommand
+        internal sealed class LengthChangeCommand : IRecordCommand
         {
             private readonly ClipData data;
             private readonly int start;

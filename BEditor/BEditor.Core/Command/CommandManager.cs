@@ -138,41 +138,6 @@ namespace BEditor.Core.Command
             Executed?.Invoke(command, CommandType.Do);
         }
         /// <summary>
-        /// 操作を実行し、かつその内容をStackに追加します
-        /// </summary>
-        /// <param name="command">実行するコマンド</param>
-        public static Task DoAsyns(IRecordCommand command)
-        {
-            return Task.Run(() =>
-            {
-                if (!process)
-                {
-                    Debug.WriteLine("if (!process) {...");
-                    return;
-                }
-
-                CanUndo = UndoStack.Count > 0;
-
-                try
-                {
-                    process = false;
-                    command.Do();
-
-                    UndoStack.Push(command);
-
-                    RedoStack.Clear();
-                    CanRedo = RedoStack.Count > 0;
-                }
-                catch
-                {
-                    CommandCancel?.Invoke(null, EventArgs.Empty);
-                }
-
-                process = true;
-                Executed?.Invoke(command, CommandType.Do);
-            });
-        }
-        /// <summary>
         /// 行なったコマンドを取り消してひとつ前の状態に戻します
         /// </summary>
         public static void Undo()

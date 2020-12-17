@@ -109,7 +109,7 @@ namespace BEditor.Core.Data
         /// <summary>
         /// Represents a command that changes the boolean for which an effect is enabled.
         /// </summary>
-        public sealed class CheckCommand : IRecordCommand
+        internal sealed class CheckCommand : IRecordCommand
         {
             private readonly EffectElement effect;
             private readonly bool value;
@@ -136,7 +136,7 @@ namespace BEditor.Core.Data
         /// <summary>
         /// Represents a command that changes the order of the effects.
         /// </summary>
-        public sealed class UpCommand : IRecordCommand
+        internal sealed class UpCommand : IRecordCommand
         {
             private readonly ClipData data;
             private readonly EffectElement effect;
@@ -181,7 +181,7 @@ namespace BEditor.Core.Data
         /// <summary>
         /// Represents a command that changes the order of the effects.
         /// </summary>
-        public sealed class DownCommand : IRecordCommand
+        internal sealed class DownCommand : IRecordCommand
         {
             private readonly ClipData data;
             private readonly EffectElement effect;
@@ -226,7 +226,7 @@ namespace BEditor.Core.Data
         /// <summary>
         /// Represents a command that removes the effect from the parent element.
         /// </summary>
-        public sealed class RemoveCommand : IRecordCommand
+        internal sealed class RemoveCommand : IRecordCommand
         {
             private readonly ClipData data;
             private readonly EffectElement effect;
@@ -254,7 +254,7 @@ namespace BEditor.Core.Data
         /// <summary>
         /// Represents a command to add an effect.
         /// </summary>
-        public sealed class AddCommand : IRecordCommand
+        internal sealed class AddCommand : IRecordCommand
         {
             private readonly ClipData data;
             private readonly EffectElement effect;
