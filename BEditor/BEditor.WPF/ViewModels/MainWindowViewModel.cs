@@ -100,7 +100,7 @@ namespace BEditor.ViewModels
             CommandManager.CanUndoChange += (sender, e) => UndoIsEnabled.Value = CommandManager.CanUndo;
             CommandManager.CanRedoChange += (sender, e) => RedoIsEnabled.Value = CommandManager.CanRedo;
 
-            CommandManager.DidEvent += DidEvent;
+            CommandManager.Executed += Executed;
 
             AppData.Current
                 .ObserveProperty(app => app.Project)
@@ -233,7 +233,7 @@ namespace BEditor.ViewModels
         public ObservableCollection<string> UnDoList { get; } = new();
         public ObservableCollection<string> ReDoList { get; } = new();
 
-        private void DidEvent(object sender, CommandType type)
+        private void Executed(object sender, CommandType type)
         {
             try
             {
@@ -243,7 +243,7 @@ namespace BEditor.ViewModels
 
                     var command = CommandManager.UndoStack.Peek();
 
-                    UnDoList.Insert(0, CommandManager.CommandTypeDictionary[command.GetType()]);
+                    UnDoList.Insert(0, command.Name);
 
                     AppData.Current.Project.PreviewUpdate();
                 }

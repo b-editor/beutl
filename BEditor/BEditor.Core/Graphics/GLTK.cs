@@ -68,6 +68,40 @@ namespace BEditor.Core.Graphics
 
         #region Paint
 
+        public static void Paint<T>(System.Numerics.Vector3 coordinate, double nx, double ny, double nz, System.Numerics.Vector3 center, T state, Action<T> draw, Action blentfunc = null)
+        {
+            GL.Enable(EnableCap.Blend);
+
+            blentfunc?.Invoke();
+            if (blentfunc == null)
+            {
+                GL.BlendEquationSeparate(BlendEquationMode.FuncAdd, BlendEquationMode.FuncAdd);
+                GL.BlendFunc(BlendingFactor.SrcAlpha, BlendingFactor.OneMinusSrcAlpha);
+            }
+
+            GL.PushMatrix();
+            {
+                GL.Translate(coordinate.ToOpenTK());
+
+                GL.PushMatrix();
+                {
+                    GL.Rotate(nx, Vector3d.UnitX);
+                    GL.Rotate(ny, Vector3d.UnitY);
+                    GL.Rotate(nz, Vector3d.UnitZ);
+
+
+                    GL.PushMatrix();
+                    {
+                        GL.Translate(center.ToOpenTK());
+
+                        draw?.Invoke(state);
+                    }
+                    GL.PopMatrix();
+                }
+                GL.PopMatrix();
+            }
+            GL.PopMatrix();
+        }
         public static void Paint(System.Numerics.Vector3 coordinate, double nx, double ny, double nz, System.Numerics.Vector3 center, Action draw, Action blentfunc = null)
         {
             GL.Enable(EnableCap.Blend);

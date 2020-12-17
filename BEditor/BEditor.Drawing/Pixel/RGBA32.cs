@@ -1,23 +1,19 @@
 ﻿using System;
-using System.Collections.Generic;
-using System.Linq;
 using System.Runtime.InteropServices;
-using System.Text;
-using System.Threading.Tasks;
 
 namespace BEditor.Drawing.Pixel
 {
     [Serializable]
     [StructLayout(LayoutKind.Sequential)]
     [PixelFormat(4)]
-    public struct BGRA32 : IPixel<BGRA32>, IPixelConvertable<BGR24>, IPixelConvertable<RGB24>, IPixelConvertable<RGBA32>
+    public struct RGBA32 : IPixel<RGBA32>, IPixelConvertable<BGR24>, IPixelConvertable<RGB24>, IPixelConvertable<RGBA32>
     {
-        public byte B;
-        public byte G;
         public byte R;
+        public byte G;
+        public byte B;
         public byte A;
 
-        public BGRA32(byte r, byte g, byte b, byte a)
+        public RGBA32(byte r, byte g, byte b, byte a)
         {
             R = r;
             G = g;
@@ -25,11 +21,11 @@ namespace BEditor.Drawing.Pixel
             A = a;
         }
 
-        public readonly BGRA32 Blend(BGRA32 foreground)
+        public readonly RGBA32 Blend(RGBA32 foreground)
         {
             if (A is 0) return this;
 
-            var result = new BGRA32();
+            var result = new RGBA32();
 
             var dstA = foreground.A;
             var blendA = (A + dstA) - A * dstA / 255;

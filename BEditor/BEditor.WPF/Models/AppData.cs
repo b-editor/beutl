@@ -62,7 +62,7 @@ namespace BEditor.Models
 
             #endregion
 
-            CommandManager.DidEvent += (_, _) => AppStatus = Status.Edit;
+            CommandManager.Executed += (_, _) => AppStatus = Status.Edit;
         }
 
         /// <inheritdoc/>

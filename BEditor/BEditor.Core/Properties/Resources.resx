@@ -225,9 +225,6 @@
   <data name="Bottom" xml:space="preserve">
     <value>Bottom</value>
   </data>
-  <data name="BoxFilter" xml:space="preserve">
-    <value>BoxFilter</value>
-  </data>
   <data name="Camera" xml:space="preserve">
     <value>Camera</value>
   </data>
@@ -407,9 +404,6 @@ Please let the developer know.</value>
   <data name="From_backup" xml:space="preserve">
     <value>Created from a backup</value>
   </data>
-  <data name="Gauss" xml:space="preserve">
-    <value>Gauss</value>
-  </data>
   <data name="General" xml:space="preserve">
     <value>General</value>
   </data>
@@ -460,9 +454,6 @@ Please let the developer know.</value>
   </data>
   <data name="Material" xml:space="preserve">
     <value>Material</value>
-  </data>
-  <data name="Median" xml:space="preserve">
-    <value>Median</value>
   </data>
   <data name="Menu" xml:space="preserve">
     <value>Menu</value>

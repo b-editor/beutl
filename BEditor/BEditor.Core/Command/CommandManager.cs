@@ -1,5 +1,6 @@
 ﻿using System;
 using System.Collections.Generic;
+using System.Diagnostics;
 using System.Threading.Tasks;
 
 using BEditor.Core.Data;
@@ -25,83 +26,6 @@ namespace BEditor.Core.Command
 
         #region Properties
 
-        /// <summary>
-        /// コマンドに対応する名前が入った配列を取得します
-        /// </summary>
-        public static Dictionary<Type, string> CommandTypeDictionary { get; } = new()
-        {
-            #region キーフレーム操作
-            { typeof(EaseProperty.AddCommand),    "キーフレームを追加" },
-            { typeof(EaseProperty.RemoveCommand), "キーフレームを削除" },
-            { typeof(EaseProperty.MoveCommand),   "キーフレームを移動" },
-            { typeof(ColorAnimationProperty.AddCommand),    "キーフレームを追加" },
-            { typeof(ColorAnimationProperty.RemoveCommand), "キーフレームを削除" },
-            { typeof(ColorAnimationProperty.MoveCommand),   "キーフレームを移動" },
-            #endregion
-
-            #region タイムライン操作
-            { typeof(ClipData.AddCommand),          "オブジェクトを追加" },
-            { typeof(ClipData.RemoveCommand),       "オブジェクトを削除" },
-            { typeof(ClipData.MoveCommand),         "オブジェクトを移動" },
-            { typeof(ClipData.LengthChangeCommand), "オブジェクトの長さ変更" },
-            //{ typeof(ClipData.PasteClip),        "オブジェクトをペースト" },
-            //{ typeof(ClipData.CopyClip),         "オブジェクトをコピー" },
-            //{ typeof(ClipData.CutClip),          "オブジェクトをカット" },
-            #endregion
-
-            #region エフェクト操作
-            { typeof(EffectElement.CheckCommand),  "エフェクトを無効化" },
-            { typeof(EffectElement.UpCommand),     "エフェクトの階層 上" },
-            { typeof(EffectElement.DownCommand),   "エフェクトの階層 下" },
-            { typeof(EffectElement.RemoveCommand), "エフェクトを削除" },
-            { typeof(EffectElement.AddCommand), "エフェクトを追加" },
-            #endregion
-
-            #region プロパティ変更
-            { typeof(EaseProperty.ChangeValueCommand), "値の変更" },
-            { typeof(EaseProperty.ChangeEaseCommand), "イージングの変更" },
-
-            { typeof(ColorAnimationProperty.ChangeEaseCommand), "イージングの変更" },
-            { typeof(ColorAnimationProperty.ChangeColorCommand), "色の変更" },
-
-
-            { typeof(ColorProperty.ChangeColorCommand), "色の変更" },
-
-            { typeof(DocumentProperty.TextChangeCommand), "ドキュメントのテキストを変更" },
-
-            { typeof(SelectorProperty.ChangeSelectCommand), "コンボボックス変更" },
-            { typeof(FontProperty.ChangeSelectCommand), "フォントの変更" },
-
-
-            { typeof(CheckProperty.ChangeCheckedCommand), "チェックボックス変更" },
-
-
-            { typeof(FileProperty.ChangeFileCommand), "ファイル変更" },
-
-            { typeof(ValueProperty.ChangeValueCommand), "値の変更" },
-            { typeof(TextProperty.ChangeTextCommand), "値の変更" },
-
-            { typeof(FolderProperty.ChangeFolderCommand), "フォルダ変更" },
-
-            #endregion
-
-            #region バインディング
-
-            // Todo : コマンドの説明を属性で設定する
-            { typeof(Bindings.BindCommand<int>), "" },
-            { typeof(Bindings.BindCommand<bool>), "" },
-            { typeof(Bindings.BindCommand<Media.Color>), "" },
-            { typeof(Bindings.BindCommand<Media.ReadOnlyColor>), "" },
-            { typeof(Bindings.BindCommand<Font>), "" },
-            
-            { typeof(Bindings.Disconnect<int>), "" },
-            { typeof(Bindings.Disconnect<bool>), "" },
-            { typeof(Bindings.Disconnect<Media.Color>), "" },
-            { typeof(Bindings.Disconnect<Media.ReadOnlyColor>), "" },
-            { typeof(Bindings.Disconnect<Font>), "" }
-
-	        #endregion
-        };
         /// <summary>
         /// 実行後またはRedo後に記録
         /// </summary>
@@ -166,7 +90,7 @@ namespace BEditor.Core.Command
         /// <summary>
         /// UnDo ReDo Do時に発生します
         /// </summary>
-        public static event EventHandler<CommandType> DidEvent;
+        public static event EventHandler<CommandType> Executed;
 
         /// <summary>
         /// コマンドがキャンセルされたときに発生します
@@ -187,7 +111,11 @@ namespace BEditor.Core.Command
         /// <param name="command">実行するコマンド</param>
         public static void Do(IRecordCommand command)
         {
-            if (!process) return;
+            if (!process)
+            {
+                Debug.WriteLine("if (!process) {...");
+                return;
+            }
 
             CanUndo = UndoStack.Count > 0;
 
@@ -207,7 +135,42 @@ namespace BEditor.Core.Command
             }
 
             process = true;
-            DidEvent?.Invoke(command, CommandType.Do);
+            Executed?.Invoke(command, CommandType.Do);
+        }
+        /// <summary>
+        /// 操作を実行し、かつその内容をStackに追加します
+        /// </summary>
+        /// <param name="command">実行するコマンド</param>
+        public static Task DoAsyns(IRecordCommand command)
+        {
+            return Task.Run(() =>
+            {
+                if (!process)
+                {
+                    Debug.WriteLine("if (!process) {...");
+                    return;
+                }
+
+                CanUndo = UndoStack.Count > 0;
+
+                try
+                {
+                    process = false;
+                    command.Do();
+
+                    UndoStack.Push(command);
+
+                    RedoStack.Clear();
+                    CanRedo = RedoStack.Count > 0;
+                }
+                catch
+                {
+                    CommandCancel?.Invoke(null, EventArgs.Empty);
+                }
+
+                process = true;
+                Executed?.Invoke(command, CommandType.Do);
+            });
         }
         /// <summary>
         /// 行なったコマンドを取り消してひとつ前の状態に戻します
@@ -232,7 +195,7 @@ namespace BEditor.Core.Command
                 catch { }
                 process = true;
 
-                DidEvent?.Invoke(command, CommandType.Undo);
+                Executed?.Invoke(command, CommandType.Undo);
             }
         }
         /// <summary>
@@ -258,7 +221,7 @@ namespace BEditor.Core.Command
                 catch { }
 
                 process = true;
-                DidEvent?.Invoke(command, CommandType.Redo);
+                Executed?.Invoke(command, CommandType.Redo);
             }
         }
         /// <summary>

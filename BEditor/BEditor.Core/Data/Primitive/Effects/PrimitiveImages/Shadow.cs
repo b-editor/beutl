@@ -52,10 +52,10 @@ namespace BEditor.Core.Data.Primitive.Effects.PrimitiveImages
 
         public override void Render(EffectRenderArgs<Image<BGRA32>> args) =>
             args.Value = args.Value.Shadow(
-                (int)X.GetValue(args.Frame),
-                (int)Y.GetValue(args.Frame),
-                (int)Blur.GetValue(args.Frame),
-                Alpha.GetValue(args.Frame),
+                X.GetValue(args.Frame),
+                Y.GetValue(args.Frame),
+                Blur.GetValue(args.Frame),
+                Alpha.GetValue(args.Frame) / 100,
                 Color.Color);
         public override void PropertyLoaded()
         {

@@ -235,9 +235,11 @@ namespace BEditor.Core.Graphics
             IsInitialized = true;
         }
 
-        internal void DrawImage(Image<BGRA32> img, ClipData data, int frame)
+        internal void DrawImage(Image<BGRA32> img, ClipData data, EffectRenderArgs args)
         {
             if (img == null) return;
+
+            var frame = args.Frame;
             var drawObject = data.Effect[0] as ImageObject;
 
             float alpha = (float)(drawObject.Blend.Alpha.GetValue(frame) / 100);
@@ -270,7 +272,65 @@ namespace BEditor.Core.Graphics
             color.ScA *= alpha;
 
             MakeCurrent();
-            GLTK.Paint(coordinate, nx, ny, nz, center, () => GLTK.DrawImage(img, scalex, scaley, scalez, color, ambient, diffuse, specular, shininess), Blend.BlentFunc[drawObject.Blend.BlendType.Index]);
+
+            GLTK.Paint(
+                coordinate,
+                nx, ny, nz, center,
+                (img, scalex, scaley, scalez, color, ambient, diffuse, specular, shininess, args, data),
+                s =>
+                {
+                    if (data.Parent.SelectItem == data && args.Type is RenderType.Preview)
+                    {
+                        var w = s.img.Width / 2 + 25;
+                        var h = s.img.Height / 2 + 25;
+
+                        GL.Color4(Color4.White);
+                        GL.LineWidth(2);
+
+                        #region 上
+                        // 上
+                        GL.Begin(PrimitiveType.Lines);
+                        {
+                            GL.Vertex2(w, h);
+                            GL.Vertex2(-w, h);
+                        }
+                        GL.End();
+                        #endregion
+
+                        #region 下
+                        // 下
+                        GL.Begin(PrimitiveType.Lines);
+                        {
+                            GL.Vertex2(w, -h);
+                            GL.Vertex2(-w, -h);
+                        }
+                        GL.End();
+                        #endregion
+
+                        #region 右
+                        // 右
+                        GL.Begin(PrimitiveType.Lines);
+                        {
+                            GL.Vertex2(w, -h);
+                            GL.Vertex2(w, h);
+                        }
+                        GL.End();
+                        #endregion
+
+                        #region 左
+                        // 左
+                        GL.Begin(PrimitiveType.Lines);
+                        {
+                            GL.Vertex2(-w, -h);
+                            GL.Vertex2(-w, h);
+                        }
+                        GL.End();
+                        #endregion
+                    }
+
+                    GLTK.DrawImage(s.img, s.scalex, s.scaley, s.scalez, s.color, s.ambient, s.diffuse, s.specular, s.shininess);
+                },
+                Blend.BlentFunc[drawObject.Blend.BlendType.Index]);
         }
         public void ReadPixels(Image<BGRA32> image)
         {

@@ -367,15 +367,6 @@ namespace BEditor.Core.Properties {
         }
         
         /// <summary>
-        ///   BoxFilter に類似しているローカライズされた文字列を検索します。
-        /// </summary>
-        public static string BoxFilter {
-            get {
-                return ResourceManager.GetString("BoxFilter", resourceCulture);
-            }
-        }
-        
-        /// <summary>
         ///   Camera に類似しているローカライズされた文字列を検索します。
         /// </summary>
         public static string Camera {
@@ -909,15 +900,6 @@ namespace BEditor.Core.Properties {
         }
         
         /// <summary>
-        ///   Gauss に類似しているローカライズされた文字列を検索します。
-        /// </summary>
-        public static string Gauss {
-            get {
-                return ResourceManager.GetString("Gauss", resourceCulture);
-            }
-        }
-        
-        /// <summary>
         ///   General に類似しているローカライズされた文字列を検索します。
         /// </summary>
         public static string General {
@@ -1067,15 +1049,6 @@ namespace BEditor.Core.Properties {
         public static string Material {
             get {
                 return ResourceManager.GetString("Material", resourceCulture);
-            }
-        }
-        
-        /// <summary>
-        ///   Median に類似しているローカライズされた文字列を検索します。
-        /// </summary>
-        public static string Median {
-            get {
-                return ResourceManager.GetString("Median", resourceCulture);
             }
         }
         

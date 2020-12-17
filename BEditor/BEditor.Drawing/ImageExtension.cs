@@ -2,11 +2,11 @@
 using System.Collections.Generic;
 using System.Drawing;
 using System.Drawing.Imaging;
+using System.IO;
 using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
 
-using BEditor.Drawing.Interop;
 using BEditor.Drawing.Pixel;
 using BEditor.Drawing.Process;
 
@@ -18,7 +18,10 @@ namespace BEditor.Drawing
     {
         public static void DrawImage(this Image<BGRA32> self, Point point, Image<BGRA32> image)
         {
+            if (self is null) throw new ArgumentNullException(nameof(self));
+            if (image is null) throw new ArgumentNullException(nameof(image));
             self.ThrowIfDisposed();
+            image.ThrowIfDisposed();
             var rect = new Rectangle(point, image.Size);
             var blended = self[rect];
 
@@ -31,32 +34,47 @@ namespace BEditor.Drawing
 
             self[rect] = blended;
         }
-        public static Bitmap ToBitmap(this Image<BGRA32> self)
+        internal static Image<BGR24> ToImage24(this SKBitmap self)
         {
-            self.ThrowIfDisposed();
-            var width = self.Width;
-            var height = self.Height;
-
-            var result = new Bitmap(width, height);
-            var data = result.LockBits(new(0, 0, width, height), ImageLockMode.WriteOnly, PixelFormat.Format32bppArgb);
-
-            fixed (BGRA32* srcData = self.Data)
-            {
-                Buffer.MemoryCopy(srcData, (void*)data.Scan0, self.DataSize, self.DataSize);
-            }
-
-            result.UnlockBits(data);
+            var result = new Image<BGR24>(self.Width, self.Height);
+            CopyTo(self.Bytes, result.Data!, result.DataSize);
 
             return result;
         }
-        public static Image<BGRA32> ToImage(this SKBitmap self)
+        internal static Image<BGRA32> ToImage32(this SKBitmap self)
         {
             var result = new Image<BGRA32>(self.Width, self.Height);
             CopyTo(self.Bytes, result.Data!, result.DataSize);
 
             return result;
         }
-        private static void CopyTo(byte[] src, BGRA32[] dst, int length)
+        internal static SKBitmap ToSKBitmap(this Image<BGR24> self)
+        {
+            var result = new SKBitmap(new(self.Width, self.Height, SKColorType.Rgb888x));
+
+            fixed (BGR24* src = self.Data)
+                result.SetPixels((IntPtr)src);
+
+            return result;
+        }
+        internal static SKBitmap ToSKBitmap(this Image<BGRA32> self)
+        {
+            var result = new SKBitmap(new(self.Width, self.Height, SKColorType.Bgra8888));
+
+            fixed (BGRA32* src = self.Data)
+                result.SetPixels((IntPtr)src);
+
+            return result;
+        }
+        internal static void CopyTo(byte[] src, BGR24[] dst, int length)
+        {
+            fixed (BGR24* dstPtr = dst)
+            fixed (byte* srcPtr = src)
+            {
+                Buffer.MemoryCopy(srcPtr, dstPtr, length, length);
+            }
+        }
+        internal static void CopyTo(byte[] src, BGRA32[] dst, int length)
         {
             fixed (BGRA32* dstPtr = dst)
             fixed (byte* srcPtr = src)
@@ -64,19 +82,10 @@ namespace BEditor.Drawing
                 Buffer.MemoryCopy(srcPtr, dstPtr, length, length);
             }
         }
-        public static Image<BGRA32> ToImage(this Bitmap self)
-        {
-            using var c = self.Clone(new(0, 0, self.Width, self.Height), PixelFormat.Format32bppArgb);
-            var data = c.LockBits(new(0, 0, c.Width, c.Height), ImageLockMode.ReadOnly, PixelFormat.Format32bppArgb);
-            var result = new Image<BGRA32>(data.Width, data.Height, data.Scan0);
-
-            c.UnlockBits(data);
-
-            return result;
-        }
 
         public static void SetAlpha(this Image<BGRA32> self, float alpha)
         {
+            if (self is null) throw new ArgumentNullException(nameof(self));
             self.ThrowIfDisposed();
 
             fixed (BGRA32* data = self.Data)
@@ -87,6 +96,7 @@ namespace BEditor.Drawing
         }
         public static void SetColor(this Image<BGRA32> self, BGRA32 color)
         {
+            if (self is null) throw new ArgumentNullException(nameof(self));
             self.ThrowIfDisposed();
 
             fixed (BGRA32* data = self.Data)
@@ -97,6 +107,7 @@ namespace BEditor.Drawing
         }
         public static Image<BGRA32> Border(this Image<BGRA32> self, int size, BGRA32 color)
         {
+            if (self is null) throw new ArgumentNullException(nameof(self));
             if (size <= 0) throw new ArgumentException("size <= 0");
             self.ThrowIfDisposed();
 
@@ -119,94 +130,149 @@ namespace BEditor.Drawing
 
             return result;
         }
-        public static Image<BGRA32> Shadow(this Image<BGRA32> self, int x, int y, int blur, float alpha, BGRA32 color)
+        public static Image<BGRA32> Shadow(this Image<BGRA32> self, float x, float y, float blur, float alpha, BGRA32 color)
         {
-            if (blur < 0) throw new ArgumentException("blur < 0");
+            if (self is null) throw new ArgumentNullException(nameof(self));
             self.ThrowIfDisposed();
-
-            var shadow = self.Clone();
-            var w = shadow.Width + blur;
-            var h = shadow.Height + blur;
-            shadow = shadow.MakeBorder(w, h);
-            shadow.SetColor(color);
-            shadow.SetAlpha(alpha);
+            var w = self.Width + blur;
+            var h = self.Height + blur;
+            //self = self.MakeBorder(w, h);
 
             //キャンバスのサイズ
-            var size_w = (Math.Abs(x) + (shadow.Width / 2)) * 2;
-            var size_h = (Math.Abs(x) + (shadow.Height / 2)) * 2;
+            var size_w = (Math.Abs(x) + (w / 2)) * 2;
+            var size_h = (Math.Abs(y) + (h / 2)) * 2;
 
-            var result = new Image<BGRA32>(size_w, size_h);
+            using var filter = SKImageFilter.CreateDropShadow(x, y, blur, blur, new SKColor(color.R, color.G, color.B, (byte)(color.A * alpha)));
+            using var paint = new SKPaint()
+            {
+                ImageFilter = filter
+            };
 
-            result.DrawImage(
-                new(
-                    (result.Width / 2 - shadow.Width / 2) + x,
-                    (result.Height / 2 - shadow.Height / 2) + y),
-                shadow);
+            using var bmp = new SKBitmap((int)size_w, (int)size_h);
+            using var canvas = new SKCanvas(bmp);
+            using var d = self.ToSKBitmap();
 
-            result.DrawImage(
-                new(
-                    (result.Width / 2 - self.Width / 2) + x,
-                    (result.Height / 2 - self.Height / 2) + y),
-                self);
+            canvas.DrawBitmap(
+                d,
+                (size_w / 2 - self.Width / 2),
+                (size_h / 2 - self.Height / 2),
+                paint);
 
-            shadow.Dispose();
-
-            return result;
+            return bmp.ToImage32();
         }
 
-        public static void BoxBlur<T>(this Image<T> self, float size) where T : unmanaged, IPixel<T>
+        public static void Blur(this Image<BGRA32> self, float sigma)
         {
-
-            if (size <= 0) throw new ArgumentOutOfRangeException(nameof(size));
-            self.ThrowIfDisposed();
-
-            fixed (T* data = self.Data)
-            {
-                var str = self.ToStruct(data);
-                Native.Image_BoxBlur(str, size, str);
-            }
+            self.Blur(sigma, sigma);
         }
-        public static void GanssBlur<T>(this Image<T> self, float size) where T : unmanaged, IPixel<T>
+        public static void Blur(this Image<BGRA32> self, float sigmaX, float sigmaY)
         {
-            if (size <= 0) throw new ArgumentOutOfRangeException(nameof(size));
+            if (self is null) throw new ArgumentNullException(nameof(self));
             self.ThrowIfDisposed();
 
-            fixed (T* data = self.Data)
-            {
-                var str = self.ToStruct(data);
-                Native.Image_GaussBlur(str, size, str);
-            }
+            using var filter = SKImageFilter.CreateBlur(sigmaX, sigmaY);
+            using var paint = new SKPaint { ImageFilter = filter };
+            using var bmp = new SKBitmap(new(self.Width, self.Height, SKColorType.Rgb888x));
+            using var canvas = new SKCanvas(bmp);
+            using var b = self.ToSKBitmap();
+
+            canvas.DrawBitmap(b, 0, 0, paint);
+
+            CopyTo(bmp.Bytes, self.Data!, self.DataSize);
         }
-        public static void MedianBlur<T>(this Image<T> self, int size) where T : unmanaged, IPixel<T>
+        public static void Blur(this Image<BGR24> self, float sigma)
         {
-            if (size <= 0) throw new ArgumentOutOfRangeException(nameof(size));
-            self.ThrowIfDisposed();
-
-            fixed (T* data = self.Data)
-            {
-                var str = self.ToStruct(data);
-                Native.Image_MedianBlur(str, size, str);
-            }
+            self.Blur(sigma, sigma);
         }
-        public static void Dilate<T>(this Image<T> self, int f) where T : unmanaged, IPixel<T>
+        public static void Blur(this Image<BGR24> self, float sigmaX, float sigmaY)
         {
+            if (self is null) throw new ArgumentNullException(nameof(self));
             self.ThrowIfDisposed();
 
-            fixed (T* data = self.Data)
-            {
-                var str = self.ToStruct(data);
-                Native.Image_Dilate(str, f, str);
-            }
+            using var filter = SKImageFilter.CreateBlur(sigmaX, sigmaY);
+            using var paint = new SKPaint { ImageFilter = filter };
+            using var bmp = new SKBitmap(new(self.Width, self.Height, SKColorType.Rgb888x));
+            using var canvas = new SKCanvas(bmp);
+            using var b = self.ToSKBitmap();
+
+            canvas.DrawBitmap(b, 0, 0, paint);
+
+            CopyTo(bmp.Bytes, self.Data!, self.DataSize);
         }
-        public static void Erode<T>(this Image<T> self, int f) where T : unmanaged, IPixel<T>
+        public static void Dilate(this Image<BGRA32> self, int radius)
+        {
+            self.Dilate(radius, radius);
+        }
+        public static void Dilate(this Image<BGRA32> self, int radiusX, int radiusY)
+        {
+            if (self is null) throw new ArgumentNullException(nameof(self));
+            self.ThrowIfDisposed();
+
+            using var filter = SKImageFilter.CreateDilate(radiusX, radiusY);
+            using var paint = new SKPaint { ImageFilter = filter };
+            using var bmp = new SKBitmap(new(self.Width, self.Height, SKColorType.Bgra8888));
+            using var canvas = new SKCanvas(bmp);
+            using var b = self.ToSKBitmap();
+
+            canvas.DrawBitmap(b, 0, 0, paint);
+
+            CopyTo(bmp.Bytes, self.Data!, self.DataSize);
+        }
+        public static void Dilate(this Image<BGR24> self, int radius)
+        {
+            self.Dilate(radius, radius);
+        }
+        public static void Dilate(this Image<BGR24> self, int radiusX, int radiusY)
+        {
+            if (self is null) throw new ArgumentNullException(nameof(self));
+            self.ThrowIfDisposed();
+
+            using var filter = SKImageFilter.CreateDilate(radiusX, radiusY);
+            using var paint = new SKPaint { ImageFilter = filter };
+            using var bmp = new SKBitmap(new(self.Width, self.Height, SKColorType.Rgb888x));
+            using var canvas = new SKCanvas(bmp);
+            using var b = self.ToSKBitmap();
+
+            canvas.DrawBitmap(b, 0, 0, paint);
+
+            CopyTo(bmp.Bytes, self.Data!, self.DataSize);
+        }
+        public static void Erode(this Image<BGRA32> self, int radius)
+        {
+            self.Erode(radius, radius);
+        }
+        public static void Erode(this Image<BGRA32> self, int radiusX, int radiusY)
         {
             self.ThrowIfDisposed();
 
-            fixed (T* data = self.Data)
-            {
-                var str = self.ToStruct(data);
-                Native.Image_Erode(str, f, str);
-            }
+            using var filter = SKImageFilter.CreateErode(radiusX, radiusY);
+            using var paint = new SKPaint { ImageFilter = filter };
+            using var bmp = new SKBitmap(new(self.Width, self.Height, SKColorType.Bgra8888));
+            using var canvas = new SKCanvas(bmp);
+            using var b = self.ToSKBitmap();
+
+            canvas.DrawBitmap(b, 0, 0, paint);
+
+            CopyTo(bmp.Bytes, self.Data!, self.DataSize);
+        }
+        public static void Erode(this Image<BGR24> self, int radius)
+        {
+            self.Erode(radius, radius);
+        }
+        public static void Erode(this Image<BGR24> self, int radiusX, int radiusY)
+        {
+            if (self is null) throw new ArgumentNullException(nameof(self));
+            self.ThrowIfDisposed();
+
+            using var filter = SKImageFilter.CreateErode(radiusX, radiusY);
+            using var paint = new SKPaint { ImageFilter = filter };
+            using var bmp = new SKBitmap(new(self.Width, self.Height, SKColorType.Rgb888x));
+            using var canvas = new SKCanvas(bmp);
+            using var b = self.ToSKBitmap();
+
+            canvas.DrawBitmap(b, 0, 0, paint);
+
+            CopyTo(bmp.Bytes, self.Data!, self.DataSize);
         }
         public static Image<BGRA32> Ellipse(int width, int height, int line, BGRA32 color)
         {
@@ -235,11 +301,9 @@ namespace BEditor.Drawing
                 new SKSize(width / 2 - min / 2, height / 2 - min / 2),
                 paint);
 
-            canvas.Flush();
-
-            return bmp.ToImage();
+            return bmp.ToImage32();
         }
-        public static Image<BGRA32> Rectangle(int width, int height, int line, BGRA32 color)
+        public static Image<BGRA32> Rect(int width, int height, int line, BGRA32 color)
         {
             using var bmp = new SKBitmap(new SKImageInfo(width, height, SKColorType.Bgra8888));
             using var canvas = new SKCanvas(bmp);
@@ -257,13 +321,41 @@ namespace BEditor.Drawing
                 width, height,
                 paint);
 
-            canvas.Flush();
+            return bmp.ToImage32();
+        }
+        public static Image<BGRA32> RoundRect(int width, int height, int line, int radiusX, int radiusY, BGRA32 color)
+        {
+            if (line >= Math.Min(width, height) / 2)
+                line = Math.Min(width, height) / 2;
 
-            return bmp.ToImage();
+            var min = Math.Min(width, height);
+
+            if (line < min) min = line;
+            if (min < 0) min = 0;
+
+            using var bmp = new SKBitmap(new SKImageInfo(width, height, SKColorType.Bgra8888));
+            using var canvas = new SKCanvas(bmp);
+
+            using var paint = new SKPaint()
+            {
+                Color = new SKColor(color.R, color.G, color.B, color.A),
+                IsAntialias = true,
+                Style = SKPaintStyle.Stroke,
+                StrokeWidth = min
+            };
+
+            canvas.DrawRoundRect(
+                min / 2, min / 2,
+                width - min, height - min,
+                radiusX, radiusY,
+                paint);
+
+            return bmp.ToImage32();
         }
         public static Image<BGRA32> Text(string text, Font font, float size, BGRA32 color)
         {
             if (string.IsNullOrEmpty(text)) return new Image<BGRA32>(1, 1);
+            if (font is null) throw new ArgumentNullException(nameof(font));
 
             using var face = SKTypeface.FromFile(font.Filename);
             using var fontObj = new SKFont(face, size);
@@ -279,7 +371,7 @@ namespace BEditor.Drawing
 
             using var bmp = new SKBitmap(new SKImageInfo((int)textBounds.Width, (int)textBounds.Height, SKColorType.Bgra8888));
             using var canvas = new SKCanvas(bmp);
-            
+
             float xText = textBounds.Width / 2 - textBounds.MidX;
             float yText = textBounds.Height / 2 - textBounds.MidY;
 
@@ -287,7 +379,161 @@ namespace BEditor.Drawing
 
             canvas.Flush();
 
-            return bmp.ToImage();
+            return bmp.ToImage32();
+        }
+        public static bool Encode(this Image<BGRA32> self, byte[] buffer, EncodedImageFormat format, int quality = 100)
+        {
+            if (self is null) throw new ArgumentNullException(nameof(self));
+            if (buffer is null) throw new ArgumentNullException(nameof(buffer));
+            self.ThrowIfDisposed();
+
+            using var stream = new MemoryStream(buffer);
+
+            return Encode(self, stream, format, quality);
+        }
+        public static bool Encode(this Image<BGR24> self, byte[] buffer, EncodedImageFormat format, int quality = 100)
+        {
+            if (self is null) throw new ArgumentNullException(nameof(self));
+            if (buffer is null) throw new ArgumentNullException(nameof(buffer));
+            self.ThrowIfDisposed();
+
+            using var stream = new MemoryStream(buffer);
+
+            return Encode(self, stream, format, quality);
+        }
+        public static bool Encode(this Image<BGRA32> self, Stream stream, EncodedImageFormat format, int quality = 100)
+        {
+            if (self is null) throw new ArgumentNullException(nameof(self));
+            if (stream is null) throw new ArgumentNullException(nameof(stream));
+            self.ThrowIfDisposed();
+
+            using var bmp = self.ToSKBitmap();
+
+            return bmp.Encode(stream, (SKEncodedImageFormat)format, quality);
+        }
+        public static bool Encode(this Image<BGR24> self, Stream stream, EncodedImageFormat format, int quality = 100)
+        {
+            if (self is null) throw new ArgumentNullException(nameof(self));
+            if (stream is null) throw new ArgumentNullException(nameof(stream));
+            self.ThrowIfDisposed();
+
+            using var bmp = self.ToSKBitmap();
+
+            return bmp.Encode(stream, (SKEncodedImageFormat)format, quality);
+        }
+        public static bool Encode(this Image<BGRA32> self, string filename, EncodedImageFormat format, int quality = 100)
+        {
+            if (self is null) throw new ArgumentNullException(nameof(self));
+            if (filename is null) throw new ArgumentNullException(nameof(filename));
+            self.ThrowIfDisposed();
+
+            using var bmp = self.ToSKBitmap();
+            using var stream = new FileStream(filename, FileMode.Create);
+
+            return bmp.Encode(stream, (SKEncodedImageFormat)format, quality);
+        }
+        public static bool Encode(this Image<BGR24> self, string filename, EncodedImageFormat format, int quality = 100)
+        {
+            if (self is null) throw new ArgumentNullException(nameof(self));
+            if (filename is null) throw new ArgumentNullException(nameof(filename));
+            self.ThrowIfDisposed();
+
+            using var bmp = self.ToSKBitmap();
+            using var stream = new FileStream(filename, FileMode.Create);
+
+            return bmp.Encode(stream, (SKEncodedImageFormat)format, quality);
+        }
+        public static bool Encode(this Image<BGRA32> self, string filename, int quality = 100)
+        {
+            if (self is null) throw new ArgumentNullException(nameof(self));
+            if (filename is null) throw new ArgumentNullException(nameof(filename));
+            self.ThrowIfDisposed();
+
+            using var bmp = self.ToSKBitmap();
+            using var stream = new FileStream(filename, FileMode.Create);
+            var format = ToImageFormat(filename);
+
+            return bmp.Encode(stream, (SKEncodedImageFormat)format, quality);
+        }
+        public static bool Encode(this Image<BGR24> self, string filename, int quality = 100)
+        {
+            if (self is null) throw new ArgumentNullException(nameof(self));
+            if (filename is null) throw new ArgumentNullException(nameof(filename));
+            self.ThrowIfDisposed();
+
+            using var bmp = self.ToSKBitmap();
+            using var stream = new FileStream(filename, FileMode.Create);
+            var format = ToImageFormat(filename);
+
+            return bmp.Encode(stream, (SKEncodedImageFormat)format, quality);
+        }
+        public static Image<BGRA32>? Decode(ReadOnlySpan<byte> buffer)
+        {
+            using var bmp = SKBitmap.Decode(buffer);
+
+            return bmp?.ToImage32();
+        }
+        public static Image<BGRA32>? Decode(byte[] buffer)
+        {
+            if (buffer is null) throw new ArgumentNullException(nameof(buffer));
+            using var bmp = SKBitmap.Decode(buffer);
+
+            return bmp?.ToImage32();
+        }
+        public static Image<BGRA32>? Decode(Stream stream)
+        {
+            if (stream is null) throw new ArgumentNullException(nameof(stream));
+
+            using var bmp = SKBitmap.Decode(stream);
+
+            return bmp?.ToImage32();
+        }
+        public static Image<BGRA32>? Decode(string filename)
+        {
+            if (filename is null) throw new ArgumentNullException(nameof(filename));
+
+            using var bmp = SKBitmap.Decode(filename);
+
+            return bmp?.ToImage32();
+        }
+        private static EncodedImageFormat ToImageFormat(string filename)
+        {
+            var ex = Path.GetExtension(filename);
+
+            if (ex is null) throw new Exception();
+
+            return ExtensionToFormat[ex];
+        }
+        private static readonly Dictionary<string, EncodedImageFormat> ExtensionToFormat = new()
+        {
+            { ".bmp", EncodedImageFormat.Bmp },
+            { ".gif", EncodedImageFormat.Gif },
+            { ".ico", EncodedImageFormat.Ico },
+            { ".jpg", EncodedImageFormat.Jpeg },
+            { ".jpeg", EncodedImageFormat.Jpeg },
+            { ".png", EncodedImageFormat.Png },
+            { ".wbmp", EncodedImageFormat.Wbmp },
+            { ".webp", EncodedImageFormat.Webp },
+            { ".pkm", EncodedImageFormat.Pkm },
+            { ".ktx", EncodedImageFormat.Ktx },
+            { ".astc", EncodedImageFormat.Astc },
+            { ".dng", EncodedImageFormat.Dng },
+            { ".heif", EncodedImageFormat.Heif },
+        };
+
+        public static Image<T2> Convert<T1, T2>(this Image<T1> self) where T2 : unmanaged, IPixel<T2> where T1 : unmanaged, IPixel<T1>, IPixelConvertable<T2>
+        {
+            if (self is null) throw new ArgumentNullException(nameof(self));
+            self.ThrowIfDisposed();
+            var dst = new Image<T2>(self.Width, self.Height);
+
+            fixed (T1* srcPtr = self.Data)
+            fixed (T2* dstPtr = dst.Data)
+            {
+                Parallel.For(0, self.Length, new ConvertProcess<T1, T2>(srcPtr, dstPtr).Invoke);
+            }
+
+            return dst;
         }
     }
 }

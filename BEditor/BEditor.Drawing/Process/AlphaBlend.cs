@@ -10,8 +10,8 @@ namespace BEditor.Drawing.Process
 {
     internal unsafe readonly struct AlphaBlendProcess
     {
-        readonly BGRA32* dst;
-        readonly BGRA32* src;
+        private readonly BGRA32* dst;
+        private readonly BGRA32* src;
 
         public AlphaBlendProcess(BGRA32* dst, BGRA32* src)
         {

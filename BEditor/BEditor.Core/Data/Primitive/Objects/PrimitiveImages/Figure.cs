@@ -75,7 +75,7 @@ namespace BEditor.Core.Data.Primitive.Objects.PrimitiveImages
             }
             else
             {
-                return Drawing.Image.Rectangle(
+                return Drawing.Image.Rect(
                     (int)Width.GetValue(args.Frame),
                     (int)Height.GetValue(args.Frame),
                     (int)Line.GetValue(args.Frame),

@@ -334,21 +334,9 @@ namespace BEditor.Core.Data
                     },
                     new()
                     {
-                        Name = Resources.BoxFilter,
-                        Type = typeof(BoxFilter),
-                        CreateFunc = () => new BoxFilter()
-                    },
-                    new()
-                    {
-                        Name = Resources.Gauss,
-                        Type = typeof(GaussBlur),
-                        CreateFunc = () => new GaussBlur()
-                    },
-                    new()
-                    {
-                        Name = Resources.Median,
-                        Type = typeof(MedianBlur),
-                        CreateFunc = () => new MedianBlur()
+                        Name = Resources.Blur,
+                        Type = typeof(Blur),
+                        CreateFunc = () => new Blur()
                     },
                     new()
                     {

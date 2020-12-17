@@ -7,6 +7,7 @@ using BEditor.Core.Extensions;
 using BEditor.Core.Extensions.ViewCommand;
 using BEditor.Core.Media;
 using BEditor.Core.Properties;
+using BEditor.Drawing;
 
 using Microsoft.WindowsAPICodePack.Dialogs;
 
@@ -29,8 +30,7 @@ namespace BEditor.Models
 
                 if (img != null)
                 {
-                    //img.SaveImage(path);
-                    img.Save(path);
+                    img.Encode(path);
                 }
             }
             catch (Exception e)

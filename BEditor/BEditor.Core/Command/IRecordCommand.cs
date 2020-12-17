@@ -5,9 +5,10 @@
     /// </summary>
     public interface IRecordCommand
     {
+        public string Name => "Unknown command";
+
         /// <summary>
         /// 操作を実行します
-        /// <para>例外を投げた場合キャンセルされます</para>
         /// </summary>
         public void Do();
 

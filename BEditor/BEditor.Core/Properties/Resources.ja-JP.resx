@@ -225,9 +225,6 @@
   <data name="Bottom" xml:space="preserve">
     <value>下</value>
   </data>
-  <data name="BoxFilter" xml:space="preserve">
-    <value>BoxFilter</value>
-  </data>
   <data name="Camera" xml:space="preserve">
     <value>カメラ</value>
   </data>
@@ -407,9 +404,6 @@
   <data name="From_backup" xml:space="preserve">
     <value>バックアップから作成</value>
   </data>
-  <data name="Gauss" xml:space="preserve">
-    <value>ガウス</value>
-  </data>
   <data name="General" xml:space="preserve">
     <value>全般</value>
   </data>
@@ -457,9 +451,6 @@
   </data>
   <data name="Material" xml:space="preserve">
     <value>マテリアル</value>
-  </data>
-  <data name="Median" xml:space="preserve">
-    <value>メディアン</value>
   </data>
   <data name="Menu" xml:space="preserve">
     <value>メニュー</value>

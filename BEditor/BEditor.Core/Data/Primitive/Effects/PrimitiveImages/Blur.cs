@@ -16,46 +16,33 @@ using BEditor.Drawing.Pixel;
 namespace BEditor.Core.Data.Primitive.Effects.PrimitiveImages
 {
     [DataContract]
-    public class BoxFilter : ImageEffect
+    public class Blur : ImageEffect
     {
-        public static readonly EasePropertyMetadata SizeMetadata = new(Resources.Size, 70, float.NaN, 0);
-        public static readonly CheckPropertyMetadata ResizeMetadata = new(Resources.Diffusion, false);
+        public static readonly EasePropertyMetadata SizeMetadata = new(Resources.Size, 25, float.NaN, 0);
 
-        public BoxFilter()
+        public Blur()
         {
             Size = new(SizeMetadata);
-            Resize = new(ResizeMetadata);
         }
 
-        public override string Name => Resources.BoxFilter;
+        public override string Name => Resources.Blur;
         public override IEnumerable<PropertyElement> Properties => new PropertyElement[]
         {
-            Size,
-            Resize
+            Size
         };
         [DataMember(Order = 0)]
         public EaseProperty Size { get; private set; }
-        [DataMember(Order = 1)]
-        public CheckProperty Resize { get; private set; }
 
         public override void Render(EffectRenderArgs<Image<BGRA32>> args)
         {
             var size = (int)Size.GetValue(args.Frame);
             if (size is 0) return;
 
-            if (Resize.IsChecked)
-            {
-                var w = args.Value.Width + size;
-                var h = args.Value.Height + size;
-                args.Value = args.Value.MakeBorder(w, h);
-            }
-
-            args.Value.BoxBlur(size);
+            args.Value.Blur(size);
         }
         public override void PropertyLoaded()
         {
             Size.ExecuteLoaded(SizeMetadata);
-            Resize.ExecuteLoaded(ResizeMetadata);
         }
     }
 }

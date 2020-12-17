@@ -9,11 +9,6 @@
             行なった操作の履歴を蓄積することでUndo,Redoの機能を表します
             </summary>
         </member>
-        <member name="P:BEditor.Core.Command.CommandManager.CommandTypeDictionary">
-            <summary>
-            コマンドに対応する名前が入った配列を取得します
-            </summary>
-        </member>
         <member name="P:BEditor.Core.Command.CommandManager.UndoStack">
             <summary>
             実行後またはRedo後に記録
@@ -44,7 +39,7 @@
             Redo出来るかどうかの状態が変化すると発生します
             </summary>
         </member>
-        <member name="E:BEditor.Core.Command.CommandManager.DidEvent">
+        <member name="E:BEditor.Core.Command.CommandManager.Executed">
             <summary>
             UnDo ReDo Do時に発生します
             </summary>
@@ -2081,7 +2076,7 @@
             Represents the data to be passed to the <see cref="T:BEditor.Core.Data.ClipData"/> at rendering time.
             </summary>
         </member>
-        <member name="M:BEditor.Core.Data.ClipRenderArgs.#ctor(System.Int32,System.Collections.Generic.List{BEditor.Core.Data.ClipData})">
+        <member name="M:BEditor.Core.Data.ClipRenderArgs.#ctor(System.Int32,System.Collections.Generic.List{BEditor.Core.Data.ClipData},BEditor.Core.Data.RenderType)">
             <summary>
             <see cref="T:BEditor.Core.Data.ClipRenderArgs"/> Initialize a new instance of the record.
             </summary>
@@ -2106,6 +2101,11 @@
             Gets or sets a value that indicates the current state of the process.
             </summary>
         </member>
+        <member name="P:BEditor.Core.Data.ClipRenderArgs.Type">
+            <summary>
+            Get the rendering type.
+            </summary>
+        </member>
         <member name="T:BEditor.Core.Data.EffectRenderArgs">
             <summary>
             Represents the data to be passed to the <see cref="T:BEditor.Core.Data.EffectElement"/> at rendering time.
@@ -2116,7 +2116,7 @@
             <see cref="T:BEditor.Core.Data.EffectRenderArgs"/> Initialize a new instance of the record.
             </summary>
         </member>
-        <member name="M:BEditor.Core.Data.EffectRenderArgs.#ctor(System.Int32,System.Collections.Generic.List{BEditor.Core.Data.EffectElement})">
+        <member name="M:BEditor.Core.Data.EffectRenderArgs.#ctor(System.Int32,System.Collections.Generic.List{BEditor.Core.Data.EffectElement},BEditor.Core.Data.RenderType)">
             <summary>
             <see cref="T:BEditor.Core.Data.EffectRenderArgs"/> Initialize a new instance of the record.
             </summary>
@@ -2136,6 +2136,11 @@
             Gets or sets a value that indicates the current state of the process.
             </summary>
         </member>
+        <member name="P:BEditor.Core.Data.EffectRenderArgs.Type">
+            <summary>
+            Get the rendering type.
+            </summary>
+        </member>
         <member name="T:BEditor.Core.Data.EffectRenderArgs`1">
             <summary>
             Represents the data to be passed to the <see cref="T:BEditor.Core.Data.EffectElement"/> at rendering time.
@@ -2149,6 +2154,11 @@
         <member name="M:BEditor.Core.Data.EffectRenderArgs`1.#ctor(System.Int32,System.Collections.Generic.List{BEditor.Core.Data.EffectElement})">
             <summary>
             <see cref="T:BEditor.Core.Data.EffectRenderArgs"/> Initialize a new instance of the record.
+            </summary>
+        </member>
+        <member name="P:BEditor.Core.Data.EffectRenderArgs`1.Value">
+            <summary>
+            Gets or sets the value used to render the effect.
             </summary>
         </member>
         <member name="T:BEditor.Core.Data.Scene">
@@ -2570,7 +2580,7 @@
         </member>
         <member name="M:BEditor.Core.Media.Color.op_Implicit(BEditor.Core.Media.Color)~BEditor.Drawing.Pixel.BGRA32">
             <summary>
-            <see cref="T:BEditor.Core.Media.Color"/> 構造体から <see cref="!:BEditor.Drawing.Color"/> を作成します
+            <see cref="T:BEditor.Core.Media.Color"/> 構造体から <see cref="T:BEditor.Drawing.Pixel.BGRA32"/> を作成します
             </summary>
         </member>
         <member name="M:BEditor.Core.Media.Color.op_Implicit(BEditor.Core.Media.Color)~System.Drawing.Color">
@@ -2954,11 +2964,6 @@
               Bottom に類似しているローカライズされた文字列を検索します。
             </summary>
         </member>
-        <member name="P:BEditor.Core.Properties.Resources.BoxFilter">
-            <summary>
-              BoxFilter に類似しているローカライズされた文字列を検索します。
-            </summary>
-        </member>
         <member name="P:BEditor.Core.Properties.Resources.Camera">
             <summary>
               Camera に類似しているローカライズされた文字列を検索します。
@@ -3256,11 +3261,6 @@
               Created from a backup に類似しているローカライズされた文字列を検索します。
             </summary>
         </member>
-        <member name="P:BEditor.Core.Properties.Resources.Gauss">
-            <summary>
-              Gauss に類似しているローカライズされた文字列を検索します。
-            </summary>
-        </member>
         <member name="P:BEditor.Core.Properties.Resources.General">
             <summary>
               General に類似しているローカライズされた文字列を検索します。
@@ -3344,11 +3344,6 @@
         <member name="P:BEditor.Core.Properties.Resources.Material">
             <summary>
               Material に類似しているローカライズされた文字列を検索します。
-            </summary>
-        </member>
-        <member name="P:BEditor.Core.Properties.Resources.Median">
-            <summary>
-              Median に類似しているローカライズされた文字列を検索します。
             </summary>
         </member>
         <member name="P:BEditor.Core.Properties.Resources.Menu">

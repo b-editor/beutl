@@ -46,7 +46,7 @@ namespace BEditor.Core.Data.Primitive.Objects.PrimitiveImages
                 if (source == null && System.IO.File.Exists(File.File))
                 {
                     using var stream = new FileStream(File.File, FileMode.Open);
-                    source = Drawing.Image.FromStream(stream);
+                    source = Drawing.Image.Decode(stream);
                 }
 
                 return source;
@@ -65,7 +65,7 @@ namespace BEditor.Core.Data.Primitive.Objects.PrimitiveImages
                 if (System.IO.File.Exists(file))
                 {
                     using var stream = new FileStream(file, FileMode.Open);
-                    source = Drawing.Image.FromStream(stream);
+                    source = Drawing.Image.Decode(stream);
                 }
             });
         }

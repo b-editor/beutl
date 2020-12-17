@@ -32,10 +32,10 @@ namespace BEditor.Views.PropertyControls
         {
             e.Effects = DragDropEffects.Copy;
             Type datatype = typeof(EffectMetadata);
-            
+
             try
             {
-                var effect = (EffectMetadata)e.Data.GetData(datatype);
+                var effect = (EffectMetadata)e.Data.GetData(datatype) ?? throw new Exception();
 
 
                 var effectinstance = effect.CreateFunc?.Invoke() ?? Activator.CreateInstance(effect.Type) as EffectElement;

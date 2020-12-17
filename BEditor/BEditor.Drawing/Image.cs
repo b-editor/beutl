@@ -10,11 +10,13 @@ using System.Runtime.InteropServices;
 using System.Text;
 using System.Threading.Tasks;
 
-using BEditor.Drawing.Interop;
 using BEditor.Drawing.Pixel;
+
+using SkiaSharp;
 
 namespace BEditor.Drawing
 {
+    [Serializable]
     public unsafe class Image<T> : IDisposable, ICloneable where T : unmanaged, IPixel<T>
     {
         // 同じImage<T>型のみで共有される
@@ -69,6 +71,15 @@ namespace BEditor.Drawing
         /// </summary>
         /// <exception cref="ArgumentOutOfRangeException"><paramref name="width"/> is less than 0.</exception>
         /// <exception cref="ArgumentOutOfRangeException"><paramref name="height"/> is less than 0.</exception>
+        public Image(int width, int height, ReadOnlySpan<T> data) : this(width, height)
+        {
+            data.CopyTo(new(Data));
+        }
+        /// <summary>
+        /// <see cref="Image{T}"/> Initialize a new instance of the class.
+        /// </summary>
+        /// <exception cref="ArgumentOutOfRangeException"><paramref name="width"/> is less than 0.</exception>
+        /// <exception cref="ArgumentOutOfRangeException"><paramref name="height"/> is less than 0.</exception>
         /// <exception cref="ArgumentNullException"><paramref name="data"/> is <see langword="null"/>.</exception>
         public Image(int width, int height, T* data) : this(width, height)
         {
@@ -98,22 +109,6 @@ namespace BEditor.Drawing
         public Image(int width, int height, T fill) : this(width, height)
         {
             Fill(fill);
-        }
-        /// <summary>
-        /// <see cref="Image{T}"/> Initialize a new instance of the class.
-        /// </summary>
-        private Image(ImageStruct image)
-        {
-            Width = image.Width;
-            Height = image.Height;
-
-            Data = ArrayPool<T>.Shared.Rent(Width * Height);
-
-            fixed (T* dst = &Data[0])
-            {
-                var size = DataSize;
-                Buffer.MemoryCopy(image.Data, dst, size, size);
-            }
         }
 
         #endregion
@@ -174,11 +169,7 @@ namespace BEditor.Drawing
         /// <summary>
         /// Get or set the pixel of this <see cref="Image{T}"/>.
         /// </summary>
-        public T this[int x, int y]
-        {
-            set => this[y][x] = value;
-            get => this[y][x];
-        }
+        public ref T this[int x, int y] => ref this[y][x];
         /// <summary>
         /// Get or set this <see cref="Image{T}"/> row.
         /// </summary>
@@ -254,23 +245,6 @@ namespace BEditor.Drawing
             });
         }
 
-        public bool Save(string filename)
-        {
-            ThrowIfDisposed();
-
-            fixed (T* data = &Data![0])
-            {
-                return Native.Image_Save(new()
-                {
-                    Width = Width,
-                    Height = Height,
-                    CvType = formatAttribute.Channels,
-                    Data = data
-                },
-                filename);
-            }
-        }
-
         public void Flip(FlipMode mode)
         {
                 ThrowIfDisposed();
@@ -320,13 +294,6 @@ namespace BEditor.Drawing
         }
 
 
-        internal ImageStruct ToStruct(T* data) => new()
-        {
-            Width = Width,
-            Height = Height,
-            CvType = formatAttribute.MatType,
-            Data = data
-        };
         public void Dispose()
         {
             if (!IsDisposed)
@@ -345,23 +312,5 @@ namespace BEditor.Drawing
         object ICloneable.Clone() => this.Clone();
 
         #endregion
-    }
-
-    public static partial class Image
-    {
-        public static Image<BGRA32> FromStream(Stream stream)
-        {
-            using var bmp = new Bitmap(stream);
-            var r = bmp.ToImage();
-
-            return r;
-        }
-        public static Image<BGRA32> FromFile(string filename)
-        {
-            using var bmp = new Bitmap(filename);
-            var r = bmp.ToImage();
-
-            return r;
-        }
     }
 }

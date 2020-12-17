@@ -19,6 +19,13 @@
             <exception cref="T:System.ArgumentOutOfRangeException"><paramref name="height"/> is less than 0.</exception>
             <exception cref="T:System.ArgumentNullException"><paramref name="data"/> is <see langword="null"/>.</exception>
         </member>
+        <member name="M:BEditor.Drawing.Image`1.#ctor(System.Int32,System.Int32,System.ReadOnlySpan{`0})">
+            <summary>
+            <see cref="T:BEditor.Drawing.Image`1"/> Initialize a new instance of the class.
+            </summary>
+            <exception cref="T:System.ArgumentOutOfRangeException"><paramref name="width"/> is less than 0.</exception>
+            <exception cref="T:System.ArgumentOutOfRangeException"><paramref name="height"/> is less than 0.</exception>
+        </member>
         <member name="M:BEditor.Drawing.Image`1.#ctor(System.Int32,System.Int32,`0*)">
             <summary>
             <see cref="T:BEditor.Drawing.Image`1"/> Initialize a new instance of the class.
@@ -41,11 +48,6 @@
             </summary>
             <exception cref="T:System.ArgumentOutOfRangeException"><paramref name="width"/> is less than 0.</exception>
             <exception cref="T:System.ArgumentOutOfRangeException"><paramref name="height"/> is less than 0.</exception>
-        </member>
-        <member name="M:BEditor.Drawing.Image`1.#ctor(BEditor.Drawing.Interop.ImageStruct)">
-            <summary>
-            <see cref="T:BEditor.Drawing.Image`1"/> Initialize a new instance of the class.
-            </summary>
         </member>
         <member name="P:BEditor.Drawing.Image`1.Width">
             <summary>

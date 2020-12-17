@@ -76,7 +76,7 @@ namespace BEditor.Core.Data.Primitive.Objects
             }
 
 
-            Parent.Parent.GraphicsContext.DrawImage(imageArgs.Value, Parent, args.Frame);
+            Parent.Parent.GraphicsContext.DrawImage(imageArgs.Value, Parent, args);
             base_img?.Dispose();
             imageArgs.Value?.Dispose();
 
