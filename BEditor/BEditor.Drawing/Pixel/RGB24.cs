@@ -20,15 +20,33 @@ namespace BEditor.Drawing.Pixel
         }
 
         public readonly RGB24 Blend(RGB24 foreground) => foreground;
-        public readonly void Convert(out BGRA32 dst)
+        public void ConvertFrom(BGRA32 src)
+        {
+            R = src.R;
+            G = src.G;
+            B = src.B;
+        }
+        public void ConvertFrom(BGR24 src)
+        {
+            R = src.R;
+            G = src.G;
+            B = src.B;
+        }
+        public void ConvertFrom(RGBA32 src)
+        {
+            R = src.R;
+            G = src.G;
+            B = src.B;
+        }
+        public readonly void ConvertTo(out BGRA32 dst)
         {
             dst = new(R, G, B, 255);
         }
-        public readonly void Convert(out BGR24 dst)
+        public readonly void ConvertTo(out BGR24 dst)
         {
             dst = new(R, G, B);
         }
-        public readonly void Convert(out RGBA32 dst)
+        public readonly void ConvertTo(out RGBA32 dst)
         {
             dst = new(R, G, B, 255);
         }

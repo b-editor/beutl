@@ -10,6 +10,7 @@ using System.Threading.Tasks;
 using BEditor.Core.Data.Control;
 using BEditor.Core.Data.Primitive.Properties;
 using BEditor.Core.Data.Primitive.Properties.PrimitiveEasing;
+using BEditor.Media;
 
 namespace BEditor.Core.Data.Property.EasingProperty
 {
@@ -68,7 +69,7 @@ namespace BEditor.Core.Data.Property.EasingProperty
         /// <param name="min">最小の値</param>
         /// <param name="max">最大の値</param>
         /// <returns>イージングされた値</returns>
-        public abstract float EaseFunc(int frame, int totalframe, float min, float max);
+        public abstract float EaseFunc(Frame frame, Frame totalframe, float min, float max);
 
         /// <summary>
         /// 初期化時とデシリアライズ時に呼び出されます

@@ -50,13 +50,14 @@ namespace BEditor.Core.Data.Primitive.Effects.PrimitiveImages
         [DataMember(Order = 4)]
         public ColorProperty Color { get; private set; }
 
-        public override void Render(EffectRenderArgs<Image<BGRA32>> args) =>
-            args.Value = args.Value.Shadow(
-                X.GetValue(args.Frame),
-                Y.GetValue(args.Frame),
-                Blur.GetValue(args.Frame),
-                Alpha.GetValue(args.Frame) / 100,
-                Color.Color);
+        public override void Render(EffectRenderArgs<Image<BGRA32>> args)
+        {
+            var img = args.Value.Shadow(X.GetValue(args.Frame), Y.GetValue(args.Frame), Blur.GetValue(args.Frame), Alpha.GetValue(args.Frame) / 100, Color.Color);
+            args.Value.Dispose();
+
+            args.Value = img;
+        }
+
         public override void PropertyLoaded()
         {
             X.ExecuteLoaded(XMetadata);

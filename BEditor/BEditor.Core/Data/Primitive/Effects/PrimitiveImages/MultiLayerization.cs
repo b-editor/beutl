@@ -49,13 +49,6 @@ namespace BEditor.Core.Data.Primitive.Effects.PrimitiveImages
         [DataMember(Order = 2)]
         public ColorAnimationProperty Color { get; private set; }
 
-        public override void PreviewRender(EffectRenderArgs args)
-        {
-            base.PreviewRender(args);
-
-            args.Schedules.Remove(this);
-            args.Schedules.Add(this);
-        }
         public override void Render(EffectRenderArgs<Image<BGRA32>> args)
         {
         }

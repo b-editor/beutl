@@ -38,7 +38,7 @@ namespace BEditor.Core.Graphics
 
         #region BindTexture
 
-        public static void BindTexture(Image<BGRA32> img, out int id)
+        public static void BindTexture(Image<BGRA32> img, out int texture)
         {
             if (img is null)
             {
@@ -49,8 +49,8 @@ namespace BEditor.Core.Graphics
             int width = img.Width;
             int height = img.Height;
 
-            GL.GenTextures(1, out id);
-            GL.BindTexture(TextureTarget.Texture2D, id);
+            GL.GenTextures(1, out texture);
+            GL.BindTexture(TextureTarget.Texture2D, texture);
 
             GL.TexImage2D(TextureTarget.Texture2D, 0, PixelInternalFormat.Rgba, width, height, 0,
                 PixelFormat.Bgra, PixelType.UnsignedByte, img.Data);

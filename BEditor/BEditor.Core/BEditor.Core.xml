@@ -219,7 +219,7 @@
             Represents a command that adds <see cref="T:BEditor.Core.Data.ClipData"/> to a <see cref="T:BEditor.Core.Data.Scene"/>.
             </summary>
         </member>
-        <member name="M:BEditor.Core.Data.ClipData.AddCommand.#ctor(BEditor.Core.Data.Scene,System.Int32,System.Int32,BEditor.Core.Data.ObjectMetadata)">
+        <member name="M:BEditor.Core.Data.ClipData.AddCommand.#ctor(BEditor.Core.Data.Scene,BEditor.Media.Frame,System.Int32,BEditor.Core.Data.ObjectMetadata)">
             <summary>
             <see cref="T:BEditor.Core.Data.ClipData.AddCommand"/> Initialize a new instance of the class.
             </summary>
@@ -263,14 +263,14 @@
             Represents a command to move <see cref="T:BEditor.Core.Data.ClipData"/> frames and layers.
             </summary>
         </member>
-        <member name="M:BEditor.Core.Data.ClipData.MoveCommand.#ctor(BEditor.Core.Data.ClipData,System.Int32,System.Int32)">
+        <member name="M:BEditor.Core.Data.ClipData.MoveCommand.#ctor(BEditor.Core.Data.ClipData,BEditor.Media.Frame,System.Int32)">
             <summary>
             <see cref="T:BEditor.Core.Data.ClipData.MoveCommand"/> Initialize a new instance of the class.
             </summary>
             <exception cref="T:System.ArgumentNullException"><paramref name="clip"/> is <see langword="null"/>.</exception>
             <exception cref="T:System.ArgumentOutOfRangeException"><paramref name="toFrame"/> or <paramref name="toLayer"/> is less than 0.</exception>
         </member>
-        <member name="M:BEditor.Core.Data.ClipData.MoveCommand.#ctor(BEditor.Core.Data.ClipData,System.Int32,System.Int32,System.Int32,System.Int32)">
+        <member name="M:BEditor.Core.Data.ClipData.MoveCommand.#ctor(BEditor.Core.Data.ClipData,BEditor.Media.Frame,BEditor.Media.Frame,System.Int32,System.Int32)">
             <summary>
             <see cref="T:BEditor.Core.Data.ClipData.MoveCommand"/> Initialize a new instance of the class.
             </summary>
@@ -291,7 +291,7 @@
             Represents a command to change the length of <see cref="T:BEditor.Core.Data.ClipData"/>.
             </summary>
         </member>
-        <member name="M:BEditor.Core.Data.ClipData.LengthChangeCommand.#ctor(BEditor.Core.Data.ClipData,System.Int32,System.Int32)">
+        <member name="M:BEditor.Core.Data.ClipData.LengthChangeCommand.#ctor(BEditor.Core.Data.ClipData,BEditor.Media.Frame,BEditor.Media.Frame)">
             <summary>
             <see cref="T:BEditor.Core.Data.ClipData.LengthChangeCommand"/> Initialize a new instance of the class.
             </summary>
@@ -630,7 +630,7 @@
             
             </summary>
         </member>
-        <member name="M:BEditor.Core.Data.Primitive.Properties.ColorAnimationProperty.GetValue(System.Int32)">
+        <member name="M:BEditor.Core.Data.Primitive.Properties.ColorAnimationProperty.GetValue(BEditor.Media.Frame)">
             <summary>
             イージングします
             </summary>
@@ -688,7 +688,7 @@
             
             </summary>
         </member>
-        <member name="M:BEditor.Core.Data.Primitive.Properties.ColorAnimationProperty.AddCommand.#ctor(BEditor.Core.Data.Primitive.Properties.ColorAnimationProperty,System.Int32)">
+        <member name="M:BEditor.Core.Data.Primitive.Properties.ColorAnimationProperty.AddCommand.#ctor(BEditor.Core.Data.Primitive.Properties.ColorAnimationProperty,BEditor.Media.Frame)">
             <summary>
             
             </summary>
@@ -709,7 +709,7 @@
             
             </summary>
         </member>
-        <member name="M:BEditor.Core.Data.Primitive.Properties.ColorAnimationProperty.RemoveCommand.#ctor(BEditor.Core.Data.Primitive.Properties.ColorAnimationProperty,System.Int32)">
+        <member name="M:BEditor.Core.Data.Primitive.Properties.ColorAnimationProperty.RemoveCommand.#ctor(BEditor.Core.Data.Primitive.Properties.ColorAnimationProperty,BEditor.Media.Frame)">
             <summary>
             
             </summary>
@@ -730,7 +730,7 @@
             
             </summary>
         </member>
-        <member name="M:BEditor.Core.Data.Primitive.Properties.ColorAnimationProperty.MoveCommand.#ctor(BEditor.Core.Data.Primitive.Properties.ColorAnimationProperty,System.Int32,System.Int32)">
+        <member name="M:BEditor.Core.Data.Primitive.Properties.ColorAnimationProperty.MoveCommand.#ctor(BEditor.Core.Data.Primitive.Properties.ColorAnimationProperty,System.Int32,BEditor.Media.Frame)">
             <summary>
             
             </summary>
@@ -998,13 +998,13 @@
             <summary>
             <see cref="P:BEditor.Core.Data.Primitive.Properties.EaseProperty.Time"/> に対応する <see langword="float"/> 型の値の <see cref="T:System.Collections.ObjectModel.ObservableCollection`1"/> を取得します
             </summary>
-            <remarks>値の追加を行う場合は <see cref="M:BEditor.Core.Data.Primitive.Properties.EaseProperty.InsertKeyframe(System.Int32,System.Single)"/> 、削除は <see cref="M:BEditor.Core.Data.Primitive.Properties.EaseProperty.RemoveKeyframe(System.Int32,System.Single@)"/> を使用してください</remarks>
+            <remarks>値の追加を行う場合は <see cref="M:BEditor.Core.Data.Primitive.Properties.EaseProperty.InsertKeyframe(BEditor.Media.Frame,System.Single)"/> 、削除は <see cref="M:BEditor.Core.Data.Primitive.Properties.EaseProperty.RemoveKeyframe(BEditor.Media.Frame,System.Single@)"/> を使用してください</remarks>
         </member>
         <member name="P:BEditor.Core.Data.Primitive.Properties.EaseProperty.Time">
             <summary>
             <see cref="P:BEditor.Core.Data.Primitive.Properties.EaseProperty.Value"/> に対応するフレーム番号の <see cref="T:System.Collections.Generic.List`1"/> を取得します
             </summary>
-            <remarks>値の追加を行う場合は <see cref="M:BEditor.Core.Data.Primitive.Properties.EaseProperty.InsertKeyframe(System.Int32,System.Single)"/> 、削除は <see cref="M:BEditor.Core.Data.Primitive.Properties.EaseProperty.RemoveKeyframe(System.Int32,System.Single@)"/> を使用してください</remarks>
+            <remarks>値の追加を行う場合は <see cref="M:BEditor.Core.Data.Primitive.Properties.EaseProperty.InsertKeyframe(BEditor.Media.Frame,System.Single)"/> 、削除は <see cref="M:BEditor.Core.Data.Primitive.Properties.EaseProperty.RemoveKeyframe(BEditor.Media.Frame,System.Single@)"/> を使用してください</remarks>
         </member>
         <member name="P:BEditor.Core.Data.Primitive.Properties.EaseProperty.EasingType">
             <summary>
@@ -1024,7 +1024,7 @@
         <member name="P:BEditor.Core.Data.Primitive.Properties.EaseProperty.Parent">
             <inheritdoc/>
         </member>
-        <member name="M:BEditor.Core.Data.Primitive.Properties.EaseProperty.GetValue(System.Int32)">
+        <member name="M:BEditor.Core.Data.Primitive.Properties.EaseProperty.GetValue(BEditor.Media.Frame)">
             <summary>
             イージングをして、Optionalを追加します
             </summary>
@@ -1037,7 +1037,7 @@
             </summary>
             <param name="value">対象の値</param>
         </member>
-        <member name="M:BEditor.Core.Data.Primitive.Properties.EaseProperty.InsertKeyframe(System.Int32,System.Single)">
+        <member name="M:BEditor.Core.Data.Primitive.Properties.EaseProperty.InsertKeyframe(BEditor.Media.Frame,System.Single)">
             <summary>
             特定のフレームにキーフレームを挿入します
             </summary>
@@ -1046,7 +1046,7 @@
             <returns>追加された <see cref="P:BEditor.Core.Data.Primitive.Properties.EaseProperty.Value"/> のインデックス</returns>
             <exception cref="T:System.ArgumentOutOfRangeException"><paramref name="frame"/> が 親要素の範囲外です</exception>
         </member>
-        <member name="M:BEditor.Core.Data.Primitive.Properties.EaseProperty.RemoveKeyframe(System.Int32,System.Single@)">
+        <member name="M:BEditor.Core.Data.Primitive.Properties.EaseProperty.RemoveKeyframe(BEditor.Media.Frame,System.Single@)">
             <summary>
             特定のフレームのキーフレームを削除します
             </summary>
@@ -1116,7 +1116,7 @@
             </summary>
             <remarks>このクラスは <see cref="M:BEditor.Core.Command.CommandManager.Do(BEditor.Core.Command.IRecordCommand)"/> と併用することでコマンドを記録できます</remarks>
         </member>
-        <member name="M:BEditor.Core.Data.Primitive.Properties.EaseProperty.AddCommand.#ctor(BEditor.Core.Data.Primitive.Properties.EaseProperty,System.Int32)">
+        <member name="M:BEditor.Core.Data.Primitive.Properties.EaseProperty.AddCommand.#ctor(BEditor.Core.Data.Primitive.Properties.EaseProperty,BEditor.Media.Frame)">
             <summary>
             <see cref="T:BEditor.Core.Data.Primitive.Properties.EaseProperty.AddCommand"/> クラスの新しいインスタンスを初期化します
             </summary>
@@ -1140,7 +1140,7 @@
             </summary>
             <remarks>このクラスは <see cref="M:BEditor.Core.Command.CommandManager.Do(BEditor.Core.Command.IRecordCommand)"/> と併用することでコマンドを記録できます</remarks>
         </member>
-        <member name="M:BEditor.Core.Data.Primitive.Properties.EaseProperty.RemoveCommand.#ctor(BEditor.Core.Data.Primitive.Properties.EaseProperty,System.Int32)">
+        <member name="M:BEditor.Core.Data.Primitive.Properties.EaseProperty.RemoveCommand.#ctor(BEditor.Core.Data.Primitive.Properties.EaseProperty,BEditor.Media.Frame)">
             <summary>
             <see cref="T:BEditor.Core.Data.Primitive.Properties.EaseProperty.RemoveCommand"/> クラスの新しいインスタンスを初期化します
             </summary>
@@ -1164,7 +1164,7 @@
             </summary>
             <remarks>このクラスは <see cref="M:BEditor.Core.Command.CommandManager.Do(BEditor.Core.Command.IRecordCommand)"/> と併用することでコマンドを記録できます</remarks>
         </member>
-        <member name="M:BEditor.Core.Data.Primitive.Properties.EaseProperty.MoveCommand.#ctor(BEditor.Core.Data.Primitive.Properties.EaseProperty,System.Int32,System.Int32)">
+        <member name="M:BEditor.Core.Data.Primitive.Properties.EaseProperty.MoveCommand.#ctor(BEditor.Core.Data.Primitive.Properties.EaseProperty,System.Int32,BEditor.Media.Frame)">
             <summary>
             <see cref="T:BEditor.Core.Data.Primitive.Properties.EaseProperty.MoveCommand"/> クラスの新しいインスタンスを初期化します
             </summary>
@@ -1883,7 +1883,7 @@
             読み込まれているイージング関数のType
             </summary>
         </member>
-        <member name="M:BEditor.Core.Data.Property.EasingProperty.EasingFunc.EaseFunc(System.Int32,System.Int32,System.Single,System.Single)">
+        <member name="M:BEditor.Core.Data.Property.EasingProperty.EasingFunc.EaseFunc(BEditor.Media.Frame,BEditor.Media.Frame,System.Single,System.Single)">
             <summary>
             イージング関数
             </summary>
@@ -1957,24 +1957,14 @@
             Represents the data to be passed to the <see cref="T:BEditor.Core.Data.ClipData"/> at rendering time.
             </summary>
         </member>
-        <member name="M:BEditor.Core.Data.ClipRenderArgs.#ctor(System.Int32,System.Collections.Generic.List{BEditor.Core.Data.ClipData},BEditor.Core.Data.RenderType)">
+        <member name="M:BEditor.Core.Data.ClipRenderArgs.#ctor(BEditor.Media.Frame,BEditor.Core.Data.RenderType)">
             <summary>
-            <see cref="T:BEditor.Core.Data.ClipRenderArgs"/> Initialize a new instance of the record.
-            </summary>
-        </member>
-        <member name="M:BEditor.Core.Data.ClipRenderArgs.#ctor">
-            <summary>
-            <see cref="T:BEditor.Core.Data.ClipRenderArgs"/> Initialize a new instance of the record.
+            <see cref="T:BEditor.Core.Data.ClipRenderArgs"/> Initialize a new instance of the class.
             </summary>
         </member>
         <member name="P:BEditor.Core.Data.ClipRenderArgs.Frame">
             <summary>
             Get the frame to render.
-            </summary>
-        </member>
-        <member name="P:BEditor.Core.Data.ClipRenderArgs.Schedules">
-            <summary>
-            Get the <see cref="T:BEditor.Core.Data.ClipData"/> to render.
             </summary>
         </member>
         <member name="P:BEditor.Core.Data.ClipRenderArgs.Handled">
@@ -1992,24 +1982,14 @@
             Represents the data to be passed to the <see cref="T:BEditor.Core.Data.EffectElement"/> at rendering time.
             </summary>
         </member>
-        <member name="M:BEditor.Core.Data.EffectRenderArgs.#ctor">
+        <member name="M:BEditor.Core.Data.EffectRenderArgs.#ctor(BEditor.Media.Frame,BEditor.Core.Data.RenderType)">
             <summary>
-            <see cref="T:BEditor.Core.Data.EffectRenderArgs"/> Initialize a new instance of the record.
-            </summary>
-        </member>
-        <member name="M:BEditor.Core.Data.EffectRenderArgs.#ctor(System.Int32,System.Collections.Generic.List{BEditor.Core.Data.EffectElement},BEditor.Core.Data.RenderType)">
-            <summary>
-            <see cref="T:BEditor.Core.Data.EffectRenderArgs"/> Initialize a new instance of the record.
+            <see cref="T:BEditor.Core.Data.EffectRenderArgs"/> Initialize a new instance of the class.
             </summary>
         </member>
         <member name="P:BEditor.Core.Data.EffectRenderArgs.Frame">
             <summary>
             Get the frame to render.
-            </summary>
-        </member>
-        <member name="P:BEditor.Core.Data.EffectRenderArgs.Schedules">
-            <summary>
-            Get the <see cref="T:BEditor.Core.Data.EffectElement"/> to render.
             </summary>
         </member>
         <member name="P:BEditor.Core.Data.EffectRenderArgs.Handled">
@@ -2027,14 +2007,9 @@
             Represents the data to be passed to the <see cref="T:BEditor.Core.Data.EffectElement"/> at rendering time.
             </summary>
         </member>
-        <member name="M:BEditor.Core.Data.EffectRenderArgs`1.#ctor">
+        <member name="M:BEditor.Core.Data.EffectRenderArgs`1.#ctor(BEditor.Media.Frame,BEditor.Core.Data.RenderType)">
             <summary>
-            <see cref="T:BEditor.Core.Data.EffectRenderArgs"/> Initialize a new instance of the record.
-            </summary>
-        </member>
-        <member name="M:BEditor.Core.Data.EffectRenderArgs`1.#ctor(System.Int32,System.Collections.Generic.List{BEditor.Core.Data.EffectElement})">
-            <summary>
-            <see cref="T:BEditor.Core.Data.EffectRenderArgs"/> Initialize a new instance of the record.
+            <see cref="T:BEditor.Core.Data.EffectRenderArgs"/> Initialize a new instance of the class.
             </summary>
         </member>
         <member name="P:BEditor.Core.Data.EffectRenderArgs`1.Value">
@@ -2146,7 +2121,7 @@
             
             </summary>
         </member>
-        <member name="M:BEditor.Core.Data.Scene.Render(System.Int32)">
+        <member name="M:BEditor.Core.Data.Scene.Render(BEditor.Media.Frame)">
             <summary>
             Render this <see cref="T:BEditor.Core.Data.Scene"/>.
             </summary>
@@ -2157,7 +2132,7 @@
             Render a frame of <see cref="P:BEditor.Core.Data.Scene.PreviewFrame"/>.
             </summary>
         </member>
-        <member name="M:BEditor.Core.Data.Scene.GetLayer(System.Int32)">
+        <member name="M:BEditor.Core.Data.Scene.GetLayer(BEditor.Media.Frame)">
             <summary>
             Get and sort the clips on the specified frame.
             </summary>

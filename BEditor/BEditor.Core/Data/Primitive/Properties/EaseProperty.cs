@@ -10,6 +10,7 @@ using BEditor.Core.Data.Control;
 using BEditor.Core.Data.Property;
 using BEditor.Core.Data.Property.EasingProperty;
 using BEditor.Core.Extensions;
+using BEditor.Media;
 
 namespace BEditor.Core.Data.Primitive.Properties
 {
@@ -17,7 +18,7 @@ namespace BEditor.Core.Data.Primitive.Properties
     /// <see cref="float"/> 型の値をイージングするプロパティを表します
     /// </summary>
     [DataContract]
-    public class EaseProperty : PropertyElement<EasePropertyMetadata>, IKeyFrameProperty
+    public partial class EaseProperty : PropertyElement<EasePropertyMetadata>, IKeyFrameProperty
     {
         #region Fields
 
@@ -40,7 +41,7 @@ namespace BEditor.Core.Data.Primitive.Properties
             PropertyMetadata = metadata ?? throw new ArgumentNullException(nameof(metadata));
 
             Value = new ObservableCollection<float> { metadata.DefaultValue, metadata.DefaultValue };
-            Time = new List<int>();
+            Time = new();
             EasingType = (EasingFunc)Activator.CreateInstance(metadata.DefaultEase.Type);
         }
 
@@ -60,7 +61,7 @@ namespace BEditor.Core.Data.Primitive.Properties
         /// </item>
         /// </list>
         /// </remarks>
-        public event EventHandler<(int frame, int index)> AddKeyFrameEvent;
+        public event EventHandler<(Frame frame, int index)> AddKeyFrameEvent;
         /// <summary>
         /// UIにキーフレームの削除を要求する場合に発生します
         /// </summary>
@@ -94,15 +95,15 @@ namespace BEditor.Core.Data.Primitive.Properties
         /// <summary>
         /// <see cref="Time"/> に対応する <see langword="float"/> 型の値の <see cref="ObservableCollection{T}"/> を取得します
         /// </summary>
-        /// <remarks>値の追加を行う場合は <see cref="InsertKeyframe(int, float)"/> 、削除は <see cref="RemoveKeyframe(int, out float)"/> を使用してください</remarks>
+        /// <remarks>値の追加を行う場合は <see cref="InsertKeyframe(Frame, float)"/> 、削除は <see cref="RemoveKeyframe(Frame, out float)"/> を使用してください</remarks>
         [DataMember]
         public ObservableCollection<float> Value { get; private set; }
         /// <summary>
         /// <see cref="Value"/> に対応するフレーム番号の <see cref="List{T}"/> を取得します
         /// </summary>
-        /// <remarks>値の追加を行う場合は <see cref="InsertKeyframe(int, float)"/> 、削除は <see cref="RemoveKeyframe(int, out float)"/> を使用してください</remarks>
+        /// <remarks>値の追加を行う場合は <see cref="InsertKeyframe(Frame, float)"/> 、削除は <see cref="RemoveKeyframe(Frame, out float)"/> を使用してください</remarks>
         [DataMember]
-        public List<int> Time { get; private set; }
+        public List<Frame> Time { get; private set; }
         /// <summary>
         /// 現在のイージング関数を取得または設定します
         /// </summary>
@@ -138,7 +139,7 @@ namespace BEditor.Core.Data.Primitive.Properties
             get => easingData;
             set => SetValue(value, ref easingData, easingDataArgs);
         }
-        internal int Length => this.GetParent2().Length;
+        internal Frame Length => this.GetParent2().Length;
 
         /// <inheritdoc/>
         public override EffectElement Parent
@@ -159,7 +160,7 @@ namespace BEditor.Core.Data.Primitive.Properties
         /// </summary>
         /// <param name="frame">タイムライン基準のフレーム</param>
         /// <returns></returns>
-        public float GetValue(int frame)
+        public float GetValue(Frame frame)
         {
 
             static (int, int) GetFrame(EaseProperty property, int frame)
@@ -269,13 +270,13 @@ namespace BEditor.Core.Data.Primitive.Properties
         /// <param name="value">追加する値</param>
         /// <returns>追加された <see cref="Value"/> のインデックス</returns>
         /// <exception cref="ArgumentOutOfRangeException"><paramref name="frame"/> が 親要素の範囲外です</exception>
-        public int InsertKeyframe(int frame, float value)
+        public int InsertKeyframe(Frame frame, float value)
         {
             if (frame <= this.GetParent2().Start || this.GetParent2().End <= frame) throw new ArgumentOutOfRangeException(nameof(frame));
 
             Time.Add(frame);
 
-            var tmp = new List<int>(Time);
+            var tmp = new List<Frame>(Time);
             tmp.Sort((a, b) => a - b);
 
 
@@ -297,7 +298,7 @@ namespace BEditor.Core.Data.Primitive.Properties
         /// <param name="value">削除された値</param>
         /// <returns>削除された <see cref="Value"/> のインデックス</returns>
         /// <exception cref="ArgumentOutOfRangeException"><paramref name="frame"/> が 親要素の範囲外です</exception>
-        public int RemoveKeyframe(int frame, out float value)
+        public int RemoveKeyframe(Frame frame, out float value)
         {
             if (frame <= this.GetParent2().Start || this.GetParent2().End <= frame) throw new ArgumentOutOfRangeException(nameof(frame));
 
@@ -415,7 +416,7 @@ namespace BEditor.Core.Data.Primitive.Properties
         public sealed class AddCommand : IRecordCommand
         {
             private readonly EaseProperty property;
-            private readonly int frame;
+            private readonly Frame frame;
 
             /// <summary>
             /// <see cref="AddCommand"/> クラスの新しいインスタンスを初期化します
@@ -424,11 +425,11 @@ namespace BEditor.Core.Data.Primitive.Properties
             /// <param name="frame">追加するフレーム</param>
             /// <exception cref="ArgumentNullException"><paramref name="property"/> が <see langword="null"/> です</exception>
             /// <exception cref="ArgumentOutOfRangeException"><paramref name="frame"/> が 親要素の範囲外です</exception>
-            public AddCommand(EaseProperty property, int frame)
+            public AddCommand(EaseProperty property, Frame frame)
             {
                 this.property = property ?? throw new ArgumentNullException(nameof(property));
 
-                this.frame = (frame <= 0 || property.GetParent2().Length <= frame) ?
+                this.frame = (frame <= Frame.Zero || property.GetParent2().Length <= frame) ?
                              throw new ArgumentOutOfRangeException(nameof(frame))
                              : frame;
             }
@@ -459,7 +460,7 @@ namespace BEditor.Core.Data.Primitive.Properties
         public sealed class RemoveCommand : IRecordCommand
         {
             private readonly EaseProperty property;
-            private readonly int frame;
+            private readonly Frame frame;
             private float value;
 
             /// <summary>
@@ -469,11 +470,11 @@ namespace BEditor.Core.Data.Primitive.Properties
             /// <param name="frame">削除するフレーム</param>
             /// <exception cref="ArgumentNullException"><paramref name="property"/> が <see langword="null"/> です</exception>
             /// <exception cref="ArgumentOutOfRangeException"><paramref name="frame"/> が 親要素の範囲外です</exception>
-            public RemoveCommand(EaseProperty property, int frame)
+            public RemoveCommand(EaseProperty property, Frame frame)
             {
                 this.property = property ?? throw new ArgumentNullException(nameof(property));
 
-                this.frame = (frame <= 0 || property.GetParent2().Length <= frame) ?
+                this.frame = (frame <= Frame.Zero || property.GetParent2().Length <= frame) ?
                              throw new ArgumentOutOfRangeException(nameof(frame))
                              : frame;
             }
@@ -506,7 +507,7 @@ namespace BEditor.Core.Data.Primitive.Properties
             private readonly EaseProperty property;
             private readonly int fromIndex;
             private int toIndex;
-            private readonly int to;
+            private readonly Frame to;
 
             /// <summary>
             /// <see cref="MoveCommand"/> クラスの新しいインスタンスを初期化します
@@ -517,7 +518,7 @@ namespace BEditor.Core.Data.Primitive.Properties
             /// <exception cref="ArgumentNullException"><paramref name="property"/> が <see langword="null"/> です</exception>
             /// <exception cref="IndexOutOfRangeException"><paramref name="fromIndex"/> が <see cref="Value"/> の範囲外です</exception>
             /// <exception cref="ArgumentOutOfRangeException"><paramref name="to"/> が 親要素の範囲外です</exception>
-            public MoveCommand(EaseProperty property, int fromIndex, int to)
+            public MoveCommand(EaseProperty property, int fromIndex, Frame to)
             {
                 this.property = property ?? throw new ArgumentNullException(nameof(property));
 
@@ -525,7 +526,7 @@ namespace BEditor.Core.Data.Primitive.Properties
                                  throw new IndexOutOfRangeException()
                                  : fromIndex;
 
-                this.to = (to <= 0 || property.GetParent2().Length <= to) ?
+                this.to = (to <= Frame.Zero || property.GetParent2().Length <= to) ?
                           throw new ArgumentOutOfRangeException(nameof(to))
                           : to;
             }

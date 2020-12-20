@@ -173,7 +173,6 @@ namespace BEditor.Core.Media
 
         #endregion
 
-
         /// <summary>
         /// <see cref="Color"/> 構造体の新しいインスタンスを初期化します
         /// </summary>

@@ -1,4 +1,5 @@
-﻿using System.Runtime.Serialization;
+﻿using System.Linq;
+using System.Runtime.Serialization;
 
 using BEditor.Core.Command;
 using BEditor.Core.Data.Primitive.Effects;
@@ -51,15 +52,15 @@ namespace BEditor.Core.Data.Primitive.Objects
                 return;
             }
 
-            var imageArgs = new EffectRenderArgs<Image<BGRA32>>
+            var imageArgs = new EffectRenderArgs<Image<BGRA32>>(args.Frame)
             {
-                Frame = args.Frame,
-                Schedules = args.Schedules,
                 Value = base_img
             };
-            for (int i = 1; i < args.Schedules.Count; i++)
+
+            var list = Parent.Effect.Where(x => x.IsEnabled).ToArray();
+            for (int i = 1; i < list.Length; i++)
             {
-                var effect = args.Schedules[i];
+                var effect = list[i];
 
                 if (effect is ImageEffect imageEffect)
                 {

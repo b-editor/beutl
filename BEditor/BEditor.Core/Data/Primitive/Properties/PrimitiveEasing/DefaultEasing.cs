@@ -8,6 +8,7 @@ using BEditor.Core.Command;
 using BEditor.Core.Data.Property;
 using BEditor.Core.Data.Property.EasingProperty;
 using BEditor.Core.Extensions;
+using BEditor.Media;
 
 namespace BEditor.Core.Data.Primitive.Properties.PrimitiveEasing
 {
@@ -127,7 +128,7 @@ namespace BEditor.Core.Data.Primitive.Properties.PrimitiveEasing
         [DataMember()]
         public SelectorProperty EasingType { get; set; }
 
-        public override float EaseFunc(int frame, int totalframe, float min, float max) => currentfunc?.Invoke(frame, totalframe, min, max) ?? 0;
+        public override float EaseFunc(Frame frame, Frame totalframe, float min, float max) => currentfunc?.Invoke(frame, totalframe, min, max) ?? 0;
         public override void PropertyLoaded()
         {
             EasingType.ExecuteLoaded(propertyMetadata);

@@ -172,7 +172,7 @@ namespace BEditor.Drawing
 
             using var filter = SKImageFilter.CreateBlur(sigmaX, sigmaY);
             using var paint = new SKPaint { ImageFilter = filter };
-            using var bmp = new SKBitmap(new(self.Width, self.Height, SKColorType.Rgb888x));
+            using var bmp = new SKBitmap(new(self.Width, self.Height, SKColorType.Bgra8888));
             using var canvas = new SKCanvas(bmp);
             using var b = self.ToSKBitmap();
 

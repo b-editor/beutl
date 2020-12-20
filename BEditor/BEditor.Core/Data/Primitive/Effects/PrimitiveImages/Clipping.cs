@@ -78,7 +78,10 @@ namespace BEditor.Core.Data.Primitive.Effects.PrimitiveImages
             int x = left;
             int y = top;
 
-            args.Value = img[new Rectangle(x, y, width, height)];
+            var img1 = img[new Rectangle(x, y, width, height)];
+            img.Dispose();
+
+            args.Value = img1;
         }
         public override void PropertyLoaded()
         {

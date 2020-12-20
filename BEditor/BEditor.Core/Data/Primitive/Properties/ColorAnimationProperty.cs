@@ -11,6 +11,7 @@ using BEditor.Core.Data.Property;
 using BEditor.Core.Data.Property.EasingProperty;
 using BEditor.Core.Extensions;
 using BEditor.Core.Media;
+using BEditor.Media;
 
 namespace BEditor.Core.Data.Primitive.Properties
 {
@@ -46,7 +47,7 @@ namespace BEditor.Core.Data.Primitive.Properties
         }
 
 
-        public event EventHandler<(int frame, int index)> AddKeyFrameEvent;
+        public event EventHandler<(Frame frame, int index)> AddKeyFrameEvent;
         public event EventHandler<int> DeleteKeyFrameEvent;
         public event EventHandler<(int fromindex, int toindex)> MoveKeyFrameEvent;
 
@@ -71,7 +72,7 @@ namespace BEditor.Core.Data.Primitive.Properties
         /// 
         /// </summary>
         [DataMember]
-        public List<int> Frame { get; set; }
+        public List<Frame> Frame { get; set; }
         /// <summary>
         /// 
         /// </summary>
@@ -103,7 +104,7 @@ namespace BEditor.Core.Data.Primitive.Properties
             get => easingData;
             set => SetValue(value, ref easingData, easingDataArgs);
         }
-        internal int Length => Parent.Parent.Length;
+        internal Frame Length => Parent.Parent.Length;
 
 
         #region Methods
@@ -113,10 +114,10 @@ namespace BEditor.Core.Data.Primitive.Properties
         /// </summary>
         /// <param name="frame">タイムライン基準のフレーム</param>
         /// <returns></returns>
-        public Color GetValue(int frame)
+        public Color GetValue(Frame frame)
         {
 
-            static (int, int) GetFrame(ColorAnimationProperty property, int frame)
+            static (int, int) GetFrame(ColorAnimationProperty property, Frame frame)
             {
                 if (property.Frame.Count == 0)
                 {
@@ -146,7 +147,7 @@ namespace BEditor.Core.Data.Primitive.Properties
 
                 throw new Exception();
             }
-            static (Color, Color) GetValues(ColorAnimationProperty property, int frame)
+            static (Color, Color) GetValues(ColorAnimationProperty property, Frame frame)
             {
                 if (property.Value.Count == 2)
                 {
@@ -197,12 +198,12 @@ namespace BEditor.Core.Data.Primitive.Properties
 
         #region キーフレーム操作
 
-        public int InsertKeyframe(int frame, Color value)
+        public int InsertKeyframe(Frame frame, Color value)
         {
             Frame.Add(frame);
 
 
-            List<int> tmp = new List<int>(Frame);
+            var tmp = new List<Frame>(Frame);
             tmp.Sort((a, b) => a - b);
 
 
@@ -218,7 +219,7 @@ namespace BEditor.Core.Data.Primitive.Properties
             return stindex;
         }
 
-        public int RemoveKeyframe(int frame, out Color value)
+        public int RemoveKeyframe(Frame frame, out Color value)
         {
             var index = Frame.IndexOf(frame) + 1;//値基準のindex
             value = Value[index];
@@ -321,14 +322,14 @@ namespace BEditor.Core.Data.Primitive.Properties
         public sealed class AddCommand : IRecordCommand
         {
             private readonly ColorAnimationProperty property;
-            private readonly int frame;
+            private readonly Frame frame;
 
             /// <summary>
             /// 
             /// </summary>
             /// <param name="property"></param>
             /// <param name="frame"></param>
-            public AddCommand(ColorAnimationProperty property, int frame)
+            public AddCommand(ColorAnimationProperty property, Frame frame)
             {
                 this.property = property ?? throw new ArgumentNullException(nameof(property));
                 this.frame = frame;
@@ -359,7 +360,7 @@ namespace BEditor.Core.Data.Primitive.Properties
         public sealed class RemoveCommand : IRecordCommand
         {
             private readonly ColorAnimationProperty property;
-            private readonly int frame;
+            private readonly Frame frame;
             private Color value;
 
             /// <summary>
@@ -367,7 +368,7 @@ namespace BEditor.Core.Data.Primitive.Properties
             /// </summary>
             /// <param name="property"></param>
             /// <param name="frame"></param>
-            public RemoveCommand(ColorAnimationProperty property, int frame)
+            public RemoveCommand(ColorAnimationProperty property, Frame frame)
             {
                 this.property = property ?? throw new ArgumentNullException(nameof(property));
                 this.frame = frame;
@@ -400,7 +401,7 @@ namespace BEditor.Core.Data.Primitive.Properties
             private readonly ColorAnimationProperty property;
             private readonly int fromIndex;
             private int toIndex;
-            private readonly int to;
+            private readonly Frame to;
 
             /// <summary>
             /// 
@@ -408,7 +409,7 @@ namespace BEditor.Core.Data.Primitive.Properties
             /// <param name="property"></param>
             /// <param name="fromIndex"></param>
             /// <param name="to"></param>
-            public MoveCommand(ColorAnimationProperty property, int fromIndex, int to)
+            public MoveCommand(ColorAnimationProperty property, int fromIndex, Frame to)
             {
                 this.property = property ?? throw new ArgumentNullException(nameof(property));
                 this.fromIndex = fromIndex;

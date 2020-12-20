@@ -40,15 +40,36 @@ namespace BEditor.Drawing.Pixel
 
             return result;
         }
-        public readonly void Convert(out BGR24 dst)
+        public void ConvertFrom(BGR24 src)
+        {
+            B = src.B;
+            G = src.G;
+            R = src.R;
+            A = 255;
+        }
+        public void ConvertFrom(RGBA32 src)
+        {
+            B = src.B;
+            G = src.G;
+            R = src.R;
+            A = src.A;
+        }
+        public void ConvertFrom(RGB24 src)
+        {
+            B = src.B;
+            G = src.G;
+            R = src.R;
+            A = 255;
+        }
+        public readonly void ConvertTo(out BGR24 dst)
         {
             dst = new(R, G, B);
         }
-        public readonly void Convert(out RGB24 dst)
+        public readonly void ConvertTo(out RGB24 dst)
         {
             dst = new(R, G, B);
         }
-        public readonly void Convert(out RGBA32 dst)
+        public readonly void ConvertTo(out RGBA32 dst)
         {
             dst = new(R, G, B, A);
         }

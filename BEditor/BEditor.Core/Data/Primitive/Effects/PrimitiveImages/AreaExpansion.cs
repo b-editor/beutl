@@ -57,7 +57,10 @@ namespace BEditor.Core.Data.Primitive.Effects.PrimitiveImages
                 image.Coordinate.CenterY.Optional = (top / 2) - (bottom / 2);
             }
 
-            args.Value = args.Value.MakeBorder(top, bottom, left, right);
+            var img = args.Value.MakeBorder(top, bottom, left, right);
+            args.Value.Dispose();
+
+            args.Value = img;
         }
         public override void PropertyLoaded()
         {

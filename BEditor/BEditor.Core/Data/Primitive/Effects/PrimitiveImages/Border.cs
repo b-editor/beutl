@@ -35,8 +35,14 @@ namespace BEditor.Core.Data.Primitive.Effects.PrimitiveImages
         [DataMember(Order = 1)]
         public ColorProperty Color { get; private set; }
 
-        public override void Render(EffectRenderArgs<Image<BGRA32>> args) =>
-            args.Value = args.Value.Border((int)Size.GetValue(args.Frame), Color.Color);
+        public override void Render(EffectRenderArgs<Image<BGRA32>> args)
+        {
+            var img = args.Value.Border((int)Size.GetValue(args.Frame), Color.Color);
+            args.Value.Dispose();
+
+            args.Value = img;
+        }
+
         public override void PropertyLoaded()
         {
             Size.ExecuteLoaded(SizeMetadata);

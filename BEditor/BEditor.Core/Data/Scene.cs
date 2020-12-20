@@ -7,6 +7,7 @@ using System.Reactive.Linq;
 using System.Runtime.Serialization;
 using System.Threading.Tasks;
 
+using BEditor.Core.Audio;
 using BEditor.Core.Command;
 using BEditor.Core.Data.Control;
 using BEditor.Core.Extensions;
@@ -15,6 +16,7 @@ using BEditor.Core.Media;
 using BEditor.Core.Renderings;
 using BEditor.Drawing;
 using BEditor.Drawing.Pixel;
+using BEditor.Media;
 
 namespace BEditor.Core.Data
 {
@@ -35,8 +37,8 @@ namespace BEditor.Core.Data
         private static readonly PropertyChangedEventArgs sceneNameArgs = new(nameof(SceneName));
         private ClipData selectItem;
         private ObservableCollection<ClipData> selectItems;
-        private int previewframe;
-        private int totalframe = 1000;
+        private Frame previewframe;
+        private Frame totalframe = 1000;
         private float timeLineZoom = 150;
         private double timeLineHorizonOffset;
         private double timeLineVerticalOffset;
@@ -58,6 +60,7 @@ namespace BEditor.Core.Data
             Height = height;
             Datas = new ObservableCollection<ClipData>();
             GraphicsContext = new GraphicsContext(width, height);
+            AudioContext = new AudioContext();
         }
 
         #endregion
@@ -160,7 +163,11 @@ namespace BEditor.Core.Data
         /// Get graphic context.
         /// </summary>
         public BaseGraphicsContext GraphicsContext { get; internal set; }
-
+        /// <summary>
+        /// Get audio context.
+        /// </summary>
+        public AudioContext AudioContext { get; internal set; }
+        
 
         #region コントロールに関係
 
@@ -168,7 +175,7 @@ namespace BEditor.Core.Data
         /// Gets or sets the frame number during preview.
         /// </summary>
         [DataMember(Order = 5)]
-        public int PreviewFrame
+        public Frame PreviewFrame
         {
             get => previewframe;
             set => SetValue(value, ref previewframe, previreFrameArgs);
@@ -178,7 +185,7 @@ namespace BEditor.Core.Data
         /// Get or set the total frame.
         /// </summary>
         [DataMember(Order = 6)]
-        public int TotalFrame
+        public Frame TotalFrame
         {
             get => totalframe;
             set => SetValue(value, ref totalframe, totalFrameArgs);
@@ -277,14 +284,15 @@ namespace BEditor.Core.Data
         /// Render this <see cref="Scene"/>.
         /// </summary>
         /// <param name="frame">The frame to render</param>
-        public RenderingResult Render(int frame)
+        public RenderingResult Render(Frame frame)
         {
             var layer = GetLayer(frame).ToList();
 
             GraphicsContext.MakeCurrent();
+            AudioContext.MakeCurrent();
             GraphicsContext.Clear();
 
-            var args = new ClipRenderArgs(frame, layer);
+            var args = new ClipRenderArgs(frame);
 
             //Preview
             layer.ForEach(clip => clip.PreviewRender(args));
@@ -311,7 +319,7 @@ namespace BEditor.Core.Data
         /// Get and sort the clips on the specified frame.
         /// </summary>
         /// <param name="frame">Target frame number.</param>
-        public IEnumerable<ClipData> GetLayer(int frame)
+        public IEnumerable<ClipData> GetLayer(Frame frame)
         {
             return Datas
                 .Where(item => item.Start <= (frame) && (frame) < item.End)

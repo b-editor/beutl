@@ -1,4 +1,5 @@
 ﻿using System.Collections.Generic;
+using System.Linq;
 using System.Runtime.Serialization;
 
 using BEditor.Core.Command;
@@ -13,16 +14,16 @@ namespace BEditor.Core.Data.Primitive.Objects
     [DataContract]
     public class CameraObject : ObjectElement
     {
-        public static readonly EasePropertyMetadata XMetadata = new(Resources.X, 0);
-        public static readonly EasePropertyMetadata YMetadata = new(Resources.Y, 0);
-        public static readonly EasePropertyMetadata ZMetadata = new(Resources.Z, 1024);
-        public static readonly EasePropertyMetadata TargetXMetadata = new(Resources.TargetX, 0);
-        public static readonly EasePropertyMetadata TargetYMetadata = new(Resources.TargetY, 0);
-        public static readonly EasePropertyMetadata TargetZMetadata = new(Resources.TargetZ, 0);
-        public static readonly EasePropertyMetadata ZNearMetadata = new(Resources.ZNear, 0.1F);
-        public static readonly EasePropertyMetadata ZFarMetadata = new(Resources.ZFar, 20000);
-        public static readonly EasePropertyMetadata AngleMetadata = new(Resources.Angle, 0);
-        public static readonly EasePropertyMetadata FovMetadata = new(Resources.Fov, 55, 179, 1);
+        public static readonly EasePropertyMetadata XMetadata = new(Resources.X, 0, useoptional: true);
+        public static readonly EasePropertyMetadata YMetadata = new(Resources.Y, 0, useoptional: true);
+        public static readonly EasePropertyMetadata ZMetadata = new(Resources.Z, 1024, useoptional: true);
+        public static readonly EasePropertyMetadata TargetXMetadata = new(Resources.TargetX, 0, useoptional: true);
+        public static readonly EasePropertyMetadata TargetYMetadata = new(Resources.TargetY, 0, useoptional: true);
+        public static readonly EasePropertyMetadata TargetZMetadata = new(Resources.TargetZ, 0, useoptional: true);
+        public static readonly EasePropertyMetadata ZNearMetadata = new(Resources.ZNear, 0.1F, useoptional: true);
+        public static readonly EasePropertyMetadata ZFarMetadata = new(Resources.ZFar, 20000, useoptional: true);
+        public static readonly EasePropertyMetadata AngleMetadata = new(Resources.Angle, 0, useoptional: true);
+        public static readonly EasePropertyMetadata FovMetadata = new(Resources.Fov, 55, 179, 1, useoptional: true);
         public static readonly CheckPropertyMetadata ModeMetadata = new(Resources.Perspective, true);
 
         public CameraObject()
@@ -86,9 +87,10 @@ namespace BEditor.Core.Data.Primitive.Objects
                 Fov.GetValue(frame),
                 Mode.IsChecked);
 
-            for (int i = 1; i < args.Schedules.Count; i++)
+            var list = Parent.Effect.Where(e => e.IsEnabled).ToArray();
+            for (int i = 1; i < list.Length; i++)
             {
-                var effect = args.Schedules[i];
+                var effect = list[i];
 
                 effect.Render(args);
             }

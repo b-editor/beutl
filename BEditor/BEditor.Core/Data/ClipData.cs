@@ -14,6 +14,7 @@ using BEditor.Core.Data.Control;
 using BEditor.Core.Data.Primitive.Objects;
 using BEditor.Core.Properties;
 using BEditor.Core.Service;
+using BEditor.Media;
 
 namespace BEditor.Core.Data
 {
@@ -30,8 +31,8 @@ namespace BEditor.Core.Data
         private static readonly PropertyChangedEventArgs layerArgs = new(nameof(Layer));
         private static readonly PropertyChangedEventArgs textArgs = new(nameof(LabelText));
         private string name;
-        private int start;
-        private int end;
+        private Frame start;
+        private Frame end;
         private int layer;
         private string labeltext;
 
@@ -90,7 +91,7 @@ namespace BEditor.Core.Data
         /// Get or set the start frame for this <see cref="ClipData"/>.
         /// </summary>
         [DataMember(Order = 2)]
-        public int Start
+        public Frame Start
         {
             get => start;
             set => SetValue(value, ref start, startArgs);
@@ -100,7 +101,7 @@ namespace BEditor.Core.Data
         /// Get or set the end frame for this <see cref="ClipData"/>.
         /// </summary>
         [DataMember(Order = 3)]
-        public int End
+        public Frame End
         {
             get => end;
             set => SetValue(value, ref end, endArgs);
@@ -109,7 +110,7 @@ namespace BEditor.Core.Data
         /// <summary>
         /// Get the length of this <see cref="ClipData"/>.
         /// </summary>
-        public int Length => End - Start;
+        public Frame Length => End - Start;
 
         /// <summary>
         /// Get or set the layer where this <see cref="ClipData"/> will be placed.
@@ -157,7 +158,7 @@ namespace BEditor.Core.Data
         /// </summary>
         public void Render(ClipRenderArgs args)
         {
-            var loadargs = new EffectRenderArgs(args.Frame, Effect.Where(x => x.IsEnabled).ToList());
+            var loadargs = new EffectRenderArgs(args.Frame, args.Type);
 
             if (Effect[0] is ObjectElement obj)
             {
@@ -172,7 +173,7 @@ namespace BEditor.Core.Data
         public void PreviewRender(ClipRenderArgs args)
         {
             var enableEffects = Effect.Where(x => x.IsEnabled);
-            var loadargs = new EffectRenderArgs(args.Frame, enableEffects.ToList());
+            var loadargs = new EffectRenderArgs(args.Frame);
 
             foreach (var item in enableEffects)
             {
@@ -192,12 +193,12 @@ namespace BEditor.Core.Data
             });
         }
 
-        internal void MoveFrame(int f)
+        internal void MoveFrame(Frame f)
         {
             Start += f;
             End += f;
         }
-        internal void MoveTo(int start)
+        internal void MoveTo(Frame start)
         {
             var length = Length;
             Start = start;
@@ -218,7 +219,7 @@ namespace BEditor.Core.Data
         internal sealed class AddCommand : IRecordCommand
         {
             private readonly Scene Scene;
-            private readonly int AddFrame;
+            private readonly Frame AddFrame;
             private readonly int AddLayer;
             private readonly ObjectMetadata Metadata;
             public ClipData data;
@@ -230,10 +231,10 @@ namespace BEditor.Core.Data
             /// <exception cref="ArgumentNullException"><paramref name="metadata"/> is <see langword="null"/>.</exception>
             /// <exception cref="ArgumentOutOfRangeException"><paramref name="startFrame"/> is less than 0.</exception>
             /// <exception cref="ArgumentOutOfRangeException"><paramref name="layer"/> is less than 0</exception>
-            public AddCommand(Scene scene, int startFrame, int layer, ObjectMetadata metadata)
+            public AddCommand(Scene scene, Frame startFrame, int layer, ObjectMetadata metadata)
             {
                 Scene = scene ?? throw new ArgumentNullException(nameof(scene));
-                AddFrame = (0 > startFrame) ? throw new ArgumentOutOfRangeException(nameof(startFrame)) : startFrame;
+                AddFrame = (Frame.Zero > startFrame) ? throw new ArgumentOutOfRangeException(nameof(startFrame)) : startFrame;
                 AddLayer = (0 > layer) ? throw new ArgumentOutOfRangeException(nameof(layer)) : layer;
                 Metadata = metadata ?? throw new ArgumentNullException(nameof(metadata));
             }
@@ -335,8 +336,8 @@ namespace BEditor.Core.Data
         internal sealed class MoveCommand : IRecordCommand
         {
             private readonly ClipData data;
-            private readonly int to;
-            private readonly int from;
+            private readonly Frame to;
+            private readonly Frame from;
             private readonly int tolayer;
             private readonly int fromlayer;
             private Scene Scene => data.Parent;
@@ -347,10 +348,10 @@ namespace BEditor.Core.Data
             /// </summary>
             /// <exception cref="ArgumentNullException"><paramref name="clip"/> is <see langword="null"/>.</exception>
             /// <exception cref="ArgumentOutOfRangeException"><paramref name="toFrame"/> or <paramref name="toLayer"/> is less than 0.</exception>
-            public MoveCommand(ClipData clip, int toFrame, int toLayer)
+            public MoveCommand(ClipData clip, Frame toFrame, int toLayer)
             {
                 this.data = clip ?? throw new ArgumentNullException(nameof(clip));
-                this.to = (0 > toFrame) ? throw new ArgumentOutOfRangeException(nameof(toFrame)) : toFrame;
+                this.to = (Frame.Zero > toFrame) ? throw new ArgumentOutOfRangeException(nameof(toFrame)) : toFrame;
                 from = clip.Start;
                 this.tolayer = (0 > toLayer) ? throw new ArgumentOutOfRangeException(nameof(toLayer)) : toLayer;
                 fromlayer = clip.Layer;
@@ -361,11 +362,11 @@ namespace BEditor.Core.Data
             /// </summary>
             /// <exception cref="ArgumentNullException"><paramref name="clip"/> is <see langword="null"/>.</exception>
             /// <exception cref="ArgumentOutOfRangeException"><paramref name="to"/>, <paramref name="from"/>, <paramref name="tolayer"/>, <paramref name="fromlayer"/> is less than 0.</exception>
-            public MoveCommand(ClipData clip, int to, int from, int tolayer, int fromlayer)
+            public MoveCommand(ClipData clip, Frame to, Frame from, int tolayer, int fromlayer)
             {
                 this.data = clip ?? throw new ArgumentNullException(nameof(clip));
-                this.to = (0 > to) ? throw new ArgumentOutOfRangeException(nameof(to)) : to;
-                this.from = (0 > from) ? throw new ArgumentOutOfRangeException(nameof(from)) : from;
+                this.to = (Frame.Zero > to) ? throw new ArgumentOutOfRangeException(nameof(to)) : to;
+                this.from = (Frame.Zero > from) ? throw new ArgumentOutOfRangeException(nameof(from)) : from;
                 this.tolayer = (0 > tolayer) ? throw new ArgumentOutOfRangeException(nameof(tolayer)) : tolayer;
                 this.fromlayer = (0 > fromlayer) ? throw new ArgumentOutOfRangeException(nameof(fromlayer)) : fromlayer;
             }
@@ -401,21 +402,21 @@ namespace BEditor.Core.Data
         internal sealed class LengthChangeCommand : IRecordCommand
         {
             private readonly ClipData data;
-            private readonly int start;
-            private readonly int end;
-            private readonly int oldstart;
-            private readonly int oldend;
+            private readonly Frame start;
+            private readonly Frame end;
+            private readonly Frame oldstart;
+            private readonly Frame oldend;
 
             /// <summary>
             /// <see cref="LengthChangeCommand"/> Initialize a new instance of the class.
             /// </summary>
             /// <exception cref="ArgumentNullException"><paramref name="clip"/> is <see langword="null"/>.</exception>
             /// <exception cref="ArgumentOutOfRangeException"><paramref name="start"/> or <paramref name="end"/> is less than 0.</exception>
-            public LengthChangeCommand(ClipData clip, int start, int end)
+            public LengthChangeCommand(ClipData clip, Frame start, Frame end)
             {
                 this.data = clip ?? throw new ArgumentNullException(nameof(clip));
-                this.start = (0 > start) ? throw new ArgumentOutOfRangeException(nameof(start)) : start;
-                this.end = (0 > end) ? throw new ArgumentOutOfRangeException(nameof(end)) : end;
+                this.start = (Frame.Zero > start) ? throw new ArgumentOutOfRangeException(nameof(start)) : start;
+                this.end = (Frame.Zero > end) ? throw new ArgumentOutOfRangeException(nameof(end)) : end;
                 oldstart = clip.Start;
                 oldend = clip.End;
             }

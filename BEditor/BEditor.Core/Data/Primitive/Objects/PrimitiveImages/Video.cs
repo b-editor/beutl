@@ -7,10 +7,10 @@ using BEditor.Core.Data.Primitive.Properties;
 using BEditor.Core.Data.Property;
 using BEditor.Core.Extensions;
 using BEditor.Core.Extensions.ViewCommand;
-using BEditor.Core.Media.Decoder;
 using BEditor.Core.Properties;
 using BEditor.Drawing;
 using BEditor.Drawing.Pixel;
+using BEditor.Media.Decoder;
 
 namespace BEditor.Core.Data.Primitive.Objects.PrimitiveImages
 {
@@ -20,7 +20,7 @@ namespace BEditor.Core.Data.Primitive.Objects.PrimitiveImages
         public static readonly EasePropertyMetadata SpeedMetadata = new(Resources.Speed, 100);
         public static readonly EasePropertyMetadata StartMetadata = new(Resources.Start, 1, float.NaN, 0);
         public static readonly FilePropertyMetadata FileMetadata = new(Resources.File, "", "mp4,avi,wmv,mov", Resources.VideoFile);
-        private VideoDecoder videoReader;
+        private IVideoDecoder videoReader;
 
         public Video()
         {
@@ -64,7 +64,7 @@ namespace BEditor.Core.Data.Primitive.Objects.PrimitiveImages
 
             if (System.IO.File.Exists(File.File))
             {
-                videoReader = new FFmpegVideoDecoder(File.File);
+                videoReader = new FFmpegDecoder(File.File);
             }
 
             File.Subscribe(filename =>
@@ -73,7 +73,7 @@ namespace BEditor.Core.Data.Primitive.Objects.PrimitiveImages
 
                 try
                 {
-                    videoReader = new FFmpegVideoDecoder(filename);
+                    videoReader = new FFmpegDecoder(filename);
                 }
                 catch (Exception ex)
                 {
