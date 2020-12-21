@@ -27,20 +27,20 @@ namespace BEditor.Core.Plugin
         public static IEnumerable<string> GetNames()
         {
             return Directory.GetDirectories(pluginsDir)
-                .Select(folder => Path.GetFileName(folder));
+                .Select(static folder => Path.GetFileName(folder));
         }
 
         // 許可されたプラグインのリストを読み込む
         public static IEnumerable<IPlugin> Load(IEnumerable<string> pluginName)
         {
             var pluginss = pluginName
-                .Select(f => Path.Combine(AppContext.BaseDirectory, "user", "plugins", f, $"{f}.dll"))
-                .Where(f => File.Exists(f))
-                .Select(f => Assembly.LoadFrom(f).GetTypes())
-                .Select(types => types
-                    .Select(t => Activator.CreateInstance(t) as IPlugin)
-                    .Where(t => t is not null))
-                .SelectMany(f => f);
+                .Select(static f => Path.Combine(AppContext.BaseDirectory, "user", "plugins", f, $"{f}.dll"))
+                .Where(static f => File.Exists(f))
+                .Select(static f => Assembly.LoadFrom(f).GetTypes())
+                .Select(static types => types
+                    .Select(static t => Activator.CreateInstance(t) as IPlugin)
+                    .Where(static t => t is not null))
+                .SelectMany(static f => f);
             
             foreach (var plugin in pluginss)
             {
