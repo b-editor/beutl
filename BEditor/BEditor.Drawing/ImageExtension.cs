@@ -37,7 +37,7 @@ namespace BEditor.Drawing
         internal static Image<BGR24> ToImage24(this SKBitmap self)
         {
             var result = new Image<BGR24>(self.Width, self.Height);
-            CopyTo(self.Bytes, result.Data!, result.DataSize);
+            CopyTo(self.Bytes, result.Data, result.DataSize);
 
             return result;
         }
@@ -66,7 +66,7 @@ namespace BEditor.Drawing
 
             return result;
         }
-        internal static void CopyTo(byte[] src, BGR24[] dst, int length)
+        internal static void CopyTo(byte[] src, Span<BGR24> dst, int length)
         {
             fixed (BGR24* dstPtr = dst)
             fixed (byte* srcPtr = src)
@@ -74,7 +74,7 @@ namespace BEditor.Drawing
                 Buffer.MemoryCopy(srcPtr, dstPtr, length, length);
             }
         }
-        internal static void CopyTo(byte[] src, BGRA32[] dst, int length)
+        internal static void CopyTo(byte[] src, Span<BGRA32> dst, int length)
         {
             fixed (BGRA32* dstPtr = dst)
             fixed (byte* srcPtr = src)

@@ -38,7 +38,10 @@ namespace BEditor.Models.Extension
             int w = src.Width;
             int h = src.Height;
 
-            dst.WritePixels(new Int32Rect(0, 0, w, h), src.Data, src.Stride, 0);
+            fixed(BGRA32* data = src.Data)
+            {
+                dst.WritePixels(new Int32Rect(0, 0, w, h), (IntPtr)data, src.DataSize, src.Stride);
+            }
         }
 
         public unsafe static void ToImage(this BitmapSource src, Image<BGRA32> dst)

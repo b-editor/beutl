@@ -29,7 +29,8 @@ namespace BEditor.Core.Graphics
 
             GL.ReadBuffer(ReadBufferMode.Front);
 
-            GL.ReadPixels(0, 0, image.Width, image.Height, PixelFormat.Bgra, PixelType.UnsignedByte, image.Data);
+            fixed (T* data = image.Data)
+                GL.ReadPixels(0, 0, image.Width, image.Height, PixelFormat.Bgra, PixelType.UnsignedByte, (IntPtr)data);
 
             image.Flip(Drawing.FlipMode.X);
         }
@@ -38,7 +39,7 @@ namespace BEditor.Core.Graphics
 
         #region BindTexture
 
-        public static void BindTexture(Image<BGRA32> img, out int texture)
+        public unsafe static void BindTexture(Image<BGRA32> img, out int texture)
         {
             if (img is null)
             {
@@ -52,8 +53,9 @@ namespace BEditor.Core.Graphics
             GL.GenTextures(1, out texture);
             GL.BindTexture(TextureTarget.Texture2D, texture);
 
-            GL.TexImage2D(TextureTarget.Texture2D, 0, PixelInternalFormat.Rgba, width, height, 0,
-                PixelFormat.Bgra, PixelType.UnsignedByte, img.Data);
+            fixed (BGRA32* data = img.Data)
+                GL.TexImage2D(TextureTarget.Texture2D, 0, PixelInternalFormat.Rgba, width, height, 0,
+                    PixelFormat.Bgra, PixelType.UnsignedByte, (IntPtr)data);
 
             GL.TexParameter(TextureTarget.Texture2D, TextureParameterName.TextureMinFilter, (int)TextureMinFilter.Linear);
             GL.TexParameter(TextureTarget.Texture2D, TextureParameterName.TextureMagFilter, (int)TextureMagFilter.Linear);
