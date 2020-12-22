@@ -295,9 +295,9 @@ namespace BEditor.Core.Data
             var args = new ClipRenderArgs(frame);
 
             //Preview
-            layer.ForEach(clip => clip.PreviewRender(args));
+            foreach (var clip in layer) clip.PreviewRender(args);
 
-            layer.ForEach(clip => clip.Render(args));
+            foreach (var clip in layer) clip.Render(args);
 
             GraphicsContext.SwapBuffers();
 

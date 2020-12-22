@@ -4,19 +4,32 @@ using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
 
+using BEditor.Media.PCM;
+
 namespace BEditor.Media
 {
-    public class Sound
+    public unsafe class Sound<T> where T : unmanaged, IPCM<T>
     {
-        public Sound(uint channels, uint rate, uint length)
+        private readonly uint length;
+
+        public Sound(Channel channels, uint rate, uint length)
         {
             Channels = channels;
             Samplingrate = rate;
-            Pcm = new float[channels * Samplingrate * length];
+            this.length = length;
+            Pcm = new T[(uint)channels * rate * length];
         }
 
-        public float[] Pcm { get; }
-        public uint Channels { get; }
+        public T[] Pcm { get; }
+        public Channel Channels { get; }
         public uint Samplingrate { get; }
+        public uint Length => (uint)Channels * Samplingrate * length;
+        public long DataSize => (uint)Channels * Samplingrate * length * sizeof(T);
+    }
+
+    public enum Channel : uint
+    {
+        Monaural = 1,
+        Stereo = 2
     }
 }

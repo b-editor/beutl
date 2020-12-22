@@ -21,7 +21,7 @@ namespace BEditor.Drawing.Process
 
         public readonly void Invoke(int p)
         {
-            src[p].Convert(out dst[p]);
+            src[p].ConvertTo(out dst[p]);
         }
     }
 }

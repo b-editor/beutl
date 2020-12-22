@@ -441,6 +441,7 @@ namespace BEditor.Core.Data
     public static class ClipType
     {
         public static readonly Type Video = typeof(Primitive.Objects.PrimitiveImages.Video);
+        public static readonly Type Audio = typeof(Primitive.Objects.AudioObject);
         public static readonly Type Image = typeof(Primitive.Objects.PrimitiveImages.Image);
         public static readonly Type Text = typeof(Primitive.Objects.PrimitiveImages.Text);
         public static readonly Type Figure = typeof(Primitive.Objects.PrimitiveImages.Figure);
@@ -450,43 +451,49 @@ namespace BEditor.Core.Data
         public static readonly ObjectMetadata VideoMetadata = new()
         {
             Name = Resources.Video,
-            Type = typeof(Primitive.Objects.PrimitiveImages.Video),
+            Type = Video,
             CreateFunc = () => new Primitive.Objects.PrimitiveImages.Video()
+        };
+        public static readonly ObjectMetadata AudioMetadata = new()
+        {
+            Name = Resources.Audio,
+            Type = Audio,
+            CreateFunc = () => new Primitive.Objects.AudioObject()
         };
         public static readonly ObjectMetadata ImageMetadata = new()
         {
             Name = Resources.Image,
-            Type = typeof(Primitive.Objects.PrimitiveImages.Image),
+            Type = Image,
             CreateFunc = () => new Primitive.Objects.PrimitiveImages.Image()
         };
         public static readonly ObjectMetadata TextMetadata = new()
         {
             Name = Resources.Text,
-            Type = typeof(Primitive.Objects.PrimitiveImages.Text),
+            Type = Text,
             CreateFunc = () => new Primitive.Objects.PrimitiveImages.Text()
         };
         public static readonly ObjectMetadata FigureMetadata = new()
         {
             Name = Resources.Figure,
-            Type = typeof(Primitive.Objects.PrimitiveImages.Figure),
+            Type = Figure,
             CreateFunc = () => new Primitive.Objects.PrimitiveImages.Figure()
         };
         public static readonly ObjectMetadata CameraMetadata = new()
         {
             Name = Resources.Camera,
-            Type = typeof(CameraObject),
+            Type = Camera,
             CreateFunc = () => new CameraObject()
         };
         public static readonly ObjectMetadata GL3DObjectMetadata = new()
         {
             Name = Resources._3DObject,
-            Type = typeof(GL3DObject),
+            Type = GL3DObject,
             CreateFunc = () => new GL3DObject()
         };
         public static readonly ObjectMetadata SceneMetadata = new()
         {
             Name = Resources.Scene,
-            Type = typeof(Primitive.Objects.PrimitiveImages.SceneObject),
+            Type = Scene,
             CreateFunc = () => new Primitive.Objects.PrimitiveImages.SceneObject()
         };
     }

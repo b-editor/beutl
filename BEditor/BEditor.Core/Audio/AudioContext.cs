@@ -21,10 +21,6 @@ namespace BEditor.Core.Audio
             context = Alc.CreateContext(device, NULL);
 
             Alc.MakeContextCurrent(context);
-            
-            // Texture的な感じ
-            //AL.GenBuffer(out buffer);
-            //AL.GenSource(out source);
         }
 
         public bool IsDisposed { get; private set; }

@@ -2079,6 +2079,11 @@
             Get graphic context.
             </summary>
         </member>
+        <member name="P:BEditor.Core.Data.Scene.AudioContext">
+            <summary>
+            Get audio context.
+            </summary>
+        </member>
         <member name="P:BEditor.Core.Data.Scene.PreviewFrame">
             <summary>
             Gets or sets the frame number during preview.
@@ -2160,12 +2165,6 @@
             </summary>
             <param name="data">Target <see cref="T:BEditor.Core.Data.ClipData"/>.</param>
             <exception cref="T:System.ArgumentNullException"><paramref name="data"/> is <see langword="null"/>.</exception>
-        </member>
-        <member name="M:BEditor.Core.DisposableObject.ThrowIfDisposed">
-            <summary>
-            
-            </summary>
-            <exception cref="T:System.ObjectDisposedException"/>
         </member>
         <member name="M:BEditor.Core.Graphics.BaseGraphicsContext.Clear(System.Boolean,System.Single,System.Single,System.Single,System.Single,System.Single,System.Single,System.Single,System.Single)">
             <summary>
@@ -2603,29 +2602,6 @@
         <member name="M:BEditor.Core.Plugin.IPlugin.SettingCommand">
             <summary>
             プラグインの設定を開くときに呼び出されます
-            </summary>
-        </member>
-        <member name="M:BEditor.Core.Plugin.PluginLoadedEventArgs.#ctor(System.String,System.Boolean,System.Exception)">
-            <summary>
-            PluginLoadedEventArgsのコンストラクタ
-            </summary>
-            <param name="filename">Dllのファイル</param>
-            <param name="issuccesful">成功したかのブーリアン</param>
-            <param name="e">失敗した場合のException</param>
-        </member>
-        <member name="P:BEditor.Core.Plugin.PluginLoadedEventArgs.FileName">
-            <summary>
-            Dllのファイル名
-            </summary>
-        </member>
-        <member name="P:BEditor.Core.Plugin.PluginLoadedEventArgs.IsSuccessful">
-            <summary>
-            成功したかのブーリアン
-            </summary>
-        </member>
-        <member name="P:BEditor.Core.Plugin.PluginLoadedEventArgs.Exception">
-            <summary>
-            失敗した場合のException
             </summary>
         </member>
         <member name="M:BEditor.Core.Plugin.PluginManager.GetNames">

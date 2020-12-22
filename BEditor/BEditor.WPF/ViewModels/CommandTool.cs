@@ -167,6 +167,7 @@ namespace BEditor.ViewModels
         public static ObjectMetadata ToClipMetadata(PackIconKind kind)
         {
             if (kind == PackIconKind.Movie) return ClipType.VideoMetadata;
+            else if (kind == PackIconKind.Audio) return ClipType.AudioMetadata;
             else if (kind == PackIconKind.Image) return ClipType.ImageMetadata;
             else if (kind == PackIconKind.TextBox) return ClipType.TextMetadata;
             else if (kind == PackIconKind.Shape) return ClipType.FigureMetadata;

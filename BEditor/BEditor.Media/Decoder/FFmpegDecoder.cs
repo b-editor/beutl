@@ -1,5 +1,6 @@
 ﻿using System;
 using System.Collections.Generic;
+using System.IO;
 using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
@@ -20,7 +21,7 @@ namespace BEditor.Media.Decoder
         
         static FFmpegDecoder()
         {
-            ffmpeg.RootPath = AppContext.BaseDirectory;
+            ffmpeg.RootPath = Path.Combine(AppContext.BaseDirectory, "ffmpeg");
             ffmpeg.av_register_all();
         }
         public FFmpegDecoder(string filename)

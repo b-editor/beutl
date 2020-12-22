@@ -59,6 +59,7 @@ namespace BEditor.Core.Data
                 foreach (var scene in project.SceneList)
                 {
                     scene.GraphicsContext = new GraphicsContext(scene.Width, scene.Height);
+                    scene.AudioContext = new();
                     scene.PropertyLoaded();
                 }
 
@@ -84,6 +85,7 @@ namespace BEditor.Core.Data
                 foreach (var scene in project.SceneList)
                 {
                     scene.GraphicsContext = new GraphicsContext(scene.Width, scene.Height);
+                    scene.AudioContext = new();
                     scene.PropertyLoaded();
                 }
 
