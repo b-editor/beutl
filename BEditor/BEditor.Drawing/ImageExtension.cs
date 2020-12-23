@@ -29,7 +29,7 @@ namespace BEditor.Drawing
             fixed (BGRA32* src = image.Data)
             {
                 var proc = new AlphaBlendProcess(dst, src);
-                Parallel.For(0, image.Length, proc.Invoke);
+                Parallel.For(0, image.Data.Length, proc.Invoke);
             }
 
             self[rect] = blended;
@@ -91,7 +91,7 @@ namespace BEditor.Drawing
             fixed (BGRA32* data = self.Data)
             {
                 var p = new SetAlphaProcess(data, alpha);
-                Parallel.For(0, self.Length, p.Invoke);
+                Parallel.For(0, self.Data.Length, p.Invoke);
             }
         }
         public static void SetColor(this Image<BGRA32> self, BGRA32 color)
@@ -102,7 +102,7 @@ namespace BEditor.Drawing
             fixed (BGRA32* data = self.Data)
             {
                 var p = new SetColorProcess(data, color);
-                Parallel.For(0, self.Length, p.Invoke);
+                Parallel.For(0, self.Data.Length, p.Invoke);
             }
         }
         public static Image<BGRA32> Border(this Image<BGRA32> self, int size, BGRA32 color)
@@ -161,6 +161,7 @@ namespace BEditor.Drawing
             return bmp.ToImage32();
         }
 
+        #region Blur
         public static void Blur(this Image<BGRA32> self, float sigma)
         {
             self.Blur(sigma, sigma);
@@ -199,6 +200,9 @@ namespace BEditor.Drawing
 
             CopyTo(bmp.Bytes, self.Data!, self.DataSize);
         }
+        #endregion
+
+        #region Dilate
         public static void Dilate(this Image<BGRA32> self, int radius)
         {
             self.Dilate(radius, radius);
@@ -237,6 +241,9 @@ namespace BEditor.Drawing
 
             CopyTo(bmp.Bytes, self.Data!, self.DataSize);
         }
+        #endregion
+
+        #region Erode
         public static void Erode(this Image<BGRA32> self, int radius)
         {
             self.Erode(radius, radius);
@@ -274,6 +281,8 @@ namespace BEditor.Drawing
 
             CopyTo(bmp.Bytes, self.Data!, self.DataSize);
         }
+        #endregion
+
         public static Image<BGRA32> Ellipse(int width, int height, int line, BGRA32 color)
         {
             if (line >= Math.Min(width, height) / 2)
@@ -381,6 +390,8 @@ namespace BEditor.Drawing
 
             return bmp.ToImage32();
         }
+
+        #region Encode
         public static bool Encode(this Image<BGRA32> self, byte[] buffer, EncodedImageFormat format, int quality = 100)
         {
             if (self is null) throw new ArgumentNullException(nameof(self));
@@ -467,6 +478,9 @@ namespace BEditor.Drawing
 
             return bmp.Encode(stream, (SKEncodedImageFormat)format, quality);
         }
+        #endregion
+
+        #region Decode
         public static Image<BGRA32>? Decode(ReadOnlySpan<byte> buffer)
         {
             using var bmp = SKBitmap.Decode(buffer);
@@ -496,6 +510,8 @@ namespace BEditor.Drawing
 
             return bmp?.ToImage32();
         }
+        #endregion
+
         private static EncodedImageFormat ToImageFormat(string filename)
         {
             var ex = Path.GetExtension(filename);
@@ -530,7 +546,7 @@ namespace BEditor.Drawing
             fixed (T1* srcPtr = self.Data)
             fixed (T2* dstPtr = dst.Data)
             {
-                Parallel.For(0, self.Length, new ConvertProcess<T1, T2>(srcPtr, dstPtr).Invoke);
+                Parallel.For(0, self.Data.Length, new ConvertProcess<T1, T2>(srcPtr, dstPtr).Invoke);
             }
 
             return dst;

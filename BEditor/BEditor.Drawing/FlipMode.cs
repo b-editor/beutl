@@ -1,5 +1,8 @@
-﻿namespace BEditor.Drawing
+﻿using System;
+
+namespace BEditor.Drawing
 {
+    [Flags]
     public enum FlipMode
     {
         X = 0,

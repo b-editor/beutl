@@ -57,11 +57,6 @@
             Get the data size of this <see cref="T:BEditor.Drawing.Image`1"/>.
             </summary>
         </member>
-        <member name="P:BEditor.Drawing.Image`1.Length">
-            <summary>
-            Get the data length of this <see cref="T:BEditor.Drawing.Image`1"/>.
-            </summary>
-        </member>
         <member name="P:BEditor.Drawing.Image`1.Data">
             <summary>
             Get the data of this <see cref="T:BEditor.Drawing.Image`1"/>.

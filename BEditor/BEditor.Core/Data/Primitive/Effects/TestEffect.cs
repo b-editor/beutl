@@ -9,11 +9,13 @@ using BEditor.Core.Command;
 using BEditor.Core.Data.Primitive.Components;
 using BEditor.Core.Data.Primitive.Properties;
 using BEditor.Core.Data.Property;
+using BEditor.Drawing;
+using BEditor.Drawing.Pixel;
 
 namespace BEditor.Core.Data.Primitive.Effects
 {
     [DataContract]
-    public class TestEffect : EffectElement
+    public class TestEffect : ImageEffect
     {
         public static readonly FolderPropertyMetadata FolderMetadata = new("Folder", "");
 
@@ -43,6 +45,14 @@ namespace BEditor.Core.Data.Primitive.Effects
             base.PropertyLoaded();
             Folder.ExecuteLoaded(FolderMetadata);
             Dialog.ExecuteLoaded(null);
+        }
+
+        public override void Render(EffectRenderArgs<Image<BGRA32>> args)
+        {
+            using var bgr = args.Value.Convert<BGRA32, BGR24>();
+            var bgra = bgr.Convert<BGR24, BGRA32>();
+            args.Value.Dispose();
+            args.Value = bgra;
         }
 
         [DataContract]

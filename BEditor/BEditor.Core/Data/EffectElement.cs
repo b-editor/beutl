@@ -398,13 +398,13 @@ namespace BEditor.Core.Data
                         CreateFunc = () => new SpotLight()
                     }
                 }
-            }//},
-            //new()
-            //{
-            //    Name = "TestEffect",
-            //    Type = typeof(TestEffect),
-            //    CreateFunc = () => new TestEffect()
-            //}
+            },
+            new()
+            {
+                Name = "TestEffect",
+                Type = typeof(TestEffect),
+                CreateFunc = () => new TestEffect()
+            }
         };
     }
 }

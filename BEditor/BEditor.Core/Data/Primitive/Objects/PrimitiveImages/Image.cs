@@ -51,7 +51,11 @@ namespace BEditor.Core.Data.Primitive.Objects.PrimitiveImages
 
                 return source;
             }
-            set => source = value;
+            set
+            {
+                source?.Dispose();
+                source = value;
+            }
         }
 
         public override Image<BGRA32> OnRender(EffectRenderArgs args) => Source?.Clone();
@@ -65,7 +69,7 @@ namespace BEditor.Core.Data.Primitive.Objects.PrimitiveImages
                 if (System.IO.File.Exists(file))
                 {
                     using var stream = new FileStream(file, FileMode.Open);
-                    source = Drawing.Image.Decode(stream);
+                    Source = Drawing.Image.Decode(stream);
                 }
             });
         }

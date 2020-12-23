@@ -156,17 +156,6 @@ namespace BEditor.Drawing
             }
         }
         /// <summary>
-        /// Get the data length of this <see cref="Image{T}"/>.
-        /// </summary>
-        public int Length
-        {
-            get
-            {
-                ThrowIfDisposed();
-                return Width * Height;
-            }
-        }
-        /// <summary>
         /// Get the data of this <see cref="Image{T}"/>.
         /// </summary>
         public Span<T> Data
@@ -175,7 +164,7 @@ namespace BEditor.Drawing
             {
                 ThrowIfDisposed();
 
-                return (array is null) ? new Span<T>(pointer, Length) : new Span<T>(array);
+                return (array is null) ? new Span<T>(pointer, width * height) : new Span<T>(array);
             }
         }
         /// <summary>
@@ -282,7 +271,10 @@ namespace BEditor.Drawing
         {
             ThrowIfDisposed();
 
-            return new Image<T>(Width, Height, Data.ToArray());
+            var img = new Image<T>(Width, Height);
+            Data.CopyTo(img.Data);
+
+            return img;
         }
 
         public void Clear()
@@ -301,14 +293,15 @@ namespace BEditor.Drawing
         public void Flip(FlipMode mode)
         {
             ThrowIfDisposed();
-            if (mode is FlipMode.Y)
+            if (mode.HasFlag(FlipMode.Y))
             {
                 Parallel.For(0, Height, y =>
                 {
                     this[y].Reverse();
                 });
             }
-            else
+
+            if (mode.HasFlag(FlipMode.X))
             {
                 Parallel.For(0, Height / 2, top =>
                 {
