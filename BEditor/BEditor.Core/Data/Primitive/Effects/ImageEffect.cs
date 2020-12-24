@@ -1,7 +1,6 @@
 ﻿using System.Runtime.Serialization;
 
 using BEditor.Core.Data.Primitive.Objects;
-using BEditor.Core.Media;
 using BEditor.Drawing;
 using BEditor.Drawing.Pixel;
 

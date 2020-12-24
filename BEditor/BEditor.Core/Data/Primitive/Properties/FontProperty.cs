@@ -11,7 +11,6 @@ using BEditor.Core.Command;
 using BEditor.Core.Data.Bindings;
 using BEditor.Core.Data.Property;
 using BEditor.Core.Data.Property.EasingProperty;
-using BEditor.Core.Media;
 using BEditor.Core.Properties;
 using BEditor.Drawing;
 

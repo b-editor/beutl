@@ -10,7 +10,7 @@
     <div style="
         height: @($"{Settings.Default.ClipHeight}px");
         cursor: move;
-        background: @($"{Element.GetAttribute().GetColor.ToHTMLColor()}");"
+        background: @($"{Element.GetAttribute().GetColor.ToString("#rgb")}");"
         draggable="true"
         @ondragstart="@OnDragStart"
         @ondragend="@OnDragEnd">

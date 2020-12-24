@@ -4,7 +4,6 @@ using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
 
-using BEditor.Core.Media;
 using BEditor.Drawing;
 using BEditor.Drawing.Pixel;
 

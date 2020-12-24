@@ -26,7 +26,7 @@ namespace BEditor.ViewModels.PropertyControl
             Metadata = property.ObserveProperty(p => p.PropertyMetadata)
                 .ToReadOnlyReactiveProperty();
 
-            Command.Subscribe(x => CommandManager.Do(new ColorProperty.ChangeColorCommand(Property, new(x.Item1, x.Item2, x.Item3, x.Item4))));
+            Command.Subscribe(x => CommandManager.Do(new ColorProperty.ChangeColorCommand(Property, BEditor.Drawing.Color.FromARGB(x.Item4, x.Item1, x.Item2, x.Item3))));
             Reset.Subscribe(() => CommandManager.Do(new ColorProperty.ChangeColorCommand(Property, Property.PropertyMetadata.DefaultColor)));
         }
 

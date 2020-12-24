@@ -24,7 +24,6 @@ using MaterialDesignThemes.Wpf;
 
 using Microsoft.WindowsAPICodePack.Dialogs;
 using Resources_ = BEditor.Core.Properties.Resources;
-using BEditor.Core.Media;
 using System.Timers;
 using BEditor.Models.Services;
 using BEditor.Core.Service;

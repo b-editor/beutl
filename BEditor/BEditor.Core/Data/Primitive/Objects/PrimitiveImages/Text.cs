@@ -8,7 +8,6 @@ using BEditor.Core.Data.Control;
 using BEditor.Core.Data.Primitive.Properties;
 using BEditor.Core.Data.Property;
 using BEditor.Core.Extensions;
-using BEditor.Core.Media;
 using BEditor.Core.Properties;
 using BEditor.Core.Service;
 using BEditor.Drawing;

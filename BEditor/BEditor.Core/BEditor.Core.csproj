@@ -24,12 +24,6 @@
     <DocumentationFile>\BEditor.Core.xml</DocumentationFile>
     <PlatformTarget>AnyCPU</PlatformTarget>
   </PropertyGroup>
-  
-  <ItemGroup>
-    <Compile Remove="Media\Vector\**" />
-    <EmbeddedResource Remove="Media\Vector\**" />
-    <None Remove="Media\Vector\**" />
-  </ItemGroup>
 
   <ItemGroup>
     <PackageReference Include="OpenTK" Version="3.3.1" />

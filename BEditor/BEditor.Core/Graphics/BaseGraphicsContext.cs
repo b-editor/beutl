@@ -4,7 +4,6 @@ using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
 
-using BEditor.Core.Media;
 using BEditor.Core.Data;
 
 using OpenTK;
@@ -17,7 +16,7 @@ using OpenTK.Windowing.Desktop;
 #else
 
 #endif
-using Color = BEditor.Core.Media.Color;
+using Color = BEditor.Drawing.Color;
 using System.Runtime.InteropServices;
 using BEditor.Core.Renderings;
 using BEditor.Core.Data.Primitive.Objects;
@@ -268,8 +267,8 @@ namespace BEditor.Core.Graphics
             Color diffuse = drawObject.Material.Diffuse.GetValue(frame);
             Color specular = drawObject.Material.Specular.GetValue(frame);
             float shininess = drawObject.Material.Shininess.GetValue(frame);
-            Color color = drawObject.Blend.Color.GetValue(frame);
-            color.ScA *= alpha;
+            var c = drawObject.Blend.Color.GetValue(frame);
+            var color = Drawing.Color.FromARGB((byte)(c.A * alpha), c.R, c.G, c.B);
 
             MakeCurrent();
 

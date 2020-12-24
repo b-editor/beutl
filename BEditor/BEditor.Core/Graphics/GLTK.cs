@@ -10,8 +10,7 @@ using GLColor = OpenTK.Mathematics.Color4;
 using OpenTK.Mathematics;
 #endif
 
-using BEditor.Core.Media;
-using Color = BEditor.Core.Media.Color;
+using Color = BEditor.Drawing.Color;
 using BEditor.Drawing;
 using System.Drawing;
 using BEditor.Drawing.Pixel;
@@ -158,10 +157,10 @@ namespace BEditor.Core.Graphics
 
             BindTexture(img, out int id);
 
-            GL.Color4((GLColor)(color ?? Color.White));
-            GL.Material(MaterialFace.Front, MaterialParameter.Ambient, (GLColor)(ambient ?? Color.White));
-            GL.Material(MaterialFace.Front, MaterialParameter.Diffuse, (GLColor)(diffuse ?? Color.White));
-            GL.Material(MaterialFace.Front, MaterialParameter.Specular, (GLColor)(specular ?? Color.White));
+            GL.Color4((color ?? Color.Light).ToOpenTK());
+            GL.Material(MaterialFace.Front, MaterialParameter.Ambient, (ambient ?? Color.Light).ToOpenTK());
+            GL.Material(MaterialFace.Front, MaterialParameter.Diffuse, (diffuse ?? Color.Light).ToOpenTK());
+            GL.Material(MaterialFace.Front, MaterialParameter.Specular, (specular ?? Color.Light).ToOpenTK());
             GL.Material(MaterialFace.Front, MaterialParameter.Shininess, shininess);
 
             GL.Enable(EnableCap.Texture2D);
@@ -240,12 +239,12 @@ namespace BEditor.Core.Graphics
 
         #region DrawCube
 
-        public static void DrawCube(float width, float height, float weight, Media.Color ambient, Media.Color diffuse, Media.Color specular, float shininess)
+        public static void DrawCube(float width, float height, float weight, Color ambient, Color diffuse, Color specular, float shininess)
         {
 
-            GL.Material(MaterialFace.Front, MaterialParameter.Ambient, (GLColor)ambient);
-            GL.Material(MaterialFace.Front, MaterialParameter.Diffuse, (GLColor)diffuse);
-            GL.Material(MaterialFace.Front, MaterialParameter.Specular, (GLColor)specular);
+            GL.Material(MaterialFace.Front, MaterialParameter.Ambient, ambient.ToOpenTK());
+            GL.Material(MaterialFace.Front, MaterialParameter.Diffuse, diffuse.ToOpenTK());
+            GL.Material(MaterialFace.Front, MaterialParameter.Specular, specular.ToOpenTK());
             GL.Material(MaterialFace.Front, MaterialParameter.Shininess, shininess);
 
             // 右面
@@ -325,11 +324,11 @@ namespace BEditor.Core.Graphics
 
         #region DrawBall
 
-        public static void DrawBall(float radius, Media.Color ambient, Media.Color diffuse, Media.Color specular, float shininess, int count = 8)
+        public static void DrawBall(float radius, Color ambient, Color diffuse, Color specular, float shininess, int count = 8)
         {
-            GL.Material(MaterialFace.Front, MaterialParameter.Ambient, (GLColor)ambient);
-            GL.Material(MaterialFace.Front, MaterialParameter.Diffuse, (GLColor)diffuse);
-            GL.Material(MaterialFace.Front, MaterialParameter.Specular, (GLColor)specular);
+            GL.Material(MaterialFace.Front, MaterialParameter.Ambient, ambient.ToOpenTK());
+            GL.Material(MaterialFace.Front, MaterialParameter.Diffuse, diffuse.ToOpenTK());
+            GL.Material(MaterialFace.Front, MaterialParameter.Specular, specular.ToOpenTK());
             GL.Material(MaterialFace.Front, MaterialParameter.Shininess, shininess);
 
             float a = (float)(Math.PI / count / 2);
@@ -360,5 +359,6 @@ namespace BEditor.Core.Graphics
         internal static Vector2 ToOpenTK(this ref System.Numerics.Vector2 vector3) => new Vector2(vector3.X, vector3.Y);
         internal static System.Numerics.Vector3 ToNumerics(this ref Vector3 vector3) => new(vector3.X, vector3.Y, vector3.Z);
         internal static System.Numerics.Vector2 ToNumerics(this ref Vector2 vector3) => new(vector3.X, vector3.Y);
+        internal static GLColor ToOpenTK(this in Color color) => new(color.R, color.G, color.B, color.A);
     }
 }

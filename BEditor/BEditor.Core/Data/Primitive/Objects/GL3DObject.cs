@@ -3,7 +3,6 @@ using System.Collections.Generic;
 using System.Runtime.Serialization;
 
 using BEditor.Core.Data.Property;
-using BEditor.Core.Media;
 using BEditor.Core.Properties;
 using BEditor.Core.Graphics;
 using BEditor.Core.Extensions;
@@ -80,7 +79,7 @@ namespace BEditor.Core.Data.Primitive.Objects
         {
             int frame = args.Frame;
             Action action;
-            GLColor color4 = Blend.Color.GetValue(frame);
+            GLColor color4 = Blend.Color.GetValue(frame).ToOpenTK();
             color4.A *= Blend.Alpha.GetValue(frame);
 
 

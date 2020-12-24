@@ -4,7 +4,6 @@ using System.Runtime.Serialization;
 using BEditor.Core.Data.Primitive.Properties;
 using BEditor.Core.Data.Property;
 using BEditor.Core.Extensions;
-using BEditor.Core.Media;
 
 using static BEditor.Core.Data.Primitive.Effects.PrimitiveImages.Dilate;
 using BEditor.Core.Command;

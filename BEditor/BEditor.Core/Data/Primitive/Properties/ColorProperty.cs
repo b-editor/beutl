@@ -9,7 +9,7 @@ using BEditor.Core.Command;
 using BEditor.Core.Data.Bindings;
 using BEditor.Core.Data.Property;
 using BEditor.Core.Data.Property.EasingProperty;
-using BEditor.Core.Media;
+using BEditor.Drawing;
 
 namespace BEditor.Core.Data.Primitive.Properties
 {
@@ -17,16 +17,16 @@ namespace BEditor.Core.Data.Primitive.Properties
     /// 色を選択するプロパティを表します
     /// </summary>
     [DataContract]
-    public class ColorProperty : PropertyElement<ColorPropertyMetadata>, IEasingProperty, IBindable<ReadOnlyColor>
+    public class ColorProperty : PropertyElement<ColorPropertyMetadata>, IEasingProperty, IBindable<Color>
     {
         #region Fields
 
         private static readonly PropertyChangedEventArgs colorArgs = new(nameof(Color));
         private Color color;
-        private List<IObserver<ReadOnlyColor>> list;
+        private List<IObserver<Color>> list;
 
         private IDisposable BindDispose;
-        private IBindable<ReadOnlyColor> Bindable;
+        private IBindable<Color> Bindable;
         private string bindHint;
 
         #endregion
@@ -44,7 +44,7 @@ namespace BEditor.Core.Data.Primitive.Properties
         }
 
 
-        private List<IObserver<ReadOnlyColor>> Collection => list ??= new();
+        private List<IObserver<Color>> Collection => list ??= new();
         /// <summary>
         /// 
         /// </summary>
@@ -68,7 +68,7 @@ namespace BEditor.Core.Data.Primitive.Properties
             });
         }
         /// <inheritdoc/>
-        public ReadOnlyColor Value => color;
+        public Color Value => color;
         /// <inheritdoc/>
         [DataMember]
         public string BindHint
@@ -96,7 +96,7 @@ namespace BEditor.Core.Data.Primitive.Properties
 
         #region IBindable
 
-        public void Bind(IBindable<ReadOnlyColor>? bindable)
+        public void Bind(IBindable<Color>? bindable)
         {
             BindDispose?.Dispose();
             Bindable = bindable;
@@ -110,7 +110,7 @@ namespace BEditor.Core.Data.Primitive.Properties
             }
         }
 
-        public IDisposable Subscribe(IObserver<ReadOnlyColor> observer)
+        public IDisposable Subscribe(IObserver<Color> observer)
         {
             if (observer is null) throw new ArgumentNullException(nameof(observer));
 
@@ -124,7 +124,7 @@ namespace BEditor.Core.Data.Primitive.Properties
 
         public void OnCompleted() { }
         public void OnError(Exception error) { }
-        public void OnNext(ReadOnlyColor value)
+        public void OnNext(Color value)
         {
             Color = value;
         }
@@ -141,8 +141,8 @@ namespace BEditor.Core.Data.Primitive.Properties
         public sealed class ChangeColorCommand : IRecordCommand
         {
             private readonly ColorProperty property;
-            private readonly ReadOnlyColor @new;
-            private readonly ReadOnlyColor old;
+            private readonly Color @new;
+            private readonly Color old;
 
             /// <summary>
             /// <see cref="ChangeColorCommand"/> クラスの新しいインスタンスを初期化します
@@ -150,7 +150,7 @@ namespace BEditor.Core.Data.Primitive.Properties
             /// <param name="property">対象の <see cref="ColorProperty"/></param>
             /// <param name="color"></param>
             /// <exception cref="ArgumentNullException"><paramref name="property"/> が <see langword="null"/> です</exception>
-            public ChangeColorCommand(ColorProperty property, in ReadOnlyColor color)
+            public ChangeColorCommand(ColorProperty property, in Color color)
             {
                 this.property = property ?? throw new ArgumentNullException(nameof(property));
                 @new = color;
@@ -185,13 +185,13 @@ namespace BEditor.Core.Data.Primitive.Properties
         /// </summary>
         public ColorPropertyMetadata(string name, byte r = 255, byte g = 255, byte b = 255, byte a = 255, bool usealpha = false) : base(name)
         {
-            DefaultColor = new(r, g, b, a);
+            DefaultColor = Color.FromARGB(a, r, g, b);
             UseAlpha = usealpha;
         }
         /// <summary>
         /// <see cref="ColorPropertyMetadata"/> クラスの新しいインスタンスを初期化します
         /// </summary>
-        public ColorPropertyMetadata(string name, in ReadOnlyColor defaultColor = default, bool usealpha = false) : base(name)
+        public ColorPropertyMetadata(string name, in Color defaultColor = default, bool usealpha = false) : base(name)
         {
             DefaultColor = defaultColor;
             UseAlpha = usealpha;
@@ -206,7 +206,7 @@ namespace BEditor.Core.Data.Primitive.Properties
 
         public byte Alpha => DefaultColor.A;
 
-        public ReadOnlyColor DefaultColor { get; init; }
+        public Color DefaultColor { get; init; }
 
         public bool UseAlpha { get; init; }
     }

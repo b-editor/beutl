@@ -87,7 +87,7 @@
             Get or set this <see cref="T:BEditor.Drawing.Image`1"/> row.
             </summary>
         </member>
-        <member name="P:BEditor.Drawing.Image`1.Item(System.Drawing.Rectangle)">
+        <member name="P:BEditor.Drawing.Image`1.Item(BEditor.Drawing.Rectangle)">
             <summary>
             Crop or replace an image with a range.
             </summary>

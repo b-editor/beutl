@@ -13,6 +13,7 @@ using BEditor.Views.CustomControl;
 using BEditor.Core.Data;
 using BEditor.Core.Data.Property;
 using BEditor.Core.Data.Primitive.Properties;
+using BEditor.Drawing;
 
 namespace BEditor.Views.PropertyControl
 {
@@ -116,7 +117,7 @@ namespace BEditor.Views.PropertyControl
 
         private void RectangleMouseDown(object sender, MouseButtonEventArgs e)
         {
-            var rect = (Rectangle)sender;
+            var rect = (System.Windows.Shapes.Rectangle)sender;
 
             int index = AttachmentProperty.GetInt(rect);
 
@@ -130,7 +131,7 @@ namespace BEditor.Views.PropertyControl
 
             d.ok_button.Click += (_, _) =>
             {
-                Core.Command.CommandManager.Do(new ColorAnimationProperty.ChangeColorCommand(color, index, new(d.col.Red, d.col.Green, d.col.Blue, d.col.Alpha)));
+                Core.Command.CommandManager.Do(new ColorAnimationProperty.ChangeColorCommand(color, index, Color.FromARGB(d.col.Alpha, d.col.Red, d.col.Green, d.col.Blue)));
             };
 
             d.ShowDialog();

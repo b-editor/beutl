@@ -12,7 +12,6 @@ using BEditor.Core.Command;
 using BEditor.Core.Data.Control;
 using BEditor.Core.Extensions;
 using BEditor.Core.Graphics;
-using BEditor.Core.Media;
 using BEditor.Core.Renderings;
 using BEditor.Drawing;
 using BEditor.Drawing.Pixel;

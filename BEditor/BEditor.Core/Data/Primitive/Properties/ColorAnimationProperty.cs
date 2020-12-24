@@ -10,7 +10,7 @@ using BEditor.Core.Data.Control;
 using BEditor.Core.Data.Property;
 using BEditor.Core.Data.Property.EasingProperty;
 using BEditor.Core.Extensions;
-using BEditor.Core.Media;
+using BEditor.Drawing;
 using BEditor.Media;
 
 namespace BEditor.Core.Data.Primitive.Properties
@@ -39,7 +39,7 @@ namespace BEditor.Core.Data.Primitive.Properties
         public ColorAnimationProperty(ColorAnimationPropertyMetadata metadata)
         {
             PropertyMetadata = metadata ?? throw new ArgumentNullException(nameof(metadata));
-            Color color = new(metadata.Red, metadata.Green, metadata.Blue, metadata.Alpha);
+            Color color = metadata.DefaultColor;
 
             Value = new() { color, color };
             Frame = new();
@@ -188,12 +188,16 @@ namespace BEditor.Core.Data.Primitive.Properties
 
 
 
-            float red = EasingType.EaseFunc(now, end - start, stval.ScR, edval.ScR);
-            float green = EasingType.EaseFunc(now, end - start, stval.ScG, edval.ScG);
-            float blue = EasingType.EaseFunc(now, end - start, stval.ScB, edval.ScB);
-            float alpha = EasingType.EaseFunc(now, end - start, stval.ScA, edval.ScA);
+            float red = EasingType.EaseFunc(now, end - start, stval.R, edval.R);
+            float green = EasingType.EaseFunc(now, end - start, stval.G, edval.G);
+            float blue = EasingType.EaseFunc(now, end - start, stval.B, edval.B);
+            float alpha = EasingType.EaseFunc(now, end - start, stval.A, edval.A);
 
-            return new Color(red, green, blue, alpha);
+            return Color.FromARGB(
+                (byte)alpha,
+                (byte)red,
+                (byte)green,
+                (byte)blue);
         }
 
         #region キーフレーム操作
@@ -252,8 +256,8 @@ namespace BEditor.Core.Data.Primitive.Properties
         {
             private readonly ColorAnimationProperty property;
             private readonly int index;
-            private readonly ReadOnlyColor @new;
-            private readonly ReadOnlyColor old;
+            private readonly Color @new;
+            private readonly Color old;
 
             /// <summary>
             /// 
@@ -261,7 +265,7 @@ namespace BEditor.Core.Data.Primitive.Properties
             /// <param name="property"></param>
             /// <param name="index"></param>
             /// <param name="color"></param>
-            public ChangeColorCommand(ColorAnimationProperty property, int index, in ReadOnlyColor color)
+            public ChangeColorCommand(ColorAnimationProperty property, int index, in Color color)
             {
                 this.property = property ?? throw new ArgumentNullException(nameof(property));
                 this.index = index;

@@ -21,7 +21,7 @@ namespace NUnitTestProject1
 
         }
 
-        [Test]
+        //[Test]
         public void Test()
         {
             using var project = new Project(1920, 1080, 60);

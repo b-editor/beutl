@@ -2,7 +2,7 @@
 using System.Windows.Controls;
 
 using BEditor.Core.Data.Primitive.Properties;
-using BEditor.Core.Media;
+using BEditor.Drawing;
 using BEditor.ViewModels.PropertyControl;
 using BEditor.Views.CustomControl;
 
@@ -44,7 +44,7 @@ namespace BEditor.Views.PropertyControls
         {
             var window = new BindSettings()
             {
-                DataContext = new BindSettingsViewModel<ReadOnlyColor>(property)
+                DataContext = new BindSettingsViewModel<Color>(property)
             };
             window.ShowDialog();
         }

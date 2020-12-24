@@ -9,7 +9,6 @@ using System;
 using System.Collections.Generic;
 using System.IO;
 using System.Runtime.InteropServices;
-using System.Drawing;
 
 namespace NUnitTestProject1
 {
@@ -98,6 +97,26 @@ namespace NUnitTestProject1
             image[new Rectangle(0, 0, circle.Width, circle.Height)] = circle;
 
             image.Encode(CombinePath("StackArray.png"));
+        }
+        [Test]
+        public void ColorFormat()
+        {
+            var color = Color.Blue;
+
+            Console.WriteLine("#argb  : " + color.ToString("#argb"));
+            Console.WriteLine("#rgb   : " + color.ToString("#rgb"));
+            Console.WriteLine("0xargb : " + color.ToString("0xargb"));
+            Console.WriteLine("0xrgb  : " + color.ToString("0xrgb"));
+            Console.WriteLine("argb   : " + color.ToString("argb"));
+            Console.WriteLine("rgb    : " + color.ToString("rgb"));
+
+            // lower
+            Console.WriteLine("#argb-l  : " + color.ToString("#argb-l"));
+            Console.WriteLine("#rgb-l   : " + color.ToString("#rgb-l"));
+            Console.WriteLine("0xargb-l : " + color.ToString("0xargb-l"));
+            Console.WriteLine("0xrgb-l  : " + color.ToString("0xrgb-l"));
+            Console.WriteLine("argb-l   : " + color.ToString("argb-l"));
+            Console.WriteLine("rgb-l    : " + color.ToString("rgb-l"));
         }
     }
 }

@@ -7,15 +7,13 @@ using System.Windows.Media;
 
 using BEditor.Models.Extension;
 
-using BEditor.Core.Media;
-
 namespace BEditor.ViewModels.Converters
 {
     public class ColorToBrush : IValueConverter
     {
         public object Convert(object value, Type targetType, object parameter, CultureInfo culture)
         {
-            if (value is Core.Media.Color color)
+            if (value is Drawing.Color color)
             {
                 return color.ToBrush();
             }

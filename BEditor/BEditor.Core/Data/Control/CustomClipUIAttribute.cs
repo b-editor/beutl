@@ -1,9 +1,10 @@
 ﻿using System;
 using System.Collections.Generic;
-using System.Drawing;
 using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
+
+using BEditor.Drawing;
 
 namespace BEditor.Core.Data.Control
 {
@@ -15,7 +16,7 @@ namespace BEditor.Core.Data.Control
 
         }
 
-        public int Color { get; set; } = unchecked((int)0xff304fee);
-        public Color GetColor => System.Drawing.Color.FromArgb(Color);
+        public int Color { get; set; } = unchecked(0x304fee);
+        public Color GetColor => BEditor.Drawing.Color.FromARGB(Color);
     }
 }

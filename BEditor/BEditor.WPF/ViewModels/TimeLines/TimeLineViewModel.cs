@@ -15,13 +15,13 @@ using BEditor.Views.SettingsControl;
 using BEditor.Core.Command;
 using BEditor.Core.Data;
 using BEditor.Core.Data.Control;
-using BEditor.Core.Media;
 using BEditor.Models;
 
 using CommandManager = BEditor.Core.Command.CommandManager;
 using Reactive.Bindings;
 using BEditor.Drawing;
 using Reactive.Bindings.Extensions;
+using Point = System.Windows.Point;
 
 namespace BEditor.ViewModels.TimeLines
 {

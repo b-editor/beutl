@@ -8,7 +8,6 @@ using BEditor.Core.Data.Primitive.Properties.PrimitiveGroup;
 using BEditor.Core.Data.Property;
 using BEditor.Core.Extensions;
 using BEditor.Core.Graphics;
-using BEditor.Core.Media;
 using BEditor.Core.Properties;
 using BEditor.Core.Renderings;
 using BEditor.Drawing;
