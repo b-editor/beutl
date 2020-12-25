@@ -1,25 +1,25 @@
 ﻿@using BEditor.Core.Data
 
 @*<div class="mat-layout-grid" style="padding: 8px;">
-    <div class="mat-layout-grid-inner">
-        <div class="mat-layout-grid-cell mat-layout-grid-cell-span-10">
-            <MatTextField
-                Style="color: #ffffff; height: 30px;"
-                @bind-Value="@Clip.LabelText"
-                InputStyle="color: #ffffff; height: 30px; padding: 0; padding-left: 8px;"
-                FullWidth="true"></MatTextField>
-        </div>
-        <div class="mat-layout-grid-cell mat-layout-grid-cell-span-2">
-            <MatIconButton Icon="more_vert" Style="padding: 0; width: auto;"></MatIconButton>
-        </div>
+        <div class="mat-layout-grid-inner">
+            <div class="mat-layout-grid-cell mat-layout-grid-cell-span-10">
+                <MatTextField
+                    Style="color: #ffffff; height: 30px;"
+                    @bind-Value="@Clip.LabelText"
+                    InputStyle="color: #ffffff; height: 30px; padding: 0; padding-left: 8px;"
+                    FullWidth="true"></MatTextField>
+            </div>
+            <div class="mat-layout-grid-cell mat-layout-grid-cell-span-2">
+                <MatIconButton Icon="more_vert" Style="padding: 0; width: auto;"></MatIconButton>
+            </div>
 
-        <div>
-            PropertyContent
+            <div>
+                PropertyContent
+            </div>
         </div>
-    </div>
-</div>*@
+    </div>*@
 
-<div style="padding: 8px;">
+<div style="padding: 8px; overflow-y: scroll;">
     <div style="display: flex;">
         <div style="width: calc(100% - 48px);">
             <MatTextField Style="color: #ffffff; height: 30px;"
@@ -32,10 +32,25 @@
         </div>
     </div>
     <div>
-        @foreach(var effect in Clip.Children)
-        {
+        <MatAccordion>
 
-        }
+
+            @foreach (var effect in Clip.Children)
+            {
+                <MatExpansionPanel Style="box-shadow: none;" @bind-Expanded="@effect.IsExpanded">
+                    <MatExpansionPanelSummary>
+                        <MatExpansionPanelHeader>@effect.Name</MatExpansionPanelHeader>
+                        @*<MatExpansionPanelSubHeader>Type your name and age</MatExpansionPanelSubHeader>*@
+                    </MatExpansionPanelSummary>
+                    <MatExpansionPanelDetails>
+                        @foreach (var property in effect.Children)
+                        {
+                            @PropertyViewBuilder.CreateProperty(property)
+                        }
+                    </MatExpansionPanelDetails>
+                </MatExpansionPanel>
+            }
+        </MatAccordion>
     </div>
 </div>
 

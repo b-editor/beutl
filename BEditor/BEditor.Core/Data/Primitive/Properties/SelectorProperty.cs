@@ -48,7 +48,12 @@ namespace BEditor.Core.Data.Primitive.Properties
         /// <summary>
         /// 選択されているアイテムを取得します
         /// </summary>
-        public object SelectItem => PropertyMetadata.ItemSource[Index];
+        public object SelectItem
+        {
+            get => PropertyMetadata.ItemSource[Index];
+            set => Index = PropertyMetadata.ItemSource.IndexOf(value);
+        }
+
         /// <summary>
         /// 選択されている <see cref="SelectorPropertyMetadata.ItemSource"/> のインデックスを取得または設定します
         /// </summary>

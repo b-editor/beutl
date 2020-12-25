@@ -20,6 +20,26 @@
     </div>*@
 
 <style>
+    .mdc-select:not(.mdc-select--disabled) .mdc-select__anchor {
+        background-color: #424242;
+    }
+
+    .mdc-select:not(.mdc-select--disabled) .mdc-select__selected-text {
+        color: #ffffff;
+    }
+
+    .mdc-select:not(.mdc-select--disabled) .mdc-line-ripple::before {
+        border-bottom-color: rgba(255,255,255,.42);
+    }
+
+    .mdc-text-field--fullwidth:not(.mdc-text-field--disabled) .mdc-line-ripple::before {
+        border-bottom-color: rgba(255,255,255,.42);
+    }
+
+    .mdc-select:not(.mdc-select--disabled) .mdc-select__dropdown-icon {
+        fill: rgba(255,255,255,.54);
+    }
+
     .mat-card {
         width: inherit;
         height: inherit;

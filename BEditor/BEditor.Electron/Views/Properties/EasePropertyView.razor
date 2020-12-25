@@ -1,0 +1,28 @@
+﻿@using BEditor.Core.Data.Primitive.Properties
+
+<div class="mat-layout-grid" style="padding: 0;">
+    <div class="mat-layout-grid-inner">
+        <div class="mat-layout-grid-cell mat-layout-grid-cell-span-5" style="margin-top: auto; margin-bottom: auto;">
+            @Property.PropertyMetadata.Name
+        </div>
+        <div class="mat-layout-grid-cell mat-layout-grid-cell-span-7">
+            <MatExpansionPanel Style="box-shadow: none;">
+                <MatExpansionPanelSummary>
+                    <MatExpansionPanelHeader>Value</MatExpansionPanelHeader>
+                    @*<MatExpansionPanelSubHeader>Type your name and age</MatExpansionPanelSubHeader>*@
+                </MatExpansionPanelSummary>
+                <MatExpansionPanelDetails>
+                    @foreach (var v in Property.Value)
+                    {
+                        <MatTextField Value="@v"></MatTextField>
+                    }
+                </MatExpansionPanelDetails>
+            </MatExpansionPanel>
+        </div>
+    </div>
+</div>
+
+@code {
+    [Parameter]
+    public EaseProperty Property { get; set; }
+}

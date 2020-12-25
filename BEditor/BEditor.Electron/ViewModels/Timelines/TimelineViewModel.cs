@@ -61,10 +61,10 @@ namespace BEditor.ViewModels.Timelines
             if (ClipLeftRight is not 0 && ClipSelect is not null)
             {
 
-                int start = Scene.ToFrame(ClipSelect.GetCreateClipViewModel().MarginLeft);
-                int end = Scene.ToFrame(ClipSelect.GetCreateClipViewModel().Width) + start;//変更後の最大フレーム
+                var start = Scene.ToFrame(ClipSelect.GetCreateClipViewModel().MarginLeft);
+                var end = Scene.ToFrame(ClipSelect.GetCreateClipViewModel().Width) + start;//変更後の最大フレーム
                 if (0 < start && 0 < end)
-                    CommandManager.Do(new ClipData.LengthChangeCommand(ClipSelect, start, end));
+                    ClipSelect.CreateLengthChangeCommand(start, end).Execute();
 
                 ClipLeftRight = 0;
             }
@@ -97,11 +97,7 @@ namespace BEditor.ViewModels.Timelines
 
             if (ClipSelect is null && frame < 0) return;
 
-            CommandManager.Do(
-                new ClipData.MoveCommand(
-                    ClipSelect,
-                    frame,
-                    MouseLayer));
+            ClipSelect.CreateMoveCommand(frame, MouseLayer).Execute();
         }
     }
 }

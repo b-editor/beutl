@@ -1814,11 +1814,20 @@
             </summary>
             <returns><see langword="true"/> if the save is successful, otherwise <see langword="false"/>.</returns>
         </member>
-        <member name="M:BEditor.Core.Data.Project.Save(System.String)">
+        <member name="M:BEditor.Core.Data.Project.Save(System.String,BEditor.Core.SerializeMode)">
             <summary>
             Save this <see cref="T:BEditor.Core.Data.Project"/> with a name.
             </summary>
             <param name="filename">New File Name</param>
+            <param name="mode"></param>
+            <returns><see langword="true"/> if the save is successful, otherwise <see langword="false"/>.</returns>
+        </member>
+        <member name="M:BEditor.Core.Data.Project.Save(System.IO.Stream,BEditor.Core.SerializeMode)">
+            <summary>
+            Save this <see cref="T:BEditor.Core.Data.Project"/> with a name.
+            </summary>
+            <param name="stream">Stream to save</param>
+            <param name="mode"></param>
             <returns><see langword="true"/> if the save is successful, otherwise <see langword="false"/>.</returns>
         </member>
         <member name="M:BEditor.Core.Data.Project.SaveAs">

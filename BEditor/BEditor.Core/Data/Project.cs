@@ -258,11 +258,27 @@ namespace BEditor.Core.Data
         /// Save this <see cref="Project"/> with a name.
         /// </summary>
         /// <param name="filename">New File Name</param>
+        /// <param name="mode"></param>
         /// <returns><see langword="true"/> if the save is successful, otherwise <see langword="false"/>.</returns>
-        public bool Save(string filename)
+        public bool Save(string filename, SerializeMode mode = SerializeMode.Binary)
         {
             Filename = filename;
-            if (Serialize.SaveToFile(this, filename))
+            if (Serialize.SaveToFile(this, filename, mode))
+            {
+                Saved?.Invoke(this, new(SaveType.Save));
+                return true;
+            }
+            return false;
+        }
+        /// <summary>
+        /// Save this <see cref="Project"/> with a name.
+        /// </summary>
+        /// <param name="stream">Stream to save</param>
+        /// <param name="mode"></param>
+        /// <returns><see langword="true"/> if the save is successful, otherwise <see langword="false"/>.</returns>
+        public bool Save(Stream stream, SerializeMode mode = SerializeMode.Binary)
+        {
+            if (Serialize.SaveToStream(this, stream, mode))
             {
                 Saved?.Invoke(this, new(SaveType.Save));
                 return true;

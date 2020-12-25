@@ -26,6 +26,7 @@
         PropertyViewBuilders.Add(new()
         {
             PropertyType = typeof(EaseProperty),
+            CreateFunc = (property) =>@<EasePropertyView Property="(EaseProperty)property"></EasePropertyView>
         });
         PropertyViewBuilders.Add(new()
         {
@@ -50,6 +51,7 @@
         PropertyViewBuilders.Add(new()
         {
             PropertyType = typeof(SelectorProperty),
+            CreateFunc = (property) => @<SelectorPropertyView Property="(SelectorProperty)property"></SelectorPropertyView>
         });
         PropertyViewBuilders.Add(new()
         {
@@ -85,6 +87,6 @@
     public class Builder
     {
         public Type PropertyType { get; set; }
-        public Func<PropertyElement, RenderFragment> CreateFunc { get; set; } =@<div style="height: 32.5px;">Nothing</div>;
-    }
+        public Func<PropertyElement, RenderFragment> CreateFunc { get; set; } = (property) => @<div style="height: 32.5px;">Nothing</div>;
+}
 }

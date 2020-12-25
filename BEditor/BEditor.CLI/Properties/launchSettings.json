@@ -1,0 +1,8 @@
+{
+  "profiles": {
+    "BEditor.CLI": {
+      "commandName": "Project",
+      "commandLineArgs": "json E:\\TestProject\\6.bedit"
+    }
+  }
+}
