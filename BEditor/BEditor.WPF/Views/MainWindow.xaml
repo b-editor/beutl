@@ -211,6 +211,7 @@
                     <md:PackIcon Kind="Audio" Style="{StaticResource MouseOverIcon}" Foreground="{StaticResource AudioColor}"/>
                     <md:PackIcon Kind="TextBox" Style="{StaticResource MouseOverIcon}"  Foreground="{StaticResource TextColor}"/>
                     <md:PackIcon Kind="Shape" Style="{StaticResource MouseOverIcon}"  Foreground="{StaticResource ImageColor}"/>
+                    <md:PackIcon Kind="RoundedCorner" Style="{StaticResource MouseOverIcon}"  Foreground="{StaticResource ImageColor}"/>
                     <md:PackIcon Kind="Videocam" Style="{StaticResource MouseOverIcon}" Foreground="{StaticResource VideoColor}"/>
                     <md:PackIcon Kind="Cube" Style="{StaticResource MouseOverIcon}" Foreground="{StaticResource VideoColor}"/>
                     <md:PackIcon Kind="MovieOpen" Style="{StaticResource MouseOverIcon}" Foreground="{StaticResource VideoColor}"/>

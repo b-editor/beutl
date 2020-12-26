@@ -119,6 +119,10 @@ namespace BEditor.ViewModels
                 {
                     return PackIconKind.Shape;
                 }
+                else if (clipType == ClipType.Figure)
+                {
+                    return PackIconKind.RoundedCorner;
+                }
                 else if (clipType == ClipType.Camera)
                 {
                     return PackIconKind.Videocam;
@@ -171,6 +175,7 @@ namespace BEditor.ViewModels
             else if (kind == PackIconKind.Image) return ClipType.ImageMetadata;
             else if (kind == PackIconKind.TextBox) return ClipType.TextMetadata;
             else if (kind == PackIconKind.Shape) return ClipType.FigureMetadata;
+            else if (kind == PackIconKind.RoundedCorner) return ClipType.RoundRectMetadata;
             else if (kind == PackIconKind.Videocam) return ClipType.CameraMetadata;
             else if (kind == PackIconKind.Cube) return ClipType.GL3DObjectMetadata;
             else if (kind == PackIconKind.MovieOpen) return ClipType.SceneMetadata;

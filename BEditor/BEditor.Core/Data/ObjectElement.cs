@@ -26,48 +26,14 @@ namespace BEditor.Core.Data
         public List<ObjectMetadata> Children { get; set; }
 
         public static List<ObjectMetadata> LoadedObjects { get; } = new() {
-            new()
-            {
-                Name = Resources.Video,
-                Type = typeof(Video),
-                CreateFunc = () => new Video()
-            },
-            new()
-            {
-                Name = Resources.Image,
-                Type = typeof(Image),
-                CreateFunc = () => new Image()
-            },
-            new()
-            {
-                Name = Resources.Figure,
-                Type = typeof(Figure),
-                CreateFunc = () => new Figure()
-            },
-            new()
-            {
-                Name = Resources.Text,
-                Type = typeof(Text),
-                CreateFunc = () => new Text()
-            },
-            new()
-            {
-                Name = Resources.Camera,
-                Type = typeof(CameraObject),
-                CreateFunc = () => new CameraObject()
-            },
-            new()
-            {
-                Name = Resources._3DObject,
-                Type = typeof(GL3DObject),
-                CreateFunc = () => new GL3DObject()
-            },
-            new()
-            {
-                Name = Resources.Scenes,
-                Type = typeof(SceneObject),
-                CreateFunc = () => new SceneObject()
-            }
+            ClipType.VideoMetadata,
+            ClipType.ImageMetadata,
+            ClipType.FigureMetadata,
+            ClipType.RoundRectMetadata,
+            ClipType.TextMetadata,
+            ClipType.CameraMetadata,
+            ClipType.GL3DObjectMetadata,
+            ClipType.SceneMetadata
         };
     }
 }
