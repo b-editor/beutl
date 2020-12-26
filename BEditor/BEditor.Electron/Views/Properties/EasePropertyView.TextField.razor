@@ -1,0 +1,10 @@
+﻿@using System.Diagnostics
+
+<MatTextField FullWidth="true" InputStyle="color: #ffffff;" @bind-Value="@Value" OnInput="(a=> { Debug.WriteLine(a.Value); })"></MatTextField>
+
+@code {
+    [Parameter]
+    public int Index { get; set; }
+    [Parameter]
+    public float Value { get; set; }
+}

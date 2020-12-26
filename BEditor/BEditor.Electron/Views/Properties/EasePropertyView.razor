@@ -12,9 +12,10 @@
                     @*<MatExpansionPanelSubHeader>Type your name and age</MatExpansionPanelSubHeader>*@
                 </MatExpansionPanelSummary>
                 <MatExpansionPanelDetails>
-                    @foreach (var v in Property.Value)
+                    @for(int i = 0; i < Property.Value.Count; i++)
                     {
-                        <MatTextField Value="@v"></MatTextField>
+                        @*<MatTextField FullWidth="true" InputStyle="color: #ffffff;" Value="@v"></MatTextField>*@
+                        <EasePropertyView_TextField Index="@i" Value="@Property.Value[i]"></EasePropertyView_TextField>
                     }
                 </MatExpansionPanelDetails>
             </MatExpansionPanel>
