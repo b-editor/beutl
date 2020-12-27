@@ -1,5 +1,10 @@
 # BEditor
 
+![](https://img.shields.io/github/issues/indigo-san/BEditor?style=flat-square&logo=appveyor)
+![](https://img.shields.io/github/forks/indigo-san/BEditor?style=flat-square&logo=appveyor)
+![](https://img.shields.io/github/stars/indigo-san/BEditor?style=flat-square&logo=appveyor)
+![](https://img.shields.io/github/license/indigo-san/BEditor?style=flat-square&logo=appveyor)
+
 ## Description
 現在開発中の動画編集ソフトウェアです。
 
