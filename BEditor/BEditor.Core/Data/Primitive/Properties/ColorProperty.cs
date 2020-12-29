@@ -176,38 +176,7 @@ namespace BEditor.Core.Data.Primitive.Properties
     }
 
     /// <summary>
-    /// <see cref="ColorProperty"/> のメタデータを表します
+    /// <see cref="BEditor.Core.Data.Primitive.Properties.ColorProperty"/> のメタデータを表します
     /// </summary>
-    public record ColorPropertyMetadata : PropertyElementMetadata
-    {
-        /// <summary>
-        /// <see cref="ColorPropertyMetadata"/> クラスの新しいインスタンスを初期化します
-        /// </summary>
-        public ColorPropertyMetadata(string name, byte r = 255, byte g = 255, byte b = 255, byte a = 255, bool usealpha = false) : base(name)
-        {
-            DefaultColor = Color.FromARGB(a, r, g, b);
-            UseAlpha = usealpha;
-        }
-        /// <summary>
-        /// <see cref="ColorPropertyMetadata"/> クラスの新しいインスタンスを初期化します
-        /// </summary>
-        public ColorPropertyMetadata(string name, in Color defaultColor = default, bool usealpha = false) : base(name)
-        {
-            DefaultColor = defaultColor;
-            UseAlpha = usealpha;
-        }
-
-
-        public byte Red => DefaultColor.R;
-
-        public byte Green => DefaultColor.G;
-
-        public byte Blue => DefaultColor.B;
-
-        public byte Alpha => DefaultColor.A;
-
-        public Color DefaultColor { get; init; }
-
-        public bool UseAlpha { get; init; }
-    }
+    public record ColorPropertyMetadata(string Name, in Color DefaultColor = default, bool UseAlpha = false) : PropertyElementMetadata(Name);
 }

@@ -15,7 +15,7 @@ namespace BEditor.Core.Data.Primitive.Effects.PrimitiveImages
     public class Border : ImageEffect
     {
         public static readonly EasePropertyMetadata SizeMetadata = new(Resources.Size, 10, float.NaN, 1);
-        public static readonly ColorPropertyMetadata ColorMetadata = new(Resources.Color, 255, 255, 255);
+        public static readonly ColorPropertyMetadata ColorMetadata = new(Resources.Color, Drawing.Color.Light);
 
         public Border()
         {

@@ -752,39 +752,16 @@
             
             </summary>
         </member>
+        <member name="M:BEditor.Core.Data.Primitive.Properties.ColorAnimationPropertyMetadata.#ctor(System.String,BEditor.Drawing.Color@,BEditor.Core.Data.Property.EasingProperty.EasingData,System.Boolean)">
+            <summary>
+            
+            </summary>
+        </member>
         <member name="M:BEditor.Core.Data.Primitive.Properties.ColorAnimationPropertyMetadata.#ctor(System.String)">
             <summary>
             
             </summary>
-            <param name="name"></param>
-        </member>
-        <member name="M:BEditor.Core.Data.Primitive.Properties.ColorAnimationPropertyMetadata.#ctor(System.String,System.Byte,System.Byte,System.Byte,System.Byte,System.Boolean)">
-            <summary>
-            
-            </summary>
-            <param name="name"></param>
-            <param name="r"></param>
-            <param name="g"></param>
-            <param name="b"></param>
-            <param name="a"></param>
-            <param name="usealpha"></param>
-        </member>
-        <member name="M:BEditor.Core.Data.Primitive.Properties.ColorAnimationPropertyMetadata.#ctor(System.String,System.Byte,System.Byte,System.Byte,BEditor.Core.Data.Property.EasingProperty.EasingData,System.Byte,System.Boolean)">
-            <summary>
-            
-            </summary>
-            <param name="name"></param>
-            <param name="r"></param>
-            <param name="g"></param>
-            <param name="b"></param>
-            <param name="easingType"></param>
-            <param name="a"></param>
-            <param name="usealpha"></param>
-        </member>
-        <member name="P:BEditor.Core.Data.Primitive.Properties.ColorAnimationPropertyMetadata.DefaultEase">
-            <summary>
-            
-            </summary>
+            <param name="Name"></param>
         </member>
         <member name="T:BEditor.Core.Data.Primitive.Properties.ColorProperty">
             <summary>
@@ -843,14 +820,9 @@
             <see cref="T:BEditor.Core.Data.Primitive.Properties.ColorProperty"/> のメタデータを表します
             </summary>
         </member>
-        <member name="M:BEditor.Core.Data.Primitive.Properties.ColorPropertyMetadata.#ctor(System.String,System.Byte,System.Byte,System.Byte,System.Byte,System.Boolean)">
-            <summary>
-            <see cref="T:BEditor.Core.Data.Primitive.Properties.ColorPropertyMetadata"/> クラスの新しいインスタンスを初期化します
-            </summary>
-        </member>
         <member name="M:BEditor.Core.Data.Primitive.Properties.ColorPropertyMetadata.#ctor(System.String,BEditor.Drawing.Color@,System.Boolean)">
             <summary>
-            <see cref="T:BEditor.Core.Data.Primitive.Properties.ColorPropertyMetadata"/> クラスの新しいインスタンスを初期化します
+            <see cref="T:BEditor.Core.Data.Primitive.Properties.ColorProperty"/> のメタデータを表します
             </summary>
         </member>
         <member name="T:BEditor.Core.Data.Primitive.Properties.DocumentProperty">
@@ -1189,39 +1161,14 @@
             <see cref="T:BEditor.Core.Data.Primitive.Properties.EaseProperty"/> のメタデータを表します
             </summary>
         </member>
+        <member name="M:BEditor.Core.Data.Primitive.Properties.EasePropertyMetadata.#ctor(System.String,BEditor.Core.Data.Property.EasingProperty.EasingData,System.Single,System.Single,System.Single,System.Boolean)">
+            <summary>
+            <see cref="T:BEditor.Core.Data.Primitive.Properties.EaseProperty"/> のメタデータを表します
+            </summary>
+        </member>
         <member name="M:BEditor.Core.Data.Primitive.Properties.EasePropertyMetadata.#ctor(System.String,System.Single,System.Single,System.Single,System.Boolean)">
             <summary>
             <see cref="T:BEditor.Core.Data.Primitive.Properties.EasePropertyMetadata"/> クラスの新しいインスタンスを初期化します
-            </summary>
-        </member>
-        <member name="M:BEditor.Core.Data.Primitive.Properties.EasePropertyMetadata.#ctor(System.String,System.Single,BEditor.Core.Data.Property.EasingProperty.EasingData,System.Single,System.Single,System.Boolean)">
-            <summary>
-            <see cref="T:BEditor.Core.Data.Primitive.Properties.EasePropertyMetadata"/> クラスの新しいインスタンスを初期化します
-            </summary>
-        </member>
-        <member name="P:BEditor.Core.Data.Primitive.Properties.EasePropertyMetadata.DefaultValue">
-            <summary>
-            デフォルトの値を取得します
-            </summary>
-        </member>
-        <member name="P:BEditor.Core.Data.Primitive.Properties.EasePropertyMetadata.DefaultEase">
-            <summary>
-            デフォルトのイージングデータを取得します
-            </summary>
-        </member>
-        <member name="P:BEditor.Core.Data.Primitive.Properties.EasePropertyMetadata.Max">
-            <summary>
-            最大の値を取得します
-            </summary>
-        </member>
-        <member name="P:BEditor.Core.Data.Primitive.Properties.EasePropertyMetadata.Min">
-            <summary>
-            最小の値を取得します
-            </summary>
-        </member>
-        <member name="P:BEditor.Core.Data.Primitive.Properties.EasePropertyMetadata.UseOptional">
-            <summary>
-            追加の値を使用するかを取得します
             </summary>
         </member>
         <member name="T:BEditor.Core.Data.Primitive.Properties.ExpandGroup">

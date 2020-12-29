@@ -6,6 +6,7 @@ using System.Threading.Tasks;
 
 using BEditor.Core.Data;
 using BEditor.Models;
+using BEditor.Views;
 
 using MatBlazor;
 
@@ -18,6 +19,7 @@ namespace BEditor.Shared
     {
         public static MainLayout Current { get; private set; }
         private bool FileDialogIsOpened = false;
+        public PreviewImage Image;
         private bool SnackbarIsOpened = false;
         private string SnackbarText = "";
         private MatDrawer Drawer;
@@ -52,7 +54,7 @@ namespace BEditor.Shared
                 using var stream = new MemoryStream(buffers);
 
                 AppData.Current.Project.Value = new Project(stream, AppData.Current);
-                
+
                 FileDialogIsOpened = false;
                 await this.InvokeAsync(StateHasChanged);
             }

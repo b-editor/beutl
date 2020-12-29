@@ -14,16 +14,16 @@ namespace BEditor.Core.Data.Primitive.Objects
     [DataContract]
     public class CameraObject : ObjectElement
     {
-        public static readonly EasePropertyMetadata XMetadata = new(Resources.X, 0, useoptional: true);
-        public static readonly EasePropertyMetadata YMetadata = new(Resources.Y, 0, useoptional: true);
-        public static readonly EasePropertyMetadata ZMetadata = new(Resources.Z, 1024, useoptional: true);
-        public static readonly EasePropertyMetadata TargetXMetadata = new(Resources.TargetX, 0, useoptional: true);
-        public static readonly EasePropertyMetadata TargetYMetadata = new(Resources.TargetY, 0, useoptional: true);
-        public static readonly EasePropertyMetadata TargetZMetadata = new(Resources.TargetZ, 0, useoptional: true);
-        public static readonly EasePropertyMetadata ZNearMetadata = new(Resources.ZNear, 0.1F, useoptional: true);
-        public static readonly EasePropertyMetadata ZFarMetadata = new(Resources.ZFar, 20000, useoptional: true);
-        public static readonly EasePropertyMetadata AngleMetadata = new(Resources.Angle, 0, useoptional: true);
-        public static readonly EasePropertyMetadata FovMetadata = new(Resources.Fov, 55, 179, 1, useoptional: true);
+        public static readonly EasePropertyMetadata XMetadata = new(Resources.X, 0, UseOptional: true);
+        public static readonly EasePropertyMetadata YMetadata = new(Resources.Y, 0, UseOptional: true);
+        public static readonly EasePropertyMetadata ZMetadata = new(Resources.Z, 1024, UseOptional: true);
+        public static readonly EasePropertyMetadata TargetXMetadata = new(Resources.TargetX, 0, UseOptional: true);
+        public static readonly EasePropertyMetadata TargetYMetadata = new(Resources.TargetY, 0, UseOptional: true);
+        public static readonly EasePropertyMetadata TargetZMetadata = new(Resources.TargetZ, 0, UseOptional: true);
+        public static readonly EasePropertyMetadata ZNearMetadata = new(Resources.ZNear, 0.1F, UseOptional: true);
+        public static readonly EasePropertyMetadata ZFarMetadata = new(Resources.ZFar, 20000, UseOptional: true);
+        public static readonly EasePropertyMetadata AngleMetadata = new(Resources.Angle, 0, UseOptional: true);
+        public static readonly EasePropertyMetadata FovMetadata = new(Resources.Fov, 55, 179, 1, UseOptional: true);
         public static readonly CheckPropertyMetadata ModeMetadata = new(Resources.Perspective, true);
 
         public CameraObject()

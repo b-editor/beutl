@@ -7,15 +7,16 @@ using BEditor.Core.Command;
 using BEditor.Core.Data.Property;
 using BEditor.Core.Extensions;
 using BEditor.Core.Properties;
+using BEditor.Drawing;
 
 namespace BEditor.Core.Data.Primitive.Properties.PrimitiveGroup
 {
     [DataContract]
     public sealed class Material : ExpandGroup
     {
-        public static readonly ColorAnimationPropertyMetadata AmbientMetadata = new(Resources.Ambient, 255, 255, 255, 255, true);
-        public static readonly ColorAnimationPropertyMetadata DiffuseMetadata = new(Resources.Diffuse, 255, 255, 255, 255, true);
-        public static readonly ColorAnimationPropertyMetadata SpecularMetadata = new(Resources.Specular, 255, 255, 255, 255, true);
+        public static readonly ColorAnimationPropertyMetadata AmbientMetadata = new(Resources.Ambient, Color.Light, true);
+        public static readonly ColorAnimationPropertyMetadata DiffuseMetadata = new(Resources.Diffuse, Color.Light, true);
+        public static readonly ColorAnimationPropertyMetadata SpecularMetadata = new(Resources.Specular, Color.Light, true);
         public static readonly EasePropertyMetadata ShininessMetadata = new(Resources.Shininess, 10, float.NaN, 1);
 
         public Material(PropertyElementMetadata metadata) : base(metadata)

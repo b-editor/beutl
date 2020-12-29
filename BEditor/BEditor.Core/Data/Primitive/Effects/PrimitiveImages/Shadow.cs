@@ -18,7 +18,7 @@ namespace BEditor.Core.Data.Primitive.Effects.PrimitiveImages
         public static readonly EasePropertyMetadata YMetadata = new(Resources.Y, 10);
         public static readonly EasePropertyMetadata BlurMetadata = new(Resources.Blur, 10, float.NaN, 0);
         public static readonly EasePropertyMetadata AlphaMetadata = new(Resources.Alpha, 75, 100, 0);
-        public static readonly ColorPropertyMetadata ColorMetadata = new(Resources.Color, 0, 0, 0);
+        public static readonly ColorPropertyMetadata ColorMetadata = new(Resources.Color, Drawing.Color.Dark);
 
         public Shadow()
         {

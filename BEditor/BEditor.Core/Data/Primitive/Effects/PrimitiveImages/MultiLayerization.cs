@@ -26,7 +26,7 @@ namespace BEditor.Core.Data.Primitive.Effects.PrimitiveImages
     public class MultiLayerization : ImageEffect
     {
         public static readonly EasePropertyMetadata ZMetadata = new(Resources.Z, 50, float.NaN, 0);
-        public static readonly ColorAnimationPropertyMetadata ColorMetadata = new(Resources.Color, 255, 255, 255, 255, true);
+        public static readonly ColorAnimationPropertyMetadata ColorMetadata = new(Resources.Color, Drawing.Color.Light, true);
 
         public MultiLayerization()
         {

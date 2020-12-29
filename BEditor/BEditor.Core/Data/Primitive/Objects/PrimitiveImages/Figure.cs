@@ -21,7 +21,7 @@ namespace BEditor.Core.Data.Primitive.Objects.PrimitiveImages
         public static readonly EasePropertyMetadata WidthMetadata = new(Resources.Width, 100, float.NaN, 0);
         public static readonly EasePropertyMetadata HeightMetadata = new(Resources.Height, 100, float.NaN, 0);
         public static readonly EasePropertyMetadata LineMetadata = new(Resources.Line, 4000, float.NaN, 0);
-        public static readonly ColorPropertyMetadata ColorMetadata = new(Resources.Color, 255, 255, 255);
+        public static readonly ColorPropertyMetadata ColorMetadata = new(Resources.Color, Drawing.Color.Light);
         public static readonly SelectorPropertyMetadata TypeMetadata = new(Resources.Type, new string[]
         {
                 Resources.Circle,

@@ -45,13 +45,12 @@ namespace BEditor.Core.Data
             PropertyChanged?.Invoke(this, args);
         }
 
-        public IObservable<PropertyChangedEventArgs> ToObservable(string name)
+        public IObservable<PropertyChangedEventArgs> AsObservable()
         {
             return Observable.FromEvent<PropertyChangedEventHandler, PropertyChangedEventArgs>(
                 h => (s, e) => h(e),
                 h => PropertyChanged += h,
-                h => PropertyChanged -= h)
-                .Where(e => e.PropertyName == name);
+                h => PropertyChanged -= h);
         }
     }
 }

@@ -15,7 +15,7 @@ namespace BEditor.Core.Data.Primitive.Effects.PrimitiveImages
     [DataContract]
     public class Monoc : ImageEffect
     {
-        public static readonly ColorPropertyMetadata ColorMetadata = new(Resources.Color, 255, 255, 255);
+        public static readonly ColorPropertyMetadata ColorMetadata = new(Resources.Color, Drawing.Color.Light);
 
         public Monoc()
         {

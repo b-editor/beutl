@@ -20,7 +20,7 @@ namespace BEditor.Core.Data.Primitive.Objects.PrimitiveImages
     [CustomClipUI(Color = 0x0091ea)]
     public class RoundRect : ImageObject
     {
-        public static readonly EasePropertyMetadata RadiusMetadata = new("Radius", 20, min: 0);
+        public static readonly EasePropertyMetadata RadiusMetadata = new("Radius", 20, Min: 0);
 
         public RoundRect()
         {

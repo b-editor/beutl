@@ -21,7 +21,7 @@ namespace BEditor.Core.Data.Primitive.Objects
         public override string Name => "Audio SinWave";
         public override IEnumerable<PropertyElement> Properties => Array.Empty<PropertyElement>();
 
-        public override void Render(EffectRenderArgs args)
+        public unsafe override void Render(EffectRenderArgs args)
         {
             if (args.Frame != Parent.Start) return;
 
@@ -30,7 +30,10 @@ namespace BEditor.Core.Data.Primitive.Objects
 
             var sound = Sound.SinWave(44100);
 
-            AL.BufferData(buffer, ALFormat.Mono16, sound.Pcm, (int)sound.DataSize, 44100);
+            fixed (PCM16* pcm = sound.Pcm)
+            {
+                AL.BufferData(buffer, ALFormat.Mono16, (IntPtr)pcm, (int)sound.DataSize, 44100);
+            }
             AL.Source(source, ALSourcei.Buffer, buffer);
 
             AL.SourcePlay(source);

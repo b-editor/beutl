@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.ComponentModel;
 using System.Drawing;
 using System.Linq;
+using System.Reactive.Linq;
 using System.Threading.Tasks;
 
 using BEditor.Core.Command;
@@ -27,6 +28,12 @@ namespace BEditor.ViewModels.Timelines
         public TimelineViewModel(Scene scene)
         {
             Scene = scene;
+            scene.AsObservable()
+                .Where(x => x.PropertyName == nameof(Scene.PreviewFrame))
+                .Subscribe(_ =>
+                {
+                    AppData.Current.Project.Value.PreviewUpdate();
+                });
         }
 
         public Scene Scene { get; }

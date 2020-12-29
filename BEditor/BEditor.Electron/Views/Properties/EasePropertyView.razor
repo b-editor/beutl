@@ -15,7 +15,7 @@
                     @for(int i = 0; i < Property.Value.Count; i++)
                     {
                         @*<MatTextField FullWidth="true" InputStyle="color: #ffffff;" Value="@v"></MatTextField>*@
-                        <EasePropertyView_TextField Index="@i" Value="@Property.Value[i]"></EasePropertyView_TextField>
+                        <EasePropertyView_TextField Index="@i" Property="Property"></EasePropertyView_TextField>
                     }
                 </MatExpansionPanelDetails>
             </MatExpansionPanel>

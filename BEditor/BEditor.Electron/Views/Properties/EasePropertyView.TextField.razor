@@ -1,10 +1,38 @@
 ﻿@using System.Diagnostics
+@using BEditor.Models
+@using BEditor.Core.Command
+@using BEditor.Core.Data.Control
+@using BEditor.Core.Data.Primitive.Properties
 
-<MatTextField FullWidth="true" InputStyle="color: #ffffff;" @bind-Value="@Value" OnInput="(a=> { Debug.WriteLine(a.Value); })"></MatTextField>
+<MatTextField FullWidth="true"
+              InputStyle="color: #ffffff;"
+              Value="@Property.Value[Index]"
+              OnFocus="(e => old = TextBox.Value)"
+              OnFocusOut="@OnFocusOut"
+              OnInput="@OnInput"
+              @ref="@TextBox"></MatTextField>
 
 @code {
+    private float old;
+    private MatTextField<float> TextBox;
+
     [Parameter]
     public int Index { get; set; }
     [Parameter]
-    public float Value { get; set; }
+    public EaseProperty Property { get; set; }
+
+    private void OnFocusOut(FocusEventArgs e)
+    {
+        Property.Value[Index] = old;
+        new EaseProperty.ChangeValueCommand(Property, Index, TextBox.Value).Execute();
+    }
+    private void OnInput(ChangeEventArgs e)
+    {
+        if(float.TryParse(e.Value.ToString(), out var value))
+        {
+            Property.Value[Index] = Property.InRange(value);
+
+            AppData.Current.Project.Value.PreviewUpdate(Property.GetParent2());
+        }
+    }
 }

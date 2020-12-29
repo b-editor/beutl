@@ -569,50 +569,12 @@ namespace BEditor.Core.Data.Primitive.Properties
     /// <summary>
     /// <see cref="EaseProperty"/> のメタデータを表します
     /// </summary>
-    public record EasePropertyMetadata : PropertyElementMetadata
+    public record EasePropertyMetadata(string Name, EasingData DefaultEase, float DefaultValue = 0, float Max = float.NaN, float Min = float.NaN, bool UseOptional = false) : PropertyElementMetadata(Name)
     {
         /// <summary>
         /// <see cref="EasePropertyMetadata"/> クラスの新しいインスタンスを初期化します
         /// </summary>
-        public EasePropertyMetadata(string name, float defaultvalue = 0, float max = float.NaN, float min = float.NaN, bool useoptional = false) : base(name)
-        {
-            DefaultValue = defaultvalue;
-            DefaultEase = EasingFunc.LoadedEasingFunc[0];
-            Max = max;
-            Min = min;
-            UseOptional = useoptional;
-        }
-        /// <summary>
-        /// <see cref="EasePropertyMetadata"/> クラスの新しいインスタンスを初期化します
-        /// </summary>
-        public EasePropertyMetadata(string name, float defaultvalue, EasingData easingType, float max = float.NaN, float min = float.NaN, bool useoptional = false) : base(name)
-        {
-            DefaultValue = defaultvalue;
-            DefaultEase = easingType;
-            Max = max;
-            Min = min;
-            UseOptional = useoptional;
-        }
-
-        /// <summary>
-        /// デフォルトの値を取得します
-        /// </summary>
-        public float DefaultValue { get; init; }
-        /// <summary>
-        /// デフォルトのイージングデータを取得します
-        /// </summary>
-        public EasingData DefaultEase { get; init; }
-        /// <summary>
-        /// 最大の値を取得します
-        /// </summary>
-        public float Max { get; init; }
-        /// <summary>
-        /// 最小の値を取得します
-        /// </summary>
-        public float Min { get; init; }
-        /// <summary>
-        /// 追加の値を使用するかを取得します
-        /// </summary>
-        public bool UseOptional { get; init; }
+        public EasePropertyMetadata(string Name, float DefaultValue = 0, float Max = float.NaN, float Min = float.NaN, bool UseOptional = false)
+            : this(Name, EasingFunc.LoadedEasingFunc[0], DefaultValue, Max, Min, UseOptional) { }
     }
 }

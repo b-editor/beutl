@@ -18,6 +18,7 @@
         PropertyViewBuilders.Add(new()
         {
             PropertyType = typeof(ColorProperty),
+            CreateFunc = (property) =>@<ColorPropertyView Property="(ColorProperty)property"></ColorPropertyView>
         });
         PropertyViewBuilders.Add(new()
         {

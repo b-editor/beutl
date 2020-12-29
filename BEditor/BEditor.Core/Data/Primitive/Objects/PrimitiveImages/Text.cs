@@ -20,7 +20,7 @@ namespace BEditor.Core.Data.Primitive.Objects.PrimitiveImages
     public class Text : ImageObject
     {
         public static readonly EasePropertyMetadata SizeMetadata = new(Resources.Size, 100, float.NaN, 0);
-        public static readonly ColorPropertyMetadata ColorMetadata = new(Resources.Color, 255, 255, 255);
+        public static readonly ColorPropertyMetadata ColorMetadata = new(Resources.Color, Drawing.Color.Light);
         public static readonly FontPropertyMetadata FontMetadata = new();
         public static readonly DocumentPropertyMetadata DocumentMetadata = new("");
 

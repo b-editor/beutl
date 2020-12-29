@@ -1,0 +1,19 @@
+﻿@using BEditor.Core.Data.Primitive.Properties
+
+<div class="mat-layout-grid" style="padding: 0;">
+    <div class="mat-layout-grid-inner">
+        <div class="mat-layout-grid-cell mat-layout-grid-cell-span-5" style="margin-top: auto; margin-bottom: auto;">
+            @Property.PropertyMetadata.Name
+        </div>
+        <div class="mat-layout-grid-cell mat-layout-grid-cell-span-7">
+            <div style="background-color: @Property.Color.ToString("#rgb"); height: 25px; border-radius: 3px;">
+                <p style="mix-blend-mode: difference;">@Property.Color.ToString("#argb")</p>
+            </div>
+        </div>
+    </div>
+</div>
+
+@code{
+    [Parameter]
+    public ColorProperty Property { get; set; }
+}

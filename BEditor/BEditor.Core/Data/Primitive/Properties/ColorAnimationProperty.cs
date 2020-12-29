@@ -460,38 +460,15 @@ namespace BEditor.Core.Data.Primitive.Properties
     /// <summary>
     /// 
     /// </summary>
-    public record ColorAnimationPropertyMetadata : ColorPropertyMetadata
+    public record ColorAnimationPropertyMetadata(string Name, in Color DefaultColor, EasingData DefaultEase, bool UseAlpha = false) : ColorPropertyMetadata(Name, DefaultColor, UseAlpha)
     {
         /// <summary>
         /// 
         /// </summary>
-        /// <param name="name"></param>
-        public ColorAnimationPropertyMetadata(string name) : base(name, 255, 255, 255, 255) => DefaultEase = EasingFunc.LoadedEasingFunc[0];
-        /// <summary>
-        /// 
-        /// </summary>
-        /// <param name="name"></param>
-        /// <param name="r"></param>
-        /// <param name="g"></param>
-        /// <param name="b"></param>
-        /// <param name="a"></param>
-        /// <param name="usealpha"></param>
-        public ColorAnimationPropertyMetadata(string name, byte r, byte g, byte b, byte a = 255, bool usealpha = false) : base(name, r, g, b, a, usealpha) => DefaultEase = EasingFunc.LoadedEasingFunc[0];
-        /// <summary>
-        /// 
-        /// </summary>
-        /// <param name="name"></param>
-        /// <param name="r"></param>
-        /// <param name="g"></param>
-        /// <param name="b"></param>
-        /// <param name="easingType"></param>
-        /// <param name="a"></param>
-        /// <param name="usealpha"></param>
-        public ColorAnimationPropertyMetadata(string name, byte r, byte g, byte b, EasingData easingType, byte a = 255, bool usealpha = false) : base(name, r, g, b, a, usealpha) => DefaultEase = easingType;
-
-        /// <summary>
-        /// 
-        /// </summary>
-        public EasingData DefaultEase { get; init; }
+        /// <param name="Name"></param>
+        public ColorAnimationPropertyMetadata(string Name)
+            : this(Name, default, null) => DefaultEase = EasingFunc.LoadedEasingFunc[0];
+        public ColorAnimationPropertyMetadata(string Name, in Color DefaultColor, bool UseAlpha = false)
+            : this(Name, DefaultColor, EasingFunc.LoadedEasingFunc[0], UseAlpha) { }
     }
 }

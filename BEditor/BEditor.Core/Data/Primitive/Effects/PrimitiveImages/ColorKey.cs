@@ -15,8 +15,8 @@ namespace BEditor.Core.Data.Primitive.Effects.PrimitiveImages
     [DataContract]
     public class ColorKey : ImageEffect
     {
-        public static readonly ColorPropertyMetadata MaxColorMetadata = new(Resources.Color, 255, 255, 255);
-        public static readonly ColorPropertyMetadata MinColorMetadata = new(Resources.Color, 100, 100, 100);
+        public static readonly ColorPropertyMetadata MaxColorMetadata = new(Resources.Color, Color.Light);
+        public static readonly ColorPropertyMetadata MinColorMetadata = new(Resources.Color, Color.FromARGB(100, 100, 100, 255));
 
         public ColorKey()
         {

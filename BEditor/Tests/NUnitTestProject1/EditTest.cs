@@ -7,6 +7,7 @@ using System.Threading.Tasks;
 
 using BEditor.Core.Command;
 using BEditor.Core.Data;
+using BEditor.Core.Data.Primitive.Properties;
 using BEditor.Drawing;
 
 using NUnit.Framework;
@@ -21,7 +22,7 @@ namespace NUnitTestProject1
 
         }
 
-        //[Test]
+        [Test]
         public void Test()
         {
             using var project = new Project(1920, 1080, 60);
