@@ -88,7 +88,7 @@ namespace BEditor.Media.Decoder
 
             IsDisposed = true;
         }
-        public Image<BGRA32> Read(Frame frame)
+        public void Read(Frame frame, out Image<BGRA32> image)
         {
             var avframe = ffmpeg.av_frame_alloc();
             var framergba = ffmpeg.av_frame_alloc();
@@ -111,7 +111,7 @@ namespace BEditor.Media.Decoder
                     {
                         if (count == frame)
                         {
-                            var img = new Image<BGRA32>(Width, Height);
+                            image = new Image<BGRA32>(Width, Height);
                             var convert_ctx = ffmpeg.sws_getContext(
                                 Width, Height,
                                 codec_context->pix_fmt,
@@ -122,12 +122,12 @@ namespace BEditor.Media.Decoder
 
                             ffmpeg.sws_scale(convert_ctx, avframe->data, avframe->linesize, 0, Height, framergba->data, framergba->linesize);
 
-                            fixed (BGRA32* dst = img.Data)
+                            fixed (BGRA32* dst = image.Data)
                             {
-                                Buffer.MemoryCopy(framergba->data[0], dst, img.DataSize, img.DataSize);
+                                Buffer.MemoryCopy(framergba->data[0], dst, image.DataSize, image.DataSize);
                             }
 
-                            return img;
+                            return;
                         }
 
                         count++;
@@ -136,7 +136,7 @@ namespace BEditor.Media.Decoder
                 ffmpeg.av_packet_unref(&packet);
             }
 
-            return new Image<BGRA32>(Width, Height);
+            image = new(Width, Height);
         }
     }
 }

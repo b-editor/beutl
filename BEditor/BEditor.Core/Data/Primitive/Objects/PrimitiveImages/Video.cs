@@ -53,7 +53,9 @@ namespace BEditor.Core.Data.Primitive.Objects.PrimitiveImages
             float speed = Speed.GetValue(args.Frame) / 100;
             int start = (int)Start.GetValue(args.Frame);
 
-            return videoReader.Read((int)((start + args.Frame - Parent.Start) * speed));
+            videoReader.Read((int)((start + args.Frame - Parent.Start) * speed), out var image);
+
+            return image;
         }
         public override void PropertyLoaded()
         {
@@ -64,7 +66,7 @@ namespace BEditor.Core.Data.Primitive.Objects.PrimitiveImages
 
             if (System.IO.File.Exists(File.File))
             {
-                videoReader = new FFmpegDecoder(File.File);
+                videoReader = VideoDecoderFactory.Default.Create(File.File);
             }
 
             File.Subscribe(filename =>
@@ -73,7 +75,7 @@ namespace BEditor.Core.Data.Primitive.Objects.PrimitiveImages
 
                 try
                 {
-                    videoReader = new FFmpegDecoder(filename);
+                    videoReader = VideoDecoderFactory.Default.Create(filename);
                 }
                 catch (Exception ex)
                 {

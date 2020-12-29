@@ -546,7 +546,7 @@ namespace BEditor.Drawing
             fixed (T1* srcPtr = self.Data)
             fixed (T2* dstPtr = dst.Data)
             {
-                Parallel.For(0, self.Data.Length, new ConvertProcess<T1, T2>(srcPtr, dstPtr).Invoke);
+                Parallel.For(0, self.Data.Length, new ConvertToProcess<T1, T2>(srcPtr, dstPtr).Invoke);
             }
 
             return dst;

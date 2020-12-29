@@ -5,7 +5,7 @@ using System.Runtime.Serialization;
 namespace BEditor.Media
 {
     [Serializable]
-    public readonly struct Frame : IEquatable<Frame>
+    public readonly struct Frame : IEquatable<Frame>, ISerializable
     {
         public static readonly Frame MaxValue = new(int.MaxValue);
         public static readonly Frame MinValue = new(int.MinValue);
@@ -14,6 +14,10 @@ namespace BEditor.Media
         public Frame(int value)
         {
             Value = value;
+        }
+        public Frame(SerializationInfo info, StreamingContext context)
+        {
+            Value = info.GetInt32(nameof(Value));
         }
 
         public int Value { get; }
@@ -30,6 +34,10 @@ namespace BEditor.Media
             => Value == other.Value;
         public override readonly int GetHashCode()
             => HashCode.Combine(Value);
+        public void GetObjectData(SerializationInfo info, StreamingContext context)
+        {
+            info.AddValue(nameof(Value), Value);
+        }
 
         public static bool operator ==(Frame left, Frame right) => left.Equals(right);
         public static bool operator !=(Frame left, Frame right) => !(left == right);

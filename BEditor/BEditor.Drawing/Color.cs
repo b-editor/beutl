@@ -8,7 +8,7 @@ using BEditor.Drawing.Pixel;
 namespace BEditor.Drawing
 {
     [Serializable]
-    public struct Color : IEquatable<Color>, IFormattable
+    public struct Color : IEquatable<Color>, IFormattable, ISerializable
     {
         private const int ARGBAlphaShift = 24;
         private const int ARGBRedShift = 16;
@@ -51,6 +51,13 @@ namespace BEditor.Drawing
             this.r = r;
             this.g = g;
             this.b = b;
+        }
+        private Color(SerializationInfo info, StreamingContext context)
+        {
+            a = info.GetByte(nameof(A));
+            r = info.GetByte(nameof(R));
+            g = info.GetByte(nameof(G));
+            b = info.GetByte(nameof(B));
         }
 
         public byte A
@@ -122,6 +129,13 @@ namespace BEditor.Drawing
             return result;
         }
         private static string Tohex(byte value) => value.ToString("X2");
+        public void GetObjectData(SerializationInfo info, StreamingContext context)
+        {
+            info.AddValue(nameof(A), A);
+            info.AddValue(nameof(R), R);
+            info.AddValue(nameof(G), G);
+            info.AddValue(nameof(B), B);
+        }
 
         public static implicit operator BGRA32(Color c)
             => new(c.r, c.g, c.b, c.a);

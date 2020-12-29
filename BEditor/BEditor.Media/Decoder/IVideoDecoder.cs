@@ -14,6 +14,6 @@ namespace BEditor.Media.Decoder
         public int Width { get; }
         public int Height { get; }
 
-        public Image<BGRA32> Read(Frame frame);
+        public void Read(Frame frame, out Image<BGRA32> image);
     }
 }

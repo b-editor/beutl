@@ -10,6 +10,7 @@ using System.Text;
 using System.Threading.Tasks;
 
 using BEditor.Drawing.Pixel;
+using BEditor.Drawing.Process;
 
 using SkiaSharp;
 
@@ -358,6 +359,20 @@ namespace BEditor.Drawing
         }
 
         object ICloneable.Clone() => this.Clone();
+
+        public Image<T2> Convert<T2>() where T2 : unmanaged, IPixel<T2>, IPixelConvertable<T>
+        {
+            ThrowIfDisposed();
+            var dst = new Image<T2>(Width, Height);
+
+            fixed (T* srcPtr = Data)
+            fixed (T2* dstPtr = dst.Data)
+            {
+                Parallel.For(0, Data.Length, new ConvertFromProcess<T, T2>(srcPtr, dstPtr).Invoke);
+            }
+
+            return dst;
+        }
 
         #endregion
     }

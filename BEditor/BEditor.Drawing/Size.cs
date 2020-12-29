@@ -2,13 +2,14 @@
 using System.Collections.Generic;
 using System.Diagnostics.Contracts;
 using System.Linq;
+using System.Runtime.Serialization;
 using System.Text;
 using System.Threading.Tasks;
 
 namespace BEditor.Drawing
 {
     [Serializable]
-    public readonly struct Size : IEquatable<Size>
+    public readonly struct Size : IEquatable<Size>, ISerializable
     {
         public static readonly Size Empty;
 
@@ -19,6 +20,11 @@ namespace BEditor.Drawing
 
             Width = width;
             Height = height;
+        }
+        public Size(SerializationInfo info, StreamingContext context)
+        {
+            Width = info.GetInt32(nameof(Width));
+            Height = info.GetInt32(nameof(Height));
         }
 
         public int Width { get; }
@@ -36,6 +42,11 @@ namespace BEditor.Drawing
             => Width == other.Width && Height == other.Height && Aspect == other.Aspect;
         public override int GetHashCode()
             => HashCode.Combine(Width, Height, Aspect);
+        public void GetObjectData(SerializationInfo info, StreamingContext context)
+        {
+            info.AddValue(nameof(Width), Width);
+            info.AddValue(nameof(Height), Height);
+        }
 
         public static Size operator +(Size size1, Size size2)
             => Add(size1, size2);
