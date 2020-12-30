@@ -5,7 +5,7 @@
 
 ## Dependent libraries
 * [.NET runtime](https://github.com/dotnet/runtime)
-* [FFmpeg.AutoGen](https://github.com/Ruslan-B/FFmpeg.AutoGen)
+* [FFMediaToolkit](https://github.com/radek-k/FFMediaToolkit)
 * [NAudio](https://github.com/naudio/NAudio)
 
 ## License

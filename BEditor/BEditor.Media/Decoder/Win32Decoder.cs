@@ -81,35 +81,35 @@ namespace BEditor.Media.Decoder
             image = img.Convert<RGB32, BGRA32>();
         }
 
-        [Serializable]
-        [StructLayout(LayoutKind.Sequential)]
-        [PixelFormat(3)]
-        private struct RGB32 : IPixel<RGB32>, IPixelConvertable<BGRA32>
+    }
+    [Serializable]
+    [StructLayout(LayoutKind.Sequential)]
+    [PixelFormat(3)]
+    internal struct RGB32 : IPixel<RGB32>, IPixelConvertable<BGRA32>
+    {
+        public byte B;
+        public byte G;
+        public byte R;
+        public byte _;
+
+        public RGB32(byte r, byte g, byte b)
         {
-            public byte B;
-            public byte G;
-            public byte R;
-            public byte _;
+            R = r;
+            G = g;
+            B = b;
+            _ = 0;
+        }
 
-            public RGB32(byte r, byte g, byte b)
-            {
-                R = r;
-                G = g;
-                B = b;
-                _ = 0;
-            }
-
-            public readonly RGB32 Blend(RGB32 foreground) => foreground;
-            public void ConvertFrom(BGRA32 src)
-            {
-                B = src.B;
-                G = src.G;
-                R = src.R;
-            }
-            public readonly void ConvertTo(out BGRA32 dst)
-            {
-                dst = new(R, G, B, 255);
-            }
+        public readonly RGB32 Blend(RGB32 foreground) => foreground;
+        public void ConvertFrom(BGRA32 src)
+        {
+            B = src.B;
+            G = src.G;
+            R = src.R;
+        }
+        public readonly void ConvertTo(out BGRA32 dst)
+        {
+            dst = new(R, G, B, 255);
         }
     }
 }

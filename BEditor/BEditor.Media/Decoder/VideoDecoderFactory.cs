@@ -13,7 +13,7 @@ namespace BEditor.Media.Decoder
         {
             get
             {
-                if (RuntimeInformation.IsOSPlatform(OSPlatform.Windows)) return Win32;
+                if (RuntimeInformation.IsOSPlatform(OSPlatform.Windows)) return FFmpeg;
                 else return FFmpeg;
             }
         }

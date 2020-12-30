@@ -22,7 +22,6 @@ using BEditor.Core.Extensions.ViewCommand;
 
 using MaterialDesignThemes.Wpf;
 
-using Microsoft.WindowsAPICodePack.Dialogs;
 using Resources_ = BEditor.Core.Properties.Resources;
 using System.Timers;
 using BEditor.Models.Services;
@@ -269,54 +268,6 @@ namespace BEditor
         private void Application_Exit(object sender, ExitEventArgs e)
         {
             Settings.Default.Save();
-        }
-
-        private void Application_DispatcherUnhandledException(object sender, DispatcherUnhandledExceptionEventArgs e)
-        {
-            var text = $"[{Resources_.ExceptionMesssage}]\n" +
-                $"{e.Exception.Message}\n" +
-                $"\n" +
-                $"[{Resources_.ExceptionStackTrace}]\n" +
-                $"{e.Exception.StackTrace}";
-
-            var path = $"{AppData.Current.Path}\\user\\backup\\{DateTime.Now:yyyy_MM_dd__HH_mm_ss}.bedit";
-
-            TaskDialog dialog = new TaskDialog()
-            {
-                Caption = Resources_.ErrorHasOccurred,
-                Text = Resources_.ErrorMessage + "\n" + string.Format(Resources_.ExceptionOpenFileSaved, path),
-                InstructionText = Resources_.ErrorHasOccurred,
-                DetailsCollapsedLabel = Resources_.ExceptionInfomationShow,
-                DetailsExpandedLabel = Resources_.ExceptionInfomationHidden,
-                DetailsExpandedText = text,
-                Icon = TaskDialogStandardIcon.Error
-            };
-
-            var contractButton = new TaskDialogButton
-            {
-                Text = Resources_.AppClose
-            };
-            contractButton.Click += (sender, e) =>
-            {
-                dialog.Close();
-            };
-            dialog.Controls.Add(contractButton);
-
-            var continueButton = new TaskDialogButton
-            {
-                Text = Resources_.Continue
-            };
-            continueButton.Click += (sender, e) =>
-            {
-                dialog.Close();
-            };
-            dialog.Controls.Add(continueButton);
-
-            AppData.Current.Project.Save(path);
-
-
-            dialog.Show();
-            //e.Handled = true;
         }
     }
 }
