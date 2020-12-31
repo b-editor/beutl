@@ -145,7 +145,7 @@ namespace BEditor.ViewModels
 
 
         public void OutputImageCommand() => ImageHelper.OutputImage();
-        public void OutputVideoCommand() { }
+        public void OutputVideoCommand() => ImageHelper.OutputVideo();
 
         #endregion
 

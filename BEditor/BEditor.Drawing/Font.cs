@@ -28,8 +28,8 @@ namespace BEditor.Drawing
         public Font(SerializationInfo info, StreamingContext context)
         {
             Filename = info.GetString(nameof(Filename)) ?? throw new Exception();
-            FamilyName=info.GetString(nameof(FamilyName)) ?? throw new Exception();
-            Name=info.GetString(nameof(Name)) ?? throw new Exception();
+            FamilyName = info.GetString(nameof(FamilyName)) ?? throw new Exception();
+            Name = info.GetString(nameof(Name)) ?? throw new Exception();
             Weight = (FontStyleWeight)info.GetInt32(nameof(Weight));
             Width = (FontStyleWidth)info.GetInt32(nameof(Width));
         }
@@ -56,8 +56,8 @@ namespace BEditor.Drawing
             info.AddValue(nameof(Filename), Filename);
             info.AddValue(nameof(FamilyName), FamilyName);
             info.AddValue(nameof(Name), Name);
-            info.AddValue(nameof(FontStyleWeight), (int)Weight);
-            info.AddValue(nameof(FontStyleWidth), (int)Width);
+            info.AddValue(nameof(Weight), (int)Weight);
+            info.AddValue(nameof(Width), (int)Width);
         }
     }
 

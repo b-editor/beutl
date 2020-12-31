@@ -515,8 +515,8 @@ namespace BEditor.Drawing
         private static EncodedImageFormat ToImageFormat(string filename)
         {
             var ex = Path.GetExtension(filename);
-
-            if (ex is null) throw new Exception();
+            
+            if (string.IsNullOrEmpty(filename)) throw new IOException("拡張子を指定してください");
 
             return ExtensionToFormat[ex];
         }

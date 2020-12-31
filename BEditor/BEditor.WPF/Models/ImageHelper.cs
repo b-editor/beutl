@@ -7,18 +7,21 @@ using BEditor.Core.Extensions;
 using BEditor.Core.Extensions.ViewCommand;
 using BEditor.Core.Properties;
 using BEditor.Drawing;
+using BEditor.Media;
+using BEditor.Media.Encoder;
 
 using Microsoft.WindowsAPICodePack.Dialogs;
+using Microsoft.WindowsAPICodePack.Dialogs.Controls;
 
 namespace BEditor.Models
 {
-    internal static class ImageHelper
+    public static class ImageHelper
     {
         #region フレームの画像出力
         /// <summary>
         /// フレームを画像出力
         /// </summary>
-        internal static void Output_Image(in string path)
+        public static void OutputImage(string path)
         {
 
             int nowframe = AppData.Current.Project.PreviewScene.PreviewFrame;
@@ -41,43 +44,92 @@ namespace BEditor.Models
         /// <summary>
         /// フレームを画像出力
         /// </summary>
-        internal static void OutputImage()
+        public static void OutputImage()
         {
-            CommonSaveFileDialog saveFileDialog = new CommonSaveFileDialog();
-            saveFileDialog.Filters.Add(new CommonFileDialogFilter(Resources.ImageFile, "png,jpeg,jpg,bmp"));
-            saveFileDialog.RestoreDirectory = true;
+            CommonSaveFileDialog saveFileDialog = new CommonSaveFileDialog()
+            {
+                Filters =
+                {
+                    new("png", "png"),
+                    new("jpg", "jpg"),
+                    new("jpeg", "jpeg"),
+                    new("bmp", "bmp"),
+                    new("gif", "gif"),
+                    new("ico", "ico"),
+                    new("wbmp", "wbmp"),
+                    new("webp", "webp"),
+                    new("pkm", "pkm"),
+                    new("ktx", "ktx"),
+                    new("astc", "astc"),
+                    new("dng", "dng"),
+                    new("heif", "heif"),
+                },
+                RestoreDirectory = true,
+                AlwaysAppendDefaultExtension = true
+            };
 
             if (saveFileDialog.ShowDialog() == CommonFileDialogResult.Ok)
             {
-                Output_Image(saveFileDialog.FileName);
+                OutputImage(saveFileDialog.FileName);
             }
         }
         #endregion
 
-
-
-        #region UIElement_Renderer
-        internal static BitmapSource RenderToBitmap(this UIElement element, System.Windows.Size size)
+        public static void OutputVideo()
         {
+            var codec = new CommonFileDialogComboBox("Default");
+
+            foreach(var text in Enum.GetNames(typeof(VideoCodec)))
+            {
+                codec.Items.Add(new(text));
+            }
+            codec.SelectedIndex = 0;
+
+            var saveFileDialog = new CommonSaveFileDialog()
+            {
+                Filters =
+                {
+                    new("mp4", "mp4"),
+                    new("avi", "avi"),
+                },
+                RestoreDirectory = true,
+                AlwaysAppendDefaultExtension = true,
+                Controls =
+                {
+                    codec
+                }
+            };
+
+            if (saveFileDialog.ShowDialog() == CommonFileDialogResult.Ok)
+            {
+                OutputVideo(saveFileDialog.FileName, (VideoCodec)Enum.Parse(typeof(VideoCodec), codec.Items[codec.SelectedIndex].Text));
+            }
+        }
+        public static void OutputVideo(string file, VideoCodec codec)
+        {
+            var proj = AppData.Current.Project;
+            var scn = proj.PreviewScene;
+            IVideoEncoder encoder = null;
+
             try
             {
-                element.Measure(size);
-                element.Arrange(new System.Windows.Rect(size));
-                element.UpdateLayout();
+                encoder = new FFmpegEncoder(scn.Width, scn.Height, proj.Framerate, codec, file);
 
-                var bitmap = new RenderTargetBitmap(
-                    (int)size.Width, (int)size.Height, 96, 96, System.Windows.Media.PixelFormats.Pbgra32);
+                for (Frame frame = 0; frame < scn.TotalFrame; frame++)
+                {
+                    using var img = scn.Render(frame, RenderType.VideoOutput).Image;
 
-                bitmap.Render(element);
-                return bitmap;
+                    encoder.Write(img);
+                }
             }
             catch (Exception e)
             {
-                ActivityLog.ErrorLog(e);
+                Message.Snackbar($"保存できませんでした : {e.Message}");
             }
-
-            return null;
+            finally
+            {
+                encoder?.Dispose();
+            }
         }
-        #endregion
     }
 }
