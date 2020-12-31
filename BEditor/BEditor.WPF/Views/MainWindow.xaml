@@ -84,8 +84,8 @@
                                 <MenuItem Header="{x:Static properties:Resources.From_backup}"/>
                             </MenuItem>
                             <Separator Height="10"/>
-                            <MenuItem Header="{x:Static properties:Resources.AccessSave_as}" Command="{Binding ProjectSaveAs, Mode=OneTime}" IsEnabled="{Binding ProjectIsOpened.Value, Mode=OneWay}"/>
-                            <MenuItem Header="{x:Static properties:Resources.Save}" Command="{Binding ProjectSave, Mode=OneTime}" IsEnabled="{Binding ProjectIsOpened.Value, Mode=OneWay}"/>
+                            <MenuItem Header="{x:Static properties:Resources.AccessSave}" Command="{Binding ProjectSave, Mode=OneTime}" IsEnabled="{Binding ProjectIsOpened.Value, Mode=OneWay}"/>
+                            <MenuItem Header="{x:Static properties:Resources.Save_as}" Command="{Binding ProjectSaveAs, Mode=OneTime}" IsEnabled="{Binding ProjectIsOpened.Value, Mode=OneWay}"/>
                             <MenuItem Header="{x:Static properties:Resources.Close}" Command="{Binding ProjectClose, Mode=OneTime}" IsEnabled="{Binding ProjectIsOpened.Value, Mode=OneWay}"/>
                             <Separator Height="10"/>
                             <MenuItem Header="{x:Static properties:Resources.Settings}" Command="{Binding SettingShow, Mode=OneTime}"/>
@@ -158,7 +158,7 @@
                     <Button Padding="0,0,0,0" Margin="5,0,5,0" Command="{Binding ProjectOpen, Mode=OneTime}">
                         <md:PackIcon Kind="FolderOpen" Height="20" Width="20"/>
                     </Button>
-                    <Button Padding="0,0,0,0" Margin="10,0,5,0" Command="{Binding ProjectSaveAs, Mode=OneTime}" IsEnabled="{Binding ProjectIsOpened.Value, Mode=OneWay}">
+                    <Button Padding="0,0,0,0" Margin="10,0,5,0" Command="{Binding ProjectSave, Mode=OneTime}" IsEnabled="{Binding ProjectIsOpened.Value, Mode=OneWay}">
                         <md:PackIcon Kind="ContentSave" Height="20" Width="20"/>
                     </Button>
                     <Separator Margin="6,3,6,3" VerticalAlignment="Stretch"/>

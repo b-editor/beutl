@@ -144,7 +144,7 @@
     <value>プロジェクト(_P)</value>
     <comment>アクセラレータキーに使用</comment>
   </data>
-  <data name="AccessSave_as" xml:space="preserve">
+  <data name="AccessSave" xml:space="preserve">
     <value>上書き保存(_S)</value>
     <comment>アクセラレータキーに使用</comment>
   </data>
@@ -528,13 +528,13 @@
     <value>サンプリングレート</value>
   </data>
   <data name="Save" xml:space="preserve">
-    <value>保存</value>
+    <value>上書き保存</value>
   </data>
   <data name="SaveFolder" xml:space="preserve">
     <value>保存フォルダ</value>
   </data>
   <data name="Save_as" xml:space="preserve">
-    <value>上書き保存</value>
+    <value>名前を付けて保存</value>
   </data>
   <data name="Scene" xml:space="preserve">
     <value>シーン</value>

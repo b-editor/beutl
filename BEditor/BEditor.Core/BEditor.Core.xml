@@ -1759,6 +1759,7 @@
             <summary>
             Save this <see cref="T:BEditor.Core.Data.Project"/>.
             </summary>
+            <remarks>If <see cref="P:BEditor.Core.Data.Project.Filename"/> is <see langword="null"/>, a dialog will appear</remarks>
             <returns><see langword="true"/> if the save is successful, otherwise <see langword="false"/>.</returns>
         </member>
         <member name="M:BEditor.Core.Data.Project.Save(System.String,BEditor.Core.SerializeMode)">
@@ -1781,7 +1782,6 @@
             <summary>
             Save this <see cref="T:BEditor.Core.Data.Project"/> overwrite.
             </summary>
-            <remarks>If <see cref="P:BEditor.Core.Data.Project.Filename"/> is <see langword="null"/>, a dialog will appear</remarks>
             <returns><see langword="true"/> if the save is successful, otherwise <see langword="false"/>.</returns>
         </member>
         <member name="T:BEditor.Core.Data.SaveType">
@@ -2082,13 +2082,14 @@
             
             </summary>
         </member>
-        <member name="M:BEditor.Core.Data.Scene.Render(BEditor.Media.Frame)">
+        <member name="M:BEditor.Core.Data.Scene.Render(BEditor.Media.Frame,BEditor.Core.Data.RenderType)">
             <summary>
             Render this <see cref="T:BEditor.Core.Data.Scene"/>.
             </summary>
             <param name="frame">The frame to render</param>
+            <param name="renderType"></param>
         </member>
-        <member name="M:BEditor.Core.Data.Scene.Render">
+        <member name="M:BEditor.Core.Data.Scene.Render(BEditor.Core.Data.RenderType)">
             <summary>
             Render a frame of <see cref="P:BEditor.Core.Data.Scene.PreviewFrame"/>.
             </summary>
@@ -2213,9 +2214,9 @@
               Project(_P) に類似しているローカライズされた文字列を検索します。
             </summary>
         </member>
-        <member name="P:BEditor.Core.Properties.Resources.AccessSave_as">
+        <member name="P:BEditor.Core.Properties.Resources.AccessSave">
             <summary>
-              Save as(_S) に類似しているローカライズされた文字列を検索します。
+              Save(_S) に類似しているローカライズされた文字列を検索します。
             </summary>
         </member>
         <member name="P:BEditor.Core.Properties.Resources.AccessTool">

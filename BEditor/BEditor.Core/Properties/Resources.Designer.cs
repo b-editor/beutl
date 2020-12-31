@@ -133,11 +133,11 @@ namespace BEditor.Core.Properties {
         }
         
         /// <summary>
-        ///   Save as(_S) に類似しているローカライズされた文字列を検索します。
+        ///   Save(_S) に類似しているローカライズされた文字列を検索します。
         /// </summary>
-        public static string AccessSave_as {
+        public static string AccessSave {
             get {
-                return ResourceManager.GetString("AccessSave_as", resourceCulture);
+                return ResourceManager.GetString("AccessSave", resourceCulture);
             }
         }
         

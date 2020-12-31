@@ -2,6 +2,7 @@
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
+using System.Runtime.Serialization;
 using System.Text;
 using System.Threading.Tasks;
 
@@ -9,7 +10,8 @@ using SkiaSharp;
 
 namespace BEditor.Drawing
 {
-    public class Font
+    [Serializable]
+    public record Font : ISerializable
     {
         public Font(string file)
         {
@@ -22,6 +24,14 @@ namespace BEditor.Drawing
             Width = (FontStyleWidth)face.FontStyle.Width;
             FamilyName = face.FamilyName;
             Name = FormatFamilyName(face);
+        }
+        public Font(SerializationInfo info, StreamingContext context)
+        {
+            Filename = info.GetString(nameof(Filename)) ?? throw new Exception();
+            FamilyName=info.GetString(nameof(FamilyName)) ?? throw new Exception();
+            Name=info.GetString(nameof(Name)) ?? throw new Exception();
+            Weight = (FontStyleWeight)info.GetInt32(nameof(Weight));
+            Width = (FontStyleWidth)info.GetInt32(nameof(Width));
         }
 
         public string Filename { get; }
@@ -40,6 +50,14 @@ namespace BEditor.Drawing
             str.Append($" {width:g}");
 
             return str.ToString();
+        }
+        public void GetObjectData(SerializationInfo info, StreamingContext context)
+        {
+            info.AddValue(nameof(Filename), Filename);
+            info.AddValue(nameof(FamilyName), FamilyName);
+            info.AddValue(nameof(Name), Name);
+            info.AddValue(nameof(FontStyleWeight), (int)Weight);
+            info.AddValue(nameof(FontStyleWidth), (int)Width);
         }
     }
 

@@ -144,8 +144,8 @@
     <value>Project(_P)</value>
     <comment>アクセラレータキーに使用</comment>
   </data>
-  <data name="AccessSave_as" xml:space="preserve">
-    <value>Save as(_S)</value>
+  <data name="AccessSave" xml:space="preserve">
+    <value>Save(_S)</value>
     <comment>アクセラレータキーに使用</comment>
   </data>
   <data name="AccessTool" xml:space="preserve">

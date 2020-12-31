@@ -23,7 +23,7 @@ namespace BEditor.Models
 
             int nowframe = AppData.Current.Project.PreviewScene.PreviewFrame;
 
-            using var img = AppData.Current.Project.PreviewScene.Render(nowframe).Image;
+            using var img = AppData.Current.Project.PreviewScene.Render(nowframe, RenderType.ImageOutput).Image;
             try
             {
 

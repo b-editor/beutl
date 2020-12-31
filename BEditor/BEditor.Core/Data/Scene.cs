@@ -166,7 +166,7 @@ namespace BEditor.Core.Data
         /// Get audio context.
         /// </summary>
         public AudioContext AudioContext { get; internal set; }
-        
+
 
         #region コントロールに関係
 
@@ -283,7 +283,8 @@ namespace BEditor.Core.Data
         /// Render this <see cref="Scene"/>.
         /// </summary>
         /// <param name="frame">The frame to render</param>
-        public RenderingResult Render(Frame frame)
+        /// <param name="renderType"></param>
+        public RenderingResult Render(Frame frame, RenderType renderType = RenderType.Preview)
         {
             var layer = GetLayer(frame).ToList();
 
@@ -291,7 +292,7 @@ namespace BEditor.Core.Data
             AudioContext.MakeCurrent();
             GraphicsContext.Clear();
 
-            var args = new ClipRenderArgs(frame);
+            var args = new ClipRenderArgs(frame, renderType);
 
             //Preview
             foreach (var clip in layer) clip.PreviewRender(args);
@@ -308,9 +309,9 @@ namespace BEditor.Core.Data
         /// <summary>
         /// Render a frame of <see cref="PreviewFrame"/>.
         /// </summary>
-        public RenderingResult Render()
+        public RenderingResult Render(RenderType renderType = RenderType.Preview)
         {
-            return Render(PreviewFrame);
+            return Render(PreviewFrame, renderType);
         }
 
 

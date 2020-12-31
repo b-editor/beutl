@@ -50,7 +50,7 @@ namespace BEditor.Core.Data.Primitive.Objects.PrimitiveImages
             // Clipの相対的なフレーム
             var frame = args.Frame - Parent.Start;
 
-            return scene.Render(frame + (int)Start.GetValue(args.Frame)).Image;
+            return scene.Render(frame + (int)Start.GetValue(args.Frame), RenderType.ImageOutput).Image;
         }
         public override void PropertyLoaded()
         {

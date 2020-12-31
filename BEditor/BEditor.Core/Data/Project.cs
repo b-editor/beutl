@@ -227,24 +227,31 @@ namespace BEditor.Core.Data
         /// <summary>
         /// Save this <see cref="Project"/>.
         /// </summary>
+        /// <remarks>If <see cref="Filename"/> is <see langword="null"/>, a dialog will appear</remarks>
         /// <returns><see langword="true"/> if the save is successful, otherwise <see langword="false"/>.</returns>
         public bool Save()
         {
-            //SaveFileDialogクラスのインスタンスを作成
-            var record = new SaveFileRecord
+            if (Filename == null)
             {
-                DefaultFileName = (Filename is not null) ? Path.GetFileName(Filename) : "新しいプロジェクト.bedit",
-                Filters =
+                var record = new SaveFileRecord
                 {
-                    new(Resources.ProjectFile, "bedit")
-                }
-            };
+                    DefaultFileName = "新しいプロジェクト.bedit",
+                    Filters =
+                    {
+                        new(Properties.Resources.ProjectFile, "bedit")
+                    }
+                };
 
-            //ダイアログを表示する
-            if (Services.FileDialogService.ShowSaveFileDialog(record))
-            {
-                //OKボタンがクリックされたとき、選択されたファイル名を表示する
-                Filename = record.FileName;
+                //ダイアログを表示する
+                if (Services.FileDialogService.ShowSaveFileDialog(record))
+                {
+                    //OKボタンがクリックされたとき、選択されたファイル名を表示する
+                    Filename = record.FileName;
+                }
+                else
+                {
+                    return false;
+                }
             }
 
             if (Serialize.SaveToFile(this, Filename))
@@ -288,31 +295,24 @@ namespace BEditor.Core.Data
         /// <summary>
         /// Save this <see cref="Project"/> overwrite.
         /// </summary>
-        /// <remarks>If <see cref="Filename"/> is <see langword="null"/>, a dialog will appear</remarks>
         /// <returns><see langword="true"/> if the save is successful, otherwise <see langword="false"/>.</returns>
         public bool SaveAs()
         {
-            if (Filename == null)
+            //SaveFileDialogクラスのインスタンスを作成
+            var record = new SaveFileRecord
             {
-                var record = new SaveFileRecord
+                DefaultFileName = (Filename is not null) ? Path.GetFileName(Filename) : "新しいプロジェクト.bedit",
+                Filters =
                 {
-                    DefaultFileName = "新しいプロジェクト.bedit",
-                    Filters =
-                    {
-                        new(Properties.Resources.ProjectFile, "bedit")
-                    }
-                };
+                    new(Resources.ProjectFile, "bedit")
+                }
+            };
 
-                //ダイアログを表示する
-                if (Services.FileDialogService.ShowSaveFileDialog(record))
-                {
-                    //OKボタンがクリックされたとき、選択されたファイル名を表示する
-                    Filename = record.FileName;
-                }
-                else
-                {
-                    return false;
-                }
+            //ダイアログを表示する
+            if (Services.FileDialogService.ShowSaveFileDialog(record))
+            {
+                //OKボタンがクリックされたとき、選択されたファイル名を表示する
+                Filename = record.FileName;
             }
 
             if (Serialize.SaveToFile(this, Filename))

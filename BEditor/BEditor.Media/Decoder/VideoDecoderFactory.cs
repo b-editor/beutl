@@ -19,7 +19,6 @@ namespace BEditor.Media.Decoder
         }
         public static VideoDecoderFactory FFmpeg { get; } = new FFmpegFactry();
         public static VideoDecoderFactory Win32 { get; } = new Win32Factry();
-        // 予定 : public static VideoDecoderFactory VLC { get; }
 
         public abstract IVideoDecoder Create(string filename);
     }
