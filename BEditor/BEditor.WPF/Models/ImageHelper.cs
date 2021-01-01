@@ -1,4 +1,6 @@
 ﻿using System;
+using System.Threading;
+using System.Threading.Tasks;
 using System.Windows;
 using System.Windows.Media.Imaging;
 
@@ -9,6 +11,8 @@ using BEditor.Core.Properties;
 using BEditor.Drawing;
 using BEditor.Media;
 using BEditor.Media.Encoder;
+using BEditor.Views;
+using BEditor.Views.MessageContent;
 
 using Microsoft.WindowsAPICodePack.Dialogs;
 using Microsoft.WindowsAPICodePack.Dialogs.Controls;
@@ -79,7 +83,7 @@ namespace BEditor.Models
         {
             var codec = new CommonFileDialogComboBox("Default");
 
-            foreach(var text in Enum.GetNames(typeof(VideoCodec)))
+            foreach (var text in Enum.GetNames(typeof(VideoCodec)))
             {
                 codec.Items.Add(new(text));
             }
@@ -109,18 +113,41 @@ namespace BEditor.Models
         {
             var proj = AppData.Current.Project;
             var scn = proj.PreviewScene;
+            var t = false;
             IVideoEncoder encoder = null;
 
             try
             {
-                encoder = new FFmpegEncoder(scn.Width, scn.Height, proj.Framerate, codec, file);
-
-                for (Frame frame = 0; frame < scn.TotalFrame; frame++)
+                var content = new Loading(new ButtonType[] { ButtonType.Cancel })
                 {
-                    using var img = scn.Render(frame, RenderType.VideoOutput).Image;
+                    Maximum =
+                        {
+                            Value = scn.TotalFrame
+                        }
+                };
+                content.ButtonClicked += (_, _) => t = true;
+                var dialog = new NoneDialog(content);
+                dialog.Show();
 
-                    encoder.Write(img);
-                }
+                var thread = new Thread(() =>
+                {
+                    encoder = new FFmpegEncoder(scn.Width, scn.Height, proj.Framerate, codec, file);
+
+                    for (Frame frame = 0; frame < scn.TotalFrame; frame++)
+                    {
+                        if (t) return;
+                        content.NowValue.Value = frame;
+
+                        using var img = scn.Render(frame, RenderType.VideoOutput).Image;
+
+                        encoder.Write(img);
+                    }
+
+                    dialog.Close();
+                });
+
+                thread.SetApartmentState(ApartmentState.STA);
+                thread.Start();
             }
             catch (Exception e)
             {

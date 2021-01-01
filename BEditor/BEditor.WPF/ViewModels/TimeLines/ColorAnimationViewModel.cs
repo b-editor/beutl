@@ -8,6 +8,7 @@ using BEditor.Core.Data.Primitive.Properties;
 using BEditor.Core.Command;
 using Reactive.Bindings;
 using Reactive.Bindings.Extensions;
+using BEditor.Media;
 
 namespace BEditor.ViewModels.TimeLines
 {
@@ -40,8 +41,8 @@ namespace BEditor.ViewModels.TimeLines
         #endregion
 
         public ReadOnlyReactiveProperty<ColorAnimationPropertyMetadata> Metadata { get; }
-        public ReactiveCommand<int> AddKeyFrameCommand { get; } = new();
-        public ReactiveCommand<int> RemoveKeyFrameCommand { get; } = new();
+        public ReactiveCommand<Frame> AddKeyFrameCommand { get; } = new();
+        public ReactiveCommand<Frame> RemoveKeyFrameCommand { get; } = new();
         public ReactiveCommand<(int, int)> MoveKeyFrameCommand { get; } = new();
     }
 }

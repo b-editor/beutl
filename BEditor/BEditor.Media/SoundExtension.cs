@@ -12,7 +12,7 @@ namespace BEditor.Media
     {
         public static Sound<PCM16> SinWave(uint samplingrate)
         {
-            var sound = new Sound<PCM16>(Channel.Monaural, samplingrate, 1);
+            var sound = new Sound<PCM16>(Channel.Monaural, samplingrate, 60);
 
             fixed(PCM16* pcm = sound.Pcm)
             {

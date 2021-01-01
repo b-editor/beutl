@@ -22,15 +22,25 @@ namespace BEditor.Models.Extension
 
         public static void PreviewUpdate(this Core.Data.Project project)
         {
-            using var img = project.PreviewScene.Render().Image;
-            var outimg = MainWindowViewModel.Current.PreviewImage.Value;
-            if (outimg is null || outimg.Width != img.Width || outimg.Height != img.Height)
+            App.Current.Dispatcher.Invoke(() =>
             {
-                MainWindowViewModel.Current.PreviewImage.Value = new System.Windows.Media.Imaging.WriteableBitmap(img.Width, img.Height, 96, 96, System.Windows.Media.PixelFormats.Bgra32, null);
-            }
+                using var img = project.PreviewScene.Render().Image;
+                var outimg = MainWindowViewModel.Current.PreviewImage.Value;
+                if (outimg is null || outimg.Width != img.Width || outimg.Height != img.Height)
+                {
+                    MainWindowViewModel.Current.PreviewImage.Value = new(
+                        img.Width,
+                        img.Height,
+                        96,
+                        96,
+                        System.Windows.Media.PixelFormats.Bgra32,
+                        null);
+                }
+                
+                //96,
 
-
-            BitmapSourceConverter.ToWriteableBitmap(img, MainWindowViewModel.Current.PreviewImage.Value);
+                BitmapSourceConverter.ToWriteableBitmap(img, MainWindowViewModel.Current.PreviewImage.Value);
+            });
         }
     }
 }

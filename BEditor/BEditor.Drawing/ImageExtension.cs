@@ -34,6 +34,32 @@ namespace BEditor.Drawing
 
             self[rect] = blended;
         }
+        public static void DrawPath(this Image<BGRA32> self, BGRA32 color, Point point, Point[] points)
+        {
+            using var bmp = self.ToSKBitmap();
+            using var canvas = new SKCanvas(bmp);
+
+            using var path = new SKPath();
+            path.MoveTo(point.X, point.Y);
+
+            foreach (var p in points)
+            {
+                path.LineTo(p.X, p.Y);
+            }
+
+            path.Close();
+
+            using var paint = new SKPaint()
+            {
+                Color = new SKColor(color.R, color.G, color.B, color.A),
+                IsAntialias = true,
+                Style = SKPaintStyle.Fill
+            };
+
+            canvas.DrawPath(path, paint);
+
+            CopyTo(bmp.Bytes, self.Data, self.DataSize);
+        }
         internal static Image<BGR24> ToImage24(this SKBitmap self)
         {
             var result = new Image<BGR24>(self.Width, self.Height);
@@ -283,8 +309,21 @@ namespace BEditor.Drawing
         }
         #endregion
 
-        public static Image<BGRA32> Ellipse(int width, int height, int line, BGRA32 color)
+        public static Image<BGRA32> Ellipse(int width, int height, int line, Color color)
         {
+            return Ellipse(width, height, new()
+            {
+                StrokeWidth = line,
+                Color = color,
+                Style = BrushStyle.Stroke,
+                IsAntialias = true
+            });
+        }
+        public static Image<BGRA32> Ellipse(int width, int height, Brush brush)
+        {
+            var line = brush.StrokeWidth;
+            var color = brush.Color;
+
             if (line >= Math.Min(width, height) / 2)
                 line = Math.Min(width, height) / 2;
 
@@ -300,8 +339,8 @@ namespace BEditor.Drawing
             using var paint = new SKPaint()
             {
                 Color = new SKColor(color.R, color.G, color.B, color.A),
-                IsAntialias = true,
-                Style = SKPaintStyle.Stroke,
+                IsAntialias = brush.IsAntialias,
+                Style = (SKPaintStyle)brush.Style,
                 StrokeWidth = min
             };
 
@@ -312,16 +351,30 @@ namespace BEditor.Drawing
 
             return bmp.ToImage32();
         }
-        public static Image<BGRA32> Rect(int width, int height, int line, BGRA32 color)
+        public static Image<BGRA32> Ellipse(Size size, Brush brush)
+            => Ellipse(size.Width, size.Height, brush);
+        public static Image<BGRA32> Rect(int width, int height, int line, Color color)
         {
+            return Rect(width, height, new()
+            {
+                StrokeWidth = line,
+                Style = BrushStyle.Stroke,
+                IsAntialias = true,
+                Color = color
+            });
+        }
+        public static Image<BGRA32> Rect(int width, int height, Brush brush)
+        {
+            var color = brush.Color;
+            var line = brush.StrokeWidth;
             using var bmp = new SKBitmap(new SKImageInfo(width, height, SKColorType.Bgra8888));
             using var canvas = new SKCanvas(bmp);
 
             using var paint = new SKPaint()
             {
                 Color = new SKColor(color.R, color.G, color.B, color.A),
-                IsAntialias = true,
-                Style = SKPaintStyle.Stroke,
+                IsAntialias = brush.IsAntialias,
+                Style = (SKPaintStyle)brush.Style,
                 StrokeWidth = line
             };
 
@@ -332,8 +385,39 @@ namespace BEditor.Drawing
 
             return bmp.ToImage32();
         }
-        public static Image<BGRA32> RoundRect(int width, int height, int line, int radiusX, int radiusY, BGRA32 color)
+        public static Image<BGRA32> Rect(Size size, Brush brush)
         {
+            return Rect(size.Width, size.Height, brush);
+        }
+        public static Image<BGRA32> Triangle(int width, int height, Color color)
+        {
+            var img = new Image<BGRA32>(width, height);
+            img.DrawPath(
+                color,
+                new(width / 2, 0),
+                new Point[]
+                {
+                    new(width, height),
+                    new(0, height),
+                    new(width / 2, 0),
+                });
+
+            return img;
+        }
+        public static Image<BGRA32> RoundRect(int width, int height, int line, int radiusX, int radiusY, Color color)
+        {
+            return RoundRect(width, height, radiusX, radiusY, new()
+            {
+                StrokeWidth = line,
+                Style = BrushStyle.Stroke,
+                IsAntialias = true,
+                Color = color
+            });
+        }
+        public static Image<BGRA32> RoundRect(int width, int height, int radiusX, int radiusY, Brush brush)
+        {
+            var line = brush.StrokeWidth;
+            var color = brush.Color;
             if (line >= Math.Min(width, height) / 2)
                 line = Math.Min(width, height) / 2;
 
@@ -361,7 +445,11 @@ namespace BEditor.Drawing
 
             return bmp.ToImage32();
         }
-        public static Image<BGRA32> Text(string text, Font font, float size, BGRA32 color)
+        public static Image<BGRA32> RoundRect(Size size, int radiusX, int radiusY, Brush brush)
+        {
+            return RoundRect(size.Width, size.Height, radiusX, radiusY, brush);
+        }
+        public static Image<BGRA32> Text(string text, Font font, float size, Color color)
         {
             if (string.IsNullOrEmpty(text)) return new Image<BGRA32>(1, 1);
             if (font is null) throw new ArgumentNullException(nameof(font));
@@ -515,7 +603,7 @@ namespace BEditor.Drawing
         private static EncodedImageFormat ToImageFormat(string filename)
         {
             var ex = Path.GetExtension(filename);
-            
+
             if (string.IsNullOrEmpty(filename)) throw new IOException("拡張子を指定してください");
 
             return ExtensionToFormat[ex];

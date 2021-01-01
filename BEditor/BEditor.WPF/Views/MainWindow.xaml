@@ -300,7 +300,7 @@
                             </md:PackIcon.RenderTransform>
                         </md:PackIcon>
                     </Button>
-                    <Button Background="{x:Null}" BorderBrush="{x:Null}" Height="35" Width="35" Padding="0">
+                    <Button Background="{x:Null}" BorderBrush="{x:Null}" Height="35" Width="35" Padding="0" Command="{Binding PreviewStart, Mode=OneTime}">
                         <md:PackIcon Kind="PlayArrow" Foreground="{DynamicResource MaterialDesignBody}" Width="20" Height="20" HorizontalAlignment="Stretch" VerticalAlignment="Stretch"/>
                     </Button>
                     <Button Background="{x:Null}" BorderBrush="{x:Null}" Height="35" Width="35" Padding="0">

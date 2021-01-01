@@ -50,7 +50,7 @@ namespace NUnitTestProject1
 
             for(Frame frame = 0; frame < Frame.FromMinutes(1, fps); frame++)
             {
-                using var text = Image.Text(frame.Value.ToString(), new Font(@"C:\Users\yuuto.DESKTOP-S5PNIPB\AppData\Local\Microsoft\Windows\Fonts\keifont.ttf"), 100, new(255, 255, 255, 100));
+                using var text = Image.Text(frame.Value.ToString(), new Font(@"C:\Users\yuuto.DESKTOP-S5PNIPB\AppData\Local\Microsoft\Windows\Fonts\keifont.ttf"), 100, Color.Amber);
                 using var resized = new Image<BGRA32>(width, height);
 
                 resized[Rectangle.FromLTRB(0, 0, text.Width, text.Height)] = text;

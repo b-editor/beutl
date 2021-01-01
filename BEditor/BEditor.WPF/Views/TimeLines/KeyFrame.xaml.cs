@@ -181,7 +181,7 @@ namespace BEditor.Views.TimeLines
 
         private PackIcon select;
         //相対的
-        private int nowframe;
+        private Media.Frame nowframe;
 
         #region MouseMoveEvent
         private void Mouse_Move(object sender, MouseEventArgs e)

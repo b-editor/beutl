@@ -79,6 +79,7 @@ namespace BEditor.Core.Data
     public enum RenderType
     {
         Preview,
+        VideoPreview,
         ImageOutput,
         VideoOutput
     }

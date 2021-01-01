@@ -31,8 +31,19 @@ namespace NUnitTestProject1
         public void DrawEllipse()
         {
             using var img = Image.Decode(InputPath);
-            using var ellipse = Image.Ellipse(100, 100, 50, new BGRA32(255, 255, 255, 255));
+            using var ellipse = Image.Ellipse(100, 100, 50, Color.Light);
             using var stream = new FileStream(CombinePath("DrawEllipse.png"), FileMode.Create);
+
+            img.DrawImage(new Point(0, 0), ellipse);
+
+            img.Encode(stream, EncodedImageFormat.Png);
+        }
+        [Test]
+        public void DrawTriangle()
+        {
+            using var img = Image.Decode(InputPath);
+            using var ellipse = Image.Triangle(100, 100, Color.Light);
+            using var stream = new FileStream(CombinePath("DrawTriangle.png"), FileMode.Create);
 
             img.DrawImage(new Point(0, 0), ellipse);
 
@@ -69,7 +80,7 @@ namespace NUnitTestProject1
         public void TestRoundRect()
         {
             using var img = Image.Decode(InputPath);
-            using var rect = Image.RoundRect(250, 250, 25, 25, 25, new(255, 255, 255, 255));
+            using var rect = Image.RoundRect(250, 250, 25, 25, 25, Color.Light);
             using var stream = new FileStream(CombinePath("TestRoundRect.png"), FileMode.Create);
 
             img.DrawImage(new Point(50, 50), rect);
@@ -92,7 +103,7 @@ namespace NUnitTestProject1
         {
             BGRA32* data = stackalloc BGRA32[100 * 100];
             using var image = new Image<BGRA32>(100, 100, data);
-            using var circle = Image.Ellipse(100, 100, 25, new BGRA32(255, 255, 255, 255));
+            using var circle = Image.Ellipse(100, 100, 25, Color.Light);
 
             image[new Rectangle(0, 0, circle.Width, circle.Height)] = circle;
 

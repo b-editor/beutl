@@ -10,7 +10,15 @@ using BEditor.Core.Data.Property;
 using BEditor.Media;
 using BEditor.Media.PCM;
 
+using NAudio.Wave;
+using NAudio.CoreAudioApi;
+
 using OpenTK.Audio.OpenAL;
+using System.IO;
+using BEditor.Core.Data.Primitive.Properties;
+using BEditor.Core.Command;
+using BEditor.Core.Properties;
+using BEditor.Core.Data.Primitive.Objects.PrimitiveImages;
 
 namespace BEditor.Core.Data.Primitive.Objects
 {
@@ -18,28 +26,77 @@ namespace BEditor.Core.Data.Primitive.Objects
     [CustomClipUI(Color = 0xff1744)]
     public class AudioObject : ObjectElement
     {
-        public override string Name => "Audio SinWave";
-        public override IEnumerable<PropertyElement> Properties => Array.Empty<PropertyElement>();
+        public static readonly FilePropertyMetadata FileMetadata = Video.FileMetadata with { Filter = "mp3,wav,mp4", FilterName = "" };
+        public static readonly EasePropertyMetadata VolumeMetadata = new("Volume", 50, 100, 0);
+        private WaveOut player;
+        private AudioFileReader reader;
+
+        public AudioObject()
+        {
+            Volume = new(VolumeMetadata);
+            File = new(FileMetadata);
+        }
+
+        public override string Name => "Audio";
+        public override IEnumerable<PropertyElement> Properties => new PropertyElement[]
+        {
+            Volume,
+            File
+        };
+        [DataMember(Order = 0)]
+        public FileProperty File { get; private set; }
+        [DataMember(Order = 1)]
+        public EaseProperty Volume { get; private set; }
+        private WaveOut Player => player ??= new();
+        private AudioFileReader Reader
+        {
+            get
+            {
+                if (reader is null && System.IO.File.Exists(File.File))
+                {
+                    reader = new(File.File);
+                }
+
+                return reader;
+            }
+            set
+            {
+                reader?.Dispose();
+                reader = value;
+            }
+        }
+
 
         public unsafe override void Render(EffectRenderArgs args)
         {
-            if (args.Frame != Parent.Start) return;
+            //if (args.Type is not RenderType.VideoPreview) return;
 
-            var source = AL.GenSource();
-            var buffer = AL.GenBuffer();
+            if (reader is null) return;
 
-            var sound = Sound.SinWave(44100);
+            Player.Volume = Volume.GetValue(args.Frame) / 100;
 
-            fixed (PCM16* pcm = sound.Pcm)
+            if (args.Frame == Parent.Start)
             {
-                AL.BufferData(buffer, ALFormat.Mono16, (IntPtr)pcm, (int)sound.DataSize, 44100);
+                Player.Init(Reader);
+
+                Player.Play();
+
+
             }
-            AL.Source(source, ALSourcei.Buffer, buffer);
+        }
+        public override void PropertyLoaded()
+        {
+            base.PropertyLoaded();
+            Volume.ExecuteLoaded(VolumeMetadata);
+            File.ExecuteLoaded(FileMetadata);
 
-            AL.SourcePlay(source);
-
-            AL.DeleteBuffer(buffer);
-            AL.DeleteSource(source);
+            File.Subscribe(file =>
+            {
+                if (System.IO.File.Exists(file))
+                {
+                    Reader = new(file);
+                }
+            });
         }
     }
 }

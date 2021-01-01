@@ -21,7 +21,6 @@ namespace BEditor.Core.Graphics
             lock (lockobject)
             {
                 GameWindow = new GameWindow(width, height);
-            }
                 //GameWindow = new GameWindow(
                 //    GameWindowSettings.Default,
                 //    new()
@@ -33,6 +32,7 @@ namespace BEditor.Core.Graphics
                 //    });
 
                 Initialize();
+            }
         }
 
         public override void MakeCurrent()
@@ -56,7 +56,10 @@ namespace BEditor.Core.Graphics
 
         public override void SwapBuffers()
         {
+            lock (lockobject)
+            {
             GameWindow.SwapBuffers();
+            }
         }
 
         public override void Resize(int width, int height, bool Perspective = false, float x = 0, float y = 0, float z = 1024, float tx = 0, float ty = 0, float tz = 0, float near = 0.1F, float far = 20000)

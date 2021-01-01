@@ -303,6 +303,18 @@ namespace BEditor.Drawing
 
             if (mode.HasFlag(FlipMode.X))
             {
+                //Span<T> tmp = stackalloc T[Width];
+                //for (int top = 0; top < Height / 2; top++)
+                //{
+                //    var bottom = Height - top - 1;
+
+                //    var topSpan = this[bottom];
+                //    var bottomSpan = this[top];
+
+                //    topSpan.CopyTo(tmp);
+                //    bottomSpan.CopyTo(topSpan);
+                //    tmp.CopyTo(bottomSpan);
+                //}
                 Parallel.For(0, Height / 2, top =>
                 {
                     Span<T> tmp = stackalloc T[Width];

@@ -30,11 +30,14 @@ namespace BEditor.ViewModels
 {
     public sealed class MainWindowViewModel
     {
+        private ScenePlayer player;
+
         public static MainWindowViewModel Current { get; } = new();
 
         public ReactiveProperty<WriteableBitmap> PreviewImage { get; } = new();
         public ReactiveProperty<Brush> MainWindowColor { get; } = new();
 
+        public ReactiveCommand PreviewStart { get; } = new();
         public ReactiveCommand PreviewFramePlus { get; } = new();
         public ReactiveCommand PreviewFrameMinus { get; } = new();
 
@@ -54,6 +57,7 @@ namespace BEditor.ViewModels
 
             SettingShow.Subscribe(() => SettingShowCommand());
 
+            PreviewStart.Subscribe(ProjectPreviewStartCommand);
             PreviewFramePlus.Subscribe(() => AppData.Current.Project.PreviewScene.PreviewFrame++);
             PreviewFrameMinus.Subscribe(() => AppData.Current.Project.PreviewScene.PreviewFrame--);
 
@@ -159,10 +163,10 @@ namespace BEditor.ViewModels
 
         public ReactiveProperty<bool> ProjectIsOpened { get; } = new() { Value = false };
 
-        private static void ProjectSaveAsCommand() => AppData.Current.Project?.SaveAs();
-
-        private static void ProjectSaveCommand() => AppData.Current.Project?.Save();
-
+        private static void ProjectSaveAsCommand()
+            => AppData.Current.Project?.SaveAs();
+        private static void ProjectSaveCommand()
+            => AppData.Current.Project?.Save();
         private static void ProjectOpenCommand()
         {
             var dialog = new CommonOpenFileDialog()
@@ -200,15 +204,28 @@ namespace BEditor.ViewModels
 
             Debug.WriteLine("ProjectOpened");
         }
-
         private static void ProjectCloseCommand()
         {
             AppData.Current.Project?.Dispose();
             AppData.Current.Project = null;
             AppData.Current.AppStatus = Status.Idle;
         }
+        private static void ProjectCreateCommand()
+            => new ProjectCreateDialog { Owner = App.Current.MainWindow }.ShowDialog();
+        private void ProjectPreviewStartCommand()
+        {
+            if (player is null)
+            {
+                player = new(AppData.Current.Project.PreviewScene);
 
-        private static void ProjectCreateCommand() => new ProjectCreateDialog { Owner = App.Current.MainWindow }.ShowDialog();
+                player.Play();
+            }
+            else
+            {
+                player.Stop();
+                player = null;
+            }
+        }
 
         #endregion
 

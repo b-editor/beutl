@@ -15,25 +15,31 @@ namespace BEditor.Media
         {
             Value = value;
         }
-        public Frame(SerializationInfo info, StreamingContext context)
+        private Frame(SerializationInfo info, StreamingContext context)
         {
             Value = info.GetInt32(nameof(Value));
         }
 
         public int Value { get; }
 
-        public double ToSeconds(double framerate) => Value / framerate;
+        public double ToMilliseconds(double framerate) => Value / framerate / 1000;
+        public double ToSeconds(double framerate) => ToMilliseconds(framerate) * 1000;
         public double ToMinutes(double framerate) => ToSeconds(framerate) * 60;
         public double ToHours(double framerate) => ToMinutes(framerate) * 60;
-        public static Frame FromSeconds(double seconds, double framerate) => new((int)(seconds * framerate));
+        public static Frame FromMilliseconds(double milliseconds, double framerate) => new((int)(milliseconds * framerate / 1000));
+        public static Frame FromSeconds(double seconds, double framerate) => FromMilliseconds(seconds * 1000, framerate);
         public static Frame FromMinutes(double minutes, double framerate) => FromSeconds(minutes * 60, framerate);
         public static Frame FromHours(double hours, double framerate) => FromMinutes(hours * 60, framerate);
+        public static Frame FromTimeSpan(TimeSpan timeSpan, double framerate) => FromMilliseconds(timeSpan.TotalMilliseconds, framerate);
+
+
         public override readonly bool Equals(object? obj)
             => obj is Frame frame && Equals(frame);
         public readonly bool Equals(Frame other)
             => Value == other.Value;
         public override readonly int GetHashCode()
             => HashCode.Combine(Value);
+        public override string ToString() => $"(Value:{Value})";
         public void GetObjectData(SerializationInfo info, StreamingContext context)
         {
             info.AddValue(nameof(Value), Value);
