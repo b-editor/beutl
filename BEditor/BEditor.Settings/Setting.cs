@@ -9,7 +9,7 @@ using System.Runtime.Serialization;
 namespace BEditor
 {
     [DataContract]
-    public class Settings : INotifyPropertyChanged
+    public class Settings : INotifyPropertyChanged, IExtensibleDataObject
     {
         #region Fields
 
@@ -20,6 +20,7 @@ namespace BEditor
         private static readonly PropertyChangedEventArgs lastTimeNumArgs = new(nameof(LastTimeNum));
         private static readonly PropertyChangedEventArgs widthOf1FrameArgs = new(nameof(WidthOf1Frame));
         private static readonly PropertyChangedEventArgs enableErrorLogArgs = new(nameof(EnableErrorLog));
+        private static readonly PropertyChangedEventArgs backgroundColorArgs = new(nameof(BackgroundColor));
         private int clipHeight = 25;
         private bool darkMode = true;
         private bool autoBackUp = true;
@@ -30,6 +31,7 @@ namespace BEditor
         private ObservableCollection<string>? enablePlugins;
         private ObservableCollection<string>? disablePlugins;
         private ObservableCollection<string>? includeFonts;
+        private string? backgroundColor;
 
         #endregion
 
@@ -129,6 +131,13 @@ namespace BEditor
             }
             set => includeFonts = value;
         }
+        [DataMember]
+        public string BackgroundColor
+        {
+            get => backgroundColor ??= "#00000000";
+            set => SetValue(value, ref backgroundColor, backgroundColorArgs);
+        }
+        public ExtensionDataObject? ExtensionData { get; set; }
 
         #endregion
 

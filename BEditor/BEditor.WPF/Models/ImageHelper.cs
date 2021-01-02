@@ -8,6 +8,7 @@ using BEditor.Core.Data;
 using BEditor.Core.Extensions;
 using BEditor.Core.Extensions.ViewCommand;
 using BEditor.Core.Properties;
+using BEditor.Core.Service;
 using BEditor.Drawing;
 using BEditor.Media;
 using BEditor.Media.Encoder;
@@ -50,7 +51,7 @@ namespace BEditor.Models
         /// </summary>
         public static void OutputImage()
         {
-            CommonSaveFileDialog saveFileDialog = new CommonSaveFileDialog()
+            var saveFileDialog = new CommonSaveFileDialog()
             {
                 Filters =
                 {
@@ -115,6 +116,7 @@ namespace BEditor.Models
             var scn = proj.PreviewScene;
             var t = false;
             IVideoEncoder encoder = null;
+            AppData.Current.AppStatus = Status.Output;
 
             try
             {
@@ -156,6 +158,7 @@ namespace BEditor.Models
             finally
             {
                 encoder?.Dispose();
+                AppData.Current.AppStatus = Status.Edit;
             }
         }
     }

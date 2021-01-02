@@ -36,6 +36,7 @@
     <Controls:MetroWindow.Resources>
         <convert:AppStatusIconConverter x:Key="AppStatusIcon"/>
         <convert:AppStatusTextConverter x:Key="AppStatusText"/>
+        <convert:AppStatusToPlayerIconConverter x:Key="AppStatusToPlayerIcon"/>
         <convert:SceneToPropertyTab x:Key="SceneToPropertyTab"/>
         <convert:SceneToTimeLine x:Key="SceneToTimeLine"/>
         <convert:FrameConverter x:Key="FrameConverter"/>
@@ -301,7 +302,7 @@
                         </md:PackIcon>
                     </Button>
                     <Button Background="{x:Null}" BorderBrush="{x:Null}" Height="35" Width="35" Padding="0" Command="{Binding PreviewStart, Mode=OneTime}">
-                        <md:PackIcon Kind="PlayArrow" Foreground="{DynamicResource MaterialDesignBody}" Width="20" Height="20" HorizontalAlignment="Stretch" VerticalAlignment="Stretch"/>
+                        <md:PackIcon Kind="{Binding AppStatus, Source={x:Static model:AppData.Current}, Converter={StaticResource AppStatusToPlayerIcon}, Mode=OneWay}" Foreground="{DynamicResource MaterialDesignBody}" Width="20" Height="20" HorizontalAlignment="Stretch" VerticalAlignment="Stretch"/>
                     </Button>
                     <Button Background="{x:Null}" BorderBrush="{x:Null}" Height="35" Width="35" Padding="0">
                         <md:PackIcon Kind="SkipForward" Foreground="{DynamicResource MaterialDesignBody}" Width="20" Height="20" HorizontalAlignment="Stretch" VerticalAlignment="Stretch"/>

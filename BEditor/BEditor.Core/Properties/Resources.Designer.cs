@@ -1170,6 +1170,15 @@ namespace BEditor.Core.Properties {
         }
         
         /// <summary>
+        ///   Playing に類似しているローカライズされた文字列を検索します。
+        /// </summary>
+        public static string Playing {
+            get {
+                return ResourceManager.GetString("Playing", resourceCulture);
+            }
+        }
+        
+        /// <summary>
         ///   Plugins に類似しているローカライズされた文字列を検索します。
         /// </summary>
         public static string Plugins {

@@ -16,10 +16,10 @@ namespace BEditor.Core.Data
 {
     public class ScenePlayer : IDisposable
     {
-        private Timer timer;
+        private readonly Timer timer;
         private DateTime startTime;
-        private object lockobj = new();
-        private double framerate;
+        private readonly double framerate;
+        private Frame startframe;
 
         public ScenePlayer(Scene scene)
         {
@@ -37,38 +37,26 @@ namespace BEditor.Core.Data
         public Scene Scene { get; }
         public PlayerState State { get; private set; } = PlayerState.Stop;
 
-        //public event EventHandler<PlayingEventArgs> Playing;
-
         public void Play()
         {
             if (State is PlayerState.Playing) return;
 
             State = PlayerState.Playing;
             startTime = DateTime.Now;
+            startframe = Scene.PreviewFrame;
 
             timer.Start();
         }
 
         private void Timer_Elapsed(object sender, ElapsedEventArgs e)
         {
-            //var thread = new Thread(() =>
-            //{
-                var time = e.SignalTime - startTime;
-                var frame = Frame.FromTimeSpan(time, framerate);
+            var time = e.SignalTime - startTime;
+            var frame = Frame.FromTimeSpan(time, framerate);
 
-                if(frame > Scene.TotalFrame) Stop();
-                Scene.PreviewFrame = frame;
+            frame += startframe;
 
-                //var result = Scene.Render(frame, RenderType.VideoPreview);
-
-                //Playing?.Invoke(this, new(frame, result.Image));
-
-                //result.Image?.Dispose();
-            //});
-
-            //thread.Start();
-
-            //thread.Join();
+            if (frame > Scene.TotalFrame) Stop();
+            Scene.PreviewFrame = frame;
         }
 
         public void Stop()

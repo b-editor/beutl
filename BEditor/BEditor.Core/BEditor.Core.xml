@@ -2791,6 +2791,11 @@
               Perspective に類似しているローカライズされた文字列を検索します。
             </summary>
         </member>
+        <member name="P:BEditor.Core.Properties.Resources.Playing">
+            <summary>
+              Playing に類似しているローカライズされた文字列を検索します。
+            </summary>
+        </member>
         <member name="P:BEditor.Core.Properties.Resources.Plugins">
             <summary>
               Plugins に類似しているローカライズされた文字列を検索します。
@@ -3159,11 +3164,6 @@
         <member name="F:BEditor.Core.Service.Status.Playing">
             <summary>
             プレビュー再生中であることを表します
-            </summary>
-        </member>
-        <member name="F:BEditor.Core.Service.Status.Pause">
-            <summary>
-            一時停止している状態を表します
             </summary>
         </member>
         <member name="F:BEditor.Core.Service.Status.Output">

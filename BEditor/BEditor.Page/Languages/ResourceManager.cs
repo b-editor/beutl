@@ -11,8 +11,6 @@ namespace BEditor.Page.Languages
         public static IResources Japanese { get; } = new Japanese();
         public static IResources English { get; } = new Japanese();
 
-        //TODO : クエリパラメータで切り替え
-
         static ResourceManager()
         {
             Current = Japanese;

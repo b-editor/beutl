@@ -124,6 +124,7 @@ namespace BEditor.Core.Graphics
             }
 
             GL.Clear(ClearBufferMask.ColorBufferBit | ClearBufferMask.DepthBufferBit);
+            GL.ClearColor(Drawing.Color.FromHTML(Settings.Default.BackgroundColor).ToOpenTK());
         }
 
         public virtual void Resize(
@@ -222,6 +223,8 @@ namespace BEditor.Core.Graphics
             }
 
             GL.Clear(ClearBufferMask.ColorBufferBit | ClearBufferMask.DepthBufferBit);
+            
+            GL.ClearColor(Drawing.Color.FromHTML(Settings.Default.BackgroundColor).ToOpenTK());
         }
 
         protected void Initialize()

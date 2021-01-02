@@ -216,12 +216,14 @@ namespace BEditor.ViewModels
         {
             if (player is null)
             {
+                AppData.Current.AppStatus = Status.Playing;
                 player = new(AppData.Current.Project.PreviewScene);
 
                 player.Play();
             }
             else
             {
+                AppData.Current.AppStatus = Status.Edit;
                 player.Stop();
                 player = null;
             }

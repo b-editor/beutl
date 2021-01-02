@@ -362,7 +362,6 @@ namespace BEditor.Views.TimeLines
             }
             else
             {
-                //TODO : ユーザーコントロール（仮想化パネル）を使う
                 //m は分数
                 //最大の分
                 for (int m = 1; m < (max / rate) / 60; m++)

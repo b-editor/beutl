@@ -494,6 +494,9 @@ Please let the developer know.</value>
   <data name="Perspective" xml:space="preserve">
     <value>Perspective</value>
   </data>
+  <data name="Playing" xml:space="preserve">
+    <value>Playing</value>
+  </data>
   <data name="Plugins" xml:space="preserve">
     <value>Plugins</value>
   </data>

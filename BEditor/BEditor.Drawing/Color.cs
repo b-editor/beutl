@@ -82,6 +82,14 @@ namespace BEditor.Drawing
         }
         public static Color FromARGB(byte a, byte r, byte g, byte b)
             => new(a, r, g, b);
+        public static Color FromHTML(string htmlcolor)
+        {
+            htmlcolor = "0x" + htmlcolor.Replace("#", "");
+
+            var argb = Convert.ToUInt32(htmlcolor, 16);
+
+            return FromARGB(argb);
+        }
 
         public override bool Equals(object? obj)
             => obj is Color color && Equals(color);

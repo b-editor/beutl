@@ -491,6 +491,9 @@
   <data name="Perspective" xml:space="preserve">
     <value>遠近法</value>
   </data>
+  <data name="Playing" xml:space="preserve">
+    <value>再生中</value>
+  </data>
   <data name="Plugins" xml:space="preserve">
     <value>プラグイン</value>
   </data>

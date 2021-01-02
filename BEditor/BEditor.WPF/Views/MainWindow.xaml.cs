@@ -32,20 +32,6 @@ namespace BEditor
 
             Loaded += (sender, e) =>
             {
-                object Data = null;
-
-                if (System.Windows.Forms.Clipboard.ContainsText())
-                {
-                    Data = System.Windows.Forms.Clipboard.GetText();
-                }
-                else if (System.Windows.Forms.Clipboard.ContainsFileDropList())
-                {
-                    Data = System.Windows.Forms.Clipboard.GetFileDropList();
-                }
-
-                Models.Clipboard.Data = Data;
-
-
                 PluginInit();
 
                 //コマンドライン引数から開く
@@ -105,7 +91,7 @@ namespace BEditor
             AppData.Current.LoadedPlugins = PluginManager.Load(Settings.Default.EnablePlugins).ToList();
         }
 
-        private void MetroWindow_Closing(object sender, System.ComponentModel.CancelEventArgs e) => Models.Clipboard.clipboardWatcher.Dispose();
+        private void MetroWindow_Closing(object sender, System.ComponentModel.CancelEventArgs e) { }
 
         private void ObjectMouseDown(object sender, MouseButtonEventArgs e)
         {

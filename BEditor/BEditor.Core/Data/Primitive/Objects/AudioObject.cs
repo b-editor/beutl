@@ -81,7 +81,8 @@ namespace BEditor.Core.Data.Primitive.Objects
 
                 Player.Play();
 
-
+                //using var audioreader = new AudioFileReader(File.File);
+                //using var pcm = WaveFormatConversionStream.CreatePcmStream(audioreader);
             }
         }
         public override void PropertyLoaded()

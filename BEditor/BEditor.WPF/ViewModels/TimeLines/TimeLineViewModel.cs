@@ -138,7 +138,11 @@ namespace BEditor.ViewModels.TimeLines
                 {
                     SeekbarMargin.Value = new Thickness(ToPixel(Scene.PreviewFrame), 0, 0, 0);
 
-                    AppData.Current.Project.PreviewUpdate();
+                    var type = RenderType.Preview;
+
+                    if (AppData.Current.AppStatus is Core.Service.Status.Playing) type = RenderType.VideoPreview;
+
+                    AppData.Current.Project.PreviewUpdate(type);
                 });
 
             scene.ObserveProperty(s => s.TotalFrame)

@@ -32,10 +32,6 @@ namespace BEditor.Core.Service
         /// </summary>
         Playing,
         /// <summary>
-        /// 一時停止している状態を表します
-        /// </summary>
-        Pause,
-        /// <summary>
         /// 出力中であることを表します
         /// </summary>
         Output
