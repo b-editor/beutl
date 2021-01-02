@@ -18,6 +18,7 @@ using BEditor.Core.Data.Primitive.Objects.PrimitiveImages;
 using BEditor.Core.Data;
 using System.Collections.ObjectModel;
 using System.Xml;
+using System.Diagnostics;
 
 namespace BEditor.Core
 {
@@ -54,6 +55,7 @@ namespace BEditor.Core
             }
             catch
             {
+                Debug.Assert(false);
                 return default;
             }
         }
@@ -89,6 +91,7 @@ namespace BEditor.Core
             }
             catch
             {
+                Debug.Assert(false);
                 return default;
             }
         }
@@ -122,6 +125,7 @@ namespace BEditor.Core
             }
             catch
             {
+                Debug.Assert(false);
                 return false;
             }
         }
@@ -156,6 +160,7 @@ namespace BEditor.Core
             }
             catch
             {
+                Debug.Assert(false);
                 return false;
             }
         }
@@ -203,6 +208,7 @@ namespace BEditor.Core
 
             typeof(ClipData),
             typeof(ImageObject),
+            typeof(AudioObject),
             typeof(CameraObject),
             typeof(GL3DObject),
             typeof(ObjectElement),

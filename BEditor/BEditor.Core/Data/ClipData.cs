@@ -173,7 +173,7 @@ namespace BEditor.Core.Data
         public void PreviewRender(ClipRenderArgs args)
         {
             var enableEffects = Effect.Where(x => x.IsEnabled);
-            var loadargs = new EffectRenderArgs(args.Frame);
+            var loadargs = new EffectRenderArgs(args.Frame, args.Type);
 
             foreach (var item in enableEffects)
             {

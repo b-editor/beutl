@@ -22,8 +22,9 @@ namespace BEditor.Media
 
         public int Value { get; }
 
-        public double ToMilliseconds(double framerate) => Value / framerate / 1000;
-        public double ToSeconds(double framerate) => ToMilliseconds(framerate) * 1000;
+        public TimeSpan ToTimeSpan(double framerate) => TimeSpan.FromMilliseconds(ToMilliseconds(framerate));
+        public double ToMilliseconds(double framerate) => Value / framerate * 1000;
+        public double ToSeconds(double framerate) => ToMilliseconds(framerate) / 1000;
         public double ToMinutes(double framerate) => ToSeconds(framerate) * 60;
         public double ToHours(double framerate) => ToMinutes(framerate) * 60;
         public static Frame FromMilliseconds(double milliseconds, double framerate) => new((int)(milliseconds * framerate / 1000));

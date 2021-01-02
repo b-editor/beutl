@@ -30,8 +30,6 @@ namespace BEditor.ViewModels
 {
     public sealed class MainWindowViewModel
     {
-        private ScenePlayer player;
-
         public static MainWindowViewModel Current { get; } = new();
 
         public ReactiveProperty<WriteableBitmap> PreviewImage { get; } = new();
@@ -214,18 +212,16 @@ namespace BEditor.ViewModels
             => new ProjectCreateDialog { Owner = App.Current.MainWindow }.ShowDialog();
         private void ProjectPreviewStartCommand()
         {
-            if (player is null)
+            if (AppData.Current.AppStatus is Status.Playing)
             {
-                AppData.Current.AppStatus = Status.Playing;
-                player = new(AppData.Current.Project.PreviewScene);
-
-                player.Play();
+                AppData.Current.AppStatus = Status.Edit;
+                AppData.Current.Project.PreviewScene.Player.Stop();
             }
             else
             {
-                AppData.Current.AppStatus = Status.Edit;
-                player.Stop();
-                player = null;
+                AppData.Current.AppStatus = Status.Playing;
+
+                AppData.Current.Project.PreviewScene.Player.Play();
             }
         }
 

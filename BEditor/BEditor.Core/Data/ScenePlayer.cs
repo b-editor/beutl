@@ -14,7 +14,28 @@ using Timer = System.Timers.Timer;
 
 namespace BEditor.Core.Data
 {
-    public class ScenePlayer : IDisposable
+    public interface IPlayer : IDisposable
+    {
+        public PlayerState State { get; }
+        public Frame CurrentFrame { get; }
+
+        public event EventHandler<PlayingEventArgs> Playing;
+        public event EventHandler Stopped;
+
+        public void Play();
+        public void Stop();
+    }
+    public class PlayingEventArgs : EventArgs
+    {
+        public PlayingEventArgs(Frame frame)
+        {
+            StartFrame = frame;
+        }
+
+        public Frame StartFrame { get; }
+    }
+
+    public class ScenePlayer : IPlayer
     {
         private readonly Timer timer;
         private DateTime startTime;
@@ -36,6 +57,10 @@ namespace BEditor.Core.Data
 
         public Scene Scene { get; }
         public PlayerState State { get; private set; } = PlayerState.Stop;
+        public Frame CurrentFrame { get; private set; }
+
+        public event EventHandler<PlayingEventArgs> Playing;
+        public event EventHandler Stopped;
 
         public void Play()
         {
@@ -46,8 +71,9 @@ namespace BEditor.Core.Data
             startframe = Scene.PreviewFrame;
 
             timer.Start();
-        }
 
+            Playing?.Invoke(this, new(startframe));
+        }
         private void Timer_Elapsed(object sender, ElapsedEventArgs e)
         {
             var time = e.SignalTime - startTime;
@@ -56,32 +82,22 @@ namespace BEditor.Core.Data
             frame += startframe;
 
             if (frame > Scene.TotalFrame) Stop();
+
+            CurrentFrame = frame;
             Scene.PreviewFrame = frame;
         }
-
         public void Stop()
         {
             State = PlayerState.Stop;
 
             timer.Stop();
-        }
 
+            Stopped?.Invoke(this, EventArgs.Empty);
+        }
         public void Dispose()
         {
             timer.Dispose();
         }
-    }
-
-    public class PlayingEventArgs : EventArgs
-    {
-        public PlayingEventArgs(Frame frame, Image<BGRA32> image)
-        {
-            Frame = frame;
-            Image = image;
-        }
-
-        public Image<BGRA32> Image { get; }
-        public Frame Frame { get; }
     }
 
     public enum PlayerState

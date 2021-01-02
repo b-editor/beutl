@@ -42,6 +42,7 @@ namespace BEditor.Core.Data
         private double timeLineHorizonOffset;
         private double timeLineVerticalOffset;
         private string sceneName;
+        private IPlayer player;
 
         #endregion
 
@@ -166,6 +167,11 @@ namespace BEditor.Core.Data
         /// Get audio context.
         /// </summary>
         public AudioContext AudioContext { get; internal set; }
+        /// <summary>
+        /// Get a player to play this <see cref="Scene"/>.
+        /// </summary>
+        public IPlayer Player
+            => player ??= new ScenePlayer(this);
 
 
         #region コントロールに関係
@@ -298,8 +304,6 @@ namespace BEditor.Core.Data
             foreach (var clip in layer) clip.PreviewRender(args);
 
             foreach (var clip in layer) clip.Render(args);
-
-            GraphicsContext.SwapBuffers();
 
             var buffer = new Image<BGRA32>(Width, Height);
             GLTK.GetPixels(buffer);

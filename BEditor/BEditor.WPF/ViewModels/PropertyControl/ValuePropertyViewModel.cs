@@ -20,6 +20,6 @@ namespace BEditor.ViewModels.PropertyControl
 
         public ReadOnlyReactiveProperty<ValuePropertyMetadata> Metadata { get; }
         public ValueProperty Property { get; }
-        public ReactiveCommand Reset { get; }
+        public ReactiveCommand Reset { get; } = new();
     }
 }

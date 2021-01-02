@@ -26,6 +26,7 @@ namespace BEditor.Models.Extension
             {
                 using var img = project.PreviewScene.Render(type).Image;
                 var outimg = MainWindowViewModel.Current.PreviewImage.Value;
+
                 if (outimg is null || outimg.Width != img.Width || outimg.Height != img.Height)
                 {
                     MainWindowViewModel.Current.PreviewImage.Value = new(

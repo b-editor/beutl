@@ -2,6 +2,7 @@
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
+using System.Threading;
 using System.Threading.Tasks;
 using System.Xml.Linq;
 
@@ -60,6 +61,7 @@ namespace BEditor.Models
         public static AppData Current { get; } = new();
         public Status AppStatus { get; set; }
         public List<IPlugin> LoadedPlugins { get; }
+        public SynchronizationContext ProjectThread { get; set; } = SynchronizationContext.Current;
         public ReactiveProperty<Project> Project { get; } = new();
     }
 }

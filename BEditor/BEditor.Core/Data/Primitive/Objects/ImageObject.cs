@@ -52,7 +52,7 @@ namespace BEditor.Core.Data.Primitive.Objects
                 return;
             }
 
-            var imageArgs = new EffectRenderArgs<Image<BGRA32>>(args.Frame)
+            var imageArgs = new EffectRenderArgs<Image<BGRA32>>(args.Frame, args.Type)
             {
                 Value = base_img
             };

@@ -2040,6 +2040,11 @@
             Get audio context.
             </summary>
         </member>
+        <member name="P:BEditor.Core.Data.Scene.Player">
+            <summary>
+            Get a player to play this <see cref="T:BEditor.Core.Data.Scene"/>.
+            </summary>
+        </member>
         <member name="P:BEditor.Core.Data.Scene.PreviewFrame">
             <summary>
             Gets or sets the frame number during preview.

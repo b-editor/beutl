@@ -26,8 +26,9 @@ namespace BEditor.Core.Data.Primitive.Objects
     [CustomClipUI(Color = 0xff1744)]
     public class AudioObject : ObjectElement
     {
-        public static readonly FilePropertyMetadata FileMetadata = Video.FileMetadata with { Filter = "mp3,wav,mp4", FilterName = "" };
+        public static readonly FilePropertyMetadata FileMetadata = Video.FileMetadata with { Filter = "mp3,wav", FilterName = "" };
         public static readonly EasePropertyMetadata VolumeMetadata = new("Volume", 50, 100, 0);
+        public static readonly ValuePropertyMetadata StartMetadata = new(Resources.Start + "(Milliseconds)", 0, Min: 0);
         private WaveOut player;
         private AudioFileReader reader;
 
@@ -35,18 +36,22 @@ namespace BEditor.Core.Data.Primitive.Objects
         {
             Volume = new(VolumeMetadata);
             File = new(FileMetadata);
+            Start = new(StartMetadata);
         }
 
         public override string Name => "Audio";
         public override IEnumerable<PropertyElement> Properties => new PropertyElement[]
         {
             Volume,
+            Start,
             File
         };
         [DataMember(Order = 0)]
         public FileProperty File { get; private set; }
         [DataMember(Order = 1)]
         public EaseProperty Volume { get; private set; }
+        [DataMember(Order = 2)]
+        public ValueProperty Start { get; private set; }
         private WaveOut Player => player ??= new();
         private AudioFileReader Reader
         {
@@ -67,22 +72,28 @@ namespace BEditor.Core.Data.Primitive.Objects
         }
 
 
-        public unsafe override void Render(EffectRenderArgs args)
+        public override void Render(EffectRenderArgs args)
         {
-            //if (args.Type is not RenderType.VideoPreview) return;
+            Player.Volume = Volume.GetValue(args.Frame) / 100;
+            if (args.Type is not RenderType.VideoPreview) return;
 
             if (reader is null) return;
 
-            Player.Volume = Volume.GetValue(args.Frame) / 100;
 
             if (args.Frame == Parent.Start)
             {
-                Player.Init(Reader);
+                Task.Run(async () =>
+                {
+                    Reader.CurrentTime = TimeSpan.FromMilliseconds(Start.Value);
+                    Player.Init(Reader);
 
-                Player.Play();
+                    Player.Play();
 
-                //using var audioreader = new AudioFileReader(File.File);
-                //using var pcm = WaveFormatConversionStream.CreatePcmStream(audioreader);
+                    var millis = (int)Parent.Length.ToMilliseconds(Parent.Parent.Parent.Framerate);
+                    await Task.Delay(millis);
+
+                    Player.Stop();
+                });
             }
         }
         public override void PropertyLoaded()
@@ -90,6 +101,7 @@ namespace BEditor.Core.Data.Primitive.Objects
             base.PropertyLoaded();
             Volume.ExecuteLoaded(VolumeMetadata);
             File.ExecuteLoaded(FileMetadata);
+            Start.ExecuteLoaded(StartMetadata);
 
             File.Subscribe(file =>
             {
@@ -98,6 +110,34 @@ namespace BEditor.Core.Data.Primitive.Objects
                     Reader = new(file);
                 }
             });
+
+            var player = Parent.Parent.Player;
+            player.Stopped += (_, _) =>
+            {
+                Player.Stop();
+            };
+
+            player.Playing += async (_, e) =>
+            {
+                if (Parent.Start <= e.StartFrame && e.StartFrame <= Parent.End)
+                {
+                    var framerate = Parent.Parent.Parent.Framerate;
+                    var startmsec = e.StartFrame.ToMilliseconds(framerate);
+
+                    Reader.CurrentTime = TimeSpan.FromMilliseconds(Start.Value + startmsec);
+                    Player.Init(Reader);
+
+                    Player.Play();
+
+                    // クリップ基準の再生開始位置
+                    var hStart = startmsec - Parent.Start.ToMilliseconds(framerate);
+
+                    var millis = (int)(Parent.Length.ToMilliseconds(framerate) - hStart);
+                    await Task.Delay(millis);
+
+                    Player.Stop();
+                }
+            };
         }
     }
 }

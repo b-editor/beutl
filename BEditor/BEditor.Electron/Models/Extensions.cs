@@ -2,6 +2,7 @@
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
+using System.Threading;
 using System.Threading.Tasks;
 
 using BEditor.Core.Data;
@@ -31,10 +32,13 @@ namespace BEditor.Models
         }
         public static void PreviewUpdate(this Project project)
         {
-            using var img = project.PreviewScene.Render().Image;
+            AppData.Current.ProjectThread.Post(_ =>
+            {
+                using var img = project.PreviewScene.Render().Image;
 
-            img.Encode(PreviewImage);
-            MainLayout.Current.Image.Update();
+                img.Encode(PreviewImage);
+                MainLayout.Current.Image.Update();
+            }, null);
         }
     }
 }

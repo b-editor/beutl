@@ -1,8 +1,8 @@
 ﻿using System;
+using System.Threading;
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
-using System.Threading.Tasks;
 
 using BEditor.Core.Data;
 using BEditor.Models;
@@ -53,6 +53,7 @@ namespace BEditor.Shared
 
                 using var stream = new MemoryStream(buffers);
 
+                AppData.Current.ProjectThread = SynchronizationContext.Current;
                 AppData.Current.Project.Value = new Project(stream, AppData.Current);
 
                 FileDialogIsOpened = false;
