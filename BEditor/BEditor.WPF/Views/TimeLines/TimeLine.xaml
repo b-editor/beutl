@@ -58,7 +58,7 @@
                     VirtualizingPanel.IsVirtualizing="True"
                     VirtualizingPanel.VirtualizationMode="Recycling">
                     <VirtualizingStackPanel.ContextMenu>
-                        <ContextMenu Margin="0,0,0,0">
+                        <ContextMenu Margin="0,0,0,0" x:Name="ContextMenu">
                             <MenuItem>
                                 <MenuItem.Header>
                                     <Grid>

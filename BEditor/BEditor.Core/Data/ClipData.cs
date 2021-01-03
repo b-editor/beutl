@@ -4,6 +4,7 @@ using System.Collections.ObjectModel;
 using System.ComponentModel;
 using System.ComponentModel.DataAnnotations;
 using System.Diagnostics.Contracts;
+using System.Globalization;
 using System.IO;
 using System.Linq;
 using System.Runtime.Serialization;
@@ -22,7 +23,7 @@ namespace BEditor.Core.Data
     /// Represents the data of a clip to be placed in the timeline.
     /// </summary>
     [DataContract]
-    public class ClipData : ComponentObject, ICloneable, IParent<EffectElement>, IChild<Scene>, IHasName, IHasId
+    public class ClipData : ComponentObject, ICloneable, IParent<EffectElement>, IChild<Scene>, IHasName, IHasId, IFormattable
     {
         #region Fields
 
@@ -206,9 +207,22 @@ namespace BEditor.Core.Data
         }
 
         /// <inheritdoc/>
-        public override string ToString() => $"(Name:{Name} Id:{Id} Start:{Start} End:{End})";
-        /// <inheritdoc/>
         public object Clone() => this.DeepClone();
+        /// <inheritdoc/>
+        public string ToString(string? format)
+            => ToString(format, CultureInfo.CurrentCulture);
+        /// <inheritdoc/>
+        public string ToString(string? format, IFormatProvider? formatProvider)
+        {
+            if (string.IsNullOrEmpty(format)) format = "#";
+            if (formatProvider is null) formatProvider = CultureInfo.CurrentCulture;
+
+            return format switch
+            {
+                "#" => $"[{Parent.Id}].{Name}",
+                _ => throw new FormatException(string.Format("The {0} format string is not supported.", format))
+            };
+        }
 
         #endregion
 

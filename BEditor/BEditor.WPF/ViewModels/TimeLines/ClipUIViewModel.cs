@@ -18,6 +18,7 @@ using Reactive.Bindings.Extensions;
 using System.Reactive.Linq;
 using System.ComponentModel;
 using BEditor.Core.Command;
+using System.Runtime.InteropServices;
 
 namespace BEditor.ViewModels.TimeLines
 {
@@ -221,14 +222,14 @@ namespace BEditor.ViewModels.TimeLines
         #region Copy
         private void ClipCopy()
         {
-            //UndoRedoManager.Do(new CopyClip(ClipData));
+            Clipboard.SetDataObject(new DataObject(typeof(Func<ClipData>), new Func<ClipData>(() => ClipData)));
         }
         #endregion
 
         #region Cut
         private void ClipCut()
         {
-            //UndoRedoManager.Do(new CutClip(ClipData));
+            Clipboard.SetDataObject(new DataObject(typeof(Func<ClipData>), new Func<ClipData>(() => ClipData)));
         }
         #endregion
 

@@ -11,11 +11,9 @@
         xmlns:md="http://materialdesigninxaml.net/winfx/xaml/themes"
     
         xmlns:properties="clr-namespace:BEditor.Core.Properties;assembly=BEditor.Core"
-        xmlns:core="clr-namespace:BEditor.Core.Data;assembly=BEditor.Core"
         xmlns:objdata="clr-namespace:BEditor.Core.Data;assembly=BEditor.Core"
     
         xmlns:Controls="clr-namespace:MahApps.Metro.Controls;assembly=MahApps.Metro"
-        xmlns:i="http://schemas.microsoft.com/xaml/behaviors"
     
         mc:Ignorable="d" 
         Background="{DynamicResource MaterialDesignPaper}"
@@ -58,17 +56,26 @@
                 </Trigger>
             </Style.Triggers>
         </Style>
+        <Style x:Key="LoadedObject" TargetType="TextBlock">
+            <Setter Property="Padding" Value="8"/>
+            <EventSetter Event="MouseDown" Handler="LoadedObjectMouseDown"/>
+            <Style.Triggers>
+                <Trigger Property="IsMouseOver" Value="True">
+                    <Setter Property="Background" Value="#25FFFFFF"/>
+                </Trigger>
+            </Style.Triggers>
+        </Style>
     </Controls:MetroWindow.Resources>
     <Controls:MetroWindow.InputBindings>
-        <!--<KeyBinding Command="{Binding Project.PreviewScene.TimeLineViewModel.PasteCommand, Mode=OneWay, Source={x:Static core:Component.Current}}" Gesture="Ctrl+v"/>
-        <KeyBinding Command="{Binding Project.PreviewScene.TimeLineViewModel.CopyCommand, Mode=OneWay, Source={x:Static core:Component.Current}}" Gesture="Ctrl+c"/>
-        <KeyBinding Command="{Binding Project.PreviewScene.TimeLineViewModel.CutCommand, Mode=OneWay, Source={x:Static local:AppData.Current}}" Gesture="Ctrl+x"/>
-        <KeyBinding Command="{x:Static project_data:Project.SaveCommand}" Gesture="Ctrl+s"/>
-        <KeyBinding Command="{x:Static models:UndoRedoManager.UndoCommand}" Gesture="Ctrl+z"/>
-        <KeyBinding Command="{x:Static models:UndoRedoManager.RedoCommand}" Gesture="Ctrl+y"/>
-        <KeyBinding Command="{Binding Project.PreviewScene.TimeLineViewModel.DeleteCommand, Mode=OneWay, Source={x:Static local:AppData.Current}}" Key="Delete"/>-->
-        <KeyBinding Command="{Binding PreviewFramePlus, Mode=OneWay}" Key="Right"/>
-        <KeyBinding Command="{Binding PreviewFrameMinus, Mode=OneWay}" Key="Left"/>
+        <KeyBinding Command="{Binding ClipboardPaste, Mode=OneTime}" Gesture="Ctrl+v"/>
+        <KeyBinding Command="{Binding ClipboardCopy, Mode=OneTime}" Gesture="Ctrl+c"/>
+        <KeyBinding Command="{Binding ClipboardCut, Mode=OneTime}" Gesture="Ctrl+x"/>
+        <KeyBinding Command="{Binding ProjectSave, Mode=OneTime}" Gesture="Ctrl+s"/>
+        <KeyBinding Command="{Binding UndoCommand, Mode=OneTime}" Gesture="Ctrl+z"/>
+        <KeyBinding Command="{Binding RedoCommand, Mode=OneTime}" Gesture="Ctrl+y"/>
+        <KeyBinding Command="{Binding ClipRemoveCommand, Mode=OneWay}" Key="Delete"/>
+        <KeyBinding Command="{Binding FramePlus, Mode=OneWay}" Key="Right"/>
+        <KeyBinding Command="{Binding FrameMinus, Mode=OneWay}" Key="Left"/>
     </Controls:MetroWindow.InputBindings>
 
     <!--#region メニュー-->
@@ -171,13 +178,17 @@
                             <md:PopupBox.ToggleContent>
                                 <md:PackIcon Kind="ChevronDown" Foreground="{DynamicResource MaterialDesignBody}" Height="18" Width="18"/>
                             </md:PopupBox.ToggleContent>
-                            <ListView ItemsSource="{Binding UnDoList, Mode=OneWay}" Width="250" Height="300" SelectedIndex="{Binding UndoSelectIndex.Value, Mode=TwoWay}">
-                                <i:Interaction.Triggers>
-                                    <i:EventTrigger EventName="Selected">
-                                        <i:InvokeCommandAction Command="{Binding UndoSelect, Mode=OneTime}"/>
-                                    </i:EventTrigger>
-                                </i:Interaction.Triggers>
-                            </ListView>
+
+                            <ScrollViewer Width="250" Height="300">
+                            <ItemsControl ItemsSource="{Binding UnDoList, Mode=OneWay}">
+                                <ItemsControl.ItemTemplate>
+                                    <DataTemplate>
+                                        <TextBlock Text="{Binding}" Margin="8"/>
+                                    </DataTemplate>
+                                </ItemsControl.ItemTemplate>
+                            </ItemsControl>
+                                
+                            </ScrollViewer>
                         </md:PopupBox>
                     </Button>
                     <Button Command="{Binding RedoCommand, Mode=OneTime}" Padding="0,0,0,0" Margin="5,0,5,0" IsEnabled="{Binding RedoIsEnabled.Value, Mode=OneWay}">
@@ -188,13 +199,16 @@
                             <md:PopupBox.ToggleContent>
                                 <md:PackIcon Kind="ChevronDown" Foreground="{DynamicResource MaterialDesignBody}" Height="18" Width="18"/>
                             </md:PopupBox.ToggleContent>
-                            <ListView ItemsSource="{Binding ReDoList, Mode=OneWay}" Width="250" Height="300" SelectedIndex="{Binding RedoSelectIndex.Value, Mode=TwoWay}">
-                                <i:Interaction.Triggers>
-                                    <i:EventTrigger EventName="Selected">
-                                        <i:InvokeCommandAction Command="{Binding RedoSelect, Mode=OneTime}"/>
-                                    </i:EventTrigger>
-                                </i:Interaction.Triggers>
-                            </ListView>
+
+                            <ScrollViewer Width="250" Height="300">
+                                <ItemsControl ItemsSource="{Binding ReDoList, Mode=OneWay}">
+                                <ItemsControl.ItemTemplate>
+                                    <DataTemplate>
+                                        <TextBlock Text="{Binding}" Margin="8"/>
+                                    </DataTemplate>
+                                </ItemsControl.ItemTemplate>
+                            </ItemsControl>
+                            </ScrollViewer>
                         </md:PopupBox>
                     </Button>
                     <Separator Margin="6,3,6,3" VerticalAlignment="Stretch"/>
@@ -216,18 +230,20 @@
                     <md:PackIcon Kind="Videocam" Style="{StaticResource MouseOverIcon}" Foreground="{StaticResource VideoColor}"/>
                     <md:PackIcon Kind="Cube" Style="{StaticResource MouseOverIcon}" Foreground="{StaticResource VideoColor}"/>
                     <md:PackIcon Kind="MovieOpen" Style="{StaticResource MouseOverIcon}" Foreground="{StaticResource VideoColor}"/>
-                    <Button  Padding="0,0,0,0" Margin="7,0,0,0">
+                    <Button Padding="0,0,0,0" Margin="7,0,0,0">
                         <md:PopupBox>
                             <md:PopupBox.ToggleContent>
                                 <md:PackIcon Kind="ChevronDown" Foreground="{DynamicResource MaterialDesignBody}" Height="18" Width="18"/>
                             </md:PopupBox.ToggleContent>
-                            <TreeView Width="250" Height="300" ItemsSource="{Binding AddedObjects, Mode=OneWay}">
-                                <TreeView.Resources>
-                                    <HierarchicalDataTemplate DataType="{x:Type objdata:ObjectMetadata}" ItemsSource="{Binding Children}">
-                                        <TextBlock Text="{Binding Name}" Margin="3 2"/>
-                                    </HierarchicalDataTemplate>
-                                </TreeView.Resources>
-                            </TreeView>
+                            <ScrollViewer Width="250" Height="300">
+                                <ItemsControl ItemsSource="{x:Static objdata:ObjectMetadata.LoadedObjects}">
+                                    <ItemsControl.ItemTemplate>
+                                        <DataTemplate>
+                                            <TextBlock Text="{Binding Name}" Style="{StaticResource LoadedObject}"/>
+                                        </DataTemplate>
+                                    </ItemsControl.ItemTemplate>
+                                </ItemsControl>
+                            </ScrollViewer>
                         </md:PopupBox>
                     </Button>
                 </ToolBar>
@@ -277,7 +293,7 @@
                     Value="{Binding Source={x:Static model:AppData.Current}, Path=Project.PreviewScene.PreviewFrame, Mode=TwoWay, Converter={StaticResource FrameConverter}}"
                     Foreground="{Binding MainWindowColor.Value, Mode=OneWay}"/>
                 <VirtualizingStackPanel Orientation="Horizontal" VerticalAlignment="Stretch" Grid.Column="1">
-                    <Button Background="{x:Null}" BorderBrush="{x:Null}" Height="35" Width="35" Padding="0"  Command="{Binding PreviewFrameMinus}">
+                    <Button Background="{x:Null}" BorderBrush="{x:Null}" Height="35" Width="35" Padding="0"  Command="{Binding FrameMinus, Mode=OneTime}">
                         <md:PackIcon Kind="StepForward" Foreground="{DynamicResource MaterialDesignBody}" Width="20" Height="20" HorizontalAlignment="Stretch" VerticalAlignment="Stretch" RenderTransformOrigin="0.5,0.5">
                             <md:PackIcon.RenderTransform>
                                 <TransformGroup>
@@ -289,7 +305,7 @@
                             </md:PackIcon.RenderTransform>
                         </md:PackIcon>
                     </Button>
-                    <Button Background="{x:Null}" BorderBrush="{x:Null}" Height="35" Width="35" Padding="0">
+                    <Button Background="{x:Null}" BorderBrush="{x:Null}" Height="35" Width="35" Padding="0" Command="{Binding FrameStart, Mode=OneTime}">
                         <md:PackIcon Kind="SkipForward" Foreground="{DynamicResource MaterialDesignBody}" Width="20" Height="20" HorizontalAlignment="Stretch" VerticalAlignment="Stretch" RenderTransformOrigin="0.5,0.5">
                             <md:PackIcon.RenderTransform>
                                 <TransformGroup>
@@ -304,10 +320,10 @@
                     <Button Background="{x:Null}" BorderBrush="{x:Null}" Height="35" Width="35" Padding="0" Command="{Binding PreviewStart, Mode=OneTime}">
                         <md:PackIcon Kind="{Binding AppStatus, Source={x:Static model:AppData.Current}, Converter={StaticResource AppStatusToPlayerIcon}, Mode=OneWay}" Foreground="{DynamicResource MaterialDesignBody}" Width="20" Height="20" HorizontalAlignment="Stretch" VerticalAlignment="Stretch"/>
                     </Button>
-                    <Button Background="{x:Null}" BorderBrush="{x:Null}" Height="35" Width="35" Padding="0">
+                    <Button Background="{x:Null}" BorderBrush="{x:Null}" Height="35" Width="35" Padding="0" Command="{Binding FrameEnd, Mode=OneTime}">
                         <md:PackIcon Kind="SkipForward" Foreground="{DynamicResource MaterialDesignBody}" Width="20" Height="20" HorizontalAlignment="Stretch" VerticalAlignment="Stretch"/>
                     </Button>
-                    <Button Background="{x:Null}" BorderBrush="{x:Null}" Height="35" Width="35" Padding="0" Command="{Binding PreviewFramePlus}">
+                    <Button Background="{x:Null}" BorderBrush="{x:Null}" Height="35" Width="35" Padding="0" Command="{Binding FramePlus, Mode=OneTime}">
                         <md:PackIcon Kind="StepForward" Foreground="{DynamicResource MaterialDesignBody}" Width="20" Height="20" HorizontalAlignment="Stretch" VerticalAlignment="Stretch"/>
                     </Button>
                 </VirtualizingStackPanel>

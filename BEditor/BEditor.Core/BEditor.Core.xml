@@ -208,10 +208,13 @@
             
             </summary>
         </member>
-        <member name="M:BEditor.Core.Data.ClipData.ToString">
+        <member name="M:BEditor.Core.Data.ClipData.Clone">
             <inheritdoc/>
         </member>
-        <member name="M:BEditor.Core.Data.ClipData.Clone">
+        <member name="M:BEditor.Core.Data.ClipData.ToString(System.String)">
+            <inheritdoc/>
+        </member>
+        <member name="M:BEditor.Core.Data.ClipData.ToString(System.String,System.IFormatProvider)">
             <inheritdoc/>
         </member>
         <member name="T:BEditor.Core.Data.ClipData.AddCommand">

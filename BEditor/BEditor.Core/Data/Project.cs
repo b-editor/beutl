@@ -11,6 +11,7 @@ using BEditor.Core.Service;
 using BEditor.Core.Properties;
 using BEditor.Core.Data.Control;
 using BEditor.Core.Data.Primitive.Objects;
+using System.Text.RegularExpressions;
 
 namespace BEditor.Core.Data
 {
@@ -332,6 +333,25 @@ namespace BEditor.Core.Data
             project.PreviewSceneIndex = PreviewSceneIndex;
             project.Samplingrate = Samplingrate;
             project.SceneList = SceneList;
+        }
+
+        public ClipData? GetClipFromString(string? str)
+        {
+            if (str is null) return null;
+
+            var regex = new Regex(@"^\[([\d]+)\]\.([\da-zA-Z]+)\z");
+
+            if (regex.IsMatch(str))
+            {
+                var match = regex.Match(str);
+
+                var scene = int.TryParse(match.Groups[1].Value, out var id) ? sceneList[id] : throw new Exception();
+                var clip = scene[match.Groups[2].Value];
+
+                return clip;
+            }
+
+            return null;
         }
 
         #endregion

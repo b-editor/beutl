@@ -52,8 +52,9 @@ namespace BEditor.Core.Data.Primitive.Objects.PrimitiveImages
         {
             float speed = Speed.GetValue(args.Frame) / 100;
             int start = (int)Start.GetValue(args.Frame);
+            Image<BGRA32> image = null;
 
-            videoReader.Read((int)((start + args.Frame - Parent.Start) * speed), out var image);
+            videoReader?.Read((int)((start + args.Frame - Parent.Start) * speed), out image);
 
             return image;
         }

@@ -18,7 +18,7 @@ namespace BEditor.ViewModels.CreateDialog
         private int width = 1920;
         private int height = 1080;
         private int franerate = 30;
-        private int samlingrate = 0;
+        private int samlingrate = 44100;
         private string name = Settings.Default.LastTimeNum.ToString();
         private string path = Settings.Default.LastTimeFolder;
 

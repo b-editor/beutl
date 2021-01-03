@@ -94,6 +94,25 @@ namespace BEditor.Views.TimeLines
                 return contextMenu;
             }
 
+            var clipMenu = new MenuItem()
+            {
+                Header = Resource.AddClip
+            };
+            foreach (var objmetadata in ObjectMetadata.LoadedObjects)
+            {
+                var menu = new MenuItem
+                {
+                    DataContext = objmetadata,
+                    Command = TimeLineViewModel.AddClip
+                };
+
+                menu.SetBinding(MenuItem.CommandParameterProperty, new Binding());
+                menu.SetBinding(HeaderedItemsControl.HeaderProperty, new Binding("Name") { Mode = BindingMode.OneTime });
+                clipMenu.Items.Add(menu);
+            }
+            ContextMenu.Items.Insert(0, clipMenu);
+            ContextMenu.Items.Insert(1, new Separator());
+
 
             //レイヤー名追加for
             for (int l = 1; l < 100; l++)

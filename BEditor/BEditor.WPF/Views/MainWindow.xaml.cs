@@ -115,5 +115,17 @@ namespace BEditor
             btn.ContextMenu.PlacementTarget = btn;
             btn.ContextMenu.Placement = PlacementMode.Bottom;
         }
+
+        private void LoadedObjectMouseDown(object sender, MouseButtonEventArgs e)
+        {
+            if (e.LeftButton == MouseButtonState.Pressed)
+            {
+                var text = (TextBlock)sender;
+                Func<ObjectMetadata> s = () => (ObjectMetadata)text.DataContext;
+                DataObject dataObject = new DataObject(typeof(Func<ObjectMetadata>), s);
+                // ドラッグ開始
+                DragDrop.DoDragDrop(this, dataObject, DragDropEffects.Copy);
+            }
+        }
     }
 }

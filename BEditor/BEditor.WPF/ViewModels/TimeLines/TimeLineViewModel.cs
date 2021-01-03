@@ -22,6 +22,7 @@ using Reactive.Bindings;
 using BEditor.Drawing;
 using Reactive.Bindings.Extensions;
 using Point = System.Windows.Point;
+using System.Threading;
 
 namespace BEditor.ViewModels.TimeLines
 {
@@ -158,6 +159,7 @@ namespace BEditor.ViewModels.TimeLines
 
             SettingShowCommand.Subscribe(SettingWindow);
             PasteCommand.Subscribe(PasteClick);
+            AddClip.Subscribe(AddClipCommand);
 
             ScrollLineCommand.Subscribe(() =>
             {
@@ -179,6 +181,7 @@ namespace BEditor.ViewModels.TimeLines
             TimeLineMouseLeftUpCommand.Subscribe(TimeLineMouseLeftUp);
             TimeLineMouseMoveCommand.Subscribe(TimeLineMouseMove);
             TimeLineMouseLeaveCommand.Subscribe(TimeLineMouseLeave);
+
 
             #endregion
 
@@ -208,6 +211,7 @@ namespace BEditor.ViewModels.TimeLines
 
         public ReactiveCommand SettingShowCommand { get; } = new();
         public ReactiveCommand PasteCommand { get; } = new();
+        public ReactiveCommand<ObjectMetadata> AddClip { get; } = new();
 
 
         #region SettingWindow
@@ -220,6 +224,16 @@ namespace BEditor.ViewModels.TimeLines
             //UndoRedoManager.Do(new PasteClip(Scene, Select_Frame, Select_Layer));
         }
         #endregion
+
+        private void AddClipCommand(ObjectMetadata @object)
+        {
+            Scene.CreateAddCommand(
+                Select_Frame,
+                Select_Layer,
+                @object,
+                out _)
+                .Execute();
+        }
 
         #endregion
 
@@ -335,17 +349,6 @@ namespace BEditor.ViewModels.TimeLines
         #endregion
 
         #endregion
-
-        #region ショートカット
-
-        public ReactiveCommand CopyCommand { get; } = new();
-
-        public ReactiveCommand CutCommand { get; } = new();
-
-        public ReactiveCommand DeleteCommand { get; } = new();
-
-        #endregion
-
 
         #region タイムライン操作
 
