@@ -38,6 +38,7 @@ namespace BEditor.Core
             try
             {
                 T obj;
+                stream.Position = 0;
 
                 if (mode == SerializeMode.Binary)
                 {
@@ -106,6 +107,8 @@ namespace BEditor.Core
         {
             try
             {
+                stream.Position = 0;
+             
                 if (mode == SerializeMode.Binary)
                 {
                     using var writer = XmlDictionaryWriter.CreateBinaryWriter(stream);

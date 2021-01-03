@@ -19,6 +19,9 @@ using System.Reactive.Linq;
 using System.ComponentModel;
 using BEditor.Core.Command;
 using System.Runtime.InteropServices;
+using BEditor.Core;
+using System.IO;
+using System.Text;
 
 namespace BEditor.ViewModels.TimeLines
 {
@@ -222,14 +225,24 @@ namespace BEditor.ViewModels.TimeLines
         #region Copy
         private void ClipCopy()
         {
-            Clipboard.SetDataObject(new DataObject(typeof(Func<ClipData>), new Func<ClipData>(() => ClipData)));
+            using var memory = new MemoryStream();
+            Serialize.SaveToStream(ClipData, memory, SerializeMode.Json);
+
+            var json = Encoding.Default.GetString(memory.ToArray());
+            Clipboard.SetText(json); ;
         }
         #endregion
 
         #region Cut
         private void ClipCut()
         {
-            Clipboard.SetDataObject(new DataObject(typeof(Func<ClipData>), new Func<ClipData>(() => ClipData)));
+            ClipData.Parent.CreateRemoveCommand(ClipData).Execute();
+
+            using var memory = new MemoryStream();
+            Serialize.SaveToStream(ClipData, memory, SerializeMode.Json);
+
+            var json = Encoding.Default.GetString(memory.ToArray());
+            Clipboard.SetText(json);
         }
         #endregion
 

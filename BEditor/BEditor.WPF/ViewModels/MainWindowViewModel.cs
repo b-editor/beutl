@@ -28,6 +28,9 @@ using Reactive.Bindings.Extensions;
 using BEditor.Core.Properties;
 using System.Runtime.InteropServices;
 using System.Windows;
+using BEditor.Core;
+using System.IO;
+using System.Text;
 
 namespace BEditor.ViewModels
 {
@@ -119,25 +122,43 @@ namespace BEditor.ViewModels
                 .Select(_ => AppData.Current.Project.PreviewScene.SelectItem)
                 .Subscribe(clip =>
                 {
-                    var data = new System.Windows.Forms.DataObject();
+                    using var memory = new MemoryStream();
+                    Serialize.SaveToStream(clip, memory, SerializeMode.Json);
 
-                    data.SetData(clip);
-
-                    System.Windows.Forms.Clipboard.SetDataObject(data);
+                    var json = Encoding.Default.GetString(memory.ToArray());
+                    Clipboard.SetText(json);
                 });
 
             ClipboardCut.Where(_ => AppData.Current.Project is not null)
                 .Select(_ => AppData.Current.Project.PreviewScene.SelectItem)
-                .Subscribe(clip => Clipboard.SetDataObject(new DataObject(typeof(Func<ClipData>), new Func<ClipData>(() => clip))));
+                .Subscribe(clip =>
+                {
+                    clip.Parent.CreateRemoveCommand(clip).Execute();
+
+                    using var memory = new MemoryStream();
+                    Serialize.SaveToStream(clip, memory, SerializeMode.Json);
+
+                    var json = Encoding.Default.GetString(memory.ToArray());
+                    Clipboard.SetText(json);
+                });
 
             ClipboardPaste.Where(_ => AppData.Current.Project is not null)
                 .Select(_ => AppData.Current.Project.PreviewScene.GetCreateTimeLineViewModel())
                 .Subscribe(timeline =>
                 {
-                    var data = System.Windows.Forms.Clipboard.GetDataObject();
+                    var text = Clipboard.GetText();
+                    using var memory = new MemoryStream();
+                    memory.Write(Encoding.Default.GetBytes(text));
 
-                    var present = data.GetDataPresent(typeof(ClipData));
-                    var clip = data.GetData(typeof(ClipData));
+                    var clip = Serialize.LoadFromStream<ClipData>(memory, SerializeMode.Json);
+
+                    var length = clip.Length;
+                    clip.Start = timeline.Select_Frame;
+                    clip.End = length + timeline.Select_Frame;
+
+                    clip.Layer = timeline.Select_Layer;
+
+                    timeline.Scene.CreateAddCommand(clip).Execute();
                 });
         }
 

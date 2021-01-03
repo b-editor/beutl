@@ -1,6 +1,7 @@
 ﻿using System;
 using System.Collections.Generic;
 using System.Collections.ObjectModel;
+using System.Reflection;
 using System.Text;
 
 using BEditor.Core.Command;
@@ -47,6 +48,39 @@ namespace BEditor.Core.Command
 
             return RecordCommand.Create(
                 generatedClip,
+                clip =>
+                {
+                    var scene = clip.Parent;
+                    scene.Add(clip);
+                    scene.SetCurrentClip(clip);
+                },
+                clip =>
+                {
+                    var scene = clip.Parent;
+                    scene.Remove(clip);
+
+                    //存在する場合
+                    if (scene.SelectNames.Exists(x => x == clip.Name))
+                    {
+                        scene.SelectItems.Remove(clip);
+
+                        if (scene.SelectName == clip.Name)
+                        {
+                            scene.SelectItem = null;
+                        }
+                    }
+                });
+        }
+        static readonly PropertyInfo ClipDataID = typeof(ClipData).GetProperty(nameof(ClipData.Id));
+        public static IRecordCommand CreateAddCommand(this Scene self, ClipData clip)
+        {
+            //オブジェクトの情報
+            clip.Parent = self;
+            ClipDataID.SetValue(clip, self.NewId);
+            clip.PropertyLoaded();
+
+            return RecordCommand.Create(
+                clip,
                 clip =>
                 {
                     var scene = clip.Parent;
