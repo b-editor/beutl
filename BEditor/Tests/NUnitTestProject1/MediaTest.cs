@@ -17,7 +17,7 @@ namespace NUnitTestProject1
 {
     class MediaTest
     {
-        private static readonly string InputPath = "E:\\freesoft\\Bandicam\\bandicam 2020-12-29 17-16-47-434.mp4";
+        private static readonly string InputPath = "E:\\TestProject\\MediaEncode.mp4";
         private static readonly string OutputPath = "E:\\TestProject\\MediaTest.png";
 
         [SetUp]

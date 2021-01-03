@@ -445,6 +445,7 @@ namespace BEditor.Core.Data
         public static readonly Type Image = typeof(Primitive.Objects.PrimitiveImages.Image);
         public static readonly Type Text = typeof(Primitive.Objects.PrimitiveImages.Text);
         public static readonly Type Figure = typeof(Primitive.Objects.PrimitiveImages.Figure);
+        public static readonly Type Polygon = typeof(Primitive.Objects.PrimitiveImages.Polygon);
         public static readonly Type RoundRect = typeof(Primitive.Objects.PrimitiveImages.RoundRect);
         public static readonly Type Camera = typeof(CameraObject);
         public static readonly Type GL3DObject = typeof(GL3DObject);
@@ -478,6 +479,12 @@ namespace BEditor.Core.Data
             Name = Resources.Figure,
             Type = Figure,
             CreateFunc = () => new Primitive.Objects.PrimitiveImages.Figure()
+        };
+        public static readonly ObjectMetadata PolygonMetadata = new()
+        {
+            Name = "Polygon",
+            Type = Polygon,
+            CreateFunc = () => new Primitive.Objects.PrimitiveImages.Polygon()
         };
         public static readonly ObjectMetadata RoundRectMetadata = new()
         {

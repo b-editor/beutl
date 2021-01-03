@@ -42,7 +42,7 @@ namespace NUnitTestProject1
         public void DrawTriangle()
         {
             using var img = Image.Decode(InputPath);
-            using var ellipse = Image.Triangle(100, 100, Color.Light);
+            using var ellipse = Image.Polygon(3, 100, 100, Color.Light);
             using var stream = new FileStream(CombinePath("DrawTriangle.png"), FileMode.Create);
 
             img.DrawImage(new Point(0, 0), ellipse);

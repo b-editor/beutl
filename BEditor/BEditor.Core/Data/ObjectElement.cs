@@ -29,6 +29,7 @@ namespace BEditor.Core.Data
             ClipType.VideoMetadata,
             ClipType.ImageMetadata,
             ClipType.FigureMetadata,
+            ClipType.PolygonMetadata,
             ClipType.RoundRectMetadata,
             ClipType.TextMetadata,
             ClipType.CameraMetadata,

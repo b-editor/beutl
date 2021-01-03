@@ -64,19 +64,24 @@ namespace BEditor.Core.Data.Primitive.Objects.PrimitiveImages
 
         public override Image<BGRA32> OnRender(EffectRenderArgs args)
         {
+            var width = (int)Width.GetValue(args.Frame);
+            var height = (int)Height.GetValue(args.Frame);
+
+            if (width <= 0 || height <= 0) return new(1, 1);
+
             if (Type.Index == 0)
             {
                 return Drawing.Image.Ellipse(
-                    (int)Width.GetValue(args.Frame),
-                    (int)Height.GetValue(args.Frame),
+                    width,
+                    height,
                     (int)Line.GetValue(args.Frame),
                     Color.Color);
             }
             else
             {
                 return Drawing.Image.Rect(
-                    (int)Width.GetValue(args.Frame),
-                    (int)Height.GetValue(args.Frame),
+                    width,
+                    height,
                     (int)Line.GetValue(args.Frame),
                     Color.Color);
             }

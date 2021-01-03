@@ -389,20 +389,35 @@ namespace BEditor.Drawing
         {
             return Rect(size.Width, size.Height, brush);
         }
-        public static Image<BGRA32> Triangle(int width, int height, Color color)
+        public static Image<BGRA32> Polygon(int number, int width, int height, Color color)
         {
-            var img = new Image<BGRA32>(width, height);
-            img.DrawPath(
-                color,
-                new(width / 2, 0),
-                new Point[]
-                {
-                    new(width, height),
-                    new(0, height),
-                    new(width / 2, 0),
-                });
+            var radiusX = width / 2;
+            var radiusY = height / 2;
+            var points = GetPolygonVertex(number, new(radiusX, radiusY), radiusX, radiusY, 0.5);
 
-            return img;
+            using var bmp = new SKBitmap(width, height);
+            using var canvas = new SKCanvas(bmp);
+
+            using var path = new SKPath();
+            path.MoveTo(points[0].X, points[0].Y);
+
+            foreach (var p in points)
+            {
+                path.LineTo(p.X, p.Y);
+            }
+
+            path.Close();
+
+            using var paint = new SKPaint()
+            {
+                Color = new SKColor(color.R, color.G, color.B, color.A),
+                IsAntialias = true,
+                Style = SKPaintStyle.Fill
+            };
+
+            canvas.DrawPath(path, paint);
+
+            return bmp.ToImage32();
         }
         public static Image<BGRA32> RoundRect(int width, int height, int line, int radiusX, int radiusY, Color color)
         {
@@ -477,6 +492,31 @@ namespace BEditor.Drawing
             canvas.Flush();
 
             return bmp.ToImage32();
+        }
+
+        private static Point[] GetPolygonVertex(int number, Point center, double radiusX, double radiusY, double rotate)
+        {
+            try
+            {
+                if (number <= 2)
+                    throw new ArgumentException(null, nameof(number));
+
+                var vertexes = new Point[number];
+                for (int pos = 0; pos < number; pos++)
+                {
+                    var vertex = new Point(
+                        (int)(Math.Sin(((pos + rotate) * (2 * Math.PI)) / number) * radiusX) + center.X,
+                        (int)(Math.Cos(((pos + rotate) * (2 * Math.PI)) / number) * radiusY) + center.Y);
+
+                    vertexes[pos] = vertex;
+                }
+
+                return vertexes;
+            }
+            catch (Exception)
+            {
+                throw;
+            }
         }
 
         #region Encode
