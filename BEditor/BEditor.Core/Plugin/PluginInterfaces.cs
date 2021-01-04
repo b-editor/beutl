@@ -17,7 +17,7 @@ namespace BEditor.Core.Plugin
         /// <summary>
         /// プラグインの説明
         /// </summary>
-        public string Infomation { get; }
+        public string Description { get; }
 
         /// <summary>
         /// プラグインの設定を開くときに呼び出されます

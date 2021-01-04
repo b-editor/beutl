@@ -2150,7 +2150,7 @@
             プラグインの名前
             </summary>
         </member>
-        <member name="P:BEditor.Core.Plugin.IPlugin.Infomation">
+        <member name="P:BEditor.Core.Plugin.IPlugin.Description">
             <summary>
             プラグインの説明
             </summary>

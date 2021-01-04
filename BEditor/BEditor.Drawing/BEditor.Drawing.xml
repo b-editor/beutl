@@ -113,6 +113,11 @@
               Please specify the extension に類似しているローカライズされた文字列を検索します。
             </summary>
         </member>
+        <member name="P:BEditor.Drawing.Properties.Resources.FontException">
+            <summary>
+              May be an unsupported font file. に類似しているローカライズされた文字列を検索します。
+            </summary>
+        </member>
         <member name="P:BEditor.Drawing.Properties.Resources.FormetException">
             <summary>
               The {0} format string is not supported. に類似しているローカライズされた文字列を検索します。
@@ -121,6 +126,11 @@
         <member name="P:BEditor.Drawing.Properties.Resources.LessThan">
             <summary>
               {0} is less than {1}. に類似しているローカライズされた文字列を検索します。
+            </summary>
+        </member>
+        <member name="P:BEditor.Drawing.Properties.Resources.MoreThan">
+            <summary>
+              {0} is more than {1}. に類似しているローカライズされた文字列を検索します。
             </summary>
         </member>
     </members>

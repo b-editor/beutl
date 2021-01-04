@@ -8,6 +8,8 @@ using BEditor.Core.Data;
 
 using Microsoft.Extensions.CommandLineUtils;
 using BEditor.Drawing;
+using BEditor.Media.Encoder;
+using BEditor.Media;
 
 namespace BEditor
 {
@@ -57,13 +59,10 @@ namespace BEditor
 
             app.Command("output", command =>
             {
-                // 説明（ヘルプの出力で使用される）
                 command.Description = "プロジェクトを出力します";
 
-                // コマンドについてのヘルプ出力のトリガーとなるオプションを指定
                 command.HelpOption("-?|-h|--help");
 
-                // コマンドの引数（名前と説明を引数で渡しているが、これはヘルプ出力で使用される）
                 var input = command.Argument("file", "プロジェクトファイル");
                 var output = command.Argument("out", "保存するファイル");
                 var frame = command.Argument("frame", "出力するフレーム");
@@ -77,6 +76,39 @@ namespace BEditor
 
                     using var image = scene.Render(int.Parse(frame.Value)).Image;
                     image.Encode(output.Value);
+
+                    return 0;
+                });
+            });
+
+            app.Command("encode", command =>
+            {
+                command.Description = "プロジェクトを出力します";
+
+                command.HelpOption("-?|-h|--help");
+
+                var input = command.Argument("file", "プロジェクトファイル");
+                var output = command.Argument("out", "保存するファイル");
+                var sc = command.Option("-s|--scene", "出力するシーン", CommandOptionType.SingleValue);
+
+                command.OnExecute(() =>
+                {
+                    using var project = new Project(input.Value);
+                    var scene = !sc.HasValue() ? project.PreviewScene
+                        : int.TryParse(sc.Value(), out var index) ? project.SceneList[index] : project.SceneList.ToList().Find(s => s.Name == sc.Value());
+
+                    using var encoder = new FFmpegEncoder(scene.Width, scene.Height, project.Framerate, VideoCodec.Default, output.Value);
+                    var progress = new ProgressColor(55, scene.TotalFrame);
+
+                    for (Frame frame = 0; frame < scene.TotalFrame; frame++)
+                    {
+                        using var img = scene.Render(frame, RenderType.VideoOutput).Image;
+
+                        encoder.Write(img);
+
+                        progress.Update($"{frame.Value} Frame");
+                    }
+                    progress.Done("Done!");
 
                     return 0;
                 });

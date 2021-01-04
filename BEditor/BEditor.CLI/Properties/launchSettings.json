@@ -2,7 +2,7 @@
   "profiles": {
     "BEditor.CLI": {
       "commandName": "Project",
-      "commandLineArgs": "json E:\\TestProject\\6.bedit"
+      "commandLineArgs": "encode E:\\TestProject\\6.bedit E:\\TestProject\\6.mp4"
     }
   }
 }

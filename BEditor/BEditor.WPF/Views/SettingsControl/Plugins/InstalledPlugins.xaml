@@ -24,7 +24,7 @@
                     <Grid Height="60">
                         <VirtualizingStackPanel>
                             <Label Content="{Binding PluginName}" FontSize="14"/>
-                            <Label Content="{Binding Infomation}"/>
+                            <Label Content="{Binding Description}"/>
                         </VirtualizingStackPanel>
                     </Grid>
                 </DataTemplate>

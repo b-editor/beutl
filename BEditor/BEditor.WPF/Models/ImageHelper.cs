@@ -123,9 +123,9 @@ namespace BEditor.Models
                 var content = new Loading(new ButtonType[] { ButtonType.Cancel })
                 {
                     Maximum =
-                        {
-                            Value = scn.TotalFrame
-                        }
+                    {
+                        Value = scn.TotalFrame
+                    }
                 };
                 content.ButtonClicked += (_, _) => t = true;
                 var dialog = new NoneDialog(content);

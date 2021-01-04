@@ -12,7 +12,7 @@ namespace TestPlugin2
     public class TestPlugin2 : IPlugin, IEffects
     {
         public string PluginName => nameof(TestPlugin2);
-        public string Infomation => nameof(TestPlugin2);
+        public string Description => nameof(TestPlugin2);
         public IEnumerable<EffectMetadata> Effects => new EffectMetadata[]
         {
             new()
