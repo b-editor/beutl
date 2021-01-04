@@ -92,5 +92,36 @@
             Crop or replace an image with a range.
             </summary>
         </member>
+        <member name="T:BEditor.Drawing.Properties.Resources">
+            <summary>
+              ローカライズされた文字列などを検索するための、厳密に型指定されたリソース クラスです。
+            </summary>
+        </member>
+        <member name="P:BEditor.Drawing.Properties.Resources.ResourceManager">
+            <summary>
+              このクラスで使用されているキャッシュされた ResourceManager インスタンスを返します。
+            </summary>
+        </member>
+        <member name="P:BEditor.Drawing.Properties.Resources.Culture">
+            <summary>
+              すべてについて、現在のスレッドの CurrentUICulture プロパティをオーバーライドします
+              現在のスレッドの CurrentUICulture プロパティをオーバーライドします。
+            </summary>
+        </member>
+        <member name="P:BEditor.Drawing.Properties.Resources.FileExtension">
+            <summary>
+              Please specify the extension に類似しているローカライズされた文字列を検索します。
+            </summary>
+        </member>
+        <member name="P:BEditor.Drawing.Properties.Resources.FormetException">
+            <summary>
+              The {0} format string is not supported. に類似しているローカライズされた文字列を検索します。
+            </summary>
+        </member>
+        <member name="P:BEditor.Drawing.Properties.Resources.LessThan">
+            <summary>
+              {0} is less than {1}. に類似しているローカライズされた文字列を検索します。
+            </summary>
+        </member>
     </members>
 </doc>

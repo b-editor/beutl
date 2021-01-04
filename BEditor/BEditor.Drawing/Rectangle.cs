@@ -1,13 +1,16 @@
 ﻿using System;
 using System.Collections.Generic;
 using System.Linq;
+using System.Runtime.Serialization;
 using System.Text;
 using System.Threading.Tasks;
+
+using BEditor.Drawing.Properties;
 
 namespace BEditor.Drawing
 {
     [Serializable]
-    public readonly struct Rectangle : IEquatable<Rectangle>
+    public readonly struct Rectangle : IEquatable<Rectangle>, ISerializable
     {
         public static readonly Rectangle Empty;
 
@@ -20,8 +23,8 @@ namespace BEditor.Drawing
         }
         public Rectangle(Point point, Size size)
         {
-            X = (int)point.X;
-            Y = (int)point.Y;
+            X = point.X;
+            Y = point.Y;
             Width = size.Width;
             Height = size.Height;
         }
@@ -57,9 +60,9 @@ namespace BEditor.Drawing
                 height: bottom - top);
 
             if (r.Width < 0)
-                throw new ArgumentException("right > left");
+                throw new ArgumentException(string.Format(Resources.LessThan, nameof(left), nameof(right)));
             if (r.Height < 0)
-                throw new ArgumentException("bottom > top");
+                throw new ArgumentException(string.Format(Resources.LessThan, nameof(top), nameof(bottom)));
             return r;
         }
         public static Rectangle Inflate(Rectangle rect, int x, int y)
@@ -94,6 +97,13 @@ namespace BEditor.Drawing
             => obj is Rectangle other && Equals(other);
         public override int GetHashCode()
             => HashCode.Combine(X, Y, Width, Height);
+        public void GetObjectData(SerializationInfo info, StreamingContext context)
+        {
+            info.AddValue(nameof(X), X);
+            info.AddValue(nameof(Y), Y);
+            info.AddValue(nameof(Width), Width);
+            info.AddValue(nameof(Height), Height);
+        }
 
         public static Rectangle operator +(Rectangle rect, Point point)
             => new(rect.X + point.X, rect.Y + point.Y, rect.Width, rect.Height);

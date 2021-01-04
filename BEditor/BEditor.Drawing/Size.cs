@@ -6,6 +6,8 @@ using System.Runtime.Serialization;
 using System.Text;
 using System.Threading.Tasks;
 
+using BEditor.Drawing.Properties;
+
 namespace BEditor.Drawing
 {
     [Serializable]
@@ -15,13 +17,13 @@ namespace BEditor.Drawing
 
         public Size(int width, int height)
         {
-            if (width < 0) throw new ArgumentOutOfRangeException(nameof(width));
-            if (height < 0) throw new ArgumentOutOfRangeException(nameof(height));
+            if (width < 0) throw new ArgumentOutOfRangeException(nameof(width), string.Format(Resources.LessThan, nameof(width), 0));
+            if (height < 0) throw new ArgumentOutOfRangeException(nameof(height), string.Format(Resources.LessThan, nameof(height), 0));
 
             Width = width;
             Height = height;
         }
-        public Size(SerializationInfo info, StreamingContext context)
+        private Size(SerializationInfo info, StreamingContext context)
         {
             Width = info.GetInt32(nameof(Width));
             Height = info.GetInt32(nameof(Height));
@@ -33,9 +35,9 @@ namespace BEditor.Drawing
             => ((float)Width) / ((float)Height);
 
         public static Size Add(Size size1, Size size2)
-            => new Size(size1.Width + size2.Width, size1.Height + size2.Height);
+            => new(size1.Width + size2.Width, size1.Height + size2.Height);
         public static Size Subtract(Size size1, Size size2)
-            => new Size(size1.Width - size2.Width, size1.Height - size2.Height);
+            => new(size1.Width - size2.Width, size1.Height - size2.Height);
         public override bool Equals(object? obj)
             => obj is Size size && Equals(size);
         public bool Equals(Size other)

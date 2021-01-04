@@ -3,14 +3,17 @@ using System.Buffers;
 using System.Collections.Generic;
 using System.ComponentModel.DataAnnotations;
 using System.Diagnostics;
+using System.Diagnostics.CodeAnalysis;
 using System.IO;
 using System.Linq;
+using System.Runtime.CompilerServices;
 using System.Runtime.InteropServices;
 using System.Text;
 using System.Threading.Tasks;
 
 using BEditor.Drawing.Pixel;
 using BEditor.Drawing.Process;
+using BEditor.Drawing.Properties;
 
 using SkiaSharp;
 
@@ -45,8 +48,7 @@ namespace BEditor.Drawing
         /// <exception cref="ArgumentOutOfRangeException"><paramref name="height"/> is less than 0.</exception>
         public Image(int width, int height)
         {
-            if (width is <= 0) throw new ArgumentOutOfRangeException(nameof(width));
-            if (height is <= 0) throw new ArgumentOutOfRangeException(nameof(height));
+            ThrowOutOfRange(width, height);
 
             this.width = width;
             this.height = height;
@@ -61,8 +63,7 @@ namespace BEditor.Drawing
         /// <exception cref="ArgumentNullException"><paramref name="data"/> is <see langword="null"/>.</exception>
         public Image(int width, int height, T[] data)
         {
-            if (width is <= 0) throw new ArgumentOutOfRangeException(nameof(width));
-            if (height is <= 0) throw new ArgumentOutOfRangeException(nameof(height));
+            ThrowOutOfRange(width, height);
             if (data is null) throw new ArgumentNullException(nameof(data));
 
             usedispose = false;
@@ -78,8 +79,7 @@ namespace BEditor.Drawing
         /// <exception cref="ArgumentNullException"><paramref name="data"/> is <see langword="null"/>.</exception>
         public Image(int width, int height, T* data) : this(width, height)
         {
-            if (width is <= 0) throw new ArgumentOutOfRangeException(nameof(width));
-            if (height is <= 0) throw new ArgumentOutOfRangeException(nameof(height));
+            ThrowOutOfRange(width, height);
             if (data == null) throw new ArgumentNullException(nameof(data));
 
             usedispose = false;
@@ -95,8 +95,7 @@ namespace BEditor.Drawing
         /// <exception cref="ArgumentNullException"><paramref name="data"/> is <see langword="null"/>.</exception>
         public Image(int width, int height, IntPtr data)
         {
-            if (width is <= 0) throw new ArgumentOutOfRangeException(nameof(width));
-            if (height is <= 0) throw new ArgumentOutOfRangeException(nameof(height));
+            ThrowOutOfRange(width, height);
             if (data == IntPtr.Zero) throw new ArgumentNullException(nameof(data));
 
             usedispose = false;
@@ -194,27 +193,21 @@ namespace BEditor.Drawing
         /// </summary>
         public bool IsDisposed { get; private set; }
 
-        #region Strideの説明
-        /*
-         width: 3
-         height: 2
-         
-         　ここがStride
-         |------------|
-         BGRA BGRA BGRA
-         BGRA BGRA BGRA
-
-         byte* のときに使用
-         */
-        #endregion
-
-
         #endregion
 
         /// <summary>
         /// Get or set the pixel of this <see cref="Image{T}"/>.
         /// </summary>
-        public ref T this[int x, int y] => ref this[y][x];
+        public ref T this[int x, int y]
+        {
+            get
+            {
+                ThrowColOutOfRange(x);
+
+                return ref this[y][x];
+            }
+        }
+
         /// <summary>
         /// Get or set this <see cref="Image{T}"/> row.
         /// </summary>
@@ -223,11 +216,15 @@ namespace BEditor.Drawing
             get
             {
                 ThrowIfDisposed();
+                ThrowRowOutOfRange(y);
+
                 return Data.Slice(y * Width, Width);
             }
             set
             {
                 ThrowIfDisposed();
+                ThrowRowOutOfRange(y);
+                
                 value.CopyTo(Data.Slice(y * Width, Width));
             }
         }
@@ -240,6 +237,8 @@ namespace BEditor.Drawing
             set
             {
                 ThrowIfDisposed();
+                ThrowOutOfRange(roi);
+
                 Parallel.For(0, roi.Height, y =>
                 {
                     var sourceRow = value[y];
@@ -251,6 +250,7 @@ namespace BEditor.Drawing
             get
             {
                 ThrowIfDisposed();
+                ThrowOutOfRange(roi);
                 var value = new Image<T>(roi.Width, roi.Height);
 
                 Parallel.For(0, roi.Height, y =>
@@ -290,6 +290,7 @@ namespace BEditor.Drawing
             Data.Fill(fill);
         }
 
+        [SkipLocalsInit]
         public void Flip(FlipMode mode)
         {
             ThrowIfDisposed();
@@ -300,21 +301,9 @@ namespace BEditor.Drawing
                     this[y].Reverse();
                 });
             }
-
+            
             if (mode.HasFlag(FlipMode.X))
             {
-                //Span<T> tmp = stackalloc T[Width];
-                //for (int top = 0; top < Height / 2; top++)
-                //{
-                //    var bottom = Height - top - 1;
-
-                //    var topSpan = this[bottom];
-                //    var bottomSpan = this[top];
-
-                //    topSpan.CopyTo(tmp);
-                //    bottomSpan.CopyTo(topSpan);
-                //    tmp.CopyTo(bottomSpan);
-                //}
                 Parallel.For(0, Height / 2, top =>
                 {
                     Span<T> tmp = stackalloc T[Width];
@@ -365,11 +354,6 @@ namespace BEditor.Drawing
             }
         }
 
-        public void ThrowIfDisposed()
-        {
-            if (IsDisposed) throw new ObjectDisposedException(nameof(Image<T>));
-        }
-
         object ICloneable.Clone() => this.Clone();
 
         public Image<T2> Convert<T2>() where T2 : unmanaged, IPixel<T2>, IPixelConvertable<T>
@@ -384,6 +368,38 @@ namespace BEditor.Drawing
             }
 
             return dst;
+        }
+
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        private static void ThrowOutOfRange(int width, int height)
+        {
+            if (width is <= 0) throw new ArgumentOutOfRangeException(nameof(width), string.Format(Resources.LessThan, nameof(width), 0));
+            if (height is <= 0) throw new ArgumentOutOfRangeException(nameof(height), string.Format(Resources.LessThan, nameof(width), 0));
+        }
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        private void ThrowColOutOfRange(int x)
+        {
+            if (x < 0) throw new ArgumentOutOfRangeException(nameof(x), string.Format(Resources.LessThan, nameof(x), 0));
+
+            else if (x > Height) throw new ArgumentOutOfRangeException(nameof(x), string.Format(Resources.MoreThan, nameof(x), Width));
+        }
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        private void ThrowRowOutOfRange(int y)
+        {
+            if (y < 0) throw new ArgumentOutOfRangeException(nameof(y), string.Format(Resources.LessThan, nameof(y), 0));
+
+            else if (y > Height) throw new ArgumentOutOfRangeException(nameof(y), string.Format(Resources.MoreThan, nameof(y), Height));
+        }
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        private void ThrowOutOfRange(Rectangle roi)
+        {
+            if (roi.Bottom > Height) throw new ArgumentOutOfRangeException(nameof(roi));
+            else if (roi.Right > Width) throw new ArgumentOutOfRangeException(nameof(roi));
+        }
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        public void ThrowIfDisposed()
+        {
+            if (IsDisposed) throw new ObjectDisposedException(nameof(Image<T>));
         }
 
         #endregion

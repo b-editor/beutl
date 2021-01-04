@@ -6,6 +6,8 @@ using System.Runtime.Serialization;
 using System.Text;
 using System.Threading.Tasks;
 
+using BEditor.Drawing.Properties;
+
 using SkiaSharp;
 
 namespace BEditor.Drawing
@@ -15,7 +17,8 @@ namespace BEditor.Drawing
     {
         public Font(string file)
         {
-            if (!(Path.GetExtension(file) is ".ttf" or ".ttc" or ".otf")) throw new NotSupportedException();
+            if (!(Path.GetExtension(file) is ".ttf" or ".ttc" or ".otf"))
+                throw new NotSupportedException(Resources.FontException);
 
             Filename = file;
             using var face = SKTypeface.FromFile(file);
@@ -25,7 +28,7 @@ namespace BEditor.Drawing
             FamilyName = face.FamilyName;
             Name = FormatFamilyName(face);
         }
-        public Font(SerializationInfo info, StreamingContext context)
+        private Font(SerializationInfo info, StreamingContext context)
         {
             Filename = info.GetString(nameof(Filename)) ?? throw new Exception();
             FamilyName = info.GetString(nameof(FamilyName)) ?? throw new Exception();

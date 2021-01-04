@@ -9,6 +9,7 @@ using System.Threading.Tasks;
 
 using BEditor.Drawing.Pixel;
 using BEditor.Drawing.Process;
+using BEditor.Drawing.Properties;
 
 using SkiaSharp;
 
@@ -134,7 +135,7 @@ namespace BEditor.Drawing
         public static Image<BGRA32> Border(this Image<BGRA32> self, int size, BGRA32 color)
         {
             if (self is null) throw new ArgumentNullException(nameof(self));
-            if (size <= 0) throw new ArgumentException("size <= 0");
+            if (size <= 0) throw new ArgumentException(string.Format(Resources.LessThan, nameof(size), 0));
             self.ThrowIfDisposed();
 
             int nwidth = self.Width + (size + 5) * 2;
@@ -162,7 +163,6 @@ namespace BEditor.Drawing
             self.ThrowIfDisposed();
             var w = self.Width + blur;
             var h = self.Height + blur;
-            //self = self.MakeBorder(w, h);
 
             //キャンバスのサイズ
             var size_w = (Math.Abs(x) + (w / 2)) * 2;
@@ -464,6 +464,8 @@ namespace BEditor.Drawing
         {
             return RoundRect(size.Width, size.Height, radiusX, radiusY, brush);
         }
+
+        //Todo: 改行に対応する
         public static Image<BGRA32> Text(string text, Font font, float size, Color color)
         {
             if (string.IsNullOrEmpty(text)) return new Image<BGRA32>(1, 1);
@@ -644,7 +646,7 @@ namespace BEditor.Drawing
         {
             var ex = Path.GetExtension(filename);
 
-            if (string.IsNullOrEmpty(filename)) throw new IOException("拡張子を指定してください");
+            if (string.IsNullOrEmpty(filename)) throw new IOException(Resources.FileExtension);
 
             return ExtensionToFormat[ex];
         }

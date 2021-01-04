@@ -4,6 +4,7 @@ using System.Runtime.InteropServices;
 using System.Runtime.Serialization;
 
 using BEditor.Drawing.Pixel;
+using BEditor.Drawing.Properties;
 
 namespace BEditor.Drawing
 {
@@ -102,7 +103,7 @@ namespace BEditor.Drawing
         public string ToString(string? format, IFormatProvider? formatProvider)
         {
             static string Throw(string format)
-                => throw new FormatException(string.Format("The {0} format string is not supported.", format));
+                => throw new FormatException(string.Format(Resources.FormetException, format));
 
             if (string.IsNullOrEmpty(format)) format = "#argb";
             if (formatProvider is null) formatProvider = CultureInfo.CurrentCulture;

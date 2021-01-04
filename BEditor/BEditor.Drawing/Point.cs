@@ -2,13 +2,14 @@
 using System.Collections.Generic;
 using System.Diagnostics.Contracts;
 using System.Linq;
+using System.Runtime.Serialization;
 using System.Text;
 using System.Threading.Tasks;
 
 namespace BEditor.Drawing
 {
     [Serializable]
-    public readonly struct Point : IEquatable<Point>
+    public readonly struct Point : IEquatable<Point>, ISerializable
     {
         public static readonly Point Empty;
 
@@ -16,6 +17,11 @@ namespace BEditor.Drawing
         {
             X = x;
             Y = y;
+        }
+        private Point(SerializationInfo info, StreamingContext context)
+        {
+            X = info.GetInt32(nameof(X));
+            Y = info.GetInt32(nameof(Y));
         }
 
         public int X { get; }
@@ -35,6 +41,11 @@ namespace BEditor.Drawing
             => X == other.X && Y == other.Y;
         public override int GetHashCode()
             => HashCode.Combine(X, Y);
+        public void GetObjectData(SerializationInfo info, StreamingContext context)
+        {
+            info.AddValue(nameof(X), X);
+            info.AddValue(nameof(Y), Y);
+        }
 
         public static Point operator +(Point point1, Point point2)
             => Add(point1, point2);
