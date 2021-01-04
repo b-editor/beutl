@@ -77,14 +77,23 @@ namespace BEditor.Core.Data.Primitive.Effects
 
             GL.Enable(EnableCap.Light0);
         }
-        public override void PropertyLoaded()
+        public override void Loaded()
         {
+            base.Loaded();
             X.ExecuteLoaded(XMetadata);
             Y.ExecuteLoaded(YMetadata);
             Z.ExecuteLoaded(ZMetadata);
             ConstantAttenuation.ExecuteLoaded(ConstantAttenuationMetadata);
             LinearAttenuation.ExecuteLoaded(LinearAttenuationMetadata);
             QuadraticAttenuation.ExecuteLoaded(QuadraticAttenuationMetadata);
+        }
+        public override void Unloaded()
+        {
+            base.Unloaded();
+            foreach (var pr in Children)
+            {
+                pr.Unloaded();
+            }
         }
     }
 }

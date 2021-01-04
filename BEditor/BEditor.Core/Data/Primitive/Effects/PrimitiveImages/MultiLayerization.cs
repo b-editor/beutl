@@ -51,11 +51,20 @@ namespace BEditor.Core.Data.Primitive.Effects.PrimitiveImages
         public override void Render(EffectRenderArgs<Image<BGRA32>> args)
         {
         }
-        public override void PropertyLoaded()
+        public override void Loaded()
         {
+            base.Loaded();
             Z.ExecuteLoaded(ZMetadata);
             Material.ExecuteLoaded(ImageObject.MaterialMetadata);
             Color.ExecuteLoaded(ColorMetadata);
+        }
+        public override void Unloaded()
+        {
+            base.Unloaded();
+            foreach (var pr in Children)
+            {
+                pr.Unloaded();
+            }
         }
     }
 }

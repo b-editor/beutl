@@ -39,9 +39,15 @@ namespace BEditor.Core.Data.Primitive.Effects.PrimitiveImages
 
             args.Value.Blur(size);
         }
-        public override void PropertyLoaded()
+        public override void Loaded()
         {
+            base.Loaded();
             Size.ExecuteLoaded(SizeMetadata);
+        }
+        public override void Unloaded()
+        {
+            base.Unloaded();
+            Size.Unloaded();
         }
     }
 }

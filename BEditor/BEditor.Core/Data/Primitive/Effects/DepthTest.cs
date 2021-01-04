@@ -84,13 +84,22 @@ namespace BEditor.Core.Data.Primitive.Effects
 
             GL.DepthRange(Near.GetValue(args.Frame) / 100, Far.GetValue(args.Frame) / 100);
         }
-        public override void PropertyLoaded()
+        public override void Loaded()
         {
+            base.Loaded();
             Enabled.ExecuteLoaded(EnabledMetadata);
             Function.ExecuteLoaded(FunctionMetadata);
             Mask.ExecuteLoaded(MaskMetadata);
             Near.ExecuteLoaded(NearMetadata);
             Far.ExecuteLoaded(FarMetadata);
+        }
+        public override void Unloaded()
+        {
+            base.Unloaded();
+            foreach (var pr in Children)
+            {
+                pr.Unloaded();
+            }
         }
     }
 }

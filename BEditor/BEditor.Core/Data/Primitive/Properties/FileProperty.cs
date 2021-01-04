@@ -80,9 +80,9 @@ namespace BEditor.Core.Data.Primitive.Properties
         #region Methods
 
         /// <inheritdoc/>
-        public override void PropertyLoaded()
+        public override void Loaded()
         {
-            base.PropertyLoaded();
+            base.Loaded();
 
             if (bindHint is not null && this.GetBindable(bindHint, out var b))
             {

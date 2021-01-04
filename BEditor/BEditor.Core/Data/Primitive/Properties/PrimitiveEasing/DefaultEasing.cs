@@ -118,6 +118,7 @@ namespace BEditor.Core.Data.Primitive.Properties.PrimitiveEasing
             "BounceIn",  "BounceOut",  "BounceInOut"
         });
         private Func<float, float, float, float, float> currentfunc = Easing.None;
+        private IDisposable disposable;
 
         public DefaultEasing()
         {
@@ -129,13 +130,19 @@ namespace BEditor.Core.Data.Primitive.Properties.PrimitiveEasing
         public SelectorProperty EasingType { get; set; }
 
         public override float EaseFunc(Frame frame, Frame totalframe, float min, float max) => currentfunc?.Invoke(frame, totalframe, min, max) ?? 0;
-        public override void PropertyLoaded()
+        public override void Loaded()
         {
             EasingType.ExecuteLoaded(propertyMetadata);
 
             currentfunc = DefaultEase[EasingType.Index];
 
-            EasingType.Subscribe(index => currentfunc = DefaultEase[index]);
+            disposable= EasingType.Subscribe(index => currentfunc = DefaultEase[index]);
+        }
+        public override void Unloaded()
+        {
+            base.Unloaded();
+
+            disposable?.Dispose();
         }
 
         class Easing

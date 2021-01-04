@@ -81,13 +81,22 @@ namespace BEditor.Core.Data.Primitive.Effects.PrimitiveImages
 
             args.Value = img1;
         }
-        public override void PropertyLoaded()
+        public override void Loaded()
         {
+            base.Loaded();
             Top.ExecuteLoaded(TopMetadata);
             Bottom.ExecuteLoaded(BottomMetadata);
             Left.ExecuteLoaded(LeftMetadata);
             Right.ExecuteLoaded(RightMetadata);
             AdjustCoordinates.ExecuteLoaded(AdjustCoordinatesMetadata);
+        }
+        public override void Unloaded()
+        {
+            base.Unloaded();
+            foreach (var pr in Children)
+            {
+                pr.Unloaded();
+            }
         }
     }
 }

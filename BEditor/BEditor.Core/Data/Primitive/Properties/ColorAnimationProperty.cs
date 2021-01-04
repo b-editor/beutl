@@ -238,10 +238,16 @@ namespace BEditor.Core.Data.Primitive.Properties
         #endregion
 
         /// <inheritdoc/>
-        public override void PropertyLoaded()
+        public override void Loaded()
         {
-            base.PropertyLoaded();
-            EasingType.PropertyLoaded();
+            base.Loaded();
+            EasingType.Loaded();
+        }
+        /// <inheritdoc/>
+        public override void Unloaded()
+        {
+            base.Unloaded();
+            EasingType.Unloaded();
         }
 
         #endregion

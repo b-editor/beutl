@@ -52,12 +52,19 @@ namespace BEditor.Core.Data.Primitive.Objects.PrimitiveImages
 
             return scene.Render(frame + (int)Start.GetValue(args.Frame), RenderType.ImageOutput).Image;
         }
-        public override void PropertyLoaded()
+        public override void Loaded()
         {
-            base.PropertyLoaded();
+            base.Loaded();
             SelectSceneMetadata = new ScenesSelectorMetadata(this);
             Start.ExecuteLoaded(Video.StartMetadata);
             SelectScene.ExecuteLoaded(SelectSceneMetadata);
+        }
+        public override void Unloaded()
+        {
+            base.Unloaded();
+
+            Start.Unloaded();
+            SelectScene.Unloaded();
         }
 
         internal record ScenesSelectorMetadata : SelectorPropertyMetadata

@@ -18,7 +18,7 @@ namespace BEditor.Core.Data.Property.EasingProperty
     /// <see cref="EaseProperty"/>, <see cref="ColorAnimationProperty"/> などで利用可能なイージング関数を表します
     /// </summary>
     [DataContract]
-    public abstract class EasingFunc : ComponentObject, IChild<PropertyElement>, IParent<IEasingProperty>
+    public abstract class EasingFunc : ComponentObject, IChild<PropertyElement>, IParent<IEasingProperty>, IElementObject
     {
         #region Fields
 
@@ -71,12 +71,10 @@ namespace BEditor.Core.Data.Property.EasingProperty
         /// <returns>イージングされた値</returns>
         public abstract float EaseFunc(Frame frame, Frame totalframe, float min, float max);
 
-        /// <summary>
-        /// 初期化時とデシリアライズ時に呼び出されます
-        /// </summary>
-        public virtual void PropertyLoaded()
-        {
-        }
+        /// <inheritdoc/>
+        public virtual void Loaded() { }
+        /// <inheritdoc/>
+        public virtual void Unloaded() { }
     }
 
     public class EasingData

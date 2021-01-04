@@ -65,14 +65,23 @@ namespace BEditor.Core.Data.Primitive.Objects.PrimitiveImages
                 height,
                 Color.Color);
         }
-        public override void PropertyLoaded()
+        public override void Loaded()
         {
-            base.PropertyLoaded();
+            base.Loaded();
 
             Width.ExecuteLoaded(WidthMetadata);
             Height.ExecuteLoaded(HeightMetadata);
             Number.ExecuteLoaded(NumberMetadata);
             Color.ExecuteLoaded(ColorMetadata);
+        }
+        public override void Unloaded()
+        {
+            base.Unloaded();
+
+            Width.Unloaded();
+            Height.Unloaded();
+            Number.Unloaded();
+            Color.Unloaded();
         }
     }
 }

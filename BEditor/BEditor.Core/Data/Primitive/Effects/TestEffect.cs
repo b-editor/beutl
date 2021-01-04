@@ -40,11 +40,19 @@ namespace BEditor.Core.Data.Primitive.Effects
         {
 
         }
-        public override void PropertyLoaded()
+        public override void Loaded()
         {
-            base.PropertyLoaded();
+            base.Loaded();
             Folder.ExecuteLoaded(FolderMetadata);
             Dialog.ExecuteLoaded(null);
+        }
+        public override void Unloaded()
+        {
+           base.Unloaded();
+            foreach (var pr in Children)
+            {
+                pr.Unloaded();
+            }
         }
 
         public override void Render(EffectRenderArgs<Image<BGRA32>> args)
@@ -58,6 +66,8 @@ namespace BEditor.Core.Data.Primitive.Effects
         [DataContract]
         public class TestDialog : DialogProperty
         {
+            private IDisposable disposable;
+
             public TestDialog()
             {
                 EaseProperty = new(DepthTest.FarMetadata);
@@ -78,18 +88,28 @@ namespace BEditor.Core.Data.Primitive.Effects
             [DataMember]
             public ButtonComponent Button { get; private set; }
 
-            public override void PropertyLoaded()
+            public override void Loaded()
             {
-                base.PropertyLoaded();
+                base.Loaded();
 
                 EaseProperty.ExecuteLoaded(DepthTest.FarMetadata);
                 Label.ExecuteLoaded(null);
                 Button.ExecuteLoaded(new PropertyElementMetadata("sssssss"));
 
-                Button.Subscribe(_ =>
+                disposable = Button.Subscribe(_ =>
                 {
                     Label.Text = "Clicked";
                 });
+            }
+            public override void Unloaded()
+            {
+                base.Unloaded();
+                disposable?.Dispose();
+
+                foreach (var pr in Children)
+                {
+                    pr.Unloaded();
+                }
             }
         }
     }

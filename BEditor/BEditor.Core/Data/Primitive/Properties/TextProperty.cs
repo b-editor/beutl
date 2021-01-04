@@ -98,9 +98,9 @@ namespace BEditor.Core.Data.Primitive.Properties
             });
         }
         /// <inheritdoc/>
-        public override void PropertyLoaded()
+        public override void Loaded()
         {
-            base.PropertyLoaded();
+            base.Loaded();
 
             if (bindHint is not null)
             {

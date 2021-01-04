@@ -84,14 +84,25 @@ namespace BEditor.Core.Data.Primitive.Objects
             Coordinate.ResetOptional();
         }
         public abstract Image<BGRA32> OnRender(EffectRenderArgs args);
-        public override void PropertyLoaded()
+        public override void Loaded()
         {
+            base.Loaded();
             Coordinate.ExecuteLoaded(CoordinateMetadata);
             Zoom.ExecuteLoaded(ZoomMetadata);
             Blend.ExecuteLoaded(BlendMetadata);
             Angle.ExecuteLoaded(AngleMetadata);
             Material.ExecuteLoaded(MaterialMetadata);
         }
+        public override void Unloaded()
+        {
+            base.Unloaded();
+            Coordinate.Unloaded();
+            Zoom.Unloaded();
+            Blend.Unloaded();
+            Angle.Unloaded();
+            Material.Unloaded();
+        }
+
         public override bool EffectFilter(EffectElement effect) => effect is ImageEffect;
     }
 }

@@ -21,6 +21,7 @@ namespace BEditor.Core.Data.Primitive.Objects.PrimitiveImages
         public static readonly EasePropertyMetadata StartMetadata = new(Resources.Start, 1, float.NaN, 0);
         public static readonly FilePropertyMetadata FileMetadata = new(Resources.File, "", "mp4,avi,wmv,mov", Resources.VideoFile);
         private IVideoDecoder videoReader;
+        private IDisposable disposable;
 
         public Video()
         {
@@ -58,9 +59,9 @@ namespace BEditor.Core.Data.Primitive.Objects.PrimitiveImages
 
             return image;
         }
-        public override void PropertyLoaded()
+        public override void Loaded()
         {
-            base.PropertyLoaded();
+            base.Loaded();
             Speed.ExecuteLoaded(SpeedMetadata);
             Start.ExecuteLoaded(StartMetadata);
             File.ExecuteLoaded(FileMetadata);
@@ -70,7 +71,7 @@ namespace BEditor.Core.Data.Primitive.Objects.PrimitiveImages
                 videoReader = VideoDecoderFactory.Default.Create(File.File);
             }
 
-            File.Subscribe(filename =>
+            disposable = File.Subscribe(filename =>
             {
                 videoReader?.Dispose();
 
@@ -84,6 +85,16 @@ namespace BEditor.Core.Data.Primitive.Objects.PrimitiveImages
                     ActivityLog.ErrorLog(ex);
                 }
             });
+        }
+        public override void Unloaded()
+        {
+            base.Unloaded();
+            Speed.Unloaded();
+            Start.Unloaded();
+            File.Unloaded();
+
+            videoReader?.Dispose();
+            disposable?.Dispose();
         }
     }
 }

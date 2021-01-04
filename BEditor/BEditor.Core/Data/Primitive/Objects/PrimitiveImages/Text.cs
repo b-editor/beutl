@@ -60,13 +60,21 @@ namespace BEditor.Core.Data.Primitive.Objects.PrimitiveImages
                 Font.Select,
                 Size.GetValue(args.Frame),
                 Color.Color);
-        public override void PropertyLoaded()
+        public override void Loaded()
         {
-            base.PropertyLoaded();
+            base.Loaded();
             Size.ExecuteLoaded(SizeMetadata);
             Color.ExecuteLoaded(ColorMetadata);
             Font.ExecuteLoaded(FontMetadata);
             Document.ExecuteLoaded(DocumentMetadata);
+        }
+        public override void Unloaded()
+        {
+            base.Unloaded();
+            Size.Unloaded();
+            Color.Unloaded();
+            Font.Unloaded();
+            Document.Unloaded();
         }
     }
 }

@@ -68,14 +68,24 @@ namespace BEditor.Core.Data.Primitive.Objects.PrimitiveImages
                 r,
                 Color.Color);
         }
-        public override void PropertyLoaded()
+        public override void Loaded()
         {
-            base.PropertyLoaded();
+            base.Loaded();
             Width.ExecuteLoaded(WidthMetadata);
             Height.ExecuteLoaded(HeightMetadata);
             Radius.ExecuteLoaded(RadiusMetadata);
             Line.ExecuteLoaded(LineMetadata);
             Color.ExecuteLoaded(ColorMetadata);
+        }
+        public override void Unloaded()
+        {
+            base.Unloaded();
+
+            Width.Unloaded();
+            Height.Unloaded();
+            Radius.Unloaded();
+            Line.Unloaded();
+            Color.Unloaded();
         }
     }
 }

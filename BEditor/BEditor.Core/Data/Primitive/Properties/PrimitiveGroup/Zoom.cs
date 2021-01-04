@@ -40,12 +40,21 @@ namespace BEditor.Core.Data.Primitive.Properties.PrimitiveGroup
         [DataMember(Order = 3)]
         public EaseProperty ScaleZ { get; private set; }
 
-        public override void PropertyLoaded()
+        public override void Loaded()
         {
+            base.Loaded();
             Scale.ExecuteLoaded(ZoomMetadata);
             ScaleX.ExecuteLoaded(ScaleXMetadata);
             ScaleY.ExecuteLoaded(ScaleYMetadata);
             ScaleZ.ExecuteLoaded(ScaleZMetadata);
+        }
+        public override void Unloaded()
+        {
+            base.Unloaded();
+            Scale.Unloaded();
+            ScaleX.Unloaded();
+            ScaleY.Unloaded();
+            ScaleZ.Unloaded();
         }
     }
 }

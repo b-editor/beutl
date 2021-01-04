@@ -23,7 +23,7 @@ namespace BEditor.Core.Data
     /// Represents the data of a clip to be placed in the timeline.
     /// </summary>
     [DataContract]
-    public class ClipData : ComponentObject, ICloneable, IParent<EffectElement>, IChild<Scene>, IHasName, IHasId, IFormattable
+    public class ClipData : ComponentObject, ICloneable, IParent<EffectElement>, IChild<Scene>, IHasName, IHasId, IFormattable, IElementObject
     {
         #region Fields
 
@@ -182,18 +182,6 @@ namespace BEditor.Core.Data
             }
         }
 
-        /// <summary>
-        /// 
-        /// </summary>
-        public void PropertyLoaded()
-        {
-            Parallel.ForEach(Effect, effect =>
-            {
-                effect.Parent = this;
-                effect.PropertyLoaded();
-            });
-        }
-
         internal void MoveFrame(Frame f)
         {
             Start += f;
@@ -222,6 +210,24 @@ namespace BEditor.Core.Data
                 "#" => $"[{Parent.Id}].{Name}",
                 _ => throw new FormatException(string.Format("The {0} format string is not supported.", format))
             };
+        }
+
+        /// <inheritdoc/>
+        public void Loaded()
+        {
+            Parallel.ForEach(Effect, effect =>
+            {
+                effect.Parent = this;
+                effect.Loaded();
+            });
+        }
+        /// <inheritdoc/>
+        public void Unloaded()
+        {
+            Parallel.ForEach(Effect, effect =>
+            {
+                effect.Unloaded();
+            });
         }
 
         #endregion
@@ -269,7 +275,7 @@ namespace BEditor.Core.Data
                 data = new ClipData(idmax, list, AddFrame, AddFrame + 180, Metadata.Type, AddLayer, Scene);
 
                 Scene.Add(data);
-                data.PropertyLoaded();
+                data.Loaded();
 
                 Scene.SetCurrentClip(data);
             }
@@ -277,6 +283,7 @@ namespace BEditor.Core.Data
             public void Redo()
             {
                 Scene.Add(data);
+                data.Loaded();
 
                 Scene.SetCurrentClip(data);
             }
@@ -284,6 +291,7 @@ namespace BEditor.Core.Data
             public void Undo()
             {
                 Scene.Remove(data);
+                data.Unloaded();
 
                 //存在する場合
                 if (Scene.SelectNames.Exists(x => x == data.Name))
@@ -320,6 +328,7 @@ namespace BEditor.Core.Data
                 }
                 else
                 {
+                    data.Unloaded();
                     //存在する場合
                     if (data.Parent.SelectNames.Exists(x => x == data.Name))
                     {
@@ -342,7 +351,11 @@ namespace BEditor.Core.Data
             /// <inheritdoc/>
             public void Redo() => Do();
             /// <inheritdoc/>
-            public void Undo() => data.Parent.Add(data);
+            public void Undo()
+            {
+                data.Loaded();
+                data.Parent.Add(data);
+            }
         }
         /// <summary>
         /// Represents a command to move <see cref="ClipData"/> frames and layers.

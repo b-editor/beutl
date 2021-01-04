@@ -7,14 +7,8 @@ using System.Threading.Tasks;
 
 using BEditor.Core.Data.Control;
 using BEditor.Core.Data.Property;
-using BEditor.Media;
-using BEditor.Media.PCM;
 
 using NAudio.Wave;
-using NAudio.CoreAudioApi;
-
-using OpenTK.Audio.OpenAL;
-using System.IO;
 using BEditor.Core.Data.Primitive.Properties;
 using BEditor.Core.Command;
 using BEditor.Core.Properties;
@@ -31,6 +25,7 @@ namespace BEditor.Core.Data.Primitive.Objects
         public static readonly ValuePropertyMetadata StartMetadata = new(Resources.Start + "(Milliseconds)", 0, Min: 0);
         private WaveOut player;
         private AudioFileReader reader;
+        private IDisposable disposable;
 
         public AudioObject()
         {
@@ -96,14 +91,14 @@ namespace BEditor.Core.Data.Primitive.Objects
                 });
             }
         }
-        public override void PropertyLoaded()
+        public override void Loaded()
         {
-            base.PropertyLoaded();
+            base.Loaded();
             Volume.ExecuteLoaded(VolumeMetadata);
             File.ExecuteLoaded(FileMetadata);
             Start.ExecuteLoaded(StartMetadata);
 
-            File.Subscribe(file =>
+            disposable = File.Subscribe(file =>
             {
                 if (System.IO.File.Exists(file))
                 {
@@ -112,32 +107,45 @@ namespace BEditor.Core.Data.Primitive.Objects
             });
 
             var player = Parent.Parent.Player;
-            player.Stopped += (_, _) =>
+            player.Stopped += Player_Stopped;
+
+            player.Playing += Player_PlayingAsync;
+        }
+        public override void Unloaded()
+        {
+            base.Unloaded();
+
+            disposable?.Dispose();
+            var player = Parent.Parent.Player;
+            player.Stopped -= Player_Stopped;
+
+            player.Playing -= Player_PlayingAsync;
+        }
+
+        private async void Player_PlayingAsync(object? sender, PlayingEventArgs e)
+        {
+            if (Parent.Start <= e.StartFrame && e.StartFrame <= Parent.End)
             {
+                var framerate = Parent.Parent.Parent.Framerate;
+                var startmsec = e.StartFrame.ToMilliseconds(framerate);
+
+                Reader.CurrentTime = TimeSpan.FromMilliseconds(Start.Value + startmsec);
+                Player.Init(Reader);
+
+                Player.Play();
+
+                // クリップ基準の再生開始位置
+                var hStart = startmsec - Parent.Start.ToMilliseconds(framerate);
+
+                var millis = (int)(Parent.Length.ToMilliseconds(framerate) - hStart);
+                await Task.Delay(millis);
+
                 Player.Stop();
-            };
-
-            player.Playing += async (_, e) =>
-            {
-                if (Parent.Start <= e.StartFrame && e.StartFrame <= Parent.End)
-                {
-                    var framerate = Parent.Parent.Parent.Framerate;
-                    var startmsec = e.StartFrame.ToMilliseconds(framerate);
-
-                    Reader.CurrentTime = TimeSpan.FromMilliseconds(Start.Value + startmsec);
-                    Player.Init(Reader);
-
-                    Player.Play();
-
-                    // クリップ基準の再生開始位置
-                    var hStart = startmsec - Parent.Start.ToMilliseconds(framerate);
-
-                    var millis = (int)(Parent.Length.ToMilliseconds(framerate) - hStart);
-                    await Task.Delay(millis);
-
-                    Player.Stop();
-                }
-            };
+            }
+        }
+        private void Player_Stopped(object? sender, EventArgs e)
+        {
+            Player.Stop();
         }
     }
 }

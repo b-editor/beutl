@@ -23,7 +23,7 @@ namespace BEditor.Core.Data
     /// Represents a scene to be included in the <see cref="Project"/>.
     /// </summary>
     [DataContract]
-    public class Scene : ComponentObject, IParent<ClipData>, IChild<Project>, IHasName, IHasId
+    public class Scene : ComponentObject, IParent<ClipData>, IChild<Project>, IHasName, IHasId, IElementObject
     {
         #region Fields
 
@@ -272,15 +272,22 @@ namespace BEditor.Core.Data
 
         #region Methods
 
-        /// <summary>
-        /// 
-        /// </summary>
-        public void PropertyLoaded()
+        /// <inheritdoc/>
+        public void Loaded()
         {
             Parallel.ForEach(Datas, data =>
             {
                 data.Parent = this;
-                data.PropertyLoaded();
+                data.Loaded();
+            });
+        }
+
+        /// <inheritdoc/>
+        public void Unloaded()
+        {
+            Parallel.ForEach(Datas, data =>
+            {
+                data.Unloaded();
             });
         }
 

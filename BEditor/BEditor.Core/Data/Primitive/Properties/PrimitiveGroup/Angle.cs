@@ -35,11 +35,19 @@ namespace BEditor.Core.Data.Primitive.Properties.PrimitiveGroup
         [DataMember(Order = 2)]
         public EaseProperty AngleZ { get; private set; }
 
-        public override void PropertyLoaded()
+        public override void Loaded()
         {
+            base.Loaded();
             AngleX.ExecuteLoaded(AngleXMetadata);
             AngleY.ExecuteLoaded(AngleYMetadata);
             AngleZ.ExecuteLoaded(AngleZMetadata);
+        }
+        public override void Unloaded()
+        {
+            base.Unloaded();
+            AngleX.Unloaded();
+            AngleY.Unloaded();
+            AngleZ.Unloaded();
         }
     }
 }

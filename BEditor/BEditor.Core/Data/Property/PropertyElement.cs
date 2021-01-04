@@ -38,16 +38,14 @@ namespace BEditor.Core.Data.Property
         /// <inheritdoc/>
         public string Name => propertyMetadata?.Name ?? Id.ToString();
 
+        /// <inheritdoc/>
+        public virtual void Loaded() { }
 
-        /// <summary>
-        /// 初期化時とデシリアライズ時に呼び出されます
-        /// </summary>
-        public virtual void PropertyLoaded()
-        {
 
-        }
         /// <inheritdoc/>
         public override string ToString() => $"(Name:{PropertyMetadata?.Name})";
+        /// <inheritdoc/>
+        public virtual void Unloaded() { }
     }
 
     [DataContract]

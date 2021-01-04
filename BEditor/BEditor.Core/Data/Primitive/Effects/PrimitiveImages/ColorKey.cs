@@ -36,10 +36,19 @@ namespace BEditor.Core.Data.Primitive.Effects.PrimitiveImages
         public ColorProperty MinColor { get; private set; }
 
         public override void Render(EffectRenderArgs<Image<BGRA32>> args) { }
-        public override void PropertyLoaded()
+        public override void Loaded()
         {
+            base.Loaded();
             MaxColor.ExecuteLoaded(MaxColorMetadata);
             MinColor.ExecuteLoaded(MinColorMetadata);
+        }
+        public override void Unloaded()
+        {
+            base.Unloaded();
+            foreach (var pr in Children)
+            {
+                pr.Unloaded();
+            }
         }
     }
 }

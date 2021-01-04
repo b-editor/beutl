@@ -31,7 +31,6 @@ namespace BEditor.Core.Data.Primitive.Components
                     try
                     {
                         observer.OnNext(state.text);
-                        observer.OnCompleted();
                     }
                     catch (Exception ex)
                     {

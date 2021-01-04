@@ -21,6 +21,7 @@ namespace BEditor.Core.Data.Primitive.Objects.PrimitiveImages
     {
         public static readonly FilePropertyMetadata FileMetadata = new(Resources.File, "", "png,jpeg,jpg,bmp", Resources.ImageFile);
         private Image<BGRA32> source;
+        private IDisposable disposable;
 
         public Image()
         {
@@ -59,12 +60,12 @@ namespace BEditor.Core.Data.Primitive.Objects.PrimitiveImages
         }
 
         public override Image<BGRA32> OnRender(EffectRenderArgs args) => Source?.Clone();
-        public override void PropertyLoaded()
+        public override void Loaded()
         {
-            base.PropertyLoaded();
+            base.Loaded();
             File.ExecuteLoaded(FileMetadata);
 
-            File.Subscribe(file =>
+            disposable = File.Subscribe(file =>
             {
                 if (System.IO.File.Exists(file))
                 {
@@ -72,6 +73,14 @@ namespace BEditor.Core.Data.Primitive.Objects.PrimitiveImages
                     Source = Drawing.Image.Decode(stream);
                 }
             });
+        }
+        public override void Unloaded()
+        {
+            base.Unloaded();
+            File.Unloaded();
+
+            disposable?.Dispose();
+            Source = null;
         }
     }
 }

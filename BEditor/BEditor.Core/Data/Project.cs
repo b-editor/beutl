@@ -61,7 +61,7 @@ namespace BEditor.Core.Data
                 {
                     scene.GraphicsContext = new GraphicsContext(scene.Width, scene.Height);
                     scene.AudioContext = new();
-                    scene.PropertyLoaded();
+                    scene.Loaded();
                 }
 
                 project.CopyTo(this);
@@ -87,7 +87,7 @@ namespace BEditor.Core.Data
                 {
                     scene.GraphicsContext = new GraphicsContext(scene.Width, scene.Height);
                     scene.AudioContext = new();
-                    scene.PropertyLoaded();
+                    scene.Loaded();
                 }
 
                 project.CopyTo(this);
@@ -143,7 +143,7 @@ namespace BEditor.Core.Data
                 Parallel.ForEach(value, scene =>
                 {
                     scene.Parent = this;
-                    scene.PropertyLoaded();
+                    scene.Loaded();
                 });
             }
         }

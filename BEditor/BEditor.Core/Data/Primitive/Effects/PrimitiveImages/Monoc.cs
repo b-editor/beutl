@@ -32,9 +32,18 @@ namespace BEditor.Core.Data.Primitive.Effects.PrimitiveImages
 
         public override void Render(EffectRenderArgs<Image<BGRA32>> args) =>
             args.Value.SetColor(Color.Color);
-        public override void PropertyLoaded()
+        public override void Loaded()
         {
+            base.Loaded();
             Color.ExecuteLoaded(ColorMetadata);
+        }
+        public override void Unloaded()
+        {
+            base.Unloaded();
+            foreach (var pr in Children)
+            {
+                pr.Unloaded();
+            }
         }
     }
 }

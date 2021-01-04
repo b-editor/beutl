@@ -20,7 +20,7 @@ namespace BEditor.Core.Data
     /// Represents the base class of the effect.
     /// </summary>
     [DataContract]
-    public abstract class EffectElement : ComponentObject, IChild<ClipData>, IParent<PropertyElement>, ICloneable, IHasId
+    public abstract class EffectElement : ComponentObject, IChild<ClipData>, IParent<PropertyElement>, ICloneable, IHasId, IElementObject
     {
         #region Fields
 
@@ -88,13 +88,6 @@ namespace BEditor.Core.Data
         }
 
         /// <summary>
-        /// Called after the constructor or after deserialization.
-        /// </summary>
-        public virtual void PropertyLoaded()
-        {
-
-        }
-        /// <summary>
         /// It is called at rendering time
         /// </summary>
         public abstract void Render(EffectRenderArgs args);
@@ -102,6 +95,11 @@ namespace BEditor.Core.Data
         /// It will be called before rendering.
         /// </summary>
         public virtual void PreviewRender(EffectRenderArgs args) { }
+
+        /// <inheritdoc/>
+        public virtual void Loaded() { }
+        /// <inheritdoc/>
+        public virtual void Unloaded() { }
 
         #endregion
 
@@ -245,11 +243,20 @@ namespace BEditor.Core.Data
             }
 
             /// <inheritdoc/>
-            public void Do() => data.Effect.RemoveAt(index);
+            public void Do()
+            {
+                data.Effect.RemoveAt(index);
+                effect.Unloaded();
+            }
+
             /// <inheritdoc/>
             public void Redo() => Do();
             /// <inheritdoc/>
-            public void Undo() => data.Effect.Insert(index, effect);
+            public void Undo()
+            {
+                effect.Loaded();
+                data.Effect.Insert(index, effect);
+            }
         }
         /// <summary>
         /// Represents a command to add an effect.
@@ -273,7 +280,7 @@ namespace BEditor.Core.Data
                 this.data = effect.Parent;
                 if (!(data.Effect[0] as ObjectElement).EffectFilter(effect)) throw new NotSupportedException();
 
-                effect.PropertyLoaded();
+                effect.Loaded();
             }
             /// <summary>
             /// <see cref="AddCommand"/> Initialize a new instance of the class.
@@ -291,15 +298,24 @@ namespace BEditor.Core.Data
                 effect.Parent = clip;
                 if (!(data.Effect[0] as ObjectElement).EffectFilter(effect)) throw new NotSupportedException();
 
-                effect.PropertyLoaded();
+                effect.Loaded();
             }
 
             /// <inheritdoc/>
-            public void Do() => data.Effect.Add(effect);
+            public void Do()
+            {
+                effect.Loaded();
+                data.Effect.Add(effect);
+            }
+
             /// <inheritdoc/>
             public void Redo() => Do();
             /// <inheritdoc/>
-            public void Undo() => data.Effect.Remove(effect);
+            public void Undo()
+            {
+                data.Effect.Remove(effect);
+                effect.Unloaded();
+            }
         }
     }
 

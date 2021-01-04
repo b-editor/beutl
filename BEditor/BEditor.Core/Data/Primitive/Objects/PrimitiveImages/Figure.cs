@@ -24,8 +24,8 @@ namespace BEditor.Core.Data.Primitive.Objects.PrimitiveImages
         public static readonly ColorPropertyMetadata ColorMetadata = new(Resources.Color, Drawing.Color.Light);
         public static readonly SelectorPropertyMetadata TypeMetadata = new(Resources.Type, new string[]
         {
-                Resources.Circle,
-                Resources.Square
+            Resources.Circle,
+            Resources.Square
         });
 
         public Figure()
@@ -86,14 +86,23 @@ namespace BEditor.Core.Data.Primitive.Objects.PrimitiveImages
                     Color.Color);
             }
         }
-        public override void PropertyLoaded()
+        public override void Loaded()
         {
-            base.PropertyLoaded();
+            base.Loaded();
             Width.ExecuteLoaded(WidthMetadata);
             Height.ExecuteLoaded(HeightMetadata);
             Line.ExecuteLoaded(LineMetadata);
             Color.ExecuteLoaded(ColorMetadata);
             Type.ExecuteLoaded(TypeMetadata);
+        }
+        public override void Unloaded()
+        {
+            base.Unloaded();
+            Width.Unloaded();
+            Height.Unloaded();
+            Line.Unloaded();
+            Color.Unloaded();
+            Type.Unloaded();
         }
     }
 }

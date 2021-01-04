@@ -203,11 +203,6 @@
             It will be called before rendering.
             </summary>
         </member>
-        <member name="M:BEditor.Core.Data.ClipData.PropertyLoaded">
-            <summary>
-            
-            </summary>
-        </member>
         <member name="M:BEditor.Core.Data.ClipData.Clone">
             <inheritdoc/>
         </member>
@@ -215,6 +210,12 @@
             <inheritdoc/>
         </member>
         <member name="M:BEditor.Core.Data.ClipData.ToString(System.String,System.IFormatProvider)">
+            <inheritdoc/>
+        </member>
+        <member name="M:BEditor.Core.Data.ClipData.Loaded">
+            <inheritdoc/>
+        </member>
+        <member name="M:BEditor.Core.Data.ClipData.Unloaded">
             <inheritdoc/>
         </member>
         <member name="T:BEditor.Core.Data.ClipData.AddCommand">
@@ -372,11 +373,6 @@
         <member name="M:BEditor.Core.Data.EffectElement.Clone">
             <inheritdoc/>
         </member>
-        <member name="M:BEditor.Core.Data.EffectElement.PropertyLoaded">
-            <summary>
-            Called after the constructor or after deserialization.
-            </summary>
-        </member>
         <member name="M:BEditor.Core.Data.EffectElement.Render(BEditor.Core.Data.EffectRenderArgs)">
             <summary>
             It is called at rendering time
@@ -386,6 +382,12 @@
             <summary>
             It will be called before rendering.
             </summary>
+        </member>
+        <member name="M:BEditor.Core.Data.EffectElement.Loaded">
+            <inheritdoc/>
+        </member>
+        <member name="M:BEditor.Core.Data.EffectElement.Unloaded">
+            <inheritdoc/>
         </member>
         <member name="T:BEditor.Core.Data.EffectElement.CheckCommand">
             <summary>
@@ -560,7 +562,7 @@
         <member name="M:BEditor.Core.Data.Primitive.Properties.CheckProperty.Bind(BEditor.Core.Data.Bindings.IBindable{System.Boolean})">
             <inheritdoc/>
         </member>
-        <member name="M:BEditor.Core.Data.Primitive.Properties.CheckProperty.PropertyLoaded">
+        <member name="M:BEditor.Core.Data.Primitive.Properties.CheckProperty.Loaded">
             <inheritdoc/>
         </member>
         <member name="M:BEditor.Core.Data.Primitive.Properties.CheckProperty.ToString">
@@ -640,7 +642,10 @@
             <param name="frame">タイムライン基準のフレーム</param>
             <returns></returns>
         </member>
-        <member name="M:BEditor.Core.Data.Primitive.Properties.ColorAnimationProperty.PropertyLoaded">
+        <member name="M:BEditor.Core.Data.Primitive.Properties.ColorAnimationProperty.Loaded">
+            <inheritdoc/>
+        </member>
+        <member name="M:BEditor.Core.Data.Primitive.Properties.ColorAnimationProperty.Unloaded">
             <inheritdoc/>
         </member>
         <member name="T:BEditor.Core.Data.Primitive.Properties.ColorAnimationProperty.ChangeColorCommand">
@@ -792,7 +797,7 @@
         <member name="M:BEditor.Core.Data.Primitive.Properties.ColorProperty.ToString">
             <inheritdoc/>
         </member>
-        <member name="M:BEditor.Core.Data.Primitive.Properties.ColorProperty.PropertyLoaded">
+        <member name="M:BEditor.Core.Data.Primitive.Properties.ColorProperty.Loaded">
             <inheritdoc/>
         </member>
         <member name="T:BEditor.Core.Data.Primitive.Properties.ColorProperty.ChangeColorCommand">
@@ -871,7 +876,7 @@
         <member name="M:BEditor.Core.Data.Primitive.Properties.DocumentProperty.Bind(BEditor.Core.Data.Bindings.IBindable{System.String})">
             <inheritdoc/>
         </member>
-        <member name="M:BEditor.Core.Data.Primitive.Properties.DocumentProperty.PropertyLoaded">
+        <member name="M:BEditor.Core.Data.Primitive.Properties.DocumentProperty.Loaded">
             <inheritdoc/>
         </member>
         <member name="M:BEditor.Core.Data.Primitive.Properties.DocumentProperty.ToString">
@@ -1033,7 +1038,7 @@
         <member name="M:BEditor.Core.Data.Primitive.Properties.EaseProperty.ToString">
             <inheritdoc/>
         </member>
-        <member name="M:BEditor.Core.Data.Primitive.Properties.EaseProperty.PropertyLoaded">
+        <member name="M:BEditor.Core.Data.Primitive.Properties.EaseProperty.Loaded">
             <inheritdoc/>
         </member>
         <member name="T:BEditor.Core.Data.Primitive.Properties.EaseProperty.ChangeValueCommand">
@@ -1197,7 +1202,7 @@
         <member name="P:BEditor.Core.Data.Primitive.Properties.ExpandGroup.Value">
             <inheritdoc/>
         </member>
-        <member name="M:BEditor.Core.Data.Primitive.Properties.ExpandGroup.PropertyLoaded">
+        <member name="M:BEditor.Core.Data.Primitive.Properties.ExpandGroup.Loaded">
             <inheritdoc/>
         </member>
         <member name="M:BEditor.Core.Data.Primitive.Properties.ExpandGroup.ToString">
@@ -1241,7 +1246,7 @@
         <member name="P:BEditor.Core.Data.Primitive.Properties.FileProperty.BindHint">
             <inheritdoc/>
         </member>
-        <member name="M:BEditor.Core.Data.Primitive.Properties.FileProperty.PropertyLoaded">
+        <member name="M:BEditor.Core.Data.Primitive.Properties.FileProperty.Loaded">
             <inheritdoc/>
         </member>
         <member name="M:BEditor.Core.Data.Primitive.Properties.FileProperty.ToString">
@@ -1313,7 +1318,7 @@
         <member name="P:BEditor.Core.Data.Primitive.Properties.FolderProperty.BindHint">
             <inheritdoc/>
         </member>
-        <member name="M:BEditor.Core.Data.Primitive.Properties.FolderProperty.PropertyLoaded">
+        <member name="M:BEditor.Core.Data.Primitive.Properties.FolderProperty.Loaded">
             <inheritdoc/>
         </member>
         <member name="M:BEditor.Core.Data.Primitive.Properties.FolderProperty.ToString">
@@ -1385,7 +1390,7 @@
         <member name="P:BEditor.Core.Data.Primitive.Properties.FontProperty.BindHint">
             <inheritdoc/>
         </member>
-        <member name="M:BEditor.Core.Data.Primitive.Properties.FontProperty.PropertyLoaded">
+        <member name="M:BEditor.Core.Data.Primitive.Properties.FontProperty.Loaded">
             <inheritdoc/>
         </member>
         <member name="M:BEditor.Core.Data.Primitive.Properties.FontProperty.ToString">
@@ -1561,7 +1566,7 @@
         <member name="P:BEditor.Core.Data.Primitive.Properties.SelectorProperty.BindHint">
             <inheritdoc/>
         </member>
-        <member name="M:BEditor.Core.Data.Primitive.Properties.SelectorProperty.PropertyLoaded">
+        <member name="M:BEditor.Core.Data.Primitive.Properties.SelectorProperty.Loaded">
             <inheritdoc/>
         </member>
         <member name="M:BEditor.Core.Data.Primitive.Properties.SelectorProperty.ToString">
@@ -1648,7 +1653,7 @@
         <member name="M:BEditor.Core.Data.Primitive.Properties.TextProperty.Subscribe(System.IObserver{System.String})">
             <inheritdoc/>
         </member>
-        <member name="M:BEditor.Core.Data.Primitive.Properties.TextProperty.PropertyLoaded">
+        <member name="M:BEditor.Core.Data.Primitive.Properties.TextProperty.Loaded">
             <inheritdoc/>
         </member>
         <member name="M:BEditor.Core.Data.Primitive.Properties.TextProperty.ToString">
@@ -1675,7 +1680,7 @@
         <member name="M:BEditor.Core.Data.Primitive.Properties.ValueProperty.Subscribe(System.IObserver{System.Single})">
             <inheritdoc/>
         </member>
-        <member name="M:BEditor.Core.Data.Primitive.Properties.ValueProperty.PropertyLoaded">
+        <member name="M:BEditor.Core.Data.Primitive.Properties.ValueProperty.Loaded">
             <inheritdoc/>
         </member>
         <member name="M:BEditor.Core.Data.Primitive.Properties.ValueProperty.ToString">
@@ -1852,10 +1857,11 @@
             <param name="max">最大の値</param>
             <returns>イージングされた値</returns>
         </member>
-        <member name="M:BEditor.Core.Data.Property.EasingProperty.EasingFunc.PropertyLoaded">
-            <summary>
-            初期化時とデシリアライズ時に呼び出されます
-            </summary>
+        <member name="M:BEditor.Core.Data.Property.EasingProperty.EasingFunc.Loaded">
+            <inheritdoc/>
+        </member>
+        <member name="M:BEditor.Core.Data.Property.EasingProperty.EasingFunc.Unloaded">
+            <inheritdoc/>
         </member>
         <member name="T:BEditor.Core.Data.Property.EasingProperty.IEasingProperty">
             <summary>
@@ -1893,12 +1899,13 @@
         <member name="P:BEditor.Core.Data.Property.PropertyElement.Name">
             <inheritdoc/>
         </member>
-        <member name="M:BEditor.Core.Data.Property.PropertyElement.PropertyLoaded">
-            <summary>
-            初期化時とデシリアライズ時に呼び出されます
-            </summary>
+        <member name="M:BEditor.Core.Data.Property.PropertyElement.Loaded">
+            <inheritdoc/>
         </member>
         <member name="M:BEditor.Core.Data.Property.PropertyElement.ToString">
+            <inheritdoc/>
+        </member>
+        <member name="M:BEditor.Core.Data.Property.PropertyElement.Unloaded">
             <inheritdoc/>
         </member>
         <member name="T:BEditor.Core.Data.Property.PropertyElementMetadata">
@@ -2085,10 +2092,11 @@
         <member name="P:BEditor.Core.Data.Scene.Id">
             <inheritdoc/>
         </member>
-        <member name="M:BEditor.Core.Data.Scene.PropertyLoaded">
-            <summary>
-            
-            </summary>
+        <member name="M:BEditor.Core.Data.Scene.Loaded">
+            <inheritdoc/>
+        </member>
+        <member name="M:BEditor.Core.Data.Scene.Unloaded">
+            <inheritdoc/>
         </member>
         <member name="M:BEditor.Core.Data.Scene.Render(BEditor.Media.Frame,BEditor.Core.Data.RenderType)">
             <summary>

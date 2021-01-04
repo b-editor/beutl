@@ -138,8 +138,9 @@ namespace BEditor.Core.Data.Primitive.Objects
 
             Coordinate.ResetOptional();
         }
-        public override void PropertyLoaded()
+        public override void Loaded()
         {
+            base.Loaded();
             Coordinate.ExecuteLoaded(ImageObject.CoordinateMetadata);
             Zoom.ExecuteLoaded(ImageObject.ZoomMetadata);
             Blend.ExecuteLoaded(ImageObject.BlendMetadata);
@@ -149,6 +150,19 @@ namespace BEditor.Core.Data.Primitive.Objects
             Width.ExecuteLoaded(Figure.WidthMetadata);
             Height.ExecuteLoaded(Figure.HeightMetadata);
             Weight.ExecuteLoaded(WeightMetadata);
+        }
+        public override void Unloaded()
+        {
+            base.Unloaded();
+            Coordinate.Unloaded();
+            Zoom.Unloaded();
+            Blend.Unloaded();
+            Angle.Unloaded();
+            Material.Unloaded();
+            Type.Unloaded();
+            Width.Unloaded();
+            Height.Unloaded();
+            Weight.Unloaded();
         }
     }
 }

@@ -42,10 +42,19 @@ namespace BEditor.Core.Data.Primitive.Effects.PrimitiveImages
             args.Value = img;
         }
 
-        public override void PropertyLoaded()
+        public override void Loaded()
         {
+            base.Loaded();
             Size.ExecuteLoaded(SizeMetadata);
             Color.ExecuteLoaded(ColorMetadata);
+        }
+        public override void Unloaded()
+        {
+            base.Unloaded();
+            foreach(var pr in Children)
+            {
+                pr.Unloaded();
+            }
         }
     }
 }

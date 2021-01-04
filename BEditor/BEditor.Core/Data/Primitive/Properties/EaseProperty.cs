@@ -318,10 +318,15 @@ namespace BEditor.Core.Data.Primitive.Properties
         public override string ToString() => $"(Count:{Value.Count} Easing:{EasingData?.Name} Name:{PropertyMetadata?.Name})";
 
         /// <inheritdoc/>
-        public override void PropertyLoaded()
+        public override void Loaded()
         {
-            base.PropertyLoaded();
-            EasingType.PropertyLoaded();
+            base.Loaded();
+            EasingType.Loaded();
+        }
+        public override void Unloaded()
+        {
+            base.Unloaded();
+            EasingType.Unloaded();
         }
 
         #endregion

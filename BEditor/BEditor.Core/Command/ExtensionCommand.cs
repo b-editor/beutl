@@ -44,13 +44,13 @@ namespace BEditor.Core.Command
 
             //オブジェクトの情報
             generatedClip = new ClipData(idmax, list, addframe, addframe + 180, metadata.Type, layer, self);
-            generatedClip.PropertyLoaded();
 
             return RecordCommand.Create(
                 generatedClip,
                 clip =>
                 {
                     var scene = clip.Parent;
+                    clip.Loaded();
                     scene.Add(clip);
                     scene.SetCurrentClip(clip);
                 },
@@ -58,6 +58,7 @@ namespace BEditor.Core.Command
                 {
                     var scene = clip.Parent;
                     scene.Remove(clip);
+                    clip.Unloaded();
 
                     //存在する場合
                     if (scene.SelectNames.Exists(x => x == clip.Name))
@@ -77,13 +78,13 @@ namespace BEditor.Core.Command
             //オブジェクトの情報
             clip.Parent = self;
             ClipDataID.SetValue(clip, self.NewId);
-            clip.PropertyLoaded();
 
             return RecordCommand.Create(
                 clip,
                 clip =>
                 {
                     var scene = clip.Parent;
+                    clip.Loaded();
                     scene.Add(clip);
                     scene.SetCurrentClip(clip);
                 },
@@ -91,6 +92,7 @@ namespace BEditor.Core.Command
                 {
                     var scene = clip.Parent;
                     scene.Remove(clip);
+                    clip.Unloaded();
 
                     //存在する場合
                     if (scene.SelectNames.Exists(x => x == clip.Name))
@@ -106,14 +108,14 @@ namespace BEditor.Core.Command
         }
         public static IRecordCommand CreateRemoveCommand(this Scene self, ClipData clip) => new ClipData.RemoveCommand(clip);
 
-        internal static void ExecuteLoaded(this PropertyElement property, PropertyElementMetadata metadata)
+        public static void ExecuteLoaded(this PropertyElement property, PropertyElementMetadata metadata)
         {
-            property.PropertyLoaded();
+            property.Loaded();
             property.PropertyMetadata = metadata;
         }
-        internal static void ExecuteLoaded<T>(this PropertyElement<T> property, T metadata) where T : PropertyElementMetadata
+        public static void ExecuteLoaded<T>(this PropertyElement<T> property, T metadata) where T : PropertyElementMetadata
         {
-            property.PropertyLoaded();
+            property.Loaded();
             property.PropertyMetadata = metadata;
         }
     }

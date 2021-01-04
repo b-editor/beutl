@@ -95,8 +95,9 @@ namespace BEditor.Core.Data.Primitive.Objects
                 effect.Render(args);
             }
         }
-        public override void PropertyLoaded()
+        public override void Loaded()
         {
+            base.Loaded();
             X.ExecuteLoaded(XMetadata);
             Y.ExecuteLoaded(YMetadata);
             Z.ExecuteLoaded(ZMetadata);
@@ -108,6 +109,21 @@ namespace BEditor.Core.Data.Primitive.Objects
             Angle.ExecuteLoaded(AngleMetadata);
             Fov.ExecuteLoaded(FovMetadata);
             Mode.ExecuteLoaded(ModeMetadata);
+        }
+        public override void Unloaded()
+        {
+            base.Unloaded();
+            X.Unloaded();
+            Y.Unloaded();
+            Z.Unloaded();
+            TargetX.Unloaded();
+            TargetY.Unloaded();
+            TargetZ.Unloaded();
+            ZNear.Unloaded();
+            ZFar.Unloaded();
+            Angle.Unloaded();
+            Fov.Unloaded();
+            Mode.Unloaded();
         }
     }
 }

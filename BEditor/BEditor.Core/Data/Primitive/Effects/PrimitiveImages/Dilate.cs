@@ -53,10 +53,19 @@ namespace BEditor.Core.Data.Primitive.Effects.PrimitiveImages
                 img.Dilate(size);
             }
         }
-        public override void PropertyLoaded()
+        public override void Loaded()
         {
+            base.Loaded();
             Frequency.ExecuteLoaded(FrequencyMetadata);
             Resize.ExecuteLoaded(ResizeMetadata);
+        }
+        public override void Unloaded()
+        {
+            base.Unloaded();
+            foreach (var pr in Children)
+            {
+                pr.Unloaded();
+            }
         }
     }
 }
