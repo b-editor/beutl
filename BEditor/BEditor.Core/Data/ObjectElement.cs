@@ -1,5 +1,6 @@
 ﻿using System;
 using System.Collections.Generic;
+using System.Collections.ObjectModel;
 using System.Runtime.Serialization;
 using System.Text;
 
@@ -23,9 +24,9 @@ namespace BEditor.Core.Data
         public string Name { get; set; }
         public Type Type { get; set; }
         public Func<EffectElement> CreateFunc { get; set; }
-        public List<ObjectMetadata> Children { get; set; }
 
-        public static List<ObjectMetadata> LoadedObjects { get; } = new() {
+        public static ObservableCollection<ObjectMetadata> LoadedObjects { get; } = new()
+        {
             ClipType.VideoMetadata,
             ClipType.ImageMetadata,
             ClipType.FigureMetadata,

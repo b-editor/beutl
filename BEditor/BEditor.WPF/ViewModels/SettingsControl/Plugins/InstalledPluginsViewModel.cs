@@ -14,26 +14,38 @@ using BEditor.Core.Plugin;
 using BEditor.Core.Data;
 using System.ComponentModel;
 using Reactive.Bindings;
+using System.Reactive.Linq;
+using System.Linq;
 
 namespace BEditor.ViewModels.SettingsControl.Plugins
 {
     public class InstalledPluginsViewModel : BasePropertyChanged
     {
-        private static readonly PropertyChangedEventArgs selectArgs = new(nameof(SelectPlugin));
-        private IPlugin selectplugin;
-
         public InstalledPluginsViewModel()
         {
-
-            SettingClick.Subscribe(_ =>
+            SettingClick.Where(_ => SelectPlugin is not null).Subscribe(_ =>
             {
-                Message.Snackbar(SelectPlugin?.PluginName);
-
-                SelectPlugin.SettingCommand();
+                SelectPlugin.Value.SettingCommand();
             });
+            UnloadClick.Where(_ => SelectPlugin is not null)
+                .Subscribe(_ =>
+            {
+                var name = SelectPlugin.Value.AssemblyName;
+
+                Settings.Default.EnablePlugins.Remove(name);
+                if (!Settings.Default.DisablePlugins.Contains(name))
+                    Settings.Default.DisablePlugins.Add(name);
+
+                Settings.Default.Save();
+            });
+
+            IsSelected = SelectPlugin.Select(plugin => plugin is not null).ToReadOnlyReactiveProperty();
         }
 
-        public IPlugin SelectPlugin { get => selectplugin; set => SetValue(value, ref selectplugin, selectArgs); }
+        public ReactiveProperty<IPlugin> SelectPlugin { get; } = new();
+
+        public ReadOnlyReactiveProperty<bool> IsSelected { get; }
         public ReactiveCommand<object> SettingClick { get; } = new();
+        public ReactiveCommand UnloadClick { get; } = new();
     }
 }

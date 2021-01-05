@@ -2110,11 +2110,17 @@
             Render a frame of <see cref="P:BEditor.Core.Data.Scene.PreviewFrame"/>.
             </summary>
         </member>
-        <member name="M:BEditor.Core.Data.Scene.GetLayer(BEditor.Media.Frame)">
+        <member name="M:BEditor.Core.Data.Scene.GetFrame(BEditor.Media.Frame)">
             <summary>
             Get and sort the clips on the specified frame.
             </summary>
             <param name="frame">Target frame number.</param>
+        </member>
+        <member name="M:BEditor.Core.Data.Scene.GetLayer(System.Int32)">
+            <summary>
+            Get and sort the clips on the specified layer.
+            </summary>
+            <param name="layer">Target layer number.</param>
         </member>
         <member name="M:BEditor.Core.Data.Scene.Add(BEditor.Core.Data.ClipData)">
             <summary>
@@ -2161,6 +2167,11 @@
         <member name="P:BEditor.Core.Plugin.IPlugin.Description">
             <summary>
             プラグインの説明
+            </summary>
+        </member>
+        <member name="P:BEditor.Core.Plugin.IPlugin.AssemblyName">
+            <summary>
+            アセンブリの名前
             </summary>
         </member>
         <member name="M:BEditor.Core.Plugin.IPlugin.SettingCommand">
@@ -2268,6 +2279,11 @@
         <member name="P:BEditor.Core.Properties.Resources.AddKeyframe">
             <summary>
               Add a keyframe に類似しているローカライズされた文字列を検索します。
+            </summary>
+        </member>
+        <member name="P:BEditor.Core.Properties.Resources.AddScene">
+            <summary>
+              Add a scene に類似しているローカライズされた文字列を検索します。
             </summary>
         </member>
         <member name="P:BEditor.Core.Properties.Resources.Adjust_coordinates">
@@ -2526,6 +2542,11 @@
               Directional Light Source に類似しているローカライズされた文字列を検索します。
             </summary>
         </member>
+        <member name="P:BEditor.Core.Properties.Resources.DisabledPlugins">
+            <summary>
+              Disabled plugins に類似しているローカライズされた文字列を検索します。
+            </summary>
+        </member>
         <member name="P:BEditor.Core.Properties.Resources.Disconnect">
             <summary>
               Disconnect に類似しているローカライズされた文字列を検索します。
@@ -2704,7 +2725,7 @@
         </member>
         <member name="P:BEditor.Core.Properties.Resources.InstalledPlugins">
             <summary>
-              Installed plug-ins に類似しているローカライズされた文字列を検索します。
+              Installed plugins に類似しているローカライズされた文字列を検索します。
             </summary>
         </member>
         <member name="P:BEditor.Core.Properties.Resources.Layer">
@@ -2737,6 +2758,11 @@
               Line width に類似しているローカライズされた文字列を検索します。
             </summary>
         </member>
+        <member name="P:BEditor.Core.Properties.Resources.LoadPlugin">
+            <summary>
+              Load this plugin next time に類似しているローカライズされた文字列を検索します。
+            </summary>
+        </member>
         <member name="P:BEditor.Core.Properties.Resources.Material">
             <summary>
               Material に類似しているローカライズされた文字列を検索します。
@@ -2750,6 +2776,26 @@
         <member name="P:BEditor.Core.Properties.Resources.Monoc">
             <summary>
               Monochromatic に類似しているローカライズされた文字列を検索します。
+            </summary>
+        </member>
+        <member name="P:BEditor.Core.Properties.Resources.MoveToEnd">
+            <summary>
+              Move to end に類似しているローカライズされた文字列を検索します。
+            </summary>
+        </member>
+        <member name="P:BEditor.Core.Properties.Resources.MoveToNextFrame">
+            <summary>
+              Move to the next frame. に類似しているローカライズされた文字列を検索します。
+            </summary>
+        </member>
+        <member name="P:BEditor.Core.Properties.Resources.MoveToPreviousFrame">
+            <summary>
+              Move to previous frame に類似しているローカライズされた文字列を検索します。
+            </summary>
+        </member>
+        <member name="P:BEditor.Core.Properties.Resources.MoveToTop">
+            <summary>
+              Move to top に類似しているローカライズされた文字列を検索します。
             </summary>
         </member>
         <member name="P:BEditor.Core.Properties.Resources.MultiLayerization">
@@ -2802,14 +2848,29 @@
               Paste に類似しているローカライズされた文字列を検索します。
             </summary>
         </member>
+        <member name="P:BEditor.Core.Properties.Resources.Pause">
+            <summary>
+              Pause に類似しているローカライズされた文字列を検索します。
+            </summary>
+        </member>
         <member name="P:BEditor.Core.Properties.Resources.Perspective">
             <summary>
               Perspective に類似しているローカライズされた文字列を検索します。
             </summary>
         </member>
+        <member name="P:BEditor.Core.Properties.Resources.Play">
+            <summary>
+              Play に類似しているローカライズされた文字列を検索します。
+            </summary>
+        </member>
         <member name="P:BEditor.Core.Properties.Resources.Playing">
             <summary>
               Playing に類似しているローカライズされた文字列を検索します。
+            </summary>
+        </member>
+        <member name="P:BEditor.Core.Properties.Resources.PlayPause">
+            <summary>
+              Play/Pause に類似しているローカライズされた文字列を検索します。
             </summary>
         </member>
         <member name="P:BEditor.Core.Properties.Resources.Plugins">
@@ -2837,6 +2898,11 @@
               The folder with project files に類似しているローカライズされた文字列を検索します。
             </summary>
         </member>
+        <member name="P:BEditor.Core.Properties.Resources.PropertyShowHide">
+            <summary>
+              Show/hide property に類似しているローカライズされた文字列を検索します。
+            </summary>
+        </member>
         <member name="P:BEditor.Core.Properties.Resources.Range">
             <summary>
               Range に類似しているローカライズされた文字列を検索します。
@@ -2845,6 +2911,11 @@
         <member name="P:BEditor.Core.Properties.Resources.RangeAbove">
             <summary>
               Enter a value of {0} or greater に類似しているローカライズされた文字列を検索します。
+            </summary>
+        </member>
+        <member name="P:BEditor.Core.Properties.Resources.Redo">
+            <summary>
+              Redo に類似しているローカライズされた文字列を検索します。
             </summary>
         </member>
         <member name="P:BEditor.Core.Properties.Resources.Remove">
@@ -2977,6 +3048,11 @@
               TimeLine に類似しているローカライズされた文字列を検索します。
             </summary>
         </member>
+        <member name="P:BEditor.Core.Properties.Resources.TimelineShowHide">
+            <summary>
+              Show/hide timeline に類似しているローカライズされた文字列を検索します。
+            </summary>
+        </member>
         <member name="P:BEditor.Core.Properties.Resources.Tool">
             <summary>
               Tool に類似しているローカライズされた文字列を検索します。
@@ -3002,6 +3078,11 @@
               Extended drawing に類似しているローカライズされた文字列を検索します。
             </summary>
         </member>
+        <member name="P:BEditor.Core.Properties.Resources.Undo">
+            <summary>
+              Undo に類似しているローカライズされた文字列を検索します。
+            </summary>
+        </member>
         <member name="P:BEditor.Core.Properties.Resources.Uninstall">
             <summary>
               Uninstall に類似しているローカライズされた文字列を検索します。
@@ -3012,6 +3093,11 @@
               Uninstall {0} に類似しているローカライズされた文字列を検索します。
             </summary>
         </member>
+        <member name="P:BEditor.Core.Properties.Resources.UnloadPlugin">
+            <summary>
+              Don&apos;t load this plugin next time. に類似しているローカライズされた文字列を検索します。
+            </summary>
+        </member>
         <member name="P:BEditor.Core.Properties.Resources.UseAutoBackup">
             <summary>
               Use automatic backups に類似しているローカライズされた文字列を検索します。
@@ -3019,7 +3105,7 @@
         </member>
         <member name="P:BEditor.Core.Properties.Resources.UseDarkMode">
             <summary>
-              Use dark mode (effective after restarting the application) に類似しているローカライズされた文字列を検索します。
+              Use dark mode に類似しているローカライズされた文字列を検索します。
             </summary>
         </member>
         <member name="P:BEditor.Core.Properties.Resources.ValueIsNotValid">

@@ -11,24 +11,10 @@
     <ScrollViewer>
         <VirtualizingStackPanel>
             <md:ColorZone Content="{x:Static properties:Resources.Varsion}" Foreground="White" Background="{StaticResource PrimaryHueMidBrush}" Margin="10,10,10,10" Padding="9,9,9,9" md:ShadowAssist.ShadowDepth="Depth2"/>
-            <Grid Margin="10,0,10,0">
-                <Grid.ColumnDefinitions>
-                    <ColumnDefinition/>
-                    <ColumnDefinition/>
-                </Grid.ColumnDefinitions>
 
-                <VirtualizingStackPanel Margin="10,0,10,0">
-                    <Label Content="AppVersion : " Margin="6,6,6,6"/>
-                    <Label Content="OpenCV : " Margin="6,6,6,6"/>
-                    <Label Content="OpenGL : " Margin="6,6,6,6"/>
-                </VirtualizingStackPanel>
+            <ListBox x:Name="version" Margin="10" ItemsSource="{Binding Versions, Mode=OneTime}" >
 
-                <VirtualizingStackPanel x:Name="version" Grid.Column="1" Margin="10,0,10,0">
-                    <Label Content="{Binding AppVersion, Mode=OneTime}" Margin="6,6,6,6"/>
-                    <Label Content="{Binding OpenCVVersion, Mode=OneTime}" Margin="6,6,6,6"/>
-                    <Label Content="{Binding OpenGLVersion, Mode=OneTime}" Margin="6,6,6,6"/>
-                </VirtualizingStackPanel>
-            </Grid>
+            </ListBox>
         </VirtualizingStackPanel>
     </ScrollViewer>
 </UserControl>

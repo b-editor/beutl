@@ -171,6 +171,9 @@
   <data name="AddKeyframe" xml:space="preserve">
     <value>キーフレームを追加</value>
   </data>
+  <data name="AddScene" xml:space="preserve">
+    <value>シーンを追加</value>
+  </data>
   <data name="Adjust coordinates" xml:space="preserve">
     <value>座標の調整</value>
   </data>
@@ -325,6 +328,9 @@
   <data name="DirectionalLightSource" xml:space="preserve">
     <value>平行光源</value>
   </data>
+  <data name="DisabledPlugins" xml:space="preserve">
+    <value>無効なプラグイン</value>
+  </data>
   <data name="Disconnect" xml:space="preserve">
     <value>切断</value>
   </data>
@@ -449,6 +455,9 @@
   <data name="Line" xml:space="preserve">
     <value>ライン幅</value>
   </data>
+  <data name="LoadPlugin" xml:space="preserve">
+    <value>次回からこのプラグインを読み込む</value>
+  </data>
   <data name="Material" xml:space="preserve">
     <value>マテリアル</value>
   </data>
@@ -457,6 +466,18 @@
   </data>
   <data name="Monoc" xml:space="preserve">
     <value>単色化</value>
+  </data>
+  <data name="MoveToEnd" xml:space="preserve">
+    <value>末尾に移動</value>
+  </data>
+  <data name="MoveToNextFrame" xml:space="preserve">
+    <value>次のフレームへ移動</value>
+  </data>
+  <data name="MoveToPreviousFrame" xml:space="preserve">
+    <value>前のフレームへ移動</value>
+  </data>
+  <data name="MoveToTop" xml:space="preserve">
+    <value>先頭に移動</value>
   </data>
   <data name="MultiLayerization" xml:space="preserve">
     <value>立体化</value>
@@ -488,11 +509,20 @@
   <data name="Paste" xml:space="preserve">
     <value>貼り付け</value>
   </data>
+  <data name="Pause" xml:space="preserve">
+    <value>一時停止</value>
+  </data>
   <data name="Perspective" xml:space="preserve">
     <value>遠近法</value>
   </data>
+  <data name="Play" xml:space="preserve">
+    <value>再生</value>
+  </data>
   <data name="Playing" xml:space="preserve">
     <value>再生中</value>
+  </data>
+  <data name="PlayPause" xml:space="preserve">
+    <value>再生/一時停止</value>
   </data>
   <data name="Plugins" xml:space="preserve">
     <value>プラグイン</value>
@@ -509,11 +539,17 @@
   <data name="ProjectFilePath" xml:space="preserve">
     <value>プロジェクトファイルがあるフォルダ</value>
   </data>
+  <data name="PropertyShowHide" xml:space="preserve">
+    <value>プロパティを表示/非表示</value>
+  </data>
   <data name="Range" xml:space="preserve">
     <value>範囲</value>
   </data>
   <data name="RangeAbove" xml:space="preserve">
     <value>{0} 以上の値を入力してください</value>
+  </data>
+  <data name="Redo" xml:space="preserve">
+    <value>元に戻す</value>
   </data>
   <data name="Remove" xml:space="preserve">
     <value>削除</value>
@@ -593,6 +629,9 @@
   <data name="TimeLine" xml:space="preserve">
     <value>タイムライン</value>
   </data>
+  <data name="TimelineShowHide" xml:space="preserve">
+    <value>タイムラインを表示/非表示</value>
+  </data>
   <data name="Tool" xml:space="preserve">
     <value>ツール</value>
   </data>
@@ -605,17 +644,23 @@
   <data name="TypeOfDraw" xml:space="preserve">
     <value>標準描画</value>
   </data>
+  <data name="Undo" xml:space="preserve">
+    <value>やり直す</value>
+  </data>
   <data name="Uninstall" xml:space="preserve">
     <value>アンインストール</value>
   </data>
   <data name="UninstallPlugin" xml:space="preserve">
     <value>{0} をアンインストールします</value>
   </data>
+  <data name="UnloadPlugin" xml:space="preserve">
+    <value>次回からこのプラグインを読み込まない</value>
+  </data>
   <data name="UseAutoBackup" xml:space="preserve">
     <value>自動バックアップを使う</value>
   </data>
   <data name="UseDarkMode" xml:space="preserve">
-    <value>ダークモードを使用する（アプリケーションの再起動後に有効）</value>
+    <value>ダークモードを使用する</value>
   </data>
   <data name="ValueIsNotValid" xml:space="preserve">
     <value>値が無効です</value>

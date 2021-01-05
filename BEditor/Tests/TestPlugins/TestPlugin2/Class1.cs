@@ -2,6 +2,7 @@
 using System.Collections.Generic;
 using System.Runtime.Serialization;
 
+using BEditor.Core.Command;
 using BEditor.Core.Data;
 using BEditor.Core.Data.Primitive.Properties;
 using BEditor.Core.Data.Property;
@@ -42,10 +43,15 @@ namespace TestPlugin2
         public CheckProperty Check { get; private set; }
 
         public override void Render(EffectRenderArgs args) { }
-        public override void PropertyLoaded()
+        public override void Loaded()
         {
-            Check.PropertyLoaded();
-            Check.PropertyMetadata = CheckMetadata;
+            base.Loaded();
+            Check.ExecuteLoaded(CheckMetadata);
+        }
+        public override void Unloaded()
+        {
+            base.Unloaded();
+            Check.Unloaded();
         }
     }
 }

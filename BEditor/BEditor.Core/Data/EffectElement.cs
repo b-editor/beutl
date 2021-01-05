@@ -324,12 +324,15 @@ namespace BEditor.Core.Data
         public string Name { get; set; }
         public Type Type { get; set; }
         public Func<EffectElement> CreateFunc { get; set; }
-        public List<EffectMetadata> Children { get; set; }
+        public IEnumerable<EffectMetadata> Children { get; set; }
 
-        public static ObservableCollection<EffectMetadata> LoadedEffects { get; } = new ObservableCollection<EffectMetadata> {
-            new() {
+        public static ObservableCollection<EffectMetadata> LoadedEffects { get; } = new()
+        {
+            new()
+            {
                 Name = Resources.Effects,
-                Children = new() {
+                Children = new EffectMetadata[]
+                {
                     new()
                     {
                         Name = Resources.Border,
@@ -386,9 +389,11 @@ namespace BEditor.Core.Data
                     }
                 }
             },
-            new() {
+            new()
+            {
                 Name = Resources.Camera,
-                Children = new() {
+                Children = new EffectMetadata[]
+                {
                     new()
                     {
                         Name = Resources.DepthTest,
@@ -415,12 +420,15 @@ namespace BEditor.Core.Data
                     }
                 }
             },
+#if DEBUG
             new()
             {
                 Name = "TestEffect",
                 Type = typeof(TestEffect),
                 CreateFunc = () => new TestEffect()
             }
+
+#endif
         };
     }
 }

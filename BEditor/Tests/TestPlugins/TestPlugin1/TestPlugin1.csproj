@@ -11,6 +11,9 @@
   <PropertyGroup>
     <AppendTargetFrameworkToOutputPath>false</AppendTargetFrameworkToOutputPath>
     <AppendRuntimeIdentifierToOutputPath>false</AppendRuntimeIdentifierToOutputPath>
+    <Authors>indigo-san</Authors>
+    <RepositoryUrl>https://github.com/indigo-san/BEditor</RepositoryUrl>
+    <PackageProjectUrl>https://github.com/indigo-san/BEditor</PackageProjectUrl>
   </PropertyGroup>
 
   <ItemGroup>

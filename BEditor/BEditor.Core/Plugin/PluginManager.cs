@@ -33,7 +33,8 @@ namespace BEditor.Core.Plugin
         // 許可されたプラグインのリストを読み込む
         public static IEnumerable<IPlugin> Load(IEnumerable<string> pluginName)
         {
-            var pluginss = pluginName
+            var plugins = pluginName
+                .Where(static f => f is not null)
                 .Select(static f => Path.Combine(AppContext.BaseDirectory, "user", "plugins", f, $"{f}.dll"))
                 .Where(static f => File.Exists(f))
                 .Select(static f => Assembly.LoadFrom(f).GetTypes())
@@ -41,33 +42,26 @@ namespace BEditor.Core.Plugin
                     .Select(static t => Activator.CreateInstance(t) as IPlugin)
                     .Where(static t => t is not null))
                 .SelectMany(static f => f);
-            
-            foreach (var plugin in pluginss)
+
+            foreach (var plugin in plugins)
             {
                 if (plugin is IEffects effects)
                 {
-                    var a = new EffectMetadata() { Name = plugin.PluginName, Children = new() };
+                    var a = new EffectMetadata() { Name = plugin.PluginName, Children = effects.Effects };
 
-                    foreach (var metadata in effects.Effects)
-                    {
-                        a.Children.Add(metadata);
-                        Serialize.SerializeKnownTypes.Add(metadata.Type);
-                    }
+                    Serialize.SerializeKnownTypes.AddRange(effects.Effects.Select(a => a.Type));
 
                     EffectMetadata.LoadedEffects.Add(a);
                 }
 
                 if (plugin is IObjects objects)
                 {
-                    var a = new ObjectMetadata() { Name = plugin.PluginName, Children = new() };
+                    Serialize.SerializeKnownTypes.AddRange(objects.Objects.Select(a => a.Type));
 
-                    foreach (var metadata in objects.Objects)
+                    foreach(var o in objects.Objects)
                     {
-                        a.Children.Add(metadata);
-                        Serialize.SerializeKnownTypes.Add(metadata.Type);
+                        ObjectMetadata.LoadedObjects.Add(o);
                     }
-
-                    ObjectMetadata.LoadedObjects.Add(a);
                 }
 
                 if (plugin is IEasingFunctions easing)

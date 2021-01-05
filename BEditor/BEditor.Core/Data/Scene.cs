@@ -299,7 +299,7 @@ namespace BEditor.Core.Data
         /// <param name="renderType"></param>
         public RenderingResult Render(Frame frame, RenderType renderType = RenderType.Preview)
         {
-            var layer = GetLayer(frame).ToList();
+            var layer = GetFrame(frame).ToList();
 
             GraphicsContext.MakeCurrent();
             AudioContext.MakeCurrent();
@@ -330,12 +330,22 @@ namespace BEditor.Core.Data
         /// Get and sort the clips on the specified frame.
         /// </summary>
         /// <param name="frame">Target frame number.</param>
-        public IEnumerable<ClipData> GetLayer(Frame frame)
+        public IEnumerable<ClipData> GetFrame(Frame frame)
         {
             return Datas
                 .Where(item => item.Start <= (frame) && (frame) < item.End)
                 .Where(item => !HideLayer.Exists(x => x == item.Layer))
                 .OrderBy(item => item.Layer);
+        }
+        /// <summary>
+        /// Get and sort the clips on the specified layer.
+        /// </summary>
+        /// <param name="layer">Target layer number.</param>
+        public IEnumerable<ClipData> GetLayer(int layer)
+        {
+            return Datas
+                .Where(item => item.Layer == layer)
+                .OrderBy(item => item.Start.Value);
         }
 
         /// <summary>
@@ -377,6 +387,38 @@ namespace BEditor.Core.Data
         }
 
         #endregion
+
+        internal sealed class RemoveLayer : IRecordCommand
+        {
+            private readonly IEnumerable<IRecordCommand> clips;
+
+            public RemoveLayer(Scene scene, int layer)
+            {
+                clips = scene.GetLayer(layer).Select(clip => clip.Parent.CreateRemoveCommand(clip)).ToArray();
+            }
+
+            public void Do()
+            {
+                foreach (var clip in clips)
+                {
+                    clip.Do();
+                }
+            }
+            public void Redo()
+            {
+                foreach (var clip in clips)
+                {
+                    clip.Redo();
+                }
+            }
+            public void Undo()
+            {
+                foreach (var clip in clips)
+                {
+                    clip.Undo();
+                }
+            }
+        }
     }
 
     [DataContract]

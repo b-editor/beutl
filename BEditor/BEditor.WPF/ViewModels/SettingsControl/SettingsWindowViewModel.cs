@@ -62,7 +62,7 @@ namespace BEditor.ViewModels.SettingsControl
 
             var project = new TreeViewChild()
             {
-                Text = Resources.ProjectFile,
+                Text = Resources.Project,
                 PackIconKind = PackIconKind.File,
                 Control = new ProjectSetting()
             };
@@ -85,8 +85,8 @@ namespace BEditor.ViewModels.SettingsControl
 
             plugins.TreeViewChildren.Add(new TreeViewChild()
             {
-                Text = Resources.Install,
-                PackIconKind = PackIconKind.PuzzlePlus
+                Text = Resources.DisabledPlugins,
+                Control = new DisabledPlugins()
             });
 
             #endregion

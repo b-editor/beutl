@@ -135,7 +135,12 @@ namespace BEditor
         public string BackgroundColor
         {
             get => backgroundColor ??= "#00000000";
-            set => SetValue(value, ref backgroundColor, backgroundColorArgs);
+            set
+            {
+                if (!IsHTMLColor(value)) return;
+
+                SetValue(value, ref backgroundColor, backgroundColorArgs);
+            }
         }
         public ExtensionDataObject? ExtensionData { get; set; }
 
@@ -154,5 +159,20 @@ namespace BEditor
             }
         }
         public void Save() => Serialize.SaveToFile(this, Path.Combine(AppContext.BaseDirectory, "user", "settings.json"));
+        private static bool IsHTMLColor(string color)
+        {
+            try
+            {
+                color = "0x" + color.Replace("#", "");
+
+                var argb = Convert.ToUInt32(color, 16);
+
+                return true;
+            }
+            catch
+            {
+                return false;
+            }
+        }
     }
 }

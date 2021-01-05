@@ -1,5 +1,7 @@
 ﻿using System;
 using System.Collections.Generic;
+using System.Linq;
+using System.Reflection;
 using System.Text;
 using System.Windows;
 using System.Windows.Controls;
@@ -10,6 +12,9 @@ using System.Windows.Media;
 using System.Windows.Media.Imaging;
 using System.Windows.Navigation;
 using System.Windows.Shapes;
+
+using BEditor.Core;
+using BEditor.Core.Plugin;
 
 namespace BEditor.Views.SettingsControl
 {
@@ -25,11 +30,18 @@ namespace BEditor.Views.SettingsControl
             version.DataContext = new AppInfoViewModel();
         }
 
-        internal class AppInfoViewModel
+        public class AppInfoViewModel
         {
-            public string AppVersion => "B Editor 0.0.3";
-            public string OpenCVVersion => "OpenCv 4.5.0";
-            public string OpenGLVersion => "OpenTK 3.3.1";
+            public AppInfoViewModel()
+            {
+                var assembly = typeof(AppInfoViewModel).Assembly;
+                var name = assembly.GetName();
+                var a = $"{name.Name} - {name.Version}";
+
+                Versions = assembly.GetReferencedAssemblies().Select(name => $"{name.Name} - {name.Version}").Append(a).OrderBy(a => a);
+            }
+
+            public IEnumerable<string> Versions { get; }
         }
     }
 }

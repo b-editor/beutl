@@ -6,6 +6,7 @@
              xmlns:local="clr-namespace:BEditor.Views.SettingsControl.Plugins"
              xmlns:properties="clr-namespace:BEditor.Core.Properties;assembly=BEditor.Core"
              xmlns:app="clr-namespace:BEditor"
+             xmlns:convert="clr-namespace:BEditor.ViewModels.Converters"
              xmlns:component="clr-namespace:BEditor.Models"
              xmlns:vm="clr-namespace:BEditor.ViewModels.SettingsControl.Plugins"
              mc:Ignorable="d" 
@@ -13,25 +14,31 @@
     <UserControl.DataContext>
         <vm:InstalledPluginsViewModel/>
     </UserControl.DataContext>
+    <UserControl.Resources>
+        <convert:PluginNameConverter x:Key="NameConvert"/>
+        <convert:PluginAuthorConverter x:Key="AuthorConvert"/>
+    </UserControl.Resources>
     <Grid>
         <Grid.RowDefinitions>
             <RowDefinition/>
             <RowDefinition Height="Auto"/>
         </Grid.RowDefinitions>
-        <ListBox ItemsSource="{Binding LoadedPlugins, Source={x:Static component:AppData.Current}}"  HorizontalContentAlignment="Stretch" VerticalContentAlignment="Stretch" SelectedItem="{Binding SelectPlugin, Mode=TwoWay}">
+        <ListBox ItemsSource="{Binding LoadedPlugins, Source={x:Static component:AppData.Current}}"  HorizontalContentAlignment="Stretch" VerticalContentAlignment="Stretch" SelectedItem="{Binding SelectPlugin.Value, Mode=TwoWay}">
             <ListBox.ItemTemplate>
                 <DataTemplate>
                     <Grid Height="60">
                         <VirtualizingStackPanel>
-                            <Label Content="{Binding PluginName}" FontSize="14"/>
+                            <Label Content="{Binding Converter={StaticResource NameConvert}}" FontSize="14"/>
                             <Label Content="{Binding Description}"/>
                         </VirtualizingStackPanel>
+                        <Label Content="{Binding Converter={StaticResource AuthorConvert}}" HorizontalAlignment="Right"/>
                     </Grid>
                 </DataTemplate>
             </ListBox.ItemTemplate>
         </ListBox>
         <VirtualizingStackPanel Grid.Row="1" Orientation="Horizontal" FlowDirection="RightToLeft">
-            <Button Margin="10" Content="{x:Static properties:Resources.Settings}" Style="{StaticResource MaterialDesignFlatButton}" Foreground="{DynamicResource MaterialDesignBody}" Command="{Binding SettingClick, Mode=OneTime}"/>
+            <Button IsEnabled="{Binding IsSelected.Value, Mode=OneWay}" Margin="10" Content="{x:Static properties:Resources.Settings}" Style="{StaticResource MaterialDesignFlatButton}" Foreground="{DynamicResource MaterialDesignBody}" Command="{Binding SettingClick, Mode=OneTime}"/>
+            <Button IsEnabled="{Binding IsSelected.Value, Mode=OneWay}" Margin="10" Content="{x:Static properties:Resources.UnloadPlugin}" Style="{StaticResource MaterialDesignFlatButton}" Foreground="{DynamicResource MaterialDesignBody}" Command="{Binding UnloadClick, Mode=OneTime}"/>
         </VirtualizingStackPanel>
     </Grid>
 </UserControl>

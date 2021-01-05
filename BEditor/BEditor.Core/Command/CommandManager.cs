@@ -117,15 +117,14 @@ namespace BEditor.Core.Command
                 Debug.WriteLine("if (!process) {...");
                 return;
             }
-
-            CanUndo = UndoStack.Count > 0;
-
+            
             try
             {
                 process = false;
                 command.Do();
 
                 UndoStack.Push(command);
+                CanUndo = UndoStack.Count > 0;
 
                 RedoStack.Clear();
                 CanRedo = RedoStack.Count > 0;

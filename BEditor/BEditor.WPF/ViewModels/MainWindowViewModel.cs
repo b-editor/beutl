@@ -31,20 +31,29 @@ using System.Windows;
 using BEditor.Core;
 using System.IO;
 using System.Text;
+using System.Threading;
+using BEditor.ViewModels.CreateDialog;
 
 namespace BEditor.ViewModels
 {
     public sealed class MainWindowViewModel
     {
+        private ShowHideState timelineState = ShowHideState.Show;
+        private ShowHideState propertyState = ShowHideState.Show;
+
         public static MainWindowViewModel Current { get; } = new();
 
         public ReactiveProperty<WriteableBitmap> PreviewImage { get; } = new();
         public ReactiveProperty<Brush> MainWindowColor { get; } = new();
+        public ReactiveProperty<GridLength> TimelineGrid { get; } = new(new GridLength(1, GridUnitType.Star));
+        public ReactiveCommand TimelineShowHide { get; } = new();
+        public ReactiveProperty<GridLength> PropertyGrid { get; } = new(new GridLength(425));
+        public ReactiveCommand PropertyShowHide { get; } = new();
 
         public ReactiveCommand PreviewStart { get; } = new();
-        public ReactiveCommand FramePlus { get; } = new();
-        public ReactiveCommand FrameMinus { get; } = new();
-        public ReactiveCommand FrameStart { get; } = new();
+        public ReactiveCommand FrameNext { get; } = new();
+        public ReactiveCommand FramePrevious { get; } = new();
+        public ReactiveCommand FrameTop { get; } = new();
         public ReactiveCommand FrameEnd { get; } = new();
 
 
@@ -62,36 +71,66 @@ namespace BEditor.ViewModels
             ProjectOpen.Subscribe(ProjectOpenCommand);
             ProjectClose.Subscribe(ProjectCloseCommand);
             ProjectCreate.Subscribe(ProjectCreateCommand);
+            ProjectAddScene.Subscribe(() => new SceneCreateDialog().ShowDialog());
+            ProjectAddClip.Subscribe(() =>
+            {
+                var dialog = new ClipCreateDialog()
+                {
+                    DataContext = new ClipCreateDialogViewModel()
+                    {
+                        Scene =
+                        {
+                            Value = AppData.Current.Project.PreviewScene
+                        }
+                    }
+                };
+
+                dialog.ShowDialog();
+            });
+            ProjectAddEffect.Subscribe(() =>
+            {
+                var dialog = new EffectAddDialog()
+                {
+                    DataContext = new EffectAddDialogViewModel()
+                    {
+                        Scene =
+                        {
+                            Value = AppData.Current.Project.PreviewScene
+                        },
+                        TargetClip =
+                        {
+                            Value = AppData.Current.Project.PreviewScene.SelectItem
+                        }
+                    }
+                };
+
+                dialog.ShowDialog();
+            });
             ClipRemoveCommand.Where(_ => AppData.Current.Project is not null)
                 .Select(_ => AppData.Current.Project.PreviewScene.SelectItem)
-                .Subscribe(clip => clip.Parent.CreateRemoveCommand(clip));
+                .Subscribe(clip => clip.Parent.CreateRemoveCommand(clip).Execute());
 
             SettingShow.Subscribe(SettingShowCommand);
 
             PreviewStart.Subscribe(ProjectPreviewStartCommand);
-            FramePlus.Where(_ => AppData.Current.Project is not null)
-                .Subscribe(_ => AppData.Current.Project.PreviewScene.PreviewFrame++);
+            FrameNext.Where(_ => AppData.Current.Project is not null).Subscribe(_ => AppData.Current.Project.PreviewScene.PreviewFrame++);
 
-            FrameMinus.Where(_ => AppData.Current.Project is not null)
-                .Subscribe(_ => AppData.Current.Project.PreviewScene.PreviewFrame--);
+            FramePrevious.Where(_ => AppData.Current.Project is not null).Subscribe(_ => AppData.Current.Project.PreviewScene.PreviewFrame--);
 
-            FrameStart.Where(_ => AppData.Current.Project is not null)
-                .Subscribe(_ => AppData.Current.Project.PreviewScene.PreviewFrame = 0);
+            FrameTop.Where(_ => AppData.Current.Project is not null).Subscribe(_ => AppData.Current.Project.PreviewScene.PreviewFrame = 0);
 
             FrameEnd.Where(_ => AppData.Current.Project is not null)
                 .Select(_ => AppData.Current.Project.PreviewScene)
                 .Subscribe(scene => scene.PreviewFrame = scene.TotalFrame);
 
-            UndoCommand.Where(_ => UndoIsEnabled.Value)
-                .Subscribe(_ =>
+            UndoCommand.Subscribe(_ =>
             {
                 CommandManager.Undo();
 
                 AppData.Current.Project.PreviewUpdate();
                 AppData.Current.AppStatus = Status.Edit;
             });
-            RedoCommand.Where(_ => RedoIsEnabled.Value)
-                .Subscribe(_ =>
+            RedoCommand.Subscribe(_ =>
             {
                 CommandManager.Redo();
 
@@ -120,6 +159,7 @@ namespace BEditor.ViewModels
 
             ClipboardCopy.Where(_ => AppData.Current.Project is not null)
                 .Select(_ => AppData.Current.Project.PreviewScene.SelectItem)
+                .Where(clip => clip is not null)
                 .Subscribe(clip =>
                 {
                     using var memory = new MemoryStream();
@@ -131,6 +171,7 @@ namespace BEditor.ViewModels
 
             ClipboardCut.Where(_ => AppData.Current.Project is not null)
                 .Select(_ => AppData.Current.Project.PreviewScene.SelectItem)
+                .Where(clip => clip is not null)
                 .Subscribe(clip =>
                 {
                     clip.Parent.CreateRemoveCommand(clip).Execute();
@@ -160,6 +201,33 @@ namespace BEditor.ViewModels
 
                     timeline.Scene.CreateAddCommand(clip).Execute();
                 });
+
+            TimelineShowHide.Subscribe(_ =>
+            {
+                if (timelineState is ShowHideState.Hide)
+                {
+                    TimelineGrid.Value = new(1, GridUnitType.Star);
+                    timelineState = ShowHideState.Show;
+                }
+                else if (timelineState is ShowHideState.Show)
+                {
+                    TimelineGrid.Value = new(0, GridUnitType.Star);
+                    timelineState = ShowHideState.Hide;
+                }
+            });
+            PropertyShowHide.Subscribe(_ =>
+            {
+                if (propertyState is ShowHideState.Hide)
+                {
+                    PropertyGrid.Value = new(425);
+                    propertyState = ShowHideState.Show;
+                }
+                else if (propertyState is ShowHideState.Show)
+                {
+                    PropertyGrid.Value = new(0);
+                    propertyState = ShowHideState.Hide;
+                }
+            });
         }
 
 
@@ -201,6 +269,9 @@ namespace BEditor.ViewModels
         public ReactiveCommand ProjectOpen { get; } = new();
         public ReactiveCommand ProjectClose { get; } = new();
         public ReactiveCommand ProjectCreate { get; } = new();
+        public ReactiveCommand ProjectAddScene { get; } = new();
+        public ReactiveCommand ProjectAddClip { get; } = new();
+        public ReactiveCommand ProjectAddEffect { get; } = new();
         public ReactiveCommand ClipboardCopy { get; } = new();
         public ReactiveCommand ClipboardCut { get; } = new();
         public ReactiveCommand ClipboardPaste { get; } = new();
@@ -226,29 +297,17 @@ namespace BEditor.ViewModels
 
             if (dialog.ShowDialog() == CommonFileDialogResult.Ok)
             {
-                App.Current.Dispatcher.Invoke(() =>
+                try
                 {
-                    var loading = new Loading();
-                    loading.IsIndeterminate.Value = true;
-
-                    var dialog1 = new NoneDialog(loading);
-                    dialog1.Show();
-
-                    try
-                    {
-                        AppData.Current.Project = new(dialog.FileName);
-                        AppData.Current.AppStatus = Status.Edit;
-                    }
-                    catch
-                    {
-                        Message.Snackbar(string.Format(Resources.FailedToLoad, "Project"));
-                    }
-
-                    dialog1.Close();
-                });
+                    AppData.Current.Project = new(dialog.FileName);
+                    AppData.Current.AppStatus = Status.Edit;
+                }
+                catch
+                {
+                    Debug.Assert(false);
+                    Message.Snackbar(string.Format(Resources.FailedToLoad, "Project"));
+                }
             }
-
-            Debug.WriteLine("ProjectOpened");
         }
         private static void ProjectCloseCommand()
         {
@@ -334,5 +393,12 @@ namespace BEditor.ViewModels
         }
 
         #endregion
+
+
+        enum ShowHideState : byte
+        {
+            Show,
+            Hide
+        }
     }
 }

@@ -74,8 +74,8 @@
         <KeyBinding Command="{Binding UndoCommand, Mode=OneTime}" Gesture="Ctrl+z"/>
         <KeyBinding Command="{Binding RedoCommand, Mode=OneTime}" Gesture="Ctrl+y"/>
         <KeyBinding Command="{Binding ClipRemoveCommand, Mode=OneWay}" Key="Delete"/>
-        <KeyBinding Command="{Binding FramePlus, Mode=OneWay}" Key="Right"/>
-        <KeyBinding Command="{Binding FrameMinus, Mode=OneWay}" Key="Left"/>
+        <KeyBinding Command="{Binding FrameNext, Mode=OneWay}" Key="Right"/>
+        <KeyBinding Command="{Binding FramePrevious, Mode=OneWay}" Key="Left"/>
     </Controls:MetroWindow.InputBindings>
 
     <!--#region メニュー-->
@@ -96,35 +96,94 @@
                             <MenuItem Header="{x:Static properties:Resources.Save_as}" Command="{Binding ProjectSaveAs, Mode=OneTime}" IsEnabled="{Binding ProjectIsOpened.Value, Mode=OneWay}"/>
                             <MenuItem Header="{x:Static properties:Resources.Close}" Command="{Binding ProjectClose, Mode=OneTime}" IsEnabled="{Binding ProjectIsOpened.Value, Mode=OneWay}"/>
                             <Separator Height="10"/>
-                            <MenuItem Header="{x:Static properties:Resources.Settings}" Command="{Binding SettingShow, Mode=OneTime}"/>
                         </ContextMenu>
                     </Button.ContextMenu>
                 </Button>
                 <Button Style="{StaticResource TitleButtonStyle}" Content="{x:Static properties:Resources.AccessEdit}">
                     <Button.ContextMenu>
                         <ContextMenu>
-                            <MenuItem/>
+                            <MenuItem
+                                Header="{x:Static properties:Resources.Undo}"
+                                IsEnabled="{Binding UndoIsEnabled.Value, Mode=OneWay}"
+                                Command="{Binding UndoCommand, Mode=OneTime}"/>
+                            <MenuItem
+                                Header="{x:Static properties:Resources.Redo}"
+                                IsEnabled="{Binding RedoIsEnabled.Value, Mode=OneWay}"
+                                Command="{Binding RedoCommand, Mode=OneTime}"/>
+                            <MenuItem
+                                Header="{x:Static properties:Resources.Remove}"
+                                IsEnabled="{Binding ProjectIsOpened.Value, Mode=OneWay}"
+                                Command="{Binding ClipRemoveCommand, Mode=OneTime}"/>
+                            <Separator Height="10"/>
+                            <MenuItem
+                                Header="{x:Static properties:Resources.Cut}"
+                                IsEnabled="{Binding ProjectIsOpened.Value, Mode=OneWay}"
+                                Command="{Binding ClipboardCut, Mode=OneTime}"/>
+                            <MenuItem
+                                Header="{x:Static properties:Resources.Copy}"
+                                IsEnabled="{Binding ProjectIsOpened.Value, Mode=OneWay}"
+                                Command="{Binding ClipboardCopy, Mode=OneTime}"/>
+                            <MenuItem
+                                Header="{x:Static properties:Resources.Paste}"
+                                IsEnabled="{Binding ProjectIsOpened.Value, Mode=OneWay}"
+                                Command="{Binding ClipboardPaste, Mode=OneTime}"/>
+                            <Separator Height="10"/>
+                            <MenuItem
+                                Header="{x:Static properties:Resources.PlayPause}"
+                                IsEnabled="{Binding ProjectIsOpened.Value, Mode=OneWay}"
+                                Command="{Binding PreviewStart, Mode=OneTime}"/>
+                            <MenuItem
+                                Header="{x:Static properties:Resources.MoveToTop}"
+                                IsEnabled="{Binding ProjectIsOpened.Value, Mode=OneWay}"
+                                Command="{Binding FrameTop, Mode=OneTime}"/>
+                            <MenuItem
+                                Header="{x:Static properties:Resources.MoveToEnd}"
+                                IsEnabled="{Binding ProjectIsOpened.Value, Mode=OneWay}"
+                                Command="{Binding FrameEnd, Mode=OneTime}"/>
+                            <MenuItem
+                                Header="{x:Static properties:Resources.MoveToPreviousFrame}"
+                                IsEnabled="{Binding ProjectIsOpened.Value, Mode=OneWay}"
+                                Command="{Binding FramePrevious, Mode=OneTime}"
+                                ToolTip="{x:Static properties:Resources.MoveToPreviousFrame}"/>
+                            <MenuItem
+                                Header="{x:Static properties:Resources.MoveToNextFrame}"
+                                IsEnabled="{Binding ProjectIsOpened.Value, Mode=OneWay}"
+                                Command="{Binding FrameNext, Mode=OneTime}"
+                                ToolTip="{x:Static properties:Resources.MoveToNextFrame}"/>
                         </ContextMenu>
                     </Button.ContextMenu>
                 </Button>
                 <Button Style="{StaticResource TitleButtonStyle}" Content="{x:Static properties:Resources.AccessView}">
                     <Button.ContextMenu>
                         <ContextMenu>
-                            <MenuItem/>
+                            <MenuItem
+                                Header="{x:Static properties:Resources.TimelineShowHide}"
+                                Command="{Binding TimelineShowHide, Mode=OneTime}"/>
+                            <MenuItem
+                                Header="{x:Static properties:Resources.PropertyShowHide}"
+                                Command="{Binding PropertyShowHide, Mode=OneTime}"/>
                         </ContextMenu>
                     </Button.ContextMenu>
                 </Button>
-                <Button Style="{StaticResource TitleButtonStyle}" Content="{x:Static properties:Resources.AccessProject}">
+                <Button Style="{StaticResource TitleButtonStyle}" Content="{x:Static properties:Resources.AccessProject}" Visibility="{Binding ProjectIsOpened.Value, Converter={StaticResource BooleanToVisibilityConverter}}">
                     <Button.ContextMenu>
                         <ContextMenu>
-                            <MenuItem/>
+                            <MenuItem
+                                Header="{x:Static properties:Resources.AddScene}"
+                                Command="{Binding ProjectAddScene, Mode=OneTime}"/>
+                            <MenuItem
+                                Header="{x:Static properties:Resources.AddClip}"
+                                Command="{Binding ProjectAddClip, Mode=OneTime}"/>
+                            <MenuItem
+                                Header="{x:Static properties:Resources.AddEffect}"
+                                Command="{Binding ProjectAddEffect, Mode=OneTime}"/>
                         </ContextMenu>
                     </Button.ContextMenu>
                 </Button>
                 <Button Style="{StaticResource TitleButtonStyle}" Content="{x:Static properties:Resources.AccessTool}">
                     <Button.ContextMenu>
                         <ContextMenu>
-                            <MenuItem/>
+                            <MenuItem Header="{x:Static properties:Resources.Settings}" Command="{Binding SettingShow, Mode=OneTime}"/>
                         </ContextMenu>
                     </Button.ContextMenu>
                 </Button>
@@ -146,10 +205,10 @@
             <RowDefinition Height="Auto"/>
             <RowDefinition Height="*"/>
             <RowDefinition Height="10"/>
-            <RowDefinition Height="*"/>
+            <RowDefinition Height="{Binding TimelineGrid.Value}"/>
         </Grid.RowDefinitions>
         <Grid.ColumnDefinitions>
-            <ColumnDefinition Width="425.373"/>
+            <ColumnDefinition Width="{Binding PropertyGrid.Value}"/>
             <ColumnDefinition Width="10"/>
             <ColumnDefinition Width="529*"/>
             <ColumnDefinition Width="10"/>
@@ -160,41 +219,72 @@
         <Grid Background="{DynamicResource MaterialDesignToolBarBackground}" Grid.ColumnSpan="5">
             <ToolBarTray>
                 <ToolBar ClipToBounds="False">
-                    <Button Padding="0,0,0,0" Margin="5,0,5,0" Command="{Binding ProjectCreate, Mode=OneTime}">
+                    <Button
+                        Padding="0,0,0,0"
+                        Margin="5,0,5,0"
+                        Command="{Binding ProjectCreate, Mode=OneTime}"
+                        ToolTip="{x:Static properties:Resources.Create_new}">
                         <md:PackIcon Kind="FilePlus" Width="20" Height="20"/>
                     </Button>
-                    <Button Padding="0,0,0,0" Margin="5,0,5,0" Command="{Binding ProjectOpen, Mode=OneTime}">
+                    <Button
+                        Padding="0,0,0,0"
+                        Margin="5,0,5,0"
+                        Command="{Binding ProjectOpen, Mode=OneTime}"
+                        ToolTip="{x:Static properties:Resources.Open}">
                         <md:PackIcon Kind="FolderOpen" Height="20" Width="20"/>
                     </Button>
-                    <Button Padding="0,0,0,0" Margin="10,0,5,0" Command="{Binding ProjectSave, Mode=OneTime}" IsEnabled="{Binding ProjectIsOpened.Value, Mode=OneWay}">
+                    <Button
+                        Padding="0,0,0,0"
+                        Margin="10,0,5,0"
+                        Command="{Binding ProjectSave, Mode=OneTime}"
+                        IsEnabled="{Binding ProjectIsOpened.Value, Mode=OneWay}"
+                        ToolTip="{x:Static properties:Resources.Save}">
                         <md:PackIcon Kind="ContentSave" Height="20" Width="20"/>
                     </Button>
-                    <Separator Margin="6,3,6,3" VerticalAlignment="Stretch"/>
-                    <Button Command="{Binding UndoCommand, Mode=OneTime}" Padding="0,0,0,0" Margin="5,0,5,0" IsEnabled="{Binding UndoIsEnabled.Value, Mode=OneWay}">
+                    <Separator
+                        Margin="6,3,6,3"
+                        VerticalAlignment="Stretch"/>
+                    <Button
+                        Command="{Binding UndoCommand, Mode=OneTime}"
+                        Padding="0,0,0,0"
+                        Margin="5,0,5,0"
+                        IsEnabled="{Binding UndoIsEnabled.Value, Mode=OneWay}"
+                        ToolTip="{x:Static properties:Resources.Undo}">
                         <md:PackIcon Kind="Undo" Width="18" Height="18"/>
                     </Button>
-                    <Button Padding="0,0,0,0" Margin="0,0,5,0">
+                    <Button
+                        Padding="0,0,0,0"
+                        Margin="0,0,5,0"
+                        IsEnabled="{Binding ProjectIsOpened.Value, Mode=OneWay}">
                         <md:PopupBox>
                             <md:PopupBox.ToggleContent>
                                 <md:PackIcon Kind="ChevronDown" Foreground="{DynamicResource MaterialDesignBody}" Height="18" Width="18"/>
                             </md:PopupBox.ToggleContent>
 
                             <ScrollViewer Width="250" Height="300">
-                            <ItemsControl ItemsSource="{Binding UnDoList, Mode=OneWay}">
-                                <ItemsControl.ItemTemplate>
-                                    <DataTemplate>
-                                        <TextBlock Text="{Binding}" Margin="8"/>
-                                    </DataTemplate>
-                                </ItemsControl.ItemTemplate>
-                            </ItemsControl>
-                                
+                                <ItemsControl ItemsSource="{Binding UnDoList, Mode=OneWay}">
+                                    <ItemsControl.ItemTemplate>
+                                        <DataTemplate>
+                                            <TextBlock Text="{Binding}" Margin="8"/>
+                                        </DataTemplate>
+                                    </ItemsControl.ItemTemplate>
+                                </ItemsControl>
+
                             </ScrollViewer>
                         </md:PopupBox>
                     </Button>
-                    <Button Command="{Binding RedoCommand, Mode=OneTime}" Padding="0,0,0,0" Margin="5,0,5,0" IsEnabled="{Binding RedoIsEnabled.Value, Mode=OneWay}">
+                    <Button
+                        Command="{Binding RedoCommand, Mode=OneTime}"
+                        Padding="0,0,0,0"
+                        Margin="5,0,5,0"
+                        IsEnabled="{Binding RedoIsEnabled.Value, Mode=OneWay}"
+                        ToolTip="{x:Static properties:Resources.Redo}">
                         <md:PackIcon Kind="Redo" Width="18" Height="18"/>
                     </Button>
-                    <Button  Padding="0,0,0,0" Margin="0,0,0,0">
+                    <Button
+                        Padding="0,0,0,0"
+                        Margin="0,0,0,0"
+                        IsEnabled="{Binding ProjectIsOpened.Value, Mode=OneWay}">
                         <md:PopupBox>
                             <md:PopupBox.ToggleContent>
                                 <md:PackIcon Kind="ChevronDown" Foreground="{DynamicResource MaterialDesignBody}" Height="18" Width="18"/>
@@ -202,16 +292,44 @@
 
                             <ScrollViewer Width="250" Height="300">
                                 <ItemsControl ItemsSource="{Binding ReDoList, Mode=OneWay}">
-                                <ItemsControl.ItemTemplate>
-                                    <DataTemplate>
-                                        <TextBlock Text="{Binding}" Margin="8"/>
-                                    </DataTemplate>
-                                </ItemsControl.ItemTemplate>
-                            </ItemsControl>
+                                    <ItemsControl.ItemTemplate>
+                                        <DataTemplate>
+                                            <TextBlock Text="{Binding}" Margin="8"/>
+                                        </DataTemplate>
+                                    </ItemsControl.ItemTemplate>
+                                </ItemsControl>
                             </ScrollViewer>
                         </md:PopupBox>
                     </Button>
-                    <Separator Margin="6,3,6,3" VerticalAlignment="Stretch"/>
+                    <Separator
+                        Margin="6,3,6,3"
+                        VerticalAlignment="Stretch"/>
+                    <Button
+                        Padding="0,0,0,0" Margin="5,0,5,0"
+                        Command="{Binding ClipboardCut, Mode=OneTime}"
+                        IsEnabled="{Binding ProjectIsOpened.Value, Mode=OneWay}"
+                        ToolTip="{x:Static properties:Resources.Cut}">
+                        <md:PackIcon Kind="ContentCut" Width="20" Height="20"/>
+                    </Button>
+                    <Button
+                        Padding="0,0,0,0"
+                        Margin="5,0,5,0"
+                        Command="{Binding ClipboardCopy, Mode=OneTime}"
+                        IsEnabled="{Binding ProjectIsOpened.Value, Mode=OneWay}"
+                        ToolTip="{x:Static properties:Resources.Copy}">
+                        <md:PackIcon Kind="ContentCopy" Width="20" Height="20"/>
+                    </Button>
+                    <Button
+                        Padding="0,0,0,0"
+                        Margin="5,0,5,0"
+                        Command="{Binding ClipboardPaste, Mode=OneTime}"
+                        IsEnabled="{Binding ProjectIsOpened.Value, Mode=OneWay}"
+                        ToolTip="{x:Static properties:Resources.Paste}">
+                        <md:PackIcon Kind="ContentPaste" Width="20" Height="20"/>
+                    </Button>
+                    <Separator
+                        Margin="6,3,6,3"
+                        VerticalAlignment="Stretch"/>
                     <ComboBox
                         IsEnabled="{Binding ProjectIsOpened.Value, Mode=OneWay}"
                         MinWidth="100"
@@ -289,11 +407,20 @@
                 <Slider
                     VerticalAlignment="Center"
                     Margin="10,0"
+                    IsEnabled="{Binding ProjectIsOpened.Value, Mode=OneWay}" 
                     Maximum="{Binding Source={x:Static model:AppData.Current}, Path=Project.PreviewScene.TotalFrame, Mode=OneWay, Converter={StaticResource FrameConverter}}"
                     Value="{Binding Source={x:Static model:AppData.Current}, Path=Project.PreviewScene.PreviewFrame, Mode=TwoWay, Converter={StaticResource FrameConverter}}"
                     Foreground="{Binding MainWindowColor.Value, Mode=OneWay}"/>
                 <VirtualizingStackPanel Orientation="Horizontal" VerticalAlignment="Stretch" Grid.Column="1">
-                    <Button Background="{x:Null}" BorderBrush="{x:Null}" Height="35" Width="35" Padding="0"  Command="{Binding FrameMinus, Mode=OneTime}">
+                    <Button
+                        IsEnabled="{Binding ProjectIsOpened.Value, Mode=OneWay}"
+                        Background="{x:Null}"
+                        BorderBrush="{x:Null}"
+                        Height="35"
+                        Width="35"
+                        Padding="0"
+                        Command="{Binding FramePrevious, Mode=OneTime}"
+                        ToolTip="{x:Static properties:Resources.MoveToPreviousFrame}">
                         <md:PackIcon Kind="StepForward" Foreground="{DynamicResource MaterialDesignBody}" Width="20" Height="20" HorizontalAlignment="Stretch" VerticalAlignment="Stretch" RenderTransformOrigin="0.5,0.5">
                             <md:PackIcon.RenderTransform>
                                 <TransformGroup>
@@ -305,7 +432,15 @@
                             </md:PackIcon.RenderTransform>
                         </md:PackIcon>
                     </Button>
-                    <Button Background="{x:Null}" BorderBrush="{x:Null}" Height="35" Width="35" Padding="0" Command="{Binding FrameStart, Mode=OneTime}">
+                    <Button
+                        IsEnabled="{Binding ProjectIsOpened.Value, Mode=OneWay}"
+                        Background="{x:Null}"
+                        BorderBrush="{x:Null}"
+                        Height="35"
+                        Width="35"
+                        Padding="0"
+                        Command="{Binding FrameTop, Mode=OneTime}"
+                        ToolTip="{x:Static properties:Resources.MoveToTop}">
                         <md:PackIcon Kind="SkipForward" Foreground="{DynamicResource MaterialDesignBody}" Width="20" Height="20" HorizontalAlignment="Stretch" VerticalAlignment="Stretch" RenderTransformOrigin="0.5,0.5">
                             <md:PackIcon.RenderTransform>
                                 <TransformGroup>
@@ -317,13 +452,37 @@
                             </md:PackIcon.RenderTransform>
                         </md:PackIcon>
                     </Button>
-                    <Button Background="{x:Null}" BorderBrush="{x:Null}" Height="35" Width="35" Padding="0" Command="{Binding PreviewStart, Mode=OneTime}">
+                    <Button
+                        IsEnabled="{Binding ProjectIsOpened.Value, Mode=OneWay}"
+                        Background="{x:Null}"
+                        BorderBrush="{x:Null}"
+                        Height="35"
+                        Width="35"
+                        Padding="0"
+                        Command="{Binding PreviewStart, Mode=OneTime}"
+                        ToolTip="{x:Static properties:Resources.PlayPause}">
                         <md:PackIcon Kind="{Binding AppStatus, Source={x:Static model:AppData.Current}, Converter={StaticResource AppStatusToPlayerIcon}, Mode=OneWay}" Foreground="{DynamicResource MaterialDesignBody}" Width="20" Height="20" HorizontalAlignment="Stretch" VerticalAlignment="Stretch"/>
                     </Button>
-                    <Button Background="{x:Null}" BorderBrush="{x:Null}" Height="35" Width="35" Padding="0" Command="{Binding FrameEnd, Mode=OneTime}">
+                    <Button
+                        IsEnabled="{Binding ProjectIsOpened.Value, Mode=OneWay}"
+                        Background="{x:Null}"
+                        BorderBrush="{x:Null}"
+                        Height="35"
+                        Width="35"
+                        Padding="0"
+                        Command="{Binding FrameEnd, Mode=OneTime}"
+                        ToolTip="{x:Static properties:Resources.MoveToEnd}">
                         <md:PackIcon Kind="SkipForward" Foreground="{DynamicResource MaterialDesignBody}" Width="20" Height="20" HorizontalAlignment="Stretch" VerticalAlignment="Stretch"/>
                     </Button>
-                    <Button Background="{x:Null}" BorderBrush="{x:Null}" Height="35" Width="35" Padding="0" Command="{Binding FramePlus, Mode=OneTime}">
+                    <Button
+                        IsEnabled="{Binding ProjectIsOpened.Value, Mode=OneWay}"
+                        Background="{x:Null}"
+                        BorderBrush="{x:Null}"
+                        Height="35"
+                        Width="35"
+                        Padding="0"
+                        Command="{Binding FrameNext, Mode=OneTime}"
+                        ToolTip="{x:Static properties:Resources.MoveToNextFrame}">
                         <md:PackIcon Kind="StepForward" Foreground="{DynamicResource MaterialDesignBody}" Width="20" Height="20" HorizontalAlignment="Stretch" VerticalAlignment="Stretch"/>
                     </Button>
                 </VirtualizingStackPanel>
@@ -331,7 +490,15 @@
             <!--#endregion-->
         </Grid>
 
-        <GridSplitter Height="10" HorizontalAlignment="Stretch" Background="Transparent" Foreground="Transparent" Grid.Row="2" Grid.Column="2" Grid.ColumnSpan="3" ShowsPreview="True"/>
+        <GridSplitter
+            Height="10"
+            HorizontalAlignment="Stretch"
+            Background="Transparent"
+            Foreground="Transparent"
+            Grid.Row="2"
+            Grid.Column="2"
+            Grid.ColumnSpan="3"
+            ShowsPreview="True"/>
 
         <!--#region タイムライン-->
         <md:Card Margin="5,0,10,10" Grid.Row="3" Grid.Column="1" Grid.ColumnSpan="4" UniformCornerRadius="0" IsEnabled="{Binding ProjectIsOpened.Value, Mode=OneWay}">

@@ -16,6 +16,7 @@ using Microsoft.Xaml.Behaviors;
 
 using Resource = BEditor.Core.Properties.Resources;
 using BEditor.Core.Data;
+using BEditor.Core.Command;
 
 namespace BEditor.Views.TimeLines
 {
@@ -48,6 +49,12 @@ namespace BEditor.Views.TimeLines
                 Delete.Header = deletemenu;
 
                 contextMenu.Items.Add(Delete);
+
+                Delete.Click += (_, _) =>
+                {
+                    scene.CreateRemoveLayerCommand(layer).Execute();
+                };
+
                 #endregion
 
                 #region
@@ -80,6 +87,8 @@ namespace BEditor.Views.TimeLines
                     {
                         Scene.HideLayer.Add(layer);
                     }
+
+                    Scene.Parent.PreviewUpdate();
                 };
 
                 if (Scene.HideLayer.Exists(x => x == layer))

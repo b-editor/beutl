@@ -12,6 +12,7 @@
   <PropertyGroup>
     <AppendTargetFrameworkToOutputPath>false</AppendTargetFrameworkToOutputPath>
     <AppendRuntimeIdentifierToOutputPath>false</AppendRuntimeIdentifierToOutputPath>
+    <Authors>indigo-san</Authors>
   </PropertyGroup>
   
   <ItemGroup>

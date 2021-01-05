@@ -171,6 +171,9 @@
   <data name="AddKeyframe" xml:space="preserve">
     <value>Add a keyframe</value>
   </data>
+  <data name="AddScene" xml:space="preserve">
+    <value>Add a scene</value>
+  </data>
   <data name="Adjust coordinates" xml:space="preserve">
     <value>Adjust coordinates</value>
   </data>
@@ -325,6 +328,9 @@ Do you want to perform the operation?</value>
   <data name="DirectionalLightSource" xml:space="preserve">
     <value>Directional Light Source</value>
   </data>
+  <data name="DisabledPlugins" xml:space="preserve">
+    <value>Disabled plugins</value>
+  </data>
   <data name="Disconnect" xml:space="preserve">
     <value>Disconnect</value>
   </data>
@@ -432,7 +438,7 @@ Please let the developer know.</value>
     <value>Install</value>
   </data>
   <data name="InstalledPlugins" xml:space="preserve">
-    <value>Installed plug-ins</value>
+    <value>Installed plugins</value>
   </data>
   <data name="Layer" xml:space="preserve">
     <value>Layer</value>
@@ -452,6 +458,9 @@ Please let the developer know.</value>
   <data name="Line" xml:space="preserve">
     <value>Line width</value>
   </data>
+  <data name="LoadPlugin" xml:space="preserve">
+    <value>Load this plugin next time</value>
+  </data>
   <data name="Material" xml:space="preserve">
     <value>Material</value>
   </data>
@@ -460,6 +469,18 @@ Please let the developer know.</value>
   </data>
   <data name="Monoc" xml:space="preserve">
     <value>Monochromatic</value>
+  </data>
+  <data name="MoveToEnd" xml:space="preserve">
+    <value>Move to end</value>
+  </data>
+  <data name="MoveToNextFrame" xml:space="preserve">
+    <value>Move to the next frame.</value>
+  </data>
+  <data name="MoveToPreviousFrame" xml:space="preserve">
+    <value>Move to previous frame</value>
+  </data>
+  <data name="MoveToTop" xml:space="preserve">
+    <value>Move to top</value>
   </data>
   <data name="MultiLayerization" xml:space="preserve">
     <value>Multi layerization</value>
@@ -491,11 +512,20 @@ Please let the developer know.</value>
   <data name="Paste" xml:space="preserve">
     <value>Paste</value>
   </data>
+  <data name="Pause" xml:space="preserve">
+    <value>Pause</value>
+  </data>
   <data name="Perspective" xml:space="preserve">
     <value>Perspective</value>
   </data>
+  <data name="Play" xml:space="preserve">
+    <value>Play</value>
+  </data>
   <data name="Playing" xml:space="preserve">
     <value>Playing</value>
+  </data>
+  <data name="PlayPause" xml:space="preserve">
+    <value>Play/Pause</value>
   </data>
   <data name="Plugins" xml:space="preserve">
     <value>Plugins</value>
@@ -512,11 +542,17 @@ Please let the developer know.</value>
   <data name="ProjectFilePath" xml:space="preserve">
     <value>The folder with project files</value>
   </data>
+  <data name="PropertyShowHide" xml:space="preserve">
+    <value>Show/hide property</value>
+  </data>
   <data name="Range" xml:space="preserve">
     <value>Range</value>
   </data>
   <data name="RangeAbove" xml:space="preserve">
     <value>Enter a value of {0} or greater</value>
+  </data>
+  <data name="Redo" xml:space="preserve">
+    <value>Redo</value>
   </data>
   <data name="Remove" xml:space="preserve">
     <value>Remove</value>
@@ -596,6 +632,9 @@ Please let the developer know.</value>
   <data name="TimeLine" xml:space="preserve">
     <value>TimeLine</value>
   </data>
+  <data name="TimelineShowHide" xml:space="preserve">
+    <value>Show/hide timeline</value>
+  </data>
   <data name="Tool" xml:space="preserve">
     <value>Tool</value>
   </data>
@@ -611,17 +650,23 @@ Please let the developer know.</value>
   <data name="TypeOfDrawPlus" xml:space="preserve">
     <value>Extended drawing</value>
   </data>
+  <data name="Undo" xml:space="preserve">
+    <value>Undo</value>
+  </data>
   <data name="Uninstall" xml:space="preserve">
     <value>Uninstall</value>
   </data>
   <data name="UninstallPlugin" xml:space="preserve">
     <value>Uninstall {0}</value>
   </data>
+  <data name="UnloadPlugin" xml:space="preserve">
+    <value>Don't load this plugin next time.</value>
+  </data>
   <data name="UseAutoBackup" xml:space="preserve">
     <value>Use automatic backups</value>
   </data>
   <data name="UseDarkMode" xml:space="preserve">
-    <value>Use dark mode (effective after restarting the application)</value>
+    <value>Use dark mode</value>
   </data>
   <data name="ValueIsNotValid" xml:space="preserve">
     <value>value is not valid</value>

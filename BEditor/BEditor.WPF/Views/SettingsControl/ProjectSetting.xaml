@@ -5,6 +5,8 @@
              xmlns:d="http://schemas.microsoft.com/expression/blend/2008" 
              xmlns:local="clr-namespace:BEditor.Views.SettingsControl"
              xmlns:data="clr-namespace:BEditor;assembly=BEditor.Settings"
+             xmlns:vm="clr-namespace:BEditor.ViewModels.SettingsControl"
+             xmlns:convert="clr-namespace:BEditor.ViewModels.Converters"
              xmlns:resource="clr-namespace:BEditor.Core.Properties;assembly=BEditor.Core"
              mc:Ignorable="d"
              d:DesignHeight="450" d:DesignWidth="800">
@@ -14,6 +16,19 @@
                 <CheckBox Margin="25,0,25,0" IsChecked="{Binding AutoBackUp, Source={x:Static data:Settings.Default}, Mode=TwoWay}" VerticalAlignment="Center"/>
                 <TextBlock Text="{x:Static resource:Resources.UseAutoBackup}" FontSize="13" VerticalAlignment="Center"/>
             </VirtualizingStackPanel>
+
+            <Grid>
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="Auto"/>
+                    <ColumnDefinition/>
+                </Grid.ColumnDefinitions>
+                <VirtualizingStackPanel>
+                    <Label Content="BackgroundColor" FontSize="13" Margin="25,0,25,0" VerticalAlignment="Center" Height="45" Padding="0,0,0,0" VerticalContentAlignment="Center"/>
+                </VirtualizingStackPanel>
+                <VirtualizingStackPanel Grid.Column="1">
+                    <TextBox Text="{Binding BackgroundColor, Mode=TwoWay, Source={x:Static data:Settings.Default}}" VerticalAlignment="Stretch" HorizontalAlignment="Right" Height="25"  Margin="0,10,25,10" Width="80"/>
+                </VirtualizingStackPanel>
+            </Grid>
         </VirtualizingStackPanel>
     </Grid>
 </UserControl>
