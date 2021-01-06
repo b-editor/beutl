@@ -20,6 +20,7 @@ using BEditor.Core.Data.Primitive.Properties;
 using BEditor.Core.Data;
 using BEditor.Core.Data.Control;
 using Reactive.Bindings.Extensions;
+using BEditor.WPF.Controls;
 
 namespace BEditor.Views.TimeLines
 {

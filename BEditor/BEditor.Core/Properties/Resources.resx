@@ -470,6 +470,9 @@ Please let the developer know.</value>
   <data name="Monoc" xml:space="preserve">
     <value>Monochromatic</value>
   </data>
+  <data name="MostRecentlyUsedList" xml:space="preserve">
+    <value>MostRecentlyUsedList</value>
+  </data>
   <data name="MoveToEnd" xml:space="preserve">
     <value>Move to end</value>
   </data>
@@ -499,6 +502,9 @@ Please let the developer know.</value>
   </data>
   <data name="Open" xml:space="preserve">
     <value>Open</value>
+  </data>
+  <data name="OpenThisRepository" xml:space="preserve">
+    <value>Open the repository for this software</value>
   </data>
   <data name="Others" xml:space="preserve">
     <value>Others</value>
@@ -584,6 +590,9 @@ Please let the developer know.</value>
   <data name="Scenes" xml:space="preserve">
     <value>Scenes</value>
   </data>
+  <data name="SendFeedback" xml:space="preserve">
+    <value>Send feedback(Open an Issue on GitHub)</value>
+  </data>
   <data name="Separate" xml:space="preserve">
     <value>Separate</value>
   </data>
@@ -595,6 +604,9 @@ Please let the developer know.</value>
   </data>
   <data name="Show" xml:space="preserve">
     <value>Show</value>
+  </data>
+  <data name="Shutdown" xml:space="preserve">
+    <value>Shutdown</value>
   </data>
   <data name="Size" xml:space="preserve">
     <value>Size</value>

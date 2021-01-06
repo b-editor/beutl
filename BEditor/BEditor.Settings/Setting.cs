@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.Collections.ObjectModel;
 using System.ComponentModel;
 using System.IO;
+using System.Linq;
 using System.Runtime.InteropServices;
 using System.Runtime.Serialization;
 
@@ -32,6 +33,7 @@ namespace BEditor
         private ObservableCollection<string>? disablePlugins;
         private ObservableCollection<string>? includeFonts;
         private string? backgroundColor;
+        private ObservableCollection<string>? mostRecentlyUsedList;
 
         #endregion
 
@@ -109,6 +111,12 @@ namespace BEditor
         {
             get => disablePlugins ??= new();
             set => disablePlugins = value;
+        }
+        [DataMember]
+        public ObservableCollection<string> MostRecentlyUsedList
+        {
+            get => mostRecentlyUsedList ??= new();
+            private set => mostRecentlyUsedList = new(value.Where(file => File.Exists(file)));
         }
         [DataMember]
         public ObservableCollection<string> IncludeFontDir

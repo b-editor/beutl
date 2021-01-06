@@ -51,7 +51,15 @@
   </ItemGroup>
 
   <ItemGroup>
+    <Compile Remove="Views\CustomControl\CustomTreeView.xaml.cs" />
+  </ItemGroup>
+
+  <ItemGroup>
     <None Remove="icon_alpha.ico" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <Page Remove="Views\CustomControl\CustomTreeView.xaml" />
   </ItemGroup>
 
   <ItemGroup>
@@ -75,41 +83,15 @@
   <ItemGroup>
     <ProjectReference Include="..\BEditor.Core\BEditor.Core.csproj" />
     <ProjectReference Include="..\BEditor.Settings\BEditor.Settings.csproj" />
+    <ProjectReference Include="..\BEditor.WPF.Controls\BEditor.WPF.Controls.csproj" />
   </ItemGroup>
 
   <ItemGroup>
-    <Compile Update="Views\PropertyControl\CheckBox.xaml.cs">
-      <SubType>Code</SubType>
-    </Compile>
-    <Compile Update="Views\PropertyControl\FileControl.xaml.cs">
-      <SubType>Code</SubType>
-    </Compile>
-    <Compile Update="Views\PropertyControl\ColorPicker.xaml.cs">
-      <SubType>Code</SubType>
-    </Compile>
-    <Compile Update="Views\PropertyControl\SelectorControl.xaml.cs">
-      <SubType>Code</SubType>
-    </Compile>
     <Compile Update="Properties\Resources.ja-JP.Designer.cs">
       <DesignTime>True</DesignTime>
       <AutoGen>True</AutoGen>
       <DependentUpon>Resources.ja-JP.resx</DependentUpon>
     </Compile>
-  </ItemGroup>
-
-  <ItemGroup>
-    <Page Update="Views\PropertyControl\CheckBox.xaml">
-      <SubType>Designer</SubType>
-    </Page>
-    <Page Update="Views\PropertyControl\FileControl.xaml">
-      <SubType>Designer</SubType>
-    </Page>
-    <Page Update="Views\PropertyControl\ColorPicker.xaml">
-      <SubType>Designer</SubType>
-    </Page>
-    <Page Update="Views\PropertyControl\SelectorControl.xaml">
-      <SubType>Designer</SubType>
-    </Page>
   </ItemGroup>
 
   <ItemGroup>

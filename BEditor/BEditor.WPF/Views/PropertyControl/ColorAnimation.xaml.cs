@@ -14,6 +14,7 @@ using BEditor.Core.Data;
 using BEditor.Core.Data.Property;
 using BEditor.Core.Data.Primitive.Properties;
 using BEditor.Drawing;
+using BEditor.WPF.Controls;
 
 namespace BEditor.Views.PropertyControl
 {

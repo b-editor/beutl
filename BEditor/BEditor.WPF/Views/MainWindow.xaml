@@ -96,6 +96,9 @@
                             <MenuItem Header="{x:Static properties:Resources.Save_as}" Command="{Binding ProjectSaveAs, Mode=OneTime}" IsEnabled="{Binding ProjectIsOpened.Value, Mode=OneWay}"/>
                             <MenuItem Header="{x:Static properties:Resources.Close}" Command="{Binding ProjectClose, Mode=OneTime}" IsEnabled="{Binding ProjectIsOpened.Value, Mode=OneWay}"/>
                             <Separator Height="10"/>
+                            <MenuItem Header="{x:Static properties:Resources.MostRecentlyUsedList}" x:Name="UsedFiles"/>
+                            <Separator Height="10"/>
+                            <MenuItem Header="{x:Static properties:Resources.Shutdown}" Command="{Binding Shutdown, Mode=OneTime}"/>
                         </ContextMenu>
                     </Button.ContextMenu>
                 </Button>
@@ -192,6 +195,14 @@
                         <ContextMenu>
                             <MenuItem Header="{x:Static properties:Resources.VideoOutput}" Height="30" Command="{Binding OutputVideo,Mode=OneTime}"/>
                             <MenuItem Header="{x:Static properties:Resources.ImageOutput}" Command="{Binding OutputImage, Mode=OneTime}"/>
+                        </ContextMenu>
+                    </Button.ContextMenu>
+                </Button>
+                <Button Style="{StaticResource TitleButtonStyle}" Content="{x:Static properties:Resources.AccessHelp}">
+                    <Button.ContextMenu>
+                        <ContextMenu>
+                            <MenuItem Header="{x:Static properties:Resources.SendFeedback}" Height="30" Command="{Binding SendFeedback,Mode=OneTime}"/>
+                            <MenuItem Header="{x:Static properties:Resources.OpenThisRepository}" Height="30" Command="{Binding OpenThisRepository,Mode=OneTime}"/>
                         </ContextMenu>
                     </Button.ContextMenu>
                 </Button>

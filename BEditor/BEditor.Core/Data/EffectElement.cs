@@ -279,8 +279,6 @@ namespace BEditor.Core.Data
 
                 this.data = effect.Parent;
                 if (!(data.Effect[0] as ObjectElement).EffectFilter(effect)) throw new NotSupportedException();
-
-                effect.Loaded();
             }
             /// <summary>
             /// <see cref="AddCommand"/> Initialize a new instance of the class.
@@ -297,8 +295,6 @@ namespace BEditor.Core.Data
                 this.data = clip;
                 effect.Parent = clip;
                 if (!(data.Effect[0] as ObjectElement).EffectFilter(effect)) throw new NotSupportedException();
-
-                effect.Loaded();
             }
 
             /// <inheritdoc/>

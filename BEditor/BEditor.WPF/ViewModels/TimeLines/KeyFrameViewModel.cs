@@ -14,7 +14,7 @@ namespace BEditor.ViewModels.TimeLines
 {
     public class KeyFrameViewModel
     {
-        public double TrackHeight => Setting.ClipHeight;
+        public double TrackHeight => Setting.ClipHeight + 1;
         public EaseProperty EaseProperty { get; }
 
         public KeyFrameViewModel(EaseProperty easeProperty)

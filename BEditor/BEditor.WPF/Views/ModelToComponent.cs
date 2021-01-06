@@ -19,6 +19,10 @@ using BEditor.Core.Data.Control;
 using BEditor.Core.Data;
 using BEditor.Core.Data.Primitive.Components;
 using BEditor.Views.PropertyControl;
+using BEditor.WPF.Controls;
+using BEditor.ViewModels.PropertyControl;
+using BEditor.ViewModels.Converters;
+using CustomTreeView = BEditor.WPF.Controls.ExpandTree;
 
 namespace BEditor.Views
 {
@@ -27,40 +31,128 @@ namespace BEditor.Views
         public static List<PropertyViewBuilder> PropertyViewBuilders { get; } = new List<PropertyViewBuilder>();
         public static List<KeyFrameViewBuilder> KeyFrameViewBuilders { get; } = new List<KeyFrameViewBuilder>();
 
+        private static readonly IMultiValueConverter HeaderConverter = new PropertyHeaderTextConverter();
+        private static readonly Binding HeaderBinding = new("Metadata.Value.Name") { Mode = BindingMode.OneTime };
+        private static readonly Binding ClipNameBinding = new("Property.Parent.Name") { Mode = BindingMode.OneTime };
+        private static readonly Binding ClipTextBinding = new("Property.Parent.Parent.LabelText") { Mode = BindingMode.OneWay };
+        private static readonly Binding PropertyIsCheckedBinding = new("Property.IsChecked") { Mode = BindingMode.OneWay };
+        private static readonly Binding PropertyTextBinding = new("Property.Text") { Mode = BindingMode.OneWay };
+        private static readonly Binding PropertyFileBinding = new("Property.File") { Mode = BindingMode.OneWay };
+        private static readonly Binding PropertyFolderBinding = new("Property.Folder") { Mode = BindingMode.OneWay };
+        private static readonly Binding PropertyIndexBinding = new("Property.Index") { Mode = BindingMode.OneWay };
+        private static readonly Binding PropertySelectBinding = new("Property.Select") { Mode = BindingMode.OneWay };
+        private static readonly Binding PropertyValueBinding = new("Property.Value") { Mode = BindingMode.OneWay };
+        private static readonly Binding ItemsSourcePropertyBinding = new("Metadata.Value.ItemSource") { Mode = BindingMode.OneWay };
+        private static readonly Binding DisplayMemberPathBinding = new("Metadata.Value.MemberPath") { Mode = BindingMode.OneTime };
+        private static readonly Binding BrushBinding = new("Brush") { Mode = BindingMode.OneWay };
+        private static readonly Binding OpenDialogBinding = new("OpenDialog") { Mode = BindingMode.OneTime };
+        private static readonly Binding CommandBinding = new("Command") { Mode = BindingMode.OneTime };
+        private static readonly Binding ResetBinding = new("Reset") { Mode = BindingMode.OneTime };
+        private static readonly Binding BindBinding = new("Bind") { Mode = BindingMode.OneTime };
+        private static readonly Binding GotFocusBinding = new("GotFocus") { Mode = BindingMode.OneTime };
+        private static readonly Binding LostFocusBinding = new("LostFocus") { Mode = BindingMode.OneTime };
+        private static readonly Binding TextChangedBinding = new("TextChanged") { Mode = BindingMode.OneTime };
+        private static readonly Binding PreviewMouseWheelBinding = new("PreviewMouseWheel") { Mode = BindingMode.OneTime };
+        private static readonly MultiBinding TooltipBinding = new()
+        {
+            Converter = HeaderConverter,
+            Bindings =
+            {
+                HeaderBinding,
+                ClipNameBinding,
+                ClipTextBinding,
+            }
+        };
+
+
         static ModelToComponent()
         {
 
             #region CreatePropertyView
+            // CheckProperty
             PropertyViewBuilders.Add(new()
             {
                 PropertyType = typeof(CheckProperty),
-                CreateFunc = (elm) => new PropertyControls.CheckBox(elm as CheckProperty)
+                CreateFunc = (elm) =>
+                {
+                    var view = new CheckPropertyView()
+                    {
+                        DataContext = new CheckPropertyViewModel((CheckProperty)elm)
+                    };
+                    
+                    view.SetBinding(BasePropertyView.HeaderProperty, HeaderBinding);
+                    view.SetBinding(CheckPropertyView.IsCheckedProperty, PropertyIsCheckedBinding);
+                    view.SetBinding(CheckPropertyView.CheckCommandProperty, CommandBinding);
+                    view.SetBinding(BasePropertyView.ResetCommandProperty, ResetBinding);
+                    view.SetBinding(BasePropertyView.BindCommandProperty, BindBinding);
+
+                    view.SetBinding(FrameworkElement.ToolTipProperty, TooltipBinding);
+
+                    return view;
+                }
             });
+            // ColorAnimation
             PropertyViewBuilders.Add(new()
             {
                 PropertyType = typeof(ColorAnimationProperty),
                 CreateFunc = (elm) => new PropertyControl.ColorAnimation(elm as ColorAnimationProperty)
             });
+            // ColorProperty
             PropertyViewBuilders.Add(new()
             {
                 PropertyType = typeof(ColorProperty),
-                CreateFunc = (elm) => new PropertyControls.ColorPicker(elm as ColorProperty)
+                CreateFunc = (elm) =>
+                {
+                    var view = new ColorPropertyView()
+                    {
+                        DataContext = new ColorPickerViewModel((ColorProperty)elm)
+                    };
+
+                    view.SetBinding(BasePropertyView.HeaderProperty, HeaderBinding);
+                    view.SetBinding(ColorPropertyView.ColorProperty, BrushBinding);
+                    view.SetBinding(ColorPropertyView.ClickCommandProperty, OpenDialogBinding);
+                    view.SetBinding(BasePropertyView.ResetCommandProperty, ResetBinding);
+                    view.SetBinding(BasePropertyView.BindCommandProperty, BindBinding);
+
+                    view.SetBinding(FrameworkElement.ToolTipProperty, TooltipBinding);
+
+                    return view;
+                }
             });
+            // DocumentProperty
             PropertyViewBuilders.Add(new()
             {
                 PropertyType = typeof(DocumentProperty),
-                CreateFunc = (elm) => new Document(elm as DocumentProperty)
+                CreateFunc = (elm) =>
+                {
+                    var view = new DocumentPropertyView()
+                    {
+                        DataContext = new DocumentPropertyViewModel((DocumentProperty)elm)
+                    };
+
+                    view.SetBinding(BasePropertyView.ResetCommandProperty, ResetBinding);
+                    view.SetBinding(BasePropertyView.BindCommandProperty, BindBinding);
+                    view.SetBinding(DocumentPropertyView.TextProperty, PropertyTextBinding);
+                    view.SetBinding(DocumentPropertyView.GotFocusCommandProperty, GotFocusBinding);
+                    view.SetBinding(DocumentPropertyView.LostFocusCommandProperty, LostFocusBinding);
+                    view.SetBinding(DocumentPropertyView.TextChangedCommandProperty, TextChangedBinding);
+
+                    return view;
+                }
             });
+            // EaseProperty
             PropertyViewBuilders.Add(new()
             {
                 PropertyType = typeof(EaseProperty),
                 CreateFunc = (elm) => new EaseControl(elm as EaseProperty)
             });
+            // DialogProperty
             PropertyViewBuilders.Add(new()
             {
                 PropertyType = typeof(DialogProperty),
                 CreateFunc = (elm) => new DialogControl(elm as DialogProperty)
             });
+            // ExpandGroup
             PropertyViewBuilders.Add(new()
             {
                 PropertyType = typeof(ExpandGroup),
@@ -101,16 +193,51 @@ namespace BEditor.Views
                     return _settingcontrol;
                 }
             });
+            // FileProperty
             PropertyViewBuilders.Add(new()
             {
                 PropertyType = typeof(FileProperty),
-                CreateFunc = (elm) => new FileControl(elm as FileProperty)
+                CreateFunc = (elm) =>
+                {
+                    var view = new FilePropertyView()
+                    {
+                        DataContext = new FilePropertyViewModel((FileProperty)elm)
+                    };
+
+                    view.SetBinding(BasePropertyView.HeaderProperty, HeaderBinding);
+                    view.SetBinding(BasePropertyView.ResetCommandProperty, ResetBinding);
+                    view.SetBinding(BasePropertyView.BindCommandProperty, BindBinding);
+                    view.SetBinding(FrameworkElement.ToolTipProperty, TooltipBinding);
+
+                    view.SetBinding(FilePropertyView.FileProperty, PropertyFileBinding);
+                    view.SetBinding(FilePropertyView.OpenFileCommandProperty, CommandBinding);
+
+                    return view;
+                }
             });
+            // FontProperty
             PropertyViewBuilders.Add(new()
             {
                 PropertyType = typeof(FontProperty),
-                CreateFunc = (elm) => new SelectorControl(elm as FontProperty)
+                CreateFunc = (elm) =>
+                {
+                    var view = new FontPropertyView()
+                    {
+                        DataContext = new FontPropertyViewModel((FontProperty)elm)
+                    };
+
+                    view.SetBinding(BasePropertyView.HeaderProperty, HeaderBinding);
+                    view.SetBinding(BasePropertyView.ResetCommandProperty, ResetBinding);
+                    view.SetBinding(FrameworkElement.ToolTipProperty, TooltipBinding);
+
+                    view.SetBinding(FontPropertyView.ItemsSourceProperty, ItemsSourcePropertyBinding);
+                    view.SetBinding(FontPropertyView.CommandProperty, CommandBinding);
+                    view.SetBinding(FontPropertyView.SelectedItemProperty, PropertySelectBinding);
+
+                    return view;
+                }
             });
+            // Group
             PropertyViewBuilders.Add(new()
             {
                 PropertyType = typeof(Group),
@@ -132,49 +259,150 @@ namespace BEditor.Views
                     return stack;
                 }
             });
+            // SelectorProperty
             PropertyViewBuilders.Add(new()
             {
                 PropertyType = typeof(SelectorProperty),
-                CreateFunc = (elm) => new SelectorControl(elm as SelectorProperty)
+                CreateFunc = (elm) =>
+                {
+                    var view = new SelectorPropertyView()
+                    {
+                        DataContext = new SelectorPropertyViewModel((SelectorProperty)elm)
+                    };
+
+                    view.SetBinding(BasePropertyView.HeaderProperty, HeaderBinding);
+                    view.SetBinding(BasePropertyView.ResetCommandProperty, ResetBinding);
+                    view.SetBinding(BasePropertyView.BindCommandProperty, BindBinding);
+                    view.SetBinding(FrameworkElement.ToolTipProperty, TooltipBinding);
+
+                    view.SetBinding(SelectorPropertyView.ItemsSourceProperty, ItemsSourcePropertyBinding);
+                    view.SetBinding(SelectorPropertyView.CommandProperty, CommandBinding);
+                    view.SetBinding(SelectorPropertyView.SelectedIndexProperty, PropertyIndexBinding);
+                    view.SetBinding(SelectorPropertyView.DisplayMemberPathProperty, DisplayMemberPathBinding);
+
+                    return view;
+                }
             });
+            // ValueProperty
             PropertyViewBuilders.Add(new()
             {
                 PropertyType = typeof(ValueProperty),
-                CreateFunc = (elm) => new ValueControl(elm as ValueProperty)
+                CreateFunc = (elm) =>
+                {
+                    var view = new ValuePropertyView()
+                    {
+                        DataContext = new ValuePropertyViewModel((ValueProperty)elm)
+                    };
+
+                    view.SetBinding(BasePropertyView.HeaderProperty, HeaderBinding);
+                    view.SetBinding(BasePropertyView.ResetCommandProperty, ResetBinding);
+                    view.SetBinding(BasePropertyView.BindCommandProperty, BindBinding);
+                    view.SetBinding(FrameworkElement.ToolTipProperty, TooltipBinding);
+
+                    view.SetBinding(ValuePropertyView.ValueProperty, PropertyValueBinding);
+                    view.SetBinding(ValuePropertyView.GotFocusCommandProperty, GotFocusBinding);
+                    view.SetBinding(ValuePropertyView.LostFocusCommandProperty, LostFocusBinding);
+                    view.SetBinding(ValuePropertyView.PreviewMouseWheelCommandProperty, PreviewMouseWheelBinding);
+                    view.SetBinding(ValuePropertyView.KeyDownCommandProperty, TextChangedBinding);
+
+                    return view;
+                }
             });
+            // TextProperty
             PropertyViewBuilders.Add(new()
             {
                 PropertyType = typeof(TextProperty),
-                CreateFunc = (elm) => new TextControl(elm as TextProperty)
+                CreateFunc = (elm) =>
+                {
+                    var view = new TextPropertyView()
+                    {
+                        DataContext = new TextPropertyViewModel((TextProperty)elm)
+                    };
+
+                    view.SetBinding(BasePropertyView.HeaderProperty, HeaderBinding);
+                    view.SetBinding(BasePropertyView.ResetCommandProperty, ResetBinding);
+                    view.SetBinding(BasePropertyView.BindCommandProperty, BindBinding);
+                    view.SetBinding(FrameworkElement.ToolTipProperty, TooltipBinding);
+
+                    view.SetBinding(TextPropertyView.TextProperty, PropertyValueBinding);
+                    view.SetBinding(TextPropertyView.GotFocusCommandProperty, GotFocusBinding);
+                    view.SetBinding(TextPropertyView.LostFocusCommandProperty, LostFocusBinding);
+                    view.SetBinding(TextPropertyView.TextChangedCommandProperty, TextChangedBinding);
+
+                    return view;
+                }
             });
+            // ButtonComponent
             PropertyViewBuilders.Add(new()
             {
                 PropertyType = typeof(ButtonComponent),
-                CreateFunc = (elm) => new ButtonControl(elm as ButtonComponent)
+                CreateFunc = (elm) =>
+                {
+                    var view = new ButtonComponentView()
+                    {
+                        DataContext = new ButtonComponentViewModel((ButtonComponent)elm)
+                    };
+
+                    view.SetBinding(ButtonComponentView.TextProperty, HeaderBinding);
+                    view.SetBinding(ButtonComponentView.CommandProperty, CommandBinding);
+
+                    return view;
+                }
             });
+            // FolderProperty
             PropertyViewBuilders.Add(new()
             {
                 PropertyType = typeof(FolderProperty),
-                CreateFunc = elm => new FolderControl(elm as FolderProperty)
+                CreateFunc = elm =>
+                {
+                    var view = new FolderPropertyView()
+                    {
+                        DataContext = new FolderPropertyViewModel((FolderProperty)elm)
+                    };
+
+                    view.SetBinding(BasePropertyView.HeaderProperty, HeaderBinding);
+                    view.SetBinding(BasePropertyView.ResetCommandProperty, ResetBinding);
+                    view.SetBinding(BasePropertyView.BindCommandProperty, BindBinding);
+                    view.SetBinding(FrameworkElement.ToolTipProperty, TooltipBinding);
+
+                    view.SetBinding(FolderPropertyView.FolderProperty, PropertyFolderBinding);
+                    view.SetBinding(FolderPropertyView.OpenFolderCommandProperty, CommandBinding);
+
+                    return view;
+                }
             });
+            // LabelComponent
             PropertyViewBuilders.Add(new()
             {
                 PropertyType = typeof(LabelComponent),
-                CreateFunc = elm => new LabelControl(elm as LabelComponent)
+                CreateFunc = elm =>
+                {
+                    var view = new LabelComponentView()
+                    {
+                        DataContext = elm
+                    };
+
+                    view.SetBinding(LabelComponentView.TextProperty, "Text");
+
+                    return view;
+                }
             });
             #endregion
 
             #region CreateKeyFrameView
+            // EaseProperty
             KeyFrameViewBuilders.Add(new()
             {
                 PropertyType = typeof(EaseProperty),
                 CreateFunc = (elm) => new KeyFrame(elm.GetParent3(), elm as EaseProperty)
             });
+            // ColorAnimation
             KeyFrameViewBuilders.Add(new()
             {
                 PropertyType = typeof(ColorAnimationProperty),
                 CreateFunc = (elm) => new TimeLines.ColorAnimation(elm as ColorAnimationProperty)
             });
+            // ExpandGroup
             KeyFrameViewBuilders.Add(new()
             {
                 PropertyType = typeof(ExpandGroup),
@@ -185,7 +413,7 @@ namespace BEditor.Views
                     var expander = new CustomTreeView()
                     {
                         Header = group.PropertyMetadata.Name,
-                        HeaderHeight = (float)(Setting.ClipHeight + 1),
+                        HeaderHeight = Setting.ClipHeight + 1,
                         TreeStair = 1
                     };
 
@@ -216,6 +444,7 @@ namespace BEditor.Views
                     return expander;
                 }
             });
+            // Group
             KeyFrameViewBuilders.Add(new()
             {
                 PropertyType = typeof(Group),
@@ -342,15 +571,14 @@ namespace BEditor.Views
         {
             if (!effect.ComponentData.ContainsKey("GetKeyFrame"))
             {
-                var keyFrame = new CustomTreeView() { HeaderHeight = (float)(Setting.ClipHeight + 1) };
+                var keyFrame = new CustomTreeView() { HeaderHeight = Setting.ClipHeight + 1 };
 
-                VirtualizingStackPanel stack = new VirtualizingStackPanel();
+                var stack = new VirtualizingStackPanel();
                 VirtualizingPanel.SetIsVirtualizing(stack, true);
                 VirtualizingPanel.SetVirtualizationMode(stack, VirtualizationMode.Recycling);
 
                 keyFrame.Content = stack;
 
-                //Get毎にnewされると非効率なのでローカルに置く
                 var binding = new Binding("ActualWidth") { Mode = BindingMode.OneWay, Source = keyFrame };
 
                 foreach (var item in effect.Children)

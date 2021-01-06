@@ -94,6 +94,11 @@ namespace BEditor.ViewModels.CreateDialog
             AppData.Current.AppStatus = Status.Edit;
 
             Settings.Default.LastTimeNum++;
+            if (!Settings.Default.MostRecentlyUsedList.Contains(project.Filename))
+            {
+                Settings.Default.MostRecentlyUsedList.Add(project.Filename);
+            }
+
             Settings.Default.Save();
         }
     }

@@ -1098,6 +1098,15 @@ namespace BEditor.Core.Properties {
         }
         
         /// <summary>
+        ///   MostRecentlyUsedList に類似しているローカライズされた文字列を検索します。
+        /// </summary>
+        public static string MostRecentlyUsedList {
+            get {
+                return ResourceManager.GetString("MostRecentlyUsedList", resourceCulture);
+            }
+        }
+        
+        /// <summary>
         ///   Move to end に類似しているローカライズされた文字列を検索します。
         /// </summary>
         public static string MoveToEnd {
@@ -1184,6 +1193,15 @@ namespace BEditor.Core.Properties {
         public static string Open {
             get {
                 return ResourceManager.GetString("Open", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Open the repository for this software に類似しているローカライズされた文字列を検索します。
+        /// </summary>
+        public static string OpenThisRepository {
+            get {
+                return ResourceManager.GetString("OpenThisRepository", resourceCulture);
             }
         }
         
@@ -1440,6 +1458,15 @@ namespace BEditor.Core.Properties {
         }
         
         /// <summary>
+        ///   Send feedback(Open an Issue on GitHub) に類似しているローカライズされた文字列を検索します。
+        /// </summary>
+        public static string SendFeedback {
+            get {
+                return ResourceManager.GetString("SendFeedback", resourceCulture);
+            }
+        }
+        
+        /// <summary>
         ///   Separate に類似しているローカライズされた文字列を検索します。
         /// </summary>
         public static string Separate {
@@ -1472,6 +1499,15 @@ namespace BEditor.Core.Properties {
         public static string Show {
             get {
                 return ResourceManager.GetString("Show", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Shutdown に類似しているローカライズされた文字列を検索します。
+        /// </summary>
+        public static string Shutdown {
+            get {
+                return ResourceManager.GetString("Shutdown", resourceCulture);
             }
         }
         

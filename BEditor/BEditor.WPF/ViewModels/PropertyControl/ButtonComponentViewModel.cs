@@ -18,15 +18,15 @@ namespace BEditor.ViewModels.PropertyControl
     {
         public ButtonComponentViewModel(ButtonComponent button)
         {
-            Component = button;
+            Property = button;
             Metadata = button.ObserveProperty(p => p.PropertyMetadata)
                 .ToReadOnlyReactiveProperty();
 
-            ClickCommand.Subscribe(() => Component.Execute());
+            Command.Subscribe(() => Property.Execute());
         }
 
         public ReadOnlyReactiveProperty<PropertyElementMetadata> Metadata { get; }
-        public ButtonComponent Component { get; }
-        public ReactiveCommand ClickCommand { get; } = new();
+        public ButtonComponent Property { get; }
+        public ReactiveCommand Command { get; } = new();
     }
 }

@@ -6,6 +6,7 @@
         xmlns:Controls="clr-namespace:MahApps.Metro.Controls;assembly=MahApps.Metro"
         xmlns:md="http://materialdesigninxaml.net/winfx/xaml/themes"
         xmlns:local="clr-namespace:BEditor.Views"
+        xmlns:custom="clr-namespace:BEditor.WPF.Controls;assembly=BEditor.WPF.Controls"
         xmlns:colpick="clr-namespace:BEditor.Views.CustomControl"
         xmlns:property="clr-namespace:BEditor.Core.Properties;assembly=BEditor.Core"
         xmlns:convert="clr-namespace:BEditor.ViewModels.Converters"
@@ -29,14 +30,13 @@
             <RowDefinition/>
             <RowDefinition Height="Auto"/>
         </Grid.RowDefinitions>
-        <colpick:ColorPicker
+        <custom:ColorPicker
                     x:Name="col"
                     Foreground="{DynamicResource MaterialDesignBody}"
                     Width="490"
                     Height="260"
                     Visibility="{Binding ElementName=ColorPickerToggle, Path=IsChecked, Converter={StaticResource BooleanToVisibilityConverter}}"
-                    UseAlpha="{Binding Property.PropertyMetadata.UseAlpha, Mode=OneTime}"
-                    />
+                    UseAlpha="{Binding Property.PropertyMetadata.UseAlpha, Mode=OneTime}"/>
 
         <colpick:ColorPalette SelectedEvent="ColorPalette_SelectedEvent" Visibility="{Binding ElementName=ColorPaletteToggle, Path=IsChecked, Converter={StaticResource BooleanToVisibilityConverter}}"/>
 

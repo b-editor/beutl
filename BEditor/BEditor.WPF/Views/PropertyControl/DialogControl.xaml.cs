@@ -16,6 +16,7 @@ using System.Windows.Shapes;
 using BEditor.Core.Data.Primitive.Properties;
 using BEditor.ViewModels.PropertyControl;
 using BEditor.Views.CustomControl;
+using BEditor.WPF.Controls;
 
 namespace BEditor.Views.PropertyControl
 {

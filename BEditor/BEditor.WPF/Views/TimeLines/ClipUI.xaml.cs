@@ -8,6 +8,8 @@ using BEditor.Models.Settings;
 using BEditor.ViewModels.TimeLines;
 using BEditor.Views.CustomControl;
 using BEditor.Core.Data;
+using BEditor.WPF.Controls;
+using CustomTreeView = BEditor.WPF.Controls.ExpandTree;
 
 namespace BEditor.Views.TimeLines
 {

@@ -2778,6 +2778,11 @@
               Monochromatic に類似しているローカライズされた文字列を検索します。
             </summary>
         </member>
+        <member name="P:BEditor.Core.Properties.Resources.MostRecentlyUsedList">
+            <summary>
+              MostRecentlyUsedList に類似しているローカライズされた文字列を検索します。
+            </summary>
+        </member>
         <member name="P:BEditor.Core.Properties.Resources.MoveToEnd">
             <summary>
               Move to end に類似しているローカライズされた文字列を検索します。
@@ -2826,6 +2831,11 @@
         <member name="P:BEditor.Core.Properties.Resources.Open">
             <summary>
               Open に類似しているローカライズされた文字列を検索します。
+            </summary>
+        </member>
+        <member name="P:BEditor.Core.Properties.Resources.OpenThisRepository">
+            <summary>
+              Open the repository for this software に類似しているローカライズされた文字列を検索します。
             </summary>
         </member>
         <member name="P:BEditor.Core.Properties.Resources.Others">
@@ -2968,6 +2978,11 @@
               Scenes に類似しているローカライズされた文字列を検索します。
             </summary>
         </member>
+        <member name="P:BEditor.Core.Properties.Resources.SendFeedback">
+            <summary>
+              Send feedback(Open an Issue on GitHub) に類似しているローカライズされた文字列を検索します。
+            </summary>
+        </member>
         <member name="P:BEditor.Core.Properties.Resources.Separate">
             <summary>
               Separate に類似しているローカライズされた文字列を検索します。
@@ -2986,6 +3001,11 @@
         <member name="P:BEditor.Core.Properties.Resources.Show">
             <summary>
               Show に類似しているローカライズされた文字列を検索します。
+            </summary>
+        </member>
+        <member name="P:BEditor.Core.Properties.Resources.Shutdown">
+            <summary>
+              Shutdown に類似しているローカライズされた文字列を検索します。
             </summary>
         </member>
         <member name="P:BEditor.Core.Properties.Resources.Size">

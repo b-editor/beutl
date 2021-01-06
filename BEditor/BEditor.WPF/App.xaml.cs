@@ -21,7 +21,6 @@ using BEditor.Core.Data.Property;
 using BEditor.Core.Extensions.ViewCommand;
 
 using MaterialDesignThemes.Wpf;
-
 using Resources_ = BEditor.Core.Properties.Resources;
 using System.Timers;
 using BEditor.Models.Services;
@@ -31,6 +30,9 @@ using BEditor.Core.Data.Primitive.Properties;
 using BEditor.Drawing;
 using System.Globalization;
 using System.Linq;
+using BEditor.WPF.Controls;
+using System.Windows.Controls.Primitives;
+using System.Reflection;
 
 namespace BEditor
 {
@@ -41,9 +43,6 @@ namespace BEditor
     {
         private void Application_Startup(object sender, StartupEventArgs e)
         {
-            //CultureInfo.CurrentCulture = CultureInfo.GetCultureInfo("en-US");
-            //CultureInfo.CurrentUICulture = CultureInfo.GetCultureInfo("en-US");
-
             AppData.Current.Arguments = e.Args;
 
 
@@ -71,8 +70,39 @@ namespace BEditor
                         .Select(file => new Font(file)));
             }
 
+            static void CreateDefaultColor()
+            {
+                var file = Path.Combine(AppContext.BaseDirectory, "user", "colors", "MaterialDesignColors.xml");
+
+                if (!File.Exists(file))
+                {
+                    var elements = typeof(Color).GetFields()
+                        .Where(info => info.IsStatic)
+                        .Select(info =>
+                        {
+                            var color = (Color)info.GetValue(null);
+                            var name = info.Name;
+
+                            return new XElement("Color",
+                                new XAttribute("Name", name),
+                                new XAttribute("Red", color.R),
+                                new XAttribute("Green", color.G),
+                                new XAttribute("Blue", color.B));
+                        });
+
+                    XDocument XDoc = new XDocument(
+                        new XDeclaration("1.0", "utf-8", "true"),
+                        new XElement("Colors", new XAttribute("Name", "MaterialDesignColors"))
+                    );
+
+                    foreach(var element in elements) XDoc.Elements().First().Add(element);
+
+                    XDoc.Save(file);
+                }
+            }
             static void SetColor()
             {
+                CreateDefaultColor();
                 var files = Directory.GetFiles(AppData.Current.Path + "\\user\\colors", "*.xml", SearchOption.AllDirectories);
 
                 foreach (var file in files)
@@ -118,39 +148,58 @@ namespace BEditor
             Message.SnackberFunc += (text) => MainWindowViewModel.Current.MessageQueue.Enqueue(text);
         }
 
-        public static (CustomTreeView, VirtualizingStackPanel) CreateTreeObject(ObjectElement obj)
+        public static (ExpandTree, VirtualizingStackPanel) CreateTreeObject(ObjectElement obj)
         {
-            CustomTreeView _expander = new CustomTreeView()
+            var _expander = new ExpandTree()
             {
-                HeaderHeight = 35F
+                HeaderHeight = 35d
             };
 
-            VirtualizingStackPanel stack = new VirtualizingStackPanel() { Margin = new Thickness(32.5, 0, 0, 0) };
+            var stack = new VirtualizingStackPanel() { Margin = new Thickness(32.5, 0, 0, 0) };
             VirtualizingPanel.SetIsVirtualizing(stack, true);
             VirtualizingPanel.SetVirtualizationMode(stack, VirtualizationMode.Recycling);
 
 
-            VirtualizingStackPanel header = new VirtualizingStackPanel() { Orientation = Orientation.Horizontal };
+            var header = new VirtualizingStackPanel() { Orientation = Orientation.Horizontal };
             VirtualizingPanel.SetIsVirtualizing(header, true);
             VirtualizingPanel.SetVirtualizationMode(header, VirtualizationMode.Recycling);
 
             _expander.Header = header;
 
-            System.Windows.Controls.CheckBox checkBox = new System.Windows.Controls.CheckBox() { Margin = new Thickness(0, 0, 5, 0), VerticalAlignment = VerticalAlignment.Center };
-            var textBlock = new TextBlock() { Margin = new Thickness(5, 0, 0, 0), VerticalAlignment = VerticalAlignment.Center };
+            var checkBox = new CheckBox()
+            {
+                Margin = new Thickness(0, 0, 5, 0),
+                VerticalAlignment = VerticalAlignment.Center
+            };
+            var textBlock = new TextBlock()
+            {
+                Margin = new Thickness(5, 0, 0, 0),
+                VerticalAlignment = VerticalAlignment.Center
+            };
 
             header.Children.Add(checkBox);
             header.Children.Add(textBlock);
 
 
             #region コンテキストメニュー
-            ContextMenu menuListBox = new ContextMenu();
-            MenuItem Delete = new MenuItem();
+            var menuListBox = new ContextMenu();
+            var Delete = new MenuItem();
 
             //削除項目の設定
-            var menu = new VirtualizingStackPanel() { Orientation = Orientation.Horizontal };
-            menu.Children.Add(new PackIcon() { Kind = PackIconKind.Delete, Margin = new Thickness(5, 0, 5, 0) });
-            menu.Children.Add(new TextBlock() { Text = "削除", Margin = new Thickness(20, 0, 5, 0) });
+            var menu = new VirtualizingStackPanel()
+            {
+                Orientation = Orientation.Horizontal
+            };
+            menu.Children.Add(new PackIcon()
+            {
+                Kind = PackIconKind.Delete,
+                Margin = new Thickness(5, 0, 5, 0)
+            });
+            menu.Children.Add(new TextBlock()
+            {
+                Text = Resources_.Remove,
+                Margin = new Thickness(20, 0, 5, 0)
+            });
             Delete.Header = menu;
 
             menuListBox.Items.Add(Delete);
@@ -169,16 +218,28 @@ namespace BEditor
 
             #region Binding
 
-            Binding isenablebinding = new Binding("IsEnabled") { Mode = BindingMode.OneWay, Source = obj };
-            checkBox.SetBinding(System.Windows.Controls.CheckBox.IsCheckedProperty, isenablebinding);
+            var isenablebinding = new Binding("IsEnabled")
+            {
+                Mode = BindingMode.OneWay,
+                Source = obj
+            };
+            checkBox.SetBinding(ToggleButton.IsCheckedProperty, isenablebinding);
 
-            Binding textbinding = new Binding("Name") { Mode = BindingMode.OneTime, Source = obj };
+            var textbinding = new Binding("Name")
+            {
+                Mode = BindingMode.OneTime,
+                Source = obj
+            };
             textBlock.SetBinding(TextBlock.TextProperty, textbinding);
 
-            Binding isExpandedbinding = new Binding("IsExpanded") { Mode = BindingMode.TwoWay, Source = obj };
-            _expander.SetBinding(CustomTreeView.IsExpandedProperty, isExpandedbinding);
+            var isExpandedbinding = new Binding("IsExpanded")
+            {
+                Mode = BindingMode.TwoWay,
+                Source = obj
+            };
+            _expander.SetBinding(ExpandTree.IsExpandedProperty, isExpandedbinding);
 
-            _expander.SetResourceReference(CustomTreeView.HeaderColorProperty, "MaterialDesignBody");
+            _expander.SetResourceReference(ExpandTree.HeaderColorProperty, "MaterialDesignBody");
 
             #endregion
 
@@ -186,28 +247,50 @@ namespace BEditor
 
             return (_expander, stack);
         }
-        public static (CustomTreeView, VirtualizingStackPanel) CreateTreeEffect(EffectElement effect)
+        public static (ExpandTree, VirtualizingStackPanel) CreateTreeEffect(EffectElement effect)
         {
             var data = effect.Parent;
 
-            CustomTreeView _expander = new CustomTreeView() { HeaderHeight = 35F };
+            var _expander = new ExpandTree() { HeaderHeight = 35d };
 
-            VirtualizingStackPanel stack = new VirtualizingStackPanel() { Margin = new Thickness(32, 0, 0, 0) };
+            var stack = new VirtualizingStackPanel() { Margin = new Thickness(32, 0, 0, 0) };
             VirtualizingPanel.SetIsVirtualizing(stack, true);
             VirtualizingPanel.SetVirtualizationMode(stack, VirtualizationMode.Recycling);
 
             #region Header
 
-            VirtualizingStackPanel header = new VirtualizingStackPanel() { Orientation = Orientation.Horizontal };
+            var header = new VirtualizingStackPanel() { Orientation = Orientation.Horizontal };
             VirtualizingPanel.SetIsVirtualizing(header, true);
             VirtualizingPanel.SetVirtualizationMode(header, VirtualizationMode.Recycling);
 
             _expander.Header = header;
 
-            System.Windows.Controls.CheckBox checkBox = new System.Windows.Controls.CheckBox() { Margin = new Thickness(0, 0, 5, 0), VerticalAlignment = VerticalAlignment.Center };
-            Button upbutton = new Button() { Content = new PackIcon() { Kind = PackIconKind.ChevronUp }, Margin = new Thickness(5, 0, 0, 0), Background = null, BorderBrush = null, VerticalAlignment = VerticalAlignment.Center };
-            Button downbutton = new Button() { Content = new PackIcon() { Kind = PackIconKind.ChevronDown }, Margin = new Thickness(0, 0, 5, 0), Background = null, BorderBrush = null, VerticalAlignment = VerticalAlignment.Center };
-            TextBlock textBlock = new TextBlock() { Margin = new Thickness(5, 0, 0, 0), VerticalAlignment = VerticalAlignment.Center };
+            var checkBox = new CheckBox()
+            {
+                Margin = new(0, 0, 5, 0),
+                VerticalAlignment = VerticalAlignment.Center
+            };
+            var upbutton = new Button()
+            {
+                Content = new PackIcon() { Kind = PackIconKind.ChevronUp },
+                Margin = new Thickness(5, 0, 0, 0),
+                Background = null,
+                BorderBrush = null,
+                VerticalAlignment = VerticalAlignment.Center
+            };
+            var downbutton = new Button()
+            {
+                Content = new PackIcon() { Kind = PackIconKind.ChevronDown },
+                Margin = new Thickness(0, 0, 5, 0),
+                Background = null,
+                BorderBrush = null,
+                VerticalAlignment = VerticalAlignment.Center
+            };
+            var textBlock = new TextBlock()
+            {
+                Margin = new(5, 0, 0, 0),
+                VerticalAlignment = VerticalAlignment.Center
+            };
 
             header.Children.Add(checkBox);
             header.Children.Add(upbutton);
@@ -218,13 +301,13 @@ namespace BEditor
 
 
             #region コンテキストメニュー
-            ContextMenu menuListBox = new ContextMenu();
-            MenuItem Delete = new MenuItem();
+            var menuListBox = new ContextMenu();
+            var Delete = new MenuItem();
 
             //削除項目の設定
             var menu = new VirtualizingStackPanel() { Orientation = Orientation.Horizontal };
             menu.Children.Add(new PackIcon() { Kind = PackIconKind.Delete, Margin = new Thickness(5, 0, 5, 0) });
-            menu.Children.Add(new TextBlock() { Text = "削除", Margin = new Thickness(20, 0, 5, 0) });
+            menu.Children.Add(new TextBlock() { Text = Resources_.Remove, Margin = new Thickness(20, 0, 5, 0) });
             Delete.Header = menu;
 
             menuListBox.Items.Add(Delete);
@@ -247,16 +330,28 @@ namespace BEditor
 
             #region Binding
 
-            Binding isenablebinding = new Binding("IsEnabled") { Mode = BindingMode.OneWay, Source = effect };
-            checkBox.SetBinding(System.Windows.Controls.CheckBox.IsCheckedProperty, isenablebinding);
+            var isenablebinding = new Binding("IsEnabled")
+            {
+                Mode = BindingMode.OneWay,
+                Source = effect
+            };
+            checkBox.SetBinding(ToggleButton.IsCheckedProperty, isenablebinding);
 
-            Binding textbinding = new Binding("Name") { Mode = BindingMode.OneTime, Source = effect };
+            var textbinding = new Binding("Name")
+            {
+                Mode = BindingMode.OneTime,
+                Source = effect
+            };
             textBlock.SetBinding(TextBlock.TextProperty, textbinding);
 
-            Binding isExpandedbinding = new Binding("IsExpanded") { Mode = BindingMode.TwoWay, Source = effect };
-            _expander.SetBinding(CustomTreeView.IsExpandedProperty, isExpandedbinding);
+            var isExpandedbinding = new Binding("IsExpanded")
+            {
+                Mode = BindingMode.TwoWay,
+                Source = effect
+            };
+            _expander.SetBinding(ExpandTree.IsExpandedProperty, isExpandedbinding);
 
-            _expander.SetResourceReference(CustomTreeView.HeaderColorProperty, "MaterialDesignBody");
+            _expander.SetResourceReference(ExpandTree.HeaderColorProperty, "MaterialDesignBody");
 
             #endregion
 

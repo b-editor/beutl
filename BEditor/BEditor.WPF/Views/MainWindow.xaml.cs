@@ -18,6 +18,7 @@ using BEditor.Core.Data.Primitive.Properties;
 using BEditor.Views.MessageContent;
 using BEditor.ViewModels.MessageContent;
 using BEditor.Views;
+using System.Collections.Specialized;
 
 namespace BEditor
 {
@@ -49,8 +50,49 @@ namespace BEditor
             Deactivated += (_, _) => MainWindowViewModel.Current.MainWindowColor.Value = (System.Windows.Media.Brush)FindResource("PrimaryHueDarkBrush");
 
             Focus();
-        }
 
+            SetMostUsedFiles();
+        }
+        
+        private void SetMostUsedFiles()
+        {
+            foreach (var file in Settings.Default.MostRecentlyUsedList)
+            {
+                var menu = new MenuItem()
+                {
+                    Header = file
+                };
+                menu.Click += (s, e) => MainWindowViewModel.ProjectOpenCommand((s as MenuItem).Header as string);
+
+                UsedFiles.Items.Insert(0, menu);
+            }
+
+            Settings.Default.MostRecentlyUsedList.CollectionChanged += (s, e) =>
+            {
+                if (e.Action is NotifyCollectionChangedAction.Add)
+                {
+                    var menu = new MenuItem()
+                    {
+                        Header = e.NewItems[e.NewStartingIndex]
+                    };
+                    menu.Click += (s, e) => MainWindowViewModel.ProjectOpenCommand((s as MenuItem).Header as string);
+
+                    UsedFiles.Items.Insert(0, menu);
+                }
+                else if (e.Action is NotifyCollectionChangedAction.Remove)
+                {
+                    var file = e.OldItems[e.OldStartingIndex] as string;
+
+                    foreach (var item in UsedFiles.Items)
+                    {
+                        if (item is MenuItem menuItem && menuItem.Header is string header && header == file)
+                        {
+                            UsedFiles.Items.Remove(item);
+                        }
+                    }
+                }
+            };
+        }
         private static void PluginInit()
         {
             // すべて

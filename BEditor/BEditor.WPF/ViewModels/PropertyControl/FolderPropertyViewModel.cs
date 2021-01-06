@@ -6,6 +6,9 @@ using System.Threading.Tasks;
 
 using BEditor.Core.Command;
 using BEditor.Core.Data.Primitive.Properties;
+using BEditor.Views.PropertyControls;
+
+using Microsoft.WindowsAPICodePack.Dialogs;
 
 using Reactive.Bindings;
 using Reactive.Bindings.Extensions;
@@ -22,7 +25,7 @@ namespace BEditor.ViewModels.PropertyControl
 
             Command.Subscribe(x =>
             {
-                var file = x?.Invoke();
+                var file = OpenDialog();
 
                 if (file != null)
                 {
@@ -30,11 +33,38 @@ namespace BEditor.ViewModels.PropertyControl
                 }
             });
             Reset.Subscribe(() => CommandManager.Do(new FolderProperty.ChangeFolderCommand(Property, Property.PropertyMetadata.Default)));
+            Bind.Subscribe(() =>
+            {
+                var window = new BindSettings()
+                {
+                    DataContext = new BindSettingsViewModel<string>(Property)
+                };
+                window.ShowDialog();
+            });
         }
 
         public ReadOnlyReactiveProperty<FolderPropertyMetadata> Metadata { get; }
         public FolderProperty Property { get; }
-        public ReactiveCommand<Func<string>> Command { get; } = new();
+        public ReactiveCommand Command { get; } = new();
         public ReactiveCommand Reset { get; } = new();
+        public ReactiveCommand Bind { get; } = new();
+
+        private static string OpenDialog()
+        {
+            // ダイアログのインスタンスを生成
+            var dialog = new CommonOpenFileDialog()
+            {
+                IsFolderPicker = true
+            };
+
+
+            // ダイアログを表示する
+            if (dialog.ShowDialog() == CommonFileDialogResult.Ok)
+            {
+                return dialog.FileName;
+            }
+
+            return null;
+        }
     }
 }

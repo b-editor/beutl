@@ -14,7 +14,7 @@ namespace BEditor.ViewModels.TimeLines
 {
     public class ColorAnimationViewModel
     {
-        public double TrackHeight => Setting.ClipHeight;
+        public double TrackHeight => Setting.ClipHeight + 1;
         public ColorAnimationProperty ColorAnimationProperty { get; }
 
         public ColorAnimationViewModel(ColorAnimationProperty colorProperty)

@@ -467,6 +467,9 @@
   <data name="Monoc" xml:space="preserve">
     <value>単色化</value>
   </data>
+  <data name="MostRecentlyUsedList" xml:space="preserve">
+    <value>最近使ったファイル</value>
+  </data>
   <data name="MoveToEnd" xml:space="preserve">
     <value>末尾に移動</value>
   </data>
@@ -496,6 +499,9 @@
   </data>
   <data name="Open" xml:space="preserve">
     <value>開く</value>
+  </data>
+  <data name="OpenThisRepository" xml:space="preserve">
+    <value>このソフトウェアのリポジトリを開く</value>
   </data>
   <data name="Others" xml:space="preserve">
     <value>その他</value>
@@ -581,6 +587,9 @@
   <data name="Scenes" xml:space="preserve">
     <value>シーン</value>
   </data>
+  <data name="SendFeedback" xml:space="preserve">
+    <value>フィードバックを送信(GitHubのIssueを開きます)</value>
+  </data>
   <data name="Separate" xml:space="preserve">
     <value>分割</value>
   </data>
@@ -592,6 +601,9 @@
   </data>
   <data name="Show" xml:space="preserve">
     <value>表示</value>
+  </data>
+  <data name="Shutdown" xml:space="preserve">
+    <value>終了</value>
   </data>
   <data name="Size" xml:space="preserve">
     <value>サイズ</value>

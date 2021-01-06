@@ -18,6 +18,7 @@ using BEditor.Core.Data.Property;
 using MahApps.Metro.Controls;
 using BEditor.Core.Data.Primitive.Properties;
 using BEditor.Views.CustomControl;
+using BEditor.WPF.Controls;
 
 namespace BEditor.Views
 {

@@ -56,6 +56,10 @@ namespace BEditor.ViewModels
         public ReactiveCommand FrameTop { get; } = new();
         public ReactiveCommand FrameEnd { get; } = new();
 
+        public ReactiveCommand SendFeedback { get; } = new();
+        public ReactiveCommand OpenThisRepository { get; } = new();
+
+        public ReactiveCommand Shutdown { get; } = new();
 
         public SnackbarMessageQueue MessageQueue { get; } = new();
 
@@ -228,6 +232,15 @@ namespace BEditor.ViewModels
                     propertyState = ShowHideState.Hide;
                 }
             });
+
+
+            const string feedback = "https://github.com/indigo-san/BEditor/issues/new";
+            const string repository = "https://github.com/indigo-san/BEditor/";
+
+            SendFeedback.Subscribe(() => Process.Start(new ProcessStartInfo("cmd", $"/c start {feedback}") { CreateNoWindow = true }));
+            OpenThisRepository.Subscribe(() => Process.Start(new ProcessStartInfo("cmd", $"/c start {repository}") { CreateNoWindow = true }));
+
+            Shutdown.Subscribe(() => App.Current.Shutdown());
         }
 
 
@@ -283,6 +296,24 @@ namespace BEditor.ViewModels
             => AppData.Current.Project?.SaveAs();
         private static void ProjectSaveCommand()
             => AppData.Current.Project?.Save();
+        public static void ProjectOpenCommand(string name)
+        {
+            try
+            {
+                AppData.Current.Project = new(name);
+                AppData.Current.AppStatus = Status.Edit;
+
+                if (!Settings.Default.MostRecentlyUsedList.Contains(name))
+                {
+                    Settings.Default.MostRecentlyUsedList.Add(name);
+                }
+            }
+            catch
+            {
+                Debug.Assert(false);
+                Message.Snackbar(string.Format(Resources.FailedToLoad, "Project"));
+            }
+        }
         private static void ProjectOpenCommand()
         {
             var dialog = new CommonOpenFileDialog()
@@ -301,6 +332,11 @@ namespace BEditor.ViewModels
                 {
                     AppData.Current.Project = new(dialog.FileName);
                     AppData.Current.AppStatus = Status.Edit;
+
+                    if (!Settings.Default.MostRecentlyUsedList.Contains(dialog.FileName))
+                    {
+                        Settings.Default.MostRecentlyUsedList.Add(dialog.FileName);
+                    }
                 }
                 catch
                 {

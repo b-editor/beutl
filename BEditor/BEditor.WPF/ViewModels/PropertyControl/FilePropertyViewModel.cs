@@ -10,6 +10,8 @@ using BEditor.Core.Data.Primitive.Properties;
 using BEditor.Core.Command;
 using Reactive.Bindings;
 using Reactive.Bindings.Extensions;
+using BEditor.Views.PropertyControls;
+using Microsoft.WindowsAPICodePack.Dialogs;
 
 namespace BEditor.ViewModels.PropertyControl
 {
@@ -23,7 +25,7 @@ namespace BEditor.ViewModels.PropertyControl
 
             Command.Subscribe(x =>
             {
-                var file = x?.Invoke(Property.PropertyMetadata?.FilterName, Property.PropertyMetadata?.Filter);
+                var file = OpenDialog(Property.PropertyMetadata?.FilterName, Property.PropertyMetadata?.Filter);
 
                 if (file != null)
                 {
@@ -31,11 +33,37 @@ namespace BEditor.ViewModels.PropertyControl
                 }
             });
             Reset.Subscribe(() => CommandManager.Do(new FileProperty.ChangeFileCommand(Property, Property.PropertyMetadata.DefaultFile)));
+            Bind.Subscribe(() =>
+            {
+                var window = new BindSettings()
+                {
+                    DataContext = new BindSettingsViewModel<string>(property)
+                };
+                window.ShowDialog();
+            });
         }
 
         public ReadOnlyReactiveProperty<FilePropertyMetadata> Metadata { get; }
         public FileProperty Property { get; }
         public ReactiveCommand<Func<string, string, string>> Command { get; } = new();
         public ReactiveCommand Reset { get; } = new();
+        public ReactiveCommand Bind { get; } = new();
+
+        private static string OpenDialog(string filtername, string filter)
+        {
+            var dialog = new CommonOpenFileDialog();
+
+
+            dialog.Filters.Add(new CommonFileDialogFilter(filtername, filter));
+            dialog.Filters.Add(new CommonFileDialogFilter(null, "*.*"));
+
+            // ダイアログを表示する
+            if (dialog.ShowDialog() == CommonFileDialogResult.Ok)
+            {
+                return dialog.FileName;
+            }
+
+            return null;
+        }
     }
 }
