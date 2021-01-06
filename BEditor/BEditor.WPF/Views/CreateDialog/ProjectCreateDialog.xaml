@@ -14,19 +14,28 @@
         WindowStartupLocation="CenterOwner"
         ResizeMode="NoResize"
         
-        WindowTitleBrush="{StaticResource PrimaryHueMidBrush}"
+        WindowTitleBrush="{DynamicResource MaterialDesignPaper}"
         GlowBrush="Black"
         BorderThickness="0"
         
-        NonActiveWindowTitleBrush="{StaticResource PrimaryHueDarkBrush}"
+        NonActiveWindowTitleBrush="{DynamicResource MaterialDesignPaper}"
         NonActiveGlowBrush="Black">
     <Controls:MetroWindow.DataContext>
         <vm:ProjectCreateDialogViewModel/>
     </Controls:MetroWindow.DataContext>
+    <Controls:MetroWindow.Resources>
+        <Style TargetType="{x:Type Controls:WindowButtonCommands}">
+            <Style.Triggers>
+                <DataTrigger Binding="{Binding ShowTitleBar, RelativeSource={RelativeSource FindAncestor, AncestorType={x:Type Controls:MetroWindow}}}" Value="True">
+                    <Setter Property="Foreground" Value="{DynamicResource MaterialDesignBody}" />
+                </DataTrigger>
+            </Style.Triggers>
+        </Style>
+    </Controls:MetroWindow.Resources>
     <Controls:MetroWindow.LeftWindowCommands>
         <Controls:WindowCommands>
             <VirtualizingStackPanel Orientation="Horizontal">
-                <md:PackIcon Kind="Movie" VerticalAlignment="Center" Margin="10,0,5,0" />
+                <md:PackIcon Kind="Movie" Foreground="{StaticResource PrimaryHueMidBrush}" VerticalAlignment="Center" Margin="10,0,5,0" Width="18" Height="18" />
             </VirtualizingStackPanel>
         </Controls:WindowCommands>
     </Controls:MetroWindow.LeftWindowCommands>

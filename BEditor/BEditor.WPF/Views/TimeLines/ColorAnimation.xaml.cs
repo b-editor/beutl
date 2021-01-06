@@ -20,13 +20,14 @@ using BEditor.Core.Data.Control;
 using System.Reactive;
 using System.Reactive.Linq;
 using Reactive.Bindings.Extensions;
+using BEditor.WPF.Controls;
 
 namespace BEditor.Views.TimeLines
 {
     /// <summary>
     /// ColorAnimation.xaml の相互作用ロジック
     /// </summary>
-    public partial class ColorAnimation : UserControl
+    public partial class ColorAnimation : UserControl, ICustomTreeViewItem
     {
         public static readonly DependencyProperty AddCommandProperty = DependencyProperty.Register("AddCommand", typeof(ICommand), typeof(ColorAnimation));
         public static readonly DependencyProperty RemoveCommandProperty = DependencyProperty.Register("RemoveCommand", typeof(ICommand), typeof(ColorAnimation));
@@ -50,6 +51,8 @@ namespace BEditor.Views.TimeLines
 
         private readonly ColorAnimationProperty Color;
         private Scene Scene => Color.GetParent3();
+
+        public double LogicHeight => Settings.Default.ClipHeight + 1;
 
         public ColorAnimation(ColorAnimationProperty color)
         {

@@ -1,10 +1,17 @@
 ﻿using System;
 using System.Collections.Generic;
 using System.Text;
+using System.Windows;
+
 using BEditor.Core.Data;
+
+using ControlzEx.Theming;
+
 using MaterialDesignThemes.Wpf;
 
 using Reactive.Bindings;
+
+using Theme = MaterialDesignThemes.Wpf.Theme;
 
 namespace BEditor.ViewModels.SettingsControl.General
 {
@@ -23,7 +30,7 @@ namespace BEditor.ViewModels.SettingsControl.General
                     {
                         if (Settings.Default.UseDarkMode)
                         {
-                            PaletteHelper paletteHelper = new PaletteHelper();
+                            var paletteHelper = new PaletteHelper();
                             ITheme theme = paletteHelper.GetTheme();
                             theme.SetBaseTheme(Theme.Dark);
                             paletteHelper.SetTheme(theme);

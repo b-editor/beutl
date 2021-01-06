@@ -21,13 +21,14 @@
         Closing="MetroWindow_Closing"
         
         
-        WindowTitleBrush="{StaticResource PrimaryHueMidBrush}"
+        WindowTitleBrush="{DynamicResource MaterialDesignPaper}"
         GlowBrush="{DynamicResource MaterialDesignShadowBrush}"
         BorderThickness="0"
         
-        NonActiveWindowTitleBrush="{StaticResource PrimaryHueDarkBrush}"
+        NonActiveWindowTitleBrush="{DynamicResource MaterialDesignPaper}"
         NonActiveGlowBrush="{DynamicResource MaterialDesignShadowBrush}"
-    
+        
+        Loaded="MetroWindow_Loaded"
         DataContext="{x:Static vm:MainWindowViewModel.Current}"
         Focusable="True"
         d:DesignWidth="1920" d:DesignHeight="1080">
@@ -42,6 +43,7 @@
 
         <Style x:Key="TitleButtonStyle" TargetType="{x:Type Button}" BasedOn="{StaticResource WindowTitleButtonStyle}">
             <EventSetter Event="Click" Handler="Button_Click"/>
+            <Setter Property="Foreground" Value="{DynamicResource MaterialDesignBody}"/>
         </Style>
         <Style x:Key="MouseOverIcon" TargetType="md:PackIcon">
             <Setter Property="Background" Value="Transparent"/>
@@ -65,6 +67,13 @@
                 </Trigger>
             </Style.Triggers>
         </Style>
+        <Style TargetType="{x:Type Controls:WindowButtonCommands}">
+            <Style.Triggers>
+                <DataTrigger Binding="{Binding ShowTitleBar, RelativeSource={RelativeSource FindAncestor, AncestorType={x:Type Controls:MetroWindow}}}" Value="True">
+                    <Setter Property="Foreground" Value="{DynamicResource MaterialDesignBody}" />
+                </DataTrigger>
+            </Style.Triggers>
+        </Style>
     </Controls:MetroWindow.Resources>
     <Controls:MetroWindow.InputBindings>
         <KeyBinding Command="{Binding ClipboardPaste, Mode=OneTime}" Gesture="Ctrl+v"/>
@@ -82,7 +91,7 @@
     <Controls:MetroWindow.LeftWindowCommands>
         <Controls:WindowCommands>
             <VirtualizingStackPanel Orientation="Horizontal">
-                <md:PackIcon Kind="Movie" Margin="10,0,10,0" VerticalAlignment="Center"/>
+                <md:PackIcon Kind="Movie" Margin="10,0,10,0" VerticalAlignment="Center" Foreground="{StaticResource PrimaryHueMidBrush}" Width="18" Height="18"/>
                 <Button Style="{StaticResource TitleButtonStyle}" Content="{x:Static properties:Resources.AccessFile}">
                     <Button.ContextMenu>
                         <ContextMenu>
@@ -396,11 +405,11 @@
             UniformCornerRadius="0" Grid.RowSpan="4" Grid.Row="1"/>
         <!--#endregion-->
 
-        <GridSplitter Width="10" HorizontalAlignment="Stretch" Grid.Column="1" Background="Transparent" Foreground="Transparent" Grid.RowSpan="3" Grid.Row="1" ShowsPreview="True"/>
+        <GridSplitter Width="10" HorizontalAlignment="Stretch" Grid.Column="1" Background="Transparent" Foreground="Transparent" Grid.RowSpan="3" Grid.Row="1"/>
 
         <tool:PannelControl Margin="0,5,5,5" Grid.Row="1" Grid.Column="2"/>
 
-        <GridSplitter Width="10" Grid.Column="3" Background="Transparent" Foreground="Transparent" Grid.Row="1" ShowsPreview="True" HorizontalAlignment="Stretch"/>
+        <GridSplitter Width="10" Grid.Column="3" Background="Transparent" Foreground="Transparent" Grid.Row="1" HorizontalAlignment="Stretch"/>
 
         <Grid Grid.Column="4" Grid.Row="1">
             <Grid.RowDefinitions>
@@ -508,8 +517,7 @@
             Foreground="Transparent"
             Grid.Row="2"
             Grid.Column="2"
-            Grid.ColumnSpan="3"
-            ShowsPreview="True"/>
+            Grid.ColumnSpan="3"/>
 
         <!--#region タイムライン-->
         <md:Card Margin="5,0,10,10" Grid.Row="3" Grid.Column="1" Grid.ColumnSpan="4" UniformCornerRadius="0" IsEnabled="{Binding ProjectIsOpened.Value, Mode=OneWay}">

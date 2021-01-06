@@ -11,6 +11,7 @@
         <ResourceDictionary Source="/BEditor.WPF.Controls;component/Themes/FontPropertyView.xaml" />
         <ResourceDictionary Source="/BEditor.WPF.Controls;component/Themes/ValuePropertyView.xaml" />
         <ResourceDictionary Source="/BEditor.WPF.Controls;component/Themes/TextPropertyView.xaml" />
+        <ResourceDictionary Source="/BEditor.WPF.Controls;component/Themes/FilePropertyView.xaml" />
         <ResourceDictionary Source="/BEditor.WPF.Controls;component/Themes/FolderPropertyView.xaml" />
         <ResourceDictionary Source="/BEditor.WPF.Controls;component/Themes/LabelComponentView.xaml" />
         <ResourceDictionary Source="/BEditor.WPF.Controls;component/Themes/ButtonComponentView.xaml" />
@@ -26,6 +27,7 @@
     <Style TargetType="{x:Type local:FontPropertyView}" BasedOn="{StaticResource FontPropertyStyle}" />
     <Style TargetType="{x:Type local:ValuePropertyView}" BasedOn="{StaticResource ValuePropertyStyle}" />
     <Style TargetType="{x:Type local:TextPropertyView}" BasedOn="{StaticResource TextPropertyStyle}" />
+    <Style TargetType="{x:Type local:FilePropertyView}" BasedOn="{StaticResource FilePropertyStyle}" />
     <Style TargetType="{x:Type local:FolderPropertyView}" BasedOn="{StaticResource FolderPropertyStyle}" />
     <Style TargetType="{x:Type local:LabelComponentView}" BasedOn="{StaticResource LabelComponentStyle}" />
     <Style TargetType="{x:Type local:ButtonComponentView}" BasedOn="{StaticResource ButtonComponentStyle}" />

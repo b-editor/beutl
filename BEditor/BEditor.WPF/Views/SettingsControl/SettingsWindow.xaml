@@ -5,6 +5,7 @@
                       xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
                       xmlns:local="clr-namespace:BEditor.Views.SettingsControl"
                       xmlns:vm="clr-namespace:BEditor.ViewModels.SettingsControl"
+                      xmlns:rootvm="clr-namespace:BEditor.ViewModels"
                       xmlns:md="http://materialdesigninxaml.net/winfx/xaml/themes"
                       xmlns:Controls="clr-namespace:MahApps.Metro.Controls;assembly=MahApps.Metro"
                       xmlns:i="http://schemas.microsoft.com/xaml/behaviors"
@@ -14,18 +15,27 @@
                       Height="450" Width="800"
                       WindowStartupLocation="CenterOwner"
         
-                      WindowTitleBrush="{StaticResource PrimaryHueMidBrush}"
+                      WindowTitleBrush="{DynamicResource MaterialDesignPaper}"
                       GlowBrush="{DynamicResource MaterialDesignShadowBrush}"
                       BorderThickness="0"
         
-                      NonActiveWindowTitleBrush="{StaticResource PrimaryHueMidBrush}"
+                      NonActiveWindowTitleBrush="{DynamicResource MaterialDesignPaper}"
                       NonActiveGlowBrush="{DynamicResource MaterialDesignShadowBrush}">
+    <Controls:MetroWindow.Resources>
+        <Style TargetType="{x:Type Controls:WindowButtonCommands}">
+            <Style.Triggers>
+                <DataTrigger Binding="{Binding ShowTitleBar, RelativeSource={RelativeSource FindAncestor, AncestorType={x:Type Controls:MetroWindow}}}" Value="True">
+                    <Setter Property="Foreground" Value="{DynamicResource MaterialDesignBody}" />
+                </DataTrigger>
+            </Style.Triggers>
+        </Style>
+    </Controls:MetroWindow.Resources>
     <Controls:MetroWindow.DataContext>
         <vm:SettingsWindowViewModel/>
     </Controls:MetroWindow.DataContext>
     <Controls:MetroWindow.LeftWindowCommands>
         <Controls:WindowCommands>
-            <md:PackIcon Kind="Movie" Foreground="White" VerticalAlignment="Center" Margin="10,0,10,0" />
+            <md:PackIcon Kind="Movie" Foreground="{StaticResource PrimaryHueMidBrush}" VerticalAlignment="Center" Margin="10,0,10,0" Width="18" Height="18" />
         </Controls:WindowCommands>
     </Controls:MetroWindow.LeftWindowCommands>
     <Grid>

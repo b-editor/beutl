@@ -5,6 +5,7 @@
         xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
         xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
         xmlns:Controls="clr-namespace:MahApps.Metro.Controls;assembly=MahApps.Metro"
+        xmlns:vm="clr-namespace:BEditor.ViewModels"
         xmlns:md="http://materialdesigninxaml.net/winfx/xaml/themes"
         mc:Ignorable="d"
         WindowStartupLocation="CenterScreen"
@@ -13,20 +14,28 @@
         Background="{DynamicResource MaterialDesignPaper}"
         TextElement.Foreground="{DynamicResource MaterialDesignBody}"
         
-        WindowTitleBrush="{StaticResource PrimaryHueMidBrush}"
+        WindowTitleBrush="{DynamicResource MaterialDesignPaper}"
         BorderBrush="{StaticResource PrimaryHueMidBrush}"
         GlowBrush="{DynamicResource MaterialDesignShadowBrush}"
         
-        NonActiveWindowTitleBrush="{StaticResource PrimaryHueDarkBrush}"
+        NonActiveWindowTitleBrush="{DynamicResource MaterialDesignPaper}"
         NonActiveBorderBrush="{StaticResource PrimaryHueDarkBrush}"
         NonActiveGlowBrush="{DynamicResource MaterialDesignShadowBrush}"
         BorderThickness="0"
         MaxWidth="500"
-        SizeToContent="WidthAndHeight"
-    >
+        SizeToContent="WidthAndHeight">
+    <Controls:MetroWindow.Resources>
+        <Style TargetType="{x:Type Controls:WindowButtonCommands}">
+            <Style.Triggers>
+                <DataTrigger Binding="{Binding ShowTitleBar, RelativeSource={RelativeSource FindAncestor, AncestorType={x:Type Controls:MetroWindow}}}" Value="True">
+                    <Setter Property="Foreground" Value="{DynamicResource MaterialDesignBody}" />
+                </DataTrigger>
+            </Style.Triggers>
+        </Style>
+    </Controls:MetroWindow.Resources>
     <Controls:MetroWindow.LeftWindowCommands>
         <Controls:WindowCommands>
-            <md:PackIcon Kind="Movie" Foreground="White" VerticalAlignment="Center" Margin="10,0,10,0" />
+            <md:PackIcon Kind="Movie" Foreground="{StaticResource PrimaryHueMidBrush}" VerticalAlignment="Center" Margin="10,0,10,0" Width="18" Height="18" />
         </Controls:WindowCommands>
     </Controls:MetroWindow.LeftWindowCommands>
     <Label x:Name="label" HorizontalContentAlignment="Center" VerticalContentAlignment="Center" Padding="0,0,0,0" VerticalAlignment="Center" HorizontalAlignment="Center"/>

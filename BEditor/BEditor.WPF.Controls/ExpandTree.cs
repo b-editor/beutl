@@ -1,5 +1,6 @@
 ﻿using System;
 using System.Collections.Generic;
+using System.Diagnostics;
 using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
@@ -74,6 +75,8 @@ namespace BEditor.WPF.Controls
                         {
                             tmp += (child as FrameworkElement)?.Height ?? 0;
                         }
+
+                        Debug.Assert(!double.IsNaN(tmp));
 
                         if (child is ISizeChangeMarker value_)
                         {

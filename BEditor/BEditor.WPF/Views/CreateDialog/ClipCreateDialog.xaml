@@ -16,11 +16,11 @@
     Background="{DynamicResource MaterialDesignPaper}"
     TextElement.Foreground="{DynamicResource MaterialDesignBody}"
     
-    WindowTitleBrush="{StaticResource PrimaryHueMidBrush}"
+    WindowTitleBrush="{DynamicResource MaterialDesignPaper}"
     BorderBrush="{StaticResource PrimaryHueMidBrush}"
     GlowBrush="{DynamicResource MaterialDesignShadowBrush}"
     
-    NonActiveWindowTitleBrush="{StaticResource PrimaryHueDarkBrush}"
+    NonActiveWindowTitleBrush="{DynamicResource MaterialDesignPaper}"
     NonActiveBorderBrush="{StaticResource PrimaryHueDarkBrush}"
     NonActiveGlowBrush="{DynamicResource MaterialDesignShadowBrush}"
     BorderThickness="0"
@@ -28,7 +28,7 @@
     MinWidth="450">
     <Controls:MetroWindow.LeftWindowCommands>
         <Controls:WindowCommands>
-            <md:PackIcon Kind="Movie" Foreground="White" VerticalAlignment="Center" Margin="10,0,10,0" />
+            <md:PackIcon Kind="Movie" Foreground="{StaticResource PrimaryHueMidBrush}" VerticalAlignment="Center" Margin="10,0,10,0" Width="18" Height="18" />
         </Controls:WindowCommands>
     </Controls:MetroWindow.LeftWindowCommands>
     <Controls:MetroWindow.Resources>
@@ -48,6 +48,13 @@
             <Setter Property="Width" Value="130"/>
             <Setter Property="Height" Value="25"/>
             <Setter Property="HorizontalAlignment" Value="Left"/>
+        </Style>
+        <Style TargetType="{x:Type Controls:WindowButtonCommands}">
+            <Style.Triggers>
+                <DataTrigger Binding="{Binding ShowTitleBar, RelativeSource={RelativeSource FindAncestor, AncestorType={x:Type Controls:MetroWindow}}}" Value="True">
+                    <Setter Property="Foreground" Value="{DynamicResource MaterialDesignBody}" />
+                </DataTrigger>
+            </Style.Triggers>
         </Style>
     </Controls:MetroWindow.Resources>
     <Grid>

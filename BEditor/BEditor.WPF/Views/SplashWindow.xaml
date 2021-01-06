@@ -1,0 +1,49 @@
+﻿<!--<Window x:Class="BEditor.Views.SplashWindow"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+        xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+        xmlns:local="clr-namespace:BEditor.Views"
+        mc:Ignorable="d"
+        WindowStartupLocation="CenterScreen"
+        Background="{DynamicResource MaterialDesignPaper}"
+        TextElement.Foreground="{DynamicResource MaterialDesignBody}"
+        WindowStyle="None"
+        AllowsTransparency="True"
+        Height="350" Width="600">
+    <Grid>
+        <Grid.ColumnDefinitions>
+            <ColumnDefinition Width="250"/>
+            <ColumnDefinition/>
+        </Grid.ColumnDefinitions>
+        <Image Source="E:\yuuto\OneDrive\画像\スクリーンショット\2021-01-06 (6).png" Grid.ColumnSpan="2"/>
+        <Grid Background="{DynamicResource MaterialDesignCardBackground}" Opacity="0.90">
+            <TextBlock Text="BEditor" HorizontalAlignment="Left" VerticalAlignment="Top" Margin="25,50,0,0" FontFamily="Noto Sans JP" FontWeight="Black" FontSize="25px"/>
+            <TextBlock HorizontalAlignment="Left" Text="{Binding Status.Value}" VerticalAlignment="Bottom" Margin="25,0,0,100"/>
+            <TextBlock HorizontalAlignment="Left" Text="Created this software by indigo-san"  VerticalAlignment="Bottom" Margin="25,0,0,69" FontSize="13" FontStyle="Normal" FontWeight="Black"/>
+        </Grid>
+        
+        <ProgressBar IsIndeterminate="True" VerticalAlignment="Bottom" Grid.ColumnSpan="2"/>
+    </Grid>
+</Window>-->
+<Window x:Class="BEditor.Views.SplashWindow"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+        xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+        xmlns:local="clr-namespace:BEditor.Views" xmlns:md="http://materialdesigninxaml.net/winfx/xaml/themes"
+        mc:Ignorable="d"
+        WindowStartupLocation="CenterScreen"
+        Background="{DynamicResource MaterialDesignPaper}"
+        TextElement.Foreground="{DynamicResource MaterialDesignBody}"
+        WindowStyle="None"
+        AllowsTransparency="True"
+        Height="200" Width="200">
+    <Grid>
+        <VirtualizingStackPanel Orientation="Horizontal" VerticalAlignment="Center" HorizontalAlignment="Center">
+            <md:PackIcon Kind="Movie" Width="70" Height="70" Foreground="{StaticResource PrimaryHueMidBrush}"/>
+        </VirtualizingStackPanel>
+        <TextBlock VerticalAlignment="Bottom" Text="{Binding Status.Value}" Margin="2,2,2,7"/>
+        <ProgressBar IsIndeterminate="True" VerticalAlignment="Bottom" Grid.ColumnSpan="2"/>
+    </Grid>
+</Window>

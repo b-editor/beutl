@@ -19,6 +19,7 @@ using MahApps.Metro.Controls;
 using BEditor.Core.Data.Primitive.Properties;
 using BEditor.Views.CustomControl;
 using BEditor.WPF.Controls;
+using ColorPicker = BEditor.WPF.Controls.ColorPicker;
 
 namespace BEditor.Views
 {

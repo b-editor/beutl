@@ -22,7 +22,10 @@ using BEditor.Views.PropertyControl;
 using BEditor.WPF.Controls;
 using BEditor.ViewModels.PropertyControl;
 using BEditor.ViewModels.Converters;
-using CustomTreeView = BEditor.WPF.Controls.ExpandTree;
+using BEditor.Core.Command;
+using System.Windows.Controls.Primitives;
+using MaterialDesignThemes.Wpf;
+using BEditor.Core.Properties;
 
 namespace BEditor.Views
 {
@@ -159,7 +162,7 @@ namespace BEditor.Views
                 CreateFunc = (elm) =>
                 {
                     var group = elm as ExpandGroup;
-                    var _settingcontrol = new CustomTreeView()
+                    var _settingcontrol = new ExpandTree()
                     {
                         Header = group.PropertyMetadata.Name,
                         HeaderHeight = 35F
@@ -185,8 +188,8 @@ namespace BEditor.Views
 
                     _settingcontrol.Content = stack;
 
-                    _settingcontrol.SetResourceReference(CustomTreeView.HeaderColorProperty, "MaterialDesignBody");
-                    _settingcontrol.SetBinding(CustomTreeView.IsExpandedProperty, new Binding("IsExpanded") { Mode = BindingMode.TwoWay, Source = group });
+                    _settingcontrol.SetResourceReference(ExpandTree.HeaderColorProperty, "MaterialDesignBody");
+                    _settingcontrol.SetBinding(ExpandTree.IsExpandedProperty, new Binding("IsExpanded") { Mode = BindingMode.TwoWay, Source = group });
 
                     _settingcontrol.ExpanderUpdate();
 
@@ -410,7 +413,7 @@ namespace BEditor.Views
                 {
                     var group = elm as ExpandGroup;
 
-                    var expander = new CustomTreeView()
+                    var expander = new ExpandTree()
                     {
                         Header = group.PropertyMetadata.Name,
                         HeaderHeight = Setting.ClipHeight + 1,
@@ -437,7 +440,7 @@ namespace BEditor.Views
                         }
                     }
 
-                    expander.SetBinding(CustomTreeView.IsExpandedProperty, new Binding("IsExpanded") { Mode = BindingMode.TwoWay, Source = group });
+                    expander.SetBinding(ExpandTree.IsExpandedProperty, new Binding("IsExpanded") { Mode = BindingMode.TwoWay, Source = group });
 
                     expander.ExpanderUpdate();
 
@@ -533,16 +536,16 @@ namespace BEditor.Views
         {
             if (!effect.ComponentData.ContainsKey("GetControl"))
             {
-                CustomTreeView expander;
+                ExpandTree expander;
                 VirtualizingStackPanel stack;
 
                 if (effect is ObjectElement @object)
                 {
-                    (expander, stack) = App.CreateTreeObject(@object);
+                    (expander, stack) = CreateTreeObject(@object);
                 }
                 else
                 {
-                    (expander, stack) = App.CreateTreeEffect(effect);
+                    (expander, stack) = CreateTreeEffect(effect);
                 }
 
                 //Get毎にnewされると非効率なのでローカルに置く
@@ -571,7 +574,7 @@ namespace BEditor.Views
         {
             if (!effect.ComponentData.ContainsKey("GetKeyFrame"))
             {
-                var keyFrame = new CustomTreeView() { HeaderHeight = Setting.ClipHeight + 1 };
+                var keyFrame = new ExpandTree() { HeaderHeight = Setting.ClipHeight + 1 };
 
                 var stack = new VirtualizingStackPanel();
                 VirtualizingPanel.SetIsVirtualizing(stack, true);
@@ -592,8 +595,8 @@ namespace BEditor.Views
                     }
                 }
 
-                keyFrame.SetBinding(CustomTreeView.HeaderProperty, new Binding("Name") { Mode = BindingMode.OneTime, Source = effect });
-                keyFrame.SetBinding(CustomTreeView.IsExpandedProperty, new Binding("IsExpanded") { Mode = BindingMode.TwoWay, Source = effect });
+                keyFrame.SetBinding(ExpandTree.HeaderProperty, new Binding("Name") { Mode = BindingMode.OneTime, Source = effect });
+                keyFrame.SetBinding(ExpandTree.IsExpandedProperty, new Binding("IsExpanded") { Mode = BindingMode.TwoWay, Source = effect });
 
                 //エクスパンダーをアップデート
                 keyFrame.ExpanderUpdate();
@@ -654,5 +657,219 @@ namespace BEditor.Views
             }
             return easing.ComponentData["GetPropertyView"];
         }
+
+
+        public static (ExpandTree, VirtualizingStackPanel) CreateTreeObject(ObjectElement obj)
+        {
+            var _expander = new ExpandTree()
+            {
+                HeaderHeight = 35d
+            };
+
+            var stack = new VirtualizingStackPanel() { Margin = new Thickness(32.5, 0, 0, 0) };
+            VirtualizingPanel.SetIsVirtualizing(stack, true);
+            VirtualizingPanel.SetVirtualizationMode(stack, VirtualizationMode.Recycling);
+
+
+            var header = new VirtualizingStackPanel() { Orientation = Orientation.Horizontal };
+            VirtualizingPanel.SetIsVirtualizing(header, true);
+            VirtualizingPanel.SetVirtualizationMode(header, VirtualizationMode.Recycling);
+
+            _expander.Header = header;
+
+            var checkBox = new CheckBox()
+            {
+                Margin = new Thickness(0, 0, 5, 0),
+                VerticalAlignment = VerticalAlignment.Center
+            };
+            var textBlock = new TextBlock()
+            {
+                Margin = new Thickness(5, 0, 0, 0),
+                VerticalAlignment = VerticalAlignment.Center
+            };
+
+            header.Children.Add(checkBox);
+            header.Children.Add(textBlock);
+
+
+            #region コンテキストメニュー
+            var menuListBox = new ContextMenu();
+            var Delete = new MenuItem();
+
+            //削除項目の設定
+            var menu = new VirtualizingStackPanel()
+            {
+                Orientation = Orientation.Horizontal
+            };
+            menu.Children.Add(new PackIcon()
+            {
+                Kind = PackIconKind.Delete,
+                Margin = new Thickness(5, 0, 5, 0)
+            });
+            menu.Children.Add(new TextBlock()
+            {
+                Text = Resources.Remove,
+                Margin = new Thickness(20, 0, 5, 0)
+            });
+            Delete.Header = menu;
+
+            menuListBox.Items.Add(Delete);
+
+            // 作成したコンテキストメニューをListBox1に設定
+            _expander.ContextMenu = menuListBox;
+            #endregion
+
+            #region イベント
+            checkBox.Click += (sender, e) =>
+            {
+                obj.CreateCheckCommand((bool)((CheckBox)sender).IsChecked).Execute();
+            };
+
+            #endregion
+
+            #region Binding
+
+            var isenablebinding = new Binding("IsEnabled")
+            {
+                Mode = BindingMode.OneWay,
+                Source = obj
+            };
+            checkBox.SetBinding(ToggleButton.IsCheckedProperty, isenablebinding);
+
+            var textbinding = new Binding("Name")
+            {
+                Mode = BindingMode.OneTime,
+                Source = obj
+            };
+            textBlock.SetBinding(TextBlock.TextProperty, textbinding);
+
+            var isExpandedbinding = new Binding("IsExpanded")
+            {
+                Mode = BindingMode.TwoWay,
+                Source = obj
+            };
+            _expander.SetBinding(ExpandTree.IsExpandedProperty, isExpandedbinding);
+
+            _expander.SetResourceReference(ExpandTree.HeaderColorProperty, "MaterialDesignBody");
+
+            #endregion
+
+            _expander.Content = stack;
+
+            return (_expander, stack);
+        }
+        public static (ExpandTree, VirtualizingStackPanel) CreateTreeEffect(EffectElement effect)
+        {
+            var data = effect.Parent;
+
+            var _expander = new ExpandTree() { HeaderHeight = 35d };
+
+            var stack = new VirtualizingStackPanel() { Margin = new Thickness(32, 0, 0, 0) };
+            VirtualizingPanel.SetIsVirtualizing(stack, true);
+            VirtualizingPanel.SetVirtualizationMode(stack, VirtualizationMode.Recycling);
+
+            #region Header
+
+            var header = new VirtualizingStackPanel() { Orientation = Orientation.Horizontal };
+            VirtualizingPanel.SetIsVirtualizing(header, true);
+            VirtualizingPanel.SetVirtualizationMode(header, VirtualizationMode.Recycling);
+
+            _expander.Header = header;
+
+            var checkBox = new CheckBox()
+            {
+                Margin = new(0, 0, 5, 0),
+                VerticalAlignment = VerticalAlignment.Center
+            };
+            var upbutton = new Button()
+            {
+                Content = new PackIcon() { Kind = PackIconKind.ChevronUp },
+                Margin = new Thickness(5, 0, 0, 0),
+                Background = null,
+                BorderBrush = null,
+                VerticalAlignment = VerticalAlignment.Center
+            };
+            var downbutton = new Button()
+            {
+                Content = new PackIcon() { Kind = PackIconKind.ChevronDown },
+                Margin = new Thickness(0, 0, 5, 0),
+                Background = null,
+                BorderBrush = null,
+                VerticalAlignment = VerticalAlignment.Center
+            };
+            var textBlock = new TextBlock()
+            {
+                Margin = new(5, 0, 0, 0),
+                VerticalAlignment = VerticalAlignment.Center
+            };
+
+            header.Children.Add(checkBox);
+            header.Children.Add(upbutton);
+            header.Children.Add(downbutton);
+            header.Children.Add(textBlock);
+
+            #endregion
+
+
+            #region コンテキストメニュー
+            var menuListBox = new ContextMenu();
+            var Delete = new MenuItem();
+
+            //削除項目の設定
+            var menu = new VirtualizingStackPanel() { Orientation = Orientation.Horizontal };
+            menu.Children.Add(new PackIcon() { Kind = PackIconKind.Delete, Margin = new Thickness(5, 0, 5, 0) });
+            menu.Children.Add(new TextBlock() { Text = Resources.Remove, Margin = new Thickness(20, 0, 5, 0) });
+            Delete.Header = menu;
+
+            menuListBox.Items.Add(Delete);
+
+            // 作成したコンテキストメニューをListBox1に設定
+            _expander.ContextMenu = menuListBox;
+            #endregion
+
+            #region イベント
+
+            checkBox.Click += (sender, e) => effect.CreateCheckCommand((bool)((CheckBox)sender).IsChecked).Execute();
+
+            upbutton.Click += (sender, e) => effect.CreateUpCommand().Execute();
+
+            downbutton.Click += (sender, e) => effect.CreateDownCommand().Execute();
+
+            Delete.Click += (sender, e) => effect.Parent.CreateRemoveCommand(effect).Execute();
+
+            #endregion
+
+            #region Binding
+
+            var isenablebinding = new Binding("IsEnabled")
+            {
+                Mode = BindingMode.OneWay,
+                Source = effect
+            };
+            checkBox.SetBinding(ToggleButton.IsCheckedProperty, isenablebinding);
+
+            var textbinding = new Binding("Name")
+            {
+                Mode = BindingMode.OneTime,
+                Source = effect
+            };
+            textBlock.SetBinding(TextBlock.TextProperty, textbinding);
+
+            var isExpandedbinding = new Binding("IsExpanded")
+            {
+                Mode = BindingMode.TwoWay,
+                Source = effect
+            };
+            _expander.SetBinding(ExpandTree.IsExpandedProperty, isExpandedbinding);
+
+            _expander.SetResourceReference(ExpandTree.HeaderColorProperty, "MaterialDesignBody");
+
+            #endregion
+
+            _expander.Content = stack;
+
+            return (_expander, stack);
+        }
+
     }
 }
