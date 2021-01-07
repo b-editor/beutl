@@ -13,17 +13,8 @@
     xmlns:data="clr-namespace:BEditor.Core.Data;assembly=BEditor.Core"
     mc:Ignorable="d"
     WindowStartupLocation="CenterScreen"
-    Background="{DynamicResource MaterialDesignPaper}"
-    TextElement.Foreground="{DynamicResource MaterialDesignBody}"
-    
-    WindowTitleBrush="{DynamicResource MaterialDesignPaper}"
-    BorderBrush="{StaticResource PrimaryHueMidBrush}"
-    GlowBrush="{DynamicResource MaterialDesignShadowBrush}"
-    
-    NonActiveWindowTitleBrush="{DynamicResource MaterialDesignPaper}"
-    NonActiveBorderBrush="{StaticResource PrimaryHueDarkBrush}"
-    NonActiveGlowBrush="{DynamicResource MaterialDesignShadowBrush}"
-    BorderThickness="0"
+
+    Style="{StaticResource DefaultWindowStyle}"
     SizeToContent="WidthAndHeight"
     MinHeight="250"
     MinWidth="450">
@@ -49,13 +40,6 @@
             <Setter Property="Width" Value="130"/>
             <Setter Property="Height" Value="25"/>
             <Setter Property="HorizontalAlignment" Value="Left"/>
-        </Style>
-        <Style TargetType="{x:Type Controls:WindowButtonCommands}">
-            <Style.Triggers>
-                <DataTrigger Binding="{Binding ShowTitleBar, RelativeSource={RelativeSource FindAncestor, AncestorType={x:Type Controls:MetroWindow}}}" Value="True">
-                    <Setter Property="Foreground" Value="{DynamicResource MaterialDesignBody}" />
-                </DataTrigger>
-            </Style.Triggers>
         </Style>
     </Controls:MetroWindow.Resources>
     <Grid>

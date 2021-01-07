@@ -18,6 +18,7 @@
 
         <ResourceDictionary Source="/BEditor.WPF.Controls;component/Themes/ExpandTree.xaml" />
         <ResourceDictionary Source="/BEditor.WPF.Controls;component/Themes/ColorPicker.xaml" />
+        <ResourceDictionary Source="/BEditor.WPF.Controls;component/Themes/Seekbar.xaml" />
     </ResourceDictionary.MergedDictionaries>
 
     <Style TargetType="{x:Type local:CheckPropertyView}" BasedOn="{StaticResource CheckPropertyStyle}" />
@@ -34,4 +35,5 @@
 
     <Style TargetType="{x:Type local:ExpandTree}" BasedOn="{StaticResource ExpandTreeStyle}" />
     <Style TargetType="{x:Type local:ColorPicker}" BasedOn="{StaticResource ColorPickerStyle}" />
+    <Style TargetType="{x:Type local:Seekbar}" BasedOn="{StaticResource SeekbarStyle}" />
 </ResourceDictionary>

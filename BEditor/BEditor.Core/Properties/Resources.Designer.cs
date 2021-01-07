@@ -124,6 +124,15 @@ namespace BEditor.Core.Properties {
         }
         
         /// <summary>
+        ///   Plugin(_X) に類似しているローカライズされた文字列を検索します。
+        /// </summary>
+        public static string AccessPlugin {
+            get {
+                return ResourceManager.GetString("AccessPlugin", resourceCulture);
+            }
+        }
+        
+        /// <summary>
         ///   Project(_P) に類似しているローカライズされた文字列を検索します。
         /// </summary>
         public static string AccessProject {
@@ -530,6 +539,15 @@ namespace BEditor.Core.Properties {
         }
         
         /// <summary>
+        ///   Convert to json format に類似しているローカライズされた文字列を検索します。
+        /// </summary>
+        public static string ConvertJson {
+            get {
+                return ResourceManager.GetString("ConvertJson", resourceCulture);
+            }
+        }
+        
+        /// <summary>
         ///   Coodinate に類似しているローカライズされた文字列を検索します。
         /// </summary>
         public static string Coordinate {
@@ -833,6 +851,15 @@ namespace BEditor.Core.Properties {
         public static string ExceptionStackTrace {
             get {
                 return ResourceManager.GetString("ExceptionStackTrace", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   {0} was thrown. に類似しているローカライズされた文字列を検索します。
+        /// </summary>
+        public static string ExceptionWasThrown {
+            get {
+                return ResourceManager.GetString("ExceptionWasThrown", resourceCulture);
             }
         }
         
@@ -1197,6 +1224,15 @@ namespace BEditor.Core.Properties {
         }
         
         /// <summary>
+        ///   Open the directory where this project file is located. に類似しているローカライズされた文字列を検索します。
+        /// </summary>
+        public static string OpenProjectDirectory {
+            get {
+                return ResourceManager.GetString("OpenProjectDirectory", resourceCulture);
+            }
+        }
+        
+        /// <summary>
         ///   Open the repository for this software に類似しているローカライズされた文字列を検索します。
         /// </summary>
         public static string OpenThisRepository {
@@ -1292,6 +1328,16 @@ namespace BEditor.Core.Properties {
         public static string Plugins {
             get {
                 return ResourceManager.GetString("Plugins", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   {0} plugins have been added.
+        ///Please select the plugin you want to load に類似しているローカライズされた文字列を検索します。
+        /// </summary>
+        public static string PluginsAddedMessage {
+            get {
+                return ResourceManager.GetString("PluginsAddedMessage", resourceCulture);
             }
         }
         

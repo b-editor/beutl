@@ -140,6 +140,9 @@
     <value>Output(_O)</value>
     <comment>アクセラレータキーに使用</comment>
   </data>
+  <data name="AccessPlugin" xml:space="preserve">
+    <value>Plugin(_X)</value>
+  </data>
   <data name="AccessProject" xml:space="preserve">
     <value>Project(_P)</value>
     <comment>アクセラレータキーに使用</comment>
@@ -280,6 +283,9 @@ Do you want to perform the operation?</value>
   <data name="Continue" xml:space="preserve">
     <value>Continue</value>
   </data>
+  <data name="ConvertJson" xml:space="preserve">
+    <value>Convert to json format</value>
+  </data>
   <data name="Coordinate" xml:space="preserve">
     <value>Coodinate</value>
   </data>
@@ -382,6 +388,9 @@ Please let the developer know.</value>
   </data>
   <data name="ExceptionStackTrace" xml:space="preserve">
     <value>StackTrace</value>
+  </data>
+  <data name="ExceptionWasThrown" xml:space="preserve">
+    <value>{0} was thrown.</value>
   </data>
   <data name="FailedToLoad" xml:space="preserve">
     <value>{0} failed to load.</value>
@@ -503,6 +512,9 @@ Please let the developer know.</value>
   <data name="Open" xml:space="preserve">
     <value>Open</value>
   </data>
+  <data name="OpenProjectDirectory" xml:space="preserve">
+    <value>Open the directory where this project file is located.</value>
+  </data>
   <data name="OpenThisRepository" xml:space="preserve">
     <value>Open the repository for this software</value>
   </data>
@@ -535,6 +547,10 @@ Please let the developer know.</value>
   </data>
   <data name="Plugins" xml:space="preserve">
     <value>Plugins</value>
+  </data>
+  <data name="PluginsAddedMessage" xml:space="preserve">
+    <value>{0} plugins have been added.
+Please select the plugin you want to load</value>
   </data>
   <data name="PointLightSource" xml:space="preserve">
     <value>Point Light Source</value>

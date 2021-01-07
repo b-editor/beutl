@@ -2,40 +2,27 @@
 using System.Collections.Generic;
 using System.Collections.ObjectModel;
 using System.IO;
+using System.Linq;
+using System.Threading.Tasks;
 using System.Windows;
-using System.Windows.Controls;
-using System.Windows.Data;
 using System.Windows.Threading;
 using System.Xml.Linq;
 
+using BEditor.Core.Data.Primitive.Properties;
+using BEditor.Core.Extensions.ViewCommand;
+using BEditor.Core.Plugin;
+using BEditor.Core.Service;
+using BEditor.Drawing;
 using BEditor.Models;
+using BEditor.Models.Services;
 using BEditor.ViewModels;
 using BEditor.ViewModels.CustomControl;
+using BEditor.ViewModels.MessageContent;
 using BEditor.ViewModels.PropertyControl;
 using BEditor.Views;
-using BEditor.Views.CustomControl;
 using BEditor.Views.MessageContent;
 
-using BEditor.Core.Data;
-using BEditor.Core.Data.Property;
-using BEditor.Core.Extensions.ViewCommand;
-
 using MaterialDesignThemes.Wpf;
-using Resources_ = BEditor.Core.Properties.Resources;
-using System.Timers;
-using BEditor.Models.Services;
-using BEditor.Core.Service;
-using BEditor.Core.Command;
-using BEditor.Core.Data.Primitive.Properties;
-using BEditor.Drawing;
-using System.Globalization;
-using System.Linq;
-using BEditor.WPF.Controls;
-using System.Windows.Controls.Primitives;
-using System.Reflection;
-using System.Threading.Tasks;
-using BEditor.ViewModels.MessageContent;
-using BEditor.Core.Plugin;
 
 namespace BEditor
 {
@@ -49,6 +36,7 @@ namespace BEditor
             base.OnStartup(e);
 
             SetDarkMode();
+#if !DEBUG
 
             var viewmodel = new SplashWindowViewModel();
             var splashscreen = new SplashWindow()
@@ -57,26 +45,46 @@ namespace BEditor
             };
             MainWindow = splashscreen;
             splashscreen.Show();
+#endif
 
-            Task.Run(() =>
+            Task.Run(async () =>
             {
+#if !DEBUG
+
                 const string LoadingColors = "カラーパレットを読み込み中";
                 const string LoadingFont = "フォントを読み込み中";
                 const string LoadingPlugins = "プラグインを読み込み中";
+                const string LoadingCommand = "コマンドを読み込み中";
 
                 viewmodel.Status.Value = LoadingColors;
-                InitialColors();
+                await InitialColorsAsync();
+
                 viewmodel.Status.Value = LoadingFont;
                 InitialFontManager();
+
                 viewmodel.Status.Value = LoadingPlugins;
                 InitialPlugins();
 
-                this.Dispatcher.Invoke(() =>
+                viewmodel.Status.Value = LoadingCommand;
+                LoadCommand();
+
+#else
+                await InitialColorsAsync();
+
+                InitialFontManager();
+
+                InitialPlugins();
+
+                LoadCommand();
+#endif
+                Dispatcher.Invoke(() =>
                 {
                     var mainWindow = new MainWindow();
                     MainWindow = mainWindow;
                     mainWindow.Show();
+#if !DEBUG
                     splashscreen.Close();
+#endif
                 });
             });
         }
@@ -94,7 +102,7 @@ namespace BEditor
             }
         }
 
-        private static void InitialColors()
+        private static async Task InitialColorsAsync()
         {
             static void CreateDefaultColor()
             {
@@ -132,13 +140,13 @@ namespace BEditor
 
             foreach (var file in files)
             {
-
+                using var stream = new FileStream(file, FileMode.Open);
                 // ファイルの読み込み
-                XDocument xml = XDocument.Load(file);
+                var xml = await XDocument.LoadAsync(stream, LoadOptions.None, default);
 
 
-                XElement xElement = xml.Root;
-                IEnumerable<XElement> cols = xElement.Elements("Color");
+                var xElement = xml.Root;
+                var cols = xElement.Elements("Color");
 
                 ObservableCollection<ColorListProperty> colors = new();
 
@@ -176,32 +184,51 @@ namespace BEditor
             // ここで確認ダイアログを表示
             if (disable.Length != 0)
             {
-                var control = new PluginCheckHost();
-                var controlvm = new PluginCheckHostViewModel
+                App.Current.Dispatcher.Invoke(() =>
                 {
-                    Plugins = new(disable.Select(name => new PluginCheckViewModel() { Name = { Value = name } }))
-                };
-
-                control.DataContext = controlvm;
-
-                new NoneDialog(control).ShowDialog();
-
-                foreach (var vm in controlvm.Plugins)
-                {
-                    if (vm.IsEnabled.Value)
+                    var control = new PluginCheckHost();
+                    var controlvm = new PluginCheckHostViewModel
                     {
-                        Settings.Default.EnablePlugins.Add(vm.Name.Value);
-                    }
-                    else
-                    {
-                        Settings.Default.DisablePlugins.Add(vm.Name.Value);
-                    }
-                }
+                        Plugins = new(disable.Select(name => new PluginCheckViewModel() { Name = { Value = name } }))
+                    };
 
-                Settings.Default.Save();
+                    control.DataContext = controlvm;
+
+                    new NoneDialog(control).ShowDialog();
+
+                    foreach (var vm in controlvm.Plugins)
+                    {
+                        if (vm.IsEnabled.Value)
+                        {
+                            Settings.Default.EnablePlugins.Add(vm.Name.Value);
+                        }
+                        else
+                        {
+                            Settings.Default.DisablePlugins.Add(vm.Name.Value);
+                        }
+                    }
+
+                    Settings.Default.Save();
+
+
+                    AppData.Current.LoadedPlugins = PluginManager.Load(Settings.Default.EnablePlugins).ToList();
+                });
+
+                return;
             }
 
             AppData.Current.LoadedPlugins = PluginManager.Load(Settings.Default.EnablePlugins).ToList();
+        }
+        private static void LoadCommand()
+        {
+            //var types = AppData.Current.LoadedPlugins.Select(p => p.GetType().Assembly)
+            //    .Append(typeof(ClipData).Assembly)
+            //    .Select(p => p.GetTypes())
+            //    .Select(p => p.Select(c => c.GetNestedTypes()))
+            //    .SelectMany(p => p)
+            //    .SelectMany(p => p)
+            //    .Where(p => typeof(IRecordCommand).IsAssignableFrom(p))
+            //    .ToList();
         }
 
         private void Application_Startup(object sender, StartupEventArgs e)
@@ -223,6 +250,15 @@ namespace BEditor
         private void Application_Exit(object sender, ExitEventArgs e)
         {
             Settings.Default.Save();
+        }
+
+        private void Application_DispatcherUnhandledException(object sender, DispatcherUnhandledExceptionEventArgs e)
+        {
+            Message.Snackbar(string.Format(Core.Properties.Resources.ExceptionWasThrown, e.Exception.GetType().FullName));
+
+#if !DEBUG
+            e.Handled = true;
+#endif
         }
     }
 }

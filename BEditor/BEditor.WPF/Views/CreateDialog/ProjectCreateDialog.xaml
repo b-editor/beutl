@@ -8,30 +8,15 @@
         xmlns:md="http://materialdesigninxaml.net/winfx/xaml/themes"
         xmlns:Controls="clr-namespace:MahApps.Metro.Controls;assembly=MahApps.Metro"
         xmlns:properties="clr-namespace:BEditor.Core.Properties;assembly=BEditor.Core"
-        mc:Ignorable="d" Background="{StaticResource MaterialDesignPaper}"
+        mc:Ignorable="d"
         Height="275" Width="450"
-        TextElement.Foreground="{StaticResource MaterialDesignBody}"
         WindowStartupLocation="CenterOwner"
         ResizeMode="NoResize"
         
-        WindowTitleBrush="{DynamicResource MaterialDesignPaper}"
-        GlowBrush="Black"
-        BorderThickness="0"
-        
-        NonActiveWindowTitleBrush="{DynamicResource MaterialDesignPaper}"
-        NonActiveGlowBrush="Black">
+        Style="{StaticResource DefaultWindowStyle}">
     <Controls:MetroWindow.DataContext>
         <vm:ProjectCreateDialogViewModel/>
     </Controls:MetroWindow.DataContext>
-    <Controls:MetroWindow.Resources>
-        <Style TargetType="{x:Type Controls:WindowButtonCommands}">
-            <Style.Triggers>
-                <DataTrigger Binding="{Binding ShowTitleBar, RelativeSource={RelativeSource FindAncestor, AncestorType={x:Type Controls:MetroWindow}}}" Value="True">
-                    <Setter Property="Foreground" Value="{DynamicResource MaterialDesignBody}" />
-                </DataTrigger>
-            </Style.Triggers>
-        </Style>
-    </Controls:MetroWindow.Resources>
     <Controls:MetroWindow.LeftWindowCommands>
         <Controls:WindowCommands>
             <VirtualizingStackPanel Orientation="Horizontal">

@@ -20,7 +20,7 @@
             <RowDefinition Height="413*"/>
         </Grid.RowDefinitions>
 
-        <md:PopupBox HorizontalAlignment="Stretch" VerticalContentAlignment="Center" HorizontalContentAlignment="Left">
+        <!--<md:PopupBox HorizontalAlignment="Stretch" VerticalContentAlignment="Center" HorizontalContentAlignment="Left">
             <md:PopupBox.ToggleContent>
                 <VirtualizingStackPanel Orientation="Horizontal" VerticalAlignment="Center" HorizontalAlignment="Center">
                     <md:PackIcon Foreground="{DynamicResource MaterialDesignBody}" Kind="Layers" HorizontalAlignment="Left" VerticalAlignment="Center" VerticalContentAlignment="Center" HorizontalContentAlignment="Center" Width="25" Height="25" Margin="10,0,0,0"/>
@@ -31,7 +31,7 @@
             <Grid>
                 <Slider Value="{Binding Scene.TimeLineZoom, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}" Margin="10" VerticalAlignment="Center" Maximum="200" Minimum="1" Width="250" Height="Auto"/>
             </Grid>
-        </md:PopupBox>
+        </md:PopupBox>-->
 
         <ScrollViewer Style="{StaticResource MaterialDesignScrollViewerStyle}" x:Name="ScrollLine" Grid.Row="0" Grid.Column="1" PreviewMouseWheel="ScrollLine_PreviewMouseWheel" HorizontalScrollBarVisibility="Visible" Background="{DynamicResource MaterialDesignCardBackground}" Grid.RowSpan="2" ScrollChanged="ScrollLine_ScrollChanged">
             <Grid Width="{Binding TrackWidth.Value, Mode=OneWay}" Height="Auto" Background="{DynamicResource MaterialDesignBodyLight}" HorizontalAlignment="Left" x:Name="timelinegrid">

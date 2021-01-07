@@ -5,6 +5,8 @@ using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
 
+using BEditor.Core.Properties;
+
 using Reactive.Bindings;
 
 namespace BEditor.ViewModels.MessageContent
@@ -18,5 +20,7 @@ namespace BEditor.ViewModels.MessageContent
             get => plugins ??= new();
             set => plugins = value;
         }
+
+        public string Message => string.Format(Resources.PluginsAddedMessage, Plugins.Count.ToString());
     }
 }

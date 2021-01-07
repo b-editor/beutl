@@ -10,17 +10,8 @@
         mc:Ignorable="d"
         WindowStartupLocation="CenterScreen"
         ResizeMode="NoResize"
-    
-        Background="{DynamicResource MaterialDesignPaper}"
-        TextElement.Foreground="{DynamicResource MaterialDesignBody}"
         
-        WindowTitleBrush="{DynamicResource MaterialDesignPaper}"
-        BorderBrush="{StaticResource PrimaryHueMidBrush}"
-        GlowBrush="{DynamicResource MaterialDesignShadowBrush}"
-        
-        NonActiveWindowTitleBrush="{DynamicResource MaterialDesignPaper}"
-        NonActiveBorderBrush="{StaticResource PrimaryHueDarkBrush}"
-        NonActiveGlowBrush="{DynamicResource MaterialDesignShadowBrush}"
+        Style="{StaticResource DefaultWindowStyle}"
         BorderThickness="0"
         MaxWidth="500"
         SizeToContent="WidthAndHeight">

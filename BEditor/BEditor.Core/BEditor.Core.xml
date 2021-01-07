@@ -2236,6 +2236,11 @@
               Output(_O) に類似しているローカライズされた文字列を検索します。
             </summary>
         </member>
+        <member name="P:BEditor.Core.Properties.Resources.AccessPlugin">
+            <summary>
+              Plugin(_X) に類似しているローカライズされた文字列を検索します。
+            </summary>
+        </member>
         <member name="P:BEditor.Core.Properties.Resources.AccessProject">
             <summary>
               Project(_P) に類似しているローカライズされた文字列を検索します。
@@ -2462,6 +2467,11 @@
               Continue に類似しているローカライズされた文字列を検索します。
             </summary>
         </member>
+        <member name="P:BEditor.Core.Properties.Resources.ConvertJson">
+            <summary>
+              Convert to json format に類似しているローカライズされた文字列を検索します。
+            </summary>
+        </member>
         <member name="P:BEditor.Core.Properties.Resources.Coordinate">
             <summary>
               Coodinate に類似しているローカライズされた文字列を検索します。
@@ -2631,6 +2641,11 @@
         <member name="P:BEditor.Core.Properties.Resources.ExceptionStackTrace">
             <summary>
               StackTrace に類似しているローカライズされた文字列を検索します。
+            </summary>
+        </member>
+        <member name="P:BEditor.Core.Properties.Resources.ExceptionWasThrown">
+            <summary>
+              {0} was thrown. に類似しているローカライズされた文字列を検索します。
             </summary>
         </member>
         <member name="P:BEditor.Core.Properties.Resources.FailedToLoad">
@@ -2833,6 +2848,11 @@
               Open に類似しているローカライズされた文字列を検索します。
             </summary>
         </member>
+        <member name="P:BEditor.Core.Properties.Resources.OpenProjectDirectory">
+            <summary>
+              Open the directory where this project file is located. に類似しているローカライズされた文字列を検索します。
+            </summary>
+        </member>
         <member name="P:BEditor.Core.Properties.Resources.OpenThisRepository">
             <summary>
               Open the repository for this software に類似しているローカライズされた文字列を検索します。
@@ -2887,6 +2907,12 @@
             <summary>
               Plugins に類似しているローカライズされた文字列を検索します。
             </summary>
+        </member>
+        <member name="P:BEditor.Core.Properties.Resources.PluginsAddedMessage">
+             <summary>
+               {0} plugins have been added.
+            Please select the plugin you want to load に類似しているローカライズされた文字列を検索します。
+             </summary>
         </member>
         <member name="P:BEditor.Core.Properties.Resources.PointLightSource">
             <summary>

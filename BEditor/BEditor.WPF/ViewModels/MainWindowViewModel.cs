@@ -38,17 +38,10 @@ namespace BEditor.ViewModels
 {
     public sealed class MainWindowViewModel
     {
-        private ShowHideState timelineState = ShowHideState.Show;
-        private ShowHideState propertyState = ShowHideState.Show;
-
         public static MainWindowViewModel Current { get; } = new();
 
         public ReactiveProperty<WriteableBitmap> PreviewImage { get; } = new();
         public ReactiveProperty<Brush> MainWindowColor { get; } = new();
-        public ReactiveProperty<GridLength> TimelineGrid { get; } = new(new GridLength(1, GridUnitType.Star));
-        public ReactiveCommand TimelineShowHide { get; } = new();
-        public ReactiveProperty<GridLength> PropertyGrid { get; } = new(new GridLength(425));
-        public ReactiveCommand PropertyShowHide { get; } = new();
 
         public ReactiveCommand PreviewStart { get; } = new();
         public ReactiveCommand FrameNext { get; } = new();
@@ -58,6 +51,9 @@ namespace BEditor.ViewModels
 
         public ReactiveCommand SendFeedback { get; } = new();
         public ReactiveCommand OpenThisRepository { get; } = new();
+
+        public ReactiveCommand OpenProjectDirectory { get; } = new();
+        public ReactiveCommand ConvertJson { get; } = new();
 
         public ReactiveCommand Shutdown { get; } = new();
 
@@ -112,6 +108,7 @@ namespace BEditor.ViewModels
             });
             ClipRemoveCommand.Where(_ => AppData.Current.Project is not null)
                 .Select(_ => AppData.Current.Project.PreviewScene.SelectItem)
+                .Where(c => c is not null)
                 .Subscribe(clip => clip.Parent.CreateRemoveCommand(clip).Execute());
 
             SettingShow.Subscribe(SettingShowCommand);
@@ -197,6 +194,8 @@ namespace BEditor.ViewModels
 
                     var clip = Serialize.LoadFromStream<ClipData>(memory, SerializeMode.Json);
 
+                    if (clip is null) return;
+
                     var length = clip.Length;
                     clip.Start = timeline.Select_Frame;
                     clip.End = length + timeline.Select_Frame;
@@ -206,34 +205,6 @@ namespace BEditor.ViewModels
                     timeline.Scene.CreateAddCommand(clip).Execute();
                 });
 
-            TimelineShowHide.Subscribe(_ =>
-            {
-                if (timelineState is ShowHideState.Hide)
-                {
-                    TimelineGrid.Value = new(1, GridUnitType.Star);
-                    timelineState = ShowHideState.Show;
-                }
-                else if (timelineState is ShowHideState.Show)
-                {
-                    TimelineGrid.Value = new(0, GridUnitType.Star);
-                    timelineState = ShowHideState.Hide;
-                }
-            });
-            PropertyShowHide.Subscribe(_ =>
-            {
-                if (propertyState is ShowHideState.Hide)
-                {
-                    PropertyGrid.Value = new(425);
-                    propertyState = ShowHideState.Show;
-                }
-                else if (propertyState is ShowHideState.Show)
-                {
-                    PropertyGrid.Value = new(0);
-                    propertyState = ShowHideState.Hide;
-                }
-            });
-
-
             const string feedback = "https://github.com/indigo-san/BEditor/issues/new";
             const string repository = "https://github.com/indigo-san/BEditor/";
 
@@ -241,6 +212,25 @@ namespace BEditor.ViewModels
             OpenThisRepository.Subscribe(() => Process.Start(new ProcessStartInfo("cmd", $"/c start {repository}") { CreateNoWindow = true }));
 
             Shutdown.Subscribe(() => App.Current.Shutdown());
+
+            OpenProjectDirectory
+                .Where(_ => AppData.Current.Project is not null)
+                .Subscribe(_ => Process.Start("explorer.exe", Path.GetDirectoryName(AppData.Current.Project.Filename)));
+
+            ConvertJson.Where(_ => AppData.Current.Project is not null)
+                .Subscribe(_ =>
+                {
+                    var temp = Path.GetTempFileName();
+                    using var stream = new FileStream(temp, FileMode.Create);
+
+                    if (!Serialize.SaveToStream(AppData.Current.Project, stream, SerializeMode.Json)) throw new Exception();
+
+                    var p = Process.Start("notepad.exe", temp);
+
+                    p.WaitForInputIdle();
+
+                    File.Delete(temp);
+                });
         }
 
 
@@ -303,10 +293,8 @@ namespace BEditor.ViewModels
                 AppData.Current.Project = new(name);
                 AppData.Current.AppStatus = Status.Edit;
 
-                if (!Settings.Default.MostRecentlyUsedList.Contains(name))
-                {
-                    Settings.Default.MostRecentlyUsedList.Add(name);
-                }
+                Settings.Default.MostRecentlyUsedList.Remove(name);
+                Settings.Default.MostRecentlyUsedList.Add(name);
             }
             catch
             {
@@ -333,10 +321,8 @@ namespace BEditor.ViewModels
                     AppData.Current.Project = new(dialog.FileName);
                     AppData.Current.AppStatus = Status.Edit;
 
-                    if (!Settings.Default.MostRecentlyUsedList.Contains(dialog.FileName))
-                    {
-                        Settings.Default.MostRecentlyUsedList.Add(dialog.FileName);
-                    }
+                    Settings.Default.MostRecentlyUsedList.Remove(dialog.FileName);
+                    Settings.Default.MostRecentlyUsedList.Add(dialog.FileName);
                 }
                 catch
                 {
@@ -429,12 +415,5 @@ namespace BEditor.ViewModels
         }
 
         #endregion
-
-
-        enum ShowHideState : byte
-        {
-            Show,
-            Hide
-        }
     }
 }

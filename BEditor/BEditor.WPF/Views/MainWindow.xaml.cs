@@ -1,4 +1,5 @@
 ﻿using System;
+using System.Collections.ObjectModel;
 using System.Collections.Specialized;
 using System.IO;
 using System.Linq;
@@ -7,6 +8,7 @@ using System.Windows.Controls;
 using System.Windows.Controls.Primitives;
 using System.Windows.Input;
 
+using BEditor.Core.Command;
 using BEditor.Core.Data;
 using BEditor.Core.Data.Primitive.Properties;
 using BEditor.Core.Plugin;
@@ -21,6 +23,8 @@ using MahApps.Metro.Controls;
 
 using MaterialDesignThemes.Wpf;
 
+using Reactive.Bindings;
+
 namespace BEditor
 {
     /// <summary>
@@ -28,16 +32,25 @@ namespace BEditor
     /// </summary>
     public partial class MainWindow : MetroWindow
     {
+        enum ShowHideState : byte
+        {
+            Show,
+            Hide
+        }
+        private ShowHideState TimelineIsShown = ShowHideState.Show;
+        private ShowHideState PropertyIsShown = ShowHideState.Show;
+
         public MainWindow()
         {
             InitializeComponent();
 
             Activated += (_, _) => MainWindowViewModel.Current.MainWindowColor.Value = (System.Windows.Media.Brush)FindResource("PrimaryHueMidBrush");
             Deactivated += (_, _) => MainWindowViewModel.Current.MainWindowColor.Value = (System.Windows.Media.Brush)FindResource("PrimaryHueDarkBrush");
-            
+
             Focus();
 
             SetMostUsedFiles();
+            SetPluginMenu();
         }
 
         private void SetMostUsedFiles()
@@ -59,7 +72,7 @@ namespace BEditor
                 {
                     var menu = new MenuItem()
                     {
-                        Header = e.NewItems[e.NewStartingIndex]
+                        Header = (s as ObservableCollection<string>)[e.NewStartingIndex]
                     };
                     menu.Click += (s, e) => MainWindowViewModel.ProjectOpenCommand((s as MenuItem).Header as string);
 
@@ -67,17 +80,53 @@ namespace BEditor
                 }
                 else if (e.Action is NotifyCollectionChangedAction.Remove)
                 {
-                    var file = e.OldItems[e.OldStartingIndex] as string;
+                    var file = e.OldItems[0] as string;
 
                     foreach (var item in UsedFiles.Items)
                     {
                         if (item is MenuItem menuItem && menuItem.Header is string header && header == file)
                         {
                             UsedFiles.Items.Remove(item);
+
+                            return;
                         }
                     }
                 }
             };
+        }
+        private void SetPluginMenu()
+        {
+            foreach (var menu in AppData.Current.LoadedPlugins
+                .Where(p => p is ICustomMenuPlugin)
+                .Select(p =>
+                {
+                    var plugin = p as ICustomMenuPlugin;
+
+                    var menu = new MenuItem()
+                    {
+                        Header = plugin.PluginName,
+                        ToolTip = plugin.Description
+                    };
+
+                    foreach (var m in plugin.Menus)
+                    {
+                        var command = new ReactiveCommand();
+                        command.Subscribe(m.Execute);
+
+                        var newItem = new MenuItem()
+                        {
+                            Command = command,
+                            Header = m.Name
+                        };
+
+                        menu.Items.Add(newItem);
+                    }
+
+                    return menu;
+                }))
+            {
+                PluginMenu.Items.Add(menu);
+            }
         }
 
         private void MetroWindow_Closing(object sender, System.ComponentModel.CancelEventArgs e) { }
@@ -91,6 +140,19 @@ namespace BEditor
                 DataObject dataObject = new DataObject(typeof(Func<ObjectMetadata>), s);
                 // ドラッグ開始
                 DragDrop.DoDragDrop(this, dataObject, DragDropEffects.Copy);
+            }
+        }
+
+        private void MetroWindow_Loaded(object sender, RoutedEventArgs e)
+        {
+            //コマンドライン引数から開く
+            if (AppData.Current.Arguments.Length != 0 && File.Exists(AppData.Current.Arguments[0]))
+            {
+                if (Path.GetExtension(AppData.Current.Arguments[0]) == ".bedit")
+                {
+                    AppData.Current.Project = new(AppData.Current.Arguments[0]);
+                    AppData.Current.AppStatus = Status.Edit;
+                }
             }
         }
 
@@ -117,16 +179,30 @@ namespace BEditor
             }
         }
 
-        private void MetroWindow_Loaded(object sender, RoutedEventArgs e)
+        private void TimelineShowHide(object sender, RoutedEventArgs e)
         {
-            //コマンドライン引数から開く
-            if (AppData.Current.Arguments.Length != 0 && File.Exists(AppData.Current.Arguments[0]))
+            if (TimelineIsShown == ShowHideState.Show)
             {
-                if (Path.GetExtension(AppData.Current.Arguments[0]) == ".bedit")
-                {
-                    AppData.Current.Project = new(AppData.Current.Arguments[0]);
-                    AppData.Current.AppStatus = Status.Edit;
-                }
+                TimelineGrid.Height = new GridLength(0);
+                TimelineIsShown = ShowHideState.Hide;
+            }
+            else
+            {
+                TimelineGrid.Height = new GridLength(1, GridUnitType.Star);
+                TimelineIsShown = ShowHideState.Show;
+            }
+        }
+        private void PropertyShowHide(object sender, RoutedEventArgs e)
+        {
+            if (PropertyIsShown == ShowHideState.Show)
+            {
+                PropertyGrid.Width = new GridLength(0);
+                PropertyIsShown = ShowHideState.Hide;
+            }
+            else
+            {
+                PropertyGrid.Width = new GridLength(425);
+                PropertyIsShown = ShowHideState.Show;
             }
         }
     }

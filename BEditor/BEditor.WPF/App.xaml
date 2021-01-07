@@ -5,8 +5,7 @@
              xmlns:dragablz="http://dragablz.net/winfx/xaml/dragablz"
              Startup="Application_Startup"
              Exit="Application_Exit"
-             >
-             <!--DispatcherUnhandledException="Application_DispatcherUnhandledException"-->
+             DispatcherUnhandledException="Application_DispatcherUnhandledException">
     <Application.Resources>
         <ResourceDictionary>
             <ResourceDictionary.MergedDictionaries>

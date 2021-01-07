@@ -10,7 +10,6 @@
              mc:Ignorable="d"
              xmlns:md="http://materialdesigninxaml.net/winfx/xaml/themes"
              xmlns:vm="clr-namespace:BEditor.ViewModels"
-             xmlns:vmtool="clr-namespace:BEditor.ViewModels.ToolControl"
              IsEnabled="{Binding ProjectIsOpened.Value, Mode=OneWay, Source={x:Static vm:MainWindowViewModel.Current}}"
              d:DesignHeight="450" d:DesignWidth="800">
     <ScrollViewer Margin="5,5,5,5" x:Name="scrollViewer">

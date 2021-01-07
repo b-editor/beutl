@@ -8,24 +8,14 @@
              xmlns:i="http://schemas.microsoft.com/xaml/behaviors"
              xmlns:md="http://materialdesigninxaml.net/winfx/xaml/themes"
              xmlns:listsource="clr-namespace:BEditor.Core.Data;assembly=BEditor.Core"
-             xmlns:vm="clr-namespace:BEditor.ViewModels.ToolControl"
-             mc:Ignorable="d"
-             DataContext="{x:Static vm:LibraryViewModel.Current}">
+             mc:Ignorable="d">
     <ScrollViewer x:Name="scrollViewer" Margin="5,5,5,5">
-        <TreeView x:Name="TreeView" ItemsSource="{x:Static listsource:EffectMetadata.LoadedEffects}" md:RippleAssist.IsDisabled="True" PreviewMouseWheel="TreeView_PreviewMouseWheel">
+        <TreeView x:Name="TreeView" PreviewMouseDown="TreeView_PreviewMouseDown" ItemsSource="{x:Static listsource:EffectMetadata.LoadedEffects}" md:RippleAssist.IsDisabled="True" PreviewMouseWheel="TreeView_PreviewMouseWheel">
             <TreeView.Resources>
                 <HierarchicalDataTemplate DataType="{x:Type listsource:EffectMetadata}" ItemsSource="{Binding Children}">
                     <TextBlock Text="{Binding Name}" Margin="3 2"/>
                 </HierarchicalDataTemplate>
             </TreeView.Resources>
-            <i:Interaction.Triggers>
-                <i:EventTrigger EventName="PreviewMouseDown">
-                    <i:InvokeCommandAction Command="{Binding MouseDownCommand, Mode=OneTime}" CommandParameter="{Binding ElementName=TreeView, Path=SelectedItem}"/>
-                </i:EventTrigger>
-                <i:EventTrigger EventName="PreviewMouseMove">
-                    <i:InvokeCommandAction Command="{Binding MouseMoveCommand, Mode=OneTime}"/>
-                </i:EventTrigger>
-            </i:Interaction.Triggers>
         </TreeView>
     </ScrollViewer>
 </UserControl>

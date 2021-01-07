@@ -314,6 +314,7 @@ namespace BEditor.Views.TimeLines
         /// <param name="rate">フレームレート</param>
         private void AddScale(float zoom, int max, int rate) => App.Current?.Dispatcher?.Invoke(() =>
         {
+            int top = 16;//15
             double ToPixel(int frame) => Setting.WidthOf1Frame * (zoom / 200) * frame;
             double SecToPixel(float sec) => ToPixel((int)(sec * rate));
             double MinToPixel(float min) => SecToPixel(min * 60);
@@ -322,7 +323,7 @@ namespace BEditor.Views.TimeLines
             //max 1000
             if (zoom <= 200 && zoom >= 100)
             {
-                //iは秒数
+                //sは秒数
                 for (int s = 0; s < (max / rate); s++)
                 {
                     //一秒毎
@@ -336,6 +337,14 @@ namespace BEditor.Views.TimeLines
                     };
                     border.SetResourceReference(BackgroundProperty, "MaterialDesignBody");
                     scale.Children.Add(border);
+                    if (s is not 0)
+                        scale.Children.Add(new TextBlock()
+                        {
+                            Margin = new Thickness(ToPixel(s * rate + 1), 0, 0, 0),
+                            HorizontalAlignment = HorizontalAlignment.Left,
+                            VerticalAlignment = VerticalAlignment.Top,
+                            Text = s.ToString() + " sec"
+                        });
 
                     //以下はフレーム
                     if (zoom <= 200 && zoom >= 166.7)
@@ -347,7 +356,7 @@ namespace BEditor.Views.TimeLines
                                 Width = 1,
                                 HorizontalAlignment = HorizontalAlignment.Left,
 
-                                Margin = new Thickness(ToPixel(s * rate - 1 + m), 15, 0, 0)
+                                Margin = new Thickness(ToPixel(s * rate - 1 + m), top, 0, 0)
                             };
 
                             border2.SetResourceReference(BackgroundProperty, "MaterialDesignBodyLight");
@@ -363,7 +372,7 @@ namespace BEditor.Views.TimeLines
                                 Width = 1,
                                 HorizontalAlignment = HorizontalAlignment.Left,
 
-                                Margin = new Thickness(ToPixel(s * rate - 1 + m * 2), 15, 0, 0)
+                                Margin = new Thickness(ToPixel(s * rate - 1 + m * 2), top, 0, 0)
                             };
 
                             border2.SetResourceReference(BackgroundProperty, "MaterialDesignBodyLight");
@@ -379,7 +388,7 @@ namespace BEditor.Views.TimeLines
                                 Width = 1,
                                 HorizontalAlignment = HorizontalAlignment.Left,
 
-                                Margin = new Thickness(ToPixel(s * rate - 1 + m * 4), 15, 0, 0)
+                                Margin = new Thickness(ToPixel(s * rate - 1 + m * 4), top, 0, 0)
                             };
 
                             border2.SetResourceReference(BackgroundProperty, "MaterialDesignBodyLight");

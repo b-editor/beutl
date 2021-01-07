@@ -6,11 +6,12 @@ using BEditor.Core.Command;
 using BEditor.Core.Data;
 using BEditor.Core.Data.Primitive.Properties;
 using BEditor.Core.Data.Property;
+using BEditor.Core.Extensions.ViewCommand;
 using BEditor.Core.Plugin;
 
 namespace TestPlugin2
 {
-    public class TestPlugin2 : IPlugin, IEffects
+    public class TestPlugin2 : ICustomMenuPlugin, IEffects
     {
         public string PluginName => nameof(TestPlugin2);
         public string Description => nameof(TestPlugin2);
@@ -24,10 +25,16 @@ namespace TestPlugin2
             }
         };
 
+        public IEnumerable<ICustomMenu> Menus => new ICustomMenu[]
+        {
+            new CustomMenu("Hello World", () => Message.Snackbar("Hello World")),
+            new CustomMenu("Hello Dialog", () => Message.Dialog("Hello Dialog"))
+        };
+
         public void SettingCommand() => throw new NotImplementedException();
     }
 
-    [DataContract(Namespace ="")]
+    [DataContract(Namespace = "")]
     public class TestEffect : EffectElement
     {
         public static readonly CheckPropertyMetadata CheckMetadata = new("");

@@ -1,5 +1,9 @@
-﻿using System.Windows.Controls;
+﻿using System.Threading.Tasks;
+using System.Windows;
+using System.Windows.Controls;
 using System.Windows.Input;
+
+using BEditor.Core.Data;
 
 namespace BEditor.Views.ToolControl.Default
 {
@@ -25,6 +29,20 @@ namespace BEditor.Views.ToolControl.Default
                 {
                     scrollViewer.LineDown();
                 }
+            }
+        }
+
+        private async void TreeView_PreviewMouseDown(object sender, MouseButtonEventArgs e)
+        {
+            if (Mouse.LeftButton == MouseButtonState.Pressed)
+            {
+                await Task.Delay(10);
+
+                if (TreeView.SelectedItem is not EffectMetadata select || select.Type == null) return;
+
+                // ドラッグ開始
+                DataObject dataObject = new DataObject(select);
+                DragDrop.DoDragDrop(App.Current.MainWindow, dataObject, DragDropEffects.Copy);
             }
         }
     }

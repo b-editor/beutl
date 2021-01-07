@@ -12,10 +12,12 @@
              d:DesignHeight="450" d:DesignWidth="800">
     <Grid>
         <Grid.RowDefinitions>
+            <RowDefinition Height="Auto"/>
             <RowDefinition/>
             <RowDefinition Height="Auto"/>
         </Grid.RowDefinitions>
-        <ScrollViewer>
+        <TextBlock Text="{Binding Message, Mode=OneTime}" Margin="16,8,16,0"/>
+        <ScrollViewer Grid.Row="1">
             <ItemsControl ItemsSource="{Binding Plugins}">
                 <ItemsControl.ItemTemplate>
                     <DataTemplate>
@@ -32,6 +34,6 @@
             IsDefault="True"
             Click="CloseClick"
             Margin="10"
-            Grid.Row="1"/>
+            Grid.Row="2"/>
     </Grid>
 </local:DialogContent>

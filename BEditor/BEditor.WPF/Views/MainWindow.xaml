@@ -9,25 +9,14 @@
         xmlns:model="clr-namespace:BEditor.Models"
         xmlns:convert="clr-namespace:BEditor.ViewModels.Converters"
         xmlns:md="http://materialdesigninxaml.net/winfx/xaml/themes"
-    
         xmlns:properties="clr-namespace:BEditor.Core.Properties;assembly=BEditor.Core"
         xmlns:objdata="clr-namespace:BEditor.Core.Data;assembly=BEditor.Core"
-    
         xmlns:Controls="clr-namespace:MahApps.Metro.Controls;assembly=MahApps.Metro"
+        xmlns:custom="clr-namespace:BEditor.WPF.Controls;assembly=BEditor.WPF.Controls"
     
         mc:Ignorable="d" 
-        Background="{DynamicResource MaterialDesignPaper}"
-        TextElement.Foreground="{DynamicResource MaterialDesignBody}"
         Closing="MetroWindow_Closing"
-        
-        
-        WindowTitleBrush="{DynamicResource MaterialDesignPaper}"
-        GlowBrush="{DynamicResource MaterialDesignShadowBrush}"
-        BorderThickness="0"
-        
-        NonActiveWindowTitleBrush="{DynamicResource MaterialDesignPaper}"
-        NonActiveGlowBrush="{DynamicResource MaterialDesignShadowBrush}"
-        
+        Style="{StaticResource DefaultWindowStyle}"
         Loaded="MetroWindow_Loaded"
         DataContext="{x:Static vm:MainWindowViewModel.Current}"
         Focusable="True"
@@ -39,11 +28,17 @@
         <convert:SceneToPropertyTab x:Key="SceneToPropertyTab"/>
         <convert:SceneToTimeLine x:Key="SceneToTimeLine"/>
         <convert:FrameConverter x:Key="FrameConverter"/>
+        <convert:ToFileNameConverter x:Key="ToFileNameConverter"/>
 
 
-        <Style x:Key="TitleButtonStyle" TargetType="{x:Type Button}" BasedOn="{StaticResource WindowTitleButtonStyle}">
+        <Style x:Key="OpenContextButtonStyle" TargetType="{x:Type Button}" BasedOn="{StaticResource WindowTitleButtonStyle}">
             <EventSetter Event="Click" Handler="Button_Click"/>
+        </Style>
+        <Style x:Key="TitleButtonStyle" TargetType="{x:Type Button}" BasedOn="{StaticResource OpenContextButtonStyle}">
             <Setter Property="Foreground" Value="{DynamicResource MaterialDesignBody}"/>
+        </Style>
+        <Style x:Key="StatusBarOpenContextButton" TargetType="{x:Type Button}" BasedOn="{StaticResource StatusBarButton}">
+            <EventSetter Event="Click" Handler="Button_Click"/>
         </Style>
         <Style x:Key="MouseOverIcon" TargetType="md:PackIcon">
             <Setter Property="Background" Value="Transparent"/>
@@ -65,13 +60,6 @@
                 <Trigger Property="IsMouseOver" Value="True">
                     <Setter Property="Background" Value="#25FFFFFF"/>
                 </Trigger>
-            </Style.Triggers>
-        </Style>
-        <Style TargetType="{x:Type Controls:WindowButtonCommands}">
-            <Style.Triggers>
-                <DataTrigger Binding="{Binding ShowTitleBar, RelativeSource={RelativeSource FindAncestor, AncestorType={x:Type Controls:MetroWindow}}}" Value="True">
-                    <Setter Property="Foreground" Value="{DynamicResource MaterialDesignBody}" />
-                </DataTrigger>
             </Style.Triggers>
         </Style>
     </Controls:MetroWindow.Resources>
@@ -170,10 +158,10 @@
                         <ContextMenu>
                             <MenuItem
                                 Header="{x:Static properties:Resources.TimelineShowHide}"
-                                Command="{Binding TimelineShowHide, Mode=OneTime}"/>
+                                Click="TimelineShowHide"/>
                             <MenuItem
                                 Header="{x:Static properties:Resources.PropertyShowHide}"
-                                Command="{Binding PropertyShowHide, Mode=OneTime}"/>
+                                Click="PropertyShowHide"/>
                         </ContextMenu>
                     </Button.ContextMenu>
                 </Button>
@@ -197,6 +185,11 @@
                         <ContextMenu>
                             <MenuItem Header="{x:Static properties:Resources.Settings}" Command="{Binding SettingShow, Mode=OneTime}"/>
                         </ContextMenu>
+                    </Button.ContextMenu>
+                </Button>
+                <Button Style="{StaticResource TitleButtonStyle}" Content="{x:Static properties:Resources.AccessPlugin}">
+                    <Button.ContextMenu>
+                        <ContextMenu x:Name="PluginMenu"/>
                     </Button.ContextMenu>
                 </Button>
                 <Button Style="{StaticResource TitleButtonStyle}" Content="{x:Static properties:Resources.AccessOut}">
@@ -225,10 +218,11 @@
             <RowDefinition Height="Auto"/>
             <RowDefinition Height="*"/>
             <RowDefinition Height="10"/>
-            <RowDefinition Height="{Binding TimelineGrid.Value}"/>
+            <RowDefinition Height="*" x:Name="TimelineGrid"/>
+            <RowDefinition Height="Auto"/>
         </Grid.RowDefinitions>
         <Grid.ColumnDefinitions>
-            <ColumnDefinition Width="{Binding PropertyGrid.Value}"/>
+            <ColumnDefinition Width="425" x:Name="PropertyGrid"/>
             <ColumnDefinition Width="10"/>
             <ColumnDefinition Width="529*"/>
             <ColumnDefinition Width="10"/>
@@ -387,8 +381,13 @@
                 </ToolBar>
             </ToolBarTray>
             <VirtualizingStackPanel Orientation="Horizontal" HorizontalAlignment="Right">
-                <md:PackIcon Kind="{Binding AppStatus, Source={x:Static model:AppData.Current}, Converter={StaticResource AppStatusIcon}, Mode=OneWay}" VerticalAlignment="Center" Margin="5,0,5,0"/>
-                <TextBlock Text="{Binding AppStatus, Source={x:Static model:AppData.Current}, Converter={StaticResource AppStatusText}, Mode=OneWay}" VerticalAlignment="Center" Margin="5,0,10,0"/>
+                <Button
+                    Style="{StaticResource StatusBarButton}"
+                    Padding="8,0"
+                    ToolTip="{x:Static properties:Resources.SendFeedback}"
+                    Command="{Binding SendFeedback, Mode=OneTime}">
+                    <md:PackIcon Kind="CommentAlert"/>
+                </Button>
             </VirtualizingStackPanel>
         </Grid>
         <!--#endregion-->
@@ -402,7 +401,7 @@
             HorizontalContentAlignment="Stretch"
             VerticalContentAlignment="Stretch"
             Padding="0,0,0,0" 
-            UniformCornerRadius="0" Grid.RowSpan="4" Grid.Row="1"/>
+            UniformCornerRadius="0" Grid.RowSpan="3" Grid.Row="1"/>
         <!--#endregion-->
 
         <GridSplitter Width="10" HorizontalAlignment="Stretch" Grid.Column="1" Background="Transparent" Foreground="Transparent" Grid.RowSpan="3" Grid.Row="1"/>
@@ -418,96 +417,31 @@
             </Grid.RowDefinitions>
             <Image Source="{Binding PreviewImage.Value, Mode=OneWay}" Margin="0"/>
 
-            <!--#region 再生バー-->
-            <Grid VerticalAlignment="Bottom" Height="35" Grid.Row="1">
-                <Grid.ColumnDefinitions>
-                    <ColumnDefinition/>
-                    <ColumnDefinition Width="Auto"/>
-                </Grid.ColumnDefinitions>
-                <Slider
-                    VerticalAlignment="Center"
-                    Margin="10,0"
-                    IsEnabled="{Binding ProjectIsOpened.Value, Mode=OneWay}" 
-                    Maximum="{Binding Source={x:Static model:AppData.Current}, Path=Project.PreviewScene.TotalFrame, Mode=OneWay, Converter={StaticResource FrameConverter}}"
-                    Value="{Binding Source={x:Static model:AppData.Current}, Path=Project.PreviewScene.PreviewFrame, Mode=TwoWay, Converter={StaticResource FrameConverter}}"
-                    Foreground="{Binding MainWindowColor.Value, Mode=OneWay}"/>
-                <VirtualizingStackPanel Orientation="Horizontal" VerticalAlignment="Stretch" Grid.Column="1">
-                    <Button
-                        IsEnabled="{Binding ProjectIsOpened.Value, Mode=OneWay}"
-                        Background="{x:Null}"
-                        BorderBrush="{x:Null}"
-                        Height="35"
-                        Width="35"
-                        Padding="0"
-                        Command="{Binding FramePrevious, Mode=OneTime}"
-                        ToolTip="{x:Static properties:Resources.MoveToPreviousFrame}">
-                        <md:PackIcon Kind="StepForward" Foreground="{DynamicResource MaterialDesignBody}" Width="20" Height="20" HorizontalAlignment="Stretch" VerticalAlignment="Stretch" RenderTransformOrigin="0.5,0.5">
-                            <md:PackIcon.RenderTransform>
-                                <TransformGroup>
-                                    <ScaleTransform/>
-                                    <SkewTransform/>
-                                    <RotateTransform Angle="180"/>
-                                    <TranslateTransform/>
-                                </TransformGroup>
-                            </md:PackIcon.RenderTransform>
-                        </md:PackIcon>
-                    </Button>
-                    <Button
-                        IsEnabled="{Binding ProjectIsOpened.Value, Mode=OneWay}"
-                        Background="{x:Null}"
-                        BorderBrush="{x:Null}"
-                        Height="35"
-                        Width="35"
-                        Padding="0"
-                        Command="{Binding FrameTop, Mode=OneTime}"
-                        ToolTip="{x:Static properties:Resources.MoveToTop}">
-                        <md:PackIcon Kind="SkipForward" Foreground="{DynamicResource MaterialDesignBody}" Width="20" Height="20" HorizontalAlignment="Stretch" VerticalAlignment="Stretch" RenderTransformOrigin="0.5,0.5">
-                            <md:PackIcon.RenderTransform>
-                                <TransformGroup>
-                                    <ScaleTransform/>
-                                    <SkewTransform/>
-                                    <RotateTransform Angle="180"/>
-                                    <TranslateTransform/>
-                                </TransformGroup>
-                            </md:PackIcon.RenderTransform>
-                        </md:PackIcon>
-                    </Button>
-                    <Button
-                        IsEnabled="{Binding ProjectIsOpened.Value, Mode=OneWay}"
-                        Background="{x:Null}"
-                        BorderBrush="{x:Null}"
-                        Height="35"
-                        Width="35"
-                        Padding="0"
-                        Command="{Binding PreviewStart, Mode=OneTime}"
-                        ToolTip="{x:Static properties:Resources.PlayPause}">
-                        <md:PackIcon Kind="{Binding AppStatus, Source={x:Static model:AppData.Current}, Converter={StaticResource AppStatusToPlayerIcon}, Mode=OneWay}" Foreground="{DynamicResource MaterialDesignBody}" Width="20" Height="20" HorizontalAlignment="Stretch" VerticalAlignment="Stretch"/>
-                    </Button>
-                    <Button
-                        IsEnabled="{Binding ProjectIsOpened.Value, Mode=OneWay}"
-                        Background="{x:Null}"
-                        BorderBrush="{x:Null}"
-                        Height="35"
-                        Width="35"
-                        Padding="0"
-                        Command="{Binding FrameEnd, Mode=OneTime}"
-                        ToolTip="{x:Static properties:Resources.MoveToEnd}">
-                        <md:PackIcon Kind="SkipForward" Foreground="{DynamicResource MaterialDesignBody}" Width="20" Height="20" HorizontalAlignment="Stretch" VerticalAlignment="Stretch"/>
-                    </Button>
-                    <Button
-                        IsEnabled="{Binding ProjectIsOpened.Value, Mode=OneWay}"
-                        Background="{x:Null}"
-                        BorderBrush="{x:Null}"
-                        Height="35"
-                        Width="35"
-                        Padding="0"
-                        Command="{Binding FrameNext, Mode=OneTime}"
-                        ToolTip="{x:Static properties:Resources.MoveToNextFrame}">
-                        <md:PackIcon Kind="StepForward" Foreground="{DynamicResource MaterialDesignBody}" Width="20" Height="20" HorizontalAlignment="Stretch" VerticalAlignment="Stretch"/>
-                    </Button>
-                </VirtualizingStackPanel>
-            </Grid>
-            <!--#endregion-->
+            <custom:Seekbar
+                VerticalAlignment="Bottom"
+                Height="35"
+                Grid.Row="1"
+                Foreground="{Binding MainWindowColor.Value, Mode=OneWay}"
+                IsEnabled="{Binding ProjectIsOpened.Value, Mode=OneWay}"
+                
+                Maximum="{Binding Source={x:Static model:AppData.Current}, Path=Project.PreviewScene.TotalFrame, Mode=OneWay, Converter={StaticResource FrameConverter}}"
+                Value="{Binding Source={x:Static model:AppData.Current}, Path=Project.PreviewScene.PreviewFrame, Mode=TwoWay, Converter={StaticResource FrameConverter}}"
+
+                Previous="{Binding FramePrevious, Mode=OneTime}"
+                PreviousToolTip="{x:Static properties:Resources.MoveToPreviousFrame}"
+
+                Top="{Binding FrameTop, Mode=OneTime}"
+                TopToolTip="{x:Static properties:Resources.MoveToTop}"
+
+                PlayPause="{Binding PreviewStart, Mode=OneTime}"
+                PlayPauseToolTip="{x:Static properties:Resources.PlayPause}"
+                PlayPauseIcon="{Binding AppStatus, Source={x:Static model:AppData.Current}, Converter={StaticResource AppStatusToPlayerIcon}, Mode=OneWay}"
+                
+                End="{Binding FrameEnd, Mode=OneTime}"
+                EndToolTip="{x:Static properties:Resources.MoveToEnd}"
+                
+                Next="{Binding FrameNext, Mode=OneTime}"
+                NextToolTip="{x:Static properties:Resources.MoveToNextFrame}"/>
         </Grid>
 
         <GridSplitter
@@ -530,5 +464,55 @@
         <!--#endregion-->
 
         <md:Snackbar x:Name="Snackbar" MessageQueue="{Binding MessageQueue, Mode=OneWay}" Margin="0,5,5,0" Grid.Column="5" HorizontalAlignment="Right" VerticalAlignment="Top" Grid.RowSpan="4"/>
+
+        <StatusBar Grid.Row="4" Height="24" Grid.ColumnSpan="5" Background="{Binding MainWindowColor.Value}">
+            <StatusBarItem Padding="0">
+                <Button Style="{StaticResource StatusBarButton}">
+                    <VirtualizingStackPanel Orientation="Horizontal" HorizontalAlignment="Right">
+                        <md:PackIcon Kind="{Binding AppStatus, Source={x:Static model:AppData.Current}, Converter={StaticResource AppStatusIcon}, Mode=OneWay}" VerticalAlignment="Center" Margin="5,0,5,0"/>
+                        <TextBlock FontWeight="Normal" Text="{Binding AppStatus, Source={x:Static model:AppData.Current}, Converter={StaticResource AppStatusText}, Mode=OneWay}" VerticalAlignment="Center" Margin="5,0,10,0"/>
+                    </VirtualizingStackPanel>
+                </Button>
+            </StatusBarItem>
+            <StatusBarItem HorizontalAlignment="Right" Padding="0">
+                <VirtualizingStackPanel Orientation="Horizontal">
+                    <TextBlock
+                        IsEnabled="{Binding ProjectIsOpened.Value, Mode=OneWay}"
+                        VerticalAlignment="Center">
+                        <TextBlock.Text>
+                            <MultiBinding StringFormat="{} {0}/{1} Frame">
+                                <Binding Path="Project.PreviewScene.PreviewFrame.Value" Source="{x:Static model:AppData.Current}"/>
+                                <Binding  Path="Project.PreviewScene.TotalFrame.Value" Source="{x:Static model:AppData.Current}"/>
+                            </MultiBinding>
+                        </TextBlock.Text>
+                    </TextBlock>
+                    <Slider                    
+                        Foreground="{StaticResource SecondaryHueMidBrush}"
+                        BorderBrush="{StaticResource SecondaryHueMidBrush}"
+                        IsEnabled="{Binding ProjectIsOpened.Value, Mode=OneWay}"
+                        Visibility="{Binding ProjectIsOpened.Value, Mode=OneWay, Converter={StaticResource BooleanToVisibilityConverter}}"
+                        Value="{Binding Source={x:Static model:AppData.Current}, Path=Project.PreviewScene.TimeLineZoom}"
+
+                        VerticalAlignment="Center"
+                        Margin="10,0,10,0"
+                        Maximum="200"
+                        Minimum="1"
+                        Width="250"
+                        Height="Auto"/>
+                    <Button
+                        Padding="8,0,8,0"
+                        Content="{Binding Source={x:Static model:AppData.Current}, Path=Project.Filename, Converter={StaticResource ToFileNameConverter}}"
+                        IsEnabled="{Binding ProjectIsOpened.Value, Mode=OneWay}"
+                        Style="{StaticResource StatusBarOpenContextButton}">
+                        <Button.ContextMenu>
+                            <ContextMenu>
+                                <MenuItem Header="{x:Static properties:Resources.OpenProjectDirectory}" Command="{Binding OpenProjectDirectory, Mode=OneTime}"/>
+                                <MenuItem Header="{x:Static properties:Resources.ConvertJson}" Command="{Binding ConvertJson, Mode=OneTime}"/>
+                            </ContextMenu>
+                        </Button.ContextMenu>
+                    </Button>
+                </VirtualizingStackPanel>
+            </StatusBarItem>
+        </StatusBar>
     </Grid>
 </Controls:MetroWindow>

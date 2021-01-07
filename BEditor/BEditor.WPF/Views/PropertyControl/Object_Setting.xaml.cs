@@ -6,7 +6,6 @@ using System.Windows.Controls;
 using System.Windows.Data;
 
 using BEditor.Models;
-using BEditor.ViewModels.ToolControl;
 using BEditor.Views.ToolControl.Default;
 using BEditor.Core.Data;
 using BEditor.Core.Command;

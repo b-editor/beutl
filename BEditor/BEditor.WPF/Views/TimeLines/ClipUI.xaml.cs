@@ -41,7 +41,7 @@ namespace BEditor.Views.TimeLines
                 }
             }
         }
-
+        
         public ClipUI(ClipData _Data)
         {
             InitializeComponent();
