@@ -11,11 +11,11 @@
              d:DesignHeight="450" d:DesignWidth="800">
     <VirtualizingStackPanel>
         
-        <md:ColorZone Content="{x:Static resources:Resources.ActivityLog}" Foreground="White" Background="{StaticResource PrimaryHueMidBrush}" Margin="10,10,10,10" Padding="9,9,9,9" md:ShadowAssist.ShadowDepth="Depth2"/>
+        <md:ColorZone Content="{x:Static resources:Resources.ActivityLog}" Style="{StaticResource SettingsColorZone}"/>
         
         <VirtualizingStackPanel Orientation="Horizontal" Height="45">
-            <CheckBox IsChecked="{Binding EnableErrorLog, Source={x:Static data:Settings.Default}, Mode=TwoWay}" Margin="25,0,25,0" VerticalAlignment="Center"/>
-            <TextBlock Text="{x:Static resources:Resources.EnableErrorLog}" FontSize="13" VerticalAlignment="Center"/>
+            <CheckBox IsChecked="{Binding EnableErrorLog, Source={x:Static data:Settings.Default}, Mode=TwoWay}" Style="{StaticResource SettingsCheckBox}"/>
+            <TextBlock Text="{x:Static resources:Resources.EnableErrorLog}" Style="{StaticResource SettingsCheckBoxContent}"/>
         </VirtualizingStackPanel>
         
     </VirtualizingStackPanel>

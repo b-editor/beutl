@@ -2,6 +2,7 @@
 using System.Collections.Generic;
 using System.Collections.ObjectModel;
 using System.ComponentModel;
+using System.Globalization;
 using System.IO;
 using System.Linq;
 using System.Runtime.InteropServices;
@@ -22,6 +23,8 @@ namespace BEditor
         private static readonly PropertyChangedEventArgs widthOf1FrameArgs = new(nameof(WidthOf1Frame));
         private static readonly PropertyChangedEventArgs enableErrorLogArgs = new(nameof(EnableErrorLog));
         private static readonly PropertyChangedEventArgs backgroundColorArgs = new(nameof(BackgroundColor));
+        private static readonly PropertyChangedEventArgs langArgs = new(nameof(Language));
+        private static readonly PropertyChangedEventArgs stackLimitArgs = new(nameof(StackLimit));
         private int clipHeight = 25;
         private bool darkMode = true;
         private bool autoBackUp = true;
@@ -34,6 +37,8 @@ namespace BEditor
         private ObservableCollection<string>? includeFonts;
         private string? backgroundColor;
         private ObservableCollection<string>? mostRecentlyUsedList;
+        private string? language;
+        private uint stackLimit = 1048576;
 
         #endregion
 
@@ -142,13 +147,25 @@ namespace BEditor
         [DataMember]
         public string BackgroundColor
         {
-            get => backgroundColor ??= "#00000000";
+            get => backgroundColor ??= "#ff000000";
             set
             {
                 if (!IsHTMLColor(value)) return;
 
                 SetValue(value, ref backgroundColor, backgroundColorArgs);
             }
+        }
+        [DataMember]
+        public string Language
+        {
+            get => language ??= CultureInfo.CurrentCulture.Name;
+            set => SetValue(value, ref language, langArgs);
+        }
+        [DataMember]
+        public uint StackLimit
+        {
+            get => stackLimit;
+            set => SetValue(value, ref stackLimit, stackLimitArgs);
         }
         public ExtensionDataObject? ExtensionData { get; set; }
 

@@ -27,7 +27,7 @@ namespace BEditor.Core.Plugin
         /// <summary>
         /// プラグインの設定を開くときに呼び出されます
         /// </summary>
-        public void SettingCommand();
+        public SettingRecord Settings { get; set; }
     }
 
     public interface IEasingFunctions

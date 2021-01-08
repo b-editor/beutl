@@ -140,7 +140,7 @@ namespace BEditor.Drawing
 
             int nwidth = self.Width + (size + 5) * 2;
             int nheight = self.Height + (size + 5) * 2;
-            var result = new Image<BGRA32>(nwidth, nheight);
+            var result = new Image<BGRA32>(nwidth, nheight, default(BGRA32));
 
             // 縁を描画
             using var border = self.Clone();
@@ -468,7 +468,7 @@ namespace BEditor.Drawing
         //Todo: 改行に対応する
         public static Image<BGRA32> Text(string text, Font font, float size, Color color)
         {
-            if (string.IsNullOrEmpty(text)) return new Image<BGRA32>(1, 1);
+            if (string.IsNullOrEmpty(text)) return new Image<BGRA32>(1, 1, default(BGRA32));
             if (font is null) throw new ArgumentNullException(nameof(font));
 
             using var face = SKTypeface.FromFile(font.Filename);
@@ -671,7 +671,7 @@ namespace BEditor.Drawing
         {
             if (self is null) throw new ArgumentNullException(nameof(self));
             self.ThrowIfDisposed();
-            var dst = new Image<T2>(self.Width, self.Height);
+            var dst = new Image<T2>(self.Width, self.Height, default(T2));
 
             fixed (T1* srcPtr = self.Data)
             fixed (T2* dstPtr = dst.Data)

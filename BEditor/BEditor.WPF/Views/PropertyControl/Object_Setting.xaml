@@ -7,8 +7,6 @@
              xmlns:vm="clr-namespace:BEditor.ViewModels"
              xmlns:convert="clr-namespace:BEditor.ViewModels.Converters"
              x:Class="BEditor.Views.PropertyControls.Object_Setting"
-             TextElement.Foreground="{DynamicResource MaterialDesignBody}"
-             Background="{DynamicResource MaterialDesignCardBackground}"
              mc:Ignorable="d" 
              d:DesignHeight="504" d:DesignWidth="583"
              ClipToBounds="True"

@@ -1,6 +1,7 @@
 ﻿using System;
 using System.Collections.Generic;
 using System.Collections.ObjectModel;
+using System.Globalization;
 using System.IO;
 using System.Linq;
 using System.Threading.Tasks;
@@ -31,8 +32,16 @@ namespace BEditor
     /// </summary>
     public partial class App : Application
     {
+        private static readonly string colorsDir = Path.Combine(AppContext.BaseDirectory, "user", "colors");
+        private static readonly string logsDir = Path.Combine(AppContext.BaseDirectory, "user", "logs");
+        private static readonly string backupDir = Path.Combine(AppContext.BaseDirectory, "user", "backup");
+        private static readonly string pluginsDir = Path.Combine(AppContext.BaseDirectory, "user", "plugins");
+        private static readonly string errorlogFile = Path.Combine(AppContext.BaseDirectory, "user", "logs", "errorlog.xml");
+
         protected override void OnStartup(StartupEventArgs e)
         {
+            CultureInfo.CurrentCulture = new(Settings.Default.Language);
+            CultureInfo.CurrentUICulture = CultureInfo.CurrentCulture;
             base.OnStartup(e);
 
             SetDarkMode();
@@ -49,6 +58,7 @@ namespace BEditor
 
             Task.Run(async () =>
             {
+                CreateDirectory();
 #if !DEBUG
 
                 const string LoadingColors = "カラーパレットを読み込み中";
@@ -89,6 +99,37 @@ namespace BEditor
             });
         }
 
+        private static void CreateDirectory()
+        {
+
+            static void CreateIfNotExsits(string dir)
+            {
+                if (!Directory.Exists(dir))
+                {
+                    Directory.CreateDirectory(dir);
+                }
+            }
+
+            #region ディレクトリの作成
+
+            CreateIfNotExsits(colorsDir);
+            CreateIfNotExsits(logsDir);
+            CreateIfNotExsits(backupDir);
+            CreateIfNotExsits(pluginsDir);
+
+            if (!File.Exists(errorlogFile))
+            {
+                XDocument XDoc = new XDocument(
+                    new XDeclaration("1.0", "utf-8", "true"),
+                    new XElement("Logs")
+                );
+
+                XDoc.Save(errorlogFile);
+            }
+
+            #endregion
+
+        }
         private static void SetDarkMode()
         {
             if (Settings.Default.UseDarkMode)

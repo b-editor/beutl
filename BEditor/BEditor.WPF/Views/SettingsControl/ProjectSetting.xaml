@@ -13,8 +13,8 @@
     <Grid>
         <VirtualizingStackPanel>
             <VirtualizingStackPanel Orientation="Horizontal" Height="45">
-                <CheckBox Margin="25,0,25,0" IsChecked="{Binding AutoBackUp, Source={x:Static data:Settings.Default}, Mode=TwoWay}" VerticalAlignment="Center"/>
-                <TextBlock Text="{x:Static resource:Resources.UseAutoBackup}" FontSize="13" VerticalAlignment="Center"/>
+                <CheckBox IsChecked="{Binding AutoBackUp, Source={x:Static data:Settings.Default}, Mode=TwoWay}" Style="{StaticResource SettingsCheckBox}"/>
+                <TextBlock Text="{x:Static resource:Resources.UseAutoBackup}" Style="{StaticResource SettingsCheckBoxContent}"/>
             </VirtualizingStackPanel>
 
             <Grid>
@@ -23,10 +23,10 @@
                     <ColumnDefinition/>
                 </Grid.ColumnDefinitions>
                 <VirtualizingStackPanel>
-                    <Label Content="BackgroundColor" FontSize="13" Margin="25,0,25,0" VerticalAlignment="Center" Height="45" Padding="0,0,0,0" VerticalContentAlignment="Center"/>
+                    <Label Content="BackgroundColor" Style="{StaticResource SettingsHeader}"/>
                 </VirtualizingStackPanel>
                 <VirtualizingStackPanel Grid.Column="1">
-                    <TextBox Text="{Binding BackgroundColor, Mode=TwoWay, Source={x:Static data:Settings.Default}}" VerticalAlignment="Stretch" HorizontalAlignment="Right" Height="25"  Margin="0,10,25,10" Width="80"/>
+                    <TextBox Text="{Binding BackgroundColor, Mode=TwoWay, Source={x:Static data:Settings.Default}}" Style="{StaticResource SettingsTextBox}"/>
                 </VirtualizingStackPanel>
             </Grid>
         </VirtualizingStackPanel>

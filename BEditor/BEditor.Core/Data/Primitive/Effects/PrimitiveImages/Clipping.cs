@@ -67,7 +67,7 @@ namespace BEditor.Core.Data.Primitive.Effects.PrimitiveImages
             if (img.Width <= left + right || img.Height <= top + bottom)
             {
                 img.Dispose();
-                args.Value = new(1, 1);
+                args.Value = new(1, 1, default(BGRA32));
                 return;
             }
 

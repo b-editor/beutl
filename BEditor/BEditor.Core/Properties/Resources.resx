@@ -310,6 +310,9 @@ Do you want to perform the operation?</value>
   <data name="Delete" xml:space="preserve">
     <value>Delete</value>
   </data>
+  <data name="DeleteCommand" xml:space="preserve">
+    <value>Delete recorded commands.</value>
+  </data>
   <data name="DepthFunction" xml:space="preserve">
     <value>DepthFunction</value>
   </data>
@@ -449,6 +452,9 @@ Please let the developer know.</value>
   <data name="InstalledPlugins" xml:space="preserve">
     <value>Installed plugins</value>
   </data>
+  <data name="Language" xml:space="preserve">
+    <value>Language</value>
+  </data>
   <data name="Layer" xml:space="preserve">
     <value>Layer</value>
   </data>
@@ -472,6 +478,9 @@ Please let the developer know.</value>
   </data>
   <data name="Material" xml:space="preserve">
     <value>Material</value>
+  </data>
+  <data name="MemoryRelease" xml:space="preserve">
+    <value>Memory release</value>
   </data>
   <data name="Menu" xml:space="preserve">
     <value>Menu</value>
@@ -517,6 +526,9 @@ Please let the developer know.</value>
   </data>
   <data name="OpenThisRepository" xml:space="preserve">
     <value>Open the repository for this software</value>
+  </data>
+  <data name="Optimization" xml:space="preserve">
+    <value>optimization</value>
   </data>
   <data name="Others" xml:space="preserve">
     <value>Others</value>
@@ -671,12 +683,6 @@ Please select the plugin you want to load</value>
   </data>
   <data name="Type" xml:space="preserve">
     <value>Type</value>
-  </data>
-  <data name="TypeOfDraw" xml:space="preserve">
-    <value>Standardized drawing</value>
-  </data>
-  <data name="TypeOfDrawPlus" xml:space="preserve">
-    <value>Extended drawing</value>
   </data>
   <data name="Undo" xml:space="preserve">
     <value>Undo</value>

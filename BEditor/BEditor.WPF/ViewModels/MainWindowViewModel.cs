@@ -57,6 +57,9 @@ namespace BEditor.ViewModels
 
         public ReactiveCommand Shutdown { get; } = new();
 
+        public ReactiveCommand DeleteCommand { get; } = new();
+        public ReactiveCommand MemoryRelease { get; } = new();
+
         public SnackbarMessageQueue MessageQueue { get; } = new();
 
         private MainWindowViewModel()
@@ -231,6 +234,16 @@ namespace BEditor.ViewModels
 
                     File.Delete(temp);
                 });
+
+            DeleteCommand.Subscribe(() => CommandManager.Clear());
+            MemoryRelease.Subscribe(() =>
+            {
+                var bytes = Environment.WorkingSet;
+
+                GC.Collect();
+
+                Message.Snackbar(((Environment.WorkingSet - bytes) / 10000000f).ToString() + "MB");
+            });
         }
 
 

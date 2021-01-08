@@ -39,6 +39,7 @@ namespace BEditor.Core.Plugin
                 .Where(static f => File.Exists(f))
                 .Select(static f => Assembly.LoadFrom(f).GetTypes())
                 .Select(static types => types
+                    .Where(static t => typeof(IPlugin).IsAssignableFrom(t))
                     .Select(static t => Activator.CreateInstance(t) as IPlugin)
                     .Where(static t => t is not null))
                 .SelectMany(static f => f);
@@ -58,7 +59,7 @@ namespace BEditor.Core.Plugin
                 {
                     Serialize.SerializeKnownTypes.AddRange(objects.Objects.Select(a => a.Type));
 
-                    foreach(var o in objects.Objects)
+                    foreach (var o in objects.Objects)
                     {
                         ObjectMetadata.LoadedObjects.Add(o);
                     }

@@ -16,6 +16,8 @@ using System.ComponentModel;
 using Reactive.Bindings;
 using System.Reactive.Linq;
 using System.Linq;
+using BEditor.Views.SettingsControl;
+using BEditor.Views;
 
 namespace BEditor.ViewModels.SettingsControl.Plugins
 {
@@ -25,7 +27,13 @@ namespace BEditor.ViewModels.SettingsControl.Plugins
         {
             SettingClick.Where(_ => SelectPlugin is not null).Subscribe(_ =>
             {
-                SelectPlugin.Value.SettingCommand();
+                var type = SelectPlugin.Value.Settings.GetType();
+                var ui = UIBuilderFromRecord.Create(SelectPlugin.Value.Settings);
+                var dialog = new NoneDialog(ui);
+
+                dialog.ShowDialog();
+
+                SelectPlugin.Value.Settings = (SettingRecord)UIBuilderFromRecord.GetValue(ui, type);
             });
             UnloadClick.Where(_ => SelectPlugin is not null)
                 .Subscribe(_ =>

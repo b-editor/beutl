@@ -4,6 +4,7 @@ using System.Collections.ObjectModel;
 using System.ComponentModel;
 using System.Linq;
 using System.Reactive.Linq;
+using System.Runtime.CompilerServices;
 using System.Runtime.Serialization;
 using System.Threading.Tasks;
 
@@ -323,6 +324,37 @@ namespace BEditor.Core.Data
         public RenderingResult Render(RenderType renderType = RenderType.Preview)
         {
             return Render(PreviewFrame, renderType);
+        }
+        /// <summary>
+        /// Render this <see cref="Scene"/>.
+        /// </summary>
+        public void Render(Image<BGRA32> image, Frame frame, RenderType renderType = RenderType.Preview)
+        {
+            image.ThrowIfDisposed();
+            if (image.Width != Width) throw new ArgumentException(null, nameof(image));
+            if (image.Height != Height) throw new ArgumentException(null, nameof(image));
+
+            var layer = GetFrame(frame).ToList();
+
+            GraphicsContext.MakeCurrent();
+            AudioContext.MakeCurrent();
+            GraphicsContext.Clear();
+
+            var args = new ClipRenderArgs(frame, renderType);
+
+            //Preview
+            foreach (var clip in layer) clip.PreviewRender(args);
+
+            foreach (var clip in layer) clip.Render(args);
+
+            GLTK.GetPixels(image);
+        }
+        /// <summary>
+        /// Render a frame of <see cref="PreviewFrame"/>.
+        /// </summary>
+        public void Render(Image<BGRA32> image, RenderType renderType = RenderType.Preview)
+        {
+            Render(image, PreviewFrame, renderType);
         }
 
 

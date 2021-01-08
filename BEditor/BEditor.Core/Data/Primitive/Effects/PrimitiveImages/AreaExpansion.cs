@@ -57,6 +57,7 @@ namespace BEditor.Core.Data.Primitive.Effects.PrimitiveImages
             }
 
             var img = args.Value.MakeBorder(top, bottom, left, right);
+
             args.Value.Dispose();
 
             args.Value = img;

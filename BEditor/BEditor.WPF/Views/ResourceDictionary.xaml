@@ -55,7 +55,7 @@
         <Setter Property="NonActiveGlowBrush" Value="{DynamicResource MaterialDesignShadowBrush}"/>
         <Setter Property="BorderThickness" Value="0"/>
     </Style>
-    
+
     <SolidColorBrush x:Key="VideoColor" Color="#304fee"/>
     <SolidColorBrush x:Key="ImageColor" Color="#0091ea"/>
     <SolidColorBrush x:Key="AudioColor" Color="#ff1744"/>

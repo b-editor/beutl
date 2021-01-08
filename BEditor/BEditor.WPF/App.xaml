@@ -24,6 +24,7 @@
                 <ResourceDictionary Source="pack://application:,,,/MaterialDesignThemes.Wpf;component/Themes/MaterialDesignTheme.Snackbar.xaml" />
 
                 <ResourceDictionary Source="/Views/ResourceDictionary.xaml"/>
+                <ResourceDictionary Source="/Views/SettingsControl/SettingsDictionary.xaml"/>
                 
                 <!-- Dragablz Material Design -->
                 <ResourceDictionary Source="pack://application:,,,/Dragablz;component/Themes/materialdesign.xaml"/>

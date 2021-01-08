@@ -35,7 +35,7 @@ namespace BEditor.ViewModels.PropertyControl
             {
                 var window = new BindSettings()
                 {
-                    DataContext = new BindSettingsViewModel<Color>((IBindable<Color>)Property)
+                    DataContext = new BindSettingsViewModel<Drawing.Color>(Property)
                 };
                 window.ShowDialog();
             });

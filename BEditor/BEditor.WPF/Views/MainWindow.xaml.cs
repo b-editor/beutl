@@ -1,6 +1,7 @@
 ﻿using System;
 using System.Collections.ObjectModel;
 using System.Collections.Specialized;
+using System.ComponentModel;
 using System.IO;
 using System.Linq;
 using System.Windows;
@@ -18,6 +19,7 @@ using BEditor.ViewModels;
 using BEditor.ViewModels.MessageContent;
 using BEditor.Views;
 using BEditor.Views.MessageContent;
+using BEditor.Views.SettingsControl;
 
 using MahApps.Metro.Controls;
 

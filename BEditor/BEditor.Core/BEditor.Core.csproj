@@ -4,7 +4,8 @@
     <TargetFramework>net5.0</TargetFramework>
     <Nullable>annotations</Nullable>
     <AssemblyName>BEditor.Core</AssemblyName>
-    <Version>0.0.1</Version>
+    <Version>0.0.4</Version>
+    <Authors>indigo-san</Authors>
   </PropertyGroup>
 
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|AnyCPU'">

@@ -310,6 +310,9 @@
   <data name="Delete" xml:space="preserve">
     <value>消去</value>
   </data>
+  <data name="DeleteCommand" xml:space="preserve">
+    <value>記録したコマンドの消去</value>
+  </data>
   <data name="DepthFunction" xml:space="preserve">
     <value>DepthFunction</value>
   </data>
@@ -449,6 +452,9 @@
   <data name="InstalledPlugins" xml:space="preserve">
     <value>インストール済みのプラグイン</value>
   </data>
+  <data name="Language" xml:space="preserve">
+    <value>言語</value>
+  </data>
   <data name="Layer" xml:space="preserve">
     <value>レイヤー</value>
   </data>
@@ -469,6 +475,9 @@
   </data>
   <data name="Material" xml:space="preserve">
     <value>マテリアル</value>
+  </data>
+  <data name="MemoryRelease" xml:space="preserve">
+    <value>メモリ開放</value>
   </data>
   <data name="Menu" xml:space="preserve">
     <value>メニュー</value>
@@ -514,6 +523,9 @@
   </data>
   <data name="OpenThisRepository" xml:space="preserve">
     <value>このソフトウェアのリポジトリを開く</value>
+  </data>
+  <data name="Optimization" xml:space="preserve">
+    <value>最適化</value>
   </data>
   <data name="Others" xml:space="preserve">
     <value>その他</value>
@@ -669,9 +681,6 @@
   <data name="Type" xml:space="preserve">
     <value>種類</value>
   </data>
-  <data name="TypeOfDraw" xml:space="preserve">
-    <value>標準描画</value>
-  </data>
   <data name="Undo" xml:space="preserve">
     <value>やり直す</value>
   </data>
@@ -734,5 +743,8 @@
   </data>
   <data name="Zoom" xml:space="preserve">
     <value>拡大率</value>
+  </data>
+  <data name="_3DObject" xml:space="preserve">
+    <value>立体オブジェクト</value>
   </data>
 </root>

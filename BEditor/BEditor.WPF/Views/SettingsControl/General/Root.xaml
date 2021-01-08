@@ -11,7 +11,7 @@
              d:DesignHeight="450" d:DesignWidth="800">
     <VirtualizingStackPanel>
         
-        <md:ColorZone Content="{x:Static resources:Resources.General}" Foreground="White" Background="{StaticResource PrimaryHueMidBrush}" Margin="10,10,10,10" Padding="9,9,9,9" md:ShadowAssist.ShadowDepth="Depth2"/>
+        <md:ColorZone Content="{x:Static resources:Resources.General}" Style="{StaticResource SettingsColorZone}"/>
 
     </VirtualizingStackPanel>
 </UserControl>

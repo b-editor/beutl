@@ -30,7 +30,7 @@ namespace BEditor.Core.Data.Primitive.Objects
             Material = new(MaterialMetadata);
         }
 
-        public override string Name => Resources.TypeOfDraw;
+        public override string Name => "";
         [DataMember(Order = 0)]
         public Coordinate Coordinate { get; private set; }
         [DataMember(Order = 1)]
@@ -66,7 +66,10 @@ namespace BEditor.Core.Data.Primitive.Objects
                 {
                     imageEffect.Render(imageArgs);
                 }
-                effect.Render(args);
+                else
+                {
+                    effect.Render(args);
+                }
 
 
                 if (args.Handled)

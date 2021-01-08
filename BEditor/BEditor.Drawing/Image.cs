@@ -77,7 +77,7 @@ namespace BEditor.Drawing
         /// <exception cref="ArgumentOutOfRangeException"><paramref name="width"/> is less than 0.</exception>
         /// <exception cref="ArgumentOutOfRangeException"><paramref name="height"/> is less than 0.</exception>
         /// <exception cref="ArgumentNullException"><paramref name="data"/> is <see langword="null"/>.</exception>
-        public Image(int width, int height, T* data) : this(width, height)
+        public Image(int width, int height, T* data)
         {
             ThrowOutOfRange(width, height);
             if (data == null) throw new ArgumentNullException(nameof(data));
@@ -324,7 +324,7 @@ namespace BEditor.Drawing
 
             var width = left + right + Width;
             var height = top + bottom + Height;
-            var img = new Image<T>(width, height);
+            var img = new Image<T>(width, height, default(T));
 
             img[new Rectangle(left, top, Width, Height)] = this;
 

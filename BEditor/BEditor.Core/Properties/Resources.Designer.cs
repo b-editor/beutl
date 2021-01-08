@@ -620,6 +620,15 @@ namespace BEditor.Core.Properties {
         }
         
         /// <summary>
+        ///   Delete recorded commands. に類似しているローカライズされた文字列を検索します。
+        /// </summary>
+        public static string DeleteCommand {
+            get {
+                return ResourceManager.GetString("DeleteCommand", resourceCulture);
+            }
+        }
+        
+        /// <summary>
         ///   DepthFunction に類似しているローカライズされた文字列を検索します。
         /// </summary>
         public static string DepthFunction {
@@ -1035,6 +1044,15 @@ namespace BEditor.Core.Properties {
         }
         
         /// <summary>
+        ///   Language に類似しているローカライズされた文字列を検索します。
+        /// </summary>
+        public static string Language {
+            get {
+                return ResourceManager.GetString("Language", resourceCulture);
+            }
+        }
+        
+        /// <summary>
         ///   Layer に類似しているローカライズされた文字列を検索します。
         /// </summary>
         public static string Layer {
@@ -1103,6 +1121,15 @@ namespace BEditor.Core.Properties {
         public static string Material {
             get {
                 return ResourceManager.GetString("Material", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Memory release に類似しているローカライズされた文字列を検索します。
+        /// </summary>
+        public static string MemoryRelease {
+            get {
+                return ResourceManager.GetString("MemoryRelease", resourceCulture);
             }
         }
         
@@ -1238,6 +1265,15 @@ namespace BEditor.Core.Properties {
         public static string OpenThisRepository {
             get {
                 return ResourceManager.GetString("OpenThisRepository", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   optimization に類似しているローカライズされた文字列を検索します。
+        /// </summary>
+        public static string Optimization {
+            get {
+                return ResourceManager.GetString("Optimization", resourceCulture);
             }
         }
         
@@ -1698,24 +1734,6 @@ namespace BEditor.Core.Properties {
         public static string Type {
             get {
                 return ResourceManager.GetString("Type", resourceCulture);
-            }
-        }
-        
-        /// <summary>
-        ///   Standardized drawing に類似しているローカライズされた文字列を検索します。
-        /// </summary>
-        public static string TypeOfDraw {
-            get {
-                return ResourceManager.GetString("TypeOfDraw", resourceCulture);
-            }
-        }
-        
-        /// <summary>
-        ///   Extended drawing に類似しているローカライズされた文字列を検索します。
-        /// </summary>
-        public static string TypeOfDrawPlus {
-            get {
-                return ResourceManager.GetString("TypeOfDrawPlus", resourceCulture);
             }
         }
         

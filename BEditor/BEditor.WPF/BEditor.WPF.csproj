@@ -12,16 +12,19 @@
     <PackageId>BEditor</PackageId>
     <Product>BEditor</Product>
     <Company></Company>
-    <Authors />
+    <Authors>indigo-san</Authors>
     <AssemblyName>BEditor</AssemblyName>
-    <Version>0.0.3</Version>
+    <Version>0.0.4</Version>
     <ApplicationManifest>app.manifest</ApplicationManifest>
     <Platforms>AnyCPU;x64</Platforms>
     <Nullable>annotations</Nullable>
+    <PackageProjectUrl></PackageProjectUrl>
+    <RepositoryUrl></RepositoryUrl>
   </PropertyGroup>
 
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release|AnyCPU'">
     <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
+    <WarningLevel>1</WarningLevel>
   </PropertyGroup>
 
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release|x64'">
@@ -104,6 +107,10 @@
     <None Update="Runtimes\opencv_world450d.dll">
       <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
     </None>
+  </ItemGroup>
+
+  <ItemGroup>
+    <Folder Include="Properties\PublishProfiles\" />
   </ItemGroup>
 
 </Project>

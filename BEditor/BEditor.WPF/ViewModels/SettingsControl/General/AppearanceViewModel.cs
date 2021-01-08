@@ -1,5 +1,7 @@
 ﻿using System;
 using System.Collections.Generic;
+using System.Globalization;
+using System.Reactive.Linq;
 using System.Text;
 using System.Windows;
 
@@ -10,6 +12,7 @@ using ControlzEx.Theming;
 using MaterialDesignThemes.Wpf;
 
 using Reactive.Bindings;
+using Reactive.Bindings.Extensions;
 
 using Theme = MaterialDesignThemes.Wpf.Theme;
 
@@ -17,8 +20,8 @@ namespace BEditor.ViewModels.SettingsControl.General
 {
     public class AppearanceViewModel : BasePropertyChanged
     {
-
         private ReactiveCommand<object> darkmodecommand;
+
         public ReactiveCommand<object> UseDarkModeClick
         {
             get
@@ -48,5 +51,10 @@ namespace BEditor.ViewModels.SettingsControl.General
                 return darkmodecommand;
             }
         }
+        public ReactiveCollection<string> Langs { get; } = new()
+        {
+            "ja-JP",
+            "en-US",
+        };
     }
 }

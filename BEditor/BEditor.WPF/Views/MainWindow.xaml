@@ -70,6 +70,7 @@
         <KeyBinding Command="{Binding ProjectSave, Mode=OneTime}" Gesture="Ctrl+s"/>
         <KeyBinding Command="{Binding UndoCommand, Mode=OneTime}" Gesture="Ctrl+z"/>
         <KeyBinding Command="{Binding RedoCommand, Mode=OneTime}" Gesture="Ctrl+y"/>
+        <KeyBinding Command="{Binding ProjectOpen, Mode=OneTime}" Gesture="Ctrl+o"/>
         <KeyBinding Command="{Binding ClipRemoveCommand, Mode=OneWay}" Key="Delete"/>
         <KeyBinding Command="{Binding FrameNext, Mode=OneWay}" Key="Right"/>
         <KeyBinding Command="{Binding FramePrevious, Mode=OneWay}" Key="Left"/>
@@ -184,6 +185,10 @@
                     <Button.ContextMenu>
                         <ContextMenu>
                             <MenuItem Header="{x:Static properties:Resources.Settings}" Command="{Binding SettingShow, Mode=OneTime}"/>
+                            <MenuItem Header="{x:Static properties:Resources.Optimization}">
+                                <MenuItem Header="{x:Static properties:Resources.MemoryRelease}" Command="{Binding MemoryRelease, Mode=OneTime}"/>
+                                <MenuItem Header="{x:Static properties:Resources.DeleteCommand}" Command="{Binding DeleteCommand, Mode=OneTime}"/>
+                            </MenuItem>
                         </ContextMenu>
                     </Button.ContextMenu>
                 </Button>
@@ -232,7 +237,7 @@
         <!--#region ToolBar-->
         <Grid Background="{DynamicResource MaterialDesignToolBarBackground}" Grid.ColumnSpan="5">
             <ToolBarTray>
-                <ToolBar ClipToBounds="False">
+                <ToolBar>
                     <Button
                         Padding="0,0,0,0"
                         Margin="5,0,5,0"
@@ -362,7 +367,7 @@
                     <md:PackIcon Kind="Videocam" Style="{StaticResource MouseOverIcon}" Foreground="{StaticResource VideoColor}"/>
                     <md:PackIcon Kind="Cube" Style="{StaticResource MouseOverIcon}" Foreground="{StaticResource VideoColor}"/>
                     <md:PackIcon Kind="MovieOpen" Style="{StaticResource MouseOverIcon}" Foreground="{StaticResource VideoColor}"/>
-                    <Button Padding="0,0,0,0" Margin="7,0,0,0">
+                    <Button Padding="0,0,0,0" Margin="7,0,0,0" Cursor="Arrow">
                         <md:PopupBox>
                             <md:PopupBox.ToggleContent>
                                 <md:PackIcon Kind="ChevronDown" Foreground="{DynamicResource MaterialDesignBody}" Height="18" Width="18"/>
@@ -377,6 +382,24 @@
                                 </ItemsControl>
                             </ScrollViewer>
                         </md:PopupBox>
+                    </Button>
+                </ToolBar>
+                <ToolBar Height="27" HorizontalContentAlignment="Center" VerticalContentAlignment="Center">
+                    <Button
+                        IsEnabled="{Binding ProjectIsOpened.Value, Mode=OneWay}"
+                        Padding="0,0,0,0"
+                        Margin="5,0,5,0"
+                        Command="{Binding OutputImage, Mode=OneTime}"
+                        ToolTip="{x:Static properties:Resources.ImageOutput}">
+                        <md:PackIcon Kind="AspectRatio" Width="20" Height="20"/>
+                    </Button>
+                    <Button
+                        IsEnabled="{Binding ProjectIsOpened.Value, Mode=OneWay}"
+                        Padding="0,0,0,0"
+                        Margin="5,0,5,0"
+                        Command="{Binding OutputVideo, Mode=OneTime}"
+                        ToolTip="{x:Static properties:Resources.VideoOutput}">
+                        <md:PackIcon Kind="Filmstrip" Width="20" Height="20"/>
                     </Button>
                 </ToolBar>
             </ToolBarTray>

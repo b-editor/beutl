@@ -2110,6 +2110,16 @@
             Render a frame of <see cref="P:BEditor.Core.Data.Scene.PreviewFrame"/>.
             </summary>
         </member>
+        <member name="M:BEditor.Core.Data.Scene.Render(BEditor.Drawing.Image{BEditor.Drawing.Pixel.BGRA32},BEditor.Media.Frame,BEditor.Core.Data.RenderType)">
+            <summary>
+            Render this <see cref="T:BEditor.Core.Data.Scene"/>.
+            </summary>
+        </member>
+        <member name="M:BEditor.Core.Data.Scene.Render(BEditor.Drawing.Image{BEditor.Drawing.Pixel.BGRA32},BEditor.Core.Data.RenderType)">
+            <summary>
+            Render a frame of <see cref="P:BEditor.Core.Data.Scene.PreviewFrame"/>.
+            </summary>
+        </member>
         <member name="M:BEditor.Core.Data.Scene.GetFrame(BEditor.Media.Frame)">
             <summary>
             Get and sort the clips on the specified frame.
@@ -2174,7 +2184,7 @@
             アセンブリの名前
             </summary>
         </member>
-        <member name="M:BEditor.Core.Plugin.IPlugin.SettingCommand">
+        <member name="P:BEditor.Core.Plugin.IPlugin.Settings">
             <summary>
             プラグインの設定を開くときに呼び出されます
             </summary>
@@ -2512,6 +2522,11 @@
               Delete に類似しているローカライズされた文字列を検索します。
             </summary>
         </member>
+        <member name="P:BEditor.Core.Properties.Resources.DeleteCommand">
+            <summary>
+              Delete recorded commands. に類似しているローカライズされた文字列を検索します。
+            </summary>
+        </member>
         <member name="P:BEditor.Core.Properties.Resources.DepthFunction">
             <summary>
               DepthFunction に類似しているローカライズされた文字列を検索します。
@@ -2743,6 +2758,11 @@
               Installed plugins に類似しているローカライズされた文字列を検索します。
             </summary>
         </member>
+        <member name="P:BEditor.Core.Properties.Resources.Language">
+            <summary>
+              Language に類似しているローカライズされた文字列を検索します。
+            </summary>
+        </member>
         <member name="P:BEditor.Core.Properties.Resources.Layer">
             <summary>
               Layer に類似しているローカライズされた文字列を検索します。
@@ -2781,6 +2801,11 @@
         <member name="P:BEditor.Core.Properties.Resources.Material">
             <summary>
               Material に類似しているローカライズされた文字列を検索します。
+            </summary>
+        </member>
+        <member name="P:BEditor.Core.Properties.Resources.MemoryRelease">
+            <summary>
+              Memory release に類似しているローカライズされた文字列を検索します。
             </summary>
         </member>
         <member name="P:BEditor.Core.Properties.Resources.Menu">
@@ -2856,6 +2881,11 @@
         <member name="P:BEditor.Core.Properties.Resources.OpenThisRepository">
             <summary>
               Open the repository for this software に類似しているローカライズされた文字列を検索します。
+            </summary>
+        </member>
+        <member name="P:BEditor.Core.Properties.Resources.Optimization">
+            <summary>
+              optimization に類似しているローカライズされた文字列を検索します。
             </summary>
         </member>
         <member name="P:BEditor.Core.Properties.Resources.Others">

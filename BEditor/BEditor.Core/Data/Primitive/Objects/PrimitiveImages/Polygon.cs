@@ -57,7 +57,7 @@ namespace BEditor.Core.Data.Primitive.Objects.PrimitiveImages
             var width = (int)Width.GetValue(args.Frame);
             var height = (int)Height.GetValue(args.Frame);
 
-            if (width <= 0 || height <= 0) return new(1, 1);
+            if (width <= 0 || height <= 0) return new(1, 1, default(BGRA32));
 
             return Drawing.Image.Polygon(
                 (int)Number.Value,

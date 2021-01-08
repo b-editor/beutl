@@ -20,11 +20,6 @@ namespace BEditor.Models
     {
         private static readonly PropertyChangedEventArgs projectArgs = new(nameof(Project));
         private static readonly PropertyChangedEventArgs statusArgs = new(nameof(AppStatus));
-        private static readonly string colorsDir = System.IO.Path.Combine(AppContext.BaseDirectory, "user", "colors");
-        private static readonly string logsDir = System.IO.Path.Combine(AppContext.BaseDirectory, "user", "logs");
-        private static readonly string backupDir = System.IO.Path.Combine(AppContext.BaseDirectory, "user", "backup");
-        private static readonly string pluginsDir = System.IO.Path.Combine(AppContext.BaseDirectory, "user", "plugins");
-        private static readonly string errorlogFile = System.IO.Path.Combine(AppContext.BaseDirectory, "user", "logs", "errorlog.xml");
         private Project project;
         private Status status;
 
@@ -35,33 +30,6 @@ namespace BEditor.Models
 
         private AppData()
         {
-            static void CreateIfNotExsits(string dir)
-            {
-                if (!Directory.Exists(dir))
-                {
-                    Directory.CreateDirectory(dir);
-                }
-            }
-
-            #region ディレクトリの作成
-
-            CreateIfNotExsits(colorsDir);
-            CreateIfNotExsits(logsDir);
-            CreateIfNotExsits(backupDir);
-            CreateIfNotExsits(pluginsDir);
-
-            if (!File.Exists(errorlogFile))
-            {
-                XDocument XDoc = new XDocument(
-                    new XDeclaration("1.0", "utf-8", "true"),
-                    new XElement("Logs")
-                );
-
-                XDoc.Save(errorlogFile);
-            }
-
-            #endregion
-
             CommandManager.Executed += (_, _) => AppStatus = Status.Edit;
         }
 
