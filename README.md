@@ -13,19 +13,11 @@
 
 ## 使用ライブラリ
 * [.NET runtime](https://github.com/dotnet/runtime)
-
-### BEditor.Core
 * [OpenTK](https://github.com/opentk/opentk)
 * [System.Reactive](https://github.com/dotnet/reactive)
-
-### BEditor.Media
 * [FFmpeg.AutoGen](https://github.com/Ruslan-B/FFmpeg.AutoGen)
 * [NAudio](https://github.com/naudio/NAudio)
-
-### BEditor.Drawing
 * [SkiaSharp](https://github.com/mono/SkiaSharp)
-
-### BEditor.Settings
 
 </details>
 
@@ -38,6 +30,25 @@
 * [indigo-san](https://github.com/indigo-san)
 
 # News
+
+## BEditor 0.0.4
+
+* [ダウンロード](https://github.com/indigo-san/BEditor/releases/tag/v0.0.4-alpha)
+* [マイルストーン](https://github.com/indigo-san/BEditor/milestone/3)
+
+### 変更
+
+* 角丸四角形の追加
+* Polygonの追加
+* UIの変更
+* 再生機能の追加
+* 音声ファイルの読み込み
+* 動画ファイルの入出力
+* SkiaSharpを使った画像処理に変更
+* 設定項目の追加
+    * 背景色を変更可能に
+    * 読み込むフォントのディレクトリの指定(Jsonから変更可)
+    * 読み込むプラグインの選択
 
 ## BEditor 0.0.3
 
