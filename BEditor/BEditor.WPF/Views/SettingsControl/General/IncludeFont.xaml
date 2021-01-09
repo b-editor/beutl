@@ -1,0 +1,29 @@
+﻿<UserControl x:Class="BEditor.Views.SettingsControl.General.IncludeFont"
+             xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006" 
+             xmlns:d="http://schemas.microsoft.com/expression/blend/2008" 
+             xmlns:local="clr-namespace:BEditor.Views.SettingsControl.General"
+             xmlns:vm="clr-namespace:BEditor.ViewModels.SettingsControl.General"
+             xmlns:properties="clr-namespace:BEditor.Core.Properties;assembly=BEditor.Core"
+             xmlns:setting="clr-namespace:BEditor;assembly=BEditor.Settings"
+             xmlns:md="http://materialdesigninxaml.net/winfx/xaml/themes"
+             mc:Ignorable="d" 
+             Unloaded="UserControl_Unloaded"
+             d:DesignHeight="450" d:DesignWidth="800">
+    <UserControl.DataContext>
+        <vm:IncludeFontViewModel/>
+    </UserControl.DataContext>
+    <Grid>
+        <Grid.RowDefinitions>
+            <RowDefinition/>
+            <RowDefinition Height="Auto"/>
+        </Grid.RowDefinitions>
+        <ListBox ItemsSource="{Binding IncludeFontDir, Source={x:Static setting:Settings.Default}}" HorizontalContentAlignment="Stretch" VerticalContentAlignment="Stretch" SelectedItem="{Binding SelectFont.Value, Mode=TwoWay}"/>
+        
+        <VirtualizingStackPanel Grid.Row="1" Orientation="Horizontal" FlowDirection="RightToLeft">
+            <Button Margin="10" Content="{x:Static properties:Resources.Add}" Style="{StaticResource MaterialDesignFlatButton}" Foreground="{DynamicResource MaterialDesignBody}" Command="{Binding Add, Mode=OneTime}"/>
+            <Button IsEnabled="{Binding IsSelected.Value, Mode=OneWay}" Margin="10" Content="{x:Static properties:Resources.Remove}" Style="{StaticResource MaterialDesignFlatButton}" Foreground="{DynamicResource MaterialDesignBody}" Command="{Binding Remove, Mode=OneTime}"/>
+        </VirtualizingStackPanel>
+    </Grid>
+</UserControl>

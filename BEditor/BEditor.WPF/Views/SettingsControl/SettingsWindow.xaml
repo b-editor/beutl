@@ -12,7 +12,7 @@
                       mc:Ignorable="d"
                       Height="450" Width="800"
                       WindowStartupLocation="CenterOwner"
-        
+                      Closing="MetroWindow_Closing"
                       Style="{StaticResource DefaultWindowStyle}">
     <Controls:MetroWindow.DataContext>
         <vm:SettingsWindowViewModel/>

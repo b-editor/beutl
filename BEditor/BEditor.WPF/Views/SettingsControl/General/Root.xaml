@@ -12,6 +12,6 @@
     <VirtualizingStackPanel>
         
         <md:ColorZone Content="{x:Static resources:Resources.General}" Style="{StaticResource SettingsColorZone}"/>
-
+        
     </VirtualizingStackPanel>
 </UserControl>

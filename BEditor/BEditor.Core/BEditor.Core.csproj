@@ -14,14 +14,12 @@
     <DefineConstants>TRACE;OldOpenTK</DefineConstants>
     <Optimize>false</Optimize>
     <PlatformTarget>AnyCPU</PlatformTarget>
-    <OutputPath>..\Build\Debug\</OutputPath>
     <NoWarn>1701;1702;1591</NoWarn>
   </PropertyGroup>
 
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release|AnyCPU'">
     <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
     <DefineConstants>TRACE;OldOpenTK</DefineConstants>
-    <OutputPath>..\Build\Release\</OutputPath>
     <DocumentationFile>\BEditor.Core.xml</DocumentationFile>
     <PlatformTarget>AnyCPU</PlatformTarget>
   </PropertyGroup>

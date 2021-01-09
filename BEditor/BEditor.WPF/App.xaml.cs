@@ -10,6 +10,7 @@ using System.Windows.Threading;
 using System.Xml.Linq;
 
 using BEditor.Core.Data.Primitive.Properties;
+using BEditor.Core.Extensions;
 using BEditor.Core.Extensions.ViewCommand;
 using BEditor.Core.Plugin;
 using BEditor.Core.Service;
@@ -204,10 +205,11 @@ namespace BEditor
                 ColorPickerViewModel.ColorList.Add(new ColorList(colors, xElement.Attribute("Name")?.Value ?? "?"));
             }
         }
-        private static void InitialFontManager()
+        public static void InitialFontManager()
         {
             FontProperty.FontList.AddRange(
                     Settings.Default.IncludeFontDir
+                        .Where(dir => Directory.Exists(dir))
                         .Select(dir => Directory.GetFiles(dir))
                         .SelectMany(files => files)
                         .Where(file => Path.GetExtension(file) is ".ttf" or ".ttc" or ".otf")
@@ -296,6 +298,7 @@ namespace BEditor
         private void Application_DispatcherUnhandledException(object sender, DispatcherUnhandledExceptionEventArgs e)
         {
             Message.Snackbar(string.Format(Core.Properties.Resources.ExceptionWasThrown, e.Exception.GetType().FullName));
+            ActivityLog.ErrorLog(e.Exception);
 
 #if !DEBUG
             e.Handled = true;

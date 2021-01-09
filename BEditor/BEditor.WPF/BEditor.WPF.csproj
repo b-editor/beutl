@@ -29,13 +29,11 @@
 
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release|x64'">
     <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
-    <OutputPath>..\Build\Release\</OutputPath>
   </PropertyGroup>
 
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|AnyCPU'">
     <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
     <PlatformTarget>x64</PlatformTarget>
-    <OutputPath>E:\yuuto\source\BEditor\x64\Debug\</OutputPath>
   </PropertyGroup>
 
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">
@@ -43,7 +41,6 @@
     <PlatformTarget>x64</PlatformTarget>
     <DocumentationFile></DocumentationFile>
     <Optimize>false</Optimize>
-    <OutputPath>..\Build\Debug\</OutputPath>
   </PropertyGroup>
 
   <ItemGroup>
@@ -54,15 +51,7 @@
   </ItemGroup>
 
   <ItemGroup>
-    <Compile Remove="Views\CustomControl\CustomTreeView.xaml.cs" />
-  </ItemGroup>
-
-  <ItemGroup>
     <None Remove="icon_alpha.ico" />
-  </ItemGroup>
-
-  <ItemGroup>
-    <Page Remove="Views\CustomControl\CustomTreeView.xaml" />
   </ItemGroup>
 
   <ItemGroup>
@@ -95,22 +84,6 @@
       <AutoGen>True</AutoGen>
       <DependentUpon>Resources.ja-JP.resx</DependentUpon>
     </Compile>
-  </ItemGroup>
-
-  <ItemGroup>
-    <None Update="Runtimes\opencv_videoio_ffmpeg450_64.dll">
-      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
-    </None>
-    <None Update="Runtimes\opencv_world450.dll">
-      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
-    </None>
-    <None Update="Runtimes\opencv_world450d.dll">
-      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
-    </None>
-  </ItemGroup>
-
-  <ItemGroup>
-    <Folder Include="Properties\PublishProfiles\" />
   </ItemGroup>
 
 </Project>
