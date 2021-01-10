@@ -100,6 +100,11 @@ namespace BEditor.Media.Decoder
             _ = 0;
         }
 
+        public RGB32 Add(RGB32 foreground)
+        {
+            throw new NotImplementedException();
+        }
+
         public readonly RGB32 Blend(RGB32 foreground) => foreground;
         public void ConvertFrom(BGRA32 src)
         {
@@ -110,6 +115,11 @@ namespace BEditor.Media.Decoder
         public readonly void ConvertTo(out BGRA32 dst)
         {
             dst = new(R, G, B, 255);
+        }
+
+        public RGB32 Subtract(RGB32 foreground)
+        {
+            throw new NotImplementedException();
         }
     }
 }

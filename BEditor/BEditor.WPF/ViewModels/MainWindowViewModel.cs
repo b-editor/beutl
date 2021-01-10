@@ -205,6 +205,14 @@ namespace BEditor.ViewModels
 
                     clip.Layer = timeline.Select_Layer;
 
+
+                    if (!timeline.Scene.InRange(clip.Start, clip.End, clip.Layer))
+                    {
+                        Message.Snackbar("指定した場所にクリップが存在しているため、新しいクリップを配置できません");
+
+                        return;
+                    }
+
                     timeline.Scene.CreateAddCommand(clip).Execute();
                 });
 

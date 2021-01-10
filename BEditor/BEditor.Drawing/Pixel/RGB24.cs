@@ -19,7 +19,21 @@ namespace BEditor.Drawing.Pixel
             B = b;
         }
 
+        public readonly RGB24 Add(RGB24 foreground)
+        {
+            return new(
+                (byte)(R + foreground.R),
+                (byte)(G + foreground.G),
+                (byte)(B + foreground.B));
+        }
         public readonly RGB24 Blend(RGB24 foreground) => foreground;
+        public readonly RGB24 Subtract(RGB24 foreground)
+        {
+            return new(
+                (byte)(R - foreground.R),
+                (byte)(G - foreground.G),
+                (byte)(B - foreground.B));
+        }
         public void ConvertFrom(BGRA32 src)
         {
             R = src.R;

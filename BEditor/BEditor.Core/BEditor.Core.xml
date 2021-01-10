@@ -3144,16 +3144,6 @@
               Type に類似しているローカライズされた文字列を検索します。
             </summary>
         </member>
-        <member name="P:BEditor.Core.Properties.Resources.TypeOfDraw">
-            <summary>
-              Standardized drawing に類似しているローカライズされた文字列を検索します。
-            </summary>
-        </member>
-        <member name="P:BEditor.Core.Properties.Resources.TypeOfDrawPlus">
-            <summary>
-              Extended drawing に類似しているローカライズされた文字列を検索します。
-            </summary>
-        </member>
         <member name="P:BEditor.Core.Properties.Resources.Undo">
             <summary>
               Undo に類似しているローカライズされた文字列を検索します。

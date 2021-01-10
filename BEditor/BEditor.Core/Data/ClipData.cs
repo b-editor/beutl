@@ -239,9 +239,6 @@ namespace BEditor.Core.Data
         internal sealed class AddCommand : IRecordCommand
         {
             private readonly Scene Scene;
-            private readonly Frame AddFrame;
-            private readonly int AddLayer;
-            private readonly ObjectMetadata Metadata;
             public ClipData data;
 
             /// <summary>
@@ -254,38 +251,34 @@ namespace BEditor.Core.Data
             public AddCommand(Scene scene, Frame startFrame, int layer, ObjectMetadata metadata)
             {
                 Scene = scene ?? throw new ArgumentNullException(nameof(scene));
-                AddFrame = (Frame.Zero > startFrame) ? throw new ArgumentOutOfRangeException(nameof(startFrame)) : startFrame;
-                AddLayer = (0 > layer) ? throw new ArgumentOutOfRangeException(nameof(layer)) : layer;
-                Metadata = metadata ?? throw new ArgumentNullException(nameof(metadata));
+                if (Frame.Zero > startFrame) throw new ArgumentOutOfRangeException(nameof(startFrame));
+                if (0 > layer) throw new ArgumentOutOfRangeException(nameof(layer));
+                if (metadata is null) throw new ArgumentNullException(nameof(metadata));
+
+                //新しいidを取得
+                int idmax = scene.NewId;
+
+                //描画情報
+                var list = new ObservableCollection<EffectElement>
+                {
+                    (EffectElement)(metadata.CreateFunc?.Invoke() ?? Activator.CreateInstance(metadata.Type))
+                };
+
+                //オブジェクトの情報
+                data = new ClipData(idmax, list, startFrame, startFrame + 180, metadata.Type, layer, scene);
             }
 
             /// <inheritdoc/>
             public void Do()
             {
-                //新しいidを取得
-                int idmax = Scene.NewId;
-
-                //描画情報
-                var list = new ObservableCollection<EffectElement>
-                {
-                    (EffectElement)(Metadata.CreateFunc?.Invoke() ?? Activator.CreateInstance(Metadata.Type))
-                };
-
-                //オブジェクトの情報
-                data = new ClipData(idmax, list, AddFrame, AddFrame + 180, Metadata.Type, AddLayer, Scene);
-
-                Scene.Add(data);
                 data.Loaded();
-
+                Scene.Add(data);
                 Scene.SetCurrentClip(data);
             }
             /// <inheritdoc/>
             public void Redo()
             {
-                Scene.Add(data);
-                data.Loaded();
-
-                Scene.SetCurrentClip(data);
+                Do();
             }
             /// <inheritdoc/>
             public void Undo()
@@ -462,6 +455,13 @@ namespace BEditor.Core.Data
                 data.Start = oldstart;
                 data.End = oldend;
             }
+        }
+
+        internal enum RangeType
+        {
+            StartEnd,
+            Start,
+            End
         }
     }
 

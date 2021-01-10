@@ -17,8 +17,11 @@ namespace BEditor.Drawing
     {
         public Font(string file)
         {
-            if (!(Path.GetExtension(file) is ".ttf" or ".ttc" or ".otf"))
+            if (Path.GetExtension(file) is not (".ttf" or ".ttc" or ".otf"))
                 throw new NotSupportedException(Resources.FontException);
+            
+            //if (!(Path.GetExtension(file) is ".ttf" or ".ttc" or ".otf"))
+            //    throw new NotSupportedException(Resources.FontException);
 
             Filename = file;
             using var face = SKTypeface.FromFile(file);

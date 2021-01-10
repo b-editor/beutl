@@ -365,6 +365,7 @@ namespace BEditor.Core.Data
         public IEnumerable<ClipData> GetFrame(Frame frame)
         {
             return Datas
+                .AsParallel()
                 .Where(item => item.Start <= (frame) && (frame) < item.End)
                 .Where(item => !HideLayer.Exists(x => x == item.Layer))
                 .OrderBy(item => item.Layer);
@@ -376,6 +377,7 @@ namespace BEditor.Core.Data
         public IEnumerable<ClipData> GetLayer(int layer)
         {
             return Datas
+                .AsParallel()
                 .Where(item => item.Layer == layer)
                 .OrderBy(item => item.Start.Value);
         }

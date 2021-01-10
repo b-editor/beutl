@@ -289,6 +289,63 @@ namespace BEditor.Drawing
             ThrowIfDisposed();
             Data.Fill(fill);
         }
+        public void Blend(Image<T> mask, Image<T> dst)
+        {
+            if (mask is null) throw new ArgumentNullException(nameof(mask));
+            if (dst is null) throw new ArgumentNullException(nameof(dst));
+            mask.ThrowIfDisposed();
+            dst.ThrowIfDisposed();
+            if (mask.Height != Height) throw new ArgumentOutOfRangeException(nameof(mask));
+            if (mask.Width != Width) throw new ArgumentOutOfRangeException(nameof(mask));
+            if (dst.Height != Height) throw new ArgumentOutOfRangeException(nameof(dst));
+            if (dst.Width != Width) throw new ArgumentOutOfRangeException(nameof(dst));
+
+            fixed (T* srcPtr = Data)
+            fixed (T* dstPtr = dst.Data)
+            fixed (T* maskPtr = mask.Data)
+            {
+                var proc = new AlphaBlendProcess<T>(srcPtr, dstPtr, maskPtr);
+                Parallel.For(0, Data.Length, proc.Invoke);
+            }
+        }
+        public void Add(Image<T> mask, Image<T> dst)
+        {
+            if (mask is null) throw new ArgumentNullException(nameof(mask));
+            if (dst is null) throw new ArgumentNullException(nameof(dst));
+            mask.ThrowIfDisposed();
+            dst.ThrowIfDisposed();
+            if (mask.Height != Height) throw new ArgumentOutOfRangeException(nameof(mask));
+            if (mask.Width != Width) throw new ArgumentOutOfRangeException(nameof(mask));
+            if (dst.Height != Height) throw new ArgumentOutOfRangeException(nameof(dst));
+            if (dst.Width != Width) throw new ArgumentOutOfRangeException(nameof(dst));
+
+            fixed (T* srcPtr = Data)
+            fixed (T* dstPtr = dst.Data)
+            fixed (T* maskPtr = mask.Data)
+            {
+                var proc = new AddProcess<T>(srcPtr, dstPtr, maskPtr);
+                Parallel.For(0, Data.Length, proc.Invoke);
+            }
+        }
+        public void Subtract(Image<T> mask, Image<T> dst)
+        {
+            if (mask is null) throw new ArgumentNullException(nameof(mask));
+            if (dst is null) throw new ArgumentNullException(nameof(dst));
+            mask.ThrowIfDisposed();
+            dst.ThrowIfDisposed();
+            if (mask.Height != Height) throw new ArgumentOutOfRangeException(nameof(mask));
+            if (mask.Width != Width) throw new ArgumentOutOfRangeException(nameof(mask));
+            if (dst.Height != Height) throw new ArgumentOutOfRangeException(nameof(dst));
+            if (dst.Width != Width) throw new ArgumentOutOfRangeException(nameof(dst));
+
+            fixed (T* srcPtr = Data)
+            fixed (T* dstPtr = dst.Data)
+            fixed (T* maskPtr = mask.Data)
+            {
+                var proc = new SubtractProcess<T>(srcPtr, dstPtr, maskPtr);
+                Parallel.For(0, Data.Length, proc.Invoke);
+            }
+        }
 
         [SkipLocalsInit]
         public void Flip(FlipMode mode)

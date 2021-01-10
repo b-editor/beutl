@@ -21,20 +21,36 @@ namespace BEditor.Drawing.Pixel
             A = a;
         }
 
-        public readonly RGBA32 Blend(RGBA32 foreground)
+        public readonly RGBA32 Add(RGBA32 foreground)
         {
-            if (A is 0) return this;
+            return new(
+                (byte)(R + foreground.R),
+                (byte)(G + foreground.G),
+                (byte)(B + foreground.B),
+                (byte)(A + foreground.A));
+        }
+        public readonly RGBA32 Blend(RGBA32 mask)
+        {
+            if (mask.A is 0) return this;
 
-            var result = new RGBA32();
+            var dst = new RGBA32();
 
-            var dstA = foreground.A;
-            var blendA = (A + dstA) - A * dstA / 255;
+            var blendA = (mask.A + A) - mask.A * A / 255;
 
-            result.B = (byte)((B * A + foreground.B * (255 - A) * dstA / 255) / blendA);
-            result.G = (byte)((G * A + foreground.G * (255 - A) * dstA / 255) / blendA);
-            result.R = (byte)((R * A + foreground.R * (255 - A) * dstA / 255) / blendA);
+            dst.B = (byte)((mask.B * mask.A + B * (255 - mask.A) * A / 255) / blendA);
+            dst.G = (byte)((mask.G * mask.A + G * (255 - mask.A) * A / 255) / blendA);
+            dst.R = (byte)((mask.R * mask.A + R * (255 - mask.A) * A / 255) / blendA);
+            dst.A = A;
 
-            return result;
+            return dst;
+        }
+        public readonly RGBA32 Subtract(RGBA32 foreground)
+        {
+            return new(
+                (byte)(R - foreground.R),
+                (byte)(G - foreground.G),
+                (byte)(B - foreground.B),
+                (byte)(A - foreground.A));
         }
         public void ConvertFrom(BGR24 src)
         {
