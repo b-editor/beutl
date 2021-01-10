@@ -33,44 +33,10 @@ namespace BEditor.Core.Command
             _ = (0 > layer) ? throw new ArgumentOutOfRangeException(nameof(layer)) : layer;
             _ = metadata ?? throw new ArgumentNullException(nameof(metadata));
 
-            //新しいidを取得
-            int idmax = self.NewId;
+            var command = new ClipData.AddCommand(self, addframe, layer, metadata);
+            generatedClip = command.data;
 
-            //描画情報
-            var list = new ObservableCollection<EffectElement>
-                {
-                    (EffectElement)(metadata.CreateFunc?.Invoke() ?? Activator.CreateInstance(metadata.Type))
-                };
-
-            //オブジェクトの情報
-            generatedClip = new ClipData(idmax, list, addframe, addframe + 180, metadata.Type, layer, self);
-
-            return RecordCommand.Create(
-                generatedClip,
-                clip =>
-                {
-                    var scene = clip.Parent;
-                    clip.Loaded();
-                    scene.Add(clip);
-                    scene.SetCurrentClip(clip);
-                },
-                clip =>
-                {
-                    var scene = clip.Parent;
-                    scene.Remove(clip);
-                    clip.Unloaded();
-
-                    //存在する場合
-                    if (scene.SelectNames.Exists(x => x == clip.Name))
-                    {
-                        scene.SelectItems.Remove(clip);
-
-                        if (scene.SelectName == clip.Name)
-                        {
-                            scene.SelectItem = null;
-                        }
-                    }
-                });
+            return command;
         }
         static readonly PropertyInfo ClipDataID = typeof(ClipData).GetProperty(nameof(ClipData.Id));
         public static IRecordCommand CreateAddCommand(this Scene self, ClipData clip)

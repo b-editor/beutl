@@ -39,6 +39,21 @@ namespace NUnitTestProject1
             img.Encode(stream, EncodedImageFormat.Png);
         }
         [Test]
+        public void AddEllipse()
+        {
+            using var img = Image.Decode(InputPath);
+            using var ellipse = Image.Ellipse(100, 100, 50, Color.Light);
+            using var stream = new FileStream(CombinePath("AddEllipse.png"), FileMode.Create);
+            var rect = new Rectangle(new(0, 0), ellipse.Size);
+            using var blended = img[rect];
+
+            blended.Add(ellipse, blended);
+
+            img[rect] = blended;
+
+            img.Encode(stream, EncodedImageFormat.Png);
+        }
+        [Test]
         public void DrawTriangle()
         {
             using var img = Image.Decode(InputPath);

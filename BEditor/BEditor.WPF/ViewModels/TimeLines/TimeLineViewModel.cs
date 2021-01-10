@@ -23,6 +23,7 @@ using BEditor.Drawing;
 using Reactive.Bindings.Extensions;
 using Point = System.Windows.Point;
 using System.Threading;
+using BEditor.Core.Extensions.ViewCommand;
 
 namespace BEditor.ViewModels.TimeLines
 {
@@ -227,6 +228,13 @@ namespace BEditor.ViewModels.TimeLines
 
         private void AddClipCommand(ObjectMetadata @object)
         {
+            if (!Scene.InRange(Select_Frame, Select_Frame + 180, Select_Layer))
+            {
+                Message.Snackbar("指定した場所にクリップが存在しているため、新しいクリップを配置できません");
+
+                return;
+            }
+
             Scene.CreateAddCommand(
                 Select_Frame,
                 Select_Layer,
@@ -286,7 +294,7 @@ namespace BEditor.ViewModels.TimeLines
             {
                 de.Effects = DragDropEffects.Copy; // マウスカーソルをコピーにする。
 
-                int frame = ToFrame(de.GetPosition(Scene.GetCreateTimeLineView().Layer).X);
+                Media.Frame frame = ToFrame(de.GetPosition(Scene.GetCreateTimeLineView().Layer).X);
 
 
                 int addlayer = AttachmentProperty.GetInt((Grid)sender);
@@ -294,12 +302,14 @@ namespace BEditor.ViewModels.TimeLines
 
                 if (de.Data.GetDataPresent(typeof(Func<ObjectMetadata>)))
                 {
-                    Scene.CreateAddCommand(
-                        frame,
-                        addlayer,
-                        ((Func<ObjectMetadata>)de.Data.GetData(typeof(Func<ObjectMetadata>))).Invoke(),
-                        out _)
-                        .Execute();
+                    var endFrame = frame + new Media.Frame(180);
+                    Scene.InRange(null, ref frame, ref endFrame, addlayer);
+
+                    var recordCommand = Scene.CreateAddCommand(frame, addlayer, ((Func<ObjectMetadata>)de.Data.GetData(typeof(Func<ObjectMetadata>))).Invoke(), out var c);
+
+                    c.End = endFrame;
+
+                    recordCommand.Execute();
                 }
                 else if (de.Data.GetDataPresent(DataFormats.FileDrop, true))
                 {
@@ -308,6 +318,14 @@ namespace BEditor.ViewModels.TimeLines
                     if (Path.GetExtension(file) != ".beo")
                     {
                         var type_ = FileTypeConvert(file);
+
+                        if (!Scene.InRange(frame, frame + 180, addlayer))
+                        {
+                            Message.Snackbar("指定した場所にクリップが存在しているため、新しいクリップを配置できません");
+
+                            return;
+                        }
+
                         Scene.CreateAddCommand(frame, addlayer, type_, out var clip).Execute();
 
                         if (type_ == ClipType.ImageMetadata)
@@ -432,34 +450,32 @@ namespace BEditor.ViewModels.TimeLines
                 var selectviewmodel = ClipSelect.GetCreateClipViewModel();
                 if (selectviewmodel.ClipCursor.Value == Cursors.Arrow && LayerCursor.Value == Cursors.Arrow)
                 {
-                    #region 横の移動
-
                     obj_Now = point; //現在のマウス
 
-                    var column = ToFrame(obj_Now.X) - ToFrame(ClipStart.X) + ToFrame(selectviewmodel.MarginProperty.Value.Left);
+                    var newframe = ToFrame(obj_Now.X) - ToFrame(ClipStart.X) + ToFrame(selectviewmodel.MarginProperty.Value.Left);
+                    int newlayer = Mouse_Layer;
 
-                    if (column < 0)
+                    if (!Scene.InRange(ClipSelect, newframe, newframe + ClipSelect.Length, newlayer))
+                    {
+                        return;
+                    }
+
+                    // 横の移動
+                    if (newframe < 0)
                     {
                         selectviewmodel.MarginProperty.Value = new Thickness(0, 1, 0, 0);
                     }
                     else
                     {
-                        selectviewmodel.MarginProperty.Value = new Thickness(ToPixel(column), 1, 0, 0);
+                        selectviewmodel.MarginProperty.Value = new Thickness(ToPixel(newframe), 1, 0, 0);
                     }
 
-                    #endregion
-
-
-                    #region 縦の移動
-
-                    int tolayer = Mouse_Layer;
-
-                    if (selectviewmodel.Row != tolayer && tolayer != 0)
+                    // 縦の移動
+                    if (selectviewmodel.Row != newlayer && newlayer != 0)
                     {
-                        ClipLayerMoveCommand?.Invoke(ClipSelect, tolayer);
+                        ClipLayerMoveCommand?.Invoke(ClipSelect, newlayer);
                     }
 
-                    #endregion
 
                     ClipStart = obj_Now;
 

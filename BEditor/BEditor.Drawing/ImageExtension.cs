@@ -17,7 +17,7 @@ namespace BEditor.Drawing
 {
     public unsafe static partial class Image
     {
-        public static void DrawImage(this Image<BGRA32> self, Point point, Image<BGRA32> image)
+        public static void DrawImage<T>(this Image<T> self, Point point, Image<T> image) where T : unmanaged, IPixel<T>
         {
             if (self is null) throw new ArgumentNullException(nameof(self));
             if (image is null) throw new ArgumentNullException(nameof(image));
@@ -26,14 +26,10 @@ namespace BEditor.Drawing
             var rect = new Rectangle(point, image.Size);
             var blended = self[rect];
 
-            fixed (BGRA32* dst = blended.Data)
-            fixed (BGRA32* src = image.Data)
-            {
-                var proc = new AlphaBlendProcess(dst, src);
-                Parallel.For(0, image.Data.Length, proc.Invoke);
-            }
+            blended.Blend(image, blended);
 
             self[rect] = blended;
+
         }
         public static void DrawPath(this Image<BGRA32> self, BGRA32 color, Point point, Point[] points)
         {

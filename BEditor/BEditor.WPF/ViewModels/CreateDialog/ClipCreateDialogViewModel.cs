@@ -6,8 +6,11 @@ using System.Threading.Tasks;
 
 using BEditor.Core.Command;
 using BEditor.Core.Data;
+using BEditor.Core.Extensions.ViewCommand;
 using BEditor.Core.Properties;
+using BEditor.Media;
 using BEditor.Models;
+using BEditor.Models.Extension;
 
 using Reactive.Bindings;
 
@@ -26,6 +29,13 @@ namespace BEditor.ViewModels.CreateDialog
 
             AddCommand.Subscribe(() =>
             {
+                if (!Scene.Value.InRange(Start.Value, Start.Value + Length.Value, Layer.Value))
+                {
+                    Message.Snackbar("指定した場所にクリップが存在しているため、新しいクリップを配置できません");
+
+                    return;
+                }
+
                 Scene.Value.CreateAddCommand(Start.Value, Layer.Value, Type.Value, out var data).Execute();
 
                 if (Name.Value != string.Empty) data.LabelText = Name.Value;

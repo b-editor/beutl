@@ -8,29 +8,58 @@ using BEditor.Drawing.Pixel;
 
 namespace BEditor.Drawing.Process
 {
-    internal unsafe readonly struct AlphaBlendProcess
+    internal unsafe readonly struct AlphaBlendProcess<T> where T : unmanaged, IPixel<T>
     {
-        private readonly BGRA32* dst;
-        private readonly BGRA32* src;
+        private readonly T* dst;
+        private readonly T* src;
+        private readonly T* mask;
 
-        public AlphaBlendProcess(BGRA32* dst, BGRA32* src)
+        public AlphaBlendProcess(T* src, T* dst, T* mask)
         {
             this.dst = dst;
             this.src = src;
+            this.mask = mask;
         }
 
         public readonly void Invoke(int pos)
         {
-            var srcA = src[pos].A;
+            dst[pos] = src[pos].Blend(mask[pos]);
+        }
+    }
+    internal unsafe readonly struct AddProcess<T> where T : unmanaged, IPixel<T>
+    {
+        private readonly T* dst;
+        private readonly T* src;
+        private readonly T* mask;
 
-            if (srcA is 0) return;
+        public AddProcess(T* src, T* dst, T* mask)
+        {
+            this.dst = dst;
+            this.src = src;
+            this.mask = mask;
+        }
 
-            var dstA = dst[pos].A;
-            var blendA = (srcA + dstA) - srcA * dstA / 255;
+        public readonly void Invoke(int pos)
+        {
+            dst[pos] = src[pos].Add(mask[pos]);
+        }
+    }
+    internal unsafe readonly struct SubtractProcess<T> where T : unmanaged, IPixel<T>
+    {
+        private readonly T* dst;
+        private readonly T* src;
+        private readonly T* mask;
 
-            dst[pos].B = (byte)((src[pos].B * srcA + dst[pos].B * (255 - srcA) * dstA / 255) / blendA);
-            dst[pos].G = (byte)((src[pos].G * srcA + dst[pos].G * (255 - srcA) * dstA / 255) / blendA);
-            dst[pos].R = (byte)((src[pos].R * srcA + dst[pos].R * (255 - srcA) * dstA / 255) / blendA);
+        public SubtractProcess(T* src, T* dst, T* mask)
+        {
+            this.dst = dst;
+            this.src = src;
+            this.mask = mask;
+        }
+
+        public readonly void Invoke(int pos)
+        {
+            dst[pos] = src[pos].Subtract(mask[pos]);
         }
     }
 }
