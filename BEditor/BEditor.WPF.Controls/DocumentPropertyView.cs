@@ -52,11 +52,11 @@ namespace BEditor.WPF.Controls
         {
             base.OnApplyTemplate();
 
-            var text = GetTemplateChild("TextBox") as TextBox;
+            var text = (TextBox)GetTemplateChild("TextBox");
 
-            text.GotFocus += (s, _) => GotFocusCommand.Execute((s as TextBox).Text);
-            text.LostFocus += (s, _) => LostFocusCommand.Execute((s as TextBox).Text);
-            text.TextChanged += (s, _) => TextChanged.Execute((s as TextBox).Text);
+            text.GotFocus += (s, _) => GotFocusCommand.Execute(((TextBox)s).Text);
+            text.LostFocus += (s, _) => LostFocusCommand.Execute(((TextBox)s).Text);
+            text.TextChanged += (s, _) => TextChanged.Execute(((TextBox)s).Text);
         }
     }
 }

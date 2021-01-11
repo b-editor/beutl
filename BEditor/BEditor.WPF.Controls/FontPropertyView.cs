@@ -40,8 +40,9 @@ namespace BEditor.WPF.Controls
         public override void OnApplyTemplate()
         {
             base.OnApplyTemplate();
+            var box = (ComboBox)GetTemplateChild("box");
 
-            (GetTemplateChild("box") as ComboBox).SelectionChanged += (s, _) => Command.Execute((s as ComboBox).SelectedItem);
+            box.SelectionChanged += (s, _) => Command.Execute(((ComboBox)s).SelectedItem);
         }
     }
 }

@@ -57,49 +57,6 @@ namespace BEditor.Views.TimeLines
 
                 #endregion
 
-                #region
-                contextMenu.Items.Add(new Separator());
-                #endregion
-
-                #region 非表示
-                MenuItem Hidden = new MenuItem();
-
-                var hidemenu = new VirtualizingStackPanel()
-                {
-                    Orientation = Orientation.Horizontal,
-                    HorizontalAlignment = HorizontalAlignment.Center
-                };
-
-                hidemenu.Children.Add(new TextBlock() { Text = Resource.Hide, Margin = new Thickness(0, 0, 10, 0), VerticalAlignment = VerticalAlignment.Center });
-                var toggle = new ToggleButton() { IsChecked = true };
-                hidemenu.Children.Add(toggle);
-                hidemenu.Children.Add(new TextBlock() { Text = Resource.Show, Margin = new Thickness(10, 0, 0, 0), VerticalAlignment = VerticalAlignment.Center });
-
-                Hidden.Header = hidemenu;
-
-                toggle.Click += (_, _) =>
-                {
-                    if ((bool)toggle.IsChecked)
-                    {
-                        Scene.HideLayer.Remove(layer);
-                    }
-                    else
-                    {
-                        Scene.HideLayer.Add(layer);
-                    }
-
-                    Scene.Parent.PreviewUpdate();
-                };
-
-                if (Scene.HideLayer.Exists(x => x == layer))
-                {
-                    toggle.IsChecked = false;
-                }
-
-                contextMenu.Items.Add(Hidden);
-
-                #endregion
-
                 return contextMenu;
             }
 
@@ -119,8 +76,8 @@ namespace BEditor.Views.TimeLines
                 menu.SetBinding(HeaderedItemsControl.HeaderProperty, new Binding("Name") { Mode = BindingMode.OneTime });
                 clipMenu.Items.Add(menu);
             }
-            ContextMenu.Items.Insert(0, clipMenu);
-            ContextMenu.Items.Insert(1, new Separator());
+            TimelineMenu.Items.Insert(0, clipMenu);
+            TimelineMenu.Items.Insert(1, new Separator());
 
 
             //レイヤー名追加for
@@ -177,24 +134,48 @@ namespace BEditor.Views.TimeLines
 
                 #region Labelの追加
 
-                Grid row2 = new Grid();
-
-                row2.ContextMenu = CreateMenu(l);
-
-                row2.SetBinding(Grid.HeightProperty, binding);
-
-                Label textBlock = new()
+                Grid row2 = new Grid
                 {
-                    VerticalAlignment = VerticalAlignment.Top,
-                    VerticalContentAlignment = VerticalAlignment.Center,
-                    HorizontalAlignment = HorizontalAlignment.Center,
-                    FontSize = 14,
-                    Content = l.ToString(),
-                    Padding = new Thickness(0, 0, 0, 0)
+                    ContextMenu = CreateMenu(l),
+                    HorizontalAlignment = HorizontalAlignment.Stretch,
+                    Width = 200
                 };
-                textBlock.SetBinding(HeightProperty, binding2);
 
-                row2.Children.Add(textBlock);
+                row2.SetBinding(HeightProperty, binding);
+
+                var toggle = new ToggleButton()
+                {
+                    Style = (Style)Resources["TimelineHideShowToggleButton"],
+                    HorizontalAlignment = HorizontalAlignment.Stretch,
+                    VerticalAlignment = VerticalAlignment.Top,
+                    HorizontalContentAlignment = HorizontalAlignment.Center,
+                    Content = l,
+                    Width = 200
+                };
+                toggle.SetBinding(HeightProperty, binding2);
+                row2.Children.Add(toggle);
+
+                toggle.Click += (s, _) =>
+                {
+                    var toggle = (ToggleButton)s;
+                    var l = (int)toggle.Content;
+
+                    if (!(bool)toggle.IsChecked)
+                    {
+                        Scene.HideLayer.Remove(l);
+                    }
+                    else
+                    {
+                        Scene.HideLayer.Add(l);
+                    }
+
+                    Scene.Parent.PreviewUpdate();
+                };
+
+                if (Scene.HideLayer.Exists(x => x == l))
+                {
+                    toggle.IsChecked = true;
+                }
 
                 LayerLabel.Children.Add(row2);
 

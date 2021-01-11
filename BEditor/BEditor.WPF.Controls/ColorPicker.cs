@@ -111,12 +111,17 @@ namespace BEditor.WPF.Controls
         {
             base.OnApplyTemplate();
 
-            (GetTemplateChild("red") as TextBox).MouseWheel += TextBox_Red_MouseWheel;
-            (GetTemplateChild("green") as TextBox).MouseWheel += TextBox_Green_MouseWheel;
-            (GetTemplateChild("blue") as TextBox).MouseWheel += TextBox_Blue_MouseWheel;
-            (GetTemplateChild("alpha") as TextBox).MouseWheel += TextBox_Alpha_MouseWheel;
+            var red = (TextBox)GetTemplateChild("red");
+            var green = (TextBox)GetTemplateChild("green");
+            var blue = (TextBox)GetTemplateChild("blue");
+            var alpha = (TextBox)GetTemplateChild("alpha");
+            var picker = (MaterialDesignThemes.Wpf.ColorPicker)GetTemplateChild("picker");
 
-            var picker = (GetTemplateChild("picker") as MaterialDesignThemes.Wpf.ColorPicker);
+            red.MouseWheel += TextBox_Red_MouseWheel;
+            green.MouseWheel += TextBox_Green_MouseWheel;
+            blue.MouseWheel += TextBox_Blue_MouseWheel;
+            alpha.MouseWheel += TextBox_Alpha_MouseWheel;
+
             //Color = "{Binding SelectedColor, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"
             picker.DataContext = this;
             picker.SetBinding(MaterialDesignThemes.Wpf.ColorPicker.ColorProperty, new Binding("SelectedColor")

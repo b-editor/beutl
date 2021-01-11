@@ -96,6 +96,8 @@ namespace BEditor
                     splashscreen.Close();
 #endif
                 });
+
+                Settings.Default.Save();
             });
         }
 

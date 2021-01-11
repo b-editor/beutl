@@ -23,6 +23,8 @@ namespace BEditor.Models.Extension
 
         public static void PreviewUpdate(this Project project, RenderType type = RenderType.Preview)
         {
+            if (project is null) return;
+
             App.Current.Dispatcher.Invoke(() =>
             {
                 using var img = project.PreviewScene.Render(type).Image;

@@ -14,7 +14,7 @@ namespace BEditor.WPF.Controls
             return new SolidColorBrush((Color)value);
         }
 
-        public object ConvertBack(object value, Type targetType, object parameter, CultureInfo culture) => (value as SolidColorBrush).Color;
+        public object ConvertBack(object value, Type targetType, object parameter, CultureInfo culture) => ((SolidColorBrush)value).Color;
     }
 
 }
