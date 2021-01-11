@@ -30,16 +30,16 @@ namespace BEditor.Views
     {
         public ColorDialog(ColorPickerViewModel color)
         {
-            InitializeComponent();
             DataContext = color;
+            InitializeComponent();
             ok_button.SetBinding(Button.CommandProperty, new Binding("Command") { Mode = BindingMode.OneWay });
         }
 
         public ColorDialog(ColorAnimationProperty color)
         {
+            DataContext = color;
             InitializeComponent();
             col.SetBinding(ColorPicker.UseAlphaProperty, new Binding("PropertyMetadata.UseAlpha") { Mode = BindingMode.OneTime });
-            DataContext = color;
         }
 
         private void Button_Click(object sender, RoutedEventArgs e)

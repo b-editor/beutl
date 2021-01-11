@@ -21,8 +21,9 @@ namespace BEditor.Views.CreateDialog
     /// </summary>
     public partial class ClipCreateDialog : MetroWindow
     {
-        public ClipCreateDialog()
+        public ClipCreateDialog(object datacontext)
         {
+            DataContext = datacontext;
             InitializeComponent();
         }
 

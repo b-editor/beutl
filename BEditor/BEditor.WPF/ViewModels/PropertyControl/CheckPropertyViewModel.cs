@@ -24,10 +24,7 @@ namespace BEditor.ViewModels.PropertyControl
             Reset.Subscribe(() => CommandManager.Do(new CheckProperty.ChangeCheckedCommand(Property, Property.PropertyMetadata.DefaultIsChecked)));
             Bind.Subscribe(() =>
             {
-                var window = new BindSettings()
-                {
-                    DataContext = new BindSettingsViewModel<bool>(Property)
-                };
+                var window = new BindSettings(new BindSettingsViewModel<bool>(Property));
                 window.ShowDialog();
             });
         }

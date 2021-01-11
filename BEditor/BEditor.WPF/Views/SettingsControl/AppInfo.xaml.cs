@@ -25,9 +25,9 @@ namespace BEditor.Views.SettingsControl
     {
         public AppInfo()
         {
-            InitializeComponent();
-
             version.DataContext = new AppInfoViewModel();
+         
+            InitializeComponent();
         }
 
         public class AppInfoViewModel

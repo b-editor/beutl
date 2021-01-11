@@ -28,7 +28,7 @@
         </Style>
     </UserControl.Resources>
     <Grid>
-        <dragablz:TabablzControl BorderBrush="{Binding Source={x:Static main:MainWindowViewModel.Current}, Path=MainWindowColor.Value, Mode=OneWay}" Background="{DynamicResource MaterialDesignCardBackground}" x:Name="TabControl" SelectedItem="{Binding SelectItem, Mode=TwoWay}" ItemsSource="{Binding SelectItems, Mode=OneTime}" BorderThickness="0,0,0,0" ShowDefaultCloseButton="True" FlowDirection="LeftToRight">
+        <dragablz:TabablzControl BorderBrush="{Binding Source={x:Static main:MainWindowViewModel.Current}, Path=MainWindowColor.Value, Mode=OneWay}" Background="Transparent" x:Name="TabControl" SelectedItem="{Binding SelectItem, Mode=TwoWay}" ItemsSource="{Binding SelectItems, Mode=OneTime}" BorderThickness="0,0,0,0" ShowDefaultCloseButton="True" FlowDirection="LeftToRight">
             <dragablz:TabablzControl.HeaderItemTemplate>
                 <DataTemplate DataType="{x:Type data:ClipData}">
                     <TextBlock Text="{Binding LabelText, Mode=OneWay}" VerticalAlignment="Center" HorizontalAlignment="Center" FontWeight="Normal" FontStyle="Normal" FontStretch="Normal"/>

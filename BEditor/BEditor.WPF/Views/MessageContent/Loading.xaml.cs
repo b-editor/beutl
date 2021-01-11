@@ -17,9 +17,9 @@ namespace BEditor.Views.MessageContent
     {
         public Loading(ButtonType[] buttons)
         {
-            InitializeComponent();
-
             DataContext = this;
+
+            InitializeComponent();
 
 
             #region ボタンの追加
@@ -63,9 +63,9 @@ namespace BEditor.Views.MessageContent
 
         public Loading()
         {
-            InitializeComponent();
-
             DataContext = this;
+         
+            InitializeComponent();
         }
 
         public ReactiveProperty<string> Text { get; } = new();

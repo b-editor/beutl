@@ -59,11 +59,11 @@ namespace BEditor.Views.TimeLines
         #region コンストラクタ
         public KeyFrame(Scene scene, EaseProperty easingList)
         {
+            var viewmodel = new KeyFrameViewModel(easingList);
+            DataContext = viewmodel;
             InitializeComponent();
             EaseList = easingList;
             Scene = scene;
-            var viewmodel = new KeyFrameViewModel(easingList);
-            DataContext = viewmodel;
 
             viewmodel.AddKeyFrameIcon = (frame, index) =>
             {

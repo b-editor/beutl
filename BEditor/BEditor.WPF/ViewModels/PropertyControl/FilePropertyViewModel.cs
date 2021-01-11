@@ -35,10 +35,7 @@ namespace BEditor.ViewModels.PropertyControl
             Reset.Subscribe(() => CommandManager.Do(new FileProperty.ChangeFileCommand(Property, Property.PropertyMetadata.DefaultFile)));
             Bind.Subscribe(() =>
             {
-                var window = new BindSettings()
-                {
-                    DataContext = new BindSettingsViewModel<string>(property)
-                };
+                var window = new BindSettings(new BindSettingsViewModel<string>(property));
                 window.ShowDialog();
             });
         }

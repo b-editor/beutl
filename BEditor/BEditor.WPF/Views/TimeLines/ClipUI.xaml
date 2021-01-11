@@ -14,7 +14,7 @@
              Width="{Binding WidthProperty.Value, Mode=OneWay}"
              Margin="{Binding MarginProperty.Value, Mode=OneWay}"
              Cursor="{Binding ClipCursor.Value, Mode=TwoWay}"
-             mc:Ignorable="d" ClipToBounds="True">
+             mc:Ignorable="d">
     <UserControl.Resources>
         <convert:EffectElementToKeyFrame x:Key="EffectElementToKeyFrame"/>
     </UserControl.Resources>
@@ -143,8 +143,7 @@
             HorizontalContentAlignment="Stretch"
             AlternationCount="{Binding Items.Count, ElementName=itemsControl}"
             VirtualizingPanel.IsVirtualizing="True"
-            VirtualizingPanel.VirtualizationMode="Recycling"
-            ClipToBounds="True">
+            VirtualizingPanel.VirtualizationMode="Recycling">
             <ItemsControl.ItemTemplate>
                 <DataTemplate>
                     <Label
@@ -153,7 +152,6 @@
                         VerticalAlignment="Stretch"
                         HorizontalContentAlignment="Stretch"
                         VerticalContentAlignment="Stretch"
-                        ClipToBounds="True"
                         Content="{Binding Converter={StaticResource EffectElementToKeyFrame}}"/>
                 </DataTemplate>
             </ItemsControl.ItemTemplate>

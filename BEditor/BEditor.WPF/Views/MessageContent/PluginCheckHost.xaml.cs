@@ -22,8 +22,9 @@ namespace BEditor.Views.MessageContent
     /// </summary>
     public partial class PluginCheckHost : DialogContent
     {
-        public PluginCheckHost()
+        public PluginCheckHost(object datacontext)
         {
+            DataContext = datacontext;
             InitializeComponent();
         }
 

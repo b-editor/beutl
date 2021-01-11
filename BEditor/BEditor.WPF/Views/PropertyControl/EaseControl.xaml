@@ -67,7 +67,6 @@
                         Margin="5, 3.75, 3.75, 0" 
                         Width="{Binding ElementName=itemscontol, Path=ActualWidth, Mode=OneWay}"
                         Height="25"
-                        ClipToBounds="True"
                         Text="{Binding Mode=OneWay}"
                         PreviewMouseWheel="TextBox_PreviewMouseWheel"
                         GotFocus="TextBox_GotFocus"

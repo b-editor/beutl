@@ -57,8 +57,8 @@ namespace BEditor.Views.PropertyControl
 
         public ColorAnimation(ColorAnimationProperty color)
         {
-            InitializeComponent();
             DataContext = new ColorAnimationViewModel(color);
+            InitializeComponent();
             ColorProperty = color;
             OpenHeight = (double)(OpenAnm.To = 32.5 * color.Value.Count + 10);
 

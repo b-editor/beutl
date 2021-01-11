@@ -34,9 +34,9 @@ namespace BEditor.Views.PropertyControl
         }
         public DialogControl(DialogProperty property)
         {
+            DataContext = new DialogPropertyViewModel(this.property = property);
             InitializeComponent();
             property.Showed += Property_Showed;
-            DataContext = new DialogPropertyViewModel(this.property = property);
         }
 
         public double LogicHeight => 32.5;

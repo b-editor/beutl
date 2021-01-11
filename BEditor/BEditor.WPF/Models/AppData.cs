@@ -20,8 +20,10 @@ namespace BEditor.Models
     {
         private static readonly PropertyChangedEventArgs projectArgs = new(nameof(Project));
         private static readonly PropertyChangedEventArgs statusArgs = new(nameof(AppStatus));
+        private static readonly PropertyChangedEventArgs isPlayingArgs = new(nameof(IsNotPlaying));
         private Project project;
         private Status status;
+        private bool isplaying = true;
 
         /// <summary>
         /// 
@@ -50,6 +52,11 @@ namespace BEditor.Models
         {
             get => status;
             set => SetValue(value, ref status, statusArgs);
+        }
+        public bool IsNotPlaying
+        {
+            get => isplaying;
+            set => SetValue(value, ref isplaying, isPlayingArgs);
         }
     }
 }
