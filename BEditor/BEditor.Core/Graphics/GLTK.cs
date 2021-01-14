@@ -19,53 +19,6 @@ namespace BEditor.Core.Graphics
 {
     public static class GLTK
     {
-        #region GetPixels
-
-        public unsafe static void GetPixels<T>(Image<T> image) where T : unmanaged, IPixel<T>
-        {
-            if (image == null) throw new ArgumentNullException(nameof(image));
-            //image.ThrowIfDisposed();
-
-            GL.ReadBuffer(ReadBufferMode.Front);
-
-            fixed (T* data = image.Data)
-                GL.ReadPixels(0, 0, image.Width, image.Height, PixelFormat.Bgra, PixelType.UnsignedByte, (IntPtr)data);
-
-            image.Flip(Drawing.FlipMode.X);
-        }
-
-        #endregion
-
-        #region BindTexture
-
-        public unsafe static void BindTexture(Image<BGRA32> img, out int texture)
-        {
-            if (img is null)
-            {
-                throw new ArgumentNullException(nameof(img));
-            }
-            img.ThrowIfDisposed();
-
-            int width = img.Width;
-            int height = img.Height;
-
-            GL.GenTextures(1, out texture);
-            GL.BindTexture(TextureTarget.Texture2D, texture);
-
-            fixed (BGRA32* data = img.Data)
-                GL.TexImage2D(TextureTarget.Texture2D, 0, PixelInternalFormat.Rgba, width, height, 0,
-                    PixelFormat.Bgra, PixelType.UnsignedByte, (IntPtr)data);
-
-            GL.TexParameter(TextureTarget.Texture2D, TextureParameterName.TextureWrapS, (int)TextureWrapMode.Repeat);
-            GL.TexParameter(TextureTarget.Texture2D, TextureParameterName.TextureWrapT, (int)TextureWrapMode.Repeat);
-            GL.TexParameter(TextureTarget.Texture2D, TextureParameterName.TextureMinFilter, (int)TextureMinFilter.LinearMipmapLinear);
-            GL.TexParameter(TextureTarget.Texture2D, TextureParameterName.TextureMagFilter, (int)TextureMagFilter.Linear);
-
-            GL.GenerateMipmap(GenerateMipmapTarget.Texture2D);
-        }
-
-        #endregion
-
         #region Paint
 
         public static void Paint<T>(System.Numerics.Vector3 coordinate, double nx, double ny, double nz, System.Numerics.Vector3 center, T state, Action<T> draw, Action blentfunc = null)
@@ -356,6 +309,12 @@ namespace BEditor.Core.Graphics
 
         internal static Vector3 ToOpenTK(this ref System.Numerics.Vector3 vector3) => new Vector3(vector3.X, vector3.Y, vector3.Z);
         internal static Vector2 ToOpenTK(this ref System.Numerics.Vector2 vector3) => new Vector2(vector3.X, vector3.Y);
+        internal static Vector4 ToVector4(this ref Color color)
+            => new(
+                color.R / 255f,
+                color.G / 255f,
+                color.B / 255f,
+                color.A / 255f);
         internal static System.Numerics.Vector3 ToNumerics(this ref Vector3 vector3) => new(vector3.X, vector3.Y, vector3.Z);
         internal static System.Numerics.Vector2 ToNumerics(this ref Vector2 vector3) => new(vector3.X, vector3.Y);
         internal static GLColor ToOpenTK(this in Color color) => new(color.R, color.G, color.B, color.A);

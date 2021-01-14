@@ -24,6 +24,13 @@ namespace BEditor.Core.Graphics
     {
         private readonly GameWindow GameWindow;
         private static Shader textureShader;
+        private static readonly float[] vertex_color =
+        {
+            1.0f, 1.0f, 1.0f, 1.0f,
+            1.0f, 1.0f, 1.0f, 1.0f,
+            1.0f, 1.0f, 1.0f, 1.0f,
+            1.0f, 1.0f, 1.0f, 1.0f,
+        };
 
         public GraphicsContext(int width, int height)
         {
@@ -48,10 +55,16 @@ namespace BEditor.Core.Graphics
 
             Clear();
         }
+        ~GraphicsContext()
+        {
+            if (!IsDisposed) Dispose();
+        }
 
         public int Width { get; }
         public int Height { get; }
         public float Aspect => ((float)Width) / ((float)Height);
+        public bool IsCurrent => GameWindow.Context.IsCurrent;
+        public bool IsDisposed { get; private set; }
         public Camera Camera { get; set; }
 
         public void Clear()
@@ -80,7 +93,8 @@ namespace BEditor.Core.Graphics
         {
             try
             {
-                GameWindow.MakeCurrent();
+                if (!IsCurrent)
+                    GameWindow.MakeCurrent();
             }
             catch
             {
@@ -149,6 +163,11 @@ namespace BEditor.Core.Graphics
             GL.EnableVertexAttribArray(texCoordLocation);
             GL.VertexAttribPointer(texCoordLocation, 2, VertexAttribPointerType.Float, false, 5 * sizeof(float), 3 * sizeof(float));
 
+            //var colorLocation = textureShader.GetAttribLocation("color");
+            //GL.EnableVertexAttribArray(colorLocation);
+            //GL.VertexAttribPointer(colorLocation, 4, VertexAttribPointerType.Float, false, 0, vertex_color);
+
+
             textureShader.SetInt("texture", 0);
 
             GL.Enable(EnableCap.Blend);
@@ -167,7 +186,7 @@ namespace BEditor.Core.Graphics
             //GL.Material(MaterialFace.Front, MaterialParameter.Diffuse, diffuse.ToOpenTK());
             //GL.Material(MaterialFace.Front, MaterialParameter.Specular, specular.ToOpenTK());
             //GL.Material(MaterialFace.Front, MaterialParameter.Shininess, shininess);
-            GL.BlendColor(color.ToOpenTK());
+            //GL.BlendColor(color.ToOpenTK());
 
             GL.Enable(EnableCap.Texture2D);
 
@@ -179,6 +198,7 @@ namespace BEditor.Core.Graphics
                         * Matrix4.CreateTranslation(coordinate.ToOpenTK())
                             * Matrix4.CreateScale(scalex, scaley, scalez);
 
+            textureShader.SetVector4("color", color.ToVector4());
             textureShader.SetMatrix4("model", model);
             textureShader.SetMatrix4("view", Camera.GetViewMatrix());
             textureShader.SetMatrix4("projection", Camera.GetProjectionMatrix());
@@ -189,7 +209,24 @@ namespace BEditor.Core.Graphics
         }
         public void Dispose()
         {
+            if (IsDisposed) return;
+
             GameWindow.Dispose();
+
+            IsDisposed = true;
+        }
+        public unsafe void ReadImage(Image<BGRA32> image)
+        {
+            if (image == null) throw new ArgumentNullException(nameof(image));
+            image.ThrowIfDisposed();
+            MakeCurrent();
+
+            GL.ReadBuffer(ReadBufferMode.Front);
+
+            fixed (BGRA32* data = image.Data)
+                GL.ReadPixels(0, 0, image.Width, image.Height, PixelFormat.Bgra, PixelType.UnsignedByte, (IntPtr)data);
+
+            image.Flip(Drawing.FlipMode.X);
         }
     }
 }

@@ -1,5 +1,6 @@
 ﻿using System;
 using System.Collections.Generic;
+using System.Diagnostics;
 using System.IO;
 using System.Linq;
 using System.Text;
@@ -51,6 +52,10 @@ namespace BEditor.Core.Graphics
                 _uniformLocations.Add(key, location);
             }
         }
+        ~Shader()
+        {
+            if (!IsDisposed) Dispose();
+        }
 
         public int Handle { get; }
         public bool IsDisposed { get; private set; }
@@ -68,6 +73,7 @@ namespace BEditor.Core.Graphics
             {
                 // We can use `GL.GetShaderInfoLog(shader)` to get information about the error.
                 var infoLog = GL.GetShaderInfoLog(shader);
+                Debug.Assert(false);
                 throw new Exception($"Error occurred whilst compiling Shader({shader}).\n\n{infoLog}");
             }
         }
@@ -78,6 +84,7 @@ namespace BEditor.Core.Graphics
             GL.GetProgram(program, GetProgramParameterName.LinkStatus, out var code);
             if (code != (int)All.True)
             {
+                Debug.Assert(false);
                 throw new Exception($"Error occurred whilst linking Program({program})");
             }
         }
@@ -108,6 +115,11 @@ namespace BEditor.Core.Graphics
         {
             GL.UseProgram(Handle);
             GL.Uniform3(_uniformLocations[name], data);
+        }
+        public void SetVector4(string name, Vector4 data)
+        {
+            GL.UseProgram(Handle);
+            GL.Uniform4(_uniformLocations[name], data);
         }
 
         public void Dispose()

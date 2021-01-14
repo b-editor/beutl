@@ -224,7 +224,7 @@ namespace BEditor.Drawing
             {
                 ThrowIfDisposed();
                 ThrowRowOutOfRange(y);
-                
+
                 value.CopyTo(Data.Slice(y * Width, Width));
             }
         }
@@ -358,7 +358,7 @@ namespace BEditor.Drawing
                     this[y].Reverse();
                 });
             }
-            
+
             if (mode.HasFlag(FlipMode.X))
             {
                 Parallel.For(0, Height / 2, top =>
@@ -406,9 +406,9 @@ namespace BEditor.Drawing
                 pointer = null;
                 array = null;
 
-                IsDisposed = true;
-                GC.SuppressFinalize(this);
             }
+            IsDisposed = true;
+            GC.SuppressFinalize(this);
         }
 
         object ICloneable.Clone() => this.Clone();

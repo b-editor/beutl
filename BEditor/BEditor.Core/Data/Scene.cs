@@ -320,7 +320,7 @@ namespace BEditor.Core.Data
             GraphicsContext.SwapBuffers();
 
             var buffer = new Image<BGRA32>(Width, Height);
-            GLTK.GetPixels(buffer);
+            GraphicsContext.ReadImage(buffer);
 
             return new RenderingResult { Image = buffer };
         }
@@ -353,7 +353,9 @@ namespace BEditor.Core.Data
 
             foreach (var clip in layer) clip.Render(args);
 
-            GLTK.GetPixels(image);
+            GraphicsContext.SwapBuffers();
+
+            GraphicsContext.ReadImage(image);
         }
         /// <summary>
         /// Render a frame of <see cref="PreviewFrame"/>.

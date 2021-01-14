@@ -58,6 +58,10 @@ namespace BEditor.Core.Graphics
             GL.BindBuffer(BufferTarget.ElementArrayBuffer, _elementBufferObject);
             GL.BufferData(BufferTarget.ElementArrayBuffer, _indices.Length * sizeof(uint), _indices, BufferUsageHint.StaticDraw);
         }
+        ~Texture()
+        {
+            if (!IsDisposed) Dispose();
+        }
 
         public ReadOnlySpan<float> Vertices => _vertices;
         public ReadOnlySpan<uint> Indices => _indices;
