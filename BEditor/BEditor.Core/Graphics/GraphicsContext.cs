@@ -13,18 +13,22 @@ using BEditor.Drawing.Pixel;
 
 using OpenTK;
 using OpenTK.Graphics;
-using OpenTK.Graphics.OpenGL;
+using OpenTK.Graphics.OpenGL4;
 using OpenTK.Mathematics;
 using OpenTK.Windowing.Desktop;
+using OpenTK.Windowing.GraphicsLibraryFramework;
 
 namespace BEditor.Core.Graphics
 {
-    public unsafe sealed class GraphicsContext : BaseGraphicsContext
+    public unsafe sealed class GraphicsContext : IDisposable
     {
         private readonly GameWindow GameWindow;
+        private static Shader textureShader;
 
-        public GraphicsContext(int width, int height) : base(width, height)
+        public GraphicsContext(int width, int height)
         {
+            Width = width;
+            Height = height;
             GameWindow = new GameWindow(
                 GameWindowSettings.Default,
                 new()
@@ -32,13 +36,47 @@ namespace BEditor.Core.Graphics
                     Size = new(width, height),
                     StartVisible = false
                 });
+
+            if (textureShader is null)
+            {
+                textureShader = Shader.FromFile(
+                    Path.Combine(AppContext.BaseDirectory, "Shaders", "TextureShader.vert"),
+                    Path.Combine(AppContext.BaseDirectory, "Shaders", "TextureShader.frag"));
+            }
+
             Camera = new OrthographicCamera(new(0, 0, 1024), width, height);
-            Initialize();
+
+            Clear();
         }
 
+        public int Width { get; }
+        public int Height { get; }
+        public float Aspect => ((float)Width) / ((float)Height);
         public Camera Camera { get; set; }
 
-        public override void MakeCurrent()
+        public void Clear()
+        {
+            MakeCurrent();
+
+            //法線の自動調節
+            //GL.Enable(EnableCap.Normalize);
+            //アンチエイリアス
+            GL.Enable(EnableCap.LineSmooth);
+            GL.Enable(EnableCap.PolygonSmooth);
+            //GL.Enable(EnableCap.PointSmooth);
+
+            GL.Hint(HintTarget.FogHint, HintMode.Nicest);
+            GL.Hint(HintTarget.LineSmoothHint, HintMode.Nicest);
+            GL.Hint(HintTarget.PerspectiveCorrectionHint, HintMode.Nicest);
+            GL.Hint(HintTarget.PointSmoothHint, HintMode.Nicest);
+            GL.Hint(HintTarget.PolygonSmoothHint, HintMode.Nicest);
+
+            GL.Disable(EnableCap.DepthTest);
+            //GL.Disable(EnableCap.Lighting);
+
+            GL.ClearColor(Color.FromHTML(Settings.Default.BackgroundColor).ToOpenTK());
+        }
+        public void MakeCurrent()
         {
             try
             {
@@ -48,6 +86,10 @@ namespace BEditor.Core.Graphics
             {
                 Debug.Assert(false);
             }
+        }
+        public void SwapBuffers()
+        {
+            GameWindow.Context.SwapBuffers();
         }
         internal void DrawImage(Image<BGRA32> img, ClipData data, EffectRenderArgs args)
         {
@@ -93,21 +135,21 @@ namespace BEditor.Core.Graphics
 
             using var texture = Texture.FromImage(img);
             texture.Use(TextureUnit.Texture0);
-            using var shader = Shader.FromFile(
-                Path.Combine(AppContext.BaseDirectory, "Shaders", "TextureShader.vert"),
-                Path.Combine(AppContext.BaseDirectory, "Shaders", "TextureShader.frag"));
+            //using var textureShader = Shader.FromFile(
+            //    Path.Combine(AppContext.BaseDirectory, "Shaders", "TextureShader.vert"),
+            //    Path.Combine(AppContext.BaseDirectory, "Shaders", "TextureShader.frag"));
 
-            shader.Use();
+            textureShader.Use();
 
-            var vertexLocation = shader.GetAttribLocation("aPosition");
+            var vertexLocation = textureShader.GetAttribLocation("aPosition");
             GL.EnableVertexAttribArray(vertexLocation);
             GL.VertexAttribPointer(vertexLocation, 3, VertexAttribPointerType.Float, false, 5 * sizeof(float), 0);
 
-            var texCoordLocation = shader.GetAttribLocation("aTexCoord");
+            var texCoordLocation = textureShader.GetAttribLocation("aTexCoord");
             GL.EnableVertexAttribArray(texCoordLocation);
             GL.VertexAttribPointer(texCoordLocation, 2, VertexAttribPointerType.Float, false, 5 * sizeof(float), 3 * sizeof(float));
 
-            shader.SetInt("texture", 0);
+            textureShader.SetInt("texture", 0);
 
             GL.Enable(EnableCap.Blend);
 
@@ -120,11 +162,12 @@ namespace BEditor.Core.Graphics
                 GL.BlendFunc(BlendingFactor.SrcAlpha, BlendingFactor.OneMinusSrcAlpha);
             }
 
-            GL.Color4(color.ToOpenTK());
-            GL.Material(MaterialFace.Front, MaterialParameter.Ambient, ambient.ToOpenTK());
-            GL.Material(MaterialFace.Front, MaterialParameter.Diffuse, diffuse.ToOpenTK());
-            GL.Material(MaterialFace.Front, MaterialParameter.Specular, specular.ToOpenTK());
-            GL.Material(MaterialFace.Front, MaterialParameter.Shininess, shininess);
+            //GL.Color4(color.ToOpenTK());
+            //GL.Material(MaterialFace.Front, MaterialParameter.Ambient, ambient.ToOpenTK());
+            //GL.Material(MaterialFace.Front, MaterialParameter.Diffuse, diffuse.ToOpenTK());
+            //GL.Material(MaterialFace.Front, MaterialParameter.Specular, specular.ToOpenTK());
+            //GL.Material(MaterialFace.Front, MaterialParameter.Shininess, shininess);
+            GL.BlendColor(color.ToOpenTK());
 
             GL.Enable(EnableCap.Texture2D);
 
@@ -136,21 +179,16 @@ namespace BEditor.Core.Graphics
                         * Matrix4.CreateTranslation(coordinate.ToOpenTK())
                             * Matrix4.CreateScale(scalex, scaley, scalez);
 
-            shader.SetMatrix4("model", model);
-            shader.SetMatrix4("view", Camera.GetViewMatrix());
-            shader.SetMatrix4("projection", Camera.GetProjectionMatrix());
+            textureShader.SetMatrix4("model", model);
+            textureShader.SetMatrix4("view", Camera.GetViewMatrix());
+            textureShader.SetMatrix4("projection", Camera.GetProjectionMatrix());
 
-            shader.Use();
+            textureShader.Use();
 
             texture.Render(TextureUnit.Texture0);
         }
-        public override void SwapBuffers()
+        public void Dispose()
         {
-            GameWindow.Context.SwapBuffers();
-        }
-        public override void Dispose()
-        {
-            base.Dispose();
             GameWindow.Dispose();
         }
     }

@@ -20,10 +20,10 @@ namespace BEditor.Core.Data.Primitive.Objects
         public static readonly EasePropertyMetadata TargetXMetadata = new(Resources.TargetX, 0, UseOptional: true);
         public static readonly EasePropertyMetadata TargetYMetadata = new(Resources.TargetY, 0, UseOptional: true);
         public static readonly EasePropertyMetadata TargetZMetadata = new(Resources.TargetZ, 0, UseOptional: true);
-        public static readonly EasePropertyMetadata ZNearMetadata = new(Resources.ZNear, 0.1F, UseOptional: true);
+        public static readonly EasePropertyMetadata ZNearMetadata = new(Resources.ZNear, 0.1F, Min: 0.1F, UseOptional: true);
         public static readonly EasePropertyMetadata ZFarMetadata = new(Resources.ZFar, 20000, UseOptional: true);
         public static readonly EasePropertyMetadata AngleMetadata = new(Resources.Angle, 0, UseOptional: true);
-        public static readonly EasePropertyMetadata FovMetadata = new(Resources.Fov, 55, 179, 1, UseOptional: true);
+        public static readonly EasePropertyMetadata FovMetadata = new(Resources.Fov, 45, 45, 1, UseOptional: true);
         public static readonly CheckPropertyMetadata ModeMetadata = new(Resources.Perspective, true);
 
         public CameraObject()
@@ -79,13 +79,29 @@ namespace BEditor.Core.Data.Primitive.Objects
             int frame = args.Frame;
             var scene = Parent.Parent;
             scene.GraphicsContext.MakeCurrent();
-            GLTK.LookAt(
-                scene.Width, scene.Height,
-                X.GetValue(frame), Y.GetValue(frame), Z.GetValue(frame),
-                TargetX.GetValue(frame), TargetY.GetValue(frame), TargetZ.GetValue(frame),
-                ZNear.GetValue(frame), ZFar.GetValue(frame),
-                Fov.GetValue(frame),
-                Mode.IsChecked);
+
+            if (Mode.IsChecked)
+            {
+                scene.GraphicsContext.Camera =
+                    new PerspectiveCamera(new(X.GetValue(frame), Y.GetValue(frame), Z.GetValue(frame)), scene.Width / (float)scene.Height)
+                    {
+                        Far = ZFar.GetValue(frame),
+                        Near = ZNear.GetValue(frame),
+                        Fov = Fov.GetValue(frame),
+                        Target = new(TargetX.GetValue(frame), TargetY.GetValue(frame), TargetZ.GetValue(frame))
+                    };
+            }
+            else
+            {
+                scene.GraphicsContext.Camera =
+                    new OrthographicCamera(new(X.GetValue(frame), Y.GetValue(frame), Z.GetValue(frame)), scene.Width, scene.Height)
+                    {
+                        Far = ZFar.GetValue(frame),
+                        Near = ZNear.GetValue(frame),
+                        Fov = Fov.GetValue(frame),
+                        Target = new(TargetX.GetValue(frame), TargetY.GetValue(frame), TargetZ.GetValue(frame))
+                    };
+            }
 
             var list = Parent.Effect.Where(e => e.IsEnabled).ToArray();
             for (int i = 1; i < list.Length; i++)

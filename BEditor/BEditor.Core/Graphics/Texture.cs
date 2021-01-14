@@ -7,7 +7,7 @@ using System.Threading.Tasks;
 using BEditor.Drawing;
 using BEditor.Drawing.Pixel;
 
-using OpenTK.Graphics.OpenGL;
+using OpenTK.Graphics.OpenGL4;
 
 namespace BEditor.Core.Graphics
 {

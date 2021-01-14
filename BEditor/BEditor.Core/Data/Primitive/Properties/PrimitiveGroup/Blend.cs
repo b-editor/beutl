@@ -9,7 +9,7 @@ using BEditor.Core.Properties;
 
 using OpenTK;
 using OpenTK.Graphics;
-using OpenTK.Graphics.OpenGL;
+using OpenTK.Graphics.OpenGL4;
 
 namespace BEditor.Core.Data.Primitive.Properties.PrimitiveGroup
 {
