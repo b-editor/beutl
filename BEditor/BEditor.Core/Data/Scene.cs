@@ -18,6 +18,8 @@ using BEditor.Drawing;
 using BEditor.Drawing.Pixel;
 using BEditor.Media;
 
+using OpenTK.Graphics.OpenGL;
+
 namespace BEditor.Core.Data
 {
     /// <summary>
@@ -163,7 +165,7 @@ namespace BEditor.Core.Data
         /// <summary>
         /// Get graphic context.
         /// </summary>
-        public BaseGraphicsContext GraphicsContext { get; internal set; }
+        public GraphicsContext GraphicsContext { get; internal set; }
         /// <summary>
         /// Get audio context.
         /// </summary>
@@ -302,9 +304,12 @@ namespace BEditor.Core.Data
         {
             var layer = GetFrame(frame).ToList();
 
+            GraphicsContext.Camera = new OrthographicCamera(new(0, 0, 1024), Width, Height);
             GraphicsContext.MakeCurrent();
             AudioContext.MakeCurrent();
-            GraphicsContext.Clear();
+            //GraphicsContext.Clear();
+
+            GL.Clear(ClearBufferMask.ColorBufferBit | ClearBufferMask.DepthBufferBit);
 
             var args = new ClipRenderArgs(frame, renderType);
 
@@ -313,8 +318,10 @@ namespace BEditor.Core.Data
 
             foreach (var clip in layer) clip.Render(args);
 
+            GraphicsContext.SwapBuffers();
+
             var buffer = new Image<BGRA32>(Width, Height);
-            GLTK.GetPixels(buffer);
+            GraphicsContext.ReadImage(buffer);
 
             return new RenderingResult { Image = buffer };
         }
@@ -336,6 +343,7 @@ namespace BEditor.Core.Data
 
             var layer = GetFrame(frame).ToList();
 
+            GraphicsContext.Camera = new OrthographicCamera(new(0, 0, 1024), Width, Height);
             GraphicsContext.MakeCurrent();
             AudioContext.MakeCurrent();
             GraphicsContext.Clear();
@@ -347,7 +355,9 @@ namespace BEditor.Core.Data
 
             foreach (var clip in layer) clip.Render(args);
 
-            GLTK.GetPixels(image);
+            GraphicsContext.SwapBuffers();
+
+            GraphicsContext.ReadImage(image);
         }
         /// <summary>
         /// Render a frame of <see cref="PreviewFrame"/>.

@@ -11,31 +11,31 @@ namespace BEditor.Core.Audio
 {
     public class AudioContext : IDisposable
     {
-        private readonly IntPtr device;
-        private readonly ContextHandle context;
+        private readonly ALDevice device;
+        private readonly ALContext context;
 
         public unsafe AudioContext()
         {
             int* NULL = null;
-            device = Alc.OpenDevice(null);
-            context = Alc.CreateContext(device, NULL);
+            device = ALC.OpenDevice(null);
+            context = ALC.CreateContext(device, NULL);
 
-            Alc.MakeContextCurrent(context);
+            ALC.MakeContextCurrent(context);
         }
 
         public bool IsDisposed { get; private set; }
 
         public void MakeCurrent()
         {
-            Alc.MakeContextCurrent(context);
+            ALC.MakeContextCurrent(context);
         }
         public void Dispose()
         {
             if (IsDisposed) return;
 
-            Alc.MakeContextCurrent(ContextHandle.Zero);
-            Alc.DestroyContext(context);
-            Alc.CloseDevice(device);
+            ALC.MakeContextCurrent(ALContext.Null);
+            ALC.DestroyContext(context);
+            ALC.CloseDevice(device);
 
             IsDisposed = true;
         }
