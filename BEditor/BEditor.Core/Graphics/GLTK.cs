@@ -309,7 +309,7 @@ namespace BEditor.Core.Graphics
 
         internal static Vector3 ToOpenTK(this ref System.Numerics.Vector3 vector3) => new Vector3(vector3.X, vector3.Y, vector3.Z);
         internal static Vector2 ToOpenTK(this ref System.Numerics.Vector2 vector3) => new Vector2(vector3.X, vector3.Y);
-        internal static Vector4 ToVector4(this ref Color color)
+        internal static Vector4 ToVector4(this in Color color)
             => new(
                 color.R / 255f,
                 color.G / 255f,

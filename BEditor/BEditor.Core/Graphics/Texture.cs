@@ -13,9 +13,6 @@ namespace BEditor.Core.Graphics
 {
     public class Texture : IDisposable
     {
-        private readonly int _elementBufferObject;
-        private readonly int _vertexBufferObject;
-        private readonly int _vertexArrayObject;
         private readonly float[] _vertices;
         private readonly uint[] _indices =
         {
@@ -47,15 +44,15 @@ namespace BEditor.Core.Graphics
             //    -h,  v, 0.0f,  0.0f, 1.0f,
             //};
 
-            _vertexArrayObject = GL.GenVertexArray();
-            GL.BindVertexArray(_vertexArrayObject);
+            VertexArrayObject = GL.GenVertexArray();
+            GL.BindVertexArray(VertexArrayObject);
 
-            _vertexBufferObject = GL.GenBuffer();
-            GL.BindBuffer(BufferTarget.ArrayBuffer, _vertexBufferObject);
+            VertexBufferObject = GL.GenBuffer();
+            GL.BindBuffer(BufferTarget.ArrayBuffer, VertexBufferObject);
             GL.BufferData(BufferTarget.ArrayBuffer, _vertices.Length * sizeof(float), _vertices, BufferUsageHint.StaticDraw);
 
-            _elementBufferObject = GL.GenBuffer();
-            GL.BindBuffer(BufferTarget.ElementArrayBuffer, _elementBufferObject);
+            ElementBufferObject = GL.GenBuffer();
+            GL.BindBuffer(BufferTarget.ElementArrayBuffer, ElementBufferObject);
             GL.BufferData(BufferTarget.ElementArrayBuffer, _indices.Length * sizeof(uint), _indices, BufferUsageHint.StaticDraw);
         }
         ~Texture()
@@ -63,12 +60,15 @@ namespace BEditor.Core.Graphics
             if (!IsDisposed) Dispose();
         }
 
-        public ReadOnlySpan<float> Vertices => _vertices;
-        public ReadOnlySpan<uint> Indices => _indices;
+        public ReadOnlyMemory<float> Vertices => _vertices;
+        public ReadOnlyMemory<uint> Indices => _indices;
         public int Width { get; }
         public int Height { get; }
         public int Handle { get; }
         public bool IsDisposed { get; private set; }
+        public int ElementBufferObject { get; }
+        public int VertexBufferObject { get; }
+        public int VertexArrayObject { get; }
 
         public unsafe static Texture FromFile(string path)
         {
@@ -144,7 +144,7 @@ namespace BEditor.Core.Graphics
         }
         public void Render(TextureUnit unit)
         {
-            GL.BindVertexArray(_vertexArrayObject);
+            GL.BindVertexArray(VertexArrayObject);
             Use(unit);
 
 
@@ -155,8 +155,8 @@ namespace BEditor.Core.Graphics
         {
             if (IsDisposed) return;
 
-            GL.DeleteBuffer(_vertexArrayObject);
-            GL.DeleteBuffer(_elementBufferObject);
+            GL.DeleteBuffer(VertexArrayObject);
+            GL.DeleteBuffer(ElementBufferObject);
             GL.DeleteTexture(Handle);
 
             IsDisposed = true;

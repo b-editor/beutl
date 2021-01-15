@@ -24,13 +24,8 @@ namespace BEditor.Core.Graphics
     {
         private readonly GameWindow GameWindow;
         private static Shader textureShader;
-        private static readonly float[] vertex_color =
-        {
-            1.0f, 1.0f, 1.0f, 1.0f,
-            1.0f, 1.0f, 1.0f, 1.0f,
-            1.0f, 1.0f, 1.0f, 1.0f,
-            1.0f, 1.0f, 1.0f, 1.0f,
-        };
+        private static Shader Shader;
+        private static Shader lightShader;
 
         public GraphicsContext(int width, int height)
         {
@@ -44,12 +39,18 @@ namespace BEditor.Core.Graphics
                     StartVisible = false
                 });
 
-            if (textureShader is null)
-            {
-                textureShader = Shader.FromFile(
-                    Path.Combine(AppContext.BaseDirectory, "Shaders", "TextureShader.vert"),
-                    Path.Combine(AppContext.BaseDirectory, "Shaders", "TextureShader.frag"));
-            }
+            textureShader ??= Shader.FromFile(
+                Path.Combine(AppContext.BaseDirectory, "Shaders", "TextureShader.vert"),
+                Path.Combine(AppContext.BaseDirectory, "Shaders", "TextureShader.frag"));
+
+            Shader ??= Shader.FromFile(
+                Path.Combine(AppContext.BaseDirectory, "Shaders", "Shader.vert"),
+                Path.Combine(AppContext.BaseDirectory, "Shaders", "Shader.frag"));
+
+            lightShader ??= Shader.FromFile(
+                Path.Combine(AppContext.BaseDirectory, "Shaders", "Shader.vert"),
+                Path.Combine(AppContext.BaseDirectory, "Shaders", "Light.frag"));
+
 
             Camera = new OrthographicCamera(new(0, 0, 1024), width, height);
 
@@ -163,11 +164,6 @@ namespace BEditor.Core.Graphics
             GL.EnableVertexAttribArray(texCoordLocation);
             GL.VertexAttribPointer(texCoordLocation, 2, VertexAttribPointerType.Float, false, 5 * sizeof(float), 3 * sizeof(float));
 
-            //var colorLocation = textureShader.GetAttribLocation("color");
-            //GL.EnableVertexAttribArray(colorLocation);
-            //GL.VertexAttribPointer(colorLocation, 4, VertexAttribPointerType.Float, false, 0, vertex_color);
-
-
             textureShader.SetInt("texture", 0);
 
             GL.Enable(EnableCap.Blend);
@@ -186,7 +182,6 @@ namespace BEditor.Core.Graphics
             //GL.Material(MaterialFace.Front, MaterialParameter.Diffuse, diffuse.ToOpenTK());
             //GL.Material(MaterialFace.Front, MaterialParameter.Specular, specular.ToOpenTK());
             //GL.Material(MaterialFace.Front, MaterialParameter.Shininess, shininess);
-            //GL.BlendColor(color.ToOpenTK());
 
             GL.Enable(EnableCap.Texture2D);
 
@@ -206,6 +201,26 @@ namespace BEditor.Core.Graphics
             textureShader.Use();
 
             texture.Render(TextureUnit.Texture0);
+        }
+        public void DrawCube(Cube cube, Transform transform)
+        {
+            MakeCurrent();
+
+            Shader.Use();
+
+            var vertexLocation = Shader.GetAttribLocation("aPos");
+            GL.EnableVertexAttribArray(vertexLocation);
+            GL.VertexAttribPointer(vertexLocation, 3, VertexAttribPointerType.Float, false, 3 * sizeof(float), 0);
+
+
+            GL.BindVertexArray(cube.VertexArrayObject);
+
+            Shader.SetMatrix4("model", transform.Matrix);
+            Shader.SetMatrix4("view", Camera.GetViewMatrix());
+            Shader.SetMatrix4("projection", Camera.GetProjectionMatrix());
+            Shader.SetVector4("color", cube.Color.ToVector4());
+
+            GL.DrawArrays(PrimitiveType.Triangles, 0, 36);
         }
         public void Dispose()
         {

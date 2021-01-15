@@ -8,10 +8,11 @@ using BEditor.Core.Graphics;
 using BEditor.Core.Extensions;
 using BEditor.Core.Data.Primitive.Objects.PrimitiveImages;
 
-using OpenTK.Graphics.OpenGL;
+using OpenTK.Graphics.OpenGL4;
 using BEditor.Core.Data.Primitive.Properties.PrimitiveGroup;
 using BEditor.Core.Data.Primitive.Properties;
 using BEditor.Core.Command;
+using Material = BEditor.Core.Data.Primitive.Properties.PrimitiveGroup.Material;
 #if OldOpenTK
 using GLColor = OpenTK.Graphics.Color4;
 #else
@@ -28,7 +29,7 @@ namespace BEditor.Core.Data.Primitive.Objects
             Resources.Cube,
             Resources.Ball
         });
-        public static readonly EasePropertyMetadata WeightMetadata = new("Weight", 100, float.NaN, 0);
+        public static readonly EasePropertyMetadata WeightMetadata = new("Depth", 100, float.NaN, 0);
 
         public GL3DObject()
         {
@@ -40,7 +41,7 @@ namespace BEditor.Core.Data.Primitive.Objects
             Type = new(TypeMetadata);
             Width = new(Figure.WidthMetadata);
             Height = new(Figure.HeightMetadata);
-            Weight = new(WeightMetadata);
+            Depth = new(WeightMetadata);
         }
 
         public override string Name => Resources._3DObject;
@@ -54,7 +55,7 @@ namespace BEditor.Core.Data.Primitive.Objects
             Type,
             Width,
             Height,
-            Weight
+            Depth
         };
         [DataMember(Order = 0)]
         public Coordinate Coordinate { get; private set; }
@@ -73,7 +74,7 @@ namespace BEditor.Core.Data.Primitive.Objects
         [DataMember(Order = 7)]
         public EaseProperty Height { get; private set; }
         [DataMember(Order = 8)]
-        public EaseProperty Weight { get; private set; }
+        public EaseProperty Depth { get; private set; }
 
         public override void Render(EffectRenderArgs args)
         {
@@ -93,48 +94,66 @@ namespace BEditor.Core.Data.Primitive.Objects
             {
                 action = () =>
                 {
-                    GL.Color4(color4);
-                    GL.Scale(scalex, scaley, scalez);
-                    GLTK.DrawCube(
-                        Width.GetValue(frame),
-                        Height.GetValue(frame),
-                        Weight.GetValue(frame),
-                        Material.Ambient.GetValue(frame),
-                        Material.Diffuse.GetValue(frame),
-                        Material.Specular.GetValue(frame),
-                        Material.Shininess.GetValue(frame));
+                    //GL.Color4(color4);
+                    //GL.Scale(scalex, scaley, scalez);
+                    //GLTK.DrawCube(
+                    //    Width.GetValue(frame),
+                    //    Height.GetValue(frame),
+                    //    Depth.GetValue(frame),
+                    //    Material.Ambient.GetValue(frame),
+                    //    Material.Diffuse.GetValue(frame),
+                    //    Material.Specular.GetValue(frame),
+                    //    Material.Shininess.GetValue(frame));
                 };
             }
             else
             {
                 action = () =>
                 {
-                    GL.Color4(color4);
-                    GL.Scale(scalex, scaley, scalez);
-                    GLTK.DrawBall(
-                        Weight.GetValue(frame),
-                        Material.Ambient.GetValue(frame),
-                        Material.Diffuse.GetValue(frame),
-                        Material.Specular.GetValue(frame),
-                        Material.Shininess.GetValue(frame));
+                    //GL.Color4(color4);
+                    //GL.Scale(scalex, scaley, scalez);
+                    //GLTK.DrawBall(
+                    //    Depth.GetValue(frame),
+                    //    Material.Ambient.GetValue(frame),
+                    //    Material.Diffuse.GetValue(frame),
+                    //    Material.Specular.GetValue(frame),
+                    //    Material.Shininess.GetValue(frame));
                 };
             }
 
             Parent.Parent.GraphicsContext.MakeCurrent();
-            GLTK.Paint(
-                new System.Numerics.Vector3(
-                    Coordinate.X.GetValue(frame),
-                    Coordinate.Y.GetValue(frame),
-                    Coordinate.Z.GetValue(frame)),
-                Angle.AngleX.GetValue(frame),
-                Angle.AngleY.GetValue(frame),
-                Angle.AngleZ.GetValue(frame),
-                new System.Numerics.Vector3(
-                    Coordinate.CenterX.GetValue(frame),
-                    Coordinate.CenterY.GetValue(frame),
-                    Coordinate.CenterZ.GetValue(frame)),
-                action,
-                Blend.BlentFunc[Blend.BlendType.Index]);
+            //GLTK.Paint(
+            //    new System.Numerics.Vector3(
+            //        Coordinate.X.GetValue(frame),
+            //        Coordinate.Y.GetValue(frame),
+            //        Coordinate.Z.GetValue(frame)),
+            //    Angle.AngleX.GetValue(frame),
+            //    Angle.AngleY.GetValue(frame),
+            //    Angle.AngleZ.GetValue(frame),
+            //    new System.Numerics.Vector3(
+            //        Coordinate.CenterX.GetValue(frame),
+            //        Coordinate.CenterY.GetValue(frame),
+            //        Coordinate.CenterZ.GetValue(frame)),
+            //    action,
+            //    Blend.BlentFunc[Blend.BlendType.Index]);
+            using var cube = new Cube(
+                Width.GetValue(frame),
+                Height.GetValue(frame),
+                Depth.GetValue(frame),
+                Blend.Color.GetValue(frame),
+                new(
+                    Material.Ambient.GetValue(frame),
+                    Material.Diffuse.GetValue(frame),
+                    Material.Specular.GetValue(frame),
+                    Material.Shininess.GetValue(frame)));
+
+            var trans = Transform.Create(
+                new(Coordinate.X.GetValue(frame), Coordinate.Y.GetValue(frame), Coordinate.Z.GetValue(frame)),
+                new(Coordinate.CenterX.GetValue(frame), Coordinate.CenterY.GetValue(frame), Coordinate.CenterZ.GetValue(frame)),
+                new(Angle.AngleX.GetValue(frame), Angle.AngleY.GetValue(frame), Angle.AngleZ.GetValue(frame)),
+                new(scalex, scaley, scalez));
+
+            Parent.Parent.GraphicsContext.DrawCube(cube, trans);
 
             Coordinate.ResetOptional();
         }
@@ -149,7 +168,7 @@ namespace BEditor.Core.Data.Primitive.Objects
             Type.ExecuteLoaded(TypeMetadata);
             Width.ExecuteLoaded(Figure.WidthMetadata);
             Height.ExecuteLoaded(Figure.HeightMetadata);
-            Weight.ExecuteLoaded(WeightMetadata);
+            Depth.ExecuteLoaded(WeightMetadata);
         }
         public override void Unloaded()
         {
@@ -162,7 +181,7 @@ namespace BEditor.Core.Data.Primitive.Objects
             Type.Unloaded();
             Width.Unloaded();
             Height.Unloaded();
-            Weight.Unloaded();
+            Depth.Unloaded();
         }
     }
 }
