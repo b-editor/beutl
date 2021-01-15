@@ -33,13 +33,23 @@ namespace BEditor.Views
             DataContext = color;
             InitializeComponent();
             ok_button.SetBinding(Button.CommandProperty, new Binding("Command") { Mode = BindingMode.OneWay });
+            col.SetBinding(ColorPicker.UseAlphaProperty, new Binding("Metadata.Value.UseAlpha") { Mode = BindingMode.OneTime });
         }
 
         public ColorDialog(ColorAnimationProperty color)
         {
             DataContext = color;
             InitializeComponent();
+<<<<<<< Updated upstream
             col.SetBinding(ColorPicker.UseAlphaProperty, new Binding("PropertyMetadata.UseAlpha") { Mode = BindingMode.OneTime });
+<<<<<<< Updated upstream
+=======
+            DataContext = color;
+=======
+            col.UseAlpha = color.PropertyMetadata.UseAlpha;
+            //col.SetBinding(ColorPicker.UseAlphaProperty, new Binding("PropertyMetadata.UseAlpha") { Mode = BindingMode.OneTime });
+>>>>>>> Stashed changes
+>>>>>>> Stashed changes
         }
 
         private void Button_Click(object sender, RoutedEventArgs e)
