@@ -37,15 +37,27 @@ namespace BEditor.Core.Data.Property
         public int Id => id ??= Parent.Children.ToList().IndexOf(this);
         /// <inheritdoc/>
         public string Name => propertyMetadata?.Name ?? Id.ToString();
+        /// <inheritdoc/>
+        public bool IsLoaded { get; private set; }
 
         /// <inheritdoc/>
-        public virtual void Loaded() { }
+        public virtual void Loaded()
+        {
+            if (IsLoaded) return;
+
+            IsLoaded = true;
+        }
 
 
         /// <inheritdoc/>
         public override string ToString() => $"(Name:{PropertyMetadata?.Name})";
         /// <inheritdoc/>
-        public virtual void Unloaded() { }
+        public virtual void Unloaded()
+        {
+            if (!IsLoaded) return;
+
+            IsLoaded = false;
+        }
     }
 
     [DataContract]

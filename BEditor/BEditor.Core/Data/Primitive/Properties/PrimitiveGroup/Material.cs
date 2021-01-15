@@ -45,19 +45,25 @@ namespace BEditor.Core.Data.Primitive.Properties.PrimitiveGroup
 
         public override void Loaded()
         {
-            base.Loaded();
+            if (IsLoaded) return;
+
             Ambient.ExecuteLoaded(AmbientMetadata);
             Diffuse.ExecuteLoaded(DiffuseMetadata);
             Specular.ExecuteLoaded(SpecularMetadata);
             Shininess.ExecuteLoaded(ShininessMetadata);
+
+            base.Loaded();
         }
         public override void Unloaded()
         {
-            base.Unloaded();
+            if (!IsLoaded) return;
+
             Ambient.Unloaded();
             Diffuse.Unloaded();
             Specular.Unloaded();
             Shininess.Unloaded();
+
+            base.Unloaded();
         }
     }
 }

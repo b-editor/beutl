@@ -65,17 +65,23 @@ namespace BEditor.Core.Data.Primitive.Properties.PrimitiveGroup
 
         public override void Loaded()
         {
-            base.Loaded();
+            if (IsLoaded) return;
+            
             Alpha.ExecuteLoaded(AlphaMetadata);
             BlendType.ExecuteLoaded(BlendTypeMetadata);
             Color.ExecuteLoaded(ColorMetadata);
+
+            base.Loaded();
         }
         public override void Unloaded()
         {
-            base.Unloaded();
+            if (!IsLoaded) return;
+
             Alpha.Unloaded();
             BlendType.Unloaded();
             Color.Unloaded();
+
+            base.Unloaded();
         }
     }
 }

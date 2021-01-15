@@ -17,7 +17,6 @@ using MaterialDesignThemes.Wpf;
 
 using Microsoft.WindowsAPICodePack.Dialogs;
 
-using Project = BEditor.Core.Data.Project;
 using BEditor.Core.Service;
 using BEditor.Core.Command;
 using System.Reactive.Linq;
@@ -263,6 +262,7 @@ namespace BEditor.ViewModels
 
         private void Project_Closed()
         {
+            AppData.Current.Project?.Unloaded();
             CommandManager.Clear();
 
             ProjectIsOpened.Value = false;
@@ -307,7 +307,9 @@ namespace BEditor.ViewModels
         {
             try
             {
-                AppData.Current.Project = new(name);
+                var project = new Project(name);
+                project.Loaded();
+                AppData.Current.Project = project;
                 AppData.Current.AppStatus = Status.Edit;
 
                 Settings.Default.MostRecentlyUsedList.Remove(name);
@@ -335,7 +337,9 @@ namespace BEditor.ViewModels
             {
                 try
                 {
-                    AppData.Current.Project = new(dialog.FileName);
+                    var project = new Project(dialog.FileName);
+                    project.Loaded();
+                    AppData.Current.Project = project;
                     AppData.Current.AppStatus = Status.Edit;
 
                     Settings.Default.MostRecentlyUsedList.Remove(dialog.FileName);
@@ -350,7 +354,6 @@ namespace BEditor.ViewModels
         }
         private static void ProjectCloseCommand()
         {
-            AppData.Current.Project?.Dispose();
             AppData.Current.Project = null;
             AppData.Current.AppStatus = Status.Idle;
         }

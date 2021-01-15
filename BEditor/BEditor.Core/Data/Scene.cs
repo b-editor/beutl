@@ -62,14 +62,15 @@ namespace BEditor.Core.Data
             Width = width;
             Height = height;
             Datas = new ObservableCollection<ClipData>();
-            GraphicsContext = new GraphicsContext(width, height);
-            AudioContext = new AudioContext();
         }
 
         #endregion
 
 
         #region Properties
+
+        /// <inheritdoc/>
+        public bool IsLoaded { get; private set; }
 
         /// <summary>
         /// Get or set the width of the frame buffer.
@@ -278,20 +279,32 @@ namespace BEditor.Core.Data
         /// <inheritdoc/>
         public void Loaded()
         {
-            Parallel.ForEach(Datas, data =>
+            if (IsLoaded) return;
+
+            GraphicsContext = new GraphicsContext(Width, Height);
+            AudioContext = new AudioContext();
+            foreach (var clip in Datas)
             {
-                data.Parent = this;
-                data.Loaded();
-            });
+                clip.Parent = this;
+                clip.Loaded();
+            }
+
+            IsLoaded = true;
         }
 
         /// <inheritdoc/>
         public void Unloaded()
         {
-            Parallel.ForEach(Datas, data =>
+            if (!IsLoaded) return;
+
+            GraphicsContext.Dispose();
+            AudioContext.Dispose();
+            foreach (var clip in Datas)
             {
-                data.Unloaded();
-            });
+                clip.Unloaded();
+            }
+
+            IsLoaded = false;
         }
 
 
@@ -302,6 +315,11 @@ namespace BEditor.Core.Data
         /// <param name="renderType"></param>
         public RenderingResult Render(Frame frame, RenderType renderType = RenderType.Preview)
         {
+            if (!IsLoaded) return new()
+            {
+                Image = new(Width, Height)
+            };
+
             var layer = GetFrame(frame).ToList();
 
             GraphicsContext.Camera = new OrthographicCamera(new(0, 0, 1024), Width, Height);
@@ -337,6 +355,8 @@ namespace BEditor.Core.Data
         /// </summary>
         public void Render(Image<BGRA32> image, Frame frame, RenderType renderType = RenderType.Preview)
         {
+            if (!IsLoaded) return;
+
             image.ThrowIfDisposed();
             if (image.Width != Width) throw new ArgumentException(null, nameof(image));
             if (image.Height != Height) throw new ArgumentException(null, nameof(image));

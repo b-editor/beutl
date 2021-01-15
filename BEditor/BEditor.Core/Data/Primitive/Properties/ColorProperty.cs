@@ -85,13 +85,15 @@ namespace BEditor.Core.Data.Primitive.Properties
         /// <inheritdoc/>
         public override void Loaded()
         {
-            base.Loaded();
+            if (IsLoaded) return;
 
             if (bindHint is not null && this.GetBindable(bindHint, out var b))
             {
                 Bind(b);
             }
             bindHint = null;
+
+            base.Loaded();
         }
 
         #region IBindable

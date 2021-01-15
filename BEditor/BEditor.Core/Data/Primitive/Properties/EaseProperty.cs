@@ -320,13 +320,18 @@ namespace BEditor.Core.Data.Primitive.Properties
         /// <inheritdoc/>
         public override void Loaded()
         {
-            base.Loaded();
+            if (IsLoaded) return;
+
             EasingType.Loaded();
+            base.Loaded();
         }
+        /// <inheritdoc/>
         public override void Unloaded()
         {
-            base.Unloaded();
+            if (!IsLoaded) return;
+
             EasingType.Unloaded();
+            base.Unloaded();
         }
 
         #endregion

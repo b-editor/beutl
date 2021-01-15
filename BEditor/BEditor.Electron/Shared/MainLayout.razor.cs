@@ -55,6 +55,7 @@ namespace BEditor.Shared
 
                 AppData.Current.ProjectThread = SynchronizationContext.Current;
                 AppData.Current.Project.Value = new Project(stream, AppData.Current);
+                AppData.Current.Project.Value.Loaded();
 
                 FileDialogIsOpened = false;
                 await this.InvokeAsync(StateHasChanged);

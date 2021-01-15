@@ -71,6 +71,7 @@ namespace BEditor
                 command.OnExecute(() =>
                 {
                     using var project = new Project(input.Value);
+                    project.Loaded();
                     var scene = sc.HasValue() ? project.PreviewScene
                         : int.TryParse(sc.Value(), out var index) ? project.SceneList[index] : project.SceneList.ToList().Find(s => s.Name == sc.Value());
 
@@ -94,6 +95,7 @@ namespace BEditor
                 command.OnExecute(() =>
                 {
                     using var project = new Project(input.Value);
+                    project.Loaded();
                     var scene = !sc.HasValue() ? project.PreviewScene
                         : int.TryParse(sc.Value(), out var index) ? project.SceneList[index] : project.SceneList.ToList().Find(s => s.Name == sc.Value());
 

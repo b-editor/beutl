@@ -132,17 +132,23 @@ namespace BEditor.Core.Data.Primitive.Properties.PrimitiveEasing
         public override float EaseFunc(Frame frame, Frame totalframe, float min, float max) => currentfunc?.Invoke(frame, totalframe, min, max) ?? 0;
         public override void Loaded()
         {
+            if (IsLoaded) return;
+
             EasingType.ExecuteLoaded(propertyMetadata);
 
             currentfunc = DefaultEase[EasingType.Index];
 
             disposable= EasingType.Subscribe(index => currentfunc = DefaultEase[index]);
+
+            base.Loaded();
         }
         public override void Unloaded()
         {
-            base.Unloaded();
+            if (!IsLoaded) return;
 
             disposable?.Dispose();
+
+            base.Unloaded();
         }
 
         class Easing

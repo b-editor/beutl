@@ -87,7 +87,7 @@ namespace BEditor.ViewModels.CreateDialog
             {
                 Filename = path
             };
-
+            project.Loaded();
             AppData.Current.Project = project;
 
             project.Save(Path + "\\" + Name + ".bedit");

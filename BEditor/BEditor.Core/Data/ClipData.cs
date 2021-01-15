@@ -149,6 +149,9 @@ namespace BEditor.Core.Data
         /// <inheritdoc/>
         public IEnumerable<EffectElement> Children => Effect;
 
+        /// <inheritdoc/>
+        public bool IsLoaded { get; private set; }
+
         #endregion
 
 
@@ -215,19 +218,27 @@ namespace BEditor.Core.Data
         /// <inheritdoc/>
         public void Loaded()
         {
-            Parallel.ForEach(Effect, effect =>
+            if (IsLoaded) return;
+
+            foreach (var effect in Effect)
             {
                 effect.Parent = this;
                 effect.Loaded();
-            });
+            }
+
+            IsLoaded = true;
         }
         /// <inheritdoc/>
         public void Unloaded()
         {
-            Parallel.ForEach(Effect, effect =>
+            if (!IsLoaded) return;
+
+            foreach(var effect in Effect)
             {
                 effect.Unloaded();
-            });
+            }
+
+            IsLoaded = false;
         }
 
         #endregion
@@ -455,13 +466,6 @@ namespace BEditor.Core.Data
                 data.Start = oldstart;
                 data.End = oldend;
             }
-        }
-
-        internal enum RangeType
-        {
-            StartEnd,
-            Start,
-            End
         }
     }
 

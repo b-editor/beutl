@@ -59,6 +59,7 @@ namespace BEditor.Core.Data.Property.EasingProperty
         public static List<EasingData> LoadedEasingFunc { get; } = new List<EasingData>() {
             new EasingData() { Name = "デフォルト", Type = typeof(DefaultEasing) }
         };
+        public bool IsLoaded { get; protected set; }
 
 
         /// <summary>

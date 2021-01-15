@@ -77,6 +77,8 @@ namespace BEditor.Core.Data
         }
         /// <inheritdoc/>
         public int Id => Parent.Effect.IndexOf(this);
+        /// <inheritdoc/>
+        public bool IsLoaded { get; private set; }
 
 
         #region Methods
@@ -97,9 +99,19 @@ namespace BEditor.Core.Data
         public virtual void PreviewRender(EffectRenderArgs args) { }
 
         /// <inheritdoc/>
-        public virtual void Loaded() { }
+        public virtual void Loaded()
+        {
+            if (IsLoaded) return;
+
+            IsLoaded = true;
+        }
         /// <inheritdoc/>
-        public virtual void Unloaded() { }
+        public virtual void Unloaded()
+        {
+            if (!IsLoaded) return;
+
+            IsLoaded = false;
+        }
 
         #endregion
 

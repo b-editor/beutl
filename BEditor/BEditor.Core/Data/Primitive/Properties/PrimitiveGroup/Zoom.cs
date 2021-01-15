@@ -42,19 +42,25 @@ namespace BEditor.Core.Data.Primitive.Properties.PrimitiveGroup
 
         public override void Loaded()
         {
-            base.Loaded();
+            if (IsLoaded) return;
+
             Scale.ExecuteLoaded(ZoomMetadata);
             ScaleX.ExecuteLoaded(ScaleXMetadata);
             ScaleY.ExecuteLoaded(ScaleYMetadata);
             ScaleZ.ExecuteLoaded(ScaleZMetadata);
+
+            base.Loaded();
         }
         public override void Unloaded()
         {
-            base.Unloaded();
+            if (!IsLoaded) return;
+            
             Scale.Unloaded();
             ScaleX.Unloaded();
             ScaleY.Unloaded();
             ScaleZ.Unloaded();
+
+            base.Unloaded();
         }
     }
 }

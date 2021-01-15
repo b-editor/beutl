@@ -52,23 +52,29 @@ namespace BEditor.Core.Data.Primitive.Properties.PrimitiveGroup
 
         public override void Loaded()
         {
-            base.Loaded();
+            if (IsLoaded) return;
+
             X.ExecuteLoaded(XMetadata);
             Y.ExecuteLoaded(YMetadata);
             Z.ExecuteLoaded(ZMetadata);
             CenterX.ExecuteLoaded(CenterXMetadata);
             CenterY.ExecuteLoaded(CenterYMetadata);
             CenterZ.ExecuteLoaded(CenterZMetadata);
+
+            base.Loaded();
         }
         public override void Unloaded()
         {
-            base.Unloaded();
+            if (!IsLoaded) return;
+
             X.Unloaded();
             Y.Unloaded();
             Z.Unloaded();
             CenterX.Unloaded();
             CenterY.Unloaded();
             CenterZ.Unloaded();
+
+            base.Unloaded();
         }
         public void ResetOptional()
         {
