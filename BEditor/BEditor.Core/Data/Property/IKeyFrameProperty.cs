@@ -2,8 +2,6 @@
 using System.Collections.Generic;
 using System.Text;
 
-using BEditor.Core.Data.Control;
-
 namespace BEditor.Core.Data.Property
 {
     /// <summary>

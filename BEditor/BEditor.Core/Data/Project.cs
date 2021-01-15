@@ -9,7 +9,6 @@ using System.Threading.Tasks;
 using BEditor.Core.Graphics;
 using BEditor.Core.Service;
 using BEditor.Core.Properties;
-using BEditor.Core.Data.Control;
 using BEditor.Core.Data.Primitive.Objects;
 using System.Text.RegularExpressions;
 

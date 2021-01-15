@@ -7,7 +7,6 @@ using System.Runtime.Serialization;
 using System.Text;
 using System.Threading.Tasks;
 
-using BEditor.Core.Data.Control;
 using BEditor.Core.Data.Primitive.Properties;
 using BEditor.Core.Data.Primitive.Properties.PrimitiveEasing;
 using BEditor.Media;

@@ -1,7 +1,5 @@
 ﻿using System.Collections.Generic;
 
-using BEditor.Core.Data.Control;
-
 namespace BEditor.Core.Data.Property
 {
     public interface IPropertyElement : IHasId, IChild<EffectElement>, IElementObject

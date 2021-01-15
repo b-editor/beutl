@@ -6,7 +6,9 @@ using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
 
-namespace BEditor.Core.Data.Control
+using BEditor.Core.Data.Property;
+
+namespace BEditor.Core.Data
 {
     public interface IParent<out T>
     {
@@ -24,7 +26,7 @@ namespace BEditor.Core.Data.Control
         public T Parent { get; }
     }
 
-    public static class ParentChild
+    public static class Tool
     {
         #region GetParents
 
@@ -46,6 +48,7 @@ namespace BEditor.Core.Data.Control
         [Pure] public static T GetParent16<T>(this IChild<IChild<IChild<IChild<IChild<IChild<IChild<IChild<IChild<IChild<IChild<IChild<IChild<IChild<IChild<IChild<T>>>>>>>>>>>>>>>> self) => self.Parent.Parent.Parent.Parent.Parent.Parent.Parent.Parent.Parent.Parent.Parent.Parent.Parent.Parent.Parent.Parent;
 
         #endregion
+
 
         #region Find
 

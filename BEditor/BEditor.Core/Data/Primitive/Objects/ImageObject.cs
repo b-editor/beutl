@@ -106,6 +106,9 @@ namespace BEditor.Core.Data.Primitive.Objects
             Material.Unloaded();
         }
 
-        public override bool EffectFilter(EffectElement effect) => effect is ImageEffect;
+        public override bool EffectFilter(EffectElement effect)
+        {
+            return effect is ImageEffect;
+        }
     }
 }
