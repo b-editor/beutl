@@ -202,6 +202,40 @@ namespace BEditor.Core.Graphics
 
             texture.Render(TextureUnit.Texture0);
         }
+        public void DrawTexture(Texture texture, Transform transform, Color color)
+        {
+            MakeCurrent();
+            texture.Use(TextureUnit.Texture0);
+
+            textureShader.Use();
+
+            var vertexLocation = textureShader.GetAttribLocation("aPosition");
+            GL.EnableVertexAttribArray(vertexLocation);
+            GL.VertexAttribPointer(vertexLocation, 3, VertexAttribPointerType.Float, false, 5 * sizeof(float), 0);
+
+            var texCoordLocation = textureShader.GetAttribLocation("aTexCoord");
+            GL.EnableVertexAttribArray(texCoordLocation);
+            GL.VertexAttribPointer(texCoordLocation, 2, VertexAttribPointerType.Float, false, 5 * sizeof(float), 3 * sizeof(float));
+
+            textureShader.SetInt("texture", 0);
+
+            GL.Enable(EnableCap.Blend);
+
+
+            GL.BlendEquationSeparate(BlendEquationMode.FuncAdd, BlendEquationMode.FuncAdd);
+            GL.BlendFunc(BlendingFactor.SrcAlpha, BlendingFactor.OneMinusSrcAlpha);
+
+            GL.Enable(EnableCap.Texture2D);
+
+            textureShader.SetVector4("color", color.ToVector4());
+            textureShader.SetMatrix4("model", transform.Matrix);
+            textureShader.SetMatrix4("view", Camera.GetViewMatrix());
+            textureShader.SetMatrix4("projection", Camera.GetProjectionMatrix());
+
+            textureShader.Use();
+
+            texture.Render(TextureUnit.Texture0);
+        }
         public void DrawCube(Cube cube, Transform transform)
         {
             MakeCurrent();
@@ -241,7 +275,7 @@ namespace BEditor.Core.Graphics
             fixed (BGRA32* data = image.Data)
                 GL.ReadPixels(0, 0, image.Width, image.Height, PixelFormat.Bgra, PixelType.UnsignedByte, (IntPtr)data);
 
-            image.Flip(Drawing.FlipMode.X);
+            image.Flip(FlipMode.X);
         }
     }
 }
