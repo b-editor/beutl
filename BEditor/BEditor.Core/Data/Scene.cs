@@ -10,13 +10,14 @@ using System.Threading.Tasks;
 
 using BEditor.Core.Audio;
 using BEditor.Core.Command;
-using BEditor.Core.Data.Control;
 using BEditor.Core.Extensions;
 using BEditor.Core.Graphics;
 using BEditor.Core.Renderings;
 using BEditor.Drawing;
 using BEditor.Drawing.Pixel;
 using BEditor.Media;
+
+using OpenTK.Graphics.OpenGL;
 
 namespace BEditor.Core.Data
 {
@@ -60,14 +61,15 @@ namespace BEditor.Core.Data
             Width = width;
             Height = height;
             Datas = new ObservableCollection<ClipData>();
-            GraphicsContext = new GraphicsContext(width, height);
-            AudioContext = new AudioContext();
         }
 
         #endregion
 
 
         #region Properties
+
+        /// <inheritdoc/>
+        public bool IsLoaded { get; private set; }
 
         /// <summary>
         /// Get or set the width of the frame buffer.
@@ -163,7 +165,7 @@ namespace BEditor.Core.Data
         /// <summary>
         /// Get graphic context.
         /// </summary>
-        public BaseGraphicsContext GraphicsContext { get; internal set; }
+        public GraphicsContext GraphicsContext { get; internal set; }
         /// <summary>
         /// Get audio context.
         /// </summary>
@@ -276,20 +278,32 @@ namespace BEditor.Core.Data
         /// <inheritdoc/>
         public void Loaded()
         {
-            Parallel.ForEach(Datas, data =>
+            if (IsLoaded) return;
+
+            GraphicsContext = new GraphicsContext(Width, Height);
+            AudioContext = new AudioContext();
+            foreach (var clip in Datas)
             {
-                data.Parent = this;
-                data.Loaded();
-            });
+                clip.Parent = this;
+                clip.Loaded();
+            }
+
+            IsLoaded = true;
         }
 
         /// <inheritdoc/>
         public void Unloaded()
         {
-            Parallel.ForEach(Datas, data =>
+            if (!IsLoaded) return;
+
+            GraphicsContext.Dispose();
+            AudioContext.Dispose();
+            foreach (var clip in Datas)
             {
-                data.Unloaded();
-            });
+                clip.Unloaded();
+            }
+
+            IsLoaded = false;
         }
 
 
@@ -300,11 +314,19 @@ namespace BEditor.Core.Data
         /// <param name="renderType"></param>
         public RenderingResult Render(Frame frame, RenderType renderType = RenderType.Preview)
         {
+            if (!IsLoaded) return new()
+            {
+                Image = new(Width, Height)
+            };
+
             var layer = GetFrame(frame).ToList();
 
+            GraphicsContext.Camera = new OrthographicCamera(new(0, 0, 1024), Width, Height);
             GraphicsContext.MakeCurrent();
             AudioContext.MakeCurrent();
-            GraphicsContext.Clear();
+            //GraphicsContext.Clear();
+
+            GL.Clear(ClearBufferMask.ColorBufferBit | ClearBufferMask.DepthBufferBit);
 
             var args = new ClipRenderArgs(frame, renderType);
 
@@ -313,8 +335,10 @@ namespace BEditor.Core.Data
 
             foreach (var clip in layer) clip.Render(args);
 
+            GraphicsContext.SwapBuffers();
+
             var buffer = new Image<BGRA32>(Width, Height);
-            GLTK.GetPixels(buffer);
+            GraphicsContext.ReadImage(buffer);
 
             return new RenderingResult { Image = buffer };
         }
@@ -330,12 +354,15 @@ namespace BEditor.Core.Data
         /// </summary>
         public void Render(Image<BGRA32> image, Frame frame, RenderType renderType = RenderType.Preview)
         {
+            if (!IsLoaded) return;
+
             image.ThrowIfDisposed();
             if (image.Width != Width) throw new ArgumentException(null, nameof(image));
             if (image.Height != Height) throw new ArgumentException(null, nameof(image));
 
             var layer = GetFrame(frame).ToList();
 
+            GraphicsContext.Camera = new OrthographicCamera(new(0, 0, 1024), Width, Height);
             GraphicsContext.MakeCurrent();
             AudioContext.MakeCurrent();
             GraphicsContext.Clear();
@@ -347,7 +374,9 @@ namespace BEditor.Core.Data
 
             foreach (var clip in layer) clip.Render(args);
 
-            GLTK.GetPixels(image);
+            GraphicsContext.SwapBuffers();
+
+            GraphicsContext.ReadImage(image);
         }
         /// <summary>
         /// Render a frame of <see cref="PreviewFrame"/>.

@@ -6,7 +6,6 @@ using System.Linq;
 using System.Runtime.Serialization;
 
 using BEditor.Core.Command;
-using BEditor.Core.Data.Control;
 using BEditor.Core.Data.Property;
 using BEditor.Core.Data.Property.EasingProperty;
 using BEditor.Core.Extensions;
@@ -320,13 +319,18 @@ namespace BEditor.Core.Data.Primitive.Properties
         /// <inheritdoc/>
         public override void Loaded()
         {
-            base.Loaded();
+            if (IsLoaded) return;
+
             EasingType.Loaded();
+            base.Loaded();
         }
+        /// <inheritdoc/>
         public override void Unloaded()
         {
-            base.Unloaded();
+            if (!IsLoaded) return;
+
             EasingType.Unloaded();
+            base.Unloaded();
         }
 
         #endregion

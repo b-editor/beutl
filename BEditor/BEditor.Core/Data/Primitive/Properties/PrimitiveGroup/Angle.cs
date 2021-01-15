@@ -37,17 +37,23 @@ namespace BEditor.Core.Data.Primitive.Properties.PrimitiveGroup
 
         public override void Loaded()
         {
-            base.Loaded();
+            if (IsLoaded) return;
+
             AngleX.ExecuteLoaded(AngleXMetadata);
             AngleY.ExecuteLoaded(AngleYMetadata);
             AngleZ.ExecuteLoaded(AngleZMetadata);
+
+            base.Loaded();
         }
         public override void Unloaded()
         {
-            base.Unloaded();
+            if (!IsLoaded) return;
+
             AngleX.Unloaded();
             AngleY.Unloaded();
             AngleZ.Unloaded();
+
+            base.Unloaded();
         }
     }
 }

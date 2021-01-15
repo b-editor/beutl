@@ -26,6 +26,7 @@ namespace NUnitTestProject1
         public void Test()
         {
             using var project = new Project(1920, 1080, 60);
+            project.Loaded();
             var scene = project.PreviewScene;
 
             scene.CreateAddCommand(1, 1, ClipType.FigureMetadata, out _).Execute();

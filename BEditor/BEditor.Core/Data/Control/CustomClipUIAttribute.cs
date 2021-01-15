@@ -6,7 +6,7 @@ using System.Threading.Tasks;
 
 using BEditor.Drawing;
 
-namespace BEditor.Core.Data.Control
+namespace BEditor.Core.Data
 {
     [AttributeUsage(AttributeTargets.Class)]
     public class CustomClipUIAttribute : Attribute

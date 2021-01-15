@@ -19,6 +19,7 @@ using OpenTK.Graphics.OpenGL;
 using GLColor = OpenTK.Graphics.Color4;
 #else
 using GLColor = OpenTK.Mathematics.Color4;
+using Material = BEditor.Core.Data.Primitive.Properties.PrimitiveGroup.Material;
 #endif
 
 namespace BEditor.Core.Data.Primitive.Effects.PrimitiveImages

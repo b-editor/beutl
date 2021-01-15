@@ -100,8 +100,7 @@ namespace BEditor.Core.Data.Primitive.Properties
         /// <inheritdoc/>
         public override void Loaded()
         {
-            base.Loaded();
-
+            if (IsLoaded) return;
             if (bindHint is not null)
             {
                 if (this.GetBindable(bindHint, out var b))
@@ -110,6 +109,8 @@ namespace BEditor.Core.Data.Primitive.Properties
                 }
             }
             bindHint = null;
+
+            base.Loaded();
         }
         /// <inheritdoc/>
         public override string ToString() => $"(Value:{Value} Name:{PropertyMetadata?.Name})";

@@ -8,7 +8,6 @@ using System.Runtime.Serialization;
 using System.Threading.Tasks;
 
 using BEditor.Core.Command;
-using BEditor.Core.Data.Control;
 using BEditor.Core.Data.Primitive.Effects;
 using BEditor.Core.Data.Primitive.Effects.PrimitiveImages;
 using BEditor.Core.Data.Property;
@@ -77,6 +76,8 @@ namespace BEditor.Core.Data
         }
         /// <inheritdoc/>
         public int Id => Parent.Effect.IndexOf(this);
+        /// <inheritdoc/>
+        public bool IsLoaded { get; private set; }
 
 
         #region Methods
@@ -97,9 +98,19 @@ namespace BEditor.Core.Data
         public virtual void PreviewRender(EffectRenderArgs args) { }
 
         /// <inheritdoc/>
-        public virtual void Loaded() { }
+        public virtual void Loaded()
+        {
+            if (IsLoaded) return;
+
+            IsLoaded = true;
+        }
         /// <inheritdoc/>
-        public virtual void Unloaded() { }
+        public virtual void Unloaded()
+        {
+            if (!IsLoaded) return;
+
+            IsLoaded = false;
+        }
 
         #endregion
 

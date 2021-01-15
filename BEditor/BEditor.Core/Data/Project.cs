@@ -9,7 +9,6 @@ using System.Threading.Tasks;
 using BEditor.Core.Graphics;
 using BEditor.Core.Service;
 using BEditor.Core.Properties;
-using BEditor.Core.Data.Control;
 using BEditor.Core.Data.Primitive.Objects;
 using System.Text.RegularExpressions;
 
@@ -19,7 +18,7 @@ namespace BEditor.Core.Data
     /// Represents the project to be used in editing.
     /// </summary>
     [DataContract]
-    public class Project : BasePropertyChanged, IExtensibleDataObject, IDisposable, IParent<Scene>, IChild<IApplication>
+    public class Project : BasePropertyChanged, IExtensibleDataObject, IDisposable, IParent<Scene>, IChild<IApplication>, IElementObject
     {
         #region Fields
 
@@ -59,13 +58,6 @@ namespace BEditor.Core.Data
             {
                 var project = o;
 
-                foreach (var scene in project.SceneList)
-                {
-                    scene.GraphicsContext = new GraphicsContext(scene.Width, scene.Height);
-                    scene.AudioContext = new();
-                    scene.Loaded();
-                }
-
                 project.CopyTo(this);
                 Parent = app;
             }
@@ -84,13 +76,6 @@ namespace BEditor.Core.Data
             if (o != null)
             {
                 var project = o;
-
-                foreach (var scene in project.SceneList)
-                {
-                    scene.GraphicsContext = new GraphicsContext(scene.Width, scene.Height);
-                    scene.AudioContext = new();
-                    scene.Loaded();
-                }
 
                 project.CopyTo(this);
                 Parent = app;
@@ -149,7 +134,6 @@ namespace BEditor.Core.Data
                 Parallel.ForEach(value, scene =>
                 {
                     scene.Parent = this;
-                    scene.Loaded();
                 });
             }
         }
@@ -188,6 +172,8 @@ namespace BEditor.Core.Data
             get => parent;
             init => parent = value;
         }
+        /// <inheritdoc/>
+        public bool IsLoaded { get; private set; }
 
         #endregion
 
@@ -358,6 +344,30 @@ namespace BEditor.Core.Data
             }
 
             return null;
+        }
+
+        public void Loaded()
+        {
+            if (IsLoaded) return;
+
+            foreach (var scene in SceneList)
+            {
+                scene.Loaded();
+            }
+
+            IsLoaded = true;
+        }
+
+        public void Unloaded()
+        {
+            if (!IsLoaded) return;
+
+            foreach (var scene in SceneList)
+            {
+                scene.Unloaded();
+            }
+
+            IsLoaded = false;
         }
 
         #endregion

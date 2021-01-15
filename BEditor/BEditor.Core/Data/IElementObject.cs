@@ -8,6 +8,11 @@ namespace BEditor.Core.Data
 {
     public interface IElementObject
     {
+        /// <summary>
+        /// Gets a value that indicates whether this element has been loaded for presentation.
+        /// </summary>
+        public bool IsLoaded { get; }
+
         public void Loaded();
         public void Unloaded();
     }

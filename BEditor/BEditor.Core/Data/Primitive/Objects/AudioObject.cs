@@ -5,7 +5,6 @@ using System.Runtime.Serialization;
 using System.Text;
 using System.Threading.Tasks;
 
-using BEditor.Core.Data.Control;
 using BEditor.Core.Data.Property;
 
 using NAudio.Wave;

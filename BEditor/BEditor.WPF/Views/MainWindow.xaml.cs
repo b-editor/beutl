@@ -152,7 +152,9 @@ namespace BEditor
             {
                 if (Path.GetExtension(AppData.Current.Arguments[0]) == ".bedit")
                 {
-                    AppData.Current.Project = new(AppData.Current.Arguments[0]);
+                    var project = new Project(AppData.Current.Arguments[0]);
+                    project.Loaded();
+                    AppData.Current.Project = project;
                     AppData.Current.AppStatus = Status.Edit;
                 }
             }
