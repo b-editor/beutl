@@ -97,6 +97,8 @@ namespace BEditor
                     splashscreen.Close();
 #endif
                 });
+
+                Settings.Default.Save();
             });
         }
 
@@ -229,13 +231,11 @@ namespace BEditor
             {
                 App.Current.Dispatcher.Invoke(() =>
                 {
-                    var control = new PluginCheckHost();
                     var controlvm = new PluginCheckHostViewModel
                     {
                         Plugins = new(disable.Select(name => new PluginCheckViewModel() { Name = { Value = name } }))
                     };
-
-                    control.DataContext = controlvm;
+                    var control = new PluginCheckHost(controlvm);
 
                     new NoneDialog(control).ShowDialog();
 

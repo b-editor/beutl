@@ -19,9 +19,9 @@ namespace BEditor.Views.PropertyControls
     {
         public Object_Setting(ClipData data)
         {
-            InitializeComponent();
-
             DataContext = Data = data;
+         
+            InitializeComponent();
         }
 
         public ClipData Data { get; set; }

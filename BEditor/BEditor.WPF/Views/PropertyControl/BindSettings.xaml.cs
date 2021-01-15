@@ -23,8 +23,9 @@ namespace BEditor.Views.PropertyControls
     /// </summary>
     public partial class BindSettings : MetroWindow
     {
-        public BindSettings()
+        public BindSettings(object datacontext)
         {
+            DataContext = datacontext;
             InitializeComponent();
         }
 

@@ -145,10 +145,7 @@ namespace BEditor.Views.ToolControl.Default
         private void AddClip(object sender, RoutedEventArgs e)
         {
             var viewmodel = new ClipCreateDialogViewModel();
-            var dialog = new ClipCreateDialog()
-            {
-                DataContext = viewmodel
-            };
+            var dialog = new ClipCreateDialog(viewmodel);
 
             try
             {
@@ -163,10 +160,7 @@ namespace BEditor.Views.ToolControl.Default
         private void AddEffect(object sender, RoutedEventArgs e)
         {
             var viewmodel = new EffectAddDialogViewModel();
-            var dialog = new EffectAddDialog()
-            {
-                DataContext = viewmodel
-            };
+            var dialog = new EffectAddDialog(viewmodel);
 
             try
             {

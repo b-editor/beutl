@@ -33,10 +33,7 @@ namespace BEditor.ViewModels.PropertyControl
             Reset.Subscribe(() => CommandManager.Do(new ColorProperty.ChangeColorCommand(Property, Property.PropertyMetadata.DefaultColor)));
             Bind.Subscribe(() =>
             {
-                var window = new BindSettings()
-                {
-                    DataContext = new BindSettingsViewModel<Drawing.Color>(Property)
-                };
+                var window = new BindSettings(new BindSettingsViewModel<Drawing.Color>(Property));
                 window.ShowDialog();
             });
             OpenDialog.Subscribe(() => Dialog.ShowDialog());

@@ -43,7 +43,7 @@ namespace BEditor.ViewModels
         public ReactiveProperty<WriteableBitmap> PreviewImage { get; } = new();
         public ReactiveProperty<Brush> MainWindowColor { get; } = new();
 
-        public ReactiveCommand PreviewStart { get; } = new();
+        public ReactiveCommand PlayPause { get; } = new();
         public ReactiveCommand FrameNext { get; } = new();
         public ReactiveCommand FramePrevious { get; } = new();
         public ReactiveCommand FrameTop { get; } = new();
@@ -77,35 +77,29 @@ namespace BEditor.ViewModels
             ProjectAddScene.Subscribe(() => new SceneCreateDialog().ShowDialog());
             ProjectAddClip.Subscribe(() =>
             {
-                var dialog = new ClipCreateDialog()
+                var dialog = new ClipCreateDialog(new ClipCreateDialogViewModel()
                 {
-                    DataContext = new ClipCreateDialogViewModel()
+                    Scene =
                     {
-                        Scene =
-                        {
-                            Value = AppData.Current.Project.PreviewScene
-                        }
-                    }
-                };
+                        Value = AppData.Current.Project.PreviewScene
+                    }   
+                });
 
                 dialog.ShowDialog();
             });
             ProjectAddEffect.Subscribe(() =>
             {
-                var dialog = new EffectAddDialog()
+                var dialog = new EffectAddDialog(new EffectAddDialogViewModel()
                 {
-                    DataContext = new EffectAddDialogViewModel()
+                    Scene =
                     {
-                        Scene =
-                        {
-                            Value = AppData.Current.Project.PreviewScene
-                        },
-                        TargetClip =
-                        {
-                            Value = AppData.Current.Project.PreviewScene.SelectItem
-                        }
+                        Value = AppData.Current.Project.PreviewScene
+                    },
+                    TargetClip =
+                    {
+                        Value = AppData.Current.Project.PreviewScene.SelectItem
                     }
-                };
+                });
 
                 dialog.ShowDialog();
             });
@@ -116,7 +110,9 @@ namespace BEditor.ViewModels
 
             SettingShow.Subscribe(SettingShowCommand);
 
-            PreviewStart.Subscribe(ProjectPreviewStartCommand);
+            PlayPause
+                .Where(_ => AppData.Current.Project is not null)
+                .Subscribe(ProjectPlayPauseCommand);
             FrameNext.Where(_ => AppData.Current.Project is not null).Subscribe(_ => AppData.Current.Project.PreviewScene.PreviewFrame++);
 
             FramePrevious.Where(_ => AppData.Current.Project is not null).Subscribe(_ => AppData.Current.Project.PreviewScene.PreviewFrame--);
@@ -360,18 +356,20 @@ namespace BEditor.ViewModels
         }
         private static void ProjectCreateCommand()
             => new ProjectCreateDialog { Owner = App.Current.MainWindow }.ShowDialog();
-        private void ProjectPreviewStartCommand()
+        private void ProjectPlayPauseCommand(object _)
         {
             if (AppData.Current.AppStatus is Status.Playing)
             {
                 AppData.Current.AppStatus = Status.Edit;
                 AppData.Current.Project.PreviewScene.Player.Stop();
+                AppData.Current.IsNotPlaying = true;
             }
             else
             {
                 AppData.Current.AppStatus = Status.Playing;
 
                 AppData.Current.Project.PreviewScene.Player.Play();
+                AppData.Current.IsNotPlaying = false;
             }
         }
 

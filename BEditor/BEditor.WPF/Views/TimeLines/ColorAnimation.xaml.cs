@@ -56,10 +56,10 @@ namespace BEditor.Views.TimeLines
 
         public ColorAnimation(ColorAnimationProperty color)
         {
-            InitializeComponent();
-            Color = color;
             var viewModel = new ColorAnimationViewModel(color);
             DataContext = viewModel;
+            InitializeComponent();
+            Color = color;
 
             viewModel.AddKeyFrameIcon = (frame, index) =>
             {

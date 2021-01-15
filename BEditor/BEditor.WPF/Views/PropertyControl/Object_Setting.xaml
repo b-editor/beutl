@@ -9,7 +9,6 @@
              x:Class="BEditor.Views.PropertyControls.Object_Setting"
              mc:Ignorable="d" 
              d:DesignHeight="504" d:DesignWidth="583"
-             ClipToBounds="True"
              AllowDrop="True" PreviewDrop="Preview_Drop">
     <UserControl.Resources>
         <vm:ClipTypeIconConverter x:Key="ClipTypeIconConverter"/>
@@ -64,7 +63,6 @@
                             VerticalAlignment="Stretch"
                             HorizontalContentAlignment="Stretch"
                             VerticalContentAlignment="Stretch"
-                            ClipToBounds="True"
                             Content="{Binding Converter={StaticResource EffectElementToProperty}}"/>
                     </DataTemplate>
                 </ItemsControl.ItemTemplate>

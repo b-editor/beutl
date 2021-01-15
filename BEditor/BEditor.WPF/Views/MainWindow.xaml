@@ -20,6 +20,10 @@
         Loaded="MetroWindow_Loaded"
         DataContext="{x:Static vm:MainWindowViewModel.Current}"
         Focusable="True"
+        MinWidth="1000"
+        MinHeight="500"
+        Width="1440"
+        Height="760"
         d:DesignWidth="1920" d:DesignHeight="1080">
     <Controls:MetroWindow.Resources>
         <convert:AppStatusIconConverter x:Key="AppStatusIcon"/>
@@ -74,6 +78,7 @@
         <KeyBinding Command="{Binding ClipRemoveCommand, Mode=OneWay}" Key="Delete"/>
         <KeyBinding Command="{Binding FrameNext, Mode=OneWay}" Key="Right"/>
         <KeyBinding Command="{Binding FramePrevious, Mode=OneWay}" Key="Left"/>
+        <KeyBinding Command="{Binding PlayPause, Mode=OneWay}" Key="Space"/>
     </Controls:MetroWindow.InputBindings>
 
     <!--#region メニュー-->
@@ -220,22 +225,25 @@
 
     <Grid>
         <Grid.RowDefinitions>
-            <RowDefinition Height="Auto"/>
+            <RowDefinition Height="30"/>
             <RowDefinition Height="*"/>
             <RowDefinition Height="10"/>
             <RowDefinition Height="*" x:Name="TimelineGrid"/>
-            <RowDefinition Height="Auto"/>
+            <RowDefinition Height="24"/>
         </Grid.RowDefinitions>
         <Grid.ColumnDefinitions>
             <ColumnDefinition Width="425" x:Name="PropertyGrid"/>
             <ColumnDefinition Width="10"/>
-            <ColumnDefinition Width="529*"/>
+            <ColumnDefinition Width="1*"/>
             <ColumnDefinition Width="10"/>
-            <ColumnDefinition Width="945*"/>
+            <ColumnDefinition Width="2*"/>
         </Grid.ColumnDefinitions>
 
         <!--#region ToolBar-->
-        <Grid Background="{DynamicResource MaterialDesignToolBarBackground}" Grid.ColumnSpan="5">
+        <Grid
+            Background="{DynamicResource MaterialDesignToolBarBackground}"
+            Grid.ColumnSpan="5"
+            IsHitTestVisible="{Binding Source={x:Static model:AppData.Current}, Path=IsNotPlaying, Mode=OneWay}">
             <ToolBarTray>
                 <ToolBar>
                     <Button
@@ -417,6 +425,7 @@
 
         <!--#region PropertyControl-->
         <md:Card
+            IsHitTestVisible="{Binding Source={x:Static model:AppData.Current}, Path=IsNotPlaying, Mode=OneWay}"
             Background="{DynamicResource MaterialDesignCardBackground}"
             Margin="10,5,5,10"
             IsEnabled="{Binding ProjectIsOpened.Value, Mode=OneWay}"
@@ -425,20 +434,21 @@
             VerticalContentAlignment="Stretch"
             Padding="0,0,0,0" 
             UniformCornerRadius="0" Grid.RowSpan="3" Grid.Row="1"/>
+        
         <!--#endregion-->
 
         <GridSplitter Width="10" HorizontalAlignment="Stretch" Grid.Column="1" Background="Transparent" Foreground="Transparent" Grid.RowSpan="3" Grid.Row="1"/>
 
-        <tool:PannelControl Margin="0,5,5,5" Grid.Row="1" Grid.Column="2"/>
+        <tool:PannelControl IsHitTestVisible="{Binding Source={x:Static model:AppData.Current}, Path=IsNotPlaying, Mode=OneWay}" Margin="0,5,5,5" Grid.Row="1" Grid.Column="2"/>
 
         <GridSplitter Width="10" Grid.Column="3" Background="Transparent" Foreground="Transparent" Grid.Row="1" HorizontalAlignment="Stretch"/>
 
         <Grid Grid.Column="4" Grid.Row="1">
             <Grid.RowDefinitions>
                 <RowDefinition/>
-                <RowDefinition Height="Auto"/>
+                <RowDefinition Height="35"/>
             </Grid.RowDefinitions>
-            <Image Source="{Binding PreviewImage.Value, Mode=OneWay}" Margin="0"/>
+            <Image IsHitTestVisible="False" Source="{Binding PreviewImage.Value, Mode=OneWay}" Margin="0"/>
 
             <custom:Seekbar
                 VerticalAlignment="Bottom"
@@ -456,7 +466,7 @@
                 Top="{Binding FrameTop, Mode=OneTime}"
                 TopToolTip="{x:Static properties:Resources.MoveToTop}"
 
-                PlayPause="{Binding PreviewStart, Mode=OneTime}"
+                PlayPause="{Binding PlayPause, Mode=OneTime}"
                 PlayPauseToolTip="{x:Static properties:Resources.PlayPause}"
                 PlayPauseIcon="{Binding AppStatus, Source={x:Static model:AppData.Current}, Converter={StaticResource AppStatusToPlayerIcon}, Mode=OneWay}"
                 
@@ -477,7 +487,14 @@
             Grid.ColumnSpan="3"/>
 
         <!--#region タイムライン-->
-        <md:Card Margin="5,0,10,10" Grid.Row="3" Grid.Column="1" Grid.ColumnSpan="4" UniformCornerRadius="0" IsEnabled="{Binding ProjectIsOpened.Value, Mode=OneWay}">
+        <md:Card
+            Margin="5,0,10,10"
+            Grid.Row="3"
+            Grid.Column="1"
+            Grid.ColumnSpan="4"
+            UniformCornerRadius="0"
+            IsHitTestVisible="{Binding Source={x:Static model:AppData.Current}, Path=IsNotPlaying, Mode=OneWay}"
+            IsEnabled="{Binding ProjectIsOpened.Value, Mode=OneWay}">
             <Label
                 HorizontalContentAlignment="Stretch"
                 VerticalContentAlignment="Stretch"
@@ -488,7 +505,7 @@
 
         <md:Snackbar x:Name="Snackbar" MessageQueue="{Binding MessageQueue, Mode=OneWay}" Margin="0,5,5,0" Grid.Column="5" HorizontalAlignment="Right" VerticalAlignment="Top" Grid.RowSpan="4"/>
 
-        <StatusBar Grid.Row="4" Height="24" Grid.ColumnSpan="5" Background="{Binding MainWindowColor.Value}">
+        <StatusBar Grid.Row="4" Height="24" Grid.ColumnSpan="5" Background="{Binding MainWindowColor.Value}" IsHitTestVisible="{Binding Source={x:Static model:AppData.Current}, Path=IsNotPlaying, Mode=OneWay}">
             <StatusBarItem Padding="0">
                 <Button Style="{StaticResource StatusBarButton}">
                     <VirtualizingStackPanel Orientation="Horizontal" HorizontalAlignment="Right">

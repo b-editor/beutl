@@ -12,8 +12,8 @@ namespace BEditor.WPF.Controls
 {
     public class FontPropertyView : BasePropertyView
     {
-        public static readonly DependencyProperty ItemsSourceProperty = DependencyProperty.Register(nameof(ItemsSource), typeof(IEnumerable<Drawing.Font>), typeof(FontPropertyView));
-        public static readonly DependencyProperty SelectedItemProperty = DependencyProperty.Register(nameof(SelectedItem), typeof(Drawing.Font), typeof(FontPropertyView));
+        public static readonly DependencyProperty ItemsSourceProperty = DependencyProperty.Register(nameof(ItemsSource), typeof(IEnumerable), typeof(FontPropertyView));
+        public static readonly DependencyProperty SelectedItemProperty = DependencyProperty.Register(nameof(SelectedItem), typeof(object), typeof(FontPropertyView));
         public static readonly DependencyProperty CommandProperty = DependencyProperty.Register(nameof(Command), typeof(ICommand), typeof(FontPropertyView));
 
         static FontPropertyView()
@@ -21,14 +21,14 @@ namespace BEditor.WPF.Controls
             DefaultStyleKeyProperty.OverrideMetadata(typeof(FontPropertyView), new FrameworkPropertyMetadata(typeof(FontPropertyView)));
         }
 
-        public IEnumerable<Drawing.Font> ItemsSource
+        public IEnumerable ItemsSource
         {
-            get => (IEnumerable<Drawing.Font>)GetValue(ItemsSourceProperty);
+            get => (IEnumerable)GetValue(ItemsSourceProperty);
             set => SetValue(ItemsSourceProperty, value);
         }
-        public Drawing.Font SelectedItem
+        public object SelectedItem
         {
-            get => (Drawing.Font)GetValue(SelectedItemProperty);
+            get => GetValue(SelectedItemProperty);
             set => SetValue(SelectedItemProperty, value);
         }
         public ICommand Command
@@ -40,17 +40,9 @@ namespace BEditor.WPF.Controls
         public override void OnApplyTemplate()
         {
             base.OnApplyTemplate();
+            var box = (ComboBox)GetTemplateChild("box");
 
-            var box = GetTemplateChild("box") as ComboBox;
-            box!.SelectionChanged += (s, _) => Command.Execute((s as ComboBox)?.SelectedItem);
-
-            box.PreviewMouseDown += Box_PreviewMouseDown;
-        }
-
-        private void Box_PreviewMouseDown(object sender, MouseButtonEventArgs e)
-        {
-
-            //e.Handled = true;
+            box.SelectionChanged += (s, _) => Command.Execute(((ComboBox)s).SelectedItem);
         }
     }
 }

@@ -120,7 +120,7 @@ namespace BEditor.WPF.Controls
             if (e.NewValue == e.OldValue)
                 return;
 
-            (d as ExpandTree).ExpanderUpdate();
+            ((ExpandTree)d).ExpanderUpdate();
         }
         public void ExpanderUpdate()
         {

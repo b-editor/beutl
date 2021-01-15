@@ -24,8 +24,9 @@ namespace BEditor.Views.CreateDialog
     /// </summary>
     public partial class EffectAddDialog : MetroWindow
     {
-        public EffectAddDialog()
+        public EffectAddDialog(object datacontext)
         {
+            DataContext = datacontext;
             InitializeComponent();
             TreeView.SelectedItemChanged += (s, e) =>
             {

@@ -44,9 +44,9 @@ namespace BEditor.Views.TimeLines
         
         public ClipUI(ClipData _Data)
         {
+            DataContext = _Data.GetCreateClipViewModel();
             InitializeComponent();
             ClipData = _Data;
-            DataContext = _Data.GetCreateClipViewModel();
 
             SetBinding(IsExpandedProperty, new Binding("IsExpanded.Value") { Mode = BindingMode.TwoWay });
 

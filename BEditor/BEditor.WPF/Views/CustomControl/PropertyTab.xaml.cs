@@ -18,8 +18,9 @@ namespace BEditor.Views.CustomControl
     /// </summary>
     public partial class PropertyTab : UserControl
     {
-        public PropertyTab()
+        public PropertyTab(object datacontext)
         {
+            DataContext = datacontext;
             InitializeComponent();
         }
     }

@@ -36,9 +36,9 @@ namespace BEditor.Views.PropertyControls
 
         public EaseControl(EaseProperty property)
         {
+            DataContext = new EasePropertyViewModel(property);
             InitializeComponent();
 
-            DataContext = new EasePropertyViewModel(property);
             this.property = property;
 
             OpenHeight = (double)(OpenAnm.To = 32.5 * property.Value.Count + 10);

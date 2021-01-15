@@ -633,7 +633,7 @@ namespace BEditor.Views
         {
             if (!scene.ComponentData.ContainsKey("GetPropertyTab"))
             {
-                scene.ComponentData.Add("GetPropertyTab", new PropertyTab() { DataContext = scene });
+                scene.ComponentData.Add("GetPropertyTab", new PropertyTab(scene));
             }
             return scene.ComponentData["GetPropertyTab"];
         }

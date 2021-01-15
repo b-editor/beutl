@@ -24,9 +24,11 @@ namespace BEditor.Core.Data
         #region Fields
 
         private static readonly PropertyChangedEventArgs previreSceneArgs = new(nameof(PreviewScene));
+        private static readonly PropertyChangedEventArgs filnameArgs = new(nameof(Filename));
         private Scene previewScene;
         private ObservableCollection<Scene> sceneList = new ObservableCollection<Scene>();
         private IApplication parent;
+        private string filename;
 
         #endregion
 
@@ -128,7 +130,11 @@ namespace BEditor.Core.Data
         /// Get or set the file name of this <see cref="Project"/>.
         /// </summary>
         [DataMember(Order = 2)]
-        public string Filename { get; set; }
+        public string Filename
+        {
+            get => filename;
+            set => SetValue(value, ref filename, filnameArgs);
+        }
 
         /// <summary>
         /// Get a list of Scenes in this <see cref="Project"/>.

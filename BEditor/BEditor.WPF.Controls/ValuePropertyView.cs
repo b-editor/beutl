@@ -52,7 +52,7 @@ namespace BEditor.WPF.Controls
         {
             base.OnApplyTemplate();
 
-            var text = GetTemplateChild("textbox") as TextBox;
+            var text = (TextBox)GetTemplateChild("textbox");
 
             text.GotFocus += Text_GotFocus;
             text.LostFocus += Text_LostFocus;
@@ -62,19 +62,19 @@ namespace BEditor.WPF.Controls
 
         private void Text_KeyDown(object sender, KeyEventArgs e)
         {
-            KeyDownCommand?.Execute((sender as TextBox).Text);
+            KeyDownCommand?.Execute(((TextBox)sender).Text);
         }
         private void Text_PreviewMouseWheel(object sender, MouseWheelEventArgs e)
         {
-            PreviewMouseWheelCommand?.Execute(((sender as TextBox), e));
+            PreviewMouseWheelCommand?.Execute(((TextBox)sender as TextBox, e));
         }
         private void Text_LostFocus(object sender, RoutedEventArgs e)
         {
-            LostFocusCommand?.Execute((sender as TextBox).Text);
+            LostFocusCommand?.Execute(((TextBox)sender).Text);
         }
         private void Text_GotFocus(object sender, RoutedEventArgs e)
         {
-            GotFocusCommand?.Execute((sender as TextBox).Text);
+            GotFocusCommand?.Execute(((TextBox)sender).Text);
         }
     }
 }

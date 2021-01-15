@@ -30,10 +30,7 @@ namespace BEditor.ViewModels.PropertyControl
             Reset.Subscribe(() => CommandManager.Do(new ValueProperty.ChangeValueCommand(Property, Property.PropertyMetadata.DefaultValue)));
             Bind.Subscribe(() =>
             {
-                var window = new BindSettings()
-                {
-                    DataContext = new BindSettingsViewModel<float>(Property)
-                };
+                var window = new BindSettings(new BindSettingsViewModel<float>(Property));
                 window.ShowDialog();
             });
             GotFocus.Subscribe(_ => oldvalue = Property.Value);

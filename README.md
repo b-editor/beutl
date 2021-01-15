@@ -8,6 +8,10 @@
 ## Description
 現在開発中の動画編集ソフトウェアです。
 
+## Requirements
+* [OpenAL](https://www.openal.org/)
+* [FFmpeg(同梱されています)](https://ffmpeg.org)
+
 <details>
 <summary>使用ライブラリ</summary>
 
@@ -15,7 +19,6 @@
 * [.NET runtime](https://github.com/dotnet/runtime)
 * [OpenTK](https://github.com/opentk/opentk)
 * [System.Reactive](https://github.com/dotnet/reactive)
-* [FFmpeg.AutoGen](https://github.com/Ruslan-B/FFmpeg.AutoGen)
 * [NAudio](https://github.com/naudio/NAudio)
 * [SkiaSharp](https://github.com/mono/SkiaSharp)
 

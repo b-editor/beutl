@@ -35,8 +35,7 @@
                     Foreground="{DynamicResource MaterialDesignBody}"
                     Width="490"
                     Height="260"
-                    Visibility="{Binding ElementName=ColorPickerToggle, Path=IsChecked, Converter={StaticResource BooleanToVisibilityConverter}}"
-                    UseAlpha="{Binding Property.PropertyMetadata.UseAlpha, Mode=OneTime}"/>
+                    Visibility="{Binding ElementName=ColorPickerToggle, Path=IsChecked, Converter={StaticResource BooleanToVisibilityConverter}}"/>
 
         <colpick:ColorPalette SelectedEvent="ColorPalette_SelectedEvent" Visibility="{Binding ElementName=ColorPaletteToggle, Path=IsChecked, Converter={StaticResource BooleanToVisibilityConverter}}"/>
 

@@ -5,6 +5,7 @@ using System.IO;
 using System.Linq;
 using System.Reactive.Linq;
 using System.Reflection;
+using System.Runtime.Serialization;
 using System.Text;
 
 using BEditor.Core.Data;
@@ -48,7 +49,13 @@ namespace BEditor.Core.Plugin
             {
                 if (plugin is IEffects effects)
                 {
-                    var a = new EffectMetadata() { Name = plugin.PluginName, Children = effects.Effects };
+                    var a = new EffectMetadata()
+                    {
+                        Name = plugin.PluginName,
+                        Children = effects.Effects
+                            .Where(meta => Attribute.IsDefined(meta.Type, typeof(DataContractAttribute)))
+                            .ToArray()
+                    };
 
                     Serialize.SerializeKnownTypes.AddRange(effects.Effects.Select(a => a.Type));
 
@@ -59,7 +66,7 @@ namespace BEditor.Core.Plugin
                 {
                     Serialize.SerializeKnownTypes.AddRange(objects.Objects.Select(a => a.Type));
 
-                    foreach (var o in objects.Objects)
+                    foreach (var o in objects.Objects.Where(meta => Attribute.IsDefined(meta.Type, typeof(DataContractAttribute))))
                     {
                         ObjectMetadata.LoadedObjects.Add(o);
                     }
@@ -67,7 +74,7 @@ namespace BEditor.Core.Plugin
 
                 if (plugin is IEasingFunctions easing)
                 {
-                    foreach (var data in easing.EasingFunc)
+                    foreach (var data in easing.EasingFunc.Where(meta => Attribute.IsDefined(meta.Type, typeof(DataContractAttribute))))
                     {
                         EasingFunc.LoadedEasingFunc.Add(data);
                         Serialize.SerializeKnownTypes.Add(data.Type);
