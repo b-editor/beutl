@@ -1,45 +1,41 @@
 ﻿using System;
+using System.Collections.Generic;
 using System.Text.RegularExpressions;
 
 namespace BEditor.Extensions.Object
 {
     public class ExobjectHeader
     {
-        private readonly static Regex indexRegex = new Regex(@"^\[([\d]+)\]\z");
-        private readonly static Regex startRegex = new Regex(@"^start=([\d]+)\z");
-        private readonly static Regex endRegex = new Regex(@"^end=([\d]+)\z");
-        private readonly static Regex layerRegex = new Regex(@"^layer=([\d]+)\z");
-        private readonly static Regex groupRegex = new Regex(@"^group=([\d]+)\z");
-        private readonly static Regex overlayRegex = new Regex(@"^overlay=([\d]+)\z");
-        private readonly static Regex cameraRegex = new Regex(@"^camera=([\d]+)\z");
-        private readonly static Regex audioRegex = new Regex(@"^audio=([\d]+)\z");
-
-        public ExobjectHeader(ReadOnlySpan<string> lines)
+        public ExobjectHeader(Dictionary<string, string> pairs)
         {
-            if (lines.Length is not 8) throw new FormatException();
-
-            Index = indexRegex.Match(lines[0]).Groups[1].Value;
-
-            foreach (var line in lines[1..])
-            {
-                if (startRegex.IsMatch(line)) Start = startRegex.Match(line).Groups[1].Value;
-                else if (endRegex.IsMatch(line)) End = endRegex.Match(line).Groups[1].Value;
-                else if (layerRegex.IsMatch(line)) Layer = layerRegex.Match(line).Groups[1].Value;
-                else if (groupRegex.IsMatch(line)) Group = groupRegex.Match(line).Groups[1].Value;
-                else if (overlayRegex.IsMatch(line)) Overlay = overlayRegex.Match(line).Groups[1].Value;
-                else if (cameraRegex.IsMatch(line)) Camera = cameraRegex.Match(line).Groups[1].Value;
-                else if (audioRegex.IsMatch(line)) Audio = audioRegex.Match(line).Groups[1].Value;
-            }
+            Start = int.Parse(pairs["start"]);
+            End = int.Parse(pairs["end"]);
+            Layer = int.Parse(pairs["layer"]);
+            Group = int.Parse(pairs["group"]);
+            Overlay = int.Parse(pairs["overlay"]);
+            Camera = int.Parse(pairs["camera"]);
+            Audio = int.Parse(pairs["audio"]);
         }
 
-        public string Index { get; }
-        public string Start { get; }
-        public string End { get; }
-        public string Layer { get; }
-        public string Group { get; }
-        public string Overlay { get; }
-        public string Camera { get; }
-        public string Audio { get; }
+        public int Start { get; }
+        public int End { get; }
+        public int Layer { get; }
+        public int Group { get; }
+        public int Overlay { get; }
+        public int Camera { get; }
+        public int Audio { get; }
+
+        public override string ToString()
+        {
+            return
+                $"start={Start}{ExoPerser.returnStr}" +
+                $"end={End}{ExoPerser.returnStr}" +
+                $"layer={Layer}{ExoPerser.returnStr}" +
+                $"group={Group}{ExoPerser.returnStr}" +
+                $"overlay={Overlay}{ExoPerser.returnStr}" +
+                $"camera={Camera}{ExoPerser.returnStr}" +
+                $"audio={Audio}{ExoPerser.returnStr}";
+        }
         /*
 [0]
 start=1

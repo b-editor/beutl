@@ -11,14 +11,13 @@ namespace BEditor.Extensions.Object
 {
     public class Exobject
     {
-
-
-        public Exobject(ExobjectHeader header)
+        public Exobject(ExobjectHeader header, Exeffect exeffects)
         {
             Header = header;
+            Effects = exeffects;
         }
 
         public ExobjectHeader Header { get; }
-        public List<Exeffect> Effects { get; } = new();
+        public Exeffect Effects { get; }
     }
 }
