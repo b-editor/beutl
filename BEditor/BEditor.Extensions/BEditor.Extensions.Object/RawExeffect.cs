@@ -7,14 +7,16 @@ using System.Threading.Tasks;
 
 namespace BEditor.Extensions.Object
 {
-    public class Exeffect
+    public class RawExeffect
     {
-        public Exeffect(Dictionary<string, string> pairs)
+        public RawExeffect(int number, Dictionary<string, string> pairs)
         {
+            Number = number;
             Values = pairs;
             Name = pairs["_name"];
         }
 
+        public int Number { get; }
         public string Name { get; }
         public Dictionary<string, string> Values { get; } = new();
     }

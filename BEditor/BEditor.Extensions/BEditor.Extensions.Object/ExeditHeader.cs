@@ -5,6 +5,8 @@ using System.Text;
 using System.Text.RegularExpressions;
 using System.Threading.Tasks;
 
+using BEditor.Core.Data;
+
 namespace BEditor.Extensions.Object
 {
     public class ExeditHeader
@@ -35,6 +37,10 @@ namespace BEditor.Extensions.Object
                 $"scale={Scale}{ExoPerser.returnStr}" +
                 $"audio_rate={AudioRate}{ExoPerser.returnStr}" +
                 $"audio_ch={AudioCh}{ExoPerser.returnStr}";
+        }
+        public Project ToProject()
+        {
+            return new Project(Width, Height, Rate, AudioRate);
         }
 
         /*

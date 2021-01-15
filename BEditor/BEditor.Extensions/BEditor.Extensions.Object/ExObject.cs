@@ -2,6 +2,8 @@
 using System.Collections.Generic;
 using System.Collections.ObjectModel;
 using System.IO;
+using System.Linq;
+using System.Reflection;
 using System.Text;
 using System.Text.RegularExpressions;
 
@@ -11,13 +13,24 @@ namespace BEditor.Extensions.Object
 {
     public class Exobject
     {
-        public Exobject(ExobjectHeader header, Exeffect exeffects)
+        private static readonly PropertyInfo GetNewId = typeof(Scene).GetRuntimeProperties().ToList().Find(i => i.Name == "NewId")!;
+
+        public Exobject(ExobjectHeader header, List<RawExeffect> exeffects)
         {
             Header = header;
-            Effects = exeffects;
+            RawEffects = exeffects;
         }
 
         public ExobjectHeader Header { get; }
-        public Exeffect Effects { get; }
+        public List<RawExeffect> RawEffects { get; }
+
+        public ClipData ToClip(Scene scene)
+        {
+            var id = (int)GetNewId.GetValue(scene)!;
+            var clip = new ClipData(id, new(), Header.Start, Header.End, null!, Header.Layer, scene);
+
+
+            return clip;
+        }
     }
 }

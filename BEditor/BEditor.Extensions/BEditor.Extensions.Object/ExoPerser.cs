@@ -44,7 +44,7 @@ namespace BEditor.Extensions.Object
                 {
                     return map[section];
                 }
-                
+
                 throw new KeyNotFoundException();
             }
         }
@@ -57,11 +57,11 @@ namespace BEditor.Extensions.Object
 
             return new ExoPerser(text);
         }
-        public Scene? Perse()
+        public Project? Perse()
         {
             var exedit = new ExeditHeader(this["exedit"]);
             var exos = new List<ExobjectHeader>();
-            var exes = new List<Exeffect>();
+            var exes = new List<RawExeffect>();
 
             foreach (var item in map.Where(i => !i.Key.Contains('.') && !i.Key.Contains("exedit")))
             {
@@ -69,12 +69,18 @@ namespace BEditor.Extensions.Object
             }
             foreach (var item in map.Where(i => i.Key.Contains('.') && !i.Key.Contains("exedit")))
             {
-                exes.Add(new(item.Value));
+                exes.Add(new(
+                    int.Parse(item.Key.Split('.')[0]),
+                    item.Value));
             }
 
-            var items = exos.Zip(exes, (exo, exe) => new Exobject(exo, exe)).ToList();
+            var items = exos.Zip(exes.GroupBy(i => i.Number), (exo, exe) => new Exobject(exo, exe.ToList())).ToList();
+            var proj = exedit.ToProject();
+            var scene = proj.PreviewScene;
 
-            return null;
+            foreach (var clip in items) scene.Add(clip.ToClip(scene));
+
+            return proj;
         }
 
         private void Load()
