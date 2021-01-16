@@ -151,6 +151,12 @@ namespace BEditor.Core.Data.Property
             }
         }
 
+        /// <summary>
+        /// イージングをして、Optionalを追加します
+        /// </summary>
+        /// <param name="frame">タイムライン基準のフレーム</param>
+        /// <returns></returns>
+        public float this[Frame frame] => GetValue(frame);
 
         #region Methods
 
@@ -320,6 +326,8 @@ namespace BEditor.Core.Data.Property
         public override void Loaded()
         {
             if (IsLoaded) return;
+
+            //Todo: ここに範囲外の場合の処理を書く
 
             EasingType.Loaded();
             base.Loaded();

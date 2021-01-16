@@ -8,11 +8,7 @@ using OpenTK.Graphics.OpenGL;
 using BEditor.Core.Properties;
 using BEditor.Core.Command;
 
-#if OldOpenTK
-using GLColor = OpenTK.Graphics.Color4;
-#else
 using GLColor = OpenTK.Mathematics.Color4;
-#endif
 
 using static BEditor.Core.Data.Property.PrimitiveGroup.Coordinate;
 

@@ -4,7 +4,7 @@ using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
 
-using BEditor.Core.Extensions.ViewCommand;
+using BEditor.Core.Extensions;
 using BEditor.Core.Plugin;
 
 namespace TestPlugin2

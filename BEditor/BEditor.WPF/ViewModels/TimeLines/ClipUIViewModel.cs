@@ -26,6 +26,8 @@ namespace BEditor.ViewModels.TimeLines
 {
     public class ClipUIViewModel
     {
+        private Point MouseRightPoint;
+
         public Scene Scene => ClipData.Parent;
         private TimeLineViewModel TimeLineViewModel => Scene.GetCreateTimeLineViewModel();
         public ClipData ClipData { get; }
@@ -83,7 +85,8 @@ namespace BEditor.ViewModels.TimeLines
 
             #region Subscribe
 
-            ClipMouseDownCommand.Subscribe(ClipMouseDown);
+            ClipMouseLeftDownCommand.Subscribe(ClipMouseLeftDown);
+            ClipMouseRightDownCommand.Subscribe(p => MouseRightPoint = p);
             ClipMouseUpCommand.Subscribe(ClipMouseUp);
             ClipMouseMoveCommand.Subscribe(ClipMouseMove);
             ClipMouseDoubleClickCommand.Subscribe(ClipMouseDoubleClick);
@@ -119,7 +122,8 @@ namespace BEditor.ViewModels.TimeLines
         #region クリップ操作
 
         #region Properties
-        public ReactiveCommand ClipMouseDownCommand { get; } = new();
+        public ReactiveCommand ClipMouseLeftDownCommand { get; } = new();
+        public ReactiveCommand<Point> ClipMouseRightDownCommand { get; } = new();
         public ReactiveCommand ClipMouseUpCommand { get; } = new();
         public ReactiveCommand<Point> ClipMouseMoveCommand { get; } = new();
         public ReactiveCommand ClipMouseDoubleClickCommand { get; } = new();
@@ -131,8 +135,8 @@ namespace BEditor.ViewModels.TimeLines
         #endregion
 
 
-        #region MouseDown
-        private void ClipMouseDown()
+        #region MouseLeftDown
+        private void ClipMouseLeftDown()
         {
             TimeLineViewModel.ClipMouseDown = true;
 
@@ -268,7 +272,9 @@ namespace BEditor.ViewModels.TimeLines
         #region Sparate
         private void ClipSeparate()
         {
+            var frame = TimeLineViewModel.ToFrame(MouseRightPoint.X) + ClipData.Start;
 
+            ClipData.CreateSparateCommand(frame).Execute();
         }
         #endregion
 

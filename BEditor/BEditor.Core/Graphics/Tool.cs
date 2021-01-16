@@ -1,19 +1,16 @@
 ﻿using System;
+using System.Drawing;
+
+using BEditor.Drawing;
+using BEditor.Drawing.Pixel;
 
 using OpenTK;
 using OpenTK.Graphics;
 using OpenTK.Graphics.OpenGL4;
-#if OldOpenTK
-using GLColor = OpenTK.Graphics.Color4;
-#else
-using GLColor = OpenTK.Mathematics.Color4;
 using OpenTK.Mathematics;
-#endif
 
 using Color = BEditor.Drawing.Color;
-using BEditor.Drawing;
-using System.Drawing;
-using BEditor.Drawing.Pixel;
+using GLColor = OpenTK.Mathematics.Color4;
 
 namespace BEditor.Core.Graphics
 {
@@ -52,16 +49,38 @@ namespace BEditor.Core.Graphics
 
         #endregion
 
-        internal static Vector3 ToOpenTK(this ref System.Numerics.Vector3 vector3) => new Vector3(vector3.X, vector3.Y, vector3.Z);
-        internal static Vector2 ToOpenTK(this ref System.Numerics.Vector2 vector3) => new Vector2(vector3.X, vector3.Y);
+        internal static Vector3 ToOpenTK(this ref System.Numerics.Vector3 vector3)
+        {
+            return new Vector3(vector3.X, vector3.Y, vector3.Z);
+        }
+
+        internal static Vector2 ToOpenTK(this ref System.Numerics.Vector2 vector3)
+        {
+            return new Vector2(vector3.X, vector3.Y);
+        }
+
         internal static Vector4 ToVector4(this in Color color)
-            => new(
-                color.R / 255f,
-                color.G / 255f,
-                color.B / 255f,
-                color.A / 255f);
-        internal static System.Numerics.Vector3 ToNumerics(this ref Vector3 vector3) => new(vector3.X, vector3.Y, vector3.Z);
-        internal static System.Numerics.Vector2 ToNumerics(this ref Vector2 vector3) => new(vector3.X, vector3.Y);
-        internal static GLColor ToOpenTK(this in Color color) => new(color.R, color.G, color.B, color.A);
+        {
+            return new(
+                           color.R / 255f,
+                           color.G / 255f,
+                           color.B / 255f,
+                           color.A / 255f);
+        }
+
+        internal static System.Numerics.Vector3 ToNumerics(this ref Vector3 vector3)
+        {
+            return new(vector3.X, vector3.Y, vector3.Z);
+        }
+
+        internal static System.Numerics.Vector2 ToNumerics(this ref Vector2 vector3)
+        {
+            return new(vector3.X, vector3.Y);
+        }
+
+        internal static GLColor ToOpenTK(this in Color color)
+        {
+            return new(color.R, color.G, color.B, color.A);
+        }
     }
 }

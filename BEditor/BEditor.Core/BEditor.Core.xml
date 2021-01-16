@@ -785,6 +785,13 @@
             
             </summary>
         </member>
+        <member name="P:BEditor.Core.Data.Property.ColorAnimationProperty.Item(BEditor.Media.Frame)">
+            <summary>
+            イージングします
+            </summary>
+            <param name="frame">タイムライン基準のフレーム</param>
+            <returns></returns>
+        </member>
         <member name="M:BEditor.Core.Data.Property.ColorAnimationProperty.GetValue(BEditor.Media.Frame)">
             <summary>
             イージングします
@@ -1153,6 +1160,13 @@
         </member>
         <member name="P:BEditor.Core.Data.Property.EaseProperty.Parent">
             <inheritdoc/>
+        </member>
+        <member name="P:BEditor.Core.Data.Property.EaseProperty.Item(BEditor.Media.Frame)">
+            <summary>
+            イージングをして、Optionalを追加します
+            </summary>
+            <param name="frame">タイムライン基準のフレーム</param>
+            <returns></returns>
         </member>
         <member name="M:BEditor.Core.Data.Property.EaseProperty.GetValue(BEditor.Media.Frame)">
             <summary>

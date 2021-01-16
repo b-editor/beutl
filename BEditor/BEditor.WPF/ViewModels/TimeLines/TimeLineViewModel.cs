@@ -410,7 +410,7 @@ namespace BEditor.ViewModels.TimeLines
             Scene.PreviewFrame = s + 1;
         }
         #endregion
-
+        
         #region MouseLeftUp
         public void TimeLineMouseLeftUp()
         {

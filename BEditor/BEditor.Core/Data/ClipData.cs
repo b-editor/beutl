@@ -197,7 +197,16 @@ namespace BEditor.Core.Data
         }
 
         /// <inheritdoc/>
-        public object Clone() => this.DeepClone();
+        public object Clone()
+        {
+            var clip = this.DeepClone();
+
+            clip.Parent = Parent;
+            clip.Loaded();
+
+            return clip;
+        }
+
         /// <inheritdoc/>
         public string ToString(string? format)
             => ToString(format, CultureInfo.CurrentCulture);
@@ -232,7 +241,7 @@ namespace BEditor.Core.Data
         {
             if (!IsLoaded) return;
 
-            foreach(var effect in Effect)
+            foreach (var effect in Effect)
             {
                 effect.Unloaded();
             }
@@ -464,6 +473,50 @@ namespace BEditor.Core.Data
             {
                 data.Start = oldstart;
                 data.End = oldend;
+            }
+        }
+        internal sealed class SparateCommand : IRecordCommand
+        {
+            public readonly ClipData Before;
+            public readonly ClipData After;
+            private readonly ClipData Source;
+            private readonly Scene Scene;
+
+            public SparateCommand(ClipData clip, Frame frame)
+            {
+                Source = clip;
+                Scene = clip.Parent;
+                Before = (ClipData?)clip.Clone();
+                After = (ClipData?)clip.Clone();
+
+                Before.End = frame;
+                After.Start = frame;
+            }
+
+            public void Do()
+            {
+                After.Loaded();
+                Before.Loaded();
+
+                new RemoveCommand(Source).Do();
+                After.Id = Scene.NewId;
+                Scene.Add(After);
+                Before.Id = Scene.NewId;
+                Scene.Add(Before);
+            }
+            public void Redo()
+            {
+                Do();
+            }
+            public void Undo()
+            {
+                Before.Unloaded();
+                After.Unloaded();
+                Source.Loaded();
+
+                Scene.Remove(Before);
+                Scene.Remove(After);
+                Scene.Add(Source);
             }
         }
     }

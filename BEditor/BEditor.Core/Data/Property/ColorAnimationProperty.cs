@@ -104,7 +104,12 @@ namespace BEditor.Core.Data.Property
             set => SetValue(value, ref easingData, easingDataArgs);
         }
         internal Frame Length => Parent.Parent.Length;
-
+        /// <summary>
+        /// イージングします
+        /// </summary>
+        /// <param name="frame">タイムライン基準のフレーム</param>
+        /// <returns></returns>
+        public Color this[Frame frame]=>GetValue(frame);
 
         #region Methods
 

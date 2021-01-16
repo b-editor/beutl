@@ -19,7 +19,6 @@ namespace BEditor.Views.TimeLines
     /// </summary>
     public partial class ClipUI : UserControl, ICustomTreeViewItem
     {
-
         public static readonly DependencyProperty IsExpandedProperty = DependencyProperty.Register("IsExpanded", typeof(bool), typeof(ClipUI), new FrameworkPropertyMetadata(false, FrameworkPropertyMetadataOptions.BindsTwoWayByDefault, IsExpandedChanged));
 
 
