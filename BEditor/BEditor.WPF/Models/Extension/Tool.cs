@@ -14,6 +14,7 @@ namespace BEditor.Models.Extension
     {
         public static void PreviewUpdate(this Project project, ClipData clipData, RenderType type = RenderType.Preview)
         {
+            if (project is null) return;
             var now = project.PreviewScene.PreviewFrame;
             if (clipData.Start <= now && now <= clipData.End)
             {

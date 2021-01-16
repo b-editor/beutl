@@ -1044,6 +1044,15 @@ namespace BEditor.Core.Properties {
         }
         
         /// <summary>
+        ///   Json file に類似しているローカライズされた文字列を検索します。
+        /// </summary>
+        public static string JsonFile {
+            get {
+                return ResourceManager.GetString("JsonFile", resourceCulture);
+            }
+        }
+        
+        /// <summary>
         ///   Language に類似しているローカライズされた文字列を検索します。
         /// </summary>
         public static string Language {
@@ -1536,6 +1545,15 @@ namespace BEditor.Core.Properties {
         public static string Scenes {
             get {
                 return ResourceManager.GetString("Scenes", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///    に類似しているローカライズされた文字列を検索します。
+        /// </summary>
+        public static string SceneSettings {
+            get {
+                return ResourceManager.GetString("SceneSettings", resourceCulture);
             }
         }
         

@@ -750,4 +750,10 @@ Please select the plugin you want to load</value>
   <data name="_3DObject" xml:space="preserve">
     <value>3DObject</value>
   </data>
+  <data name="JsonFile" xml:space="preserve">
+    <value>Json file</value>
+  </data>
+  <data name="SceneSettings" xml:space="preserve">
+    <value></value>
+  </data>
 </root>

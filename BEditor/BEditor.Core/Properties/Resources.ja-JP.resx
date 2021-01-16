@@ -747,4 +747,13 @@
   <data name="_3DObject" xml:space="preserve">
     <value>立体オブジェクト</value>
   </data>
+  <data name="JsonFile" xml:space="preserve">
+    <value>Jsonファイル</value>
+  </data>
+  <data name="Lighting" xml:space="preserve">
+    <value>ライト</value>
+  </data>
+  <data name="SceneSettings" xml:space="preserve">
+    <value>シーンの設定</value>
+  </data>
 </root>

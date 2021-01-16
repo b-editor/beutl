@@ -11,6 +11,7 @@ using BEditor.Core.Service;
 using BEditor.Core.Properties;
 using BEditor.Core.Data.Primitive.Objects;
 using System.Text.RegularExpressions;
+using static System.Net.WebRequestMethods;
 
 namespace BEditor.Core.Data
 {
@@ -52,7 +53,13 @@ namespace BEditor.Core.Data
         /// </summary>
         public Project(string file, IApplication app = null)
         {
-            var o = Serialize.LoadFromFile<Project>(file);
+            var mode = SerializeMode.Binary;
+            if(Path.GetExtension(file) is ".json")
+            {
+                mode = SerializeMode.Json;
+            }
+
+            var o = Serialize.LoadFromFile<Project>(file, mode);
 
             if (o != null)
             {
@@ -69,9 +76,9 @@ namespace BEditor.Core.Data
         /// <summary>
         /// <see cref="Project"/> Initialize a new instance of the class.
         /// </summary>
-        public Project(Stream stream, IApplication app = null)
+        public Project(Stream stream, SerializeMode mode, IApplication app = null)
         {
-            var o = Serialize.LoadFromStream<Project>(stream);
+            var o = Serialize.LoadFromStream<Project>(stream, mode);
 
             if (o != null)
             {
@@ -297,18 +304,26 @@ namespace BEditor.Core.Data
                 DefaultFileName = (Filename is not null) ? Path.GetFileName(Filename) : "新しいプロジェクト.bedit",
                 Filters =
                 {
-                    new(Resources.ProjectFile, "bedit")
+                    new(Resources.ProjectFile, "bedit"),
+                    new(Resources.JsonFile, "json"),
                 }
             };
-
+            var mode = SerializeMode.Binary;
             //ダイアログを表示する
             if (Services.FileDialogService.ShowSaveFileDialog(record))
             {
                 //OKボタンがクリックされたとき、選択されたファイル名を表示する
-                Filename = record.FileName;
+                if (Path.GetExtension(record.FileName) is ".json")
+                {
+                    mode = SerializeMode.Json;
+                }
+                else
+                {
+                    Filename = record.FileName;
+                }
             }
 
-            if (Serialize.SaveToFile(this, Filename))
+            if (Serialize.SaveToFile(this, record.FileName, mode))
             {
                 Saved?.Invoke(this, new(SaveType.SaveAs));
                 return true;

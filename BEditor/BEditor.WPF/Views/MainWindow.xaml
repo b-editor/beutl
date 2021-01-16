@@ -360,10 +360,18 @@
                     <ComboBox
                         IsEnabled="{Binding ProjectIsOpened.Value, Mode=OneWay}"
                         MinWidth="100"
-                        Margin="5,0,0,0"
+                        Margin="5,0,5,0"
                         ItemsSource="{Binding Project.SceneList, Mode=OneWay, Source={x:Static model:AppData.Current}}"
                         SelectedItem="{Binding Project.PreviewScene, Mode=TwoWay, Source={x:Static model:AppData.Current}}"
                         DisplayMemberPath="SceneName"/>
+                    <Button
+                        Padding="0,0,0,0"
+                        Margin="5,0,0,0"
+                        Command="{Binding SceneSettingsCommand, Mode=OneTime}"
+                        IsEnabled="{Binding ProjectIsOpened.Value, Mode=OneWay}"
+                        ToolTip="{x:Static properties:Resources.SceneSettings}">
+                        <md:PackIcon Kind="TuneVariant" Width="20" Height="20"/>
+                    </Button>
                 </ToolBar>
                 <ToolBar Height="27" HorizontalContentAlignment="Center" VerticalContentAlignment="Center">
                     <md:PackIcon Kind="Movie" Style="{StaticResource MouseOverIcon}" Foreground="{StaticResource VideoColor}"/>

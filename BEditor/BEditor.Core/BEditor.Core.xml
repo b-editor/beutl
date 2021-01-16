@@ -549,7 +549,7 @@
             <see cref="T:BEditor.Core.Data.Project"/> Initialize a new instance of the class.
             </summary>
         </member>
-        <member name="M:BEditor.Core.Data.Project.#ctor(System.IO.Stream,BEditor.Core.IApplication)">
+        <member name="M:BEditor.Core.Data.Project.#ctor(System.IO.Stream,BEditor.Core.SerializeMode,BEditor.Core.IApplication)">
             <summary>
             <see cref="T:BEditor.Core.Data.Project"/> Initialize a new instance of the class.
             </summary>
@@ -2077,6 +2077,11 @@
             Get or set the selected <see cref="T:BEditor.Core.Data.ClipData"/>.
             </summary>
         </member>
+        <member name="P:BEditor.Core.Data.Scene.BackgroundColor">
+            <summary>
+            Gets or sets the background color of the GraphicsContext
+            </summary>
+        </member>
         <member name="P:BEditor.Core.Data.Scene.GraphicsContext">
             <summary>
             Get graphic context.
@@ -2128,6 +2133,11 @@
         </member>
         <member name="P:BEditor.Core.Data.Scene.Id">
             <inheritdoc/>
+        </member>
+        <member name="P:BEditor.Core.Data.Scene.Settings">
+            <summary>
+            Gets or sets the settings for this scene.
+            </summary>
         </member>
         <member name="M:BEditor.Core.Data.Scene.Loaded">
             <inheritdoc/>
@@ -2781,6 +2791,11 @@
               Installed plugins に類似しているローカライズされた文字列を検索します。
             </summary>
         </member>
+        <member name="P:BEditor.Core.Properties.Resources.JsonFile">
+            <summary>
+              Json file に類似しているローカライズされた文字列を検索します。
+            </summary>
+        </member>
         <member name="P:BEditor.Core.Properties.Resources.Language">
             <summary>
               Language に類似しているローカライズされた文字列を検索します。
@@ -3055,6 +3070,11 @@
         <member name="P:BEditor.Core.Properties.Resources.Scenes">
             <summary>
               Scenes に類似しているローカライズされた文字列を検索します。
+            </summary>
+        </member>
+        <member name="P:BEditor.Core.Properties.Resources.SceneSettings">
+            <summary>
+               に類似しているローカライズされた文字列を検索します。
             </summary>
         </member>
         <member name="P:BEditor.Core.Properties.Resources.SendFeedback">

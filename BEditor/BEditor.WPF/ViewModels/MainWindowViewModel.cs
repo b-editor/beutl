@@ -31,6 +31,7 @@ using System.IO;
 using System.Text;
 using System.Threading;
 using BEditor.ViewModels.CreateDialog;
+using BEditor.ViewModels.SettingsControl;
 
 namespace BEditor.ViewModels
 {
@@ -57,6 +58,7 @@ namespace BEditor.ViewModels
 
         public ReactiveCommand DeleteCommand { get; } = new();
         public ReactiveCommand MemoryRelease { get; } = new();
+        public ReactiveCommand SceneSettingsCommand { get; } = new();
 
         public SnackbarMessageQueue MessageQueue { get; } = new();
 
@@ -246,6 +248,17 @@ namespace BEditor.ViewModels
 
                 Message.Snackbar(((Environment.WorkingSet - bytes) / 10000000f).ToString() + "MB");
             });
+            SceneSettingsCommand.Where(_ => AppData.Current.Project is not null)
+                .Select(_ => AppData.Current.Project.PreviewScene)
+                .Subscribe(s =>
+                {
+                    var vm = new SceneSettingsViewModel(s);
+                    var v = new Views.SettingsControls.SceneSettingsDialog()
+                    {
+                        DataContext = vm
+                    };
+                    v.ShowDialog();
+                });
         }
 
 
@@ -326,8 +339,9 @@ namespace BEditor.ViewModels
             {
                 Filters =
                 {
-                    new("プロジェクトファイル", "bedit"),
-                    new("バックアップファイル", "backup")
+                    new(Resources.ProjectFile, "bedit"),
+                    new(Resources.BackupFile, "backup"),
+                    new(Resources.JsonFile, "json"),
                 },
                 RestoreDirectory = true
             };

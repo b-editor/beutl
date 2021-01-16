@@ -35,6 +35,7 @@ namespace BEditor.Core.Data
         private static readonly PropertyChangedEventArgs hoffsetArgs = new(nameof(TimeLineHorizonOffset));
         private static readonly PropertyChangedEventArgs voffsetArgs = new(nameof(TimeLineVerticalOffset));
         private static readonly PropertyChangedEventArgs sceneNameArgs = new(nameof(SceneName));
+        private static readonly PropertyChangedEventArgs backgroundColorArgs = new(nameof(BackgroundColor));
         private ClipData selectItem;
         private ObservableCollection<ClipData> selectItems;
         private Frame previewframe;
@@ -44,6 +45,7 @@ namespace BEditor.Core.Data
         private double timeLineVerticalOffset;
         private string sceneName;
         private IPlayer player;
+        private Color backgroundColor;
 
         #endregion
 
@@ -159,8 +161,23 @@ namespace BEditor.Core.Data
                 return selectItems;
             }
         }
+        /// <summary>
+        /// Gets or sets the background color of the GraphicsContext
+        /// </summary>
+        [DataMember]
+        public Color BackgroundColor
+        {
+            get => backgroundColor;
+            set
+            {
+                if (GraphicsContext is not null)
+                {
+                    GraphicsContext.ClearColor = value;
+                }
 
-
+                SetValue(value, ref backgroundColor, backgroundColorArgs);
+            }
+        }
         /// <summary>
         /// Get graphic context.
         /// </summary>
@@ -267,6 +284,24 @@ namespace BEditor.Core.Data
                 return max;
             }
         }
+        /// <summary>
+        /// Gets or sets the settings for this scene.
+        /// </summary>
+        public SceneSettings Settings
+        {
+            get => new(Width, Height, Name, BackgroundColor);
+            set
+            {
+                Width = value.Width;
+                Height = value.Height;
+                SceneName = value.Name;
+
+                GraphicsContext?.Dispose();
+                GraphicsContext = new(Width, Height);
+
+                BackgroundColor = value.BackgroundColor;
+            }
+        }
 
         #endregion
 
@@ -279,7 +314,10 @@ namespace BEditor.Core.Data
         {
             if (IsLoaded) return;
 
-            GraphicsContext = new GraphicsContext(Width, Height);
+            GraphicsContext = new GraphicsContext(Width, Height)
+            {
+                ClearColor = BackgroundColor
+            };
             AudioContext = new AudioContext();
             foreach (var clip in Datas)
             {
@@ -323,7 +361,7 @@ namespace BEditor.Core.Data
             GraphicsContext.Camera = new OrthographicCamera(new(0, 0, 1024), Width, Height);
             GraphicsContext.MakeCurrent();
             AudioContext.MakeCurrent();
-            //GraphicsContext.Clear();
+            GraphicsContext.Clear();
 
             GL.Clear(ClearBufferMask.ColorBufferBit | ClearBufferMask.DepthBufferBit);
 
@@ -490,4 +528,6 @@ namespace BEditor.Core.Data
 
         public override string SceneName { get => "root"; set { } }
     }
+
+    public record SceneSettings(int Width, int Height, string Name, Color BackgroundColor);
 }
