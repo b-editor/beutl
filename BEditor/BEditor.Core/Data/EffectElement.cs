@@ -9,7 +9,6 @@ using System.Threading.Tasks;
 
 using BEditor.Core.Command;
 using BEditor.Core.Data.Primitive.Effects;
-using BEditor.Core.Data.Primitive.Effects.PrimitiveImages;
 using BEditor.Core.Data.Property;
 using BEditor.Core.Properties;
 

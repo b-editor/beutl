@@ -7,18 +7,15 @@ using System.Text;
 using System.Threading.Tasks;
 
 using BEditor.Core.Data.Primitive.Effects;
-using BEditor.Core.Data.Primitive.Effects.PrimitiveImages;
 using BEditor.Core.Data.Primitive.Objects;
-using BEditor.Core.Data.Primitive.Properties;
-using BEditor.Core.Data.Primitive.Properties.PrimitiveEasing;
-using BEditor.Core.Data.Primitive.Properties.PrimitiveGroup;
 using BEditor.Core.Data.Property;
-using BEditor.Core.Data.Property.EasingProperty;
-using BEditor.Core.Data.Primitive.Objects.PrimitiveImages;
+using BEditor.Core.Data.Property.PrimitiveGroup;
 using BEditor.Core.Data;
 using System.Collections.ObjectModel;
 using System.Xml;
 using System.Diagnostics;
+using BEditor.Core.Data.Property.Easing;
+using BEditor.Core.Data.Primitive;
 
 namespace BEditor.Core
 {
@@ -256,7 +253,7 @@ namespace BEditor.Core
             typeof(SelectorProperty),
             typeof(ExpandGroup),
 
-            typeof(DefaultEasing),
+            typeof(PrimitiveEasing),
             typeof(EasingFunc)
         };
     }

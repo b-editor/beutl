@@ -13,7 +13,7 @@ using System.Windows.Media.Imaging;
 using System.Windows.Navigation;
 using System.Windows.Shapes;
 
-using BEditor.Core.Extensions.ViewCommand;
+using BEditor.Core.Extensions;
 
 namespace BEditor.Views.MessageContent
 {

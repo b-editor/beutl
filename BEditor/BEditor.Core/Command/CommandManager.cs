@@ -6,7 +6,6 @@ using System.Threading.Tasks;
 
 using BEditor.Core.Data;
 using BEditor.Core.Data.Bindings;
-using BEditor.Core.Data.Primitive.Properties;
 using BEditor.Core.Data.Property;
 using BEditor.Drawing;
 

@@ -73,7 +73,7 @@ namespace BEditor.Core.Data.Bindings
                 // EffectElementの子要素からIParentを見つける
                 Parallel.ForEach(bindable.GetParent().Children, item =>
                 {
-                    if (item is Data.Primitive.Properties.Group parent && parent.Contains(p))
+                    if (item is Property.Group parent && parent.Contains(p))
                     {
                         group = parent.Id;
                         property = parent.Children.ToList().IndexOf(p);

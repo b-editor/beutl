@@ -2,22 +2,17 @@
 using System.Collections.Generic;
 using System.Runtime.Serialization;
 
+using BEditor.Core.Command;
 using BEditor.Core.Data.Property;
-using BEditor.Core.Properties;
-using BEditor.Core.Graphics;
+using BEditor.Core.Data.Property.PrimitiveGroup;
 using BEditor.Core.Extensions;
-using BEditor.Core.Data.Primitive.Objects.PrimitiveImages;
+using BEditor.Core.Graphics;
+using BEditor.Core.Properties;
 
 using OpenTK.Graphics.OpenGL4;
-using BEditor.Core.Data.Primitive.Properties.PrimitiveGroup;
-using BEditor.Core.Data.Primitive.Properties;
-using BEditor.Core.Command;
-using Material = BEditor.Core.Data.Primitive.Properties.PrimitiveGroup.Material;
-#if OldOpenTK
-using GLColor = OpenTK.Graphics.Color4;
-#else
+
 using GLColor = OpenTK.Mathematics.Color4;
-#endif
+using Material = BEditor.Core.Data.Property.PrimitiveGroup.Material;
 
 namespace BEditor.Core.Data.Primitive.Objects
 {

@@ -6,8 +6,9 @@ using System.Runtime.InteropServices;
 using System.Threading.Tasks;
 
 using BEditor.Core.Data;
+using BEditor.Core.Data.Primitive;
 using BEditor.Core.Data.Primitive.Objects;
-using BEditor.Core.Data.Primitive.Properties.PrimitiveGroup;
+using BEditor.Core.Data.Property.PrimitiveGroup;
 using BEditor.Drawing;
 using BEditor.Drawing.Pixel;
 

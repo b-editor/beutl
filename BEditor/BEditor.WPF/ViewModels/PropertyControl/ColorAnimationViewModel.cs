@@ -2,9 +2,8 @@
 using System.Reactive.Linq;
 
 using BEditor.Core.Command;
-using BEditor.Core.Data.Control;
-using BEditor.Core.Data.Primitive.Properties;
-using BEditor.Core.Data.Property.EasingProperty;
+using BEditor.Core.Data.Property;
+using BEditor.Core.Data.Property.Easing;
 
 using Reactive.Bindings;
 using Reactive.Bindings.Extensions;

@@ -5,8 +5,8 @@ using System.Text;
 using System.Threading.Tasks;
 
 using BEditor.Core.Command;
-using BEditor.Core.Data.Control;
-using BEditor.Core.Data.Primitive.Properties;
+using BEditor.Core.Data;
+using BEditor.Core.Data.Property;
 using BEditor.Models;
 using BEditor.Models.Extension;
 using BEditor.Views.PropertyControls;

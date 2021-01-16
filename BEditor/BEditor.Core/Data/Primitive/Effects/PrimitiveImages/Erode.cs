@@ -1,16 +1,15 @@
 ﻿using System.Collections.Generic;
 using System.Runtime.Serialization;
 
-using BEditor.Core.Data.Primitive.Properties;
+using BEditor.Core.Command;
 using BEditor.Core.Data.Property;
 using BEditor.Core.Extensions;
-
-using static BEditor.Core.Data.Primitive.Effects.PrimitiveImages.Dilate;
-using BEditor.Core.Command;
 using BEditor.Drawing;
 using BEditor.Drawing.Pixel;
 
-namespace BEditor.Core.Data.Primitive.Effects.PrimitiveImages
+using static BEditor.Core.Data.Primitive.Effects.Dilate;
+
+namespace BEditor.Core.Data.Primitive.Effects
 {
     [DataContract]
     public class Erode : ImageEffect
@@ -29,7 +28,7 @@ namespace BEditor.Core.Data.Primitive.Effects.PrimitiveImages
         };
         [DataMember(Order = 0)]
         public EaseProperty Frequency { get; private set; }
-        [DataMember(Order =1)]
+        [DataMember(Order = 1)]
         public CheckProperty Resize { get; private set; }
 
         public override void Render(EffectRenderArgs<Image<BGRA32>> args)

@@ -3,16 +3,14 @@ using System.Collections.Generic;
 using System.Runtime.Serialization;
 
 using BEditor.Core.Command;
-using BEditor.Core.Data.Primitive.Properties;
 using BEditor.Core.Data.Property;
 using BEditor.Core.Extensions;
-using BEditor.Core.Extensions.ViewCommand;
 using BEditor.Core.Properties;
 using BEditor.Drawing;
 using BEditor.Drawing.Pixel;
 using BEditor.Media.Decoder;
 
-namespace BEditor.Core.Data.Primitive.Objects.PrimitiveImages
+namespace BEditor.Core.Data.Primitive.Objects
 {
     [DataContract]
     public class Video : ImageObject

@@ -4,7 +4,6 @@ using System.Runtime.Serialization;
 
 using BEditor.Core;
 using BEditor.Core.Command;
-using BEditor.Core.Data.Primitive.Properties;
 using BEditor.Core.Data.Property;
 using BEditor.Core.Extensions;
 using BEditor.Core.Properties;
@@ -12,7 +11,7 @@ using BEditor.Core.Service;
 using BEditor.Drawing;
 using BEditor.Drawing.Pixel;
 
-namespace BEditor.Core.Data.Primitive.Objects.PrimitiveImages
+namespace BEditor.Core.Data.Primitive.Objects
 {
     [DataContract]
     [CustomClipUI(Color = 0x6200ea)]
@@ -54,11 +53,14 @@ namespace BEditor.Core.Data.Primitive.Objects.PrimitiveImages
         public FontProperty Font { get; private set; }
 
         public override Image<BGRA32> OnRender(EffectRenderArgs args)
-            => Drawing.Image.Text(
-                Document.Text,
-                Font.Select,
-                Size.GetValue(args.Frame),
-                Color.Color);
+        {
+            return Drawing.Image.Text(
+                           Document.Text,
+                           Font.Select,
+                           Size.GetValue(args.Frame),
+                           Color.Color);
+        }
+
         public override void Loaded()
         {
             base.Loaded();

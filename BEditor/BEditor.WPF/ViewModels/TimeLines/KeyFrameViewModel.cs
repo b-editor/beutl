@@ -4,7 +4,6 @@ using BEditor.Models.Settings;
 
 using BEditor.Core.Data;
 using BEditor.Core.Data.Property;
-using BEditor.Core.Data.Primitive.Properties;
 using BEditor.Core.Command;
 using Reactive.Bindings;
 using Reactive.Bindings.Extensions;

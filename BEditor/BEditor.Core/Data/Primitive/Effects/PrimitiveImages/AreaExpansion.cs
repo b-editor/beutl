@@ -3,13 +3,12 @@ using System.Runtime.Serialization;
 
 using BEditor.Core.Command;
 using BEditor.Core.Data.Primitive.Objects;
-using BEditor.Core.Data.Primitive.Properties;
 using BEditor.Core.Data.Property;
 using BEditor.Core.Properties;
 using BEditor.Drawing;
 using BEditor.Drawing.Pixel;
 
-namespace BEditor.Core.Data.Primitive.Effects.PrimitiveImages
+namespace BEditor.Core.Data.Primitive.Effects
 {
     [DataContract]
     public class AreaExpansion : ImageEffect
@@ -75,7 +74,7 @@ namespace BEditor.Core.Data.Primitive.Effects.PrimitiveImages
         {
             base.Unloaded();
 
-            foreach(var prop in Children)
+            foreach (var prop in Children)
             {
                 prop.Unloaded();
             }

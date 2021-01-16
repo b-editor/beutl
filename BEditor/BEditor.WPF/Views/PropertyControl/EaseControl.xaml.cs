@@ -7,16 +7,14 @@ using System.Windows.Input;
 using System.Windows.Media;
 using System.Windows.Media.Animation;
 
+using BEditor.Core.Data;
+using BEditor.Core.Data.Property;
+using BEditor.Core.Extensions;
 using BEditor.Models;
 using BEditor.Models.Extension;
 using BEditor.ViewModels.PropertyControl;
 using BEditor.Views.CustomControl;
 using BEditor.Views.TimeLines;
-using BEditor.Core.Data;
-using BEditor.Core.Data.Property;
-using BEditor.Core.Extensions;
-using BEditor.Core.Data.Primitive.Properties;
-using BEditor.Core.Data.Control;
 using BEditor.WPF.Controls;
 
 namespace BEditor.Views.PropertyControls
@@ -142,7 +140,7 @@ namespace BEditor.Views.PropertyControls
 
                 val += e.Delta / 120 * v;
 
-                property.Value[index] = property.InRange(val);
+                property.Value[index] = property.Clamp(val);
 
                 AppData.Current.Project.PreviewUpdate(property.GetParent2());
 
@@ -157,7 +155,7 @@ namespace BEditor.Views.PropertyControls
 
             if (float.TryParse(textBox.Text, out float _out))
             {
-                property.Value[index] = property.InRange(_out);
+                property.Value[index] = property.Clamp(_out);
 
                 AppData.Current.Project.PreviewUpdate(property.GetParent2());
             }

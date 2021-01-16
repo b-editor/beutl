@@ -10,8 +10,7 @@ using BEditor.Views.MessageContent;
 using BEditor.Views.SettingsControl;
 
 using BEditor.Core.Data;
-using BEditor.Core.Data.Control;
-using BEditor.Core.Extensions.ViewCommand;
+using BEditor.Core.Extensions;
 
 using MaterialDesignThemes.Wpf;
 
