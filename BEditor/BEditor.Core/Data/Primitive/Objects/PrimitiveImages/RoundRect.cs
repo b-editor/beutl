@@ -6,14 +6,13 @@ using System.Text;
 using System.Threading.Tasks;
 
 using BEditor.Core.Command;
-using BEditor.Core.Data.Primitive.Properties;
 using BEditor.Core.Data.Property;
 using BEditor.Drawing;
 using BEditor.Drawing.Pixel;
 
-using static BEditor.Core.Data.Primitive.Objects.PrimitiveImages.Figure;
+using static BEditor.Core.Data.Primitive.Objects.Figure;
 
-namespace BEditor.Core.Data.Primitive.Objects.PrimitiveImages
+namespace BEditor.Core.Data.Primitive.Objects
 {
     [DataContract]
     [CustomClipUI(Color = 0x0091ea)]

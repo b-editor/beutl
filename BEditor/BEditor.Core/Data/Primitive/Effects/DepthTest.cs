@@ -5,7 +5,6 @@ using System.Runtime.Serialization;
 using System.Text;
 
 using BEditor.Core.Command;
-using BEditor.Core.Data.Primitive.Properties;
 using BEditor.Core.Data.Property;
 using BEditor.Core.Extensions;
 using BEditor.Core.Properties;

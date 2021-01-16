@@ -6,7 +6,7 @@ using System.Threading.Tasks;
 
 using BEditor.Core.Command;
 using BEditor.Core.Data;
-using BEditor.Core.Extensions.ViewCommand;
+using BEditor.Core.Extensions;
 using BEditor.Core.Properties;
 using BEditor.Media;
 using BEditor.Models;

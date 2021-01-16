@@ -3,7 +3,6 @@ using System.Runtime.Serialization;
 
 using BEditor.Core;
 using BEditor.Core.Command;
-using BEditor.Core.Data.Primitive.Properties;
 using BEditor.Core.Data.Property;
 using BEditor.Core.Extensions;
 using BEditor.Core.Properties;
@@ -11,7 +10,7 @@ using BEditor.Core.Service;
 using BEditor.Drawing;
 using BEditor.Drawing.Pixel;
 
-namespace BEditor.Core.Data.Primitive.Objects.PrimitiveImages
+namespace BEditor.Core.Data.Primitive.Objects
 {
     [DataContract]
     [CustomClipUI(Color = 0x0091ea)]

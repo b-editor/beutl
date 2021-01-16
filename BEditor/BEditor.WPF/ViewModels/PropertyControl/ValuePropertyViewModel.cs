@@ -4,8 +4,8 @@ using System.Windows.Controls;
 using System.Windows.Input;
 
 using BEditor.Core.Command;
-using BEditor.Core.Data.Control;
-using BEditor.Core.Data.Primitive.Properties;
+using BEditor.Core.Data;
+using BEditor.Core.Data.Property;
 using BEditor.Models;
 using BEditor.Models.Extension;
 using BEditor.Views.PropertyControls;
@@ -53,24 +53,20 @@ namespace BEditor.ViewModels.PropertyControl
 
                     val += e.e.Delta / 120 * v;
 
-                    Property.Value = Property.InRange(val);
+                    Property.Value = Property.Clamp(val);
 
                     AppData.Current.Project.PreviewUpdate(Property.GetParent2());
 
                     e.e.Handled = true;
-
-                    Debug.WriteLine(e.text.Text);
                 }
             });
             TextChanged.Subscribe(text =>
             {
                 if (float.TryParse(text, out var val))
                 {
-                    Property.Value = Property.InRange(val);
+                    Property.Value = Property.Clamp(val);
 
                     AppData.Current.Project.PreviewUpdate(Property.GetParent2());
-
-                    Debug.WriteLine(text);
                 }
             });
         }

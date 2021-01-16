@@ -16,9 +16,8 @@ using MaterialDesignThemes.Wpf;
 
 using Resource = BEditor.Core.Properties.Resources;
 using BEditor.Core.Extensions;
-using BEditor.Core.Data.Primitive.Properties;
+using BEditor.Core.Data.Property;
 using BEditor.Core.Data;
-using BEditor.Core.Data.Control;
 using Reactive.Bindings.Extensions;
 using BEditor.WPF.Controls;
 

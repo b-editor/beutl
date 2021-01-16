@@ -3,7 +3,7 @@ using System.Windows;
 using System.Windows.Controls;
 using System.Windows.Media;
 
-using BEditor.Core.Extensions.ViewCommand;
+using BEditor.Core.Extensions;
 
 using Resource = BEditor.Core.Properties.Resources;
 using Reactive.Bindings;

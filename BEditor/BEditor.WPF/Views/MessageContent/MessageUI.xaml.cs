@@ -11,7 +11,7 @@ using System.Windows.Media.Imaging;
 using System.Windows.Navigation;
 using System.Windows.Shapes;
 
-using BEditor.Core.Extensions.ViewCommand;
+using BEditor.Core.Extensions;
 
 using MaterialDesignThemes.Wpf;
 
@@ -24,7 +24,7 @@ namespace BEditor.Views.MessageContent
     /// </summary>
     public partial class MessageUI : DialogContent
     {
-        public MessageUI(ButtonType[] buttons, object content, BEditor.Core.Extensions.ViewCommand.IconType iconKind)
+        public MessageUI(ButtonType[] buttons, object content, BEditor.Core.Extensions.IconType iconKind)
         {
             InitializeComponent();
 
@@ -63,7 +63,7 @@ namespace BEditor.Views.MessageContent
                 };
             }
 
-            if (iconKind != BEditor.Core.Extensions.ViewCommand.IconType.None)
+            if (iconKind != BEditor.Core.Extensions.IconType.None)
             {
                 icon.Content = new PackIcon()
                 {

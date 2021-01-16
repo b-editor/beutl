@@ -4,7 +4,7 @@ using System.Runtime.Serialization;
 using BEditor.Core.Command;
 using BEditor.Core.Data;
 using BEditor.Core.Data.Primitive.Effects;
-using BEditor.Core.Data.Primitive.Properties;
+using BEditor.Core.Data.Property;
 using BEditor.Core.Data.Property;
 using BEditor.Drawing;
 using BEditor.Drawing.Pixel;

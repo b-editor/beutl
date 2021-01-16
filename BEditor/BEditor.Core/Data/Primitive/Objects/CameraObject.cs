@@ -3,7 +3,6 @@ using System.Linq;
 using System.Runtime.Serialization;
 
 using BEditor.Core.Command;
-using BEditor.Core.Data.Primitive.Properties;
 using BEditor.Core.Data.Property;
 using BEditor.Core.Extensions;
 using BEditor.Core.Graphics;

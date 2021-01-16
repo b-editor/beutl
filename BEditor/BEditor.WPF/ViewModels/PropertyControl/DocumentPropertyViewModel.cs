@@ -1,6 +1,6 @@
 ﻿
 using BEditor.Core.Command;
-using BEditor.Core.Data.Primitive.Properties;
+using BEditor.Core.Data.Property;
 
 using System.Reactive.Linq;
 using System.Reactive;
@@ -9,8 +9,8 @@ using System;
 using Reactive.Bindings;
 using BEditor.Models;
 using BEditor.Models.Extension;
-using BEditor.Core.Data.Control;
 using BEditor.Views.PropertyControls;
+using BEditor.Core.Data;
 
 namespace BEditor.ViewModels.PropertyControl
 {

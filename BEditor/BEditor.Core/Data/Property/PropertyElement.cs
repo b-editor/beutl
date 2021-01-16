@@ -4,7 +4,7 @@ using System.Linq;
 using System.Runtime.Serialization;
 using System.Threading.Tasks;
 
-using BEditor.Core.Data.Primitive.Properties;
+using BEditor.Core.Data.Property;
 
 namespace BEditor.Core.Data.Property
 {

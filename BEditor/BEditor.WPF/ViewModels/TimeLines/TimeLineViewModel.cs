@@ -14,7 +14,6 @@ using BEditor.Views.SettingsControl;
 
 using BEditor.Core.Command;
 using BEditor.Core.Data;
-using BEditor.Core.Data.Control;
 using BEditor.Models;
 
 using CommandManager = BEditor.Core.Command.CommandManager;
@@ -23,7 +22,7 @@ using BEditor.Drawing;
 using Reactive.Bindings.Extensions;
 using Point = System.Windows.Point;
 using System.Threading;
-using BEditor.Core.Extensions.ViewCommand;
+using BEditor.Core.Extensions;
 
 namespace BEditor.ViewModels.TimeLines
 {
@@ -330,16 +329,16 @@ namespace BEditor.ViewModels.TimeLines
 
                         if (type_ == ClipType.ImageMetadata)
                         {
-                            (clip.Effect[0] as Core.Data.Primitive.Objects.PrimitiveImages.Image).File.File = file;
+                            (clip.Effect[0] as Core.Data.Primitive.Objects.Image).File.File = file;
                         }
                         else if (type_ == ClipType.VideoMetadata)
                         {
-                            (clip.Effect[0] as Core.Data.Primitive.Objects.PrimitiveImages.Video).File.File = file;
+                            (clip.Effect[0] as Core.Data.Primitive.Objects.Video).File.File = file;
                         }
                         else if (type_ == ClipType.TextMetadata)
                         {
                             var reader = new StreamReader(file);
-                            (clip.Effect[0] as Core.Data.Primitive.Objects.PrimitiveImages.Text).Document.Text = reader.ReadToEnd();
+                            (clip.Effect[0] as Core.Data.Primitive.Objects.Text).Document.Text = reader.ReadToEnd();
                             reader.Close();
                         }
 

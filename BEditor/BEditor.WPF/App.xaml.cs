@@ -10,7 +10,6 @@ using System.Windows.Threading;
 using System.Xml.Linq;
 
 using BEditor.Core.Data.Primitive.Properties;
-using BEditor.Core.Extensions;
 using BEditor.Core.Extensions.ViewCommand;
 using BEditor.Core.Plugin;
 using BEditor.Core.Service;
@@ -25,6 +24,8 @@ using BEditor.Views;
 using BEditor.Views.MessageContent;
 
 using MaterialDesignThemes.Wpf;
+
+using DirectoryManager = BEditor.Core.DirectoryManager;
 
 namespace BEditor
 {
@@ -43,6 +44,7 @@ namespace BEditor
         {
             CultureInfo.CurrentCulture = new(Settings.Default.Language);
             CultureInfo.CurrentUICulture = CultureInfo.CurrentCulture;
+            CreateDirectory();
             base.OnStartup(e);
 
             SetDarkMode();
@@ -59,7 +61,6 @@ namespace BEditor
 
             Task.Run(async () =>
             {
-                CreateDirectory();
 #if !DEBUG
 
                 const string LoadingColors = "カラーパレットを読み込み中";
@@ -104,21 +105,12 @@ namespace BEditor
 
         private static void CreateDirectory()
         {
+            DirectoryManager.Default.Directories.Add(colorsDir);
+            DirectoryManager.Default.Directories.Add(logsDir);
+            DirectoryManager.Default.Directories.Add(backupDir);
+            DirectoryManager.Default.Directories.Add(pluginsDir);
 
-            static void CreateIfNotExsits(string dir)
-            {
-                if (!Directory.Exists(dir))
-                {
-                    Directory.CreateDirectory(dir);
-                }
-            }
-
-            #region ディレクトリの作成
-
-            CreateIfNotExsits(colorsDir);
-            CreateIfNotExsits(logsDir);
-            CreateIfNotExsits(backupDir);
-            CreateIfNotExsits(pluginsDir);
+            DirectoryManager.Default.Run();
 
             if (!File.Exists(errorlogFile))
             {
@@ -129,9 +121,6 @@ namespace BEditor
 
                 XDoc.Save(errorlogFile);
             }
-
-            #endregion
-
         }
         private static void SetDarkMode()
         {
@@ -293,6 +282,7 @@ namespace BEditor
         private void Application_Exit(object sender, ExitEventArgs e)
         {
             Settings.Default.Save();
+            DirectoryManager.Default.Stop();
         }
 
         private void Application_DispatcherUnhandledException(object sender, DispatcherUnhandledExceptionEventArgs e)

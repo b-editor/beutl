@@ -6,7 +6,6 @@ using System.Windows.Media.Imaging;
 
 using BEditor.Core.Data;
 using BEditor.Core.Extensions;
-using BEditor.Core.Extensions.ViewCommand;
 using BEditor.Core.Properties;
 using BEditor.Core.Service;
 using BEditor.Drawing;

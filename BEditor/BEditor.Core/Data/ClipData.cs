@@ -470,21 +470,21 @@ namespace BEditor.Core.Data
 
     public static class ClipType
     {
-        public static readonly Type Video = typeof(Primitive.Objects.PrimitiveImages.Video);
-        public static readonly Type Audio = typeof(Primitive.Objects.AudioObject);
-        public static readonly Type Image = typeof(Primitive.Objects.PrimitiveImages.Image);
-        public static readonly Type Text = typeof(Primitive.Objects.PrimitiveImages.Text);
-        public static readonly Type Figure = typeof(Primitive.Objects.PrimitiveImages.Figure);
-        public static readonly Type Polygon = typeof(Primitive.Objects.PrimitiveImages.Polygon);
-        public static readonly Type RoundRect = typeof(Primitive.Objects.PrimitiveImages.RoundRect);
+        public static readonly Type Video = typeof(Video);
+        public static readonly Type Audio = typeof(AudioObject);
+        public static readonly Type Image = typeof(Image);
+        public static readonly Type Text = typeof(Text);
+        public static readonly Type Figure = typeof(Figure);
+        public static readonly Type Polygon = typeof(Polygon);
+        public static readonly Type RoundRect = typeof(RoundRect);
         public static readonly Type Camera = typeof(CameraObject);
         public static readonly Type GL3DObject = typeof(GL3DObject);
-        public static readonly Type Scene = typeof(Primitive.Objects.PrimitiveImages.SceneObject);
+        public static readonly Type Scene = typeof(SceneObject);
         public static readonly ObjectMetadata VideoMetadata = new()
         {
             Name = Resources.Video,
             Type = Video,
-            CreateFunc = () => new Primitive.Objects.PrimitiveImages.Video()
+            CreateFunc = () => new Primitive.Objects.Video()
         };
         public static readonly ObjectMetadata AudioMetadata = new()
         {
@@ -496,31 +496,31 @@ namespace BEditor.Core.Data
         {
             Name = Resources.Image,
             Type = Image,
-            CreateFunc = () => new Primitive.Objects.PrimitiveImages.Image()
+            CreateFunc = () => new Primitive.Objects.Image()
         };
         public static readonly ObjectMetadata TextMetadata = new()
         {
             Name = Resources.Text,
             Type = Text,
-            CreateFunc = () => new Primitive.Objects.PrimitiveImages.Text()
+            CreateFunc = () => new Primitive.Objects.Text()
         };
         public static readonly ObjectMetadata FigureMetadata = new()
         {
             Name = Resources.Figure,
             Type = Figure,
-            CreateFunc = () => new Primitive.Objects.PrimitiveImages.Figure()
+            CreateFunc = () => new Primitive.Objects.Figure()
         };
         public static readonly ObjectMetadata PolygonMetadata = new()
         {
             Name = "Polygon",
             Type = Polygon,
-            CreateFunc = () => new Primitive.Objects.PrimitiveImages.Polygon()
+            CreateFunc = () => new Primitive.Objects.Polygon()
         };
         public static readonly ObjectMetadata RoundRectMetadata = new()
         {
             Name = "RoundRect",
             Type = RoundRect,
-            CreateFunc = () => new Primitive.Objects.PrimitiveImages.RoundRect()
+            CreateFunc = () => new Primitive.Objects.RoundRect()
         };
         public static readonly ObjectMetadata CameraMetadata = new()
         {
@@ -538,7 +538,7 @@ namespace BEditor.Core.Data
         {
             Name = Resources.Scene,
             Type = Scene,
-            CreateFunc = () => new Primitive.Objects.PrimitiveImages.SceneObject()
+            CreateFunc = () => new Primitive.Objects.SceneObject()
         };
     }
 }

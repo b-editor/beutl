@@ -2,19 +2,14 @@
 using System.Runtime.Serialization;
 
 using BEditor.Core.Command;
-using BEditor.Core.Data.Primitive.Properties;
 using BEditor.Core.Data.Property;
 using BEditor.Core.Properties;
 
 using OpenTK.Graphics.OpenGL;
 
-using static BEditor.Core.Data.Primitive.Properties.PrimitiveGroup.Coordinate;
+using static BEditor.Core.Data.Property.PrimitiveGroup.Coordinate;
 
-#if OldOpenTK
-using GLColor = OpenTK.Graphics.Color4;
-#else
 using GLColor = OpenTK.Mathematics.Color4;
-#endif
 
 namespace BEditor.Core.Data.Primitive.Effects
 {

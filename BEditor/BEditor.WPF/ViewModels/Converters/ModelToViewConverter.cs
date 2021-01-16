@@ -7,7 +7,7 @@ using System.Windows.Data;
 using BEditor.Views;
 
 using BEditor.Core.Data.Property;
-using BEditor.Core.Data.Property.EasingProperty;
+using BEditor.Core.Data.Property.Easing;
 using BEditor.Core.Data;
 
 namespace BEditor.ViewModels.Converters

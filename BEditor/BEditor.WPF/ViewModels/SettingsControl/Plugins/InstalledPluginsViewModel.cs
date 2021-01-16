@@ -9,7 +9,7 @@ using System.Threading.Tasks;
 using System.Windows.Controls;
 
 using BEditor.Models;
-using BEditor.Core.Extensions.ViewCommand;
+using BEditor.Core.Extensions;
 using BEditor.Core.Plugin;
 using BEditor.Core.Data;
 using System.ComponentModel;

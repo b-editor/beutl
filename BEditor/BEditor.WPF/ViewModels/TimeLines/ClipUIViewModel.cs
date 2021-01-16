@@ -9,7 +9,6 @@ using BEditor.Models.Settings;
 using BEditor.Views;
 
 using BEditor.Core.Data;
-using BEditor.Core.Data.Control;
 using BEditor.Core.Properties;
 
 using CommandManager = BEditor.Core.Command.CommandManager;
@@ -262,7 +261,7 @@ namespace BEditor.ViewModels.TimeLines
                 $"Start : {ClipData.Start}\n" +
                 $"End : {ClipData.End}";
 
-            BEditor.Core.Extensions.ViewCommand.Message.Dialog(text);
+            BEditor.Core.Extensions.Message.Dialog(text);
         }
         #endregion
 

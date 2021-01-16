@@ -12,12 +12,8 @@ using BEditor.Views.PropertyControls;
 using BEditor.Views.TimeLines;
 
 using BEditor.Core.Data.Property;
-using BEditor.Core.Data.Property.EasingProperty;
 using BEditor.Core.Extensions;
-using BEditor.Core.Data.Primitive.Properties;
-using BEditor.Core.Data.Control;
 using BEditor.Core.Data;
-using BEditor.Core.Data.Primitive.Components;
 using BEditor.Views.PropertyControl;
 using BEditor.WPF.Controls;
 using BEditor.ViewModels.PropertyControl;
@@ -26,6 +22,7 @@ using BEditor.Core.Command;
 using System.Windows.Controls.Primitives;
 using MaterialDesignThemes.Wpf;
 using BEditor.Core.Properties;
+using BEditor.Core.Data.Property.Easing;
 
 namespace BEditor.Views
 {

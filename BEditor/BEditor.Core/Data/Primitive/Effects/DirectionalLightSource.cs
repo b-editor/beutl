@@ -6,7 +6,6 @@ using BEditor.Core.Data.Property;
 using OpenTK.Graphics.OpenGL;
 
 using BEditor.Core.Properties;
-using BEditor.Core.Data.Primitive.Properties;
 using BEditor.Core.Command;
 
 #if OldOpenTK
@@ -15,7 +14,7 @@ using GLColor = OpenTK.Graphics.Color4;
 using GLColor = OpenTK.Mathematics.Color4;
 #endif
 
-using static BEditor.Core.Data.Primitive.Properties.PrimitiveGroup.Coordinate;
+using static BEditor.Core.Data.Property.PrimitiveGroup.Coordinate;
 
 namespace BEditor.Core.Data.Primitive.Effects
 {

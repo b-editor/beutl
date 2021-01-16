@@ -3,7 +3,7 @@ using System;
 using System.Collections.Generic;
 
 using BEditor.Core.Data;
-using BEditor.Core.Data.Property.EasingProperty;
+using BEditor.Core.Data.Property.Easing;
 
 namespace BEditor.Core.Plugin
 {

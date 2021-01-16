@@ -9,9 +9,8 @@ using System.Runtime.Serialization;
 using System.Text;
 
 using BEditor.Core.Data;
-using BEditor.Core.Data.Property.EasingProperty;
+using BEditor.Core.Data.Property.Easing;
 using BEditor.Core.Extensions;
-using BEditor.Core.Extensions.ViewCommand;
 using BEditor.Core.Properties;
 using BEditor.Core.Service;
 

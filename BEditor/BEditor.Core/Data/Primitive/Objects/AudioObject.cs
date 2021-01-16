@@ -5,13 +5,11 @@ using System.Runtime.Serialization;
 using System.Text;
 using System.Threading.Tasks;
 
+using BEditor.Core.Command;
 using BEditor.Core.Data.Property;
+using BEditor.Core.Properties;
 
 using NAudio.Wave;
-using BEditor.Core.Data.Primitive.Properties;
-using BEditor.Core.Command;
-using BEditor.Core.Properties;
-using BEditor.Core.Data.Primitive.Objects.PrimitiveImages;
 
 namespace BEditor.Core.Data.Primitive.Objects
 {

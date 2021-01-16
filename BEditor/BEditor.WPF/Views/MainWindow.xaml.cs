@@ -11,7 +11,7 @@ using System.Windows.Input;
 
 using BEditor.Core.Command;
 using BEditor.Core.Data;
-using BEditor.Core.Data.Primitive.Properties;
+using BEditor.Core.Data.Property;
 using BEditor.Core.Plugin;
 using BEditor.Core.Service;
 using BEditor.Models;

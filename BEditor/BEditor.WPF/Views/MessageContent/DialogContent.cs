@@ -3,7 +3,7 @@ using System.Collections.Generic;
 using System.Text;
 using System.Windows.Controls;
 
-using BEditor.Core.Extensions.ViewCommand;
+using BEditor.Core.Extensions;
 
 namespace BEditor.Views.MessageContent
 {

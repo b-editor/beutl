@@ -12,7 +12,6 @@ using BEditor.Core.Audio;
 using BEditor.Core.Command;
 using BEditor.Core.Extensions;
 using BEditor.Core.Graphics;
-using BEditor.Core.Renderings;
 using BEditor.Drawing;
 using BEditor.Drawing.Pixel;
 using BEditor.Media;
