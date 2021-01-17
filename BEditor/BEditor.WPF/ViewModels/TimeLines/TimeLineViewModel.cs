@@ -1,28 +1,27 @@
 ﻿using System;
 using System.Collections.ObjectModel;
 using System.IO;
+using System.Reactive;
+using System.Reactive.Linq;
+using System.Threading;
 using System.Windows;
 using System.Windows.Controls;
 using System.Windows.Input;
-using System.Reactive;
-using System.Reactive.Linq;
-
-using BEditor.Models.Extension;
-using BEditor.Models.Settings;
-using BEditor.Views;
-using BEditor.Views.SettingsControl;
 
 using BEditor.Core.Command;
 using BEditor.Core.Data;
+using BEditor.Core.Extensions;
+using BEditor.Drawing;
 using BEditor.Models;
+using BEditor.Models.Extension;
+using BEditor.Views;
+using BEditor.Views.SettingsControl;
+
+using Reactive.Bindings;
+using Reactive.Bindings.Extensions;
 
 using CommandManager = BEditor.Core.Command.CommandManager;
-using Reactive.Bindings;
-using BEditor.Drawing;
-using Reactive.Bindings.Extensions;
 using Point = System.Windows.Point;
-using System.Threading;
-using BEditor.Core.Extensions;
 
 namespace BEditor.ViewModels.TimeLines
 {
@@ -215,7 +214,10 @@ namespace BEditor.ViewModels.TimeLines
 
 
         #region SettingWindow
-        public void SettingWindow() => new SettingsWindow().ShowDialog();
+        public void SettingWindow()
+        {
+            new SettingsWindow().ShowDialog();
+        }
         #endregion
 
         #region Paste
@@ -362,7 +364,10 @@ namespace BEditor.ViewModels.TimeLines
         #endregion
 
         #region MouseMove
-        private void LayerMouseMove(object sender) => Mouse_Layer = AttachmentProperty.GetInt((Grid)sender);
+        private void LayerMouseMove(object sender)
+        {
+            Mouse_Layer = AttachmentProperty.GetInt((Grid)sender);
+        }
         #endregion
 
         #endregion
@@ -410,7 +415,7 @@ namespace BEditor.ViewModels.TimeLines
             Scene.PreviewFrame = s + 1;
         }
         #endregion
-        
+
         #region MouseLeftUp
         public void TimeLineMouseLeftUp()
         {
@@ -531,11 +536,17 @@ namespace BEditor.ViewModels.TimeLines
 
 
         #region フレーム番号を座標に変換
-        public double ToPixel(int number) => Setting.WidthOf1Frame * (Scene.TimeLineZoom / 200) * number;
+        public double ToPixel(int number)
+        {
+            return Setting.WidthOf1Frame * (Scene.TimeLineZoom / 200) * number;
+        }
         #endregion
 
         #region 座標をフレーム番号に変換
-        public int ToFrame(double pixel) => (int)(pixel / (Setting.WidthOf1Frame * (Scene.TimeLineZoom / 200)));
+        public int ToFrame(double pixel)
+        {
+            return (int)(pixel / (Setting.WidthOf1Frame * (Scene.TimeLineZoom / 200)));
+        }
         #endregion
     }
 }

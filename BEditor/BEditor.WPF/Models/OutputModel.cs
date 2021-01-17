@@ -1,4 +1,5 @@
 ﻿using System;
+using System.Reactive.Linq;
 using System.Threading;
 using System.Threading.Tasks;
 using System.Windows;
@@ -17,38 +18,29 @@ using BEditor.Views.MessageContent;
 using Microsoft.WindowsAPICodePack.Dialogs;
 using Microsoft.WindowsAPICodePack.Dialogs.Controls;
 
+using Reactive.Bindings;
+
 namespace BEditor.Models
 {
-    public static class ImageHelper
+    public class OutputModel
     {
-        #region フレームの画像出力
-        /// <summary>
-        /// フレームを画像出力
-        /// </summary>
-        public static void OutputImage(string path)
+        public static readonly OutputModel Current = new();
+
+        private OutputModel()
         {
+            ImageCommand.Where(_ => AppData.Current.Project is not null)
+                .Select(_ => AppData.Current.Project.PreviewScene)
+                .Subscribe(OutputImage);
 
-            int nowframe = AppData.Current.Project.PreviewScene.PreviewFrame;
-
-            using var img = AppData.Current.Project.PreviewScene.Render(nowframe, RenderType.ImageOutput).Image;
-            try
-            {
-
-                if (img != null)
-                {
-                    img.Encode(path);
-                }
-            }
-            catch (Exception e)
-            {
-                Message.Snackbar($"保存できませんでした : {e.Message}");
-            }
+            VideoCommand.Where(_ => AppData.Current.Project is not null)
+                .Select(_ => AppData.Current.Project.PreviewScene)
+                .Subscribe(OutputVideo);
         }
 
-        /// <summary>
-        /// フレームを画像出力
-        /// </summary>
-        public static void OutputImage()
+        public ReactiveCommand VideoCommand { get; } = new();
+        public ReactiveCommand ImageCommand { get; } = new();
+
+        public static void OutputImage(Scene scene)
         {
             var saveFileDialog = new CommonSaveFileDialog()
             {
@@ -74,12 +66,28 @@ namespace BEditor.Models
 
             if (saveFileDialog.ShowDialog() == CommonFileDialogResult.Ok)
             {
-                OutputImage(saveFileDialog.FileName);
+                OutputImage(saveFileDialog.FileName, scene);
             }
         }
-        #endregion
+        public static void OutputImage(string path, Scene scene)
+        {
+            int nowframe = scene.PreviewFrame;
 
-        public static void OutputVideo()
+            using var img = scene.Render(nowframe, RenderType.ImageOutput).Image;
+            try
+            {
+
+                if (img != null)
+                {
+                    img.Encode(path);
+                }
+            }
+            catch (Exception e)
+            {
+                Message.Snackbar($"保存できませんでした : {e.Message}");
+            }
+        }
+        public static void OutputVideo(Scene scene)
         {
             var codec = new CommonFileDialogComboBox("Default");
 
@@ -106,13 +114,14 @@ namespace BEditor.Models
 
             if (saveFileDialog.ShowDialog() == CommonFileDialogResult.Ok)
             {
-                OutputVideo(saveFileDialog.FileName, (VideoCodec)Enum.Parse(typeof(VideoCodec), codec.Items[codec.SelectedIndex].Text));
+                OutputVideo(
+                    saveFileDialog.FileName,
+                    (VideoCodec)Enum.Parse(typeof(VideoCodec), codec.Items[codec.SelectedIndex].Text),
+                    scene);
             }
         }
-        public static void OutputVideo(string file, VideoCodec codec)
+        public static void OutputVideo(string file, VideoCodec codec, Scene scene)
         {
-            var proj = AppData.Current.Project;
-            var scn = proj.PreviewScene;
             var t = false;
             IVideoEncoder encoder = null;
             AppData.Current.AppStatus = Status.Output;
@@ -123,7 +132,7 @@ namespace BEditor.Models
                 {
                     Maximum =
                     {
-                        Value = scn.TotalFrame
+                        Value = scene.TotalFrame
                     }
                 };
                 content.ButtonClicked += (_, _) => t = true;
@@ -132,14 +141,14 @@ namespace BEditor.Models
 
                 var thread = new Thread(() =>
                 {
-                    encoder = new FFmpegEncoder(scn.Width, scn.Height, proj.Framerate, codec, file);
+                    encoder = new FFmpegEncoder(scene.Width, scene.Height, scene.Parent.Framerate, codec, file);
 
-                    for (Frame frame = 0; frame < scn.TotalFrame; frame++)
+                    for (Frame frame = 0; frame < scene.TotalFrame; frame++)
                     {
                         if (t) return;
                         content.NowValue.Value = frame;
 
-                        using var img = scn.Render(frame, RenderType.VideoOutput).Image;
+                        using var img = scene.Render(frame, RenderType.VideoOutput).Image;
 
                         encoder.Write(img);
                     }

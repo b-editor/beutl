@@ -68,14 +68,14 @@
         </Style>
     </Controls:MetroWindow.Resources>
     <Controls:MetroWindow.InputBindings>
-        <KeyBinding Command="{Binding ClipboardPaste, Mode=OneTime}" Gesture="Ctrl+v"/>
-        <KeyBinding Command="{Binding ClipboardCopy, Mode=OneTime}" Gesture="Ctrl+c"/>
-        <KeyBinding Command="{Binding ClipboardCut, Mode=OneTime}" Gesture="Ctrl+x"/>
-        <KeyBinding Command="{Binding ProjectSave, Mode=OneTime}" Gesture="Ctrl+s"/>
-        <KeyBinding Command="{Binding UndoCommand, Mode=OneTime}" Gesture="Ctrl+z"/>
-        <KeyBinding Command="{Binding RedoCommand, Mode=OneTime}" Gesture="Ctrl+y"/>
-        <KeyBinding Command="{Binding ProjectOpen, Mode=OneTime}" Gesture="Ctrl+o"/>
-        <KeyBinding Command="{Binding ClipRemoveCommand, Mode=OneWay}" Key="Delete"/>
+        <KeyBinding Command="{Binding EditModel.ClipboardPaste, Mode=OneTime}" Gesture="Ctrl+v"/>
+        <KeyBinding Command="{Binding EditModel.ClipboardCopy, Mode=OneTime}" Gesture="Ctrl+c"/>
+        <KeyBinding Command="{Binding EditModel.ClipboardCut, Mode=OneTime}" Gesture="Ctrl+x"/>
+        <KeyBinding Command="{Binding ProjectModel.Save, Mode=OneTime}" Gesture="Ctrl+s"/>
+        <KeyBinding Command="{Binding EditModel.Undo, Mode=OneTime}" Gesture="Ctrl+z"/>
+        <KeyBinding Command="{Binding EditModel.Redo, Mode=OneTime}" Gesture="Ctrl+y"/>
+        <KeyBinding Command="{Binding ProjectModel.Open, Mode=OneTime}" Gesture="Ctrl+o"/>
+        <KeyBinding Command="{Binding EditModel.ClipRemove, Mode=OneWay}" Key="Delete"/>
         <KeyBinding Command="{Binding FrameNext, Mode=OneWay}" Key="Right"/>
         <KeyBinding Command="{Binding FramePrevious, Mode=OneWay}" Key="Left"/>
         <KeyBinding Command="{Binding PlayPause, Mode=OneWay}" Key="Space"/>
@@ -89,15 +89,15 @@
                 <Button Style="{StaticResource TitleButtonStyle}" Content="{x:Static properties:Resources.AccessFile}">
                     <Button.ContextMenu>
                         <ContextMenu>
-                            <MenuItem Header="{x:Static properties:Resources.AccessOpen}" Height="30" Command="{Binding ProjectOpen, Mode=OneTime}"/>
+                            <MenuItem Header="{x:Static properties:Resources.AccessOpen}" Height="30" Command="{Binding ProjectModel.Open, Mode=OneTime}"/>
                             <MenuItem Header="{x:Static properties:Resources.AccessCreate_new}">
-                                <MenuItem Header="{x:Static properties:Resources.Create_project}" Command="{Binding ProjectCreate,Mode=OneTime}"/>
+                                <MenuItem Header="{x:Static properties:Resources.Create_project}" Command="{Binding ProjectModel.Create, Mode=OneTime}"/>
                                 <MenuItem Header="{x:Static properties:Resources.From_backup}"/>
                             </MenuItem>
                             <Separator Height="10"/>
-                            <MenuItem Header="{x:Static properties:Resources.AccessSave}" Command="{Binding ProjectSave, Mode=OneTime}" IsEnabled="{Binding ProjectIsOpened.Value, Mode=OneWay}"/>
-                            <MenuItem Header="{x:Static properties:Resources.Save_as}" Command="{Binding ProjectSaveAs, Mode=OneTime}" IsEnabled="{Binding ProjectIsOpened.Value, Mode=OneWay}"/>
-                            <MenuItem Header="{x:Static properties:Resources.Close}" Command="{Binding ProjectClose, Mode=OneTime}" IsEnabled="{Binding ProjectIsOpened.Value, Mode=OneWay}"/>
+                            <MenuItem Header="{x:Static properties:Resources.AccessSave}" Command="{Binding ProjectModel.Save, Mode=OneTime}" IsEnabled="{Binding ProjectIsOpened.Value, Mode=OneWay}"/>
+                            <MenuItem Header="{x:Static properties:Resources.Save_as}" Command="{Binding ProjectModel.SaveAs, Mode=OneTime}" IsEnabled="{Binding ProjectIsOpened.Value, Mode=OneWay}"/>
+                            <MenuItem Header="{x:Static properties:Resources.Close}" Command="{Binding ProjectModel.Close, Mode=OneTime}" IsEnabled="{Binding ProjectIsOpened.Value, Mode=OneWay}"/>
                             <Separator Height="10"/>
                             <MenuItem Header="{x:Static properties:Resources.MostRecentlyUsedList}" x:Name="UsedFiles"/>
                             <Separator Height="10"/>
@@ -110,34 +110,34 @@
                         <ContextMenu>
                             <MenuItem
                                 Header="{x:Static properties:Resources.Undo}"
-                                IsEnabled="{Binding UndoIsEnabled.Value, Mode=OneWay}"
-                                Command="{Binding UndoCommand, Mode=OneTime}"/>
+                                IsEnabled="{Binding EditModel.UndoIsEnabled.Value, Mode=OneWay}"
+                                Command="{Binding EditModel.Undo, Mode=OneTime}"/>
                             <MenuItem
                                 Header="{x:Static properties:Resources.Redo}"
-                                IsEnabled="{Binding RedoIsEnabled.Value, Mode=OneWay}"
-                                Command="{Binding RedoCommand, Mode=OneTime}"/>
+                                IsEnabled="{Binding EditModel.RedoIsEnabled.Value, Mode=OneWay}"
+                                Command="{Binding EditModel.Redo, Mode=OneTime}"/>
                             <MenuItem
                                 Header="{x:Static properties:Resources.Remove}"
                                 IsEnabled="{Binding ProjectIsOpened.Value, Mode=OneWay}"
-                                Command="{Binding ClipRemoveCommand, Mode=OneTime}"/>
+                                Command="{Binding EditModel.ClipRemove, Mode=OneTime}"/>
                             <Separator Height="10"/>
                             <MenuItem
                                 Header="{x:Static properties:Resources.Cut}"
                                 IsEnabled="{Binding ProjectIsOpened.Value, Mode=OneWay}"
-                                Command="{Binding ClipboardCut, Mode=OneTime}"/>
+                                Command="{Binding EditModel.ClipboardCut, Mode=OneTime}"/>
                             <MenuItem
                                 Header="{x:Static properties:Resources.Copy}"
                                 IsEnabled="{Binding ProjectIsOpened.Value, Mode=OneWay}"
-                                Command="{Binding ClipboardCopy, Mode=OneTime}"/>
+                                Command="{Binding EditModel.ClipboardCopy, Mode=OneTime}"/>
                             <MenuItem
                                 Header="{x:Static properties:Resources.Paste}"
                                 IsEnabled="{Binding ProjectIsOpened.Value, Mode=OneWay}"
-                                Command="{Binding ClipboardPaste, Mode=OneTime}"/>
+                                Command="{Binding EditModel.ClipboardPaste, Mode=OneTime}"/>
                             <Separator Height="10"/>
                             <MenuItem
                                 Header="{x:Static properties:Resources.PlayPause}"
                                 IsEnabled="{Binding ProjectIsOpened.Value, Mode=OneWay}"
-                                Command="{Binding PreviewStart, Mode=OneTime}"/>
+                                Command="{Binding PlayPause, Mode=OneTime}"/>
                             <MenuItem
                                 Header="{x:Static properties:Resources.MoveToTop}"
                                 IsEnabled="{Binding ProjectIsOpened.Value, Mode=OneWay}"
@@ -205,8 +205,8 @@
                 <Button Style="{StaticResource TitleButtonStyle}" Content="{x:Static properties:Resources.AccessOut}">
                     <Button.ContextMenu>
                         <ContextMenu>
-                            <MenuItem Header="{x:Static properties:Resources.VideoOutput}" Height="30" Command="{Binding OutputVideo,Mode=OneTime}"/>
-                            <MenuItem Header="{x:Static properties:Resources.ImageOutput}" Command="{Binding OutputImage, Mode=OneTime}"/>
+                            <MenuItem Header="{x:Static properties:Resources.VideoOutput}" Height="30" Command="{Binding Output.VideoCommand,Mode=OneTime}"/>
+                            <MenuItem Header="{x:Static properties:Resources.ImageOutput}" Command="{Binding Output.ImageCommand, Mode=OneTime}"/>
                         </ContextMenu>
                     </Button.ContextMenu>
                 </Button>
@@ -249,21 +249,21 @@
                     <Button
                         Padding="0,0,0,0"
                         Margin="5,0,5,0"
-                        Command="{Binding ProjectCreate, Mode=OneTime}"
+                        Command="{Binding ProjectModel.Create, Mode=OneTime}"
                         ToolTip="{x:Static properties:Resources.Create_new}">
                         <md:PackIcon Kind="FilePlus" Width="20" Height="20"/>
                     </Button>
                     <Button
                         Padding="0,0,0,0"
                         Margin="5,0,5,0"
-                        Command="{Binding ProjectOpen, Mode=OneTime}"
+                        Command="{Binding ProjectModel.Open, Mode=OneTime}"
                         ToolTip="{x:Static properties:Resources.Open}">
                         <md:PackIcon Kind="FolderOpen" Height="20" Width="20"/>
                     </Button>
                     <Button
                         Padding="0,0,0,0"
                         Margin="10,0,5,0"
-                        Command="{Binding ProjectSave, Mode=OneTime}"
+                        Command="{Binding ProjectModel.Save, Mode=OneTime}"
                         IsEnabled="{Binding ProjectIsOpened.Value, Mode=OneWay}"
                         ToolTip="{x:Static properties:Resources.Save}">
                         <md:PackIcon Kind="ContentSave" Height="20" Width="20"/>
@@ -272,10 +272,10 @@
                         Margin="6,3,6,3"
                         VerticalAlignment="Stretch"/>
                     <Button
-                        Command="{Binding UndoCommand, Mode=OneTime}"
+                        Command="{Binding EditModel.Undo, Mode=OneTime}"
                         Padding="0,0,0,0"
                         Margin="5,0,5,0"
-                        IsEnabled="{Binding UndoIsEnabled.Value, Mode=OneWay}"
+                        IsEnabled="{Binding EditModel.UndoIsEnabled.Value, Mode=OneWay}"
                         ToolTip="{x:Static properties:Resources.Undo}">
                         <md:PackIcon Kind="Undo" Width="18" Height="18"/>
                     </Button>
@@ -289,7 +289,7 @@
                             </md:PopupBox.ToggleContent>
 
                             <ScrollViewer Width="250" Height="300">
-                                <ItemsControl ItemsSource="{Binding UnDoList, Mode=OneWay}">
+                                <ItemsControl ItemsSource="{Binding EditModel.UnDoList, Mode=OneWay}">
                                     <ItemsControl.ItemTemplate>
                                         <DataTemplate>
                                             <TextBlock Text="{Binding}" Margin="8"/>
@@ -301,10 +301,10 @@
                         </md:PopupBox>
                     </Button>
                     <Button
-                        Command="{Binding RedoCommand, Mode=OneTime}"
+                        Command="{Binding EditModel.Redo, Mode=OneTime}"
                         Padding="0,0,0,0"
                         Margin="5,0,5,0"
-                        IsEnabled="{Binding RedoIsEnabled.Value, Mode=OneWay}"
+                        IsEnabled="{Binding EditModel.RedoIsEnabled.Value, Mode=OneWay}"
                         ToolTip="{x:Static properties:Resources.Redo}">
                         <md:PackIcon Kind="Redo" Width="18" Height="18"/>
                     </Button>
@@ -318,7 +318,7 @@
                             </md:PopupBox.ToggleContent>
 
                             <ScrollViewer Width="250" Height="300">
-                                <ItemsControl ItemsSource="{Binding ReDoList, Mode=OneWay}">
+                                <ItemsControl ItemsSource="{Binding EditModel.ReDoList, Mode=OneWay}">
                                     <ItemsControl.ItemTemplate>
                                         <DataTemplate>
                                             <TextBlock Text="{Binding}" Margin="8"/>
@@ -333,7 +333,7 @@
                         VerticalAlignment="Stretch"/>
                     <Button
                         Padding="0,0,0,0" Margin="5,0,5,0"
-                        Command="{Binding ClipboardCut, Mode=OneTime}"
+                        Command="{Binding EditModel.ClipboardCut, Mode=OneTime}"
                         IsEnabled="{Binding ProjectIsOpened.Value, Mode=OneWay}"
                         ToolTip="{x:Static properties:Resources.Cut}">
                         <md:PackIcon Kind="ContentCut" Width="20" Height="20"/>
@@ -341,7 +341,7 @@
                     <Button
                         Padding="0,0,0,0"
                         Margin="5,0,5,0"
-                        Command="{Binding ClipboardCopy, Mode=OneTime}"
+                        Command="{Binding EditModel.ClipboardCopy, Mode=OneTime}"
                         IsEnabled="{Binding ProjectIsOpened.Value, Mode=OneWay}"
                         ToolTip="{x:Static properties:Resources.Copy}">
                         <md:PackIcon Kind="ContentCopy" Width="20" Height="20"/>
@@ -349,7 +349,7 @@
                     <Button
                         Padding="0,0,0,0"
                         Margin="5,0,5,0"
-                        Command="{Binding ClipboardPaste, Mode=OneTime}"
+                        Command="{Binding EditModel.ClipboardPaste, Mode=OneTime}"
                         IsEnabled="{Binding ProjectIsOpened.Value, Mode=OneWay}"
                         ToolTip="{x:Static properties:Resources.Paste}">
                         <md:PackIcon Kind="ContentPaste" Width="20" Height="20"/>
@@ -405,7 +405,7 @@
                         IsEnabled="{Binding ProjectIsOpened.Value, Mode=OneWay}"
                         Padding="0,0,0,0"
                         Margin="5,0,5,0"
-                        Command="{Binding OutputImage, Mode=OneTime}"
+                        Command="{Binding Output.ImageCommand, Mode=OneTime}"
                         ToolTip="{x:Static properties:Resources.ImageOutput}">
                         <md:PackIcon Kind="AspectRatio" Width="20" Height="20"/>
                     </Button>
@@ -413,7 +413,7 @@
                         IsEnabled="{Binding ProjectIsOpened.Value, Mode=OneWay}"
                         Padding="0,0,0,0"
                         Margin="5,0,5,0"
-                        Command="{Binding OutputVideo, Mode=OneTime}"
+                        Command="{Binding Output.VideoCommand, Mode=OneTime}"
                         ToolTip="{x:Static properties:Resources.VideoOutput}">
                         <md:PackIcon Kind="Filmstrip" Width="20" Height="20"/>
                     </Button>

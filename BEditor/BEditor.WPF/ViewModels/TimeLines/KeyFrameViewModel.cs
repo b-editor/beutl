@@ -1,13 +1,13 @@
 ﻿using System;
 
-using BEditor.Models.Settings;
-
+using BEditor.Core.Command;
 using BEditor.Core.Data;
 using BEditor.Core.Data.Property;
-using BEditor.Core.Command;
+using BEditor.Media;
+using BEditor.Models;
+
 using Reactive.Bindings;
 using Reactive.Bindings.Extensions;
-using BEditor.Media;
 
 namespace BEditor.ViewModels.TimeLines
 {

@@ -4,11 +4,12 @@ using System.Windows.Controls;
 using System.Windows.Data;
 using System.Windows.Media.Animation;
 
-using BEditor.Models.Settings;
+using BEditor.Core.Data;
+using BEditor.Models;
 using BEditor.ViewModels.TimeLines;
 using BEditor.Views.CustomControl;
-using BEditor.Core.Data;
 using BEditor.WPF.Controls;
+
 using CustomTreeView = BEditor.WPF.Controls.ExpandTree;
 
 namespace BEditor.Views.TimeLines
@@ -40,7 +41,7 @@ namespace BEditor.Views.TimeLines
                 }
             }
         }
-        
+
         public ClipUI(ClipData _Data)
         {
             DataContext = _Data.GetCreateClipViewModel();

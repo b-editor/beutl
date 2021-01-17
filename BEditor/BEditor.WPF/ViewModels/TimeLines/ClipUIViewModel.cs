@@ -5,7 +5,6 @@ using System.Windows.Input;
 using System.Windows.Media;
 
 using BEditor.Models.Extension;
-using BEditor.Models.Settings;
 using BEditor.Views;
 
 using BEditor.Core.Data;
@@ -21,6 +20,7 @@ using System.Runtime.InteropServices;
 using BEditor.Core;
 using System.IO;
 using System.Text;
+using BEditor.Models;
 
 namespace BEditor.ViewModels.TimeLines
 {
