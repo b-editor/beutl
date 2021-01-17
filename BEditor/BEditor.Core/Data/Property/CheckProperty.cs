@@ -166,6 +166,8 @@ namespace BEditor.Core.Data.Property
                 this.value = value;
             }
 
+            public string Name => CommandName.ChangeIsChecked;
+
             /// <inheritdoc/>
             public void Do() => CheckSetting.IsChecked = value;
             /// <inheritdoc/>

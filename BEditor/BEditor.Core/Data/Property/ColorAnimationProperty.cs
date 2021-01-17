@@ -288,6 +288,7 @@ namespace BEditor.Core.Data.Property
                 old = property.Value[index];
             }
 
+            public string Name => CommandName.ChangeColor;
 
             /// <inheritdoc/>
             public void Do() => property.Value[index] = @new;
@@ -322,6 +323,7 @@ namespace BEditor.Core.Data.Property
                 old = this.property.EasingType;
             }
 
+            public string Name => CommandName.ChangeEasing;
 
             /// <inheritdoc/>
             public void Do() => property.EasingType = @new;
@@ -353,6 +355,7 @@ namespace BEditor.Core.Data.Property
                 this.frame = frame;
             }
 
+            public string Name => CommandName.AddKeyFrame;
 
             /// <inheritdoc/>
             public void Do()
@@ -392,6 +395,7 @@ namespace BEditor.Core.Data.Property
                 this.frame = frame;
             }
 
+            public string Name => CommandName.RemoveKeyFrame;
 
             /// <inheritdoc/>
             public void Do()
@@ -434,6 +438,7 @@ namespace BEditor.Core.Data.Property
                 this.to = to;
             }
 
+            public string Name => CommandName.MoveKeyFrame;
 
             /// <inheritdoc/>
             public void Do()

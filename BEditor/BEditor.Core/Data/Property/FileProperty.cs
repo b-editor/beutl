@@ -164,6 +164,7 @@ namespace BEditor.Core.Data.Property
                 old = this.property.File;
             }
 
+            public string Name => CommandName.ChangeFile;
 
             /// <inheritdoc/>
             public void Do() => property.File = @new;

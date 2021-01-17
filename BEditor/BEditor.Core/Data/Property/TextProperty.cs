@@ -127,6 +127,8 @@ namespace BEditor.Core.Data.Property
                 this.@new = value;
             }
 
+            public string Name => CommandName.ChangeText;
+
             public void Do() => property.Value = @new;
             public void Redo() => Do();
             public void Undo() => property.Value = old;

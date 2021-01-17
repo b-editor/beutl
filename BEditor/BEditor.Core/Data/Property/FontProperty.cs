@@ -170,6 +170,7 @@ namespace BEditor.Core.Data.Property
                 old = property.Select;
             }
 
+            public string Name => CommandName.ChangeFont;
 
             /// <inheritdoc/>
             public void Do() => property.Select = @new;

@@ -176,13 +176,13 @@
                         <ContextMenu>
                             <MenuItem
                                 Header="{x:Static properties:Resources.AddScene}"
-                                Command="{Binding ProjectAddScene, Mode=OneTime}"/>
+                                Command="{Binding EditModel.SceneAdd, Mode=OneTime}"/>
                             <MenuItem
                                 Header="{x:Static properties:Resources.AddClip}"
-                                Command="{Binding ProjectAddClip, Mode=OneTime}"/>
+                                Command="{Binding EditModel.ClipAdd, Mode=OneTime}"/>
                             <MenuItem
                                 Header="{x:Static properties:Resources.AddEffect}"
-                                Command="{Binding ProjectAddEffect, Mode=OneTime}"/>
+                                Command="{Binding EditModel.EffectAdd, Mode=OneTime}"/>
                         </ContextMenu>
                     </Button.ContextMenu>
                 </Button>

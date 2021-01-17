@@ -620,7 +620,7 @@ namespace BEditor.Core.Properties {
         }
         
         /// <summary>
-        ///   Delete recorded commands. に類似しているローカライズされた文字列を検索します。
+        ///   Delete recorded commands に類似しているローカライズされた文字列を検索します。
         /// </summary>
         public static string DeleteCommand {
             get {
@@ -1179,7 +1179,7 @@ namespace BEditor.Core.Properties {
         }
         
         /// <summary>
-        ///   Move to the next frame. に類似しているローカライズされた文字列を検索します。
+        ///   Move to the next frame に類似しているローカライズされた文字列を検索します。
         /// </summary>
         public static string MoveToNextFrame {
             get {
@@ -1260,7 +1260,7 @@ namespace BEditor.Core.Properties {
         }
         
         /// <summary>
-        ///   Open the directory where this project file is located. に類似しているローカライズされた文字列を検索します。
+        ///   Open the directory where this project file is located に類似しているローカライズされた文字列を検索します。
         /// </summary>
         public static string OpenProjectDirectory {
             get {
@@ -1549,7 +1549,7 @@ namespace BEditor.Core.Properties {
         }
         
         /// <summary>
-        ///    に類似しているローカライズされた文字列を検索します。
+        ///   Setting the current scene に類似しているローカライズされた文字列を検索します。
         /// </summary>
         public static string SceneSettings {
             get {
@@ -1783,7 +1783,16 @@ namespace BEditor.Core.Properties {
         }
         
         /// <summary>
-        ///   Don&apos;t load this plugin next time. に類似しているローカライズされた文字列を検索します。
+        ///   Unknown command に類似しているローカライズされた文字列を検索します。
+        /// </summary>
+        public static string UnknownCommand {
+            get {
+                return ResourceManager.GetString("UnknownCommand", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Don&apos;t load this plugin next time に類似しているローカライズされた文字列を検索します。
         /// </summary>
         public static string UnloadPlugin {
             get {

@@ -214,7 +214,6 @@ namespace BEditor.Core.Data
         public string ToString(string? format, IFormatProvider? formatProvider)
         {
             if (string.IsNullOrEmpty(format)) format = "#";
-            if (formatProvider is null) formatProvider = CultureInfo.CurrentCulture;
 
             return format switch
             {
@@ -287,6 +286,8 @@ namespace BEditor.Core.Data
                 data = new ClipData(idmax, list, startFrame, startFrame + 180, metadata.Type, layer, scene);
             }
 
+            public string Name => CommandName.AddClip;
+
             /// <inheritdoc/>
             public void Do()
             {
@@ -330,6 +331,8 @@ namespace BEditor.Core.Data
             /// <param name="clip">The target <see cref="ClipData"/>.</param>
             /// <exception cref="ArgumentNullException"><paramref name="clip"/> is <see langword="null"/>.</exception>
             public RemoveCommand(ClipData clip) => this.data = clip ?? throw new ArgumentNullException(nameof(clip));
+
+            public string Name => CommandName.RemoveClip;
 
             /// <inheritdoc/>
             public void Do()
@@ -411,6 +414,7 @@ namespace BEditor.Core.Data
             }
             #endregion
 
+            public string Name => CommandName.MoveClip;
 
             /// <inheritdoc/>
             public void Do()
@@ -460,6 +464,8 @@ namespace BEditor.Core.Data
                 oldend = clip.End;
             }
 
+            public string Name => CommandName.ChangeLength;
+
             /// <inheritdoc/>
             public void Do()
             {
@@ -492,6 +498,8 @@ namespace BEditor.Core.Data
                 Before.End = frame;
                 After.Start = frame;
             }
+
+            public string Name => CommandName.SparateClip;
 
             public void Do()
             {

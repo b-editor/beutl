@@ -4,6 +4,8 @@ using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
 
+using BEditor.Core.Properties;
+
 namespace BEditor.Core.Command
 {
     public sealed class RecordCommand<T> : IRecordCommand
@@ -31,7 +33,7 @@ namespace BEditor.Core.Command
             _getName = getName;
         }
 
-        public string Name => _getName?.Invoke(value) ?? "Unknown command";
+        public string Name => _getName?.Invoke(value) ?? Resources.UnknownCommand;
 
         public void Do() => _do?.Invoke(value);
         public void Redo() => _redo?.Invoke(value);
@@ -59,7 +61,7 @@ namespace BEditor.Core.Command
             _getName = getName;
         }
 
-        public string Name => _getName?.Invoke() ?? "Unknown command";
+        public string Name => _getName?.Invoke() ?? Resources.UnknownCommand;
 
         public static RecordCommand<T> Create<T>(T args, Action<T> onDo, Action<T> onUndo, Func<T, string> getName = null)
         {

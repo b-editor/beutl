@@ -497,6 +497,8 @@ namespace BEditor.Core.Data
                 clips = scene.GetLayer(layer).Select(clip => clip.Parent.CreateRemoveCommand(clip)).ToArray();
             }
 
+            public string Name => CommandName.RemoveLayer;
+
             public void Do()
             {
                 foreach (var clip in clips)

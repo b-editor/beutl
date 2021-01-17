@@ -54,7 +54,7 @@ namespace BEditor.ViewModels
         public ReactiveCommand SendFeedback { get; } = new();
         public ReactiveCommand OpenThisRepository { get; } = new();
         #endregion
-
+        
         #region Statusbar Right
         public ReactiveCommand OpenProjectDirectory { get; } = new();
         public ReactiveCommand ConvertJson { get; } = new();
@@ -172,9 +172,9 @@ namespace BEditor.ViewModels
         }
 
         #region Model
-        public OutputModel Output => OutputModel.Current;
-        public ProjectModel ProjectModel => ProjectModel.Current;
-        public EditModel EditModel => EditModel.Current;
+        public static OutputModel Output => OutputModel.Current;
+        public static ProjectModel ProjectModel => ProjectModel.Current;
+        public static EditModel EditModel => EditModel.Current;
         #endregion
 
         #region イベント

@@ -147,6 +147,8 @@ namespace BEditor.Core.Data.Property
                 this.@new = property.Clamp(value);
             }
 
+            public string Name => CommandName.ChangeValue;
+
             public void Do() => property.Value = @new;
             public void Redo() => Do();
             public void Undo() => property.Value = old;

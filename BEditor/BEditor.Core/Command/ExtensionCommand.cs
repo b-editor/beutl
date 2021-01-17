@@ -71,7 +71,8 @@ namespace BEditor.Core.Command
                             scene.SelectItem = null;
                         }
                     }
-                });
+                },
+                _ => CommandName.AddClip);
         }
         public static IRecordCommand CreateRemoveCommand(this Scene self, ClipData clip) => new ClipData.RemoveCommand(clip);
         public static IRecordCommand CreateRemoveLayerCommand(this Scene self, int layer) => new Scene.RemoveLayer(self, layer);

@@ -365,11 +365,11 @@
     <value>収縮</value>
   </data>
   <data name="ErrorHasOccurred" xml:space="preserve">
-    <value>エラーが発生しました</value>
+    <value>エラーが発生しました。</value>
   </data>
   <data name="ErrorMessage" xml:space="preserve">
     <value>エラーが発生しました。
-開発元にお知らせください</value>
+開発元にお知らせください。</value>
   </data>
   <data name="ErrorObjectViewer1" xml:space="preserve">
     <value>{0} またはその子要素を選択してください</value>
@@ -387,7 +387,7 @@
     <value>メッセージ</value>
   </data>
   <data name="ExceptionOpenFileSaved" xml:space="preserve">
-    <value>開いていたファイルは {0} に保存されました</value>
+    <value>開いていたファイルは {0} に保存されました。</value>
   </data>
   <data name="ExceptionStackTrace" xml:space="preserve">
     <value>スタックトレース</value>
@@ -396,7 +396,7 @@
     <value>{0}がスローされました。</value>
   </data>
   <data name="FailedToLoad" xml:space="preserve">
-    <value>{0} の読み込みに失敗しました</value>
+    <value>{0} の読み込みに失敗しました。</value>
   </data>
   <data name="Figure" xml:space="preserve">
     <value>図形</value>
@@ -755,5 +755,8 @@
   </data>
   <data name="SceneSettings" xml:space="preserve">
     <value>シーンの設定</value>
+  </data>
+  <data name="UnknownCommand" xml:space="preserve">
+    <value>不明なコマンド</value>
   </data>
 </root>

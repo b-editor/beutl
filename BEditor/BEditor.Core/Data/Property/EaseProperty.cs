@@ -376,6 +376,7 @@ namespace BEditor.Core.Data.Property
                 oldvalue = property.Value[index];
             }
 
+            public string Name => CommandName.ChangeValue;
 
             /// <inheritdoc/>
             public void Do() => EaseSetting.Value[index] = newvalue;
@@ -414,6 +415,7 @@ namespace BEditor.Core.Data.Property
                 old = this.property.EasingType;
             }
 
+            public string Name => CommandName.ChangeEasing;
 
             /// <inheritdoc/>
             public void Do() => property.EasingType = @new;
@@ -451,6 +453,7 @@ namespace BEditor.Core.Data.Property
                              : frame;
             }
 
+            public string Name => CommandName.AddKeyFrame;
 
             /// <inheritdoc/>
             public void Do()
@@ -495,6 +498,8 @@ namespace BEditor.Core.Data.Property
                              throw new ArgumentOutOfRangeException(nameof(frame))
                              : frame;
             }
+
+            public string Name => CommandName.RemoveKeyFrame;
 
             /// <inheritdoc/>
             public void Do()
@@ -547,6 +552,8 @@ namespace BEditor.Core.Data.Property
                           throw new ArgumentOutOfRangeException(nameof(to))
                           : to;
             }
+
+            public string Name => CommandName.MoveKeyFrame;
 
             /// <inheritdoc/>
             public void Do()

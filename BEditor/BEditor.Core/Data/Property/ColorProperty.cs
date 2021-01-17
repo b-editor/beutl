@@ -158,6 +158,7 @@ namespace BEditor.Core.Data.Property
                 old = property.Value;
             }
 
+            public string Name => CommandName.ChangeColor;
 
             /// <inheritdoc/>
             public void Do()

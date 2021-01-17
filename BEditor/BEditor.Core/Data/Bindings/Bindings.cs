@@ -102,6 +102,8 @@ namespace BEditor.Core.Data.Bindings
                 this.target = target;
             }
 
+            public string Name => CommandName.BindCommand;
+
             // target変更時にsourceが変更
             // targetを観察
 

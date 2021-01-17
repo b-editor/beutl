@@ -134,6 +134,8 @@ namespace BEditor.Core.Data
                 this.value = value;
             }
 
+            public string Name => CommandName.EnableDisableEffect;
+
             /// <inheritdoc/>
             public void Do() => effect.IsEnabled = value;
             /// <inheritdoc/>
@@ -160,6 +162,7 @@ namespace BEditor.Core.Data
                 data = effect.Parent;
             }
 
+            public string Name => CommandName.UpEffect;
 
             /// <inheritdoc/>
             public void Do()
@@ -205,6 +208,7 @@ namespace BEditor.Core.Data
                 data = effect.Parent;
             }
 
+            public string Name => CommandName.DownEffect;
 
             /// <inheritdoc/>
             public void Do()
@@ -251,6 +255,8 @@ namespace BEditor.Core.Data
                 this.data = effect.Parent;
                 index = data.Effect.IndexOf(effect);
             }
+
+            public string Name => CommandName.RemoveEffect;
 
             /// <inheritdoc/>
             public void Do()
@@ -307,13 +313,14 @@ namespace BEditor.Core.Data
                 if (!(data.Effect[0] as ObjectElement).EffectFilter(effect)) throw new NotSupportedException();
             }
 
+            public string Name => CommandName.AddEffect;
+
             /// <inheritdoc/>
             public void Do()
             {
                 effect.Loaded();
                 data.Effect.Add(effect);
             }
-
             /// <inheritdoc/>
             public void Redo() => Do();
             /// <inheritdoc/>

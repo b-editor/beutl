@@ -127,6 +127,7 @@ namespace BEditor.Core.Graphics
             if (IsDisposed) return;
 
             GL.DeleteProgram(Handle);
+            GC.SuppressFinalize(this);
 
             IsDisposed = true;
         }

@@ -162,6 +162,7 @@ namespace BEditor.Core.Data.Property
                 old = this.property.Folder;
             }
 
+            public string Name => CommandName.ChangeFolder;
 
             /// <inheritdoc/>
             public void Do() => property.Folder = @new;

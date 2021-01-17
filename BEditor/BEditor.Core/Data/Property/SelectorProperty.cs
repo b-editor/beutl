@@ -173,6 +173,8 @@ namespace BEditor.Core.Data.Property
                 old = property.Index;
             }
 
+            public string Name => CommandName.ChangeSelectItem;
+
             /// <inheritdoc/>
             public void Do() => property.Index = @new;
 

@@ -7,18 +7,11 @@
     <Authors>indigo-san</Authors>
     <PackageProjectUrl></PackageProjectUrl>
     <RepositoryUrl></RepositoryUrl>
-  </PropertyGroup>
-
-  <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|AnyCPU'">
-    <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
-  </PropertyGroup>
-
-  <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release|AnyCPU'">
     <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
   </PropertyGroup>
 
   <ItemGroup>
-    <PackageReference Include="FFMediaToolkit" Version="3.3.0" />
+    <PackageReference Include="FFMediaToolkit" Version="3.4.0" />
     <PackageReference Include="NAudio" Version="1.10.0" />
     <PackageReference Include="SharpDX.MediaFoundation" Version="4.2.0" />
   </ItemGroup>

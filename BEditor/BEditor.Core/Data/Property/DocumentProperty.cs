@@ -168,6 +168,7 @@ namespace BEditor.Core.Data.Property
                 old = property.Text;
             }
 
+            public string Name => CommandName.ChangeText;
 
             /// <inheritdoc/>
             public void Do() => property.Text = @new;
