@@ -74,7 +74,11 @@ namespace BEditor.Models
                 app.AppStatus = Status.Idle;
             });
 
-            Create.Subscribe(_ => CreateEvent?.Invoke(this, EventArgs.Empty));
+            Create.Subscribe(_ =>
+            {
+                AppData.Current.Project?.Unloaded();
+                CreateEvent?.Invoke(this, EventArgs.Empty);
+            });
         }
 
         public event EventHandler CreateEvent;

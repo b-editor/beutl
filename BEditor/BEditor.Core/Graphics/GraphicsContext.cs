@@ -263,6 +263,9 @@ namespace BEditor.Core.Graphics
             if (IsDisposed) return;
 
             GameWindow.Dispose();
+            textureShader.Dispose();
+            Shader.Dispose();
+            lightShader.Dispose();
 
             IsDisposed = true;
         }

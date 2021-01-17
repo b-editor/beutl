@@ -19,7 +19,6 @@ namespace BEditor
         private static readonly PropertyChangedEventArgs darkModeArgs = new(nameof(UseDarkMode));
         private static readonly PropertyChangedEventArgs autoBackUpArgs = new(nameof(AutoBackUp));
         private static readonly PropertyChangedEventArgs lastTimeFolderArgs = new(nameof(LastTimeFolder));
-        private static readonly PropertyChangedEventArgs lastTimeNumArgs = new(nameof(LastTimeNum));
         private static readonly PropertyChangedEventArgs widthOf1FrameArgs = new(nameof(WidthOf1Frame));
         private static readonly PropertyChangedEventArgs enableErrorLogArgs = new(nameof(EnableErrorLog));
         private static readonly PropertyChangedEventArgs langArgs = new(nameof(Language));
@@ -28,7 +27,6 @@ namespace BEditor
         private bool darkMode = true;
         private bool autoBackUp = true;
         private string lastTimeFolder = "";
-        private int lastTimeNum = 0;
         private int widthOf1Frame = 5;
         private bool enableErrorLog = false;
         private ObservableCollection<string>? enablePlugins;
@@ -84,12 +82,6 @@ namespace BEditor
         {
             get => lastTimeFolder ??= "";
             set => SetValue(value, ref lastTimeFolder, lastTimeFolderArgs);
-        }
-        [DataMember]
-        public int LastTimeNum
-        {
-            get => lastTimeNum;
-            set => SetValue(value, ref lastTimeNum, lastTimeNumArgs);
         }
         [DataMember]
         public int WidthOf1Frame

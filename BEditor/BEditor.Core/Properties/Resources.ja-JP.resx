@@ -759,4 +759,7 @@
   <data name="UnknownCommand" xml:space="preserve">
     <value>不明なコマンド</value>
   </data>
+  <data name="SaveToFile" xml:space="preserve">
+    <value>ファイルに保存する</value>
+  </data>
 </root>

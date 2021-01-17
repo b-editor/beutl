@@ -189,7 +189,6 @@ namespace BEditor.ViewModels
 
         private void Project_Closed()
         {
-            AppData.Current.Project?.Unloaded();
             CommandManager.Clear();
             PreviewImage.Value = null;
 

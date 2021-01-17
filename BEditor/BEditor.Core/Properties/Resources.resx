@@ -759,4 +759,7 @@ Please select the plugin you want to load</value>
   <data name="UnknownCommand" xml:space="preserve">
     <value>Unknown command</value>
   </data>
+  <data name="SaveToFile" xml:space="preserve">
+    <value>Save to file</value>
+  </data>
 </root>

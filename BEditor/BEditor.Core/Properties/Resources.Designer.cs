@@ -1531,6 +1531,15 @@ namespace BEditor.Core.Properties {
         }
         
         /// <summary>
+        ///   Save to file に類似しているローカライズされた文字列を検索します。
+        /// </summary>
+        public static string SaveToFile {
+            get {
+                return ResourceManager.GetString("SaveToFile", resourceCulture);
+            }
+        }
+        
+        /// <summary>
         ///   Scene に類似しているローカライズされた文字列を検索します。
         /// </summary>
         public static string Scene {
