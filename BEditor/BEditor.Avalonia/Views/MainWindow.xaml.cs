@@ -9,9 +9,13 @@ namespace BEditor.Views
 {
     public class MainWindow : Window
     {
+        public static MainWindow? Current;
+
         public MainWindow()
         {
             InitializeComponent();
+
+            Current = this;
         }
 
         private void InitializeComponent()

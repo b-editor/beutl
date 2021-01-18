@@ -20,32 +20,36 @@ namespace BEditor.Views
         public static readonly StyledProperty<string> TopToolTipProperty = AvaloniaProperty.Register<Seekbar, string>("TopToolTip");
         public static readonly StyledProperty<ICommand> PlayPauseProperty = AvaloniaProperty.Register<Seekbar, ICommand>("PlayPause");
         public static readonly StyledProperty<string> PlayPauseToolTipProperty = AvaloniaProperty.Register<Seekbar, string>("PlayPauseToolTip");
-        public static readonly StyledProperty<Geometry> PlayPauseIconProperty = AvaloniaProperty.Register<Seekbar, Geometry>("PlayPauseIcon", PathGeometry.Parse("M8,5.14V19.14L19,12.14L8,5.14Z"));
         public static readonly StyledProperty<ICommand> EndProperty = AvaloniaProperty.Register<Seekbar, ICommand>("End");
         public static readonly StyledProperty<string> EndToolTipProperty = AvaloniaProperty.Register<Seekbar, string>("EndToolTip");
         public static readonly StyledProperty<ICommand> NextProperty = AvaloniaProperty.Register<Seekbar, ICommand>("Next");
         public static readonly StyledProperty<string> NextToolTipProperty = AvaloniaProperty.Register<Seekbar, string>("NextToolTip");
-        public static readonly StyledProperty<bool> IsPlayingProperty = AvaloniaProperty.Register<Seekbar, bool>("IsPlaying", notifying: IsPlayingChanging);
+        public static readonly StyledProperty<bool> IsPlayingProperty = AvaloniaProperty.Register<Seekbar, bool>("IsPlaying", coerce: IsPlayingChanged);
+        private readonly PathIcon playpause;
 
-        private static void IsPlayingChanging(IAvaloniaObject arg1, bool arg2)
+        private static bool IsPlayingChanged(IAvaloniaObject arg1, bool arg2)
         {
             // play M8,5.14V19.14L19,12.14L8,5.14Z
             // pause M14,19H18V5H14M6,19H10V5H6V19Z
 
             var seek = (Seekbar)arg1;
-            if (arg2)
+            if (!arg2)
             {
-                seek.PlayPauseIcon = PathGeometry.Parse("M14,19H18V5H14M6,19H10V5H6V19Z");
+                seek.playpause.Data = PathGeometry.Parse("M14,19H18V5H14M6,19H10V5H6V19Z");
             }
             else
             {
-                seek.PlayPauseIcon = PathGeometry.Parse("M8,5.14V19.14L19,12.14L8,5.14Z");
+                seek.playpause.Data = PathGeometry.Parse("M8,5.14V19.14L19,12.14L8,5.14Z");
             }
+
+            return arg2;
         }
 
         public Seekbar()
         {
             this.InitializeComponent();
+            playpause = this.FindControl<PathIcon>("playpause");
+            playpause.Data = PathGeometry.Parse("M14,19H18V5H14M6,19H10V5H6V19Z");
         }
 
         private void InitializeComponent()
@@ -99,11 +103,6 @@ namespace BEditor.Views
             get => GetValue(PlayPauseToolTipProperty);
             set => SetValue(PlayPauseToolTipProperty, value);
         }
-        public Geometry PlayPauseIcon
-        {
-            get => GetValue(PlayPauseIconProperty);
-            set => SetValue(PlayPauseIconProperty, value);
-        }
         public ICommand End
         {
             get => GetValue(EndProperty);
@@ -124,6 +123,10 @@ namespace BEditor.Views
             get => GetValue(NextToolTipProperty);
             set => SetValue(NextToolTipProperty, value);
         }
-
+        public bool IsPlaying
+        {
+            get => GetValue(IsPlayingProperty);
+            set => SetValue(IsPlayingProperty, value);
+        }
     }
 }

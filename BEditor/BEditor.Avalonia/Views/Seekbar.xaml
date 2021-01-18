@@ -48,7 +48,7 @@
         Classes="Flat"
         Command="{Binding PlayPause, ElementName=root}"
         ToolTip.Tip="{Binding PlayPauseToolTip, ElementName=root}">
-        <PathIcon Data="{Binding PlayPauseIcon, ElementName=root}"/>
+        <PathIcon x:Name="playpause"/>
       </Button>
       <Button
         Classes="Flat"

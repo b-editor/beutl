@@ -4,10 +4,14 @@
     <TargetFramework>net5.0</TargetFramework>
     <RootNamespace>BEditor</RootNamespace>
     <AssemblyName>BEditor</AssemblyName>
+    <Nullable>enable</Nullable>
   </PropertyGroup>
   <ItemGroup>
     <None Remove="App.xaml" />
     <None Remove="Views\MainWindow.xaml" />
+    <None Remove="Views\Properties\ClipProperty.xaml" />
+    <None Remove="Views\Properties\PropertyTab.xaml" />
+    <None Remove="Views\Properties\SelectorPropertyView.xaml" />
     <None Remove="Views\Seekbar.xaml" />
   </ItemGroup>
   <ItemGroup>
@@ -15,6 +19,15 @@
       <Generator>MSBuild:Compile</Generator>
     </AvaloniaXaml>
     <AvaloniaXaml Include="Views\MainWindow.xaml">
+      <Generator>MSBuild:Compile</Generator>
+    </AvaloniaXaml>
+    <AvaloniaXaml Include="Views\Properties\ClipProperty.xaml">
+      <Generator>MSBuild:Compile</Generator>
+    </AvaloniaXaml>
+    <AvaloniaXaml Include="Views\Properties\PropertyTab.xaml">
+      <Generator>MSBuild:Compile</Generator>
+    </AvaloniaXaml>
+    <AvaloniaXaml Include="Views\Properties\SelectorPropertyView.xaml">
       <Generator>MSBuild:Compile</Generator>
     </AvaloniaXaml>
     <AvaloniaXaml Include="Views\Seekbar.xaml">
@@ -25,6 +38,7 @@
     <PackageReference Include="Avalonia" Version="0.10.0-rc1" />
     <PackageReference Include="Avalonia.Desktop" Version="0.10.0-rc1" />
     <PackageReference Include="Material.Avalonia" Version="1.0.1" />
+    <PackageReference Include="ReactiveProperty" Version="7.6.1" />
   </ItemGroup>
   <ItemGroup>
     <ProjectReference Include="..\BEditor.Core\BEditor.Core.csproj" />
@@ -38,6 +52,15 @@
     </Compile>
     <Compile Update="Views\MainWindow.xaml.cs">
       <DependentUpon>MainWindow.xaml</DependentUpon>
+    </Compile>
+    <Compile Update="Views\Properties\ClipProperty.xaml.cs">
+      <DependentUpon>ClipProperty.xaml</DependentUpon>
+    </Compile>
+    <Compile Update="Views\Properties\PropertyTab.xaml.cs">
+      <DependentUpon>PropertyTab.xaml</DependentUpon>
+    </Compile>
+    <Compile Update="Views\Properties\SelectorPropertyView.xaml.cs">
+      <DependentUpon>SelectorPropertyView.xaml</DependentUpon>
     </Compile>
     <Compile Update="Views\Seekbar.xaml.cs">
       <DependentUpon>Seekbar.xaml</DependentUpon>

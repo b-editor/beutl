@@ -1,0 +1,32 @@
+﻿<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+             xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+             xmlns:data="clr-namespace:BEditor.Core.Data;assembly=BEditor.Core"
+             xmlns:convert="clr-namespace:BEditor.ViewModels.Converters"
+             mc:Ignorable="d" d:DesignWidth="800" d:DesignHeight="450"
+             x:Class="BEditor.Views.Properties.PropertyTab">
+  <UserControl.Resources>
+    <convert:ClipDataToPropertyConverter x:Key="ClipDataToProperty"/>
+  </UserControl.Resources>
+  <UserControl.Styles>
+    <Style Selector="MenuItem">
+      <Setter Property="Height" Value="30"/>
+    </Style>
+  </UserControl.Styles>
+  <Grid>
+    <!--<dragablz:TabablzControl BorderBrush="{Binding Source={x:Static main:MainWindowViewModel.Current}, Path=MainWindowColor.Value, Mode=OneWay}" Background="Transparent" x:Name="TabControl" SelectedItem="{Binding SelectItem, Mode=TwoWay}" ItemsSource="{Binding SelectItems, Mode=OneTime}" BorderThickness="0,0,0,0" ShowDefaultCloseButton="True" FlowDirection="LeftToRight">
+      <dragablz:TabablzControl.HeaderItemTemplate>
+        <DataTemplate DataType="{x:Type data:ClipData}">
+          <TextBlock Text="{Binding LabelText, Mode=OneWay}" VerticalAlignment="Center" HorizontalAlignment="Center" FontWeight="Normal" FontStyle="Normal" FontStretch="Normal"/>
+        </DataTemplate>
+      </dragablz:TabablzControl.HeaderItemTemplate>
+      <dragablz:TabablzControl.ContentTemplate>
+        <DataTemplate DataType="{x:Type data:ClipData}">
+          <Label Content="{Binding Converter={StaticResource ClipDataToProperty}}" Padding="0,0,0,0" VerticalContentAlignment="Stretch" HorizontalContentAlignment="Stretch" VerticalAlignment="Stretch" HorizontalAlignment="Stretch"/>
+        </DataTemplate>
+      </dragablz:TabablzControl.ContentTemplate>
+    </dragablz:TabablzControl>-->
+    <Label Content="{Binding SelectItem, Converter={StaticResource ClipDataToProperty}}"/>
+  </Grid>
+</UserControl>

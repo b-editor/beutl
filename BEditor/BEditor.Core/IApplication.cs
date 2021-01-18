@@ -9,7 +9,7 @@ namespace BEditor.Core
     public interface IApplication
     {
         public Status AppStatus { get; set; }
-        public List<IPlugin> LoadedPlugins { get; }
+        public List<IPlugin>? LoadedPlugins { get; }
     }
 
     public class Application : IApplication
@@ -22,6 +22,6 @@ namespace BEditor.Core
         public static IApplication Empty() => new Application();
 
         Status IApplication.AppStatus { get; set; }
-        List<IPlugin> IApplication.LoadedPlugins { get; }
+        List<IPlugin>? IApplication.LoadedPlugins { get; }
     }
 }
