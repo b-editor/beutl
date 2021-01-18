@@ -1,0 +1,85 @@
+﻿<Window xmlns="https://github.com/avaloniaui"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+        xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+        xmlns:prop="clr-namespace:BEditor.Core.Properties;assembly=BEditor.Core"
+        xmlns:local="clr-namespace:BEditor.Views"
+        xmlns:md="clr-namespace:Material.Styles;assembly=Material.Styles"
+        mc:Ignorable="d" d:DesignWidth="1440" d:DesignHeight="760"
+        x:Class="BEditor.Views.MainWindow"
+        Title="BEditor.Avalonia">
+  <Window.Styles>
+    <Style Selector="Button.Menu">
+      <Setter Property="Foreground" Value="{DynamicResource ThemeForegroundBrush}"/>
+    </Style>
+    <Style Selector="MenuItem">
+      <Setter Property="Height" Value="30"/>
+    </Style>
+    <Style Selector="TabItem">
+      <Setter Property="Height" Value="30"/>
+    </Style>
+  </Window.Styles>
+  <Grid>
+    <Grid.RowDefinitions>
+      <!--Menu-->
+      <RowDefinition Height="Auto"/>
+      <!--上-->
+      <RowDefinition Height="*"/>
+      <!--GridSplitter-->
+      <RowDefinition Height="10"/>
+      <!--下-->
+      <RowDefinition Height="*"/>
+    </Grid.RowDefinitions>
+    <Grid.ColumnDefinitions>
+      <ColumnDefinition Width="425"/>
+      <ColumnDefinition Width="10"/>
+      <ColumnDefinition Width="1*"/>
+      <ColumnDefinition Width="10"/>
+      <ColumnDefinition Width="2*"/>
+    </Grid.ColumnDefinitions>
+
+    <StackPanel Orientation="Horizontal" Grid.ColumnSpan="5">
+      <Button Click="MenuButton_Click" Classes="Flat Menu" Content="{x:Static prop:Resources.AccessFile}">
+        <Button.ContextMenu>
+          <ContextMenu>
+            <MenuItem Header="{x:Static prop:Resources.AccessOpen}"/>
+            <MenuItem Header="{x:Static prop:Resources.AccessCreate_new}">
+              <MenuItem Header="{x:Static prop:Resources.From_backup}"/>
+              <MenuItem Header="{x:Static prop:Resources.Create_project}"/>
+            </MenuItem>
+            <Separator/>
+            <MenuItem Header="{x:Static prop:Resources.AccessSave}"/>
+            <MenuItem Header="{x:Static prop:Resources.Save_as}"/>
+            <MenuItem Header="{x:Static prop:Resources.Close}"/>
+            <Separator/>
+            <MenuItem Header="{x:Static prop:Resources.MostRecentlyUsedList}"/>
+            <Separator/>
+            <MenuItem Header="{x:Static prop:Resources.Shutdown}"/>
+          </ContextMenu>
+        </Button.ContextMenu>
+      </Button>
+      <Button Click="MenuButton_Click" Classes="Flat Menu" Content="{x:Static prop:Resources.AccessEdit}"/>
+      <Button Click="MenuButton_Click" Classes="Flat Menu" Content="{x:Static prop:Resources.AccessView}"/>
+      <Button Click="MenuButton_Click" Classes="Flat Menu" Content="{x:Static prop:Resources.AccessTool}"/>
+      <Button Click="MenuButton_Click" Classes="Flat Menu" Content="{x:Static prop:Resources.AccessPlugin}"/>
+      <Button Click="MenuButton_Click" Classes="Flat Menu" Content="{x:Static prop:Resources.AccessOut}"/>
+      <Button Click="MenuButton_Click" Classes="Flat Menu" Content="{x:Static prop:Resources.AccessHelp}"/>
+    </StackPanel>
+
+    <md:Card Grid.Row="1" Grid.RowSpan="3" Margin="8,0,0,8"/>
+    
+    <GridSplitter Grid.Row="1" Grid.RowSpan="3" Grid.Column="1" Background="Transparent"/>
+    
+    <md:Card Grid.Row="3" Grid.Column="2" Grid.ColumnSpan="3" Margin="0,8,8,8"/>
+
+    <TabControl Grid.Row="1" Grid.Column="2">
+      <TabItem Header="1" Content="1"/>
+      <TabItem Header="2" Content="1"/>
+      <TabItem Header="3" Content="1"/>
+    </TabControl>
+
+    <Grid Grid.Row="1" Grid.Column="4">
+      <local:Seekbar VerticalAlignment="Bottom"/>
+    </Grid>
+  </Grid>
+</Window>
