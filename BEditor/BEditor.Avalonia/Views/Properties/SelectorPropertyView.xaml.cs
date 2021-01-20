@@ -1,5 +1,7 @@
 ﻿using Avalonia;
 using Avalonia.Controls;
+using Avalonia.Controls.Primitives;
+using Avalonia.Interactivity;
 using Avalonia.Markup.Xaml;
 
 using BEditor.ViewModels.PropertyControl;
@@ -24,7 +26,10 @@ namespace BEditor.Views.Properties
             var vm = (SelectorPropertyViewModel)DataContext!;
             vm.Command.Execute(((ComboBox)sender!).SelectedIndex);
         }
-
+        public void PopClick(object sender, RoutedEventArgs args)
+        {
+            this.FindControl<Popup>("Pop")?.Open();
+        }
         private void InitializeComponent()
         {
             AvaloniaXamlLoader.Load(this);

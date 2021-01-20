@@ -14,6 +14,7 @@ using Avalonia.Media;
 using BEditor.Core.Command;
 using BEditor.Core.Data;
 using BEditor.Core.Data.Property;
+using BEditor.Core.Data.Property.Easing;
 using BEditor.Core.Properties;
 using BEditor.ViewModels.PropertyControl;
 using BEditor.Views.Properties;
@@ -72,6 +73,11 @@ namespace BEditor.Views
             PropertyViewBuilder.Create<SelectorProperty>(s =>
             {
                 return new SelectorPropertyView(new SelectorPropertyViewModel(s));
+            }),
+            // EaseProperty
+            PropertyViewBuilder.Create<EaseProperty>(s =>
+            {
+                return new EasePropertyView(s);
             })
         };
 
@@ -202,26 +208,26 @@ namespace BEditor.Views
             }
             return scene.ComponentData["GetPropertyTab"];
         }
-        //public static UIElement GetCreatePropertyView(this EasingFunc easing)
-        //{
-        //    if (!easing.ComponentData.ContainsKey("GetPropertyView"))
-        //    {
-        //        var _createdControl = new VirtualizingStackPanel()
-        //        {
-        //            Orientation = Orientation.Vertical,
-        //            Width = float.NaN,
-        //            HorizontalAlignment = HorizontalAlignment.Stretch
-        //        };
+        public static Control GetCreatePropertyView(this EasingFunc easing)
+        {
+            if (!easing.ComponentData.ContainsKey("GetPropertyView"))
+            {
+                var _createdControl = new StackPanel()
+                {
+                    Orientation = Orientation.Vertical,
+                    Width = float.NaN,
+                    HorizontalAlignment = HorizontalAlignment.Stretch
+                };
 
-        //        foreach (var setting in easing.Children)
-        //        {
-        //            _createdControl.Children.Add(((PropertyElement)setting).GetCreatePropertyView());
-        //        }
+                foreach (var setting in easing.Children)
+                {
+                    _createdControl.Children.Add(((PropertyElement)setting).GetCreatePropertyView());
+                }
 
-        //        easing.ComponentData.Add("GetPropertyView", _createdControl);
-        //    }
-        //    return easing.ComponentData["GetPropertyView"];
-        //}
+                easing.ComponentData.Add("GetPropertyView", _createdControl);
+            }
+            return easing.ComponentData["GetPropertyView"];
+        }
 
         public static (Expander, StackPanel) CreateTreeObject(ObjectElement obj)
         {

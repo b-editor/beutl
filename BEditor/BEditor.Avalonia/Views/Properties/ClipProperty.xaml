@@ -34,7 +34,7 @@
           <Label Content="{x:Static prop:Resources.Name}" VerticalAlignment="Center" HorizontalAlignment="Left"/>
           <Label Content="{x:Static prop:Resources.Type}" Grid.Row="1" HorizontalAlignment="Left" VerticalAlignment="Center"/>
 
-          <TextBox Classes="Outline" Text="{Binding LabelText, Mode=TwoWay}" Grid.Column="1" HorizontalAlignment="Stretch" VerticalAlignment="Center" VerticalContentAlignment="Center" Margin="10,0,10,0"/>
+          <TextBox BorderThickness="0" Text="{Binding LabelText, Mode=TwoWay}" Grid.Column="1" HorizontalAlignment="Stretch" VerticalAlignment="Center" VerticalContentAlignment="Center" Margin="10,-24,10,0"/>
           <Label Content="{Binding Type.Name, Mode=OneTime}" Grid.Row="1" Grid.Column="1" Margin="10,0,10,0" VerticalAlignment="Center" Padding="4,0,0,0" VerticalContentAlignment="Center"/>
         </Grid>
 
