@@ -19,16 +19,57 @@ namespace BEditor.Core.Data.Property
     public class SelectorProperty : PropertyElement<SelectorPropertyMetadata>, IEasingProperty, IBindable<int>
     {
         #region Fields
+        private static readonly PropertyChangedEventArgs _IndexArgs = new(nameof(Index));
+        private int _SelectIndex;
+        private List<IObserver<int>>? _List;
 
-        private static readonly PropertyChangedEventArgs indexArgs = new(nameof(Index));
-        private int selectIndex;
-        private List<IObserver<int>> list;
-
-        private IDisposable BindDispose;
-        private IBindable<int> Bindable;
-        private string bindHint;
-
+        private IDisposable? _BindDispose;
+        private IBindable<int>? _Bindable;
+        private string? _BindHint;
         #endregion
+
+
+        private List<IObserver<int>> Collection => _List ??= new();
+        /// <summary>
+        /// 選択されているアイテムを取得します
+        /// </summary>
+        public object? SelectItem
+        {
+            get => PropertyMetadata?.ItemSource[Index];
+            set => Index = PropertyMetadata?.ItemSource?.IndexOf(value) ?? 0;
+        }
+
+        /// <summary>
+        /// 選択されている <see cref="SelectorPropertyMetadata.ItemSource"/> のインデックスを取得または設定します
+        /// </summary>
+        [DataMember]
+        public int Index
+        {
+            get => _SelectIndex;
+            set => SetValue(value, ref _SelectIndex, _IndexArgs, this, state =>
+            {
+                foreach (var observer in state.Collection)
+                {
+                    try
+                    {
+                        observer.OnNext(state._SelectIndex);
+                    }
+                    catch (Exception ex)
+                    {
+                        observer.OnError(ex);
+                    }
+                }
+            });
+        }
+        /// <inheritdoc/>
+        public int Value => Index;
+        /// <inheritdoc/>
+        [DataMember]
+        public string? BindHint
+        {
+            get => _Bindable?.GetString();
+            private set => _BindHint = value;
+        }
 
 
         /// <summary>
@@ -43,58 +84,15 @@ namespace BEditor.Core.Data.Property
         }
 
 
-        private List<IObserver<int>> Collection => list ??= new();
-        /// <summary>
-        /// 選択されているアイテムを取得します
-        /// </summary>
-        public object SelectItem
-        {
-            get => PropertyMetadata.ItemSource[Index];
-            set => Index = PropertyMetadata.ItemSource.IndexOf(value);
-        }
-
-        /// <summary>
-        /// 選択されている <see cref="SelectorPropertyMetadata.ItemSource"/> のインデックスを取得または設定します
-        /// </summary>
-        [DataMember]
-        public int Index
-        {
-            get => selectIndex;
-            set => SetValue(value, ref selectIndex, indexArgs, this, state =>
-            {
-                foreach (var observer in state.Collection)
-                {
-                    try
-                    {
-                        observer.OnNext(state.selectIndex);
-                    }
-                    catch (Exception ex)
-                    {
-                        observer.OnError(ex);
-                    }
-                }
-            });
-        }
-        /// <inheritdoc/>
-        public int Value => Index;
-        /// <inheritdoc/>
-        [DataMember]
-        public string BindHint
-        {
-            get => Bindable?.GetString();
-            private set => bindHint = value;
-        }
-
-
         #region Methods
         /// <inheritdoc/>
         protected override void OnLoad()
         {
-            if (bindHint is not null && this.GetBindable(bindHint, out var b))
+            if (_BindHint is not null && this.GetBindable(_BindHint, out var b))
             {
                 Bind(b);
             }
-            bindHint = null;
+            _BindHint = null;
         }
         /// <inheritdoc/>
         public override string ToString() => $"(Index:{Index} Item:{SelectItem} Name:{PropertyMetadata?.Name})";
@@ -126,15 +124,15 @@ namespace BEditor.Core.Data.Property
 
         public void Bind(IBindable<int>? bindable)
         {
-            BindDispose?.Dispose();
-            Bindable = bindable;
+            _BindDispose?.Dispose();
+            _Bindable = bindable;
 
             if (bindable is not null)
             {
                 Index = bindable.Value;
 
                 // bindableが変更時にthisが変更
-                BindDispose = bindable.Subscribe(this);
+                _BindDispose = bindable.Subscribe(this);
             }
         }
 
@@ -154,9 +152,9 @@ namespace BEditor.Core.Data.Property
         /// <remarks>このクラスは <see cref="CommandManager.Do(IRecordCommand)"/> と併用することでコマンドを記録できます</remarks>
         public sealed class ChangeSelectCommand : IRecordCommand
         {
-            private readonly SelectorProperty property;
-            private readonly int @new;
-            private readonly int old;
+            private readonly SelectorProperty _Property;
+            private readonly int _New;
+            private readonly int _Old;
 
             /// <summary>
             /// <see cref="ChangeSelectCommand"/> クラスの新しいインスタンスを初期化します
@@ -166,21 +164,21 @@ namespace BEditor.Core.Data.Property
             /// <exception cref="ArgumentNullException"><paramref name="property"/> が <see langword="null"/> です</exception>
             public ChangeSelectCommand(SelectorProperty property, int select)
             {
-                this.property = property ?? throw new ArgumentNullException(nameof(property));
-                this.@new = select;
-                old = property.Index;
+                this._Property = property ?? throw new ArgumentNullException(nameof(property));
+                this._New = select;
+                _Old = property.Index;
             }
 
             public string Name => CommandName.ChangeSelectItem;
 
             /// <inheritdoc/>
-            public void Do() => property.Index = @new;
+            public void Do() => _Property.Index = _New;
 
             /// <inheritdoc/>
             public void Redo() => Do();
 
             /// <inheritdoc/>
-            public void Undo() => property.Index = old;
+            public void Undo() => _Property.Index = _Old;
         }
 
         #endregion

@@ -1,4 +1,5 @@
-﻿using System.Collections.Generic;
+﻿using System;
+using System.Collections.Generic;
 using System.Collections.ObjectModel;
 using System.ComponentModel;
 using System.Linq;
@@ -19,10 +20,8 @@ namespace BEditor.Core.Data.Property.Easing
     public abstract class EasingFunc : ComponentObject, IChild<PropertyElement>, IParent<IEasingProperty>, IElementObject
     {
         #region Fields
-
-        private PropertyElement parent;
-        private IEnumerable<IEasingProperty> cachedlist;
-
+        private PropertyElement? _Parent;
+        private IEnumerable<IEasingProperty>? _CachedList;
         #endregion
 
 
@@ -34,25 +33,26 @@ namespace BEditor.Core.Data.Property.Easing
         /// <summary>
         /// キャッシュされた <see cref="Properties"/> を取得します
         /// </summary>
-        public IEnumerable<IEasingProperty> Children => cachedlist ??= Properties;
+        public IEnumerable<IEasingProperty> Children => _CachedList ??= Properties;
 
         /// <summary>
         /// 親要素を取得します
         /// </summary>
-        public PropertyElement Parent
+        public PropertyElement? Parent
         {
-            get => parent;
+            get => _Parent;
             set
             {
-                parent = value;
-                var parent_ = parent.Parent;
+                if (value is null) throw new ArgumentNullException(nameof(value));
+
+                _Parent = value;
+                var parent_ = value.Parent;
 
                 Parallel.ForEach(Children, item => item.Parent = parent_);
             }
         }
 
         public bool IsLoaded { get; private set; }
-
 
         /// <summary>
         /// イージング関数

@@ -20,18 +20,16 @@ namespace BEditor.Core.Data
     public abstract class EffectElement : ComponentObject, IChild<ClipData>, IParent<PropertyElement>, ICloneable, IHasId, IElementObject
     {
         #region Fields
-
-        private static readonly PropertyChangedEventArgs isEnabledArgs = new(nameof(IsEnabled));
-        private static readonly PropertyChangedEventArgs isExpandedArgs = new(nameof(IsExpanded));
-        private bool isEnabled = true;
-        private bool isExpanded = true;
-        private ClipData clipData;
-        private IEnumerable<PropertyElement> cachedlist;
-
+        private static readonly PropertyChangedEventArgs _IsEnabledArgs = new(nameof(IsEnabled));
+        private static readonly PropertyChangedEventArgs _IsExpandedArgs = new(nameof(IsExpanded));
+        private bool _IsEnabled = true;
+        private bool _IsExpanded = true;
+        private ClipData? _Parent;
+        private IEnumerable<PropertyElement>? _CachedList;
         #endregion
 
         /// <inheritdoc/>
-        public IEnumerable<PropertyElement> Children => cachedlist ??= Properties.ToArray();
+        public IEnumerable<PropertyElement> Children => _CachedList ??= Properties.ToArray();
         /// <summary>
         /// Get the name of the <see cref="EffectElement"/>.
         /// </summary>
@@ -43,8 +41,8 @@ namespace BEditor.Core.Data
         [DataMember]
         public bool IsEnabled
         {
-            get => isEnabled;
-            set => SetValue(value, ref isEnabled, isEnabledArgs);
+            get => _IsEnabled;
+            set => SetValue(value, ref _IsEnabled, _IsEnabledArgs);
         }
         /// <summary>
         /// Get or set whether the expander is open.
@@ -53,26 +51,26 @@ namespace BEditor.Core.Data
         [DataMember]
         public bool IsExpanded
         {
-            get => isExpanded;
-            set => SetValue(value, ref isExpanded, isExpandedArgs);
+            get => _IsExpanded;
+            set => SetValue(value, ref _IsExpanded, _IsExpandedArgs);
         }
         /// <summary>
         /// Get the <see cref="PropertyElement"/> to display on the GUI.
         /// </summary>
         public abstract IEnumerable<PropertyElement> Properties { get; }
         /// <inheritdoc/>
-        public ClipData Parent
+        public ClipData? Parent
         {
-            get => clipData;
+            get => _Parent;
             internal set
             {
-                clipData = value;
+                _Parent = value;
 
                 Parallel.ForEach(Children, property => property.Parent = this);
             }
         }
         /// <inheritdoc/>
-        public int Id => Parent.Effect.IndexOf(this);
+        public int Id => Parent?.Effect?.IndexOf(this) ?? -1;
         /// <inheritdoc/>
         public bool IsLoaded { get; private set; }
 
@@ -130,8 +128,8 @@ namespace BEditor.Core.Data
         /// </summary>
         internal sealed class CheckCommand : IRecordCommand
         {
-            private readonly EffectElement effect;
-            private readonly bool value;
+            private readonly EffectElement _Effect;
+            private readonly bool _Value;
 
             /// <summary>
             /// <see cref="CheckCommand"/> Initialize a new instance of the class.
@@ -141,26 +139,26 @@ namespace BEditor.Core.Data
             /// <exception cref="ArgumentNullException"><paramref name="effect"/> is <see langword="null"/>.</exception>
             public CheckCommand(EffectElement effect, bool value)
             {
-                this.effect = effect ?? throw new ArgumentNullException(nameof(effect));
-                this.value = value;
+                _Effect = effect ?? throw new ArgumentNullException(nameof(effect));
+                _Value = value;
             }
 
             public string Name => CommandName.EnableDisableEffect;
 
             /// <inheritdoc/>
-            public void Do() => effect.IsEnabled = value;
+            public void Do() => _Effect.IsEnabled = _Value;
             /// <inheritdoc/>
             public void Redo() => Do();
             /// <inheritdoc/>
-            public void Undo() => effect.IsEnabled = !value;
+            public void Undo() => _Effect.IsEnabled = !_Value;
         }
         /// <summary>
         /// Represents a command that changes the order of the effects.
         /// </summary>
         internal sealed class UpCommand : IRecordCommand
         {
-            private readonly ClipData data;
-            private readonly EffectElement effect;
+            private readonly ClipData _Clip;
+            private readonly EffectElement _Effect;
 
             /// <summary>
             /// <see cref="UpCommand"/> Initialize a new instance of the class.
@@ -169,8 +167,8 @@ namespace BEditor.Core.Data
             /// <exception cref="ArgumentNullException"><paramref name="effect"/> is <see langword="null"/>.</exception>
             public UpCommand(EffectElement effect)
             {
-                this.effect = effect ?? throw new ArgumentNullException(nameof(effect));
-                data = effect.Parent;
+                this._Effect = effect ?? throw new ArgumentNullException(nameof(effect));
+                _Clip = effect.Parent!;
             }
 
             public string Name => CommandName.UpEffect;
@@ -179,11 +177,11 @@ namespace BEditor.Core.Data
             public void Do()
             {
                 //変更前のインデックス
-                int index = data.Effect.IndexOf(effect);
+                int index = _Clip.Effect.IndexOf(_Effect);
 
                 if (index != 1)
                 {
-                    data.Effect.Move(index, index - 1);
+                    _Clip.Effect.Move(index, index - 1);
                 }
             }
             /// <inheritdoc/>
@@ -192,11 +190,11 @@ namespace BEditor.Core.Data
             public void Undo()
             {
                 //変更前のインデックス
-                int index = data.Effect.IndexOf(effect);
+                int index = _Clip.Effect.IndexOf(_Effect);
 
-                if (index != data.Effect.Count() - 1)
+                if (index != _Clip.Effect.Count() - 1)
                 {
-                    data.Effect.Move(index, index + 1);
+                    _Clip.Effect.Move(index, index + 1);
                 }
             }
         }
@@ -205,8 +203,8 @@ namespace BEditor.Core.Data
         /// </summary>
         internal sealed class DownCommand : IRecordCommand
         {
-            private readonly ClipData data;
-            private readonly EffectElement effect;
+            private readonly ClipData _Clip;
+            private readonly EffectElement _Effect;
 
             /// <summary>
             /// <see cref="DownCommand"/> Initialize a new instance of the class.
@@ -215,8 +213,8 @@ namespace BEditor.Core.Data
             /// <exception cref="ArgumentNullException"><paramref name="effect"/> is <see langword="null"/>.</exception>
             public DownCommand(EffectElement effect)
             {
-                this.effect = effect ?? throw new ArgumentNullException(nameof(effect));
-                data = effect.Parent;
+                _Effect = effect ?? throw new ArgumentNullException(nameof(effect));
+                _Clip = effect.Parent!;
             }
 
             public string Name => CommandName.DownEffect;
@@ -225,11 +223,11 @@ namespace BEditor.Core.Data
             public void Do()
             {
                 //変更前のインデックス
-                int index = data.Effect.IndexOf(effect);
+                int index = _Clip.Effect.IndexOf(_Effect);
 
-                if (index != data.Effect.Count() - 1)
+                if (index != _Clip.Effect.Count() - 1)
                 {
-                    data.Effect.Move(index, index + 1);
+                    _Clip.Effect.Move(index, index + 1);
                 }
             }
             /// <inheritdoc/>
@@ -238,11 +236,11 @@ namespace BEditor.Core.Data
             public void Undo()
             {
                 //変更前のインデックス
-                int index = data.Effect.IndexOf(effect);
+                int index = _Clip.Effect.IndexOf(_Effect);
 
                 if (index != 1)
                 {
-                    data.Effect.Move(index, index - 1);
+                    _Clip.Effect.Move(index, index - 1);
                 }
             }
         }
@@ -251,9 +249,9 @@ namespace BEditor.Core.Data
         /// </summary>
         internal sealed class RemoveCommand : IRecordCommand
         {
-            private readonly ClipData data;
-            private readonly EffectElement effect;
-            private readonly int index;
+            private readonly ClipData _Clip;
+            private readonly EffectElement _Effect;
+            private readonly int _Indec;
 
             /// <summary>
             /// <see cref="RemoveCommand"/> Initialize a new instance of the class.
@@ -262,9 +260,9 @@ namespace BEditor.Core.Data
             /// <exception cref="ArgumentNullException"><paramref name="effect"/> is <see langword="null"/>.</exception>
             public RemoveCommand(EffectElement effect)
             {
-                this.effect = effect ?? throw new ArgumentNullException(nameof(effect));
-                this.data = effect.Parent;
-                index = data.Effect.IndexOf(effect);
+                _Effect = effect ?? throw new ArgumentNullException(nameof(effect));
+                _Clip = effect.Parent!;
+                _Indec = _Clip.Effect.IndexOf(effect);
             }
 
             public string Name => CommandName.RemoveEffect;
@@ -272,17 +270,16 @@ namespace BEditor.Core.Data
             /// <inheritdoc/>
             public void Do()
             {
-                data.Effect.RemoveAt(index);
-                effect.Unload();
+                _Clip.Effect.RemoveAt(_Indec);
+                _Effect.Unload();
             }
-
             /// <inheritdoc/>
             public void Redo() => Do();
             /// <inheritdoc/>
             public void Undo()
             {
-                effect.Load();
-                data.Effect.Insert(index, effect);
+                _Effect.Load();
+                _Clip.Effect.Insert(_Indec, _Effect);
             }
         }
         /// <summary>
@@ -290,8 +287,8 @@ namespace BEditor.Core.Data
         /// </summary>
         internal sealed class AddCommand : IRecordCommand
         {
-            private readonly ClipData data;
-            private readonly EffectElement effect;
+            private readonly ClipData _Clip;
+            private readonly EffectElement _Effect;
 
             /// <summary>
             /// <see cref="AddCommand"/>Initialize a new instance of the class.
@@ -302,10 +299,10 @@ namespace BEditor.Core.Data
             public AddCommand(EffectElement effect)
             {
                 if (effect.Parent is null) throw new ArgumentException("effect.ClipData is null", nameof(effect));
-                this.effect = effect ?? throw new ArgumentNullException(nameof(effect));
+                _Effect = effect ?? throw new ArgumentNullException(nameof(effect));
 
-                this.data = effect.Parent;
-                if (!(data.Effect[0] as ObjectElement).EffectFilter(effect)) throw new NotSupportedException();
+                _Clip = effect.Parent;
+                if (!((ObjectElement)_Clip.Effect[0]).EffectFilter(effect)) throw new NotSupportedException();
             }
             /// <summary>
             /// <see cref="AddCommand"/> Initialize a new instance of the class.
@@ -318,10 +315,10 @@ namespace BEditor.Core.Data
             {
                 if (clip is null) throw new ArgumentNullException(nameof(clip));
 
-                this.effect = effect ?? throw new ArgumentNullException(nameof(effect));
-                this.data = clip;
+                _Effect = effect ?? throw new ArgumentNullException(nameof(effect));
+                _Clip = clip;
                 effect.Parent = clip;
-                if (!(data.Effect[0] as ObjectElement).EffectFilter(effect)) throw new NotSupportedException();
+                if (!((ObjectElement)_Clip.Effect[0]).EffectFilter(effect)) throw new NotSupportedException();
             }
 
             public string Name => CommandName.AddEffect;
@@ -329,16 +326,16 @@ namespace BEditor.Core.Data
             /// <inheritdoc/>
             public void Do()
             {
-                effect.Load();
-                data.Effect.Add(effect);
+                _Effect.Load();
+                _Clip.Effect.Add(_Effect);
             }
             /// <inheritdoc/>
             public void Redo() => Do();
             /// <inheritdoc/>
             public void Undo()
             {
-                data.Effect.Remove(effect);
-                effect.Unload();
+                _Clip.Effect.Remove(_Effect);
+                _Effect.Unload();
             }
         }
         [DataContract]

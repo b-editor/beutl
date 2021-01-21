@@ -35,11 +35,11 @@ namespace BEditor.Core.Command
             _ = metadata ?? throw new ArgumentNullException(nameof(metadata));
 
             var command = new ClipData.AddCommand(self, addframe, layer, metadata);
-            generatedClip = command.data;
+            generatedClip = command.Clip;
 
             return command;
         }
-        static readonly PropertyInfo ClipDataID = typeof(ClipData).GetProperty(nameof(ClipData.Id));
+        static readonly PropertyInfo ClipDataID = typeof(ClipData).GetProperty(nameof(ClipData.Id))!;
         public static IRecordCommand CreateAddCommand(this Scene self, ClipData clip)
         {
             //オブジェクトの情報
@@ -77,7 +77,7 @@ namespace BEditor.Core.Command
         public static IRecordCommand CreateRemoveCommand(this Scene self, ClipData clip) => new ClipData.RemoveCommand(clip);
         public static IRecordCommand CreateRemoveLayerCommand(this Scene self, int layer) => new Scene.RemoveLayer(self, layer);
 
-        public static void ExecuteLoaded(this PropertyElement property, PropertyElementMetadata metadata)
+        public static void Load(this PropertyElement property, PropertyElementMetadata metadata)
         {
             property.Load();
             property.PropertyMetadata = metadata;

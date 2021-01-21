@@ -79,7 +79,7 @@ namespace BEditor.Core.Plugin
                     }
                 }
 
-                yield return plugin;
+                yield return plugin!;
             }
         }
     }

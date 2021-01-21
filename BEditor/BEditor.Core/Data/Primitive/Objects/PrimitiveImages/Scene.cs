@@ -1,4 +1,5 @@
-﻿using System.Collections.Generic;
+﻿using System;
+using System.Collections.Generic;
 using System.Linq;
 using System.Runtime.Serialization;
 
@@ -14,7 +15,7 @@ namespace BEditor.Core.Data.Primitive.Objects
     [DataContract]
     public class SceneObject : ImageObject
     {
-        SelectorPropertyMetadata SelectSceneMetadata;
+        SelectorPropertyMetadata? SelectSceneMetadata;
 
         public SceneObject()
         {
@@ -40,13 +41,13 @@ namespace BEditor.Core.Data.Primitive.Objects
         [DataMember(Order = 1)]
         public SelectorProperty SelectScene { get; private set; }
 
-        public override Image<BGRA32> OnRender(EffectRenderArgs args)
+        protected override Image<BGRA32>? OnRender(EffectRenderArgs args)
         {
-            var scene = SelectScene.SelectItem as Scene;
+            var scene = (Scene)SelectScene.SelectItem! ?? Parent!.Parent;
             if (scene.Equals(this.GetParent2())) return null;
 
             // Clipの相対的なフレーム
-            var frame = args.Frame - Parent.Start;
+            var frame = args.Frame - Parent!.Start;
 
             return scene.Render(frame + (int)Start[args.Frame], RenderType.ImageOutput).Image;
         }
@@ -66,10 +67,10 @@ namespace BEditor.Core.Data.Primitive.Objects
 
         internal record ScenesSelectorMetadata : SelectorPropertyMetadata
         {
-            internal ScenesSelectorMetadata(SceneObject scene) : base(Resources.Scenes, null)
+            internal ScenesSelectorMetadata(SceneObject scene) : base(Resources.Scenes, Array.Empty<object>())
             {
                 MemberPath = "SceneName";
-                ItemSource = scene.GetParent3().SceneList;
+                ItemSource = scene.GetParent3()!.SceneList;
             }
         }
     }

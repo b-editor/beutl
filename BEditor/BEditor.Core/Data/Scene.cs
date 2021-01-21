@@ -1,4 +1,5 @@
 ﻿using System;
+using System.Diagnostics;
 using System.Collections.Generic;
 using System.Collections.ObjectModel;
 using System.ComponentModel;
@@ -17,6 +18,7 @@ using BEditor.Drawing.Pixel;
 using BEditor.Media;
 
 using OpenTK.Graphics.OpenGL;
+using System.Diagnostics.CodeAnalysis;
 
 namespace BEditor.Core.Data
 {
@@ -28,24 +30,24 @@ namespace BEditor.Core.Data
     {
         #region Fields
 
-        private static readonly PropertyChangedEventArgs selectItemArgs = new(nameof(SelectItem));
-        private static readonly PropertyChangedEventArgs previreFrameArgs = new(nameof(PreviewFrame));
-        private static readonly PropertyChangedEventArgs totalFrameArgs = new(nameof(TotalFrame));
-        private static readonly PropertyChangedEventArgs zoomArgs = new(nameof(TimeLineZoom));
-        private static readonly PropertyChangedEventArgs hoffsetArgs = new(nameof(TimeLineHorizonOffset));
-        private static readonly PropertyChangedEventArgs voffsetArgs = new(nameof(TimeLineVerticalOffset));
-        private static readonly PropertyChangedEventArgs sceneNameArgs = new(nameof(SceneName));
-        private static readonly PropertyChangedEventArgs backgroundColorArgs = new(nameof(BackgroundColor));
-        private ClipData selectItem;
-        private ObservableCollection<ClipData> selectItems;
-        private Frame previewframe;
-        private Frame totalframe = 1000;
-        private float timeLineZoom = 150;
-        private double timeLineHorizonOffset;
-        private double timeLineVerticalOffset;
-        private string sceneName;
-        private IPlayer player;
-        private Color backgroundColor;
+        private static readonly PropertyChangedEventArgs _SelectItemArgs = new(nameof(SelectItem));
+        private static readonly PropertyChangedEventArgs _PrevireFrameArgs = new(nameof(PreviewFrame));
+        private static readonly PropertyChangedEventArgs _TotalFrameArgs = new(nameof(TotalFrame));
+        private static readonly PropertyChangedEventArgs _ZoomArgs = new(nameof(TimeLineZoom));
+        private static readonly PropertyChangedEventArgs _HoffsetArgs = new(nameof(TimeLineHorizonOffset));
+        private static readonly PropertyChangedEventArgs _VoffsetArgs = new(nameof(TimeLineVerticalOffset));
+        private static readonly PropertyChangedEventArgs _SceneNameArgs = new(nameof(SceneName));
+        private static readonly PropertyChangedEventArgs _BackgroundColorArgs = new(nameof(BackgroundColor));
+        private ClipData? _SelectItem;
+        private ObservableCollection<ClipData?>? _SelectItems;
+        private Frame _Previewframe;
+        private Frame _Totalframe = 1000;
+        private float _TimeLineZoom = 150;
+        private double _TimeLineHorizonOffset;
+        private double _TimeLineVerticalOffset;
+        private string _SceneName = "";
+        private IPlayer? _Player;
+        private Color _BackgroundColor;
 
         #endregion
 
@@ -89,8 +91,8 @@ namespace BEditor.Core.Data
         [DataMember(Order = 2)]
         public virtual string SceneName
         {
-            get => sceneName;
-            set => SetValue(value, ref sceneName, sceneNameArgs);
+            get => _SceneName;
+            set => SetValue(value, ref _SceneName, _SceneNameArgs);
         }
 
         /// <summary>
@@ -102,7 +104,7 @@ namespace BEditor.Core.Data
         /// Get the name of the selected <see cref="ClipData"/>.
         /// </summary>
         [DataMember(Order = 4)]
-        public string SelectName { get; private set; }
+        public string? SelectName { get; private set; }
 
         /// <summary>
         /// Get the <see cref="ClipData"/> contained in this <see cref="Scene"/>.
@@ -119,32 +121,35 @@ namespace BEditor.Core.Data
         /// <summary>
         /// Get or set the selected <see cref="ClipData"/>.
         /// </summary>
-        public ClipData SelectItem
+        public ClipData? SelectItem
         {
-            get => selectItem ??= this[SelectName];
+            get => _SelectItem ??= this[SelectName ?? null];
             set
             {
-                SelectName = selectItem?.Name;
-                selectItem = value;
-                RaisePropertyChanged(selectItemArgs);
+                SelectName = _SelectItem?.Name;
+                _SelectItem = value;
+                RaisePropertyChanged(_SelectItemArgs);
             }
         }
         /// <summary>
         /// Get or set the selected <see cref="ClipData"/>.
         /// </summary>
-        public ObservableCollection<ClipData> SelectItems
+        public ObservableCollection<ClipData?> SelectItems
         {
             get
             {
-                if (selectItems == null)
+                if (_SelectItems == null)
                 {
-                    selectItems = new ObservableCollection<ClipData>(SelectNames.Select(name => this.Find(name)));
+                    _SelectItems = new ObservableCollection<ClipData?>(SelectNames.Select(name => this.Find(name)));
 
-                    selectItems.CollectionChanged += (s, e) =>
+                    _SelectItems.CollectionChanged += (s, e) =>
                     {
                         if (e.Action == System.Collections.Specialized.NotifyCollectionChangedAction.Add)
                         {
-                            SelectNames.Insert(e.NewStartingIndex, selectItems[e.NewStartingIndex].Name);
+                            if (_SelectItems[e.NewStartingIndex] is var item && item is not null)
+                            {
+                                SelectNames.Insert(e.NewStartingIndex, item.Name);
+                            }
                         }
                         else if (e.Action == System.Collections.Specialized.NotifyCollectionChangedAction.Remove)
                         {
@@ -158,7 +163,7 @@ namespace BEditor.Core.Data
                     };
                 }
 
-                return selectItems;
+                return _SelectItems;
             }
         }
         /// <summary>
@@ -167,7 +172,7 @@ namespace BEditor.Core.Data
         [DataMember]
         public Color BackgroundColor
         {
-            get => backgroundColor;
+            get => _BackgroundColor;
             set
             {
                 if (GraphicsContext is not null)
@@ -175,22 +180,22 @@ namespace BEditor.Core.Data
                     GraphicsContext.ClearColor = value;
                 }
 
-                SetValue(value, ref backgroundColor, backgroundColorArgs);
+                SetValue(value, ref _BackgroundColor, _BackgroundColorArgs);
             }
         }
         /// <summary>
         /// Get graphic context.
         /// </summary>
-        public GraphicsContext GraphicsContext { get; internal set; }
+        public GraphicsContext? GraphicsContext { get; private set; }
         /// <summary>
         /// Get audio context.
         /// </summary>
-        public AudioContext AudioContext { get; internal set; }
+        public AudioContext? AudioContext { get; private set; }
         /// <summary>
         /// Get a player to play this <see cref="Scene"/>.
         /// </summary>
         public IPlayer Player
-            => player ??= new ScenePlayer(this);
+            => _Player ??= new ScenePlayer(this);
 
 
         #region コントロールに関係
@@ -201,8 +206,8 @@ namespace BEditor.Core.Data
         [DataMember(Order = 5)]
         public Frame PreviewFrame
         {
-            get => previewframe;
-            set => SetValue(value, ref previewframe, previreFrameArgs);
+            get => _Previewframe;
+            set => SetValue(value, ref _Previewframe, _PrevireFrameArgs);
         }
 
         /// <summary>
@@ -211,8 +216,8 @@ namespace BEditor.Core.Data
         [DataMember(Order = 6)]
         public Frame TotalFrame
         {
-            get => totalframe;
-            set => SetValue(value, ref totalframe, totalFrameArgs);
+            get => _Totalframe;
+            set => SetValue(value, ref _Totalframe, _TotalFrameArgs);
         }
 
         /// <summary>
@@ -221,8 +226,8 @@ namespace BEditor.Core.Data
         [DataMember(Order = 7)]
         public float TimeLineZoom
         {
-            get => timeLineZoom;
-            set => SetValue(value, ref timeLineZoom, zoomArgs);
+            get => _TimeLineZoom;
+            set => SetValue(value, ref _TimeLineZoom, _ZoomArgs);
         }
 
         #region TimeLineScrollOffset
@@ -233,8 +238,8 @@ namespace BEditor.Core.Data
         [DataMember(Order = 8)]
         public double TimeLineHorizonOffset
         {
-            get => timeLineHorizonOffset;
-            set => SetValue(value, ref timeLineHorizonOffset, hoffsetArgs);
+            get => _TimeLineHorizonOffset;
+            set => SetValue(value, ref _TimeLineHorizonOffset, _HoffsetArgs);
         }
 
 
@@ -244,8 +249,8 @@ namespace BEditor.Core.Data
         [DataMember(Order = 9)]
         public double TimeLineVerticalOffset
         {
-            get => timeLineVerticalOffset;
-            set => SetValue(value, ref timeLineVerticalOffset, voffsetArgs);
+            get => _TimeLineVerticalOffset;
+            set => SetValue(value, ref _TimeLineVerticalOffset, _VoffsetArgs);
         }
 
         #endregion
@@ -255,11 +260,11 @@ namespace BEditor.Core.Data
         /// <inheritdoc/>
         public IEnumerable<ClipData> Children => Datas;
         /// <inheritdoc/>
-        public Project Parent { get; set; }
+        public Project? Parent { get; set; }
         /// <inheritdoc/>
-        public string Name => SceneName;
+        public string Name => SceneName ?? "";
         /// <inheritdoc/>
-        public int Id => Parent.SceneList.IndexOf(this);
+        public int Id => Parent?.SceneList?.IndexOf(this) ?? -1;
 
         internal int NewId
         {
@@ -305,7 +310,16 @@ namespace BEditor.Core.Data
 
         #endregion
 
-        public ClipData this[string name] => this.Find(name);
+        public ClipData? this[string? name]
+        {
+            [return: NotNullIfNotNull("name")]
+            get
+            {
+                if (name is null) return null;
+
+                return this.Find(name);
+            }
+        }
 
         #region Methods
 
@@ -333,8 +347,8 @@ namespace BEditor.Core.Data
         {
             if (!IsLoaded) return;
 
-            GraphicsContext.Dispose();
-            AudioContext.Dispose();
+            GraphicsContext?.Dispose();
+            AudioContext?.Dispose();
             foreach (var clip in Datas)
             {
                 clip.Unload();
@@ -358,10 +372,10 @@ namespace BEditor.Core.Data
 
             var layer = GetFrame(frame).ToList();
 
-            GraphicsContext.Camera = new OrthographicCamera(new(0, 0, 1024), Width, Height);
-            GraphicsContext.MakeCurrent();
-            AudioContext.MakeCurrent();
-            GraphicsContext.Clear();
+            GraphicsContext!.Camera = new OrthographicCamera(new(0, 0, 1024), Width, Height);
+            GraphicsContext!.MakeCurrent();
+            AudioContext!.MakeCurrent();
+            GraphicsContext!.Clear();
 
             GL.Clear(ClearBufferMask.ColorBufferBit | ClearBufferMask.DepthBufferBit);
 
@@ -372,10 +386,10 @@ namespace BEditor.Core.Data
 
             foreach (var clip in layer) clip.Render(args);
 
-            GraphicsContext.SwapBuffers();
+            GraphicsContext!.SwapBuffers();
 
             var buffer = new Image<BGRA32>(Width, Height);
-            GraphicsContext.ReadImage(buffer);
+            GraphicsContext!.ReadImage(buffer);
 
             return new RenderingResult { Image = buffer };
         }
@@ -399,10 +413,10 @@ namespace BEditor.Core.Data
 
             var layer = GetFrame(frame).ToList();
 
-            GraphicsContext.Camera = new OrthographicCamera(new(0, 0, 1024), Width, Height);
-            GraphicsContext.MakeCurrent();
-            AudioContext.MakeCurrent();
-            GraphicsContext.Clear();
+            GraphicsContext!.Camera = new OrthographicCamera(new(0, 0, 1024), Width, Height);
+            GraphicsContext!.MakeCurrent();
+            AudioContext!.MakeCurrent();
+            GraphicsContext!.Clear();
 
             var args = new ClipRenderArgs(frame, renderType);
 
@@ -411,9 +425,9 @@ namespace BEditor.Core.Data
 
             foreach (var clip in layer) clip.Render(args);
 
-            GraphicsContext.SwapBuffers();
+            GraphicsContext!.SwapBuffers();
 
-            GraphicsContext.ReadImage(image);
+            GraphicsContext!.ReadImage(image);
         }
         /// <summary>
         /// Render a frame of <see cref="PreviewFrame"/>.
@@ -490,32 +504,32 @@ namespace BEditor.Core.Data
 
         internal sealed class RemoveLayer : IRecordCommand
         {
-            private readonly IEnumerable<IRecordCommand> clips;
+            private readonly IEnumerable<IRecordCommand> _Clips;
 
             public RemoveLayer(Scene scene, int layer)
             {
-                clips = scene.GetLayer(layer).Select(clip => clip.Parent.CreateRemoveCommand(clip)).ToArray();
+                _Clips = scene.GetLayer(layer).Select(clip => clip.Parent.CreateRemoveCommand(clip)).ToArray();
             }
 
             public string Name => CommandName.RemoveLayer;
 
             public void Do()
             {
-                foreach (var clip in clips)
+                foreach (var clip in _Clips)
                 {
                     clip.Do();
                 }
             }
             public void Redo()
             {
-                foreach (var clip in clips)
+                foreach (var clip in _Clips)
                 {
                     clip.Redo();
                 }
             }
             public void Undo()
             {
-                foreach (var clip in clips)
+                foreach (var clip in _Clips)
                 {
                     clip.Undo();
                 }

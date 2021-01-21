@@ -169,7 +169,7 @@ namespace BEditor
             }
 
             CreateDefaultColor();
-            var files = Directory.GetFiles(AppData.Current.Path + "\\user\\colors", "*.xml", SearchOption.AllDirectories);
+            var files = Directory.GetFiles(AppContext.BaseDirectory + "\\user\\colors", "*.xml", SearchOption.AllDirectories);
 
             foreach (var file in files)
             {

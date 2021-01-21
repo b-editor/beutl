@@ -60,7 +60,7 @@ namespace BEditor.Core.Data.Primitive.Objects
         [DataMember(Order = 4)]
         public SelectorProperty Type { get; private set; }
 
-        public override Image<BGRA32> OnRender(EffectRenderArgs args)
+        protected override Image<BGRA32> OnRender(EffectRenderArgs args)
         {
             var width = (int)Width[args.Frame];
             var height = (int)Height[args.Frame];

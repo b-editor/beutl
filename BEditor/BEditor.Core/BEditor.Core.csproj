@@ -2,7 +2,7 @@
 
   <PropertyGroup>
     <TargetFramework>net5.0</TargetFramework>
-    <Nullable>annotations</Nullable>
+    <Nullable>enable</Nullable>
     <AssemblyName>BEditor.Core</AssemblyName>
     <Version>0.0.4</Version>
     <Authors>indigo-san</Authors>

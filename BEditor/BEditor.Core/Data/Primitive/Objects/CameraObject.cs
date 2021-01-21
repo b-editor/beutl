@@ -76,17 +76,17 @@ namespace BEditor.Core.Data.Primitive.Objects
         public override void Render(EffectRenderArgs args)
         {
             int frame = args.Frame;
-            var scene = Parent.Parent;
-            scene.GraphicsContext.MakeCurrent();
+            var scene = Parent!.Parent!;
+            scene.GraphicsContext!.MakeCurrent();
 
             if (Mode.IsChecked)
             {
                 scene.GraphicsContext.Camera =
                     new PerspectiveCamera(new(X[frame], Y[frame], Z[frame]), scene.Width / (float)scene.Height)
                     {
-                        Far = ZFar.GetValue(frame),
-                        Near = ZNear.GetValue(frame),
-                        Fov = Fov.GetValue(frame),
+                        Far = ZFar[frame],
+                        Near = ZNear[frame],
+                        Fov = Fov[frame],
                         Target = new(TargetX[frame], TargetY[frame], TargetZ[frame])
                     };
             }
@@ -95,9 +95,9 @@ namespace BEditor.Core.Data.Primitive.Objects
                 scene.GraphicsContext.Camera =
                     new OrthographicCamera(new(X[frame], Y[frame], Z[frame]), scene.Width, scene.Height)
                     {
-                        Far = ZFar.GetValue(frame),
-                        Near = ZNear.GetValue(frame),
-                        Fov = Fov.GetValue(frame),
+                        Far = ZFar[frame],
+                        Near = ZNear[frame],
+                        Fov = Fov[frame],
                         Target = new(TargetX[frame], TargetY[frame], TargetZ[frame])
                     };
             }

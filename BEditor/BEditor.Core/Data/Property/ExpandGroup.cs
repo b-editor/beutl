@@ -19,16 +19,48 @@ namespace BEditor.Core.Data.Property
     public abstract class ExpandGroup : Group, IEasingProperty, IBindable<bool>
     {
         #region Fields
+        private static readonly PropertyChangedEventArgs _IsExpandedArgs = new(nameof(IsExpanded));
+        private bool _IsOpen;
+        private List<IObserver<bool>>? _List;
 
-        private static readonly PropertyChangedEventArgs isExpandedArgs = new(nameof(IsExpanded));
-        private bool isOpen;
-        private List<IObserver<bool>> list;
-
-        private IDisposable BindDispose;
-        private IBindable<bool> Bindable;
-        private string bindHint;
-
+        private IDisposable? _BindDispose;
+        private IBindable<bool>? _Bindable;
+        private string? _BindHint;
         #endregion
+
+
+        private List<IObserver<bool>> Collection => _List ??= new();
+        /// <summary>
+        /// エクスパンダーが開いているかを取得または設定します
+        /// </summary>
+        [DataMember]
+        public bool IsExpanded
+        {
+            get => _IsOpen;
+            set => SetValue(value, ref _IsOpen, _IsExpandedArgs, this, state =>
+            {
+                foreach (var observer in state.Collection)
+                {
+                    try
+                    {
+                        observer.OnNext(state._IsOpen);
+                    }
+                    catch (Exception ex)
+                    {
+                        observer.OnError(ex);
+                    }
+                }
+            });
+        }
+        /// <inheritdoc/>
+        [DataMember]
+        public string? BindHint
+        {
+            get => _Bindable?.GetString();
+            private set => _BindHint = value;
+        }
+        /// <inheritdoc/>
+        public bool Value => IsExpanded;
 
 
         /// <summary>
@@ -42,50 +74,16 @@ namespace BEditor.Core.Data.Property
         }
 
 
-        private List<IObserver<bool>> Collection => list ??= new();
-        /// <summary>
-        /// エクスパンダーが開いているかを取得または設定します
-        /// </summary>
-        [DataMember]
-        public bool IsExpanded
-        {
-            get => isOpen;
-            set => SetValue(value, ref isOpen, isExpandedArgs, this, state =>
-            {
-                foreach (var observer in state.Collection)
-                {
-                    try
-                    {
-                        observer.OnNext(state.isOpen);
-                    }
-                    catch (Exception ex)
-                    {
-                        observer.OnError(ex);
-                    }
-                }
-            });
-        }
-        /// <inheritdoc/>
-        [DataMember]
-        public string BindHint
-        {
-            get => Bindable?.GetString();
-            private set => bindHint = value;
-        }
-        /// <inheritdoc/>
-        public bool Value => IsExpanded;
-
-
         #region Methods
 
         /// <inheritdoc/>
         protected override void OnLoad()
         {
-            if (bindHint is not null && this.GetBindable(bindHint, out var b))
+            if (_BindHint is not null && this.GetBindable(_BindHint, out var b))
             {
                 Bind(b);
             }
-            bindHint = null;
+            _BindHint = null;
         }
         /// <inheritdoc/>
         public override string ToString() => $"(IsExpanded:{IsExpanded} Name:{PropertyMetadata?.Name})";
@@ -118,15 +116,15 @@ namespace BEditor.Core.Data.Property
         /// <inheritdoc/>
         public void Bind(IBindable<bool>? bindable)
         {
-            BindDispose?.Dispose();
-            Bindable = bindable;
+            _BindDispose?.Dispose();
+            _Bindable = bindable;
 
             if (bindable is not null)
             {
                 IsExpanded = bindable.Value;
 
                 // bindableが変更時にthisが変更
-                BindDispose = bindable.Subscribe(this);
+                _BindDispose = bindable.Subscribe(this);
             }
         }
 

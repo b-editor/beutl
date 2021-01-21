@@ -52,7 +52,7 @@ namespace BEditor.Core.Data.Primitive.Objects
         [DataMember(Order = 3)]
         public FontProperty Font { get; private set; }
 
-        public override Image<BGRA32> OnRender(EffectRenderArgs args)
+        protected override Image<BGRA32> OnRender(EffectRenderArgs args)
         {
             return Image.Text(Document.Text, Font.Select, Size[args.Frame], Color.Color);
         }

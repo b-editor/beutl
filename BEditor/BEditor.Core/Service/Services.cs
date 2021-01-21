@@ -5,9 +5,7 @@ namespace BEditor.Core.Service
 {
     public static class Services
     {
-        public static string Path { get; } = System.IO.Path.GetDirectoryName(AppContext.BaseDirectory);
-
-        public static IFileDialogService FileDialogService { get; set; }
+        public static IFileDialogService? FileDialogService { get; set; }
     }
 
     /// <summary>

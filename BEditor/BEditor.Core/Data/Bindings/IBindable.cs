@@ -12,11 +12,11 @@ namespace BEditor.Core.Data.Bindings
     {
         public T Value { get; }
 
-        public void Bind(IBindable<T> bindable);
+        public void Bind(IBindable<T>? bindable);
     }
 
     public interface IBindable : IPropertyElement
     {
-        public string BindHint { get; }
+        public string? BindHint { get; }
     }
 }

@@ -23,17 +23,17 @@ namespace BEditor.Core.Data
         /// <summary>
         /// 親要素を取得します
         /// </summary>
-        public T Parent { get; }
+        public T? Parent { get; }
     }
 
     public static class Tool
     {
         #region GetParents
 
-        [Pure] public static T GetParent<T>(this IChild<T> self) => self.Parent;
-        [Pure] public static T GetParent2<T>(this IChild<IChild<T>> self) => self.Parent.Parent;
-        [Pure] public static T GetParent3<T>(this IChild<IChild<IChild<T>>> self) => self.Parent.Parent.Parent;
-        [Pure] public static T GetParent4<T>(this IChild<IChild<IChild<IChild<T>>>> self) => self.Parent.Parent.Parent.Parent;
+        [Pure] public static T? GetParent<T>(this IChild<T> self) => self.Parent;
+        [Pure] public static T? GetParent2<T>(this IChild<IChild<T>> self) => self.Parent!.Parent;
+        [Pure] public static T? GetParent3<T>(this IChild<IChild<IChild<T>>> self) => self.Parent!.Parent!.Parent;
+        [Pure] public static T? GetParent4<T>(this IChild<IChild<IChild<IChild<T>>>> self) => self.Parent!.Parent!.Parent!.Parent;
         //[Pure] public static T GetParent5<T>(this IChild<IChild<IChild<IChild<IChild<T>>>>> self) => self.Parent.Parent.Parent.Parent.Parent;
         //[Pure] public static T GetParent6<T>(this IChild<IChild<IChild<IChild<IChild<IChild<T>>>>>> self) => self.Parent.Parent.Parent.Parent.Parent.Parent;
         //[Pure] public static T GetParent7<T>(this IChild<IChild<IChild<IChild<IChild<IChild<IChild<T>>>>>>> self) => self.Parent.Parent.Parent.Parent.Parent.Parent.Parent;

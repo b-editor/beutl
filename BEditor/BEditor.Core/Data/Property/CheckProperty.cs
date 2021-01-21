@@ -21,44 +21,32 @@ namespace BEditor.Core.Data.Property
     {
         #region Fields
 
-        private static readonly PropertyChangedEventArgs checkedArgs = new(nameof(IsChecked));
-        private bool isChecked;
-        private List<IObserver<bool>> list;
+        private static readonly PropertyChangedEventArgs _CheckedArgs = new(nameof(IsChecked));
+        private bool _IsChecked;
+        private List<IObserver<bool>>? _List;
 
-        private IDisposable BindDispose;
-        private IBindable<bool> Bindable;
-        private string bindHint;
+        private IDisposable? _BindDispose;
+        private IBindable<bool>? _Bindable;
+        private string? _BindHint;
 
         #endregion
 
 
-        /// <summary>
-        /// <see cref="CheckProperty"/> クラスの新しいインスタンスを初期化します
-        /// </summary>
-        /// <param name="metadata">このプロパティの <see cref="CheckPropertyMetadata"/></param>
-        /// <exception cref="ArgumentNullException"><paramref name="metadata"/> が <see langword="null"/> です</exception>
-        public CheckProperty(CheckPropertyMetadata metadata)
-        {
-            PropertyMetadata = metadata ?? throw new ArgumentNullException(nameof(metadata));
-            isChecked = metadata.DefaultIsChecked;
-        }
-
-
-        private List<IObserver<bool>> Collection => list ??= new();
+        private List<IObserver<bool>> Collection => _List ??= new();
         /// <summary>
         /// チェックされている場合 <see langword="true"/>、そうでない場合は <see langword="false"/> となります
         /// </summary>
         [DataMember]
         public bool IsChecked
         {
-            get => isChecked;
-            set => SetValue(value, ref isChecked, checkedArgs, this, state =>
+            get => _IsChecked;
+            set => SetValue(value, ref _IsChecked, _CheckedArgs, this, state =>
             {
                 foreach (var observer in state.Collection)
                 {
                     try
                     {
-                        observer.OnNext(state.isChecked);
+                        observer.OnNext(state._IsChecked);
                     }
                     catch (Exception ex)
                     {
@@ -69,13 +57,25 @@ namespace BEditor.Core.Data.Property
         }
         /// <inheritdoc/>
         [DataMember]
-        public string BindHint
+        public string? BindHint
         {
-            get => Bindable?.GetString();
-            private set => bindHint = value;
+            get => _Bindable?.GetString();
+            private set => _BindHint = value;
         }
         /// <inheritdoc/>
         public bool Value => IsChecked;
+
+
+        /// <summary>
+        /// <see cref="CheckProperty"/> クラスの新しいインスタンスを初期化します
+        /// </summary>
+        /// <param name="metadata">このプロパティの <see cref="CheckPropertyMetadata"/></param>
+        /// <exception cref="ArgumentNullException"><paramref name="metadata"/> が <see langword="null"/> です</exception>
+        public CheckProperty(CheckPropertyMetadata metadata)
+        {
+            PropertyMetadata = metadata ?? throw new ArgumentNullException(nameof(metadata));
+            _IsChecked = metadata.DefaultIsChecked;
+        }
 
 
         #region Methods
@@ -109,15 +109,15 @@ namespace BEditor.Core.Data.Property
         /// <inheritdoc/>
         public void Bind(IBindable<bool>? bindable)
         {
-            BindDispose?.Dispose();
-            Bindable = bindable;
+            _BindDispose?.Dispose();
+            _Bindable = bindable;
 
             if (bindable is not null)
             {
                 IsChecked = bindable.Value;
 
                 // bindableが変更時にthisが変更
-                BindDispose = bindable.Subscribe(this);
+                _BindDispose = bindable.Subscribe(this);
             }
         }
 
@@ -126,14 +126,14 @@ namespace BEditor.Core.Data.Property
         /// <inheritdoc/>
         protected override void OnLoad()
         {
-            if (bindHint is not null)
+            if (_BindHint is not null)
             {
-                if (this.GetBindable(bindHint, out var b))
+                if (this.GetBindable(_BindHint, out var b))
                 {
                     Bind(b);
                 }
             }
-            bindHint = null;
+            _BindHint = null;
         }
         /// <inheritdoc/>
         public override string ToString() => $"(IsChecked:{IsChecked} Name:{PropertyMetadata?.Name})";
@@ -147,8 +147,8 @@ namespace BEditor.Core.Data.Property
         /// <remarks>このクラスは <see cref="CommandManager.Do(IRecordCommand)"/> と併用することでコマンドを記録できます</remarks>
         public sealed class ChangeCheckedCommand : IRecordCommand
         {
-            private readonly CheckProperty CheckSetting;
-            private readonly bool value;
+            private readonly CheckProperty _Property;
+            private readonly bool _Value;
 
             /// <summary>
             /// <see cref="ChangeCheckedCommand"/> クラスの新しいインスタンスを初期化します
@@ -158,18 +158,18 @@ namespace BEditor.Core.Data.Property
             /// <exception cref="ArgumentNullException"><paramref name="property"/> が <see langword="null"/> です</exception>
             public ChangeCheckedCommand(CheckProperty property, bool value)
             {
-                CheckSetting = property ?? throw new ArgumentNullException(nameof(property));
-                this.value = value;
+                _Property = property ?? throw new ArgumentNullException(nameof(property));
+                this._Value = value;
             }
 
             public string Name => CommandName.ChangeIsChecked;
 
             /// <inheritdoc/>
-            public void Do() => CheckSetting.IsChecked = value;
+            public void Do() => _Property.IsChecked = _Value;
             /// <inheritdoc/>
             public void Redo() => Do();
             /// <inheritdoc/>
-            public void Undo() => CheckSetting.IsChecked = !value;
+            public void Undo() => _Property.IsChecked = !_Value;
         }
     }
 

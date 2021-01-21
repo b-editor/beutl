@@ -11,7 +11,6 @@ using BEditor.Media;
 
 namespace BEditor.Core.Data.Property.Easing
 {
-
     /// <summary>
     /// 標準のイージング
     /// <para>32種類</para>
@@ -102,7 +101,7 @@ namespace BEditor.Core.Data.Property.Easing
 
             Easing.BounceIn,   Easing.BounceOut,  Easing.BounceInOut,
         };
-        public static readonly SelectorPropertyMetadata propertyMetadata = new SelectorPropertyMetadata("EasingType", new string[32] {
+        public static readonly SelectorPropertyMetadata EasingTypeMetadata = new SelectorPropertyMetadata("EasingType", new string[32] {
             "None",
             "Linear",
             "SineIn",    "SineOut",    "SineInOut",
@@ -116,30 +115,30 @@ namespace BEditor.Core.Data.Property.Easing
             "ElasticIn", "ElasticOut", "ElasticInOut",
             "BounceIn",  "BounceOut",  "BounceInOut"
         });
-        private Func<float, float, float, float, float> currentfunc = Easing.None;
-        private IDisposable disposable;
-
-        public PrimitiveEasing()
-        {
-            EasingType = new SelectorProperty(propertyMetadata);
-        }
+        private Func<float, float, float, float, float> _CurrentFunc = Easing.None;
+        private IDisposable? _Disposable;
 
         public override IEnumerable<IEasingProperty> Properties => new IEasingProperty[] { EasingType };
         [DataMember()]
         public SelectorProperty EasingType { get; set; }
 
-        public override float EaseFunc(Frame frame, Frame totalframe, float min, float max) => currentfunc?.Invoke(frame, totalframe, min, max) ?? 0;
+        public PrimitiveEasing()
+        {
+            EasingType = new SelectorProperty(EasingTypeMetadata);
+        }
+
+        public override float EaseFunc(Frame frame, Frame totalframe, float min, float max) => _CurrentFunc?.Invoke(frame, totalframe, min, max) ?? 0;
         protected override void OnLoad()
         {
-            EasingType.Load(propertyMetadata);
+            EasingType.Load(EasingTypeMetadata);
 
-            currentfunc = DefaultEase[EasingType.Index];
+            _CurrentFunc = DefaultEase[EasingType.Index];
 
-            disposable = EasingType.Subscribe(index => currentfunc = DefaultEase[index]);
+            _Disposable = EasingType.Subscribe(index => _CurrentFunc = DefaultEase[index]);
         }
         protected override void OnUnload()
         {
-            disposable?.Dispose();
+            _Disposable?.Dispose();
         }
 
         class Easing

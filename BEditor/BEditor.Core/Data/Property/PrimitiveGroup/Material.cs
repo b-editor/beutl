@@ -19,14 +19,6 @@ namespace BEditor.Core.Data.Property.PrimitiveGroup
         public static readonly ColorAnimationPropertyMetadata SpecularMetadata = new(Resources.Specular, Color.Light, true);
         public static readonly EasePropertyMetadata ShininessMetadata = new(Resources.Shininess, 10, float.NaN, 1);
 
-        public Material(PropertyElementMetadata metadata) : base(metadata)
-        {
-            Ambient = new(AmbientMetadata);
-            Diffuse = new(DiffuseMetadata);
-            Specular = new(SpecularMetadata);
-            Shininess = new(ShininessMetadata);
-        }
-
         public override IEnumerable<PropertyElement> Properties => new PropertyElement[]
         {
             Ambient,
@@ -42,6 +34,14 @@ namespace BEditor.Core.Data.Property.PrimitiveGroup
         public ColorAnimationProperty Specular { get; private set; }
         [DataMember(Order = 3)]
         public EaseProperty Shininess { get; private set; }
+
+        public Material(PropertyElementMetadata metadata) : base(metadata)
+        {
+            Ambient = new(AmbientMetadata);
+            Diffuse = new(DiffuseMetadata);
+            Specular = new(SpecularMetadata);
+            Shininess = new(ShininessMetadata);
+        }
 
         protected override void OnLoad()
         {

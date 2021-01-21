@@ -22,7 +22,7 @@ namespace BEditor.Core.Plugin
         /// <summary>
         /// アセンブリの名前
         /// </summary>
-        public sealed string AssemblyName => GetType().Assembly.GetName().Name;
+        public sealed string AssemblyName => GetType().Assembly.GetName().Name!;
 
         /// <summary>
         /// プラグインの設定を開くときに呼び出されます

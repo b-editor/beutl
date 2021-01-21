@@ -43,13 +43,6 @@ namespace BEditor.Core.Data.Property.PrimitiveGroup
             }
         };
 
-        public Blend(PropertyElementMetadata metadata) : base(metadata)
-        {
-            Alpha = new(AlphaMetadata);
-            BlendType = new(BlendTypeMetadata);
-            Color = new(ColorMetadata);
-        }
-
         public override IEnumerable<PropertyElement> Properties => new PropertyElement[]
         {
             Alpha,
@@ -62,6 +55,13 @@ namespace BEditor.Core.Data.Property.PrimitiveGroup
         public ColorAnimationProperty Color { get; private set; }
         [DataMember(Order = 2)]
         public SelectorProperty BlendType { get; private set; }
+
+        public Blend(PropertyElementMetadata metadata) : base(metadata)
+        {
+            Alpha = new(AlphaMetadata);
+            BlendType = new(BlendTypeMetadata);
+            Color = new(ColorMetadata);
+        }
 
         protected override void OnLoad()
         {

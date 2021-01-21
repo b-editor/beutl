@@ -67,8 +67,9 @@ namespace BEditor.Core.Data
         /// <summary>
         /// <see cref="EffectRenderArgs"/> Initialize a new instance of the class.
         /// </summary>
-        public EffectRenderArgs(Frame frame, RenderType type = RenderType.Preview) : base(frame, type)
+        public EffectRenderArgs(Frame frame, T value, RenderType type = RenderType.Preview) : base(frame, type)
         {
+            Value = value;
         }
 
         /// <summary>

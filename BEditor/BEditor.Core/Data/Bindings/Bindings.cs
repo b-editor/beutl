@@ -1,5 +1,6 @@
 ﻿using System;
 using System.Collections.Generic;
+using System.Diagnostics.CodeAnalysis;
 using System.Linq;
 using System.Text;
 using System.Text.RegularExpressions;
@@ -14,7 +15,7 @@ namespace BEditor.Core.Data.Bindings
 {
     public static class Bindings
     {
-        public static bool GetBindable<T>(this IBindable<T> bindable, string text, out IBindable<T> result)
+        public static bool GetBindable<T>(this IBindable<T> bindable, string? text, out IBindable<T>? result)
         {
             if (text is null)
             {
@@ -31,8 +32,9 @@ namespace BEditor.Core.Data.Bindings
             {
                 var match = regex1.Match(text);
 
-                var scene = bindable.GetParent4().Find(match.Groups[1].Value);
-                var clip = scene.Find(match.Groups[2].Value);
+                var proj = bindable.GetParent4() ?? throw new Exception();
+                var scene = proj.Find(match.Groups[1].Value) ?? throw new Exception();
+                var clip = scene.Find(match.Groups[2].Value) ?? throw new Exception();
                 var effect = (int.TryParse(match.Groups[3].Value, out var id) ? clip.Find(id) : throw new Exception()) ?? throw new Exception();
                 result = int.TryParse(match.Groups[4].Value, out var id1) ? effect.Find(id1) as IBindable<T> : throw new Exception();
 
@@ -42,10 +44,11 @@ namespace BEditor.Core.Data.Bindings
             {
                 var match = regex2.Match(text);
 
-                var scene = bindable.GetParent4().Find(match.Groups[1].Value);
-                var clip = scene.Find(match.Groups[2].Value);
+                var proj = bindable.GetParent4() ?? throw new Exception();
+                var scene = proj.Find(match.Groups[1].Value) ?? throw new Exception();
+                var clip = scene.Find(match.Groups[2].Value) ?? throw new Exception();
                 var effect = (int.TryParse(match.Groups[3].Value, out var id) ? clip.Find(id) : throw new Exception()) ?? throw new Exception();
-                var parent = int.TryParse(match.Groups[4].Value, out var id1) ? effect.Find(id1) as IParent<PropertyElement> : throw new Exception();
+                var parent = int.TryParse(match.Groups[4].Value, out var id1) ? (effect.Find(id1) as IParent<PropertyElement> ?? throw new Exception()) : throw new Exception();
                 result = int.TryParse(match.Groups[5].Value, out var id2) ? parent.Find(id2) as IBindable<T> : throw new Exception();
 
                 return true;
@@ -57,13 +60,19 @@ namespace BEditor.Core.Data.Bindings
 
         public static string GetString(this IBindable bindable)
         {
+            //[DoesNotReturnAttribute]
+            //static void ParentNullThrow()
+            //{
+            //    throw new Exception();
+            //}
+
             if (bindable is PropertyElement p && bindable.Id == -1)
             {
                 // bindable の親がGroup
                 // bindable のIdは-1
-                var scene = bindable.GetParent3().SceneName;
-                var clip = bindable.GetParent2().Name;
-                var effect = bindable.GetParent().Id;
+                var scene = bindable.GetParent3()?.SceneName ?? throw new Exception();
+                var clip = bindable.GetParent2()?.Name ?? throw new Exception();
+                var effect = bindable.GetParent()?.Id ?? throw new Exception();
                 int group = -1;
                 int property = -1;
                 // エフェクトのChildrenからIParentのプロパティを見つける
@@ -71,7 +80,7 @@ namespace BEditor.Core.Data.Bindings
                 // var property = bindable.Id;
 
                 // EffectElementの子要素からIParentを見つける
-                Parallel.ForEach(bindable.GetParent().Children, item =>
+                Parallel.ForEach(bindable.GetParent()?.Children ?? throw new Exception(), item =>
                 {
                     if (item is Property.Group parent && parent.Contains(p))
                     {
@@ -83,23 +92,23 @@ namespace BEditor.Core.Data.Bindings
                 return $"{scene}.{clip}[{effect}][{group}][{property}]";
             }
 
-            return $"{bindable.GetParent3().SceneName}.{bindable.GetParent2().Name}[{bindable.GetParent().Id}][{bindable.Id}]";
+            return $"{bindable.GetParent3()?.SceneName}.{bindable.GetParent2()?.Name}[{bindable.GetParent()?.Id}][{bindable.Id}]";
         }
 
         public sealed class BindCommand<T> : IRecordCommand
         {
-            private readonly IBindable<T> source;
-            private readonly IBindable<T> target;
+            private readonly IBindable<T>? _Source;
+            private readonly IBindable<T>? _Target;
 
             /// <summary>
             /// 
             /// </summary>
             /// <param name="source">バインド先のオブジェクト</param>
             /// <param name="target">バインドするオブジェクト</param>
-            public BindCommand(IBindable<T> source, IBindable<T> target)
+            public BindCommand(IBindable<T>? source, IBindable<T>? target)
             {
-                this.source = source;
-                this.target = target;
+                _Source = source;
+                _Target = target;
             }
 
             public string Name => CommandName.BindCommand;
@@ -109,20 +118,20 @@ namespace BEditor.Core.Data.Bindings
 
             public void Do()
             {
-                source?.Bind(target);
-                target?.Bind(source);
+                _Source?.Bind(_Target);
+                _Target?.Bind(_Source);
             }
             public void Redo() => Do();
             public void Undo()
             {
-                source?.Bind(null);
-                target?.Bind(null);
+                _Source?.Bind(null);
+                _Target?.Bind(null);
             }
         }
         public sealed class Disconnect<T> : IRecordCommand
         {
             private readonly IBindable<T> bindable;
-            private readonly IBindable<T> twoway;
+            private readonly IBindable<T>? twoway;
 
             public Disconnect(IBindable<T> bindable)
             {
@@ -139,7 +148,7 @@ namespace BEditor.Core.Data.Bindings
             public void Undo()
             {
                 bindable.Bind(twoway);
-                twoway.Bind(bindable);
+                twoway?.Bind(bindable);
             }
         }
     }

@@ -18,16 +18,48 @@ namespace BEditor.Core.Data.Property
     public class DocumentProperty : PropertyElement<DocumentPropertyMetadata>, IBindable<string>
     {
         #region Fields
+        private static readonly PropertyChangedEventArgs _TextArgs = new(nameof(Text));
+        private string _Text = "";
+        private List<IObserver<string>>? _List;
 
-        private static readonly PropertyChangedEventArgs textArgs = new(nameof(Text));
-        private string textProperty;
-        private List<IObserver<string>> list;
-
-        private IDisposable BindDispose;
-        private IBindable<string> Bindable;
-        private string bindHint;
-
+        private IDisposable? _BindDispose;
+        private IBindable<string>? _Bindable;
+        private string? _BindHint;
         #endregion
+
+
+        private List<IObserver<string>> Collection => _List ??= new();
+        /// <summary>
+        /// 入力されている文字列を取得または設定します
+        /// </summary>
+        [DataMember]
+        public string Text
+        {
+            get => _Text;
+            set => SetValue(value, ref _Text, _TextArgs, this, state =>
+            {
+                foreach (var observer in state.Collection)
+                {
+                    try
+                    {
+                        observer.OnNext(state._Text);
+                    }
+                    catch (Exception ex)
+                    {
+                        observer.OnError(ex);
+                    }
+                }
+            });
+        }
+        /// <inheritdoc/>
+        public string Value => Text;
+        /// <inheritdoc/>
+        [DataMember]
+        public string? BindHint
+        {
+            get => _Bindable?.GetString();
+            private set => _BindHint = value;
+        }
 
 
         /// <summary>
@@ -39,45 +71,6 @@ namespace BEditor.Core.Data.Property
         {
             PropertyMetadata = metadata ?? throw new ArgumentNullException(nameof(metadata));
             Text = metadata.DefaultText;
-            HeightProperty = metadata.Height;
-        }
-
-
-        private List<IObserver<string>> Collection => list ??= new();
-        /// <summary>
-        /// 入力されている文字列を取得または設定します
-        /// </summary>
-        [DataMember]
-        public string Text
-        {
-            get => textProperty;
-            set => SetValue(value, ref textProperty, textArgs, this, state =>
-            {
-                foreach (var observer in state.Collection)
-                {
-                    try
-                    {
-                        observer.OnNext(state.textProperty);
-                    }
-                    catch (Exception ex)
-                    {
-                        observer.OnError(ex);
-                    }
-                }
-            });
-        }
-        /// <summary>
-        /// 高さを取得または設定します
-        /// </summary>
-        public int? HeightProperty { get; set; }
-        /// <inheritdoc/>
-        public string Value => Text;
-        /// <inheritdoc/>
-        [DataMember]
-        public string BindHint
-        {
-            get => Bindable?.GetString();
-            private set => bindHint = value;
         }
 
 
@@ -110,15 +103,15 @@ namespace BEditor.Core.Data.Property
         /// <inheritdoc/>
         public void Bind(IBindable<string>? bindable)
         {
-            BindDispose?.Dispose();
-            Bindable = bindable;
+            _BindDispose?.Dispose();
+            _Bindable = bindable;
 
             if (bindable is not null)
             {
                 Text = bindable.Value;
 
                 // bindableが変更時にthisが変更
-                BindDispose = bindable.Subscribe(this);
+                _BindDispose = bindable.Subscribe(this);
             }
         }
 
@@ -127,11 +120,11 @@ namespace BEditor.Core.Data.Property
         /// <inheritdoc/>
         protected override void OnLoad()
         {
-            if (bindHint is not null && this.GetBindable(bindHint, out var b))
+            if (_BindHint is not null && this.GetBindable(_BindHint, out var b))
             {
                 Bind(b);
             }
-            bindHint = null;
+            _BindHint = null;
         }
         /// <inheritdoc/>
         public override string ToString() => $"(Text:{Text} Name:{PropertyMetadata?.Name})";
@@ -147,9 +140,9 @@ namespace BEditor.Core.Data.Property
         /// <remarks>このクラスは <see cref="CommandManager.Do(IRecordCommand)"/> と併用することでコマンドを記録できます</remarks>
         public sealed class TextChangeCommand : IRecordCommand
         {
-            private readonly DocumentProperty property;
-            private readonly string @new;
-            private readonly string old;
+            private readonly DocumentProperty _Property;
+            private readonly string _New;
+            private readonly string _Old;
 
             /// <summary>
             /// <see cref="TextChangeCommand"/> クラスの新しいインスタンスを初期化します
@@ -159,21 +152,21 @@ namespace BEditor.Core.Data.Property
             /// <exception cref="ArgumentNullException"><paramref name="property"/> が <see langword="null"/> です</exception>
             public TextChangeCommand(DocumentProperty property, string text)
             {
-                this.property = property ?? throw new ArgumentNullException(nameof(property));
-                @new = text;
-                old = property.Text;
+                _Property = property ?? throw new ArgumentNullException(nameof(property));
+                _New = text;
+                _Old = property.Text;
             }
 
             public string Name => CommandName.ChangeText;
 
             /// <inheritdoc/>
-            public void Do() => property.Text = @new;
+            public void Do() => _Property.Text = _New;
 
             /// <inheritdoc/>
             public void Redo() => Do();
 
             /// <inheritdoc/>
-            public void Undo() => property.Text = old;
+            public void Undo() => _Property.Text = _Old;
         }
 
         #endregion

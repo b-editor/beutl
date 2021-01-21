@@ -12,7 +12,7 @@ namespace BEditor.Core.Data.Property
     [DataContract]
     public class ButtonComponent : PropertyElement<PropertyElementMetadata>, IEasingProperty, IObservable<object>
     {
-        private List<IObserver<object>> list;
+        private List<IObserver<object>>? list;
 
         public ButtonComponent(PropertyElementMetadata metadata)
         {

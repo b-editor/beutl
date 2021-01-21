@@ -20,9 +20,9 @@ namespace BEditor.Core.Data.Primitive.Objects
         public static readonly FilePropertyMetadata FileMetadata = VideoFile.FileMetadata with { Filter = "mp3,wav", FilterName = "" };
         public static readonly EasePropertyMetadata VolumeMetadata = new("Volume", 50, 100, 0);
         public static readonly ValuePropertyMetadata StartMetadata = new(Resources.Start + "(Milliseconds)", 0, Min: 0);
-        private WaveOut player;
-        private AudioFileReader reader;
-        private IDisposable disposable;
+        private WaveOut? _Player;
+        private AudioFileReader? _Reader;
+        private IDisposable? _Disposable;
 
         public AudioObject()
         {
@@ -44,22 +44,22 @@ namespace BEditor.Core.Data.Primitive.Objects
         public EaseProperty Volume { get; private set; }
         [DataMember(Order = 2)]
         public ValueProperty Start { get; private set; }
-        private WaveOut Player => player ??= new();
-        private AudioFileReader Reader
+        private WaveOut Player => _Player ??= new();
+        private AudioFileReader? Reader
         {
             get
             {
-                if (reader is null && System.IO.File.Exists(File.File))
+                if (_Reader is null && System.IO.File.Exists(File.File))
                 {
-                    reader = new(File.File);
+                    _Reader = new(File.File);
                 }
 
-                return reader;
+                return _Reader;
             }
             set
             {
-                reader?.Dispose();
-                reader = value;
+                _Reader?.Dispose();
+                _Reader = value;
             }
         }
 
@@ -69,19 +69,19 @@ namespace BEditor.Core.Data.Primitive.Objects
             Player.Volume = Volume[args.Frame] / 100;
             if (args.Type is not RenderType.VideoPreview) return;
 
-            if (reader is null) return;
+            if (_Reader is null) return;
 
 
-            if (args.Frame == Parent.Start)
+            if (args.Frame == Parent!.Start)
             {
                 Task.Run(async () =>
                 {
-                    Reader.CurrentTime = TimeSpan.FromMilliseconds(Start.Value);
+                    Reader!.CurrentTime = TimeSpan.FromMilliseconds(Start.Value);
                     Player.Init(Reader);
 
                     Player.Play();
 
-                    var millis = (int)Parent.Length.ToMilliseconds(Parent.Parent.Parent.Framerate);
+                    var millis = (int)Parent.Length.ToMilliseconds(Parent!.Parent!.Parent!.Framerate);
                     await Task.Delay(millis);
 
                     Player.Stop();
@@ -94,7 +94,7 @@ namespace BEditor.Core.Data.Primitive.Objects
             File.Load(FileMetadata);
             Start.Load(StartMetadata);
 
-            disposable = File.Subscribe(file =>
+            _Disposable = File.Subscribe(file =>
             {
                 if (System.IO.File.Exists(file))
                 {
@@ -102,15 +102,15 @@ namespace BEditor.Core.Data.Primitive.Objects
                 }
             });
 
-            var player = Parent.Parent.Player;
+            var player = Parent!.Parent.Player;
             player.Stopped += Player_Stopped;
 
             player.Playing += Player_PlayingAsync;
         }
         protected override void OnUnload()
         {
-            disposable?.Dispose();
-            var player = Parent.Parent.Player;
+            _Disposable?.Dispose();
+            var player = Parent!.Parent.Player;
             player.Stopped -= Player_Stopped;
 
             player.Playing -= Player_PlayingAsync;
@@ -118,12 +118,12 @@ namespace BEditor.Core.Data.Primitive.Objects
 
         private async void Player_PlayingAsync(object? sender, PlayingEventArgs e)
         {
-            if (Parent.Start <= e.StartFrame && e.StartFrame <= Parent.End)
+            if (Parent!.Start <= e.StartFrame && e.StartFrame <= Parent.End)
             {
-                var framerate = Parent.Parent.Parent.Framerate;
+                var framerate = Parent!.Parent!.Parent!.Framerate;
                 var startmsec = e.StartFrame.ToMilliseconds(framerate);
 
-                Reader.CurrentTime = TimeSpan.FromMilliseconds(Start.Value + startmsec);
+                Reader!.CurrentTime = TimeSpan.FromMilliseconds(Start.Value + startmsec);
                 Player.Init(Reader);
 
                 Player.Play();

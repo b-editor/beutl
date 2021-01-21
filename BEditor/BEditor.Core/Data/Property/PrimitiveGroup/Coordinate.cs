@@ -18,16 +18,6 @@ namespace BEditor.Core.Data.Property.PrimitiveGroup
         public static readonly EasePropertyMetadata CenterYMetadata = new(Resources.CenterY, 0, float.NaN, float.NaN, true);
         public static readonly EasePropertyMetadata CenterZMetadata = new(Resources.CenterZ, 0, float.NaN, float.NaN, true);
 
-        public Coordinate(PropertyElementMetadata metadata) : base(metadata)
-        {
-            X = new(XMetadata);
-            Y = new(YMetadata);
-            Z = new(ZMetadata);
-            CenterX = new(CenterXMetadata);
-            CenterY = new(CenterYMetadata);
-            CenterZ = new(CenterZMetadata);
-        }
-
         public override IEnumerable<PropertyElement> Properties => new PropertyElement[]
         {
             X,
@@ -49,6 +39,16 @@ namespace BEditor.Core.Data.Property.PrimitiveGroup
         public EaseProperty CenterY { get; private set; }
         [DataMember(Order = 5)]
         public EaseProperty CenterZ { get; private set; }
+
+        public Coordinate(PropertyElementMetadata metadata) : base(metadata)
+        {
+            X = new(XMetadata);
+            Y = new(YMetadata);
+            Z = new(ZMetadata);
+            CenterX = new(CenterXMetadata);
+            CenterY = new(CenterYMetadata);
+            CenterZ = new(CenterZMetadata);
+        }
 
         protected override void OnLoad()
         {

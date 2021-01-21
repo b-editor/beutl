@@ -18,8 +18,8 @@ namespace BEditor.Core.Data.Primitive.Objects
         public static readonly EasePropertyMetadata SpeedMetadata = new(Resources.Speed, 100);
         public static readonly EasePropertyMetadata StartMetadata = new(Resources.Start, 1, float.NaN, 0);
         public static readonly FilePropertyMetadata FileMetadata = new(Resources.File, "", "mp4,avi,wmv,mov", Resources.VideoFile);
-        private IVideoDecoder videoReader;
-        private IDisposable disposable;
+        private IVideoDecoder? _VideoReader;
+        private IDisposable? _Disposable;
 
         public VideoFile()
         {
@@ -47,13 +47,13 @@ namespace BEditor.Core.Data.Primitive.Objects
         [DataMember(Order = 2)]
         public FileProperty File { get; private set; }
 
-        public override Image<BGRA32> OnRender(EffectRenderArgs args)
+        protected override Image<BGRA32>? OnRender(EffectRenderArgs args)
         {
             float speed = Speed[args.Frame] / 100;
             int start = (int)Start[args.Frame];
-            Image<BGRA32> image = null;
+            Image<BGRA32>? image = null;
 
-            videoReader?.Read((int)((start + args.Frame - Parent.Start) * speed), out image);
+            _VideoReader?.Read((int)((start + args.Frame - Parent!.Start) * speed), out image);
 
             return image;
         }
@@ -66,16 +66,16 @@ namespace BEditor.Core.Data.Primitive.Objects
 
             if (System.IO.File.Exists(File.File))
             {
-                videoReader = VideoDecoderFactory.Default.Create(File.File);
+                _VideoReader = VideoDecoderFactory.Default.Create(File.File);
             }
 
-            disposable = File.Subscribe(filename =>
+            _Disposable = File.Subscribe(filename =>
             {
-                videoReader?.Dispose();
+                _VideoReader?.Dispose();
 
                 try
                 {
-                    videoReader = VideoDecoderFactory.Default.Create(filename);
+                    _VideoReader = VideoDecoderFactory.Default.Create(filename);
                 }
                 catch (Exception ex)
                 {
@@ -91,8 +91,8 @@ namespace BEditor.Core.Data.Primitive.Objects
             Start.Unload();
             File.Unload();
 
-            videoReader?.Dispose();
-            disposable?.Dispose();
+            _VideoReader?.Dispose();
+            _Disposable?.Dispose();
         }
     }
 }

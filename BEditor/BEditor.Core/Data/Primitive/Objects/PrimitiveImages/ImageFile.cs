@@ -18,8 +18,8 @@ namespace BEditor.Core.Data.Primitive.Objects
     public class ImageFile : ImageObject
     {
         public static readonly FilePropertyMetadata FileMetadata = new(Resources.File, "", "png,jpeg,jpg,bmp", Resources.ImageFile);
-        private Image<BGRA32> source;
-        private IDisposable disposable;
+        private Image<BGRA32>? _Source;
+        private IDisposable? _Disposable;
 
         public ImageFile()
         {
@@ -38,32 +38,32 @@ namespace BEditor.Core.Data.Primitive.Objects
         };
         [DataMember(Order = 0)]
         public FileProperty File { get; private set; }
-        public Image<BGRA32> Source
+        public Image<BGRA32>? Source
         {
             get
             {
-                if (source == null && System.IO.File.Exists(File.File))
+                if (_Source == null && System.IO.File.Exists(File.File))
                 {
                     using var stream = new FileStream(File.File, FileMode.Open);
-                    source = Image.Decode(stream);
+                    _Source = Image.Decode(stream);
                 }
 
-                return source;
+                return _Source;
             }
             set
             {
-                source?.Dispose();
-                source = value;
+                _Source?.Dispose();
+                _Source = value;
             }
         }
 
-        public override Image<BGRA32> OnRender(EffectRenderArgs args) => Source?.Clone();
+        protected override Image<BGRA32>? OnRender(EffectRenderArgs args) => Source?.Clone();
         protected override void OnLoad()
         {
             base.OnLoad();
             File.Load(FileMetadata);
 
-            disposable = File.Subscribe(file =>
+            _Disposable = File.Subscribe(file =>
             {
                 if (System.IO.File.Exists(file))
                 {
@@ -77,7 +77,7 @@ namespace BEditor.Core.Data.Primitive.Objects
             base.OnUnload();
             File.Unload();
 
-            disposable?.Dispose();
+            _Disposable?.Dispose();
             Source = null;
         }
     }

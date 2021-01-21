@@ -12,22 +12,22 @@ namespace BEditor.Core.Data.Property
     [DataContract]
     public class LabelComponent : PropertyElement<PropertyElementMetadata>, IEasingProperty, IObservable<string>, IObserver<string>
     {
-        private static readonly PropertyChangedEventArgs textArgs = new(nameof(Text));
-        private List<IObserver<string>> list;
-        private string text;
+        private static readonly PropertyChangedEventArgs _TextArgs = new(nameof(Text));
+        private List<IObserver<string>>? _List;
+        private string _Text = "";
 
-        private List<IObserver<string>> Collection => list ??= new();
+        private List<IObserver<string>> Collection => _List ??= new();
         [DataMember]
         public string Text
         {
-            get => text;
-            set => SetValue(value, ref text, textArgs, this, state =>
+            get => _Text;
+            set => SetValue(value, ref _Text, _TextArgs, this, state =>
             {
                 foreach (var observer in state.Collection)
                 {
                     try
                     {
-                        observer.OnNext(state.text);
+                        observer.OnNext(state._Text);
                     }
                     catch (Exception ex)
                     {

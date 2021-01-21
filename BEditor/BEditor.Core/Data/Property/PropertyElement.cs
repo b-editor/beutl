@@ -15,30 +15,29 @@ namespace BEditor.Core.Data.Property
     [DataContract]
     public class PropertyElement : ComponentObject, IChild<EffectElement>, IPropertyElement, IHasId, IHasName
     {
-        private static readonly PropertyChangedEventArgs metadataArgs = new(nameof(PropertyMetadata));
-        private PropertyElementMetadata propertyMetadata;
+        private static readonly PropertyChangedEventArgs _MetadataArgs = new(nameof(PropertyMetadata));
+        private PropertyElementMetadata? _PropertyMetadata;
         private int? id;
 
 
         /// <summary>
         /// このプロパティの親要素を取得します
         /// </summary>
-        public virtual EffectElement Parent { get; set; }
+        public virtual EffectElement? Parent { get; set; }
         /// <summary>
         /// プロパティのメタデータを取得または設定します
         /// </summary>
-        public PropertyElementMetadata PropertyMetadata
+        public PropertyElementMetadata? PropertyMetadata
         {
-            get => propertyMetadata;
-            set => SetValue(value, ref propertyMetadata, metadataArgs);
+            get => _PropertyMetadata;
+            set => SetValue(value, ref _PropertyMetadata, _MetadataArgs);
         }
         /// <inheritdoc/>
-        public int Id => id ??= Parent.Children.ToList().IndexOf(this);
+        public int Id => (id ??= Parent?.Children?.ToList()?.IndexOf(this)) ?? -1;
         /// <inheritdoc/>
-        public string Name => propertyMetadata?.Name ?? Id.ToString();
+        public string Name => _PropertyMetadata?.Name ?? Id.ToString();
         /// <inheritdoc/>
         public bool IsLoaded { get; private set; }
-
 
 
         /// <inheritdoc/>
@@ -75,7 +74,7 @@ namespace BEditor.Core.Data.Property
     [DataContract]
     public abstract class PropertyElement<T> : PropertyElement where T : PropertyElementMetadata
     {
-        public new T PropertyMetadata
+        public new T? PropertyMetadata
         {
             get => base.PropertyMetadata as T;
             set => base.PropertyMetadata = value;

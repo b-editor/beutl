@@ -18,7 +18,7 @@ namespace BEditor.Core.Service
             FileName = filename;
         }
 
-        public string DefaultFileName { get; set; }
+        public string DefaultFileName { get; set; } = "";
         public string FileName { get; set; }
     }
     public record FileFilter(string Name, string Extension);

@@ -116,7 +116,7 @@ namespace BEditor.Core.Data.Primitive.Objects
                 };
             }
 
-            Parent.Parent.GraphicsContext.MakeCurrent();
+            Parent!.Parent!.GraphicsContext!.MakeCurrent();
             //GLTK.Paint(
             //    new System.Numerics.Vector3(
             //        Coordinate.X.GetValue(frame),
@@ -154,11 +154,11 @@ namespace BEditor.Core.Data.Primitive.Objects
         }
         protected override void OnLoad()
         {
-            Coordinate.ExecuteLoaded(ImageObject.CoordinateMetadata);
-            Zoom.ExecuteLoaded(ImageObject.ZoomMetadata);
-            Blend.ExecuteLoaded(ImageObject.BlendMetadata);
-            Angle.ExecuteLoaded(ImageObject.AngleMetadata);
-            Material.ExecuteLoaded(ImageObject.MaterialMetadata);
+            Coordinate.Load(ImageObject.CoordinateMetadata);
+            Zoom.Load(ImageObject.ZoomMetadata);
+            Blend.Load(ImageObject.BlendMetadata);
+            Angle.Load(ImageObject.AngleMetadata);
+            Material.Load(ImageObject.MaterialMetadata);
             Type.Load(TypeMetadata);
             Width.Load(Figure.WidthMetadata);
             Height.Load(Figure.HeightMetadata);

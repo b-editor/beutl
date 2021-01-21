@@ -25,17 +25,15 @@ namespace BEditor.Core.Data
     public class ClipData : ComponentObject, ICloneable, IParent<EffectElement>, IChild<Scene>, IHasName, IHasId, IFormattable, IElementObject
     {
         #region Fields
-
-        private static readonly PropertyChangedEventArgs startArgs = new(nameof(Start));
-        private static readonly PropertyChangedEventArgs endArgs = new(nameof(End));
-        private static readonly PropertyChangedEventArgs layerArgs = new(nameof(Layer));
-        private static readonly PropertyChangedEventArgs textArgs = new(nameof(LabelText));
-        private string name;
-        private Frame start;
-        private Frame end;
-        private int layer;
-        private string labeltext;
-
+        private static readonly PropertyChangedEventArgs _StartArgs = new(nameof(Start));
+        private static readonly PropertyChangedEventArgs _EndArgs = new(nameof(End));
+        private static readonly PropertyChangedEventArgs _LayerArgs = new(nameof(Layer));
+        private static readonly PropertyChangedEventArgs _TextArgs = new(nameof(LabelText));
+        private string? _Name;
+        private Frame _Start;
+        private Frame _End;
+        private int _Layer;
+        private string _LabelText = "";
         #endregion
 
 
@@ -47,10 +45,10 @@ namespace BEditor.Core.Data
         public ClipData(int id, ObservableCollection<EffectElement> effects, int start, int end, Type type, int layer, Scene scene)
         {
             Id = id;
-            this.start = start;
-            this.end = end;
+            _Start = start;
+            _End = end;
             Type = type;
-            this.layer = layer;
+            _Layer = layer;
             Parent = scene;
             Effect = effects;
             LabelText = Name;
@@ -70,7 +68,7 @@ namespace BEditor.Core.Data
         /// <summary>
         /// Get the name of this <see cref="ClipData"/>.
         /// </summary>
-        public string Name => name ??= $"{Type.Name}{Id}";
+        public string Name => _Name ??= $"{Type.Name}{Id}";
 
         /// <summary>
         /// Get the type of this <see cref="ClipData"/>.
@@ -78,8 +76,8 @@ namespace BEditor.Core.Data
         [DataMember(Name = "Type", Order = 1)]
         public string ClipType
         {
-            get => Type.FullName;
-            private set => Type = Type.GetType(value);
+            get => Type.FullName!;
+            private set => Type = Type.GetType(value)!;
         }
 
         /// <summary>
@@ -93,8 +91,8 @@ namespace BEditor.Core.Data
         [DataMember(Order = 2)]
         public Frame Start
         {
-            get => start;
-            set => SetValue(value, ref start, startArgs);
+            get => _Start;
+            set => SetValue(value, ref _Start, _StartArgs);
         }
 
         /// <summary>
@@ -103,8 +101,8 @@ namespace BEditor.Core.Data
         [DataMember(Order = 3)]
         public Frame End
         {
-            get => end;
-            set => SetValue(value, ref end, endArgs);
+            get => _End;
+            set => SetValue(value, ref _End, _EndArgs);
         }
 
         /// <summary>
@@ -118,11 +116,11 @@ namespace BEditor.Core.Data
         [DataMember(Order = 4)]
         public int Layer
         {
-            get => layer;
+            get => _Layer;
             set
             {
                 if (value == 0) return;
-                SetValue(value, ref layer, layerArgs);
+                SetValue(value, ref _Layer, _LayerArgs);
             }
         }
 
@@ -132,8 +130,8 @@ namespace BEditor.Core.Data
         [DataMember(Name = "Text", Order = 5)]
         public string LabelText
         {
-            get => labeltext;
-            set => SetValue(value, ref labeltext, textArgs);
+            get => _LabelText;
+            set => SetValue(value, ref _LabelText, _TextArgs);
         }
 
         /// <inheritdoc/>
@@ -257,7 +255,7 @@ namespace BEditor.Core.Data
         internal sealed class AddCommand : IRecordCommand
         {
             private readonly Scene Scene;
-            public ClipData data;
+            public ClipData Clip;
 
             /// <summary>
             /// <see cref="AddCommand"/> Initialize a new instance of the class.
@@ -283,7 +281,7 @@ namespace BEditor.Core.Data
                 };
 
                 //オブジェクトの情報
-                data = new ClipData(idmax, list, startFrame, startFrame + 180, metadata.Type, layer, scene);
+                Clip = new ClipData(idmax, list, startFrame, startFrame + 180, metadata.Type, layer, scene);
             }
 
             public string Name => CommandName.AddClip;
@@ -291,9 +289,9 @@ namespace BEditor.Core.Data
             /// <inheritdoc/>
             public void Do()
             {
-                data.Load();
-                Scene.Add(data);
-                Scene.SetCurrentClip(data);
+                Clip.Load();
+                Scene.Add(Clip);
+                Scene.SetCurrentClip(Clip);
             }
             /// <inheritdoc/>
             public void Redo()
@@ -303,15 +301,15 @@ namespace BEditor.Core.Data
             /// <inheritdoc/>
             public void Undo()
             {
-                Scene.Remove(data);
-                data.Unload();
+                Scene.Remove(Clip);
+                Clip.Unload();
 
                 //存在する場合
-                if (Scene.SelectNames.Exists(x => x == data.Name))
+                if (Scene.SelectNames.Exists(x => x == Clip.Name))
                 {
-                    Scene.SelectItems.Remove(data);
+                    Scene.SelectItems.Remove(Clip);
 
-                    if (Scene.SelectName == data.Name)
+                    if (Scene.SelectName == Clip.Name)
                     {
                         Scene.SelectItem = null;
                     }
@@ -323,41 +321,41 @@ namespace BEditor.Core.Data
         /// </summary>
         internal sealed class RemoveCommand : IRecordCommand
         {
-            private readonly ClipData data;
+            private readonly ClipData _Clip;
 
             /// <summary>
             /// <see cref="RemoveCommand"/> Initialize a new instance of the class.
             /// </summary>
             /// <param name="clip">The target <see cref="ClipData"/>.</param>
             /// <exception cref="ArgumentNullException"><paramref name="clip"/> is <see langword="null"/>.</exception>
-            public RemoveCommand(ClipData clip) => this.data = clip ?? throw new ArgumentNullException(nameof(clip));
+            public RemoveCommand(ClipData clip) => _Clip = clip ?? throw new ArgumentNullException(nameof(clip));
 
             public string Name => CommandName.RemoveClip;
 
             /// <inheritdoc/>
             public void Do()
             {
-                if (!data.Parent.Remove(data))
+                if (!_Clip.Parent.Remove(_Clip))
                 {
                     //Message.Snackbar("削除できませんでした");
                 }
                 else
                 {
-                    data.Unload();
+                    _Clip.Unload();
                     //存在する場合
-                    if (data.Parent.SelectNames.Exists(x => x == data.Name))
+                    if (_Clip.Parent.SelectNames.Exists(x => x == _Clip.Name))
                     {
-                        data.Parent.SelectItems.Remove(data);
+                        _Clip.Parent.SelectItems.Remove(_Clip);
 
-                        if (data.Parent.SelectName == data.Name)
+                        if (_Clip.Parent.SelectName == _Clip.Name)
                         {
-                            if (data.Parent.SelectItems.Count == 0)
+                            if (_Clip.Parent.SelectItems.Count == 0)
                             {
-                                data.Parent.SelectItem = null;
+                                _Clip.Parent.SelectItem = null;
                             }
                             else
                             {
-                                data.Parent.SelectItem = data.Parent.SelectItems[0];
+                                _Clip.Parent.SelectItem = _Clip.Parent.SelectItems[0];
                             }
                         }
                     }
@@ -368,8 +366,8 @@ namespace BEditor.Core.Data
             /// <inheritdoc/>
             public void Undo()
             {
-                data.Load();
-                data.Parent.Add(data);
+                _Clip.Load();
+                _Clip.Parent.Add(_Clip);
             }
         }
         /// <summary>
@@ -377,12 +375,12 @@ namespace BEditor.Core.Data
         /// </summary>
         internal sealed class MoveCommand : IRecordCommand
         {
-            private readonly ClipData data;
-            private readonly Frame to;
-            private readonly Frame from;
-            private readonly int tolayer;
-            private readonly int fromlayer;
-            private Scene Scene => data.Parent;
+            private readonly ClipData _Clip;
+            private readonly Frame _ToFrame;
+            private readonly Frame _FromFrame;
+            private readonly int _ToLayer;
+            private readonly int _FromLayer;
+            private Scene Scene => _Clip.Parent;
 
             #region コンストラクタ
             /// <summary>
@@ -392,11 +390,11 @@ namespace BEditor.Core.Data
             /// <exception cref="ArgumentOutOfRangeException"><paramref name="toFrame"/> or <paramref name="toLayer"/> is less than 0.</exception>
             public MoveCommand(ClipData clip, Frame toFrame, int toLayer)
             {
-                this.data = clip ?? throw new ArgumentNullException(nameof(clip));
-                this.to = (Frame.Zero > toFrame) ? throw new ArgumentOutOfRangeException(nameof(toFrame)) : toFrame;
-                from = clip.Start;
-                this.tolayer = (0 > toLayer) ? throw new ArgumentOutOfRangeException(nameof(toLayer)) : toLayer;
-                fromlayer = clip.Layer;
+                _Clip = clip ?? throw new ArgumentNullException(nameof(clip));
+                _ToFrame = (Frame.Zero > toFrame) ? throw new ArgumentOutOfRangeException(nameof(toFrame)) : toFrame;
+                _FromFrame = clip.Start;
+                _ToLayer = (0 > toLayer) ? throw new ArgumentOutOfRangeException(nameof(toLayer)) : toLayer;
+                _FromLayer = clip.Layer;
             }
 
             /// <summary>
@@ -406,11 +404,11 @@ namespace BEditor.Core.Data
             /// <exception cref="ArgumentOutOfRangeException"><paramref name="to"/>, <paramref name="from"/>, <paramref name="tolayer"/>, <paramref name="fromlayer"/> is less than 0.</exception>
             public MoveCommand(ClipData clip, Frame to, Frame from, int tolayer, int fromlayer)
             {
-                this.data = clip ?? throw new ArgumentNullException(nameof(clip));
-                this.to = (Frame.Zero > to) ? throw new ArgumentOutOfRangeException(nameof(to)) : to;
-                this.from = (Frame.Zero > from) ? throw new ArgumentOutOfRangeException(nameof(from)) : from;
-                this.tolayer = (0 > tolayer) ? throw new ArgumentOutOfRangeException(nameof(tolayer)) : tolayer;
-                this.fromlayer = (0 > fromlayer) ? throw new ArgumentOutOfRangeException(nameof(fromlayer)) : fromlayer;
+                _Clip = clip ?? throw new ArgumentNullException(nameof(clip));
+                _ToFrame = (Frame.Zero > to) ? throw new ArgumentOutOfRangeException(nameof(to)) : to;
+                _FromFrame = (Frame.Zero > from) ? throw new ArgumentOutOfRangeException(nameof(from)) : from;
+                _ToLayer = (0 > tolayer) ? throw new ArgumentOutOfRangeException(nameof(tolayer)) : tolayer;
+                _FromLayer = (0 > fromlayer) ? throw new ArgumentOutOfRangeException(nameof(fromlayer)) : fromlayer;
             }
             #endregion
 
@@ -419,14 +417,14 @@ namespace BEditor.Core.Data
             /// <inheritdoc/>
             public void Do()
             {
-                data.MoveTo(to);
+                _Clip.MoveTo(_ToFrame);
 
-                data.Layer = tolayer;
+                _Clip.Layer = _ToLayer;
 
 
-                if (data.End > Scene.TotalFrame)
+                if (_Clip.End > Scene.TotalFrame)
                 {
-                    Scene.TotalFrame = data.End;
+                    Scene.TotalFrame = _Clip.End;
                 }
             }
             /// <inheritdoc/>
@@ -434,9 +432,9 @@ namespace BEditor.Core.Data
             /// <inheritdoc/>
             public void Undo()
             {
-                data.MoveTo(from);
+                _Clip.MoveTo(_FromFrame);
 
-                data.Layer = fromlayer;
+                _Clip.Layer = _FromLayer;
             }
         }
         /// <summary>
@@ -444,11 +442,11 @@ namespace BEditor.Core.Data
         /// </summary>
         internal sealed class LengthChangeCommand : IRecordCommand
         {
-            private readonly ClipData data;
-            private readonly Frame start;
-            private readonly Frame end;
-            private readonly Frame oldstart;
-            private readonly Frame oldend;
+            private readonly ClipData _Clip;
+            private readonly Frame _Start;
+            private readonly Frame _End;
+            private readonly Frame _OldStart;
+            private readonly Frame _OldEnd;
 
             /// <summary>
             /// <see cref="LengthChangeCommand"/> Initialize a new instance of the class.
@@ -457,11 +455,11 @@ namespace BEditor.Core.Data
             /// <exception cref="ArgumentOutOfRangeException"><paramref name="start"/> or <paramref name="end"/> is less than 0.</exception>
             public LengthChangeCommand(ClipData clip, Frame start, Frame end)
             {
-                this.data = clip ?? throw new ArgumentNullException(nameof(clip));
-                this.start = (Frame.Zero > start) ? throw new ArgumentOutOfRangeException(nameof(start)) : start;
-                this.end = (Frame.Zero > end) ? throw new ArgumentOutOfRangeException(nameof(end)) : end;
-                oldstart = clip.Start;
-                oldend = clip.End;
+                _Clip = clip ?? throw new ArgumentNullException(nameof(clip));
+                _Start = (Frame.Zero > start) ? throw new ArgumentOutOfRangeException(nameof(start)) : start;
+                _End = (Frame.Zero > end) ? throw new ArgumentOutOfRangeException(nameof(end)) : end;
+                _OldStart = clip.Start;
+                _OldEnd = clip.End;
             }
 
             public string Name => CommandName.ChangeLength;
@@ -469,16 +467,16 @@ namespace BEditor.Core.Data
             /// <inheritdoc/>
             public void Do()
             {
-                data.Start = start;
-                data.End = end;
+                _Clip.Start = _Start;
+                _Clip.End = _End;
             }
             /// <inheritdoc/>
             public void Redo() => Do();
             /// <inheritdoc/>
             public void Undo()
             {
-                data.Start = oldstart;
-                data.End = oldend;
+                _Clip.Start = _OldStart;
+                _Clip.End = _OldEnd;
             }
         }
         internal sealed class SparateCommand : IRecordCommand
@@ -492,8 +490,8 @@ namespace BEditor.Core.Data
             {
                 Source = clip;
                 Scene = clip.Parent;
-                Before = (ClipData?)clip.Clone();
-                After = (ClipData?)clip.Clone();
+                Before = (ClipData)clip.Clone();
+                After = (ClipData)clip.Clone();
 
                 Before.End = frame;
                 After.Start = frame;

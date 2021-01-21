@@ -15,7 +15,7 @@ namespace BEditor.Core.Data.Property
     [DataContract]
     public abstract class Group : PropertyElement, IKeyFrameProperty, IEasingProperty, IParent<PropertyElement>
     {
-        private IEnumerable<PropertyElement> cachedlist;
+        private IEnumerable<PropertyElement>? _CachedList;
         
         /// <summary>
         /// グループにする <see cref="PropertyElement"/> を取得します
@@ -24,10 +24,10 @@ namespace BEditor.Core.Data.Property
         /// <summary>
         /// キャッシュされた <see cref="Properties"/> を取得します
         /// </summary>
-        public IEnumerable<PropertyElement> Children => cachedlist ??= Properties;
+        public IEnumerable<PropertyElement> Children => _CachedList ??= Properties;
 
         /// <inheritdoc/>
-        public override EffectElement Parent
+        public override EffectElement? Parent
         {
             get => base.Parent;
             set

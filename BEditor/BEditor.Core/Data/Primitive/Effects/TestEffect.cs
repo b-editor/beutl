@@ -15,7 +15,7 @@ namespace BEditor.Core.Data.Primitive.Effects
     [DataContract]
     public class TestEffect : ImageEffect
     {
-        public static readonly FolderPropertyMetadata FolderMetadata = new("Folder", null);
+        public static readonly FolderPropertyMetadata FolderMetadata = new("Folder");
         public static readonly TextPropertyMetadata ValueMetadata = new("Value");
 
         public TestEffect()
@@ -47,7 +47,7 @@ namespace BEditor.Core.Data.Primitive.Effects
         {
             Folder.Load(FolderMetadata);
             Value.Load(ValueMetadata);
-            Dialog.ExecuteLoaded(null);
+            Dialog.Load();
         }
         protected override void OnUnload()
         {
@@ -65,7 +65,7 @@ namespace BEditor.Core.Data.Primitive.Effects
         [DataContract]
         public class TestDialog : DialogProperty
         {
-            private IDisposable disposable;
+            private IDisposable? disposable;
 
             public TestDialog()
             {
@@ -90,7 +90,7 @@ namespace BEditor.Core.Data.Primitive.Effects
             protected override void OnLoad()
             {
                 EaseProperty.Load(DepthTest.FarMetadata);
-                Label.Load(null);
+                Label.Load();
                 Button.Load(new PropertyElementMetadata("sssssss"));
 
                 disposable = Button.Subscribe(_ =>

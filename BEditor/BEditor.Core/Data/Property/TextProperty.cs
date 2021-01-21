@@ -16,33 +16,28 @@ namespace BEditor.Core.Data.Property
     public class TextProperty : PropertyElement<TextPropertyMetadata>, IEasingProperty, IBindable<string>
     {
         #region Fields
-        private static readonly PropertyChangedEventArgs valueArgs = new(nameof(Value));
-        private string value;
-        private List<IObserver<string>> list;
-        private IDisposable BindDispose;
-        private IBindable<string> Bindable;
-        private string bindHint;
+        private static readonly PropertyChangedEventArgs _ValueArgs = new(nameof(Value));
+        private string _Value;
+        private List<IObserver<string>>? _List;
+        private IDisposable? _BindDispose;
+        private IBindable<string>? _Bindable;
+        private string? _BindHint;
         #endregion
 
-        public TextProperty(TextPropertyMetadata metadata)
-        {
-            PropertyMetadata = metadata ?? throw new ArgumentNullException(nameof(metadata));
-            value = metadata.DefaultText;
-        }
 
-        private List<IObserver<string>> Collection => list ??= new();
+        private List<IObserver<string>> Collection => _List ??= new();
         /// <inheritdoc/>
         [DataMember]
         public string Value
         {
-            get => value;
-            set => SetValue(value, ref this.value, valueArgs, this, state =>
+            get => _Value;
+            set => SetValue(value, ref _Value, _ValueArgs, this, state =>
             {
                 foreach (var observer in state.Collection)
                 {
                     try
                     {
-                        observer.OnNext(state.value);
+                        observer.OnNext(state._Value);
                     }
                     catch (Exception ex)
                     {
@@ -53,25 +48,33 @@ namespace BEditor.Core.Data.Property
         }
         /// <inheritdoc/>
         [DataMember]
-        public string BindHint 
+        public string? BindHint 
         {
-            get => Bindable?.GetString();
-            private set => bindHint = value;
+            get => _Bindable?.GetString();
+            private set => _BindHint = value;
         }
+
+
+        public TextProperty(TextPropertyMetadata metadata)
+        {
+            PropertyMetadata = metadata ?? throw new ArgumentNullException(nameof(metadata));
+            _Value = metadata.DefaultText;
+        }
+
 
         #region Methods
         /// <inheritdoc/>
         public void Bind(IBindable<string>? bindable)
         {
-            BindDispose?.Dispose();
-            Bindable = bindable;
+            _BindDispose?.Dispose();
+            _Bindable = bindable;
 
             if (bindable is not null)
             {
                 Value = bindable.Value;
 
                 // bindableが変更時にthisが変更
-                BindDispose = bindable.Subscribe(this);
+                _BindDispose = bindable.Subscribe(this);
             }
         }
         /// <inheritdoc/>
@@ -98,37 +101,38 @@ namespace BEditor.Core.Data.Property
         /// <inheritdoc/>
         protected override void OnLoad()
         {
-            if (bindHint is not null)
+            if (_BindHint is not null)
             {
-                if (this.GetBindable(bindHint, out var b))
+                if (this.GetBindable(_BindHint, out var b))
                 {
                     Bind(b);
                 }
             }
-            bindHint = null;
+            _BindHint = null;
         }
         /// <inheritdoc/>
         public override string ToString() => $"(Value:{Value} Name:{PropertyMetadata?.Name})";
         #endregion
 
+
         public sealed class ChangeTextCommand : IRecordCommand
         {
-            private readonly TextProperty property;
-            private readonly string @new;
-            private readonly string old;
+            private readonly TextProperty _Property;
+            private readonly string _New;
+            private readonly string _Old;
 
             public ChangeTextCommand(TextProperty property, string value)
             {
-                this.property = property ?? throw new ArgumentNullException(nameof(property));
-                this.old = property.Value;
-                this.@new = value;
+                _Property = property ?? throw new ArgumentNullException(nameof(property));
+                _Old = property.Value;
+                _New = value;
             }
 
             public string Name => CommandName.ChangeText;
 
-            public void Do() => property.Value = @new;
+            public void Do() => _Property.Value = _New;
             public void Redo() => Do();
-            public void Undo() => property.Value = old;
+            public void Undo() => _Property.Value = _Old;
         }
     }
 

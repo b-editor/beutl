@@ -46,18 +46,15 @@ namespace BEditor.Core.Data.Primitive
         {
             var base_img = OnRender(args);
 
-            if (base_img == null)
+            if (base_img is null)
             {
                 Coordinate.ResetOptional();
                 return;
             }
 
-            var imageArgs = new EffectRenderArgs<Image<BGRA32>>(args.Frame, args.Type)
-            {
-                Value = base_img
-            };
+            var imageArgs = new EffectRenderArgs<Image<BGRA32>>(args.Frame, base_img, args.Type);
 
-            var list = Parent.Effect.Where(x => x.IsEnabled).ToArray();
+            var list = Parent!.Effect.Where(x => x.IsEnabled).ToArray();
             for (int i = 1; i < list.Length; i++)
             {
                 var effect = list[i];
@@ -80,20 +77,20 @@ namespace BEditor.Core.Data.Primitive
             }
 
 
-            Parent.Parent.GraphicsContext.DrawImage(imageArgs.Value, Parent, args);
+            Parent!.Parent!.GraphicsContext!.DrawImage(imageArgs.Value, Parent, args);
             base_img?.Dispose();
             imageArgs.Value?.Dispose();
 
             Coordinate.ResetOptional();
         }
-        public abstract Image<BGRA32> OnRender(EffectRenderArgs args);
+        protected abstract Image<BGRA32>? OnRender(EffectRenderArgs args);
         protected override void OnLoad()
         {
-            Coordinate.ExecuteLoaded(CoordinateMetadata);
-            Zoom.ExecuteLoaded(ZoomMetadata);
-            Blend.ExecuteLoaded(BlendMetadata);
-            Angle.ExecuteLoaded(AngleMetadata);
-            Material.ExecuteLoaded(MaterialMetadata);
+            Coordinate.Load(CoordinateMetadata);
+            Zoom.Load(ZoomMetadata);
+            Blend.Load(BlendMetadata);
+            Angle.Load(AngleMetadata);
+            Material.Load(MaterialMetadata);
         }
         protected override void OnUnload()
         {

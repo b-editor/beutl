@@ -14,13 +14,13 @@ namespace BEditor.Core.Data
     [DataContract]
     public class ComponentObject : BasePropertyChanged, IExtensibleDataObject
     {
-        private Dictionary<string, dynamic> componentData;
+        private Dictionary<string, dynamic>? _ComponentData;
 
         /// <summary>
         /// UIなどのキャッシュを入れる配列を取得します
         /// </summary>
-        public Dictionary<string, dynamic> ComponentData => componentData ??= new Dictionary<string, dynamic>();
+        public Dictionary<string, dynamic> ComponentData => _ComponentData ??= new Dictionary<string, dynamic>();
         /// <inheritdoc/>
-        public virtual ExtensionDataObject ExtensionData { get; set; }
+        public virtual ExtensionDataObject? ExtensionData { get; set; }
     }
 }

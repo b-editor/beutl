@@ -36,8 +36,6 @@ namespace BEditor.Models
         }
 
         /// <inheritdoc/>
-        public string Path => Core.Service.Services.Path;
-        /// <inheritdoc/>
         public string[] Arguments => Environment.GetCommandLineArgs();
         /// <inheritdoc/>
         public List<IPlugin> LoadedPlugins { get; set; }

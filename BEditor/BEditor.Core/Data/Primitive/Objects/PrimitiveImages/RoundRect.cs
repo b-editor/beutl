@@ -54,7 +54,7 @@ namespace BEditor.Core.Data.Primitive.Objects
         [DataMember(Order = 4)]
         public ColorProperty Color { get; private set; }
 
-        public override Image<BGRA32> OnRender(EffectRenderArgs args)
+        protected override Image<BGRA32> OnRender(EffectRenderArgs args)
         {
             var f = args.Frame;
             var r = (int)Radius[f];

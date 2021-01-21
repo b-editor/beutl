@@ -115,7 +115,7 @@ namespace BEditor.Core.Graphics
             #region MyRegion
 
             var frame = args.Frame;
-            var drawObject = data.Effect[0] as ImageObject;
+            var drawObject = (data.Effect[0] as ImageObject)??throw new NotSupportedException();
 
             float alpha = (float)(drawObject.Blend.Alpha.GetValue(frame) / 100);
 
