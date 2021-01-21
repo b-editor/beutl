@@ -57,33 +57,26 @@ namespace BEditor.Core.Data.Primitive.Objects
         public override Image<BGRA32> OnRender(EffectRenderArgs args)
         {
             var f = args.Frame;
-            var r = (int)Radius.GetValue(f);
-            return Drawing.Image.RoundRect(
-                (int)Width.GetValue(f),
-                (int)Height.GetValue(f),
-                (int)Line.GetValue(f),
-                r,
-                r,
-                Color.Color);
+            var r = (int)Radius[f];
+            return Image.RoundRect((int)Width[f], (int)Height[f], (int)Line[f], r, r, Color.Color);
         }
-        public override void Loaded()
+        protected override void OnLoad()
         {
-            base.Loaded();
-            Width.ExecuteLoaded(WidthMetadata);
-            Height.ExecuteLoaded(HeightMetadata);
-            Radius.ExecuteLoaded(RadiusMetadata);
-            Line.ExecuteLoaded(LineMetadata);
-            Color.ExecuteLoaded(ColorMetadata);
+            base.OnLoad();
+            Width.Load(WidthMetadata);
+            Height.Load(HeightMetadata);
+            Radius.Load(RadiusMetadata);
+            Line.Load(LineMetadata);
+            Color.Load(ColorMetadata);
         }
-        public override void Unloaded()
+        protected override void OnUnload()
         {
-            base.Unloaded();
-
-            Width.Unloaded();
-            Height.Unloaded();
-            Radius.Unloaded();
-            Line.Unloaded();
-            Color.Unloaded();
+            base.OnUnload();
+            Width.Unload();
+            Height.Unload();
+            Radius.Unload();
+            Line.Unload();
+            Color.Unload();
         }
     }
 }

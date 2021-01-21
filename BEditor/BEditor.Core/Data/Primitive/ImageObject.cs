@@ -87,23 +87,21 @@ namespace BEditor.Core.Data.Primitive
             Coordinate.ResetOptional();
         }
         public abstract Image<BGRA32> OnRender(EffectRenderArgs args);
-        public override void Loaded()
+        protected override void OnLoad()
         {
-            base.Loaded();
             Coordinate.ExecuteLoaded(CoordinateMetadata);
             Zoom.ExecuteLoaded(ZoomMetadata);
             Blend.ExecuteLoaded(BlendMetadata);
             Angle.ExecuteLoaded(AngleMetadata);
             Material.ExecuteLoaded(MaterialMetadata);
         }
-        public override void Unloaded()
+        protected override void OnUnload()
         {
-            base.Unloaded();
-            Coordinate.Unloaded();
-            Zoom.Unloaded();
-            Blend.Unloaded();
-            Angle.Unloaded();
-            Material.Unloaded();
+            Coordinate.Unload();
+            Zoom.Unload();
+            Blend.Unload();
+            Angle.Unload();
+            Material.Unload();
         }
 
         public override bool EffectFilter(EffectElement effect)

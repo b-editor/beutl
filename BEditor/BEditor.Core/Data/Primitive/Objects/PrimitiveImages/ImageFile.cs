@@ -15,13 +15,13 @@ namespace BEditor.Core.Data.Primitive.Objects
 {
     [DataContract]
     [CustomClipUI(Color = 0x0091ea)]
-    public class Image : ImageObject
+    public class ImageFile : ImageObject
     {
         public static readonly FilePropertyMetadata FileMetadata = new(Resources.File, "", "png,jpeg,jpg,bmp", Resources.ImageFile);
         private Image<BGRA32> source;
         private IDisposable disposable;
 
-        public Image()
+        public ImageFile()
         {
             File = new(FileMetadata);
         }
@@ -45,7 +45,7 @@ namespace BEditor.Core.Data.Primitive.Objects
                 if (source == null && System.IO.File.Exists(File.File))
                 {
                     using var stream = new FileStream(File.File, FileMode.Open);
-                    source = Drawing.Image.Decode(stream);
+                    source = Image.Decode(stream);
                 }
 
                 return source;
@@ -58,24 +58,24 @@ namespace BEditor.Core.Data.Primitive.Objects
         }
 
         public override Image<BGRA32> OnRender(EffectRenderArgs args) => Source?.Clone();
-        public override void Loaded()
+        protected override void OnLoad()
         {
-            base.Loaded();
-            File.ExecuteLoaded(FileMetadata);
+            base.OnLoad();
+            File.Load(FileMetadata);
 
             disposable = File.Subscribe(file =>
             {
                 if (System.IO.File.Exists(file))
                 {
                     using var stream = new FileStream(file, FileMode.Open);
-                    Source = Drawing.Image.Decode(stream);
+                    Source = Image.Decode(stream);
                 }
             });
         }
-        public override void Unloaded()
+        protected override void OnUnload()
         {
-            base.Unloaded();
-            File.Unloaded();
+            base.OnUnload();
+            File.Unload();
 
             disposable?.Dispose();
             Source = null;

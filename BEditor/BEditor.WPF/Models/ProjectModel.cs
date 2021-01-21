@@ -7,6 +7,7 @@ using System.Text;
 using System.Threading.Tasks;
 
 using BEditor.Core.Data;
+using BEditor.Core.Data.Property;
 using BEditor.Core.Extensions;
 using BEditor.Core.Properties;
 using BEditor.Core.Service;
@@ -48,9 +49,9 @@ namespace BEditor.Models
                 {
                     try
                     {
-                        app.Project?.Unloaded();
+                        app.Project?.Unload();
                         var project = new Project(dialog.FileName);
-                        project.Loaded();
+                        project.Load();
                         app.Project = project;
                         app.AppStatus = Status.Edit;
 
@@ -69,14 +70,14 @@ namespace BEditor.Models
                 .Where(app => app.Project is not null)
                 .Subscribe(app =>
             {
-                app.Project?.Unloaded();
+                app.Project?.Unload();
                 app.Project = null;
                 app.AppStatus = Status.Idle;
             });
 
             Create.Subscribe(_ =>
             {
-                AppData.Current.Project?.Unloaded();
+                AppData.Current.Project?.Unload();
                 CreateEvent?.Invoke(this, EventArgs.Empty);
             });
         }

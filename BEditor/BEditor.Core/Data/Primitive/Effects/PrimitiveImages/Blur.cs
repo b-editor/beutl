@@ -38,15 +38,13 @@ namespace BEditor.Core.Data.Primitive.Effects
 
             args.Value.Blur(size);
         }
-        public override void Loaded()
+        protected override void OnLoad()
         {
-            base.Loaded();
-            Size.ExecuteLoaded(SizeMetadata);
+            Size.Load(SizeMetadata);
         }
-        public override void Unloaded()
+        protected override void OnUnload()
         {
-            base.Unloaded();
-            Size.Unloaded();
+            Size.Unload();
         }
     }
 }

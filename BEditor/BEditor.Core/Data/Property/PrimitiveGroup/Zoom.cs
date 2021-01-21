@@ -40,27 +40,19 @@ namespace BEditor.Core.Data.Property.PrimitiveGroup
         [DataMember(Order = 3)]
         public EaseProperty ScaleZ { get; private set; }
 
-        public override void Loaded()
+        protected override void OnLoad()
         {
-            if (IsLoaded) return;
-
-            Scale.ExecuteLoaded(ZoomMetadata);
-            ScaleX.ExecuteLoaded(ScaleXMetadata);
-            ScaleY.ExecuteLoaded(ScaleYMetadata);
-            ScaleZ.ExecuteLoaded(ScaleZMetadata);
-
-            base.Loaded();
+            Scale.Load(ZoomMetadata);
+            ScaleX.Load(ScaleXMetadata);
+            ScaleY.Load(ScaleYMetadata);
+            ScaleZ.Load(ScaleZMetadata);
         }
-        public override void Unloaded()
+        protected override void OnUnload()
         {
-            if (!IsLoaded) return;
-            
-            Scale.Unloaded();
-            ScaleX.Unloaded();
-            ScaleY.Unloaded();
-            ScaleZ.Unloaded();
-
-            base.Unloaded();
+            Scale.Unload();
+            ScaleX.Unload();
+            ScaleY.Unload();
+            ScaleZ.Unload();
         }
     }
 }

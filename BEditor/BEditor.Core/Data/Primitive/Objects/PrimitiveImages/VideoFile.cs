@@ -13,7 +13,7 @@ using BEditor.Media.Decoder;
 namespace BEditor.Core.Data.Primitive.Objects
 {
     [DataContract]
-    public class Video : ImageObject
+    public class VideoFile : ImageObject
     {
         public static readonly EasePropertyMetadata SpeedMetadata = new(Resources.Speed, 100);
         public static readonly EasePropertyMetadata StartMetadata = new(Resources.Start, 1, float.NaN, 0);
@@ -21,7 +21,7 @@ namespace BEditor.Core.Data.Primitive.Objects
         private IVideoDecoder videoReader;
         private IDisposable disposable;
 
-        public Video()
+        public VideoFile()
         {
             Speed = new(SpeedMetadata);
             Start = new(StartMetadata);
@@ -49,20 +49,20 @@ namespace BEditor.Core.Data.Primitive.Objects
 
         public override Image<BGRA32> OnRender(EffectRenderArgs args)
         {
-            float speed = Speed.GetValue(args.Frame) / 100;
-            int start = (int)Start.GetValue(args.Frame);
+            float speed = Speed[args.Frame] / 100;
+            int start = (int)Start[args.Frame];
             Image<BGRA32> image = null;
 
             videoReader?.Read((int)((start + args.Frame - Parent.Start) * speed), out image);
 
             return image;
         }
-        public override void Loaded()
+        protected override void OnLoad()
         {
-            base.Loaded();
-            Speed.ExecuteLoaded(SpeedMetadata);
-            Start.ExecuteLoaded(StartMetadata);
-            File.ExecuteLoaded(FileMetadata);
+            base.OnLoad();
+            Speed.Load(SpeedMetadata);
+            Start.Load(StartMetadata);
+            File.Load(FileMetadata);
 
             if (System.IO.File.Exists(File.File))
             {
@@ -84,12 +84,12 @@ namespace BEditor.Core.Data.Primitive.Objects
                 }
             });
         }
-        public override void Unloaded()
+        protected override void OnUnload()
         {
-            base.Unloaded();
-            Speed.Unloaded();
-            Start.Unloaded();
-            File.Unloaded();
+            base.OnUnload();
+            Speed.Unload();
+            Start.Unload();
+            File.Unload();
 
             videoReader?.Dispose();
             disposable?.Dispose();

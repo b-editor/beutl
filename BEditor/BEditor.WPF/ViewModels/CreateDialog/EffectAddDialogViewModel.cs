@@ -18,7 +18,7 @@ namespace BEditor.ViewModels.CreateDialog
         {
             AddCommand.Subscribe(() =>
             {
-                var effectinstance = Type.Value.CreateFunc?.Invoke() ?? Activator.CreateInstance(Type.Value.Type) as EffectElement;
+                var effectinstance = Type.Value.CreateFunc();
 
                 TargetClip.Value.CreateAddCommand(effectinstance).Execute();
             });

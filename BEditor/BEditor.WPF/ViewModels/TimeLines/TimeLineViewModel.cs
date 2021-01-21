@@ -331,11 +331,11 @@ namespace BEditor.ViewModels.TimeLines
 
                         if (type_ == ClipType.ImageMetadata)
                         {
-                            (clip.Effect[0] as Core.Data.Primitive.Objects.Image).File.File = file;
+                            (clip.Effect[0] as Core.Data.Primitive.Objects.ImageFile).File.File = file;
                         }
                         else if (type_ == ClipType.VideoMetadata)
                         {
-                            (clip.Effect[0] as Core.Data.Primitive.Objects.Video).File.File = file;
+                            (clip.Effect[0] as Core.Data.Primitive.Objects.VideoFile).File.File = file;
                         }
                         else if (type_ == ClipType.TextMetadata)
                         {

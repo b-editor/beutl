@@ -51,19 +51,17 @@ namespace BEditor.Core.Data.Primitive.Effects
             GL.Light(LightName.Light0, LightParameter.Position, position);
             GL.Enable(EnableCap.Light0);
         }
-        public override void Loaded()
+        protected override void OnLoad()
         {
-            base.Loaded();
-            X.ExecuteLoaded(XMetadata);
-            Y.ExecuteLoaded(YMetadata);
-            Z.ExecuteLoaded(ZMetadata);
+            X.Load(XMetadata);
+            Y.Load(YMetadata);
+            Z.Load(ZMetadata);
         }
-        public override void Unloaded()
+        protected override void OnUnload()
         {
-            base.Unloaded();
             foreach (var pr in Children)
             {
-                pr.Unloaded();
+                pr.Unload();
             }
         }
     }

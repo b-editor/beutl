@@ -55,7 +55,7 @@ namespace BEditor.ViewModels.CreateDialog
         private void Create()
         {
             var project = new Project((int)Width.Value, (int)Height.Value, (int)Framerate.Value, (int)Samplingrate.Value);
-            project.Loaded();
+            project.Load();
             AppData.Current.Project = project;
 
             if (SaveToFile.Value)

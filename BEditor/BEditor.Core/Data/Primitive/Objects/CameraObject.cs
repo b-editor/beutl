@@ -82,23 +82,23 @@ namespace BEditor.Core.Data.Primitive.Objects
             if (Mode.IsChecked)
             {
                 scene.GraphicsContext.Camera =
-                    new PerspectiveCamera(new(X.GetValue(frame), Y.GetValue(frame), Z.GetValue(frame)), scene.Width / (float)scene.Height)
+                    new PerspectiveCamera(new(X[frame], Y[frame], Z[frame]), scene.Width / (float)scene.Height)
                     {
                         Far = ZFar.GetValue(frame),
                         Near = ZNear.GetValue(frame),
                         Fov = Fov.GetValue(frame),
-                        Target = new(TargetX.GetValue(frame), TargetY.GetValue(frame), TargetZ.GetValue(frame))
+                        Target = new(TargetX[frame], TargetY[frame], TargetZ[frame])
                     };
             }
             else
             {
                 scene.GraphicsContext.Camera =
-                    new OrthographicCamera(new(X.GetValue(frame), Y.GetValue(frame), Z.GetValue(frame)), scene.Width, scene.Height)
+                    new OrthographicCamera(new(X[frame], Y[frame], Z[frame]), scene.Width, scene.Height)
                     {
                         Far = ZFar.GetValue(frame),
                         Near = ZNear.GetValue(frame),
                         Fov = Fov.GetValue(frame),
-                        Target = new(TargetX.GetValue(frame), TargetY.GetValue(frame), TargetZ.GetValue(frame))
+                        Target = new(TargetX[frame], TargetY[frame], TargetZ[frame])
                     };
             }
 
@@ -110,35 +110,33 @@ namespace BEditor.Core.Data.Primitive.Objects
                 effect.Render(args);
             }
         }
-        public override void Loaded()
+        protected override void OnLoad()
         {
-            base.Loaded();
-            X.ExecuteLoaded(XMetadata);
-            Y.ExecuteLoaded(YMetadata);
-            Z.ExecuteLoaded(ZMetadata);
-            TargetX.ExecuteLoaded(TargetXMetadata);
-            TargetY.ExecuteLoaded(TargetYMetadata);
-            TargetZ.ExecuteLoaded(TargetZMetadata);
-            ZNear.ExecuteLoaded(ZNearMetadata);
-            ZFar.ExecuteLoaded(ZFarMetadata);
-            Angle.ExecuteLoaded(AngleMetadata);
-            Fov.ExecuteLoaded(FovMetadata);
-            Mode.ExecuteLoaded(ModeMetadata);
+            X.Load(XMetadata);
+            Y.Load(YMetadata);
+            Z.Load(ZMetadata);
+            TargetX.Load(TargetXMetadata);
+            TargetY.Load(TargetYMetadata);
+            TargetZ.Load(TargetZMetadata);
+            ZNear.Load(ZNearMetadata);
+            ZFar.Load(ZFarMetadata);
+            Angle.Load(AngleMetadata);
+            Fov.Load(FovMetadata);
+            Mode.Load(ModeMetadata);
         }
-        public override void Unloaded()
+        protected override void OnUnload()
         {
-            base.Unloaded();
-            X.Unloaded();
-            Y.Unloaded();
-            Z.Unloaded();
-            TargetX.Unloaded();
-            TargetY.Unloaded();
-            TargetZ.Unloaded();
-            ZNear.Unloaded();
-            ZFar.Unloaded();
-            Angle.Unloaded();
-            Fov.Unloaded();
-            Mode.Unloaded();
+            X.Unload();
+            Y.Unload();
+            Z.Unload();
+            TargetX.Unload();
+            TargetY.Unload();
+            TargetZ.Unload();
+            ZNear.Unload();
+            ZFar.Unload();
+            Angle.Unload();
+            Fov.Unload();
+            Mode.Unload();
         }
     }
 }

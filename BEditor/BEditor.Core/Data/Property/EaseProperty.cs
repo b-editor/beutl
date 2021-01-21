@@ -25,7 +25,7 @@ namespace BEditor.Core.Data.Property
         private static readonly PropertyChangedEventArgs easingDataArgs = new(nameof(EasingData));
         private EffectElement parent;
         private EasingFunc easingTypeProperty;
-        private EasingData easingData;
+        private EasingMetadata easingData;
 
         #endregion
 
@@ -41,7 +41,7 @@ namespace BEditor.Core.Data.Property
 
             Value = new ObservableCollection<float> { metadata.DefaultValue, metadata.DefaultValue };
             Time = new();
-            EasingType = (EasingFunc)Activator.CreateInstance(metadata.DefaultEase.Type);
+            EasingType = metadata.DefaultEase.CreateFunc();
         }
 
 
@@ -113,7 +113,7 @@ namespace BEditor.Core.Data.Property
             {
                 if (easingTypeProperty == null || EasingData.Type != easingTypeProperty.GetType())
                 {
-                    easingTypeProperty = (EasingFunc)Activator.CreateInstance(EasingData.Type);
+                    easingTypeProperty = EasingData.CreateFunc();
                     easingTypeProperty.Parent = this;
                 }
 
@@ -123,7 +123,7 @@ namespace BEditor.Core.Data.Property
             {
                 SetValue(value, ref easingTypeProperty, easingDataArgs);
 
-                EasingData = EasingFunc.LoadedEasingFunc.Find(x => x.Type == value.GetType());
+                EasingData = EasingMetadata.LoadedEasingFunc.Find(x => x.Type == value.GetType());
             }
         }
         /// <summary>
@@ -133,7 +133,7 @@ namespace BEditor.Core.Data.Property
         /// <summary>
         /// 現在のイージングのデータを取得または設定します
         /// </summary>
-        public EasingData EasingData
+        public EasingMetadata EasingData
         {
             get => easingData;
             set => SetValue(value, ref easingData, easingDataArgs);
@@ -323,22 +323,16 @@ namespace BEditor.Core.Data.Property
         public override string ToString() => $"(Count:{Value.Count} Easing:{EasingData?.Name} Name:{PropertyMetadata?.Name})";
 
         /// <inheritdoc/>
-        public override void Loaded()
+        protected override void OnLoad()
         {
-            if (IsLoaded) return;
-
             //Todo: ここに範囲外の場合の処理を書く
 
-            EasingType.Loaded();
-            base.Loaded();
+            EasingType.Load();
         }
         /// <inheritdoc/>
-        public override void Unloaded()
+        protected override void OnUnload()
         {
-            if (!IsLoaded) return;
-
-            EasingType.Unloaded();
-            base.Unloaded();
+            EasingType.Unload();
         }
 
         #endregion
@@ -408,9 +402,9 @@ namespace BEditor.Core.Data.Property
             public ChangeEaseCommand(EaseProperty property, string type)
             {
                 this.property = property ?? throw new ArgumentNullException(nameof(property));
-                var easingFunc = EasingFunc.LoadedEasingFunc.Find(x => x.Name == type) ?? throw new KeyNotFoundException($"No easing function named {type} was found");
+                var easingFunc = EasingMetadata.LoadedEasingFunc.Find(x => x.Name == type) ?? throw new KeyNotFoundException($"No easing function named {type} was found");
 
-                @new = easingFunc.CreateFunc?.Invoke() ?? (EasingFunc)Activator.CreateInstance(easingFunc.Type);
+                @new = easingFunc.CreateFunc();
                 @new.Parent = property;
                 old = this.property.EasingType;
             }
@@ -593,12 +587,12 @@ namespace BEditor.Core.Data.Property
     /// <summary>
     /// <see cref="EaseProperty"/> のメタデータを表します
     /// </summary>
-    public record EasePropertyMetadata(string Name, EasingData DefaultEase, float DefaultValue = 0, float Max = float.NaN, float Min = float.NaN, bool UseOptional = false) : PropertyElementMetadata(Name)
+    public record EasePropertyMetadata(string Name, EasingMetadata DefaultEase, float DefaultValue = 0, float Max = float.NaN, float Min = float.NaN, bool UseOptional = false) : PropertyElementMetadata(Name)
     {
         /// <summary>
         /// <see cref="EasePropertyMetadata"/> クラスの新しいインスタンスを初期化します
         /// </summary>
         public EasePropertyMetadata(string Name, float DefaultValue = 0, float Max = float.NaN, float Min = float.NaN, bool UseOptional = false)
-            : this(Name, EasingFunc.LoadedEasingFunc[0], DefaultValue, Max, Min, UseOptional) { }
+            : this(Name, EasingMetadata.LoadedEasingFunc[0], DefaultValue, Max, Min, UseOptional) { }
     }
 }

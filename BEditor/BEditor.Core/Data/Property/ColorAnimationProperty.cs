@@ -26,7 +26,7 @@ namespace BEditor.Core.Data.Property
         private static readonly PropertyChangedEventArgs easingDataArgs = new(nameof(EasingData));
         private EffectElement parent;
         private EasingFunc easingTypeProperty;
-        private EasingData easingData;
+        private EasingMetadata easingData;
 
         #endregion
 
@@ -42,7 +42,7 @@ namespace BEditor.Core.Data.Property
 
             Value = new() { color, color };
             Frame = new();
-            EasingType = (EasingFunc)Activator.CreateInstance(metadata.DefaultEase.Type);
+            EasingType = metadata.DefaultEase.CreateFunc();
         }
 
 
@@ -82,7 +82,7 @@ namespace BEditor.Core.Data.Property
             {
                 if (easingTypeProperty == null || EasingData.Type != easingTypeProperty.GetType())
                 {
-                    easingTypeProperty = (EasingFunc)Activator.CreateInstance(EasingData.Type);
+                    easingTypeProperty = EasingData.CreateFunc();
                     easingTypeProperty.Parent = this;
                 }
 
@@ -92,13 +92,13 @@ namespace BEditor.Core.Data.Property
             {
                 SetValue(value, ref easingTypeProperty, easingFuncArgs);
 
-                EasingData = EasingFunc.LoadedEasingFunc.Find(x => x.Type == value.GetType());
+                EasingData = EasingMetadata.LoadedEasingFunc.Find(x => x.Type == value.GetType());
             }
         }
         /// <summary>
         /// 
         /// </summary>
-        public EasingData EasingData
+        public EasingMetadata EasingData
         {
             get => easingData;
             set => SetValue(value, ref easingData, easingDataArgs);
@@ -242,20 +242,14 @@ namespace BEditor.Core.Data.Property
         #endregion
 
         /// <inheritdoc/>
-        public override void Loaded()
+        protected override void OnLoad()
         {
-            if (IsLoaded) return;
-
-            EasingType.Loaded();
-            base.Loaded();
+            EasingType.Load();
         }
         /// <inheritdoc/>
-        public override void Unloaded()
+        protected override void OnUnload()
         {
-            if (!IsLoaded) return;
-
-            EasingType.Unloaded();
-            base.Unloaded();
+            EasingType.Unload();
         }
 
         #endregion
@@ -317,8 +311,8 @@ namespace BEditor.Core.Data.Property
             {
                 this.property = property ?? throw new ArgumentNullException(nameof(property));
 
-                var data = EasingFunc.LoadedEasingFunc.Find(x => x.Name == type);
-                @new = data.CreateFunc?.Invoke() ?? (EasingFunc)Activator.CreateInstance(data.Type);
+                var data = EasingMetadata.LoadedEasingFunc.Find(x => x.Name == type);
+                @new = data.CreateFunc();
                 @new.Parent = property;
                 old = this.property.EasingType;
             }
@@ -479,15 +473,15 @@ namespace BEditor.Core.Data.Property
     /// <summary>
     /// 
     /// </summary>
-    public record ColorAnimationPropertyMetadata(string Name, in Color DefaultColor, EasingData DefaultEase, bool UseAlpha = false) : ColorPropertyMetadata(Name, DefaultColor, UseAlpha)
+    public record ColorAnimationPropertyMetadata(string Name, in Color DefaultColor, EasingMetadata DefaultEase, bool UseAlpha = false) : ColorPropertyMetadata(Name, DefaultColor, UseAlpha)
     {
         /// <summary>
         /// 
         /// </summary>
         /// <param name="Name"></param>
         public ColorAnimationPropertyMetadata(string Name)
-            : this(Name, default, null) => DefaultEase = EasingFunc.LoadedEasingFunc[0];
+            : this(Name, default, null) => DefaultEase = EasingMetadata.LoadedEasingFunc[0];
         public ColorAnimationPropertyMetadata(string Name, in Color DefaultColor, bool UseAlpha = false)
-            : this(Name, DefaultColor, EasingFunc.LoadedEasingFunc[0], UseAlpha) { }
+            : this(Name, DefaultColor, EasingMetadata.LoadedEasingFunc[0], UseAlpha) { }
     }
 }

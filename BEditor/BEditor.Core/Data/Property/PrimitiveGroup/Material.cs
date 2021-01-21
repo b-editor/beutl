@@ -43,27 +43,19 @@ namespace BEditor.Core.Data.Property.PrimitiveGroup
         [DataMember(Order = 3)]
         public EaseProperty Shininess { get; private set; }
 
-        public override void Loaded()
+        protected override void OnLoad()
         {
-            if (IsLoaded) return;
-
-            Ambient.ExecuteLoaded(AmbientMetadata);
-            Diffuse.ExecuteLoaded(DiffuseMetadata);
-            Specular.ExecuteLoaded(SpecularMetadata);
-            Shininess.ExecuteLoaded(ShininessMetadata);
-
-            base.Loaded();
+            Ambient.Load(AmbientMetadata);
+            Diffuse.Load(DiffuseMetadata);
+            Specular.Load(SpecularMetadata);
+            Shininess.Load(ShininessMetadata);
         }
-        public override void Unloaded()
+        protected override void OnUnload()
         {
-            if (!IsLoaded) return;
-
-            Ambient.Unloaded();
-            Diffuse.Unloaded();
-            Specular.Unloaded();
-            Shininess.Unloaded();
-
-            base.Unloaded();
+            Ambient.Unload();
+            Diffuse.Unload();
+            Specular.Unload();
+            Shininess.Unload();
         }
     }
 }

@@ -52,9 +52,9 @@ namespace BEditor.Models
 
                         if (filename is null) return;
 
-                        app.Project?.Unloaded();
+                        app.Project?.Unload();
                         var project = new Project(filename);
-                        project.Loaded();
+                        project.Load();
                         app.Project = project;
                         app.AppStatus = Status.Edit;
 
@@ -73,14 +73,14 @@ namespace BEditor.Models
                 .Where(app => app.Project is not null)
                 .Subscribe(app =>
             {
-                app.Project?.Unloaded();
+                app.Project?.Unload();
                 app.Project = null;
                 app.AppStatus = Status.Idle;
             });
 
             Create.Subscribe(_ =>
             {
-                AppData.Current.Project?.Unloaded();
+                AppData.Current.Project?.Unload();
                 CreateEvent?.Invoke(this, EventArgs.Empty);
             });
         }

@@ -105,7 +105,7 @@ namespace BEditor.Views.ToolControl.Default
                 {
                     scene.Parent.PreviewScene = scene.Parent.SceneList[0];
                     scene.Parent.SceneList.Remove(scene);
-                    scene.Unloaded();
+                    scene.Unload();
                 }
             }
             catch (IndexOutOfRangeException)

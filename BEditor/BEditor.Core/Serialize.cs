@@ -220,9 +220,9 @@ namespace BEditor.Core
             typeof(Material),
 
             typeof(Figure),
-            typeof(Image),
+            typeof(ImageFile),
             typeof(Text),
-            typeof(Video),
+            typeof(VideoFile),
             typeof(SceneObject),
 
             typeof(Blur),

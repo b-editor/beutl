@@ -13,7 +13,7 @@ namespace BEditor.Core.Data.Property
     /// Represents the property used by <see cref="EffectElement"/>.
     /// </summary>
     [DataContract]
-    public abstract class PropertyElement : ComponentObject, IChild<EffectElement>, IPropertyElement, IHasId, IHasName
+    public class PropertyElement : ComponentObject, IChild<EffectElement>, IPropertyElement, IHasId, IHasName
     {
         private static readonly PropertyChangedEventArgs metadataArgs = new(nameof(PropertyMetadata));
         private PropertyElementMetadata propertyMetadata;
@@ -39,23 +39,36 @@ namespace BEditor.Core.Data.Property
         /// <inheritdoc/>
         public bool IsLoaded { get; private set; }
 
-        /// <inheritdoc/>
-        public virtual void Loaded()
-        {
-            if (IsLoaded) return;
-
-            IsLoaded = true;
-        }
 
 
         /// <inheritdoc/>
         public override string ToString() => $"(Name:{PropertyMetadata?.Name})";
         /// <inheritdoc/>
-        public virtual void Unloaded()
+        public void Load()
+        {
+            if (IsLoaded) return;
+
+            OnLoad();
+
+            IsLoaded = true;
+        }
+        /// <inheritdoc/>
+        public void Unload()
         {
             if (!IsLoaded) return;
 
+            OnUnload();
+
             IsLoaded = false;
+        }
+
+        protected virtual void OnLoad()
+        {
+
+        }
+        protected virtual void OnUnload()
+        {
+
         }
     }
 

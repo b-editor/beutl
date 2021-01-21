@@ -124,10 +124,8 @@ namespace BEditor.Core.Data.Property
         #endregion
 
         /// <inheritdoc/>
-        public override void Loaded()
+        protected override void OnLoad()
         {
-            if (IsLoaded) return;
-
             if (bindHint is not null)
             {
                 if (this.GetBindable(bindHint, out var b))
@@ -136,8 +134,6 @@ namespace BEditor.Core.Data.Property
                 }
             }
             bindHint = null;
-
-            base.Loaded();
         }
         /// <inheritdoc/>
         public override string ToString() => $"(IsChecked:{IsChecked} Name:{PropertyMetadata?.Name})";

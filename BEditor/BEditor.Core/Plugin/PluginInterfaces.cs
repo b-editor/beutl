@@ -32,7 +32,7 @@ namespace BEditor.Core.Plugin
 
     public interface IEasingFunctions
     {
-        public IEnumerable<EasingData> EasingFunc { get; }
+        public IEnumerable<EasingMetadata> EasingFunc { get; }
     }
 
     public interface IEffects

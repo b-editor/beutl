@@ -61,22 +61,19 @@ namespace BEditor.Core.Data.Primitive.Effects
 
             args.Value = img;
         }
-        public override void Loaded()
+        protected override void OnLoad()
         {
-            base.Loaded();
-            Top.ExecuteLoaded(Clipping.TopMetadata);
-            Bottom.ExecuteLoaded(Clipping.BottomMetadata);
-            Left.ExecuteLoaded(Clipping.LeftMetadata);
-            Right.ExecuteLoaded(Clipping.RightMetadata);
-            AdjustCoordinates.ExecuteLoaded(Clipping.AdjustCoordinatesMetadata);
+            Top.Load(Clipping.TopMetadata);
+            Bottom.Load(Clipping.BottomMetadata);
+            Left.Load(Clipping.LeftMetadata);
+            Right.Load(Clipping.RightMetadata);
+            AdjustCoordinates.Load(Clipping.AdjustCoordinatesMetadata);
         }
-        public override void Unloaded()
+        protected override void OnUnload()
         {
-            base.Unloaded();
-
             foreach (var prop in Children)
             {
-                prop.Unloaded();
+                prop.Unload();
             }
         }
     }

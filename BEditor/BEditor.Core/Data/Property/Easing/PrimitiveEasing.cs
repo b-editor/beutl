@@ -129,25 +129,17 @@ namespace BEditor.Core.Data.Property.Easing
         public SelectorProperty EasingType { get; set; }
 
         public override float EaseFunc(Frame frame, Frame totalframe, float min, float max) => currentfunc?.Invoke(frame, totalframe, min, max) ?? 0;
-        public override void Loaded()
+        protected override void OnLoad()
         {
-            if (IsLoaded) return;
-
-            EasingType.ExecuteLoaded(propertyMetadata);
+            EasingType.Load(propertyMetadata);
 
             currentfunc = DefaultEase[EasingType.Index];
 
-            disposable= EasingType.Subscribe(index => currentfunc = DefaultEase[index]);
-
-            base.Loaded();
+            disposable = EasingType.Subscribe(index => currentfunc = DefaultEase[index]);
         }
-        public override void Unloaded()
+        protected override void OnUnload()
         {
-            if (!IsLoaded) return;
-
             disposable?.Dispose();
-
-            base.Unloaded();
         }
 
         class Easing

@@ -50,31 +50,23 @@ namespace BEditor.Core.Data.Property.PrimitiveGroup
         [DataMember(Order = 5)]
         public EaseProperty CenterZ { get; private set; }
 
-        public override void Loaded()
+        protected override void OnLoad()
         {
-            if (IsLoaded) return;
-
-            X.ExecuteLoaded(XMetadata);
-            Y.ExecuteLoaded(YMetadata);
-            Z.ExecuteLoaded(ZMetadata);
-            CenterX.ExecuteLoaded(CenterXMetadata);
-            CenterY.ExecuteLoaded(CenterYMetadata);
-            CenterZ.ExecuteLoaded(CenterZMetadata);
-
-            base.Loaded();
+            X.Load(XMetadata);
+            Y.Load(YMetadata);
+            Z.Load(ZMetadata);
+            CenterX.Load(CenterXMetadata);
+            CenterY.Load(CenterYMetadata);
+            CenterZ.Load(CenterZMetadata);
         }
-        public override void Unloaded()
+        protected override void OnUnload()
         {
-            if (!IsLoaded) return;
-
-            X.Unloaded();
-            Y.Unloaded();
-            Z.Unloaded();
-            CenterX.Unloaded();
-            CenterY.Unloaded();
-            CenterZ.Unloaded();
-
-            base.Unloaded();
+            X.Unload();
+            Y.Unload();
+            Z.Unload();
+            CenterX.Unload();
+            CenterY.Unload();
+            CenterZ.Unload();
         }
         public void ResetOptional()
         {

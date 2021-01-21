@@ -23,6 +23,6 @@ namespace BEditor.ViewModels.PropertyControl
 
         public ReadOnlyReactiveProperty<ColorAnimationPropertyMetadata> Metadata { get; }
         public ColorAnimationProperty Property { get; }
-        public ReactiveCommand<EasingData> EasingChangeCommand { get; } = new();
+        public ReactiveCommand<EasingMetadata> EasingChangeCommand { get; } = new();
     }
 }

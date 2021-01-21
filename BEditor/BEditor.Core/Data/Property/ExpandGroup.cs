@@ -79,16 +79,13 @@ namespace BEditor.Core.Data.Property
         #region Methods
 
         /// <inheritdoc/>
-        public override void Loaded()
+        protected override void OnLoad()
         {
-            if (IsLoaded) return;
             if (bindHint is not null && this.GetBindable(bindHint, out var b))
             {
                 Bind(b);
             }
             bindHint = null;
-
-            base.Loaded();
         }
         /// <inheritdoc/>
         public override string ToString() => $"(IsExpanded:{IsExpanded} Name:{PropertyMetadata?.Name})";

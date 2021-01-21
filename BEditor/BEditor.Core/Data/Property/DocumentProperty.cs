@@ -125,17 +125,13 @@ namespace BEditor.Core.Data.Property
         #endregion
 
         /// <inheritdoc/>
-        public override void Loaded()
+        protected override void OnLoad()
         {
-            if (IsLoaded) return;
-
             if (bindHint is not null && this.GetBindable(bindHint, out var b))
             {
                 Bind(b);
             }
             bindHint = null;
-
-            base.Loaded();
         }
         /// <inheritdoc/>
         public override string ToString() => $"(Text:{Text} Name:{PropertyMetadata?.Name})";

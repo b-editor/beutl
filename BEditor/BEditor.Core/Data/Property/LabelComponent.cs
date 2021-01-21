@@ -10,7 +10,7 @@ using System.Threading.Tasks;
 namespace BEditor.Core.Data.Property
 {
     [DataContract]
-    public class LabelComponent : ComponentElement<PropertyElementMetadata>, IEasingProperty, IObservable<string>, IObserver<string>
+    public class LabelComponent : PropertyElement<PropertyElementMetadata>, IEasingProperty, IObservable<string>, IObserver<string>
     {
         private static readonly PropertyChangedEventArgs textArgs = new(nameof(Text));
         private List<IObserver<string>> list;

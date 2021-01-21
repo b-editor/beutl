@@ -10,7 +10,7 @@ using System.Threading.Tasks;
 namespace BEditor.Core.Data.Property
 {
     [DataContract]
-    public class ButtonComponent : ComponentElement<PropertyElementMetadata>, IEasingProperty, IObservable<object>
+    public class ButtonComponent : PropertyElement<PropertyElementMetadata>, IEasingProperty, IObservable<object>
     {
         private List<IObserver<object>> list;
 

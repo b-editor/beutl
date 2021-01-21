@@ -51,7 +51,7 @@ namespace BEditor.Core.Command
                 clip =>
                 {
                     var scene = clip.Parent;
-                    clip.Loaded();
+                    clip.Load();
                     scene.Add(clip);
                     scene.SetCurrentClip(clip);
                 },
@@ -59,7 +59,7 @@ namespace BEditor.Core.Command
                 {
                     var scene = clip.Parent;
                     scene.Remove(clip);
-                    clip.Unloaded();
+                    clip.Unload();
 
                     //存在する場合
                     if (scene.SelectNames.Exists(x => x == clip.Name))
@@ -79,12 +79,12 @@ namespace BEditor.Core.Command
 
         public static void ExecuteLoaded(this PropertyElement property, PropertyElementMetadata metadata)
         {
-            property.Loaded();
+            property.Load();
             property.PropertyMetadata = metadata;
         }
-        public static void ExecuteLoaded<T>(this PropertyElement<T> property, T metadata) where T : PropertyElementMetadata
+        public static void Load<T>(this PropertyElement<T> property, T metadata) where T : PropertyElementMetadata
         {
-            property.Loaded();
+            property.Load();
             property.PropertyMetadata = metadata;
         }
     }

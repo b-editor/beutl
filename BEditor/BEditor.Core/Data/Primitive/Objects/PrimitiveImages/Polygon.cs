@@ -52,34 +52,28 @@ namespace BEditor.Core.Data.Primitive.Objects
 
         public override Image<BGRA32> OnRender(EffectRenderArgs args)
         {
-            var width = (int)Width.GetValue(args.Frame);
-            var height = (int)Height.GetValue(args.Frame);
+            var width = (int)Width[args.Frame];
+            var height = (int)Height[args.Frame];
 
             if (width <= 0 || height <= 0) return new(1, 1, default(BGRA32));
 
-            return Drawing.Image.Polygon(
-                (int)Number.Value,
-                width,
-                height,
-                Color.Color);
+            return Image.Polygon((int)Number.Value, width, height, Color.Color);
         }
-        public override void Loaded()
+        protected override void OnLoad()
         {
-            base.Loaded();
-
-            Width.ExecuteLoaded(WidthMetadata);
-            Height.ExecuteLoaded(HeightMetadata);
-            Number.ExecuteLoaded(NumberMetadata);
-            Color.ExecuteLoaded(ColorMetadata);
+            base.OnLoad();
+            Width.Load(WidthMetadata);
+            Height.Load(HeightMetadata);
+            Number.Load(NumberMetadata);
+            Color.Load(ColorMetadata);
         }
-        public override void Unloaded()
+        protected override void OnUnload()
         {
-            base.Unloaded();
-
-            Width.Unloaded();
-            Height.Unloaded();
-            Number.Unloaded();
-            Color.Unloaded();
+            base.OnUnload();
+            Width.Unload();
+            Height.Unload();
+            Number.Unload();
+            Color.Unload();
         }
     }
 }

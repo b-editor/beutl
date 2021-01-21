@@ -82,17 +82,13 @@ namespace BEditor.Core.Data.Property
         /// <inheritdoc/>
         public override string ToString() => $"(R:{color.R} G:{color.G} B:{color.B} A:{color.A} Name:{PropertyMetadata?.Name})";
         /// <inheritdoc/>
-        public override void Loaded()
+        protected override void OnLoad()
         {
-            if (IsLoaded) return;
-
             if (bindHint is not null && this.GetBindable(bindHint, out var b))
             {
                 Bind(b);
             }
             bindHint = null;
-
-            base.Loaded();
         }
 
         #region IBindable

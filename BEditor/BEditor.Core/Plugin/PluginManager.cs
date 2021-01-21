@@ -48,9 +48,8 @@ namespace BEditor.Core.Plugin
             {
                 if (plugin is IEffects effects)
                 {
-                    var a = new EffectMetadata()
+                    var a = new EffectMetadata(plugin.PluginName)
                     {
-                        Name = plugin.PluginName,
                         Children = effects.Effects
                             .Where(meta => Attribute.IsDefined(meta.Type, typeof(DataContractAttribute)))
                             .ToArray()
@@ -75,7 +74,7 @@ namespace BEditor.Core.Plugin
                 {
                     foreach (var data in easing.EasingFunc.Where(meta => Attribute.IsDefined(meta.Type, typeof(DataContractAttribute))))
                     {
-                        EasingFunc.LoadedEasingFunc.Add(data);
+                        EasingMetadata.LoadedEasingFunc.Add(data);
                         Serialize.SerializeKnownTypes.Add(data.Type);
                     }
                 }

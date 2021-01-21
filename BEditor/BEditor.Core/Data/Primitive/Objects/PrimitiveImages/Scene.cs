@@ -18,7 +18,7 @@ namespace BEditor.Core.Data.Primitive.Objects
 
         public SceneObject()
         {
-            Start = new(Video.StartMetadata);
+            Start = new(VideoFile.StartMetadata);
 
             // この時点で親要素を取得できないので適当なデータを渡す
             SelectScene = new(new SelectorPropertyMetadata("", new string[1]));
@@ -48,21 +48,20 @@ namespace BEditor.Core.Data.Primitive.Objects
             // Clipの相対的なフレーム
             var frame = args.Frame - Parent.Start;
 
-            return scene.Render(frame + (int)Start.GetValue(args.Frame), RenderType.ImageOutput).Image;
+            return scene.Render(frame + (int)Start[args.Frame], RenderType.ImageOutput).Image;
         }
-        public override void Loaded()
+        protected override void OnLoad()
         {
-            base.Loaded();
+            base.OnLoad();
             SelectSceneMetadata = new ScenesSelectorMetadata(this);
-            Start.ExecuteLoaded(Video.StartMetadata);
-            SelectScene.ExecuteLoaded(SelectSceneMetadata);
+            Start.Load(VideoFile.StartMetadata);
+            SelectScene.Load(SelectSceneMetadata);
         }
-        public override void Unloaded()
+        protected override void OnUnload()
         {
-            base.Unloaded();
-
-            Start.Unloaded();
-            SelectScene.Unloaded();
+            base.OnUnload();
+            Start.Unload();
+            SelectScene.Unload();
         }
 
         internal record ScenesSelectorMetadata : SelectorPropertyMetadata

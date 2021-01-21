@@ -1,16 +1,15 @@
 ﻿using System;
+using System.Collections;
 using System.Collections.Generic;
-using System.Collections.ObjectModel;
 using System.ComponentModel;
+using System.Dynamic;
 using System.Linq;
-using System.Linq.Expressions;
 using System.Runtime.Serialization;
 using System.Threading.Tasks;
 
 using BEditor.Core.Command;
 using BEditor.Core.Data.Primitive.Effects;
 using BEditor.Core.Data.Property;
-using BEditor.Core.Properties;
 
 namespace BEditor.Core.Data
 {
@@ -30,7 +29,6 @@ namespace BEditor.Core.Data
         private IEnumerable<PropertyElement> cachedlist;
 
         #endregion
-
 
         /// <inheritdoc/>
         public IEnumerable<PropertyElement> Children => cachedlist ??= Properties.ToArray();
@@ -97,18 +95,31 @@ namespace BEditor.Core.Data
         public virtual void PreviewRender(EffectRenderArgs args) { }
 
         /// <inheritdoc/>
-        public virtual void Loaded()
+        public void Load()
         {
             if (IsLoaded) return;
+
+            OnLoad();
 
             IsLoaded = true;
         }
         /// <inheritdoc/>
-        public virtual void Unloaded()
+        public void Unload()
         {
             if (!IsLoaded) return;
 
+            OnUnload();
+
             IsLoaded = false;
+        }
+
+        protected virtual void OnLoad()
+        {
+
+        }
+        protected virtual void OnUnload()
+        {
+
         }
 
         #endregion
@@ -262,7 +273,7 @@ namespace BEditor.Core.Data
             public void Do()
             {
                 data.Effect.RemoveAt(index);
-                effect.Unloaded();
+                effect.Unload();
             }
 
             /// <inheritdoc/>
@@ -270,7 +281,7 @@ namespace BEditor.Core.Data
             /// <inheritdoc/>
             public void Undo()
             {
-                effect.Loaded();
+                effect.Load();
                 data.Effect.Insert(index, effect);
             }
         }
@@ -306,7 +317,7 @@ namespace BEditor.Core.Data
             public AddCommand(EffectElement effect, ClipData clip)
             {
                 if (clip is null) throw new ArgumentNullException(nameof(clip));
-                
+
                 this.effect = effect ?? throw new ArgumentNullException(nameof(effect));
                 this.data = clip;
                 effect.Parent = clip;
@@ -318,7 +329,7 @@ namespace BEditor.Core.Data
             /// <inheritdoc/>
             public void Do()
             {
-                effect.Loaded();
+                effect.Load();
                 data.Effect.Add(effect);
             }
             /// <inheritdoc/>
@@ -327,121 +338,19 @@ namespace BEditor.Core.Data
             public void Undo()
             {
                 data.Effect.Remove(effect);
-                effect.Unloaded();
+                effect.Unload();
             }
         }
-    }
-
-    public class EffectMetadata
-    {
-        public string Name { get; set; }
-        public Type Type { get; set; }
-        public Func<EffectElement> CreateFunc { get; set; }
-        public IEnumerable<EffectMetadata> Children { get; set; }
-
-        public static ObservableCollection<EffectMetadata> LoadedEffects { get; } = new()
+        [DataContract]
+        internal class EmptyClass : ObjectElement
         {
-            new()
-            {
-                Name = Resources.Effects,
-                Children = new EffectMetadata[]
-                {
-                    new()
-                    {
-                        Name = Resources.Border,
-                        Type = typeof(Border),
-                        CreateFunc = () => new Border()
-                    },
-                    new()
-                    {
-                        Name = Resources.ColorKey,
-                        Type = typeof(ColorKey),
-                        CreateFunc = () => new ColorKey()
-                    },
-                    new()
-                    {
-                        Name = Resources.DropShadow,
-                        Type = typeof(Shadow),
-                        CreateFunc = () => new Shadow()
-                    },
-                    new()
-                    {
-                        Name = Resources.Blur,
-                        Type = typeof(Blur),
-                        CreateFunc = () => new Blur()
-                    },
-                    new()
-                    {
-                        Name = Resources.Monoc,
-                        Type = typeof(Monoc),
-                        CreateFunc = () => new Monoc()
-                    },
-                    new()
-                    {
-                        Name = Resources.Dilate,
-                        Type = typeof(Dilate),
-                        CreateFunc = () => new Dilate()
-                    },
-                    new()
-                    {
-                        Name = Resources.Erode,
-                        Type = typeof(Erode),
-                        CreateFunc = () => new Erode()
-                    },
-                    new()
-                    {
-                        Name = Resources.Clipping,
-                        Type = typeof(Clipping),
-                        CreateFunc = () => new Clipping()
-                    },
-                    new()
-                    {
-                        Name = Resources.AreaExpansion,
-                        Type = typeof(AreaExpansion),
-                        CreateFunc = () => new AreaExpansion()
-                    }
-                }
-            },
-            new()
-            {
-                Name = Resources.Camera,
-                Children = new EffectMetadata[]
-                {
-                    new()
-                    {
-                        Name = Resources.DepthTest,
-                        Type = typeof(DepthTest),
-                        CreateFunc = () => new DepthTest()
-                    },
-                    new()
-                    {
-                        Name = Resources.DirectionalLightSource,
-                        Type = typeof(DirectionalLightSource),
-                        CreateFunc = () => new DirectionalLightSource()
-                    },
-                    new()
-                    {
-                        Name = Resources.PointLightSource,
-                        Type = typeof(PointLightSource),
-                        CreateFunc = () => new PointLightSource()
-                    },
-                    new()
-                    {
-                        Name = Resources.SpotLight,
-                        Type = typeof(SpotLight),
-                        CreateFunc = () => new SpotLight()
-                    }
-                }
-            },
-#if DEBUG
-            new()
-            {
-                Name = "TestEffect",
-                Type = typeof(TestEffect),
-                CreateFunc = () => new TestEffect()
-            }
+            public override string Name => "Empty";
+            public override IEnumerable<PropertyElement> Properties => Array.Empty<PropertyElement>();
 
-#endif
-        };
+            public override void Render(EffectRenderArgs args)
+            {
+
+            }
+        }
     }
 }

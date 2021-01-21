@@ -1,5 +1,4 @@
-﻿using System;
-using System.Collections.Generic;
+﻿using System.Collections.Generic;
 using System.Collections.ObjectModel;
 using System.ComponentModel;
 using System.Linq;
@@ -8,6 +7,7 @@ using System.Text;
 using System.Threading.Tasks;
 
 using BEditor.Core.Data.Property;
+using BEditor.Core.Properties;
 using BEditor.Media;
 
 namespace BEditor.Core.Data.Property.Easing
@@ -51,13 +51,7 @@ namespace BEditor.Core.Data.Property.Easing
             }
         }
 
-        /// <summary>
-        /// 読み込まれているイージング関数のType
-        /// </summary>
-        public static List<EasingData> LoadedEasingFunc { get; } = new List<EasingData>() {
-            new EasingData() { Name = "デフォルト", Type = typeof(PrimitiveEasing) }
-        };
-        public bool IsLoaded { get; protected set; }
+        public bool IsLoaded { get; private set; }
 
 
         /// <summary>
@@ -71,15 +65,25 @@ namespace BEditor.Core.Data.Property.Easing
         public abstract float EaseFunc(Frame frame, Frame totalframe, float min, float max);
 
         /// <inheritdoc/>
-        public virtual void Loaded() { }
-        /// <inheritdoc/>
-        public virtual void Unloaded() { }
-    }
+        public void Load()
+        {
+            if (IsLoaded) return;
 
-    public class EasingData
-    {
-        public string Name { get; set; }
-        public Func<EasingFunc> CreateFunc { get; set; }
-        public Type Type { get; set; }
+            OnLoad();
+
+            IsLoaded = true;
+        }
+        /// <inheritdoc/>
+        public void Unload()
+        {
+            if (!IsLoaded) return;
+
+            OnUnload();
+
+            IsLoaded = false;
+        }
+
+        protected virtual void OnLoad() { }
+        protected virtual void OnUnload() { }
     }
 }

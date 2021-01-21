@@ -62,45 +62,37 @@ namespace BEditor.Core.Data.Primitive.Objects
 
         public override Image<BGRA32> OnRender(EffectRenderArgs args)
         {
-            var width = (int)Width.GetValue(args.Frame);
-            var height = (int)Height.GetValue(args.Frame);
+            var width = (int)Width[args.Frame];
+            var height = (int)Height[args.Frame];
 
             if (width <= 0 || height <= 0) return new(1, 1, default(BGRA32));
 
             if (Type.Index == 0)
             {
-                return Drawing.Image.Ellipse(
-                    width,
-                    height,
-                    (int)Line.GetValue(args.Frame),
-                    Color.Color);
+                return Image.Ellipse(width, height, (int)Line[args.Frame], Color.Color);
             }
             else
             {
-                return Drawing.Image.Rect(
-                    width,
-                    height,
-                    (int)Line.GetValue(args.Frame),
-                    Color.Color);
+                return Image.Rect(width, height, (int)Line[args.Frame], Color.Color);
             }
         }
-        public override void Loaded()
+        protected override void OnLoad()
         {
-            base.Loaded();
-            Width.ExecuteLoaded(WidthMetadata);
-            Height.ExecuteLoaded(HeightMetadata);
-            Line.ExecuteLoaded(LineMetadata);
-            Color.ExecuteLoaded(ColorMetadata);
-            Type.ExecuteLoaded(TypeMetadata);
+            base.OnLoad();
+            Width.Load(WidthMetadata);
+            Height.Load(HeightMetadata);
+            Line.Load(LineMetadata);
+            Color.Load(ColorMetadata);
+            Type.Load(TypeMetadata);
         }
-        public override void Unloaded()
+        protected override void OnUnload()
         {
-            base.Unloaded();
-            Width.Unloaded();
-            Height.Unloaded();
-            Line.Unloaded();
-            Color.Unloaded();
-            Type.Unloaded();
+            base.OnUnload();
+            Width.Unload();
+            Height.Unload();
+            Line.Unload();
+            Color.Unload();
+            Type.Unload();
         }
     }
 }

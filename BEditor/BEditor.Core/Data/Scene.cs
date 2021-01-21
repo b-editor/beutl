@@ -310,7 +310,7 @@ namespace BEditor.Core.Data
         #region Methods
 
         /// <inheritdoc/>
-        public void Loaded()
+        public void Load()
         {
             if (IsLoaded) return;
 
@@ -322,14 +322,14 @@ namespace BEditor.Core.Data
             foreach (var clip in Datas)
             {
                 clip.Parent = this;
-                clip.Loaded();
+                clip.Load();
             }
 
             IsLoaded = true;
         }
 
         /// <inheritdoc/>
-        public void Unloaded()
+        public void Unload()
         {
             if (!IsLoaded) return;
 
@@ -337,7 +337,7 @@ namespace BEditor.Core.Data
             AudioContext.Dispose();
             foreach (var clip in Datas)
             {
-                clip.Unloaded();
+                clip.Unload();
             }
 
             IsLoaded = false;

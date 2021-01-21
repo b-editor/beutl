@@ -17,7 +17,7 @@ namespace BEditor.Core.Data.Primitive.Objects
     [CustomClipUI(Color = 0xff1744)]
     public class AudioObject : ObjectElement
     {
-        public static readonly FilePropertyMetadata FileMetadata = Video.FileMetadata with { Filter = "mp3,wav", FilterName = "" };
+        public static readonly FilePropertyMetadata FileMetadata = VideoFile.FileMetadata with { Filter = "mp3,wav", FilterName = "" };
         public static readonly EasePropertyMetadata VolumeMetadata = new("Volume", 50, 100, 0);
         public static readonly ValuePropertyMetadata StartMetadata = new(Resources.Start + "(Milliseconds)", 0, Min: 0);
         private WaveOut player;
@@ -66,7 +66,7 @@ namespace BEditor.Core.Data.Primitive.Objects
 
         public override void Render(EffectRenderArgs args)
         {
-            Player.Volume = Volume.GetValue(args.Frame) / 100;
+            Player.Volume = Volume[args.Frame] / 100;
             if (args.Type is not RenderType.VideoPreview) return;
 
             if (reader is null) return;
@@ -88,12 +88,11 @@ namespace BEditor.Core.Data.Primitive.Objects
                 });
             }
         }
-        public override void Loaded()
+        protected override void OnLoad()
         {
-            base.Loaded();
-            Volume.ExecuteLoaded(VolumeMetadata);
-            File.ExecuteLoaded(FileMetadata);
-            Start.ExecuteLoaded(StartMetadata);
+            Volume.Load(VolumeMetadata);
+            File.Load(FileMetadata);
+            Start.Load(StartMetadata);
 
             disposable = File.Subscribe(file =>
             {
@@ -108,10 +107,8 @@ namespace BEditor.Core.Data.Primitive.Objects
 
             player.Playing += Player_PlayingAsync;
         }
-        public override void Unloaded()
+        protected override void OnUnload()
         {
-            base.Unloaded();
-
             disposable?.Dispose();
             var player = Parent.Parent.Player;
             player.Stopped -= Player_Stopped;

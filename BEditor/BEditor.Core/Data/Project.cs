@@ -361,25 +361,25 @@ namespace BEditor.Core.Data
             return null;
         }
 
-        public void Loaded()
+        public void Load()
         {
             if (IsLoaded) return;
 
             foreach (var scene in SceneList)
             {
-                scene.Loaded();
+                scene.Load();
             }
 
             IsLoaded = true;
         }
 
-        public void Unloaded()
+        public void Unload()
         {
             if (!IsLoaded) return;
 
             foreach (var scene in SceneList)
             {
-                scene.Unloaded();
+                scene.Unload();
             }
 
             IsLoaded = false;

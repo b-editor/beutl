@@ -1,6 +1,4 @@
-﻿using System;
-using System.Collections.Generic;
-using System.Collections.ObjectModel;
+﻿using System.Collections.Generic;
 using System.Runtime.Serialization;
 using System.Text;
 
@@ -16,25 +14,5 @@ namespace BEditor.Core.Data
     public abstract class ObjectElement : EffectElement
     {
         public virtual bool EffectFilter(EffectElement effect) => true;
-    }
-
-    public class ObjectMetadata
-    {
-        public string Name { get; set; }
-        public Type Type { get; set; }
-        public Func<EffectElement> CreateFunc { get; set; }
-
-        public static ObservableCollection<ObjectMetadata> LoadedObjects { get; } = new()
-        {
-            ClipType.VideoMetadata,
-            ClipType.ImageMetadata,
-            ClipType.FigureMetadata,
-            ClipType.PolygonMetadata,
-            ClipType.RoundRectMetadata,
-            ClipType.TextMetadata,
-            ClipType.CameraMetadata,
-            ClipType.GL3DObjectMetadata,
-            ClipType.SceneMetadata
-        };
     }
 }

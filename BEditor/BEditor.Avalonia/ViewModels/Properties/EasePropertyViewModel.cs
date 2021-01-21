@@ -25,6 +25,6 @@ namespace BEditor.ViewModels.PropertyControl
 
         public ReadOnlyReactiveProperty<EasePropertyMetadata> Metadata { get; }
         public EaseProperty Property { get; }
-        public ReactiveCommand<EasingData> EasingChangeCommand { get; } = new();
+        public ReactiveCommand<EasingMetadata> EasingChangeCommand { get; } = new();
     }
 }

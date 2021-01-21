@@ -202,7 +202,7 @@ namespace BEditor.Core.Data
             var clip = this.DeepClone();
 
             clip.Parent = Parent;
-            clip.Loaded();
+            clip.Load();
 
             return clip;
         }
@@ -223,26 +223,26 @@ namespace BEditor.Core.Data
         }
 
         /// <inheritdoc/>
-        public void Loaded()
+        public void Load()
         {
             if (IsLoaded) return;
 
             foreach (var effect in Effect)
             {
                 effect.Parent = this;
-                effect.Loaded();
+                effect.Load();
             }
 
             IsLoaded = true;
         }
         /// <inheritdoc/>
-        public void Unloaded()
+        public void Unload()
         {
             if (!IsLoaded) return;
 
             foreach (var effect in Effect)
             {
-                effect.Unloaded();
+                effect.Unload();
             }
 
             IsLoaded = false;
@@ -279,7 +279,7 @@ namespace BEditor.Core.Data
                 //描画情報
                 var list = new ObservableCollection<EffectElement>
                 {
-                    (EffectElement)(metadata.CreateFunc?.Invoke() ?? Activator.CreateInstance(metadata.Type))
+                    metadata.CreateFunc()
                 };
 
                 //オブジェクトの情報
@@ -291,7 +291,7 @@ namespace BEditor.Core.Data
             /// <inheritdoc/>
             public void Do()
             {
-                data.Loaded();
+                data.Load();
                 Scene.Add(data);
                 Scene.SetCurrentClip(data);
             }
@@ -304,7 +304,7 @@ namespace BEditor.Core.Data
             public void Undo()
             {
                 Scene.Remove(data);
-                data.Unloaded();
+                data.Unload();
 
                 //存在する場合
                 if (Scene.SelectNames.Exists(x => x == data.Name))
@@ -343,7 +343,7 @@ namespace BEditor.Core.Data
                 }
                 else
                 {
-                    data.Unloaded();
+                    data.Unload();
                     //存在する場合
                     if (data.Parent.SelectNames.Exists(x => x == data.Name))
                     {
@@ -368,7 +368,7 @@ namespace BEditor.Core.Data
             /// <inheritdoc/>
             public void Undo()
             {
-                data.Loaded();
+                data.Load();
                 data.Parent.Add(data);
             }
         }
@@ -503,8 +503,8 @@ namespace BEditor.Core.Data
 
             public void Do()
             {
-                After.Loaded();
-                Before.Loaded();
+                After.Load();
+                Before.Load();
 
                 new RemoveCommand(Source).Do();
                 After.Id = Scene.NewId;
@@ -518,9 +518,9 @@ namespace BEditor.Core.Data
             }
             public void Undo()
             {
-                Before.Unloaded();
-                After.Unloaded();
-                Source.Loaded();
+                Before.Unload();
+                After.Unload();
+                Source.Load();
 
                 Scene.Remove(Before);
                 Scene.Remove(After);
@@ -531,9 +531,9 @@ namespace BEditor.Core.Data
 
     public static class ClipType
     {
-        public static readonly Type Video = typeof(Video);
+        public static readonly Type Video = typeof(VideoFile);
         public static readonly Type Audio = typeof(AudioObject);
-        public static readonly Type Image = typeof(Image);
+        public static readonly Type Image = typeof(ImageFile);
         public static readonly Type Text = typeof(Text);
         public static readonly Type Figure = typeof(Figure);
         public static readonly Type Polygon = typeof(Polygon);
@@ -541,65 +541,15 @@ namespace BEditor.Core.Data
         public static readonly Type Camera = typeof(CameraObject);
         public static readonly Type GL3DObject = typeof(GL3DObject);
         public static readonly Type Scene = typeof(SceneObject);
-        public static readonly ObjectMetadata VideoMetadata = new()
-        {
-            Name = Resources.Video,
-            Type = Video,
-            CreateFunc = () => new Primitive.Objects.Video()
-        };
-        public static readonly ObjectMetadata AudioMetadata = new()
-        {
-            Name = Resources.Audio,
-            Type = Audio,
-            CreateFunc = () => new Primitive.Objects.AudioObject()
-        };
-        public static readonly ObjectMetadata ImageMetadata = new()
-        {
-            Name = Resources.Image,
-            Type = Image,
-            CreateFunc = () => new Primitive.Objects.Image()
-        };
-        public static readonly ObjectMetadata TextMetadata = new()
-        {
-            Name = Resources.Text,
-            Type = Text,
-            CreateFunc = () => new Primitive.Objects.Text()
-        };
-        public static readonly ObjectMetadata FigureMetadata = new()
-        {
-            Name = Resources.Figure,
-            Type = Figure,
-            CreateFunc = () => new Primitive.Objects.Figure()
-        };
-        public static readonly ObjectMetadata PolygonMetadata = new()
-        {
-            Name = "Polygon",
-            Type = Polygon,
-            CreateFunc = () => new Primitive.Objects.Polygon()
-        };
-        public static readonly ObjectMetadata RoundRectMetadata = new()
-        {
-            Name = "RoundRect",
-            Type = RoundRect,
-            CreateFunc = () => new Primitive.Objects.RoundRect()
-        };
-        public static readonly ObjectMetadata CameraMetadata = new()
-        {
-            Name = Resources.Camera,
-            Type = Camera,
-            CreateFunc = () => new CameraObject()
-        };
-        public static readonly ObjectMetadata GL3DObjectMetadata = new()
-        {
-            Name = Resources._3DObject,
-            Type = GL3DObject,
-            CreateFunc = () => new GL3DObject()
-        };
-        public static readonly ObjectMetadata SceneMetadata = new()
-        {
-            Name = Resources.Scene,
-            Type = Scene,
-            CreateFunc = () => new Primitive.Objects.SceneObject()
-        };
+        public static readonly ObjectMetadata VideoMetadata = new(Resources.Video, () => new VideoFile());
+        public static readonly ObjectMetadata AudioMetadata = new(Resources.Audio, () => new AudioObject());
+        public static readonly ObjectMetadata ImageMetadata = new(Resources.Image, () => new ImageFile());
+        public static readonly ObjectMetadata TextMetadata = new(Resources.Text, () => new Text());
+        public static readonly ObjectMetadata FigureMetadata = new(Resources.Figure, () => new Figure());
+        public static readonly ObjectMetadata PolygonMetadata = new("Polygon", () => new Polygon());
+        public static readonly ObjectMetadata RoundRectMetadata = new("RoundRect", () => new RoundRect());
+        public static readonly ObjectMetadata CameraMetadata = new(Resources.Camera, () => new CameraObject());
+        public static readonly ObjectMetadata GL3DObjectMetadata = new(Resources._3DObject, () => new GL3DObject());
+        public static readonly ObjectMetadata SceneMetadata = new(Resources.Scene, () => new SceneObject());
     }
 }

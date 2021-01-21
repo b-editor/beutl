@@ -54,28 +54,24 @@ namespace BEditor.Core.Data.Primitive.Objects
 
         public override Image<BGRA32> OnRender(EffectRenderArgs args)
         {
-            return Drawing.Image.Text(
-                           Document.Text,
-                           Font.Select,
-                           Size.GetValue(args.Frame),
-                           Color.Color);
+            return Image.Text(Document.Text, Font.Select, Size[args.Frame], Color.Color);
         }
 
-        public override void Loaded()
+        protected override void OnLoad()
         {
-            base.Loaded();
-            Size.ExecuteLoaded(SizeMetadata);
-            Color.ExecuteLoaded(ColorMetadata);
-            Font.ExecuteLoaded(FontMetadata);
-            Document.ExecuteLoaded(DocumentMetadata);
+            base.OnLoad();
+            Size.Load(SizeMetadata);
+            Color.Load(ColorMetadata);
+            Font.Load(FontMetadata);
+            Document.Load(DocumentMetadata);
         }
-        public override void Unloaded()
+        protected override void OnUnload()
         {
-            base.Unloaded();
-            Size.Unloaded();
-            Color.Unloaded();
-            Font.Unloaded();
-            Document.Unloaded();
+            base.OnUnload();
+            Size.Unload();
+            Color.Unload();
+            Font.Unload();
+            Document.Unload();
         }
     }
 }
