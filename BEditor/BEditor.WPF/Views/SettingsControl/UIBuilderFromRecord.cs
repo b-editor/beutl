@@ -47,13 +47,13 @@ namespace BEditor.Views.SettingsControl
             },
             ui =>
             {
-                var text = ((ui as Grid).Children[1] as TextBox).Text;
+                var text = ((ui as Grid)!.Children[1] as TextBox)!.Text;
 
                 if (float.TryParse(text, out var v)) return v;
 
                 return 0f;
             },
-            (ui, value) => ((ui as Grid).Children[1] as TextBox).Text = value.ToString(),
+            (ui, value) => ((ui as Grid)!.Children[1] as TextBox)!.Text = value.ToString(),
             typeof(float)),
 
             #endregion
@@ -91,13 +91,13 @@ namespace BEditor.Views.SettingsControl
             },
             ui =>
             {
-                var text = ((ui as Grid).Children[1] as TextBox).Text;
+                var text = ((ui as Grid)!.Children[1] as TextBox)!.Text;
 
                 if (int.TryParse(text, out var v)) return v;
 
                 return 0;
             },
-            (ui, value) => ((ui as Grid).Children[1] as TextBox).Text = value.ToString(),
+            (ui, value) => ((ui as Grid)!.Children[1] as TextBox)!.Text = value.ToString(),
             typeof(int)),
 
             #endregion
@@ -133,8 +133,8 @@ namespace BEditor.Views.SettingsControl
 
                 return grid;
             },
-            ui => ((ui as Grid).Children[1] as TextBox).Text,
-            (ui, value) => ((ui as Grid).Children[1] as TextBox).Text = value.ToString(),
+            ui => ((ui as Grid)!.Children[1] as TextBox)!.Text,
+            (ui, value) => ((ui as Grid)!.Children[1] as TextBox)!.Text = value.ToString(),
             typeof(string)),
 
             #endregion
@@ -164,8 +164,8 @@ namespace BEditor.Views.SettingsControl
 
                 return grid;
             },
-            ui => ((ui as VirtualizingStackPanel).Children[0] as CheckBox).IsChecked,
-            (ui, value) => ((ui as VirtualizingStackPanel).Children[0] as CheckBox).IsChecked = (bool?)value,
+            ui => ((ui as VirtualizingStackPanel)!.Children[0] as CheckBox)!.IsChecked!,
+            (ui, value) => ((ui as VirtualizingStackPanel)!.Children[0] as CheckBox)!.IsChecked = (bool?)value,
             typeof(bool)),
 
 	        #endregion
@@ -183,31 +183,31 @@ namespace BEditor.Views.SettingsControl
                 var item = Find(param.ParameterType);
                 var name = param.Name;
                 var description = "";
-                var prop = type.GetProperty(param.Name);
-
-                // 名前を取得
-                if (Attribute.GetCustomAttribute(prop, typeof(DisplayNameAttribute)) is DisplayNameAttribute attribute)
+                if (name is not null && type.GetProperty(name) is var prop && prop is not null)
                 {
-                    name = attribute.DisplayName;
+                    // 名前を取得
+                    if (Attribute.GetCustomAttribute(prop, typeof(DisplayNameAttribute)) is DisplayNameAttribute attribute)
+                    {
+                        name = attribute.DisplayName;
+                    }
+                    if (Attribute.GetCustomAttribute(param, typeof(DescriptionAttribute)) is DescriptionAttribute dattribute)
+                    {
+                        description = dattribute.Description;
+                    }
+
+                    var ui = item.create(name);
+                    ui.ToolTip = description;
+
+                    item.setValue(ui, prop.GetValue(record)!);
+
+                    stack.Children.Add(ui);
                 }
-                if (Attribute.GetCustomAttribute(param, typeof(DescriptionAttribute)) is DescriptionAttribute dattribute)
-                {
-                    description = dattribute.Description;
-                }
-
-                var ui = item.create(name);
-                ui.ToolTip = description;
-
-                item.setValue(ui, prop.GetValue(record));
-
-                stack.Children.Add(ui);
             }
 
             return stack;
         }
-        public static object GetValue(FrameworkElement element, Type type)
+        public static object GetValue(VirtualizingStackPanel stack, Type type)
         {
-            var stack = element as VirtualizingStackPanel;
             var constructor = type.GetConstructors().First();
             var paramerters = constructor.GetParameters();
             var args = new object[paramerters.Length];
@@ -221,7 +221,7 @@ namespace BEditor.Views.SettingsControl
                 args[i] = value;
             }
 
-            return Activator.CreateInstance(type, BindingFlags.CreateInstance, null, args, null);
+            return Activator.CreateInstance(type, BindingFlags.CreateInstance, null, args, null)!;
         }
 
         private static (Func<string, FrameworkElement> create, Func<FrameworkElement, object> getValue, Action<FrameworkElement, object> setValue, Type type) Find(Type type)

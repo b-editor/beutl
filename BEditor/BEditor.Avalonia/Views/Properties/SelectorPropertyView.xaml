@@ -1,0 +1,56 @@
+﻿<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+             xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+             mc:Ignorable="d" d:DesignWidth="800" d:DesignHeight="32.5"
+             Height="32.5"
+             x:Class="BEditor.Views.Properties.SelectorPropertyView">
+  <Grid>
+    <Grid.ColumnDefinitions>
+      <ColumnDefinition Width="120*" MaxWidth="100" MinWidth="50"/>
+      <ColumnDefinition Width="50"/>
+      <ColumnDefinition Width="50"/>
+      <ColumnDefinition Width="*" MinWidth="100"/>
+      <ColumnDefinition Width="32.5"/>
+    </Grid.ColumnDefinitions>
+
+    <Grid>
+      <TextBlock
+          Text="{Binding Metadata.Value.Name}"
+          VerticalAlignment="Center"
+          HorizontalAlignment="Left"
+          FontSize="13"
+          Margin="10,0,0,0"
+          TextTrimming="CharacterEllipsis"/>
+    </Grid>
+
+
+    <!--Combo box-->
+    <ComboBox
+        Items="{Binding Metadata.Value.ItemSource}"
+        SelectedIndex="{Binding Property.Index, Mode=OneWay}"
+        Grid.Column="3"
+        x:Name="box"
+        Margin="5,0,5,0"/>
+
+    <!--<md:PopupBox Width="20" Grid.Column="4" StaysOpen="False"  HorizontalAlignment="Stretch" VerticalContentAlignment="Center" HorizontalContentAlignment="Center" VerticalAlignment="Stretch">
+      <md:PopupBox.ToggleContent>
+        <md:PackIcon Kind="DotsVertical" Width="16" Height="16" Foreground="{DynamicResource MaterialDesignBody}" VerticalAlignment="Stretch" HorizontalAlignment="Stretch"/>
+      </md:PopupBox.ToggleContent>
+      <VirtualizingStackPanel>
+        <Button Content="Reset" Command="{TemplateBinding ResetCommand}"/>
+        <Button Content="Bind" Command="{TemplateBinding BindCommand}"/>
+      </VirtualizingStackPanel>
+    </md:PopupBox>-->
+
+    <Button Click="PopClick" Classes="Flat" Width="32.5" Grid.Column="4" Height="32.5">
+      <PathIcon Width="14" Height="14" Data="M12,16A2,2 0 0,1 14,18A2,2 0 0,1 12,20A2,2 0 0,1 10,18A2,2 0 0,1 12,16M12,10A2,2 0 0,1 14,12A2,2 0 0,1 12,14A2,2 0 0,1 10,12A2,2 0 0,1 12,10M12,4A2,2 0 0,1 14,6A2,2 0 0,1 12,8A2,2 0 0,1 10,6A2,2 0 0,1 12,4Z"/>
+    </Button>
+    <Popup x:Name="Pop" StaysOpen="False">
+      <VirtualizingStackPanel Background="{StaticResource ThemeBackgroundBrush}">
+        <Button Classes="Flat" Foreground="{StaticResource ThemeForegroundBrush}" Content="Reset" Command="{Binding Reset, Mode=OneTime}"/>
+        <Button Classes="Flat" Foreground="{StaticResource ThemeForegroundBrush}" Content="Bind" Command="{Binding Bind, Mode=OneTime}"/>
+      </VirtualizingStackPanel>
+    </Popup>
+  </Grid>
+</UserControl>

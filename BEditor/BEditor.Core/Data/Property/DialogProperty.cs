@@ -10,11 +10,11 @@ namespace BEditor.Core.Data.Property
     [DataContract]
     public abstract class DialogProperty : Group
     {
-        public event EventHandler Showed;
+        public event EventHandler Showed = delegate { };
 
         public void Show()
         {
-            Showed?.Invoke(this, EventArgs.Empty);
+            Showed(this, EventArgs.Empty);
         }
     }
 }

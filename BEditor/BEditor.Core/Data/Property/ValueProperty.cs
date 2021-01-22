@@ -17,33 +17,27 @@ namespace BEditor.Core.Data.Property
     public class ValueProperty : PropertyElement<ValuePropertyMetadata>, IBindable<float>, IEasingProperty
     {
         #region Fields
-        private static readonly PropertyChangedEventArgs valueArgs = new(nameof(Value));
-        private float value;
-        private List<IObserver<float>> list;
-        private IDisposable BindDispose;
-        private IBindable<float> Bindable;
-        private string bindHint;
+        private static readonly PropertyChangedEventArgs _ValueArgs = new(nameof(Value));
+        private float _Value;
+        private List<IObserver<float>>? _List;
+        private IDisposable? _BindDispose;
+        private IBindable<float>? _Bindable;
+        private string? _BindHint;
         #endregion
 
-        public ValueProperty(ValuePropertyMetadata metadata)
-        {
-            PropertyMetadata = metadata ?? throw new ArgumentNullException(nameof(metadata));
-            value = metadata.DefaultValue;
-        }
-
-        private List<IObserver<float>> Collection => list ??= new();
+        private List<IObserver<float>> Collection => _List ??= new();
         /// <inheritdoc/>
         [DataMember]
         public float Value
         {
-            get => value;
-            set => SetValue(value, ref this.value, valueArgs, this, state =>
+            get => _Value;
+            set => SetValue(value, ref this._Value, _ValueArgs, this, state =>
             {
                 foreach (var observer in state.Collection)
                 {
                     try
                     {
-                        observer.OnNext(state.value);
+                        observer.OnNext(state._Value);
                     }
                     catch (Exception ex)
                     {
@@ -54,26 +48,34 @@ namespace BEditor.Core.Data.Property
         }
         /// <inheritdoc/>
         [DataMember]
-        public string BindHint
+        public string? BindHint
         {
-            get => Bindable?.GetString();
-            private set => bindHint = value;
+            get => _Bindable?.GetString();
+            private set => _BindHint = value;
         }
+
+
+        public ValueProperty(ValuePropertyMetadata metadata)
+        {
+            PropertyMetadata = metadata ?? throw new ArgumentNullException(nameof(metadata));
+            _Value = metadata.DefaultValue;
+        }
+
 
         #region Methods
 
         /// <inheritdoc/>
         public void Bind(IBindable<float>? bindable)
         {
-            BindDispose?.Dispose();
-            Bindable = bindable;
+            _BindDispose?.Dispose();
+            _Bindable = bindable;
 
             if (bindable is not null)
             {
                 Value = bindable.Value;
 
                 // bindableが変更時にthisが変更
-                BindDispose = bindable.Subscribe(this);
+                _BindDispose = bindable.Subscribe(this);
             }
         }
         /// <inheritdoc/>
@@ -83,7 +85,7 @@ namespace BEditor.Core.Data.Property
         /// <inheritdoc/>
         public void OnNext(float value)
         {
-            this.Value = value;
+            Value = value;
         }
         /// <inheritdoc/>
         public IDisposable Subscribe(IObserver<float> observer)
@@ -98,27 +100,24 @@ namespace BEditor.Core.Data.Property
             });
         }
         /// <inheritdoc/>
-        public override void Loaded()
+        protected override void OnLoad()
         {
-            if (IsLoaded) return;
-            if (bindHint is not null)
+            if (_BindHint is not null)
             {
-                if (this.GetBindable(bindHint, out var b))
+                if (this.GetBindable(_BindHint, out var b))
                 {
                     Bind(b);
                 }
             }
-            bindHint = null;
-
-            base.Loaded();
+            _BindHint = null;
         }
         /// <inheritdoc/>
         public override string ToString() => $"(Value:{Value} Name:{PropertyMetadata?.Name})";
         public float Clamp(float value)
         {
-            var constant = PropertyMetadata;
-            var max = constant.Max;
-            var min = constant.Min;
+            var meta = PropertyMetadata;
+            var max = meta?.Max ?? float.NaN;
+            var min = meta?.Min ?? float.NaN;
 
             if (!float.IsNaN(min) && value <= min)
             {
@@ -131,25 +130,28 @@ namespace BEditor.Core.Data.Property
 
             return value;
         }
-        
+
         #endregion
+
 
         public sealed class ChangeValueCommand : IRecordCommand
         {
-            private readonly ValueProperty property;
-            private readonly float @new;
-            private readonly float old;
+            private readonly ValueProperty _Property;
+            private readonly float _New;
+            private readonly float _Old;
 
             public ChangeValueCommand(ValueProperty property, float value)
             {
-                this.property = property ?? throw new ArgumentNullException(nameof(property));
-                this.old = property.Value;
-                this.@new = property.Clamp(value);
+                _Property = property ?? throw new ArgumentNullException(nameof(property));
+                _Old = property.Value;
+                _New = property.Clamp(value);
             }
 
-            public void Do() => property.Value = @new;
+            public string Name => CommandName.ChangeValue;
+
+            public void Do() => _Property.Value = _New;
             public void Redo() => Do();
-            public void Undo() => property.Value = old;
+            public void Undo() => _Property.Value = _Old;
         }
     }
 

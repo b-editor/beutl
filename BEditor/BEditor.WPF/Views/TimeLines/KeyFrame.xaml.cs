@@ -7,19 +7,19 @@ using System.Windows.Input;
 using System.Windows.Media;
 using System.Windows.Media.Animation;
 
-using BEditor.Models.Settings;
+using BEditor.Core.Data;
+using BEditor.Core.Data.Property;
+using BEditor.Core.Extensions;
+using BEditor.Models;
 using BEditor.ViewModels.TimeLines;
 using BEditor.Views.CustomControl;
-
+using BEditor.WPF.Controls;
 
 using MaterialDesignThemes.Wpf;
 
-using Resource = BEditor.Core.Properties.Resources;
-using BEditor.Core.Extensions;
-using BEditor.Core.Data.Property;
-using BEditor.Core.Data;
 using Reactive.Bindings.Extensions;
-using BEditor.WPF.Controls;
+
+using Resource = BEditor.Core.Properties.Resources;
 
 namespace BEditor.Views.TimeLines
 {
@@ -172,9 +172,15 @@ namespace BEditor.Views.TimeLines
         #endregion
 
 
-        private void Add_Pos(object sender, RoutedEventArgs e) => AddCommand.Execute(nowframe);
+        private void Add_Pos(object sender, RoutedEventArgs e)
+        {
+            AddCommand.Execute(nowframe);
+        }
 
-        private void Delete_Click(object sender, RoutedEventArgs e) => RemoveCommand.Execute(EaseList.Time[grid.Children.IndexOf(select)]);
+        private void Delete_Click(object sender, RoutedEventArgs e)
+        {
+            RemoveCommand.Execute(EaseList.Time[grid.Children.IndexOf(select)]);
+        }
 
         private bool addtoggle;
         private int startpos;
@@ -209,7 +215,10 @@ namespace BEditor.Views.TimeLines
         #endregion
 
 
-        private void Mouse_RightDown(object sender, MouseButtonEventArgs e) => addtoggle = true;
+        private void Mouse_RightDown(object sender, MouseButtonEventArgs e)
+        {
+            addtoggle = true;
+        }
 
 
         #region KeyframeMouseDownイベント
@@ -303,8 +312,10 @@ namespace BEditor.Views.TimeLines
         }
         #endregion
 
-        private void IconMouseLeftUp(object sender, MouseButtonEventArgs e) =>
+        private void IconMouseLeftUp(object sender, MouseButtonEventArgs e)
+        {
             MoveCommand.Execute((grid.Children.IndexOf(select), Scene.GetCreateTimeLineViewModel().ToFrame(select.Margin.Left)));
+        }
 
         #region MouseUp
         private void Mouseup(object sender, MouseButtonEventArgs e)

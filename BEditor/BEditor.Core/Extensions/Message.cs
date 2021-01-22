@@ -6,10 +6,10 @@ namespace BEditor.Core.Extensions
 {
     public static class Message
     {
-        public static event Func<string, IconType, ButtonType[], ButtonType> DialogFunc;
-        public static event Action<string> SnackberFunc;
+        public static event Func<string, IconType, ButtonType[], ButtonType>? DialogFunc;
+        public static event Action<string>? SnackberFunc;
 
-        public static ButtonType? Dialog(string text, IconType icon = IconType.Info, ButtonType[] types = null)
+        public static ButtonType? Dialog(string text, IconType icon = IconType.Info, ButtonType[]? types = null)
         {
             if (types is null) types = new ButtonType[] { ButtonType.Ok, ButtonType.Close };
 

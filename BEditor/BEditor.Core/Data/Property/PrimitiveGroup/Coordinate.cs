@@ -18,16 +18,6 @@ namespace BEditor.Core.Data.Property.PrimitiveGroup
         public static readonly EasePropertyMetadata CenterYMetadata = new(Resources.CenterY, 0, float.NaN, float.NaN, true);
         public static readonly EasePropertyMetadata CenterZMetadata = new(Resources.CenterZ, 0, float.NaN, float.NaN, true);
 
-        public Coordinate(PropertyElementMetadata metadata) : base(metadata)
-        {
-            X = new(XMetadata);
-            Y = new(YMetadata);
-            Z = new(ZMetadata);
-            CenterX = new(CenterXMetadata);
-            CenterY = new(CenterYMetadata);
-            CenterZ = new(CenterZMetadata);
-        }
-
         public override IEnumerable<PropertyElement> Properties => new PropertyElement[]
         {
             X,
@@ -50,31 +40,33 @@ namespace BEditor.Core.Data.Property.PrimitiveGroup
         [DataMember(Order = 5)]
         public EaseProperty CenterZ { get; private set; }
 
-        public override void Loaded()
+        public Coordinate(PropertyElementMetadata metadata) : base(metadata)
         {
-            if (IsLoaded) return;
-
-            X.ExecuteLoaded(XMetadata);
-            Y.ExecuteLoaded(YMetadata);
-            Z.ExecuteLoaded(ZMetadata);
-            CenterX.ExecuteLoaded(CenterXMetadata);
-            CenterY.ExecuteLoaded(CenterYMetadata);
-            CenterZ.ExecuteLoaded(CenterZMetadata);
-
-            base.Loaded();
+            X = new(XMetadata);
+            Y = new(YMetadata);
+            Z = new(ZMetadata);
+            CenterX = new(CenterXMetadata);
+            CenterY = new(CenterYMetadata);
+            CenterZ = new(CenterZMetadata);
         }
-        public override void Unloaded()
+
+        protected override void OnLoad()
         {
-            if (!IsLoaded) return;
-
-            X.Unloaded();
-            Y.Unloaded();
-            Z.Unloaded();
-            CenterX.Unloaded();
-            CenterY.Unloaded();
-            CenterZ.Unloaded();
-
-            base.Unloaded();
+            X.Load(XMetadata);
+            Y.Load(YMetadata);
+            Z.Load(ZMetadata);
+            CenterX.Load(CenterXMetadata);
+            CenterY.Load(CenterYMetadata);
+            CenterZ.Load(CenterZMetadata);
+        }
+        protected override void OnUnload()
+        {
+            X.Unload();
+            Y.Unload();
+            Z.Unload();
+            CenterX.Unload();
+            CenterY.Unload();
+            CenterZ.Unload();
         }
         public void ResetOptional()
         {

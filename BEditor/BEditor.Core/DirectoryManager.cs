@@ -34,6 +34,14 @@ namespace BEditor.Core
         {
             if (!IsRunning)
             {
+                foreach (var dir in Directories)
+                {
+                    if (!Directory.Exists(dir))
+                    {
+                        Directory.CreateDirectory(dir);
+                    }
+                }
+
                 timer.Start();
 
                 IsRunning = true;

@@ -26,46 +26,35 @@ namespace BEditor.Core.Data.Property
         /// <summary>
         /// 読み込まれているフォントのリスト
         /// </summary>
+        //Todo: FontManagerを作る
         public static readonly List<Font> FontList = new();
 
-        private static readonly PropertyChangedEventArgs selectArgs = new(nameof(Select));
-        private Font selectItem;
-        private List<IObserver<Font>> list;
+        private static readonly PropertyChangedEventArgs _SelectArgs = new(nameof(Select));
+        private Font _SelectItem;
+        private List<IObserver<Font>>? _List;
 
-        private IDisposable BindDispose;
-        private IBindable<Font> Bindable;
-        private string bindHint;
+        private IDisposable? _BindDispose;
+        private IBindable<Font>? _Bindable;
+        private string? _BindHint;
 
         #endregion
 
 
-        /// <summary>
-        /// <see cref="FontProperty"/> クラスの新しいインスタンスを初期化します
-        /// </summary>
-        /// <param name="metadata">このプロパティの <see cref="FontPropertyMetadata"/></param>
-        /// <exception cref="ArgumentNullException"><paramref name="metadata"/> が <see langword="null"/> です</exception>
-        public FontProperty(FontPropertyMetadata metadata)
-        {
-            PropertyMetadata = metadata ?? throw new ArgumentNullException(nameof(metadata));
-            selectItem = metadata.SelectItem;
-        }
-
-
-        private List<IObserver<Font>> Collection => list ??= new();
+        private List<IObserver<Font>> Collection => _List ??= new();
         /// <summary>
         /// 選択されているフォントを取得または設定します
         /// </summary>
         [DataMember]
         public Font Select
         {
-            get => selectItem;
-            set => SetValue(value, ref selectItem, selectArgs, this, state =>
+            get => _SelectItem;
+            set => SetValue(value, ref _SelectItem, _SelectArgs, this, state =>
             {
                 foreach (var observer in state.Collection)
                 {
                     try
                     {
-                        observer.OnNext(state.selectItem);
+                        observer.OnNext(state._SelectItem);
                     }
                     catch (Exception ex)
                     {
@@ -78,25 +67,35 @@ namespace BEditor.Core.Data.Property
         public Font Value => Select;
         /// <inheritdoc/>
         [DataMember]
-        public string BindHint
+        public string? BindHint
         {
-            get => Bindable?.GetString();
-            private set => bindHint = value;
+            get => _Bindable?.GetString();
+            private set => _BindHint = value;
+        }
+
+
+        /// <summary>
+        /// <see cref="FontProperty"/> クラスの新しいインスタンスを初期化します
+        /// </summary>
+        /// <param name="metadata">このプロパティの <see cref="FontPropertyMetadata"/></param>
+        /// <exception cref="ArgumentNullException"><paramref name="metadata"/> が <see langword="null"/> です</exception>
+        public FontProperty(FontPropertyMetadata metadata)
+        {
+            PropertyMetadata = metadata ?? throw new ArgumentNullException(nameof(metadata));
+            _SelectItem = metadata.SelectItem;
         }
 
 
         #region Methods
 
         /// <inheritdoc/>
-        public override void Loaded()
+        protected override void OnLoad()
         {
-            if (IsLoaded) return;
-            if (bindHint is not null && this.GetBindable(bindHint, out var b))
+            if (_BindHint is not null && this.GetBindable(_BindHint, out var b))
             {
                 Bind(b);
             }
-            bindHint = null;
-            base.Loaded();
+            _BindHint = null;
         }
         /// <inheritdoc/>
         public override string ToString() => $"(Select:{Select} Name:{PropertyMetadata?.Name})";
@@ -128,15 +127,15 @@ namespace BEditor.Core.Data.Property
 
         public void Bind(IBindable<Font>? bindable)
         {
-            BindDispose?.Dispose();
-            Bindable = bindable;
+            _BindDispose?.Dispose();
+            _Bindable = bindable;
 
             if (bindable is not null)
             {
                 Select = bindable.Value;
 
                 // bindableが変更時にthisが変更
-                BindDispose = bindable.Subscribe(this);
+                _BindDispose = bindable.Subscribe(this);
             }
         }
 
@@ -153,9 +152,9 @@ namespace BEditor.Core.Data.Property
         /// <remarks>このクラスは <see cref="CommandManager.Do(IRecordCommand)"/> と併用することでコマンドを記録できます</remarks>
         public sealed class ChangeSelectCommand : IRecordCommand
         {
-            private readonly FontProperty property;
-            private readonly Font @new;
-            private readonly Font old;
+            private readonly FontProperty _Property;
+            private readonly Font _New;
+            private readonly Font _Old;
 
             /// <summary>
             /// <see cref="ChangeSelectCommand"/> クラスの新しいインスタンスを初期化します
@@ -165,20 +164,21 @@ namespace BEditor.Core.Data.Property
             /// <exception cref="ArgumentNullException"><paramref name="property"/> が <see langword="null"/> です</exception>
             public ChangeSelectCommand(FontProperty property, Font select)
             {
-                this.property = property ?? throw new ArgumentNullException(nameof(property));
-                this.@new = select;
-                old = property.Select;
+                _Property = property ?? throw new ArgumentNullException(nameof(property));
+                _New = select;
+                _Old = property.Select;
             }
 
+            public string Name => CommandName.ChangeFont;
 
             /// <inheritdoc/>
-            public void Do() => property.Select = @new;
+            public void Do() => _Property.Select = _New;
 
             /// <inheritdoc/>
             public void Redo() => Do();
 
             /// <inheritdoc/>
-            public void Undo() => property.Select = old;
+            public void Undo() => _Property.Select = _Old;
         }
 
         #endregion
@@ -194,7 +194,7 @@ namespace BEditor.Core.Data.Property
         /// </summary>
         public FontPropertyMetadata() : base(Resources.Font)
         {
-            SelectItem = FontProperty.FontList.FirstOrDefault();
+            SelectItem = FontProperty.FontList.FirstOrDefault()!;
         }
 
         /// <summary>

@@ -311,7 +311,7 @@ Do you want to perform the operation?</value>
     <value>Delete</value>
   </data>
   <data name="DeleteCommand" xml:space="preserve">
-    <value>Delete recorded commands.</value>
+    <value>Delete recorded commands</value>
   </data>
   <data name="DepthFunction" xml:space="preserve">
     <value>DepthFunction</value>
@@ -495,7 +495,7 @@ Please let the developer know.</value>
     <value>Move to end</value>
   </data>
   <data name="MoveToNextFrame" xml:space="preserve">
-    <value>Move to the next frame.</value>
+    <value>Move to the next frame</value>
   </data>
   <data name="MoveToPreviousFrame" xml:space="preserve">
     <value>Move to previous frame</value>
@@ -522,7 +522,7 @@ Please let the developer know.</value>
     <value>Open</value>
   </data>
   <data name="OpenProjectDirectory" xml:space="preserve">
-    <value>Open the directory where this project file is located.</value>
+    <value>Open the directory where this project file is located</value>
   </data>
   <data name="OpenThisRepository" xml:space="preserve">
     <value>Open the repository for this software</value>
@@ -694,7 +694,7 @@ Please select the plugin you want to load</value>
     <value>Uninstall {0}</value>
   </data>
   <data name="UnloadPlugin" xml:space="preserve">
-    <value>Don't load this plugin next time.</value>
+    <value>Don't load this plugin next time</value>
   </data>
   <data name="UseAutoBackup" xml:space="preserve">
     <value>Use automatic backups</value>
@@ -749,5 +749,17 @@ Please select the plugin you want to load</value>
   </data>
   <data name="_3DObject" xml:space="preserve">
     <value>3DObject</value>
+  </data>
+  <data name="JsonFile" xml:space="preserve">
+    <value>Json file</value>
+  </data>
+  <data name="SceneSettings" xml:space="preserve">
+    <value>Setting the current scene</value>
+  </data>
+  <data name="UnknownCommand" xml:space="preserve">
+    <value>Unknown command</value>
+  </data>
+  <data name="SaveToFile" xml:space="preserve">
+    <value>Save to file</value>
   </data>
 </root>

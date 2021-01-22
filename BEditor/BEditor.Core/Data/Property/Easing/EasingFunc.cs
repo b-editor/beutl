@@ -8,6 +8,7 @@ using System.Text;
 using System.Threading.Tasks;
 
 using BEditor.Core.Data.Property;
+using BEditor.Core.Properties;
 using BEditor.Media;
 
 namespace BEditor.Core.Data.Property.Easing
@@ -19,10 +20,8 @@ namespace BEditor.Core.Data.Property.Easing
     public abstract class EasingFunc : ComponentObject, IChild<PropertyElement>, IParent<IEasingProperty>, IElementObject
     {
         #region Fields
-
-        private PropertyElement parent;
-        private IEnumerable<IEasingProperty> cachedlist;
-
+        private PropertyElement? _Parent;
+        private IEnumerable<IEasingProperty>? _CachedList;
         #endregion
 
 
@@ -34,31 +33,26 @@ namespace BEditor.Core.Data.Property.Easing
         /// <summary>
         /// キャッシュされた <see cref="Properties"/> を取得します
         /// </summary>
-        public IEnumerable<IEasingProperty> Children => cachedlist ??= Properties;
+        public IEnumerable<IEasingProperty> Children => _CachedList ??= Properties;
 
         /// <summary>
         /// 親要素を取得します
         /// </summary>
-        public PropertyElement Parent
+        public PropertyElement? Parent
         {
-            get => parent;
+            get => _Parent;
             set
             {
-                parent = value;
-                var parent_ = parent.Parent;
+                if (value is null) throw new ArgumentNullException(nameof(value));
+
+                _Parent = value;
+                var parent_ = value.Parent;
 
                 Parallel.ForEach(Children, item => item.Parent = parent_);
             }
         }
 
-        /// <summary>
-        /// 読み込まれているイージング関数のType
-        /// </summary>
-        public static List<EasingData> LoadedEasingFunc { get; } = new List<EasingData>() {
-            new EasingData() { Name = "デフォルト", Type = typeof(PrimitiveEasing) }
-        };
-        public bool IsLoaded { get; protected set; }
-
+        public bool IsLoaded { get; private set; }
 
         /// <summary>
         /// イージング関数
@@ -71,15 +65,25 @@ namespace BEditor.Core.Data.Property.Easing
         public abstract float EaseFunc(Frame frame, Frame totalframe, float min, float max);
 
         /// <inheritdoc/>
-        public virtual void Loaded() { }
-        /// <inheritdoc/>
-        public virtual void Unloaded() { }
-    }
+        public void Load()
+        {
+            if (IsLoaded) return;
 
-    public class EasingData
-    {
-        public string Name { get; set; }
-        public Func<EasingFunc> CreateFunc { get; set; }
-        public Type Type { get; set; }
+            OnLoad();
+
+            IsLoaded = true;
+        }
+        /// <inheritdoc/>
+        public void Unload()
+        {
+            if (!IsLoaded) return;
+
+            OnUnload();
+
+            IsLoaded = false;
+        }
+
+        protected virtual void OnLoad() { }
+        protected virtual void OnUnload() { }
     }
 }

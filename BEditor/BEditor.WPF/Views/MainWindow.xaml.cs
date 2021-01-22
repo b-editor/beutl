@@ -2,6 +2,7 @@
 using System.Collections.ObjectModel;
 using System.Collections.Specialized;
 using System.ComponentModel;
+using System.Diagnostics;
 using System.IO;
 using System.Linq;
 using System.Windows;
@@ -12,12 +13,15 @@ using System.Windows.Input;
 using BEditor.Core.Command;
 using BEditor.Core.Data;
 using BEditor.Core.Data.Property;
+using BEditor.Core.Extensions;
 using BEditor.Core.Plugin;
 using BEditor.Core.Service;
 using BEditor.Models;
 using BEditor.ViewModels;
+using BEditor.ViewModels.CreateDialog;
 using BEditor.ViewModels.MessageContent;
 using BEditor.Views;
+using BEditor.Views.CreateDialog;
 using BEditor.Views.MessageContent;
 using BEditor.Views.SettingsControl;
 
@@ -48,6 +52,10 @@ namespace BEditor
 
             Activated += (_, _) => MainWindowViewModel.Current.MainWindowColor.Value = (System.Windows.Media.Brush)FindResource("PrimaryHueMidBrush");
             Deactivated += (_, _) => MainWindowViewModel.Current.MainWindowColor.Value = (System.Windows.Media.Brush)FindResource("PrimaryHueDarkBrush");
+            ProjectModel.Current.CreateEvent += (_, _) => new ProjectCreateDialog { Owner = this }.ShowDialog();
+            EditModel.Current.ClipCreate += EditModel_ClipCreate;
+            EditModel.Current.SceneCreate += EditModel_SceneCreate;
+            EditModel.Current.EffectAddTo += EditModel_EffectAddTo;
 
             Focus();
 
@@ -55,15 +63,67 @@ namespace BEditor
             SetPluginMenu();
         }
 
+        private void EditModel_EffectAddTo(object? sender, ClipData c)
+        {
+            var dialog = new EffectAddDialog(new EffectAddDialogViewModel()
+            {
+                Scene =
+                {
+                    Value = c.Parent
+                },
+                TargetClip =
+                {
+                    Value = c
+                }
+            });
+
+            dialog.ShowDialog();
+        }
+        private void EditModel_SceneCreate(object? sender, EventArgs e)
+        {
+            new SceneCreateDialog().ShowDialog();
+        }
+        private void EditModel_ClipCreate(object? sender, EventArgs e)
+        {
+            var dialog = new ClipCreateDialog(new ClipCreateDialogViewModel()
+            {
+                Scene =
+                {
+                    Value = AppData.Current.Project.PreviewScene
+                }
+            });
+
+            dialog.ShowDialog();
+        }
+
         private void SetMostUsedFiles()
         {
+            static void ProjectOpenCommand(string name)
+            {
+                try
+                {
+                    var project = new Project(name);
+                    project.Load();
+                    AppData.Current.Project = project;
+                    AppData.Current.AppStatus = Status.Edit;
+
+                    Settings.Default.MostRecentlyUsedList.Remove(name);
+                    Settings.Default.MostRecentlyUsedList.Add(name);
+                }
+                catch
+                {
+                    Debug.Assert(false);
+                    Message.Snackbar(string.Format(Core.Properties.Resources.FailedToLoad, "Project"));
+                }
+            }
+
             foreach (var file in Settings.Default.MostRecentlyUsedList)
             {
                 var menu = new MenuItem()
                 {
                     Header = file
                 };
-                menu.Click += (s, e) => MainWindowViewModel.ProjectOpenCommand((s as MenuItem).Header as string);
+                menu.Click += (s, e) => ProjectOpenCommand((s as MenuItem).Header as string);
 
                 UsedFiles.Items.Insert(0, menu);
             }
@@ -76,7 +136,7 @@ namespace BEditor
                     {
                         Header = (s as ObservableCollection<string>)[e.NewStartingIndex]
                     };
-                    menu.Click += (s, e) => MainWindowViewModel.ProjectOpenCommand((s as MenuItem).Header as string);
+                    menu.Click += (s, e) => ProjectOpenCommand((s as MenuItem).Header as string);
 
                     UsedFiles.Items.Insert(0, menu);
                 }
@@ -131,7 +191,7 @@ namespace BEditor
             }
         }
 
-        private void MetroWindow_Closing(object sender, System.ComponentModel.CancelEventArgs e) { }
+        private void MetroWindow_Closing(object sender, CancelEventArgs e) { }
 
         private void ObjectMouseDown(object sender, MouseButtonEventArgs e)
         {
@@ -153,7 +213,7 @@ namespace BEditor
                 if (Path.GetExtension(AppData.Current.Arguments[0]) == ".bedit")
                 {
                     var project = new Project(AppData.Current.Arguments[0]);
-                    project.Loaded();
+                    project.Load();
                     AppData.Current.Project = project;
                     AppData.Current.AppStatus = Status.Edit;
                 }

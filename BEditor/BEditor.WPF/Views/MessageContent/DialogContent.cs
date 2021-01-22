@@ -10,6 +10,6 @@ namespace BEditor.Views.MessageContent
     public abstract class DialogContent : UserControl
     {
         public abstract ButtonType DialogResult { get; protected set; }
-        public abstract event EventHandler ButtonClicked;
+        public abstract event EventHandler? ButtonClicked;
     }
 }

@@ -3,8 +3,7 @@ using System.Runtime.Serialization;
 
 using BEditor.Core.Command;
 using BEditor.Core.Data;
-using BEditor.Core.Data.Primitive.Effects;
-using BEditor.Core.Data.Property;
+using BEditor.Core.Data.Primitive;
 using BEditor.Core.Data.Property;
 using BEditor.Drawing;
 using BEditor.Drawing.Pixel;
@@ -36,13 +35,13 @@ namespace TestPlugin2
         }
         public override void Loaded()
         {
-            base.Loaded();
-            Check.ExecuteLoaded(CheckMetadata);
+            base.Load();
+            Check.Load(CheckMetadata);
         }
         public override void Unloaded()
         {
-            base.Unloaded();
-            Check.Unloaded();
+            base.Unload();
+            Check.Unload();
         }
     }
 }

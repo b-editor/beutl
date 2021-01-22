@@ -17,7 +17,7 @@
                 <TextBlock Text="{x:Static resource:Resources.UseAutoBackup}" Style="{StaticResource SettingsCheckBoxContent}"/>
             </VirtualizingStackPanel>
 
-            <Grid>
+            <!--<Grid>
                 <Grid.ColumnDefinitions>
                     <ColumnDefinition Width="Auto"/>
                     <ColumnDefinition/>
@@ -28,7 +28,7 @@
                 <VirtualizingStackPanel Grid.Column="1">
                     <TextBox Text="{Binding BackgroundColor, Mode=TwoWay, Source={x:Static data:Settings.Default}}" Style="{StaticResource SettingsTextBox}"/>
                 </VirtualizingStackPanel>
-            </Grid>
+            </Grid>-->
         </VirtualizingStackPanel>
     </Grid>
 </UserControl>

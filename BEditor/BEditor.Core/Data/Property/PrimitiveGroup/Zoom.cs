@@ -16,14 +16,6 @@ namespace BEditor.Core.Data.Property.PrimitiveGroup
         public static readonly EasePropertyMetadata ScaleYMetadata = new(Resources.Y, 100);
         public static readonly EasePropertyMetadata ScaleZMetadata = new(Resources.Z, 100);
 
-        public Zoom(PropertyElementMetadata metadata) : base(metadata)
-        {
-            Scale = new(ZoomMetadata);
-            ScaleX = new(ScaleXMetadata);
-            ScaleY = new(ScaleYMetadata);
-            ScaleZ = new(ScaleZMetadata);
-        }
-
         public override IEnumerable<PropertyElement> Properties => new PropertyElement[]
         {
             Scale,
@@ -40,27 +32,27 @@ namespace BEditor.Core.Data.Property.PrimitiveGroup
         [DataMember(Order = 3)]
         public EaseProperty ScaleZ { get; private set; }
 
-        public override void Loaded()
+        public Zoom(PropertyElementMetadata metadata) : base(metadata)
         {
-            if (IsLoaded) return;
-
-            Scale.ExecuteLoaded(ZoomMetadata);
-            ScaleX.ExecuteLoaded(ScaleXMetadata);
-            ScaleY.ExecuteLoaded(ScaleYMetadata);
-            ScaleZ.ExecuteLoaded(ScaleZMetadata);
-
-            base.Loaded();
+            Scale = new(ZoomMetadata);
+            ScaleX = new(ScaleXMetadata);
+            ScaleY = new(ScaleYMetadata);
+            ScaleZ = new(ScaleZMetadata);
         }
-        public override void Unloaded()
-        {
-            if (!IsLoaded) return;
-            
-            Scale.Unloaded();
-            ScaleX.Unloaded();
-            ScaleY.Unloaded();
-            ScaleZ.Unloaded();
 
-            base.Unloaded();
+        protected override void OnLoad()
+        {
+            Scale.Load(ZoomMetadata);
+            ScaleX.Load(ScaleXMetadata);
+            ScaleY.Load(ScaleYMetadata);
+            ScaleZ.Load(ScaleZMetadata);
+        }
+        protected override void OnUnload()
+        {
+            Scale.Unload();
+            ScaleX.Unload();
+            ScaleY.Unload();
+            ScaleZ.Unload();
         }
     }
 }

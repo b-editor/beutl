@@ -118,7 +118,7 @@
     <value>System.Resources.ResXResourceWriter, System.Windows.Forms, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089</value>
   </resheader>
   <data name="FileExtension" xml:space="preserve">
-    <value>Please specify the extension</value>
+    <value>Please specify the extension.</value>
   </data>
   <data name="FontException" xml:space="preserve">
     <value>May be an unsupported font file.</value>

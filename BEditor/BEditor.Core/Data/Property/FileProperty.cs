@@ -18,39 +18,25 @@ namespace BEditor.Core.Data.Property
     public class FileProperty : PropertyElement<FilePropertyMetadata>, IEasingProperty, IBindable<string>
     {
         #region Fields
+        private static readonly PropertyChangedEventArgs _FileArgs = new(nameof(File));
+        private string _File = "";
+        private List<IObserver<string>>? _List;
 
-        private static readonly PropertyChangedEventArgs fileArgs = new(nameof(File));
-        private string file;
-        private List<IObserver<string>> list;
-
-        private IDisposable BindDispose;
-        private IBindable<string> Bindable;
-        private string bindHint;
-
+        private IDisposable? _BindDispose;
+        private IBindable<string>? _Bindable;
+        private string? _BindHint;
         #endregion
 
 
-        /// <summary>
-        /// <see cref="FileProperty"/> クラスの新しいインスタンスを初期化します
-        /// </summary>
-        /// <param name="metadata">このプロパティの <see cref="FilePropertyMetadata"/></param>
-        /// <exception cref="ArgumentNullException"><paramref name="metadata"/> が <see langword="null"/> です</exception>
-        public FileProperty(FilePropertyMetadata metadata)
-        {
-            PropertyMetadata = metadata ?? throw new ArgumentNullException(nameof(metadata));
-            File = metadata.DefaultFile;
-        }
-
-
-        private List<IObserver<string>> Collection => list ??= new();
+        private List<IObserver<string>> Collection => _List ??= new();
         /// <summary>
         /// ファイルの名前を取得または設定します
         /// </summary>
         [DataMember]
         public string File
         {
-            get => file;
-            set => SetValue(value, ref file, fileArgs, this, state =>
+            get => _File;
+            set => SetValue(value, ref _File, _FileArgs, this, state =>
             {
                 foreach (var observer in state.Collection)
                 {
@@ -69,26 +55,35 @@ namespace BEditor.Core.Data.Property
         public string Value => File;
         /// <inheritdoc/>
         [DataMember]
-        public string BindHint
+        public string? BindHint
         {
-            get => Bindable?.GetString();
-            private set => bindHint = value;
+            get => _Bindable?.GetString();
+            private set => _BindHint = value;
+        }
+
+
+        /// <summary>
+        /// <see cref="FileProperty"/> クラスの新しいインスタンスを初期化します
+        /// </summary>
+        /// <param name="metadata">このプロパティの <see cref="FilePropertyMetadata"/></param>
+        /// <exception cref="ArgumentNullException"><paramref name="metadata"/> が <see langword="null"/> です</exception>
+        public FileProperty(FilePropertyMetadata metadata)
+        {
+            PropertyMetadata = metadata ?? throw new ArgumentNullException(nameof(metadata));
+            File = metadata.DefaultFile;
         }
 
 
         #region Methods
 
         /// <inheritdoc/>
-        public override void Loaded()
+        protected override void OnLoad()
         {
-            if (IsLoaded) return;
-            if (bindHint is not null && this.GetBindable(bindHint, out var b))
+            if (_BindHint is not null && this.GetBindable(_BindHint, out var b))
             {
                 Bind(b);
             }
-            bindHint = null;
-
-            base.Loaded();
+            _BindHint = null;
         }
         /// <inheritdoc/>
         public override string ToString() => $"(File:{File} Name:{PropertyMetadata?.Name})";
@@ -122,15 +117,15 @@ namespace BEditor.Core.Data.Property
         /// <inheritdoc/>
         public void Bind(IBindable<string>? bindable)
         {
-            BindDispose?.Dispose();
-            Bindable = bindable;
+            _BindDispose?.Dispose();
+            _Bindable = bindable;
 
             if (bindable is not null)
             {
                 File = bindable.Value;
 
                 // bindableが変更時にthisが変更
-                BindDispose = bindable.Subscribe(this);
+                _BindDispose = bindable.Subscribe(this);
             }
         }
 
@@ -147,9 +142,9 @@ namespace BEditor.Core.Data.Property
         /// <remarks>このクラスは <see cref="CommandManager.Do(IRecordCommand)"/> と併用することでコマンドを記録できます</remarks>
         public sealed class ChangeFileCommand : IRecordCommand
         {
-            private readonly FileProperty property;
-            private readonly string @new;
-            private readonly string old;
+            private readonly FileProperty _Property;
+            private readonly string _New;
+            private readonly string _Old;
 
             /// <summary>
             /// <see cref="ChangeFileCommand"/> クラスの新しいインスタンスを初期化します
@@ -159,20 +154,21 @@ namespace BEditor.Core.Data.Property
             /// <exception cref="ArgumentNullException"><paramref name="property"/> が <see langword="null"/> です</exception>
             public ChangeFileCommand(FileProperty property, string path)
             {
-                this.property = property ?? throw new ArgumentNullException(nameof(property));
-                this.@new = path;
-                old = this.property.File;
+                _Property = property ?? throw new ArgumentNullException(nameof(property));
+                _New = path;
+                _Old = _Property.File;
             }
 
+            public string Name => CommandName.ChangeFile;
 
             /// <inheritdoc/>
-            public void Do() => property.File = @new;
+            public void Do() => _Property.File = _New;
 
             /// <inheritdoc/>
             public void Redo() => Do();
 
             /// <inheritdoc/>
-            public void Undo() => property.File = old;
+            public void Undo() => _Property.File = _Old;
         }
 
         #endregion
@@ -181,6 +177,5 @@ namespace BEditor.Core.Data.Property
     /// <summary>
     /// <see cref="BEditor.Core.Data.Property.FileProperty"/> のメタデータを表します
     /// </summary>
-    public record FilePropertyMetadata(string Name, string DefaultFile = null, string Filter = null, string FilterName = null)
-        : PropertyElementMetadata(Name);
+    public record FilePropertyMetadata(string Name, string DefaultFile = "", string Filter = "", string FilterName = "") : PropertyElementMetadata(Name);
 }

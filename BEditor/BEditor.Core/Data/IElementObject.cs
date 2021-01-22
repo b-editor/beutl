@@ -13,7 +13,7 @@ namespace BEditor.Core.Data
         /// </summary>
         public bool IsLoaded { get; }
 
-        public void Loaded();
-        public void Unloaded();
+        public void Load();
+        public void Unload();
     }
 }

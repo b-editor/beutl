@@ -41,18 +41,16 @@ namespace BEditor.Core.Data.Primitive.Effects
             args.Value = img;
         }
 
-        public override void Loaded()
+        protected override void OnLoad()
         {
-            base.Loaded();
-            Size.ExecuteLoaded(SizeMetadata);
-            Color.ExecuteLoaded(ColorMetadata);
+            Size.Load(SizeMetadata);
+            Color.Load(ColorMetadata);
         }
-        public override void Unloaded()
+        protected override void OnUnload()
         {
-            base.Unloaded();
             foreach (var pr in Children)
             {
-                pr.Unloaded();
+                pr.Unload();
             }
         }
     }

@@ -11,6 +11,7 @@ using BEditor.Core.Service;
 using BEditor.Core.Properties;
 using BEditor.Core.Data.Primitive.Objects;
 using System.Text.RegularExpressions;
+using static System.Net.WebRequestMethods;
 
 namespace BEditor.Core.Data
 {
@@ -22,12 +23,12 @@ namespace BEditor.Core.Data
     {
         #region Fields
 
-        private static readonly PropertyChangedEventArgs previreSceneArgs = new(nameof(PreviewScene));
-        private static readonly PropertyChangedEventArgs filnameArgs = new(nameof(Filename));
-        private Scene previewScene;
-        private ObservableCollection<Scene> sceneList = new ObservableCollection<Scene>();
-        private IApplication parent;
-        private string filename;
+        private static readonly PropertyChangedEventArgs _PrevireSceneArgs = new(nameof(PreviewScene));
+        private static readonly PropertyChangedEventArgs _FilenameArgs = new(nameof(Filename));
+        private Scene? _PreviewScene;
+        private ObservableCollection<Scene> _SceneList = new ObservableCollection<Scene>();
+        private IApplication? _Parent;
+        private string? _Filename;
 
         #endregion
 
@@ -37,7 +38,7 @@ namespace BEditor.Core.Data
         /// <summary>
         /// <see cref="Project"/> Initialize a new instance of the class.
         /// </summary>
-        public Project(int width, int height, int framerate, int samplingrate = 0, IApplication app = null)
+        public Project(int width, int height, int framerate, int samplingrate = 0, IApplication? app = null)
         {
             Parent = app;
             Framerate = framerate;
@@ -50,9 +51,15 @@ namespace BEditor.Core.Data
         /// <summary>
         /// <see cref="Project"/> Initialize a new instance of the class.
         /// </summary>
-        public Project(string file, IApplication app = null)
+        public Project(string file, IApplication? app = null)
         {
-            var o = Serialize.LoadFromFile<Project>(file);
+            var mode = SerializeMode.Binary;
+            if(Path.GetExtension(file) is ".json")
+            {
+                mode = SerializeMode.Json;
+            }
+
+            var o = Serialize.LoadFromFile<Project>(file, mode);
 
             if (o != null)
             {
@@ -69,9 +76,9 @@ namespace BEditor.Core.Data
         /// <summary>
         /// <see cref="Project"/> Initialize a new instance of the class.
         /// </summary>
-        public Project(Stream stream, IApplication app = null)
+        public Project(Stream stream, SerializeMode mode, IApplication? app = null)
         {
-            var o = Serialize.LoadFromStream<Project>(stream);
+            var o = Serialize.LoadFromStream<Project>(stream, mode);
 
             if (o != null)
             {
@@ -92,7 +99,7 @@ namespace BEditor.Core.Data
         /// <summary>
         /// Occurs after saving this <see cref="Project"/>.
         /// </summary>
-        public event EventHandler<ProjectSavedEventArgs> Saved;
+        public event EventHandler<ProjectSavedEventArgs> Saved = delegate { };
 
 
         #region Properties
@@ -115,10 +122,10 @@ namespace BEditor.Core.Data
         /// Get or set the file name of this <see cref="Project"/>.
         /// </summary>
         [DataMember(Order = 2)]
-        public string Filename
+        public string? Filename
         {
-            get => filename;
-            set => SetValue(value, ref filename, filnameArgs);
+            get => _Filename;
+            set => SetValue(value, ref _Filename, _FilenameArgs);
         }
 
         /// <summary>
@@ -127,10 +134,10 @@ namespace BEditor.Core.Data
         [DataMember(Order = 4)]
         public ObservableCollection<Scene> SceneList
         {
-            get => sceneList;
+            get => _SceneList;
             private set
             {
-                sceneList = value;
+                _SceneList = value;
                 Parallel.ForEach(value, scene =>
                 {
                     scene.Parent = this;
@@ -151,10 +158,10 @@ namespace BEditor.Core.Data
         /// </summary>
         public Scene PreviewScene
         {
-            get => previewScene ??= SceneList[PreviewSceneIndex];
+            get => _PreviewScene ??= SceneList[PreviewSceneIndex];
             set
             {
-                SetValue(value, ref previewScene, previreSceneArgs);
+                SetValue(value, ref _PreviewScene, _PrevireSceneArgs);
                 PreviewSceneIndex = SceneList.IndexOf(value);
             }
         }
@@ -163,14 +170,14 @@ namespace BEditor.Core.Data
         /// </summary>
         public bool IsDisposed { get; private set; }
         /// <inheritdoc/>
-        public ExtensionDataObject ExtensionData { get; set; }
+        public ExtensionDataObject? ExtensionData { get; set; }
         /// <inheritdoc/>
         public IEnumerable<Scene> Children => SceneList;
         /// <inheritdoc/>
-        public IApplication Parent
+        public IApplication? Parent
         {
-            get => parent;
-            init => parent = value;
+            get => _Parent;
+            init => _Parent = value;
         }
         /// <inheritdoc/>
         public bool IsLoaded { get; private set; }
@@ -185,8 +192,10 @@ namespace BEditor.Core.Data
         /// </summary>
         public void BackUp()
         {
-            if (Filename == null)
+            if (Filename is null)
             {
+                if (Services.FileDialogService is null) throw new InvalidOperationException();
+
                 var record = new SaveFileRecord
                 {
                     DefaultFileName = "新しいプロジェクト.bedit",
@@ -204,14 +213,17 @@ namespace BEditor.Core.Data
                 }
             }
 
-            Serialize.SaveToFile(this, $"{Services.Path}\\user\\backup\\" + Path.GetFileNameWithoutExtension(Filename) + ".backup");
+            Serialize.SaveToFile(this, Path.Combine(AppContext.BaseDirectory, "user", "backup", Path.GetFileNameWithoutExtension(Filename!)) + ".backup");
         }
         /// <inheritdoc/>
         public void Dispose()
         {
+            if (IsDisposed) return;
+
             foreach (var scene in SceneList)
             {
-                scene.GraphicsContext.Dispose();
+                scene.GraphicsContext?.Dispose();
+                scene.AudioContext?.Dispose();
             }
 
             IsDisposed = true;
@@ -226,12 +238,14 @@ namespace BEditor.Core.Data
         {
             if (Filename == null)
             {
+                if (Services.FileDialogService is null) throw new InvalidOperationException();
+
                 var record = new SaveFileRecord
                 {
                     DefaultFileName = "新しいプロジェクト.bedit",
                     Filters =
                     {
-                        new(Properties.Resources.ProjectFile, "bedit")
+                        new(Resources.ProjectFile, "bedit")
                     }
                 };
 
@@ -291,24 +305,34 @@ namespace BEditor.Core.Data
         /// <returns><see langword="true"/> if the save is successful, otherwise <see langword="false"/>.</returns>
         public bool SaveAs()
         {
+            if (Services.FileDialogService is null) throw new InvalidOperationException();
+
             //SaveFileDialogクラスのインスタンスを作成
             var record = new SaveFileRecord
             {
                 DefaultFileName = (Filename is not null) ? Path.GetFileName(Filename) : "新しいプロジェクト.bedit",
                 Filters =
                 {
-                    new(Resources.ProjectFile, "bedit")
+                    new(Resources.ProjectFile, "bedit"),
+                    new(Resources.JsonFile, "json"),
                 }
             };
-
+            var mode = SerializeMode.Binary;
             //ダイアログを表示する
             if (Services.FileDialogService.ShowSaveFileDialog(record))
             {
                 //OKボタンがクリックされたとき、選択されたファイル名を表示する
-                Filename = record.FileName;
+                if (Path.GetExtension(record.FileName) is ".json")
+                {
+                    mode = SerializeMode.Json;
+                }
+                else
+                {
+                    Filename = record.FileName;
+                }
             }
 
-            if (Serialize.SaveToFile(this, Filename))
+            if (Serialize.SaveToFile(this, record.FileName, mode))
             {
                 Saved?.Invoke(this, new(SaveType.SaveAs));
                 return true;
@@ -320,51 +344,32 @@ namespace BEditor.Core.Data
         {
             project.Filename = Filename;
             project.Framerate = Framerate;
-            project.parent = parent;
+            project._Parent = _Parent;
             project.PreviewScene = PreviewScene;
             project.PreviewSceneIndex = PreviewSceneIndex;
             project.Samplingrate = Samplingrate;
             project.SceneList = SceneList;
         }
 
-        public ClipData? GetClipFromString(string? str)
-        {
-            if (str is null) return null;
-
-            var regex = new Regex(@"^\[([\d]+)\]\.([\da-zA-Z]+)\z");
-
-            if (regex.IsMatch(str))
-            {
-                var match = regex.Match(str);
-
-                var scene = int.TryParse(match.Groups[1].Value, out var id) ? sceneList[id] : throw new Exception();
-                var clip = scene[match.Groups[2].Value];
-
-                return clip;
-            }
-
-            return null;
-        }
-
-        public void Loaded()
+        public void Load()
         {
             if (IsLoaded) return;
 
             foreach (var scene in SceneList)
             {
-                scene.Loaded();
+                scene.Load();
             }
 
             IsLoaded = true;
         }
 
-        public void Unloaded()
+        public void Unload()
         {
             if (!IsLoaded) return;
 
             foreach (var scene in SceneList)
             {
-                scene.Unloaded();
+                scene.Unload();
             }
 
             IsLoaded = false;

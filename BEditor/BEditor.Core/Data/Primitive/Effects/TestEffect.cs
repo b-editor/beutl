@@ -15,7 +15,7 @@ namespace BEditor.Core.Data.Primitive.Effects
     [DataContract]
     public class TestEffect : ImageEffect
     {
-        public static readonly FolderPropertyMetadata FolderMetadata = new("Folder", null);
+        public static readonly FolderPropertyMetadata FolderMetadata = new("Folder");
         public static readonly TextPropertyMetadata ValueMetadata = new("Value");
 
         public TestEffect()
@@ -43,19 +43,17 @@ namespace BEditor.Core.Data.Primitive.Effects
         {
 
         }
-        public override void Loaded()
+        protected override void OnLoad()
         {
-            base.Loaded();
-            Folder.ExecuteLoaded(FolderMetadata);
-            Value.ExecuteLoaded(ValueMetadata);
-            Dialog.ExecuteLoaded(null);
+            Folder.Load(FolderMetadata);
+            Value.Load(ValueMetadata);
+            Dialog.Load();
         }
-        public override void Unloaded()
+        protected override void OnUnload()
         {
-            base.Unloaded();
             foreach (var pr in Children)
             {
-                pr.Unloaded();
+                pr.Unload();
             }
         }
 
@@ -67,7 +65,7 @@ namespace BEditor.Core.Data.Primitive.Effects
         [DataContract]
         public class TestDialog : DialogProperty
         {
-            private IDisposable disposable;
+            private IDisposable? disposable;
 
             public TestDialog()
             {
@@ -89,27 +87,24 @@ namespace BEditor.Core.Data.Primitive.Effects
             [DataMember]
             public ButtonComponent Button { get; private set; }
 
-            public override void Loaded()
+            protected override void OnLoad()
             {
-                base.Loaded();
-
-                EaseProperty.ExecuteLoaded(DepthTest.FarMetadata);
-                Label.ExecuteLoaded(null);
-                Button.ExecuteLoaded(new PropertyElementMetadata("sssssss"));
+                EaseProperty.Load(DepthTest.FarMetadata);
+                Label.Load();
+                Button.Load(new PropertyElementMetadata("sssssss"));
 
                 disposable = Button.Subscribe(_ =>
                 {
                     Label.Text = "Clicked";
                 });
             }
-            public override void Unloaded()
+            protected override void OnUnload()
             {
-                base.Unloaded();
                 disposable?.Dispose();
 
                 foreach (var pr in Children)
                 {
-                    pr.Unloaded();
+                    pr.Unload();
                 }
             }
         }

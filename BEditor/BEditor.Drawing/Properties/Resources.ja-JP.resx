@@ -127,7 +127,7 @@
     <value>{0} 形式の文字列はサポートされません。</value>
   </data>
   <data name="LessThan" xml:space="preserve">
-    <value>{0]が{1}以下です。</value>
+    <value>{0} が {1} 以下です。</value>
   </data>
   <data name="MoreThan" xml:space="preserve">
     <value>{0}が{1}以上です。</value>

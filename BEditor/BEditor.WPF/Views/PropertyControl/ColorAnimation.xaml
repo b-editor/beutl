@@ -49,7 +49,7 @@
                     <ColumnDefinition Width="125"/>
                     <ColumnDefinition/>
                 </Grid.ColumnDefinitions>
-                <ListView x:Name="Easelist" SelectedItem="{Binding Property.EasingData, Mode=OneWay}" ItemsSource="{x:Static easefunc:EasingFunc.LoadedEasingFunc}" DisplayMemberPath="Name" HorizontalAlignment="Left" VerticalAlignment="Stretch" Margin="7,7,0,7" Grid.Column="0">
+                <ListView x:Name="Easelist" SelectedItem="{Binding Property.EasingData, Mode=OneWay}" ItemsSource="{x:Static easefunc:EasingMetadata.LoadedEasingFunc}" DisplayMemberPath="Name" HorizontalAlignment="Left" VerticalAlignment="Stretch" Margin="7,7,0,7" Grid.Column="0">
                     <i:Interaction.Triggers>
                         <i:EventTrigger EventName="SelectionChanged">
                             <i:InvokeCommandAction Command="{Binding EasingChangeCommand, Mode=OneTime}" CommandParameter="{Binding SelectedItem, ElementName=Easelist}"/>

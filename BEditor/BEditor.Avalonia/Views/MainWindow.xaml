@@ -1,0 +1,194 @@
+﻿<Window xmlns="https://github.com/avaloniaui"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+        xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+        xmlns:prop="clr-namespace:BEditor.Core.Properties;assembly=BEditor.Core"
+        xmlns:local="clr-namespace:BEditor.Views"
+        xmlns:vm="clr-namespace:BEditor.ViewModels"
+        xmlns:model="clr-namespace:BEditor.Models"
+        xmlns:convert="clr-namespace:BEditor.ViewModels.Converters"
+        xmlns:md="clr-namespace:Material.Styles;assembly=Material.Styles"
+        mc:Ignorable="d" d:DesignWidth="1440" d:DesignHeight="760"
+        DataContext="{x:Static vm:MainWindowViewModel.Current}"
+        x:Class="BEditor.Views.MainWindow"
+        Focusable="True"
+        MinWidth="1000"
+        MinHeight="500"
+        Title="BEditor.Avalonia">
+  <Window.Resources>
+    <convert:AppStatusToPlayerIconConverter x:Key="AppStatusToPlayerIcon"/>
+    <convert:FrameConverter x:Key="FrameConverter"/>
+    <convert:ToFileNameConverter x:Key="ToFileNameConverter"/>
+    <convert:SceneToPropertyTabConverter x:Key="SceneToPropertyTab"/>
+  </Window.Resources>
+  <Window.Styles>
+    <Style Selector="Button.Menu">
+      <Setter Property="Foreground" Value="{DynamicResource ThemeForegroundBrush}"/>
+    </Style>
+    <Style Selector="MenuItem">
+      <Setter Property="Height" Value="30"/>
+    </Style>
+    <Style Selector="TabItem">
+      <Setter Property="Height" Value="30"/>
+    </Style>
+  </Window.Styles>
+  <Grid>
+    <Grid.RowDefinitions>
+      <!--Menu-->
+      <RowDefinition Height="Auto"/>
+      <!--<RowDefinition Height="30"/>-->
+      <RowDefinition Height="0"/>
+      <!--上-->
+      <RowDefinition Height="*"/>
+      <!--GridSplitter-->
+      <RowDefinition Height="10"/>
+      <!--下-->
+      <RowDefinition Height="*"/>
+      <RowDefinition Height="24"/>
+    </Grid.RowDefinitions>
+    <Grid.ColumnDefinitions>
+      <ColumnDefinition Width="425"/>
+      <ColumnDefinition Width="10"/>
+      <ColumnDefinition Width="1*"/>
+      <ColumnDefinition Width="10"/>
+      <ColumnDefinition Width="2*"/>
+    </Grid.ColumnDefinitions>
+
+    <VirtualizingStackPanel Orientation="Horizontal" Grid.ColumnSpan="5">
+      <Button Click="MenuButton_Click" Classes="Flat Menu" Content="{x:Static prop:Resources.AccessFile}">
+        <Button.ContextMenu>
+          <ContextMenu>
+            <MenuItem
+              Header="{x:Static prop:Resources.AccessOpen}"
+              Command="{Binding ProjectModel.Open, Mode=OneTime}"/>
+            <MenuItem Header="{x:Static prop:Resources.AccessCreate_new}">
+              <MenuItem Header="{x:Static prop:Resources.Create_project}" Command="{Binding ProjectModel.Create, Mode=OneTime}"/>
+              <MenuItem Header="{x:Static prop:Resources.From_backup}"/>
+            </MenuItem>
+            <Separator/>
+            <MenuItem
+              Header="{x:Static prop:Resources.AccessSave}"
+              IsEnabled="{Binding ProjectIsOpened.Value, Mode=OneWay}"
+              Command="{Binding ProjectModel.Save, Mode=OneTime}"/>
+            <MenuItem
+              Header="{x:Static prop:Resources.Save_as}"
+              IsEnabled="{Binding ProjectIsOpened.Value, Mode=OneWay}"
+              Command="{Binding ProjectModel.SaveAs, Mode=OneTime}"/>
+            <MenuItem
+              Header="{x:Static prop:Resources.Close}"
+              IsEnabled="{Binding ProjectIsOpened.Value, Mode=OneWay}"
+              Command="{Binding ProjectModel.Close, Mode=OneTime}"/>
+            <Separator/>
+            <MenuItem Header="{x:Static prop:Resources.MostRecentlyUsedList}"/>
+          </ContextMenu>
+        </Button.ContextMenu>
+      </Button>
+      <Button Click="MenuButton_Click" Classes="Flat Menu" Content="{x:Static prop:Resources.AccessEdit}"/>
+      <Button Click="MenuButton_Click" Classes="Flat Menu" Content="{x:Static prop:Resources.AccessView}"/>
+      <Button Click="MenuButton_Click" Classes="Flat Menu" Content="{x:Static prop:Resources.AccessTool}"/>
+      <Button Click="MenuButton_Click" Classes="Flat Menu" Content="{x:Static prop:Resources.AccessPlugin}"/>
+      <Button Click="MenuButton_Click" Classes="Flat Menu" Content="{x:Static prop:Resources.AccessOut}"/>
+      <Button Click="MenuButton_Click" Classes="Flat Menu" Content="{x:Static prop:Resources.AccessHelp}"/>
+    </VirtualizingStackPanel>
+
+
+    <!--Property-->
+    <md:Card
+      Grid.Row="2"
+      Grid.RowSpan="3"
+      Margin="8,0,0,8"
+      Padding="0,0,0,0" 
+      IsHitTestVisible="{Binding Source={x:Static model:AppData.Current}, Path=IsNotPlaying, Mode=OneWay}"
+      IsEnabled="{Binding ProjectIsOpened.Value, Mode=OneWay}"
+      Content="{Binding Project.PreviewScene, Converter={StaticResource SceneToPropertyTab},Source={x:Static model:AppData.Current}, Mode=OneWay}"/>
+
+    <GridSplitter Grid.Row="2" Grid.RowSpan="4" Grid.Column="1" Background="Transparent"/>
+
+    <md:Card Grid.Row="4" Grid.Column="2" Grid.ColumnSpan="3" Margin="0,8,8,8"/>
+
+    <TabControl Grid.Row="2" Grid.Column="2">
+      <TabItem Header="1" Content="1"/>
+      <TabItem Header="2" Content="1"/>
+      <TabItem Header="3" Content="1"/>
+    </TabControl>
+
+    <Grid Grid.Row="2" Grid.Column="4">
+      <Grid.RowDefinitions>
+        <RowDefinition/>
+        <RowDefinition Height="Auto"/>
+      </Grid.RowDefinitions>
+
+      <Image Source="{Binding PreviewImage.Value}"/>
+      
+      <local:Seekbar
+        Grid.Row="1"
+        VerticalAlignment="Bottom"
+        IsEnabled="{Binding ProjectIsOpened.Value, Mode=OneWay}"
+        
+        Maximum="{Binding Source={x:Static model:AppData.Current}, Path=Project.PreviewScene.TotalFrame, Mode=OneWay, Converter={StaticResource FrameConverter}}"
+        Value="{Binding Source={x:Static model:AppData.Current}, Path=Project.PreviewScene.PreviewFrame, Mode=TwoWay, Converter={StaticResource FrameConverter}}"
+
+        Previous="{Binding FramePrevious, Mode=OneTime}"
+        PreviousToolTip="{x:Static prop:Resources.MoveToPreviousFrame}"
+
+        Top="{Binding FrameTop, Mode=OneTime}"
+        TopToolTip="{x:Static prop:Resources.MoveToTop}"
+
+        PlayPause="{Binding PlayPause, Mode=OneTime}"
+        PlayPauseToolTip="{x:Static prop:Resources.PlayPause}"
+        IsPlaying="{Binding IsNotPlaying, Source={x:Static model:AppData.Current}}"
+        
+        
+        End="{Binding FrameEnd, Mode=OneTime}"
+        EndToolTip="{x:Static prop:Resources.MoveToEnd}"
+                
+        Next="{Binding FrameNext, Mode=OneTime}"
+        NextToolTip="{x:Static prop:Resources.MoveToNextFrame}"/>
+    </Grid>
+
+    <Grid Grid.Row="5" Grid.ColumnSpan="5" Background="{StaticResource ThemeAccentBrush}">
+      <Grid.ColumnDefinitions>
+        <ColumnDefinition/>
+        <ColumnDefinition/>
+      </Grid.ColumnDefinitions>
+
+      <VirtualizingStackPanel Orientation="Horizontal">
+
+      </VirtualizingStackPanel>
+      <VirtualizingStackPanel Orientation="Horizontal" Grid.Column="1" HorizontalAlignment="Right">
+        <TextBlock
+          IsEnabled="{Binding ProjectIsOpened.Value, Mode=OneWay}"
+          IsVisible="{Binding ProjectIsOpened.Value, Mode=OneWay}"
+          VerticalAlignment="Center">
+          <TextBlock.Text>
+            <MultiBinding StringFormat="{} {0}/{1} Frame">
+              <Binding Path="Project.PreviewScene.PreviewFrame.Value" Source="{x:Static model:AppData.Current}"/>
+              <Binding Path="Project.PreviewScene.TotalFrame.Value" Source="{x:Static model:AppData.Current}"/>
+            </MultiBinding>
+          </TextBlock.Text>
+        </TextBlock>
+        <Slider
+            Foreground="{StaticResource ThemeAccentBrush}"
+            BorderBrush="{StaticResource ThemeAccentBrush}"
+            IsEnabled="{Binding ProjectIsOpened.Value, Mode=OneWay}"
+            IsVisible="{Binding ProjectIsOpened.Value, Mode=OneWay}"
+            Value="{Binding Source={x:Static model:AppData.Current}, Path=Project.PreviewScene.TimeLineZoom}"
+
+            VerticalAlignment="Center"
+            Margin="10,0,10,0"
+            Maximum="200"
+            Minimum="1"
+            Width="250"
+            Height="NaN"/>
+        <Button
+          Classes="Tool Menu"
+          Click="MenuButton_Click"
+          BorderThickness="0"
+          Padding="8,0,8,0"
+          Margin="0"
+          Content="{Binding Source={x:Static model:AppData.Current}, Path=Project.Filename, Converter={StaticResource ToFileNameConverter}}"
+          IsEnabled="{Binding ProjectIsOpened.Value, Mode=OneWay}"/>
+      </VirtualizingStackPanel>
+    </Grid>
+  </Grid>
+</Window>

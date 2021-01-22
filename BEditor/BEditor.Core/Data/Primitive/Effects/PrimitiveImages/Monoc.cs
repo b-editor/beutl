@@ -34,17 +34,15 @@ namespace BEditor.Core.Data.Primitive.Effects
             args.Value.SetColor(Color.Color);
         }
 
-        public override void Loaded()
+        protected override void OnLoad()
         {
-            base.Loaded();
-            Color.ExecuteLoaded(ColorMetadata);
+            Color.Load(ColorMetadata);
         }
-        public override void Unloaded()
+        protected override void OnUnload()
         {
-            base.Unloaded();
             foreach (var pr in Children)
             {
-                pr.Unloaded();
+                pr.Unload();
             }
         }
     }

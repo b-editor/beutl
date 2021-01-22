@@ -30,11 +30,11 @@ namespace BEditor.Core
         /// <param name="stream">読み込むストリーム</param>
         /// <param name="mode"></param>
         /// <returns>成功した場合は復元されたオブジェクト、そうでない場合は <see langword="null"/> を返します</returns>
-        public static T LoadFromStream<T>(Stream stream, SerializeMode mode = SerializeMode.Binary)
+        public static T? LoadFromStream<T>(Stream stream, SerializeMode mode = SerializeMode.Binary)
         {
             try
             {
-                T obj;
+                T? obj;
                 stream.Position = 0;
 
                 if (mode == SerializeMode.Binary)
@@ -64,11 +64,11 @@ namespace BEditor.Core
         /// <param name="path">読み込むファイル名</param>
         /// <param name="mode"></param>
         /// <returns>成功した場合は復元されたオブジェクト、そうでない場合は <see langword="null"/> を返します</returns>
-        public static T LoadFromFile<T>(string path, SerializeMode mode = SerializeMode.Binary)
+        public static T? LoadFromFile<T>(string path, SerializeMode mode = SerializeMode.Binary)
         {
             try
             {
-                T obj;
+                T? obj;
 
                 using (FileStream file = new FileStream(path, FileMode.Open))
                 {
@@ -171,10 +171,9 @@ namespace BEditor.Core
         /// <typeparam name="T"></typeparam>
         /// <param name="obj"></param>
         /// <returns></returns>
-        public static T DeepClone<T>(this T obj)
+        public static T? DeepClone<T>(this T obj)
         {
-
-            var serializer = new DataContractJsonSerializer(obj.GetType(), SerializeKnownTypes);
+            var serializer = new DataContractJsonSerializer(obj!.GetType(), SerializeKnownTypes);
             var ms = new MemoryStream();
             serializer.WriteObject(ms, obj);
             var json = Encoding.UTF8.GetString(ms.ToArray());
@@ -186,7 +185,7 @@ namespace BEditor.Core
 
             // デシリアライズを実行する
             ms2.Position = 0;
-            T result = (T)serializer.ReadObject(ms2);
+            var result = (T?)serializer.ReadObject(ms2);
 
             ms.Dispose();
             ms2.Dispose();
@@ -220,9 +219,9 @@ namespace BEditor.Core
             typeof(Material),
 
             typeof(Figure),
-            typeof(Image),
+            typeof(ImageFile),
             typeof(Text),
-            typeof(Video),
+            typeof(VideoFile),
             typeof(SceneObject),
 
             typeof(Blur),

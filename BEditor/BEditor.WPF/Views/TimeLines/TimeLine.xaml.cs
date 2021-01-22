@@ -5,8 +5,10 @@ using System.Windows.Controls.Primitives;
 using System.Windows.Data;
 using System.Windows.Input;
 
+using BEditor.Core.Command;
+using BEditor.Core.Data;
+using BEditor.Models;
 using BEditor.Models.Extension;
-using BEditor.Models.Settings;
 using BEditor.ViewModels;
 using BEditor.ViewModels.TimeLines;
 
@@ -15,8 +17,6 @@ using MaterialDesignThemes.Wpf;
 using Microsoft.Xaml.Behaviors;
 
 using Resource = BEditor.Core.Properties.Resources;
-using BEditor.Core.Data;
-using BEditor.Core.Command;
 
 namespace BEditor.Views.TimeLines
 {
@@ -293,124 +293,140 @@ namespace BEditor.Views.TimeLines
         /// <param name="zoom">拡大率 1 - 200</param>
         /// <param name="max">最大フレーム</param>
         /// <param name="rate">フレームレート</param>
-        private void AddScale(float zoom, int max, int rate) => App.Current?.Dispatcher?.Invoke(() =>
+        private void AddScale(float zoom, int max, int rate)
         {
-            int top = 16;//15
-            double ToPixel(int frame) => Setting.WidthOf1Frame * (zoom / 200) * frame;
-            double SecToPixel(float sec) => ToPixel((int)(sec * rate));
-            double MinToPixel(float min) => SecToPixel(min * 60);
+            App.Current?.Dispatcher?.Invoke(() =>
+{
+    int top = 16;//15
+    double ToPixel(int frame)
+    {
+        return Setting.WidthOf1Frame * (zoom / 200) * frame;
+    }
 
-            scale.Children.Clear();
-            //max 1000
-            if (zoom <= 200 && zoom >= 100)
+    double SecToPixel(float sec)
+    {
+        return ToPixel((int)(sec * rate));
+    }
+
+    double MinToPixel(float min)
+    {
+        return SecToPixel(min * 60);
+    }
+
+    scale.Children.Clear();
+    //max 1000
+    if (zoom <= 200 && zoom >= 100)
+    {
+        //sは秒数
+        for (int s = 0; s < (max / rate); s++)
+        {
+            //一秒毎
+            Border border = new Border
             {
-                //sは秒数
-                for (int s = 0; s < (max / rate); s++)
+                Width = 1,
+                HorizontalAlignment = HorizontalAlignment.Left,
+                VerticalAlignment = VerticalAlignment.Stretch,
+
+                Margin = new Thickness(ToPixel(s * rate - 1), 5, 0, 0)
+            };
+            border.SetResourceReference(BackgroundProperty, "MaterialDesignBody");
+            scale.Children.Add(border);
+            if (s is not 0)
+            {
+                scale.Children.Add(new TextBlock()
                 {
-                    //一秒毎
-                    Border border = new Border
+                    Margin = new Thickness(ToPixel(s * rate + 1), 0, 0, 0),
+                    HorizontalAlignment = HorizontalAlignment.Left,
+                    VerticalAlignment = VerticalAlignment.Top,
+                    Text = s.ToString() + " sec"
+                });
+            }
+
+            //以下はフレーム
+            if (zoom <= 200 && zoom >= 166.7)
+            {
+                for (int m = 1; m < rate; m++)
+                {
+                    Border border2 = new Border
                     {
                         Width = 1,
                         HorizontalAlignment = HorizontalAlignment.Left,
-                        VerticalAlignment = VerticalAlignment.Stretch,
 
-                        Margin = new Thickness(ToPixel(s * rate - 1), 5, 0, 0)
+                        Margin = new Thickness(ToPixel(s * rate - 1 + m), top, 0, 0)
                     };
-                    border.SetResourceReference(BackgroundProperty, "MaterialDesignBody");
-                    scale.Children.Add(border);
-                    if (s is not 0)
-                        scale.Children.Add(new TextBlock()
-                        {
-                            Margin = new Thickness(ToPixel(s * rate + 1), 0, 0, 0),
-                            HorizontalAlignment = HorizontalAlignment.Left,
-                            VerticalAlignment = VerticalAlignment.Top,
-                            Text = s.ToString() + " sec"
-                        });
 
-                    //以下はフレーム
-                    if (zoom <= 200 && zoom >= 166.7)
-                    {
-                        for (int m = 1; m < rate; m++)
-                        {
-                            Border border2 = new Border
-                            {
-                                Width = 1,
-                                HorizontalAlignment = HorizontalAlignment.Left,
-
-                                Margin = new Thickness(ToPixel(s * rate - 1 + m), top, 0, 0)
-                            };
-
-                            border2.SetResourceReference(BackgroundProperty, "MaterialDesignBodyLight");
-                            scale.Children.Add(border2);
-                        }
-                    }
-                    else if (zoom < 166.7 && zoom >= 133.4)
-                    {
-                        for (int m = 1; m < rate / 2; m++)
-                        {
-                            Border border2 = new Border
-                            {
-                                Width = 1,
-                                HorizontalAlignment = HorizontalAlignment.Left,
-
-                                Margin = new Thickness(ToPixel(s * rate - 1 + m * 2), top, 0, 0)
-                            };
-
-                            border2.SetResourceReference(BackgroundProperty, "MaterialDesignBodyLight");
-                            scale.Children.Add(border2);
-                        }
-                    }
-                    else if (zoom < 133.4 && zoom >= 100)
-                    {
-                        for (int m = 1; m < rate / 4; m++)
-                        {
-                            Border border2 = new Border
-                            {
-                                Width = 1,
-                                HorizontalAlignment = HorizontalAlignment.Left,
-
-                                Margin = new Thickness(ToPixel(s * rate - 1 + m * 4), top, 0, 0)
-                            };
-
-                            border2.SetResourceReference(BackgroundProperty, "MaterialDesignBodyLight");
-                            scale.Children.Add(border2);
-                        }
-                    }
+                    border2.SetResourceReference(BackgroundProperty, "MaterialDesignBodyLight");
+                    scale.Children.Add(border2);
                 }
             }
-            else
+            else if (zoom < 166.7 && zoom >= 133.4)
             {
-                //m は分数
-                //最大の分
-                for (int m = 1; m < (max / rate) / 60; m++)
+                for (int m = 1; m < rate / 2; m++)
                 {
-                    Border border = new Border()
+                    Border border2 = new Border
                     {
                         Width = 1,
                         HorizontalAlignment = HorizontalAlignment.Left,
-                        VerticalAlignment = VerticalAlignment.Stretch,
 
-                        Margin = new Thickness(MinToPixel(m), 5, 0, 0)
+                        Margin = new Thickness(ToPixel(s * rate - 1 + m * 2), top, 0, 0)
                     };
-                    border.SetResourceReference(BackgroundProperty, "MaterialDesignBody");
-                    scale.Children.Add(border);
 
-                    for (int s = 1; s < 60; s++)
-                    {
-                        Border border2 = new Border
-                        {
-                            Width = 1,
-                            HorizontalAlignment = HorizontalAlignment.Left,
-
-                            Margin = new Thickness(SecToPixel(s + m / 60), 15, 0, 0)
-                        };
-
-                        border2.SetResourceReference(BackgroundProperty, "MaterialDesignBodyLight");
-                        scale.Children.Add(border2);
-                    }
+                    border2.SetResourceReference(BackgroundProperty, "MaterialDesignBodyLight");
+                    scale.Children.Add(border2);
                 }
             }
-        });
+            else if (zoom < 133.4 && zoom >= 100)
+            {
+                for (int m = 1; m < rate / 4; m++)
+                {
+                    Border border2 = new Border
+                    {
+                        Width = 1,
+                        HorizontalAlignment = HorizontalAlignment.Left,
+
+                        Margin = new Thickness(ToPixel(s * rate - 1 + m * 4), top, 0, 0)
+                    };
+
+                    border2.SetResourceReference(BackgroundProperty, "MaterialDesignBodyLight");
+                    scale.Children.Add(border2);
+                }
+            }
+        }
+    }
+    else
+    {
+        //m は分数
+        //最大の分
+        for (int m = 1; m < (max / rate) / 60; m++)
+        {
+            Border border = new Border()
+            {
+                Width = 1,
+                HorizontalAlignment = HorizontalAlignment.Left,
+                VerticalAlignment = VerticalAlignment.Stretch,
+
+                Margin = new Thickness(MinToPixel(m), 5, 0, 0)
+            };
+            border.SetResourceReference(BackgroundProperty, "MaterialDesignBody");
+            scale.Children.Add(border);
+
+            for (int s = 1; s < 60; s++)
+            {
+                Border border2 = new Border
+                {
+                    Width = 1,
+                    HorizontalAlignment = HorizontalAlignment.Left,
+
+                    Margin = new Thickness(SecToPixel(s + m / 60), 15, 0, 0)
+                };
+
+                border2.SetResourceReference(BackgroundProperty, "MaterialDesignBodyLight");
+                scale.Children.Add(border2);
+            }
+        }
+    }
+});
+        }
 
         private void ScrollLine_ScrollChanged(object sender, ScrollChangedEventArgs e)
         {

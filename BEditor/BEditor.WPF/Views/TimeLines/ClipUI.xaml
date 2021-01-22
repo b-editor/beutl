@@ -17,6 +17,13 @@
              mc:Ignorable="d">
     <UserControl.Resources>
         <convert:EffectElementToKeyFrame x:Key="EffectElementToKeyFrame"/>
+        <Style x:Key="BorberStyle" TargetType="Border">
+            <Style.Triggers>
+                <Trigger Property="IsMouseOver" Value="True">
+                    <Setter Property="Opacity" Value="0.85"/>
+                </Trigger>
+            </Style.Triggers>
+        </Style>
     </UserControl.Resources>
     <VirtualizingStackPanel Orientation="Vertical" VirtualizingPanel.IsVirtualizing="True" VirtualizingPanel.VirtualizationMode="Recycling">
         <ContentControl>
@@ -25,16 +32,20 @@
                     <i:InvokeCommandAction Command="{Binding ClipMouseDoubleClickCommand, Mode=OneTime}"/>
                 </i:EventTrigger>
             </i:Interaction.Triggers>
-            <Border Background="{Binding ClipColor.Value}">
+            <Border Background="{Binding ClipColor.Value}" Style="{StaticResource BorberStyle}">
                 <i:Interaction.Triggers>
                     <i:EventTrigger EventName="MouseLeftButtonDown">
-                        <i:InvokeCommandAction Command="{Binding ClipMouseDownCommand, Mode=OneTime}"/>
+                        <i:InvokeCommandAction
+                            Command="{Binding ClipMouseLeftDownCommand, Mode=OneTime}"/>
                     </i:EventTrigger>
                     <i:EventTrigger EventName="MouseLeftButtonUp">
                         <i:InvokeCommandAction Command="{Binding ClipMouseUpCommand, Mode=OneTime}"/>
                     </i:EventTrigger>
                     <i:EventTrigger EventName="MouseMove">
                         <i:InvokeCommandAction Command="{Binding ClipMouseMoveCommand, Mode=OneTime}" PassEventArgsToCommand="True" EventArgsConverterParameter="{Binding RelativeSource={RelativeSource AncestorType=Border}}" EventArgsConverter="{x:Static vm:MousePositionConverter.Converter}"/>
+                    </i:EventTrigger>
+                    <i:EventTrigger EventName="MouseRightButtonDown">
+                        <i:InvokeCommandAction Command="{Binding ClipMouseRightDownCommand, Mode=OneTime}" PassEventArgsToCommand="True" EventArgsConverterParameter="{Binding RelativeSource={RelativeSource AncestorType=Border}}" EventArgsConverter="{x:Static vm:MousePositionConverter.Converter}"/>
                     </i:EventTrigger>
                 </i:Interaction.Triggers>
                 <Border.ContextMenu>
@@ -48,7 +59,7 @@
                             </MenuItem.Header>
                         </MenuItem>
                         <Separator/>
-                        <MenuItem>
+                        <MenuItem Command="{Binding ClipSeparateCommand, Mode=OneTime}">
                             <MenuItem.Header>
                                 <Grid>
                                     <Grid.ColumnDefinitions>

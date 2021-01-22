@@ -607,34 +607,34 @@ namespace BEditor.Drawing
         #endregion
 
         #region Decode
-        public static Image<BGRA32>? Decode(ReadOnlySpan<byte> buffer)
+        public static Image<BGRA32> Decode(ReadOnlySpan<byte> buffer)
         {
             using var bmp = SKBitmap.Decode(buffer);
 
-            return bmp?.ToImage32();
+            return bmp.ToImage32();
         }
-        public static Image<BGRA32>? Decode(byte[] buffer)
+        public static Image<BGRA32> Decode(byte[] buffer)
         {
             if (buffer is null) throw new ArgumentNullException(nameof(buffer));
             using var bmp = SKBitmap.Decode(buffer);
 
-            return bmp?.ToImage32();
+            return bmp.ToImage32();
         }
-        public static Image<BGRA32>? Decode(Stream stream)
+        public static Image<BGRA32> Decode(Stream stream)
         {
             if (stream is null) throw new ArgumentNullException(nameof(stream));
 
             using var bmp = SKBitmap.Decode(stream);
 
-            return bmp?.ToImage32();
+            return bmp.ToImage32();
         }
-        public static Image<BGRA32>? Decode(string filename)
+        public static Image<BGRA32> Decode(string filename)
         {
             if (filename is null) throw new ArgumentNullException(nameof(filename));
 
             using var bmp = SKBitmap.Decode(filename);
 
-            return bmp?.ToImage32();
+            return bmp.ToImage32();
         }
         #endregion
 

@@ -11,6 +11,6 @@ namespace BEditor.Core.Data.Property
     /// </summary>
     public interface IEasingProperty : IPropertyElement
     {
-        public new EffectElement Parent { get; set; }
+        public new EffectElement? Parent { get; set; }
     }
 }

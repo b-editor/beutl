@@ -4,11 +4,6 @@ using System.ComponentModel;
 using System.Diagnostics;
 using System.Threading.Tasks;
 
-using BEditor.Core.Data;
-using BEditor.Core.Data.Bindings;
-using BEditor.Core.Data.Property;
-using BEditor.Drawing;
-
 namespace BEditor.Core.Command
 {
     /// <summary>
@@ -45,7 +40,7 @@ namespace BEditor.Core.Command
                 {
                     canUndo = value;
 
-                    CanUndoChange?.Invoke(null, EventArgs.Empty);
+                    CanUndoChange(null, EventArgs.Empty);
                 }
             }
             get
@@ -64,7 +59,7 @@ namespace BEditor.Core.Command
                 {
                     canRedo = value;
 
-                    CanRedoChange?.Invoke(null, EventArgs.Empty);
+                    CanRedoChange(null, EventArgs.Empty);
                 }
             }
             get
@@ -80,26 +75,26 @@ namespace BEditor.Core.Command
         /// <summary>
         /// Undo出来るかどうかの状態が変化すると発生します
         /// </summary>
-        public static event EventHandler CanUndoChange;
+        public static event EventHandler CanUndoChange = delegate { };
 
         /// <summary>
         /// Redo出来るかどうかの状態が変化すると発生します
         /// </summary>
-        public static event EventHandler CanRedoChange;
+        public static event EventHandler CanRedoChange = delegate { };
 
         /// <summary>
         /// UnDo ReDo Do時に発生します
         /// </summary>
-        public static event EventHandler<CommandType> Executed;
+        public static event EventHandler<CommandType> Executed = delegate { };
 
         /// <summary>
         /// コマンドがキャンセルされたときに発生します
         /// </summary>
-        public static event EventHandler CommandCancel;
+        public static event EventHandler CommandCancel = delegate { };
         /// <summary>
         /// <see cref="Clear"/> 後に発生します
         /// </summary>
-        public static event EventHandler CommandsClear;
+        public static event EventHandler CommandsClear = delegate { };
 
         #endregion
 
@@ -116,7 +111,7 @@ namespace BEditor.Core.Command
                 Debug.WriteLine("if (!process) {...");
                 return;
             }
-            
+
             try
             {
                 process = false;
@@ -130,11 +125,11 @@ namespace BEditor.Core.Command
             }
             catch
             {
-                CommandCancel?.Invoke(null, EventArgs.Empty);
+                CommandCancel(null, EventArgs.Empty);
             }
 
             process = true;
-            Executed?.Invoke(command, CommandType.Do);
+            Executed(command, CommandType.Do);
         }
         /// <summary>
         /// 行なったコマンドを取り消してひとつ前の状態に戻します
@@ -159,7 +154,7 @@ namespace BEditor.Core.Command
                 catch { }
                 process = true;
 
-                Executed?.Invoke(command, CommandType.Undo);
+                Executed(command, CommandType.Undo);
             }
         }
         /// <summary>
@@ -185,7 +180,7 @@ namespace BEditor.Core.Command
                 catch { }
 
                 process = true;
-                Executed?.Invoke(command, CommandType.Redo);
+                Executed(command, CommandType.Redo);
             }
         }
         /// <summary>
@@ -198,7 +193,7 @@ namespace BEditor.Core.Command
             CanUndo = false;
             CanRedo = false;
 
-            CommandsClear?.Invoke(null, EventArgs.Empty);
+            CommandsClear(null, EventArgs.Empty);
         }
 
         #endregion

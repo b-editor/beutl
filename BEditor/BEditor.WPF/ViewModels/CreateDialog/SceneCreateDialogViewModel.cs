@@ -26,6 +26,7 @@ namespace BEditor.ViewModels.CreateDialog
             CreateCommand.Subscribe(() =>
             {
                 var scene = new Scene(Width, Height) { SceneName = Name, Parent = AppData.Current.Project };
+                scene.Load();
                 AppData.Current.Project.SceneList.Add(scene);
                 AppData.Current.Project.PreviewScene = scene;
             });

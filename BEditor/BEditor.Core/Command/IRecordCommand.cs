@@ -1,11 +1,13 @@
-﻿namespace BEditor.Core.Command
+﻿using BEditor.Core.Properties;
+
+namespace BEditor.Core.Command
 {
     /// <summary>
     /// 実行、元に戻す(undo)、やり直す(redo)の動作を表します
     /// </summary>
     public interface IRecordCommand
     {
-        public string Name => "Unknown command";
+        public string Name => Resources.UnknownCommand;
 
         /// <summary>
         /// 操作を実行します

@@ -75,14 +75,14 @@ namespace BEditor.Core.Data.Primitive.Objects
         {
             int frame = args.Frame;
             Action action;
-            GLColor color4 = Blend.Color.GetValue(frame).ToOpenTK();
-            color4.A *= Blend.Alpha.GetValue(frame);
+            GLColor color4 = Blend.Color[frame].ToOpenTK();
+            color4.A *= Blend.Alpha[frame];
 
 
-            float scale = (float)(Zoom.Scale.GetValue(frame) / 100);
-            float scalex = (float)(Zoom.ScaleX.GetValue(frame) / 100) * scale;
-            float scaley = (float)(Zoom.ScaleY.GetValue(frame) / 100) * scale;
-            float scalez = (float)(Zoom.ScaleZ.GetValue(frame) / 100) * scale;
+            float scale = (float)(Zoom.Scale[frame] / 100);
+            float scalex = (float)(Zoom.ScaleX[frame] / 100) * scale;
+            float scaley = (float)(Zoom.ScaleY[frame] / 100) * scale;
+            float scalez = (float)(Zoom.ScaleZ[frame] / 100) * scale;
 
 
             if (Type.Index == 0)
@@ -116,7 +116,7 @@ namespace BEditor.Core.Data.Primitive.Objects
                 };
             }
 
-            Parent.Parent.GraphicsContext.MakeCurrent();
+            Parent!.Parent!.GraphicsContext!.MakeCurrent();
             //GLTK.Paint(
             //    new System.Numerics.Vector3(
             //        Coordinate.X.GetValue(frame),
@@ -132,51 +132,49 @@ namespace BEditor.Core.Data.Primitive.Objects
             //    action,
             //    Blend.BlentFunc[Blend.BlendType.Index]);
             using var cube = new Cube(
-                Width.GetValue(frame),
-                Height.GetValue(frame),
-                Depth.GetValue(frame),
-                Blend.Color.GetValue(frame),
+                Width[frame],
+                Height[frame],
+                Depth[frame],
+                Blend.Color[frame],
                 new(
-                    Material.Ambient.GetValue(frame),
-                    Material.Diffuse.GetValue(frame),
-                    Material.Specular.GetValue(frame),
-                    Material.Shininess.GetValue(frame)));
+                    Material.Ambient[frame],
+                    Material.Diffuse[frame],
+                    Material.Specular[frame],
+                    Material.Shininess[frame]));
 
             var trans = Transform.Create(
-                new(Coordinate.X.GetValue(frame), Coordinate.Y.GetValue(frame), Coordinate.Z.GetValue(frame)),
-                new(Coordinate.CenterX.GetValue(frame), Coordinate.CenterY.GetValue(frame), Coordinate.CenterZ.GetValue(frame)),
-                new(Angle.AngleX.GetValue(frame), Angle.AngleY.GetValue(frame), Angle.AngleZ.GetValue(frame)),
+                new(Coordinate.X[frame], Coordinate.Y[frame], Coordinate.Z[frame]),
+                new(Coordinate.CenterX[frame], Coordinate.CenterY[frame], Coordinate.CenterZ[frame]),
+                new(Angle.AngleX[frame], Angle.AngleY[frame], Angle.AngleZ[frame]),
                 new(scalex, scaley, scalez));
 
             Parent.Parent.GraphicsContext.DrawCube(cube, trans);
 
             Coordinate.ResetOptional();
         }
-        public override void Loaded()
+        protected override void OnLoad()
         {
-            base.Loaded();
-            Coordinate.ExecuteLoaded(ImageObject.CoordinateMetadata);
-            Zoom.ExecuteLoaded(ImageObject.ZoomMetadata);
-            Blend.ExecuteLoaded(ImageObject.BlendMetadata);
-            Angle.ExecuteLoaded(ImageObject.AngleMetadata);
-            Material.ExecuteLoaded(ImageObject.MaterialMetadata);
-            Type.ExecuteLoaded(TypeMetadata);
-            Width.ExecuteLoaded(Figure.WidthMetadata);
-            Height.ExecuteLoaded(Figure.HeightMetadata);
-            Depth.ExecuteLoaded(WeightMetadata);
+            Coordinate.Load(ImageObject.CoordinateMetadata);
+            Zoom.Load(ImageObject.ZoomMetadata);
+            Blend.Load(ImageObject.BlendMetadata);
+            Angle.Load(ImageObject.AngleMetadata);
+            Material.Load(ImageObject.MaterialMetadata);
+            Type.Load(TypeMetadata);
+            Width.Load(Figure.WidthMetadata);
+            Height.Load(Figure.HeightMetadata);
+            Depth.Load(WeightMetadata);
         }
-        public override void Unloaded()
+        protected override void OnUnload()
         {
-            base.Unloaded();
-            Coordinate.Unloaded();
-            Zoom.Unloaded();
-            Blend.Unloaded();
-            Angle.Unloaded();
-            Material.Unloaded();
-            Type.Unloaded();
-            Width.Unloaded();
-            Height.Unloaded();
-            Depth.Unloaded();
+            Coordinate.Unload();
+            Zoom.Unload();
+            Blend.Unload();
+            Angle.Unload();
+            Material.Unload();
+            Type.Unload();
+            Width.Unload();
+            Height.Unload();
+            Depth.Unload();
         }
     }
 }

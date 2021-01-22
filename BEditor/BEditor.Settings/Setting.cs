@@ -19,23 +19,19 @@ namespace BEditor
         private static readonly PropertyChangedEventArgs darkModeArgs = new(nameof(UseDarkMode));
         private static readonly PropertyChangedEventArgs autoBackUpArgs = new(nameof(AutoBackUp));
         private static readonly PropertyChangedEventArgs lastTimeFolderArgs = new(nameof(LastTimeFolder));
-        private static readonly PropertyChangedEventArgs lastTimeNumArgs = new(nameof(LastTimeNum));
         private static readonly PropertyChangedEventArgs widthOf1FrameArgs = new(nameof(WidthOf1Frame));
         private static readonly PropertyChangedEventArgs enableErrorLogArgs = new(nameof(EnableErrorLog));
-        private static readonly PropertyChangedEventArgs backgroundColorArgs = new(nameof(BackgroundColor));
         private static readonly PropertyChangedEventArgs langArgs = new(nameof(Language));
         private static readonly PropertyChangedEventArgs stackLimitArgs = new(nameof(StackLimit));
         private int clipHeight = 25;
         private bool darkMode = true;
         private bool autoBackUp = true;
         private string lastTimeFolder = "";
-        private int lastTimeNum = 0;
         private int widthOf1Frame = 5;
         private bool enableErrorLog = false;
         private ObservableCollection<string>? enablePlugins;
         private ObservableCollection<string>? disablePlugins;
         private ObservableCollection<string>? includeFonts;
-        private string? backgroundColor;
         private ObservableCollection<string>? mostRecentlyUsedList;
         private string? language;
         private uint stackLimit = 1048576;
@@ -86,12 +82,6 @@ namespace BEditor
         {
             get => lastTimeFolder ??= "";
             set => SetValue(value, ref lastTimeFolder, lastTimeFolderArgs);
-        }
-        [DataMember]
-        public int LastTimeNum
-        {
-            get => lastTimeNum;
-            set => SetValue(value, ref lastTimeNum, lastTimeNumArgs);
         }
         [DataMember]
         public int WidthOf1Frame
@@ -145,17 +135,6 @@ namespace BEditor
             set => includeFonts = value;
         }
         [DataMember]
-        public string BackgroundColor
-        {
-            get => backgroundColor ??= "#ff000000";
-            set
-            {
-                if (!IsHTMLColor(value)) return;
-
-                SetValue(value, ref backgroundColor, backgroundColorArgs);
-            }
-        }
-        [DataMember]
         public string Language
         {
             get => language ??= CultureInfo.CurrentCulture.Name;
@@ -184,20 +163,5 @@ namespace BEditor
             }
         }
         public void Save() => Serialize.SaveToFile(this, Path.Combine(AppContext.BaseDirectory, "user", "settings.json"));
-        private static bool IsHTMLColor(string color)
-        {
-            try
-            {
-                color = "0x" + color.Replace("#", "");
-
-                var argb = Convert.ToUInt32(color, 16);
-
-                return true;
-            }
-            catch
-            {
-                return false;
-            }
-        }
     }
 }

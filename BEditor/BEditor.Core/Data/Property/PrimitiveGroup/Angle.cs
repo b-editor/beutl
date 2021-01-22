@@ -15,13 +15,6 @@ namespace BEditor.Core.Data.Property.PrimitiveGroup
         public static readonly EasePropertyMetadata AngleYMetadata = new(Resources.AngleY);
         public static readonly EasePropertyMetadata AngleZMetadata = new(Resources.AngleZ);
 
-        public Angle(PropertyElementMetadata metadata) : base(metadata)
-        {
-            AngleX = new(AngleXMetadata);
-            AngleY = new(AngleYMetadata);
-            AngleZ = new(AngleZMetadata);
-        }
-
         public override IEnumerable<PropertyElement> Properties => new PropertyElement[]
         {
             AngleX,
@@ -35,25 +28,24 @@ namespace BEditor.Core.Data.Property.PrimitiveGroup
         [DataMember(Order = 2)]
         public EaseProperty AngleZ { get; private set; }
 
-        public override void Loaded()
+        public Angle(PropertyElementMetadata metadata) : base(metadata)
         {
-            if (IsLoaded) return;
-
-            AngleX.ExecuteLoaded(AngleXMetadata);
-            AngleY.ExecuteLoaded(AngleYMetadata);
-            AngleZ.ExecuteLoaded(AngleZMetadata);
-
-            base.Loaded();
+            AngleX = new(AngleXMetadata);
+            AngleY = new(AngleYMetadata);
+            AngleZ = new(AngleZMetadata);
         }
-        public override void Unloaded()
+
+        protected override void OnLoad()
         {
-            if (!IsLoaded) return;
-
-            AngleX.Unloaded();
-            AngleY.Unloaded();
-            AngleZ.Unloaded();
-
-            base.Unloaded();
+            AngleX.Load(AngleXMetadata);
+            AngleY.Load(AngleYMetadata);
+            AngleZ.Load(AngleZMetadata);
+        }
+        protected override void OnUnload()
+        {
+            AngleX.Unload();
+            AngleY.Unload();
+            AngleZ.Unload();
         }
     }
 }

@@ -3,26 +3,26 @@ using System.Collections.Generic;
 using System.Text;
 using System.Windows;
 using System.Windows.Controls;
+using System.Windows.Controls.Primitives;
 using System.Windows.Data;
 
-using BEditor.Models.Settings;
+using BEditor.Core.Command;
+using BEditor.Core.Data;
+using BEditor.Core.Data.Property;
+using BEditor.Core.Data.Property.Easing;
+using BEditor.Core.Extensions;
+using BEditor.Core.Properties;
+using BEditor.Models;
+using BEditor.ViewModels.Converters;
+using BEditor.ViewModels.PropertyControl;
 using BEditor.ViewModels.TimeLines;
 using BEditor.Views.CustomControl;
+using BEditor.Views.PropertyControl;
 using BEditor.Views.PropertyControls;
 using BEditor.Views.TimeLines;
-
-using BEditor.Core.Data.Property;
-using BEditor.Core.Extensions;
-using BEditor.Core.Data;
-using BEditor.Views.PropertyControl;
 using BEditor.WPF.Controls;
-using BEditor.ViewModels.PropertyControl;
-using BEditor.ViewModels.Converters;
-using BEditor.Core.Command;
-using System.Windows.Controls.Primitives;
+
 using MaterialDesignThemes.Wpf;
-using BEditor.Core.Properties;
-using BEditor.Core.Data.Property.Easing;
 
 namespace BEditor.Views
 {
@@ -79,7 +79,7 @@ namespace BEditor.Views
                     {
                         DataContext = new CheckPropertyViewModel((CheckProperty)elm)
                     };
-                    
+
                     view.SetBinding(BasePropertyView.HeaderProperty, HeaderBinding);
                     view.SetBinding(CheckPropertyView.IsCheckedProperty, PropertyIsCheckedBinding);
                     view.SetBinding(CheckPropertyView.CheckCommandProperty, CommandBinding);

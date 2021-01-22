@@ -31,6 +31,7 @@ using System.IO;
 using System.Text;
 using System.Threading;
 using BEditor.ViewModels.CreateDialog;
+using BEditor.ViewModels.SettingsControl;
 
 namespace BEditor.ViewModels
 {
@@ -41,72 +42,42 @@ namespace BEditor.ViewModels
         public ReactiveProperty<WriteableBitmap> PreviewImage { get; } = new();
         public ReactiveProperty<Brush> MainWindowColor { get; } = new();
 
+        #region Seekbar
         public ReactiveCommand PlayPause { get; } = new();
         public ReactiveCommand FrameNext { get; } = new();
         public ReactiveCommand FramePrevious { get; } = new();
         public ReactiveCommand FrameTop { get; } = new();
         public ReactiveCommand FrameEnd { get; } = new();
+        #endregion
 
+        #region Help(H)
         public ReactiveCommand SendFeedback { get; } = new();
         public ReactiveCommand OpenThisRepository { get; } = new();
-
+        #endregion
+        
+        #region Statusbar Right
         public ReactiveCommand OpenProjectDirectory { get; } = new();
         public ReactiveCommand ConvertJson { get; } = new();
+        #endregion
 
+        #region File(F)
         public ReactiveCommand Shutdown { get; } = new();
+        #endregion
+
+        #region Tool(T)
+        public ReactiveCommand SettingShow { get; } = new();
 
         public ReactiveCommand DeleteCommand { get; } = new();
         public ReactiveCommand MemoryRelease { get; } = new();
+        #endregion
+
+        public ReactiveCommand SceneSettingsCommand { get; } = new();
 
         public SnackbarMessageQueue MessageQueue { get; } = new();
 
         private MainWindowViewModel()
         {
-            OutputImage.Where(_ => AppData.Current.Project is not null)
-                .Subscribe(OutputImageCommand);
-            OutputVideo.Where(_ => AppData.Current.Project is not null)
-                .Subscribe(OutputVideoCommand);
-
-            ProjectSaveAs.Subscribe(ProjectSaveAsCommand);
-            ProjectSave.Subscribe(ProjectSaveCommand);
-            ProjectOpen.Subscribe(ProjectOpenCommand);
-            ProjectClose.Subscribe(ProjectCloseCommand);
-            ProjectCreate.Subscribe(ProjectCreateCommand);
-            ProjectAddScene.Subscribe(() => new SceneCreateDialog().ShowDialog());
-            ProjectAddClip.Subscribe(() =>
-            {
-                var dialog = new ClipCreateDialog(new ClipCreateDialogViewModel()
-                {
-                    Scene =
-                    {
-                        Value = AppData.Current.Project.PreviewScene
-                    }   
-                });
-
-                dialog.ShowDialog();
-            });
-            ProjectAddEffect.Subscribe(() =>
-            {
-                var dialog = new EffectAddDialog(new EffectAddDialogViewModel()
-                {
-                    Scene =
-                    {
-                        Value = AppData.Current.Project.PreviewScene
-                    },
-                    TargetClip =
-                    {
-                        Value = AppData.Current.Project.PreviewScene.SelectItem
-                    }
-                });
-
-                dialog.ShowDialog();
-            });
-            ClipRemoveCommand.Where(_ => AppData.Current.Project is not null)
-                .Select(_ => AppData.Current.Project.PreviewScene.SelectItem)
-                .Where(c => c is not null)
-                .Subscribe(clip => clip.Parent.CreateRemoveCommand(clip).Execute());
-
-            SettingShow.Subscribe(SettingShowCommand);
+            #region Seekbar
 
             PlayPause
                 .Where(_ => AppData.Current.Project is not null)
@@ -121,25 +92,7 @@ namespace BEditor.ViewModels
                 .Select(_ => AppData.Current.Project.PreviewScene)
                 .Subscribe(scene => scene.PreviewFrame = scene.TotalFrame);
 
-            UndoCommand.Subscribe(_ =>
-            {
-                CommandManager.Undo();
-
-                AppData.Current.Project.PreviewUpdate();
-                AppData.Current.AppStatus = Status.Edit;
-            });
-            RedoCommand.Subscribe(_ =>
-            {
-                CommandManager.Redo();
-
-                AppData.Current.Project.PreviewUpdate();
-                AppData.Current.AppStatus = Status.Edit;
-            });
-
-            CommandManager.CanUndoChange += (sender, e) => UndoIsEnabled.Value = CommandManager.CanUndo;
-            CommandManager.CanRedoChange += (sender, e) => RedoIsEnabled.Value = CommandManager.CanRedo;
-
-            CommandManager.Executed += Executed;
+            #endregion
 
             AppData.Current
                 .ObserveProperty(app => app.Project)
@@ -155,60 +108,8 @@ namespace BEditor.ViewModels
                     }
                 });
 
-            ClipboardCopy.Where(_ => AppData.Current.Project is not null)
-                .Select(_ => AppData.Current.Project.PreviewScene.SelectItem)
-                .Where(clip => clip is not null)
-                .Subscribe(clip =>
-                {
-                    using var memory = new MemoryStream();
-                    Serialize.SaveToStream(clip, memory, SerializeMode.Json);
 
-                    var json = Encoding.Default.GetString(memory.ToArray());
-                    Clipboard.SetText(json);
-                });
-
-            ClipboardCut.Where(_ => AppData.Current.Project is not null)
-                .Select(_ => AppData.Current.Project.PreviewScene.SelectItem)
-                .Where(clip => clip is not null)
-                .Subscribe(clip =>
-                {
-                    clip.Parent.CreateRemoveCommand(clip).Execute();
-
-                    using var memory = new MemoryStream();
-                    Serialize.SaveToStream(clip, memory, SerializeMode.Json);
-
-                    var json = Encoding.Default.GetString(memory.ToArray());
-                    Clipboard.SetText(json);
-                });
-
-            ClipboardPaste.Where(_ => AppData.Current.Project is not null)
-                .Select(_ => AppData.Current.Project.PreviewScene.GetCreateTimeLineViewModel())
-                .Subscribe(timeline =>
-                {
-                    var text = Clipboard.GetText();
-                    using var memory = new MemoryStream();
-                    memory.Write(Encoding.Default.GetBytes(text));
-
-                    var clip = Serialize.LoadFromStream<ClipData>(memory, SerializeMode.Json);
-
-                    if (clip is null) return;
-
-                    var length = clip.Length;
-                    clip.Start = timeline.Select_Frame;
-                    clip.End = length + timeline.Select_Frame;
-
-                    clip.Layer = timeline.Select_Layer;
-
-
-                    if (!timeline.Scene.InRange(clip.Start, clip.End, clip.Layer))
-                    {
-                        Message.Snackbar("指定した場所にクリップが存在しているため、新しいクリップを配置できません");
-
-                        return;
-                    }
-
-                    timeline.Scene.CreateAddCommand(clip).Execute();
-                });
+            #region Help
 
             const string feedback = "https://github.com/indigo-san/BEditor/issues/new";
             const string repository = "https://github.com/indigo-san/BEditor/";
@@ -216,7 +117,11 @@ namespace BEditor.ViewModels
             SendFeedback.Subscribe(() => Process.Start(new ProcessStartInfo("cmd", $"/c start {feedback}") { CreateNoWindow = true }));
             OpenThisRepository.Subscribe(() => Process.Start(new ProcessStartInfo("cmd", $"/c start {repository}") { CreateNoWindow = true }));
 
+            #endregion
+
             Shutdown.Subscribe(() => App.Current.Shutdown());
+
+            #region Statusbar Right
 
             OpenProjectDirectory
                 .Where(_ => AppData.Current.Project is not null)
@@ -237,6 +142,11 @@ namespace BEditor.ViewModels
                     File.Delete(temp);
                 });
 
+            #endregion
+
+            #region Tool
+
+            SettingShow.Subscribe(SettingShowCommand);
             DeleteCommand.Subscribe(() => CommandManager.Clear());
             MemoryRelease.Subscribe(() =>
             {
@@ -246,10 +156,28 @@ namespace BEditor.ViewModels
 
                 Message.Snackbar(((Environment.WorkingSet - bytes) / 10000000f).ToString() + "MB");
             });
+            SceneSettingsCommand.Where(_ => AppData.Current.Project is not null)
+                .Select(_ => AppData.Current.Project.PreviewScene)
+                .Subscribe(s =>
+                {
+                    var vm = new SceneSettingsViewModel(s);
+                    var v = new Views.SettingsControls.SceneSettingsDialog()
+                    {
+                        DataContext = vm
+                    };
+                    v.ShowDialog();
+                });
+
+            #endregion
         }
 
+        #region Model
+        public static OutputModel Output => OutputModel.Current;
+        public static ProjectModel ProjectModel => ProjectModel.Current;
+        public static EditModel EditModel => EditModel.Current;
+        #endregion
 
-        #region IOイベント
+        #region イベント
 
         private void Project_Opend()
         {
@@ -261,8 +189,8 @@ namespace BEditor.ViewModels
 
         private void Project_Closed()
         {
-            AppData.Current.Project?.Unloaded();
             CommandManager.Clear();
+            PreviewImage.Value = null;
 
             ProjectIsOpened.Value = false;
         }
@@ -270,94 +198,10 @@ namespace BEditor.ViewModels
         #endregion
 
 
-        #region OutputsCommands
-
-        public ReactiveCommand OutputImage { get; } = new();
-        public ReactiveCommand OutputVideo { get; } = new();
-
-
-        private static void OutputImageCommand(object _) => ImageHelper.OutputImage();
-        private static void OutputVideoCommand(object _) => ImageHelper.OutputVideo();
-
-        #endregion
-
         #region Project
-
-        public ReactiveCommand ProjectSaveAs { get; } = new();
-        public ReactiveCommand ProjectSave { get; } = new();
-        public ReactiveCommand ProjectOpen { get; } = new();
-        public ReactiveCommand ProjectClose { get; } = new();
-        public ReactiveCommand ProjectCreate { get; } = new();
-        public ReactiveCommand ProjectAddScene { get; } = new();
-        public ReactiveCommand ProjectAddClip { get; } = new();
-        public ReactiveCommand ProjectAddEffect { get; } = new();
-        public ReactiveCommand ClipboardCopy { get; } = new();
-        public ReactiveCommand ClipboardCut { get; } = new();
-        public ReactiveCommand ClipboardPaste { get; } = new();
-        public ReactiveCommand ClipRemoveCommand { get; } = new();
 
         public ReactiveProperty<bool> ProjectIsOpened { get; } = new() { Value = false };
 
-        private static void ProjectSaveAsCommand()
-            => AppData.Current.Project?.SaveAs();
-        private static void ProjectSaveCommand()
-            => AppData.Current.Project?.Save();
-        public static void ProjectOpenCommand(string name)
-        {
-            try
-            {
-                var project = new Project(name);
-                project.Loaded();
-                AppData.Current.Project = project;
-                AppData.Current.AppStatus = Status.Edit;
-
-                Settings.Default.MostRecentlyUsedList.Remove(name);
-                Settings.Default.MostRecentlyUsedList.Add(name);
-            }
-            catch
-            {
-                Debug.Assert(false);
-                Message.Snackbar(string.Format(Resources.FailedToLoad, "Project"));
-            }
-        }
-        private static void ProjectOpenCommand()
-        {
-            var dialog = new CommonOpenFileDialog()
-            {
-                Filters =
-                {
-                    new("プロジェクトファイル", "bedit"),
-                    new("バックアップファイル", "backup")
-                },
-                RestoreDirectory = true
-            };
-
-            if (dialog.ShowDialog() == CommonFileDialogResult.Ok)
-            {
-                try
-                {
-                    var project = new Project(dialog.FileName);
-                    project.Loaded();
-                    AppData.Current.Project = project;
-                    AppData.Current.AppStatus = Status.Edit;
-
-                    Settings.Default.MostRecentlyUsedList.Remove(dialog.FileName);
-                    Settings.Default.MostRecentlyUsedList.Add(dialog.FileName);
-                }
-                catch
-                {
-                    Debug.Assert(false);
-                    Message.Snackbar(string.Format(Resources.FailedToLoad, "Project"));
-                }
-            }
-        }
-        private static void ProjectCloseCommand()
-        {
-            AppData.Current.Project = null;
-            AppData.Current.AppStatus = Status.Idle;
-        }
-        private static void ProjectCreateCommand()
-            => new ProjectCreateDialog { Owner = App.Current.MainWindow }.ShowDialog();
         private void ProjectPlayPauseCommand(object _)
         {
             if (AppData.Current.AppStatus is Status.Playing)
@@ -378,63 +222,7 @@ namespace BEditor.ViewModels
         #endregion
 
 
-        public ReactiveCommand SettingShow { get; } = new();
 
         private static void SettingShowCommand() => new SettingsWindow() { Owner = App.Current.MainWindow }.ShowDialog();
-
-
-        #region UndoRedoCommands
-
-        public ReactiveCommand UndoCommand { get; } = new();
-        public ReactiveProperty<bool> UndoIsEnabled { get; } = new() { Value = CommandManager.CanUndo };
-        public ReactiveCommand RedoCommand { get; } = new();
-        public ReactiveProperty<bool> RedoIsEnabled { get; } = new() { Value = CommandManager.CanRedo };
-
-
-        public ReactiveCollection<string> UnDoList { get; } = new();
-        public ReactiveCollection<string> ReDoList { get; } = new();
-
-        private void Executed(object sender, CommandType type)
-        {
-            try
-            {
-                if (type == CommandType.Do)
-                {
-                    //上を見てUnDoListに追加
-                    ReDoList.Clear();
-
-                    var command = CommandManager.UndoStack.Peek();
-
-                    UnDoList.Insert(0, command.Name);
-
-                    AppData.Current.Project.PreviewUpdate();
-                }
-                else if (type == CommandType.Undo)
-                {
-                    //ReDoListに移動
-                    if (UnDoList.Count == 0) return;
-
-                    string name = UnDoList[0];
-                    UnDoList.Remove(name);
-                    ReDoList.Insert(0, name);
-
-                }
-                else if (type == CommandType.Redo)
-                {
-                    //UnDoListに移動
-                    if (ReDoList.Count == 0) return;
-
-                    string name = ReDoList[0];
-                    ReDoList.Remove(name);
-                    UnDoList.Insert(0, name);
-                }
-            }
-            catch
-            {
-
-            }
-        }
-
-        #endregion
     }
 }

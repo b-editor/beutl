@@ -24,9 +24,9 @@ namespace BEditor.Core.Graphics
     public unsafe sealed class GraphicsContext : IDisposable
     {
         private readonly GameWindow GameWindow;
-        private static Shader textureShader;
-        private static Shader Shader;
-        private static Shader lightShader;
+        private readonly Shader textureShader;
+        private readonly Shader Shader;
+        private readonly Shader lightShader;
 
         public GraphicsContext(int width, int height)
         {
@@ -40,15 +40,15 @@ namespace BEditor.Core.Graphics
                     StartVisible = false
                 });
 
-            textureShader ??= Shader.FromFile(
+            textureShader = Shader.FromFile(
                 Path.Combine(AppContext.BaseDirectory, "Shaders", "TextureShader.vert"),
                 Path.Combine(AppContext.BaseDirectory, "Shaders", "TextureShader.frag"));
 
-            Shader ??= Shader.FromFile(
+            Shader = Shader.FromFile(
                 Path.Combine(AppContext.BaseDirectory, "Shaders", "Shader.vert"),
                 Path.Combine(AppContext.BaseDirectory, "Shaders", "Shader.frag"));
 
-            lightShader ??= Shader.FromFile(
+            lightShader = Shader.FromFile(
                 Path.Combine(AppContext.BaseDirectory, "Shaders", "Shader.vert"),
                 Path.Combine(AppContext.BaseDirectory, "Shaders", "Light.frag"));
 
@@ -68,6 +68,7 @@ namespace BEditor.Core.Graphics
         public bool IsCurrent => GameWindow.Context.IsCurrent;
         public bool IsDisposed { get; private set; }
         public Camera Camera { get; set; }
+        public Color ClearColor { get; set; }
 
         public void Clear()
         {
@@ -89,7 +90,7 @@ namespace BEditor.Core.Graphics
             GL.Disable(EnableCap.DepthTest);
             //GL.Disable(EnableCap.Lighting);
 
-            GL.ClearColor(Color.FromHTML(Settings.Default.BackgroundColor).ToOpenTK());
+            GL.ClearColor(ClearColor.ToOpenTK());
         }
         public void MakeCurrent()
         {
@@ -114,7 +115,7 @@ namespace BEditor.Core.Graphics
             #region MyRegion
 
             var frame = args.Frame;
-            var drawObject = data.Effect[0] as ImageObject;
+            var drawObject = (data.Effect[0] as ImageObject)??throw new NotSupportedException();
 
             float alpha = (float)(drawObject.Blend.Alpha.GetValue(frame) / 100);
 
@@ -262,6 +263,9 @@ namespace BEditor.Core.Graphics
             if (IsDisposed) return;
 
             GameWindow.Dispose();
+            textureShader.Dispose();
+            Shader.Dispose();
+            lightShader.Dispose();
 
             IsDisposed = true;
         }

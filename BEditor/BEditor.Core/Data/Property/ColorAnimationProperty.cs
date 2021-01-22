@@ -21,46 +21,12 @@ namespace BEditor.Core.Data.Property
     public class ColorAnimationProperty : PropertyElement<ColorAnimationPropertyMetadata>, IKeyFrameProperty
     {
         #region Fields
-
-        private static readonly PropertyChangedEventArgs easingFuncArgs = new(nameof(EasingType));
-        private static readonly PropertyChangedEventArgs easingDataArgs = new(nameof(EasingData));
-        private EffectElement parent;
-        private EasingFunc easingTypeProperty;
-        private EasingData easingData;
-
+        private static readonly PropertyChangedEventArgs _EasingFuncArgs = new(nameof(EasingType));
+        private static readonly PropertyChangedEventArgs _EasingDataArgs = new(nameof(EasingData));
+        private EasingFunc? _EasingTypeProperty;
+        private EasingMetadata? _EasingData;
         #endregion
 
-
-        /// <summary>
-        /// 
-        /// </summary>
-        /// <param name="metadata"></param>
-        public ColorAnimationProperty(ColorAnimationPropertyMetadata metadata)
-        {
-            PropertyMetadata = metadata ?? throw new ArgumentNullException(nameof(metadata));
-            Color color = metadata.DefaultColor;
-
-            Value = new() { color, color };
-            Frame = new();
-            EasingType = (EasingFunc)Activator.CreateInstance(metadata.DefaultEase.Type);
-        }
-
-
-        public event EventHandler<(Frame frame, int index)> AddKeyFrameEvent;
-        public event EventHandler<int> DeleteKeyFrameEvent;
-        public event EventHandler<(int fromindex, int toindex)> MoveKeyFrameEvent;
-
-
-        /// <inheritdoc/>
-        public override EffectElement Parent
-        {
-            get => parent;
-            set
-            {
-                parent = value;
-                EasingType.Parent = this;
-            }
-        }
 
         /// <summary>
         /// 
@@ -80,30 +46,56 @@ namespace BEditor.Core.Data.Property
         {
             get
             {
-                if (easingTypeProperty == null || EasingData.Type != easingTypeProperty.GetType())
+                if (_EasingTypeProperty == null || EasingData.Type != _EasingTypeProperty.GetType())
                 {
-                    easingTypeProperty = (EasingFunc)Activator.CreateInstance(EasingData.Type);
-                    easingTypeProperty.Parent = this;
+                    _EasingTypeProperty = EasingData.CreateFunc();
+                    _EasingTypeProperty.Parent = this;
                 }
 
-                return easingTypeProperty;
+                return _EasingTypeProperty;
             }
             set
             {
-                SetValue(value, ref easingTypeProperty, easingFuncArgs);
+                SetValue(value, ref _EasingTypeProperty, _EasingFuncArgs);
 
-                EasingData = EasingFunc.LoadedEasingFunc.Find(x => x.Type == value.GetType());
+                EasingData = EasingMetadata.LoadedEasingFunc.Find(x => x.Type == value.GetType())!;
             }
         }
         /// <summary>
         /// 
         /// </summary>
-        public EasingData EasingData
+        public EasingMetadata EasingData
         {
-            get => easingData;
-            set => SetValue(value, ref easingData, easingDataArgs);
+            get => _EasingData ?? EasingMetadata.LoadedEasingFunc[0];
+            set => SetValue(value, ref _EasingData, _EasingDataArgs);
         }
-        internal Frame Length => Parent.Parent.Length;
+        internal Frame Length => Parent?.Parent?.Length ?? default;
+        /// <summary>
+        /// イージングします
+        /// </summary>
+        /// <param name="frame">タイムライン基準のフレーム</param>
+        /// <returns></returns>
+        public Color this[Frame frame] => GetValue(frame);
+
+
+        public event EventHandler<(Frame frame, int index)>? AddKeyFrameEvent;
+        public event EventHandler<int>? DeleteKeyFrameEvent;
+        public event EventHandler<(int fromindex, int toindex)>? MoveKeyFrameEvent;
+
+
+        /// <summary>
+        /// 
+        /// </summary>
+        /// <param name="metadata"></param>
+        public ColorAnimationProperty(ColorAnimationPropertyMetadata metadata)
+        {
+            PropertyMetadata = metadata ?? throw new ArgumentNullException(nameof(metadata));
+            Color color = metadata.DefaultColor;
+
+            Value = new() { color, color };
+            Frame = new();
+            EasingType = metadata.DefaultEase.CreateFunc();
+        }
 
 
         #region Methods
@@ -177,7 +169,7 @@ namespace BEditor.Core.Data.Property
                 throw new Exception();
             }
 
-            frame -= this.GetParent2().Start;
+            frame -= this.GetParent2()?.Start ?? default;
 
             var (start, end) = GetFrame(this, frame);
 
@@ -237,20 +229,15 @@ namespace BEditor.Core.Data.Property
         #endregion
 
         /// <inheritdoc/>
-        public override void Loaded()
+        protected override void OnLoad()
         {
-            if (IsLoaded) return;
-
-            EasingType.Loaded();
-            base.Loaded();
+            EasingType.Parent = this;
+            EasingType.Load();
         }
         /// <inheritdoc/>
-        public override void Unloaded()
+        protected override void OnUnload()
         {
-            if (!IsLoaded) return;
-
-            EasingType.Unloaded();
-            base.Unloaded();
+            EasingType.Unload();
         }
 
         #endregion
@@ -263,10 +250,10 @@ namespace BEditor.Core.Data.Property
         /// </summary>
         public sealed class ChangeColorCommand : IRecordCommand
         {
-            private readonly ColorAnimationProperty property;
-            private readonly int index;
-            private readonly Color @new;
-            private readonly Color old;
+            private readonly ColorAnimationProperty _Property;
+            private readonly int _Index;
+            private readonly Color _New;
+            private readonly Color _Old;
 
             /// <summary>
             /// 
@@ -276,31 +263,32 @@ namespace BEditor.Core.Data.Property
             /// <param name="color"></param>
             public ChangeColorCommand(ColorAnimationProperty property, int index, in Color color)
             {
-                this.property = property ?? throw new ArgumentNullException(nameof(property));
-                this.index = index;
+                _Property = property ?? throw new ArgumentNullException(nameof(property));
+                _Index = index;
 
-                this.@new = color;
-                old = property.Value[index];
+                _New = color;
+                _Old = property.Value[index];
             }
 
+            public string Name => CommandName.ChangeColor;
 
             /// <inheritdoc/>
-            public void Do() => property.Value[index] = @new;
+            public void Do() => _Property.Value[_Index] = _New;
 
             /// <inheritdoc/>
             public void Redo() => Do();
 
             /// <inheritdoc/>
-            public void Undo() => property.Value[index] = old;
+            public void Undo() => _Property.Value[_Index] = _Old;
         }
         /// <summary>
         /// 
         /// </summary>
         public sealed class ChangeEaseCommand : IRecordCommand
         {
-            private readonly ColorAnimationProperty property;
-            private readonly EasingFunc @new;
-            private readonly EasingFunc old;
+            private readonly ColorAnimationProperty _Property;
+            private readonly EasingFunc _New;
+            private readonly EasingFunc _Old;
 
             /// <summary>
             /// 
@@ -309,23 +297,24 @@ namespace BEditor.Core.Data.Property
             /// <param name="type"></param>
             public ChangeEaseCommand(ColorAnimationProperty property, string type)
             {
-                this.property = property ?? throw new ArgumentNullException(nameof(property));
+                _Property = property ?? throw new ArgumentNullException(nameof(property));
 
-                var data = EasingFunc.LoadedEasingFunc.Find(x => x.Name == type);
-                @new = data.CreateFunc?.Invoke() ?? (EasingFunc)Activator.CreateInstance(data.Type);
-                @new.Parent = property;
-                old = this.property.EasingType;
+                var data = EasingMetadata.LoadedEasingFunc.Find(x => x.Name == type)!;
+                _New = data.CreateFunc();
+                _New.Parent = property;
+                _Old = _Property.EasingType;
             }
 
+            public string Name => CommandName.ChangeEasing;
 
             /// <inheritdoc/>
-            public void Do() => property.EasingType = @new;
+            public void Do() => _Property.EasingType = _New;
 
             /// <inheritdoc/>
             public void Redo() => Do();
 
             /// <inheritdoc/>
-            public void Undo() => property.EasingType = old;
+            public void Undo() => _Property.EasingType = _Old;
         }
 
 
@@ -334,8 +323,8 @@ namespace BEditor.Core.Data.Property
         /// </summary>
         public sealed class AddCommand : IRecordCommand
         {
-            private readonly ColorAnimationProperty property;
-            private readonly Frame frame;
+            private readonly ColorAnimationProperty _Property;
+            private readonly Frame _Frame;
 
             /// <summary>
             /// 
@@ -344,16 +333,17 @@ namespace BEditor.Core.Data.Property
             /// <param name="frame"></param>
             public AddCommand(ColorAnimationProperty property, Frame frame)
             {
-                this.property = property ?? throw new ArgumentNullException(nameof(property));
-                this.frame = frame;
+                _Property = property ?? throw new ArgumentNullException(nameof(property));
+                _Frame = frame;
             }
 
+            public string Name => CommandName.AddKeyFrame;
 
             /// <inheritdoc/>
             public void Do()
             {
-                int index = property.InsertKeyframe(frame, property.GetValue(frame + property.GetParent2().Start));
-                property.AddKeyFrameEvent?.Invoke(property, (frame, index - 1));
+                int index = _Property.InsertKeyframe(_Frame, _Property.GetValue(_Frame + _Property.GetParent2()?.Start ?? 0));
+                _Property.AddKeyFrameEvent?.Invoke(_Property, (_Frame, index - 1));
             }
 
             /// <inheritdoc/>
@@ -362,8 +352,8 @@ namespace BEditor.Core.Data.Property
             /// <inheritdoc/>
             public void Undo()
             {
-                int index = property.RemoveKeyframe(frame, out _);
-                property.DeleteKeyFrameEvent?.Invoke(property, index - 1);
+                int index = _Property.RemoveKeyframe(_Frame, out _);
+                _Property.DeleteKeyFrameEvent?.Invoke(_Property, index - 1);
             }
         }
 
@@ -372,9 +362,9 @@ namespace BEditor.Core.Data.Property
         /// </summary>
         public sealed class RemoveCommand : IRecordCommand
         {
-            private readonly ColorAnimationProperty property;
-            private readonly Frame frame;
-            private Color value;
+            private readonly ColorAnimationProperty _Property;
+            private readonly Frame _Frame;
+            private Color _Value;
 
             /// <summary>
             /// 
@@ -383,16 +373,17 @@ namespace BEditor.Core.Data.Property
             /// <param name="frame"></param>
             public RemoveCommand(ColorAnimationProperty property, Frame frame)
             {
-                this.property = property ?? throw new ArgumentNullException(nameof(property));
-                this.frame = frame;
+                _Property = property ?? throw new ArgumentNullException(nameof(property));
+                _Frame = frame;
             }
 
+            public string Name => CommandName.RemoveKeyFrame;
 
             /// <inheritdoc/>
             public void Do()
             {
-                int index = property.RemoveKeyframe(frame, out value);
-                property.DeleteKeyFrameEvent?.Invoke(property, index - 1);
+                int index = _Property.RemoveKeyframe(_Frame, out _Value);
+                _Property.DeleteKeyFrameEvent?.Invoke(_Property, index - 1);
             }
 
             /// <inheritdoc/>
@@ -401,8 +392,8 @@ namespace BEditor.Core.Data.Property
             /// <inheritdoc/>
             public void Undo()
             {
-                int index = property.InsertKeyframe(frame, value);
-                property.AddKeyFrameEvent?.Invoke(property, (frame, index - 1));
+                int index = _Property.InsertKeyframe(_Frame, _Value);
+                _Property.AddKeyFrameEvent?.Invoke(_Property, (_Frame, index - 1));
             }
         }
 
@@ -411,10 +402,10 @@ namespace BEditor.Core.Data.Property
         /// </summary>
         public sealed class MoveCommand : IRecordCommand
         {
-            private readonly ColorAnimationProperty property;
-            private readonly int fromIndex;
-            private int toIndex;
-            private readonly Frame to;
+            private readonly ColorAnimationProperty _Property;
+            private readonly int _FromIndex;
+            private int _ToIndex;
+            private readonly Frame _ToFrame;
 
             /// <summary>
             /// 
@@ -424,25 +415,26 @@ namespace BEditor.Core.Data.Property
             /// <param name="to"></param>
             public MoveCommand(ColorAnimationProperty property, int fromIndex, Frame to)
             {
-                this.property = property ?? throw new ArgumentNullException(nameof(property));
-                this.fromIndex = fromIndex;
-                this.to = to;
+                _Property = property ?? throw new ArgumentNullException(nameof(property));
+                _FromIndex = fromIndex;
+                _ToFrame = to;
             }
 
+            public string Name => CommandName.MoveKeyFrame;
 
             /// <inheritdoc/>
             public void Do()
             {
-                property.Frame[fromIndex] = to;
-                property.Frame.Sort((a_, b_) => a_ - b_);
+                _Property.Frame[_FromIndex] = _ToFrame;
+                _Property.Frame.Sort((a_, b_) => a_ - b_);
 
 
-                toIndex = property.Frame.FindIndex(x => x == to);//新しいindex
+                _ToIndex = _Property.Frame.FindIndex(x => x == _ToFrame);//新しいindex
 
                 //Indexの正規化
-                property.Value.Move(fromIndex + 1, toIndex + 1);
+                _Property.Value.Move(_FromIndex + 1, _ToIndex + 1);
 
-                property.MoveKeyFrameEvent?.Invoke(property, (fromIndex, toIndex));//GUIのIndexの正規化 UIスレッドで動作
+                _Property.MoveKeyFrameEvent?.Invoke(_Property, (_FromIndex, _ToIndex));//GUIのIndexの正規化 UIスレッドで動作
             }
 
             /// <inheritdoc/>
@@ -451,15 +443,15 @@ namespace BEditor.Core.Data.Property
             /// <inheritdoc/>
             public void Undo()
             {
-                int frame = property.Frame[toIndex];
+                int frame = _Property.Frame[_ToIndex];
 
-                property.Frame.RemoveAt(toIndex);
-                property.Frame.Insert(fromIndex, frame);
+                _Property.Frame.RemoveAt(_ToIndex);
+                _Property.Frame.Insert(_FromIndex, frame);
 
-                property.Value.Move(toIndex + 1, fromIndex + 1);
+                _Property.Value.Move(_ToIndex + 1, _FromIndex + 1);
 
 
-                property.MoveKeyFrameEvent?.Invoke(property, (toIndex, fromIndex));
+                _Property.MoveKeyFrameEvent?.Invoke(_Property, (_ToIndex, _FromIndex));
             }
         }
 
@@ -469,15 +461,17 @@ namespace BEditor.Core.Data.Property
     /// <summary>
     /// 
     /// </summary>
-    public record ColorAnimationPropertyMetadata(string Name, in Color DefaultColor, EasingData DefaultEase, bool UseAlpha = false) : ColorPropertyMetadata(Name, DefaultColor, UseAlpha)
+    public record ColorAnimationPropertyMetadata(string Name, in Color DefaultColor, EasingMetadata DefaultEase, bool UseAlpha = false) : ColorPropertyMetadata(Name, DefaultColor, UseAlpha)
     {
         /// <summary>
         /// 
         /// </summary>
         /// <param name="Name"></param>
-        public ColorAnimationPropertyMetadata(string Name)
-            : this(Name, default, null) => DefaultEase = EasingFunc.LoadedEasingFunc[0];
+        public ColorAnimationPropertyMetadata(string Name) : this(Name, default, EasingMetadata.LoadedEasingFunc[0])
+        {
+
+        }
         public ColorAnimationPropertyMetadata(string Name, in Color DefaultColor, bool UseAlpha = false)
-            : this(Name, DefaultColor, EasingFunc.LoadedEasingFunc[0], UseAlpha) { }
+            : this(Name, DefaultColor, EasingMetadata.LoadedEasingFunc[0], UseAlpha) { }
     }
 }

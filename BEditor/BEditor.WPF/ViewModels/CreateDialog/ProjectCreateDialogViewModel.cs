@@ -4,23 +4,17 @@ using BEditor.Models;
 using System.ComponentModel;
 using BEditor.Core.Service;
 using Reactive.Bindings;
+using System.IO;
+using System.Linq;
 
 namespace BEditor.ViewModels.CreateDialog
 {
-    public class ProjectCreateDialogViewModel : BasePropertyChanged
+    public class ProjectCreateDialogViewModel
     {
-        private static readonly PropertyChangedEventArgs widthArgs = new(nameof(Width));
-        private static readonly PropertyChangedEventArgs heightArgs = new(nameof(Height));
-        private static readonly PropertyChangedEventArgs framerateArgs = new(nameof(Framerate));
-        private static readonly PropertyChangedEventArgs samplingrateArgs = new(nameof(Samplingrate));
-        private static readonly PropertyChangedEventArgs nameArgs = new(nameof(Name));
-        private static readonly PropertyChangedEventArgs pathArgs = new(nameof(Path));
-        private int width = 1920;
-        private int height = 1080;
-        private int franerate = 30;
-        private int samlingrate = 44100;
-        private string name = Settings.Default.LastTimeNum.ToString();
-        private string path = Settings.Default.LastTimeFolder;
+        private const int width = 1920;
+        private const int height = 1080;
+        private const int framerate = 30;
+        private const int samlingrate = 44100;
 
         public ProjectCreateDialogViewModel()
         {
@@ -28,36 +22,13 @@ namespace BEditor.ViewModels.CreateDialog
             CreateCommand.Subscribe(Create);
         }
 
-        public int Width
-        {
-            get => width;
-            set => SetValue(value, ref width, widthArgs);
-        }
-        public int Height
-        {
-            get => height;
-            set => SetValue(value, ref height, heightArgs);
-        }
-        public int Framerate
-        {
-            get => franerate;
-            set => SetValue(value, ref franerate, framerateArgs);
-        }
-        public int Samplingrate
-        {
-            get => samlingrate;
-            set => SetValue(value, ref samlingrate, samplingrateArgs);
-        }
-        public string Name
-        {
-            get => name;
-            set => SetValue(value, ref name, nameArgs);
-        }
-        public string Path
-        {
-            get => path;
-            set => SetValue(value, ref path, pathArgs);
-        }
+        public ReactiveProperty<uint> Width { get; } = new(width);
+        public ReactiveProperty<uint> Height { get; } = new(height);
+        public ReactiveProperty<uint> Framerate { get; } = new(framerate);
+        public ReactiveProperty<uint> Samplingrate { get; } = new(samlingrate);
+        public ReactiveProperty<string> Name { get; } = new(GenFilename());
+        public ReactiveProperty<string> Folder { get; } = new(Settings.Default.LastTimeFolder);
+        public ReactiveProperty<bool> SaveToFile { get; } = new(true);
 
         public ReactiveCommand OpenFolerDialog { get; } = new();
         public ReactiveCommand CreateCommand { get; } = new();
@@ -73,7 +44,7 @@ namespace BEditor.ViewModels.CreateDialog
             // ダイアログを表示する
             if (dialog.ShowDialog() == CommonFileDialogResult.Ok)
             {
-                Path = dialog.FileName;
+                Folder.Value = dialog.FileName;
 
                 Settings.Default.LastTimeFolder = dialog.FileName;
 
@@ -83,23 +54,55 @@ namespace BEditor.ViewModels.CreateDialog
 
         private void Create()
         {
-            var project = new Project(Width, Height, Framerate)
-            {
-                Filename = path
-            };
-            project.Loaded();
+            var project = new Project((int)Width.Value, (int)Height.Value, (int)Framerate.Value, (int)Samplingrate.Value);
+            project.Load();
             AppData.Current.Project = project;
 
-            project.Save(Path + "\\" + Name + ".bedit");
+            if (SaveToFile.Value)
+            {
+                project.Save(FormattedFilename(Folder.Value + "\\" + Name.Value));
+            }
+
             AppData.Current.AppStatus = Status.Edit;
 
-            Settings.Default.LastTimeNum++;
             Settings.Default.MostRecentlyUsedList.Remove(project.Filename);
 
-            Settings.Default.MostRecentlyUsedList.Add(project.Filename);
+            if (project.Filename is not null)
+            {
+                Settings.Default.MostRecentlyUsedList.Add(project.Filename);
+            }
 
 
             Settings.Default.Save();
+        }
+
+        private static string FormattedFilename(string original)
+        {
+            string dir = Path.GetDirectoryName(original);
+            string name = Path.GetFileNameWithoutExtension(original);
+            string ex = ".bedit";
+
+            int count = 0;
+            while (File.Exists(dir + "\\" + name + ((count is 0) ? "" : count.ToString()) + ex))
+            {
+                count++;
+            }
+            if (count is not 0) name += count.ToString();
+
+            name += ex;
+
+            return dir + "\\" + name;
+        }
+        private static string GenFilename()
+        {
+            var file = Settings.Default.MostRecentlyUsedList.LastOrDefault();
+            if (file is not null && Path.GetExtension(file) is ".bedit")
+            {
+                return Path.GetFileName(FormattedFilename(file));
+            }
+
+
+            return Path.GetFileName(FormattedFilename(Settings.Default.LastTimeFolder + "\\" + "Project"));
         }
     }
 }

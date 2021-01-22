@@ -1,6 +1,6 @@
 ﻿using System;
 
-using BEditor.Models.Settings;
+using BEditor.Models;
 
 using BEditor.Core.Data;
 using BEditor.Core.Data.Property;

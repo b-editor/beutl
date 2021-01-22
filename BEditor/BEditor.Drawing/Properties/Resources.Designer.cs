@@ -61,7 +61,7 @@ namespace BEditor.Drawing.Properties {
         }
         
         /// <summary>
-        ///   Please specify the extension に類似しているローカライズされた文字列を検索します。
+        ///   Please specify the extension. に類似しているローカライズされた文字列を検索します。
         /// </summary>
         internal static string FileExtension {
             get {

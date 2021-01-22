@@ -119,7 +119,7 @@ namespace BEditor.ViewModels
                 {
                     return PackIconKind.Shape;
                 }
-                else if (clipType == ClipType.Figure)
+                else if (clipType == ClipType.RoundRect)
                 {
                     return PackIconKind.RoundedCorner;
                 }

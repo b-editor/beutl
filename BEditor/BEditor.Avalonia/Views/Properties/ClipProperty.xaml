@@ -1,0 +1,73 @@
+﻿<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+             xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+             xmlns:prop="clr-namespace:BEditor.Core.Properties;assembly=BEditor.Core"
+             xmlns:convert="clr-namespace:BEditor.ViewModels.Converters"
+             mc:Ignorable="d" d:DesignWidth="800" d:DesignHeight="450"
+             x:Class="BEditor.Views.Properties.ClipProperty">
+  <UserControl.Resources>
+    <convert:ClipTypeIconConverter x:Key="ClipTypeIconConverter"/>
+    <convert:EffectElementToPropertyConverter x:Key="EffectElementToProperty"/>
+  </UserControl.Resources>
+  <ScrollViewer VerticalScrollBarVisibility="Hidden" HorizontalContentAlignment="Stretch">
+    <VirtualizingStackPanel>
+      <Grid>
+        <Grid.ColumnDefinitions>
+          <ColumnDefinition Width="Auto"/>
+          <ColumnDefinition Width="1*"/>
+          <ColumnDefinition Width="Auto"/>
+        </Grid.ColumnDefinitions>
+
+        <PathIcon VerticalAlignment="Stretch" Margin="14.5,0,14.5,0" Data="{Binding Type, Mode=OneTime, Converter={StaticResource ClipTypeIconConverter}}" HorizontalAlignment="Stretch"/>
+
+        <Grid Grid.Column="1">
+          <Grid.ColumnDefinitions>
+            <ColumnDefinition Width="Auto"/>
+            <ColumnDefinition/>
+          </Grid.ColumnDefinitions>
+          <Grid.RowDefinitions>
+            <RowDefinition Height="Auto"/>
+            <RowDefinition/>
+          </Grid.RowDefinitions>
+
+          <Label Content="{x:Static prop:Resources.Name}" VerticalAlignment="Center" HorizontalAlignment="Left"/>
+          <Label Content="{x:Static prop:Resources.Type}" Grid.Row="1" HorizontalAlignment="Left" VerticalAlignment="Center"/>
+
+          <TextBox BorderThickness="0" Text="{Binding LabelText, Mode=TwoWay}" Grid.Column="1" HorizontalAlignment="Stretch" VerticalAlignment="Center" VerticalContentAlignment="Center" Margin="10,-24,10,0"/>
+          <Label Content="{Binding Type.Name, Mode=OneTime}" Grid.Row="1" Grid.Column="1" Margin="10,0,10,0" VerticalAlignment="Center" Padding="4,0,0,0" VerticalContentAlignment="Center"/>
+        </Grid>
+
+
+        <!--<materialDesign:PopupBox HorizontalAlignment="Stretch" VerticalContentAlignment="Center" HorizontalContentAlignment="Center" VerticalAlignment="Stretch" Grid.Column="2" Width="45" Height="45"/>-->
+
+      </Grid>
+      <ItemsControl
+        x:Name="itemsControl"
+        Items="{Binding Effect, Mode=OneWay}">
+        <ItemsControl.ItemTemplate>
+          <DataTemplate>
+            <Label
+                Padding="0"
+                HorizontalAlignment="Stretch"
+                VerticalAlignment="Stretch"
+                HorizontalContentAlignment="Stretch"
+                VerticalContentAlignment="Stretch"
+                Content="{Binding Converter={StaticResource EffectElementToProperty}}"/>
+          </DataTemplate>
+        </ItemsControl.ItemTemplate>
+<!--<ItemsControl.ItemTemplate>
+          <DataTemplate>
+            <Label
+                Padding="0"
+                HorizontalAlignment="Stretch"
+                VerticalAlignment="Stretch"
+                HorizontalContentAlignment="Stretch"
+                VerticalContentAlignment="Stretch"
+                Content="{Binding Converter={StaticResource EffectElementToProperty}}"/>
+          </DataTemplate>
+        </ItemsControl.ItemTemplate>-->
+      </ItemsControl>
+    </VirtualizingStackPanel>
+  </ScrollViewer>
+</UserControl>

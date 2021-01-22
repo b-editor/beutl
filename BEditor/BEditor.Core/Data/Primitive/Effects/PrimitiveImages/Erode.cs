@@ -51,18 +51,16 @@ namespace BEditor.Core.Data.Primitive.Effects
                 img.Erode(size);
             }
         }
-        public override void Loaded()
+        protected override void OnLoad()
         {
-            base.Loaded();
-            Frequency.ExecuteLoaded(FrequencyMetadata);
-            Resize.ExecuteLoaded(ResizeMetadata);
+            Frequency.Load(FrequencyMetadata);
+            Resize.Load(ResizeMetadata);
         }
-        public override void Unloaded()
+        protected override void OnUnload()
         {
-            base.Unloaded();
             foreach (var pr in Children)
             {
-                pr.Unloaded();
+                pr.Unload();
             }
         }
     }

@@ -37,7 +37,7 @@ namespace BEditor.Views.PropertyControls
                 var effect = (EffectMetadata)e.Data.GetData(datatype) ?? throw new Exception();
 
 
-                var effectinstance = effect.CreateFunc?.Invoke() ?? Activator.CreateInstance(effect.Type) as EffectElement;
+                var effectinstance = effect.CreateFunc();
 
                 Data.CreateAddCommand(effectinstance).Execute();
             }

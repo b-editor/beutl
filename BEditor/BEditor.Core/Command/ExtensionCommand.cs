@@ -24,6 +24,7 @@ namespace BEditor.Core.Command
         public static IRecordCommand CreateAddCommand(this ClipData self, EffectElement effect) => new EffectElement.AddCommand(effect, self);
         public static IRecordCommand CreateMoveCommand(this ClipData self, Frame to, int tolayer) => new ClipData.MoveCommand(self, to, tolayer);
         public static IRecordCommand CreateMoveCommand(this ClipData self, Frame to, Frame from, int tolayer, int fromlayer) => new ClipData.MoveCommand(self, to, from, tolayer, fromlayer);
+        public static IRecordCommand CreateSparateCommand(this ClipData self, Frame frame) => new ClipData.SparateCommand(self, frame);
         public static IRecordCommand CreateLengthChangeCommand(this ClipData elf, Frame start, Frame end) => new ClipData.LengthChangeCommand(elf, start, end);
 
         public static IRecordCommand CreateAddCommand(this Scene self, Frame addframe, int layer, ObjectMetadata metadata, out ClipData generatedClip)
@@ -34,11 +35,11 @@ namespace BEditor.Core.Command
             _ = metadata ?? throw new ArgumentNullException(nameof(metadata));
 
             var command = new ClipData.AddCommand(self, addframe, layer, metadata);
-            generatedClip = command.data;
+            generatedClip = command.Clip;
 
             return command;
         }
-        static readonly PropertyInfo ClipDataID = typeof(ClipData).GetProperty(nameof(ClipData.Id));
+        static readonly PropertyInfo ClipDataID = typeof(ClipData).GetProperty(nameof(ClipData.Id))!;
         public static IRecordCommand CreateAddCommand(this Scene self, ClipData clip)
         {
             //オブジェクトの情報
@@ -50,7 +51,7 @@ namespace BEditor.Core.Command
                 clip =>
                 {
                     var scene = clip.Parent;
-                    clip.Loaded();
+                    clip.Load();
                     scene.Add(clip);
                     scene.SetCurrentClip(clip);
                 },
@@ -58,7 +59,7 @@ namespace BEditor.Core.Command
                 {
                     var scene = clip.Parent;
                     scene.Remove(clip);
-                    clip.Unloaded();
+                    clip.Unload();
 
                     //存在する場合
                     if (scene.SelectNames.Exists(x => x == clip.Name))
@@ -70,19 +71,20 @@ namespace BEditor.Core.Command
                             scene.SelectItem = null;
                         }
                     }
-                });
+                },
+                _ => CommandName.AddClip);
         }
         public static IRecordCommand CreateRemoveCommand(this Scene self, ClipData clip) => new ClipData.RemoveCommand(clip);
         public static IRecordCommand CreateRemoveLayerCommand(this Scene self, int layer) => new Scene.RemoveLayer(self, layer);
 
-        public static void ExecuteLoaded(this PropertyElement property, PropertyElementMetadata metadata)
+        public static void Load(this PropertyElement property, PropertyElementMetadata metadata)
         {
-            property.Loaded();
+            property.Load();
             property.PropertyMetadata = metadata;
         }
-        public static void ExecuteLoaded<T>(this PropertyElement<T> property, T metadata) where T : PropertyElementMetadata
+        public static void Load<T>(this PropertyElement<T> property, T metadata) where T : PropertyElementMetadata
         {
-            property.Loaded();
+            property.Load();
             property.PropertyMetadata = metadata;
         }
     }

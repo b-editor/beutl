@@ -147,7 +147,7 @@ namespace BEditor
                         .Where(info => info.IsStatic)
                         .Select(info =>
                         {
-                            var color = (Color)info.GetValue(null);
+                            var color = (Color)info.GetValue(null)!;
                             var name = info.Name;
 
                             return new XElement("Color",
@@ -169,7 +169,7 @@ namespace BEditor
             }
 
             CreateDefaultColor();
-            var files = Directory.GetFiles(AppData.Current.Path + "\\user\\colors", "*.xml", SearchOption.AllDirectories);
+            var files = Directory.GetFiles(AppContext.BaseDirectory + "\\user\\colors", "*.xml", SearchOption.AllDirectories);
 
             foreach (var file in files)
             {
@@ -179,21 +179,25 @@ namespace BEditor
 
 
                 var xElement = xml.Root;
-                var cols = xElement.Elements("Color");
 
-                ObservableCollection<ColorListProperty> colors = new();
-
-                foreach (XElement col in cols)
+                if (xElement is not null)
                 {
-                    string name = col.Attribute("Name")?.Value ?? "?";
-                    byte red = byte.Parse(col.Attribute("Red")?.Value ?? "0");
-                    byte green = byte.Parse(col.Attribute("Green")?.Value ?? "0");
-                    byte blue = byte.Parse(col.Attribute("Blue")?.Value ?? "0");
+                    var cols = xElement.Elements("Color");
 
-                    colors.Add(new ColorListProperty(red, green, blue, name));
+                    ObservableCollection<ColorListProperty> colors = new();
+
+                    foreach (XElement col in cols)
+                    {
+                        string name = col.Attribute("Name")?.Value ?? "?";
+                        byte red = byte.Parse(col.Attribute("Red")?.Value ?? "0");
+                        byte green = byte.Parse(col.Attribute("Green")?.Value ?? "0");
+                        byte blue = byte.Parse(col.Attribute("Blue")?.Value ?? "0");
+
+                        colors.Add(new ColorListProperty(red, green, blue, name));
+                    }
+
+                    ColorPickerViewModel.ColorList.Add(new ColorList(colors, xElement.Attribute("Name")?.Value ?? "?"));
                 }
-
-                ColorPickerViewModel.ColorList.Add(new ColorList(colors, xElement.Attribute("Name")?.Value ?? "?"));
             }
         }
         public static void InitialFontManager()

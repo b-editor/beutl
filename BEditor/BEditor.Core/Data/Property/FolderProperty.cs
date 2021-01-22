@@ -17,16 +17,49 @@ namespace BEditor.Core.Data.Property
     public class FolderProperty : PropertyElement<FolderPropertyMetadata>, IEasingProperty, IBindable<string>
     {
         #region Fields
+        private static readonly PropertyChangedEventArgs _FolderArgs = new(nameof(Folder));
+        private string _Folder = "";
+        private List<IObserver<string>>? _List;
 
-        private static readonly PropertyChangedEventArgs folderArgs = new(nameof(Folder));
-        private string folder;
-        private List<IObserver<string>> list;
-
-        private IDisposable BindDispose;
-        private IBindable<string> Bindable;
-        private string bindHint;
-
+        private IDisposable? _BindDispose;
+        private IBindable<string>? _Bindable;
+        private string? _BindHint;
         #endregion
+
+
+        private List<IObserver<string>> Collection => _List ??= new();
+        /// <summary>
+        /// フォルダの名前を取得または設定します
+        /// </summary>
+        [DataMember]
+        public string Folder
+        {
+            get => _Folder;
+            set => SetValue(value, ref _Folder, _FolderArgs, this, state =>
+            {
+                foreach (var observer in state.Collection)
+                {
+                    try
+                    {
+                        observer.OnNext(state._Folder);
+                    }
+                    catch (Exception ex)
+                    {
+                        observer.OnError(ex);
+                    }
+                }
+            });
+        }
+        /// <inheritdoc/>
+        public string Value => Folder;
+        /// <inheritdoc/>
+        [DataMember]
+        public string? BindHint
+        {
+            get => _Bindable?.GetString();
+            private set => _BindHint = value;
+        }
+
 
         /// <summary>
         /// <see cref="FolderProperty"/> クラスの新しいインスタンスを初期化します
@@ -40,53 +73,16 @@ namespace BEditor.Core.Data.Property
         }
 
 
-        private List<IObserver<string>> Collection => list ??= new();
-        /// <summary>
-        /// フォルダの名前を取得または設定します
-        /// </summary>
-        [DataMember]
-        public string Folder
-        {
-            get => folder;
-            set => SetValue(value, ref folder, folderArgs, this, state =>
-            {
-                foreach (var observer in state.Collection)
-                {
-                    try
-                    {
-                        observer.OnNext(state.folder);
-                    }
-                    catch (Exception ex)
-                    {
-                        observer.OnError(ex);
-                    }
-                }
-            });
-        }
-        /// <inheritdoc/>
-        public string Value => Folder;
-        /// <inheritdoc/>
-        [DataMember]
-        public string BindHint
-        {
-            get => Bindable?.GetString();
-            private set => bindHint = value;
-        }
-
-
         #region Methods
 
         /// <inheritdoc/>
-        public override void Loaded()
+        protected override void OnLoad()
         {
-            if (IsLoaded) return;
-            if (bindHint is not null && this.GetBindable(bindHint, out var b))
+            if (_BindHint is not null && this.GetBindable(_BindHint, out var b))
             {
                 Bind(b);
             }
-            bindHint = null;
-
-            base.Loaded();
+            _BindHint = null;
         }
         /// <inheritdoc/>
         public override string ToString() => $"(Folder:{Folder} Name:{PropertyMetadata?.Name})";
@@ -120,15 +116,15 @@ namespace BEditor.Core.Data.Property
         /// <inheritdoc/>
         public void Bind(IBindable<string>? bindable)
         {
-            BindDispose?.Dispose();
-            Bindable = bindable;
+            _BindDispose?.Dispose();
+            _Bindable = bindable;
 
             if (bindable is not null)
             {
                 Folder = bindable.Value;
 
                 // bindableが変更時にthisが変更
-                BindDispose = bindable.Subscribe(this);
+                _BindDispose = bindable.Subscribe(this);
             }
         }
 
@@ -145,9 +141,9 @@ namespace BEditor.Core.Data.Property
         /// <remarks>このクラスは <see cref="CommandManager.Do(IRecordCommand)"/> と併用することでコマンドを記録できます</remarks>
         public sealed class ChangeFolderCommand : IRecordCommand
         {
-            private readonly FolderProperty property;
-            private readonly string @new;
-            private readonly string old;
+            private readonly FolderProperty _Property;
+            private readonly string _New;
+            private readonly string _Old;
 
             /// <summary>
             /// <see cref="ChangeFolderCommand"/> クラスの新しいインスタンスを初期化します
@@ -157,24 +153,25 @@ namespace BEditor.Core.Data.Property
             /// <exception cref="ArgumentNullException"><paramref name="property"/> が <see langword="null"/> です</exception>
             public ChangeFolderCommand(FolderProperty property, string path)
             {
-                this.property = property ?? throw new ArgumentNullException(nameof(property));
-                this.@new = path;
-                old = this.property.Folder;
+                _Property = property ?? throw new ArgumentNullException(nameof(property));
+                _New = path;
+                _Old = _Property.Folder;
             }
 
+            public string Name => CommandName.ChangeFolder;
 
             /// <inheritdoc/>
-            public void Do() => property.Folder = @new;
+            public void Do() => _Property.Folder = _New;
 
             /// <inheritdoc/>
             public void Redo() => Do();
 
             /// <inheritdoc/>
-            public void Undo() => property.Folder = old;
+            public void Undo() => _Property.Folder = _Old;
         }
 
         #endregion
     }
 
-    public record FolderPropertyMetadata(string Name, string Default) : PropertyElementMetadata(Name);
+    public record FolderPropertyMetadata(string Name, string Default = "") : PropertyElementMetadata(Name);
 }

@@ -1,16 +1,15 @@
 ﻿using System;
+using System.Collections;
 using System.Collections.Generic;
-using System.Collections.ObjectModel;
 using System.ComponentModel;
+using System.Dynamic;
 using System.Linq;
-using System.Linq.Expressions;
 using System.Runtime.Serialization;
 using System.Threading.Tasks;
 
 using BEditor.Core.Command;
 using BEditor.Core.Data.Primitive.Effects;
 using BEditor.Core.Data.Property;
-using BEditor.Core.Properties;
 
 namespace BEditor.Core.Data
 {
@@ -21,19 +20,16 @@ namespace BEditor.Core.Data
     public abstract class EffectElement : ComponentObject, IChild<ClipData>, IParent<PropertyElement>, ICloneable, IHasId, IElementObject
     {
         #region Fields
-
-        private static readonly PropertyChangedEventArgs isEnabledArgs = new(nameof(IsEnabled));
-        private static readonly PropertyChangedEventArgs isExpandedArgs = new(nameof(IsExpanded));
-        private bool isEnabled = true;
-        private bool isExpanded = true;
-        private ClipData clipData;
-        private IEnumerable<PropertyElement> cachedlist;
-
+        private static readonly PropertyChangedEventArgs _IsEnabledArgs = new(nameof(IsEnabled));
+        private static readonly PropertyChangedEventArgs _IsExpandedArgs = new(nameof(IsExpanded));
+        private bool _IsEnabled = true;
+        private bool _IsExpanded = true;
+        private ClipData? _Parent;
+        private IEnumerable<PropertyElement>? _CachedList;
         #endregion
 
-
         /// <inheritdoc/>
-        public IEnumerable<PropertyElement> Children => cachedlist ??= Properties.ToArray();
+        public IEnumerable<PropertyElement> Children => _CachedList ??= Properties.ToArray();
         /// <summary>
         /// Get the name of the <see cref="EffectElement"/>.
         /// </summary>
@@ -45,8 +41,8 @@ namespace BEditor.Core.Data
         [DataMember]
         public bool IsEnabled
         {
-            get => isEnabled;
-            set => SetValue(value, ref isEnabled, isEnabledArgs);
+            get => _IsEnabled;
+            set => SetValue(value, ref _IsEnabled, _IsEnabledArgs);
         }
         /// <summary>
         /// Get or set whether the expander is open.
@@ -55,26 +51,26 @@ namespace BEditor.Core.Data
         [DataMember]
         public bool IsExpanded
         {
-            get => isExpanded;
-            set => SetValue(value, ref isExpanded, isExpandedArgs);
+            get => _IsExpanded;
+            set => SetValue(value, ref _IsExpanded, _IsExpandedArgs);
         }
         /// <summary>
         /// Get the <see cref="PropertyElement"/> to display on the GUI.
         /// </summary>
         public abstract IEnumerable<PropertyElement> Properties { get; }
         /// <inheritdoc/>
-        public ClipData Parent
+        public ClipData? Parent
         {
-            get => clipData;
+            get => _Parent;
             internal set
             {
-                clipData = value;
+                _Parent = value;
 
                 Parallel.ForEach(Children, property => property.Parent = this);
             }
         }
         /// <inheritdoc/>
-        public int Id => Parent.Effect.IndexOf(this);
+        public int Id => Parent?.Effect?.IndexOf(this) ?? -1;
         /// <inheritdoc/>
         public bool IsLoaded { get; private set; }
 
@@ -97,18 +93,31 @@ namespace BEditor.Core.Data
         public virtual void PreviewRender(EffectRenderArgs args) { }
 
         /// <inheritdoc/>
-        public virtual void Loaded()
+        public void Load()
         {
             if (IsLoaded) return;
+
+            OnLoad();
 
             IsLoaded = true;
         }
         /// <inheritdoc/>
-        public virtual void Unloaded()
+        public void Unload()
         {
             if (!IsLoaded) return;
 
+            OnUnload();
+
             IsLoaded = false;
+        }
+
+        protected virtual void OnLoad()
+        {
+
+        }
+        protected virtual void OnUnload()
+        {
+
         }
 
         #endregion
@@ -119,8 +128,8 @@ namespace BEditor.Core.Data
         /// </summary>
         internal sealed class CheckCommand : IRecordCommand
         {
-            private readonly EffectElement effect;
-            private readonly bool value;
+            private readonly EffectElement _Effect;
+            private readonly bool _Value;
 
             /// <summary>
             /// <see cref="CheckCommand"/> Initialize a new instance of the class.
@@ -130,24 +139,26 @@ namespace BEditor.Core.Data
             /// <exception cref="ArgumentNullException"><paramref name="effect"/> is <see langword="null"/>.</exception>
             public CheckCommand(EffectElement effect, bool value)
             {
-                this.effect = effect ?? throw new ArgumentNullException(nameof(effect));
-                this.value = value;
+                _Effect = effect ?? throw new ArgumentNullException(nameof(effect));
+                _Value = value;
             }
 
+            public string Name => CommandName.EnableDisableEffect;
+
             /// <inheritdoc/>
-            public void Do() => effect.IsEnabled = value;
+            public void Do() => _Effect.IsEnabled = _Value;
             /// <inheritdoc/>
             public void Redo() => Do();
             /// <inheritdoc/>
-            public void Undo() => effect.IsEnabled = !value;
+            public void Undo() => _Effect.IsEnabled = !_Value;
         }
         /// <summary>
         /// Represents a command that changes the order of the effects.
         /// </summary>
         internal sealed class UpCommand : IRecordCommand
         {
-            private readonly ClipData data;
-            private readonly EffectElement effect;
+            private readonly ClipData _Clip;
+            private readonly EffectElement _Effect;
 
             /// <summary>
             /// <see cref="UpCommand"/> Initialize a new instance of the class.
@@ -156,20 +167,21 @@ namespace BEditor.Core.Data
             /// <exception cref="ArgumentNullException"><paramref name="effect"/> is <see langword="null"/>.</exception>
             public UpCommand(EffectElement effect)
             {
-                this.effect = effect ?? throw new ArgumentNullException(nameof(effect));
-                data = effect.Parent;
+                this._Effect = effect ?? throw new ArgumentNullException(nameof(effect));
+                _Clip = effect.Parent!;
             }
 
+            public string Name => CommandName.UpEffect;
 
             /// <inheritdoc/>
             public void Do()
             {
                 //変更前のインデックス
-                int index = data.Effect.IndexOf(effect);
+                int index = _Clip.Effect.IndexOf(_Effect);
 
                 if (index != 1)
                 {
-                    data.Effect.Move(index, index - 1);
+                    _Clip.Effect.Move(index, index - 1);
                 }
             }
             /// <inheritdoc/>
@@ -178,11 +190,11 @@ namespace BEditor.Core.Data
             public void Undo()
             {
                 //変更前のインデックス
-                int index = data.Effect.IndexOf(effect);
+                int index = _Clip.Effect.IndexOf(_Effect);
 
-                if (index != data.Effect.Count() - 1)
+                if (index != _Clip.Effect.Count() - 1)
                 {
-                    data.Effect.Move(index, index + 1);
+                    _Clip.Effect.Move(index, index + 1);
                 }
             }
         }
@@ -191,8 +203,8 @@ namespace BEditor.Core.Data
         /// </summary>
         internal sealed class DownCommand : IRecordCommand
         {
-            private readonly ClipData data;
-            private readonly EffectElement effect;
+            private readonly ClipData _Clip;
+            private readonly EffectElement _Effect;
 
             /// <summary>
             /// <see cref="DownCommand"/> Initialize a new instance of the class.
@@ -201,20 +213,21 @@ namespace BEditor.Core.Data
             /// <exception cref="ArgumentNullException"><paramref name="effect"/> is <see langword="null"/>.</exception>
             public DownCommand(EffectElement effect)
             {
-                this.effect = effect ?? throw new ArgumentNullException(nameof(effect));
-                data = effect.Parent;
+                _Effect = effect ?? throw new ArgumentNullException(nameof(effect));
+                _Clip = effect.Parent!;
             }
 
+            public string Name => CommandName.DownEffect;
 
             /// <inheritdoc/>
             public void Do()
             {
                 //変更前のインデックス
-                int index = data.Effect.IndexOf(effect);
+                int index = _Clip.Effect.IndexOf(_Effect);
 
-                if (index != data.Effect.Count() - 1)
+                if (index != _Clip.Effect.Count() - 1)
                 {
-                    data.Effect.Move(index, index + 1);
+                    _Clip.Effect.Move(index, index + 1);
                 }
             }
             /// <inheritdoc/>
@@ -223,11 +236,11 @@ namespace BEditor.Core.Data
             public void Undo()
             {
                 //変更前のインデックス
-                int index = data.Effect.IndexOf(effect);
+                int index = _Clip.Effect.IndexOf(_Effect);
 
                 if (index != 1)
                 {
-                    data.Effect.Move(index, index - 1);
+                    _Clip.Effect.Move(index, index - 1);
                 }
             }
         }
@@ -236,9 +249,9 @@ namespace BEditor.Core.Data
         /// </summary>
         internal sealed class RemoveCommand : IRecordCommand
         {
-            private readonly ClipData data;
-            private readonly EffectElement effect;
-            private readonly int index;
+            private readonly ClipData _Clip;
+            private readonly EffectElement _Effect;
+            private readonly int _Indec;
 
             /// <summary>
             /// <see cref="RemoveCommand"/> Initialize a new instance of the class.
@@ -247,25 +260,26 @@ namespace BEditor.Core.Data
             /// <exception cref="ArgumentNullException"><paramref name="effect"/> is <see langword="null"/>.</exception>
             public RemoveCommand(EffectElement effect)
             {
-                this.effect = effect ?? throw new ArgumentNullException(nameof(effect));
-                this.data = effect.Parent;
-                index = data.Effect.IndexOf(effect);
+                _Effect = effect ?? throw new ArgumentNullException(nameof(effect));
+                _Clip = effect.Parent!;
+                _Indec = _Clip.Effect.IndexOf(effect);
             }
+
+            public string Name => CommandName.RemoveEffect;
 
             /// <inheritdoc/>
             public void Do()
             {
-                data.Effect.RemoveAt(index);
-                effect.Unloaded();
+                _Clip.Effect.RemoveAt(_Indec);
+                _Effect.Unload();
             }
-
             /// <inheritdoc/>
             public void Redo() => Do();
             /// <inheritdoc/>
             public void Undo()
             {
-                effect.Loaded();
-                data.Effect.Insert(index, effect);
+                _Effect.Load();
+                _Clip.Effect.Insert(_Indec, _Effect);
             }
         }
         /// <summary>
@@ -273,8 +287,8 @@ namespace BEditor.Core.Data
         /// </summary>
         internal sealed class AddCommand : IRecordCommand
         {
-            private readonly ClipData data;
-            private readonly EffectElement effect;
+            private readonly ClipData _Clip;
+            private readonly EffectElement _Effect;
 
             /// <summary>
             /// <see cref="AddCommand"/>Initialize a new instance of the class.
@@ -285,10 +299,10 @@ namespace BEditor.Core.Data
             public AddCommand(EffectElement effect)
             {
                 if (effect.Parent is null) throw new ArgumentException("effect.ClipData is null", nameof(effect));
-                this.effect = effect ?? throw new ArgumentNullException(nameof(effect));
+                _Effect = effect ?? throw new ArgumentNullException(nameof(effect));
 
-                this.data = effect.Parent;
-                if (!(data.Effect[0] as ObjectElement).EffectFilter(effect)) throw new NotSupportedException();
+                _Clip = effect.Parent;
+                if (!((ObjectElement)_Clip.Effect[0]).EffectFilter(effect)) throw new NotSupportedException();
             }
             /// <summary>
             /// <see cref="AddCommand"/> Initialize a new instance of the class.
@@ -300,141 +314,40 @@ namespace BEditor.Core.Data
             public AddCommand(EffectElement effect, ClipData clip)
             {
                 if (clip is null) throw new ArgumentNullException(nameof(clip));
-                
-                this.effect = effect ?? throw new ArgumentNullException(nameof(effect));
-                this.data = clip;
+
+                _Effect = effect ?? throw new ArgumentNullException(nameof(effect));
+                _Clip = clip;
                 effect.Parent = clip;
-                if (!(data.Effect[0] as ObjectElement).EffectFilter(effect)) throw new NotSupportedException();
+                if (!((ObjectElement)_Clip.Effect[0]).EffectFilter(effect)) throw new NotSupportedException();
             }
+
+            public string Name => CommandName.AddEffect;
 
             /// <inheritdoc/>
             public void Do()
             {
-                effect.Loaded();
-                data.Effect.Add(effect);
+                _Effect.Load();
+                _Clip.Effect.Add(_Effect);
             }
-
             /// <inheritdoc/>
             public void Redo() => Do();
             /// <inheritdoc/>
             public void Undo()
             {
-                data.Effect.Remove(effect);
-                effect.Unloaded();
+                _Clip.Effect.Remove(_Effect);
+                _Effect.Unload();
             }
         }
-    }
-
-    public class EffectMetadata
-    {
-        public string Name { get; set; }
-        public Type Type { get; set; }
-        public Func<EffectElement> CreateFunc { get; set; }
-        public IEnumerable<EffectMetadata> Children { get; set; }
-
-        public static ObservableCollection<EffectMetadata> LoadedEffects { get; } = new()
+        [DataContract]
+        internal class EmptyClass : ObjectElement
         {
-            new()
-            {
-                Name = Resources.Effects,
-                Children = new EffectMetadata[]
-                {
-                    new()
-                    {
-                        Name = Resources.Border,
-                        Type = typeof(Border),
-                        CreateFunc = () => new Border()
-                    },
-                    new()
-                    {
-                        Name = Resources.ColorKey,
-                        Type = typeof(ColorKey),
-                        CreateFunc = () => new ColorKey()
-                    },
-                    new()
-                    {
-                        Name = Resources.DropShadow,
-                        Type = typeof(Shadow),
-                        CreateFunc = () => new Shadow()
-                    },
-                    new()
-                    {
-                        Name = Resources.Blur,
-                        Type = typeof(Blur),
-                        CreateFunc = () => new Blur()
-                    },
-                    new()
-                    {
-                        Name = Resources.Monoc,
-                        Type = typeof(Monoc),
-                        CreateFunc = () => new Monoc()
-                    },
-                    new()
-                    {
-                        Name = Resources.Dilate,
-                        Type = typeof(Dilate),
-                        CreateFunc = () => new Dilate()
-                    },
-                    new()
-                    {
-                        Name = Resources.Erode,
-                        Type = typeof(Erode),
-                        CreateFunc = () => new Erode()
-                    },
-                    new()
-                    {
-                        Name = Resources.Clipping,
-                        Type = typeof(Clipping),
-                        CreateFunc = () => new Clipping()
-                    },
-                    new()
-                    {
-                        Name = Resources.AreaExpansion,
-                        Type = typeof(AreaExpansion),
-                        CreateFunc = () => new AreaExpansion()
-                    }
-                }
-            },
-            new()
-            {
-                Name = Resources.Camera,
-                Children = new EffectMetadata[]
-                {
-                    new()
-                    {
-                        Name = Resources.DepthTest,
-                        Type = typeof(DepthTest),
-                        CreateFunc = () => new DepthTest()
-                    },
-                    new()
-                    {
-                        Name = Resources.DirectionalLightSource,
-                        Type = typeof(DirectionalLightSource),
-                        CreateFunc = () => new DirectionalLightSource()
-                    },
-                    new()
-                    {
-                        Name = Resources.PointLightSource,
-                        Type = typeof(PointLightSource),
-                        CreateFunc = () => new PointLightSource()
-                    },
-                    new()
-                    {
-                        Name = Resources.SpotLight,
-                        Type = typeof(SpotLight),
-                        CreateFunc = () => new SpotLight()
-                    }
-                }
-            },
-#if DEBUG
-            new()
-            {
-                Name = "TestEffect",
-                Type = typeof(TestEffect),
-                CreateFunc = () => new TestEffect()
-            }
+            public override string Name => "Empty";
+            public override IEnumerable<PropertyElement> Properties => Array.Empty<PropertyElement>();
 
-#endif
-        };
+            public override void Render(EffectRenderArgs args)
+            {
+
+            }
+        }
     }
 }

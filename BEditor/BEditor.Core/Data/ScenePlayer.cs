@@ -19,8 +19,8 @@ namespace BEditor.Core.Data
         public PlayerState State { get; }
         public Frame CurrentFrame { get; }
 
-        public event EventHandler<PlayingEventArgs> Playing;
-        public event EventHandler Stopped;
+        public event EventHandler<PlayingEventArgs>? Playing;
+        public event EventHandler? Stopped;
 
         public void Play();
         public void Stop();
@@ -45,7 +45,7 @@ namespace BEditor.Core.Data
         public ScenePlayer(Scene scene)
         {
             Scene = scene;
-            framerate = scene.Parent.Framerate;
+            framerate = scene.Parent!.Framerate;
 
             timer = new Timer
             {
@@ -59,8 +59,8 @@ namespace BEditor.Core.Data
         public PlayerState State { get; private set; } = PlayerState.Stop;
         public Frame CurrentFrame { get; private set; }
 
-        public event EventHandler<PlayingEventArgs> Playing;
-        public event EventHandler Stopped;
+        public event EventHandler<PlayingEventArgs>? Playing;
+        public event EventHandler? Stopped;
 
         public void Play()
         {
