@@ -171,7 +171,7 @@ namespace BEditor.Views.SettingsControl
 	        #endregion
         };
 
-        public static FrameworkElement Create(object record)
+        public static VirtualizingStackPanel Create(object record)
         {
             var stack = new VirtualizingStackPanel();
             var type = record.GetType();

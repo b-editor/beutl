@@ -9,8 +9,8 @@ using System.Windows;
 using System.Windows.Threading;
 using System.Xml.Linq;
 
-using BEditor.Core.Data.Primitive.Properties;
-using BEditor.Core.Extensions.ViewCommand;
+using BEditor.Core.Data.Property;
+using BEditor.Core.Extensions;
 using BEditor.Core.Plugin;
 using BEditor.Core.Service;
 using BEditor.Drawing;

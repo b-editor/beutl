@@ -197,7 +197,7 @@ namespace BEditor.Core.Data
         /// <inheritdoc/>
         public object Clone()
         {
-            var clip = this.DeepClone();
+            var clip = this.DeepClone()!;
 
             clip.Parent = Parent;
             clip.Load();

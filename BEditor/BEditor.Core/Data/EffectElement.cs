@@ -80,7 +80,7 @@ namespace BEditor.Core.Data
         /// <inheritdoc/>
         public object Clone()
         {
-            return this.DeepClone();
+            return this.DeepClone()!;
         }
 
         /// <summary>
