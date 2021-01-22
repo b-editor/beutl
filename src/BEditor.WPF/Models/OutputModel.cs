@@ -124,25 +124,24 @@ namespace BEditor.Models
         public static void OutputVideo(string file, VideoCodec codec, Scene scene)
         {
             var t = false;
-            IVideoEncoder encoder = null;
             AppData.Current.AppStatus = Status.Output;
 
-            try
+            var content = new Loading(new ButtonType[] { ButtonType.Cancel })
             {
-                var content = new Loading(new ButtonType[] { ButtonType.Cancel })
+                Maximum =
                 {
-                    Maximum =
-                    {
-                        Value = scene.TotalFrame
-                    }
-                };
-                content.ButtonClicked += (_, _) => t = true;
-                var dialog = new NoneDialog(content);
-                dialog.Show();
+                    Value = scene.TotalFrame
+                }
+            };
+            content.ButtonClicked += (_, _) => t = true;
+            var dialog = new NoneDialog(content);
+            dialog.Show();
 
-                var thread = new Thread(() =>
+            var thread = new Thread(() =>
+            {
+                try
                 {
-                    encoder = new FFmpegEncoder(scene.Width, scene.Height, scene.Parent.Framerate, codec, file);
+                    var encoder = new FFmpegEncoder(scene.Width, scene.Height, scene.Parent.Framerate, codec, file);
 
                     for (Frame frame = 0; frame < scene.TotalFrame; frame++)
                     {
@@ -159,21 +158,22 @@ namespace BEditor.Models
                         encoder.Write(img);
                     }
 
-                    dialog.Dispatcher.Invoke(dialog.Close);
-                });
+                    encoder?.Dispose();
 
-                thread.SetApartmentState(ApartmentState.STA);
-                thread.Start();
-            }
-            catch (Exception e)
-            {
-                Message.Snackbar($"保存できませんでした : {e.Message}");
-            }
-            finally
-            {
-                encoder?.Dispose();
-                AppData.Current.AppStatus = Status.Edit;
-            }
+                    dialog.Dispatcher.Invoke(dialog.Close);
+                }
+                catch (Exception e)
+                {
+                    Message.Snackbar($"保存できませんでした : {e.Message}");
+                }
+                finally
+                {
+                    AppData.Current.AppStatus = Status.Edit;
+                }
+            });
+
+            thread.SetApartmentState(ApartmentState.STA);
+            thread.Start();
         }
     }
 }
