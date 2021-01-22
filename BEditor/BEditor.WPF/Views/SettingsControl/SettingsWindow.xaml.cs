@@ -8,6 +8,14 @@ namespace BEditor.Views.SettingsControl
     /// </summary>
     public partial class SettingsWindow : MetroWindow
     {
-        public SettingsWindow() => InitializeComponent();
+        public SettingsWindow()
+        {
+            InitializeComponent();
+        }
+
+        private void MetroWindow_Closing(object sender, System.ComponentModel.CancelEventArgs e)
+        {
+            Settings.Default.Save();
+        }
     }
 }

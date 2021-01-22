@@ -28,7 +28,6 @@ namespace BEditor.ViewModels.SettingsControl
                     ViewControl = child.Control;
                 }
             });
-            UnloadedCommand.Subscribe(_ => Settings.Default.Save());
 
 
             #region General
@@ -40,15 +39,23 @@ namespace BEditor.ViewModels.SettingsControl
                 Control = new Root()
             };
 
-            //外観
+            // 外観
             general.TreeViewChildren.Add(new TreeViewChild()
             {
                 Text = Resources.Appearance,
                 PackIconKind = PackIconKind.WindowMaximize,
                 Control = new Appearance()
             });
+            
+            // フォント
+            general.TreeViewChildren.Add(new TreeViewChild()
+            {
+                Text = Resources.Font,
+                PackIconKind = PackIconKind.FormatSize,
+                Control = new IncludeFont()
+            });
 
-            //その他
+            // その他
             general.TreeViewChildren.Add(new TreeViewChild()
             {
                 Text = Resources.Others,
@@ -115,7 +122,6 @@ namespace BEditor.ViewModels.SettingsControl
 
 
         public ReactiveCommand<object> TreeSelectCommand { get; } = new();
-        public ReactiveCommand<object> UnloadedCommand { get; } = new();
 
         public ObservableCollection<TreeViewChild> TreeViewProperty { get; set; } = new ObservableCollection<TreeViewChild>();
     }
