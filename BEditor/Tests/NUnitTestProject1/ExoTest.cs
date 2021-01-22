@@ -5,7 +5,7 @@ using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
 
-using BEditor.Extensions.Object;
+using BEditor.Extensions.AviUtl;
 
 using Microsoft.Extensions.Configuration;
 
