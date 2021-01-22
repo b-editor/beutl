@@ -1,0 +1,62 @@
+﻿<Controls:MetroWindow
+    x:Class="BEditor.Views.SettingsControls.SceneSettingsDialog"
+    xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+    xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+    xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+    xmlns:local="clr-namespace:BEditor.Views"
+    xmlns:Controls="clr-namespace:MahApps.Metro.Controls;assembly=MahApps.Metro" xmlns:md="http://materialdesigninxaml.net/winfx/xaml/themes"
+    xmlns:properties="clr-namespace:BEditor.Core.Properties;assembly=BEditor.Core"
+    mc:Ignorable="d"
+    Style="{StaticResource DefaultWindowStyle}"
+    Height="275" Width="450">
+    <Controls:MetroWindow.Resources>
+        <Style x:Key="HeaderLabel" TargetType="{x:Type Label}" BasedOn="{StaticResource MaterialDesignLabel}">
+            <Setter Property="Height" Value="25"/>
+            <Setter Property="Margin" Value="10,5,0,5"/>
+            <Setter Property="VerticalContentAlignment" Value="Center"/>
+        </Style>
+        <Style x:Key="TextBoxStyle" TargetType="{x:Type TextBox}" BasedOn="{StaticResource MaterialDesignTextBox}">
+            <Setter Property="Margin" Value="10,5,0,5"/>
+            <Setter Property="Width" Value="130"/>
+            <Setter Property="Height" Value="25"/>
+            <Setter Property="HorizontalAlignment" Value="Left"/>
+        </Style>
+    </Controls:MetroWindow.Resources>
+    <Controls:MetroWindow.LeftWindowCommands>
+        <Controls:WindowCommands>
+            <md:PackIcon Kind="Movie" Foreground="{StaticResource PrimaryHueMidBrush}" VerticalAlignment="Center" Margin="10,0,10,0" Width="18" Height="18" />
+        </Controls:WindowCommands>
+    </Controls:MetroWindow.LeftWindowCommands>
+    <Grid>
+        <Grid.ColumnDefinitions>
+            <ColumnDefinition/>
+            <ColumnDefinition Width="Auto"/>
+            <ColumnDefinition/>
+        </Grid.ColumnDefinitions>
+
+        <VirtualizingStackPanel>
+            <Label Content="{x:Static properties:Resources.Width}" Style="{StaticResource HeaderLabel}"/>
+            <Label Content="{x:Static properties:Resources.Height}" Style="{StaticResource HeaderLabel}"/>
+            <Separator Margin="5,5,5,5" Background="{x:Null}"/>
+            <Label Content="{x:Static properties:Resources.Name}" Style="{StaticResource HeaderLabel}"/>
+            <Label Content="{x:Static properties:Resources.Color}" Style="{StaticResource HeaderLabel}"/>
+        </VirtualizingStackPanel>
+
+        <Border Grid.Column="1" Background="{StaticResource MaterialDesignBodyLight}" Width="1" Margin="0,5,0,5"/>
+
+        <VirtualizingStackPanel Grid.Column="2">
+            <TextBox Text="{Binding Width.Value, Mode=TwoWay}" Style="{StaticResource TextBoxStyle}"/>
+            <TextBox Text="{Binding Height.Value, Mode=TwoWay}" Style="{StaticResource TextBoxStyle}"/>
+            <Separator Margin="5,5,5,5" Background="{x:Null}"/>
+            <TextBox Text="{Binding Name.Value, Mode=TwoWay}"  Style="{StaticResource TextBoxStyle}"/>
+            <TextBox Text="{Binding Color.Value, Mode=TwoWay}"  Style="{StaticResource TextBoxStyle}"/>
+        </VirtualizingStackPanel>
+
+
+        <VirtualizingStackPanel Grid.Column="2" VerticalAlignment="Bottom" Margin="10,0,10,10" Orientation="Horizontal" FlowDirection="RightToLeft" Grid.ColumnSpan="1">
+            <Button Style="{StaticResource MaterialDesignFlatButton}" Foreground="Red" Content="{x:Static properties:Resources.Cancel}" HorizontalAlignment="Left" IsCancel="True" Click="CloseClick"/>
+            <Button Style="{StaticResource MaterialDesignFlatButton}" Foreground="{StaticResource MaterialDesignBody}" Content="{x:Static properties:Resources.OK}" HorizontalAlignment="Left" Command="{Binding AdaptationCommand, Mode=OneTime}" IsDefault="True" Click="CloseClick"/>
+        </VirtualizingStackPanel>
+    </Grid>
+</Controls:MetroWindow>

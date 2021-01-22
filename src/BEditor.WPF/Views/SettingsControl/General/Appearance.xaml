@@ -1,0 +1,46 @@
+﻿<UserControl x:Class="BEditor.Views.SettingsControl.General.Appearance"
+             xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006" 
+             xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+             xmlns:data="clr-namespace:BEditor;assembly=BEditor.Settings"
+             xmlns:resources="clr-namespace:BEditor.Core.Properties;assembly=BEditor.Core"
+             xmlns:vm="clr-namespace:BEditor.ViewModels.SettingsControl.General"
+             xmlns:convert="clr-namespace:BEditor.ViewModels.Converters"
+             mc:Ignorable="d" 
+             xmlns:md="http://materialdesigninxaml.net/winfx/xaml/themes"
+             d:DesignHeight="450" d:DesignWidth="800">
+    <UserControl.DataContext>
+        <vm:AppearanceViewModel/>
+    </UserControl.DataContext>
+    <VirtualizingStackPanel>
+
+
+        <md:ColorZone Content="{x:Static resources:Resources.General}" Style="{StaticResource SettingsColorZone}"/>
+
+        <VirtualizingStackPanel Orientation="Horizontal" Height="45">
+            <CheckBox Command="{Binding UseDarkModeClick, Mode=OneTime}" IsChecked="{Binding UseDarkMode, Source={x:Static data:Settings.Default}, Mode=TwoWay}" Style="{StaticResource SettingsCheckBox}"/>
+            <TextBlock Text="{x:Static resources:Resources.UseDarkMode}" Style="{StaticResource SettingsCheckBoxContent}"/>
+        </VirtualizingStackPanel>
+
+
+        <md:ColorZone Content="{x:Static resources:Resources.TimeLine}" Style="{StaticResource SettingsColorZone}"/>
+
+        <Grid>
+            <Grid.ColumnDefinitions>
+                <ColumnDefinition Width="Auto"/>
+                <ColumnDefinition/>
+            </Grid.ColumnDefinitions>
+            <VirtualizingStackPanel>
+                <Label Content="{x:Static resources:Resources.ClipHeight}" Style="{StaticResource SettingsHeader}"/>
+                <Label Content="{x:Static resources:Resources.WidthOf1Frame}" Style="{StaticResource SettingsHeader}"/>
+                <Label Content="{x:Static resources:Resources.Language}" Style="{StaticResource SettingsHeader}"/>
+            </VirtualizingStackPanel>
+            <VirtualizingStackPanel Grid.Column="1">
+                <TextBox Text="{Binding ClipHeight, Source={x:Static data:Settings.Default}, Mode=TwoWay}" Style="{StaticResource SettingsTextBox}"/>
+                <TextBox Text="{Binding WidthOf1Frame, Source={x:Static data:Settings.Default}, Mode=TwoWay}" Style="{StaticResource SettingsTextBox}"/>
+                <ComboBox ItemsSource="{Binding Langs, Mode=OneTime}" SelectedItem="{Binding Language, Source={x:Static data:Settings.Default}, Mode=TwoWay}" Style="{StaticResource SettingsComboBox}"/>
+            </VirtualizingStackPanel>
+        </Grid>
+    </VirtualizingStackPanel>
+</UserControl>

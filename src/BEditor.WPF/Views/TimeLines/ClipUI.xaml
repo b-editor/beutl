@@ -1,0 +1,171 @@
+﻿<UserControl
+             xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006" 
+             xmlns:d="http://schemas.microsoft.com/expression/blend/2008" 
+             xmlns:local="clr-namespace:BEditor.Views.TimeLines" 
+             xmlns:properties="clr-namespace:BEditor.Core.Properties;assembly=BEditor.Core"
+             xmlns:md="http://materialdesigninxaml.net/winfx/xaml/themes"
+             xmlns:mah="http://metro.mahapps.com/winfx/xaml/controls"
+             xmlns:i="http://schemas.microsoft.com/xaml/behaviors"
+             xmlns:vm="clr-namespace:BEditor.ViewModels"
+             xmlns:convert="clr-namespace:BEditor.ViewModels.Converters"
+             x:Class="BEditor.Views.TimeLines.ClipUI"
+             Width="{Binding WidthProperty.Value, Mode=OneWay}"
+             Margin="{Binding MarginProperty.Value, Mode=OneWay}"
+             Cursor="{Binding ClipCursor.Value, Mode=TwoWay}"
+             mc:Ignorable="d">
+    <UserControl.Resources>
+        <convert:EffectElementToKeyFrame x:Key="EffectElementToKeyFrame"/>
+        <Style x:Key="BorberStyle" TargetType="Border">
+            <Style.Triggers>
+                <Trigger Property="IsMouseOver" Value="True">
+                    <Setter Property="Opacity" Value="0.85"/>
+                </Trigger>
+            </Style.Triggers>
+        </Style>
+    </UserControl.Resources>
+    <VirtualizingStackPanel Orientation="Vertical" VirtualizingPanel.IsVirtualizing="True" VirtualizingPanel.VirtualizationMode="Recycling">
+        <ContentControl>
+            <i:Interaction.Triggers>
+                <i:EventTrigger EventName="MouseDoubleClick">
+                    <i:InvokeCommandAction Command="{Binding ClipMouseDoubleClickCommand, Mode=OneTime}"/>
+                </i:EventTrigger>
+            </i:Interaction.Triggers>
+            <Border Background="{Binding ClipColor.Value}" Style="{StaticResource BorberStyle}">
+                <i:Interaction.Triggers>
+                    <i:EventTrigger EventName="MouseLeftButtonDown">
+                        <i:InvokeCommandAction
+                            Command="{Binding ClipMouseLeftDownCommand, Mode=OneTime}"/>
+                    </i:EventTrigger>
+                    <i:EventTrigger EventName="MouseLeftButtonUp">
+                        <i:InvokeCommandAction Command="{Binding ClipMouseUpCommand, Mode=OneTime}"/>
+                    </i:EventTrigger>
+                    <i:EventTrigger EventName="MouseMove">
+                        <i:InvokeCommandAction Command="{Binding ClipMouseMoveCommand, Mode=OneTime}" PassEventArgsToCommand="True" EventArgsConverterParameter="{Binding RelativeSource={RelativeSource AncestorType=Border}}" EventArgsConverter="{x:Static vm:MousePositionConverter.Converter}"/>
+                    </i:EventTrigger>
+                    <i:EventTrigger EventName="MouseRightButtonDown">
+                        <i:InvokeCommandAction Command="{Binding ClipMouseRightDownCommand, Mode=OneTime}" PassEventArgsToCommand="True" EventArgsConverterParameter="{Binding RelativeSource={RelativeSource AncestorType=Border}}" EventArgsConverter="{x:Static vm:MousePositionConverter.Converter}"/>
+                    </i:EventTrigger>
+                </i:Interaction.Triggers>
+                <Border.ContextMenu>
+                    <ContextMenu>
+                        <MenuItem Command="{Binding ClipDataLogCommand,Mode=OneTime}">
+                            <MenuItem.Header>
+                                <VirtualizingStackPanel Orientation="Horizontal">
+                                    <md:PackIcon Kind="InformationOutline" Margin="5,0,5,0"/>
+                                    <TextBlock Text="{x:Static properties:Resources.ClipInfo}" Margin="20,0,5,0"/>
+                                </VirtualizingStackPanel>
+                            </MenuItem.Header>
+                        </MenuItem>
+                        <Separator/>
+                        <MenuItem Command="{Binding ClipSeparateCommand, Mode=OneTime}">
+                            <MenuItem.Header>
+                                <Grid>
+                                    <Grid.ColumnDefinitions>
+                                        <ColumnDefinition Width="200"/>
+                                        <ColumnDefinition/>
+                                    </Grid.ColumnDefinitions>
+                                    <VirtualizingStackPanel Orientation="Horizontal">
+                                        <md:PackIcon Kind="PaperCutVertical" Margin="5,0,5,0"/>
+                                        <TextBlock Text="{x:Static properties:Resources.Separate}" Margin="20,0,5,0"/>
+                                    </VirtualizingStackPanel>
+                                    <TextBlock Text="" Grid.Column="1"/>
+                                </Grid>
+                            </MenuItem.Header>
+                        </MenuItem>
+                        <Separator/>
+                        <MenuItem Command="{Binding ClipCutCommand, Mode=OneTime}">
+                            <MenuItem.Header>
+                                <Grid>
+                                    <Grid.ColumnDefinitions>
+                                        <ColumnDefinition Width="200"/>
+                                        <ColumnDefinition/>
+                                    </Grid.ColumnDefinitions>
+                                    <VirtualizingStackPanel Orientation="Horizontal">
+                                        <md:PackIcon Kind="ContentCut" Margin="5,0,5,0"/>
+                                        <TextBlock Text="{x:Static properties:Resources.Cut}" Margin="20,0,5,0"/>
+                                    </VirtualizingStackPanel>
+                                    <TextBlock Text="Ctrl+X" Grid.Column="1"/>
+                                </Grid>
+                            </MenuItem.Header>
+                        </MenuItem>
+                        <MenuItem Command="{Binding ClipCopyCommand, Mode=OneTime}">
+                            <MenuItem.Header>
+                                <Grid>
+                                    <Grid.ColumnDefinitions>
+                                        <ColumnDefinition Width="200"/>
+                                        <ColumnDefinition/>
+                                    </Grid.ColumnDefinitions>
+                                    <VirtualizingStackPanel Orientation="Horizontal">
+                                        <md:PackIcon Kind="ContentCopy" Margin="5,0,5,0"/>
+                                        <TextBlock Text="{x:Static properties:Resources.Copy}" Margin="20,0,5,0"/>
+                                    </VirtualizingStackPanel>
+                                    <TextBlock Text="Ctrl+C" Grid.Column="1"/>
+                                </Grid>
+                            </MenuItem.Header>
+                        </MenuItem>
+                        <MenuItem IsEnabled="False" >
+                            <MenuItem.Header>
+                                <Grid>
+                                    <Grid.ColumnDefinitions>
+                                        <ColumnDefinition Width="200"/>
+                                        <ColumnDefinition/>
+                                    </Grid.ColumnDefinitions>
+                                    <VirtualizingStackPanel Orientation="Horizontal">
+                                        <md:PackIcon Kind="ContentPaste" Margin="5,0,5,0"/>
+                                        <TextBlock Text="{x:Static properties:Resources.Paste}" Margin="20,0,5,0"/>
+                                    </VirtualizingStackPanel>
+                                    <TextBlock Text="Ctrl+V" Grid.Column="1"/>
+                                </Grid>
+                            </MenuItem.Header>
+                        </MenuItem>
+                        <Separator/>
+                        <MenuItem Command="{Binding ClipDeleteCommand, Mode=OneTime}">
+                            <MenuItem.Header>
+                                <Grid>
+                                    <Grid.ColumnDefinitions>
+                                        <ColumnDefinition Width="200"/>
+                                        <ColumnDefinition/>
+                                    </Grid.ColumnDefinitions>
+                                    <VirtualizingStackPanel Orientation="Horizontal">
+                                        <md:PackIcon Kind="Delete" Margin="5,0,5,0"/>
+                                        <TextBlock Text="{x:Static properties:Resources.Remove}" Margin="20,0,5,0"/>
+                                    </VirtualizingStackPanel>
+                                    <TextBlock Text="Delete" Grid.Column="1"/>
+                                </Grid>
+                            </MenuItem.Header>
+                        </MenuItem>
+                    </ContextMenu>
+                </Border.ContextMenu>
+                <Grid Height="{Binding TrackHeight, Mode=OneTime}">
+                    <VirtualizingStackPanel Orientation="Horizontal">
+                        <TextBlock FontSize="14" Foreground="White" VerticalAlignment="Center" Margin="10,0,10,0" Text="{Binding ClipText.Value, Mode=OneWay}"/>
+                        <TextBlock FontSize="12" Foreground="White" VerticalAlignment="Center" Margin="10,0,10,0" Text="{Binding ClipData.LabelText, Mode=OneWay}"/>
+                    </VirtualizingStackPanel>
+                </Grid>
+            </Border>
+
+        </ContentControl>
+        <ItemsControl
+            x:Name="itemsControl"
+            ItemsSource="{Binding ClipData.Effect, Mode=OneWay}"
+            VerticalContentAlignment="Stretch"
+            HorizontalContentAlignment="Stretch"
+            AlternationCount="{Binding Items.Count, ElementName=itemsControl}"
+            VirtualizingPanel.IsVirtualizing="True"
+            VirtualizingPanel.VirtualizationMode="Recycling">
+            <ItemsControl.ItemTemplate>
+                <DataTemplate>
+                    <Label
+                        Padding="0"
+                        HorizontalAlignment="Stretch"
+                        VerticalAlignment="Stretch"
+                        HorizontalContentAlignment="Stretch"
+                        VerticalContentAlignment="Stretch"
+                        Content="{Binding Converter={StaticResource EffectElementToKeyFrame}}"/>
+                </DataTemplate>
+            </ItemsControl.ItemTemplate>
+        </ItemsControl>
+    </VirtualizingStackPanel>
+</UserControl>

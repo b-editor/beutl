@@ -1,0 +1,8 @@
+{
+  "profiles": {
+    "BEditor": {
+      "commandName": "Project",
+      "nativeDebugging": false
+    }
+  }
+}
