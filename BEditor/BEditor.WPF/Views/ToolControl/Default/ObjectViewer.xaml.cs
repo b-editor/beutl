@@ -67,7 +67,7 @@ namespace BEditor.Views.ToolControl.Default
                 }
             }
         }
-        private Scene GetScene()
+        private Scene? GetScene()
         {
             if (TreeView.SelectedItem is Scene scene) return scene;
             else if (TreeView.SelectedItem is ClipData clip) return clip.GetParent();
@@ -75,14 +75,14 @@ namespace BEditor.Views.ToolControl.Default
             else if (TreeView.SelectedItem is PropertyElement property) return property.GetParent3();
             else throw new IndexOutOfRangeException();
         }
-        private ClipData GetClip()
+        private ClipData? GetClip()
         {
             if (TreeView.SelectedItem is ClipData clip) return clip;
             else if (TreeView.SelectedItem is EffectElement effect) return effect.GetParent();
             else if (TreeView.SelectedItem is PropertyElement property) return property.GetParent2();
             else throw new IndexOutOfRangeException();
         }
-        private EffectElement GetEffect()
+        private EffectElement? GetEffect()
         {
             if (TreeView.SelectedItem is EffectElement effect) return effect;
             else if (TreeView.SelectedItem is PropertyElement property) return property.GetParent();
@@ -93,6 +93,7 @@ namespace BEditor.Views.ToolControl.Default
             try
             {
                 var scene = GetScene();
+                if (scene is null) return;
                 if (scene is RootScene)
                 {
                     Message.Snackbar("RootScene は削除することができません");
@@ -103,7 +104,7 @@ namespace BEditor.Views.ToolControl.Default
                     Core.Properties.Resources.CommandQ1,
                     types: new ButtonType[] { ButtonType.Yes, ButtonType.No }) == ButtonType.Yes)
                 {
-                    scene.Parent.PreviewScene = scene.Parent.SceneList[0];
+                    scene.Parent!.PreviewScene = scene.Parent!.SceneList[0];
                     scene.Parent.SceneList.Remove(scene);
                     scene.Unload();
                 }
@@ -118,6 +119,7 @@ namespace BEditor.Views.ToolControl.Default
             try
             {
                 var clip = GetClip();
+                if (clip is null) return;
                 clip.Parent.CreateRemoveCommand(clip).Execute();
             }
             catch (IndexOutOfRangeException)
@@ -130,7 +132,8 @@ namespace BEditor.Views.ToolControl.Default
             try
             {
                 var effect = GetEffect();
-                effect.Parent.CreateRemoveCommand(effect).Execute();
+                if (effect is null) return;
+                effect.Parent!.CreateRemoveCommand(effect).Execute();
             }
             catch (IndexOutOfRangeException)
             {
@@ -149,6 +152,7 @@ namespace BEditor.Views.ToolControl.Default
             try
             {
                 var scene = GetScene();
+                if (scene is null) return;
                 viewmodel.Scene.Value = scene;
             }
             finally
@@ -163,11 +167,12 @@ namespace BEditor.Views.ToolControl.Default
 
             try
             {
-                viewmodel.Scene.Value = GetScene();
+                viewmodel.Scene.Value = GetScene() ?? throw new IndexOutOfRangeException();
             }
-            catch(IndexOutOfRangeException)
+            catch (IndexOutOfRangeException ex)
             {
-                var clip = GetClip();
+                var clip = GetClip() ?? throw ex;
+
                 viewmodel.Scene.Value = clip.Parent;
                 viewmodel.TargetClip.Value = clip;
             }
