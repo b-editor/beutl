@@ -10,7 +10,7 @@ namespace BEditor.WPF.Controls
 {
     public class FloatToStringConverter : IValueConverter
     {
-        public object Convert(object value, Type targetType, object parameter, CultureInfo culture)
+        public object? Convert(object value, Type targetType, object parameter, CultureInfo culture)
         {
             return value.ToString();
         }
@@ -24,7 +24,7 @@ namespace BEditor.WPF.Controls
     }
     public class ByteToStringConverter : IValueConverter
     {
-        public object Convert(object value, Type targetType, object parameter, CultureInfo culture)
+        public object? Convert(object value, Type targetType, object parameter, CultureInfo culture)
         {
             return value.ToString();
         }

@@ -11,12 +11,8 @@ namespace BEditor.Models.Services
 {
     public class FileDialogService : IFileDialogService
     {
-        public bool ShowSaveFileDialog(SaveFileRecord record)
+        private static string GenFilter(SaveFileRecord record)
         {
-            var fileDialog = new SaveFileDialog();
-            fileDialog.FileName = record.DefaultFileName;
-            fileDialog.AddExtension = true;
-
             StringBuilder builder = new();
             foreach (var item in record.Filters)
             {
@@ -37,7 +33,16 @@ namespace BEditor.Models.Services
                 builder.Append('|');
             }
             builder.Append("All Files|*.*");
-            fileDialog.Filter = builder.ToString();
+            return builder.ToString();
+        }
+        public bool ShowSaveFileDialog(SaveFileRecord record)
+        {
+            var fileDialog = new SaveFileDialog
+            {
+                FileName = record.DefaultFileName,
+                Filter = GenFilter(record),
+                AddExtension = true
+            };
 
             var result = fileDialog.ShowDialog();
 

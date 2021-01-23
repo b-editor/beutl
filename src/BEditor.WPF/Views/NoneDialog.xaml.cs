@@ -1,6 +1,4 @@
-﻿using System.Windows.Forms;
-
-using BEditor.Views.MessageContent;
+﻿using BEditor.Views.MessageContent;
 
 using MahApps.Metro.Controls;
 

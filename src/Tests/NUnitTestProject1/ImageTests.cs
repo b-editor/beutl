@@ -1,14 +1,13 @@
-using BEditor.Core.Data.Control;
-using BEditor.Media;
-using BEditor.Drawing;
-using BEditor.Drawing.Pixel;
-
-using NUnit.Framework;
-
 using System;
 using System.Collections.Generic;
 using System.IO;
 using System.Runtime.InteropServices;
+
+using BEditor.Drawing;
+using BEditor.Drawing.Pixel;
+using BEditor.Media;
+
+using NUnit.Framework;
 
 namespace NUnitTestProject1
 {

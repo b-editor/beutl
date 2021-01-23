@@ -129,7 +129,7 @@ namespace BEditor.Views
             {
                 var _settingcontrol = new ExpandTree()
                 {
-                    Header = group.PropertyMetadata?.Name,
+                    Header = group.PropertyMetadata?.Name ?? "",
                     HeaderHeight = 35F
                 };
 
@@ -328,7 +328,7 @@ namespace BEditor.Views
             {
                 var expander = new ExpandTree()
                 {
-                    Header = group.PropertyMetadata?.Name,
+                    Header = group.PropertyMetadata?.Name ?? "",
                     HeaderHeight = Setting.ClipHeight + 1,
                     TreeStair = 1
                 };

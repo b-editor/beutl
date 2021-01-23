@@ -4,7 +4,6 @@ using System.Linq;
 using System.Runtime.InteropServices;
 using System.Text;
 using System.Threading.Tasks;
-using System.Windows.Forms;
 
 namespace BEditor.Views
 {
@@ -18,11 +17,6 @@ namespace BEditor.Views
             return ShowDialog(IntPtr.Zero);
         }
 
-        public bool ShowDialog(IWin32Window owner)
-        {
-            return ShowDialog(owner.Handle);
-        }
-
         public bool ShowDialog(IntPtr owner)
         {
             var dlg = (IFileOpenDialog)new FileOpenDialogInternal();
@@ -33,9 +27,8 @@ namespace BEditor.Views
                 IShellItem item;
                 if (!string.IsNullOrEmpty(FileName))
                 {
-                    IntPtr idl;
                     uint atts = 0;
-                    if (NativeMethods.SHILCreateFromPath(FileName, out idl, ref atts) == 0)
+                    if (NativeMethods.SHILCreateFromPath(FileName, out IntPtr idl, ref atts) == 0)
                     {
                         if (NativeMethods.SHCreateShellItem(IntPtr.Zero, IntPtr.Zero, idl, out item) == 0)
                         {
@@ -54,8 +47,7 @@ namespace BEditor.Views
                     return false;
 
                 dlg.GetResult(out item);
-                string outputPath;
-                item.GetDisplayName(SIGDN.SIGDN_FILESYSPATH, out outputPath);
+                item.GetDisplayName(SIGDN.SIGDN_FILESYSPATH, out string outputPath);
                 this.FileName = outputPath;
 
                 return true;

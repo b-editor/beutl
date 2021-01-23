@@ -18,13 +18,12 @@ namespace BEditor.WPF.Controls
         public static readonly DependencyProperty HeaderProperty = DependencyProperty.Register("Header", typeof(object), typeof(ExpandTree));
         public static readonly DependencyProperty HeaderColorProperty = DependencyProperty.Register("HeaderColor", typeof(SolidColorBrush), typeof(ExpandTree));
         public static readonly DependencyProperty IsExpandedProperty = DependencyProperty.Register("IsExpanded", typeof(bool), typeof(ExpandTree), new FrameworkPropertyMetadata(true, FrameworkPropertyMetadataOptions.BindsTwoWayByDefault, IsExpandedChanged));
-        private Label _content;
-        private Label header;
-        private VirtualizingStackPanel roothead;
-        private Storyboard OpenStoryboard = new Storyboard();
-        private Storyboard CloseStoryboard = new Storyboard();
-        private DoubleAnimation OpenAnm = new DoubleAnimation() { Duration = TimeSpan.FromSeconds(0.25) };
-        private DoubleAnimation CloseAnm = new DoubleAnimation() { Duration = TimeSpan.FromSeconds(0.25), To = 0 };
+        private Label? _content;
+        private VirtualizingStackPanel? roothead;
+        private readonly Storyboard OpenStoryboard = new Storyboard();
+        private readonly Storyboard CloseStoryboard = new Storyboard();
+        private readonly DoubleAnimation OpenAnm = new DoubleAnimation() { Duration = TimeSpan.FromSeconds(0.25) };
+        private readonly DoubleAnimation CloseAnm = new DoubleAnimation() { Duration = TimeSpan.FromSeconds(0.25), To = 0 };
 
 
         static ExpandTree()
@@ -110,10 +109,10 @@ namespace BEditor.WPF.Controls
             get => (SolidColorBrush)GetValue(HeaderColorProperty);
             set => SetValue(HeaderColorProperty, value);
         }
-        public object Content { get; set; }
+        public object? Content { get; set; }
         public int TreeStair { private get; set; }
 
-        public event EventHandler SizeChange;
+        public event EventHandler? SizeChange;
 
         private static void IsExpandedChanged(DependencyObject d, DependencyPropertyChangedEventArgs e)
         {
@@ -144,7 +143,6 @@ namespace BEditor.WPF.Controls
         {
             base.OnApplyTemplate();
             _content = (Label)GetTemplateChild("_content");
-            header = (Label)GetTemplateChild("header");
             roothead = (VirtualizingStackPanel)GetTemplateChild("roothead");
             var button = (Button)GetTemplateChild("button");
 
@@ -170,12 +168,12 @@ namespace BEditor.WPF.Controls
 
             ExpanderUpdate();
         }
-        private void Button_Click(object sender, RoutedEventArgs e)
+        private void Button_Click(object? sender, RoutedEventArgs e)
         {
             IsExpanded = !IsExpanded;
         }
         //子要素のサイズ変更イベント
-        private void Value_SizeChange(object sender, EventArgs e)
+        private void Value_SizeChange(object? sender, EventArgs e)
         {
             ExpanderUpdate();
         }
@@ -189,6 +187,6 @@ namespace BEditor.WPF.Controls
 
     public interface ISizeChangeMarker
     {
-        public event EventHandler SizeChange;
+        public event EventHandler? SizeChange;
     }
 }

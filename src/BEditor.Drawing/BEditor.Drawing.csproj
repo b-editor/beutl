@@ -1,12 +1,10 @@
-<Project Sdk="Microsoft.NET.Sdk">
+﻿<Project Sdk="Microsoft.NET.Sdk">
 
   <PropertyGroup>
     <TargetFramework>net5.0</TargetFramework>
-    <Nullable>enable</Nullable>
-    <Authors>indigo-san</Authors>
-    <Version>0.0.4</Version>
-    <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
   </PropertyGroup>
+  
+  <Import Project="..\..\props\common.props" />
 
   <ItemGroup>
     <PackageReference Include="SkiaSharp" Version="2.80.2" />
