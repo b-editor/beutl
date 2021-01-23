@@ -21,6 +21,7 @@ namespace BEditor.Core.Service
         public string DefaultFileName { get; set; } = "";
         public string FileName { get; set; }
     }
-    public record FileFilter(string Name, string Extension);
+    public record FileExtension(string Value);
+    public record FileFilter(string Name, IEnumerable<FileExtension> Extensions);
     public record FileDialogRecord(List<FileFilter> Filters);
 }

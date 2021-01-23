@@ -8,6 +8,7 @@ using System.Runtime.Serialization;
 using BEditor.Core.Command;
 using BEditor.Core.Data.Property;
 using BEditor.Core.Properties;
+using BEditor.Core.Service;
 using BEditor.Drawing;
 using BEditor.Drawing.Pixel;
 
@@ -17,7 +18,13 @@ namespace BEditor.Core.Data.Primitive.Objects
     [CustomClipUI(Color = 0x0091ea)]
     public class ImageFile : ImageObject
     {
-        public static readonly FilePropertyMetadata FileMetadata = new(Resources.File, "", "png,jpeg,jpg,bmp", Resources.ImageFile);
+        public static readonly FilePropertyMetadata FileMetadata = new(Resources.File, "", new(Resources.ImageFile, new FileExtension[]
+        {
+            new("png"),
+            new("jpeg"),
+            new("jpg"),
+            new("bmp"),
+        }));
         private Image<BGRA32>? _Source;
         private IDisposable? _Disposable;
 

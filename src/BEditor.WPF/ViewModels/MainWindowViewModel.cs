@@ -1,37 +1,22 @@
 ﻿using System;
-using System.Collections.ObjectModel;
 using System.Diagnostics;
+using System.IO;
+using System.Reactive.Linq;
 using System.Windows.Media;
+using System.Windows.Media.Imaging;
 
-using BEditor.Models;
-using BEditor.Models.Extension;
-using BEditor.Views;
-using BEditor.Views.MessageContent;
-using BEditor.Views.SettingsControl;
-
-using BEditor.Core.Data;
+using BEditor.Core;
+using BEditor.Core.Command;
 using BEditor.Core.Extensions;
+using BEditor.Core.Service;
+using BEditor.Models;
+using BEditor.ViewModels.SettingsControl;
+using BEditor.Views.SettingsControl;
 
 using MaterialDesignThemes.Wpf;
 
-using Microsoft.WindowsAPICodePack.Dialogs;
-
-using BEditor.Core.Service;
-using BEditor.Core.Command;
-using System.Reactive.Linq;
 using Reactive.Bindings;
-using BEditor.Views.CreateDialog;
-using System.Windows.Media.Imaging;
 using Reactive.Bindings.Extensions;
-using BEditor.Core.Properties;
-using System.Runtime.InteropServices;
-using System.Windows;
-using BEditor.Core;
-using System.IO;
-using System.Text;
-using System.Threading;
-using BEditor.ViewModels.CreateDialog;
-using BEditor.ViewModels.SettingsControl;
 
 namespace BEditor.ViewModels
 {
@@ -54,7 +39,7 @@ namespace BEditor.ViewModels
         public ReactiveCommand SendFeedback { get; } = new();
         public ReactiveCommand OpenThisRepository { get; } = new();
         #endregion
-        
+
         #region Statusbar Right
         public ReactiveCommand OpenProjectDirectory { get; } = new();
         public ReactiveCommand ConvertJson { get; } = new();
@@ -230,6 +215,9 @@ namespace BEditor.ViewModels
 
 
 
-        private static void SettingShowCommand() => new SettingsWindow() { Owner = App.Current.MainWindow }.ShowDialog();
+        private static void SettingShowCommand()
+        {
+            new SettingsWindow() { Owner = App.Current.MainWindow }.ShowDialog();
+        }
     }
 }

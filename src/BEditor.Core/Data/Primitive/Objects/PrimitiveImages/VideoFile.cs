@@ -6,6 +6,7 @@ using BEditor.Core.Command;
 using BEditor.Core.Data.Property;
 using BEditor.Core.Extensions;
 using BEditor.Core.Properties;
+using BEditor.Core.Service;
 using BEditor.Drawing;
 using BEditor.Drawing.Pixel;
 using BEditor.Media.Decoder;
@@ -17,7 +18,13 @@ namespace BEditor.Core.Data.Primitive.Objects
     {
         public static readonly EasePropertyMetadata SpeedMetadata = new(Resources.Speed, 100);
         public static readonly EasePropertyMetadata StartMetadata = new(Resources.Start, 1, float.NaN, 0);
-        public static readonly FilePropertyMetadata FileMetadata = new(Resources.File, "", "mp4,avi,wmv,mov", Resources.VideoFile);
+        public static readonly FilePropertyMetadata FileMetadata = new(Resources.File, "", new(Resources.VideoFile, new FileExtension[]
+        {
+            new("mp4"),
+            new("avi"),
+            new("wmv"),
+            new("mov")
+        }));
         private IVideoDecoder? _VideoReader;
         private IDisposable? _Disposable;
 

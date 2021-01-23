@@ -44,7 +44,7 @@ namespace BEditor.Models.Extension
 
                 //96,
 
-                BitmapSourceConverter.ToWriteableBitmap(img, MainWindowViewModel.Current.PreviewImage.Value);
+                BitmapSourceConverter.ToWriteableBitmap(img, MainWindowViewModel.Current.PreviewImage.Value!);
             });
         }
 

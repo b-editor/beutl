@@ -6,9 +6,8 @@ using System.Threading.Tasks;
 
 using BEditor.Core.Command;
 using BEditor.Core.Data.Property;
+using BEditor.Views;
 using BEditor.Views.PropertyControls;
-
-using Microsoft.WindowsAPICodePack.Dialogs;
 
 using Reactive.Bindings;
 using Reactive.Bindings.Extensions;
@@ -49,14 +48,11 @@ namespace BEditor.ViewModels.PropertyControl
         private static string? OpenDialog()
         {
             // ダイアログのインスタンスを生成
-            var dialog = new CommonOpenFileDialog()
-            {
-                IsFolderPicker = true
-            };
+            var dialog = new OpenFolderDialog();
 
 
             // ダイアログを表示する
-            if (dialog.ShowDialog() == CommonFileDialogResult.Ok)
+            if (dialog.ShowDialog())
             {
                 return dialog.FileName;
             }

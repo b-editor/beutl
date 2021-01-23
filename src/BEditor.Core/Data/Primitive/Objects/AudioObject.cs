@@ -8,6 +8,7 @@ using System.Threading.Tasks;
 using BEditor.Core.Command;
 using BEditor.Core.Data.Property;
 using BEditor.Core.Properties;
+using BEditor.Core.Service;
 
 using NAudio.Wave;
 
@@ -17,7 +18,7 @@ namespace BEditor.Core.Data.Primitive.Objects
     [CustomClipUI(Color = 0xff1744)]
     public class AudioObject : ObjectElement
     {
-        public static readonly FilePropertyMetadata FileMetadata = VideoFile.FileMetadata with { Filter = "mp3,wav", FilterName = "" };
+        public static readonly FilePropertyMetadata FileMetadata = VideoFile.FileMetadata with { Filter = new("", new FileExtension[] { new("mp3"), new("wav") }) };
         public static readonly EasePropertyMetadata VolumeMetadata = new("Volume", 50, 100, 0);
         public static readonly ValuePropertyMetadata StartMetadata = new(Resources.Start + "(Milliseconds)", 0, Min: 0);
         private WaveOut? _Player;

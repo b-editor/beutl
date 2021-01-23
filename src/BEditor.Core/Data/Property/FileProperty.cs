@@ -8,6 +8,7 @@ using System.Threading.Tasks;
 using BEditor.Core.Command;
 using BEditor.Core.Data.Bindings;
 using BEditor.Core.Data.Property;
+using BEditor.Core.Service;
 
 namespace BEditor.Core.Data.Property
 {
@@ -177,5 +178,8 @@ namespace BEditor.Core.Data.Property
     /// <summary>
     /// <see cref="BEditor.Core.Data.Property.FileProperty"/> のメタデータを表します
     /// </summary>
-    public record FilePropertyMetadata(string Name, string DefaultFile = "", string Filter = "", string FilterName = "") : PropertyElementMetadata(Name);
+    public record FilePropertyMetadata(
+        string Name,
+        string DefaultFile = "",
+        FileFilter? Filter = null) : PropertyElementMetadata(Name);
 }

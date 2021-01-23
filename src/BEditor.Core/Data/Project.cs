@@ -201,7 +201,7 @@ namespace BEditor.Core.Data
                     DefaultFileName = "新しいプロジェクト.bedit",
                     Filters =
                     {
-                        new(Resources.ProjectFile, "bedit")
+                        new(Resources.ProjectFile, new FileExtension[] { new("bedit") })
                     }
                 };
 
@@ -245,7 +245,7 @@ namespace BEditor.Core.Data
                     DefaultFileName = "新しいプロジェクト.bedit",
                     Filters =
                     {
-                        new(Resources.ProjectFile, "bedit")
+                        new(Resources.ProjectFile, new FileExtension[] { new("bedit") })
                     }
                 };
 
@@ -313,8 +313,8 @@ namespace BEditor.Core.Data
                 DefaultFileName = (Filename is not null) ? Path.GetFileName(Filename) : "新しいプロジェクト.bedit",
                 Filters =
                 {
-                    new(Resources.ProjectFile, "bedit"),
-                    new(Resources.JsonFile, "json"),
+                    new(Resources.ProjectFile, new FileExtension[] { new("bedit") }),
+                    new(Resources.JsonFile, new FileExtension[] { new("json") }),
                 }
             };
             var mode = SerializeMode.Binary;
