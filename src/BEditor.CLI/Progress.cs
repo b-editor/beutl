@@ -18,9 +18,9 @@ namespace BEditor
 
         public Progress(int width, int parMax)
         {
-            this.Columns = WindowWidth;
-            this.Width = width;
-            this.ParMax = parMax;
+            Columns = WindowWidth;
+            Width = width;
+            ParMax = parMax;
         }
 
         public virtual void Update(string message)
@@ -31,7 +31,7 @@ namespace BEditor
             int widthNow = (int)Math.Floor(Width * parcent);
 
             string gauge = new string('>', widthNow) + new string(' ', Width - widthNow);
-            string status = $"({(parcent * 100).ToString("f1")}%<-{Par}/{ParMax})";
+            string status = $"({parcent * 100:f1}%<-{Par}/{ParMax})";
 
             Error.WriteLine($"#[{gauge}]#{status}");
             ClearScreenDown();
@@ -72,7 +72,7 @@ namespace BEditor
             float parcent = (float)Par / ParMax;
             int widthNow = (int)Math.Floor(Width * parcent);
 
-            string status = $"({(parcent * 100).ToString("f1")}%<-{Par}/{ParMax})";
+            string status = $"({parcent * 100:f1}%<-{Par}/{ParMax})";
 
             BackgroundColor = ConsoleColor.Yellow;
             ForegroundColor = ConsoleColor.DarkYellow;

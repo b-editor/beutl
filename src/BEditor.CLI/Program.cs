@@ -1,15 +1,15 @@
 ﻿using System;
-using System.Linq;
 using System.IO;
+using System.Linq;
 using System.Text;
 
 using BEditor.Core;
 using BEditor.Core.Data;
+using BEditor.Drawing;
+using BEditor.Media;
+using BEditor.Media.Encoder;
 
 using Microsoft.Extensions.CommandLineUtils;
-using BEditor.Drawing;
-using BEditor.Media.Encoder;
-using BEditor.Media;
 
 namespace BEditor
 {
@@ -73,7 +73,7 @@ namespace BEditor
                     using var project = new Project(input.Value);
                     project.Load();
                     var scene = sc.HasValue() ? project.PreviewScene
-                        : int.TryParse(sc.Value(), out var index) ? project.SceneList[index] : project.SceneList.ToList().Find(s => s.Name == sc.Value());
+                        : int.TryParse(sc.Value(), out var index) ? project.SceneList[index] : project.SceneList.ToList().Find(s => s.Name == sc.Value())!;
 
                     using var image = scene.Render(int.Parse(frame.Value)).Image;
                     image.Encode(output.Value);
@@ -97,7 +97,7 @@ namespace BEditor
                     using var project = new Project(input.Value);
                     project.Load();
                     var scene = !sc.HasValue() ? project.PreviewScene
-                        : int.TryParse(sc.Value(), out var index) ? project.SceneList[index] : project.SceneList.ToList().Find(s => s.Name == sc.Value());
+                        : int.TryParse(sc.Value(), out var index) ? project.SceneList[index] : project.SceneList.ToList().Find(s => s.Name == sc.Value())!;
 
                     using var encoder = new FFmpegEncoder(scene.Width, scene.Height, project.Framerate, VideoCodec.Default, output.Value);
                     var progress = new ProgressColor(55, scene.TotalFrame);
