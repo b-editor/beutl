@@ -56,14 +56,14 @@ namespace BEditor.Views.PropertyControls
             };
         }
 
-        public event EventHandler SizeChange;
+        public event EventHandler? SizeChange;
 
         public double LogicHeight
         {
             get
             {
                 double h;
-                if ((bool)togglebutton.IsChecked)
+                if ((bool)togglebutton.IsChecked!)
                 {
                     h = OpenHeight;
                 }
@@ -76,7 +76,7 @@ namespace BEditor.Views.PropertyControls
             }
         }
 
-        private void Value_CollectionChanged(object sender, NotifyCollectionChangedEventArgs e)
+        private void Value_CollectionChanged(object? sender, NotifyCollectionChangedEventArgs e)
         {
             if (e.Action is NotifyCollectionChangedAction.Add or NotifyCollectionChangedAction.Remove)
             {
@@ -85,10 +85,10 @@ namespace BEditor.Views.PropertyControls
             }
         }
 
-        private void ListToggleClick(object sender, RoutedEventArgs e)
+        private void ListToggleClick(object? sender, RoutedEventArgs? e)
         {
             //開く
-            if ((bool)togglebutton.IsChecked)
+            if ((bool)togglebutton.IsChecked!)
             {
                 OpenStoryboard.Begin();
             }
@@ -142,7 +142,7 @@ namespace BEditor.Views.PropertyControls
 
                 property.Value[index] = property.Clamp(val);
 
-                AppData.Current.Project.PreviewUpdate(property.GetParent2());
+                AppData.Current.Project!.PreviewUpdate(property.GetParent2()!);
 
                 e.Handled = true;
             }
@@ -157,7 +157,7 @@ namespace BEditor.Views.PropertyControls
             {
                 property.Value[index] = property.Clamp(_out);
 
-                AppData.Current.Project.PreviewUpdate(property.GetParent2());
+                AppData.Current.Project!.PreviewUpdate(property.GetParent2()!);
             }
         }
     }

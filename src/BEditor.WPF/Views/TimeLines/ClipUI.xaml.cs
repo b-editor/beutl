@@ -88,7 +88,7 @@ namespace BEditor.Views.TimeLines
             }
         }
 
-        private void Value_SizeChange(object sender, EventArgs e)
+        private void Value_SizeChange(object? sender, EventArgs? e)
         {
             Dispatcher.Invoke(() =>
             {

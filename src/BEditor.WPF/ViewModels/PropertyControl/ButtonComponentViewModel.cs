@@ -23,7 +23,7 @@ namespace BEditor.ViewModels.PropertyControl
             Command.Subscribe(() => Property.Execute());
         }
 
-        public ReadOnlyReactiveProperty<PropertyElementMetadata> Metadata { get; }
+        public ReadOnlyReactiveProperty<PropertyElementMetadata?> Metadata { get; }
         public ButtonComponent Property { get; }
         public ReactiveCommand Command { get; } = new();
     }

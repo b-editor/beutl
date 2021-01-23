@@ -22,10 +22,10 @@ namespace BEditor.ViewModels.PropertyControl
                 .ToReadOnlyReactiveProperty();
 
             Command.Subscribe(font => CommandManager.Do(new FontProperty.ChangeSelectCommand(property, font)));
-            Reset.Subscribe(() => CommandManager.Do(new FontProperty.ChangeSelectCommand(Property, Property.PropertyMetadata.SelectItem)));
+            Reset.Subscribe(() => CommandManager.Do(new FontProperty.ChangeSelectCommand(Property, Property.PropertyMetadata?.SelectItem ?? FontProperty.FontList[0])));
         }
 
-        public ReadOnlyReactiveProperty<FontPropertyMetadata> Metadata { get; }
+        public ReadOnlyReactiveProperty<FontPropertyMetadata?> Metadata { get; }
         public FontProperty Property { get; }
         public ReactiveCommand<Font> Command { get; } = new();
         public ReactiveCommand Reset { get; } = new();

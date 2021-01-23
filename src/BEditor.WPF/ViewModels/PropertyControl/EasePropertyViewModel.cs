@@ -23,7 +23,7 @@ namespace BEditor.ViewModels.PropertyControl
             EasingChangeCommand.Subscribe(x => CommandManager.Do(new EaseProperty.ChangeEaseCommand(Property, x.Name)));
         }
 
-        public ReadOnlyReactiveProperty<EasePropertyMetadata> Metadata { get; }
+        public ReadOnlyReactiveProperty<EasePropertyMetadata?> Metadata { get; }
         public EaseProperty Property { get; }
         public ReactiveCommand<EasingMetadata> EasingChangeCommand { get; } = new();
     }

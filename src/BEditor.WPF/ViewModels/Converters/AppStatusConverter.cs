@@ -14,7 +14,7 @@ namespace BEditor.ViewModels.Converters
 {
     public class AppStatusIconConverter : IValueConverter
     {
-        public object Convert(object value, Type targetType, object parameter, CultureInfo culture)
+        public object? Convert(object value, Type targetType, object parameter, CultureInfo culture)
         {
             if (value is Status status)
             {
@@ -31,7 +31,7 @@ namespace BEditor.ViewModels.Converters
             else return null;
         }
 
-        public object ConvertBack(object value, Type targetType, object parameter, CultureInfo culture)
+        public object? ConvertBack(object value, Type targetType, object parameter, CultureInfo culture)
         {
             return null;
         }
@@ -39,7 +39,7 @@ namespace BEditor.ViewModels.Converters
 
     public class AppStatusToPlayerIconConverter : IValueConverter
     {
-        public object Convert(object value, Type targetType, object parameter, CultureInfo culture)
+        public object? Convert(object value, Type targetType, object parameter, CultureInfo culture)
         {
             if (value is Status status)
             {
@@ -50,14 +50,14 @@ namespace BEditor.ViewModels.Converters
             else return null;
         }
 
-        public object ConvertBack(object value, Type targetType, object parameter, CultureInfo culture)
+        public object? ConvertBack(object value, Type targetType, object parameter, CultureInfo culture)
         {
             return null;
         }
     }
     public class AppStatusTextConverter : IValueConverter
     {
-        public object Convert(object value, Type targetType, object parameter, CultureInfo culture)
+        public object? Convert(object value, Type targetType, object parameter, CultureInfo culture)
         {
             if (value is Status status)
             {
@@ -74,7 +74,7 @@ namespace BEditor.ViewModels.Converters
             else return null;
         }
 
-        public object ConvertBack(object value, Type targetType, object parameter, CultureInfo culture)
+        public object? ConvertBack(object value, Type targetType, object parameter, CultureInfo culture)
         {
             return null;
         }

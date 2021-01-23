@@ -32,7 +32,7 @@ namespace BEditor.Models
             {
                 CommandManager.Undo();
 
-                AppData.Current.Project.PreviewUpdate();
+                AppData.Current.Project!.PreviewUpdate();
                 AppData.Current.AppStatus = Status.Edit;
             });
             Redo.Where(_ => AppData.Current.Project is not null)
@@ -40,7 +40,7 @@ namespace BEditor.Models
             {
                 CommandManager.Redo();
 
-                AppData.Current.Project.PreviewUpdate();
+                AppData.Current.Project!.PreviewUpdate();
                 AppData.Current.AppStatus = Status.Edit;
             });
             CommandManager.CanUndoChange += (sender, e) => UndoIsEnabled.Value = CommandManager.CanUndo;
@@ -56,19 +56,19 @@ namespace BEditor.Models
                 .Subscribe(_ => ClipCreate?.Invoke(this, EventArgs.Empty));
 
             EffectAdd.Where(_ => AppData.Current.Project is not null)
-                .Select(_ => AppData.Current.Project.PreviewScene.SelectItem)
+                .Select(_ => AppData.Current.Project!.PreviewScene.SelectItem)
                 .Where(c => c is not null)
-                .Subscribe(c => EffectAddTo?.Invoke(this, c));
+                .Subscribe(c => EffectAddTo?.Invoke(this, c!));
 
             ClipRemove.Where(_ => AppData.Current.Project is not null)
-                .Select(_ => AppData.Current.Project.PreviewScene.SelectItem)
+                .Select(_ => AppData.Current.Project!.PreviewScene.SelectItem)
                 .Where(c => c is not null)
-                .Subscribe(clip => clip.Parent.CreateRemoveCommand(clip).Execute());
+                .Subscribe(clip => clip!.Parent.CreateRemoveCommand(clip).Execute());
             #endregion
 
             #region Clipboard
             ClipboardCopy.Where(_ => AppData.Current.Project is not null)
-                .Select(_ => AppData.Current.Project.PreviewScene.SelectItem)
+                .Select(_ => AppData.Current.Project!.PreviewScene.SelectItem)
                 .Where(clip => clip is not null)
                 .Subscribe(clip =>
                 {
@@ -80,11 +80,11 @@ namespace BEditor.Models
                 });
 
             ClipboardCut.Where(_ => AppData.Current.Project is not null)
-                .Select(_ => AppData.Current.Project.PreviewScene.SelectItem)
+                .Select(_ => AppData.Current.Project!.PreviewScene.SelectItem)
                 .Where(clip => clip is not null)
                 .Subscribe(clip =>
                 {
-                    clip.Parent.CreateRemoveCommand(clip).Execute();
+                    clip!.Parent.CreateRemoveCommand(clip).Execute();
 
                     using var memory = new MemoryStream();
                     Serialize.SaveToStream(clip, memory, SerializeMode.Json);
@@ -94,7 +94,7 @@ namespace BEditor.Models
                 });
 
             ClipboardPaste.Where(_ => AppData.Current.Project is not null)
-                .Select(_ => AppData.Current.Project.PreviewScene.GetCreateTimeLineViewModel())
+                .Select(_ => AppData.Current.Project!.PreviewScene.GetCreateTimeLineViewModel())
                 .Subscribe(timeline =>
                 {
                     var text = Clipboard.GetText();
@@ -124,9 +124,9 @@ namespace BEditor.Models
             #endregion
         }
 
-        public event EventHandler SceneCreate;
-        public event EventHandler ClipCreate;
-        public event EventHandler<ClipData> EffectAddTo;
+        public event EventHandler? SceneCreate;
+        public event EventHandler? ClipCreate;
+        public event EventHandler<ClipData>? EffectAddTo;
 
         public ReactiveCommand Undo { get; } = new();
         public ReactiveCommand Redo { get; } = new();
@@ -146,7 +146,7 @@ namespace BEditor.Models
         public ReactiveCommand ClipRemove { get; } = new();
         public ReactiveCommand EffectAdd { get; } = new();
 
-        private void Executed(object sender, CommandType type)
+        private void Executed(object? sender, CommandType type)
         {
             try
             {
@@ -159,7 +159,7 @@ namespace BEditor.Models
 
                     UnDoList.Insert(0, command.Name);
 
-                    AppData.Current.Project.PreviewUpdate();
+                    AppData.Current.Project!.PreviewUpdate();
                 }
                 else if (type == CommandType.Undo)
                 {

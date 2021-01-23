@@ -44,7 +44,7 @@ namespace BEditor.ViewModels.CreateDialog
             });
         }
 
-        public ReactiveProperty<Scene> Scene { get; } = new(AppData.Current.Project.PreviewScene);
+        public ReactiveProperty<Scene> Scene { get; } = new(AppData.Current.Project!.PreviewScene);
         public ReactiveProperty<ObjectMetadata> Type { get; } = new(ObjectMetadata.LoadedObjects[0]);
         public ReactiveProperty<int> Start { get; }
         public ReactiveProperty<int> Length { get; }

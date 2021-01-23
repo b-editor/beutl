@@ -32,7 +32,7 @@ namespace BEditor.ViewModels.PropertyControl
                     CommandManager.Do(new FolderProperty.ChangeFolderCommand(Property, file));
                 }
             });
-            Reset.Subscribe(() => CommandManager.Do(new FolderProperty.ChangeFolderCommand(Property, Property.PropertyMetadata.Default)));
+            Reset.Subscribe(() => CommandManager.Do(new FolderProperty.ChangeFolderCommand(Property, Property.PropertyMetadata?.Default ?? "")));
             Bind.Subscribe(() =>
             {
                 var window = new BindSettings(new BindSettingsViewModel<string>(Property));
@@ -40,13 +40,13 @@ namespace BEditor.ViewModels.PropertyControl
             });
         }
 
-        public ReadOnlyReactiveProperty<FolderPropertyMetadata> Metadata { get; }
+        public ReadOnlyReactiveProperty<FolderPropertyMetadata?> Metadata { get; }
         public FolderProperty Property { get; }
         public ReactiveCommand Command { get; } = new();
         public ReactiveCommand Reset { get; } = new();
         public ReactiveCommand Bind { get; } = new();
 
-        private static string OpenDialog()
+        private static string? OpenDialog()
         {
             // ダイアログのインスタンスを生成
             var dialog = new CommonOpenFileDialog()

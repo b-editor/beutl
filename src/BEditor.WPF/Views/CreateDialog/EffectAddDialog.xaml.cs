@@ -30,7 +30,10 @@ namespace BEditor.Views.CreateDialog
             InitializeComponent();
             TreeView.SelectedItemChanged += (s, e) =>
             {
-                (DataContext as EffectAddDialogViewModel).Type.Value = e.NewValue as EffectMetadata;
+                if (DataContext is EffectAddDialogViewModel viewModel && e.NewValue is EffectMetadata metadata)
+                {
+                    viewModel.Type.Value = metadata;
+                }
             };
         }
 

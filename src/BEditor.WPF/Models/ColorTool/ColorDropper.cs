@@ -35,7 +35,7 @@ namespace BEditor.Models.ColorTool
         //クリック判定
         private bool IsClickDown => GetKeyState(0x01) < 0;
 
-        private void Timer_Tick(object sender, EventArgs e)
+        private void Timer_Tick(object? sender, EventArgs e)
         {
             if (IsClickDown)
             {

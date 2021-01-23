@@ -30,11 +30,11 @@ namespace BEditor.Models
         private OutputModel()
         {
             ImageCommand.Where(_ => AppData.Current.Project is not null)
-                .Select(_ => AppData.Current.Project.PreviewScene)
+                .Select(_ => AppData.Current.Project!.PreviewScene)
                 .Subscribe(OutputImage);
 
             VideoCommand.Where(_ => AppData.Current.Project is not null)
-                .Select(_ => AppData.Current.Project.PreviewScene)
+                .Select(_ => AppData.Current.Project!.PreviewScene)
                 .Subscribe(OutputVideo);
         }
 
@@ -141,21 +141,24 @@ namespace BEditor.Models
             {
                 try
                 {
-                    var encoder = new FFmpegEncoder(scene.Width, scene.Height, scene.Parent.Framerate, codec, file);
+                    var encoder = new FFmpegEncoder(scene.Width, scene.Height, scene.Parent!.Framerate, codec, file);
 
                     for (Frame frame = 0; frame < scene.TotalFrame; frame++)
                     {
                         if (t) return;
                         content.NowValue.Value = frame;
 
-                        Image<BGRA32> img = null;
+                        Image<BGRA32>? img = null;
 
                         dialog.Dispatcher.Invoke(() =>
                         {
                             img = scene.Render(frame, RenderType.VideoOutput).Image;
                         });
 
-                        encoder.Write(img);
+                        if (img is not null)
+                        {
+                            encoder.Write(img);
+                        }
                     }
 
                     encoder?.Dispose();

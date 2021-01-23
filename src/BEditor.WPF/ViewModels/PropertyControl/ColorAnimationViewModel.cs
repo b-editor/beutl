@@ -21,7 +21,7 @@ namespace BEditor.ViewModels.PropertyControl
             EasingChangeCommand.Subscribe(x => CommandManager.Do(new ColorAnimationProperty.ChangeEaseCommand(Property, x.Name)));
         }
 
-        public ReadOnlyReactiveProperty<ColorAnimationPropertyMetadata> Metadata { get; }
+        public ReadOnlyReactiveProperty<ColorAnimationPropertyMetadata?> Metadata { get; }
         public ColorAnimationProperty Property { get; }
         public ReactiveCommand<EasingMetadata> EasingChangeCommand { get; } = new();
     }

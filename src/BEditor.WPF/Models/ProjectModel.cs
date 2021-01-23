@@ -26,11 +26,11 @@ namespace BEditor.Models
         {
             SaveAs.Where(_ => AppData.Current.Project is not null)
                 .Select(_ => AppData.Current.Project)
-                .Subscribe(p => p.SaveAs());
+                .Subscribe(p => p!.SaveAs());
 
             Save.Where(_ => AppData.Current.Project is not null)
                 .Select(_ => AppData.Current.Project)
-                .Subscribe(p => p.Save());
+                .Subscribe(p => p!.Save());
 
             Open.Select(_ => AppData.Current).Subscribe(app =>
             {
@@ -82,7 +82,7 @@ namespace BEditor.Models
             });
         }
 
-        public event EventHandler CreateEvent;
+        public event EventHandler? CreateEvent;
 
         public ReactiveCommand SaveAs { get; } = new();
         public ReactiveCommand Save { get; } = new();

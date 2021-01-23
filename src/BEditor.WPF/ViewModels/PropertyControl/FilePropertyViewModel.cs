@@ -24,14 +24,14 @@ namespace BEditor.ViewModels.PropertyControl
 
             Command.Subscribe(x =>
             {
-                var file = OpenDialog(Property.PropertyMetadata?.FilterName, Property.PropertyMetadata?.Filter);
+                var file = OpenDialog(Property.PropertyMetadata?.FilterName ?? "", Property.PropertyMetadata?.Filter ?? "");
 
                 if (file != null)
                 {
                     CommandManager.Do(new FileProperty.ChangeFileCommand(Property, file));
                 }
             });
-            Reset.Subscribe(() => CommandManager.Do(new FileProperty.ChangeFileCommand(Property, Property.PropertyMetadata.DefaultFile)));
+            Reset.Subscribe(() => CommandManager.Do(new FileProperty.ChangeFileCommand(Property, Property.PropertyMetadata?.DefaultFile ?? "")));
             Bind.Subscribe(() =>
             {
                 var window = new BindSettings(new BindSettingsViewModel<string>(property));
@@ -39,13 +39,13 @@ namespace BEditor.ViewModels.PropertyControl
             });
         }
 
-        public ReadOnlyReactiveProperty<FilePropertyMetadata> Metadata { get; }
+        public ReadOnlyReactiveProperty<FilePropertyMetadata?> Metadata { get; }
         public FileProperty Property { get; }
         public ReactiveCommand<Func<string, string, string>> Command { get; } = new();
         public ReactiveCommand Reset { get; } = new();
         public ReactiveCommand Bind { get; } = new();
 
-        private static string OpenDialog(string filtername, string filter)
+        private static string? OpenDialog(string filtername, string filter)
         {
             var dialog = new CommonOpenFileDialog();
 

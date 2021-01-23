@@ -15,7 +15,7 @@ namespace BEditor.ViewModels.PropertyControl
     public class BindSettingsViewModel<T> : BasePropertyChanged
     {
         private static readonly PropertyChangedEventArgs bindpathArgs = new(nameof(BindPath));
-        private string bindPath;
+        private string? bindPath;
 
 
         public BindSettingsViewModel(IBindable<T> bindable)
@@ -36,7 +36,7 @@ namespace BEditor.ViewModels.PropertyControl
 
 
         public IBindable<T> Bindable { get; }
-        public string BindPath
+        public string? BindPath
         {
             get => bindPath;
             set => SetValue(value, ref bindPath, bindpathArgs);

@@ -21,10 +21,10 @@ namespace BEditor.ViewModels.PropertyControl
                 .ToReadOnlyReactiveProperty();
 
             Command.Subscribe(index => CommandManager.Do(new SelectorProperty.ChangeSelectCommand(Property, index)));
-            Reset.Subscribe(() => CommandManager.Do(new SelectorProperty.ChangeSelectCommand(Property, Property.PropertyMetadata.DefaultIndex)));
+            Reset.Subscribe(() => CommandManager.Do(new SelectorProperty.ChangeSelectCommand(Property, Property.PropertyMetadata?.DefaultIndex ?? 0)));
         }
 
-        public ReadOnlyReactiveProperty<SelectorPropertyMetadata> Metadata { get; }
+        public ReadOnlyReactiveProperty<SelectorPropertyMetadata?> Metadata { get; }
         public SelectorProperty Property { get; }
         public ReactiveCommand<int> Command { get; } = new();
         public ReactiveCommand Reset { get; } = new();

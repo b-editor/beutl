@@ -30,7 +30,7 @@ namespace BEditor.Views.PropertyControl
 
         static DialogControl()
         {
-            builder = ModelToComponent.PropertyViewBuilders.Find(builder => builder.PropertyType == typeof(Group));
+            builder = ModelToComponent.PropertyViewBuilders.Find(builder => builder.PropertyType == typeof(Group))!;
         }
         public DialogControl(DialogProperty property)
         {
@@ -42,7 +42,7 @@ namespace BEditor.Views.PropertyControl
         public double LogicHeight => 32.5;
 
 
-        private void Property_Showed(object sender, EventArgs e)
+        private void Property_Showed(object? sender, EventArgs e)
         {
             static Window GetCreate(DialogProperty property)
             {

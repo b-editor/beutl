@@ -40,7 +40,7 @@ namespace BEditor.Views
             DataContext = color;
             InitializeComponent();
 
-            col.UseAlpha = color.PropertyMetadata.UseAlpha;
+            col.UseAlpha = color.PropertyMetadata?.UseAlpha ?? false;
         }
 
         private void Button_Click(object sender, RoutedEventArgs e)

@@ -84,7 +84,7 @@ namespace BEditor.ViewModels
 
     public class MousePositionConverter : IValueConverter
     {
-        public object Convert(object value, Type targetType, object parameter, CultureInfo culture)
+        public object? Convert(object value, Type targetType, object parameter, CultureInfo culture)
         {
             if (value is MouseEventArgs a)
             {
@@ -158,29 +158,23 @@ namespace BEditor.ViewModels
 
         public static Type ToClipType(PackIconKind kind)
         {
-            if (kind == PackIconKind.Movie) return ClipType.Video;
-            else if (kind == PackIconKind.Image) return ClipType.Image;
-            else if (kind == PackIconKind.TextBox) return ClipType.Text;
-            else if (kind == PackIconKind.Shape) return ClipType.Figure;
-            else if (kind == PackIconKind.Videocam) return ClipType.Camera;
-            else if (kind == PackIconKind.Cube) return ClipType.GL3DObject;
-            else if (kind == PackIconKind.MovieOpen) return ClipType.Scene;
-
-            return ClipType.Video;
+            return ToClipMetadata(kind).Type;
         }
         public static ObjectMetadata ToClipMetadata(PackIconKind kind)
         {
-            if (kind == PackIconKind.Movie) return ClipType.VideoMetadata;
-            else if (kind == PackIconKind.Audio) return ClipType.AudioMetadata;
-            else if (kind == PackIconKind.Image) return ClipType.ImageMetadata;
-            else if (kind == PackIconKind.TextBox) return ClipType.TextMetadata;
-            else if (kind == PackIconKind.Shape) return ClipType.FigureMetadata;
-            else if (kind == PackIconKind.RoundedCorner) return ClipType.RoundRectMetadata;
-            else if (kind == PackIconKind.Videocam) return ClipType.CameraMetadata;
-            else if (kind == PackIconKind.Cube) return ClipType.GL3DObjectMetadata;
-            else if (kind == PackIconKind.MovieOpen) return ClipType.SceneMetadata;
-
-            return ClipType.VideoMetadata;
+            return kind switch
+            {
+                PackIconKind.Movie => ClipType.VideoMetadata,
+                PackIconKind.Audio => ClipType.AudioMetadata,
+                PackIconKind.Image => ClipType.ImageMetadata,
+                PackIconKind.TextBox => ClipType.TextMetadata,
+                PackIconKind.Shape => ClipType.FigureMetadata,
+                PackIconKind.RoundedCorner => ClipType.RoundRectMetadata,
+                PackIconKind.Videocam => ClipType.CameraMetadata,
+                PackIconKind.Cube => ClipType.GL3DObjectMetadata,
+                PackIconKind.MovieOpen => ClipType.SceneMetadata,
+                _ => ClipType.VideoMetadata
+            };
         }
     }
 }

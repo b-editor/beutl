@@ -13,9 +13,6 @@ namespace BEditor.ViewModels.TimeLines
 {
     public class ColorAnimationViewModel
     {
-        public double TrackHeight => Setting.ClipHeight + 1;
-        public ColorAnimationProperty ColorAnimationProperty { get; }
-
         public ColorAnimationViewModel(ColorAnimationProperty colorProperty)
         {
             ColorAnimationProperty = colorProperty;
@@ -33,13 +30,16 @@ namespace BEditor.ViewModels.TimeLines
 
         #region View操作のAction
 
-        public Action<int, int> AddKeyFrameIcon { get; set; }
-        public Action<int> DeleteKeyFrameIcon { get; set; }
-        public Action<int, int> MoveKeyFrameIcon { get; set; }
+        public Action<int, int>? AddKeyFrameIcon { get; set; }
+        public Action<int>? DeleteKeyFrameIcon { get; set; }
+        public Action<int, int>? MoveKeyFrameIcon { get; set; }
 
         #endregion
 
-        public ReadOnlyReactiveProperty<ColorAnimationPropertyMetadata> Metadata { get; }
+        public double TrackHeight => Setting.ClipHeight + 1;
+        public ColorAnimationProperty ColorAnimationProperty { get; }
+
+        public ReadOnlyReactiveProperty<ColorAnimationPropertyMetadata?> Metadata { get; }
         public ReactiveCommand<Frame> AddKeyFrameCommand { get; } = new();
         public ReactiveCommand<Frame> RemoveKeyFrameCommand { get; } = new();
         public ReactiveCommand<(int, int)> MoveKeyFrameCommand { get; } = new();

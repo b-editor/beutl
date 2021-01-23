@@ -13,9 +13,6 @@ namespace BEditor.ViewModels.TimeLines
 {
     public class KeyFrameViewModel
     {
-        public double TrackHeight => Setting.ClipHeight + 1;
-        public EaseProperty EaseProperty { get; }
-
         public KeyFrameViewModel(EaseProperty easeProperty)
         {
             EaseProperty = easeProperty;
@@ -32,13 +29,16 @@ namespace BEditor.ViewModels.TimeLines
 
         #region View操作のAction
 
-        public Action<int, int> AddKeyFrameIcon { get; set; }
-        public Action<int> DeleteKeyFrameIcon { get; set; }
-        public Action<int, int> MoveKeyFrameIcon { get; set; }
+        public Action<int, int>? AddKeyFrameIcon { get; set; }
+        public Action<int>? DeleteKeyFrameIcon { get; set; }
+        public Action<int, int>? MoveKeyFrameIcon { get; set; }
 
         #endregion
 
-        public ReadOnlyReactiveProperty<EasePropertyMetadata> Metadata { get; }
+        public double TrackHeight => Setting.ClipHeight + 1;
+        public EaseProperty EaseProperty { get; }
+
+        public ReadOnlyReactiveProperty<EasePropertyMetadata?> Metadata { get; }
         public ReactiveCommand<Frame> AddKeyFrameCommand { get; } = new();
         public ReactiveCommand<Frame> RemoveKeyFrameCommand { get; } = new();
         public ReactiveCommand<(int, int)> MoveKeyFrameCommand { get; } = new();

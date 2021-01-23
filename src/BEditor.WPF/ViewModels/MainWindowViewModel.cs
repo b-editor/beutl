@@ -39,7 +39,7 @@ namespace BEditor.ViewModels
     {
         public static MainWindowViewModel Current { get; } = new();
 
-        public ReactiveProperty<WriteableBitmap> PreviewImage { get; } = new();
+        public ReactiveProperty<WriteableBitmap?> PreviewImage { get; } = new();
         public ReactiveProperty<Brush> MainWindowColor { get; } = new();
 
         #region Seekbar
@@ -82,14 +82,20 @@ namespace BEditor.ViewModels
             PlayPause
                 .Where(_ => AppData.Current.Project is not null)
                 .Subscribe(ProjectPlayPauseCommand);
-            FrameNext.Where(_ => AppData.Current.Project is not null).Subscribe(_ => AppData.Current.Project.PreviewScene.PreviewFrame++);
+            FrameNext
+                .Where(_ => AppData.Current.Project is not null)
+                .Subscribe(_ => AppData.Current.Project!.PreviewScene.PreviewFrame++);
 
-            FramePrevious.Where(_ => AppData.Current.Project is not null).Subscribe(_ => AppData.Current.Project.PreviewScene.PreviewFrame--);
+            FramePrevious
+                .Where(_ => AppData.Current.Project is not null)
+                .Subscribe(_ => AppData.Current.Project!.PreviewScene.PreviewFrame--);
 
-            FrameTop.Where(_ => AppData.Current.Project is not null).Subscribe(_ => AppData.Current.Project.PreviewScene.PreviewFrame = 0);
+            FrameTop
+                .Where(_ => AppData.Current.Project is not null)
+                .Subscribe(_ => AppData.Current.Project!.PreviewScene.PreviewFrame = 0);
 
             FrameEnd.Where(_ => AppData.Current.Project is not null)
-                .Select(_ => AppData.Current.Project.PreviewScene)
+                .Select(_ => AppData.Current.Project!.PreviewScene)
                 .Subscribe(scene => scene.PreviewFrame = scene.TotalFrame);
 
             #endregion
@@ -125,7 +131,8 @@ namespace BEditor.ViewModels
 
             OpenProjectDirectory
                 .Where(_ => AppData.Current.Project is not null)
-                .Subscribe(_ => Process.Start("explorer.exe", Path.GetDirectoryName(AppData.Current.Project.Filename)));
+                .Where(_ => AppData.Current.Project!.Filename is not null)
+                .Subscribe(_ => Process.Start("explorer.exe", Path.GetDirectoryName(AppData.Current.Project!.Filename)!));
 
             ConvertJson.Where(_ => AppData.Current.Project is not null)
                 .Subscribe(_ =>
@@ -157,7 +164,7 @@ namespace BEditor.ViewModels
                 Message.Snackbar(((Environment.WorkingSet - bytes) / 10000000f).ToString() + "MB");
             });
             SceneSettingsCommand.Where(_ => AppData.Current.Project is not null)
-                .Select(_ => AppData.Current.Project.PreviewScene)
+                .Select(_ => AppData.Current.Project!.PreviewScene)
                 .Subscribe(s =>
                 {
                     var vm = new SceneSettingsViewModel(s);
@@ -184,7 +191,7 @@ namespace BEditor.ViewModels
             CommandManager.Clear();
 
             ProjectIsOpened.Value = true;
-            AppData.Current.Project.Saved += (_, _) => AppData.Current.AppStatus = Status.Saved;
+            AppData.Current.Project!.Saved += (_, _) => AppData.Current.AppStatus = Status.Saved;
         }
 
         private void Project_Closed()
@@ -207,14 +214,14 @@ namespace BEditor.ViewModels
             if (AppData.Current.AppStatus is Status.Playing)
             {
                 AppData.Current.AppStatus = Status.Edit;
-                AppData.Current.Project.PreviewScene.Player.Stop();
+                AppData.Current.Project!.PreviewScene.Player.Stop();
                 AppData.Current.IsNotPlaying = true;
             }
             else
             {
                 AppData.Current.AppStatus = Status.Playing;
 
-                AppData.Current.Project.PreviewScene.Player.Play();
+                AppData.Current.Project!.PreviewScene.Player.Play();
                 AppData.Current.IsNotPlaying = false;
             }
         }

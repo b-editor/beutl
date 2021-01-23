@@ -72,7 +72,7 @@ namespace BEditor.ViewModels.TimeLines
 
             if (clip.Effect[0] is ObjectElement @object)
             {
-                var color = @object.GetAttribute().GetColor;
+                var color = @object.GetAttribute()?.GetColor ?? default;
                 ClipColor.Value = new SolidColorBrush(new Color()
                 {
                     R = color.R,

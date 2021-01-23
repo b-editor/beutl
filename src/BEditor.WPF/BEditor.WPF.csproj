@@ -15,7 +15,7 @@
     <Version>0.0.4</Version>
     <ApplicationManifest>app.manifest</ApplicationManifest>
     <Platforms>AnyCPU;x64</Platforms>
-    <Nullable>annotations</Nullable>
+    <Nullable>enable</Nullable>
     <PackageProjectUrl></PackageProjectUrl>
     <RepositoryUrl></RepositoryUrl>
     <AllowUnsafeBlocks>true</AllowUnsafeBlocks>

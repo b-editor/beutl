@@ -65,7 +65,7 @@ namespace BEditor.ViewModels.CreateDialog
 
             AppData.Current.AppStatus = Status.Edit;
 
-            Settings.Default.MostRecentlyUsedList.Remove(project.Filename);
+            Settings.Default.MostRecentlyUsedList.Remove(project.Filename!);
 
             if (project.Filename is not null)
             {
@@ -78,7 +78,7 @@ namespace BEditor.ViewModels.CreateDialog
 
         private static string FormattedFilename(string original)
         {
-            string dir = Path.GetDirectoryName(original);
+            string dir = Path.GetDirectoryName(original)!;
             string name = Path.GetFileNameWithoutExtension(original);
             string ex = ".bedit";
 

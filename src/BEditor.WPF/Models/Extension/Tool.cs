@@ -48,7 +48,7 @@ namespace BEditor.Models.Extension
             });
         }
 
-        public static bool InRange(this Scene self, ClipData clip_, ref Frame start, ref Frame end, int layer)
+        public static bool Clamp(this Scene self, ClipData? clip_, ref Frame start, ref Frame end, int layer)
         {
             var array = self.GetLayer(layer).ToArray();
 

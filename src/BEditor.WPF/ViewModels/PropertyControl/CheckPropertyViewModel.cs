@@ -20,7 +20,7 @@ namespace BEditor.ViewModels.PropertyControl
                 .ToReadOnlyReactiveProperty();
 
             Command.Subscribe(x => CommandManager.Do(new CheckProperty.ChangeCheckedCommand(Property, x)));
-            Reset.Subscribe(() => CommandManager.Do(new CheckProperty.ChangeCheckedCommand(Property, Property.PropertyMetadata.DefaultIsChecked)));
+            Reset.Subscribe(() => CommandManager.Do(new CheckProperty.ChangeCheckedCommand(Property, Property.PropertyMetadata?.DefaultIsChecked ?? default)));
             Bind.Subscribe(() =>
             {
                 var window = new BindSettings(new BindSettingsViewModel<bool>(Property));
@@ -28,7 +28,7 @@ namespace BEditor.ViewModels.PropertyControl
             });
         }
 
-        public ReadOnlyReactiveProperty<CheckPropertyMetadata> Metadata { get; }
+        public ReadOnlyReactiveProperty<CheckPropertyMetadata?> Metadata { get; }
         public CheckProperty Property { get; }
         public ReactiveCommand<bool> Command { get; } = new();
         public ReactiveCommand Reset { get; } = new();
