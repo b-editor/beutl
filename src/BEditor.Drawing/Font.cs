@@ -20,37 +20,47 @@ namespace BEditor.Drawing
             if (Path.GetExtension(file) is not (".ttf" or ".ttc" or ".otf"))
                 throw new NotSupportedException(Resources.FontException);
             
-            //if (!(Path.GetExtension(file) is ".ttf" or ".ttc" or ".otf"))
-            //    throw new NotSupportedException(Resources.FontException);
-
-            Filename = file;
             using var face = SKTypeface.FromFile(file);
 
             Weight = (FontStyleWeight)face.FontStyle.Weight;
             Width = (FontStyleWidth)face.FontStyle.Width;
             FamilyName = face.FamilyName;
-            Name = FormatFamilyName(face);
+            Name = FormatFamilyName();
+        }
+        private Font(SKTypeface face, string familyname)
+        {
+            Weight = (FontStyleWeight)face.FontStyle.Weight;
+            Width = (FontStyleWidth)face.FontStyle.Width;
+            FamilyName = familyname;
+            Name = FormatFamilyName();
         }
         private Font(SerializationInfo info, StreamingContext context)
         {
-            Filename = info.GetString(nameof(Filename)) ?? throw new Exception();
             FamilyName = info.GetString(nameof(FamilyName)) ?? throw new Exception();
             Name = info.GetString(nameof(Name)) ?? throw new Exception();
             Weight = (FontStyleWeight)info.GetInt32(nameof(Weight));
             Width = (FontStyleWidth)info.GetInt32(nameof(Width));
         }
 
-        public string Filename { get; }
         public string FamilyName { get; }
         public string Name { get; }
         public FontStyleWeight Weight { get; }
         public FontStyleWidth Width { get; }
 
-        private static string FormatFamilyName(SKTypeface face)
+        public static Font? FromFamilyName(string familyname)
         {
-            var str = new StringBuilder(face.FamilyName);
-            var weight = (FontStyleWeight)face.FontStyle.Weight;
-            var width = (FontStyleWidth)face.FontStyle.Width;
+            using var face = SKTypeface.FromFamilyName(familyname);
+
+            if (face is null)
+                return null;
+
+            return new(face, familyname);
+        }
+        private string FormatFamilyName()
+        {
+            var str = new StringBuilder(FamilyName);
+            var weight = Weight;
+            var width = Width;
 
             str.Append($" {weight:g}");
             str.Append($" {width:g}");
@@ -59,7 +69,6 @@ namespace BEditor.Drawing
         }
         public void GetObjectData(SerializationInfo info, StreamingContext context)
         {
-            info.AddValue(nameof(Filename), Filename);
             info.AddValue(nameof(FamilyName), FamilyName);
             info.AddValue(nameof(Name), Name);
             info.AddValue(nameof(Weight), (int)Weight);
