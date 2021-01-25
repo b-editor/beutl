@@ -162,8 +162,8 @@ namespace BEditor.Drawing
             using var b_ = b.ToSKBitmap();
             using var s = self.ToSKBitmap();
 
-            var x = nwidth / 2 - self.Width / 2;
-            var y = nheight / 2 - self.Height / 2;
+            var x = (nwidth - self.Width) / 2;
+            var y = (nheight - self.Height) / 2;
 
             canvas.DrawBitmap(b_, x, y, dilatePaint);
             canvas.DrawBitmap(s, x, y, paint);
@@ -356,7 +356,7 @@ namespace BEditor.Drawing
 
         #region Mask
 
-        public static void Mask(this Image<BGRA32> self, Image<BGRA32> mask, Point point, float rotate)
+        public static void Mask(this Image<BGRA32> self, Image<BGRA32> mask, PointF point, float rotate, bool reverse)
         {
             if (self is null) throw new ArgumentNullException(nameof(self));
             if (mask is null) throw new ArgumentNullException(nameof(mask));
@@ -365,17 +365,34 @@ namespace BEditor.Drawing
 
             using var paint = new SKPaint()
             {
-                BlendMode = SKBlendMode.Luminosity,
+                BlendMode = reverse ? SKBlendMode.DstOut : SKBlendMode.DstIn,
                 IsAntialias = true
             };
             using var bmp = self.ToSKBitmap();
             using var canvas = new SKCanvas(bmp);
+            using var m = MakeMask(self.Size, mask, point, rotate);
+
+
+            canvas.DrawBitmap(m, new SKPoint(), paint);
+
+            CopyTo(bmp.Bytes, self.Data!, self.DataSize);
+        }
+        private static SKBitmap MakeMask(Size size, Image<BGRA32> mask, PointF point, float rotate)
+        {
+            using var paint = new SKPaint();
+            var bmp = new SKBitmap(new SKImageInfo(size.Width, size.Height, SKColorType.Bgra8888));
+            using var canvas = new SKCanvas(bmp);
             using var m = mask.ToSKBitmap();
 
             canvas.RotateDegrees(rotate);
-            canvas.DrawBitmap(m, new SKPoint(point.X, point.Y), paint);
+            canvas.DrawBitmap(
+                m,
+                new SKPoint(
+                    point.X + (size.Width - mask.Width) / 2F,
+                    point.Y + (size.Height - mask.Height) / 2F),
+                paint);
 
-            CopyTo(bmp.Bytes, self.Data!, self.DataSize);
+            return bmp;
         }
 
         #endregion

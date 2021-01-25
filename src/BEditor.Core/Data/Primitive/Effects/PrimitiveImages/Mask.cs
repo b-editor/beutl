@@ -1,6 +1,8 @@
 ﻿using System;
+using System.Reflection;
 using System.Collections.Generic;
 using System.Linq;
+using System.Linq.Expressions;
 using System.Reactive.Linq;
 using System.Runtime.Serialization;
 using System.Text;
@@ -24,10 +26,10 @@ namespace BEditor.Core.Data.Primitive.Effects
         public static readonly EasePropertyMetadata XMetadata = Coordinate.XMetadata;
         public static readonly EasePropertyMetadata YMetadata = Coordinate.YMetadata;
         public static readonly EasePropertyMetadata RotateMetadata = new(Resources.Rotate);
-        public static readonly EasePropertyMetadata WidthMetadata = Figure.WidthMetadata;
-        public static readonly EasePropertyMetadata HeightMetadata = Figure.HeightMetadata;
-        public static readonly TextPropertyMetadata ImageMetadata = new("画像へのパス");
+        public static readonly EasePropertyMetadata WidthMetadata = new(Resources.Width + " (%)", 100, Min: 0);
+        public static readonly EasePropertyMetadata HeightMetadata = new(Resources.Height + " (%)", 100, Min: 0);
         //Todo: 英語対応
+        public static readonly TextPropertyMetadata ImageMetadata = new("画像オブジェクトへのパス");
         public static readonly CheckPropertyMetadata ReverseMetadata = new("マスクの反転");
         public static readonly CheckPropertyMetadata FitSizeMetadata = new("元のサイズに合わせる");
         private ReactiveProperty<ClipData?>? _clipProperty;
@@ -76,9 +78,31 @@ namespace BEditor.Core.Data.Primitive.Effects
 
         public override void Render(EffectRenderArgs<Image<BGRA32>> args)
         {
+            if (ClipProperty.Value is null) return;
+
+            var f = args.Frame;
 
 
-            //args.Value.Mask()
+            var imgobj = (ImageObject)ClipProperty.Value.Effect[0];
+            imgobj.Render(
+                new EffectRenderArgs((f - Parent?.Start ?? default) + ClipProperty.Value.Start, args.Type),
+                out var img);
+
+            if (img is null) return;
+
+            int w = (int)(Width[f] * 0.01 * img.Width);
+            int h = (int)(Height[f] * 0.01 * img.Height);
+
+            if (FitSize.Value)
+            {
+                w = args.Value.Width;
+                h = args.Value.Height;
+            }
+
+            if (w is 0 || h is 0) return;
+            using var resizedimg = img.Resize(w, h, Quality.Medium);
+
+            args.Value.Mask(resizedimg, new PointF(X[f], Y[f]), Rotate[f], Reverse.Value);
         }
         protected override void OnLoad()
         {

@@ -83,6 +83,49 @@ namespace BEditor.Core.Data.Primitive
 
             Coordinate.ResetOptional();
         }
+        public void Render(EffectRenderArgs args, out Image<BGRA32>? image)
+        {
+            var base_img = OnRender(args);
+
+            if (base_img is null)
+            {
+                Coordinate.ResetOptional();
+                image = null;
+                return;
+            }
+
+            var imageArgs = new EffectRenderArgs<Image<BGRA32>>(args.Frame, base_img, args.Type);
+
+            var list = Parent!.Effect.Where(x => x.IsEnabled).ToArray();
+            for (int i = 1; i < list.Length; i++)
+            {
+                var effect = list[i];
+
+                if (effect is ImageEffect imageEffect)
+                {
+                    imageEffect.Render(imageArgs);
+                }
+                else
+                {
+                    effect.Render(args);
+                }
+
+
+                if (args.Handled)
+                {
+                    Coordinate.ResetOptional();
+                    image = imageArgs.Value;
+                    return;
+                }
+            }
+
+            image = imageArgs.Value;
+
+            if(imageArgs.Value != base_img)
+            {
+                base_img?.Dispose();
+            }
+        }
         protected abstract Image<BGRA32>? OnRender(EffectRenderArgs args);
         protected override void OnLoad()
         {
