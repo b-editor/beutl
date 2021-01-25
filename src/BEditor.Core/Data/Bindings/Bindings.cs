@@ -70,7 +70,7 @@ namespace BEditor.Core.Data.Bindings
             {
                 // bindable の親がGroup
                 // bindable のIdは-1
-                var scene = bindable.GetParent3()?.SceneName ?? throw new Exception();
+                var scene = bindable.GetParent3()?.Name ?? throw new Exception();
                 var clip = bindable.GetParent2()?.Name ?? throw new Exception();
                 var effect = bindable.GetParent()?.Id ?? throw new Exception();
                 int group = -1;
@@ -92,7 +92,7 @@ namespace BEditor.Core.Data.Bindings
                 return $"{scene}.{clip}[{effect}][{group}][{property}]";
             }
 
-            return $"{bindable.GetParent3()?.SceneName}.{bindable.GetParent2()?.Name}[{bindable.GetParent()?.Id}][{bindable.Id}]";
+            return $"{bindable.GetParent3()?.Name}.{bindable.GetParent2()?.Name}[{bindable.GetParent()?.Id}][{bindable.Id}]";
         }
 
         public sealed class BindCommand<T> : IRecordCommand

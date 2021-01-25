@@ -262,7 +262,7 @@ namespace BEditor.Core.Data
         /// <inheritdoc/>
         public Project? Parent { get; set; }
         /// <inheritdoc/>
-        public string Name => SceneName ?? "";
+        public string Name => (SceneName ?? "").Replace('.', '_');
         /// <inheritdoc/>
         public int Id => Parent?.SceneList?.IndexOf(this) ?? -1;
 
