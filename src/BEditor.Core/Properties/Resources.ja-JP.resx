@@ -762,4 +762,25 @@
   <data name="SaveToFile" xml:space="preserve">
     <value>ファイルに保存する</value>
   </data>
+  <data name="LinearGradient" xml:space="preserve">
+    <value>線形グラデーション</value>
+  </data>
+  <data name="StartPoint" xml:space="preserve">
+    <value>開始位置</value>
+  </data>
+  <data name="EndPoint" xml:space="preserve">
+    <value>終了位置</value>
+  </data>
+  <data name="Colors" xml:space="preserve">
+    <value>色</value>
+  </data>
+  <data name="Anchors" xml:space="preserve">
+    <value>アンカー</value>
+  </data>
+  <data name="Mode" xml:space="preserve">
+    <value>モード</value>
+  </data>
+  <data name="Repeat" xml:space="preserve">
+    <value>リピート</value>
+  </data>
 </root>

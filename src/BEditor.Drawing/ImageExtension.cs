@@ -36,7 +36,7 @@ namespace BEditor.Drawing
             if (image is null) throw new ArgumentNullException(nameof(image));
             self.ThrowIfDisposed();
             image.ThrowIfDisposed();
-            
+
             using var paint = new SKPaint() { IsAntialias = true };
             using var bmp = self.ToSKBitmap();
             using var canvas = new SKCanvas(bmp);
@@ -321,6 +321,37 @@ namespace BEditor.Drawing
 
             CopyTo(bmp.Bytes, self.Data!, self.DataSize);
         }
+        #endregion
+
+        #region LinerGradient
+
+        public static void LinerGradient(this Image<BGRA32> self, PointF start, PointF end, IEnumerable<Color> colors, IEnumerable<float> anchors)
+        {
+            if (self is null) throw new ArgumentNullException(nameof(self));
+            if (colors is null) throw new ArgumentNullException(nameof(colors));
+            if (anchors is null) throw new ArgumentNullException(nameof(anchors));
+            self.ThrowIfDisposed();
+
+            using var paint = new SKPaint()
+            {
+                BlendMode = SKBlendMode.Modulate,
+                IsAntialias = true
+            };
+            using var bmp = self.ToSKBitmap();
+            using var canvas = new SKCanvas(bmp);
+
+            paint.Shader = SKShader.CreateLinearGradient(
+                new SKPoint(start.X, start.Y),
+                new SKPoint(end.X, end.Y),
+                colors.Select(c => new SKColor(c.R, c.G, c.B, c.A)).ToArray(),
+                anchors.ToArray(),
+                SKShaderTileMode.Repeat);
+
+            canvas.DrawRect(0, 0, self.Width, self.Height, paint);
+
+            CopyTo(bmp.Bytes, self.Data!, self.DataSize);
+        }
+
         #endregion
 
         public static Image<BGRA32> Ellipse(int width, int height, int line, Color color)
