@@ -1161,6 +1161,15 @@ namespace BEditor.Core.Properties {
         }
         
         /// <summary>
+        ///   Mask に類似しているローカライズされた文字列を検索します。
+        /// </summary>
+        public static string Mask {
+            get {
+                return ResourceManager.GetString("Mask", resourceCulture);
+            }
+        }
+        
+        /// <summary>
         ///   Material に類似しているローカライズされた文字列を検索します。
         /// </summary>
         public static string Material {
@@ -1545,6 +1554,15 @@ namespace BEditor.Core.Properties {
         public static string Right {
             get {
                 return ResourceManager.GetString("Right", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Rotate に類似しているローカライズされた文字列を検索します。
+        /// </summary>
+        public static string Rotate {
+            get {
+                return ResourceManager.GetString("Rotate", resourceCulture);
             }
         }
         

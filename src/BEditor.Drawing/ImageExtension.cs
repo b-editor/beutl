@@ -354,6 +354,46 @@ namespace BEditor.Drawing
 
         #endregion
 
+        #region Mask
+
+        public static void Mask(this Image<BGRA32> self, Image<BGRA32> mask, Point point, float rotate)
+        {
+            if (self is null) throw new ArgumentNullException(nameof(self));
+            if (mask is null) throw new ArgumentNullException(nameof(mask));
+            self.ThrowIfDisposed();
+            mask.ThrowIfDisposed();
+
+            using var paint = new SKPaint()
+            {
+                BlendMode = SKBlendMode.Luminosity,
+                IsAntialias = true
+            };
+            using var bmp = self.ToSKBitmap();
+            using var canvas = new SKCanvas(bmp);
+            using var m = mask.ToSKBitmap();
+
+            canvas.RotateDegrees(rotate);
+            canvas.DrawBitmap(m, new SKPoint(point.X, point.Y), paint);
+
+            CopyTo(bmp.Bytes, self.Data!, self.DataSize);
+        }
+
+        #endregion
+
+        #region Resize
+
+        public static Image<BGRA32> Resize(this Image<BGRA32> self, int width, int height, Quality quality)
+        {
+            if (self is null) throw new ArgumentNullException(nameof(self));
+
+            using var bmp = self.ToSKBitmap();
+            using var newbmp = bmp.Resize(new SKSizeI(width, height), (SKFilterQuality)quality);
+
+            return newbmp.ToImage32();
+        }
+
+        #endregion
+
         public static Image<BGRA32> Ellipse(int width, int height, int line, Color color)
         {
             return Ellipse(width, height, new()

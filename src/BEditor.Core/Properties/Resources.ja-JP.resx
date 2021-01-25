@@ -783,4 +783,10 @@
   <data name="Repeat" xml:space="preserve">
     <value>リピート</value>
   </data>
+  <data name="Mask" xml:space="preserve">
+    <value>マスク</value>
+  </data>
+  <data name="Rotate" xml:space="preserve">
+    <value>回転</value>
+  </data>
 </root>

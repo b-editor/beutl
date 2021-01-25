@@ -783,4 +783,10 @@ Please select the plugin you want to load</value>
   <data name="Repeat" xml:space="preserve">
     <value>Repeat</value>
   </data>
+  <data name="Mask" xml:space="preserve">
+    <value>Mask</value>
+  </data>
+  <data name="Rotate" xml:space="preserve">
+    <value>Rotate</value>
+  </data>
 </root>

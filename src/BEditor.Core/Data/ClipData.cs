@@ -4,10 +4,12 @@ using System.Collections.ObjectModel;
 using System.ComponentModel;
 using System.ComponentModel.DataAnnotations;
 using System.Diagnostics.Contracts;
+using System.Diagnostics.CodeAnalysis;
 using System.Globalization;
 using System.IO;
 using System.Linq;
 using System.Runtime.Serialization;
+using System.Text.RegularExpressions;
 using System.Threading.Tasks;
 
 using BEditor.Core.Command;
@@ -215,7 +217,7 @@ namespace BEditor.Core.Data
 
             return format switch
             {
-                "#" => $"[{Parent.Id}].{Name}",
+                "#" => $"{Parent.Name}.{Name}",
                 _ => throw new FormatException(string.Format("The {0} format string is not supported.", format))
             };
         }
@@ -244,6 +246,25 @@ namespace BEditor.Core.Data
             }
 
             IsLoaded = false;
+        }
+
+        public static ClipData? FromFullName(string name, Project? project)
+        {
+            if (project is null) return null;
+
+            var reg = new Regex(@"^([\da-zA-Z亜-熙ぁ-んァ-ヶ]+)\.([\da-zA-Z]+)\z");
+
+            if (reg.IsMatch(name))
+            {
+                var match = reg.Match(name);
+
+                var scene = project.Find(match.Groups[1].Value);
+                var clip = scene?.Find(match.Groups[2].Value);
+
+                return clip;
+            }
+
+            return null;
         }
 
         #endregion

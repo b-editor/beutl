@@ -36,6 +36,7 @@ namespace BEditor.Core.Data
                     new(Resources.Clipping, () => new Clipping()),
                     new(Resources.AreaExpansion, () => new AreaExpansion()),
                     new(Resources.LinearGradient, () => new LinearGradient()),
+                    new(Resources.Mask, () => new Mask()),
                 }
             },
             new(Resources.Camera)

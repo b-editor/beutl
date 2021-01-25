@@ -24,9 +24,9 @@ namespace BEditor.Core.Data.Bindings
             }
 
             // Scene.Clip[Effect][Property]の場合
-            var regex1 = new Regex(@"^([\da-zA-Z]+)\.([\da-zA-Z]+)\[([\d]+)\]\[([\d]+)\]\z");
+            var regex1 = new Regex(@"^([\da-zA-Z亜-熙ぁ-んァ-ヶ]+)\.([\da-zA-Z]+)\[([\d]+)\]\[([\d]+)\]\z");
             // Scene.Clip[Effect][Group][Property]の場合
-            var regex2 = new Regex(@"^([\da-zA-Z]+)\.([\da-zA-Z]+)\[([\d]+)\]\[([\d]+)\]\[([\d]+)\]\z");
+            var regex2 = new Regex(@"^([\da-zA-Z亜-熙ぁ-んァ-ヶ]+)\.([\da-zA-Z]+)\[([\d]+)\]\[([\d]+)\]\[([\d]+)\]\z");
 
             if (regex1.IsMatch(text))
             {
