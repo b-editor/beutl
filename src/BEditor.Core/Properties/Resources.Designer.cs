@@ -448,6 +448,24 @@ namespace BEditor.Core.Properties {
         }
         
         /// <summary>
+        ///   Circular gradient に類似しているローカライズされた文字列を検索します。
+        /// </summary>
+        public static string CircularGradient {
+            get {
+                return ResourceManager.GetString("CircularGradient", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Clamp に類似しているローカライズされた文字列を検索します。
+        /// </summary>
+        public static string Clamp {
+            get {
+                return ResourceManager.GetString("Clamp", resourceCulture);
+            }
+        }
+        
+        /// <summary>
         ///   Clip に類似しているローカライズされた文字列を検索します。
         /// </summary>
         public static string Clip {
@@ -625,6 +643,15 @@ namespace BEditor.Core.Properties {
         public static string Cut {
             get {
                 return ResourceManager.GetString("Cut", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Decal に類似しているローカライズされた文字列を検索します。
+        /// </summary>
+        public static string Decal {
+            get {
+                return ResourceManager.GetString("Decal", resourceCulture);
             }
         }
         
@@ -936,6 +963,15 @@ namespace BEditor.Core.Properties {
         }
         
         /// <summary>
+        ///   Fit to original size に類似しているローカライズされた文字列を検索します。
+        /// </summary>
+        public static string FitToOriginalSize {
+            get {
+                return ResourceManager.GetString("FitToOriginalSize", resourceCulture);
+            }
+        }
+        
+        /// <summary>
         ///   Font に類似しているローカライズされた文字列を検索します。
         /// </summary>
         public static string Font {
@@ -1071,6 +1107,15 @@ namespace BEditor.Core.Properties {
         }
         
         /// <summary>
+        ///   Invert Mask に類似しているローカライズされた文字列を検索します。
+        /// </summary>
+        public static string InvertMask {
+            get {
+                return ResourceManager.GetString("InvertMask", resourceCulture);
+            }
+        }
+        
+        /// <summary>
         ///   Json file に類似しているローカライズされた文字列を検索します。
         /// </summary>
         public static string JsonFile {
@@ -1193,6 +1238,15 @@ namespace BEditor.Core.Properties {
         public static string Menu {
             get {
                 return ResourceManager.GetString("Menu", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Mirror に類似しているローカライズされた文字列を検索します。
+        /// </summary>
+        public static string Mirror {
+            get {
+                return ResourceManager.GetString("Mirror", resourceCulture);
             }
         }
         
@@ -1377,6 +1431,15 @@ namespace BEditor.Core.Properties {
         }
         
         /// <summary>
+        ///   Path to the image object に類似しているローカライズされた文字列を検索します。
+        /// </summary>
+        public static string PathToImageObject {
+            get {
+                return ResourceManager.GetString("PathToImageObject", resourceCulture);
+            }
+        }
+        
+        /// <summary>
         ///   Pause に類似しているローカライズされた文字列を検索します。
         /// </summary>
         public static string Pause {
@@ -1482,6 +1545,15 @@ namespace BEditor.Core.Properties {
         public static string PropertyShowHide {
             get {
                 return ResourceManager.GetString("PropertyShowHide", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Radius に類似しているローカライズされた文字列を検索します。
+        /// </summary>
+        public static string Radius {
+            get {
+                return ResourceManager.GetString("Radius", resourceCulture);
             }
         }
         

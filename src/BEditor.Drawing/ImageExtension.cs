@@ -325,12 +325,18 @@ namespace BEditor.Drawing
 
         #region LinerGradient
 
-        public static void LinerGradient(this Image<BGRA32> self, PointF start, PointF end, IEnumerable<Color> colors, IEnumerable<float> anchors)
+        public static void LinerGradient(this Image<BGRA32> self, PointF start, PointF end, IEnumerable<Color> colors, IEnumerable<float> anchors, ShaderTileMode mode)
         {
             if (self is null) throw new ArgumentNullException(nameof(self));
             if (colors is null) throw new ArgumentNullException(nameof(colors));
             if (anchors is null) throw new ArgumentNullException(nameof(anchors));
             self.ThrowIfDisposed();
+            self.SetColor(new BGRA32(255, 255, 255, 255));
+
+            var w = self.Width;
+            var h = self.Height;
+            var st = new SKPoint(start.X * w * 0.01f, start.Y * h * 0.01f);
+            var ed = new SKPoint(end.X * w * 0.01f, end.Y * h * 0.01f);
 
             using var paint = new SKPaint()
             {
@@ -341,11 +347,44 @@ namespace BEditor.Drawing
             using var canvas = new SKCanvas(bmp);
 
             paint.Shader = SKShader.CreateLinearGradient(
-                new SKPoint(start.X, start.Y),
-                new SKPoint(end.X, end.Y),
+                st,
+                ed,
                 colors.Select(c => new SKColor(c.R, c.G, c.B, c.A)).ToArray(),
                 anchors.ToArray(),
-                SKShaderTileMode.Repeat);
+                (SKShaderTileMode)mode);
+
+            canvas.DrawRect(0, 0, self.Width, self.Height, paint);
+
+            CopyTo(bmp.Bytes, self.Data!, self.DataSize);
+        }
+
+        #endregion
+
+        #region CircularGradient
+
+        public static void CircularGradient(this Image<BGRA32> self, PointF center, float radius, IEnumerable<Color> colors, IEnumerable<float> colorpos, ShaderTileMode mode)
+        {
+            if (self is null) throw new ArgumentNullException(nameof(self));
+            if (colors is null) throw new ArgumentNullException(nameof(colors));
+            if (colorpos is null) throw new ArgumentNullException(nameof(colorpos));
+            self.ThrowIfDisposed();
+            self.SetColor(new BGRA32(255, 255, 255, 255));
+            var pt = new SKPoint(center.X + self.Width / 2, center.Y + self.Height / 2);
+
+            using var paint = new SKPaint()
+            {
+                BlendMode = SKBlendMode.Modulate,
+                IsAntialias = true
+            };
+            using var bmp = self.ToSKBitmap();
+            using var canvas = new SKCanvas(bmp);
+
+            paint.Shader = SKShader.CreateRadialGradient(
+                pt,
+                radius,
+                colors.Select(c => new SKColor(c.R, c.G, c.B, c.A)).ToArray(),
+                colorpos.ToArray(),
+                (SKShaderTileMode)mode);
 
             canvas.DrawRect(0, 0, self.Width, self.Height, paint);
 
@@ -356,16 +395,17 @@ namespace BEditor.Drawing
 
         #region Mask
 
-        public static void Mask(this Image<BGRA32> self, Image<BGRA32> mask, PointF point, float rotate, bool reverse)
+        public static void Mask(this Image<BGRA32> self, Image<BGRA32> mask, PointF point, float rotate, bool invert)
         {
             if (self is null) throw new ArgumentNullException(nameof(self));
             if (mask is null) throw new ArgumentNullException(nameof(mask));
             self.ThrowIfDisposed();
             mask.ThrowIfDisposed();
+            mask.SetColor(default);
 
             using var paint = new SKPaint()
             {
-                BlendMode = reverse ? SKBlendMode.DstOut : SKBlendMode.DstIn,
+                BlendMode = invert ? SKBlendMode.DstOut : SKBlendMode.DstIn,
                 IsAntialias = true
             };
             using var bmp = self.ToSKBitmap();

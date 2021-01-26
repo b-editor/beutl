@@ -28,10 +28,9 @@ namespace BEditor.Core.Data.Primitive.Effects
         public static readonly EasePropertyMetadata RotateMetadata = new(Resources.Rotate);
         public static readonly EasePropertyMetadata WidthMetadata = new(Resources.Width + " (%)", 100, Min: 0);
         public static readonly EasePropertyMetadata HeightMetadata = new(Resources.Height + " (%)", 100, Min: 0);
-        //Todo: 英語対応
-        public static readonly TextPropertyMetadata ImageMetadata = new("画像オブジェクトへのパス");
-        public static readonly CheckPropertyMetadata ReverseMetadata = new("マスクの反転");
-        public static readonly CheckPropertyMetadata FitSizeMetadata = new("元のサイズに合わせる");
+        public static readonly TextPropertyMetadata ImageMetadata = new(Resources.PathToImageObject);
+        public static readonly CheckPropertyMetadata InvertMaskMetadata = new(Resources.InvertMask);
+        public static readonly CheckPropertyMetadata FitSizeMetadata = new(Resources.FitToOriginalSize);
         private ReactiveProperty<ClipData?>? _clipProperty;
 
         public Mask()
@@ -42,7 +41,7 @@ namespace BEditor.Core.Data.Primitive.Effects
             Width = new(WidthMetadata);
             Height = new(HeightMetadata);
             Image = new(ImageMetadata);
-            Reverse = new(ReverseMetadata);
+            InvertMask = new(InvertMaskMetadata);
             FitSize = new(FitSizeMetadata);
         }
 
@@ -55,7 +54,7 @@ namespace BEditor.Core.Data.Primitive.Effects
             Width,
             Height,
             Image,
-            Reverse,
+            InvertMask,
             FitSize
         };
         [DataMember(Order = 0)]
@@ -71,7 +70,7 @@ namespace BEditor.Core.Data.Primitive.Effects
         [DataMember(Order = 5)]
         public TextProperty Image { get; private set; }
         [DataMember(Order = 6)]
-        public CheckProperty Reverse { get; private set; }
+        public CheckProperty InvertMask { get; private set; }
         [DataMember(Order = 7)]
         public CheckProperty FitSize { get; private set; }
         private ReactiveProperty<ClipData?> ClipProperty => _clipProperty ??= new();
@@ -87,6 +86,7 @@ namespace BEditor.Core.Data.Primitive.Effects
             imgobj.Render(
                 new EffectRenderArgs((f - Parent?.Start ?? default) + ClipProperty.Value.Start, args.Type),
                 out var img);
+            imgobj.Coordinate.ResetOptional();
 
             if (img is null) return;
 
@@ -102,7 +102,8 @@ namespace BEditor.Core.Data.Primitive.Effects
             if (w is 0 || h is 0) return;
             using var resizedimg = img.Resize(w, h, Quality.Medium);
 
-            args.Value.Mask(resizedimg, new PointF(X[f], Y[f]), Rotate[f], Reverse.Value);
+            args.Value.Mask(resizedimg, new PointF(X[f], Y[f]), Rotate[f], InvertMask.Value);
+            img.Dispose();
         }
         protected override void OnLoad()
         {
@@ -112,7 +113,7 @@ namespace BEditor.Core.Data.Primitive.Effects
             Width.Load(WidthMetadata);
             Height.Load(HeightMetadata);
             Image.Load(ImageMetadata);
-            Reverse.Load(ReverseMetadata);
+            InvertMask.Load(InvertMaskMetadata);
             FitSize.Load(FitSizeMetadata);
 
             _clipProperty = Image

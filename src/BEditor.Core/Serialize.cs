@@ -236,6 +236,7 @@ namespace BEditor.Core
             typeof(Clipping),
             typeof(AreaExpansion),
             typeof(LinearGradient),
+            typeof(CircularGradient),
             typeof(Mask),
 
             typeof(DepthTest),

@@ -789,4 +789,28 @@
   <data name="Rotate" xml:space="preserve">
     <value>回転</value>
   </data>
+  <data name="PathToImageObject" xml:space="preserve">
+    <value>画像オブジェクトへのパス</value>
+  </data>
+  <data name="FitToOriginalSize" xml:space="preserve">
+    <value>元のサイズに合わせる</value>
+  </data>
+  <data name="InvertMask" xml:space="preserve">
+    <value>マスクの反転</value>
+  </data>
+  <data name="CircularGradient" xml:space="preserve">
+    <value>円形グラデーション</value>
+  </data>
+  <data name="Radius" xml:space="preserve">
+    <value>半径</value>
+  </data>
+  <data name="Clamp" xml:space="preserve">
+    <value>Clamp</value>
+  </data>
+  <data name="Mirror" xml:space="preserve">
+    <value>Mirror</value>
+  </data>
+  <data name="Decal" xml:space="preserve">
+    <value>Decal</value>
+  </data>
 </root>
