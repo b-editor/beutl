@@ -12,6 +12,24 @@ using Reactive.Bindings.Extensions;
 
 namespace BEditor.ViewModels.PropertyControl
 {
+    public class SelectorPropertyViewModel<T>
+    {
+        public SelectorPropertyViewModel(SelectorProperty<T> selector)
+        {
+            Property = selector;
+            Metadata = selector.ObserveProperty(p => p.PropertyMetadata)
+                .ToReadOnlyReactiveProperty();
+
+            Command.Subscribe(index => CommandManager.Do(new SelectorProperty<T>.ChangeSelectCommand(Property, index)));
+            Reset.Subscribe(() => CommandManager.Do(new SelectorProperty<T>.ChangeSelectCommand(Property, Property.PropertyMetadata!.DefaultItem)));
+        }
+
+        public ReadOnlyReactiveProperty<SelectorPropertyMetadata<T?>?> Metadata { get; }
+        public SelectorProperty<T> Property { get; }
+        public ReactiveCommand<T> Command { get; } = new();
+        public ReactiveCommand Reset { get; } = new();
+        public ReactiveCommand Bind { get; } = new();
+    }
     public class SelectorPropertyViewModel
     {
         public SelectorPropertyViewModel(SelectorProperty selector)

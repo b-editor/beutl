@@ -2,6 +2,7 @@
 using System.Collections;
 using System.Collections.Generic;
 using System.ComponentModel;
+using System.Linq;
 using System.Reactive.Disposables;
 using System.Runtime.Serialization;
 using System.Threading.Tasks;
@@ -16,15 +17,15 @@ namespace BEditor.Core.Data.Property
     /// 配列から一つのアイテムを選択するプロパティを表します
     /// </summary>
     [DataContract]
-    public class SelectorProperty : PropertyElement<SelectorPropertyMetadata>, IEasingProperty, IBindable<int>
+    public class SelectorProperty<T> : PropertyElement<SelectorPropertyMetadata<T?>>, IEasingProperty, IBindable<T?>
     {
         #region Fields
-        private static readonly PropertyChangedEventArgs _IndexArgs = new(nameof(Index));
-        private int _SelectIndex;
-        private List<IObserver<int>>? _List;
+        private static readonly PropertyChangedEventArgs _SelectItemArgs = new(nameof(SelectItem));
+        private T? _SelectItem;
+        private List<IObserver<T?>>? _List;
 
         private IDisposable? _BindDispose;
-        private IBindable<int>? _Bindable;
+        private IBindable<T?>? _Bindable;
         private string? _BindHint;
         #endregion
 
@@ -34,36 +35,27 @@ namespace BEditor.Core.Data.Property
         /// </summary>
         /// <param name="metadata">このプロパティの <see cref="SelectorPropertyMetadata"/></param>
         /// <exception cref="ArgumentNullException"><paramref name="metadata"/> が <see langword="null"/> です</exception>
-        public SelectorProperty(SelectorPropertyMetadata metadata)
+        public SelectorProperty(SelectorPropertyMetadata<T?> metadata)
         {
             PropertyMetadata = metadata ?? throw new ArgumentNullException(nameof(metadata));
-            Index = metadata.DefaultIndex;
+            _SelectItem = metadata.DefaultItem;
         }
 
-        private List<IObserver<int>> Collection => _List ??= new();
+        private List<IObserver<T?>> Collection => _List ??= new();
         /// <summary>
         /// 選択されているアイテムを取得します
         /// </summary>
-        public object? SelectItem
-        {
-            get => PropertyMetadata?.ItemSource[Index];
-            set => Index = PropertyMetadata?.ItemSource?.IndexOf(value) ?? 0;
-        }
-
-        /// <summary>
-        /// 選択されている <see cref="SelectorPropertyMetadata.ItemSource"/> のインデックスを取得または設定します
-        /// </summary>
         [DataMember]
-        public int Index
+        public T? SelectItem
         {
-            get => _SelectIndex;
-            set => SetValue(value, ref _SelectIndex, _IndexArgs, this, state =>
+            get => _SelectItem;
+            set => SetValue(value, ref _SelectItem, _SelectItemArgs, this, state =>
             {
                 foreach (var observer in state.Collection)
                 {
                     try
                     {
-                        observer.OnNext(state._SelectIndex);
+                        observer.OnNext(state._SelectItem);
                     }
                     catch (Exception ex)
                     {
@@ -72,8 +64,21 @@ namespace BEditor.Core.Data.Property
                 }
             });
         }
+
+        /// <summary>
+        /// 選択されている <see cref="SelectorPropertyMetadata.ItemSource"/> のインデックスを取得または設定します
+        /// </summary>
+        public int Index
+        {
+            get
+            {
+                if (SelectItem is null) return -1;
+
+                return PropertyMetadata?.ItemSource?.IndexOf(SelectItem) ?? -1;
+            }
+        }
         /// <inheritdoc/>
-        public int Value => Index;
+        public T? Value => SelectItem;
         /// <inheritdoc/>
         [DataMember]
         public string? BindHint
@@ -100,7 +105,7 @@ namespace BEditor.Core.Data.Property
         #region IBindable
 
         /// <inheritdoc/>
-        public IDisposable Subscribe(IObserver<int> observer)
+        public IDisposable Subscribe(IObserver<T?> observer)
         {
             if (observer is null) throw new ArgumentNullException(nameof(observer));
 
@@ -117,19 +122,19 @@ namespace BEditor.Core.Data.Property
         /// <inheritdoc/>
         public void OnError(Exception error) { }
         /// <inheritdoc/>
-        public void OnNext(int value)
+        public void OnNext(T? value)
         {
-            Index = value;
+            SelectItem = value;
         }
 
-        public void Bind(IBindable<int>? bindable)
+        public void Bind(IBindable<T?>? bindable)
         {
             _BindDispose?.Dispose();
             _Bindable = bindable;
 
             if (bindable is not null)
             {
-                Index = bindable.Value;
+                SelectItem = bindable.Value;
 
                 // bindableが変更時にthisが変更
                 _BindDispose = bindable.Subscribe(this);
@@ -141,8 +146,6 @@ namespace BEditor.Core.Data.Property
         #endregion
 
 
-        public static implicit operator int(SelectorProperty selector) => selector.Index;
-
 
         #region Commands
 
@@ -152,9 +155,9 @@ namespace BEditor.Core.Data.Property
         /// <remarks>このクラスは <see cref="CommandManager.Do(IRecordCommand)"/> と併用することでコマンドを記録できます</remarks>
         public sealed class ChangeSelectCommand : IRecordCommand
         {
-            private readonly SelectorProperty _Property;
-            private readonly int _New;
-            private readonly int _Old;
+            private readonly SelectorProperty<T> _Property;
+            private readonly T? _New;
+            private readonly T? _Old;
 
             /// <summary>
             /// <see cref="ChangeSelectCommand"/> クラスの新しいインスタンスを初期化します
@@ -162,38 +165,39 @@ namespace BEditor.Core.Data.Property
             /// <param name="property">対象の <see cref="SelectorProperty"/></param>
             /// <param name="select">新しいインデックス</param>
             /// <exception cref="ArgumentNullException"><paramref name="property"/> が <see langword="null"/> です</exception>
-            public ChangeSelectCommand(SelectorProperty property, int select)
+            public ChangeSelectCommand(SelectorProperty<T> property, T? select)
             {
-                this._Property = property ?? throw new ArgumentNullException(nameof(property));
-                this._New = select;
-                _Old = property.Index;
+                _Property = property ?? throw new ArgumentNullException(nameof(property));
+                _New = select;
+                _Old = property.SelectItem;
             }
 
             public string Name => CommandName.ChangeSelectItem;
 
             /// <inheritdoc/>
-            public void Do() => _Property.Index = _New;
+            public void Do() => _Property.SelectItem = _New;
 
             /// <inheritdoc/>
             public void Redo() => Do();
 
             /// <inheritdoc/>
-            public void Undo() => _Property.Index = _Old;
+            public void Undo() => _Property.SelectItem = _Old;
         }
 
         #endregion
     }
+
     /// <summary>
-    /// <see cref="SelectorProperty"/> のメタデータを表します
+    /// <see cref="SelectorProperty{T}"/> のメタデータを表します
     /// </summary>
-    public record SelectorPropertyMetadata : PropertyElementMetadata
+    public record SelectorPropertyMetadata<T> : PropertyElementMetadata
     {
         /// <summary>
         /// <see cref="SelectorPropertyMetadata"/> の新しいインスタンスを初期化します
         /// </summary>
-        public SelectorPropertyMetadata(string name, IList itemsource, int index = 0, string memberpath = "") : base(name)
+        public SelectorPropertyMetadata(string name, IList<T> itemsource, T? defaultitem = default, string memberpath = "") : base(name)
         {
-            DefaultIndex = index;
+            DefaultItem = defaultitem ?? itemsource.FirstOrDefault();
             ItemSource = itemsource;
             MemberPath = memberpath;
         }
@@ -202,11 +206,11 @@ namespace BEditor.Core.Data.Property
         /// <summary>
         /// 
         /// </summary>
-        public IList ItemSource { get; protected set; }
+        public IList<T> ItemSource { get; protected set; }
         /// <summary>
         /// 
         /// </summary>
-        public int DefaultIndex { get; protected set; }
+        public T? DefaultItem { get; protected set; }
         /// <summary>
         /// 
         /// </summary>

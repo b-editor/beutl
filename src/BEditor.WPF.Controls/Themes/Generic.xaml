@@ -8,6 +8,7 @@
         <ResourceDictionary Source="/BEditor.WPF.Controls;component/Themes/ColorPropertyView.xaml" />
         <ResourceDictionary Source="/BEditor.WPF.Controls;component/Themes/DocumentPropertyView.xaml" />
         <ResourceDictionary Source="/BEditor.WPF.Controls;component/Themes/SelectorPropertyView.xaml" />
+        <ResourceDictionary Source="/BEditor.WPF.Controls;component/Themes/SelectorPropertyViewGen.xaml" />
         <ResourceDictionary Source="/BEditor.WPF.Controls;component/Themes/FontPropertyView.xaml" />
         <ResourceDictionary Source="/BEditor.WPF.Controls;component/Themes/ValuePropertyView.xaml" />
         <ResourceDictionary Source="/BEditor.WPF.Controls;component/Themes/TextPropertyView.xaml" />
@@ -25,6 +26,7 @@
     <Style TargetType="{x:Type local:ColorPropertyView}" BasedOn="{StaticResource ColorPropertyStyle}" />
     <Style TargetType="{x:Type local:DocumentPropertyView}" BasedOn="{StaticResource DocumentPropertyStyle}" />
     <Style TargetType="{x:Type local:SelectorPropertyView}" BasedOn="{StaticResource SelectorPropertyStyle}" />
+    <Style TargetType="{x:Type local:SelectorPropertyViewGen}" BasedOn="{StaticResource SelectorPropertyGenStyle}" />
     <Style TargetType="{x:Type local:FontPropertyView}" BasedOn="{StaticResource FontPropertyStyle}" />
     <Style TargetType="{x:Type local:ValuePropertyView}" BasedOn="{StaticResource ValuePropertyStyle}" />
     <Style TargetType="{x:Type local:TextPropertyView}" BasedOn="{StaticResource TextPropertyStyle}" />
