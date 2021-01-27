@@ -52,7 +52,7 @@ namespace BEditor.Views.TimeLines
 
                 Delete.Click += (_, _) =>
                 {
-                    scene.CreateRemoveLayerCommand(layer).Execute();
+                    scene.RemoveLayer(layer).Execute();
                 };
 
                 #endregion

@@ -20,7 +20,7 @@ namespace BEditor.ViewModels.PropertyControl
             Property = property;
             Metadata = property.ObserveProperty(p => p.PropertyMetadata)
                 .ToReadOnlyReactiveProperty();
-            EasingChangeCommand.Subscribe(x => CommandManager.Do(new EaseProperty.ChangeEaseCommand(Property, x.Name)));
+            EasingChangeCommand.Subscribe(x => Property.ChangeEase(x).Execute());
         }
 
         public ReadOnlyReactiveProperty<EasePropertyMetadata?> Metadata { get; }

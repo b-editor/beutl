@@ -120,7 +120,7 @@ namespace BEditor.Views.ToolControl.Default
             {
                 var clip = GetClip();
                 if (clip is null) return;
-                clip.Parent.CreateRemoveCommand(clip).Execute();
+                clip.Parent.RemoveClip(clip).Execute();
             }
             catch (IndexOutOfRangeException)
             {
@@ -133,7 +133,7 @@ namespace BEditor.Views.ToolControl.Default
             {
                 var effect = GetEffect();
                 if (effect is null) return;
-                effect.Parent!.CreateRemoveCommand(effect).Execute();
+                effect.Parent!.RemoveEffect(effect).Execute();
             }
             catch (IndexOutOfRangeException)
             {

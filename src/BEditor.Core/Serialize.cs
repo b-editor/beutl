@@ -196,7 +196,7 @@ namespace BEditor.Core
         /// <summary>
         /// <see cref="DataContractJsonSerializer"/> で使用するKnownTypeを取得します
         /// </summary>
-        public static List<Type> SerializeKnownTypes = new List<Type>()
+        public static readonly List<Type> SerializeKnownTypes = new List<Type>()
         {
             typeof(BasePropertyChanged),
             typeof(ComponentObject),

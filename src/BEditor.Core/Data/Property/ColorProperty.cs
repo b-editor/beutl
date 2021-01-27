@@ -2,6 +2,7 @@
 using System.Collections.Generic;
 using System.Collections.ObjectModel;
 using System.ComponentModel;
+using System.Diagnostics.Contracts;
 using System.Reactive.Disposables;
 using System.Runtime.Serialization;
 
@@ -27,6 +28,18 @@ namespace BEditor.Core.Data.Property
         private IBindable<Color>? _Bindable;
         private string? _BindHint;
         #endregion
+
+
+        /// <summary>
+        /// <see cref="ColorProperty"/> クラスの新しいインスタンスを初期化します
+        /// </summary>
+        /// <param name="metadata">このプロパティの <see cref="ColorPropertyMetadata"/></param>
+        /// <exception cref="ArgumentNullException"><paramref name="metadata"/> が <see langword="null"/> です</exception>
+        public ColorProperty(ColorPropertyMetadata metadata)
+        {
+            PropertyMetadata = metadata ?? throw new ArgumentNullException(nameof(metadata));
+            Color = metadata.DefaultColor;
+        }
 
 
         private List<IObserver<Color>> Collection => _List ??= new();
@@ -63,18 +76,6 @@ namespace BEditor.Core.Data.Property
         }
 
 
-        /// <summary>
-        /// <see cref="ColorProperty"/> クラスの新しいインスタンスを初期化します
-        /// </summary>
-        /// <param name="metadata">このプロパティの <see cref="ColorPropertyMetadata"/></param>
-        /// <exception cref="ArgumentNullException"><paramref name="metadata"/> が <see langword="null"/> です</exception>
-        public ColorProperty(ColorPropertyMetadata metadata)
-        {
-            PropertyMetadata = metadata ?? throw new ArgumentNullException(nameof(metadata));
-            Color = metadata.DefaultColor;
-        }
-
-
         #region Methods
 
         /// <inheritdoc/>
@@ -88,6 +89,12 @@ namespace BEditor.Core.Data.Property
             }
             _BindHint = null;
         }
+
+        /// <summary>
+        /// 色を変更するコマンドを作成します
+        /// </summary>
+        [Pure]
+        public IRecordCommand ChangeColor(Color color) => new ChangeColorCommand(this, color);
 
         #region IBindable
 
@@ -133,7 +140,7 @@ namespace BEditor.Core.Data.Property
         /// 色を変更するコマンド
         /// </summary>
         /// <remarks>このクラスは <see cref="CommandManager.Do(IRecordCommand)"/> と併用することでコマンドを記録できます</remarks>
-        public sealed class ChangeColorCommand : IRecordCommand
+        private sealed class ChangeColorCommand : IRecordCommand
         {
             private readonly ColorProperty _Property;
             private readonly Color _New;
@@ -145,7 +152,7 @@ namespace BEditor.Core.Data.Property
             /// <param name="property">対象の <see cref="ColorProperty"/></param>
             /// <param name="color"></param>
             /// <exception cref="ArgumentNullException"><paramref name="property"/> が <see langword="null"/> です</exception>
-            public ChangeColorCommand(ColorProperty property, in Color color)
+            public ChangeColorCommand(ColorProperty property, Color color)
             {
                 _Property = property ?? throw new ArgumentNullException(nameof(property));
                 _New = color;
@@ -174,5 +181,5 @@ namespace BEditor.Core.Data.Property
     /// <summary>
     /// <see cref="BEditor.Core.Data.Property.ColorProperty"/> のメタデータを表します
     /// </summary>
-    public record ColorPropertyMetadata(string Name, in Color DefaultColor = default, bool UseAlpha = false) : PropertyElementMetadata(Name);
+    public record ColorPropertyMetadata(string Name, Color DefaultColor = default, bool UseAlpha = false) : PropertyElementMetadata(Name);
 }

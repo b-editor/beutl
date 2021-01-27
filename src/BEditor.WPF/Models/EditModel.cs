@@ -63,7 +63,7 @@ namespace BEditor.Models
             ClipRemove.Where(_ => AppData.Current.Project is not null)
                 .Select(_ => AppData.Current.Project!.PreviewScene.SelectItem)
                 .Where(c => c is not null)
-                .Subscribe(clip => clip!.Parent.CreateRemoveCommand(clip).Execute());
+                .Subscribe(clip => clip!.Parent.RemoveClip(clip).Execute());
             #endregion
 
             #region Clipboard
@@ -84,7 +84,7 @@ namespace BEditor.Models
                 .Where(clip => clip is not null)
                 .Subscribe(clip =>
                 {
-                    clip!.Parent.CreateRemoveCommand(clip).Execute();
+                    clip!.Parent.RemoveClip(clip).Execute();
 
                     using var memory = new MemoryStream();
                     Serialize.SaveToStream(clip, memory, SerializeMode.Json);
@@ -119,7 +119,7 @@ namespace BEditor.Models
                         return;
                     }
 
-                    timeline.Scene.CreateAddCommand(clip).Execute();
+                    timeline.Scene.AddClip(clip).Execute();
                 });
             #endregion
         }

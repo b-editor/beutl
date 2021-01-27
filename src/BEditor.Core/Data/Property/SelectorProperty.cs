@@ -2,6 +2,7 @@
 using System.Collections;
 using System.Collections.Generic;
 using System.ComponentModel;
+using System.Diagnostics.Contracts;
 using System.Reactive.Disposables;
 using System.Runtime.Serialization;
 using System.Threading.Tasks;
@@ -97,6 +98,12 @@ namespace BEditor.Core.Data.Property
         /// <inheritdoc/>
         public override string ToString() => $"(Index:{Index} Item:{SelectItem} Name:{PropertyMetadata?.Name})";
 
+        /// <summary>
+        /// 選択されているアイテムを変更するコマンドを作成します
+        /// </summary>
+        [Pure]
+        public IRecordCommand ChangeSelect(int index) => new ChangeSelectCommand(this, index);
+
         #region IBindable
 
         /// <inheritdoc/>
@@ -150,7 +157,7 @@ namespace BEditor.Core.Data.Property
         /// 選択されているアイテムを変更するコマンド
         /// </summary>
         /// <remarks>このクラスは <see cref="CommandManager.Do(IRecordCommand)"/> と併用することでコマンドを記録できます</remarks>
-        public sealed class ChangeSelectCommand : IRecordCommand
+        private sealed class ChangeSelectCommand : IRecordCommand
         {
             private readonly SelectorProperty _Property;
             private readonly int _New;

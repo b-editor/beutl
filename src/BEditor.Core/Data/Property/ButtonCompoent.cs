@@ -12,14 +12,14 @@ namespace BEditor.Core.Data.Property
     [DataContract]
     public class ButtonComponent : PropertyElement<PropertyElementMetadata>, IEasingProperty, IObservable<object>
     {
-        private List<IObserver<object>>? list;
+        private List<IObserver<object>>? _List;
 
         public ButtonComponent(PropertyElementMetadata metadata)
         {
             PropertyMetadata = metadata ?? throw new ArgumentNullException(nameof(metadata));
         }
 
-        private List<IObserver<object>> Collection => list ??= new();
+        private List<IObserver<object>> Collection => _List ??= new();
 
         public IDisposable Subscribe(IObserver<object> observer)
         {

@@ -1,6 +1,7 @@
 ﻿using System;
 using System.Collections.Generic;
 using System.ComponentModel;
+using System.Diagnostics.Contracts;
 using System.Linq;
 using System.Reactive.Disposables;
 using System.Runtime.Serialization;
@@ -25,13 +26,20 @@ namespace BEditor.Core.Data.Property
         private string? _BindHint;
         #endregion
 
+        public ValueProperty(ValuePropertyMetadata metadata)
+        {
+            PropertyMetadata = metadata ?? throw new ArgumentNullException(nameof(metadata));
+            _Value = metadata.DefaultValue;
+        }
+
+
         private List<IObserver<float>> Collection => _List ??= new();
         /// <inheritdoc/>
         [DataMember]
         public float Value
         {
             get => _Value;
-            set => SetValue(value, ref this._Value, _ValueArgs, this, state =>
+            set => SetValue(value, ref _Value, _ValueArgs, this, state =>
             {
                 foreach (var observer in state.Collection)
                 {
@@ -52,13 +60,6 @@ namespace BEditor.Core.Data.Property
         {
             get => _Bindable?.GetString();
             private set => _BindHint = value;
-        }
-
-
-        public ValueProperty(ValuePropertyMetadata metadata)
-        {
-            PropertyMetadata = metadata ?? throw new ArgumentNullException(nameof(metadata));
-            _Value = metadata.DefaultValue;
         }
 
 
@@ -130,11 +131,12 @@ namespace BEditor.Core.Data.Property
 
             return value;
         }
-
+        [Pure]
+        public IRecordCommand ChangeValue(float value) => new ChangeValueCommand(this, value);
         #endregion
 
 
-        public sealed class ChangeValueCommand : IRecordCommand
+        private sealed class ChangeValueCommand : IRecordCommand
         {
             private readonly ValueProperty _Property;
             private readonly float _New;

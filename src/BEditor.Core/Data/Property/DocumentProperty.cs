@@ -1,6 +1,7 @@
 ﻿using System;
 using System.Collections.Generic;
 using System.ComponentModel;
+using System.Diagnostics.Contracts;
 using System.Reactive.Disposables;
 using System.Runtime.Serialization;
 using System.Threading.Tasks;
@@ -26,6 +27,18 @@ namespace BEditor.Core.Data.Property
         private IBindable<string>? _Bindable;
         private string? _BindHint;
         #endregion
+
+
+        /// <summary>
+        /// <see cref="DocumentProperty"/> クラスの新しいインスタンスを初期化します
+        /// </summary>
+        /// <param name="metadata">このプロパティの <see cref="DocumentPropertyMetadata"/></param>
+        /// <exception cref="ArgumentNullException"><paramref name="metadata"/> が <see langword="null"/> です</exception>
+        public DocumentProperty(DocumentPropertyMetadata metadata)
+        {
+            PropertyMetadata = metadata ?? throw new ArgumentNullException(nameof(metadata));
+            Text = metadata.DefaultText;
+        }
 
 
         private List<IObserver<string>> Collection => _List ??= new();
@@ -59,18 +72,6 @@ namespace BEditor.Core.Data.Property
         {
             get => _Bindable?.GetString();
             private set => _BindHint = value;
-        }
-
-
-        /// <summary>
-        /// <see cref="DocumentProperty"/> クラスの新しいインスタンスを初期化します
-        /// </summary>
-        /// <param name="metadata">このプロパティの <see cref="DocumentPropertyMetadata"/></param>
-        /// <exception cref="ArgumentNullException"><paramref name="metadata"/> が <see langword="null"/> です</exception>
-        public DocumentProperty(DocumentPropertyMetadata metadata)
-        {
-            PropertyMetadata = metadata ?? throw new ArgumentNullException(nameof(metadata));
-            Text = metadata.DefaultText;
         }
 
 
@@ -129,6 +130,12 @@ namespace BEditor.Core.Data.Property
         /// <inheritdoc/>
         public override string ToString() => $"(Text:{Text} Name:{PropertyMetadata?.Name})";
 
+        /// <summary>
+        /// 文字を変更するコマンドを作成します
+        /// </summary>
+        [Pure]
+        public IRecordCommand ChangeText(string newtext) => new TextChangeCommand(this, newtext);
+
         #endregion
 
 
@@ -138,7 +145,7 @@ namespace BEditor.Core.Data.Property
         /// 文字を変更するコマンド
         /// </summary>
         /// <remarks>このクラスは <see cref="CommandManager.Do(IRecordCommand)"/> と併用することでコマンドを記録できます</remarks>
-        public sealed class TextChangeCommand : IRecordCommand
+        private sealed class TextChangeCommand : IRecordCommand
         {
             private readonly DocumentProperty _Property;
             private readonly string _New;
@@ -175,5 +182,5 @@ namespace BEditor.Core.Data.Property
     /// <summary>
     /// <see cref="BEditor.Core.Data.Property.DocumentProperty"/> のメタデータを表します
     /// </summary>
-    public record DocumentPropertyMetadata(string DefaultText, int? Height = null) : PropertyElementMetadata(string.Empty);
+    public record DocumentPropertyMetadata(string DefaultText) : PropertyElementMetadata(string.Empty);
 }

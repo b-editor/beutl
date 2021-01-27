@@ -36,7 +36,7 @@ namespace BEditor.ViewModels.CreateDialog
                     return;
                 }
 
-                Scene.Value.CreateAddCommand(Start.Value, Layer.Value, Type.Value, out var data).Execute();
+                Scene.Value.AddClip(Start.Value, Layer.Value, Type.Value, out var data).Execute();
 
                 if (Name.Value != string.Empty) data.LabelText = Name.Value;
 

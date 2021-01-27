@@ -19,6 +19,7 @@ using BEditor.Media;
 
 using OpenTK.Graphics.OpenGL;
 using System.Diagnostics.CodeAnalysis;
+using System.Reflection;
 
 namespace BEditor.Core.Data
 {
@@ -30,6 +31,7 @@ namespace BEditor.Core.Data
     {
         #region Fields
 
+        private static readonly PropertyInfo _ClipDataID = typeof(ClipData).GetProperty(nameof(ClipData.Id))!;
         private static readonly PropertyChangedEventArgs _SelectItemArgs = new(nameof(SelectItem));
         private static readonly PropertyChangedEventArgs _PrevireFrameArgs = new(nameof(PreviewFrame));
         private static readonly PropertyChangedEventArgs _TotalFrameArgs = new(nameof(TotalFrame));
@@ -310,6 +312,10 @@ namespace BEditor.Core.Data
 
         #endregion
 
+        /// <summary>
+        /// Get the <see cref="ClipData"/> from its <see cref="IHasName.Name"/>.
+        /// </summary>
+        /// <param name="name">Value of <see cref="IHasName.Name"/>.</param>
         public ClipData? this[string? name]
         {
             [return: NotNullIfNotNull("name")]
@@ -488,27 +494,95 @@ namespace BEditor.Core.Data
         /// <summary>
         /// Set the selected <see cref="ClipData"/> and add the name to <see cref="SelectNames"/> if it does not exist.
         /// </summary>
-        /// <param name="data">Target <see cref="ClipData"/>.</param>
-        /// <exception cref="ArgumentNullException"><paramref name="data"/> is <see langword="null"/>.</exception>
-        public void SetCurrentClip(ClipData data)
+        /// <param name="clip">Clip to be set to current.</param>
+        /// <exception cref="ArgumentNullException"><paramref name="clip"/> is <see langword="null"/>.</exception>
+        public void SetCurrentClip(ClipData clip)
         {
-            SelectItem = data ?? throw new ArgumentNullException(nameof(data));
+            SelectItem = clip ?? throw new ArgumentNullException(nameof(clip));
 
-            if (!SelectNames.Exists(x => x == data.Name))
+            if (!SelectNames.Exists(x => x == clip.Name))
             {
-                SelectItems.Add(data);
+                SelectItems.Add(clip);
             }
         }
+        /// <summary>
+        /// Create a command to add a <see cref="ClipData"/> to this <see cref="Scene"/>.
+        /// </summary>
+        /// <param name="clip">Clip to be added.</param>
+        /// <returns>Created <see cref="IRecordCommand"/>.</returns>
+        public IRecordCommand AddClip(ClipData clip)
+        {
+            //オブジェクトの情報
+            clip.Parent = this;
+            _ClipDataID.SetValue(clip, NewId);
 
+            return RecordCommand.Create(
+                clip,
+                clip =>
+                {
+                    var scene = clip.Parent;
+                    clip.Load();
+                    scene.Add(clip);
+                    scene.SetCurrentClip(clip);
+                },
+                clip =>
+                {
+                    var scene = clip.Parent;
+                    scene.Remove(clip);
+                    clip.Unload();
+
+                    //存在する場合
+                    if (scene.SelectNames.Exists(x => x == clip.Name))
+                    {
+                        scene.SelectItems.Remove(clip);
+
+                        if (scene.SelectName == clip.Name)
+                        {
+                            scene.SelectItem = null;
+                        }
+                    }
+                },
+                _ => CommandName.AddClip);
+        }
+        /// <summary>
+        /// Create a command to add a <see cref="ClipData"/> to this <see cref="Scene"/>.
+        /// </summary>
+        /// <param name="frame">Frame to add a clip.</param>
+        /// <param name="layer">Layer to add a clip.</param>
+        /// <param name="metadata">Clip metadata to be added.</param>
+        /// <param name="generatedClip">Generated clip.</param>
+        /// <returns>Created <see cref="IRecordCommand"/>.</returns>
+        public IRecordCommand AddClip(Frame frame, int layer, ObjectMetadata metadata, out ClipData generatedClip)
+        {
+            var command = new ClipData.AddCommand(this, frame, layer, metadata);
+            generatedClip = command.Clip;
+
+            return command;
+        }
+        /// <summary>
+        /// Create a command to remove <see cref="ClipData"/> from this <see cref="Scene"/>.
+        /// </summary>
+        /// <param name="clip"><see cref="ClipData"/> to be removed.</param>
+        /// <returns>Created <see cref="IRecordCommand"/>.</returns>
+        [SuppressMessage("Performance", "CA1822:メンバーを static に設定します")]
+        public IRecordCommand RemoveClip(ClipData clip)
+            => new ClipData.RemoveCommand(clip);
+        /// <summary>
+        /// Create a command to remove the specified layer from this <see cref="Scene"/>.
+        /// </summary>
+        /// <param name="layer">Layer number to be removed.</param>
+        /// <returns>Created <see cref="IRecordCommand"/>.</returns>
+        public IRecordCommand RemoveLayer(int layer)
+            => new RemoveLayerCommand(this, layer);
         #endregion
 
-        internal sealed class RemoveLayer : IRecordCommand
+        internal sealed class RemoveLayerCommand : IRecordCommand
         {
             private readonly IEnumerable<IRecordCommand> _Clips;
 
-            public RemoveLayer(Scene scene, int layer)
+            public RemoveLayerCommand(Scene scene, int layer)
             {
-                _Clips = scene.GetLayer(layer).Select(clip => clip.Parent.CreateRemoveCommand(clip)).ToArray();
+                _Clips = scene.GetLayer(layer).Select(clip => clip.Parent.RemoveClip(clip)).ToArray();
             }
 
             public string Name => CommandName.RemoveLayer;

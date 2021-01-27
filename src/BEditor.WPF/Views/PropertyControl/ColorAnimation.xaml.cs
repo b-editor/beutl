@@ -11,6 +11,7 @@ using BEditor.ViewModels.PropertyControl;
 using BEditor.Core.Data.Property;
 using BEditor.Drawing;
 using BEditor.WPF.Controls;
+using BEditor.Core.Data;
 
 namespace BEditor.Views.PropertyControl
 {
@@ -108,7 +109,7 @@ namespace BEditor.Views.PropertyControl
 
             d.ok_button.Click += (_, _) =>
             {
-                Core.Command.CommandManager.Do(new ColorAnimationProperty.ChangeColorCommand(color, index, Color.FromARGB(d.col.Alpha, d.col.Red, d.col.Green, d.col.Blue)));
+                ColorProperty.ChangeColor(index, Color.FromARGB(d.col.Alpha, d.col.Red, d.col.Green, d.col.Blue)).Execute();
             };
 
             d.ShowDialog();

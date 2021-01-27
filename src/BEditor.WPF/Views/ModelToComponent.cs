@@ -647,7 +647,7 @@ namespace BEditor.Views
             #region イベント
             checkBox.Click += (sender, e) =>
             {
-                obj.CreateCheckCommand((bool)((CheckBox)sender).IsChecked!).Execute();
+                obj.ChangeIsEnabled((bool)((CheckBox)sender).IsChecked!).Execute();
             };
 
             #endregion
@@ -754,13 +754,13 @@ namespace BEditor.Views
 
             #region イベント
 
-            checkBox.Click += (sender, e) => effect.CreateCheckCommand((bool)((CheckBox)sender).IsChecked!).Execute();
+            checkBox.Click += (sender, e) => effect.ChangeIsEnabled((bool)((CheckBox)sender).IsChecked!).Execute();
 
-            upbutton.Click += (sender, e) => effect.CreateUpCommand().Execute();
+            upbutton.Click += (sender, e) => effect.BringForward().Execute();
 
-            downbutton.Click += (sender, e) => effect.CreateDownCommand().Execute();
+            downbutton.Click += (sender, e) => effect.SendBackward().Execute();
 
-            Delete.Click += (sender, e) => effect.Parent!.CreateRemoveCommand(effect).Execute();
+            Delete.Click += (sender, e) => effect.Parent!.RemoveEffect(effect).Execute();
 
             #endregion
 

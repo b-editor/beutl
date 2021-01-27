@@ -2,6 +2,7 @@
 using System.Collections;
 using System.Collections.Generic;
 using System.ComponentModel;
+using System.Diagnostics.Contracts;
 using System.Dynamic;
 using System.Linq;
 using System.Runtime.Serialization;
@@ -120,6 +121,22 @@ namespace BEditor.Core.Data
 
         }
 
+        /// <summary>
+        /// Create a command to change whether the effect is enabled.
+        /// </summary>
+        [Pure]
+        public IRecordCommand ChangeIsEnabled(bool value) => new CheckCommand(this, value);
+        /// <summary>
+        /// Create a command to bring the order of the effects forward.
+        /// </summary>
+        [Pure]
+        public IRecordCommand BringForward() => new UpCommand(this);
+        /// <summary>
+        /// Create a command to send the order of the effects backward.
+        /// </summary>
+        [Pure]
+        public IRecordCommand SendBackward() => new DownCommand(this);
+
         #endregion
 
 
@@ -192,7 +209,7 @@ namespace BEditor.Core.Data
                 //変更前のインデックス
                 int index = _Clip.Effect.IndexOf(_Effect);
 
-                if (index != _Clip.Effect.Count() - 1)
+                if (index != _Clip.Effect.Count - 1)
                 {
                     _Clip.Effect.Move(index, index + 1);
                 }
@@ -225,7 +242,7 @@ namespace BEditor.Core.Data
                 //変更前のインデックス
                 int index = _Clip.Effect.IndexOf(_Effect);
 
-                if (index != _Clip.Effect.Count() - 1)
+                if (index != _Clip.Effect.Count - 1)
                 {
                     _Clip.Effect.Move(index, index + 1);
                 }
@@ -257,11 +274,13 @@ namespace BEditor.Core.Data
             /// <see cref="RemoveCommand"/> Initialize a new instance of the class.
             /// </summary>
             /// <param name="effect">The target <see cref="EffectElement"/>.</param>
+            /// <param name="clip"></param>
             /// <exception cref="ArgumentNullException"><paramref name="effect"/> is <see langword="null"/>.</exception>
-            public RemoveCommand(EffectElement effect)
+            /// <exception cref="ArgumentNullException"><paramref name="clip"/> is <see langword="null"/>.</exception>
+            public RemoveCommand(EffectElement effect, ClipData clip)
             {
                 _Effect = effect ?? throw new ArgumentNullException(nameof(effect));
-                _Clip = effect.Parent!;
+                _Clip = clip ?? throw new ArgumentNullException(nameof(clip));
                 _Indec = _Clip.Effect.IndexOf(effect);
             }
 

@@ -39,7 +39,7 @@ namespace BEditor.Views.PropertyControls
 
                 var effectinstance = effect.CreateFunc();
 
-                Data.CreateAddCommand(effectinstance).Execute();
+                Data.AddEffect(effectinstance).Execute();
             }
             catch
             {

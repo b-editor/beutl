@@ -2,6 +2,7 @@
 using System.Collections;
 using System.Collections.Generic;
 using System.ComponentModel;
+using System.Diagnostics.Contracts;
 using System.Linq;
 using System.Reactive.Disposables;
 using System.Runtime.Serialization;
@@ -88,7 +89,6 @@ namespace BEditor.Core.Data.Property
         }
 
 
-
         #region Methods
         /// <inheritdoc/>
         protected override void OnLoad()
@@ -101,6 +101,12 @@ namespace BEditor.Core.Data.Property
         }
         /// <inheritdoc/>
         public override string ToString() => $"(Index:{Index} Item:{SelectItem} Name:{PropertyMetadata?.Name})";
+
+        /// <summary>
+        /// 選択されているアイテムを変更するコマンドを作成します
+        /// </summary>
+        [Pure]
+        public IRecordCommand ChangeSelect(T? value) => new ChangeSelectCommand(this, value);
 
         #region IBindable
 
@@ -146,14 +152,13 @@ namespace BEditor.Core.Data.Property
         #endregion
 
 
-
         #region Commands
 
         /// <summary>
         /// 選択されているアイテムを変更するコマンド
         /// </summary>
         /// <remarks>このクラスは <see cref="CommandManager.Do(IRecordCommand)"/> と併用することでコマンドを記録できます</remarks>
-        public sealed class ChangeSelectCommand : IRecordCommand
+        private sealed class ChangeSelectCommand : IRecordCommand
         {
             private readonly SelectorProperty<T> _Property;
             private readonly T? _New;

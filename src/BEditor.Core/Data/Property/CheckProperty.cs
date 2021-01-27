@@ -1,6 +1,7 @@
 ﻿using System;
 using System.Collections.Generic;
 using System.ComponentModel;
+using System.Diagnostics.Contracts;
 using System.Reactive.Disposables;
 using System.Runtime.Serialization;
 using System.Text.RegularExpressions;
@@ -31,6 +32,17 @@ namespace BEditor.Core.Data.Property
 
         #endregion
 
+
+        /// <summary>
+        /// <see cref="CheckProperty"/> クラスの新しいインスタンスを初期化します
+        /// </summary>
+        /// <param name="metadata">このプロパティの <see cref="CheckPropertyMetadata"/></param>
+        /// <exception cref="ArgumentNullException"><paramref name="metadata"/> が <see langword="null"/> です</exception>
+        public CheckProperty(CheckPropertyMetadata metadata)
+        {
+            PropertyMetadata = metadata ?? throw new ArgumentNullException(nameof(metadata));
+            _IsChecked = metadata.DefaultIsChecked;
+        }
 
         private List<IObserver<bool>> Collection => _List ??= new();
         /// <summary>
@@ -64,18 +76,6 @@ namespace BEditor.Core.Data.Property
         }
         /// <inheritdoc/>
         public bool Value => IsChecked;
-
-
-        /// <summary>
-        /// <see cref="CheckProperty"/> クラスの新しいインスタンスを初期化します
-        /// </summary>
-        /// <param name="metadata">このプロパティの <see cref="CheckPropertyMetadata"/></param>
-        /// <exception cref="ArgumentNullException"><paramref name="metadata"/> が <see langword="null"/> です</exception>
-        public CheckProperty(CheckPropertyMetadata metadata)
-        {
-            PropertyMetadata = metadata ?? throw new ArgumentNullException(nameof(metadata));
-            _IsChecked = metadata.DefaultIsChecked;
-        }
 
 
         #region Methods
@@ -137,6 +137,11 @@ namespace BEditor.Core.Data.Property
         }
         /// <inheritdoc/>
         public override string ToString() => $"(IsChecked:{IsChecked} Name:{PropertyMetadata?.Name})";
+        /// <summary>
+        /// チェックされているかを変更するコマンドを作成します
+        /// </summary>
+        [Pure]
+        public IRecordCommand ChangeIsChecked(bool value) => new ChangeCheckedCommand(this, value);
 
         #endregion
 
@@ -145,7 +150,7 @@ namespace BEditor.Core.Data.Property
         /// チェックされているかを変更するコマンド
         /// </summary>
         /// <remarks>このクラスは <see cref="CommandManager.Do(IRecordCommand)"/> と併用することでコマンドを記録できます</remarks>
-        public sealed class ChangeCheckedCommand : IRecordCommand
+        private sealed class ChangeCheckedCommand : IRecordCommand
         {
             private readonly CheckProperty _Property;
             private readonly bool _Value;

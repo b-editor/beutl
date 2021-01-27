@@ -1,6 +1,7 @@
 ﻿using System;
 using System.Collections.Generic;
 using System.ComponentModel;
+using System.Diagnostics.Contracts;
 using System.Reactive.Disposables;
 using System.Runtime.Serialization;
 using System.Threading.Tasks;
@@ -27,6 +28,18 @@ namespace BEditor.Core.Data.Property
         private IBindable<string>? _Bindable;
         private string? _BindHint;
         #endregion
+
+
+        /// <summary>
+        /// <see cref="FileProperty"/> クラスの新しいインスタンスを初期化します
+        /// </summary>
+        /// <param name="metadata">このプロパティの <see cref="FilePropertyMetadata"/></param>
+        /// <exception cref="ArgumentNullException"><paramref name="metadata"/> が <see langword="null"/> です</exception>
+        public FileProperty(FilePropertyMetadata metadata)
+        {
+            PropertyMetadata = metadata ?? throw new ArgumentNullException(nameof(metadata));
+            File = metadata.DefaultFile;
+        }
 
 
         private List<IObserver<string>> Collection => _List ??= new();
@@ -63,18 +76,6 @@ namespace BEditor.Core.Data.Property
         }
 
 
-        /// <summary>
-        /// <see cref="FileProperty"/> クラスの新しいインスタンスを初期化します
-        /// </summary>
-        /// <param name="metadata">このプロパティの <see cref="FilePropertyMetadata"/></param>
-        /// <exception cref="ArgumentNullException"><paramref name="metadata"/> が <see langword="null"/> です</exception>
-        public FileProperty(FilePropertyMetadata metadata)
-        {
-            PropertyMetadata = metadata ?? throw new ArgumentNullException(nameof(metadata));
-            File = metadata.DefaultFile;
-        }
-
-
         #region Methods
 
         /// <inheritdoc/>
@@ -88,6 +89,12 @@ namespace BEditor.Core.Data.Property
         }
         /// <inheritdoc/>
         public override string ToString() => $"(File:{File} Name:{PropertyMetadata?.Name})";
+
+        /// <summary>
+        /// ファイルの名前を変更するコマンドを作成します
+        /// </summary>
+        [Pure]
+        public IRecordCommand ChangeFile(string path) => new ChangeFileCommand(this, path);
 
         #region Ibindable
 
@@ -141,7 +148,7 @@ namespace BEditor.Core.Data.Property
         /// ファイルの名前を変更するコマンド
         /// </summary>
         /// <remarks>このクラスは <see cref="CommandManager.Do(IRecordCommand)"/> と併用することでコマンドを記録できます</remarks>
-        public sealed class ChangeFileCommand : IRecordCommand
+        private sealed class ChangeFileCommand : IRecordCommand
         {
             private readonly FileProperty _Property;
             private readonly string _New;

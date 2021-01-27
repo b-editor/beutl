@@ -2,6 +2,7 @@
 using System.Collections.Generic;
 using System.Collections.ObjectModel;
 using System.ComponentModel;
+using System.Diagnostics.Contracts;
 using System.Linq;
 using System.Runtime.Serialization;
 
@@ -26,6 +27,21 @@ namespace BEditor.Core.Data.Property
         private EasingFunc? _EasingTypeProperty;
         private EasingMetadata? _EasingData;
         #endregion
+
+
+        /// <summary>
+        /// 
+        /// </summary>
+        /// <param name="metadata"></param>
+        public ColorAnimationProperty(ColorAnimationPropertyMetadata metadata)
+        {
+            PropertyMetadata = metadata ?? throw new ArgumentNullException(nameof(metadata));
+            Color color = metadata.DefaultColor;
+
+            Value = new() { color, color };
+            Frame = new();
+            EasingType = metadata.DefaultEase.CreateFunc();
+        }
 
 
         /// <summary>
@@ -81,21 +97,6 @@ namespace BEditor.Core.Data.Property
         public event EventHandler<(Frame frame, int index)>? AddKeyFrameEvent;
         public event EventHandler<int>? DeleteKeyFrameEvent;
         public event EventHandler<(int fromindex, int toindex)>? MoveKeyFrameEvent;
-
-
-        /// <summary>
-        /// 
-        /// </summary>
-        /// <param name="metadata"></param>
-        public ColorAnimationProperty(ColorAnimationPropertyMetadata metadata)
-        {
-            PropertyMetadata = metadata ?? throw new ArgumentNullException(nameof(metadata));
-            Color color = metadata.DefaultColor;
-
-            Value = new() { color, color };
-            Frame = new();
-            EasingType = metadata.DefaultEase.CreateFunc();
-        }
 
 
         #region Methods
@@ -240,6 +241,19 @@ namespace BEditor.Core.Data.Property
             EasingType.Unload();
         }
 
+        [Pure]
+        public IRecordCommand ChangeColor(int index, Color color) => new ChangeColorCommand(this, index, color);
+        [Pure]
+        public IRecordCommand ChangeEase(string type) => new ChangeEaseCommand(this, type);
+        [Pure]
+        public IRecordCommand ChangeEase(EasingMetadata metadata) => new ChangeEaseCommand(this, metadata);
+        [Pure]
+        public IRecordCommand AddFrame(Frame frame) => new AddCommand(this, frame);
+        [Pure]
+        public IRecordCommand RemoveFrame(Frame frame) => new RemoveCommand(this, frame);
+        [Pure]
+        public IRecordCommand MoveFrame(int fromIndex, Frame toFrame) => new MoveCommand(this, fromIndex, toFrame);
+
         #endregion
 
 
@@ -248,7 +262,7 @@ namespace BEditor.Core.Data.Property
         /// <summary>
         /// 
         /// </summary>
-        public sealed class ChangeColorCommand : IRecordCommand
+        private sealed class ChangeColorCommand : IRecordCommand
         {
             private readonly ColorAnimationProperty _Property;
             private readonly int _Index;
@@ -261,7 +275,7 @@ namespace BEditor.Core.Data.Property
             /// <param name="property"></param>
             /// <param name="index"></param>
             /// <param name="color"></param>
-            public ChangeColorCommand(ColorAnimationProperty property, int index, in Color color)
+            public ChangeColorCommand(ColorAnimationProperty property, int index, Color color)
             {
                 _Property = property ?? throw new ArgumentNullException(nameof(property));
                 _Index = index;
@@ -284,7 +298,7 @@ namespace BEditor.Core.Data.Property
         /// <summary>
         /// 
         /// </summary>
-        public sealed class ChangeEaseCommand : IRecordCommand
+        private sealed class ChangeEaseCommand : IRecordCommand
         {
             private readonly ColorAnimationProperty _Property;
             private readonly EasingFunc _New;
@@ -300,6 +314,19 @@ namespace BEditor.Core.Data.Property
                 _Property = property ?? throw new ArgumentNullException(nameof(property));
 
                 var data = EasingMetadata.LoadedEasingFunc.Find(x => x.Name == type)!;
+                _New = data.CreateFunc();
+                _New.Parent = property;
+                _Old = _Property.EasingType;
+            }
+            /// <summary>
+            /// 
+            /// </summary>
+            /// <param name="property"></param>
+            /// <param name="type"></param>
+            public ChangeEaseCommand(ColorAnimationProperty property, EasingMetadata data)
+            {
+                _Property = property ?? throw new ArgumentNullException(nameof(property));
+
                 _New = data.CreateFunc();
                 _New.Parent = property;
                 _Old = _Property.EasingType;
@@ -321,7 +348,7 @@ namespace BEditor.Core.Data.Property
         /// <summary>
         /// 
         /// </summary>
-        public sealed class AddCommand : IRecordCommand
+        private sealed class AddCommand : IRecordCommand
         {
             private readonly ColorAnimationProperty _Property;
             private readonly Frame _Frame;
@@ -360,7 +387,7 @@ namespace BEditor.Core.Data.Property
         /// <summary>
         /// 
         /// </summary>
-        public sealed class RemoveCommand : IRecordCommand
+        private sealed class RemoveCommand : IRecordCommand
         {
             private readonly ColorAnimationProperty _Property;
             private readonly Frame _Frame;
@@ -400,7 +427,7 @@ namespace BEditor.Core.Data.Property
         /// <summary>
         /// 
         /// </summary>
-        public sealed class MoveCommand : IRecordCommand
+        private sealed class MoveCommand : IRecordCommand
         {
             private readonly ColorAnimationProperty _Property;
             private readonly int _FromIndex;
@@ -461,7 +488,7 @@ namespace BEditor.Core.Data.Property
     /// <summary>
     /// 
     /// </summary>
-    public record ColorAnimationPropertyMetadata(string Name, in Color DefaultColor, EasingMetadata DefaultEase, bool UseAlpha = false) : ColorPropertyMetadata(Name, DefaultColor, UseAlpha)
+    public record ColorAnimationPropertyMetadata(string Name, Color DefaultColor, EasingMetadata DefaultEase, bool UseAlpha = false) : ColorPropertyMetadata(Name, DefaultColor, UseAlpha)
     {
         /// <summary>
         /// 
@@ -471,7 +498,7 @@ namespace BEditor.Core.Data.Property
         {
 
         }
-        public ColorAnimationPropertyMetadata(string Name, in Color DefaultColor, bool UseAlpha = false)
+        public ColorAnimationPropertyMetadata(string Name, Color DefaultColor, bool UseAlpha = false)
             : this(Name, DefaultColor, EasingMetadata.LoadedEasingFunc[0], UseAlpha) { }
     }
 }

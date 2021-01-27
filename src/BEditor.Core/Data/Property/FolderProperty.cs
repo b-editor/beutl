@@ -1,6 +1,7 @@
 ﻿using System;
 using System.Collections.Generic;
 using System.ComponentModel;
+using System.Diagnostics.Contracts;
 using System.Linq;
 using System.Reactive.Disposables;
 using System.Runtime.Serialization;
@@ -25,6 +26,18 @@ namespace BEditor.Core.Data.Property
         private IBindable<string>? _Bindable;
         private string? _BindHint;
         #endregion
+
+
+        /// <summary>
+        /// <see cref="FolderProperty"/> クラスの新しいインスタンスを初期化します
+        /// </summary>
+        /// <param name="metadata">このプロパティの <see cref="FolderPropertyMetadata"/></param>
+        /// <exception cref="ArgumentNullException"><paramref name="metadata"/> が <see langword="null"/> です</exception>
+        public FolderProperty(FolderPropertyMetadata metadata)
+        {
+            PropertyMetadata = metadata ?? throw new ArgumentNullException(nameof(metadata));
+            Folder = metadata.Default;
+        }
 
 
         private List<IObserver<string>> Collection => _List ??= new();
@@ -61,18 +74,6 @@ namespace BEditor.Core.Data.Property
         }
 
 
-        /// <summary>
-        /// <see cref="FolderProperty"/> クラスの新しいインスタンスを初期化します
-        /// </summary>
-        /// <param name="metadata">このプロパティの <see cref="FolderPropertyMetadata"/></param>
-        /// <exception cref="ArgumentNullException"><paramref name="metadata"/> が <see langword="null"/> です</exception>
-        public FolderProperty(FolderPropertyMetadata metadata)
-        {
-            PropertyMetadata = metadata ?? throw new ArgumentNullException(nameof(metadata));
-            Folder = metadata.Default;
-        }
-
-
         #region Methods
 
         /// <inheritdoc/>
@@ -86,6 +87,12 @@ namespace BEditor.Core.Data.Property
         }
         /// <inheritdoc/>
         public override string ToString() => $"(Folder:{Folder} Name:{PropertyMetadata?.Name})";
+
+        /// <summary>
+        /// ファイルの名前を変更するコマンドを作成します
+        /// </summary>
+        [Pure]
+        public IRecordCommand ChangeFolder(string path) => new ChangeFolderCommand(this, path);
 
         #region Ibindable
 

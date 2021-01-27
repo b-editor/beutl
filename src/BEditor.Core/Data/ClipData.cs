@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.Collections.ObjectModel;
 using System.ComponentModel;
 using System.ComponentModel.DataAnnotations;
+using System.Diagnostics.CodeAnalysis;
 using System.Diagnostics.Contracts;
 using System.Globalization;
 using System.IO;
@@ -195,7 +196,8 @@ namespace BEditor.Core.Data
         }
 
         /// <inheritdoc/>
-        public object Clone()
+        object ICloneable.Clone() => Clone();
+        public ClipData Clone()
         {
             var clip = this.DeepClone()!;
 
@@ -245,7 +247,36 @@ namespace BEditor.Core.Data
 
             IsLoaded = false;
         }
-
+        /// <summary>
+        /// Create a command to add an effect to this clip
+        /// </summary>
+        public IRecordCommand AddEffect(EffectElement effect)
+            => new EffectElement.AddCommand(effect, this);
+        /// <summary>
+        /// Create a command to remove an effect to this clip
+        /// </summary>
+        public IRecordCommand RemoveEffect(EffectElement effect)
+            => new EffectElement.RemoveCommand(effect, this);
+        /// <summary>
+        /// Create a command to move this clip frames and layers.
+        /// </summary>
+        public IRecordCommand MoveFrameLayer(Frame toFrame, int toLayer)
+            => new MoveCommand(this, toFrame, toLayer);
+        /// <summary>
+        /// Create a command to move this clip frames and layers.
+        /// </summary>
+        public IRecordCommand MoveFrameLayer(Frame to, Frame from, int tolayer, int fromlayer)
+            => new MoveCommand(this, to, from, tolayer, fromlayer);
+        /// <summary>
+        /// Create a command to change the length of this clip.
+        /// </summary>
+        public IRecordCommand ChangeLength(Frame start, Frame end)
+            => new LengthChangeCommand(this, start, end);
+        /// <summary>
+        /// Create a command to split this clip at the specified frame.
+        /// </summary>
+        public IRecordCommand Split(Frame frame)
+            => new SplitCommand(this, frame);
         #endregion
 
 
@@ -373,7 +404,7 @@ namespace BEditor.Core.Data
         /// <summary>
         /// Represents a command to move <see cref="ClipData"/> frames and layers.
         /// </summary>
-        internal sealed class MoveCommand : IRecordCommand
+        private sealed class MoveCommand : IRecordCommand
         {
             private readonly ClipData _Clip;
             private readonly Frame _ToFrame;
@@ -440,7 +471,7 @@ namespace BEditor.Core.Data
         /// <summary>
         /// Represents a command to change the length of <see cref="ClipData"/>.
         /// </summary>
-        internal sealed class LengthChangeCommand : IRecordCommand
+        private sealed class LengthChangeCommand : IRecordCommand
         {
             private readonly ClipData _Clip;
             private readonly Frame _Start;
@@ -479,14 +510,17 @@ namespace BEditor.Core.Data
                 _Clip.End = _OldEnd;
             }
         }
-        internal sealed class SparateCommand : IRecordCommand
+        /// <summary>
+        /// Represents a command to split <see cref="ClipData"/> at the apecified frame.
+        /// </summary>
+        private sealed class SplitCommand : IRecordCommand
         {
             public readonly ClipData Before;
             public readonly ClipData After;
             private readonly ClipData Source;
             private readonly Scene Scene;
 
-            public SparateCommand(ClipData clip, Frame frame)
+            public SplitCommand(ClipData clip, Frame frame)
             {
                 Source = clip;
                 Scene = clip.Parent;
@@ -497,7 +531,7 @@ namespace BEditor.Core.Data
                 After.Start = frame;
             }
 
-            public string Name => CommandName.SparateClip;
+            public string Name => CommandName.SplitClip;
 
             public void Do()
             {

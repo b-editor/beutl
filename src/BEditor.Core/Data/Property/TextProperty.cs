@@ -1,6 +1,7 @@
 ﻿using System;
 using System.Collections.Generic;
 using System.ComponentModel;
+using System.Diagnostics.Contracts;
 using System.Linq;
 using System.Reactive.Disposables;
 using System.Runtime.Serialization;
@@ -23,6 +24,13 @@ namespace BEditor.Core.Data.Property
         private IBindable<string>? _Bindable;
         private string? _BindHint;
         #endregion
+
+
+        public TextProperty(TextPropertyMetadata metadata)
+        {
+            PropertyMetadata = metadata ?? throw new ArgumentNullException(nameof(metadata));
+            _Value = metadata.DefaultText;
+        }
 
 
         private List<IObserver<string>> Collection => _List ??= new();
@@ -52,13 +60,6 @@ namespace BEditor.Core.Data.Property
         {
             get => _Bindable?.GetString();
             private set => _BindHint = value;
-        }
-
-
-        public TextProperty(TextPropertyMetadata metadata)
-        {
-            PropertyMetadata = metadata ?? throw new ArgumentNullException(nameof(metadata));
-            _Value = metadata.DefaultText;
         }
 
 
@@ -112,10 +113,12 @@ namespace BEditor.Core.Data.Property
         }
         /// <inheritdoc/>
         public override string ToString() => $"(Value:{Value} Name:{PropertyMetadata?.Name})";
+        [Pure]
+        public IRecordCommand ChangeText(string text) => new ChangeTextCommand(this, text);
         #endregion
 
 
-        public sealed class ChangeTextCommand : IRecordCommand
+        private sealed class ChangeTextCommand : IRecordCommand
         {
             private readonly TextProperty _Property;
             private readonly string _New;

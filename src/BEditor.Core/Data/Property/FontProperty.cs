@@ -2,6 +2,7 @@
 using System.Collections.Generic;
 using System.Collections.ObjectModel;
 using System.ComponentModel;
+using System.Diagnostics.Contracts;
 using System.Linq;
 using System.Reactive.Disposables;
 using System.Runtime.Serialization;
@@ -40,6 +41,18 @@ namespace BEditor.Core.Data.Property
         #endregion
 
 
+        /// <summary>
+        /// <see cref="FontProperty"/> クラスの新しいインスタンスを初期化します
+        /// </summary>
+        /// <param name="metadata">このプロパティの <see cref="FontPropertyMetadata"/></param>
+        /// <exception cref="ArgumentNullException"><paramref name="metadata"/> が <see langword="null"/> です</exception>
+        public FontProperty(FontPropertyMetadata metadata)
+        {
+            PropertyMetadata = metadata ?? throw new ArgumentNullException(nameof(metadata));
+            _SelectItem = metadata.SelectItem;
+        }
+
+
         private List<IObserver<Font>> Collection => _List ??= new();
         /// <summary>
         /// 選択されているフォントを取得または設定します
@@ -74,18 +87,6 @@ namespace BEditor.Core.Data.Property
         }
 
 
-        /// <summary>
-        /// <see cref="FontProperty"/> クラスの新しいインスタンスを初期化します
-        /// </summary>
-        /// <param name="metadata">このプロパティの <see cref="FontPropertyMetadata"/></param>
-        /// <exception cref="ArgumentNullException"><paramref name="metadata"/> が <see langword="null"/> です</exception>
-        public FontProperty(FontPropertyMetadata metadata)
-        {
-            PropertyMetadata = metadata ?? throw new ArgumentNullException(nameof(metadata));
-            _SelectItem = metadata.SelectItem;
-        }
-
-
         #region Methods
 
         /// <inheritdoc/>
@@ -99,6 +100,12 @@ namespace BEditor.Core.Data.Property
         }
         /// <inheritdoc/>
         public override string ToString() => $"(Select:{Select} Name:{PropertyMetadata?.Name})";
+
+        /// <summary>
+        /// フォントを変更するコマンドを作成します
+        /// </summary>
+        [Pure]
+        public IRecordCommand ChangeFont(Font font) => new ChangeSelectCommand(this, font);
 
         #region IBindable
 
@@ -150,7 +157,7 @@ namespace BEditor.Core.Data.Property
         /// フォントを変更するコマンド
         /// </summary>
         /// <remarks>このクラスは <see cref="CommandManager.Do(IRecordCommand)"/> と併用することでコマンドを記録できます</remarks>
-        public sealed class ChangeSelectCommand : IRecordCommand
+        private sealed class ChangeSelectCommand : IRecordCommand
         {
             private readonly FontProperty _Property;
             private readonly Font _New;

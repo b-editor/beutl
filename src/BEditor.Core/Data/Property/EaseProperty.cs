@@ -2,6 +2,7 @@
 using System.Collections.Generic;
 using System.Collections.ObjectModel;
 using System.ComponentModel;
+using System.Diagnostics.Contracts;
 using System.Linq;
 using System.Runtime.Serialization;
 
@@ -30,49 +31,18 @@ namespace BEditor.Core.Data.Property
 
 
         /// <summary>
-        /// UIにキーフレームの追加を要求する場合に発生します
+        /// <see cref="EaseProperty"/> クラスの新しいインスタンスを初期化します
         /// </summary>
-        /// <remarks>
-        /// <list type="bullet">
-        /// <item>
-        /// <term>frame</term>
-        /// <description>追加するフレーム番号</description>
-        /// </item>
-        /// <item>
-        /// <term>index</term>
-        /// <description><see cref="Time"/> のインデックス</description>
-        /// </item>
-        /// </list>
-        /// </remarks>
-        public event EventHandler<(Frame frame, int index)>? AddKeyFrameEvent;
-        /// <summary>
-        /// UIにキーフレームの削除を要求する場合に発生します
-        /// </summary>
-        /// <remarks>
-        /// <list type="bullet">
-        /// <item>
-        /// <term>e</term>
-        /// <description><see cref="Value"/> の削除するインデックス</description>
-        /// </item>
-        /// </list>
-        /// </remarks>
-        public event EventHandler<int>? DeleteKeyFrameEvent;
-        /// <summary>
-        /// UIにキーフレームの移動を要求する場合に発生します
-        /// </summary>
-        /// <remarks>
-        /// <list type="bullet">
-        /// <item>
-        /// <term>toindex</term>
-        /// <description><see cref="Time"/> の移動元のインデックス</description>
-        /// </item>
-        /// <item>
-        /// <term>toindex</term>
-        /// <description><see cref="Time"/> の移動先のインデックス</description>
-        /// </item>
-        /// </list>
-        /// </remarks>
-        public event EventHandler<(int fromindex, int toindex)>? MoveKeyFrameEvent;
+        /// <param name="metadata">このプロパティの <see cref="EasePropertyMetadata"/></param>
+        /// <exception cref="ArgumentNullException"><paramref name="metadata"/> が <see langword="null"/> です</exception>
+        public EaseProperty(EasePropertyMetadata metadata)
+        {
+            PropertyMetadata = metadata ?? throw new ArgumentNullException(nameof(metadata));
+
+            Value = new ObservableCollection<float> { metadata.DefaultValue, metadata.DefaultValue };
+            Time = new();
+            EasingType = metadata.DefaultEase.CreateFunc();
+        }
 
 
         /// <summary>
@@ -134,18 +104,49 @@ namespace BEditor.Core.Data.Property
 
 
         /// <summary>
-        /// <see cref="EaseProperty"/> クラスの新しいインスタンスを初期化します
+        /// UIにキーフレームの追加を要求する場合に発生します
         /// </summary>
-        /// <param name="metadata">このプロパティの <see cref="EasePropertyMetadata"/></param>
-        /// <exception cref="ArgumentNullException"><paramref name="metadata"/> が <see langword="null"/> です</exception>
-        public EaseProperty(EasePropertyMetadata metadata)
-        {
-            PropertyMetadata = metadata ?? throw new ArgumentNullException(nameof(metadata));
-
-            Value = new ObservableCollection<float> { metadata.DefaultValue, metadata.DefaultValue };
-            Time = new();
-            EasingType = metadata.DefaultEase.CreateFunc();
-        }
+        /// <remarks>
+        /// <list type="bullet">
+        /// <item>
+        /// <term>frame</term>
+        /// <description>追加するフレーム番号</description>
+        /// </item>
+        /// <item>
+        /// <term>index</term>
+        /// <description><see cref="Time"/> のインデックス</description>
+        /// </item>
+        /// </list>
+        /// </remarks>
+        public event EventHandler<(Frame frame, int index)>? AddKeyFrameEvent;
+        /// <summary>
+        /// UIにキーフレームの削除を要求する場合に発生します
+        /// </summary>
+        /// <remarks>
+        /// <list type="bullet">
+        /// <item>
+        /// <term>e</term>
+        /// <description><see cref="Value"/> の削除するインデックス</description>
+        /// </item>
+        /// </list>
+        /// </remarks>
+        public event EventHandler<int>? DeleteKeyFrameEvent;
+        /// <summary>
+        /// UIにキーフレームの移動を要求する場合に発生します
+        /// </summary>
+        /// <remarks>
+        /// <list type="bullet">
+        /// <item>
+        /// <term>toindex</term>
+        /// <description><see cref="Time"/> の移動元のインデックス</description>
+        /// </item>
+        /// <item>
+        /// <term>toindex</term>
+        /// <description><see cref="Time"/> の移動先のインデックス</description>
+        /// </item>
+        /// </list>
+        /// </remarks>
+        public event EventHandler<(int fromindex, int toindex)>? MoveKeyFrameEvent;
 
 
         #region Methods
@@ -325,6 +326,19 @@ namespace BEditor.Core.Data.Property
             EasingType.Unload();
         }
 
+        [Pure]
+        public IRecordCommand ChangeValue(int index, float value) => new ChangeValueCommand(this, index, value);
+        [Pure]
+        public IRecordCommand ChangeEase(string type) => new ChangeEaseCommand(this, type);
+        [Pure]
+        public IRecordCommand ChangeEase(EasingMetadata metadata) => new ChangeEaseCommand(this, metadata);
+        [Pure]
+        public IRecordCommand AddFrame(Frame frame) => new AddCommand(this, frame);
+        [Pure]
+        public IRecordCommand RemoveFrame(Frame frame) => new RemoveCommand(this, frame);
+        [Pure]
+        public IRecordCommand MoveFrame(int fromIndex, Frame toFrame) => new MoveCommand(this, fromIndex, toFrame);
+
         #endregion
 
 
@@ -334,7 +348,7 @@ namespace BEditor.Core.Data.Property
         /// 値を変更するコマンド
         /// </summary>
         /// <remarks>このクラスは <see cref="CommandManager.Do(IRecordCommand)"/> と併用することでコマンドを記録できます</remarks>
-        public sealed class ChangeValueCommand : IRecordCommand
+        private sealed class ChangeValueCommand : IRecordCommand
         {
             private readonly EaseProperty _Property;
             private readonly int _Index;
@@ -374,12 +388,26 @@ namespace BEditor.Core.Data.Property
         /// イージング関数を変更するコマンド
         /// </summary>
         /// <remarks>このクラスは <see cref="CommandManager.Do(IRecordCommand)"/> と併用することでコマンドを記録できます</remarks>
-        public sealed class ChangeEaseCommand : IRecordCommand
+        private sealed class ChangeEaseCommand : IRecordCommand
         {
             private readonly EaseProperty _Property;
             private readonly EasingFunc _New;
             private readonly EasingFunc _Old;
 
+            /// <summary>
+            /// <see cref="ChangeEaseCommand"/> クラスの新しいインスタンスを初期化します
+            /// </summary>
+            /// <param name="property">対象の <see cref="EaseProperty"/></param>
+            /// <param name="metadata">新しいイージング関数のメタデータ</param>
+            /// <exception cref="ArgumentNullException"><paramref name="property"/> が <see langword="null"/> です</exception>
+            public ChangeEaseCommand(EaseProperty property, EasingMetadata metadata)
+            {
+                _Property = property ?? throw new ArgumentNullException(nameof(property));
+
+                _New = metadata.CreateFunc();
+                _New.Parent = property;
+                _Old = _Property.EasingType;
+            }
             /// <summary>
             /// <see cref="ChangeEaseCommand"/> クラスの新しいインスタンスを初期化します
             /// </summary>
@@ -414,7 +442,7 @@ namespace BEditor.Core.Data.Property
         /// キーフレームを追加するコマンド
         /// </summary>
         /// <remarks>このクラスは <see cref="CommandManager.Do(IRecordCommand)"/> と併用することでコマンドを記録できます</remarks>
-        public sealed class AddCommand : IRecordCommand
+        private sealed class AddCommand : IRecordCommand
         {
             private readonly EaseProperty _Property;
             private readonly Frame _Frame;
@@ -457,7 +485,7 @@ namespace BEditor.Core.Data.Property
         /// キーフレームを削除するコマンド
         /// </summary>
         /// <remarks>このクラスは <see cref="CommandManager.Do(IRecordCommand)"/> と併用することでコマンドを記録できます</remarks>
-        public sealed class RemoveCommand : IRecordCommand
+        private sealed class RemoveCommand : IRecordCommand
         {
             private readonly EaseProperty _Property;
             private readonly Frame _Frame;
@@ -502,7 +530,7 @@ namespace BEditor.Core.Data.Property
         /// キーフレームを移動するコマンド
         /// </summary>
         /// <remarks>このクラスは <see cref="CommandManager.Do(IRecordCommand)"/> と併用することでコマンドを記録できます</remarks>
-        public sealed class MoveCommand : IRecordCommand
+        private sealed class MoveCommand : IRecordCommand
         {
             private readonly EaseProperty _Property;
             private readonly int _FromIndex;
