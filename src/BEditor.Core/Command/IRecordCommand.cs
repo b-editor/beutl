@@ -3,24 +3,25 @@
 namespace BEditor.Core.Command
 {
     /// <summary>
-    /// 実行、元に戻す(undo)、やり直す(redo)の動作を表します
+    /// Represents the action of executing, undoing, or redoing.
     /// </summary>
     public interface IRecordCommand
     {
+        /// <summary>
+        /// Gets the name of this <see cref="IRecordCommand"/>.
+        /// </summary>
         public string Name => Resources.UnknownCommand;
 
         /// <summary>
-        /// 操作を実行します
+        /// Execute the operation
         /// </summary>
         public void Do();
-
         /// <summary>
-        /// 操作を元に戻します
+        /// Undo the operation.
         /// </summary>
         public void Undo();
-
         /// <summary>
-        /// 操作をやり直します
+        /// Redo the operation.
         /// </summary>
         public void Redo();
     }

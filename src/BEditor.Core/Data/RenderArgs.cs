@@ -1,11 +1,12 @@
-﻿using System.Collections.Generic;
+﻿using System;
+using System.Collections.Generic;
 
 using BEditor.Media;
 
 namespace BEditor.Core.Data
 {
     /// <summary>
-    /// Represents the data to be passed to the <see cref="ClipData"/> at rendering time.
+    /// Represents a data to be passed to the <see cref="ClipData"/> at rendering time.
     /// </summary>
     public class ClipRenderArgs
     {
@@ -33,7 +34,7 @@ namespace BEditor.Core.Data
     }
 
     /// <summary>
-    /// Represents the data to be passed to the <see cref="EffectElement"/> at rendering time.
+    /// Represents a data to be passed to the <see cref="EffectElement"/> at rendering time.
     /// </summary>
     public class EffectRenderArgs
     {
@@ -60,7 +61,7 @@ namespace BEditor.Core.Data
         public RenderType Type { get; }
     }
     /// <summary>
-    /// Represents the data to be passed to the <see cref="EffectElement"/> at rendering time.
+    /// Represents a data to be passed to the <see cref="EffectElement"/> at rendering time.
     /// </summary>
     public class EffectRenderArgs<T> : EffectRenderArgs
     {
@@ -83,5 +84,26 @@ namespace BEditor.Core.Data
         VideoPreview,
         ImageOutput,
         VideoOutput
+    }
+    /// <summary>
+    /// Represents errors that occur during rendering.
+    /// </summary>
+    public class RenderingException : Exception
+    {
+        /// <summary>
+        /// Initializes a new instance of the <see cref="RenderingException"/> class.
+        /// </summary>
+        public RenderingException() { }
+        /// <summary>
+        /// Initializes a new instance of the <see cref="RenderingException"/> class with a specified error message.
+        /// </summary>
+        /// <param name="message">The message that describes the error.</param>
+        public RenderingException(string? message) : base(message) { }
+        /// <summary>
+        /// Initializes a new instance of the <see cref="RenderingException"/> class with a specified error message and a reference to the inner exception that is the cause of this exception.
+        /// </summary>
+        /// <param name="message">The message that describes the error.</param>
+        /// <param name="innerException">The exception that is the cause of the current exception, or a null reference(Nothing in Visual Basic) if no inner exception is specified.</param>
+        public RenderingException(string? message, Exception? innerException) : base(message, innerException) { }
     }
 }

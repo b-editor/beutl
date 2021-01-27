@@ -65,6 +65,15 @@ namespace BEditor.ViewModels.TimeLines
 
         public ClipUIViewModel(ClipData clip)
         {
+            static CustomClipUIAttribute GetAtt(ObjectElement self)
+            {
+                var type = self.GetType();
+                var attribute = Attribute.GetCustomAttribute(type, typeof(CustomClipUIAttribute));
+
+                if (attribute is CustomClipUIAttribute uIAttribute) return uIAttribute;
+                else return new();
+            }
+
             ClipData = clip;
             WidthProperty.Value = TimeLineViewModel.ToPixel(ClipData.Length);
             MarginProperty.Value = new Thickness(TimeLineViewModel.ToPixel(ClipData.Start), 1, 0, 0);
@@ -72,7 +81,7 @@ namespace BEditor.ViewModels.TimeLines
 
             if (clip.Effect[0] is ObjectElement @object)
             {
-                var color = @object.GetAttribute()?.GetColor ?? default;
+                var color = GetAtt(@object).GetColor;
                 ClipColor.Value = new SolidColorBrush(new Color()
                 {
                     R = color.R,

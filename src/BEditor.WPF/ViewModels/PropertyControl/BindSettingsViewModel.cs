@@ -31,7 +31,7 @@ namespace BEditor.ViewModels.PropertyControl
                 }
             });
 
-            DisconnectCommand.Subscribe(() => Core.Command.CommandManager.Do(new Bindings.Disconnect<T>(Bindable)));
+            DisconnectCommand.Subscribe(() => Core.Command.CommandManager.Do(new Bindings.DisconnectCommand<T>(Bindable)));
         }
 
 

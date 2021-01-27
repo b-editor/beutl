@@ -87,7 +87,6 @@ namespace BEditor.Core.Data.Primitive.Objects
                 catch (Exception ex)
                 {
                     Message.Snackbar(string.Format(Resources.FailedToLoad, filename));
-                    ActivityLog.ErrorLog(ex);
                 }
             });
         }

@@ -3,6 +3,7 @@
   <PropertyGroup>
     <TargetFramework>net5.0</TargetFramework>
     <AssemblyName>BEditor.Core</AssemblyName>
+    <DocumentationFile>BEditor.Core.xml</DocumentationFile>
   </PropertyGroup>
 
   <Import Project="..\..\props\common.props" />

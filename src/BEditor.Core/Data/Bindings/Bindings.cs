@@ -13,11 +13,19 @@ using BEditor.Core.Extensions;
 
 namespace BEditor.Core.Data.Bindings
 {
+    /// <summary>
+    /// Represents a class that provides methods for objects that implement <see cref="IBindable{T}"/>.
+    /// </summary>
     public static class Bindings
     {
-        public static bool GetBindable<T>(this IBindable<T> bindable, string? text, out IBindable<T>? result)
+        /// <summary>
+        /// Get an <see cref="IBindable{T}"/> from a string that can be obtained by <see cref="GetString(IBindable)"/>.
+        /// </summary>
+        /// <typeparam name="T">Type of object to bind</typeparam>
+        /// <returns>Returns a <see cref="bool"/> indicating whether it was retrieved or not, <see langword="true"/> on success, <see langword="false"/> on failure.</returns>
+        public static bool GetBindable<T>(this IBindable<T> bindable, string? str, out IBindable<T>? result)
         {
-            if (text is null)
+            if (str is null)
             {
                 result = null;
                 return false;
@@ -28,9 +36,9 @@ namespace BEditor.Core.Data.Bindings
             // Scene.Clip[Effect][Group][Property]の場合
             var regex2 = new Regex(@"^([\da-zA-Z]+)\.([\da-zA-Z]+)\[([\d]+)\]\[([\d]+)\]\[([\d]+)\]\z");
 
-            if (regex1.IsMatch(text))
+            if (regex1.IsMatch(str))
             {
-                var match = regex1.Match(text);
+                var match = regex1.Match(str);
 
                 var proj = bindable.GetParent4() ?? throw new Exception();
                 var scene = proj.Find(match.Groups[1].Value) ?? throw new Exception();
@@ -40,9 +48,9 @@ namespace BEditor.Core.Data.Bindings
 
                 return true;
             }
-            else if (regex2.IsMatch(text))
+            else if (regex2.IsMatch(str))
             {
-                var match = regex2.Match(text);
+                var match = regex2.Match(str);
 
                 var proj = bindable.GetParent4() ?? throw new Exception();
                 var scene = proj.Find(match.Groups[1].Value) ?? throw new Exception();
@@ -57,7 +65,11 @@ namespace BEditor.Core.Data.Bindings
             result = null;
             return false;
         }
-
+        /// <summary>
+        /// Get a <see cref="string"/> to retrieve an <see cref="IBindable"/>
+        /// </summary>
+        /// <param name="bindable">An object that implements <see cref="IBindable"/> to get a string.</param>
+        /// <returns>String that can be used to get an <see cref="IBindable"/> from <see cref="GetBindable{T}(IBindable{T}, string?, out IBindable{T}?)"/>.</returns>
         public static string GetString(this IBindable bindable)
         {
             //[DoesNotReturnAttribute]
@@ -94,17 +106,29 @@ namespace BEditor.Core.Data.Bindings
 
             return $"{bindable.GetParent3()?.Name}.{bindable.GetParent2()?.Name}[{bindable.GetParent()?.Id}][{bindable.Id}]";
         }
+        /// <summary>
+        /// Create a command to bind two objects implementing <see cref="IBindable{T}"/>.
+        /// </summary>
+        /// <typeparam name="T">Type of object to bind</typeparam>
+        /// <param name="src">Bind source object</param>
+        /// <param name="target">Bind destination object</param>
+        /// <returns>Created <see cref="IRecordCommand"/></returns>
+        public static IRecordCommand Bind<T>(this IBindable<T>? src, IBindable<T>? target)
+            => new BindCommand<T>(src, target);
+        /// <summary>
+        /// Create a command to disconnect the binding
+        /// </summary>
+        /// <typeparam name="T">Type of object to bind</typeparam>
+        /// <param name="bindable">An object that implements <see cref="IBindable{T}"/> to disconnect.</param>
+        /// <returns>Created <see cref="IRecordCommand"/></returns>
+        public static IRecordCommand Disconnect<T>(this IBindable<T> bindable)
+            => new DisconnectCommand<T>(bindable);
 
-        public sealed class BindCommand<T> : IRecordCommand
+        private sealed class BindCommand<T> : IRecordCommand
         {
             private readonly IBindable<T>? _Source;
             private readonly IBindable<T>? _Target;
 
-            /// <summary>
-            /// 
-            /// </summary>
-            /// <param name="source">バインド先のオブジェクト</param>
-            /// <param name="target">バインドするオブジェクト</param>
             public BindCommand(IBindable<T>? source, IBindable<T>? target)
             {
                 _Source = source;
@@ -128,12 +152,12 @@ namespace BEditor.Core.Data.Bindings
                 _Target?.Bind(null);
             }
         }
-        public sealed class Disconnect<T> : IRecordCommand
+        private sealed class DisconnectCommand<T> : IRecordCommand
         {
             private readonly IBindable<T> bindable;
             private readonly IBindable<T>? twoway;
 
-            public Disconnect(IBindable<T> bindable)
+            public DisconnectCommand(IBindable<T> bindable)
             {
                 this.bindable = bindable;
                 bindable.GetBindable(bindable.BindHint, out twoway);

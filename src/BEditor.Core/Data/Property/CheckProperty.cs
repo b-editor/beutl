@@ -15,7 +15,7 @@ using BEditor.Core.Extensions;
 namespace BEditor.Core.Data.Property
 {
     /// <summary>
-    /// チェックボックスのプロパティを表します
+    /// Represents a checkbox property.
     /// </summary>
     [DataContract]
     public class CheckProperty : PropertyElement<CheckPropertyMetadata>, IEasingProperty, IBindable<bool>
@@ -34,10 +34,10 @@ namespace BEditor.Core.Data.Property
 
 
         /// <summary>
-        /// <see cref="CheckProperty"/> クラスの新しいインスタンスを初期化します
+        /// Initializes new instance of the <see cref="CheckProperty"/> class.
         /// </summary>
-        /// <param name="metadata">このプロパティの <see cref="CheckPropertyMetadata"/></param>
-        /// <exception cref="ArgumentNullException"><paramref name="metadata"/> が <see langword="null"/> です</exception>
+        /// <param name="metadata">Metadata of this property.</param>
+        /// <exception cref="ArgumentNullException"><paramref name="metadata"/> is <see langword="null"/>.</exception>
         public CheckProperty(CheckPropertyMetadata metadata)
         {
             PropertyMetadata = metadata ?? throw new ArgumentNullException(nameof(metadata));
@@ -46,7 +46,7 @@ namespace BEditor.Core.Data.Property
 
         private List<IObserver<bool>> Collection => _List ??= new();
         /// <summary>
-        /// チェックされている場合 <see langword="true"/>、そうでない場合は <see langword="false"/> となります
+        /// Gets or sets the value of whether the item is checked or not.
         /// </summary>
         [DataMember]
         public bool IsChecked
@@ -138,48 +138,47 @@ namespace BEditor.Core.Data.Property
         /// <inheritdoc/>
         public override string ToString() => $"(IsChecked:{IsChecked} Name:{PropertyMetadata?.Name})";
         /// <summary>
-        /// チェックされているかを変更するコマンドを作成します
+        /// Create a command to change whether it is checked or not.
         /// </summary>
+        /// <param name="value">New value for IsChecked</param>
+        /// <returns>Created <see cref="IRecordCommand"/>.</returns>
         [Pure]
         public IRecordCommand ChangeIsChecked(bool value) => new ChangeCheckedCommand(this, value);
 
         #endregion
 
 
-        /// <summary>
-        /// チェックされているかを変更するコマンド
-        /// </summary>
-        /// <remarks>このクラスは <see cref="CommandManager.Do(IRecordCommand)"/> と併用することでコマンドを記録できます</remarks>
         private sealed class ChangeCheckedCommand : IRecordCommand
         {
             private readonly CheckProperty _Property;
             private readonly bool _Value;
 
-            /// <summary>
-            /// <see cref="ChangeCheckedCommand"/> クラスの新しいインスタンスを初期化します
-            /// </summary>
-            /// <param name="property">対象の <see cref="CheckProperty"/></param>
-            /// <param name="value">新しい値</param>
-            /// <exception cref="ArgumentNullException"><paramref name="property"/> が <see langword="null"/> です</exception>
             public ChangeCheckedCommand(CheckProperty property, bool value)
             {
-                _Property = property ?? throw new ArgumentNullException(nameof(property));
-                this._Value = value;
+                _Property = property;
+                _Value = value;
             }
 
             public string Name => CommandName.ChangeIsChecked;
 
-            /// <inheritdoc/>
             public void Do() => _Property.IsChecked = _Value;
-            /// <inheritdoc/>
             public void Redo() => Do();
-            /// <inheritdoc/>
             public void Undo() => _Property.IsChecked = !_Value;
         }
     }
 
+#pragma warning disable CS1591
+#pragma warning disable CS1573
+#pragma warning disable CS1572
+
     /// <summary>
-    /// <see cref="BEditor.Core.Data.Property.CheckProperty"/> のメタデータを表します
+    /// Initializes a new instance of the <see cref="BEditor.Core.Data.Property.CheckPropertyMetadata"/> class.
     /// </summary>
+    /// <param name="Name">Gets or sets the string to be displayed in the property header.</param>
+    /// <param name="DefaultIsChecked">Gets or sets the value of whether the default is checked or not.</param>
     public record CheckPropertyMetadata(string Name, bool DefaultIsChecked = false) : PropertyElementMetadata(Name);
+
+#pragma warning restore CS1573
+#pragma warning restore CS1591
+#pragma warning restore CS1572
 }

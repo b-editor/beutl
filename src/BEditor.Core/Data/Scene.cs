@@ -20,6 +20,7 @@ using BEditor.Media;
 using OpenTK.Graphics.OpenGL;
 using System.Diagnostics.CodeAnalysis;
 using System.Reflection;
+using System.Diagnostics.Contracts;
 
 namespace BEditor.Core.Data
 {
@@ -494,7 +495,7 @@ namespace BEditor.Core.Data
         /// <summary>
         /// Set the selected <see cref="ClipData"/> and add the name to <see cref="SelectNames"/> if it does not exist.
         /// </summary>
-        /// <param name="clip">Clip to be set to current.</param>
+        /// <param name="clip"><see cref="ClipData"/> to be set to current.</param>
         /// <exception cref="ArgumentNullException"><paramref name="clip"/> is <see langword="null"/>.</exception>
         public void SetCurrentClip(ClipData clip)
         {
@@ -508,8 +509,9 @@ namespace BEditor.Core.Data
         /// <summary>
         /// Create a command to add a <see cref="ClipData"/> to this <see cref="Scene"/>.
         /// </summary>
-        /// <param name="clip">Clip to be added.</param>
+        /// <param name="clip"><see cref="ClipData"/> to be added.</param>
         /// <returns>Created <see cref="IRecordCommand"/>.</returns>
+        [Pure]
         public IRecordCommand AddClip(ClipData clip)
         {
             //オブジェクトの情報
@@ -550,8 +552,9 @@ namespace BEditor.Core.Data
         /// <param name="frame">Frame to add a clip.</param>
         /// <param name="layer">Layer to add a clip.</param>
         /// <param name="metadata">Clip metadata to be added.</param>
-        /// <param name="generatedClip">Generated clip.</param>
+        /// <param name="generatedClip">Generated <see cref="ClipData"/>.</param>
         /// <returns>Created <see cref="IRecordCommand"/>.</returns>
+        [Pure]
         public IRecordCommand AddClip(Frame frame, int layer, ObjectMetadata metadata, out ClipData generatedClip)
         {
             var command = new ClipData.AddCommand(this, frame, layer, metadata);
@@ -565,6 +568,7 @@ namespace BEditor.Core.Data
         /// <param name="clip"><see cref="ClipData"/> to be removed.</param>
         /// <returns>Created <see cref="IRecordCommand"/>.</returns>
         [SuppressMessage("Performance", "CA1822:メンバーを static に設定します")]
+        [Pure]
         public IRecordCommand RemoveClip(ClipData clip)
             => new ClipData.RemoveCommand(clip);
         /// <summary>
@@ -572,6 +576,7 @@ namespace BEditor.Core.Data
         /// </summary>
         /// <param name="layer">Layer number to be removed.</param>
         /// <returns>Created <see cref="IRecordCommand"/>.</returns>
+        [Pure]
         public IRecordCommand RemoveLayer(int layer)
             => new RemoveLayerCommand(this, layer);
         #endregion
@@ -611,11 +616,14 @@ namespace BEditor.Core.Data
         }
     }
 
+    /// <inheritdoc/>
     [DataContract]
     public class RootScene : Scene
     {
+        /// <inheritdoc/>
         public RootScene(int width, int height) : base(width, height) { }
 
+        /// <inheritdoc/>
         public override string SceneName { get => "root"; set { } }
     }
 

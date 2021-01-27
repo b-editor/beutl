@@ -13,6 +13,9 @@ using OpenTK.Graphics.OpenGL;
 
 namespace BEditor.Core.Data.Primitive.Effects
 {
+    /// <summary>
+    /// Represents an <see cref="EffectElement"/> that sets the OpenGL depth test.
+    /// </summary>
     [DataContract]
     public class DepthTest : EffectElement
     {
@@ -31,7 +34,7 @@ namespace BEditor.Core.Data.Primitive.Effects
         public static readonly CheckPropertyMetadata MaskMetadata = new("Mask", true);
         public static readonly EasePropertyMetadata NearMetadata = new("Near", 0, 100, 0);
         public static readonly EasePropertyMetadata FarMetadata = new("Far", 100, 100, 0);
-        public static readonly ReadOnlyCollection<DepthFunction> DepthFunctions = new ReadOnlyCollection<DepthFunction>(new DepthFunction[]
+        private static readonly ReadOnlyCollection<DepthFunction> DepthFunctions = new ReadOnlyCollection<DepthFunction>(new DepthFunction[]
         {
             DepthFunction.Never,
             DepthFunction.Less,

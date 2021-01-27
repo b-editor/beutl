@@ -14,7 +14,7 @@ using BEditor.Drawing;
 namespace BEditor.Core.Data.Property
 {
     /// <summary>
-    /// 色を選択するプロパティを表します
+    /// Represents a property to pick a color.
     /// </summary>
     [DataContract]
     public class ColorProperty : PropertyElement<ColorPropertyMetadata>, IEasingProperty, IBindable<Color>
@@ -31,10 +31,10 @@ namespace BEditor.Core.Data.Property
 
 
         /// <summary>
-        /// <see cref="ColorProperty"/> クラスの新しいインスタンスを初期化します
+        /// Initializes a new instance of the <see cref="ColorProperty"/> class.
         /// </summary>
-        /// <param name="metadata">このプロパティの <see cref="ColorPropertyMetadata"/></param>
-        /// <exception cref="ArgumentNullException"><paramref name="metadata"/> が <see langword="null"/> です</exception>
+        /// <param name="metadata">Metadata of this property.</param>
+        /// <exception cref="ArgumentNullException"><paramref name="metadata"/> is <see langword="null"/>.</exception>
         public ColorProperty(ColorPropertyMetadata metadata)
         {
             PropertyMetadata = metadata ?? throw new ArgumentNullException(nameof(metadata));
@@ -44,7 +44,7 @@ namespace BEditor.Core.Data.Property
 
         private List<IObserver<Color>> Collection => _List ??= new();
         /// <summary>
-        /// 
+        /// Gets or sets the selected color.
         /// </summary>
         [DataMember]
         public Color Color
@@ -91,13 +91,16 @@ namespace BEditor.Core.Data.Property
         }
 
         /// <summary>
-        /// 色を変更するコマンドを作成します
+        /// Create a command to change the color of this <see cref="Color"/>.
         /// </summary>
+        /// <param name="color">New Color.</param>
+        /// <returns>Created <see cref="IRecordCommand"/>.</returns>
         [Pure]
         public IRecordCommand ChangeColor(Color color) => new ChangeColorCommand(this, color);
 
         #region IBindable
 
+        /// <inheritdoc/>
         public void Bind(IBindable<Color>? bindable)
         {
             _BindDispose?.Dispose();
@@ -112,6 +115,7 @@ namespace BEditor.Core.Data.Property
             }
         }
 
+        /// <inheritdoc/>
         public IDisposable Subscribe(IObserver<Color> observer)
         {
             if (observer is null) throw new ArgumentNullException(nameof(observer));
@@ -124,8 +128,11 @@ namespace BEditor.Core.Data.Property
              });
         }
 
+        /// <inheritdoc/>
         public void OnCompleted() { }
+        /// <inheritdoc/>
         public void OnError(Exception error) { }
+        /// <inheritdoc/>
         public void OnNext(Color value)
         {
             Color = value;
@@ -139,7 +146,6 @@ namespace BEditor.Core.Data.Property
         /// <summary>
         /// 色を変更するコマンド
         /// </summary>
-        /// <remarks>このクラスは <see cref="CommandManager.Do(IRecordCommand)"/> と併用することでコマンドを記録できます</remarks>
         private sealed class ChangeColorCommand : IRecordCommand
         {
             private readonly ColorProperty _Property;
@@ -159,6 +165,7 @@ namespace BEditor.Core.Data.Property
                 _Old = property.Value;
             }
 
+            /// <inheritdoc/>
             public string Name => CommandName.ChangeColor;
 
             /// <inheritdoc/>
@@ -178,8 +185,19 @@ namespace BEditor.Core.Data.Property
         }
     }
 
+#pragma warning disable CS1591
+#pragma warning disable CS1573
+#pragma warning disable CS1572
+
     /// <summary>
-    /// <see cref="BEditor.Core.Data.Property.ColorProperty"/> のメタデータを表します
+    /// Initializes a new instance of the <see cref="BEditor.Core.Data.Property.ColorPropertyMetadata"/> class.
     /// </summary>
+    /// <param name="Name">Gets or sets the string to be displayed in the property header.</param>
+    /// <param name="DefaultColor">Gets or sets the default color.</param>
+    /// <param name="UseAlpha">Gets or sets a <see cref="bool"/> indicating whether or not to use the alpha component.</param>
     public record ColorPropertyMetadata(string Name, Color DefaultColor = default, bool UseAlpha = false) : PropertyElementMetadata(Name);
+    
+#pragma warning restore CS1573
+#pragma warning restore CS1591
+#pragma warning restore CS1572
 }
