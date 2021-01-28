@@ -5,7 +5,6 @@ using System.ComponentModel;
 using System.ComponentModel.DataAnnotations;
 using System.Diagnostics.CodeAnalysis;
 using System.Diagnostics.Contracts;
-using System.Diagnostics.CodeAnalysis;
 using System.Globalization;
 using System.IO;
 using System.Linq;
@@ -298,7 +297,19 @@ namespace BEditor.Core.Data
         {
             if (effect is null) throw new ArgumentNullException(nameof(effect));
 
-        #endregion
+
+            return new EffectElement.RemoveCommand(effect, this);
+        }
+        /// <summary>
+        /// Create a command to remove an effect to this clip
+        /// </summary>
+        /// <param name="effect"><see cref="EffectElement"/> to be removed.</param>
+        /// <returns>Created <see cref="IRecordCommand"/>.</returns>
+        /// <exception cref="ArgumentNullException"><paramref name="effect"/> is <see langword="null"/>.</exception>
+        [Pure]
+        public IRecordCommand RemoveEffect(EffectElement effect)
+        {
+            if (effect is null) throw new ArgumentNullException(nameof(effect));
 
             return new EffectElement.RemoveCommand(effect, this);
         }
@@ -341,8 +352,8 @@ namespace BEditor.Core.Data
         [Pure]
         public IRecordCommand Split(Frame frame)
             => new SplitCommand(this, frame);
-        #endregion
 
+        #endregion
 
         internal sealed class AddCommand : IRecordCommand
         {

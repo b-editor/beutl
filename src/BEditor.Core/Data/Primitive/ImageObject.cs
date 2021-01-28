@@ -125,6 +125,66 @@ namespace BEditor.Core.Data.Primitive
 
             Coordinate.ResetOptional();
         }
+        private void Draw(Image<BGRA32> image, EffectRenderArgs args)
+        {
+            #region 
+            var frame = args.Frame;
+
+            float alpha = (float)(Blend.Alpha.GetValue(frame) / 100);
+
+            var scale = (float)(Zoom.Scale.GetValue(frame) / 100);
+            var scalex = (float)(Zoom.ScaleX.GetValue(frame) / 100) * scale;
+            var scaley = (float)(Zoom.ScaleY.GetValue(frame) / 100) * scale;
+            var scalez = (float)(Zoom.ScaleZ.GetValue(frame) / 100) * scale;
+
+            var coordinate = new System.Numerics.Vector3(
+                Coordinate.X.GetValue(frame),
+                Coordinate.Y.GetValue(frame),
+                Coordinate.Z.GetValue(frame));
+
+            var center = new System.Numerics.Vector3(
+                Coordinate.CenterX.GetValue(frame),
+                Coordinate.CenterY.GetValue(frame),
+                Coordinate.CenterZ.GetValue(frame));
+
+
+            var nx = Angle.AngleX.GetValue(frame);
+            var ny = Angle.AngleY.GetValue(frame);
+            var nz = Angle.AngleZ.GetValue(frame);
+
+            Color ambient = Material.Ambient.GetValue(frame);
+            Color diffuse = Material.Diffuse.GetValue(frame);
+            Color specular = Material.Specular.GetValue(frame);
+            float shininess = Material.Shininess.GetValue(frame);
+            var c = Blend.Color.GetValue(frame);
+            var color = Color.FromARGB((byte)(c.A * alpha), c.R, c.G, c.B);
+
+            #endregion
+
+            var context = Parent?.Parent.GraphicsContext!;
+
+            using var texture = Texture.FromImage(image);
+
+            GL.Enable(EnableCap.Blend);
+
+            //GL.Color4(color.ToOpenTK());
+            //GL.Material(MaterialFace.Front, MaterialParameter.Ambient, ambient.ToOpenTK());
+            //GL.Material(MaterialFace.Front, MaterialParameter.Diffuse, diffuse.ToOpenTK());
+            //GL.Material(MaterialFace.Front, MaterialParameter.Specular, specular.ToOpenTK());
+            //GL.Material(MaterialFace.Front, MaterialParameter.Shininess, shininess);
+
+            context.DrawTexture(texture, Transform.Create(coordinate, center, new(nx, ny, nz), new(scalex, scaley, scalez)), color, () =>
+            {
+                var blendFunc = Blend.BlentFunc[Blend.BlendType.Index];
+
+                blendFunc?.Invoke();
+                if (blendFunc is null)
+                {
+                    GL.BlendEquationSeparate(BlendEquationMode.FuncAdd, BlendEquationMode.FuncAdd);
+                    GL.BlendFunc(BlendingFactor.SrcAlpha, BlendingFactor.OneMinusSrcAlpha);
+                }
+            });
+        }
         /// <summary>
         /// Render the image.
         /// </summary>
@@ -171,6 +231,7 @@ namespace BEditor.Core.Data.Primitive
                 base_img?.Dispose();
             }
         }
+        /// <inheritdoc/>
         protected abstract Image<BGRA32>? OnRender(EffectRenderArgs args);
         /// <inheritdoc/>
         protected override void OnLoad()
