@@ -298,7 +298,7 @@ namespace BEditor.Core.Data
             if (effect is null) throw new ArgumentNullException(nameof(effect));
 
 
-            return new EffectElement.RemoveCommand(effect, this);
+            return new EffectElement.AddCommand(effect, this);
         }
         /// <summary>
         /// Create a command to remove an effect to this clip

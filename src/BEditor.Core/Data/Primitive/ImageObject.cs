@@ -231,7 +231,7 @@ namespace BEditor.Core.Data.Primitive
                 base_img?.Dispose();
             }
         }
-        /// <inheritdoc/>
+        /// <inheritdoc cref="Render(EffectRenderArgs)"/>
         protected abstract Image<BGRA32>? OnRender(EffectRenderArgs args);
         /// <inheritdoc/>
         protected override void OnLoad()
