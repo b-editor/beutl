@@ -2,6 +2,7 @@
 using System.Collections.Generic;
 using System.Collections.ObjectModel;
 using System.ComponentModel;
+using System.Diagnostics.Contracts;
 using System.Linq;
 using System.Reactive.Disposables;
 using System.Runtime.Serialization;
@@ -16,7 +17,7 @@ using BEditor.Drawing;
 namespace BEditor.Core.Data.Property
 {
     /// <summary>
-    /// フォントを選択するプロパティ表します
+    /// Represents a property for selecting a font.
     /// </summary>
     [DataContract]
     public class FontProperty : PropertyElement<FontPropertyMetadata>, IEasingProperty, IBindable<Font>
@@ -40,9 +41,21 @@ namespace BEditor.Core.Data.Property
         #endregion
 
 
+        /// <summary>
+        /// Initializes a new instance of the <see cref="FontProperty"/> class.
+        /// </summary>
+        /// <param name="metadata">Metadata for this property</param>
+        /// <exception cref="ArgumentNullException"><paramref name="metadata"/> is <see langword="null"/>.</exception>
+        public FontProperty(FontPropertyMetadata metadata)
+        {
+            PropertyMetadata = metadata ?? throw new ArgumentNullException(nameof(metadata));
+            _SelectItem = metadata.SelectItem;
+        }
+
+
         private List<IObserver<Font>> Collection => _List ??= new();
         /// <summary>
-        /// 選択されているフォントを取得または設定します
+        /// Gets or sets the selected font.
         /// </summary>
         [DataMember]
         public Font Select
@@ -74,18 +87,6 @@ namespace BEditor.Core.Data.Property
         }
 
 
-        /// <summary>
-        /// <see cref="FontProperty"/> クラスの新しいインスタンスを初期化します
-        /// </summary>
-        /// <param name="metadata">このプロパティの <see cref="FontPropertyMetadata"/></param>
-        /// <exception cref="ArgumentNullException"><paramref name="metadata"/> が <see langword="null"/> です</exception>
-        public FontProperty(FontPropertyMetadata metadata)
-        {
-            PropertyMetadata = metadata ?? throw new ArgumentNullException(nameof(metadata));
-            _SelectItem = metadata.SelectItem;
-        }
-
-
         #region Methods
 
         /// <inheritdoc/>
@@ -99,6 +100,14 @@ namespace BEditor.Core.Data.Property
         }
         /// <inheritdoc/>
         public override string ToString() => $"(Select:{Select} Name:{PropertyMetadata?.Name})";
+
+        /// <summary>
+        /// Create a command to change the font.
+        /// </summary>
+        /// <param name="font">New value for <see cref="Select"/></param>
+        /// <returns>Created <see cref="IRecordCommand"/></returns>
+        [Pure]
+        public IRecordCommand ChangeFont(Font font) => new ChangeSelectCommand(this, font);
 
         #region IBindable
 
@@ -125,6 +134,7 @@ namespace BEditor.Core.Data.Property
             Select = value;
         }
 
+        /// <inheritdoc/>
         public void Bind(IBindable<Font>? bindable)
         {
             _BindDispose?.Dispose();
@@ -150,7 +160,7 @@ namespace BEditor.Core.Data.Property
         /// フォントを変更するコマンド
         /// </summary>
         /// <remarks>このクラスは <see cref="CommandManager.Do(IRecordCommand)"/> と併用することでコマンドを記録できます</remarks>
-        public sealed class ChangeSelectCommand : IRecordCommand
+        private sealed class ChangeSelectCommand : IRecordCommand
         {
             private readonly FontProperty _Property;
             private readonly Font _New;
@@ -185,12 +195,12 @@ namespace BEditor.Core.Data.Property
     }
 
     /// <summary>
-    /// <see cref="FontProperty"/> のメタデータを表します
+    /// Represents the metadata of a <see cref="FontProperty"/>.
     /// </summary>
     public record FontPropertyMetadata : PropertyElementMetadata
     {
         /// <summary>
-        /// <see cref="FontPropertyMetadata"/> クラスの新しいインスタンスを初期化します
+        /// Initializes a new instance of the <see cref="FontPropertyMetadata"/> class.
         /// </summary>
         public FontPropertyMetadata() : base(Resources.Font)
         {

@@ -9,7 +9,7 @@ using BEditor.Core.Data.Property;
 namespace BEditor.Core.Data
 {
     /// <summary>
-    /// 継承するクラスに対応するUIのデータのキャッシュを表します
+    /// Represents the base class of the edit data.
     /// </summary>
     [DataContract]
     public class ComponentObject : BasePropertyChanged, IExtensibleDataObject
@@ -17,7 +17,7 @@ namespace BEditor.Core.Data
         private Dictionary<string, dynamic>? _ComponentData;
 
         /// <summary>
-        /// UIなどのキャッシュを入れる配列を取得します
+        /// Get a Dictionary to put the cache in.
         /// </summary>
         public Dictionary<string, dynamic> ComponentData => _ComponentData ??= new Dictionary<string, dynamic>();
         /// <inheritdoc/>

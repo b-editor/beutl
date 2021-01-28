@@ -3,6 +3,7 @@
   <PropertyGroup>
     <TargetFramework>net5.0</TargetFramework>
     <AssemblyName>BEditor.Core</AssemblyName>
+    <DocumentationFile>BEditor.Core.xml</DocumentationFile>
   </PropertyGroup>
 
   <Import Project="..\..\props\common.props" />
@@ -14,6 +15,7 @@
   </ItemGroup>
 
   <ItemGroup>
+    <ProjectReference Include="..\BEditor.Graphics\BEditor.Graphics.csproj" />
     <ProjectReference Include="..\BEditor.Drawing\BEditor.Drawing.csproj" />
     <ProjectReference Include="..\BEditor.Media\BEditor.Media.csproj" />
     <ProjectReference Include="..\BEditor.Settings\BEditor.Settings.csproj" />

@@ -27,7 +27,7 @@ namespace BEditor.ViewModels.PropertyControl
             Metadata = property.ObserveProperty(p => p.PropertyMetadata)
                 .ToReadOnlyReactiveProperty();
 
-            Reset.Subscribe(() => CommandManager.Do(new ValueProperty.ChangeValueCommand(Property, Property.PropertyMetadata?.DefaultValue ?? 0)));
+            Reset.Subscribe(() => Property.ChangeValue(Property.PropertyMetadata?.DefaultValue ?? 0).Execute());
             Bind.Subscribe(() =>
             {
                 var window = new BindSettings(new BindSettingsViewModel<float>(Property));
@@ -40,7 +40,7 @@ namespace BEditor.ViewModels.PropertyControl
                 {
                     Property.Value = oldvalue;
 
-                    CommandManager.Do(new ValueProperty.ChangeValueCommand(Property, _out));
+                    Property.ChangeValue(_out).Execute();
                 }
             });
             PreviewMouseWheel.Subscribe(e =>

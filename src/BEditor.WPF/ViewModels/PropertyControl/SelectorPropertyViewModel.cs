@@ -12,6 +12,24 @@ using Reactive.Bindings.Extensions;
 
 namespace BEditor.ViewModels.PropertyControl
 {
+    public class SelectorPropertyViewModel<T>
+    {
+        public SelectorPropertyViewModel(SelectorProperty<T> selector)
+        {
+            Property = selector;
+            Metadata = selector.ObserveProperty(p => p.PropertyMetadata)
+                .ToReadOnlyReactiveProperty();
+
+            Command.Subscribe(index => Property.ChangeSelect(index).Execute());
+            Reset.Subscribe(() => Property.ChangeSelect(Property.PropertyMetadata!.DefaultItem).Execute());
+        }
+
+        public ReadOnlyReactiveProperty<SelectorPropertyMetadata<T?>?> Metadata { get; }
+        public SelectorProperty<T> Property { get; }
+        public ReactiveCommand<T> Command { get; } = new();
+        public ReactiveCommand Reset { get; } = new();
+        public ReactiveCommand Bind { get; } = new();
+    }
     public class SelectorPropertyViewModel
     {
         public SelectorPropertyViewModel(SelectorProperty selector)
@@ -20,8 +38,8 @@ namespace BEditor.ViewModels.PropertyControl
             Metadata = selector.ObserveProperty(p => p.PropertyMetadata)
                 .ToReadOnlyReactiveProperty();
 
-            Command.Subscribe(index => CommandManager.Do(new SelectorProperty.ChangeSelectCommand(Property, index)));
-            Reset.Subscribe(() => CommandManager.Do(new SelectorProperty.ChangeSelectCommand(Property, Property.PropertyMetadata?.DefaultIndex ?? 0)));
+            Command.Subscribe(index => Property.ChangeSelect(index).Execute());
+            Reset.Subscribe(() => Property.ChangeSelect(Property.PropertyMetadata?.DefaultIndex ?? 0).Execute());
         }
 
         public ReadOnlyReactiveProperty<SelectorPropertyMetadata?> Metadata { get; }

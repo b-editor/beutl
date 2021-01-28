@@ -8,11 +8,14 @@ using BEditor.Core.Properties;
 namespace BEditor.Core.Data
 {
     /// <summary>
-    /// Represents the base class of the object.
+    /// Represents a base class of the object.
     /// </summary>
     [DataContract]
     public abstract class ObjectElement : EffectElement
     {
+        /// <summary>
+        /// Filter a effect.
+        /// </summary>
         public virtual bool EffectFilter(EffectElement effect) => true;
     }
 }

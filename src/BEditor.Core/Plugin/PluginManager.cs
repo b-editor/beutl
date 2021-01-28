@@ -16,21 +16,27 @@ using BEditor.Core.Service;
 
 namespace BEditor.Core.Plugin
 {
+    /// <summary>
+    /// Represents the class that manages the plugin.
+    /// </summary>
     public class PluginManager
     {
         private static readonly string pluginsDir = Path.Combine(AppContext.BaseDirectory, "user", "plugins");
 
         /// <summary>
-        /// すべてのプラグイン名を取得
+        /// Get all plugin names.
         /// </summary>
-        /// <returns></returns>
+        /// <returns>All plugin names.</returns>
         public static IEnumerable<string> GetNames()
         {
             return Directory.GetDirectories(pluginsDir)
                 .Select(static folder => Path.GetFileName(folder));
         }
 
-        // 許可されたプラグインのリストを読み込む
+        /// <summary>
+        /// Load the assembly from the name of the plugin.
+        /// </summary>
+        /// <param name="pluginName">The name of the plugin to load.</param>
         public static IEnumerable<IPlugin> Load(IEnumerable<string> pluginName)
         {
             var plugins = pluginName

@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.Collections.ObjectModel;
 using System.ComponentModel;
 using System.ComponentModel.DataAnnotations;
+using System.Diagnostics.CodeAnalysis;
 using System.Diagnostics.Contracts;
 using System.Diagnostics.CodeAnalysis;
 using System.Globalization;
@@ -21,7 +22,7 @@ using BEditor.Media;
 namespace BEditor.Core.Data
 {
     /// <summary>
-    /// Represents the data of a clip to be placed in the timeline.
+    /// Represents a data of a clip to be placed in the timeline.
     /// </summary>
     [DataContract]
     public class ClipData : ComponentObject, ICloneable, IParent<EffectElement>, IChild<Scene>, IHasName, IHasId, IFormattable, IElementObject
@@ -44,7 +45,7 @@ namespace BEditor.Core.Data
         /// <summary>
         /// <see cref="ClipData"/> Initialize a new instance of the class.
         /// </summary>
-        public ClipData(int id, ObservableCollection<EffectElement> effects, int start, int end, Type type, int layer, Scene scene)
+        public ClipData(int id, ObservableCollection<EffectElement> effects, Frame start, Frame end, Type type, int layer, Scene scene)
         {
             Id = id;
             _Start = start;
@@ -157,30 +158,46 @@ namespace BEditor.Core.Data
         #region Methods
 
         /// <summary>
-        /// It is called at rendering time
+        /// Render this clip.
         /// </summary>
+        /// <exception cref="RenderingException">Faileds to rendering.</exception>
         public void Render(ClipRenderArgs args)
         {
-            var loadargs = new EffectRenderArgs(args.Frame, args.Type);
-
-            if (Effect[0] is ObjectElement obj)
+            try
             {
-                if (!obj.IsEnabled) return;
+                var loadargs = new EffectRenderArgs(args.Frame, args.Type);
 
-                obj.Render(loadargs);
+                if (Effect[0] is ObjectElement obj)
+                {
+                    if (!obj.IsEnabled) return;
+
+                    obj.Render(loadargs);
+                }
+            }
+            catch (Exception e)
+            {
+                throw new RenderingException("Faileds to rendering.", e);
             }
         }
         /// <summary>
-        /// It will be called before rendering.
+        /// Prepare this clip for rendering.
         /// </summary>
+        /// <exception cref="RenderingException">Faileds to rendering.</exception>
         public void PreviewRender(ClipRenderArgs args)
         {
-            var enableEffects = Effect.Where(x => x.IsEnabled);
-            var loadargs = new EffectRenderArgs(args.Frame, args.Type);
-
-            foreach (var item in enableEffects)
+            try
             {
-                item.PreviewRender(loadargs);
+                var enableEffects = Effect.Where(x => x.IsEnabled);
+                var loadargs = new EffectRenderArgs(args.Frame, args.Type);
+
+                foreach (var item in enableEffects)
+                {
+                    item.PreviewRender(loadargs);
+                }
+            }
+            catch(Exception e)
+            {
+                throw new RenderingException("Faileds to rendering.", e);
             }
         }
 
@@ -197,7 +214,9 @@ namespace BEditor.Core.Data
         }
 
         /// <inheritdoc/>
-        public object Clone()
+        object ICloneable.Clone() => Clone();
+        /// <inheritdoc cref="ICloneable.Clone"/>
+        public ClipData Clone()
         {
             var clip = this.DeepClone()!;
 
@@ -207,7 +226,7 @@ namespace BEditor.Core.Data
             return clip;
         }
 
-        /// <inheritdoc/>
+        /// <inheritdoc cref="IFormattable.ToString(string?, IFormatProvider?)"/>
         public string ToString(string? format)
             => ToString(format, CultureInfo.CurrentCulture);
         /// <inheritdoc/>
@@ -247,7 +266,9 @@ namespace BEditor.Core.Data
 
             IsLoaded = false;
         }
-
+        /// <summary>
+        /// Get the clip from its full name.
+        /// </summary>
         public static ClipData? FromFullName(string name, Project? project)
         {
             if (project is null) return null;
@@ -266,25 +287,68 @@ namespace BEditor.Core.Data
 
             return null;
         }
+        /// <summary>
+        /// Create a command to add an effect to this clip
+        /// </summary>
+        /// <param name="effect"><see cref="EffectElement"/> to be added.</param>
+        /// <returns>Created <see cref="IRecordCommand"/>.</returns>
+        /// <exception cref="ArgumentNullException"><paramref name="effect"/> is <see langword="null"/>.</exception>
+        [Pure]
+        public IRecordCommand AddEffect(EffectElement effect)
+        {
+            if (effect is null) throw new ArgumentNullException(nameof(effect));
 
         #endregion
 
-
+            return new EffectElement.RemoveCommand(effect, this);
+        }
         /// <summary>
-        /// Represents a command that adds <see cref="ClipData"/> to a <see cref="Data.Scene"/>.
+        /// Create a command to move this clip frames and layers.
         /// </summary>
+        /// <param name="toFrame">Frame to be moved</param>
+        /// <param name="toLayer">Layer to be moved.</param>
+        /// <returns>Created <see cref="IRecordCommand"/>.</returns>
+        /// <exception cref="ArgumentOutOfRangeException"><paramref name="toFrame"/> or <paramref name="toLayer"/> is less than 0.</exception>
+        [Pure]
+        public IRecordCommand MoveFrameLayer(Frame toFrame, int toLayer)
+            => new MoveCommand(this, toFrame, toLayer);
+        /// <summary>
+        /// Create a command to move this clip frames and layers.
+        /// </summary>
+        /// <param name="to">Frame to be moved.</param>
+        /// <param name="from">Frame to be moved from.</param>
+        /// <param name="tolayer">Layer to be moved.</param>
+        /// <param name="fromlayer">Layer to be moved from.</param>
+        /// <returns>Created <see cref="IRecordCommand"/>.</returns>
+        /// <exception cref="ArgumentOutOfRangeException"><paramref name="to"/>, <paramref name="from"/>, <paramref name="tolayer"/>, <paramref name="fromlayer"/> is less than 0.</exception>
+        [Pure]
+        public IRecordCommand MoveFrameLayer(Frame to, Frame from, int tolayer, int fromlayer)
+            => new MoveCommand(this, to, from, tolayer, fromlayer);
+        /// <summary>
+        /// Create a command to change the length of this clip.
+        /// </summary>
+        /// <param name="start">New start frame for this <see cref="ClipData"/>.</param>
+        /// <param name="end">New end frame for this <see cref="ClipData"/>.</param>
+        /// <returns>Created <see cref="IRecordCommand"/>.</returns>
+        /// <exception cref="ArgumentOutOfRangeException"><paramref name="start"/> or <paramref name="end"/> is less than 0.</exception>
+        [Pure]
+        public IRecordCommand ChangeLength(Frame start, Frame end)
+            => new LengthChangeCommand(this, start, end);
+        /// <summary>
+        /// Create a command to split this clip at the specified frame.
+        /// </summary>
+        /// <returns>Created <see cref="IRecordCommand"/>.</returns>
+        [Pure]
+        public IRecordCommand Split(Frame frame)
+            => new SplitCommand(this, frame);
+        #endregion
+
+
         internal sealed class AddCommand : IRecordCommand
         {
             private readonly Scene Scene;
             public ClipData Clip;
 
-            /// <summary>
-            /// <see cref="AddCommand"/> Initialize a new instance of the class.
-            /// </summary>
-            /// <exception cref="ArgumentNullException"><paramref name="scene"/> is <see langword="null"/>.</exception>
-            /// <exception cref="ArgumentNullException"><paramref name="metadata"/> is <see langword="null"/>.</exception>
-            /// <exception cref="ArgumentOutOfRangeException"><paramref name="startFrame"/> is less than 0.</exception>
-            /// <exception cref="ArgumentOutOfRangeException"><paramref name="layer"/> is less than 0</exception>
             public AddCommand(Scene scene, Frame startFrame, int layer, ObjectMetadata metadata)
             {
                 Scene = scene ?? throw new ArgumentNullException(nameof(scene));
@@ -307,19 +371,16 @@ namespace BEditor.Core.Data
 
             public string Name => CommandName.AddClip;
 
-            /// <inheritdoc/>
             public void Do()
             {
                 Clip.Load();
                 Scene.Add(Clip);
                 Scene.SetCurrentClip(Clip);
             }
-            /// <inheritdoc/>
             public void Redo()
             {
                 Do();
             }
-            /// <inheritdoc/>
             public void Undo()
             {
                 Scene.Remove(Clip);
@@ -337,23 +398,14 @@ namespace BEditor.Core.Data
                 }
             }
         }
-        /// <summary>
-        /// Represents a command to remove <see cref="ClipData"/> from a <see cref="Data.Scene"/>
-        /// </summary>
         internal sealed class RemoveCommand : IRecordCommand
         {
             private readonly ClipData _Clip;
 
-            /// <summary>
-            /// <see cref="RemoveCommand"/> Initialize a new instance of the class.
-            /// </summary>
-            /// <param name="clip">The target <see cref="ClipData"/>.</param>
-            /// <exception cref="ArgumentNullException"><paramref name="clip"/> is <see langword="null"/>.</exception>
             public RemoveCommand(ClipData clip) => _Clip = clip ?? throw new ArgumentNullException(nameof(clip));
 
             public string Name => CommandName.RemoveClip;
 
-            /// <inheritdoc/>
             public void Do()
             {
                 if (!_Clip.Parent.Remove(_Clip))
@@ -382,19 +434,14 @@ namespace BEditor.Core.Data
                     }
                 }
             }
-            /// <inheritdoc/>
             public void Redo() => Do();
-            /// <inheritdoc/>
             public void Undo()
             {
                 _Clip.Load();
                 _Clip.Parent.Add(_Clip);
             }
         }
-        /// <summary>
-        /// Represents a command to move <see cref="ClipData"/> frames and layers.
-        /// </summary>
-        internal sealed class MoveCommand : IRecordCommand
+        private sealed class MoveCommand : IRecordCommand
         {
             private readonly ClipData _Clip;
             private readonly Frame _ToFrame;
@@ -404,11 +451,6 @@ namespace BEditor.Core.Data
             private Scene Scene => _Clip.Parent;
 
             #region コンストラクタ
-            /// <summary>
-            /// <see cref="MoveCommand"/> Initialize a new instance of the class.
-            /// </summary>
-            /// <exception cref="ArgumentNullException"><paramref name="clip"/> is <see langword="null"/>.</exception>
-            /// <exception cref="ArgumentOutOfRangeException"><paramref name="toFrame"/> or <paramref name="toLayer"/> is less than 0.</exception>
             public MoveCommand(ClipData clip, Frame toFrame, int toLayer)
             {
                 _Clip = clip ?? throw new ArgumentNullException(nameof(clip));
@@ -417,12 +459,6 @@ namespace BEditor.Core.Data
                 _ToLayer = (0 > toLayer) ? throw new ArgumentOutOfRangeException(nameof(toLayer)) : toLayer;
                 _FromLayer = clip.Layer;
             }
-
-            /// <summary>
-            /// <see cref="MoveCommand"/> Initialize a new instance of the class.
-            /// </summary>
-            /// <exception cref="ArgumentNullException"><paramref name="clip"/> is <see langword="null"/>.</exception>
-            /// <exception cref="ArgumentOutOfRangeException"><paramref name="to"/>, <paramref name="from"/>, <paramref name="tolayer"/>, <paramref name="fromlayer"/> is less than 0.</exception>
             public MoveCommand(ClipData clip, Frame to, Frame from, int tolayer, int fromlayer)
             {
                 _Clip = clip ?? throw new ArgumentNullException(nameof(clip));
@@ -435,7 +471,6 @@ namespace BEditor.Core.Data
 
             public string Name => CommandName.MoveClip;
 
-            /// <inheritdoc/>
             public void Do()
             {
                 _Clip.MoveTo(_ToFrame);
@@ -448,9 +483,7 @@ namespace BEditor.Core.Data
                     Scene.TotalFrame = _Clip.End;
                 }
             }
-            /// <inheritdoc/>
             public void Redo() => Do();
-            /// <inheritdoc/>
             public void Undo()
             {
                 _Clip.MoveTo(_FromFrame);
@@ -458,10 +491,7 @@ namespace BEditor.Core.Data
                 _Clip.Layer = _FromLayer;
             }
         }
-        /// <summary>
-        /// Represents a command to change the length of <see cref="ClipData"/>.
-        /// </summary>
-        internal sealed class LengthChangeCommand : IRecordCommand
+        private sealed class LengthChangeCommand : IRecordCommand
         {
             private readonly ClipData _Clip;
             private readonly Frame _Start;
@@ -469,11 +499,6 @@ namespace BEditor.Core.Data
             private readonly Frame _OldStart;
             private readonly Frame _OldEnd;
 
-            /// <summary>
-            /// <see cref="LengthChangeCommand"/> Initialize a new instance of the class.
-            /// </summary>
-            /// <exception cref="ArgumentNullException"><paramref name="clip"/> is <see langword="null"/>.</exception>
-            /// <exception cref="ArgumentOutOfRangeException"><paramref name="start"/> or <paramref name="end"/> is less than 0.</exception>
             public LengthChangeCommand(ClipData clip, Frame start, Frame end)
             {
                 _Clip = clip ?? throw new ArgumentNullException(nameof(clip));
@@ -485,29 +510,26 @@ namespace BEditor.Core.Data
 
             public string Name => CommandName.ChangeLength;
 
-            /// <inheritdoc/>
             public void Do()
             {
                 _Clip.Start = _Start;
                 _Clip.End = _End;
             }
-            /// <inheritdoc/>
             public void Redo() => Do();
-            /// <inheritdoc/>
             public void Undo()
             {
                 _Clip.Start = _OldStart;
                 _Clip.End = _OldEnd;
             }
         }
-        internal sealed class SparateCommand : IRecordCommand
+        private sealed class SplitCommand : IRecordCommand
         {
             public readonly ClipData Before;
             public readonly ClipData After;
             private readonly ClipData Source;
             private readonly Scene Scene;
 
-            public SparateCommand(ClipData clip, Frame frame)
+            public SplitCommand(ClipData clip, Frame frame)
             {
                 Source = clip;
                 Scene = clip.Parent;
@@ -518,7 +540,7 @@ namespace BEditor.Core.Data
                 After.Start = frame;
             }
 
-            public string Name => CommandName.SparateClip;
+            public string Name => CommandName.SplitClip;
 
             public void Do()
             {
@@ -548,27 +570,90 @@ namespace BEditor.Core.Data
         }
     }
 
+    /// <summary>
+    /// Standard clip types.
+    /// </summary>
     public static class ClipType
     {
+        /// <summary>
+        /// <see cref="Type"/> of <see cref="VideoFile"/> class.
+        /// </summary>
         public static readonly Type Video = typeof(VideoFile);
+        /// <summary>
+        /// <see cref="Type"/> of <see cref="AudioObject"/> class.
+        /// </summary>
         public static readonly Type Audio = typeof(AudioObject);
+        /// <summary>
+        /// <see cref="Type"/> of <see cref="ImageFile"/> class.
+        /// </summary>
         public static readonly Type Image = typeof(ImageFile);
+        /// <summary>
+        /// <see cref="Type"/> of <see cref="Primitive.Objects.Text"/> class.
+        /// </summary>
         public static readonly Type Text = typeof(Text);
+        /// <summary>
+        /// <see cref="Type"/> of <see cref="Primitive.Objects.Figure"/> class.
+        /// </summary>
         public static readonly Type Figure = typeof(Figure);
+        /// <summary>
+        /// <see cref="Type"/> of <see cref="Primitive.Objects.Polygon"/> class.
+        /// </summary>
         public static readonly Type Polygon = typeof(Polygon);
+        /// <summary>
+        /// <see cref="Type"/> of <see cref="Primitive.Objects.RoundRect"/> class.
+        /// </summary>
         public static readonly Type RoundRect = typeof(RoundRect);
+        /// <summary>
+        /// <see cref="Type"/> of <see cref="CameraObject"/> class.
+        /// </summary>
         public static readonly Type Camera = typeof(CameraObject);
+        /// <summary>
+        /// <see cref="Type"/> of <see cref="Primitive.Objects.GL3DObject"/> class.
+        /// </summary>
         public static readonly Type GL3DObject = typeof(GL3DObject);
+        /// <summary>
+        /// <see cref="Type"/> of <see cref="SceneObject"/> class.
+        /// </summary>
         public static readonly Type Scene = typeof(SceneObject);
+        /// <summary>
+        /// Metadata of <see cref="VideoFile"/> class.
+        /// </summary>
         public static readonly ObjectMetadata VideoMetadata = new(Resources.Video, () => new VideoFile());
+        /// <summary>
+        /// Metadata of <see cref="AudioObject"/> class.
+        /// </summary>
         public static readonly ObjectMetadata AudioMetadata = new(Resources.Audio, () => new AudioObject());
+        /// <summary>
+        /// Metadata of <see cref="ImageFile"/> class.
+        /// </summary>
         public static readonly ObjectMetadata ImageMetadata = new(Resources.Image, () => new ImageFile());
+        /// <summary>
+        /// Metadata of <see cref="Primitive.Objects.Text"/> class.
+        /// </summary>
         public static readonly ObjectMetadata TextMetadata = new(Resources.Text, () => new Text());
+        /// <summary>
+        /// Metadata of <see cref="Primitive.Objects.Figure"/> class.
+        /// </summary>
         public static readonly ObjectMetadata FigureMetadata = new(Resources.Figure, () => new Figure());
+        /// <summary>
+        /// Metadata of <see cref="Primitive.Objects.Polygon"/> class.
+        /// </summary>
         public static readonly ObjectMetadata PolygonMetadata = new("Polygon", () => new Polygon());
+        /// <summary>
+        /// Metadata of <see cref="Primitive.Objects.RoundRect"/> class.
+        /// </summary>
         public static readonly ObjectMetadata RoundRectMetadata = new("RoundRect", () => new RoundRect());
+        /// <summary>
+        /// Metadata of <see cref="CameraObject"/> class.
+        /// </summary>
         public static readonly ObjectMetadata CameraMetadata = new(Resources.Camera, () => new CameraObject());
+        /// <summary>
+        /// Metadata of <see cref="Primitive.Objects.GL3DObject"/> class.
+        /// </summary>
         public static readonly ObjectMetadata GL3DObjectMetadata = new(Resources._3DObject, () => new GL3DObject());
+        /// <summary>
+        /// Metadata of <see cref="SceneObject"/> class.
+        /// </summary>
         public static readonly ObjectMetadata SceneMetadata = new(Resources.Scene, () => new SceneObject());
     }
 }

@@ -20,16 +20,16 @@ using BEditor.Core.Data.Primitive;
 namespace BEditor.Core
 {
     /// <summary>
-    /// <see cref="DataContractJsonSerializer"/> を利用してシリアル化やクローンなどの関数を提供するクラスを表します
+    /// Represents a class that uses the <see cref="DataContractJsonSerializer"/> to provide methods for serialization, cloning, etc.
     /// </summary>
     public static class Serialize
     {
         /// <summary>
-        /// オブジェクトの内容をファイルから読み込み復元します
+        /// Reads and restores the contents of an object from a stream
         /// </summary>
-        /// <param name="stream">読み込むストリーム</param>
-        /// <param name="mode"></param>
-        /// <returns>成功した場合は復元されたオブジェクト、そうでない場合は <see langword="null"/> を返します</returns>
+        /// <param name="stream">Stream to load.</param>
+        /// <param name="mode">This is the mode of serialization.</param>
+        /// <returns>Returns the restored object on success, <see langword="null"/> otherwise.</returns>
         public static T? LoadFromStream<T>(Stream stream, SerializeMode mode = SerializeMode.Binary)
         {
             try
@@ -59,11 +59,11 @@ namespace BEditor.Core
         }
 
         /// <summary>
-        /// オブジェクトの内容をファイルから読み込み復元します
+        /// Reads and restores the contents of an object from a file.
         /// </summary>
-        /// <param name="path">読み込むファイル名</param>
-        /// <param name="mode"></param>
-        /// <returns>成功した場合は復元されたオブジェクト、そうでない場合は <see langword="null"/> を返します</returns>
+        /// <param name="path">The name of the file to load.</param>
+        /// <param name="mode">This is the mode of serialization.</param>
+        /// <returns>Returns the restored object on success, <see langword="null"/> otherwise.</returns>
         public static T? LoadFromFile<T>(string path, SerializeMode mode = SerializeMode.Binary)
         {
             try
@@ -95,11 +95,11 @@ namespace BEditor.Core
         }
 
         /// <summary>
-        /// オブジェクトの内容をファイルに保存します
+        /// Save the contents of an object to a stream.
         /// </summary>
-        /// <param name="obj">保存するオブジェクト</param>
-        /// <param name="stream">保存先のストリーム</param>
-        /// <param name="mode"></param>
+        /// <param name="obj">The object to save.</param>
+        /// <param name="stream">The stream to save to.</param>
+        /// <param name="mode">This is the mode of serialization.</param>
         public static bool SaveToStream<T>(T obj, Stream stream, SerializeMode mode = SerializeMode.Binary)
         {
             try
@@ -129,13 +129,13 @@ namespace BEditor.Core
                 return false;
             }
         }
-        
+
         /// <summary>
-        /// オブジェクトの内容をファイルに保存します
+        /// Saves the contents of an object to a file.
         /// </summary>
-        /// <param name="obj">保存するオブジェクト</param>
-        /// <param name="path">保存先のファイル名</param>
-        /// <param name="mode"></param>
+        /// <param name="obj">The object to save.</param>
+        /// <param name="path">The name of the file to save to.</param>
+        /// <param name="mode">This is the mode of serialization.</param>
         public static bool SaveToFile<T>(T obj, string path, SerializeMode mode = SerializeMode.Binary)
         {
             try
@@ -166,11 +166,8 @@ namespace BEditor.Core
         }
 
         /// <summary>
-        /// DataContractを使用してDeepCloneを行います
+        /// DeepClone using <see cref="DataContractSerializer"/>.
         /// </summary>
-        /// <typeparam name="T"></typeparam>
-        /// <param name="obj"></param>
-        /// <returns></returns>
         public static T? DeepClone<T>(this T obj)
         {
             var serializer = new DataContractJsonSerializer(obj!.GetType(), SerializeKnownTypes);
@@ -194,9 +191,9 @@ namespace BEditor.Core
         }
 
         /// <summary>
-        /// <see cref="DataContractJsonSerializer"/> で使用するKnownTypeを取得します
+        /// Get the KnownType used by the <see cref="DataContractJsonSerializer"/>.
         /// </summary>
-        public static List<Type> SerializeKnownTypes = new List<Type>()
+        public static readonly List<Type> SerializeKnownTypes = new List<Type>()
         {
             typeof(BasePropertyChanged),
             typeof(ComponentObject),
@@ -260,9 +257,18 @@ namespace BEditor.Core
         };
     }
 
+    /// <summary>
+    /// Represents the mode of serialization.
+    /// </summary>
     public enum SerializeMode
     {
+        /// <summary>
+        /// The binary.
+        /// </summary>
         Binary,
+        /// <summary>
+        /// The json.
+        /// </summary>
         Json
     }
 }

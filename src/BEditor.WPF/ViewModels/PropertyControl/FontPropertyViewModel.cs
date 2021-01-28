@@ -21,8 +21,8 @@ namespace BEditor.ViewModels.PropertyControl
             Metadata = property.ObserveProperty(p => p.PropertyMetadata)
                 .ToReadOnlyReactiveProperty();
 
-            Command.Subscribe(font => CommandManager.Do(new FontProperty.ChangeSelectCommand(property, font)));
-            Reset.Subscribe(() => CommandManager.Do(new FontProperty.ChangeSelectCommand(Property, Property.PropertyMetadata?.SelectItem ?? FontProperty.FontList[0])));
+            Command.Subscribe(font => Property.ChangeFont(font).Execute());
+            Reset.Subscribe(() => Property.ChangeFont(Property.PropertyMetadata?.SelectItem ?? FontProperty.FontList[0]).Execute());
         }
 
         public ReadOnlyReactiveProperty<FontPropertyMetadata?> Metadata { get; }

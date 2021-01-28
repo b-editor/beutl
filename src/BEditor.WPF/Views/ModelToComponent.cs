@@ -38,6 +38,7 @@ namespace BEditor.Views
         private static readonly Binding PropertyFolderBinding = new("Property.Folder") { Mode = BindingMode.OneWay };
         private static readonly Binding PropertyIndexBinding = new("Property.Index") { Mode = BindingMode.OneWay };
         private static readonly Binding PropertySelectBinding = new("Property.Select") { Mode = BindingMode.OneWay };
+        private static readonly Binding PropertySelectItemBinding = new("Property.SelectItem") { Mode = BindingMode.OneWay };
         private static readonly Binding PropertyValueBinding = new("Property.Value") { Mode = BindingMode.OneWay };
         private static readonly Binding ItemsSourcePropertyBinding = new("Metadata.Value.ItemSource") { Mode = BindingMode.OneWay };
         private static readonly Binding DisplayMemberPathBinding = new("Metadata.Value.MemberPath") { Mode = BindingMode.OneTime };
@@ -232,6 +233,30 @@ namespace BEditor.Views
 
                 return view;
             }));
+            // SelectorProperty
+            PropertyViewBuilders.Add(new PropertyViewBuilder(typeof(SelectorProperty<>), prop =>
+            {
+                var vmtype = typeof(SelectorPropertyViewModel<>).MakeGenericType(prop.GetType().GenericTypeArguments);
+
+                //Activator.CreateInstance(vmtype, prop);
+
+                var view = new SelectorPropertyViewGen()
+                {
+                    DataContext = Activator.CreateInstance(vmtype, prop)
+                };
+
+                view.SetBinding(BasePropertyView.HeaderProperty, HeaderBinding);
+                view.SetBinding(BasePropertyView.ResetCommandProperty, ResetBinding);
+                view.SetBinding(BasePropertyView.BindCommandProperty, BindBinding);
+                view.SetBinding(FrameworkElement.ToolTipProperty, TooltipBinding);
+
+                view.SetBinding(SelectorPropertyViewGen.ItemsSourceProperty, ItemsSourcePropertyBinding);
+                view.SetBinding(SelectorPropertyViewGen.CommandProperty, CommandBinding);
+                view.SetBinding(SelectorPropertyViewGen.SelectedItemProperty, PropertySelectItemBinding);
+                view.SetBinding(SelectorPropertyViewGen.DisplayMemberPathProperty, DisplayMemberPathBinding);
+
+                return view;
+            }));
             // ValueProperty
             PropertyViewBuilders.Add(PropertyViewBuilder.Create<ValueProperty>(prop =>
             {
@@ -388,7 +413,15 @@ namespace BEditor.Views
             if (!property.ComponentData.ContainsKey("GetPropertyView"))
             {
                 var type = property.GetType();
-                var func = PropertyViewBuilders.Find(x => type == x.PropertyType || type.IsSubclassOf(x.PropertyType));
+                var func = PropertyViewBuilders.Find(x =>
+                {
+                    if (type.IsGenericType)
+                    {
+                        return type.GetGenericTypeDefinition() == x.PropertyType;
+                    }
+
+                    return type == x.PropertyType || type.IsSubclassOf(x.PropertyType);
+                });
 
                 property.ComponentData.Add("GetPropertyView", func?.CreateFunc?.Invoke(property) ?? new TextBlock() { Height = 32.5 });
             }
@@ -614,7 +647,7 @@ namespace BEditor.Views
             #region イベント
             checkBox.Click += (sender, e) =>
             {
-                obj.CreateCheckCommand((bool)((CheckBox)sender).IsChecked!).Execute();
+                obj.ChangeIsEnabled((bool)((CheckBox)sender).IsChecked!).Execute();
             };
 
             #endregion
@@ -721,13 +754,13 @@ namespace BEditor.Views
 
             #region イベント
 
-            checkBox.Click += (sender, e) => effect.CreateCheckCommand((bool)((CheckBox)sender).IsChecked!).Execute();
+            checkBox.Click += (sender, e) => effect.ChangeIsEnabled((bool)((CheckBox)sender).IsChecked!).Execute();
 
-            upbutton.Click += (sender, e) => effect.CreateUpCommand().Execute();
+            upbutton.Click += (sender, e) => effect.BringForward().Execute();
 
-            downbutton.Click += (sender, e) => effect.CreateDownCommand().Execute();
+            downbutton.Click += (sender, e) => effect.SendBackward().Execute();
 
-            Delete.Click += (sender, e) => effect.Parent!.CreateRemoveCommand(effect).Execute();
+            Delete.Click += (sender, e) => effect.Parent!.RemoveEffect(effect).Execute();
 
             #endregion
 

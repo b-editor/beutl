@@ -8,6 +8,7 @@ using BEditor.Core.Properties;
 
 namespace BEditor.Core.Data
 {
+#pragma warning disable CS1591
     public record EffectMetadata(string Name, Expression<Func<EffectElement>> Create)
     {
         private Func<EffectElement>? _Func;
@@ -55,4 +56,5 @@ namespace BEditor.Core.Data
 #endif
         };
     }
+#pragma warning restore CS1591
 }

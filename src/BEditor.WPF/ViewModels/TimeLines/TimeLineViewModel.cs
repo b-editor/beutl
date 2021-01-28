@@ -226,7 +226,7 @@ namespace BEditor.ViewModels.TimeLines
                 return;
             }
 
-            Scene.CreateAddCommand(
+            Scene.AddClip(
                 Select_Frame,
                 Select_Layer,
                 @object,
@@ -275,7 +275,7 @@ namespace BEditor.ViewModels.TimeLines
                     var endFrame = frame + new Media.Frame(180);
                     Scene.Clamp(null, ref frame, ref endFrame, addlayer);
 
-                    var recordCommand = Scene.CreateAddCommand(frame, addlayer, ((Func<ObjectMetadata>)de.Data.GetData(typeof(Func<ObjectMetadata>))).Invoke(), out var c);
+                    var recordCommand = Scene.AddClip(frame, addlayer, ((Func<ObjectMetadata>)de.Data.GetData(typeof(Func<ObjectMetadata>))).Invoke(), out var c);
 
                     c.End = endFrame;
 
@@ -296,7 +296,7 @@ namespace BEditor.ViewModels.TimeLines
                             return;
                         }
 
-                        Scene.CreateAddCommand(frame, addlayer, type_, out var clip).Execute();
+                        Scene.AddClip(frame, addlayer, type_, out var clip).Execute();
 
                         if (type_ == ClipType.ImageMetadata)
                         {
@@ -374,7 +374,7 @@ namespace BEditor.ViewModels.TimeLines
                 int start = ToFrame(ClipSelect.GetCreateClipViewModel().MarginLeftProperty);
                 int end = ToFrame(ClipSelect.GetCreateClipViewModel().WidthProperty.Value) + start;//変更後の最大フレーム
                 if (0 < start && 0 < end)
-                    ClipSelect.CreateLengthChangeCommand(start, end).Execute();
+                    ClipSelect.ChangeLength(start, end).Execute();
 
                 ClipLeftRight = 0;
             }
@@ -461,7 +461,7 @@ namespace BEditor.ViewModels.TimeLines
             {
                 ClipData data = ClipSelect;
 
-                data.CreateMoveCommand(
+                data.MoveFrameLayer(
                     ToFrame(data.GetCreateClipViewModel().MarginLeftProperty),
                     ClipSelect.GetCreateClipViewModel().Row).Execute();
 

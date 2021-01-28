@@ -22,7 +22,7 @@ namespace BEditor.ViewModels.PropertyControl
         {
             Property = property;
             oldvalue = Property.Value;
-            Reset.Subscribe(() => CommandManager.Do(new DocumentProperty.TextChangeCommand(Property, Property.PropertyMetadata?.DefaultText ?? "")));
+            Reset.Subscribe(() => Property.ChangeText(Property.PropertyMetadata?.DefaultText ?? "").Execute());
             Bind.Subscribe(() =>
             {
                 var window = new BindSettings(new BindSettingsViewModel<string>(Property));
@@ -33,7 +33,7 @@ namespace BEditor.ViewModels.PropertyControl
             {
                 Property.Text = oldvalue;
 
-                CommandManager.Do(new DocumentProperty.TextChangeCommand(Property, text));
+                Property.ChangeText(text).Execute();
             });
             TextChanged.Subscribe(text =>
             {

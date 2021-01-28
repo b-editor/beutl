@@ -9,18 +9,43 @@ using BEditor.Core.Extensions;
 using BEditor.Core.Properties;
 using BEditor.Drawing;
 using BEditor.Drawing.Pixel;
+using BEditor.Graphics;
+
+using OpenTK.Graphics.OpenGL4;
+using OpenTK.Mathematics;
 
 namespace BEditor.Core.Data.Primitive
 {
+    /// <summary>
+    /// Represents the base class for drawing images.
+    /// </summary>
     [DataContract]
     public abstract class ImageObject : ObjectElement
     {
+        /// <summary>
+        /// Represents <see cref="Coordinate"/> metadata.
+        /// </summary>
         public static readonly PropertyElementMetadata CoordinateMetadata = new(Resources.Coordinate);
+        /// <summary>
+        /// Represents <see cref="Zoom"/> metadata.
+        /// </summary>
         public static readonly PropertyElementMetadata ZoomMetadata = new(Resources.Zoom);
+        /// <summary>
+        /// Represents <see cref="Blend"/> metadata.
+        /// </summary>
         public static readonly PropertyElementMetadata BlendMetadata = new(Resources.Blend);
+        /// <summary>
+        /// Represents <see cref="Angle"/> metadata.
+        /// </summary>
         public static readonly PropertyElementMetadata AngleMetadata = new(Resources.Angle);
+        /// <summary>
+        /// Represents <see cref="Material"/> metadata.
+        /// </summary>
         public static readonly PropertyElementMetadata MaterialMetadata = new(Resources.Material);
 
+        /// <summary>
+        /// Initializes a new instance of the <see cref="ImageObject"/> class.
+        /// </summary>
         public ImageObject()
         {
             Coordinate = new(CoordinateMetadata);
@@ -30,18 +55,35 @@ namespace BEditor.Core.Data.Primitive
             Material = new(MaterialMetadata);
         }
 
+        /// <inheritdoc/>
         public override string Name => "";
+        /// <summary>
+        /// Get the coordinates.
+        /// </summary>
         [DataMember(Order = 0)]
         public Coordinate Coordinate { get; private set; }
+        /// <summary>
+        /// Get the scale.
+        /// </summary>
         [DataMember(Order = 1)]
         public Zoom Zoom { get; private set; }
+        /// <summary>
+        /// Get the blend.
+        /// </summary>
         [DataMember(Order = 2)]
         public Blend Blend { get; private set; }
+        /// <summary>
+        /// Get the angle.
+        /// </summary>
         [DataMember(Order = 3)]
         public Angle Angle { get; private set; }
+        /// <summary>
+        /// Get the material.
+        /// </summary>
         [DataMember(Order = 4)]
-        public Material Material { get; private set; }
+        public Property.PrimitiveGroup.Material Material { get; private set; }
 
+        /// <inheritdoc/>
         public override void Render(EffectRenderArgs args)
         {
             var base_img = OnRender(args);
@@ -77,12 +119,15 @@ namespace BEditor.Core.Data.Primitive
             }
 
 
-            Parent!.Parent!.GraphicsContext!.DrawImage(imageArgs.Value, Parent, args);
+            Draw(imageArgs.Value, args);
             base_img?.Dispose();
             imageArgs.Value?.Dispose();
 
             Coordinate.ResetOptional();
         }
+        /// <summary>
+        /// Render the image.
+        /// </summary>
         public void Render(EffectRenderArgs args, out Image<BGRA32>? image)
         {
             var base_img = OnRender(args);
@@ -121,12 +166,13 @@ namespace BEditor.Core.Data.Primitive
 
             image = imageArgs.Value;
 
-            if(imageArgs.Value != base_img)
+            if (imageArgs.Value != base_img)
             {
                 base_img?.Dispose();
             }
         }
         protected abstract Image<BGRA32>? OnRender(EffectRenderArgs args);
+        /// <inheritdoc/>
         protected override void OnLoad()
         {
             Coordinate.Load(CoordinateMetadata);
@@ -135,6 +181,7 @@ namespace BEditor.Core.Data.Primitive
             Angle.Load(AngleMetadata);
             Material.Load(MaterialMetadata);
         }
+        /// <inheritdoc/>
         protected override void OnUnload()
         {
             Coordinate.Unload();
@@ -143,7 +190,7 @@ namespace BEditor.Core.Data.Primitive
             Angle.Unload();
             Material.Unload();
         }
-
+        /// <inheritdoc/>
         public override bool EffectFilter(EffectElement effect)
         {
             return effect is ImageEffect;

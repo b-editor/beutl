@@ -18,9 +18,9 @@ namespace BEditor.ViewModels.TimeLines
             EaseProperty = easeProperty;
             Metadata = easeProperty.ObserveProperty(p => p.PropertyMetadata)
                 .ToReadOnlyReactiveProperty();
-            AddKeyFrameCommand.Subscribe(x => CommandManager.Do(new EaseProperty.AddCommand(EaseProperty, x)));
-            RemoveKeyFrameCommand.Subscribe(x => CommandManager.Do(new EaseProperty.RemoveCommand(EaseProperty, x)));
-            MoveKeyFrameCommand.Subscribe(x => CommandManager.Do(new EaseProperty.MoveCommand(EaseProperty, x.Item1, x.Item2)));
+            AddKeyFrameCommand.Subscribe(x => EaseProperty.AddFrame(x).Execute());
+            RemoveKeyFrameCommand.Subscribe(x => EaseProperty.RemoveFrame(x).Execute());
+            MoveKeyFrameCommand.Subscribe(x => EaseProperty.MoveFrame(x.Item1, x.Item2).Execute());
 
             easeProperty.AddKeyFrameEvent += (_, value) => AddKeyFrameIcon?.Invoke(value.frame, value.index);
             easeProperty.DeleteKeyFrameEvent += (_, value) => DeleteKeyFrameIcon?.Invoke(value);

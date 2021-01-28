@@ -104,7 +104,7 @@ namespace BEditor
                 Settings.Default.Save();
             });
         }
-
+        
         private static void CreateDirectory()
         {
             DirectoryManager.Default.Directories.Add(colorsDir);
@@ -300,7 +300,6 @@ namespace BEditor
         private void Application_DispatcherUnhandledException(object sender, DispatcherUnhandledExceptionEventArgs e)
         {
             Message.Snackbar(string.Format(Core.Properties.Resources.ExceptionWasThrown, e.Exception.GetType().FullName));
-            ActivityLog.ErrorLog(e.Exception);
 
 #if !DEBUG
             e.Handled = true;

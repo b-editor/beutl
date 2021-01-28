@@ -1,6 +1,7 @@
 ﻿using System;
 using System.Collections.Generic;
 using System.ComponentModel;
+using System.Diagnostics.Contracts;
 using System.Reactive.Disposables;
 using System.Runtime.Serialization;
 using System.Text.RegularExpressions;
@@ -14,7 +15,7 @@ using BEditor.Core.Extensions;
 namespace BEditor.Core.Data.Property
 {
     /// <summary>
-    /// チェックボックスのプロパティを表します
+    /// Represents a checkbox property.
     /// </summary>
     [DataContract]
     public class CheckProperty : PropertyElement<CheckPropertyMetadata>, IEasingProperty, IBindable<bool>
@@ -32,9 +33,20 @@ namespace BEditor.Core.Data.Property
         #endregion
 
 
+        /// <summary>
+        /// Initializes new instance of the <see cref="CheckProperty"/> class.
+        /// </summary>
+        /// <param name="metadata">Metadata of this property.</param>
+        /// <exception cref="ArgumentNullException"><paramref name="metadata"/> is <see langword="null"/>.</exception>
+        public CheckProperty(CheckPropertyMetadata metadata)
+        {
+            PropertyMetadata = metadata ?? throw new ArgumentNullException(nameof(metadata));
+            _IsChecked = metadata.DefaultIsChecked;
+        }
+
         private List<IObserver<bool>> Collection => _List ??= new();
         /// <summary>
-        /// チェックされている場合 <see langword="true"/>、そうでない場合は <see langword="false"/> となります
+        /// Gets or sets the value of whether the item is checked or not.
         /// </summary>
         [DataMember]
         public bool IsChecked
@@ -64,18 +76,6 @@ namespace BEditor.Core.Data.Property
         }
         /// <inheritdoc/>
         public bool Value => IsChecked;
-
-
-        /// <summary>
-        /// <see cref="CheckProperty"/> クラスの新しいインスタンスを初期化します
-        /// </summary>
-        /// <param name="metadata">このプロパティの <see cref="CheckPropertyMetadata"/></param>
-        /// <exception cref="ArgumentNullException"><paramref name="metadata"/> が <see langword="null"/> です</exception>
-        public CheckProperty(CheckPropertyMetadata metadata)
-        {
-            PropertyMetadata = metadata ?? throw new ArgumentNullException(nameof(metadata));
-            _IsChecked = metadata.DefaultIsChecked;
-        }
 
 
         #region Methods
@@ -137,44 +137,54 @@ namespace BEditor.Core.Data.Property
         }
         /// <inheritdoc/>
         public override string ToString() => $"(IsChecked:{IsChecked} Name:{PropertyMetadata?.Name})";
+        /// <summary>
+        /// Create a command to change whether it is checked or not.
+        /// </summary>
+        /// <param name="value">New value for IsChecked</param>
+        /// <returns>Created <see cref="IRecordCommand"/>.</returns>
+        [Pure]
+        public IRecordCommand ChangeIsChecked(bool value) => new ChangeCheckedCommand(this, value);
 
         #endregion
 
 
-        /// <summary>
-        /// チェックされているかを変更するコマンド
-        /// </summary>
-        /// <remarks>このクラスは <see cref="CommandManager.Do(IRecordCommand)"/> と併用することでコマンドを記録できます</remarks>
-        public sealed class ChangeCheckedCommand : IRecordCommand
+        private sealed class ChangeCheckedCommand : IRecordCommand
         {
             private readonly CheckProperty _Property;
             private readonly bool _Value;
 
-            /// <summary>
-            /// <see cref="ChangeCheckedCommand"/> クラスの新しいインスタンスを初期化します
-            /// </summary>
-            /// <param name="property">対象の <see cref="CheckProperty"/></param>
-            /// <param name="value">新しい値</param>
-            /// <exception cref="ArgumentNullException"><paramref name="property"/> が <see langword="null"/> です</exception>
             public ChangeCheckedCommand(CheckProperty property, bool value)
             {
-                _Property = property ?? throw new ArgumentNullException(nameof(property));
-                this._Value = value;
+                _Property = property;
+                _Value = value;
             }
 
             public string Name => CommandName.ChangeIsChecked;
 
-            /// <inheritdoc/>
             public void Do() => _Property.IsChecked = _Value;
-            /// <inheritdoc/>
             public void Redo() => Do();
-            /// <inheritdoc/>
             public void Undo() => _Property.IsChecked = !_Value;
         }
     }
 
     /// <summary>
-    /// <see cref="BEditor.Core.Data.Property.CheckProperty"/> のメタデータを表します
+    /// Represents the metadata of a <see cref="CheckProperty"/>.
     /// </summary>
-    public record CheckPropertyMetadata(string Name, bool DefaultIsChecked = false) : PropertyElementMetadata(Name);
+    public record CheckPropertyMetadata : PropertyElementMetadata
+    {
+        /// <summary>
+        /// Initializes a new instance of the <see cref="CheckPropertyMetadata"/> class.
+        /// </summary>
+        /// <param name="Name">The string displayed in the property header.</param>
+        /// <param name="DefaultIsChecked">Default value for <see cref="CheckProperty.IsChecked"/>.</param>
+        public CheckPropertyMetadata(string Name, bool DefaultIsChecked = false) : base(Name)
+        {
+            this.DefaultIsChecked = DefaultIsChecked;
+        }
+
+        /// <summary>
+        /// Get the default value of <see cref="CheckProperty.IsChecked"/>.
+        /// </summary>
+        public bool DefaultIsChecked { get; init; }
+    }
 }

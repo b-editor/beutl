@@ -26,18 +26,14 @@ namespace BEditor.Core.Data.Property.Easing
 
 
         /// <summary>
-        /// UIに表示するプロパティを取得します
+        /// Get the <see cref="PropertyElement"/> to display on the GUI.
         /// </summary>
         public abstract IEnumerable<IEasingProperty> Properties { get; }
 
-        /// <summary>
-        /// キャッシュされた <see cref="Properties"/> を取得します
-        /// </summary>
+        /// <inheritdoc/>
         public IEnumerable<IEasingProperty> Children => _CachedList ??= Properties;
 
-        /// <summary>
-        /// 親要素を取得します
-        /// </summary>
+        /// <inheritdoc/>
         public PropertyElement? Parent
         {
             get => _Parent;
@@ -51,17 +47,17 @@ namespace BEditor.Core.Data.Property.Easing
                 Parallel.ForEach(Children, item => item.Parent = parent_);
             }
         }
-
+        /// <inheritdoc/>
         public bool IsLoaded { get; private set; }
 
         /// <summary>
-        /// イージング関数
+        /// Easing the value
         /// </summary>
-        /// <param name="frame">取得するフレーム</param>
-        /// <param name="totalframe">全体のフレーム</param>
-        /// <param name="min">最小の値</param>
-        /// <param name="max">最大の値</param>
-        /// <returns>イージングされた値</returns>
+        /// <param name="frame">frame</param>
+        /// <param name="totalframe">total frame</param>
+        /// <param name="min">Minimum value</param>
+        /// <param name="max">Maximum value</param>
+        /// <returns>Eased value</returns>
         public abstract float EaseFunc(Frame frame, Frame totalframe, float min, float max);
 
         /// <inheritdoc/>
@@ -83,7 +79,9 @@ namespace BEditor.Core.Data.Property.Easing
             IsLoaded = false;
         }
 
+        /// <inheritdoc cref="Load"/>
         protected virtual void OnLoad() { }
+        /// <inheritdoc cref="Unload"/>
         protected virtual void OnUnload() { }
     }
 }

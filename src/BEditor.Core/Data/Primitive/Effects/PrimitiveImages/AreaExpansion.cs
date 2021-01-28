@@ -10,9 +10,15 @@ using BEditor.Drawing.Pixel;
 
 namespace BEditor.Core.Data.Primitive.Effects
 {
+    /// <summary>
+    /// Represents an <see cref="ImageEffect"/> that expands the area of an image.
+    /// </summary>
     [DataContract]
     public class AreaExpansion : ImageEffect
     {
+        /// <summary>
+        /// Initializes a new instance of the <see cref="AreaExpansion"/> class.
+        /// </summary>
         public AreaExpansion()
         {
             Top = new(Clipping.TopMetadata);
@@ -22,7 +28,9 @@ namespace BEditor.Core.Data.Primitive.Effects
             AdjustCoordinates = new(Clipping.AdjustCoordinatesMetadata);
         }
 
+        /// <inheritdoc/>
         public override string Name => Resources.AreaExpansion;
+        /// <inheritdoc/>
         public override IEnumerable<PropertyElement> Properties => new PropertyElement[]
         {
             Top,
@@ -31,17 +39,33 @@ namespace BEditor.Core.Data.Primitive.Effects
             Right,
             AdjustCoordinates
         };
+        /// <summary>
+        /// Get an <see cref="EaseProperty"/> that represents the number of pixels to add
+        /// </summary>
         [DataMember(Order = 0)]
         public EaseProperty Top { get; private set; }
+        /// <summary>
+        /// Get an <see cref="EaseProperty"/> that represents the number of pixels to add
+        /// </summary>
         [DataMember(Order = 1)]
         public EaseProperty Bottom { get; private set; }
+        /// <summary>
+        /// Get an <see cref="EaseProperty"/> that represents the number of pixels to add
+        /// </summary>
         [DataMember(Order = 2)]
         public EaseProperty Left { get; private set; }
+        /// <summary>
+        /// Get an <see cref="EaseProperty"/> that represents the number of pixels to add
+        /// </summary>
         [DataMember(Order = 3)]
         public EaseProperty Right { get; private set; }
+        /// <summary>
+        /// Get the <see cref="CheckProperty"/> to adjust the coordinates.
+        /// </summary>
         [DataMember(Order = 4)]
         public CheckProperty AdjustCoordinates { get; private set; }
 
+        /// <inheritdoc/>
         public override void Render(EffectRenderArgs<Image<BGRA32>> args)
         {
             int top = (int)Top.GetValue(args.Frame);
@@ -61,6 +85,7 @@ namespace BEditor.Core.Data.Primitive.Effects
 
             args.Value = img;
         }
+        /// <inheritdoc/>
         protected override void OnLoad()
         {
             Top.Load(Clipping.TopMetadata);
@@ -69,6 +94,7 @@ namespace BEditor.Core.Data.Primitive.Effects
             Right.Load(Clipping.RightMetadata);
             AdjustCoordinates.Load(Clipping.AdjustCoordinatesMetadata);
         }
+        /// <inheritdoc/>
         protected override void OnUnload()
         {
             foreach (var prop in Children)

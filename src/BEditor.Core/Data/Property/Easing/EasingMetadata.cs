@@ -4,6 +4,10 @@ using System.Linq.Expressions;
 
 namespace BEditor.Core.Data.Property.Easing
 {
+    /// <summary>
+    /// Initializes a new instance of the <see cref="EasingMetadata"/> class.
+    /// </summary>
+#pragma warning disable CS1591 // 公開されている型またはメンバーの XML コメントがありません
     public record EasingMetadata(string Name, Expression<Func<EasingFunc>> Create)
     {
         private Func<EasingFunc>? _Func;
@@ -13,11 +17,12 @@ namespace BEditor.Core.Data.Property.Easing
 
 
         /// <summary>
-        /// 読み込まれているイージング関数のType
+        /// Loaded <see cref="EasingMetadata"/>
         /// </summary>
         public static List<EasingMetadata> LoadedEasingFunc { get; } = new()
         {
             new EasingMetadata("Primitive", () => new PrimitiveEasing())
         };
     }
+#pragma warning restore CS1591 // 公開されている型またはメンバーの XML コメントがありません
 }

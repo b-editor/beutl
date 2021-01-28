@@ -14,12 +14,21 @@ using static BEditor.Core.Data.Primitive.Objects.Figure;
 
 namespace BEditor.Core.Data.Primitive.Objects
 {
+    /// <summary>
+    /// Get an <see cref="ImageObject"/> to draw a polygon.
+    /// </summary>
     [DataContract]
     [CustomClipUI(Color = 0x0091ea)]
     public class Polygon : ImageObject
     {
+        /// <summary>
+        /// Represents <see cref="Number"/> metadata.
+        /// </summary>
         public static readonly ValuePropertyMetadata NumberMetadata = new("角", 3, Min: 3);
 
+        /// <summary>
+        /// Iniitializes a new instance of the <see cref="Polygon"/> class.
+        /// </summary>
         public Polygon()
         {
             Width = new(WidthMetadata);
@@ -28,7 +37,9 @@ namespace BEditor.Core.Data.Primitive.Objects
             Color = new(ColorMetadata);
         }
 
+        /// <inheritdoc/>
         public override string Name => "Polygon";
+        /// <inheritdoc/>
         public override IEnumerable<PropertyElement> Properties => new PropertyElement[]
         {
             Coordinate,
@@ -41,15 +52,28 @@ namespace BEditor.Core.Data.Primitive.Objects
             Number,
             Color
         };
+        /// <summary>
+        /// Get the <see cref="EaseProperty"/> that represents the width of the polygon.
+        /// </summary>
         [DataMember(Order = 0)]
         public EaseProperty Width { get; private set; }
+        /// <summary>
+        /// Get the <see cref="EaseProperty"/> that represents the height of the polygon.
+        /// </summary>
         [DataMember(Order = 1)]
         public EaseProperty Height { get; private set; }
+        /// <summary>
+        /// Gets the <see cref="ValueProperty"/> representing the number of corners of a polygon.
+        /// </summary>
         [DataMember(Order = 2)]
         public ValueProperty Number { get; private set; }
+        /// <summary>
+        /// Get the <see cref="ColorProperty"/> that represents the color of the polygon.
+        /// </summary>
         [DataMember(Order = 3)]
         public ColorProperty Color { get; private set; }
 
+        /// <inheritdoc/>
         protected override Image<BGRA32> OnRender(EffectRenderArgs args)
         {
             var width = (int)Width[args.Frame];
@@ -59,6 +83,7 @@ namespace BEditor.Core.Data.Primitive.Objects
 
             return Image.Polygon((int)Number.Value, width, height, Color.Color);
         }
+        /// <inheritdoc/>
         protected override void OnLoad()
         {
             base.OnLoad();
@@ -67,6 +92,7 @@ namespace BEditor.Core.Data.Primitive.Objects
             Number.Load(NumberMetadata);
             Color.Load(ColorMetadata);
         }
+        /// <inheritdoc/>
         protected override void OnUnload()
         {
             base.OnUnload();

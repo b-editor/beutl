@@ -65,6 +65,15 @@ namespace BEditor.ViewModels.TimeLines
 
         public ClipUIViewModel(ClipData clip)
         {
+            static CustomClipUIAttribute GetAtt(ObjectElement self)
+            {
+                var type = self.GetType();
+                var attribute = Attribute.GetCustomAttribute(type, typeof(CustomClipUIAttribute));
+
+                if (attribute is CustomClipUIAttribute uIAttribute) return uIAttribute;
+                else return new();
+            }
+
             ClipData = clip;
             WidthProperty.Value = TimeLineViewModel.ToPixel(ClipData.Length);
             MarginProperty.Value = new Thickness(TimeLineViewModel.ToPixel(ClipData.Start), 1, 0, 0);
@@ -72,7 +81,7 @@ namespace BEditor.ViewModels.TimeLines
 
             if (clip.Effect[0] is ObjectElement @object)
             {
-                var color = @object.GetAttribute()?.GetColor ?? default;
+                var color = GetAtt(@object).GetColor;
                 ClipColor.Value = new SolidColorBrush(new Color()
                 {
                     R = color.R,
@@ -174,7 +183,7 @@ namespace BEditor.ViewModels.TimeLines
                 int end = TimeLineViewModel.ToFrame(TimeLineViewModel.ClipSelect.GetCreateClipViewModel().WidthProperty.Value) + start;//変更後の最大フレーム
 
                 if (0 < start && 0 < end)
-                    data.CreateLengthChangeCommand(start, end).Execute();
+                    data.ChangeLength(start, end).Execute();
             }
 
             if (TimeLineViewModel.ClipTimeChange)
@@ -185,7 +194,7 @@ namespace BEditor.ViewModels.TimeLines
                 int layer = data.GetCreateClipViewModel().Row;
 
 
-                data.CreateMoveCommand(frame, layer).Execute();
+                data.MoveFrameLayer(frame, layer).Execute();
 
                 TimeLineViewModel.ClipTimeChange = false;
             }
@@ -239,7 +248,7 @@ namespace BEditor.ViewModels.TimeLines
         #region Cut
         private void ClipCut()
         {
-            ClipData.Parent.CreateRemoveCommand(ClipData).Execute();
+            ClipData.Parent.RemoveClip(ClipData).Execute();
 
             using var memory = new MemoryStream();
             Serialize.SaveToStream(ClipData, memory, SerializeMode.Json);
@@ -249,8 +258,8 @@ namespace BEditor.ViewModels.TimeLines
         }
         #endregion
 
-        #region Delete
-        private void ClipDelete() => ClipData.Parent.CreateRemoveCommand(ClipData).Execute();
+        #region Remove
+        private void ClipDelete() => ClipData.Parent.RemoveClip(ClipData).Execute();
         #endregion
 
         #region DataLog
@@ -274,7 +283,7 @@ namespace BEditor.ViewModels.TimeLines
         {
             var frame = TimeLineViewModel.ToFrame(MouseRightPoint.X) + ClipData.Start;
 
-            ClipData.CreateSparateCommand(frame).Execute();
+            ClipData.Split(frame).Execute();
         }
         #endregion
 

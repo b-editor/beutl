@@ -9,18 +9,27 @@ using System.Threading.Tasks;
 
 namespace BEditor.Core.Data.Property
 {
+    /// <summary>
+    /// Represents a button in the UI
+    /// </summary>
     [DataContract]
     public class ButtonComponent : PropertyElement<PropertyElementMetadata>, IEasingProperty, IObservable<object>
     {
-        private List<IObserver<object>>? list;
+        private List<IObserver<object>>? _List;
 
+        /// <summary>
+        /// Initializes a new instance of the <see cref="ButtonComponent"/> class.
+        /// </summary>
+        /// <param name="metadata">Metadata of this property.</param>
+        /// <exception cref="ArgumentNullException"><paramref name="metadata"/> is <see langword="null"/>.</exception>
         public ButtonComponent(PropertyElementMetadata metadata)
         {
             PropertyMetadata = metadata ?? throw new ArgumentNullException(nameof(metadata));
         }
 
-        private List<IObserver<object>> Collection => list ??= new();
+        private List<IObserver<object>> Collection => _List ??= new();
 
+        /// <inheritdoc/>
         public IDisposable Subscribe(IObserver<object> observer)
         {
             if (observer is null) throw new ArgumentNullException(nameof(observer));
@@ -32,7 +41,9 @@ namespace BEditor.Core.Data.Property
                 state.Item2.Collection.Remove(state.observer);
             });
         }
-
+        /// <summary>
+        /// Execute the command after clicking the button.
+        /// </summary>
         public void Execute()
         {
             var tmp = new object();

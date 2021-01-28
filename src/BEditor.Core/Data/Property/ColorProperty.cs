@@ -2,6 +2,7 @@
 using System.Collections.Generic;
 using System.Collections.ObjectModel;
 using System.ComponentModel;
+using System.Diagnostics.Contracts;
 using System.Reactive.Disposables;
 using System.Runtime.Serialization;
 
@@ -13,7 +14,7 @@ using BEditor.Drawing;
 namespace BEditor.Core.Data.Property
 {
     /// <summary>
-    /// 色を選択するプロパティを表します
+    /// Represents a property to pick a color.
     /// </summary>
     [DataContract]
     public class ColorProperty : PropertyElement<ColorPropertyMetadata>, IEasingProperty, IBindable<Color>
@@ -29,9 +30,21 @@ namespace BEditor.Core.Data.Property
         #endregion
 
 
+        /// <summary>
+        /// Initializes a new instance of the <see cref="ColorProperty"/> class.
+        /// </summary>
+        /// <param name="metadata">Metadata of this property.</param>
+        /// <exception cref="ArgumentNullException"><paramref name="metadata"/> is <see langword="null"/>.</exception>
+        public ColorProperty(ColorPropertyMetadata metadata)
+        {
+            PropertyMetadata = metadata ?? throw new ArgumentNullException(nameof(metadata));
+            Color = metadata.DefaultColor;
+        }
+
+
         private List<IObserver<Color>> Collection => _List ??= new();
         /// <summary>
-        /// 
+        /// Gets or sets the selected color.
         /// </summary>
         [DataMember]
         public Color Color
@@ -63,18 +76,6 @@ namespace BEditor.Core.Data.Property
         }
 
 
-        /// <summary>
-        /// <see cref="ColorProperty"/> クラスの新しいインスタンスを初期化します
-        /// </summary>
-        /// <param name="metadata">このプロパティの <see cref="ColorPropertyMetadata"/></param>
-        /// <exception cref="ArgumentNullException"><paramref name="metadata"/> が <see langword="null"/> です</exception>
-        public ColorProperty(ColorPropertyMetadata metadata)
-        {
-            PropertyMetadata = metadata ?? throw new ArgumentNullException(nameof(metadata));
-            Color = metadata.DefaultColor;
-        }
-
-
         #region Methods
 
         /// <inheritdoc/>
@@ -89,8 +90,17 @@ namespace BEditor.Core.Data.Property
             _BindHint = null;
         }
 
+        /// <summary>
+        /// Create a command to change the color of this <see cref="Color"/>.
+        /// </summary>
+        /// <param name="color">New Color.</param>
+        /// <returns>Created <see cref="IRecordCommand"/>.</returns>
+        [Pure]
+        public IRecordCommand ChangeColor(Color color) => new ChangeColorCommand(this, color);
+
         #region IBindable
 
+        /// <inheritdoc/>
         public void Bind(IBindable<Color>? bindable)
         {
             _BindDispose?.Dispose();
@@ -105,6 +115,7 @@ namespace BEditor.Core.Data.Property
             }
         }
 
+        /// <inheritdoc/>
         public IDisposable Subscribe(IObserver<Color> observer)
         {
             if (observer is null) throw new ArgumentNullException(nameof(observer));
@@ -117,8 +128,11 @@ namespace BEditor.Core.Data.Property
              });
         }
 
+        /// <inheritdoc/>
         public void OnCompleted() { }
+        /// <inheritdoc/>
         public void OnError(Exception error) { }
+        /// <inheritdoc/>
         public void OnNext(Color value)
         {
             Color = value;
@@ -132,8 +146,7 @@ namespace BEditor.Core.Data.Property
         /// <summary>
         /// 色を変更するコマンド
         /// </summary>
-        /// <remarks>このクラスは <see cref="CommandManager.Do(IRecordCommand)"/> と併用することでコマンドを記録できます</remarks>
-        public sealed class ChangeColorCommand : IRecordCommand
+        private sealed class ChangeColorCommand : IRecordCommand
         {
             private readonly ColorProperty _Property;
             private readonly Color _New;
@@ -145,13 +158,14 @@ namespace BEditor.Core.Data.Property
             /// <param name="property">対象の <see cref="ColorProperty"/></param>
             /// <param name="color"></param>
             /// <exception cref="ArgumentNullException"><paramref name="property"/> が <see langword="null"/> です</exception>
-            public ChangeColorCommand(ColorProperty property, in Color color)
+            public ChangeColorCommand(ColorProperty property, Color color)
             {
                 _Property = property ?? throw new ArgumentNullException(nameof(property));
                 _New = color;
                 _Old = property.Value;
             }
 
+            /// <inheritdoc/>
             public string Name => CommandName.ChangeColor;
 
             /// <inheritdoc/>
@@ -172,7 +186,29 @@ namespace BEditor.Core.Data.Property
     }
 
     /// <summary>
-    /// <see cref="BEditor.Core.Data.Property.ColorProperty"/> のメタデータを表します
+    /// Represents the metadata of a <see cref="ColorProperty"/>.
     /// </summary>
-    public record ColorPropertyMetadata(string Name, in Color DefaultColor = default, bool UseAlpha = false) : PropertyElementMetadata(Name);
+    public record ColorPropertyMetadata : PropertyElementMetadata
+    {
+        /// <summary>
+        /// Initializes a new instance of the <see cref="ColorPropertyMetadata"/> class.
+        /// </summary>
+        /// <param name="Name">The string displayed in the property header.</param>
+        /// <param name="DefaultColor">Default color</param>
+        /// <param name="UseAlpha">Value if the alpha component should be used or not</param>
+        public ColorPropertyMetadata(string Name, Color DefaultColor, bool UseAlpha = false) : base(Name)
+        {
+            this.DefaultColor = DefaultColor;
+            this.UseAlpha = UseAlpha;
+        }
+
+        /// <summary>
+        /// Gets the default color.
+        /// </summary>
+        public Color DefaultColor { get; init; }
+        /// <summary>
+        /// Gets a <see cref="bool"/> indicating whether or not to use the alpha component.
+        /// </summary>
+        public bool UseAlpha { get; init; }
+    }
 }

@@ -20,7 +20,7 @@ namespace BEditor.ViewModels.CreateDialog
             {
                 var effectinstance = Type.Value.CreateFunc();
 
-                TargetClip.Value.CreateAddCommand(effectinstance).Execute();
+                TargetClip.Value.AddEffect(effectinstance).Execute();
             });
         }
 

@@ -6,22 +6,18 @@ using BEditor.Core.Service;
 
 namespace BEditor.Core
 {
+    /// <summary>
+    /// Represents an application.
+    /// </summary>
     public interface IApplication
     {
+        /// <summary>
+        /// Get or set the status of an application.
+        /// </summary>
         public Status AppStatus { get; set; }
+        /// <summary>
+        /// Get the loaded plugins.
+        /// </summary>
         public List<IPlugin>? LoadedPlugins { get; }
-    }
-
-    public class Application : IApplication
-    {
-        private Application()
-        {
-
-        }
-
-        public static IApplication Empty() => new Application();
-
-        Status IApplication.AppStatus { get; set; }
-        List<IPlugin>? IApplication.LoadedPlugins { get; }
     }
 }

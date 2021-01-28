@@ -3,6 +3,7 @@ using System;
 using System.Reactive.Linq;
 
 using BEditor.Core.Command;
+using BEditor.Core.Data;
 using BEditor.Core.Data.Property;
 using BEditor.Views.PropertyControls;
 
@@ -19,8 +20,8 @@ namespace BEditor.ViewModels.PropertyControl
             Metadata = property.ObserveProperty(p => p.PropertyMetadata)
                 .ToReadOnlyReactiveProperty();
 
-            Command.Subscribe(x => CommandManager.Do(new CheckProperty.ChangeCheckedCommand(Property, x)));
-            Reset.Subscribe(() => CommandManager.Do(new CheckProperty.ChangeCheckedCommand(Property, Property.PropertyMetadata?.DefaultIsChecked ?? default)));
+            Command.Subscribe(x => Property.ChangeIsChecked(x).Execute());
+            Reset.Subscribe(() => Property.ChangeIsChecked(Property.PropertyMetadata?.DefaultIsChecked ?? default).Execute());
             Bind.Subscribe(() =>
             {
                 var window = new BindSettings(new BindSettingsViewModel<bool>(Property));

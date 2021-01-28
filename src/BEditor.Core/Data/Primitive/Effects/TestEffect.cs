@@ -12,6 +12,7 @@ using BEditor.Drawing.Pixel;
 
 namespace BEditor.Core.Data.Primitive.Effects
 {
+#pragma warning disable CS1591
     [DataContract]
     public class TestEffect : ImageEffect
     {
@@ -109,4 +110,5 @@ namespace BEditor.Core.Data.Primitive.Effects
             }
         }
     }
+#pragma warning restore CS1591
 }

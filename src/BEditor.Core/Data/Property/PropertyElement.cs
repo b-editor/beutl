@@ -8,9 +8,8 @@ using BEditor.Core.Data.Property;
 
 namespace BEditor.Core.Data.Property
 {
-    //Memo : xml英語ここまで
     /// <summary>
-    /// Represents the property used by <see cref="EffectElement"/>.
+    /// Represents a property used by <see cref="EffectElement"/>.
     /// </summary>
     [DataContract]
     public class PropertyElement : ComponentObject, IChild<EffectElement>, IPropertyElement, IHasId, IHasName
@@ -20,12 +19,10 @@ namespace BEditor.Core.Data.Property
         private int? id;
 
 
-        /// <summary>
-        /// このプロパティの親要素を取得します
-        /// </summary>
+        /// <inheritdoc/>
         public virtual EffectElement? Parent { get; set; }
         /// <summary>
-        /// プロパティのメタデータを取得または設定します
+        /// Gets or sets the metadata for this <see cref="PropertyElement"/>.
         /// </summary>
         public PropertyElementMetadata? PropertyMetadata
         {
@@ -61,19 +58,24 @@ namespace BEditor.Core.Data.Property
             IsLoaded = false;
         }
 
+        /// <inheritdoc cref="IElementObject.Load"/>
         protected virtual void OnLoad()
         {
 
         }
+        /// <inheritdoc cref="IElementObject.Unload"/>
         protected virtual void OnUnload()
         {
 
         }
     }
 
+    /// <inheritdoc cref="PropertyElement"/>
+    /// <typeparam name="T">Type of <see cref="PropertyMetadata"/></typeparam>
     [DataContract]
     public abstract class PropertyElement<T> : PropertyElement where T : PropertyElementMetadata
     {
+        /// <inheritdoc cref="PropertyElement.PropertyMetadata"/>
         public new T? PropertyMetadata
         {
             get => base.PropertyMetadata as T;
@@ -82,7 +84,22 @@ namespace BEditor.Core.Data.Property
     }
 
     /// <summary>
-    /// <see cref="BEditor.Core.Data.Property.PropertyElement"/> のメタデータを表します
+    /// Represents the metadata of a property.
     /// </summary>
-    public record PropertyElementMetadata(string Name);
+    public record PropertyElementMetadata
+    {
+        /// <summary>
+        /// Initializes a new instance of the <see cref="PropertyElementMetadata"/> class.
+        /// </summary>
+        /// <param name="Name">The string displayed in the property header.</param>
+        public PropertyElementMetadata(string Name)
+        {
+            this.Name = Name;
+        }
+
+        /// <summary>
+        /// Gets the string to be displayed in the property header.
+        /// </summary>
+        public string Name { get; init; }
+    }
 }

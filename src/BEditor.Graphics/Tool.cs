@@ -12,7 +12,7 @@ using OpenTK.Mathematics;
 using Color = BEditor.Drawing.Color;
 using GLColor = OpenTK.Mathematics.Color4;
 
-namespace BEditor.Core.Graphics
+namespace BEditor.Graphics
 {
     internal static class Tool
     {

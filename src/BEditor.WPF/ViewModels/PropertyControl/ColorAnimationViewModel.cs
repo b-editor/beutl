@@ -2,6 +2,7 @@
 using System.Reactive.Linq;
 
 using BEditor.Core.Command;
+using BEditor.Core.Data;
 using BEditor.Core.Data.Property;
 using BEditor.Core.Data.Property.Easing;
 
@@ -18,7 +19,7 @@ namespace BEditor.ViewModels.PropertyControl
             Metadata = property.ObserveProperty(p => p.PropertyMetadata)
                 .ToReadOnlyReactiveProperty();
 
-            EasingChangeCommand.Subscribe(x => CommandManager.Do(new ColorAnimationProperty.ChangeEaseCommand(Property, x.Name)));
+            EasingChangeCommand.Subscribe(x => Property.ChangeEase(x).Execute());
         }
 
         public ReadOnlyReactiveProperty<ColorAnimationPropertyMetadata?> Metadata { get; }

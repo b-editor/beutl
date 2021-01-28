@@ -1,7 +1,7 @@
 ﻿
 using OpenTK.Mathematics;
 
-namespace BEditor.Core.Graphics
+namespace BEditor.Graphics
 {
     public class OrthographicCamera : Camera
     {

@@ -29,10 +29,10 @@ namespace BEditor.ViewModels.PropertyControl
 
                 if (file != null)
                 {
-                    CommandManager.Do(new FileProperty.ChangeFileCommand(Property, file));
+                    Property.ChangeFile(file).Execute();
                 }
             });
-            Reset.Subscribe(() => CommandManager.Do(new FileProperty.ChangeFileCommand(Property, Property.PropertyMetadata?.DefaultFile ?? "")));
+            Reset.Subscribe(() => Property.ChangeFile(Property.PropertyMetadata?.DefaultFile ?? "").Execute());
             Bind.Subscribe(() =>
             {
                 var window = new BindSettings(new BindSettingsViewModel<string>(property));

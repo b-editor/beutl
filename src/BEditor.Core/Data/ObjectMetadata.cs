@@ -4,6 +4,7 @@ using System.Linq.Expressions;
 
 namespace BEditor.Core.Data
 {
+#pragma warning disable CS1591
     public record ObjectMetadata(string Name, Expression<Func<ObjectElement>> Create)
     {
         private Func<ObjectElement>? _Func;
@@ -24,4 +25,5 @@ namespace BEditor.Core.Data
             ClipType.SceneMetadata
         };
     }
+#pragma warning restore CS1591
 }

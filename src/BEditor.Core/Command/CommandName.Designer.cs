@@ -268,11 +268,11 @@ namespace BEditor.Core.Command {
         }
         
         /// <summary>
-        ///   Separate a clip に類似しているローカライズされた文字列を検索します。
+        ///   Split a clip に類似しているローカライズされた文字列を検索します。
         /// </summary>
-        public static string SparateClip {
+        public static string SplitClip {
             get {
-                return ResourceManager.GetString("SparateClip", resourceCulture);
+                return ResourceManager.GetString("SplitClip", resourceCulture);
             }
         }
         

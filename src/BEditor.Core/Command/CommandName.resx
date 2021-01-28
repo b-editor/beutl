@@ -151,8 +151,8 @@
   <data name="ChangeLength" xml:space="preserve">
     <value>Change length</value>
   </data>
-  <data name="SparateClip" xml:space="preserve">
-    <value>Separate a clip</value>
+  <data name="SplitClip" xml:space="preserve">
+    <value>Split a clip</value>
   </data>
   <data name="EnableDisableEffect" xml:space="preserve">
     <value>Enable/Disable effects</value>

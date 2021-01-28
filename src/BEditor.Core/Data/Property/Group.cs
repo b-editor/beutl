@@ -10,20 +10,18 @@ using BEditor.Core.Data.Property;
 namespace BEditor.Core.Data.Property
 {
     /// <summary>
-    /// <see cref="PropertyElement"/> をまとめるクラス
+    /// Represents a base class for grouping <see cref="PropertyElement"/>.
     /// </summary>
     [DataContract]
     public abstract class Group : PropertyElement, IKeyFrameProperty, IEasingProperty, IParent<PropertyElement>
     {
         private IEnumerable<PropertyElement>? _CachedList;
-        
+
         /// <summary>
-        /// グループにする <see cref="PropertyElement"/> を取得します
+        /// Get the <see cref="PropertyElement"/> to display on the GUI.
         /// </summary>
         public abstract IEnumerable<PropertyElement> Properties { get; }
-        /// <summary>
-        /// キャッシュされた <see cref="Properties"/> を取得します
-        /// </summary>
+        /// <inheritdoc/>
         public IEnumerable<PropertyElement> Children => _CachedList ??= Properties;
 
         /// <inheritdoc/>

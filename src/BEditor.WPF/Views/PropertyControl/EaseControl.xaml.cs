@@ -123,7 +123,7 @@ namespace BEditor.Views.PropertyControls
             {
                 property.Value[index] = oldvalue;
 
-                Core.Command.CommandManager.Do(new EaseProperty.ChangeValueCommand(property, index, _out));
+                property.ChangeValue(index, _out).Execute();
             }
         }
         private void TextBox_PreviewMouseWheel(object sender, MouseWheelEventArgs e)

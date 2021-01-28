@@ -6,7 +6,7 @@ using System.Threading.Tasks;
 
 using BEditor.Drawing;
 
-namespace BEditor.Core.Graphics
+namespace BEditor.Graphics
 {
     public struct Material
     {

@@ -6,6 +6,14 @@ using System.Threading.Tasks;
 
 namespace BEditor.Core.Plugin
 {
+    /// <summary>
+    /// Represents the base class of the plugin settings.
+    /// </summary>
+    /// <example>
+    /// public record CustomSetting(string value) : SettingRecord;
+    /// 
+    /// public SettingRecord Settings { get; set; } = new CustomSetting("Sample text");
+    /// </example>
     public record SettingRecord()
     {
     }

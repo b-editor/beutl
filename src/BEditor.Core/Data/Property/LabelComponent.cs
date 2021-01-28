@@ -9,6 +9,9 @@ using System.Threading.Tasks;
 
 namespace BEditor.Core.Data.Property
 {
+    /// <summary>
+    /// Represents a project that shows a string in the UI.
+    /// </summary>
     [DataContract]
     public class LabelComponent : PropertyElement<PropertyElementMetadata>, IEasingProperty, IObservable<string>, IObserver<string>
     {
@@ -17,6 +20,9 @@ namespace BEditor.Core.Data.Property
         private string _Text = "";
 
         private List<IObserver<string>> Collection => _List ??= new();
+        /// <summary>
+        /// Gets or sets the string to be shown.
+        /// </summary>
         [DataMember]
         public string Text
         {
@@ -37,18 +43,22 @@ namespace BEditor.Core.Data.Property
             });
         }
 
+        /// <inheritdoc/>
         public void OnCompleted()
         {
 
         }
+        /// <inheritdoc/>
         public void OnError(Exception error)
         {
 
         }
+        /// <inheritdoc/>
         public void OnNext(string value)
         {
             Text = value;
         }
+        /// <inheritdoc/>
         public IDisposable Subscribe(IObserver<string> observer)
         {
             if (observer is null) throw new ArgumentNullException(nameof(observer));
@@ -60,6 +70,7 @@ namespace BEditor.Core.Data.Property
                 state.Item2.Collection.Remove(state.observer);
             });
         }
+        /// <inheritdoc/>
         public override string ToString() => $"(Text:{Text} Name:{PropertyMetadata?.Name})";
     }
 }

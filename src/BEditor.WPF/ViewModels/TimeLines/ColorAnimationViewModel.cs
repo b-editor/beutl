@@ -19,9 +19,9 @@ namespace BEditor.ViewModels.TimeLines
             Metadata = colorProperty.ObserveProperty(p => p.PropertyMetadata)
                 .ToReadOnlyReactiveProperty();
 
-            AddKeyFrameCommand.Subscribe(x => CommandManager.Do(new ColorAnimationProperty.AddCommand(colorProperty, x)));
-            RemoveKeyFrameCommand.Subscribe(x => CommandManager.Do(new ColorAnimationProperty.RemoveCommand(colorProperty, x)));
-            MoveKeyFrameCommand.Subscribe(x => CommandManager.Do(new ColorAnimationProperty.MoveCommand(colorProperty, x.Item1, x.Item2)));
+            AddKeyFrameCommand.Subscribe(x => ColorAnimationProperty.AddFrame(x).Execute());
+            RemoveKeyFrameCommand.Subscribe(x => ColorAnimationProperty.RemoveFrame(x).Execute());
+            MoveKeyFrameCommand.Subscribe(x => ColorAnimationProperty.MoveFrame(x.Item1, x.Item2).Execute());
 
             colorProperty.AddKeyFrameEvent += (_, value) => AddKeyFrameIcon?.Invoke(value.frame, value.index);
             colorProperty.DeleteKeyFrameEvent += (_, value) => DeleteKeyFrameIcon?.Invoke(value);
