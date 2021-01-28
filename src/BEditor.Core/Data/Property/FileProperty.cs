@@ -14,7 +14,7 @@ using BEditor.Core.Service;
 namespace BEditor.Core.Data.Property
 {
     /// <summary>
-    /// ファイルを選択するプロパティを表します
+    /// Represents a property to select a file.
     /// </summary>
     [DataContract]
     public class FileProperty : PropertyElement<FilePropertyMetadata>, IEasingProperty, IBindable<string>
@@ -31,10 +31,10 @@ namespace BEditor.Core.Data.Property
 
 
         /// <summary>
-        /// <see cref="FileProperty"/> クラスの新しいインスタンスを初期化します
+        /// Initializes a new instance of the <see cref="FileProperty"/> class.
         /// </summary>
-        /// <param name="metadata">このプロパティの <see cref="FilePropertyMetadata"/></param>
-        /// <exception cref="ArgumentNullException"><paramref name="metadata"/> が <see langword="null"/> です</exception>
+        /// <param name="metadata">Metadata of this property</param>
+        /// <exception cref="ArgumentNullException"><paramref name="metadata"/> is <see langword="null"/>.</exception>
         public FileProperty(FilePropertyMetadata metadata)
         {
             PropertyMetadata = metadata ?? throw new ArgumentNullException(nameof(metadata));
@@ -44,7 +44,7 @@ namespace BEditor.Core.Data.Property
 
         private List<IObserver<string>> Collection => _List ??= new();
         /// <summary>
-        /// ファイルの名前を取得または設定します
+        /// Gets or sets the name of the selected file.
         /// </summary>
         [DataMember]
         public string File
@@ -91,8 +91,10 @@ namespace BEditor.Core.Data.Property
         public override string ToString() => $"(File:{File} Name:{PropertyMetadata?.Name})";
 
         /// <summary>
-        /// ファイルの名前を変更するコマンドを作成します
+        /// Create a command to rename a file.
         /// </summary>
+        /// <param name="path">New value for <see cref="File"/></param>
+        /// <returns>Created <see cref="IRecordCommand"/></returns>
         [Pure]
         public IRecordCommand ChangeFile(string path) => new ChangeFileCommand(this, path);
 
@@ -183,10 +185,29 @@ namespace BEditor.Core.Data.Property
     }
 
     /// <summary>
-    /// <see cref="BEditor.Core.Data.Property.FileProperty"/> のメタデータを表します
+    /// Represents the metadata of a <see cref="FileProperty"/>.
     /// </summary>
-    public record FilePropertyMetadata(
-        string Name,
-        string DefaultFile = "",
-        FileFilter? Filter = null) : PropertyElementMetadata(Name);
+    public record FilePropertyMetadata : PropertyElementMetadata
+    {
+        /// <summary>
+        /// Initializes a new instance of the <see cref="FilePropertyMetadata"/>
+        /// </summary>
+        /// <param name="Name">The string displayed in the property header.</param>
+        /// <param name="DefaultFile">Default value of <see cref="FileProperty.File"/></param>
+        /// <param name="Filter">Filter the files to select</param>
+        public FilePropertyMetadata(string Name, string DefaultFile = "", FileFilter? Filter = null) : base(Name)
+        {
+            this.DefaultFile = DefaultFile;
+            this.Filter = Filter;
+        }
+
+        /// <summary>
+        /// Get the default value of <see cref="FileProperty.File"/>.
+        /// </summary>
+        public string DefaultFile { get; init; }
+        /// <summary>
+        /// Get the filter for the file to be selected.
+        /// </summary>
+        public FileFilter? Filter { get; init; }
+    }
 }

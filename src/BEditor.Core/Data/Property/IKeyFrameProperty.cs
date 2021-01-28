@@ -5,13 +5,10 @@ using System.Text;
 namespace BEditor.Core.Data.Property
 {
     /// <summary>
-    /// タイムライン上に編集画面を持つプロパティを表します
+    /// Represents a property that has an editing window on the timeline.
     /// </summary>
-    public interface IKeyFrameProperty : IChild<EffectElement>
+    public interface IKeyFrameProperty : IChild<EffectElement>, IPropertyElement
     {
-        /// <summary>
-        /// UIなどのキャッシュを入れる配列を取得します
-        /// </summary>
-        public Dictionary<string, dynamic> ComponentData { get; }
+
     }
 }

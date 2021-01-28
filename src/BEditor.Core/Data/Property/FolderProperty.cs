@@ -14,6 +14,9 @@ using BEditor.Core.Data.Property;
 
 namespace BEditor.Core.Data.Property
 {
+    /// <summary>
+    /// Represents a property to select a folder.
+    /// </summary>
     [DataContract]
     public class FolderProperty : PropertyElement<FolderPropertyMetadata>, IEasingProperty, IBindable<string>
     {
@@ -29,10 +32,10 @@ namespace BEditor.Core.Data.Property
 
 
         /// <summary>
-        /// <see cref="FolderProperty"/> クラスの新しいインスタンスを初期化します
+        /// Initializes a new instance of the <see cref="FolderProperty"/> class.
         /// </summary>
-        /// <param name="metadata">このプロパティの <see cref="FolderPropertyMetadata"/></param>
-        /// <exception cref="ArgumentNullException"><paramref name="metadata"/> が <see langword="null"/> です</exception>
+        /// <param name="metadata">Metadata of this property</param>
+        /// <exception cref="ArgumentNullException"><paramref name="metadata"/> is <see langword="null"/>.</exception>
         public FolderProperty(FolderPropertyMetadata metadata)
         {
             PropertyMetadata = metadata ?? throw new ArgumentNullException(nameof(metadata));
@@ -42,7 +45,7 @@ namespace BEditor.Core.Data.Property
 
         private List<IObserver<string>> Collection => _List ??= new();
         /// <summary>
-        /// フォルダの名前を取得または設定します
+        /// Gets or sets the name of the selected folder.
         /// </summary>
         [DataMember]
         public string Folder
@@ -89,8 +92,10 @@ namespace BEditor.Core.Data.Property
         public override string ToString() => $"(Folder:{Folder} Name:{PropertyMetadata?.Name})";
 
         /// <summary>
-        /// ファイルの名前を変更するコマンドを作成します
+        /// Create a command to rename a folder.
         /// </summary>
+        /// <param name="path">New value for <see cref="Folder"/></param>
+        /// <returns>Created <see cref="IRecordCommand"/></returns>
         [Pure]
         public IRecordCommand ChangeFolder(string path) => new ChangeFolderCommand(this, path);
 
@@ -146,7 +151,7 @@ namespace BEditor.Core.Data.Property
         /// ファイルの名前を変更するコマンド
         /// </summary>
         /// <remarks>このクラスは <see cref="CommandManager.Do(IRecordCommand)"/> と併用することでコマンドを記録できます</remarks>
-        public sealed class ChangeFolderCommand : IRecordCommand
+        private sealed class ChangeFolderCommand : IRecordCommand
         {
             private readonly FolderProperty _Property;
             private readonly string _New;
@@ -180,5 +185,24 @@ namespace BEditor.Core.Data.Property
         #endregion
     }
 
-    public record FolderPropertyMetadata(string Name, string Default = "") : PropertyElementMetadata(Name);
+    /// <summary>
+    /// Represents the metadata of a <see cref="FolderProperty"/>.
+    /// </summary>
+    public record FolderPropertyMetadata : PropertyElementMetadata
+    {
+        /// <summary>
+        /// Initializes a new instance of the <see cref="FolderPropertyMetadata"/>
+        /// </summary>
+        /// <param name="Name">The string displayed in the property header.</param>
+        /// <param name="Default">Default value of <see cref="FolderProperty.Folder"/></param>
+        public FolderPropertyMetadata(string Name, string Default = "") : base(Name)
+        {
+            this.Default = Default;
+        }
+
+        /// <summary>
+        /// Get the default value of <see cref="FolderProperty.Folder"/>.
+        /// </summary>
+        public string Default { get; init; }
+    }
 }

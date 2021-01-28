@@ -34,6 +34,8 @@ Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "TestPlugin2", "src\Tests\Te
 EndProject
 Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "NUnitTestProject1", "src\Tests\NUnitTestProject1\NUnitTestProject1.csproj", "{2BAE0DF3-67E1-46DF-851D-CF0A60BA12F4}"
 EndProject
+Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "BEditor.Graphics", "src\BEditor.Graphics\BEditor.Graphics.csproj", "{A4F74544-6796-4962-9283-603E7C0081A8}"
+EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
 		Debug|Any CPU = Debug|Any CPU
@@ -318,6 +320,26 @@ Global
 		{2BAE0DF3-67E1-46DF-851D-CF0A60BA12F4}.Release|x64.Build.0 = Release|Any CPU
 		{2BAE0DF3-67E1-46DF-851D-CF0A60BA12F4}.Release|x86.ActiveCfg = Release|Any CPU
 		{2BAE0DF3-67E1-46DF-851D-CF0A60BA12F4}.Release|x86.Build.0 = Release|Any CPU
+		{A4F74544-6796-4962-9283-603E7C0081A8}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{A4F74544-6796-4962-9283-603E7C0081A8}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{A4F74544-6796-4962-9283-603E7C0081A8}.Debug|ARM.ActiveCfg = Debug|Any CPU
+		{A4F74544-6796-4962-9283-603E7C0081A8}.Debug|ARM.Build.0 = Debug|Any CPU
+		{A4F74544-6796-4962-9283-603E7C0081A8}.Debug|ARM64.ActiveCfg = Debug|Any CPU
+		{A4F74544-6796-4962-9283-603E7C0081A8}.Debug|ARM64.Build.0 = Debug|Any CPU
+		{A4F74544-6796-4962-9283-603E7C0081A8}.Debug|x64.ActiveCfg = Debug|Any CPU
+		{A4F74544-6796-4962-9283-603E7C0081A8}.Debug|x64.Build.0 = Debug|Any CPU
+		{A4F74544-6796-4962-9283-603E7C0081A8}.Debug|x86.ActiveCfg = Debug|Any CPU
+		{A4F74544-6796-4962-9283-603E7C0081A8}.Debug|x86.Build.0 = Debug|Any CPU
+		{A4F74544-6796-4962-9283-603E7C0081A8}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{A4F74544-6796-4962-9283-603E7C0081A8}.Release|Any CPU.Build.0 = Release|Any CPU
+		{A4F74544-6796-4962-9283-603E7C0081A8}.Release|ARM.ActiveCfg = Release|Any CPU
+		{A4F74544-6796-4962-9283-603E7C0081A8}.Release|ARM.Build.0 = Release|Any CPU
+		{A4F74544-6796-4962-9283-603E7C0081A8}.Release|ARM64.ActiveCfg = Release|Any CPU
+		{A4F74544-6796-4962-9283-603E7C0081A8}.Release|ARM64.Build.0 = Release|Any CPU
+		{A4F74544-6796-4962-9283-603E7C0081A8}.Release|x64.ActiveCfg = Release|Any CPU
+		{A4F74544-6796-4962-9283-603E7C0081A8}.Release|x64.Build.0 = Release|Any CPU
+		{A4F74544-6796-4962-9283-603E7C0081A8}.Release|x86.ActiveCfg = Release|Any CPU
+		{A4F74544-6796-4962-9283-603E7C0081A8}.Release|x86.Build.0 = Release|Any CPU
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE

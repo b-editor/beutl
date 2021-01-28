@@ -7,14 +7,23 @@ using System.Threading.Tasks;
 
 namespace BEditor.Core.Data.Property
 {
+    /// <summary>
+    /// Represents a base class for showing multiple <see cref="PropertyElement"/> in a dialog.
+    /// </summary>
     [DataContract]
     public abstract class DialogProperty : Group
     {
-        public event EventHandler Showed = delegate { };
+        /// <summary>
+        /// Occurs after the dialog is shown.
+        /// </summary>
+        public event EventHandler? Showed;
 
+        /// <summary>
+        /// Show the dialog
+        /// </summary>
         public void Show()
         {
-            Showed(this, EventArgs.Empty);
+            Showed?.Invoke(this, EventArgs.Empty);
         }
     }
 }

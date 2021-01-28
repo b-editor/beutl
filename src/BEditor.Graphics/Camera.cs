@@ -4,7 +4,7 @@ using System.Text;
 
 using OpenTK.Mathematics;
 
-namespace BEditor.Core.Graphics
+namespace BEditor.Graphics
 {
     /// <summary>
     /// Represents an OpenGL camera

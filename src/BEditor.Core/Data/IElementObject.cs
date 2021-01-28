@@ -6,6 +6,9 @@ using System.Threading.Tasks;
 
 namespace BEditor.Core.Data
 {
+    /// <summary>
+    /// Represents an element of the editing data.
+    /// </summary>
     public interface IElementObject
     {
         /// <summary>

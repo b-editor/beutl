@@ -83,17 +83,23 @@ namespace BEditor.Core.Data.Property
         }
     }
 
-#pragma warning disable CS1591
-#pragma warning disable CS1573
-#pragma warning disable CS1572
-
     /// <summary>
-    /// Initializes a new instance of the <see cref="BEditor.Core.Data.Property.PropertyElementMetadata"/> class.
+    /// Represents the metadata of a property.
     /// </summary>
-    /// <param name="Name">Gets or sets the string to be displayed in the property header.</param>
-    public record PropertyElementMetadata(string Name);
+    public record PropertyElementMetadata
+    {
+        /// <summary>
+        /// Initializes a new instance of the <see cref="PropertyElementMetadata"/> class.
+        /// </summary>
+        /// <param name="Name">The string displayed in the property header.</param>
+        public PropertyElementMetadata(string Name)
+        {
+            this.Name = Name;
+        }
 
-#pragma warning restore CS1591
-#pragma warning restore CS1573
-#pragma warning restore CS1572
+        /// <summary>
+        /// Gets the string to be displayed in the property header.
+        /// </summary>
+        public string Name { get; init; }
+    }
 }

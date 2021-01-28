@@ -12,7 +12,7 @@ using System.Threading.Tasks;
 using BEditor.Core.Audio;
 using BEditor.Core.Command;
 using BEditor.Core.Extensions;
-using BEditor.Core.Graphics;
+using BEditor.Graphics;
 using BEditor.Drawing;
 using BEditor.Drawing.Pixel;
 using BEditor.Media;
@@ -58,7 +58,7 @@ namespace BEditor.Core.Data
         #region Contructor
 
         /// <summary>
-        /// <see cref="Scene"/> Initialize a new instance of the class.
+        /// Initializes a new instance of the <see cref="Scene"/> class.
         /// </summary>
         /// <param name="width">The width of the frame buffer.</param>
         /// <param name="height">The height of the frame buffer</param>
@@ -627,5 +627,41 @@ namespace BEditor.Core.Data
         public override string SceneName { get => "root"; set { } }
     }
 
-    public record SceneSettings(int Width, int Height, string Name, Color BackgroundColor);
+    /// <summary>
+    /// Represents a <see cref="Scene"/> setting.
+    /// </summary>
+    public record SceneSettings
+    {
+        /// <summary>
+        /// Initializes a new instance of the <see cref="SceneSettings"/> class.
+        /// </summary>
+        /// <param name="Width">The width of the frame buffer.</param>
+        /// <param name="Height">The height of the frame buffer.</param>
+        /// <param name="Name">The name of the <see cref="Scene"/>.</param>
+        /// <param name="BackgroundColor">The background color.</param>
+        public SceneSettings(int Width, int Height, string Name, Color BackgroundColor)
+        {
+            this.Width = Width;
+            this.Height = Height;
+            this.Name = Name;
+            this.BackgroundColor = BackgroundColor;
+        }
+
+        /// <summary>
+        /// Get the width.
+        /// </summary>
+        public int Width { get; init; }
+        /// <summary>
+        /// Get the height.
+        /// </summary>
+        public int Height { get; init; }
+        /// <summary>
+        /// Get the name.
+        /// </summary>
+        public string Name { get; init; }
+        /// <summary>
+        /// Get the backgroung color.
+        /// </summary>
+        public Color BackgroundColor { get; init; }
+    }
 }

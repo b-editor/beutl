@@ -13,6 +13,9 @@ using BEditor.Core.Data.Bindings;
 
 namespace BEditor.Core.Data.Property
 {
+    /// <summary>
+    /// Represents a property of a string.
+    /// </summary>
     [DataContract]
     public class TextProperty : PropertyElement<TextPropertyMetadata>, IEasingProperty, IBindable<string>
     {
@@ -26,6 +29,11 @@ namespace BEditor.Core.Data.Property
         #endregion
 
 
+        /// <summary>
+        /// Initializes a new instance of the <see cref="TextProperty"/> class.
+        /// </summary>
+        /// <param name="metadata">Matadata of this property</param>
+        /// <exception cref="ArgumentNullException"><paramref name="metadata"/> is <see langword="null"/>.</exception>
         public TextProperty(TextPropertyMetadata metadata)
         {
             PropertyMetadata = metadata ?? throw new ArgumentNullException(nameof(metadata));
@@ -113,6 +121,11 @@ namespace BEditor.Core.Data.Property
         }
         /// <inheritdoc/>
         public override string ToString() => $"(Value:{Value} Name:{PropertyMetadata?.Name})";
+        /// <summary>
+        /// Create a command to change the <see cref="Value"/>.
+        /// </summary>
+        /// <param name="text">New value for <see cref="Value"/></param>
+        /// <returns>Created <see cref="IRecordCommand"/></returns>
         [Pure]
         public IRecordCommand ChangeText(string text) => new ChangeTextCommand(this, text);
         #endregion
@@ -139,5 +152,24 @@ namespace BEditor.Core.Data.Property
         }
     }
 
-    public record TextPropertyMetadata(string Name, string DefaultText = "") : PropertyElementMetadata(Name);
+    /// <summary>
+    /// Represents the metadata of a <see cref="TextProperty"/>.
+    /// </summary>
+    public record TextPropertyMetadata : PropertyElementMetadata
+    {
+        /// <summary>
+        /// Initializes a new instance of the <see cref="TextPropertyMetadata"/> class.
+        /// </summary>
+        /// <param name="Name">The string displayed in the property header.</param>
+        /// <param name="DefaultText">Default value for <see cref="TextProperty.Value"/>.</param>
+        public TextPropertyMetadata(string Name, string DefaultText = "") : base(Name)
+        {
+            this.DefaultText = DefaultText;
+        }
+
+        /// <summary>
+        /// Get the default value of <see cref="TextProperty.Value"/>.
+        /// </summary>
+        public string DefaultText { get; init; }
+    }
 }

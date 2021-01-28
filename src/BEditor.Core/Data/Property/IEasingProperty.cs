@@ -7,10 +7,11 @@ using BEditor.Core.Data.Property.Easing;
 namespace BEditor.Core.Data.Property
 {
     /// <summary>
-    /// <see cref="EasingFunc"/> で利用可能なプロパティを表します
+    /// Represents a property that can be used by <see cref="EasingFunc"/>
     /// </summary>
     public interface IEasingProperty : IPropertyElement
     {
+        /// <inheritdoc cref="IChild{T}.Parent"/>
         public new EffectElement? Parent { get; set; }
     }
 }

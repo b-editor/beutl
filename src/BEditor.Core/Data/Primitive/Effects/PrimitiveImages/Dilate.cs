@@ -10,33 +10,54 @@ using BEditor.Drawing.Pixel;
 
 namespace BEditor.Core.Data.Primitive.Effects
 {
+    /// <summary>
+    /// Represents an <see cref="ImageEffect"/> that dilates an image.
+    /// </summary>
     [DataContract]
     public class Dilate : ImageEffect
     {
-        public static readonly EasePropertyMetadata FrequencyMetadata = new(Resources.Frequency, 1, float.NaN, 0);
+        /// <summary>
+        /// Represents <see cref="Radius"/> metadata.
+        /// </summary>
+        public static readonly EasePropertyMetadata RadiusMetadata = new(Resources.Frequency, 1, float.NaN, 0);
+        /// <summary>
+        /// Represents <see cref="Resize"/> metadata.
+        /// </summary>
         public static readonly CheckPropertyMetadata ResizeMetadata = new(Resources.Resize);
 
+        /// <summary>
+        /// Initializes a new instance of the <see cref="Dilate"/> class.
+        /// </summary>
         public Dilate()
         {
-            Frequency = new(FrequencyMetadata);
+            Radius = new(RadiusMetadata);
             Resize = new(ResizeMetadata);
         }
 
+        /// <inheritdoc/>
         public override string Name => Resources.Dilate;
+        /// <inheritdoc/>
         public override IEnumerable<PropertyElement> Properties => new PropertyElement[]
         {
-            Frequency,
+            Radius,
             Resize
         };
+        /// <summary>
+        /// Get the <see cref="EaseProperty"/> representing the radius.
+        /// </summary>
         [DataMember(Order = 0)]
-        public EaseProperty Frequency { get; private set; }
+        public EaseProperty Radius { get; private set; }
+        /// <summary>
+        /// Gets a <see cref="CheckProperty"/> representing the value to resize the image.
+        /// </summary>
         [DataMember(Order = 1)]
         public CheckProperty Resize { get; private set; }
 
+        /// <inheritdoc/>
         public override void Render(EffectRenderArgs<Image<BGRA32>> args)
         {
             var img = args.Value;
-            var size = (int)Frequency.GetValue(args.Frame);
+            var size = (int)Radius.GetValue(args.Frame);
             if (Resize.IsChecked)
             {
                 int nwidth = img.Width + (size + 5) * 2;
@@ -52,11 +73,13 @@ namespace BEditor.Core.Data.Primitive.Effects
                 img.Dilate(size);
             }
         }
+        /// <inheritdoc/>
         protected override void OnLoad()
         {
-            Frequency.Load(FrequencyMetadata);
+            Radius.Load(RadiusMetadata);
             Resize.Load(ResizeMetadata);
         }
+        /// <inheritdoc/>
         protected override void OnUnload()
         {
             foreach (var pr in Children)

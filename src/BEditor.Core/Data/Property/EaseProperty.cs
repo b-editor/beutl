@@ -490,34 +490,58 @@ namespace BEditor.Core.Data.Property
         #endregion
     }
 
-#pragma warning disable CS1591
-#pragma warning disable CS1573
-#pragma warning disable CS1572
-
     /// <summary>
-    /// Initializes a new instance of the <see cref="EasePropertyMetadata"/> class.
+    /// Represents the metadata of a <see cref="EaseProperty"/>.
     /// </summary>
-    /// <param name="Name">Gets or sets the string to be displayed in the property header.</param>
-    /// <param name="DefaultEase">Gets or sets the default easing function.</param>
-    /// <param name="DefaultValue">Gets or sets the default value.</param>
-    /// <param name="Max">Gets or sets the maximum value.</param>
-    /// <param name="Min">Get or set the minimum value</param>
-    /// <param name="UseOptional">Gets or sets the bool of whether to use the Optional value.</param>
-    public record EasePropertyMetadata(string Name, EasingMetadata DefaultEase, float DefaultValue = 0, float Max = float.NaN, float Min = float.NaN, bool UseOptional = false) : PropertyElementMetadata(Name)
+    public record EasePropertyMetadata : PropertyElementMetadata
     {
         /// <summary>
-        /// <see cref="EasePropertyMetadata"/> Initialize a new instance of the class.
+        /// Initializes a new instance of the <see cref="EasePropertyMetadata"/> class.
         /// </summary>
-        /// <param name="Name">Gets or sets the string to be displayed in the property header.</param>
-        /// <param name="DefaultValue">Gets or sets the default value.</param>
-        /// <param name="Max">Gets or sets the maximum value.</param>
-        /// <param name="Min">Get or set the minimum value</param>
-        /// <param name="UseOptional">Gets or sets the bool of whether to use the Optional value.</param>
+        /// <param name="Name">The string displayed in the property header.</param>
+        /// <param name="DefaultEase">Default easing function</param>
+        /// <param name="DefaultValue">Default value</param>
+        /// <param name="Max">Maximum value.</param>
+        /// <param name="Min">Minimum value.</param>
+        /// <param name="UseOptional">Whether to use the option value</param>
+        public EasePropertyMetadata(string Name, EasingMetadata DefaultEase, float DefaultValue = 0, float Max = float.NaN, float Min = float.NaN, bool UseOptional = false) : base(Name)
+        {
+            this.DefaultEase = DefaultEase;
+            this.DefaultValue = DefaultValue;
+            this.Max = Max;
+            this.Min = Min;
+            this.UseOptional = UseOptional;
+        }
+        /// <summary>
+        /// Initializes a new instance of the <see cref="EasePropertyMetadata"/> class.
+        /// </summary>
+        /// <param name="Name">The string displayed in the property header.</param>
+        /// <param name="DefaultValue">Default value</param>
+        /// <param name="Max">Maximum value.</param>
+        /// <param name="Min">Minimum value</param>
+        /// <param name="UseOptional">Whether to use the option value</param>
         public EasePropertyMetadata(string Name, float DefaultValue = 0, float Max = float.NaN, float Min = float.NaN, bool UseOptional = false)
             : this(Name, EasingMetadata.LoadedEasingFunc[0], DefaultValue, Max, Min, UseOptional) { }
-    }
 
-#pragma warning restore CS1573
-#pragma warning restore CS1591
-#pragma warning restore CS1572
+        /// <summary>
+        /// Gets the default easing function.
+        /// </summary>
+        public EasingMetadata DefaultEase { get; init; }
+        /// <summary>
+        /// Gets the default value.
+        /// </summary>
+        public float DefaultValue { get; init; }
+        /// <summary>
+        /// Gets the maximum value.
+        /// </summary>
+        public float Max { get; init; }
+        /// <summary>
+        /// Get the minimum value.
+        /// </summary>
+        public float Min { get; init; }
+        /// <summary>
+        /// Gets the bool of whether to use the Optional value.
+        /// </summary>
+        public bool UseOptional { get; init; }
+    }
 }

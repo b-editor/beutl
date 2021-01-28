@@ -5,7 +5,7 @@ using System.Runtime.Serialization;
 using BEditor.Core.Command;
 using BEditor.Core.Data.Property;
 using BEditor.Core.Extensions;
-using BEditor.Core.Graphics;
+using BEditor.Graphics;
 using BEditor.Core.Properties;
 
 namespace BEditor.Core.Data.Primitive.Objects

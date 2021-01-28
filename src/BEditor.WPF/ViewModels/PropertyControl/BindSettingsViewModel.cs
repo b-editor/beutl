@@ -27,11 +27,11 @@ namespace BEditor.ViewModels.PropertyControl
             {
                 if (Bindable.GetBindable(bindPath, out var ret))
                 {
-                    Core.Command.CommandManager.Do(new Bindings.BindCommand<T>(Bindable, ret));
+                    bindable.Bind<T>(ret).Execute();
                 }
             });
 
-            DisconnectCommand.Subscribe(() => Core.Command.CommandManager.Do(new Bindings.DisconnectCommand<T>(Bindable)));
+            DisconnectCommand.Subscribe(() => bindable.Disconnect().Execute());
         }
 
 

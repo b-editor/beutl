@@ -11,7 +11,7 @@ namespace BEditor.Core.Data
     public class ClipRenderArgs
     {
         /// <summary>
-        /// <see cref="ClipRenderArgs"/> Initialize a new instance of the class.
+        /// Initializes a new instance of the <see cref="ClipRenderArgs"/> class.
         /// </summary>
         public ClipRenderArgs(Frame frame, RenderType type = RenderType.Preview)
         {
@@ -39,7 +39,7 @@ namespace BEditor.Core.Data
     public class EffectRenderArgs
     {
         /// <summary>
-        /// <see cref="EffectRenderArgs"/> Initialize a new instance of the class.
+        /// Initializes a new instance of the <see cref="EffectRenderArgs"/> class.
         /// </summary>
         public EffectRenderArgs(Frame frame, RenderType type = RenderType.Preview)
         {
@@ -66,7 +66,7 @@ namespace BEditor.Core.Data
     public class EffectRenderArgs<T> : EffectRenderArgs
     {
         /// <summary>
-        /// <see cref="EffectRenderArgs"/> Initialize a new instance of the class.
+        /// Initializes a new instance of the <see cref="EffectRenderArgs"/> class.
         /// </summary>
         public EffectRenderArgs(Frame frame, T value, RenderType type = RenderType.Preview) : base(frame, type)
         {
@@ -78,11 +78,26 @@ namespace BEditor.Core.Data
         /// </summary>
         public T Value { get; set; }
     }
+    /// <summary>
+    /// Represents the type of rendering request.
+    /// </summary>
     public enum RenderType
     {
+        /// <summary>
+        /// Represents the preview rendering during editing.
+        /// </summary>
         Preview,
+        /// <summary>
+        /// Represents the rendering during playing.
+        /// </summary>
         VideoPreview,
+        /// <summary>
+        /// Represents the rendering in the image output.
+        /// </summary>
         ImageOutput,
+        /// <summary>
+        /// Represents the rendering in the video output.
+        /// </summary>
         VideoOutput
     }
     /// <summary>

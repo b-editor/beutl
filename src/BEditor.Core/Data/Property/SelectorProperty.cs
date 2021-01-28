@@ -14,7 +14,7 @@ using BEditor.Core.Data.Property;
 namespace BEditor.Core.Data.Property
 {
     /// <summary>
-    /// 配列から一つのアイテムを選択するプロパティを表します
+    /// Represents a property for selecting a single item from an array.
     /// </summary>
     [DataContract]
     public class SelectorProperty : PropertyElement<SelectorPropertyMetadata>, IEasingProperty, IBindable<int>
@@ -31,10 +31,10 @@ namespace BEditor.Core.Data.Property
 
 
         /// <summary>
-        /// <see cref="SelectorProperty"/> クラスの新しいインスタンスを初期化します
+        /// Initializes a new instance of the <see cref="SelectorProperty"/> class.
         /// </summary>
-        /// <param name="metadata">このプロパティの <see cref="SelectorPropertyMetadata"/></param>
-        /// <exception cref="ArgumentNullException"><paramref name="metadata"/> が <see langword="null"/> です</exception>
+        /// <param name="metadata">Metadata of this property</param>
+        /// <exception cref="ArgumentNullException"><paramref name="metadata"/> is <see langword="null"/>.</exception>
         public SelectorProperty(SelectorPropertyMetadata metadata)
         {
             PropertyMetadata = metadata ?? throw new ArgumentNullException(nameof(metadata));
@@ -43,7 +43,7 @@ namespace BEditor.Core.Data.Property
 
         private List<IObserver<int>> Collection => _List ??= new();
         /// <summary>
-        /// 選択されているアイテムを取得します
+        /// Get or set the selected item.
         /// </summary>
         public object? SelectItem
         {
@@ -52,7 +52,7 @@ namespace BEditor.Core.Data.Property
         }
 
         /// <summary>
-        /// 選択されている <see cref="SelectorPropertyMetadata.ItemSource"/> のインデックスを取得または設定します
+        /// Gets or sets the index of the selected <see cref="SelectorPropertyMetadata.ItemSource"/>.
         /// </summary>
         [DataMember]
         public int Index
@@ -99,8 +99,10 @@ namespace BEditor.Core.Data.Property
         public override string ToString() => $"(Index:{Index} Item:{SelectItem} Name:{PropertyMetadata?.Name})";
 
         /// <summary>
-        /// 選択されているアイテムを変更するコマンドを作成します
+        /// Create a command to change the selected item.
         /// </summary>
+        /// <param name="index">New value for <see cref="Index"/></param>
+        /// <returns>Created <see cref="IRecordCommand"/></returns>
         [Pure]
         public IRecordCommand ChangeSelect(int index) => new ChangeSelectCommand(this, index);
 
@@ -129,6 +131,7 @@ namespace BEditor.Core.Data.Property
             Index = value;
         }
 
+        /// <inheritdoc/>
         public void Bind(IBindable<int>? bindable)
         {
             _BindDispose?.Dispose();
@@ -146,9 +149,6 @@ namespace BEditor.Core.Data.Property
         #endregion
 
         #endregion
-
-
-        public static implicit operator int(SelectorProperty selector) => selector.Index;
 
 
         #region Commands
@@ -190,32 +190,37 @@ namespace BEditor.Core.Data.Property
 
         #endregion
     }
+
     /// <summary>
-    /// <see cref="SelectorProperty"/> のメタデータを表します
+    /// Represents the metadata of a <see cref="SelectorProperty"/>.
     /// </summary>
     public record SelectorPropertyMetadata : PropertyElementMetadata
     {
         /// <summary>
-        /// <see cref="SelectorPropertyMetadata"/> の新しいインスタンスを初期化します
+        /// Initializes a new instance of the <see cref="SelectorPropertyMetadata"/> class.
         /// </summary>
-        public SelectorPropertyMetadata(string name, IList itemsource, int index = 0, string memberpath = "") : base(name)
+        /// <param name="Name">The string displayed in the property header.</param>
+        /// <param name="ItemSource">Source of the item to be selected</param>
+        /// <param name="DefaultIndex">Default value for <see cref="SelectorProperty.Index"/></param>
+        /// <param name="MemberPath">Path to the member to display</param>
+        public SelectorPropertyMetadata(string Name, IList ItemSource, int DefaultIndex = 0, string MemberPath = "") : base(Name)
         {
-            DefaultIndex = index;
-            ItemSource = itemsource;
-            MemberPath = memberpath;
+            this.DefaultIndex = DefaultIndex;
+            this.ItemSource = ItemSource;
+            this.MemberPath = MemberPath;
         }
 
 
         /// <summary>
-        /// 
+        /// Get the source of the item to be selected.
         /// </summary>
         public IList ItemSource { get; protected set; }
         /// <summary>
-        /// 
+        /// Get the default value of <see cref="SelectorProperty.Index"/>.
         /// </summary>
         public int DefaultIndex { get; protected set; }
         /// <summary>
-        /// 
+        /// Get the path to the member to display.
         /// </summary>
         public string MemberPath { get; protected set; }
     }

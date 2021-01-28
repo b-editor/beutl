@@ -8,7 +8,7 @@ using BEditor.Drawing;
 
 using OpenTK.Graphics.OpenGL4;
 
-namespace BEditor.Core.Graphics
+namespace BEditor.Graphics
 {
     /// <summary>
     /// Represents an OpenGL cube.

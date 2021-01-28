@@ -12,11 +12,17 @@ using BEditor.Drawing.Pixel;
 
 namespace BEditor.Core.Data.Primitive.Objects
 {
+    /// <summary>
+    /// Represents an <see cref="ImageObject"/> that refers to a <see cref="Scene"/>.
+    /// </summary>
     [DataContract]
     public class SceneObject : ImageObject
     {
         SelectorPropertyMetadata? SelectSceneMetadata;
 
+        /// <summary>
+        /// Initializes a new instance of the <see cref="SceneObject"/> class.
+        /// </summary>
         public SceneObject()
         {
             Start = new(VideoFile.StartMetadata);
@@ -25,7 +31,9 @@ namespace BEditor.Core.Data.Primitive.Objects
             SelectScene = new(new SelectorPropertyMetadata("", new string[1]));
         }
 
+        /// <inheritdoc/>
         public override string Name => Resources.Scene;
+        /// <inheritdoc/>
         public override IEnumerable<PropertyElement> Properties => new PropertyElement[]
         {
             Coordinate,
@@ -36,11 +44,18 @@ namespace BEditor.Core.Data.Primitive.Objects
             Start,
             SelectScene
         };
+        /// <summary>
+        /// Get the <see cref="EaseProperty"/> that represents the start position.
+        /// </summary>
         [DataMember(Order = 0)]
         public EaseProperty Start { get; private set; }
+        /// <summary>
+        /// Get the <see cref="SelectorProperty"/> to select the <seealso cref="Scene"/> to reference.
+        /// </summary>
         [DataMember(Order = 1)]
         public SelectorProperty SelectScene { get; private set; }
 
+        /// <inheritdoc/>
         protected override Image<BGRA32>? OnRender(EffectRenderArgs args)
         {
             var scene = (Scene)SelectScene.SelectItem! ?? Parent!.Parent;
@@ -51,6 +66,7 @@ namespace BEditor.Core.Data.Primitive.Objects
 
             return scene.Render(frame + (int)Start[args.Frame], RenderType.ImageOutput).Image;
         }
+        /// <inheritdoc/>
         protected override void OnLoad()
         {
             base.OnLoad();
@@ -58,6 +74,7 @@ namespace BEditor.Core.Data.Primitive.Objects
             Start.Load(VideoFile.StartMetadata);
             SelectScene.Load(SelectSceneMetadata);
         }
+        /// <inheritdoc/>
         protected override void OnUnload()
         {
             base.OnUnload();

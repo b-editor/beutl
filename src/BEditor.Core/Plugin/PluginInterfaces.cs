@@ -7,41 +7,61 @@ using BEditor.Core.Data.Property.Easing;
 
 namespace BEditor.Core.Plugin
 {
+    /// <summary>
+    /// Represents a plug-in that extends the functionality of the application.
+    /// </summary>
     public interface IPlugin
     {
         /// <summary>
-        /// プラグインの名前
+        /// Get the name of the plugin.
         /// </summary>
         public string PluginName { get; }
 
         /// <summary>
-        /// プラグインの説明
+        /// Get the description of the plugin.
         /// </summary>
         public string Description { get; }
 
         /// <summary>
-        /// アセンブリの名前
+        /// Get the name of the assembly for this plugin.
         /// </summary>
         public sealed string AssemblyName => GetType().Assembly.GetName().Name!;
 
         /// <summary>
-        /// プラグインの設定を開くときに呼び出されます
+        /// Get or set the settings for this plugin.
         /// </summary>
         public SettingRecord Settings { get; set; }
     }
 
+    //Todo: API自体を変えるかも なのでDocumentはあと
+    /// <summary>
+    /// 
+    /// </summary>
     public interface IEasingFunctions
     {
+        /// <summary>
+        /// 
+        /// </summary>
         public IEnumerable<EasingMetadata> EasingFunc { get; }
     }
-
+    /// <summary>
+    /// 
+    /// </summary>
     public interface IEffects
     {
+        /// <summary>
+        /// 
+        /// </summary>
         public IEnumerable<EffectMetadata> Effects { get; }
     }
-
+    /// <summary>
+    /// 
+    /// </summary>
     public interface IObjects
     {
+        /// <summary>
+        /// 
+        /// </summary>
         public IEnumerable<ObjectMetadata> Objects { get; }
     }
 }

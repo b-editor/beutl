@@ -167,18 +167,24 @@ namespace BEditor.Core.Data.Property
         }
     }
 
-#pragma warning disable CS1591
-#pragma warning disable CS1573
-#pragma warning disable CS1572
-
     /// <summary>
-    /// Initializes a new instance of the <see cref="BEditor.Core.Data.Property.CheckPropertyMetadata"/> class.
+    /// Represents the metadata of a <see cref="CheckProperty"/>.
     /// </summary>
-    /// <param name="Name">Gets or sets the string to be displayed in the property header.</param>
-    /// <param name="DefaultIsChecked">Gets or sets the value of whether the default is checked or not.</param>
-    public record CheckPropertyMetadata(string Name, bool DefaultIsChecked = false) : PropertyElementMetadata(Name);
+    public record CheckPropertyMetadata : PropertyElementMetadata
+    {
+        /// <summary>
+        /// Initializes a new instance of the <see cref="CheckPropertyMetadata"/> class.
+        /// </summary>
+        /// <param name="Name">The string displayed in the property header.</param>
+        /// <param name="DefaultIsChecked">Default value for <see cref="CheckProperty.IsChecked"/>.</param>
+        public CheckPropertyMetadata(string Name, bool DefaultIsChecked = false) : base(Name)
+        {
+            this.DefaultIsChecked = DefaultIsChecked;
+        }
 
-#pragma warning restore CS1573
-#pragma warning restore CS1591
-#pragma warning restore CS1572
+        /// <summary>
+        /// Get the default value of <see cref="CheckProperty.IsChecked"/>.
+        /// </summary>
+        public bool DefaultIsChecked { get; init; }
+    }
 }

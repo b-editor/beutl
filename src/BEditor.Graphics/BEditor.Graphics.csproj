@@ -1,0 +1,21 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <TargetFramework>net5.0</TargetFramework>
+    <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
+  </PropertyGroup>
+
+  <Import Project="..\..\props\common.props" />
+
+  <ItemGroup>
+    <PackageReference Include="OpenTK.Graphics" Version="4.4.0" />
+    <PackageReference Include="OpenTK.Mathematics" Version="4.4.0" />
+    <PackageReference Include="OpenTK.Windowing.Common" Version="4.4.0" />
+    <PackageReference Include="OpenTK.Windowing.Desktop" Version="4.4.0" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\BEditor.Drawing\BEditor.Drawing.csproj" />
+  </ItemGroup>
+
+</Project>

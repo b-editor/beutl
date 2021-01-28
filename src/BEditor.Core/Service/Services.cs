@@ -3,34 +3,40 @@ using System.Reflection;
 
 namespace BEditor.Core.Service
 {
+    /// <summary>
+    /// Represents a class that provides UI-dependent services.
+    /// </summary>
     public static class Services
     {
+        /// <summary>
+        /// Gets or sets the service that shows the file dialog.
+        /// </summary>
         public static IFileDialogService? FileDialogService { get; set; }
     }
 
     /// <summary>
-    /// アプリケーションのステータスを表します
+    /// Represents the status of the application.
     /// </summary>
     public enum Status
     {
         /// <summary>
-        /// 作業をしていない状態を表します
+        /// Represents the state of doing nothing.
         /// </summary>
         Idle,
         /// <summary>
-        /// 編集中であることを表します
+        /// Represents the state of editing.
         /// </summary>
         Edit,
         /// <summary>
-        /// 保存直後であることを表します
+        /// Represents that the file has just been saved.
         /// </summary>
         Saved,
         /// <summary>
-        /// プレビュー再生中であることを表します
+        /// Represents that the media player is playing.
         /// </summary>
         Playing,
         /// <summary>
-        /// 出力中であることを表します
+        /// Represents that the output is in progress.
         /// </summary>
         Output
     }

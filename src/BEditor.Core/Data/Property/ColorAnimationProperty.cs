@@ -461,38 +461,42 @@ namespace BEditor.Core.Data.Property
         #endregion
     }
 
-#pragma warning disable CS1591
-#pragma warning disable CS1573
-#pragma warning disable CS1572
-
     /// <summary>
-    /// <see cref="ColorAnimationPropertyMetadata"/> Initialize a new instance of the class.
+    /// Represents the metadata of a <see cref="ColorAnimationProperty"/>.
     /// </summary>
-    /// <param name="Name">Gets or sets the string to be displayed in the property header.</param>
-    /// <param name="DefaultColor">Gets or sets the default color.</param>
-    /// <param name="DefaultEase">Gets or sets the default easing function.</param>
-    /// <param name="UseAlpha">Gets or sets a <see cref="bool"/> indicating whether or not to use the alpha component.</param>
-    public record ColorAnimationPropertyMetadata(string Name, Color DefaultColor, EasingMetadata DefaultEase, bool UseAlpha = false) : ColorPropertyMetadata(Name, DefaultColor, UseAlpha)
+    public record ColorAnimationPropertyMetadata : ColorPropertyMetadata
     {
         /// <summary>
-        /// <see cref="ColorAnimationPropertyMetadata"/> Initialize a new instance of the class.
+        /// Initializes a new instance of the <see cref="ColorAnimationPropertyMetadata"/> class.
         /// </summary>
-        /// <param name="Name">Gets or sets the string to be displayed in the property header.</param>
+        /// <param name="Name">The string displayed in the property header.</param>
+        /// <param name="DefaultColor">Default color</param>
+        /// <param name="DefaultEase">Default easing function</param>
+        /// <param name="UseAlpha">Value if the alpha component should be used or not</param>
+        public ColorAnimationPropertyMetadata(string Name, Color DefaultColor, EasingMetadata DefaultEase, bool UseAlpha = false) : base(Name, DefaultColor, UseAlpha)
+        {
+            this.DefaultEase = DefaultEase;
+        }
+        /// <summary>
+        /// Initializes a new instance of the <see cref="ColorAnimationPropertyMetadata"/> class.
+        /// </summary>
+        /// <param name="Name">The string displayed in the property header.</param>
         public ColorAnimationPropertyMetadata(string Name) : this(Name, default, EasingMetadata.LoadedEasingFunc[0])
         {
 
         }
         /// <summary>
-        /// <see cref="ColorAnimationPropertyMetadata"/> Initialize a new instance of the class.
+        /// Initializes a new instance of the <see cref="ColorAnimationPropertyMetadata"/> class.
         /// </summary>
-        /// <param name="Name">Gets or sets the string to be displayed in the property header.</param>
-        /// <param name="DefaultColor">Gets or sets the default color.</param>
-        /// <param name="UseAlpha">Gets or sets a <see cref="bool"/> indicating whether or not to use the alpha component.</param>
+        /// <param name="Name">The string displayed in the property header.</param>
+        /// <param name="DefaultColor">Default color</param>
+        /// <param name="UseAlpha">Value if the alpha component should be used or not</param>
         public ColorAnimationPropertyMetadata(string Name, Color DefaultColor, bool UseAlpha = false)
             : this(Name, DefaultColor, EasingMetadata.LoadedEasingFunc[0], UseAlpha) { }
-    }
 
-#pragma warning restore CS1573
-#pragma warning restore CS1591
-#pragma warning restore CS1572
+        /// <summary>
+        /// Gets the default easing function.
+        /// </summary>
+        public EasingMetadata DefaultEase { get; init; }
+    }
 }

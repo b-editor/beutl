@@ -185,19 +185,30 @@ namespace BEditor.Core.Data.Property
         }
     }
 
-#pragma warning disable CS1591
-#pragma warning disable CS1573
-#pragma warning disable CS1572
-
     /// <summary>
-    /// Initializes a new instance of the <see cref="BEditor.Core.Data.Property.ColorPropertyMetadata"/> class.
+    /// Represents the metadata of a <see cref="ColorProperty"/>.
     /// </summary>
-    /// <param name="Name">Gets or sets the string to be displayed in the property header.</param>
-    /// <param name="DefaultColor">Gets or sets the default color.</param>
-    /// <param name="UseAlpha">Gets or sets a <see cref="bool"/> indicating whether or not to use the alpha component.</param>
-    public record ColorPropertyMetadata(string Name, Color DefaultColor = default, bool UseAlpha = false) : PropertyElementMetadata(Name);
-    
-#pragma warning restore CS1573
-#pragma warning restore CS1591
-#pragma warning restore CS1572
+    public record ColorPropertyMetadata : PropertyElementMetadata
+    {
+        /// <summary>
+        /// Initializes a new instance of the <see cref="ColorPropertyMetadata"/> class.
+        /// </summary>
+        /// <param name="Name">The string displayed in the property header.</param>
+        /// <param name="DefaultColor">Default color</param>
+        /// <param name="UseAlpha">Value if the alpha component should be used or not</param>
+        public ColorPropertyMetadata(string Name, Color DefaultColor, bool UseAlpha = false) : base(Name)
+        {
+            this.DefaultColor = DefaultColor;
+            this.UseAlpha = UseAlpha;
+        }
+
+        /// <summary>
+        /// Gets the default color.
+        /// </summary>
+        public Color DefaultColor { get; init; }
+        /// <summary>
+        /// Gets a <see cref="bool"/> indicating whether or not to use the alpha component.
+        /// </summary>
+        public bool UseAlpha { get; init; }
+    }
 }

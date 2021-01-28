@@ -8,7 +8,7 @@ using OpenTK.Mathematics;
 
 using Vector3 = System.Numerics.Vector3;
 
-namespace BEditor.Core.Graphics
+namespace BEditor.Graphics
 {
     public struct Transform
     {

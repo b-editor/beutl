@@ -14,12 +14,21 @@ using static BEditor.Core.Data.Primitive.Objects.Figure;
 
 namespace BEditor.Core.Data.Primitive.Objects
 {
+    /// <summary>
+    /// Represents an <see cref="ImageObject"/> that draws a rectangle with rounded corners.
+    /// </summary>
     [DataContract]
     [CustomClipUI(Color = 0x0091ea)]
     public class RoundRect : ImageObject
     {
+        /// <summary>
+        /// Represents <see cref="Radius"/> metadata.
+        /// </summary>
         public static readonly EasePropertyMetadata RadiusMetadata = new("Radius", 20, Min: 0);
 
+        /// <summary>
+        /// Initializes a new instance of the <see cref="RoundRect"/> class.
+        /// </summary>
         public RoundRect()
         {
             Width = new(WidthMetadata);
@@ -29,7 +38,9 @@ namespace BEditor.Core.Data.Primitive.Objects
             Color = new(ColorMetadata);
         }
 
+        /// <inheritdoc/>
         public override string Name => "RoundRect";
+        /// <inheritdoc/>
         public override IEnumerable<PropertyElement> Properties => new PropertyElement[]
         {
             Coordinate,
@@ -43,23 +54,40 @@ namespace BEditor.Core.Data.Primitive.Objects
             Line,
             Color
         };
+        /// <summary>
+        /// Get the <see cref="EaseProperty"/> that represents the width of the shape.
+        /// </summary>
         [DataMember(Order = 0)]
         public EaseProperty Width { get; private set; }
+        /// <summary>
+        /// Get the <see cref="EaseProperty"/> that represents the width of the shape.
+        /// </summary>
         [DataMember(Order = 1)]
         public EaseProperty Height { get; private set; }
+        /// <summary>
+        /// Get the <see cref="EaseProperty"/> that represents the roundness of a shape.
+        /// </summary>
         [DataMember(Order = 2)]
         public EaseProperty Radius { get; private set; }
+        /// <summary>
+        /// Get the <see cref="EaseProperty"/> that represents the line width of the shape.
+        /// </summary>
         [DataMember(Order = 3)]
         public EaseProperty Line { get; private set; }
+        /// <summary>
+        /// Get the <see cref="SelectorProperty"/> to select the type of the shape.
+        /// </summary>
         [DataMember(Order = 4)]
         public ColorProperty Color { get; private set; }
 
+        /// <inheritdoc/>
         protected override Image<BGRA32> OnRender(EffectRenderArgs args)
         {
             var f = args.Frame;
             var r = (int)Radius[f];
             return Image.RoundRect((int)Width[f], (int)Height[f], (int)Line[f], r, r, Color.Color);
         }
+        /// <inheritdoc/>
         protected override void OnLoad()
         {
             base.OnLoad();
@@ -69,6 +97,7 @@ namespace BEditor.Core.Data.Primitive.Objects
             Line.Load(LineMetadata);
             Color.Load(ColorMetadata);
         }
+        /// <inheritdoc/>
         protected override void OnUnload()
         {
             base.OnUnload();
