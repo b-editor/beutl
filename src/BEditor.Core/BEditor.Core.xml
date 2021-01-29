@@ -6174,6 +6174,11 @@
             Please select the plugin you want to load に類似しているローカライズされた文字列を検索します。
              </summary>
         </member>
+        <member name="P:BEditor.Core.Properties.Resources.PointLightDiffuse">
+            <summary>
+              PointLightDiffuse に類似しているローカライズされた文字列を検索します。
+            </summary>
+        </member>
         <member name="P:BEditor.Core.Properties.Resources.PointLightSource">
             <summary>
               Point Light Source に類似しているローカライズされた文字列を検索します。

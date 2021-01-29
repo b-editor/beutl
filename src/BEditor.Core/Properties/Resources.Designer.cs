@@ -1504,6 +1504,15 @@ namespace BEditor.Core.Properties {
         }
         
         /// <summary>
+        ///   PointLightDiffuse に類似しているローカライズされた文字列を検索します。
+        /// </summary>
+        public static string PointLightDiffuse {
+            get {
+                return ResourceManager.GetString("PointLightDiffuse", resourceCulture);
+            }
+        }
+        
+        /// <summary>
         ///   Point Light Source に類似しているローカライズされた文字列を検索します。
         /// </summary>
         public static string PointLightSource {

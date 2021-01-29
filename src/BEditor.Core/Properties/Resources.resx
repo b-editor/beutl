@@ -813,4 +813,7 @@ Please select the plugin you want to load</value>
   <data name="Decal" xml:space="preserve">
     <value>Decal</value>
   </data>
+  <data name="PointLightDiffuse" xml:space="preserve">
+    <value>PointLightDiffuse</value>
+  </data>
 </root>
