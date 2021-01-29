@@ -1297,6 +1297,91 @@
         <member name="M:BEditor.Core.Data.Primitive.Effects.Border.OnUnload">
             <inheritdoc/>
         </member>
+        <member name="T:BEditor.Core.Data.Primitive.Effects.CircularGradient">
+            <summary>
+            Represents an <see cref="T:BEditor.Core.Data.Primitive.ImageEffect"/> that masks an image with a circular gradient.
+            </summary>
+        </member>
+        <member name="F:BEditor.Core.Data.Primitive.Effects.CircularGradient.CenterXMetadata">
+            <summary>
+            Represents <see cref="P:BEditor.Core.Data.Primitive.Effects.CircularGradient.CenterX"/> metadata.
+            </summary>
+        </member>
+        <member name="F:BEditor.Core.Data.Primitive.Effects.CircularGradient.CenterYMetadata">
+            <summary>
+            Represents <see cref="P:BEditor.Core.Data.Primitive.Effects.CircularGradient.CenterY"/> metadata.
+            </summary>
+        </member>
+        <member name="F:BEditor.Core.Data.Primitive.Effects.CircularGradient.RadiusMetadata">
+            <summary>
+            Represents <see cref="P:BEditor.Core.Data.Primitive.Effects.CircularGradient.Radius"/> metadata.
+            </summary>
+        </member>
+        <member name="F:BEditor.Core.Data.Primitive.Effects.CircularGradient.ColorsMetadata">
+            <summary>
+            Represents <see cref="P:BEditor.Core.Data.Primitive.Effects.CircularGradient.Colors"/> metadata.
+            </summary>
+        </member>
+        <member name="F:BEditor.Core.Data.Primitive.Effects.CircularGradient.AnchorsMetadata">
+            <summary>
+            Represents <see cref="P:BEditor.Core.Data.Primitive.Effects.CircularGradient.Anchors"/> metadata.
+            </summary>
+        </member>
+        <member name="F:BEditor.Core.Data.Primitive.Effects.CircularGradient.ModeMetadata">
+            <summary>
+            Represents <see cref="P:BEditor.Core.Data.Primitive.Effects.CircularGradient.Mode"/> metadata.
+            </summary>
+        </member>
+        <member name="M:BEditor.Core.Data.Primitive.Effects.CircularGradient.#ctor">
+            <summary>
+            Initializes a new instance of the <see cref="T:BEditor.Core.Data.Primitive.Effects.CircularGradient"/> class.
+            </summary>
+        </member>
+        <member name="P:BEditor.Core.Data.Primitive.Effects.CircularGradient.Name">
+            <inheritdoc/>
+        </member>
+        <member name="P:BEditor.Core.Data.Primitive.Effects.CircularGradient.Properties">
+            <inheritdoc/>
+        </member>
+        <member name="P:BEditor.Core.Data.Primitive.Effects.CircularGradient.CenterX">
+            <summary>
+            Get the <see cref="T:BEditor.Core.Data.Property.EaseProperty"/> representing the X coordinate of the center.
+            </summary>
+        </member>
+        <member name="P:BEditor.Core.Data.Primitive.Effects.CircularGradient.CenterY">
+            <summary>
+            Get the <see cref="T:BEditor.Core.Data.Property.EaseProperty"/> representing the Y coordinate of the center.
+            </summary>
+        </member>
+        <member name="P:BEditor.Core.Data.Primitive.Effects.CircularGradient.Radius">
+            <summary>
+            Get the <see cref="T:BEditor.Core.Data.Property.EaseProperty"/> representing the radius.
+            </summary>
+        </member>
+        <member name="P:BEditor.Core.Data.Primitive.Effects.CircularGradient.Colors">
+            <summary>
+            Get the <see cref="T:BEditor.Core.Data.Property.TextProperty"/> representing the colors.
+            </summary>
+        </member>
+        <member name="P:BEditor.Core.Data.Primitive.Effects.CircularGradient.Anchors">
+            <summary>
+            Get the <see cref="T:BEditor.Core.Data.Property.TextProperty"/> representing the anchors.
+            </summary>
+        </member>
+        <member name="P:BEditor.Core.Data.Primitive.Effects.CircularGradient.Mode">
+            <summary>
+            Get the <see cref="T:BEditor.Core.Data.Property.SelectorProperty"/> that selects the gradient mode.
+            </summary>
+        </member>
+        <member name="M:BEditor.Core.Data.Primitive.Effects.CircularGradient.Render(BEditor.Core.Data.EffectRenderArgs{BEditor.Drawing.Image{BEditor.Drawing.Pixel.BGRA32}})">
+            <inheritdoc/>
+        </member>
+        <member name="M:BEditor.Core.Data.Primitive.Effects.CircularGradient.OnLoad">
+            <inheritdoc/>
+        </member>
+        <member name="M:BEditor.Core.Data.Primitive.Effects.CircularGradient.OnUnload">
+            <inheritdoc/>
+        </member>
         <member name="T:BEditor.Core.Data.Primitive.Effects.Clipping">
             <summary>
             Represents an <see cref="T:BEditor.Core.Data.Primitive.ImageEffect"/> that cripping the image.
@@ -1495,6 +1580,206 @@
             <inheritdoc/>
         </member>
         <member name="M:BEditor.Core.Data.Primitive.Effects.Erode.OnUnload">
+            <inheritdoc/>
+        </member>
+        <member name="T:BEditor.Core.Data.Primitive.Effects.LinearGradient">
+            <summary>
+            Represents an <see cref="T:BEditor.Core.Data.Primitive.ImageEffect"/> that masks an image with a linear gradient.
+            </summary>
+        </member>
+        <member name="F:BEditor.Core.Data.Primitive.Effects.LinearGradient.StartXMetadata">
+            <summary>
+            Represents <see cref="P:BEditor.Core.Data.Primitive.Effects.LinearGradient.StartX"/> metadata.
+            </summary>
+        </member>
+        <member name="F:BEditor.Core.Data.Primitive.Effects.LinearGradient.StartYMetadata">
+            <summary>
+            Represents <see cref="P:BEditor.Core.Data.Primitive.Effects.LinearGradient.StartY"/> metadata.
+            </summary>
+        </member>
+        <member name="F:BEditor.Core.Data.Primitive.Effects.LinearGradient.EndXMetadata">
+            <summary>
+            Represents <see cref="P:BEditor.Core.Data.Primitive.Effects.LinearGradient.EndX"/> metadata.
+            </summary>
+        </member>
+        <member name="F:BEditor.Core.Data.Primitive.Effects.LinearGradient.EndYMetadata">
+            <summary>
+            Represents <see cref="P:BEditor.Core.Data.Primitive.Effects.LinearGradient.EndY"/> metadata.
+            </summary>
+        </member>
+        <member name="F:BEditor.Core.Data.Primitive.Effects.LinearGradient.ColorsMetadata">
+            <summary>
+            Represents <see cref="P:BEditor.Core.Data.Primitive.Effects.LinearGradient.Colors"/> metadata.
+            </summary>
+        </member>
+        <member name="F:BEditor.Core.Data.Primitive.Effects.LinearGradient.AnchorsMetadata">
+            <summary>
+            Represents <see cref="P:BEditor.Core.Data.Primitive.Effects.LinearGradient.Anchors"/> metadata.
+            </summary>
+        </member>
+        <member name="F:BEditor.Core.Data.Primitive.Effects.LinearGradient.ModeMetadata">
+            <summary>
+            Represents <see cref="P:BEditor.Core.Data.Primitive.Effects.LinearGradient.Mode"/> metadata.
+            </summary>
+        </member>
+        <member name="M:BEditor.Core.Data.Primitive.Effects.LinearGradient.#ctor">
+            <summary>
+            Initializes a new instance of the <see cref="T:BEditor.Core.Data.Primitive.Effects.LinearGradient"/> class.
+            </summary>
+        </member>
+        <member name="P:BEditor.Core.Data.Primitive.Effects.LinearGradient.Name">
+            <inheritdoc/>
+        </member>
+        <member name="P:BEditor.Core.Data.Primitive.Effects.LinearGradient.Properties">
+            <inheritdoc/>
+        </member>
+        <member name="P:BEditor.Core.Data.Primitive.Effects.LinearGradient.StartX">
+            <summary>
+            Get the <see cref="T:BEditor.Core.Data.Property.EaseProperty"/> that represents the start position of the X axis.
+            </summary>
+        </member>
+        <member name="P:BEditor.Core.Data.Primitive.Effects.LinearGradient.StartY">
+            <summary>
+            Get the <see cref="T:BEditor.Core.Data.Property.EaseProperty"/> that represents the start position of the Y axis.
+            </summary>
+        </member>
+        <member name="P:BEditor.Core.Data.Primitive.Effects.LinearGradient.EndX">
+            <summary>
+            Get the <see cref="T:BEditor.Core.Data.Property.EaseProperty"/> that represents the end position of the X axis.
+            </summary>
+        </member>
+        <member name="P:BEditor.Core.Data.Primitive.Effects.LinearGradient.EndY">
+            <summary>
+            Get the <see cref="T:BEditor.Core.Data.Property.EaseProperty"/> that represents the end position of the Y axis.
+            </summary>
+        </member>
+        <member name="P:BEditor.Core.Data.Primitive.Effects.LinearGradient.Colors">
+            <summary>
+            Get the <see cref="T:BEditor.Core.Data.Property.TextProperty"/> representing the colors.
+            </summary>
+        </member>
+        <member name="P:BEditor.Core.Data.Primitive.Effects.LinearGradient.Anchors">
+            <summary>
+            Get the <see cref="T:BEditor.Core.Data.Property.TextProperty"/> representing the anchors.
+            </summary>
+        </member>
+        <member name="P:BEditor.Core.Data.Primitive.Effects.LinearGradient.Mode">
+            <summary>
+            Get the <see cref="T:BEditor.Core.Data.Property.SelectorProperty"/> that selects the gradient mode.
+            </summary>
+        </member>
+        <member name="M:BEditor.Core.Data.Primitive.Effects.LinearGradient.Render(BEditor.Core.Data.EffectRenderArgs{BEditor.Drawing.Image{BEditor.Drawing.Pixel.BGRA32}})">
+            <inheritdoc/>
+        </member>
+        <member name="M:BEditor.Core.Data.Primitive.Effects.LinearGradient.OnLoad">
+            <inheritdoc/>
+        </member>
+        <member name="M:BEditor.Core.Data.Primitive.Effects.LinearGradient.OnUnload">
+            <inheritdoc/>
+        </member>
+        <member name="T:BEditor.Core.Data.Primitive.Effects.Mask">
+            <summary>
+            Represents an <see cref="T:BEditor.Core.Data.Primitive.ImageEffect"/> that masks an image with another <see cref="T:BEditor.Core.Data.Primitive.ImageObject"/>.
+            </summary>
+        </member>
+        <member name="F:BEditor.Core.Data.Primitive.Effects.Mask.XMetadata">
+            <summary>
+            Represents <see cref="P:BEditor.Core.Data.Primitive.Effects.Mask.X"/> metadata.
+            </summary>
+        </member>
+        <member name="F:BEditor.Core.Data.Primitive.Effects.Mask.YMetadata">
+            <summary>
+            Represents <see cref="P:BEditor.Core.Data.Primitive.Effects.Mask.Y"/> metadata.
+            </summary>
+        </member>
+        <member name="F:BEditor.Core.Data.Primitive.Effects.Mask.RotateMetadata">
+            <summary>
+            Represents <see cref="P:BEditor.Core.Data.Primitive.Effects.Mask.Rotate"/> metadata.
+            </summary>
+        </member>
+        <member name="F:BEditor.Core.Data.Primitive.Effects.Mask.WidthMetadata">
+            <summary>
+            Represents <see cref="P:BEditor.Core.Data.Primitive.Effects.Mask.Width"/> metadata.
+            </summary>
+        </member>
+        <member name="F:BEditor.Core.Data.Primitive.Effects.Mask.HeightMetadata">
+            <summary>
+            Represents <see cref="P:BEditor.Core.Data.Primitive.Effects.Mask.Height"/> metadata.
+            </summary>
+        </member>
+        <member name="F:BEditor.Core.Data.Primitive.Effects.Mask.ImageMetadata">
+            <summary>
+            Represents <see cref="P:BEditor.Core.Data.Primitive.Effects.Mask.Image"/> metadata.
+            </summary>
+        </member>
+        <member name="F:BEditor.Core.Data.Primitive.Effects.Mask.InvertMaskMetadata">
+            <summary>
+            Represents <see cref="P:BEditor.Core.Data.Primitive.Effects.Mask.InvertMask"/> metadata.
+            </summary>
+        </member>
+        <member name="F:BEditor.Core.Data.Primitive.Effects.Mask.FitSizeMetadata">
+            <summary>
+            Represents <see cref="P:BEditor.Core.Data.Primitive.Effects.Mask.FitSize"/> metadata.
+            </summary>
+        </member>
+        <member name="M:BEditor.Core.Data.Primitive.Effects.Mask.#ctor">
+            <summary>
+            Initializes a new instance of the <see cref="T:BEditor.Core.Data.Primitive.Effects.Mask"/> class.
+            </summary>
+        </member>
+        <member name="P:BEditor.Core.Data.Primitive.Effects.Mask.Name">
+            <inheritdoc/>
+        </member>
+        <member name="P:BEditor.Core.Data.Primitive.Effects.Mask.Properties">
+            <inheritdoc/>
+        </member>
+        <member name="P:BEditor.Core.Data.Primitive.Effects.Mask.X">
+            <summary>
+            Get the <see cref="T:BEditor.Core.Data.Property.EaseProperty"/> representing the X coordinate.
+            </summary>
+        </member>
+        <member name="P:BEditor.Core.Data.Primitive.Effects.Mask.Y">
+            <summary>
+            Get the <see cref="T:BEditor.Core.Data.Property.EaseProperty"/> representing the Y coordinate.
+            </summary>
+        </member>
+        <member name="P:BEditor.Core.Data.Primitive.Effects.Mask.Rotate">
+            <summary>
+            Get the <see cref="T:BEditor.Core.Data.Property.EaseProperty"/> of the angle.
+            </summary>
+        </member>
+        <member name="P:BEditor.Core.Data.Primitive.Effects.Mask.Width">
+            <summary>
+            Get the <see cref="T:BEditor.Core.Data.Property.EaseProperty"/> that represents the width of the mask.
+            </summary>
+        </member>
+        <member name="P:BEditor.Core.Data.Primitive.Effects.Mask.Height">
+            <summary>
+            Get the <see cref="T:BEditor.Core.Data.Property.EaseProperty"/> that represents the height of the mask.
+            </summary>
+        </member>
+        <member name="P:BEditor.Core.Data.Primitive.Effects.Mask.Image">
+            <summary>
+            Gets the <see cref="T:BEditor.Core.Data.Property.TextProperty"/> that specifies the image object to be referenced.
+            </summary>
+        </member>
+        <member name="P:BEditor.Core.Data.Primitive.Effects.Mask.InvertMask">
+            <summary>
+            Get a <see cref="T:BEditor.Core.Data.Property.CheckProperty"/> indicating whether or not to invert the mask.
+            </summary>
+        </member>
+        <member name="P:BEditor.Core.Data.Primitive.Effects.Mask.FitSize">
+            <summary>
+            Gets a <see cref="T:BEditor.Core.Data.Property.CheckProperty"/> indicating whether or not the mask should be fit to the original image size.
+            </summary>
+        </member>
+        <member name="M:BEditor.Core.Data.Primitive.Effects.Mask.Render(BEditor.Core.Data.EffectRenderArgs{BEditor.Drawing.Image{BEditor.Drawing.Pixel.BGRA32}})">
+            <inheritdoc/>
+        </member>
+        <member name="M:BEditor.Core.Data.Primitive.Effects.Mask.OnLoad">
+            <inheritdoc/>
+        </member>
+        <member name="M:BEditor.Core.Data.Primitive.Effects.Mask.OnUnload">
             <inheritdoc/>
         </member>
         <member name="T:BEditor.Core.Data.Primitive.Effects.Monoc">
@@ -1706,7 +1991,7 @@
             </summary>
         </member>
         <member name="M:BEditor.Core.Data.Primitive.ImageObject.OnRender(BEditor.Core.Data.EffectRenderArgs)">
-            <inheritdoc/>
+            <inheritdoc cref="M:BEditor.Core.Data.Primitive.ImageObject.Render(BEditor.Core.Data.EffectRenderArgs)"/>
         </member>
         <member name="M:BEditor.Core.Data.Primitive.ImageObject.OnLoad">
             <inheritdoc/>
