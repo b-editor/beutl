@@ -39,6 +39,7 @@ namespace BEditor.Core.Data
                     new(Resources.LinearGradient, () => new LinearGradient()),
                     new(Resources.CircularGradient, () => new CircularGradient()),
                     new(Resources.Mask, () => new Mask()),
+                    new(Resources.Mask, () => new MultipleTest()),
                 }
             },
             new(Resources.Camera)

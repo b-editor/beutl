@@ -818,6 +818,15 @@ namespace BEditor.Core.Properties {
         }
         
         /// <summary>
+        ///   Enable multiple objects に類似しているローカライズされた文字列を検索します。
+        /// </summary>
+        public static string EnableMultipleObjects {
+            get {
+                return ResourceManager.GetString("EnableMultipleObjects", resourceCulture);
+            }
+        }
+        
+        /// <summary>
         ///   End point に類似しているローカライズされた文字列を検索します。
         /// </summary>
         public static string EndPoint {

@@ -226,7 +226,7 @@ namespace BEditor.Graphics
             GL.Enable(EnableCap.Texture2D);
 
             textureShader.SetVector4("color", color.ToVector4());
-            textureShader.SetMatrix4("model", transform.Matrix);
+            textureShader.SetMatrix4("model", transform.Matrix.ToOpenTK());
             textureShader.SetMatrix4("view", Camera.GetViewMatrix());
             textureShader.SetMatrix4("projection", Camera.GetProjectionMatrix());
 
@@ -258,7 +258,7 @@ namespace BEditor.Graphics
             GL.Enable(EnableCap.Texture2D);
 
             textureShader.SetVector4("color", color.ToVector4());
-            textureShader.SetMatrix4("model", transform.Matrix);
+            textureShader.SetMatrix4("model", transform.Matrix.ToOpenTK());
             textureShader.SetMatrix4("view", Camera.GetViewMatrix());
             textureShader.SetMatrix4("projection", Camera.GetProjectionMatrix());
 
@@ -279,7 +279,7 @@ namespace BEditor.Graphics
 
             GL.BindVertexArray(cube.VertexArrayObject);
 
-            Shader.SetMatrix4("model", transform.Matrix);
+            Shader.SetMatrix4("model", transform.Matrix.ToOpenTK());
             Shader.SetMatrix4("view", Camera.GetViewMatrix());
             Shader.SetMatrix4("projection", Camera.GetProjectionMatrix());
             Shader.SetVector4("color", cube.Color.ToVector4());

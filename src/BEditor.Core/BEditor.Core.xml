@@ -1706,7 +1706,7 @@
             </summary>
         </member>
         <member name="M:BEditor.Core.Data.Primitive.ImageObject.OnRender(BEditor.Core.Data.EffectRenderArgs)">
-            <inheritdoc/>
+            <inheritdoc cref="M:BEditor.Core.Data.Primitive.ImageObject.Render(BEditor.Core.Data.EffectRenderArgs)"/>
         </member>
         <member name="M:BEditor.Core.Data.Primitive.ImageObject.OnLoad">
             <inheritdoc/>
@@ -1715,6 +1715,44 @@
             <inheritdoc/>
         </member>
         <member name="M:BEditor.Core.Data.Primitive.ImageObject.EffectFilter(BEditor.Core.Data.EffectElement)">
+            <inheritdoc/>
+        </member>
+        <member name="T:BEditor.Core.Data.Primitive.MultipleImageEffect">
+            <summary>
+            
+            </summary>
+        </member>
+        <member name="M:BEditor.Core.Data.Primitive.MultipleImageEffect.MultipleRender(BEditor.Core.Data.EffectRenderArgs{BEditor.Drawing.Image{BEditor.Drawing.Pixel.BGRA32}})">
+            <inheritdoc/>
+        </member>
+        <member name="M:BEditor.Core.Data.Primitive.MultipleImageEffect.Render(BEditor.Core.Data.EffectRenderArgs{BEditor.Drawing.Image{BEditor.Drawing.Pixel.BGRA32}})">
+            <inheritdoc/>
+        </member>
+        <member name="T:BEditor.Core.Data.Primitive.MultipleImageObject">
+            <summary>
+            
+            </summary>
+        </member>
+        <member name="P:BEditor.Core.Data.Primitive.MultipleImageObject.IsMultiple">
+            <summary>
+            このオブジェクトをマルチプルオブジェクトとして使うかを取得します。
+            </summary>
+        </member>
+        <member name="M:BEditor.Core.Data.Primitive.MultipleImageObject.MultipleRender(BEditor.Core.Data.EffectRenderArgs)">
+            <summary>
+            
+            </summary>
+            <param name="args"></param>
+            <returns></returns>
+        </member>
+        <member name="M:BEditor.Core.Data.Primitive.MultipleImageObject.Rendered(BEditor.Core.Data.EffectRenderArgs{BEditor.Graphics.ImageInfo[]},System.Int32)">
+            <summary>
+            
+            </summary>
+            <param name="args"></param>
+            <param name="index"></param>
+        </member>
+        <member name="M:BEditor.Core.Data.Primitive.MultipleImageObject.OnRender(BEditor.Core.Data.EffectRenderArgs)">
             <inheritdoc/>
         </member>
         <member name="T:BEditor.Core.Data.Primitive.Objects.AudioObject">
@@ -2262,6 +2300,11 @@
             Represents <see cref="P:BEditor.Core.Data.Primitive.Objects.Text.Document"/> metadata.
             </summary>
         </member>
+        <member name="F:BEditor.Core.Data.Primitive.Objects.Text.EnableMultipleMetadata">
+            <summary>
+            Represents <see cref="P:BEditor.Core.Data.Primitive.Objects.Text.EnableMultiple"/> metadata.
+            </summary>
+        </member>
         <member name="M:BEditor.Core.Data.Primitive.Objects.Text.#ctor">
             <summary>
             Initializes a new instance of the <see cref="T:BEditor.Core.Data.Primitive.Objects.Text"/> class.
@@ -2293,6 +2336,14 @@
             Get the <see cref="T:BEditor.Core.Data.Property.FontProperty"/> that represents the font of the string to be drawn.
             </summary>
         </member>
+        <member name="P:BEditor.Core.Data.Primitive.Objects.Text.EnableMultiple">
+            <summary>
+            Get a <see cref="T:BEditor.Core.Data.Property.CheckProperty"/> that indicates whether to enable multiple objects.
+            </summary>
+        </member>
+        <member name="P:BEditor.Core.Data.Primitive.Objects.Text.IsMultiple">
+            <inheritdoc/>
+        </member>
         <member name="M:BEditor.Core.Data.Primitive.Objects.Text.OnRender(BEditor.Core.Data.EffectRenderArgs)">
             <inheritdoc/>
         </member>
@@ -2300,6 +2351,9 @@
             <inheritdoc/>
         </member>
         <member name="M:BEditor.Core.Data.Primitive.Objects.Text.OnUnload">
+            <inheritdoc/>
+        </member>
+        <member name="M:BEditor.Core.Data.Primitive.Objects.Text.MultipleRender(BEditor.Core.Data.EffectRenderArgs)">
             <inheritdoc/>
         </member>
         <member name="T:BEditor.Core.Data.Primitive.Objects.VideoFile">
@@ -3166,7 +3220,6 @@
         <member name="T:BEditor.Core.Data.Property.Easing.PrimitiveEasing">
             <summary>
             Represents a standard <see cref="T:BEditor.Core.Data.Property.Easing.EasingFunc"/>.
-<<<<<<< HEAD
             </summary>
         </member>
         <member name="F:BEditor.Core.Data.Property.Easing.PrimitiveEasing.EasingTypeMetadata">
@@ -3187,28 +3240,6 @@
             Get the <see cref="T:BEditor.Core.Data.Property.SelectorProperty"/> to select the easing function.
             </summary>
         </member>
-=======
-            </summary>
-        </member>
-        <member name="F:BEditor.Core.Data.Property.Easing.PrimitiveEasing.EasingTypeMetadata">
-            <summary>
-            Represents <see cref="P:BEditor.Core.Data.Property.Easing.PrimitiveEasing.EasingType"/> metadata.
-            </summary>
-        </member>
-        <member name="M:BEditor.Core.Data.Property.Easing.PrimitiveEasing.#ctor">
-            <summary>
-            Initializes a new instance of the <see cref="T:BEditor.Core.Data.Property.Easing.PrimitiveEasing"/> class.
-            </summary>
-        </member>
-        <member name="P:BEditor.Core.Data.Property.Easing.PrimitiveEasing.Properties">
-            <inheritdoc/>
-        </member>
-        <member name="P:BEditor.Core.Data.Property.Easing.PrimitiveEasing.EasingType">
-            <summary>
-            Get the <see cref="T:BEditor.Core.Data.Property.SelectorProperty"/> to select the easing function.
-            </summary>
-        </member>
->>>>>>> 0b66afd995c438c02a65381ede9c831c89a29fdf
         <member name="M:BEditor.Core.Data.Property.Easing.PrimitiveEasing.EaseFunc(BEditor.Media.Frame,BEditor.Media.Frame,System.Single,System.Single)">
             <inheritdoc/>
         </member>
@@ -3581,7 +3612,6 @@
         <member name="T:BEditor.Core.Data.Property.IKeyFrameProperty">
             <summary>
             Represents a property that has an editing window on the timeline.
-<<<<<<< HEAD
             </summary>
         </member>
         <member name="T:BEditor.Core.Data.Property.IPropertyElement">
@@ -3604,30 +3634,6 @@
             Represents a project that shows a string in the UI.
             </summary>
         </member>
-=======
-            </summary>
-        </member>
-        <member name="T:BEditor.Core.Data.Property.IPropertyElement">
-            <summary>
-            Represents a property used by <see cref="T:BEditor.Core.Data.EffectElement"/>.
-            </summary>
-        </member>
-        <member name="P:BEditor.Core.Data.Property.IPropertyElement.PropertyMetadata">
-            <summary>
-            Gets or sets the metadata for this <see cref="T:BEditor.Core.Data.Property.IPropertyElement"/>.
-            </summary>
-        </member>
-        <member name="P:BEditor.Core.Data.Property.IPropertyElement.ComponentData">
-            <summary>
-            Get a Dictionary to put the cache in.
-            </summary>
-        </member>
-        <member name="T:BEditor.Core.Data.Property.LabelComponent">
-            <summary>
-            Represents a project that shows a string in the UI.
-            </summary>
-        </member>
->>>>>>> 0b66afd995c438c02a65381ede9c831c89a29fdf
         <member name="P:BEditor.Core.Data.Property.LabelComponent.Text">
             <summary>
             Gets or sets the string to be shown.
@@ -4232,22 +4238,7 @@
         <member name="P:BEditor.Core.Data.Property.SelectorPropertyMetadata`1.MemberPath">
             <summary>
             Get the path to the member to display.
-<<<<<<< HEAD
-=======
             </summary>
-        </member>
-        <member name="T:BEditor.Core.Data.Property.TextProperty">
-            <summary>
-            Represents a property of a string.
-            </summary>
-        </member>
-        <member name="M:BEditor.Core.Data.Property.TextProperty.#ctor(BEditor.Core.Data.Property.TextPropertyMetadata)">
-            <summary>
-            Initializes a new instance of the <see cref="T:BEditor.Core.Data.Property.TextProperty"/> class.
->>>>>>> 0b66afd995c438c02a65381ede9c831c89a29fdf
-            </summary>
-            <param name="metadata">Matadata of this property</param>
-            <exception cref="T:System.ArgumentNullException"><paramref name="metadata"/> is <see langword="null"/>.</exception>
         </member>
         <member name="T:BEditor.Core.Data.Property.TextProperty">
             <summary>
@@ -4352,7 +4343,6 @@
             <inheritdoc/>
         </member>
         <member name="M:BEditor.Core.Data.Property.ValueProperty.Clamp(System.Single)">
-<<<<<<< HEAD
             <summary>
             Returns <paramref name="value"/> clamped to the inclusive range of <see cref="P:BEditor.Core.Data.Property.ValuePropertyMetadata.Min"/> and <see cref="P:BEditor.Core.Data.Property.ValuePropertyMetadata.Max"/>.
             </summary>
@@ -4392,57 +4382,6 @@
         </member>
         <member name="P:BEditor.Core.Data.Property.ValuePropertyMetadata.Min">
             <summary>
-            Get the minimum value.
-            </summary>
-        </member>
-        <member name="T:BEditor.Core.Data.ClipRenderArgs">
-=======
->>>>>>> 0b66afd995c438c02a65381ede9c831c89a29fdf
-            <summary>
-            Returns <paramref name="value"/> clamped to the inclusive range of <see cref="P:BEditor.Core.Data.Property.ValuePropertyMetadata.Min"/> and <see cref="P:BEditor.Core.Data.Property.ValuePropertyMetadata.Max"/>.
-            </summary>
-            <param name="value">The value to be clamped.</param>
-            <returns>value if min ≤ value ≤ max. -or- min if value &lt; min. -or- max if max &lt; value.</returns>
-        </member>
-        <member name="M:BEditor.Core.Data.Property.ValueProperty.ChangeValue(System.Single)">
-            <summary>
-<<<<<<< HEAD
-            Initializes a new instance of the <see cref="T:BEditor.Core.Data.ClipRenderArgs"/> class.
-=======
-            Create a command to change the <see cref="P:BEditor.Core.Data.Property.ValueProperty.Value"/>.
->>>>>>> 0b66afd995c438c02a65381ede9c831c89a29fdf
-            </summary>
-            <param name="value">New value for <see cref="P:BEditor.Core.Data.Property.ValueProperty.Value"/></param>
-            <returns>Created <see cref="T:BEditor.Core.Command.IRecordCommand"/></returns>
-        </member>
-        <member name="T:BEditor.Core.Data.Property.ValuePropertyMetadata">
-            <summary>
-            Represents the metadata of a <see cref="T:BEditor.Core.Data.Property.ValueProperty"/>.
-            </summary>
-        </member>
-        <member name="M:BEditor.Core.Data.Property.ValuePropertyMetadata.#ctor(System.String,System.Single,System.Single,System.Single)">
-            <summary>
-            Initializes a new instance of the <see cref="T:BEditor.Core.Data.Property.ValuePropertyMetadata"/> class.
-            </summary>
-            <param name="Name">The string displayed in the property header.</param>
-            <param name="DefaultValue">Default value</param>
-            <param name="Max">Maximum value.</param>
-            <param name="Min">Minimum value</param>
-        </member>
-        <member name="P:BEditor.Core.Data.Property.ValuePropertyMetadata.DefaultValue">
-            <summary>
-            Gets the default value.
-            </summary>
-        </member>
-        <member name="P:BEditor.Core.Data.Property.ValuePropertyMetadata.Max">
-            <summary>
-            Gets the maximum value.
-            </summary>
-        </member>
-        <member name="P:BEditor.Core.Data.Property.ValuePropertyMetadata.Min">
-            <summary>
-<<<<<<< HEAD
-=======
             Get the minimum value.
             </summary>
         </member>
@@ -4478,7 +4417,6 @@
         </member>
         <member name="M:BEditor.Core.Data.EffectRenderArgs.#ctor(BEditor.Media.Frame,BEditor.Core.Data.RenderType)">
             <summary>
->>>>>>> 0b66afd995c438c02a65381ede9c831c89a29fdf
             Initializes a new instance of the <see cref="T:BEditor.Core.Data.EffectRenderArgs"/> class.
             </summary>
         </member>
@@ -4505,39 +4443,11 @@
         <member name="M:BEditor.Core.Data.EffectRenderArgs`1.#ctor(BEditor.Media.Frame,`0,BEditor.Core.Data.RenderType)">
             <summary>
             Initializes a new instance of the <see cref="T:BEditor.Core.Data.EffectRenderArgs"/> class.
-<<<<<<< HEAD
             </summary>
         </member>
         <member name="P:BEditor.Core.Data.EffectRenderArgs`1.Value">
             <summary>
             Gets or sets the value used to render the effect.
-            </summary>
-        </member>
-        <member name="T:BEditor.Core.Data.RenderType">
-            <summary>
-            Represents the type of rendering request.
-            </summary>
-        </member>
-        <member name="F:BEditor.Core.Data.RenderType.Preview">
-            <summary>
-            Represents the preview rendering during editing.
-            </summary>
-        </member>
-        <member name="F:BEditor.Core.Data.RenderType.VideoPreview">
-            <summary>
-            Represents the rendering during playing.
-            </summary>
-        </member>
-        <member name="F:BEditor.Core.Data.RenderType.ImageOutput">
-            <summary>
-            Represents the rendering in the image output.
-=======
->>>>>>> 0b66afd995c438c02a65381ede9c831c89a29fdf
-            </summary>
-        </member>
-        <member name="F:BEditor.Core.Data.RenderType.VideoOutput">
-            <summary>
-            Represents the rendering in the video output.
             </summary>
         </member>
         <member name="T:BEditor.Core.Data.RenderType">
@@ -5197,7 +5107,6 @@
         <member name="T:BEditor.Core.Plugin.SettingRecord">
             <summary>
             Represents the base class of the plugin settings.
-<<<<<<< HEAD
             </summary>
             <example>
             public record CustomSetting(string value) : SettingRecord;
@@ -5208,27 +5117,12 @@
         <member name="M:BEditor.Core.Plugin.SettingRecord.#ctor">
             <summary>
             Represents the base class of the plugin settings.
-=======
->>>>>>> 0b66afd995c438c02a65381ede9c831c89a29fdf
             </summary>
             <example>
             public record CustomSetting(string value) : SettingRecord;
             
             public SettingRecord Settings { get; set; } = new CustomSetting("Sample text");
             </example>
-<<<<<<< HEAD
-=======
-        </member>
-        <member name="M:BEditor.Core.Plugin.SettingRecord.#ctor">
-            <summary>
-            Represents the base class of the plugin settings.
-            </summary>
-            <example>
-            public record CustomSetting(string value) : SettingRecord;
-            
-            public SettingRecord Settings { get; set; } = new CustomSetting("Sample text");
-            </example>
->>>>>>> 0b66afd995c438c02a65381ede9c831c89a29fdf
         </member>
         <member name="T:BEditor.Core.Properties.Resources">
             <summary>
@@ -5665,6 +5559,11 @@
         <member name="P:BEditor.Core.Properties.Resources.EnableErrorLog">
             <summary>
               Enable error log に類似しているローカライズされた文字列を検索します。
+            </summary>
+        </member>
+        <member name="P:BEditor.Core.Properties.Resources.EnableMultipleObjects">
+            <summary>
+              Enable multiple objects に類似しているローカライズされた文字列を検索します。
             </summary>
         </member>
         <member name="P:BEditor.Core.Properties.Resources.EndPoint">
