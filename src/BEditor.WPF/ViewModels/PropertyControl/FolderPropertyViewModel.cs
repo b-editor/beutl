@@ -5,6 +5,7 @@ using System.Text;
 using System.Threading.Tasks;
 
 using BEditor.Core.Command;
+using BEditor.Core.Data;
 using BEditor.Core.Data.Property;
 using BEditor.Views;
 using BEditor.Views.PropertyControls;
@@ -28,10 +29,10 @@ namespace BEditor.ViewModels.PropertyControl
 
                 if (file != null)
                 {
-                    CommandManager.Do(new FolderProperty.ChangeFolderCommand(Property, file));
+                    Property.ChangeFolder(file).Execute();
                 }
             });
-            Reset.Subscribe(() => CommandManager.Do(new FolderProperty.ChangeFolderCommand(Property, Property.PropertyMetadata?.Default ?? "")));
+            Reset.Subscribe(() => Property.ChangeFolder(Property.PropertyMetadata?.Default ?? "").Execute());
             Bind.Subscribe(() =>
             {
                 var window = new BindSettings(new BindSettingsViewModel<string>(Property));

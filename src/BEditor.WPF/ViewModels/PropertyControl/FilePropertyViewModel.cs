@@ -50,7 +50,7 @@ namespace BEditor.ViewModels.PropertyControl
         {
             if (Services.FileDialogService is null) return null;
             var dialog = Services.FileDialogService;
-            var record = new SaveFileRecord();
+            var record = new OpenFileRecord();
 
             if(filter is not null)
             {
@@ -58,7 +58,7 @@ namespace BEditor.ViewModels.PropertyControl
             }
 
             // ダイアログを表示する
-            if (dialog.ShowSaveFileDialog(record))
+            if (dialog.ShowOpenFileDialog(record))
             {
                 return record.FileName;
             }
