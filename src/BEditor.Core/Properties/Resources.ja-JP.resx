@@ -828,4 +828,13 @@
   <data name="MultipleImageControls" xml:space="preserve">
     <value>多重画像コントロール</value>
   </data>
+  <data name="ThresholdValue" xml:space="preserve">
+    <value>しきい値</value>
+  </data>
+  <data name="ChromaKey" xml:space="preserve">
+    <value>クロマキー</value>
+  </data>
+  <data name="PointLightDiffuse" xml:space="preserve">
+    <value>ポイントライト拡散</value>
+  </data>
 </root>

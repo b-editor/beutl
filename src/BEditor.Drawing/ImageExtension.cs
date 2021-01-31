@@ -437,6 +437,34 @@ namespace BEditor.Drawing
 
         #endregion
 
+        #region LightDiffuse
+
+        public static void PointLightDiffuse(this Image<BGRA32> self, Point3F location, Color lightColor, float surfaceScale, float kd)
+        {
+            if (self is null) throw new ArgumentNullException(nameof(self));
+            self.ThrowIfDisposed();
+
+            using var bmp = new SKBitmap(new(self.Width, self.Height, SKColorType.Bgra8888));
+            using var canvas = new SKCanvas(bmp);
+            using var b = self.ToSKBitmap();
+            using var paint = new SKPaint
+            {
+                IsAntialias = true,
+            };
+            paint.ImageFilter = SKImageFilter.CreatePointLitDiffuse(
+                                    new SKPoint3(location.X, location.Y, location.Z),
+                                    new SKColor(lightColor.R, lightColor.G, lightColor.B, lightColor.A),
+                                    surfaceScale,
+                                    kd);
+
+            canvas.DrawBitmap(b, (SKPoint)default, paint);
+
+            CopyTo(bmp.Bytes, self.Data!, self.DataSize);
+        }
+
+
+        #endregion
+
         #region Resize
 
         public static Image<BGRA32> Resize(this Image<BGRA32> self, int width, int height, Quality quality)
@@ -450,6 +478,21 @@ namespace BEditor.Drawing
         }
 
         #endregion
+
+        public static void ChromaKey(this Image<BGRA32> self, int value)
+        {
+            fixed (BGRA32* s = self.Data)
+            {
+                Parallel.For(0, self.Data.Length, new ChromaKeyProcess(s, s, value).Invoke);
+            }
+        }
+        public static void ColorKey(this Image<BGRA32> self, BGRA32 color, int value)
+        {
+            fixed (BGRA32* s = self.Data)
+            {
+                Parallel.For(0, self.Data.Length, new ColorKeyProcess(s, s, color,value).Invoke);
+            }
+        }
 
         public static Image<BGRA32> Ellipse(int width, int height, int line, Color color)
         {

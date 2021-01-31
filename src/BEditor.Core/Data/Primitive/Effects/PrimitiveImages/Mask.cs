@@ -20,19 +20,49 @@ using Reactive.Bindings;
 
 namespace BEditor.Core.Data.Primitive.Effects
 {
+    /// <summary>
+    /// Represents an <see cref="ImageEffect"/> that masks an image with another <see cref="ImageObject"/>.
+    /// </summary>
     [DataContract]
     public class Mask : ImageEffect
     {
+        /// <summary>
+        /// Represents <see cref="X"/> metadata.
+        /// </summary>
         public static readonly EasePropertyMetadata XMetadata = Coordinate.XMetadata;
+        /// <summary>
+        /// Represents <see cref="Y"/> metadata.
+        /// </summary>
         public static readonly EasePropertyMetadata YMetadata = Coordinate.YMetadata;
+        /// <summary>
+        /// Represents <see cref="Rotate"/> metadata.
+        /// </summary>
         public static readonly EasePropertyMetadata RotateMetadata = new(Resources.Rotate);
+        /// <summary>
+        /// Represents <see cref="Width"/> metadata.
+        /// </summary>
         public static readonly EasePropertyMetadata WidthMetadata = new(Resources.Width + " (%)", 100, Min: 0);
+        /// <summary>
+        /// Represents <see cref="Height"/> metadata.
+        /// </summary>
         public static readonly EasePropertyMetadata HeightMetadata = new(Resources.Height + " (%)", 100, Min: 0);
+        /// <summary>
+        /// Represents <see cref="Image"/> metadata.
+        /// </summary>
         public static readonly TextPropertyMetadata ImageMetadata = new(Resources.PathToImageObject);
+        /// <summary>
+        /// Represents <see cref="InvertMask"/> metadata.
+        /// </summary>
         public static readonly CheckPropertyMetadata InvertMaskMetadata = new(Resources.InvertMask);
+        /// <summary>
+        /// Represents <see cref="FitSize"/> metadata.
+        /// </summary>
         public static readonly CheckPropertyMetadata FitSizeMetadata = new(Resources.FitToOriginalSize);
         private ReactiveProperty<ClipData?>? _clipProperty;
 
+        /// <summary>
+        /// Initializes a new instance of the <see cref="Mask"/> class.
+        /// </summary>
         public Mask()
         {
             X = new(XMetadata);
@@ -45,7 +75,9 @@ namespace BEditor.Core.Data.Primitive.Effects
             FitSize = new(FitSizeMetadata);
         }
 
+        /// <inheritdoc/>
         public override string Name => Resources.Mask;
+        /// <inheritdoc/>
         public override IEnumerable<PropertyElement> Properties => new PropertyElement[]
         {
             X,
@@ -57,24 +89,49 @@ namespace BEditor.Core.Data.Primitive.Effects
             InvertMask,
             FitSize
         };
+        /// <summary>
+        /// Get the <see cref="EaseProperty"/> representing the X coordinate.
+        /// </summary>
         [DataMember(Order = 0)]
         public EaseProperty X { get; private set; }
+        /// <summary>
+        /// Get the <see cref="EaseProperty"/> representing the Y coordinate.
+        /// </summary>
         [DataMember(Order = 1)]
         public EaseProperty Y { get; private set; }
+        /// <summary>
+        /// Get the <see cref="EaseProperty"/> of the angle.
+        /// </summary>
         [DataMember(Order = 2)]
         public EaseProperty Rotate { get; private set; }
+        /// <summary>
+        /// Get the <see cref="EaseProperty"/> that represents the width of the mask.
+        /// </summary>
         [DataMember(Order = 3)]
         public EaseProperty Width { get; private set; }
+        /// <summary>
+        /// Get the <see cref="EaseProperty"/> that represents the height of the mask.
+        /// </summary>
         [DataMember(Order = 4)]
         public EaseProperty Height { get; private set; }
+        /// <summary>
+        /// Gets the <see cref="TextProperty"/> that specifies the image object to be referenced.
+        /// </summary>
         [DataMember(Order = 5)]
         public TextProperty Image { get; private set; }
+        /// <summary>
+        /// Get a <see cref="CheckProperty"/> indicating whether or not to invert the mask.
+        /// </summary>
         [DataMember(Order = 6)]
         public CheckProperty InvertMask { get; private set; }
+        /// <summary>
+        /// Gets a <see cref="CheckProperty"/> indicating whether or not the mask should be fit to the original image size.
+        /// </summary>
         [DataMember(Order = 7)]
         public CheckProperty FitSize { get; private set; }
         private ReactiveProperty<ClipData?> ClipProperty => _clipProperty ??= new();
 
+        /// <inheritdoc/>
         public override void Render(EffectRenderArgs<Image<BGRA32>> args)
         {
             if (ClipProperty.Value is null) return;
@@ -105,6 +162,7 @@ namespace BEditor.Core.Data.Primitive.Effects
             args.Value.Mask(resizedimg, new PointF(X[f], Y[f]), Rotate[f], InvertMask.Value);
             img.Dispose();
         }
+        /// <inheritdoc/>
         protected override void OnLoad()
         {
             X.Load(XMetadata);
@@ -122,6 +180,7 @@ namespace BEditor.Core.Data.Primitive.Effects
 
             ClipProperty.Value = ClipData.FromFullName(Image.Value, Parent?.Parent?.Parent);
         }
+        /// <inheritdoc/>
         protected override void OnUnload()
         {
             foreach (var p in Children)
