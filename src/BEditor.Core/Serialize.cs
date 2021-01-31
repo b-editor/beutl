@@ -236,7 +236,7 @@ namespace BEditor.Core
             typeof(CircularGradient),
             typeof(Mask),
             typeof(PointLightDiffuse),
-            typeof(ChromeKey),
+            typeof(ChromaKey),
 
             typeof(DepthTest),
             typeof(DirectionalLightSource),
