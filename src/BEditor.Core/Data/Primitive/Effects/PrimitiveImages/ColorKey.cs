@@ -18,21 +18,21 @@ namespace BEditor.Core.Data.Primitive.Effects
     public class ColorKey : ImageEffect
     {
         /// <summary>
-        /// Represents <see cref="MaxColor"/> metadata.
+        /// Represents <see cref="Color"/> metadata.
         /// </summary>
-        public static readonly ColorPropertyMetadata MaxColorMetadata = new(Resources.Color, Color.Light);
+        public static readonly ColorPropertyMetadata ColorMetadata = new(Resources.Color, Drawing.Color.Light);
         /// <summary>
-        /// Represents <see cref="MinColor"/> metadata.
+        /// Represents <see cref="ThresholdValue"/> metadata.
         /// </summary>
-        public static readonly ColorPropertyMetadata MinColorMetadata = new(Resources.Color, Color.FromARGB(100, 100, 100, 255));
+        public static readonly EasePropertyMetadata ThresholdValueMetadata = new(Resources.ThresholdValue, 60);
 
         /// <summary>
         /// Initializes a new instance of the <see cref="ColorKey"/> class.
         /// </summary>
         public ColorKey()
         {
-            MaxColor = new(MaxColorMetadata);
-            MinColor = new(MinColorMetadata);
+            Color = new(ColorMetadata);
+            ThresholdValue = new(ThresholdValueMetadata);
         }
 
         /// <inheritdoc/>
@@ -40,27 +40,30 @@ namespace BEditor.Core.Data.Primitive.Effects
         /// <inheritdoc/>
         public override IEnumerable<PropertyElement> Properties => new PropertyElement[]
         {
-            MaxColor,
-            MinColor
+            Color,
+            ThresholdValue
         };
         /// <summary>
-        /// Gets the <see cref="ColorProperty"/> representing the maximum value.
+        /// Gets the <see cref="ColorProperty"/> representing the key color.
         /// </summary>
         [DataMember(Order = 0)]
-        public ColorProperty MaxColor { get; private set; }
+        public ColorProperty Color { get; private set; }
         /// <summary>
-        /// Gets the <see cref="ColorProperty"/> representing the minimum value.
+        /// Get the <see cref="EaseProperty"/> representing the threshold.
         /// </summary>
         [DataMember(Order = 1)]
-        public ColorProperty MinColor { get; private set; }
+        public EaseProperty ThresholdValue { get; private set; }
 
         /// <inheritdoc/>
-        public override void Render(EffectRenderArgs<Image<BGRA32>> args) { }
+        public override void Render(EffectRenderArgs<Image<BGRA32>> args)
+        {
+            args.Value.ColorKey(Color.Color, (int)ThresholdValue[args.Frame]);
+        }
         /// <inheritdoc/>
         protected override void OnLoad()
         {
-            MaxColor.Load(MaxColorMetadata);
-            MinColor.Load(MinColorMetadata);
+            Color.Load(ColorMetadata);
+            ThresholdValue.Load(ThresholdValueMetadata);
         }
         /// <inheritdoc/>
         protected override void OnUnload()

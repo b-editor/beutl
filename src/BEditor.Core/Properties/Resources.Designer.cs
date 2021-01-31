@@ -439,6 +439,15 @@ namespace BEditor.Core.Properties {
         }
         
         /// <summary>
+        ///   Chroma key に類似しているローカライズされた文字列を検索します。
+        /// </summary>
+        public static string ChromaKey {
+            get {
+                return ResourceManager.GetString("ChromaKey", resourceCulture);
+            }
+        }
+        
+        /// <summary>
         ///   Circle に類似しているローカライズされた文字列を検索します。
         /// </summary>
         public static string Circle {
@@ -1549,7 +1558,7 @@ namespace BEditor.Core.Properties {
         }
         
         /// <summary>
-        ///   PointLightDiffuse に類似しているローカライズされた文字列を検索します。
+        ///   Point light diffuse に類似しているローカライズされた文字列を検索します。
         /// </summary>
         public static string PointLightDiffuse {
             get {
@@ -1923,6 +1932,15 @@ namespace BEditor.Core.Properties {
         public static string Text {
             get {
                 return ResourceManager.GetString("Text", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Threshold value に類似しているローカライズされた文字列を検索します。
+        /// </summary>
+        public static string ThresholdValue {
+            get {
+                return ResourceManager.GetString("ThresholdValue", resourceCulture);
             }
         }
         

@@ -5,17 +5,17 @@ using BEditor.Drawing.Pixel;
 
 namespace BEditor.Drawing.Process
 {
-    internal unsafe readonly struct ChromeKeyProcess
+    internal unsafe readonly struct ChromaKeyProcess
     {
         private readonly BGRA32* dst;
         private readonly BGRA32* src;
         private readonly int value;
 
-        public ChromeKeyProcess(BGRA32* src, BGRA32* dst, int value)
+        public ChromaKeyProcess(BGRA32* src, BGRA32* dst, int value)
         {
             this.dst = dst;
             this.src = src;
-            this.value= value;
+            this.value = value;
         }
 
         public readonly void Invoke(int pos)

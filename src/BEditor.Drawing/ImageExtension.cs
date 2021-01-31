@@ -479,11 +479,18 @@ namespace BEditor.Drawing
 
         #endregion
 
-        public static void ChromeKey(this Image<BGRA32> self, int value)
+        public static void ChromaKey(this Image<BGRA32> self, int value)
         {
             fixed (BGRA32* s = self.Data)
             {
-                Parallel.For(0, self.Data.Length, new ChromeKeyProcess(s, s, value).Invoke);
+                Parallel.For(0, self.Data.Length, new ChromaKeyProcess(s, s, value).Invoke);
+            }
+        }
+        public static void ColorKey(this Image<BGRA32> self, BGRA32 color, int value)
+        {
+            fixed (BGRA32* s = self.Data)
+            {
+                Parallel.For(0, self.Data.Length, new ColorKeyProcess(s, s, color,value).Invoke);
             }
         }
 

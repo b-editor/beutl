@@ -813,8 +813,6 @@ Please select the plugin you want to load</value>
   <data name="Decal" xml:space="preserve">
     <value>Decal</value>
   </data>
-  <data name="PointLightDiffuse" xml:space="preserve">
-    <value>PointLightDiffuse</value>
   <data name="EnableMultipleObjects" xml:space="preserve">
     <value>Enable multiple objects</value>
   </data>
@@ -829,5 +827,14 @@ Please select the plugin you want to load</value>
   </data>
   <data name="MultipleImageControls" xml:space="preserve">
     <value>Multiple Image Control</value>
+  </data>
+  <data name="ThresholdValue" xml:space="preserve">
+    <value>Threshold value</value>
+  </data>
+  <data name="ChromaKey" xml:space="preserve">
+    <value>Chroma key</value>
+  </data>
+  <data name="PointLightDiffuse" xml:space="preserve">
+    <value>Point light diffuse</value>
   </data>
 </root>

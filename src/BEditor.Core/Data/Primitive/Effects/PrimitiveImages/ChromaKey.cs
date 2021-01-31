@@ -6,6 +6,7 @@ using System.Text;
 using System.Threading.Tasks;
 
 using BEditor.Core.Data.Property;
+using BEditor.Core.Properties;
 using BEditor.Drawing;
 using BEditor.Drawing.Pixel;
 
@@ -20,7 +21,7 @@ namespace BEditor.Core.Data.Primitive.Effects
         /// <summary>
         /// Represents <see cref="ThresholdValue"/> metadata.
         /// </summary>
-        public static readonly EasePropertyMetadata ThresholdValueMetadata = new("閾値", 256);
+        public static readonly EasePropertyMetadata ThresholdValueMetadata = new(Resources.ThresholdValue, 256);
 
         /// <summary>
         /// Initializes a new instance of the <see cref="ChromaKey"/> class.
@@ -31,7 +32,7 @@ namespace BEditor.Core.Data.Primitive.Effects
         }
 
         /// <inheritdoc/>
-        public override string Name => "Chrome key";
+        public override string Name => Resources.ChromaKey;
         /// <inheritdoc/>
         public override IEnumerable<PropertyElement> Properties => new PropertyElement[]
         {
@@ -46,7 +47,7 @@ namespace BEditor.Core.Data.Primitive.Effects
         /// <inheritdoc/>
         public override void Render(EffectRenderArgs<Image<BGRA32>> args)
         {
-            args.Value.ChromeKey((int)(ThresholdValue[args.Frame]));
+            args.Value.ChromaKey((int)(ThresholdValue[args.Frame]));
         }
         /// <inheritdoc/>
         protected override void OnLoad()

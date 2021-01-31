@@ -40,7 +40,7 @@ namespace BEditor.Core.Data
                     new(Resources.CircularGradient, () => new CircularGradient()),
                     new(Resources.Mask, () => new Mask()),
                     new(Resources.PointLightDiffuse, () => new PointLightDiffuse()),
-                    new("Chrome key", () => new ChromaKey()),
+                    new(Resources.ChromaKey, () => new ChromaKey()),
                     new(Resources.ImageSplit, () => new ImageSplit()),
                     new(Resources.MultipleImageControls, () => new MultipleControls()),
                 }
