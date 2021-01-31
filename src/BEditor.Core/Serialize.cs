@@ -237,6 +237,8 @@ namespace BEditor.Core
             typeof(Mask),
             typeof(PointLightDiffuse),
             typeof(ChromaKey),
+            typeof(ImageSplit),
+            typeof(MultipleControls),
 
             typeof(DepthTest),
             typeof(DirectionalLightSource),

@@ -10,6 +10,7 @@ using System.Windows;
 using BEditor.Core;
 using BEditor.Core.Command;
 using BEditor.Core.Data;
+using BEditor.Core.Data.Primitive.Objects;
 using BEditor.Core.Extensions;
 using BEditor.Core.Service;
 using BEditor.Models.Extension;
@@ -98,28 +99,72 @@ namespace BEditor.Models
                 .Subscribe(timeline =>
                 {
                     var text = Clipboard.GetText();
+                    var files = Clipboard.GetFileDropList();
+                    var img = Clipboard.GetImage();
                     using var memory = new MemoryStream();
                     memory.Write(Encoding.Default.GetBytes(text));
 
-                    var clip = Serialize.LoadFromStream<ClipData>(memory, SerializeMode.Json);
-
-                    if (clip is null) return;
-
-                    var length = clip.Length;
-                    clip.Start = timeline.Select_Frame;
-                    clip.End = length + timeline.Select_Frame;
-
-                    clip.Layer = timeline.Select_Layer;
-
-
-                    if (!timeline.Scene.InRange(clip.Start, clip.End, clip.Layer))
+                    if (Serialize.LoadFromStream<ClipData>(memory, SerializeMode.Json) is var clip && clip is not null)
                     {
-                        Message.Snackbar("指定した場所にクリップが存在しているため、新しいクリップを配置できません");
+                        var length = clip.Length;
+                        clip.Start = timeline.Select_Frame;
+                        clip.End = length + timeline.Select_Frame;
 
-                        return;
+                        clip.Layer = timeline.Select_Layer;
+
+
+                        if (!timeline.Scene.InRange(clip.Start, clip.End, clip.Layer))
+                        {
+                            Message.Snackbar("指定した場所にクリップが存在しているため、新しいクリップを配置できません");
+
+                            return;
+                        }
+
+                        timeline.Scene.AddClip(clip).Execute();
                     }
+                    else if (files is not null)
+                    {
+                        var start = timeline.Select_Frame;
+                        var end = timeline.Select_Frame + 180;
+                        var layer = timeline.Select_Layer;
 
-                    timeline.Scene.AddClip(clip).Execute();
+                        if (!timeline.Scene.InRange(start, end, layer))
+                        {
+                            Message.Snackbar("指定した場所にクリップが存在しているため、新しいクリップを配置できません");
+
+                            return;
+                        }
+
+                        if (files.Count is > 0
+                            && File.Exists(files[0]))
+                        {
+                            var file = files[0];
+
+                            if (file is null) return;
+
+                            var meta = FileTypeConvert(file);
+                            timeline.Scene.AddClip(start, layer, meta, out var c).Execute();
+
+                            var obj = c.Effect[0];
+                            if (obj is VideoFile video)
+                            {
+                                video.File.File = file;
+                            }
+                            else if (obj is ImageFile image)
+                            {
+                                image.File.File = file;
+                            }
+                            else if (obj is Text txt)
+                            {
+                                using var reader = new StreamReader(file);
+                                txt.Document.Text = reader.ReadToEnd();
+                            }
+                        }
+                    }
+                    else if (img is not null)
+                    {
+                        //Todo: 画像のコピペ
+                    }
                 });
             #endregion
         }
@@ -185,6 +230,24 @@ namespace BEditor.Models
             {
 
             }
+        }
+        public static ObjectMetadata FileTypeConvert(string file)
+        {
+            var ex = Path.GetExtension(file);
+            if (ex is ".avi" or ".mp4")
+            {
+                return ClipType.VideoMetadata;
+            }
+            else if (ex is ".jpg" or ".jpeg" or ".png" or ".bmp")
+            {
+                return ClipType.ImageMetadata;
+            }
+            else if (ex is ".txt")
+            {
+                return ClipType.TextMetadata;
+            }
+
+            return ClipType.FigureMetadata;
         }
     }
 }

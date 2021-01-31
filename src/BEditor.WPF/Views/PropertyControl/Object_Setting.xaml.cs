@@ -20,14 +20,14 @@ namespace BEditor.Views.PropertyControls
         public Object_Setting(ClipData data)
         {
             DataContext = Data = data;
-         
+
             InitializeComponent();
         }
 
         public ClipData Data { get; set; }
 
 
-        private void Preview_Drop(object sender, DragEventArgs e)
+        private void UserControl_Drop(object sender, DragEventArgs e)
         {
             e.Effects = DragDropEffects.Copy;
             Type datatype = typeof(EffectMetadata);
@@ -35,7 +35,6 @@ namespace BEditor.Views.PropertyControls
             try
             {
                 var effect = (EffectMetadata)e.Data.GetData(datatype) ?? throw new Exception();
-
 
                 var effectinstance = effect.CreateFunc();
 
@@ -45,6 +44,11 @@ namespace BEditor.Views.PropertyControls
             {
                 return;
             }
+        }
+
+        private void UserControl_PreviewDragOver(object sender, DragEventArgs e)
+        {
+            e.Effects = (e.Data.GetData(typeof(EffectMetadata)) is null) ? DragDropEffects.None : DragDropEffects.Copy;
         }
     }
 }

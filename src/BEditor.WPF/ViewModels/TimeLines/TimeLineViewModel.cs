@@ -240,24 +240,6 @@ namespace BEditor.ViewModels.TimeLines
             Select_Layer = AttachmentProperty.GetInt(grid);
             Select_Frame = ToFrame(Mouse.GetPosition(grid).X);
         }
-        private static ObjectMetadata FileTypeConvert(string file)
-        {
-            var ex = Path.GetExtension(file);
-            if (ex is ".avi" or ".mp4")
-            {
-                return ClipType.VideoMetadata;
-            }
-            else if (ex is ".jpg" or ".jpeg" or ".png" or ".bmp")
-            {
-                return ClipType.ImageMetadata;
-            }
-            else if (ex is ".txt")
-            {
-                return ClipType.TextMetadata;
-            }
-
-            return ClipType.FigureMetadata;
-        }
         private void LayerDrop(object sender, EventArgs e)
         {
             if (e is DragEventArgs de)
@@ -287,7 +269,7 @@ namespace BEditor.ViewModels.TimeLines
 
                     if (Path.GetExtension(file) != ".beo")
                     {
-                        var type_ = FileTypeConvert(file);
+                        var type_ = EditModel.FileTypeConvert(file);
 
                         if (!Scene.InRange(frame, frame + 180, addlayer))
                         {
