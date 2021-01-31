@@ -13,8 +13,15 @@ namespace BEditor.Core.Data.Primitive
     [DataContract]
     public abstract class MultipleImageEffect : ImageEffect
     {
-        /// <inheritdoc/>
+        /// <inheritdoc cref="Render(EffectRenderArgs{Image{BGRA32}})"/>
         public abstract IEnumerable<ImageInfo> MultipleRender(EffectRenderArgs<Image<BGRA32>> args);
+
+        /// <inheritdoc cref="Render(EffectRenderArgs{Image{BGRA32}})"/>
+        public virtual IEnumerable<ImageInfo> MultipleRender(EffectRenderArgs<ImageInfo> args)
+        {
+            return MultipleRender(new EffectRenderArgs<Image<BGRA32>>(args.Frame, args.Value.Source, args.Type));
+        }
+
         /// <inheritdoc/>
         public override void Render(EffectRenderArgs<Image<BGRA32>> args)
         {

@@ -235,6 +235,8 @@ namespace BEditor.Core
             typeof(LinearGradient),
             typeof(CircularGradient),
             typeof(Mask),
+            typeof(ImageSplit),
+            typeof(MultipleControls),
 
             typeof(DepthTest),
             typeof(DirectionalLightSource),

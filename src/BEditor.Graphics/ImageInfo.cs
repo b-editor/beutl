@@ -14,13 +14,15 @@ namespace BEditor.Graphics
     {
         private readonly Func<ImageInfo, Transform> _getTransform;
 
-        public ImageInfo(Image<BGRA32> image, Func<ImageInfo, Transform> transform)
+        public ImageInfo(Image<BGRA32> image, Func<ImageInfo, Transform> transform, int index)
         {
             Source = image;
             _getTransform = transform;
+            Index = index;
         }
 
         public Image<BGRA32> Source { get; set; }
+        public int Index { get; }
         public Transform Transform => _getTransform(this);
         public bool IsDisposed { get; private set; }
 

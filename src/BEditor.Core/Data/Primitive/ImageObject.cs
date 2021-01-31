@@ -99,7 +99,7 @@ namespace BEditor.Core.Data.Primitive
                     return;
                 }
 
-                var imageArgs = new EffectRenderArgs<Image<BGRA32>>(args.Frame, base_img, args.Type);
+                var imageArgs = new EffectRenderArgs<ImageInfo>(args.Frame, new(base_img, _ => default, 0), args.Type);
 
                 var list = Parent!.Effect.Where(x => x.IsEnabled).ToArray();
 
@@ -125,11 +125,11 @@ namespace BEditor.Core.Data.Primitive
                 {
                     Debug.Assert(!img.IsDisposed);
 
-                    var ef_args = new EffectRenderArgs<Image<BGRA32>>(args.Frame, img.Source, args.Type);
+                    var ef_args = new EffectRenderArgs<ImageInfo>(args.Frame, img, args.Type);
 
                     LoadEffect(ef_args, list);
 
-                    img.Source = ef_args.Value;
+                    img.Source = ef_args.Value.Source;
 
                     Draw(img, args);
 
@@ -144,7 +144,7 @@ namespace BEditor.Core.Data.Primitive
                 NotMultiple(args);
             }
         }
-        private void LoadEffect(EffectRenderArgs<Image<BGRA32>> args, EffectElement[] list)
+        private void LoadEffect(EffectRenderArgs<ImageInfo> args, EffectElement[] list)
         {
             for (int i = 0; i < list.Length; i++)
             {
@@ -162,11 +162,11 @@ namespace BEditor.Core.Data.Primitive
                     {
                         Debug.Assert(!img.IsDisposed);
 
-                        var ef_args = new EffectRenderArgs<Image<BGRA32>>(args.Frame, img.Source, args.Type);
+                        var ef_args = new EffectRenderArgs<ImageInfo>(args.Frame, img, args.Type);
 
                         LoadEffect(ef_args, innerlist);
 
-                        img.Source = ef_args.Value;
+                        img.Source = ef_args.Value.Source;
 
                         Draw(img, args);
 
@@ -194,6 +194,8 @@ namespace BEditor.Core.Data.Primitive
         }
         private void Draw(ImageInfo image, EffectRenderArgs args)
         {
+            if (image.Source.IsDisposed) return;
+
             #region 
             var frame = args.Frame;
 

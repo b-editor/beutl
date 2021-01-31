@@ -9,7 +9,7 @@
              x:Class="BEditor.Views.PropertyControls.Object_Setting"
              mc:Ignorable="d" 
              d:DesignHeight="504" d:DesignWidth="583"
-             AllowDrop="True" PreviewDrop="Preview_Drop">
+             AllowDrop="True" Drop="UserControl_Drop" PreviewDragOver="UserControl_PreviewDragOver">
     <UserControl.Resources>
         <vm:ClipTypeIconConverter x:Key="ClipTypeIconConverter"/>
         <convert:EffectElementToProperty x:Key="EffectElementToProperty"/>

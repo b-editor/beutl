@@ -1089,6 +1089,15 @@ namespace BEditor.Core.Properties {
         }
         
         /// <summary>
+        ///   Image splitting に類似しているローカライズされた文字列を検索します。
+        /// </summary>
+        public static string ImageSplit {
+            get {
+                return ResourceManager.GetString("ImageSplit", resourceCulture);
+            }
+        }
+        
+        /// <summary>
         ///   Infomation に類似しているローカライズされた文字列を検索します。
         /// </summary>
         public static string Infomation {
@@ -1332,6 +1341,15 @@ namespace BEditor.Core.Properties {
         }
         
         /// <summary>
+        ///   Multiple Image Control に類似しているローカライズされた文字列を検索します。
+        /// </summary>
+        public static string MultipleImageControls {
+            get {
+                return ResourceManager.GetString("MultipleImageControls", resourceCulture);
+            }
+        }
+        
+        /// <summary>
         ///   Name に類似しているローカライズされた文字列を検索します。
         /// </summary>
         public static string Name {
@@ -1346,6 +1364,24 @@ namespace BEditor.Core.Properties {
         public static string No {
             get {
                 return ResourceManager.GetString("No", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Number of horizontal divisions に類似しているローカライズされた文字列を検索します。
+        /// </summary>
+        public static string NumberOfHorizontalDivisions {
+            get {
+                return ResourceManager.GetString("NumberOfHorizontalDivisions", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Number of vertical divisions に類似しているローカライズされた文字列を検索します。
+        /// </summary>
+        public static string NumberOfVerticalDivisions {
+            get {
+                return ResourceManager.GetString("NumberOfVerticalDivisions", resourceCulture);
             }
         }
         

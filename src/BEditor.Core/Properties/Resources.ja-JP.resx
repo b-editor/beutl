@@ -816,4 +816,16 @@
   <data name="EnableMultipleObjects" xml:space="preserve">
     <value>多重オブジェクトを有効にする</value>
   </data>
+  <data name="ImageSplit" xml:space="preserve">
+    <value>画像分割</value>
+  </data>
+  <data name="NumberOfHorizontalDivisions" xml:space="preserve">
+    <value>横分割数</value>
+  </data>
+  <data name="NumberOfVerticalDivisions" xml:space="preserve">
+    <value>縦分割数</value>
+  </data>
+  <data name="MultipleImageControls" xml:space="preserve">
+    <value>多重画像コントロール</value>
+  </data>
 </root>

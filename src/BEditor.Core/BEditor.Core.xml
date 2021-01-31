@@ -1497,6 +1497,51 @@
         <member name="M:BEditor.Core.Data.Primitive.Effects.Erode.OnUnload">
             <inheritdoc/>
         </member>
+        <member name="T:BEditor.Core.Data.Primitive.Effects.ImageSplit">
+            <summary>
+            Represents a <see cref="T:BEditor.Core.Data.Primitive.MultipleImageEffect"/> that splits an image.
+            </summary>
+        </member>
+        <member name="F:BEditor.Core.Data.Primitive.Effects.ImageSplit.HSplitMetadata">
+            <summary>
+            Represents <see cref="P:BEditor.Core.Data.Primitive.Effects.ImageSplit.HSplit"/> metadata.
+            </summary>
+        </member>
+        <member name="F:BEditor.Core.Data.Primitive.Effects.ImageSplit.VSplitMetadata">
+            <summary>
+            Represents <see cref="P:BEditor.Core.Data.Primitive.Effects.ImageSplit.VSplit"/> metadata.
+            </summary>
+        </member>
+        <member name="M:BEditor.Core.Data.Primitive.Effects.ImageSplit.#ctor">
+            <summary>
+            Initializes a new instance of the <see cref="T:BEditor.Core.Data.Primitive.Effects.ImageSplit"/> class.
+            </summary>
+        </member>
+        <member name="P:BEditor.Core.Data.Primitive.Effects.ImageSplit.Name">
+            <inheritdoc/>
+        </member>
+        <member name="P:BEditor.Core.Data.Primitive.Effects.ImageSplit.Properties">
+            <inheritdoc/>
+        </member>
+        <member name="P:BEditor.Core.Data.Primitive.Effects.ImageSplit.HSplit">
+            <summary>
+            Get the <see cref="T:BEditor.Core.Data.Property.EaseProperty"/> that represents the number of horizontal divisions.
+            </summary>
+        </member>
+        <member name="P:BEditor.Core.Data.Primitive.Effects.ImageSplit.VSplit">
+            <summary>
+            Get the <see cref="T:BEditor.Core.Data.Property.EaseProperty"/> that represents the number of vertical divisions.
+            </summary>
+        </member>
+        <member name="M:BEditor.Core.Data.Primitive.Effects.ImageSplit.MultipleRender(BEditor.Core.Data.EffectRenderArgs{BEditor.Drawing.Image{BEditor.Drawing.Pixel.BGRA32}})">
+            <inheritdoc/>
+        </member>
+        <member name="M:BEditor.Core.Data.Primitive.Effects.ImageSplit.OnLoad">
+            <inheritdoc/>
+        </member>
+        <member name="M:BEditor.Core.Data.Primitive.Effects.ImageSplit.OnUnload">
+            <inheritdoc/>
+        </member>
         <member name="T:BEditor.Core.Data.Primitive.Effects.Monoc">
             <summary>
             Represents an <see cref="T:BEditor.Core.Data.Primitive.ImageEffect"/> that monochromatizes an image.
@@ -1530,6 +1575,74 @@
             <inheritdoc/>
         </member>
         <member name="M:BEditor.Core.Data.Primitive.Effects.Monoc.OnUnload">
+            <inheritdoc/>
+        </member>
+        <member name="T:BEditor.Core.Data.Primitive.Effects.MultipleControls">
+            <summary>
+            Represents a <see cref="T:BEditor.Core.Data.Primitive.MultipleImageEffect"/> that provides the ability to edit multiple objects by specifying their indices.
+            </summary>
+        </member>
+        <member name="F:BEditor.Core.Data.Primitive.Effects.MultipleControls.CoordinateMetadata">
+            <summary>
+            Represents <see cref="P:BEditor.Core.Data.Primitive.Effects.MultipleControls.Coordinate"/> metadata.
+            </summary>
+        </member>
+        <member name="F:BEditor.Core.Data.Primitive.Effects.MultipleControls.ZoomMetadata">
+            <summary>
+            Represents <see cref="P:BEditor.Core.Data.Primitive.Effects.MultipleControls.Zoom"/> metadata.
+            </summary>
+        </member>
+        <member name="F:BEditor.Core.Data.Primitive.Effects.MultipleControls.AngleMetadata">
+            <summary>
+            Represents <see cref="P:BEditor.Core.Data.Primitive.Effects.MultipleControls.Angle"/> metadata.
+            </summary>
+        </member>
+        <member name="F:BEditor.Core.Data.Primitive.Effects.MultipleControls.IndexMetadata">
+            <summary>
+            Represents <see cref="P:BEditor.Core.Data.Primitive.Effects.MultipleControls.Index"/> metadata.
+            </summary>
+        </member>
+        <member name="M:BEditor.Core.Data.Primitive.Effects.MultipleControls.#ctor">
+            <summary>
+            INitializes a new instance of the <see cref="T:BEditor.Core.Data.Primitive.Effects.MultipleControls"/> class.
+            </summary>
+        </member>
+        <member name="P:BEditor.Core.Data.Primitive.Effects.MultipleControls.Name">
+            <inheritdoc/>
+        </member>
+        <member name="P:BEditor.Core.Data.Primitive.Effects.MultipleControls.Properties">
+            <inheritdoc/>
+        </member>
+        <member name="P:BEditor.Core.Data.Primitive.Effects.MultipleControls.Coordinate">
+            <summary>
+            Get the coordinates.
+            </summary>
+        </member>
+        <member name="P:BEditor.Core.Data.Primitive.Effects.MultipleControls.Zoom">
+            <summary>
+            Get the scale.
+            </summary>
+        </member>
+        <member name="P:BEditor.Core.Data.Primitive.Effects.MultipleControls.Angle">
+            <summary>
+            Get the angle.
+            </summary>
+        </member>
+        <member name="P:BEditor.Core.Data.Primitive.Effects.MultipleControls.Index">
+            <summary>
+            Gets the <see cref="T:BEditor.Core.Data.Property.ValueProperty"/> representing the index of the image to be controlled.
+            </summary>
+        </member>
+        <member name="M:BEditor.Core.Data.Primitive.Effects.MultipleControls.MultipleRender(BEditor.Core.Data.EffectRenderArgs{BEditor.Drawing.Image{BEditor.Drawing.Pixel.BGRA32}})">
+            <inheritdoc/>
+        </member>
+        <member name="M:BEditor.Core.Data.Primitive.Effects.MultipleControls.MultipleRender(BEditor.Core.Data.EffectRenderArgs{BEditor.Graphics.ImageInfo})">
+            <inheritdoc/>
+        </member>
+        <member name="M:BEditor.Core.Data.Primitive.Effects.MultipleControls.OnLoad">
+            <inheritdoc/>
+        </member>
+        <member name="M:BEditor.Core.Data.Primitive.Effects.MultipleControls.OnUnload">
             <inheritdoc/>
         </member>
         <member name="T:BEditor.Core.Data.Primitive.Effects.Shadow">
@@ -1627,9 +1740,10 @@
             </summary>
         </member>
         <member name="M:BEditor.Core.Data.Primitive.ImageEffect.Render(BEditor.Core.Data.EffectRenderArgs{BEditor.Drawing.Image{BEditor.Drawing.Pixel.BGRA32}})">
-            <summary>
-            It is called at rendering time
-            </summary>
+            <inheritdoc cref="M:BEditor.Core.Data.Primitive.ImageEffect.Render(BEditor.Core.Data.EffectRenderArgs{BEditor.Drawing.Image{BEditor.Drawing.Pixel.BGRA32}})"/>
+        </member>
+        <member name="M:BEditor.Core.Data.Primitive.ImageEffect.Render(BEditor.Core.Data.EffectRenderArgs{BEditor.Graphics.ImageInfo})">
+            <inheritdoc cref="M:BEditor.Core.Data.Primitive.ImageEffect.Render(BEditor.Core.Data.EffectRenderArgs{BEditor.Drawing.Image{BEditor.Drawing.Pixel.BGRA32}})"/>
         </member>
         <member name="M:BEditor.Core.Data.Primitive.ImageEffect.Render(BEditor.Core.Data.EffectRenderArgs)">
             <inheritdoc/>
@@ -1723,7 +1837,10 @@
             </summary>
         </member>
         <member name="M:BEditor.Core.Data.Primitive.MultipleImageEffect.MultipleRender(BEditor.Core.Data.EffectRenderArgs{BEditor.Drawing.Image{BEditor.Drawing.Pixel.BGRA32}})">
-            <inheritdoc/>
+            <inheritdoc cref="M:BEditor.Core.Data.Primitive.MultipleImageEffect.Render(BEditor.Core.Data.EffectRenderArgs{BEditor.Drawing.Image{BEditor.Drawing.Pixel.BGRA32}})"/>
+        </member>
+        <member name="M:BEditor.Core.Data.Primitive.MultipleImageEffect.MultipleRender(BEditor.Core.Data.EffectRenderArgs{BEditor.Graphics.ImageInfo})">
+            <inheritdoc cref="M:BEditor.Core.Data.Primitive.MultipleImageEffect.Render(BEditor.Core.Data.EffectRenderArgs{BEditor.Drawing.Image{BEditor.Drawing.Pixel.BGRA32}})"/>
         </member>
         <member name="M:BEditor.Core.Data.Primitive.MultipleImageEffect.Render(BEditor.Core.Data.EffectRenderArgs{BEditor.Drawing.Image{BEditor.Drawing.Pixel.BGRA32}})">
             <inheritdoc/>
@@ -5712,6 +5829,11 @@
               Image Output に類似しているローカライズされた文字列を検索します。
             </summary>
         </member>
+        <member name="P:BEditor.Core.Properties.Resources.ImageSplit">
+            <summary>
+              Image splitting に類似しているローカライズされた文字列を検索します。
+            </summary>
+        </member>
         <member name="P:BEditor.Core.Properties.Resources.Infomation">
             <summary>
               Infomation に類似しているローカライズされた文字列を検索します。
@@ -5847,6 +5969,11 @@
               Multi layerization に類似しているローカライズされた文字列を検索します。
             </summary>
         </member>
+        <member name="P:BEditor.Core.Properties.Resources.MultipleImageControls">
+            <summary>
+              Multiple Image Control に類似しているローカライズされた文字列を検索します。
+            </summary>
+        </member>
         <member name="P:BEditor.Core.Properties.Resources.Name">
             <summary>
               Name に類似しているローカライズされた文字列を検索します。
@@ -5855,6 +5982,16 @@
         <member name="P:BEditor.Core.Properties.Resources.No">
             <summary>
               No に類似しているローカライズされた文字列を検索します。
+            </summary>
+        </member>
+        <member name="P:BEditor.Core.Properties.Resources.NumberOfHorizontalDivisions">
+            <summary>
+              Number of horizontal divisions に類似しているローカライズされた文字列を検索します。
+            </summary>
+        </member>
+        <member name="P:BEditor.Core.Properties.Resources.NumberOfVerticalDivisions">
+            <summary>
+              Number of vertical divisions に類似しているローカライズされた文字列を検索します。
             </summary>
         </member>
         <member name="P:BEditor.Core.Properties.Resources.ObjectViewer">

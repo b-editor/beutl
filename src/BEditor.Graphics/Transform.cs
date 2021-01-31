@@ -36,8 +36,8 @@ namespace BEditor.Graphics
                         * Matrix4.CreateRotationX(MathHelper.DegreesToRadians(Rotate.X))
                         * Matrix4.CreateRotationY(MathHelper.DegreesToRadians(Rotate.Y))
                         * Matrix4.CreateRotationZ(MathHelper.DegreesToRadians(Rotate.Z))
-                            * Matrix4.CreateTranslation(Coordinate)
-                                * Matrix4.CreateScale(Scale);
+                            * Matrix4.CreateScale(Scale)
+                                * Matrix4.CreateTranslation(Coordinate);
             }
         }
 

@@ -132,7 +132,7 @@ namespace BEditor.Core.Data.Primitive.Objects
                 .Select((c, index) => (Image.Text(c.ToString(), Font.Select, Size[args.Frame], Color.Color), index))
                 .Select(t =>
                 {
-                    return new ImageInfo(t.Item1, img => GetTransform(img.Source.Width * t.index, 0));
+                    return new ImageInfo(t.Item1, img => GetTransform(img.Source.Width * t.index, 0), t.index);
                 });
         }
         private static Transform GetTransform(int x, int y)
