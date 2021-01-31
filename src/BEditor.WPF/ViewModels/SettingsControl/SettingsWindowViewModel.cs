@@ -17,7 +17,7 @@ namespace BEditor.ViewModels.SettingsControl
     public class SettingsWindowViewModel : BasePropertyChanged
     {
         private static readonly PropertyChangedEventArgs Args = new(nameof(ViewControl));
-        private object viewControl;
+        private object? viewControl;
 
         public SettingsWindowViewModel()
         {
@@ -32,80 +32,38 @@ namespace BEditor.ViewModels.SettingsControl
 
             #region General
 
-            var general = new TreeViewChild()
-            {
-                Text = Resources.General,
-                PackIconKind = PackIconKind.Settings,
-                Control = new Root()
-            };
+            var general = new TreeViewChild(Resources.General, PackIconKind.Settings, new Root());
 
             // 外観
-            general.TreeViewChildren.Add(new TreeViewChild()
-            {
-                Text = Resources.Appearance,
-                PackIconKind = PackIconKind.WindowMaximize,
-                Control = new Appearance()
-            });
-            
+            general.TreeViewChildren.Add(new(Resources.Appearance, PackIconKind.WindowMaximize, new Appearance()));
+
             // フォント
-            general.TreeViewChildren.Add(new TreeViewChild()
-            {
-                Text = Resources.Font,
-                PackIconKind = PackIconKind.FormatSize,
-                Control = new IncludeFont()
-            });
+            general.TreeViewChildren.Add(new(Resources.Font, PackIconKind.FormatSize, new IncludeFont()));
 
             // その他
-            general.TreeViewChildren.Add(new TreeViewChild()
-            {
-                Text = Resources.Others,
-                PackIconKind = PackIconKind.DotsVertical,
-                Control = new Other()
-            });
+            general.TreeViewChildren.Add(new(Resources.Others, PackIconKind.DotsVertical, new Other()));
 
             #endregion
 
             #region Project
 
-            var project = new TreeViewChild()
-            {
-                Text = Resources.Project,
-                PackIconKind = PackIconKind.File,
-                Control = new ProjectSetting()
-            };
+            var project = new TreeViewChild(Resources.Project, PackIconKind.File, new ProjectSetting());
 
             #endregion
 
             #region Plugins
 
-            var plugins = new TreeViewChild()
-            {
-                Text = Resources.Plugins,
-                PackIconKind = PackIconKind.Puzzle
-            };
+            var plugins = new TreeViewChild(Resources.Plugins, PackIconKind.Puzzle, new Grid());
 
-            plugins.TreeViewChildren.Add(new TreeViewChild()
-            {
-                Text = Resources.InstalledPlugins,
-                Control = new InstalledPlugins()
-            });
+            plugins.TreeViewChildren.Add(new(Resources.InstalledPlugins, PackIconKind.None, new InstalledPlugins()));
 
-            plugins.TreeViewChildren.Add(new TreeViewChild()
-            {
-                Text = Resources.DisabledPlugins,
-                Control = new DisabledPlugins()
-            });
+            plugins.TreeViewChildren.Add(new(Resources.DisabledPlugins, PackIconKind.None, new DisabledPlugins()));
 
             #endregion
 
             #region AppInfo
 
-            var appInfo = new TreeViewChild()
-            {
-                Text = Resources.Infomation,
-                PackIconKind = PackIconKind.Information,
-                Control = new AppInfo()
-            };
+            var appInfo = new TreeViewChild(Resources.Infomation, PackIconKind.Information, new AppInfo());
 
             #endregion
 
@@ -118,7 +76,7 @@ namespace BEditor.ViewModels.SettingsControl
         /// <summary>
         /// 表示されているコントロール
         /// </summary>
-        public object ViewControl { get => viewControl; set => SetValue(value, ref viewControl, Args); }
+        public object? ViewControl { get => viewControl; set => SetValue(value, ref viewControl, Args); }
 
 
         public ReactiveCommand<object> TreeSelectCommand { get; } = new();
@@ -126,12 +84,8 @@ namespace BEditor.ViewModels.SettingsControl
         public ObservableCollection<TreeViewChild> TreeViewProperty { get; set; } = new ObservableCollection<TreeViewChild>();
     }
 
-    public class TreeViewChild
+    public record TreeViewChild(string Text, PackIconKind PackIconKind, object? Control)
     {
-
-        public string Text { get; set; }
-        public PackIconKind PackIconKind { get; set; } = PackIconKind.None;
         public ObservableCollection<TreeViewChild> TreeViewChildren { get; set; } = new ObservableCollection<TreeViewChild>();
-        public object Control { get; set; }
     }
 }

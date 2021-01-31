@@ -28,9 +28,6 @@ namespace BEditor.Views
 {
     public static class ModelToComponent
     {
-        public static List<PropertyViewBuilder> PropertyViewBuilders { get; } = new List<PropertyViewBuilder>();
-        public static List<KeyFrameViewBuilder> KeyFrameViewBuilders { get; } = new List<KeyFrameViewBuilder>();
-
         private static readonly IMultiValueConverter HeaderConverter = new PropertyHeaderTextConverter();
         private static readonly Binding HeaderBinding = new("Metadata.Value.Name") { Mode = BindingMode.OneTime };
         private static readonly Binding ClipNameBinding = new("Property.Parent.Name") { Mode = BindingMode.OneTime };
@@ -41,6 +38,7 @@ namespace BEditor.Views
         private static readonly Binding PropertyFolderBinding = new("Property.Folder") { Mode = BindingMode.OneWay };
         private static readonly Binding PropertyIndexBinding = new("Property.Index") { Mode = BindingMode.OneWay };
         private static readonly Binding PropertySelectBinding = new("Property.Select") { Mode = BindingMode.OneWay };
+        private static readonly Binding PropertySelectItemBinding = new("Property.SelectItem") { Mode = BindingMode.OneWay };
         private static readonly Binding PropertyValueBinding = new("Property.Value") { Mode = BindingMode.OneWay };
         private static readonly Binding ItemsSourcePropertyBinding = new("Metadata.Value.ItemSource") { Mode = BindingMode.OneWay };
         private static readonly Binding DisplayMemberPathBinding = new("Metadata.Value.MemberPath") { Mode = BindingMode.OneTime };
@@ -67,433 +65,365 @@ namespace BEditor.Views
 
         static ModelToComponent()
         {
-
             #region CreatePropertyView
             // CheckProperty
-            PropertyViewBuilders.Add(new()
+            PropertyViewBuilders.Add(PropertyViewBuilder.Create<CheckProperty>(prop =>
             {
-                PropertyType = typeof(CheckProperty),
-                CreateFunc = (elm) =>
+                var view = new CheckPropertyView()
                 {
-                    var view = new CheckPropertyView()
-                    {
-                        DataContext = new CheckPropertyViewModel((CheckProperty)elm)
-                    };
+                    DataContext = new CheckPropertyViewModel(prop)
+                };
 
-                    view.SetBinding(BasePropertyView.HeaderProperty, HeaderBinding);
-                    view.SetBinding(CheckPropertyView.IsCheckedProperty, PropertyIsCheckedBinding);
-                    view.SetBinding(CheckPropertyView.CheckCommandProperty, CommandBinding);
-                    view.SetBinding(BasePropertyView.ResetCommandProperty, ResetBinding);
-                    view.SetBinding(BasePropertyView.BindCommandProperty, BindBinding);
+                view.SetBinding(BasePropertyView.HeaderProperty, HeaderBinding);
+                view.SetBinding(CheckPropertyView.IsCheckedProperty, PropertyIsCheckedBinding);
+                view.SetBinding(CheckPropertyView.CheckCommandProperty, CommandBinding);
+                view.SetBinding(BasePropertyView.ResetCommandProperty, ResetBinding);
+                view.SetBinding(BasePropertyView.BindCommandProperty, BindBinding);
 
-                    view.SetBinding(FrameworkElement.ToolTipProperty, TooltipBinding);
+                view.SetBinding(FrameworkElement.ToolTipProperty, TooltipBinding);
 
-                    return view;
-                }
-            });
+                return view;
+            }));
             // ColorAnimation
-            PropertyViewBuilders.Add(new()
-            {
-                PropertyType = typeof(ColorAnimationProperty),
-                CreateFunc = (elm) => new PropertyControl.ColorAnimation(elm as ColorAnimationProperty)
-            });
+            PropertyViewBuilders.Add(PropertyViewBuilder.Create<ColorAnimationProperty>(prop => new PropertyControl.ColorAnimation(prop)));
             // ColorProperty
-            PropertyViewBuilders.Add(new()
+            PropertyViewBuilders.Add(PropertyViewBuilder.Create<ColorProperty>(prop =>
             {
-                PropertyType = typeof(ColorProperty),
-                CreateFunc = (elm) =>
+                var view = new ColorPropertyView()
                 {
-                    var view = new ColorPropertyView()
-                    {
-                        DataContext = new ColorPickerViewModel((ColorProperty)elm)
-                    };
+                    DataContext = new ColorPickerViewModel(prop)
+                };
 
-                    view.SetBinding(BasePropertyView.HeaderProperty, HeaderBinding);
-                    view.SetBinding(ColorPropertyView.ColorProperty, BrushBinding);
-                    view.SetBinding(ColorPropertyView.ClickCommandProperty, OpenDialogBinding);
-                    view.SetBinding(BasePropertyView.ResetCommandProperty, ResetBinding);
-                    view.SetBinding(BasePropertyView.BindCommandProperty, BindBinding);
+                view.SetBinding(BasePropertyView.HeaderProperty, HeaderBinding);
+                view.SetBinding(ColorPropertyView.ColorProperty, BrushBinding);
+                view.SetBinding(ColorPropertyView.ClickCommandProperty, OpenDialogBinding);
+                view.SetBinding(BasePropertyView.ResetCommandProperty, ResetBinding);
+                view.SetBinding(BasePropertyView.BindCommandProperty, BindBinding);
 
-                    view.SetBinding(FrameworkElement.ToolTipProperty, TooltipBinding);
+                view.SetBinding(FrameworkElement.ToolTipProperty, TooltipBinding);
 
-                    return view;
-                }
-            });
+                return view;
+            }));
             // DocumentProperty
-            PropertyViewBuilders.Add(new()
+            PropertyViewBuilders.Add(PropertyViewBuilder.Create<DocumentProperty>(prop =>
             {
-                PropertyType = typeof(DocumentProperty),
-                CreateFunc = (elm) =>
+                var view = new DocumentPropertyView()
                 {
-                    var view = new DocumentPropertyView()
-                    {
-                        DataContext = new DocumentPropertyViewModel((DocumentProperty)elm)
-                    };
+                    DataContext = new DocumentPropertyViewModel(prop)
+                };
 
-                    view.SetBinding(BasePropertyView.ResetCommandProperty, ResetBinding);
-                    view.SetBinding(BasePropertyView.BindCommandProperty, BindBinding);
-                    view.SetBinding(DocumentPropertyView.TextProperty, PropertyTextBinding);
-                    view.SetBinding(DocumentPropertyView.GotFocusCommandProperty, GotFocusBinding);
-                    view.SetBinding(DocumentPropertyView.LostFocusCommandProperty, LostFocusBinding);
-                    view.SetBinding(DocumentPropertyView.TextChangedCommandProperty, TextChangedBinding);
+                view.SetBinding(BasePropertyView.ResetCommandProperty, ResetBinding);
+                view.SetBinding(BasePropertyView.BindCommandProperty, BindBinding);
+                view.SetBinding(DocumentPropertyView.TextProperty, PropertyTextBinding);
+                view.SetBinding(DocumentPropertyView.GotFocusCommandProperty, GotFocusBinding);
+                view.SetBinding(DocumentPropertyView.LostFocusCommandProperty, LostFocusBinding);
+                view.SetBinding(DocumentPropertyView.TextChangedCommandProperty, TextChangedBinding);
 
-                    return view;
-                }
-            });
+                return view;
+            }));
             // EaseProperty
-            PropertyViewBuilders.Add(new()
-            {
-                PropertyType = typeof(EaseProperty),
-                CreateFunc = (elm) => new EaseControl(elm as EaseProperty)
-            });
+            PropertyViewBuilders.Add(PropertyViewBuilder.Create<EaseProperty>(prop => new EaseControl(prop)));
             // DialogProperty
-            PropertyViewBuilders.Add(new()
-            {
-                PropertyType = typeof(DialogProperty),
-                CreateFunc = (elm) => new DialogControl(elm as DialogProperty)
-            });
+            PropertyViewBuilders.Add(PropertyViewBuilder.Create<DialogProperty>(prop => new DialogControl(prop)));
             // ExpandGroup
-            PropertyViewBuilders.Add(new()
+            PropertyViewBuilders.Add(PropertyViewBuilder.Create<ExpandGroup>(group =>
             {
-                PropertyType = typeof(ExpandGroup),
-                CreateFunc = (elm) =>
+                var _settingcontrol = new ExpandTree()
                 {
-                    var group = elm as ExpandGroup;
-                    var _settingcontrol = new ExpandTree()
+                    Header = group.PropertyMetadata?.Name ?? "",
+                    HeaderHeight = 35F
+                };
+
+                var stack = new VirtualizingStackPanel();
+                VirtualizingPanel.SetIsVirtualizing(stack, true);
+                VirtualizingPanel.SetVirtualizationMode(stack, VirtualizationMode.Recycling);
+
+                var margin = new Thickness(32.5, 0, 0, 0);
+
+                foreach (var item in group.Children)
+                {
+                    var content = item.GetCreatePropertyView();
+
+                    if (content is FrameworkElement fe)
                     {
-                        Header = group.PropertyMetadata.Name,
-                        HeaderHeight = 35F
-                    };
-
-                    var stack = new VirtualizingStackPanel();
-                    VirtualizingPanel.SetIsVirtualizing(stack, true);
-                    VirtualizingPanel.SetVirtualizationMode(stack, VirtualizationMode.Recycling);
-
-                    var margin = new Thickness(32.5, 0, 0, 0);
-
-                    foreach (var item in group.Children)
-                    {
-                        var content = item.GetCreatePropertyView();
-
-                        if (content is FrameworkElement fe)
-                        {
-                            fe.Margin = margin;
-                        }
-
-                        stack.Children.Add(content);
+                        fe.Margin = margin;
                     }
 
-                    _settingcontrol.Content = stack;
-
-                    _settingcontrol.SetResourceReference(ExpandTree.HeaderColorProperty, "MaterialDesignBody");
-                    _settingcontrol.SetBinding(ExpandTree.IsExpandedProperty, new Binding("IsExpanded") { Mode = BindingMode.TwoWay, Source = group });
-
-                    _settingcontrol.ExpanderUpdate();
-
-                    return _settingcontrol;
+                    stack.Children.Add(content);
                 }
-            });
+
+                _settingcontrol.Content = stack;
+
+                _settingcontrol.SetResourceReference(ExpandTree.HeaderColorProperty, "MaterialDesignBody");
+                _settingcontrol.SetBinding(ExpandTree.IsExpandedProperty, new Binding("IsExpanded") { Mode = BindingMode.TwoWay, Source = group });
+
+                _settingcontrol.ExpanderUpdate();
+
+                return _settingcontrol;
+            }));
             // FileProperty
-            PropertyViewBuilders.Add(new()
+            PropertyViewBuilders.Add(PropertyViewBuilder.Create<FileProperty>(prop =>
             {
-                PropertyType = typeof(FileProperty),
-                CreateFunc = (elm) =>
+                var view = new FilePropertyView()
                 {
-                    var view = new FilePropertyView()
-                    {
-                        DataContext = new FilePropertyViewModel((FileProperty)elm)
-                    };
+                    DataContext = new FilePropertyViewModel(prop)
+                };
 
-                    view.SetBinding(BasePropertyView.HeaderProperty, HeaderBinding);
-                    view.SetBinding(BasePropertyView.ResetCommandProperty, ResetBinding);
-                    view.SetBinding(BasePropertyView.BindCommandProperty, BindBinding);
-                    view.SetBinding(FrameworkElement.ToolTipProperty, TooltipBinding);
+                view.SetBinding(BasePropertyView.HeaderProperty, HeaderBinding);
+                view.SetBinding(BasePropertyView.ResetCommandProperty, ResetBinding);
+                view.SetBinding(BasePropertyView.BindCommandProperty, BindBinding);
+                view.SetBinding(FrameworkElement.ToolTipProperty, TooltipBinding);
 
-                    view.SetBinding(FilePropertyView.FileProperty, PropertyFileBinding);
-                    view.SetBinding(FilePropertyView.OpenFileCommandProperty, CommandBinding);
+                view.SetBinding(FilePropertyView.FileProperty, PropertyFileBinding);
+                view.SetBinding(FilePropertyView.OpenFileCommandProperty, CommandBinding);
 
-                    return view;
-                }
-            });
+                return view;
+            }));
             // FontProperty
-            PropertyViewBuilders.Add(new()
+            PropertyViewBuilders.Add(PropertyViewBuilder.Create<FontProperty>(prop =>
             {
-                PropertyType = typeof(FontProperty),
-                CreateFunc = (elm) =>
+                var view = new FontPropertyView()
                 {
-                    var view = new FontPropertyView()
-                    {
-                        DataContext = new FontPropertyViewModel((FontProperty)elm)
-                    };
+                    DataContext = new FontPropertyViewModel(prop)
+                };
 
-                    view.SetBinding(BasePropertyView.HeaderProperty, HeaderBinding);
-                    view.SetBinding(BasePropertyView.ResetCommandProperty, ResetBinding);
-                    view.SetBinding(FrameworkElement.ToolTipProperty, TooltipBinding);
+                view.SetBinding(BasePropertyView.HeaderProperty, HeaderBinding);
+                view.SetBinding(BasePropertyView.ResetCommandProperty, ResetBinding);
+                view.SetBinding(FrameworkElement.ToolTipProperty, TooltipBinding);
 
-                    view.SetBinding(FontPropertyView.ItemsSourceProperty, ItemsSourcePropertyBinding);
-                    view.SetBinding(FontPropertyView.CommandProperty, CommandBinding);
-                    view.SetBinding(FontPropertyView.SelectedItemProperty, PropertySelectBinding);
+                view.SetBinding(FontPropertyView.ItemsSourceProperty, ItemsSourcePropertyBinding);
+                view.SetBinding(FontPropertyView.CommandProperty, CommandBinding);
+                view.SetBinding(FontPropertyView.SelectedItemProperty, PropertySelectBinding);
 
-                    return view;
-                }
-            });
+                return view;
+            }));
             // Group
-            PropertyViewBuilders.Add(new()
+            PropertyViewBuilders.Add(PropertyViewBuilder.Create<Group>(group =>
             {
-                PropertyType = typeof(Group),
-                CreateFunc = (elm) =>
+                var stack = new VirtualizingStackPanel();
+                VirtualizingPanel.SetIsVirtualizing(stack, true);
+                VirtualizingPanel.SetVirtualizationMode(stack, VirtualizationMode.Recycling);
+
+                foreach (var item in group.Children)
                 {
-                    VirtualizingStackPanel stack = new VirtualizingStackPanel();
-                    VirtualizingPanel.SetIsVirtualizing(stack, true);
-                    VirtualizingPanel.SetVirtualizationMode(stack, VirtualizationMode.Recycling);
+                    var content = item.GetCreatePropertyView();
 
-                    var group = elm as Group;
-
-                    foreach (var item in group.Children)
-                    {
-                        var content = item.GetCreatePropertyView();
-
-                        stack.Children.Add(content);
-                    }
-
-                    return stack;
+                    stack.Children.Add(content);
                 }
-            });
+
+                return stack;
+            }));
             // SelectorProperty
-            PropertyViewBuilders.Add(new()
+            PropertyViewBuilders.Add(PropertyViewBuilder.Create<SelectorProperty>(prop =>
             {
-                PropertyType = typeof(SelectorProperty),
-                CreateFunc = (elm) =>
+                var view = new SelectorPropertyView()
                 {
-                    var view = new SelectorPropertyView()
-                    {
-                        DataContext = new SelectorPropertyViewModel((SelectorProperty)elm)
-                    };
+                    DataContext = new SelectorPropertyViewModel(prop)
+                };
 
-                    view.SetBinding(BasePropertyView.HeaderProperty, HeaderBinding);
-                    view.SetBinding(BasePropertyView.ResetCommandProperty, ResetBinding);
-                    view.SetBinding(BasePropertyView.BindCommandProperty, BindBinding);
-                    view.SetBinding(FrameworkElement.ToolTipProperty, TooltipBinding);
+                view.SetBinding(BasePropertyView.HeaderProperty, HeaderBinding);
+                view.SetBinding(BasePropertyView.ResetCommandProperty, ResetBinding);
+                view.SetBinding(BasePropertyView.BindCommandProperty, BindBinding);
+                view.SetBinding(FrameworkElement.ToolTipProperty, TooltipBinding);
 
-                    view.SetBinding(SelectorPropertyView.ItemsSourceProperty, ItemsSourcePropertyBinding);
-                    view.SetBinding(SelectorPropertyView.CommandProperty, CommandBinding);
-                    view.SetBinding(SelectorPropertyView.SelectedIndexProperty, PropertyIndexBinding);
-                    view.SetBinding(SelectorPropertyView.DisplayMemberPathProperty, DisplayMemberPathBinding);
+                view.SetBinding(SelectorPropertyView.ItemsSourceProperty, ItemsSourcePropertyBinding);
+                view.SetBinding(SelectorPropertyView.CommandProperty, CommandBinding);
+                view.SetBinding(SelectorPropertyView.SelectedIndexProperty, PropertyIndexBinding);
+                view.SetBinding(SelectorPropertyView.DisplayMemberPathProperty, DisplayMemberPathBinding);
 
-                    return view;
-                }
-            });
+                return view;
+            }));
+            // SelectorProperty
+            PropertyViewBuilders.Add(new PropertyViewBuilder(typeof(SelectorProperty<>), prop =>
+            {
+                var vmtype = typeof(SelectorPropertyViewModel<>).MakeGenericType(prop.GetType().GenericTypeArguments);
+
+                //Activator.CreateInstance(vmtype, prop);
+
+                var view = new SelectorPropertyViewGen()
+                {
+                    DataContext = Activator.CreateInstance(vmtype, prop)
+                };
+
+                view.SetBinding(BasePropertyView.HeaderProperty, HeaderBinding);
+                view.SetBinding(BasePropertyView.ResetCommandProperty, ResetBinding);
+                view.SetBinding(BasePropertyView.BindCommandProperty, BindBinding);
+                view.SetBinding(FrameworkElement.ToolTipProperty, TooltipBinding);
+
+                view.SetBinding(SelectorPropertyViewGen.ItemsSourceProperty, ItemsSourcePropertyBinding);
+                view.SetBinding(SelectorPropertyViewGen.CommandProperty, CommandBinding);
+                view.SetBinding(SelectorPropertyViewGen.SelectedItemProperty, PropertySelectItemBinding);
+                view.SetBinding(SelectorPropertyViewGen.DisplayMemberPathProperty, DisplayMemberPathBinding);
+
+                return view;
+            }));
             // ValueProperty
-            PropertyViewBuilders.Add(new()
+            PropertyViewBuilders.Add(PropertyViewBuilder.Create<ValueProperty>(prop =>
             {
-                PropertyType = typeof(ValueProperty),
-                CreateFunc = (elm) =>
+                var view = new ValuePropertyView()
                 {
-                    var view = new ValuePropertyView()
-                    {
-                        DataContext = new ValuePropertyViewModel((ValueProperty)elm)
-                    };
+                    DataContext = new ValuePropertyViewModel(prop)
+                };
 
-                    view.SetBinding(BasePropertyView.HeaderProperty, HeaderBinding);
-                    view.SetBinding(BasePropertyView.ResetCommandProperty, ResetBinding);
-                    view.SetBinding(BasePropertyView.BindCommandProperty, BindBinding);
-                    view.SetBinding(FrameworkElement.ToolTipProperty, TooltipBinding);
+                view.SetBinding(BasePropertyView.HeaderProperty, HeaderBinding);
+                view.SetBinding(BasePropertyView.ResetCommandProperty, ResetBinding);
+                view.SetBinding(BasePropertyView.BindCommandProperty, BindBinding);
+                view.SetBinding(FrameworkElement.ToolTipProperty, TooltipBinding);
 
-                    view.SetBinding(ValuePropertyView.ValueProperty, PropertyValueBinding);
-                    view.SetBinding(ValuePropertyView.GotFocusCommandProperty, GotFocusBinding);
-                    view.SetBinding(ValuePropertyView.LostFocusCommandProperty, LostFocusBinding);
-                    view.SetBinding(ValuePropertyView.PreviewMouseWheelCommandProperty, PreviewMouseWheelBinding);
-                    view.SetBinding(ValuePropertyView.KeyDownCommandProperty, TextChangedBinding);
+                view.SetBinding(ValuePropertyView.ValueProperty, PropertyValueBinding);
+                view.SetBinding(ValuePropertyView.GotFocusCommandProperty, GotFocusBinding);
+                view.SetBinding(ValuePropertyView.LostFocusCommandProperty, LostFocusBinding);
+                view.SetBinding(ValuePropertyView.PreviewMouseWheelCommandProperty, PreviewMouseWheelBinding);
+                view.SetBinding(ValuePropertyView.KeyDownCommandProperty, TextChangedBinding);
 
-                    return view;
-                }
-            });
+                return view;
+            }));
             // TextProperty
-            PropertyViewBuilders.Add(new()
+            PropertyViewBuilders.Add(PropertyViewBuilder.Create<TextProperty>(prop =>
             {
-                PropertyType = typeof(TextProperty),
-                CreateFunc = (elm) =>
+                var view = new TextPropertyView()
                 {
-                    var view = new TextPropertyView()
-                    {
-                        DataContext = new TextPropertyViewModel((TextProperty)elm)
-                    };
+                    DataContext = new TextPropertyViewModel(prop)
+                };
 
-                    view.SetBinding(BasePropertyView.HeaderProperty, HeaderBinding);
-                    view.SetBinding(BasePropertyView.ResetCommandProperty, ResetBinding);
-                    view.SetBinding(BasePropertyView.BindCommandProperty, BindBinding);
-                    view.SetBinding(FrameworkElement.ToolTipProperty, TooltipBinding);
+                view.SetBinding(BasePropertyView.HeaderProperty, HeaderBinding);
+                view.SetBinding(BasePropertyView.ResetCommandProperty, ResetBinding);
+                view.SetBinding(BasePropertyView.BindCommandProperty, BindBinding);
+                view.SetBinding(FrameworkElement.ToolTipProperty, TooltipBinding);
 
-                    view.SetBinding(TextPropertyView.TextProperty, PropertyValueBinding);
-                    view.SetBinding(TextPropertyView.GotFocusCommandProperty, GotFocusBinding);
-                    view.SetBinding(TextPropertyView.LostFocusCommandProperty, LostFocusBinding);
-                    view.SetBinding(TextPropertyView.TextChangedCommandProperty, TextChangedBinding);
+                view.SetBinding(TextPropertyView.TextProperty, PropertyValueBinding);
+                view.SetBinding(TextPropertyView.GotFocusCommandProperty, GotFocusBinding);
+                view.SetBinding(TextPropertyView.LostFocusCommandProperty, LostFocusBinding);
+                view.SetBinding(TextPropertyView.TextChangedCommandProperty, TextChangedBinding);
 
-                    return view;
-                }
-            });
+                return view;
+            }));
             // ButtonComponent
-            PropertyViewBuilders.Add(new()
+            PropertyViewBuilders.Add(PropertyViewBuilder.Create<ButtonComponent>(prop =>
             {
-                PropertyType = typeof(ButtonComponent),
-                CreateFunc = (elm) =>
+                var view = new ButtonComponentView()
                 {
-                    var view = new ButtonComponentView()
-                    {
-                        DataContext = new ButtonComponentViewModel((ButtonComponent)elm)
-                    };
+                    DataContext = new ButtonComponentViewModel(prop)
+                };
 
-                    view.SetBinding(ButtonComponentView.TextProperty, HeaderBinding);
-                    view.SetBinding(ButtonComponentView.CommandProperty, CommandBinding);
+                view.SetBinding(ButtonComponentView.TextProperty, HeaderBinding);
+                view.SetBinding(ButtonComponentView.CommandProperty, CommandBinding);
 
-                    return view;
-                }
-            });
+                return view;
+            }));
             // FolderProperty
-            PropertyViewBuilders.Add(new()
+            PropertyViewBuilders.Add(PropertyViewBuilder.Create<FolderProperty>(prop =>
             {
-                PropertyType = typeof(FolderProperty),
-                CreateFunc = elm =>
+                var view = new FolderPropertyView()
                 {
-                    var view = new FolderPropertyView()
-                    {
-                        DataContext = new FolderPropertyViewModel((FolderProperty)elm)
-                    };
+                    DataContext = new FolderPropertyViewModel(prop)
+                };
 
-                    view.SetBinding(BasePropertyView.HeaderProperty, HeaderBinding);
-                    view.SetBinding(BasePropertyView.ResetCommandProperty, ResetBinding);
-                    view.SetBinding(BasePropertyView.BindCommandProperty, BindBinding);
-                    view.SetBinding(FrameworkElement.ToolTipProperty, TooltipBinding);
+                view.SetBinding(BasePropertyView.HeaderProperty, HeaderBinding);
+                view.SetBinding(BasePropertyView.ResetCommandProperty, ResetBinding);
+                view.SetBinding(BasePropertyView.BindCommandProperty, BindBinding);
+                view.SetBinding(FrameworkElement.ToolTipProperty, TooltipBinding);
 
-                    view.SetBinding(FolderPropertyView.FolderProperty, PropertyFolderBinding);
-                    view.SetBinding(FolderPropertyView.OpenFolderCommandProperty, CommandBinding);
+                view.SetBinding(FolderPropertyView.FolderProperty, PropertyFolderBinding);
+                view.SetBinding(FolderPropertyView.OpenFolderCommandProperty, CommandBinding);
 
-                    return view;
-                }
-            });
+                return view;
+            }));
             // LabelComponent
-            PropertyViewBuilders.Add(new()
+            PropertyViewBuilders.Add(PropertyViewBuilder.Create<LabelComponent>(prop =>
             {
-                PropertyType = typeof(LabelComponent),
-                CreateFunc = elm =>
+                var view = new LabelComponentView()
                 {
-                    var view = new LabelComponentView()
-                    {
-                        DataContext = elm
-                    };
+                    DataContext = prop
+                };
 
-                    view.SetBinding(LabelComponentView.TextProperty, "Text");
+                view.SetBinding(LabelComponentView.TextProperty, "Text");
 
-                    return view;
-                }
-            });
+                return view;
+            }));
             #endregion
 
             #region CreateKeyFrameView
             // EaseProperty
-            KeyFrameViewBuilders.Add(new()
-            {
-                PropertyType = typeof(EaseProperty),
-                CreateFunc = (elm) => new KeyFrame(elm.GetParent3(), elm as EaseProperty)
-            });
+            KeyFrameViewBuilders.Add(KeyFrameViewBuilder.Create<EaseProperty>(prop => new KeyFrame(prop.GetParent3()!, prop)));
             // ColorAnimation
-            KeyFrameViewBuilders.Add(new()
-            {
-                PropertyType = typeof(ColorAnimationProperty),
-                CreateFunc = (elm) => new TimeLines.ColorAnimation(elm as ColorAnimationProperty)
-            });
+            KeyFrameViewBuilders.Add(KeyFrameViewBuilder.Create<ColorAnimationProperty>(prop => new TimeLines.ColorAnimation(prop)));
             // ExpandGroup
-            KeyFrameViewBuilders.Add(new()
+            KeyFrameViewBuilders.Add(KeyFrameViewBuilder.Create<ExpandGroup>(group =>
             {
-                PropertyType = typeof(ExpandGroup),
-                CreateFunc = (elm) =>
+                var expander = new ExpandTree()
                 {
-                    var group = elm as ExpandGroup;
+                    Header = group.PropertyMetadata?.Name ?? "",
+                    HeaderHeight = Setting.ClipHeight + 1,
+                    TreeStair = 1
+                };
 
-                    var expander = new ExpandTree()
+                var stack = new VirtualizingStackPanel();
+                VirtualizingPanel.SetIsVirtualizing(stack, true);
+                VirtualizingPanel.SetVirtualizationMode(stack, VirtualizationMode.Recycling);
+
+                expander.Content = stack;
+
+                var binding = new Binding("ActualWidth") { Mode = BindingMode.OneWay, Source = stack };
+
+                foreach (var item in group.Children)
+                {
+                    if (item is IKeyFrameProperty easing)
                     {
-                        Header = group.PropertyMetadata.Name,
-                        HeaderHeight = Setting.ClipHeight + 1,
-                        TreeStair = 1
-                    };
+                        var tmp = easing.GetCreateKeyFrameView();
 
-                    var stack = new VirtualizingStackPanel();
-                    VirtualizingPanel.SetIsVirtualizing(stack, true);
-                    VirtualizingPanel.SetVirtualizationMode(stack, VirtualizationMode.Recycling);
+                        (tmp as FrameworkElement)?.SetBinding(FrameworkElement.WidthProperty, binding);
 
-                    expander.Content = stack;
-
-                    var binding = new Binding("ActualWidth") { Mode = BindingMode.OneWay, Source = stack };
-
-                    foreach (var item in group.Children)
-                    {
-                        if (item is IKeyFrameProperty easing)
-                        {
-                            var tmp = easing.GetCreateKeyFrameView();
-
-                            (tmp as FrameworkElement)?.SetBinding(FrameworkElement.WidthProperty, binding);
-
-                            stack.Children.Add(tmp);
-                        }
+                        stack.Children.Add(tmp);
                     }
-
-                    expander.SetBinding(ExpandTree.IsExpandedProperty, new Binding("IsExpanded") { Mode = BindingMode.TwoWay, Source = group });
-
-                    expander.ExpanderUpdate();
-
-                    return expander;
                 }
-            });
+
+                expander.SetBinding(ExpandTree.IsExpandedProperty, new Binding("IsExpanded") { Mode = BindingMode.TwoWay, Source = group });
+
+                expander.ExpanderUpdate();
+
+                return expander;
+            }));
             // Group
-            KeyFrameViewBuilders.Add(new()
+            KeyFrameViewBuilders.Add(KeyFrameViewBuilder.Create<Group>((group) =>
             {
-                PropertyType = typeof(Group),
-                CreateFunc = (elm) =>
+                var stack = new VirtualizingStackPanel();
+                VirtualizingPanel.SetIsVirtualizing(stack, true);
+                VirtualizingPanel.SetVirtualizationMode(stack, VirtualizationMode.Recycling);
+                var binding = new Binding("ActualWidth") { Mode = BindingMode.OneWay, Source = stack };
+                foreach (var item in group.Children)
                 {
-                    var group = elm as Group;
-
-                    var stack = new VirtualizingStackPanel();
-                    VirtualizingPanel.SetIsVirtualizing(stack, true);
-                    VirtualizingPanel.SetVirtualizationMode(stack, VirtualizationMode.Recycling);
-
-                    var binding = new Binding("ActualWidth") { Mode = BindingMode.OneWay, Source = stack };
-
-                    foreach (var item in group.Children)
+                    if (item is IKeyFrameProperty easing)
                     {
-                        if (item is IKeyFrameProperty easing)
-                        {
-                            var tmp = easing.GetCreateKeyFrameView();
-                            (tmp as FrameworkElement)?.SetBinding(FrameworkElement.WidthProperty, binding);
-                            stack.Children.Add(tmp);
-                        }
+                        var tmp = easing.GetCreateKeyFrameView();
+                        (tmp as FrameworkElement)?.SetBinding(FrameworkElement.WidthProperty, binding);
+                        stack.Children.Add(tmp);
                     }
-
-                    return stack;
                 }
-            });
+                return stack;
+            }));
             #endregion
         }
 
-        public class PropertyViewBuilder
-        {
-            public Type PropertyType { get; set; }
-            public Func<PropertyElement, UIElement> CreateFunc { get; set; }
-        }
-
-        public class KeyFrameViewBuilder
-        {
-            public Type PropertyType { get; set; }
-            public Func<IKeyFrameProperty, UIElement> CreateFunc { get; set; }
-        }
+        public static List<PropertyViewBuilder> PropertyViewBuilders { get; } = new List<PropertyViewBuilder>();
+        public static List<KeyFrameViewBuilder> KeyFrameViewBuilders { get; } = new List<KeyFrameViewBuilder>();
 
         public static UIElement GetCreatePropertyView(this PropertyElement property)
         {
             if (!property.ComponentData.ContainsKey("GetPropertyView"))
             {
                 var type = property.GetType();
-                var func = PropertyViewBuilders.Find(x => type == x.PropertyType || type.IsSubclassOf(x.PropertyType));
+                var func = PropertyViewBuilders.Find(x =>
+                {
+                    if (type.IsGenericType)
+                    {
+                        return type.GetGenericTypeDefinition() == x.PropertyType;
+                    }
 
-                property.ComponentData.Add("GetPropertyView", func.CreateFunc?.Invoke(property));
+                    return type == x.PropertyType || type.IsSubclassOf(x.PropertyType);
+                });
+
+                property.ComponentData.Add("GetPropertyView", func?.CreateFunc?.Invoke(property) ?? new TextBlock() { Height = 32.5 });
             }
             return property.ComponentData["GetPropertyView"];
         }
@@ -504,7 +434,7 @@ namespace BEditor.Views
                 var type = property.GetType();
                 var func = KeyFrameViewBuilders.Find(x => type == x.PropertyType || type.IsSubclassOf(x.PropertyType));
 
-                property.ComponentData.Add("GetKeyFrameView", func.CreateFunc?.Invoke(property));
+                property.ComponentData.Add("GetKeyFrameView", func?.CreateFunc?.Invoke(property) ?? new TextBlock());
             }
             return property.ComponentData["GetKeyFrameView"];
         }
@@ -654,8 +584,6 @@ namespace BEditor.Views
             }
             return easing.ComponentData["GetPropertyView"];
         }
-
-
         public static (ExpandTree, VirtualizingStackPanel) CreateTreeObject(ObjectElement obj)
         {
             var _expander = new ExpandTree()
@@ -719,7 +647,7 @@ namespace BEditor.Views
             #region イベント
             checkBox.Click += (sender, e) =>
             {
-                obj.CreateCheckCommand((bool)((CheckBox)sender).IsChecked).Execute();
+                obj.ChangeIsEnabled((bool)((CheckBox)sender).IsChecked!).Execute();
             };
 
             #endregion
@@ -826,13 +754,13 @@ namespace BEditor.Views
 
             #region イベント
 
-            checkBox.Click += (sender, e) => effect.CreateCheckCommand((bool)((CheckBox)sender).IsChecked).Execute();
+            checkBox.Click += (sender, e) => effect.ChangeIsEnabled((bool)((CheckBox)sender).IsChecked!).Execute();
 
-            upbutton.Click += (sender, e) => effect.CreateUpCommand().Execute();
+            upbutton.Click += (sender, e) => effect.BringForward().Execute();
 
-            downbutton.Click += (sender, e) => effect.CreateDownCommand().Execute();
+            downbutton.Click += (sender, e) => effect.SendBackward().Execute();
 
-            Delete.Click += (sender, e) => effect.Parent.CreateRemoveCommand(effect).Execute();
+            Delete.Click += (sender, e) => effect.Parent!.RemoveEffect(effect).Execute();
 
             #endregion
 
@@ -868,5 +796,20 @@ namespace BEditor.Views
             return (_expander, stack);
         }
 
+        public record PropertyViewBuilder(Type PropertyType, Func<PropertyElement, UIElement> CreateFunc)
+        {
+            public static PropertyViewBuilder Create<T>(Func<T, UIElement> CreateFunc) where T : PropertyElement
+            {
+                return new(typeof(T), (p) => CreateFunc((T)p));
+            }
+        }
+
+        public record KeyFrameViewBuilder(Type PropertyType, Func<IKeyFrameProperty, UIElement> CreateFunc)
+        {
+            public static KeyFrameViewBuilder Create<T>(Func<T, UIElement> CreateFunc) where T : IKeyFrameProperty
+            {
+                return new(typeof(T), (p) => CreateFunc((T)p));
+            }
+        }
     }
 }

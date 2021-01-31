@@ -5,10 +5,6 @@ using System.IO;
 using System.Runtime.InteropServices;
 using System.Threading.Tasks;
 
-using BEditor.Core.Data;
-using BEditor.Core.Data.Primitive;
-using BEditor.Core.Data.Primitive.Objects;
-using BEditor.Core.Data.Property.PrimitiveGroup;
 using BEditor.Drawing;
 using BEditor.Drawing.Pixel;
 
@@ -19,7 +15,7 @@ using OpenTK.Mathematics;
 using OpenTK.Windowing.Desktop;
 using OpenTK.Windowing.GraphicsLibraryFramework;
 
-namespace BEditor.Core.Graphics
+namespace BEditor.Graphics
 {
     public unsafe sealed class GraphicsContext : IDisposable
     {
@@ -108,102 +104,102 @@ namespace BEditor.Core.Graphics
         {
             GameWindow.Context.SwapBuffers();
         }
-        internal void DrawImage(Image<BGRA32> img, ClipData data, EffectRenderArgs args)
-        {
-            if (img == null) return;
+        //internal void DrawImage(Image<BGRA32> img, ClipData data, EffectRenderArgs args)
+        //{
+        //    if (img == null) return;
 
-            #region MyRegion
+        //    #region MyRegion
 
-            var frame = args.Frame;
-            var drawObject = (data.Effect[0] as ImageObject)??throw new NotSupportedException();
+        //    var frame = args.Frame;
+        //    var drawObject = (data.Effect[0] as ImageObject)??throw new NotSupportedException();
 
-            float alpha = (float)(drawObject.Blend.Alpha.GetValue(frame) / 100);
+        //    float alpha = (float)(drawObject.Blend.Alpha.GetValue(frame) / 100);
 
-            var scale = (float)(drawObject.Zoom.Scale.GetValue(frame) / 100);
-            var scalex = (float)(drawObject.Zoom.ScaleX.GetValue(frame) / 100) * scale;
-            var scaley = (float)(drawObject.Zoom.ScaleY.GetValue(frame) / 100) * scale;
-            var scalez = (float)(drawObject.Zoom.ScaleZ.GetValue(frame) / 100) * scale;
+        //    var scale = (float)(drawObject.Zoom.Scale.GetValue(frame) / 100);
+        //    var scalex = (float)(drawObject.Zoom.ScaleX.GetValue(frame) / 100) * scale;
+        //    var scaley = (float)(drawObject.Zoom.ScaleY.GetValue(frame) / 100) * scale;
+        //    var scalez = (float)(drawObject.Zoom.ScaleZ.GetValue(frame) / 100) * scale;
 
-            var coordinate = new System.Numerics.Vector3(
-                drawObject.Coordinate.X.GetValue(frame),
-                drawObject.Coordinate.Y.GetValue(frame),
-                drawObject.Coordinate.Z.GetValue(frame));
+        //    var coordinate = new System.Numerics.Vector3(
+        //        drawObject.Coordinate.X.GetValue(frame),
+        //        drawObject.Coordinate.Y.GetValue(frame),
+        //        drawObject.Coordinate.Z.GetValue(frame));
 
-            var center = new System.Numerics.Vector3(
-                drawObject.Coordinate.CenterX.GetValue(frame),
-                drawObject.Coordinate.CenterY.GetValue(frame),
-                drawObject.Coordinate.CenterZ.GetValue(frame));
+        //    var center = new System.Numerics.Vector3(
+        //        drawObject.Coordinate.CenterX.GetValue(frame),
+        //        drawObject.Coordinate.CenterY.GetValue(frame),
+        //        drawObject.Coordinate.CenterZ.GetValue(frame));
 
 
-            var nx = drawObject.Angle.AngleX.GetValue(frame);
-            var ny = drawObject.Angle.AngleY.GetValue(frame);
-            var nz = drawObject.Angle.AngleZ.GetValue(frame);
+        //    var nx = drawObject.Angle.AngleX.GetValue(frame);
+        //    var ny = drawObject.Angle.AngleY.GetValue(frame);
+        //    var nz = drawObject.Angle.AngleZ.GetValue(frame);
 
-            Color ambient = drawObject.Material.Ambient.GetValue(frame);
-            Color diffuse = drawObject.Material.Diffuse.GetValue(frame);
-            Color specular = drawObject.Material.Specular.GetValue(frame);
-            float shininess = drawObject.Material.Shininess.GetValue(frame);
-            var c = drawObject.Blend.Color.GetValue(frame);
-            var color = Color.FromARGB((byte)(c.A * alpha), c.R, c.G, c.B);
+        //    Color ambient = drawObject.Material.Ambient.GetValue(frame);
+        //    Color diffuse = drawObject.Material.Diffuse.GetValue(frame);
+        //    Color specular = drawObject.Material.Specular.GetValue(frame);
+        //    float shininess = drawObject.Material.Shininess.GetValue(frame);
+        //    var c = drawObject.Blend.Color.GetValue(frame);
+        //    var color = Color.FromARGB((byte)(c.A * alpha), c.R, c.G, c.B);
 
-            #endregion
+        //    #endregion
 
-            MakeCurrent();
+        //    MakeCurrent();
 
-            using var texture = Texture.FromImage(img);
-            texture.Use(TextureUnit.Texture0);
-            //using var textureShader = Shader.FromFile(
-            //    Path.Combine(AppContext.BaseDirectory, "Shaders", "TextureShader.vert"),
-            //    Path.Combine(AppContext.BaseDirectory, "Shaders", "TextureShader.frag"));
+        //    using var texture = Texture.FromImage(img);
+        //    texture.Use(TextureUnit.Texture0);
+        //    //using var textureShader = Shader.FromFile(
+        //    //    Path.Combine(AppContext.BaseDirectory, "Shaders", "TextureShader.vert"),
+        //    //    Path.Combine(AppContext.BaseDirectory, "Shaders", "TextureShader.frag"));
 
-            textureShader.Use();
+        //    textureShader.Use();
 
-            var vertexLocation = textureShader.GetAttribLocation("aPosition");
-            GL.EnableVertexAttribArray(vertexLocation);
-            GL.VertexAttribPointer(vertexLocation, 3, VertexAttribPointerType.Float, false, 5 * sizeof(float), 0);
+        //    var vertexLocation = textureShader.GetAttribLocation("aPosition");
+        //    GL.EnableVertexAttribArray(vertexLocation);
+        //    GL.VertexAttribPointer(vertexLocation, 3, VertexAttribPointerType.Float, false, 5 * sizeof(float), 0);
 
-            var texCoordLocation = textureShader.GetAttribLocation("aTexCoord");
-            GL.EnableVertexAttribArray(texCoordLocation);
-            GL.VertexAttribPointer(texCoordLocation, 2, VertexAttribPointerType.Float, false, 5 * sizeof(float), 3 * sizeof(float));
+        //    var texCoordLocation = textureShader.GetAttribLocation("aTexCoord");
+        //    GL.EnableVertexAttribArray(texCoordLocation);
+        //    GL.VertexAttribPointer(texCoordLocation, 2, VertexAttribPointerType.Float, false, 5 * sizeof(float), 3 * sizeof(float));
 
-            textureShader.SetInt("texture", 0);
+        //    textureShader.SetInt("texture", 0);
 
-            GL.Enable(EnableCap.Blend);
+        //    GL.Enable(EnableCap.Blend);
 
-            var blendFunc = Blend.BlentFunc[drawObject.Blend.BlendType.Index];
+        //    var blendFunc = Blend.BlentFunc[drawObject.Blend.BlendType.Index];
 
-            blendFunc?.Invoke();
-            if (blendFunc is null)
-            {
-                GL.BlendEquationSeparate(BlendEquationMode.FuncAdd, BlendEquationMode.FuncAdd);
-                GL.BlendFunc(BlendingFactor.SrcAlpha, BlendingFactor.OneMinusSrcAlpha);
-            }
+        //    blendFunc?.Invoke();
+        //    if (blendFunc is null)
+        //    {
+        //        GL.BlendEquationSeparate(BlendEquationMode.FuncAdd, BlendEquationMode.FuncAdd);
+        //        GL.BlendFunc(BlendingFactor.SrcAlpha, BlendingFactor.OneMinusSrcAlpha);
+        //    }
 
-            //GL.Color4(color.ToOpenTK());
-            //GL.Material(MaterialFace.Front, MaterialParameter.Ambient, ambient.ToOpenTK());
-            //GL.Material(MaterialFace.Front, MaterialParameter.Diffuse, diffuse.ToOpenTK());
-            //GL.Material(MaterialFace.Front, MaterialParameter.Specular, specular.ToOpenTK());
-            //GL.Material(MaterialFace.Front, MaterialParameter.Shininess, shininess);
+        //    //GL.Color4(color.ToOpenTK());
+        //    //GL.Material(MaterialFace.Front, MaterialParameter.Ambient, ambient.ToOpenTK());
+        //    //GL.Material(MaterialFace.Front, MaterialParameter.Diffuse, diffuse.ToOpenTK());
+        //    //GL.Material(MaterialFace.Front, MaterialParameter.Specular, specular.ToOpenTK());
+        //    //GL.Material(MaterialFace.Front, MaterialParameter.Shininess, shininess);
 
-            GL.Enable(EnableCap.Texture2D);
+        //    GL.Enable(EnableCap.Texture2D);
 
-            var model = Matrix4.Identity
-                * Matrix4.CreateTranslation(center.ToOpenTK())
-                    * Matrix4.CreateRotationX(MathHelper.DegreesToRadians(nx))
-                    * Matrix4.CreateRotationY(MathHelper.DegreesToRadians(ny))
-                    * Matrix4.CreateRotationZ(MathHelper.DegreesToRadians(nz))
-                        * Matrix4.CreateTranslation(coordinate.ToOpenTK())
-                            * Matrix4.CreateScale(scalex, scaley, scalez);
+        //    var model = Matrix4.Identity
+        //        * Matrix4.CreateTranslation(center.ToOpenTK())
+        //            * Matrix4.CreateRotationX(MathHelper.DegreesToRadians(nx))
+        //            * Matrix4.CreateRotationY(MathHelper.DegreesToRadians(ny))
+        //            * Matrix4.CreateRotationZ(MathHelper.DegreesToRadians(nz))
+        //                * Matrix4.CreateTranslation(coordinate.ToOpenTK())
+        //                    * Matrix4.CreateScale(scalex, scaley, scalez);
 
-            textureShader.SetVector4("color", color.ToVector4());
-            textureShader.SetMatrix4("model", model);
-            textureShader.SetMatrix4("view", Camera.GetViewMatrix());
-            textureShader.SetMatrix4("projection", Camera.GetProjectionMatrix());
+        //    textureShader.SetVector4("color", color.ToVector4());
+        //    textureShader.SetMatrix4("model", model);
+        //    textureShader.SetMatrix4("view", Camera.GetViewMatrix());
+        //    textureShader.SetMatrix4("projection", Camera.GetProjectionMatrix());
 
-            textureShader.Use();
+        //    textureShader.Use();
 
-            texture.Render(TextureUnit.Texture0);
-        }
+        //    texture.Render(TextureUnit.Texture0);
+        //}
         public void DrawTexture(Texture texture, Transform transform, Color color)
         {
             MakeCurrent();
@@ -230,7 +226,39 @@ namespace BEditor.Core.Graphics
             GL.Enable(EnableCap.Texture2D);
 
             textureShader.SetVector4("color", color.ToVector4());
-            textureShader.SetMatrix4("model", transform.Matrix);
+            textureShader.SetMatrix4("model", transform.Matrix.ToOpenTK());
+            textureShader.SetMatrix4("view", Camera.GetViewMatrix());
+            textureShader.SetMatrix4("projection", Camera.GetProjectionMatrix());
+
+            textureShader.Use();
+
+            texture.Render(TextureUnit.Texture0);
+        }
+        public void DrawTexture(Texture texture, Transform transform, Color color, Action blend)
+        {
+            MakeCurrent();
+            texture.Use(TextureUnit.Texture0);
+
+            textureShader.Use();
+
+            var vertexLocation = textureShader.GetAttribLocation("aPosition");
+            GL.EnableVertexAttribArray(vertexLocation);
+            GL.VertexAttribPointer(vertexLocation, 3, VertexAttribPointerType.Float, false, 5 * sizeof(float), 0);
+
+            var texCoordLocation = textureShader.GetAttribLocation("aTexCoord");
+            GL.EnableVertexAttribArray(texCoordLocation);
+            GL.VertexAttribPointer(texCoordLocation, 2, VertexAttribPointerType.Float, false, 5 * sizeof(float), 3 * sizeof(float));
+
+            textureShader.SetInt("texture", 0);
+
+            GL.Enable(EnableCap.Blend);
+
+            blend();
+
+            GL.Enable(EnableCap.Texture2D);
+
+            textureShader.SetVector4("color", color.ToVector4());
+            textureShader.SetMatrix4("model", transform.Matrix.ToOpenTK());
             textureShader.SetMatrix4("view", Camera.GetViewMatrix());
             textureShader.SetMatrix4("projection", Camera.GetProjectionMatrix());
 
@@ -251,7 +279,7 @@ namespace BEditor.Core.Graphics
 
             GL.BindVertexArray(cube.VertexArrayObject);
 
-            Shader.SetMatrix4("model", transform.Matrix);
+            Shader.SetMatrix4("model", transform.Matrix.ToOpenTK());
             Shader.SetMatrix4("view", Camera.GetViewMatrix());
             Shader.SetMatrix4("projection", Camera.GetProjectionMatrix());
             Shader.SetVector4("color", cube.Color.ToVector4());

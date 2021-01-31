@@ -32,6 +32,14 @@ namespace BEditor.Views.TimeLines
         public static readonly DependencyProperty RemoveCommandProperty = DependencyProperty.Register("RemoveCommand", typeof(ICommand), typeof(ColorAnimation));
         public static readonly DependencyProperty MoveCommandProperty = DependencyProperty.Register("MoveCommand", typeof(ICommand), typeof(ColorAnimation));
 
+        private readonly ColorAnimationProperty _Property;
+        private bool addtoggle;
+        private int startpos;
+
+        private PackIcon? select;
+        //相対的
+        private Media.Frame nowframe;
+
         public ICommand AddCommand
         {
             get => (ICommand)GetValue(AddCommandProperty);
@@ -48,8 +56,7 @@ namespace BEditor.Views.TimeLines
             set => SetValue(MoveCommandProperty, value);
         }
 
-        private readonly ColorAnimationProperty Color;
-        private Scene Scene => Color.GetParent3();
+        private Scene Scene => _Property.GetParent3()!;
 
         public double LogicHeight => Settings.Default.ClipHeight + 1;
 
@@ -58,11 +65,11 @@ namespace BEditor.Views.TimeLines
             var viewModel = new ColorAnimationViewModel(color);
             DataContext = viewModel;
             InitializeComponent();
-            Color = color;
+            _Property = color;
 
             viewModel.AddKeyFrameIcon = (frame, index) =>
             {
-                App.Current?.Dispatcher?.Invoke(() =>
+                App.Current.Dispatcher.Invoke(() =>
                 {
                     var x = Scene.GetCreateTimeLineViewModel().ToPixel(frame);
                     var icon = new PackIcon()
@@ -91,10 +98,10 @@ namespace BEditor.Views.TimeLines
 
                 });
             };
-            viewModel.DeleteKeyFrameIcon = (index) => App.Current?.Dispatcher?.Invoke(() => grid.Children.RemoveAt(index));
+            viewModel.DeleteKeyFrameIcon = (index) => App.Current.Dispatcher.Invoke(() => grid.Children.RemoveAt(index));
             viewModel.MoveKeyFrameIcon = (from, to) =>
             {
-                App.Current?.Dispatcher?.Invoke(() =>
+                App.Current.Dispatcher.Invoke(() =>
                 {
                     var icon = grid.Children[from];
                     grid.Children.RemoveAt(from);
@@ -114,7 +121,7 @@ namespace BEditor.Views.TimeLines
                 viewModel.AddKeyFrameIcon(color.Frame[index], index);
             }
 
-            var tmp = Scene.GetCreateTimeLineViewModel().ToPixel(color.GetParent2().Length);
+            var tmp = Scene.GetCreateTimeLineViewModel().ToPixel(color.GetParent2()!.Length);
             if (tmp > 0)
             {
                 Width = tmp;
@@ -153,29 +160,22 @@ namespace BEditor.Views.TimeLines
         /// </summary>
         private void ZoomChange()
         {
-            for (int frame = 0; frame < Color.Frame.Count; frame++)
+            for (int frame = 0; frame < _Property.Frame.Count; frame++)
             {
                 if (grid.Children[frame] is PackIcon icon)
                 {
-                    icon.Margin = new Thickness(Scene.GetCreateTimeLineViewModel().ToPixel(Color.Frame[frame]), 0, 0, 0);
+                    icon.Margin = new Thickness(Scene.GetCreateTimeLineViewModel().ToPixel(_Property.Frame[frame]), 0, 0, 0);
                 }
             }
 
-            Width = Scene.GetCreateTimeLineViewModel().ToPixel(Color.GetParent2().Length);
+            Width = Scene.GetCreateTimeLineViewModel().ToPixel(_Property.GetParent2()!.Length);
         }
         #endregion
 
 
         private void Add_Pos(object sender, RoutedEventArgs e) => AddCommand.Execute(nowframe);
 
-        private void Delete_Click(object sender, RoutedEventArgs e) => RemoveCommand.Execute(Color.Frame[grid.Children.IndexOf(select)]);
-
-        private bool addtoggle;
-        private int startpos;
-
-        private PackIcon select;
-        //相対的
-        private Media.Frame nowframe;
+        private void Delete_Click(object sender, RoutedEventArgs e) => RemoveCommand.Execute(_Property.Frame[grid.Children.IndexOf(select)]);
 
         #region MouseMoveEvent
         private void Mouse_Move(object sender, MouseEventArgs e)
@@ -297,8 +297,13 @@ namespace BEditor.Views.TimeLines
         }
         #endregion
 
-        private void IconMouseLeftUp(object sender, MouseButtonEventArgs e) =>
-            MoveCommand.Execute((grid.Children.IndexOf(select), Scene.GetCreateTimeLineViewModel().ToFrame(select.Margin.Left)));
+        private void IconMouseLeftUp(object sender, MouseButtonEventArgs e)
+        {
+            if (select is not null)
+            {
+                MoveCommand.Execute((grid.Children.IndexOf(select), Scene.GetCreateTimeLineViewModel().ToFrame(select.Margin.Left)));
+            }
+        }
 
         #region MouseUp
         private void Mouseup(object sender, MouseButtonEventArgs e)

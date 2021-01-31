@@ -1,6 +1,7 @@
 ﻿using System;
 using System.Collections.Generic;
 using System.ComponentModel;
+using System.Diagnostics.Contracts;
 using System.Reactive.Disposables;
 using System.Runtime.Serialization;
 using System.Threading.Tasks;
@@ -12,7 +13,7 @@ using BEditor.Core.Extensions;
 namespace BEditor.Core.Data.Property
 {
     /// <summary>
-    /// 複数行の文字のプロパティを表します
+    /// Represents a property of a multi-line string.
     /// </summary>
     [DataContract]
     public class DocumentProperty : PropertyElement<DocumentPropertyMetadata>, IBindable<string>
@@ -28,9 +29,21 @@ namespace BEditor.Core.Data.Property
         #endregion
 
 
+        /// <summary>
+        /// Initializes a new instance of the <see cref="DocumentProperty"/> class.
+        /// </summary>
+        /// <param name="metadata">Metadata of this property</param>
+        /// <exception cref="ArgumentNullException"><paramref name="metadata"/> is <see langword="null"/>.</exception>
+        public DocumentProperty(DocumentPropertyMetadata metadata)
+        {
+            PropertyMetadata = metadata ?? throw new ArgumentNullException(nameof(metadata));
+            Text = metadata.DefaultText;
+        }
+
+
         private List<IObserver<string>> Collection => _List ??= new();
         /// <summary>
-        /// 入力されている文字列を取得または設定します
+        /// Gets or sets the string being entered.
         /// </summary>
         [DataMember]
         public string Text
@@ -59,18 +72,6 @@ namespace BEditor.Core.Data.Property
         {
             get => _Bindable?.GetString();
             private set => _BindHint = value;
-        }
-
-
-        /// <summary>
-        /// <see cref="DocumentProperty"/> クラスの新しいインスタンスを初期化します
-        /// </summary>
-        /// <param name="metadata">このプロパティの <see cref="DocumentPropertyMetadata"/></param>
-        /// <exception cref="ArgumentNullException"><paramref name="metadata"/> が <see langword="null"/> です</exception>
-        public DocumentProperty(DocumentPropertyMetadata metadata)
-        {
-            PropertyMetadata = metadata ?? throw new ArgumentNullException(nameof(metadata));
-            Text = metadata.DefaultText;
         }
 
 
@@ -129,27 +130,25 @@ namespace BEditor.Core.Data.Property
         /// <inheritdoc/>
         public override string ToString() => $"(Text:{Text} Name:{PropertyMetadata?.Name})";
 
+        /// <summary>
+        /// Create a command to change the string.
+        /// </summary>
+        /// <param name="newtext">New value for <see cref="Text"/></param>
+        /// <returns>Created <see cref="IRecordCommand"/></returns>
+        [Pure]
+        public IRecordCommand ChangeText(string newtext) => new TextChangeCommand(this, newtext);
+
         #endregion
 
 
         #region Commands
 
-        /// <summary>
-        /// 文字を変更するコマンド
-        /// </summary>
-        /// <remarks>このクラスは <see cref="CommandManager.Do(IRecordCommand)"/> と併用することでコマンドを記録できます</remarks>
-        public sealed class TextChangeCommand : IRecordCommand
+        private sealed class TextChangeCommand : IRecordCommand
         {
             private readonly DocumentProperty _Property;
             private readonly string _New;
             private readonly string _Old;
 
-            /// <summary>
-            /// <see cref="TextChangeCommand"/> クラスの新しいインスタンスを初期化します
-            /// </summary>
-            /// <param name="property"></param>
-            /// <param name="text"></param>
-            /// <exception cref="ArgumentNullException"><paramref name="property"/> が <see langword="null"/> です</exception>
             public TextChangeCommand(DocumentProperty property, string text)
             {
                 _Property = property ?? throw new ArgumentNullException(nameof(property));
@@ -159,13 +158,8 @@ namespace BEditor.Core.Data.Property
 
             public string Name => CommandName.ChangeText;
 
-            /// <inheritdoc/>
             public void Do() => _Property.Text = _New;
-
-            /// <inheritdoc/>
             public void Redo() => Do();
-
-            /// <inheritdoc/>
             public void Undo() => _Property.Text = _Old;
         }
 
@@ -173,7 +167,22 @@ namespace BEditor.Core.Data.Property
     }
 
     /// <summary>
-    /// <see cref="BEditor.Core.Data.Property.DocumentProperty"/> のメタデータを表します
+    /// Represents the metadata of a <see cref="DocumentProperty"/>.
     /// </summary>
-    public record DocumentPropertyMetadata(string DefaultText, int? Height = null) : PropertyElementMetadata(string.Empty);
+    public record DocumentPropertyMetadata : PropertyElementMetadata
+    {
+        /// <summary>
+        /// Initializes a new instance of the <see cref="DocumentPropertyMetadata"/> class.
+        /// </summary>
+        /// <param name="DefaultText">Default value for <see cref="DocumentProperty.Text"/>.</param>
+        public DocumentPropertyMetadata(string DefaultText) : base(string.Empty)
+        {
+            this.DefaultText = DefaultText;
+        }
+
+        /// <summary>
+        /// Get the default value of <see cref="DocumentProperty.Text"/>.
+        /// </summary>
+        public string DefaultText { get; init; }
+    }
 }

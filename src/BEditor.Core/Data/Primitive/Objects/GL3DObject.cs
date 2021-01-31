@@ -6,7 +6,7 @@ using BEditor.Core.Command;
 using BEditor.Core.Data.Property;
 using BEditor.Core.Data.Property.PrimitiveGroup;
 using BEditor.Core.Extensions;
-using BEditor.Core.Graphics;
+using BEditor.Graphics;
 using BEditor.Core.Properties;
 
 using OpenTK.Graphics.OpenGL4;
@@ -16,16 +16,28 @@ using Material = BEditor.Core.Data.Property.PrimitiveGroup.Material;
 
 namespace BEditor.Core.Data.Primitive.Objects
 {
+    /// <summary>
+    /// Represents an <see cref="ObjectElement"/> that draws a Cube, Ball, etc.
+    /// </summary>
     [DataContract]
     public class GL3DObject : ObjectElement
     {
+        /// <summary>
+        /// Represents <see cref="Type"/> metadata.
+        /// </summary>
         public static readonly SelectorPropertyMetadata TypeMetadata = new(Resources.Type, new string[2]
         {
             Resources.Cube,
             Resources.Ball
         });
-        public static readonly EasePropertyMetadata WeightMetadata = new("Depth", 100, float.NaN, 0);
+        /// <summary>
+        /// Represents <see cref="Depth"/> metadata.
+        /// </summary>
+        public static readonly EasePropertyMetadata DepthMetadata = new("Depth", 100, float.NaN, 0);
 
+        /// <summary>
+        /// Initializes a new instance of the <see cref="GL3DObject"/> class.
+        /// </summary>
         public GL3DObject()
         {
             Coordinate = new(ImageObject.CoordinateMetadata);
@@ -36,10 +48,12 @@ namespace BEditor.Core.Data.Primitive.Objects
             Type = new(TypeMetadata);
             Width = new(Figure.WidthMetadata);
             Height = new(Figure.HeightMetadata);
-            Depth = new(WeightMetadata);
+            Depth = new(DepthMetadata);
         }
 
+        /// <inheritdoc/>
         public override string Name => Resources._3DObject;
+        /// <inheritdoc/>
         public override IEnumerable<PropertyElement> Properties => new PropertyElement[]
         {
             Coordinate,
@@ -52,30 +66,59 @@ namespace BEditor.Core.Data.Primitive.Objects
             Height,
             Depth
         };
+        /// <summary>
+        /// Get the coordinates.
+        /// </summary>
         [DataMember(Order = 0)]
         public Coordinate Coordinate { get; private set; }
+        /// <summary>
+        /// Get the scale.
+        /// </summary>
         [DataMember(Order = 1)]
         public Zoom Zoom { get; private set; }
+        /// <summary>
+        /// Get the blend.
+        /// </summary>
         [DataMember(Order = 2)]
         public Blend Blend { get; private set; }
+        /// <summary>
+        /// Get the angle.
+        /// </summary>
         [DataMember(Order = 3)]
         public Angle Angle { get; private set; }
+        /// <summary>
+        /// Get the material.
+        /// </summary>
         [DataMember(Order = 4)]
         public Material Material { get; private set; }
+        /// <summary>
+        /// Get the <see cref="SelectorProperty"/> to select the object type.
+        /// </summary>
         [DataMember(Order = 5)]
         public SelectorProperty Type { get; private set; }
+        /// <summary>
+        /// Gets the <see cref="EaseProperty"/> representing the width of the object.
+        /// </summary>
         [DataMember(Order = 6)]
         public EaseProperty Width { get; private set; }
+        /// <summary>
+        /// Gets the <see cref="EaseProperty"/> representing the height of the object.
+        /// </summary>
         [DataMember(Order = 7)]
         public EaseProperty Height { get; private set; }
+        /// <summary>
+        /// Gets the <see cref="EaseProperty"/> representing the depth of the object.
+        /// </summary>
         [DataMember(Order = 8)]
         public EaseProperty Depth { get; private set; }
 
+        /// <inheritdoc/>
         public override void Render(EffectRenderArgs args)
         {
             int frame = args.Frame;
             Action action;
-            GLColor color4 = Blend.Color[frame].ToOpenTK();
+            var color = Blend.Color[frame];
+            GLColor color4 = new(color.R, color.G, color.B, color.A);
             color4.A *= Blend.Alpha[frame];
 
 
@@ -152,6 +195,7 @@ namespace BEditor.Core.Data.Primitive.Objects
 
             Coordinate.ResetOptional();
         }
+        /// <inheritdoc/>
         protected override void OnLoad()
         {
             Coordinate.Load(ImageObject.CoordinateMetadata);
@@ -162,8 +206,9 @@ namespace BEditor.Core.Data.Primitive.Objects
             Type.Load(TypeMetadata);
             Width.Load(Figure.WidthMetadata);
             Height.Load(Figure.HeightMetadata);
-            Depth.Load(WeightMetadata);
+            Depth.Load(DepthMetadata);
         }
+        /// <inheritdoc/>
         protected override void OnUnload()
         {
             Coordinate.Unload();

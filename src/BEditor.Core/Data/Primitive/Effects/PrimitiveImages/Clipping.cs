@@ -11,15 +11,36 @@ using BEditor.Drawing.Pixel;
 
 namespace BEditor.Core.Data.Primitive.Effects
 {
+    /// <summary>
+    /// Represents an <see cref="ImageEffect"/> that cripping the image.
+    /// </summary>
     [DataContract]
     public class Clipping : ImageEffect
     {
+        /// <summary>
+        /// Represents <see cref="Top"/> metadata.
+        /// </summary>
         public static readonly EasePropertyMetadata TopMetadata = new(Resources.Top, 0, float.NaN, 0);
+        /// <summary>
+        /// Represents <see cref="Bottom"/> metadata.
+        /// </summary>
         public static readonly EasePropertyMetadata BottomMetadata = new(Resources.Bottom, 0, float.NaN, 0);
+        /// <summary>
+        /// Represents <see cref="Left"/> metadata.
+        /// </summary>
         public static readonly EasePropertyMetadata LeftMetadata = new(Resources.Left, 0, float.NaN, 0);
+        /// <summary>
+        /// Represents <see cref="Right"/> metadata.
+        /// </summary>
         public static readonly EasePropertyMetadata RightMetadata = new(Resources.Right, 0, float.NaN, 0);
+        /// <summary>
+        /// Represents <see cref="AdjustCoordinates"/> metadata.
+        /// </summary>
         public static readonly CheckPropertyMetadata AdjustCoordinatesMetadata = new(Resources.Adjust_coordinates);
 
+        /// <summary>
+        /// Initializes a new instance of the <see cref="Clipping"/> class.
+        /// </summary>
         public Clipping()
         {
             Top = new(TopMetadata);
@@ -29,7 +50,9 @@ namespace BEditor.Core.Data.Primitive.Effects
             AdjustCoordinates = new(AdjustCoordinatesMetadata);
         }
 
+        /// <inheritdoc/>
         public override string Name => Resources.Clipping;
+        /// <inheritdoc/>
         public override IEnumerable<PropertyElement> Properties => new PropertyElement[]
         {
             Top,
@@ -38,17 +61,33 @@ namespace BEditor.Core.Data.Primitive.Effects
             Right,
             AdjustCoordinates
         };
+        /// <summary>
+        /// Get the <see cref="EaseProperty"/> that represents the range to be clipped.
+        /// </summary>
         [DataMember(Order = 0)]
         public EaseProperty Top { get; private set; }
+        /// <summary>
+        /// Get the <see cref="EaseProperty"/> that represents the range to be clipped.
+        /// </summary>
         [DataMember(Order = 1)]
         public EaseProperty Bottom { get; private set; }
+        /// <summary>
+        /// Get the <see cref="EaseProperty"/> that represents the range to be clipped.
+        /// </summary>
         [DataMember(Order = 2)]
         public EaseProperty Left { get; private set; }
+        /// <summary>
+        /// Get the <see cref="EaseProperty"/> that represents the range to be clipped.
+        /// </summary>
         [DataMember(Order = 3)]
         public EaseProperty Right { get; private set; }
+        /// <summary>
+        /// Gets a <see cref="CheckProperty"/> that indicates whether the coordinates should be adjusted or not.
+        /// </summary>
         [DataMember(Order = 4)]
         public CheckProperty AdjustCoordinates { get; private set; }
 
+        /// <inheritdoc/>
         public override void Render(EffectRenderArgs<Image<BGRA32>> args)
         {
             var top = (int)Top.GetValue(args.Frame);
@@ -80,6 +119,7 @@ namespace BEditor.Core.Data.Primitive.Effects
 
             args.Value = img1;
         }
+        /// <inheritdoc/>
         protected override void OnLoad()
         {
             Top.Load(TopMetadata);
@@ -88,6 +128,7 @@ namespace BEditor.Core.Data.Primitive.Effects
             Right.Load(RightMetadata);
             AdjustCoordinates.Load(AdjustCoordinatesMetadata);
         }
+        /// <inheritdoc/>
         protected override void OnUnload()
         {
             foreach (var pr in Children)

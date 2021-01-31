@@ -21,7 +21,8 @@ namespace BEditor.ViewModels.PropertyControl
         public DocumentPropertyViewModel(DocumentProperty property)
         {
             Property = property;
-            Reset.Subscribe(() => CommandManager.Do(new DocumentProperty.TextChangeCommand(Property, Property.PropertyMetadata.DefaultText)));
+            oldvalue = Property.Value;
+            Reset.Subscribe(() => Property.ChangeText(Property.PropertyMetadata?.DefaultText ?? "").Execute());
             Bind.Subscribe(() =>
             {
                 var window = new BindSettings(new BindSettingsViewModel<string>(Property));
@@ -32,13 +33,13 @@ namespace BEditor.ViewModels.PropertyControl
             {
                 Property.Text = oldvalue;
 
-                CommandManager.Do(new DocumentProperty.TextChangeCommand(Property, text));
+                Property.ChangeText(text).Execute();
             });
             TextChanged.Subscribe(text =>
             {
                 Property.Text = text;
 
-                AppData.Current.Project.PreviewUpdate(Property.GetParent2());
+                AppData.Current.Project!.PreviewUpdate(Property.GetParent2()!);
             });
         }
 

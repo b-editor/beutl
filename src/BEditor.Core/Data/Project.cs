@@ -6,7 +6,7 @@ using System.IO;
 using System.Runtime.Serialization;
 using System.Threading.Tasks;
 
-using BEditor.Core.Graphics;
+using BEditor.Graphics;
 using BEditor.Core.Service;
 using BEditor.Core.Properties;
 using BEditor.Core.Data.Primitive.Objects;
@@ -201,7 +201,7 @@ namespace BEditor.Core.Data
                     DefaultFileName = "新しいプロジェクト.bedit",
                     Filters =
                     {
-                        new(Resources.ProjectFile, "bedit")
+                        new(Resources.ProjectFile, new FileExtension[] { new("bedit") })
                     }
                 };
 
@@ -245,7 +245,7 @@ namespace BEditor.Core.Data
                     DefaultFileName = "新しいプロジェクト.bedit",
                     Filters =
                     {
-                        new(Resources.ProjectFile, "bedit")
+                        new(Resources.ProjectFile, new FileExtension[] { new("bedit") })
                     }
                 };
 
@@ -313,8 +313,8 @@ namespace BEditor.Core.Data
                 DefaultFileName = (Filename is not null) ? Path.GetFileName(Filename) : "新しいプロジェクト.bedit",
                 Filters =
                 {
-                    new(Resources.ProjectFile, "bedit"),
-                    new(Resources.JsonFile, "json"),
+                    new(Resources.ProjectFile, new FileExtension[] { new("bedit") }),
+                    new(Resources.JsonFile, new FileExtension[] { new("json") }),
                 }
             };
             var mode = SerializeMode.Binary;
@@ -350,7 +350,7 @@ namespace BEditor.Core.Data
             project.Samplingrate = Samplingrate;
             project.SceneList = SceneList;
         }
-
+        /// <inheritdoc/>
         public void Load()
         {
             if (IsLoaded) return;
@@ -362,7 +362,7 @@ namespace BEditor.Core.Data
 
             IsLoaded = true;
         }
-
+        /// <inheritdoc/>
         public void Unload()
         {
             if (!IsLoaded) return;

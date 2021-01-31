@@ -151,7 +151,7 @@
   <data name="ChangeLength" xml:space="preserve">
     <value>長さを変更</value>
   </data>
-  <data name="SparateClip" xml:space="preserve">
+  <data name="SplitClip" xml:space="preserve">
     <value>クリップを分割</value>
   </data>
   <data name="EnableDisableEffect" xml:space="preserve">

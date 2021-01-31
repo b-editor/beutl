@@ -1,11 +1,13 @@
-﻿using Microsoft.WindowsAPICodePack.Dialogs;
-using BEditor.Core.Data;
-using BEditor.Models;
-using System.ComponentModel;
-using BEditor.Core.Service;
-using Reactive.Bindings;
+﻿using System.ComponentModel;
 using System.IO;
 using System.Linq;
+
+using BEditor.Core.Data;
+using BEditor.Core.Service;
+using BEditor.Models;
+using BEditor.Views;
+
+using Reactive.Bindings;
 
 namespace BEditor.ViewModels.CreateDialog
 {
@@ -36,13 +38,10 @@ namespace BEditor.ViewModels.CreateDialog
         private void OpenFolder()
         {
             // ダイアログのインスタンスを生成
-            var dialog = new CommonOpenFileDialog
-            {
-                IsFolderPicker = true
-            };
+            var dialog = new OpenFolderDialog();
 
             // ダイアログを表示する
-            if (dialog.ShowDialog() == CommonFileDialogResult.Ok)
+            if (dialog.ShowDialog())
             {
                 Folder.Value = dialog.FileName;
 
@@ -65,7 +64,7 @@ namespace BEditor.ViewModels.CreateDialog
 
             AppData.Current.AppStatus = Status.Edit;
 
-            Settings.Default.MostRecentlyUsedList.Remove(project.Filename);
+            Settings.Default.MostRecentlyUsedList.Remove(project.Filename!);
 
             if (project.Filename is not null)
             {
@@ -78,7 +77,7 @@ namespace BEditor.ViewModels.CreateDialog
 
         private static string FormattedFilename(string original)
         {
-            string dir = Path.GetDirectoryName(original);
+            string dir = Path.GetDirectoryName(original)!;
             string name = Path.GetFileNameWithoutExtension(original);
             string ex = ".bedit";
 

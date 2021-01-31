@@ -28,8 +28,8 @@ namespace BEditor.ViewModels.PropertyControl
             Metadata = property.ObserveProperty(p => p.PropertyMetadata)
                 .ToReadOnlyReactiveProperty();
 
-            Command.Subscribe(x => CommandManager.Do(new ColorProperty.ChangeColorCommand(Property, BEditor.Drawing.Color.FromARGB(x.Item4, x.Item1, x.Item2, x.Item3))));
-            Reset.Subscribe(() => CommandManager.Do(new ColorProperty.ChangeColorCommand(Property, Property.PropertyMetadata.DefaultColor)));
+            Command.Subscribe(x => Property.ChangeColor(Drawing.Color.FromARGB(x.Item4, x.Item1, x.Item2, x.Item3)).Execute());
+            Reset.Subscribe(() => Property.ChangeColor(Property.PropertyMetadata?.DefaultColor ?? default).Execute());
             Bind.Subscribe(() =>
             {
                 var window = new BindSettings(new BindSettingsViewModel<Drawing.Color>(Property));
@@ -53,7 +53,7 @@ namespace BEditor.ViewModels.PropertyControl
             }
         }
         public static ObservableCollection<ColorList> ColorList { get; } = new();
-        public ReadOnlyReactiveProperty<ColorPropertyMetadata> Metadata { get; }
+        public ReadOnlyReactiveProperty<ColorPropertyMetadata?> Metadata { get; }
         public ColorProperty Property { get; }
         public ReactiveCommand<(byte, byte, byte, byte)> Command { get; } = new();
         public ReactiveCommand Reset { get; } = new();

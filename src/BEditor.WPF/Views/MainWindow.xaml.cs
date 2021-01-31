@@ -10,20 +10,14 @@ using System.Windows.Controls;
 using System.Windows.Controls.Primitives;
 using System.Windows.Input;
 
-using BEditor.Core.Command;
 using BEditor.Core.Data;
-using BEditor.Core.Data.Property;
 using BEditor.Core.Extensions;
 using BEditor.Core.Plugin;
 using BEditor.Core.Service;
 using BEditor.Models;
 using BEditor.ViewModels;
 using BEditor.ViewModels.CreateDialog;
-using BEditor.ViewModels.MessageContent;
-using BEditor.Views;
 using BEditor.Views.CreateDialog;
-using BEditor.Views.MessageContent;
-using BEditor.Views.SettingsControl;
 
 using MahApps.Metro.Controls;
 
@@ -89,7 +83,7 @@ namespace BEditor
             {
                 Scene =
                 {
-                    Value = AppData.Current.Project.PreviewScene
+                    Value = AppData.Current.Project!.PreviewScene
                 }
             });
 
@@ -123,26 +117,27 @@ namespace BEditor
                 {
                     Header = file
                 };
-                menu.Click += (s, e) => ProjectOpenCommand((s as MenuItem).Header as string);
+                menu.Click += (s, e) => ProjectOpenCommand(((s as MenuItem)!.Header as string)!);
 
                 UsedFiles.Items.Insert(0, menu);
             }
 
             Settings.Default.MostRecentlyUsedList.CollectionChanged += (s, e) =>
             {
+                if (s is null) return;
                 if (e.Action is NotifyCollectionChangedAction.Add)
                 {
                     var menu = new MenuItem()
                     {
-                        Header = (s as ObservableCollection<string>)[e.NewStartingIndex]
+                        Header = (s as ObservableCollection<string>)![e.NewStartingIndex]
                     };
-                    menu.Click += (s, e) => ProjectOpenCommand((s as MenuItem).Header as string);
+                    menu.Click += (s, e) => ProjectOpenCommand(((s as MenuItem)!.Header as string)!);
 
                     UsedFiles.Items.Insert(0, menu);
                 }
                 else if (e.Action is NotifyCollectionChangedAction.Remove)
                 {
-                    var file = e.OldItems[0] as string;
+                    var file = e.OldItems![0] as string;
 
                     foreach (var item in UsedFiles.Items)
                     {
@@ -158,11 +153,11 @@ namespace BEditor
         }
         private void SetPluginMenu()
         {
-            foreach (var menu in AppData.Current.LoadedPlugins
+            foreach (var menu in AppData.Current.LoadedPlugins!
                 .Where(p => p is ICustomMenuPlugin)
                 .Select(p =>
                 {
-                    var plugin = p as ICustomMenuPlugin;
+                    var plugin = (p as ICustomMenuPlugin)!;
 
                     var menu = new MenuItem()
                     {

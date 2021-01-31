@@ -3,6 +3,7 @@ using System.Drawing;
 using System.Drawing.Imaging;
 using System.Runtime.InteropServices;
 using System.Windows;
+using System.Windows.Forms;
 using System.Windows.Interop;
 using System.Windows.Media.Imaging;
 using System.Windows.Threading;
@@ -33,22 +34,22 @@ namespace BEditor.Models.ColorTool
         [DllImport("user32.dll")]
         private static extern short GetKeyState(int nVirtkey);
         //クリック判定
-        private bool IsClickDown => GetKeyState(0x01) < 0;
+        private static bool IsClickDown => GetKeyState(0x01) < 0;
 
-        private void Timer_Tick(object sender, EventArgs e)
+        private void Timer_Tick(object? sender, EventArgs e)
         {
             if (IsClickDown)
             {
                 timer.Stop();
                 timer.Tick -= Timer_Tick;
 
-                var col = ColorSet(System.Windows.Forms.Cursor.Position.X, System.Windows.Forms.Cursor.Position.Y);
+                var col = ColorSet(Cursor.Position.X, Cursor.Position.Y);
 
                 Action(col);
             }
         }
 
-        private System.Windows.Media.Color ColorSet(double X, double Y)
+        private static System.Windows.Media.Color ColorSet(double X, double Y)
         {
             Bitmap bitmap = new Bitmap((int)SystemParameters.PrimaryScreenWidth, (int)SystemParameters.PrimaryScreenHeight, System.Drawing.Imaging.PixelFormat.Format32bppArgb);
 

@@ -11,8 +11,9 @@ using OpenTK.Mathematics;
 
 using Color = BEditor.Drawing.Color;
 using GLColor = OpenTK.Mathematics.Color4;
+using Matrix4x4 = System.Numerics.Matrix4x4;
 
-namespace BEditor.Core.Graphics
+namespace BEditor.Graphics
 {
     internal static class Tool
     {
@@ -52,6 +53,15 @@ namespace BEditor.Core.Graphics
         internal static Vector3 ToOpenTK(this ref System.Numerics.Vector3 vector3)
         {
             return new Vector3(vector3.X, vector3.Y, vector3.Z);
+        }
+        
+        internal static Matrix4 ToOpenTK(this in Matrix4x4 mat)
+        {
+            return new Matrix4(
+                mat.M11, mat.M12, mat.M13, mat.M14,
+                mat.M21, mat.M22, mat.M23, mat.M24,
+                mat.M31, mat.M32, mat.M33, mat.M34,
+                mat.M41, mat.M42, mat.M43, mat.M44);
         }
 
         internal static Vector2 ToOpenTK(this ref System.Numerics.Vector2 vector3)

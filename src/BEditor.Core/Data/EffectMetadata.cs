@@ -8,6 +8,7 @@ using BEditor.Core.Properties;
 
 namespace BEditor.Core.Data
 {
+#pragma warning disable CS1591
     public record EffectMetadata(string Name, Expression<Func<EffectElement>> Create)
     {
         private Func<EffectElement>? _Func;
@@ -35,6 +36,13 @@ namespace BEditor.Core.Data
                     new(Resources.Erode, () => new Erode()),
                     new(Resources.Clipping, () => new Clipping()),
                     new(Resources.AreaExpansion, () => new AreaExpansion()),
+                    new(Resources.LinearGradient, () => new LinearGradient()),
+                    new(Resources.CircularGradient, () => new CircularGradient()),
+                    new(Resources.Mask, () => new Mask()),
+                    new(Resources.PointLightDiffuse, () => new PointLightDiffuse()),
+                    new(Resources.ChromaKey, () => new ChromaKey()),
+                    new(Resources.ImageSplit, () => new ImageSplit()),
+                    new(Resources.MultipleImageControls, () => new MultipleControls()),
                 }
             },
             new(Resources.Camera)
@@ -52,4 +60,5 @@ namespace BEditor.Core.Data
 #endif
         };
     }
+#pragma warning restore CS1591
 }

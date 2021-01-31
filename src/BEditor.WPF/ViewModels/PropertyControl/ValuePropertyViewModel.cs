@@ -27,7 +27,7 @@ namespace BEditor.ViewModels.PropertyControl
             Metadata = property.ObserveProperty(p => p.PropertyMetadata)
                 .ToReadOnlyReactiveProperty();
 
-            Reset.Subscribe(() => CommandManager.Do(new ValueProperty.ChangeValueCommand(Property, Property.PropertyMetadata.DefaultValue)));
+            Reset.Subscribe(() => Property.ChangeValue(Property.PropertyMetadata?.DefaultValue ?? 0).Execute());
             Bind.Subscribe(() =>
             {
                 var window = new BindSettings(new BindSettingsViewModel<float>(Property));
@@ -40,7 +40,7 @@ namespace BEditor.ViewModels.PropertyControl
                 {
                     Property.Value = oldvalue;
 
-                    CommandManager.Do(new ValueProperty.ChangeValueCommand(Property, _out));
+                    Property.ChangeValue(_out).Execute();
                 }
             });
             PreviewMouseWheel.Subscribe(e =>
@@ -55,7 +55,7 @@ namespace BEditor.ViewModels.PropertyControl
 
                     Property.Value = Property.Clamp(val);
 
-                    AppData.Current.Project.PreviewUpdate(Property.GetParent2());
+                    AppData.Current.Project!.PreviewUpdate(Property.GetParent2()!);
 
                     e.e.Handled = true;
                 }
@@ -66,12 +66,12 @@ namespace BEditor.ViewModels.PropertyControl
                 {
                     Property.Value = Property.Clamp(val);
 
-                    AppData.Current.Project.PreviewUpdate(Property.GetParent2());
+                    AppData.Current.Project!.PreviewUpdate(Property.GetParent2()!);
                 }
             });
         }
 
-        public ReadOnlyReactiveProperty<ValuePropertyMetadata> Metadata { get; }
+        public ReadOnlyReactiveProperty<ValuePropertyMetadata?> Metadata { get; }
         public ValueProperty Property { get; }
         public ReactiveCommand Reset { get; } = new();
         public ReactiveCommand Bind { get; } = new();

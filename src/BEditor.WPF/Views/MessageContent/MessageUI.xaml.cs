@@ -80,6 +80,6 @@ namespace BEditor.Views.MessageContent
 
         public override ButtonType DialogResult { get; protected set; }
 
-        public override event EventHandler ButtonClicked;
+        public override event EventHandler? ButtonClicked;
     }
 }

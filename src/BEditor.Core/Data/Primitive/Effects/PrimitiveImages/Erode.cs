@@ -11,37 +11,53 @@ using static BEditor.Core.Data.Primitive.Effects.Dilate;
 
 namespace BEditor.Core.Data.Primitive.Effects
 {
+    /// <summary>
+    /// Represents an <see cref="ImageEffect"/> that erodes an image.
+    /// </summary>
     [DataContract]
     public class Erode : ImageEffect
     {
+        /// <summary>
+        /// Initializes a new instance of the <see cref="Erode"/> class.
+        /// </summary>
         public Erode()
         {
-            Frequency = new(FrequencyMetadata);
+            Radius = new(RadiusMetadata);
             Resize = new(ResizeMetadata);
         }
 
+        /// <inheritdoc/>
         public override string Name => Core.Properties.Resources.Erode;
+        /// <inheritdoc/>
         public override IEnumerable<PropertyElement> Properties => new PropertyElement[]
         {
-            Frequency,
+            Radius,
             Resize
         };
+        /// <summary>
+        /// Get the <see cref="EaseProperty"/> representing the radius.
+        /// </summary>
         [DataMember(Order = 0)]
-        public EaseProperty Frequency { get; private set; }
+        public EaseProperty Radius { get; private set; }
+        /// <summary>
+        /// Gets a <see cref="CheckProperty"/> representing the value to resize the image.
+        /// </summary>
         [DataMember(Order = 1)]
         public CheckProperty Resize { get; private set; }
 
+        /// <inheritdoc/>
         public override void Render(EffectRenderArgs<Image<BGRA32>> args)
         {
             var img = args.Value;
-            var size = (int)Frequency.GetValue(args.Frame);
+            var size = (int)Radius.GetValue(args.Frame);
 
             if (Resize.IsChecked)
             {
-                int nwidth = img.Width - (size + 5) * 2;
-                int nheight = img.Height - (size + 5) * 2;
+                //Todo: 画像をリサイズ
+                //int nwidth = img.Width - (size + 5) * 2;
+                //int nheight = img.Height - (size + 5) * 2;
 
-                args.Value = img.MakeBorder(nwidth, nheight);
+                //args.Value = img.MakeBorder(nwidth, nheight);
                 args.Value.Erode(size);
 
                 img.Dispose();
@@ -51,11 +67,13 @@ namespace BEditor.Core.Data.Primitive.Effects
                 img.Erode(size);
             }
         }
+        /// <inheritdoc/>
         protected override void OnLoad()
         {
-            Frequency.Load(FrequencyMetadata);
+            Radius.Load(RadiusMetadata);
             Resize.Load(ResizeMetadata);
         }
+        /// <inheritdoc/>
         protected override void OnUnload()
         {
             foreach (var pr in Children)

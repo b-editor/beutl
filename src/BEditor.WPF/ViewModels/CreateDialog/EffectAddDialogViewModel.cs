@@ -20,11 +20,11 @@ namespace BEditor.ViewModels.CreateDialog
             {
                 var effectinstance = Type.Value.CreateFunc();
 
-                TargetClip.Value.CreateAddCommand(effectinstance).Execute();
+                TargetClip.Value.AddEffect(effectinstance).Execute();
             });
         }
 
-        public ReactiveProperty<Scene> Scene { get; } = new(AppData.Current.Project.SceneList[0]);
+        public ReactiveProperty<Scene> Scene { get; } = new(AppData.Current.Project!.SceneList[0]);
         public ReactiveProperty<ClipData> TargetClip { get; } = new();
         public ReactiveProperty<EffectMetadata> Type { get; } = new();
         public ReactiveCommand AddCommand { get; } = new();

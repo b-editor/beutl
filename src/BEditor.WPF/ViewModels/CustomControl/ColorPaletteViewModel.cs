@@ -10,7 +10,7 @@ namespace BEditor.ViewModels.CustomControl
     public class ColorList : BasePropertyChanged
     {
         private static readonly PropertyChangedEventArgs nameArgs = new(nameof(Name));
-        private string name;
+        private string name = "";
 
         public ColorList(ObservableCollection<ColorListProperty> colors, string name)
         {

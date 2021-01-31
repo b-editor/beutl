@@ -13,7 +13,7 @@ using BEditor.Core.Extensions;
 namespace BEditor.Core.Data.Property
 {
     /// <summary>
-    /// 複数の <see cref="PropertyElement"/> をエクスパンダーでまとめるクラス
+    /// Represents a base class for grouping <see cref="PropertyElement"/> with expanders.
     /// </summary>
     [DataContract]
     public abstract class ExpandGroup : Group, IEasingProperty, IBindable<bool>
@@ -31,7 +31,7 @@ namespace BEditor.Core.Data.Property
 
         private List<IObserver<bool>> Collection => _List ??= new();
         /// <summary>
-        /// エクスパンダーが開いているかを取得または設定します
+        /// Gets or sets whether the expander is open
         /// </summary>
         [DataMember]
         public bool IsExpanded
@@ -64,10 +64,10 @@ namespace BEditor.Core.Data.Property
 
 
         /// <summary>
-        /// <see cref="ExpandGroup"/> クラスの新しいインスタンスを初期化します
+        /// Initializes a new instance of the <see cref="ExpandGroup"/> class.
         /// </summary>
-        /// <param name="metadata">このプロパティの <see cref="PropertyElementMetadata"/></param>
-        /// <exception cref="ArgumentNullException"><paramref name="metadata"/> が <see langword="null"/> です</exception>
+        /// <param name="metadata">Metadata of this property.</param>
+        /// <exception cref="ArgumentNullException"><paramref name="metadata"/> is <see langword="null"/>.</exception>
         public ExpandGroup(PropertyElementMetadata metadata)
         {
             PropertyMetadata = metadata ?? throw new ArgumentNullException(nameof(metadata));

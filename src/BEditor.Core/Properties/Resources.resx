@@ -762,4 +762,79 @@ Please select the plugin you want to load</value>
   <data name="SaveToFile" xml:space="preserve">
     <value>Save to file</value>
   </data>
+  <data name="LinearGradient" xml:space="preserve">
+    <value>Linear gradient</value>
+  </data>
+  <data name="StartPoint" xml:space="preserve">
+    <value>Start point</value>
+  </data>
+  <data name="EndPoint" xml:space="preserve">
+    <value>End point</value>
+  </data>
+  <data name="Colors" xml:space="preserve">
+    <value>Colors</value>
+  </data>
+  <data name="Anchors" xml:space="preserve">
+    <value>Anchors</value>
+  </data>
+  <data name="Mode" xml:space="preserve">
+    <value>Mode</value>
+  </data>
+  <data name="Repeat" xml:space="preserve">
+    <value>Repeat</value>
+  </data>
+  <data name="Mask" xml:space="preserve">
+    <value>Mask</value>
+  </data>
+  <data name="Rotate" xml:space="preserve">
+    <value>Rotate</value>
+  </data>
+  <data name="PathToImageObject" xml:space="preserve">
+    <value>Path to the image object</value>
+  </data>
+  <data name="FitToOriginalSize" xml:space="preserve">
+    <value>Fit to original size</value>
+  </data>
+  <data name="InvertMask" xml:space="preserve">
+    <value>Invert Mask</value>
+  </data>
+  <data name="CircularGradient" xml:space="preserve">
+    <value>Circular gradient</value>
+  </data>
+  <data name="Radius" xml:space="preserve">
+    <value>Radius</value>
+  </data>
+  <data name="Clamp" xml:space="preserve">
+    <value>Clamp</value>
+  </data>
+  <data name="Mirror" xml:space="preserve">
+    <value>Mirror</value>
+  </data>
+  <data name="Decal" xml:space="preserve">
+    <value>Decal</value>
+  </data>
+  <data name="EnableMultipleObjects" xml:space="preserve">
+    <value>Enable multiple objects</value>
+  </data>
+  <data name="ImageSplit" xml:space="preserve">
+    <value>Image splitting</value>
+  </data>
+  <data name="NumberOfHorizontalDivisions" xml:space="preserve">
+    <value>Number of horizontal divisions</value>
+  </data>
+  <data name="NumberOfVerticalDivisions" xml:space="preserve">
+    <value>Number of vertical divisions</value>
+  </data>
+  <data name="MultipleImageControls" xml:space="preserve">
+    <value>Multiple Image Control</value>
+  </data>
+  <data name="ThresholdValue" xml:space="preserve">
+    <value>Threshold value</value>
+  </data>
+  <data name="ChromaKey" xml:space="preserve">
+    <value>Chroma key</value>
+  </data>
+  <data name="PointLightDiffuse" xml:space="preserve">
+    <value>Point light diffuse</value>
+  </data>
 </root>

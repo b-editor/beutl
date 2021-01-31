@@ -2,6 +2,7 @@
 using System.Collections;
 using System.Collections.Generic;
 using System.ComponentModel;
+using System.Diagnostics.Contracts;
 using System.Dynamic;
 using System.Linq;
 using System.Runtime.Serialization;
@@ -14,7 +15,7 @@ using BEditor.Core.Data.Property;
 namespace BEditor.Core.Data
 {
     /// <summary>
-    /// Represents the base class of the effect.
+    /// Represents a base class of the effect.
     /// </summary>
     [DataContract]
     public abstract class EffectElement : ComponentObject, IChild<ClipData>, IParent<PropertyElement>, ICloneable, IHasId, IElementObject
@@ -111,69 +112,69 @@ namespace BEditor.Core.Data
             IsLoaded = false;
         }
 
+        /// <inheritdoc cref="IElementObject.Load"/>
         protected virtual void OnLoad()
         {
 
         }
+        /// <inheritdoc cref="IElementObject.Unload"/>
         protected virtual void OnUnload()
         {
 
         }
 
+        /// <summary>
+        /// Create a command to change whether the <see cref="EffectElement"/> is enabled.
+        /// </summary>
+        /// <returns>Created <see cref="IRecordCommand"/>.</returns>
+        [Pure]
+        public IRecordCommand ChangeIsEnabled(bool value) => new CheckCommand(this, value);
+        /// <summary>
+        /// Create a command to bring the order of this <see cref="EffectElement"/> forward.
+        /// </summary>
+        /// <returns>Created <see cref="IRecordCommand"/>.</returns>
+        [Pure]
+        public IRecordCommand BringForward() => new UpCommand(this);
+        /// <summary>
+        /// Create a command to send the order of this <see cref="EffectElement"/> backward.
+        /// </summary>
+        /// <returns>Created <see cref="IRecordCommand"/>.</returns>
+        [Pure]
+        public IRecordCommand SendBackward() => new DownCommand(this);
+
         #endregion
 
 
-        /// <summary>
-        /// Represents a command that changes the boolean for which an effect is enabled.
-        /// </summary>
         internal sealed class CheckCommand : IRecordCommand
         {
             private readonly EffectElement _Effect;
             private readonly bool _Value;
 
-            /// <summary>
-            /// <see cref="CheckCommand"/> Initialize a new instance of the class.
-            /// </summary>
-            /// <param name="effect">The target <see cref="EffectElement"/>.</param>
-            /// <param name="value">New value</param>
-            /// <exception cref="ArgumentNullException"><paramref name="effect"/> is <see langword="null"/>.</exception>
             public CheckCommand(EffectElement effect, bool value)
             {
-                _Effect = effect ?? throw new ArgumentNullException(nameof(effect));
+                _Effect = effect;
                 _Value = value;
             }
 
             public string Name => CommandName.EnableDisableEffect;
 
-            /// <inheritdoc/>
             public void Do() => _Effect.IsEnabled = _Value;
-            /// <inheritdoc/>
             public void Redo() => Do();
-            /// <inheritdoc/>
             public void Undo() => _Effect.IsEnabled = !_Value;
         }
-        /// <summary>
-        /// Represents a command that changes the order of the effects.
-        /// </summary>
         internal sealed class UpCommand : IRecordCommand
         {
             private readonly ClipData _Clip;
             private readonly EffectElement _Effect;
 
-            /// <summary>
-            /// <see cref="UpCommand"/> Initialize a new instance of the class.
-            /// </summary>
-            /// <param name="effect">The target <see cref="EffectElement"/>.</param>
-            /// <exception cref="ArgumentNullException"><paramref name="effect"/> is <see langword="null"/>.</exception>
             public UpCommand(EffectElement effect)
             {
-                this._Effect = effect ?? throw new ArgumentNullException(nameof(effect));
+                _Effect = effect;
                 _Clip = effect.Parent!;
             }
 
             public string Name => CommandName.UpEffect;
 
-            /// <inheritdoc/>
             public void Do()
             {
                 //変更前のインデックス
@@ -184,55 +185,42 @@ namespace BEditor.Core.Data
                     _Clip.Effect.Move(index, index - 1);
                 }
             }
-            /// <inheritdoc/>
             public void Redo() => Do();
-            /// <inheritdoc/>
             public void Undo()
             {
                 //変更前のインデックス
                 int index = _Clip.Effect.IndexOf(_Effect);
 
-                if (index != _Clip.Effect.Count() - 1)
+                if (index != _Clip.Effect.Count - 1)
                 {
                     _Clip.Effect.Move(index, index + 1);
                 }
             }
         }
-        /// <summary>
-        /// Represents a command that changes the order of the effects.
-        /// </summary>
         internal sealed class DownCommand : IRecordCommand
         {
             private readonly ClipData _Clip;
             private readonly EffectElement _Effect;
 
-            /// <summary>
-            /// <see cref="DownCommand"/> Initialize a new instance of the class.
-            /// </summary>
-            /// <param name="effect">The target <see cref="EffectElement"/>.</param>
-            /// <exception cref="ArgumentNullException"><paramref name="effect"/> is <see langword="null"/>.</exception>
             public DownCommand(EffectElement effect)
             {
-                _Effect = effect ?? throw new ArgumentNullException(nameof(effect));
+                _Effect = effect;
                 _Clip = effect.Parent!;
             }
 
             public string Name => CommandName.DownEffect;
 
-            /// <inheritdoc/>
             public void Do()
             {
                 //変更前のインデックス
                 int index = _Clip.Effect.IndexOf(_Effect);
 
-                if (index != _Clip.Effect.Count() - 1)
+                if (index != _Clip.Effect.Count - 1)
                 {
                     _Clip.Effect.Move(index, index + 1);
                 }
             }
-            /// <inheritdoc/>
             public void Redo() => Do();
-            /// <inheritdoc/>
             public void Undo()
             {
                 //変更前のインデックス
@@ -244,78 +232,41 @@ namespace BEditor.Core.Data
                 }
             }
         }
-        /// <summary>
-        /// Represents a command that removes the effect from the parent element.
-        /// </summary>
         internal sealed class RemoveCommand : IRecordCommand
         {
             private readonly ClipData _Clip;
             private readonly EffectElement _Effect;
             private readonly int _Indec;
 
-            /// <summary>
-            /// <see cref="RemoveCommand"/> Initialize a new instance of the class.
-            /// </summary>
-            /// <param name="effect">The target <see cref="EffectElement"/>.</param>
-            /// <exception cref="ArgumentNullException"><paramref name="effect"/> is <see langword="null"/>.</exception>
-            public RemoveCommand(EffectElement effect)
+            public RemoveCommand(EffectElement effect, ClipData clip)
             {
-                _Effect = effect ?? throw new ArgumentNullException(nameof(effect));
-                _Clip = effect.Parent!;
+                _Effect = effect;
+                _Clip = clip;
                 _Indec = _Clip.Effect.IndexOf(effect);
             }
 
             public string Name => CommandName.RemoveEffect;
 
-            /// <inheritdoc/>
             public void Do()
             {
                 _Clip.Effect.RemoveAt(_Indec);
                 _Effect.Unload();
             }
-            /// <inheritdoc/>
             public void Redo() => Do();
-            /// <inheritdoc/>
             public void Undo()
             {
                 _Effect.Load();
                 _Clip.Effect.Insert(_Indec, _Effect);
             }
         }
-        /// <summary>
-        /// Represents a command to add an effect.
-        /// </summary>
         internal sealed class AddCommand : IRecordCommand
         {
             private readonly ClipData _Clip;
             private readonly EffectElement _Effect;
 
-            /// <summary>
-            /// <see cref="AddCommand"/>Initialize a new instance of the class.
-            /// </summary>
-            /// <param name="effect">The target <see cref="EffectElement"/>.</param>
-            /// <exception cref="ArgumentException">effect.ClipData is null.</exception>
-            /// <exception cref="ArgumentNullException"><paramref name="effect"/> is <see langword="null"/>.</exception>
-            public AddCommand(EffectElement effect)
-            {
-                if (effect.Parent is null) throw new ArgumentException("effect.ClipData is null", nameof(effect));
-                _Effect = effect ?? throw new ArgumentNullException(nameof(effect));
-
-                _Clip = effect.Parent;
-                if (!((ObjectElement)_Clip.Effect[0]).EffectFilter(effect)) throw new NotSupportedException();
-            }
-            /// <summary>
-            /// <see cref="AddCommand"/> Initialize a new instance of the class.
-            /// </summary>
-            /// <param name="effect">The target <see cref="EffectElement"/>.</param>
-            /// <param name="clip"></param>
-            /// <exception cref="ArgumentException">effect.ClipData is <see langword="null"/>.</exception>
-            /// <exception cref="ArgumentNullException"><paramref name="effect"/> is <see langword="null"/>.</exception>
             public AddCommand(EffectElement effect, ClipData clip)
             {
-                if (clip is null) throw new ArgumentNullException(nameof(clip));
-
-                _Effect = effect ?? throw new ArgumentNullException(nameof(effect));
+                _Effect = effect;
                 _Clip = clip;
                 effect.Parent = clip;
                 if (!((ObjectElement)_Clip.Effect[0]).EffectFilter(effect)) throw new NotSupportedException();

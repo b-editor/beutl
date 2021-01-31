@@ -6,14 +6,12 @@ using System.Windows.Input;
 using System.Windows.Media.Animation;
 using System.Windows.Shapes;
 
-using BEditor.Models;
 using BEditor.ViewModels.PropertyControl;
-using BEditor.Views.CustomControl;
 
-using BEditor.Core.Data;
 using BEditor.Core.Data.Property;
 using BEditor.Drawing;
 using BEditor.WPF.Controls;
+using BEditor.Core.Data;
 
 namespace BEditor.Views.PropertyControl
 {
@@ -22,37 +20,12 @@ namespace BEditor.Views.PropertyControl
     /// </summary>
     public partial class ColorAnimation : UserControl, ICustomTreeViewItem, ISizeChangeMarker
     {
-
-        #region インターフェース
-
-        public double LogicHeight
-        {
-            get
-            {
-                double h;
-                if ((bool)togglebutton.IsChecked)
-                {
-                    h = OpenHeight;
-                }
-                else
-                {
-                    h = 32.5;
-                }
-
-                return h;
-            }
-        }
-
-        public event EventHandler SizeChange;
-
-        #endregion
-
-        #region ColorAnimationメンバー
-
         private readonly ColorAnimationProperty ColorProperty;
         private double OpenHeight;
-
-        #endregion
+        private readonly Storyboard OpenStoryboard = new Storyboard();
+        private readonly Storyboard CloseStoryboard = new Storyboard();
+        private readonly DoubleAnimation OpenAnm = new DoubleAnimation() { Duration = TimeSpan.FromSeconds(0.25) };
+        private readonly DoubleAnimation CloseAnm = new DoubleAnimation() { Duration = TimeSpan.FromSeconds(0.25), To = 32.5 };
 
         public ColorAnimation(ColorAnimationProperty color)
         {
@@ -77,9 +50,28 @@ namespace BEditor.Views.PropertyControl
             };
         }
 
-        #region ColorCollection変更イベント
+        public double LogicHeight
+        {
+            get
+            {
+                double h;
+                if ((bool)togglebutton.IsChecked!)
+                {
+                    h = OpenHeight;
+                }
+                else
+                {
+                    h = 32.5;
+                }
 
-        private void Value_CollectionChanged(object sender, NotifyCollectionChangedEventArgs e)
+                return h;
+            }
+        }
+
+        public event EventHandler? SizeChange;
+
+        
+        private void Value_CollectionChanged(object? sender, NotifyCollectionChangedEventArgs e)
         {
             if (e.Action is NotifyCollectionChangedAction.Add or NotifyCollectionChangedAction.Remove)
             {
@@ -87,21 +79,10 @@ namespace BEditor.Views.PropertyControl
                 ListToggleClick(null, null);
             }
         }
-
-        #endregion
-
-
-        #region Animation
-
-        private readonly Storyboard OpenStoryboard = new Storyboard();
-        private readonly Storyboard CloseStoryboard = new Storyboard();
-        private readonly DoubleAnimation OpenAnm = new DoubleAnimation() { Duration = TimeSpan.FromSeconds(0.25) };
-        private readonly DoubleAnimation CloseAnm = new DoubleAnimation() { Duration = TimeSpan.FromSeconds(0.25), To = 32.5 };
-
-        private void ListToggleClick(object sender, RoutedEventArgs e)
+        private void ListToggleClick(object? sender, RoutedEventArgs? e)
         {
             //開く
-            if ((bool)togglebutton.IsChecked)
+            if ((bool)togglebutton.IsChecked!)
             {
                 OpenStoryboard.Begin();
             }
@@ -112,9 +93,6 @@ namespace BEditor.Views.PropertyControl
 
             SizeChange?.Invoke(this, EventArgs.Empty);
         }
-
-        #endregion
-
         private void RectangleMouseDown(object sender, MouseButtonEventArgs e)
         {
             var rect = (System.Windows.Shapes.Rectangle)sender;
@@ -131,7 +109,7 @@ namespace BEditor.Views.PropertyControl
 
             d.ok_button.Click += (_, _) =>
             {
-                Core.Command.CommandManager.Do(new ColorAnimationProperty.ChangeColorCommand(color, index, Color.FromARGB(d.col.Alpha, d.col.Red, d.col.Green, d.col.Blue)));
+                ColorProperty.ChangeColor(index, Color.FromARGB(d.col.Alpha, d.col.Red, d.col.Green, d.col.Blue)).Execute();
             };
 
             d.ShowDialog();

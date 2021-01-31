@@ -8,25 +8,43 @@ using System.Runtime.Serialization;
 using BEditor.Core.Command;
 using BEditor.Core.Data.Property;
 using BEditor.Core.Properties;
+using BEditor.Core.Service;
 using BEditor.Drawing;
 using BEditor.Drawing.Pixel;
 
 namespace BEditor.Core.Data.Primitive.Objects
 {
+    /// <summary>
+    /// Represents an <see cref="ImageObject"/> that references an image file.
+    /// </summary>
     [DataContract]
     [CustomClipUI(Color = 0x0091ea)]
     public class ImageFile : ImageObject
     {
-        public static readonly FilePropertyMetadata FileMetadata = new(Resources.File, "", "png,jpeg,jpg,bmp", Resources.ImageFile);
+        /// <summary>
+        /// Represents <see cref="File"/> metadata.
+        /// </summary>
+        public static readonly FilePropertyMetadata FileMetadata = new(Resources.File, "", new(Resources.ImageFile, new FileExtension[]
+        {
+            new("png"),
+            new("jpeg"),
+            new("jpg"),
+            new("bmp"),
+        }));
         private Image<BGRA32>? _Source;
         private IDisposable? _Disposable;
 
+        /// <summary>
+        /// Initializes a new instance of the <see cref="ImageFile"/> class.
+        /// </summary>
         public ImageFile()
         {
             File = new(FileMetadata);
         }
 
+        /// <inheritdoc/>
         public override string Name => Resources.Image;
+        /// <inheritdoc/>
         public override IEnumerable<PropertyElement> Properties => new PropertyElement[]
         {
             Coordinate,
@@ -36,9 +54,12 @@ namespace BEditor.Core.Data.Primitive.Objects
             Material,
             File
         };
+        /// <summary>
+        /// Get the <see cref="FileProperty"/> to select the image file to reference.
+        /// </summary>
         [DataMember(Order = 0)]
         public FileProperty File { get; private set; }
-        public Image<BGRA32>? Source
+        private Image<BGRA32>? Source
         {
             get
             {
@@ -57,7 +78,9 @@ namespace BEditor.Core.Data.Primitive.Objects
             }
         }
 
+        /// <inheritdoc/>
         protected override Image<BGRA32>? OnRender(EffectRenderArgs args) => Source?.Clone();
+        /// <inheritdoc/>
         protected override void OnLoad()
         {
             base.OnLoad();
@@ -72,6 +95,7 @@ namespace BEditor.Core.Data.Primitive.Objects
                 }
             });
         }
+        /// <inheritdoc/>
         protected override void OnUnload()
         {
             base.OnUnload();

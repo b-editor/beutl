@@ -358,3 +358,4 @@ MigrationBackup/
 /BEditor/BEditor.Media/ffmpeg/postproc-55.dll
 /BEditor/BEditor.Media/ffmpeg/swresample-3.dll
 /BEditor/BEditor.Media/ffmpeg/swscale-5.dll
+/src/BEditor.Core/BEditor.Core.xml

@@ -12,7 +12,7 @@ using BEditor.Core.Extensions;
 using BEditor.Core.Properties;
 using BEditor.Core.Service;
 
-using Microsoft.WindowsAPICodePack.Dialogs;
+using Microsoft.Win32;
 
 using Reactive.Bindings;
 
@@ -26,26 +26,21 @@ namespace BEditor.Models
         {
             SaveAs.Where(_ => AppData.Current.Project is not null)
                 .Select(_ => AppData.Current.Project)
-                .Subscribe(p => p.SaveAs());
+                .Subscribe(p => p!.SaveAs());
 
             Save.Where(_ => AppData.Current.Project is not null)
                 .Select(_ => AppData.Current.Project)
-                .Subscribe(p => p.Save());
+                .Subscribe(p => p!.Save());
 
             Open.Select(_ => AppData.Current).Subscribe(app =>
             {
-                var dialog = new CommonOpenFileDialog()
+                var dialog = new OpenFileDialog()
                 {
-                    Filters =
-                    {
-                        new(Resources.ProjectFile, "bedit"),
-                        new(Resources.BackupFile, "backup"),
-                        new(Resources.JsonFile, "json"),
-                    },
+                    Filter = $"{Resources.ProjectFile}|*.bedit|{Resources.BackupFile}|*.backup|{Resources.JsonFile}|*.json",
                     RestoreDirectory = true
                 };
 
-                if (dialog.ShowDialog() == CommonFileDialogResult.Ok)
+                if (dialog.ShowDialog() ?? false)
                 {
                     try
                     {
@@ -82,7 +77,7 @@ namespace BEditor.Models
             });
         }
 
-        public event EventHandler CreateEvent;
+        public event EventHandler? CreateEvent;
 
         public ReactiveCommand SaveAs { get; } = new();
         public ReactiveCommand Save { get; } = new();

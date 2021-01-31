@@ -1,6 +1,7 @@
 ﻿using System;
 using System.Collections.Generic;
 using System.ComponentModel;
+using System.Diagnostics.Contracts;
 using System.Linq;
 using System.Reactive.Disposables;
 using System.Runtime.Serialization;
@@ -13,6 +14,9 @@ using BEditor.Core.Data.Property;
 
 namespace BEditor.Core.Data.Property
 {
+    /// <summary>
+    /// Represents a property of <see cref="float"/> type.
+    /// </summary>
     [DataContract]
     public class ValueProperty : PropertyElement<ValuePropertyMetadata>, IBindable<float>, IEasingProperty
     {
@@ -25,13 +29,26 @@ namespace BEditor.Core.Data.Property
         private string? _BindHint;
         #endregion
 
+
+        /// <summary>
+        /// Initializes a new instance of the <see cref="ValueProperty"/> class.
+        /// </summary>
+        /// <param name="metadata">Matadata of this property</param>
+        /// <exception cref="ArgumentNullException"><paramref name="metadata"/> is <see langword="null"/>.</exception>
+        public ValueProperty(ValuePropertyMetadata metadata)
+        {
+            PropertyMetadata = metadata ?? throw new ArgumentNullException(nameof(metadata));
+            _Value = metadata.DefaultValue;
+        }
+
+
         private List<IObserver<float>> Collection => _List ??= new();
         /// <inheritdoc/>
         [DataMember]
         public float Value
         {
             get => _Value;
-            set => SetValue(value, ref this._Value, _ValueArgs, this, state =>
+            set => SetValue(value, ref _Value, _ValueArgs, this, state =>
             {
                 foreach (var observer in state.Collection)
                 {
@@ -52,13 +69,6 @@ namespace BEditor.Core.Data.Property
         {
             get => _Bindable?.GetString();
             private set => _BindHint = value;
-        }
-
-
-        public ValueProperty(ValuePropertyMetadata metadata)
-        {
-            PropertyMetadata = metadata ?? throw new ArgumentNullException(nameof(metadata));
-            _Value = metadata.DefaultValue;
         }
 
 
@@ -113,6 +123,11 @@ namespace BEditor.Core.Data.Property
         }
         /// <inheritdoc/>
         public override string ToString() => $"(Value:{Value} Name:{PropertyMetadata?.Name})";
+        /// <summary>
+        /// Returns <paramref name="value"/> clamped to the inclusive range of <see cref="ValuePropertyMetadata.Min"/> and <see cref="ValuePropertyMetadata.Max"/>.
+        /// </summary>
+        /// <param name="value">The value to be clamped.</param>
+        /// <returns>value if min ≤ value ≤ max. -or- min if value &lt; min. -or- max if max &lt; value.</returns>
         public float Clamp(float value)
         {
             var meta = PropertyMetadata;
@@ -130,11 +145,17 @@ namespace BEditor.Core.Data.Property
 
             return value;
         }
-
+        /// <summary>
+        /// Create a command to change the <see cref="Value"/>.
+        /// </summary>
+        /// <param name="value">New value for <see cref="Value"/></param>
+        /// <returns>Created <see cref="IRecordCommand"/></returns>
+        [Pure]
+        public IRecordCommand ChangeValue(float value) => new ChangeValueCommand(this, value);
         #endregion
 
 
-        public sealed class ChangeValueCommand : IRecordCommand
+        private sealed class ChangeValueCommand : IRecordCommand
         {
             private readonly ValueProperty _Property;
             private readonly float _New;
@@ -155,6 +176,36 @@ namespace BEditor.Core.Data.Property
         }
     }
 
-    public record ValuePropertyMetadata(string Name, float DefaultValue = 0, float Max = float.NaN, float Min = float.NaN)
-        : PropertyElementMetadata(Name);
+    /// <summary>
+    /// Represents the metadata of a <see cref="ValueProperty"/>.
+    /// </summary>
+    public record ValuePropertyMetadata : PropertyElementMetadata
+    {
+        /// <summary>
+        /// Initializes a new instance of the <see cref="ValuePropertyMetadata"/> class.
+        /// </summary>
+        /// <param name="Name">The string displayed in the property header.</param>
+        /// <param name="DefaultValue">Default value</param>
+        /// <param name="Max">Maximum value.</param>
+        /// <param name="Min">Minimum value</param>
+        public ValuePropertyMetadata(string Name, float DefaultValue = 0, float Max = float.NaN, float Min = float.NaN) : base(Name)
+        {
+            this.DefaultValue = DefaultValue;
+            this.Max = Max;
+            this.Min = Min;
+        }
+
+        /// <summary>
+        /// Gets the default value.
+        /// </summary>
+        public float DefaultValue { get; init; }
+        /// <summary>
+        /// Gets the maximum value.
+        /// </summary>
+        public float Max { get; init; }
+        /// <summary>
+        /// Get the minimum value.
+        /// </summary>
+        public float Min { get; init; }
+    }
 }

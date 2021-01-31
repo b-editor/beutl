@@ -9,7 +9,7 @@ using BEditor.Drawing.Pixel;
 
 using OpenTK.Graphics.OpenGL4;
 
-namespace BEditor.Core.Graphics
+namespace BEditor.Graphics
 {
     public class Texture : IDisposable
     {

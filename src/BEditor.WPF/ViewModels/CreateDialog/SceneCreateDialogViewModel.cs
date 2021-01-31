@@ -10,7 +10,7 @@ namespace BEditor.ViewModels.CreateDialog
         private static readonly PropertyChangedEventArgs widthArgs = new(nameof(Width));
         private static readonly PropertyChangedEventArgs heightArgs = new(nameof(Height));
         private static readonly PropertyChangedEventArgs nameArgs = new(nameof(Name));
-        private int width = AppData.Current.Project.SceneList[0].Width;
+        private int width = AppData.Current.Project!.SceneList[0].Width;
         private int height = AppData.Current.Project.SceneList[0].Height;
         private string name = $"Scene{AppData.Current.Project.SceneList.Count}";
 

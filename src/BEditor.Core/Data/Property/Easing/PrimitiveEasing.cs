@@ -12,71 +12,31 @@ using BEditor.Media;
 namespace BEditor.Core.Data.Property.Easing
 {
     /// <summary>
-    /// 標準のイージング
-    /// <para>32種類</para>
-    /// <list type="table">
-    /// <item>
-    /// <description>None</description>
-    /// </item>
-    /// <item>
-    /// <description>Linear</description>
-    /// </item>
-    /// <item>
-    /// <description>SineIn</description>
-    /// <description>SineOut</description>
-    /// <description>SineInOut</description>
-    /// </item>
-    /// <item>
-    /// <description>QuadIn</description>
-    /// <description>QuadOut</description>
-    /// <description>QuadInOut</description>
-    /// </item>
-    /// <item>
-    /// <description>CubicIn</description>
-    /// <description>CubicOut</description>
-    /// <description>CubicInOut</description>
-    /// </item>
-    /// <item>
-    /// <description>QuartIn</description>
-    /// <description>QuartOut</description>
-    /// <description>QuartInOut</description>
-    /// </item>
-    /// <item>
-    /// <description>QuintIn</description>
-    /// <description>QuintOut</description>
-    /// <description>QuintInOut</description>
-    /// </item>
-    /// <item>
-    /// <description>ExpIn</description>
-    /// <description>ExpOut</description>
-    /// <description>ExpInOut</description>
-    /// </item>
-    /// <item>
-    /// <description>CircIn</description>
-    /// <description>CircOut</description>
-    /// <description>CircInOut</description>
-    /// </item>
-    /// <item>
-    /// <description>BackIn</description>
-    /// <description>BackOut</description>
-    /// <description>BackInOut</description>
-    /// </item>
-    /// <item>
-    /// <description>ElasticIn</description>
-    /// <description>ElasticOut</description>
-    /// <description>ElasticInOut</description>
-    /// </item>
-    /// <item>
-    /// <description>BounceIn</description>
-    /// <description>BounceOut</description>
-    /// <description>BounceInOut</description>
-    /// </item>
-    /// </list>
+    /// Represents a standard <see cref="EasingFunc"/>.
     /// </summary>
     [DataContract]
     public sealed class PrimitiveEasing : EasingFunc
     {
-        public static readonly Func<float, float, float, float, float>[] DefaultEase = new Func<float, float, float, float, float>[] {
+        /// <summary>
+        /// Represents <see cref="EasingType"/> metadata.
+        /// </summary>
+        public static readonly SelectorPropertyMetadata EasingTypeMetadata = new("EasingType", new string[32]
+        {
+            "None",
+            "Linear",
+            "SineIn",    "SineOut",    "SineInOut",
+            "QuadIn",    "QuadOut",    "QuadInOut",
+            "CubicIn",   "CubicOut",   "CubicInOut",
+            "QuartIn",   "QuartOut",   "QuartInOut",
+            "QuintIn",   "QuintOut",   "QuintInOut",
+            "ExpIn",     "ExpOut",     "ExpInOut",
+            "CircIn",    "CircOut",    "CircInOut",
+            "BackIn",    "BackOut",    "BackInOut",
+            "ElasticIn", "ElasticOut", "ElasticInOut",
+            "BounceIn",  "BounceOut",  "BounceInOut"
+        });
+        private static readonly Func<float, float, float, float, float>[] DefaultEase =
+        {
             Easing.None,
 
             Easing.Linear,
@@ -101,33 +61,28 @@ namespace BEditor.Core.Data.Property.Easing
 
             Easing.BounceIn,   Easing.BounceOut,  Easing.BounceInOut,
         };
-        public static readonly SelectorPropertyMetadata EasingTypeMetadata = new SelectorPropertyMetadata("EasingType", new string[32] {
-            "None",
-            "Linear",
-            "SineIn",    "SineOut",    "SineInOut",
-            "QuadIn",    "QuadOut",    "QuadInOut",
-            "CubicIn",   "CubicOut",   "CubicInOut",
-            "QuartIn",   "QuartOut",   "QuartInOut",
-            "QuintIn",   "QuintOut",   "QuintInOut",
-            "ExpIn",     "ExpOut",     "ExpInOut",
-            "CircIn",    "CircOut",    "CircInOut",
-            "BackIn",    "BackOut",    "BackInOut",
-            "ElasticIn", "ElasticOut", "ElasticInOut",
-            "BounceIn",  "BounceOut",  "BounceInOut"
-        });
         private Func<float, float, float, float, float> _CurrentFunc = Easing.None;
         private IDisposable? _Disposable;
 
-        public override IEnumerable<IEasingProperty> Properties => new IEasingProperty[] { EasingType };
-        [DataMember()]
-        public SelectorProperty EasingType { get; set; }
-
+        /// <summary>
+        /// Initializes a new instance of the <see cref="PrimitiveEasing"/> class.
+        /// </summary>
         public PrimitiveEasing()
         {
             EasingType = new SelectorProperty(EasingTypeMetadata);
         }
 
+        /// <inheritdoc/>
+        public override IEnumerable<IEasingProperty> Properties => new IEasingProperty[] { EasingType };
+        /// <summary>
+        /// Get the <see cref="SelectorProperty"/> to select the easing function.
+        /// </summary>
+        [DataMember()]
+        public SelectorProperty EasingType { get; private set; }
+
+        /// <inheritdoc/>
         public override float EaseFunc(Frame frame, Frame totalframe, float min, float max) => _CurrentFunc?.Invoke(frame, totalframe, min, max) ?? 0;
+        /// <inheritdoc/>
         protected override void OnLoad()
         {
             EasingType.Load(EasingTypeMetadata);
@@ -136,6 +91,7 @@ namespace BEditor.Core.Data.Property.Easing
 
             _Disposable = EasingType.Subscribe(index => _CurrentFunc = DefaultEase[index]);
         }
+        /// <inheritdoc/>
         protected override void OnUnload()
         {
             _Disposable?.Dispose();

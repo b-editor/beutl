@@ -762,4 +762,79 @@
   <data name="SaveToFile" xml:space="preserve">
     <value>ファイルに保存する</value>
   </data>
+  <data name="LinearGradient" xml:space="preserve">
+    <value>線形グラデーション</value>
+  </data>
+  <data name="StartPoint" xml:space="preserve">
+    <value>開始位置</value>
+  </data>
+  <data name="EndPoint" xml:space="preserve">
+    <value>終了位置</value>
+  </data>
+  <data name="Colors" xml:space="preserve">
+    <value>色</value>
+  </data>
+  <data name="Anchors" xml:space="preserve">
+    <value>アンカー</value>
+  </data>
+  <data name="Mode" xml:space="preserve">
+    <value>モード</value>
+  </data>
+  <data name="Repeat" xml:space="preserve">
+    <value>リピート</value>
+  </data>
+  <data name="Mask" xml:space="preserve">
+    <value>マスク</value>
+  </data>
+  <data name="Rotate" xml:space="preserve">
+    <value>回転</value>
+  </data>
+  <data name="PathToImageObject" xml:space="preserve">
+    <value>画像オブジェクトへのパス</value>
+  </data>
+  <data name="FitToOriginalSize" xml:space="preserve">
+    <value>元のサイズに合わせる</value>
+  </data>
+  <data name="InvertMask" xml:space="preserve">
+    <value>マスクの反転</value>
+  </data>
+  <data name="CircularGradient" xml:space="preserve">
+    <value>円形グラデーション</value>
+  </data>
+  <data name="Radius" xml:space="preserve">
+    <value>半径</value>
+  </data>
+  <data name="Clamp" xml:space="preserve">
+    <value>Clamp</value>
+  </data>
+  <data name="Mirror" xml:space="preserve">
+    <value>Mirror</value>
+  </data>
+  <data name="Decal" xml:space="preserve">
+    <value>Decal</value>
+  </data>
+  <data name="EnableMultipleObjects" xml:space="preserve">
+    <value>多重オブジェクトを有効にする</value>
+  </data>
+  <data name="ImageSplit" xml:space="preserve">
+    <value>画像分割</value>
+  </data>
+  <data name="NumberOfHorizontalDivisions" xml:space="preserve">
+    <value>横分割数</value>
+  </data>
+  <data name="NumberOfVerticalDivisions" xml:space="preserve">
+    <value>縦分割数</value>
+  </data>
+  <data name="MultipleImageControls" xml:space="preserve">
+    <value>多重画像コントロール</value>
+  </data>
+  <data name="ThresholdValue" xml:space="preserve">
+    <value>しきい値</value>
+  </data>
+  <data name="ChromaKey" xml:space="preserve">
+    <value>クロマキー</value>
+  </data>
+  <data name="PointLightDiffuse" xml:space="preserve">
+    <value>ポイントライト拡散</value>
+  </data>
 </root>

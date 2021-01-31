@@ -10,8 +10,8 @@ using System.Windows.Input;
 
 using BEditor.Core.Command;
 using BEditor.Core.Data;
+using BEditor.Core.Data.Primitive.Objects;
 using BEditor.Core.Extensions;
-using BEditor.Drawing;
 using BEditor.Models;
 using BEditor.Models.Extension;
 using BEditor.Views;
@@ -20,82 +20,54 @@ using BEditor.Views.SettingsControl;
 using Reactive.Bindings;
 using Reactive.Bindings.Extensions;
 
-using CommandManager = BEditor.Core.Command.CommandManager;
 using Point = System.Windows.Point;
 
 namespace BEditor.ViewModels.TimeLines
 {
     public sealed class TimeLineViewModel : BasePropertyChanged
     {
-        #region 
-        public bool ViewLoaded { get; set; }
-        public Scene Scene { get; set; }
+        #region Fields
+        public bool ViewLoaded;
+        public Scene Scene;
         /// <summary>
         /// シークバー移動 マウス押下中フラグ
         /// </summary>
-        public bool SeekbarIsMouseDown { get; set; }
+        public bool SeekbarIsMouseDown;
 
         /// <summary>
         /// ラベル移動 マウス押下中フラグ
         /// </summary>
-        public bool ClipMouseDown { get; set; }
+        public bool ClipMouseDown;
 
         /// <summary>
         /// オブジェクト移動開始時のPoint
         /// </summary>
-        public Point ClipStart { get; set; }
+        public Point ClipStart;
         /// <summary>
         /// 長さ変更
         /// </summary>
-        public byte ClipLeftRight { get; set; } = 0;
+        public byte ClipLeftRight = 0;
         /// <summary>
         /// 時間が未変更の場合True
         /// </summary>
-        public bool ClipTimeChange { get; set; }
+        public bool ClipTimeChange;
         /// <summary>
         /// 選択オブジェクトのラベル
         /// </summary>
-        public ClipData ClipSelect { get; set; }
+        public ClipData? ClipSelect;
         /// <summary>
         /// 移動量
         /// </summary>
-        public double ClipMovement { get; set; }
-        public int Select_Layer { get; set; }
-        public int Select_Frame { get; set; }
-        public int Mouse_Layer { get; set; }
-        #endregion
-
-
+        public double ClipMovement;
+        public int Select_Layer;
+        public int Select_Frame;
+        public int Mouse_Layer;
         /// <summary>
         /// キーフレーム マウス押下中フラグ 移動中にfalse
         /// </summary>
         public bool KeyframeToggle = true;
 
-        #region Properties
-
-        public double TrackHeight { get; } = Setting.ClipHeight;
-        public ReactiveProperty<Thickness> SeekbarMargin { get; } = new();
-        public ReactiveProperty<double> TrackWidth { get; } = new();
-        public ReactiveProperty<Cursor> LayerCursor { get; } = new();
-
-        /// <summary>
-        /// 目盛りを追加するAction
-        /// <para>
-        /// arg1 : zoom
-        /// </para>
-        /// <para>
-        /// arg2 : max
-        /// </para>
-        /// <para>
-        /// arg3 : rate
-        /// </para>
-        /// </summary>
-        public Action<float, int, int> ResetScale { get; set; }
-        public Action<ClipData, int> ClipLayerMoveCommand { get; set; }
-        public Func<Point> GetLayerMousePosition { get; set; }
-
         #endregion
-
 
         public TimeLineViewModel(Scene scene)
         {
@@ -128,7 +100,7 @@ namespace BEditor.ViewModels.TimeLines
 
                         SeekbarMargin.Value = new Thickness(ToPixel(Scene.PreviewFrame), 0, 0, 0);
 
-                        ResetScale?.Invoke(Scene.TimeLineZoom, Scene.TotalFrame, AppData.Current.Project.Framerate);
+                        ResetScale?.Invoke(Scene.TimeLineZoom, Scene.TotalFrame, AppData.Current.Project!.Framerate);
                     }
 
                 });
@@ -142,7 +114,7 @@ namespace BEditor.ViewModels.TimeLines
 
                     if (AppData.Current.AppStatus is Core.Service.Status.Playing) type = RenderType.VideoPreview;
 
-                    AppData.Current.Project.PreviewUpdate(type);
+                    AppData.Current.Project!.PreviewUpdate(type);
                 });
 
             scene.ObserveProperty(s => s.TotalFrame)
@@ -151,13 +123,12 @@ namespace BEditor.ViewModels.TimeLines
                     TrackWidth.Value = ToPixel(Scene.TotalFrame);
 
                     //目盛り追加
-                    ResetScale?.Invoke(Scene.TimeLineZoom, Scene.TotalFrame, AppData.Current.Project.Framerate);
+                    ResetScale?.Invoke(Scene.TimeLineZoom, Scene.TotalFrame, AppData.Current.Project!.Framerate);
                 });
 
             #region Commandの購読
 
-            SettingShowCommand.Subscribe(SettingWindow);
-            PasteCommand.Subscribe(PasteClick);
+            SettingShowCommand.Subscribe(() => new SettingsWindow().ShowDialog());
             AddClip.Subscribe(AddClipCommand);
 
             ScrollLineCommand.Subscribe(() =>
@@ -205,27 +176,46 @@ namespace BEditor.ViewModels.TimeLines
             #endregion
         }
 
+        public double TrackHeight { get; } = Setting.ClipHeight;
+        public ReactiveProperty<Thickness> SeekbarMargin { get; } = new();
+        public ReactiveProperty<double> TrackWidth { get; } = new();
+        public ReactiveProperty<Cursor> LayerCursor { get; } = new();
 
-        #region ContextMenuCommand
+        /// <summary>
+        /// 目盛りを追加するAction
+        /// <para>
+        /// arg1 : zoom
+        /// </para>
+        /// <para>
+        /// arg2 : max
+        /// </para>
+        /// <para>
+        /// arg3 : rate
+        /// </para>
+        /// </summary>
+        public Action<float, int, int>? ResetScale { get; set; }
+        public Action<ClipData, int>? ClipLayerMoveCommand { get; set; }
+        public Func<Point>? GetLayerMousePosition { get; set; }
+
 
         public ReactiveCommand SettingShowCommand { get; } = new();
-        public ReactiveCommand PasteCommand { get; } = new();
+        public ReactiveCommand PasteCommand => EditModel.Current.ClipboardPaste;
         public ReactiveCommand<ObjectMetadata> AddClip { get; } = new();
 
+        public ReactiveCommand ScrollLineCommand { get; } = new();
+        public ReactiveCommand ScrollLabelCommand { get; } = new();
 
-        #region SettingWindow
-        public void SettingWindow()
-        {
-            new SettingsWindow().ShowDialog();
-        }
-        #endregion
+        public ReactiveCommand<object> LayerSelectCommand { get; } = new();
+        public ReactiveCommand<(object sender, EventArgs args)> LayerDropCommand { get; } = new();
+        public ReactiveCommand<(object sender, EventArgs args)> LayerDragOverCommand { get; } = new();
+        public ReactiveCommand<object> LayerMoveCommand { get; } = new();
 
-        #region Paste
-        public void PasteClick()
-        {
-            //UndoRedoManager.Do(new PasteClip(Scene, Select_Frame, Select_Layer));
-        }
-        #endregion
+        public ReactiveCommand<Point> TimeLineMouseLeftDownCommand { get; } = new();
+        public ReactiveCommand TimeLineMouseLeftUpCommand { get; } = new();
+        public ReactiveCommand<Point> TimeLineMouseMoveCommand { get; } = new();
+        public ReactiveCommand TimeLineMouseLeaveCommand { get; } = new();
+
+
 
         private void AddClipCommand(ObjectMetadata @object)
         {
@@ -236,7 +226,7 @@ namespace BEditor.ViewModels.TimeLines
                 return;
             }
 
-            Scene.CreateAddCommand(
+            Scene.AddClip(
                 Select_Frame,
                 Select_Layer,
                 @object,
@@ -244,51 +234,12 @@ namespace BEditor.ViewModels.TimeLines
                 .Execute();
         }
 
-        #endregion
-
-
-        #region Scroll同期
-        public ReactiveCommand ScrollLineCommand { get; } = new();
-        public ReactiveCommand ScrollLabelCommand { get; } = new();
-        #endregion
-
-        #region レイヤー操作
-
-        public ReactiveCommand<object> LayerSelectCommand { get; } = new();
-        public ReactiveCommand<(object sender, EventArgs args)> LayerDropCommand { get; } = new();
-        public ReactiveCommand<(object sender, EventArgs args)> LayerDragOverCommand { get; } = new();
-        public ReactiveCommand<object> LayerMoveCommand { get; } = new();
-
-
-        #region Select
         private void LayerSelect(object sender)
         {
             var grid = (Grid)sender;
             Select_Layer = AttachmentProperty.GetInt(grid);
             Select_Frame = ToFrame(Mouse.GetPosition(grid).X);
         }
-        #endregion
-
-        #region Drop
-        private static ObjectMetadata FileTypeConvert(string file)
-        {
-            var ex = Path.GetExtension(file);
-            if (ex is ".avi" or ".mp4")
-            {
-                return ClipType.VideoMetadata;
-            }
-            else if (ex is ".jpg" or ".jpeg" or ".png" or ".bmp")
-            {
-                return ClipType.ImageMetadata;
-            }
-            else if (ex is ".txt")
-            {
-                return ClipType.TextMetadata;
-            }
-
-            return ClipType.FigureMetadata;
-        }
-
         private void LayerDrop(object sender, EventArgs e)
         {
             if (e is DragEventArgs de)
@@ -304,9 +255,9 @@ namespace BEditor.ViewModels.TimeLines
                 if (de.Data.GetDataPresent(typeof(Func<ObjectMetadata>)))
                 {
                     var endFrame = frame + new Media.Frame(180);
-                    Scene.InRange(null, ref frame, ref endFrame, addlayer);
+                    Scene.Clamp(null, ref frame, ref endFrame, addlayer);
 
-                    var recordCommand = Scene.CreateAddCommand(frame, addlayer, ((Func<ObjectMetadata>)de.Data.GetData(typeof(Func<ObjectMetadata>))).Invoke(), out var c);
+                    var recordCommand = Scene.AddClip(frame, addlayer, ((Func<ObjectMetadata>)de.Data.GetData(typeof(Func<ObjectMetadata>))).Invoke(), out var c);
 
                     c.End = endFrame;
 
@@ -314,11 +265,11 @@ namespace BEditor.ViewModels.TimeLines
                 }
                 else if (de.Data.GetDataPresent(DataFormats.FileDrop, true))
                 {
-                    string file = (de.Data.GetData(DataFormats.FileDrop) as string[])[0];
+                    string file = (de.Data.GetData(DataFormats.FileDrop) as string[])![0];
 
                     if (Path.GetExtension(file) != ".beo")
                     {
-                        var type_ = FileTypeConvert(file);
+                        var type_ = EditModel.FileTypeConvert(file);
 
                         if (!Scene.InRange(frame, frame + 180, addlayer))
                         {
@@ -327,31 +278,28 @@ namespace BEditor.ViewModels.TimeLines
                             return;
                         }
 
-                        Scene.CreateAddCommand(frame, addlayer, type_, out var clip).Execute();
+                        Scene.AddClip(frame, addlayer, type_, out var clip).Execute();
 
                         if (type_ == ClipType.ImageMetadata)
                         {
-                            (clip.Effect[0] as Core.Data.Primitive.Objects.ImageFile).File.File = file;
+                            (clip.Effect[0] as ImageFile)!.File.File = file;
                         }
                         else if (type_ == ClipType.VideoMetadata)
                         {
-                            (clip.Effect[0] as Core.Data.Primitive.Objects.VideoFile).File.File = file;
+                            (clip.Effect[0] as VideoFile)!.File.File = file;
                         }
                         else if (type_ == ClipType.TextMetadata)
                         {
                             var reader = new StreamReader(file);
-                            (clip.Effect[0] as Core.Data.Primitive.Objects.Text).Document.Text = reader.ReadToEnd();
+                            (clip.Effect[0] as Text)!.Document.Text = reader.ReadToEnd();
                             reader.Close();
                         }
 
-                        AppData.Current.Project.PreviewUpdate(clip);
+                        AppData.Current.Project!.PreviewUpdate(clip);
                     }
                 }
             }
         }
-        #endregion
-
-        #region DragOver
         private void LayerDragOver(object sender, EventArgs e)
         {
             if (e is DragEventArgs de)
@@ -361,27 +309,11 @@ namespace BEditor.ViewModels.TimeLines
                 de.Handled = true;
             }
         }
-        #endregion
-
-        #region MouseMove
         private void LayerMouseMove(object sender)
         {
             Mouse_Layer = AttachmentProperty.GetInt((Grid)sender);
         }
-        #endregion
 
-        #endregion
-
-        #region タイムライン操作
-
-        public ReactiveCommand<Point> TimeLineMouseLeftDownCommand { get; } = new();
-        public ReactiveCommand TimeLineMouseLeftUpCommand { get; } = new();
-        public ReactiveCommand<Point> TimeLineMouseMoveCommand { get; } = new();
-        public ReactiveCommand TimeLineMouseLeaveCommand { get; } = new();
-
-
-
-        #region Loaded
         public void TimeLineLoaded(Action<ObservableCollection<ClipData>> action)
         {
             var from = Scene.TimeLineZoom;
@@ -391,15 +323,12 @@ namespace BEditor.ViewModels.TimeLines
             TrackWidth.Value = ToPixel(Scene.TotalFrame);
 
             //目盛り追加
-            ResetScale?.Invoke(Scene.TimeLineZoom, Scene.TotalFrame, AppData.Current.Project.Framerate);
+            ResetScale?.Invoke(Scene.TimeLineZoom, Scene.TotalFrame, AppData.Current.Project!.Framerate);
 
             action?.Invoke(Scene.Datas);
 
             SeekbarMargin.Value = new Thickness(ToPixel(Scene.PreviewFrame), 0, 0, 0);
         }
-        #endregion
-
-        #region MouseLeftDown
         public void TimeLineMouseLeftDown(Point point)
         {
             if (ClipMouseDown || !KeyframeToggle)
@@ -414,9 +343,6 @@ namespace BEditor.ViewModels.TimeLines
 
             Scene.PreviewFrame = s + 1;
         }
-        #endregion
-
-        #region MouseLeftUp
         public void TimeLineMouseLeftUp()
         {
             // マウス押下中フラグを落とす
@@ -430,14 +356,11 @@ namespace BEditor.ViewModels.TimeLines
                 int start = ToFrame(ClipSelect.GetCreateClipViewModel().MarginLeftProperty);
                 int end = ToFrame(ClipSelect.GetCreateClipViewModel().WidthProperty.Value) + start;//変更後の最大フレーム
                 if (0 < start && 0 < end)
-                    ClipSelect.CreateLengthChangeCommand(start, end).Execute();
+                    ClipSelect.ChangeLength(start, end).Execute();
 
                 ClipLeftRight = 0;
             }
         }
-        #endregion
-
-        #region MouseMove
         public void TimeLineMouseMove(Point point)
         {
             //マウスの現在フレーム
@@ -451,6 +374,7 @@ namespace BEditor.ViewModels.TimeLines
             }
             else if (ClipMouseDown)
             {
+                if (ClipSelect is null) return;
                 var selectviewmodel = ClipSelect.GetCreateClipViewModel();
                 if (selectviewmodel.ClipCursor.Value == Cursors.Arrow && LayerCursor.Value == Cursors.Arrow)
                 {
@@ -507,9 +431,6 @@ namespace BEditor.ViewModels.TimeLines
                 }
             }
         }
-        #endregion
-
-        #region MouseLeave
         public void TimeLineMouseLeave()
         {
             SeekbarIsMouseDown = false;
@@ -518,35 +439,37 @@ namespace BEditor.ViewModels.TimeLines
             LayerCursor.Value = Cursors.Arrow;
 
 
-            if (ClipTimeChange)
+            if (ClipTimeChange && ClipSelect is not null)
             {
                 ClipData data = ClipSelect;
 
-                data.CreateMoveCommand(
+                data.MoveFrameLayer(
                     ToFrame(data.GetCreateClipViewModel().MarginLeftProperty),
                     ClipSelect.GetCreateClipViewModel().Row).Execute();
 
                 ClipTimeChange = false;
             }
         }
-        #endregion
-
-        #endregion
 
 
 
-        #region フレーム番号を座標に変換
+        /// <summary>
+        /// フレーム番号を座標に変換
+        /// </summary>
+        /// <param name="number"></param>
+        /// <returns></returns>
         public double ToPixel(int number)
         {
             return Setting.WidthOf1Frame * (Scene.TimeLineZoom / 200) * number;
         }
-        #endregion
-
-        #region 座標をフレーム番号に変換
+        /// <summary>
+        /// 座標をフレーム番号に変換
+        /// </summary>
+        /// <param name="pixel"></param>
+        /// <returns></returns>
         public int ToFrame(double pixel)
         {
             return (int)(pixel / (Setting.WidthOf1Frame * (Scene.TimeLineZoom / 200)));
         }
-        #endregion
     }
 }

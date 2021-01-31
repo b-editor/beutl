@@ -44,11 +44,11 @@ namespace BEditor.Models.Extension
 
                 //96,
 
-                BitmapSourceConverter.ToWriteableBitmap(img, MainWindowViewModel.Current.PreviewImage.Value);
+                BitmapSourceConverter.ToWriteableBitmap(img, MainWindowViewModel.Current.PreviewImage.Value!);
             });
         }
 
-        public static bool InRange(this Scene self, ClipData clip_, ref Frame start, ref Frame end, int layer)
+        public static bool Clamp(this Scene self, ClipData? clip_, ref Frame start, ref Frame end, int layer)
         {
             var array = self.GetLayer(layer).ToArray();
 

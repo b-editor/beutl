@@ -28,6 +28,6 @@ namespace BEditor.Views.CustomControl
             SelectedEvent?.Invoke(sender, e);
         }
 
-        public event RoutedPropertyChangedEventHandler<object> SelectedEvent;
+        public event RoutedPropertyChangedEventHandler<object>? SelectedEvent;
     }
 }

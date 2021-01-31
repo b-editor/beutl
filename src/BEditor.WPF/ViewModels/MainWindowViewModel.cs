@@ -1,37 +1,22 @@
 ﻿using System;
-using System.Collections.ObjectModel;
 using System.Diagnostics;
+using System.IO;
+using System.Reactive.Linq;
 using System.Windows.Media;
+using System.Windows.Media.Imaging;
 
-using BEditor.Models;
-using BEditor.Models.Extension;
-using BEditor.Views;
-using BEditor.Views.MessageContent;
-using BEditor.Views.SettingsControl;
-
-using BEditor.Core.Data;
+using BEditor.Core;
+using BEditor.Core.Command;
 using BEditor.Core.Extensions;
+using BEditor.Core.Service;
+using BEditor.Models;
+using BEditor.ViewModels.SettingsControl;
+using BEditor.Views.SettingsControl;
 
 using MaterialDesignThemes.Wpf;
 
-using Microsoft.WindowsAPICodePack.Dialogs;
-
-using BEditor.Core.Service;
-using BEditor.Core.Command;
-using System.Reactive.Linq;
 using Reactive.Bindings;
-using BEditor.Views.CreateDialog;
-using System.Windows.Media.Imaging;
 using Reactive.Bindings.Extensions;
-using BEditor.Core.Properties;
-using System.Runtime.InteropServices;
-using System.Windows;
-using BEditor.Core;
-using System.IO;
-using System.Text;
-using System.Threading;
-using BEditor.ViewModels.CreateDialog;
-using BEditor.ViewModels.SettingsControl;
 
 namespace BEditor.ViewModels
 {
@@ -39,7 +24,7 @@ namespace BEditor.ViewModels
     {
         public static MainWindowViewModel Current { get; } = new();
 
-        public ReactiveProperty<WriteableBitmap> PreviewImage { get; } = new();
+        public ReactiveProperty<WriteableBitmap?> PreviewImage { get; } = new();
         public ReactiveProperty<Brush> MainWindowColor { get; } = new();
 
         #region Seekbar
@@ -54,7 +39,7 @@ namespace BEditor.ViewModels
         public ReactiveCommand SendFeedback { get; } = new();
         public ReactiveCommand OpenThisRepository { get; } = new();
         #endregion
-        
+
         #region Statusbar Right
         public ReactiveCommand OpenProjectDirectory { get; } = new();
         public ReactiveCommand ConvertJson { get; } = new();
@@ -82,14 +67,20 @@ namespace BEditor.ViewModels
             PlayPause
                 .Where(_ => AppData.Current.Project is not null)
                 .Subscribe(ProjectPlayPauseCommand);
-            FrameNext.Where(_ => AppData.Current.Project is not null).Subscribe(_ => AppData.Current.Project.PreviewScene.PreviewFrame++);
+            FrameNext
+                .Where(_ => AppData.Current.Project is not null)
+                .Subscribe(_ => AppData.Current.Project!.PreviewScene.PreviewFrame++);
 
-            FramePrevious.Where(_ => AppData.Current.Project is not null).Subscribe(_ => AppData.Current.Project.PreviewScene.PreviewFrame--);
+            FramePrevious
+                .Where(_ => AppData.Current.Project is not null)
+                .Subscribe(_ => AppData.Current.Project!.PreviewScene.PreviewFrame--);
 
-            FrameTop.Where(_ => AppData.Current.Project is not null).Subscribe(_ => AppData.Current.Project.PreviewScene.PreviewFrame = 0);
+            FrameTop
+                .Where(_ => AppData.Current.Project is not null)
+                .Subscribe(_ => AppData.Current.Project!.PreviewScene.PreviewFrame = 0);
 
             FrameEnd.Where(_ => AppData.Current.Project is not null)
-                .Select(_ => AppData.Current.Project.PreviewScene)
+                .Select(_ => AppData.Current.Project!.PreviewScene)
                 .Subscribe(scene => scene.PreviewFrame = scene.TotalFrame);
 
             #endregion
@@ -125,7 +116,8 @@ namespace BEditor.ViewModels
 
             OpenProjectDirectory
                 .Where(_ => AppData.Current.Project is not null)
-                .Subscribe(_ => Process.Start("explorer.exe", Path.GetDirectoryName(AppData.Current.Project.Filename)));
+                .Where(_ => AppData.Current.Project!.Filename is not null)
+                .Subscribe(_ => Process.Start("explorer.exe", Path.GetDirectoryName(AppData.Current.Project!.Filename)!));
 
             ConvertJson.Where(_ => AppData.Current.Project is not null)
                 .Subscribe(_ =>
@@ -157,7 +149,7 @@ namespace BEditor.ViewModels
                 Message.Snackbar(((Environment.WorkingSet - bytes) / 10000000f).ToString() + "MB");
             });
             SceneSettingsCommand.Where(_ => AppData.Current.Project is not null)
-                .Select(_ => AppData.Current.Project.PreviewScene)
+                .Select(_ => AppData.Current.Project!.PreviewScene)
                 .Subscribe(s =>
                 {
                     var vm = new SceneSettingsViewModel(s);
@@ -184,7 +176,7 @@ namespace BEditor.ViewModels
             CommandManager.Clear();
 
             ProjectIsOpened.Value = true;
-            AppData.Current.Project.Saved += (_, _) => AppData.Current.AppStatus = Status.Saved;
+            AppData.Current.Project!.Saved += (_, _) => AppData.Current.AppStatus = Status.Saved;
         }
 
         private void Project_Closed()
@@ -207,14 +199,14 @@ namespace BEditor.ViewModels
             if (AppData.Current.AppStatus is Status.Playing)
             {
                 AppData.Current.AppStatus = Status.Edit;
-                AppData.Current.Project.PreviewScene.Player.Stop();
+                AppData.Current.Project!.PreviewScene.Player.Stop();
                 AppData.Current.IsNotPlaying = true;
             }
             else
             {
                 AppData.Current.AppStatus = Status.Playing;
 
-                AppData.Current.Project.PreviewScene.Player.Play();
+                AppData.Current.Project!.PreviewScene.Player.Play();
                 AppData.Current.IsNotPlaying = false;
             }
         }
@@ -223,6 +215,9 @@ namespace BEditor.ViewModels
 
 
 
-        private static void SettingShowCommand() => new SettingsWindow() { Owner = App.Current.MainWindow }.ShowDialog();
+        private static void SettingShowCommand()
+        {
+            new SettingsWindow() { Owner = App.Current.MainWindow }.ShowDialog();
+        }
     }
 }

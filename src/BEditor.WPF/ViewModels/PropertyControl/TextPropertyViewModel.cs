@@ -23,10 +23,11 @@ namespace BEditor.ViewModels.PropertyControl
         public TextPropertyViewModel(TextProperty property)
         {
             Property = property;
+            oldvalue = Property.Value;
             Metadata = property.ObserveProperty(p => p.PropertyMetadata)
                 .ToReadOnlyReactiveProperty();
 
-            Reset.Subscribe(() => CommandManager.Do(new TextProperty.ChangeTextCommand(Property, Property.PropertyMetadata.DefaultText)));
+            Reset.Subscribe(() => Property.ChangeText(Property.PropertyMetadata?.DefaultText ?? "").Execute());
             Bind.Subscribe(() =>
             {
                 var window = new BindSettings(new BindSettingsViewModel<string>(Property));
@@ -37,17 +38,17 @@ namespace BEditor.ViewModels.PropertyControl
             {
                 Property.Value = oldvalue;
 
-                CommandManager.Do(new TextProperty.ChangeTextCommand(Property, text));
+                Property.ChangeText(text).Execute();
             });
             TextChanged.Subscribe(text =>
             {
                 Property.Value = text;
 
-                AppData.Current.Project.PreviewUpdate(Property.GetParent2());
+                AppData.Current.Project!.PreviewUpdate(Property.GetParent2()!);
             });
         }
 
-        public ReadOnlyReactiveProperty<TextPropertyMetadata> Metadata { get; }
+        public ReadOnlyReactiveProperty<TextPropertyMetadata?> Metadata { get; }
         public TextProperty Property { get; }
         public ReactiveCommand Reset { get; } = new();
         public ReactiveCommand Bind { get; } = new();

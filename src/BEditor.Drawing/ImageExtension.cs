@@ -29,7 +29,22 @@ namespace BEditor.Drawing
             blended.Blend(image, blended);
 
             self[rect] = blended;
+        }
+        public static void DrawImage(this Image<BGRA32> self, Point point, Image<BGRA32> image)
+        {
+            if (self is null) throw new ArgumentNullException(nameof(self));
+            if (image is null) throw new ArgumentNullException(nameof(image));
+            self.ThrowIfDisposed();
+            image.ThrowIfDisposed();
 
+            using var paint = new SKPaint() { IsAntialias = true };
+            using var bmp = self.ToSKBitmap();
+            using var canvas = new SKCanvas(bmp);
+            using var b = image.ToSKBitmap();
+
+            canvas.DrawBitmap(b, point.X, point.Y, paint);
+
+            CopyTo(bmp.Bytes, self.Data, self.DataSize);
         }
         public static void DrawPath(this Image<BGRA32> self, BGRA32 color, Point point, Point[] points)
         {
@@ -136,22 +151,24 @@ namespace BEditor.Drawing
 
             int nwidth = self.Width + (size + 5) * 2;
             int nheight = self.Height + (size + 5) * 2;
-            var result = new Image<BGRA32>(nwidth, nheight, default(BGRA32));
 
-            // 縁を描画
-            using var border = self.Clone();
-            border.SetColor(color);
-            using var border_ = border.MakeBorder(nwidth, nheight);
-            border_.Dilate(size);
+            using var filter = SKImageFilter.CreateDilate(size, size);
+            using var dilatePaint = new SKPaint { ImageFilter = filter, IsAntialias = true };
+            using var paint = new SKPaint() { IsAntialias = true };
+            using var bmp = new SKBitmap(new(nwidth, nheight, SKColorType.Bgra8888));
+            using var canvas = new SKCanvas(bmp);
+            using var b = self.Clone();
+            b.SetColor(color);
+            using var b_ = b.ToSKBitmap();
+            using var s = self.ToSKBitmap();
 
-            result.DrawImage(Point.Empty, border_);
+            var x = (nwidth - self.Width) / 2;
+            var y = (nheight - self.Height) / 2;
 
-            var x = nwidth / 2 - self.Width / 2;
-            var y = nheight / 2 - self.Height / 2;
+            canvas.DrawBitmap(b_, x, y, dilatePaint);
+            canvas.DrawBitmap(s, x, y, paint);
 
-            //result.DrawImage(new Point(x, y), self);
-
-            return result;
+            return bmp.ToImage32();
         }
         public static Image<BGRA32> Shadow(this Image<BGRA32> self, float x, float y, float blur, float alpha, BGRA32 color)
         {
@@ -167,7 +184,8 @@ namespace BEditor.Drawing
             using var filter = SKImageFilter.CreateDropShadow(x, y, blur, blur, new SKColor(color.R, color.G, color.B, (byte)(color.A * alpha)));
             using var paint = new SKPaint()
             {
-                ImageFilter = filter
+                ImageFilter = filter,
+                IsAntialias = true
             };
 
             using var bmp = new SKBitmap((int)size_w, (int)size_h);
@@ -194,7 +212,7 @@ namespace BEditor.Drawing
             self.ThrowIfDisposed();
 
             using var filter = SKImageFilter.CreateBlur(sigmaX, sigmaY);
-            using var paint = new SKPaint { ImageFilter = filter };
+            using var paint = new SKPaint { ImageFilter = filter, IsAntialias = true };
             using var bmp = new SKBitmap(new(self.Width, self.Height, SKColorType.Bgra8888));
             using var canvas = new SKCanvas(bmp);
             using var b = self.ToSKBitmap();
@@ -213,7 +231,7 @@ namespace BEditor.Drawing
             self.ThrowIfDisposed();
 
             using var filter = SKImageFilter.CreateBlur(sigmaX, sigmaY);
-            using var paint = new SKPaint { ImageFilter = filter };
+            using var paint = new SKPaint { ImageFilter = filter, IsAntialias = true };
             using var bmp = new SKBitmap(new(self.Width, self.Height, SKColorType.Rgb888x));
             using var canvas = new SKCanvas(bmp);
             using var b = self.ToSKBitmap();
@@ -235,7 +253,7 @@ namespace BEditor.Drawing
             self.ThrowIfDisposed();
 
             using var filter = SKImageFilter.CreateDilate(radiusX, radiusY);
-            using var paint = new SKPaint { ImageFilter = filter };
+            using var paint = new SKPaint { ImageFilter = filter, IsAntialias = true };
             using var bmp = new SKBitmap(new(self.Width, self.Height, SKColorType.Bgra8888));
             using var canvas = new SKCanvas(bmp);
             using var b = self.ToSKBitmap();
@@ -254,7 +272,7 @@ namespace BEditor.Drawing
             self.ThrowIfDisposed();
 
             using var filter = SKImageFilter.CreateDilate(radiusX, radiusY);
-            using var paint = new SKPaint { ImageFilter = filter };
+            using var paint = new SKPaint { ImageFilter = filter, IsAntialias = true };
             using var bmp = new SKBitmap(new(self.Width, self.Height, SKColorType.Rgb888x));
             using var canvas = new SKCanvas(bmp);
             using var b = self.ToSKBitmap();
@@ -275,7 +293,7 @@ namespace BEditor.Drawing
             self.ThrowIfDisposed();
 
             using var filter = SKImageFilter.CreateErode(radiusX, radiusY);
-            using var paint = new SKPaint { ImageFilter = filter };
+            using var paint = new SKPaint { ImageFilter = filter, IsAntialias = true };
             using var bmp = new SKBitmap(new(self.Width, self.Height, SKColorType.Bgra8888));
             using var canvas = new SKCanvas(bmp);
             using var b = self.ToSKBitmap();
@@ -294,7 +312,7 @@ namespace BEditor.Drawing
             self.ThrowIfDisposed();
 
             using var filter = SKImageFilter.CreateErode(radiusX, radiusY);
-            using var paint = new SKPaint { ImageFilter = filter };
+            using var paint = new SKPaint { ImageFilter = filter, IsAntialias = true };
             using var bmp = new SKBitmap(new(self.Width, self.Height, SKColorType.Rgb888x));
             using var canvas = new SKCanvas(bmp);
             using var b = self.ToSKBitmap();
@@ -304,6 +322,177 @@ namespace BEditor.Drawing
             CopyTo(bmp.Bytes, self.Data!, self.DataSize);
         }
         #endregion
+
+        #region LinerGradient
+
+        public static void LinerGradient(this Image<BGRA32> self, PointF start, PointF end, IEnumerable<Color> colors, IEnumerable<float> anchors, ShaderTileMode mode)
+        {
+            if (self is null) throw new ArgumentNullException(nameof(self));
+            if (colors is null) throw new ArgumentNullException(nameof(colors));
+            if (anchors is null) throw new ArgumentNullException(nameof(anchors));
+            self.ThrowIfDisposed();
+            self.SetColor(new BGRA32(255, 255, 255, 255));
+
+            var w = self.Width;
+            var h = self.Height;
+            var st = new SKPoint(start.X * w * 0.01f, start.Y * h * 0.01f);
+            var ed = new SKPoint(end.X * w * 0.01f, end.Y * h * 0.01f);
+
+            using var paint = new SKPaint()
+            {
+                BlendMode = SKBlendMode.Modulate,
+                IsAntialias = true
+            };
+            using var bmp = self.ToSKBitmap();
+            using var canvas = new SKCanvas(bmp);
+
+            paint.Shader = SKShader.CreateLinearGradient(
+                st,
+                ed,
+                colors.Select(c => new SKColor(c.R, c.G, c.B, c.A)).ToArray(),
+                anchors.ToArray(),
+                (SKShaderTileMode)mode);
+
+            canvas.DrawRect(0, 0, self.Width, self.Height, paint);
+
+            CopyTo(bmp.Bytes, self.Data!, self.DataSize);
+        }
+
+        #endregion
+
+        #region CircularGradient
+
+        public static void CircularGradient(this Image<BGRA32> self, PointF center, float radius, IEnumerable<Color> colors, IEnumerable<float> colorpos, ShaderTileMode mode)
+        {
+            if (self is null) throw new ArgumentNullException(nameof(self));
+            if (colors is null) throw new ArgumentNullException(nameof(colors));
+            if (colorpos is null) throw new ArgumentNullException(nameof(colorpos));
+            self.ThrowIfDisposed();
+            self.SetColor(new BGRA32(255, 255, 255, 255));
+            var pt = new SKPoint(center.X + self.Width / 2, center.Y + self.Height / 2);
+
+            using var paint = new SKPaint()
+            {
+                BlendMode = SKBlendMode.Modulate,
+                IsAntialias = true
+            };
+            using var bmp = self.ToSKBitmap();
+            using var canvas = new SKCanvas(bmp);
+
+            paint.Shader = SKShader.CreateRadialGradient(
+                pt,
+                radius,
+                colors.Select(c => new SKColor(c.R, c.G, c.B, c.A)).ToArray(),
+                colorpos.ToArray(),
+                (SKShaderTileMode)mode);
+
+            canvas.DrawRect(0, 0, self.Width, self.Height, paint);
+
+            CopyTo(bmp.Bytes, self.Data!, self.DataSize);
+        }
+
+        #endregion
+
+        #region Mask
+
+        public static void Mask(this Image<BGRA32> self, Image<BGRA32> mask, PointF point, float rotate, bool invert)
+        {
+            if (self is null) throw new ArgumentNullException(nameof(self));
+            if (mask is null) throw new ArgumentNullException(nameof(mask));
+            self.ThrowIfDisposed();
+            mask.ThrowIfDisposed();
+            mask.SetColor(default);
+
+            using var paint = new SKPaint()
+            {
+                BlendMode = invert ? SKBlendMode.DstOut : SKBlendMode.DstIn,
+                IsAntialias = true
+            };
+            using var bmp = self.ToSKBitmap();
+            using var canvas = new SKCanvas(bmp);
+            using var m = MakeMask(self.Size, mask, point, rotate);
+
+
+            canvas.DrawBitmap(m, new SKPoint(), paint);
+
+            CopyTo(bmp.Bytes, self.Data!, self.DataSize);
+        }
+        private static SKBitmap MakeMask(Size size, Image<BGRA32> mask, PointF point, float rotate)
+        {
+            using var paint = new SKPaint();
+            var bmp = new SKBitmap(new SKImageInfo(size.Width, size.Height, SKColorType.Bgra8888));
+            using var canvas = new SKCanvas(bmp);
+            using var m = mask.ToSKBitmap();
+
+            canvas.RotateDegrees(rotate);
+            canvas.DrawBitmap(
+                m,
+                new SKPoint(
+                    point.X + (size.Width - mask.Width) / 2F,
+                    point.Y + (size.Height - mask.Height) / 2F),
+                paint);
+
+            return bmp;
+        }
+
+        #endregion
+
+        #region LightDiffuse
+
+        public static void PointLightDiffuse(this Image<BGRA32> self, Point3F location, Color lightColor, float surfaceScale, float kd)
+        {
+            if (self is null) throw new ArgumentNullException(nameof(self));
+            self.ThrowIfDisposed();
+
+            using var bmp = new SKBitmap(new(self.Width, self.Height, SKColorType.Bgra8888));
+            using var canvas = new SKCanvas(bmp);
+            using var b = self.ToSKBitmap();
+            using var paint = new SKPaint
+            {
+                IsAntialias = true,
+            };
+            paint.ImageFilter = SKImageFilter.CreatePointLitDiffuse(
+                                    new SKPoint3(location.X, location.Y, location.Z),
+                                    new SKColor(lightColor.R, lightColor.G, lightColor.B, lightColor.A),
+                                    surfaceScale,
+                                    kd);
+
+            canvas.DrawBitmap(b, (SKPoint)default, paint);
+
+            CopyTo(bmp.Bytes, self.Data!, self.DataSize);
+        }
+
+
+        #endregion
+
+        #region Resize
+
+        public static Image<BGRA32> Resize(this Image<BGRA32> self, int width, int height, Quality quality)
+        {
+            if (self is null) throw new ArgumentNullException(nameof(self));
+
+            using var bmp = self.ToSKBitmap();
+            using var newbmp = bmp.Resize(new SKSizeI(width, height), (SKFilterQuality)quality);
+
+            return newbmp.ToImage32();
+        }
+
+        #endregion
+
+        public static void ChromaKey(this Image<BGRA32> self, int value)
+        {
+            fixed (BGRA32* s = self.Data)
+            {
+                Parallel.For(0, self.Data.Length, new ChromaKeyProcess(s, s, value).Invoke);
+            }
+        }
+        public static void ColorKey(this Image<BGRA32> self, BGRA32 color, int value)
+        {
+            fixed (BGRA32* s = self.Data)
+            {
+                Parallel.For(0, self.Data.Length, new ColorKeyProcess(s, s, color,value).Invoke);
+            }
+        }
 
         public static Image<BGRA32> Ellipse(int width, int height, int line, Color color)
         {
@@ -467,8 +656,10 @@ namespace BEditor.Drawing
             if (string.IsNullOrEmpty(text)) return new Image<BGRA32>(1, 1, default(BGRA32));
             if (font is null) throw new ArgumentNullException(nameof(font));
 
-            using var face = SKTypeface.FromFile(font.Filename);
+            //using var face = SKTypeface.FromFile(font.Filename);
+            using var face = SKTypeface.FromFamilyName(font.FamilyName, (int)font.Weight, (int)font.Width, SKFontStyleSlant.Upright);
             using var fontObj = new SKFont(face, size);
+
             using var paint = new SKPaint(fontObj)
             {
                 Color = new SKColor(color.R, color.G, color.B, color.A),

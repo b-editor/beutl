@@ -2,23 +2,20 @@
 
   <PropertyGroup>
     <TargetFramework>net5.0</TargetFramework>
-    <Nullable>enable</Nullable>
     <AssemblyName>BEditor.Core</AssemblyName>
-    <Version>0.0.4</Version>
-    <Authors>indigo-san</Authors>
-    <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
+    <DocumentationFile>BEditor.Core.xml</DocumentationFile>
   </PropertyGroup>
 
-  <PropertyGroup Condition="'$(Configuration)'=='Debug'">
-    <Optimize>false</Optimize>
-  </PropertyGroup>
-
+  <Import Project="..\..\props\common.props" />
+  
   <ItemGroup>
     <PackageReference Include="OpenTK" Version="4.4.0" />
+    <PackageReference Include="ReactiveProperty" Version="7.6.1" />
     <PackageReference Include="System.Reactive" Version="5.0.0" />
   </ItemGroup>
 
   <ItemGroup>
+    <ProjectReference Include="..\BEditor.Graphics\BEditor.Graphics.csproj" />
     <ProjectReference Include="..\BEditor.Drawing\BEditor.Drawing.csproj" />
     <ProjectReference Include="..\BEditor.Media\BEditor.Media.csproj" />
     <ProjectReference Include="..\BEditor.Settings\BEditor.Settings.csproj" />
@@ -52,23 +49,10 @@
   </ItemGroup>
 
   <ItemGroup>
-    <Service Include="{508349b6-6b84-4df5-91f0-309beebad82d}" />
-  </ItemGroup>
-
-  <ItemGroup>
-    <None Update="Shaders\Light.frag">
+    <None Update="Shaders\*.frag">
       <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
     </None>
-    <None Update="Shaders\Shader.frag">
-      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
-    </None>
-    <None Update="Shaders\Shader.vert">
-      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
-    </None>
-    <None Update="Shaders\TextureShader.frag">
-      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
-    </None>
-    <None Update="Shaders\TextureShader.vert">
+    <None Update="Shaders\*.vert">
       <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
     </None>
   </ItemGroup>

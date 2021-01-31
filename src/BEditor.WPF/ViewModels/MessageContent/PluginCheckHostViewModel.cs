@@ -13,7 +13,7 @@ namespace BEditor.ViewModels.MessageContent
 {
     public class PluginCheckHostViewModel
     {
-        private ObservableCollection<PluginCheckViewModel> plugins;
+        private ObservableCollection<PluginCheckViewModel>? plugins;
 
         public ObservableCollection<PluginCheckViewModel> Plugins
         {

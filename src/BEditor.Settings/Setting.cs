@@ -116,22 +116,7 @@ namespace BEditor
         [DataMember]
         public ObservableCollection<string> IncludeFontDir
         {
-            get
-            {
-                if (includeFonts is null)
-                {
-                    includeFonts = new();
-
-                    if (RuntimeInformation.IsOSPlatform(OSPlatform.Windows))
-                    {
-                        var user = Environment.GetFolderPath(Environment.SpecialFolder.UserProfile);
-                        includeFonts.Add($"{user}\\AppData\\Local\\Microsoft\\Windows\\Fonts");
-                        includeFonts.Add("C:\\Windows\\Fonts");
-                    }
-                }
-
-                return includeFonts;
-            }
+            get => includeFonts ??= new();
             set => includeFonts = value;
         }
         [DataMember]

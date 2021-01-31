@@ -36,7 +36,7 @@ namespace BEditor.ViewModels.CreateDialog
                     return;
                 }
 
-                Scene.Value.CreateAddCommand(Start.Value, Layer.Value, Type.Value, out var data).Execute();
+                Scene.Value.AddClip(Start.Value, Layer.Value, Type.Value, out var data).Execute();
 
                 if (Name.Value != string.Empty) data.LabelText = Name.Value;
 
@@ -44,7 +44,7 @@ namespace BEditor.ViewModels.CreateDialog
             });
         }
 
-        public ReactiveProperty<Scene> Scene { get; } = new(AppData.Current.Project.PreviewScene);
+        public ReactiveProperty<Scene> Scene { get; } = new(AppData.Current.Project!.PreviewScene);
         public ReactiveProperty<ObjectMetadata> Type { get; } = new(ObjectMetadata.LoadedObjects[0]);
         public ReactiveProperty<int> Start { get; }
         public ReactiveProperty<int> Length { get; }

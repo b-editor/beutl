@@ -15,7 +15,7 @@ namespace BEditor.ViewModels.PropertyControl
     public class BindSettingsViewModel<T> : BasePropertyChanged
     {
         private static readonly PropertyChangedEventArgs bindpathArgs = new(nameof(BindPath));
-        private string bindPath;
+        private string? bindPath;
 
 
         public BindSettingsViewModel(IBindable<T> bindable)
@@ -27,16 +27,16 @@ namespace BEditor.ViewModels.PropertyControl
             {
                 if (Bindable.GetBindable(bindPath, out var ret))
                 {
-                    Core.Command.CommandManager.Do(new Bindings.BindCommand<T>(Bindable, ret));
+                    bindable.Bind<T>(ret).Execute();
                 }
             });
 
-            DisconnectCommand.Subscribe(() => Core.Command.CommandManager.Do(new Bindings.Disconnect<T>(Bindable)));
+            DisconnectCommand.Subscribe(() => bindable.Disconnect().Execute());
         }
 
 
         public IBindable<T> Bindable { get; }
-        public string BindPath
+        public string? BindPath
         {
             get => bindPath;
             set => SetValue(value, ref bindPath, bindpathArgs);

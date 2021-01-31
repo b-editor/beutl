@@ -25,6 +25,8 @@ using BEditor.Views.MessageContent;
 
 using MaterialDesignThemes.Wpf;
 
+using SkiaSharp;
+
 using DirectoryManager = BEditor.Core.DirectoryManager;
 
 namespace BEditor
@@ -102,7 +104,7 @@ namespace BEditor
                 Settings.Default.Save();
             });
         }
-
+        
         private static void CreateDirectory()
         {
             DirectoryManager.Default.Directories.Add(colorsDir);
@@ -203,12 +205,18 @@ namespace BEditor
         public static void InitialFontManager()
         {
             FontProperty.FontList.AddRange(
+                SKFontManager.Default.FontFamilies
+                    .Select(name => Font.FromFamilyName(name)!)
+                    .Where(f => f is not null)
+                    .OrderBy(f => f.FamilyName));
+            FontProperty.FontList.AddRange(
                     Settings.Default.IncludeFontDir
                         .Where(dir => Directory.Exists(dir))
                         .Select(dir => Directory.GetFiles(dir))
                         .SelectMany(files => files)
                         .Where(file => Path.GetExtension(file) is ".ttf" or ".ttc" or ".otf")
-                        .Select(file => new Font(file)));
+                        .Select(file => new Font(file))
+                        .OrderBy(f => f.FamilyName));
         }
         private static void InitialPlugins()
         {
@@ -292,7 +300,6 @@ namespace BEditor
         private void Application_DispatcherUnhandledException(object sender, DispatcherUnhandledExceptionEventArgs e)
         {
             Message.Snackbar(string.Format(Core.Properties.Resources.ExceptionWasThrown, e.Exception.GetType().FullName));
-            ActivityLog.ErrorLog(e.Exception);
 
 #if !DEBUG
             e.Handled = true;

@@ -21,7 +21,7 @@ namespace BEditor.WPF.Controls
         public static readonly DependencyProperty UseAlphaProperty = DependencyProperty.Register("UseAlpha", typeof(bool), typeof(ColorPicker), new FrameworkPropertyMetadata(false, FrameworkPropertyMetadataOptions.BindsTwoWayByDefault));
         private static readonly PropertyChangedEventArgs selectcolorArgs = new(nameof(SelectedColor));
 
-        public event PropertyChangedEventHandler PropertyChanged;
+        public event PropertyChangedEventHandler? PropertyChanged;
 
         static ColorPicker()
         {

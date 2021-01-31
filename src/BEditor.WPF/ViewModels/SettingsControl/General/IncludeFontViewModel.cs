@@ -5,7 +5,7 @@ using System.Reactive.Linq;
 using System.Text;
 using System.Threading.Tasks;
 
-using Microsoft.WindowsAPICodePack.Dialogs;
+using BEditor.Views;
 
 using Reactive.Bindings;
 
@@ -19,12 +19,9 @@ namespace BEditor.ViewModels.SettingsControl.General
 
             Add.Subscribe(() =>
             {
-                var dialog = new CommonOpenFileDialog()
-                {
-                    IsFolderPicker = true
-                };
+                var dialog = new OpenFolderDialog();
 
-                if (dialog.ShowDialog() == CommonFileDialogResult.Ok)
+                if (dialog.ShowDialog())
                 {
                     Settings.Default.IncludeFontDir.Add(dialog.FileName);
                 }

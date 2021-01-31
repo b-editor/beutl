@@ -5,10 +5,10 @@ using System.Text;
 using System.Threading.Tasks;
 
 using BEditor.Core.Command;
+using BEditor.Core.Data;
 using BEditor.Core.Data.Property;
+using BEditor.Views;
 using BEditor.Views.PropertyControls;
-
-using Microsoft.WindowsAPICodePack.Dialogs;
 
 using Reactive.Bindings;
 using Reactive.Bindings.Extensions;
@@ -29,10 +29,10 @@ namespace BEditor.ViewModels.PropertyControl
 
                 if (file != null)
                 {
-                    CommandManager.Do(new FolderProperty.ChangeFolderCommand(Property, file));
+                    Property.ChangeFolder(file).Execute();
                 }
             });
-            Reset.Subscribe(() => CommandManager.Do(new FolderProperty.ChangeFolderCommand(Property, Property.PropertyMetadata.Default)));
+            Reset.Subscribe(() => Property.ChangeFolder(Property.PropertyMetadata?.Default ?? "").Execute());
             Bind.Subscribe(() =>
             {
                 var window = new BindSettings(new BindSettingsViewModel<string>(Property));
@@ -40,23 +40,20 @@ namespace BEditor.ViewModels.PropertyControl
             });
         }
 
-        public ReadOnlyReactiveProperty<FolderPropertyMetadata> Metadata { get; }
+        public ReadOnlyReactiveProperty<FolderPropertyMetadata?> Metadata { get; }
         public FolderProperty Property { get; }
         public ReactiveCommand Command { get; } = new();
         public ReactiveCommand Reset { get; } = new();
         public ReactiveCommand Bind { get; } = new();
 
-        private static string OpenDialog()
+        private static string? OpenDialog()
         {
             // ダイアログのインスタンスを生成
-            var dialog = new CommonOpenFileDialog()
-            {
-                IsFolderPicker = true
-            };
+            var dialog = new OpenFolderDialog();
 
 
             // ダイアログを表示する
-            if (dialog.ShowDialog() == CommonFileDialogResult.Ok)
+            if (dialog.ShowDialog())
             {
                 return dialog.FileName;
             }

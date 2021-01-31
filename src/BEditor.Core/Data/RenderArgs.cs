@@ -1,16 +1,17 @@
-﻿using System.Collections.Generic;
+﻿using System;
+using System.Collections.Generic;
 
 using BEditor.Media;
 
 namespace BEditor.Core.Data
 {
     /// <summary>
-    /// Represents the data to be passed to the <see cref="ClipData"/> at rendering time.
+    /// Represents a data to be passed to the <see cref="ClipData"/> at rendering time.
     /// </summary>
     public class ClipRenderArgs
     {
         /// <summary>
-        /// <see cref="ClipRenderArgs"/> Initialize a new instance of the class.
+        /// Initializes a new instance of the <see cref="ClipRenderArgs"/> class.
         /// </summary>
         public ClipRenderArgs(Frame frame, RenderType type = RenderType.Preview)
         {
@@ -33,12 +34,12 @@ namespace BEditor.Core.Data
     }
 
     /// <summary>
-    /// Represents the data to be passed to the <see cref="EffectElement"/> at rendering time.
+    /// Represents a data to be passed to the <see cref="EffectElement"/> at rendering time.
     /// </summary>
     public class EffectRenderArgs
     {
         /// <summary>
-        /// <see cref="EffectRenderArgs"/> Initialize a new instance of the class.
+        /// Initializes a new instance of the <see cref="EffectRenderArgs"/> class.
         /// </summary>
         public EffectRenderArgs(Frame frame, RenderType type = RenderType.Preview)
         {
@@ -60,12 +61,12 @@ namespace BEditor.Core.Data
         public RenderType Type { get; }
     }
     /// <summary>
-    /// Represents the data to be passed to the <see cref="EffectElement"/> at rendering time.
+    /// Represents a data to be passed to the <see cref="EffectElement"/> at rendering time.
     /// </summary>
     public class EffectRenderArgs<T> : EffectRenderArgs
     {
         /// <summary>
-        /// <see cref="EffectRenderArgs"/> Initialize a new instance of the class.
+        /// Initializes a new instance of the <see cref="EffectRenderArgs"/> class.
         /// </summary>
         public EffectRenderArgs(Frame frame, T value, RenderType type = RenderType.Preview) : base(frame, type)
         {
@@ -77,11 +78,47 @@ namespace BEditor.Core.Data
         /// </summary>
         public T Value { get; set; }
     }
+    /// <summary>
+    /// Represents the type of rendering request.
+    /// </summary>
     public enum RenderType
     {
+        /// <summary>
+        /// Represents the preview rendering during editing.
+        /// </summary>
         Preview,
+        /// <summary>
+        /// Represents the rendering during playing.
+        /// </summary>
         VideoPreview,
+        /// <summary>
+        /// Represents the rendering in the image output.
+        /// </summary>
         ImageOutput,
+        /// <summary>
+        /// Represents the rendering in the video output.
+        /// </summary>
         VideoOutput
+    }
+    /// <summary>
+    /// Represents errors that occur during rendering.
+    /// </summary>
+    public class RenderingException : Exception
+    {
+        /// <summary>
+        /// Initializes a new instance of the <see cref="RenderingException"/> class.
+        /// </summary>
+        public RenderingException() { }
+        /// <summary>
+        /// Initializes a new instance of the <see cref="RenderingException"/> class with a specified error message.
+        /// </summary>
+        /// <param name="message">The message that describes the error.</param>
+        public RenderingException(string? message) : base(message) { }
+        /// <summary>
+        /// Initializes a new instance of the <see cref="RenderingException"/> class with a specified error message and a reference to the inner exception that is the cause of this exception.
+        /// </summary>
+        /// <param name="message">The message that describes the error.</param>
+        /// <param name="innerException">The exception that is the cause of the current exception, or a null reference(Nothing in Visual Basic) if no inner exception is specified.</param>
+        public RenderingException(string? message, Exception? innerException) : base(message, innerException) { }
     }
 }

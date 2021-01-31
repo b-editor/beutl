@@ -3,20 +3,15 @@
   <PropertyGroup>
     <TargetFramework>net5.0</TargetFramework>
     <OutputPath>..\..\..\BEditor.WPF\bin\$(Configuration)\net5.0-windows\user\plugins\TestPlugin1</OutputPath>
-  </PropertyGroup>
-
-  <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|AnyCPU'">
-  </PropertyGroup>
-
-  <PropertyGroup>
-    <AppendTargetFrameworkToOutputPath>false</AppendTargetFrameworkToOutputPath>
-    <AppendRuntimeIdentifierToOutputPath>false</AppendRuntimeIdentifierToOutputPath>
     <Authors>indigo-san</Authors>
     <RepositoryUrl>https://github.com/indigo-san/BEditor</RepositoryUrl>
     <PackageProjectUrl>https://github.com/indigo-san/BEditor</PackageProjectUrl>
   </PropertyGroup>
 
+  <Import Project="..\..\..\..\props\plugin.props" />
+
   <ItemGroup>
     <ProjectReference Include="..\..\..\BEditor.Core\BEditor.Core.csproj" />
   </ItemGroup>
+
 </Project>

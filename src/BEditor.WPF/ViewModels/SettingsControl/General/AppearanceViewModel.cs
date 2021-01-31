@@ -20,7 +20,7 @@ namespace BEditor.ViewModels.SettingsControl.General
 {
     public class AppearanceViewModel : BasePropertyChanged
     {
-        private ReactiveCommand<object> darkmodecommand;
+        private ReactiveCommand<object>? darkmodecommand;
 
         public ReactiveCommand<object> UseDarkModeClick
         {
