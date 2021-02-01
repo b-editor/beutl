@@ -21,7 +21,7 @@ namespace BEditor.Core.Data.Primitive.Objects
     /// </summary>
     [DataContract]
     [CustomClipUI(Color = 0x6200ea)]
-    public class Text : MultipleImageObject
+    public class Text : ImageObject
     {
         /// <summary>
         /// Represents <see cref="Size"/> metadata.
@@ -97,13 +97,30 @@ namespace BEditor.Core.Data.Primitive.Objects
         /// </summary>
         [DataMember(Order = 4)]
         public CheckProperty EnableMultiple { get; private set; }
-        /// <inheritdoc/>
-        public override bool IsMultiple => EnableMultiple.Value;
 
         /// <inheritdoc/>
         protected override Image<BGRA32> OnRender(EffectRenderArgs args)
         {
             return Image.Text(Document.Text, Font.Select, Size[args.Frame], Color.Color);
+        }
+        /// <inheritdoc/>
+        protected override void OnRender(EffectRenderArgs<IEnumerable<ImageInfo>> args)
+        {
+            if (!EnableMultiple.IsChecked)
+            {
+                args.Value = new ImageInfo[]
+                {
+                    new(OnRender(args as EffectRenderArgs), _=>default, 0)
+                };
+
+                return;
+            }
+            args.Value = Document.Text
+                .Select((c, index) => (Image.Text(c.ToString(), Font.Select, Size[args.Frame], Color.Color), index))
+                .Select(t =>
+                {
+                    return new ImageInfo(t.Item1, img => GetTransform(img.Source.Width * t.index, 0), t.index);
+                });
         }
         /// <inheritdoc/>
         protected override void OnLoad()
@@ -124,16 +141,6 @@ namespace BEditor.Core.Data.Primitive.Objects
             Font.Unload();
             Document.Unload();
             EnableMultiple.Unload();
-        }
-        /// <inheritdoc/>
-        public override IEnumerable<ImageInfo> MultipleRender(EffectRenderArgs args)
-        {
-            return Document.Text
-                .Select((c, index) => (Image.Text(c.ToString(), Font.Select, Size[args.Frame], Color.Color), index))
-                .Select(t =>
-                {
-                    return new ImageInfo(t.Item1, img => GetTransform(img.Source.Width * t.index, 0), t.index);
-                });
         }
         private static Transform GetTransform(int x, int y)
         {

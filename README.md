@@ -1,7 +1,5 @@
 # BEditor
 
-![gif](docs\imgs\example.gif)
-
 ![](https://img.shields.io/github/issues/indigo-san/BEditor?style=flat-square&logo=appveyor)
 ![](https://img.shields.io/github/forks/indigo-san/BEditor?style=flat-square&logo=appveyor)
 ![](https://img.shields.io/github/stars/indigo-san/BEditor?style=flat-square&logo=appveyor)

@@ -1,4 +1,6 @@
-﻿using System.Runtime.Serialization;
+﻿using System.Collections.Generic;
+using System.Linq;
+using System.Runtime.Serialization;
 
 using BEditor.Core.Data.Primitive.Objects;
 using BEditor.Drawing;
@@ -17,9 +19,15 @@ namespace BEditor.Core.Data.Primitive
         public abstract void Render(EffectRenderArgs<Image<BGRA32>> args);
 
         /// <inheritdoc cref="Render(EffectRenderArgs{Image{BGRA32}})"/>
-        public virtual void Render(EffectRenderArgs<ImageInfo> args)
+        public virtual void Render(EffectRenderArgs<IEnumerable<ImageInfo>> args)
         {
-            Render(new EffectRenderArgs<Image<BGRA32>>(args.Frame, args.Value.Source, args.Type));
+            args.Value = args.Value.Select((img, i) =>
+            {
+                var a = new EffectRenderArgs<Image<BGRA32>>(args.Frame, img.Source, args.Type);
+                Render(a);
+
+                return new ImageInfo(a.Value, _ => img.Transform, i);
+            });
         }
 
         /// <inheritdoc/>

@@ -15,9 +15,9 @@ using BEditor.Graphics;
 namespace BEditor.Core.Data.Primitive.Effects
 {
     /// <summary>
-    /// Represents a <see cref="MultipleImageEffect"/> that splits an image.
+    /// Represents a <see cref="ImageEffect"/> that splits an image.
     /// </summary>
-    public class ImageSplit : MultipleImageEffect
+    public class ImageSplit : ImageEffect
     {
         /// <summary>
         /// Represents <see cref="HSplit"/> metadata.
@@ -57,15 +57,15 @@ namespace BEditor.Core.Data.Primitive.Effects
         public EaseProperty VSplit { get; private set; }
 
         /// <inheritdoc/>
-        public override IEnumerable<ImageInfo> MultipleRender(EffectRenderArgs<Image<BGRA32>> args)
+        public override void Render(EffectRenderArgs<IEnumerable<ImageInfo>> args)
         {
             //forに使う変数はキャプチャされないのでこれで対策
             Func<ImageInfo, Transform> GetTransform(float x, float y, float hsplit, float vsplit)
             {
                 return img =>
                 {
-                    var _ = hsplit;
-                    var __ = vsplit;
+                    //var _ = hsplit;
+                    //var __ = vsplit;
 
                     var x_ = img.Source.Width * x;
                     var y_ = -img.Source.Height * y;
@@ -83,24 +83,31 @@ namespace BEditor.Core.Data.Primitive.Effects
                 };
             }
 
-            var hsplt = HSplit[args.Frame];
-            var vsplt = VSplit[args.Frame];
-            var sw = args.Value.Width / hsplt;
-            var sh = args.Value.Height / vsplt;
-            var result = new ImageInfo[(int)(hsplt * vsplt)];
-            var count = 0;
-
-            for (int v = 0; v < vsplt; v++)
+            args.Value = args.Value.SelectMany(img =>
             {
-                for (int h = 0; h < hsplt; h++, count++)
-                {
-                    result[count] = new(
-                        args.Value[new Rectangle((int)(sw * h), (int)(sh * v), (int)sw, (int)sh)],
-                        GetTransform(h, v, hsplt, vsplt), count);
-                }
-            }
+                var hsplt = HSplit[args.Frame];
+                var vsplt = VSplit[args.Frame];
+                var sw = img.Source.Width / hsplt;
+                var sh = img.Source.Height / vsplt;
+                var result = new ImageInfo[(int)(hsplt * vsplt)];
+                var count = 0;
 
-            return result;
+                for (int v = 0; v < vsplt; v++)
+                {
+                    for (int h = 0; h < hsplt; h++, count++)
+                    {
+                        result[count] = new(
+                            img.Source[new Rectangle((int)(sw * h), (int)(sh * v), (int)sw, (int)sh)],
+                            GetTransform(h, v, hsplt, vsplt), count);
+                    }
+                }
+
+                return result;
+            });
+        }
+        /// <inheritdoc/>
+        public override void Render(EffectRenderArgs<Image<BGRA32>> args)
+        {
         }
         /// <inheritdoc/>
         protected override void OnLoad()

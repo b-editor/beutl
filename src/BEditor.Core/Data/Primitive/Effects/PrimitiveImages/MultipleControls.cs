@@ -15,10 +15,10 @@ using BEditor.Graphics;
 namespace BEditor.Core.Data.Primitive.Effects
 {
     /// <summary>
-    /// Represents a <see cref="MultipleImageEffect"/> that provides the ability to edit multiple objects by specifying their indices.
+    /// Represents a <see cref="ImageEffect"/> that provides the ability to edit multiple objects by specifying their indices.
     /// </summary>
     [DataContract]
-    public class MultipleControls : MultipleImageEffect
+    public class MultipleControls : ImageEffect
     {
         /// <summary>
         /// Represents <see cref="Coordinate"/> metadata.
@@ -80,22 +80,17 @@ namespace BEditor.Core.Data.Primitive.Effects
         public ValueProperty Index { get; private set; }
 
         /// <inheritdoc/>
-        public override IEnumerable<ImageInfo> MultipleRender(EffectRenderArgs<Image<BGRA32>> args)
+        public override void Render(EffectRenderArgs<IEnumerable<ImageInfo>> args)
         {
-            return new ImageInfo[] { new(args.Value, _ => default, 0) };
-        }
-        /// <inheritdoc/>
-        public override IEnumerable<ImageInfo> MultipleRender(EffectRenderArgs<ImageInfo> args)
-        {
-            var trans = args.Value.Transform;
-            var i = args.Value.Index;
-
-            if (i == (int)Index.Value)
+            args.Value = args.Value.Select(img =>
             {
-                return new ImageInfo[]
+                var trans = img.Transform;
+                var i = img.Index;
+
+                if (i == (int)Index.Value)
                 {
-                    new(
-                        args.Value.Source,
+                    return new(
+                        img.Source,
                         _ =>
                         {
                             var f = args.Frame;
@@ -104,17 +99,22 @@ namespace BEditor.Core.Data.Primitive.Effects
                             var sy = Zoom.ScaleY[f] / 100 * s - 1;
                             var sz = Zoom.ScaleZ[f] / 100 * s - 1;
 
-                            return args.Value.Transform + Transform.Create(
+                            return img.Transform + Transform.Create(
                                 new(Coordinate.X[f], Coordinate.Y[f], Coordinate.Z[f]),
                                 new(Coordinate.CenterX[f], Coordinate.CenterY[f], Coordinate.CenterZ[f]),
                                 new(Angle.AngleX[f], Angle.AngleY[f], Angle.AngleZ[f]),
                                 new(sx, sy, sz));
                         },
-                        i)
-                };
-            }
+                        i);
+                }
 
-            return new ImageInfo[] { args.Value };
+                return img;
+            });
+        }
+        /// <inheritdoc/>
+        public override void Render(EffectRenderArgs<Image<BGRA32>> args)
+        {
+
         }
         /// <inheritdoc/>
         protected override void OnLoad()
