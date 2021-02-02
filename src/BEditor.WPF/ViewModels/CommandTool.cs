@@ -9,6 +9,7 @@ using MaterialDesignThemes.Wpf;
 using Microsoft.Xaml.Behaviors;
 
 using EventTrigger = Microsoft.Xaml.Behaviors.EventTrigger;
+using ClipType = BEditor.Primitive.PrimitiveTypes;
 using BEditor.Core.Data;
 using Reactive.Bindings;
 

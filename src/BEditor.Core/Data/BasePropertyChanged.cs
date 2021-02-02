@@ -20,8 +20,6 @@ namespace BEditor.Core.Data
         /// <inheritdoc/>
         public event PropertyChangedEventHandler? PropertyChanged;
 
-        //Todo: ExpressionTree使う?
-
         /// <summary>
         /// Set the value.
         /// </summary>

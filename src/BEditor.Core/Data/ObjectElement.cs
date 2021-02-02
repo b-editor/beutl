@@ -2,7 +2,6 @@
 using System.Runtime.Serialization;
 using System.Text;
 
-using BEditor.Core.Data.Primitive.Objects;
 using BEditor.Core.Properties;
 
 namespace BEditor.Core.Data

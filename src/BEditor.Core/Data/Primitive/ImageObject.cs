@@ -2,7 +2,6 @@
 using System.Runtime.Serialization;
 
 using BEditor.Core.Command;
-using BEditor.Core.Data.Primitive.Effects;
 using BEditor.Core.Data.Property.PrimitiveGroup;
 using BEditor.Core.Data.Property;
 using BEditor.Core.Extensions;
@@ -94,8 +93,10 @@ namespace BEditor.Core.Data.Primitive
 
             var list = Parent!.Effect.Where(x => x.IsEnabled).ToArray();
 
+
             LoadEffect(imgs_args, list);
 
+            // ここで遅延読み込み
             var img_list = imgs_args.Value.ToArray();
 
             foreach(var img in img_list)
@@ -203,6 +204,7 @@ namespace BEditor.Core.Data.Primitive
         /// </summary>
         public void Render(EffectRenderArgs args, out Image<BGRA32>? image)
         {
+            //Todo: 多重オブジェクトに対応させる
             var base_img = OnRender(args);
 
             if (base_img is null)
@@ -259,7 +261,7 @@ namespace BEditor.Core.Data.Primitive
             {
                 args.Value = new ImageInfo[]
                 {
-                    new(img, _ => default, 0)
+                    new(img, _ => default)
                 };
             }
         }

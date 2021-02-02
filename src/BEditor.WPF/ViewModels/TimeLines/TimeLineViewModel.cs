@@ -10,7 +10,7 @@ using System.Windows.Input;
 
 using BEditor.Core.Command;
 using BEditor.Core.Data;
-using BEditor.Core.Data.Primitive.Objects;
+using BEditor.Primitive.Objects;
 using BEditor.Core.Extensions;
 using BEditor.Models;
 using BEditor.Models.Extension;
@@ -21,6 +21,7 @@ using Reactive.Bindings;
 using Reactive.Bindings.Extensions;
 
 using Point = System.Windows.Point;
+using BEditor.Primitive;
 
 namespace BEditor.ViewModels.TimeLines
 {
@@ -280,15 +281,15 @@ namespace BEditor.ViewModels.TimeLines
 
                         Scene.AddClip(frame, addlayer, type_, out var clip).Execute();
 
-                        if (type_ == ClipType.ImageMetadata)
+                        if (type_ == PrimitiveTypes.ImageMetadata)
                         {
                             (clip.Effect[0] as ImageFile)!.File.File = file;
                         }
-                        else if (type_ == ClipType.VideoMetadata)
+                        else if (type_ == PrimitiveTypes.VideoMetadata)
                         {
                             (clip.Effect[0] as VideoFile)!.File.File = file;
                         }
-                        else if (type_ == ClipType.TextMetadata)
+                        else if (type_ == PrimitiveTypes.TextMetadata)
                         {
                             var reader = new StreamReader(file);
                             (clip.Effect[0] as Text)!.Document.Text = reader.ReadToEnd();

@@ -34,6 +34,8 @@ Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "NUnitTestProject1", "src\Te
 EndProject
 Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "BEditor.Graphics", "src\BEditor.Graphics\BEditor.Graphics.csproj", "{A4F74544-6796-4962-9283-603E7C0081A8}"
 EndProject
+Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "BEditor.Primitive", "src\BEditor.Primitive\BEditor.Primitive.csproj", "{AAB16A69-D4D9-4DA8-A4F1-4417F908B00F}"
+EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
 		Debug|Any CPU = Debug|Any CPU
@@ -318,6 +320,26 @@ Global
 		{A4F74544-6796-4962-9283-603E7C0081A8}.Release|x64.Build.0 = Release|Any CPU
 		{A4F74544-6796-4962-9283-603E7C0081A8}.Release|x86.ActiveCfg = Release|Any CPU
 		{A4F74544-6796-4962-9283-603E7C0081A8}.Release|x86.Build.0 = Release|Any CPU
+		{AAB16A69-D4D9-4DA8-A4F1-4417F908B00F}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{AAB16A69-D4D9-4DA8-A4F1-4417F908B00F}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{AAB16A69-D4D9-4DA8-A4F1-4417F908B00F}.Debug|ARM.ActiveCfg = Debug|Any CPU
+		{AAB16A69-D4D9-4DA8-A4F1-4417F908B00F}.Debug|ARM.Build.0 = Debug|Any CPU
+		{AAB16A69-D4D9-4DA8-A4F1-4417F908B00F}.Debug|ARM64.ActiveCfg = Debug|Any CPU
+		{AAB16A69-D4D9-4DA8-A4F1-4417F908B00F}.Debug|ARM64.Build.0 = Debug|Any CPU
+		{AAB16A69-D4D9-4DA8-A4F1-4417F908B00F}.Debug|x64.ActiveCfg = Debug|Any CPU
+		{AAB16A69-D4D9-4DA8-A4F1-4417F908B00F}.Debug|x64.Build.0 = Debug|Any CPU
+		{AAB16A69-D4D9-4DA8-A4F1-4417F908B00F}.Debug|x86.ActiveCfg = Debug|Any CPU
+		{AAB16A69-D4D9-4DA8-A4F1-4417F908B00F}.Debug|x86.Build.0 = Debug|Any CPU
+		{AAB16A69-D4D9-4DA8-A4F1-4417F908B00F}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{AAB16A69-D4D9-4DA8-A4F1-4417F908B00F}.Release|Any CPU.Build.0 = Release|Any CPU
+		{AAB16A69-D4D9-4DA8-A4F1-4417F908B00F}.Release|ARM.ActiveCfg = Release|Any CPU
+		{AAB16A69-D4D9-4DA8-A4F1-4417F908B00F}.Release|ARM.Build.0 = Release|Any CPU
+		{AAB16A69-D4D9-4DA8-A4F1-4417F908B00F}.Release|ARM64.ActiveCfg = Release|Any CPU
+		{AAB16A69-D4D9-4DA8-A4F1-4417F908B00F}.Release|ARM64.Build.0 = Release|Any CPU
+		{AAB16A69-D4D9-4DA8-A4F1-4417F908B00F}.Release|x64.ActiveCfg = Release|Any CPU
+		{AAB16A69-D4D9-4DA8-A4F1-4417F908B00F}.Release|x64.Build.0 = Release|Any CPU
+		{AAB16A69-D4D9-4DA8-A4F1-4417F908B00F}.Release|x86.ActiveCfg = Release|Any CPU
+		{AAB16A69-D4D9-4DA8-A4F1-4417F908B00F}.Release|x86.Build.0 = Release|Any CPU
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE

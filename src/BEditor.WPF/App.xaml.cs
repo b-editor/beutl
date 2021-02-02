@@ -9,6 +9,8 @@ using System.Windows;
 using System.Windows.Threading;
 using System.Xml.Linq;
 
+using BEditor.Core;
+using BEditor.Core.Data;
 using BEditor.Core.Data.Property;
 using BEditor.Core.Extensions;
 using BEditor.Core.Plugin;
@@ -16,6 +18,9 @@ using BEditor.Core.Service;
 using BEditor.Drawing;
 using BEditor.Models;
 using BEditor.Models.Services;
+using BEditor.Primitive;
+using BEditor.Primitive.Effects;
+using BEditor.Primitive.Objects;
 using BEditor.ViewModels;
 using BEditor.ViewModels.CustomControl;
 using BEditor.ViewModels.MessageContent;
@@ -28,6 +33,7 @@ using MaterialDesignThemes.Wpf;
 using SkiaSharp;
 
 using DirectoryManager = BEditor.Core.DirectoryManager;
+using Resource = BEditor.Core.Properties.Resources;
 
 namespace BEditor
 {
@@ -70,6 +76,8 @@ namespace BEditor
                 const string LoadingPlugins = "プラグインを読み込み中";
                 const string LoadingCommand = "コマンドを読み込み中";
 
+                RegisterPrimitive();
+
                 viewmodel.Status.Value = LoadingColors;
                 await InitialColorsAsync();
 
@@ -83,6 +91,8 @@ namespace BEditor
                 LoadCommand();
 
 #else
+                RegisterPrimitive();
+
                 await InitialColorsAsync();
 
                 InitialFontManager();
@@ -104,7 +114,7 @@ namespace BEditor
                 Settings.Default.Save();
             });
         }
-        
+
         private static void CreateDirectory()
         {
             DirectoryManager.Default.Directories.Add(colorsDir);
@@ -137,6 +147,87 @@ namespace BEditor
             }
         }
 
+        private static void RegisterPrimitive()
+        {
+            Serialize.SerializeKnownTypes.AddRange(new Type[]
+            {
+                typeof(AudioObject),
+                typeof(CameraObject),
+                typeof(GL3DObject),
+                typeof(Figure),
+                typeof(ImageFile),
+                typeof(Text),
+                typeof(VideoFile),
+                typeof(SceneObject),
+
+                typeof(Blur),
+                typeof(Border),
+                typeof(ColorKey),
+                typeof(Dilate),
+                typeof(Erode),
+                typeof(Monoc),
+                typeof(Shadow),
+                typeof(Clipping),
+                typeof(AreaExpansion),
+                typeof(LinearGradient),
+                typeof(CircularGradient),
+                typeof(Mask),
+                typeof(PointLightDiffuse),
+                typeof(ChromaKey),
+                typeof(ImageSplit),
+                typeof(MultipleControls),
+                typeof(DepthTest),
+                typeof(DirectionalLightSource),
+                typeof(PointLightSource),
+                typeof(SpotLight),
+            });
+
+            ObjectMetadata.LoadedObjects.Add(PrimitiveTypes.VideoMetadata);
+            ObjectMetadata.LoadedObjects.Add(PrimitiveTypes.ImageMetadata);
+            ObjectMetadata.LoadedObjects.Add(PrimitiveTypes.FigureMetadata);
+            ObjectMetadata.LoadedObjects.Add(PrimitiveTypes.PolygonMetadata);
+            ObjectMetadata.LoadedObjects.Add(PrimitiveTypes.RoundRectMetadata);
+            ObjectMetadata.LoadedObjects.Add(PrimitiveTypes.TextMetadata);
+            ObjectMetadata.LoadedObjects.Add(PrimitiveTypes.CameraMetadata);
+            ObjectMetadata.LoadedObjects.Add(PrimitiveTypes.GL3DObjectMetadata);
+            ObjectMetadata.LoadedObjects.Add(PrimitiveTypes.SceneMetadata);
+
+            EffectMetadata.LoadedEffects.Add(new(Resource.Effects)
+            {
+                Children = new EffectMetadata[]
+                {
+                    new(Resource.Border, () => new Border()),
+                    new(Resource.ColorKey, () => new ColorKey()),
+                    new(Resource.DropShadow, () => new Shadow()),
+                    new(Resource.Blur, () => new Blur()),
+                    new(Resource.Monoc, () => new Monoc()),
+                    new(Resource.Dilate, () => new Dilate()),
+                    new(Resource.Erode, () => new Erode()),
+                    new(Resource.Clipping, () => new Clipping()),
+                    new(Resource.AreaExpansion, () => new AreaExpansion()),
+                    new(Resource.LinearGradient, () => new LinearGradient()),
+                    new(Resource.CircularGradient, () => new CircularGradient()),
+                    new(Resource.Mask, () => new Mask()),
+                    new(Resource.PointLightDiffuse, () => new PointLightDiffuse()),
+                    new(Resource.ChromaKey, () => new ChromaKey()),
+                    new(Resource.ImageSplit, () => new ImageSplit()),
+                    new(Resource.MultipleImageControls, () => new MultipleControls()),
+                }
+            });
+            EffectMetadata.LoadedEffects.Add(new(Resource.Camera)
+            {
+                Children = new EffectMetadata[]
+                {
+                    new(Resource.DepthTest, () => new DepthTest()),
+                    new(Resource.DirectionalLightSource, () => new DirectionalLightSource()),
+                    new(Resource.PointLightSource, () => new PointLightSource()),
+                    new(Resource.SpotLight, () => new SpotLight()),
+                }
+            });
+#if DEBUG
+            EffectMetadata.LoadedEffects.Add(new("TestEffect", () => new TestEffect()));
+#endif
+        }
         private static async Task InitialColorsAsync()
         {
             static void CreateDefaultColor()

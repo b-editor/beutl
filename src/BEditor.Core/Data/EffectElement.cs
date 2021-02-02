@@ -9,7 +9,6 @@ using System.Runtime.Serialization;
 using System.Threading.Tasks;
 
 using BEditor.Core.Command;
-using BEditor.Core.Data.Primitive.Effects;
 using BEditor.Core.Data.Property;
 
 namespace BEditor.Core.Data

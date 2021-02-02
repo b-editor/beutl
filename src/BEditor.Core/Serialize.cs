@@ -6,8 +6,6 @@ using System.Runtime.Serialization;
 using System.Text;
 using System.Threading.Tasks;
 
-using BEditor.Core.Data.Primitive.Effects;
-using BEditor.Core.Data.Primitive.Objects;
 using BEditor.Core.Data.Property;
 using BEditor.Core.Data.Property.PrimitiveGroup;
 using BEditor.Core.Data;
@@ -204,9 +202,6 @@ namespace BEditor.Core
 
             typeof(ClipData),
             typeof(ImageObject),
-            typeof(AudioObject),
-            typeof(CameraObject),
-            typeof(GL3DObject),
             typeof(ObjectElement),
 
             typeof(Angle),
@@ -215,35 +210,8 @@ namespace BEditor.Core
             typeof(Zoom),
             typeof(Material),
 
-            typeof(Figure),
-            typeof(ImageFile),
-            typeof(Text),
-            typeof(VideoFile),
-            typeof(SceneObject),
-
-            typeof(Blur),
-            typeof(Border),
-            typeof(ColorKey),
-            typeof(Dilate),
             typeof(EffectElement),
-            typeof(Erode),
             typeof(ImageEffect),
-            typeof(Monoc),
-            typeof(Shadow),
-            typeof(Clipping),
-            typeof(AreaExpansion),
-            typeof(LinearGradient),
-            typeof(CircularGradient),
-            typeof(Mask),
-            typeof(PointLightDiffuse),
-            typeof(ChromaKey),
-            typeof(ImageSplit),
-            typeof(MultipleControls),
-
-            typeof(DepthTest),
-            typeof(DirectionalLightSource),
-            typeof(PointLightSource),
-            typeof(SpotLight),
 
             typeof(CheckProperty),
             typeof(ColorProperty),

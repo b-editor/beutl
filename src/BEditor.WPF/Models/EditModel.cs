@@ -10,7 +10,7 @@ using System.Windows;
 using BEditor.Core;
 using BEditor.Core.Command;
 using BEditor.Core.Data;
-using BEditor.Core.Data.Primitive.Objects;
+using BEditor.Primitive.Objects;
 using BEditor.Core.Extensions;
 using BEditor.Core.Service;
 using BEditor.Models.Extension;
@@ -19,6 +19,7 @@ using BEditor.Views;
 using BEditor.Views.CreateDialog;
 
 using Reactive.Bindings;
+using BEditor.Primitive;
 
 namespace BEditor.Models
 {
@@ -236,18 +237,18 @@ namespace BEditor.Models
             var ex = Path.GetExtension(file);
             if (ex is ".avi" or ".mp4")
             {
-                return ClipType.VideoMetadata;
+                return PrimitiveTypes.VideoMetadata;
             }
             else if (ex is ".jpg" or ".jpeg" or ".png" or ".bmp")
             {
-                return ClipType.ImageMetadata;
+                return PrimitiveTypes.ImageMetadata;
             }
             else if (ex is ".txt")
             {
-                return ClipType.TextMetadata;
+                return PrimitiveTypes.TextMetadata;
             }
 
-            return ClipType.FigureMetadata;
+            return PrimitiveTypes.FigureMetadata;
         }
     }
 }

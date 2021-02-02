@@ -26,6 +26,7 @@
 
   <ItemGroup>
     <ProjectReference Include="..\BEditor.Core\BEditor.Core.csproj" />
+    <ProjectReference Include="..\BEditor.Primitive\BEditor.Primitive.csproj" />
     <ProjectReference Include="..\BEditor.Settings\BEditor.Settings.csproj" />
     <ProjectReference Include="..\BEditor.WPF.Controls\BEditor.WPF.Controls.csproj" />
   </ItemGroup>

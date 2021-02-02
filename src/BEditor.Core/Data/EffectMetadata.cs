@@ -3,9 +3,6 @@ using System.Collections.Generic;
 using System.Collections.ObjectModel;
 using System.Linq.Expressions;
 
-using BEditor.Core.Data.Primitive.Effects;
-using BEditor.Core.Properties;
-
 namespace BEditor.Core.Data
 {
 #pragma warning disable CS1591
@@ -21,44 +18,7 @@ namespace BEditor.Core.Data
 
 
 
-        public static ObservableCollection<EffectMetadata> LoadedEffects { get; } = new()
-        {
-            new(Resources.Effects)
-            {
-                Children = new EffectMetadata[]
-                {
-                    new(Resources.Border, () => new Border()),
-                    new(Resources.ColorKey, () => new ColorKey()),
-                    new(Resources.DropShadow, () => new Shadow()),
-                    new(Resources.Blur, () => new Blur()),
-                    new(Resources.Monoc, () => new Monoc()),
-                    new(Resources.Dilate, () => new Dilate()),
-                    new(Resources.Erode, () => new Erode()),
-                    new(Resources.Clipping, () => new Clipping()),
-                    new(Resources.AreaExpansion, () => new AreaExpansion()),
-                    new(Resources.LinearGradient, () => new LinearGradient()),
-                    new(Resources.CircularGradient, () => new CircularGradient()),
-                    new(Resources.Mask, () => new Mask()),
-                    new(Resources.PointLightDiffuse, () => new PointLightDiffuse()),
-                    new(Resources.ChromaKey, () => new ChromaKey()),
-                    new(Resources.ImageSplit, () => new ImageSplit()),
-                    new(Resources.MultipleImageControls, () => new MultipleControls()),
-                }
-            },
-            new(Resources.Camera)
-            {
-                Children = new EffectMetadata[]
-                {
-                    new(Resources.DepthTest, () => new DepthTest()),
-                    new(Resources.DirectionalLightSource, () => new DirectionalLightSource()),
-                    new(Resources.PointLightSource, () => new PointLightSource()),
-                    new(Resources.SpotLight, () => new SpotLight()),
-                }
-            },
-#if DEBUG
-            new("TestEffect", () => new TestEffect()),
-#endif
-        };
+        public static ObservableCollection<EffectMetadata> LoadedEffects { get; } = new();
     }
 #pragma warning restore CS1591
 }
