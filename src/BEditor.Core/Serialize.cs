@@ -199,7 +199,7 @@ namespace BEditor.Core
             typeof(Project),
             typeof(Scene),
 
-            typeof(ClipData),
+            typeof(ClipElement),
             typeof(ImageObject),
             typeof(ObjectElement),
 

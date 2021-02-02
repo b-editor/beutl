@@ -60,7 +60,7 @@ namespace BEditor.Primitive.Effects
         /// Represents <see cref="FitSize"/> metadata.
         /// </summary>
         public static readonly CheckPropertyMetadata FitSizeMetadata = new(Resources.FitToOriginalSize);
-        private ReactiveProperty<ClipData?>? _clipProperty;
+        private ReactiveProperty<ClipElement?>? _clipProperty;
 
         /// <summary>
         /// Initializes a new instance of the <see cref="Mask"/> class.
@@ -131,7 +131,7 @@ namespace BEditor.Primitive.Effects
         /// </summary>
         [DataMember(Order = 7)]
         public CheckProperty FitSize { get; private set; }
-        private ReactiveProperty<ClipData?> ClipProperty => _clipProperty ??= new();
+        private ReactiveProperty<ClipElement?> ClipProperty => _clipProperty ??= new();
 
         /// <inheritdoc/>
         public override void Render(EffectRenderArgs<Image<BGRA32>> args)
@@ -177,10 +177,10 @@ namespace BEditor.Primitive.Effects
             FitSize.Load(FitSizeMetadata);
 
             _clipProperty = Image
-                .Select(str => ClipData.FromFullName(str, Parent?.Parent?.Parent))
+                .Select(str => ClipElement.FromFullName(str, Parent?.Parent?.Parent))
                 .ToReactiveProperty();
 
-            ClipProperty.Value = ClipData.FromFullName(Image.Value, Parent?.Parent?.Parent);
+            ClipProperty.Value = ClipElement.FromFullName(Image.Value, Parent?.Parent?.Parent);
         }
         /// <inheritdoc/>
         protected override void OnUnload()

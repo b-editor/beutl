@@ -12,7 +12,7 @@ namespace BEditor.Models.Extension
 {
     public static class Tool
     {
-        public static void PreviewUpdate(this Project project, ClipData clipData, RenderType type = RenderType.Preview)
+        public static void PreviewUpdate(this Project project, ClipElement clipData, RenderType type = RenderType.Preview)
         {
             if (project is null) return;
             var now = project.PreviewScene.PreviewFrame;
@@ -48,13 +48,13 @@ namespace BEditor.Models.Extension
             });
         }
 
-        public static bool Clamp(this Scene self, ClipData? clip_, ref Frame start, ref Frame end, int layer)
+        public static bool Clamp(this Scene self, ClipElement? clip_, ref Frame start, ref Frame end, int layer)
         {
             var array = self.GetLayer(layer).ToArray();
 
             for (int i = 0; i < array.Length; i++)
             {
-                ClipData? clip = array[i];
+                ClipElement? clip = array[i];
 
                 if (clip != clip_)
                 {
@@ -97,13 +97,13 @@ namespace BEditor.Models.Extension
 
             return true;
         }
-        public static bool InRange(this Scene self, ClipData clip_, Frame start, Frame end, int layer)
+        public static bool InRange(this Scene self, ClipElement clip_, Frame start, Frame end, int layer)
         {
             var array = self.GetLayer(layer).ToArray();
 
             for (int i = 0; i < array.Length; i++)
             {
-                ClipData? clip = array[i];
+                ClipElement? clip = array[i];
 
                 if (clip != clip_)
                 {
@@ -117,7 +117,7 @@ namespace BEditor.Models.Extension
             return true;
         }
         // このクリップと被る場合はtrue
-        public static bool InRange(this ClipData self, Frame start, Frame end)
+        public static bool InRange(this ClipElement self, Frame start, Frame end)
         {
             //return (self.Start <= start && end <= self.End)
             //    || (start <= self.Start && self.End <= end)
@@ -143,7 +143,7 @@ namespace BEditor.Models.Extension
 
             return false;
         }
-        public static bool InRange(this ClipData self, Frame start, Frame end, out RangeType type)
+        public static bool InRange(this ClipElement self, Frame start, Frame end, out RangeType type)
         {
             if (self.Start <= start && end <= self.End)
             {

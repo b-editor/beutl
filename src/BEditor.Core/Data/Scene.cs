@@ -28,11 +28,11 @@ namespace BEditor.Core.Data
     /// Represents a scene to be included in the <see cref="Project"/>.
     /// </summary>
     [DataContract]
-    public class Scene : ComponentObject, IParent<ClipData>, IChild<Project>, IHasName, IHasId, IElementObject
+    public class Scene : ComponentObject, IParent<ClipElement>, IChild<Project>, IHasName, IHasId, IElementObject
     {
         #region Fields
 
-        private static readonly PropertyInfo _ClipDataID = typeof(ClipData).GetProperty(nameof(ClipData.Id))!;
+        private static readonly PropertyInfo _ClipDataID = typeof(ClipElement).GetProperty(nameof(ClipElement.Id))!;
         private static readonly PropertyChangedEventArgs _SelectItemArgs = new(nameof(SelectItem));
         private static readonly PropertyChangedEventArgs _PrevireFrameArgs = new(nameof(PreviewFrame));
         private static readonly PropertyChangedEventArgs _TotalFrameArgs = new(nameof(TotalFrame));
@@ -41,8 +41,8 @@ namespace BEditor.Core.Data
         private static readonly PropertyChangedEventArgs _VoffsetArgs = new(nameof(TimeLineVerticalOffset));
         private static readonly PropertyChangedEventArgs _SceneNameArgs = new(nameof(SceneName));
         private static readonly PropertyChangedEventArgs _BackgroundColorArgs = new(nameof(BackgroundColor));
-        private ClipData? _selectItem;
-        private ObservableCollection<ClipData?>? _selectItems;
+        private ClipElement? _selectItem;
+        private ObservableCollection<ClipElement?>? _selectItems;
         private Frame _previewframe;
         private Frame _totalframe = 1000;
         private float _timeLineZoom = 150;
@@ -65,7 +65,7 @@ namespace BEditor.Core.Data
         {
             Width = width;
             Height = height;
-            Datas = new ObservableCollection<ClipData>();
+            Datas = new ObservableCollection<ClipElement>();
         }
 
         #endregion
@@ -98,22 +98,22 @@ namespace BEditor.Core.Data
         }
 
         /// <summary>
-        /// Gets the names of the selected <see cref="ClipData"/>.
+        /// Gets the names of the selected <see cref="ClipElement"/>.
         /// </summary>
         [DataMember(Order = 3)]
         public List<string> SelectNames { get; private set; } = new List<string>();
 
         /// <summary>
-        /// Gets the name of the selected <see cref="ClipData"/>.
+        /// Gets the name of the selected <see cref="ClipElement"/>.
         /// </summary>
         [DataMember(Order = 4)]
         public string? SelectName { get; private set; }
 
         /// <summary>
-        /// Gets the <see cref="ClipData"/> contained in this <see cref="Scene"/>.
+        /// Gets the <see cref="ClipElement"/> contained in this <see cref="Scene"/>.
         /// </summary>
         [DataMember(Order = 10)]
-        public ObservableCollection<ClipData> Datas { get; private set; }
+        public ObservableCollection<ClipElement> Datas { get; private set; }
 
         /// <summary>
         /// Gets the number of the hidden layer.
@@ -122,9 +122,9 @@ namespace BEditor.Core.Data
         public List<int> HideLayer { get; private set; } = new List<int>();
 
         /// <summary>
-        /// Gets or sets the selected <see cref="ClipData"/>.
+        /// Gets or sets the selected <see cref="ClipElement"/>.
         /// </summary>
-        public ClipData? SelectItem
+        public ClipElement? SelectItem
         {
             get => _selectItem ??= this[SelectName ?? null];
             set
@@ -136,15 +136,15 @@ namespace BEditor.Core.Data
         }
 
         /// <summary>
-        /// Gets the selected <see cref="ClipData"/>.
+        /// Gets the selected <see cref="ClipElement"/>.
         /// </summary>
-        public ObservableCollection<ClipData?> SelectItems
+        public ObservableCollection<ClipElement?> SelectItems
         {
             get
             {
                 if (_selectItems == null)
                 {
-                    _selectItems = new ObservableCollection<ClipData?>(SelectNames.Select(name => this.Find(name)));
+                    _selectItems = new ObservableCollection<ClipElement?>(SelectNames.Select(name => this.Find(name)));
 
                     _selectItems.CollectionChanged += (s, e) =>
                     {
@@ -264,7 +264,7 @@ namespace BEditor.Core.Data
         #endregion
 
         /// <inheritdoc/>
-        public IEnumerable<ClipData> Children => Datas;
+        public IEnumerable<ClipElement> Children => Datas;
 
         /// <inheritdoc/>
         public Project? Parent { get; set; }
@@ -321,10 +321,10 @@ namespace BEditor.Core.Data
         #endregion
 
         /// <summary>
-        /// Get the <see cref="ClipData"/> from its <see cref="IHasName.Name"/>.
+        /// Get the <see cref="ClipElement"/> from its <see cref="IHasName.Name"/>.
         /// </summary>
         /// <param name="name">Value of <see cref="IHasName.Name"/>.</param>
-        public ClipData? this[string? name]
+        public ClipElement? this[string? name]
         {
             [return: NotNullIfNotNull("name")]
             get
@@ -472,7 +472,7 @@ namespace BEditor.Core.Data
         /// </summary>
         /// <param name="frame">Target frame number.</param>
         /// <returns>Returns a clips that contains the specified frame.</returns>
-        public IEnumerable<ClipData> GetFrame(Frame frame)
+        public IEnumerable<ClipElement> GetFrame(Frame frame)
         {
             return Datas
                 .AsParallel()
@@ -486,7 +486,7 @@ namespace BEditor.Core.Data
         /// </summary>
         /// <param name="layer">Target layer number.</param>
         /// <returns>Returns a clips that contains the specified layer.</returns>
-        public IEnumerable<ClipData> GetLayer(int layer)
+        public IEnumerable<ClipElement> GetLayer(int layer)
         {
             return Datas
                 .AsParallel()
@@ -495,10 +495,10 @@ namespace BEditor.Core.Data
         }
 
         /// <summary>
-        /// Add a <see cref="ClipData"/> to this <see cref="Scene"/>.
+        /// Add a <see cref="ClipElement"/> to this <see cref="Scene"/>.
         /// </summary>
-        /// <param name="clip">A <see cref="ClipData"/> to add.</param>
-        public void Add(ClipData clip)
+        /// <param name="clip">A <see cref="ClipElement"/> to add.</param>
+        public void Add(ClipElement clip)
         {
             clip.Parent = this;
 
@@ -506,24 +506,24 @@ namespace BEditor.Core.Data
         }
 
         /// <summary>
-        /// Remove certain a <see cref="ClipData"/> from this <see cref="Scene"/>.
+        /// Remove certain a <see cref="ClipElement"/> from this <see cref="Scene"/>.
         /// </summary>
-        /// <param name="clip"><see cref="ClipData"/> to be removed.</param>
+        /// <param name="clip"><see cref="ClipElement"/> to be removed.</param>
         /// <returns>
         /// <see langword="true"/> if item is successfully removed; otherwise, <see langword="false"/>. This method also returns
         /// <see langword="false"/> if item was not found in the original <see cref="Collection{T}"/>.
         /// </returns>
-        public bool Remove(ClipData clip)
+        public bool Remove(ClipElement clip)
         {
             return Datas.Remove(clip);
         }
 
         /// <summary>
-        /// Set the selected <see cref="ClipData"/> and add the name to <see cref="SelectNames"/> if it does not exist.
+        /// Set the selected <see cref="ClipElement"/> and add the name to <see cref="SelectNames"/> if it does not exist.
         /// </summary>
-        /// <param name="clip"><see cref="ClipData"/> to be set to current.</param>
+        /// <param name="clip"><see cref="ClipElement"/> to be set to current.</param>
         /// <exception cref="ArgumentNullException"><paramref name="clip"/> is <see langword="null"/>.</exception>
-        public void SetCurrentClip(ClipData clip)
+        public void SetCurrentClip(ClipElement clip)
         {
             SelectItem = clip ?? throw new ArgumentNullException(nameof(clip));
 
@@ -534,12 +534,12 @@ namespace BEditor.Core.Data
         }
 
         /// <summary>
-        /// Create a command to add a <see cref="ClipData"/> to this <see cref="Scene"/>.
+        /// Create a command to add a <see cref="ClipElement"/> to this <see cref="Scene"/>.
         /// </summary>
-        /// <param name="clip"><see cref="ClipData"/> to be added.</param>
+        /// <param name="clip"><see cref="ClipElement"/> to be added.</param>
         /// <returns>Created <see cref="IRecordCommand"/>.</returns>
         [Pure]
-        public IRecordCommand AddClip(ClipData clip)
+        public IRecordCommand AddClip(ClipElement clip)
         {
             // オブジェクトの情報
             clip.Parent = this;
@@ -575,17 +575,17 @@ namespace BEditor.Core.Data
         }
 
         /// <summary>
-        /// Create a command to add a <see cref="ClipData"/> to this <see cref="Scene"/>.
+        /// Create a command to add a <see cref="ClipElement"/> to this <see cref="Scene"/>.
         /// </summary>
         /// <param name="frame">Frame to add a clip.</param>
         /// <param name="layer">Layer to add a clip.</param>
         /// <param name="metadata">Clip metadata to be added.</param>
-        /// <param name="generatedClip">Generated <see cref="ClipData"/>.</param>
+        /// <param name="generatedClip">Generated <see cref="ClipElement"/>.</param>
         /// <returns>Created <see cref="IRecordCommand"/>.</returns>
         [Pure]
-        public IRecordCommand AddClip(Frame frame, int layer, ObjectMetadata metadata, out ClipData generatedClip)
+        public IRecordCommand AddClip(Frame frame, int layer, ObjectMetadata metadata, out ClipElement generatedClip)
         {
-            var command = new ClipData.AddCommand(this, frame, layer, metadata);
+            var command = new ClipElement.AddCommand(this, frame, layer, metadata);
             generatedClip = command.Clip;
 
             return command;
@@ -593,14 +593,14 @@ namespace BEditor.Core.Data
 
 #pragma warning disable CA1822
         /// <summary>
-        /// Create a command to remove <see cref="ClipData"/> from this <see cref="Scene"/>.
+        /// Create a command to remove <see cref="ClipElement"/> from this <see cref="Scene"/>.
         /// </summary>
-        /// <param name="clip"><see cref="ClipData"/> to be removed.</param>
+        /// <param name="clip"><see cref="ClipElement"/> to be removed.</param>
         /// <returns>Created <see cref="IRecordCommand"/>.</returns>
         [Pure]
-        public IRecordCommand RemoveClip(ClipData clip)
+        public IRecordCommand RemoveClip(ClipElement clip)
         {
-            return new ClipData.RemoveCommand(clip);
+            return new ClipElement.RemoveCommand(clip);
         }
 #pragma warning restore CA1822
 

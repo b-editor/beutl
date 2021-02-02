@@ -240,7 +240,7 @@ namespace BEditor.Views.TimeLines
                 {
                     var item = e.OldItems![0];
 
-                    if (item is ClipData clip)
+                    if (item is ClipElement clip)
                     {
                         var ui = clip.GetCreateClipView();
                         (ui.Parent as Grid)?.Children?.Remove(ui);

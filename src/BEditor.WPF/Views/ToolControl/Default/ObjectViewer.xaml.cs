@@ -70,14 +70,14 @@ namespace BEditor.Views.ToolControl.Default
         private Scene? GetScene()
         {
             if (TreeView.SelectedItem is Scene scene) return scene;
-            else if (TreeView.SelectedItem is ClipData clip) return clip.GetParent();
+            else if (TreeView.SelectedItem is ClipElement clip) return clip.GetParent();
             else if (TreeView.SelectedItem is EffectElement effect) return effect.GetParent2();
             else if (TreeView.SelectedItem is PropertyElement property) return property.GetParent3();
             else throw new IndexOutOfRangeException();
         }
-        private ClipData? GetClip()
+        private ClipElement? GetClip()
         {
-            if (TreeView.SelectedItem is ClipData clip) return clip;
+            if (TreeView.SelectedItem is ClipElement clip) return clip;
             else if (TreeView.SelectedItem is EffectElement effect) return effect.GetParent();
             else if (TreeView.SelectedItem is PropertyElement property) return property.GetParent2();
             else throw new IndexOutOfRangeException();
@@ -124,7 +124,7 @@ namespace BEditor.Views.ToolControl.Default
             }
             catch (IndexOutOfRangeException)
             {
-                Message.Snackbar(string.Format(Core.Properties.Resources.ErrorObjectViewer1, nameof(ClipData)));
+                Message.Snackbar(string.Format(Core.Properties.Resources.ErrorObjectViewer1, nameof(ClipElement)));
             }
         }
         private void RemoveEffect(object sender, RoutedEventArgs e)

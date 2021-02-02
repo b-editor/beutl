@@ -17,14 +17,14 @@ namespace BEditor.Views.PropertyControls
     /// </summary>
     public partial class Object_Setting : UserControl
     {
-        public Object_Setting(ClipData data)
+        public Object_Setting(ClipElement data)
         {
             DataContext = Data = data;
 
             InitializeComponent();
         }
 
-        public ClipData Data { get; set; }
+        public ClipElement Data { get; set; }
 
 
         private void UserControl_Drop(object sender, DragEventArgs e)

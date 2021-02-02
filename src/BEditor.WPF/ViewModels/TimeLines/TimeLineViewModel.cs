@@ -55,7 +55,7 @@ namespace BEditor.ViewModels.TimeLines
         /// <summary>
         /// 選択オブジェクトのラベル
         /// </summary>
-        public ClipData? ClipSelect;
+        public ClipElement? ClipSelect;
         /// <summary>
         /// 移動量
         /// </summary>
@@ -195,7 +195,7 @@ namespace BEditor.ViewModels.TimeLines
         /// </para>
         /// </summary>
         public Action<float, int, int>? ResetScale { get; set; }
-        public Action<ClipData, int>? ClipLayerMoveCommand { get; set; }
+        public Action<ClipElement, int>? ClipLayerMoveCommand { get; set; }
         public Func<Point>? GetLayerMousePosition { get; set; }
 
 
@@ -315,7 +315,7 @@ namespace BEditor.ViewModels.TimeLines
             Mouse_Layer = AttachmentProperty.GetInt((Grid)sender);
         }
 
-        public void TimeLineLoaded(Action<ObservableCollection<ClipData>> action)
+        public void TimeLineLoaded(Action<ObservableCollection<ClipElement>> action)
         {
             var from = Scene.TimeLineZoom;
             Scene.TimeLineZoom = 50;
@@ -442,7 +442,7 @@ namespace BEditor.ViewModels.TimeLines
 
             if (ClipTimeChange && ClipSelect is not null)
             {
-                ClipData data = ClipSelect;
+                ClipElement data = ClipSelect;
 
                 data.MoveFrameLayer(
                     ToFrame(data.GetCreateClipViewModel().MarginLeftProperty),

@@ -438,7 +438,7 @@ namespace BEditor.Views
             }
             return property.ComponentData["GetKeyFrameView"];
         }
-        public static ClipUI GetCreateClipView(this ClipData clip)
+        public static ClipUI GetCreateClipView(this ClipElement clip)
         {
             if (!clip.ComponentData.ContainsKey("GetClipView"))
             {
@@ -451,7 +451,7 @@ namespace BEditor.Views
             }
             return clip.ComponentData["GetClipView"];
         }
-        public static ClipUIViewModel GetCreateClipViewModel(this ClipData clip)
+        public static ClipUIViewModel GetCreateClipViewModel(this ClipElement clip)
         {
             if (!clip.ComponentData.ContainsKey("GetClipViewModel"))
             {
@@ -532,7 +532,7 @@ namespace BEditor.Views
             }
             return effect.ComponentData["GetKeyFrame"];
         }
-        public static UIElement GetCreatePropertyView(this ClipData clip)
+        public static UIElement GetCreatePropertyView(this ClipElement clip)
         {
             if (!clip.ComponentData.ContainsKey("GetPropertyView"))
             {

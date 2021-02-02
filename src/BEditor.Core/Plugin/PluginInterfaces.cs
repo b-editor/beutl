@@ -32,36 +32,4 @@ namespace BEditor.Core.Plugin
         /// </summary>
         public SettingRecord Settings { get; set; }
     }
-
-    //Todo: API自体を変えるかも なのでDocumentはあと
-    /// <summary>
-    /// 
-    /// </summary>
-    public interface IEasingFunctions
-    {
-        /// <summary>
-        /// 
-        /// </summary>
-        public IEnumerable<EasingMetadata> EasingFunc { get; }
-    }
-    /// <summary>
-    /// 
-    /// </summary>
-    public interface IEffects
-    {
-        /// <summary>
-        /// 
-        /// </summary>
-        public IEnumerable<EffectMetadata> Effects { get; }
-    }
-    /// <summary>
-    /// 
-    /// </summary>
-    public interface IObjects
-    {
-        /// <summary>
-        /// 
-        /// </summary>
-        public IEnumerable<ObjectMetadata> Objects { get; }
-    }
 }

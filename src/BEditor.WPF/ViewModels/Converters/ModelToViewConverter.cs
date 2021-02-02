@@ -52,7 +52,7 @@ namespace BEditor.ViewModels.Converters
     {
         public object Convert(object value, Type targetType, object parameter, CultureInfo culture)
         {
-            if (value is ClipData data) return data.GetCreatePropertyView();
+            if (value is ClipElement data) return data.GetCreatePropertyView();
             throw new Exception();
         }
         public object ConvertBack(object value, Type targetType, object parameter, CultureInfo culture) => throw new NotImplementedException();

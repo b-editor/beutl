@@ -23,7 +23,7 @@ namespace BEditor.Core.Data
     /// Represents a data of a clip to be placed in the timeline.
     /// </summary>
     [DataContract]
-    public class ClipData : ComponentObject, ICloneable, IParent<EffectElement>, IChild<Scene>, IHasName, IHasId, IFormattable, IElementObject
+    public class ClipElement : ComponentObject, ICloneable, IParent<EffectElement>, IChild<Scene>, IHasName, IHasId, IFormattable, IElementObject
     {
         #region Fields
         private static readonly PropertyChangedEventArgs _StartArgs = new(nameof(Start));
@@ -40,9 +40,9 @@ namespace BEditor.Core.Data
         #region Contructor
 
         /// <summary>
-        /// <see cref="ClipData"/> Initialize a new instance of the class.
+        /// <see cref="ClipElement"/> Initialize a new instance of the class.
         /// </summary>
-        public ClipData(int id, ObservableCollection<EffectElement> effects, Frame start, Frame end, Type type, int layer, Scene scene)
+        public ClipElement(int id, ObservableCollection<EffectElement> effects, Frame start, Frame end, Type type, int layer, Scene scene)
         {
             Id = id;
             _Start = start;
@@ -59,18 +59,18 @@ namespace BEditor.Core.Data
         #region Properties
 
         /// <summary>
-        /// Get the ID for this <see cref="ClipData"/>
+        /// Get the ID for this <see cref="ClipElement"/>
         /// </summary>
         [DataMember(Order = 0)]
         public int Id { get; private set; }
 
         /// <summary>
-        /// Get the name of this <see cref="ClipData"/>.
+        /// Get the name of this <see cref="ClipElement"/>.
         /// </summary>
         public string Name => _Name ??= $"{Type.Name}{Id}";
 
         /// <summary>
-        /// Get the type of this <see cref="ClipData"/>.
+        /// Get the type of this <see cref="ClipElement"/>.
         /// </summary>
         [DataMember(Name = "Type", Order = 1)]
         public string ClipType
@@ -80,12 +80,12 @@ namespace BEditor.Core.Data
         }
 
         /// <summary>
-        /// Get the type of this <see cref="ClipData"/>.
+        /// Get the type of this <see cref="ClipElement"/>.
         /// </summary>
         public Type Type { get; private set; }
 
         /// <summary>
-        /// Get or set the start frame for this <see cref="ClipData"/>.
+        /// Get or set the start frame for this <see cref="ClipElement"/>.
         /// </summary>
         [DataMember(Order = 2)]
         public Frame Start
@@ -95,7 +95,7 @@ namespace BEditor.Core.Data
         }
 
         /// <summary>
-        /// Get or set the end frame for this <see cref="ClipData"/>.
+        /// Get or set the end frame for this <see cref="ClipElement"/>.
         /// </summary>
         [DataMember(Order = 3)]
         public Frame End
@@ -105,12 +105,12 @@ namespace BEditor.Core.Data
         }
 
         /// <summary>
-        /// Get the length of this <see cref="ClipData"/>.
+        /// Get the length of this <see cref="ClipElement"/>.
         /// </summary>
         public Frame Length => End - Start;
 
         /// <summary>
-        /// Get or set the layer where this <see cref="ClipData"/> will be placed.
+        /// Get or set the layer where this <see cref="ClipElement"/> will be placed.
         /// </summary>
         [DataMember(Order = 4)]
         public int Layer
@@ -124,7 +124,7 @@ namespace BEditor.Core.Data
         }
 
         /// <summary>
-        /// Gets or sets the character displayed in this <see cref="ClipData"/>.
+        /// Gets or sets the character displayed in this <see cref="ClipElement"/>.
         /// </summary>
         [DataMember(Name = "Text", Order = 5)]
         public string LabelText
@@ -137,7 +137,7 @@ namespace BEditor.Core.Data
         public Scene Parent { get; internal set; }
 
         /// <summary>
-        /// Get the effects included in this <see cref="ClipData"/>.
+        /// Get the effects included in this <see cref="ClipElement"/>.
         /// </summary>
         [DataMember(Name = "Effects", Order = 6)]
         public ObservableCollection<EffectElement> Effect { get; private set; }
@@ -191,7 +191,7 @@ namespace BEditor.Core.Data
                     item.PreviewRender(loadargs);
                 }
             }
-            catch(Exception e)
+            catch (Exception e)
             {
                 throw new RenderingException("Faileds to rendering.", e);
             }
@@ -214,7 +214,7 @@ namespace BEditor.Core.Data
         object ICloneable.Clone() => Clone();
 
         /// <inheritdoc cref="ICloneable.Clone"/>
-        public ClipData Clone()
+        public ClipElement Clone()
         {
             var clip = this.DeepClone()!;
 
@@ -270,7 +270,7 @@ namespace BEditor.Core.Data
         /// <summary>
         /// Get the clip from its full name.
         /// </summary>
-        public static ClipData? FromFullName(string name, Project? project)
+        public static ClipElement? FromFullName(string name, Project? project)
         {
             if (project is null) return null;
 
@@ -345,8 +345,8 @@ namespace BEditor.Core.Data
         /// <summary>
         /// Create a command to change the length of this clip.
         /// </summary>
-        /// <param name="start">New start frame for this <see cref="ClipData"/>.</param>
-        /// <param name="end">New end frame for this <see cref="ClipData"/>.</param>
+        /// <param name="start">New start frame for this <see cref="ClipElement"/>.</param>
+        /// <param name="end">New end frame for this <see cref="ClipElement"/>.</param>
         /// <returns>Created <see cref="IRecordCommand"/>.</returns>
         /// <exception cref="ArgumentOutOfRangeException"><paramref name="start"/> or <paramref name="end"/> is less than 0.</exception>
         [Pure]
@@ -366,7 +366,7 @@ namespace BEditor.Core.Data
         internal sealed class AddCommand : IRecordCommand
         {
             private readonly Scene Scene;
-            public ClipData Clip;
+            public ClipElement Clip;
 
             public AddCommand(Scene scene, Frame startFrame, int layer, ObjectMetadata metadata)
             {
@@ -385,7 +385,7 @@ namespace BEditor.Core.Data
                 };
 
                 //オブジェクトの情報
-                Clip = new ClipData(idmax, list, startFrame, startFrame + 180, metadata.Type, layer, scene);
+                Clip = new ClipElement(idmax, list, startFrame, startFrame + 180, metadata.Type, layer, scene);
             }
 
             public string Name => CommandName.AddClip;
@@ -419,9 +419,9 @@ namespace BEditor.Core.Data
         }
         internal sealed class RemoveCommand : IRecordCommand
         {
-            private readonly ClipData _Clip;
+            private readonly ClipElement _Clip;
 
-            public RemoveCommand(ClipData clip) => _Clip = clip ?? throw new ArgumentNullException(nameof(clip));
+            public RemoveCommand(ClipElement clip) => _Clip = clip ?? throw new ArgumentNullException(nameof(clip));
 
             public string Name => CommandName.RemoveClip;
 
@@ -462,7 +462,7 @@ namespace BEditor.Core.Data
         }
         private sealed class MoveCommand : IRecordCommand
         {
-            private readonly ClipData _Clip;
+            private readonly ClipElement _Clip;
             private readonly Frame _ToFrame;
             private readonly Frame _FromFrame;
             private readonly int _ToLayer;
@@ -470,7 +470,7 @@ namespace BEditor.Core.Data
             private Scene Scene => _Clip.Parent;
 
             #region コンストラクタ
-            public MoveCommand(ClipData clip, Frame toFrame, int toLayer)
+            public MoveCommand(ClipElement clip, Frame toFrame, int toLayer)
             {
                 _Clip = clip ?? throw new ArgumentNullException(nameof(clip));
                 _ToFrame = (Frame.Zero > toFrame) ? throw new ArgumentOutOfRangeException(nameof(toFrame)) : toFrame;
@@ -478,7 +478,7 @@ namespace BEditor.Core.Data
                 _ToLayer = (0 > toLayer) ? throw new ArgumentOutOfRangeException(nameof(toLayer)) : toLayer;
                 _FromLayer = clip.Layer;
             }
-            public MoveCommand(ClipData clip, Frame to, Frame from, int tolayer, int fromlayer)
+            public MoveCommand(ClipElement clip, Frame to, Frame from, int tolayer, int fromlayer)
             {
                 _Clip = clip ?? throw new ArgumentNullException(nameof(clip));
                 _ToFrame = (Frame.Zero > to) ? throw new ArgumentOutOfRangeException(nameof(to)) : to;
@@ -512,13 +512,13 @@ namespace BEditor.Core.Data
         }
         private sealed class LengthChangeCommand : IRecordCommand
         {
-            private readonly ClipData _Clip;
+            private readonly ClipElement _Clip;
             private readonly Frame _Start;
             private readonly Frame _End;
             private readonly Frame _OldStart;
             private readonly Frame _OldEnd;
 
-            public LengthChangeCommand(ClipData clip, Frame start, Frame end)
+            public LengthChangeCommand(ClipElement clip, Frame start, Frame end)
             {
                 _Clip = clip ?? throw new ArgumentNullException(nameof(clip));
                 _Start = (Frame.Zero > start) ? throw new ArgumentOutOfRangeException(nameof(start)) : start;
@@ -543,17 +543,17 @@ namespace BEditor.Core.Data
         }
         private sealed class SplitCommand : IRecordCommand
         {
-            public readonly ClipData Before;
-            public readonly ClipData After;
-            private readonly ClipData Source;
+            public readonly ClipElement Before;
+            public readonly ClipElement After;
+            private readonly ClipElement Source;
             private readonly Scene Scene;
 
-            public SplitCommand(ClipData clip, Frame frame)
+            public SplitCommand(ClipElement clip, Frame frame)
             {
                 Source = clip;
                 Scene = clip.Parent;
-                Before = (ClipData)clip.Clone();
-                After = (ClipData)clip.Clone();
+                Before = (ClipElement)clip.Clone();
+                After = (ClipElement)clip.Clone();
 
                 Before.End = frame;
                 After.Start = frame;

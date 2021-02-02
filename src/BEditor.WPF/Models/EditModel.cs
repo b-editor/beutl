@@ -105,7 +105,7 @@ namespace BEditor.Models
                     using var memory = new MemoryStream();
                     memory.Write(Encoding.Default.GetBytes(text));
 
-                    if (Serialize.LoadFromStream<ClipData>(memory, SerializeMode.Json) is var clip && clip is not null)
+                    if (Serialize.LoadFromStream<ClipElement>(memory, SerializeMode.Json) is var clip && clip is not null)
                     {
                         var length = clip.Length;
                         clip.Start = timeline.Select_Frame;
@@ -172,7 +172,7 @@ namespace BEditor.Models
 
         public event EventHandler? SceneCreate;
         public event EventHandler? ClipCreate;
-        public event EventHandler<ClipData>? EffectAddTo;
+        public event EventHandler<ClipElement>? EffectAddTo;
 
         public ReactiveCommand Undo { get; } = new();
         public ReactiveCommand Redo { get; } = new();

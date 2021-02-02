@@ -1,0 +1,28 @@
+﻿
+using BEditor.Core.Data;
+using BEditor.Core.Extensions;
+using BEditor.Core.Plugin;
+
+namespace TestPlugin2
+{
+    public class Plugin
+    {
+        public static void Register(string[] args)
+        {
+            PluginBuilder.Configure<TestPlugin2>()
+                .With(new EffectMetadata(nameof(TestPlugin2))
+                {
+                    Children = new EffectMetadata[]
+                    {
+                        new EffectMetadata(nameof(TestEffect), () => new TestEffect())
+                    }
+                })
+                .SetCustomMenu("メニュー", new ICustomMenu[]
+                {
+                    new CustomMenu("Hello World", () => Message.Snackbar("Hello World")),
+                    new CustomMenu("Hello Dialog", () => Message.Dialog("Hello Dialog"))
+                })
+                .Register();
+        }
+    }
+}

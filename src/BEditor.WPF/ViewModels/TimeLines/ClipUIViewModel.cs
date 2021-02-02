@@ -30,7 +30,7 @@ namespace BEditor.ViewModels.TimeLines
 
         public Scene Scene => ClipData.Parent;
         private TimeLineViewModel TimeLineViewModel => Scene.GetCreateTimeLineViewModel();
-        public ClipData ClipData { get; }
+        public ClipElement ClipData { get; }
         /// <summary>
         /// GUIのレイヤー
         /// </summary>
@@ -63,7 +63,7 @@ namespace BEditor.ViewModels.TimeLines
         #endregion
 
 
-        public ClipUIViewModel(ClipData clip)
+        public ClipUIViewModel(ClipElement clip)
         {
             static CustomClipUIAttribute GetAtt(ObjectElement self)
             {
@@ -177,7 +177,7 @@ namespace BEditor.ViewModels.TimeLines
             //保存
             if (TimeLineViewModel.ClipLeftRight != 0)
             {
-                ClipData data = TimeLineViewModel.ClipSelect;
+                ClipElement data = TimeLineViewModel.ClipSelect;
 
                 int start = TimeLineViewModel.ToFrame(TimeLineViewModel.ClipSelect.GetCreateClipViewModel().MarginLeftProperty);
                 int end = TimeLineViewModel.ToFrame(TimeLineViewModel.ClipSelect.GetCreateClipViewModel().WidthProperty.Value) + start;//変更後の最大フレーム
@@ -188,7 +188,7 @@ namespace BEditor.ViewModels.TimeLines
 
             if (TimeLineViewModel.ClipTimeChange)
             {
-                ClipData data = TimeLineViewModel.ClipSelect;
+                ClipElement data = TimeLineViewModel.ClipSelect;
 
                 int frame = TimeLineViewModel.ToFrame(data.GetCreateClipViewModel().MarginLeftProperty);
                 int layer = data.GetCreateClipViewModel().Row;

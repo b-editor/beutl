@@ -312,7 +312,7 @@ namespace BEditor
         private static void InitialPlugins()
         {
             // すべて
-            var all = PluginManager.GetNames();
+            var all = PluginManager.Default.GetNames();
             // 無効なプラグイン
             var disable = all.Except(Settings.Default.EnablePlugins)
                 .Except(Settings.Default.DisablePlugins)
@@ -346,13 +346,13 @@ namespace BEditor
                     Settings.Default.Save();
 
 
-                    AppData.Current.LoadedPlugins = PluginManager.Load(Settings.Default.EnablePlugins).ToList();
+                    PluginManager.Default.Load(Settings.Default.EnablePlugins);
                 });
 
                 return;
             }
 
-            AppData.Current.LoadedPlugins = PluginManager.Load(Settings.Default.EnablePlugins).ToList();
+            PluginManager.Default.Load(Settings.Default.EnablePlugins);
         }
         private static void LoadCommand()
         {

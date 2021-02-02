@@ -1,10 +1,12 @@
 ﻿using System;
+using System.Collections.Generic;
 using System.Collections.ObjectModel;
 using System.Collections.Specialized;
 using System.ComponentModel;
 using System.Diagnostics;
 using System.IO;
 using System.Linq;
+using System.Reflection;
 using System.Windows;
 using System.Windows.Controls;
 using System.Windows.Controls.Primitives;
@@ -25,6 +27,8 @@ using MaterialDesignThemes.Wpf;
 
 using Reactive.Bindings;
 
+using Expression = System.Linq.Expressions.Expression;
+
 namespace BEditor
 {
     /// <summary>
@@ -37,9 +41,20 @@ namespace BEditor
             Show,
             Hide
         }
+        private static readonly Func<PluginManager, List<(string, IEnumerable<ICustomMenu>)>> GetMenus;
         private ShowHideState TimelineIsShown = ShowHideState.Show;
         private ShowHideState PropertyIsShown = ShowHideState.Show;
 
+        static MainWindow()
+        {
+            var type = typeof(PluginManager);
+
+            var param = Expression.Parameter(type);
+            var expression = Expression.Lambda<Func<PluginManager, List<(string, IEnumerable<ICustomMenu>)>>>(
+                Expression.Field(param, "_menus"), param);
+
+            GetMenus = expression.Compile();
+        }
         public MainWindow()
         {
             InitializeComponent();
@@ -57,7 +72,7 @@ namespace BEditor
             SetPluginMenu();
         }
 
-        private void EditModel_EffectAddTo(object? sender, ClipData c)
+        private void EditModel_EffectAddTo(object? sender, ClipElement c)
         {
             var dialog = new EffectAddDialog(new EffectAddDialogViewModel()
             {
@@ -153,35 +168,29 @@ namespace BEditor
         }
         private void SetPluginMenu()
         {
-            foreach (var menu in AppData.Current.LoadedPlugins!
-                .Where(p => p is ICustomMenuPlugin)
-                .Select(p =>
-                {
-                    var plugin = (p as ICustomMenuPlugin)!;
+            var menus = GetMenus(PluginManager.Default);
 
-                    var menu = new MenuItem()
+            foreach (var item in menus)
+            {
+                var menu = new MenuItem()
+                {
+                    Header = item.Item1
+                };
+
+                foreach (var m in item.Item2)
+                {
+                    var command = new ReactiveCommand();
+                    command.Subscribe(m.Execute);
+
+                    var newItem = new MenuItem()
                     {
-                        Header = plugin.PluginName,
-                        ToolTip = plugin.Description
+                        Command = command,
+                        Header = m.Name
                     };
 
-                    foreach (var m in plugin.Menus)
-                    {
-                        var command = new ReactiveCommand();
-                        command.Subscribe(m.Execute);
+                    menu.Items.Add(newItem);
+                }
 
-                        var newItem = new MenuItem()
-                        {
-                            Command = command,
-                            Header = m.Name
-                        };
-
-                        menu.Items.Add(newItem);
-                    }
-
-                    return menu;
-                }))
-            {
                 PluginMenu.Items.Add(menu);
             }
         }

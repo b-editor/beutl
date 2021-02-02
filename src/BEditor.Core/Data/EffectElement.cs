@@ -17,14 +17,14 @@ namespace BEditor.Core.Data
     /// Represents a base class of the effect.
     /// </summary>
     [DataContract]
-    public abstract class EffectElement : ComponentObject, IChild<ClipData>, IParent<PropertyElement>, ICloneable, IHasId, IElementObject
+    public abstract class EffectElement : ComponentObject, IChild<ClipElement>, IParent<PropertyElement>, ICloneable, IHasId, IElementObject
     {
         #region Fields
         private static readonly PropertyChangedEventArgs _IsEnabledArgs = new(nameof(IsEnabled));
         private static readonly PropertyChangedEventArgs _IsExpandedArgs = new(nameof(IsExpanded));
         private bool _IsEnabled = true;
         private bool _IsExpanded = true;
-        private ClipData? _Parent;
+        private ClipElement? _Parent;
         private IEnumerable<PropertyElement>? _CachedList;
         #endregion
 
@@ -59,7 +59,7 @@ namespace BEditor.Core.Data
         /// </summary>
         public abstract IEnumerable<PropertyElement> Properties { get; }
         /// <inheritdoc/>
-        public ClipData? Parent
+        public ClipElement? Parent
         {
             get => _Parent;
             internal set
@@ -163,7 +163,7 @@ namespace BEditor.Core.Data
         }
         internal sealed class UpCommand : IRecordCommand
         {
-            private readonly ClipData _Clip;
+            private readonly ClipElement _Clip;
             private readonly EffectElement _Effect;
 
             public UpCommand(EffectElement effect)
@@ -198,7 +198,7 @@ namespace BEditor.Core.Data
         }
         internal sealed class DownCommand : IRecordCommand
         {
-            private readonly ClipData _Clip;
+            private readonly ClipElement _Clip;
             private readonly EffectElement _Effect;
 
             public DownCommand(EffectElement effect)
@@ -233,11 +233,11 @@ namespace BEditor.Core.Data
         }
         internal sealed class RemoveCommand : IRecordCommand
         {
-            private readonly ClipData _Clip;
+            private readonly ClipElement _Clip;
             private readonly EffectElement _Effect;
             private readonly int _Indec;
 
-            public RemoveCommand(EffectElement effect, ClipData clip)
+            public RemoveCommand(EffectElement effect, ClipElement clip)
             {
                 _Effect = effect;
                 _Clip = clip;
@@ -260,10 +260,10 @@ namespace BEditor.Core.Data
         }
         internal sealed class AddCommand : IRecordCommand
         {
-            private readonly ClipData _Clip;
+            private readonly ClipElement _Clip;
             private readonly EffectElement _Effect;
 
-            public AddCommand(EffectElement effect, ClipData clip)
+            public AddCommand(EffectElement effect, ClipElement clip)
             {
                 _Effect = effect;
                 _Clip = clip;

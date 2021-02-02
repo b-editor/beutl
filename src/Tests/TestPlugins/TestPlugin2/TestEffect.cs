@@ -33,14 +33,12 @@ namespace TestPlugin2
             if (Check.Value)
                 args.Value.Blur(50);
         }
-        public override void Loaded()
+        protected override void OnLoad()
         {
-            base.Load();
             Check.Load(CheckMetadata);
         }
-        public override void Unloaded()
+        protected override void OnUnload()
         {
-            base.Unload();
             Check.Unload();
         }
     }

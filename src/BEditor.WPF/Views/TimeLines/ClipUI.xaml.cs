@@ -42,7 +42,7 @@ namespace BEditor.Views.TimeLines
             }
         }
 
-        public ClipUI(ClipData _Data)
+        public ClipUI(ClipElement _Data)
         {
             DataContext = _Data.GetCreateClipViewModel();
             InitializeComponent();
@@ -106,7 +106,7 @@ namespace BEditor.Views.TimeLines
         }
         #endregion
 
-        public ClipData ClipData { get; set; }
+        public ClipElement ClipData { get; set; }
         public ClipUIViewModel ViewModel => (ClipUIViewModel)DataContext;
 
 

@@ -25,7 +25,7 @@ namespace BEditor.ViewModels.CreateDialog
         }
 
         public ReactiveProperty<Scene> Scene { get; } = new(AppData.Current.Project!.SceneList[0]);
-        public ReactiveProperty<ClipData> TargetClip { get; } = new();
+        public ReactiveProperty<ClipElement> TargetClip { get; } = new();
         public ReactiveProperty<EffectMetadata> Type { get; } = new();
         public ReactiveCommand AddCommand { get; } = new();
     }

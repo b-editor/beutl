@@ -15,9 +15,5 @@ namespace BEditor.Core
         /// Get or set the status of an application.
         /// </summary>
         public Status AppStatus { get; set; }
-        /// <summary>
-        /// Get the loaded plugins.
-        /// </summary>
-        public List<IPlugin>? LoadedPlugins { get; }
     }
 }
