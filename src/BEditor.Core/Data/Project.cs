@@ -4,12 +4,11 @@ using System.Collections.ObjectModel;
 using System.ComponentModel;
 using System.IO;
 using System.Runtime.Serialization;
-using System.Threading.Tasks;
-
-using BEditor.Graphics;
-using BEditor.Core.Service;
-using BEditor.Core.Properties;
 using System.Text.RegularExpressions;
+using System.Threading.Tasks;
+using BEditor.Core.Properties;
+using BEditor.Core.Service;
+using BEditor.Graphics;
 using static System.Net.WebRequestMethods;
 
 namespace BEditor.Core.Data
@@ -18,42 +17,48 @@ namespace BEditor.Core.Data
     /// Represents the project to be used in editing.
     /// </summary>
     [DataContract]
-    public class Project : BasePropertyChanged, IExtensibleDataObject, IDisposable, IParent<Scene>, IChild<IApplication>, IElementObject
+    public class Project : BasePropertyChanged, IExtensibleDataObject, IDisposable, IParent<Scene>, IChild<IApplication>, IElementObject, IHasName
     {
         #region Fields
 
         private static readonly PropertyChangedEventArgs _PrevireSceneArgs = new(nameof(PreviewScene));
         private static readonly PropertyChangedEventArgs _FilenameArgs = new(nameof(Filename));
-        private Scene? _PreviewScene;
-        private ObservableCollection<Scene> _SceneList = new ObservableCollection<Scene>();
-        private IApplication? _Parent;
-        private string? _Filename;
+        private Scene? _previewScene;
+        private ObservableCollection<Scene> _sceneList = new ObservableCollection<Scene>();
+        private IApplication? _parent;
+        private string? _filename;
 
         #endregion
-
 
         #region Contructor
 
         /// <summary>
-        /// <see cref="Project"/> Initialize a new instance of the class.
+        /// Initializes a new instance of the <see cref="Project"/> class.
         /// </summary>
+        /// <param name="width">The width of rootscene.</param>
+        /// <param name="height">The height of rootscene.</param>
+        /// <param name="framerate">The framerate of this project.</param>
+        /// <param name="samplingrate">The samplingrate of this project.</param>
+        /// <param name="app">The running <see cref="IApplication"/>.</param>
         public Project(int width, int height, int framerate, int samplingrate = 0, IApplication? app = null)
         {
             Parent = app;
             Framerate = framerate;
             Samplingrate = samplingrate;
-            SceneList.Add(new RootScene(width, height)
+            SceneList.Add(new Scene(width, height)
             {
-                Parent = this
+                Parent = this,
+                SceneName = "root",
             });
         }
+
         /// <summary>
-        /// <see cref="Project"/> Initialize a new instance of the class.
+        /// Initializes a new instance of the <see cref="Project"/> class.
         /// </summary>
         public Project(string file, IApplication? app = null)
         {
             var mode = SerializeMode.Binary;
-            if(Path.GetExtension(file) is ".json")
+            if (Path.GetExtension(file) is ".json")
             {
                 mode = SerializeMode.Json;
             }
@@ -72,8 +77,9 @@ namespace BEditor.Core.Data
                 throw new Exception();
             }
         }
+
         /// <summary>
-        /// <see cref="Project"/> Initialize a new instance of the class.
+        /// Initializes a new instance of the <see cref="Project"/> class.
         /// </summary>
         public Project(Stream stream, SerializeMode mode, IApplication? app = null)
         {
@@ -94,12 +100,10 @@ namespace BEditor.Core.Data
 
         #endregion
 
-
         /// <summary>
         /// Occurs after saving this <see cref="Project"/>.
         /// </summary>
         public event EventHandler<ProjectSavedEventArgs> Saved = delegate { };
-
 
         #region Properties
 
@@ -123,8 +127,8 @@ namespace BEditor.Core.Data
         [DataMember(Order = 2)]
         public string? Filename
         {
-            get => _Filename;
-            set => SetValue(value, ref _Filename, _FilenameArgs);
+            get => _filename;
+            set => SetValue(value, ref _filename, _FilenameArgs);
         }
 
         /// <summary>
@@ -133,10 +137,10 @@ namespace BEditor.Core.Data
         [DataMember(Order = 4)]
         public ObservableCollection<Scene> SceneList
         {
-            get => _SceneList;
+            get => _sceneList;
             private set
             {
-                _SceneList = value;
+                _sceneList = value;
                 Parallel.ForEach(value, scene =>
                 {
                     scene.Parent = this;
@@ -157,32 +161,39 @@ namespace BEditor.Core.Data
         /// </summary>
         public Scene PreviewScene
         {
-            get => _PreviewScene ??= SceneList[PreviewSceneIndex];
+            get => _previewScene ??= SceneList[PreviewSceneIndex];
             set
             {
-                SetValue(value, ref _PreviewScene, _PrevireSceneArgs);
+                SetValue(value, ref _previewScene, _PrevireSceneArgs);
                 PreviewSceneIndex = SceneList.IndexOf(value);
             }
         }
+
         /// <summary>
         /// Get whether an object has been disposed.
         /// </summary>
         public bool IsDisposed { get; private set; }
+
         /// <inheritdoc/>
         public ExtensionDataObject? ExtensionData { get; set; }
+
         /// <inheritdoc/>
         public IEnumerable<Scene> Children => SceneList;
+
         /// <inheritdoc/>
         public IApplication? Parent
         {
-            get => _Parent;
-            init => _Parent = value;
+            get => _parent;
+            init => _parent = value;
         }
+
         /// <inheritdoc/>
         public bool IsLoaded { get; private set; }
 
-        #endregion
+        /// <inheritdoc/>
+        public string? Name => Path.GetFileNameWithoutExtension(Filename);
 
+        #endregion
 
         #region Methods
 
@@ -214,6 +225,7 @@ namespace BEditor.Core.Data
 
             Serialize.SaveToFile(this, Path.Combine(AppContext.BaseDirectory, "user", "backup", Path.GetFileNameWithoutExtension(Filename!)) + ".backup");
         }
+
         /// <inheritdoc/>
         public void Dispose()
         {
@@ -224,6 +236,8 @@ namespace BEditor.Core.Data
                 scene.GraphicsContext?.Dispose();
                 scene.AudioContext?.Dispose();
             }
+
+            GC.SuppressFinalize(this);
 
             IsDisposed = true;
         }
@@ -267,6 +281,7 @@ namespace BEditor.Core.Data
             }
             return false;
         }
+
         /// <summary>
         /// Save this <see cref="Project"/> with a name.
         /// </summary>
@@ -283,6 +298,7 @@ namespace BEditor.Core.Data
             }
             return false;
         }
+
         /// <summary>
         /// Save this <see cref="Project"/> with a name.
         /// </summary>
@@ -298,6 +314,7 @@ namespace BEditor.Core.Data
             }
             return false;
         }
+
         /// <summary>
         /// Save this <see cref="Project"/> overwrite.
         /// </summary>
@@ -343,12 +360,13 @@ namespace BEditor.Core.Data
         {
             project.Filename = Filename;
             project.Framerate = Framerate;
-            project._Parent = _Parent;
+            project._parent = _parent;
             project.PreviewScene = PreviewScene;
             project.PreviewSceneIndex = PreviewSceneIndex;
             project.Samplingrate = Samplingrate;
             project.SceneList = SceneList;
         }
+
         /// <inheritdoc/>
         public void Load()
         {
@@ -361,6 +379,7 @@ namespace BEditor.Core.Data
 
             IsLoaded = true;
         }
+
         /// <inheritdoc/>
         public void Unload()
         {

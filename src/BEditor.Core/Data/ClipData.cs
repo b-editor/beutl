@@ -37,7 +37,6 @@ namespace BEditor.Core.Data
         private string _LabelText = "";
         #endregion
 
-
         #region Contructor
 
         /// <summary>
@@ -56,7 +55,6 @@ namespace BEditor.Core.Data
         }
 
         #endregion
-
 
         #region Properties
 
@@ -152,7 +150,6 @@ namespace BEditor.Core.Data
 
         #endregion
 
-
         #region Methods
 
         /// <summary>
@@ -177,6 +174,7 @@ namespace BEditor.Core.Data
                 throw new RenderingException("Faileds to rendering.", e);
             }
         }
+
         /// <summary>
         /// Prepare this clip for rendering.
         /// </summary>
@@ -204,6 +202,7 @@ namespace BEditor.Core.Data
             Start += f;
             End += f;
         }
+
         internal void MoveTo(Frame start)
         {
             var length = Length;
@@ -213,6 +212,7 @@ namespace BEditor.Core.Data
 
         /// <inheritdoc/>
         object ICloneable.Clone() => Clone();
+
         /// <inheritdoc cref="ICloneable.Clone"/>
         public ClipData Clone()
         {
@@ -227,6 +227,7 @@ namespace BEditor.Core.Data
         /// <inheritdoc cref="IFormattable.ToString(string?, IFormatProvider?)"/>
         public string ToString(string? format)
             => ToString(format, CultureInfo.CurrentCulture);
+
         /// <inheritdoc/>
         public string ToString(string? format, IFormatProvider? formatProvider)
         {
@@ -252,6 +253,7 @@ namespace BEditor.Core.Data
 
             IsLoaded = true;
         }
+
         /// <inheritdoc/>
         public void Unload()
         {
@@ -264,6 +266,7 @@ namespace BEditor.Core.Data
 
             IsLoaded = false;
         }
+
         /// <summary>
         /// Get the clip from its full name.
         /// </summary>
@@ -285,6 +288,7 @@ namespace BEditor.Core.Data
 
             return null;
         }
+
         /// <summary>
         /// Create a command to add an effect to this clip
         /// </summary>
@@ -299,6 +303,7 @@ namespace BEditor.Core.Data
 
             return new EffectElement.AddCommand(effect, this);
         }
+
         /// <summary>
         /// Create a command to remove an effect to this clip
         /// </summary>
@@ -312,6 +317,7 @@ namespace BEditor.Core.Data
 
             return new EffectElement.RemoveCommand(effect, this);
         }
+
         /// <summary>
         /// Create a command to move this clip frames and layers.
         /// </summary>
@@ -322,6 +328,7 @@ namespace BEditor.Core.Data
         [Pure]
         public IRecordCommand MoveFrameLayer(Frame toFrame, int toLayer)
             => new MoveCommand(this, toFrame, toLayer);
+
         /// <summary>
         /// Create a command to move this clip frames and layers.
         /// </summary>
@@ -334,6 +341,7 @@ namespace BEditor.Core.Data
         [Pure]
         public IRecordCommand MoveFrameLayer(Frame to, Frame from, int tolayer, int fromlayer)
             => new MoveCommand(this, to, from, tolayer, fromlayer);
+
         /// <summary>
         /// Create a command to change the length of this clip.
         /// </summary>
@@ -344,6 +352,7 @@ namespace BEditor.Core.Data
         [Pure]
         public IRecordCommand ChangeLength(Frame start, Frame end)
             => new LengthChangeCommand(this, start, end);
+
         /// <summary>
         /// Create a command to split this clip at the specified frame.
         /// </summary>

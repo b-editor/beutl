@@ -197,7 +197,6 @@ namespace BEditor.Core
             typeof(ComponentObject),
 
             typeof(Project),
-            typeof(RootScene),
             typeof(Scene),
 
             typeof(ClipData),

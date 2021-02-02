@@ -94,7 +94,7 @@ namespace BEditor.Views.ToolControl.Default
             {
                 var scene = GetScene();
                 if (scene is null) return;
-                if (scene is RootScene)
+                if (scene is { SceneName: "root" })
                 {
                     Message.Snackbar("RootScene は削除することができません");
                     return;

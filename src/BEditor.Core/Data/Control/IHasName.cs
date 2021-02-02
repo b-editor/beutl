@@ -14,6 +14,6 @@ namespace BEditor.Core.Data
         /// <summary>
         /// 名前を取得します
         /// </summary>
-        public string Name { get; }
+        public string? Name { get; }
     }
 }
