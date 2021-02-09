@@ -54,6 +54,8 @@
         <Setter Property="NonActiveWindowTitleBrush" Value="{DynamicResource MaterialDesignPaper}"/>
         <Setter Property="NonActiveGlowBrush" Value="{DynamicResource MaterialDesignShadowBrush}"/>
         <Setter Property="BorderThickness" Value="0"/>
+        <Setter Property="TextElement.FontFamily" Value="pack://application:,,,/BEditor;component/Resources/#Noto Sans JP"/>
+        <Setter Property="TextElement.FontWeight" Value="Normal"/>
     </Style>
 
     <SolidColorBrush x:Key="VideoColor" Color="#304fee"/>

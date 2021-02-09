@@ -17,6 +17,10 @@
   <Import Project="..\..\props\common.props" />
 
   <ItemGroup>
+    <EmbeddedResource Include="Resources\*.otf" />
+  </ItemGroup>
+
+  <ItemGroup>
     <PackageReference Include="Dragablz" Version="0.0.3.223" />
     <PackageReference Include="MaterialDesignColors" Version="1.2.7" />
     <PackageReference Include="MaterialDesignThemes" Version="3.2.0" />

@@ -61,7 +61,6 @@ namespace BEditor
 
             Activated += (_, _) => MainWindowViewModel.Current.MainWindowColor.Value = (System.Windows.Media.Brush)FindResource("PrimaryHueMidBrush");
             Deactivated += (_, _) => MainWindowViewModel.Current.MainWindowColor.Value = (System.Windows.Media.Brush)FindResource("PrimaryHueDarkBrush");
-            ProjectModel.Current.CreateEvent += (_, _) => new ProjectCreateDialog { Owner = this }.ShowDialog();
             EditModel.Current.ClipCreate += EditModel_ClipCreate;
             EditModel.Current.SceneCreate += EditModel_SceneCreate;
             EditModel.Current.EffectAddTo += EditModel_EffectAddTo;
@@ -206,21 +205,6 @@ namespace BEditor
                 DataObject dataObject = new DataObject(typeof(Func<ObjectMetadata>), s);
                 // ドラッグ開始
                 DragDrop.DoDragDrop(this, dataObject, DragDropEffects.Copy);
-            }
-        }
-
-        private void MetroWindow_Loaded(object sender, RoutedEventArgs e)
-        {
-            //コマンドライン引数から開く
-            if (AppData.Current.Arguments.Length != 0 && File.Exists(AppData.Current.Arguments[0]))
-            {
-                if (Path.GetExtension(AppData.Current.Arguments[0]) == ".bedit")
-                {
-                    var project = new Project(AppData.Current.Arguments[0]);
-                    project.Load();
-                    AppData.Current.Project = project;
-                    AppData.Current.AppStatus = Status.Edit;
-                }
             }
         }
 

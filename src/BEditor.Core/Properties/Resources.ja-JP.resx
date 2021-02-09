@@ -837,4 +837,16 @@
   <data name="PointLightDiffuse" xml:space="preserve">
     <value>ポイントライト拡散</value>
   </data>
+  <data name="LearnHowToUse" xml:space="preserve">
+    <value>使い方を学ぶ</value>
+  </data>
+  <data name="ToCreateProjectClickNew" xml:space="preserve">
+    <value>プロジェクトを作成する場合は新規作成をクリックします。</value>
+  </data>
+  <data name="ThereIsNoProject" xml:space="preserve">
+    <value>プロジェクトがありません</value>
+  </data>
+  <data name="AddToList" xml:space="preserve">
+    <value>リストに追加</value>
+  </data>
 </root>

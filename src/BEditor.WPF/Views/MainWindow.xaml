@@ -17,7 +17,6 @@
         mc:Ignorable="d" 
         Closing="MetroWindow_Closing"
         Style="{StaticResource DefaultWindowStyle}"
-        Loaded="MetroWindow_Loaded"
         DataContext="{x:Static vm:MainWindowViewModel.Current}"
         Focusable="True"
         MinWidth="1000"

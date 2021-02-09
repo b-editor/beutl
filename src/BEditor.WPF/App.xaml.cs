@@ -4,6 +4,7 @@ using System.Collections.ObjectModel;
 using System.Globalization;
 using System.IO;
 using System.Linq;
+using System.Threading;
 using System.Threading.Tasks;
 using System.Windows;
 using System.Windows.Threading;
@@ -26,6 +27,7 @@ using BEditor.ViewModels.CustomControl;
 using BEditor.ViewModels.MessageContent;
 using BEditor.ViewModels.PropertyControl;
 using BEditor.Views;
+using BEditor.Views.CreateDialog;
 using BEditor.Views.MessageContent;
 
 using MaterialDesignThemes.Wpf;
@@ -56,6 +58,10 @@ namespace BEditor
             base.OnStartup(e);
 
             SetDarkMode();
+            ProjectModel.Current.CreateEvent += (_, _) =>
+            {
+                new ProjectCreateDialog { Owner = MainWindow }.ShowDialog();
+            };
 #if !DEBUG
 
             var viewmodel = new SplashWindowViewModel();
@@ -101,11 +107,42 @@ namespace BEditor
 
                 LoadCommand();
 #endif
+
                 Dispatcher.Invoke(() =>
                 {
-                    var mainWindow = new MainWindow();
-                    MainWindow = mainWindow;
-                    mainWindow.Show();
+                    var file = e.Args.FirstOrDefault() is string str
+                        && File.Exists(str)
+                        && Path.GetExtension(str) is ".bedit"
+                        ? str : null;
+
+                    if (file is not null)
+                    {
+                        var app = AppData.Current;
+                        app.Project?.Unload();
+                        var project = new Project(file);
+                        project.Load();
+                        app.Project = project;
+                        app.AppStatus = Status.Edit;
+
+                        Settings.Default.MostRecentlyUsedList.Remove(file);
+                        Settings.Default.MostRecentlyUsedList.Add(file);
+
+                        var win = new MainWindow();
+                        MainWindow = win;
+                        win.Show();
+                    }
+                    else if (Settings.Default.ShowStartWindow)
+                    {
+                        var startWindow = new StartWindow();
+                        MainWindow = startWindow;
+                        startWindow.Show();
+                    }
+                    else
+                    {
+                        var mainWindow = new MainWindow();
+                        MainWindow = mainWindow;
+                        mainWindow.Show();
+                    }
 #if !DEBUG
                     splashscreen.Close();
 #endif

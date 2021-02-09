@@ -223,6 +223,15 @@ namespace BEditor.Core.Properties {
         }
         
         /// <summary>
+        ///   Add to list に類似しているローカライズされた文字列を検索します。
+        /// </summary>
+        public static string AddToList {
+            get {
+                return ResourceManager.GetString("AddToList", resourceCulture);
+            }
+        }
+        
+        /// <summary>
         ///   Adjust coordinates に類似しているローカライズされた文字列を検索します。
         /// </summary>
         public static string Adjust_coordinates {
@@ -1170,6 +1179,15 @@ namespace BEditor.Core.Properties {
         }
         
         /// <summary>
+        ///   Learn how to use に類似しているローカライズされた文字列を検索します。
+        /// </summary>
+        public static string LearnHowToUse {
+            get {
+                return ResourceManager.GetString("LearnHowToUse", resourceCulture);
+            }
+        }
+        
+        /// <summary>
         ///   Left に類似しているローカライズされた文字列を検索します。
         /// </summary>
         public static string Left {
@@ -1936,6 +1954,15 @@ namespace BEditor.Core.Properties {
         }
         
         /// <summary>
+        ///   There is no project に類似しているローカライズされた文字列を検索します。
+        /// </summary>
+        public static string ThereIsNoProject {
+            get {
+                return ResourceManager.GetString("ThereIsNoProject", resourceCulture);
+            }
+        }
+        
+        /// <summary>
         ///   Threshold value に類似しているローカライズされた文字列を検索します。
         /// </summary>
         public static string ThresholdValue {
@@ -1959,6 +1986,15 @@ namespace BEditor.Core.Properties {
         public static string TimelineShowHide {
             get {
                 return ResourceManager.GetString("TimelineShowHide", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   If you want to create a project, click New. に類似しているローカライズされた文字列を検索します。
+        /// </summary>
+        public static string ToCreateProjectClickNew {
+            get {
+                return ResourceManager.GetString("ToCreateProjectClickNew", resourceCulture);
             }
         }
         
