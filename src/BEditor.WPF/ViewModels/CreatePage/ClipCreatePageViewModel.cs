@@ -1,5 +1,6 @@
 ﻿using System;
 using System.Collections.Generic;
+using System.Collections.ObjectModel;
 using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
@@ -14,11 +15,11 @@ using BEditor.Models.Extension;
 
 using Reactive.Bindings;
 
-namespace BEditor.ViewModels.CreateDialog
+namespace BEditor.ViewModels.CreatePage
 {
-    public class ClipCreateDialogViewModel
+    public class ClipCreatePageViewModel
     {
-        public ClipCreateDialogViewModel()
+        public ClipCreatePageViewModel()
         {
             Start = new ReactiveProperty<int>(1)
                 .SetValidateNotifyError(value => (value <= 0) ? string.Format(Resources.RangeAbove, "0") : null);
@@ -26,6 +27,23 @@ namespace BEditor.ViewModels.CreateDialog
                 .SetValidateNotifyError(value => (value <= 0) ? string.Format(Resources.RangeAbove, "0") : null);
             Layer = new ReactiveProperty<int>(1)
                 .SetValidateNotifyError(value => (value <= 0) ? string.Format(Resources.RangeAbove, "0") : null);
+            TypeItems = new(ObjectMetadata.LoadedObjects.Select(i =>
+            {
+                var typeItem = new TypeItem(i);
+
+                typeItem.Command.Subscribe(i =>
+                {
+                    foreach(var item in TypeItems!)
+                    {
+                        item.IsSelected.Value = false;
+                    }
+
+                    i.IsSelected.Value = !i.IsSelected.Value;
+                });
+
+                return typeItem;
+            }));
+            TypeItems[0].IsSelected.Value = true;
 
             AddCommand.Subscribe(() =>
             {
@@ -36,7 +54,7 @@ namespace BEditor.ViewModels.CreateDialog
                     return;
                 }
 
-                Scene.Value.AddClip(Start.Value, Layer.Value, Type.Value, out var data).Execute();
+                Scene.Value.AddClip(Start.Value, Layer.Value, Type, out var data).Execute();
 
                 if (Name.Value != string.Empty) data.LabelText = Name.Value;
 
@@ -45,11 +63,18 @@ namespace BEditor.ViewModels.CreateDialog
         }
 
         public ReactiveProperty<Scene> Scene { get; } = new(AppData.Current.Project!.PreviewScene);
-        public ReactiveProperty<ObjectMetadata> Type { get; } = new(ObjectMetadata.LoadedObjects[0]);
+        public ObjectMetadata Type => TypeItems.Where(i => i.IsSelected.Value).First().Metadata;
         public ReactiveProperty<int> Start { get; }
         public ReactiveProperty<int> Length { get; }
         public ReactiveProperty<int> Layer { get; }
         public ReactiveProperty<string> Name { get; } = new("");
         public ReactiveCommand AddCommand { get; } = new();
+        public ObservableCollection<TypeItem> TypeItems { get; }
+
+        public record TypeItem(ObjectMetadata Metadata)
+        {
+            public ReactiveProperty<bool> IsSelected { get; } = new();
+            public ReactiveCommand<TypeItem> Command { get; } = new();
+        }
     }
 }

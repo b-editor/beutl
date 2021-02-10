@@ -18,8 +18,9 @@ using BEditor.Core.Plugin;
 using BEditor.Core.Service;
 using BEditor.Models;
 using BEditor.ViewModels;
-using BEditor.ViewModels.CreateDialog;
-using BEditor.Views.CreateDialog;
+using BEditor.ViewModels.CreatePage;
+using BEditor.Views;
+using BEditor.Views.CreatePage;
 
 using MahApps.Metro.Controls;
 
@@ -73,27 +74,41 @@ namespace BEditor
 
         private void EditModel_EffectAddTo(object? sender, ClipElement c)
         {
-            var dialog = new EffectAddDialog(new EffectAddDialogViewModel()
+            var context = new EffectAddPageViewModel()
             {
                 Scene =
                 {
                     Value = c.Parent
-                },
-                TargetClip =
-                {
-                    Value = c
                 }
-            });
+            };
+            var dialog = new EffectAddPage(context);
 
-            dialog.ShowDialog();
+            foreach(var i in context.ClipItems.Value)
+            {
+                i.IsSelected.Value = false;
+                if (i.Clip == c)
+                {
+                    i.IsSelected.Value = true;
+                }
+            }
+
+            new NoneDialog()
+            {
+                Content = dialog,
+                MaxWidth = double.PositiveInfinity
+            }.ShowDialog();
         }
         private void EditModel_SceneCreate(object? sender, EventArgs e)
         {
-            new SceneCreateDialog().ShowDialog();
+            new NoneDialog()
+            {
+                Content = new SceneCreatePage(),
+                MaxWidth = double.PositiveInfinity,
+            }.ShowDialog();
         }
         private void EditModel_ClipCreate(object? sender, EventArgs e)
         {
-            var dialog = new ClipCreateDialog(new ClipCreateDialogViewModel()
+            var dialog = new ClipCreatePage(new ClipCreatePageViewModel()
             {
                 Scene =
                 {
@@ -101,7 +116,11 @@ namespace BEditor
                 }
             });
 
-            dialog.ShowDialog();
+            new NoneDialog()
+            {
+                Content = dialog,
+                MaxWidth = double.PositiveInfinity
+            }.ShowDialog();
         }
 
         private void SetMostUsedFiles()

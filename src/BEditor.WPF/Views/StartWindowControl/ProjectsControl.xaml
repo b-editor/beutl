@@ -10,6 +10,15 @@
              mc:Ignorable="d" 
              Background="{DynamicResource MaterialDesignPaper}"
              d:DesignHeight="450" d:DesignWidth="800">
+    <UserControl.Resources>
+        <ResourceDictionary>
+            <ResourceDictionary.MergedDictionaries>
+                <ResourceDictionary Source="pack://application:,,,/MaterialDesignColors;component/Themes/MaterialDesignColor.Lime.Accent.xaml" />
+            </ResourceDictionary.MergedDictionaries>
+            
+            <SolidColorBrush x:Key="SecondaryHueDarkBrush" Color="{StaticResource Accent200}"/>
+        </ResourceDictionary>
+    </UserControl.Resources>
     <DockPanel>
         <DockPanel DockPanel.Dock="Top" VerticalAlignment="Top">
             <TextBlock Text="{x:Static props:Resources.Project}" FontSize="24" DockPanel.Dock="Left"/>
@@ -71,7 +80,11 @@
                                         <RowDefinition Height="2*"/>
                                         <RowDefinition Height="*"/>
                                     </Grid.RowDefinitions>
-                                    <Border Background="{StaticResource SecondaryHueMidBrush}"/>
+                                    <ProgressBar
+                                        IsIndeterminate="{Binding IsLoading.Value, Mode=OneWay}"
+                                        BorderThickness="0"
+                                        Background="{StaticResource SecondaryHueMidBrush}"
+                                        Foreground="{StaticResource SecondaryHueDarkBrush}"/>
 
                                     <Grid Background="{DynamicResource MaterialDesignBodyLight}" Grid.Row="1"/>
 

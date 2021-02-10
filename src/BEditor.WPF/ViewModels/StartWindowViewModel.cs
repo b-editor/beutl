@@ -22,7 +22,7 @@ namespace BEditor.ViewModels
             {
                 IsChecked = { Value = true }
             });
-            MenuItems.Add(new(Resources.LearnHowToUse, PackIconKind.School, null!));
+            MenuItems.Add(new(Resources.LearnHowToUse, PackIconKind.School, null));
 
             foreach (var item in MenuItems)
             {

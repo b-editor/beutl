@@ -849,4 +849,10 @@ Please select the plugin you want to load</value>
   <data name="AddToList" xml:space="preserve">
     <value>Add to list</value>
   </data>
+  <data name="Template" xml:space="preserve">
+    <value>Template</value>
+  </data>
+  <data name="ShowStartWindow" xml:space="preserve">
+    <value>Show start window.</value>
+  </data>
 </root>

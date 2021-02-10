@@ -19,8 +19,8 @@ using BEditor.Core.Data.Bindings;
 using BEditor.Core.Data.Property;
 using BEditor.Core.Extensions;
 using BEditor.Models;
-using BEditor.ViewModels.CreateDialog;
-using BEditor.Views.CreateDialog;
+using BEditor.ViewModels.CreatePage;
+using BEditor.Views.CreatePage;
 
 using Clipboard = System.Windows.Clipboard;
 
@@ -142,12 +142,17 @@ namespace BEditor.Views.ToolControl.Default
         }
         private void AddScene(object sender, RoutedEventArgs e)
         {
-            new SceneCreateDialog().ShowDialog();
+            new NoneDialog()
+            {
+                Content = new SceneCreatePage(),
+                Owner = App.Current.MainWindow,
+                MaxWidth = double.PositiveInfinity,
+            }.ShowDialog();
         }
         private void AddClip(object sender, RoutedEventArgs e)
         {
-            var viewmodel = new ClipCreateDialogViewModel();
-            var dialog = new ClipCreateDialog(viewmodel);
+            var viewmodel = new ClipCreatePageViewModel();
+            var dialog = new ClipCreatePage(viewmodel);
 
             try
             {
@@ -157,13 +162,17 @@ namespace BEditor.Views.ToolControl.Default
             }
             finally
             {
-                dialog.ShowDialog();
+                new NoneDialog()
+                {
+                    Content = dialog,
+                    MaxWidth = double.PositiveInfinity
+                }.ShowDialog();
             }
         }
         private void AddEffect(object sender, RoutedEventArgs e)
         {
-            var viewmodel = new EffectAddDialogViewModel();
-            var dialog = new EffectAddDialog(viewmodel);
+            var viewmodel = new EffectAddPageViewModel();
+            var dialog = new EffectAddPage(viewmodel);
 
             try
             {
@@ -174,11 +183,25 @@ namespace BEditor.Views.ToolControl.Default
                 var clip = GetClip() ?? throw ex;
 
                 viewmodel.Scene.Value = clip.Parent;
-                viewmodel.TargetClip.Value = clip;
+
+
+                foreach (var i in viewmodel.ClipItems.Value)
+                {
+                    i.IsSelected.Value = false;
+                    if (i.Clip == clip)
+                    {
+                        i.IsSelected.Value = true;
+                    }
+                }
             }
             finally
             {
-                dialog.ShowDialog();
+                new NoneDialog()
+                {
+                    Content = dialog,
+                    MaxWidth = double.PositiveInfinity
+                }
+                .ShowDialog();
             }
         }
     }

@@ -34,20 +34,37 @@ namespace BEditor.ViewModels.StartWindowControl
 
             Click.Subscribe(ProjectItem =>
             {
-                Process.Start(Path.Combine(AppContext.BaseDirectory, "BEditor.exe"), ProjectItem.Path);
+                ProjectItem.IsLoading.Value = true;
 
-                App.Current.Shutdown();
-            });
+                var app = AppData.Current;
+                app.Project?.Unload();
+                var project = new Project(ProjectItem.Path);
+                project.Load();
+                app.Project = project;
+                app.AppStatus = Status.Edit;
 
-            Create.Subscribe(() =>
-            {
-                ProjectModel.Current.Create.Execute();
+                Settings.Default.MostRecentlyUsedList.Remove(ProjectItem.Path);
+                Settings.Default.MostRecentlyUsedList.Add(ProjectItem.Path);
 
                 var win = new MainWindow();
                 App.Current.MainWindow = win;
                 win.Show();
 
                 Close?.Invoke(this, EventArgs.Empty);
+            });
+
+            Create.Subscribe(() =>
+            {
+                ProjectModel.Current.Create.Execute();
+
+                if (AppData.Current.Project is not null)
+                {
+                    var win = new MainWindow();
+                    App.Current.MainWindow = win;
+                    win.Show();
+
+                    Close?.Invoke(this, EventArgs.Empty);
+                }
             });
             Remove.Subscribe(item =>
             {
@@ -93,6 +110,9 @@ namespace BEditor.ViewModels.StartWindowControl
 
         public event EventHandler? Close;
 
-        public record ProjectItem(string Name, string Path, ICommand Command, ICommand Remove);
+        public record ProjectItem(string Name, string Path, ICommand Command, ICommand Remove)
+        {
+            public ReactiveProperty<bool> IsLoading { get; } = new(false);
+        }
     }
 }

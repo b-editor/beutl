@@ -23,6 +23,11 @@
             <TextBlock Text="{x:Static resources:Resources.UseDarkMode}" Style="{StaticResource SettingsCheckBoxContent}"/>
         </VirtualizingStackPanel>
 
+        <VirtualizingStackPanel Orientation="Horizontal" Height="45">
+            <CheckBox IsChecked="{Binding ShowStartWindow, Source={x:Static data:Settings.Default}, Mode=TwoWay}" Style="{StaticResource SettingsCheckBox}"/>
+            <TextBlock Text="{x:Static resources:Resources.ShowStartWindow}" Style="{StaticResource SettingsCheckBoxContent}"/>
+        </VirtualizingStackPanel>
+
 
         <md:ColorZone Content="{x:Static resources:Resources.TimeLine}" Style="{StaticResource SettingsColorZone}"/>
 

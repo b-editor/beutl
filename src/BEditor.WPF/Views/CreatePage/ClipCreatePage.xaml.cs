@@ -12,34 +12,24 @@ using System.Windows.Media;
 using System.Windows.Media.Imaging;
 using System.Windows.Shapes;
 
-using BEditor.Core.Data;
-using BEditor.ViewModels.CreateDialog;
-
 using MahApps.Metro.Controls;
 
-namespace BEditor.Views.CreateDialog
+namespace BEditor.Views.CreatePage
 {
     /// <summary>
-    /// EffectAddDialog.xaml の相互作用ロジック
+    /// ClipCreatePage.xaml の相互作用ロジック
     /// </summary>
-    public partial class EffectAddDialog : MetroWindow
+    public partial class ClipCreatePage : UserControl
     {
-        public EffectAddDialog(object datacontext)
+        public ClipCreatePage(object datacontext)
         {
             DataContext = datacontext;
             InitializeComponent();
-            TreeView.SelectedItemChanged += (s, e) =>
-            {
-                if (DataContext is EffectAddDialogViewModel viewModel && e.NewValue is EffectMetadata metadata)
-                {
-                    viewModel.Type.Value = metadata;
-                }
-            };
         }
 
         private void CloseClick(object sender, RoutedEventArgs e)
         {
-            Close();
+            Window.GetWindow(this).Close();
         }
     }
 }

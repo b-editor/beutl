@@ -12,6 +12,7 @@ using EventTrigger = Microsoft.Xaml.Behaviors.EventTrigger;
 using ClipType = BEditor.Primitive.PrimitiveTypes;
 using BEditor.Core.Data;
 using Reactive.Bindings;
+using System.Windows.Media;
 
 namespace BEditor.ViewModels
 {
@@ -98,6 +99,31 @@ namespace BEditor.ViewModels
         public static MousePositionConverter Converter = new MousePositionConverter();
     }
 
+    public class ClipTypeColorConverter : IValueConverter
+    {
+        public object Convert(object value, Type targetType, object parameter, CultureInfo culture)
+        {
+            if (value is Type clipType)
+            {
+                if(Attribute.GetCustomAttribute(clipType, typeof(CustomClipUIAttribute)) is CustomClipUIAttribute att)
+                {
+                    var c = att.GetColor;
+                    return new SolidColorBrush(Color.FromRgb(c.R, c.G, c.B));
+                }
+
+                return new SolidColorBrush(Color.FromRgb(48, 79, 238));
+            }
+            else
+            {
+                return new SolidColorBrush(Color.FromRgb(48, 79, 238));
+            }
+        }
+
+        public object ConvertBack(object value, Type targetType, object parameter, CultureInfo culture)
+        {
+            return null!;
+        }
+    }
     public class ClipTypeIconConverter : IValueConverter
     {
         public object Convert(object value, Type targetType, object parameter, CultureInfo culture)

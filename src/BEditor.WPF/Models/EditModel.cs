@@ -14,9 +14,8 @@ using BEditor.Primitive.Objects;
 using BEditor.Core.Extensions;
 using BEditor.Core.Service;
 using BEditor.Models.Extension;
-using BEditor.ViewModels.CreateDialog;
+using BEditor.ViewModels.CreatePage;
 using BEditor.Views;
-using BEditor.Views.CreateDialog;
 
 using Reactive.Bindings;
 using BEditor.Primitive;

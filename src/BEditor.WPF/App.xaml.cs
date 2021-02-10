@@ -27,7 +27,7 @@ using BEditor.ViewModels.CustomControl;
 using BEditor.ViewModels.MessageContent;
 using BEditor.ViewModels.PropertyControl;
 using BEditor.Views;
-using BEditor.Views.CreateDialog;
+using BEditor.Views.CreatePage;
 using BEditor.Views.MessageContent;
 
 using MaterialDesignThemes.Wpf;
@@ -60,7 +60,13 @@ namespace BEditor
             SetDarkMode();
             ProjectModel.Current.CreateEvent += (_, _) =>
             {
-                new ProjectCreateDialog { Owner = MainWindow }.ShowDialog();
+                var d = new NoneDialog()
+                {
+                    Content = new ProjectCreatePage(),
+                    Owner = MainWindow,
+                    MaxWidth = double.PositiveInfinity,
+                };
+                d.ShowDialog();
             };
 #if !DEBUG
 

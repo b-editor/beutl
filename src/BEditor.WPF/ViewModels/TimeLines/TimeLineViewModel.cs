@@ -444,10 +444,15 @@ namespace BEditor.ViewModels.TimeLines
             {
                 ClipElement data = ClipSelect;
 
-                data.MoveFrameLayer(
-                    ToFrame(data.GetCreateClipViewModel().MarginLeftProperty),
-                    ClipSelect.GetCreateClipViewModel().Row).Execute();
+                var toframe = ToFrame(data.GetCreateClipViewModel().MarginLeftProperty);
 
+                if (Media.Frame.Zero > toframe)
+                {
+                    data.MoveFrameLayer(
+                        toframe,
+                        ClipSelect.GetCreateClipViewModel().Row).Execute();
+                }
+                
                 ClipTimeChange = false;
             }
         }

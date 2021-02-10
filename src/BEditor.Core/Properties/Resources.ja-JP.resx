@@ -849,4 +849,10 @@
   <data name="AddToList" xml:space="preserve">
     <value>リストに追加</value>
   </data>
+  <data name="Template" xml:space="preserve">
+    <value>テンプレート</value>
+  </data>
+  <data name="ShowStartWindow" xml:space="preserve">
+    <value>スタートウィンドウを表示する。</value>
+  </data>
 </root>

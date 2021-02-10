@@ -1,6 +1,8 @@
-﻿using System.ComponentModel;
+﻿using System;
+using System.ComponentModel;
 using System.IO;
 using System.Linq;
+using System.Windows.Input;
 
 using BEditor.Core.Data;
 using BEditor.Core.Service;
@@ -9,19 +11,39 @@ using BEditor.Views;
 
 using Reactive.Bindings;
 
-namespace BEditor.ViewModels.CreateDialog
+namespace BEditor.ViewModels.CreatePage
 {
-    public class ProjectCreateDialogViewModel
+    public class ProjectCreatePageViewModel
     {
         private const int width = 1920;
         private const int height = 1080;
         private const int framerate = 30;
         private const int samlingrate = 44100;
 
-        public ProjectCreateDialogViewModel()
+        public ProjectCreatePageViewModel()
         {
             OpenFolerDialog.Subscribe(OpenFolder);
             CreateCommand.Subscribe(Create);
+            var selectcommand = new ReactiveCommand<TemplateItem>();
+            selectcommand.Subscribe(i=>
+            {
+                Width.Value = i.Width;
+                Height.Value = i.Height;
+                Framerate.Value = i.Framerate;
+                Samplingrate.Value = i.Samplingrate;
+            }) ;
+
+            TemplateItems = new()
+            {
+                new(1920, 1080, 30, 44100, selectcommand),
+                new(1920, 1080, 60, 44100, selectcommand),
+                new(1080, 1920, 30, 44100, selectcommand),
+                new(1080, 1920, 60, 44100, selectcommand),
+                new(1000, 1000, 60, 44100, selectcommand),
+                new(1000, 1000, 30, 44100, selectcommand),
+                new(2000, 2000, 60, 44100, selectcommand),
+                new(2000, 2000, 30, 44100, selectcommand),
+            };
         }
 
         public ReactiveProperty<uint> Width { get; } = new(width);
@@ -34,6 +56,7 @@ namespace BEditor.ViewModels.CreateDialog
 
         public ReactiveCommand OpenFolerDialog { get; } = new();
         public ReactiveCommand CreateCommand { get; } = new();
+        public ReactiveCollection<TemplateItem> TemplateItems { get; }
 
         private void OpenFolder()
         {
@@ -103,5 +126,7 @@ namespace BEditor.ViewModels.CreateDialog
 
             return Path.GetFileName(FormattedFilename(Settings.Default.LastTimeFolder + "\\" + "Project"));
         }
+
+        public record TemplateItem(uint Width, uint Height, uint Framerate, uint Samplingrate, ICommand Command);
     }
 }

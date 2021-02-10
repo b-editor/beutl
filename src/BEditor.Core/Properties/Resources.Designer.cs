@@ -1837,6 +1837,15 @@ namespace BEditor.Core.Properties {
         }
         
         /// <summary>
+        ///   Show start window. に類似しているローカライズされた文字列を検索します。
+        /// </summary>
+        public static string ShowStartWindow {
+            get {
+                return ResourceManager.GetString("ShowStartWindow", resourceCulture);
+            }
+        }
+        
+        /// <summary>
         ///   Shutdown に類似しているローカライズされた文字列を検索します。
         /// </summary>
         public static string Shutdown {
@@ -1941,6 +1950,15 @@ namespace BEditor.Core.Properties {
         public static string TargetZ {
             get {
                 return ResourceManager.GetString("TargetZ", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Template に類似しているローカライズされた文字列を検索します。
+        /// </summary>
+        public static string Template {
+            get {
+                return ResourceManager.GetString("Template", resourceCulture);
             }
         }
         

@@ -1,0 +1,70 @@
+﻿<UserControl
+    x:Class="BEditor.Views.CreatePage.SceneCreatePage"
+    xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+    xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+    xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+    xmlns:local="clr-namespace:BEditor.Views"
+    xmlns:vm="clr-namespace:BEditor.ViewModels.CreatePage"
+    xmlns:md="http://materialdesigninxaml.net/winfx/xaml/themes"
+    xmlns:props="clr-namespace:BEditor.Core.Properties;assembly=BEditor.Core"
+    mc:Ignorable="d"
+    
+    FontFamily="Noto Sans JP"
+    Background="{DynamicResource MaterialDesignPaper}"
+    Width="1000" Height="600">
+    <UserControl.Resources>
+        <Style x:Key="HeaderLabel" TargetType="{x:Type Label}" BasedOn="{StaticResource MaterialDesignLabel}">
+            <Setter Property="Height" Value="25"/>
+            <Setter Property="Margin" Value="10,5,0,5"/>
+            <Setter Property="VerticalContentAlignment" Value="Center"/>
+        </Style>
+        <Style x:Key="TextBoxStyle" TargetType="{x:Type TextBox}" BasedOn="{StaticResource MaterialDesignTextBox}">
+            <Setter Property="Margin" Value="10,5,0,5"/>
+            <Setter Property="Width" Value="130"/>
+            <Setter Property="Height" Value="25"/>
+            <Setter Property="HorizontalAlignment" Value="Left"/>
+        </Style>
+    </UserControl.Resources>
+    <UserControl.DataContext>
+        <vm:SceneCreatePageViewModel/>
+    </UserControl.DataContext>
+    <Grid>
+        <Grid.ColumnDefinitions>
+            <ColumnDefinition/>
+            <ColumnDefinition/>
+        </Grid.ColumnDefinitions>
+
+        <VirtualizingStackPanel Margin="8">
+            <TextBlock Text="{x:Static props:Resources.AddScene}" Foreground="{DynamicResource MaterialDesignBodyLight}" FontSize="24" Margin="0,0,0,16"/>
+
+            <!--Width-->
+            <VirtualizingStackPanel Margin="8">
+                <TextBlock Text="{x:Static props:Resources.Width}" Foreground="{DynamicResource MaterialDesignBodyLight}" FontSize="14"/>
+
+                <TextBox Text="{Binding Width, Mode=TwoWay}"/>
+            </VirtualizingStackPanel>
+
+            <!--Height-->
+            <VirtualizingStackPanel Margin="8">
+                <TextBlock Text="{x:Static props:Resources.Height}" Foreground="{DynamicResource MaterialDesignBodyLight}" FontSize="14"/>
+
+                <TextBox Text="{Binding Height, Mode=TwoWay}"/>
+            </VirtualizingStackPanel>
+
+            <!--Name-->
+            <VirtualizingStackPanel Margin="8,24,8,8">
+                <TextBlock Text="{x:Static props:Resources.Name}" Foreground="{DynamicResource MaterialDesignBodyLight}" FontSize="14"/>
+
+                <TextBox Text="{Binding Name, Mode=TwoWay}" Margin="0,8" IsEnabled="{Binding SaveToFile.Value, Mode=OneWay}"/>
+            </VirtualizingStackPanel>
+        </VirtualizingStackPanel>
+
+        <Button Cursor="Arrow" Foreground="{StaticResource MaterialDesignBody}" Command="{Binding ResetCommand, Mode=OneTime}" Content="Reset" HorizontalAlignment="Left" Background="{x:Null}" BorderThickness="0" VerticalAlignment="Bottom" Margin="8"/>
+
+        <VirtualizingStackPanel Grid.Column="1" VerticalAlignment="Bottom" Margin="8,0,8,8" Orientation="Horizontal" FlowDirection="RightToLeft">
+            <Button Cursor="Arrow" Foreground="Red" Content="{x:Static props:Resources.Cancel}" HorizontalAlignment="Left" Click="CloseClick" IsCancel="True" Background="{x:Null}" BorderThickness="0"/>
+            <Button Cursor="Arrow" Foreground="{StaticResource MaterialDesignBody}" Content="{x:Static props:Resources.Create}" HorizontalAlignment="Left" Command="{Binding CreateCommand, Mode=OneTime}" Click="CloseClick" IsDefault="True" Background="{x:Null}" BorderThickness="0"/>
+        </VirtualizingStackPanel>
+    </Grid>
+</UserControl>

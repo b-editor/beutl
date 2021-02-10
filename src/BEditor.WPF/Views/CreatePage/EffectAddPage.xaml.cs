@@ -12,16 +12,19 @@ using System.Windows.Media;
 using System.Windows.Media.Imaging;
 using System.Windows.Shapes;
 
+using BEditor.Core.Data;
+using BEditor.ViewModels.CreatePage;
+
 using MahApps.Metro.Controls;
 
-namespace BEditor.Views.CreateDialog
+namespace BEditor.Views.CreatePage
 {
     /// <summary>
-    /// ClipCreateDialog.xaml の相互作用ロジック
+    /// EffectAddPage.xaml の相互作用ロジック
     /// </summary>
-    public partial class ClipCreateDialog : MetroWindow
+    public partial class EffectAddPage : UserControl
     {
-        public ClipCreateDialog(object datacontext)
+        public EffectAddPage(object datacontext)
         {
             DataContext = datacontext;
             InitializeComponent();
@@ -29,7 +32,7 @@ namespace BEditor.Views.CreateDialog
 
         private void CloseClick(object sender, RoutedEventArgs e)
         {
-            Close();
+            Window.GetWindow(this).Close();
         }
     }
 }
