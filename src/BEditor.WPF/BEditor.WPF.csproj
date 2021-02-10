@@ -5,7 +5,7 @@
     <TargetFramework>net5.0-windows</TargetFramework>
     <UseWPF>true</UseWPF>
     <UseWindowsForms>true</UseWindowsForms>
-    <ApplicationIcon>icon_alpha.ico</ApplicationIcon>
+    <ApplicationIcon>icon.ico</ApplicationIcon>
     <RootNamespace>BEditor</RootNamespace>
     <PackageId>BEditor</PackageId>
     <Product>BEditor</Product>
