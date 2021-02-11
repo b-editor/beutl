@@ -56,7 +56,7 @@
             <VirtualizingStackPanel Margin="8,24,8,8">
                 <TextBlock Text="{x:Static props:Resources.Name}" Foreground="{DynamicResource MaterialDesignBodyLight}" FontSize="14"/>
 
-                <TextBox Text="{Binding Name, Mode=TwoWay}" Margin="0,8" IsEnabled="{Binding SaveToFile.Value, Mode=OneWay}"/>
+                <TextBox Text="{Binding Name, Mode=TwoWay}" Margin="0,8"/>
             </VirtualizingStackPanel>
         </VirtualizingStackPanel>
 
