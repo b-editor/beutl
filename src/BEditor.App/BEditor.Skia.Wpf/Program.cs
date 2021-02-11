@@ -1,4 +1,0 @@
-﻿
-namespace BEditor.Skia.Gtk
-{
-}
