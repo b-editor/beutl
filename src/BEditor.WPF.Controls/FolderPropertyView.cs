@@ -4,6 +4,7 @@ using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
 using System.Windows;
+using System.Windows.Controls;
 using System.Windows.Input;
 
 namespace BEditor.WPF.Controls
@@ -12,6 +13,7 @@ namespace BEditor.WPF.Controls
     {
         public static readonly DependencyProperty FolderProperty = DependencyProperty.Register(nameof(Folder), typeof(string), typeof(FolderPropertyView));
         public static readonly DependencyProperty OpenFolderCommandProperty = DependencyProperty.Register(nameof(OpenFolderCommand), typeof(ICommand), typeof(FolderPropertyView));
+        public static readonly DependencyProperty ModeIndexProperty = DependencyProperty.Register(nameof(ModeIndex), typeof(int), typeof(FilePropertyView), new FrameworkPropertyMetadata(0, FrameworkPropertyMetadataOptions.BindsTwoWayByDefault));
 
         static FolderPropertyView()
         {
@@ -27,6 +29,21 @@ namespace BEditor.WPF.Controls
         {
             get => (string)GetValue(FolderProperty);
             set => SetValue(FolderProperty, value);
+        }
+        public int ModeIndex
+        {
+            get => (int)GetValue(ModeIndexProperty);
+            set => SetValue(ModeIndexProperty, value);
+        }
+
+        public override void OnApplyTemplate()
+        {
+            base.OnApplyTemplate();
+
+            var combo = (ComboBox)GetTemplateChild("combo");
+
+            if (combo is null) return;
+            combo.SelectionChanged += (s, e) => ModeIndex = ((ComboBox)s).SelectedIndex;
         }
     }
 }

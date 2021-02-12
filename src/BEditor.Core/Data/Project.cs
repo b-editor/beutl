@@ -6,9 +6,11 @@ using System.IO;
 using System.Runtime.Serialization;
 using System.Text.RegularExpressions;
 using System.Threading.Tasks;
+
 using BEditor.Core.Properties;
 using BEditor.Core.Service;
 using BEditor.Graphics;
+
 using static System.Net.WebRequestMethods;
 
 namespace BEditor.Core.Data
@@ -22,11 +24,13 @@ namespace BEditor.Core.Data
         #region Fields
 
         private static readonly PropertyChangedEventArgs _PrevireSceneArgs = new(nameof(PreviewScene));
-        private static readonly PropertyChangedEventArgs _FilenameArgs = new(nameof(Filename));
+        private static readonly PropertyChangedEventArgs _FilenameArgs = new(nameof(Name));
+        private static readonly PropertyChangedEventArgs _dirnameArgs = new(nameof(DirectoryName));
         private Scene? _previewScene;
         private ObservableCollection<Scene> _sceneList = new ObservableCollection<Scene>();
         private IApplication? _parent;
         private string? _filename;
+        private string? _dirname;
 
         #endregion
 
@@ -63,27 +67,10 @@ namespace BEditor.Core.Data
                 mode = SerializeMode.Json;
             }
 
+            DirectoryName = Path.GetDirectoryName(file);
+            Name = Path.GetFileNameWithoutExtension(file);
+
             var o = Serialize.LoadFromFile<Project>(file, mode);
-
-            if (o != null)
-            {
-                var project = o;
-
-                project.CopyTo(this);
-                Parent = app;
-            }
-            else
-            {
-                throw new Exception();
-            }
-        }
-
-        /// <summary>
-        /// Initializes a new instance of the <see cref="Project"/> class.
-        /// </summary>
-        public Project(Stream stream, SerializeMode mode, IApplication? app = null)
-        {
-            var o = Serialize.LoadFromStream<Project>(stream, mode);
 
             if (o != null)
             {
@@ -122,19 +109,9 @@ namespace BEditor.Core.Data
         public int Samplingrate { get; private set; }
 
         /// <summary>
-        /// Get or set the file name of this <see cref="Project"/>.
-        /// </summary>
-        [DataMember(Order = 2)]
-        public string? Filename
-        {
-            get => _filename;
-            set => SetValue(value, ref _filename, _FilenameArgs);
-        }
-
-        /// <summary>
         /// Get a list of Scenes in this <see cref="Project"/>.
         /// </summary>
-        [DataMember(Order = 4)]
+        [DataMember(Order = 3)]
         public ObservableCollection<Scene> SceneList
         {
             get => _sceneList;
@@ -151,7 +128,7 @@ namespace BEditor.Core.Data
         /// <summary>
         /// Get an index of the <see cref="SceneList"/> being previewed.
         /// </summary>
-        [DataMember(Name = "PreviewScene", Order = 3)]
+        [DataMember(Name = "PreviewScene", Order = 2)]
         public int PreviewSceneIndex { get; private set; }
 
         #endregion
@@ -191,7 +168,20 @@ namespace BEditor.Core.Data
         public bool IsLoaded { get; private set; }
 
         /// <inheritdoc/>
-        public string? Name => Path.GetFileNameWithoutExtension(Filename);
+        public string? Name
+        {
+            get => _filename;
+            set => SetValue(value, ref _filename, _FilenameArgs);
+        }
+
+        /// <summary>
+        /// Get or set the directory name of this <see cref="Project"/>.
+        /// </summary>
+        public string? DirectoryName
+        {
+            get => _dirname;
+            set => SetValue(value, ref _dirname, _dirnameArgs);
+        }
 
         #endregion
 
@@ -202,7 +192,7 @@ namespace BEditor.Core.Data
         /// </summary>
         public void BackUp()
         {
-            if (Filename is null)
+            if (Name is null)
             {
                 if (Services.FileDialogService is null) throw new InvalidOperationException();
 
@@ -218,12 +208,12 @@ namespace BEditor.Core.Data
                 //ダイアログを表示する
                 if (Services.FileDialogService.ShowSaveFileDialog(record))
                 {
-                    //OKボタンがクリックされたとき、選択されたファイル名を表示する
-                    Filename = record.FileName;
+                    Name = Path.GetFileNameWithoutExtension(record.FileName);
+                    DirectoryName = Path.GetDirectoryName(record.FileName);
                 }
             }
 
-            Serialize.SaveToFile(this, Path.Combine(AppContext.BaseDirectory, "user", "backup", Path.GetFileNameWithoutExtension(Filename!)) + ".backup");
+            Serialize.SaveToFile(this, Path.Combine(AppContext.BaseDirectory, "user", "backup", Name!) + ".backup");
         }
 
         /// <inheritdoc/>
@@ -245,11 +235,11 @@ namespace BEditor.Core.Data
         /// <summary>
         /// Save this <see cref="Project"/>.
         /// </summary>
-        /// <remarks>If <see cref="Filename"/> is <see langword="null"/>, a dialog will appear</remarks>
+        /// <remarks>If <see cref="Name"/> is <see langword="null"/>, a dialog will appear</remarks>
         /// <returns><see langword="true"/> if the save is successful, otherwise <see langword="false"/>.</returns>
         public bool Save()
         {
-            if (Filename == null)
+            if (Name is null || DirectoryName is null)
             {
                 if (Services.FileDialogService is null) throw new InvalidOperationException();
 
@@ -262,11 +252,11 @@ namespace BEditor.Core.Data
                     }
                 };
 
-                //ダイアログを表示する
+                // ダイアログを表示する
                 if (Services.FileDialogService.ShowSaveFileDialog(record))
                 {
-                    //OKボタンがクリックされたとき、選択されたファイル名を表示する
-                    Filename = record.FileName;
+                    Name = Path.GetFileNameWithoutExtension(record.FileName);
+                    DirectoryName = Path.GetDirectoryName(record.FileName);
                 }
                 else
                 {
@@ -274,7 +264,7 @@ namespace BEditor.Core.Data
                 }
             }
 
-            if (Serialize.SaveToFile(this, Filename))
+            if (Serialize.SaveToFile(this, Path.Combine(DirectoryName!, Name+ ".bedit")))
             {
                 Saved?.Invoke(this, new(SaveType.Save));
                 return true;
@@ -290,8 +280,10 @@ namespace BEditor.Core.Data
         /// <returns><see langword="true"/> if the save is successful, otherwise <see langword="false"/>.</returns>
         public bool Save(string filename, SerializeMode mode = SerializeMode.Binary)
         {
-            Filename = filename;
-            if (Serialize.SaveToFile(this, filename, mode))
+            Name = Path.GetFileNameWithoutExtension(filename);
+            DirectoryName = Path.GetDirectoryName(filename);
+
+            if (Serialize.SaveToFile(this, Path.Combine(DirectoryName!, Name + ".bedit"), mode))
             {
                 Saved?.Invoke(this, new(SaveType.Save));
                 return true;
@@ -323,10 +315,9 @@ namespace BEditor.Core.Data
         {
             if (Services.FileDialogService is null) throw new InvalidOperationException();
 
-            //SaveFileDialogクラスのインスタンスを作成
             var record = new SaveFileRecord
             {
-                DefaultFileName = (Filename is not null) ? Path.GetFileName(Filename) : "新しいプロジェクト.bedit",
+                DefaultFileName = (Name is not null) ? Name + ".bedit" : "新しいプロジェクト.bedit",
                 Filters =
                 {
                     new(Resources.ProjectFile, new FileExtension[] { new("bedit") }),
@@ -334,21 +325,21 @@ namespace BEditor.Core.Data
                 }
             };
             var mode = SerializeMode.Binary;
-            //ダイアログを表示する
+
             if (Services.FileDialogService.ShowSaveFileDialog(record))
             {
-                //OKボタンがクリックされたとき、選択されたファイル名を表示する
                 if (Path.GetExtension(record.FileName) is ".json")
                 {
                     mode = SerializeMode.Json;
                 }
                 else
                 {
-                    Filename = record.FileName;
+                    Name = Path.GetFileNameWithoutExtension(record.FileName);
+                    DirectoryName = Path.GetDirectoryName(record.FileName);
                 }
             }
 
-            if (Serialize.SaveToFile(this, record.FileName, mode))
+            if (Serialize.SaveToFile(this, Path.Combine(DirectoryName!, Name + ".bedit"), mode))
             {
                 Saved?.Invoke(this, new(SaveType.SaveAs));
                 return true;
@@ -358,7 +349,7 @@ namespace BEditor.Core.Data
 
         private void CopyTo(Project project)
         {
-            project.Filename = Filename;
+            project.Name = Name;
             project.Framerate = Framerate;
             project._parent = _parent;
             project.PreviewScene = PreviewScene;

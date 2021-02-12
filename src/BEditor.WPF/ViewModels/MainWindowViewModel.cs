@@ -116,8 +116,8 @@ namespace BEditor.ViewModels
 
             OpenProjectDirectory
                 .Where(_ => AppData.Current.Project is not null)
-                .Where(_ => AppData.Current.Project!.Filename is not null)
-                .Subscribe(_ => Process.Start("explorer.exe", Path.GetDirectoryName(AppData.Current.Project!.Filename)!));
+                .Where(_ => AppData.Current.Project!.DirectoryName is not null)
+                .Subscribe(_ => Process.Start("explorer.exe", AppData.Current.Project!.DirectoryName!));
 
             ConvertJson.Where(_ => AppData.Current.Project is not null)
                 .Subscribe(_ =>

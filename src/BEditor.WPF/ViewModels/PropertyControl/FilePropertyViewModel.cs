@@ -12,6 +12,7 @@ using Reactive.Bindings.Extensions;
 using BEditor.Views.PropertyControls;
 using BEditor.Core.Service;
 using Microsoft.Win32;
+using System.Reactive.Linq;
 
 namespace BEditor.ViewModels.PropertyControl
 {
@@ -22,6 +23,12 @@ namespace BEditor.ViewModels.PropertyControl
             Property = property;
             Metadata = property.ObserveProperty(p => p.PropertyMetadata)
                 .ToReadOnlyReactiveProperty();
+
+            PathMode = property.ObserveProperty(p => p.Mode)
+                .Select(i => (int)i)
+                .ToReactiveProperty();
+
+            PathMode.Subscribe(i => Property.Mode = (FilePathType)i);
 
             Command.Subscribe(x =>
             {
@@ -45,6 +52,7 @@ namespace BEditor.ViewModels.PropertyControl
         public ReactiveCommand<Func<string, string, string>> Command { get; } = new();
         public ReactiveCommand Reset { get; } = new();
         public ReactiveCommand Bind { get; } = new();
+        public ReactiveProperty<int> PathMode { get; }
 
         private static string? OpenDialog(FileFilter? filter)
         {
@@ -52,7 +60,7 @@ namespace BEditor.ViewModels.PropertyControl
             var dialog = Services.FileDialogService;
             var record = new OpenFileRecord();
 
-            if(filter is not null)
+            if (filter is not null)
             {
                 record.Filters.Add(filter);
             }

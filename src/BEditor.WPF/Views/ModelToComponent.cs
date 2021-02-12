@@ -30,6 +30,7 @@ namespace BEditor.Views
     {
         private static readonly IMultiValueConverter HeaderConverter = new PropertyHeaderTextConverter();
         private static readonly Binding HeaderBinding = new("Metadata.Value.Name") { Mode = BindingMode.OneTime };
+        private static readonly Binding FileModeBinding = new("PathMode.Value") { Mode = BindingMode.TwoWay };
         private static readonly Binding ClipNameBinding = new("Property.Parent.Name") { Mode = BindingMode.OneTime };
         private static readonly Binding ClipTextBinding = new("Property.Parent.Parent.LabelText") { Mode = BindingMode.OneWay };
         private static readonly Binding PropertyIsCheckedBinding = new("Property.IsChecked") { Mode = BindingMode.OneWay };
@@ -174,6 +175,7 @@ namespace BEditor.Views
                 view.SetBinding(BasePropertyView.BindCommandProperty, BindBinding);
                 view.SetBinding(FrameworkElement.ToolTipProperty, TooltipBinding);
 
+                view.SetBinding(FilePropertyView.ModeIndexProperty, FileModeBinding);
                 view.SetBinding(FilePropertyView.FileProperty, PropertyFileBinding);
                 view.SetBinding(FilePropertyView.OpenFileCommandProperty, CommandBinding);
 
@@ -324,6 +326,7 @@ namespace BEditor.Views
                 view.SetBinding(BasePropertyView.BindCommandProperty, BindBinding);
                 view.SetBinding(FrameworkElement.ToolTipProperty, TooltipBinding);
 
+                view.SetBinding(FolderPropertyView.ModeIndexProperty, FileModeBinding);
                 view.SetBinding(FolderPropertyView.FolderProperty, PropertyFolderBinding);
                 view.SetBinding(FolderPropertyView.OpenFolderCommandProperty, CommandBinding);
 

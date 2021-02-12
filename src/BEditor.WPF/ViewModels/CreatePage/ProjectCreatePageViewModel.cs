@@ -25,13 +25,13 @@ namespace BEditor.ViewModels.CreatePage
             OpenFolerDialog.Subscribe(OpenFolder);
             CreateCommand.Subscribe(Create);
             var selectcommand = new ReactiveCommand<TemplateItem>();
-            selectcommand.Subscribe(i=>
+            selectcommand.Subscribe(i =>
             {
                 Width.Value = i.Width;
                 Height.Value = i.Height;
                 Framerate.Value = i.Framerate;
                 Samplingrate.Value = i.Samplingrate;
-            }) ;
+            });
 
             TemplateItems = new()
             {
@@ -83,17 +83,15 @@ namespace BEditor.ViewModels.CreatePage
             if (SaveToFile.Value)
             {
                 project.Save(FormattedFilename(Folder.Value + "\\" + Name.Value));
+
+                var fullpath = Path.Combine(project.DirectoryName!, project.Name + ".bedit");
+
+                Settings.Default.MostRecentlyUsedList.Remove(fullpath);
+
+                Settings.Default.MostRecentlyUsedList.Add(fullpath);
             }
 
             AppData.Current.AppStatus = Status.Edit;
-
-            Settings.Default.MostRecentlyUsedList.Remove(project.Filename!);
-
-            if (project.Filename is not null)
-            {
-                Settings.Default.MostRecentlyUsedList.Add(project.Filename);
-            }
-
 
             Settings.Default.Save();
         }

@@ -2,6 +2,7 @@
 using System.Collections.Generic;
 using System.ComponentModel;
 using System.Diagnostics.Contracts;
+using System.IO;
 using System.Reactive.Disposables;
 using System.Runtime.Serialization;
 using System.Threading.Tasks;
@@ -20,13 +21,15 @@ namespace BEditor.Core.Data.Property
     public class FileProperty : PropertyElement<FilePropertyMetadata>, IEasingProperty, IBindable<string>
     {
         #region Fields
-        private static readonly PropertyChangedEventArgs _FileArgs = new(nameof(File));
-        private string _File = "";
-        private List<IObserver<string>>? _List;
+        private static readonly PropertyChangedEventArgs _fileArgs = new(nameof(File));
+        private static readonly PropertyChangedEventArgs _modeArgs = new(nameof(Mode));
+        private string _rawFile = "";
+        private List<IObserver<string>>? _list;
 
-        private IDisposable? _BindDispose;
-        private IBindable<string>? _Bindable;
-        private string? _BindHint;
+        private IDisposable? _bindDispose;
+        private IBindable<string>? _bindable;
+        private string? _bindHint;
+        private FilePathType _mode;
         #endregion
 
 
@@ -42,28 +45,47 @@ namespace BEditor.Core.Data.Property
         }
 
 
-        private List<IObserver<string>> Collection => _List ??= new();
+        private List<IObserver<string>> Collection => _list ??= new();
         /// <summary>
         /// Gets or sets the name of the selected file.
         /// </summary>
-        [DataMember]
+        [DataMember(Name = "File")]
+        public string RawFile
+        {
+            get => _rawFile;
+            private set => _rawFile = value;
+        }
+        /// <summary>
+        /// Gets or sets the name of the selected file.
+        /// </summary>
         public string File
         {
-            get => _File;
-            set => SetValue(value, ref _File, _FileArgs, this, state =>
+            get
             {
-                foreach (var observer in state.Collection)
+                if (Parent?.Parent?.Parent?.Parent?.DirectoryName is null) return _rawFile;
+                return (_mode is FilePathType.FromProject) ? Path.GetFullPath(_rawFile, Parent.Parent.Parent.Parent.DirectoryName!) : _rawFile;
+            }
+            set
+            {
+                if (value != File)
                 {
-                    try
+                    _rawFile = GetFullPath(value);
+
+                    RaisePropertyChanged(_fileArgs);
+
+                    foreach (var observer in Collection)
                     {
-                        observer.OnNext(state.File);
-                    }
-                    catch (Exception ex)
-                    {
-                        observer.OnError(ex);
+                        try
+                        {
+                            observer.OnNext(File);
+                        }
+                        catch (Exception ex)
+                        {
+                            observer.OnError(ex);
+                        }
                     }
                 }
-            });
+            }
         }
         /// <inheritdoc/>
         public string Value => File;
@@ -71,21 +93,70 @@ namespace BEditor.Core.Data.Property
         [DataMember]
         public string? BindHint
         {
-            get => _Bindable?.GetString();
-            private set => _BindHint = value;
+            get => _bindable?.GetString();
+            private set => _bindHint = value;
+        }
+        /// <summary>
+        /// Gets or sets the mode of the file path.
+        /// </summary>
+        [DataMember]
+        public FilePathType Mode
+        {
+            get => _mode;
+            set => SetValue(value, ref _mode, _modeArgs, this, state =>
+            {
+                state.RawFile = state.GetPath();
+            });
         }
 
 
         #region Methods
 
+        private string GetPath()
+        {
+            if (Mode is FilePathType.FullPath)
+            {
+                if (Parent?.Parent?.Parent?.Parent?.DirectoryName is not null)
+                {
+                    return Path.GetFullPath(_rawFile, Parent.Parent.Parent.Parent.DirectoryName!);
+                }
+
+                return _rawFile;
+            }
+            else
+            {
+                if (Parent?.Parent?.Parent?.Parent?.DirectoryName is not null)
+                {
+                    return Path.GetRelativePath(Parent.Parent.Parent.Parent.DirectoryName!, File);
+                }
+
+                return _rawFile;
+            }
+        }
+        private string GetFullPath(string fullpath)
+        {
+            if (Mode is FilePathType.FullPath)
+            {
+                return fullpath;
+            }
+            else
+            {
+                if (Parent?.Parent?.Parent?.Parent?.DirectoryName is not null)
+                {
+                    return Path.GetRelativePath(Parent.Parent.Parent.Parent.DirectoryName!, fullpath);
+                }
+
+                return _rawFile;
+            }
+        }
         /// <inheritdoc/>
         protected override void OnLoad()
         {
-            if (_BindHint is not null && this.GetBindable(_BindHint, out var b))
+            if (_bindHint is not null && this.GetBindable(_bindHint, out var b))
             {
                 Bind(b);
             }
-            _BindHint = null;
+            _bindHint = null;
         }
         /// <inheritdoc/>
         public override string ToString() => $"(File:{File} Name:{PropertyMetadata?.Name})";
@@ -127,15 +198,15 @@ namespace BEditor.Core.Data.Property
         /// <inheritdoc/>
         public void Bind(IBindable<string>? bindable)
         {
-            _BindDispose?.Dispose();
-            _Bindable = bindable;
+            _bindDispose?.Dispose();
+            _bindable = bindable;
 
             if (bindable is not null)
             {
                 File = bindable.Value;
 
                 // bindableが変更時にthisが変更
-                _BindDispose = bindable.Subscribe(this);
+                _bindDispose = bindable.Subscribe(this);
             }
         }
 

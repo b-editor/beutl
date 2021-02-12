@@ -2,6 +2,7 @@
 using System.Collections.Generic;
 using System.ComponentModel;
 using System.Diagnostics.Contracts;
+using System.IO;
 using System.Linq;
 using System.Reactive.Disposables;
 using System.Runtime.Serialization;
@@ -21,13 +22,15 @@ namespace BEditor.Core.Data.Property
     public class FolderProperty : PropertyElement<FolderPropertyMetadata>, IEasingProperty, IBindable<string>
     {
         #region Fields
-        private static readonly PropertyChangedEventArgs _FolderArgs = new(nameof(Folder));
-        private string _Folder = "";
-        private List<IObserver<string>>? _List;
+        private static readonly PropertyChangedEventArgs _folderArgs = new(nameof(Folder));
+        private static readonly PropertyChangedEventArgs _modeArgs = new(nameof(Mode));
+        private string _rawFolder = "";
+        private List<IObserver<string>>? _list;
 
-        private IDisposable? _BindDispose;
-        private IBindable<string>? _Bindable;
-        private string? _BindHint;
+        private IDisposable? _bindDispose;
+        private IBindable<string>? _bindable;
+        private string? _bindHint;
+        private FilePathType _mode;
         #endregion
 
 
@@ -43,28 +46,48 @@ namespace BEditor.Core.Data.Property
         }
 
 
-        private List<IObserver<string>> Collection => _List ??= new();
+        private List<IObserver<string>> Collection => _list ??= new();
+        /// <summary>
+        /// Gets or sets the name of the selected folder.
+        /// </summary>
+        [DataMember(Name = "Folder")]
+        public string RawFile
+        {
+            get => _rawFolder;
+            private set => _rawFolder = value;
+        }
         /// <summary>
         /// Gets or sets the name of the selected folder.
         /// </summary>
         [DataMember]
         public string Folder
         {
-            get => _Folder;
-            set => SetValue(value, ref _Folder, _FolderArgs, this, state =>
+            get
             {
-                foreach (var observer in state.Collection)
+                if (Parent?.Parent?.Parent?.Parent?.DirectoryName is null) return _rawFolder;
+                return (_mode is FilePathType.FromProject) ? Path.GetFullPath(_rawFolder, Parent.Parent.Parent.Parent.DirectoryName!) : _rawFolder;
+            }
+            set
+            {
+                if (value != Folder)
                 {
-                    try
+                    _rawFolder = GetFullPath(value);
+
+                    RaisePropertyChanged(_folderArgs);
+
+                    foreach (var observer in Collection)
                     {
-                        observer.OnNext(state._Folder);
-                    }
-                    catch (Exception ex)
-                    {
-                        observer.OnError(ex);
+                        try
+                        {
+                            observer.OnNext(Folder);
+                        }
+                        catch (Exception ex)
+                        {
+                            observer.OnError(ex);
+                        }
                     }
                 }
-            });
+            }
         }
         /// <inheritdoc/>
         public string Value => Folder;
@@ -72,21 +95,70 @@ namespace BEditor.Core.Data.Property
         [DataMember]
         public string? BindHint
         {
-            get => _Bindable?.GetString();
-            private set => _BindHint = value;
+            get => _bindable?.GetString();
+            private set => _bindHint = value;
+        }
+        /// <summary>
+        /// Gets or sets the mode of the file path.
+        /// </summary>
+        [DataMember]
+        public FilePathType Mode
+        {
+            get => _mode;
+            set => SetValue(value, ref _mode, _modeArgs, this, state =>
+            {
+                state.RawFile = state.GetPath();
+            });
         }
 
 
         #region Methods
 
+        private string GetPath()
+        {
+            if (Mode is FilePathType.FullPath)
+            {
+                if (Parent?.Parent?.Parent?.Parent?.DirectoryName is not null)
+                {
+                    return Path.GetFullPath(_rawFolder, Parent.Parent.Parent.Parent.DirectoryName!);
+                }
+
+                return _rawFolder;
+            }
+            else
+            {
+                if (Parent?.Parent?.Parent?.Parent?.DirectoryName is not null)
+                {
+                    return Path.GetRelativePath(Parent.Parent.Parent.Parent.DirectoryName!, Folder);
+                }
+
+                return _rawFolder;
+            }
+        }
+        private string GetFullPath(string fullpath)
+        {
+            if (Mode is FilePathType.FullPath)
+            {
+                return fullpath;
+            }
+            else
+            {
+                if (Parent?.Parent?.Parent?.Parent?.DirectoryName is not null)
+                {
+                    return Path.GetRelativePath(Parent.Parent.Parent.Parent.DirectoryName!, fullpath);
+                }
+
+                return _rawFolder;
+            }
+        }
         /// <inheritdoc/>
         protected override void OnLoad()
         {
-            if (_BindHint is not null && this.GetBindable(_BindHint, out var b))
+            if (_bindHint is not null && this.GetBindable(_bindHint, out var b))
             {
                 Bind(b);
             }
-            _BindHint = null;
+            _bindHint = null;
         }
         /// <inheritdoc/>
         public override string ToString() => $"(Folder:{Folder} Name:{PropertyMetadata?.Name})";
@@ -128,15 +200,15 @@ namespace BEditor.Core.Data.Property
         /// <inheritdoc/>
         public void Bind(IBindable<string>? bindable)
         {
-            _BindDispose?.Dispose();
-            _Bindable = bindable;
+            _bindDispose?.Dispose();
+            _bindable = bindable;
 
             if (bindable is not null)
             {
                 Folder = bindable.Value;
 
                 // bindableが変更時にthisが変更
-                _BindDispose = bindable.Subscribe(this);
+                _bindDispose = bindable.Subscribe(this);
             }
         }
 

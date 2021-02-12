@@ -1,6 +1,7 @@
 ﻿using System;
 using System.Collections.Generic;
 using System.Linq;
+using System.Reactive.Linq;
 using System.Text;
 using System.Threading.Tasks;
 
@@ -22,6 +23,12 @@ namespace BEditor.ViewModels.PropertyControl
             Property = property;
             Metadata = property.ObserveProperty(p => p.PropertyMetadata)
                 .ToReadOnlyReactiveProperty();
+
+            PathMode = property.ObserveProperty(p => p.Mode)
+                .Select(i => (int)i)
+                .ToReactiveProperty();
+
+            PathMode.Subscribe(i => Property.Mode = (FilePathType)i);
 
             Command.Subscribe(x =>
             {
@@ -45,6 +52,7 @@ namespace BEditor.ViewModels.PropertyControl
         public ReactiveCommand Command { get; } = new();
         public ReactiveCommand Reset { get; } = new();
         public ReactiveCommand Bind { get; } = new();
+        public ReactiveProperty<int> PathMode { get; }
 
         private static string? OpenDialog()
         {

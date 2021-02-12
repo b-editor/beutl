@@ -1,0 +1,13 @@
+# Auto detect text files and perform LF normalization
+* text=auto
+
+*.java text diff=java
+*.html text diff=html
+*.xml text diff=xml
+*.css text
+*.js text
+*.sql text
+*.txt text
+*.vm text
+*.jsp text
+*.properties text
