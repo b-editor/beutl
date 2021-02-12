@@ -82,7 +82,7 @@ namespace BEditor.ViewModels.CreatePage
 
             if (SaveToFile.Value)
             {
-                project.Save(FormattedFilename(Folder.Value + "\\" + Name.Value));
+                project.Save(FormattedFilename(Path.Combine(Folder.Value, Path.GetFileNameWithoutExtension(Name.Value), Name.Value)));
 
                 var fullpath = Path.Combine(project.DirectoryName!, project.Name + ".bedit");
 

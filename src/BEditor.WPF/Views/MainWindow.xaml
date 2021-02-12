@@ -548,7 +548,7 @@
                         Height="Auto"/>
                     <Button
                         Padding="8,0,8,0"
-                        Content="{Binding Source={x:Static model:AppData.Current}, Path=Project.Filename, Converter={StaticResource ToFileNameConverter}}"
+                        Content="{Binding Source={x:Static model:AppData.Current}, Path=Project.Name, Converter={StaticResource ToFileNameConverter}}"
                         IsEnabled="{Binding ProjectIsOpened.Value, Mode=OneWay}"
                         Style="{StaticResource StatusBarOpenContextButton}">
                         <Button.ContextMenu>

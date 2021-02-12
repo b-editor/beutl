@@ -112,6 +112,8 @@ namespace BEditor.ViewModels.StartWindowControl
 
         public record ProjectItem(string Name, string Path, ICommand Command, ICommand Remove)
         {
+            public string? ThumbnailPath
+                => System.IO.Path.Combine(System.IO.Path.GetDirectoryName(Path)!, "thumbnail.png") is var p && File.Exists(p) ? p : null;
             public ReactiveProperty<bool> IsLoading { get; } = new(false);
         }
     }

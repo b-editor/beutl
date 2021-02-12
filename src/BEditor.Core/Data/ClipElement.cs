@@ -42,12 +42,11 @@ namespace BEditor.Core.Data
         /// <summary>
         /// <see cref="ClipElement"/> Initialize a new instance of the class.
         /// </summary>
-        public ClipElement(int id, ObservableCollection<EffectElement> effects, Frame start, Frame end, Type type, int layer, Scene scene)
+        public ClipElement(int id, ObservableCollection<EffectElement> effects, Frame start, Frame end, int layer, Scene scene)
         {
             Id = id;
             _Start = start;
             _End = end;
-            Type = type;
             _Layer = layer;
             Parent = scene;
             Effect = effects;
@@ -67,27 +66,12 @@ namespace BEditor.Core.Data
         /// <summary>
         /// Get the name of this <see cref="ClipElement"/>.
         /// </summary>
-        public string Name => _Name ??= $"{Type.Name}{Id}";
-
-        /// <summary>
-        /// Get the type of this <see cref="ClipElement"/>.
-        /// </summary>
-        [DataMember(Name = "Type", Order = 1)]
-        public string ClipType
-        {
-            get => Type.FullName!;
-            private set => Type = Type.GetType(value)!;
-        }
-
-        /// <summary>
-        /// Get the type of this <see cref="ClipElement"/>.
-        /// </summary>
-        public Type Type { get; private set; }
+        public string Name => _Name ??= $"{Effect[0].GetType().Name}{Id}";
 
         /// <summary>
         /// Get or set the start frame for this <see cref="ClipElement"/>.
         /// </summary>
-        [DataMember(Order = 2)]
+        [DataMember(Order = 1)]
         public Frame Start
         {
             get => _Start;
@@ -97,7 +81,7 @@ namespace BEditor.Core.Data
         /// <summary>
         /// Get or set the end frame for this <see cref="ClipElement"/>.
         /// </summary>
-        [DataMember(Order = 3)]
+        [DataMember(Order = 2)]
         public Frame End
         {
             get => _End;
@@ -112,7 +96,7 @@ namespace BEditor.Core.Data
         /// <summary>
         /// Get or set the layer where this <see cref="ClipElement"/> will be placed.
         /// </summary>
-        [DataMember(Order = 4)]
+        [DataMember(Order = 3)]
         public int Layer
         {
             get => _Layer;
@@ -126,7 +110,7 @@ namespace BEditor.Core.Data
         /// <summary>
         /// Gets or sets the character displayed in this <see cref="ClipElement"/>.
         /// </summary>
-        [DataMember(Name = "Text", Order = 5)]
+        [DataMember(Name = "Text", Order = 4)]
         public string LabelText
         {
             get => _LabelText;
@@ -139,7 +123,7 @@ namespace BEditor.Core.Data
         /// <summary>
         /// Get the effects included in this <see cref="ClipElement"/>.
         /// </summary>
-        [DataMember(Name = "Effects", Order = 6)]
+        [DataMember(Name = "Effects", Order = 5)]
         public ObservableCollection<EffectElement> Effect { get; private set; }
 
         /// <inheritdoc/>
@@ -385,7 +369,7 @@ namespace BEditor.Core.Data
                 };
 
                 //オブジェクトの情報
-                Clip = new ClipElement(idmax, list, startFrame, startFrame + 180, metadata.Type, layer, scene);
+                Clip = new ClipElement(idmax, list, startFrame, startFrame + 180, layer, scene);
             }
 
             public string Name => CommandName.AddClip;

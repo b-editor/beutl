@@ -270,7 +270,6 @@ namespace BEditor.ViewModels.TimeLines
                 $"Name : {ClipData.Name}\n" +
                 $"Length : {ClipData.Length}\n" +
                 $"Layer : {ClipData.Layer}\n" +
-                $"Type : {ClipData.Type}\n" +
                 $"Start : {ClipData.Start}\n" +
                 $"End : {ClipData.End}";
 

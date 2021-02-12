@@ -9,6 +9,8 @@ using System.Threading.Tasks;
 
 using BEditor.Core.Properties;
 using BEditor.Core.Service;
+using BEditor.Drawing;
+using BEditor.Drawing.Pixel;
 using BEditor.Graphics;
 
 using static System.Net.WebRequestMethods;
@@ -187,35 +189,6 @@ namespace BEditor.Core.Data
 
         #region Methods
 
-        /// <summary>
-        /// Create a backup of this <see cref="Project"/>.
-        /// </summary>
-        public void BackUp()
-        {
-            if (Name is null)
-            {
-                if (Services.FileDialogService is null) throw new InvalidOperationException();
-
-                var record = new SaveFileRecord
-                {
-                    DefaultFileName = "新しいプロジェクト.bedit",
-                    Filters =
-                    {
-                        new(Resources.ProjectFile, new FileExtension[] { new("bedit") })
-                    }
-                };
-
-                //ダイアログを表示する
-                if (Services.FileDialogService.ShowSaveFileDialog(record))
-                {
-                    Name = Path.GetFileNameWithoutExtension(record.FileName);
-                    DirectoryName = Path.GetDirectoryName(record.FileName);
-                }
-            }
-
-            Serialize.SaveToFile(this, Path.Combine(AppContext.BaseDirectory, "user", "backup", Name!) + ".backup");
-        }
-
         /// <inheritdoc/>
         public void Dispose()
         {
@@ -255,8 +228,7 @@ namespace BEditor.Core.Data
                 // ダイアログを表示する
                 if (Services.FileDialogService.ShowSaveFileDialog(record))
                 {
-                    Name = Path.GetFileNameWithoutExtension(record.FileName);
-                    DirectoryName = Path.GetDirectoryName(record.FileName);
+                    return Save(record.FileName);
                 }
                 else
                 {
@@ -264,12 +236,7 @@ namespace BEditor.Core.Data
                 }
             }
 
-            if (Serialize.SaveToFile(this, Path.Combine(DirectoryName!, Name+ ".bedit")))
-            {
-                Saved?.Invoke(this, new(SaveType.Save));
-                return true;
-            }
-            return false;
+            return Save(Path.Combine(DirectoryName, Name + ".bedit"));
         }
 
         /// <summary>
@@ -280,10 +247,27 @@ namespace BEditor.Core.Data
         /// <returns><see langword="true"/> if the save is successful, otherwise <see langword="false"/>.</returns>
         public bool Save(string filename, SerializeMode mode = SerializeMode.Binary)
         {
+            static void IfNotExistCreateDir(string dir)
+            {
+                if (!Directory.Exists(dir))
+                {
+                    Directory.CreateDirectory(dir);
+                }
+            }
+
             Name = Path.GetFileNameWithoutExtension(filename);
             DirectoryName = Path.GetDirectoryName(filename);
+            IfNotExistCreateDir(DirectoryName!);
 
-            if (Serialize.SaveToFile(this, Path.Combine(DirectoryName!, Name + ".bedit"), mode))
+            using (var img = new Image<BGRA32>(PreviewScene.Width, PreviewScene.Height))
+            {
+                var thumbnail = Path.Combine(DirectoryName!, "thumbnail.png");
+                PreviewScene.Render(img, RenderType.ImageOutput);
+
+                img.Encode(thumbnail);
+            }
+
+            if (Serialize.SaveToFile(this, filename, mode))
             {
                 Saved?.Invoke(this, new(SaveType.Save));
                 return true;
@@ -307,49 +291,8 @@ namespace BEditor.Core.Data
             return false;
         }
 
-        /// <summary>
-        /// Save this <see cref="Project"/> overwrite.
-        /// </summary>
-        /// <returns><see langword="true"/> if the save is successful, otherwise <see langword="false"/>.</returns>
-        public bool SaveAs()
-        {
-            if (Services.FileDialogService is null) throw new InvalidOperationException();
-
-            var record = new SaveFileRecord
-            {
-                DefaultFileName = (Name is not null) ? Name + ".bedit" : "新しいプロジェクト.bedit",
-                Filters =
-                {
-                    new(Resources.ProjectFile, new FileExtension[] { new("bedit") }),
-                    new(Resources.JsonFile, new FileExtension[] { new("json") }),
-                }
-            };
-            var mode = SerializeMode.Binary;
-
-            if (Services.FileDialogService.ShowSaveFileDialog(record))
-            {
-                if (Path.GetExtension(record.FileName) is ".json")
-                {
-                    mode = SerializeMode.Json;
-                }
-                else
-                {
-                    Name = Path.GetFileNameWithoutExtension(record.FileName);
-                    DirectoryName = Path.GetDirectoryName(record.FileName);
-                }
-            }
-
-            if (Serialize.SaveToFile(this, Path.Combine(DirectoryName!, Name + ".bedit"), mode))
-            {
-                Saved?.Invoke(this, new(SaveType.SaveAs));
-                return true;
-            }
-            return false;
-        }
-
         private void CopyTo(Project project)
         {
-            project.Name = Name;
             project.Framerate = Framerate;
             project._parent = _parent;
             project.PreviewScene = PreviewScene;

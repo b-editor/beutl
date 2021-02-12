@@ -128,8 +128,9 @@ namespace BEditor.ViewModels
     {
         public object Convert(object value, Type targetType, object parameter, CultureInfo culture)
         {
-            if (value is Type clipType)
+            if (value is ClipElement clip)
             {
+                var clipType = clip.Effect[0].GetType();
                 if (clipType == ClipType.Video)
                 {
                     return PackIconKind.Movie;

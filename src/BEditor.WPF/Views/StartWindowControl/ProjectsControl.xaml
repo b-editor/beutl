@@ -5,6 +5,7 @@
              xmlns:d="http://schemas.microsoft.com/expression/blend/2008" 
              xmlns:local="clr-namespace:BEditor.Views.StartWindowControl"
              xmlns:model="clr-namespace:BEditor.Models"
+             xmlns:convert="clr-namespace:BEditor.ViewModels.Converters"
              xmlns:props="clr-namespace:BEditor.Core.Properties;assembly=BEditor.Core"
              xmlns:md="http://materialdesigninxaml.net/winfx/xaml/themes"
              mc:Ignorable="d" 
@@ -16,6 +17,7 @@
                 <ResourceDictionary Source="pack://application:,,,/MaterialDesignColors;component/Themes/MaterialDesignColor.Lime.Accent.xaml" />
             </ResourceDictionary.MergedDictionaries>
             
+            <convert:PathToImageSource x:Key="PathToImageSource"/>
             <SolidColorBrush x:Key="SecondaryHueDarkBrush" Color="{StaticResource Accent200}"/>
         </ResourceDictionary>
     </UserControl.Resources>
@@ -86,7 +88,9 @@
                                         Background="{StaticResource SecondaryHueMidBrush}"
                                         Foreground="{StaticResource SecondaryHueDarkBrush}"/>
 
-                                    <Grid Background="{DynamicResource MaterialDesignBodyLight}" Grid.Row="1"/>
+                                    <Label Background="{DynamicResource MaterialDesignBodyLight}" Grid.Row="1" Padding="0">
+                                        <Image Source="{Binding ThumbnailPath, Converter={StaticResource PathToImageSource}}" Stretch="UniformToFill" HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                                    </Label>
 
                                     <VirtualizingStackPanel Grid.Row="2" Margin="8">
                                         <TextBlock Text="{Binding Name, Mode=OneTime}" FontSize="24" Foreground="{DynamicResource MaterialDesignBody}"/>
