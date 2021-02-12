@@ -9,6 +9,7 @@ using BEditor.Core.Command;
 using BEditor.Core.Data;
 using BEditor.Core.Data.Property;
 using BEditor.Drawing;
+using BEditor.Primitive;
 
 using NUnit.Framework;
 
@@ -29,7 +30,7 @@ namespace NUnitTestProject1
             project.Load();
             var scene = project.PreviewScene;
 
-            scene.CreateAddCommand(1, 1, ClipType.FigureMetadata, out _).Execute();
+            scene.AddClip(1, 1, PrimitiveTypes.FigureMetadata, out _).Execute();
 
             var result = scene.Render(1);
 

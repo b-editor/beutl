@@ -19,6 +19,7 @@
     <ProjectReference Include="..\..\BEditor.Drawing\BEditor.Drawing.csproj" />
     <ProjectReference Include="..\..\BEditor.Extensions\BEditor.Extensions.AviUtl\BEditor.Extensions.AviUtl.csproj" />
     <ProjectReference Include="..\..\BEditor.Media\BEditor.Media.csproj" />
+    <ProjectReference Include="..\..\BEditor.Primitive\BEditor.Primitive.csproj" />
   </ItemGroup>
 
 </Project>
