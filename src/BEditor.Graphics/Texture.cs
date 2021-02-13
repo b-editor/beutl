@@ -1,7 +1,9 @@
 ﻿using System;
 using System.Collections.Generic;
+using System.Diagnostics;
 using System.Linq;
 using System.Text;
+using System.Threading;
 using System.Threading.Tasks;
 
 using BEditor.Drawing;
@@ -19,9 +21,13 @@ namespace BEditor.Graphics
             0, 1, 3,
             1, 2, 3
         };
+        private readonly SynchronizationContext? _synchronization;
 
         public Texture(int glHandle, int width, int height)
         {
+            _synchronization = SynchronizationContext.Current;
+            Debug.Assert(_synchronization is not null);
+
             Width = width;
             Height = height;
             Handle = glHandle;
@@ -155,9 +161,14 @@ namespace BEditor.Graphics
         {
             if (IsDisposed) return;
 
-            GL.DeleteBuffer(VertexArrayObject);
-            GL.DeleteBuffer(ElementBufferObject);
-            GL.DeleteTexture(Handle);
+            _synchronization?.Post(state =>
+            {
+                var t = (Texture)state!;
+                GL.DeleteBuffer(t.VertexArrayObject);
+                GL.DeleteBuffer(t.ElementBufferObject);
+                GL.DeleteTexture(t.Handle);
+
+            }, this);
 
             IsDisposed = true;
         }

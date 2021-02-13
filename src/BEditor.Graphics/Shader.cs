@@ -4,6 +4,7 @@ using System.Diagnostics;
 using System.IO;
 using System.Linq;
 using System.Text;
+using System.Threading;
 using System.Threading.Tasks;
 
 using OpenTK.Graphics.OpenGL4;
@@ -11,12 +12,15 @@ using OpenTK.Mathematics;
 
 namespace BEditor.Graphics
 {
-    public class Shader: IDisposable
+    public class Shader : IDisposable
     {
         private readonly Dictionary<string, int> _uniformLocations;
+        private readonly SynchronizationContext? _synchronization;
 
         public Shader(string vertSource, string fragSource)
         {
+            _synchronization = SynchronizationContext.Current;
+            Debug.Assert(_synchronization is not null);
             var vertexShader = GL.CreateShader(ShaderType.VertexShader);
 
             GL.ShaderSource(vertexShader, vertSource);

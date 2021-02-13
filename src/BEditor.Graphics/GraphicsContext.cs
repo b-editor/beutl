@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.Diagnostics;
 using System.IO;
 using System.Runtime.InteropServices;
+using System.Threading;
 using System.Threading.Tasks;
 
 using BEditor.Drawing;
@@ -24,11 +25,13 @@ namespace BEditor.Graphics
         private readonly Shader _textureShader;
         private readonly Shader _shader;
         private readonly Shader _lightShader;
+        private readonly SynchronizationContext? _synchronization;
 
         public GraphicsContext(int width, int height)
         {
             Width = width;
             Height = height;
+            _synchronization = SynchronizationContext.Current;
 
             if (isFirst)
             {
@@ -126,102 +129,6 @@ namespace BEditor.Graphics
         {
             GLFW.SwapBuffers(_window);
         }
-        //internal void DrawImage(Image<BGRA32> img, ClipData data, EffectRenderArgs args)
-        //{
-        //    if (img == null) return;
-
-        //    #region MyRegion
-
-        //    var frame = args.Frame;
-        //    var drawObject = (data.Effect[0] as ImageObject)??throw new NotSupportedException();
-
-        //    float alpha = (float)(drawObject.Blend.Alpha.GetValue(frame) / 100);
-
-        //    var scale = (float)(drawObject.Zoom.Scale.GetValue(frame) / 100);
-        //    var scalex = (float)(drawObject.Zoom.ScaleX.GetValue(frame) / 100) * scale;
-        //    var scaley = (float)(drawObject.Zoom.ScaleY.GetValue(frame) / 100) * scale;
-        //    var scalez = (float)(drawObject.Zoom.ScaleZ.GetValue(frame) / 100) * scale;
-
-        //    var coordinate = new System.Numerics.Vector3(
-        //        drawObject.Coordinate.X.GetValue(frame),
-        //        drawObject.Coordinate.Y.GetValue(frame),
-        //        drawObject.Coordinate.Z.GetValue(frame));
-
-        //    var center = new System.Numerics.Vector3(
-        //        drawObject.Coordinate.CenterX.GetValue(frame),
-        //        drawObject.Coordinate.CenterY.GetValue(frame),
-        //        drawObject.Coordinate.CenterZ.GetValue(frame));
-
-
-        //    var nx = drawObject.Angle.AngleX.GetValue(frame);
-        //    var ny = drawObject.Angle.AngleY.GetValue(frame);
-        //    var nz = drawObject.Angle.AngleZ.GetValue(frame);
-
-        //    Color ambient = drawObject.Material.Ambient.GetValue(frame);
-        //    Color diffuse = drawObject.Material.Diffuse.GetValue(frame);
-        //    Color specular = drawObject.Material.Specular.GetValue(frame);
-        //    float shininess = drawObject.Material.Shininess.GetValue(frame);
-        //    var c = drawObject.Blend.Color.GetValue(frame);
-        //    var color = Color.FromARGB((byte)(c.A * alpha), c.R, c.G, c.B);
-
-        //    #endregion
-
-        //    MakeCurrent();
-
-        //    using var texture = Texture.FromImage(img);
-        //    texture.Use(TextureUnit.Texture0);
-        //    //using var textureShader = Shader.FromFile(
-        //    //    Path.Combine(AppContext.BaseDirectory, "Shaders", "TextureShader.vert"),
-        //    //    Path.Combine(AppContext.BaseDirectory, "Shaders", "TextureShader.frag"));
-
-        //    textureShader.Use();
-
-        //    var vertexLocation = textureShader.GetAttribLocation("aPosition");
-        //    GL.EnableVertexAttribArray(vertexLocation);
-        //    GL.VertexAttribPointer(vertexLocation, 3, VertexAttribPointerType.Float, false, 5 * sizeof(float), 0);
-
-        //    var texCoordLocation = textureShader.GetAttribLocation("aTexCoord");
-        //    GL.EnableVertexAttribArray(texCoordLocation);
-        //    GL.VertexAttribPointer(texCoordLocation, 2, VertexAttribPointerType.Float, false, 5 * sizeof(float), 3 * sizeof(float));
-
-        //    textureShader.SetInt("texture", 0);
-
-        //    GL.Enable(EnableCap.Blend);
-
-        //    var blendFunc = Blend.BlentFunc[drawObject.Blend.BlendType.Index];
-
-        //    blendFunc?.Invoke();
-        //    if (blendFunc is null)
-        //    {
-        //        GL.BlendEquationSeparate(BlendEquationMode.FuncAdd, BlendEquationMode.FuncAdd);
-        //        GL.BlendFunc(BlendingFactor.SrcAlpha, BlendingFactor.OneMinusSrcAlpha);
-        //    }
-
-        //    //GL.Color4(color.ToOpenTK());
-        //    //GL.Material(MaterialFace.Front, MaterialParameter.Ambient, ambient.ToOpenTK());
-        //    //GL.Material(MaterialFace.Front, MaterialParameter.Diffuse, diffuse.ToOpenTK());
-        //    //GL.Material(MaterialFace.Front, MaterialParameter.Specular, specular.ToOpenTK());
-        //    //GL.Material(MaterialFace.Front, MaterialParameter.Shininess, shininess);
-
-        //    GL.Enable(EnableCap.Texture2D);
-
-        //    var model = Matrix4.Identity
-        //        * Matrix4.CreateTranslation(center.ToOpenTK())
-        //            * Matrix4.CreateRotationX(MathHelper.DegreesToRadians(nx))
-        //            * Matrix4.CreateRotationY(MathHelper.DegreesToRadians(ny))
-        //            * Matrix4.CreateRotationZ(MathHelper.DegreesToRadians(nz))
-        //                * Matrix4.CreateTranslation(coordinate.ToOpenTK())
-        //                    * Matrix4.CreateScale(scalex, scaley, scalez);
-
-        //    textureShader.SetVector4("color", color.ToVector4());
-        //    textureShader.SetMatrix4("model", model);
-        //    textureShader.SetMatrix4("view", Camera.GetViewMatrix());
-        //    textureShader.SetMatrix4("projection", Camera.GetProjectionMatrix());
-
-        //    textureShader.Use();
-
-        //    texture.Render(TextureUnit.Texture0);
-        //}
         public void DrawTexture(Texture texture, Transform transform, Color color)
         {
             MakeCurrent();
@@ -259,6 +166,7 @@ namespace BEditor.Graphics
         public void DrawTexture(Texture texture, Transform transform, Color color, Action blend)
         {
             MakeCurrent();
+
             texture.Use(TextureUnit.Texture0);
 
             _textureShader.Use();
@@ -312,10 +220,16 @@ namespace BEditor.Graphics
         {
             if (IsDisposed) return;
 
-            GLFW.DestroyWindow(_window);
-            _textureShader.Dispose();
-            _shader.Dispose();
-            _lightShader.Dispose();
+            _synchronization?.Post(state =>
+            {
+                var g = (GraphicsContext)state!;
+
+                GLFW.DestroyWindow(g._window);
+                g._textureShader.Dispose();
+                g._shader.Dispose();
+                g._lightShader.Dispose();
+
+            }, this);
 
             IsDisposed = true;
         }
