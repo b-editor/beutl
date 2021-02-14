@@ -259,12 +259,17 @@ namespace BEditor.Core.Data
             DirectoryName = Path.GetDirectoryName(filename);
             IfNotExistCreateDir(DirectoryName!);
 
-            using (var img = new Image<BGRA32>(PreviewScene.Width, PreviewScene.Height))
+            if (PreviewScene.IsLoaded)
             {
-                var thumbnail = Path.Combine(DirectoryName!, "thumbnail.png");
-                PreviewScene.Render(img, RenderType.ImageOutput);
+                PreviewScene.Synchronize?.Post(_ =>
+                {
+                    using var img = new Image<BGRA32>(PreviewScene.Width, PreviewScene.Height);
 
-                img.Encode(thumbnail);
+                    var thumbnail = Path.Combine(DirectoryName!, "thumbnail.png");
+                    PreviewScene.Render(img, RenderType.ImageOutput);
+
+                    img.Encode(thumbnail);
+                }, null);
             }
 
             if (Serialize.SaveToFile(this, filename, mode))

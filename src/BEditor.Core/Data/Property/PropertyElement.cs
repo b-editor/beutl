@@ -12,7 +12,7 @@ namespace BEditor.Core.Data.Property
     /// Represents a property used by <see cref="EffectElement"/>.
     /// </summary>
     [DataContract]
-    public class PropertyElement : ComponentObject, IChild<EffectElement>, IPropertyElement, IHasId, IHasName
+    public class PropertyElement : EditorObject, IChild<EffectElement>, IPropertyElement, IHasId, IHasName
     {
         private static readonly PropertyChangedEventArgs _MetadataArgs = new(nameof(PropertyMetadata));
         private PropertyElementMetadata? _PropertyMetadata;

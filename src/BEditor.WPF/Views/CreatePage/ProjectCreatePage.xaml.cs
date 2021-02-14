@@ -15,6 +15,7 @@ namespace BEditor.Views.CreatePage
             InitializeComponent();
         }
 
-        private void CloseClick(object sender, RoutedEventArgs e) => Window.GetWindow(this)?.Close();
+        private void CloseClick(object sender, RoutedEventArgs e) 
+            => Window.GetWindow(this)?.Close();
     }
 }

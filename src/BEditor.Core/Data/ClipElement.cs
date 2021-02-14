@@ -23,7 +23,7 @@ namespace BEditor.Core.Data
     /// Represents a data of a clip to be placed in the timeline.
     /// </summary>
     [DataContract]
-    public class ClipElement : ComponentObject, ICloneable, IParent<EffectElement>, IChild<Scene>, IHasName, IHasId, IFormattable, IElementObject
+    public class ClipElement : EditorObject, ICloneable, IParent<EffectElement>, IChild<Scene>, IHasName, IHasId, IFormattable, IElementObject
     {
         #region Fields
         private static readonly PropertyChangedEventArgs _StartArgs = new(nameof(Start));

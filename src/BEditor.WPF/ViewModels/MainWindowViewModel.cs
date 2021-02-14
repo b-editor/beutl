@@ -40,7 +40,9 @@ namespace BEditor.ViewModels
         public ReactiveCommand OpenThisRepository { get; } = new();
         #endregion
 
-        #region Statusbar Right
+        #region Statusbar
+        public ReactiveProperty<bool> IsLoading { get; } = new(false);
+
         public ReactiveCommand OpenProjectDirectory { get; } = new();
         public ReactiveCommand ConvertJson { get; } = new();
         #endregion

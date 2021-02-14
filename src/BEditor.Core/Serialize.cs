@@ -194,7 +194,7 @@ namespace BEditor.Core
         public static readonly List<Type> SerializeKnownTypes = new List<Type>()
         {
             typeof(BasePropertyChanged),
-            typeof(ComponentObject),
+            typeof(EditorObject),
 
             typeof(Project),
             typeof(Scene),

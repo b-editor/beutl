@@ -4,16 +4,18 @@ using System.IO;
 using System.Reactive;
 using System.Reactive.Linq;
 using System.Threading;
+using System.Threading.Tasks;
 using System.Windows;
 using System.Windows.Controls;
 using System.Windows.Input;
 
 using BEditor.Core.Command;
 using BEditor.Core.Data;
-using BEditor.Primitive.Objects;
 using BEditor.Core.Extensions;
 using BEditor.Models;
 using BEditor.Models.Extension;
+using BEditor.Primitive;
+using BEditor.Primitive.Objects;
 using BEditor.Views;
 using BEditor.Views.SettingsControl;
 
@@ -21,7 +23,6 @@ using Reactive.Bindings;
 using Reactive.Bindings.Extensions;
 
 using Point = System.Windows.Point;
-using BEditor.Primitive;
 
 namespace BEditor.ViewModels.TimeLines
 {
@@ -155,26 +156,6 @@ namespace BEditor.ViewModels.TimeLines
 
 
             #endregion
-
-            #region ショートカット
-
-            //CopyCommand = new(() => {
-            //    if (Scene.SelectName != null) {
-            //        UndoRedoManager.Do(new CopyClip(Scene.Get(Scene.SelectName)));
-            //    }
-            //});
-            //CutCommand = new(() => {
-            //    if (Scene.SelectName != null) {
-            //        UndoRedoManager.Do(new CutClip(Scene.Get(Scene.SelectName)));
-            //    }
-            //});
-            //DeleteCommand = new(() => {
-            //    if (Scene.SelectName != null) {
-            //        UndoRedoManager.Do(new RemoveClip(Scene.SelectItem));
-            //    }
-            //});
-
-            #endregion
         }
 
         public double TrackHeight { get; } = Setting.ClipHeight;
@@ -255,10 +236,12 @@ namespace BEditor.ViewModels.TimeLines
 
                 if (de.Data.GetDataPresent(typeof(Func<ObjectMetadata>)))
                 {
+                    var meta = ((Func<ObjectMetadata>)de.Data.GetData(typeof(Func<ObjectMetadata>))).Invoke();
+
                     var endFrame = frame + new Media.Frame(180);
                     Scene.Clamp(null, ref frame, ref endFrame, addlayer);
 
-                    var recordCommand = Scene.AddClip(frame, addlayer, ((Func<ObjectMetadata>)de.Data.GetData(typeof(Func<ObjectMetadata>))).Invoke(), out var c);
+                    var recordCommand = Scene.AddClip(frame, addlayer, meta, out var c);
 
                     c.End = endFrame;
 
@@ -452,7 +435,7 @@ namespace BEditor.ViewModels.TimeLines
                         toframe,
                         ClipSelect.GetCreateClipViewModel().Row).Execute();
                 }
-                
+
                 ClipTimeChange = false;
             }
         }

@@ -114,7 +114,7 @@ namespace BEditor
                 LoadCommand();
 #endif
 
-                Dispatcher.Invoke(() =>
+                await Dispatcher.Invoke(async () =>
                 {
                     var file = e.Args.FirstOrDefault() is string str
                         && File.Exists(str)
@@ -123,15 +123,7 @@ namespace BEditor
 
                     if (file is not null)
                     {
-                        var app = AppData.Current;
-                        app.Project?.Unload();
-                        var project = new Project(file);
-                        project.Load();
-                        app.Project = project;
-                        app.AppStatus = Status.Edit;
-
-                        Settings.Default.MostRecentlyUsedList.Remove(file);
-                        Settings.Default.MostRecentlyUsedList.Add(file);
+                        await ProjectModel.DirectOpen(file);
 
                         var win = new MainWindow();
                         MainWindow = win;
@@ -202,6 +194,8 @@ namespace BEditor
                 typeof(Text),
                 typeof(VideoFile),
                 typeof(SceneObject),
+                typeof(RoundRect),
+                typeof(Polygon),
 
                 typeof(Blur),
                 typeof(Border),

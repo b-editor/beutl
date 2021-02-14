@@ -28,7 +28,7 @@ namespace BEditor.Core.Data
     /// Represents a scene to be included in the <see cref="Project"/>.
     /// </summary>
     [DataContract]
-    public class Scene : ComponentObject, IParent<ClipElement>, IChild<Project>, IHasName, IHasId, IElementObject
+    public class Scene : EditorObject, IParent<ClipElement>, IChild<Project>, IHasName, IHasId, IElementObject
     {
         #region Fields
 
@@ -345,27 +345,36 @@ namespace BEditor.Core.Data
         {
             if (IsLoaded) return;
 
-            GraphicsContext = new GraphicsContext(Width, Height)
+            Debug.Assert(Synchronize is not null);
+            Synchronize?.Post(_ =>
             {
-                ClearColor = BackgroundColor,
-            };
-            AudioContext = new AudioContext();
+                GraphicsContext = new GraphicsContext(Width, Height)
+                {
+                    ClearColor = BackgroundColor,
+                };
+                AudioContext = new AudioContext();
+
+                IsLoaded = true;
+            }, null);
+
             foreach (var clip in Datas)
             {
                 clip.Parent = this;
                 clip.Load();
             }
-
-            IsLoaded = true;
         }
 
         /// <inheritdoc/>
         public void Unload()
         {
-            if (!IsLoaded)return;
+            if (!IsLoaded) return;
 
-            GraphicsContext?.Dispose();
-            AudioContext?.Dispose();
+            Synchronize?.Post(_ =>
+            {
+                GraphicsContext?.Dispose();
+                AudioContext?.Dispose();
+            }, null);
+
             foreach (var clip in Datas)
             {
                 clip.Unload();

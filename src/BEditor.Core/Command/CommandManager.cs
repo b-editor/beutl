@@ -125,6 +125,7 @@ namespace BEditor.Core.Command
             }
             catch
             {
+                Debug.Assert(false);
                 CommandCancel(null, EventArgs.Empty);
             }
 

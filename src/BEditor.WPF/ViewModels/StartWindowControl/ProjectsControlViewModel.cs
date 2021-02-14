@@ -14,6 +14,8 @@ using BEditor.Core.Extensions;
 using BEditor.Core.Properties;
 using BEditor.Core.Service;
 using BEditor.Models;
+using BEditor.Views;
+using BEditor.Views.MessageContent;
 
 using Reactive.Bindings;
 
@@ -39,18 +41,26 @@ namespace BEditor.ViewModels.StartWindowControl
                 var app = AppData.Current;
                 app.Project?.Unload();
                 var project = new Project(ProjectItem.Path);
-                project.Load();
-                app.Project = project;
-                app.AppStatus = Status.Edit;
 
-                Settings.Default.MostRecentlyUsedList.Remove(ProjectItem.Path);
-                Settings.Default.MostRecentlyUsedList.Add(ProjectItem.Path);
+                Task.Run(() =>
+                {
+                    project.Load();
 
-                var win = new MainWindow();
-                App.Current.MainWindow = win;
-                win.Show();
+                    app.Project = project;
+                    app.AppStatus = Status.Edit;
 
-                Close?.Invoke(this, EventArgs.Empty);
+                    Settings.Default.MostRecentlyUsedList.Remove(ProjectItem.Path);
+                    Settings.Default.MostRecentlyUsedList.Add(ProjectItem.Path);
+
+                    App.Current.Dispatcher.Invoke(() =>
+                    {
+                        var win = new MainWindow();
+                        App.Current.MainWindow = win;
+                        win.Show();
+
+                        Close?.Invoke(this, EventArgs.Empty);
+                    });
+                });
             });
 
             Create.Subscribe(() =>

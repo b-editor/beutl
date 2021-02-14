@@ -18,6 +18,9 @@ using Microsoft.Win32;
 using Reactive.Bindings;
 using BEditor.Core.Service;
 using System.IO;
+using BEditor.Views.MessageContent;
+using BEditor.Views;
+using BEditor.ViewModels;
 
 namespace BEditor.Models
 {
@@ -60,10 +63,16 @@ namespace BEditor.Models
                 .Select(_ => AppData.Current.Project)
                 .Subscribe(p =>
                 {
-                    p!.Save();
+                    MainWindowViewModel.Current.IsLoading.Value = true;
+                    Task.Run(() =>
+                    {
+                        p!.Save();
+
+                        MainWindowViewModel.Current.IsLoading.Value = false;
+                    });
                 });
 
-            Open.Select(_ => AppData.Current).Subscribe(app =>
+            Open.Select(_ => AppData.Current).Subscribe(async app =>
             {
                 var dialog = new OpenFileDialog()
                 {
@@ -73,21 +82,29 @@ namespace BEditor.Models
 
                 if (dialog.ShowDialog() ?? false)
                 {
+                    NoneDialog? ndialog = null;
                     try
                     {
-                        app.Project?.Unload();
-                        var project = new Project(dialog.FileName);
-                        project.Load();
-                        app.Project = project;
-                        app.AppStatus = Status.Edit;
+                        var loading = new Loading()
+                        {
+                            IsIndeterminate = { Value = true }
+                        };
+                        ndialog = new NoneDialog(loading)
+                        {
+                            Owner = App.Current.MainWindow
+                        };
+                        ndialog.Show();
 
-                        Settings.Default.MostRecentlyUsedList.Remove(dialog.FileName);
-                        Settings.Default.MostRecentlyUsedList.Add(dialog.FileName);
+                        await DirectOpen(dialog.FileName);
                     }
                     catch
                     {
                         Debug.Assert(false);
                         Message.Snackbar(string.Format(Resources.FailedToLoad, "Project"));
+                    }
+                    finally
+                    {
+                        ndialog?.Close();
                     }
                 }
             });
@@ -115,5 +132,23 @@ namespace BEditor.Models
         public ReactiveCommand Open { get; } = new();
         public ReactiveCommand Close { get; } = new();
         public ReactiveCommand Create { get; } = new();
+
+        public static async Task DirectOpen(string filename)
+        {
+            var app = AppData.Current;
+            app.Project?.Unload();
+            var project = new Project(filename);
+
+            await Task.Run(() =>
+            {
+                project.Load();
+
+                app.Project = project;
+                app.AppStatus = Status.Edit;
+
+                Settings.Default.MostRecentlyUsedList.Remove(filename);
+                Settings.Default.MostRecentlyUsedList.Add(filename);
+            });
+        }
     }
 }

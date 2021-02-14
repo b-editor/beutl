@@ -7,6 +7,7 @@ using System.Diagnostics;
 using System.IO;
 using System.Linq;
 using System.Reflection;
+using System.Threading.Tasks;
 using System.Windows;
 using System.Windows.Controls;
 using System.Windows.Controls.Primitives;
@@ -83,7 +84,7 @@ namespace BEditor
             };
             var dialog = new EffectAddPage(context);
 
-            foreach(var i in context.ClipItems.Value)
+            foreach (var i in context.ClipItems.Value)
             {
                 i.IsSelected.Value = false;
                 if (i.Clip == c)
@@ -125,17 +126,11 @@ namespace BEditor
 
         private void SetMostUsedFiles()
         {
-            static void ProjectOpenCommand(string name)
+            static async Task ProjectOpenCommand(string name)
             {
                 try
                 {
-                    var project = new Project(name);
-                    project.Load();
-                    AppData.Current.Project = project;
-                    AppData.Current.AppStatus = Status.Edit;
-
-                    Settings.Default.MostRecentlyUsedList.Remove(name);
-                    Settings.Default.MostRecentlyUsedList.Add(name);
+                    await ProjectModel.DirectOpen(name);
                 }
                 catch
                 {
@@ -150,38 +145,41 @@ namespace BEditor
                 {
                     Header = file
                 };
-                menu.Click += (s, e) => ProjectOpenCommand(((s as MenuItem)!.Header as string)!);
+                menu.Click += async (s, e) => await ProjectOpenCommand(((s as MenuItem)!.Header as string)!);
 
                 UsedFiles.Items.Insert(0, menu);
             }
 
             Settings.Default.MostRecentlyUsedList.CollectionChanged += (s, e) =>
             {
-                if (s is null) return;
-                if (e.Action is NotifyCollectionChangedAction.Add)
+                Dispatcher.BeginInvoke(new Action(() =>
                 {
-                    var menu = new MenuItem()
+                    if (s is null) return;
+                    if (e.Action is NotifyCollectionChangedAction.Add)
                     {
-                        Header = (s as ObservableCollection<string>)![e.NewStartingIndex]
-                    };
-                    menu.Click += (s, e) => ProjectOpenCommand(((s as MenuItem)!.Header as string)!);
-
-                    UsedFiles.Items.Insert(0, menu);
-                }
-                else if (e.Action is NotifyCollectionChangedAction.Remove)
-                {
-                    var file = e.OldItems![0] as string;
-
-                    foreach (var item in UsedFiles.Items)
-                    {
-                        if (item is MenuItem menuItem && menuItem.Header is string header && header == file)
+                        var menu = new MenuItem()
                         {
-                            UsedFiles.Items.Remove(item);
+                            Header = (s as ObservableCollection<string>)![e.NewStartingIndex]
+                        };
+                        menu.Click += async (s, e) => await ProjectOpenCommand(((s as MenuItem)!.Header as string)!);
 
-                            return;
+                        UsedFiles.Items.Insert(0, menu);
+                    }
+                    else if (e.Action is NotifyCollectionChangedAction.Remove)
+                    {
+                        var file = e.OldItems![0] as string;
+
+                        foreach (var item in UsedFiles.Items)
+                        {
+                            if (item is MenuItem menuItem && menuItem.Header is string header && header == file)
+                            {
+                                UsedFiles.Items.Remove(item);
+
+                                return;
+                            }
                         }
                     }
-                }
+                }));
             };
         }
         private void SetPluginMenu()

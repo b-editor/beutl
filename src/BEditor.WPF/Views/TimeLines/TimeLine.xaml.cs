@@ -1,4 +1,6 @@
-﻿using System.Threading.Tasks;
+﻿using System;
+using System.Collections.Specialized;
+using System.Threading.Tasks;
 using System.Windows;
 using System.Windows.Controls;
 using System.Windows.Controls.Primitives;
@@ -228,24 +230,27 @@ namespace BEditor.Views.TimeLines
 
             _Scene.Datas.CollectionChanged += (s, e) =>
             {
-                if (e.Action == System.Collections.Specialized.NotifyCollectionChangedAction.Add)
+                Dispatcher.Invoke(() =>
                 {
-                    var item = _Scene.Datas[e.NewStartingIndex];
-
-                    Grid grid = (Grid)Layer.Children[item.Layer];
-
-                    grid.Children.Add(item.GetCreateClipView());
-                }
-                else if (e.Action == System.Collections.Specialized.NotifyCollectionChangedAction.Remove)
-                {
-                    var item = e.OldItems![0];
-
-                    if (item is ClipElement clip)
+                    if (e.Action == NotifyCollectionChangedAction.Add)
                     {
-                        var ui = clip.GetCreateClipView();
-                        (ui.Parent as Grid)?.Children?.Remove(ui);
+                        var item = _Scene.Datas[e.NewStartingIndex];
+
+                        Grid grid = (Grid)Layer.Children[item.Layer];
+
+                        grid.Children.Add(item.GetCreateClipView());
                     }
-                }
+                    else if (e.Action == NotifyCollectionChangedAction.Remove)
+                    {
+                        var item = e.OldItems![0];
+
+                        if (item is ClipElement clip)
+                        {
+                            var ui = clip.GetCreateClipView();
+                            (ui.Parent as Grid)?.Children?.Remove(ui);
+                        }
+                    }
+                });
             };
         }
 
