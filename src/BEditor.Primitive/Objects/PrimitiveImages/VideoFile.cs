@@ -11,7 +11,9 @@ using BEditor.Core.Properties;
 using BEditor.Core.Service;
 using BEditor.Drawing;
 using BEditor.Drawing.Pixel;
+using BEditor.Media;
 using BEditor.Media.Decoder;
+using BEditor.Media.PCM;
 
 namespace BEditor.Primitive.Objects
 {
@@ -39,7 +41,7 @@ namespace BEditor.Primitive.Objects
             new("wmv"),
             new("mov")
         }));
-        private IVideoDecoder? _VideoReader;
+        private IMediaDecoder? _VideoReader;
         private IDisposable? _Disposable;
 
         /// <summary>
@@ -88,8 +90,9 @@ namespace BEditor.Primitive.Objects
             float speed = Speed[args.Frame] / 100;
             int start = (int)Start[args.Frame];
             Image<BGRA32>? image = null;
+            var time = new Frame((int)((start + args.Frame - Parent!.Start) * speed)).ToTimeSpan(Parent.Parent.Parent!.Framerate);
 
-            _VideoReader?.Read((int)((start + args.Frame - Parent!.Start) * speed), out image);
+            _VideoReader?.Read(time, out image);
 
             return image;
         }

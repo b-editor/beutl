@@ -7,15 +7,16 @@ using System.Threading.Tasks;
 
 using BEditor.Drawing;
 using BEditor.Drawing.Pixel;
+using BEditor.Media.PCM;
 
 using FFMediaToolkit;
 using FFMediaToolkit.Decoding;
-
-using FFmpeg.AutoGen;
+using FFMediaToolkit.Graphics;
 
 namespace BEditor.Media.Decoder
 {
-    public unsafe class FFmpegDecoder : IVideoDecoder
+    public unsafe class FFmpegDecoder : IMediaDecoder
+
     {
         private readonly MediaFile media;
         static FFmpegDecoder()
@@ -25,7 +26,14 @@ namespace BEditor.Media.Decoder
         }
         public FFmpegDecoder(string filename)
         {
-            media = MediaFile.Open(filename);
+            media = MediaFile.Open(filename, new MediaOptions()
+            {
+                VideoPixelFormat = ImagePixelFormat.Bgra32,
+            });
+        }
+        ~FFmpegDecoder()
+        {
+            Dispose();
         }
 
         public int Fps => media.Video.Info.RealFrameRate.num;
@@ -40,21 +48,47 @@ namespace BEditor.Media.Decoder
             if (IsDisposed) return;
 
             media.Dispose();
+            GC.SuppressFinalize(this);
 
             IsDisposed = true;
         }
         public void Read(Frame frame, out Image<BGRA32> image)
         {
-            var img = media.Video.ReadFrame(frame);
-            using var rgb = new Image<BGR24>(Width, Height);
+            var img = media.Video.GetFrame(frame.ToTimeSpan(Fps));
+            image = new Image<BGRA32>(Width, Height);
 
-            fixed (void* dst = rgb.Data)
+            fixed (void* dst = image.Data)
             fixed (void* src = img.Data)
             {
-                Buffer.MemoryCopy(src, dst, rgb.DataSize, rgb.DataSize);
+                Buffer.MemoryCopy(src, dst, image.DataSize, image.DataSize);
             }
+        }
+        public void Read(TimeSpan time, out Image<BGRA32> image)
+        {
+            var img = media.Video.GetFrame(time);
+            image = new Image<BGRA32>(Width, Height);
 
-            image = rgb.Convert<BGR24, BGRA32>();
+            fixed (void* dst = image.Data)
+            fixed (void* src = img.Data)
+            {
+                Buffer.MemoryCopy(src, dst, image.DataSize, image.DataSize);
+            }
+        }
+        public void Read(TimeSpan time, out Sound<PCM32> sound)
+        {
+            var audio = media.Audio.GetFrame(time);
+            var array = audio.GetSampleData();
+
+            sound = new((Channel)media.Audio.Info.NumChannels, (uint)media.Audio.Info.SampleRate, (uint)audio.NumSamples);
+
+            for (int i = 0; i < sound.Length; i += 2)
+            {
+                sound.Pcm[i] = array[0][i / 2];
+            }
+            for (int i = 1; i < sound.Length; i += 2)
+            {
+                sound.Pcm[i] = array[1][i / 2];
+            }
         }
     }
 }

@@ -1,15 +1,14 @@
 ﻿<Project Sdk="Microsoft.NET.Sdk">
 
   <PropertyGroup>
-    <TargetFramework>net5.0</TargetFramework>
+    <TargetFrameworks>net5.0;net5.0-windows</TargetFrameworks>
   </PropertyGroup>
   
   <Import Project="..\..\props\common.props" />
 
   <ItemGroup>
-    <PackageReference Include="FFMediaToolkit" Version="3.4.0" />
+    <PackageReference Include="FFMediaToolkit" Version="4.0.0" />
     <PackageReference Include="NAudio" Version="1.10.0" />
-    <PackageReference Include="SharpDX.MediaFoundation" Version="4.2.0" />
   </ItemGroup>
 
   <ItemGroup>

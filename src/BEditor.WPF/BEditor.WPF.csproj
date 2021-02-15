@@ -22,10 +22,10 @@
 
   <ItemGroup>
     <PackageReference Include="Dragablz" Version="0.0.3.223" />
-    <PackageReference Include="MaterialDesignColors" Version="1.2.7" />
-    <PackageReference Include="MaterialDesignThemes" Version="3.2.0" />
-    <PackageReference Include="MaterialDesignThemes.MahApps" Version="0.1.5" />
-    <PackageReference Include="ReactiveProperty.WPF" Version="7.6.1" />
+    <PackageReference Include="MaterialDesignColors" Version="2.0.0" />
+    <PackageReference Include="MaterialDesignThemes" Version="4.0.0" />
+    <PackageReference Include="MaterialDesignThemes.MahApps" Version="0.1.6" />
+    <PackageReference Include="ReactiveProperty.WPF" Version="7.7.0" />
   </ItemGroup>
 
   <ItemGroup>

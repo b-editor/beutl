@@ -8,7 +8,7 @@
   <Import Project="..\..\props\common.props" />
 
   <ItemGroup>
-    <PackageReference Include="OpenTK" Version="4.4.0" />
+    <PackageReference Include="OpenTK" Version="4.5.0" />
   </ItemGroup>
 
   <ItemGroup>

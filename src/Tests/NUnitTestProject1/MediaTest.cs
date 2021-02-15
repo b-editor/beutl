@@ -29,7 +29,7 @@ namespace NUnitTestProject1
         [Test]
         public void Win32DecodeTest()
         {
-            IVideoDecoder decoder = new Win32Decoder(InputPath);
+            IMediaDecoder decoder = new Win32Decoder(InputPath);
 
             decoder.Read(10, out var image);
 
