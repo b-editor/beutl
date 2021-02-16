@@ -11,8 +11,15 @@ using BEditor.Core.Data.Primitive;
 using BEditor.Core.Data.Property;
 using BEditor.Core.Properties;
 using BEditor.Core.Service;
+using BEditor.Media;
+using BEditor.Media.Decoder;
+using BEditor.Media.PCM;
 
 using NAudio.Wave;
+
+using OpenTK.Audio.OpenAL;
+using OpenTK.Audio.OpenAL.Extensions.EXT.Float32;
+using OpenTK.Audio.OpenAL.Extensions.EXT.FloatFormat;
 
 namespace BEditor.Primitive.Objects
 {
@@ -35,9 +42,8 @@ namespace BEditor.Primitive.Objects
         /// Represents <see cref="Start"/> metadata.
         /// </summary>
         public static readonly ValuePropertyMetadata StartMetadata = new(Resources.Start + "(Milliseconds)", 0, Min: 0);
-        private WaveOut? _Player;
-        private AudioFileReader? _Reader;
-        private IDisposable? _Disposable;
+        private FFmpegDecoder? _decoder;
+        private IDisposable? _disposable;
 
         /// <summary>
         /// Initializes a new instance of <see cref="AudioObject"/> class.
@@ -73,49 +79,39 @@ namespace BEditor.Primitive.Objects
         /// </summary>
         [DataMember(Order = 2)]
         public ValueProperty Start { get; private set; }
-        private WaveOut Player => _Player ??= new();
-        private AudioFileReader? Reader
+        private FFmpegDecoder? Decoder
         {
             get
             {
-                if (_Reader is null && System.IO.File.Exists(File.File))
+                if (_decoder is null && System.IO.File.Exists(File.File))
                 {
-                    _Reader = new(File.File);
+                    _decoder = new(File.File);
                 }
 
-                return _Reader;
+                return _decoder;
             }
             set
             {
-                _Reader?.Dispose();
-                _Reader = value;
+                _decoder?.Dispose();
+                _decoder = value;
             }
         }
 
         /// <inheritdoc/>
-        public override void Render(EffectRenderArgs args)
+        public override unsafe void Render(EffectRenderArgs args)
         {
-            Player.Volume = Volume[args.Frame] / 100;
-            if (args.Type is not RenderType.VideoPreview) return;
+            if (Decoder is null || args.Type is RenderType.VideoPreview) return;
 
-            if (_Reader is null) return;
+            var src = AL.GenSource();
+            var buf = AL.GenBuffer();
+            Decoder.Read(args.Frame.ToTimeSpan(Parent!.Parent.Parent!.Framerate), out Sound<PCM32> sound);
 
+            AL.BufferData(buf, ALFormat.Stereo16, sound.Pcm, (int)sound.Samplingrate);
 
-            if (args.Frame == Parent!.Start)
-            {
-                Task.Run(async () =>
-                {
-                    Reader!.CurrentTime = TimeSpan.FromMilliseconds(Start.Value);
-                    Player.Init(Reader);
+            AL.Source(src, ALSourcei.Buffer, buf);
+            AL.Source(src, ALSourcef.Gain, Volume[args.Frame]);
 
-                    Player.Play();
-
-                    var millis = (int)Parent.Length.ToMilliseconds(Parent!.Parent!.Parent!.Framerate);
-                    await Task.Delay(millis);
-
-                    Player.Stop();
-                });
-            }
+            AL.SourcePlay(src);
         }
         /// <inheritdoc/>
         protected override void OnLoad()
@@ -124,53 +120,19 @@ namespace BEditor.Primitive.Objects
             File.Load(FileMetadata);
             Start.Load(StartMetadata);
 
-            _Disposable = File.Subscribe(file =>
+            _disposable = File.Subscribe(file =>
             {
                 if (System.IO.File.Exists(file))
                 {
-                    Reader = new(file);
+                    Decoder = new(file);
                 }
             });
-
-            var player = Parent!.Parent.Player;
-            player.Stopped += Player_Stopped;
-
-            player.Playing += Player_PlayingAsync;
         }
         /// <inheritdoc/>
         protected override void OnUnload()
         {
-            _Disposable?.Dispose();
+            _disposable?.Dispose();
             var player = Parent!.Parent.Player;
-            player.Stopped -= Player_Stopped;
-
-            player.Playing -= Player_PlayingAsync;
-        }
-
-        private async void Player_PlayingAsync(object? sender, PlayingEventArgs e)
-        {
-            if (Parent!.Start <= e.StartFrame && e.StartFrame <= Parent.End)
-            {
-                var framerate = Parent!.Parent!.Parent!.Framerate;
-                var startmsec = e.StartFrame.ToMilliseconds(framerate);
-
-                Reader!.CurrentTime = TimeSpan.FromMilliseconds(Start.Value + startmsec);
-                Player.Init(Reader);
-
-                Player.Play();
-
-                // クリップ基準の再生開始位置
-                var hStart = startmsec - Parent.Start.ToMilliseconds(framerate);
-
-                var millis = (int)(Parent.Length.ToMilliseconds(framerate) - hStart);
-                await Task.Delay(millis);
-
-                Player.Stop();
-            }
-        }
-        private void Player_Stopped(object? sender, EventArgs e)
-        {
-            Player.Stop();
         }
     }
 }

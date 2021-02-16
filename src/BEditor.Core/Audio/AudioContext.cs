@@ -22,11 +22,8 @@ namespace BEditor.Core.Audio
         /// </summary>
         public unsafe AudioContext()
         {
-            int* NULL = null;
             device = ALC.OpenDevice(null);
-            context = ALC.CreateContext(device, NULL);
-
-            ALC.MakeContextCurrent(context);
+            context = ALC.CreateContext(device, (int[])null!);
         }
 
         /// <summary>

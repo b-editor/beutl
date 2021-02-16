@@ -22,7 +22,7 @@ namespace BEditor.Media
         public Channel Channels { get; }
         public uint Samplingrate { get; }
         public uint Length { get; }
-        public long DataSize => (uint)Channels  * Length * sizeof(T);
+        public long DataSize => (uint)Channels * Length * sizeof(T);
     }
 
     public enum Channel : uint

@@ -16,7 +16,6 @@ using FFMediaToolkit.Graphics;
 namespace BEditor.Media.Decoder
 {
     public unsafe class FFmpegDecoder : IMediaDecoder
-
     {
         private readonly MediaFile media;
         static FFmpegDecoder()
