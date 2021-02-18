@@ -85,7 +85,7 @@ namespace BEditor.Data.Primitive
         public Property.PrimitiveGroup.Material Material { get; private set; }
 
         /// <inheritdoc/>
-        public override void Render(EffectRenderArgs args)
+        public override async void Render(EffectRenderArgs args)
         {
             var imgs_args = new EffectRenderArgs<IEnumerable<ImageInfo>>(args.Frame, Enumerable.Empty<ImageInfo>(), args.Type);
             OnRender(imgs_args);
@@ -102,7 +102,7 @@ namespace BEditor.Data.Primitive
             {
                 Draw(img, args);
 
-                img.Source.Dispose();
+                await img.Source.DisposeAsync();
             }
 
             Coordinate.ResetOptional();

@@ -5,7 +5,6 @@ using BEditor.Command;
 using BEditor.Data;
 using BEditor.Data.Primitive;
 using BEditor.Data.Property;
-using BEditor.Extensions;
 using BEditor.Properties;
 using BEditor.Drawing;
 using BEditor.Drawing.Pixel;

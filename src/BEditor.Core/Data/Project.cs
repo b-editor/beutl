@@ -29,7 +29,6 @@ namespace BEditor.Data
         private static readonly PropertyChangedEventArgs _dirnameArgs = new(nameof(DirectoryName));
         private Scene? _previewScene;
         private ObservableCollection<Scene> _sceneList = new ObservableCollection<Scene>();
-        private IApplication? _parent;
         private string? _filename;
         private string? _dirname;
 
@@ -55,35 +54,6 @@ namespace BEditor.Data
                 Parent = this,
                 SceneName = "root",
             });
-        }
-
-        /// <summary>
-        /// Initializes a new instance of the <see cref="Project"/> class.
-        /// </summary>
-        public Project(string file, IApplication? app = null)
-        {
-            var mode = SerializeMode.Binary;
-            if (Path.GetExtension(file) is ".json")
-            {
-                mode = SerializeMode.Json;
-            }
-
-            DirectoryName = Path.GetDirectoryName(file);
-            Name = Path.GetFileNameWithoutExtension(file);
-
-            var o = Serialize.LoadFromFile<Project>(file, mode);
-
-            if (o != null)
-            {
-                var project = o;
-
-                project.CopyTo(this);
-                Parent = app;
-            }
-            else
-            {
-                throw new Exception();
-            }
         }
 
         #endregion
@@ -156,11 +126,7 @@ namespace BEditor.Data
         public IEnumerable<Scene> Children => SceneList;
 
         /// <inheritdoc/>
-        public IApplication? Parent
-        {
-            get => _parent;
-            init => _parent = value;
-        }
+        public IApplication? Parent { get; private set; }
 
         /// <inheritdoc/>
         public bool IsLoaded { get; private set; }
@@ -258,9 +224,9 @@ namespace BEditor.Data
 
             if (PreviewScene.IsLoaded)
             {
-                PreviewScene.Synchronize?.Post(_ =>
+                PreviewScene.Synchronize?.Post(async _ =>
                 {
-                    using var img = new Image<BGRA32>(PreviewScene.Width, PreviewScene.Height);
+                    await using var img = new Image<BGRA32>(PreviewScene.Width, PreviewScene.Height);
 
                     var thumbnail = Path.Combine(DirectoryName!, "thumbnail.png");
                     PreviewScene.Render(img, RenderType.ImageOutput);
@@ -293,10 +259,35 @@ namespace BEditor.Data
             return false;
         }
 
+        /// <summary>
+        /// Load a <see cref="Project"/> from a file.
+        /// </summary>
+        /// <param name="file">The project file.</param>
+        /// <param name="app">Specify the application.</param>
+        /// <returns>Returns the loaded <see cref="Project"/> on success, or <see langword="null"/> on failure.</returns>
+        public static Project? FromFile(string file, IApplication? app = null)
+        {
+            var mode = SerializeMode.Binary;
+            if (Path.GetExtension(file) is ".json")
+            {
+                mode = SerializeMode.Json;
+            }
+
+            var proj = Serialize.LoadFromFile<Project>(file, mode);
+
+            if (proj is null) return null;
+
+            proj.DirectoryName = Path.GetDirectoryName(file);
+            proj.Name = Path.GetFileNameWithoutExtension(file);
+            proj.Parent = app;
+
+            return proj;
+        }
+
         private void CopyTo(Project project)
         {
             project.Framerate = Framerate;
-            project._parent = _parent;
+            project.Parent = Parent;
             project.PreviewScene = PreviewScene;
             project.PreviewSceneIndex = PreviewSceneIndex;
             project.Samplingrate = Samplingrate;

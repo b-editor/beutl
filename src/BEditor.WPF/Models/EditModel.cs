@@ -70,9 +70,9 @@ namespace BEditor.Models
             ClipboardCopy.Where(_ => AppData.Current.Project is not null)
                 .Select(_ => AppData.Current.Project!.PreviewScene.SelectItem)
                 .Where(clip => clip is not null)
-                .Subscribe(clip =>
+                .Subscribe(async clip =>
                 {
-                    using var memory = new MemoryStream();
+                    await using var memory = new MemoryStream();
                     Serialize.SaveToStream(clip, memory, SerializeMode.Json);
 
                     var json = Encoding.Default.GetString(memory.ToArray());
@@ -82,11 +82,11 @@ namespace BEditor.Models
             ClipboardCut.Where(_ => AppData.Current.Project is not null)
                 .Select(_ => AppData.Current.Project!.PreviewScene.SelectItem)
                 .Where(clip => clip is not null)
-                .Subscribe(clip =>
+                .Subscribe(async clip =>
                 {
                     clip!.Parent.RemoveClip(clip).Execute();
 
-                    using var memory = new MemoryStream();
+                    await using var memory = new MemoryStream();
                     Serialize.SaveToStream(clip, memory, SerializeMode.Json);
 
                     var json = Encoding.Default.GetString(memory.ToArray());
@@ -95,14 +95,14 @@ namespace BEditor.Models
 
             ClipboardPaste.Where(_ => AppData.Current.Project is not null)
                 .Select(_ => AppData.Current.Project!.PreviewScene.GetCreateTimeLineViewModel())
-                .Subscribe(timeline =>
+                .Subscribe(async timeline =>
                 {
-                    using var prov = AppData.Current.Services.BuildServiceProvider();
+                    await using var prov = AppData.Current.Services.BuildServiceProvider();
                     var mes = prov.GetService<IMessage>();
                     var text = Clipboard.GetText();
                     var files = Clipboard.GetFileDropList();
                     var img = Clipboard.GetImage();
-                    using var memory = new MemoryStream();
+                    await using var memory = new MemoryStream();
                     memory.Write(Encoding.Default.GetBytes(text));
 
                     if (Serialize.LoadFromStream<ClipElement>(memory, SerializeMode.Json) is var clip && clip is not null)

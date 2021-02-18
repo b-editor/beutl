@@ -142,10 +142,10 @@ namespace BEditor.ViewModels
 
             SettingShow.Subscribe(SettingShowCommand);
             DeleteCommand.Subscribe(() => CommandManager.Clear());
-            MemoryRelease.Subscribe(() =>
+            MemoryRelease.Subscribe(async () =>
             {
                 var bytes = Environment.WorkingSet;
-                using var prov = AppData.Current.Services.BuildServiceProvider();
+                await using var prov = AppData.Current.Services.BuildServiceProvider();
                 var mes = prov.GetService<IMessage>();
 
                 GC.Collect();

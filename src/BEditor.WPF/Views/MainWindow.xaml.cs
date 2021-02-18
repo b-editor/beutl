@@ -13,11 +13,9 @@ using System.Windows.Controls;
 using System.Windows.Controls.Primitives;
 using System.Windows.Input;
 
-using BEditor.Core.Data;
-using BEditor.Core.Extensions;
-using BEditor.Core.Plugin;
-using BEditor.Core.Service;
+using BEditor.Data;
 using BEditor.Models;
+using BEditor.Plugin;
 using BEditor.ViewModels;
 using BEditor.ViewModels.CreatePage;
 using BEditor.Views;
@@ -26,6 +24,8 @@ using BEditor.Views.CreatePage;
 using MahApps.Metro.Controls;
 
 using MaterialDesignThemes.Wpf;
+
+using Microsoft.Extensions.DependencyInjection;
 
 using Reactive.Bindings;
 
@@ -135,7 +135,8 @@ namespace BEditor
                 catch
                 {
                     Debug.Assert(false);
-                    Message.Snackbar(string.Format(Core.Properties.Resources.FailedToLoad, "Project"));
+                    await using var prov = AppData.Current.Services.BuildServiceProvider();
+                    prov.GetService<IMessage>()?.Snackbar(string.Format(Properties.Resources.FailedToLoad, "Project"));
                 }
             }
 

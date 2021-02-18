@@ -11,13 +11,11 @@ using System.Windows.Media.Imaging;
 using System.Windows.Navigation;
 using System.Windows.Shapes;
 
-using BEditor.Core;
-
 using MaterialDesignThemes.Wpf;
 
-using static BEditor.Core.IMessage;
+using static BEditor.IMessage;
 
-using Resource = BEditor.Core.Properties.Resources;
+using Resource = BEditor.Properties.Resources;
 
 namespace BEditor.Views.MessageContent
 {

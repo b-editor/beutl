@@ -47,9 +47,15 @@ namespace BEditor
                 command.OnExecute(() =>
                 {
                     using Stream stream = output.HasValue() ? new FileStream(output.Value(), FileMode.Create) : new MemoryStream();
-                    using var project = new Project(input.Value);
+                    using var project = Project.FromFile(input.Value);
 
-                    project.Save(stream, SerializeMode.Json);
+                    project?.Save(stream, SerializeMode.Json);
+
+                    if (project is null)
+                    {
+                        Console.Error.WriteLine("プロジェクトファイルの読み込みに失敗しました");
+                        return 1;
+                    }
 
                     if (!output.HasValue()) Console.Out.WriteLine(Encoding.UTF8.GetString(((MemoryStream)stream).ToArray()));
 
@@ -68,14 +74,21 @@ namespace BEditor
                 var frame = command.Argument("frame", "出力するフレーム");
                 var sc = command.Option("-s|--scene", "出力するシーン", CommandOptionType.SingleValue);
 
-                command.OnExecute(() =>
+                command.OnExecute(async () =>
                 {
-                    using var project = new Project(input.Value);
+                    using var project = Project.FromFile(input.Value);
+
+                    if (project is null)
+                    {
+                        Console.Error.WriteLine("プロジェクトファイルの読み込みに失敗しました");
+                        return 1;
+                    }
+
                     project.Load();
                     var scene = sc.HasValue() ? project.PreviewScene
                         : int.TryParse(sc.Value(), out var index) ? project.SceneList[index] : project.SceneList.ToList().Find(s => s.Name == sc.Value())!;
 
-                    using var image = scene.Render(int.Parse(frame.Value)).Image;
+                    await using var image = scene.Render(int.Parse(frame.Value)).Image;
                     image.Encode(output.Value);
 
                     return 0;
@@ -92,9 +105,16 @@ namespace BEditor
                 var output = command.Argument("out", "保存するファイル");
                 var sc = command.Option("-s|--scene", "出力するシーン", CommandOptionType.SingleValue);
 
-                command.OnExecute(() =>
+                command.OnExecute(async () =>
                 {
-                    using var project = new Project(input.Value);
+                    using var project = Project.FromFile(input.Value);
+
+                    if (project is null)
+                    {
+                        Console.Error.WriteLine("プロジェクトファイルの読み込みに失敗しました");
+                        return 1;
+                    }
+
                     project.Load();
                     var scene = !sc.HasValue() ? project.PreviewScene
                         : int.TryParse(sc.Value(), out var index) ? project.SceneList[index] : project.SceneList.ToList().Find(s => s.Name == sc.Value())!;
@@ -104,7 +124,7 @@ namespace BEditor
 
                     for (Frame frame = 0; frame < scene.TotalFrame; frame++)
                     {
-                        using var img = scene.Render(frame, RenderType.VideoOutput).Image;
+                        await using var img = scene.Render(frame, RenderType.VideoOutput).Image;
 
                         encoder.Write(img);
 

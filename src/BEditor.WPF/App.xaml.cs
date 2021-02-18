@@ -405,9 +405,9 @@ namespace BEditor
             DirectoryManager.Default.Stop();
         }
 
-        private void Application_DispatcherUnhandledException(object sender, DispatcherUnhandledExceptionEventArgs e)
+        private async void Application_DispatcherUnhandledException(object sender, DispatcherUnhandledExceptionEventArgs e)
         {
-            using var provider = AppData.Current.Services.BuildServiceProvider();
+            await using var provider = AppData.Current.Services.BuildServiceProvider();
             provider.GetService<IMessage>()!
                 .Snackbar(string.Format(Resource.ExceptionWasThrown, e.Exception.GetType().FullName));
 

@@ -19,7 +19,7 @@ using BEditor.Drawing.Pixel;
 using BEditor.Graphics;
 using BEditor.Media;
 
-using OpenTK.Graphics.OpenGL;
+using OpenTK.Graphics.OpenGL4;
 
 namespace BEditor.Data
 {

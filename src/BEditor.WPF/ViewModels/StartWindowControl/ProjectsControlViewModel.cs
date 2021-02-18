@@ -34,15 +34,17 @@ namespace BEditor.ViewModels.StartWindowControl
                 .Where(i => File.Exists(i))
                 .Select(i => new ProjectItem(Path.GetFileNameWithoutExtension(i), i, Click, Remove)));
 
-            Click.Subscribe(ProjectItem =>
+            Click.Subscribe(async ProjectItem =>
             {
                 ProjectItem.IsLoading.Value = true;
 
                 var app = AppData.Current;
                 app.Project?.Unload();
-                var project = new Project(ProjectItem.Path);
+                var project = Project.FromFile(ProjectItem.Path);
 
-                Task.Run(() =>
+                if (project is null) return;
+
+                await Task.Run(() =>
                 {
                     project.Load();
 
@@ -86,9 +88,9 @@ namespace BEditor.ViewModels.StartWindowControl
                     CountIsZero.Value = true;
                 }
             });
-            Add.Subscribe(() =>
+            Add.Subscribe(async () =>
             {
-                using var prov = AppData.Current.Services.BuildServiceProvider();
+                await using var prov = AppData.Current.Services.BuildServiceProvider();
                 var record = new OpenFileRecord()
                 {
                     Filters =

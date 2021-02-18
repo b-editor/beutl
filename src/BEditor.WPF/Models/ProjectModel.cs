@@ -30,9 +30,9 @@ namespace BEditor.Models
         {
             SaveAs.Where(_ => AppData.Current.Project is not null)
                 .Select(_ => AppData.Current.Project)
-                .Subscribe(p =>
+                .Subscribe(async p =>
                 {
-                    using var prov = AppData.Current.Services.BuildServiceProvider();
+                    await using var prov = AppData.Current.Services.BuildServiceProvider();
                     var dialog = prov.GetService<IFileDialogService>();
 
                     if (dialog is null) throw new InvalidOperationException();
@@ -62,10 +62,10 @@ namespace BEditor.Models
 
             Save.Where(_ => AppData.Current.Project is not null)
                 .Select(_ => AppData.Current.Project)
-                .Subscribe(p =>
+                .Subscribe(async p =>
                 {
                     MainWindowViewModel.Current.IsLoading.Value = true;
-                    Task.Run(() =>
+                    await Task.Run(() =>
                     {
                         p!.Save();
 
@@ -101,7 +101,7 @@ namespace BEditor.Models
                     catch
                     {
                         Debug.Assert(false);
-                        using var prov = AppData.Current.Services.BuildServiceProvider();
+                        await using var prov = AppData.Current.Services.BuildServiceProvider();
 
                         prov.GetService<IMessage>()?.Snackbar(string.Format(Resources.FailedToLoad, "Project"));
                     }
@@ -136,11 +136,13 @@ namespace BEditor.Models
         public ReactiveCommand Close { get; } = new();
         public ReactiveCommand Create { get; } = new();
 
-        public static async Task DirectOpen(string filename)
+        public static async ValueTask DirectOpen(string filename)
         {
             var app = AppData.Current;
             app.Project?.Unload();
-            var project = new Project(filename);
+            var project = Project.FromFile(filename);
+
+            if (project is null) return;
 
             await Task.Run(() =>
             {

@@ -19,7 +19,7 @@ using SkiaSharp;
 
 namespace BEditor.Drawing
 {
-    public unsafe class Image<T> : IDisposable, ICloneable where T : unmanaged, IPixel<T>
+    public unsafe class Image<T> : IDisposable, ICloneable, IAsyncDisposable where T : unmanaged, IPixel<T>
     {
         // 同じImage<T>型のみで共有される
         private static readonly PixelFormatAttribute formatAttribute;
@@ -409,6 +409,24 @@ namespace BEditor.Drawing
             }
             IsDisposed = true;
             GC.SuppressFinalize(this);
+        }
+
+        public ValueTask DisposeAsync()
+        {
+            if (IsDisposed && !usedispose) return default;
+
+            var task = Task.Run(() =>
+            {
+                if (pointer != null) Marshal.FreeHGlobal((IntPtr)pointer);
+
+                pointer = null;
+                array = null;
+            });
+
+            IsDisposed = true;
+            GC.SuppressFinalize(this);
+
+            return new(task);
         }
 
         object ICloneable.Clone() => this.Clone();

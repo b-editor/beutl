@@ -10,7 +10,7 @@ using BEditor.Drawing.Pixel;
 
 namespace BEditor.Graphics
 {
-    public class ImageInfo : IDisposable
+    public class ImageInfo : IDisposable, IAsyncDisposable
     {
         private readonly Func<ImageInfo, Transform> _getTransform;
 
@@ -29,6 +29,16 @@ namespace BEditor.Graphics
             if (IsDisposed) return;
 
             Source.Dispose();
+            GC.SuppressFinalize(this);
+
+            IsDisposed = true;
+        }
+
+        public async ValueTask DisposeAsync()
+        {
+            if (IsDisposed) return;
+
+            await Source.DisposeAsync();
             GC.SuppressFinalize(this);
 
             IsDisposed = true;
