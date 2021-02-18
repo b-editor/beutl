@@ -4,10 +4,11 @@ using System.ComponentModel;
 using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
-
-using BEditor.Core.Data.Bindings;
-using BEditor.Core.Data;
 using System.Windows.Input;
+
+using BEditor.Data;
+using BEditor.Data.Bindings;
+
 using Reactive.Bindings;
 
 namespace BEditor.ViewModels.PropertyControl

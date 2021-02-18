@@ -1,4 +1,4 @@
-﻿namespace BEditor.Core.Data.Property
+﻿namespace BEditor.Data.Property
 {
     /// <summary>
     /// Represents the type of file path.

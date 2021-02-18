@@ -4,7 +4,7 @@ using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
 
-namespace BEditor.Core.Service
+namespace BEditor
 {
     /// <summary>
     /// Represents a service in a file dialog.

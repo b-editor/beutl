@@ -5,10 +5,10 @@ using System.Windows;
 using System.Windows.Controls;
 using System.Windows.Data;
 
+using BEditor.Command;
+using BEditor.Data;
 using BEditor.Models;
 using BEditor.Views.ToolControl.Default;
-using BEditor.Core.Data;
-using BEditor.Core.Command;
 
 namespace BEditor.Views.PropertyControls
 {

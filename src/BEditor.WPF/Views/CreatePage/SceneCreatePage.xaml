@@ -7,7 +7,7 @@
     xmlns:local="clr-namespace:BEditor.Views"
     xmlns:vm="clr-namespace:BEditor.ViewModels.CreatePage"
     xmlns:md="http://materialdesigninxaml.net/winfx/xaml/themes"
-    xmlns:props="clr-namespace:BEditor.Core.Properties;assembly=BEditor.Core"
+    xmlns:props="clr-namespace:BEditor.Properties;assembly=BEditor.Core"
     mc:Ignorable="d"
     
     FontFamily="Noto Sans JP"

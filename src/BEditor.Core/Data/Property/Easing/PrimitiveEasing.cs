@@ -4,12 +4,11 @@ using System.Runtime.InteropServices;
 using System.Runtime.Serialization;
 using System.Text;
 
-using BEditor.Core.Command;
-using BEditor.Core.Data.Property;
-using BEditor.Core.Extensions;
+using BEditor.Command;
+using BEditor.Data.Property;
 using BEditor.Media;
 
-namespace BEditor.Core.Data.Property.Easing
+namespace BEditor.Data.Property.Easing
 {
     /// <summary>
     /// Represents a standard <see cref="EasingFunc"/>.

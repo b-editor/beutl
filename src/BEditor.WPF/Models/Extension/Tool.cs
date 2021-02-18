@@ -4,7 +4,7 @@ using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
 
-using BEditor.Core.Data;
+using BEditor.Data;
 using BEditor.Media;
 using BEditor.ViewModels;
 

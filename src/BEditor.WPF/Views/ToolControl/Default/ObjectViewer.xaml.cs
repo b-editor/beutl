@@ -13,14 +13,17 @@ using System.Windows.Media.Imaging;
 using System.Windows.Navigation;
 using System.Windows.Shapes;
 
-using BEditor.Core.Command;
-using BEditor.Core.Data;
-using BEditor.Core.Data.Bindings;
-using BEditor.Core.Data.Property;
-using BEditor.Core.Extensions;
+using BEditor.Command;
+using BEditor.Data;
+using BEditor.Data.Bindings;
+using BEditor.Data.Property;
 using BEditor.Models;
 using BEditor.ViewModels.CreatePage;
 using BEditor.Views.CreatePage;
+
+using Microsoft.Extensions.DependencyInjection;
+
+using static BEditor.IMessage;
 
 using Clipboard = System.Windows.Clipboard;
 
@@ -31,6 +34,13 @@ namespace BEditor.Views.ToolControl.Default
     /// </summary>
     public partial class ObjectViewer : UserControl
     {
+        private static readonly IMessage Message;
+
+        static ObjectViewer()
+        {
+            using var prov = AppData.Current.Services.BuildServiceProvider();
+            Message = prov.GetService<IMessage>()!;
+        }
         public ObjectViewer()
         {
             InitializeComponent();
@@ -47,7 +57,7 @@ namespace BEditor.Views.ToolControl.Default
             }
             else
             {
-                Message.Snackbar(string.Format(Core.Properties.Resources.ErrorObjectViewer2, nameof(IBindable)));
+                Message.Snackbar(string.Format(Properties.Resources.ErrorObjectViewer2, nameof(IBindable)));
             }
         }
         private void TreeView_PreviewMouseWheel(object sender, MouseWheelEventArgs e)
@@ -101,7 +111,7 @@ namespace BEditor.Views.ToolControl.Default
                 }
 
                 if (Message.Dialog(
-                    Core.Properties.Resources.CommandQ1,
+                    Properties.Resources.CommandQ1,
                     types: new ButtonType[] { ButtonType.Yes, ButtonType.No }) == ButtonType.Yes)
                 {
                     scene.Parent!.PreviewScene = scene.Parent!.SceneList[0];
@@ -111,7 +121,7 @@ namespace BEditor.Views.ToolControl.Default
             }
             catch (IndexOutOfRangeException)
             {
-                Message.Snackbar(string.Format(Core.Properties.Resources.ErrorObjectViewer1, nameof(Scene)));
+                Message.Snackbar(string.Format(Properties.Resources.ErrorObjectViewer1, nameof(Scene)));
             }
         }
         private void RemoveClip(object sender, RoutedEventArgs e)
@@ -124,7 +134,7 @@ namespace BEditor.Views.ToolControl.Default
             }
             catch (IndexOutOfRangeException)
             {
-                Message.Snackbar(string.Format(Core.Properties.Resources.ErrorObjectViewer1, nameof(ClipElement)));
+                Message.Snackbar(string.Format(Properties.Resources.ErrorObjectViewer1, nameof(ClipElement)));
             }
         }
         private void RemoveEffect(object sender, RoutedEventArgs e)
@@ -137,7 +147,7 @@ namespace BEditor.Views.ToolControl.Default
             }
             catch (IndexOutOfRangeException)
             {
-                Message.Snackbar(string.Format(Core.Properties.Resources.ErrorObjectViewer1, nameof(EffectElement)));
+                Message.Snackbar(string.Format(Properties.Resources.ErrorObjectViewer1, nameof(EffectElement)));
             }
         }
         private void AddScene(object sender, RoutedEventArgs e)

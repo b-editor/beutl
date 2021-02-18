@@ -1,12 +1,12 @@
 ﻿using System.Collections.Generic;
 using System.Runtime.Serialization;
 
-using BEditor.Core.Command;
-using BEditor.Core.Data;
-using BEditor.Core.Data.Primitive;
-using BEditor.Core.Data.Property;
-using BEditor.Core.Extensions;
-using BEditor.Core.Properties;
+using BEditor.Command;
+using BEditor.Data;
+using BEditor.Data.Primitive;
+using BEditor.Data.Property;
+using BEditor.Extensions;
+using BEditor.Properties;
 using BEditor.Drawing;
 using BEditor.Drawing.Pixel;
 using BEditor.Primitive.Objects;

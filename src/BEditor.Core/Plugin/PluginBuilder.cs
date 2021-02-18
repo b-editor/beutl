@@ -5,10 +5,10 @@ using System.Runtime.Serialization;
 using System.Text;
 using System.Threading.Tasks;
 
-using BEditor.Core.Data;
-using BEditor.Core.Data.Property.Easing;
+using BEditor.Data;
+using BEditor.Data.Property.Easing;
 
-namespace BEditor.Core.Plugin
+namespace BEditor.Plugin
 {
     /// <summary>
     /// Represents a class that initializes the services provided by the <see cref="IPlugin"/>.

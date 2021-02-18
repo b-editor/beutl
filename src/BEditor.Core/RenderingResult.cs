@@ -7,7 +7,7 @@ using System.Threading.Tasks;
 using BEditor.Drawing;
 using BEditor.Drawing.Pixel;
 
-namespace BEditor.Core
+namespace BEditor
 {
     /// <summary>
     /// レンダリング結果を表します

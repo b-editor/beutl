@@ -1,11 +1,10 @@
 ﻿using System.Collections.Generic;
 using System.Runtime.Serialization;
 
-using BEditor.Core.Command;
-using BEditor.Core.Data;
-using BEditor.Core.Data.Primitive;
-using BEditor.Core.Data.Property;
-using BEditor.Core.Extensions;
+using BEditor.Command;
+using BEditor.Data;
+using BEditor.Data.Primitive;
+using BEditor.Data.Property;
 using BEditor.Drawing;
 using BEditor.Drawing.Pixel;
 
@@ -29,7 +28,7 @@ namespace BEditor.Primitive.Effects
         }
 
         /// <inheritdoc/>
-        public override string Name => Core.Properties.Resources.Erode;
+        public override string Name => BEditor.Properties.Resources.Erode;
         /// <inheritdoc/>
         public override IEnumerable<PropertyElement> Properties => new PropertyElement[]
         {

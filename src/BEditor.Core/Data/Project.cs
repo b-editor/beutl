@@ -7,21 +7,20 @@ using System.Runtime.Serialization;
 using System.Text.RegularExpressions;
 using System.Threading.Tasks;
 
-using BEditor.Core.Properties;
-using BEditor.Core.Service;
+using BEditor.Properties;
 using BEditor.Drawing;
 using BEditor.Drawing.Pixel;
 using BEditor.Graphics;
 
-using static System.Net.WebRequestMethods;
+using Microsoft.Extensions.DependencyInjection;
 
-namespace BEditor.Core.Data
+namespace BEditor.Data
 {
     /// <summary>
     /// Represents the project to be used in editing.
     /// </summary>
     [DataContract]
-    public class Project : BasePropertyChanged, IExtensibleDataObject, IDisposable, IParent<Scene>, IChild<IApplication>, IElementObject, IHasName
+    public class Project : EditorObject, IExtensibleDataObject, IDisposable, IParent<Scene>, IChild<IApplication>, IElementObject, IHasName
     {
         #region Fields
 
@@ -154,9 +153,6 @@ namespace BEditor.Core.Data
         public bool IsDisposed { get; private set; }
 
         /// <inheritdoc/>
-        public ExtensionDataObject? ExtensionData { get; set; }
-
-        /// <inheritdoc/>
         public IEnumerable<Scene> Children => SceneList;
 
         /// <inheritdoc/>
@@ -214,7 +210,8 @@ namespace BEditor.Core.Data
         {
             if (Name is null || DirectoryName is null)
             {
-                if (Services.FileDialogService is null) throw new InvalidOperationException();
+                var dialog = ServiceProvider?.GetService<IFileDialogService>();
+                if (dialog is null) throw new InvalidOperationException();
 
                 var record = new SaveFileRecord
                 {
@@ -226,7 +223,7 @@ namespace BEditor.Core.Data
                 };
 
                 // ダイアログを表示する
-                if (Services.FileDialogService.ShowSaveFileDialog(record))
+                if (dialog.ShowSaveFileDialog(record))
                 {
                     return Save(record.FileName);
                 }
@@ -311,6 +308,7 @@ namespace BEditor.Core.Data
         {
             if (IsLoaded) return;
 
+            ServiceProvider = Parent?.Services.BuildServiceProvider();
             foreach (var scene in SceneList)
             {
                 scene.Load();
@@ -324,6 +322,7 @@ namespace BEditor.Core.Data
         {
             if (!IsLoaded) return;
 
+            ServiceProvider?.Dispose();
             foreach (var scene in SceneList)
             {
                 scene.Unload();

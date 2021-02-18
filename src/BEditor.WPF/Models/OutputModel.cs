@@ -6,20 +6,21 @@ using System.Windows;
 using System.Windows.Controls;
 using System.Windows.Media.Imaging;
 
-using BEditor.Core.Data;
-using BEditor.Core.Extensions;
-using BEditor.Core.Properties;
-using BEditor.Core.Service;
+using BEditor.Data;
 using BEditor.Drawing;
 using BEditor.Drawing.Pixel;
 using BEditor.Media;
 using BEditor.Media.Encoder;
+using BEditor.Properties;
 using BEditor.Views;
 using BEditor.Views.MessageContent;
 
+using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Win32;
 
 using Reactive.Bindings;
+
+using static BEditor.IMessage;
 
 using Frame = BEditor.Media.Frame;
 
@@ -72,7 +73,9 @@ namespace BEditor.Models
             }
             catch (Exception e)
             {
-                Message.Snackbar($"保存できませんでした : {e.Message}");
+                using var prov = AppData.Current.Services.BuildServiceProvider();
+                var mes = prov.GetService<IMessage>();
+                mes?.Snackbar($"保存できませんでした : {e.Message}");
             }
         }
         public static void OutputVideo(Scene scene)
@@ -148,7 +151,9 @@ namespace BEditor.Models
                 }
                 catch (Exception e)
                 {
-                    Message.Snackbar($"保存できませんでした : {e.Message}");
+                    using var prov = AppData.Current.Services.BuildServiceProvider();
+                    var mes = prov.GetService<IMessage>();
+                    mes?.Snackbar($"保存できませんでした : {e.Message}");
                 }
                 finally
                 {

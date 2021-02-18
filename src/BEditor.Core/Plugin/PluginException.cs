@@ -4,7 +4,7 @@ using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
 
-namespace BEditor.Core.Plugin
+namespace BEditor.Plugin
 {
     /// <summary>
     /// Represents an error that occurred while loading a plugin, etc.

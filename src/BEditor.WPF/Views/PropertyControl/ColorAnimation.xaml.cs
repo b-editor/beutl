@@ -8,10 +8,10 @@ using System.Windows.Shapes;
 
 using BEditor.ViewModels.PropertyControl;
 
-using BEditor.Core.Data.Property;
+using BEditor.Data.Property;
 using BEditor.Drawing;
 using BEditor.WPF.Controls;
-using BEditor.Core.Data;
+using BEditor.Data;
 
 namespace BEditor.Views.PropertyControl
 {

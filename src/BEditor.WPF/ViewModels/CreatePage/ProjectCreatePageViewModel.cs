@@ -7,8 +7,7 @@ using System.Threading.Tasks;
 using System.Windows.Input;
 using System.Xml.Linq;
 
-using BEditor.Core.Data;
-using BEditor.Core.Service;
+using BEditor.Data;
 using BEditor.Models;
 using BEditor.Views;
 using BEditor.Views.MessageContent;

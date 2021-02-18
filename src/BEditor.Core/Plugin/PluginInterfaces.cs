@@ -2,10 +2,10 @@
 using System;
 using System.Collections.Generic;
 
-using BEditor.Core.Data;
-using BEditor.Core.Data.Property.Easing;
+using BEditor.Data;
+using BEditor.Data.Property.Easing;
 
-namespace BEditor.Core.Plugin
+namespace BEditor.Plugin
 {
     /// <summary>
     /// Represents a plug-in that extends the functionality of the application.

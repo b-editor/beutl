@@ -7,11 +7,11 @@ using System.Runtime.Serialization;
 using System.Text;
 using System.Threading.Tasks;
 
-using BEditor.Core.Data.Property;
-using BEditor.Core.Properties;
+using BEditor.Data.Property;
+using BEditor.Properties;
 using BEditor.Media;
 
-namespace BEditor.Core.Data.Property.Easing
+namespace BEditor.Data.Property.Easing
 {
     /// <summary>
     /// <see cref="EaseProperty"/>, <see cref="ColorAnimationProperty"/> などで利用可能なイージング関数を表します
@@ -20,8 +20,8 @@ namespace BEditor.Core.Data.Property.Easing
     public abstract class EasingFunc : EditorObject, IChild<PropertyElement>, IParent<IEasingProperty>, IElementObject
     {
         #region Fields
-        private PropertyElement? _Parent;
-        private IEnumerable<IEasingProperty>? _CachedList;
+        private PropertyElement? _parent;
+        private IEnumerable<IEasingProperty>? _cachedList;
         #endregion
 
 
@@ -31,20 +31,19 @@ namespace BEditor.Core.Data.Property.Easing
         public abstract IEnumerable<IEasingProperty> Properties { get; }
 
         /// <inheritdoc/>
-        public IEnumerable<IEasingProperty> Children => _CachedList ??= Properties;
+        public IEnumerable<IEasingProperty> Children => _cachedList ??= Properties;
 
         /// <inheritdoc/>
         public PropertyElement? Parent
         {
-            get => _Parent;
+            get => _parent;
             set
             {
                 if (value is null) throw new ArgumentNullException(nameof(value));
 
-                _Parent = value;
-                var parent_ = value.Parent;
+                _parent = value;
 
-                Parallel.ForEach(Children, item => item.Parent = parent_);
+                Parallel.ForEach(Children, item => item.Parent = _parent.Parent);
             }
         }
         /// <inheritdoc/>
@@ -65,6 +64,7 @@ namespace BEditor.Core.Data.Property.Easing
         {
             if (IsLoaded) return;
 
+            ServiceProvider = Parent?.ServiceProvider;
             OnLoad();
 
             IsLoaded = true;

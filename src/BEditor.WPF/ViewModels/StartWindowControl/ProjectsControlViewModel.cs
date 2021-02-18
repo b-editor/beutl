@@ -9,13 +9,13 @@ using System.Text;
 using System.Threading.Tasks;
 using System.Windows.Input;
 
-using BEditor.Core.Data;
-using BEditor.Core.Extensions;
-using BEditor.Core.Properties;
-using BEditor.Core.Service;
+using BEditor.Data;
 using BEditor.Models;
+using BEditor.Properties;
 using BEditor.Views;
 using BEditor.Views.MessageContent;
+
+using Microsoft.Extensions.DependencyInjection;
 
 using Reactive.Bindings;
 
@@ -88,6 +88,7 @@ namespace BEditor.ViewModels.StartWindowControl
             });
             Add.Subscribe(() =>
             {
+                using var prov = AppData.Current.Services.BuildServiceProvider();
                 var record = new OpenFileRecord()
                 {
                     Filters =
@@ -96,7 +97,8 @@ namespace BEditor.ViewModels.StartWindowControl
                     }
                 };
 
-                if (Services.FileDialogService?.ShowOpenFileDialog(record) ?? false)
+
+                if (prov.GetService<IFileDialogService>()?.ShowOpenFileDialog(record) ?? false)
                 {
                     var f = Projects.Count is 0;
                     Projects.Insert(0, new ProjectItem(Path.GetFileNameWithoutExtension(record.FileName), record.FileName, Click, Remove));

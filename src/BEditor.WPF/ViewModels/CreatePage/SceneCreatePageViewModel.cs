@@ -1,4 +1,4 @@
-﻿using BEditor.Core.Data;
+﻿using BEditor.Data;
 using BEditor.Models;
 using System.ComponentModel;
 using Reactive.Bindings;

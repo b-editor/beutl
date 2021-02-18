@@ -1,19 +1,8 @@
 ﻿using System;
 using System.Reflection;
 
-namespace BEditor.Core.Service
+namespace BEditor
 {
-    /// <summary>
-    /// Represents a class that provides UI-dependent services.
-    /// </summary>
-    public static class Services
-    {
-        /// <summary>
-        /// Gets or sets the service that shows the file dialog.
-        /// </summary>
-        public static IFileDialogService? FileDialogService { get; set; }
-    }
-
     /// <summary>
     /// Represents the status of the application.
     /// </summary>

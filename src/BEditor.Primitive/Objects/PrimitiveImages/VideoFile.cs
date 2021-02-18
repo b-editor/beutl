@@ -2,18 +2,18 @@
 using System.Collections.Generic;
 using System.Runtime.Serialization;
 
-using BEditor.Core.Command;
-using BEditor.Core.Data;
-using BEditor.Core.Data.Primitive;
-using BEditor.Core.Data.Property;
-using BEditor.Core.Extensions;
-using BEditor.Core.Properties;
-using BEditor.Core.Service;
+using BEditor.Command;
+using BEditor.Data;
+using BEditor.Data.Primitive;
+using BEditor.Data.Property;
+using BEditor.Properties;
 using BEditor.Drawing;
 using BEditor.Drawing.Pixel;
 using BEditor.Media;
 using BEditor.Media.Decoder;
 using BEditor.Media.PCM;
+
+using Microsoft.Extensions.DependencyInjection;
 
 namespace BEditor.Primitive.Objects
 {
@@ -119,7 +119,8 @@ namespace BEditor.Primitive.Objects
                 }
                 catch (Exception)
                 {
-                    Message.Snackbar(string.Format(Resources.FailedToLoad, filename));
+                    var mes = ServiceProvider?.GetService<IMessage>();
+                    mes?.Snackbar(string.Format(Resources.FailedToLoad, filename));
                 }
             });
         }

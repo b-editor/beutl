@@ -3,13 +3,12 @@ using System.Collections.Generic;
 using System.Runtime.Serialization;
 using System.Text;
 
-using BEditor.Core.Command;
-using BEditor.Core.Data.Property;
-using BEditor.Core.Extensions;
-using BEditor.Core.Properties;
+using BEditor.Command;
+using BEditor.Data.Property;
+using BEditor.Properties;
 using BEditor.Drawing;
 
-namespace BEditor.Core.Data.Property.PrimitiveGroup
+namespace BEditor.Data.Property.PrimitiveGroup
 {
     /// <summary>
     /// Represents a property that sets the Material.

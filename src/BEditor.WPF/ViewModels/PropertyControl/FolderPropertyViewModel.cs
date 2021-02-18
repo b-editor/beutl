@@ -5,9 +5,9 @@ using System.Reactive.Linq;
 using System.Text;
 using System.Threading.Tasks;
 
-using BEditor.Core.Command;
-using BEditor.Core.Data;
-using BEditor.Core.Data.Property;
+using BEditor.Command;
+using BEditor.Data;
+using BEditor.Data.Property;
 using BEditor.Views;
 using BEditor.Views.PropertyControls;
 

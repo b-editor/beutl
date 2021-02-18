@@ -6,16 +6,16 @@ using System.Runtime.Serialization;
 using System.Text;
 using System.Threading.Tasks;
 
-using BEditor.Core.Data.Property;
-using BEditor.Core.Data.Property.PrimitiveGroup;
-using BEditor.Core.Data;
+using BEditor.Data.Property;
+using BEditor.Data.Property.PrimitiveGroup;
+using BEditor.Data;
 using System.Collections.ObjectModel;
 using System.Xml;
 using System.Diagnostics;
-using BEditor.Core.Data.Property.Easing;
-using BEditor.Core.Data.Primitive;
+using BEditor.Data.Property.Easing;
+using BEditor.Data.Primitive;
 
-namespace BEditor.Core
+namespace BEditor
 {
     /// <summary>
     /// Represents a class that uses the <see cref="DataContractJsonSerializer"/> to provide methods for serialization, cloning, etc.

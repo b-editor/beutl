@@ -4,9 +4,11 @@ using System.Linq;
 using System.Runtime.Serialization;
 using System.Threading.Tasks;
 
-using BEditor.Core.Data.Property;
+using BEditor.Data.Property;
 
-namespace BEditor.Core.Data.Property
+using Microsoft.Extensions.DependencyInjection;
+
+namespace BEditor.Data.Property
 {
     /// <summary>
     /// Represents a property used by <see cref="EffectElement"/>.
@@ -14,8 +16,8 @@ namespace BEditor.Core.Data.Property
     [DataContract]
     public class PropertyElement : EditorObject, IChild<EffectElement>, IPropertyElement, IHasId, IHasName
     {
-        private static readonly PropertyChangedEventArgs _MetadataArgs = new(nameof(PropertyMetadata));
-        private PropertyElementMetadata? _PropertyMetadata;
+        private static readonly PropertyChangedEventArgs _metadataArgs = new(nameof(PropertyMetadata));
+        private PropertyElementMetadata? _propertyMetadata;
         private int? id;
 
 
@@ -26,13 +28,13 @@ namespace BEditor.Core.Data.Property
         /// </summary>
         public PropertyElementMetadata? PropertyMetadata
         {
-            get => _PropertyMetadata;
-            set => SetValue(value, ref _PropertyMetadata, _MetadataArgs);
+            get => _propertyMetadata;
+            set => SetValue(value, ref _propertyMetadata, _metadataArgs);
         }
         /// <inheritdoc/>
         public int Id => (id ??= Parent?.Children?.ToList()?.IndexOf(this)) ?? -1;
         /// <inheritdoc/>
-        public string Name => _PropertyMetadata?.Name ?? Id.ToString();
+        public string Name => _propertyMetadata?.Name ?? Id.ToString();
         /// <inheritdoc/>
         public bool IsLoaded { get; private set; }
 
@@ -44,6 +46,7 @@ namespace BEditor.Core.Data.Property
         {
             if (IsLoaded) return;
 
+            ServiceProvider = Parent?.ServiceProvider;
             OnLoad();
 
             IsLoaded = true;

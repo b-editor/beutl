@@ -5,11 +5,11 @@ using System.Runtime.Serialization;
 using System.Text;
 using System.Threading.Tasks;
 
-using BEditor.Core.Command;
-using BEditor.Core.Data;
-using BEditor.Core.Data.Primitive;
-using BEditor.Core.Data.Property;
-using BEditor.Core.Properties;
+using BEditor.Command;
+using BEditor.Data;
+using BEditor.Data.Primitive;
+using BEditor.Data.Property;
+using BEditor.Properties;
 using BEditor.Drawing;
 using BEditor.Drawing.Pixel;
 

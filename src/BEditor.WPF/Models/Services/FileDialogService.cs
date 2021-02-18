@@ -3,7 +3,6 @@ using System.Linq;
 using System.Collections.Generic;
 using System.Threading.Tasks;
 
-using BEditor.Core.Service;
 using Microsoft.Win32;
 using System.Text;
 

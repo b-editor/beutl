@@ -8,13 +8,11 @@ using System.Reflection;
 using System.Runtime.Serialization;
 using System.Text;
 
-using BEditor.Core.Data;
-using BEditor.Core.Data.Property.Easing;
-using BEditor.Core.Extensions;
-using BEditor.Core.Properties;
-using BEditor.Core.Service;
+using BEditor.Data;
+using BEditor.Data.Property.Easing;
+using BEditor.Properties;
 
-namespace BEditor.Core.Plugin
+namespace BEditor.Plugin
 {
     /// <summary>
     /// Represents the class that manages the plugin.

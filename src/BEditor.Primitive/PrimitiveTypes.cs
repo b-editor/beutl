@@ -4,8 +4,8 @@ using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
 
-using BEditor.Core.Data;
-using BEditor.Core.Properties;
+using BEditor.Data;
+using BEditor.Properties;
 using BEditor.Primitive.Objects;
 
 namespace BEditor.Primitive

@@ -12,9 +12,8 @@ using System.Runtime.CompilerServices;
 using System.Runtime.Serialization;
 using System.Threading.Tasks;
 
-using BEditor.Core.Audio;
-using BEditor.Core.Command;
-using BEditor.Core.Extensions;
+using BEditor.Audio;
+using BEditor.Command;
 using BEditor.Drawing;
 using BEditor.Drawing.Pixel;
 using BEditor.Graphics;
@@ -22,7 +21,7 @@ using BEditor.Media;
 
 using OpenTK.Graphics.OpenGL;
 
-namespace BEditor.Core.Data
+namespace BEditor.Data
 {
     /// <summary>
     /// Represents a scene to be included in the <see cref="Project"/>.
@@ -345,6 +344,7 @@ namespace BEditor.Core.Data
         {
             if (IsLoaded) return;
 
+            ServiceProvider = Parent?.ServiceProvider;
             Debug.Assert(Synchronize is not null);
             Synchronize?.Post(_ =>
             {

@@ -4,7 +4,7 @@ using System.ComponentModel;
 using System.Diagnostics;
 using System.Threading.Tasks;
 
-namespace BEditor.Core.Command
+namespace BEditor.Command
 {
     /// <summary>
     /// 行なった操作の履歴を蓄積することでUndo,Redoの機能を表します

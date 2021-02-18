@@ -4,11 +4,14 @@
     <TargetFramework>net5.0</TargetFramework>
     <AssemblyName>BEditor.Core</AssemblyName>
     <DocumentationFile>BEditor.Core.xml</DocumentationFile>
+    <RootNamespace>BEditor</RootNamespace>
   </PropertyGroup>
 
   <Import Project="..\..\props\common.props" />
   
   <ItemGroup>
+    <PackageReference Include="Microsoft.Extensions.DependencyInjection" Version="5.0.1" />
+    <PackageReference Include="Microsoft.Extensions.Logging" Version="5.0.0" />
     <PackageReference Include="OpenTK" Version="4.5.0" />
     <PackageReference Include="System.Reactive" Version="5.0.0" />
   </ItemGroup>
@@ -54,5 +57,9 @@
     <None Update="Shaders\*.vert">
       <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
     </None>
+  </ItemGroup>
+
+  <ItemGroup>
+    <Folder Include="Extensions\" />
   </ItemGroup>
 </Project>

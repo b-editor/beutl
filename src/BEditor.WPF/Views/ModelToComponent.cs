@@ -6,12 +6,11 @@ using System.Windows.Controls;
 using System.Windows.Controls.Primitives;
 using System.Windows.Data;
 
-using BEditor.Core.Command;
-using BEditor.Core.Data;
-using BEditor.Core.Data.Property;
-using BEditor.Core.Data.Property.Easing;
-using BEditor.Core.Extensions;
-using BEditor.Core.Properties;
+using BEditor.Command;
+using BEditor.Data;
+using BEditor.Data.Property;
+using BEditor.Data.Property.Easing;
+using BEditor.Properties;
 using BEditor.Models;
 using BEditor.ViewModels.Converters;
 using BEditor.ViewModels.PropertyControl;

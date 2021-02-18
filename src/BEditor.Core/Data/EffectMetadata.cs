@@ -3,7 +3,7 @@ using System.Collections.Generic;
 using System.Collections.ObjectModel;
 using System.Linq.Expressions;
 
-namespace BEditor.Core.Data
+namespace BEditor.Data
 {
 #pragma warning disable CS1591
     public record EffectMetadata(string Name, Expression<Func<EffectElement>> Create)

@@ -8,7 +8,7 @@
 // </auto-generated>
 //------------------------------------------------------------------------------
 
-namespace BEditor.Core.Command {
+namespace BEditor.Command {
     using System;
     
     
@@ -39,7 +39,7 @@ namespace BEditor.Core.Command {
         public static global::System.Resources.ResourceManager ResourceManager {
             get {
                 if (object.ReferenceEquals(resourceMan, null)) {
-                    global::System.Resources.ResourceManager temp = new global::System.Resources.ResourceManager("BEditor.Core.Command.CommandName", typeof(CommandName).Assembly);
+                    global::System.Resources.ResourceManager temp = new global::System.Resources.ResourceManager("BEditor.Command.CommandName", typeof(CommandName).Assembly);
                     resourceMan = temp;
                 }
                 return resourceMan;

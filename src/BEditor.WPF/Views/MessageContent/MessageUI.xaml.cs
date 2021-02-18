@@ -11,9 +11,11 @@ using System.Windows.Media.Imaging;
 using System.Windows.Navigation;
 using System.Windows.Shapes;
 
-using BEditor.Core.Extensions;
+using BEditor.Core;
 
 using MaterialDesignThemes.Wpf;
+
+using static BEditor.Core.IMessage;
 
 using Resource = BEditor.Core.Properties.Resources;
 
@@ -24,10 +26,15 @@ namespace BEditor.Views.MessageContent
     /// </summary>
     public partial class MessageUI : DialogContent
     {
-        public MessageUI(ButtonType[] buttons, object content, BEditor.Core.Extensions.IconType iconKind)
+        public MessageUI(ButtonType[]? buttons, object content, IconType iconKind)
         {
             InitializeComponent();
 
+            buttons ??= new ButtonType[]
+            {
+                ButtonType.Ok,
+                ButtonType.Close
+            };
             foreach (var button in buttons)
             {
                 var text = button switch
@@ -63,7 +70,7 @@ namespace BEditor.Views.MessageContent
                 };
             }
 
-            if (iconKind != BEditor.Core.Extensions.IconType.None)
+            if (iconKind != IconType.None)
             {
                 icon.Content = new PackIcon()
                 {

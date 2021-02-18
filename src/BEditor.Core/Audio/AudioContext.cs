@@ -7,7 +7,7 @@ using System.Threading.Tasks;
 using OpenTK;
 using OpenTK.Audio.OpenAL;
 
-namespace BEditor.Core.Audio
+namespace BEditor.Audio
 {
     /// <summary>
     /// Represents an OpenAL context.

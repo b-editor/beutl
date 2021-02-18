@@ -27,9 +27,9 @@ namespace NUnitTestProject1
         }
 
         [Test]
-        public void Win32DecodeTest()
+        public void FFmpegDecodeTest()
         {
-            IMediaDecoder decoder = new Win32Decoder(InputPath);
+            IMediaDecoder decoder = new FFmpegDecoder(InputPath);
 
             decoder.Read(10, out var image);
 

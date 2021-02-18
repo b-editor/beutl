@@ -6,13 +6,12 @@ using System.Diagnostics.Contracts;
 using System.Linq;
 using System.Runtime.Serialization;
 
-using BEditor.Core.Command;
-using BEditor.Core.Data.Property;
-using BEditor.Core.Data.Property.Easing;
-using BEditor.Core.Extensions;
+using BEditor.Command;
+using BEditor.Data.Property;
+using BEditor.Data.Property.Easing;
 using BEditor.Media;
 
-namespace BEditor.Core.Data.Property
+namespace BEditor.Data.Property
 {
     /// <summary>
     /// Represents the property that eases the value of a <see cref="float"/> type.
@@ -22,10 +21,10 @@ namespace BEditor.Core.Data.Property
     {
         #region Fields
 
-        private static readonly PropertyChangedEventArgs _EasingFuncArgs = new(nameof(EasingType));
-        private static readonly PropertyChangedEventArgs _EasingDataArgs = new(nameof(EasingData));
-        private EasingFunc? _EasingTypeProperty;
-        private EasingMetadata? _EasingData;
+        private static readonly PropertyChangedEventArgs _easingFuncArgs = new(nameof(EasingType));
+        private static readonly PropertyChangedEventArgs _easingDataArgs = new(nameof(EasingData));
+        private EasingFunc? _easingTypeProperty;
+        private EasingMetadata? _easingData;
 
         #endregion
 
@@ -63,17 +62,17 @@ namespace BEditor.Core.Data.Property
         {
             get
             {
-                if (_EasingTypeProperty == null || EasingData.Type != _EasingTypeProperty.GetType())
+                if (_easingTypeProperty == null || EasingData.Type != _easingTypeProperty.GetType())
                 {
-                    _EasingTypeProperty = EasingData.CreateFunc();
-                    _EasingTypeProperty.Parent = this;
+                    _easingTypeProperty = EasingData.CreateFunc();
+                    _easingTypeProperty.Parent = this;
                 }
 
-                return _EasingTypeProperty;
+                return _easingTypeProperty;
             }
             set
             {
-                SetValue(value, ref _EasingTypeProperty, _EasingDataArgs);
+                SetValue(value, ref _easingTypeProperty, _easingDataArgs);
 
                 EasingData = EasingMetadata.LoadedEasingFunc.Find(x => x.Type == value.GetType())!;
             }
@@ -87,8 +86,8 @@ namespace BEditor.Core.Data.Property
         /// </summary>
         public EasingMetadata EasingData
         {
-            get => _EasingData ?? EasingMetadata.LoadedEasingFunc[0];
-            set => SetValue(value, ref _EasingData, _EasingDataArgs);
+            get => _easingData ?? EasingMetadata.LoadedEasingFunc[0];
+            set => SetValue(value, ref _easingData, _easingDataArgs);
         }
         internal Frame Length => this.GetParent2()?.Length ?? default;
 

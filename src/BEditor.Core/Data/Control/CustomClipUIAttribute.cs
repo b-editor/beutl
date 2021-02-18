@@ -6,7 +6,7 @@ using System.Threading.Tasks;
 
 using BEditor.Drawing;
 
-namespace BEditor.Core.Data
+namespace BEditor.Data
 {
     /// <summary>
     /// Represents an attribute that provides the ability to specify the color of the clip.

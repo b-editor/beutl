@@ -9,15 +9,16 @@ using System.Windows;
 using System.Windows.Controls;
 using System.Windows.Input;
 
-using BEditor.Core.Command;
-using BEditor.Core.Data;
-using BEditor.Core.Extensions;
+using BEditor.Command;
+using BEditor.Data;
 using BEditor.Models;
 using BEditor.Models.Extension;
 using BEditor.Primitive;
 using BEditor.Primitive.Objects;
 using BEditor.Views;
 using BEditor.Views.SettingsControl;
+
+using Microsoft.Extensions.DependencyInjection;
 
 using Reactive.Bindings;
 using Reactive.Bindings.Extensions;
@@ -114,7 +115,7 @@ namespace BEditor.ViewModels.TimeLines
 
                     var type = RenderType.Preview;
 
-                    if (AppData.Current.AppStatus is Core.Service.Status.Playing) type = RenderType.VideoPreview;
+                    if (AppData.Current.AppStatus is Status.Playing) type = RenderType.VideoPreview;
 
                     AppData.Current.Project!.PreviewUpdate(type);
                 });
@@ -203,7 +204,7 @@ namespace BEditor.ViewModels.TimeLines
         {
             if (!Scene.InRange(Select_Frame, Select_Frame + 180, Select_Layer))
             {
-                Message.Snackbar("指定した場所にクリップが存在しているため、新しいクリップを配置できません");
+                Scene.ServiceProvider?.GetService<IMessage>()?.Snackbar("指定した場所にクリップが存在しているため、新しいクリップを配置できません");
 
                 return;
             }
@@ -257,7 +258,7 @@ namespace BEditor.ViewModels.TimeLines
 
                         if (!Scene.InRange(frame, frame + 180, addlayer))
                         {
-                            Message.Snackbar("指定した場所にクリップが存在しているため、新しいクリップを配置できません");
+                            Scene.ServiceProvider?.GetService<IMessage>()?.Snackbar("指定した場所にクリップが存在しているため、新しいクリップを配置できません");
 
                             return;
                         }

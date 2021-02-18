@@ -8,10 +8,12 @@ using System.Linq;
 using System.Runtime.Serialization;
 using System.Threading.Tasks;
 
-using BEditor.Core.Command;
-using BEditor.Core.Data.Property;
+using BEditor.Command;
+using BEditor.Data.Property;
 
-namespace BEditor.Core.Data
+using Microsoft.Extensions.DependencyInjection;
+
+namespace BEditor.Data
 {
     /// <summary>
     /// Represents a base class of the effect.
@@ -20,16 +22,16 @@ namespace BEditor.Core.Data
     public abstract class EffectElement : EditorObject, IChild<ClipElement>, IParent<PropertyElement>, ICloneable, IHasId, IElementObject
     {
         #region Fields
-        private static readonly PropertyChangedEventArgs _IsEnabledArgs = new(nameof(IsEnabled));
-        private static readonly PropertyChangedEventArgs _IsExpandedArgs = new(nameof(IsExpanded));
-        private bool _IsEnabled = true;
-        private bool _IsExpanded = true;
-        private ClipElement? _Parent;
-        private IEnumerable<PropertyElement>? _CachedList;
+        private static readonly PropertyChangedEventArgs _isEnabledArgs = new(nameof(IsEnabled));
+        private static readonly PropertyChangedEventArgs _isExpandedArgs = new(nameof(IsExpanded));
+        private bool _isEnabled = true;
+        private bool _isExpanded = true;
+        private ClipElement? _parent;
+        private IEnumerable<PropertyElement>? _cachedList;
         #endregion
 
         /// <inheritdoc/>
-        public IEnumerable<PropertyElement> Children => _CachedList ??= Properties.ToArray();
+        public IEnumerable<PropertyElement> Children => _cachedList ??= Properties.ToArray();
         /// <summary>
         /// Get the name of the <see cref="EffectElement"/>.
         /// </summary>
@@ -41,8 +43,8 @@ namespace BEditor.Core.Data
         [DataMember]
         public bool IsEnabled
         {
-            get => _IsEnabled;
-            set => SetValue(value, ref _IsEnabled, _IsEnabledArgs);
+            get => _isEnabled;
+            set => SetValue(value, ref _isEnabled, _isEnabledArgs);
         }
         /// <summary>
         /// Get or set whether the expander is open.
@@ -51,8 +53,8 @@ namespace BEditor.Core.Data
         [DataMember]
         public bool IsExpanded
         {
-            get => _IsExpanded;
-            set => SetValue(value, ref _IsExpanded, _IsExpandedArgs);
+            get => _isExpanded;
+            set => SetValue(value, ref _isExpanded, _isExpandedArgs);
         }
         /// <summary>
         /// Get the <see cref="PropertyElement"/> to display on the GUI.
@@ -61,10 +63,10 @@ namespace BEditor.Core.Data
         /// <inheritdoc/>
         public ClipElement? Parent
         {
-            get => _Parent;
+            get => _parent;
             internal set
             {
-                _Parent = value;
+                _parent = value;
 
                 Parallel.ForEach(Children, property => property.Parent = this);
             }
@@ -97,6 +99,7 @@ namespace BEditor.Core.Data
         {
             if (IsLoaded) return;
 
+            ServiceProvider = Parent?.ServiceProvider;
             OnLoad();
 
             IsLoaded = true;

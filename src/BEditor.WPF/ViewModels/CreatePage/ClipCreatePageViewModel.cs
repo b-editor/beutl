@@ -5,16 +5,15 @@ using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
 
-using BEditor.Core.Command;
-using BEditor.Core.Data;
-using BEditor.Core.Extensions;
-using BEditor.Core.Properties;
+using BEditor.Command;
+using BEditor.Data;
+using BEditor.Properties;
 using BEditor.Media;
 using BEditor.Models;
 using BEditor.Models.Extension;
 
 using Reactive.Bindings;
-
+using Microsoft.Extensions.DependencyInjection;
 namespace BEditor.ViewModels.CreatePage
 {
     public class ClipCreatePageViewModel
@@ -49,7 +48,8 @@ namespace BEditor.ViewModels.CreatePage
             {
                 if (!Scene.Value.InRange(Start.Value, Start.Value + Length.Value, Layer.Value))
                 {
-                    Message.Snackbar("指定した場所にクリップが存在しているため、新しいクリップを配置できません");
+                    Scene.Value.ServiceProvider?.GetService<IMessage>()?
+                        .Snackbar("指定した場所にクリップが存在しているため、新しいクリップを配置できません");
 
                     return;
                 }

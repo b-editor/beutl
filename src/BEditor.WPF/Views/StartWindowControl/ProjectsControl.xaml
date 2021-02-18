@@ -6,7 +6,7 @@
              xmlns:local="clr-namespace:BEditor.Views.StartWindowControl"
              xmlns:model="clr-namespace:BEditor.Models"
              xmlns:convert="clr-namespace:BEditor.ViewModels.Converters"
-             xmlns:props="clr-namespace:BEditor.Core.Properties;assembly=BEditor.Core"
+             xmlns:props="clr-namespace:BEditor.Properties;assembly=BEditor.Core"
              xmlns:md="http://materialdesigninxaml.net/winfx/xaml/themes"
              mc:Ignorable="d" 
              Background="{DynamicResource MaterialDesignPaper}"

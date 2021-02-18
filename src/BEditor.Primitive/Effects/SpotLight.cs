@@ -4,9 +4,9 @@ using System.Runtime.Serialization;
 using System.Text;
 
 
-using BEditor.Core.Data;
-using BEditor.Core.Data.Primitive;
-using BEditor.Core.Data.Property;
+using BEditor.Data;
+using BEditor.Data.Primitive;
+using BEditor.Data.Property;
 namespace BEditor.Primitive.Effects
 {
     /// <summary>

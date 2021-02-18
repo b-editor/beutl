@@ -5,8 +5,8 @@ using System.Reactive.Linq;
 using System.Text;
 using System.Threading.Tasks;
 
-using BEditor.Core.Command;
-using BEditor.Core.Data;
+using BEditor.Command;
+using BEditor.Data;
 using BEditor.Models;
 
 using Reactive.Bindings;

@@ -6,7 +6,7 @@
              xmlns:local="clr-namespace:BEditor.Views.ToolControl.Default"
              xmlns:i="http://schemas.microsoft.com/xaml/behaviors"
              xmlns:md="http://materialdesigninxaml.net/winfx/xaml/themes"
-             xmlns:listsource="clr-namespace:BEditor.Core.Data;assembly=BEditor.Core"
+             xmlns:listsource="clr-namespace:BEditor.Data;assembly=BEditor.Core"
              mc:Ignorable="d">
     <ScrollViewer x:Name="scrollViewer" Margin="5,5,5,5">
         <TreeView x:Name="TreeView" PreviewMouseDown="TreeView_PreviewMouseDown" ItemsSource="{x:Static listsource:EffectMetadata.LoadedEffects}" md:RippleAssist.IsDisabled="True" PreviewMouseWheel="TreeView_PreviewMouseWheel">

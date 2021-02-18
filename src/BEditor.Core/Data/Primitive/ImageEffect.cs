@@ -6,7 +6,7 @@ using BEditor.Drawing;
 using BEditor.Drawing.Pixel;
 using BEditor.Graphics;
 
-namespace BEditor.Core.Data.Primitive
+namespace BEditor.Data.Primitive
 {
     /// <summary>
     /// Represents an effect that can be added to an <see cref="ImageObject"/>.

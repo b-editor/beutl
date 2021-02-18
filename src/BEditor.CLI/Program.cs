@@ -3,8 +3,8 @@ using System.IO;
 using System.Linq;
 using System.Text;
 
-using BEditor.Core;
-using BEditor.Core.Data;
+using BEditor;
+using BEditor.Data;
 using BEditor.Drawing;
 using BEditor.Media;
 using BEditor.Media.Encoder;

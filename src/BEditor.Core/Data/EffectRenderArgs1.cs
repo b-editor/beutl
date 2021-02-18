@@ -1,7 +1,7 @@
 ﻿
 using BEditor.Media;
 
-namespace BEditor.Core.Data
+namespace BEditor.Data
 {
     /// <summary>
     /// Represents a data to be passed to the <see cref="EffectElement"/> at rendering time.

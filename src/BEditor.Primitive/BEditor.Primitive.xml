@@ -6,7 +6,7 @@
     <members>
         <member name="T:BEditor.Primitive.Effects.DepthTest">
             <summary>
-            Represents an <see cref="T:BEditor.Core.Data.EffectElement"/> that sets the OpenGL depth test.
+            Represents an <see cref="T:BEditor.Data.EffectElement"/> that sets the OpenGL depth test.
             </summary>
         </member>
         <member name="F:BEditor.Primitive.Effects.DepthTest.EnabledMetadata">
@@ -47,30 +47,30 @@
         </member>
         <member name="P:BEditor.Primitive.Effects.DepthTest.Enabled">
             <summary>
-            Gets the <see cref="T:BEditor.Core.Data.Property.CheckProperty"/> that represents the value to enable depth testing.
+            Gets the <see cref="T:BEditor.Data.Property.CheckProperty"/> that represents the value to enable depth testing.
             </summary>
         </member>
         <member name="P:BEditor.Primitive.Effects.DepthTest.Function">
             <summary>
-            Get the <see cref="T:BEditor.Core.Data.Property.SelectorProperty"/> that selects the function for the depth test.
+            Get the <see cref="T:BEditor.Data.Property.SelectorProperty"/> that selects the function for the depth test.
             </summary>
         </member>
         <member name="P:BEditor.Primitive.Effects.DepthTest.Mask">
             <summary>
-            Gets the <see cref="T:BEditor.Core.Data.Property.CheckProperty"/> indicating whether the depth mask is enabled.
+            Gets the <see cref="T:BEditor.Data.Property.CheckProperty"/> indicating whether the depth mask is enabled.
             </summary>
         </member>
         <member name="P:BEditor.Primitive.Effects.DepthTest.Near">
             <summary>
-            Gets the <see cref="T:BEditor.Core.Data.Property.EaseProperty"/> representing the depth range.
+            Gets the <see cref="T:BEditor.Data.Property.EaseProperty"/> representing the depth range.
             </summary>
         </member>
         <member name="P:BEditor.Primitive.Effects.DepthTest.Far">
             <summary>
-            Gets the <see cref="T:BEditor.Core.Data.Property.EaseProperty"/> representing the depth range.
+            Gets the <see cref="T:BEditor.Data.Property.EaseProperty"/> representing the depth range.
             </summary>
         </member>
-        <member name="M:BEditor.Primitive.Effects.DepthTest.Render(BEditor.Core.Data.EffectRenderArgs)">
+        <member name="M:BEditor.Primitive.Effects.DepthTest.Render(BEditor.Data.EffectRenderArgs)">
             <inheritdoc/>
         </member>
         <member name="M:BEditor.Primitive.Effects.DepthTest.OnLoad">
@@ -81,7 +81,7 @@
         </member>
         <member name="T:BEditor.Primitive.Effects.DirectionalLightSource">
             <summary>
-            Represents an <see cref="T:BEditor.Core.Data.EffectElement"/> that sets the OpenGL directional light source.
+            Represents an <see cref="T:BEditor.Data.EffectElement"/> that sets the OpenGL directional light source.
             </summary>
         </member>
         <member name="M:BEditor.Primitive.Effects.DirectionalLightSource.#ctor">
@@ -97,20 +97,20 @@
         </member>
         <member name="P:BEditor.Primitive.Effects.DirectionalLightSource.X">
             <summary>
-            Get the <see cref="T:BEditor.Core.Data.Property.EaseProperty"/> representing the X coordinate.
+            Get the <see cref="T:BEditor.Data.Property.EaseProperty"/> representing the X coordinate.
             </summary>
         </member>
         <member name="P:BEditor.Primitive.Effects.DirectionalLightSource.Y">
             <summary>
-            Get the <see cref="T:BEditor.Core.Data.Property.EaseProperty"/> representing the Y coordinate.
+            Get the <see cref="T:BEditor.Data.Property.EaseProperty"/> representing the Y coordinate.
             </summary>
         </member>
         <member name="P:BEditor.Primitive.Effects.DirectionalLightSource.Z">
             <summary>
-            Get the <see cref="T:BEditor.Core.Data.Property.EaseProperty"/> representing the Z coordinate.
+            Get the <see cref="T:BEditor.Data.Property.EaseProperty"/> representing the Z coordinate.
             </summary>
         </member>
-        <member name="M:BEditor.Primitive.Effects.DirectionalLightSource.Render(BEditor.Core.Data.EffectRenderArgs)">
+        <member name="M:BEditor.Primitive.Effects.DirectionalLightSource.Render(BEditor.Data.EffectRenderArgs)">
             <inheritdoc/>
         </member>
         <member name="M:BEditor.Primitive.Effects.DirectionalLightSource.OnLoad">
@@ -121,7 +121,7 @@
         </member>
         <member name="T:BEditor.Primitive.Effects.PointLightSource">
             <summary>
-            Represents an <see cref="T:BEditor.Core.Data.EffectElement"/> that sets the OpenGL point light source.
+            Represents an <see cref="T:BEditor.Data.EffectElement"/> that sets the OpenGL point light source.
             </summary>
         </member>
         <member name="F:BEditor.Primitive.Effects.PointLightSource.ConstantAttenuationMetadata">
@@ -152,35 +152,35 @@
         </member>
         <member name="P:BEditor.Primitive.Effects.PointLightSource.X">
             <summary>
-            Get the <see cref="T:BEditor.Core.Data.Property.EaseProperty"/> representing the X coordinate.
+            Get the <see cref="T:BEditor.Data.Property.EaseProperty"/> representing the X coordinate.
             </summary>
         </member>
         <member name="P:BEditor.Primitive.Effects.PointLightSource.Y">
             <summary>
-            Get the <see cref="T:BEditor.Core.Data.Property.EaseProperty"/> representing the Y coordinate.
+            Get the <see cref="T:BEditor.Data.Property.EaseProperty"/> representing the Y coordinate.
             </summary>
         </member>
         <member name="P:BEditor.Primitive.Effects.PointLightSource.Z">
             <summary>
-            Get the <see cref="T:BEditor.Core.Data.Property.EaseProperty"/> representing the Z coordinate.
+            Get the <see cref="T:BEditor.Data.Property.EaseProperty"/> representing the Z coordinate.
             </summary>
         </member>
         <member name="P:BEditor.Primitive.Effects.PointLightSource.ConstantAttenuation">
             <summary>
-            Gets the <see cref="T:BEditor.Core.Data.Property.EaseProperty"/> representing the value of GL_CONSTANT_ATTENUATION.
+            Gets the <see cref="T:BEditor.Data.Property.EaseProperty"/> representing the value of GL_CONSTANT_ATTENUATION.
             </summary>
         </member>
         <member name="P:BEditor.Primitive.Effects.PointLightSource.LinearAttenuation">
             <summary>
-            Gets the <see cref="T:BEditor.Core.Data.Property.EaseProperty"/> representing the value of GL_LINEAR_ATTENUATION.
+            Gets the <see cref="T:BEditor.Data.Property.EaseProperty"/> representing the value of GL_LINEAR_ATTENUATION.
             </summary>
         </member>
         <member name="P:BEditor.Primitive.Effects.PointLightSource.QuadraticAttenuation">
             <summary>
-            Gets the <see cref="T:BEditor.Core.Data.Property.EaseProperty"/> representing the value of GL_QUADRATIC_ATTENUATION.
+            Gets the <see cref="T:BEditor.Data.Property.EaseProperty"/> representing the value of GL_QUADRATIC_ATTENUATION.
             </summary>
         </member>
-        <member name="M:BEditor.Primitive.Effects.PointLightSource.Render(BEditor.Core.Data.EffectRenderArgs)">
+        <member name="M:BEditor.Primitive.Effects.PointLightSource.Render(BEditor.Data.EffectRenderArgs)">
             <inheritdoc/>
         </member>
         <member name="M:BEditor.Primitive.Effects.PointLightSource.OnLoad">
@@ -191,7 +191,7 @@
         </member>
         <member name="T:BEditor.Primitive.Effects.AreaExpansion">
             <summary>
-            Represents an <see cref="T:BEditor.Core.Data.Primitive.ImageEffect"/> that expands the area of an image.
+            Represents an <see cref="T:BEditor.Data.Primitive.ImageEffect"/> that expands the area of an image.
             </summary>
         </member>
         <member name="M:BEditor.Primitive.Effects.AreaExpansion.#ctor">
@@ -207,30 +207,30 @@
         </member>
         <member name="P:BEditor.Primitive.Effects.AreaExpansion.Top">
             <summary>
-            Get an <see cref="T:BEditor.Core.Data.Property.EaseProperty"/> that represents the number of pixels to add
+            Get an <see cref="T:BEditor.Data.Property.EaseProperty"/> that represents the number of pixels to add
             </summary>
         </member>
         <member name="P:BEditor.Primitive.Effects.AreaExpansion.Bottom">
             <summary>
-            Get an <see cref="T:BEditor.Core.Data.Property.EaseProperty"/> that represents the number of pixels to add
+            Get an <see cref="T:BEditor.Data.Property.EaseProperty"/> that represents the number of pixels to add
             </summary>
         </member>
         <member name="P:BEditor.Primitive.Effects.AreaExpansion.Left">
             <summary>
-            Get an <see cref="T:BEditor.Core.Data.Property.EaseProperty"/> that represents the number of pixels to add
+            Get an <see cref="T:BEditor.Data.Property.EaseProperty"/> that represents the number of pixels to add
             </summary>
         </member>
         <member name="P:BEditor.Primitive.Effects.AreaExpansion.Right">
             <summary>
-            Get an <see cref="T:BEditor.Core.Data.Property.EaseProperty"/> that represents the number of pixels to add
+            Get an <see cref="T:BEditor.Data.Property.EaseProperty"/> that represents the number of pixels to add
             </summary>
         </member>
         <member name="P:BEditor.Primitive.Effects.AreaExpansion.AdjustCoordinates">
             <summary>
-            Get the <see cref="T:BEditor.Core.Data.Property.CheckProperty"/> to adjust the coordinates.
+            Get the <see cref="T:BEditor.Data.Property.CheckProperty"/> to adjust the coordinates.
             </summary>
         </member>
-        <member name="M:BEditor.Primitive.Effects.AreaExpansion.Render(BEditor.Core.Data.EffectRenderArgs{BEditor.Drawing.Image{BEditor.Drawing.Pixel.BGRA32}})">
+        <member name="M:BEditor.Primitive.Effects.AreaExpansion.Render(BEditor.Data.EffectRenderArgs{BEditor.Drawing.Image{BEditor.Drawing.Pixel.BGRA32}})">
             <inheritdoc/>
         </member>
         <member name="M:BEditor.Primitive.Effects.AreaExpansion.OnLoad">
@@ -241,7 +241,7 @@
         </member>
         <member name="T:BEditor.Primitive.Effects.Blur">
             <summary>
-            Represents an <see cref="T:BEditor.Core.Data.Primitive.ImageEffect"/> that blurs the image.
+            Represents an <see cref="T:BEditor.Data.Primitive.ImageEffect"/> that blurs the image.
             </summary>
         </member>
         <member name="F:BEditor.Primitive.Effects.Blur.SizeMetadata">
@@ -262,10 +262,10 @@
         </member>
         <member name="P:BEditor.Primitive.Effects.Blur.Size">
             <summary>
-            Gets the <see cref="T:BEditor.Core.Data.Property.EaseProperty"/> that represents the blur sigma.
+            Gets the <see cref="T:BEditor.Data.Property.EaseProperty"/> that represents the blur sigma.
             </summary>
         </member>
-        <member name="M:BEditor.Primitive.Effects.Blur.Render(BEditor.Core.Data.EffectRenderArgs{BEditor.Drawing.Image{BEditor.Drawing.Pixel.BGRA32}})">
+        <member name="M:BEditor.Primitive.Effects.Blur.Render(BEditor.Data.EffectRenderArgs{BEditor.Drawing.Image{BEditor.Drawing.Pixel.BGRA32}})">
             <inheritdoc/>
         </member>
         <member name="M:BEditor.Primitive.Effects.Blur.OnLoad">
@@ -276,7 +276,7 @@
         </member>
         <member name="T:BEditor.Primitive.Effects.Border">
             <summary>
-            Represents an <see cref="T:BEditor.Core.Data.Primitive.ImageEffect"/> that adds a border to the image.
+            Represents an <see cref="T:BEditor.Data.Primitive.ImageEffect"/> that adds a border to the image.
             </summary>
         </member>
         <member name="F:BEditor.Primitive.Effects.Border.SizeMetadata">
@@ -302,15 +302,15 @@
         </member>
         <member name="P:BEditor.Primitive.Effects.Border.Size">
             <summary>
-            Get the <see cref="T:BEditor.Core.Data.Property.EaseProperty"/> that represents the size of the edge.
+            Get the <see cref="T:BEditor.Data.Property.EaseProperty"/> that represents the size of the edge.
             </summary>
         </member>
         <member name="P:BEditor.Primitive.Effects.Border.Color">
             <summary>
-            Get the <see cref="T:BEditor.Core.Data.Property.ColorProperty"/> that represents the edge color.
+            Get the <see cref="T:BEditor.Data.Property.ColorProperty"/> that represents the edge color.
             </summary>
         </member>
-        <member name="M:BEditor.Primitive.Effects.Border.Render(BEditor.Core.Data.EffectRenderArgs{BEditor.Drawing.Image{BEditor.Drawing.Pixel.BGRA32}})">
+        <member name="M:BEditor.Primitive.Effects.Border.Render(BEditor.Data.EffectRenderArgs{BEditor.Drawing.Image{BEditor.Drawing.Pixel.BGRA32}})">
             <inheritdoc/>
         </member>
         <member name="M:BEditor.Primitive.Effects.Border.OnLoad">
@@ -321,7 +321,7 @@
         </member>
         <member name="T:BEditor.Primitive.Effects.ChromaKey">
             <summary>
-            Represents an <see cref="T:BEditor.Core.Data.Primitive.ImageEffect"/> that makes the background color of an image transparent.
+            Represents an <see cref="T:BEditor.Data.Primitive.ImageEffect"/> that makes the background color of an image transparent.
             </summary>
         </member>
         <member name="F:BEditor.Primitive.Effects.ChromaKey.ThresholdValueMetadata">
@@ -342,10 +342,10 @@
         </member>
         <member name="P:BEditor.Primitive.Effects.ChromaKey.ThresholdValue">
             <summary>
-            Get the <see cref="T:BEditor.Core.Data.Property.EaseProperty"/> representing the threshold.
+            Get the <see cref="T:BEditor.Data.Property.EaseProperty"/> representing the threshold.
             </summary>
         </member>
-        <member name="M:BEditor.Primitive.Effects.ChromaKey.Render(BEditor.Core.Data.EffectRenderArgs{BEditor.Drawing.Image{BEditor.Drawing.Pixel.BGRA32}})">
+        <member name="M:BEditor.Primitive.Effects.ChromaKey.Render(BEditor.Data.EffectRenderArgs{BEditor.Drawing.Image{BEditor.Drawing.Pixel.BGRA32}})">
             <inheritdoc/>
         </member>
         <member name="M:BEditor.Primitive.Effects.ChromaKey.OnLoad">
@@ -356,7 +356,7 @@
         </member>
         <member name="T:BEditor.Primitive.Effects.CircularGradient">
             <summary>
-            Represents an <see cref="T:BEditor.Core.Data.Primitive.ImageEffect"/> that masks an image with a circular gradient.
+            Represents an <see cref="T:BEditor.Data.Primitive.ImageEffect"/> that masks an image with a circular gradient.
             </summary>
         </member>
         <member name="F:BEditor.Primitive.Effects.CircularGradient.CenterXMetadata">
@@ -402,35 +402,35 @@
         </member>
         <member name="P:BEditor.Primitive.Effects.CircularGradient.CenterX">
             <summary>
-            Get the <see cref="T:BEditor.Core.Data.Property.EaseProperty"/> representing the X coordinate of the center.
+            Get the <see cref="T:BEditor.Data.Property.EaseProperty"/> representing the X coordinate of the center.
             </summary>
         </member>
         <member name="P:BEditor.Primitive.Effects.CircularGradient.CenterY">
             <summary>
-            Get the <see cref="T:BEditor.Core.Data.Property.EaseProperty"/> representing the Y coordinate of the center.
+            Get the <see cref="T:BEditor.Data.Property.EaseProperty"/> representing the Y coordinate of the center.
             </summary>
         </member>
         <member name="P:BEditor.Primitive.Effects.CircularGradient.Radius">
             <summary>
-            Get the <see cref="T:BEditor.Core.Data.Property.EaseProperty"/> representing the radius.
+            Get the <see cref="T:BEditor.Data.Property.EaseProperty"/> representing the radius.
             </summary>
         </member>
         <member name="P:BEditor.Primitive.Effects.CircularGradient.Colors">
             <summary>
-            Get the <see cref="T:BEditor.Core.Data.Property.TextProperty"/> representing the colors.
+            Get the <see cref="T:BEditor.Data.Property.TextProperty"/> representing the colors.
             </summary>
         </member>
         <member name="P:BEditor.Primitive.Effects.CircularGradient.Anchors">
             <summary>
-            Get the <see cref="T:BEditor.Core.Data.Property.TextProperty"/> representing the anchors.
+            Get the <see cref="T:BEditor.Data.Property.TextProperty"/> representing the anchors.
             </summary>
         </member>
         <member name="P:BEditor.Primitive.Effects.CircularGradient.Mode">
             <summary>
-            Get the <see cref="T:BEditor.Core.Data.Property.SelectorProperty"/> that selects the gradient mode.
+            Get the <see cref="T:BEditor.Data.Property.SelectorProperty"/> that selects the gradient mode.
             </summary>
         </member>
-        <member name="M:BEditor.Primitive.Effects.CircularGradient.Render(BEditor.Core.Data.EffectRenderArgs{BEditor.Drawing.Image{BEditor.Drawing.Pixel.BGRA32}})">
+        <member name="M:BEditor.Primitive.Effects.CircularGradient.Render(BEditor.Data.EffectRenderArgs{BEditor.Drawing.Image{BEditor.Drawing.Pixel.BGRA32}})">
             <inheritdoc/>
         </member>
         <member name="M:BEditor.Primitive.Effects.CircularGradient.OnLoad">
@@ -441,7 +441,7 @@
         </member>
         <member name="T:BEditor.Primitive.Effects.Clipping">
             <summary>
-            Represents an <see cref="T:BEditor.Core.Data.Primitive.ImageEffect"/> that cripping the image.
+            Represents an <see cref="T:BEditor.Data.Primitive.ImageEffect"/> that cripping the image.
             </summary>
         </member>
         <member name="F:BEditor.Primitive.Effects.Clipping.TopMetadata">
@@ -482,30 +482,30 @@
         </member>
         <member name="P:BEditor.Primitive.Effects.Clipping.Top">
             <summary>
-            Get the <see cref="T:BEditor.Core.Data.Property.EaseProperty"/> that represents the range to be clipped.
+            Get the <see cref="T:BEditor.Data.Property.EaseProperty"/> that represents the range to be clipped.
             </summary>
         </member>
         <member name="P:BEditor.Primitive.Effects.Clipping.Bottom">
             <summary>
-            Get the <see cref="T:BEditor.Core.Data.Property.EaseProperty"/> that represents the range to be clipped.
+            Get the <see cref="T:BEditor.Data.Property.EaseProperty"/> that represents the range to be clipped.
             </summary>
         </member>
         <member name="P:BEditor.Primitive.Effects.Clipping.Left">
             <summary>
-            Get the <see cref="T:BEditor.Core.Data.Property.EaseProperty"/> that represents the range to be clipped.
+            Get the <see cref="T:BEditor.Data.Property.EaseProperty"/> that represents the range to be clipped.
             </summary>
         </member>
         <member name="P:BEditor.Primitive.Effects.Clipping.Right">
             <summary>
-            Get the <see cref="T:BEditor.Core.Data.Property.EaseProperty"/> that represents the range to be clipped.
+            Get the <see cref="T:BEditor.Data.Property.EaseProperty"/> that represents the range to be clipped.
             </summary>
         </member>
         <member name="P:BEditor.Primitive.Effects.Clipping.AdjustCoordinates">
             <summary>
-            Gets a <see cref="T:BEditor.Core.Data.Property.CheckProperty"/> that indicates whether the coordinates should be adjusted or not.
+            Gets a <see cref="T:BEditor.Data.Property.CheckProperty"/> that indicates whether the coordinates should be adjusted or not.
             </summary>
         </member>
-        <member name="M:BEditor.Primitive.Effects.Clipping.Render(BEditor.Core.Data.EffectRenderArgs{BEditor.Drawing.Image{BEditor.Drawing.Pixel.BGRA32}})">
+        <member name="M:BEditor.Primitive.Effects.Clipping.Render(BEditor.Data.EffectRenderArgs{BEditor.Drawing.Image{BEditor.Drawing.Pixel.BGRA32}})">
             <inheritdoc/>
         </member>
         <member name="M:BEditor.Primitive.Effects.Clipping.OnLoad">
@@ -542,15 +542,15 @@
         </member>
         <member name="P:BEditor.Primitive.Effects.ColorKey.Color">
             <summary>
-            Gets the <see cref="T:BEditor.Core.Data.Property.ColorProperty"/> representing the key color.
+            Gets the <see cref="T:BEditor.Data.Property.ColorProperty"/> representing the key color.
             </summary>
         </member>
         <member name="P:BEditor.Primitive.Effects.ColorKey.ThresholdValue">
             <summary>
-            Get the <see cref="T:BEditor.Core.Data.Property.EaseProperty"/> representing the threshold.
+            Get the <see cref="T:BEditor.Data.Property.EaseProperty"/> representing the threshold.
             </summary>
         </member>
-        <member name="M:BEditor.Primitive.Effects.ColorKey.Render(BEditor.Core.Data.EffectRenderArgs{BEditor.Drawing.Image{BEditor.Drawing.Pixel.BGRA32}})">
+        <member name="M:BEditor.Primitive.Effects.ColorKey.Render(BEditor.Data.EffectRenderArgs{BEditor.Drawing.Image{BEditor.Drawing.Pixel.BGRA32}})">
             <inheritdoc/>
         </member>
         <member name="M:BEditor.Primitive.Effects.ColorKey.OnLoad">
@@ -561,7 +561,7 @@
         </member>
         <member name="T:BEditor.Primitive.Effects.Dilate">
             <summary>
-            Represents an <see cref="T:BEditor.Core.Data.Primitive.ImageEffect"/> that dilates an image.
+            Represents an <see cref="T:BEditor.Data.Primitive.ImageEffect"/> that dilates an image.
             </summary>
         </member>
         <member name="F:BEditor.Primitive.Effects.Dilate.RadiusMetadata">
@@ -587,15 +587,15 @@
         </member>
         <member name="P:BEditor.Primitive.Effects.Dilate.Radius">
             <summary>
-            Get the <see cref="T:BEditor.Core.Data.Property.EaseProperty"/> representing the radius.
+            Get the <see cref="T:BEditor.Data.Property.EaseProperty"/> representing the radius.
             </summary>
         </member>
         <member name="P:BEditor.Primitive.Effects.Dilate.Resize">
             <summary>
-            Gets a <see cref="T:BEditor.Core.Data.Property.CheckProperty"/> representing the value to resize the image.
+            Gets a <see cref="T:BEditor.Data.Property.CheckProperty"/> representing the value to resize the image.
             </summary>
         </member>
-        <member name="M:BEditor.Primitive.Effects.Dilate.Render(BEditor.Core.Data.EffectRenderArgs{BEditor.Drawing.Image{BEditor.Drawing.Pixel.BGRA32}})">
+        <member name="M:BEditor.Primitive.Effects.Dilate.Render(BEditor.Data.EffectRenderArgs{BEditor.Drawing.Image{BEditor.Drawing.Pixel.BGRA32}})">
             <inheritdoc/>
         </member>
         <member name="M:BEditor.Primitive.Effects.Dilate.OnLoad">
@@ -606,7 +606,7 @@
         </member>
         <member name="T:BEditor.Primitive.Effects.Erode">
             <summary>
-            Represents an <see cref="T:BEditor.Core.Data.Primitive.ImageEffect"/> that erodes an image.
+            Represents an <see cref="T:BEditor.Data.Primitive.ImageEffect"/> that erodes an image.
             </summary>
         </member>
         <member name="M:BEditor.Primitive.Effects.Erode.#ctor">
@@ -622,15 +622,15 @@
         </member>
         <member name="P:BEditor.Primitive.Effects.Erode.Radius">
             <summary>
-            Get the <see cref="T:BEditor.Core.Data.Property.EaseProperty"/> representing the radius.
+            Get the <see cref="T:BEditor.Data.Property.EaseProperty"/> representing the radius.
             </summary>
         </member>
         <member name="P:BEditor.Primitive.Effects.Erode.Resize">
             <summary>
-            Gets a <see cref="T:BEditor.Core.Data.Property.CheckProperty"/> representing the value to resize the image.
+            Gets a <see cref="T:BEditor.Data.Property.CheckProperty"/> representing the value to resize the image.
             </summary>
         </member>
-        <member name="M:BEditor.Primitive.Effects.Erode.Render(BEditor.Core.Data.EffectRenderArgs{BEditor.Drawing.Image{BEditor.Drawing.Pixel.BGRA32}})">
+        <member name="M:BEditor.Primitive.Effects.Erode.Render(BEditor.Data.EffectRenderArgs{BEditor.Drawing.Image{BEditor.Drawing.Pixel.BGRA32}})">
             <inheritdoc/>
         </member>
         <member name="M:BEditor.Primitive.Effects.Erode.OnLoad">
@@ -641,7 +641,7 @@
         </member>
         <member name="T:BEditor.Primitive.Effects.ImageSplit">
             <summary>
-            Represents a <see cref="T:BEditor.Core.Data.Primitive.ImageEffect"/> that splits an image.
+            Represents a <see cref="T:BEditor.Data.Primitive.ImageEffect"/> that splits an image.
             </summary>
         </member>
         <member name="F:BEditor.Primitive.Effects.ImageSplit.HSplitMetadata">
@@ -667,18 +667,18 @@
         </member>
         <member name="P:BEditor.Primitive.Effects.ImageSplit.HSplit">
             <summary>
-            Get the <see cref="T:BEditor.Core.Data.Property.EaseProperty"/> that represents the number of horizontal divisions.
+            Get the <see cref="T:BEditor.Data.Property.EaseProperty"/> that represents the number of horizontal divisions.
             </summary>
         </member>
         <member name="P:BEditor.Primitive.Effects.ImageSplit.VSplit">
             <summary>
-            Get the <see cref="T:BEditor.Core.Data.Property.EaseProperty"/> that represents the number of vertical divisions.
+            Get the <see cref="T:BEditor.Data.Property.EaseProperty"/> that represents the number of vertical divisions.
             </summary>
         </member>
-        <member name="M:BEditor.Primitive.Effects.ImageSplit.Render(BEditor.Core.Data.EffectRenderArgs{System.Collections.Generic.IEnumerable{BEditor.Graphics.ImageInfo}})">
+        <member name="M:BEditor.Primitive.Effects.ImageSplit.Render(BEditor.Data.EffectRenderArgs{System.Collections.Generic.IEnumerable{BEditor.Graphics.ImageInfo}})">
             <inheritdoc/>
         </member>
-        <member name="M:BEditor.Primitive.Effects.ImageSplit.Render(BEditor.Core.Data.EffectRenderArgs{BEditor.Drawing.Image{BEditor.Drawing.Pixel.BGRA32}})">
+        <member name="M:BEditor.Primitive.Effects.ImageSplit.Render(BEditor.Data.EffectRenderArgs{BEditor.Drawing.Image{BEditor.Drawing.Pixel.BGRA32}})">
             <inheritdoc/>
         </member>
         <member name="M:BEditor.Primitive.Effects.ImageSplit.OnLoad">
@@ -689,7 +689,7 @@
         </member>
         <member name="T:BEditor.Primitive.Effects.LinearGradient">
             <summary>
-            Represents an <see cref="T:BEditor.Core.Data.Primitive.ImageEffect"/> that masks an image with a linear gradient.
+            Represents an <see cref="T:BEditor.Data.Primitive.ImageEffect"/> that masks an image with a linear gradient.
             </summary>
         </member>
         <member name="F:BEditor.Primitive.Effects.LinearGradient.StartXMetadata">
@@ -740,40 +740,40 @@
         </member>
         <member name="P:BEditor.Primitive.Effects.LinearGradient.StartX">
             <summary>
-            Get the <see cref="T:BEditor.Core.Data.Property.EaseProperty"/> that represents the start position of the X axis.
+            Get the <see cref="T:BEditor.Data.Property.EaseProperty"/> that represents the start position of the X axis.
             </summary>
         </member>
         <member name="P:BEditor.Primitive.Effects.LinearGradient.StartY">
             <summary>
-            Get the <see cref="T:BEditor.Core.Data.Property.EaseProperty"/> that represents the start position of the Y axis.
+            Get the <see cref="T:BEditor.Data.Property.EaseProperty"/> that represents the start position of the Y axis.
             </summary>
         </member>
         <member name="P:BEditor.Primitive.Effects.LinearGradient.EndX">
             <summary>
-            Get the <see cref="T:BEditor.Core.Data.Property.EaseProperty"/> that represents the end position of the X axis.
+            Get the <see cref="T:BEditor.Data.Property.EaseProperty"/> that represents the end position of the X axis.
             </summary>
         </member>
         <member name="P:BEditor.Primitive.Effects.LinearGradient.EndY">
             <summary>
-            Get the <see cref="T:BEditor.Core.Data.Property.EaseProperty"/> that represents the end position of the Y axis.
+            Get the <see cref="T:BEditor.Data.Property.EaseProperty"/> that represents the end position of the Y axis.
             </summary>
         </member>
         <member name="P:BEditor.Primitive.Effects.LinearGradient.Colors">
             <summary>
-            Get the <see cref="T:BEditor.Core.Data.Property.TextProperty"/> representing the colors.
+            Get the <see cref="T:BEditor.Data.Property.TextProperty"/> representing the colors.
             </summary>
         </member>
         <member name="P:BEditor.Primitive.Effects.LinearGradient.Anchors">
             <summary>
-            Get the <see cref="T:BEditor.Core.Data.Property.TextProperty"/> representing the anchors.
+            Get the <see cref="T:BEditor.Data.Property.TextProperty"/> representing the anchors.
             </summary>
         </member>
         <member name="P:BEditor.Primitive.Effects.LinearGradient.Mode">
             <summary>
-            Get the <see cref="T:BEditor.Core.Data.Property.SelectorProperty"/> that selects the gradient mode.
+            Get the <see cref="T:BEditor.Data.Property.SelectorProperty"/> that selects the gradient mode.
             </summary>
         </member>
-        <member name="M:BEditor.Primitive.Effects.LinearGradient.Render(BEditor.Core.Data.EffectRenderArgs{BEditor.Drawing.Image{BEditor.Drawing.Pixel.BGRA32}})">
+        <member name="M:BEditor.Primitive.Effects.LinearGradient.Render(BEditor.Data.EffectRenderArgs{BEditor.Drawing.Image{BEditor.Drawing.Pixel.BGRA32}})">
             <inheritdoc/>
         </member>
         <member name="M:BEditor.Primitive.Effects.LinearGradient.OnLoad">
@@ -784,7 +784,7 @@
         </member>
         <member name="T:BEditor.Primitive.Effects.Mask">
             <summary>
-            Represents an <see cref="T:BEditor.Core.Data.Primitive.ImageEffect"/> that masks an image with another <see cref="T:BEditor.Core.Data.Primitive.ImageObject"/>.
+            Represents an <see cref="T:BEditor.Data.Primitive.ImageEffect"/> that masks an image with another <see cref="T:BEditor.Data.Primitive.ImageObject"/>.
             </summary>
         </member>
         <member name="F:BEditor.Primitive.Effects.Mask.XMetadata">
@@ -840,45 +840,45 @@
         </member>
         <member name="P:BEditor.Primitive.Effects.Mask.X">
             <summary>
-            Get the <see cref="T:BEditor.Core.Data.Property.EaseProperty"/> representing the X coordinate.
+            Get the <see cref="T:BEditor.Data.Property.EaseProperty"/> representing the X coordinate.
             </summary>
         </member>
         <member name="P:BEditor.Primitive.Effects.Mask.Y">
             <summary>
-            Get the <see cref="T:BEditor.Core.Data.Property.EaseProperty"/> representing the Y coordinate.
+            Get the <see cref="T:BEditor.Data.Property.EaseProperty"/> representing the Y coordinate.
             </summary>
         </member>
         <member name="P:BEditor.Primitive.Effects.Mask.Rotate">
             <summary>
-            Get the <see cref="T:BEditor.Core.Data.Property.EaseProperty"/> of the angle.
+            Get the <see cref="T:BEditor.Data.Property.EaseProperty"/> of the angle.
             </summary>
         </member>
         <member name="P:BEditor.Primitive.Effects.Mask.Width">
             <summary>
-            Get the <see cref="T:BEditor.Core.Data.Property.EaseProperty"/> that represents the width of the mask.
+            Get the <see cref="T:BEditor.Data.Property.EaseProperty"/> that represents the width of the mask.
             </summary>
         </member>
         <member name="P:BEditor.Primitive.Effects.Mask.Height">
             <summary>
-            Get the <see cref="T:BEditor.Core.Data.Property.EaseProperty"/> that represents the height of the mask.
+            Get the <see cref="T:BEditor.Data.Property.EaseProperty"/> that represents the height of the mask.
             </summary>
         </member>
         <member name="P:BEditor.Primitive.Effects.Mask.Image">
             <summary>
-            Gets the <see cref="T:BEditor.Core.Data.Property.TextProperty"/> that specifies the image object to be referenced.
+            Gets the <see cref="T:BEditor.Data.Property.TextProperty"/> that specifies the image object to be referenced.
             </summary>
         </member>
         <member name="P:BEditor.Primitive.Effects.Mask.InvertMask">
             <summary>
-            Get a <see cref="T:BEditor.Core.Data.Property.CheckProperty"/> indicating whether or not to invert the mask.
+            Get a <see cref="T:BEditor.Data.Property.CheckProperty"/> indicating whether or not to invert the mask.
             </summary>
         </member>
         <member name="P:BEditor.Primitive.Effects.Mask.FitSize">
             <summary>
-            Gets a <see cref="T:BEditor.Core.Data.Property.CheckProperty"/> indicating whether or not the mask should be fit to the original image size.
+            Gets a <see cref="T:BEditor.Data.Property.CheckProperty"/> indicating whether or not the mask should be fit to the original image size.
             </summary>
         </member>
-        <member name="M:BEditor.Primitive.Effects.Mask.Render(BEditor.Core.Data.EffectRenderArgs{BEditor.Drawing.Image{BEditor.Drawing.Pixel.BGRA32}})">
+        <member name="M:BEditor.Primitive.Effects.Mask.Render(BEditor.Data.EffectRenderArgs{BEditor.Drawing.Image{BEditor.Drawing.Pixel.BGRA32}})">
             <inheritdoc/>
         </member>
         <member name="M:BEditor.Primitive.Effects.Mask.OnLoad">
@@ -889,7 +889,7 @@
         </member>
         <member name="T:BEditor.Primitive.Effects.Monoc">
             <summary>
-            Represents an <see cref="T:BEditor.Core.Data.Primitive.ImageEffect"/> that monochromatizes an image.
+            Represents an <see cref="T:BEditor.Data.Primitive.ImageEffect"/> that monochromatizes an image.
             </summary>
         </member>
         <member name="F:BEditor.Primitive.Effects.Monoc.ColorMetadata">
@@ -910,10 +910,10 @@
         </member>
         <member name="P:BEditor.Primitive.Effects.Monoc.Color">
             <summary>
-            Get the <see cref="T:BEditor.Core.Data.Property.ColorProperty"/> that represents the color to be monochromatic.
+            Get the <see cref="T:BEditor.Data.Property.ColorProperty"/> that represents the color to be monochromatic.
             </summary>
         </member>
-        <member name="M:BEditor.Primitive.Effects.Monoc.Render(BEditor.Core.Data.EffectRenderArgs{BEditor.Drawing.Image{BEditor.Drawing.Pixel.BGRA32}})">
+        <member name="M:BEditor.Primitive.Effects.Monoc.Render(BEditor.Data.EffectRenderArgs{BEditor.Drawing.Image{BEditor.Drawing.Pixel.BGRA32}})">
             <inheritdoc/>
         </member>
         <member name="M:BEditor.Primitive.Effects.Monoc.OnLoad">
@@ -924,7 +924,7 @@
         </member>
         <member name="T:BEditor.Primitive.Effects.MultipleControls">
             <summary>
-            Represents a <see cref="T:BEditor.Core.Data.Primitive.ImageEffect"/> that provides the ability to edit multiple objects by specifying their indices.
+            Represents a <see cref="T:BEditor.Data.Primitive.ImageEffect"/> that provides the ability to edit multiple objects by specifying their indices.
             </summary>
         </member>
         <member name="F:BEditor.Primitive.Effects.MultipleControls.CoordinateMetadata">
@@ -975,13 +975,13 @@
         </member>
         <member name="P:BEditor.Primitive.Effects.MultipleControls.Index">
             <summary>
-            Gets the <see cref="T:BEditor.Core.Data.Property.ValueProperty"/> representing the index of the image to be controlled.
+            Gets the <see cref="T:BEditor.Data.Property.ValueProperty"/> representing the index of the image to be controlled.
             </summary>
         </member>
-        <member name="M:BEditor.Primitive.Effects.MultipleControls.Render(BEditor.Core.Data.EffectRenderArgs{System.Collections.Generic.IEnumerable{BEditor.Graphics.ImageInfo}})">
+        <member name="M:BEditor.Primitive.Effects.MultipleControls.Render(BEditor.Data.EffectRenderArgs{System.Collections.Generic.IEnumerable{BEditor.Graphics.ImageInfo}})">
             <inheritdoc/>
         </member>
-        <member name="M:BEditor.Primitive.Effects.MultipleControls.Render(BEditor.Core.Data.EffectRenderArgs{BEditor.Drawing.Image{BEditor.Drawing.Pixel.BGRA32}})">
+        <member name="M:BEditor.Primitive.Effects.MultipleControls.Render(BEditor.Data.EffectRenderArgs{BEditor.Drawing.Image{BEditor.Drawing.Pixel.BGRA32}})">
             <inheritdoc/>
         </member>
         <member name="M:BEditor.Primitive.Effects.MultipleControls.OnLoad">
@@ -992,7 +992,7 @@
         </member>
         <member name="T:BEditor.Primitive.Effects.Shadow">
             <summary>
-            Represents an <see cref="T:BEditor.Core.Data.Primitive.ImageEffect"/> that adds a shadow to an image.
+            Represents an <see cref="T:BEditor.Data.Primitive.ImageEffect"/> that adds a shadow to an image.
             </summary>
         </member>
         <member name="F:BEditor.Primitive.Effects.Shadow.XMetadata">
@@ -1033,30 +1033,30 @@
         </member>
         <member name="P:BEditor.Primitive.Effects.Shadow.X">
             <summary>
-            Get the <see cref="T:BEditor.Core.Data.Property.EaseProperty"/> representing the X coordinate.
+            Get the <see cref="T:BEditor.Data.Property.EaseProperty"/> representing the X coordinate.
             </summary>
         </member>
         <member name="P:BEditor.Primitive.Effects.Shadow.Y">
             <summary>
-            Get the <see cref="T:BEditor.Core.Data.Property.EaseProperty"/> representing the Y coordinate.
+            Get the <see cref="T:BEditor.Data.Property.EaseProperty"/> representing the Y coordinate.
             </summary>
         </member>
         <member name="P:BEditor.Primitive.Effects.Shadow.Blur">
             <summary>
-            Gets the <see cref="T:BEditor.Core.Data.Property.EaseProperty"/> that represents the blur sigma.
+            Gets the <see cref="T:BEditor.Data.Property.EaseProperty"/> that represents the blur sigma.
             </summary>
         </member>
         <member name="P:BEditor.Primitive.Effects.Shadow.Alpha">
             <summary>
-            Gets the <see cref="T:BEditor.Core.Data.Property.EaseProperty"/> that represents the transparency.
+            Gets the <see cref="T:BEditor.Data.Property.EaseProperty"/> that represents the transparency.
             </summary>
         </member>
         <member name="P:BEditor.Primitive.Effects.Shadow.Color">
             <summary>
-            Get the <see cref="T:BEditor.Core.Data.Property.ColorProperty"/> that represents the shadow color.
+            Get the <see cref="T:BEditor.Data.Property.ColorProperty"/> that represents the shadow color.
             </summary>
         </member>
-        <member name="M:BEditor.Primitive.Effects.Shadow.Render(BEditor.Core.Data.EffectRenderArgs{BEditor.Drawing.Image{BEditor.Drawing.Pixel.BGRA32}})">
+        <member name="M:BEditor.Primitive.Effects.Shadow.Render(BEditor.Data.EffectRenderArgs{BEditor.Drawing.Image{BEditor.Drawing.Pixel.BGRA32}})">
             <inheritdoc/>
         </member>
         <member name="M:BEditor.Primitive.Effects.Shadow.OnLoad">
@@ -1067,7 +1067,7 @@
         </member>
         <member name="T:BEditor.Primitive.Effects.SpotLight">
             <summary>
-            Represents an <see cref="T:BEditor.Core.Data.EffectElement"/> that sets the OpenGL spotlight.
+            Represents an <see cref="T:BEditor.Data.EffectElement"/> that sets the OpenGL spotlight.
             </summary>
         </member>
         <member name="P:BEditor.Primitive.Effects.SpotLight.Name">
@@ -1076,12 +1076,12 @@
         <member name="P:BEditor.Primitive.Effects.SpotLight.Properties">
             <inheritdoc/>
         </member>
-        <member name="M:BEditor.Primitive.Effects.SpotLight.Render(BEditor.Core.Data.EffectRenderArgs)">
+        <member name="M:BEditor.Primitive.Effects.SpotLight.Render(BEditor.Data.EffectRenderArgs)">
             <inheritdoc/>
         </member>
         <member name="T:BEditor.Primitive.Objects.AudioObject">
             <summary>
-            Represents an <see cref="T:BEditor.Core.Data.ObjectElement"/> that references an audio file.
+            Represents an <see cref="T:BEditor.Data.ObjectElement"/> that references an audio file.
             </summary>
         </member>
         <member name="F:BEditor.Primitive.Objects.AudioObject.FileMetadata">
@@ -1112,20 +1112,20 @@
         </member>
         <member name="P:BEditor.Primitive.Objects.AudioObject.File">
             <summary>
-            Get the <see cref="T:BEditor.Core.Data.Property.FileProperty"/> to select the file to reference.
+            Get the <see cref="T:BEditor.Data.Property.FileProperty"/> to select the file to reference.
             </summary>
         </member>
         <member name="P:BEditor.Primitive.Objects.AudioObject.Volume">
             <summary>
-            Get the <see cref="T:BEditor.Core.Data.Property.EaseProperty"/> representing the volume.
+            Get the <see cref="T:BEditor.Data.Property.EaseProperty"/> representing the volume.
             </summary>
         </member>
         <member name="P:BEditor.Primitive.Objects.AudioObject.Start">
             <summary>
-            Get the <see cref="T:BEditor.Core.Data.Property.EaseProperty"/> that represents the start position.
+            Get the <see cref="T:BEditor.Data.Property.EaseProperty"/> that represents the start position.
             </summary>
         </member>
-        <member name="M:BEditor.Primitive.Objects.AudioObject.Render(BEditor.Core.Data.EffectRenderArgs)">
+        <member name="M:BEditor.Primitive.Objects.AudioObject.Render(BEditor.Data.EffectRenderArgs)">
             <inheritdoc/>
         </member>
         <member name="M:BEditor.Primitive.Objects.AudioObject.OnLoad">
@@ -1136,7 +1136,7 @@
         </member>
         <member name="T:BEditor.Primitive.Objects.CameraObject">
             <summary>
-            Represents an <see cref="T:BEditor.Core.Data.ObjectElement"/> that sets the camera for OpenGL.
+            Represents an <see cref="T:BEditor.Data.ObjectElement"/> that sets the camera for OpenGL.
             </summary>
         </member>
         <member name="F:BEditor.Primitive.Objects.CameraObject.XMetadata">
@@ -1207,60 +1207,60 @@
         </member>
         <member name="P:BEditor.Primitive.Objects.CameraObject.X">
             <summary>
-            Gets the <see cref="T:BEditor.Core.Data.Property.EaseProperty"/> representing the X coordinate of the camera.
+            Gets the <see cref="T:BEditor.Data.Property.EaseProperty"/> representing the X coordinate of the camera.
             </summary>
         </member>
         <member name="P:BEditor.Primitive.Objects.CameraObject.Y">
             <summary>
-            Gets the <see cref="T:BEditor.Core.Data.Property.EaseProperty"/> representing the Y coordinate of the camera.
+            Gets the <see cref="T:BEditor.Data.Property.EaseProperty"/> representing the Y coordinate of the camera.
             </summary>
         </member>
         <member name="P:BEditor.Primitive.Objects.CameraObject.Z">
             <summary>
-            Gets the <see cref="T:BEditor.Core.Data.Property.EaseProperty"/> representing the Z coordinate of the camera.
+            Gets the <see cref="T:BEditor.Data.Property.EaseProperty"/> representing the Z coordinate of the camera.
             </summary>
         </member>
         <member name="P:BEditor.Primitive.Objects.CameraObject.TargetX">
             <summary>
-            Get the <see cref="T:BEditor.Core.Data.Property.EaseProperty"/> that represents the X coordinate of the camera's target position.
+            Get the <see cref="T:BEditor.Data.Property.EaseProperty"/> that represents the X coordinate of the camera's target position.
             </summary>
         </member>
         <member name="P:BEditor.Primitive.Objects.CameraObject.TargetY">
             <summary>
-            Get the <see cref="T:BEditor.Core.Data.Property.EaseProperty"/> that represents the Y coordinate of the camera's target position.
+            Get the <see cref="T:BEditor.Data.Property.EaseProperty"/> that represents the Y coordinate of the camera's target position.
             </summary>
         </member>
         <member name="P:BEditor.Primitive.Objects.CameraObject.TargetZ">
             <summary>
-            Get the <see cref="T:BEditor.Core.Data.Property.EaseProperty"/> that represents the Z coordinate of the camera's target position.
+            Get the <see cref="T:BEditor.Data.Property.EaseProperty"/> that represents the Z coordinate of the camera's target position.
             </summary>
         </member>
         <member name="P:BEditor.Primitive.Objects.CameraObject.ZNear">
             <summary>
-            Get the <see cref="T:BEditor.Core.Data.Property.EaseProperty"/> of the area to be drawn by the camera.
+            Get the <see cref="T:BEditor.Data.Property.EaseProperty"/> of the area to be drawn by the camera.
             </summary>
         </member>
         <member name="P:BEditor.Primitive.Objects.CameraObject.ZFar">
             <summary>
-            Get the <see cref="T:BEditor.Core.Data.Property.EaseProperty"/> of the area to be drawn by the camera.
+            Get the <see cref="T:BEditor.Data.Property.EaseProperty"/> of the area to be drawn by the camera.
             </summary>
         </member>
         <member name="P:BEditor.Primitive.Objects.CameraObject.Angle">
             <summary>
-            Get the <see cref="T:BEditor.Core.Data.Property.EaseProperty"/> representing the camera angle.
+            Get the <see cref="T:BEditor.Data.Property.EaseProperty"/> representing the camera angle.
             </summary>
         </member>
         <member name="P:BEditor.Primitive.Objects.CameraObject.Fov">
             <summary>
-            Get the <see cref="T:BEditor.Core.Data.Property.EaseProperty"/> representing the camera fov.
+            Get the <see cref="T:BEditor.Data.Property.EaseProperty"/> representing the camera fov.
             </summary>
         </member>
         <member name="P:BEditor.Primitive.Objects.CameraObject.Mode">
             <summary>
-            Gets the <see cref="T:BEditor.Core.Data.Property.CheckProperty"/> representing whether the camera is Perspective or not.
+            Gets the <see cref="T:BEditor.Data.Property.CheckProperty"/> representing whether the camera is Perspective or not.
             </summary>
         </member>
-        <member name="M:BEditor.Primitive.Objects.CameraObject.Render(BEditor.Core.Data.EffectRenderArgs)">
+        <member name="M:BEditor.Primitive.Objects.CameraObject.Render(BEditor.Data.EffectRenderArgs)">
             <inheritdoc/>
         </member>
         <member name="M:BEditor.Primitive.Objects.CameraObject.OnLoad">
@@ -1271,7 +1271,7 @@
         </member>
         <member name="T:BEditor.Primitive.Objects.GL3DObject">
             <summary>
-            Represents an <see cref="T:BEditor.Core.Data.ObjectElement"/> that draws a Cube, Ball, etc.
+            Represents an <see cref="T:BEditor.Data.ObjectElement"/> that draws a Cube, Ball, etc.
             </summary>
         </member>
         <member name="F:BEditor.Primitive.Objects.GL3DObject.TypeMetadata">
@@ -1322,25 +1322,25 @@
         </member>
         <member name="P:BEditor.Primitive.Objects.GL3DObject.Type">
             <summary>
-            Get the <see cref="T:BEditor.Core.Data.Property.SelectorProperty"/> to select the object type.
+            Get the <see cref="T:BEditor.Data.Property.SelectorProperty"/> to select the object type.
             </summary>
         </member>
         <member name="P:BEditor.Primitive.Objects.GL3DObject.Width">
             <summary>
-            Gets the <see cref="T:BEditor.Core.Data.Property.EaseProperty"/> representing the width of the object.
+            Gets the <see cref="T:BEditor.Data.Property.EaseProperty"/> representing the width of the object.
             </summary>
         </member>
         <member name="P:BEditor.Primitive.Objects.GL3DObject.Height">
             <summary>
-            Gets the <see cref="T:BEditor.Core.Data.Property.EaseProperty"/> representing the height of the object.
+            Gets the <see cref="T:BEditor.Data.Property.EaseProperty"/> representing the height of the object.
             </summary>
         </member>
         <member name="P:BEditor.Primitive.Objects.GL3DObject.Depth">
             <summary>
-            Gets the <see cref="T:BEditor.Core.Data.Property.EaseProperty"/> representing the depth of the object.
+            Gets the <see cref="T:BEditor.Data.Property.EaseProperty"/> representing the depth of the object.
             </summary>
         </member>
-        <member name="M:BEditor.Primitive.Objects.GL3DObject.Render(BEditor.Core.Data.EffectRenderArgs)">
+        <member name="M:BEditor.Primitive.Objects.GL3DObject.Render(BEditor.Data.EffectRenderArgs)">
             <inheritdoc/>
         </member>
         <member name="M:BEditor.Primitive.Objects.GL3DObject.OnLoad">
@@ -1351,7 +1351,7 @@
         </member>
         <member name="T:BEditor.Primitive.Objects.Figure">
             <summary>
-            Represents an <see cref="T:BEditor.Core.Data.Primitive.ImageObject"/> to draw a shape.
+            Represents an <see cref="T:BEditor.Data.Primitive.ImageObject"/> to draw a shape.
             </summary>
         </member>
         <member name="F:BEditor.Primitive.Objects.Figure.WidthMetadata">
@@ -1392,30 +1392,30 @@
         </member>
         <member name="P:BEditor.Primitive.Objects.Figure.Width">
             <summary>
-            Get the <see cref="T:BEditor.Core.Data.Property.EaseProperty"/> that represents the width of the shape.
+            Get the <see cref="T:BEditor.Data.Property.EaseProperty"/> that represents the width of the shape.
             </summary>
         </member>
         <member name="P:BEditor.Primitive.Objects.Figure.Height">
             <summary>
-            Get the <see cref="T:BEditor.Core.Data.Property.EaseProperty"/> that represents the height of the shape.
+            Get the <see cref="T:BEditor.Data.Property.EaseProperty"/> that represents the height of the shape.
             </summary>
         </member>
         <member name="P:BEditor.Primitive.Objects.Figure.Line">
             <summary>
-            Get the <see cref="T:BEditor.Core.Data.Property.EaseProperty"/> that represents the line width of the shape.
+            Get the <see cref="T:BEditor.Data.Property.EaseProperty"/> that represents the line width of the shape.
             </summary>
         </member>
         <member name="P:BEditor.Primitive.Objects.Figure.Color">
             <summary>
-            Get the <see cref="T:BEditor.Core.Data.Property.ColorProperty"/> that represents the color of the shape.
+            Get the <see cref="T:BEditor.Data.Property.ColorProperty"/> that represents the color of the shape.
             </summary>
         </member>
         <member name="P:BEditor.Primitive.Objects.Figure.Type">
             <summary>
-            Get the <see cref="T:BEditor.Core.Data.Property.SelectorProperty"/> to select the type of the shape.
+            Get the <see cref="T:BEditor.Data.Property.SelectorProperty"/> to select the type of the shape.
             </summary>
         </member>
-        <member name="M:BEditor.Primitive.Objects.Figure.OnRender(BEditor.Core.Data.EffectRenderArgs)">
+        <member name="M:BEditor.Primitive.Objects.Figure.OnRender(BEditor.Data.EffectRenderArgs)">
             <inheritdoc/>
         </member>
         <member name="M:BEditor.Primitive.Objects.Figure.OnLoad">
@@ -1426,7 +1426,7 @@
         </member>
         <member name="T:BEditor.Primitive.Objects.ImageFile">
             <summary>
-            Represents an <see cref="T:BEditor.Core.Data.Primitive.ImageObject"/> that references an image file.
+            Represents an <see cref="T:BEditor.Data.Primitive.ImageObject"/> that references an image file.
             </summary>
         </member>
         <member name="F:BEditor.Primitive.Objects.ImageFile.FileMetadata">
@@ -1447,10 +1447,10 @@
         </member>
         <member name="P:BEditor.Primitive.Objects.ImageFile.File">
             <summary>
-            Get the <see cref="T:BEditor.Core.Data.Property.FileProperty"/> to select the image file to reference.
+            Get the <see cref="T:BEditor.Data.Property.FileProperty"/> to select the image file to reference.
             </summary>
         </member>
-        <member name="M:BEditor.Primitive.Objects.ImageFile.OnRender(BEditor.Core.Data.EffectRenderArgs)">
+        <member name="M:BEditor.Primitive.Objects.ImageFile.OnRender(BEditor.Data.EffectRenderArgs)">
             <inheritdoc/>
         </member>
         <member name="M:BEditor.Primitive.Objects.ImageFile.OnLoad">
@@ -1461,7 +1461,7 @@
         </member>
         <member name="T:BEditor.Primitive.Objects.Polygon">
             <summary>
-            Get an <see cref="T:BEditor.Core.Data.Primitive.ImageObject"/> to draw a polygon.
+            Get an <see cref="T:BEditor.Data.Primitive.ImageObject"/> to draw a polygon.
             </summary>
         </member>
         <member name="F:BEditor.Primitive.Objects.Polygon.NumberMetadata">
@@ -1482,25 +1482,25 @@
         </member>
         <member name="P:BEditor.Primitive.Objects.Polygon.Width">
             <summary>
-            Get the <see cref="T:BEditor.Core.Data.Property.EaseProperty"/> that represents the width of the polygon.
+            Get the <see cref="T:BEditor.Data.Property.EaseProperty"/> that represents the width of the polygon.
             </summary>
         </member>
         <member name="P:BEditor.Primitive.Objects.Polygon.Height">
             <summary>
-            Get the <see cref="T:BEditor.Core.Data.Property.EaseProperty"/> that represents the height of the polygon.
+            Get the <see cref="T:BEditor.Data.Property.EaseProperty"/> that represents the height of the polygon.
             </summary>
         </member>
         <member name="P:BEditor.Primitive.Objects.Polygon.Number">
             <summary>
-            Gets the <see cref="T:BEditor.Core.Data.Property.ValueProperty"/> representing the number of corners of a polygon.
+            Gets the <see cref="T:BEditor.Data.Property.ValueProperty"/> representing the number of corners of a polygon.
             </summary>
         </member>
         <member name="P:BEditor.Primitive.Objects.Polygon.Color">
             <summary>
-            Get the <see cref="T:BEditor.Core.Data.Property.ColorProperty"/> that represents the color of the polygon.
+            Get the <see cref="T:BEditor.Data.Property.ColorProperty"/> that represents the color of the polygon.
             </summary>
         </member>
-        <member name="M:BEditor.Primitive.Objects.Polygon.OnRender(BEditor.Core.Data.EffectRenderArgs)">
+        <member name="M:BEditor.Primitive.Objects.Polygon.OnRender(BEditor.Data.EffectRenderArgs)">
             <inheritdoc/>
         </member>
         <member name="M:BEditor.Primitive.Objects.Polygon.OnLoad">
@@ -1511,7 +1511,7 @@
         </member>
         <member name="T:BEditor.Primitive.Objects.RoundRect">
             <summary>
-            Represents an <see cref="T:BEditor.Core.Data.Primitive.ImageObject"/> that draws a rectangle with rounded corners.
+            Represents an <see cref="T:BEditor.Data.Primitive.ImageObject"/> that draws a rectangle with rounded corners.
             </summary>
         </member>
         <member name="F:BEditor.Primitive.Objects.RoundRect.RadiusMetadata">
@@ -1532,30 +1532,30 @@
         </member>
         <member name="P:BEditor.Primitive.Objects.RoundRect.Width">
             <summary>
-            Get the <see cref="T:BEditor.Core.Data.Property.EaseProperty"/> that represents the width of the shape.
+            Get the <see cref="T:BEditor.Data.Property.EaseProperty"/> that represents the width of the shape.
             </summary>
         </member>
         <member name="P:BEditor.Primitive.Objects.RoundRect.Height">
             <summary>
-            Get the <see cref="T:BEditor.Core.Data.Property.EaseProperty"/> that represents the width of the shape.
+            Get the <see cref="T:BEditor.Data.Property.EaseProperty"/> that represents the width of the shape.
             </summary>
         </member>
         <member name="P:BEditor.Primitive.Objects.RoundRect.Radius">
             <summary>
-            Get the <see cref="T:BEditor.Core.Data.Property.EaseProperty"/> that represents the roundness of a shape.
+            Get the <see cref="T:BEditor.Data.Property.EaseProperty"/> that represents the roundness of a shape.
             </summary>
         </member>
         <member name="P:BEditor.Primitive.Objects.RoundRect.Line">
             <summary>
-            Get the <see cref="T:BEditor.Core.Data.Property.EaseProperty"/> that represents the line width of the shape.
+            Get the <see cref="T:BEditor.Data.Property.EaseProperty"/> that represents the line width of the shape.
             </summary>
         </member>
         <member name="P:BEditor.Primitive.Objects.RoundRect.Color">
             <summary>
-            Get the <see cref="T:BEditor.Core.Data.Property.SelectorProperty"/> to select the type of the shape.
+            Get the <see cref="T:BEditor.Data.Property.SelectorProperty"/> to select the type of the shape.
             </summary>
         </member>
-        <member name="M:BEditor.Primitive.Objects.RoundRect.OnRender(BEditor.Core.Data.EffectRenderArgs)">
+        <member name="M:BEditor.Primitive.Objects.RoundRect.OnRender(BEditor.Data.EffectRenderArgs)">
             <inheritdoc/>
         </member>
         <member name="M:BEditor.Primitive.Objects.RoundRect.OnLoad">
@@ -1566,7 +1566,7 @@
         </member>
         <member name="T:BEditor.Primitive.Objects.SceneObject">
             <summary>
-            Represents an <see cref="T:BEditor.Core.Data.Primitive.ImageObject"/> that refers to a <see cref="T:BEditor.Core.Data.Scene"/>.
+            Represents an <see cref="T:BEditor.Data.Primitive.ImageObject"/> that refers to a <see cref="T:BEditor.Data.Scene"/>.
             </summary>
         </member>
         <member name="M:BEditor.Primitive.Objects.SceneObject.#ctor">
@@ -1582,15 +1582,15 @@
         </member>
         <member name="P:BEditor.Primitive.Objects.SceneObject.Start">
             <summary>
-            Get the <see cref="T:BEditor.Core.Data.Property.EaseProperty"/> that represents the start position.
+            Get the <see cref="T:BEditor.Data.Property.EaseProperty"/> that represents the start position.
             </summary>
         </member>
         <member name="P:BEditor.Primitive.Objects.SceneObject.SelectScene">
             <summary>
-            Get the <see cref="T:BEditor.Core.Data.Property.SelectorProperty"/> to select the <seealso cref="T:BEditor.Core.Data.Scene"/> to reference.
+            Get the <see cref="T:BEditor.Data.Property.SelectorProperty"/> to select the <seealso cref="T:BEditor.Data.Scene"/> to reference.
             </summary>
         </member>
-        <member name="M:BEditor.Primitive.Objects.SceneObject.OnRender(BEditor.Core.Data.EffectRenderArgs)">
+        <member name="M:BEditor.Primitive.Objects.SceneObject.OnRender(BEditor.Data.EffectRenderArgs)">
             <inheritdoc/>
         </member>
         <member name="M:BEditor.Primitive.Objects.SceneObject.OnLoad">
@@ -1601,7 +1601,7 @@
         </member>
         <member name="T:BEditor.Primitive.Objects.Text">
             <summary>
-            Represents an <see cref="T:BEditor.Core.Data.Primitive.ImageObject"/> to draw a string.
+            Represents an <see cref="T:BEditor.Data.Primitive.ImageObject"/> to draw a string.
             </summary>
         </member>
         <member name="F:BEditor.Primitive.Objects.Text.SizeMetadata">
@@ -1642,33 +1642,33 @@
         </member>
         <member name="P:BEditor.Primitive.Objects.Text.Size">
             <summary>
-            Get the <see cref="T:BEditor.Core.Data.Property.EaseProperty"/> that represents the size of the string to be drawn.
+            Get the <see cref="T:BEditor.Data.Property.EaseProperty"/> that represents the size of the string to be drawn.
             </summary>
         </member>
         <member name="P:BEditor.Primitive.Objects.Text.Color">
             <summary>
-            Get the <see cref="T:BEditor.Core.Data.Property.ColorProperty"/> that represents the color of the string to be drawn.
+            Get the <see cref="T:BEditor.Data.Property.ColorProperty"/> that represents the color of the string to be drawn.
             </summary>
         </member>
         <member name="P:BEditor.Primitive.Objects.Text.Document">
             <summary>
-            Get the <see cref="T:BEditor.Core.Data.Property.DocumentProperty"/> representing the string to be drawn.
+            Get the <see cref="T:BEditor.Data.Property.DocumentProperty"/> representing the string to be drawn.
             </summary>
         </member>
         <member name="P:BEditor.Primitive.Objects.Text.Font">
             <summary>
-            Get the <see cref="T:BEditor.Core.Data.Property.FontProperty"/> that represents the font of the string to be drawn.
+            Get the <see cref="T:BEditor.Data.Property.FontProperty"/> that represents the font of the string to be drawn.
             </summary>
         </member>
         <member name="P:BEditor.Primitive.Objects.Text.EnableMultiple">
             <summary>
-            Get a <see cref="T:BEditor.Core.Data.Property.CheckProperty"/> that indicates whether to enable multiple objects.
+            Get a <see cref="T:BEditor.Data.Property.CheckProperty"/> that indicates whether to enable multiple objects.
             </summary>
         </member>
-        <member name="M:BEditor.Primitive.Objects.Text.OnRender(BEditor.Core.Data.EffectRenderArgs)">
+        <member name="M:BEditor.Primitive.Objects.Text.OnRender(BEditor.Data.EffectRenderArgs)">
             <inheritdoc/>
         </member>
-        <member name="M:BEditor.Primitive.Objects.Text.OnRender(BEditor.Core.Data.EffectRenderArgs{System.Collections.Generic.IEnumerable{BEditor.Graphics.ImageInfo}})">
+        <member name="M:BEditor.Primitive.Objects.Text.OnRender(BEditor.Data.EffectRenderArgs{System.Collections.Generic.IEnumerable{BEditor.Graphics.ImageInfo}})">
             <inheritdoc/>
         </member>
         <member name="M:BEditor.Primitive.Objects.Text.OnLoad">
@@ -1679,7 +1679,7 @@
         </member>
         <member name="T:BEditor.Primitive.Objects.VideoFile">
             <summary>
-            Represents an <see cref="T:BEditor.Core.Data.Primitive.ImageObject"/> that references an video file.
+            Represents an <see cref="T:BEditor.Data.Primitive.ImageObject"/> that references an video file.
             </summary>
         </member>
         <member name="F:BEditor.Primitive.Objects.VideoFile.SpeedMetadata">
@@ -1710,20 +1710,20 @@
         </member>
         <member name="P:BEditor.Primitive.Objects.VideoFile.Speed">
             <summary>
-            Get the <see cref="T:BEditor.Core.Data.Property.EaseProperty"/> that represents the playback speed.
+            Get the <see cref="T:BEditor.Data.Property.EaseProperty"/> that represents the playback speed.
             </summary>
         </member>
         <member name="P:BEditor.Primitive.Objects.VideoFile.Start">
             <summary>
-            Get the <see cref="T:BEditor.Core.Data.Property.EaseProperty"/> that represents the start position.
+            Get the <see cref="T:BEditor.Data.Property.EaseProperty"/> that represents the start position.
             </summary>
         </member>
         <member name="P:BEditor.Primitive.Objects.VideoFile.File">
             <summary>
-            Get the <see cref="T:BEditor.Core.Data.Property.FileProperty"/> to select the video file to reference.
+            Get the <see cref="T:BEditor.Data.Property.FileProperty"/> to select the video file to reference.
             </summary>
         </member>
-        <member name="M:BEditor.Primitive.Objects.VideoFile.OnRender(BEditor.Core.Data.EffectRenderArgs)">
+        <member name="M:BEditor.Primitive.Objects.VideoFile.OnRender(BEditor.Data.EffectRenderArgs)">
             <inheritdoc/>
         </member>
         <member name="M:BEditor.Primitive.Objects.VideoFile.OnLoad">

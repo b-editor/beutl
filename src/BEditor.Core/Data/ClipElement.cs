@@ -12,12 +12,13 @@ using System.Runtime.Serialization;
 using System.Text.RegularExpressions;
 using System.Threading.Tasks;
 
-using BEditor.Core.Command;
-using BEditor.Core.Properties;
-using BEditor.Core.Service;
+using BEditor.Command;
+using BEditor.Properties;
 using BEditor.Media;
 
-namespace BEditor.Core.Data
+using Microsoft.Extensions.DependencyInjection;
+
+namespace BEditor.Data
 {
     /// <summary>
     /// Represents a data of a clip to be placed in the timeline.
@@ -195,7 +196,10 @@ namespace BEditor.Core.Data
         }
 
         /// <inheritdoc/>
-        object ICloneable.Clone() => Clone();
+        object ICloneable.Clone()
+        {
+            return Clone();
+        }
 
         /// <inheritdoc cref="ICloneable.Clone"/>
         public ClipElement Clone()
@@ -210,7 +214,9 @@ namespace BEditor.Core.Data
 
         /// <inheritdoc cref="IFormattable.ToString(string?, IFormatProvider?)"/>
         public string ToString(string? format)
-            => ToString(format, CultureInfo.CurrentCulture);
+        {
+            return ToString(format, CultureInfo.CurrentCulture);
+        }
 
         /// <inheritdoc/>
         public string ToString(string? format, IFormatProvider? formatProvider)
@@ -229,6 +235,7 @@ namespace BEditor.Core.Data
         {
             if (IsLoaded) return;
 
+            ServiceProvider = Parent?.ServiceProvider;
             foreach (var effect in Effect)
             {
                 effect.Parent = this;
@@ -311,7 +318,9 @@ namespace BEditor.Core.Data
         /// <exception cref="ArgumentOutOfRangeException"><paramref name="toFrame"/> or <paramref name="toLayer"/> is less than 0.</exception>
         [Pure]
         public IRecordCommand MoveFrameLayer(Frame toFrame, int toLayer)
-            => new MoveCommand(this, toFrame, toLayer);
+        {
+            return new MoveCommand(this, toFrame, toLayer);
+        }
 
         /// <summary>
         /// Create a command to move this clip frames and layers.
@@ -324,7 +333,9 @@ namespace BEditor.Core.Data
         /// <exception cref="ArgumentOutOfRangeException"><paramref name="to"/>, <paramref name="from"/>, <paramref name="tolayer"/>, <paramref name="fromlayer"/> is less than 0.</exception>
         [Pure]
         public IRecordCommand MoveFrameLayer(Frame to, Frame from, int tolayer, int fromlayer)
-            => new MoveCommand(this, to, from, tolayer, fromlayer);
+        {
+            return new MoveCommand(this, to, from, tolayer, fromlayer);
+        }
 
         /// <summary>
         /// Create a command to change the length of this clip.
@@ -335,7 +346,9 @@ namespace BEditor.Core.Data
         /// <exception cref="ArgumentOutOfRangeException"><paramref name="start"/> or <paramref name="end"/> is less than 0.</exception>
         [Pure]
         public IRecordCommand ChangeLength(Frame start, Frame end)
-            => new LengthChangeCommand(this, start, end);
+        {
+            return new LengthChangeCommand(this, start, end);
+        }
 
         /// <summary>
         /// Create a command to split this clip at the specified frame.
@@ -343,7 +356,9 @@ namespace BEditor.Core.Data
         /// <returns>Created <see cref="IRecordCommand"/>.</returns>
         [Pure]
         public IRecordCommand Split(Frame frame)
-            => new SplitCommand(this, frame);
+        {
+            return new SplitCommand(this, frame);
+        }
 
         #endregion
 
@@ -405,7 +420,10 @@ namespace BEditor.Core.Data
         {
             private readonly ClipElement _Clip;
 
-            public RemoveCommand(ClipElement clip) => _Clip = clip ?? throw new ArgumentNullException(nameof(clip));
+            public RemoveCommand(ClipElement clip)
+            {
+                _Clip = clip ?? throw new ArgumentNullException(nameof(clip));
+            }
 
             public string Name => CommandName.RemoveClip;
 
@@ -437,7 +455,11 @@ namespace BEditor.Core.Data
                     }
                 }
             }
-            public void Redo() => Do();
+            public void Redo()
+            {
+                Do();
+            }
+
             public void Undo()
             {
                 _Clip.Load();
@@ -486,7 +508,11 @@ namespace BEditor.Core.Data
                     Scene.TotalFrame = _Clip.End;
                 }
             }
-            public void Redo() => Do();
+            public void Redo()
+            {
+                Do();
+            }
+
             public void Undo()
             {
                 _Clip.MoveTo(_FromFrame);
@@ -518,7 +544,11 @@ namespace BEditor.Core.Data
                 _Clip.Start = _Start;
                 _Clip.End = _End;
             }
-            public void Redo() => Do();
+            public void Redo()
+            {
+                Do();
+            }
+
             public void Undo()
             {
                 _Clip.Start = _OldStart;
@@ -536,8 +566,8 @@ namespace BEditor.Core.Data
             {
                 Source = clip;
                 Scene = clip.Parent;
-                Before = (ClipElement)clip.Clone();
-                After = (ClipElement)clip.Clone();
+                Before = clip.Clone();
+                After = clip.Clone();
 
                 Before.End = frame;
                 After.Start = frame;

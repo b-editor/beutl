@@ -1,26 +1,24 @@
 ﻿using System;
 using System.Collections.Generic;
 using System.Diagnostics;
+using System.IO;
 using System.Linq;
 using System.Reactive.Linq;
 using System.Text;
 using System.Threading.Tasks;
 
-using BEditor.Core;
-using BEditor.Core.Data;
-using BEditor.Core.Data.Property;
-using BEditor.Core.Extensions;
-using BEditor.Core.Properties;
-using Service = BEditor.Core.Service.Services;
+using BEditor;
+using BEditor.Data;
+using BEditor.Data.Property;
+using BEditor.Properties;
+using BEditor.ViewModels;
+using BEditor.Views;
+using BEditor.Views.MessageContent;
 
+using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Win32;
 
 using Reactive.Bindings;
-using BEditor.Core.Service;
-using System.IO;
-using BEditor.Views.MessageContent;
-using BEditor.Views;
-using BEditor.ViewModels;
 
 namespace BEditor.Models
 {
@@ -34,7 +32,10 @@ namespace BEditor.Models
                 .Select(_ => AppData.Current.Project)
                 .Subscribe(p =>
                 {
-                    if (Service.FileDialogService is null) throw new InvalidOperationException();
+                    using var prov = AppData.Current.Services.BuildServiceProvider();
+                    var dialog = prov.GetService<IFileDialogService>();
+
+                    if (dialog is null) throw new InvalidOperationException();
 
                     var record = new SaveFileRecord
                     {
@@ -48,7 +49,7 @@ namespace BEditor.Models
 
                     var mode = SerializeMode.Binary;
 
-                    if (Service.FileDialogService.ShowSaveFileDialog(record))
+                    if (dialog.ShowSaveFileDialog(record))
                     {
                         if (Path.GetExtension(record.FileName) is ".json")
                         {
@@ -100,7 +101,9 @@ namespace BEditor.Models
                     catch
                     {
                         Debug.Assert(false);
-                        Message.Snackbar(string.Format(Resources.FailedToLoad, "Project"));
+                        using var prov = AppData.Current.Services.BuildServiceProvider();
+
+                        prov.GetService<IMessage>()?.Snackbar(string.Format(Resources.FailedToLoad, "Project"));
                     }
                     finally
                     {

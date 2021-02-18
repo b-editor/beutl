@@ -1,10 +1,9 @@
-﻿
-using System;
+﻿using System;
 using System.Reactive.Linq;
 
-using BEditor.Core.Command;
-using BEditor.Core.Data;
-using BEditor.Core.Data.Property;
+using BEditor.Command;
+using BEditor.Data;
+using BEditor.Data.Property;
 using BEditor.Views.PropertyControls;
 
 using Reactive.Bindings;

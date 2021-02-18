@@ -7,12 +7,12 @@ using System.Linq;
 using System.Reflection;
 using System.Text;
 
-using BEditor.Core.Command;
-using BEditor.Core.Data;
-using BEditor.Core.Data.Property;
+using BEditor.Command;
+using BEditor.Data;
+using BEditor.Data.Property;
 using BEditor.Media;
 
-namespace BEditor.Core.Data
+namespace BEditor.Data
 {
     /// <summary>
     /// Represents a class that provides an extension method.
@@ -66,6 +66,12 @@ namespace BEditor.Core.Data
         /// <typeparam name="T">Type of the parent element to retrieve</typeparam>
         /// <param name="self"></param>
         [Pure] public static T? GetParent4<T>(this IChild<IChild<IChild<IChild<T>>>> self) => self.Parent!.Parent!.Parent!.Parent;
+        /// <summary>
+        /// Get the parent element four levels ahead.
+        /// </summary>
+        /// <typeparam name="T">Type of the parent element to retrieve</typeparam>
+        /// <param name="self"></param>
+        [Pure] public static T? GetParent5<T>(this IChild<IChild<IChild<IChild<IChild<T>>>>> self) => self.Parent!.Parent!.Parent!.Parent!.Parent;
 
         /// <summary>
         /// Searches for child elements by id.

@@ -1,16 +1,15 @@
-﻿
-using BEditor.Core.Command;
-using BEditor.Core.Data.Property;
-
-using System.Reactive.Linq;
+﻿using System;
 using System.Reactive;
-using System;
+using System.Reactive.Linq;
 
-using Reactive.Bindings;
+using BEditor.Command;
+using BEditor.Data;
+using BEditor.Data.Property;
 using BEditor.Models;
 using BEditor.Models.Extension;
 using BEditor.Views.PropertyControls;
-using BEditor.Core.Data;
+
+using Reactive.Bindings;
 
 namespace BEditor.ViewModels.PropertyControl
 {

@@ -8,9 +8,9 @@
     xmlns:vm="clr-namespace:BEditor.ViewModels.CreatePage"
     xmlns:Controls="clr-namespace:MahApps.Metro.Controls;assembly=MahApps.Metro"
     xmlns:md="http://materialdesigninxaml.net/winfx/xaml/themes"
-    xmlns:props="clr-namespace:BEditor.Core.Properties;assembly=BEditor.Core"
+    xmlns:props="clr-namespace:BEditor.Properties;assembly=BEditor.Core"
     xmlns:model="clr-namespace:BEditor.Models"
-    xmlns:data="clr-namespace:BEditor.Core.Data;assembly=BEditor.Core"
+    xmlns:data="clr-namespace:BEditor.Data;assembly=BEditor.Core"
     mc:Ignorable="d"
     
     FontFamily="Noto Sans JP"

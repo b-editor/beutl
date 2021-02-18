@@ -7,12 +7,11 @@ using System.Runtime.Serialization;
 using System.Text.RegularExpressions;
 using System.Threading.Tasks;
 
-using BEditor.Core.Command;
-using BEditor.Core.Data.Bindings;
-using BEditor.Core.Data.Property;
-using BEditor.Core.Extensions;
+using BEditor.Command;
+using BEditor.Data.Bindings;
+using BEditor.Data.Property;
 
-namespace BEditor.Core.Data.Property
+namespace BEditor.Data.Property
 {
     /// <summary>
     /// Represents a checkbox property.
@@ -22,13 +21,13 @@ namespace BEditor.Core.Data.Property
     {
         #region Fields
 
-        private static readonly PropertyChangedEventArgs _CheckedArgs = new(nameof(IsChecked));
-        private bool _IsChecked;
-        private List<IObserver<bool>>? _List;
+        private static readonly PropertyChangedEventArgs _checkedArgs = new(nameof(IsChecked));
+        private bool _isChecked;
+        private List<IObserver<bool>>? _list;
 
-        private IDisposable? _BindDispose;
-        private IBindable<bool>? _Bindable;
-        private string? _BindHint;
+        private IDisposable? _bindDispose;
+        private IBindable<bool>? _bindable;
+        private string? _bindHint;
 
         #endregion
 
@@ -41,24 +40,24 @@ namespace BEditor.Core.Data.Property
         public CheckProperty(CheckPropertyMetadata metadata)
         {
             PropertyMetadata = metadata ?? throw new ArgumentNullException(nameof(metadata));
-            _IsChecked = metadata.DefaultIsChecked;
+            _isChecked = metadata.DefaultIsChecked;
         }
 
-        private List<IObserver<bool>> Collection => _List ??= new();
+        private List<IObserver<bool>> Collection => _list ??= new();
         /// <summary>
         /// Gets or sets the value of whether the item is checked or not.
         /// </summary>
         [DataMember]
         public bool IsChecked
         {
-            get => _IsChecked;
-            set => SetValue(value, ref _IsChecked, _CheckedArgs, this, state =>
+            get => _isChecked;
+            set => SetValue(value, ref _isChecked, _checkedArgs, this, state =>
             {
                 foreach (var observer in state.Collection)
                 {
                     try
                     {
-                        observer.OnNext(state._IsChecked);
+                        observer.OnNext(state._isChecked);
                     }
                     catch (Exception ex)
                     {
@@ -71,8 +70,8 @@ namespace BEditor.Core.Data.Property
         [DataMember]
         public string? BindHint
         {
-            get => _Bindable?.GetString();
-            private set => _BindHint = value;
+            get => _bindable?.GetString();
+            private set => _bindHint = value;
         }
         /// <inheritdoc/>
         public bool Value => IsChecked;
@@ -109,15 +108,15 @@ namespace BEditor.Core.Data.Property
         /// <inheritdoc/>
         public void Bind(IBindable<bool>? bindable)
         {
-            _BindDispose?.Dispose();
-            _Bindable = bindable;
+            _bindDispose?.Dispose();
+            _bindable = bindable;
 
             if (bindable is not null)
             {
                 IsChecked = bindable.Value;
 
                 // bindableが変更時にthisが変更
-                _BindDispose = bindable.Subscribe(this);
+                _bindDispose = bindable.Subscribe(this);
             }
         }
 
@@ -126,14 +125,14 @@ namespace BEditor.Core.Data.Property
         /// <inheritdoc/>
         protected override void OnLoad()
         {
-            if (_BindHint is not null)
+            if (_bindHint is not null)
             {
-                if (this.GetBindable(_BindHint, out var b))
+                if (this.GetBindable(_bindHint, out var b))
                 {
                     Bind(b);
                 }
             }
-            _BindHint = null;
+            _bindHint = null;
         }
         /// <inheritdoc/>
         public override string ToString() => $"(IsChecked:{IsChecked} Name:{PropertyMetadata?.Name})";

@@ -1,4 +1,4 @@
-﻿namespace BEditor.Core.Data
+﻿namespace BEditor.Data
 {
     /// <summary>
     /// Represents the type of rendering request.

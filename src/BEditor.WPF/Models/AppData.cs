@@ -8,15 +8,17 @@ using System.Text;
 using System.Threading.Tasks;
 using System.Xml.Linq;
 
-using BEditor.Core;
-using BEditor.Core.Command;
-using BEditor.Core.Data;
-using BEditor.Core.Plugin;
-using BEditor.Core.Service;
+using BEditor;
+using BEditor.Command;
+using BEditor.Data;
+using BEditor.Plugin;
+using BEditor.Models.Services;
+
+using Microsoft.Extensions.DependencyInjection;
 
 namespace BEditor.Models
 {
-    public class AppData : BasePropertyChanged, IApplication, INotifyPropertyChanged
+    public class AppData : BasePropertyChanged, IApplication
     {
         private static readonly PropertyChangedEventArgs _ProjectArgs = new(nameof(Project));
         private static readonly PropertyChangedEventArgs _StatusArgs = new(nameof(AppStatus));
@@ -25,27 +27,22 @@ namespace BEditor.Models
         private Status _Status;
         private bool _Isplaying = true;
 
-        /// <summary>
-        /// 
-        /// </summary>
         public static AppData Current { get; } = new();
 
         private AppData()
         {
             CommandManager.Executed += (_, _) => AppStatus = Status.Edit;
+
+            Services = new ServiceCollection()
+                .AddSingleton<IFileDialogService>(p => new FileDialogService())
+                .AddSingleton<IMessage>(p => new MessageService());
         }
 
-        /// <inheritdoc/>
-        public string[] Arguments => Environment.GetCommandLineArgs();
-        /// <inheritdoc/>
-        public List<IPlugin>? LoadedPlugins { get; set; }
-        /// <inheritdoc/>
         public Project? Project
         {
             get => _Project;
             set => SetValue(value, ref _Project, _ProjectArgs);
         }
-        /// <inheritdoc/>
         public Status AppStatus
         {
             get => _Status;
@@ -56,5 +53,6 @@ namespace BEditor.Models
             get => _Isplaying;
             set => SetValue(value, ref _Isplaying, _IsPlayingArgs);
         }
+        public IServiceCollection Services { get; }
     }
 }

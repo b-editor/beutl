@@ -12,11 +12,6 @@ using System.Windows.Media;
 using System.Windows.Media.Imaging;
 using System.Windows.Shapes;
 
-using BEditor.Core.Data;
-using BEditor.ViewModels.CreatePage;
-
-using MahApps.Metro.Controls;
-
 namespace BEditor.Views.CreatePage
 {
     /// <summary>

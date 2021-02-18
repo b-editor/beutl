@@ -1,22 +1,21 @@
-﻿using System.Linq;
+﻿using System.Collections.Generic;
+using System.Diagnostics;
+using System.Linq;
 using System.Runtime.Serialization;
 
-using BEditor.Core.Command;
-using BEditor.Core.Data.Property.PrimitiveGroup;
-using BEditor.Core.Data.Property;
-using BEditor.Core.Extensions;
-using BEditor.Core.Properties;
+using BEditor.Command;
+using BEditor.Data.Property;
+using BEditor.Data.Property.PrimitiveGroup;
+using BEditor.Properties;
 using BEditor.Drawing;
 using BEditor.Drawing.Pixel;
 using BEditor.Graphics;
+using BEditor.Media;
 
 using OpenTK.Graphics.OpenGL4;
 using OpenTK.Mathematics;
-using BEditor.Media;
-using System.Diagnostics;
-using System.Collections.Generic;
 
-namespace BEditor.Core.Data.Primitive
+namespace BEditor.Data.Primitive
 {
     /// <summary>
     /// Represents the base class for drawing images.
@@ -99,7 +98,7 @@ namespace BEditor.Core.Data.Primitive
             // ここで遅延読み込み
             var img_list = imgs_args.Value.ToArray();
 
-            foreach(var img in img_list)
+            foreach (var img in img_list)
             {
                 Draw(img, args);
 
@@ -114,8 +113,10 @@ namespace BEditor.Core.Data.Primitive
             {
                 var effect = list[i];
 
-                if (effect is ObjectElement) continue;
-
+                if (effect is ObjectElement)
+                {
+                    continue;
+                }
                 else if (effect is ImageEffect imageEffect)
                 {
                     imageEffect.Render(args);

@@ -1,4 +1,4 @@
-# BEditor.Core
+# BEditor
 
 ## Description
 

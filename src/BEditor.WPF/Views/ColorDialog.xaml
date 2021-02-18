@@ -8,7 +8,7 @@
         xmlns:local="clr-namespace:BEditor.Views"
         xmlns:custom="clr-namespace:BEditor.WPF.Controls;assembly=BEditor.WPF.Controls"
         xmlns:colpick="clr-namespace:BEditor.Views.CustomControl"
-        xmlns:property="clr-namespace:BEditor.Core.Properties;assembly=BEditor.Core"
+        xmlns:property="clr-namespace:BEditor.Properties;assembly=BEditor.Core"
         xmlns:convert="clr-namespace:BEditor.ViewModels.Converters"
                       
         WindowTitleBrush="{StaticResource MaterialDesignCardBackground}"

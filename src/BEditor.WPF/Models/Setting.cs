@@ -1,8 +1,6 @@
 ﻿using System.IO;
 using System.Xml.Linq;
 
-using BEditor.Core.Data;
-
 namespace BEditor.Models
 {
     public class Setting

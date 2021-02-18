@@ -3,7 +3,6 @@
              xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
              xmlns:local="clr-namespace:BEditor"
              xmlns:dragablz="http://dragablz.net/winfx/xaml/dragablz"
-             Startup="Application_Startup"
              Exit="Application_Exit"
              DispatcherUnhandledException="Application_DispatcherUnhandledException">
     <Application.Resources>

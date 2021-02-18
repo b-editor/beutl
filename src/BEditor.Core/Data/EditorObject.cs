@@ -5,9 +5,11 @@ using System.Linq.Expressions;
 using System.Runtime.Serialization;
 using System.Threading;
 
-using BEditor.Core.Data.Property;
+using BEditor.Data.Property;
 
-namespace BEditor.Core.Data
+using Microsoft.Extensions.DependencyInjection;
+
+namespace BEditor.Data
 {
     /// <summary>
     /// Represents the base class of the edit data.
@@ -31,5 +33,9 @@ namespace BEditor.Core.Data
             get => null;
             set => Synchronize = SynchronizationContext.Current;
         }
+        /// <summary>
+        /// Gets the ServiceProvider.
+        /// </summary>
+        public ServiceProvider? ServiceProvider { get; internal set; }
     }
 }

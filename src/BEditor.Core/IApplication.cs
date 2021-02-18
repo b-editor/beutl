@@ -1,10 +1,11 @@
 ﻿using System;
 using System.Collections.Generic;
 
-using BEditor.Core.Plugin;
-using BEditor.Core.Service;
+using BEditor.Plugin;
 
-namespace BEditor.Core
+using Microsoft.Extensions.DependencyInjection;
+
+namespace BEditor
 {
     /// <summary>
     /// Represents an application.
@@ -15,5 +16,9 @@ namespace BEditor.Core
         /// Get or set the status of an application.
         /// </summary>
         public Status AppStatus { get; set; }
+        /// <summary>
+        /// Gets the ServiceCollection.
+        /// </summary>
+        public IServiceCollection Services { get; }
     }
 }

@@ -10,19 +10,14 @@ using System.Windows;
 using System.Windows.Threading;
 using System.Xml.Linq;
 
-using BEditor.Core;
-using BEditor.Core.Data;
-using BEditor.Core.Data.Property;
-using BEditor.Core.Extensions;
-using BEditor.Core.Plugin;
-using BEditor.Core.Service;
+using BEditor.Data;
+using BEditor.Data.Property;
 using BEditor.Drawing;
 using BEditor.Models;
-using BEditor.Models.Services;
+using BEditor.Plugin;
 using BEditor.Primitive;
 using BEditor.Primitive.Effects;
 using BEditor.Primitive.Objects;
-using BEditor.ViewModels;
 using BEditor.ViewModels.CustomControl;
 using BEditor.ViewModels.MessageContent;
 using BEditor.ViewModels.PropertyControl;
@@ -32,10 +27,11 @@ using BEditor.Views.MessageContent;
 
 using MaterialDesignThemes.Wpf;
 
+using Microsoft.Extensions.DependencyInjection;
+
 using SkiaSharp;
 
-using DirectoryManager = BEditor.Core.DirectoryManager;
-using Resource = BEditor.Core.Properties.Resources;
+using Resource = BEditor.Properties.Resources;
 
 namespace BEditor
 {
@@ -403,22 +399,6 @@ namespace BEditor
             //    .ToList();
         }
 
-        private void Application_Startup(object sender, StartupEventArgs e)
-        {
-            Services.FileDialogService = new FileDialogService();
-
-            Message.DialogFunc += (text, iconKind, types) =>
-            {
-                var control = new MessageUI(types, text, iconKind);
-                var dialog = new NoneDialog(control);
-
-                dialog.ShowDialog();
-
-                return control.DialogResult;
-            };
-            Message.SnackberFunc += (text) => MainWindowViewModel.Current.MessageQueue.Enqueue(text);
-        }
-
         private void Application_Exit(object sender, ExitEventArgs e)
         {
             Settings.Default.Save();
@@ -427,7 +407,9 @@ namespace BEditor
 
         private void Application_DispatcherUnhandledException(object sender, DispatcherUnhandledExceptionEventArgs e)
         {
-            Message.Snackbar(string.Format(Core.Properties.Resources.ExceptionWasThrown, e.Exception.GetType().FullName));
+            using var provider = AppData.Current.Services.BuildServiceProvider();
+            provider.GetService<IMessage>()!
+                .Snackbar(string.Format(Resource.ExceptionWasThrown, e.Exception.GetType().FullName));
 
 #if !DEBUG
             e.Handled = true;

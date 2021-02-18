@@ -6,12 +6,12 @@ using System.Diagnostics.Contracts;
 using System.Reactive.Disposables;
 using System.Runtime.Serialization;
 
-using BEditor.Core.Command;
-using BEditor.Core.Data.Bindings;
-using BEditor.Core.Data.Property;
+using BEditor.Command;
+using BEditor.Data.Bindings;
+using BEditor.Data.Property;
 using BEditor.Drawing;
 
-namespace BEditor.Core.Data.Property
+namespace BEditor.Data.Property
 {
     /// <summary>
     /// Represents a property to pick a color.

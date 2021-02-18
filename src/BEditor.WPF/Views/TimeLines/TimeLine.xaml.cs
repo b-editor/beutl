@@ -7,8 +7,8 @@ using System.Windows.Controls.Primitives;
 using System.Windows.Data;
 using System.Windows.Input;
 
-using BEditor.Core.Command;
-using BEditor.Core.Data;
+using BEditor.Command;
+using BEditor.Data;
 using BEditor.Models;
 using BEditor.Models.Extension;
 using BEditor.ViewModels;
@@ -18,7 +18,7 @@ using MaterialDesignThemes.Wpf;
 
 using Microsoft.Xaml.Behaviors;
 
-using Resource = BEditor.Core.Properties.Resources;
+using Resource = BEditor.Properties.Resources;
 
 namespace BEditor.Views.TimeLines
 {

@@ -2,7 +2,7 @@
 using System.Collections.ObjectModel;
 using System.Linq.Expressions;
 
-namespace BEditor.Core.Data
+namespace BEditor.Data
 {
 #pragma warning disable CS1591
     public record ObjectMetadata(string Name, Expression<Func<ObjectElement>> Create)

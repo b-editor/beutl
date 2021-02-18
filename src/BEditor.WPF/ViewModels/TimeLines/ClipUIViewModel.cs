@@ -1,66 +1,32 @@
 ﻿using System;
+using System.ComponentModel;
+using System.IO;
 using System.Reactive;
+using System.Reactive.Linq;
+using System.Runtime.InteropServices;
+using System.Text;
 using System.Windows;
 using System.Windows.Input;
 using System.Windows.Media;
 
+using BEditor;
+using BEditor.Command;
+using BEditor.Data;
+using BEditor.Models;
 using BEditor.Models.Extension;
+using BEditor.Properties;
 using BEditor.Views;
 
-using BEditor.Core.Data;
-using BEditor.Core.Properties;
+using Microsoft.Extensions.DependencyInjection;
 
-using CommandManager = BEditor.Core.Command.CommandManager;
 using Reactive.Bindings;
 using Reactive.Bindings.Extensions;
-using System.Reactive.Linq;
-using System.ComponentModel;
-using BEditor.Core.Command;
-using System.Runtime.InteropServices;
-using BEditor.Core;
-using System.IO;
-using System.Text;
-using BEditor.Models;
 
 namespace BEditor.ViewModels.TimeLines
 {
     public class ClipUIViewModel
     {
         private Point MouseRightPoint;
-
-        public Scene Scene => ClipData.Parent;
-        private TimeLineViewModel TimeLineViewModel => Scene.GetCreateTimeLineViewModel();
-        public ClipElement ClipData { get; }
-        /// <summary>
-        /// GUIのレイヤー
-        /// </summary>
-        public int Row { get; set; }
-
-
-        #region Binding用プロパティ
-        public ReactiveProperty<string> ClipText { get; set; } = new();
-        public ReactiveProperty<Brush> ClipColor { get; set; } = new();
-        public double TrackHeight => Setting.ClipHeight;
-        public ReactiveProperty<double> WidthProperty { get; } = new();
-        public ReactiveProperty<Thickness> MarginProperty { get; } = new();
-
-        public double MarginLeftProperty
-        {
-            get => MarginProperty.Value.Left;
-            set
-            {
-                var tmp = MarginProperty.Value;
-                MarginProperty.Value = new(value, tmp.Top, tmp.Right, tmp.Bottom);
-            }
-        }
-
-        /// <summary>
-        /// 開いている場合True
-        /// </summary>
-        public ReactiveProperty<bool> IsExpanded { get; } = new();
-
-        public ReactiveProperty<Cursor> ClipCursor { get; } = new();
-        #endregion
 
 
         public ClipUIViewModel(ClipElement clip)
@@ -127,24 +93,63 @@ namespace BEditor.ViewModels.TimeLines
                 .Subscribe(_ => TimeLineViewModel.ClipLayerMoveCommand?.Invoke(ClipData, ClipData.Layer));
         }
 
-
-        #region クリップ操作
-
         #region Properties
+        public Scene Scene => ClipData.Parent;
+
+        private TimeLineViewModel TimeLineViewModel => Scene.GetCreateTimeLineViewModel();
+
+        public ClipElement ClipData { get; }
+
+        /// <summary>
+        /// GUIのレイヤー
+        /// </summary>
+        public int Row { get; set; }
+
+        public ReactiveProperty<string> ClipText { get; set; } = new();
+
+        public ReactiveProperty<Brush> ClipColor { get; set; } = new();
+
+        public double TrackHeight => Setting.ClipHeight;
+
+        public ReactiveProperty<double> WidthProperty { get; } = new();
+
+        public ReactiveProperty<Thickness> MarginProperty { get; } = new();
+
+        public double MarginLeftProperty
+        {
+            get => MarginProperty.Value.Left;
+            set
+            {
+                var tmp = MarginProperty.Value;
+                MarginProperty.Value = new(value, tmp.Top, tmp.Right, tmp.Bottom);
+            }
+        }
+
+        public ReactiveProperty<bool> IsExpanded { get; } = new();
+
+        public ReactiveProperty<Cursor> ClipCursor { get; } = new();
+
         public ReactiveCommand ClipMouseLeftDownCommand { get; } = new();
+
         public ReactiveCommand<Point> ClipMouseRightDownCommand { get; } = new();
+
         public ReactiveCommand ClipMouseUpCommand { get; } = new();
+
         public ReactiveCommand<Point> ClipMouseMoveCommand { get; } = new();
+
         public ReactiveCommand ClipMouseDoubleClickCommand { get; } = new();
+
         public ReactiveCommand ClipCopyCommand { get; } = new();
+
         public ReactiveCommand ClipCutCommand { get; } = new();
+
         public ReactiveCommand ClipDeleteCommand { get; } = new();
+
         public ReactiveCommand ClipDataLogCommand { get; } = new();
+
         public ReactiveCommand ClipSeparateCommand { get; } = new();
         #endregion
 
-
-        #region MouseLeftDown
         private void ClipMouseLeftDown()
         {
             TimeLineViewModel.ClipMouseDown = true;
@@ -160,9 +165,7 @@ namespace BEditor.ViewModels.TimeLines
                 TimeLineViewModel.LayerCursor.Value = Cursors.SizeWE;
             }
         }
-        #endregion
 
-        #region MouseUp
         private void ClipMouseUp()
         {
             TimeLineViewModel.SeekbarIsMouseDown = false;
@@ -205,9 +208,7 @@ namespace BEditor.ViewModels.TimeLines
             TimeLineViewModel.ClipLeftRight = 0;
             TimeLineViewModel.LayerCursor.Value = Cursors.Arrow;
         }
-        #endregion
 
-        #region MouseMove
         private void ClipMouseMove(Point point)
         {
 
@@ -228,13 +229,12 @@ namespace BEditor.ViewModels.TimeLines
                 ClipCursor.Value = Cursors.Arrow;
             }
         }
-        #endregion
 
-        #region MouseDoubleClick
-        private void ClipMouseDoubleClick() => IsExpanded.Value = !IsExpanded.Value;
-        #endregion
+        private void ClipMouseDoubleClick()
+        {
+            IsExpanded.Value = !IsExpanded.Value;
+        }
 
-        #region Copy
         private void ClipCopy()
         {
             using var memory = new MemoryStream();
@@ -243,9 +243,7 @@ namespace BEditor.ViewModels.TimeLines
             var json = Encoding.Default.GetString(memory.ToArray());
             Clipboard.SetText(json); ;
         }
-        #endregion
 
-        #region Cut
         private void ClipCut()
         {
             ClipData.Parent.RemoveClip(ClipData).Execute();
@@ -256,13 +254,12 @@ namespace BEditor.ViewModels.TimeLines
             var json = Encoding.Default.GetString(memory.ToArray());
             Clipboard.SetText(json);
         }
-        #endregion
 
-        #region Remove
-        private void ClipDelete() => ClipData.Parent.RemoveClip(ClipData).Execute();
-        #endregion
+        private void ClipDelete()
+        {
+            ClipData.Parent.RemoveClip(ClipData).Execute();
+        }
 
-        #region DataLog
         private void ClipDataLog()
         {
             string text =
@@ -273,19 +270,14 @@ namespace BEditor.ViewModels.TimeLines
                 $"Start : {ClipData.Start}\n" +
                 $"End : {ClipData.End}";
 
-            BEditor.Core.Extensions.Message.Dialog(text);
+            ClipData.ServiceProvider?.GetService<IMessage>()?.Dialog(text);
         }
-        #endregion
 
-        #region Sparate
         private void ClipSeparate()
         {
             var frame = TimeLineViewModel.ToFrame(MouseRightPoint.X) + ClipData.Start;
 
             ClipData.Split(frame).Execute();
         }
-        #endregion
-
-        #endregion
     }
 }

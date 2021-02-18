@@ -1,15 +1,15 @@
 ﻿using System.Collections.Generic;
 using System.Runtime.Serialization;
 
-using BEditor.Core.Command;
-using BEditor.Core.Data;
-using BEditor.Core.Data.Primitive;
-using BEditor.Core.Data.Property;
-using BEditor.Core.Properties;
+using BEditor.Command;
+using BEditor.Data;
+using BEditor.Data.Primitive;
+using BEditor.Data.Property;
+using BEditor.Properties;
 
 using OpenTK.Graphics.OpenGL;
 
-using static BEditor.Core.Data.Property.PrimitiveGroup.Coordinate;
+using static BEditor.Data.Property.PrimitiveGroup.Coordinate;
 
 using GLColor = OpenTK.Mathematics.Color4;
 

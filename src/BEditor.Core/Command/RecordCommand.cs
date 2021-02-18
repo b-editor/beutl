@@ -4,9 +4,9 @@ using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
 
-using BEditor.Core.Properties;
+using BEditor.Properties;
 
-namespace BEditor.Core.Command
+namespace BEditor.Command
 {
     /// <summary>
     /// Represents the action of executing, undoing, or redoing.

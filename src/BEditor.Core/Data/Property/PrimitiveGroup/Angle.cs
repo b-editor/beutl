@@ -2,12 +2,11 @@
 using System.Collections.Generic;
 using System.Runtime.Serialization;
 
-using BEditor.Core.Command;
-using BEditor.Core.Data.Property;
-using BEditor.Core.Extensions;
-using BEditor.Core.Properties;
+using BEditor.Command;
+using BEditor.Data.Property;
+using BEditor.Properties;
 
-namespace BEditor.Core.Data.Property.PrimitiveGroup
+namespace BEditor.Data.Property.PrimitiveGroup
 {
     /// <summary>
     /// Represents a property for setting the angle of the XYZ axis.
