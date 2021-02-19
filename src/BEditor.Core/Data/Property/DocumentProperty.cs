@@ -1,6 +1,7 @@
 ﻿using System;
 using System.Collections.Generic;
 using System.ComponentModel;
+using System.Diagnostics;
 using System.Diagnostics.Contracts;
 using System.Reactive.Disposables;
 using System.Runtime.Serialization;
@@ -15,6 +16,7 @@ namespace BEditor.Data.Property
     /// Represents a property of a multi-line string.
     /// </summary>
     [DataContract]
+    [DebuggerDisplay("Text = {Text}")]
     public class DocumentProperty : PropertyElement<DocumentPropertyMetadata>, IBindable<string>
     {
         #region Fields
@@ -126,8 +128,6 @@ namespace BEditor.Data.Property
             }
             _bindHint = null;
         }
-        /// <inheritdoc/>
-        public override string ToString() => $"(Text:{Text} Name:{PropertyMetadata?.Name})";
 
         /// <summary>
         /// Create a command to change the string.
@@ -168,7 +168,7 @@ namespace BEditor.Data.Property
     /// <summary>
     /// Represents the metadata of a <see cref="DocumentProperty"/>.
     /// </summary>
-    public record DocumentPropertyMetadata : PropertyElementMetadata
+    public record DocumentPropertyMetadata : PropertyElementMetadata, IPropertyBuilder<DocumentProperty>
     {
         /// <summary>
         /// Initializes a new instance of the <see cref="DocumentPropertyMetadata"/> class.
@@ -183,5 +183,11 @@ namespace BEditor.Data.Property
         /// Get the default value of <see cref="DocumentProperty.Text"/>.
         /// </summary>
         public string DefaultText { get; init; }
+
+        /// <inheritdoc/>
+        public DocumentProperty Build()
+        {
+            return new(this);
+        }
     }
 }

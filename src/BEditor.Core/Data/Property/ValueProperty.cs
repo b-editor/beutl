@@ -1,6 +1,7 @@
 ﻿using System;
 using System.Collections.Generic;
 using System.ComponentModel;
+using System.Diagnostics;
 using System.Diagnostics.Contracts;
 using System.Linq;
 using System.Reactive.Disposables;
@@ -18,15 +19,16 @@ namespace BEditor.Data.Property
     /// Represents a property of <see cref="float"/> type.
     /// </summary>
     [DataContract]
+    [DebuggerDisplay("Value = {Value}")]
     public class ValueProperty : PropertyElement<ValuePropertyMetadata>, IBindable<float>, IEasingProperty
     {
         #region Fields
-        private static readonly PropertyChangedEventArgs _ValueArgs = new(nameof(Value));
-        private float _Value;
-        private List<IObserver<float>>? _List;
-        private IDisposable? _BindDispose;
-        private IBindable<float>? _Bindable;
-        private string? _BindHint;
+        private static readonly PropertyChangedEventArgs _valueArgs = new(nameof(Value));
+        private float _value;
+        private List<IObserver<float>>? _list;
+        private IDisposable? _bindDispose;
+        private IBindable<float>? _bindable;
+        private string? _bindHint;
         #endregion
 
 
@@ -38,23 +40,23 @@ namespace BEditor.Data.Property
         public ValueProperty(ValuePropertyMetadata metadata)
         {
             PropertyMetadata = metadata ?? throw new ArgumentNullException(nameof(metadata));
-            _Value = metadata.DefaultValue;
+            _value = metadata.DefaultValue;
         }
 
 
-        private List<IObserver<float>> Collection => _List ??= new();
+        private List<IObserver<float>> Collection => _list ??= new();
         /// <inheritdoc/>
         [DataMember]
         public float Value
         {
-            get => _Value;
-            set => SetValue(value, ref _Value, _ValueArgs, this, state =>
+            get => _value;
+            set => SetValue(value, ref _value, _valueArgs, this, state =>
             {
                 foreach (var observer in state.Collection)
                 {
                     try
                     {
-                        observer.OnNext(state._Value);
+                        observer.OnNext(state._value);
                     }
                     catch (Exception ex)
                     {
@@ -67,8 +69,8 @@ namespace BEditor.Data.Property
         [DataMember]
         public string? BindHint
         {
-            get => _Bindable?.GetString();
-            private set => _BindHint = value;
+            get => _bindable?.GetString();
+            private set => _bindHint = value;
         }
 
 
@@ -77,15 +79,15 @@ namespace BEditor.Data.Property
         /// <inheritdoc/>
         public void Bind(IBindable<float>? bindable)
         {
-            _BindDispose?.Dispose();
-            _Bindable = bindable;
+            _bindDispose?.Dispose();
+            _bindable = bindable;
 
             if (bindable is not null)
             {
                 Value = bindable.Value;
 
                 // bindableが変更時にthisが変更
-                _BindDispose = bindable.Subscribe(this);
+                _bindDispose = bindable.Subscribe(this);
             }
         }
         /// <inheritdoc/>
@@ -112,17 +114,15 @@ namespace BEditor.Data.Property
         /// <inheritdoc/>
         protected override void OnLoad()
         {
-            if (_BindHint is not null)
+            if (_bindHint is not null)
             {
-                if (this.GetBindable(_BindHint, out var b))
+                if (this.GetBindable(_bindHint, out var b))
                 {
                     Bind(b);
                 }
             }
-            _BindHint = null;
+            _bindHint = null;
         }
-        /// <inheritdoc/>
-        public override string ToString() => $"(Value:{Value} Name:{PropertyMetadata?.Name})";
         /// <summary>
         /// Returns <paramref name="value"/> clamped to the inclusive range of <see cref="ValuePropertyMetadata.Min"/> and <see cref="ValuePropertyMetadata.Max"/>.
         /// </summary>
@@ -179,7 +179,7 @@ namespace BEditor.Data.Property
     /// <summary>
     /// Represents the metadata of a <see cref="ValueProperty"/>.
     /// </summary>
-    public record ValuePropertyMetadata : PropertyElementMetadata
+    public record ValuePropertyMetadata : PropertyElementMetadata, IPropertyBuilder<ValueProperty>
     {
         /// <summary>
         /// Initializes a new instance of the <see cref="ValuePropertyMetadata"/> class.
@@ -207,5 +207,11 @@ namespace BEditor.Data.Property
         /// Get the minimum value.
         /// </summary>
         public float Min { get; init; }
+
+        /// <inheritdoc/>
+        public ValueProperty Build()
+        {
+            return new(this);
+        }
     }
 }

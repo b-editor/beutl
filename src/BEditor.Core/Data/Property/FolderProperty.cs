@@ -1,6 +1,7 @@
 ﻿using System;
 using System.Collections.Generic;
 using System.ComponentModel;
+using System.Diagnostics;
 using System.Diagnostics.Contracts;
 using System.IO;
 using System.Linq;
@@ -19,6 +20,7 @@ namespace BEditor.Data.Property
     /// Represents a property to select a folder.
     /// </summary>
     [DataContract]
+    [DebuggerDisplay("Folder = {Folder}")]
     public class FolderProperty : PropertyElement<FolderPropertyMetadata>, IEasingProperty, IBindable<string>
     {
         #region Fields
@@ -160,8 +162,6 @@ namespace BEditor.Data.Property
             }
             _bindHint = null;
         }
-        /// <inheritdoc/>
-        public override string ToString() => $"(Folder:{Folder} Name:{PropertyMetadata?.Name})";
 
         /// <summary>
         /// Create a command to rename a folder.
@@ -260,7 +260,7 @@ namespace BEditor.Data.Property
     /// <summary>
     /// Represents the metadata of a <see cref="FolderProperty"/>.
     /// </summary>
-    public record FolderPropertyMetadata : PropertyElementMetadata
+    public record FolderPropertyMetadata : PropertyElementMetadata, IPropertyBuilder<FolderProperty>
     {
         /// <summary>
         /// Initializes a new instance of the <see cref="FolderPropertyMetadata"/>
@@ -276,5 +276,11 @@ namespace BEditor.Data.Property
         /// Get the default value of <see cref="FolderProperty.Folder"/>.
         /// </summary>
         public string Default { get; init; }
+
+        /// <inheritdoc/>
+        public FolderProperty Build()
+        {
+            return new(this);
+        }
     }
 }

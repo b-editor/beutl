@@ -6,14 +6,13 @@ using System.Runtime.Serialization;
 using System.Text;
 using System.Threading.Tasks;
 
-
 namespace BEditor.Data.Property
 {
     /// <summary>
     /// Represents a button in the UI
     /// </summary>
     [DataContract]
-    public class ButtonComponent : PropertyElement<PropertyElementMetadata>, IEasingProperty, IObservable<object>
+    public class ButtonComponent : PropertyElement<ButtonComponentMetadata>, IEasingProperty, IObservable<object>
     {
         private List<IObserver<object>>? _List;
 
@@ -22,7 +21,7 @@ namespace BEditor.Data.Property
         /// </summary>
         /// <param name="metadata">Metadata of this property.</param>
         /// <exception cref="ArgumentNullException"><paramref name="metadata"/> is <see langword="null"/>.</exception>
-        public ButtonComponent(PropertyElementMetadata metadata)
+        public ButtonComponent(ButtonComponentMetadata metadata)
         {
             PropertyMetadata = metadata ?? throw new ArgumentNullException(nameof(metadata));
         }
@@ -58,6 +57,27 @@ namespace BEditor.Data.Property
                     observer.OnError(ex);
                 }
             }
+        }
+    }
+
+    /// <summary>
+    /// Represents the metadata of a <see cref="ButtonComponent"/>.
+    /// </summary>
+    public record ButtonComponentMetadata : PropertyElementMetadata, IPropertyBuilder<ButtonComponent>
+    {
+        /// <summary>
+        /// Initializes a new instance of the <see cref="ButtonComponentMetadata"/> class.
+        /// </summary>
+        /// <param name="Name">The string displayed in the property header.</param>
+        public ButtonComponentMetadata(string Name) : base(Name)
+        {
+
+        }
+
+        /// <inheritdoc/>
+        public ButtonComponent Build()
+        {
+            return new ButtonComponent(this);
         }
     }
 }

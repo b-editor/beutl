@@ -2,6 +2,7 @@
 using System.Collections.Generic;
 using System.Collections.ObjectModel;
 using System.ComponentModel;
+using System.Diagnostics;
 using System.Diagnostics.Contracts;
 using System.Linq;
 using System.Runtime.Serialization;
@@ -17,6 +18,7 @@ namespace BEditor.Data.Property
     /// Represents the property that eases the value of a <see cref="float"/> type.
     /// </summary>
     [DataContract]
+    [DebuggerDisplay("Count = {Value.Count}, Easing = {EasingData.Name}")]
     public partial class EaseProperty : PropertyElement<EasePropertyMetadata>, IKeyFrameProperty
     {
         #region Fields
@@ -90,6 +92,16 @@ namespace BEditor.Data.Property
             set => SetValue(value, ref _easingData, _easingDataArgs);
         }
         internal Frame Length => this.GetParent2()?.Length ?? default;
+        /// <inheritdoc/>
+        public override EffectElement? Parent
+        {
+            get => base.Parent;
+            set
+            {
+                base.Parent = value;
+                EasingType.Parent = this;
+            }
+        }
 
 
         /// <summary>
@@ -270,9 +282,6 @@ namespace BEditor.Data.Property
 
             return index;
         }
-
-        /// <inheritdoc/>
-        public override string ToString() => $"(Count:{Value.Count} Easing:{EasingData?.Name} Name:{PropertyMetadata?.Name})";
 
         /// <inheritdoc/>
         protected override void OnLoad()
@@ -492,7 +501,7 @@ namespace BEditor.Data.Property
     /// <summary>
     /// Represents the metadata of a <see cref="EaseProperty"/>.
     /// </summary>
-    public record EasePropertyMetadata : PropertyElementMetadata
+    public record EasePropertyMetadata : PropertyElementMetadata, IPropertyBuilder<EaseProperty>
     {
         /// <summary>
         /// Initializes a new instance of the <see cref="EasePropertyMetadata"/> class.
@@ -542,5 +551,11 @@ namespace BEditor.Data.Property
         /// Gets the bool of whether to use the Optional value.
         /// </summary>
         public bool UseOptional { get; init; }
+
+        /// <inheritdoc/>
+        public EaseProperty Build()
+        {
+            return new(this);
+        }
     }
 }

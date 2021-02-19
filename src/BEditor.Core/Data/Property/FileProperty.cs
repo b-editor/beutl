@@ -1,6 +1,7 @@
 ﻿using System;
 using System.Collections.Generic;
 using System.ComponentModel;
+using System.Diagnostics;
 using System.Diagnostics.Contracts;
 using System.IO;
 using System.Reactive.Disposables;
@@ -17,6 +18,7 @@ namespace BEditor.Data.Property
     /// Represents a property to select a file.
     /// </summary>
     [DataContract]
+    [DebuggerDisplay("File = {File}")]
     public class FileProperty : PropertyElement<FilePropertyMetadata>, IEasingProperty, IBindable<string>
     {
         #region Fields
@@ -157,8 +159,6 @@ namespace BEditor.Data.Property
             }
             _bindHint = null;
         }
-        /// <inheritdoc/>
-        public override string ToString() => $"(File:{File} Name:{PropertyMetadata?.Name})";
 
         /// <summary>
         /// Create a command to rename a file.
@@ -257,7 +257,7 @@ namespace BEditor.Data.Property
     /// <summary>
     /// Represents the metadata of a <see cref="FileProperty"/>.
     /// </summary>
-    public record FilePropertyMetadata : PropertyElementMetadata
+    public record FilePropertyMetadata : PropertyElementMetadata, IPropertyBuilder<FileProperty>
     {
         /// <summary>
         /// Initializes a new instance of the <see cref="FilePropertyMetadata"/>
@@ -279,5 +279,11 @@ namespace BEditor.Data.Property
         /// Get the filter for the file to be selected.
         /// </summary>
         public FileFilter? Filter { get; init; }
+
+        /// <inheritdoc/>
+        public FileProperty Build()
+        {
+            return new(this);
+        }
     }
 }

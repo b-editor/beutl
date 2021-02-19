@@ -46,8 +46,6 @@ namespace BEditor.Data.Property.Easing
                 Parallel.ForEach(Children, item => item.Parent = _parent.Parent);
             }
         }
-        /// <inheritdoc/>
-        public bool IsLoaded { get; private set; }
 
         /// <summary>
         /// Easing the value
@@ -58,30 +56,5 @@ namespace BEditor.Data.Property.Easing
         /// <param name="max">Maximum value</param>
         /// <returns>Eased value</returns>
         public abstract float EaseFunc(Frame frame, Frame totalframe, float min, float max);
-
-        /// <inheritdoc/>
-        public void Load()
-        {
-            if (IsLoaded) return;
-
-            ServiceProvider = Parent?.ServiceProvider;
-            OnLoad();
-
-            IsLoaded = true;
-        }
-        /// <inheritdoc/>
-        public void Unload()
-        {
-            if (!IsLoaded) return;
-
-            OnUnload();
-
-            IsLoaded = false;
-        }
-
-        /// <inheritdoc cref="Load"/>
-        protected virtual void OnLoad() { }
-        /// <inheritdoc cref="Unload"/>
-        protected virtual void OnUnload() { }
     }
 }

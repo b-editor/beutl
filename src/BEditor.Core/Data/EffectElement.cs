@@ -68,14 +68,15 @@ namespace BEditor.Data
             {
                 _parent = value;
 
-                Parallel.ForEach(Children, property => property.Parent = this);
+                foreach (var prop in Children)
+                {
+                    prop.Parent = this;
+                }
             }
         }
         /// <inheritdoc/>
         public int Id => Parent?.Effect?.IndexOf(this) ?? -1;
-        /// <inheritdoc/>
-        public bool IsLoaded { get; private set; }
-
+        
 
         #region Methods
 
@@ -93,37 +94,6 @@ namespace BEditor.Data
         /// It will be called before rendering.
         /// </summary>
         public virtual void PreviewRender(EffectRenderArgs args) { }
-
-        /// <inheritdoc/>
-        public void Load()
-        {
-            if (IsLoaded) return;
-
-            ServiceProvider = Parent?.ServiceProvider;
-            OnLoad();
-
-            IsLoaded = true;
-        }
-        /// <inheritdoc/>
-        public void Unload()
-        {
-            if (!IsLoaded) return;
-
-            OnUnload();
-
-            IsLoaded = false;
-        }
-
-        /// <inheritdoc cref="IElementObject.Load"/>
-        protected virtual void OnLoad()
-        {
-
-        }
-        /// <inheritdoc cref="IElementObject.Unload"/>
-        protected virtual void OnUnload()
-        {
-
-        }
 
         /// <summary>
         /// Create a command to change whether the <see cref="EffectElement"/> is enabled.

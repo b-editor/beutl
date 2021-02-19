@@ -27,15 +27,16 @@ namespace BEditor.Data
     public class ClipElement : EditorObject, ICloneable, IParent<EffectElement>, IChild<Scene>, IHasName, IHasId, IFormattable, IElementObject
     {
         #region Fields
-        private static readonly PropertyChangedEventArgs _StartArgs = new(nameof(Start));
-        private static readonly PropertyChangedEventArgs _EndArgs = new(nameof(End));
-        private static readonly PropertyChangedEventArgs _LayerArgs = new(nameof(Layer));
-        private static readonly PropertyChangedEventArgs _TextArgs = new(nameof(LabelText));
-        private string? _Name;
-        private Frame _Start;
-        private Frame _End;
-        private int _Layer;
-        private string _LabelText = "";
+        private static readonly PropertyChangedEventArgs _startArgs = new(nameof(Start));
+        private static readonly PropertyChangedEventArgs _endArgs = new(nameof(End));
+        private static readonly PropertyChangedEventArgs _layerArgs = new(nameof(Layer));
+        private static readonly PropertyChangedEventArgs _textArgs = new(nameof(LabelText));
+        private string? _name;
+        private Frame _start;
+        private Frame _end;
+        private int _layer;
+        private string _labelText = "";
+        private Scene _parent;
         #endregion
 
         #region Contructor
@@ -46,10 +47,10 @@ namespace BEditor.Data
         public ClipElement(int id, ObservableCollection<EffectElement> effects, Frame start, Frame end, int layer, Scene scene)
         {
             Id = id;
-            _Start = start;
-            _End = end;
-            _Layer = layer;
-            Parent = scene;
+            _start = start;
+            _end = end;
+            _layer = layer;
+            _parent = scene;
             Effect = effects;
             LabelText = Name;
         }
@@ -67,7 +68,7 @@ namespace BEditor.Data
         /// <summary>
         /// Get the name of this <see cref="ClipElement"/>.
         /// </summary>
-        public string Name => _Name ??= $"{Effect[0].GetType().Name}{Id}";
+        public string Name => _name ??= $"{Effect[0].GetType().Name}{Id}";
 
         /// <summary>
         /// Get or set the start frame for this <see cref="ClipElement"/>.
@@ -75,8 +76,8 @@ namespace BEditor.Data
         [DataMember(Order = 1)]
         public Frame Start
         {
-            get => _Start;
-            set => SetValue(value, ref _Start, _StartArgs);
+            get => _start;
+            set => SetValue(value, ref _start, _startArgs);
         }
 
         /// <summary>
@@ -85,8 +86,8 @@ namespace BEditor.Data
         [DataMember(Order = 2)]
         public Frame End
         {
-            get => _End;
-            set => SetValue(value, ref _End, _EndArgs);
+            get => _end;
+            set => SetValue(value, ref _end, _endArgs);
         }
 
         /// <summary>
@@ -100,11 +101,11 @@ namespace BEditor.Data
         [DataMember(Order = 3)]
         public int Layer
         {
-            get => _Layer;
+            get => _layer;
             set
             {
                 if (value == 0) return;
-                SetValue(value, ref _Layer, _LayerArgs);
+                SetValue(value, ref _layer, _layerArgs);
             }
         }
 
@@ -114,12 +115,24 @@ namespace BEditor.Data
         [DataMember(Name = "Text", Order = 4)]
         public string LabelText
         {
-            get => _LabelText;
-            set => SetValue(value, ref _LabelText, _TextArgs);
+            get => _labelText;
+            set => SetValue(value, ref _labelText, _textArgs);
         }
 
         /// <inheritdoc/>
-        public Scene Parent { get; internal set; }
+        public Scene Parent
+        {
+            get => _parent;
+            internal set
+            {
+                _parent = value;
+
+                foreach (var effect in Effect)
+                {
+                    effect.Parent = this;
+                }
+            }
+        }
 
         /// <summary>
         /// Get the effects included in this <see cref="ClipElement"/>.
@@ -129,9 +142,6 @@ namespace BEditor.Data
 
         /// <inheritdoc/>
         public IEnumerable<EffectElement> Children => Effect;
-
-        /// <inheritdoc/>
-        public bool IsLoaded { get; private set; }
 
         #endregion
 
@@ -228,34 +238,6 @@ namespace BEditor.Data
                 "#" => $"{Parent.Name}.{Name}",
                 _ => throw new FormatException(string.Format("The {0} format string is not supported.", format))
             };
-        }
-
-        /// <inheritdoc/>
-        public void Load()
-        {
-            if (IsLoaded) return;
-
-            ServiceProvider = Parent?.ServiceProvider;
-            foreach (var effect in Effect)
-            {
-                effect.Parent = this;
-                effect.Load();
-            }
-
-            IsLoaded = true;
-        }
-
-        /// <inheritdoc/>
-        public void Unload()
-        {
-            if (!IsLoaded) return;
-
-            foreach (var effect in Effect)
-            {
-                effect.Unload();
-            }
-
-            IsLoaded = false;
         }
 
         /// <summary>

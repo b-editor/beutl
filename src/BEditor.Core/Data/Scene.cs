@@ -50,6 +50,7 @@ namespace BEditor.Data
         private string _sceneName = string.Empty;
         private IPlayer? _player;
         private Color _backgroundColor;
+        private Project? parent;
 
         #endregion
 
@@ -70,9 +71,6 @@ namespace BEditor.Data
         #endregion
 
         #region Properties
-
-        /// <inheritdoc/>
-        public bool IsLoaded { get; private set; }
 
         /// <summary>
         /// Gets the width of the frame buffer.
@@ -266,7 +264,19 @@ namespace BEditor.Data
         public IEnumerable<ClipElement> Children => Datas;
 
         /// <inheritdoc/>
-        public Project? Parent { get; set; }
+        public Project? Parent
+        {
+            get => parent;
+            set
+            {
+                parent = value;
+
+                foreach (var clip in Datas)
+                {
+                    clip.Parent = this;
+                }
+            }
+        }
 
         /// <inheritdoc/>
         public string Name => (SceneName ?? string.Empty).Replace('.', '_');
@@ -340,11 +350,8 @@ namespace BEditor.Data
         #region Methods
 
         /// <inheritdoc/>
-        public void Load()
+        protected override void OnLoad()
         {
-            if (IsLoaded) return;
-
-            ServiceProvider = Parent?.ServiceProvider;
             Debug.Assert(Synchronize is not null);
             Synchronize?.Post(_ =>
             {
@@ -353,34 +360,16 @@ namespace BEditor.Data
                     ClearColor = BackgroundColor,
                 };
                 AudioContext = new AudioContext();
-
-                IsLoaded = true;
             }, null);
-
-            foreach (var clip in Datas)
-            {
-                clip.Parent = this;
-                clip.Load();
-            }
         }
-
         /// <inheritdoc/>
-        public void Unload()
+        protected override void OnUnload()
         {
-            if (!IsLoaded) return;
-
             Synchronize?.Post(_ =>
             {
                 GraphicsContext?.Dispose();
                 AudioContext?.Dispose();
             }, null);
-
-            foreach (var clip in Datas)
-            {
-                clip.Unload();
-            }
-
-            IsLoaded = false;
         }
 
         /// <summary>

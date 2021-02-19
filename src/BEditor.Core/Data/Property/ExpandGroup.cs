@@ -1,6 +1,7 @@
 ﻿using System;
 using System.Collections.Generic;
 using System.ComponentModel;
+using System.Diagnostics;
 using System.Reactive.Disposables;
 using System.Runtime.Serialization;
 using System.Text.RegularExpressions;
@@ -15,6 +16,7 @@ namespace BEditor.Data.Property
     /// Represents a base class for grouping <see cref="PropertyElement"/> with expanders.
     /// </summary>
     [DataContract]
+    [DebuggerDisplay("IsExpanded = {IsExpanded}")]
     public abstract class ExpandGroup : Group, IEasingProperty, IBindable<bool>
     {
         #region Fields
@@ -84,8 +86,6 @@ namespace BEditor.Data.Property
             }
             _bindHint = null;
         }
-        /// <inheritdoc/>
-        public override string ToString() => $"(IsExpanded:{IsExpanded} Name:{PropertyMetadata?.Name})";
 
         #region Ibindable
 

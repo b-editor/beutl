@@ -1,6 +1,7 @@
 ﻿using System;
 using System.Collections.Generic;
 using System.ComponentModel;
+using System.Diagnostics;
 using System.Diagnostics.Contracts;
 using System.Reactive.Disposables;
 using System.Runtime.Serialization;
@@ -17,6 +18,7 @@ namespace BEditor.Data.Property
     /// Represents a checkbox property.
     /// </summary>
     [DataContract]
+    [DebuggerDisplay("IsChecked = {IsChecked}")]
     public class CheckProperty : PropertyElement<CheckPropertyMetadata>, IEasingProperty, IBindable<bool>
     {
         #region Fields
@@ -134,8 +136,6 @@ namespace BEditor.Data.Property
             }
             _bindHint = null;
         }
-        /// <inheritdoc/>
-        public override string ToString() => $"(IsChecked:{IsChecked} Name:{PropertyMetadata?.Name})";
         /// <summary>
         /// Create a command to change whether it is checked or not.
         /// </summary>
@@ -169,7 +169,7 @@ namespace BEditor.Data.Property
     /// <summary>
     /// Represents the metadata of a <see cref="CheckProperty"/>.
     /// </summary>
-    public record CheckPropertyMetadata : PropertyElementMetadata
+    public record CheckPropertyMetadata : PropertyElementMetadata, IPropertyBuilder<CheckProperty>
     {
         /// <summary>
         /// Initializes a new instance of the <see cref="CheckPropertyMetadata"/> class.
@@ -185,5 +185,11 @@ namespace BEditor.Data.Property
         /// Get the default value of <see cref="CheckProperty.IsChecked"/>.
         /// </summary>
         public bool DefaultIsChecked { get; init; }
+
+        /// <inheritdoc/>
+        public CheckProperty Build()
+        {
+            return new(this);
+        }
     }
 }

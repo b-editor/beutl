@@ -10,9 +10,18 @@ using BEditor.Media;
 using BEditor.Media.Encoder;
 
 using Microsoft.Extensions.CommandLineUtils;
+using Microsoft.Extensions.DependencyInjection;
 
 namespace BEditor
 {
+    public class App : IApplication
+    {
+        public static readonly App Current = new();
+
+        public Status AppStatus { get; set; }
+        public IServiceCollection Services { get; } = new ServiceCollection();
+    }
+
     class Program
     {
         static void Main(string[] args)
@@ -47,7 +56,7 @@ namespace BEditor
                 command.OnExecute(() =>
                 {
                     using Stream stream = output.HasValue() ? new FileStream(output.Value(), FileMode.Create) : new MemoryStream();
-                    using var project = Project.FromFile(input.Value);
+                    using var project = Project.FromFile(input.Value, App.Current);
 
                     project?.Save(stream, SerializeMode.Json);
 
@@ -76,7 +85,7 @@ namespace BEditor
 
                 command.OnExecute(async () =>
                 {
-                    using var project = Project.FromFile(input.Value);
+                    using var project = Project.FromFile(input.Value, App.Current);
 
                     if (project is null)
                     {
@@ -107,7 +116,7 @@ namespace BEditor
 
                 command.OnExecute(async () =>
                 {
-                    using var project = Project.FromFile(input.Value);
+                    using var project = Project.FromFile(input.Value, App.Current);
 
                     if (project is null)
                     {

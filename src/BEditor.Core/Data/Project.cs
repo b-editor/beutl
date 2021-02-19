@@ -28,9 +28,9 @@ namespace BEditor.Data
         private static readonly PropertyChangedEventArgs _FilenameArgs = new(nameof(Name));
         private static readonly PropertyChangedEventArgs _dirnameArgs = new(nameof(DirectoryName));
         private Scene? _previewScene;
-        private ObservableCollection<Scene> _sceneList = new ObservableCollection<Scene>();
         private string? _filename;
         private string? _dirname;
+        private IApplication? _parent;
 
         #endregion
 
@@ -83,18 +83,7 @@ namespace BEditor.Data
         /// Get a list of Scenes in this <see cref="Project"/>.
         /// </summary>
         [DataMember(Order = 3)]
-        public ObservableCollection<Scene> SceneList
-        {
-            get => _sceneList;
-            private set
-            {
-                _sceneList = value;
-                Parallel.ForEach(value, scene =>
-                {
-                    scene.Parent = this;
-                });
-            }
-        }
+        public ObservableCollection<Scene> SceneList { get; private set; } = new ObservableCollection<Scene>();
 
         /// <summary>
         /// Get an index of the <see cref="SceneList"/> being previewed.
@@ -126,10 +115,19 @@ namespace BEditor.Data
         public IEnumerable<Scene> Children => SceneList;
 
         /// <inheritdoc/>
-        public IApplication? Parent { get; private set; }
+        public IApplication? Parent
+        {
+            get => _parent;
+            private set
+            {
+                _parent = value;
 
-        /// <inheritdoc/>
-        public bool IsLoaded { get; private set; }
+                foreach (var scene in SceneList)
+                {
+                    scene.Parent = this;
+                }
+            }
+        }
 
         /// <inheritdoc/>
         public string? Name
@@ -265,7 +263,7 @@ namespace BEditor.Data
         /// <param name="file">The project file.</param>
         /// <param name="app">Specify the application.</param>
         /// <returns>Returns the loaded <see cref="Project"/> on success, or <see langword="null"/> on failure.</returns>
-        public static Project? FromFile(string file, IApplication? app = null)
+        public static Project? FromFile(string file, IApplication app)
         {
             var mode = SerializeMode.Binary;
             if (Path.GetExtension(file) is ".json")
@@ -284,42 +282,10 @@ namespace BEditor.Data
             return proj;
         }
 
-        private void CopyTo(Project project)
-        {
-            project.Framerate = Framerate;
-            project.Parent = Parent;
-            project.PreviewScene = PreviewScene;
-            project.PreviewSceneIndex = PreviewSceneIndex;
-            project.Samplingrate = Samplingrate;
-            project.SceneList = SceneList;
-        }
-
         /// <inheritdoc/>
-        public void Load()
+        protected override void OnUnload()
         {
-            if (IsLoaded) return;
-
-            ServiceProvider = Parent?.Services.BuildServiceProvider();
-            foreach (var scene in SceneList)
-            {
-                scene.Load();
-            }
-
-            IsLoaded = true;
-        }
-
-        /// <inheritdoc/>
-        public void Unload()
-        {
-            if (!IsLoaded) return;
-
             ServiceProvider?.Dispose();
-            foreach (var scene in SceneList)
-            {
-                scene.Unload();
-            }
-
-            IsLoaded = false;
         }
 
         #endregion

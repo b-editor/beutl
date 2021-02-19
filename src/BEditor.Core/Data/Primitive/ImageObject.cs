@@ -55,7 +55,7 @@ namespace BEditor.Data.Primitive
             Angle = new(AngleMetadata);
             Material = new(MaterialMetadata);
         }
-
+        
         /// <inheritdoc/>
         public override string Name => "";
         /// <summary>

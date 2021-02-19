@@ -40,7 +40,7 @@ namespace BEditor.ViewModels.StartWindowControl
 
                 var app = AppData.Current;
                 app.Project?.Unload();
-                var project = Project.FromFile(ProjectItem.Path);
+                var project = Project.FromFile(ProjectItem.Path, app);
 
                 if (project is null) return;
 

@@ -35,42 +35,10 @@ namespace BEditor.Data.Property
         public int Id => (id ??= Parent?.Children?.ToList()?.IndexOf(this)) ?? -1;
         /// <inheritdoc/>
         public string Name => _propertyMetadata?.Name ?? Id.ToString();
-        /// <inheritdoc/>
-        public bool IsLoaded { get; private set; }
 
 
         /// <inheritdoc/>
         public override string ToString() => $"(Name:{PropertyMetadata?.Name})";
-        /// <inheritdoc/>
-        public void Load()
-        {
-            if (IsLoaded) return;
-
-            ServiceProvider = Parent?.ServiceProvider;
-            OnLoad();
-
-            IsLoaded = true;
-        }
-        /// <inheritdoc/>
-        public void Unload()
-        {
-            if (!IsLoaded) return;
-
-            OnUnload();
-
-            IsLoaded = false;
-        }
-
-        /// <inheritdoc cref="IElementObject.Load"/>
-        protected virtual void OnLoad()
-        {
-
-        }
-        /// <inheritdoc cref="IElementObject.Unload"/>
-        protected virtual void OnUnload()
-        {
-
-        }
     }
 
     /// <inheritdoc cref="PropertyElement"/>

@@ -140,7 +140,7 @@ namespace BEditor.Models
         {
             var app = AppData.Current;
             app.Project?.Unload();
-            var project = Project.FromFile(filename);
+            var project = Project.FromFile(filename, app);
 
             if (project is null) return;
 
