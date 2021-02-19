@@ -169,15 +169,6 @@ namespace BEditor.Properties {
         }
         
         /// <summary>
-        ///   ActivityLog に類似しているローカライズされた文字列を検索します。
-        /// </summary>
-        public static string ActivityLog {
-            get {
-                return ResourceManager.GetString("ActivityLog", resourceCulture);
-            }
-        }
-        
-        /// <summary>
         ///   Add に類似しているローカライズされた文字列を検索します。
         /// </summary>
         public static string Add {
@@ -417,6 +408,15 @@ namespace BEditor.Properties {
         public static string Cancel {
             get {
                 return ResourceManager.GetString("Cancel", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Category に類似しているローカライズされた文字列を検索します。
+        /// </summary>
+        public static string Category {
+            get {
+                return ResourceManager.GetString("Category", resourceCulture);
             }
         }
         
@@ -823,15 +823,6 @@ namespace BEditor.Properties {
         public static string Effects {
             get {
                 return ResourceManager.GetString("Effects", resourceCulture);
-            }
-        }
-        
-        /// <summary>
-        ///   Enable error log に類似しているローカライズされた文字列を検索します。
-        /// </summary>
-        public static string EnableErrorLog {
-            get {
-                return ResourceManager.GetString("EnableErrorLog", resourceCulture);
             }
         }
         
@@ -1247,6 +1238,15 @@ namespace BEditor.Properties {
         public static string LoadPlugin {
             get {
                 return ResourceManager.GetString("LoadPlugin", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Log に類似しているローカライズされた文字列を検索します。
+        /// </summary>
+        public static string Log {
+            get {
+                return ResourceManager.GetString("Log", resourceCulture);
             }
         }
         

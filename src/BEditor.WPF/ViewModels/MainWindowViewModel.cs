@@ -14,6 +14,7 @@ using BEditor.Views.SettingsControl;
 using MaterialDesignThemes.Wpf;
 
 using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.Logging;
 
 using Reactive.Bindings;
 using Reactive.Bindings.Extensions;
@@ -56,6 +57,7 @@ namespace BEditor.ViewModels
 
         public ReactiveCommand DeleteCommand { get; } = new();
         public ReactiveCommand MemoryRelease { get; } = new();
+
         #endregion
 
         public ReactiveCommand SceneSettingsCommand { get; } = new();

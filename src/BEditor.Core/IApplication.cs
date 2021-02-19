@@ -4,6 +4,7 @@ using System.Collections.Generic;
 using BEditor.Plugin;
 
 using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.Logging;
 
 namespace BEditor
 {
@@ -17,8 +18,12 @@ namespace BEditor
         /// </summary>
         public Status AppStatus { get; set; }
         /// <summary>
-        /// Gets the ServiceCollection.
+        /// Gets the <see cref="IServiceCollection"/>.
         /// </summary>
         public IServiceCollection Services { get; }
+        /// <summary>
+        /// Gets the <see cref="ILoggerFactory"/>.
+        /// </summary>
+        public ILoggerFactory LoggingFactory { get; }
     }
 }

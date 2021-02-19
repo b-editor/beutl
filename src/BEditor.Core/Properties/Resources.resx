@@ -159,9 +159,6 @@
     <value>View(_V)</value>
     <comment>アクセラレータキーに使用</comment>
   </data>
-  <data name="ActivityLog" xml:space="preserve">
-    <value>ActivityLog</value>
-  </data>
   <data name="Add" xml:space="preserve">
     <value>Add</value>
   </data>
@@ -357,9 +354,6 @@ Do you want to perform the operation?</value>
   </data>
   <data name="Effects" xml:space="preserve">
     <value>Effects</value>
-  </data>
-  <data name="EnableErrorLog" xml:space="preserve">
-    <value>Enable error log</value>
   </data>
   <data name="Erode" xml:space="preserve">
     <value>Erode</value>
@@ -854,5 +848,11 @@ Please select the plugin you want to load</value>
   </data>
   <data name="ShowStartWindow" xml:space="preserve">
     <value>Show start window.</value>
+  </data>
+  <data name="Log" xml:space="preserve">
+    <value>Log</value>
+  </data>
+  <data name="Category" xml:space="preserve">
+    <value>Category</value>
   </data>
 </root>

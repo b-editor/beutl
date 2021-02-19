@@ -28,6 +28,7 @@ using BEditor.Views.MessageContent;
 using MaterialDesignThemes.Wpf;
 
 using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.Logging;
 
 using SkiaSharp;
 
@@ -41,10 +42,8 @@ namespace BEditor
     public partial class App : Application
     {
         private static readonly string colorsDir = Path.Combine(AppContext.BaseDirectory, "user", "colors");
-        private static readonly string logsDir = Path.Combine(AppContext.BaseDirectory, "user", "logs");
         private static readonly string backupDir = Path.Combine(AppContext.BaseDirectory, "user", "backup");
         private static readonly string pluginsDir = Path.Combine(AppContext.BaseDirectory, "user", "plugins");
-        private static readonly string errorlogFile = Path.Combine(AppContext.BaseDirectory, "user", "logs", "errorlog.xml");
 
         protected override void OnStartup(StartupEventArgs e)
         {
@@ -149,21 +148,10 @@ namespace BEditor
         private static void CreateDirectory()
         {
             DirectoryManager.Default.Directories.Add(colorsDir);
-            DirectoryManager.Default.Directories.Add(logsDir);
             DirectoryManager.Default.Directories.Add(backupDir);
             DirectoryManager.Default.Directories.Add(pluginsDir);
 
             DirectoryManager.Default.Run();
-
-            if (!File.Exists(errorlogFile))
-            {
-                XDocument XDoc = new XDocument(
-                    new XDeclaration("1.0", "utf-8", "true"),
-                    new XElement("Logs")
-                );
-
-                XDoc.Save(errorlogFile);
-            }
         }
         private static void SetDarkMode()
         {
@@ -410,6 +398,9 @@ namespace BEditor
             await using var provider = AppData.Current.Services.BuildServiceProvider();
             provider.GetService<IMessage>()!
                 .Snackbar(string.Format(Resource.ExceptionWasThrown, e.Exception.GetType().FullName));
+
+            var logger = AppData.Current.LoggingFactory.CreateLogger<App>();
+            logger.LogError(e.Exception, "UnhandledException");
 
 #if !DEBUG
             e.Handled = true;
