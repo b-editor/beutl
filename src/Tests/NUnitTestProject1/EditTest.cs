@@ -1,4 +1,6 @@
-﻿using System;
+﻿//#define IsEnabled
+
+using System;
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
@@ -26,6 +28,7 @@ namespace NUnitTestProject1
         [Test]
         public void Test()
         {
+#if IsEnabled
             using var project = new Project(1920, 1080, 60);
             using var stream = new MemoryStream();
             project.Load();
@@ -36,6 +39,7 @@ namespace NUnitTestProject1
             var result = scene.Render(1);
 
             result.Image.Encode(stream, EncodedImageFormat.Png);
+#endif
         }
     }
 }

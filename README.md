@@ -1,9 +1,12 @@
 # BEditor
 
-![](https://img.shields.io/github/issues/indigo-san/BEditor?style=flat-square&logo=appveyor)
-![](https://img.shields.io/github/forks/indigo-san/BEditor?style=flat-square&logo=appveyor)
-![](https://img.shields.io/github/stars/indigo-san/BEditor?style=flat-square&logo=appveyor)
-![](https://img.shields.io/github/license/indigo-san/BEditor?style=flat-square&logo=appveyor)
+![](https://raw.githubusercontent.com/indigo-san/BEditor/develop/docs/imgs/header.png)
+
+![](https://img.shields.io/github/issues/indigo-san/BEditor)
+![](https://img.shields.io/github/forks/indigo-san/BEditor)
+![](https://img.shields.io/github/stars/indigo-san/BEditor)
+![](https://img.shields.io/github/license/indigo-san/BEditor)
+![](https://github.com/indigo-san/BEditor/workflows/Debug%20Build%20&%20Test/badge.svg)
 
 ## Description
 現在開発中の動画編集ソフトウェアです。
