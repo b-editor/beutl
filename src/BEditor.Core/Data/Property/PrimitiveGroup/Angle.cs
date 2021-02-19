@@ -27,18 +27,6 @@ namespace BEditor.Data.Property.PrimitiveGroup
         /// Represents <see cref="AngleZ"/> metadata.
         /// </summary>
         public static readonly EasePropertyMetadata AngleZMetadata = new(Resources.AngleZ);
-        /// <summary>
-        /// Represents the <see cref="EditorProperty{TValue}"/> of the <see cref="AngleX"/>.
-        /// </summary>
-        public static readonly EditorProperty<EaseProperty> AngleXProperty = EditorProperty.Register<EaseProperty, Angle>(nameof(AngleX), AngleXMetadata);
-        /// <summary>
-        /// Represents the <see cref="EditorProperty{TValue}"/> of the <see cref="AngleY"/>.
-        /// </summary>
-        public static readonly EditorProperty<EaseProperty> AngleYProperty = EditorProperty.Register<EaseProperty, Angle>(nameof(AngleY), AngleYMetadata);
-        /// <summary>
-        /// Represents the <see cref="EditorProperty{TValue}"/> of the <see cref="AngleZ"/>.
-        /// </summary>
-        public static readonly EditorProperty<EaseProperty> AngleZProperty = EditorProperty.Register<EaseProperty, Angle>(nameof(AngleZ), AngleZMetadata);
 
         /// <summary>
         /// Initializes a new instance of the <see cref="Angle"/> class.
@@ -47,9 +35,9 @@ namespace BEditor.Data.Property.PrimitiveGroup
         /// <exception cref="ArgumentNullException"><paramref name="metadata"/> is <see langword="null"/>.</exception>
         public Angle(PropertyElementMetadata metadata) : base(metadata)
         {
-            //AngleX = new(AngleXMetadata);
-            //AngleY = new(AngleYMetadata);
-            //AngleZ = new(AngleZMetadata);
+            AngleX = new(AngleXMetadata);
+            AngleY = new(AngleYMetadata);
+            AngleZ = new(AngleZMetadata);
         }
 
         /// <inheritdoc/>
@@ -63,43 +51,31 @@ namespace BEditor.Data.Property.PrimitiveGroup
         /// Get the <see cref="EaseProperty"/> of the X-axis angle.
         /// </summary>
         [DataMember(Order = 0)]
-        public EaseProperty AngleX
-        {
-            get => GetValue(AngleXProperty);
-            set => SetValue(AngleXProperty, Value);
-        }
+        public EaseProperty AngleX { get; private set; }
         /// <summary>
         /// Get the <see cref="EaseProperty"/> of the Y-axis angle.
         /// </summary>
         [DataMember(Order = 1)]
-        public EaseProperty AngleY
-        {
-            get => GetValue(AngleYProperty);
-            set => SetValue(AngleYProperty, value);
-        }
+        public EaseProperty AngleY { get; private set; }
         /// <summary>
         /// Get the <see cref="EaseProperty"/> of the Z-axis angle.
         /// </summary>
         [DataMember(Order = 2)]
-        public EaseProperty AngleZ
-        {
-            get => GetValue(AngleZProperty);
-            set => SetValue(AngleZProperty, value);
-        }
+        public EaseProperty AngleZ { get; private set; }
 
         /// <inheritdoc/>
         protected override void OnLoad()
         {
-            //AngleX.Load(AngleXMetadata);
-            //AngleY.Load(AngleYMetadata);
-            //AngleZ.Load(AngleZMetadata);
+            AngleX.Load(AngleXMetadata);
+            AngleY.Load(AngleYMetadata);
+            AngleZ.Load(AngleZMetadata);
         }
         /// <inheritdoc/>
         protected override void OnUnload()
         {
-            //AngleX.Unload();
-            //AngleY.Unload();
-            //AngleZ.Unload();
+            AngleX.Unload();
+            AngleY.Unload();
+            AngleZ.Unload();
         }
     }
 }

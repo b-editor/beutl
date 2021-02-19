@@ -25,7 +25,7 @@ using MaterialDesignThemes.Wpf;
 
 namespace BEditor.Views
 {
-    public static class ModelToComponent
+    public static class ViewBuilder
     {
         private static readonly IMultiValueConverter HeaderConverter = new PropertyHeaderTextConverter();
         private static readonly Binding HeaderBinding = new("Metadata.Value.Name") { Mode = BindingMode.OneTime };
@@ -63,7 +63,7 @@ namespace BEditor.Views
         };
 
 
-        static ModelToComponent()
+        static ViewBuilder()
         {
             #region CreatePropertyView
             // CheckProperty
@@ -409,10 +409,21 @@ namespace BEditor.Views
 
         public static List<PropertyViewBuilder> PropertyViewBuilders { get; } = new List<PropertyViewBuilder>();
         public static List<KeyFrameViewBuilder> KeyFrameViewBuilders { get; } = new List<KeyFrameViewBuilder>();
+        public static readonly EditorProperty<UIElement> PropertyViewProperty = EditorProperty.Register<UIElement, PropertyElement>("GetPropertyView");
+        public static readonly EditorProperty<UIElement> ClipPropertyViewProperty = EditorProperty.Register<UIElement, ClipElement>("GetPropertyView");
+        public static readonly EditorProperty<UIElement> EasePropertyViewProperty = EditorProperty.Register<UIElement, EasingFunc>("GetPropertyView");
+        public static readonly EditorProperty<UIElement> KeyFrameViewProperty = EditorProperty.Register<UIElement, IKeyFrameProperty>("GetKeyFrameView");
+        public static readonly EditorProperty<ClipUI> ClipViewProperty = EditorProperty.Register<ClipUI, ClipElement>("GetClipView");
+        public static readonly EditorProperty<ClipUIViewModel> ClipViewModelProperty = EditorProperty.Register<ClipUIViewModel, ClipElement>("GetClipViewModel");
+        public static readonly EditorProperty<UIElement> EffectPropertyViewProperty = EditorProperty.Register<UIElement, EffectElement>("GetControl");
+        public static readonly EditorProperty<UIElement> KeyFrameProperty = EditorProperty.Register<UIElement, EffectElement>("GetKeyFrame");
+        public static readonly EditorProperty<TimeLine> TimeLineProperty = EditorProperty.Register<TimeLine, Scene>("GetTimeLine");
+        public static readonly EditorProperty<TimeLineViewModel> TimeLineViewModelProperty = EditorProperty.Register<TimeLineViewModel, Scene>("GetTimeLineViewModel");
+        public static readonly EditorProperty<PropertyTab> PropertyTabProperty = EditorProperty.Register<PropertyTab, Scene>("GetPropertyTab");
 
         public static UIElement GetCreatePropertyView(this PropertyElement property)
         {
-            if (!property.ComponentData.ContainsKey("GetPropertyView"))
+            if (property[PropertyViewProperty] is null)
             {
                 var type = property.GetType();
                 var func = PropertyViewBuilders.Find(x =>
@@ -425,45 +436,45 @@ namespace BEditor.Views
                     return type == x.PropertyType || type.IsSubclassOf(x.PropertyType);
                 });
 
-                property.ComponentData.Add("GetPropertyView", func?.CreateFunc?.Invoke(property) ?? new TextBlock() { Height = 32.5 });
+                property[PropertyViewProperty] = func?.CreateFunc?.Invoke(property) ?? new TextBlock() { Height = 32.5 };
             }
-            return property.ComponentData["GetPropertyView"];
+            return property.GetValue(PropertyViewProperty);
         }
         public static UIElement GetCreateKeyFrameView(this IKeyFrameProperty property)
         {
-            if (!property.ComponentData.ContainsKey("GetKeyFrameView"))
+            if (property[KeyFrameViewProperty] is null)
             {
                 var type = property.GetType();
                 var func = KeyFrameViewBuilders.Find(x => type == x.PropertyType || type.IsSubclassOf(x.PropertyType));
 
-                property.ComponentData.Add("GetKeyFrameView", func?.CreateFunc?.Invoke(property) ?? new TextBlock());
+                property[KeyFrameViewProperty] = func?.CreateFunc?.Invoke(property) ?? new TextBlock();
             }
-            return property.ComponentData["GetKeyFrameView"];
+            return property.GetValue(KeyFrameViewProperty);
         }
         public static ClipUI GetCreateClipView(this ClipElement clip)
         {
-            if (!clip.ComponentData.ContainsKey("GetClipView"))
+            if (clip[ClipViewProperty] is null)
             {
-                clip.ComponentData.Add("GetClipView", new ClipUI(clip)
+                clip[ClipViewProperty] = new ClipUI(clip)
                 {
                     Name = clip.Name,
                     HorizontalAlignment = HorizontalAlignment.Left,
                     VerticalAlignment = VerticalAlignment.Top
-                });
+                };
             }
-            return clip.ComponentData["GetClipView"];
+            return clip.GetValue(ClipViewProperty);
         }
         public static ClipUIViewModel GetCreateClipViewModel(this ClipElement clip)
         {
-            if (!clip.ComponentData.ContainsKey("GetClipViewModel"))
+            if (clip[ClipViewModelProperty] is null)
             {
-                clip.ComponentData.Add("GetClipViewModel", new ClipUIViewModel(clip));
+                clip[ClipViewModelProperty] = new ClipUIViewModel(clip);
             }
-            return clip.ComponentData["GetClipViewModel"];
+            return clip.GetValue(ClipViewModelProperty);
         }
         public static UIElement GetCreatePropertyView(this EffectElement effect)
         {
-            if (!effect.ComponentData.ContainsKey("GetControl"))
+            if (effect[EffectPropertyViewProperty] is null)
             {
                 ExpandTree expander;
                 VirtualizingStackPanel stack;
@@ -495,13 +506,13 @@ namespace BEditor.Views
                 //エクスパンダーをアップデート
                 expander.ExpanderUpdate();
 
-                effect.ComponentData.Add("GetControl", expander);
+                effect[EffectPropertyViewProperty] = expander;
             }
-            return effect.ComponentData["GetControl"];
+            return effect.GetValue(EffectPropertyViewProperty);
         }
         public static UIElement GetCreateKeyFrameView(this EffectElement effect)
         {
-            if (!effect.ComponentData.ContainsKey("GetKeyFrame"))
+            if (effect[KeyFrameProperty] is null)
             {
                 var keyFrame = new ExpandTree() { HeaderHeight = Setting.ClipHeight + 1 };
 
@@ -530,45 +541,45 @@ namespace BEditor.Views
                 //エクスパンダーをアップデート
                 keyFrame.ExpanderUpdate();
 
-                effect.ComponentData.Add("GetKeyFrame", keyFrame);
+                effect[KeyFrameProperty] = keyFrame;
             }
-            return effect.ComponentData["GetKeyFrame"];
+            return effect.GetValue(KeyFrameProperty);
         }
         public static UIElement GetCreatePropertyView(this ClipElement clip)
         {
-            if (!clip.ComponentData.ContainsKey("GetPropertyView"))
+            if (clip[ClipPropertyViewProperty] is null)
             {
-                clip.ComponentData.Add("GetPropertyView", new Object_Setting(clip));
+                clip[ClipPropertyViewProperty] = new Object_Setting(clip);
             }
-            return clip.ComponentData["GetPropertyView"];
+            return clip.GetValue(ClipPropertyViewProperty);
         }
         public static TimeLine GetCreateTimeLineView(this Scene scene)
         {
-            if (!scene.ComponentData.ContainsKey("GetTimeLine"))
+            if (scene[TimeLineProperty] is null)
             {
-                scene.ComponentData.Add("GetTimeLine", new TimeLine(scene));
+                scene[TimeLineProperty] = new TimeLine(scene);
             }
-            return scene.ComponentData["GetTimeLine"];
+            return scene.GetValue(TimeLineProperty);
         }
         public static TimeLineViewModel GetCreateTimeLineViewModel(this Scene scene)
         {
-            if (!scene.ComponentData.ContainsKey("GetTimeLineViewModel"))
+            if (scene[TimeLineViewModelProperty] is null)
             {
-                scene.ComponentData.Add("GetTimeLineViewModel", new TimeLineViewModel(scene));
+                scene[TimeLineViewModelProperty] = new TimeLineViewModel(scene);
             }
-            return scene.ComponentData["GetTimeLineViewModel"];
+            return scene.GetValue(TimeLineViewModelProperty);
         }
         public static PropertyTab GetCreatePropertyTab(this Scene scene)
         {
-            if (!scene.ComponentData.ContainsKey("GetPropertyTab"))
+            if (scene[PropertyTabProperty] is null)
             {
-                scene.ComponentData.Add("GetPropertyTab", new PropertyTab(scene));
+                scene[PropertyTabProperty] = new PropertyTab(scene);
             }
-            return scene.ComponentData["GetPropertyTab"];
+            return scene.GetValue(PropertyTabProperty);
         }
         public static UIElement GetCreatePropertyView(this EasingFunc easing)
         {
-            if (!easing.ComponentData.ContainsKey("GetPropertyView"))
+            if (easing[EasePropertyViewProperty] is null)
             {
                 var _createdControl = new VirtualizingStackPanel()
                 {
@@ -582,9 +593,9 @@ namespace BEditor.Views
                     _createdControl.Children.Add(((PropertyElement)setting).GetCreatePropertyView());
                 }
 
-                easing.ComponentData.Add("GetPropertyView", _createdControl);
+                easing[EasePropertyViewProperty] = _createdControl;
             }
-            return easing.ComponentData["GetPropertyView"];
+            return easing.GetValue(EasePropertyViewProperty);
         }
         public static (ExpandTree, VirtualizingStackPanel) CreateTreeObject(ObjectElement obj)
         {

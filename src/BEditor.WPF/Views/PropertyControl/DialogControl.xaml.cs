@@ -25,12 +25,12 @@ namespace BEditor.Views.PropertyControl
     /// </summary>
     public partial class DialogControl : UserControl, ICustomTreeViewItem
     {
-        private static readonly ModelToComponent.PropertyViewBuilder builder;
+        private static readonly ViewBuilder.PropertyViewBuilder builder;
         private readonly DialogProperty property;
 
         static DialogControl()
         {
-            builder = ModelToComponent.PropertyViewBuilders.Find(builder => builder.PropertyType == typeof(Group))!;
+            builder = ViewBuilder.PropertyViewBuilders.Find(builder => builder.PropertyType == typeof(Group))!;
         }
         public DialogControl(DialogProperty property)
         {

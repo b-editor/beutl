@@ -14,11 +14,24 @@ using Microsoft.Extensions.DependencyInjection;
 namespace BEditor.Data
 {
 #pragma warning disable CS1591
+
+    public interface IEditorObject : INotifyPropertyChanged, IExtensibleDataObject, IElementObject
+    {
+        public SynchronizationContext? Synchronize { get; }
+        public ServiceProvider? ServiceProvider { get; }
+
+        public object? this[EditorProperty property] { get; set; }
+
+        public TValue GetValue<TValue>(EditorProperty<TValue> property);
+        public object? GetValue(EditorProperty property);
+        public void SetValue<TValue>(EditorProperty<TValue> property, TValue value);
+        public void SetValue(EditorProperty property, object? value);
+    }
     /// <summary>
     /// Represents the base class of the edit data.
     /// </summary>
     [DataContract]
-    public class EditorObject : BasePropertyChanged, IExtensibleDataObject, IElementObject
+    public class EditorObject : BasePropertyChanged, IEditorObject
     {
         private Dictionary<string, dynamic>? _ComponentData;
         private Dictionary<string, object?>? _values = new();
@@ -83,6 +96,12 @@ namespace BEditor.Data
 
         public void SetValue(EditorProperty property, object? value)
         {
+            var valueType = value?.GetType();
+            if (property.ValueType != valueType)
+            {
+                throw new DataException($"The value was not {property.ValueType} type, but {valueType} type.");
+            }
+
             if (!Values.ContainsKey(property.Name))
             {
                 Values.Add(property.Name, value);
@@ -103,7 +122,7 @@ namespace BEditor.Data
                 ServiceProvider = obj1.Parent?.ServiceProvider;
             }
 
-            if(this is IChild<IApplication> child_app)
+            if (this is IChild<IApplication> child_app)
             {
                 ServiceProvider = child_app.Parent?.Services.BuildServiceProvider();
             }
@@ -194,7 +213,7 @@ namespace BEditor.Data
         public Type ValueType { get; }
         public IPropertyBuilder? Builder { get; }
 
-        public static EditorProperty<TValue> Register<TValue, TOwner>(string name, IPropertyBuilder<TValue>? builder = null)
+        public static EditorProperty<TValue> Register<TValue, TOwner>(string name, IPropertyBuilder<TValue>? builder = null) where TOwner : IEditorObject
         {
             var key = new PropertyKey(name, typeof(TOwner));
 

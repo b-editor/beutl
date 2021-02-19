@@ -61,7 +61,7 @@ namespace BEditor.Data.Property
             private set => _bindHint = value;
         }
         /// <inheritdoc/>
-        public bool Value => IsExpanded;
+        bool IBindable<bool>.Value => IsExpanded;
 
 
         /// <summary>
