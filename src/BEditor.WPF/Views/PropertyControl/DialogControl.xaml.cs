@@ -13,6 +13,8 @@ using System.Windows.Media.Imaging;
 using System.Windows.Navigation;
 using System.Windows.Shapes;
 
+using BEditor.Data;
+
 using BEditor.Data.Property;
 using BEditor.ViewModels.PropertyControl;
 using BEditor.Views.CustomControl;
@@ -26,6 +28,7 @@ namespace BEditor.Views.PropertyControl
     public partial class DialogControl : UserControl, ICustomTreeViewItem
     {
         private static readonly ViewBuilder.PropertyViewBuilder builder;
+        public static readonly EditorProperty<UIElement> DialogProperty = EditorProperty.Register<UIElement, DialogProperty>("GetDialog");
         private readonly DialogProperty property;
 
         static DialogControl()
@@ -46,11 +49,11 @@ namespace BEditor.Views.PropertyControl
         {
             static Window GetCreate(DialogProperty property)
             {
-                if (!property.ComponentData.ContainsKey("GetDialog"))
+                if (property[DialogProperty] is null)
                 {
-                    property.ComponentData.Add("GetDialog", builder.CreateFunc(property));
+                    property[DialogProperty] = builder.CreateFunc(property);
                 }
-                return new NoneDialog(property.ComponentData["GetDialog"]);
+                return new NoneDialog(property.GetValue(DialogProperty));
             }
 
             GetCreate(property).ShowDialog();
