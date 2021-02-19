@@ -5,7 +5,7 @@ using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
 
-using BEditor.Extensions.AviUtl;
+using ExtAviUtl;
 
 using Microsoft.Extensions.Configuration;
 
@@ -27,7 +27,7 @@ namespace NUnitTestProject1
             const string file = "E:\\無題.exo";
 
             var obj = ExoPerser.FromFile(file);
-            obj.Perse();
+            //obj.Perse();
         }
     }
 }

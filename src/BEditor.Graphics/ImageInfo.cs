@@ -10,19 +10,17 @@ using BEditor.Drawing.Pixel;
 
 namespace BEditor.Graphics
 {
-    public class ImageInfo : IDisposable
+    public class ImageInfo : IDisposable, IAsyncDisposable
     {
         private readonly Func<ImageInfo, Transform> _getTransform;
 
-        public ImageInfo(Image<BGRA32> image, Func<ImageInfo, Transform> transform, int index)
+        public ImageInfo(Image<BGRA32> image, Func<ImageInfo, Transform> transform)
         {
             Source = image;
             _getTransform = transform;
-            Index = index;
         }
 
         public Image<BGRA32> Source { get; set; }
-        public int Index { get; }
         public Transform Transform => _getTransform(this);
         public bool IsDisposed { get; private set; }
 
@@ -31,6 +29,16 @@ namespace BEditor.Graphics
             if (IsDisposed) return;
 
             Source.Dispose();
+            GC.SuppressFinalize(this);
+
+            IsDisposed = true;
+        }
+
+        public async ValueTask DisposeAsync()
+        {
+            if (IsDisposed) return;
+
+            await Source.DisposeAsync();
             GC.SuppressFinalize(this);
 
             IsDisposed = true;

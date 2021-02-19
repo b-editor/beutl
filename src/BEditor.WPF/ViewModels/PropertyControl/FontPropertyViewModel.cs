@@ -4,12 +4,13 @@ using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
 
-using BEditor.Core.Data;
-using BEditor.Core.Data.Property;
-using BEditor.Core.Command;
+using BEditor.Command;
+using BEditor.Data;
+using BEditor.Data.Property;
+using BEditor.Drawing;
+
 using Reactive.Bindings;
 using Reactive.Bindings.Extensions;
-using BEditor.Drawing;
 
 namespace BEditor.ViewModels.PropertyControl
 {

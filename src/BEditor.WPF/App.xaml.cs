@@ -4,30 +4,34 @@ using System.Collections.ObjectModel;
 using System.Globalization;
 using System.IO;
 using System.Linq;
+using System.Threading;
 using System.Threading.Tasks;
 using System.Windows;
 using System.Windows.Threading;
 using System.Xml.Linq;
 
-using BEditor.Core.Data.Property;
-using BEditor.Core.Extensions;
-using BEditor.Core.Plugin;
-using BEditor.Core.Service;
+using BEditor.Data;
+using BEditor.Data.Property;
 using BEditor.Drawing;
 using BEditor.Models;
-using BEditor.Models.Services;
-using BEditor.ViewModels;
+using BEditor.Plugin;
+using BEditor.Primitive;
+using BEditor.Primitive.Effects;
+using BEditor.Primitive.Objects;
 using BEditor.ViewModels.CustomControl;
 using BEditor.ViewModels.MessageContent;
 using BEditor.ViewModels.PropertyControl;
 using BEditor.Views;
+using BEditor.Views.CreatePage;
 using BEditor.Views.MessageContent;
 
 using MaterialDesignThemes.Wpf;
 
+using Microsoft.Extensions.DependencyInjection;
+
 using SkiaSharp;
 
-using DirectoryManager = BEditor.Core.DirectoryManager;
+using Resource = BEditor.Properties.Resources;
 
 namespace BEditor
 {
@@ -50,6 +54,16 @@ namespace BEditor
             base.OnStartup(e);
 
             SetDarkMode();
+            ProjectModel.Current.CreateEvent += (_, _) =>
+            {
+                var d = new NoneDialog()
+                {
+                    Content = new ProjectCreatePage(),
+                    Owner = MainWindow,
+                    MaxWidth = double.PositiveInfinity,
+                };
+                d.ShowDialog();
+            };
 #if !DEBUG
 
             var viewmodel = new SplashWindowViewModel();
@@ -70,6 +84,8 @@ namespace BEditor
                 const string LoadingPlugins = "プラグインを読み込み中";
                 const string LoadingCommand = "コマンドを読み込み中";
 
+                RegisterPrimitive();
+
                 viewmodel.Status.Value = LoadingColors;
                 await InitialColorsAsync();
 
@@ -83,6 +99,8 @@ namespace BEditor
                 LoadCommand();
 
 #else
+                RegisterPrimitive();
+
                 await InitialColorsAsync();
 
                 InitialFontManager();
@@ -91,11 +109,34 @@ namespace BEditor
 
                 LoadCommand();
 #endif
-                Dispatcher.Invoke(() =>
+
+                await Dispatcher.Invoke(async () =>
                 {
-                    var mainWindow = new MainWindow();
-                    MainWindow = mainWindow;
-                    mainWindow.Show();
+                    var file = e.Args.FirstOrDefault() is string str
+                        && File.Exists(str)
+                        && Path.GetExtension(str) is ".bedit"
+                        ? str : null;
+
+                    if (file is not null)
+                    {
+                        await ProjectModel.DirectOpen(file);
+
+                        var win = new MainWindow();
+                        MainWindow = win;
+                        win.Show();
+                    }
+                    else if (Settings.Default.ShowStartWindow)
+                    {
+                        var startWindow = new StartWindow();
+                        MainWindow = startWindow;
+                        startWindow.Show();
+                    }
+                    else
+                    {
+                        var mainWindow = new MainWindow();
+                        MainWindow = mainWindow;
+                        mainWindow.Show();
+                    }
 #if !DEBUG
                     splashscreen.Close();
 #endif
@@ -104,7 +145,7 @@ namespace BEditor
                 Settings.Default.Save();
             });
         }
-        
+
         private static void CreateDirectory()
         {
             DirectoryManager.Default.Directories.Add(colorsDir);
@@ -137,6 +178,89 @@ namespace BEditor
             }
         }
 
+        private static void RegisterPrimitive()
+        {
+            Serialize.SerializeKnownTypes.AddRange(new Type[]
+            {
+                typeof(AudioObject),
+                typeof(CameraObject),
+                typeof(GL3DObject),
+                typeof(Figure),
+                typeof(ImageFile),
+                typeof(Text),
+                typeof(VideoFile),
+                typeof(SceneObject),
+                typeof(RoundRect),
+                typeof(Polygon),
+
+                typeof(Blur),
+                typeof(Border),
+                typeof(ColorKey),
+                typeof(Dilate),
+                typeof(Erode),
+                typeof(Monoc),
+                typeof(Shadow),
+                typeof(Clipping),
+                typeof(AreaExpansion),
+                typeof(LinearGradient),
+                typeof(CircularGradient),
+                typeof(Mask),
+                typeof(PointLightDiffuse),
+                typeof(ChromaKey),
+                typeof(ImageSplit),
+                typeof(MultipleControls),
+                typeof(DepthTest),
+                typeof(DirectionalLightSource),
+                typeof(PointLightSource),
+                typeof(SpotLight),
+            });
+
+            ObjectMetadata.LoadedObjects.Add(PrimitiveTypes.VideoMetadata);
+            ObjectMetadata.LoadedObjects.Add(PrimitiveTypes.ImageMetadata);
+            ObjectMetadata.LoadedObjects.Add(PrimitiveTypes.FigureMetadata);
+            ObjectMetadata.LoadedObjects.Add(PrimitiveTypes.PolygonMetadata);
+            ObjectMetadata.LoadedObjects.Add(PrimitiveTypes.RoundRectMetadata);
+            ObjectMetadata.LoadedObjects.Add(PrimitiveTypes.TextMetadata);
+            ObjectMetadata.LoadedObjects.Add(PrimitiveTypes.CameraMetadata);
+            ObjectMetadata.LoadedObjects.Add(PrimitiveTypes.GL3DObjectMetadata);
+            ObjectMetadata.LoadedObjects.Add(PrimitiveTypes.SceneMetadata);
+
+            EffectMetadata.LoadedEffects.Add(new(Resource.Effects)
+            {
+                Children = new EffectMetadata[]
+                {
+                    new(Resource.Border, () => new Border()),
+                    new(Resource.ColorKey, () => new ColorKey()),
+                    new(Resource.DropShadow, () => new Shadow()),
+                    new(Resource.Blur, () => new Blur()),
+                    new(Resource.Monoc, () => new Monoc()),
+                    new(Resource.Dilate, () => new Dilate()),
+                    new(Resource.Erode, () => new Erode()),
+                    new(Resource.Clipping, () => new Clipping()),
+                    new(Resource.AreaExpansion, () => new AreaExpansion()),
+                    new(Resource.LinearGradient, () => new LinearGradient()),
+                    new(Resource.CircularGradient, () => new CircularGradient()),
+                    new(Resource.Mask, () => new Mask()),
+                    new(Resource.PointLightDiffuse, () => new PointLightDiffuse()),
+                    new(Resource.ChromaKey, () => new ChromaKey()),
+                    new(Resource.ImageSplit, () => new ImageSplit()),
+                    new(Resource.MultipleImageControls, () => new MultipleControls()),
+                }
+            });
+            EffectMetadata.LoadedEffects.Add(new(Resource.Camera)
+            {
+                Children = new EffectMetadata[]
+                {
+                    new(Resource.DepthTest, () => new DepthTest()),
+                    new(Resource.DirectionalLightSource, () => new DirectionalLightSource()),
+                    new(Resource.PointLightSource, () => new PointLightSource()),
+                    new(Resource.SpotLight, () => new SpotLight()),
+                }
+            });
+#if DEBUG
+            EffectMetadata.LoadedEffects.Add(new("TestEffect", () => new TestEffect()));
+#endif
+        }
         private static async Task InitialColorsAsync()
         {
             static void CreateDefaultColor()
@@ -221,7 +345,7 @@ namespace BEditor
         private static void InitialPlugins()
         {
             // すべて
-            var all = PluginManager.GetNames();
+            var all = PluginManager.Default.GetNames();
             // 無効なプラグイン
             var disable = all.Except(Settings.Default.EnablePlugins)
                 .Except(Settings.Default.DisablePlugins)
@@ -255,13 +379,13 @@ namespace BEditor
                     Settings.Default.Save();
 
 
-                    AppData.Current.LoadedPlugins = PluginManager.Load(Settings.Default.EnablePlugins).ToList();
+                    PluginManager.Default.Load(Settings.Default.EnablePlugins);
                 });
 
                 return;
             }
 
-            AppData.Current.LoadedPlugins = PluginManager.Load(Settings.Default.EnablePlugins).ToList();
+            PluginManager.Default.Load(Settings.Default.EnablePlugins);
         }
         private static void LoadCommand()
         {
@@ -275,31 +399,17 @@ namespace BEditor
             //    .ToList();
         }
 
-        private void Application_Startup(object sender, StartupEventArgs e)
-        {
-            Services.FileDialogService = new FileDialogService();
-
-            Message.DialogFunc += (text, iconKind, types) =>
-            {
-                var control = new MessageUI(types, text, iconKind);
-                var dialog = new NoneDialog(control);
-
-                dialog.ShowDialog();
-
-                return control.DialogResult;
-            };
-            Message.SnackberFunc += (text) => MainWindowViewModel.Current.MessageQueue.Enqueue(text);
-        }
-
         private void Application_Exit(object sender, ExitEventArgs e)
         {
             Settings.Default.Save();
             DirectoryManager.Default.Stop();
         }
 
-        private void Application_DispatcherUnhandledException(object sender, DispatcherUnhandledExceptionEventArgs e)
+        private async void Application_DispatcherUnhandledException(object sender, DispatcherUnhandledExceptionEventArgs e)
         {
-            Message.Snackbar(string.Format(Core.Properties.Resources.ExceptionWasThrown, e.Exception.GetType().FullName));
+            await using var provider = AppData.Current.Services.BuildServiceProvider();
+            provider.GetService<IMessage>()!
+                .Snackbar(string.Format(Resource.ExceptionWasThrown, e.Exception.GetType().FullName));
 
 #if !DEBUG
             e.Handled = true;

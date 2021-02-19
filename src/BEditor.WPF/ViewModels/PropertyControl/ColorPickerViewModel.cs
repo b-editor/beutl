@@ -4,10 +4,10 @@ using System.ComponentModel;
 using System.Reactive.Linq;
 using System.Windows.Media;
 
-using BEditor.Core.Command;
-using BEditor.Core.Data;
-using BEditor.Core.Data.Bindings;
-using BEditor.Core.Data.Property;
+using BEditor.Command;
+using BEditor.Data;
+using BEditor.Data.Bindings;
+using BEditor.Data.Property;
 using BEditor.ViewModels.CustomControl;
 using BEditor.Views;
 using BEditor.Views.PropertyControls;

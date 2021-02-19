@@ -13,14 +13,17 @@ using System.Windows.Media.Imaging;
 using System.Windows.Navigation;
 using System.Windows.Shapes;
 
-using BEditor.Core.Command;
-using BEditor.Core.Data;
-using BEditor.Core.Data.Bindings;
-using BEditor.Core.Data.Property;
-using BEditor.Core.Extensions;
+using BEditor.Command;
+using BEditor.Data;
+using BEditor.Data.Bindings;
+using BEditor.Data.Property;
 using BEditor.Models;
-using BEditor.ViewModels.CreateDialog;
-using BEditor.Views.CreateDialog;
+using BEditor.ViewModels.CreatePage;
+using BEditor.Views.CreatePage;
+
+using Microsoft.Extensions.DependencyInjection;
+
+using static BEditor.IMessage;
 
 using Clipboard = System.Windows.Clipboard;
 
@@ -31,6 +34,13 @@ namespace BEditor.Views.ToolControl.Default
     /// </summary>
     public partial class ObjectViewer : UserControl
     {
+        private static readonly IMessage Message;
+
+        static ObjectViewer()
+        {
+            using var prov = AppData.Current.Services.BuildServiceProvider();
+            Message = prov.GetService<IMessage>()!;
+        }
         public ObjectViewer()
         {
             InitializeComponent();
@@ -47,7 +57,7 @@ namespace BEditor.Views.ToolControl.Default
             }
             else
             {
-                Message.Snackbar(string.Format(Core.Properties.Resources.ErrorObjectViewer2, nameof(IBindable)));
+                Message.Snackbar(string.Format(Properties.Resources.ErrorObjectViewer2, nameof(IBindable)));
             }
         }
         private void TreeView_PreviewMouseWheel(object sender, MouseWheelEventArgs e)
@@ -70,14 +80,14 @@ namespace BEditor.Views.ToolControl.Default
         private Scene? GetScene()
         {
             if (TreeView.SelectedItem is Scene scene) return scene;
-            else if (TreeView.SelectedItem is ClipData clip) return clip.GetParent();
+            else if (TreeView.SelectedItem is ClipElement clip) return clip.GetParent();
             else if (TreeView.SelectedItem is EffectElement effect) return effect.GetParent2();
             else if (TreeView.SelectedItem is PropertyElement property) return property.GetParent3();
             else throw new IndexOutOfRangeException();
         }
-        private ClipData? GetClip()
+        private ClipElement? GetClip()
         {
-            if (TreeView.SelectedItem is ClipData clip) return clip;
+            if (TreeView.SelectedItem is ClipElement clip) return clip;
             else if (TreeView.SelectedItem is EffectElement effect) return effect.GetParent();
             else if (TreeView.SelectedItem is PropertyElement property) return property.GetParent2();
             else throw new IndexOutOfRangeException();
@@ -94,14 +104,14 @@ namespace BEditor.Views.ToolControl.Default
             {
                 var scene = GetScene();
                 if (scene is null) return;
-                if (scene is RootScene)
+                if (scene is { SceneName: "root" })
                 {
                     Message.Snackbar("RootScene は削除することができません");
                     return;
                 }
 
                 if (Message.Dialog(
-                    Core.Properties.Resources.CommandQ1,
+                    Properties.Resources.CommandQ1,
                     types: new ButtonType[] { ButtonType.Yes, ButtonType.No }) == ButtonType.Yes)
                 {
                     scene.Parent!.PreviewScene = scene.Parent!.SceneList[0];
@@ -111,7 +121,7 @@ namespace BEditor.Views.ToolControl.Default
             }
             catch (IndexOutOfRangeException)
             {
-                Message.Snackbar(string.Format(Core.Properties.Resources.ErrorObjectViewer1, nameof(Scene)));
+                Message.Snackbar(string.Format(Properties.Resources.ErrorObjectViewer1, nameof(Scene)));
             }
         }
         private void RemoveClip(object sender, RoutedEventArgs e)
@@ -124,7 +134,7 @@ namespace BEditor.Views.ToolControl.Default
             }
             catch (IndexOutOfRangeException)
             {
-                Message.Snackbar(string.Format(Core.Properties.Resources.ErrorObjectViewer1, nameof(ClipData)));
+                Message.Snackbar(string.Format(Properties.Resources.ErrorObjectViewer1, nameof(ClipElement)));
             }
         }
         private void RemoveEffect(object sender, RoutedEventArgs e)
@@ -137,17 +147,22 @@ namespace BEditor.Views.ToolControl.Default
             }
             catch (IndexOutOfRangeException)
             {
-                Message.Snackbar(string.Format(Core.Properties.Resources.ErrorObjectViewer1, nameof(EffectElement)));
+                Message.Snackbar(string.Format(Properties.Resources.ErrorObjectViewer1, nameof(EffectElement)));
             }
         }
         private void AddScene(object sender, RoutedEventArgs e)
         {
-            new SceneCreateDialog().ShowDialog();
+            new NoneDialog()
+            {
+                Content = new SceneCreatePage(),
+                Owner = App.Current.MainWindow,
+                MaxWidth = double.PositiveInfinity,
+            }.ShowDialog();
         }
         private void AddClip(object sender, RoutedEventArgs e)
         {
-            var viewmodel = new ClipCreateDialogViewModel();
-            var dialog = new ClipCreateDialog(viewmodel);
+            var viewmodel = new ClipCreatePageViewModel();
+            var dialog = new ClipCreatePage(viewmodel);
 
             try
             {
@@ -157,13 +172,17 @@ namespace BEditor.Views.ToolControl.Default
             }
             finally
             {
-                dialog.ShowDialog();
+                new NoneDialog()
+                {
+                    Content = dialog,
+                    MaxWidth = double.PositiveInfinity
+                }.ShowDialog();
             }
         }
         private void AddEffect(object sender, RoutedEventArgs e)
         {
-            var viewmodel = new EffectAddDialogViewModel();
-            var dialog = new EffectAddDialog(viewmodel);
+            var viewmodel = new EffectAddPageViewModel();
+            var dialog = new EffectAddPage(viewmodel);
 
             try
             {
@@ -174,11 +193,25 @@ namespace BEditor.Views.ToolControl.Default
                 var clip = GetClip() ?? throw ex;
 
                 viewmodel.Scene.Value = clip.Parent;
-                viewmodel.TargetClip.Value = clip;
+
+
+                foreach (var i in viewmodel.ClipItems.Value)
+                {
+                    i.IsSelected.Value = false;
+                    if (i.Clip == clip)
+                    {
+                        i.IsSelected.Value = true;
+                    }
+                }
             }
             finally
             {
-                dialog.ShowDialog();
+                new NoneDialog()
+                {
+                    Content = dialog,
+                    MaxWidth = double.PositiveInfinity
+                }
+                .ShowDialog();
             }
         }
     }

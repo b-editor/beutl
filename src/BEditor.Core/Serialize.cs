@@ -6,18 +6,16 @@ using System.Runtime.Serialization;
 using System.Text;
 using System.Threading.Tasks;
 
-using BEditor.Core.Data.Primitive.Effects;
-using BEditor.Core.Data.Primitive.Objects;
-using BEditor.Core.Data.Property;
-using BEditor.Core.Data.Property.PrimitiveGroup;
-using BEditor.Core.Data;
+using BEditor.Data.Property;
+using BEditor.Data.Property.PrimitiveGroup;
+using BEditor.Data;
 using System.Collections.ObjectModel;
 using System.Xml;
 using System.Diagnostics;
-using BEditor.Core.Data.Property.Easing;
-using BEditor.Core.Data.Primitive;
+using BEditor.Data.Property.Easing;
+using BEditor.Data.Primitive;
 
-namespace BEditor.Core
+namespace BEditor
 {
     /// <summary>
     /// Represents a class that uses the <see cref="DataContractJsonSerializer"/> to provide methods for serialization, cloning, etc.
@@ -196,17 +194,13 @@ namespace BEditor.Core
         public static readonly List<Type> SerializeKnownTypes = new List<Type>()
         {
             typeof(BasePropertyChanged),
-            typeof(ComponentObject),
+            typeof(EditorObject),
 
             typeof(Project),
-            typeof(RootScene),
             typeof(Scene),
 
-            typeof(ClipData),
+            typeof(ClipElement),
             typeof(ImageObject),
-            typeof(AudioObject),
-            typeof(CameraObject),
-            typeof(GL3DObject),
             typeof(ObjectElement),
 
             typeof(Angle),
@@ -215,35 +209,8 @@ namespace BEditor.Core
             typeof(Zoom),
             typeof(Material),
 
-            typeof(Figure),
-            typeof(ImageFile),
-            typeof(Text),
-            typeof(VideoFile),
-            typeof(SceneObject),
-
-            typeof(Blur),
-            typeof(Border),
-            typeof(ColorKey),
-            typeof(Dilate),
             typeof(EffectElement),
-            typeof(Erode),
             typeof(ImageEffect),
-            typeof(Monoc),
-            typeof(Shadow),
-            typeof(Clipping),
-            typeof(AreaExpansion),
-            typeof(LinearGradient),
-            typeof(CircularGradient),
-            typeof(Mask),
-            typeof(PointLightDiffuse),
-            typeof(ChromaKey),
-            typeof(ImageSplit),
-            typeof(MultipleControls),
-
-            typeof(DepthTest),
-            typeof(DirectionalLightSource),
-            typeof(PointLightSource),
-            typeof(SpotLight),
 
             typeof(CheckProperty),
             typeof(ColorProperty),

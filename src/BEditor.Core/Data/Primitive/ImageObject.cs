@@ -1,23 +1,21 @@
-﻿using System.Linq;
+﻿using System.Collections.Generic;
+using System.Diagnostics;
+using System.Linq;
 using System.Runtime.Serialization;
 
-using BEditor.Core.Command;
-using BEditor.Core.Data.Primitive.Effects;
-using BEditor.Core.Data.Property.PrimitiveGroup;
-using BEditor.Core.Data.Property;
-using BEditor.Core.Extensions;
-using BEditor.Core.Properties;
+using BEditor.Command;
+using BEditor.Data.Property;
+using BEditor.Data.Property.PrimitiveGroup;
+using BEditor.Properties;
 using BEditor.Drawing;
 using BEditor.Drawing.Pixel;
 using BEditor.Graphics;
+using BEditor.Media;
 
 using OpenTK.Graphics.OpenGL4;
 using OpenTK.Mathematics;
-using BEditor.Media;
-using System.Diagnostics;
-using System.Collections.Generic;
 
-namespace BEditor.Core.Data.Primitive
+namespace BEditor.Data.Primitive
 {
     /// <summary>
     /// Represents the base class for drawing images.
@@ -57,7 +55,7 @@ namespace BEditor.Core.Data.Primitive
             Angle = new(AngleMetadata);
             Material = new(MaterialMetadata);
         }
-
+        
         /// <inheritdoc/>
         public override string Name => "";
         /// <summary>
@@ -87,94 +85,37 @@ namespace BEditor.Core.Data.Primitive
         public Property.PrimitiveGroup.Material Material { get; private set; }
 
         /// <inheritdoc/>
-        public override void Render(EffectRenderArgs args)
+        public override async void Render(EffectRenderArgs args)
         {
-            void NotMultiple(EffectRenderArgs args)
+            var imgs_args = new EffectRenderArgs<IEnumerable<ImageInfo>>(args.Frame, Enumerable.Empty<ImageInfo>(), args.Type);
+            OnRender(imgs_args);
+
+            var list = Parent!.Effect.Where(x => x.IsEnabled).ToArray();
+
+
+            LoadEffect(imgs_args, list);
+
+            // ここで遅延読み込み
+            var img_list = imgs_args.Value.ToArray();
+
+            foreach (var img in img_list)
             {
-                var base_img = OnRender(args);
+                Draw(img, args);
 
-                if (base_img is null)
-                {
-                    Coordinate.ResetOptional();
-                    return;
-                }
-
-                var imageArgs = new EffectRenderArgs<ImageInfo>(args.Frame, new(base_img, _ => default, 0), args.Type);
-
-                var list = Parent!.Effect.Where(x => x.IsEnabled).ToArray();
-
-                LoadEffect(imageArgs, list);
-
-                if (!imageArgs.Handled)
-                {
-                    Draw(imageArgs.Value, args);
-                }
-
-                base_img?.Dispose();
-                imageArgs.Value?.Dispose();
-
-                Coordinate.ResetOptional();
+                await img.Source.DisposeAsync();
             }
 
-            if (this is MultipleImageObject multiple && multiple.IsMultiple)
-            {
-                var imgs = multiple.MultipleRender(args).ToArray();
-
-                var list = Parent!.Effect.Where(x => x.IsEnabled).ToArray();
-                foreach (var img in imgs)
-                {
-                    Debug.Assert(!img.IsDisposed);
-
-                    var ef_args = new EffectRenderArgs<ImageInfo>(args.Frame, img, args.Type);
-
-                    LoadEffect(ef_args, list);
-
-                    img.Source = ef_args.Value.Source;
-
-                    Draw(img, args);
-
-                    ef_args.Value.Dispose();
-                    img.Dispose();
-                }
-
-                Coordinate.ResetOptional();
-            }
-            else
-            {
-                NotMultiple(args);
-            }
+            Coordinate.ResetOptional();
         }
-        private void LoadEffect(EffectRenderArgs<ImageInfo> args, EffectElement[] list)
+        private void LoadEffect(EffectRenderArgs<IEnumerable<ImageInfo>> args, EffectElement[] list)
         {
             for (int i = 0; i < list.Length; i++)
             {
                 var effect = list[i];
 
-                if (effect is ObjectElement) continue;
-
-                if (effect is MultipleImageEffect multiple)
+                if (effect is ObjectElement)
                 {
-                    var imgs = multiple.MultipleRender(args);
-
-                    var innerlist = list[(i + 1)..];
-
-                    foreach (var img in imgs)
-                    {
-                        Debug.Assert(!img.IsDisposed);
-
-                        var ef_args = new EffectRenderArgs<ImageInfo>(args.Frame, img, args.Type);
-
-                        LoadEffect(ef_args, innerlist);
-
-                        img.Source = ef_args.Value.Source;
-
-                        Draw(img, args);
-
-                        args.Handled = true;
-
-                        ef_args.Value.Dispose();
-                        img.Dispose();
-                    }
+                    continue;
                 }
                 else if (effect is ImageEffect imageEffect)
                 {
@@ -259,51 +200,12 @@ namespace BEditor.Core.Data.Primitive
 
             return Transform.Create(coordinate, center, new(nx, ny, nz), new(scalex, scaley, scalez));
         }
-        private void Draw(Image<BGRA32> image, EffectRenderArgs args)
-        {
-            #region 
-            var frame = args.Frame;
-
-            float alpha = (float)(Blend.Alpha.GetValue(frame) / 100);
-
-            Color ambient = Material.Ambient.GetValue(frame);
-            Color diffuse = Material.Diffuse.GetValue(frame);
-            Color specular = Material.Specular.GetValue(frame);
-            float shininess = Material.Shininess.GetValue(frame);
-            var c = Blend.Color.GetValue(frame);
-            var color = Color.FromARGB((byte)(c.A * alpha), c.R, c.G, c.B);
-
-            #endregion
-
-            var context = Parent?.Parent.GraphicsContext!;
-
-            using var texture = Texture.FromImage(image);
-
-            GL.Enable(EnableCap.Blend);
-
-            //GL.Color4(color.ToOpenTK());
-            //GL.Material(MaterialFace.Front, MaterialParameter.Ambient, ambient.ToOpenTK());
-            //GL.Material(MaterialFace.Front, MaterialParameter.Diffuse, diffuse.ToOpenTK());
-            //GL.Material(MaterialFace.Front, MaterialParameter.Specular, specular.ToOpenTK());
-            //GL.Material(MaterialFace.Front, MaterialParameter.Shininess, shininess);
-
-            context.DrawTexture(texture, GetTransform(frame), color, () =>
-            {
-                var blendFunc = Blend.BlentFunc[Blend.BlendType.Index];
-
-                blendFunc?.Invoke();
-                if (blendFunc is null)
-                {
-                    GL.BlendEquationSeparate(BlendEquationMode.FuncAdd, BlendEquationMode.FuncAdd);
-                    GL.BlendFunc(BlendingFactor.SrcAlpha, BlendingFactor.OneMinusSrcAlpha);
-                }
-            });
-        }
         /// <summary>
         /// Render the image.
         /// </summary>
         public void Render(EffectRenderArgs args, out Image<BGRA32>? image)
         {
+            //Todo: 多重オブジェクトに対応させる
             var base_img = OnRender(args);
 
             if (base_img is null)
@@ -347,6 +249,23 @@ namespace BEditor.Core.Data.Primitive
         }
         /// <inheritdoc cref="Render(EffectRenderArgs)"/>
         protected abstract Image<BGRA32>? OnRender(EffectRenderArgs args);
+        /// <inheritdoc cref="Render(EffectRenderArgs)"/>
+        protected virtual void OnRender(EffectRenderArgs<IEnumerable<ImageInfo>> args)
+        {
+            var img = OnRender(args as EffectRenderArgs);
+
+            if (img is null)
+            {
+                args.Value = Enumerable.Empty<ImageInfo>();
+            }
+            else
+            {
+                args.Value = new ImageInfo[]
+                {
+                    new(img, _ => default)
+                };
+            }
+        }
         /// <inheritdoc/>
         protected override void OnLoad()
         {

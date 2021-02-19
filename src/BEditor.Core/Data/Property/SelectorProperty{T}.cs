@@ -2,32 +2,34 @@
 using System.Collections;
 using System.Collections.Generic;
 using System.ComponentModel;
+using System.Diagnostics;
 using System.Diagnostics.Contracts;
 using System.Linq;
 using System.Reactive.Disposables;
 using System.Runtime.Serialization;
 using System.Threading.Tasks;
 
-using BEditor.Core.Command;
-using BEditor.Core.Data.Bindings;
-using BEditor.Core.Data.Property;
+using BEditor.Command;
+using BEditor.Data.Bindings;
+using BEditor.Data.Property;
 
-namespace BEditor.Core.Data.Property
+namespace BEditor.Data.Property
 {
     /// <summary>
     /// Represents a property for selecting a single item from an array.
     /// </summary>
     [DataContract]
+    [DebuggerDisplay("Index = {Index}, Item = {SelectItem}")]
     public class SelectorProperty<T> : PropertyElement<SelectorPropertyMetadata<T?>>, IEasingProperty, IBindable<T?>
     {
         #region Fields
-        private static readonly PropertyChangedEventArgs _SelectItemArgs = new(nameof(SelectItem));
-        private T? _SelectItem;
-        private List<IObserver<T?>>? _List;
+        private static readonly PropertyChangedEventArgs _selectItemArgs = new(nameof(SelectItem));
+        private T? _selectItem;
+        private List<IObserver<T?>>? _list;
 
         private IDisposable? _BindDispose;
-        private IBindable<T?>? _Bindable;
-        private string? _BindHint;
+        private IBindable<T?>? _bindable;
+        private string? _bindHint;
         #endregion
 
 
@@ -39,24 +41,24 @@ namespace BEditor.Core.Data.Property
         public SelectorProperty(SelectorPropertyMetadata<T?> metadata)
         {
             PropertyMetadata = metadata ?? throw new ArgumentNullException(nameof(metadata));
-            _SelectItem = metadata.DefaultItem;
+            _selectItem = metadata.DefaultItem;
         }
 
-        private List<IObserver<T?>> Collection => _List ??= new();
+        private List<IObserver<T?>> Collection => _list ??= new();
         /// <summary>
         /// Get or set the selected item.
         /// </summary>
         [DataMember]
         public T? SelectItem
         {
-            get => _SelectItem;
-            set => SetValue(value, ref _SelectItem, _SelectItemArgs, this, state =>
+            get => _selectItem;
+            set => SetValue(value, ref _selectItem, _selectItemArgs, this, state =>
             {
                 foreach (var observer in state.Collection)
                 {
                     try
                     {
-                        observer.OnNext(state._SelectItem);
+                        observer.OnNext(state._selectItem);
                     }
                     catch (Exception ex)
                     {
@@ -84,8 +86,8 @@ namespace BEditor.Core.Data.Property
         [DataMember]
         public string? BindHint
         {
-            get => _Bindable?.GetString();
-            private set => _BindHint = value;
+            get => _bindable?.GetString();
+            private set => _bindHint = value;
         }
 
 
@@ -93,14 +95,12 @@ namespace BEditor.Core.Data.Property
         /// <inheritdoc/>
         protected override void OnLoad()
         {
-            if (_BindHint is not null && this.GetBindable(_BindHint, out var b))
+            if (_bindHint is not null && this.GetBindable(_bindHint, out var b))
             {
                 Bind(b);
             }
-            _BindHint = null;
+            _bindHint = null;
         }
-        /// <inheritdoc/>
-        public override string ToString() => $"(Index:{Index} Item:{SelectItem} Name:{PropertyMetadata?.Name})";
 
         /// <summary>
         /// Create a command to change the selected item.
@@ -139,7 +139,7 @@ namespace BEditor.Core.Data.Property
         public void Bind(IBindable<T?>? bindable)
         {
             _BindDispose?.Dispose();
-            _Bindable = bindable;
+            _bindable = bindable;
 
             if (bindable is not null)
             {
@@ -198,7 +198,7 @@ namespace BEditor.Core.Data.Property
     /// <summary>
     /// Represents the metadata of a <see cref="SelectorProperty{T}"/>.
     /// </summary>
-    public record SelectorPropertyMetadata<T> : PropertyElementMetadata
+    public record SelectorPropertyMetadata<T> : PropertyElementMetadata, IPropertyBuilder<SelectorProperty<T>>
     {
         /// <summary>
         /// Initializes a new instance of the <see cref="SelectorPropertyMetadata"/> class.
@@ -218,14 +218,20 @@ namespace BEditor.Core.Data.Property
         /// <summary>
         /// Get the source of the item to be selected.
         /// </summary>
-        public IList<T> ItemSource { get; protected set; }
+        public IList<T> ItemSource { get; init; }
         /// <summary>
         /// Get the default value of <see cref="SelectorProperty{T}.SelectItem"/>.
         /// </summary>
-        public T? DefaultItem { get; protected set; }
+        public T? DefaultItem { get; init; }
         /// <summary>
         /// Get the path to the member to display.
         /// </summary>
-        public string MemberPath { get; protected set; }
+        public string MemberPath { get; init; }
+
+        /// <inheritdoc/>
+        public SelectorProperty<T> Build()
+        {
+            return new(this);
+        }
     }
 }

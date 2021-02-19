@@ -10,14 +10,16 @@ using System.Windows.Media;
 using System.Windows.Media.Imaging;
 using System.Windows.Shapes;
 
+using BEditor.Data.Property;
 using BEditor.Models;
 using BEditor.Models.ColorTool;
 using BEditor.ViewModels.CustomControl;
 using BEditor.ViewModels.PropertyControl;
-using BEditor.Core.Data.Property;
-using MahApps.Metro.Controls;
 using BEditor.Views.CustomControl;
 using BEditor.WPF.Controls;
+
+using MahApps.Metro.Controls;
+
 using ColorPicker = BEditor.WPF.Controls.ColorPicker;
 
 namespace BEditor.Views
@@ -48,14 +50,16 @@ namespace BEditor.Views
             Close();
         }
 
-        private void ColPick_Dropper(object sender, RoutedEventArgs e) =>
-        ColorDropper.Run(x =>
+        private void ColPick_Dropper(object sender, RoutedEventArgs e)
         {
-            col.Red = x.R;
-            col.Green = x.G;
-            col.Blue = x.B;
-            col.Alpha = x.A;
-        });
+            ColorDropper.Run(x =>
+            {
+                col.Red = x.R;
+                col.Green = x.G;
+                col.Blue = x.B;
+                col.Alpha = x.A;
+            });
+        }
 
         private void ColorPalette_SelectedEvent(object sender, RoutedPropertyChangedEventArgs<object> e)
         {

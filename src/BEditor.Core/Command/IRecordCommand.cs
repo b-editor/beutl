@@ -1,6 +1,6 @@
-﻿using BEditor.Core.Properties;
+﻿using BEditor.Properties;
 
-namespace BEditor.Core.Command
+namespace BEditor.Command
 {
     /// <summary>
     /// Represents the action of executing, undoing, or redoing.

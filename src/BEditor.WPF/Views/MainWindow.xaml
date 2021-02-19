@@ -9,15 +9,14 @@
         xmlns:model="clr-namespace:BEditor.Models"
         xmlns:convert="clr-namespace:BEditor.ViewModels.Converters"
         xmlns:md="http://materialdesigninxaml.net/winfx/xaml/themes"
-        xmlns:properties="clr-namespace:BEditor.Core.Properties;assembly=BEditor.Core"
-        xmlns:objdata="clr-namespace:BEditor.Core.Data;assembly=BEditor.Core"
+        xmlns:properties="clr-namespace:BEditor.Properties;assembly=BEditor.Core"
+        xmlns:objdata="clr-namespace:BEditor.Data;assembly=BEditor.Core"
         xmlns:Controls="clr-namespace:MahApps.Metro.Controls;assembly=MahApps.Metro"
         xmlns:custom="clr-namespace:BEditor.WPF.Controls;assembly=BEditor.WPF.Controls"
     
         mc:Ignorable="d" 
         Closing="MetroWindow_Closing"
         Style="{StaticResource DefaultWindowStyle}"
-        Loaded="MetroWindow_Loaded"
         DataContext="{x:Static vm:MainWindowViewModel.Current}"
         Focusable="True"
         MinWidth="1000"
@@ -26,46 +25,55 @@
         Height="760"
         d:DesignWidth="1920" d:DesignHeight="1080">
     <Controls:MetroWindow.Resources>
-        <convert:AppStatusIconConverter x:Key="AppStatusIcon"/>
-        <convert:AppStatusTextConverter x:Key="AppStatusText"/>
-        <convert:AppStatusToPlayerIconConverter x:Key="AppStatusToPlayerIcon"/>
-        <convert:SceneToPropertyTab x:Key="SceneToPropertyTab"/>
-        <convert:SceneToTimeLine x:Key="SceneToTimeLine"/>
-        <convert:FrameConverter x:Key="FrameConverter"/>
-        <convert:ToFileNameConverter x:Key="ToFileNameConverter"/>
+        <ResourceDictionary>
+            <ResourceDictionary.MergedDictionaries>
+                <ResourceDictionary Source="pack://application:,,,/MaterialDesignColors;component/Themes/MaterialDesignColor.Lime.Accent.xaml" />
+            </ResourceDictionary.MergedDictionaries>
+
+            <convert:PathToImageSource x:Key="PathToImageSource"/>
+            <SolidColorBrush x:Key="SecondaryHueDarkBrush" Color="{StaticResource Accent200}"/>
+
+            <convert:AppStatusIconConverter x:Key="AppStatusIcon"/>
+            <convert:AppStatusTextConverter x:Key="AppStatusText"/>
+            <convert:AppStatusToPlayerIconConverter x:Key="AppStatusToPlayerIcon"/>
+            <convert:SceneToPropertyTab x:Key="SceneToPropertyTab"/>
+            <convert:SceneToTimeLine x:Key="SceneToTimeLine"/>
+            <convert:FrameConverter x:Key="FrameConverter"/>
+            <convert:ToFileNameConverter x:Key="ToFileNameConverter"/>
 
 
-        <Style x:Key="OpenContextButtonStyle" TargetType="{x:Type Button}" BasedOn="{StaticResource WindowTitleButtonStyle}">
-            <EventSetter Event="Click" Handler="Button_Click"/>
-        </Style>
-        <Style x:Key="TitleButtonStyle" TargetType="{x:Type Button}" BasedOn="{StaticResource OpenContextButtonStyle}">
-            <Setter Property="Foreground" Value="{DynamicResource MaterialDesignBody}"/>
-        </Style>
-        <Style x:Key="StatusBarOpenContextButton" TargetType="{x:Type Button}" BasedOn="{StaticResource StatusBarButton}">
-            <EventSetter Event="Click" Handler="Button_Click"/>
-        </Style>
-        <Style x:Key="MouseOverIcon" TargetType="md:PackIcon">
-            <Setter Property="Background" Value="Transparent"/>
-            <Setter Property="Width" Value="20"/>
-            <Setter Property="Height" Value="20"/>
-            <Setter Property="Margin" Value="5,0,5,0"/>
-            <Setter Property="VerticalAlignment" Value="Center"/>
-            <EventSetter Event="MouseDown" Handler="ObjectMouseDown"/>
-            <Style.Triggers>
-                <Trigger Property="IsMouseOver" Value="True">
-                    <Setter Property="Background" Value="#25FFFFFF"/>
-                </Trigger>
-            </Style.Triggers>
-        </Style>
-        <Style x:Key="LoadedObject" TargetType="TextBlock">
-            <Setter Property="Padding" Value="8"/>
-            <EventSetter Event="MouseDown" Handler="LoadedObjectMouseDown"/>
-            <Style.Triggers>
-                <Trigger Property="IsMouseOver" Value="True">
-                    <Setter Property="Background" Value="#25FFFFFF"/>
-                </Trigger>
-            </Style.Triggers>
-        </Style>
+            <Style x:Key="OpenContextButtonStyle" TargetType="{x:Type Button}" BasedOn="{StaticResource WindowTitleButtonStyle}">
+                <EventSetter Event="Click" Handler="Button_Click"/>
+            </Style>
+            <Style x:Key="TitleButtonStyle" TargetType="{x:Type Button}" BasedOn="{StaticResource OpenContextButtonStyle}">
+                <Setter Property="Foreground" Value="{DynamicResource MaterialDesignBody}"/>
+            </Style>
+            <Style x:Key="StatusBarOpenContextButton" TargetType="{x:Type Button}" BasedOn="{StaticResource StatusBarButton}">
+                <EventSetter Event="Click" Handler="Button_Click"/>
+            </Style>
+            <Style x:Key="MouseOverIcon" TargetType="md:PackIcon">
+                <Setter Property="Background" Value="Transparent"/>
+                <Setter Property="Width" Value="20"/>
+                <Setter Property="Height" Value="20"/>
+                <Setter Property="Margin" Value="5,0,5,0"/>
+                <Setter Property="VerticalAlignment" Value="Center"/>
+                <EventSetter Event="MouseDown" Handler="ObjectMouseDown"/>
+                <Style.Triggers>
+                    <Trigger Property="IsMouseOver" Value="True">
+                        <Setter Property="Background" Value="#25FFFFFF"/>
+                    </Trigger>
+                </Style.Triggers>
+            </Style>
+            <Style x:Key="LoadedObject" TargetType="TextBlock">
+                <Setter Property="Padding" Value="8"/>
+                <EventSetter Event="MouseDown" Handler="LoadedObjectMouseDown"/>
+                <Style.Triggers>
+                    <Trigger Property="IsMouseOver" Value="True">
+                        <Setter Property="Background" Value="#25FFFFFF"/>
+                    </Trigger>
+                </Style.Triggers>
+            </Style>
+        </ResourceDictionary>
     </Controls:MetroWindow.Resources>
     <Controls:MetroWindow.InputBindings>
         <KeyBinding Command="{Binding EditModel.ClipboardPaste, Mode=OneTime}" Gesture="Ctrl+v"/>
@@ -442,7 +450,7 @@
             VerticalContentAlignment="Stretch"
             Padding="0,0,0,0" 
             UniformCornerRadius="0" Grid.RowSpan="3" Grid.Row="1"/>
-        
+
         <!--#endregion-->
 
         <GridSplitter Width="10" HorizontalAlignment="Stretch" Grid.Column="1" Background="Transparent" Foreground="Transparent" Grid.RowSpan="3" Grid.Row="1"/>
@@ -515,12 +523,21 @@
 
         <StatusBar Grid.Row="4" Height="24" Grid.ColumnSpan="5" Background="{Binding MainWindowColor.Value}" IsHitTestVisible="{Binding Source={x:Static model:AppData.Current}, Path=IsNotPlaying, Mode=OneWay}">
             <StatusBarItem Padding="0">
-                <Button Style="{StaticResource StatusBarButton}">
-                    <VirtualizingStackPanel Orientation="Horizontal" HorizontalAlignment="Right">
-                        <md:PackIcon Kind="{Binding AppStatus, Source={x:Static model:AppData.Current}, Converter={StaticResource AppStatusIcon}, Mode=OneWay}" VerticalAlignment="Center" Margin="5,0,5,0"/>
-                        <TextBlock FontWeight="Normal" Text="{Binding AppStatus, Source={x:Static model:AppData.Current}, Converter={StaticResource AppStatusText}, Mode=OneWay}" VerticalAlignment="Center" Margin="5,0,10,0"/>
-                    </VirtualizingStackPanel>
-                </Button>
+                <VirtualizingStackPanel Orientation="Horizontal">
+                    <Button Style="{StaticResource StatusBarButton}">
+                        <VirtualizingStackPanel Orientation="Horizontal" HorizontalAlignment="Right">
+                            <md:PackIcon Kind="{Binding AppStatus, Source={x:Static model:AppData.Current}, Converter={StaticResource AppStatusIcon}, Mode=OneWay}" VerticalAlignment="Center" Margin="5,0,5,0"/>
+                            <TextBlock FontWeight="Normal" Text="{Binding AppStatus, Source={x:Static model:AppData.Current}, Converter={StaticResource AppStatusText}, Mode=OneWay}" VerticalAlignment="Center" Margin="5,0,10,0"/>
+                        </VirtualizingStackPanel>
+                    </Button>
+
+                    <ProgressBar VerticalAlignment="Center" Width="200"
+                        IsIndeterminate="{Binding IsLoading.Value, Mode=OneWay, Converter={StaticResource NotConverter}}"
+                        Visibility="{Binding IsLoading.Value, Mode=OneWay, Converter={StaticResource BooleanToVisibilityConverter}}"
+                        BorderThickness="0"
+                        Background="{StaticResource SecondaryHueMidBrush}"
+                        Foreground="{StaticResource SecondaryHueDarkBrush}"/>
+                </VirtualizingStackPanel>
             </StatusBarItem>
             <StatusBarItem HorizontalAlignment="Right" Padding="0">
                 <VirtualizingStackPanel Orientation="Horizontal">
@@ -549,7 +566,7 @@
                         Height="Auto"/>
                     <Button
                         Padding="8,0,8,0"
-                        Content="{Binding Source={x:Static model:AppData.Current}, Path=Project.Filename, Converter={StaticResource ToFileNameConverter}}"
+                        Content="{Binding Source={x:Static model:AppData.Current}, Path=Project.Name, Converter={StaticResource ToFileNameConverter}}"
                         IsEnabled="{Binding ProjectIsOpened.Value, Mode=OneWay}"
                         Style="{StaticResource StatusBarOpenContextButton}">
                         <Button.ContextMenu>

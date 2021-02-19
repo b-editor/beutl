@@ -13,7 +13,7 @@ using System.Windows.Media.Imaging;
 using System.Windows.Navigation;
 using System.Windows.Shapes;
 
-using BEditor.Core.Data.Property;
+using BEditor.Data.Property;
 using BEditor.ViewModels.PropertyControl;
 using BEditor.Views.CustomControl;
 using BEditor.WPF.Controls;

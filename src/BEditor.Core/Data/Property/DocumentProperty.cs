@@ -1,31 +1,32 @@
 ﻿using System;
 using System.Collections.Generic;
 using System.ComponentModel;
+using System.Diagnostics;
 using System.Diagnostics.Contracts;
 using System.Reactive.Disposables;
 using System.Runtime.Serialization;
 using System.Threading.Tasks;
 
-using BEditor.Core.Command;
-using BEditor.Core.Data.Bindings;
-using BEditor.Core.Extensions;
+using BEditor.Command;
+using BEditor.Data.Bindings;
 
-namespace BEditor.Core.Data.Property
+namespace BEditor.Data.Property
 {
     /// <summary>
     /// Represents a property of a multi-line string.
     /// </summary>
     [DataContract]
+    [DebuggerDisplay("Text = {Text}")]
     public class DocumentProperty : PropertyElement<DocumentPropertyMetadata>, IBindable<string>
     {
         #region Fields
-        private static readonly PropertyChangedEventArgs _TextArgs = new(nameof(Text));
-        private string _Text = "";
-        private List<IObserver<string>>? _List;
+        private static readonly PropertyChangedEventArgs _textArgs = new(nameof(Text));
+        private string _text = "";
+        private List<IObserver<string>>? _list;
 
-        private IDisposable? _BindDispose;
-        private IBindable<string>? _Bindable;
-        private string? _BindHint;
+        private IDisposable? _bindDispose;
+        private IBindable<string>? _bindable;
+        private string? _bindHint;
         #endregion
 
 
@@ -41,21 +42,21 @@ namespace BEditor.Core.Data.Property
         }
 
 
-        private List<IObserver<string>> Collection => _List ??= new();
+        private List<IObserver<string>> Collection => _list ??= new();
         /// <summary>
         /// Gets or sets the string being entered.
         /// </summary>
         [DataMember]
         public string Text
         {
-            get => _Text;
-            set => SetValue(value, ref _Text, _TextArgs, this, state =>
+            get => _text;
+            set => SetValue(value, ref _text, _textArgs, this, state =>
             {
                 foreach (var observer in state.Collection)
                 {
                     try
                     {
-                        observer.OnNext(state._Text);
+                        observer.OnNext(state._text);
                     }
                     catch (Exception ex)
                     {
@@ -70,8 +71,8 @@ namespace BEditor.Core.Data.Property
         [DataMember]
         public string? BindHint
         {
-            get => _Bindable?.GetString();
-            private set => _BindHint = value;
+            get => _bindable?.GetString();
+            private set => _bindHint = value;
         }
 
 
@@ -104,15 +105,15 @@ namespace BEditor.Core.Data.Property
         /// <inheritdoc/>
         public void Bind(IBindable<string>? bindable)
         {
-            _BindDispose?.Dispose();
-            _Bindable = bindable;
+            _bindDispose?.Dispose();
+            _bindable = bindable;
 
             if (bindable is not null)
             {
                 Text = bindable.Value;
 
                 // bindableが変更時にthisが変更
-                _BindDispose = bindable.Subscribe(this);
+                _bindDispose = bindable.Subscribe(this);
             }
         }
 
@@ -121,14 +122,12 @@ namespace BEditor.Core.Data.Property
         /// <inheritdoc/>
         protected override void OnLoad()
         {
-            if (_BindHint is not null && this.GetBindable(_BindHint, out var b))
+            if (_bindHint is not null && this.GetBindable(_bindHint, out var b))
             {
                 Bind(b);
             }
-            _BindHint = null;
+            _bindHint = null;
         }
-        /// <inheritdoc/>
-        public override string ToString() => $"(Text:{Text} Name:{PropertyMetadata?.Name})";
 
         /// <summary>
         /// Create a command to change the string.
@@ -169,7 +168,7 @@ namespace BEditor.Core.Data.Property
     /// <summary>
     /// Represents the metadata of a <see cref="DocumentProperty"/>.
     /// </summary>
-    public record DocumentPropertyMetadata : PropertyElementMetadata
+    public record DocumentPropertyMetadata : PropertyElementMetadata, IPropertyBuilder<DocumentProperty>
     {
         /// <summary>
         /// Initializes a new instance of the <see cref="DocumentPropertyMetadata"/> class.
@@ -184,5 +183,11 @@ namespace BEditor.Core.Data.Property
         /// Get the default value of <see cref="DocumentProperty.Text"/>.
         /// </summary>
         public string DefaultText { get; init; }
+
+        /// <inheritdoc/>
+        public DocumentProperty Build()
+        {
+            return new(this);
+        }
     }
 }

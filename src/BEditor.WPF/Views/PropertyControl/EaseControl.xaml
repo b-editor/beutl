@@ -6,7 +6,7 @@
              xmlns:i="http://schemas.microsoft.com/xaml/behaviors"
              xmlns:views="clr-namespace:BEditor.Views"
              xmlns:convert="clr-namespace:BEditor.ViewModels.Converters"
-             xmlns:easefunc="clr-namespace:BEditor.Core.Data.Property.Easing;assembly=BEditor.Core"
+             xmlns:easefunc="clr-namespace:BEditor.Data.Property.Easing;assembly=BEditor.Core"
              mc:Ignorable="d" 
              xmlns:md="http://materialdesigninxaml.net/winfx/xaml/themes"
              TextElement.Foreground="{DynamicResource MaterialDesignBody}"

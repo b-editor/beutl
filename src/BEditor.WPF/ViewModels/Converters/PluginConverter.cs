@@ -7,7 +7,7 @@ using System.Text;
 using System.Threading.Tasks;
 using System.Windows.Data;
 
-using BEditor.Core.Plugin;
+using BEditor.Plugin;
 
 namespace BEditor.ViewModels.Converters
 {

@@ -3,14 +3,18 @@ using System.Globalization;
 using System.Windows;
 using System.Windows.Data;
 using System.Windows.Input;
+using System.Windows.Media;
+
+using BEditor.Data;
 
 using MaterialDesignThemes.Wpf;
 
 using Microsoft.Xaml.Behaviors;
 
-using EventTrigger = Microsoft.Xaml.Behaviors.EventTrigger;
-using BEditor.Core.Data;
 using Reactive.Bindings;
+
+using ClipType = BEditor.Primitive.PrimitiveTypes;
+using EventTrigger = Microsoft.Xaml.Behaviors.EventTrigger;
 
 namespace BEditor.ViewModels
 {
@@ -76,8 +80,15 @@ namespace BEditor.ViewModels
 
     public class EventArgsConverter : IValueConverter
     {
-        public object Convert(object value, Type targetType, object parameter, CultureInfo culture) => (parameter, (EventArgs)value);
-        public object ConvertBack(object value, Type targetType, object parameter, CultureInfo culture) => throw new NotImplementedException();
+        public object Convert(object value, Type targetType, object parameter, CultureInfo culture)
+        {
+            return (parameter, (EventArgs)value);
+        }
+
+        public object ConvertBack(object value, Type targetType, object parameter, CultureInfo culture)
+        {
+            throw new NotImplementedException();
+        }
 
         public static EventArgsConverter Converter = new EventArgsConverter();
     }
@@ -92,17 +103,46 @@ namespace BEditor.ViewModels
             }
             return null;
         }
-        public object ConvertBack(object value, Type targetType, object parameter, CultureInfo culture) => throw new NotImplementedException();
+        public object ConvertBack(object value, Type targetType, object parameter, CultureInfo culture)
+        {
+            throw new NotImplementedException();
+        }
 
         public static MousePositionConverter Converter = new MousePositionConverter();
     }
 
-    public class ClipTypeIconConverter : IValueConverter
+    public class ClipTypeColorConverter : IValueConverter
     {
         public object Convert(object value, Type targetType, object parameter, CultureInfo culture)
         {
             if (value is Type clipType)
             {
+                if (Attribute.GetCustomAttribute(clipType, typeof(CustomClipUIAttribute)) is CustomClipUIAttribute att)
+                {
+                    var c = att.GetColor;
+                    return new SolidColorBrush(Color.FromRgb(c.R, c.G, c.B));
+                }
+
+                return new SolidColorBrush(Color.FromRgb(48, 79, 238));
+            }
+            else
+            {
+                return new SolidColorBrush(Color.FromRgb(48, 79, 238));
+            }
+        }
+
+        public object ConvertBack(object value, Type targetType, object parameter, CultureInfo culture)
+        {
+            return null!;
+        }
+    }
+    public class ClipTypeIconConverter : IValueConverter
+    {
+        public object Convert(object value, Type targetType, object parameter, CultureInfo culture)
+        {
+            if (value is ClipElement clip)
+            {
+                var clipType = clip.Effect[0].GetType();
                 if (clipType == ClipType.Video)
                 {
                     return PackIconKind.Movie;

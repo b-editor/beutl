@@ -3,7 +3,7 @@
              xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006" 
              xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
              xmlns:materialDesign="http://materialdesigninxaml.net/winfx/xaml/themes"
-             xmlns:property="clr-namespace:BEditor.Core.Properties;assembly=BEditor.Core"
+             xmlns:property="clr-namespace:BEditor.Properties;assembly=BEditor.Core"
              xmlns:vm="clr-namespace:BEditor.ViewModels"
              xmlns:convert="clr-namespace:BEditor.ViewModels.Converters"
              x:Class="BEditor.Views.PropertyControls.Object_Setting"
@@ -23,7 +23,7 @@
                     <ColumnDefinition Width="Auto"/>
                 </Grid.ColumnDefinitions>
 
-                <materialDesign:PackIcon VerticalAlignment="Stretch" Margin="14.5,0,14.5,0" Kind="{Binding Type, Mode=OneTime, Converter={StaticResource ClipTypeIconConverter}}" HorizontalAlignment="Stretch"/>
+                <materialDesign:PackIcon VerticalAlignment="Stretch" Margin="14.5,0,14.5,0" Kind="{Binding Mode=OneTime, Converter={StaticResource ClipTypeIconConverter}}" HorizontalAlignment="Stretch"/>
 
                 <Grid Grid.Column="1">
                     <Grid.ColumnDefinitions>
@@ -39,7 +39,7 @@
                     <Label Content="{x:Static property:Resources.Type}" Grid.Row="1" HorizontalAlignment="Left" VerticalAlignment="Center"/>
 
                     <TextBox Text="{Binding LabelText, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}" Grid.Column="1" HorizontalAlignment="Stretch" VerticalAlignment="Center" VerticalContentAlignment="Center" Margin="10,0,10,0"/>
-                    <Label Content="{Binding Type.Name, Mode=OneTime}" Grid.Row="1" Grid.Column="1" Margin="10,0,10,0" VerticalAlignment="Center" Padding="4,0,0,0" VerticalContentAlignment="Center"/>
+                    <Label Content="{Binding Name, Mode=OneTime}" Grid.Row="1" Grid.Column="1" Margin="10,0,10,0" VerticalAlignment="Center" Padding="4,0,0,0" VerticalContentAlignment="Center"/>
                 </Grid>
 
 

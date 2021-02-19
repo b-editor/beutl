@@ -1,6 +1,6 @@
 ﻿using System.Collections.Generic;
 
-namespace BEditor.Core.Data.Property
+namespace BEditor.Data.Property
 {
     /// <summary>
     /// Represents a property used by <see cref="EffectElement"/>.

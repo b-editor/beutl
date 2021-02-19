@@ -5,7 +5,7 @@
              xmlns:d="http://schemas.microsoft.com/expression/blend/2008" 
              xmlns:local="clr-namespace:BEditor.Views.SettingsControl.General"
              xmlns:vm="clr-namespace:BEditor.ViewModels.SettingsControl.General"
-             xmlns:properties="clr-namespace:BEditor.Core.Properties;assembly=BEditor.Core"
+             xmlns:properties="clr-namespace:BEditor.Properties;assembly=BEditor.Core"
              xmlns:setting="clr-namespace:BEditor;assembly=BEditor.Settings"
              xmlns:md="http://materialdesigninxaml.net/winfx/xaml/themes"
              mc:Ignorable="d" 

@@ -1,6 +1,7 @@
 ﻿using System;
 using System.Collections.Generic;
 using System.ComponentModel;
+using System.Diagnostics;
 using System.Diagnostics.Contracts;
 using System.Linq;
 using System.Reactive.Disposables;
@@ -8,24 +9,25 @@ using System.Runtime.Serialization;
 using System.Text;
 using System.Threading.Tasks;
 
-using BEditor.Core.Command;
-using BEditor.Core.Data.Bindings;
+using BEditor.Command;
+using BEditor.Data.Bindings;
 
-namespace BEditor.Core.Data.Property
+namespace BEditor.Data.Property
 {
     /// <summary>
     /// Represents a property of a string.
     /// </summary>
     [DataContract]
+    [DebuggerDisplay("Value = {Value}")]
     public class TextProperty : PropertyElement<TextPropertyMetadata>, IEasingProperty, IBindable<string>
     {
         #region Fields
-        private static readonly PropertyChangedEventArgs _ValueArgs = new(nameof(Value));
-        private string _Value;
-        private List<IObserver<string>>? _List;
-        private IDisposable? _BindDispose;
-        private IBindable<string>? _Bindable;
-        private string? _BindHint;
+        private static readonly PropertyChangedEventArgs _valueArgs = new(nameof(Value));
+        private string _value;
+        private List<IObserver<string>>? _list;
+        private IDisposable? _bindDispose;
+        private IBindable<string>? _bindable;
+        private string? _bindHint;
         #endregion
 
 
@@ -37,23 +39,23 @@ namespace BEditor.Core.Data.Property
         public TextProperty(TextPropertyMetadata metadata)
         {
             PropertyMetadata = metadata ?? throw new ArgumentNullException(nameof(metadata));
-            _Value = metadata.DefaultText;
+            _value = metadata.DefaultText;
         }
 
 
-        private List<IObserver<string>> Collection => _List ??= new();
+        private List<IObserver<string>> Collection => _list ??= new();
         /// <inheritdoc/>
         [DataMember]
         public string Value
         {
-            get => _Value;
-            set => SetValue(value, ref _Value, _ValueArgs, this, state =>
+            get => _value;
+            set => SetValue(value, ref _value, _valueArgs, this, state =>
             {
                 foreach (var observer in state.Collection)
                 {
                     try
                     {
-                        observer.OnNext(state._Value);
+                        observer.OnNext(state._value);
                     }
                     catch (Exception ex)
                     {
@@ -66,8 +68,8 @@ namespace BEditor.Core.Data.Property
         [DataMember]
         public string? BindHint 
         {
-            get => _Bindable?.GetString();
-            private set => _BindHint = value;
+            get => _bindable?.GetString();
+            private set => _bindHint = value;
         }
 
 
@@ -75,15 +77,15 @@ namespace BEditor.Core.Data.Property
         /// <inheritdoc/>
         public void Bind(IBindable<string>? bindable)
         {
-            _BindDispose?.Dispose();
-            _Bindable = bindable;
+            _bindDispose?.Dispose();
+            _bindable = bindable;
 
             if (bindable is not null)
             {
                 Value = bindable.Value;
 
                 // bindableが変更時にthisが変更
-                _BindDispose = bindable.Subscribe(this);
+                _bindDispose = bindable.Subscribe(this);
             }
         }
         /// <inheritdoc/>
@@ -110,17 +112,15 @@ namespace BEditor.Core.Data.Property
         /// <inheritdoc/>
         protected override void OnLoad()
         {
-            if (_BindHint is not null)
+            if (_bindHint is not null)
             {
-                if (this.GetBindable(_BindHint, out var b))
+                if (this.GetBindable(_bindHint, out var b))
                 {
                     Bind(b);
                 }
             }
-            _BindHint = null;
+            _bindHint = null;
         }
-        /// <inheritdoc/>
-        public override string ToString() => $"(Value:{Value} Name:{PropertyMetadata?.Name})";
         /// <summary>
         /// Create a command to change the <see cref="Value"/>.
         /// </summary>
@@ -155,7 +155,7 @@ namespace BEditor.Core.Data.Property
     /// <summary>
     /// Represents the metadata of a <see cref="TextProperty"/>.
     /// </summary>
-    public record TextPropertyMetadata : PropertyElementMetadata
+    public record TextPropertyMetadata : PropertyElementMetadata, IPropertyBuilder<TextProperty>
     {
         /// <summary>
         /// Initializes a new instance of the <see cref="TextPropertyMetadata"/> class.
@@ -171,5 +171,11 @@ namespace BEditor.Core.Data.Property
         /// Get the default value of <see cref="TextProperty.Value"/>.
         /// </summary>
         public string DefaultText { get; init; }
+
+        /// <inheritdoc/>
+        public TextProperty Build()
+        {
+            return new(this);
+        }
     }
 }

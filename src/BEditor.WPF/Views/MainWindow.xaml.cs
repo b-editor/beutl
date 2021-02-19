@@ -1,29 +1,35 @@
 ﻿using System;
+using System.Collections.Generic;
 using System.Collections.ObjectModel;
 using System.Collections.Specialized;
 using System.ComponentModel;
 using System.Diagnostics;
 using System.IO;
 using System.Linq;
+using System.Reflection;
+using System.Threading.Tasks;
 using System.Windows;
 using System.Windows.Controls;
 using System.Windows.Controls.Primitives;
 using System.Windows.Input;
 
-using BEditor.Core.Data;
-using BEditor.Core.Extensions;
-using BEditor.Core.Plugin;
-using BEditor.Core.Service;
+using BEditor.Data;
 using BEditor.Models;
+using BEditor.Plugin;
 using BEditor.ViewModels;
-using BEditor.ViewModels.CreateDialog;
-using BEditor.Views.CreateDialog;
+using BEditor.ViewModels.CreatePage;
+using BEditor.Views;
+using BEditor.Views.CreatePage;
 
 using MahApps.Metro.Controls;
 
 using MaterialDesignThemes.Wpf;
 
+using Microsoft.Extensions.DependencyInjection;
+
 using Reactive.Bindings;
+
+using Expression = System.Linq.Expressions.Expression;
 
 namespace BEditor
 {
@@ -37,16 +43,26 @@ namespace BEditor
             Show,
             Hide
         }
+        private static readonly Func<PluginManager, List<(string, IEnumerable<ICustomMenu>)>> GetMenus;
         private ShowHideState TimelineIsShown = ShowHideState.Show;
         private ShowHideState PropertyIsShown = ShowHideState.Show;
 
+        static MainWindow()
+        {
+            var type = typeof(PluginManager);
+
+            var param = Expression.Parameter(type);
+            var expression = Expression.Lambda<Func<PluginManager, List<(string, IEnumerable<ICustomMenu>)>>>(
+                Expression.Field(param, "_menus"), param);
+
+            GetMenus = expression.Compile();
+        }
         public MainWindow()
         {
             InitializeComponent();
 
             Activated += (_, _) => MainWindowViewModel.Current.MainWindowColor.Value = (System.Windows.Media.Brush)FindResource("PrimaryHueMidBrush");
             Deactivated += (_, _) => MainWindowViewModel.Current.MainWindowColor.Value = (System.Windows.Media.Brush)FindResource("PrimaryHueDarkBrush");
-            ProjectModel.Current.CreateEvent += (_, _) => new ProjectCreateDialog { Owner = this }.ShowDialog();
             EditModel.Current.ClipCreate += EditModel_ClipCreate;
             EditModel.Current.SceneCreate += EditModel_SceneCreate;
             EditModel.Current.EffectAddTo += EditModel_EffectAddTo;
@@ -57,29 +73,43 @@ namespace BEditor
             SetPluginMenu();
         }
 
-        private void EditModel_EffectAddTo(object? sender, ClipData c)
+        private void EditModel_EffectAddTo(object? sender, ClipElement c)
         {
-            var dialog = new EffectAddDialog(new EffectAddDialogViewModel()
+            var context = new EffectAddPageViewModel()
             {
                 Scene =
                 {
                     Value = c.Parent
-                },
-                TargetClip =
-                {
-                    Value = c
                 }
-            });
+            };
+            var dialog = new EffectAddPage(context);
 
-            dialog.ShowDialog();
+            foreach (var i in context.ClipItems.Value)
+            {
+                i.IsSelected.Value = false;
+                if (i.Clip == c)
+                {
+                    i.IsSelected.Value = true;
+                }
+            }
+
+            new NoneDialog()
+            {
+                Content = dialog,
+                MaxWidth = double.PositiveInfinity
+            }.ShowDialog();
         }
         private void EditModel_SceneCreate(object? sender, EventArgs e)
         {
-            new SceneCreateDialog().ShowDialog();
+            new NoneDialog()
+            {
+                Content = new SceneCreatePage(),
+                MaxWidth = double.PositiveInfinity,
+            }.ShowDialog();
         }
         private void EditModel_ClipCreate(object? sender, EventArgs e)
         {
-            var dialog = new ClipCreateDialog(new ClipCreateDialogViewModel()
+            var dialog = new ClipCreatePage(new ClipCreatePageViewModel()
             {
                 Scene =
                 {
@@ -87,27 +117,26 @@ namespace BEditor
                 }
             });
 
-            dialog.ShowDialog();
+            new NoneDialog()
+            {
+                Content = dialog,
+                MaxWidth = double.PositiveInfinity
+            }.ShowDialog();
         }
 
         private void SetMostUsedFiles()
         {
-            static void ProjectOpenCommand(string name)
+            static async Task ProjectOpenCommand(string name)
             {
                 try
                 {
-                    var project = new Project(name);
-                    project.Load();
-                    AppData.Current.Project = project;
-                    AppData.Current.AppStatus = Status.Edit;
-
-                    Settings.Default.MostRecentlyUsedList.Remove(name);
-                    Settings.Default.MostRecentlyUsedList.Add(name);
+                    await ProjectModel.DirectOpen(name);
                 }
                 catch
                 {
                     Debug.Assert(false);
-                    Message.Snackbar(string.Format(Core.Properties.Resources.FailedToLoad, "Project"));
+                    await using var prov = AppData.Current.Services.BuildServiceProvider();
+                    prov.GetService<IMessage>()?.Snackbar(string.Format(Properties.Resources.FailedToLoad, "Project"));
                 }
             }
 
@@ -117,71 +146,68 @@ namespace BEditor
                 {
                     Header = file
                 };
-                menu.Click += (s, e) => ProjectOpenCommand(((s as MenuItem)!.Header as string)!);
+                menu.Click += async (s, e) => await ProjectOpenCommand(((s as MenuItem)!.Header as string)!);
 
                 UsedFiles.Items.Insert(0, menu);
             }
 
             Settings.Default.MostRecentlyUsedList.CollectionChanged += (s, e) =>
             {
-                if (s is null) return;
-                if (e.Action is NotifyCollectionChangedAction.Add)
+                Dispatcher.BeginInvoke(new Action(() =>
                 {
-                    var menu = new MenuItem()
+                    if (s is null) return;
+                    if (e.Action is NotifyCollectionChangedAction.Add)
                     {
-                        Header = (s as ObservableCollection<string>)![e.NewStartingIndex]
-                    };
-                    menu.Click += (s, e) => ProjectOpenCommand(((s as MenuItem)!.Header as string)!);
-
-                    UsedFiles.Items.Insert(0, menu);
-                }
-                else if (e.Action is NotifyCollectionChangedAction.Remove)
-                {
-                    var file = e.OldItems![0] as string;
-
-                    foreach (var item in UsedFiles.Items)
-                    {
-                        if (item is MenuItem menuItem && menuItem.Header is string header && header == file)
+                        var menu = new MenuItem()
                         {
-                            UsedFiles.Items.Remove(item);
+                            Header = (s as ObservableCollection<string>)![e.NewStartingIndex]
+                        };
+                        menu.Click += async (s, e) => await ProjectOpenCommand(((s as MenuItem)!.Header as string)!);
 
-                            return;
+                        UsedFiles.Items.Insert(0, menu);
+                    }
+                    else if (e.Action is NotifyCollectionChangedAction.Remove)
+                    {
+                        var file = e.OldItems![0] as string;
+
+                        foreach (var item in UsedFiles.Items)
+                        {
+                            if (item is MenuItem menuItem && menuItem.Header is string header && header == file)
+                            {
+                                UsedFiles.Items.Remove(item);
+
+                                return;
+                            }
                         }
                     }
-                }
+                }));
             };
         }
         private void SetPluginMenu()
         {
-            foreach (var menu in AppData.Current.LoadedPlugins!
-                .Where(p => p is ICustomMenuPlugin)
-                .Select(p =>
-                {
-                    var plugin = (p as ICustomMenuPlugin)!;
+            var menus = GetMenus(PluginManager.Default);
 
-                    var menu = new MenuItem()
+            foreach (var item in menus)
+            {
+                var menu = new MenuItem()
+                {
+                    Header = item.Item1
+                };
+
+                foreach (var m in item.Item2)
+                {
+                    var command = new ReactiveCommand();
+                    command.Subscribe(m.Execute);
+
+                    var newItem = new MenuItem()
                     {
-                        Header = plugin.PluginName,
-                        ToolTip = plugin.Description
+                        Command = command,
+                        Header = m.Name
                     };
 
-                    foreach (var m in plugin.Menus)
-                    {
-                        var command = new ReactiveCommand();
-                        command.Subscribe(m.Execute);
+                    menu.Items.Add(newItem);
+                }
 
-                        var newItem = new MenuItem()
-                        {
-                            Command = command,
-                            Header = m.Name
-                        };
-
-                        menu.Items.Add(newItem);
-                    }
-
-                    return menu;
-                }))
-            {
                 PluginMenu.Items.Add(menu);
             }
         }
@@ -197,21 +223,6 @@ namespace BEditor
                 DataObject dataObject = new DataObject(typeof(Func<ObjectMetadata>), s);
                 // ドラッグ開始
                 DragDrop.DoDragDrop(this, dataObject, DragDropEffects.Copy);
-            }
-        }
-
-        private void MetroWindow_Loaded(object sender, RoutedEventArgs e)
-        {
-            //コマンドライン引数から開く
-            if (AppData.Current.Arguments.Length != 0 && File.Exists(AppData.Current.Arguments[0]))
-            {
-                if (Path.GetExtension(AppData.Current.Arguments[0]) == ".bedit")
-                {
-                    var project = new Project(AppData.Current.Arguments[0]);
-                    project.Load();
-                    AppData.Current.Project = project;
-                    AppData.Current.AppStatus = Status.Edit;
-                }
             }
         }
 

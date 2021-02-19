@@ -168,7 +168,7 @@ namespace BEditor.Views.SettingsControl
             (ui, value) => ((ui as VirtualizingStackPanel)!.Children[0] as CheckBox)!.IsChecked = (bool?)value,
             typeof(bool)),
 
-	        #endregion
+            #endregion
         };
 
         public static VirtualizingStackPanel Create(object record)

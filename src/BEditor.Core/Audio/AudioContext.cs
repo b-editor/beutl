@@ -7,7 +7,7 @@ using System.Threading.Tasks;
 using OpenTK;
 using OpenTK.Audio.OpenAL;
 
-namespace BEditor.Core.Audio
+namespace BEditor.Audio
 {
     /// <summary>
     /// Represents an OpenAL context.
@@ -22,11 +22,8 @@ namespace BEditor.Core.Audio
         /// </summary>
         public unsafe AudioContext()
         {
-            int* NULL = null;
             device = ALC.OpenDevice(null);
-            context = ALC.CreateContext(device, NULL);
-
-            ALC.MakeContextCurrent(context);
+            context = ALC.CreateContext(device, (int[])null!);
         }
 
         /// <summary>

@@ -4,103 +4,64 @@ using System.Collections.ObjectModel;
 using System.ComponentModel;
 using System.IO;
 using System.Runtime.Serialization;
+using System.Text.RegularExpressions;
 using System.Threading.Tasks;
 
+using BEditor.Properties;
+using BEditor.Drawing;
+using BEditor.Drawing.Pixel;
 using BEditor.Graphics;
-using BEditor.Core.Service;
-using BEditor.Core.Properties;
-using BEditor.Core.Data.Primitive.Objects;
-using System.Text.RegularExpressions;
-using static System.Net.WebRequestMethods;
 
-namespace BEditor.Core.Data
+using Microsoft.Extensions.DependencyInjection;
+
+namespace BEditor.Data
 {
     /// <summary>
     /// Represents the project to be used in editing.
     /// </summary>
     [DataContract]
-    public class Project : BasePropertyChanged, IExtensibleDataObject, IDisposable, IParent<Scene>, IChild<IApplication>, IElementObject
+    public class Project : EditorObject, IExtensibleDataObject, IDisposable, IParent<Scene>, IChild<IApplication>, IElementObject, IHasName
     {
         #region Fields
 
         private static readonly PropertyChangedEventArgs _PrevireSceneArgs = new(nameof(PreviewScene));
-        private static readonly PropertyChangedEventArgs _FilenameArgs = new(nameof(Filename));
-        private Scene? _PreviewScene;
-        private ObservableCollection<Scene> _SceneList = new ObservableCollection<Scene>();
-        private IApplication? _Parent;
-        private string? _Filename;
+        private static readonly PropertyChangedEventArgs _FilenameArgs = new(nameof(Name));
+        private static readonly PropertyChangedEventArgs _dirnameArgs = new(nameof(DirectoryName));
+        private Scene? _previewScene;
+        private string? _filename;
+        private string? _dirname;
+        private IApplication? _parent;
 
         #endregion
-
 
         #region Contructor
 
         /// <summary>
-        /// <see cref="Project"/> Initialize a new instance of the class.
+        /// Initializes a new instance of the <see cref="Project"/> class.
         /// </summary>
+        /// <param name="width">The width of rootscene.</param>
+        /// <param name="height">The height of rootscene.</param>
+        /// <param name="framerate">The framerate of this project.</param>
+        /// <param name="samplingrate">The samplingrate of this project.</param>
+        /// <param name="app">The running <see cref="IApplication"/>.</param>
         public Project(int width, int height, int framerate, int samplingrate = 0, IApplication? app = null)
         {
             Parent = app;
             Framerate = framerate;
             Samplingrate = samplingrate;
-            SceneList.Add(new RootScene(width, height)
+            SceneList.Add(new Scene(width, height)
             {
-                Parent = this
+                Parent = this,
+                SceneName = "root",
             });
-        }
-        /// <summary>
-        /// <see cref="Project"/> Initialize a new instance of the class.
-        /// </summary>
-        public Project(string file, IApplication? app = null)
-        {
-            var mode = SerializeMode.Binary;
-            if(Path.GetExtension(file) is ".json")
-            {
-                mode = SerializeMode.Json;
-            }
-
-            var o = Serialize.LoadFromFile<Project>(file, mode);
-
-            if (o != null)
-            {
-                var project = o;
-
-                project.CopyTo(this);
-                Parent = app;
-            }
-            else
-            {
-                throw new Exception();
-            }
-        }
-        /// <summary>
-        /// <see cref="Project"/> Initialize a new instance of the class.
-        /// </summary>
-        public Project(Stream stream, SerializeMode mode, IApplication? app = null)
-        {
-            var o = Serialize.LoadFromStream<Project>(stream, mode);
-
-            if (o != null)
-            {
-                var project = o;
-
-                project.CopyTo(this);
-                Parent = app;
-            }
-            else
-            {
-                throw new Exception();
-            }
         }
 
         #endregion
-
 
         /// <summary>
         /// Occurs after saving this <see cref="Project"/>.
         /// </summary>
         public event EventHandler<ProjectSavedEventArgs> Saved = delegate { };
-
 
         #region Properties
 
@@ -119,36 +80,15 @@ namespace BEditor.Core.Data
         public int Samplingrate { get; private set; }
 
         /// <summary>
-        /// Get or set the file name of this <see cref="Project"/>.
-        /// </summary>
-        [DataMember(Order = 2)]
-        public string? Filename
-        {
-            get => _Filename;
-            set => SetValue(value, ref _Filename, _FilenameArgs);
-        }
-
-        /// <summary>
         /// Get a list of Scenes in this <see cref="Project"/>.
         /// </summary>
-        [DataMember(Order = 4)]
-        public ObservableCollection<Scene> SceneList
-        {
-            get => _SceneList;
-            private set
-            {
-                _SceneList = value;
-                Parallel.ForEach(value, scene =>
-                {
-                    scene.Parent = this;
-                });
-            }
-        }
+        [DataMember(Order = 3)]
+        public ObservableCollection<Scene> SceneList { get; private set; } = new ObservableCollection<Scene>();
 
         /// <summary>
         /// Get an index of the <see cref="SceneList"/> being previewed.
         /// </summary>
-        [DataMember(Name = "PreviewScene", Order = 3)]
+        [DataMember(Name = "PreviewScene", Order = 2)]
         public int PreviewSceneIndex { get; private set; }
 
         #endregion
@@ -158,63 +98,57 @@ namespace BEditor.Core.Data
         /// </summary>
         public Scene PreviewScene
         {
-            get => _PreviewScene ??= SceneList[PreviewSceneIndex];
+            get => _previewScene ??= SceneList[PreviewSceneIndex];
             set
             {
-                SetValue(value, ref _PreviewScene, _PrevireSceneArgs);
+                SetValue(value, ref _previewScene, _PrevireSceneArgs);
                 PreviewSceneIndex = SceneList.IndexOf(value);
             }
         }
+
         /// <summary>
         /// Get whether an object has been disposed.
         /// </summary>
         public bool IsDisposed { get; private set; }
-        /// <inheritdoc/>
-        public ExtensionDataObject? ExtensionData { get; set; }
+
         /// <inheritdoc/>
         public IEnumerable<Scene> Children => SceneList;
+
         /// <inheritdoc/>
         public IApplication? Parent
         {
-            get => _Parent;
-            init => _Parent = value;
+            get => _parent;
+            private set
+            {
+                _parent = value;
+
+                foreach (var scene in SceneList)
+                {
+                    scene.Parent = this;
+                }
+            }
         }
+
         /// <inheritdoc/>
-        public bool IsLoaded { get; private set; }
+        public string? Name
+        {
+            get => _filename;
+            set => SetValue(value, ref _filename, _FilenameArgs);
+        }
+
+        /// <summary>
+        /// Get or set the directory name of this <see cref="Project"/>.
+        /// </summary>
+        public string? DirectoryName
+        {
+            get => _dirname;
+            set => SetValue(value, ref _dirname, _dirnameArgs);
+        }
 
         #endregion
 
-
         #region Methods
 
-        /// <summary>
-        /// Create a backup of this <see cref="Project"/>.
-        /// </summary>
-        public void BackUp()
-        {
-            if (Filename is null)
-            {
-                if (Services.FileDialogService is null) throw new InvalidOperationException();
-
-                var record = new SaveFileRecord
-                {
-                    DefaultFileName = "新しいプロジェクト.bedit",
-                    Filters =
-                    {
-                        new(Resources.ProjectFile, new FileExtension[] { new("bedit") })
-                    }
-                };
-
-                //ダイアログを表示する
-                if (Services.FileDialogService.ShowSaveFileDialog(record))
-                {
-                    //OKボタンがクリックされたとき、選択されたファイル名を表示する
-                    Filename = record.FileName;
-                }
-            }
-
-            Serialize.SaveToFile(this, Path.Combine(AppContext.BaseDirectory, "user", "backup", Path.GetFileNameWithoutExtension(Filename!)) + ".backup");
-        }
         /// <inheritdoc/>
         public void Dispose()
         {
@@ -226,19 +160,22 @@ namespace BEditor.Core.Data
                 scene.AudioContext?.Dispose();
             }
 
+            GC.SuppressFinalize(this);
+
             IsDisposed = true;
         }
 
         /// <summary>
         /// Save this <see cref="Project"/>.
         /// </summary>
-        /// <remarks>If <see cref="Filename"/> is <see langword="null"/>, a dialog will appear</remarks>
+        /// <remarks>If <see cref="Name"/> is <see langword="null"/>, a dialog will appear</remarks>
         /// <returns><see langword="true"/> if the save is successful, otherwise <see langword="false"/>.</returns>
         public bool Save()
         {
-            if (Filename == null)
+            if (Name is null || DirectoryName is null)
             {
-                if (Services.FileDialogService is null) throw new InvalidOperationException();
+                var dialog = ServiceProvider?.GetService<IFileDialogService>();
+                if (dialog is null) throw new InvalidOperationException();
 
                 var record = new SaveFileRecord
                 {
@@ -249,11 +186,10 @@ namespace BEditor.Core.Data
                     }
                 };
 
-                //ダイアログを表示する
-                if (Services.FileDialogService.ShowSaveFileDialog(record))
+                // ダイアログを表示する
+                if (dialog.ShowSaveFileDialog(record))
                 {
-                    //OKボタンがクリックされたとき、選択されたファイル名を表示する
-                    Filename = record.FileName;
+                    return Save(record.FileName);
                 }
                 else
                 {
@@ -261,13 +197,9 @@ namespace BEditor.Core.Data
                 }
             }
 
-            if (Serialize.SaveToFile(this, Filename))
-            {
-                Saved?.Invoke(this, new(SaveType.Save));
-                return true;
-            }
-            return false;
+            return Save(Path.Combine(DirectoryName, Name + ".bedit"));
         }
+
         /// <summary>
         /// Save this <see cref="Project"/> with a name.
         /// </summary>
@@ -276,7 +208,31 @@ namespace BEditor.Core.Data
         /// <returns><see langword="true"/> if the save is successful, otherwise <see langword="false"/>.</returns>
         public bool Save(string filename, SerializeMode mode = SerializeMode.Binary)
         {
-            Filename = filename;
+            static void IfNotExistCreateDir(string dir)
+            {
+                if (!Directory.Exists(dir))
+                {
+                    Directory.CreateDirectory(dir);
+                }
+            }
+
+            Name = Path.GetFileNameWithoutExtension(filename);
+            DirectoryName = Path.GetDirectoryName(filename);
+            IfNotExistCreateDir(DirectoryName!);
+
+            if (PreviewScene.IsLoaded)
+            {
+                PreviewScene.Synchronize?.Post(async _ =>
+                {
+                    await using var img = new Image<BGRA32>(PreviewScene.Width, PreviewScene.Height);
+
+                    var thumbnail = Path.Combine(DirectoryName!, "thumbnail.png");
+                    PreviewScene.Render(img, RenderType.ImageOutput);
+
+                    img.Encode(thumbnail);
+                }, null);
+            }
+
             if (Serialize.SaveToFile(this, filename, mode))
             {
                 Saved?.Invoke(this, new(SaveType.Save));
@@ -284,6 +240,7 @@ namespace BEditor.Core.Data
             }
             return false;
         }
+
         /// <summary>
         /// Save this <see cref="Project"/> with a name.
         /// </summary>
@@ -299,80 +256,36 @@ namespace BEditor.Core.Data
             }
             return false;
         }
+
         /// <summary>
-        /// Save this <see cref="Project"/> overwrite.
+        /// Load a <see cref="Project"/> from a file.
         /// </summary>
-        /// <returns><see langword="true"/> if the save is successful, otherwise <see langword="false"/>.</returns>
-        public bool SaveAs()
+        /// <param name="file">The project file.</param>
+        /// <param name="app">Specify the application.</param>
+        /// <returns>Returns the loaded <see cref="Project"/> on success, or <see langword="null"/> on failure.</returns>
+        public static Project? FromFile(string file, IApplication app)
         {
-            if (Services.FileDialogService is null) throw new InvalidOperationException();
-
-            //SaveFileDialogクラスのインスタンスを作成
-            var record = new SaveFileRecord
-            {
-                DefaultFileName = (Filename is not null) ? Path.GetFileName(Filename) : "新しいプロジェクト.bedit",
-                Filters =
-                {
-                    new(Resources.ProjectFile, new FileExtension[] { new("bedit") }),
-                    new(Resources.JsonFile, new FileExtension[] { new("json") }),
-                }
-            };
             var mode = SerializeMode.Binary;
-            //ダイアログを表示する
-            if (Services.FileDialogService.ShowSaveFileDialog(record))
+            if (Path.GetExtension(file) is ".json")
             {
-                //OKボタンがクリックされたとき、選択されたファイル名を表示する
-                if (Path.GetExtension(record.FileName) is ".json")
-                {
-                    mode = SerializeMode.Json;
-                }
-                else
-                {
-                    Filename = record.FileName;
-                }
+                mode = SerializeMode.Json;
             }
 
-            if (Serialize.SaveToFile(this, record.FileName, mode))
-            {
-                Saved?.Invoke(this, new(SaveType.SaveAs));
-                return true;
-            }
-            return false;
+            var proj = Serialize.LoadFromFile<Project>(file, mode);
+
+            if (proj is null) return null;
+
+            proj.DirectoryName = Path.GetDirectoryName(file);
+            proj.Name = Path.GetFileNameWithoutExtension(file);
+            proj.Parent = app;
+
+            return proj;
         }
 
-        private void CopyTo(Project project)
-        {
-            project.Filename = Filename;
-            project.Framerate = Framerate;
-            project._Parent = _Parent;
-            project.PreviewScene = PreviewScene;
-            project.PreviewSceneIndex = PreviewSceneIndex;
-            project.Samplingrate = Samplingrate;
-            project.SceneList = SceneList;
-        }
         /// <inheritdoc/>
-        public void Load()
+        protected override void OnUnload()
         {
-            if (IsLoaded) return;
-
-            foreach (var scene in SceneList)
-            {
-                scene.Load();
-            }
-
-            IsLoaded = true;
-        }
-        /// <inheritdoc/>
-        public void Unload()
-        {
-            if (!IsLoaded) return;
-
-            foreach (var scene in SceneList)
-            {
-                scene.Unload();
-            }
-
-            IsLoaded = false;
+            ServiceProvider?.Dispose();
         }
 
         #endregion

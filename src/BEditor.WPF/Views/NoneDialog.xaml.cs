@@ -26,5 +26,9 @@ namespace BEditor.Views
 
             label.Content = content;
         }
+        public NoneDialog()
+        {
+            InitializeComponent();
+        }
     }
 }

@@ -4,18 +4,8 @@ using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
 
-namespace BEditor.Core.Plugin
+namespace BEditor.Plugin
 {
-    /// <summary>
-    /// Represents a plugin that adds a menu to the Window.
-    /// </summary>
-    public interface ICustomMenuPlugin : IPlugin
-    {
-        /// <summary>
-        /// Get the menu to be added.
-        /// </summary>
-        public IEnumerable<ICustomMenu> Menus { get; }
-    }
     /// <summary>
     /// Represents a menu.
     /// </summary>

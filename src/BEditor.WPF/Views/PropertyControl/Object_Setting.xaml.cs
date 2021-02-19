@@ -5,10 +5,10 @@ using System.Windows;
 using System.Windows.Controls;
 using System.Windows.Data;
 
+using BEditor.Command;
+using BEditor.Data;
 using BEditor.Models;
 using BEditor.Views.ToolControl.Default;
-using BEditor.Core.Data;
-using BEditor.Core.Command;
 
 namespace BEditor.Views.PropertyControls
 {
@@ -17,14 +17,14 @@ namespace BEditor.Views.PropertyControls
     /// </summary>
     public partial class Object_Setting : UserControl
     {
-        public Object_Setting(ClipData data)
+        public Object_Setting(ClipElement data)
         {
             DataContext = Data = data;
 
             InitializeComponent();
         }
 
-        public ClipData Data { get; set; }
+        public ClipElement Data { get; set; }
 
 
         private void UserControl_Drop(object sender, DragEventArgs e)

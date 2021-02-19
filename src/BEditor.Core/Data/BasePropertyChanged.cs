@@ -9,7 +9,7 @@ using System.Reactive.Linq;
 using System.Runtime.Serialization;
 using System.Text;
 
-namespace BEditor.Core.Data
+namespace BEditor.Data
 {
     /// <summary>
     /// プロパティの変更を通知するクラス
@@ -19,8 +19,6 @@ namespace BEditor.Core.Data
     {
         /// <inheritdoc/>
         public event PropertyChangedEventHandler? PropertyChanged;
-
-        //Todo: ExpressionTree使う?
 
         /// <summary>
         /// Set the value.

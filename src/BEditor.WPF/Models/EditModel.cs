@@ -7,16 +7,15 @@ using System.Text;
 using System.Threading.Tasks;
 using System.Windows;
 
-using BEditor.Core;
-using BEditor.Core.Command;
-using BEditor.Core.Data;
-using BEditor.Core.Data.Primitive.Objects;
-using BEditor.Core.Extensions;
-using BEditor.Core.Service;
+using BEditor.Command;
+using BEditor.Data;
 using BEditor.Models.Extension;
-using BEditor.ViewModels.CreateDialog;
+using BEditor.Primitive;
+using BEditor.Primitive.Objects;
+using BEditor.ViewModels.CreatePage;
 using BEditor.Views;
-using BEditor.Views.CreateDialog;
+
+using Microsoft.Extensions.DependencyInjection;
 
 using Reactive.Bindings;
 
@@ -71,9 +70,9 @@ namespace BEditor.Models
             ClipboardCopy.Where(_ => AppData.Current.Project is not null)
                 .Select(_ => AppData.Current.Project!.PreviewScene.SelectItem)
                 .Where(clip => clip is not null)
-                .Subscribe(clip =>
+                .Subscribe(async clip =>
                 {
-                    using var memory = new MemoryStream();
+                    await using var memory = new MemoryStream();
                     Serialize.SaveToStream(clip, memory, SerializeMode.Json);
 
                     var json = Encoding.Default.GetString(memory.ToArray());
@@ -83,11 +82,11 @@ namespace BEditor.Models
             ClipboardCut.Where(_ => AppData.Current.Project is not null)
                 .Select(_ => AppData.Current.Project!.PreviewScene.SelectItem)
                 .Where(clip => clip is not null)
-                .Subscribe(clip =>
+                .Subscribe(async clip =>
                 {
                     clip!.Parent.RemoveClip(clip).Execute();
 
-                    using var memory = new MemoryStream();
+                    await using var memory = new MemoryStream();
                     Serialize.SaveToStream(clip, memory, SerializeMode.Json);
 
                     var json = Encoding.Default.GetString(memory.ToArray());
@@ -96,15 +95,17 @@ namespace BEditor.Models
 
             ClipboardPaste.Where(_ => AppData.Current.Project is not null)
                 .Select(_ => AppData.Current.Project!.PreviewScene.GetCreateTimeLineViewModel())
-                .Subscribe(timeline =>
+                .Subscribe(async timeline =>
                 {
+                    await using var prov = AppData.Current.Services.BuildServiceProvider();
+                    var mes = prov.GetService<IMessage>();
                     var text = Clipboard.GetText();
                     var files = Clipboard.GetFileDropList();
                     var img = Clipboard.GetImage();
-                    using var memory = new MemoryStream();
+                    await using var memory = new MemoryStream();
                     memory.Write(Encoding.Default.GetBytes(text));
 
-                    if (Serialize.LoadFromStream<ClipData>(memory, SerializeMode.Json) is var clip && clip is not null)
+                    if (Serialize.LoadFromStream<ClipElement>(memory, SerializeMode.Json) is var clip && clip is not null)
                     {
                         var length = clip.Length;
                         clip.Start = timeline.Select_Frame;
@@ -115,7 +116,7 @@ namespace BEditor.Models
 
                         if (!timeline.Scene.InRange(clip.Start, clip.End, clip.Layer))
                         {
-                            Message.Snackbar("指定した場所にクリップが存在しているため、新しいクリップを配置できません");
+                            mes?.Snackbar("指定した場所にクリップが存在しているため、新しいクリップを配置できません");
 
                             return;
                         }
@@ -130,7 +131,7 @@ namespace BEditor.Models
 
                         if (!timeline.Scene.InRange(start, end, layer))
                         {
-                            Message.Snackbar("指定した場所にクリップが存在しているため、新しいクリップを配置できません");
+                            mes?.Snackbar("指定した場所にクリップが存在しているため、新しいクリップを配置できません");
 
                             return;
                         }
@@ -171,7 +172,7 @@ namespace BEditor.Models
 
         public event EventHandler? SceneCreate;
         public event EventHandler? ClipCreate;
-        public event EventHandler<ClipData>? EffectAddTo;
+        public event EventHandler<ClipElement>? EffectAddTo;
 
         public ReactiveCommand Undo { get; } = new();
         public ReactiveCommand Redo { get; } = new();
@@ -236,18 +237,18 @@ namespace BEditor.Models
             var ex = Path.GetExtension(file);
             if (ex is ".avi" or ".mp4")
             {
-                return ClipType.VideoMetadata;
+                return PrimitiveTypes.VideoMetadata;
             }
             else if (ex is ".jpg" or ".jpeg" or ".png" or ".bmp")
             {
-                return ClipType.ImageMetadata;
+                return PrimitiveTypes.ImageMetadata;
             }
             else if (ex is ".txt")
             {
-                return ClipType.TextMetadata;
+                return PrimitiveTypes.TextMetadata;
             }
 
-            return ClipType.FigureMetadata;
+            return PrimitiveTypes.FigureMetadata;
         }
     }
 }

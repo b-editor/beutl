@@ -13,8 +13,6 @@ using System.Windows.Media.Imaging;
 using System.Windows.Navigation;
 using System.Windows.Shapes;
 
-using BEditor.Core.Extensions;
-
 namespace BEditor.Views.MessageContent
 {
     /// <summary>
@@ -28,7 +26,7 @@ namespace BEditor.Views.MessageContent
             InitializeComponent();
         }
 
-        public override ButtonType DialogResult { get; protected set; }
+        public override IMessage.ButtonType DialogResult { get; protected set; }
 
         public override event EventHandler? ButtonClicked;
 

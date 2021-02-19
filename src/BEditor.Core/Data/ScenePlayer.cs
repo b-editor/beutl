@@ -12,7 +12,7 @@ using BEditor.Media;
 
 using Timer = System.Timers.Timer;
 
-namespace BEditor.Core.Data
+namespace BEditor.Data
 {
     /// <summary>
     /// Represents a media player.

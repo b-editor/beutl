@@ -4,18 +4,20 @@ using System.Linq;
 using System.Runtime.Serialization;
 using System.Threading.Tasks;
 
-using BEditor.Core.Data.Property;
+using BEditor.Data.Property;
 
-namespace BEditor.Core.Data.Property
+using Microsoft.Extensions.DependencyInjection;
+
+namespace BEditor.Data.Property
 {
     /// <summary>
     /// Represents a property used by <see cref="EffectElement"/>.
     /// </summary>
     [DataContract]
-    public class PropertyElement : ComponentObject, IChild<EffectElement>, IPropertyElement, IHasId, IHasName
+    public class PropertyElement : EditorObject, IChild<EffectElement>, IPropertyElement, IHasId, IHasName
     {
-        private static readonly PropertyChangedEventArgs _MetadataArgs = new(nameof(PropertyMetadata));
-        private PropertyElementMetadata? _PropertyMetadata;
+        private static readonly PropertyChangedEventArgs _metadataArgs = new(nameof(PropertyMetadata));
+        private PropertyElementMetadata? _propertyMetadata;
         private int? id;
 
 
@@ -26,48 +28,17 @@ namespace BEditor.Core.Data.Property
         /// </summary>
         public PropertyElementMetadata? PropertyMetadata
         {
-            get => _PropertyMetadata;
-            set => SetValue(value, ref _PropertyMetadata, _MetadataArgs);
+            get => _propertyMetadata;
+            set => SetValue(value, ref _propertyMetadata, _metadataArgs);
         }
         /// <inheritdoc/>
         public int Id => (id ??= Parent?.Children?.ToList()?.IndexOf(this)) ?? -1;
         /// <inheritdoc/>
-        public string Name => _PropertyMetadata?.Name ?? Id.ToString();
-        /// <inheritdoc/>
-        public bool IsLoaded { get; private set; }
+        public string Name => _propertyMetadata?.Name ?? Id.ToString();
 
 
         /// <inheritdoc/>
         public override string ToString() => $"(Name:{PropertyMetadata?.Name})";
-        /// <inheritdoc/>
-        public void Load()
-        {
-            if (IsLoaded) return;
-
-            OnLoad();
-
-            IsLoaded = true;
-        }
-        /// <inheritdoc/>
-        public void Unload()
-        {
-            if (!IsLoaded) return;
-
-            OnUnload();
-
-            IsLoaded = false;
-        }
-
-        /// <inheritdoc cref="IElementObject.Load"/>
-        protected virtual void OnLoad()
-        {
-
-        }
-        /// <inheritdoc cref="IElementObject.Unload"/>
-        protected virtual void OnUnload()
-        {
-
-        }
     }
 
     /// <inheritdoc cref="PropertyElement"/>

@@ -2,31 +2,33 @@
 using System.Collections.Generic;
 using System.Collections.ObjectModel;
 using System.ComponentModel;
+using System.Diagnostics;
 using System.Diagnostics.Contracts;
 using System.Reactive.Disposables;
 using System.Runtime.Serialization;
 
-using BEditor.Core.Command;
-using BEditor.Core.Data.Bindings;
-using BEditor.Core.Data.Property;
+using BEditor.Command;
+using BEditor.Data.Bindings;
+using BEditor.Data.Property;
 using BEditor.Drawing;
 
-namespace BEditor.Core.Data.Property
+namespace BEditor.Data.Property
 {
     /// <summary>
     /// Represents a property to pick a color.
     /// </summary>
     [DataContract]
+    [DebuggerDisplay("Color = {_color:#argb}")]
     public class ColorProperty : PropertyElement<ColorPropertyMetadata>, IEasingProperty, IBindable<Color>
     {
         #region Fields
-        private static readonly PropertyChangedEventArgs _ColorArgs = new(nameof(Color));
-        private Color _Color;
-        private List<IObserver<Color>>? _List;
+        private static readonly PropertyChangedEventArgs _colorArgs = new(nameof(Color));
+        private Color _color;
+        private List<IObserver<Color>>? _list;
 
-        private IDisposable? _BindDispose;
-        private IBindable<Color>? _Bindable;
-        private string? _BindHint;
+        private IDisposable? _bindDispose;
+        private IBindable<Color>? _bindable;
+        private string? _bindHint;
         #endregion
 
 
@@ -42,21 +44,21 @@ namespace BEditor.Core.Data.Property
         }
 
 
-        private List<IObserver<Color>> Collection => _List ??= new();
+        private List<IObserver<Color>> Collection => _list ??= new();
         /// <summary>
         /// Gets or sets the selected color.
         /// </summary>
         [DataMember]
         public Color Color
         {
-            get => _Color;
-            set => SetValue(value, ref _Color, _ColorArgs, this, state =>
+            get => _color;
+            set => SetValue(value, ref _color, _colorArgs, this, state =>
             {
                 foreach (var observer in state.Collection)
                 {
                     try
                     {
-                        observer.OnNext(state._Color);
+                        observer.OnNext(state._color);
                     }
                     catch (Exception ex)
                     {
@@ -66,28 +68,26 @@ namespace BEditor.Core.Data.Property
             });
         }
         /// <inheritdoc/>
-        public Color Value => _Color;
+        public Color Value => _color;
         /// <inheritdoc/>
         [DataMember]
         public string? BindHint
         {
-            get => _Bindable?.GetString();
-            private set => _BindHint = value;
+            get => _bindable?.GetString();
+            private set => _bindHint = value;
         }
 
 
         #region Methods
 
         /// <inheritdoc/>
-        public override string ToString() => $"(R:{_Color.R} G:{_Color.G} B:{_Color.B} A:{_Color.A} Name:{PropertyMetadata?.Name})";
-        /// <inheritdoc/>
         protected override void OnLoad()
         {
-            if (_BindHint is not null && this.GetBindable(_BindHint, out var b))
+            if (_bindHint is not null && this.GetBindable(_bindHint, out var b))
             {
                 Bind(b);
             }
-            _BindHint = null;
+            _bindHint = null;
         }
 
         /// <summary>
@@ -103,15 +103,15 @@ namespace BEditor.Core.Data.Property
         /// <inheritdoc/>
         public void Bind(IBindable<Color>? bindable)
         {
-            _BindDispose?.Dispose();
-            _Bindable = bindable;
+            _bindDispose?.Dispose();
+            _bindable = bindable;
 
             if (bindable is not null)
             {
                 Color = bindable.Value;
 
                 // bindableが変更時にthisが変更
-                _BindDispose = bindable.Subscribe(this);
+                _bindDispose = bindable.Subscribe(this);
             }
         }
 
@@ -188,7 +188,7 @@ namespace BEditor.Core.Data.Property
     /// <summary>
     /// Represents the metadata of a <see cref="ColorProperty"/>.
     /// </summary>
-    public record ColorPropertyMetadata : PropertyElementMetadata
+    public record ColorPropertyMetadata : PropertyElementMetadata, IPropertyBuilder<ColorProperty>
     {
         /// <summary>
         /// Initializes a new instance of the <see cref="ColorPropertyMetadata"/> class.
@@ -210,5 +210,11 @@ namespace BEditor.Core.Data.Property
         /// Gets a <see cref="bool"/> indicating whether or not to use the alpha component.
         /// </summary>
         public bool UseAlpha { get; init; }
+
+        /// <inheritdoc/>
+        public ColorProperty Build()
+        {
+            return new(this);
+        }
     }
 }

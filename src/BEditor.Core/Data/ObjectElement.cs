@@ -2,10 +2,9 @@
 using System.Runtime.Serialization;
 using System.Text;
 
-using BEditor.Core.Data.Primitive.Objects;
-using BEditor.Core.Properties;
+using BEditor.Properties;
 
-namespace BEditor.Core.Data
+namespace BEditor.Data
 {
     /// <summary>
     /// Represents a base class of the object.

@@ -4,9 +4,8 @@ using System.Globalization;
 using System.Text;
 using System.Windows.Data;
 
-using BEditor.Core.Data;
-using BEditor.Core.Properties;
-using BEditor.Core.Service;
+using BEditor.Data;
+using BEditor.Properties;
 
 using MaterialDesignThemes.Wpf;
 

@@ -6,7 +6,7 @@ using System.Text;
 using System.Threading.Tasks;
 using System.Timers;
 
-namespace BEditor.Core
+namespace BEditor
 {
     /// <summary>
     /// Represents a class that manages directories.

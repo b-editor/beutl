@@ -1,8 +1,8 @@
 ﻿using System;
 
-using BEditor.Core.Command;
-using BEditor.Core.Data;
-using BEditor.Core.Data.Property;
+using BEditor.Command;
+using BEditor.Data;
+using BEditor.Data.Property;
 using BEditor.Media;
 using BEditor.Models;
 

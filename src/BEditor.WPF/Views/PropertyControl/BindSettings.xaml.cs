@@ -12,8 +12,6 @@ using System.Windows.Media;
 using System.Windows.Media.Imaging;
 using System.Windows.Shapes;
 
-using BEditor.Core.Data.Bindings;
-
 using MahApps.Metro.Controls;
 
 namespace BEditor.Views.PropertyControls

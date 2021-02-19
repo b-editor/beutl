@@ -4,11 +4,10 @@ using System.Globalization;
 using System.Text;
 using System.Windows.Data;
 
+using BEditor.Data;
+using BEditor.Data.Property;
+using BEditor.Data.Property.Easing;
 using BEditor.Views;
-
-using BEditor.Core.Data.Property;
-using BEditor.Core.Data.Property.Easing;
-using BEditor.Core.Data;
 
 namespace BEditor.ViewModels.Converters
 {
@@ -19,7 +18,10 @@ namespace BEditor.ViewModels.Converters
             if (value is Scene scene) return scene.GetCreateTimeLineView();
             throw new Exception();
         }
-        public object ConvertBack(object value, Type targetType, object parameter, CultureInfo culture) => throw new NotImplementedException();
+        public object ConvertBack(object value, Type targetType, object parameter, CultureInfo culture)
+        {
+            throw new NotImplementedException();
+        }
     }
     public class SceneToPropertyTab : IValueConverter
     {
@@ -28,7 +30,10 @@ namespace BEditor.ViewModels.Converters
             if (value is Scene scene) return scene.GetCreatePropertyTab();
             throw new Exception();
         }
-        public object ConvertBack(object value, Type targetType, object parameter, CultureInfo culture) => throw new NotImplementedException();
+        public object ConvertBack(object value, Type targetType, object parameter, CultureInfo culture)
+        {
+            throw new NotImplementedException();
+        }
     }
     public class EffectElementToKeyFrame : IValueConverter
     {
@@ -37,7 +42,10 @@ namespace BEditor.ViewModels.Converters
             if (value is EffectElement effect) return effect.GetCreateKeyFrameView();
             throw new Exception();
         }
-        public object ConvertBack(object value, Type targetType, object parameter, CultureInfo culture) => throw new NotImplementedException();
+        public object ConvertBack(object value, Type targetType, object parameter, CultureInfo culture)
+        {
+            throw new NotImplementedException();
+        }
     }
     public class EffectElementToProperty : IValueConverter
     {
@@ -46,16 +54,22 @@ namespace BEditor.ViewModels.Converters
             if (value is EffectElement effect) return effect.GetCreatePropertyView();
             throw new Exception();
         }
-        public object ConvertBack(object value, Type targetType, object parameter, CultureInfo culture) => throw new NotImplementedException();
+        public object ConvertBack(object value, Type targetType, object parameter, CultureInfo culture)
+        {
+            throw new NotImplementedException();
+        }
     }
     public class ClipDataToProperty : IValueConverter
     {
         public object Convert(object value, Type targetType, object parameter, CultureInfo culture)
         {
-            if (value is ClipData data) return data.GetCreatePropertyView();
+            if (value is ClipElement data) return data.GetCreatePropertyView();
             throw new Exception();
         }
-        public object ConvertBack(object value, Type targetType, object parameter, CultureInfo culture) => throw new NotImplementedException();
+        public object ConvertBack(object value, Type targetType, object parameter, CultureInfo culture)
+        {
+            throw new NotImplementedException();
+        }
     }
     public class EasingFuncToProperty : IValueConverter
     {
@@ -64,6 +78,9 @@ namespace BEditor.ViewModels.Converters
             if (value is EasingFunc easing) return easing.GetCreatePropertyView();
             throw new Exception();
         }
-        public object ConvertBack(object value, Type targetType, object parameter, CultureInfo culture) => throw new NotImplementedException();
+        public object ConvertBack(object value, Type targetType, object parameter, CultureInfo culture)
+        {
+            throw new NotImplementedException();
+        }
     }
 }

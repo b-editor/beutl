@@ -6,20 +6,21 @@ using System.Windows;
 using System.Windows.Controls;
 using System.Windows.Media.Imaging;
 
-using BEditor.Core.Data;
-using BEditor.Core.Extensions;
-using BEditor.Core.Properties;
-using BEditor.Core.Service;
+using BEditor.Data;
 using BEditor.Drawing;
 using BEditor.Drawing.Pixel;
 using BEditor.Media;
 using BEditor.Media.Encoder;
+using BEditor.Properties;
 using BEditor.Views;
 using BEditor.Views.MessageContent;
 
+using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Win32;
 
 using Reactive.Bindings;
+
+using static BEditor.IMessage;
 
 using Frame = BEditor.Media.Frame;
 
@@ -43,7 +44,7 @@ namespace BEditor.Models
         public ReactiveCommand VideoCommand { get; } = new();
         public ReactiveCommand ImageCommand { get; } = new();
 
-        public static void OutputImage(Scene scene)
+        public static async void OutputImage(Scene scene)
         {
             var saveFileDialog = new SaveFileDialog()
             {
@@ -54,14 +55,14 @@ namespace BEditor.Models
 
             if (saveFileDialog.ShowDialog() ?? false)
             {
-                OutputImage(saveFileDialog.FileName, scene);
+                await OutputImage(saveFileDialog.FileName, scene);
             }
         }
-        public static void OutputImage(string path, Scene scene)
+        public static async Task OutputImage(string path, Scene scene)
         {
             int nowframe = scene.PreviewFrame;
 
-            using var img = scene.Render(nowframe, RenderType.ImageOutput).Image;
+            await using var img = scene.Render(nowframe, RenderType.ImageOutput).Image;
             try
             {
 
@@ -72,7 +73,9 @@ namespace BEditor.Models
             }
             catch (Exception e)
             {
-                Message.Snackbar($"保存できませんでした : {e.Message}");
+                await using var prov = AppData.Current.Services.BuildServiceProvider();
+                var mes = prov.GetService<IMessage>();
+                mes?.Snackbar($"保存できませんでした : {e.Message}");
             }
         }
         public static void OutputVideo(Scene scene)
@@ -118,7 +121,7 @@ namespace BEditor.Models
             var dialog = new NoneDialog(content);
             dialog.Show();
 
-            var thread = new Thread(() =>
+            var thread = new Thread(async () =>
             {
                 try
                 {
@@ -139,6 +142,7 @@ namespace BEditor.Models
                         if (img is not null)
                         {
                             encoder.Write(img);
+                            await img.DisposeAsync();
                         }
                     }
 
@@ -148,7 +152,9 @@ namespace BEditor.Models
                 }
                 catch (Exception e)
                 {
-                    Message.Snackbar($"保存できませんでした : {e.Message}");
+                    await using var prov = AppData.Current.Services.BuildServiceProvider();
+                    var mes = prov.GetService<IMessage>();
+                    mes?.Snackbar($"保存できませんでした : {e.Message}");
                 }
                 finally
                 {

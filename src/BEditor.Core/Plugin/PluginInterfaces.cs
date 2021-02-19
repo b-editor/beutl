@@ -2,10 +2,10 @@
 using System;
 using System.Collections.Generic;
 
-using BEditor.Core.Data;
-using BEditor.Core.Data.Property.Easing;
+using BEditor.Data;
+using BEditor.Data.Property.Easing;
 
-namespace BEditor.Core.Plugin
+namespace BEditor.Plugin
 {
     /// <summary>
     /// Represents a plug-in that extends the functionality of the application.
@@ -31,37 +31,5 @@ namespace BEditor.Core.Plugin
         /// Get or set the settings for this plugin.
         /// </summary>
         public SettingRecord Settings { get; set; }
-    }
-
-    //Todo: API自体を変えるかも なのでDocumentはあと
-    /// <summary>
-    /// 
-    /// </summary>
-    public interface IEasingFunctions
-    {
-        /// <summary>
-        /// 
-        /// </summary>
-        public IEnumerable<EasingMetadata> EasingFunc { get; }
-    }
-    /// <summary>
-    /// 
-    /// </summary>
-    public interface IEffects
-    {
-        /// <summary>
-        /// 
-        /// </summary>
-        public IEnumerable<EffectMetadata> Effects { get; }
-    }
-    /// <summary>
-    /// 
-    /// </summary>
-    public interface IObjects
-    {
-        /// <summary>
-        /// 
-        /// </summary>
-        public IEnumerable<ObjectMetadata> Objects { get; }
     }
 }

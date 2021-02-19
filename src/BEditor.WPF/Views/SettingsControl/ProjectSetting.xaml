@@ -7,7 +7,7 @@
              xmlns:data="clr-namespace:BEditor;assembly=BEditor.Settings"
              xmlns:vm="clr-namespace:BEditor.ViewModels.SettingsControl"
              xmlns:convert="clr-namespace:BEditor.ViewModels.Converters"
-             xmlns:resource="clr-namespace:BEditor.Core.Properties;assembly=BEditor.Core"
+             xmlns:resource="clr-namespace:BEditor.Properties;assembly=BEditor.Core"
              mc:Ignorable="d"
              d:DesignHeight="450" d:DesignWidth="800">
     <Grid>

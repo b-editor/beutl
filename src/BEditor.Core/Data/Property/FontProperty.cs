@@ -8,18 +8,20 @@ using System.Reactive.Disposables;
 using System.Runtime.Serialization;
 using System.Threading.Tasks;
 
-using BEditor.Core.Command;
-using BEditor.Core.Data.Bindings;
-using BEditor.Core.Data.Property;
-using BEditor.Core.Properties;
+using BEditor.Command;
+using BEditor.Data.Bindings;
+using BEditor.Data.Property;
+using BEditor.Properties;
 using BEditor.Drawing;
+using System.Diagnostics;
 
-namespace BEditor.Core.Data.Property
+namespace BEditor.Data.Property
 {
     /// <summary>
     /// Represents a property for selecting a font.
     /// </summary>
     [DataContract]
+    [DebuggerDisplay("Select = {Select}")]
     public class FontProperty : PropertyElement<FontPropertyMetadata>, IEasingProperty, IBindable<Font>
     {
         #region Fields
@@ -30,13 +32,13 @@ namespace BEditor.Core.Data.Property
         //Todo: FontManagerを作る
         public static readonly List<Font> FontList = new();
 
-        private static readonly PropertyChangedEventArgs _SelectArgs = new(nameof(Select));
-        private Font _SelectItem;
-        private List<IObserver<Font>>? _List;
+        private static readonly PropertyChangedEventArgs _selectArgs = new(nameof(Select));
+        private Font _selectItem;
+        private List<IObserver<Font>>? _list;
 
-        private IDisposable? _BindDispose;
-        private IBindable<Font>? _Bindable;
-        private string? _BindHint;
+        private IDisposable? _bindDispose;
+        private IBindable<Font>? _bindable;
+        private string? _bindHint;
 
         #endregion
 
@@ -49,25 +51,25 @@ namespace BEditor.Core.Data.Property
         public FontProperty(FontPropertyMetadata metadata)
         {
             PropertyMetadata = metadata ?? throw new ArgumentNullException(nameof(metadata));
-            _SelectItem = metadata.SelectItem;
+            _selectItem = metadata.SelectItem;
         }
 
 
-        private List<IObserver<Font>> Collection => _List ??= new();
+        private List<IObserver<Font>> Collection => _list ??= new();
         /// <summary>
         /// Gets or sets the selected font.
         /// </summary>
         [DataMember]
         public Font Select
         {
-            get => _SelectItem;
-            set => SetValue(value, ref _SelectItem, _SelectArgs, this, state =>
+            get => _selectItem;
+            set => SetValue(value, ref _selectItem, _selectArgs, this, state =>
             {
                 foreach (var observer in state.Collection)
                 {
                     try
                     {
-                        observer.OnNext(state._SelectItem);
+                        observer.OnNext(state._selectItem);
                     }
                     catch (Exception ex)
                     {
@@ -82,8 +84,8 @@ namespace BEditor.Core.Data.Property
         [DataMember]
         public string? BindHint
         {
-            get => _Bindable?.GetString();
-            private set => _BindHint = value;
+            get => _bindable?.GetString();
+            private set => _bindHint = value;
         }
 
 
@@ -92,14 +94,12 @@ namespace BEditor.Core.Data.Property
         /// <inheritdoc/>
         protected override void OnLoad()
         {
-            if (_BindHint is not null && this.GetBindable(_BindHint, out var b))
+            if (_bindHint is not null && this.GetBindable(_bindHint, out var b))
             {
                 Bind(b);
             }
-            _BindHint = null;
+            _bindHint = null;
         }
-        /// <inheritdoc/>
-        public override string ToString() => $"(Select:{Select} Name:{PropertyMetadata?.Name})";
 
         /// <summary>
         /// Create a command to change the font.
@@ -137,15 +137,15 @@ namespace BEditor.Core.Data.Property
         /// <inheritdoc/>
         public void Bind(IBindable<Font>? bindable)
         {
-            _BindDispose?.Dispose();
-            _Bindable = bindable;
+            _bindDispose?.Dispose();
+            _bindable = bindable;
 
             if (bindable is not null)
             {
                 Select = bindable.Value;
 
                 // bindableが変更時にthisが変更
-                _BindDispose = bindable.Subscribe(this);
+                _bindDispose = bindable.Subscribe(this);
             }
         }
 
@@ -197,7 +197,7 @@ namespace BEditor.Core.Data.Property
     /// <summary>
     /// Represents the metadata of a <see cref="FontProperty"/>.
     /// </summary>
-    public record FontPropertyMetadata : PropertyElementMetadata
+    public record FontPropertyMetadata : PropertyElementMetadata, IPropertyBuilder<FontProperty>
     {
         /// <summary>
         /// Initializes a new instance of the <see cref="FontPropertyMetadata"/> class.
@@ -219,5 +219,11 @@ namespace BEditor.Core.Data.Property
         /// 
         /// </summary>
         public string MemberPath => "Name";
+
+        /// <inheritdoc/>
+        public FontProperty Build()
+        {
+            return new(this);
+        }
     }
 }

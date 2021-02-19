@@ -8,17 +8,16 @@
   </PropertyGroup>
 
   <ItemGroup>
-    <PackageReference Include="NUnit" Version="3.12.0" />
+    <PackageReference Include="NUnit" Version="3.13.1" />
     <PackageReference Include="NUnit3TestAdapter" Version="3.17.0" />
     <PackageReference Include="Microsoft.NET.Test.Sdk" Version="16.8.3" />
-    <PackageReference Include="System.Drawing.Common" Version="5.0.0" />
   </ItemGroup>
 
   <ItemGroup>
     <ProjectReference Include="..\..\BEditor.Core\BEditor.Core.csproj" />
     <ProjectReference Include="..\..\BEditor.Drawing\BEditor.Drawing.csproj" />
-    <ProjectReference Include="..\..\BEditor.Extensions\BEditor.Extensions.AviUtl\BEditor.Extensions.AviUtl.csproj" />
     <ProjectReference Include="..\..\BEditor.Media\BEditor.Media.csproj" />
+    <ProjectReference Include="..\..\BEditor.Primitive\BEditor.Primitive.csproj" />
   </ItemGroup>
 
 </Project>

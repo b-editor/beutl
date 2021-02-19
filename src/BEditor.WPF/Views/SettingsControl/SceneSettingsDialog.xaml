@@ -5,8 +5,9 @@
     xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
     xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
     xmlns:local="clr-namespace:BEditor.Views"
-    xmlns:Controls="clr-namespace:MahApps.Metro.Controls;assembly=MahApps.Metro" xmlns:md="http://materialdesigninxaml.net/winfx/xaml/themes"
-    xmlns:properties="clr-namespace:BEditor.Core.Properties;assembly=BEditor.Core"
+    xmlns:Controls="clr-namespace:MahApps.Metro.Controls;assembly=MahApps.Metro"
+    xmlns:md="http://materialdesigninxaml.net/winfx/xaml/themes"
+    xmlns:properties="clr-namespace:BEditor.Properties;assembly=BEditor.Core"
     mc:Ignorable="d"
     Style="{StaticResource DefaultWindowStyle}"
     Height="275" Width="450">

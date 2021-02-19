@@ -6,12 +6,11 @@ using System.Text;
 using System.Text.RegularExpressions;
 using System.Threading.Tasks;
 
-using BEditor.Core.Command;
-using BEditor.Core.Data;
-using BEditor.Core.Data.Property;
-using BEditor.Core.Extensions;
+using BEditor.Command;
+using BEditor.Data;
+using BEditor.Data.Property;
 
-namespace BEditor.Core.Data.Bindings
+namespace BEditor.Data.Bindings
 {
     /// <summary>
     /// Represents a class that provides methods for objects that implement <see cref="IBindable{T}"/>.

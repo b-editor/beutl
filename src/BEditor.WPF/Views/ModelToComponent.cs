@@ -6,12 +6,11 @@ using System.Windows.Controls;
 using System.Windows.Controls.Primitives;
 using System.Windows.Data;
 
-using BEditor.Core.Command;
-using BEditor.Core.Data;
-using BEditor.Core.Data.Property;
-using BEditor.Core.Data.Property.Easing;
-using BEditor.Core.Extensions;
-using BEditor.Core.Properties;
+using BEditor.Command;
+using BEditor.Data;
+using BEditor.Data.Property;
+using BEditor.Data.Property.Easing;
+using BEditor.Properties;
 using BEditor.Models;
 using BEditor.ViewModels.Converters;
 using BEditor.ViewModels.PropertyControl;
@@ -30,6 +29,7 @@ namespace BEditor.Views
     {
         private static readonly IMultiValueConverter HeaderConverter = new PropertyHeaderTextConverter();
         private static readonly Binding HeaderBinding = new("Metadata.Value.Name") { Mode = BindingMode.OneTime };
+        private static readonly Binding FileModeBinding = new("PathMode.Value") { Mode = BindingMode.TwoWay };
         private static readonly Binding ClipNameBinding = new("Property.Parent.Name") { Mode = BindingMode.OneTime };
         private static readonly Binding ClipTextBinding = new("Property.Parent.Parent.LabelText") { Mode = BindingMode.OneWay };
         private static readonly Binding PropertyIsCheckedBinding = new("Property.IsChecked") { Mode = BindingMode.OneWay };
@@ -174,6 +174,7 @@ namespace BEditor.Views
                 view.SetBinding(BasePropertyView.BindCommandProperty, BindBinding);
                 view.SetBinding(FrameworkElement.ToolTipProperty, TooltipBinding);
 
+                view.SetBinding(FilePropertyView.ModeIndexProperty, FileModeBinding);
                 view.SetBinding(FilePropertyView.FileProperty, PropertyFileBinding);
                 view.SetBinding(FilePropertyView.OpenFileCommandProperty, CommandBinding);
 
@@ -324,6 +325,7 @@ namespace BEditor.Views
                 view.SetBinding(BasePropertyView.BindCommandProperty, BindBinding);
                 view.SetBinding(FrameworkElement.ToolTipProperty, TooltipBinding);
 
+                view.SetBinding(FolderPropertyView.ModeIndexProperty, FileModeBinding);
                 view.SetBinding(FolderPropertyView.FolderProperty, PropertyFolderBinding);
                 view.SetBinding(FolderPropertyView.OpenFolderCommandProperty, CommandBinding);
 
@@ -438,7 +440,7 @@ namespace BEditor.Views
             }
             return property.ComponentData["GetKeyFrameView"];
         }
-        public static ClipUI GetCreateClipView(this ClipData clip)
+        public static ClipUI GetCreateClipView(this ClipElement clip)
         {
             if (!clip.ComponentData.ContainsKey("GetClipView"))
             {
@@ -451,7 +453,7 @@ namespace BEditor.Views
             }
             return clip.ComponentData["GetClipView"];
         }
-        public static ClipUIViewModel GetCreateClipViewModel(this ClipData clip)
+        public static ClipUIViewModel GetCreateClipViewModel(this ClipElement clip)
         {
             if (!clip.ComponentData.ContainsKey("GetClipViewModel"))
             {
@@ -532,7 +534,7 @@ namespace BEditor.Views
             }
             return effect.ComponentData["GetKeyFrame"];
         }
-        public static UIElement GetCreatePropertyView(this ClipData clip)
+        public static UIElement GetCreatePropertyView(this ClipElement clip)
         {
             if (!clip.ComponentData.ContainsKey("GetPropertyView"))
             {

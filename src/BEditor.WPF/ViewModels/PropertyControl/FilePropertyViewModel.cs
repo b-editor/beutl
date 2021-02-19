@@ -1,17 +1,19 @@
 ﻿using System;
 using System.Collections.Generic;
 using System.Linq;
+using System.Reactive.Linq;
 using System.Text;
 using System.Threading.Tasks;
 
-using BEditor.Core.Data;
-using BEditor.Core.Data.Property;
-using BEditor.Core.Command;
+using BEditor.Command;
+using BEditor.Data;
+using BEditor.Data.Property;
+using BEditor.Views.PropertyControls;
+
+using Microsoft.Extensions.DependencyInjection;
+
 using Reactive.Bindings;
 using Reactive.Bindings.Extensions;
-using BEditor.Views.PropertyControls;
-using BEditor.Core.Service;
-using Microsoft.Win32;
 
 namespace BEditor.ViewModels.PropertyControl
 {
@@ -22,6 +24,12 @@ namespace BEditor.ViewModels.PropertyControl
             Property = property;
             Metadata = property.ObserveProperty(p => p.PropertyMetadata)
                 .ToReadOnlyReactiveProperty();
+
+            PathMode = property.ObserveProperty(p => p.Mode)
+                .Select(i => (int)i)
+                .ToReactiveProperty();
+
+            PathMode.Subscribe(i => Property.Mode = (FilePathType)i);
 
             Command.Subscribe(x =>
             {
@@ -45,14 +53,15 @@ namespace BEditor.ViewModels.PropertyControl
         public ReactiveCommand<Func<string, string, string>> Command { get; } = new();
         public ReactiveCommand Reset { get; } = new();
         public ReactiveCommand Bind { get; } = new();
+        public ReactiveProperty<int> PathMode { get; }
 
-        private static string? OpenDialog(FileFilter? filter)
+        private string? OpenDialog(FileFilter? filter)
         {
-            if (Services.FileDialogService is null) return null;
-            var dialog = Services.FileDialogService;
+            var dialog = Property.ServiceProvider?.GetService<IFileDialogService>();
+            if (dialog is null) return null;
             var record = new OpenFileRecord();
 
-            if(filter is not null)
+            if (filter is not null)
             {
                 record.Filters.Add(filter);
             }

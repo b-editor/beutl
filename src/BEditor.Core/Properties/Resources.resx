@@ -837,4 +837,22 @@ Please select the plugin you want to load</value>
   <data name="PointLightDiffuse" xml:space="preserve">
     <value>Point light diffuse</value>
   </data>
+  <data name="LearnHowToUse" xml:space="preserve">
+    <value>Learn how to use</value>
+  </data>
+  <data name="ToCreateProjectClickNew" xml:space="preserve">
+    <value>If you want to create a project, click New.</value>
+  </data>
+  <data name="ThereIsNoProject" xml:space="preserve">
+    <value>There is no project</value>
+  </data>
+  <data name="AddToList" xml:space="preserve">
+    <value>Add to list</value>
+  </data>
+  <data name="Template" xml:space="preserve">
+    <value>Template</value>
+  </data>
+  <data name="ShowStartWindow" xml:space="preserve">
+    <value>Show start window.</value>
+  </data>
 </root>

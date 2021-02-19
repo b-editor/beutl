@@ -1,15 +1,18 @@
 ﻿using System;
 using System.Collections.Generic;
 using System.Collections.ObjectModel;
+using System.ComponentModel;
 using System.Text;
 using System.Windows.Controls;
+
+using BEditor.Data;
+using BEditor.Properties;
 using BEditor.Views.SettingsControl;
 using BEditor.Views.SettingsControl.General;
 using BEditor.Views.SettingsControl.Plugins;
-using BEditor.Core.Properties;
+
 using MaterialDesignThemes.Wpf;
-using BEditor.Core.Data;
-using System.ComponentModel;
+
 using Reactive.Bindings;
 
 namespace BEditor.ViewModels.SettingsControl

@@ -23,8 +23,10 @@ namespace BEditor
         private static readonly PropertyChangedEventArgs enableErrorLogArgs = new(nameof(EnableErrorLog));
         private static readonly PropertyChangedEventArgs langArgs = new(nameof(Language));
         private static readonly PropertyChangedEventArgs stackLimitArgs = new(nameof(StackLimit));
+        private static readonly PropertyChangedEventArgs showStartWindowArgs = new(nameof(ShowStartWindow));
         private int clipHeight = 25;
         private bool darkMode = true;
+        private bool showStartWindow = true;
         private bool autoBackUp = true;
         private string lastTimeFolder = "";
         private int widthOf1Frame = 5;
@@ -130,6 +132,12 @@ namespace BEditor
         {
             get => stackLimit;
             set => SetValue(value, ref stackLimit, stackLimitArgs);
+        }
+        [DataMember]
+        public bool ShowStartWindow
+        {
+            get => showStartWindow;
+            set => SetValue(value, ref showStartWindow, showStartWindowArgs);
         }
         public ExtensionDataObject? ExtensionData { get; set; }
 

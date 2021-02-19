@@ -2,7 +2,7 @@
 using System.Collections.Generic;
 using System.Text;
 
-namespace BEditor.Core.Data.Property
+namespace BEditor.Data.Property
 {
     /// <summary>
     /// Represents a property that has an editing window on the timeline.

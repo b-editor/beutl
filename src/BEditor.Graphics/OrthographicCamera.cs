@@ -16,7 +16,7 @@ namespace BEditor.Graphics
 
         public override Matrix4 GetProjectionMatrix()
         {
-            return Matrix4.CreateOrthographic(Width, Height, Near, Far);
+            return Matrix4.CreateOrthographic(Width, Height,  Near, Far);
         }
     }
 }

@@ -5,9 +5,9 @@ using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
 
-using BEditor.Core.Data.Property;
+using BEditor.Data.Property;
 
-namespace BEditor.Core.Data
+namespace BEditor.Data
 {
     /// <summary>
     /// Represents that this object has a parent element of type <typeparamref name="T"/>.

@@ -11,9 +11,9 @@ namespace BEditor.Media.PCM
     [StructLayout(LayoutKind.Sequential)]
     public struct PCM32 : IPCM<PCM32>, IPCMConvertable<PCM16>
     {
-        public int Value;
+        public float Value;
 
-        public PCM32(int value) => Value = value;
+        public PCM32(float value) => Value = value;
 
         public PCM32 Add(PCM32 s) => throw new NotImplementedException();
         public void ConvertFrom(PCM16 src)
@@ -22,7 +22,7 @@ namespace BEditor.Media.PCM
         }
         public void ConvertTo(out PCM16 dst) => throw new NotImplementedException();
 
-        public static implicit operator int(PCM32 value) => value.Value;
-        public static implicit operator PCM32(int value) => new(value);
+        public static implicit operator float(PCM32 value) => value.Value;
+        public static implicit operator PCM32(float value) => new(value);
     }
 }

@@ -3,17 +3,15 @@ using System.Diagnostics;
 using System.Windows.Controls;
 using System.Windows.Input;
 
-using BEditor.Core.Command;
-using BEditor.Core.Data;
-using BEditor.Core.Data.Property;
+using BEditor.Command;
+using BEditor.Data;
+using BEditor.Data.Property;
 using BEditor.Models;
 using BEditor.Models.Extension;
 using BEditor.Views.PropertyControls;
 
 using Reactive.Bindings;
 using Reactive.Bindings.Extensions;
-
-using CommandManager = BEditor.Core.Command.CommandManager;
 
 namespace BEditor.ViewModels.PropertyControl
 {

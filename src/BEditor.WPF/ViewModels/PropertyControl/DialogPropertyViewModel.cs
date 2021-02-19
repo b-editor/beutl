@@ -4,7 +4,7 @@ using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
 
-using BEditor.Core.Data.Property;
+using BEditor.Data.Property;
 
 using Reactive.Bindings;
 

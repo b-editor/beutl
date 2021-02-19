@@ -7,9 +7,8 @@ using System.Windows.Input;
 using System.Windows.Media;
 using System.Windows.Media.Animation;
 
-using BEditor.Core.Data;
-using BEditor.Core.Data.Property;
-using BEditor.Core.Extensions;
+using BEditor.Data;
+using BEditor.Data.Property;
 using BEditor.Models;
 using BEditor.Models.Extension;
 using BEditor.ViewModels.PropertyControl;

@@ -5,16 +5,12 @@ using System.Reactive.Linq;
 using System.Text;
 using System.Windows;
 
-using BEditor.Core.Data;
-
-using ControlzEx.Theming;
+using BEditor.Data;
 
 using MaterialDesignThemes.Wpf;
 
 using Reactive.Bindings;
 using Reactive.Bindings.Extensions;
-
-using Theme = MaterialDesignThemes.Wpf.Theme;
 
 namespace BEditor.ViewModels.SettingsControl.General
 {

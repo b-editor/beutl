@@ -4,7 +4,7 @@ using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
 
-namespace BEditor.Core.Data
+namespace BEditor.Data
 {
     /// <summary>
     /// 
@@ -14,6 +14,6 @@ namespace BEditor.Core.Data
         /// <summary>
         /// 名前を取得します
         /// </summary>
-        public string Name { get; }
+        public string? Name { get; }
     }
 }

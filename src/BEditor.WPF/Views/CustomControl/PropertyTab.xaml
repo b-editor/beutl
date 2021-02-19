@@ -7,7 +7,7 @@
              xmlns:local="clr-namespace:BEditor.Views.CustomControl"
              xmlns:app="clr-namespace:BEditor"
              xmlns:main="clr-namespace:BEditor.ViewModels"
-             xmlns:data="clr-namespace:BEditor.Core.Data;assembly=BEditor.Core"
+             xmlns:data="clr-namespace:BEditor.Data;assembly=BEditor.Core"
              xmlns:dragablz="http://dragablz.net/winfx/xaml/dragablz"
              xmlns:controlzex="urn:controlzex"
              xmlns:dockablz="http://dragablz.net/winfx/xaml/dockablz"
@@ -30,12 +30,12 @@
     <Grid>
         <dragablz:TabablzControl BorderBrush="{Binding Source={x:Static main:MainWindowViewModel.Current}, Path=MainWindowColor.Value, Mode=OneWay}" Background="Transparent" x:Name="TabControl" SelectedItem="{Binding SelectItem, Mode=TwoWay}" ItemsSource="{Binding SelectItems, Mode=OneTime}" BorderThickness="0,0,0,0" ShowDefaultCloseButton="True" FlowDirection="LeftToRight">
             <dragablz:TabablzControl.HeaderItemTemplate>
-                <DataTemplate DataType="{x:Type data:ClipData}">
+                <DataTemplate DataType="{x:Type data:ClipElement}">
                     <TextBlock Text="{Binding LabelText, Mode=OneWay}" VerticalAlignment="Center" HorizontalAlignment="Center" FontWeight="Normal" FontStyle="Normal" FontStretch="Normal"/>
                 </DataTemplate>
             </dragablz:TabablzControl.HeaderItemTemplate>
             <dragablz:TabablzControl.ContentTemplate>
-                <DataTemplate DataType="{x:Type data:ClipData}">
+                <DataTemplate DataType="{x:Type data:ClipElement}">
                     <Label Content="{Binding Converter={StaticResource ClipDataToProperty}}" Padding="0,0,0,0" VerticalContentAlignment="Stretch" HorizontalContentAlignment="Stretch" VerticalAlignment="Stretch" HorizontalAlignment="Stretch"/>
                 </DataTemplate>
             </dragablz:TabablzControl.ContentTemplate>

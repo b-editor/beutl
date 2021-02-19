@@ -11,25 +11,15 @@ namespace BEditor.Media.Decoder
     {
         public static VideoDecoderFactory Default
         {
-            get
-            {
-                if (RuntimeInformation.IsOSPlatform(OSPlatform.Windows)) return FFmpeg;
-                else return FFmpeg;
-            }
+            get => FFmpeg;
         }
         public static VideoDecoderFactory FFmpeg { get; } = new FFmpegFactry();
-        public static VideoDecoderFactory Win32 { get; } = new Win32Factry();
 
-        public abstract IVideoDecoder Create(string filename);
+        public abstract IMediaDecoder Create(string filename);
     }
 
     internal class FFmpegFactry : VideoDecoderFactory
     {
-        public override IVideoDecoder Create(string filename) => new FFmpegDecoder(filename);
-    }
-
-    internal class Win32Factry : VideoDecoderFactory
-    {
-        public override IVideoDecoder Create(string filename) => new Win32Decoder(filename);
+        public override IMediaDecoder Create(string filename) => new FFmpegDecoder(filename);
     }
 }

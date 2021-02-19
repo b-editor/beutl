@@ -8,7 +8,7 @@
 // </auto-generated>
 //------------------------------------------------------------------------------
 
-namespace BEditor.Core.Properties {
+namespace BEditor.Properties {
     using System;
     
     
@@ -39,7 +39,7 @@ namespace BEditor.Core.Properties {
         public static global::System.Resources.ResourceManager ResourceManager {
             get {
                 if (object.ReferenceEquals(resourceMan, null)) {
-                    global::System.Resources.ResourceManager temp = new global::System.Resources.ResourceManager("BEditor.Core.Properties.Resources", typeof(Resources).Assembly);
+                    global::System.Resources.ResourceManager temp = new global::System.Resources.ResourceManager("BEditor.Properties.Resources", typeof(Resources).Assembly);
                     resourceMan = temp;
                 }
                 return resourceMan;
@@ -219,6 +219,15 @@ namespace BEditor.Core.Properties {
         public static string AddScene {
             get {
                 return ResourceManager.GetString("AddScene", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Add to list に類似しているローカライズされた文字列を検索します。
+        /// </summary>
+        public static string AddToList {
+            get {
+                return ResourceManager.GetString("AddToList", resourceCulture);
             }
         }
         
@@ -1170,6 +1179,15 @@ namespace BEditor.Core.Properties {
         }
         
         /// <summary>
+        ///   Learn how to use に類似しているローカライズされた文字列を検索します。
+        /// </summary>
+        public static string LearnHowToUse {
+            get {
+                return ResourceManager.GetString("LearnHowToUse", resourceCulture);
+            }
+        }
+        
+        /// <summary>
         ///   Left に類似しているローカライズされた文字列を検索します。
         /// </summary>
         public static string Left {
@@ -1819,6 +1837,15 @@ namespace BEditor.Core.Properties {
         }
         
         /// <summary>
+        ///   Show start window. に類似しているローカライズされた文字列を検索します。
+        /// </summary>
+        public static string ShowStartWindow {
+            get {
+                return ResourceManager.GetString("ShowStartWindow", resourceCulture);
+            }
+        }
+        
+        /// <summary>
         ///   Shutdown に類似しているローカライズされた文字列を検索します。
         /// </summary>
         public static string Shutdown {
@@ -1927,11 +1954,29 @@ namespace BEditor.Core.Properties {
         }
         
         /// <summary>
+        ///   Template に類似しているローカライズされた文字列を検索します。
+        /// </summary>
+        public static string Template {
+            get {
+                return ResourceManager.GetString("Template", resourceCulture);
+            }
+        }
+        
+        /// <summary>
         ///   Text に類似しているローカライズされた文字列を検索します。
         /// </summary>
         public static string Text {
             get {
                 return ResourceManager.GetString("Text", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   There is no project に類似しているローカライズされた文字列を検索します。
+        /// </summary>
+        public static string ThereIsNoProject {
+            get {
+                return ResourceManager.GetString("ThereIsNoProject", resourceCulture);
             }
         }
         
@@ -1959,6 +2004,15 @@ namespace BEditor.Core.Properties {
         public static string TimelineShowHide {
             get {
                 return ResourceManager.GetString("TimelineShowHide", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   If you want to create a project, click New. に類似しているローカライズされた文字列を検索します。
+        /// </summary>
+        public static string ToCreateProjectClickNew {
+            get {
+                return ResourceManager.GetString("ToCreateProjectClickNew", resourceCulture);
             }
         }
         

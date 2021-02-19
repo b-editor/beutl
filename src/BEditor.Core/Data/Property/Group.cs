@@ -5,9 +5,9 @@ using System.Linq;
 using System.Runtime.Serialization;
 using System.Threading.Tasks;
 
-using BEditor.Core.Data.Property;
+using BEditor.Data.Property;
 
-namespace BEditor.Core.Data.Property
+namespace BEditor.Data.Property
 {
     /// <summary>
     /// Represents a base class for grouping <see cref="PropertyElement"/>.

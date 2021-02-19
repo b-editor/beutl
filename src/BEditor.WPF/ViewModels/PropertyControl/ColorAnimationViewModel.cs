@@ -1,10 +1,10 @@
 ﻿using System;
 using System.Reactive.Linq;
 
-using BEditor.Core.Command;
-using BEditor.Core.Data;
-using BEditor.Core.Data.Property;
-using BEditor.Core.Data.Property.Easing;
+using BEditor.Command;
+using BEditor.Data;
+using BEditor.Data.Property;
+using BEditor.Data.Property.Easing;
 
 using Reactive.Bindings;
 using Reactive.Bindings.Extensions;

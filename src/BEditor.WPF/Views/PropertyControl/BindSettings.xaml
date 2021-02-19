@@ -8,7 +8,7 @@
     mc:Ignorable="d"
     xmlns:md="http://materialdesigninxaml.net/winfx/xaml/themes"
     xmlns:Metro="clr-namespace:MahApps.Metro.Controls;assembly=MahApps.Metro"
-    xmlns:properties="clr-namespace:BEditor.Core.Properties;assembly=BEditor.Core"
+    xmlns:properties="clr-namespace:BEditor.Properties;assembly=BEditor.Core"
     Background="{StaticResource MaterialDesignPaper}"
     TextElement.Foreground="{StaticResource MaterialDesignBody}"
     WindowStartupLocation="CenterOwner"

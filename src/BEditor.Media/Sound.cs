@@ -10,21 +10,19 @@ namespace BEditor.Media
 {
     public unsafe class Sound<T> where T : unmanaged, IPCM<T>
     {
-        private readonly uint length;
-
         public Sound(Channel channels, uint rate, uint length)
         {
             Channels = channels;
             Samplingrate = rate;
-            this.length = length;
-            Pcm = new T[(uint)channels * rate * length];
+            Length = length;
+            Pcm = new T[(uint)channels * length];
         }
 
         public T[] Pcm { get; }
         public Channel Channels { get; }
         public uint Samplingrate { get; }
-        public uint Length => (uint)Channels * Samplingrate * length;
-        public long DataSize => (uint)Channels * Samplingrate * length * sizeof(T);
+        public uint Length { get; }
+        public long DataSize => (uint)Channels * Length * sizeof(T);
     }
 
     public enum Channel : uint

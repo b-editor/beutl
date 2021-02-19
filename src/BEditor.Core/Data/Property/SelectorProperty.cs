@@ -2,27 +2,29 @@
 using System.Collections;
 using System.Collections.Generic;
 using System.ComponentModel;
+using System.Diagnostics;
 using System.Diagnostics.Contracts;
 using System.Reactive.Disposables;
 using System.Runtime.Serialization;
 using System.Threading.Tasks;
 
-using BEditor.Core.Command;
-using BEditor.Core.Data.Bindings;
-using BEditor.Core.Data.Property;
+using BEditor.Command;
+using BEditor.Data.Bindings;
+using BEditor.Data.Property;
 
-namespace BEditor.Core.Data.Property
+namespace BEditor.Data.Property
 {
     /// <summary>
     /// Represents a property for selecting a single item from an array.
     /// </summary>
     [DataContract]
+    [DebuggerDisplay("Index = {Index}, Item = {SelectItem}")]
     public class SelectorProperty : PropertyElement<SelectorPropertyMetadata>, IEasingProperty, IBindable<int>
     {
         #region Fields
-        private static readonly PropertyChangedEventArgs _IndexArgs = new(nameof(Index));
-        private int _SelectIndex;
-        private List<IObserver<int>>? _List;
+        private static readonly PropertyChangedEventArgs _indexArgs = new(nameof(Index));
+        private int _selectIndex;
+        private List<IObserver<int>>? _list;
 
         private IDisposable? _BindDispose;
         private IBindable<int>? _Bindable;
@@ -41,7 +43,7 @@ namespace BEditor.Core.Data.Property
             Index = metadata.DefaultIndex;
         }
 
-        private List<IObserver<int>> Collection => _List ??= new();
+        private List<IObserver<int>> Collection => _list ??= new();
         /// <summary>
         /// Get or set the selected item.
         /// </summary>
@@ -57,14 +59,14 @@ namespace BEditor.Core.Data.Property
         [DataMember]
         public int Index
         {
-            get => _SelectIndex;
-            set => SetValue(value, ref _SelectIndex, _IndexArgs, this, state =>
+            get => _selectIndex;
+            set => SetValue(value, ref _selectIndex, _indexArgs, this, state =>
             {
                 foreach (var observer in state.Collection)
                 {
                     try
                     {
-                        observer.OnNext(state._SelectIndex);
+                        observer.OnNext(state._selectIndex);
                     }
                     catch (Exception ex)
                     {
@@ -95,9 +97,7 @@ namespace BEditor.Core.Data.Property
             }
             _BindHint = null;
         }
-        /// <inheritdoc/>
-        public override string ToString() => $"(Index:{Index} Item:{SelectItem} Name:{PropertyMetadata?.Name})";
-
+        
         /// <summary>
         /// Create a command to change the selected item.
         /// </summary>
@@ -194,7 +194,7 @@ namespace BEditor.Core.Data.Property
     /// <summary>
     /// Represents the metadata of a <see cref="SelectorProperty"/>.
     /// </summary>
-    public record SelectorPropertyMetadata : PropertyElementMetadata
+    public record SelectorPropertyMetadata : PropertyElementMetadata, IPropertyBuilder<SelectorProperty>
     {
         /// <summary>
         /// Initializes a new instance of the <see cref="SelectorPropertyMetadata"/> class.
@@ -214,14 +214,20 @@ namespace BEditor.Core.Data.Property
         /// <summary>
         /// Get the source of the item to be selected.
         /// </summary>
-        public IList ItemSource { get; protected set; }
+        public IList ItemSource { get; init; }
         /// <summary>
         /// Get the default value of <see cref="SelectorProperty.Index"/>.
         /// </summary>
-        public int DefaultIndex { get; protected set; }
+        public int DefaultIndex { get; init; }
         /// <summary>
         /// Get the path to the member to display.
         /// </summary>
-        public string MemberPath { get; protected set; }
+        public string MemberPath { get; init; }
+
+        /// <inheritdoc/>
+        public SelectorProperty Build()
+        {
+            return new(this);
+        }
     }
 }

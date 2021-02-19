@@ -45,9 +45,13 @@
                             <md:PopupBox.ToggleContent>
                                 <md:PackIcon Kind="DotsVertical" Width="16" Height="16" Foreground="{DynamicResource MaterialDesignBody}" VerticalAlignment="Stretch" HorizontalAlignment="Stretch"/>
                             </md:PopupBox.ToggleContent>
-                            <VirtualizingStackPanel>
-                                <Button Content="Reset" Command="{TemplateBinding ResetCommand}"/>
-                                <Button Content="Bind" Command="{TemplateBinding BindCommand}"/>
+                            <VirtualizingStackPanel MinWidth="100">
+                                <Button Content="Reset" Command="{TemplateBinding ResetCommand}" HorizontalContentAlignment="Left"/>
+                                <Button Content="Bind" Command="{TemplateBinding BindCommand}" HorizontalContentAlignment="Left"/>
+                                <ComboBox SelectedIndex="{TemplateBinding ModeIndex}" x:Name="combo" Margin="16,8">
+                                    <ComboBoxItem Content="FullPath"/>
+                                    <ComboBoxItem Content="FromProject"/>
+                                </ComboBox>
                             </VirtualizingStackPanel>
                         </md:PopupBox>
                     </Grid>

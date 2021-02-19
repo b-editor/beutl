@@ -5,15 +5,15 @@ using System.Reactive.Linq;
 using System.Windows.Media;
 using System.Windows.Media.Imaging;
 
-using BEditor.Core;
-using BEditor.Core.Command;
-using BEditor.Core.Extensions;
-using BEditor.Core.Service;
+using BEditor;
+using BEditor.Command;
 using BEditor.Models;
 using BEditor.ViewModels.SettingsControl;
 using BEditor.Views.SettingsControl;
 
 using MaterialDesignThemes.Wpf;
+
+using Microsoft.Extensions.DependencyInjection;
 
 using Reactive.Bindings;
 using Reactive.Bindings.Extensions;
@@ -40,7 +40,9 @@ namespace BEditor.ViewModels
         public ReactiveCommand OpenThisRepository { get; } = new();
         #endregion
 
-        #region Statusbar Right
+        #region Statusbar
+        public ReactiveProperty<bool> IsLoading { get; } = new(false);
+
         public ReactiveCommand OpenProjectDirectory { get; } = new();
         public ReactiveCommand ConvertJson { get; } = new();
         #endregion
@@ -116,8 +118,8 @@ namespace BEditor.ViewModels
 
             OpenProjectDirectory
                 .Where(_ => AppData.Current.Project is not null)
-                .Where(_ => AppData.Current.Project!.Filename is not null)
-                .Subscribe(_ => Process.Start("explorer.exe", Path.GetDirectoryName(AppData.Current.Project!.Filename)!));
+                .Where(_ => AppData.Current.Project!.DirectoryName is not null)
+                .Subscribe(_ => Process.Start("explorer.exe", AppData.Current.Project!.DirectoryName!));
 
             ConvertJson.Where(_ => AppData.Current.Project is not null)
                 .Subscribe(_ =>
@@ -140,13 +142,15 @@ namespace BEditor.ViewModels
 
             SettingShow.Subscribe(SettingShowCommand);
             DeleteCommand.Subscribe(() => CommandManager.Clear());
-            MemoryRelease.Subscribe(() =>
+            MemoryRelease.Subscribe(async () =>
             {
                 var bytes = Environment.WorkingSet;
+                await using var prov = AppData.Current.Services.BuildServiceProvider();
+                var mes = prov.GetService<IMessage>();
 
                 GC.Collect();
 
-                Message.Snackbar(((Environment.WorkingSet - bytes) / 10000000f).ToString() + "MB");
+                mes?.Snackbar(((Environment.WorkingSet - bytes) / 10000000f).ToString() + "MB");
             });
             SceneSettingsCommand.Where(_ => AppData.Current.Project is not null)
                 .Select(_ => AppData.Current.Project!.PreviewScene)

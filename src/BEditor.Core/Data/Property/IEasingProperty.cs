@@ -2,9 +2,9 @@
 using System.Collections.Generic;
 using System.Text;
 
-using BEditor.Core.Data.Property.Easing;
+using BEditor.Data.Property.Easing;
 
-namespace BEditor.Core.Data.Property
+namespace BEditor.Data.Property
 {
     /// <summary>
     /// Represents a property that can be used by <see cref="EasingFunc"/>

@@ -2,31 +2,32 @@
 using System.Collections.Generic;
 using System.Collections.ObjectModel;
 using System.ComponentModel;
+using System.Diagnostics;
 using System.Diagnostics.CodeAnalysis;
 using System.Diagnostics.Contracts;
 using System.Linq;
 using System.Runtime.Serialization;
 
-using BEditor.Core.Command;
-using BEditor.Core.Data.Property;
-using BEditor.Core.Data.Property.Easing;
-using BEditor.Core.Extensions;
+using BEditor.Command;
+using BEditor.Data.Property;
+using BEditor.Data.Property.Easing;
 using BEditor.Drawing;
 using BEditor.Media;
 
-namespace BEditor.Core.Data.Property
+namespace BEditor.Data.Property
 {
     /// <summary>
     /// Represents a property that eases the value of a <see cref="Color"/> type.
     /// </summary>
     [DataContract]
+    [DebuggerDisplay("Count = {Value.Count}, Easing = {EasingData.Name}")]
     public class ColorAnimationProperty : PropertyElement<ColorAnimationPropertyMetadata>, IKeyFrameProperty
     {
         #region Fields
-        private static readonly PropertyChangedEventArgs _EasingFuncArgs = new(nameof(EasingType));
-        private static readonly PropertyChangedEventArgs _EasingDataArgs = new(nameof(EasingData));
-        private EasingFunc? _EasingTypeProperty;
-        private EasingMetadata? _EasingData;
+        private static readonly PropertyChangedEventArgs _easingFuncArgs = new(nameof(EasingType));
+        private static readonly PropertyChangedEventArgs _easingDataArgs = new(nameof(EasingData));
+        private EasingFunc? _easingTypeProperty;
+        private EasingMetadata? _easingData;
         #endregion
 
 
@@ -64,17 +65,17 @@ namespace BEditor.Core.Data.Property
         {
             get
             {
-                if (_EasingTypeProperty == null || EasingData.Type != _EasingTypeProperty.GetType())
+                if (_easingTypeProperty == null || EasingData.Type != _easingTypeProperty.GetType())
                 {
-                    _EasingTypeProperty = EasingData.CreateFunc();
-                    _EasingTypeProperty.Parent = this;
+                    _easingTypeProperty = EasingData.CreateFunc();
+                    _easingTypeProperty.Parent = this;
                 }
 
-                return _EasingTypeProperty;
+                return _easingTypeProperty;
             }
             set
             {
-                SetValue(value, ref _EasingTypeProperty, _EasingFuncArgs);
+                SetValue(value, ref _easingTypeProperty, _easingFuncArgs);
 
                 EasingData = EasingMetadata.LoadedEasingFunc.Find(x => x.Type == value.GetType())!;
             }
@@ -84,10 +85,21 @@ namespace BEditor.Core.Data.Property
         /// </summary>
         public EasingMetadata EasingData
         {
-            get => _EasingData ?? EasingMetadata.LoadedEasingFunc[0];
-            set => SetValue(value, ref _EasingData, _EasingDataArgs);
+            get => _easingData ?? EasingMetadata.LoadedEasingFunc[0];
+            set => SetValue(value, ref _easingData, _easingDataArgs);
         }
         internal Frame Length => Parent?.Parent?.Length ?? default;
+        /// <inheritdoc/>
+        public override EffectElement? Parent
+        {
+            get => base.Parent;
+            set
+            {
+                base.Parent = value;
+                EasingType.Parent = this;
+            }
+        }
+
         /// <summary>
         /// Get an eased value.
         /// </summary>
@@ -464,7 +476,7 @@ namespace BEditor.Core.Data.Property
     /// <summary>
     /// Represents the metadata of a <see cref="ColorAnimationProperty"/>.
     /// </summary>
-    public record ColorAnimationPropertyMetadata : ColorPropertyMetadata
+    public record ColorAnimationPropertyMetadata : PropertyElementMetadata, IPropertyBuilder<ColorAnimationProperty>
     {
         /// <summary>
         /// Initializes a new instance of the <see cref="ColorAnimationPropertyMetadata"/> class.
@@ -473,8 +485,10 @@ namespace BEditor.Core.Data.Property
         /// <param name="DefaultColor">Default color</param>
         /// <param name="DefaultEase">Default easing function</param>
         /// <param name="UseAlpha">Value if the alpha component should be used or not</param>
-        public ColorAnimationPropertyMetadata(string Name, Color DefaultColor, EasingMetadata DefaultEase, bool UseAlpha = false) : base(Name, DefaultColor, UseAlpha)
+        public ColorAnimationPropertyMetadata(string Name, Color DefaultColor, EasingMetadata DefaultEase, bool UseAlpha = false) : base(Name)
         {
+            this.DefaultColor = DefaultColor;
+            this.UseAlpha = UseAlpha;
             this.DefaultEase = DefaultEase;
         }
         /// <summary>
@@ -493,10 +507,24 @@ namespace BEditor.Core.Data.Property
         /// <param name="UseAlpha">Value if the alpha component should be used or not</param>
         public ColorAnimationPropertyMetadata(string Name, Color DefaultColor, bool UseAlpha = false)
             : this(Name, DefaultColor, EasingMetadata.LoadedEasingFunc[0], UseAlpha) { }
-
+        
+        /// <summary>
+        /// Gets the default color.
+        /// </summary>
+        public Color DefaultColor { get; init; }
+        /// <summary>
+        /// Gets a <see cref="bool"/> indicating whether or not to use the alpha component.
+        /// </summary>
+        public bool UseAlpha { get; init; }
         /// <summary>
         /// Gets the default easing function.
         /// </summary>
         public EasingMetadata DefaultEase { get; init; }
+
+        /// <inheritdoc/>
+        public ColorAnimationProperty Build()
+        {
+            return new(this);
+        }
     }
 }

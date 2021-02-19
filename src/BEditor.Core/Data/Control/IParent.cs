@@ -1,6 +1,6 @@
 ﻿using System.Collections.Generic;
 
-namespace BEditor.Core.Data
+namespace BEditor.Data
 {
     /// <summary>
     /// Represents that this object has a child elements of type <typeparamref name="T"/>.

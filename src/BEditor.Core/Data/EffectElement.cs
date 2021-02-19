@@ -8,29 +8,30 @@ using System.Linq;
 using System.Runtime.Serialization;
 using System.Threading.Tasks;
 
-using BEditor.Core.Command;
-using BEditor.Core.Data.Primitive.Effects;
-using BEditor.Core.Data.Property;
+using BEditor.Command;
+using BEditor.Data.Property;
 
-namespace BEditor.Core.Data
+using Microsoft.Extensions.DependencyInjection;
+
+namespace BEditor.Data
 {
     /// <summary>
     /// Represents a base class of the effect.
     /// </summary>
     [DataContract]
-    public abstract class EffectElement : ComponentObject, IChild<ClipData>, IParent<PropertyElement>, ICloneable, IHasId, IElementObject
+    public abstract class EffectElement : EditorObject, IChild<ClipElement>, IParent<PropertyElement>, ICloneable, IHasId, IElementObject
     {
         #region Fields
-        private static readonly PropertyChangedEventArgs _IsEnabledArgs = new(nameof(IsEnabled));
-        private static readonly PropertyChangedEventArgs _IsExpandedArgs = new(nameof(IsExpanded));
-        private bool _IsEnabled = true;
-        private bool _IsExpanded = true;
-        private ClipData? _Parent;
-        private IEnumerable<PropertyElement>? _CachedList;
+        private static readonly PropertyChangedEventArgs _isEnabledArgs = new(nameof(IsEnabled));
+        private static readonly PropertyChangedEventArgs _isExpandedArgs = new(nameof(IsExpanded));
+        private bool _isEnabled = true;
+        private bool _isExpanded = true;
+        private ClipElement? _parent;
+        private IEnumerable<PropertyElement>? _cachedList;
         #endregion
 
         /// <inheritdoc/>
-        public IEnumerable<PropertyElement> Children => _CachedList ??= Properties.ToArray();
+        public IEnumerable<PropertyElement> Children => _cachedList ??= Properties.ToArray();
         /// <summary>
         /// Get the name of the <see cref="EffectElement"/>.
         /// </summary>
@@ -42,8 +43,8 @@ namespace BEditor.Core.Data
         [DataMember]
         public bool IsEnabled
         {
-            get => _IsEnabled;
-            set => SetValue(value, ref _IsEnabled, _IsEnabledArgs);
+            get => _isEnabled;
+            set => SetValue(value, ref _isEnabled, _isEnabledArgs);
         }
         /// <summary>
         /// Get or set whether the expander is open.
@@ -52,29 +53,30 @@ namespace BEditor.Core.Data
         [DataMember]
         public bool IsExpanded
         {
-            get => _IsExpanded;
-            set => SetValue(value, ref _IsExpanded, _IsExpandedArgs);
+            get => _isExpanded;
+            set => SetValue(value, ref _isExpanded, _isExpandedArgs);
         }
         /// <summary>
         /// Get the <see cref="PropertyElement"/> to display on the GUI.
         /// </summary>
         public abstract IEnumerable<PropertyElement> Properties { get; }
         /// <inheritdoc/>
-        public ClipData? Parent
+        public ClipElement? Parent
         {
-            get => _Parent;
+            get => _parent;
             internal set
             {
-                _Parent = value;
+                _parent = value;
 
-                Parallel.ForEach(Children, property => property.Parent = this);
+                foreach (var prop in Children)
+                {
+                    prop.Parent = this;
+                }
             }
         }
         /// <inheritdoc/>
         public int Id => Parent?.Effect?.IndexOf(this) ?? -1;
-        /// <inheritdoc/>
-        public bool IsLoaded { get; private set; }
-
+        
 
         #region Methods
 
@@ -92,36 +94,6 @@ namespace BEditor.Core.Data
         /// It will be called before rendering.
         /// </summary>
         public virtual void PreviewRender(EffectRenderArgs args) { }
-
-        /// <inheritdoc/>
-        public void Load()
-        {
-            if (IsLoaded) return;
-
-            OnLoad();
-
-            IsLoaded = true;
-        }
-        /// <inheritdoc/>
-        public void Unload()
-        {
-            if (!IsLoaded) return;
-
-            OnUnload();
-
-            IsLoaded = false;
-        }
-
-        /// <inheritdoc cref="IElementObject.Load"/>
-        protected virtual void OnLoad()
-        {
-
-        }
-        /// <inheritdoc cref="IElementObject.Unload"/>
-        protected virtual void OnUnload()
-        {
-
-        }
 
         /// <summary>
         /// Create a command to change whether the <see cref="EffectElement"/> is enabled.
@@ -164,7 +136,7 @@ namespace BEditor.Core.Data
         }
         internal sealed class UpCommand : IRecordCommand
         {
-            private readonly ClipData _Clip;
+            private readonly ClipElement _Clip;
             private readonly EffectElement _Effect;
 
             public UpCommand(EffectElement effect)
@@ -199,7 +171,7 @@ namespace BEditor.Core.Data
         }
         internal sealed class DownCommand : IRecordCommand
         {
-            private readonly ClipData _Clip;
+            private readonly ClipElement _Clip;
             private readonly EffectElement _Effect;
 
             public DownCommand(EffectElement effect)
@@ -234,11 +206,11 @@ namespace BEditor.Core.Data
         }
         internal sealed class RemoveCommand : IRecordCommand
         {
-            private readonly ClipData _Clip;
+            private readonly ClipElement _Clip;
             private readonly EffectElement _Effect;
             private readonly int _Indec;
 
-            public RemoveCommand(EffectElement effect, ClipData clip)
+            public RemoveCommand(EffectElement effect, ClipElement clip)
             {
                 _Effect = effect;
                 _Clip = clip;
@@ -261,10 +233,10 @@ namespace BEditor.Core.Data
         }
         internal sealed class AddCommand : IRecordCommand
         {
-            private readonly ClipData _Clip;
+            private readonly ClipElement _Clip;
             private readonly EffectElement _Effect;
 
-            public AddCommand(EffectElement effect, ClipData clip)
+            public AddCommand(EffectElement effect, ClipElement clip)
             {
                 _Effect = effect;
                 _Clip = clip;

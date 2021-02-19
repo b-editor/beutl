@@ -8,28 +8,48 @@ using System.Reflection;
 using System.Runtime.Serialization;
 using System.Text;
 
-using BEditor.Core.Data;
-using BEditor.Core.Data.Property.Easing;
-using BEditor.Core.Extensions;
-using BEditor.Core.Properties;
-using BEditor.Core.Service;
+using BEditor.Data;
+using BEditor.Data.Property.Easing;
+using BEditor.Properties;
 
-namespace BEditor.Core.Plugin
+namespace BEditor.Plugin
 {
     /// <summary>
     /// Represents the class that manages the plugin.
     /// </summary>
     public class PluginManager
     {
-        private static readonly string pluginsDir = Path.Combine(AppContext.BaseDirectory, "user", "plugins");
+        internal readonly List<IPlugin> _loaded = new();
+        internal readonly List<(string, IEnumerable<ICustomMenu>)> _menus = new();
+        /// <summary>
+        /// Gets a default <see cref="PluginManager"/> instance.
+        /// </summary>
+        public static readonly PluginManager Default = new();
+
+        /// <summary>
+        /// Initializes a new instance of the <see cref="PluginManager"/> class.
+        /// </summary>
+        public PluginManager()
+        {
+
+        }
+
+        /// <summary>
+        /// Get the loaded plugins.
+        /// </summary>
+        public IEnumerable<IPlugin> Plugins => _loaded;
+        /// <summary>
+        /// Get or set the base directory from which to retrieve plugins.
+        /// </summary>
+        public string BaseDirectory { get; } = Path.Combine(AppContext.BaseDirectory, "user", "plugins");
 
         /// <summary>
         /// Get all plugin names.
         /// </summary>
         /// <returns>All plugin names.</returns>
-        public static IEnumerable<string> GetNames()
+        public IEnumerable<string> GetNames()
         {
-            return Directory.GetDirectories(pluginsDir)
+            return Directory.GetDirectories(BaseDirectory)
                 .Select(static folder => Path.GetFileName(folder));
         }
 
@@ -37,55 +57,28 @@ namespace BEditor.Core.Plugin
         /// Load the assembly from the name of the plugin.
         /// </summary>
         /// <param name="pluginName">The name of the plugin to load.</param>
-        public static IEnumerable<IPlugin> Load(IEnumerable<string> pluginName)
+        /// <exception cref="PluginException">Plugin failded to load.</exception>
+        public void Load(IEnumerable<string> pluginName)
         {
             var plugins = pluginName
                 .Where(static f => f is not null)
-                .Select(static f => Path.Combine(AppContext.BaseDirectory, "user", "plugins", f, $"{f}.dll"))
+                .Select(f => Path.Combine(BaseDirectory, f, $"{f}.dll"))
                 .Where(static f => File.Exists(f))
-                .Select(static f => Assembly.LoadFrom(f).GetTypes())
-                .Select(static types => types
-                    .Where(static t => typeof(IPlugin).IsAssignableFrom(t))
-                    .Select(static t => Activator.CreateInstance(t) as IPlugin)
-                    .Where(static t => t is not null))
-                .SelectMany(static f => f);
+                .Select(static f => Assembly.LoadFrom(f));
 
-            foreach (var plugin in plugins)
+            var args = Environment.GetCommandLineArgs();
+            foreach (var asm in plugins)
             {
-                if (plugin is IEffects effects)
+                try
                 {
-                    var a = new EffectMetadata(plugin.PluginName)
-                    {
-                        Children = effects.Effects
-                            .Where(meta => Attribute.IsDefined(meta.Type, typeof(DataContractAttribute)))
-                            .ToArray()
-                    };
-
-                    Serialize.SerializeKnownTypes.AddRange(effects.Effects.Select(a => a.Type));
-
-                    EffectMetadata.LoadedEffects.Add(a);
+                    asm.GetTypes().Where(t => t.Name is "Plugin")
+                        .FirstOrDefault()
+                        ?.InvokeMember("Register", BindingFlags.InvokeMethod, null, null, new object[] { args });
                 }
-
-                if (plugin is IObjects objects)
+                catch(Exception e)
                 {
-                    Serialize.SerializeKnownTypes.AddRange(objects.Objects.Select(a => a.Type));
-
-                    foreach (var o in objects.Objects.Where(meta => Attribute.IsDefined(meta.Type, typeof(DataContractAttribute))))
-                    {
-                        ObjectMetadata.LoadedObjects.Add(o);
-                    }
+                    throw new PluginException(string.Format(Resources.FailedToLoad, asm.GetName().Name), e);
                 }
-
-                if (plugin is IEasingFunctions easing)
-                {
-                    foreach (var data in easing.EasingFunc.Where(meta => Attribute.IsDefined(meta.Type, typeof(DataContractAttribute))))
-                    {
-                        EasingMetadata.LoadedEasingFunc.Add(data);
-                        Serialize.SerializeKnownTypes.Add(data.Type);
-                    }
-                }
-
-                yield return plugin!;
             }
         }
     }

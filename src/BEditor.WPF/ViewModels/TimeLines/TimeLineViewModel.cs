@@ -4,18 +4,21 @@ using System.IO;
 using System.Reactive;
 using System.Reactive.Linq;
 using System.Threading;
+using System.Threading.Tasks;
 using System.Windows;
 using System.Windows.Controls;
 using System.Windows.Input;
 
-using BEditor.Core.Command;
-using BEditor.Core.Data;
-using BEditor.Core.Data.Primitive.Objects;
-using BEditor.Core.Extensions;
+using BEditor.Command;
+using BEditor.Data;
 using BEditor.Models;
 using BEditor.Models.Extension;
+using BEditor.Primitive;
+using BEditor.Primitive.Objects;
 using BEditor.Views;
 using BEditor.Views.SettingsControl;
+
+using Microsoft.Extensions.DependencyInjection;
 
 using Reactive.Bindings;
 using Reactive.Bindings.Extensions;
@@ -54,7 +57,7 @@ namespace BEditor.ViewModels.TimeLines
         /// <summary>
         /// 選択オブジェクトのラベル
         /// </summary>
-        public ClipData? ClipSelect;
+        public ClipElement? ClipSelect;
         /// <summary>
         /// 移動量
         /// </summary>
@@ -112,7 +115,7 @@ namespace BEditor.ViewModels.TimeLines
 
                     var type = RenderType.Preview;
 
-                    if (AppData.Current.AppStatus is Core.Service.Status.Playing) type = RenderType.VideoPreview;
+                    if (AppData.Current.AppStatus is Status.Playing) type = RenderType.VideoPreview;
 
                     AppData.Current.Project!.PreviewUpdate(type);
                 });
@@ -154,26 +157,6 @@ namespace BEditor.ViewModels.TimeLines
 
 
             #endregion
-
-            #region ショートカット
-
-            //CopyCommand = new(() => {
-            //    if (Scene.SelectName != null) {
-            //        UndoRedoManager.Do(new CopyClip(Scene.Get(Scene.SelectName)));
-            //    }
-            //});
-            //CutCommand = new(() => {
-            //    if (Scene.SelectName != null) {
-            //        UndoRedoManager.Do(new CutClip(Scene.Get(Scene.SelectName)));
-            //    }
-            //});
-            //DeleteCommand = new(() => {
-            //    if (Scene.SelectName != null) {
-            //        UndoRedoManager.Do(new RemoveClip(Scene.SelectItem));
-            //    }
-            //});
-
-            #endregion
         }
 
         public double TrackHeight { get; } = Setting.ClipHeight;
@@ -194,7 +177,7 @@ namespace BEditor.ViewModels.TimeLines
         /// </para>
         /// </summary>
         public Action<float, int, int>? ResetScale { get; set; }
-        public Action<ClipData, int>? ClipLayerMoveCommand { get; set; }
+        public Action<ClipElement, int>? ClipLayerMoveCommand { get; set; }
         public Func<Point>? GetLayerMousePosition { get; set; }
 
 
@@ -221,7 +204,7 @@ namespace BEditor.ViewModels.TimeLines
         {
             if (!Scene.InRange(Select_Frame, Select_Frame + 180, Select_Layer))
             {
-                Message.Snackbar("指定した場所にクリップが存在しているため、新しいクリップを配置できません");
+                Scene.ServiceProvider?.GetService<IMessage>()?.Snackbar("指定した場所にクリップが存在しているため、新しいクリップを配置できません");
 
                 return;
             }
@@ -254,10 +237,12 @@ namespace BEditor.ViewModels.TimeLines
 
                 if (de.Data.GetDataPresent(typeof(Func<ObjectMetadata>)))
                 {
+                    var meta = ((Func<ObjectMetadata>)de.Data.GetData(typeof(Func<ObjectMetadata>))).Invoke();
+
                     var endFrame = frame + new Media.Frame(180);
                     Scene.Clamp(null, ref frame, ref endFrame, addlayer);
 
-                    var recordCommand = Scene.AddClip(frame, addlayer, ((Func<ObjectMetadata>)de.Data.GetData(typeof(Func<ObjectMetadata>))).Invoke(), out var c);
+                    var recordCommand = Scene.AddClip(frame, addlayer, meta, out var c);
 
                     c.End = endFrame;
 
@@ -273,22 +258,22 @@ namespace BEditor.ViewModels.TimeLines
 
                         if (!Scene.InRange(frame, frame + 180, addlayer))
                         {
-                            Message.Snackbar("指定した場所にクリップが存在しているため、新しいクリップを配置できません");
+                            Scene.ServiceProvider?.GetService<IMessage>()?.Snackbar("指定した場所にクリップが存在しているため、新しいクリップを配置できません");
 
                             return;
                         }
 
                         Scene.AddClip(frame, addlayer, type_, out var clip).Execute();
 
-                        if (type_ == ClipType.ImageMetadata)
+                        if (type_ == PrimitiveTypes.ImageMetadata)
                         {
                             (clip.Effect[0] as ImageFile)!.File.File = file;
                         }
-                        else if (type_ == ClipType.VideoMetadata)
+                        else if (type_ == PrimitiveTypes.VideoMetadata)
                         {
                             (clip.Effect[0] as VideoFile)!.File.File = file;
                         }
-                        else if (type_ == ClipType.TextMetadata)
+                        else if (type_ == PrimitiveTypes.TextMetadata)
                         {
                             var reader = new StreamReader(file);
                             (clip.Effect[0] as Text)!.Document.Text = reader.ReadToEnd();
@@ -314,7 +299,7 @@ namespace BEditor.ViewModels.TimeLines
             Mouse_Layer = AttachmentProperty.GetInt((Grid)sender);
         }
 
-        public void TimeLineLoaded(Action<ObservableCollection<ClipData>> action)
+        public void TimeLineLoaded(Action<ObservableCollection<ClipElement>> action)
         {
             var from = Scene.TimeLineZoom;
             Scene.TimeLineZoom = 50;
@@ -441,11 +426,16 @@ namespace BEditor.ViewModels.TimeLines
 
             if (ClipTimeChange && ClipSelect is not null)
             {
-                ClipData data = ClipSelect;
+                ClipElement data = ClipSelect;
 
-                data.MoveFrameLayer(
-                    ToFrame(data.GetCreateClipViewModel().MarginLeftProperty),
-                    ClipSelect.GetCreateClipViewModel().Row).Execute();
+                var toframe = ToFrame(data.GetCreateClipViewModel().MarginLeftProperty);
+
+                if (Media.Frame.Zero > toframe)
+                {
+                    data.MoveFrameLayer(
+                        toframe,
+                        ClipSelect.GetCreateClipViewModel().Row).Execute();
+                }
 
                 ClipTimeChange = false;
             }

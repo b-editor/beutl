@@ -13,9 +13,6 @@ using System.Windows.Media.Imaging;
 using System.Windows.Navigation;
 using System.Windows.Shapes;
 
-using BEditor.Core;
-using BEditor.Core.Plugin;
-
 namespace BEditor.Views.SettingsControl
 {
     /// <summary>

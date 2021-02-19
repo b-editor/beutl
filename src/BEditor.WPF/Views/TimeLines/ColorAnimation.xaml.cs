@@ -1,5 +1,7 @@
 ﻿using System;
 using System.ComponentModel;
+using System.Reactive;
+using System.Reactive.Linq;
 using System.Windows;
 using System.Windows.Controls;
 using System.Windows.Data;
@@ -7,19 +9,16 @@ using System.Windows.Input;
 using System.Windows.Media;
 using System.Windows.Media.Animation;
 
+using BEditor.Data;
+using BEditor.Data.Property;
 using BEditor.ViewModels.TimeLines;
+using BEditor.WPF.Controls;
 
 using MaterialDesignThemes.Wpf;
 
-using Resource = BEditor.Core.Properties.Resources;
-using BEditor.Core.Extensions;
-using BEditor.Core.Data.Property;
-using BEditor.Core.Data;
-
-using System.Reactive;
-using System.Reactive.Linq;
 using Reactive.Bindings.Extensions;
-using BEditor.WPF.Controls;
+
+using Resource = BEditor.Properties.Resources;
 
 namespace BEditor.Views.TimeLines
 {
@@ -127,8 +126,8 @@ namespace BEditor.Views.TimeLines
                 Width = tmp;
             }
 
-            Scene.ObserveProperty(p=>p.TimeLineZoom)
-                .Subscribe(_=>ZoomChange());
+            Scene.ObserveProperty(p => p.TimeLineZoom)
+                .Subscribe(_ => ZoomChange());
 
             //StoryBoard
             Storyboard.SetTarget(GetAnm, text);
@@ -173,9 +172,15 @@ namespace BEditor.Views.TimeLines
         #endregion
 
 
-        private void Add_Pos(object sender, RoutedEventArgs e) => AddCommand.Execute(nowframe);
+        private void Add_Pos(object sender, RoutedEventArgs e)
+        {
+            AddCommand.Execute(nowframe);
+        }
 
-        private void Delete_Click(object sender, RoutedEventArgs e) => RemoveCommand.Execute(_Property.Frame[grid.Children.IndexOf(select)]);
+        private void Delete_Click(object sender, RoutedEventArgs e)
+        {
+            RemoveCommand.Execute(_Property.Frame[grid.Children.IndexOf(select)]);
+        }
 
         #region MouseMoveEvent
         private void Mouse_Move(object sender, MouseEventArgs e)
@@ -203,7 +208,10 @@ namespace BEditor.Views.TimeLines
         #endregion
 
 
-        private void Mouse_RightDown(object sender, MouseButtonEventArgs e) => addtoggle = true;
+        private void Mouse_RightDown(object sender, MouseButtonEventArgs e)
+        {
+            addtoggle = true;
+        }
 
 
         #region KeyframeMouseDownイベント

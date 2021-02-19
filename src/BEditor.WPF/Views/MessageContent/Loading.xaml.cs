@@ -3,10 +3,11 @@ using System.Windows;
 using System.Windows.Controls;
 using System.Windows.Media;
 
-using BEditor.Core.Extensions;
-
-using Resource = BEditor.Core.Properties.Resources;
 using Reactive.Bindings;
+
+using static BEditor.IMessage;
+
+using Resource = BEditor.Properties.Resources;
 
 namespace BEditor.Views.MessageContent
 {
@@ -64,7 +65,7 @@ namespace BEditor.Views.MessageContent
         public Loading()
         {
             DataContext = this;
-         
+
             InitializeComponent();
         }
 

@@ -2,7 +2,7 @@
 using System.Collections.Generic;
 using System.Linq.Expressions;
 
-namespace BEditor.Core.Data.Property.Easing
+namespace BEditor.Data.Property.Easing
 {
     /// <summary>
     /// Initializes a new instance of the <see cref="EasingMetadata"/> class.

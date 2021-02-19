@@ -7,8 +7,8 @@ using System.Windows.Input;
 using System.Windows.Media;
 using System.Windows.Media.Animation;
 
-using BEditor.Core.Data;
-using BEditor.Core.Data.Property;
+using BEditor.Data;
+using BEditor.Data.Property;
 using BEditor.Models;
 using BEditor.ViewModels.TimeLines;
 using BEditor.WPF.Controls;
@@ -17,7 +17,7 @@ using MaterialDesignThemes.Wpf;
 
 using Reactive.Bindings.Extensions;
 
-using Resource = BEditor.Core.Properties.Resources;
+using Resource = BEditor.Properties.Resources;
 
 namespace BEditor.Views.TimeLines
 {

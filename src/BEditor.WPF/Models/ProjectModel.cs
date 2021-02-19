@@ -1,17 +1,21 @@
 ﻿using System;
 using System.Collections.Generic;
 using System.Diagnostics;
+using System.IO;
 using System.Linq;
 using System.Reactive.Linq;
 using System.Text;
 using System.Threading.Tasks;
 
-using BEditor.Core.Data;
-using BEditor.Core.Data.Property;
-using BEditor.Core.Extensions;
-using BEditor.Core.Properties;
-using BEditor.Core.Service;
+using BEditor;
+using BEditor.Data;
+using BEditor.Data.Property;
+using BEditor.Properties;
+using BEditor.ViewModels;
+using BEditor.Views;
+using BEditor.Views.MessageContent;
 
+using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Win32;
 
 using Reactive.Bindings;
@@ -26,13 +30,50 @@ namespace BEditor.Models
         {
             SaveAs.Where(_ => AppData.Current.Project is not null)
                 .Select(_ => AppData.Current.Project)
-                .Subscribe(p => p!.SaveAs());
+                .Subscribe(async p =>
+                {
+                    await using var prov = AppData.Current.Services.BuildServiceProvider();
+                    var dialog = prov.GetService<IFileDialogService>();
+
+                    if (dialog is null) throw new InvalidOperationException();
+
+                    var record = new SaveFileRecord
+                    {
+                        DefaultFileName = (p!.Name is not null) ? p.Name + ".bedit" : "新しいプロジェクト.bedit",
+                        Filters =
+                        {
+                            new(Resources.ProjectFile, new FileExtension[] { new("bedit") }),
+                            new(Resources.JsonFile, new FileExtension[] { new("json") }),
+                        }
+                    };
+
+                    var mode = SerializeMode.Binary;
+
+                    if (dialog.ShowSaveFileDialog(record))
+                    {
+                        if (Path.GetExtension(record.FileName) is ".json")
+                        {
+                            mode = SerializeMode.Json;
+                        }
+
+                        p.Save(record.FileName, mode);
+                    }
+                });
 
             Save.Where(_ => AppData.Current.Project is not null)
                 .Select(_ => AppData.Current.Project)
-                .Subscribe(p => p!.Save());
+                .Subscribe(async p =>
+                {
+                    MainWindowViewModel.Current.IsLoading.Value = true;
+                    await Task.Run(() =>
+                    {
+                        p!.Save();
 
-            Open.Select(_ => AppData.Current).Subscribe(app =>
+                        MainWindowViewModel.Current.IsLoading.Value = false;
+                    });
+                });
+
+            Open.Select(_ => AppData.Current).Subscribe(async app =>
             {
                 var dialog = new OpenFileDialog()
                 {
@@ -42,21 +83,31 @@ namespace BEditor.Models
 
                 if (dialog.ShowDialog() ?? false)
                 {
+                    NoneDialog? ndialog = null;
                     try
                     {
-                        app.Project?.Unload();
-                        var project = new Project(dialog.FileName);
-                        project.Load();
-                        app.Project = project;
-                        app.AppStatus = Status.Edit;
+                        var loading = new Loading()
+                        {
+                            IsIndeterminate = { Value = true }
+                        };
+                        ndialog = new NoneDialog(loading)
+                        {
+                            Owner = App.Current.MainWindow
+                        };
+                        ndialog.Show();
 
-                        Settings.Default.MostRecentlyUsedList.Remove(dialog.FileName);
-                        Settings.Default.MostRecentlyUsedList.Add(dialog.FileName);
+                        await DirectOpen(dialog.FileName);
                     }
                     catch
                     {
                         Debug.Assert(false);
-                        Message.Snackbar(string.Format(Resources.FailedToLoad, "Project"));
+                        await using var prov = AppData.Current.Services.BuildServiceProvider();
+
+                        prov.GetService<IMessage>()?.Snackbar(string.Format(Resources.FailedToLoad, "Project"));
+                    }
+                    finally
+                    {
+                        ndialog?.Close();
                     }
                 }
             });
@@ -84,5 +135,25 @@ namespace BEditor.Models
         public ReactiveCommand Open { get; } = new();
         public ReactiveCommand Close { get; } = new();
         public ReactiveCommand Create { get; } = new();
+
+        public static async ValueTask DirectOpen(string filename)
+        {
+            var app = AppData.Current;
+            app.Project?.Unload();
+            var project = Project.FromFile(filename, app);
+
+            if (project is null) return;
+
+            await Task.Run(() =>
+            {
+                project.Load();
+
+                app.Project = project;
+                app.AppStatus = Status.Edit;
+
+                Settings.Default.MostRecentlyUsedList.Remove(filename);
+                Settings.Default.MostRecentlyUsedList.Add(filename);
+            });
+        }
     }
 }
