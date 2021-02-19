@@ -1,6 +1,6 @@
 ﻿using System.ComponentModel;
 
-using BEditor.Core.Plugin;
+using BEditor.Plugin;
 
 namespace TestPlugin2
 {

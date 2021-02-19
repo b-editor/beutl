@@ -27,6 +27,7 @@ namespace NUnitTestProject1
         public void Test()
         {
             using var project = new Project(1920, 1080, 60);
+            using var stream = new MemoryStream();
             project.Load();
             var scene = project.PreviewScene;
 
@@ -34,7 +35,7 @@ namespace NUnitTestProject1
 
             var result = scene.Render(1);
 
-            result.Image.Encode("E:\\TestProject\\Image.png");
+            result.Image.Encode(stream, EncodedImageFormat.Png);
         }
     }
 }

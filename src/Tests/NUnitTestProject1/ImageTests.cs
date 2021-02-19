@@ -1,3 +1,5 @@
+#define UseMemoryStream
+
 using System;
 using System.Collections.Generic;
 using System.IO;
@@ -13,25 +15,35 @@ namespace NUnitTestProject1
 {
     public class ImageTests
     {
-        private static readonly string InputPath = "E:\\TestProject\\2020-06-26_19.11.28.png";
-        private static readonly string OutputPath = "E:\\TestProject\\Image\\out";
-
-        private static string CombinePath(string file)
-        {
-            return Path.Combine(OutputPath, file);
-        }
         [SetUp]
         public void Setup()
         {
 
         }
 
+        private Image<BGRA32> GradentImage()
+        {
+            var img = new Image<BGRA32>(500, 500, new BGRA32(255, 255, 255, 255));
+            img.LinerGradient(
+                new PointF(0, 0),
+                new PointF(1, 1),
+                new Color[] { Color.Red, Color.Blue },
+                new float[] { 0, 1 },
+                ShaderTileMode.Repeat);
+
+            return img;
+        }
+
         [Test]
         public void DrawEllipse()
         {
-            using var img = Image.Decode(InputPath);
+            using var img = GradentImage();
             using var ellipse = Image.Ellipse(100, 100, 50, Color.Light);
-            using var stream = new FileStream(CombinePath("DrawEllipse.png"), FileMode.Create);
+#if UseMemoryStream
+            using var stream = new MemoryStream();
+#else
+            using var stream = new FileStream("DrawEllipse.png", FileMode.Create);
+#endif
 
             img.DrawImage(new Point(0, 0), ellipse);
 
@@ -40,9 +52,13 @@ namespace NUnitTestProject1
         [Test]
         public void AddEllipse()
         {
-            using var img = Image.Decode(InputPath);
+            using var img = GradentImage();
             using var ellipse = Image.Ellipse(100, 100, 50, Color.Light);
-            using var stream = new FileStream(CombinePath("AddEllipse.png"), FileMode.Create);
+#if UseMemoryStream
+            using var stream = new MemoryStream();
+#else
+            using var stream = new FileStream("AddEllipse.png", FileMode.Create);
+#endif
             var rect = new Rectangle(new(0, 0), ellipse.Size);
             using var blended = img[rect];
 
@@ -55,9 +71,13 @@ namespace NUnitTestProject1
         [Test]
         public void DrawTriangle()
         {
-            using var img = Image.Decode(InputPath);
+            using var img = GradentImage();
             using var ellipse = Image.Polygon(3, 100, 100, Color.Light);
-            using var stream = new FileStream(CombinePath("DrawTriangle.png"), FileMode.Create);
+#if UseMemoryStream
+            using var stream = new MemoryStream();
+#else
+            using var stream = new FileStream("DrawTriangle.png", FileMode.Create);
+#endif
 
             img.DrawImage(new Point(0, 0), ellipse);
 
@@ -66,8 +86,12 @@ namespace NUnitTestProject1
         [Test]
         public void TestIndexer()
         {
-            using var img = Image.Decode(InputPath);
-            using var stream = new FileStream(CombinePath("TestIndexer.png"), FileMode.Create);
+            using var img = GradentImage();
+#if UseMemoryStream
+            using var stream = new MemoryStream();
+#else
+            using var stream = new FileStream("TestIndexer.png", FileMode.Create);
+#endif
 
             foreach (ref var bgra in img.Data)
             {
@@ -83,8 +107,12 @@ namespace NUnitTestProject1
         [Test]
         public void TestFlip()
         {
-            using var img = Image.Decode(InputPath);
-            using var stream = new FileStream(CombinePath("TestFlip.png"), FileMode.Create);
+            using var img = GradentImage();
+#if UseMemoryStream
+            using var stream = new MemoryStream();
+#else
+            using var stream = new FileStream("TestFlip.png", FileMode.Create);
+#endif
 
             img.Flip(FlipMode.X | FlipMode.Y);
 
@@ -93,9 +121,13 @@ namespace NUnitTestProject1
         [Test]
         public void TestRoundRect()
         {
-            using var img = Image.Decode(InputPath);
+            using var img = GradentImage();
             using var rect = Image.RoundRect(250, 250, 25, 25, 25, Color.Light);
-            using var stream = new FileStream(CombinePath("TestRoundRect.png"), FileMode.Create);
+#if UseMemoryStream
+            using var stream = new MemoryStream();
+#else
+            using var stream = new FileStream("TestRoundRect.png", FileMode.Create);
+#endif
 
             img.DrawImage(new Point(50, 50), rect);
 
@@ -104,8 +136,12 @@ namespace NUnitTestProject1
         [Test]
         public void TestDilateErode()
         {
-            using var img = Image.Decode(InputPath);
-            using var stream = new FileStream(CombinePath("TestDilateErode.png"), FileMode.Create);
+            using var img = GradentImage();
+#if UseMemoryStream
+            using var stream = new MemoryStream();
+#else
+            using var stream = new FileStream("TestDilateErode.png", FileMode.Create);
+#endif
 
             img.Dilate(5);
             img.Erode(5);
@@ -118,10 +154,14 @@ namespace NUnitTestProject1
             BGRA32* data = stackalloc BGRA32[100 * 100];
             using var image = new Image<BGRA32>(100, 100, data);
             using var circle = Image.Ellipse(100, 100, 25, Color.Light);
-
+#if UseMemoryStream
+            using var stream = new MemoryStream();
+#else
+            using var stream = new FileStream("StackArray.png", FileMode.Create);
+#endif
             image[new Rectangle(0, 0, circle.Width, circle.Height)] = circle;
 
-            image.Encode(CombinePath("StackArray.png"));
+            image.Encode(stream, EncodedImageFormat.Png);
         }
         [Test]
         public void ColorFormat()

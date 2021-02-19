@@ -1,7 +1,7 @@
 ﻿using System;
 using System.Collections.Generic;
 
-using BEditor.Core.Plugin;
+using BEditor.Plugin;
 
 namespace TestPlugin2
 {

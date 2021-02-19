@@ -1,7 +1,6 @@
 ﻿
-using BEditor.Core.Data;
-using BEditor.Core.Extensions;
-using BEditor.Core.Plugin;
+using BEditor.Data;
+using BEditor.Plugin;
 
 namespace TestPlugin2
 {
@@ -19,8 +18,8 @@ namespace TestPlugin2
                 })
                 .SetCustomMenu("メニュー", new ICustomMenu[]
                 {
-                    new CustomMenu("Hello World", () => Message.Snackbar("Hello World")),
-                    new CustomMenu("Hello Dialog", () => Message.Dialog("Hello Dialog"))
+                    new CustomMenu("Hello World", () => { /*Message.Snackbar("Hello World");*/ }),
+                    new CustomMenu("Hello Dialog", () => { /*Message.Dialog("Hello Dialog");*/ })
                 })
                 .Register();
         }
