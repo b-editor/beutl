@@ -57,17 +57,11 @@ namespace BEditor.Graphics
 
             Clear();
 
-            _textureShader = Shader.FromFile(
-                Path.Combine(AppContext.BaseDirectory, "Shaders", "TextureShader.vert"),
-                Path.Combine(AppContext.BaseDirectory, "Shaders", "TextureShader.frag"));
+            _textureShader = new(Shaders.TextureVert, Shaders.TextureFrag);
+            
+            _shader = new(Shaders.Vert, Shaders.Flag);
 
-            _shader = Shader.FromFile(
-                Path.Combine(AppContext.BaseDirectory, "Shaders", "Shader.vert"),
-                Path.Combine(AppContext.BaseDirectory, "Shaders", "Shader.frag"));
-
-            _lightShader = Shader.FromFile(
-                Path.Combine(AppContext.BaseDirectory, "Shaders", "Shader.vert"),
-                Path.Combine(AppContext.BaseDirectory, "Shaders", "Light.frag"));
+            _lightShader = new(Shaders.Vert, Shaders.LightFlag);
 
 
             Camera = new OrthographicCamera(new(0, 0, 1024), width, height);
