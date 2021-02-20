@@ -103,4 +103,28 @@
   <data name="FailedToSave" xml:space="preserve">
     <value>保存できませんでした。</value>
   </data>
+  <data name="FFmpegNotFound" xml:space="preserve">
+    <value>FFmpegが見つかりませんでした。\nインストールしますか？</value>
+  </data>
+  <data name="SomeFunctionsAreNotAvailable." xml:space="preserve">
+    <value>一部の機能が使えません。</value>
+  </data>
+  <data name="FailedToInstall" xml:space="preserve">
+    <value>{0}のインストールに失敗しました。</value>
+  </data>
+  <data name="OpenALNotFound" xml:space="preserve">
+    <value>OpenALが見つかりませんでした。\nインストールしてください。</value>
+  </data>
+  <data name="IsLoading" xml:space="preserve">
+    <value>{0}を読み込み中。</value>
+  </data>
+  <data name="IsChecking" xml:space="preserve">
+    <value>{0}を確認中。</value>
+  </data>
+  <data name="IsDownloading" xml:space="preserve">
+    <value>{0}をダウンロードしています。</value>
+  </data>
+  <data name="IsExtractedAndPlaced" xml:space="preserve">
+    <value>{0}を展開し配置しています。</value>
+  </data>
 </root>

@@ -14,12 +14,15 @@ namespace BEditor.Models.Services
     {
         public IMessage.ButtonType? Dialog(string text, IMessage.IconType icon = IMessage.IconType.Info, IMessage.ButtonType[]? types = null)
         {
-            var control = new MessageUI(types, text, icon);
-            var dialog = new NoneDialog(control);
+            return App.Current.Dispatcher.Invoke<IMessage.ButtonType?>(() =>
+            {
+                var control = new MessageUI(types, text, icon);
+                var dialog = new NoneDialog(control);
 
-            dialog.ShowDialog();
+                dialog.ShowDialog();
 
-            return control.DialogResult;
+                return control.DialogResult;
+            });
         }
 
         public void Snackbar(string text = "")

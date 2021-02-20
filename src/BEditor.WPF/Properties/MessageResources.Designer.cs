@@ -70,11 +70,83 @@ namespace BEditor.Properties {
         }
         
         /// <summary>
+        ///   Failed to install {0}. に類似しているローカライズされた文字列を検索します。
+        /// </summary>
+        internal static string FailedToInstall {
+            get {
+                return ResourceManager.GetString("FailedToInstall", resourceCulture);
+            }
+        }
+        
+        /// <summary>
         ///   Failed to save. に類似しているローカライズされた文字列を検索します。
         /// </summary>
         internal static string FailedToSave {
             get {
                 return ResourceManager.GetString("FailedToSave", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   FFmpeg was not found. Do you want to \n install it? に類似しているローカライズされた文字列を検索します。
+        /// </summary>
+        internal static string FFmpegNotFound {
+            get {
+                return ResourceManager.GetString("FFmpegNotFound", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   {0} is checking. に類似しているローカライズされた文字列を検索します。
+        /// </summary>
+        internal static string IsChecking {
+            get {
+                return ResourceManager.GetString("IsChecking", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   {0} is downloading. に類似しているローカライズされた文字列を検索します。
+        /// </summary>
+        internal static string IsDownloading {
+            get {
+                return ResourceManager.GetString("IsDownloading", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   {0} is extracted and placed. に類似しているローカライズされた文字列を検索します。
+        /// </summary>
+        internal static string IsExtractedAndPlaced {
+            get {
+                return ResourceManager.GetString("IsExtractedAndPlaced", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   {0} is loading. に類似しているローカライズされた文字列を検索します。
+        /// </summary>
+        internal static string IsLoading {
+            get {
+                return ResourceManager.GetString("IsLoading", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   OpenAL was not found.\nPlease install it. に類似しているローカライズされた文字列を検索します。
+        /// </summary>
+        internal static string OpenALNotFound {
+            get {
+                return ResourceManager.GetString("OpenALNotFound", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Some functions are not available. に類似しているローカライズされた文字列を検索します。
+        /// </summary>
+        internal static string SomeFunctionsAreNotAvailable_ {
+            get {
+                return ResourceManager.GetString("SomeFunctionsAreNotAvailable.", resourceCulture);
             }
         }
     }

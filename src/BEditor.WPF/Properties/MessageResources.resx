@@ -103,4 +103,28 @@
   <data name="FailedToSave" xml:space="preserve">
     <value>Failed to save.</value>
   </data>
+  <data name="FFmpegNotFound" xml:space="preserve">
+    <value>FFmpeg was not found. Do you want to \n install it?</value>
+  </data>
+  <data name="SomeFunctionsAreNotAvailable." xml:space="preserve">
+    <value>Some functions are not available.</value>
+  </data>
+  <data name="FailedToInstall" xml:space="preserve">
+    <value>Failed to install {0}.</value>
+  </data>
+  <data name="OpenALNotFound" xml:space="preserve">
+    <value>OpenAL was not found.\nPlease install it.</value>
+  </data>
+  <data name="IsLoading" xml:space="preserve">
+    <value>{0} is loading.</value>
+  </data>
+  <data name="IsChecking" xml:space="preserve">
+    <value>{0} is checking.</value>
+  </data>
+  <data name="IsDownloading" xml:space="preserve">
+    <value>{0} is downloading.</value>
+  </data>
+  <data name="IsExtractedAndPlaced" xml:space="preserve">
+    <value>{0} is extracted and placed.</value>
+  </data>
 </root>

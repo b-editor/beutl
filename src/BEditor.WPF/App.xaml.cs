@@ -1,9 +1,12 @@
 ﻿using System;
 using System.Collections.Generic;
 using System.Collections.ObjectModel;
+using System.Diagnostics;
 using System.Globalization;
 using System.IO;
+using System.IO.Compression;
 using System.Linq;
+using System.Net;
 using System.Threading;
 using System.Threading.Tasks;
 using System.Windows;
@@ -18,6 +21,8 @@ using BEditor.Plugin;
 using BEditor.Primitive;
 using BEditor.Primitive.Effects;
 using BEditor.Primitive.Objects;
+using BEditor.Properties;
+using BEditor.ViewModels;
 using BEditor.ViewModels.CustomControl;
 using BEditor.ViewModels.MessageContent;
 using BEditor.ViewModels.PropertyControl;
@@ -29,6 +34,8 @@ using MaterialDesignThemes.Wpf;
 
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
+
+using OpenTK.Audio.OpenAL;
 
 using SkiaSharp;
 
@@ -44,6 +51,8 @@ namespace BEditor
         private static readonly string colorsDir = Path.Combine(AppContext.BaseDirectory, "user", "colors");
         private static readonly string backupDir = Path.Combine(AppContext.BaseDirectory, "user", "backup");
         private static readonly string pluginsDir = Path.Combine(AppContext.BaseDirectory, "user", "plugins");
+        private static readonly string ffmpegDir = Path.Combine(AppContext.BaseDirectory, "ffmpeg");
+        private static readonly ILogger logger = AppData.Current.LoggingFactory.CreateLogger<App>();
 
         protected override void OnStartup(StartupEventArgs e)
         {
@@ -63,7 +72,6 @@ namespace BEditor
                 };
                 d.ShowDialog();
             };
-#if !DEBUG
 
             var viewmodel = new SplashWindowViewModel();
             var splashscreen = new SplashWindow()
@@ -72,42 +80,57 @@ namespace BEditor
             };
             MainWindow = splashscreen;
             splashscreen.Show();
-#endif
 
             Task.Run(async () =>
             {
-#if !DEBUG
-
-                const string LoadingColors = "カラーパレットを読み込み中";
-                const string LoadingFont = "フォントを読み込み中";
-                const string LoadingPlugins = "プラグインを読み込み中";
-                const string LoadingCommand = "コマンドを読み込み中";
-
                 RegisterPrimitive();
 
-                viewmodel.Status.Value = LoadingColors;
+                viewmodel.Status.Value = string.Format(MessageResources.IsLoading, Resource.ColorPalette);
                 await InitialColorsAsync();
 
-                viewmodel.Status.Value = LoadingFont;
+                viewmodel.Status.Value = string.Format(MessageResources.IsLoading, Resource.Font);
                 InitialFontManager();
 
-                viewmodel.Status.Value = LoadingPlugins;
+                viewmodel.Status.Value = string.Format(MessageResources.IsLoading, Resource.Plugins);
                 InitialPlugins();
 
-                viewmodel.Status.Value = LoadingCommand;
-                LoadCommand();
+                viewmodel.Status.Value = string.Format(MessageResources.IsChecking, Resource.Library);
 
-#else
-                RegisterPrimitive();
+                await using var prov = AppData.Current.Services.BuildServiceProvider();
+                var msg = prov.GetService<IMessage>();
 
-                await InitialColorsAsync();
+                if (!await CheckFFmpeg())
+                {
+                    if (msg!.Dialog(MessageResources.FFmpegNotFound, IMessage.IconType.Info, new IMessage.ButtonType[] { IMessage.ButtonType.Yes, IMessage.ButtonType.No }) is IMessage.ButtonType.Yes)
+                    {
+                        try
+                        {
+                            await InstallFFmpeg();
+                        }
+                        catch (Exception e)
+                        {
+                            msg.Dialog(string.Format(MessageResources.FailedToInstall, "FFmpeg"));
 
-                InitialFontManager();
+                            logger.LogError(e, "Failed to install ffmpeg.");
+                        }
+                    }
+                    else
+                    {
+                        msg.Dialog(MessageResources.SomeFunctionsAreNotAvailable_);
+                    }
+                }
+                if (!CheckOpenAL())
+                {
+                    if (msg!.Dialog(MessageResources.OpenALNotFound, IMessage.IconType.Info, new IMessage.ButtonType[] { IMessage.ButtonType.Yes, IMessage.ButtonType.No }) is IMessage.ButtonType.Yes)
+                    {
+                        Process.Start(new ProcessStartInfo("cmd", $"/c start https://www.openal.org/downloads/") { CreateNoWindow = true });
+                    }
+                    else
+                    {
+                        Shutdown();
+                    }
+                }
 
-                InitialPlugins();
-
-                LoadCommand();
-#endif
 
                 await Dispatcher.Invoke(async () =>
                 {
@@ -136,9 +159,8 @@ namespace BEditor
                         MainWindow = mainWindow;
                         mainWindow.Show();
                     }
-#if !DEBUG
+
                     splashscreen.Close();
-#endif
                 });
 
                 Settings.Default.Save();
@@ -150,6 +172,7 @@ namespace BEditor
             DirectoryManager.Default.Directories.Add(colorsDir);
             DirectoryManager.Default.Directories.Add(backupDir);
             DirectoryManager.Default.Directories.Add(pluginsDir);
+            DirectoryManager.Default.Directories.Add(ffmpegDir);
 
             DirectoryManager.Default.Run();
         }
@@ -166,6 +189,106 @@ namespace BEditor
             }
         }
 
+        private static bool CheckOpenAL()
+        {
+            try
+            {
+                AL.Get(ALGetFloat.DopplerFactor);
+
+                return true;
+            }
+            catch (DllNotFoundException)
+            {
+                return false;
+            }
+        }
+        private static Task<bool> CheckFFmpeg()
+        {
+            return Task.Run(() =>
+            {
+                var dlls = new string[]
+                {
+                    "avcodec-58.dll",
+                    "avdevice-58.dll",
+                    "avfilter-7.dll",
+                    "avformat-58.dll",
+                    "avutil-56.dll",
+                    "postproc-55.dll",
+                    "swresample-3.dll",
+                    "swscale-5.dll",
+                };
+
+                var dir = Path.Combine(AppContext.BaseDirectory, "ffmpeg");
+
+                foreach (var dll in dlls)
+                {
+                    if (!File.Exists(Path.Combine(dir, dll)))
+                    {
+                        return false;
+                    }
+                }
+
+                return true;
+            });
+        }
+        private static async Task InstallFFmpeg()
+        {
+            const string url = "https://github.com/BtbN/FFmpeg-Builds/releases/download/autobuild-2021-02-20-12-31/ffmpeg-N-101185-g029e3c1c70-win64-gpl-shared.zip";
+            using var client = new WebClient();
+            Loading loading = null!;
+            NoneDialog dialog = null!;
+
+            Current.Dispatcher.Invoke(() =>
+            {
+                loading = new Loading()
+                {
+                    Maximum = { Value = 100 },
+                    Minimum = { Value = 0 }
+                };
+                dialog = new NoneDialog(loading);
+
+                dialog.Show();
+            });
+
+            var tmp = Path.GetTempFileName();
+            client.DownloadFileCompleted += (s, e) =>
+            {
+                loading.IsIndeterminate.Value = true;
+            };
+            client.DownloadProgressChanged += (s, e) =>
+            {
+                loading.NowValue.Value = e.ProgressPercentage;
+            };
+
+            loading.Text.Value = string.Format(MessageResources.IsDownloading, "FFmpeg");
+
+            await client.DownloadFileTaskAsync(url, tmp);
+
+            loading.Text.Value = string.Format(MessageResources.IsExtractedAndPlaced, "FFmpeg");
+
+            await using (var stream = new FileStream(tmp, FileMode.Open))
+            using (var zip = new ZipArchive(stream, ZipArchiveMode.Read))
+            {
+                const string ziproot = "ffmpeg-N-101185-g029e3c1c70-win64-gpl-shared";
+                var dir = Path.Combine(ziproot, "bin");
+                var destdir = ffmpegDir;
+
+                foreach (var entry in zip.Entries
+                    .Where(i => i.FullName.Contains("bin"))
+                    .Where(i => Path.GetExtension(i.Name) is ".dll"))
+                {
+                    var file = Path.GetFileName(entry.FullName);
+                    await using var deststream = new FileStream(Path.Combine(destdir, file), FileMode.Create);
+                    await using var srcstream = entry.Open();
+
+                    await srcstream.CopyToAsync(deststream);
+                }
+            }
+
+            File.Delete(tmp);
+
+            await dialog.Dispatcher.InvokeAsync(dialog.Close);
+        }
         private static void RegisterPrimitive()
         {
             Serialize.SerializeKnownTypes.AddRange(new Type[]
@@ -375,17 +498,6 @@ namespace BEditor
 
             PluginManager.Default.Load(Settings.Default.EnablePlugins);
         }
-        private static void LoadCommand()
-        {
-            //var types = AppData.Current.LoadedPlugins.Select(p => p.GetType().Assembly)
-            //    .Append(typeof(ClipData).Assembly)
-            //    .Select(p => p.GetTypes())
-            //    .Select(p => p.Select(c => c.GetNestedTypes()))
-            //    .SelectMany(p => p)
-            //    .SelectMany(p => p)
-            //    .Where(p => typeof(IRecordCommand).IsAssignableFrom(p))
-            //    .ToList();
-        }
 
         private void Application_Exit(object sender, ExitEventArgs e)
         {
@@ -399,7 +511,6 @@ namespace BEditor
             provider.GetService<IMessage>()!
                 .Snackbar(string.Format(Resource.ExceptionWasThrown, e.Exception.GetType().FullName));
 
-            var logger = AppData.Current.LoggingFactory.CreateLogger<App>();
             logger.LogError(e.Exception, "UnhandledException was thrown.");
 
 #if !DEBUG
