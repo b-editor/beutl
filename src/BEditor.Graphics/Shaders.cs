@@ -39,7 +39,7 @@ namespace BEditor.Graphics
             "   gl_Position = vec4(aPosition, 1.0) * model * view * projection;\n" +
             "}";
 
-        public const string Flag =
+        public const string Frag =
             "#version 330 core\n" +
             "out vec4 FragColor;\n" +
 
@@ -63,7 +63,7 @@ namespace BEditor.Graphics
             "   gl_Position = vec4(aPos, 1.0) * model * view * projection;\n" +
             "}";
 
-        public const string LightFlag =
+        public const string LightFrag =
             "#version 330 core\n" +
             "out vec4 FragColor;\n" +
 
@@ -73,6 +73,31 @@ namespace BEditor.Graphics
             "void main()\n" +
             "{\n" +
             "   FragColor = lightColor * objectColor;\n" +
+            "}";
+
+        public const string LineVert =
+            "#version 330 core\n"+
+            "layout (location = 0) in vec3 aPos;\n"+
+
+            "uniform mat4 model;\n" +
+            "uniform mat4 view;\n" +
+            "uniform mat4 projection;\n" +
+
+            "void main()\n" +
+            "{\n"+
+            "   gl_Position = vec4(aPos.x, aPos.y, aPos.z, 1.0) * model * view * projection;\n" +
+            "}";
+
+        public const string LineFrag=
+            "#version 330 core\n"+
+
+            "out vec4 FragColor;\n"+
+            "uniform vec4 color;\n"+
+
+            "void main()\n"+
+            "{\n"+
+            //"   FragColor = vec4(color, 1.0f);\n"+
+            "   FragColor = color;\n"+
             "}";
     }
 }

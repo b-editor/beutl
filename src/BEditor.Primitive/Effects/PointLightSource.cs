@@ -7,7 +7,7 @@ using BEditor.Data.Primitive;
 using BEditor.Data.Property;
 using BEditor.Properties;
 
-using OpenTK.Graphics.OpenGL;
+using OpenTK.Graphics.OpenGL4;
 
 using static BEditor.Data.Property.PrimitiveGroup.Coordinate;
 
@@ -93,22 +93,22 @@ namespace BEditor.Primitive.Effects
         /// <inheritdoc/>
         public override void Render(EffectRenderArgs args)
         {
-            int frame = args.Frame;
-            GL.Enable(EnableCap.Lighting);
+            //int frame = args.Frame;
+            //GL.Enable(EnableCap.Lighting);
 
-            float[] position = new float[] { X.GetValue(frame), Y.GetValue(frame), Z.GetValue(frame), 1f };
-            float[] ambientColor = new float[] { 0.1f, 0.1f, 0.1f, 1.0f };
+            //float[] position = new float[] { X.GetValue(frame), Y.GetValue(frame), Z.GetValue(frame), 1f };
+            //float[] ambientColor = new float[] { 0.1f, 0.1f, 0.1f, 1.0f };
 
-            GL.Light(LightName.Light0, LightParameter.Ambient, ambientColor);
-            GL.Light(LightName.Light0, LightParameter.Diffuse, GLColor.White);
-            GL.Light(LightName.Light0, LightParameter.Specular, GLColor.White);
-            GL.Light(LightName.Light0, LightParameter.Position, position);
+            //GL.Light(LightName.Light0, LightParameter.Ambient, ambientColor);
+            //GL.Light(LightName.Light0, LightParameter.Diffuse, GLColor.White);
+            //GL.Light(LightName.Light0, LightParameter.Specular, GLColor.White);
+            //GL.Light(LightName.Light0, LightParameter.Position, position);
 
-            GL.Light(LightName.Light0, LightParameter.ConstantAttenuation, ConstantAttenuation.GetValue(frame) / 100);
-            GL.Light(LightName.Light0, LightParameter.LinearAttenuation, LinearAttenuation.GetValue(frame) / 10000);
-            GL.Light(LightName.Light0, LightParameter.QuadraticAttenuation, QuadraticAttenuation.GetValue(frame) / 100000);
+            //GL.Light(LightName.Light0, LightParameter.ConstantAttenuation, ConstantAttenuation.GetValue(frame) / 100);
+            //GL.Light(LightName.Light0, LightParameter.LinearAttenuation, LinearAttenuation.GetValue(frame) / 10000);
+            //GL.Light(LightName.Light0, LightParameter.QuadraticAttenuation, QuadraticAttenuation.GetValue(frame) / 100000);
 
-            GL.Enable(EnableCap.Light0);
+            //GL.Enable(EnableCap.Light0);
         }
         /// <inheritdoc/>
         protected override void OnLoad()
