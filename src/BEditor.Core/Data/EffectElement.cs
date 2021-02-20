@@ -76,7 +76,7 @@ namespace BEditor.Data
         }
         /// <inheritdoc/>
         public int Id => Parent?.Effect?.IndexOf(this) ?? -1;
-        
+
 
         #region Methods
 
@@ -208,40 +208,43 @@ namespace BEditor.Data
         {
             private readonly ClipElement _Clip;
             private readonly EffectElement _Effect;
-            private readonly int _Indec;
+            private readonly int _Index;
 
             public RemoveCommand(EffectElement effect, ClipElement clip)
             {
                 _Effect = effect;
                 _Clip = clip;
-                _Indec = _Clip.Effect.IndexOf(effect);
+                _Index = _Clip.Effect.IndexOf(effect);
             }
 
             public string Name => CommandName.RemoveEffect;
 
             public void Do()
             {
-                _Clip.Effect.RemoveAt(_Indec);
+                _Clip.Effect.RemoveAt(_Index);
                 _Effect.Unload();
             }
             public void Redo() => Do();
             public void Undo()
             {
                 _Effect.Load();
-                _Clip.Effect.Insert(_Indec, _Effect);
+                _Clip.Effect.Insert(_Index, _Effect);
             }
         }
         internal sealed class AddCommand : IRecordCommand
         {
             private readonly ClipElement _Clip;
-            private readonly EffectElement _Effect;
+            private readonly EffectElement? _Effect;
 
             public AddCommand(EffectElement effect, ClipElement clip)
             {
                 _Effect = effect;
                 _Clip = clip;
                 effect.Parent = clip;
-                if (!((ObjectElement)_Clip.Effect[0]).EffectFilter(effect)) throw new NotSupportedException();
+                if (!((ObjectElement)_Clip.Effect[0]).EffectFilter(effect))
+                {
+                    _Effect = null;
+                }
             }
 
             public string Name => CommandName.AddEffect;
@@ -249,16 +252,22 @@ namespace BEditor.Data
             /// <inheritdoc/>
             public void Do()
             {
-                _Effect.Load();
-                _Clip.Effect.Add(_Effect);
+                if (_Effect is not null)
+                {
+                    _Effect.Load();
+                    _Clip.Effect.Add(_Effect);
+                }
             }
             /// <inheritdoc/>
             public void Redo() => Do();
             /// <inheritdoc/>
             public void Undo()
             {
-                _Clip.Effect.Remove(_Effect);
-                _Effect.Unload();
+                if (_Effect is not null)
+                {
+                    _Clip.Effect.Remove(_Effect);
+                    _Effect.Unload();
+                }
             }
         }
         [DataContract]

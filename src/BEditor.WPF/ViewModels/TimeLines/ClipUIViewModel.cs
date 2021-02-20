@@ -211,7 +211,6 @@ namespace BEditor.ViewModels.TimeLines
 
         private void ClipMouseMove(Point point)
         {
-
             double horizon = point.X;
 
             if (horizon < 10)

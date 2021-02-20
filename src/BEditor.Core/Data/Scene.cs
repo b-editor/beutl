@@ -404,10 +404,10 @@ namespace BEditor.Data
 
             foreach (var clip in layer) clip.Render(args);
 
-            GraphicsContext!.SwapBuffers();
+            GraphicsContext.SwapBuffers();
 
             var buffer = new Image<BGRA32>(Width, Height);
-            GraphicsContext!.ReadImage(buffer);
+            GraphicsContext.ReadImage(buffer);
 
             return new RenderingResult { Image = buffer };
         }

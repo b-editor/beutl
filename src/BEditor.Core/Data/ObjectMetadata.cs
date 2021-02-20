@@ -4,6 +4,7 @@ using System.Linq.Expressions;
 
 namespace BEditor.Data
 {
+    //Todo: Document
 #pragma warning disable CS1591
     public record ObjectMetadata(string Name, Expression<Func<ObjectElement>> Create)
     {

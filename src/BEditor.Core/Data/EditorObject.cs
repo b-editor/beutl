@@ -8,6 +8,7 @@ using System.Runtime.Serialization;
 using System.Threading;
 
 using BEditor.Data.Property;
+using BEditor.Properties;
 
 using Microsoft.Extensions.DependencyInjection;
 
@@ -128,7 +129,7 @@ namespace BEditor.Data
             var valueType = value?.GetType();
             if (!(property.ValueType == valueType || (valueType?.IsSubclassOf(property.ValueType) ?? false)))
             {
-                throw new DataException($"The value was not {property.ValueType} type, but {valueType} type.");
+                throw new DataException(string.Format(ExceptionMessage.The_value_was_not_0_type_but_1_type, property.ValueType, valueType));
             }
 
             if (!Values.ContainsKey(property.Name))
@@ -292,7 +293,7 @@ namespace BEditor.Data
 
             if (PropertyFromKey.ContainsKey(key))
             {
-                throw new DataException("This key has already been registered.");
+                throw new DataException(ExceptionMessage.KeyHasAlreadyBeenRegisterd);
             }
             var property = new EditorProperty<TValue>(name, typeof(TOwner), builder);
 

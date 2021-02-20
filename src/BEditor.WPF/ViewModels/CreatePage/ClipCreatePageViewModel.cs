@@ -49,7 +49,7 @@ namespace BEditor.ViewModels.CreatePage
                 if (!Scene.Value.InRange(Start.Value, Start.Value + Length.Value, Layer.Value))
                 {
                     Scene.Value.ServiceProvider?.GetService<IMessage>()?
-                        .Snackbar("指定した場所にクリップが存在しているため、新しいクリップを配置できません");
+                        .Snackbar(MessageResources.ClipExistsInTheSpecifiedLocation);
 
                     return;
                 }

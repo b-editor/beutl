@@ -16,6 +16,7 @@ using BEditor.Views;
 using BEditor.Views.MessageContent;
 
 using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.Logging;
 using Microsoft.Win32;
 
 using Reactive.Bindings;
@@ -29,6 +30,7 @@ namespace BEditor.Models
     public class OutputModel
     {
         public static readonly OutputModel Current = new();
+        private static readonly ILogger logger = AppData.Current.LoggingFactory.CreateLogger<OutputModel>();
 
         private OutputModel()
         {
@@ -75,7 +77,8 @@ namespace BEditor.Models
             {
                 await using var prov = AppData.Current.Services.BuildServiceProvider();
                 var mes = prov.GetService<IMessage>();
-                mes?.Snackbar($"保存できませんでした : {e.Message}");
+                mes?.Snackbar(MessageResources.FailedToSave);
+                logger.LogError(e, MessageResources.FailedToSave);
             }
         }
         public static void OutputVideo(Scene scene)
@@ -154,7 +157,8 @@ namespace BEditor.Models
                 {
                     await using var prov = AppData.Current.Services.BuildServiceProvider();
                     var mes = prov.GetService<IMessage>();
-                    mes?.Snackbar($"保存できませんでした : {e.Message}");
+                    mes?.Snackbar(MessageResources.FailedToSave);
+                    logger.LogError(e, MessageResources.FailedToSave);
                 }
                 finally
                 {

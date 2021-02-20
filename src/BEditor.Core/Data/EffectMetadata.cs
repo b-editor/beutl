@@ -5,6 +5,7 @@ using System.Linq.Expressions;
 
 namespace BEditor.Data
 {
+    //Todo: Document
 #pragma warning disable CS1591
     public record EffectMetadata(string Name, Expression<Func<EffectElement>> Create)
     {

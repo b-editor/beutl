@@ -400,7 +400,7 @@ namespace BEditor
                 .Snackbar(string.Format(Resource.ExceptionWasThrown, e.Exception.GetType().FullName));
 
             var logger = AppData.Current.LoggingFactory.CreateLogger<App>();
-            logger.LogError(e.Exception, "UnhandledException");
+            logger.LogError(e.Exception, "UnhandledException was thrown.");
 
 #if !DEBUG
             e.Handled = true;
