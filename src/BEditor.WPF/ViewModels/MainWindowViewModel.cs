@@ -106,8 +106,8 @@ namespace BEditor.ViewModels
 
             #region Help
 
-            const string feedback = "https://github.com/indigo-san/BEditor/issues/new";
-            const string repository = "https://github.com/indigo-san/BEditor/";
+            const string feedback = "https://github.com/b-editor/BEditor/issues/new";
+            const string repository = "https://github.com/b-editor/BEditor/";
 
             SendFeedback.Subscribe(() => Process.Start(new ProcessStartInfo("cmd", $"/c start {feedback}") { CreateNoWindow = true }));
             OpenThisRepository.Subscribe(() => Process.Start(new ProcessStartInfo("cmd", $"/c start {repository}") { CreateNoWindow = true }));

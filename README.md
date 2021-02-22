@@ -1,12 +1,12 @@
 # BEditor
 
-![](https://raw.githubusercontent.com/indigo-san/BEditor/develop/docs/imgs/header.png)
+![](https://raw.githubusercontent.com/b-editor/BEditor/develop/docs/imgs/header.png)
 
-![](https://img.shields.io/github/issues/indigo-san/BEditor)
-![](https://img.shields.io/github/forks/indigo-san/BEditor)
-![](https://img.shields.io/github/stars/indigo-san/BEditor)
-![](https://img.shields.io/github/license/indigo-san/BEditor)
-![](https://github.com/indigo-san/BEditor/workflows/Debug%20Build%20&%20Test/badge.svg)
+![](https://img.shields.io/github/issues/b-editor/BEditor)
+![](https://img.shields.io/github/forks/b-editor/BEditor)
+![](https://img.shields.io/github/stars/b-editor/BEditor)
+![](https://img.shields.io/github/license/b-editor/BEditor)
+![](https://github.com/b-editor/BEditor/workflows/Debug%20Build%20&%20Test/badge.svg)
 
 ## Description
 現在開発中の動画編集ソフトウェアです。
@@ -29,7 +29,7 @@
 
 ## License
 
-* [MIT License](https://github.com/indigo-san/BEditor/blob/main/LICENSE)
+* [MIT License](https://github.com/b-editor/BEditor/blob/main/LICENSE)
 
 ## Author
 
@@ -39,8 +39,8 @@
 
 ## BEditor 0.0.4
 
-* [ダウンロード](https://github.com/indigo-san/BEditor/releases/tag/v0.0.4-alpha)
-* [マイルストーン](https://github.com/indigo-san/BEditor/milestone/3)
+* [ダウンロード](https://github.com/b-editor/BEditor/releases/tag/v0.0.4-alpha)
+* [マイルストーン](https://github.com/b-editor/BEditor/milestone/3)
 
 ### 変更
 
@@ -58,8 +58,8 @@
 
 ## BEditor 0.0.3
 
-* [ダウンロード](https://github.com/indigo-san/BEditor/releases/tag/v0.0.3-alpha)
-* [マイルストーン](https://github.com/indigo-san/BEditor/milestone/1)
+* [ダウンロード](https://github.com/b-editor/BEditor/releases/tag/v0.0.3-alpha)
+* [マイルストーン](https://github.com/b-editor/BEditor/milestone/1)
 
 ### 変更
 
