@@ -8,7 +8,7 @@
 
   <ItemGroup>
     <PackageReference Include="FFMediaToolkit" Version="4.0.0" />
-    <PackageReference Include="NAudio" Version="1.10.0" />
+    <PackageReference Include="NAudio" Version="2.0.0" />
   </ItemGroup>
 
   <ItemGroup>
