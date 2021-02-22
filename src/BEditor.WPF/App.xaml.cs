@@ -7,6 +7,7 @@ using System.IO;
 using System.IO.Compression;
 using System.Linq;
 using System.Net;
+using System.Reflection;
 using System.Threading;
 using System.Threading.Tasks;
 using System.Windows;
@@ -455,6 +456,9 @@ namespace BEditor
         }
         private static void InitialPlugins()
         {
+            var configfield = typeof(PluginBuilder).GetField("config", BindingFlags.NonPublic | BindingFlags.Static | BindingFlags.SetField);
+            configfield?.SetValue(null, new PluginConfig(AppData.Current.Services.BuildServiceProvider()));
+
             // すべて
             var all = PluginManager.Default.GetNames();
             // 無効なプラグイン

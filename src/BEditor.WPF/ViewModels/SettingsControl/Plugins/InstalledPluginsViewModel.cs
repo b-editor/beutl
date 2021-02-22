@@ -50,7 +50,7 @@ namespace BEditor.ViewModels.SettingsControl.Plugins
             IsSelected = SelectPlugin.Select(plugin => plugin is not null).ToReadOnlyReactiveProperty();
         }
 
-        public ReactiveProperty<IPlugin> SelectPlugin { get; } = new();
+        public ReactiveProperty<PluginObject> SelectPlugin { get; } = new();
 
         public ReadOnlyReactiveProperty<bool> IsSelected { get; }
         public ReactiveCommand<object> SettingClick { get; } = new();

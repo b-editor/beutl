@@ -1,0 +1,37 @@
+﻿
+Microsoft Visual Studio Solution File, Format Version 12.00
+# Visual Studio Version 16
+VisualStudioVersion = 16.6.30114.105
+MinimumVisualStudioVersion = 10.0.40219.1
+Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "BEditor.Extensions.AviUtl", "BEditor.Extensions.AviUtl\BEditor.Extensions.AviUtl.csproj", "{BE066C01-AFD6-4043-B011-703D8178F981}"
+EndProject
+Global
+	GlobalSection(SolutionConfigurationPlatforms) = preSolution
+		Debug|Any CPU = Debug|Any CPU
+		Debug|x64 = Debug|x64
+		Debug|x86 = Debug|x86
+		Release|Any CPU = Release|Any CPU
+		Release|x64 = Release|x64
+		Release|x86 = Release|x86
+	EndGlobalSection
+	GlobalSection(ProjectConfigurationPlatforms) = postSolution
+		{BE066C01-AFD6-4043-B011-703D8178F981}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{BE066C01-AFD6-4043-B011-703D8178F981}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{BE066C01-AFD6-4043-B011-703D8178F981}.Debug|x64.ActiveCfg = Debug|Any CPU
+		{BE066C01-AFD6-4043-B011-703D8178F981}.Debug|x64.Build.0 = Debug|Any CPU
+		{BE066C01-AFD6-4043-B011-703D8178F981}.Debug|x86.ActiveCfg = Debug|Any CPU
+		{BE066C01-AFD6-4043-B011-703D8178F981}.Debug|x86.Build.0 = Debug|Any CPU
+		{BE066C01-AFD6-4043-B011-703D8178F981}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{BE066C01-AFD6-4043-B011-703D8178F981}.Release|Any CPU.Build.0 = Release|Any CPU
+		{BE066C01-AFD6-4043-B011-703D8178F981}.Release|x64.ActiveCfg = Release|Any CPU
+		{BE066C01-AFD6-4043-B011-703D8178F981}.Release|x64.Build.0 = Release|Any CPU
+		{BE066C01-AFD6-4043-B011-703D8178F981}.Release|x86.ActiveCfg = Release|Any CPU
+		{BE066C01-AFD6-4043-B011-703D8178F981}.Release|x86.Build.0 = Release|Any CPU
+	EndGlobalSection
+	GlobalSection(SolutionProperties) = preSolution
+		HideSolutionNode = FALSE
+	EndGlobalSection
+	GlobalSection(ExtensibilityGlobals) = postSolution
+		SolutionGuid = {776C91B7-CBAB-49E7-AF54-B7FEA0941592}
+	EndGlobalSection
+EndGlobal

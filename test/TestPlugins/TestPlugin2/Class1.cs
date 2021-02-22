@@ -5,11 +5,16 @@ using BEditor.Plugin;
 
 namespace TestPlugin2
 {
-    public partial class TestPlugin2 : IPlugin
+    public partial class TestPlugin2 : PluginObject
     {
-        public string PluginName => nameof(TestPlugin2);
-        public string Description => nameof(TestPlugin2);
+        public TestPlugin2(PluginConfig config) : base(config)
+        {
 
-        public SettingRecord Settings { get; set; } = new Setting(0, 0.1f, "文字");
+        }
+
+        public override string PluginName => nameof(TestPlugin2);
+        public override string Description => nameof(TestPlugin2);
+
+        public override SettingRecord Settings { get; set; } = new Setting(0, 0.1f, "文字");
     }
 }

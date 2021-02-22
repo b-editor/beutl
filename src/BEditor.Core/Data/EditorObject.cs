@@ -26,7 +26,7 @@ namespace BEditor.Data
         /// <summary>
         /// Gets the ServiceProvider.
         /// </summary>
-        public ServiceProvider? ServiceProvider { get; }
+        public IServiceProvider? ServiceProvider { get; }
 
         /// <summary>
         /// Gets or sets the local value of <see cref="EditorProperty"/>.
@@ -82,7 +82,7 @@ namespace BEditor.Data
         }
 
         /// <inheritdoc/>
-        public ServiceProvider? ServiceProvider { get; internal set; }
+        public IServiceProvider? ServiceProvider { get; internal set; }
 
         private Dictionary<string, object?> Values => _values ??= new();
 

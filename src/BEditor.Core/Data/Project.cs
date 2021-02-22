@@ -285,7 +285,10 @@ namespace BEditor.Data
         /// <inheritdoc/>
         protected override void OnUnload()
         {
-            ServiceProvider?.Dispose();
+            if(ServiceProvider is IDisposable disposable)
+            {
+                disposable.Dispose();
+            }
         }
 
         #endregion

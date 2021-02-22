@@ -2,8 +2,6 @@ Microsoft Visual Studio Solution File, Format Version 12.00
 # Visual Studio Version 16
 VisualStudioVersion = 16.0.30204.135
 MinimumVisualStudioVersion = 10.0.40219.1
-Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "BEditor.Extensions", "BEditor.Extensions", "{A47AB2A1-179B-4109-9A7C-E9C00280EC05}"
-EndProject
 Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "BEditor.CLI", "src\BEditor.CLI\BEditor.CLI.csproj", "{D735553C-A276-4D55-9C65-C480E2EF6185}"
 EndProject
 Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "BEditor.Core", "src\BEditor.Core\BEditor.Core.csproj", "{2B42ADD8-B8B0-4333-AD41-66F592107541}"

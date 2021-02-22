@@ -12,7 +12,7 @@
         WindowStyle="None"
         AllowsTransparency="True"
         Height="200" Width="200">
-    <Grid>
+    <Grid MouseDown="Grid_MouseDown">
         <VirtualizingStackPanel Orientation="Horizontal" VerticalAlignment="Center" HorizontalAlignment="Center">
             <md:PackIcon Kind="Movie" Width="70" Height="70" Foreground="{StaticResource PrimaryHueMidBrush}"/>
         </VirtualizingStackPanel>

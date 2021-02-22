@@ -62,6 +62,7 @@
     </Controls:MetroWindow.Resources>
     <DockPanel>
         <md:Card
+            MouseDown="Card_MouseDown"
             Height="48"
             md:ShadowAssist.ShadowDepth="Depth2"
             VerticalAlignment="Top"
