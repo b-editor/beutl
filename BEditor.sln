@@ -45,6 +45,12 @@ Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "TestPlugin1", "test\TestPlu
 EndProject
 Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "TestPlugin2", "test\TestPlugins\TestPlugin2\TestPlugin2.csproj", "{D320F6FA-71E8-4BE7-B9B0-231E9A21A66C}"
 EndProject
+Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "props", "props", "{E5E8C675-AA90-4204-BCF4-D99A9E1F3783}"
+	ProjectSection(SolutionItems) = preProject
+		props\common.props = props\common.props
+		props\plugin.props = props\plugin.props
+	EndProjectSection
+EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
 		Debug|Any CPU = Debug|Any CPU

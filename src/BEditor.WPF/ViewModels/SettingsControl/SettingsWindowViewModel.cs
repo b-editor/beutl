@@ -70,10 +70,17 @@ namespace BEditor.ViewModels.SettingsControl
 
             #endregion
 
+            #region License
+
+            var license = new TreeViewChild(Resources.License, PackIconKind.License, new Views.SettingsControl.License());
+
+            #endregion
+
             TreeViewProperty.Add(general);
             TreeViewProperty.Add(project);
             TreeViewProperty.Add(plugins);
             TreeViewProperty.Add(appInfo);
+            TreeViewProperty.Add(license);
         }
 
         /// <summary>

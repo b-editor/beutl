@@ -855,4 +855,10 @@
   <data name="Category" xml:space="preserve">
     <value>カテゴリ</value>
   </data>
+  <data name="License" xml:space="preserve">
+    <value>ライセンス</value>
+  </data>
+  <data name="Update" xml:space="preserve">
+    <value>アップデート</value>
+  </data>
 </root>

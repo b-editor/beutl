@@ -70,6 +70,15 @@ namespace BEditor.Properties {
         }
         
         /// <summary>
+        ///   Download に類似しているローカライズされた文字列を検索します。
+        /// </summary>
+        internal static string Download {
+            get {
+                return ResourceManager.GetString("Download", resourceCulture);
+            }
+        }
+        
+        /// <summary>
         ///   Failed to install {0}. に類似しているローカライズされた文字列を検索します。
         /// </summary>
         internal static string FailedToInstall {
@@ -133,6 +142,15 @@ namespace BEditor.Properties {
         }
         
         /// <summary>
+        ///   A new version is available! に類似しているローカライズされた文字列を検索します。
+        /// </summary>
+        internal static string NewVersionIsAvailable {
+            get {
+                return ResourceManager.GetString("NewVersionIsAvailable", resourceCulture);
+            }
+        }
+        
+        /// <summary>
         ///   OpenAL was not found.\nPlease install it. に類似しているローカライズされた文字列を検索します。
         /// </summary>
         internal static string OpenALNotFound {
@@ -147,6 +165,15 @@ namespace BEditor.Properties {
         internal static string SomeFunctionsAreNotAvailable_ {
             get {
                 return ResourceManager.GetString("SomeFunctionsAreNotAvailable.", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   This software is latest. に類似しているローカライズされた文字列を検索します。
+        /// </summary>
+        internal static string ThisSoftwareIsLatest {
+            get {
+                return ResourceManager.GetString("ThisSoftwareIsLatest", resourceCulture);
             }
         }
     }

@@ -10,6 +10,8 @@
         Background="{DynamicResource MaterialDesignPaper}"
         TextElement.Foreground="{DynamicResource MaterialDesignBody}"
         WindowStyle="None"
+        
+        FontFamily="Noto Sans JP"
         AllowsTransparency="True"
         Height="200" Width="200">
     <Grid MouseDown="Grid_MouseDown">

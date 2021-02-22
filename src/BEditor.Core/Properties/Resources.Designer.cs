@@ -1206,6 +1206,15 @@ namespace BEditor.Properties {
         }
         
         /// <summary>
+        ///   License に類似しているローカライズされた文字列を検索します。
+        /// </summary>
+        public static string License {
+            get {
+                return ResourceManager.GetString("License", resourceCulture);
+            }
+        }
+        
+        /// <summary>
         ///   Lighting に類似しているローカライズされた文字列を検索します。
         /// </summary>
         public static string Lighting {
@@ -2085,6 +2094,15 @@ namespace BEditor.Properties {
         public static string UnloadPlugin {
             get {
                 return ResourceManager.GetString("UnloadPlugin", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Update に類似しているローカライズされた文字列を検索します。
+        /// </summary>
+        public static string Update {
+            get {
+                return ResourceManager.GetString("Update", resourceCulture);
             }
         }
         

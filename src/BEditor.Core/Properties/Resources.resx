@@ -855,4 +855,10 @@ Please select the plugin you want to load</value>
   <data name="Category" xml:space="preserve">
     <value>Category</value>
   </data>
+  <data name="License" xml:space="preserve">
+    <value>License</value>
+  </data>
+  <data name="Update" xml:space="preserve">
+    <value>Update</value>
+  </data>
 </root>

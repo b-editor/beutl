@@ -10,6 +10,7 @@
     mc:Ignorable="d"
     WindowStartupLocation="CenterScreen"
     
+    FontFamily="Noto Sans JP"
     WindowTitleBrush="{DynamicResource MaterialDesignCardBackground}"
     NonActiveWindowTitleBrush="{DynamicResource MaterialDesignCardBackground}"
     Style="{StaticResource DefaultWindowStyle}"
@@ -62,14 +63,14 @@
     </Controls:MetroWindow.Resources>
     <DockPanel>
         <md:Card
-            MouseDown="Card_MouseDown"
-            Height="48"
-            md:ShadowAssist.ShadowDepth="Depth2"
-            VerticalAlignment="Top"
-            Margin="-1,0,-1,0"
-            md:ShadowAssist.ShadowEdges="Bottom"
-            UniformCornerRadius="0"
-            DockPanel.Dock="Top">
+                MouseDown="Card_MouseDown"
+                Height="48"
+                md:ShadowAssist.ShadowDepth="Depth2"
+                VerticalAlignment="Top"
+                Margin="-1,0,-1,0"
+                md:ShadowAssist.ShadowEdges="Bottom"
+                UniformCornerRadius="0"
+                DockPanel.Dock="Top">
             <DockPanel VerticalAlignment="Center" Margin="18,0,18,0">
                 <StackPanel VerticalAlignment="Center" Orientation="Horizontal">
                     <md:PackIcon Kind="Movie" Foreground="{StaticResource PrimaryHueMidBrush}" Width="20" Height="20"/>
@@ -85,14 +86,15 @@
                 </StackPanel>
             </DockPanel>
         </md:Card>
+
         <DockPanel DockPanel.Dock="Bottom" Margin="0,24,0,0">
             <ItemsControl DockPanel.Dock="Left" Width="200" HorizontalAlignment="Left" ItemsSource="{Binding MenuItems}">
                 <ItemsControl.ItemTemplate>
                     <DataTemplate>
                         <RadioButton IsChecked="{Binding IsChecked.Value}" VerticalContentAlignment="Center" GroupName="Group" Style="{DynamicResource TabRadioButton}">
                             <StackPanel Orientation="Horizontal">
-                                <md:PackIcon Kind="{Binding PackIconKind}" Margin="0,0,16,0" Width="20" Height="20" Foreground="{DynamicResource MaterialDesignBody}"/>
-                                <TextBlock Text="{Binding Text}" FontSize="14" Foreground="{DynamicResource MaterialDesignBody}"/>
+                                <md:PackIcon Kind="{Binding PackIconKind}" Margin="0,0,16,0" Width="20" Height="20" Foreground="{DynamicResource MaterialDesignBody}" VerticalAlignment="Center"/>
+                                <Label Content="{Binding Text.Value, Mode=OneWay}" FontSize="14" Foreground="{DynamicResource MaterialDesignBody}" VerticalAlignment="Center"/>
                             </StackPanel>
                         </RadioButton>
                     </DataTemplate>

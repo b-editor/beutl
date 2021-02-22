@@ -60,11 +60,11 @@
             </VirtualizingStackPanel>
         </VirtualizingStackPanel>
 
-        <Button Cursor="Arrow" Foreground="{StaticResource MaterialDesignBody}" Command="{Binding ResetCommand, Mode=OneTime}" Content="Reset" HorizontalAlignment="Left" Background="{x:Null}" BorderThickness="0" VerticalAlignment="Bottom" Margin="8"/>
+        <Button Cursor="Arrow" Foreground="{StaticResource MaterialDesignBody}" Command="{Binding ResetCommand, Mode=OneTime}" Content="Reset" HorizontalAlignment="Left" Style="{StaticResource MaterialDesignFlatButton}" VerticalAlignment="Bottom" Margin="8"/>
 
         <VirtualizingStackPanel Grid.Column="1" VerticalAlignment="Bottom" Margin="8,0,8,8" Orientation="Horizontal" FlowDirection="RightToLeft">
-            <Button Cursor="Arrow" Foreground="Red" Content="{x:Static props:Resources.Cancel}" HorizontalAlignment="Left" Click="CloseClick" IsCancel="True" Background="{x:Null}" BorderThickness="0"/>
-            <Button Cursor="Arrow" Foreground="{StaticResource MaterialDesignBody}" Content="{x:Static props:Resources.Create}" HorizontalAlignment="Left" Command="{Binding CreateCommand, Mode=OneTime}" Click="CloseClick" IsDefault="True" Background="{x:Null}" BorderThickness="0"/>
+            <Button Cursor="Arrow" Foreground="Red" Content="{x:Static props:Resources.Cancel}" HorizontalAlignment="Left" Click="CloseClick" IsCancel="True" Style="{StaticResource MaterialDesignFlatButton}"/>
+            <Button Cursor="Arrow" Foreground="{StaticResource MaterialDesignBody}" Content="{x:Static props:Resources.Create}" HorizontalAlignment="Left" Command="{Binding CreateCommand, Mode=OneTime}" Click="CloseClick" IsDefault="True" Style="{StaticResource MaterialDesignFlatButton}"/>
         </VirtualizingStackPanel>
     </Grid>
 </UserControl>

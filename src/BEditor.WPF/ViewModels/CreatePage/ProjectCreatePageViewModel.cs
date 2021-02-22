@@ -85,10 +85,10 @@ namespace BEditor.ViewModels.CreatePage
             };
             dialog.Show();
 
+            project.Load();
+
             Task.Run(() =>
             {
-                project.Load();
-
                 if (SaveToFile.Value)
                 {
                     project.Save(FormattedFilename(Path.Combine(Folder.Value, Path.GetFileNameWithoutExtension(Name.Value), Name.Value)));

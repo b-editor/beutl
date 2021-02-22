@@ -80,7 +80,7 @@
                                     <Grid.RowDefinitions>
                                         <RowDefinition Height="5"/>
                                         <RowDefinition Height="2*"/>
-                                        <RowDefinition Height="*"/>
+                                        <RowDefinition Height="Auto"/>
                                     </Grid.RowDefinitions>
                                     <ProgressBar
                                         IsIndeterminate="{Binding IsLoading.Value, Mode=OneWay}"
@@ -94,7 +94,7 @@
 
                                     <VirtualizingStackPanel Grid.Row="2" Margin="8">
                                         <TextBlock Text="{Binding Name, Mode=OneTime}" FontSize="24" Foreground="{DynamicResource MaterialDesignBody}"/>
-                                        <TextBlock Text="{Binding Path, Mode=OneTime}" Margin="0,8" Foreground="{DynamicResource MaterialDesignBody}"/>
+                                        <TextBlock Text="{Binding Path, Mode=OneTime}" Margin="0,8" Foreground="{DynamicResource MaterialDesignBody}" ToolTip="{Binding Path, Mode=OneTime}"/>
                                     </VirtualizingStackPanel>
                                 </Grid>
                             </Button>

@@ -127,4 +127,13 @@
   <data name="IsExtractedAndPlaced" xml:space="preserve">
     <value>{0} is extracted and placed.</value>
   </data>
+  <data name="ThisSoftwareIsLatest" xml:space="preserve">
+    <value>This software is latest.</value>
+  </data>
+  <data name="NewVersionIsAvailable" xml:space="preserve">
+    <value>A new version is available!</value>
+  </data>
+  <data name="Download" xml:space="preserve">
+    <value>Download</value>
+  </data>
 </root>

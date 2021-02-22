@@ -127,4 +127,13 @@
   <data name="IsExtractedAndPlaced" xml:space="preserve">
     <value>{0}を展開し配置しています。</value>
   </data>
+  <data name="ThisSoftwareIsLatest" xml:space="preserve">
+    <value>このソフトは最新のものです。</value>
+  </data>
+  <data name="NewVersionIsAvailable" xml:space="preserve">
+    <value>新バージョンが登場!</value>
+  </data>
+  <data name="Download" xml:space="preserve">
+    <value>ダウンロード</value>
+  </data>
 </root>
