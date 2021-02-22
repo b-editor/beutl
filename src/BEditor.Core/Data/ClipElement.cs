@@ -52,6 +52,7 @@ namespace BEditor.Data
             _layer = layer;
             _parent = scene;
             Effect = effects;
+            Parent = _parent;
             LabelText = Name;
         }
 

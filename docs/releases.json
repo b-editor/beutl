@@ -1,5 +1,9 @@
 [
     {
+        "version": "0.0.5",
+        "url": "https://github.com/b-editor/BEditor/releases/tag/v0.0.5-alpha"
+    },
+    {
         "version": "0.0.4",
         "url": "https://github.com/b-editor/BEditor/releases/tag/v0.0.4-alpha"
     },
