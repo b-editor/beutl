@@ -1,10 +1,11 @@
 ﻿using System;
 using System.Collections.Generic;
 using System.Linq;
+using System.Numerics;
 using System.Text;
 using System.Threading.Tasks;
 
-using OpenTK.Mathematics;
+using MathHelper = OpenTK.Mathematics.MathHelper;
 
 namespace BEditor.Graphics
 {
@@ -17,9 +18,9 @@ namespace BEditor.Graphics
 
         public float AspectRatio { get; set; }
 
-        public override Matrix4 GetProjectionMatrix()
+        public override Matrix4x4 GetProjectionMatrix()
         {
-            return Matrix4.CreatePerspectiveFieldOfView(MathHelper.DegreesToRadians(Fov), AspectRatio, Near, Far);
+            return Matrix4x4.CreatePerspectiveFieldOfView(MathHelper.DegreesToRadians(Fov), AspectRatio, Near, Far);
         }
     }
 }

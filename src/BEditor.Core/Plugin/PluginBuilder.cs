@@ -11,29 +11,30 @@ using BEditor.Data.Property.Easing;
 namespace BEditor.Plugin
 {
     /// <summary>
-    /// Represents a class that initializes the services provided by the <see cref="IPlugin"/>.
+    /// Represents a class that initializes the services provided by the <see cref="PluginObject"/>.
     /// </summary>
     public class PluginBuilder
     {
-        private readonly Func<IPlugin> _plugin;
+        private readonly Func<PluginObject> _plugin;
         private readonly List<EffectMetadata> _effects = new();
         private readonly List<ObjectMetadata> _objects = new();
         private readonly List<EasingMetadata> _eases = new();
         private (string?, IEnumerable<ICustomMenu>?) _menus;
+        private static PluginConfig? config = null;
 
-        private PluginBuilder(Func<IPlugin> create)
+        private PluginBuilder(Func<PluginObject> create)
         {
             _plugin = create;
         }
 
         /// <summary>
-        ///  Begin configuring an <see cref="IPlugin"/>.
+        ///  Begin configuring an <see cref="PluginObject"/>.
         /// </summary>
-        /// <typeparam name="T">Class that implements the <see cref="IPlugin"/> to be configure.</typeparam>
+        /// <typeparam name="T">Class that implements the <see cref="PluginObject"/> to be configure.</typeparam>
         /// <returns>An <see cref="PluginBuilder"/> instance.</returns>
-        public static PluginBuilder Configure<T>() where T : IPlugin, new()
+        public static PluginBuilder Configure<T>() where T : PluginObject
         {
-            return new PluginBuilder(() => new T());
+            return new PluginBuilder(() => (T)Activator.CreateInstance(typeof(T), config)!);
         }
         /// <summary>
         /// Configure the options for the services to be provided.

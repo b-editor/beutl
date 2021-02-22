@@ -9,6 +9,7 @@ using System.Threading.Tasks;
 using BEditor.Command;
 using BEditor.Data;
 using BEditor.Data.Property;
+using BEditor.Properties;
 
 namespace BEditor.Data.Bindings
 {
@@ -21,6 +22,9 @@ namespace BEditor.Data.Bindings
         /// Get an <see cref="IBindable{T}"/> from a string that can be obtained by <see cref="GetString(IBindable)"/>.
         /// </summary>
         /// <typeparam name="T">Type of object to bind</typeparam>
+        /// <exception cref="DataException">Parent element not found.</exception>
+        /// <exception cref="DataException">Child elements not found.</exception>
+        /// <exception cref="DataException">Failed to convert value.</exception>
         /// <returns>Returns a <see cref="bool"/> indicating whether it was retrieved or not, <see langword="true"/> on success, <see langword="false"/> on failure.</returns>
         public static bool GetBindable<T>(this IBindable<T> bindable, string? str, out IBindable<T>? result)
         {
@@ -39,11 +43,11 @@ namespace BEditor.Data.Bindings
             {
                 var match = regex1.Match(str);
 
-                var proj = bindable.GetParent4() ?? throw new Exception();
-                var scene = proj.Find(match.Groups[1].Value) ?? throw new Exception();
-                var clip = scene.Find(match.Groups[2].Value) ?? throw new Exception();
-                var effect = (int.TryParse(match.Groups[3].Value, out var id) ? clip.Find(id) : throw new Exception()) ?? throw new Exception();
-                result = int.TryParse(match.Groups[4].Value, out var id1) ? effect.Find(id1) as IBindable<T> : throw new Exception();
+                var proj = bindable.GetParent4() ?? throw new DataException(ExceptionMessage.ParentElementNotFound);
+                var scene = proj.Find(match.Groups[1].Value) ?? throw new DataException(ExceptionMessage.ChildElementsNotFound);
+                var clip = scene.Find(match.Groups[2].Value) ?? throw new DataException(ExceptionMessage.ChildElementsNotFound);
+                var effect = (int.TryParse(match.Groups[3].Value, out var id) ? clip.Find(id) : throw new DataException(ExceptionMessage.FailedToConvertValue)) ?? throw new DataException(ExceptionMessage.ChildElementsNotFound);
+                result = int.TryParse(match.Groups[4].Value, out var id1) ? effect.Find(id1) as IBindable<T> : throw new DataException(ExceptionMessage.ChildElementsNotFound);
 
                 return true;
             }
@@ -51,12 +55,12 @@ namespace BEditor.Data.Bindings
             {
                 var match = regex2.Match(str);
 
-                var proj = bindable.GetParent4() ?? throw new Exception();
-                var scene = proj.Find(match.Groups[1].Value) ?? throw new Exception();
-                var clip = scene.Find(match.Groups[2].Value) ?? throw new Exception();
-                var effect = (int.TryParse(match.Groups[3].Value, out var id) ? clip.Find(id) : throw new Exception()) ?? throw new Exception();
-                var parent = int.TryParse(match.Groups[4].Value, out var id1) ? (effect.Find(id1) as IParent<PropertyElement> ?? throw new Exception()) : throw new Exception();
-                result = int.TryParse(match.Groups[5].Value, out var id2) ? parent.Find(id2) as IBindable<T> : throw new Exception();
+                var proj = bindable.GetParent4() ?? throw new DataException(ExceptionMessage.ParentElementNotFound);
+                var scene = proj.Find(match.Groups[1].Value) ?? throw new DataException(ExceptionMessage.ChildElementsNotFound);
+                var clip = scene.Find(match.Groups[2].Value) ?? throw new DataException(ExceptionMessage.ChildElementsNotFound);
+                var effect = (int.TryParse(match.Groups[3].Value, out var id) ? clip.Find(id) : throw new DataException(ExceptionMessage.FailedToConvertValue)) ?? throw new DataException(ExceptionMessage.ChildElementsNotFound);
+                var parent = int.TryParse(match.Groups[4].Value, out var id1) ? (effect.Find(id1) as IParent<PropertyElement> ?? throw new DataException(ExceptionMessage.ChildElementsNotFound)) : throw new DataException(ExceptionMessage.FailedToConvertValue);
+                result = int.TryParse(match.Groups[5].Value, out var id2) ? parent.Find(id2) as IBindable<T> : throw new DataException(ExceptionMessage.ChildElementsNotFound);
 
                 return true;
             }
@@ -68,22 +72,17 @@ namespace BEditor.Data.Bindings
         /// Get a <see cref="string"/> to retrieve an <see cref="IBindable"/>
         /// </summary>
         /// <param name="bindable">An object that implements <see cref="IBindable"/> to get a string.</param>
+        /// <exception cref="DataException">Parent element not found.</exception>
         /// <returns>String that can be used to get an <see cref="IBindable"/> from <see cref="GetBindable{T}(IBindable{T}, string?, out IBindable{T}?)"/>.</returns>
         public static string GetString(this IBindable bindable)
         {
-            //[DoesNotReturnAttribute]
-            //static void ParentNullThrow()
-            //{
-            //    throw new Exception();
-            //}
-
             if (bindable is PropertyElement p && bindable.Id == -1)
             {
                 // bindable の親がGroup
                 // bindable のIdは-1
-                var scene = bindable.GetParent3()?.Name ?? throw new Exception();
-                var clip = bindable.GetParent2()?.Name ?? throw new Exception();
-                var effect = bindable.GetParent()?.Id ?? throw new Exception();
+                var scene = bindable.GetParent3()?.Name ?? throw new DataException(ExceptionMessage.ParentElementNotFound);
+                var clip = bindable.GetParent2()?.Name ?? throw new DataException(ExceptionMessage.ParentElementNotFound);
+                var effect = bindable.GetParent()?.Id ?? throw new DataException(ExceptionMessage.ParentElementNotFound);
                 int group = -1;
                 int property = -1;
                 // エフェクトのChildrenからIParentのプロパティを見つける
@@ -91,7 +90,7 @@ namespace BEditor.Data.Bindings
                 // var property = bindable.Id;
 
                 // EffectElementの子要素からIParentを見つける
-                Parallel.ForEach(bindable.GetParent()?.Children ?? throw new Exception(), item =>
+                Parallel.ForEach(bindable.GetParent()?.Children ?? throw new DataException(ExceptionMessage.ParentElementNotFound), item =>
                 {
                     if (item is Property.Group parent && parent.Contains(p))
                     {

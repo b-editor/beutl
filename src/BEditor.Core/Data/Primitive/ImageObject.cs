@@ -55,7 +55,7 @@ namespace BEditor.Data.Primitive
             Angle = new(AngleMetadata);
             Material = new(MaterialMetadata);
         }
-        
+
         /// <inheritdoc/>
         public override string Name => "";
         /// <summary>
@@ -135,6 +135,21 @@ namespace BEditor.Data.Primitive
         }
         private void Draw(ImageInfo image, EffectRenderArgs args)
         {
+            static void DrawLine(GraphicsContext context, float width, float height, Transform trans)
+            {
+                // 右上～右下
+                context.DrawLine(new(width, height, 0), new(width, -height, 0), 1.5f, trans, Color.Light);
+
+                // 右下～左下
+                context.DrawLine(new(width, -height, 0), new(-width, -height, 0), 1.5f, trans, Color.Light);
+
+                // 左下～左上
+                context.DrawLine(new(-width, -height, 0), new(-width, height, 0), 1.5f, trans, Color.Light);
+
+                // 左上～右上
+                context.DrawLine(new(-width, height, 0), new(width, height, 0), 1.5f, trans, Color.Light);
+            }
+
             if (image.Source.IsDisposed) return;
 
             #region 
@@ -151,18 +166,19 @@ namespace BEditor.Data.Primitive
 
             #endregion
 
+            var trans = GetTransform(frame) + image.Transform;
             var context = Parent?.Parent.GraphicsContext!;
+
+            if (args.Type is RenderType.Preview)
+            {
+                var wHalf = (image.Source.Width / 2f) + 10;
+                var hHalf = (image.Source.Height / 2f) + 10;
+                DrawLine(context, wHalf, hHalf, trans);
+            }
 
             using var texture = Texture.FromImage(image.Source);
 
             GL.Enable(EnableCap.Blend);
-
-            var trans = GetTransform(frame) + image.Transform;
-            //GL.Color4(color.ToOpenTK());
-            //GL.Material(MaterialFace.Front, MaterialParameter.Ambient, ambient.ToOpenTK());
-            //GL.Material(MaterialFace.Front, MaterialParameter.Diffuse, diffuse.ToOpenTK());
-            //GL.Material(MaterialFace.Front, MaterialParameter.Specular, specular.ToOpenTK());
-            //GL.Material(MaterialFace.Front, MaterialParameter.Shininess, shininess);
 
             context.DrawTexture(texture, trans, color, () =>
             {

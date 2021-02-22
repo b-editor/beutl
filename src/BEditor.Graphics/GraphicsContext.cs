@@ -2,6 +2,7 @@
 using System.Collections.Generic;
 using System.Diagnostics;
 using System.IO;
+using System.Numerics;
 using System.Runtime.InteropServices;
 using System.Threading;
 using System.Threading.Tasks;
@@ -12,8 +13,6 @@ using BEditor.Drawing.Pixel;
 using OpenTK;
 using OpenTK.Graphics;
 using OpenTK.Graphics.OpenGL4;
-using OpenTK.Mathematics;
-using OpenTK.Windowing.Desktop;
 using OpenTK.Windowing.GraphicsLibraryFramework;
 
 namespace BEditor.Graphics
@@ -25,6 +24,7 @@ namespace BEditor.Graphics
         private readonly Shader _textureShader;
         private readonly Shader _shader;
         private readonly Shader _lightShader;
+        private readonly Shader _lineShader;
         private readonly SynchronizationContext? _synchronization;
 
         public GraphicsContext(int width, int height)
@@ -57,17 +57,10 @@ namespace BEditor.Graphics
 
             Clear();
 
-            _textureShader = Shader.FromFile(
-                Path.Combine(AppContext.BaseDirectory, "Shaders", "TextureShader.vert"),
-                Path.Combine(AppContext.BaseDirectory, "Shaders", "TextureShader.frag"));
-
-            _shader = Shader.FromFile(
-                Path.Combine(AppContext.BaseDirectory, "Shaders", "Shader.vert"),
-                Path.Combine(AppContext.BaseDirectory, "Shaders", "Shader.frag"));
-
-            _lightShader = Shader.FromFile(
-                Path.Combine(AppContext.BaseDirectory, "Shaders", "Shader.vert"),
-                Path.Combine(AppContext.BaseDirectory, "Shaders", "Light.frag"));
+            _textureShader = new(Shaders.TextureVert, Shaders.TextureFrag);
+            _shader = new(Shaders.Vert, Shaders.Frag);
+            _lightShader = new(Shaders.Vert, Shaders.LightFrag);
+            _lineShader = new(Shaders.LineVert, Shaders.LineFrag);
 
 
             Camera = new OrthographicCamera(new(0, 0, 1024), width, height);
@@ -155,7 +148,7 @@ namespace BEditor.Graphics
             GL.Enable(EnableCap.Texture2D);
 
             _textureShader.SetVector4("color", color.ToVector4());
-            _textureShader.SetMatrix4("model", transform.Matrix.ToOpenTK());
+            _textureShader.SetMatrix4("model", transform.Matrix);
             _textureShader.SetMatrix4("view", Camera.GetViewMatrix());
             _textureShader.SetMatrix4("projection", Camera.GetProjectionMatrix());
 
@@ -188,7 +181,7 @@ namespace BEditor.Graphics
             GL.Enable(EnableCap.Texture2D);
 
             _textureShader.SetVector4("color", color.ToVector4());
-            _textureShader.SetMatrix4("model", transform.Matrix.ToOpenTK());
+            _textureShader.SetMatrix4("model", transform.Matrix);
             _textureShader.SetMatrix4("view", Camera.GetViewMatrix());
             _textureShader.SetMatrix4("projection", Camera.GetProjectionMatrix());
 
@@ -209,12 +202,35 @@ namespace BEditor.Graphics
 
             GL.BindVertexArray(cube.VertexArrayObject);
 
-            _shader.SetMatrix4("model", transform.Matrix.ToOpenTK());
+            _shader.SetMatrix4("model", transform.Matrix);
             _shader.SetMatrix4("view", Camera.GetViewMatrix());
             _shader.SetMatrix4("projection", Camera.GetProjectionMatrix());
             _shader.SetVector4("color", cube.Color.ToVector4());
 
             GL.DrawArrays(PrimitiveType.Triangles, 0, 36);
+        }
+        public void DrawLine(Vector3 start, Vector3 end, float width, Transform transform, Color color)
+        {
+            MakeCurrent();
+
+            using var line = new Line(start, end, width);
+
+            _lineShader.Use();
+
+            GL.Enable(EnableCap.Blend);
+
+
+            GL.BlendEquationSeparate(BlendEquationMode.FuncAdd, BlendEquationMode.FuncAdd);
+            GL.BlendFunc(BlendingFactor.SrcAlpha, BlendingFactor.OneMinusSrcAlpha);
+
+            _lineShader.SetVector4("color", color.ToVector4());
+            _lineShader.SetMatrix4("model", transform.Matrix);
+            _lineShader.SetMatrix4("view", Camera.GetViewMatrix());
+            _lineShader.SetMatrix4("projection", Camera.GetProjectionMatrix());
+
+            _lineShader.Use();
+
+            line.Render();
         }
         public void Dispose()
         {
@@ -230,6 +246,8 @@ namespace BEditor.Graphics
                 g._lightShader.Dispose();
 
             }, this);
+
+            GC.SuppressFinalize(this);
 
             IsDisposed = true;
         }

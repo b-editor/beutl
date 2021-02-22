@@ -104,8 +104,8 @@
         </VirtualizingStackPanel>
 
         <VirtualizingStackPanel Grid.Column="2" VerticalAlignment="Bottom" Margin="8,0,8,8" Orientation="Horizontal" FlowDirection="RightToLeft">
-            <Button Cursor="Arrow" Foreground="Red" Content="{x:Static props:Resources.Cancel}" HorizontalAlignment="Left" Click="CloseClick" IsCancel="True" Background="{x:Null}" BorderThickness="0"/>
-            <Button Cursor="Arrow" Foreground="{StaticResource MaterialDesignBody}" Content="{x:Static props:Resources.Create}" HorizontalAlignment="Left" Command="{Binding AddCommand, Mode=OneTime}" Click="CloseClick" IsDefault="True" Background="{x:Null}" BorderThickness="0"/>
+            <Button Cursor="Arrow" Foreground="Red" Content="{x:Static props:Resources.Cancel}" HorizontalAlignment="Left" Click="CloseClick" IsCancel="True" Style="{StaticResource MaterialDesignFlatButton}"/>
+            <Button Cursor="Arrow" Foreground="{StaticResource MaterialDesignBody}" Content="{x:Static props:Resources.Create}" HorizontalAlignment="Left" Command="{Binding AddCommand, Mode=OneTime}" Click="CloseClick" IsDefault="True" Style="{StaticResource MaterialDesignFlatButton}"/>
         </VirtualizingStackPanel>
     </Grid>
 </UserControl>

@@ -449,7 +449,8 @@
             HorizontalContentAlignment="Stretch"
             VerticalContentAlignment="Stretch"
             Padding="0,0,0,0" 
-            UniformCornerRadius="0" Grid.RowSpan="3" Grid.Row="1"/>
+            UniformCornerRadius="0"
+            Grid.RowSpan="3" Grid.Row="1"/>
 
         <!--#endregion-->
 

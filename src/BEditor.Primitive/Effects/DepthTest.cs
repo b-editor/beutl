@@ -10,7 +10,7 @@ using BEditor.Data.Primitive;
 using BEditor.Data.Property;
 using BEditor.Properties;
 
-using OpenTK.Graphics.OpenGL;
+using OpenTK.Graphics.OpenGL4;
 
 namespace BEditor.Primitive.Effects
 {

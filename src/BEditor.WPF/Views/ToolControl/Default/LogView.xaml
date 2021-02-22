@@ -1,0 +1,31 @@
+﻿<UserControl x:Class="BEditor.Views.ToolControl.Default.LogView"
+             xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006" 
+             xmlns:d="http://schemas.microsoft.com/expression/blend/2008" 
+             xmlns:local="clr-namespace:BEditor.Views.ToolControl.Default"
+             xmlns:props="clr-namespace:BEditor.Properties;assembly=BEditor.Core"
+             xmlns:viewModel="clr-namespace:BEditor.ViewModels.ToolControl" xmlns:md="http://materialdesigninxaml.net/winfx/xaml/themes"
+             mc:Ignorable="d" 
+             Padding="8"
+             DataContext="{x:Static viewModel:LogViewModel.Current}"
+             d:DesignHeight="450" d:DesignWidth="800">
+    <Grid>
+        <Grid.RowDefinitions>
+            <RowDefinition Height="Auto"/>
+            <RowDefinition/>
+        </Grid.RowDefinitions>
+
+        <WrapPanel Orientation="Horizontal">
+            <TextBlock Text="{x:Static props:Resources.Category}" VerticalAlignment="Center" Margin="0,0,8,0"/>
+            <TextBlock Text=":" VerticalAlignment="Center" Margin="0,0,8,0"/>
+            <ComboBox Width="250" VerticalAlignment="Center" DisplayMemberPath="CategoryName" ItemsSource="{Binding Loggers}" x:Name="combobox"/>
+
+            <Button VerticalAlignment="Center" Margin="8,0" Cursor="Arrow" Background="Transparent" BorderThickness="0" Padding="4" CommandParameter="{Binding ElementName=combobox, Path=SelectedItem}" Command="{Binding Remove, Mode=OneTime}">
+                <md:PackIcon Kind="PlaylistRemove" Width="20" Height="20"/>
+            </Button>
+        </WrapPanel>
+
+        <TextBox Grid.Row="1" IsReadOnly="True" Text="{Binding ElementName=combobox, Path=SelectedItem.Text.Value}" FontSize="13"/>
+    </Grid>
+</UserControl>

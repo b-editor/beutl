@@ -14,6 +14,7 @@ using BEditor.Views.SettingsControl;
 using MaterialDesignThemes.Wpf;
 
 using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.Logging;
 
 using Reactive.Bindings;
 using Reactive.Bindings.Extensions;
@@ -56,6 +57,7 @@ namespace BEditor.ViewModels
 
         public ReactiveCommand DeleteCommand { get; } = new();
         public ReactiveCommand MemoryRelease { get; } = new();
+
         #endregion
 
         public ReactiveCommand SceneSettingsCommand { get; } = new();
@@ -104,8 +106,8 @@ namespace BEditor.ViewModels
 
             #region Help
 
-            const string feedback = "https://github.com/indigo-san/BEditor/issues/new";
-            const string repository = "https://github.com/indigo-san/BEditor/";
+            const string feedback = "https://github.com/b-editor/BEditor/issues/new";
+            const string repository = "https://github.com/b-editor/BEditor/";
 
             SendFeedback.Subscribe(() => Process.Start(new ProcessStartInfo("cmd", $"/c start {feedback}") { CreateNoWindow = true }));
             OpenThisRepository.Subscribe(() => Process.Start(new ProcessStartInfo("cmd", $"/c start {repository}") { CreateNoWindow = true }));

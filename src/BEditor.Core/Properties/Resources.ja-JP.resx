@@ -159,9 +159,6 @@
     <value>表示(_V)</value>
     <comment>アクセラレータキーに使用</comment>
   </data>
-  <data name="ActivityLog" xml:space="preserve">
-    <value>アクティビティログ</value>
-  </data>
   <data name="Add" xml:space="preserve">
     <value>追加</value>
   </data>
@@ -357,9 +354,6 @@
   </data>
   <data name="Effects" xml:space="preserve">
     <value>エフェクト</value>
-  </data>
-  <data name="EnableErrorLog" xml:space="preserve">
-    <value>エラーログを有効にする</value>
   </data>
   <data name="Erode" xml:space="preserve">
     <value>収縮</value>
@@ -854,5 +848,17 @@
   </data>
   <data name="ShowStartWindow" xml:space="preserve">
     <value>スタートウィンドウを表示する。</value>
+  </data>
+  <data name="Log" xml:space="preserve">
+    <value>ログ</value>
+  </data>
+  <data name="Category" xml:space="preserve">
+    <value>カテゴリ</value>
+  </data>
+  <data name="License" xml:space="preserve">
+    <value>ライセンス</value>
+  </data>
+  <data name="Update" xml:space="preserve">
+    <value>アップデート</value>
   </data>
 </root>

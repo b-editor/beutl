@@ -39,5 +39,11 @@
             </TabItem.Header>
             <tool:ObjectViewer/>
         </TabItem>
+        <TabItem>
+            <TabItem.Header>
+                <TextBlock Text="{x:Static properties:Resources.Log}" FontSize="12" VerticalAlignment="Center"/>
+            </TabItem.Header>
+            <tool:LogView/>
+        </TabItem>
     </dragablz:TabablzControl>
 </UserControl>

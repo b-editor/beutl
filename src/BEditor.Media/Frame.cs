@@ -1,9 +1,11 @@
 ﻿using System;
+using System.Diagnostics;
 using System.Diagnostics.CodeAnalysis;
 using System.Runtime.Serialization;
 
 namespace BEditor.Media
 {
+    [DebuggerDisplay("{Value}")]
     [Serializable]
     public readonly struct Frame : IEquatable<Frame>, ISerializable
     {
@@ -40,7 +42,6 @@ namespace BEditor.Media
             => Value == other.Value;
         public override readonly int GetHashCode()
             => HashCode.Combine(Value);
-        public override string ToString() => $"(Value:{Value})";
         public void GetObjectData(SerializationInfo info, StreamingContext context)
         {
             info.AddValue(nameof(Value), Value);

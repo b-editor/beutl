@@ -74,7 +74,7 @@ namespace BEditor.Primitive.Effects
             {
                 EaseProperty = new(DepthTest.FarMetadata);
                 Label = new();
-                Button = new(new PropertyElementMetadata("sssssss"));
+                Button = new(new ButtonComponentMetadata("sssssss"));
             }
 
             public override IEnumerable<PropertyElement> Properties => new PropertyElement[]

@@ -15,6 +15,7 @@ using BEditor.Models;
 using BEditor.Models.Extension;
 using BEditor.Primitive;
 using BEditor.Primitive.Objects;
+using BEditor.Properties;
 using BEditor.Views;
 using BEditor.Views.SettingsControl;
 
@@ -204,7 +205,7 @@ namespace BEditor.ViewModels.TimeLines
         {
             if (!Scene.InRange(Select_Frame, Select_Frame + 180, Select_Layer))
             {
-                Scene.ServiceProvider?.GetService<IMessage>()?.Snackbar("指定した場所にクリップが存在しているため、新しいクリップを配置できません");
+                Scene.ServiceProvider?.GetService<IMessage>()?.Snackbar(MessageResources.ClipExistsInTheSpecifiedLocation);
 
                 return;
             }
@@ -258,7 +259,7 @@ namespace BEditor.ViewModels.TimeLines
 
                         if (!Scene.InRange(frame, frame + 180, addlayer))
                         {
-                            Scene.ServiceProvider?.GetService<IMessage>()?.Snackbar("指定した場所にクリップが存在しているため、新しいクリップを配置できません");
+                            Scene.ServiceProvider?.GetService<IMessage>()?.Snackbar(MessageResources.ClipExistsInTheSpecifiedLocation);
 
                             return;
                         }

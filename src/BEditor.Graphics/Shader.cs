@@ -3,12 +3,14 @@ using System.Collections.Generic;
 using System.Diagnostics;
 using System.IO;
 using System.Linq;
+using System.Numerics;
 using System.Text;
 using System.Threading;
 using System.Threading.Tasks;
 
+using BEditor.Graphics.Properties;
+
 using OpenTK.Graphics.OpenGL4;
-using OpenTK.Mathematics;
 
 namespace BEditor.Graphics
 {
@@ -78,7 +80,7 @@ namespace BEditor.Graphics
                 // We can use `GL.GetShaderInfoLog(shader)` to get information about the error.
                 var infoLog = GL.GetShaderInfoLog(shader);
                 Debug.Assert(false);
-                throw new Exception($"Error occurred whilst compiling Shader({shader}).\n\n{infoLog}");
+                throw new GraphicsException(string.Format(Resources.ErrorOccurredWhilistCompilingShader, shader, infoLog));
             }
         }
         private static void LinkProgram(int program)
@@ -89,7 +91,7 @@ namespace BEditor.Graphics
             if (code != (int)All.True)
             {
                 Debug.Assert(false);
-                throw new Exception($"Error occurred whilst linking Program({program})");
+                throw new GraphicsException(string.Format(Resources.ErrorOccurredWhilstLinkingProgram, program));
             }
         }
         public void Use()
@@ -110,20 +112,25 @@ namespace BEditor.Graphics
             GL.UseProgram(Handle);
             GL.Uniform1(_uniformLocations[name], data);
         }
-        public void SetMatrix4(string name, Matrix4 data)
+        public void SetMatrix4(string name, Matrix4x4 data)
         {
+            var mat = data.ToOpenTK();
             GL.UseProgram(Handle);
-            GL.UniformMatrix4(_uniformLocations[name], true, ref data);
+            GL.UniformMatrix4(_uniformLocations[name], true, ref mat);
         }
         public void SetVector3(string name, Vector3 data)
         {
+            var vec = data.ToOpenTK();
+
             GL.UseProgram(Handle);
-            GL.Uniform3(_uniformLocations[name], data);
+            GL.Uniform3(_uniformLocations[name], ref vec);
         }
         public void SetVector4(string name, Vector4 data)
         {
+            var vec = data.ToOpenTK();
+
             GL.UseProgram(Handle);
-            GL.Uniform4(_uniformLocations[name], data);
+            GL.Uniform4(_uniformLocations[name], ref vec);
         }
 
         public void Dispose()

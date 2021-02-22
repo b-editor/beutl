@@ -16,6 +16,7 @@ using BEditor.Views;
 using BEditor.Views.MessageContent;
 
 using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.Logging;
 using Microsoft.Win32;
 
 using Reactive.Bindings;
@@ -25,6 +26,7 @@ namespace BEditor.Models
     public class ProjectModel
     {
         public static readonly ProjectModel Current = new();
+        private static readonly ILogger logger = AppData.Current.LoggingFactory.CreateLogger<ProjectModel>();
 
         private ProjectModel()
         {
@@ -98,12 +100,15 @@ namespace BEditor.Models
 
                         await DirectOpen(dialog.FileName);
                     }
-                    catch
+                    catch(Exception e)
                     {
                         Debug.Assert(false);
                         await using var prov = AppData.Current.Services.BuildServiceProvider();
 
-                        prov.GetService<IMessage>()?.Snackbar(string.Format(Resources.FailedToLoad, "Project"));
+                        var msg = string.Format(Resources.FailedToLoad, "Project");
+                        prov.GetService<IMessage>()?.Snackbar(msg);
+
+                        logger.LogError(e, msg);
                     }
                     finally
                     {

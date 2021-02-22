@@ -19,7 +19,7 @@ namespace BEditor.Plugin
     /// </summary>
     public class PluginManager
     {
-        internal readonly List<IPlugin> _loaded = new();
+        internal readonly List<PluginObject> _loaded = new();
         internal readonly List<(string, IEnumerable<ICustomMenu>)> _menus = new();
         /// <summary>
         /// Gets a default <see cref="PluginManager"/> instance.
@@ -37,7 +37,7 @@ namespace BEditor.Plugin
         /// <summary>
         /// Get the loaded plugins.
         /// </summary>
-        public IEnumerable<IPlugin> Plugins => _loaded;
+        public IEnumerable<PluginObject> Plugins => _loaded;
         /// <summary>
         /// Get or set the base directory from which to retrieve plugins.
         /// </summary>

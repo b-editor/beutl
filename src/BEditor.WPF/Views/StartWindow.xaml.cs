@@ -56,5 +56,10 @@ namespace BEditor.Views
         {
             new SettingsWindow() { Owner = App.Current.MainWindow }.ShowDialog();
         }
+
+        private void Card_MouseDown(object sender, MouseButtonEventArgs e)
+        {
+            DragMove();
+        }
     }
 }

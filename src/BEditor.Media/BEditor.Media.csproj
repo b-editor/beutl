@@ -15,10 +15,4 @@
     <ProjectReference Include="..\BEditor.Drawing\BEditor.Drawing.csproj" />
   </ItemGroup>
 
-  <ItemGroup>
-    <None Update="ffmpeg\*.dll">
-      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
-    </None>
-  </ItemGroup>
-
 </Project>

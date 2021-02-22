@@ -1,10 +1,9 @@
-name: .NET
+name: Debug Build & Test
 
 on: [push, pull_request]
 
 jobs:
   test:
-    name: Debug Build & Test
     runs-on: windows-latest
     steps:
     - uses: actions/checkout@v2

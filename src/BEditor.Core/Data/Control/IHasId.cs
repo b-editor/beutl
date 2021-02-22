@@ -11,8 +11,6 @@ namespace BEditor.Data
     /// </summary>
     public interface IHasId
     {
-
-        //Todo: ObjectIDGeneratorを使う
         /// <summary>
         /// Idを取得します
         /// </summary>

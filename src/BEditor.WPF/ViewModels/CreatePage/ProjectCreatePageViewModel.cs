@@ -58,10 +58,8 @@ namespace BEditor.ViewModels.CreatePage
 
         private void OpenFolder()
         {
-            // ダイアログのインスタンスを生成
             var dialog = new OpenFolderDialog();
 
-            // ダイアログを表示する
             if (dialog.ShowDialog())
             {
                 Folder.Value = dialog.FileName;
@@ -87,10 +85,10 @@ namespace BEditor.ViewModels.CreatePage
             };
             dialog.Show();
 
+            project.Load();
+
             Task.Run(() =>
             {
-                project.Load();
-
                 if (SaveToFile.Value)
                 {
                     project.Save(FormattedFilename(Path.Combine(Folder.Value, Path.GetFileNameWithoutExtension(Name.Value), Name.Value)));

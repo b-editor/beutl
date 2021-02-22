@@ -1,5 +1,5 @@
 ﻿
-using OpenTK.Mathematics;
+using System.Numerics;
 
 namespace BEditor.Graphics
 {
@@ -14,9 +14,9 @@ namespace BEditor.Graphics
         public float Width { get; set; }
         public float Height { get; set; }
 
-        public override Matrix4 GetProjectionMatrix()
+        public override Matrix4x4 GetProjectionMatrix()
         {
-            return Matrix4.CreateOrthographic(Width, Height,  Near, Far);
+            return Matrix4x4.CreateOrthographic(Width, Height, Near, Far);
         }
     }
 }

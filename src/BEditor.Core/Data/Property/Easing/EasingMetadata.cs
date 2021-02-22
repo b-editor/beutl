@@ -4,6 +4,7 @@ using System.Linq.Expressions;
 
 namespace BEditor.Data.Property.Easing
 {
+    //Todo: Document
     /// <summary>
     /// Initializes a new instance of the <see cref="EasingMetadata"/> class.
     /// </summary>

@@ -1,0 +1,23 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <TargetFramework>net5.0</TargetFramework>
+
+    <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
+    <IsPackable>false</IsPackable>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <PackageReference Include="NUnit" Version="3.13.1" />
+    <PackageReference Include="NUnit3TestAdapter" Version="3.17.0" />
+    <PackageReference Include="Microsoft.NET.Test.Sdk" Version="16.8.3" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\..\src\BEditor.Core\BEditor.Core.csproj" />
+    <ProjectReference Include="..\..\src\BEditor.Drawing\BEditor.Drawing.csproj" />
+    <ProjectReference Include="..\..\src\BEditor.Media\BEditor.Media.csproj" />
+    <ProjectReference Include="..\..\src\BEditor.Primitive\BEditor.Primitive.csproj" />
+  </ItemGroup>
+
+</Project>

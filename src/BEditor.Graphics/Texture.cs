@@ -170,6 +170,8 @@ namespace BEditor.Graphics
 
             }, this);
 
+            GC.SuppressFinalize(this);
+
             IsDisposed = true;
         }
     }

@@ -348,14 +348,4 @@ MigrationBackup/
 
 # Ionide (cross platform F# VS Code tools) working folder
 .ionide/
-/BEditor/Build/Require
-/BEditor/ConsoleApp1
-/BEditor/BEditor.Media/ffmpeg/avcodec-58.dll
-/BEditor/BEditor.Media/ffmpeg/avdevice-58.dll
-/BEditor/BEditor.Media/ffmpeg/avfilter-7.dll
-/BEditor/BEditor.Media/ffmpeg/avformat-58.dll
-/BEditor/BEditor.Media/ffmpeg/avutil-56.dll
-/BEditor/BEditor.Media/ffmpeg/postproc-55.dll
-/BEditor/BEditor.Media/ffmpeg/swresample-3.dll
-/BEditor/BEditor.Media/ffmpeg/swscale-5.dll
 /src/BEditor.Core/BEditor.Core.xml

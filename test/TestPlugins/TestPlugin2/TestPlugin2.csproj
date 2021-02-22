@@ -1,0 +1,16 @@
+﻿<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <TargetFramework>net5.0</TargetFramework>
+    <OutputPath>..\..\..\src\BEditor.WPF\bin\$(Configuration)\net5.0-windows\user\plugins\TestPlugin2</OutputPath>
+    <Authors>indigo-san</Authors>
+    <OutputType>Library</OutputType>
+  </PropertyGroup>
+
+  <Import Project="..\..\..\props\plugin.props" />
+
+  <ItemGroup>
+    <ProjectReference Include="..\..\..\src\BEditor.Core\BEditor.Core.csproj" />
+  </ItemGroup>
+  
+</Project>

@@ -1,8 +1,10 @@
 ﻿using System;
 using System.Collections.Generic;
+using System.Numerics;
 using System.Text;
 
-using OpenTK.Mathematics;
+using MathHelper = OpenTK.Mathematics.MathHelper;
+using Matrix4 = OpenTK.Mathematics.Matrix4;
 
 namespace BEditor.Graphics
 {
@@ -54,13 +56,13 @@ namespace BEditor.Graphics
         /// <summary>
         /// Get ViewMatrix.
         /// </summary>
-        public Matrix4 GetViewMatrix()
+        public Matrix4x4 GetViewMatrix()
         {
-            return Matrix4.LookAt(Position, Target, Vector3.UnitY);
+            return Matrix4.LookAt(Position.ToOpenTK(), Target.ToOpenTK(), OpenTK.Mathematics.Vector3.UnitY).ToNumerics();
         }
         /// <summary>
         /// Get ProjectionMatrix.
         /// </summary>
-        public abstract Matrix4 GetProjectionMatrix();
+        public abstract Matrix4x4 GetProjectionMatrix();
     }
 }

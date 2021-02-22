@@ -4,7 +4,7 @@ root = true
 [*.*]
 
 # 改行設定
-end_of_line = lf
+end_of_line = crlf
 
 # C# ファイル
 [*.cs]
@@ -17,7 +17,7 @@ indent_style = space
 tab_width = 4
 
 # 改行設定
-end_of_line = lf
+end_of_line = crlf
 insert_final_newline = false
 
 #### .NET コーディング規則 ####
