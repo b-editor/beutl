@@ -38,10 +38,15 @@ namespace BEditor.Graphics
                 GLFW.Init();
             }
 
+            GLFW.WindowHint(WindowHintClientApi.ClientApi, ClientApi.OpenGlApi);
+            GLFW.WindowHint(WindowHintInt.ContextVersionMajor, 3);
+            GLFW.WindowHint(WindowHintInt.ContextVersionMinor, 3);
             GLFW.WindowHint(WindowHintBool.Visible, false);
             _window = GLFW.CreateWindow(width, height, "", null, null);
             GLFW.SetWindowSizeLimits(_window, width, height, width, height);
             MakeCurrent();
+
+            var error = GLFW.GetError(out var meg);
 
             if (isFirst)
             {

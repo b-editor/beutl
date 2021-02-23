@@ -20,7 +20,8 @@ namespace BEditor.Graphics
 
             "void main()\n" +
             "{\n" +
-            "   outputColor = texture(texture, texCoord) * color;\n" +
+            // texture2Dは330で非推奨
+            "   outputColor = texture2D(texture, texCoord) * color;\n" +
             "}";
         public const string TextureVert =
             "#version 330 core\n" +
