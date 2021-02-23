@@ -46,8 +46,6 @@ namespace BEditor.Graphics
             GLFW.SetWindowSizeLimits(_window, width, height, width, height);
             MakeCurrent();
 
-            var error = GLFW.GetError(out var meg);
-
             if (isFirst)
             {
                 var context = new GLFWBindingsContext();

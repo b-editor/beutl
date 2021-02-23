@@ -20,8 +20,7 @@ namespace BEditor.Media.Decoder
         private readonly MediaFile media;
         static FFmpegDecoder()
         {
-            FFmpegLoader.FFmpegPath = Path.Combine(AppContext.BaseDirectory, "ffmpeg");
-            FFmpegLoader.LoadFFmpeg();
+            _ = FFmpegContext.Current;
         }
         public FFmpegDecoder(string filename)
         {

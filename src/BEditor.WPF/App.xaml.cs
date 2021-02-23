@@ -274,6 +274,11 @@ namespace BEditor
                 var dir = Path.Combine(ziproot, "bin");
                 var destdir = ffmpegDir;
 
+                if (!Directory.Exists(destdir))
+                {
+                    Directory.CreateDirectory(destdir);
+                }
+
                 foreach (var entry in zip.Entries
                     .Where(i => i.FullName.Contains("bin"))
                     .Where(i => Path.GetExtension(i.Name) is ".dll"))

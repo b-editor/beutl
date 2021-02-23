@@ -22,11 +22,12 @@ namespace BEditor.Media.Encoder
 
         static FFmpegEncoder()
         {
-            FFmpegLoader.FFmpegPath = Path.Combine(AppContext.BaseDirectory, "ffmpeg");
-            FFmpegLoader.LoadFFmpeg();
+            _ = FFmpegContext.Current;
         }
         public FFmpegEncoder(int width, int height, int fps, VideoCodec codec, string filename)
         {
+            filename = Path.GetFullPath(filename);
+
             file = filename;
             builder = MediaBuilder.CreateContainer(filename)
                 .WithVideo(new(width, height, fps, (FFMediaToolkit.Encoding.VideoCodec)codec));

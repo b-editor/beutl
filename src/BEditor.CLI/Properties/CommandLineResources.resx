@@ -127,4 +127,16 @@
   <data name="NameOfProject" xml:space="preserve">
     <value>Name of new project</value>
   </data>
+  <data name="IsLoading" xml:space="preserve">
+    <value>{0} is loading.</value>
+  </data>
+  <data name="IsDownloading" xml:space="preserve">
+    <value>{0} is downloading.</value>
+  </data>
+  <data name="IsExtractedAndPlaced" xml:space="preserve">
+    <value>{0} is extracted and placed.</value>
+  </data>
+  <data name="FFmpegNotFound" xml:space="preserve">
+    <value>FFmpeg was not found. Do you want to install it? (Y/N)</value>
+  </data>
 </root>

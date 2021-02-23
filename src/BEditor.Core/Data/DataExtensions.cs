@@ -127,5 +127,35 @@ namespace BEditor.Data
         {
             return self.Children.Contains(item);
         }
+
+        internal static int IndexOf(this IEnumerable<PropertyElement> self, PropertyElement prop)
+        {
+            var count = -1;
+            foreach (var item in self)
+            {
+                count++;
+
+                if (item == prop)
+                {
+                    return count;
+                }
+
+                if (item is IParent<PropertyElement> inner_prop)
+                {
+                    var inner_count = -1;
+                    foreach (var inner_item in inner_prop.Children)
+                    {
+                        inner_count++;
+
+                        if (inner_item == prop)
+                        {
+                            return inner_count;
+                        }
+                    }
+                }
+            }
+
+            return -1;
+        }
     }
 }

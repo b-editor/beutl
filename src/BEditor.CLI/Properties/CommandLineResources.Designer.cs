@@ -79,11 +79,47 @@ namespace BEditor.Properties {
         }
         
         /// <summary>
+        ///   FFmpeg was not found. Do you want to install it? (Y/N) に類似しているローカライズされた文字列を検索します。
+        /// </summary>
+        internal static string FFmpegNotFound {
+            get {
+                return ResourceManager.GetString("FFmpegNotFound", resourceCulture);
+            }
+        }
+        
+        /// <summary>
         ///   Frame to output に類似しているローカライズされた文字列を検索します。
         /// </summary>
         internal static string FrameToOutput {
             get {
                 return ResourceManager.GetString("FrameToOutput", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   {0} is downloading. に類似しているローカライズされた文字列を検索します。
+        /// </summary>
+        internal static string IsDownloading {
+            get {
+                return ResourceManager.GetString("IsDownloading", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   {0} is extracted and placed. に類似しているローカライズされた文字列を検索します。
+        /// </summary>
+        internal static string IsExtractedAndPlaced {
+            get {
+                return ResourceManager.GetString("IsExtractedAndPlaced", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   {0} is loading. に類似しているローカライズされた文字列を検索します。
+        /// </summary>
+        internal static string IsLoading {
+            get {
+                return ResourceManager.GetString("IsLoading", resourceCulture);
             }
         }
         

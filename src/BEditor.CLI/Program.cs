@@ -1,8 +1,13 @@
 ﻿using System;
+using System.Diagnostics;
 using System.IO;
+using System.IO.Compression;
 using System.Linq;
+using System.Net;
+using System.Runtime.InteropServices;
 using System.Text;
 using System.Threading;
+using System.Threading.Tasks;
 
 using BEditor;
 using BEditor.Data;
@@ -10,6 +15,9 @@ using BEditor.Drawing;
 using BEditor.Media;
 using BEditor.Media.Encoder;
 using BEditor.Properties;
+using BEditor.Primitive.Effects;
+using BEditor.Primitive.Objects;
+using BEditor.Primitive;
 
 using Microsoft.Extensions.CommandLineUtils;
 using Microsoft.Extensions.DependencyInjection;
@@ -44,10 +52,12 @@ namespace BEditor
         {
             var app = new CommandLineApplication(throwOnUnexpectedArg: false)
             {
-                // アプリケーション名（ヘルプの出力で使用される）
                 Name = "bedit",
             };
             SynchronizationContext.SetSynchronizationContext(new CLISynchronizationContext());
+
+            SetKnownTypes();
+            Task.Run(async () => await CheckFFmpeg()).Wait();
 
             // ヘルプ出力のトリガーとなるオプションを指定
             app.HelpOption("-?|-h|--help");
@@ -59,10 +69,8 @@ namespace BEditor
 
             app.Command("json", command =>
             {
-                // 説明（ヘルプの出力で使用される）
                 command.Description = CommandLineResources.OutputProjectToJson;
 
-                // コマンドについてのヘルプ出力のトリガーとなるオプションを指定
                 command.HelpOption("-?|-h|--help");
 
                 var input = command.Argument("file", CommandLineResources.ProjectFile);
@@ -87,7 +95,7 @@ namespace BEditor
                 });
             });
 
-            app.Command("output", command =>
+            app.Command("encode_img", command =>
             {
                 command.Description = CommandLineResources.SaveFrameToImageFile;
 
@@ -144,7 +152,8 @@ namespace BEditor
                         : int.TryParse(sc.Value(), out var index) ? project.SceneList[index] : project.SceneList.ToList().Find(s => s.Name == sc.Value())!;
 
                     using var encoder = new FFmpegEncoder(scene.Width, scene.Height, project.Framerate, VideoCodec.Default, output.Value);
-                    var progress = new ProgressColor(55, scene.TotalFrame + 1);
+                    var progress = new ProgressBar();
+                    var total = scene.TotalFrame + 1;
 
                     for (Frame frame = 0; frame < scene.TotalFrame; frame++)
                     {
@@ -152,9 +161,9 @@ namespace BEditor
 
                         encoder.Write(img);
 
-                        progress.Update($"{frame.Value} Frame");
+                        progress.Report((double)frame / total);
                     }
-                    progress.Done("Done!");
+                    progress.Dispose();
 
                     project.Unload();
 
@@ -188,7 +197,251 @@ namespace BEditor
                 });
             });
 
+            app.Command("open", command =>
+            {
+                command.Description = CommandLineResources.CreateNewProject;
+
+                command.HelpOption("-?|-h|--help");
+
+                var file = command.Argument("project", CommandLineResources.ProjectFile);
+
+                command.OnExecute(() =>
+                {
+                    ConsoleEditor? editor = null;
+                    try
+                    {
+                        editor = new ConsoleEditor(file.Value);
+
+                        editor.Execute();
+
+                        return 0;
+                    }
+                    catch
+                    {
+                        return 1;
+                    }
+                    finally
+                    {
+                        editor?.Project.Dispose();
+                    }
+                });
+            });
+
             app.Execute(args);
+        }
+
+        private static void SetKnownTypes()
+        {
+            Serialize.SerializeKnownTypes.AddRange(new Type[]
+            {
+                typeof(AudioObject),
+                typeof(CameraObject),
+                typeof(GL3DObject),
+                typeof(Figure),
+                typeof(ImageFile),
+                typeof(Text),
+                typeof(VideoFile),
+                typeof(SceneObject),
+                typeof(RoundRect),
+                typeof(Polygon),
+
+                typeof(Blur),
+                typeof(Border),
+                typeof(ColorKey),
+                typeof(Dilate),
+                typeof(Erode),
+                typeof(Monoc),
+                typeof(Shadow),
+                typeof(Clipping),
+                typeof(AreaExpansion),
+                typeof(LinearGradient),
+                typeof(CircularGradient),
+                typeof(Mask),
+                typeof(PointLightDiffuse),
+                typeof(ChromaKey),
+                typeof(ImageSplit),
+                typeof(MultipleControls),
+                typeof(DepthTest),
+                typeof(DirectionalLightSource),
+                typeof(PointLightSource),
+                typeof(SpotLight),
+            });
+
+            ObjectMetadata.LoadedObjects.Add(PrimitiveTypes.VideoMetadata);
+            ObjectMetadata.LoadedObjects.Add(PrimitiveTypes.ImageMetadata);
+            ObjectMetadata.LoadedObjects.Add(PrimitiveTypes.FigureMetadata);
+            ObjectMetadata.LoadedObjects.Add(PrimitiveTypes.PolygonMetadata);
+            ObjectMetadata.LoadedObjects.Add(PrimitiveTypes.RoundRectMetadata);
+            ObjectMetadata.LoadedObjects.Add(PrimitiveTypes.TextMetadata);
+            ObjectMetadata.LoadedObjects.Add(PrimitiveTypes.CameraMetadata);
+            ObjectMetadata.LoadedObjects.Add(PrimitiveTypes.GL3DObjectMetadata);
+            ObjectMetadata.LoadedObjects.Add(PrimitiveTypes.SceneMetadata);
+
+            EffectMetadata.LoadedEffects.Add(new(Resources.Effects)
+            {
+                Children = new EffectMetadata[]
+                {
+                    new(Resources.Border, () => new Border()),
+                    new(Resources.ColorKey, () => new ColorKey()),
+                    new(Resources.DropShadow, () => new Shadow()),
+                    new(Resources.Blur, () => new Blur()),
+                    new(Resources.Monoc, () => new Monoc()),
+                    new(Resources.Dilate, () => new Dilate()),
+                    new(Resources.Erode, () => new Erode()),
+                    new(Resources.Clipping, () => new Clipping()),
+                    new(Resources.AreaExpansion, () => new AreaExpansion()),
+                    new(Resources.LinearGradient, () => new LinearGradient()),
+                    new(Resources.CircularGradient, () => new CircularGradient()),
+                    new(Resources.Mask, () => new Mask()),
+                    new(Resources.PointLightDiffuse, () => new PointLightDiffuse()),
+                    new(Resources.ChromaKey, () => new ChromaKey()),
+                    new(Resources.ImageSplit, () => new ImageSplit()),
+                    new(Resources.MultipleImageControls, () => new MultipleControls()),
+                }
+            });
+            EffectMetadata.LoadedEffects.Add(new(Resources.Camera)
+            {
+                Children = new EffectMetadata[]
+                {
+                    new(Resources.DepthTest, () => new DepthTest()),
+                    new(Resources.DirectionalLightSource, () => new DirectionalLightSource()),
+                    new(Resources.PointLightSource, () => new PointLightSource()),
+                    new(Resources.SpotLight, () => new SpotLight()),
+                }
+            });
+#if DEBUG
+            EffectMetadata.LoadedEffects.Add(new("TestEffect", () => new TestEffect()));
+#endif
+        }
+        private static async Task CheckFFmpeg()
+        {
+            static bool Exists()
+            {
+                if (OperatingSystem.IsWindows())
+                {
+                    var dlls = new string[]
+                    {
+                        "avcodec-58.dll",
+                        "avdevice-58.dll",
+                        "avfilter-7.dll",
+                        "avformat-58.dll",
+                        "avutil-56.dll",
+                        "postproc-55.dll",
+                        "swresample-3.dll",
+                        "swscale-5.dll",
+                    };
+
+                    var dir = Path.Combine(AppContext.BaseDirectory, "ffmpeg");
+
+                    foreach (var dll in dlls)
+                    {
+                        if (!File.Exists(Path.Combine(dir, dll)))
+                        {
+                            return false;
+                        }
+                    }
+
+                    return true;
+                }
+                else
+                {
+                    //avcodec-58.dll
+                    var lib = OperatingSystem.IsLinux() ? "libavutil.so.56" : "libavutil.56.dylib";
+
+
+                    if (NativeLibrary.TryLoad(lib, out var ptr))
+                    {
+                        NativeLibrary.Free(ptr);
+
+                        return true;
+                    }
+
+                    return false;
+                }
+            }
+
+            if (!Exists())
+            {
+                if (OperatingSystem.IsWindows())
+                {
+                    Console.WriteLine(CommandLineResources.FFmpegNotFound);
+
+                    if (char.ToUpperInvariant(Console.ReadKey().KeyChar) is 'Y')
+                    {
+                        await FFmpegWindows();
+                    }
+                }
+                else
+                {
+                    Console.WriteLine("FFmpeg was not found.");
+
+                    if (OperatingSystem.IsMacOS())
+                    {
+                        Console.WriteLine("You need to");
+
+                        Console.WriteLine("\n$ brew install ffmpeg");
+                    }
+                    else if (OperatingSystem.IsLinux())
+                    {
+                        Console.WriteLine($"You need to");
+
+                        Console.WriteLine(@"
+                            $ sudo apt update
+                            $ sudo apt -y upgrade
+                            $ sudo apt install ffmpeg");
+                    }
+
+                    Environment.Exit(1);
+                }
+            }
+        }
+        private static async Task FFmpegWindows()
+        {
+            const string url = "https://github.com/BtbN/FFmpeg-Builds/releases/download/autobuild-2021-02-20-12-31/ffmpeg-N-101185-g029e3c1c70-win64-gpl-shared.zip";
+            using var client = new WebClient();
+            var progress = new ProgressBar();
+
+            var tmp = Path.GetTempFileName();
+            client.DownloadFileCompleted += (s, e) =>
+            {
+                progress.Dispose();
+            };
+            client.DownloadProgressChanged += (s, e) =>
+            {
+                progress.Report(e.ProgressPercentage / 100d);
+            };
+
+            Console.WriteLine(string.Format(CommandLineResources.IsDownloading, "FFmpeg"));
+
+            await client.DownloadFileTaskAsync(url, tmp);
+
+            Console.WriteLine(string.Format(CommandLineResources.IsExtractedAndPlaced, "FFmpeg"));
+
+            using (var stream = new FileStream(tmp, FileMode.Open))
+            using (var zip = new ZipArchive(stream, ZipArchiveMode.Read))
+            {
+                const string ziproot = "ffmpeg-N-101185-g029e3c1c70-win64-gpl-shared";
+                var dir = Path.Combine(ziproot, "bin");
+                var destdir = Path.Combine(AppContext.BaseDirectory, "ffmpeg");
+
+                if (!Directory.Exists(destdir))
+                {
+                    Directory.CreateDirectory(destdir);
+                }
+
+                foreach (var entry in zip.Entries
+                    .Where(i => i.FullName.Contains("bin"))
+                    .Where(i => Path.GetExtension(i.Name) is ".dll"))
+                {
+                    var file = Path.GetFileName(entry.FullName);
+                    using var deststream = new FileStream(Path.Combine(destdir, file), FileMode.Create);
+                    using var srcstream = entry.Open();
+
+                    await srcstream.CopyToAsync(deststream);
+                }
+            }
+
+            File.Delete(tmp);
         }
     }
 }

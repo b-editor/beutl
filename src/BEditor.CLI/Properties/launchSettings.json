@@ -2,7 +2,7 @@
   "profiles": {
     "BEditor.CLI": {
       "commandName": "Project",
-      "commandLineArgs": "encode net5.0.bedit E:\\net5.mp4"
+      "commandLineArgs": "open E:\\AA"
     }
   }
 }

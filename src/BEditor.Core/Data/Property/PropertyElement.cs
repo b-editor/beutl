@@ -32,7 +32,7 @@ namespace BEditor.Data.Property
             set => SetValue(value, ref _propertyMetadata, _metadataArgs);
         }
         /// <inheritdoc/>
-        public int Id => (id ??= Parent?.Children?.ToList()?.IndexOf(this)) ?? -1;
+        public int Id => (id ??= Parent?.Children?.IndexOf(this)) ?? -1;
         /// <inheritdoc/>
         public string Name => _propertyMetadata?.Name ?? Id.ToString();
 

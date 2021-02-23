@@ -175,7 +175,7 @@ namespace BEditor.Data
             if (Name is null || DirectoryName is null)
             {
                 var dialog = ServiceProvider?.GetService<IFileDialogService>();
-                if (dialog is null) throw new InvalidOperationException();
+                if (dialog is null) return false;
 
                 var record = new SaveFileRecord
                 {
@@ -265,6 +265,22 @@ namespace BEditor.Data
         /// <returns>Returns the loaded <see cref="Project"/> on success, or <see langword="null"/> on failure.</returns>
         public static Project? FromFile(string file, IApplication app)
         {
+            // Dirを渡された
+            if (Directory.Exists(file))
+            {
+                var dir = new DirectoryInfo(file);
+
+                file = Path.Combine(file, dir.Name + ".bedit");
+                if (!File.Exists(file))
+                {
+                    file = Path.ChangeExtension(file, "json");
+
+                    if (!File.Exists(file))
+                    {
+                        return null;
+                    }
+                }
+            }
             var mode = SerializeMode.Binary;
             if (Path.GetExtension(file) is ".json")
             {
@@ -285,7 +301,7 @@ namespace BEditor.Data
         /// <inheritdoc/>
         protected override void OnUnload()
         {
-            if(ServiceProvider is IDisposable disposable)
+            if (ServiceProvider is IDisposable disposable)
             {
                 disposable.Dispose();
             }
