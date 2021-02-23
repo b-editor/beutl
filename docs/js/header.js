@@ -1,6 +1,7 @@
 function writeReleases() {
 
     document.write("<li><a class='black-text' href='https://github.com/b-editor/BEditor/releases'>ダウンロード</a></li>");
+    document.write("<li><a class='black-text' href='https://github.com/b-editor/BEditor/releases/tag/v0.0.5-alpha'>0.0.5</a></li>");
     document.write("<li><a class='black-text' href='https://github.com/b-editor/BEditor/releases/tag/v0.0.4-alpha'>0.0.4</a></li>");
     document.write("<li><a class='black-text' href='https://github.com/b-editor/BEditor/releases/tag/v0.0.3-alpha'>0.0.3</a></li>");
     document.write("<li><a class='black-text' href='https://drive.google.com/file/d/15BZabYO3jz_bGCnBT3IyMnxiJWHLAb-o/view?usp=sharing'>0.0.2</a></li>");
