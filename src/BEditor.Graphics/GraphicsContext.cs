@@ -200,7 +200,27 @@ namespace BEditor.Graphics
             _shader.SetMatrix4("projection", Camera.GetProjectionMatrix());
             _shader.SetVector4("color", cube.Color.ToVector4());
 
-            GL.DrawArrays(PrimitiveType.Triangles, 0, 36);
+            cube.Render();
+        }
+        public void DrawBall(Ball ball, Transform transform)
+        {
+            MakeCurrent();
+
+            _shader.Use();
+
+            var vertexLocation = _shader.GetAttribLocation("aPos");
+            GL.EnableVertexAttribArray(vertexLocation);
+            GL.VertexAttribPointer(vertexLocation, 3, VertexAttribPointerType.Float, false, 3 * sizeof(float), 0);
+
+
+            GL.BindVertexArray(ball.VertexArrayObject);
+
+            _shader.SetMatrix4("model", transform.Matrix);
+            _shader.SetMatrix4("view", Camera.GetViewMatrix());
+            _shader.SetMatrix4("projection", Camera.GetProjectionMatrix());
+            _shader.SetVector4("color", ball.Color.ToVector4());
+
+            ball.Render();
         }
         public void DrawLine(Vector3 start, Vector3 end, float width, Transform transform, Color color)
         {

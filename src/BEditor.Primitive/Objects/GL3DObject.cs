@@ -117,7 +117,6 @@ namespace BEditor.Primitive.Objects
         public override void Render(EffectRenderArgs args)
         {
             int frame = args.Frame;
-            Action action;
             var color = Blend.Color[frame];
             GLColor color4 = new(color.R, color.G, color.B, color.A);
             color4.A *= Blend.Alpha[frame];
@@ -129,70 +128,40 @@ namespace BEditor.Primitive.Objects
             float scalez = (float)(Zoom.ScaleZ[frame] / 100) * scale;
 
 
+            Parent!.Parent!.GraphicsContext!.MakeCurrent();
+
             if (Type.Index == 0)
             {
-                action = () =>
-                {
-                    //GL.Color4(color4);
-                    //GL.Scale(scalex, scaley, scalez);
-                    //GLTK.DrawCube(
-                    //    Width.GetValue(frame),
-                    //    Height.GetValue(frame),
-                    //    Depth.GetValue(frame),
-                    //    Material.Ambient.GetValue(frame),
-                    //    Material.Diffuse.GetValue(frame),
-                    //    Material.Specular.GetValue(frame),
-                    //    Material.Shininess.GetValue(frame));
-                };
+                using var cube = new Cube(
+                    Width[frame],
+                    Height[frame],
+                    Depth[frame],
+                    Blend.Color[frame]);
+
+                var trans = Transform.Create(
+                    new(Coordinate.X[frame], Coordinate.Y[frame], Coordinate.Z[frame]),
+                    new(Coordinate.CenterX[frame], Coordinate.CenterY[frame], Coordinate.CenterZ[frame]),
+                    new(Angle.AngleX[frame], Angle.AngleY[frame], Angle.AngleZ[frame]),
+                    new(scalex, scaley, scalez));
+
+                Parent.Parent.GraphicsContext.DrawCube(cube, trans);
             }
             else
             {
-                action = () =>
-                {
-                    //GL.Color4(color4);
-                    //GL.Scale(scalex, scaley, scalez);
-                    //GLTK.DrawBall(
-                    //    Depth.GetValue(frame),
-                    //    Material.Ambient.GetValue(frame),
-                    //    Material.Diffuse.GetValue(frame),
-                    //    Material.Specular.GetValue(frame),
-                    //    Material.Shininess.GetValue(frame));
-                };
+                using var ball = new Ball(
+                    Width[frame] * 0.5f,
+                    Height[frame] * 0.5f,
+                    Depth[frame] * 0.5f,
+                    Blend.Color[frame]);
+
+                var trans = Transform.Create(
+                    new(Coordinate.X[frame], Coordinate.Y[frame], Coordinate.Z[frame]),
+                    new(Coordinate.CenterX[frame], Coordinate.CenterY[frame], Coordinate.CenterZ[frame]),
+                    new(Angle.AngleX[frame], Angle.AngleY[frame], Angle.AngleZ[frame]),
+                    new(scalex, scaley, scalez));
+
+                Parent.Parent.GraphicsContext.DrawBall(ball, trans);
             }
-
-            Parent!.Parent!.GraphicsContext!.MakeCurrent();
-            //GLTK.Paint(
-            //    new System.Numerics.Vector3(
-            //        Coordinate.X.GetValue(frame),
-            //        Coordinate.Y.GetValue(frame),
-            //        Coordinate.Z.GetValue(frame)),
-            //    Angle.AngleX.GetValue(frame),
-            //    Angle.AngleY.GetValue(frame),
-            //    Angle.AngleZ.GetValue(frame),
-            //    new System.Numerics.Vector3(
-            //        Coordinate.CenterX.GetValue(frame),
-            //        Coordinate.CenterY.GetValue(frame),
-            //        Coordinate.CenterZ.GetValue(frame)),
-            //    action,
-            //    Blend.BlentFunc[Blend.BlendType.Index]);
-            using var cube = new Cube(
-                Width[frame],
-                Height[frame],
-                Depth[frame],
-                Blend.Color[frame],
-                new(
-                    Material.Ambient[frame],
-                    Material.Diffuse[frame],
-                    Material.Specular[frame],
-                    Material.Shininess[frame]));
-
-            var trans = Transform.Create(
-                new(Coordinate.X[frame], Coordinate.Y[frame], Coordinate.Z[frame]),
-                new(Coordinate.CenterX[frame], Coordinate.CenterY[frame], Coordinate.CenterZ[frame]),
-                new(Angle.AngleX[frame], Angle.AngleY[frame], Angle.AngleZ[frame]),
-                new(scalex, scaley, scalez));
-
-            Parent.Parent.GraphicsContext.DrawCube(cube, trans);
 
             Coordinate.ResetOptional();
         }

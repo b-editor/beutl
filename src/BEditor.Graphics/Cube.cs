@@ -15,7 +15,7 @@ namespace BEditor.Graphics
     /// </summary>
     public class Cube : IDisposable
     {
-        private readonly float[] vertices;
+        private readonly float[] _vertices;
 
         /// <summary>
         /// Initializes a new instance of the <see cref="Cube"/> class.
@@ -25,19 +25,19 @@ namespace BEditor.Graphics
         /// <param name="depth">Depth of cube</param>
         /// <param name="color">Color of cube</param>
         /// <param name="material">Material of cube</param>
-        public Cube(float width, float height, float depth, Color color, Material material)
+        public Cube(float width, float height, float depth, Color color)
         {
             Width = width;
             Height = height;
             Depth = depth;
             Color = color;
-            Material = material;
+            Material = new(Color.Light, Color.Light, Color.Light, 16);
 
             width /= 2;
             height /= 2;
             depth /= 2;
 
-            vertices = new float[]
+            _vertices = new float[]
             {
                 // Position
                 -width, -height, -depth, // Front face
@@ -88,7 +88,7 @@ namespace BEditor.Graphics
 
             VertexBufferObject = GL.GenBuffer();
             GL.BindBuffer(BufferTarget.ArrayBuffer, VertexBufferObject);
-            GL.BufferData(BufferTarget.ArrayBuffer, vertices.Length * sizeof(float), vertices, BufferUsageHint.StaticDraw);
+            GL.BufferData(BufferTarget.ArrayBuffer, _vertices.Length * sizeof(float), _vertices, BufferUsageHint.StaticDraw);
         }
         /// <summary>
         /// Discards the reference to the target represented by the current <see cref="Cube"/> object.
@@ -122,7 +122,7 @@ namespace BEditor.Graphics
         /// <summary>
         /// Get the vertices of this <see cref="Cube"/>.
         /// </summary>
-        public ReadOnlyMemory<float> Vertices => vertices;
+        public ReadOnlyMemory<float> Vertices => _vertices;
         /// <summary>
         /// Get whether an object has been disposed.
         /// </summary>
