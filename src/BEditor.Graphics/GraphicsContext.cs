@@ -1,5 +1,6 @@
 ﻿using System;
 using System.Collections.Generic;
+using System.ComponentModel;
 using System.Diagnostics;
 using System.IO;
 using System.Numerics;
@@ -25,13 +26,13 @@ namespace BEditor.Graphics
         private readonly Shader _shader;
         private readonly Shader _lightShader;
         private readonly Shader _lineShader;
-        private readonly SynchronizationContext? _synchronization;
+        private readonly SynchronizationContext _synchronization;
 
         public GraphicsContext(int width, int height)
         {
             Width = width;
             Height = height;
-            _synchronization = SynchronizationContext.Current;
+            _synchronization = AsyncOperationManager.SynchronizationContext;
 
             if (isFirst)
             {
@@ -79,7 +80,6 @@ namespace BEditor.Graphics
         public bool IsCurrent => GLFW.GetCurrentContext() == _window;
         public bool IsDisposed { get; private set; }
         public Camera Camera { get; set; }
-        public Color ClearColor { get; set; }
 
         public void Clear()
         {
@@ -87,12 +87,9 @@ namespace BEditor.Graphics
 
             GL.Viewport(0, 0, Width, Height);
 
-            //法線の自動調節
-            //GL.Enable(EnableCap.Normalize);
-            //アンチエイリアス
+            // アンチエイリアス
             GL.Enable(EnableCap.LineSmooth);
             GL.Enable(EnableCap.PolygonSmooth);
-            //GL.Enable(EnableCap.PointSmooth);
 
             GL.Hint(HintTarget.FogHint, HintMode.Nicest);
             GL.Hint(HintTarget.LineSmoothHint, HintMode.Nicest);
@@ -101,24 +98,17 @@ namespace BEditor.Graphics
             GL.Hint(HintTarget.PolygonSmoothHint, HintMode.Nicest);
 
             GL.Disable(EnableCap.DepthTest);
-            //GL.Disable(EnableCap.Lighting);
 
 
+            GL.ClearColor(default);
 
-            GL.ClearColor(ClearColor.ToOpenTK());
+            GL.Clear(ClearBufferMask.ColorBufferBit | ClearBufferMask.DepthBufferBit);
         }
         public void MakeCurrent()
         {
-            try
+            if (!IsCurrent)
             {
-                if (!IsCurrent)
-                {
-                    GLFW.MakeContextCurrent(_window);
-                }
-            }
-            catch
-            {
-                Debug.Assert(false);
+                GLFW.MakeContextCurrent(_window);
             }
         }
         public void SwapBuffers()
@@ -239,7 +229,7 @@ namespace BEditor.Graphics
         {
             if (IsDisposed) return;
 
-            _synchronization?.Post(state =>
+            _synchronization.Post(state =>
             {
                 var g = (GraphicsContext)state!;
 

@@ -22,7 +22,7 @@ namespace BEditor.Data
         /// <summary>
         /// Gets the synchronization context for this object.
         /// </summary>
-        public SynchronizationContext? Synchronize { get; }
+        public SynchronizationContext Synchronize { get; }
         /// <summary>
         /// Gets the ServiceProvider.
         /// </summary>
@@ -72,13 +72,13 @@ namespace BEditor.Data
 
 
         /// <inheritdoc/>
-        public SynchronizationContext? Synchronize { get; private set; } = SynchronizationContext.Current;
+        public SynchronizationContext Synchronize { get; private set; } = AsyncOperationManager.SynchronizationContext;
 
         /// <inheritdoc/>
         public virtual ExtensionDataObject? ExtensionData
         {
             get => null;
-            set => Synchronize = SynchronizationContext.Current;
+            set => Synchronize = AsyncOperationManager.SynchronizationContext;
         }
 
         /// <inheritdoc/>

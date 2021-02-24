@@ -222,9 +222,9 @@ namespace BEditor.Data
 
             if (PreviewScene.IsLoaded)
             {
-                PreviewScene.Synchronize?.Post(async _ =>
+                PreviewScene.Synchronize.Send(_ =>
                 {
-                    await using var img = new Image<BGRA32>(PreviewScene.Width, PreviewScene.Height);
+                    using var img = new Image<BGRA32>(PreviewScene.Width, PreviewScene.Height);
 
                     var thumbnail = Path.Combine(DirectoryName!, "thumbnail.png");
                     PreviewScene.Render(img, RenderType.ImageOutput);
