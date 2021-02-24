@@ -52,11 +52,13 @@ namespace BEditor.Data.Property
         /// </summary>
         [DataMember]
         public ObservableCollection<Color> Value { get; set; }
+
         /// <summary>
         /// Get the <see cref="List{Frame}"/> of the frame number corresponding to <see cref="Value"/>.
         /// </summary>
         [DataMember]
         public List<Frame> Frame { get; set; }
+
         /// <summary>
         /// Get or set the current <see cref="EasingFunc"/>.
         /// </summary>
@@ -80,15 +82,19 @@ namespace BEditor.Data.Property
                 EasingData = EasingMetadata.LoadedEasingFunc.Find(x => x.Type == value.GetType())!;
             }
         }
+
         /// <summary>
         /// Get or set the metadata for <see cref="EasingType"/>
         /// </summary>
+        /// 
         public EasingMetadata EasingData
         {
             get => _easingData ?? EasingMetadata.LoadedEasingFunc[0];
             set => SetValue(value, ref _easingData, _easingDataArgs);
         }
+
         internal Frame Length => Parent?.Parent?.Length ?? default;
+
         /// <inheritdoc/>
         public override EffectElement? Parent
         {
@@ -100,19 +106,23 @@ namespace BEditor.Data.Property
             }
         }
 
+
         /// <summary>
         /// Get an eased value.
         /// </summary>
         public Color this[Frame frame] => GetValue(frame);
 
+
         /// <summary>
         /// Occurs when requesting to add a keyframe to the UI.
         /// </summary>
         public event EventHandler<(Frame frame, int index)>? AddKeyFrameEvent;
+
         /// <summary>
         /// Occurs when requesting the UI to delete a keyframe.
         /// </summary>
         public event EventHandler<int>? DeleteKeyFrameEvent;
+
         /// <summary>
         /// Occurs when the UI requires a keyframe to be moved.
         /// </summary>
@@ -210,7 +220,6 @@ namespace BEditor.Data.Property
                 (byte)blue);
         }
 
-        #region キーフレーム操作
         /// <summary>
         /// Insert a keyframe at a specific frame.
         /// </summary>
@@ -220,7 +229,7 @@ namespace BEditor.Data.Property
         /// <exception cref="ArgumentOutOfRangeException"><paramref name="frame"/> is outside the scope of the parent element.</exception>
         public int InsertKeyframe(Frame frame, Color value)
         {
-            if (frame <= this.GetParent2()!.Start || this.GetParent2()!.End <= frame) throw new ArgumentOutOfRangeException(nameof(frame));
+            if (Media.Frame.Zero >= frame || frame >= this.GetParent2()!.Length) throw new ArgumentOutOfRangeException(nameof(frame));
 
             Frame.Add(frame);
 
@@ -249,7 +258,7 @@ namespace BEditor.Data.Property
         /// <exception cref="ArgumentOutOfRangeException"><paramref name="frame"/> is outside the scope of the parent element.</exception>
         public int RemoveKeyframe(Frame frame, out Color value)
         {
-            if (frame <= this.GetParent2()!.Start || this.GetParent2()!.End <= frame) throw new ArgumentOutOfRangeException(nameof(frame));
+            if (Media.Frame.Zero >= frame || frame >= this.GetParent2()!.Length) throw new ArgumentOutOfRangeException(nameof(frame));
 
             //値基準のindex
             var index = Frame.IndexOf(frame) + 1;
@@ -262,7 +271,6 @@ namespace BEditor.Data.Property
 
             return index;
         }
-        #endregion
 
         /// <inheritdoc/>
         protected override void OnLoad()
@@ -270,6 +278,7 @@ namespace BEditor.Data.Property
             EasingType.Parent = this;
             EasingType.Load();
         }
+
         /// <inheritdoc/>
         protected override void OnUnload()
         {
@@ -284,6 +293,7 @@ namespace BEditor.Data.Property
         /// <returns>Created <see cref="IRecordCommand"/>.</returns>
         [Pure]
         public IRecordCommand ChangeColor(int index, Color color) => new ChangeColorCommand(this, index, color);
+
         /// <summary>
         /// Create a command to change the easing function.
         /// </summary>
@@ -291,6 +301,7 @@ namespace BEditor.Data.Property
         /// <returns>Created <see cref="IRecordCommand"/>.</returns>
         [Pure]
         public IRecordCommand ChangeEase(EasingMetadata metadata) => new ChangeEaseCommand(this, metadata);
+
         /// <summary>
         /// Create a command to add a keyframe.
         /// </summary>
@@ -298,6 +309,7 @@ namespace BEditor.Data.Property
         /// <returns>Created <see cref="IRecordCommand"/>.</returns>
         [Pure]
         public IRecordCommand AddFrame(Frame frame) => new AddCommand(this, frame);
+
         /// <summary>
         /// Create a command to remove a keyframe.
         /// </summary>
@@ -305,6 +317,7 @@ namespace BEditor.Data.Property
         /// <returns>Created <see cref="IRecordCommand"/>.</returns>
         [Pure]
         public IRecordCommand RemoveFrame(Frame frame) => new RemoveCommand(this, frame);
+
         /// <summary>
         /// Create a command to move a keyframe
         /// </summary>
