@@ -192,7 +192,7 @@ namespace BEditor.Data.Primitive
                 }
             });
         }
-        private Transform GetTransform(Frame frame)
+        public Transform GetTransform(Frame frame)
         {
             var scale = (float)(Zoom.Scale.GetValue(frame) / 100);
             var scalex = (float)(Zoom.ScaleX.GetValue(frame) / 100) * scale;

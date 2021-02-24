@@ -5,6 +5,7 @@ using BEditor.Command;
 using BEditor.Data;
 using BEditor.Data.Primitive;
 using BEditor.Data.Property;
+using BEditor.Drawing;
 using BEditor.Properties;
 
 using OpenTK.Graphics.OpenGL4;
@@ -93,7 +94,14 @@ namespace BEditor.Primitive.Effects
         /// <inheritdoc/>
         public override void Render(EffectRenderArgs args)
         {
-            //int frame = args.Frame;
+            int frame = args.Frame;
+
+            Parent!.Parent!.GraphicsContext!.Light = new()
+            {
+                Color = Color.Light,
+                Position = new(X.GetValue(frame), Y.GetValue(frame), Z.GetValue(frame))
+            };
+
             //GL.Enable(EnableCap.Lighting);
 
             //float[] position = new float[] { X.GetValue(frame), Y.GetValue(frame), Z.GetValue(frame), 1f };

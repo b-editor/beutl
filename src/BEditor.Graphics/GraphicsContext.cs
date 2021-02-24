@@ -61,10 +61,10 @@ namespace BEditor.Graphics
 
             Clear();
 
-            _textureShader = new(Shaders.TextureVert, Shaders.TextureFrag);
-            _shader = new(Shaders.Vert, Shaders.Frag);
-            _lightShader = new(Shaders.Vert, Shaders.LightFrag);
-            _lineShader = new(Shaders.LineVert, Shaders.LineFrag);
+            _textureShader = ShaderFactory.Texture.Create();
+            _shader = ShaderFactory.Default.Create();
+            _lightShader = ShaderFactory.Lighting.Create();
+            _lineShader = ShaderFactory.Line.Create();
 
 
             Camera = new OrthographicCamera(new(0, 0, 1024), width, height);
@@ -80,6 +80,7 @@ namespace BEditor.Graphics
         public bool IsCurrent => GLFW.GetCurrentContext() == _window;
         public bool IsDisposed { get; private set; }
         public Camera Camera { get; set; }
+        public Light? Light { get; set; }
 
         public void Clear()
         {
@@ -186,21 +187,48 @@ namespace BEditor.Graphics
         {
             MakeCurrent();
 
-            _shader.Use();
+            if (Light is null)
+            {
+                _shader.Use();
 
-            var vertexLocation = _shader.GetAttribLocation("aPos");
-            GL.EnableVertexAttribArray(vertexLocation);
-            GL.VertexAttribPointer(vertexLocation, 3, VertexAttribPointerType.Float, false, 3 * sizeof(float), 0);
+                var vertexLocation = _shader.GetAttribLocation("aPos");
+                GL.EnableVertexAttribArray(vertexLocation);
+                GL.VertexAttribPointer(vertexLocation, 3, VertexAttribPointerType.Float, false, 6 * sizeof(float), 0);
 
 
-            GL.BindVertexArray(cube.VertexArrayObject);
+                GL.BindVertexArray(cube.VertexArrayObject);
 
-            _shader.SetMatrix4("model", transform.Matrix);
-            _shader.SetMatrix4("view", Camera.GetViewMatrix());
-            _shader.SetMatrix4("projection", Camera.GetProjectionMatrix());
-            _shader.SetVector4("color", cube.Color.ToVector4());
+                _shader.SetMatrix4("model", transform.Matrix);
+                _shader.SetMatrix4("view", Camera.GetViewMatrix());
+                _shader.SetMatrix4("projection", Camera.GetProjectionMatrix());
+                _shader.SetVector4("color", cube.Color.ToVector4());
 
-            cube.Render();
+                cube.Render();
+            }
+            else
+            {
+                _lightShader.Use();
+
+                var vertexLocation = _lightShader.GetAttribLocation("aPos");
+                GL.EnableVertexAttribArray(vertexLocation);
+                GL.VertexAttribPointer(vertexLocation, 3, VertexAttribPointerType.Float, false, 6 * sizeof(float), 0);
+                var normalLocation = _lightShader.GetAttribLocation("aNormal");
+                GL.EnableVertexAttribArray(normalLocation);
+                GL.VertexAttribPointer(normalLocation, 3, VertexAttribPointerType.Float, false, 6 * sizeof(float), 3 * sizeof(float));
+
+                GL.BindVertexArray(cube.VertexArrayObject);
+
+                _lightShader.SetMatrix4("model", transform.Matrix);
+                _lightShader.SetMatrix4("view", Camera.GetViewMatrix());
+                _lightShader.SetMatrix4("projection", Camera.GetProjectionMatrix());
+                _lightShader.SetVector4("objectColor", cube.Color.ToVector4());
+                _lightShader.SetVector4("lightColor", Light.Color.ToVector4());
+                _lightShader.SetVector3("lightPos", Light.Position);
+                _lightShader.SetVector3("viewPos", Camera.Position);
+
+
+                cube.Render();
+            }
         }
         public void DrawBall(Ball ball, Transform transform)
         {
@@ -224,9 +252,13 @@ namespace BEditor.Graphics
         }
         public void DrawLine(Vector3 start, Vector3 end, float width, Transform transform, Color color)
         {
-            MakeCurrent();
-
             using var line = new Line(start, end, width);
+
+            DrawLine(line, transform, color);
+        }
+        public void DrawLine(Line line, Transform transform, Color color)
+        {
+            MakeCurrent();
 
             _lineShader.Use();
 

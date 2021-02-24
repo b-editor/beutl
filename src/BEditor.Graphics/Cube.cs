@@ -40,47 +40,47 @@ namespace BEditor.Graphics
             _vertices = new float[]
             {
                 // Position
-                -width, -height, -depth, // Front face
-                 width, -height, -depth,
-                 width,  height, -depth,
-                 width,  height, -depth,
-                -width,  height, -depth,
-                -width, -height, -depth,
+                -width, -height, -depth,  0.0f,  0.0f, -1.0f, // Front face
+                 width, -height, -depth,  0.0f,  0.0f, -1.0f,
+                 width,  height, -depth,  0.0f,  0.0f, -1.0f,
+                 width,  height, -depth,  0.0f,  0.0f, -1.0f,
+                -width,  height, -depth,  0.0f,  0.0f, -1.0f,
+                -width, -height, -depth,  0.0f,  0.0f, -1.0f,
 
-                -width, -height,  depth, // Back face
-                 width, -height,  depth,
-                 width,  height,  depth,
-                 width,  height,  depth,
-                -width,  height,  depth,
-                -width, -height,  depth,
+                -width, -height,  depth,  0.0f,  0.0f,  1.0f, // Back face
+                 width, -height,  depth,  0.0f,  0.0f,  1.0f,
+                 width,  height,  depth,  0.0f,  0.0f,  1.0f,
+                 width,  height,  depth,  0.0f,  0.0f,  1.0f,
+                -width,  height,  depth,  0.0f,  0.0f,  1.0f,
+                -width, -height,  depth,  0.0f,  0.0f,  1.0f,
 
-                -width,  height,  depth, // Left face
-                -width,  height, -depth,
-                -width, -height, -depth,
-                -width, -height, -depth,
-                -width, -height,  depth,
-                -width,  height,  depth,
+                -width,  height,  depth, -1.0f,  0.0f,  0.0f, // Left face
+                -width,  height, -depth, -1.0f,  0.0f,  0.0f,
+                -width, -height, -depth, -1.0f,  0.0f,  0.0f,
+                -width, -height, -depth, -1.0f,  0.0f,  0.0f,
+                -width, -height,  depth, -1.0f,  0.0f,  0.0f,
+                -width,  height,  depth, -1.0f,  0.0f,  0.0f,
 
-                 width,  height,  depth, // Right face
-                 width,  height, -depth,
-                 width, -height, -depth,
-                 width, -height, -depth,
-                 width, -height,  depth,
-                 width,  height,  depth,
+                 width,  height,  depth,  1.0f,  0.0f,  0.0f, // Right face
+                 width,  height, -depth,  1.0f,  0.0f,  0.0f,
+                 width, -height, -depth,  1.0f,  0.0f,  0.0f,
+                 width, -height, -depth,  1.0f,  0.0f,  0.0f,
+                 width, -height,  depth,  1.0f,  0.0f,  0.0f,
+                 width,  height,  depth,  1.0f,  0.0f,  0.0f,
 
-                -width, -height, -depth, // Bottom face
-                 width, -height, -depth,
-                 width, -height,  depth,
-                 width, -height,  depth,
-                -width, -height,  depth,
-                -width, -height, -depth,
+                -width, -height, -depth,  0.0f, -1.0f,  0.0f, // Bottom face
+                 width, -height, -depth,  0.0f, -1.0f,  0.0f,
+                 width, -height,  depth,  0.0f, -1.0f,  0.0f,
+                 width, -height,  depth,  0.0f, -1.0f,  0.0f,
+                -width, -height,  depth,  0.0f, -1.0f,  0.0f,
+                -width, -height, -depth,  0.0f, -1.0f,  0.0f,
 
-                -width,  height, -depth, // Top face
-                 width,  height, -depth,
-                 width,  height,  depth,
-                 width,  height,  depth,
-                -width,  height,  depth,
-                -width,  height, -depth
+                -width,  height, -depth,  0.0f,  1.0f,  0.0f, // Top face
+                 width,  height, -depth,  0.0f,  1.0f,  0.0f,
+                 width,  height,  depth,  0.0f,  1.0f,  0.0f,
+                 width,  height,  depth,  0.0f,  1.0f,  0.0f,
+                -width,  height,  depth,  0.0f,  1.0f,  0.0f,
+                -width,  height, -depth,  0.0f,  1.0f,  0.0f,
             };
 
             VertexArrayObject = GL.GenVertexArray();
