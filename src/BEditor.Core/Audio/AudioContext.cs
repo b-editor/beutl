@@ -24,19 +24,30 @@ namespace BEditor.Audio
         {
             device = ALC.OpenDevice(null);
             context = ALC.CreateContext(device, (int[])null!);
+            var e = AL.GetError();
         }
 
         /// <summary>
         /// Get whether an object has been disposed.
         /// </summary>
         public bool IsDisposed { get; private set; }
+        /// <summary>
+        /// Get whether this context is current or not.
+        /// </summary>
+        public bool IsCurrent => ALC.GetCurrentContext() == context;
 
         /// <summary>
         /// Set this context to current.
         /// </summary>
         public void MakeCurrent()
         {
-            ALC.MakeContextCurrent(context);
+            if (!IsCurrent)
+            {
+                ALC.MakeContextCurrent(context);
+                var e = AL.GetError();
+
+                System.Diagnostics.Debug.Assert(e is ALError.NoError);
+            }
         }
         /// <inheritdoc/>
         public void Dispose()

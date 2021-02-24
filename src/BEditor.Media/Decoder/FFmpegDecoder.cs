@@ -2,6 +2,7 @@
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
+using System.Runtime.CompilerServices;
 using System.Text;
 using System.Threading.Tasks;
 
@@ -72,21 +73,27 @@ namespace BEditor.Media.Decoder
                 Buffer.MemoryCopy(src, dst, image.DataSize, image.DataSize);
             }
         }
-        public void Read(TimeSpan time, out Sound<PCM32> sound)
+        public void Read(TimeSpan time, out Sound<PCM32> left, out Sound<PCM32> right)
         {
             var audio = media.Audio.GetFrame(time);
             var array = audio.GetSampleData();
 
-            sound = new((Channel)media.Audio.Info.NumChannels, (uint)media.Audio.Info.SampleRate, (uint)audio.NumSamples);
+            left = new((uint)media.Audio.Info.SampleRate, (uint)audio.NumSamples);
+            right = new((uint)media.Audio.Info.SampleRate, (uint)audio.NumSamples);
 
-            for (int i = 0; i < sound.Length; i += 2)
+            array[0].Select(i => Unsafe.As<float, PCM32>(ref i)).ToArray().CopyTo(left.Pcm.AsSpan());
+
+            if (array.Length is 2)
             {
-                sound.Pcm[i] = array[0][i / 2];
+                array[1].Select(i => Unsafe.As<float, PCM32>(ref i)).ToArray().CopyTo(left.Pcm.AsSpan());
             }
-            for (int i = 1; i < sound.Length; i += 2)
-            {
-                sound.Pcm[i] = array[1][i / 2];
-            }
+        }
+        public void Read(TimeSpan time, out Sound<PCM16> left, out Sound<PCM16> right)
+        {
+            Read(time, out Sound<PCM32> left32, out Sound<PCM32> right32);
+
+            left = left32.Convert<PCM16>();
+            right = right32.Convert<PCM16>();
         }
     }
 }

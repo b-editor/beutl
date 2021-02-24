@@ -10,24 +10,28 @@ namespace BEditor.Media
 {
     public unsafe class Sound<T> where T : unmanaged, IPCM<T>
     {
-        public Sound(Channel channels, uint rate, uint length)
+        public Sound(uint rate, uint length)
         {
-            Channels = channels;
             Samplingrate = rate;
             Length = length;
-            Pcm = new T[(uint)channels * length];
+            Pcm = new T[length];
         }
 
         public T[] Pcm { get; }
-        public Channel Channels { get; }
         public uint Samplingrate { get; }
         public uint Length { get; }
-        public long DataSize => (uint)Channels * Length * sizeof(T);
-    }
+        public long DataSize => (uint)Length * sizeof(T);
 
-    public enum Channel : uint
-    {
-        Monaural = 1,
-        Stereo = 2
+        public Sound<TConvert> Convert<TConvert>() where TConvert : unmanaged, IPCM<TConvert>, IPCMConvertable<T>
+        {
+            var result = new Sound<TConvert>(Samplingrate, Length);
+
+            Parallel.For(0, Length, i =>
+            {
+                result.Pcm[i].ConvertFrom(Pcm[i]);
+            });
+
+            return result;
+        }
     }
 }

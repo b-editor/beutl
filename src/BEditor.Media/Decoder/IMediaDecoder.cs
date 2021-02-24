@@ -17,6 +17,6 @@ namespace BEditor.Media.Decoder
 
         public void Read(Frame frame, out Image<BGRA32> image);
         public void Read(TimeSpan time, out Image<BGRA32> image);
-        public void Read(TimeSpan time, out Sound<PCM32> sound);
+        public void Read(TimeSpan time, out Sound<PCM32> left, out Sound<PCM32> right);
     }
 }

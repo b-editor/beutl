@@ -97,20 +97,29 @@ namespace BEditor.Primitive.Objects
         }
 
         /// <inheritdoc/>
-        public override unsafe void Render(EffectRenderArgs args)
+        public override void Render(EffectRenderArgs args)
         {
-            if (Decoder is null || args.Type is RenderType.VideoPreview) return;
+            if (Decoder is null /*|| args.Type is not RenderType.VideoPreview*/) return;
 
             var src = AL.GenSource();
             var buf = AL.GenBuffer();
-            Decoder.Read(args.Frame.ToTimeSpan(Parent!.Parent.Parent!.Framerate), out Sound<PCM32> sound);
+            var time = (args.Frame - Parent!.Start).ToTimeSpan(Parent!.Parent.Parent!.Framerate);
+            Decoder.Read(time, out Sound<PCM16> left, out _);
 
-            AL.BufferData(buf, ALFormat.Stereo16, sound.Pcm, (int)sound.Samplingrate);
+            AL.BufferData(buf, ALFormat.Mono16, left.Pcm, (int)left.Samplingrate);
 
             AL.Source(src, ALSourcei.Buffer, buf);
-            AL.Source(src, ALSourcef.Gain, Volume[args.Frame]);
+            AL.Source(src, ALSourcef.Gain, Volume[args.Frame] / 100f);
 
             AL.SourcePlay(src);
+
+            Task.Run(async () =>
+            {
+                await Task.Delay(1000);
+
+                AL.DeleteBuffer(buf);
+                AL.DeleteSource(src);
+            });
         }
         /// <inheritdoc/>
         protected override void OnLoad()

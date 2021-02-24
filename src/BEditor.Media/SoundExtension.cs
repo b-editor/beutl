@@ -12,9 +12,9 @@ namespace BEditor.Media
     {
         public static Sound<PCM16> SinWave(uint samplingrate)
         {
-            var sound = new Sound<PCM16>(Channel.Monaural, samplingrate, 60);
+            var sound = new Sound<PCM16>(samplingrate, samplingrate * 1);
 
-            fixed(PCM16* pcm = sound.Pcm)
+            fixed (PCM16* pcm = sound.Pcm)
             {
                 for (int i = 0; i < samplingrate; i++)
                 {
@@ -23,6 +23,18 @@ namespace BEditor.Media
             }
 
             return sound;
+        }
+
+        public static Sound<TConvert> Convert<TConvert, TSource>(this Sound<TSource> self) where TSource : unmanaged, IPCM<TSource>, IPCMConvertable<TConvert> where TConvert : unmanaged, IPCM<TConvert>
+        {
+            var result = new Sound<TConvert>(self.Samplingrate, self.Length);
+
+            Parallel.For(0, self.Length, i =>
+            {
+                self.Pcm[i].ConvertTo(out result.Pcm[i]);
+            });
+
+            return result;
         }
     }
 }

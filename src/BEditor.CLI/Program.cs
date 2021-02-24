@@ -205,14 +205,14 @@ namespace BEditor
 
                 var file = command.Argument("project", CommandLineResources.ProjectFile);
 
-                command.OnExecute(() =>
+                command.OnExecute(async () =>
                 {
                     ConsoleEditor? editor = null;
                     try
                     {
                         editor = new ConsoleEditor(file.Value);
 
-                        editor.Execute();
+                        await editor.Execute();
 
                         return 0;
                     }
