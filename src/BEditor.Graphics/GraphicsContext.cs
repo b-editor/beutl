@@ -221,11 +221,19 @@ namespace BEditor.Graphics
                 _lightShader.SetMatrix4("model", transform.Matrix);
                 _lightShader.SetMatrix4("view", Camera.GetViewMatrix());
                 _lightShader.SetMatrix4("projection", Camera.GetProjectionMatrix());
-                _lightShader.SetVector4("objectColor", cube.Color.ToVector4());
-                _lightShader.SetVector4("lightColor", Light.Color.ToVector4());
-                _lightShader.SetVector3("lightPos", Light.Position);
                 _lightShader.SetVector3("viewPos", Camera.Position);
+                _lightShader.SetVector4("color", cube.Color.ToVector4());
 
+                _lightShader.SetVector4("material.ambient", cube.Material.Ambient.ToVector4());
+                _lightShader.SetVector4("material.diffuse", cube.Material.Diffuse.ToVector4());
+                _lightShader.SetVector4("material.specular", cube.Material.Specular.ToVector4());
+                _lightShader.SetFloat("material.shininess", cube.Material.Shininess);
+
+                _lightShader.SetVector3("light.position", Light.Position);
+                _lightShader.SetVector4("light.ambient", Light.Ambient.ToVector4());
+                _lightShader.SetVector4("light.diffuse", Light.Diffuse.ToVector4());
+                _lightShader.SetVector4("light.specular", Light.Specular.ToVector4());
+                
 
                 cube.Render();
             }

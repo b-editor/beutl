@@ -11,7 +11,17 @@ namespace BEditor.Graphics
 {
     public class Light
     {
-        public Color Color { get; set; }
+        public Light(Vector3 pos, Color ambient, Color diffuse, Color specular)
+        {
+            Position = pos;
+            Ambient = ambient;
+            Diffuse = diffuse;
+            Specular = specular;
+        }
+
+        public Color Ambient { get; set; }
+        public Color Diffuse { get; set; }
+        public Color Specular { get; set; }
         public Vector3 Position { get; set; }
     }
 }

@@ -366,6 +366,7 @@ namespace BEditor.Data
             var layer = GetFrame(frame).ToList();
 
             GraphicsContext!.Camera = new OrthographicCamera(new(0, 0, 1024), Width, Height);
+            GraphicsContext!.Light = null;
             GraphicsContext!.MakeCurrent();
             AudioContext!.MakeCurrent();
             GraphicsContext!.Clear();
@@ -412,6 +413,7 @@ namespace BEditor.Data
             var layer = GetFrame(frame).ToList();
 
             GraphicsContext!.Camera = new OrthographicCamera(new(0, 0, 1024), Width, Height);
+            GraphicsContext!.Light = null;
             GraphicsContext!.MakeCurrent();
             AudioContext!.MakeCurrent();
             GraphicsContext!.Clear();

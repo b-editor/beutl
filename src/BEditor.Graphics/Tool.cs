@@ -41,6 +41,14 @@ namespace BEditor.Graphics
             return new Vector2(vector3.X, vector3.Y);
         }
 
+        internal static System.Numerics.Vector3 ToVector3(this in Color color)
+        {
+            return new(
+                color.R / 255f,
+                color.G / 255f,
+                color.B / 255f);
+        }
+        
         internal static System.Numerics.Vector4 ToVector4(this in Color color)
         {
             return new(

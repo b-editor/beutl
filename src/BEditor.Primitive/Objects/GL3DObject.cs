@@ -136,7 +136,10 @@ namespace BEditor.Primitive.Objects
                     Width[frame],
                     Height[frame],
                     Depth[frame],
-                    Blend.Color[frame]);
+                    Blend.Color[frame])
+                {
+                    Material= new(Material.Ambient[frame], Material.Diffuse[frame], Material.Specular[frame], Material.Shininess[frame])
+                };
 
                 var trans = Transform.Create(
                     new(Coordinate.X[frame], Coordinate.Y[frame], Coordinate.Z[frame]),

@@ -114,7 +114,7 @@ namespace BEditor.Graphics
         /// <summary>
         /// Get the material of this <see cref="Cube"/>.
         /// </summary>
-        public Material Material { get; }
+        public Material Material { get; set; }
         /// <summary>
         /// Get the color of this <see cref="Cube"/>.
         /// </summary>
