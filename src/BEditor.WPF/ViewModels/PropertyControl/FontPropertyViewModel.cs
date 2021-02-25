@@ -23,7 +23,7 @@ namespace BEditor.ViewModels.PropertyControl
                 .ToReadOnlyReactiveProperty();
 
             Command.Subscribe(font => Property.ChangeFont(font).Execute());
-            Reset.Subscribe(() => Property.ChangeFont(Property.PropertyMetadata?.SelectItem ?? FontProperty.FontList[0]).Execute());
+            Reset.Subscribe(() => Property.ChangeFont(Property.PropertyMetadata?.SelectItem ?? FontManager.Default.LoadedFonts.First()).Execute());
         }
 
         public ReadOnlyReactiveProperty<FontPropertyMetadata?> Metadata { get; }

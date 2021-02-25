@@ -62,7 +62,7 @@ namespace BEditor.Primitive.Effects
 
         public override void Render(EffectRenderArgs<Image<BGRA32>> args)
         {
-            args.Value = Image.Text(Value.Value, FontProperty.FontList[0], 50, Color.Blue);
+            args.Value = Image.Text(Value.Value, FontManager.Default.LoadedFonts.First(), 50, Color.Blue);
         }
 
         [DataContract]

@@ -490,7 +490,7 @@ namespace BEditor.Drawing
         {
             fixed (BGRA32* s = self.Data)
             {
-                Parallel.For(0, self.Data.Length, new ColorKeyProcess(s, s, color,value).Invoke);
+                Parallel.For(0, self.Data.Length, new ColorKeyProcess(s, s, color, value).Invoke);
             }
         }
 
@@ -656,9 +656,12 @@ namespace BEditor.Drawing
             if (string.IsNullOrEmpty(text)) return new Image<BGRA32>(1, 1, default(BGRA32));
             if (font is null) throw new ArgumentNullException(nameof(font));
 
-            //using var face = SKTypeface.FromFile(font.Filename);
-            using var face = SKTypeface.FromFamilyName(font.FamilyName, (int)font.Weight, (int)font.Width, SKFontStyleSlant.Upright);
-            using var fontObj = new SKFont(face, size);
+            using var face = SKTypeface.FromFile(font.Filename);
+            using var fontObj = new SKFont(face, size)
+            {
+                Edging = SKFontEdging.Antialias,
+
+            };
 
             using var paint = new SKPaint(fontObj)
             {

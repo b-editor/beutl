@@ -26,14 +26,5 @@ namespace BEditor.Views.SettingsControl.General
         {
             InitializeComponent();
         }
-
-        private void UserControl_Unloaded(object sender, RoutedEventArgs e)
-        {
-            Task.Run(() =>
-            {
-                FontProperty.FontList.Clear();
-                App.InitialFontManager();
-            });
-        }
     }
 }

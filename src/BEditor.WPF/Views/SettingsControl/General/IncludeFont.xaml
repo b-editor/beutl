@@ -8,8 +8,7 @@
              xmlns:properties="clr-namespace:BEditor.Properties;assembly=BEditor.Core"
              xmlns:setting="clr-namespace:BEditor;assembly=BEditor.Settings"
              xmlns:md="http://materialdesigninxaml.net/winfx/xaml/themes"
-             mc:Ignorable="d" 
-             Unloaded="UserControl_Unloaded"
+             mc:Ignorable="d"
              d:DesignHeight="450" d:DesignWidth="800">
     <UserControl.DataContext>
         <vm:IncludeFontViewModel/>
