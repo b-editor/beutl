@@ -22,7 +22,6 @@ namespace BEditor
         private static readonly PropertyChangedEventArgs widthOf1FrameArgs = new(nameof(WidthOf1Frame));
         private static readonly PropertyChangedEventArgs enableErrorLogArgs = new(nameof(EnableErrorLog));
         private static readonly PropertyChangedEventArgs langArgs = new(nameof(Language));
-        private static readonly PropertyChangedEventArgs stackLimitArgs = new(nameof(StackLimit));
         private static readonly PropertyChangedEventArgs showStartWindowArgs = new(nameof(ShowStartWindow));
         private int clipHeight = 25;
         private bool darkMode = true;
@@ -36,7 +35,6 @@ namespace BEditor
         private ObservableCollection<string>? includeFonts;
         private ObservableCollection<string>? mostRecentlyUsedList;
         private string? language;
-        private uint stackLimit = 1048576;
 
         #endregion
 
@@ -118,7 +116,55 @@ namespace BEditor
         [DataMember]
         public ObservableCollection<string> IncludeFontDir
         {
-            get => includeFonts ??= new();
+            get
+            {
+                if (includeFonts is null)
+                {
+                    includeFonts = new();
+                    string[] fontDirs;
+
+                    if (OperatingSystem.IsWindows())
+                    {
+                        var user = Environment.GetFolderPath(Environment.SpecialFolder.UserProfile);
+                        fontDirs = new string[]
+                        {
+                            $"{user}\\AppData\\Local\\Microsoft\\Windows\\Fonts",
+                            "C:\\Windows\\Fonts"
+                        };
+                    }
+                    else if (OperatingSystem.IsLinux())
+                    {
+                        var user = Environment.GetFolderPath(Environment.SpecialFolder.UserProfile);
+                        fontDirs = new string[]
+                        {
+                            "/usr/local/share/fonts",
+                            "/usr/share/fonts",
+                            $"{user}/.local/share/fonts/"
+                        };
+                    }
+                    else if (OperatingSystem.IsMacOS())
+                    {
+                        var user = Environment.GetFolderPath(Environment.SpecialFolder.UserProfile);
+                        fontDirs = new string[]
+                        {
+                            "/System/Library/Fonts",
+                            "/Library/Fonts",
+                            $"{user}/Library/Fonts"
+                        };
+                    }
+                    else
+                    {
+                        fontDirs = Array.Empty<string>();
+                    }
+
+                    foreach (var dir in fontDirs.Where(d => Directory.Exists(d)))
+                    {
+                        includeFonts.Add(dir);
+                    }
+                }
+
+                return includeFonts;
+            }
             set => includeFonts = value;
         }
         [DataMember]
@@ -126,12 +172,6 @@ namespace BEditor
         {
             get => language ??= CultureInfo.CurrentCulture.Name;
             set => SetValue(value, ref language, langArgs);
-        }
-        [DataMember]
-        public uint StackLimit
-        {
-            get => stackLimit;
-            set => SetValue(value, ref stackLimit, stackLimitArgs);
         }
         [DataMember]
         public bool ShowStartWindow

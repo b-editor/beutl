@@ -448,8 +448,8 @@ namespace BEditor.Drawing
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         private static void ThrowOutOfRange(int width, int height)
         {
-            if (width is <= 0) throw new ArgumentOutOfRangeException(nameof(width), string.Format(Resources.LessThan, nameof(width), 0));
-            if (height is <= 0) throw new ArgumentOutOfRangeException(nameof(height), string.Format(Resources.LessThan, nameof(width), 0));
+            if (width is < 0) throw new ArgumentOutOfRangeException(nameof(width), string.Format(Resources.LessThan, nameof(width), 0));
+            if (height is < 0) throw new ArgumentOutOfRangeException(nameof(height), string.Format(Resources.LessThan, nameof(width), 0));
         }
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         private void ThrowColOutOfRange(int x)

@@ -26,12 +26,6 @@ namespace BEditor.Data.Property
     {
         #region Fields
 
-        /// <summary>
-        /// 読み込まれているフォントのリスト
-        /// </summary>
-        //Todo: FontManagerを作る
-        public static readonly List<Font> FontList = new();
-
         private static readonly PropertyChangedEventArgs _selectArgs = new(nameof(Select));
         private Font _selectItem;
         private List<IObserver<Font>>? _list;
@@ -204,13 +198,13 @@ namespace BEditor.Data.Property
         /// </summary>
         public FontPropertyMetadata() : base(Resources.Font)
         {
-            SelectItem = FontProperty.FontList.FirstOrDefault()!;
+            SelectItem = FontManager.Default.LoadedFonts.FirstOrDefault()!;
         }
 
         /// <summary>
         /// 
         /// </summary>
-        public IEnumerable<Font> ItemSource => FontProperty.FontList;
+        public IEnumerable<Font> ItemSource => FontManager.Default.LoadedFonts;
         /// <summary>
         /// 
         /// </summary>
