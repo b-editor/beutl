@@ -11,17 +11,50 @@ using OpenTK.Graphics.OpenGL4;
 
 namespace BEditor.Graphics
 {
-    public class Ball : IDisposable
+    public class Ball : GraphicsObject
     {
         private readonly float[] _vertices;
         private const int count = 8;
 
-        public Ball(float radiusX,float radiusY,float radiusZ, Color color)
+        /// <summary>
+        /// Initializes a new instance of the <see cref="Ball"/> class.
+        /// </summary>
+        /// <param name="radiusX">The radius of the ball in the X-axis direction.</param>
+        /// <param name="radiusY">The radius of the ball in the Y-axis direction.</param>
+        /// <param name="radiusZ">The radius of the ball in the Z-axis direction.</param>
+        /// <param name="color">The color of the ball.</param>
+        public Ball(float radiusX, float radiusY, float radiusZ, Color color) : this(radiusX, radiusY, radiusZ, color, new(Color.Light, Color.Light, Color.Light, 16))
+        {
+        }
+        /// <summary>
+        /// Initializes a new instance of the <see cref="Ball"/> class.
+        /// </summary>
+        /// <param name="radiusX">The radius of the ball in the X-axis direction.</param>
+        /// <param name="radiusY">The radius of the ball in the Y-axis direction.</param>
+        /// <param name="radiusZ">The radius of the ball in the Z-axis direction.</param>
+        /// <param name="color">The color of the ball.</param>
+        /// <param name="material">The material of the ball.</param>
+        public Ball(float radiusX, float radiusY, float radiusZ, Color color, Material material) : this(radiusX, radiusY, radiusZ, color, material, Transform.Default)
+        {
+        }
+        /// <summary>
+        /// Initializes a new instance of the <see cref="Ball"/> class.
+        /// </summary>
+        /// <param name="radiusX">The radius of the ball in the X-axis direction.</param>
+        /// <param name="radiusY">The radius of the ball in the Y-axis direction.</param>
+        /// <param name="radiusZ">The radius of the ball in the Z-axis direction.</param>
+        /// <param name="color">The color of the ball.</param>
+        /// <param name="material">The material of the ball.</param>
+        /// <param name="transform">The transform of the ball.</param>
+        public Ball(float radiusX, float radiusY, float radiusZ, Color color, Material material, Transform transform)
         {
             RadiusX = radiusX;
             RadiusY = radiusY;
             RadiusZ = radiusZ;
             Color = color;
+            Material = material;
+            Transform = transform;
+
             var a = (float)(Math.PI / count / 2);
             var b = (float)(Math.PI / count / 2);
             var verticesList = new List<float>();
@@ -32,7 +65,7 @@ namespace BEditor.Graphics
                 {
                     var vec1 = new Vector3(
                         radiusX * MathF.Cos(b * k) * MathF.Cos(a * i),
-                        radiusY * MathF.Cos(b * k) * MathF.Sin(a * i), 
+                        radiusY * MathF.Cos(b * k) * MathF.Sin(a * i),
                         radiusZ * MathF.Sin(b * k));
                     verticesList.Add(vec1.X);
                     verticesList.Add(vec1.Y);
@@ -58,46 +91,41 @@ namespace BEditor.Graphics
             GL.BufferData(BufferTarget.ArrayBuffer, _vertices.Length * sizeof(float), _vertices, BufferUsageHint.StaticDraw);
         }
 
+        /// <summary>
+        /// Get the radius of this <see cref="Ball"/> in the X-axis direction.
+        /// </summary>
         public float RadiusX { get; }
+        /// <summary>
+        /// Get the radius of this <see cref="Ball"/> in the Y-axis direction.
+        /// </summary>
         public float RadiusY { get; }
+        /// <summary>
+        /// Get the radius of this <see cref="Ball"/> in the Z-axis direction.
+        /// </summary>
         public float RadiusZ { get; }
+        /// <inheritdoc/>
+        public override ReadOnlyMemory<float> Vertices => _vertices;
         /// <summary>
-        /// Get the color of this <see cref="Cube"/>.
-        /// </summary>
-        public Color Color { get; }
-        /// <summary>
-        /// Get the vertices of this <see cref="Cube"/>.
-        /// </summary>
-        public ReadOnlyMemory<float> Vertices => _vertices;
-        /// <summary>
-        /// Get whether an object has been disposed.
-        /// </summary>
-        public bool IsDisposed { get; private set; }
-        /// <summary>
-        /// Get the VertexArray of this <see cref="Cube"/>.
+        /// Get the VertexArray of this <see cref="Ball"/>.
         /// </summary>
         public int VertexArrayObject { get; }
         /// <summary>
-        /// Get the VertexBuffer of this <see cref="Cube"/>.
+        /// Get the VertexBuffer of this <see cref="Ball"/>.
         /// </summary>
         public int VertexBufferObject { get; }
 
-        public void Render()
+        /// <inheritdoc/>
+        public override void Draw()
         {
             GL.BindVertexArray(VertexBufferObject);
 
             GL.DrawArrays(PrimitiveType.TriangleStrip, 0, _vertices.Length / 3);
         }
-        public void Dispose()
+        /// <inheritdoc/>
+        protected override void Dispose(bool disposing)
         {
-            if (IsDisposed) return;
-
-
             GL.DeleteBuffer(VertexBufferObject);
             GL.DeleteVertexArray(VertexArrayObject);
-
-
-            IsDisposed = true;
         }
     }
 }

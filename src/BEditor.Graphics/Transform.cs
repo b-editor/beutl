@@ -14,6 +14,7 @@ namespace BEditor.Graphics
     public struct Transform
     {
         public static readonly Transform Zero;
+        public static readonly Transform Default = new(new(0, 0, 0), new(0, 0, 0), new(0, 0, 0), new(1, 1, 1));
 
         private Transform(Vector3 coord, Vector3 center, Vector3 rotate, Vector3 scale)
         {

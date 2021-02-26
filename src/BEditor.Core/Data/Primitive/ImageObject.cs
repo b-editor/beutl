@@ -167,9 +167,9 @@ namespace BEditor.Data.Primitive
             #endregion
 
             var trans = GetTransform(frame) + image.Transform;
-            var context = Parent?.Parent.GraphicsContext!;
+            var context = Parent!.Parent.GraphicsContext!;
 
-            if (args.Type is RenderType.Preview)
+            if (args.Type is RenderType.Preview && Parent.Parent.SelectItem == Parent)
             {
                 var wHalf = (image.Source.Width / 2f) + 10;
                 var hHalf = (image.Source.Height / 2f) + 10;
@@ -178,10 +178,12 @@ namespace BEditor.Data.Primitive
 
             using var texture = Texture.FromImage(image.Source);
             texture.Material = new(ambient, diffuse, specular, shininess);
+            texture.Transform = trans;
+            texture.Color = color;
 
             GL.Enable(EnableCap.Blend);
 
-            context.DrawTexture(texture, trans, color, () =>
+            context.DrawTexture(texture, () =>
             {
                 var blendFunc = Blend.BlentFunc[Blend.BlendType.Index];
 

@@ -130,24 +130,24 @@ namespace BEditor.Primitive.Objects
 
             Parent!.Parent!.GraphicsContext!.MakeCurrent();
 
+            var material = new Graphics.Material(Material.Ambient[frame], Material.Diffuse[frame], Material.Specular[frame], Material.Shininess[frame]);
+            var trans = Transform.Create(
+                new(Coordinate.X[frame], Coordinate.Y[frame], Coordinate.Z[frame]),
+                new(Coordinate.CenterX[frame], Coordinate.CenterY[frame], Coordinate.CenterZ[frame]),
+                new(Angle.AngleX[frame], Angle.AngleY[frame], Angle.AngleZ[frame]),
+                new(scalex, scaley, scalez));
+
             if (Type.Index == 0)
             {
                 using var cube = new Cube(
                     Width[frame],
                     Height[frame],
                     Depth[frame],
-                    Blend.Color[frame])
-                {
-                    Material= new(Material.Ambient[frame], Material.Diffuse[frame], Material.Specular[frame], Material.Shininess[frame])
-                };
+                    Blend.Color[frame],
+                    material,
+                    trans);
 
-                var trans = Transform.Create(
-                    new(Coordinate.X[frame], Coordinate.Y[frame], Coordinate.Z[frame]),
-                    new(Coordinate.CenterX[frame], Coordinate.CenterY[frame], Coordinate.CenterZ[frame]),
-                    new(Angle.AngleX[frame], Angle.AngleY[frame], Angle.AngleZ[frame]),
-                    new(scalex, scaley, scalez));
-
-                Parent.Parent.GraphicsContext.DrawCube(cube, trans);
+                Parent.Parent.GraphicsContext.DrawCube(cube);
             }
             else
             {
@@ -155,15 +155,11 @@ namespace BEditor.Primitive.Objects
                     Width[frame] * 0.5f,
                     Height[frame] * 0.5f,
                     Depth[frame] * 0.5f,
-                    Blend.Color[frame]);
+                    Blend.Color[frame],
+                    material,
+                    trans);
 
-                var trans = Transform.Create(
-                    new(Coordinate.X[frame], Coordinate.Y[frame], Coordinate.Z[frame]),
-                    new(Coordinate.CenterX[frame], Coordinate.CenterY[frame], Coordinate.CenterZ[frame]),
-                    new(Angle.AngleX[frame], Angle.AngleY[frame], Angle.AngleZ[frame]),
-                    new(scalex, scaley, scalez));
-
-                Parent.Parent.GraphicsContext.DrawBall(ball, trans);
+                Parent.Parent.GraphicsContext.DrawBall(ball);
             }
 
             Coordinate.ResetOptional();

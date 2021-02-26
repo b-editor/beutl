@@ -11,16 +11,12 @@ using OpenTK.Graphics.OpenGL4;
 
 namespace BEditor.Graphics
 {
-    public class Line : IGraphicsObject
+    public class Line : GraphicsObject
     {
         private readonly float[] _vertices;
-        private readonly SynchronizationContext? _synchronization;
 
         public Line(Vector3 start, Vector3 end, float width)
         {
-            _synchronization = SynchronizationContext.Current;
-            Debug.Assert(_synchronization is not null);
-
             Start = start;
             End = end;
             Width = width;
@@ -44,40 +40,25 @@ namespace BEditor.Graphics
             GL.BindBuffer(BufferTarget.ArrayBuffer, 0);
             GL.BindVertexArray(0);
         }
-        ~Line()
-        {
-            if (!IsDisposed) Dispose();
-        }
 
-        public ReadOnlyMemory<float> Vertices => _vertices;
+        public override ReadOnlyMemory<float> Vertices => _vertices;
         public Vector3 Start { get; }
         public Vector3 End { get; }
         public float Width { get; }
         public int VertexBufferObject { get; }
         public int VertexArrayObject { get; }
-        public bool IsDisposed { get; private set; }
 
-        public void Render()
+        public override void Draw()
         {
             GL.LineWidth(Width);
 
             GL.BindVertexArray(VertexArrayObject);
             GL.DrawArrays(PrimitiveType.Lines, 0, 2);
         }
-        public void Dispose()
+        protected override void Dispose(bool disposing)
         {
-            if (IsDisposed) return;
-
-            _synchronization?.Post(state =>
-            {
-                var t = (Line)state!;
-                GL.DeleteVertexArray(t.VertexArrayObject);
-                GL.DeleteBuffer(t.VertexBufferObject);
-            }, this);
-
-            GC.SuppressFinalize(this);
-
-            IsDisposed = true;
+            GL.DeleteVertexArray(VertexArrayObject);
+            GL.DeleteBuffer(VertexBufferObject);
         }
     }
 }
