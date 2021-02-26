@@ -79,46 +79,6 @@
         <member name="M:BEditor.Primitive.Effects.DepthTest.OnUnload">
             <inheritdoc/>
         </member>
-        <member name="T:BEditor.Primitive.Effects.DirectionalLightSource">
-            <summary>
-            Represents an <see cref="T:BEditor.Data.EffectElement"/> that sets the OpenGL directional light source.
-            </summary>
-        </member>
-        <member name="M:BEditor.Primitive.Effects.DirectionalLightSource.#ctor">
-            <summary>
-            Initializes a new instance of the <see cref="T:BEditor.Primitive.Effects.DirectionalLightSource"/> class.
-            </summary>
-        </member>
-        <member name="P:BEditor.Primitive.Effects.DirectionalLightSource.Name">
-            <inheritdoc/>
-        </member>
-        <member name="P:BEditor.Primitive.Effects.DirectionalLightSource.Properties">
-            <inheritdoc/>
-        </member>
-        <member name="P:BEditor.Primitive.Effects.DirectionalLightSource.X">
-            <summary>
-            Get the <see cref="T:BEditor.Data.Property.EaseProperty"/> representing the X coordinate.
-            </summary>
-        </member>
-        <member name="P:BEditor.Primitive.Effects.DirectionalLightSource.Y">
-            <summary>
-            Get the <see cref="T:BEditor.Data.Property.EaseProperty"/> representing the Y coordinate.
-            </summary>
-        </member>
-        <member name="P:BEditor.Primitive.Effects.DirectionalLightSource.Z">
-            <summary>
-            Get the <see cref="T:BEditor.Data.Property.EaseProperty"/> representing the Z coordinate.
-            </summary>
-        </member>
-        <member name="M:BEditor.Primitive.Effects.DirectionalLightSource.Render(BEditor.Data.EffectRenderArgs)">
-            <inheritdoc/>
-        </member>
-        <member name="M:BEditor.Primitive.Effects.DirectionalLightSource.OnLoad">
-            <inheritdoc/>
-        </member>
-        <member name="M:BEditor.Primitive.Effects.DirectionalLightSource.OnUnload">
-            <inheritdoc/>
-        </member>
         <member name="T:BEditor.Primitive.Effects.PointLightSource">
             <summary>
             Represents an <see cref="T:BEditor.Data.EffectElement"/> that sets the OpenGL point light source.
@@ -1048,20 +1008,6 @@
             <inheritdoc/>
         </member>
         <member name="M:BEditor.Primitive.Effects.Shadow.OnUnload">
-            <inheritdoc/>
-        </member>
-        <member name="T:BEditor.Primitive.Effects.SpotLight">
-            <summary>
-            Represents an <see cref="T:BEditor.Data.EffectElement"/> that sets the OpenGL spotlight.
-            </summary>
-        </member>
-        <member name="P:BEditor.Primitive.Effects.SpotLight.Name">
-            <inheritdoc/>
-        </member>
-        <member name="P:BEditor.Primitive.Effects.SpotLight.Properties">
-            <inheritdoc/>
-        </member>
-        <member name="M:BEditor.Primitive.Effects.SpotLight.Render(BEditor.Data.EffectRenderArgs)">
             <inheritdoc/>
         </member>
         <member name="T:BEditor.Primitive.Objects.AudioObject">

@@ -755,15 +755,6 @@ namespace BEditor.Properties {
         }
         
         /// <summary>
-        ///   Directional Light Source に類似しているローカライズされた文字列を検索します。
-        /// </summary>
-        public static string DirectionalLightSource {
-            get {
-                return ResourceManager.GetString("DirectionalLightSource", resourceCulture);
-            }
-        }
-        
-        /// <summary>
         ///   Disabled plugins に類似しているローカライズされた文字列を検索します。
         /// </summary>
         public static string DisabledPlugins {
@@ -1887,15 +1878,6 @@ namespace BEditor.Properties {
         public static string Speed {
             get {
                 return ResourceManager.GetString("Speed", resourceCulture);
-            }
-        }
-        
-        /// <summary>
-        ///   SpotLight に類似しているローカライズされた文字列を検索します。
-        /// </summary>
-        public static string SpotLight {
-            get {
-                return ResourceManager.GetString("SpotLight", resourceCulture);
             }
         }
         

@@ -331,9 +331,6 @@ Do you want to perform the operation?</value>
   <data name="Dilate" xml:space="preserve">
     <value>Dilate</value>
   </data>
-  <data name="DirectionalLightSource" xml:space="preserve">
-    <value>Directional Light Source</value>
-  </data>
   <data name="DisabledPlugins" xml:space="preserve">
     <value>Disabled plugins</value>
   </data>
@@ -638,9 +635,6 @@ Please select the plugin you want to load</value>
   </data>
   <data name="Speed" xml:space="preserve">
     <value>Speed</value>
-  </data>
-  <data name="SpotLight" xml:space="preserve">
-    <value>SpotLight</value>
   </data>
   <data name="Square" xml:space="preserve">
     <value>Square</value>

@@ -331,9 +331,6 @@
   <data name="Dilate" xml:space="preserve">
     <value>膨張</value>
   </data>
-  <data name="DirectionalLightSource" xml:space="preserve">
-    <value>平行光源</value>
-  </data>
   <data name="DisabledPlugins" xml:space="preserve">
     <value>無効なプラグイン</value>
   </data>
@@ -635,9 +632,6 @@
   </data>
   <data name="Speed" xml:space="preserve">
     <value>速度</value>
-  </data>
-  <data name="SpotLight" xml:space="preserve">
-    <value>スポットライト</value>
   </data>
   <data name="Square" xml:space="preserve">
     <value>四角形</value>
