@@ -157,11 +157,11 @@ namespace BEditor.Data.Primitive
 
             float alpha = (float)(Blend.Alpha.GetValue(frame) / 100);
 
-            Color ambient = Material.Ambient.GetValue(frame);
-            Color diffuse = Material.Diffuse.GetValue(frame);
-            Color specular = Material.Specular.GetValue(frame);
-            float shininess = Material.Shininess.GetValue(frame);
-            var c = Blend.Color.GetValue(frame);
+            var ambient = Material.Ambient[frame];
+            var diffuse = Material.Diffuse[frame];
+            var specular = Material.Specular[frame];
+            var shininess = Material.Shininess[frame];
+            var c = Blend.Color[frame];
             var color = Color.FromARGB((byte)(c.A * alpha), c.R, c.G, c.B);
 
             #endregion
@@ -177,6 +177,7 @@ namespace BEditor.Data.Primitive
             }
 
             using var texture = Texture.FromImage(image.Source);
+            texture.Material = new(ambient, diffuse, specular, shininess);
 
             GL.Enable(EnableCap.Blend);
 
@@ -192,6 +193,11 @@ namespace BEditor.Data.Primitive
                 }
             });
         }
+        /// <summary>
+        /// 
+        /// </summary>
+        /// <param name="frame"></param>
+        /// <returns></returns>
         public Transform GetTransform(Frame frame)
         {
             var scale = (float)(Zoom.Scale.GetValue(frame) / 100);

@@ -75,6 +75,7 @@ namespace BEditor.Graphics
         public int ElementBufferObject { get; }
         public int VertexBufferObject { get; }
         public int VertexArrayObject { get; }
+        public Material Material { get; set; } = new(Color.Light, Color.Light, Color.Light, 16);
 
         public unsafe static Texture FromFile(string path)
         {

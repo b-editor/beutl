@@ -25,6 +25,7 @@ namespace BEditor.Graphics
         private readonly Shader _textureShader;
         private readonly Shader _shader;
         private readonly Shader _lightShader;
+        private readonly Shader _texLightShader;
         private readonly Shader _lineShader;
         private readonly SynchronizationContext _synchronization;
 
@@ -64,6 +65,7 @@ namespace BEditor.Graphics
             _textureShader = ShaderFactory.Texture.Create();
             _shader = ShaderFactory.Default.Create();
             _lightShader = ShaderFactory.Lighting.Create();
+            _texLightShader = ShaderFactory.TextureLighting.Create();
             _lineShader = ShaderFactory.Line.Create();
 
 
@@ -152,21 +154,67 @@ namespace BEditor.Graphics
         }
         public void DrawTexture(Texture texture, Transform transform, Color color, Action blend)
         {
+            if(Light is null)
+            {
+                MakeCurrent();
+
+                texture.Use(TextureUnit.Texture0);
+
+                _textureShader.Use();
+
+                var vertexLocation = _textureShader.GetAttribLocation("aPosition");
+                GL.EnableVertexAttribArray(vertexLocation);
+                GL.VertexAttribPointer(vertexLocation, 3, VertexAttribPointerType.Float, false, 5 * sizeof(float), 0);
+
+                var texCoordLocation = _textureShader.GetAttribLocation("aTexCoord");
+                GL.EnableVertexAttribArray(texCoordLocation);
+                GL.VertexAttribPointer(texCoordLocation, 2, VertexAttribPointerType.Float, false, 5 * sizeof(float), 3 * sizeof(float));
+
+                _textureShader.SetInt("texture", 0);
+
+                GL.Enable(EnableCap.Blend);
+
+                blend();
+
+                GL.Enable(EnableCap.Texture2D);
+
+                _textureShader.SetVector4("color", color.ToVector4());
+                _textureShader.SetMatrix4("model", transform.Matrix);
+                _textureShader.SetMatrix4("view", Camera.GetViewMatrix());
+                _textureShader.SetMatrix4("projection", Camera.GetProjectionMatrix());
+
+                _textureShader.Use();
+
+                texture.Render(TextureUnit.Texture0);
+            }
+            else
+            {
+                DrawTextureWithLight(texture, transform, color, blend);
+            }
+        }
+        private void DrawTextureWithLight(Texture texture, Transform transform, Color color, Action blend)
+        {
             MakeCurrent();
 
             texture.Use(TextureUnit.Texture0);
 
-            _textureShader.Use();
+            _texLightShader.Use();
 
-            var vertexLocation = _textureShader.GetAttribLocation("aPosition");
+            var vertexLocation = _texLightShader.GetAttribLocation("aPosition");
             GL.EnableVertexAttribArray(vertexLocation);
             GL.VertexAttribPointer(vertexLocation, 3, VertexAttribPointerType.Float, false, 5 * sizeof(float), 0);
 
-            var texCoordLocation = _textureShader.GetAttribLocation("aTexCoord");
+            var texCoordLocation = _texLightShader.GetAttribLocation("aTexCoord");
             GL.EnableVertexAttribArray(texCoordLocation);
             GL.VertexAttribPointer(texCoordLocation, 2, VertexAttribPointerType.Float, false, 5 * sizeof(float), 3 * sizeof(float));
 
-            _textureShader.SetInt("texture", 0);
+            var normalLocation = _texLightShader.GetAttribLocation("aNormal");
+            GL.EnableVertexAttribArray(normalLocation);
+            GL.VertexAttribPointer(normalLocation, 3, VertexAttribPointerType.Float, false, 5 * sizeof(float), 0);
+
+            GL.BindVertexArray(texture.VertexArrayObject);
+
+            _texLightShader.SetInt("texture0", 0);
 
             GL.Enable(EnableCap.Blend);
 
@@ -174,12 +222,23 @@ namespace BEditor.Graphics
 
             GL.Enable(EnableCap.Texture2D);
 
-            _textureShader.SetVector4("color", color.ToVector4());
-            _textureShader.SetMatrix4("model", transform.Matrix);
-            _textureShader.SetMatrix4("view", Camera.GetViewMatrix());
-            _textureShader.SetMatrix4("projection", Camera.GetProjectionMatrix());
+            _texLightShader.SetMatrix4("model", transform.Matrix);
+            _texLightShader.SetMatrix4("view", Camera.GetViewMatrix());
+            _texLightShader.SetMatrix4("projection", Camera.GetProjectionMatrix());
+            _texLightShader.SetVector3("viewPos", Camera.Position);
+            _texLightShader.SetVector4("color", color.ToVector4());
 
-            _textureShader.Use();
+            _texLightShader.SetVector4("material.ambient", texture.Material.Ambient.ToVector4());
+            _texLightShader.SetVector4("material.diffuse", texture.Material.Diffuse.ToVector4());
+            _texLightShader.SetVector4("material.specular", texture.Material.Specular.ToVector4());
+            _texLightShader.SetFloat("material.shininess", texture.Material.Shininess);
+
+            _texLightShader.SetVector3("light.position", Light!.Position);
+            _texLightShader.SetVector4("light.ambient", Light.Ambient.ToVector4());
+            _texLightShader.SetVector4("light.diffuse", Light.Diffuse.ToVector4());
+            _texLightShader.SetVector4("light.specular", Light.Specular.ToVector4());
+
+            _texLightShader.Use();
 
             texture.Render(TextureUnit.Texture0);
         }

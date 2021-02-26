@@ -82,9 +82,13 @@ namespace BEditor.Primitive.Effects
         /// <inheritdoc/>
         public override void Render(EffectRenderArgs args)
         {
-            int frame = args.Frame;
+            var frame = args.Frame;
 
-            Parent!.Parent!.GraphicsContext!.Light = new(new(X.GetValue(frame), Y.GetValue(frame), Z.GetValue(frame)), Ambient[frame], Diffuse[frame], Specular[frame]);
+            Parent!.Parent!.GraphicsContext!.Light = new(
+                new(X.GetValue(frame), Y.GetValue(frame), Z.GetValue(frame)),
+                Ambient[frame],
+                Diffuse[frame],
+                Specular[frame]);
         }
         /// <inheritdoc/>
         protected override void OnLoad()
