@@ -124,21 +124,6 @@
             Represents an <see cref="T:BEditor.Data.EffectElement"/> that sets the OpenGL point light source.
             </summary>
         </member>
-        <member name="F:BEditor.Primitive.Effects.PointLightSource.ConstantAttenuationMetadata">
-            <summary>
-            Represents <see cref="P:BEditor.Primitive.Effects.PointLightSource.ConstantAttenuation"/> metadata.
-            </summary>
-        </member>
-        <member name="F:BEditor.Primitive.Effects.PointLightSource.LinearAttenuationMetadata">
-            <summary>
-            Represents <see cref="P:BEditor.Primitive.Effects.PointLightSource.LinearAttenuation"/> metadata.
-            </summary>
-        </member>
-        <member name="F:BEditor.Primitive.Effects.PointLightSource.QuadraticAttenuationMetadata">
-            <summary>
-            Represents <see cref="P:BEditor.Primitive.Effects.PointLightSource.QuadraticAttenuation"/> metadata.
-            </summary>
-        </member>
         <member name="M:BEditor.Primitive.Effects.PointLightSource.#ctor">
             <summary>
             Initializes a new instance of the <see cref="T:BEditor.Primitive.Effects.PointLightSource"/> class.
@@ -165,20 +150,20 @@
             Get the <see cref="T:BEditor.Data.Property.EaseProperty"/> representing the Z coordinate.
             </summary>
         </member>
-        <member name="P:BEditor.Primitive.Effects.PointLightSource.ConstantAttenuation">
+        <member name="P:BEditor.Primitive.Effects.PointLightSource.Ambient">
             <summary>
-            Gets the <see cref="T:BEditor.Data.Property.EaseProperty"/> representing the value of GL_CONSTANT_ATTENUATION.
+            Gets the <see cref="T:BEditor.Data.Property.ColorAnimationProperty"/> representing ambient.
             </summary>
         </member>
-        <member name="P:BEditor.Primitive.Effects.PointLightSource.LinearAttenuation">
+        <member name="P:BEditor.Primitive.Effects.PointLightSource.Diffuse">
             <summary>
-            Gets the <see cref="T:BEditor.Data.Property.EaseProperty"/> representing the value of GL_LINEAR_ATTENUATION.
+            Gets the <see cref="T:BEditor.Data.Property.ColorAnimationProperty"/> representing diffuse.
             </summary>
         </member>
-        <member name="P:BEditor.Primitive.Effects.PointLightSource.QuadraticAttenuation">
-            <summary>
-            Gets the <see cref="T:BEditor.Data.Property.EaseProperty"/> representing the value of GL_QUADRATIC_ATTENUATION.
-            </summary>
+        <member name="P:BEditor.Primitive.Effects.PointLightSource.Specular">
+             <summary>
+            Gets the <see cref="T:BEditor.Data.Property.ColorAnimationProperty"/> representing specular.
+             </summary>
         </member>
         <member name="M:BEditor.Primitive.Effects.PointLightSource.Render(BEditor.Data.EffectRenderArgs)">
             <inheritdoc/>

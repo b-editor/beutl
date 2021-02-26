@@ -39,7 +39,6 @@ namespace BEditor.Data
         private static readonly PropertyChangedEventArgs _HoffsetArgs = new(nameof(TimeLineHorizonOffset));
         private static readonly PropertyChangedEventArgs _VoffsetArgs = new(nameof(TimeLineVerticalOffset));
         private static readonly PropertyChangedEventArgs _SceneNameArgs = new(nameof(SceneName));
-        private static readonly PropertyChangedEventArgs _BackgroundColorArgs = new(nameof(BackgroundColor));
         private ClipElement? _selectItem;
         private ObservableCollection<ClipElement?>? _selectItems;
         private Frame _previewframe;
@@ -49,7 +48,6 @@ namespace BEditor.Data
         private double _timeLineVerticalOffset;
         private string _sceneName = string.Empty;
         private IPlayer? _player;
-        private Color _backgroundColor;
         private Project? parent;
 
         #endregion
@@ -169,24 +167,6 @@ namespace BEditor.Data
         }
 
         /// <summary>
-        /// Gets or sets the background color of the GraphicsContext.
-        /// </summary>
-        [DataMember]
-        public Color BackgroundColor
-        {
-            get => _backgroundColor;
-            set
-            {
-                if (GraphicsContext is not null)
-                {
-                    GraphicsContext.ClearColor = value;
-                }
-
-                SetValue(value, ref _backgroundColor, _BackgroundColorArgs);
-            }
-        }
-
-        /// <summary>
         /// Gets graphic context.
         /// </summary>
         public GraphicsContext? GraphicsContext { get; private set; }
@@ -289,7 +269,7 @@ namespace BEditor.Data
         /// </summary>
         public SceneSettings Settings
         {
-            get => new(Width, Height, Name, BackgroundColor);
+            get => new(Width, Height, Name);
             set
             {
                 Width = value.Width;
@@ -298,8 +278,6 @@ namespace BEditor.Data
 
                 GraphicsContext?.Dispose();
                 GraphicsContext = new(Width, Height);
-
-                BackgroundColor = value.BackgroundColor;
             }
         }
 
@@ -353,19 +331,16 @@ namespace BEditor.Data
         protected override void OnLoad()
         {
             Debug.Assert(Synchronize is not null);
-            Synchronize?.Post(_ =>
+            Synchronize.Send(_ =>
             {
-                GraphicsContext = new GraphicsContext(Width, Height)
-                {
-                    ClearColor = BackgroundColor,
-                };
+                GraphicsContext = new GraphicsContext(Width, Height);
                 AudioContext = new AudioContext();
             }, null);
         }
         /// <inheritdoc/>
         protected override void OnUnload()
         {
-            Synchronize?.Post(_ =>
+            Synchronize.Send(_ =>
             {
                 GraphicsContext?.Dispose();
                 AudioContext?.Dispose();
@@ -391,11 +366,10 @@ namespace BEditor.Data
             var layer = GetFrame(frame).ToList();
 
             GraphicsContext!.Camera = new OrthographicCamera(new(0, 0, 1024), Width, Height);
+            GraphicsContext!.Light = null;
             GraphicsContext!.MakeCurrent();
             AudioContext!.MakeCurrent();
             GraphicsContext!.Clear();
-
-            GL.Clear(ClearBufferMask.ColorBufferBit | ClearBufferMask.DepthBufferBit);
 
             var args = new ClipRenderArgs(frame, renderType);
 
@@ -439,6 +413,7 @@ namespace BEditor.Data
             var layer = GetFrame(frame).ToList();
 
             GraphicsContext!.Camera = new OrthographicCamera(new(0, 0, 1024), Width, Height);
+            GraphicsContext!.Light = null;
             GraphicsContext!.MakeCurrent();
             AudioContext!.MakeCurrent();
             GraphicsContext!.Clear();
@@ -662,13 +637,11 @@ namespace BEditor.Data
         /// <param name="width">The width of the frame buffer.</param>
         /// <param name="height">The height of the frame buffer.</param>
         /// <param name="name">The name of the <see cref="Scene"/>.</param>
-        /// <param name="backgroundColor">The background color.</param>
-        public SceneSettings(int width, int height, string name, Color backgroundColor)
+        public SceneSettings(int width, int height, string name)
         {
             Width = width;
             Height = height;
             Name = name;
-            BackgroundColor = backgroundColor;
         }
 
         /// <summary>
@@ -685,10 +658,5 @@ namespace BEditor.Data
         /// Gets the name.
         /// </summary>
         public string Name { get; init; }
-
-        /// <summary>
-        /// Gets the backgroung color.
-        /// </summary>
-        public Color BackgroundColor { get; init; }
     }
 }

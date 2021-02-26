@@ -13,7 +13,7 @@ using OpenTK.Graphics.OpenGL4;
 
 namespace BEditor.Graphics
 {
-    public class Texture : IDisposable
+    public class Texture : GraphicsObject
     {
         private readonly float[] _vertices;
         private readonly uint[] _indices =
@@ -21,13 +21,9 @@ namespace BEditor.Graphics
             0, 1, 3,
             1, 2, 3
         };
-        private readonly SynchronizationContext? _synchronization;
 
         public Texture(int glHandle, int width, int height)
         {
-            _synchronization = SynchronizationContext.Current;
-            Debug.Assert(_synchronization is not null);
-
             Width = width;
             Height = height;
             Handle = glHandle;
@@ -61,17 +57,13 @@ namespace BEditor.Graphics
             GL.BindBuffer(BufferTarget.ElementArrayBuffer, ElementBufferObject);
             GL.BufferData(BufferTarget.ElementArrayBuffer, _indices.Length * sizeof(uint), _indices, BufferUsageHint.StaticDraw);
         }
-        ~Texture()
-        {
-            if (!IsDisposed) Dispose();
-        }
 
-        public ReadOnlyMemory<float> Vertices => _vertices;
+        /// <inheritdoc/>
+        public override ReadOnlyMemory<float> Vertices => _vertices;
         public ReadOnlyMemory<uint> Indices => _indices;
         public int Width { get; }
         public int Height { get; }
         public int Handle { get; }
-        public bool IsDisposed { get; private set; }
         public int ElementBufferObject { get; }
         public int VertexBufferObject { get; }
         public int VertexArrayObject { get; }
@@ -148,7 +140,8 @@ namespace BEditor.Graphics
             GL.ActiveTexture(unit);
             GL.BindTexture(TextureTarget.Texture2D, Handle);
         }
-        public void Render(TextureUnit unit)
+        /// <inheritdoc cref="GraphicsObject.Draw"/>
+        public void Draw(TextureUnit unit)
         {
             GL.BindVertexArray(VertexArrayObject);
             Use(unit);
@@ -156,23 +149,17 @@ namespace BEditor.Graphics
 
             GL.DrawElements(PrimitiveType.Triangles, _indices.Length, DrawElementsType.UnsignedInt, 0);
         }
-
-        public void Dispose()
+        /// <inheritdoc/>
+        protected override void Dispose(bool disposing)
         {
-            if (IsDisposed) return;
-
-            _synchronization?.Post(state =>
-            {
-                var t = (Texture)state!;
-                GL.DeleteBuffer(t.VertexArrayObject);
-                GL.DeleteBuffer(t.ElementBufferObject);
-                GL.DeleteTexture(t.Handle);
-
-            }, this);
-
-            GC.SuppressFinalize(this);
-
-            IsDisposed = true;
+            GL.DeleteBuffer(VertexArrayObject);
+            GL.DeleteBuffer(ElementBufferObject);
+            GL.DeleteTexture(Handle);
+        }
+        /// <inheritdoc/>
+        public override void Draw()
+        {
+            Draw(TextureUnit.Texture0);
         }
     }
 }

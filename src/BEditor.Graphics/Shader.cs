@@ -1,5 +1,6 @@
 ﻿using System;
 using System.Collections.Generic;
+using System.ComponentModel;
 using System.Diagnostics;
 using System.IO;
 using System.Linq;
@@ -17,12 +18,12 @@ namespace BEditor.Graphics
     public class Shader : IDisposable
     {
         private readonly Dictionary<string, int> _uniformLocations;
-        private readonly SynchronizationContext? _synchronization;
+        private readonly SynchronizationContext _synchronization;
 
         public Shader(string vertSource, string fragSource)
         {
-            _synchronization = SynchronizationContext.Current;
-            Debug.Assert(_synchronization is not null);
+            _synchronization = AsyncOperationManager.SynchronizationContext;
+
             var vertexShader = GL.CreateShader(ShaderType.VertexShader);
 
             GL.ShaderSource(vertexShader, vertSource);
@@ -137,7 +138,11 @@ namespace BEditor.Graphics
         {
             if (IsDisposed) return;
 
-            GL.DeleteProgram(Handle);
+            _synchronization.Post(_ =>
+            {
+                GL.DeleteProgram(Handle);
+            }, null);
+
             GC.SuppressFinalize(this);
 
             IsDisposed = true;

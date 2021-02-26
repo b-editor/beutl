@@ -51,7 +51,6 @@
             <TextBox Text="{Binding Height.Value, Mode=TwoWay}" Style="{StaticResource TextBoxStyle}"/>
             <Separator Margin="5,5,5,5" Background="{x:Null}"/>
             <TextBox Text="{Binding Name.Value, Mode=TwoWay}"  Style="{StaticResource TextBoxStyle}"/>
-            <TextBox Text="{Binding Color.Value, Mode=TwoWay}"  Style="{StaticResource TextBoxStyle}"/>
         </VirtualizingStackPanel>
 
 

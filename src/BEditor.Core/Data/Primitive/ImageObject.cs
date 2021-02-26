@@ -157,19 +157,19 @@ namespace BEditor.Data.Primitive
 
             float alpha = (float)(Blend.Alpha.GetValue(frame) / 100);
 
-            Color ambient = Material.Ambient.GetValue(frame);
-            Color diffuse = Material.Diffuse.GetValue(frame);
-            Color specular = Material.Specular.GetValue(frame);
-            float shininess = Material.Shininess.GetValue(frame);
-            var c = Blend.Color.GetValue(frame);
+            var ambient = Material.Ambient[frame];
+            var diffuse = Material.Diffuse[frame];
+            var specular = Material.Specular[frame];
+            var shininess = Material.Shininess[frame];
+            var c = Blend.Color[frame];
             var color = Color.FromARGB((byte)(c.A * alpha), c.R, c.G, c.B);
 
             #endregion
 
             var trans = GetTransform(frame) + image.Transform;
-            var context = Parent?.Parent.GraphicsContext!;
+            var context = Parent!.Parent.GraphicsContext!;
 
-            if (args.Type is RenderType.Preview)
+            if (args.Type is RenderType.Preview && Parent.Parent.SelectItem == Parent)
             {
                 var wHalf = (image.Source.Width / 2f) + 10;
                 var hHalf = (image.Source.Height / 2f) + 10;
@@ -177,10 +177,13 @@ namespace BEditor.Data.Primitive
             }
 
             using var texture = Texture.FromImage(image.Source);
+            texture.Material = new(ambient, diffuse, specular, shininess);
+            texture.Transform = trans;
+            texture.Color = color;
 
             GL.Enable(EnableCap.Blend);
 
-            context.DrawTexture(texture, trans, color, () =>
+            context.DrawTexture(texture, () =>
             {
                 var blendFunc = Blend.BlentFunc[Blend.BlendType.Index];
 
@@ -192,7 +195,12 @@ namespace BEditor.Data.Primitive
                 }
             });
         }
-        private Transform GetTransform(Frame frame)
+        /// <summary>
+        /// 
+        /// </summary>
+        /// <param name="frame"></param>
+        /// <returns></returns>
+        public Transform GetTransform(Frame frame)
         {
             var scale = (float)(Zoom.Scale.GetValue(frame) / 100);
             var scalex = (float)(Zoom.ScaleX.GetValue(frame) / 100) * scale;

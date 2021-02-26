@@ -37,7 +37,7 @@ namespace BEditor.Primitive.Effects
                 "Notequal",
                 "Gequal",
                 "Always"
-        });//初期値はless
+        }, 1);//初期値はless
         /// <summary>
         /// Represents <see cref="Mask"/> metadata.
         /// </summary>
