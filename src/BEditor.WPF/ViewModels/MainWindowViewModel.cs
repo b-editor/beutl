@@ -161,7 +161,7 @@ namespace BEditor.ViewModels
                 .Subscribe(s =>
                 {
                     var vm = new SceneSettingsViewModel(s);
-                    var v = new Views.SettingsControls.SceneSettingsDialog()
+                    var v = new SceneSettingsDialog()
                     {
                         DataContext = vm
                     };

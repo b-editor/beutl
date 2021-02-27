@@ -11,7 +11,7 @@ using MaterialDesignThemes.Wpf;
 
 namespace BEditor.ViewModels.Converters
 {
-    public class AppStatusIconConverter : IValueConverter
+    public sealed class AppStatusIconConverter : IValueConverter
     {
         public object? Convert(object value, Type targetType, object parameter, CultureInfo culture)
         {
@@ -24,7 +24,7 @@ namespace BEditor.ViewModels.Converters
                     Status.Saved => PackIconKind.ContentSaveEdit,
                     Status.Playing => PackIconKind.Play,
                     Status.Output => PackIconKind.Output,
-                    _ => throw new NotImplementedException(),
+                    _ => default,
                 };
             }
             else return null;
@@ -36,7 +36,7 @@ namespace BEditor.ViewModels.Converters
         }
     }
 
-    public class AppStatusToPlayerIconConverter : IValueConverter
+    public sealed class AppStatusToPlayerIconConverter : IValueConverter
     {
         public object? Convert(object value, Type targetType, object parameter, CultureInfo culture)
         {
@@ -54,7 +54,7 @@ namespace BEditor.ViewModels.Converters
             return null;
         }
     }
-    public class AppStatusTextConverter : IValueConverter
+    public sealed class AppStatusTextConverter : IValueConverter
     {
         public object? Convert(object value, Type targetType, object parameter, CultureInfo culture)
         {

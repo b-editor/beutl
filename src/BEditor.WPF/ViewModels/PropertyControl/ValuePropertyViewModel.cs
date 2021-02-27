@@ -1,5 +1,6 @@
 ﻿using System;
 using System.Diagnostics;
+using System.Reactive.Disposables;
 using System.Windows.Controls;
 using System.Windows.Input;
 
@@ -15,22 +16,24 @@ using Reactive.Bindings.Extensions;
 
 namespace BEditor.ViewModels.PropertyControl
 {
-    public class ValuePropertyViewModel
+    public sealed class ValuePropertyViewModel : IDisposable
     {
+        private readonly CompositeDisposable disposables = new();
         private float oldvalue;
 
         public ValuePropertyViewModel(ValueProperty property)
         {
             Property = property;
             Metadata = property.ObserveProperty(p => p.PropertyMetadata)
-                .ToReadOnlyReactiveProperty();
+                .ToReadOnlyReactiveProperty()
+                .AddTo(disposables);
 
-            Reset.Subscribe(() => Property.ChangeValue(Property.PropertyMetadata?.DefaultValue ?? 0).Execute());
+            Reset.Subscribe(() => Property.ChangeValue(Property.PropertyMetadata?.DefaultValue ?? 0).Execute()).AddTo(disposables);
             Bind.Subscribe(() =>
             {
                 var window = new BindSettings(new BindSettingsViewModel<float>(Property));
                 window.ShowDialog();
-            });
+            }).AddTo(disposables);
             GotFocus.Subscribe(_ => oldvalue = Property.Value);
             LostFocus.Subscribe(e =>
             {
@@ -40,7 +43,7 @@ namespace BEditor.ViewModels.PropertyControl
 
                     Property.ChangeValue(_out).Execute();
                 }
-            });
+            }).AddTo(disposables);
             PreviewMouseWheel.Subscribe(e =>
             {
                 if (e.text.IsKeyboardFocused && float.TryParse(e.text.Text, out var val))
@@ -57,7 +60,7 @@ namespace BEditor.ViewModels.PropertyControl
 
                     e.e.Handled = true;
                 }
-            });
+            }).AddTo(disposables);
             TextChanged.Subscribe(text =>
             {
                 if (float.TryParse(text, out var val))
@@ -66,7 +69,11 @@ namespace BEditor.ViewModels.PropertyControl
 
                     AppData.Current.Project!.PreviewUpdate(Property.GetParent2()!);
                 }
-            });
+            }).AddTo(disposables);
+        }
+        ~ValuePropertyViewModel()
+        {
+            Dispose();
         }
 
         public ReadOnlyReactiveProperty<ValuePropertyMetadata?> Metadata { get; }
@@ -77,5 +84,12 @@ namespace BEditor.ViewModels.PropertyControl
         public ReactiveCommand<string> LostFocus { get; } = new();
         public ReactiveCommand<string> TextChanged { get; } = new();
         public ReactiveCommand<(TextBox text, MouseWheelEventArgs e)> PreviewMouseWheel { get; } = new();
+
+        public void Dispose()
+        {
+            disposables.Dispose();
+
+            GC.SuppressFinalize(this);
+        }
     }
 }

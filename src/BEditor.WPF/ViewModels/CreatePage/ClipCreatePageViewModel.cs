@@ -2,37 +2,49 @@
 using System.Collections.Generic;
 using System.Collections.ObjectModel;
 using System.Linq;
+using System.Reactive.Disposables;
 using System.Text;
 using System.Threading.Tasks;
 
 using BEditor.Command;
 using BEditor.Data;
-using BEditor.Properties;
 using BEditor.Media;
 using BEditor.Models;
 using BEditor.Models.Extension;
+using BEditor.Properties;
+
+using Microsoft.Extensions.DependencyInjection;
 
 using Reactive.Bindings;
-using Microsoft.Extensions.DependencyInjection;
+using Reactive.Bindings.Extensions;
+
 namespace BEditor.ViewModels.CreatePage
 {
-    public class ClipCreatePageViewModel
+    public sealed class ClipCreatePageViewModel : IDisposable
     {
+        private readonly CompositeDisposable _disposable = new();
+
         public ClipCreatePageViewModel()
         {
             Start = new ReactiveProperty<int>(1)
-                .SetValidateNotifyError(value => (value <= 0) ? string.Format(Resources.RangeAbove, "0") : null);
+                .SetValidateNotifyError(value => (value <= 0) ? string.Format(Resources.RangeAbove, "0") : null)
+                .AddTo(_disposable);
+
             Length = new ReactiveProperty<int>(180)
-                .SetValidateNotifyError(value => (value <= 0) ? string.Format(Resources.RangeAbove, "0") : null);
+                .SetValidateNotifyError(value => (value <= 0) ? string.Format(Resources.RangeAbove, "0") : null)
+                .AddTo(_disposable);
+
             Layer = new ReactiveProperty<int>(1)
-                .SetValidateNotifyError(value => (value <= 0) ? string.Format(Resources.RangeAbove, "0") : null);
+                .SetValidateNotifyError(value => (value <= 0) ? string.Format(Resources.RangeAbove, "0") : null)
+                .AddTo(_disposable);
+
             TypeItems = new(ObjectMetadata.LoadedObjects.Select(i =>
             {
                 var typeItem = new TypeItem(i);
 
                 typeItem.Command.Subscribe(i =>
                 {
-                    foreach(var item in TypeItems!)
+                    foreach (var item in TypeItems!)
                     {
                         item.IsSelected.Value = false;
                     }
@@ -59,7 +71,11 @@ namespace BEditor.ViewModels.CreatePage
                 if (Name.Value != string.Empty) data.LabelText = Name.Value;
 
                 data.End = Start.Value + Length.Value;
-            });
+            }).AddTo(_disposable);
+        }
+        ~ClipCreatePageViewModel()
+        {
+            Dispose();
         }
 
         public ReactiveProperty<Scene> Scene { get; } = new(AppData.Current.Project!.PreviewScene);
@@ -75,6 +91,13 @@ namespace BEditor.ViewModels.CreatePage
         {
             public ReactiveProperty<bool> IsSelected { get; } = new();
             public ReactiveCommand<TypeItem> Command { get; } = new();
+        }
+
+        public void Dispose()
+        {
+            _disposable.Dispose();
+
+            GC.SuppressFinalize(this);
         }
     }
 }

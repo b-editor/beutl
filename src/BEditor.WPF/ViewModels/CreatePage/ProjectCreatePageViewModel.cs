@@ -2,6 +2,7 @@
 using System.ComponentModel;
 using System.IO;
 using System.Linq;
+using System.Reactive.Disposables;
 using System.Reactive.Linq;
 using System.Threading.Tasks;
 using System.Windows.Input;
@@ -13,10 +14,11 @@ using BEditor.Views;
 using BEditor.Views.MessageContent;
 
 using Reactive.Bindings;
+using Reactive.Bindings.Extensions;
 
 namespace BEditor.ViewModels.CreatePage
 {
-    public class ProjectCreatePageViewModel
+    public sealed class ProjectCreatePageViewModel : IDisposable
     {
         private const int width = 1920;
         private const int height = 1080;
@@ -24,7 +26,7 @@ namespace BEditor.ViewModels.CreatePage
         private const int samlingrate = 44100;
         private readonly ReactiveCommand<TemplateItem> _select;
         private static readonly string _file = Path.Combine(AppContext.BaseDirectory, "user", "project_template.xml");
-
+        private readonly CompositeDisposable _disposable = new();
 
         public ProjectCreatePageViewModel()
         {
@@ -37,9 +39,13 @@ namespace BEditor.ViewModels.CreatePage
                 Height.Value = i.Height;
                 Framerate.Value = i.Framerate;
                 Samplingrate.Value = i.Samplingrate;
-            });
+            }).AddTo(_disposable);
 
             LoadTemplate();
+        }
+        ~ProjectCreatePageViewModel()
+        {
+            Dispose();
         }
 
         #region Properties
@@ -230,6 +236,13 @@ namespace BEditor.ViewModels.CreatePage
 
 
             return Path.GetFileName(FormattedFilename(Settings.Default.LastTimeFolder + "\\" + "Project"));
+        }
+
+        public void Dispose()
+        {
+            _disposable.Dispose();
+
+            GC.SuppressFinalize(this);
         }
 
         public record TemplateItem(uint Width, uint Height, uint Framerate, uint Samplingrate, ICommand Command, string Name);

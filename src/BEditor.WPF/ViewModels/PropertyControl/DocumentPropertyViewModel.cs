@@ -1,5 +1,6 @@
 ﻿using System;
 using System.Reactive;
+using System.Reactive.Disposables;
 using System.Reactive.Linq;
 
 using BEditor.Command;
@@ -10,36 +11,43 @@ using BEditor.Models.Extension;
 using BEditor.Views.PropertyControls;
 
 using Reactive.Bindings;
+using Reactive.Bindings.Extensions;
 
 namespace BEditor.ViewModels.PropertyControl
 {
-    public class DocumentPropertyViewModel
+    public sealed class DocumentPropertyViewModel : IDisposable
     {
         private string oldvalue;
+        private readonly CompositeDisposable disposables = new();
 
         public DocumentPropertyViewModel(DocumentProperty property)
         {
             Property = property;
             oldvalue = Property.Value;
-            Reset.Subscribe(() => Property.ChangeText(Property.PropertyMetadata?.DefaultText ?? "").Execute());
+
+            Reset.Subscribe(() => Property.ChangeText(Property.PropertyMetadata?.DefaultText ?? "").Execute()).AddTo(disposables);
             Bind.Subscribe(() =>
             {
                 var window = new BindSettings(new BindSettingsViewModel<string>(Property));
                 window.ShowDialog();
-            });
-            GotFocus.Subscribe(_ => oldvalue = Property.Value);
+            }).AddTo(disposables);
+            GotFocus.Subscribe(_ => oldvalue = Property.Value).AddTo(disposables);
             LostFocus.Subscribe(text =>
             {
                 Property.Text = oldvalue;
 
                 Property.ChangeText(text).Execute();
-            });
+            }).AddTo(disposables);
             TextChanged.Subscribe(text =>
             {
                 Property.Text = text;
 
                 AppData.Current.Project!.PreviewUpdate(Property.GetParent2()!);
-            });
+            }).AddTo(disposables);
+        }
+        ~DocumentPropertyViewModel()
+        {
+            Dispose();
         }
 
         public DocumentProperty Property { get; }
@@ -48,5 +56,12 @@ namespace BEditor.ViewModels.PropertyControl
         public ReactiveCommand<string> GotFocus { get; } = new();
         public ReactiveCommand<string> LostFocus { get; } = new();
         public ReactiveCommand<string> TextChanged { get; } = new();
+
+        public void Dispose()
+        {
+            disposables.Dispose();
+
+            GC.SuppressFinalize(this);
+        }
     }
 }

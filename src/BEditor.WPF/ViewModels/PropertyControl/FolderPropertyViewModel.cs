@@ -1,6 +1,7 @@
 ﻿using System;
 using System.Collections.Generic;
 using System.Linq;
+using System.Reactive.Disposables;
 using System.Reactive.Linq;
 using System.Text;
 using System.Threading.Tasks;
@@ -16,19 +17,23 @@ using Reactive.Bindings.Extensions;
 
 namespace BEditor.ViewModels.PropertyControl
 {
-    public class FolderPropertyViewModel
+    public sealed class FolderPropertyViewModel : IDisposable
     {
+        private readonly CompositeDisposable disposables = new();
+
         public FolderPropertyViewModel(FolderProperty property)
         {
             Property = property;
             Metadata = property.ObserveProperty(p => p.PropertyMetadata)
-                .ToReadOnlyReactiveProperty();
+                .ToReadOnlyReactiveProperty()
+                .AddTo(disposables);
 
             PathMode = property.ObserveProperty(p => p.Mode)
                 .Select(i => (int)i)
-                .ToReactiveProperty();
+                .ToReactiveProperty()
+                .AddTo(disposables);
 
-            PathMode.Subscribe(i => Property.Mode = (FilePathType)i);
+            PathMode.Subscribe(i => Property.Mode = (FilePathType)i).AddTo(disposables);
 
             Command.Subscribe(x =>
             {
@@ -38,13 +43,17 @@ namespace BEditor.ViewModels.PropertyControl
                 {
                     Property.ChangeFolder(file).Execute();
                 }
-            });
-            Reset.Subscribe(() => Property.ChangeFolder(Property.PropertyMetadata?.Default ?? "").Execute());
+            }).AddTo(disposables);
+            Reset.Subscribe(() => Property.ChangeFolder(Property.PropertyMetadata?.Default ?? "").Execute()).AddTo(disposables);
             Bind.Subscribe(() =>
             {
                 var window = new BindSettings(new BindSettingsViewModel<string>(Property));
                 window.ShowDialog();
-            });
+            }).AddTo(disposables);
+        }
+        ~FolderPropertyViewModel()
+        {
+            Dispose();
         }
 
         public ReadOnlyReactiveProperty<FolderPropertyMetadata?> Metadata { get; }
@@ -67,6 +76,13 @@ namespace BEditor.ViewModels.PropertyControl
             }
 
             return null;
+        }
+
+        public void Dispose()
+        {
+            disposables.Dispose();
+
+            GC.SuppressFinalize(this);
         }
     }
 }

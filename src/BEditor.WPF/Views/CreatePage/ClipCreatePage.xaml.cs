@@ -17,7 +17,7 @@ namespace BEditor.Views.CreatePage
     /// <summary>
     /// ClipCreatePage.xaml の相互作用ロジック
     /// </summary>
-    public partial class ClipCreatePage : UserControl
+    public sealed partial class ClipCreatePage : UserControl
     {
         public ClipCreatePage(object datacontext)
         {
@@ -27,6 +27,11 @@ namespace BEditor.Views.CreatePage
 
         private void CloseClick(object sender, RoutedEventArgs e)
         {
+            if (DataContext is IDisposable disposable)
+            {
+                disposable.Dispose();
+            }
+
             Window.GetWindow(this).Close();
         }
     }

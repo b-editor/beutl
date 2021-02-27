@@ -14,12 +14,7 @@
     WindowStartupLocation="CenterOwner"
     ResizeMode="NoResize"
     
-    WindowTitleBrush="{StaticResource PrimaryHueMidBrush}"
-    GlowBrush="Black"
-    BorderThickness="0"
-        
-    NonActiveWindowTitleBrush="{StaticResource PrimaryHueDarkBrush}"
-    NonActiveGlowBrush="Black"
+    Style="{StaticResource DefaultWindowStyle}"
     MinHeight="300"
     MinWidth="500"
     SizeToContent="WidthAndHeight"
@@ -47,7 +42,7 @@
 
             <VirtualizingStackPanel Grid.Column="1">
                 <Label VerticalContentAlignment="Center" HorizontalContentAlignment="Stretch" Padding="0,0,0,0" Height="45">
-                    <TextBox VerticalAlignment="Center" VerticalContentAlignment="Center" Margin="10,0,10,0" Text="{Binding BindPath, Mode=TwoWay}"/>
+                    <TextBox VerticalAlignment="Center" VerticalContentAlignment="Center" Margin="10,0,10,0" Text="{Binding BindPath.Value, Mode=TwoWay}"/>
                 </Label>
             </VirtualizingStackPanel>
         </Grid>

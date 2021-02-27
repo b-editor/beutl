@@ -42,21 +42,21 @@
             <VirtualizingStackPanel Margin="8">
                 <TextBlock Text="{x:Static props:Resources.Width}" Foreground="{DynamicResource MaterialDesignBodyLight}" FontSize="14"/>
 
-                <TextBox Text="{Binding Width, Mode=TwoWay}"/>
+                <TextBox Text="{Binding Width.Value, Mode=TwoWay}"/>
             </VirtualizingStackPanel>
 
             <!--Height-->
             <VirtualizingStackPanel Margin="8">
                 <TextBlock Text="{x:Static props:Resources.Height}" Foreground="{DynamicResource MaterialDesignBodyLight}" FontSize="14"/>
 
-                <TextBox Text="{Binding Height, Mode=TwoWay}"/>
+                <TextBox Text="{Binding Height.Value, Mode=TwoWay}"/>
             </VirtualizingStackPanel>
 
             <!--Name-->
             <VirtualizingStackPanel Margin="8,24,8,8">
                 <TextBlock Text="{x:Static props:Resources.Name}" Foreground="{DynamicResource MaterialDesignBodyLight}" FontSize="14"/>
 
-                <TextBox Text="{Binding Name, Mode=TwoWay}" Margin="0,8"/>
+                <TextBox Text="{Binding Name.Value, Mode=TwoWay}" Margin="0,8"/>
             </VirtualizingStackPanel>
         </VirtualizingStackPanel>
 

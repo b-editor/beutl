@@ -1,14 +1,20 @@
-﻿using System.Windows;
+﻿using System;
+using System.Windows;
 using System.Windows.Controls;
 using System.Windows.Input;
 
 namespace BEditor.WPF.Controls
 {
-    public class BasePropertyView : Control
+    public class BasePropertyView : Control, IDisposable
     {
         public static readonly DependencyProperty HeaderProperty = DependencyProperty.Register(nameof(Header), typeof(string), typeof(BasePropertyView));
         public static readonly DependencyProperty ResetCommandProperty = DependencyProperty.Register(nameof(ResetCommand), typeof(ICommand), typeof(BasePropertyView));
         public static readonly DependencyProperty BindCommandProperty = DependencyProperty.Register(nameof(BindCommand), typeof(ICommand), typeof(BasePropertyView));
+
+        ~BasePropertyView()
+        {
+            Dispose();
+        }
 
         public string Header
         {
@@ -24,6 +30,18 @@ namespace BEditor.WPF.Controls
         {
             get => (ICommand)GetValue(BindCommandProperty);
             set => SetValue(BindCommandProperty, value);
+        }
+
+        public void Dispose()
+        {
+            if (DataContext is IDisposable disposable)
+            {
+                disposable.Dispose();
+            }
+
+            DataContext = null;
+
+            GC.SuppressFinalize(this);
         }
     }
 }

@@ -9,7 +9,7 @@ using BEditor.Models.Extension;
 
 namespace BEditor.ViewModels.Converters
 {
-    public class ColorToBrush : IValueConverter
+    public sealed class ColorToBrush : IValueConverter
     {
         public object Convert(object value, Type targetType, object parameter, CultureInfo culture)
         {
@@ -18,7 +18,7 @@ namespace BEditor.ViewModels.Converters
                 return color.ToBrush();
             }
 
-            return new SolidColorBrush((System.Windows.Media.Color)value);
+            return new SolidColorBrush((Color)value);
         }
 
         public object ConvertBack(object value, Type targetType, object parameter, CultureInfo culture) => throw new NotImplementedException();

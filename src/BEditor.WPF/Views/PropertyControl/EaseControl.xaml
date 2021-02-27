@@ -15,7 +15,6 @@
              x:Name="root"
              Height="32.5">
     <UserControl.Resources>
-        <convert:PropertyHeaderTextConverter x:Key="PropertyHeaderTextConverter"/>
         <convert:EasingFuncToProperty x:Key="EasingFuncToProperty"/>
     </UserControl.Resources>
     <Grid>
@@ -28,15 +27,7 @@
         </Grid.ColumnDefinitions>
 
         <Grid Margin="0,0,0,1">
-            <TextBlock Text="{Binding Metadata.Value.Name, Mode=OneTime}" VerticalAlignment="Top" HorizontalAlignment="Left" FontSize="13" Margin="10,7,0,0" TextTrimming="CharacterEllipsis">
-                <TextBlock.ToolTip>
-                    <MultiBinding Converter="{StaticResource PropertyHeaderTextConverter}">
-                        <Binding Path="Metadata.Value.Name" Mode="OneTime"/>
-                        <Binding Path="Property.Parent.Name" Mode="OneTime"/>
-                        <Binding Path="Property.Parent.Parent.LabelText" Mode="OneWay"/>
-                    </MultiBinding>
-                </TextBlock.ToolTip>
-            </TextBlock>
+            <TextBlock Text="{Binding Metadata.Value.Name, Mode=OneTime}" VerticalAlignment="Top" HorizontalAlignment="Left" FontSize="13" Margin="10,7,0,0" TextTrimming="CharacterEllipsis"/>
         </Grid>
 
         <md:PopupBox Grid.Column="1" HorizontalAlignment="Center" VerticalAlignment="Top" Height="32" Width="32" VerticalContentAlignment="Center" HorizontalContentAlignment="Center" StaysOpen="True">

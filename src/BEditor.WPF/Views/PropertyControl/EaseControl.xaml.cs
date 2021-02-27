@@ -166,6 +166,11 @@ namespace BEditor.Views.PropertyControls
 
         public void Dispose()
         {
+            if (DataContext is IDisposable disposable)
+            {
+                disposable.Dispose();
+            }
+
             DataContext = null;
             _property.Value.CollectionChanged -= Value_CollectionChanged;
             _property = null!;

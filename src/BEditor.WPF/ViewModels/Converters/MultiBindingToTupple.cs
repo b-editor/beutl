@@ -4,7 +4,7 @@ using System.Windows.Data;
 
 namespace BEditor.ViewModels.Converters
 {
-    public class MultiBindingToTupple2 : IMultiValueConverter
+    public sealed class MultiBindingToTupple2 : IMultiValueConverter
     {
         object IMultiValueConverter.Convert(object[] values, Type targetType, object parameter, CultureInfo culture)
         {

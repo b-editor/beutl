@@ -1,6 +1,7 @@
 ﻿using System;
 using System.Collections.Generic;
 using System.Linq;
+using System.Reactive.Disposables;
 using System.Text;
 using System.Threading.Tasks;
 
@@ -14,18 +15,32 @@ using Reactive.Bindings.Extensions;
 
 namespace BEditor.ViewModels.PropertyControl
 {
-    public class EasePropertyViewModel
+    public sealed class EasePropertyViewModel : IDisposable
     {
+        private readonly CompositeDisposable disposables = new();
+
         public EasePropertyViewModel(EaseProperty property)
         {
             Property = property;
             Metadata = property.ObserveProperty(p => p.PropertyMetadata)
-                .ToReadOnlyReactiveProperty();
-            EasingChangeCommand.Subscribe(x => Property.ChangeEase(x).Execute());
+                .ToReadOnlyReactiveProperty()
+                .AddTo(disposables);
+            EasingChangeCommand.Subscribe(x => Property.ChangeEase(x).Execute()).AddTo(disposables);
+        }
+        ~EasePropertyViewModel()
+        {
+            Dispose();
         }
 
         public ReadOnlyReactiveProperty<EasePropertyMetadata?> Metadata { get; }
         public EaseProperty Property { get; }
         public ReactiveCommand<EasingMetadata> EasingChangeCommand { get; } = new();
+
+        public void Dispose()
+        {
+            disposables.Dispose();
+
+            GC.SuppressFinalize(this);
+        }
     }
 }

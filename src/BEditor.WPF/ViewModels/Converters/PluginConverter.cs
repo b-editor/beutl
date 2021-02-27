@@ -11,7 +11,7 @@ using BEditor.Plugin;
 
 namespace BEditor.ViewModels.Converters
 {
-    public class PluginNameConverter : IValueConverter
+    public sealed class PluginNameConverter : IValueConverter
     {
         public object? Convert(object value, Type targetType, object parameter, CultureInfo culture)
         {
@@ -30,7 +30,7 @@ namespace BEditor.ViewModels.Converters
             throw new NotImplementedException();
         }
     }
-    public class PluginAuthorConverter : IValueConverter
+    public sealed class PluginAuthorConverter : IValueConverter
     {
         public object? Convert(object value, Type targetType, object parameter, CultureInfo culture)
         {

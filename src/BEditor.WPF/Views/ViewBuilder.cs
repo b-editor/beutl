@@ -27,11 +27,8 @@ namespace BEditor.Views
 {
     public static class ViewBuilder
     {
-        private static readonly IMultiValueConverter HeaderConverter = new PropertyHeaderTextConverter();
         private static readonly Binding HeaderBinding = new("Metadata.Value.Name") { Mode = BindingMode.OneTime };
         private static readonly Binding FileModeBinding = new("PathMode.Value") { Mode = BindingMode.TwoWay };
-        private static readonly Binding ClipNameBinding = new("Property.Parent.Name") { Mode = BindingMode.OneTime };
-        private static readonly Binding ClipTextBinding = new("Property.Parent.Parent.LabelText") { Mode = BindingMode.OneWay };
         private static readonly Binding PropertyIsCheckedBinding = new("Property.IsChecked") { Mode = BindingMode.OneWay };
         private static readonly Binding PropertyTextBinding = new("Property.Text") { Mode = BindingMode.OneWay };
         private static readonly Binding PropertyFileBinding = new("Property.File") { Mode = BindingMode.OneWay };
@@ -42,7 +39,7 @@ namespace BEditor.Views
         private static readonly Binding PropertyValueBinding = new("Property.Value") { Mode = BindingMode.OneWay };
         private static readonly Binding ItemsSourcePropertyBinding = new("Metadata.Value.ItemSource") { Mode = BindingMode.OneWay };
         private static readonly Binding DisplayMemberPathBinding = new("Metadata.Value.MemberPath") { Mode = BindingMode.OneTime };
-        private static readonly Binding BrushBinding = new("Brush") { Mode = BindingMode.OneWay };
+        private static readonly Binding BrushBinding = new("Brush.Value") { Mode = BindingMode.OneWay };
         private static readonly Binding OpenDialogBinding = new("OpenDialog") { Mode = BindingMode.OneTime };
         private static readonly Binding CommandBinding = new("Command") { Mode = BindingMode.OneTime };
         private static readonly Binding ResetBinding = new("Reset") { Mode = BindingMode.OneTime };
@@ -51,16 +48,6 @@ namespace BEditor.Views
         private static readonly Binding LostFocusBinding = new("LostFocus") { Mode = BindingMode.OneTime };
         private static readonly Binding TextChangedBinding = new("TextChanged") { Mode = BindingMode.OneTime };
         private static readonly Binding PreviewMouseWheelBinding = new("PreviewMouseWheel") { Mode = BindingMode.OneTime };
-        private static readonly MultiBinding TooltipBinding = new()
-        {
-            Converter = HeaderConverter,
-            Bindings =
-            {
-                HeaderBinding,
-                ClipNameBinding,
-                ClipTextBinding,
-            }
-        };
 
 
         static ViewBuilder()
@@ -80,8 +67,6 @@ namespace BEditor.Views
                 view.SetBinding(BasePropertyView.ResetCommandProperty, ResetBinding);
                 view.SetBinding(BasePropertyView.BindCommandProperty, BindBinding);
 
-                view.SetBinding(FrameworkElement.ToolTipProperty, TooltipBinding);
-
                 return view;
             }));
             // ColorAnimation
@@ -99,8 +84,6 @@ namespace BEditor.Views
                 view.SetBinding(ColorPropertyView.ClickCommandProperty, OpenDialogBinding);
                 view.SetBinding(BasePropertyView.ResetCommandProperty, ResetBinding);
                 view.SetBinding(BasePropertyView.BindCommandProperty, BindBinding);
-
-                view.SetBinding(FrameworkElement.ToolTipProperty, TooltipBinding);
 
                 return view;
             }));
@@ -172,8 +155,7 @@ namespace BEditor.Views
                 view.SetBinding(BasePropertyView.HeaderProperty, HeaderBinding);
                 view.SetBinding(BasePropertyView.ResetCommandProperty, ResetBinding);
                 view.SetBinding(BasePropertyView.BindCommandProperty, BindBinding);
-                view.SetBinding(FrameworkElement.ToolTipProperty, TooltipBinding);
-
+                
                 view.SetBinding(FilePropertyView.ModeIndexProperty, FileModeBinding);
                 view.SetBinding(FilePropertyView.FileProperty, PropertyFileBinding);
                 view.SetBinding(FilePropertyView.OpenFileCommandProperty, CommandBinding);
@@ -190,8 +172,7 @@ namespace BEditor.Views
 
                 view.SetBinding(BasePropertyView.HeaderProperty, HeaderBinding);
                 view.SetBinding(BasePropertyView.ResetCommandProperty, ResetBinding);
-                view.SetBinding(FrameworkElement.ToolTipProperty, TooltipBinding);
-
+                
                 view.SetBinding(FontPropertyView.ItemsSourceProperty, ItemsSourcePropertyBinding);
                 view.SetBinding(FontPropertyView.CommandProperty, CommandBinding);
                 view.SetBinding(FontPropertyView.SelectedItemProperty, PropertySelectBinding);
@@ -225,8 +206,7 @@ namespace BEditor.Views
                 view.SetBinding(BasePropertyView.HeaderProperty, HeaderBinding);
                 view.SetBinding(BasePropertyView.ResetCommandProperty, ResetBinding);
                 view.SetBinding(BasePropertyView.BindCommandProperty, BindBinding);
-                view.SetBinding(FrameworkElement.ToolTipProperty, TooltipBinding);
-
+                
                 view.SetBinding(SelectorPropertyView.ItemsSourceProperty, ItemsSourcePropertyBinding);
                 view.SetBinding(SelectorPropertyView.CommandProperty, CommandBinding);
                 view.SetBinding(SelectorPropertyView.SelectedIndexProperty, PropertyIndexBinding);
@@ -249,8 +229,7 @@ namespace BEditor.Views
                 view.SetBinding(BasePropertyView.HeaderProperty, HeaderBinding);
                 view.SetBinding(BasePropertyView.ResetCommandProperty, ResetBinding);
                 view.SetBinding(BasePropertyView.BindCommandProperty, BindBinding);
-                view.SetBinding(FrameworkElement.ToolTipProperty, TooltipBinding);
-
+                
                 view.SetBinding(SelectorPropertyViewGen.ItemsSourceProperty, ItemsSourcePropertyBinding);
                 view.SetBinding(SelectorPropertyViewGen.CommandProperty, CommandBinding);
                 view.SetBinding(SelectorPropertyViewGen.SelectedItemProperty, PropertySelectItemBinding);
@@ -269,8 +248,7 @@ namespace BEditor.Views
                 view.SetBinding(BasePropertyView.HeaderProperty, HeaderBinding);
                 view.SetBinding(BasePropertyView.ResetCommandProperty, ResetBinding);
                 view.SetBinding(BasePropertyView.BindCommandProperty, BindBinding);
-                view.SetBinding(FrameworkElement.ToolTipProperty, TooltipBinding);
-
+                
                 view.SetBinding(ValuePropertyView.ValueProperty, PropertyValueBinding);
                 view.SetBinding(ValuePropertyView.GotFocusCommandProperty, GotFocusBinding);
                 view.SetBinding(ValuePropertyView.LostFocusCommandProperty, LostFocusBinding);
@@ -290,8 +268,7 @@ namespace BEditor.Views
                 view.SetBinding(BasePropertyView.HeaderProperty, HeaderBinding);
                 view.SetBinding(BasePropertyView.ResetCommandProperty, ResetBinding);
                 view.SetBinding(BasePropertyView.BindCommandProperty, BindBinding);
-                view.SetBinding(FrameworkElement.ToolTipProperty, TooltipBinding);
-
+                
                 view.SetBinding(TextPropertyView.TextProperty, PropertyValueBinding);
                 view.SetBinding(TextPropertyView.GotFocusCommandProperty, GotFocusBinding);
                 view.SetBinding(TextPropertyView.LostFocusCommandProperty, LostFocusBinding);
@@ -323,8 +300,7 @@ namespace BEditor.Views
                 view.SetBinding(BasePropertyView.HeaderProperty, HeaderBinding);
                 view.SetBinding(BasePropertyView.ResetCommandProperty, ResetBinding);
                 view.SetBinding(BasePropertyView.BindCommandProperty, BindBinding);
-                view.SetBinding(FrameworkElement.ToolTipProperty, TooltipBinding);
-
+                
                 view.SetBinding(FolderPropertyView.ModeIndexProperty, FileModeBinding);
                 view.SetBinding(FolderPropertyView.FolderProperty, PropertyFolderBinding);
                 view.SetBinding(FolderPropertyView.OpenFolderCommandProperty, CommandBinding);

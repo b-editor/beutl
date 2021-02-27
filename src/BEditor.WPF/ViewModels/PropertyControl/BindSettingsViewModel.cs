@@ -2,6 +2,7 @@
 using System.Collections.Generic;
 using System.ComponentModel;
 using System.Linq;
+using System.Reactive.Disposables;
 using System.Text;
 using System.Threading.Tasks;
 using System.Windows.Input;
@@ -10,39 +11,46 @@ using BEditor.Data;
 using BEditor.Data.Bindings;
 
 using Reactive.Bindings;
+using Reactive.Bindings.Extensions;
 
 namespace BEditor.ViewModels.PropertyControl
 {
-    public class BindSettingsViewModel<T> : BasePropertyChanged
+    public sealed class BindSettingsViewModel<T> : IDisposable
     {
-        private static readonly PropertyChangedEventArgs bindpathArgs = new(nameof(BindPath));
-        private string? bindPath;
+        private readonly CompositeDisposable disposables = new();
 
 
         public BindSettingsViewModel(IBindable<T> bindable)
         {
             Bindable = bindable;
-            BindPath = bindable.BindHint;
+            BindPath = bindable.ObserveProperty(b => b.BindHint).ToReactiveProperty().AddTo(disposables);
 
             OKCommand.Subscribe(() =>
             {
-                if (Bindable.GetBindable(bindPath, out var ret))
+                if (Bindable.GetBindable(BindPath.Value, out var ret))
                 {
                     bindable.Bind<T>(ret).Execute();
                 }
-            });
+            }).AddTo(disposables);
 
-            DisconnectCommand.Subscribe(() => bindable.Disconnect().Execute());
+            DisconnectCommand.Subscribe(() => bindable.Disconnect().Execute()).AddTo(disposables);
+        }
+        ~BindSettingsViewModel()
+        {
+            Dispose();
         }
 
 
         public IBindable<T> Bindable { get; }
-        public string? BindPath
-        {
-            get => bindPath;
-            set => SetValue(value, ref bindPath, bindpathArgs);
-        }
+        public ReactiveProperty<string?> BindPath { get; }
         public ReactiveCommand OKCommand { get; } = new();
         public ReactiveCommand DisconnectCommand { get; } = new();
+
+        public void Dispose()
+        {
+            disposables.Dispose();
+
+            GC.SuppressFinalize(this);
+        }
     }
 }

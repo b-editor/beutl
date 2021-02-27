@@ -7,7 +7,7 @@ using MaterialDesignThemes.Wpf;
 
 namespace BEditor.ViewModels.Converters
 {
-    public class ToFileNameConverter : IValueConverter
+    public sealed class ToFileNameConverter : IValueConverter
     {
         public object? Convert(object value, Type targetType, object parameter, CultureInfo culture)
         {
