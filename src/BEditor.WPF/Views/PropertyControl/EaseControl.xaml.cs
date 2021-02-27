@@ -21,41 +21,44 @@ namespace BEditor.Views.PropertyControls
     /// <summary>
     /// EasePropertyControl.xaml の相互作用ロジック
     /// </summary>
-    public partial class EaseControl : UserControl, ICustomTreeViewItem, ISizeChangeMarker
+    public sealed partial class EaseControl : UserControl, ICustomTreeViewItem, ISizeChangeMarker, IDisposable
     {
-        private readonly EaseProperty property;
-        private double OpenHeight;
-        private float oldvalue;
-        private readonly Storyboard OpenStoryboard = new();
-        private readonly Storyboard CloseStoryboard = new();
-        private readonly DoubleAnimation OpenAnm = new() { Duration = TimeSpan.FromSeconds(0.25) };
-        private readonly DoubleAnimation CloseAnm = new() { Duration = TimeSpan.FromSeconds(0.25), To = 32.5 };
+        private EaseProperty _property;
+        private double _openHeight;
+        private float _oldvalue;
+        private readonly Storyboard _openStoryboard = new();
+        private readonly Storyboard _closeStoryboard = new();
+        private readonly DoubleAnimation _openAnm = new() { Duration = TimeSpan.FromSeconds(0.25) };
+        private readonly DoubleAnimation _closeAnm = new() { Duration = TimeSpan.FromSeconds(0.25), To = 32.5 };
 
         public EaseControl(EaseProperty property)
         {
             DataContext = new EasePropertyViewModel(property);
             InitializeComponent();
 
-            this.property = property;
+            _property = property;
 
-            OpenHeight = (double)(OpenAnm.To = 32.5 * property.Value.Count + 10);
+            _openHeight = (double)(_openAnm.To = 32.5 * property.Value.Count + 10);
 
-            Loaded += (_, _) =>
-            {
-                this.property.Value.CollectionChanged += Value_CollectionChanged;
+            _property.Value.CollectionChanged += Value_CollectionChanged;
 
-                OpenStoryboard.Children.Add(OpenAnm);
-                CloseStoryboard.Children.Add(CloseAnm);
+            _openStoryboard.Children.Add(_openAnm);
+            _closeStoryboard.Children.Add(_closeAnm);
 
-                Storyboard.SetTarget(OpenAnm, this);
-                Storyboard.SetTargetProperty(OpenAnm, new PropertyPath("(Height)"));
+            Storyboard.SetTarget(_openAnm, this);
+            Storyboard.SetTargetProperty(_openAnm, new PropertyPath("(Height)"));
 
-                Storyboard.SetTarget(CloseAnm, this);
-                Storyboard.SetTargetProperty(CloseAnm, new PropertyPath("(Height)"));
-            };
+            Storyboard.SetTarget(_closeAnm, this);
+            Storyboard.SetTargetProperty(_closeAnm, new PropertyPath("(Height)"));
+        }
+        ~EaseControl()
+        {
+            Dispose();
         }
 
+
         public event EventHandler? SizeChange;
+
 
         public double LogicHeight
         {
@@ -64,7 +67,7 @@ namespace BEditor.Views.PropertyControls
                 double h;
                 if ((bool)togglebutton.IsChecked!)
                 {
-                    h = OpenHeight;
+                    h = _openHeight;
                 }
                 else
                 {
@@ -75,11 +78,12 @@ namespace BEditor.Views.PropertyControls
             }
         }
 
+
         private void Value_CollectionChanged(object? sender, NotifyCollectionChangedEventArgs e)
         {
             if (e.Action is NotifyCollectionChangedAction.Add or NotifyCollectionChangedAction.Remove)
             {
-                OpenHeight = (double)(OpenAnm.To = 32.5 * property.Value.Count + 10);
+                _openHeight = (double)(_openAnm.To = 32.5 * _property.Value.Count + 10);
                 ListToggleClick(null, null);
             }
         }
@@ -89,11 +93,11 @@ namespace BEditor.Views.PropertyControls
             //開く
             if ((bool)togglebutton.IsChecked!)
             {
-                OpenStoryboard.Begin();
+                _openStoryboard.Begin();
             }
             else
             {
-                CloseStoryboard.Begin();
+                _closeStoryboard.Begin();
             }
 
             SizeChange?.Invoke(this, EventArgs.Empty);
@@ -103,31 +107,31 @@ namespace BEditor.Views.PropertyControls
         {
             if (!IsLoaded) return;
 
-            TextBox tb = (TextBox)sender;
+            var tb = (TextBox)sender;
 
 
             int index = AttachmentProperty.GetInt(tb);
 
-            oldvalue = property.Value[index];
+            _oldvalue = _property.Value[index];
         }
         private void TextBox_LostFocus(object sender, RoutedEventArgs e)
         {
             if (!IsLoaded) return;
 
-            TextBox tb = (TextBox)sender;
+            var tb = (TextBox)sender;
 
             int index = AttachmentProperty.GetInt(tb);
 
-            if (float.TryParse(tb.Text, out float _out))
+            if (float.TryParse(tb.Text, out var _out))
             {
-                property.Value[index] = oldvalue;
+                _property.Value[index] = _oldvalue;
 
-                property.ChangeValue(index, _out).Execute();
+                _property.ChangeValue(index, _out).Execute();
             }
         }
         private void TextBox_PreviewMouseWheel(object sender, MouseWheelEventArgs e)
         {
-            TextBox textBox = (TextBox)sender;
+            var textBox = (TextBox)sender;
 
             if (textBox.IsKeyboardFocused && float.TryParse(textBox.Text, out var val))
             {
@@ -139,25 +143,34 @@ namespace BEditor.Views.PropertyControls
 
                 val += e.Delta / 120 * v;
 
-                property.Value[index] = property.Clamp(val);
+                _property.Value[index] = _property.Clamp(val);
 
-                AppData.Current.Project!.PreviewUpdate(property.GetParent2()!);
+                AppData.Current.Project!.PreviewUpdate(_property.GetParent2()!);
 
                 e.Handled = true;
             }
         }
         private void TextBox_KeyDown(object sender, KeyEventArgs e)
         {
-            TextBox textBox = (TextBox)sender;
+            var textBox = (TextBox)sender;
             int index = AttachmentProperty.GetInt(textBox);
 
 
-            if (float.TryParse(textBox.Text, out float _out))
+            if (float.TryParse(textBox.Text, out var _out))
             {
-                property.Value[index] = property.Clamp(_out);
+                _property.Value[index] = _property.Clamp(_out);
 
-                AppData.Current.Project!.PreviewUpdate(property.GetParent2()!);
+                AppData.Current.Project!.PreviewUpdate(_property.GetParent2()!);
             }
+        }
+
+        public void Dispose()
+        {
+            DataContext = null;
+            _property.Value.CollectionChanged -= Value_CollectionChanged;
+            _property = null!;
+
+            GC.SuppressFinalize(this);
         }
     }
 }

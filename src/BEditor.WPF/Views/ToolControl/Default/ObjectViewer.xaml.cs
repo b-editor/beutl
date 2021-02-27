@@ -117,6 +117,10 @@ namespace BEditor.Views.ToolControl.Default
                     scene.Parent!.PreviewScene = scene.Parent!.SceneList[0];
                     scene.Parent.SceneList.Remove(scene);
                     scene.Unload();
+
+                    scene.GetValue(ViewBuilder.TimeLineViewModelProperty)?.Dispose();
+
+                    scene.Clear();
                 }
             }
             catch (IndexOutOfRangeException)

@@ -53,7 +53,7 @@ namespace BEditor.Data.Property.Easing
 
                 foreach (var prop in Children)
                 {
-                    prop.Parent = Parent?.Parent;
+                    prop.Parent = Parent?.Parent!;
                 }
             }
         }

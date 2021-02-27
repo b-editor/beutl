@@ -1,4 +1,5 @@
 ﻿using System;
+using System.Reactive.Disposables;
 
 using BEditor.Command;
 using BEditor.Data;
@@ -11,37 +12,69 @@ using Reactive.Bindings.Extensions;
 
 namespace BEditor.ViewModels.TimeLines
 {
-    public class ColorAnimationViewModel
+    public sealed class ColorAnimationViewModel : IDisposable
     {
+        private readonly CompositeDisposable _disposable = new();
+
         public ColorAnimationViewModel(ColorAnimationProperty colorProperty)
         {
-            ColorAnimationProperty = colorProperty;
+            Property = colorProperty;
             Metadata = colorProperty.ObserveProperty(p => p.PropertyMetadata)
-                .ToReadOnlyReactiveProperty();
+                .ToReadOnlyReactiveProperty()
+                .AddTo(_disposable);
 
-            AddKeyFrameCommand.Subscribe(x => ColorAnimationProperty.AddFrame(x).Execute());
-            RemoveKeyFrameCommand.Subscribe(x => ColorAnimationProperty.RemoveFrame(x).Execute());
-            MoveKeyFrameCommand.Subscribe(x => ColorAnimationProperty.MoveFrame(x.Item1, x.Item2).Execute());
+            AddKeyFrameCommand
+                .Subscribe(x => Property.AddFrame(x).Execute())
+                .AddTo(_disposable);
 
-            colorProperty.AddKeyFrameEvent += (_, value) => AddKeyFrameIcon?.Invoke(value.frame, value.index);
-            colorProperty.DeleteKeyFrameEvent += (_, value) => DeleteKeyFrameIcon?.Invoke(value);
-            colorProperty.MoveKeyFrameEvent += (_, value) => MoveKeyFrameIcon?.Invoke(value.fromindex, value.toindex);
+            RemoveKeyFrameCommand
+                .Subscribe(x => Property.RemoveFrame(x).Execute())
+                .AddTo(_disposable);
+
+            MoveKeyFrameCommand
+                .Subscribe(x => Property.MoveFrame(x.Item1, x.Item2).Execute())
+                .AddTo(_disposable);
+
+            colorProperty.AddKeyFrameEvent
+                .Subscribe(value => AddKeyFrameIcon?.Invoke(value.frame, value.index))
+                .AddTo(_disposable);
+
+            colorProperty.RemoveKeyFrameEvent
+                .Subscribe(value => RemoveKeyFrameIcon?.Invoke(value))
+                .AddTo(_disposable);
+
+            colorProperty.MoveKeyFrameEvent
+                .Subscribe(value => MoveKeyFrameIcon?.Invoke(value.fromindex, value.toindex))
+                .AddTo(_disposable);
+        }
+        ~ColorAnimationViewModel()
+        {
+            Dispose();
         }
 
-        #region View操作のAction
 
         public Action<int, int>? AddKeyFrameIcon { get; set; }
-        public Action<int>? DeleteKeyFrameIcon { get; set; }
+        public Action<int>? RemoveKeyFrameIcon { get; set; }
         public Action<int, int>? MoveKeyFrameIcon { get; set; }
 
-        #endregion
-
         public double TrackHeight => Setting.ClipHeight + 1;
-        public ColorAnimationProperty ColorAnimationProperty { get; }
+        public ColorAnimationProperty Property { get; }
 
         public ReadOnlyReactiveProperty<ColorAnimationPropertyMetadata?> Metadata { get; }
         public ReactiveCommand<Frame> AddKeyFrameCommand { get; } = new();
         public ReactiveCommand<Frame> RemoveKeyFrameCommand { get; } = new();
         public ReactiveCommand<(int, int)> MoveKeyFrameCommand { get; } = new();
+
+
+        public void Dispose()
+        {
+            _disposable.Dispose();
+            _disposable.Clear();
+            AddKeyFrameIcon = null;
+            RemoveKeyFrameIcon = null;
+            MoveKeyFrameIcon = null;
+
+            GC.SuppressFinalize(this);
+        }
     }
 }

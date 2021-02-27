@@ -15,7 +15,7 @@ namespace BEditor.Views.PropertyControls
     /// <summary>
     /// Object_Setting.xaml の相互作用ロジック
     /// </summary>
-    public partial class Object_Setting : UserControl
+    public sealed partial class Object_Setting : UserControl, IDisposable
     {
         public Object_Setting(ClipElement data)
         {
@@ -26,6 +26,13 @@ namespace BEditor.Views.PropertyControls
 
         public ClipElement Data { get; set; }
 
+        public void Dispose()
+        {
+            Data = null!;
+            DataContext = null;
+
+            GC.SuppressFinalize(this);
+        }
 
         private void UserControl_Drop(object sender, DragEventArgs e)
         {

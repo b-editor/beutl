@@ -25,7 +25,7 @@ using Reactive.Bindings.Extensions;
 
 namespace BEditor.ViewModels.TimeLines
 {
-    public class ClipUIViewModel : IDisposable
+    public sealed class ClipUIViewModel : IDisposable
     {
         private Point MouseRightPoint;
         private readonly CompositeDisposable _disposable = new();
@@ -95,6 +95,11 @@ namespace BEditor.ViewModels.TimeLines
                 .Subscribe(_ => TimeLineViewModel.ClipLayerMoveCommand?.Invoke(ClipElement, ClipElement.Layer))
                 .AddTo(_disposable);
         }
+        ~ClipUIViewModel()
+        {
+            Dispose();
+        }
+
 
         #region Properties
         public Scene Scene => ClipElement.Parent;
@@ -149,6 +154,7 @@ namespace BEditor.ViewModels.TimeLines
 
         public ReactiveCommand ClipSeparateCommand { get; } = new();
         #endregion
+
 
         private void ClipMouseLeftDown()
         {
@@ -282,6 +288,7 @@ namespace BEditor.ViewModels.TimeLines
         public void Dispose()
         {
             _disposable.Dispose();
+            _disposable.Clear();
 
             GC.SuppressFinalize(this);
         }

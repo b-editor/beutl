@@ -12,6 +12,6 @@ namespace BEditor.Data.Property
     public interface IEasingProperty : IPropertyElement
     {
         /// <inheritdoc cref="IChild{T}.Parent"/>
-        public new EffectElement? Parent { get; set; }
+        public new EffectElement Parent { get; set; }
     }
 }

@@ -26,7 +26,7 @@ namespace BEditor.Data.Property
         public IEnumerable<PropertyElement> Children => _CachedList ??= Properties;
 
         /// <inheritdoc/>
-        public override EffectElement? Parent
+        public override EffectElement Parent
         {
             get => base.Parent;
             set

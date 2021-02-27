@@ -108,7 +108,6 @@ namespace BEditor.ViewModels.TimeLines
 
                         ResetScale?.Invoke(Scene.TimeLineZoom, Scene.TotalFrame, AppData.Current.Project!.Framerate);
                     }
-
                 })
                 .AddTo(_disposable);
 
@@ -139,17 +138,6 @@ namespace BEditor.ViewModels.TimeLines
 
             SettingShowCommand.Subscribe(() => new SettingsWindow().ShowDialog()).AddTo(_disposable);
             AddClip.Subscribe(AddClipCommand).AddTo(_disposable);
-
-            ScrollLineCommand.Subscribe(() =>
-            {
-                var timeline = Scene.GetCreateTimeLineView();
-                timeline.ScrollLabel.ScrollToVerticalOffset(timeline.ScrollLine.VerticalOffset);
-            }).AddTo(_disposable);
-            ScrollLabelCommand.Subscribe(() =>
-            {
-                var timeline = Scene.GetCreateTimeLineView();
-                timeline.ScrollLine.ScrollToVerticalOffset(timeline.ScrollLabel.VerticalOffset);
-            }).AddTo(_disposable);
 
             LayerSelectCommand.Subscribe(LayerSelect).AddTo(_disposable);
             LayerDropCommand.Subscribe(x => LayerDrop(x.sender, x.args)).AddTo(_disposable);
@@ -191,9 +179,6 @@ namespace BEditor.ViewModels.TimeLines
         public ReactiveCommand PasteCommand => EditModel.Current.ClipboardPaste;
         public ReactiveCommand<ObjectMetadata> AddClip { get; } = new();
 
-        public ReactiveCommand ScrollLineCommand { get; } = new();
-        public ReactiveCommand ScrollLabelCommand { get; } = new();
-
         public ReactiveCommand<object> LayerSelectCommand { get; } = new();
         public ReactiveCommand<(object sender, EventArgs args)> LayerDropCommand { get; } = new();
         public ReactiveCommand<(object sender, EventArgs args)> LayerDragOverCommand { get; } = new();
@@ -203,7 +188,6 @@ namespace BEditor.ViewModels.TimeLines
         public ReactiveCommand TimeLineMouseLeftUpCommand { get; } = new();
         public ReactiveCommand<Point> TimeLineMouseMoveCommand { get; } = new();
         public ReactiveCommand TimeLineMouseLeaveCommand { get; } = new();
-
 
 
         private void AddClipCommand(ObjectMetadata @object)
@@ -473,6 +457,8 @@ namespace BEditor.ViewModels.TimeLines
         public void Dispose()
         {
             _disposable.Dispose();
+            _disposable.Clear();
+
             GC.SuppressFinalize(this);
         }
     }

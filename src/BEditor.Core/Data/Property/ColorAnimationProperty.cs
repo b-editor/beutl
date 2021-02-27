@@ -6,6 +6,8 @@ using System.Diagnostics;
 using System.Diagnostics.CodeAnalysis;
 using System.Diagnostics.Contracts;
 using System.Linq;
+using System.Reactive.Linq;
+using System.Reactive.Subjects;
 using System.Runtime.Serialization;
 
 using BEditor.Command;
@@ -28,6 +30,9 @@ namespace BEditor.Data.Property
         private static readonly PropertyChangedEventArgs _easingDataArgs = new(nameof(EasingData));
         private EasingFunc? _easingTypeProperty;
         private EasingMetadata? _easingData;
+        private Subject<(Frame frame, int index)>? _addKeyFrameSubject;
+        private Subject<int>? _deleteKeyFrameSubject;
+        private Subject<(int fromindex, int toindex)>? _moveKeyFrameSubject;
         #endregion
 
 
@@ -106,27 +111,26 @@ namespace BEditor.Data.Property
             }
         }
 
+        /// <summary>
+        /// Occurs when requesting to add a keyframe to the UI.
+        /// </summary>
+        public IObservable<(Frame frame, int index)> AddKeyFrameEvent => _addKeyFrameSubject ??= new();
+
+        /// <summary>
+        /// Occurs when requesting the UI to delete a keyframe.
+        /// </summary>
+        public IObservable<int> RemoveKeyFrameEvent => _deleteKeyFrameSubject ??= new();
+
+        /// <summary>
+        /// Occurs when the UI requires a keyframe to be moved.
+        /// </summary>
+        public IObservable<(int fromindex, int toindex)> MoveKeyFrameEvent => _moveKeyFrameSubject ??= new();
+
 
         /// <summary>
         /// Get an eased value.
         /// </summary>
         public Color this[Frame frame] => GetValue(frame);
-
-
-        /// <summary>
-        /// Occurs when requesting to add a keyframe to the UI.
-        /// </summary>
-        public event EventHandler<(Frame frame, int index)>? AddKeyFrameEvent;
-
-        /// <summary>
-        /// Occurs when requesting the UI to delete a keyframe.
-        /// </summary>
-        public event EventHandler<int>? DeleteKeyFrameEvent;
-
-        /// <summary>
-        /// Occurs when the UI requires a keyframe to be moved.
-        /// </summary>
-        public event EventHandler<(int fromindex, int toindex)>? MoveKeyFrameEvent;
 
 
         #region Methods
@@ -334,152 +338,152 @@ namespace BEditor.Data.Property
 
         private sealed class ChangeColorCommand : IRecordCommand
         {
-            private readonly ColorAnimationProperty _Property;
-            private readonly int _Index;
-            private readonly Color _New;
-            private readonly Color _Old;
+            private readonly ColorAnimationProperty _property;
+            private readonly int _index;
+            private readonly Color _new;
+            private readonly Color _old;
 
             public ChangeColorCommand(ColorAnimationProperty property, int index, Color color)
             {
-                _Property = property ?? throw new ArgumentNullException(nameof(property));
-                _Index = index;
+                _property = property ?? throw new ArgumentNullException(nameof(property));
+                _index = index;
 
-                _New = color;
-                _Old = property.Value[index];
+                _new = color;
+                _old = property.Value[index];
             }
 
             public string Name => CommandName.ChangeColor;
 
-            public void Do() => _Property.Value[_Index] = _New;
+            public void Do() => _property.Value[_index] = _new;
             public void Redo() => Do();
-            public void Undo() => _Property.Value[_Index] = _Old;
+            public void Undo() => _property.Value[_index] = _old;
         }
 
         private sealed class ChangeEaseCommand : IRecordCommand
         {
-            private readonly ColorAnimationProperty _Property;
-            private readonly EasingFunc _New;
-            private readonly EasingFunc _Old;
+            private readonly ColorAnimationProperty _property;
+            private readonly EasingFunc _new;
+            private readonly EasingFunc _old;
 
             public ChangeEaseCommand(ColorAnimationProperty property, string type)
             {
-                _Property = property ?? throw new ArgumentNullException(nameof(property));
+                _property = property ?? throw new ArgumentNullException(nameof(property));
 
                 var data = EasingMetadata.LoadedEasingFunc.Find(x => x.Name == type)!;
-                _New = data.CreateFunc();
-                _New.Parent = property;
-                _Old = _Property.EasingType;
+                _new = data.CreateFunc();
+                _new.Parent = property;
+                _old = _property.EasingType;
             }
             public ChangeEaseCommand(ColorAnimationProperty property, EasingMetadata metadata)
             {
-                _Property = property ?? throw new ArgumentNullException(nameof(property));
+                _property = property ?? throw new ArgumentNullException(nameof(property));
 
-                _New = metadata.CreateFunc();
-                _New.Parent = property;
-                _Old = _Property.EasingType;
+                _new = metadata.CreateFunc();
+                _new.Parent = property;
+                _old = _property.EasingType;
             }
 
             public string Name => CommandName.ChangeEasing;
 
-            public void Do() => _Property.EasingType = _New;
+            public void Do() => _property.EasingType = _new;
             public void Redo() => Do();
-            public void Undo() => _Property.EasingType = _Old;
+            public void Undo() => _property.EasingType = _old;
         }
 
         private sealed class AddCommand : IRecordCommand
         {
-            private readonly ColorAnimationProperty _Property;
-            private readonly Frame _Frame;
+            private readonly ColorAnimationProperty _property;
+            private readonly Frame _frame;
 
             public AddCommand(ColorAnimationProperty property, Frame frame)
             {
-                _Property = property ?? throw new ArgumentNullException(nameof(property));
-                _Frame = frame;
+                _property = property ?? throw new ArgumentNullException(nameof(property));
+                _frame = frame;
             }
 
             public string Name => CommandName.AddKeyFrame;
 
             public void Do()
             {
-                int index = _Property.InsertKeyframe(_Frame, _Property.GetValue(_Frame + _Property.GetParent2()?.Start ?? 0));
-                _Property.AddKeyFrameEvent?.Invoke(_Property, (_Frame, index - 1));
+                int index = _property.InsertKeyframe(_frame, _property.GetValue(_frame + _property.GetParent2()?.Start ?? 0));
+                (_property.AddKeyFrameEvent as Subject<(Frame, int)>)?.OnNext((_frame, index - 1));
             }
             public void Redo() => Do();
             public void Undo()
             {
-                int index = _Property.RemoveKeyframe(_Frame, out _);
-                _Property.DeleteKeyFrameEvent?.Invoke(_Property, index - 1);
+                int index = _property.RemoveKeyframe(_frame, out _);
+                (_property.RemoveKeyFrameEvent as Subject<int>)?.OnNext(index - 1);
             }
         }
 
         private sealed class RemoveCommand : IRecordCommand
         {
-            private readonly ColorAnimationProperty _Property;
-            private readonly Frame _Frame;
-            private Color _Value;
+            private readonly ColorAnimationProperty _property;
+            private readonly Frame _frame;
+            private Color _value;
 
             public RemoveCommand(ColorAnimationProperty property, Frame frame)
             {
-                _Property = property ?? throw new ArgumentNullException(nameof(property));
-                _Frame = frame;
+                _property = property ?? throw new ArgumentNullException(nameof(property));
+                _frame = frame;
             }
 
             public string Name => CommandName.RemoveKeyFrame;
 
             public void Do()
             {
-                int index = _Property.RemoveKeyframe(_Frame, out _Value);
-                _Property.DeleteKeyFrameEvent?.Invoke(_Property, index - 1);
+                int index = _property.RemoveKeyframe(_frame, out _value);
+                (_property.RemoveKeyFrameEvent as Subject<int>)?.OnNext(index - 1);
             }
             public void Redo() => Do();
             public void Undo()
             {
-                int index = _Property.InsertKeyframe(_Frame, _Value);
-                _Property.AddKeyFrameEvent?.Invoke(_Property, (_Frame, index - 1));
+                int index = _property.InsertKeyframe(_frame, _value);
+                (_property.AddKeyFrameEvent as Subject<(Frame, int)>)?.OnNext((_frame, index - 1));
             }
         }
 
         private sealed class MoveCommand : IRecordCommand
         {
-            private readonly ColorAnimationProperty _Property;
-            private readonly int _FromIndex;
-            private int _ToIndex;
-            private readonly Frame _ToFrame;
+            private readonly ColorAnimationProperty _property;
+            private readonly int _fromIndex;
+            private int _toIndex;
+            private readonly Frame _toFrame;
 
             public MoveCommand(ColorAnimationProperty property, int fromIndex, Frame to)
             {
-                _Property = property ?? throw new ArgumentNullException(nameof(property));
-                _FromIndex = fromIndex;
-                _ToFrame = to;
+                _property = property ?? throw new ArgumentNullException(nameof(property));
+                _fromIndex = fromIndex;
+                _toFrame = to;
             }
 
             public string Name => CommandName.MoveKeyFrame;
 
             public void Do()
             {
-                _Property.Frame[_FromIndex] = _ToFrame;
-                _Property.Frame.Sort((a_, b_) => a_ - b_);
+                _property.Frame[_fromIndex] = _toFrame;
+                _property.Frame.Sort((a_, b_) => a_ - b_);
 
 
-                _ToIndex = _Property.Frame.FindIndex(x => x == _ToFrame);//新しいindex
+                _toIndex = _property.Frame.FindIndex(x => x == _toFrame);//新しいindex
 
                 //Indexの正規化
-                _Property.Value.Move(_FromIndex + 1, _ToIndex + 1);
+                _property.Value.Move(_fromIndex + 1, _toIndex + 1);
 
-                _Property.MoveKeyFrameEvent?.Invoke(_Property, (_FromIndex, _ToIndex));//GUIのIndexの正規化 UIスレッドで動作
+                (_property.MoveKeyFrameEvent as Subject<(int, int)>)?.OnNext((_fromIndex, _toIndex));//GUIのIndexの正規化 UIスレッドで動作
             }
             public void Redo() => Do();
             public void Undo()
             {
-                int frame = _Property.Frame[_ToIndex];
+                int frame = _property.Frame[_toIndex];
 
-                _Property.Frame.RemoveAt(_ToIndex);
-                _Property.Frame.Insert(_FromIndex, frame);
+                _property.Frame.RemoveAt(_toIndex);
+                _property.Frame.Insert(_fromIndex, frame);
 
-                _Property.Value.Move(_ToIndex + 1, _FromIndex + 1);
+                _property.Value.Move(_toIndex + 1, _fromIndex + 1);
 
 
-                _Property.MoveKeyFrameEvent?.Invoke(_Property, (_ToIndex, _FromIndex));
+                (_property.MoveKeyFrameEvent as Subject<(int, int)>)?.OnNext((_toIndex, _fromIndex));
             }
         }
 
@@ -520,7 +524,7 @@ namespace BEditor.Data.Property
         /// <param name="UseAlpha">Value if the alpha component should be used or not</param>
         public ColorAnimationPropertyMetadata(string Name, Color DefaultColor, bool UseAlpha = false)
             : this(Name, DefaultColor, EasingMetadata.LoadedEasingFunc[0], UseAlpha) { }
-        
+
         /// <summary>
         /// Gets the default color.
         /// </summary>

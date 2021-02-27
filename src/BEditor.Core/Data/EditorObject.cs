@@ -149,19 +149,25 @@ namespace BEditor.Data
         {
             static void ClearChildren(EditorObject @object)
             {
-                if(@object is IParent<EditorObject> parent)
+                if (@object is IParent<EditorObject> parent)
                 {
                     foreach (var child in parent.Children)
                     {
                         child.Clear();
-
-                        ClearChildren(child);
-                    } 
+                    }
                 }
 
-                if(@object is IKeyFrameProperty property)
+                if (@object is IKeyFrameProperty property)
                 {
                     property.EasingType?.Clear();
+                }
+            }
+
+            foreach (var value in Values)
+            {
+                if(value.Value is IDisposable disposable)
+                {
+                    disposable.Dispose();
                 }
             }
 

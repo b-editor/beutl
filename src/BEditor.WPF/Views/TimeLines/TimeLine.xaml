@@ -9,6 +9,8 @@
              xmlns:i="http://schemas.microsoft.com/xaml/behaviors"
              xmlns:properties="clr-namespace:BEditor.Properties;assembly=BEditor.Core"
              TextElement.Foreground="{DynamicResource MaterialDesignBody}"
+             Loaded="UserControl_Loaded"
+             Unloaded="UserControl_Unloaded"
              mc:Ignorable="d">
     <UserControl.Resources>
         <Style x:Key="TimelineHideShowToggleButton" TargetType="{x:Type ToggleButton}">

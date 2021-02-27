@@ -1,6 +1,7 @@
 ﻿using System;
 using System.ComponentModel;
 using System.Reactive;
+using System.Reactive.Disposables;
 using System.Reactive.Linq;
 using System.Windows;
 using System.Windows.Controls;
@@ -25,50 +26,29 @@ namespace BEditor.Views.TimeLines
     /// <summary>
     /// ColorAnimation.xaml の相互作用ロジック
     /// </summary>
-    public partial class ColorAnimation : UserControl, ICustomTreeViewItem
+    public sealed partial class ColorAnimation : UserControl, ICustomTreeViewItem, IDisposable
     {
-        public static readonly DependencyProperty AddCommandProperty = DependencyProperty.Register("AddCommand", typeof(ICommand), typeof(ColorAnimation));
-        public static readonly DependencyProperty RemoveCommandProperty = DependencyProperty.Register("RemoveCommand", typeof(ICommand), typeof(ColorAnimation));
-        public static readonly DependencyProperty MoveCommandProperty = DependencyProperty.Register("MoveCommand", typeof(ICommand), typeof(ColorAnimation));
+        private ColorAnimationProperty _property;
+        private bool _addToggle;
+        private int _startPos;
+        private PackIcon? _select;
+        private Media.Frame _nowframe;
+        private readonly Storyboard _getStoryboard = new Storyboard();
+        private readonly Storyboard _lostStoryboard = new Storyboard();
+        private readonly DoubleAnimation _getAnm = new DoubleAnimation() { Duration = TimeSpan.FromSeconds(0.15), To = 0 };
+        private readonly DoubleAnimation _lostAnm = new DoubleAnimation() { Duration = TimeSpan.FromSeconds(0.15), To = 1 };
+        private readonly CompositeDisposable _disposable = new();
 
-        private readonly ColorAnimationProperty _Property;
-        private bool addtoggle;
-        private int startpos;
-
-        private PackIcon? select;
-        //相対的
-        private Media.Frame nowframe;
-
-        public ICommand AddCommand
+        public ColorAnimation(ColorAnimationProperty property)
         {
-            get => (ICommand)GetValue(AddCommandProperty);
-            set => SetValue(AddCommandProperty, value);
-        }
-        public ICommand RemoveCommand
-        {
-            get => (ICommand)GetValue(RemoveCommandProperty);
-            set => SetValue(RemoveCommandProperty, value);
-        }
-        public ICommand MoveCommand
-        {
-            get => (ICommand)GetValue(MoveCommandProperty);
-            set => SetValue(MoveCommandProperty, value);
-        }
-
-        private Scene Scene => _Property.GetParent3()!;
-
-        public double LogicHeight => Settings.Default.ClipHeight + 1;
-
-        public ColorAnimation(ColorAnimationProperty color)
-        {
-            var viewModel = new ColorAnimationViewModel(color);
+            var viewModel = new ColorAnimationViewModel(property);
             DataContext = viewModel;
             InitializeComponent();
-            _Property = color;
+            _property = property;
 
             viewModel.AddKeyFrameIcon = (frame, index) =>
             {
-                App.Current.Dispatcher.Invoke(() =>
+                Dispatcher.InvokeAsync(() =>
                 {
                     var x = Scene.GetCreateTimeLineViewModel().ToPixel(frame);
                     var icon = new PackIcon()
@@ -82,13 +62,7 @@ namespace BEditor.Views.TimeLines
 
                     icon.SetResourceReference(ForegroundProperty, "MaterialDesignCardBackground");
 
-                    #region イベント
-                    icon.MouseDown += IconMouseDown;
-                    icon.MouseUp += IconMouseup;
-                    icon.MouseMove += IconMouseMove;
-                    icon.MouseLeave += IconMouseLeave;
-                    icon.MouseLeftButtonUp += IconMouseLeftUp;
-                    #endregion
+                    IconAddEventHandler(icon);
 
                     icon.ContextMenu = new ContextMenu();
                     icon.ContextMenu.Items.Add(CreateMenu());
@@ -97,10 +71,10 @@ namespace BEditor.Views.TimeLines
 
                 });
             };
-            viewModel.DeleteKeyFrameIcon = (index) => App.Current.Dispatcher.Invoke(() => grid.Children.RemoveAt(index));
+            viewModel.RemoveKeyFrameIcon = (index) => Dispatcher.InvokeAsync(() => grid.Children.RemoveAt(index));
             viewModel.MoveKeyFrameIcon = (from, to) =>
             {
-                App.Current.Dispatcher.Invoke(() =>
+                Dispatcher.InvokeAsync(() =>
                 {
                     var icon = grid.Children[from];
                     grid.Children.RemoveAt(from);
@@ -110,272 +84,244 @@ namespace BEditor.Views.TimeLines
 
             grid.Children.Clear();
 
-            SetBinding(AddCommandProperty, new Binding("AddKeyFrameCommand") { Mode = BindingMode.OneTime });
-            SetBinding(RemoveCommandProperty, new Binding("RemoveKeyFrameCommand") { Mode = BindingMode.OneTime });
-            SetBinding(MoveCommandProperty, new Binding("MoveKeyFrameCommand") { Mode = BindingMode.OneTime });
 
-
-            for (int index = 0; index < color.Frame.Count; index++)
+            for (int index = 0; index < property.Frame.Count; index++)
             {
-                viewModel.AddKeyFrameIcon(color.Frame[index], index);
+                viewModel.AddKeyFrameIcon(property.Frame[index], index);
             }
 
-            var tmp = Scene.GetCreateTimeLineViewModel().ToPixel(color.GetParent2()!.Length);
+            var tmp = Scene.GetCreateTimeLineViewModel().ToPixel(property.GetParent2()!.Length);
             if (tmp > 0)
             {
                 Width = tmp;
             }
 
             Scene.ObserveProperty(p => p.TimeLineZoom)
-                .Subscribe(_ => ZoomChange());
+                .Subscribe(_ => ZoomChange())
+                .AddTo(_disposable);
 
             //StoryBoard
-            Storyboard.SetTarget(GetAnm, text);
-            Storyboard.SetTargetProperty(GetAnm, new PropertyPath("(Opacity)"));
+            Storyboard.SetTarget(_getAnm, text);
+            Storyboard.SetTargetProperty(_getAnm, new PropertyPath("(Opacity)"));
 
-            Storyboard.SetTarget(LoseAnm, text);
-            Storyboard.SetTargetProperty(LoseAnm, new PropertyPath("(Opacity)"));
+            Storyboard.SetTarget(_lostAnm, text);
+            Storyboard.SetTargetProperty(_lostAnm, new PropertyPath("(Opacity)"));
 
-            GetStoryboard.Children.Add(GetAnm);
-            LoseStoryboard.Children.Add(LoseAnm);
+            _getStoryboard.Children.Add(_getAnm);
+            _lostStoryboard.Children.Add(_lostAnm);
 
-            MouseEnter += (_, _) => GetStoryboard.Begin();
-            MouseLeave += (_, _) => LoseStoryboard.Begin();
+            MouseEnter += (_, _) => _getStoryboard.Begin();
+            MouseLeave += (_, _) => _lostStoryboard.Begin();
+        }
+        ~ColorAnimation()
+        {
+            Dispose();
         }
 
-        #region StoryBoard
 
-        private readonly Storyboard GetStoryboard = new Storyboard();
-        private readonly Storyboard LoseStoryboard = new Storyboard();
-        private readonly DoubleAnimation GetAnm = new DoubleAnimation() { Duration = TimeSpan.FromSeconds(0.15), To = 0 };
-        private readonly DoubleAnimation LoseAnm = new DoubleAnimation() { Duration = TimeSpan.FromSeconds(0.15), To = 1 };
-
-        #endregion
+        private Scene Scene => _property.GetParent3()!;
+        private ColorAnimationViewModel ViewModel => (ColorAnimationViewModel)DataContext;
+        public double LogicHeight => Settings.Default.ClipHeight + 1;
 
 
-        #region ZoomChangeEvent
-        /// <summary>
-        /// 拡大率変更
-        /// </summary>
+        private void IconAddEventHandler(PackIcon icon)
+        {
+            icon.MouseDown += IconMouseDown;
+            icon.MouseUp += IconMouseup;
+            icon.MouseMove += IconMouseMove;
+            icon.MouseLeave += IconMouseLeave;
+            icon.MouseLeftButtonUp += IconMouseLeftUp;
+        }
+        private void IconRemoveEventHandler(PackIcon icon)
+        {
+            icon.MouseDown -= IconMouseDown;
+            icon.MouseUp -= IconMouseup;
+            icon.MouseMove -= IconMouseMove;
+            icon.MouseLeave -= IconMouseLeave;
+            icon.MouseLeftButtonUp -= IconMouseLeftUp;
+        }
+
         private void ZoomChange()
         {
-            for (int frame = 0; frame < _Property.Frame.Count; frame++)
+            for (int frame = 0; frame < _property.Frame.Count; frame++)
             {
                 if (grid.Children[frame] is PackIcon icon)
                 {
-                    icon.Margin = new Thickness(Scene.GetCreateTimeLineViewModel().ToPixel(_Property.Frame[frame]), 0, 0, 0);
+                    icon.Margin = new Thickness(Scene.GetCreateTimeLineViewModel().ToPixel(_property.Frame[frame]), 0, 0, 0);
                 }
             }
 
-            Width = Scene.GetCreateTimeLineViewModel().ToPixel(_Property.GetParent2()!.Length);
+            Width = Scene.GetCreateTimeLineViewModel().ToPixel(_property.GetParent2()!.Length);
         }
-        #endregion
-
 
         private void Add_Pos(object sender, RoutedEventArgs e)
         {
-            AddCommand.Execute(nowframe);
+            ViewModel.AddKeyFrameCommand.Execute(_nowframe);
         }
 
         private void Delete_Click(object sender, RoutedEventArgs e)
         {
-            RemoveCommand.Execute(_Property.Frame[grid.Children.IndexOf(select)]);
+            ViewModel.RemoveKeyFrameCommand.Execute(_property.Frame[grid.Children.IndexOf(_select)]);
         }
 
-        #region MouseMoveEvent
         private void Mouse_Move(object sender, MouseEventArgs e)
         {
-            if (addtoggle)
+            if (_addToggle)
             {
-                nowframe = Scene.GetCreateTimeLineViewModel().ToFrame(e.GetPosition(grid).X);
+                _nowframe = Scene.GetCreateTimeLineViewModel().ToFrame(e.GetPosition(grid).X);
 
-                addtoggle = false;
+                _addToggle = false;
             }
-            else if (select == null)
+            else if (_select is null)
             {
                 return;
             }
             else if (grid.Cursor == Cursors.SizeWE)
             {
                 var now = Scene.GetCreateTimeLineViewModel().ToFrame(e.GetPosition(grid).X);
-                var a = now - startpos + Scene.GetCreateTimeLineViewModel().ToFrame(select.Margin.Left);//相対
+                var a = now - _startPos + Scene.GetCreateTimeLineViewModel().ToFrame(_select.Margin.Left);//相対
 
-                select.Margin = new Thickness(Scene.GetCreateTimeLineViewModel().ToPixel(a), 0, 0, 0);
+                _select.Margin = new Thickness(Scene.GetCreateTimeLineViewModel().ToPixel(a), 0, 0, 0);
 
-                startpos = now;
+                _startPos = now;
             }
         }
-        #endregion
-
 
         private void Mouse_RightDown(object sender, MouseButtonEventArgs e)
         {
-            addtoggle = true;
+            _addToggle = true;
         }
 
-
-        #region KeyframeMouseDownイベント
         private void IconMouseDown(object sender, MouseButtonEventArgs e)
         {
-            startpos = Scene.GetCreateTimeLineViewModel().ToFrame(e.GetPosition(grid).X);
+            _startPos = Scene.GetCreateTimeLineViewModel().ToFrame(e.GetPosition(grid).X);
 
-            select = (PackIcon)sender;
-            if (select.Cursor == Cursors.SizeWE)
+            _select = (PackIcon)sender;
+            if (_select.Cursor == Cursors.SizeWE)
             {
                 grid.Cursor = Cursors.SizeWE;
             }
 
             for (int i = 0; i < grid.Children.Count; i++)
             {
-                PackIcon icon = (PackIcon)grid.Children[i];
+                var icon = (PackIcon)grid.Children[i];
 
-                if (icon != (sender as PackIcon))
+                if (icon != _select)
                 {
-                    icon.MouseDown -= IconMouseDown;
-                    icon.MouseUp -= IconMouseup;
-                    icon.MouseMove -= IconMouseMove;
-                    icon.MouseLeave -= IconMouseLeave;
-                    icon.MouseLeftButtonUp -= IconMouseLeftUp;
+                    IconRemoveEventHandler(icon);
                 }
             }
         }
-        #endregion
 
-        #region KeyframeMouseUp
         private void IconMouseup(object sender, MouseButtonEventArgs e)
         {
             grid.Cursor = Cursors.Arrow;
-            if (select != null)
+            if (_select is not null)
             {
-                select.Cursor = Cursors.Arrow;
+                _select.Cursor = Cursors.Arrow;
             }
 
             for (int i = 0; i < grid.Children.Count; i++)
             {
-                PackIcon icon = (PackIcon)grid.Children[i];
+                var icon = (PackIcon)grid.Children[i];
 
                 if (icon != (sender as PackIcon))
                 {
-                    icon.MouseDown += IconMouseDown;
-                    icon.MouseUp += IconMouseup;
-                    icon.MouseMove += IconMouseMove;
-                    icon.MouseLeave += IconMouseLeave;
-                    icon.MouseLeftButtonUp += IconMouseLeftUp;
+                    IconAddEventHandler(icon);
                 }
             }
         }
-        #endregion
 
-        #region KeyframeMouseMove
         private void IconMouseMove(object sender, MouseEventArgs e)
         {
-            select = (PackIcon)sender;
+            _select = (PackIcon)sender;
 
-            ((PackIcon)sender).Cursor = Cursors.SizeWE;
+            _select.Cursor = Cursors.SizeWE;
             Scene.GetCreateTimeLineViewModel().KeyframeToggle = false;
         }
-        #endregion
 
-        #region KeyframeMouseLeave
         private void IconMouseLeave(object sender, MouseEventArgs e)
         {
-            ((PackIcon)sender).Cursor = Cursors.Arrow;
+            var senderIcon = (PackIcon)sender;
+            senderIcon.Cursor = Cursors.Arrow;
             Scene.GetCreateTimeLineViewModel().KeyframeToggle = true;
 
 
             for (int i = 0; i < grid.Children.Count; i++)
             {
-                PackIcon icon = (PackIcon)grid.Children[i];
+                var icon = (PackIcon)grid.Children[i];
 
-                if (icon != (sender as PackIcon))
+                if (icon != senderIcon)
                 {
-                    icon.MouseDown -= IconMouseDown;
-                    icon.MouseUp -= IconMouseup;
-                    icon.MouseMove -= IconMouseMove;
-                    icon.MouseLeave -= IconMouseLeave;
-                    icon.MouseLeftButtonUp -= IconMouseLeftUp;
-
-                    icon.MouseDown += IconMouseDown;
-                    icon.MouseUp += IconMouseup;
-                    icon.MouseMove += IconMouseMove;
-                    icon.MouseLeave += IconMouseLeave;
-                    icon.MouseLeftButtonUp += IconMouseLeftUp;
+                    IconRemoveEventHandler(icon);
+                    IconAddEventHandler(icon);
                 }
             }
         }
-        #endregion
 
         private void IconMouseLeftUp(object sender, MouseButtonEventArgs e)
         {
-            if (select is not null)
+            if (_select is not null)
             {
-                MoveCommand.Execute((grid.Children.IndexOf(select), Scene.GetCreateTimeLineViewModel().ToFrame(select.Margin.Left)));
+                ViewModel.MoveKeyFrameCommand.Execute((grid.Children.IndexOf(_select), Scene.GetCreateTimeLineViewModel().ToFrame(_select.Margin.Left)));
             }
         }
 
-        #region MouseUp
         private void Mouseup(object sender, MouseButtonEventArgs e)
         {
             grid.Cursor = Cursors.Arrow;
-            if (select == null)
-            {
-                return;
-            }
+            if (_select is null) return;
 
-            if (select.Cursor == Cursors.SizeWE)
+            if (_select.Cursor == Cursors.SizeWE)
             {
                 grid.Cursor = Cursors.SizeWE;
             }
         }
-        #endregion
 
-        #region MouseDown
         private void Mouse_Down(object sender, MouseButtonEventArgs e)
         {
-            if (select == null)
-            {
-                return;
-            }
+            if (_select is null) return;
 
-            if (select.Cursor == Cursors.SizeWE)
+            if (_select.Cursor == Cursors.SizeWE)
             {
-                startpos = Scene.GetCreateTimeLineViewModel().ToFrame(e.GetPosition(grid).X);
+                _startPos = Scene.GetCreateTimeLineViewModel().ToFrame(e.GetPosition(grid).X);
             }
         }
-        #endregion
 
-        #region MouseLeave
         private void Mouse_Leave(object sender, MouseEventArgs e)
         {
             grid.Cursor = Cursors.Arrow;
-            if (select == null)
-            {
-                return;
-            }
+            if (_select is null) return;
 
-            if (select.Cursor == Cursors.SizeWE)
+            if (_select.Cursor == Cursors.SizeWE)
             {
                 grid.Cursor = Cursors.SizeWE;
             }
         }
-        #endregion
 
-
-        #region メニュー作成
         private MenuItem CreateMenu()
         {
-            MenuItem Delete = new MenuItem();
+            var removeMenu = new MenuItem();
 
             //削除項目の設定
             var menu = new VirtualizingStackPanel() { Orientation = Orientation.Horizontal };
             menu.Children.Add(new PackIcon() { Kind = PackIconKind.Delete, Margin = new Thickness(5, 0, 5, 0) });
             menu.Children.Add(new TextBlock() { Text = Resource.Remove, Margin = new Thickness(20, 0, 5, 0) });
-            Delete.Header = menu;
+            removeMenu.Header = menu;
 
-            Delete.Click += Delete_Click;
+            removeMenu.Click += Delete_Click;
 
-            return Delete;
+            return removeMenu;
         }
-        #endregion
+
+        public void Dispose()
+        {
+            _disposable.Dispose();
+            _disposable.Clear();
+            DataContext = null;
+            _property = null!;
+
+            GC.SuppressFinalize(this);
+        }
     }
 }

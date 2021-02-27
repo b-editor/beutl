@@ -16,8 +16,6 @@ using BEditor.ViewModels.TimeLines;
 
 using MaterialDesignThemes.Wpf;
 
-using Microsoft.Xaml.Behaviors;
-
 using Resource = BEditor.Properties.Resources;
 
 namespace BEditor.Views.TimeLines
@@ -25,53 +23,42 @@ namespace BEditor.Views.TimeLines
     /// <summary>
     /// TimeLine.xaml の相互作用ロジック
     /// </summary>
-    public partial class TimeLine : UserControl
+    public sealed partial class TimeLine : UserControl
     {
         private readonly Scene _scene;
         private readonly TimeLineViewModel _viewModel;
-
-        private void InitializeContextMenu()
-        {
-            var clipMenu = new MenuItem()
-            {
-                Header = Resource.AddClip
-            };
-            foreach (var objmetadata in ObjectMetadata.LoadedObjects)
-            {
-                var menu = new MenuItem
-                {
-                    DataContext = objmetadata,
-                    Command = _viewModel.AddClip
-                };
-
-                menu.SetBinding(MenuItem.CommandParameterProperty, new Binding());
-                menu.SetBinding(HeaderedItemsControl.HeaderProperty, new Binding("Name") { Mode = BindingMode.OneTime });
-                clipMenu.Items.Add(menu);
-            }
-            TimelineMenu.Items.Insert(0, clipMenu);
-            TimelineMenu.Items.Insert(1, new Separator());
-        }
+        private bool _isFirstLoad = true;
 
         public TimeLine(Scene scene)
         {
             ContextMenu CreateMenu(int layer)
             {
-                ContextMenu contextMenu = new ContextMenu();
+                var contextMenu = new ContextMenu();
 
                 #region 削除
 
-                MenuItem Delete = new MenuItem();
+                var remove = new MenuItem();
 
-                var deletemenu = new VirtualizingStackPanel() { Orientation = Orientation.Horizontal };
-                deletemenu.Children.Add(new PackIcon() { Kind = PackIconKind.Delete, Margin = new Thickness(5, 0, 5, 0) });
-                deletemenu.Children.Add(new TextBlock() { Text = Resource.Remove, Margin = new Thickness(20, 0, 5, 0) });
-                Delete.Header = deletemenu;
-
-                contextMenu.Items.Add(Delete);
-
-                Delete.Click += (_, _) =>
+                AttachmentProperty.SetInt(remove, layer);
+                var removeMenu = new VirtualizingStackPanel()
                 {
-                    scene.RemoveLayer(layer).Execute();
+                    Orientation = Orientation.Horizontal,
+                    Children =
+                    {
+                        new PackIcon() { Kind = PackIconKind.Delete, Margin = new Thickness(5, 0, 5, 0) },
+                        new TextBlock() { Text = Resource.Remove, Margin = new Thickness(20, 0, 5, 0) }
+                    }
+                };
+                remove.Header = removeMenu;
+
+                contextMenu.Items.Add(remove);
+
+                remove.Click += (s, _) =>
+                {
+                    var menu = (MenuItem)s;
+                    var layer = (int)menu.GetValue(AttachmentProperty.IntProperty);
+
+                    _scene.RemoveLayer(layer).Execute();
                 };
 
                 #endregion
@@ -112,7 +99,7 @@ namespace BEditor.Views.TimeLines
                 grid.MouseDown += (s, _) => _viewModel.LayerSelectCommand.Execute(s);
                 grid.PreviewDrop += (s, e) => _viewModel.LayerDropCommand.Execute((s, e));
                 grid.MouseMove += (s, e) => _viewModel.LayerMoveCommand.Execute(s);
-                grid.PreviewDragOver += (s, e) => _viewModel.LayerDragOverCommand.Execute((s,e));
+                grid.PreviewDragOver += (s, e) => _viewModel.LayerDragOverCommand.Execute((s, e));
 
                 #endregion
 
@@ -126,7 +113,7 @@ namespace BEditor.Views.TimeLines
                     {
                         Source = track
                     };
-                    
+
                     var layer_row = new Grid
                     {
                         ContextMenu = CreateMenu(l),
@@ -179,87 +166,42 @@ namespace BEditor.Views.TimeLines
             ScrollLabel.ScrollToVerticalOffset(_scene.TimeLineVerticalOffset);
             ScrollLine.ScrollToVerticalOffset(_scene.TimeLineVerticalOffset);
             ScrollLine.ScrollToHorizontalOffset(_scene.TimeLineHorizonOffset);
-
-            var linetrigger = Interaction.GetTriggers(ScrollLine);
-            linetrigger.Add(CommandTool.CreateEvent("ScrollChanged", _viewModel.ScrollLineCommand));
-
-            var labeltrigger = Interaction.GetTriggers(ScrollLabel);
-            labeltrigger.Add(CommandTool.CreateEvent("ScrollChanged", _viewModel.ScrollLabelCommand));
-
-            _viewModel.ResetScale = (zoom, max, rate) => AddScale(zoom, max, rate);
-            _viewModel.ClipLayerMoveCommand = (data, layer) =>
-            {
-                var vm = data.GetCreateClipViewModel();
-                var from = vm.Row;
-                vm.Row = layer;
-
-                App.Current.Dispatcher.InvokeAsync(() =>
-                {
-                    Grid togrid = (Grid)Layer.Children[layer];
-
-                    var ui = data.GetCreateClipView();
-                    (ui.Parent as Grid)?.Children?.Remove(ui);
-
-                    togrid.Children.Add(ui);
-                });
-            };
-            _viewModel.GetLayerMousePosition = () => Mouse.GetPosition(Layer);
-
-            _viewModel.ViewLoaded = true;
-            _viewModel.TimeLineLoaded(list =>
-            {
-                for (int index = 0; index < list.Count; index++)
-                {
-                    var info = list[index];
-
-
-                    Grid grid = (Grid)Layer.Children[info.Layer];
-
-                    grid.Children.Add(info.GetCreateClipView());
-                }
-                Layer.Focus();
-            });
-
-            _scene.Datas.CollectionChanged += async (s, e) =>
-            {
-                await Dispatcher.InvokeAsync(() =>
-                {
-                    if (e.Action == NotifyCollectionChangedAction.Add)
-                    {
-                        var item = _scene.Datas[e.NewStartingIndex];
-
-                        Grid grid = (Grid)Layer.Children[item.Layer];
-
-                        grid.Children.Add(item.GetCreateClipView());
-                    }
-                    else if (e.Action == NotifyCollectionChangedAction.Remove)
-                    {
-                        var item = e.OldItems![0];
-
-                        if (item is ClipElement clip)
-                        {
-                            var ui = clip.GetCreateClipView();
-                            (ui.Parent as Grid)?.Children?.Remove(ui);
-
-                            clip.GetValue(ViewBuilder.ClipViewModelProperty)?.Dispose();
-
-                            clip.Clear();
-
-                            GC.Collect();
-                            GC.WaitForPendingFinalizers();
-                            GC.Collect();
-                        }
-                    }
-                });
-            };
         }
 
 
-        #region Scrollbarの移動量を変更
+        private void InitializeContextMenu()
+        {
+            var clipMenu = new MenuItem()
+            {
+                Header = Resource.AddClip
+            };
+            foreach (var objmetadata in ObjectMetadata.LoadedObjects)
+            {
+                var menu = new MenuItem
+                {
+                    DataContext = objmetadata,
+                    Command = _viewModel.AddClip
+                };
 
+                menu.SetBinding(MenuItem.CommandParameterProperty, new Binding());
+                menu.SetBinding(HeaderedItemsControl.HeaderProperty, new Binding("Name") { Mode = BindingMode.OneTime });
+                clipMenu.Items.Add(menu);
+            }
+            TimelineMenu.Items.Insert(0, clipMenu);
+            TimelineMenu.Items.Insert(1, new Separator());
+        }
+
+        private void ScrollLine_ScrollChanged1(object sender, ScrollChangedEventArgs e)
+        {
+            ScrollLabel.ScrollToVerticalOffset(ScrollLine.VerticalOffset);
+        }
+        private void ScrollLabel_ScrollChanged(object sender, ScrollChangedEventArgs e)
+        {
+            ScrollLine.ScrollToVerticalOffset(ScrollLabel.VerticalOffset);
+        }
         private void ScrollLine_PreviewMouseWheel(object sender, MouseWheelEventArgs e)
         {
-            ScrollViewer scrollviewer = (ScrollViewer)sender;
+            var scrollviewer = (ScrollViewer)sender;
 
             if (Keyboard.IsKeyDown(Key.LeftCtrl))
             {
@@ -293,17 +235,9 @@ namespace BEditor.Views.TimeLines
             e.Handled = true;
         }
 
-        #endregion
-
-        /// <summary>
-        /// 目盛りを追加するメソッド
-        /// </summary>
-        /// <param name="zoom">拡大率 1 - 200</param>
-        /// <param name="max">最大フレーム</param>
-        /// <param name="rate">フレームレート</param>
         private void AddScale(float zoom, int max, int rate)
         {
-            App.Current.Dispatcher.InvokeAsync(() =>
+            Dispatcher.InvokeAsync(() =>
             {
                 int top = 16;//15
                 double ToPixel(int frame)
@@ -435,6 +369,52 @@ namespace BEditor.Views.TimeLines
                 }
             });
         }
+        private void ClipLayerMove(ClipElement clip, int layer)
+        {
+            var vm = clip.GetCreateClipViewModel();
+            var from = vm.Row;
+            vm.Row = layer;
+
+            Dispatcher.InvokeAsync(() =>
+            {
+                var togrid = (Grid)Layer.Children[layer];
+
+                var ui = clip.GetCreateClipView();
+                (ui.Parent as Grid)?.Children?.Remove(ui);
+
+                togrid.Children.Add(ui);
+            });
+        }
+        private async void ClipsCollectionChanged(object? sender, NotifyCollectionChangedEventArgs e)
+        {
+            await Dispatcher.InvokeAsync(() =>
+            {
+                if (e.Action == NotifyCollectionChangedAction.Add)
+                {
+                    var item = _scene.Datas[e.NewStartingIndex];
+
+                    Grid grid = (Grid)Layer.Children[item.Layer];
+
+                    grid.Children.Add(item.GetCreateClipView());
+                }
+                else if (e.Action == NotifyCollectionChangedAction.Remove)
+                {
+                    var item = e.OldItems![0];
+
+                    if (item is ClipElement clip)
+                    {
+                        var ui = clip.GetCreateClipView();
+                        (ui.Parent as Grid)?.Children?.Remove(ui);
+
+                        clip.Clear();
+
+                        GC.Collect();
+                        GC.WaitForPendingFinalizers();
+                        GC.Collect();
+                    }
+                }
+            });
+        }
 
         private void ScrollLine_ScrollChanged(object sender, ScrollChangedEventArgs e)
         {
@@ -443,6 +423,47 @@ namespace BEditor.Views.TimeLines
                 _scene.TimeLineHorizonOffset = ScrollLine.HorizontalOffset;
                 _scene.TimeLineVerticalOffset = ScrollLine.VerticalOffset;
             });
+        }
+
+        private void UserControl_Loaded(object sender, RoutedEventArgs e)
+        {
+            _viewModel.ResetScale = AddScale;
+            _viewModel.ClipLayerMoveCommand = ClipLayerMove;
+            _viewModel.GetLayerMousePosition = () => Mouse.GetPosition(Layer);
+
+            _scene.Datas.CollectionChanged += ClipsCollectionChanged;
+            ScrollLine.ScrollChanged += ScrollLine_ScrollChanged1;
+            ScrollLabel.ScrollChanged += ScrollLabel_ScrollChanged;
+
+            if (_isFirstLoad)
+            {
+                _viewModel.TimeLineLoaded(list =>
+                {
+                    for (int index = 0; index < list.Count; index++)
+                    {
+                        var info = list[index];
+
+
+                        var grid = (Grid)Layer.Children[info.Layer];
+
+                        grid.Children.Add(info.GetCreateClipView());
+                    }
+                    Layer.Focus();
+                });
+
+                _viewModel.ViewLoaded = true;
+                _isFirstLoad = false;
+            }
+        }
+        private void UserControl_Unloaded(object sender, RoutedEventArgs e)
+        {
+            _viewModel.ResetScale = null;
+            _viewModel.ClipLayerMoveCommand = null;
+            _viewModel.GetLayerMousePosition = null;
+
+            _scene.Datas.CollectionChanged -= ClipsCollectionChanged;
+            ScrollLine.ScrollChanged -= ScrollLine_ScrollChanged1;
+            ScrollLabel.ScrollChanged -= ScrollLabel_ScrollChanged;
         }
     }
 }

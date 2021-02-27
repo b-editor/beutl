@@ -5,6 +5,7 @@ using System.ComponentModel;
 using System.Diagnostics;
 using System.Diagnostics.Contracts;
 using System.Linq;
+using System.Reactive.Subjects;
 using System.Runtime.Serialization;
 
 using BEditor.Command;
@@ -22,12 +23,13 @@ namespace BEditor.Data.Property
     public partial class EaseProperty : PropertyElement<EasePropertyMetadata>, IKeyFrameProperty
     {
         #region Fields
-
         private static readonly PropertyChangedEventArgs _easingFuncArgs = new(nameof(EasingType));
         private static readonly PropertyChangedEventArgs _easingDataArgs = new(nameof(EasingData));
         private EasingFunc? _easingTypeProperty;
         private EasingMetadata? _easingData;
-
+        private Subject<(Frame frame, int index)>? _addKeyFrameSubject;
+        private Subject<int>? _deleteKeyFrameSubject;
+        private Subject<(int fromindex, int toindex)>? _moveKeyFrameSubject;
         #endregion
 
 
@@ -109,27 +111,27 @@ namespace BEditor.Data.Property
             }
         }
 
+        /// <summary>
+        /// Occurs when requesting to add a keyframe to the UI.
+        /// </summary>
+        public IObservable<(Frame frame, int index)> AddKeyFrameEvent => _addKeyFrameSubject ??= new();
+
+        /// <summary>
+        /// Occurs when requesting the UI to delete a keyframe.
+        /// </summary>
+        public IObservable<int> RemoveKeyFrameEvent => _deleteKeyFrameSubject ??= new();
+
+        /// <summary>
+        /// Occurs when the UI requires a keyframe to be moved.
+        /// </summary>
+        public IObservable<(int fromindex, int toindex)> MoveKeyFrameEvent => _moveKeyFrameSubject ??= new();
+
 
         /// <summary>
         /// Get an eased value.
         /// </summary>
         public float this[Frame frame] => GetValue(frame);
 
-
-        /// <summary>
-        /// Occurs when requesting to add a keyframe to the UI.
-        /// </summary>
-        public event EventHandler<(Frame frame, int index)>? AddKeyFrameEvent;
-
-        /// <summary>
-        /// Occurs when requesting the UI to delete a keyframe.
-        /// </summary>
-        public event EventHandler<int>? DeleteKeyFrameEvent;
-
-        /// <summary>
-        /// Occurs when the UI requires a keyframe to be moved.
-        /// </summary>
-        public event EventHandler<(int fromindex, int toindex)>? MoveKeyFrameEvent;
 
 
         #region Methods
@@ -358,156 +360,156 @@ namespace BEditor.Data.Property
 
         private sealed class ChangeValueCommand : IRecordCommand
         {
-            private readonly EaseProperty _Property;
-            private readonly int _Index;
-            private readonly float _New;
-            private readonly float _Old;
+            private readonly EaseProperty _property;
+            private readonly int _index;
+            private readonly float _new;
+            private readonly float _old;
 
             public ChangeValueCommand(EaseProperty property, int index, float newvalue)
             {
-                _Property = property ?? throw new ArgumentNullException(nameof(property));
-                _Index = (index < 0 || index >= property.Value.Count) ? throw new IndexOutOfRangeException($"{nameof(index)} is out of range of {nameof(Value)}") : index;
+                _property = property ?? throw new ArgumentNullException(nameof(property));
+                _index = (index < 0 || index >= property.Value.Count) ? throw new IndexOutOfRangeException($"{nameof(index)} is out of range of {nameof(Value)}") : index;
 
-                _New = property.Clamp(newvalue);
-                _Old = property.Value[index];
+                _new = property.Clamp(newvalue);
+                _old = property.Value[index];
             }
 
             public string Name => CommandName.ChangeValue;
 
-            public void Do() => _Property.Value[_Index] = _New;
+            public void Do() => _property.Value[_index] = _new;
             public void Redo() => Do();
-            public void Undo() => _Property.Value[_Index] = _Old;
+            public void Undo() => _property.Value[_index] = _old;
         }
 
         private sealed class ChangeEaseCommand : IRecordCommand
         {
-            private readonly EaseProperty _Property;
-            private readonly EasingFunc _New;
-            private readonly EasingFunc _Old;
+            private readonly EaseProperty _property;
+            private readonly EasingFunc _new;
+            private readonly EasingFunc _old;
 
             public ChangeEaseCommand(EaseProperty property, EasingMetadata metadata)
             {
-                _Property = property ?? throw new ArgumentNullException(nameof(property));
+                _property = property ?? throw new ArgumentNullException(nameof(property));
 
-                _New = metadata.CreateFunc();
-                _New.Parent = property;
-                _Old = _Property.EasingType;
+                _new = metadata.CreateFunc();
+                _new.Parent = property;
+                _old = _property.EasingType;
             }
             public ChangeEaseCommand(EaseProperty property, string type)
             {
-                _Property = property ?? throw new ArgumentNullException(nameof(property));
+                _property = property ?? throw new ArgumentNullException(nameof(property));
                 var easingFunc = EasingMetadata.LoadedEasingFunc.Find(x => x.Name == type) ?? throw new KeyNotFoundException($"No easing function named {type} was found");
 
-                _New = easingFunc.CreateFunc();
-                _New.Parent = property;
-                _Old = _Property.EasingType;
+                _new = easingFunc.CreateFunc();
+                _new.Parent = property;
+                _old = _property.EasingType;
             }
 
             public string Name => CommandName.ChangeEasing;
 
-            public void Do() => _Property.EasingType = _New;
+            public void Do() => _property.EasingType = _new;
             public void Redo() => Do();
-            public void Undo() => _Property.EasingType = _Old;
+            public void Undo() => _property.EasingType = _old;
         }
 
         private sealed class AddCommand : IRecordCommand
         {
-            private readonly EaseProperty _Property;
-            private readonly Frame _Frame;
+            private readonly EaseProperty _property;
+            private readonly Frame _frame;
 
             public AddCommand(EaseProperty property, Frame frame)
             {
-                _Property = property ?? throw new ArgumentNullException(nameof(property));
+                _property = property ?? throw new ArgumentNullException(nameof(property));
 
-                _Frame = (Frame.Zero >= frame || frame >= property.GetParent2()!.Length) ? throw new ArgumentOutOfRangeException(nameof(frame)) : frame;
+                _frame = (Frame.Zero >= frame || frame >= property.GetParent2()!.Length) ? throw new ArgumentOutOfRangeException(nameof(frame)) : frame;
             }
 
             public string Name => CommandName.AddKeyFrame;
 
             public void Do()
             {
-                int index = _Property.InsertKeyframe(_Frame, _Property.GetValue(_Frame + _Property.GetParent2()!.Start));
-                _Property.AddKeyFrameEvent?.Invoke(_Property, (_Frame, index - 1));
+                int index = _property.InsertKeyframe(_frame, _property.GetValue(_frame + _property.GetParent2()!.Start));
+                (_property.AddKeyFrameEvent as Subject<(Frame, int)>)?.OnNext((_frame, index - 1));
             }
             public void Redo() => Do();
             public void Undo()
             {
-                int index = _Property.RemoveKeyframe(_Frame, out _);
-                _Property.DeleteKeyFrameEvent?.Invoke(_Property, index - 1);
+                int index = _property.RemoveKeyframe(_frame, out _);
+                (_property.RemoveKeyFrameEvent as Subject<int>)?.OnNext(index - 1);
             }
         }
 
         private sealed class RemoveCommand : IRecordCommand
         {
-            private readonly EaseProperty _Property;
-            private readonly Frame _Frame;
-            private float _Value;
+            private readonly EaseProperty _property;
+            private readonly Frame _frame;
+            private float _value;
 
             public RemoveCommand(EaseProperty property, Frame frame)
             {
-                _Property = property ?? throw new ArgumentNullException(nameof(property));
+                _property = property ?? throw new ArgumentNullException(nameof(property));
 
-                _Frame = (frame <= Frame.Zero || property.GetParent2()!.Length <= frame) ? throw new ArgumentOutOfRangeException(nameof(frame)) : frame;
+                _frame = (frame <= Frame.Zero || property.GetParent2()!.Length <= frame) ? throw new ArgumentOutOfRangeException(nameof(frame)) : frame;
             }
 
             public string Name => CommandName.RemoveKeyFrame;
 
             public void Do()
             {
-                int index = _Property.RemoveKeyframe(_Frame, out _Value);
+                int index = _property.RemoveKeyframe(_frame, out _value);
 
-                _Property.DeleteKeyFrameEvent?.Invoke(_Property, index - 1);
+                (_property.RemoveKeyFrameEvent as Subject<int>)?.OnNext(index - 1);
             }
             public void Redo() => Do();
             public void Undo()
             {
-                int index = _Property.InsertKeyframe(_Frame, _Value);
-                _Property.AddKeyFrameEvent?.Invoke(_Property, (_Frame, index - 1));
+                int index = _property.InsertKeyframe(_frame, _value);
+                (_property.AddKeyFrameEvent as Subject<(Frame, int)>)?.OnNext((_frame, index - 1));
             }
         }
 
         private sealed class MoveCommand : IRecordCommand
         {
-            private readonly EaseProperty _Property;
-            private readonly int _FromIndex;
-            private int _ToIndex;
-            private readonly Frame _ToFrame;
+            private readonly EaseProperty _property;
+            private readonly int _fromIndex;
+            private int _toIndex;
+            private readonly Frame _toFrame;
 
             public MoveCommand(EaseProperty property, int fromIndex, Frame to)
             {
-                _Property = property ?? throw new ArgumentNullException(nameof(property));
+                _property = property ?? throw new ArgumentNullException(nameof(property));
 
-                _FromIndex = (0 > fromIndex || fromIndex > property.Value.Count) ? throw new IndexOutOfRangeException() : fromIndex;
+                _fromIndex = (0 > fromIndex || fromIndex > property.Value.Count) ? throw new IndexOutOfRangeException() : fromIndex;
 
-                _ToFrame = (to <= Frame.Zero || property.GetParent2()!.Length <= to) ? throw new ArgumentOutOfRangeException(nameof(to)) : to;
+                _toFrame = (to <= Frame.Zero || property.GetParent2()!.Length <= to) ? throw new ArgumentOutOfRangeException(nameof(to)) : to;
             }
 
             public string Name => CommandName.MoveKeyFrame;
 
             public void Do()
             {
-                _Property.Time[_FromIndex] = _ToFrame;
-                _Property.Time.Sort((a_, b_) => a_ - b_);
+                _property.Time[_fromIndex] = _toFrame;
+                _property.Time.Sort((a_, b_) => a_ - b_);
 
 
-                _ToIndex = _Property.Time.FindIndex(x => x == _ToFrame);//新しいindex
+                _toIndex = _property.Time.FindIndex(x => x == _toFrame);//新しいindex
 
-                _Property.Value.Move(_FromIndex + 1, _ToIndex + 1);
+                _property.Value.Move(_fromIndex + 1, _toIndex + 1);
 
-                _Property.MoveKeyFrameEvent?.Invoke(_Property, (_FromIndex, _ToIndex));//GUIのIndexの正規化
+                (_property.MoveKeyFrameEvent as Subject<(int, int)>)?.OnNext((_fromIndex, _toIndex));//GUIのIndexの正規化 UIスレッドで動作
             }
             public void Redo() => Do();
             public void Undo()
             {
-                int frame = _Property.Time[_ToIndex];
+                int frame = _property.Time[_toIndex];
 
-                _Property.Time.RemoveAt(_ToIndex);
-                _Property.Time.Insert(_FromIndex, frame);
+                _property.Time.RemoveAt(_toIndex);
+                _property.Time.Insert(_fromIndex, frame);
 
 
-                _Property.Value.Move(_ToIndex + 1, _FromIndex + 1);
+                _property.Value.Move(_toIndex + 1, _fromIndex + 1);
 
-                _Property.MoveKeyFrameEvent?.Invoke(_Property, (_ToIndex, _FromIndex));
+                (_property.MoveKeyFrameEvent as Subject<(int, int)>)?.OnNext((_toIndex, _fromIndex));
             }
         }
 
