@@ -72,7 +72,7 @@ namespace BEditor.ViewModels.CreatePage
 
         private void Create()
         {
-            var project = new Project((int)Width.Value, (int)Height.Value, (int)Framerate.Value, (int)Samplingrate.Value);
+            var project = new Project((int)Width.Value, (int)Height.Value, (int)Framerate.Value, (int)Samplingrate.Value, AppData.Current);
             AppData.Current.Project = project;
 
             var loading = new Loading()

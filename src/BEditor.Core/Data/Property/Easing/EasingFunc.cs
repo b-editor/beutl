@@ -20,7 +20,7 @@ namespace BEditor.Data.Property.Easing
     public abstract class EasingFunc : EditorObject, IChild<PropertyElement>, IParent<IEasingProperty>, IElementObject
     {
         #region Fields
-        private PropertyElement? _parent;
+        private WeakReference<PropertyElement?>? _parent;
         private IEnumerable<IEasingProperty>? _cachedList;
         #endregion
 
@@ -34,16 +34,27 @@ namespace BEditor.Data.Property.Easing
         public IEnumerable<IEasingProperty> Children => _cachedList ??= Properties;
 
         /// <inheritdoc/>
-        public PropertyElement? Parent
+        public PropertyElement Parent
         {
-            get => _parent;
+            get
+            {
+                _parent ??= new(null!);
+
+                if (_parent.TryGetTarget(out var p))
+                {
+                    return p;
+                }
+
+                return null!;
+            }
             set
             {
-                if (value is null) throw new ArgumentNullException(nameof(value));
+                (_parent ??= new(null!)).SetTarget(value);
 
-                _parent = value;
-
-                Parallel.ForEach(Children, item => item.Parent = _parent.Parent);
+                foreach (var prop in Children)
+                {
+                    prop.Parent = Parent?.Parent;
+                }
             }
         }
 

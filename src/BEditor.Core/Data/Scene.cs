@@ -19,8 +19,6 @@ using BEditor.Drawing.Pixel;
 using BEditor.Graphics;
 using BEditor.Media;
 
-using OpenTK.Graphics.OpenGL4;
-
 namespace BEditor.Data
 {
     /// <summary>
@@ -48,7 +46,7 @@ namespace BEditor.Data
         private double _timeLineVerticalOffset;
         private string _sceneName = string.Empty;
         private IPlayer? _player;
-        private Project? parent;
+        private WeakReference<Project?>? _parent;
 
         #endregion
 
@@ -244,16 +242,27 @@ namespace BEditor.Data
         public IEnumerable<ClipElement> Children => Datas;
 
         /// <inheritdoc/>
-        public Project? Parent
+        public Project Parent
+
         {
-            get => parent;
+            get
+            {
+                _parent ??= new(null!);
+
+                if (_parent.TryGetTarget(out var p))
+                {
+                    return p;
+                }
+
+                return null!;
+            }
             set
             {
-                parent = value;
+                (_parent ??= new(null!)).SetTarget(value);
 
-                foreach (var clip in Datas)
+                foreach (var prop in Children)
                 {
-                    clip.Parent = this;
+                    prop.Parent = this;
                 }
             }
         }

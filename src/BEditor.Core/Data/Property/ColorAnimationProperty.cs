@@ -96,7 +96,7 @@ namespace BEditor.Data.Property
         internal Frame Length => Parent?.Parent?.Length ?? default;
 
         /// <inheritdoc/>
-        public override EffectElement? Parent
+        public override EffectElement Parent
         {
             get => base.Parent;
             set

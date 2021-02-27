@@ -15,9 +15,13 @@ namespace BEditor.Data
     /// <typeparam name="T">Type of the parent element</typeparam>
     public interface IChild<out T>
     {
+        // IChild <T>
+        // public T Parent { get; set; }
+        // 上だとDataExtensions.GetParent2... が使えない
+
         /// <summary>
         /// Get the parent element
         /// </summary>
-        public T? Parent { get; }
+        public T Parent { get; }
     }
 }

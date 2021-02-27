@@ -262,9 +262,7 @@ namespace BEditor
                 typeof(ImageSplit),
                 typeof(MultipleControls),
                 typeof(DepthTest),
-                typeof(DirectionalLightSource),
                 typeof(PointLightSource),
-                typeof(SpotLight),
             });
 
             ObjectMetadata.LoadedObjects.Add(PrimitiveTypes.VideoMetadata);
@@ -304,9 +302,7 @@ namespace BEditor
                 Children = new EffectMetadata[]
                 {
                     new(Resources.DepthTest, () => new DepthTest()),
-                    new(Resources.DirectionalLightSource, () => new DirectionalLightSource()),
                     new(Resources.PointLightSource, () => new PointLightSource()),
-                    new(Resources.SpotLight, () => new SpotLight()),
                 }
             });
 #if DEBUG

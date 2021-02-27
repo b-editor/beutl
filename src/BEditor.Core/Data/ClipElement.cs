@@ -36,7 +36,7 @@ namespace BEditor.Data
         private Frame _end;
         private int _layer;
         private string _labelText = "";
-        private Scene _parent;
+        private WeakReference<Scene?>? _parent;
         #endregion
 
         #region Contructor
@@ -50,9 +50,8 @@ namespace BEditor.Data
             _start = start;
             _end = end;
             _layer = layer;
-            _parent = scene;
             Effect = effects;
-            Parent = _parent;
+            Parent = scene;
             LabelText = Name;
         }
 
@@ -123,14 +122,24 @@ namespace BEditor.Data
         /// <inheritdoc/>
         public Scene Parent
         {
-            get => _parent;
-            internal set
+            get
             {
-                _parent = value;
+                _parent ??= new(null!);
 
-                foreach (var effect in Effect)
+                if (_parent.TryGetTarget(out var p))
                 {
-                    effect.Parent = this;
+                    return p;
+                }
+
+                return null!;
+            }
+            set
+            {
+                (_parent ??= new(null!)).SetTarget(value);
+
+                foreach (var prop in Children)
+                {
+                    prop.Parent = this;
                 }
             }
         }

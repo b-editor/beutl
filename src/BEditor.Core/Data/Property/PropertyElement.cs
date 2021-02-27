@@ -19,10 +19,25 @@ namespace BEditor.Data.Property
         private static readonly PropertyChangedEventArgs _metadataArgs = new(nameof(PropertyMetadata));
         private PropertyElementMetadata? _propertyMetadata;
         private int? id;
+        private WeakReference<EffectElement?>? parent;
 
 
         /// <inheritdoc/>
-        public virtual EffectElement? Parent { get; set; }
+        public virtual EffectElement Parent
+        {
+            get
+            {
+                parent ??= new(null!);
+
+                if (parent.TryGetTarget(out var p))
+                {
+                    return p;
+                }
+
+                return null!;
+            }
+            set => (parent ??= new(null!)).SetTarget(value);
+        }
         /// <summary>
         /// Gets or sets the metadata for this <see cref="PropertyElement"/>.
         /// </summary>

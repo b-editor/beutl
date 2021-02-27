@@ -42,7 +42,7 @@ namespace BEditor.Data.Bindings
             if (regex1.IsMatch(str))
             {
                 var match = regex1.Match(str);
-
+                
                 var proj = bindable.GetParent4() ?? throw new DataException(ExceptionMessage.ParentElementNotFound);
                 var scene = proj.Find(match.Groups[1].Value) ?? throw new DataException(ExceptionMessage.ChildElementsNotFound);
                 var clip = scene.Find(match.Groups[2].Value) ?? throw new DataException(ExceptionMessage.ChildElementsNotFound);

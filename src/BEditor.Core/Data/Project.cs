@@ -30,7 +30,7 @@ namespace BEditor.Data
         private Scene? _previewScene;
         private string? _filename;
         private string? _dirname;
-        private IApplication? _parent;
+        private WeakReference<IApplication?>? _parent;
 
         #endregion
 
@@ -44,7 +44,7 @@ namespace BEditor.Data
         /// <param name="framerate">The framerate of this project.</param>
         /// <param name="samplingrate">The samplingrate of this project.</param>
         /// <param name="app">The running <see cref="IApplication"/>.</param>
-        public Project(int width, int height, int framerate, int samplingrate = 0, IApplication? app = null)
+        public Project(int width, int height, int framerate, int samplingrate, IApplication app)
         {
             Parent = app;
             Framerate = framerate;
@@ -115,16 +115,26 @@ namespace BEditor.Data
         public IEnumerable<Scene> Children => SceneList;
 
         /// <inheritdoc/>
-        public IApplication? Parent
+        public IApplication Parent
         {
-            get => _parent;
-            private set
+            get
             {
-                _parent = value;
+                _parent ??= new(null!);
 
-                foreach (var scene in SceneList)
+                if (_parent.TryGetTarget(out var p))
                 {
-                    scene.Parent = this;
+                    return p;
+                }
+
+                return null!;
+            }
+            set
+            {
+                (_parent ??= new(null!)).SetTarget(value);
+
+                foreach (var prop in Children)
+                {
+                    prop.Parent = this;
                 }
             }
         }
