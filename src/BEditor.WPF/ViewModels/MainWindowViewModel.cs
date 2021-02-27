@@ -151,6 +151,8 @@ namespace BEditor.ViewModels
                 var mes = prov.GetService<IMessage>();
 
                 GC.Collect();
+                GC.WaitForPendingFinalizers();
+                GC.Collect();
 
                 mes?.Snackbar(((Environment.WorkingSet - bytes) / 10000000f).ToString() + "MB");
             });

@@ -26,7 +26,7 @@ namespace BEditor.Models.Extension
         {
             if (project is null || project.PreviewScene.GraphicsContext is null) return;
 
-            App.Current.Dispatcher.Invoke(async () =>
+            App.Current.Dispatcher.InvokeAsync(async () =>
             {
                 await using var img = project.PreviewScene.Render(type).Image;
                 var outimg = MainWindowViewModel.Current.PreviewImage.Value;

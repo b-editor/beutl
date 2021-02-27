@@ -416,7 +416,7 @@ namespace BEditor.Views
         public static readonly EditorProperty<ClipUI> ClipViewProperty = EditorProperty.Register<ClipUI, ClipElement>("GetClipView");
         public static readonly EditorProperty<ClipUIViewModel> ClipViewModelProperty = EditorProperty.Register<ClipUIViewModel, ClipElement>("GetClipViewModel");
         public static readonly EditorProperty<UIElement> EffectPropertyViewProperty = EditorProperty.Register<UIElement, EffectElement>("GetControl");
-        public static readonly EditorProperty<UIElement> KeyFrameProperty = EditorProperty.Register<UIElement, EffectElement>("GetKeyFrame");
+        public static readonly EditorProperty<ExpandTree> KeyFrameProperty = EditorProperty.Register<ExpandTree, EffectElement>("GetKeyFrame");
         public static readonly EditorProperty<TimeLine> TimeLineProperty = EditorProperty.Register<TimeLine, Scene>("GetTimeLine");
         public static readonly EditorProperty<TimeLineViewModel> TimeLineViewModelProperty = EditorProperty.Register<TimeLineViewModel, Scene>("GetTimeLineViewModel");
         public static readonly EditorProperty<PropertyTab> PropertyTabProperty = EditorProperty.Register<PropertyTab, Scene>("GetPropertyTab");
@@ -510,7 +510,7 @@ namespace BEditor.Views
             }
             return effect.GetValue(EffectPropertyViewProperty);
         }
-        public static UIElement GetCreateKeyFrameView(this EffectElement effect)
+        public static ExpandTree GetCreateKeyFrameView(this EffectElement effect)
         {
             if (effect[KeyFrameProperty] is null)
             {

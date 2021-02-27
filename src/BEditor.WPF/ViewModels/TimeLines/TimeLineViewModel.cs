@@ -2,6 +2,7 @@
 using System.Collections.ObjectModel;
 using System.IO;
 using System.Reactive;
+using System.Reactive.Disposables;
 using System.Reactive.Linq;
 using System.Threading;
 using System.Threading.Tasks;
@@ -28,7 +29,7 @@ using Point = System.Windows.Point;
 
 namespace BEditor.ViewModels.TimeLines
 {
-    public sealed class TimeLineViewModel : BasePropertyChanged
+    public sealed class TimeLineViewModel : IDisposable
     {
         #region Fields
         public bool ViewLoaded;
@@ -70,6 +71,7 @@ namespace BEditor.ViewModels.TimeLines
         /// キーフレーム マウス押下中フラグ 移動中にfalse
         /// </summary>
         public bool KeyframeToggle = true;
+        private readonly CompositeDisposable _disposable = new();
 
         #endregion
 
@@ -107,7 +109,8 @@ namespace BEditor.ViewModels.TimeLines
                         ResetScale?.Invoke(Scene.TimeLineZoom, Scene.TotalFrame, AppData.Current.Project!.Framerate);
                     }
 
-                });
+                })
+                .AddTo(_disposable);
 
             scene.ObserveProperty(s => s.PreviewFrame)
                 .Subscribe(_ =>
@@ -119,42 +122,44 @@ namespace BEditor.ViewModels.TimeLines
                     if (AppData.Current.AppStatus is Status.Playing) type = RenderType.VideoPreview;
 
                     AppData.Current.Project!.PreviewUpdate(type);
-                });
+                })
+                .AddTo(_disposable);
 
             scene.ObserveProperty(s => s.TotalFrame)
                 .Subscribe(_ =>
                 {
                     TrackWidth.Value = ToPixel(Scene.TotalFrame);
 
-                    //目盛り追加
+                    // 目盛り追加
                     ResetScale?.Invoke(Scene.TimeLineZoom, Scene.TotalFrame, AppData.Current.Project!.Framerate);
-                });
+                })
+                .AddTo(_disposable);
 
             #region Commandの購読
 
-            SettingShowCommand.Subscribe(() => new SettingsWindow().ShowDialog());
-            AddClip.Subscribe(AddClipCommand);
+            SettingShowCommand.Subscribe(() => new SettingsWindow().ShowDialog()).AddTo(_disposable);
+            AddClip.Subscribe(AddClipCommand).AddTo(_disposable);
 
             ScrollLineCommand.Subscribe(() =>
             {
                 var timeline = Scene.GetCreateTimeLineView();
                 timeline.ScrollLabel.ScrollToVerticalOffset(timeline.ScrollLine.VerticalOffset);
-            });
+            }).AddTo(_disposable);
             ScrollLabelCommand.Subscribe(() =>
             {
                 var timeline = Scene.GetCreateTimeLineView();
                 timeline.ScrollLine.ScrollToVerticalOffset(timeline.ScrollLabel.VerticalOffset);
-            });
+            }).AddTo(_disposable);
 
-            LayerSelectCommand.Subscribe(LayerSelect);
-            LayerDropCommand.Subscribe(x => LayerDrop(x.sender, x.args));
-            LayerDragOverCommand.Subscribe(x => LayerDragOver(x.sender, x.args));
-            LayerMoveCommand.Subscribe(LayerMouseMove);
+            LayerSelectCommand.Subscribe(LayerSelect).AddTo(_disposable);
+            LayerDropCommand.Subscribe(x => LayerDrop(x.sender, x.args)).AddTo(_disposable);
+            LayerDragOverCommand.Subscribe(x => LayerDragOver(x.sender, x.args)).AddTo(_disposable);
+            LayerMoveCommand.Subscribe(LayerMouseMove).AddTo(_disposable);
 
-            TimeLineMouseLeftDownCommand.Subscribe(TimeLineMouseLeftDown);
-            TimeLineMouseLeftUpCommand.Subscribe(TimeLineMouseLeftUp);
-            TimeLineMouseMoveCommand.Subscribe(TimeLineMouseMove);
-            TimeLineMouseLeaveCommand.Subscribe(TimeLineMouseLeave);
+            TimeLineMouseLeftDownCommand.Subscribe(TimeLineMouseLeftDown).AddTo(_disposable);
+            TimeLineMouseLeftUpCommand.Subscribe(TimeLineMouseLeftUp).AddTo(_disposable);
+            TimeLineMouseMoveCommand.Subscribe(TimeLineMouseMove).AddTo(_disposable);
+            TimeLineMouseLeaveCommand.Subscribe(TimeLineMouseLeave).AddTo(_disposable);
 
 
             #endregion
@@ -338,11 +343,15 @@ namespace BEditor.ViewModels.TimeLines
             //保存
             if (ClipLeftRight != 0 && ClipSelect != null)
             {
+                var clipVm = ClipSelect.GetCreateClipViewModel();
 
-                int start = ToFrame(ClipSelect.GetCreateClipViewModel().MarginLeftProperty);
-                int end = ToFrame(ClipSelect.GetCreateClipViewModel().WidthProperty.Value) + start;//変更後の最大フレーム
+                int start = ToFrame(clipVm.MarginLeftProperty);
+                int end = ToFrame(clipVm.WidthProperty.Value) + start;//変更後の最大フレーム
+
                 if (0 < start && 0 < end)
+                {
                     ClipSelect.ChangeLength(start, end).Execute();
+                }
 
                 ClipLeftRight = 0;
             }
@@ -427,15 +436,13 @@ namespace BEditor.ViewModels.TimeLines
 
             if (ClipTimeChange && ClipSelect is not null)
             {
-                ClipElement data = ClipSelect;
-
-                var toframe = ToFrame(data.GetCreateClipViewModel().MarginLeftProperty);
+                var clip = ClipSelect;
+                var clipVm = clip.GetCreateClipViewModel();
+                var toframe = ToFrame(clipVm.MarginLeftProperty);
 
                 if (Media.Frame.Zero > toframe)
                 {
-                    data.MoveFrameLayer(
-                        toframe,
-                        ClipSelect.GetCreateClipViewModel().Row).Execute();
+                    clip.MoveFrameLayer(toframe, clipVm.Row).Execute();
                 }
 
                 ClipTimeChange = false;
@@ -461,6 +468,12 @@ namespace BEditor.ViewModels.TimeLines
         public int ToFrame(double pixel)
         {
             return (int)(pixel / (Setting.WidthOf1Frame * (Scene.TimeLineZoom / 200)));
+        }
+
+        public void Dispose()
+        {
+            _disposable.Dispose();
+            GC.SuppressFinalize(this);
         }
     }
 }

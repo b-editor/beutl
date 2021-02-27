@@ -142,6 +142,33 @@ namespace BEditor.Data
             Values[property.Name] = value;
         }
 
+        /// <summary>
+        /// Removes all local values from this <see cref="EditorObject"/>.
+        /// </summary>
+        public void Clear()
+        {
+            static void ClearChildren(EditorObject @object)
+            {
+                if(@object is IParent<EditorObject> parent)
+                {
+                    foreach (var child in parent.Children)
+                    {
+                        child.Clear();
+
+                        ClearChildren(child);
+                    } 
+                }
+
+                if(@object is IKeyFrameProperty property)
+                {
+                    property.EasingType?.Clear();
+                }
+            }
+
+            Values.Clear();
+            ClearChildren(this);
+        }
+
         /// <inheritdoc/>
         public void Load()
         {

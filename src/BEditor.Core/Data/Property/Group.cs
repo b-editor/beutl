@@ -6,6 +6,7 @@ using System.Runtime.Serialization;
 using System.Threading.Tasks;
 
 using BEditor.Data.Property;
+using BEditor.Data.Property.Easing;
 
 namespace BEditor.Data.Property
 {
@@ -35,5 +36,8 @@ namespace BEditor.Data.Property
                 Parallel.ForEach(Children, item => item.Parent = value);
             }
         }
+
+        /// <inheritdoc/>
+        public EasingFunc? EasingType => null;
     }
 }

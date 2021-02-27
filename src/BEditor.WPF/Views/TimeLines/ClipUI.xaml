@@ -141,7 +141,7 @@
                 <Grid Height="{Binding TrackHeight, Mode=OneTime}">
                     <VirtualizingStackPanel Orientation="Horizontal">
                         <TextBlock FontSize="14" Foreground="White" VerticalAlignment="Center" Margin="10,0,10,0" Text="{Binding ClipText.Value, Mode=OneWay}"/>
-                        <TextBlock FontSize="12" Foreground="White" VerticalAlignment="Center" Margin="10,0,10,0" Text="{Binding ClipData.LabelText, Mode=OneWay}"/>
+                        <TextBlock FontSize="12" Foreground="White" VerticalAlignment="Center" Margin="10,0,10,0" Text="{Binding ClipElement.LabelText, Mode=OneWay}"/>
                     </VirtualizingStackPanel>
                 </Grid>
             </Border>
@@ -149,7 +149,7 @@
         </ContentControl>
         <ItemsControl
             x:Name="itemsControl"
-            ItemsSource="{Binding ClipData.Effect, Mode=OneWay}"
+            ItemsSource="{Binding ClipElement.Effect, Mode=OneWay}"
             VerticalContentAlignment="Stretch"
             HorizontalContentAlignment="Stretch"
             AlternationCount="{Binding Items.Count, ElementName=itemsControl}"

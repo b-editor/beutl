@@ -153,7 +153,7 @@ namespace BEditor
 
             Settings.Default.MostRecentlyUsedList.CollectionChanged += (s, e) =>
             {
-                Dispatcher.BeginInvoke(new Action(() =>
+                Dispatcher.InvokeAsync(() =>
                 {
                     if (s is null) return;
                     if (e.Action is NotifyCollectionChangedAction.Add)
@@ -180,7 +180,7 @@ namespace BEditor
                             }
                         }
                     }
-                }));
+                });
             };
         }
         private void SetPluginMenu()
