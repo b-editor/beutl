@@ -122,6 +122,11 @@ namespace BEditor.WPF.Controls
             blue.MouseWheel += TextBox_Blue_MouseWheel;
             alpha.MouseWheel += TextBox_Alpha_MouseWheel;
 
+            red.TextChanged += Red_TextChanged;
+            green.TextChanged += Green_TextChanged;
+            blue.TextChanged += Blue_TextChanged;
+            alpha.TextChanged += Alpha_TextChanged;
+
             //Color = "{Binding SelectedColor, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"
             picker.DataContext = this;
             picker.SetBinding(MaterialDesignThemes.Wpf.ColorPicker.ColorProperty, new Binding("SelectedColor")
@@ -129,6 +134,46 @@ namespace BEditor.WPF.Controls
                 Mode = BindingMode.TwoWay,
                 UpdateSourceTrigger = UpdateSourceTrigger.PropertyChanged
             });
+        }
+
+        private void Alpha_TextChanged(object sender, TextChangedEventArgs e)
+        {
+            var textbox = (TextBox)sender;
+
+            if (byte.TryParse(textbox.Text, out var value))
+            {
+                Alpha = value;
+            }
+        }
+
+        private void Blue_TextChanged(object sender, TextChangedEventArgs e)
+        {
+            var textbox = (TextBox)sender;
+
+            if (byte.TryParse(textbox.Text, out var value))
+            {
+                Blue = value;
+            }
+        }
+
+        private void Green_TextChanged(object sender, TextChangedEventArgs e)
+        {
+            var textbox = (TextBox)sender;
+
+            if (byte.TryParse(textbox.Text, out var value))
+            {
+                Green = value;
+            }
+        }
+
+        private void Red_TextChanged(object sender, TextChangedEventArgs e)
+        {
+            var textbox = (TextBox)sender;
+
+            if (byte.TryParse(textbox.Text, out var value))
+            {
+                Red = value;
+            }
         }
     }
 }
