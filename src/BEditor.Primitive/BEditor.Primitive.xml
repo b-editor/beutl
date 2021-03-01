@@ -1010,6 +1010,54 @@
         <member name="M:BEditor.Primitive.Effects.Shadow.OnUnload">
             <inheritdoc/>
         </member>
+        <member name="T:BEditor.Primitive.Effects.StrokeText">
+            <summary>
+            Represents an <see cref="T:BEditor.Data.Primitive.ImageEffect"/> that adds a border to the image.
+            </summary>
+        </member>
+        <member name="F:BEditor.Primitive.Effects.StrokeText.SizeMetadata">
+            <summary>
+            Represents <see cref="P:BEditor.Primitive.Effects.StrokeText.Size"/> metadata.
+            </summary>
+        </member>
+        <member name="F:BEditor.Primitive.Effects.StrokeText.ColorMetadata">
+            <summary>
+            Represents <see cref="P:BEditor.Primitive.Effects.StrokeText.Color"/> metadata.
+            </summary>
+        </member>
+        <member name="M:BEditor.Primitive.Effects.StrokeText.#ctor">
+            <summary>
+            Initializes a new instance of the <see cref="T:BEditor.Primitive.Effects.StrokeText"/> class.
+            </summary>
+        </member>
+        <member name="P:BEditor.Primitive.Effects.StrokeText.Name">
+            <inheritdoc/>
+        </member>
+        <member name="P:BEditor.Primitive.Effects.StrokeText.Properties">
+            <inheritdoc/>
+        </member>
+        <member name="P:BEditor.Primitive.Effects.StrokeText.Size">
+            <summary>
+            Get the <see cref="T:BEditor.Data.Property.EaseProperty"/> that represents the size of the edge.
+            </summary>
+        </member>
+        <member name="P:BEditor.Primitive.Effects.StrokeText.Color">
+            <summary>
+            Get the <see cref="T:BEditor.Data.Property.ColorProperty"/> that represents the edge color.
+            </summary>
+        </member>
+        <member name="M:BEditor.Primitive.Effects.StrokeText.Render(BEditor.Data.EffectRenderArgs{BEditor.Drawing.Image{BEditor.Drawing.Pixel.BGRA32}})">
+            <inheritdoc/>
+        </member>
+        <member name="M:BEditor.Primitive.Effects.StrokeText.Render(BEditor.Data.EffectRenderArgs{System.Collections.Generic.IEnumerable{BEditor.Graphics.ImageInfo}})">
+            <inheritdoc/>
+        </member>
+        <member name="M:BEditor.Primitive.Effects.StrokeText.OnLoad">
+            <inheritdoc/>
+        </member>
+        <member name="M:BEditor.Primitive.Effects.StrokeText.OnUnload">
+            <inheritdoc/>
+        </member>
         <member name="T:BEditor.Primitive.Objects.AudioObject">
             <summary>
             Represents an <see cref="T:BEditor.Data.ObjectElement"/> that references an audio file.
