@@ -75,7 +75,7 @@ namespace BEditor.Primitive.Effects
             int left = (int)Left.GetValue(args.Frame);
             int right = (int)Right.GetValue(args.Frame);
 
-            if (AdjustCoordinates.IsChecked && Parent!.Effect[0] is ImageObject image)
+            if (AdjustCoordinates.Value && Parent!.Effect[0] is ImageObject image)
             {
                 image.Coordinate.CenterX.Optional = (right / 2) - (left / 2);
                 image.Coordinate.CenterY.Optional = (top / 2) - (bottom / 2);

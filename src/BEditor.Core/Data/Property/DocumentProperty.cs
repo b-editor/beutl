@@ -16,12 +16,12 @@ namespace BEditor.Data.Property
     /// Represents a property of a multi-line string.
     /// </summary>
     [DataContract]
-    [DebuggerDisplay("Text = {Text}")]
+    [DebuggerDisplay("Text = {Value}")]
     public class DocumentProperty : PropertyElement<DocumentPropertyMetadata>, IBindable<string>
     {
         #region Fields
-        private static readonly PropertyChangedEventArgs _textArgs = new(nameof(Text));
-        private string _text = "";
+        internal static readonly PropertyChangedEventArgs _valueArgs = new(nameof(Value));
+        private string _value = "";
         private List<IObserver<string>>? _list;
 
         private IDisposable? _bindDispose;
@@ -38,7 +38,7 @@ namespace BEditor.Data.Property
         public DocumentProperty(DocumentPropertyMetadata metadata)
         {
             PropertyMetadata = metadata ?? throw new ArgumentNullException(nameof(metadata));
-            Text = metadata.DefaultText;
+            Value = metadata.DefaultText;
         }
 
 
@@ -47,16 +47,26 @@ namespace BEditor.Data.Property
         /// Gets or sets the string being entered.
         /// </summary>
         [DataMember]
+        [Obsolete("Use Document.Value")]
         public string Text
         {
-            get => _text;
-            set => SetValue(value, ref _text, _textArgs, this, state =>
+            get => Value;
+            set => Value = value;
+        }
+        /// <summary>
+        /// Gets or sets the string being entered.
+        /// </summary>
+        [DataMember]
+        public string Value
+        {
+            get => _value;
+            set => SetValue(value, ref _value, _valueArgs, this, state =>
             {
                 foreach (var observer in state.Collection)
                 {
                     try
                     {
-                        observer.OnNext(state._text);
+                        observer.OnNext(state._value);
                     }
                     catch (Exception ex)
                     {
@@ -65,8 +75,6 @@ namespace BEditor.Data.Property
                 }
             });
         }
-        /// <inheritdoc/>
-        public string Value => Text;
         /// <inheritdoc/>
         [DataMember]
         public string? BindHint
@@ -78,16 +86,16 @@ namespace BEditor.Data.Property
 
         #region Methods
 
-        #region IBindable
-
         /// <inheritdoc/>
         public void OnCompleted() { }
+
         /// <inheritdoc/>
         public void OnError(Exception error) { }
+
         /// <inheritdoc/>
         public void OnNext(string value)
         {
-            Text = value;
+            Value = value;
         }
 
         /// <inheritdoc/>
@@ -102,6 +110,7 @@ namespace BEditor.Data.Property
                 state.Item2.Collection.Remove(state.observer);
             });
         }
+
         /// <inheritdoc/>
         public void Bind(IBindable<string>? bindable)
         {
@@ -110,23 +119,17 @@ namespace BEditor.Data.Property
 
             if (bindable is not null)
             {
-                Text = bindable.Value;
+                Value = bindable.Value;
 
                 // bindableが変更時にthisが変更
                 _bindDispose = bindable.Subscribe(this);
             }
         }
 
-        #endregion
-
         /// <inheritdoc/>
         protected override void OnLoad()
         {
-            if (_bindHint is not null && this.GetBindable(_bindHint, out var b))
-            {
-                Bind(b);
-            }
-            _bindHint = null;
+            this.AutoLoad(ref _bindHint);
         }
 
         /// <summary>
@@ -144,22 +147,37 @@ namespace BEditor.Data.Property
 
         private sealed class TextChangeCommand : IRecordCommand
         {
-            private readonly DocumentProperty _Property;
-            private readonly string _New;
-            private readonly string _Old;
+            private readonly WeakReference<DocumentProperty> _property;
+            private readonly string _new;
+            private readonly string _old;
 
-            public TextChangeCommand(DocumentProperty property, string text)
+            public TextChangeCommand(DocumentProperty property, string value)
             {
-                _Property = property ?? throw new ArgumentNullException(nameof(property));
-                _New = text;
-                _Old = property.Text;
+                _property = new(property ?? throw new ArgumentNullException(nameof(property)));
+                _new = value;
+                _old = property.Value;
             }
 
             public string Name => CommandName.ChangeText;
 
-            public void Do() => _Property.Text = _New;
-            public void Redo() => Do();
-            public void Undo() => _Property.Text = _Old;
+            public void Do()
+            {
+                if (_property.TryGetTarget(out var target))
+                {
+                    target.Value = _new;
+                }
+            }
+            public void Redo()
+            {
+                Do();
+            }
+            public void Undo()
+            {
+                if (_property.TryGetTarget(out var target))
+                {
+                    target.Value = _old;
+                }
+            }
         }
 
         #endregion

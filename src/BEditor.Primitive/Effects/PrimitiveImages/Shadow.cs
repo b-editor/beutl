@@ -90,7 +90,9 @@ namespace BEditor.Primitive.Effects
         /// <inheritdoc/>
         public override void Render(EffectRenderArgs<Image<BGRA32>> args)
         {
-            var img = args.Value.Shadow(X.GetValue(args.Frame), Y.GetValue(args.Frame), Blur.GetValue(args.Frame), Alpha.GetValue(args.Frame) / 100, Color.Color);
+            var frame = args.Frame;
+            var img = args.Value.Shadow(X[frame],Y[frame],Blur[frame],Alpha[frame] / 100, Color.Value);
+
             args.Value.Dispose();
 
             args.Value = img;

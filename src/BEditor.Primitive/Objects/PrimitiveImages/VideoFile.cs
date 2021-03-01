@@ -41,8 +41,8 @@ namespace BEditor.Primitive.Objects
             new("wmv"),
             new("mov")
         }));
-        private IMediaDecoder? _VideoReader;
-        private IDisposable? _Disposable;
+        private IMediaDecoder? _videoReader;
+        private IDisposable? _disposable;
 
         /// <summary>
         /// Initializes a new instance of the <see cref="VideoFile"/> class.
@@ -92,7 +92,7 @@ namespace BEditor.Primitive.Objects
             Image<BGRA32>? image = null;
             var time = new Frame((int)((start + args.Frame - Parent!.Start) * speed)).ToTimeSpan(Parent.Parent.Parent!.Framerate);
 
-            _VideoReader?.Read(time, out image);
+            _videoReader?.Read(time, out image);
 
             return image;
         }
@@ -104,18 +104,18 @@ namespace BEditor.Primitive.Objects
             Start.Load(StartMetadata);
             File.Load(FileMetadata);
 
-            if (System.IO.File.Exists(File.File))
+            if (System.IO.File.Exists(File.Value))
             {
-                _VideoReader = VideoDecoderFactory.Default.Create(File.File);
+                _videoReader = VideoDecoderFactory.Default.Create(File.Value);
             }
 
-            _Disposable = File.Subscribe(filename =>
+            _disposable = File.Subscribe(filename =>
             {
-                _VideoReader?.Dispose();
+                _videoReader?.Dispose();
 
                 try
                 {
-                    _VideoReader = VideoDecoderFactory.Default.Create(filename);
+                    _videoReader = VideoDecoderFactory.Default.Create(filename);
                 }
                 catch (Exception)
                 {
@@ -132,8 +132,8 @@ namespace BEditor.Primitive.Objects
             Start.Unload();
             File.Unload();
 
-            _VideoReader?.Dispose();
-            _Disposable?.Dispose();
+            _videoReader?.Dispose();
+            _disposable?.Dispose();
         }
     }
 }

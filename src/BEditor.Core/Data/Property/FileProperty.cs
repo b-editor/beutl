@@ -18,11 +18,10 @@ namespace BEditor.Data.Property
     /// Represents a property to select a file.
     /// </summary>
     [DataContract]
-    [DebuggerDisplay("File = {File}")]
+    [DebuggerDisplay("File = {Value}")]
     public class FileProperty : PropertyElement<FilePropertyMetadata>, IEasingProperty, IBindable<string>
     {
         #region Fields
-        private static readonly PropertyChangedEventArgs _fileArgs = new(nameof(File));
         private static readonly PropertyChangedEventArgs _modeArgs = new(nameof(Mode));
         private string _rawFile = "";
         private List<IObserver<string>>? _list;
@@ -42,7 +41,7 @@ namespace BEditor.Data.Property
         public FileProperty(FilePropertyMetadata metadata)
         {
             PropertyMetadata = metadata ?? throw new ArgumentNullException(nameof(metadata));
-            File = metadata.DefaultFile;
+            Value = metadata.DefaultFile;
         }
 
 
@@ -59,7 +58,16 @@ namespace BEditor.Data.Property
         /// <summary>
         /// Gets or sets the name of the selected file.
         /// </summary>
+        [Obsolete("Use FileProperty.Value")]
         public string File
+        {
+            get => Value;
+            set => Value = value;
+        }
+        /// <summary>
+        /// Gets or sets the name of the selected file.
+        /// </summary>
+        public string Value
         {
             get
             {
@@ -68,17 +76,18 @@ namespace BEditor.Data.Property
             }
             set
             {
-                if (value != File)
+                if (value != Value)
                 {
                     _rawFile = GetFullPath(value);
 
-                    RaisePropertyChanged(_fileArgs);
+                    RaisePropertyChanged(DocumentProperty._valueArgs);
+                    var _value = Value;
 
                     foreach (var observer in Collection)
                     {
                         try
                         {
-                            observer.OnNext(File);
+                            observer.OnNext(_value);
                         }
                         catch (Exception ex)
                         {
@@ -88,8 +97,6 @@ namespace BEditor.Data.Property
                 }
             }
         }
-        /// <inheritdoc/>
-        public string Value => File;
         /// <inheritdoc/>
         [DataMember]
         public string? BindHint
@@ -128,12 +135,13 @@ namespace BEditor.Data.Property
             {
                 if (Parent?.Parent?.Parent?.Parent?.DirectoryName is not null)
                 {
-                    return Path.GetRelativePath(Parent.Parent.Parent.Parent.DirectoryName!, File);
+                    return Path.GetRelativePath(Parent.Parent.Parent.Parent.DirectoryName!, Value);
                 }
 
                 return _rawFile;
             }
         }
+
         private string GetFullPath(string fullpath)
         {
             if (Mode is FilePathType.FullPath)
@@ -150,14 +158,11 @@ namespace BEditor.Data.Property
                 return _rawFile;
             }
         }
+
         /// <inheritdoc/>
         protected override void OnLoad()
         {
-            if (_bindHint is not null && this.GetBindable(_bindHint, out var b))
-            {
-                Bind(b);
-            }
-            _bindHint = null;
+            this.AutoLoad(ref _bindHint);
         }
 
         /// <summary>
@@ -168,17 +173,19 @@ namespace BEditor.Data.Property
         [Pure]
         public IRecordCommand ChangeFile(string path) => new ChangeFileCommand(this, path);
 
-        #region Ibindable
-
         /// <inheritdoc/>
         public void OnCompleted() { }
+
         /// <inheritdoc/>
         public void OnError(Exception error) { }
+
         /// <inheritdoc/>
         public void OnNext(string value)
         {
             if (System.IO.File.Exists(value))
-                File = value;
+            {
+                Value = value;
+            }
         }
 
         /// <inheritdoc/>
@@ -202,14 +209,12 @@ namespace BEditor.Data.Property
 
             if (bindable is not null)
             {
-                File = bindable.Value;
+                Value = bindable.Value;
 
                 // bindableが変更時にthisが変更
                 _bindDispose = bindable.Subscribe(this);
             }
         }
-
-        #endregion
 
         #endregion
 
@@ -222,9 +227,9 @@ namespace BEditor.Data.Property
         /// <remarks>このクラスは <see cref="CommandManager.Do(IRecordCommand)"/> と併用することでコマンドを記録できます</remarks>
         private sealed class ChangeFileCommand : IRecordCommand
         {
-            private readonly FileProperty _Property;
-            private readonly string _New;
-            private readonly string _Old;
+            private readonly WeakReference<FileProperty> _property;
+            private readonly string _new;
+            private readonly string _old;
 
             /// <summary>
             /// <see cref="ChangeFileCommand"/> クラスの新しいインスタンスを初期化します
@@ -234,21 +239,34 @@ namespace BEditor.Data.Property
             /// <exception cref="ArgumentNullException"><paramref name="property"/> が <see langword="null"/> です</exception>
             public ChangeFileCommand(FileProperty property, string path)
             {
-                _Property = property ?? throw new ArgumentNullException(nameof(property));
-                _New = path;
-                _Old = _Property.File;
+                _property = new(property ?? throw new ArgumentNullException(nameof(property)));
+                _new = path;
+                _old = property.Value;
             }
 
             public string Name => CommandName.ChangeFile;
 
             /// <inheritdoc/>
-            public void Do() => _Property.File = _New;
-
+            public void Do()
+            {
+                if (_property.TryGetTarget(out var target))
+                {
+                    target.Value = _new;
+                }
+            }
             /// <inheritdoc/>
-            public void Redo() => Do();
-
+            public void Redo()
+            {
+                Do();
+            }
             /// <inheritdoc/>
-            public void Undo() => _Property.File = _Old;
+            public void Undo()
+            {
+                if (_property.TryGetTarget(out var target))
+                {
+                    target.Value = _old;
+                }
+            }
         }
 
         #endregion

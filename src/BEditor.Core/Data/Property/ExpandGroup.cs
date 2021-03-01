@@ -30,6 +30,17 @@ namespace BEditor.Data.Property
         #endregion
 
 
+        /// <summary>
+        /// Initializes a new instance of the <see cref="ExpandGroup"/> class.
+        /// </summary>
+        /// <param name="metadata">Metadata of this property.</param>
+        /// <exception cref="ArgumentNullException"><paramref name="metadata"/> is <see langword="null"/>.</exception>
+        public ExpandGroup(PropertyElementMetadata metadata)
+        {
+            PropertyMetadata = metadata ?? throw new ArgumentNullException(nameof(metadata));
+        }
+
+
         private List<IObserver<bool>> Collection => _list ??= new();
         /// <summary>
         /// Gets or sets whether the expander is open
@@ -64,35 +75,20 @@ namespace BEditor.Data.Property
         bool IBindable<bool>.Value => IsExpanded;
 
 
-        /// <summary>
-        /// Initializes a new instance of the <see cref="ExpandGroup"/> class.
-        /// </summary>
-        /// <param name="metadata">Metadata of this property.</param>
-        /// <exception cref="ArgumentNullException"><paramref name="metadata"/> is <see langword="null"/>.</exception>
-        public ExpandGroup(PropertyElementMetadata metadata)
-        {
-            PropertyMetadata = metadata ?? throw new ArgumentNullException(nameof(metadata));
-        }
-
-
         #region Methods
 
         /// <inheritdoc/>
         protected override void OnLoad()
         {
-            if (_bindHint is not null && this.GetBindable(_bindHint, out var b))
-            {
-                Bind(b);
-            }
-            _bindHint = null;
+            this.AutoLoad(ref _bindHint);
         }
-
-        #region Ibindable
 
         /// <inheritdoc/>
         public void OnCompleted() { }
+
         /// <inheritdoc/>
         public void OnError(Exception error) { }
+
         /// <inheritdoc/>
         public void OnNext(bool value)
         {
@@ -126,8 +122,6 @@ namespace BEditor.Data.Property
                 _bindDispose = bindable.Subscribe(this);
             }
         }
-
-        #endregion
 
         #endregion
     }

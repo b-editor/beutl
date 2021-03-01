@@ -101,12 +101,12 @@ namespace BEditor.Primitive.Objects
         /// <inheritdoc/>
         protected override Image<BGRA32> OnRender(EffectRenderArgs args)
         {
-            return Image.Text(Document.Text, Font.Select, Size[args.Frame], Color.Color);
+            return Image.Text(Document.Value, Font.Value, Size[args.Frame], Color.Value);
         }
         /// <inheritdoc/>
         protected override void OnRender(EffectRenderArgs<IEnumerable<ImageInfo>> args)
         {
-            if (!EnableMultiple.IsChecked)
+            if (!EnableMultiple.Value)
             {
                 args.Value = new ImageInfo[]
                 {
@@ -115,8 +115,8 @@ namespace BEditor.Primitive.Objects
 
                 return;
             }
-            args.Value = Document.Text
-                .Select((c, index) => (Image.Text(c.ToString(), Font.Select, Size[args.Frame], Color.Color), index))
+            args.Value = Document.Value
+                .Select((c, index) => (Image.Text(c.ToString(), Font.Value, Size[args.Frame], Color.Value), index))
                 .Select(t =>
                 {
                     return new ImageInfo(t.Item1, img => GetTransform(img.Source.Width * t.index, 0));

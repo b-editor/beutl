@@ -34,13 +34,13 @@ namespace BEditor.ViewModels.PropertyControl
             GotFocus.Subscribe(_ => oldvalue = Property.Value).AddTo(disposables);
             LostFocus.Subscribe(text =>
             {
-                Property.Text = oldvalue;
+                Property.Value = oldvalue;
 
                 Property.ChangeText(text).Execute();
             }).AddTo(disposables);
             TextChanged.Subscribe(text =>
             {
-                Property.Text = text;
+                Property.Value = text;
 
                 AppData.Current.Project!.PreviewUpdate(Property.GetParent2()!);
             }).AddTo(disposables);

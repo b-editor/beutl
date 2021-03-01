@@ -129,131 +129,164 @@ namespace BEditor.Data
 
         internal sealed class CheckCommand : IRecordCommand
         {
-            private readonly EffectElement _Effect;
-            private readonly bool _Value;
+            private readonly WeakReference<EffectElement> _effect;
+            private readonly bool _value;
 
             public CheckCommand(EffectElement effect, bool value)
             {
-                _Effect = effect;
-                _Value = value;
+                _effect = new(effect);
+                _value = value;
             }
 
             public string Name => CommandName.EnableDisableEffect;
 
-            public void Do() => _Effect.IsEnabled = _Value;
-            public void Redo() => Do();
-            public void Undo() => _Effect.IsEnabled = !_Value;
+            public void Do()
+            {
+                if (_effect.TryGetTarget(out var target))
+                {
+                    target.IsEnabled = _value;
+                }
+            }
+            public void Redo()
+            {
+                Do();
+            }
+            public void Undo()
+            {
+                if (_effect.TryGetTarget(out var target))
+                {
+                    target.IsEnabled = !_value;
+                }
+            }
         }
         internal sealed class UpCommand : IRecordCommand
         {
-            private readonly ClipElement _Clip;
-            private readonly EffectElement _Effect;
+            private readonly WeakReference<ClipElement> _clip;
+            private readonly WeakReference<EffectElement> _effect;
 
             public UpCommand(EffectElement effect)
             {
-                _Effect = effect;
-                _Clip = effect.Parent!;
+                _effect = new(effect);
+                _clip = new(effect.Parent);
             }
 
             public string Name => CommandName.UpEffect;
 
             public void Do()
             {
-                //変更前のインデックス
-                int index = _Clip.Effect.IndexOf(_Effect);
-
-                if (index != 1)
+                if (_clip.TryGetTarget(out var clip) && _effect.TryGetTarget(out var effect))
                 {
-                    _Clip.Effect.Move(index, index - 1);
+                    // 変更前のインデックス
+                    int index = clip.Effect.IndexOf(effect);
+
+                    if (index != 1)
+                    {
+                        clip.Effect.Move(index, index - 1);
+                    }
                 }
             }
-            public void Redo() => Do();
+            public void Redo()
+            {
+                Do();
+            }
             public void Undo()
             {
-                //変更前のインデックス
-                int index = _Clip.Effect.IndexOf(_Effect);
-
-                if (index != _Clip.Effect.Count - 1)
+                if (_clip.TryGetTarget(out var clip) && _effect.TryGetTarget(out var effect))
                 {
-                    _Clip.Effect.Move(index, index + 1);
+                    // 変更後のインデックス
+                    int index = clip.Effect.IndexOf(effect);
+
+                    if (index != clip.Effect.Count - 1)
+                    {
+                        clip.Effect.Move(index, index + 1);
+                    }
                 }
             }
         }
         internal sealed class DownCommand : IRecordCommand
         {
-            private readonly ClipElement _Clip;
-            private readonly EffectElement _Effect;
+            private readonly WeakReference<ClipElement> _clip;
+            private readonly WeakReference<EffectElement> _effect;
 
             public DownCommand(EffectElement effect)
             {
-                _Effect = effect;
-                _Clip = effect.Parent!;
+                _effect = new(effect);
+                _clip = new(effect.Parent);
             }
 
             public string Name => CommandName.DownEffect;
 
             public void Do()
             {
-                //変更前のインデックス
-                int index = _Clip.Effect.IndexOf(_Effect);
-
-                if (index != _Clip.Effect.Count - 1)
+                if (_clip.TryGetTarget(out var clip) && _effect.TryGetTarget(out var effect))
                 {
-                    _Clip.Effect.Move(index, index + 1);
+                    // 変更前のインデックス
+                    int index = clip.Effect.IndexOf(effect);
+
+                    if (index != clip.Effect.Count - 1)
+                    {
+                        clip.Effect.Move(index, index + 1);
+                    }
                 }
             }
-            public void Redo() => Do();
+            public void Redo()
+            {
+                Do();
+            }
             public void Undo()
             {
-                //変更前のインデックス
-                int index = _Clip.Effect.IndexOf(_Effect);
-
-                if (index != 1)
+                if (_clip.TryGetTarget(out var clip) && _effect.TryGetTarget(out var effect))
                 {
-                    _Clip.Effect.Move(index, index - 1);
+                    // 変更後のインデックス
+                    int index = clip.Effect.IndexOf(effect);
+
+                    if (index != 1)
+                    {
+                        clip.Effect.Move(index, index - 1);
+                    }
                 }
             }
         }
         internal sealed class RemoveCommand : IRecordCommand
         {
-            private readonly ClipElement _Clip;
-            private readonly EffectElement _Effect;
-            private readonly int _Index;
+            private readonly ClipElement _clip;
+            private readonly EffectElement _effect;
+            private readonly int _index;
 
             public RemoveCommand(EffectElement effect, ClipElement clip)
             {
-                _Effect = effect;
-                _Clip = clip;
-                _Index = _Clip.Effect.IndexOf(effect);
+                _effect = effect;
+                _clip = clip;
+                _index = _clip.Effect.IndexOf(effect);
             }
 
             public string Name => CommandName.RemoveEffect;
 
             public void Do()
             {
-                _Clip.Effect.RemoveAt(_Index);
-                _Effect.Unload();
+                _clip.Effect.RemoveAt(_index);
+                _effect.Unload();
             }
             public void Redo() => Do();
             public void Undo()
             {
-                _Effect.Load();
-                _Clip.Effect.Insert(_Index, _Effect);
+                _effect.Load();
+                _clip.Effect.Insert(_index, _effect);
             }
         }
         internal sealed class AddCommand : IRecordCommand
         {
-            private readonly ClipElement _Clip;
-            private readonly EffectElement? _Effect;
+            private readonly ClipElement _clip;
+            private readonly EffectElement? _effect;
 
             public AddCommand(EffectElement effect, ClipElement clip)
             {
-                _Effect = effect;
-                _Clip = clip;
+                _effect = effect;
+                _clip = clip;
                 effect.Parent = clip;
-                if (!((ObjectElement)_Clip.Effect[0]).EffectFilter(effect))
+                if (!((ObjectElement)_clip.Effect[0]).EffectFilter(effect))
                 {
-                    _Effect = null;
+                    _effect = null;
                 }
             }
 
@@ -262,10 +295,10 @@ namespace BEditor.Data
             /// <inheritdoc/>
             public void Do()
             {
-                if (_Effect is not null)
+                if (_effect is not null)
                 {
-                    _Effect.Load();
-                    _Clip.Effect.Add(_Effect);
+                    _effect.Load();
+                    _clip.Effect.Add(_effect);
                 }
             }
             /// <inheritdoc/>
@@ -273,10 +306,10 @@ namespace BEditor.Data
             /// <inheritdoc/>
             public void Undo()
             {
-                if (_Effect is not null)
+                if (_effect is not null)
                 {
-                    _Clip.Effect.Remove(_Effect);
-                    _Effect.Unload();
+                    _clip.Effect.Remove(_effect);
+                    _effect.Unload();
                 }
             }
         }

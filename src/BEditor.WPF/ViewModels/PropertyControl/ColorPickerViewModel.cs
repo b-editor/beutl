@@ -25,9 +25,9 @@ namespace BEditor.ViewModels.PropertyControl
         public ColorPickerViewModel(ColorProperty property)
         {
             Property = property;
-            var color = property.Color;
+            var color = property.Value;
 
-            Brush = property.ObserveProperty(p => p.Color)
+            Brush = property.ObserveProperty(p => p.Value)
                 .Select(c => new SolidColorBrush(Color.FromArgb(c.A, c.R, c.G, c.B)))
                 .ToReactiveProperty()
                 .AddTo(disposables)!;
@@ -58,10 +58,10 @@ namespace BEditor.ViewModels.PropertyControl
             {
                 var d = new ColorDialog(this);
 
-                d.col.Red = Property.Color.R;
-                d.col.Green = Property.Color.G;
-                d.col.Blue = Property.Color.B;
-                d.col.Alpha = Property.Color.A;
+                d.col.Red = Property.Value.R;
+                d.col.Green = Property.Value.G;
+                d.col.Blue = Property.Value.B;
+                d.col.Alpha = Property.Value.A;
 
                 return d;
             }

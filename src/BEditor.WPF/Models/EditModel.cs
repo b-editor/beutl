@@ -154,16 +154,16 @@ namespace BEditor.Models
                             var obj = c.Effect[0];
                             if (obj is VideoFile video)
                             {
-                                video.File.File = file;
+                                video.File.Value = file;
                             }
                             else if (obj is ImageFile image)
                             {
-                                image.File.File = file;
+                                image.File.Value = file;
                             }
                             else if (obj is Text txt)
                             {
                                 using var reader = new StreamReader(file);
-                                txt.Document.Text = reader.ReadToEnd();
+                                txt.Document.Value = reader.ReadToEnd();
                             }
                         }
                     }

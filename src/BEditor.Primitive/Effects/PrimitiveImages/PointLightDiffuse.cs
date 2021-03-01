@@ -64,7 +64,7 @@ namespace BEditor.Primitive.Effects
             var f = args.Frame;
             args.Value.PointLightDiffuse(
                 new(X[f], Y[f], Z[f]),
-                LightColor.Color,
+                LightColor.Value,
                 SurfaceScale[f] / 100,
                 LightConstant[f] / 100);
         }

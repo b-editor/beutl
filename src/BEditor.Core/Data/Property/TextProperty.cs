@@ -66,7 +66,7 @@ namespace BEditor.Data.Property
         }
         /// <inheritdoc/>
         [DataMember]
-        public string? BindHint 
+        public string? BindHint
         {
             get => _bindable?.GetString();
             private set => _bindHint = value;
@@ -74,6 +74,7 @@ namespace BEditor.Data.Property
 
 
         #region Methods
+
         /// <inheritdoc/>
         public void Bind(IBindable<string>? bindable)
         {
@@ -88,15 +89,19 @@ namespace BEditor.Data.Property
                 _bindDispose = bindable.Subscribe(this);
             }
         }
+
         /// <inheritdoc/>
         public void OnCompleted() { }
+
         /// <inheritdoc/>
         public void OnError(Exception error) { }
+
         /// <inheritdoc/>
         public void OnNext(string value)
         {
             Value = value;
         }
+
         /// <inheritdoc/>
         public IDisposable Subscribe(IObserver<string> observer)
         {
@@ -109,18 +114,13 @@ namespace BEditor.Data.Property
                 state.Item2.Collection.Remove(state.observer);
             });
         }
+
         /// <inheritdoc/>
         protected override void OnLoad()
         {
-            if (_bindHint is not null)
-            {
-                if (this.GetBindable(_bindHint, out var b))
-                {
-                    Bind(b);
-                }
-            }
-            _bindHint = null;
+            this.AutoLoad(ref _bindHint);
         }
+
         /// <summary>
         /// Create a command to change the <see cref="Value"/>.
         /// </summary>
@@ -128,27 +128,43 @@ namespace BEditor.Data.Property
         /// <returns>Created <see cref="IRecordCommand"/></returns>
         [Pure]
         public IRecordCommand ChangeText(string text) => new ChangeTextCommand(this, text);
+
         #endregion
 
 
         private sealed class ChangeTextCommand : IRecordCommand
         {
-            private readonly TextProperty _Property;
-            private readonly string _New;
-            private readonly string _Old;
+            private readonly WeakReference<TextProperty> _property;
+            private readonly string _new;
+            private readonly string _old;
 
             public ChangeTextCommand(TextProperty property, string value)
             {
-                _Property = property ?? throw new ArgumentNullException(nameof(property));
-                _Old = property.Value;
-                _New = value;
+                _property = new(property ?? throw new ArgumentNullException(nameof(property)));
+                _old = property.Value;
+                _new = value;
             }
 
             public string Name => CommandName.ChangeText;
 
-            public void Do() => _Property.Value = _New;
-            public void Redo() => Do();
-            public void Undo() => _Property.Value = _Old;
+            public void Do()
+            {
+                if (_property.TryGetTarget(out var target))
+                {
+                    target.Value = _new;
+                }
+            }
+            public void Redo()
+            {
+                Do();
+            }
+            public void Undo()
+            {
+                if (_property.TryGetTarget(out var target))
+                {
+                    target.Value = _old;
+                }
+            }
         }
     }
 

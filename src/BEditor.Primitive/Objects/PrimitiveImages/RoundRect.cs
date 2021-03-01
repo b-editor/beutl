@@ -87,7 +87,7 @@ namespace BEditor.Primitive.Objects
         {
             var f = args.Frame;
             var r = (int)Radius[f];
-            return Image.RoundRect((int)Width[f], (int)Height[f], (int)Line[f], r, r, Color.Color);
+            return Image.RoundRect((int)Width[f], (int)Height[f], (int)Line[f], r, r, Color.Value);
         }
         /// <inheritdoc/>
         protected override void OnLoad()

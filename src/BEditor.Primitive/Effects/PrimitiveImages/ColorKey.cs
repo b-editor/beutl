@@ -58,7 +58,7 @@ namespace BEditor.Primitive.Effects
         /// <inheritdoc/>
         public override void Render(EffectRenderArgs<Image<BGRA32>> args)
         {
-            args.Value.ColorKey(Color.Color, (int)ThresholdValue[args.Frame]);
+            args.Value.ColorKey(Color.Value, (int)ThresholdValue[args.Frame]);
         }
         /// <inheritdoc/>
         protected override void OnLoad()

@@ -155,7 +155,7 @@ namespace BEditor.Primitive.Objects
             var scene = Parent!.Parent!;
             scene.GraphicsContext!.MakeCurrent();
 
-            if (Mode.IsChecked)
+            if (Mode.Value)
             {
                 scene.GraphicsContext.Camera =
                     new PerspectiveCamera(new(X[frame], Y[frame], Z[frame]), scene.Width / (float)scene.Height)

@@ -20,11 +20,10 @@ namespace BEditor.Data.Property
     /// Represents a property to select a folder.
     /// </summary>
     [DataContract]
-    [DebuggerDisplay("Folder = {Folder}")]
+    [DebuggerDisplay("Folder = {Value}")]
     public class FolderProperty : PropertyElement<FolderPropertyMetadata>, IEasingProperty, IBindable<string>
     {
         #region Fields
-        private static readonly PropertyChangedEventArgs _folderArgs = new(nameof(Folder));
         private static readonly PropertyChangedEventArgs _modeArgs = new(nameof(Mode));
         private string _rawFolder = "";
         private List<IObserver<string>>? _list;
@@ -44,7 +43,7 @@ namespace BEditor.Data.Property
         public FolderProperty(FolderPropertyMetadata metadata)
         {
             PropertyMetadata = metadata ?? throw new ArgumentNullException(nameof(metadata));
-            Folder = metadata.Default;
+            Value = metadata.Default;
         }
 
 
@@ -61,8 +60,16 @@ namespace BEditor.Data.Property
         /// <summary>
         /// Gets or sets the name of the selected folder.
         /// </summary>
-        [DataMember]
+        [Obsolete("Use FolderProperty.Value")]
         public string Folder
+        {
+            get => Value;
+            set => Value = value;
+        }
+        /// <summary>
+        /// Gets or sets the name of the selected folder.
+        /// </summary>
+        public string Value
         {
             get
             {
@@ -71,17 +78,18 @@ namespace BEditor.Data.Property
             }
             set
             {
-                if (value != Folder)
+                if (value != Value)
                 {
                     _rawFolder = GetFullPath(value);
 
-                    RaisePropertyChanged(_folderArgs);
+                    RaisePropertyChanged(DocumentProperty._valueArgs);
+                    var _value = Value;
 
                     foreach (var observer in Collection)
                     {
                         try
                         {
-                            observer.OnNext(Folder);
+                            observer.OnNext(_value);
                         }
                         catch (Exception ex)
                         {
@@ -91,8 +99,6 @@ namespace BEditor.Data.Property
                 }
             }
         }
-        /// <inheritdoc/>
-        public string Value => Folder;
         /// <inheritdoc/>
         [DataMember]
         public string? BindHint
@@ -131,12 +137,13 @@ namespace BEditor.Data.Property
             {
                 if (Parent?.Parent?.Parent?.Parent?.DirectoryName is not null)
                 {
-                    return Path.GetRelativePath(Parent.Parent.Parent.Parent.DirectoryName!, Folder);
+                    return Path.GetRelativePath(Parent.Parent.Parent.Parent.DirectoryName!, Value);
                 }
 
                 return _rawFolder;
             }
         }
+
         private string GetFullPath(string fullpath)
         {
             if (Mode is FilePathType.FullPath)
@@ -153,14 +160,11 @@ namespace BEditor.Data.Property
                 return _rawFolder;
             }
         }
+
         /// <inheritdoc/>
         protected override void OnLoad()
         {
-            if (_bindHint is not null && this.GetBindable(_bindHint, out var b))
-            {
-                Bind(b);
-            }
-            _bindHint = null;
+            this.AutoLoad(ref _bindHint);
         }
 
         /// <summary>
@@ -171,17 +175,19 @@ namespace BEditor.Data.Property
         [Pure]
         public IRecordCommand ChangeFolder(string path) => new ChangeFolderCommand(this, path);
 
-        #region Ibindable
-
         /// <inheritdoc/>
         public void OnCompleted() { }
+
         /// <inheritdoc/>
         public void OnError(Exception error) { }
+
         /// <inheritdoc/>
         public void OnNext(string value)
         {
-            if (System.IO.File.Exists(value))
-                Folder = value;
+            if (File.Exists(value))
+            {
+                Value = value;
+            }
         }
 
         /// <inheritdoc/>
@@ -205,14 +211,12 @@ namespace BEditor.Data.Property
 
             if (bindable is not null)
             {
-                Folder = bindable.Value;
+                Value = bindable.Value;
 
                 // bindableが変更時にthisが変更
                 _bindDispose = bindable.Subscribe(this);
             }
         }
-
-        #endregion
 
         #endregion
 
@@ -225,9 +229,9 @@ namespace BEditor.Data.Property
         /// <remarks>このクラスは <see cref="CommandManager.Do(IRecordCommand)"/> と併用することでコマンドを記録できます</remarks>
         private sealed class ChangeFolderCommand : IRecordCommand
         {
-            private readonly FolderProperty _Property;
-            private readonly string _New;
-            private readonly string _Old;
+            private readonly WeakReference<FolderProperty> _property;
+            private readonly string _new;
+            private readonly string _old;
 
             /// <summary>
             /// <see cref="ChangeFolderCommand"/> クラスの新しいインスタンスを初期化します
@@ -237,21 +241,34 @@ namespace BEditor.Data.Property
             /// <exception cref="ArgumentNullException"><paramref name="property"/> が <see langword="null"/> です</exception>
             public ChangeFolderCommand(FolderProperty property, string path)
             {
-                _Property = property ?? throw new ArgumentNullException(nameof(property));
-                _New = path;
-                _Old = _Property.Folder;
+                _property = new(property ?? throw new ArgumentNullException(nameof(property)));
+                _new = path;
+                _old = property.Value;
             }
 
             public string Name => CommandName.ChangeFolder;
 
             /// <inheritdoc/>
-            public void Do() => _Property.Folder = _New;
-
+            public void Do()
+            {
+                if (_property.TryGetTarget(out var target))
+                {
+                    target.Value = _new;
+                }
+            }
             /// <inheritdoc/>
-            public void Redo() => Do();
-
+            public void Redo()
+            {
+                Do();
+            }
             /// <inheritdoc/>
-            public void Undo() => _Property.Folder = _Old;
+            public void Undo()
+            {
+                if (_property.TryGetTarget(out var target))
+                {
+                    target.Value = _old;
+                }
+            }
         }
 
         #endregion

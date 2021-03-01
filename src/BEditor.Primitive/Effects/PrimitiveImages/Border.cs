@@ -57,7 +57,7 @@ namespace BEditor.Primitive.Effects
         /// <inheritdoc/>
         public override void Render(EffectRenderArgs<Image<BGRA32>> args)
         {
-            var img = args.Value.Border((int)Size.GetValue(args.Frame), Color.Color);
+            var img = args.Value.Border((int)Size.GetValue(args.Frame), Color.Value);
             args.Value.Dispose();
 
             args.Value = img;

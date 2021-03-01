@@ -83,7 +83,7 @@ namespace BEditor.Primitive.Objects
 
             if (width <= 0 || height <= 0) return new(1, 1, default(BGRA32));
 
-            return Image.Polygon((int)Number.Value, width, height, Color.Color);
+            return Image.Polygon((int)Number.Value, width, height, Color.Value);
         }
         /// <inheritdoc/>
         protected override void OnLoad()

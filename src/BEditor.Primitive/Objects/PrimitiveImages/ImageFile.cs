@@ -64,9 +64,9 @@ namespace BEditor.Primitive.Objects
         {
             get
             {
-                if (_Source == null && System.IO.File.Exists(File.File))
+                if (_Source == null && System.IO.File.Exists(File.Value))
                 {
-                    using var stream = new FileStream(File.File, FileMode.Open);
+                    using var stream = new FileStream(File.Value, FileMode.Open);
                     _Source = Image.Decode(stream);
                 }
 

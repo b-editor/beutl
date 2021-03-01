@@ -82,9 +82,9 @@ namespace BEditor.Primitive.Objects
         {
             get
             {
-                if (_decoder is null && System.IO.File.Exists(File.File))
+                if (_decoder is null && System.IO.File.Exists(File.Value))
                 {
-                    _decoder = new(File.File);
+                    _decoder = new(File.Value);
                 }
 
                 return _decoder;

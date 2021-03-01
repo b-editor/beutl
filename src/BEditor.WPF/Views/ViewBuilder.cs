@@ -29,12 +29,7 @@ namespace BEditor.Views
     {
         private static readonly Binding HeaderBinding = new("Metadata.Value.Name") { Mode = BindingMode.OneTime };
         private static readonly Binding FileModeBinding = new("PathMode.Value") { Mode = BindingMode.TwoWay };
-        private static readonly Binding PropertyIsCheckedBinding = new("Property.IsChecked") { Mode = BindingMode.OneWay };
-        private static readonly Binding PropertyTextBinding = new("Property.Text") { Mode = BindingMode.OneWay };
-        private static readonly Binding PropertyFileBinding = new("Property.File") { Mode = BindingMode.OneWay };
-        private static readonly Binding PropertyFolderBinding = new("Property.Folder") { Mode = BindingMode.OneWay };
         private static readonly Binding PropertyIndexBinding = new("Property.Index") { Mode = BindingMode.OneWay };
-        private static readonly Binding PropertySelectBinding = new("Property.Select") { Mode = BindingMode.OneWay };
         private static readonly Binding PropertySelectItemBinding = new("Property.SelectItem") { Mode = BindingMode.OneWay };
         private static readonly Binding PropertyValueBinding = new("Property.Value") { Mode = BindingMode.OneWay };
         private static readonly Binding ItemsSourcePropertyBinding = new("Metadata.Value.ItemSource") { Mode = BindingMode.OneWay };
@@ -62,7 +57,7 @@ namespace BEditor.Views
                 };
 
                 view.SetBinding(BasePropertyView.HeaderProperty, HeaderBinding);
-                view.SetBinding(CheckPropertyView.IsCheckedProperty, PropertyIsCheckedBinding);
+                view.SetBinding(CheckPropertyView.IsCheckedProperty, PropertyValueBinding);
                 view.SetBinding(CheckPropertyView.CheckCommandProperty, CommandBinding);
                 view.SetBinding(BasePropertyView.ResetCommandProperty, ResetBinding);
                 view.SetBinding(BasePropertyView.BindCommandProperty, BindBinding);
@@ -97,7 +92,7 @@ namespace BEditor.Views
 
                 view.SetBinding(BasePropertyView.ResetCommandProperty, ResetBinding);
                 view.SetBinding(BasePropertyView.BindCommandProperty, BindBinding);
-                view.SetBinding(DocumentPropertyView.TextProperty, PropertyTextBinding);
+                view.SetBinding(DocumentPropertyView.TextProperty, PropertyValueBinding);
                 view.SetBinding(DocumentPropertyView.GotFocusCommandProperty, GotFocusBinding);
                 view.SetBinding(DocumentPropertyView.LostFocusCommandProperty, LostFocusBinding);
                 view.SetBinding(DocumentPropertyView.TextChangedCommandProperty, TextChangedBinding);
@@ -157,7 +152,7 @@ namespace BEditor.Views
                 view.SetBinding(BasePropertyView.BindCommandProperty, BindBinding);
                 
                 view.SetBinding(FilePropertyView.ModeIndexProperty, FileModeBinding);
-                view.SetBinding(FilePropertyView.FileProperty, PropertyFileBinding);
+                view.SetBinding(FilePropertyView.FileProperty, PropertyValueBinding);
                 view.SetBinding(FilePropertyView.OpenFileCommandProperty, CommandBinding);
 
                 return view;
@@ -175,7 +170,7 @@ namespace BEditor.Views
                 
                 view.SetBinding(FontPropertyView.ItemsSourceProperty, ItemsSourcePropertyBinding);
                 view.SetBinding(FontPropertyView.CommandProperty, CommandBinding);
-                view.SetBinding(FontPropertyView.SelectedItemProperty, PropertySelectBinding);
+                view.SetBinding(FontPropertyView.SelectedItemProperty, PropertyValueBinding);
 
                 return view;
             }));
@@ -302,7 +297,7 @@ namespace BEditor.Views
                 view.SetBinding(BasePropertyView.BindCommandProperty, BindBinding);
                 
                 view.SetBinding(FolderPropertyView.ModeIndexProperty, FileModeBinding);
-                view.SetBinding(FolderPropertyView.FolderProperty, PropertyFolderBinding);
+                view.SetBinding(FolderPropertyView.FolderProperty, PropertyValueBinding);
                 view.SetBinding(FolderPropertyView.OpenFolderCommandProperty, CommandBinding);
 
                 return view;

@@ -114,12 +114,12 @@ namespace BEditor.Primitive.Effects
         /// <inheritdoc/>
         public override void Render(EffectRenderArgs args)
         {
-            if (Enabled.IsChecked) GL.Enable(EnableCap.DepthTest);
+            if (Enabled.Value) GL.Enable(EnableCap.DepthTest);
             else GL.Disable(EnableCap.DepthTest);
 
             GL.DepthFunc(DepthFunctions[Function.Index]);
 
-            GL.DepthMask(Mask.IsChecked);
+            GL.DepthMask(Mask.Value);
 
             GL.DepthRange(Near.GetValue(args.Frame) / 100, Far.GetValue(args.Frame) / 100);
         }

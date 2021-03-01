@@ -43,6 +43,7 @@ namespace BEditor.Data.Property
             Index = metadata.DefaultIndex;
         }
 
+
         private List<IObserver<int>> Collection => _list ??= new();
         /// <summary>
         /// Get or set the selected item.
@@ -91,11 +92,7 @@ namespace BEditor.Data.Property
         /// <inheritdoc/>
         protected override void OnLoad()
         {
-            if (_BindHint is not null && this.GetBindable(_BindHint, out var b))
-            {
-                Bind(b);
-            }
-            _BindHint = null;
+            this.AutoLoad(ref _BindHint);
         }
         
         /// <summary>
@@ -105,8 +102,6 @@ namespace BEditor.Data.Property
         /// <returns>Created <see cref="IRecordCommand"/></returns>
         [Pure]
         public IRecordCommand ChangeSelect(int index) => new ChangeSelectCommand(this, index);
-
-        #region IBindable
 
         /// <inheritdoc/>
         public IDisposable Subscribe(IObserver<int> observer)
@@ -123,8 +118,10 @@ namespace BEditor.Data.Property
 
         /// <inheritdoc/>
         public void OnCompleted() { }
+
         /// <inheritdoc/>
         public void OnError(Exception error) { }
+
         /// <inheritdoc/>
         public void OnNext(int value)
         {
@@ -148,8 +145,6 @@ namespace BEditor.Data.Property
 
         #endregion
 
-        #endregion
-
 
         #region Commands
 
@@ -159,9 +154,9 @@ namespace BEditor.Data.Property
         /// <remarks>このクラスは <see cref="CommandManager.Do(IRecordCommand)"/> と併用することでコマンドを記録できます</remarks>
         private sealed class ChangeSelectCommand : IRecordCommand
         {
-            private readonly SelectorProperty _Property;
-            private readonly int _New;
-            private readonly int _Old;
+            private readonly WeakReference<SelectorProperty> _property;
+            private readonly int _new;
+            private readonly int _old;
 
             /// <summary>
             /// <see cref="ChangeSelectCommand"/> クラスの新しいインスタンスを初期化します
@@ -171,21 +166,34 @@ namespace BEditor.Data.Property
             /// <exception cref="ArgumentNullException"><paramref name="property"/> が <see langword="null"/> です</exception>
             public ChangeSelectCommand(SelectorProperty property, int select)
             {
-                this._Property = property ?? throw new ArgumentNullException(nameof(property));
-                this._New = select;
-                _Old = property.Index;
+                _property =new( property ?? throw new ArgumentNullException(nameof(property)));
+                _new = select;
+                _old = property.Index;
             }
 
             public string Name => CommandName.ChangeSelectItem;
 
             /// <inheritdoc/>
-            public void Do() => _Property.Index = _New;
-
+            public void Do()
+            {
+                if(_property.TryGetTarget(out var target))
+                {
+                    target.Index = _new;
+                }
+            }
             /// <inheritdoc/>
-            public void Redo() => Do();
-
+            public void Redo()
+            {
+                Do();
+            }
             /// <inheritdoc/>
-            public void Undo() => _Property.Index = _Old;
+            public void Undo()
+            {
+                if (_property.TryGetTarget(out var target))
+                {
+                    target.Index = _old;
+                }
+            }
         }
 
         #endregion

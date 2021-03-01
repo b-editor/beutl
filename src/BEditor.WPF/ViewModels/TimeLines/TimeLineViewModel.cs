@@ -257,16 +257,16 @@ namespace BEditor.ViewModels.TimeLines
 
                         if (type_ == PrimitiveTypes.ImageMetadata)
                         {
-                            (clip.Effect[0] as ImageFile)!.File.File = file;
+                            (clip.Effect[0] as ImageFile)!.File.Value = file;
                         }
                         else if (type_ == PrimitiveTypes.VideoMetadata)
                         {
-                            (clip.Effect[0] as VideoFile)!.File.File = file;
+                            (clip.Effect[0] as VideoFile)!.File.Value = file;
                         }
                         else if (type_ == PrimitiveTypes.TextMetadata)
                         {
                             var reader = new StreamReader(file);
-                            (clip.Effect[0] as Text)!.Document.Text = reader.ReadToEnd();
+                            (clip.Effect[0] as Text)!.Document.Value = reader.ReadToEnd();
                             reader.Close();
                         }
 

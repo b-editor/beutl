@@ -90,15 +90,19 @@ namespace BEditor.Data.Property
                 _bindDispose = bindable.Subscribe(this);
             }
         }
+
         /// <inheritdoc/>
         public void OnCompleted() { }
+
         /// <inheritdoc/>
         public void OnError(Exception error) { }
+
         /// <inheritdoc/>
         public void OnNext(float value)
         {
             Value = value;
         }
+
         /// <inheritdoc/>
         public IDisposable Subscribe(IObserver<float> observer)
         {
@@ -111,18 +115,13 @@ namespace BEditor.Data.Property
                 state.Item2.Collection.Remove(state.observer);
             });
         }
+
         /// <inheritdoc/>
         protected override void OnLoad()
         {
-            if (_bindHint is not null)
-            {
-                if (this.GetBindable(_bindHint, out var b))
-                {
-                    Bind(b);
-                }
-            }
-            _bindHint = null;
+            this.AutoLoad(ref _bindHint);
         }
+
         /// <summary>
         /// Returns <paramref name="value"/> clamped to the inclusive range of <see cref="ValuePropertyMetadata.Min"/> and <see cref="ValuePropertyMetadata.Max"/>.
         /// </summary>
@@ -145,6 +144,7 @@ namespace BEditor.Data.Property
 
             return value;
         }
+
         /// <summary>
         /// Create a command to change the <see cref="Value"/>.
         /// </summary>
@@ -152,27 +152,43 @@ namespace BEditor.Data.Property
         /// <returns>Created <see cref="IRecordCommand"/></returns>
         [Pure]
         public IRecordCommand ChangeValue(float value) => new ChangeValueCommand(this, value);
+
         #endregion
 
 
         private sealed class ChangeValueCommand : IRecordCommand
         {
-            private readonly ValueProperty _Property;
+            private readonly WeakReference<ValueProperty> _Property;
             private readonly float _New;
             private readonly float _Old;
 
             public ChangeValueCommand(ValueProperty property, float value)
             {
-                _Property = property ?? throw new ArgumentNullException(nameof(property));
+                _Property = new(property ?? throw new ArgumentNullException(nameof(property)));
                 _Old = property.Value;
                 _New = property.Clamp(value);
             }
 
             public string Name => CommandName.ChangeValue;
 
-            public void Do() => _Property.Value = _New;
-            public void Redo() => Do();
-            public void Undo() => _Property.Value = _Old;
+            public void Do()
+            {
+                if (_Property.TryGetTarget(out var target))
+                {
+                    target.Value = _New;
+                }
+            }
+            public void Redo()
+            {
+                Do();
+            }
+            public void Undo()
+            {
+                if (_Property.TryGetTarget(out var target))
+                {
+                    target.Value = _Old;
+                }
+            }
         }
     }
 

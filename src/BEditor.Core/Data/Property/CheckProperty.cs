@@ -18,19 +18,16 @@ namespace BEditor.Data.Property
     /// Represents a checkbox property.
     /// </summary>
     [DataContract]
-    [DebuggerDisplay("IsChecked = {IsChecked}")]
+    [DebuggerDisplay("IsChecked = {Value}")]
     public class CheckProperty : PropertyElement<CheckPropertyMetadata>, IEasingProperty, IBindable<bool>
     {
         #region Fields
-
-        private static readonly PropertyChangedEventArgs _checkedArgs = new(nameof(IsChecked));
-        private bool _isChecked;
+        private bool _value;
         private List<IObserver<bool>>? _list;
 
         private IDisposable? _bindDispose;
         private IBindable<bool>? _bindable;
         private string? _bindHint;
-
         #endregion
 
 
@@ -42,7 +39,7 @@ namespace BEditor.Data.Property
         public CheckProperty(CheckPropertyMetadata metadata)
         {
             PropertyMetadata = metadata ?? throw new ArgumentNullException(nameof(metadata));
-            _isChecked = metadata.DefaultIsChecked;
+            _value = metadata.DefaultIsChecked;
         }
 
         private List<IObserver<bool>> Collection => _list ??= new();
@@ -50,23 +47,11 @@ namespace BEditor.Data.Property
         /// Gets or sets the value of whether the item is checked or not.
         /// </summary>
         [DataMember]
+        [Obsolete("Use CheckProperty.Value")]
         public bool IsChecked
         {
-            get => _isChecked;
-            set => SetValue(value, ref _isChecked, _checkedArgs, this, state =>
-            {
-                foreach (var observer in state.Collection)
-                {
-                    try
-                    {
-                        observer.OnNext(state._isChecked);
-                    }
-                    catch (Exception ex)
-                    {
-                        observer.OnError(ex);
-                    }
-                }
-            });
+            get => Value;
+            set => Value = value;
         }
         /// <inheritdoc/>
         [DataMember]
@@ -75,22 +60,42 @@ namespace BEditor.Data.Property
             get => _bindable?.GetString();
             private set => _bindHint = value;
         }
-        /// <inheritdoc/>
-        public bool Value => IsChecked;
+        /// <summary>
+        /// Gets or sets the value of whether the item is checked or not.
+        /// </summary>
+        [DataMember]
+        public bool Value
+        {
+            get => _value;
+            set => SetValue(value, ref _value, DocumentProperty._valueArgs, this, state =>
+            {
+                foreach (var observer in state.Collection)
+                {
+                    try
+                    {
+                        observer.OnNext(state._value);
+                    }
+                    catch (Exception ex)
+                    {
+                        observer.OnError(ex);
+                    }
+                }
+            });
+        }
 
 
         #region Methods
 
-        #region IBindable
-
         /// <inheritdoc/>
         public void OnCompleted() { }
+
         /// <inheritdoc/>
         public void OnError(Exception error) { }
+
         /// <inheritdoc/>
         public void OnNext(bool value)
         {
-            IsChecked = value;
+            Value = value;
         }
 
         /// <inheritdoc/>
@@ -115,27 +120,19 @@ namespace BEditor.Data.Property
 
             if (bindable is not null)
             {
-                IsChecked = bindable.Value;
+                Value = bindable.Value;
 
                 // bindableが変更時にthisが変更
                 _bindDispose = bindable.Subscribe(this);
             }
         }
 
-        #endregion
-
         /// <inheritdoc/>
         protected override void OnLoad()
         {
-            if (_bindHint is not null)
-            {
-                if (this.GetBindable(_bindHint, out var b))
-                {
-                    Bind(b);
-                }
-            }
-            _bindHint = null;
+            this.AutoLoad(ref _bindHint);
         }
+
         /// <summary>
         /// Create a command to change whether it is checked or not.
         /// </summary>
@@ -149,20 +146,35 @@ namespace BEditor.Data.Property
 
         private sealed class ChangeCheckedCommand : IRecordCommand
         {
-            private readonly CheckProperty _Property;
-            private readonly bool _Value;
+            private readonly WeakReference<CheckProperty> _property;
+            private readonly bool _value;
 
             public ChangeCheckedCommand(CheckProperty property, bool value)
             {
-                _Property = property;
-                _Value = value;
+                _property = new(property);
+                _value = value;
             }
 
             public string Name => CommandName.ChangeIsChecked;
 
-            public void Do() => _Property.IsChecked = _Value;
-            public void Redo() => Do();
-            public void Undo() => _Property.IsChecked = !_Value;
+            public void Do()
+            {
+                if (_property.TryGetTarget(out var target))
+                {
+                    target.Value = _value;
+                }
+            }
+            public void Redo()
+            {
+                Do();
+            }
+            public void Undo()
+            {
+                if (_property.TryGetTarget(out var target))
+                {
+                    target.Value = !_value;
+                }
+            }
         }
     }
 

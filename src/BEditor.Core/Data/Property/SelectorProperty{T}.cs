@@ -95,11 +95,7 @@ namespace BEditor.Data.Property
         /// <inheritdoc/>
         protected override void OnLoad()
         {
-            if (_bindHint is not null && this.GetBindable(_bindHint, out var b))
-            {
-                Bind(b);
-            }
-            _bindHint = null;
+            this.AutoLoad(ref _bindHint);
         }
 
         /// <summary>
@@ -109,8 +105,6 @@ namespace BEditor.Data.Property
         /// <returns>Created <see cref="IRecordCommand"/></returns>
         [Pure]
         public IRecordCommand ChangeSelect(T? value) => new ChangeSelectCommand(this, value);
-
-        #region IBindable
 
         /// <inheritdoc/>
         public IDisposable Subscribe(IObserver<T?> observer)
@@ -127,8 +121,10 @@ namespace BEditor.Data.Property
 
         /// <inheritdoc/>
         public void OnCompleted() { }
+
         /// <inheritdoc/>
         public void OnError(Exception error) { }
+
         /// <inheritdoc/>
         public void OnNext(T? value)
         {
@@ -152,8 +148,6 @@ namespace BEditor.Data.Property
 
         #endregion
 
-        #endregion
-
 
         #region Commands
 
@@ -163,9 +157,9 @@ namespace BEditor.Data.Property
         /// <remarks>このクラスは <see cref="CommandManager.Do(IRecordCommand)"/> と併用することでコマンドを記録できます</remarks>
         private sealed class ChangeSelectCommand : IRecordCommand
         {
-            private readonly SelectorProperty<T> _Property;
-            private readonly T? _New;
-            private readonly T? _Old;
+            private readonly WeakReference<SelectorProperty<T>> _property;
+            private readonly T? _new;
+            private readonly T? _old;
 
             /// <summary>
             /// <see cref="ChangeSelectCommand"/> クラスの新しいインスタンスを初期化します
@@ -175,21 +169,34 @@ namespace BEditor.Data.Property
             /// <exception cref="ArgumentNullException"><paramref name="property"/> が <see langword="null"/> です</exception>
             public ChangeSelectCommand(SelectorProperty<T> property, T? select)
             {
-                _Property = property ?? throw new ArgumentNullException(nameof(property));
-                _New = select;
-                _Old = property.SelectItem;
+                _property = new(property ?? throw new ArgumentNullException(nameof(property)));
+                _new = select;
+                _old = property.SelectItem;
             }
 
             public string Name => CommandName.ChangeSelectItem;
 
             /// <inheritdoc/>
-            public void Do() => _Property.SelectItem = _New;
-
+            public void Do()
+            {
+                if(_property.TryGetTarget(out var target))
+                {
+                    target.SelectItem = _new;
+                }
+            }
             /// <inheritdoc/>
-            public void Redo() => Do();
-
+            public void Redo()
+            {
+                Do();
+            }
             /// <inheritdoc/>
-            public void Undo() => _Property.SelectItem = _Old;
+            public void Undo()
+            {
+                if (_property.TryGetTarget(out var target))
+                {
+                    target.SelectItem = _old;
+                }
+            }
         }
 
         #endregion

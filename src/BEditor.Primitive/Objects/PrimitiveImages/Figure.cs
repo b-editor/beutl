@@ -108,11 +108,11 @@ namespace BEditor.Primitive.Objects
 
             if (Type.Index == 0)
             {
-                return Image.Ellipse(width, height, (int)Line[args.Frame], Color.Color);
+                return Image.Ellipse(width, height, (int)Line[args.Frame], Color.Value);
             }
             else
             {
-                return Image.Rect(width, height, (int)Line[args.Frame], Color.Color);
+                return Image.Rect(width, height, (int)Line[args.Frame], Color.Value);
             }
         }
         /// <inheritdoc/>

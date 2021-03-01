@@ -22,8 +22,7 @@ namespace BEditor.Data.Property
     public class ColorProperty : PropertyElement<ColorPropertyMetadata>, IEasingProperty, IBindable<Color>
     {
         #region Fields
-        private static readonly PropertyChangedEventArgs _colorArgs = new(nameof(Color));
-        private Color _color;
+        private Color _value;
         private List<IObserver<Color>>? _list;
 
         private IDisposable? _bindDispose;
@@ -40,7 +39,7 @@ namespace BEditor.Data.Property
         public ColorProperty(ColorPropertyMetadata metadata)
         {
             PropertyMetadata = metadata ?? throw new ArgumentNullException(nameof(metadata));
-            Color = metadata.DefaultColor;
+            Value = metadata.DefaultColor;
         }
 
 
@@ -49,16 +48,26 @@ namespace BEditor.Data.Property
         /// Gets or sets the selected color.
         /// </summary>
         [DataMember]
+        [Obsolete("Use ColorProperty.Value")]
         public Color Color
         {
-            get => _color;
-            set => SetValue(value, ref _color, _colorArgs, this, state =>
+            get => Value;
+            set => Value = value;
+        }
+        /// <summary>
+        /// Gets or sets the selected color.
+        /// </summary>
+        [DataMember]
+        public Color Value
+        {
+            get => _value;
+            set => SetValue(value, ref _value, DocumentProperty._valueArgs, this, state =>
             {
                 foreach (var observer in state.Collection)
                 {
                     try
                     {
-                        observer.OnNext(state._color);
+                        observer.OnNext(state._value);
                     }
                     catch (Exception ex)
                     {
@@ -67,8 +76,6 @@ namespace BEditor.Data.Property
                 }
             });
         }
-        /// <inheritdoc/>
-        public Color Value => _color;
         /// <inheritdoc/>
         [DataMember]
         public string? BindHint
@@ -83,11 +90,7 @@ namespace BEditor.Data.Property
         /// <inheritdoc/>
         protected override void OnLoad()
         {
-            if (_bindHint is not null && this.GetBindable(_bindHint, out var b))
-            {
-                Bind(b);
-            }
-            _bindHint = null;
+            this.AutoLoad(ref _bindHint);
         }
 
         /// <summary>
@@ -98,8 +101,6 @@ namespace BEditor.Data.Property
         [Pure]
         public IRecordCommand ChangeColor(Color color) => new ChangeColorCommand(this, color);
 
-        #region IBindable
-
         /// <inheritdoc/>
         public void Bind(IBindable<Color>? bindable)
         {
@@ -108,7 +109,7 @@ namespace BEditor.Data.Property
 
             if (bindable is not null)
             {
-                Color = bindable.Value;
+                Value = bindable.Value;
 
                 // bindableが変更時にthisが変更
                 _bindDispose = bindable.Subscribe(this);
@@ -130,15 +131,15 @@ namespace BEditor.Data.Property
 
         /// <inheritdoc/>
         public void OnCompleted() { }
+
         /// <inheritdoc/>
         public void OnError(Exception error) { }
+
         /// <inheritdoc/>
         public void OnNext(Color value)
         {
-            Color = value;
+            Value = value;
         }
-
-        #endregion
 
         #endregion
 
@@ -148,9 +149,9 @@ namespace BEditor.Data.Property
         /// </summary>
         private sealed class ChangeColorCommand : IRecordCommand
         {
-            private readonly ColorProperty _Property;
-            private readonly Color _New;
-            private readonly Color _Old;
+            private readonly WeakReference<ColorProperty> _property;
+            private readonly Color _new;
+            private readonly Color _old;
 
             /// <summary>
             /// <see cref="ChangeColorCommand"/> クラスの新しいインスタンスを初期化します
@@ -160,9 +161,9 @@ namespace BEditor.Data.Property
             /// <exception cref="ArgumentNullException"><paramref name="property"/> が <see langword="null"/> です</exception>
             public ChangeColorCommand(ColorProperty property, Color color)
             {
-                _Property = property ?? throw new ArgumentNullException(nameof(property));
-                _New = color;
-                _Old = property.Value;
+                _property = new(property ?? throw new ArgumentNullException(nameof(property)));
+                _new = color;
+                _old = property.Value;
             }
 
             /// <inheritdoc/>
@@ -171,16 +172,23 @@ namespace BEditor.Data.Property
             /// <inheritdoc/>
             public void Do()
             {
-                _Property.Color = _New;
+                if (_property.TryGetTarget(out var target))
+                {
+                    target.Value= _new;
+                }
             }
-
             /// <inheritdoc/>
-            public void Redo() => Do();
-
+            public void Redo()
+            {
+                Do();
+            }
             /// <inheritdoc/>
             public void Undo()
             {
-                _Property.Color = _Old;
+                if (_property.TryGetTarget(out var target))
+                {
+                    target.Value = _old;
+                }
             }
         }
     }

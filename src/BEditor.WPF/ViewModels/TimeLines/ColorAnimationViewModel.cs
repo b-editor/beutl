@@ -57,7 +57,7 @@ namespace BEditor.ViewModels.TimeLines
         public Action<int>? RemoveKeyFrameIcon { get; set; }
         public Action<int, int>? MoveKeyFrameIcon { get; set; }
 
-        public double TrackHeight => Setting.ClipHeight + 1;
+        public static double TrackHeight => Setting.ClipHeight + 1;
         public ColorAnimationProperty Property { get; }
 
         public ReadOnlyReactiveProperty<ColorAnimationPropertyMetadata?> Metadata { get; }
