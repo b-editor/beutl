@@ -855,4 +855,7 @@ Please select the plugin you want to load</value>
   <data name="Update" xml:space="preserve">
     <value>Update</value>
   </data>
+  <data name="Search" xml:space="preserve">
+    <value>Search</value>
+  </data>
 </root>

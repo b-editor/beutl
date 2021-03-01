@@ -855,4 +855,7 @@
   <data name="Update" xml:space="preserve">
     <value>アップデート</value>
   </data>
+  <data name="Search" xml:space="preserve">
+    <value>検索</value>
+  </data>
 </root>

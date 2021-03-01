@@ -6,7 +6,9 @@ using System.IO;
 using System.Linq;
 using System.Reactive.Linq;
 using System.Text;
+using System.Text.RegularExpressions;
 using System.Threading.Tasks;
+using System.Windows;
 using System.Windows.Input;
 
 using BEditor.Data;
@@ -21,7 +23,7 @@ using Reactive.Bindings;
 
 namespace BEditor.ViewModels.StartWindowControl
 {
-    public class ProjectsControlViewModel : BasePropertyChanged
+    public sealed class ProjectsControlViewModel
     {
         public ProjectsControlViewModel()
         {
@@ -32,7 +34,8 @@ namespace BEditor.ViewModels.StartWindowControl
 
             Projects = new(Settings.Default.MostRecentlyUsedList
                 .Where(i => File.Exists(i))
-                .Select(i => new ProjectItem(Path.GetFileNameWithoutExtension(i), i, Click, Remove)));
+                .Select(i => new ProjectItem(Path.GetFileNameWithoutExtension(i), i, Click, Remove))
+                .Reverse());
 
             Click.Subscribe(async ProjectItem =>
             {
@@ -54,7 +57,7 @@ namespace BEditor.ViewModels.StartWindowControl
                     Settings.Default.MostRecentlyUsedList.Remove(ProjectItem.Path);
                     Settings.Default.MostRecentlyUsedList.Add(ProjectItem.Path);
 
-                    App.Current.Dispatcher.Invoke(() =>
+                    App.Current.Dispatcher.InvokeAsync(() =>
                     {
                         var win = new MainWindow();
                         App.Current.MainWindow = win;
@@ -112,6 +115,41 @@ namespace BEditor.ViewModels.StartWindowControl
                     }
                 }
             });
+
+            Search.Subscribe(str =>
+            {
+                if (str is null) return;
+
+                foreach (var item in Projects)
+                {
+                    item.Visibility.Value = Visibility.Visible;
+                }
+
+                if (string.IsNullOrWhiteSpace(str)) return;
+
+                var regexPattern = Regex.Replace(str, ".", m =>
+                {
+                    string s = m.Value;
+                    if (s.Equals("?"))
+                    {
+                        return ".";
+                    }
+                    else if (s.Equals("*"))
+                    {
+                        return ".*";
+                    }
+                    else
+                    {
+                        return Regex.Escape(s);
+                    }
+                });
+                var regex = new Regex(regexPattern.ToLowerInvariant());
+
+                foreach (var item in Projects.Where(item => !regex.IsMatch(item.Name.ToLowerInvariant())).ToArray())
+                {
+                    item.Visibility.Value = Visibility.Collapsed;
+                }
+            });
         }
 
         public ReactiveCommand<ProjectItem> Click { get; } = new();
@@ -121,6 +159,7 @@ namespace BEditor.ViewModels.StartWindowControl
         public ObservableCollection<ProjectItem> Projects { get; }
         public ReactiveProperty<bool> CountIsZero { get; }
         public ReadOnlyReactiveProperty<bool> CountIsNotZero { get; }
+        public ReactiveProperty<string> Search { get; } = new();
 
         public event EventHandler? Close;
 
@@ -128,7 +167,10 @@ namespace BEditor.ViewModels.StartWindowControl
         {
             public string? ThumbnailPath
                 => System.IO.Path.Combine(System.IO.Path.GetDirectoryName(Path)!, "thumbnail.png") is var p && File.Exists(p) ? p : null;
+
             public ReactiveProperty<bool> IsLoading { get; } = new(false);
+
+            public ReactiveProperty<Visibility> Visibility { get; } = new(System.Windows.Visibility.Visible);
         }
     }
 }

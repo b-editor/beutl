@@ -1792,6 +1792,15 @@ namespace BEditor.Properties {
         }
         
         /// <summary>
+        ///   Search に類似しているローカライズされた文字列を検索します。
+        /// </summary>
+        public static string Search {
+            get {
+                return ResourceManager.GetString("Search", resourceCulture);
+            }
+        }
+        
+        /// <summary>
         ///   Send feedback(Open an Issue on GitHub) に類似しているローカライズされた文字列を検索します。
         /// </summary>
         public static string SendFeedback {
