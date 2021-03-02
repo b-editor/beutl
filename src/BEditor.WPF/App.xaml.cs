@@ -311,6 +311,7 @@ namespace BEditor
 
                 typeof(Blur),
                 typeof(Border),
+                typeof(StrokeText),
                 typeof(ColorKey),
                 typeof(Dilate),
                 typeof(Erode),
@@ -344,6 +345,7 @@ namespace BEditor
                 Children = new EffectMetadata[]
                 {
                     new(Resource.Border, () => new Border()),
+                    new($"{Resource.Border} ({Resource.Text})", () => new StrokeText()),
                     new(Resource.ColorKey, () => new ColorKey()),
                     new(Resource.DropShadow, () => new Shadow()),
                     new(Resource.Blur, () => new Blur()),

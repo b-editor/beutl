@@ -666,7 +666,43 @@ namespace BEditor.Drawing
             using var paint = new SKPaint(fontObj)
             {
                 Color = new SKColor(color.R, color.G, color.B, color.A),
-                IsAntialias = true
+                IsAntialias = true,
+            };
+
+            SKRect textBounds = new SKRect();
+            paint.MeasureText(text, ref textBounds);
+
+
+            using var bmp = new SKBitmap(new SKImageInfo((int)textBounds.Width, (int)textBounds.Height, SKColorType.Bgra8888));
+            using var canvas = new SKCanvas(bmp);
+
+            float xText = textBounds.Width / 2 - textBounds.MidX;
+            float yText = textBounds.Height / 2 - textBounds.MidY;
+
+            canvas.DrawText(text, new SKPoint(xText, yText), paint);
+
+            canvas.Flush();
+
+            return bmp.ToImage32();
+        }
+
+        public static Image<BGRA32> StrokeText(string text, Font font, float size, float strokewidth, Color color)
+        {
+            if (string.IsNullOrEmpty(text)) return new Image<BGRA32>(1, 1, default(BGRA32));
+            if (font is null) throw new ArgumentNullException(nameof(font));
+
+            using var face = SKTypeface.FromFile(font.Filename);
+            using var fontObj = new SKFont(face, size)
+            {
+                Edging = SKFontEdging.Antialias,
+            };
+
+            using var paint = new SKPaint(fontObj)
+            {
+                Color = new SKColor(color.R, color.G, color.B, color.A),
+                IsAntialias = true,
+                Style = SKPaintStyle.Stroke,
+                StrokeWidth = strokewidth,
             };
 
             SKRect textBounds = new SKRect();
