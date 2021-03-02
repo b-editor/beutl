@@ -6,8 +6,13 @@ using System.Text;
 using System.Text.RegularExpressions;
 using System.Threading.Tasks;
 
+using BEditor.Command;
 using BEditor.Data;
 using BEditor.Data.Property;
+using BEditor.Drawing;
+using BEditor.Media;
+using BEditor.Media.Encoder;
+using BEditor.Properties;
 
 namespace BEditor
 {
@@ -149,25 +154,220 @@ namespace BEditor
                 Console.WriteLine("プロパティが見つかりませんでした。");
             }
         }
-        public void Add(Range range, int layer, ObjectMetadata metadata, bool setcurrent = false)
+        public void Add(Range range, int layer, string metadata, bool setcurrent = false)
         {
+            var start = range.Start.Value;
+            var end = range.End.IsFromEnd ? Scene.TotalFrame.Value : range.End.Value;
 
+            if (!Scene.InRange(start, end, layer))
+            {
+                Console.ForegroundColor = ConsoleColor.DarkYellow;
+                Console.WriteLine(CommandLineResources.ClipExistsInTheSpecifiedLocation);
+
+                Console.ResetColor();
+            }
+            else
+            {
+                ObjectMetadata? meta = null;
+
+                foreach (var item in ObjectMetadata.LoadedObjects)
+                {
+                    if (item.Name == metadata) meta = item;
+                }
+
+                if (meta is null)
+                {
+                    Console.ForegroundColor = ConsoleColor.DarkYellow;
+                    Console.WriteLine($"{metadata} が見つかりませんでした。");
+
+                    Console.ResetColor();
+
+                    return;
+                }
+
+                Scene.AddClip(start, layer, meta, out var clip).Execute();
+
+                clip.End = end;
+
+                if (setcurrent)
+                {
+                    Scene.SetCurrentClip(clip);
+                }
+
+                Console.WriteLine($"クリップを start: {start}, end: {end}, layer: {layer} に追加しました。");
+            }
         }
-        /*
-Prop(path)
-Add(range, layer, type[, setcurrent = false])
-Add(type)
-Add(width, height, background)
-Remove(clip)
-Remove(effect)
-Move(layer)
-Move(range)
-HideLayer(layer)
-ShowFrame()
-Undo([count = 1])
-Redo([count = 1])
-Encode(file)
-EncodeImg(file, frame)
-         */
+        public void Add(int width, int height)
+        {
+            var scene = new Scene(width, height)
+            {
+                SceneName = $"Scene{_project.SceneList.Count}",
+                Parent = _project
+            };
+            scene.Load();
+            _project.SceneList.Add(scene);
+            _project.PreviewScene = scene;
+        }
+        public void Add(string effect)
+        {
+            if (Clip is null)
+            {
+                Console.WriteLine("クリップを選択してください。");
+
+                return;
+            }
+
+            EffectMetadata? meta = null;
+
+            foreach (var item in EffectMetadata.LoadedEffects
+                .SelectMany(i => i.Children?
+                    .Select(i2 => new EffectItem(i2, i.Name)) ?? new EffectItem[] { new(i, null) }))
+            {
+                if (item.Name == effect) meta = item.Metadata;
+            }
+
+            if (meta is null)
+            {
+                Console.ForegroundColor = ConsoleColor.DarkYellow;
+                Console.WriteLine($"{effect} が見つかりませんでした。");
+
+                Console.ResetColor();
+
+                return;
+            }
+
+            var effectelm = meta.CreateFunc();
+            Clip.AddEffect(effectelm).Execute();
+
+            Console.WriteLine("エフェクトが追加されました。");
+        }
+        public void Remove(ClipElement clip)
+        {
+            clip.Parent.RemoveClip(clip).Execute();
+
+            Clip = Clips.Count is not 0 ? Clips[0] : null;
+            Console.WriteLine("クリップを削除しました");
+        }
+        public void Remove(int effectIndex)
+        {
+            if (Clip is null)
+            {
+                Console.WriteLine("クリップを選択してください。");
+
+                return;
+            }
+            if (Clip.Effect.Count >= effectIndex)
+            {
+                Console.WriteLine("インデックスが範囲外です。");
+
+                return;
+            }
+
+            Clip.RemoveEffect(Clip.Effect[effectIndex]).Execute();
+
+            Console.WriteLine("クリップを削除しました。");
+        }
+        public void Move(int layer)
+        {
+            if (Clip is null)
+            {
+                Console.WriteLine("クリップを選択してください。");
+
+                return;
+            }
+
+            if (!Clip.Parent.InRange(Clip.Start, Clip.End, Clip.Layer))
+            {
+                Console.ForegroundColor = ConsoleColor.DarkYellow;
+                Console.WriteLine(CommandLineResources.ClipExistsInTheSpecifiedLocation);
+
+                Console.ResetColor();
+
+                return;
+            }
+
+            Clip.MoveFrameLayer(Clip.Start, layer).Execute();
+
+            Console.WriteLine($"クリップをレイヤー: {layer}に移動しました。");
+        }
+        public void Move(Range range)
+        {
+            if (Clip is null)
+            {
+                Console.WriteLine("クリップを選択してください。");
+
+                return;
+            }
+
+            var start = range.Start.Value;
+            var end = range.End.IsFromEnd ? Scene.TotalFrame.Value : range.End.Value;
+
+            if (!Clip.Parent.InRange(start, end, Clip.Layer))
+            {
+                Console.ForegroundColor = ConsoleColor.DarkYellow;
+                Console.WriteLine(CommandLineResources.ClipExistsInTheSpecifiedLocation);
+
+                Console.ResetColor();
+
+                return;
+            }
+
+            Clip.ChangeLength(start, end).Execute();
+
+            Console.WriteLine($"クリップを start: {start}, end: {end} に移動しました。");
+        }
+        public void HideLayer(int layer)
+        {
+            Scene.HideLayer.Remove(layer);
+            Scene.HideLayer.Add(layer);
+
+            Console.WriteLine($"レイヤー:{layer} を非表示にしました。");
+        }
+        public void Undo(int count = 1)
+        {
+            for (int i = 0; i < count; i++)
+            {
+                CommandManager.Undo();
+            }
+        }
+        public void Redo(int count = 1)
+        {
+            for (int i = 0; i < count; i++)
+            {
+                CommandManager.Redo();
+            }
+        }
+        public void Encode(string file)
+        {
+            using var encoder = new FFmpegEncoder(Scene.Width, Scene.Height, _project.Framerate, VideoCodec.Default, file);
+            using (var progress = new ProgressBar())
+            {
+                var total = Scene.TotalFrame + 1;
+
+                for (Frame frame = 0; frame < Scene.TotalFrame; frame++)
+                {
+                    using var img = Scene.Render(frame, RenderType.VideoOutput).Image;
+
+                    encoder.Write(img);
+
+                    progress.Report((double)frame / total);
+                }
+            }
+
+            Console.WriteLine($"{file}に保存されました");
+        }
+        public void EncodeImg(string file, Frame frame)
+        {
+            using var img = Scene.Render(frame, RenderType.ImageOutput).Image;
+
+            img.Encode(file);
+
+            Console.WriteLine($"{file}に保存されました");
+        }
+
+        public record EffectItem(EffectMetadata Metadata, string? ParentName)
+        {
+            public string Name => ParentName is null ? Metadata.Name : $"{ParentName}.{Metadata.Name}";
+        }
     }
 }

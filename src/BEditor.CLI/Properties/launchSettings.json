@@ -2,7 +2,7 @@
   "profiles": {
     "BEditor.CLI": {
       "commandName": "Project",
-      "commandLineArgs": "open E:\\AA"
+      "commandLineArgs": "open E:\\TestProject\\Project111"
     }
   }
 }

@@ -61,6 +61,15 @@ namespace BEditor.Properties {
         }
         
         /// <summary>
+        ///   Cannot place a new clip because a clip already exists in the specified location. に類似しているローカライズされた文字列を検索します。
+        /// </summary>
+        internal static string ClipExistsInTheSpecifiedLocation {
+            get {
+                return ResourceManager.GetString("ClipExistsInTheSpecifiedLocation", resourceCulture);
+            }
+        }
+        
+        /// <summary>
         ///   Create a new project. に類似しているローカライズされた文字列を検索します。
         /// </summary>
         internal static string CreateNewProject {

@@ -6,48 +6,11 @@ using System.Threading.Tasks;
 
 using BEditor.Data;
 using BEditor.Media;
-using BEditor.ViewModels;
 
-namespace BEditor.Models.Extension
+namespace BEditor
 {
     public static class Tool
     {
-        public static void PreviewUpdate(this Project project, ClipElement clipData, RenderType type = RenderType.Preview)
-        {
-            if (project is null) return;
-            var now = project.PreviewScene.PreviewFrame;
-            if (clipData.Start <= now && now <= clipData.End)
-            {
-                project.PreviewUpdate(type);
-            }
-        }
-
-        public static void PreviewUpdate(this Project project, RenderType type = RenderType.Preview)
-        {
-            if (project is null || project.PreviewScene.GraphicsContext is null) return;
-
-            App.Current.Dispatcher.InvokeAsync(async () =>
-            {
-                await using var img = project.PreviewScene.Render(type).Image;
-                var outimg = MainWindowViewModel.Current.PreviewImage.Value;
-
-                if (outimg is null || outimg.Width != img.Width || outimg.Height != img.Height)
-                {
-                    MainWindowViewModel.Current.PreviewImage.Value = new(
-                        img.Width,
-                        img.Height,
-                        96,
-                        96,
-                        System.Windows.Media.PixelFormats.Bgra32,
-                        null);
-                }
-
-                //96,
-
-                BitmapSourceConverter.ToWriteableBitmap(img, MainWindowViewModel.Current.PreviewImage.Value!);
-            });
-        }
-
         public static bool Clamp(this Scene self, ClipElement? clip_, ref Frame start, ref Frame end, int layer)
         {
             var array = self.GetLayer(layer).ToArray();

@@ -139,4 +139,7 @@
   <data name="FFmpegNotFound" xml:space="preserve">
     <value>FFmpeg was not found. Do you want to install it? (Y/N)</value>
   </data>
+  <data name="ClipExistsInTheSpecifiedLocation" xml:space="preserve">
+    <value>Cannot place a new clip because a clip already exists in the specified location.</value>
+  </data>
 </root>

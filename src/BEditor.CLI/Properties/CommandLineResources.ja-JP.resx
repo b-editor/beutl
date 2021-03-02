@@ -139,4 +139,7 @@
   <data name="FFmpegNotFound" xml:space="preserve">
     <value>FFmpegが見つかりませんでした。インストールしますか？(Y/N)</value>
   </data>
+  <data name="ClipExistsInTheSpecifiedLocation" xml:space="preserve">
+    <value>指定した場所にクリップが存在しているため、新しいクリップを配置できません。</value>
+  </data>
 </root>

@@ -56,7 +56,19 @@ namespace BEditor
 
                 if (line is not null)
                 {
-                    var stete = await CSharpScript.RunAsync(line + ";", globals: _context);
+                    if (line is "exit") return;
+
+                    try
+                    {
+                        var stete = await CSharpScript.RunAsync(line, globals: _context);
+                    }
+                    catch
+                    {
+                        Console.ForegroundColor = ConsoleColor.Red;
+                        Console.WriteLine("スクリプトを実行出来ませんでした");
+
+                        Console.ResetColor();
+                    }
                 }
             }
         }

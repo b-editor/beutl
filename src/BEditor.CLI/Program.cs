@@ -79,7 +79,7 @@ namespace BEditor
                 command.OnExecute(() =>
                 {
                     using Stream stream = output.HasValue() ? new FileStream(output.Value(), FileMode.Create) : new MemoryStream();
-                    using var project = Project.FromFile(input.Value, App.Current);
+                    var project = Project.FromFile(input.Value, App.Current);
 
                     project?.Save(stream, SerializeMode.Json);
 
@@ -90,6 +90,8 @@ namespace BEditor
                     }
 
                     if (!output.HasValue()) Console.Out.WriteLine(Encoding.UTF8.GetString(((MemoryStream)stream).ToArray()));
+
+                    project.Unload();
 
                     return 0;
                 });
@@ -108,7 +110,7 @@ namespace BEditor
 
                 command.OnExecute(() =>
                 {
-                    using var project = Project.FromFile(input.Value, App.Current);
+                    var project = Project.FromFile(input.Value, App.Current);
 
                     if (project is null)
                     {
@@ -122,6 +124,8 @@ namespace BEditor
 
                     using var image = scene.Render(int.Parse(frame.Value)).Image;
                     image.Encode(output.Value);
+
+                    project.Unload();
 
                     return 0;
                 });
@@ -139,7 +143,7 @@ namespace BEditor
 
                 command.OnExecute(() =>
                 {
-                    using var project = Project.FromFile(input.Value, App.Current);
+                    var project = Project.FromFile(input.Value, App.Current);
 
                     if (project is null)
                     {
@@ -191,9 +195,12 @@ namespace BEditor
                     var samplingrate = int.Parse(samplingrate_Arg.Value);
                     var dir = new DirectoryInfo(name_Opt.HasValue() ? name_Opt.Value() : Environment.CurrentDirectory);
 
-                    using var proj = new Project(width, height, framerate, samplingrate, App.Current);
+                    var proj = new Project(width, height, framerate, samplingrate, App.Current);
+                    var result = proj.Save(Path.Combine(dir.FullName, dir.Name + ".bedit")) ? 0 : 1;
 
-                    return proj.Save(Path.Combine(dir.FullName, dir.Name + ".bedit")) ? 0 : 1;
+                    proj.Unload();
+
+                    return result;
                 });
             });
 
@@ -247,6 +254,7 @@ namespace BEditor
 
                 typeof(Blur),
                 typeof(Border),
+                typeof(StrokeText),
                 typeof(ColorKey),
                 typeof(Dilate),
                 typeof(Erode),
@@ -280,6 +288,7 @@ namespace BEditor
                 Children = new EffectMetadata[]
                 {
                     new(Resources.Border, () => new Border()),
+                    new($"{Resources.Border} ({Resources.Text})", () => new StrokeText()),
                     new(Resources.ColorKey, () => new ColorKey()),
                     new(Resources.DropShadow, () => new Shadow()),
                     new(Resources.Blur, () => new Blur()),
