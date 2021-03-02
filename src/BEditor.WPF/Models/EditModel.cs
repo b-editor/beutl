@@ -100,8 +100,7 @@ namespace BEditor.Models
                 .Select(_ => AppData.Current.Project!.PreviewScene.GetCreateTimeLineViewModel())
                 .Subscribe(async timeline =>
                 {
-                    await using var prov = AppData.Current.Services.BuildServiceProvider();
-                    var mes = prov.GetService<IMessage>();
+                    var mes = AppData.Current.Message;
                     var text = Clipboard.GetText();
                     var files = Clipboard.GetFileDropList();
                     var img = Clipboard.GetImage();

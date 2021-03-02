@@ -32,13 +32,8 @@ namespace BEditor.Models
         {
             SaveAs.Where(_ => AppData.Current.Project is not null)
                 .Select(_ => AppData.Current.Project)
-                .Subscribe(async p =>
+                .Subscribe(p =>
                 {
-                    await using var prov = AppData.Current.Services.BuildServiceProvider();
-                    var dialog = prov.GetService<IFileDialogService>();
-
-                    if (dialog is null) throw new InvalidOperationException();
-
                     var record = new SaveFileRecord
                     {
                         DefaultFileName = (p!.Name is not null) ? p.Name + ".bedit" : "新しいプロジェクト.bedit",
@@ -51,7 +46,7 @@ namespace BEditor.Models
 
                     var mode = SerializeMode.Binary;
 
-                    if (dialog.ShowSaveFileDialog(record))
+                    if (AppData.Current.FileDialog.ShowSaveFileDialog(record))
                     {
                         if (Path.GetExtension(record.FileName) is ".json")
                         {
@@ -103,10 +98,9 @@ namespace BEditor.Models
                     catch(Exception e)
                     {
                         Debug.Assert(false);
-                        await using var prov = AppData.Current.Services.BuildServiceProvider();
 
                         var msg = string.Format(Resources.FailedToLoad, "Project");
-                        prov.GetService<IMessage>()?.Snackbar(msg);
+                        AppData.Current.Message.Snackbar(msg);
 
                         logger.LogError(e, msg);
                     }

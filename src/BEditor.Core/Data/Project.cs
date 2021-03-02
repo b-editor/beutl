@@ -20,7 +20,7 @@ namespace BEditor.Data
     /// Represents the project to be used in editing.
     /// </summary>
     [DataContract]
-    public class Project : EditorObject, IExtensibleDataObject, IDisposable, IParent<Scene>, IChild<IApplication>, IElementObject, IHasName
+    public class Project : EditorObject, IExtensibleDataObject, IParent<Scene>, IChild<IApplication>, IElementObject, IHasName
     {
         #region Fields
 
@@ -106,11 +106,6 @@ namespace BEditor.Data
             }
         }
 
-        /// <summary>
-        /// Get whether an object has been disposed.
-        /// </summary>
-        public bool IsDisposed { get; private set; }
-
         /// <inheritdoc/>
         public IEnumerable<Scene> Children => SceneList;
 
@@ -158,22 +153,6 @@ namespace BEditor.Data
         #endregion
 
         #region Methods
-
-        /// <inheritdoc/>
-        public void Dispose()
-        {
-            if (IsDisposed) return;
-
-            foreach (var scene in SceneList)
-            {
-                scene.GraphicsContext?.Dispose();
-                scene.AudioContext?.Dispose();
-            }
-
-            GC.SuppressFinalize(this);
-
-            IsDisposed = true;
-        }
 
         /// <summary>
         /// Save this <see cref="Project"/>.
@@ -232,7 +211,7 @@ namespace BEditor.Data
 
             if (PreviewScene.IsLoaded)
             {
-                PreviewScene.Synchronize.Send(_ =>
+                Synchronize.Send(_ =>
                 {
                     using var img = new Image<BGRA32>(PreviewScene.Width, PreviewScene.Height);
 

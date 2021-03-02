@@ -1,64 +1,115 @@
-﻿<Controls:MetroWindow x:Class="BEditor.Views.ColorDialog"
-        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
-        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
-        xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
-        xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
-        xmlns:Controls="clr-namespace:MahApps.Metro.Controls;assembly=MahApps.Metro"
-        xmlns:md="http://materialdesigninxaml.net/winfx/xaml/themes"
-        xmlns:local="clr-namespace:BEditor.Views"
-        xmlns:custom="clr-namespace:BEditor.WPF.Controls;assembly=BEditor.WPF.Controls"
-        xmlns:colpick="clr-namespace:BEditor.Views.CustomControl"
-        xmlns:property="clr-namespace:BEditor.Properties;assembly=BEditor.Core"
-        xmlns:convert="clr-namespace:BEditor.ViewModels.Converters"
-                      
-        WindowTitleBrush="{StaticResource MaterialDesignCardBackground}"
-        GlowBrush="{DynamicResource MaterialDesignShadowBrush}"
-        BorderThickness="0"
-        
-        NonActiveWindowTitleBrush="{StaticResource MaterialDesignCardBackground}"
-        NonActiveGlowBrush="{DynamicResource MaterialDesignShadowBrush}"
-        
-        Background="{StaticResource MaterialDesignCardBackground}"
-        WindowStartupLocation="CenterScreen"
-        mc:Ignorable="d"
-        SizeToContent="WidthAndHeight" MinWidth="490" MinHeight="310" ShowMinButton="False" ShowMaxRestoreButton="False">
+﻿<Controls:MetroWindow
+    x:Class="BEditor.Views.ColorDialog"
+    xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+    xmlns:Controls="clr-namespace:MahApps.Metro.Controls;assembly=MahApps.Metro"
+    xmlns:colpick="clr-namespace:BEditor.Views.CustomControl"
+    xmlns:convert="clr-namespace:BEditor.ViewModels.Converters"
+    xmlns:custom="clr-namespace:BEditor.WPF.Controls;assembly=BEditor.WPF.Controls"
+    xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+    xmlns:local="clr-namespace:BEditor.Views"
+    xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+    xmlns:md="http://materialdesigninxaml.net/winfx/xaml/themes"
+    xmlns:property="clr-namespace:BEditor.Properties;assembly=BEditor.Core"
+    MinWidth="490"
+    MinHeight="310"
+    Background="{StaticResource MaterialDesignCardBackground}"
+    BorderThickness="0"
+    GlowBrush="{DynamicResource MaterialDesignShadowBrush}"
+    NonActiveGlowBrush="{DynamicResource MaterialDesignShadowBrush}"
+    NonActiveWindowTitleBrush="{StaticResource MaterialDesignCardBackground}"
+    ShowMaxRestoreButton="False"
+    ShowMinButton="False"
+    SizeToContent="WidthAndHeight"
+    WindowStartupLocation="CenterScreen"
+    WindowTitleBrush="{StaticResource MaterialDesignCardBackground}"
+    mc:Ignorable="d">
     <Controls:MetroWindow.Resources>
-        <convert:GetColorPickerRGBConverter x:Key="GetColorPickerRGB"/>
+        <convert:GetColorPickerRGBConverter x:Key="GetColorPickerRGB" />
     </Controls:MetroWindow.Resources>
     <Grid>
         <Grid.RowDefinitions>
-            <RowDefinition/>
-            <RowDefinition Height="Auto"/>
+            <RowDefinition />
+            <RowDefinition Height="Auto" />
         </Grid.RowDefinitions>
         <custom:ColorPicker
-                    x:Name="col"
-                    Foreground="{DynamicResource MaterialDesignBody}"
-                    Width="490"
-                    Height="260"
-                    Visibility="{Binding ElementName=ColorPickerToggle, Path=IsChecked, Converter={StaticResource BooleanToVisibilityConverter}}"/>
+            x:Name="col"
+            Width="490"
+            Height="260"
+            Foreground="{DynamicResource MaterialDesignBody}"
+            Visibility="{Binding ElementName=ColorPickerToggle, Path=IsChecked, Converter={StaticResource BooleanToVisibilityConverter}}" />
 
-        <colpick:ColorPalette SelectedEvent="ColorPalette_SelectedEvent" Visibility="{Binding ElementName=ColorPaletteToggle, Path=IsChecked, Converter={StaticResource BooleanToVisibilityConverter}}"/>
+        <colpick:ColorPalette SelectedEvent="ColorPalette_SelectedEvent" Visibility="{Binding ElementName=ColorPaletteToggle, Path=IsChecked, Converter={StaticResource BooleanToVisibilityConverter}}" />
 
-        <VirtualizingStackPanel Grid.Row="1" Orientation="Horizontal" VerticalAlignment="Bottom">
-            <Button Content="決定" Foreground="{DynamicResource MaterialDesignBody}" Style="{StaticResource MaterialDesignFlatButton}" VerticalAlignment="Center" Margin="10,0,5,0" x:Name="ok_button" Click="Button_Click">
+        <VirtualizingStackPanel
+            Grid.Row="1"
+            VerticalAlignment="Bottom"
+            Orientation="Horizontal">
+            <Button
+                x:Name="ok_button"
+                Margin="10,0,5,0"
+                VerticalAlignment="Center"
+                Click="Button_Click"
+                Content="{x:Static property:Resources.OK}"
+                Foreground="{DynamicResource MaterialDesignBody}"
+                Style="{StaticResource MaterialDesignFlatButton}">
                 <Button.CommandParameter>
                     <MultiBinding Converter="{StaticResource GetColorPickerRGB}">
-                        <Binding Path="Red" ElementName="col" Mode="OneWay"/>
-                        <Binding Path="Green" ElementName="col" Mode="OneWay"/>
-                        <Binding Path="Blue" ElementName="col" Mode="OneWay"/>
-                        <Binding Path="Alpha" ElementName="col" Mode="OneWay"/>
+                        <Binding
+                            ElementName="col"
+                            Mode="OneWay"
+                            Path="Red" />
+                        <Binding
+                            ElementName="col"
+                            Mode="OneWay"
+                            Path="Green" />
+                        <Binding
+                            ElementName="col"
+                            Mode="OneWay"
+                            Path="Blue" />
+                        <Binding
+                            ElementName="col"
+                            Mode="OneWay"
+                            Path="Alpha" />
                     </MultiBinding>
                 </Button.CommandParameter>
             </Button>
-            <Button x:Name="cancel" Content="キャンセル" Foreground="Red" Style="{StaticResource MaterialDesignFlatButton}" VerticalAlignment="Center" Margin="5,0,10,0" Click="Button_Click"/>
+            <Button
+                x:Name="cancel"
+                Margin="5,0,10,0"
+                VerticalAlignment="Center"
+                Click="Button_Click"
+                Content="{x:Static property:Resources.Cancel}"
+                Foreground="Red"
+                Style="{StaticResource MaterialDesignFlatButton}" />
 
-            <ToggleButton x:Name="coldrop" Style="{StaticResource MaterialDesignIconButton}" VerticalAlignment="Center" Margin="20,10,5,10" Click="ColPick_Dropper" IsChecked="False" Width="30" Height="30">
-                <md:PackIcon Kind="EyedropperVariant" Foreground="{DynamicResource MaterialDesignBody}"/>
+            <ToggleButton
+                x:Name="coldrop"
+                Width="30"
+                Height="30"
+                Margin="20,10,5,10"
+                VerticalAlignment="Center"
+                Click="ColPick_Dropper"
+                IsChecked="False"
+                Style="{StaticResource MaterialDesignIconButton}">
+                <md:PackIcon Foreground="{DynamicResource MaterialDesignBody}" Kind="EyedropperVariant" />
             </ToggleButton>
 
-            <StackPanel Orientation="Horizontal" Margin="4">
-                <RadioButton Style="{StaticResource MaterialDesignTabRadioButton}" Margin="4" IsChecked="True" x:Name="ColorPickerToggle" Content="{x:Static property:Resources.ColorPicker}" Foreground="{DynamicResource MaterialDesignBody}"/>
-                <RadioButton Style="{StaticResource MaterialDesignTabRadioButton}" Margin="4" IsChecked="False" x:Name="ColorPaletteToggle" Content="{x:Static property:Resources.ColorPalette}" Foreground="{DynamicResource MaterialDesignBody}"/>
+            <StackPanel Margin="4" Orientation="Horizontal">
+                <RadioButton
+                    x:Name="ColorPickerToggle"
+                    Margin="4"
+                    Content="{x:Static property:Resources.ColorPicker}"
+                    Foreground="{DynamicResource MaterialDesignBody}"
+                    IsChecked="True"
+                    Style="{StaticResource MaterialDesignTabRadioButton}" />
+                <RadioButton
+                    x:Name="ColorPaletteToggle"
+                    Margin="4"
+                    Content="{x:Static property:Resources.ColorPalette}"
+                    Foreground="{DynamicResource MaterialDesignBody}"
+                    IsChecked="False"
+                    Style="{StaticResource MaterialDesignTabRadioButton}" />
             </StackPanel>
         </VirtualizingStackPanel>
     </Grid>

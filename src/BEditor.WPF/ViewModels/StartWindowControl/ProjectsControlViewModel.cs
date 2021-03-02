@@ -14,10 +14,6 @@ using System.Windows.Input;
 using BEditor.Data;
 using BEditor.Models;
 using BEditor.Properties;
-using BEditor.Views;
-using BEditor.Views.MessageContent;
-
-using Microsoft.Extensions.DependencyInjection;
 
 using Reactive.Bindings;
 
@@ -45,7 +41,12 @@ namespace BEditor.ViewModels.StartWindowControl
                 app.Project?.Unload();
                 var project = Project.FromFile(ProjectItem.Path, app);
 
-                if (project is null) return;
+                if (project is null)
+                {
+                    ProjectItem.IsLoading.Value = false;
+
+                    return;
+                }
 
                 await Task.Run(() =>
                 {
@@ -91,9 +92,8 @@ namespace BEditor.ViewModels.StartWindowControl
                     CountIsZero.Value = true;
                 }
             });
-            Add.Subscribe(async () =>
+            Add.Subscribe(() =>
             {
-                await using var prov = AppData.Current.Services.BuildServiceProvider();
                 var record = new OpenFileRecord()
                 {
                     Filters =
@@ -103,7 +103,7 @@ namespace BEditor.ViewModels.StartWindowControl
                 };
 
 
-                if (prov.GetService<IFileDialogService>()?.ShowOpenFileDialog(record) ?? false)
+                if (AppData.Current.FileDialog.ShowOpenFileDialog(record))
                 {
                     var f = Projects.Count is 0;
                     Projects.Insert(0, new ProjectItem(Path.GetFileNameWithoutExtension(record.FileName), record.FileName, Click, Remove));

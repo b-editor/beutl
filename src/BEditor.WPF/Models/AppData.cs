@@ -26,6 +26,9 @@ using NLog.Layouts;
 using System.Reactive.Disposables;
 using Reactive.Bindings;
 using BEditor.ViewModels.ToolControl;
+using System.Threading;
+using System.Windows.Threading;
+using System.Windows;
 
 namespace BEditor.Models
 {
@@ -101,9 +104,11 @@ namespace BEditor.Models
                         .AddProvider(new BEditorLoggerProvider());
                 }));
 
-            var prov = Services.BuildServiceProvider();
+            ServiceProvider = Services.BuildServiceProvider();
 
-            LoggingFactory = prov.GetService<ILoggerFactory>()!;
+            LoggingFactory = ServiceProvider.GetService<ILoggerFactory>()!;
+            Message = ServiceProvider.GetService<IMessage>()!;
+            FileDialog = ServiceProvider.GetService<IFileDialogService>()!;
         }
 
         public Project? Project
@@ -122,6 +127,9 @@ namespace BEditor.Models
             set => SetValue(value, ref _Isplaying, _IsPlayingArgs);
         }
         public IServiceCollection Services { get; }
+        public IServiceProvider ServiceProvider { get; }
+        public IMessage Message { get; }
+        public IFileDialogService FileDialog { get; }
         public ILoggerFactory LoggingFactory { get; }
     }
 

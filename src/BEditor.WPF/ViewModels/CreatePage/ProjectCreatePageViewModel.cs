@@ -116,7 +116,7 @@ namespace BEditor.ViewModels.CreatePage
 
         private void LoadTemplate()
         {
-            static void CreateDefaultColor()
+            static void CreateDefaultItems()
             {
                 if (!File.Exists(_file))
                 {
@@ -184,7 +184,7 @@ namespace BEditor.ViewModels.CreatePage
             }
             Task.Run(async () =>
             {
-                CreateDefaultColor();
+                CreateDefaultItems();
 
                 using var stream = new FileStream(_file, FileMode.Open);
                 // ファイルの読み込み

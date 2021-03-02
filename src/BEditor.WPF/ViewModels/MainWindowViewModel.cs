@@ -144,17 +144,15 @@ namespace BEditor.ViewModels
 
             SettingShow.Subscribe(SettingShowCommand);
             DeleteCommand.Subscribe(() => CommandManager.Clear());
-            MemoryRelease.Subscribe(async () =>
+            MemoryRelease.Subscribe(() =>
             {
                 var bytes = Environment.WorkingSet;
-                await using var prov = AppData.Current.Services.BuildServiceProvider();
-                var mes = prov.GetService<IMessage>();
-
+                
                 GC.Collect();
                 GC.WaitForPendingFinalizers();
                 GC.Collect();
 
-                mes?.Snackbar(((Environment.WorkingSet - bytes) / 10000000f).ToString() + "MB");
+                AppData.Current.Message.Snackbar(((Environment.WorkingSet - bytes) / 10000000f).ToString() + "MB");
             });
             SceneSettingsCommand.Where(_ => AppData.Current.Project is not null)
                 .Select(_ => AppData.Current.Project!.PreviewScene)

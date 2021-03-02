@@ -97,8 +97,7 @@ namespace BEditor
 
                 viewmodel.Status.Value = string.Format(MessageResources.IsChecking, Resource.Library);
 
-                await using var prov = AppData.Current.Services.BuildServiceProvider();
-                var msg = prov.GetService<IMessage>();
+                var msg = AppData.Current.Message;
 
                 if (!await CheckFFmpeg())
                 {
@@ -491,7 +490,15 @@ namespace BEditor
         private void Application_Exit(object sender, ExitEventArgs e)
         {
             Settings.Default.Save();
+            var jsonFile = Path.Combine(AppContext.BaseDirectory, "user", "usedFonts.json");
+
+            Serialize.SaveToFile(FontDialogViewModel.UsedFonts.Select(i => i.Font), jsonFile, SerializeMode.Json);
+
             DirectoryManager.Default.Stop();
+
+            var app = AppData.Current;
+            app.Project?.Unload();
+            app.Project = null;
         }
 
         private async void Application_DispatcherUnhandledException(object sender, DispatcherUnhandledExceptionEventArgs e)

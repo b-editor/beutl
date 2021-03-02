@@ -858,4 +858,7 @@
   <data name="Search" xml:space="preserve">
     <value>検索</value>
   </data>
+  <data name="RecentlyUsedFonts" xml:space="preserve">
+    <value>最近使ったフォント</value>
+  </data>
 </root>

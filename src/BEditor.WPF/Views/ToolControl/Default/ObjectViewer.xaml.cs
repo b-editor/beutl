@@ -34,13 +34,8 @@ namespace BEditor.Views.ToolControl.Default
     /// </summary>
     public partial class ObjectViewer : UserControl
     {
-        private static readonly IMessage Message;
+        private static readonly IMessage Message = AppData.Current.Message;
 
-        static ObjectViewer()
-        {
-            using var prov = AppData.Current.Services.BuildServiceProvider();
-            Message = prov.GetService<IMessage>()!;
-        }
         public ObjectViewer()
         {
             InitializeComponent();

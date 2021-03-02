@@ -222,7 +222,7 @@ namespace BEditor
                     }
                     finally
                     {
-                        editor?.Project.Dispose();
+                        editor?.Project.Unload();
                     }
                 });
             });

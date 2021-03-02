@@ -158,22 +158,7 @@ namespace BEditor.Views
                 return view;
             }));
             // FontProperty
-            PropertyViewBuilders.Add(PropertyViewBuilder.Create<FontProperty>(prop =>
-            {
-                var view = new FontPropertyView()
-                {
-                    DataContext = new FontPropertyViewModel(prop)
-                };
-
-                view.SetBinding(BasePropertyView.HeaderProperty, HeaderBinding);
-                view.SetBinding(BasePropertyView.ResetCommandProperty, ResetBinding);
-                
-                view.SetBinding(FontPropertyView.ItemsSourceProperty, ItemsSourcePropertyBinding);
-                view.SetBinding(FontPropertyView.CommandProperty, CommandBinding);
-                view.SetBinding(FontPropertyView.SelectedItemProperty, PropertyValueBinding);
-
-                return view;
-            }));
+            PropertyViewBuilders.Add(PropertyViewBuilder.Create<FontProperty>(prop => new FontPropertyView(new FontPropertyViewModel(prop))));
             // Group
             PropertyViewBuilders.Add(PropertyViewBuilder.Create<Group>(group =>
             {

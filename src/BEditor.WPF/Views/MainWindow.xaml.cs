@@ -135,8 +135,7 @@ namespace BEditor
                 catch
                 {
                     Debug.Assert(false);
-                    await using var prov = AppData.Current.Services.BuildServiceProvider();
-                    prov.GetService<IMessage>()?.Snackbar(string.Format(Properties.Resources.FailedToLoad, "Project"));
+                    AppData.Current.Message.Snackbar(string.Format(Properties.Resources.FailedToLoad, "Project"));
                 }
             }
 

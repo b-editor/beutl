@@ -858,4 +858,7 @@ Please select the plugin you want to load</value>
   <data name="Search" xml:space="preserve">
     <value>Search</value>
   </data>
+  <data name="RecentlyUsedFonts" xml:space="preserve">
+    <value>Recently used fonts</value>
+  </data>
 </root>
