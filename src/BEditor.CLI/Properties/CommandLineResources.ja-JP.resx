@@ -142,4 +142,52 @@
   <data name="ClipExistsInTheSpecifiedLocation" xml:space="preserve">
     <value>指定した場所にクリップが存在しているため、新しいクリップを配置できません。</value>
   </data>
+  <data name="SavedTo" xml:space="preserve">
+    <value>{0}に保存されました。</value>
+  </data>
+  <data name="FailedToSave" xml:space="preserve">
+    <value>保存に失敗しました。</value>
+  </data>
+  <data name="ManagementName" xml:space="preserve">
+    <value>管理名</value>
+  </data>
+  <data name="This data cannot be displayed in a list." xml:space="preserve">
+    <value>このデータはリスト表示できません。</value>
+  </data>
+  <data name="PropertyNotFound" xml:space="preserve">
+    <value>プロパティが見つかりませんでした。</value>
+  </data>
+  <data name="FailedToConvertPropertiesToJson" xml:space="preserve">
+    <value>プロパティをJsonに変換できませんでした。</value>
+  </data>
+  <data name="NotFound" xml:space="preserve">
+    <value>{0} が見つかりませんでした。</value>
+  </data>
+  <data name="AddedClip" xml:space="preserve">
+    <value>クリップを start: {0}, end: {1}, layer: {2} に追加しました。</value>
+  </data>
+  <data name="AddedEffect" xml:space="preserve">
+    <value>エフェクトが追加されました。</value>
+  </data>
+  <data name="RemovedClip" xml:space="preserve">
+    <value>クリップを削除しました。</value>
+  </data>
+  <data name="SelectClip" xml:space="preserve">
+    <value>クリップを選択してください。</value>
+  </data>
+  <data name="IndexIsOutOfRange" xml:space="preserve">
+    <value>インデックスが範囲外です。</value>
+  </data>
+  <data name="RemovedEffect" xml:space="preserve">
+    <value>エフェクトを削除しました。</value>
+  </data>
+  <data name="MovedClip" xml:space="preserve">
+    <value>クリップを移動しました。</value>
+  </data>
+  <data name="LayerIsHidden" xml:space="preserve">
+    <value>レイヤー:{0} を非表示にしました。</value>
+  </data>
+  <data name="EnumerateFonts" xml:space="preserve">
+    <value>フォントを列挙します。</value>
+  </data>
 </root>

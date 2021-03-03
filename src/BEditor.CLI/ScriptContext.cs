@@ -46,11 +46,11 @@ namespace BEditor
         {
             if ((file is null) ? _project.Save() : _project.Save(file))
             {
-                Console.WriteLine("保存しました。");
+                Console.WriteLine(CommandLineResources.SavedTo, file);
             }
             else
             {
-                Console.WriteLine("保存出来ませんでした。");
+                Console.WriteLine(CommandLineResources.FailedToSave);
             }
         }
         public void List(IReadOnlyList<object> items)
@@ -71,7 +71,7 @@ namespace BEditor
             }
             void ListClip(IReadOnlyList<ClipElement> clips)
             {
-                Console.WriteLine("管理名 | 名前");
+                Console.WriteLine($"{CommandLineResources.ManagementName} | {Resources.Name}");
                 Console.WriteLine("=============");
 
                 foreach (var clip in clips)
@@ -108,7 +108,7 @@ namespace BEditor
                     ListEffect(effect);
                     break;
                 default:
-                    Console.WriteLine("このデータはリスト表示できません。");
+                    Console.WriteLine(CommandLineResources.This_data_cannot_be_displayed_in_a_list_);
                     break;
             }
         }
@@ -142,7 +142,7 @@ namespace BEditor
                 using var memory = new MemoryStream();
                 if (!Serialize.SaveToStream(prop, memory, SerializeMode.Json))
                 {
-                    Console.WriteLine("プロパティをJsonに変換できませんでした。");
+                    Console.WriteLine(CommandLineResources.FailedToConvertPropertiesToJson);
 
                     return;
                 }
@@ -151,7 +151,7 @@ namespace BEditor
             }
             else
             {
-                Console.WriteLine("プロパティが見つかりませんでした。");
+                Console.WriteLine(CommandLineResources.PropertyNotFound);
             }
         }
         public void Add(Range range, int layer, string metadata, bool setcurrent = false)
@@ -178,7 +178,7 @@ namespace BEditor
                 if (meta is null)
                 {
                     Console.ForegroundColor = ConsoleColor.DarkYellow;
-                    Console.WriteLine($"{metadata} が見つかりませんでした。");
+                    Console.WriteLine(CommandLineResources.NotFound, metadata);
 
                     Console.ResetColor();
 
@@ -194,7 +194,7 @@ namespace BEditor
                     Scene.SetCurrentClip(clip);
                 }
 
-                Console.WriteLine($"クリップを start: {start}, end: {end}, layer: {layer} に追加しました。");
+                Console.WriteLine(CommandLineResources.AddedClip, start, end, layer);
             }
         }
         public void Add(int width, int height)
@@ -229,7 +229,7 @@ namespace BEditor
             if (meta is null)
             {
                 Console.ForegroundColor = ConsoleColor.DarkYellow;
-                Console.WriteLine($"{effect} が見つかりませんでした。");
+                Console.WriteLine(CommandLineResources.NotFound, effect);
 
                 Console.ResetColor();
 
@@ -239,39 +239,39 @@ namespace BEditor
             var effectelm = meta.CreateFunc();
             Clip.AddEffect(effectelm).Execute();
 
-            Console.WriteLine("エフェクトが追加されました。");
+            Console.WriteLine(CommandLineResources.AddedEffect);
         }
         public void Remove(ClipElement clip)
         {
             clip.Parent.RemoveClip(clip).Execute();
 
             Clip = Clips.Count is not 0 ? Clips[0] : null;
-            Console.WriteLine("クリップを削除しました");
+            Console.WriteLine(CommandLineResources.RemovedClip);
         }
         public void Remove(int effectIndex)
         {
             if (Clip is null)
             {
-                Console.WriteLine("クリップを選択してください。");
+                Console.WriteLine(CommandLineResources.SelectClip);
 
                 return;
             }
             if (Clip.Effect.Count >= effectIndex)
             {
-                Console.WriteLine("インデックスが範囲外です。");
+                Console.WriteLine(CommandLineResources.IndexIsOutOfRange);
 
                 return;
             }
 
             Clip.RemoveEffect(Clip.Effect[effectIndex]).Execute();
 
-            Console.WriteLine("クリップを削除しました。");
+            Console.WriteLine(CommandLineResources.RemovedEffect);
         }
         public void Move(int layer)
         {
             if (Clip is null)
             {
-                Console.WriteLine("クリップを選択してください。");
+                Console.WriteLine(CommandLineResources.SelectClip);
 
                 return;
             }
@@ -288,13 +288,13 @@ namespace BEditor
 
             Clip.MoveFrameLayer(Clip.Start, layer).Execute();
 
-            Console.WriteLine($"クリップをレイヤー: {layer}に移動しました。");
+            Console.WriteLine(CommandLineResources.MovedClip);
         }
         public void Move(Range range)
         {
             if (Clip is null)
             {
-                Console.WriteLine("クリップを選択してください。");
+                Console.WriteLine(CommandLineResources.SelectClip);
 
                 return;
             }
@@ -314,14 +314,14 @@ namespace BEditor
 
             Clip.ChangeLength(start, end).Execute();
 
-            Console.WriteLine($"クリップを start: {start}, end: {end} に移動しました。");
+            Console.WriteLine(CommandLineResources.MovedClip);
         }
         public void HideLayer(int layer)
         {
             Scene.HideLayer.Remove(layer);
             Scene.HideLayer.Add(layer);
 
-            Console.WriteLine($"レイヤー:{layer} を非表示にしました。");
+            Console.WriteLine(CommandLineResources.LayerIsHidden, layer);
         }
         public void Undo(int count = 1)
         {
@@ -354,7 +354,7 @@ namespace BEditor
                 }
             }
 
-            Console.WriteLine($"{file}に保存されました");
+            Console.WriteLine(CommandLineResources.SavedTo, file);
         }
         public void EncodeImg(string file, Frame frame)
         {
@@ -362,7 +362,7 @@ namespace BEditor
 
             img.Encode(file);
 
-            Console.WriteLine($"{file}に保存されました");
+            Console.WriteLine(string.Format(CommandLineResources.SavedTo, file));
         }
 
         public record EffectItem(EffectMetadata Metadata, string? ParentName)

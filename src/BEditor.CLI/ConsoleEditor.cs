@@ -48,7 +48,7 @@ namespace BEditor
 
         public Project Project { get; }
 
-        public async Task Execute()
+        public void Execute()
         {
             while (true)
             {
@@ -60,7 +60,7 @@ namespace BEditor
 
                     try
                     {
-                        var stete = await CSharpScript.RunAsync(line, globals: _context);
+                        CSharpScript.RunAsync(line, globals: _context).Wait();
                     }
                     catch
                     {
@@ -68,6 +68,8 @@ namespace BEditor
                         Console.WriteLine("スクリプトを実行出来ませんでした");
 
                         Console.ResetColor();
+
+                        throw;
                     }
                 }
             }

@@ -61,6 +61,24 @@ namespace BEditor.Properties {
         }
         
         /// <summary>
+        ///   Added a clip to start: {0}, end: {1}, layer: {2}. に類似しているローカライズされた文字列を検索します。
+        /// </summary>
+        internal static string AddedClip {
+            get {
+                return ResourceManager.GetString("AddedClip", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Added a effect. に類似しているローカライズされた文字列を検索します。
+        /// </summary>
+        internal static string AddedEffect {
+            get {
+                return ResourceManager.GetString("AddedEffect", resourceCulture);
+            }
+        }
+        
+        /// <summary>
         ///   Cannot place a new clip because a clip already exists in the specified location. に類似しているローカライズされた文字列を検索します。
         /// </summary>
         internal static string ClipExistsInTheSpecifiedLocation {
@@ -79,11 +97,38 @@ namespace BEditor.Properties {
         }
         
         /// <summary>
+        ///   Enumerate fonts. に類似しているローカライズされた文字列を検索します。
+        /// </summary>
+        internal static string EnumerateFonts {
+            get {
+                return ResourceManager.GetString("EnumerateFonts", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Failed to convert properties to Json. に類似しているローカライズされた文字列を検索します。
+        /// </summary>
+        internal static string FailedToConvertPropertiesToJson {
+            get {
+                return ResourceManager.GetString("FailedToConvertPropertiesToJson", resourceCulture);
+            }
+        }
+        
+        /// <summary>
         ///   Failed to load the project file. に類似しているローカライズされた文字列を検索します。
         /// </summary>
         internal static string FailedToLoadProject {
             get {
                 return ResourceManager.GetString("FailedToLoadProject", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Failed to save. に類似しているローカライズされた文字列を検索します。
+        /// </summary>
+        internal static string FailedToSave {
+            get {
+                return ResourceManager.GetString("FailedToSave", resourceCulture);
             }
         }
         
@@ -102,6 +147,15 @@ namespace BEditor.Properties {
         internal static string FrameToOutput {
             get {
                 return ResourceManager.GetString("FrameToOutput", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Index is out of range. に類似しているローカライズされた文字列を検索します。
+        /// </summary>
+        internal static string IndexIsOutOfRange {
+            get {
+                return ResourceManager.GetString("IndexIsOutOfRange", resourceCulture);
             }
         }
         
@@ -133,11 +187,47 @@ namespace BEditor.Properties {
         }
         
         /// <summary>
+        ///   Layer:{0} is hidden. に類似しているローカライズされた文字列を検索します。
+        /// </summary>
+        internal static string LayerIsHidden {
+            get {
+                return ResourceManager.GetString("LayerIsHidden", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Management Name に類似しているローカライズされた文字列を検索します。
+        /// </summary>
+        internal static string ManagementName {
+            get {
+                return ResourceManager.GetString("ManagementName", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Moved a clip. に類似しているローカライズされた文字列を検索します。
+        /// </summary>
+        internal static string MovedClip {
+            get {
+                return ResourceManager.GetString("MovedClip", resourceCulture);
+            }
+        }
+        
+        /// <summary>
         ///   Name of new project に類似しているローカライズされた文字列を検索します。
         /// </summary>
         internal static string NameOfProject {
             get {
                 return ResourceManager.GetString("NameOfProject", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   {0} not found. に類似しているローカライズされた文字列を検索します。
+        /// </summary>
+        internal static string NotFound {
+            get {
+                return ResourceManager.GetString("NotFound", resourceCulture);
             }
         }
         
@@ -178,6 +268,42 @@ namespace BEditor.Properties {
         }
         
         /// <summary>
+        ///   Property not found. に類似しているローカライズされた文字列を検索します。
+        /// </summary>
+        internal static string PropertyNotFound {
+            get {
+                return ResourceManager.GetString("PropertyNotFound", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Removed a clip. に類似しているローカライズされた文字列を検索します。
+        /// </summary>
+        internal static string RemovedClip {
+            get {
+                return ResourceManager.GetString("RemovedClip", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Removed a effect. に類似しているローカライズされた文字列を検索します。
+        /// </summary>
+        internal static string RemovedEffect {
+            get {
+                return ResourceManager.GetString("RemovedEffect", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Saved to {0}. に類似しているローカライズされた文字列を検索します。
+        /// </summary>
+        internal static string SavedTo {
+            get {
+                return ResourceManager.GetString("SavedTo", resourceCulture);
+            }
+        }
+        
+        /// <summary>
         ///   Save the specified frame of the scene as an image. に類似しているローカライズされた文字列を検索します。
         /// </summary>
         internal static string SaveFrameToImageFile {
@@ -192,6 +318,24 @@ namespace BEditor.Properties {
         internal static string SceneToOutput {
             get {
                 return ResourceManager.GetString("SceneToOutput", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Select a clip. に類似しているローカライズされた文字列を検索します。
+        /// </summary>
+        internal static string SelectClip {
+            get {
+                return ResourceManager.GetString("SelectClip", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   This data cannot be displayed in a list. に類似しているローカライズされた文字列を検索します。
+        /// </summary>
+        internal static string This_data_cannot_be_displayed_in_a_list_ {
+            get {
+                return ResourceManager.GetString("This data cannot be displayed in a list.", resourceCulture);
             }
         }
     }

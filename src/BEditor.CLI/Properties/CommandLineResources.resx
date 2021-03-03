@@ -142,4 +142,52 @@
   <data name="ClipExistsInTheSpecifiedLocation" xml:space="preserve">
     <value>Cannot place a new clip because a clip already exists in the specified location.</value>
   </data>
+  <data name="SavedTo" xml:space="preserve">
+    <value>Saved to {0}.</value>
+  </data>
+  <data name="FailedToSave" xml:space="preserve">
+    <value>Failed to save.</value>
+  </data>
+  <data name="ManagementName" xml:space="preserve">
+    <value>Management Name</value>
+  </data>
+  <data name="This data cannot be displayed in a list." xml:space="preserve">
+    <value>This data cannot be displayed in a list.</value>
+  </data>
+  <data name="PropertyNotFound" xml:space="preserve">
+    <value>Property not found.</value>
+  </data>
+  <data name="FailedToConvertPropertiesToJson" xml:space="preserve">
+    <value>Failed to convert properties to Json.</value>
+  </data>
+  <data name="NotFound" xml:space="preserve">
+    <value>{0} not found.</value>
+  </data>
+  <data name="AddedClip" xml:space="preserve">
+    <value>Added a clip to start: {0}, end: {1}, layer: {2}.</value>
+  </data>
+  <data name="AddedEffect" xml:space="preserve">
+    <value>Added a effect.</value>
+  </data>
+  <data name="RemovedClip" xml:space="preserve">
+    <value>Removed a clip.</value>
+  </data>
+  <data name="SelectClip" xml:space="preserve">
+    <value>Select a clip.</value>
+  </data>
+  <data name="IndexIsOutOfRange" xml:space="preserve">
+    <value>Index is out of range.</value>
+  </data>
+  <data name="RemovedEffect" xml:space="preserve">
+    <value>Removed a effect.</value>
+  </data>
+  <data name="MovedClip" xml:space="preserve">
+    <value>Moved a clip.</value>
+  </data>
+  <data name="LayerIsHidden" xml:space="preserve">
+    <value>Layer:{0} is hidden.</value>
+  </data>
+  <data name="EnumerateFonts" xml:space="preserve">
+    <value>Enumerate fonts.</value>
+  </data>
 </root>

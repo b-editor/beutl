@@ -38,6 +38,7 @@ namespace BEditor.Graphics
             if (isFirst)
             {
                 GLFW.Init();
+                Tool.ThrowGLFWError();
             }
 
             GLFW.WindowHint(WindowHintClientApi.ClientApi, ClientApi.OpenGlApi);
@@ -46,6 +47,7 @@ namespace BEditor.Graphics
             GLFW.WindowHint(WindowHintBool.Visible, false);
             _window = GLFW.CreateWindow(width, height, "", null, null);
             GLFW.SetWindowSizeLimits(_window, width, height, width, height);
+            Tool.ThrowGLFWError();
             MakeCurrent();
 
             if (isFirst)
@@ -94,29 +96,31 @@ namespace BEditor.Graphics
             GL.Enable(EnableCap.LineSmooth);
             GL.Enable(EnableCap.PolygonSmooth);
 
-            GL.Hint(HintTarget.FogHint, HintMode.Nicest);
             GL.Hint(HintTarget.LineSmoothHint, HintMode.Nicest);
-            GL.Hint(HintTarget.PerspectiveCorrectionHint, HintMode.Nicest);
-            GL.Hint(HintTarget.PointSmoothHint, HintMode.Nicest);
             GL.Hint(HintTarget.PolygonSmoothHint, HintMode.Nicest);
+            GL.Hint(HintTarget.TextureCompressionHint, HintMode.Nicest);
+            Tool.ThrowGLError();
 
             GL.Disable(EnableCap.DepthTest);
-
+            Tool.ThrowGLError();
 
             GL.ClearColor(default);
-
             GL.Clear(ClearBufferMask.ColorBufferBit | ClearBufferMask.DepthBufferBit);
+
+            Tool.ThrowGLError();
         }
         public void MakeCurrent()
         {
             if (!IsCurrent)
             {
                 GLFW.MakeContextCurrent(_window);
+                Tool.ThrowGLFWError();
             }
         }
         public void SwapBuffers()
         {
             GLFW.SwapBuffers(_window);
+            Tool.ThrowGLFWError();
         }
         public void DrawTexture(Texture texture)
         {
@@ -141,8 +145,6 @@ namespace BEditor.Graphics
             GL.BlendEquationSeparate(BlendEquationMode.FuncAdd, BlendEquationMode.FuncAdd);
             GL.BlendFunc(BlendingFactor.SrcAlpha, BlendingFactor.OneMinusSrcAlpha);
 
-            GL.Enable(EnableCap.Texture2D);
-
             _textureShader.SetVector4("color", texture.Color.ToVector4());
             _textureShader.SetMatrix4("model", texture.Transform.Matrix);
             _textureShader.SetMatrix4("view", Camera.GetViewMatrix());
@@ -151,6 +153,8 @@ namespace BEditor.Graphics
             _textureShader.Use();
 
             texture.Draw(TextureUnit.Texture0);
+
+            Tool.ThrowGLError();
         }
         public void DrawTexture(Texture texture, Action blend)
         {
@@ -176,7 +180,6 @@ namespace BEditor.Graphics
 
                 blend();
 
-                GL.Enable(EnableCap.Texture2D);
 
                 _textureShader.SetVector4("color", texture.Color.ToVector4());
                 _textureShader.SetMatrix4("model", texture.Transform.Matrix);
@@ -186,6 +189,8 @@ namespace BEditor.Graphics
                 _textureShader.Use();
 
                 texture.Draw(TextureUnit.Texture0);
+
+                Tool.ThrowGLError();
             }
             else
             {
@@ -220,7 +225,8 @@ namespace BEditor.Graphics
 
             blend();
 
-            GL.Enable(EnableCap.Texture2D);
+            //InvalidEnum
+            //GL.Enable(EnableCap.Texture2D);
 
             _texLightShader.SetMatrix4("model", texture.Transform.Matrix);
             _texLightShader.SetMatrix4("view", Camera.GetViewMatrix());
@@ -241,6 +247,8 @@ namespace BEditor.Graphics
             _texLightShader.Use();
 
             texture.Draw(TextureUnit.Texture0);
+
+            Tool.ThrowGLError();
         }
         public void DrawCube(Cube cube)
         {
@@ -263,6 +271,8 @@ namespace BEditor.Graphics
                 _shader.SetVector4("color", cube.Color.ToVector4());
 
                 cube.Draw();
+
+                Tool.ThrowGLError();
             }
             else
             {
@@ -300,6 +310,8 @@ namespace BEditor.Graphics
 
 
             cube.Draw();
+
+            Tool.ThrowGLError();
         }
         public void DrawBall(Ball ball)
         {
@@ -322,6 +334,8 @@ namespace BEditor.Graphics
                 _shader.SetVector4("color", ball.Color.ToVector4());
 
                 ball.Draw();
+
+                Tool.ThrowGLError();
             }
             else
             {
@@ -359,6 +373,8 @@ namespace BEditor.Graphics
 
 
             ball.Draw();
+
+            Tool.ThrowGLError();
         }
         public void DrawLine(Vector3 start, Vector3 end, float width, Transform transform, Color color)
         {
@@ -390,6 +406,8 @@ namespace BEditor.Graphics
             _lineShader.Use();
 
             line.Draw();
+
+            Tool.ThrowGLError();
         }
         public void Dispose()
         {
@@ -424,6 +442,8 @@ namespace BEditor.Graphics
             }
 
             image.Flip(FlipMode.X);
+
+            Tool.ThrowGLError();
         }
     }
 }

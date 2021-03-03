@@ -33,10 +33,10 @@ namespace BEditor.Views.TimeLines
         private int _startPos;
         private PackIcon? _select;
         private Media.Frame _nowframe;
-        private readonly Storyboard _getStoryboard = new Storyboard();
-        private readonly Storyboard _lostStoryboard = new Storyboard();
-        private readonly DoubleAnimation _getAnm = new DoubleAnimation() { Duration = TimeSpan.FromSeconds(0.15), To = 0 };
-        private readonly DoubleAnimation _lostAnm = new DoubleAnimation() { Duration = TimeSpan.FromSeconds(0.15), To = 1 };
+        private readonly Storyboard _getStoryboard = new();
+        private readonly Storyboard _lostStoryboard = new();
+        private readonly DoubleAnimation _getAnm = new() { Duration = TimeSpan.FromSeconds(0.15), To = 0 };
+        private readonly DoubleAnimation _lostAnm = new() { Duration = TimeSpan.FromSeconds(0.15), To = 1 };
         private readonly CompositeDisposable _disposable = new();
 
         public ColorAnimation(ColorAnimationProperty property)

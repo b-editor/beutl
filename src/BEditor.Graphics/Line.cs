@@ -11,10 +11,20 @@ using OpenTK.Graphics.OpenGL4;
 
 namespace BEditor.Graphics
 {
+    /// <summary>
+    /// Represents an OpenGL line.
+    /// </summary>
     public class Line : GraphicsObject
     {
         private readonly float[] _vertices;
 
+        /// <summary>
+        /// Initializes a new instance of the <see cref="Line"/> class.
+        /// </summary>
+        /// <param name="start">The start position of the line.</param>
+        /// <param name="end">The end position of the line.</param>
+        /// <param name="width">The width of the line.</param>
+        /// <exception cref="GraphicsException">OpenGL error occurred.</exception>
         public Line(Vector3 start, Vector3 end, float width)
         {
             Start = start;
@@ -39,15 +49,34 @@ namespace BEditor.Graphics
 
             GL.BindBuffer(BufferTarget.ArrayBuffer, 0);
             GL.BindVertexArray(0);
+
+            Tool.ThrowGLError();
         }
 
+        /// <inheritdoc/>
         public override ReadOnlyMemory<float> Vertices => _vertices;
+        /// <summary>
+        /// Gets the start position of this <see cref="Line"/>.
+        /// </summary>
         public Vector3 Start { get; }
+        /// <summary>
+        /// Gets the end position of this <see cref="Line"/>.
+        /// </summary>
         public Vector3 End { get; }
+        /// <summary>
+        /// Gets the width of this <see cref="Line"/>.
+        /// </summary>
         public float Width { get; }
+        /// <summary>
+        /// Get the VertexBuffer of this <see cref="Line"/>.
+        /// </summary>
         public int VertexBufferObject { get; }
+        /// <summary>
+        /// Get the VertexArray of this <see cref="Line"/>.
+        /// </summary>
         public int VertexArrayObject { get; }
 
+        /// <inheritdoc/>
         public override void Draw()
         {
             GL.LineWidth(Width);
@@ -55,6 +84,7 @@ namespace BEditor.Graphics
             GL.BindVertexArray(VertexArrayObject);
             GL.DrawArrays(PrimitiveType.Lines, 0, 2);
         }
+        /// <inheritdoc/>
         protected override void Dispose(bool disposing)
         {
             GL.DeleteVertexArray(VertexArrayObject);

@@ -30,7 +30,7 @@ namespace BEditor.Data
         /// <param name="args">Arguments used for the <see cref="PropertyChanged"/> event.</param>
         /// <param name="state">state</param>
         /// <param name="action"><paramref name="action"/> to be executed after the <see cref="PropertyChanged"/> event occurs.</param>
-        protected void SetValue<T1, T2>(T1 src, ref T1 dst, PropertyChangedEventArgs args, T2 state = default, Action<T2>? action = null)
+        protected void SetValue<T1, T2>(T1 src, ref T1 dst, PropertyChangedEventArgs args, T2? state = default, Action<T2>? action = null)
         {
             if (src == null || !src.Equals(dst))
             {

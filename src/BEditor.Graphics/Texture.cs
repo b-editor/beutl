@@ -13,8 +13,12 @@ using OpenTK.Graphics.OpenGL4;
 
 namespace BEditor.Graphics
 {
+    /// <summary>
+    /// Represents an OpenGL texture.
+    /// </summary>
     public class Texture : GraphicsObject
     {
+        private readonly int _handle;
         private readonly float[] _vertices;
         private readonly uint[] _indices =
         {
@@ -22,11 +26,17 @@ namespace BEditor.Graphics
             1, 2, 3
         };
 
+        /// <summary>
+        /// Initializes a new instance of the <see cref="Texture"/> class.
+        /// </summary>
+        /// <param name="glHandle">The handle for the texture.</param>
+        /// <param name="width">The width of the texture.</param>
+        /// <param name="height">The height of the texture.</param>
         public Texture(int glHandle, int width, int height)
         {
             Width = width;
             Height = height;
-            Handle = glHandle;
+            _handle = glHandle;
 
             var h = width / 2f;
             var v = height / 2f;
@@ -60,20 +70,43 @@ namespace BEditor.Graphics
 
         /// <inheritdoc/>
         public override ReadOnlyMemory<float> Vertices => _vertices;
+        /// <summary>
+        /// 
+        /// </summary>
         public ReadOnlyMemory<uint> Indices => _indices;
+        /// <summary>
+        /// Gets the width of this <see cref="Texture"/>.
+        /// </summary>
         public int Width { get; }
+        /// <summary>
+        /// Gets the height of this <see cref="Texture"/>.
+        /// </summary>
         public int Height { get; }
-        public int Handle { get; }
+        /// <summary>
+        /// Get the ElementBuffer of this <see cref="Texture"/>.
+        /// </summary>
         public int ElementBufferObject { get; }
+        /// <summary>
+        /// Get the VertexBuffer of this <see cref="Texture"/>.
+        /// </summary>
         public int VertexBufferObject { get; }
+        /// <summary>
+        /// Get the VertexArray of this <see cref="Texture"/>.
+        /// </summary>
         public int VertexArrayObject { get; }
 
+        /// <summary>
+        /// Create a texture from an image file.
+        /// </summary>
         public unsafe static Texture FromFile(string path)
         {
             using var image = Image.Decode(path);
 
             return FromImage(image);
         }
+        /// <summary>
+        /// Create a texture from an <see cref="Image{BGR24}"/>.
+        /// </summary>
         public unsafe static Texture FromImage(Image<BGR24> image)
         {
             int handle = GL.GenTexture();
@@ -104,6 +137,9 @@ namespace BEditor.Graphics
 
             return new Texture(handle, image.Width, image.Height);
         }
+        /// <summary>
+        /// Create a texture from an <see cref="Image{BGRA32}"/>.
+        /// </summary>
         public unsafe static Texture FromImage(Image<BGRA32> image)
         {
             int handle = GL.GenTexture();
@@ -135,10 +171,13 @@ namespace BEditor.Graphics
             return new Texture(handle, image.Width, image.Height);
         }
 
+        /// <summary>
+        /// Use this texture.
+        /// </summary>
         public void Use(TextureUnit unit)
         {
             GL.ActiveTexture(unit);
-            GL.BindTexture(TextureTarget.Texture2D, Handle);
+            GL.BindTexture(TextureTarget.Texture2D, _handle);
         }
         /// <inheritdoc cref="GraphicsObject.Draw"/>
         public void Draw(TextureUnit unit)
@@ -154,7 +193,7 @@ namespace BEditor.Graphics
         {
             GL.DeleteBuffer(VertexArrayObject);
             GL.DeleteBuffer(ElementBufferObject);
-            GL.DeleteTexture(Handle);
+            GL.DeleteTexture(_handle);
         }
         /// <inheritdoc/>
         public override void Draw()

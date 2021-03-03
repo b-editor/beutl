@@ -180,7 +180,7 @@ namespace BEditor
         {
             if (Settings.Default.UseDarkMode)
             {
-                PaletteHelper paletteHelper = new PaletteHelper();
+                var paletteHelper = new PaletteHelper();
                 ITheme theme = paletteHelper.GetTheme();
 
                 theme.SetBaseTheme(Theme.Dark);
@@ -397,7 +397,7 @@ namespace BEditor
                                 new XAttribute("Blue", color.B));
                         });
 
-                    XDocument XDoc = new XDocument(
+                    var XDoc = new XDocument(
                         new XDeclaration("1.0", "utf-8", "true"),
                         new XElement("Colors", new XAttribute("Name", "MaterialDesignColors"))
                     );

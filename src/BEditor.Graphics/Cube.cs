@@ -24,6 +24,7 @@ namespace BEditor.Graphics
         /// <param name="height">The height of the cube.</param>
         /// <param name="depth">The depth of the cube.</param>
         /// <param name="color">The color of the cube.</param>
+        /// <exception cref="GraphicsException">OpenGL error occurred.</exception>
         public Cube(float width, float height, float depth, Color color) : this(width, height, depth, color, new(Color.Light, Color.Light, Color.Light, 16))
         {
         }
@@ -35,6 +36,7 @@ namespace BEditor.Graphics
         /// <param name="depth">The depth of the cube.</param>
         /// <param name="color">The color of the cube.</param>
         /// <param name="material">The material of the cube.</param>
+        /// <exception cref="GraphicsException">OpenGL error occurred.</exception>
         public Cube(float width, float height, float depth, Color color, Material material) : this(width, height, depth, color, material, Transform.Default)
         {
 
@@ -48,6 +50,7 @@ namespace BEditor.Graphics
         /// <param name="color">The color of the cube.</param>
         /// <param name="material">The material of the cube.</param>
         /// <param name="transform">The transform of the cube.</param>
+        /// <exception cref="GraphicsException">OpenGL error occurred.</exception>
         public Cube(float width, float height, float depth, Color color, Material material, Transform transform)
         {
             Width = width;
@@ -113,6 +116,8 @@ namespace BEditor.Graphics
             VertexBufferObject = GL.GenBuffer();
             GL.BindBuffer(BufferTarget.ArrayBuffer, VertexBufferObject);
             GL.BufferData(BufferTarget.ArrayBuffer, _vertices.Length * sizeof(float), _vertices, BufferUsageHint.StaticDraw);
+
+            Tool.ThrowGLError();
         }
 
         /// <summary>

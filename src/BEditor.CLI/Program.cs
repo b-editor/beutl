@@ -200,6 +200,8 @@ namespace BEditor
 
                     proj.Unload();
 
+                    Console.WriteLine(CommandLineResources.SavedTo, result);
+
                     return result;
                 });
             });
@@ -212,14 +214,14 @@ namespace BEditor
 
                 var file = command.Argument("project", CommandLineResources.ProjectFile);
 
-                command.OnExecute(async () =>
+                command.OnExecute(() =>
                 {
                     ConsoleEditor? editor = null;
                     try
                     {
                         editor = new ConsoleEditor(file.Value);
 
-                        await editor.Execute();
+                        editor.Execute();
 
                         return 0;
                     }
@@ -234,7 +236,29 @@ namespace BEditor
                 });
             });
 
+            app.Command("fonts", command =>
+            {
+                command.Description = CommandLineResources.EnumerateFonts;
+
+                command.HelpOption("-?|-h|--help");
+
+                command.OnExecute(() =>
+                {
+                    Console.WriteLine("FamilyName | Weight | Width");
+                    Console.WriteLine("===========================");
+
+                    foreach (var font in FontManager.Default.LoadedFonts)
+                    {
+                        Console.WriteLine($"{font.FamilyName} | {font.Weight:g} | {font.Width:g}");
+                    }
+
+                    return 0;
+                });
+            });
+
             app.Execute(args);
+
+            Settings.Default.Save();
         }
 
         private static void SetKnownTypes()

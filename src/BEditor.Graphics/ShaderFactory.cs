@@ -6,12 +6,30 @@ using System.Threading.Tasks;
 
 namespace BEditor.Graphics
 {
+    /// <summary>
+    /// Represents the factory class for creating shaders.
+    /// </summary>
     public class ShaderFactory
     {
+        /// <summary>
+        /// 
+        /// </summary>
         public static readonly ShaderFactory Texture = new TextureShaderFactory();
+        /// <summary>
+        /// 
+        /// </summary>
         public static readonly ShaderFactory Lighting = new LightingShaderFactory();
+        /// <summary>
+        /// 
+        /// </summary>
         public static readonly ShaderFactory TextureLighting = new LightingTextureShaderFactory();
+        /// <summary>
+        /// 
+        /// </summary>
         public static readonly ShaderFactory Line = new LineShaderFactory();
+        /// <summary>
+        /// 
+        /// </summary>
         public static readonly ShaderFactory Default = new();
 
         internal const string Frag =
@@ -39,6 +57,9 @@ namespace BEditor.Graphics
             "}";
 
 
+        /// <summary>
+        /// Create a shader.
+        /// </summary>
         public virtual Shader Create()
         {
             return new(Vert, Frag);

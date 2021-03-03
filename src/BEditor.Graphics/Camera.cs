@@ -18,7 +18,7 @@ namespace BEditor.Graphics
         /// <summary>
         /// Initializes a new instance of the <see cref="Camera"/> class.
         /// </summary>
-        /// <param name="position">Camera position</param>
+        /// <param name="position">The position of the camera.</param>
         public Camera(Vector3 position)
         {
             Position = position;
