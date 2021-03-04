@@ -2,6 +2,7 @@
 using System.Collections.Generic;
 using System.Threading;
 
+using BEditor.Data;
 using BEditor.Plugin;
 
 using Microsoft.Extensions.DependencyInjection;
@@ -26,5 +27,18 @@ namespace BEditor
         /// Gets the <see cref="ILoggerFactory"/>.
         /// </summary>
         public ILoggerFactory LoggingFactory { get; }
+
+        /// <summary>
+        /// Restore the application configuration.
+        /// </summary>
+        /// <param name="project"></param>
+        /// <param name="directory"></param>
+        public void RestoreAppConfig(Project project, string directory);
+        /// <summary>
+        /// Save the application configuration.
+        /// </summary>
+        /// <param name="project"></param>
+        /// <param name="directory"></param>
+        public void SaveAppConfig(Project project, string directory);
     }
 }

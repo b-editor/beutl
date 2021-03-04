@@ -131,6 +131,83 @@ namespace BEditor.Models
         public IMessage Message { get; }
         public IFileDialogService FileDialog { get; }
         public ILoggerFactory LoggingFactory { get; }
+
+        public void SaveAppConfig(Project project, string directory)
+        {
+            static void IfNotExistCreateDir(string dir)
+            {
+                if (!Directory.Exists(dir))
+                {
+                    Directory.CreateDirectory(dir);
+                }
+            }
+
+            var cache = Path.Combine(directory, "cache");
+
+            IfNotExistCreateDir(cache);
+
+            {
+                var sceneCacheDir = Path.Combine(cache, "scene");
+                IfNotExistCreateDir(sceneCacheDir);
+
+                foreach (var scene in project.SceneList)
+                {
+                    var sceneCache = Path.Combine(sceneCacheDir, scene.Name + ".cache");
+                    var cacheObj = new SceneCache(scene.SelectItems.Select(i => i.Name).ToArray())
+                    {
+                        Select = scene.SelectItem?.Name,
+                        PreviewFrame = scene.PreviewFrame,
+                        TimelineScale = scene.TimeLineZoom,
+                        TimelineHorizonOffset = scene.TimeLineHorizonOffset,
+                        TimelineVerticalOffset = scene.TimeLineVerticalOffset
+                    };
+
+                    Serialize.SaveToFile(cacheObj, sceneCache, SerializeMode.Json);
+                }
+            }
+        }
+        public void RestoreAppConfig(Project project, string directory)
+        {
+            static void IfNotExistCreateDir(string dir)
+            {
+                if (!Directory.Exists(dir))
+                {
+                    Directory.CreateDirectory(dir);
+                }
+            }
+
+            var cache = Path.Combine(directory, "cache");
+
+            IfNotExistCreateDir(cache);
+
+            {
+                var sceneCacheDir = Path.Combine(cache, "scene");
+                IfNotExistCreateDir(sceneCacheDir);
+
+                foreach (var scene in project.SceneList)
+                {
+                    var sceneCache = Path.Combine(sceneCacheDir, scene.Name + ".cache");
+
+                    if (!File.Exists(sceneCache)) continue;
+
+                    var cacheObj = Serialize.LoadFromFile<SceneCache>(sceneCache, SerializeMode.Json);
+
+                    if (cacheObj is not null)
+                    {
+                        scene.SelectItem = scene[cacheObj.Select];
+                        scene.PreviewFrame = cacheObj.PreviewFrame;
+                        scene.TimeLineZoom = cacheObj.TimelineScale;
+                        scene.TimeLineHorizonOffset = cacheObj.TimelineHorizonOffset;
+                        scene.TimeLineVerticalOffset = cacheObj.TimelineVerticalOffset;
+
+                        foreach (var select in cacheObj.Selects.Select(i => scene[i]).Where(i => i is not null))
+                        {
+                            scene.SelectItems.Add(select!);
+                        }
+                    }
+                }
+            }
+        }
     }
 
     public class BEditorLoggerProvider : ILoggerProvider
@@ -149,6 +226,8 @@ namespace BEditor.Models
         public void Dispose()
         {
             Disposed?.Invoke(this, EventArgs.Empty);
+
+            GC.SuppressFinalize(this);
         }
     }
 
@@ -185,14 +264,14 @@ namespace BEditor.Models
             var str = new StringBuilder();
 
             str.Append(_indent);
-            str.Append("[");
+            str.Append('[');
             str.Append(Enum.GetName(typeof(LogLevel), logLevel));
             str.Append("] ");
 
             str.Append(formatter?.Invoke(state, exception) ?? "");
             str.Append(exception?.Message ?? "");
             str.Append(exception?.StackTrace ?? "");
-            str.Append("\n");
+            str.Append('\n');
 
             Text.Value += str.ToString();
         }

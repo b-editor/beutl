@@ -397,11 +397,11 @@ namespace BEditor.Data
                 Clip.Unload();
 
                 //存在する場合
-                if (Scene.SelectNames.Exists(x => x == Clip.Name))
+                if (Scene.SelectItems.Contains(Clip))
                 {
                     Scene.SelectItems.Remove(Clip);
 
-                    if (Scene.SelectName == Clip.Name)
+                    if (Scene.SelectItem == Clip)
                     {
                         Scene.SelectItem = null;
                     }
@@ -429,11 +429,11 @@ namespace BEditor.Data
                 {
                     _Clip.Unload();
                     //存在する場合
-                    if (_Clip.Parent.SelectNames.Exists(x => x == _Clip.Name))
+                    if (_Clip.Parent.SelectItems.Contains(_Clip))
                     {
                         _Clip.Parent.SelectItems.Remove(_Clip);
 
-                        if (_Clip.Parent.SelectName == _Clip.Name)
+                        if (_Clip.Parent.SelectItem == _Clip)
                         {
                             if (_Clip.Parent.SelectItems.Count == 0)
                             {
@@ -451,7 +451,6 @@ namespace BEditor.Data
             {
                 Do();
             }
-
             public void Undo()
             {
                 _Clip.Load();

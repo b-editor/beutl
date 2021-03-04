@@ -197,6 +197,8 @@ namespace BEditor.Data
         /// <returns><see langword="true"/> if the save is successful, otherwise <see langword="false"/>.</returns>
         public bool Save(string filename, SerializeMode mode = SerializeMode.Binary)
         {
+            if (filename is null) throw new ArgumentNullException(nameof(filename));
+
             static void IfNotExistCreateDir(string dir)
             {
                 if (!Directory.Exists(dir))
@@ -206,25 +208,37 @@ namespace BEditor.Data
             }
 
             Name = Path.GetFileNameWithoutExtension(filename);
-            DirectoryName = Path.GetDirectoryName(filename);
-            IfNotExistCreateDir(DirectoryName!);
+            DirectoryName = Path.GetDirectoryName(filename)!;
+            IfNotExistCreateDir(DirectoryName);
 
             if (PreviewScene.IsLoaded)
             {
                 Synchronize.Send(_ =>
                 {
-                    using var img = new Image<BGRA32>(PreviewScene.Width, PreviewScene.Height);
+                    try
+                    {
+                        using var img = new Image<BGRA32>(PreviewScene.Width, PreviewScene.Height);
 
-                    var thumbnail = Path.Combine(DirectoryName!, "thumbnail.png");
-                    PreviewScene.Render(img, RenderType.ImageOutput);
+                        var thumbnail = Path.Combine(DirectoryName!, "thumbnail.png");
+                        PreviewScene.Render(img, RenderType.ImageOutput);
 
-                    img.Encode(thumbnail);
+                        img.Encode(thumbnail);
+                    }
+                    catch
+                    {
+
+                    }
                 }, null);
             }
 
             if (Serialize.SaveToFile(this, filename, mode))
             {
                 Saved?.Invoke(this, new(SaveType.Save));
+
+                var appDir = Path.Combine(DirectoryName, ".app");
+                IfNotExistCreateDir(appDir);
+                Parent.SaveAppConfig(this, appDir);
+
                 return true;
             }
             return false;
@@ -254,6 +268,14 @@ namespace BEditor.Data
         /// <returns>Returns the loaded <see cref="Project"/> on success, or <see langword="null"/> on failure.</returns>
         public static Project? FromFile(string file, IApplication app)
         {
+            static void IfNotExistCreateDir(string dir)
+            {
+                if (!Directory.Exists(dir))
+                {
+                    Directory.CreateDirectory(dir);
+                }
+            }
+
             // Dirを渡された
             if (Directory.Exists(file))
             {
@@ -283,6 +305,10 @@ namespace BEditor.Data
             proj.DirectoryName = Path.GetDirectoryName(file);
             proj.Name = Path.GetFileNameWithoutExtension(file);
             proj.Parent = app;
+
+            var appConf = Path.Combine(proj.DirectoryName!, ".app");
+            IfNotExistCreateDir(appConf);
+            app.RestoreAppConfig(proj, appConf);
 
             return proj;
         }

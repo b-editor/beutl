@@ -61,6 +61,26 @@ namespace BEditor.Properties {
         }
         
         /// <summary>
+        ///   An exception was thrown during rendering,
+        ///so playback was stopped. に類似しているローカライズされた文字列を検索します。
+        /// </summary>
+        internal static string An_exception_was_thrown_during_rendering {
+            get {
+                return ResourceManager.GetString("An exception was thrown during rendering", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   An exception was thrown during rendering, so the preview was temporarily stopped,
+        ///and will be released after 5 seconds. に類似しているローカライズされた文字列を検索します。
+        /// </summary>
+        internal static string An_exception_was_thrown_during_rendering_preview {
+            get {
+                return ResourceManager.GetString("An exception was thrown during rendering preview", resourceCulture);
+            }
+        }
+        
+        /// <summary>
         ///   Cannot place a new clip because a clip already exists in the specified location. に類似しているローカライズされた文字列を検索します。
         /// </summary>
         internal static string ClipExistsInTheSpecifiedLocation {
@@ -97,7 +117,8 @@ namespace BEditor.Properties {
         }
         
         /// <summary>
-        ///   FFmpeg was not found. Do you want to \n install it? に類似しているローカライズされた文字列を検索します。
+        ///   FFmpeg was not found.
+        ///Do you want to install it? に類似しているローカライズされた文字列を検索します。
         /// </summary>
         internal static string FFmpegNotFound {
             get {
@@ -151,7 +172,8 @@ namespace BEditor.Properties {
         }
         
         /// <summary>
-        ///   OpenAL was not found.\nPlease install it. に類似しているローカライズされた文字列を検索します。
+        ///   OpenAL was not found.
+        ///Please install it. に類似しているローカライズされた文字列を検索します。
         /// </summary>
         internal static string OpenALNotFound {
             get {

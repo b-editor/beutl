@@ -1,6 +1,7 @@
 ﻿using System;
 using System.Collections.Generic;
 using System.Linq;
+using System.Runtime.Serialization;
 using System.Text;
 using System.Threading.Tasks;
 
@@ -14,6 +15,7 @@ namespace BEditor.Plugin
     /// 
     /// public SettingRecord Settings { get; set; } = new CustomSetting("Sample text");
     /// </example>
+    [DataContract]
     public record SettingRecord()
     {
     }

@@ -38,7 +38,7 @@ namespace BEditor.Data
         private static readonly PropertyChangedEventArgs _VoffsetArgs = new(nameof(TimeLineVerticalOffset));
         private static readonly PropertyChangedEventArgs _SceneNameArgs = new(nameof(SceneName));
         private ClipElement? _selectItem;
-        private ObservableCollection<ClipElement?>? _selectItems;
+        private ObservableCollection<ClipElement>? _selectItems;
         private Frame _previewframe;
         private Frame _totalframe = 1000;
         private float _timeLineZoom = 150;
@@ -91,38 +91,35 @@ namespace BEditor.Data
         }
 
         /// <summary>
-        /// Gets the names of the selected <see cref="ClipElement"/>.
+        /// Gets or sets the total frame.
         /// </summary>
         [DataMember(Order = 3)]
-        public List<string> SelectNames { get; private set; } = new List<string>();
-
-        /// <summary>
-        /// Gets the name of the selected <see cref="ClipElement"/>.
-        /// </summary>
-        [DataMember(Order = 4)]
-        public string? SelectName { get; private set; }
-
-        /// <summary>
-        /// Gets the <see cref="ClipElement"/> contained in this <see cref="Scene"/>.
-        /// </summary>
-        [DataMember(Order = 10)]
-        public ObservableCollection<ClipElement> Datas { get; private set; }
+        public Frame TotalFrame
+        {
+            get => _totalframe;
+            set => SetValue(value, ref _totalframe, _TotalFrameArgs);
+        }
 
         /// <summary>
         /// Gets the number of the hidden layer.
         /// </summary>
-        [DataMember(Order = 11)]
+        [DataMember(Order = 4)]
         public List<int> HideLayer { get; private set; } = new List<int>();
+
+        /// <summary>
+        /// Gets the <see cref="ClipElement"/> contained in this <see cref="Scene"/>.
+        /// </summary>
+        [DataMember(Order = 5)]
+        public ObservableCollection<ClipElement> Datas { get; private set; }
 
         /// <summary>
         /// Gets or sets the selected <see cref="ClipElement"/>.
         /// </summary>
         public ClipElement? SelectItem
         {
-            get => _selectItem ??= this[SelectName ?? null];
+            get => _selectItem ??= SelectItems.FirstOrDefault();
             set
             {
-                SelectName = _selectItem?.Name;
                 _selectItem = value;
                 RaisePropertyChanged(_SelectItemArgs);
             }
@@ -131,31 +128,22 @@ namespace BEditor.Data
         /// <summary>
         /// Gets the selected <see cref="ClipElement"/>.
         /// </summary>
-        public ObservableCollection<ClipElement?> SelectItems
+        public ObservableCollection<ClipElement> SelectItems
         {
             get
             {
-                if (_selectItems == null)
+                if (_selectItems is null)
                 {
-                    _selectItems = new ObservableCollection<ClipElement?>(SelectNames.Select(name => this.Find(name)));
+                    _selectItems = new();
 
                     _selectItems.CollectionChanged += (s, e) =>
                     {
-                        if (e.Action == System.Collections.Specialized.NotifyCollectionChangedAction.Add)
+                        if (e.Action == System.Collections.Specialized.NotifyCollectionChangedAction.Remove)
                         {
-                            if (_selectItems[e.NewStartingIndex] is var item && item is not null)
-                            {
-                                SelectNames.Insert(e.NewStartingIndex, item.Name);
-                            }
-                        }
-                        else if (e.Action == System.Collections.Specialized.NotifyCollectionChangedAction.Remove)
-                        {
-                            if (SelectName == SelectNames[e.OldStartingIndex] || SelectItems.Count == 0)
+                            if (SelectItems.Count == 0)
                             {
                                 SelectItem = null;
                             }
-
-                            SelectNames.RemoveAt(e.OldStartingIndex);
                         }
                     };
                 }
@@ -185,7 +173,6 @@ namespace BEditor.Data
         /// <summary>
         /// Gets or sets the frame number during preview.
         /// </summary>
-        [DataMember(Order = 5)]
         public Frame PreviewFrame
         {
             get => _previewframe;
@@ -193,19 +180,8 @@ namespace BEditor.Data
         }
 
         /// <summary>
-        /// Gets or sets the total frame.
-        /// </summary>
-        [DataMember(Order = 6)]
-        public Frame TotalFrame
-        {
-            get => _totalframe;
-            set => SetValue(value, ref _totalframe, _TotalFrameArgs);
-        }
-
-        /// <summary>
         /// Gets or sets the scale of the timeline.
         /// </summary>
-        [DataMember(Order = 7)]
         public float TimeLineZoom
         {
             get => _timeLineZoom;
@@ -217,7 +193,6 @@ namespace BEditor.Data
         /// <summary>
         /// Gets or sets the horizontal scrolling offset of the timeline.
         /// </summary>
-        [DataMember(Order = 8)]
         public double TimeLineHorizonOffset
         {
             get => _timeLineHorizonOffset;
@@ -227,7 +202,6 @@ namespace BEditor.Data
         /// <summary>
         /// Gets or sets the vertical scrolling offset of the timeline.
         /// </summary>
-        [DataMember(Order = 9)]
         public double TimeLineVerticalOffset
         {
             get => _timeLineVerticalOffset;
@@ -362,6 +336,7 @@ namespace BEditor.Data
         /// <param name="frame">The frame to render.</param>
         /// <param name="renderType">The type of rendering.</param>
         /// <returns>Returns the result of rendering.</returns>
+        /// <exception cref="RenderingException">Faileds to rendering.</exception>
         public RenderingResult Render(Frame frame, RenderType renderType = RenderType.Preview)
         {
             if (!IsLoaded)
@@ -400,6 +375,7 @@ namespace BEditor.Data
         /// </summary>
         /// <param name="renderType">The type of rendering.</param>
         /// <returns>Returns the result of rendering.</returns>
+        /// <exception cref="RenderingException">Faileds to rendering.</exception>
         public RenderingResult Render(RenderType renderType = RenderType.Preview)
         {
             return Render(PreviewFrame, renderType);
@@ -411,6 +387,7 @@ namespace BEditor.Data
         /// <param name="image">The image to be drawn.</param>
         /// <param name="frame">The frame to render.</param>
         /// <param name="renderType">The type of rendering.</param>
+        /// <exception cref="RenderingException">Faileds to rendering.</exception>
         public void Render(Image<BGRA32> image, Frame frame, RenderType renderType = RenderType.Preview)
         {
             if (!IsLoaded) return;
@@ -444,6 +421,7 @@ namespace BEditor.Data
         /// </summary>
         /// <param name="image">The image to be drawn.</param>
         /// <param name="renderType">The type of rendering.</param>
+        /// <exception cref="RenderingException">Faileds to rendering.</exception>
         public void Render(Image<BGRA32> image, RenderType renderType = RenderType.Preview)
         {
             Render(image, PreviewFrame, renderType);
@@ -501,7 +479,7 @@ namespace BEditor.Data
         }
 
         /// <summary>
-        /// Set the selected <see cref="ClipElement"/> and add the name to <see cref="SelectNames"/> if it does not exist.
+        /// Set the selected <see cref="ClipElement"/> and add the name to <see cref="SelectItems"/> if it does not exist.
         /// </summary>
         /// <param name="clip"><see cref="ClipElement"/> to be set to current.</param>
         /// <exception cref="ArgumentNullException"><paramref name="clip"/> is <see langword="null"/>.</exception>
@@ -509,7 +487,7 @@ namespace BEditor.Data
         {
             SelectItem = clip ?? throw new ArgumentNullException(nameof(clip));
 
-            if (!SelectNames.Exists(x => x == clip.Name))
+            if (!SelectItems.Contains(clip))
             {
                 SelectItems.Add(clip);
             }
@@ -543,11 +521,9 @@ namespace BEditor.Data
                     clip.Unload();
 
                     // 存在する場合
-                    if (scene.SelectNames.Exists(x => x == clip.Name))
+                    if (scene.SelectItems.Remove(clip))
                     {
-                        scene.SelectItems.Remove(clip);
-
-                        if (scene.SelectName == clip.Name)
+                        if (scene.SelectItem == clip)
                         {
                             scene.SelectItem = null;
                         }

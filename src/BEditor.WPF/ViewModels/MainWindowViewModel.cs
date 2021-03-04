@@ -7,14 +7,12 @@ using System.Windows.Media.Imaging;
 
 using BEditor;
 using BEditor.Command;
+using BEditor.Data;
 using BEditor.Models;
 using BEditor.ViewModels.SettingsControl;
 using BEditor.Views.SettingsControl;
 
 using MaterialDesignThemes.Wpf;
-
-using Microsoft.Extensions.DependencyInjection;
-using Microsoft.Extensions.Logging;
 
 using Reactive.Bindings;
 using Reactive.Bindings.Extensions;
@@ -182,7 +180,7 @@ namespace BEditor.ViewModels
             CommandManager.Clear();
 
             ProjectIsOpened.Value = true;
-            AppData.Current.Project!.Saved += (_, _) => AppData.Current.AppStatus = Status.Saved;
+            AppData.Current.Project!.Saved += (s, _) => AppData.Current.AppStatus = Status.Saved;
         }
 
         private void Project_Closed()

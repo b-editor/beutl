@@ -263,7 +263,7 @@ namespace BEditor.Views.TimeLines
                     for (int s = 0; s < (max / rate); s++)
                     {
                         //一秒毎
-                        Border border = new Border
+                        var border = new Border
                         {
                             Width = 1,
                             HorizontalAlignment = HorizontalAlignment.Left,
@@ -289,7 +289,7 @@ namespace BEditor.Views.TimeLines
                         {
                             for (int m = 1; m < rate; m++)
                             {
-                                Border border2 = new Border
+                                var border2 = new Border
                                 {
                                     Width = 1,
                                     HorizontalAlignment = HorizontalAlignment.Left,
@@ -305,7 +305,7 @@ namespace BEditor.Views.TimeLines
                         {
                             for (int m = 1; m < rate / 2; m++)
                             {
-                                Border border2 = new Border
+                                var border2 = new Border
                                 {
                                     Width = 1,
                                     HorizontalAlignment = HorizontalAlignment.Left,
@@ -321,7 +321,7 @@ namespace BEditor.Views.TimeLines
                         {
                             for (int m = 1; m < rate / 4; m++)
                             {
-                                Border border2 = new Border
+                                var border2 = new Border
                                 {
                                     Width = 1,
                                     HorizontalAlignment = HorizontalAlignment.Left,
@@ -341,7 +341,7 @@ namespace BEditor.Views.TimeLines
                     //最大の分
                     for (int m = 1; m < (max / rate) / 60; m++)
                     {
-                        Border border = new Border()
+                        var border = new Border()
                         {
                             Width = 1,
                             HorizontalAlignment = HorizontalAlignment.Left,
@@ -354,7 +354,7 @@ namespace BEditor.Views.TimeLines
 
                         for (int s = 1; s < 60; s++)
                         {
-                            Border border2 = new Border
+                            var border2 = new Border
                             {
                                 Width = 1,
                                 HorizontalAlignment = HorizontalAlignment.Left,
