@@ -344,31 +344,31 @@ namespace BEditor
             {
                 Children = new EffectMetadata[]
                 {
-                    new(Resource.Border, () => new Border()),
-                    new($"{Resource.Border} ({Resource.Text})", () => new StrokeText()),
-                    new(Resource.ColorKey, () => new ColorKey()),
-                    new(Resource.DropShadow, () => new Shadow()),
-                    new(Resource.Blur, () => new Blur()),
-                    new(Resource.Monoc, () => new Monoc()),
-                    new(Resource.Dilate, () => new Dilate()),
-                    new(Resource.Erode, () => new Erode()),
-                    new(Resource.Clipping, () => new Clipping()),
-                    new(Resource.AreaExpansion, () => new AreaExpansion()),
-                    new(Resource.LinearGradient, () => new LinearGradient()),
-                    new(Resource.CircularGradient, () => new CircularGradient()),
-                    new(Resource.Mask, () => new Mask()),
-                    new(Resource.PointLightDiffuse, () => new PointLightDiffuse()),
-                    new(Resource.ChromaKey, () => new ChromaKey()),
-                    new(Resource.ImageSplit, () => new ImageSplit()),
-                    new(Resource.MultipleImageControls, () => new MultipleControls()),
+                    EffectMetadata.Create<Border>(Resource.Border),
+                    EffectMetadata.Create<StrokeText>($"{Resource.Border} ({Resource.Text})"),
+                    EffectMetadata.Create<ColorKey>(Resource.ColorKey),
+                    EffectMetadata.Create<Shadow>(Resource.DropShadow),
+                    EffectMetadata.Create<Blur>(Resource.Blur),
+                    EffectMetadata.Create<Monoc>(Resource.Monoc),
+                    EffectMetadata.Create<Dilate>(Resource.Dilate),
+                    EffectMetadata.Create<Erode>(Resource.Erode),
+                    EffectMetadata.Create<Clipping>(Resource.Clipping),
+                    EffectMetadata.Create<AreaExpansion>(Resource.AreaExpansion),
+                    EffectMetadata.Create<LinearGradient>(Resource.LinearGradient),
+                    EffectMetadata.Create<CircularGradient>(Resource.CircularGradient),
+                    EffectMetadata.Create<Mask>(Resource.Mask),
+                    EffectMetadata.Create<PointLightDiffuse>(Resource.PointLightDiffuse),
+                    EffectMetadata.Create<ChromaKey>(Resource.ChromaKey),
+                    EffectMetadata.Create<ImageSplit>(Resource.ImageSplit),
+                    EffectMetadata.Create<MultipleControls>(Resource.MultipleImageControls),
                 }
             });
             EffectMetadata.LoadedEffects.Add(new(Resource.Camera)
             {
                 Children = new EffectMetadata[]
                 {
-                    new(Resource.DepthTest, () => new DepthTest()),
-                    new(Resource.PointLightSource, () => new PointLightSource()),
+                    EffectMetadata.Create<DepthTest>(Resource.DepthTest),
+                    EffectMetadata.Create<PointLightSource>(Resource.PointLightSource),
                 }
             });
 #if DEBUG

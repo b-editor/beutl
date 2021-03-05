@@ -7,19 +7,25 @@ namespace BEditor.Data
 {
     //Todo: Document
 #pragma warning disable CS1591
-    public record EffectMetadata(string Name, Expression<Func<EffectElement>> Create)
+    public record EffectMetadata(string Name, Func<EffectElement> CreateFunc, Type Type)
     {
-        private Func<EffectElement>? _Func;
-
         public EffectMetadata(string Name) : this(Name, () => new EffectElement.EmptyClass()) { }
 
-        public Type Type => ((NewExpression)Create.Body).Type;
-        public Func<EffectElement> CreateFunc => _Func ??= Create.Compile();
+        public EffectMetadata(string Name, Expression<Func<EffectElement>> Create) : this(Name, Create.Compile(), ((NewExpression)Create.Body).Type)
+        {
+
+        }
+
+
         public IEnumerable<EffectMetadata>? Children { get; set; }
 
-
-
         public static ObservableCollection<EffectMetadata> LoadedEffects { get; } = new();
+
+
+        public static EffectMetadata Create<T>(string Name) where T : EffectElement, new()
+        {
+            return new(Name, () => new T(), typeof(T));
+        }
     }
 #pragma warning restore CS1591
 }

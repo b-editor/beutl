@@ -28,19 +28,19 @@ namespace BEditor.Primitive
         /// </summary>
         public static readonly Type Image = typeof(ImageFile);
         /// <summary>
-        /// <see cref="Type"/> of <see cref="Primitive.Objects.Text"/> class.
+        /// <see cref="Type"/> of <see cref="Objects.Text"/> class.
         /// </summary>
         public static readonly Type Text = typeof(Text);
         /// <summary>
-        /// <see cref="Type"/> of <see cref="Primitive.Objects.Figure"/> class.
+        /// <see cref="Type"/> of <see cref="Objects.Figure"/> class.
         /// </summary>
         public static readonly Type Figure = typeof(Figure);
         /// <summary>
-        /// <see cref="Type"/> of <see cref="Primitive.Objects.Polygon"/> class.
+        /// <see cref="Type"/> of <see cref="Objects.Polygon"/> class.
         /// </summary>
         public static readonly Type Polygon = typeof(Polygon);
         /// <summary>
-        /// <see cref="Type"/> of <see cref="Primitive.Objects.RoundRect"/> class.
+        /// <see cref="Type"/> of <see cref="Objects.RoundRect"/> class.
         /// </summary>
         public static readonly Type RoundRect = typeof(RoundRect);
         /// <summary>
@@ -48,7 +48,7 @@ namespace BEditor.Primitive
         /// </summary>
         public static readonly Type Camera = typeof(CameraObject);
         /// <summary>
-        /// <see cref="Type"/> of <see cref="Primitive.Objects.GL3DObject"/> class.
+        /// <see cref="Type"/> of <see cref="Objects.GL3DObject"/> class.
         /// </summary>
         public static readonly Type GL3DObject = typeof(GL3DObject);
         /// <summary>
@@ -58,43 +58,43 @@ namespace BEditor.Primitive
         /// <summary>
         /// Metadata of <see cref="VideoFile"/> class.
         /// </summary>
-        public static readonly ObjectMetadata VideoMetadata = new(Resources.Video, () => new VideoFile());
+        public static readonly ObjectMetadata VideoMetadata = ObjectMetadata.Create<VideoFile>(Resources.Video);
         /// <summary>
         /// Metadata of <see cref="AudioObject"/> class.
         /// </summary>
-        public static readonly ObjectMetadata AudioMetadata = new(Resources.Audio, () => new AudioObject());
+        public static readonly ObjectMetadata AudioMetadata = ObjectMetadata.Create<AudioObject>(Resources.Audio);
         /// <summary>
         /// Metadata of <see cref="ImageFile"/> class.
         /// </summary>
-        public static readonly ObjectMetadata ImageMetadata = new(Resources.Image, () => new ImageFile());
+        public static readonly ObjectMetadata ImageMetadata = ObjectMetadata.Create<ImageFile>(Resources.Image);
         /// <summary>
         /// Metadata of <see cref="Objects.Text"/> class.
         /// </summary>
-        public static readonly ObjectMetadata TextMetadata = new(Resources.Text, () => new Text());
+        public static readonly ObjectMetadata TextMetadata = ObjectMetadata.Create<Text>(Resources.Text);
         /// <summary>
         /// Metadata of <see cref="Objects.Figure"/> class.
         /// </summary>
-        public static readonly ObjectMetadata FigureMetadata = new(Resources.Figure, () => new Figure());
+        public static readonly ObjectMetadata FigureMetadata = ObjectMetadata.Create<Figure>(Resources.Figure);
         /// <summary>
         /// Metadata of <see cref="Objects.Polygon"/> class.
         /// </summary>
-        public static readonly ObjectMetadata PolygonMetadata = new("Polygon", () => new Polygon());
+        public static readonly ObjectMetadata PolygonMetadata = ObjectMetadata.Create<Polygon>("Polygon");
         /// <summary>
         /// Metadata of <see cref="Objects.RoundRect"/> class.
         /// </summary>
-        public static readonly ObjectMetadata RoundRectMetadata = new("RoundRect", () => new RoundRect());
+        public static readonly ObjectMetadata RoundRectMetadata = ObjectMetadata.Create<RoundRect>("RoundRect");
         /// <summary>
         /// Metadata of <see cref="CameraObject"/> class.
         /// </summary>
-        public static readonly ObjectMetadata CameraMetadata = new(Resources.Camera, () => new CameraObject());
+        public static readonly ObjectMetadata CameraMetadata = ObjectMetadata.Create<CameraObject>(Resources.Camera);
         /// <summary>
         /// Metadata of <see cref="Objects.GL3DObject"/> class.
         /// </summary>
-        public static readonly ObjectMetadata GL3DObjectMetadata = new(Resources._3DObject, () => new GL3DObject());
+        public static readonly ObjectMetadata GL3DObjectMetadata = ObjectMetadata.Create<GL3DObject>(Resources._3DObject);
         /// <summary>
         /// Metadata of <see cref="SceneObject"/> class.
         /// </summary>
-        public static readonly ObjectMetadata SceneMetadata = new(Resources.Scene, () => new SceneObject());
+        public static readonly ObjectMetadata SceneMetadata = ObjectMetadata.Create<SceneObject>(Resources.Scene);
 
     }
 }
