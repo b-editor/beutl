@@ -5,8 +5,6 @@ using System.Text;
 using System.Threading;
 using System.Threading.Tasks;
 
-using static System.Console;
-
 namespace BEditor
 {
     public class ProgressBar : IDisposable, IProgress<double>
@@ -71,11 +69,11 @@ namespace BEditor
             }
 
             // Backtrack to the first differing character
-            StringBuilder outputBuilder = new StringBuilder();
+            var outputBuilder = new StringBuilder();
             outputBuilder.Append('\b', currentText.Length - commonPrefixLength);
 
             // Output new suffix
-            outputBuilder.Append(text.Substring(commonPrefixLength));
+            outputBuilder.Append(text[commonPrefixLength..]);
 
             // If the new text is shorter than the old one: delete overlapping characters
             int overlapCount = currentText.Length - text.Length;
@@ -100,6 +98,8 @@ namespace BEditor
             {
                 disposed = true;
                 UpdateText(string.Empty);
+
+                GC.SuppressFinalize(this);
             }
         }
 

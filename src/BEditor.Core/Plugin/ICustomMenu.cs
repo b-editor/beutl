@@ -22,7 +22,6 @@ namespace BEditor.Plugin
         public void Execute();
     }
 
-#pragma warning disable CS1591 // 公開されている型またはメンバーの XML コメントがありません
     /// <inheritdoc cref="ICustomMenu"/>
     public record CustomMenu(string Name, Action Execute) : ICustomMenu
     {
@@ -31,5 +30,4 @@ namespace BEditor.Plugin
             Execute?.Invoke();
         }
     }
-#pragma warning restore CS1591 // 公開されている型またはメンバーの XML コメントがありません
 }

@@ -108,7 +108,6 @@ namespace BEditor.Drawing
                 => throw new FormatException(string.Format(Resources.FormetException, format));
 
             if (string.IsNullOrEmpty(format)) format = "#argb";
-            if (formatProvider is null) formatProvider = CultureInfo.CurrentCulture;
             format = format.ToUpperInvariant();
 
             string colorformat = format

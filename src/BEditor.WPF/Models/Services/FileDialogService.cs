@@ -1,10 +1,11 @@
 ﻿using System;
 using System.Linq;
-using System.Collections.Generic;
+using System.Text;
 using System.Threading.Tasks;
+using System.Windows;
+using System.Windows.Interop;
 
 using Microsoft.Win32;
-using System.Text;
 
 namespace BEditor.Models.Services
 {
@@ -18,16 +19,7 @@ namespace BEditor.Models.Services
                 builder.Append(item.Name);
                 builder.Append('|');
 
-                var isFirst = true;
-                foreach (var ext in item.Extensions)
-                {
-                    if (!isFirst) builder.Append(';');
-
-                    builder.Append("*.");
-                    builder.Append(ext.Value);
-
-                    isFirst = false;
-                }
+                builder.Append(string.Join(';', item.Extensions.Select(i => "*." + i.Value)));
 
                 builder.Append('|');
             }
@@ -42,16 +34,7 @@ namespace BEditor.Models.Services
                 builder.Append(item.Name);
                 builder.Append('|');
 
-                var isFirst = true;
-                foreach (var ext in item.Extensions)
-                {
-                    if (!isFirst) builder.Append(';');
-
-                    builder.Append("*.");
-                    builder.Append(ext.Value);
-
-                    isFirst = false;
-                }
+                builder.Append(string.Join(';', item.Extensions.Select(i => "*." + i.Value)));
 
                 builder.Append('|');
             }

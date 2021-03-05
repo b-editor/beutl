@@ -61,7 +61,7 @@ namespace BEditor.ViewModels.TimeLines
 
         #endregion
 
-        public double TrackHeight => Setting.ClipHeight + 1;
+        public static double TrackHeight => Setting.ClipHeight + 1;
         public EaseProperty Property { get; }
 
         public ReadOnlyReactiveProperty<EasePropertyMetadata?> Metadata { get; }

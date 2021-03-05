@@ -172,7 +172,7 @@ namespace BEditor.ViewModels.CreatePage
                                 new XAttribute("Samplingrate", 44100)),
                     };
 
-                    XDocument XDoc = new XDocument(
+                    var XDoc = new XDocument(
                         new XDeclaration("1.0", "utf-8", "true"),
                         new XElement("Items")
                     );

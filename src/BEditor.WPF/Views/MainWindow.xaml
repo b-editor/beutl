@@ -256,6 +256,12 @@
                         </ContextMenu>
                     </Button.ContextMenu>
                 </Button>
+                <Button Content="Test" Style="{StaticResource TitleButtonStyle}" Click="Button_Click_1">
+                    <Button.ContextMenu>
+                        <ContextMenu>
+                        </ContextMenu>
+                    </Button.ContextMenu>
+                </Button>
             </VirtualizingStackPanel>
         </Controls:WindowCommands>
     </Controls:MetroWindow.LeftWindowCommands>

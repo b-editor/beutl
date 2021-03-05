@@ -22,10 +22,10 @@ namespace BEditor.Views.PropertyControl
     {
         private ColorAnimationProperty _property;
         private double _openHeight;
-        private readonly Storyboard _openStoryboard = new Storyboard();
-        private readonly Storyboard _closeStoryboard = new Storyboard();
-        private readonly DoubleAnimation _openAnm = new DoubleAnimation() { Duration = TimeSpan.FromSeconds(0.25) };
-        private readonly DoubleAnimation _closeAnm = new DoubleAnimation() { Duration = TimeSpan.FromSeconds(0.25), To = 32.5 };
+        private readonly Storyboard _openStoryboard = new();
+        private readonly Storyboard _closeStoryboard = new();
+        private readonly DoubleAnimation _openAnm = new() { Duration = TimeSpan.FromSeconds(0.25) };
+        private readonly DoubleAnimation _closeAnm = new() { Duration = TimeSpan.FromSeconds(0.25), To = 32.5 };
 
         public ColorAnimation(ColorAnimationProperty property)
         {

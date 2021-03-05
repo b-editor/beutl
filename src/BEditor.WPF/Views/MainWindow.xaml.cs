@@ -12,6 +12,7 @@ using System.Windows;
 using System.Windows.Controls;
 using System.Windows.Controls.Primitives;
 using System.Windows.Input;
+using System.Windows.Interop;
 
 using BEditor.Data;
 using BEditor.Models;
@@ -33,6 +34,7 @@ using Expression = System.Linq.Expressions.Expression;
 
 namespace BEditor
 {
+
     /// <summary>
     /// MainWindow.xaml の相互作用ロジック
     /// </summary>
@@ -217,9 +219,9 @@ namespace BEditor
         {
             if (e.LeftButton == MouseButtonState.Pressed)
             {
-                PackIcon packIcon = (PackIcon)sender;
+                var packIcon = (PackIcon)sender;
                 Func<ObjectMetadata> s = () => ClipTypeIconConverter.ToClipMetadata(packIcon.Kind);
-                DataObject dataObject = new DataObject(typeof(Func<ObjectMetadata>), s);
+                var dataObject = new DataObject(typeof(Func<ObjectMetadata>), s);
                 // ドラッグ開始
                 DragDrop.DoDragDrop(this, dataObject, DragDropEffects.Copy);
             }
@@ -242,7 +244,7 @@ namespace BEditor
             {
                 var text = (TextBlock)sender;
                 Func<ObjectMetadata> s = () => (ObjectMetadata)text.DataContext;
-                DataObject dataObject = new DataObject(typeof(Func<ObjectMetadata>), s);
+                var dataObject = new DataObject(typeof(Func<ObjectMetadata>), s);
                 // ドラッグ開始
                 DragDrop.DoDragDrop(this, dataObject, DragDropEffects.Copy);
             }

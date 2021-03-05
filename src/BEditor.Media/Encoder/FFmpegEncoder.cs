@@ -44,6 +44,8 @@ namespace BEditor.Media.Encoder
         public void Dispose()
         {
             media.Dispose();
+
+            GC.SuppressFinalize(this);
         }
         public unsafe void Write(Image<BGRA32> image)
         {

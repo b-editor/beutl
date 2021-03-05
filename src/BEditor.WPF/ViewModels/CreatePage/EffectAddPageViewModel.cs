@@ -59,7 +59,7 @@ namespace BEditor.ViewModels.CreatePage
 
         public ReactiveProperty<Scene> Scene { get; } = new(AppData.Current.Project!.SceneList[0]);
         public ReactiveProperty<EffectItem> Effect { get; } = new();
-        public IEnumerable<EffectItem> AllEffects
+        public static IEnumerable<EffectItem> AllEffects
             => EffectMetadata.LoadedEffects
                 .SelectMany(i => i.Children?
                     .Select(i2 => new EffectItem(i2, i.Name)) ?? new EffectItem[] { new(i, null) });

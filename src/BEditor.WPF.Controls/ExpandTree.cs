@@ -20,10 +20,10 @@ namespace BEditor.WPF.Controls
         public static readonly DependencyProperty IsExpandedProperty = DependencyProperty.Register("IsExpanded", typeof(bool), typeof(ExpandTree), new FrameworkPropertyMetadata(true, FrameworkPropertyMetadataOptions.BindsTwoWayByDefault, IsExpandedChanged));
         private Label? _content;
         private VirtualizingStackPanel? roothead;
-        private readonly Storyboard OpenStoryboard = new Storyboard();
-        private readonly Storyboard CloseStoryboard = new Storyboard();
-        private readonly DoubleAnimation OpenAnm = new DoubleAnimation() { Duration = TimeSpan.FromSeconds(0.25) };
-        private readonly DoubleAnimation CloseAnm = new DoubleAnimation() { Duration = TimeSpan.FromSeconds(0.25), To = 0 };
+        private readonly Storyboard OpenStoryboard = new();
+        private readonly Storyboard CloseStoryboard = new();
+        private readonly DoubleAnimation OpenAnm = new() { Duration = TimeSpan.FromSeconds(0.25) };
+        private readonly DoubleAnimation CloseAnm = new() { Duration = TimeSpan.FromSeconds(0.25), To = 0 };
 
 
         static ExpandTree()

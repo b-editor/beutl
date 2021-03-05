@@ -50,7 +50,7 @@ namespace BEditor.Primitive.Effects
         /// Represents <see cref="Far"/> metadata.
         /// </summary>
         public static readonly EasePropertyMetadata FarMetadata = new("Far", 100, 100, 0);
-        private static readonly ReadOnlyCollection<DepthFunction> DepthFunctions = new ReadOnlyCollection<DepthFunction>(new DepthFunction[]
+        private static readonly ReadOnlyCollection<DepthFunction> DepthFunctions = new(new DepthFunction[]
         {
             DepthFunction.Never,
             DepthFunction.Less,

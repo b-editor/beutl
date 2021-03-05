@@ -18,66 +18,6 @@ using EventTrigger = Microsoft.Xaml.Behaviors.EventTrigger;
 
 namespace BEditor.ViewModels
 {
-    public static class CommandTool
-    {
-        public static EventTrigger CreateEvent(string eventname, ICommand command)
-        {
-            EventTrigger trigger = new EventTrigger
-            {
-                EventName = eventname
-            };
-
-            InvokeCommandAction action = new()
-            {
-                Command = command
-            };
-
-            trigger.Actions.Add(action);
-
-            return trigger;
-        }
-
-        public static EventTrigger CreateEvent(string eventname, ICommand command, IValueConverter converter, object ConverterParameter)
-        {
-            EventTrigger trigger = new EventTrigger
-            {
-                EventName = eventname
-            };
-
-            InvokeCommandAction action = new InvokeCommandAction()
-            {
-                Command = command,
-                EventArgsConverter = converter,
-                EventArgsConverterParameter = ConverterParameter
-            };
-
-
-            trigger.Actions.Add(action);
-
-            return trigger;
-        }
-
-        public static EventTrigger CreateEvent(string eventname, ICommand command, object commandparam)
-        {
-            EventTrigger trigger = new EventTrigger
-            {
-                EventName = eventname
-            };
-
-            InvokeCommandAction action = new InvokeCommandAction()
-            {
-                Command = command,
-                CommandParameter = commandparam
-            };
-
-
-            trigger.Actions.Add(action);
-
-            return trigger;
-        }
-    }
-
-
     public class EventArgsConverter : IValueConverter
     {
         public object Convert(object value, Type targetType, object parameter, CultureInfo culture)
@@ -90,7 +30,7 @@ namespace BEditor.ViewModels
             throw new NotImplementedException();
         }
 
-        public static EventArgsConverter Converter = new EventArgsConverter();
+        public static readonly EventArgsConverter Converter = new();
     }
 
     public class MousePositionConverter : IValueConverter
@@ -108,7 +48,7 @@ namespace BEditor.ViewModels
             throw new NotImplementedException();
         }
 
-        public static MousePositionConverter Converter = new MousePositionConverter();
+        public static readonly MousePositionConverter Converter = new();
     }
 
     public class ClipTypeColorConverter : IValueConverter
@@ -140,45 +80,52 @@ namespace BEditor.ViewModels
     {
         public object Convert(object value, Type targetType, object parameter, CultureInfo culture)
         {
-            if (value is ClipElement clip)
+            Type? clipType;
+
+            if (value is Type type)
             {
-                var clipType = clip.Effect[0].GetType();
-                if (clipType == ClipType.Video)
-                {
-                    return PackIconKind.Movie;
-                }
-                else if (clipType == ClipType.Image)
-                {
-                    return PackIconKind.Image;
-                }
-                else if (clipType == ClipType.Text)
-                {
-                    return PackIconKind.TextBox;
-                }
-                else if (clipType == ClipType.Figure)
-                {
-                    return PackIconKind.Shape;
-                }
-                else if (clipType == ClipType.RoundRect)
-                {
-                    return PackIconKind.RoundedCorner;
-                }
-                else if (clipType == ClipType.Camera)
-                {
-                    return PackIconKind.Videocam;
-                }
-                else if (clipType == ClipType.GL3DObject)
-                {
-                    return PackIconKind.Cube;
-                }
-                else if (clipType == ClipType.Scene)
-                {
-                    return PackIconKind.MovieOpen;
-                }
-                else
-                {
-                    return PackIconKind.None;
-                }
+                clipType = type;
+            }
+            else if (value is ClipElement clip)
+            {
+                clipType = clip.Effect[0].GetType();
+            }
+            else
+            {
+                return PackIconKind.None;
+            }
+
+            if (clipType == ClipType.Video)
+            {
+                return PackIconKind.Movie;
+            }
+            else if (clipType == ClipType.Image)
+            {
+                return PackIconKind.Image;
+            }
+            else if (clipType == ClipType.Text)
+            {
+                return PackIconKind.TextBox;
+            }
+            else if (clipType == ClipType.Figure)
+            {
+                return PackIconKind.Shape;
+            }
+            else if (clipType == ClipType.RoundRect)
+            {
+                return PackIconKind.RoundedCorner;
+            }
+            else if (clipType == ClipType.Camera)
+            {
+                return PackIconKind.Videocam;
+            }
+            else if (clipType == ClipType.GL3DObject)
+            {
+                return PackIconKind.Cube;
+            }
+            else if (clipType == ClipType.Scene)
+            {
+                return PackIconKind.MovieOpen;
             }
             else
             {

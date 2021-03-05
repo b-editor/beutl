@@ -14,7 +14,7 @@ using Reactive.Bindings.Extensions;
 
 namespace BEditor.ViewModels.SettingsControl.General
 {
-    public class AppearanceViewModel : BasePropertyChanged
+    public class AppearanceViewModel
     {
         private ReactiveCommand<object>? darkmodecommand;
 
@@ -27,20 +27,11 @@ namespace BEditor.ViewModels.SettingsControl.General
                     darkmodecommand = new();
                     darkmodecommand.Subscribe(_ =>
                     {
-                        if (Settings.Default.UseDarkMode)
-                        {
-                            var paletteHelper = new PaletteHelper();
-                            ITheme theme = paletteHelper.GetTheme();
-                            theme.SetBaseTheme(Theme.Dark);
-                            paletteHelper.SetTheme(theme);
-                        }
-                        else
-                        {
-                            PaletteHelper paletteHelper = new PaletteHelper();
-                            ITheme theme = paletteHelper.GetTheme();
-                            theme.SetBaseTheme(Theme.Light);
-                            paletteHelper.SetTheme(theme);
-                        }
+                        var paletteHelper = new PaletteHelper();
+                        ITheme theme = paletteHelper.GetTheme();
+                        var baseTheme = Settings.Default.UseDarkMode ? Theme.Dark : Theme.Light;
+
+                        paletteHelper.SetTheme(theme);
                     });
                 }
 

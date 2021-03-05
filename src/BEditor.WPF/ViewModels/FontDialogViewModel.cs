@@ -46,7 +46,7 @@ namespace BEditor.ViewModels
             {
                 if (str is null) return;
 
-                Visible();
+                SetVisibility();
 
                 if (string.IsNullOrWhiteSpace(str)) return;
 
@@ -87,7 +87,7 @@ namespace BEditor.ViewModels
             }).AddTo(_disposables);
             SelectCommand.Subscribe(font =>
             {
-                Check(false);
+                SetIsChecked(false);
 
                 font.IsChecked.Value = true;
                 SelectedItem.Value = font;
@@ -109,7 +109,7 @@ namespace BEditor.ViewModels
         public ReactiveCommand WindowClose { get; } = new();
         public bool OKIsClicked { get; private set; }
 
-        private static void Visible()
+        private static void SetVisibility()
         {
             foreach (var item in FontItems)
             {
@@ -121,7 +121,7 @@ namespace BEditor.ViewModels
                 item.Visibility.Value = Visibility.Visible;
             }
         }
-        private static void Check(bool value)
+        private static void SetIsChecked(bool value)
         {
             foreach (var item in FontItems)
             {
@@ -136,6 +136,8 @@ namespace BEditor.ViewModels
         public void Dispose()
         {
             _disposables.Dispose();
+
+            GC.SuppressFinalize(this);
         }
         private static void LoadUsedFonts()
         {

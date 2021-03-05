@@ -1,58 +1,96 @@
-﻿<UserControl xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
-             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
-             xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006" 
-             xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
-             xmlns:materialDesign="http://materialdesigninxaml.net/winfx/xaml/themes"
-             xmlns:property="clr-namespace:BEditor.Properties;assembly=BEditor.Core"
-             xmlns:vm="clr-namespace:BEditor.ViewModels"
-             xmlns:convert="clr-namespace:BEditor.ViewModels.Converters"
-             x:Class="BEditor.Views.PropertyControls.Object_Setting"
-             mc:Ignorable="d" 
-             d:DesignHeight="504" d:DesignWidth="583"
-             AllowDrop="True" Drop="UserControl_Drop" PreviewDragOver="UserControl_PreviewDragOver">
+﻿<UserControl
+    x:Class="BEditor.Views.PropertyControls.Object_Setting"
+    xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+    xmlns:convert="clr-namespace:BEditor.ViewModels.Converters"
+    xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+    xmlns:materialDesign="http://materialdesigninxaml.net/winfx/xaml/themes"
+    xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+    xmlns:property="clr-namespace:BEditor.Properties;assembly=BEditor.Core"
+    xmlns:vm="clr-namespace:BEditor.ViewModels"
+    d:DesignHeight="504"
+    d:DesignWidth="583"
+    AllowDrop="True"
+    Drop="UserControl_Drop"
+    PreviewDragOver="UserControl_PreviewDragOver"
+    mc:Ignorable="d">
     <UserControl.Resources>
-        <vm:ClipTypeIconConverter x:Key="ClipTypeIconConverter"/>
-        <convert:EffectElementToProperty x:Key="EffectElementToProperty"/>
+        <vm:ClipTypeIconConverter x:Key="ClipTypeIconConverter" />
+        <convert:EffectElementToProperty x:Key="EffectElementToProperty" />
     </UserControl.Resources>
-    <ScrollViewer x:Name="scrollview" VerticalScrollBarVisibility="Hidden" HorizontalContentAlignment="Stretch">
+    <ScrollViewer
+        x:Name="scrollview"
+        HorizontalContentAlignment="Stretch"
+        VerticalScrollBarVisibility="Hidden">
         <VirtualizingStackPanel VirtualizingPanel.IsVirtualizing="True">
             <Grid Height="50">
                 <Grid.ColumnDefinitions>
-                    <ColumnDefinition Width="Auto"/>
-                    <ColumnDefinition Width="1*"/>
-                    <ColumnDefinition Width="Auto"/>
+                    <ColumnDefinition Width="Auto" />
+                    <ColumnDefinition Width="1*" />
+                    <ColumnDefinition Width="Auto" />
                 </Grid.ColumnDefinitions>
 
-                <materialDesign:PackIcon VerticalAlignment="Stretch" Margin="14.5,0,14.5,0" Kind="{Binding Mode=OneTime, Converter={StaticResource ClipTypeIconConverter}}" HorizontalAlignment="Stretch"/>
+                <materialDesign:PackIcon
+                    Margin="14.5,0,14.5,0"
+                    HorizontalAlignment="Stretch"
+                    VerticalAlignment="Stretch"
+                    Kind="{Binding Mode=OneTime, Converter={StaticResource ClipTypeIconConverter}}" />
 
                 <Grid Grid.Column="1">
                     <Grid.ColumnDefinitions>
-                        <ColumnDefinition Width="Auto"/>
-                        <ColumnDefinition/>
+                        <ColumnDefinition Width="Auto" />
+                        <ColumnDefinition />
                     </Grid.ColumnDefinitions>
                     <Grid.RowDefinitions>
-                        <RowDefinition/>
-                        <RowDefinition/>
+                        <RowDefinition />
+                        <RowDefinition />
                     </Grid.RowDefinitions>
 
-                    <Label Content="{x:Static property:Resources.Name}" VerticalAlignment="Center" HorizontalAlignment="Left"/>
-                    <Label Content="{x:Static property:Resources.Type}" Grid.Row="1" HorizontalAlignment="Left" VerticalAlignment="Center"/>
+                    <Label
+                        HorizontalAlignment="Left"
+                        VerticalAlignment="Center"
+                        Content="{x:Static property:Resources.Name}" />
+                    <Label
+                        Grid.Row="1"
+                        HorizontalAlignment="Left"
+                        VerticalAlignment="Center"
+                        Content="{x:Static property:Resources.Type}" />
 
-                    <TextBox Text="{Binding LabelText, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}" Grid.Column="1" HorizontalAlignment="Stretch" VerticalAlignment="Center" VerticalContentAlignment="Center" Margin="10,0,10,0"/>
-                    <Label Content="{Binding Name, Mode=OneTime}" Grid.Row="1" Grid.Column="1" Margin="10,0,10,0" VerticalAlignment="Center" Padding="4,0,0,0" VerticalContentAlignment="Center"/>
+                    <TextBox
+                        Grid.Column="1"
+                        Margin="10,0,10,0"
+                        HorizontalAlignment="Stretch"
+                        VerticalAlignment="Center"
+                        VerticalContentAlignment="Center"
+                        Text="{Binding LabelText, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}" />
+                    <Label
+                        Grid.Row="1"
+                        Grid.Column="1"
+                        Margin="10,0,10,0"
+                        Padding="4,0,0,0"
+                        VerticalAlignment="Center"
+                        VerticalContentAlignment="Center"
+                        Content="{Binding Name, Mode=OneTime}" />
                 </Grid>
 
 
-                <materialDesign:PopupBox HorizontalAlignment="Stretch" VerticalContentAlignment="Center" HorizontalContentAlignment="Center" VerticalAlignment="Stretch" Grid.Column="2" Width="45" Height="45"/>
+                <materialDesign:PopupBox
+                    Grid.Column="2"
+                    Width="45"
+                    Height="45"
+                    HorizontalAlignment="Stretch"
+                    VerticalAlignment="Stretch"
+                    HorizontalContentAlignment="Center"
+                    VerticalContentAlignment="Center" />
 
             </Grid>
-            
+
             <ItemsControl
                 x:Name="itemsControl"
-                ItemsSource="{Binding Effect, Mode=OneWay}"
-                AlternationCount="{Binding Items.Count, ElementName=itemsControl}"
                 HorizontalContentAlignment="Stretch"
                 VerticalContentAlignment="Stretch"
+                AlternationCount="{Binding Items.Count, ElementName=itemsControl}"
+                ItemsSource="{Binding Effect, Mode=OneWay}"
                 VirtualizingPanel.IsVirtualizing="True"
                 VirtualizingPanel.VirtualizationMode="Recycling">
                 <ItemsControl.ItemTemplate>
@@ -63,7 +101,7 @@
                             VerticalAlignment="Stretch"
                             HorizontalContentAlignment="Stretch"
                             VerticalContentAlignment="Stretch"
-                            Content="{Binding Converter={StaticResource EffectElementToProperty}}"/>
+                            Content="{Binding Converter={StaticResource EffectElementToProperty}}" />
                     </DataTemplate>
                 </ItemsControl.ItemTemplate>
             </ItemsControl>

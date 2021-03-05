@@ -38,6 +38,7 @@ namespace BEditor.ViewModels.PropertyControl
         public FontProperty Property { get; }
         public ReactiveCommand<Font> Command { get; } = new();
         public ReactiveCommand Reset { get; } = new();
+        public static IEnumerable<Font> Fonts => FontManager.Default.LoadedFonts;
 
         public void Dispose()
         {

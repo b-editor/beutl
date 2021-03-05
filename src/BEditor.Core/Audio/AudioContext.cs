@@ -24,7 +24,6 @@ namespace BEditor.Audio
         {
             device = ALC.OpenDevice(null);
             context = ALC.CreateContext(device, (int[])null!);
-            var e = AL.GetError();
         }
 
         /// <summary>
@@ -57,6 +56,7 @@ namespace BEditor.Audio
             ALC.MakeContextCurrent(ALContext.Null);
             ALC.DestroyContext(context);
             ALC.CloseDevice(device);
+            GC.SuppressFinalize(this);
 
             IsDisposed = true;
         }

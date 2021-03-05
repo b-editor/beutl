@@ -176,7 +176,7 @@ namespace BEditor.ViewModels.TimeLines
 
 
         public ReactiveCommand SettingShowCommand { get; } = new();
-        public ReactiveCommand PasteCommand => EditModel.Current.ClipboardPaste;
+        public static ReactiveCommand PasteCommand => EditModel.Current.ClipboardPaste;
         public ReactiveCommand<ObjectMetadata> AddClip { get; } = new();
 
         public ReactiveCommand<object> LayerSelectCommand { get; } = new();

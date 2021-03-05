@@ -40,7 +40,7 @@
             Margin="5,0,5,0"
             DisplayMemberPath="Name"
             IsHitTestVisible="True"
-            ItemsSource="{Binding Metadata.Value.ItemSource, Mode=OneTime}"
+            ItemsSource="{Binding Fonts, Mode=OneTime}"
             PreviewMouseDown="Box_PreviewMouseDown"
             PreviewMouseUp="Box_PreviewMouseUp"
             SelectedValue="{Binding Property.Value, Mode=OneWay}" />

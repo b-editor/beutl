@@ -40,7 +40,7 @@ namespace BEditor.ViewModels
                 });
             }
 
-            _ = CheckVersion();
+            _ = GetLatestRelease();
         }
 
         public ReactiveCollection<MenuItem> MenuItems { get; } = new();
@@ -48,7 +48,7 @@ namespace BEditor.ViewModels
         public ReactiveProperty<MenuItem> Selected { get; } = new();
 
 
-        private async Task<Release?> CheckVersion()
+        private async Task<Release?> GetLatestRelease()
         {
             using var client = new HttpClient();
             using var memory = new MemoryStream();

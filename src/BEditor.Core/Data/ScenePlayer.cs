@@ -145,6 +145,8 @@ namespace BEditor.Data
         public void Dispose()
         {
             timer.Dispose();
+
+            GC.SuppressFinalize(this);
         }
     }
 

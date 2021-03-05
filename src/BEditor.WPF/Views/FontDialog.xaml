@@ -56,7 +56,10 @@
             <VirtualizingStackPanel>
                 <TextBlock Margin="8" Text="{x:Static props:Resources.RecentlyUsedFonts}" />
 
-                <ItemsControl ItemsSource="{Binding UsedFonts, Mode=OneTime}">
+                <ItemsControl
+                    ItemsSource="{Binding UsedFonts, Mode=OneTime}"
+                    VirtualizingPanel.IsVirtualizing="True"
+                    VirtualizingPanel.VirtualizationMode="Recycling">
                     <ItemsControl.ItemTemplate>
                         <DataTemplate>
                             <Button

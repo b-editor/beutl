@@ -2,61 +2,94 @@
     x:Class="BEditor.Views.CreatePage.EffectAddPage"
     xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
     xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
-    xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
-    xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
-    xmlns:local="clr-namespace:BEditor.Views.CreatePage"
-    xmlns:vm="clr-namespace:BEditor.ViewModels.CreatePage"
     xmlns:Controls="clr-namespace:MahApps.Metro.Controls;assembly=MahApps.Metro"
-    xmlns:md="http://materialdesigninxaml.net/winfx/xaml/themes"
-    xmlns:props="clr-namespace:BEditor.Properties;assembly=BEditor.Core"
-    xmlns:model="clr-namespace:BEditor.Models"
+    xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
     xmlns:data="clr-namespace:BEditor.Data;assembly=BEditor.Core"
-    mc:Ignorable="d"
-    
-    FontFamily="Noto Sans JP"
+    xmlns:local="clr-namespace:BEditor.Views.CreatePage"
+    xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+    xmlns:md="http://materialdesigninxaml.net/winfx/xaml/themes"
+    xmlns:model="clr-namespace:BEditor.Models"
+    xmlns:props="clr-namespace:BEditor.Properties;assembly=BEditor.Core"
+    xmlns:vm="clr-namespace:BEditor.ViewModels.CreatePage"
+    Width="1000"
+    Height="600"
     Background="{DynamicResource MaterialDesignPaper}"
-    Width="1000" Height="600">
+    FontFamily="Noto Sans JP"
+    mc:Ignorable="d">
     <UserControl.Resources>
-        <Style x:Key="HeaderLabel" TargetType="{x:Type Label}" BasedOn="{StaticResource MaterialDesignLabel}">
-            <Setter Property="Height" Value="25"/>
-            <Setter Property="Margin" Value="10,5,0,5"/>
-            <Setter Property="VerticalContentAlignment" Value="Center"/>
+        <Style
+            x:Key="HeaderLabel"
+            BasedOn="{StaticResource MaterialDesignLabel}"
+            TargetType="{x:Type Label}">
+            <Setter Property="Height" Value="25" />
+            <Setter Property="Margin" Value="10,5,0,5" />
+            <Setter Property="VerticalContentAlignment" Value="Center" />
         </Style>
-        <Style x:Key="TextBoxStyle" TargetType="{x:Type TextBox}" BasedOn="{StaticResource MaterialDesignTextBox}">
-            <Setter Property="Margin" Value="10,5,0,5"/>
-            <Setter Property="Width" Value="130"/>
-            <Setter Property="Height" Value="25"/>
-            <Setter Property="HorizontalAlignment" Value="Left"/>
+        <Style
+            x:Key="TextBoxStyle"
+            BasedOn="{StaticResource MaterialDesignTextBox}"
+            TargetType="{x:Type TextBox}">
+            <Setter Property="Margin" Value="10,5,0,5" />
+            <Setter Property="Width" Value="130" />
+            <Setter Property="Height" Value="25" />
+            <Setter Property="HorizontalAlignment" Value="Left" />
         </Style>
-        <Style x:Key="ComboBoxStyle" TargetType="{x:Type ComboBox}" BasedOn="{StaticResource MaterialDesignComboBox}">
-            <Setter Property="Margin" Value="10,5,0,5"/>
-            <Setter Property="Width" Value="130"/>
-            <Setter Property="Height" Value="25"/>
-            <Setter Property="HorizontalAlignment" Value="Left"/>
+        <Style
+            x:Key="ComboBoxStyle"
+            BasedOn="{StaticResource MaterialDesignComboBox}"
+            TargetType="{x:Type ComboBox}">
+            <Setter Property="Margin" Value="10,5,0,5" />
+            <Setter Property="Width" Value="130" />
+            <Setter Property="Height" Value="25" />
+            <Setter Property="HorizontalAlignment" Value="Left" />
         </Style>
     </UserControl.Resources>
     <Grid>
         <Grid.ColumnDefinitions>
-            <ColumnDefinition/>
-            <ColumnDefinition/>
+            <ColumnDefinition />
+            <ColumnDefinition />
         </Grid.ColumnDefinitions>
 
         <ScrollViewer>
             <VirtualizingStackPanel Margin="8">
-                <TextBlock Text="{x:Static props:Resources.Clip}" Foreground="{DynamicResource MaterialDesignBodyLight}" FontSize="16" Margin="0,0,0,16"/>
-                <ItemsControl ItemsSource="{Binding ClipItems.Value, Mode=OneWay}" HorizontalAlignment="Center">
+                <TextBlock
+                    Margin="0,0,0,16"
+                    FontSize="16"
+                    Foreground="{DynamicResource MaterialDesignBodyLight}"
+                    Text="{x:Static props:Resources.Clip}" />
+                <ItemsControl
+                    HorizontalAlignment="Center"
+                    ItemsSource="{Binding ClipItems.Value, Mode=OneWay}"
+                    VirtualizingPanel.IsVirtualizing="True"
+                    VirtualizingPanel.VirtualizationMode="Recycling">
                     <ItemsControl.ItemTemplate>
                         <DataTemplate>
-                            <Button Padding="8" HorizontalContentAlignment="Stretch" VerticalContentAlignment="Stretch" Margin="8" Command="{Binding Command, Mode=OneTime}" CommandParameter="{Binding}" Width="180" Height="200" Cursor="Arrow" BorderThickness="0" Background="{DynamicResource MaterialDesignTextFieldBoxBackground}" Foreground="{DynamicResource MaterialDesignBody}" md:ShadowAssist.ShadowDepth="Depth0">
+                            <Button
+                                Width="180"
+                                Height="200"
+                                Margin="8"
+                                Padding="8"
+                                HorizontalContentAlignment="Stretch"
+                                VerticalContentAlignment="Stretch"
+                                md:ShadowAssist.ShadowDepth="Depth0"
+                                Background="{DynamicResource MaterialDesignTextFieldBoxBackground}"
+                                BorderThickness="0"
+                                Command="{Binding Command, Mode=OneTime}"
+                                CommandParameter="{Binding}"
+                                Cursor="Arrow"
+                                Foreground="{DynamicResource MaterialDesignBody}">
                                 <Grid>
-                                    <CheckBox IsChecked="{Binding IsSelected.Value, Mode=OneWay}" HorizontalAlignment="Right" VerticalAlignment="Top"/>
+                                    <CheckBox
+                                        HorizontalAlignment="Right"
+                                        VerticalAlignment="Top"
+                                        IsChecked="{Binding IsSelected.Value, Mode=OneWay}" />
 
-                                    <TextBlock Text="{Binding Clip.LabelText, Mode=OneTime}"/>
+                                    <TextBlock Text="{Binding Clip.LabelText, Mode=OneTime}" />
 
                                     <VirtualizingStackPanel VerticalAlignment="Bottom">
-                                        <TextBlock Text="{Binding Clip.Start.Value, Mode=OneTime, StringFormat=Start: {0}}"/>
-                                        <TextBlock Text="{Binding Clip.Length.Value, Mode=OneTime, StringFormat=Length: {0}}"/>
-                                        <TextBlock Text="{Binding Clip.Layer, Mode=OneTime, StringFormat=Layer: {0}}"/>
+                                        <TextBlock Text="{Binding Clip.Start.Value, Mode=OneTime, StringFormat=Start: {0}}" />
+                                        <TextBlock Text="{Binding Clip.Length.Value, Mode=OneTime, StringFormat=Length: {0}}" />
+                                        <TextBlock Text="{Binding Clip.Layer, Mode=OneTime, StringFormat=Layer: {0}}" />
                                     </VirtualizingStackPanel>
                                 </Grid>
                             </Button>
@@ -64,7 +97,7 @@
                     </ItemsControl.ItemTemplate>
                     <ItemsControl.ItemsPanel>
                         <ItemsPanelTemplate>
-                            <WrapPanel/>
+                            <WrapPanel />
                         </ItemsPanelTemplate>
                     </ItemsControl.ItemsPanel>
                 </ItemsControl>
@@ -72,34 +105,64 @@
         </ScrollViewer>
 
         <VirtualizingStackPanel Grid.Column="1" Margin="8">
-            <TextBlock Text="{x:Static props:Resources.Settings}" Foreground="{DynamicResource MaterialDesignBodyLight}" FontSize="16" Margin="0,0,0,16"/>
+            <TextBlock
+                Margin="0,0,0,16"
+                FontSize="16"
+                Foreground="{DynamicResource MaterialDesignBodyLight}"
+                Text="{x:Static props:Resources.Settings}" />
 
-            <!--Scene-->
+            <!--  Scene  -->
             <VirtualizingStackPanel Margin="8">
-                <TextBlock Text="{x:Static props:Resources.Scene}" Foreground="{DynamicResource MaterialDesignBodyLight}" FontSize="14"/>
+                <TextBlock
+                    FontSize="14"
+                    Foreground="{DynamicResource MaterialDesignBodyLight}"
+                    Text="{x:Static props:Resources.Scene}" />
 
                 <ComboBox
-                    SelectedItem="{Binding Scene.Value}"
-                    ItemsSource="{Binding Source={x:Static model:AppData.Current}, Path=Project.SceneList}"
+                    Margin="0,8"
                     DisplayMemberPath="Name"
-                    Margin="0,8"/>
+                    ItemsSource="{Binding Source={x:Static model:AppData.Current}, Path=Project.SceneList}"
+                    SelectedItem="{Binding Scene.Value}" />
             </VirtualizingStackPanel>
 
-            <!--Effect-->
+            <!--  Effect  -->
             <VirtualizingStackPanel Margin="8">
-                <TextBlock Text="{x:Static props:Resources.Effect}" Foreground="{DynamicResource MaterialDesignBodyLight}" FontSize="14"/>
+                <TextBlock
+                    FontSize="14"
+                    Foreground="{DynamicResource MaterialDesignBodyLight}"
+                    Text="{x:Static props:Resources.Effect}" />
 
                 <ComboBox
-                    SelectedItem="{Binding Effect.Value}"
-                    ItemsSource="{Binding AllEffects, Mode=OneTime}"
+                    Margin="0,8"
                     DisplayMemberPath="Name"
-                    Margin="0,8"/>
+                    ItemsSource="{Binding AllEffects, Mode=OneTime}"
+                    SelectedItem="{Binding Effect.Value}" />
             </VirtualizingStackPanel>
         </VirtualizingStackPanel>
 
-        <VirtualizingStackPanel Grid.Column="2" VerticalAlignment="Bottom" Margin="8,0,8,8" Orientation="Horizontal" FlowDirection="RightToLeft">
-            <Button Cursor="Arrow" Foreground="Red" Content="{x:Static props:Resources.Cancel}" HorizontalAlignment="Left" Click="CloseClick" IsCancel="True" Style="{StaticResource MaterialDesignFlatButton}"/>
-            <Button Cursor="Arrow" Foreground="{StaticResource MaterialDesignBody}" Content="{x:Static props:Resources.Add}" HorizontalAlignment="Left" Command="{Binding AddCommand, Mode=OneTime}" Click="CloseClick" IsDefault="True" Style="{StaticResource MaterialDesignFlatButton}"/>
+        <VirtualizingStackPanel
+            Grid.Column="2"
+            Margin="8,0,8,8"
+            VerticalAlignment="Bottom"
+            FlowDirection="RightToLeft"
+            Orientation="Horizontal">
+            <Button
+                HorizontalAlignment="Left"
+                Click="CloseClick"
+                Content="{x:Static props:Resources.Cancel}"
+                Cursor="Arrow"
+                Foreground="Red"
+                IsCancel="True"
+                Style="{StaticResource MaterialDesignFlatButton}" />
+            <Button
+                HorizontalAlignment="Left"
+                Click="CloseClick"
+                Command="{Binding AddCommand, Mode=OneTime}"
+                Content="{x:Static props:Resources.Add}"
+                Cursor="Arrow"
+                Foreground="{StaticResource MaterialDesignBody}"
+                IsDefault="True"
+                Style="{StaticResource MaterialDesignFlatButton}" />
         </VirtualizingStackPanel>
     </Grid>
 </UserControl>

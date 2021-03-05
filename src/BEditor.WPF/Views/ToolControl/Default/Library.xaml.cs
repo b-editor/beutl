@@ -41,7 +41,7 @@ namespace BEditor.Views.ToolControl.Default
                 if (TreeView.SelectedItem is not EffectMetadata select || select.Type == null) return;
 
                 // ドラッグ開始
-                DataObject dataObject = new DataObject(select);
+                var dataObject = new DataObject(select);
                 DragDrop.DoDragDrop(App.Current.MainWindow, dataObject, DragDropEffects.Copy);
             }
         }

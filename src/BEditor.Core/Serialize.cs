@@ -68,7 +68,7 @@ namespace BEditor
             {
                 T? obj;
 
-                using (FileStream file = new FileStream(path, FileMode.Open))
+                using (var file = new FileStream(path, FileMode.Open))
                 {
                     if (mode == SerializeMode.Binary)
                     {
@@ -191,7 +191,7 @@ namespace BEditor
         /// <summary>
         /// Get the KnownType used by the <see cref="DataContractJsonSerializer"/>.
         /// </summary>
-        public static readonly List<Type> SerializeKnownTypes = new List<Type>()
+        public static readonly List<Type> SerializeKnownTypes = new()
         {
             typeof(BasePropertyChanged),
             typeof(EditorObject),

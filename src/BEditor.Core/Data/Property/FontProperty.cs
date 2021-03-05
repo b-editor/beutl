@@ -218,15 +218,7 @@ namespace BEditor.Data.Property
         /// <summary>
         /// 
         /// </summary>
-        public IEnumerable<Font> ItemSource => FontManager.Default.LoadedFonts;
-        /// <summary>
-        /// 
-        /// </summary>
         public Font SelectItem { get; init; }
-        /// <summary>
-        /// 
-        /// </summary>
-        public string MemberPath => "Name";
 
         /// <inheritdoc/>
         public FontProperty Build()

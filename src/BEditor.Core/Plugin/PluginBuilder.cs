@@ -20,7 +20,9 @@ namespace BEditor.Plugin
         private readonly List<ObjectMetadata> _objects = new();
         private readonly List<EasingMetadata> _eases = new();
         private (string?, IEnumerable<ICustomMenu>?) _menus;
+#pragma warning disable IDE0044
         private static PluginConfig? config = null;
+#pragma warning restore IDE0044
 
         private PluginBuilder(Func<PluginObject> create)
         {

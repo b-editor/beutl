@@ -30,7 +30,11 @@
                     FontSize="16"
                     Foreground="{DynamicResource MaterialDesignBodyLight}"
                     Text="{x:Static props:Resources.Template}" />
-                <ItemsControl HorizontalAlignment="Center" ItemsSource="{Binding TemplateItems, Mode=OneTime}">
+                <ItemsControl
+                    HorizontalAlignment="Center"
+                    ItemsSource="{Binding TemplateItems, Mode=OneTime}"
+                    VirtualizingPanel.IsVirtualizing="True"
+                    VirtualizingPanel.VirtualizationMode="Recycling">
                     <ItemsControl.ItemTemplate>
                         <DataTemplate>
                             <Button

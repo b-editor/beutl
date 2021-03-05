@@ -32,6 +32,15 @@ namespace BEditor
         public Status AppStatus { get; set; }
         public IServiceCollection Services { get; } = new ServiceCollection();
         public ILoggerFactory LoggingFactory { get; } = new LoggerFactory();
+
+        public void RestoreAppConfig(Project project, string directory)
+        {
+            
+        }
+        public void SaveAppConfig(Project project, string directory)
+        {
+            
+        }
     }
 
     public class CLISynchronizationContext : SynchronizationContext

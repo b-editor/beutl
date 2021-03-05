@@ -426,7 +426,9 @@ namespace BEditor.Data.Property.Easing
             {
                 return (max - min) * t / totaltime + min;
             }
+#pragma warning disable IDE0060
             public static float None(float t, float totaltime, float min, float max)
+#pragma warning restore IDE0060
             {
                 return min;
             }

@@ -140,7 +140,6 @@ namespace BEditor.Primitive.Objects
         protected override void OnUnload()
         {
             _disposable?.Dispose();
-            var player = Parent!.Parent.Player;
         }
     }
 }

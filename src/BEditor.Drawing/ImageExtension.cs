@@ -669,7 +669,7 @@ namespace BEditor.Drawing
                 IsAntialias = true,
             };
 
-            SKRect textBounds = new SKRect();
+            var textBounds = new SKRect();
             paint.MeasureText(text, ref textBounds);
 
 
@@ -705,7 +705,7 @@ namespace BEditor.Drawing
                 StrokeWidth = strokewidth,
             };
 
-            SKRect textBounds = new SKRect();
+            var textBounds = new SKRect();
             paint.MeasureText(text, ref textBounds);
 
 

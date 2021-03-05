@@ -34,9 +34,7 @@ namespace BEditor.Views
         {
             if (sender is RadioButton b && DataContext is StartWindowViewModel vm)
             {
-#pragma warning disable CS0252 // 予期しない参照比較です。左辺をキャストする必要があります
-                if ((StartWindowViewModel.MenuItem)vm.Selected.Value != (StartWindowViewModel.MenuItem)b.DataContext)
-#pragma warning restore CS0252 // 予期しない参照比較です。左辺をキャストする必要があります
+                if (vm.Selected.Value != (StartWindowViewModel.MenuItem)b.DataContext)
                 {
                     b.IsChecked = !b.IsChecked;
                 }

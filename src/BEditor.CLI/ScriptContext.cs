@@ -323,14 +323,14 @@ namespace BEditor
 
             Console.WriteLine(CommandLineResources.LayerIsHidden, layer);
         }
-        public void Undo(int count = 1)
+        public static void Undo(int count = 1)
         {
             for (int i = 0; i < count; i++)
             {
                 CommandManager.Undo();
             }
         }
-        public void Redo(int count = 1)
+        public static void Redo(int count = 1)
         {
             for (int i = 0; i < count; i++)
             {

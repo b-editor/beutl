@@ -41,8 +41,6 @@ namespace BEditor.Models
         private Status _Status;
         private bool _Isplaying = true;
 
-        public static AppData Current { get; } = new();
-
         private AppData()
         {
             CommandManager.Executed += (_, _) => AppStatus = Status.Edit;
@@ -111,6 +109,7 @@ namespace BEditor.Models
             FileDialog = ServiceProvider.GetService<IFileDialogService>()!;
         }
 
+        public static AppData Current { get; } = new();
         public Project? Project
         {
             get => _Project;
