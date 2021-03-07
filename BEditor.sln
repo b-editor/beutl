@@ -51,6 +51,8 @@ Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "props", "props", "{E5E8C675
 		props\plugin.props = props\plugin.props
 	EndProjectSection
 EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "BEditor.Audio", "src\BEditor.Audio\BEditor.Audio.csproj", "{6958A8FB-769F-4EE5-AC92-7407E6FFDD0B}"
+EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
 		Debug|Any CPU = Debug|Any CPU
@@ -305,6 +307,26 @@ Global
 		{D320F6FA-71E8-4BE7-B9B0-231E9A21A66C}.Release|x64.Build.0 = Release|Any CPU
 		{D320F6FA-71E8-4BE7-B9B0-231E9A21A66C}.Release|x86.ActiveCfg = Release|Any CPU
 		{D320F6FA-71E8-4BE7-B9B0-231E9A21A66C}.Release|x86.Build.0 = Release|Any CPU
+		{6958A8FB-769F-4EE5-AC92-7407E6FFDD0B}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{6958A8FB-769F-4EE5-AC92-7407E6FFDD0B}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{6958A8FB-769F-4EE5-AC92-7407E6FFDD0B}.Debug|ARM.ActiveCfg = Debug|Any CPU
+		{6958A8FB-769F-4EE5-AC92-7407E6FFDD0B}.Debug|ARM.Build.0 = Debug|Any CPU
+		{6958A8FB-769F-4EE5-AC92-7407E6FFDD0B}.Debug|ARM64.ActiveCfg = Debug|Any CPU
+		{6958A8FB-769F-4EE5-AC92-7407E6FFDD0B}.Debug|ARM64.Build.0 = Debug|Any CPU
+		{6958A8FB-769F-4EE5-AC92-7407E6FFDD0B}.Debug|x64.ActiveCfg = Debug|Any CPU
+		{6958A8FB-769F-4EE5-AC92-7407E6FFDD0B}.Debug|x64.Build.0 = Debug|Any CPU
+		{6958A8FB-769F-4EE5-AC92-7407E6FFDD0B}.Debug|x86.ActiveCfg = Debug|Any CPU
+		{6958A8FB-769F-4EE5-AC92-7407E6FFDD0B}.Debug|x86.Build.0 = Debug|Any CPU
+		{6958A8FB-769F-4EE5-AC92-7407E6FFDD0B}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{6958A8FB-769F-4EE5-AC92-7407E6FFDD0B}.Release|Any CPU.Build.0 = Release|Any CPU
+		{6958A8FB-769F-4EE5-AC92-7407E6FFDD0B}.Release|ARM.ActiveCfg = Release|Any CPU
+		{6958A8FB-769F-4EE5-AC92-7407E6FFDD0B}.Release|ARM.Build.0 = Release|Any CPU
+		{6958A8FB-769F-4EE5-AC92-7407E6FFDD0B}.Release|ARM64.ActiveCfg = Release|Any CPU
+		{6958A8FB-769F-4EE5-AC92-7407E6FFDD0B}.Release|ARM64.Build.0 = Release|Any CPU
+		{6958A8FB-769F-4EE5-AC92-7407E6FFDD0B}.Release|x64.ActiveCfg = Release|Any CPU
+		{6958A8FB-769F-4EE5-AC92-7407E6FFDD0B}.Release|x64.Build.0 = Release|Any CPU
+		{6958A8FB-769F-4EE5-AC92-7407E6FFDD0B}.Release|x86.ActiveCfg = Release|Any CPU
+		{6958A8FB-769F-4EE5-AC92-7407E6FFDD0B}.Release|x86.Build.0 = Release|Any CPU
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE

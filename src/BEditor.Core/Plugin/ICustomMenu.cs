@@ -23,8 +23,26 @@ namespace BEditor.Plugin
     }
 
     /// <inheritdoc cref="ICustomMenu"/>
-    public record CustomMenu(string Name, Action Execute) : ICustomMenu
+    public record CustomMenu : ICustomMenu
     {
+        /// <summary>
+        /// Initializes a new instance of the <see cref="CustomMenu" /> class.
+        /// </summary>
+        /// <param name="Name"></param>
+        /// <param name="Execute"></param>
+        public CustomMenu(string Name, Action Execute)
+        {
+            this.Name = Name;
+            this.Execute = Execute;
+        }
+
+        /// <inhritdoc/>
+        public string Name { get; }
+        /// <summary>
+        /// Execute when the menu is clicked.
+        /// </summary>
+        public Action Execute { get; }
+
         void ICustomMenu.Execute()
         {
             Execute?.Invoke();

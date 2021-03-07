@@ -1,0 +1,14 @@
+﻿<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <TargetFramework>net5.0</TargetFramework>
+  </PropertyGroup>
+
+  <Import Project="..\..\props\common.props" />
+
+  <ItemGroup>
+    <ProjectReference Include="..\BEditor.Media\BEditor.Media.csproj" />
+    <PackageReference Include="OpenTK.OpenAL" Version="4.5.0" />
+  </ItemGroup>
+
+</Project>

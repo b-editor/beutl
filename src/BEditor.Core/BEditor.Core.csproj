@@ -21,6 +21,7 @@
     <ProjectReference Include="..\BEditor.Graphics\BEditor.Graphics.csproj" />
     <ProjectReference Include="..\BEditor.Drawing\BEditor.Drawing.csproj" />
     <ProjectReference Include="..\BEditor.Media\BEditor.Media.csproj" />
+    <ProjectReference Include="..\BEditor.Audio\BEditor.Audio.csproj" />
     <ProjectReference Include="..\BEditor.Settings\BEditor.Settings.csproj" />
   </ItemGroup>
 

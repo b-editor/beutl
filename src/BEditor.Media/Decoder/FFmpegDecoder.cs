@@ -85,8 +85,39 @@ namespace BEditor.Media.Decoder
 
             if (array.Length is 2)
             {
-                array[1].Select(i => Unsafe.As<float, PCM32>(ref i)).ToArray().CopyTo(left.Pcm.AsSpan());
+                array[1].Select(i => Unsafe.As<float, PCM32>(ref i)).ToArray().CopyTo(right.Pcm.AsSpan());
             }
+        }
+        public void ReadAll(out Sound<PCM32> left, out Sound<PCM32> right)
+        {
+            media.Audio.TryGetFrame(TimeSpan.Zero, out _);
+            var sampleL = new List<PCM32>();
+            var sampleR = new List<PCM32>();
+
+            while (media.Audio.TryGetNextFrame(out var audio))
+            {
+                var array = audio.GetSampleData();
+
+                sampleL.AddRange(array[0].Select(i => Unsafe.As<float, PCM32>(ref i)));
+
+                if (array.Length is 2)
+                {
+                    sampleR.AddRange(array[1].Select(i => Unsafe.As<float, PCM32>(ref i)));
+                }
+            }
+
+            left = new((uint)media.Audio.Info.SampleRate, (uint)sampleL.Count);
+            right = new((uint)media.Audio.Info.SampleRate, (uint)sampleR.Count);
+
+            sampleL.CopyTo(left.Pcm);
+            sampleR.CopyTo(right.Pcm);
+        }
+        public void ReadAll(out Sound<PCM16> left, out Sound<PCM16> right)
+        {
+            ReadAll(out Sound<PCM32> left32, out Sound<PCM32> right32);
+
+            left = left32.Convert<PCM16>();
+            right = right32.Convert<PCM16>();
         }
         public void Read(TimeSpan time, out Sound<PCM16> left, out Sound<PCM16> right)
         {
