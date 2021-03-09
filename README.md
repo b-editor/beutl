@@ -37,6 +37,7 @@
 ## License
 
 * [MIT License](https://github.com/b-editor/BEditor/blob/main/LICENSE)
+* このソフトウェアは、[Apache 2.0 ライセンス](http://www.apache.org/licenses/LICENSE-2.0)で配布されている製作物が含まれています。
 
 ## Author
 
