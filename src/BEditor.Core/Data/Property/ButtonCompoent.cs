@@ -14,7 +14,7 @@ namespace BEditor.Data.Property
     [DataContract]
     public class ButtonComponent : PropertyElement<ButtonComponentMetadata>, IEasingProperty, IObservable<object>
     {
-        private List<IObserver<object>>? _List;
+        private List<IObserver<object>>? _list;
 
         /// <summary>
         /// Initializes a new instance of the <see cref="ButtonComponent"/> class.
@@ -26,7 +26,7 @@ namespace BEditor.Data.Property
             PropertyMetadata = metadata ?? throw new ArgumentNullException(nameof(metadata));
         }
 
-        private List<IObserver<object>> Collection => _List ??= new();
+        private List<IObserver<object>> Collection => _list ??= new();
 
         /// <inheritdoc/>
         public IDisposable Subscribe(IObserver<object> observer)

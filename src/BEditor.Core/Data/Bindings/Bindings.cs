@@ -76,30 +76,42 @@ namespace BEditor.Data.Bindings
         /// <returns>String that can be used to get an <see cref="IBindable"/> from <see cref="GetBindable{T}(IBindable{T}, string?, out IBindable{T}?)"/>.</returns>
         public static string GetString(this IBindable bindable)
         {
-            if (bindable is PropertyElement p && bindable.Id == -1)
+            static bool IsInner(IBindable bindable, out int groupId)
+            {
+                groupId = -1;
+                foreach (var item in bindable.Parent.Children)
+                {
+                    if (item == bindable)
+                    {
+                        return false;
+                    }
+
+                    if (item is IParent<PropertyElement> inner_prop)
+                    {
+                        foreach (var inner_item in inner_prop.Children)
+                        {
+                            if (inner_prop is IHasId hasId) groupId = hasId.Id;
+
+                            if (inner_item == bindable)
+                            {
+                                return true;
+                            }
+                        }
+                    }
+                }
+
+                return false;
+            }
+
+            if (IsInner(bindable, out var groupId))
             {
                 // bindable の親がGroup
                 // bindable のIdは-1
                 var scene = bindable.GetParent3()?.Name ?? throw new DataException(ExceptionMessage.ParentElementNotFound);
                 var clip = bindable.GetParent2()?.Name ?? throw new DataException(ExceptionMessage.ParentElementNotFound);
                 var effect = bindable.GetParent()?.Id ?? throw new DataException(ExceptionMessage.ParentElementNotFound);
-                int group = -1;
-                int property = -1;
-                // エフェクトのChildrenからIParentのプロパティを見つける
-                // ここが-1
-                // var property = bindable.Id;
-
-                // EffectElementの子要素からIParentを見つける
-                Parallel.ForEach(bindable.GetParent()?.Children ?? throw new DataException(ExceptionMessage.ParentElementNotFound), item =>
-                {
-                    if (item is Property.Group parent && parent.Contains(p))
-                    {
-                        group = parent.Id;
-                        property = parent.Children.ToList().IndexOf(p);
-                    }
-                });
-
-                return $"{scene}.{clip}[{effect}][{group}][{property}]";
+                
+                return $"{scene}.{clip}[{effect}][{groupId}][{bindable.Id}]";
             }
 
             return $"{bindable.GetParent3()?.Name}.{bindable.GetParent2()?.Name}[{bindable.GetParent()?.Id}][{bindable.Id}]";

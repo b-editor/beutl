@@ -47,16 +47,6 @@ namespace BEditor.Data.Property
         /// Gets or sets the string being entered.
         /// </summary>
         [DataMember]
-        [Obsolete("Use Document.Value")]
-        public string Text
-        {
-            get => Value;
-            set => Value = value;
-        }
-        /// <summary>
-        /// Gets or sets the string being entered.
-        /// </summary>
-        [DataMember]
         public string Value
         {
             get => _value;
@@ -135,7 +125,7 @@ namespace BEditor.Data.Property
         /// <summary>
         /// Create a command to change the string.
         /// </summary>
-        /// <param name="newtext">New value for <see cref="Text"/></param>
+        /// <param name="newtext">New value for <see cref="Value"/></param>
         /// <returns>Created <see cref="IRecordCommand"/></returns>
         [Pure]
         public IRecordCommand ChangeText(string newtext) => new TextChangeCommand(this, newtext);
@@ -191,14 +181,14 @@ namespace BEditor.Data.Property
         /// <summary>
         /// Initializes a new instance of the <see cref="DocumentPropertyMetadata"/> class.
         /// </summary>
-        /// <param name="DefaultText">Default value for <see cref="DocumentProperty.Text"/>.</param>
+        /// <param name="DefaultText">Default value for <see cref="DocumentProperty.Value"/>.</param>
         public DocumentPropertyMetadata(string DefaultText) : base(string.Empty)
         {
             this.DefaultText = DefaultText;
         }
 
         /// <summary>
-        /// Get the default value of <see cref="DocumentProperty.Text"/>.
+        /// Get the default value of <see cref="DocumentProperty.Value"/>.
         /// </summary>
         public string DefaultText { get; init; }
 

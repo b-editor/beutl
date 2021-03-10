@@ -60,15 +60,6 @@ namespace BEditor.Data.Property
         /// <summary>
         /// Gets or sets the name of the selected folder.
         /// </summary>
-        [Obsolete("Use FolderProperty.Value")]
-        public string Folder
-        {
-            get => Value;
-            set => Value = value;
-        }
-        /// <summary>
-        /// Gets or sets the name of the selected folder.
-        /// </summary>
         public string Value
         {
             get
@@ -170,7 +161,7 @@ namespace BEditor.Data.Property
         /// <summary>
         /// Create a command to rename a folder.
         /// </summary>
-        /// <param name="path">New value for <see cref="Folder"/></param>
+        /// <param name="path">New value for <see cref="Value"/></param>
         /// <returns>Created <see cref="IRecordCommand"/></returns>
         [Pure]
         public IRecordCommand ChangeFolder(string path) => new ChangeFolderCommand(this, path);
@@ -283,14 +274,14 @@ namespace BEditor.Data.Property
         /// Initializes a new instance of the <see cref="FolderPropertyMetadata"/>
         /// </summary>
         /// <param name="Name">The string displayed in the property header.</param>
-        /// <param name="Default">Default value of <see cref="FolderProperty.Folder"/></param>
+        /// <param name="Default">Default value of <see cref="FolderProperty.Value"/>.</param>
         public FolderPropertyMetadata(string Name, string Default = "") : base(Name)
         {
             this.Default = Default;
         }
 
         /// <summary>
-        /// Get the default value of <see cref="FolderProperty.Folder"/>.
+        /// Get the default value of <see cref="FolderProperty.Value"/>.
         /// </summary>
         public string Default { get; init; }
 

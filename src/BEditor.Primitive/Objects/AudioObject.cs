@@ -84,17 +84,17 @@ namespace BEditor.Primitive.Objects
         /// <summary>
         /// Get the <see cref="EaseProperty"/> representing the pitch.
         /// </summary>
-        [DataMember(Order = 1)]
+        [DataMember(Order = 2)]
         public EaseProperty Pitch { get; private set; }
         /// <summary>
         /// Get the <see cref="EaseProperty"/> that represents the start position.
         /// </summary>
-        [DataMember(Order = 2)]
+        [DataMember(Order = 3)]
         public ValueProperty Start { get; private set; }
         /// <summary>
         /// Get the <see cref="FileProperty"/> to select the file to reference.
         /// </summary>
-        [DataMember(Order = 0)]
+        [DataMember(Order = 4)]
         public FileProperty File { get; private set; }
         private FFmpegDecoder? Decoder
         {

@@ -43,16 +43,6 @@ namespace BEditor.Data.Property
         }
 
         private List<IObserver<bool>> Collection => _list ??= new();
-        /// <summary>
-        /// Gets or sets the value of whether the item is checked or not.
-        /// </summary>
-        [DataMember]
-        [Obsolete("Use CheckProperty.Value")]
-        public bool IsChecked
-        {
-            get => Value;
-            set => Value = value;
-        }
         /// <inheritdoc/>
         [DataMember]
         public string? BindHint
@@ -187,14 +177,14 @@ namespace BEditor.Data.Property
         /// Initializes a new instance of the <see cref="CheckPropertyMetadata"/> class.
         /// </summary>
         /// <param name="Name">The string displayed in the property header.</param>
-        /// <param name="DefaultIsChecked">Default value for <see cref="CheckProperty.IsChecked"/>.</param>
+        /// <param name="DefaultIsChecked">Default value for <see cref="CheckProperty.Value"/>.</param>
         public CheckPropertyMetadata(string Name, bool DefaultIsChecked = false) : base(Name)
         {
             this.DefaultIsChecked = DefaultIsChecked;
         }
 
         /// <summary>
-        /// Get the default value of <see cref="CheckProperty.IsChecked"/>.
+        /// Get the default value of <see cref="CheckProperty.Value"/>.
         /// </summary>
         public bool DefaultIsChecked { get; init; }
 

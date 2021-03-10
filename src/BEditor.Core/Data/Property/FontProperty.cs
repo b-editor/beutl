@@ -53,16 +53,6 @@ namespace BEditor.Data.Property
         /// Gets or sets the selected font.
         /// </summary>
         [DataMember]
-        [Obsolete("Use FontProperty.Value")]
-        public Font Select
-        {
-            get => Value;
-            set => Value = value;
-        }
-        /// <summary>
-        /// Gets or sets the selected font.
-        /// </summary>
-        [DataMember]
         public Font Value
         {
             get => _selectItem;
@@ -101,7 +91,7 @@ namespace BEditor.Data.Property
         /// <summary>
         /// Create a command to change the font.
         /// </summary>
-        /// <param name="font">New value for <see cref="Select"/></param>
+        /// <param name="font">New value for <see cref="Value"/>.</param>
         /// <returns>Created <see cref="IRecordCommand"/></returns>
         [Pure]
         public IRecordCommand ChangeFont(Font font) => new ChangeSelectCommand(this, font);

@@ -48,16 +48,6 @@ namespace BEditor.Data.Property
         /// Gets or sets the selected color.
         /// </summary>
         [DataMember]
-        [Obsolete("Use ColorProperty.Value")]
-        public Color Color
-        {
-            get => Value;
-            set => Value = value;
-        }
-        /// <summary>
-        /// Gets or sets the selected color.
-        /// </summary>
-        [DataMember]
         public Color Value
         {
             get => _value;

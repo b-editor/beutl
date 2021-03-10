@@ -58,15 +58,6 @@ namespace BEditor.Data.Property
         /// <summary>
         /// Gets or sets the name of the selected file.
         /// </summary>
-        [Obsolete("Use FileProperty.Value")]
-        public string File
-        {
-            get => Value;
-            set => Value = value;
-        }
-        /// <summary>
-        /// Gets or sets the name of the selected file.
-        /// </summary>
         public string Value
         {
             get
@@ -281,7 +272,7 @@ namespace BEditor.Data.Property
         /// Initializes a new instance of the <see cref="FilePropertyMetadata"/>
         /// </summary>
         /// <param name="Name">The string displayed in the property header.</param>
-        /// <param name="DefaultFile">Default value of <see cref="FileProperty.File"/></param>
+        /// <param name="DefaultFile">Default value of <see cref="FileProperty.Value"/></param>
         /// <param name="Filter">Filter the files to select</param>
         public FilePropertyMetadata(string Name, string DefaultFile = "", FileFilter? Filter = null) : base(Name)
         {
@@ -290,7 +281,7 @@ namespace BEditor.Data.Property
         }
 
         /// <summary>
-        /// Get the default value of <see cref="FileProperty.File"/>.
+        /// Get the default value of <see cref="FileProperty.Value"/>.
         /// </summary>
         public string DefaultFile { get; init; }
         /// <summary>
