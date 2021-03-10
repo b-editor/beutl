@@ -13,23 +13,31 @@
 
 ## Requirements
 * [OpenAL](https://www.openal.org/)
-* [FFmpeg(同梱されています)](https://ffmpeg.org)
 
 <details>
 <summary>使用ライブラリ</summary>
 
-## 使用ライブラリ
 * [.NET runtime](https://github.com/dotnet/runtime)
+* [OpenAL](https://www.openal.org/)
+* [FFmpeg(自動でダウンロードします)](https://ffmpeg.org)
+* [FFMediaToolkit](https://github.com/radek-k/FFMediaToolkit)
 * [OpenTK](https://github.com/opentk/opentk)
 * [System.Reactive](https://github.com/dotnet/reactive)
-* [NAudio](https://github.com/naudio/NAudio)
 * [SkiaSharp](https://github.com/mono/SkiaSharp)
+* [Material Design Icons](https://github.com/google/material-design-icons)
+* [ReactiveProperty](https://github.com/runceel/ReactiveProperty)
+* [Dragablz](https://dragablz.net/)
+* [MaterialDesignTheme](https://github.com/MaterialDesignInXAML/MaterialDesignInXamlToolkit)
+* [Markdig](https://github.com/xoofx/markdig)
+* [Neo.Markdig.Xaml](https://github.com/neolithos/NeoMarkdigXaml)
+* [NLog](https://github.com/NLog/NLog)
 
 </details>
 
 ## License
 
 * [MIT License](https://github.com/b-editor/BEditor/blob/main/LICENSE)
+* このソフトウェアは、[Apache 2.0 ライセンス](http://www.apache.org/licenses/LICENSE-2.0)で配布されている製作物が含まれています。
 
 ## Author
 
