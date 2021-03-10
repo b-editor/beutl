@@ -7,112 +7,15 @@
   <title>BEditor</title>
   <link rel="icon" href="./favicon.ico" />
 
-  <!-- CSS  -->
-  <link href="https://fonts.googleapis.com/icon?family=Material+Icons" rel="stylesheet">
-  <link href="css/materialize.css" type="text/css" rel="stylesheet" media="screen,projection" />
-  <link href="css/style.css" type="text/css" rel="stylesheet" media="screen,projection" />
-  <link href="css/markdown.css" type="text/css" rel="stylesheet" media="screen,projection" />
-  <!--lib-->
-  <script src="https://code.jquery.com/jquery-2.1.1.min.js"></script>
-  <script type="text/javascript" src="js/marked.js"></script>
-  <script>
-    $(document).ready(function () {
-      var target = $("#markdown_content");
-
-      $.ajax({
-        url: target[0].attributes["src"].value,
-      }).success(function (data) {
-        target.append(marked(data));
-      }).error(function (data) {
-        target.append("This content failed to load.");
-      });
-    });
+  <script type="text/javascript">
+    setTimeout("link()", 0);
+    function link() {
+      location.href = "https://beditor.net";
+    }
   </script>
-  <!--Font-->
-  <link rel="preconnect" href="https://fonts.gstatic.com">
-  <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+JP:wght@400;500;700;900&display=swap" rel="stylesheet">
 </head>
 
 <body>
-  <script src="js/header.js"></script>
-
-  <div id="index-banner" class="parallax-container">
-
-    <div class="section no-pad-bot">
-      <div class="container">
-        <br><br>
-        <h1 class="header center white-text" style="font-weight: 700;">BEditor</h1>
-        <div class="row center">
-          <h5 class="header col s12 light white-text">開発中の動画編集ソフト</h5>
-        </div>
-        <div class="row center">
-          <a href="https://github.com/b-editor/BEditor/releases" id="download-button"
-            class="btn-large waves-effect waves-light deep-purple accent-4">Download</a>
-        </div>
-        <br><br>
-
-      </div>
-    </div>
-
-    <div class="parallax">
-      <img src="./imgs/ScreenShot_1.png" alt="Unsplashed background img 1"
-        style="transform: translate3d(-50%, 211.948px, 0px); opacity: 1; filter: blur(1px);">
-    </div>
-  </div>
-
-
-  <div class="container">
-    <div class="section">
-
-      <!--   Icon Section   -->
-      <div class="row">
-        <div class="col s12 m4">
-          <div class="icon-block">
-            <h2 class="center deep-purple-text text-accent-4"><i class="material-icons">code</i></h2>
-            <h5 class="center">オープンソフト</h5>
-
-            <p class="light">BEditorはオープンソースです。現在、Windowsで動かすことができます</p>
-          </div>
-        </div>
-
-        <div class="col s12 m4">
-          <div class="icon-block">
-            <h2 class="center deep-purple-text text-accent-4"><i class="material-icons">money_off</i></h2>
-            <h5 class="center">無料</h5>
-
-            <p class="light">BEditorは無料で使うことができます。ライセンスは MIT Licenseです。</p>
-          </div>
-        </div>
-
-        <div class="col s12 m4">
-          <div class="icon-block">
-            <h2 class="center deep-purple-text text-accent-4"><i class="material-icons">extension</i></h2>
-            <h5 class="center">拡張</h5>
-
-            <p class="light">ユーザーが作った拡張機能でエフェクトなどを追加することができます。</p>
-          </div>
-        </div>
-      </div>
-
-    </div>
-    <br><br>
-  </div>
-
-  <div class="card-panel" style="margin: 1%;">
-    <span id="markdown_content" class="markdown-body"
-      src="https://raw.githubusercontent.com/b-editor/BEditor/main/README.md"></span>
-  </div>
-
-  <script src="js/footer.js"></script>
-
-  <!--  Scripts-->
-  <script src="js/materialize.js"></script>
-  <script src="js/init.js"></script>
-  <script>
-    $(document).ready(function () {
-      $('.parallax').parallax();
-    });
-  </script>
 </body>
 
 </html>
