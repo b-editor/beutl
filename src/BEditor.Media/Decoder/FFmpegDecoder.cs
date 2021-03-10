@@ -19,10 +19,7 @@ namespace BEditor.Media.Decoder
     public unsafe class FFmpegDecoder : IMediaDecoder
     {
         private readonly MediaFile media;
-        static FFmpegDecoder()
-        {
-            _ = FFmpegContext.Current;
-        }
+
         public FFmpegDecoder(string filename)
         {
             media = MediaFile.Open(filename, new MediaOptions()
@@ -81,12 +78,42 @@ namespace BEditor.Media.Decoder
             left = new((uint)media.Audio.Info.SampleRate, (uint)audio.NumSamples);
             right = new((uint)media.Audio.Info.SampleRate, (uint)audio.NumSamples);
 
-            array[0].Select(i => Unsafe.As<float, PCM32>(ref i)).ToArray().CopyTo(left.Pcm.AsSpan());
+            array[0].Select(i => (PCM32)(i * int.MaxValue)).ToArray().CopyTo(left.Pcm.AsSpan());
 
             if (array.Length is 2)
             {
-                array[1].Select(i => Unsafe.As<float, PCM32>(ref i)).ToArray().CopyTo(right.Pcm.AsSpan());
+                array[1].Select(i => (PCM32)(i * int.MaxValue)).ToArray().CopyTo(right.Pcm.AsSpan());
             }
+        }
+        public void ReadAll(out Sound<StereoPCM32> sound)
+        {
+            media.Audio.TryGetFrame(TimeSpan.Zero, out _);
+            var sampleL = new List<int>();
+            var sampleR = new List<int>();
+
+            while (media.Audio.TryGetNextFrame(out var audio))
+            {
+                var array = audio.GetSampleData();
+
+                sampleL.AddRange(array[0].Select(i => (int)(i * int.MaxValue)));
+
+                if (array.Length is 2)
+                {
+                    sampleR.AddRange(array[1].Select(i => (int)(i * int.MaxValue)));
+                }
+            }
+
+            sound = new((uint)media.Audio.Info.SampleRate, (uint)sampleL.Count);
+
+            sampleL.Zip(sampleR, (l, r) => new StereoPCM32(l, r))
+                .ToArray()
+                .CopyTo(sound.Pcm.AsSpan());
+        }
+        public void ReadAll(out Sound<StereoPCM16> sound)
+        {
+            ReadAll(out Sound<StereoPCM32> sound32);
+
+            sound = sound32.Convert<StereoPCM16>();
         }
         public void ReadAll(out Sound<PCM32> left, out Sound<PCM32> right)
         {
@@ -98,11 +125,11 @@ namespace BEditor.Media.Decoder
             {
                 var array = audio.GetSampleData();
 
-                sampleL.AddRange(array[0].Select(i => Unsafe.As<float, PCM32>(ref i)));
+                sampleL.AddRange(array[0].Select(i => (PCM32)(i * int.MaxValue)));
 
                 if (array.Length is 2)
                 {
-                    sampleR.AddRange(array[1].Select(i => Unsafe.As<float, PCM32>(ref i)));
+                    sampleR.AddRange(array[1].Select(i => (PCM32)(i * int.MaxValue)));
                 }
             }
 

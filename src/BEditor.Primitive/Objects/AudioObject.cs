@@ -55,7 +55,7 @@ namespace BEditor.Primitive.Objects
         {
             Coordinate = new(CoordinateMetadata);
             Volume = new(VolumeMetadata);
-            Pitch = new(VolumeMetadata);
+            Pitch = new(PitchMetadata);
             Start = new(StartMetadata);
             File = new(FileMetadata);
         }
@@ -139,9 +139,9 @@ namespace BEditor.Primitive.Objects
                 Task.Run(async () =>
                 {
                     var time = (args.Frame - Parent!.Start).ToTimeSpan(Parent!.Parent.Parent!.Framerate);
-                    Decoder.ReadAll(out Sound<PCM16> left, out _);
+                    Decoder.ReadAll(out Sound<StereoPCM16> sound);
 
-                    using var buf = new AudioBuffer(left);
+                    using var buf = new AudioBuffer(sound);
 
                     _source!.Buffer = buf;
                     _source.Play();
@@ -149,7 +149,7 @@ namespace BEditor.Primitive.Objects
                     var millis = (int)Parent.Length.ToMilliseconds(Parent.Parent.Parent.Framerate);
                     await Task.Delay(millis);
 
-                    _source.Stop();
+                    StopIfPlaying();
                 });
             }
         }
@@ -158,8 +158,9 @@ namespace BEditor.Primitive.Objects
         {
             Coordinate.Load(CoordinateMetadata);
             Volume.Load(VolumeMetadata);
-            File.Load(FileMetadata);
+            Pitch.Load(PitchMetadata);
             Start.Load(StartMetadata);
+            File.Load(FileMetadata);
 
             _disposable = File.Subscribe(file =>
             {
@@ -180,9 +181,9 @@ namespace BEditor.Primitive.Objects
         {
             if (Parent.Start <= e.StartFrame && e.StartFrame <= Parent.End && Decoder is not null)
             {
-                Decoder.ReadAll(out Sound<PCM16> left, out _);
+                Decoder.ReadAll(out Sound<StereoPCM16> sound);
 
-                using var buf = new AudioBuffer(left);
+                using var buf = new AudioBuffer(sound);
 
                 var framerate = Parent.Parent.Parent.Framerate;
                 var startmsec = e.StartFrame.ToMilliseconds(framerate);
@@ -196,13 +197,23 @@ namespace BEditor.Primitive.Objects
 
                 await Task.Delay(lengthMsec);
 
-                _source.Stop();
+                StopIfPlaying();
             }
         }
 
         private void Player_Stopped(object? sender, EventArgs e)
         {
-            _source?.Stop();
+            StopIfPlaying();
+        }
+
+        private void StopIfPlaying()
+        {
+            if (_source is null) return;
+
+            if (_source.State is AudioSourceState.Playing)
+            {
+                _source.Stop();
+            }
         }
 
         /// <inheritdoc/>

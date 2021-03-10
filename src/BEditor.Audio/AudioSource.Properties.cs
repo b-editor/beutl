@@ -349,7 +349,7 @@ namespace BEditor.Audio
         {
             var error = AL.GetError();
 
-            if (error is not ALError.NoError)
+            if (error is not (ALError.NoError or ALError.InvalidName))
             {
                 throw new AudioException(AL.GetErrorString(error));
             }

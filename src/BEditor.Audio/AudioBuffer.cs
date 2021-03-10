@@ -18,6 +18,12 @@ namespace BEditor.Audio
             AL.BufferData(Handle, ALFormat.Mono16, sound.Pcm, (int)sound.Samplingrate);
             CheckError();
         }
+        public AudioBuffer(Sound<StereoPCM16> sound)
+        {
+            Handle = AL.GenBuffer();
+            AL.BufferData(Handle, ALFormat.Stereo16, sound.Pcm, (int)sound.Samplingrate);
+            CheckError();
+        }
         public AudioBuffer(int handle)
         {
             if (!AL.IsBuffer(handle))

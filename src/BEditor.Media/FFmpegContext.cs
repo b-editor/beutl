@@ -2,6 +2,7 @@
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
+using System.Runtime.CompilerServices;
 using System.Text;
 using System.Threading.Tasks;
 
@@ -11,9 +12,8 @@ namespace BEditor.Media
 {
     internal class FFmpegContext
     {
-        public static readonly FFmpegContext Current = new();
-
-        public FFmpegContext()
+        [ModuleInitializer]
+        public static void LoadFFmpeg()
         {
             if (OperatingSystem.IsWindows())
             {

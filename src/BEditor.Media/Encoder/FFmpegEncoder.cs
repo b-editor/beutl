@@ -20,10 +20,6 @@ namespace BEditor.Media.Encoder
         private readonly MediaOutput media;
         private readonly MediaBuilder builder;
 
-        static FFmpegEncoder()
-        {
-            _ = FFmpegContext.Current;
-        }
         public FFmpegEncoder(int width, int height, int fps, VideoCodec codec, string filename)
         {
             filename = Path.GetFullPath(filename);

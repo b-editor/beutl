@@ -3,6 +3,7 @@ using System.Runtime.InteropServices;
 
 namespace BEditor.Media.PCM
 {
+
     [Serializable]
     [StructLayout(LayoutKind.Sequential)]
     public struct PCM16 : IPCM<PCM16>, IPCMConvertable<PCM32>
