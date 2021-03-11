@@ -284,6 +284,7 @@ namespace BEditor
                 typeof(SceneObject),
                 typeof(RoundRect),
                 typeof(Polygon),
+                typeof(Framebuffer),
 
                 typeof(Blur),
                 typeof(Border),
@@ -315,6 +316,7 @@ namespace BEditor
             ObjectMetadata.LoadedObjects.Add(PrimitiveTypes.CameraMetadata);
             ObjectMetadata.LoadedObjects.Add(PrimitiveTypes.GL3DObjectMetadata);
             ObjectMetadata.LoadedObjects.Add(PrimitiveTypes.SceneMetadata);
+            ObjectMetadata.LoadedObjects.Add(PrimitiveTypes.FramebufferMetadata);
 
             EffectMetadata.LoadedEffects.Add(new(Resources.Effects)
             {

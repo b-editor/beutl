@@ -153,11 +153,10 @@ namespace BEditor.Primitive.Objects
         {
             int frame = args.Frame;
             var scene = Parent!.Parent!;
-            scene.GraphicsContext!.MakeCurrent();
 
             if (Mode.Value)
             {
-                scene.GraphicsContext.Camera =
+                scene.GraphicsContext!.Camera =
                     new PerspectiveCamera(new(X[frame], Y[frame], Z[frame]), scene.Width / (float)scene.Height)
                     {
                         Far = ZFar[frame],
@@ -168,7 +167,7 @@ namespace BEditor.Primitive.Objects
             }
             else
             {
-                scene.GraphicsContext.Camera =
+                scene.GraphicsContext!.Camera =
                     new OrthographicCamera(new(X[frame], Y[frame], Z[frame]), scene.Width, scene.Height)
                     {
                         Far = ZFar[frame],

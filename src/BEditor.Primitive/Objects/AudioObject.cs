@@ -102,7 +102,7 @@ namespace BEditor.Primitive.Objects
             {
                 if (_decoder is null && System.IO.File.Exists(File.Value))
                 {
-                    _decoder = new(File.Value);
+                    Decoder = new(File.Value);
                 }
 
                 return _decoder;
@@ -115,9 +115,9 @@ namespace BEditor.Primitive.Objects
                 if (_decoder is not null && _source is not null)
                 {
                     _source.Buffer?.Dispose();
-                    _decoder.ReadAll(out Sound<PCM16> left, out _);
+                    _decoder.ReadAll(out Sound<StereoPCM16> sound);
 
-                    _source.Buffer = new(left);
+                    _source.Buffer = new(sound);
                 }
             }
         }
@@ -138,12 +138,6 @@ namespace BEditor.Primitive.Objects
             {
                 Task.Run(async () =>
                 {
-                    var time = (args.Frame - Parent!.Start).ToTimeSpan(Parent!.Parent.Parent!.Framerate);
-                    Decoder.ReadAll(out Sound<StereoPCM16> sound);
-
-                    using var buf = new AudioBuffer(sound);
-
-                    _source!.Buffer = buf;
                     _source.Play();
 
                     var millis = (int)Parent.Length.ToMilliseconds(Parent.Parent.Parent.Framerate);
@@ -170,7 +164,15 @@ namespace BEditor.Primitive.Objects
                 }
             });
 
-            _source = new();
+            Synchronize.Send(_ =>
+            {
+                _source = new();
+                if (System.IO.File.Exists(File.Value))
+                {
+                    Decoder = new(File.Value);
+                }
+            }, null);
+
             var player = Parent.Parent.Player;
             player.Stopped += Player_Stopped;
 
@@ -181,16 +183,11 @@ namespace BEditor.Primitive.Objects
         {
             if (Parent.Start <= e.StartFrame && e.StartFrame <= Parent.End && Decoder is not null)
             {
-                Decoder.ReadAll(out Sound<StereoPCM16> sound);
-
-                using var buf = new AudioBuffer(sound);
-
                 var framerate = Parent.Parent.Parent.Framerate;
                 var startmsec = e.StartFrame.ToMilliseconds(framerate);
                 var hStart = startmsec - Parent.Start.ToMilliseconds(framerate);
                 var lengthMsec = (int)(Parent.Length.ToMilliseconds(framerate) - hStart);
 
-                _source!.Buffer = buf;
                 _source!.SecOffset = (float)TimeSpan.FromMilliseconds(Start.Value + startmsec).TotalSeconds;
 
                 _source.Play();
@@ -221,6 +218,10 @@ namespace BEditor.Primitive.Objects
         {
             _disposable?.Dispose();
             _source?.Dispose();
+            _source = null;
+            _decoder?.Dispose();
+            _decoder = null;
+
             var player = Parent.Parent.Player;
             player.Stopped -= Player_Stopped;
 

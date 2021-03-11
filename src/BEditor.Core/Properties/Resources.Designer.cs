@@ -484,6 +484,15 @@ namespace BEditor.Properties {
         }
         
         /// <summary>
+        ///   Clear the frame buffer に類似しているローカライズされた文字列を検索します。
+        /// </summary>
+        public static string ClearFramebuffer {
+            get {
+                return ResourceManager.GetString("ClearFramebuffer", resourceCulture);
+            }
+        }
+        
+        /// <summary>
         ///   Clip に類似しているローカライズされた文字列を検索します。
         /// </summary>
         public static string Clip {
@@ -995,6 +1004,15 @@ namespace BEditor.Properties {
         public static string Fov {
             get {
                 return ResourceManager.GetString("Fov", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Framebuffer に類似しているローカライズされた文字列を検索します。
+        /// </summary>
+        public static string Framebuffer {
+            get {
+                return ResourceManager.GetString("Framebuffer", resourceCulture);
             }
         }
         

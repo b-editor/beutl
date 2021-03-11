@@ -351,7 +351,6 @@ namespace BEditor.Data
 
             GraphicsContext!.Camera = new OrthographicCamera(new(0, 0, 1024), Width, Height);
             GraphicsContext!.Light = null;
-            GraphicsContext!.MakeCurrent();
             AudioContext!.MakeCurrent();
             GraphicsContext!.Clear();
 
@@ -361,8 +360,6 @@ namespace BEditor.Data
             foreach (var clip in layer) clip.PreviewRender(args);
 
             foreach (var clip in layer) clip.Render(args);
-
-            GraphicsContext.SwapBuffers();
 
             var buffer = new Image<BGRA32>(Width, Height);
             GraphicsContext.ReadImage(buffer);
@@ -400,7 +397,6 @@ namespace BEditor.Data
 
             GraphicsContext!.Camera = new OrthographicCamera(new(0, 0, 1024), Width, Height);
             GraphicsContext!.Light = null;
-            GraphicsContext!.MakeCurrent();
             AudioContext!.MakeCurrent();
             GraphicsContext!.Clear();
 
@@ -410,8 +406,6 @@ namespace BEditor.Data
             foreach (var clip in layer) clip.PreviewRender(args);
 
             foreach (var clip in layer) clip.Render(args);
-
-            GraphicsContext!.SwapBuffers();
 
             GraphicsContext!.ReadImage(image);
         }

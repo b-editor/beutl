@@ -56,6 +56,10 @@ namespace BEditor.Primitive
         /// </summary>
         public static readonly Type Scene = typeof(SceneObject);
         /// <summary>
+        /// <see cref="Type"/> of <see cref="Framebuffer"/> class.
+        /// </summary>
+        public static readonly Type Framebuffer = typeof(Framebuffer);
+        /// <summary>
         /// Metadata of <see cref="VideoFile"/> class.
         /// </summary>
         public static readonly ObjectMetadata VideoMetadata = ObjectMetadata.Create<VideoFile>(Resources.Video);
@@ -95,6 +99,10 @@ namespace BEditor.Primitive
         /// Metadata of <see cref="SceneObject"/> class.
         /// </summary>
         public static readonly ObjectMetadata SceneMetadata = ObjectMetadata.Create<SceneObject>(Resources.Scene);
+        /// <summary>
+        /// Metadata of <see cref="Framebuffer"/> class.
+        /// </summary>
+        public static readonly ObjectMetadata FramebufferMetadata = ObjectMetadata.Create<Framebuffer>(Resources.Framebuffer);
 
     }
 }

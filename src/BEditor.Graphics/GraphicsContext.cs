@@ -18,6 +18,7 @@ using OpenTK.Windowing.GraphicsLibraryFramework;
 
 namespace BEditor.Graphics
 {
+
     public unsafe sealed class GraphicsContext : IDisposable
     {
         private static bool isFirst = true;
@@ -62,8 +63,6 @@ namespace BEditor.Graphics
                 isFirst = false;
             }
 
-            Clear();
-
             _textureShader = ShaderFactory.Texture.Create();
             _shader = ShaderFactory.Default.Create();
             _lightShader = ShaderFactory.Lighting.Create();
@@ -72,12 +71,51 @@ namespace BEditor.Graphics
 
 
             Camera = new OrthographicCamera(new(0, 0, 1024), width, height);
+
+            Tool.ThrowGLError();
+
+            // カラーバッファ用のテクスチャを用意する
+            ColorRenderbuffer = GL.GenTexture();
+            GL.BindTexture(TextureTarget.Texture2D, ColorRenderbuffer);
+            GL.TexImage2D(TextureTarget.Texture2D, 0, PixelInternalFormat.Rgba, Width, Height, 0, PixelFormat.Bgra, PixelType.UnsignedByte, IntPtr.Zero);
+            GL.TexParameter(TextureTarget.Texture2D, TextureParameterName.TextureWrapS, (int)TextureWrapMode.ClampToEdge);
+            GL.TexParameter(TextureTarget.Texture2D, TextureParameterName.TextureWrapT, (int)TextureWrapMode.ClampToEdge);
+            GL.TexParameter(TextureTarget.Texture2D, TextureParameterName.TextureMinFilter, (int)TextureMinFilter.Linear);
+            GL.TexParameter(TextureTarget.Texture2D, TextureParameterName.TextureMagFilter, (int)TextureMinFilter.Linear);
+            GL.BindTexture(TextureTarget.Texture2D, 0);
+
+            // デプスバッファ用のレンダーバッファを用意する
+            DepthRenderbuffer = GL.GenRenderbuffer();
+            GL.BindRenderbuffer(RenderbufferTarget.Renderbuffer, DepthRenderbuffer);
+            GL.RenderbufferStorage(RenderbufferTarget.Renderbuffer, RenderbufferStorage.DepthComponent, Width, Height);
+            GL.BindRenderbuffer(RenderbufferTarget.Renderbuffer, 0);
+
+            // フレームバッファオブジェクトを作成する
+            Framebuffer = GL.GenFramebuffer();
+            GL.BindFramebuffer(FramebufferTarget.Framebuffer, Framebuffer);
+
+            // フレームバッファオブジェクトにカラーバッファとしてテクスチャを結合する
+            GL.FramebufferTexture2D(FramebufferTarget.Framebuffer, FramebufferAttachment.ColorAttachment0, TextureTarget.Texture2D, ColorRenderbuffer, 0);
+
+            // フレームバッファオブジェクトにデプスバッファとしてレンダーバッファを結合する
+            GL.FramebufferRenderbuffer(FramebufferTarget.Framebuffer, FramebufferAttachment.DepthAttachment, RenderbufferTarget.Renderbuffer, DepthRenderbuffer);
+
+            // フレームバッファオブジェクトの結合を解除する
+            GL.BindFramebuffer(FramebufferTarget.Framebuffer, 0);
+
+
+            Tool.ThrowGLError();
+
+            Clear();
         }
         ~GraphicsContext()
         {
             if (!IsDisposed) Dispose();
         }
 
+        public GraphicsHandle ColorRenderbuffer { get; }
+        public GraphicsHandle DepthRenderbuffer { get; }
+        public GraphicsHandle Framebuffer { get; }
         public int Width { get; }
         public int Height { get; }
         public float Aspect => ((float)Width) / ((float)Height);
@@ -91,6 +129,8 @@ namespace BEditor.Graphics
             MakeCurrent();
 
             GL.Viewport(0, 0, Width, Height);
+
+            GL.BindFramebuffer(FramebufferTarget.Framebuffer, Framebuffer);
 
             // アンチエイリアス
             GL.Enable(EnableCap.LineSmooth);
@@ -109,18 +149,13 @@ namespace BEditor.Graphics
 
             Tool.ThrowGLError();
         }
-        public void MakeCurrent()
+        private void MakeCurrent()
         {
             if (!IsCurrent)
             {
                 GLFW.MakeContextCurrent(_window);
                 Tool.ThrowGLFWError();
             }
-        }
-        public void SwapBuffers()
-        {
-            GLFW.SwapBuffers(_window);
-            Tool.ThrowGLFWError();
         }
         public void DrawTexture(Texture texture)
         {
@@ -434,7 +469,8 @@ namespace BEditor.Graphics
             image.ThrowIfDisposed();
             MakeCurrent();
 
-            GL.ReadBuffer(ReadBufferMode.Front);
+            //GL.ReadBuffer(ReadBufferMode.Front);
+            GL.ReadBuffer(ReadBufferMode.ColorAttachment0);
 
             fixed (BGRA32* data = image.Data)
             {

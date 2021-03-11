@@ -861,4 +861,10 @@
   <data name="RecentlyUsedFonts" xml:space="preserve">
     <value>最近使ったフォント</value>
   </data>
+  <data name="Framebuffer" xml:space="preserve">
+    <value>フレームバッファ</value>
+  </data>
+  <data name="ClearFramebuffer" xml:space="preserve">
+    <value>フレームバッファをクリア</value>
+  </data>
 </root>

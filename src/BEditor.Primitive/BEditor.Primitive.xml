@@ -1504,6 +1504,41 @@
         <member name="M:BEditor.Primitive.Objects.Figure.OnUnload">
             <inheritdoc/>
         </member>
+        <member name="T:BEditor.Primitive.Objects.Framebuffer">
+            <summary>
+            
+            </summary>
+        </member>
+        <member name="F:BEditor.Primitive.Objects.Framebuffer.BufferClearMetadata">
+            <summary>
+            Represents <see cref="P:BEditor.Primitive.Objects.Framebuffer.BufferClear"/> metadata.
+            </summary>
+        </member>
+        <member name="M:BEditor.Primitive.Objects.Framebuffer.#ctor">
+            <summary>
+            Initializes a new instance of the <see cref="T:BEditor.Primitive.Objects.Framebuffer"/> class.
+            </summary>
+        </member>
+        <member name="P:BEditor.Primitive.Objects.Framebuffer.Name">
+            <inheritdoc/>
+        </member>
+        <member name="P:BEditor.Primitive.Objects.Framebuffer.Properties">
+            <inheritdoc/>
+        </member>
+        <member name="P:BEditor.Primitive.Objects.Framebuffer.BufferClear">
+            <summary>
+            Gets the <see cref="T:BEditor.Data.Property.CheckProperty"/> representing the value whether to clear the frame buffer.
+            </summary>
+        </member>
+        <member name="M:BEditor.Primitive.Objects.Framebuffer.OnRender(BEditor.Data.EffectRenderArgs)">
+            <inheritdoc/>
+        </member>
+        <member name="M:BEditor.Primitive.Objects.Framebuffer.OnLoad">
+            <inheritdoc/>
+        </member>
+        <member name="M:BEditor.Primitive.Objects.Framebuffer.OnUnload">
+            <inheritdoc/>
+        </member>
         <member name="T:BEditor.Primitive.Objects.ImageFile">
             <summary>
             Represents an <see cref="T:BEditor.Data.Primitive.ImageObject"/> that references an image file.
@@ -1867,6 +1902,11 @@
             <see cref="T:System.Type"/> of <see cref="T:BEditor.Primitive.Objects.SceneObject"/> class.
             </summary>
         </member>
+        <member name="F:BEditor.Primitive.PrimitiveTypes.Framebuffer">
+            <summary>
+            <see cref="T:System.Type"/> of <see cref="F:BEditor.Primitive.PrimitiveTypes.Framebuffer"/> class.
+            </summary>
+        </member>
         <member name="F:BEditor.Primitive.PrimitiveTypes.VideoMetadata">
             <summary>
             Metadata of <see cref="T:BEditor.Primitive.Objects.VideoFile"/> class.
@@ -1915,6 +1955,11 @@
         <member name="F:BEditor.Primitive.PrimitiveTypes.SceneMetadata">
             <summary>
             Metadata of <see cref="T:BEditor.Primitive.Objects.SceneObject"/> class.
+            </summary>
+        </member>
+        <member name="F:BEditor.Primitive.PrimitiveTypes.FramebufferMetadata">
+            <summary>
+            Metadata of <see cref="F:BEditor.Primitive.PrimitiveTypes.Framebuffer"/> class.
             </summary>
         </member>
     </members>

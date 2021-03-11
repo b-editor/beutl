@@ -137,11 +137,11 @@ namespace BEditor.Graphics
         /// <summary>
         /// Get the VertexArray of this <see cref="Cube"/>.
         /// </summary>
-        public int VertexArrayObject { get; }
+        public GraphicsHandle VertexArrayObject { get; }
         /// <summary>
         /// Get the VertexBuffer of this <see cref="Cube"/>.
         /// </summary>
-        public int VertexBufferObject { get; }
+        public GraphicsHandle VertexBufferObject { get; }
 
         /// <inheritdoc/>
         public override void Draw()

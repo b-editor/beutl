@@ -18,7 +18,7 @@ namespace BEditor.Graphics
     /// </summary>
     public class Texture : GraphicsObject
     {
-        private readonly int _handle;
+        private readonly GraphicsHandle _handle;
         private readonly float[] _vertices;
         private readonly uint[] _indices =
         {
@@ -85,15 +85,15 @@ namespace BEditor.Graphics
         /// <summary>
         /// Get the ElementBuffer of this <see cref="Texture"/>.
         /// </summary>
-        public int ElementBufferObject { get; }
+        public GraphicsHandle ElementBufferObject { get; }
         /// <summary>
         /// Get the VertexBuffer of this <see cref="Texture"/>.
         /// </summary>
-        public int VertexBufferObject { get; }
+        public GraphicsHandle VertexBufferObject { get; }
         /// <summary>
         /// Get the VertexArray of this <see cref="Texture"/>.
         /// </summary>
-        public int VertexArrayObject { get; }
+        public GraphicsHandle VertexArrayObject { get; }
 
         /// <summary>
         /// Create a texture from an image file.

@@ -861,4 +861,10 @@ Please select the plugin you want to load</value>
   <data name="RecentlyUsedFonts" xml:space="preserve">
     <value>Recently used fonts</value>
   </data>
+  <data name="Framebuffer" xml:space="preserve">
+    <value>Framebuffer</value>
+  </data>
+  <data name="ClearFramebuffer" xml:space="preserve">
+    <value>Clear the frame buffer</value>
+  </data>
 </root>

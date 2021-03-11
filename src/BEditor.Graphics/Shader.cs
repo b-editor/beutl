@@ -22,7 +22,7 @@ namespace BEditor.Graphics
     {
         private readonly Dictionary<string, int> _uniformLocations;
         private readonly SynchronizationContext _synchronization;
-        private readonly int _handle;
+        private readonly GraphicsHandle _handle;
 
         /// <summary>
         /// Initializes a new instance of the <see cref="Shader"/> class.

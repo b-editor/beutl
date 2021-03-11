@@ -190,6 +190,8 @@ namespace BEditor.Data
                 ServiceProvider = child_app.Parent?.Services.BuildServiceProvider();
             }
 
+            OnLoad();
+
             if (this is IParent<EditorObject> obj2)
             {
                 var owner = GetType();
@@ -210,8 +212,6 @@ namespace BEditor.Data
                 }
             }
 
-            OnLoad();
-
             IsLoaded = true;
         }
 
@@ -220,6 +220,8 @@ namespace BEditor.Data
         {
             if (!IsLoaded) return;
 
+            OnUnload();
+
             if (this is IParent<EditorObject> obj)
             {
                 foreach (var item in obj.Children)
@@ -227,8 +229,6 @@ namespace BEditor.Data
                     item.Unload();
                 }
             }
-
-            OnUnload();
 
             IsLoaded = false;
         }

@@ -127,9 +127,6 @@ namespace BEditor.Primitive.Objects
             float scaley = (float)(Zoom.ScaleY[frame] / 100) * scale;
             float scalez = (float)(Zoom.ScaleZ[frame] / 100) * scale;
 
-
-            Parent!.Parent!.GraphicsContext!.MakeCurrent();
-
             var material = new Graphics.Material(Material.Ambient[frame], Material.Diffuse[frame], Material.Specular[frame], Material.Shininess[frame]);
             var trans = Transform.Create(
                 new(Coordinate.X[frame], Coordinate.Y[frame], Coordinate.Z[frame]),
@@ -147,7 +144,7 @@ namespace BEditor.Primitive.Objects
                     material,
                     trans);
 
-                Parent.Parent.GraphicsContext.DrawCube(cube);
+                Parent.Parent.GraphicsContext!.DrawCube(cube);
             }
             else
             {
@@ -159,7 +156,7 @@ namespace BEditor.Primitive.Objects
                     material,
                     trans);
 
-                Parent.Parent.GraphicsContext.DrawBall(ball);
+                Parent.Parent.GraphicsContext!.DrawBall(ball);
             }
 
             Coordinate.ResetOptional();
