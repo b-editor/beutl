@@ -10,7 +10,7 @@
   <Import Project="..\..\props\common.props" />
 
   <ItemGroup>
-    <PackageReference Include="ReactiveProperty" Version="7.8.0" />
+    <PackageReference Include="ReactiveProperty" Version="7.8.1" />
   </ItemGroup>
   
   <ItemGroup>
