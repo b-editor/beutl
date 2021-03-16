@@ -3,14 +3,11 @@ using System.Drawing;
 using System.Drawing.Imaging;
 using System.Runtime.InteropServices;
 using System.Windows;
-using System.Windows.Forms;
-using System.Windows.Interop;
-using System.Windows.Media.Imaging;
 using System.Windows.Threading;
 
 namespace BEditor.Models.ColorTool
 {
-    public class ColorDropper
+    public unsafe class ColorDropper
     {
         public static void Run(Action<System.Windows.Media.Color> action) => new ColorDropper(action).Start();
 
@@ -32,6 +29,8 @@ namespace BEditor.Models.ColorTool
         //クリックされているか判定用
         [DllImport("user32.dll")]
         private static extern short GetKeyState(int nVirtkey);
+        [DllImport("user32.dll")]
+        private static extern int GetCursorPos(POINT* point);
         //クリック判定
         private static bool IsClickDown => GetKeyState(0x01) < 0;
 
@@ -42,9 +41,14 @@ namespace BEditor.Models.ColorTool
                 timer.Stop();
                 timer.Tick -= Timer_Tick;
 
-                var col = ColorSet(Cursor.Position.X, Cursor.Position.Y);
+                POINT pos = default;
 
-                Action(col);
+                if (GetCursorPos(&pos) is 1)
+                {
+                    var col = ColorSet(pos.X, pos.Y);
+
+                    Action(col);
+                }
             }
         }
 
@@ -57,6 +61,12 @@ namespace BEditor.Models.ColorTool
             var color = bitmap.GetPixel((int)X, (int)Y);
 
             return System.Windows.Media.Color.FromRgb(color.R, color.G, color.B);
+        }
+
+        private struct POINT
+        {
+            public int X;
+            public int Y;
         }
     }
 }

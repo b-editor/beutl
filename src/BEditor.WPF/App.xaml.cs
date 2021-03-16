@@ -233,7 +233,7 @@ namespace BEditor
         }
         private static async Task InstallFFmpeg()
         {
-            const string url = "https://github.com/BtbN/FFmpeg-Builds/releases/download/autobuild-2021-02-20-12-31/ffmpeg-N-101185-g029e3c1c70-win64-gpl-shared.zip";
+            const string url = "https://github.com/BtbN/FFmpeg-Builds/releases/download/autobuild-2021-03-15-12-32/ffmpeg-N-101538-g63344337f9-win64-gpl-shared.zip";
             using var client = new WebClient();
             Loading loading = null!;
             NoneDialog dialog = null!;
@@ -269,7 +269,7 @@ namespace BEditor
             await using (var stream = new FileStream(tmp, FileMode.Open))
             using (var zip = new ZipArchive(stream, ZipArchiveMode.Read))
             {
-                const string ziproot = "ffmpeg-N-101185-g029e3c1c70-win64-gpl-shared";
+                const string ziproot = "ffmpeg-N-101538-g63344337f9-win64-gpl-shared";
                 var dir = Path.Combine(ziproot, "bin");
                 var destdir = ffmpegDir;
 

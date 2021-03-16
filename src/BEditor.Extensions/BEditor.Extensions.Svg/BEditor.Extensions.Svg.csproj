@@ -1,0 +1,19 @@
+﻿<Project Sdk="Microsoft.NET.Sdk">
+
+  <Import Project="..\..\..\props\plugin.props" />
+
+  <PropertyGroup>
+    <TargetFramework>net5.0</TargetFramework>
+    <Nullable>enable</Nullable>
+    <OutputPath>..\..\BEditor.WPF\bin\x64\$(Configuration)\net5.0-windows\user\plugins\BEditor.Extensions.Svg</OutputPath>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\..\BEditor.Core\BEditor.Core.csproj" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <PackageReference Include="Svg.Skia" Version="0.5.0"/>
+  </ItemGroup>
+
+</Project>

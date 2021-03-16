@@ -79,7 +79,7 @@ namespace BEditor.Drawing
 
             return result;
         }
-        internal static Image<BGRA32> ToImage32(this SKBitmap self)
+        public static Image<BGRA32> ToImage32(this SKBitmap self)
         {
             var result = new Image<BGRA32>(self.Width, self.Height);
             CopyTo(self.Bytes, result.Data!, result.DataSize);

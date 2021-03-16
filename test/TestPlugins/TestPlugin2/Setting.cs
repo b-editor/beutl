@@ -6,9 +6,9 @@ namespace TestPlugin2
 {
     public record Setting(
         [property: DisplayName("整数")]
-        int integer,
+        int Integer,
         [property: DisplayName("浮動小数点")]
-        float single,
+        float Single,
         [property: DisplayName("文字列")]
-        string text) : SettingRecord;
+        string Text) : SettingRecord;
 }

@@ -43,24 +43,5 @@ namespace BEditor.Models.Extension
                 dst.WritePixels(new Int32Rect(0, 0, w, h), (IntPtr)data, src.DataSize, src.Stride);
             }
         }
-
-        public unsafe static void ToImage(this BitmapSource src, Image<BGRA32> dst)
-        {
-            fixed (BGRA32* data = dst.Data)
-            {
-                src.CopyPixels(Int32Rect.Empty, (IntPtr)data, dst.Height * dst.Stride, dst.Stride);
-            }
-        }
-
-        public static Bitmap ToBitmap(this BitmapSource src)
-        {
-            var bitmap = new Bitmap(src.PixelWidth, src.PixelHeight, PixelFormat.Format32bppPArgb);
-            var bitmapData = bitmap.LockBits(new System.Drawing.Rectangle(System.Drawing.Point.Empty, bitmap.Size), ImageLockMode.WriteOnly, PixelFormat.Format32bppPArgb);
-            src.CopyPixels(Int32Rect.Empty, bitmapData.Scan0, bitmapData.Height * bitmapData.Stride, bitmapData.Stride);
-
-            bitmap.UnlockBits(bitmapData);
-
-            return bitmap;
-        }
     }
 }
