@@ -25,10 +25,9 @@ namespace BEditor.Data.Property
         private static readonly PropertyChangedEventArgs _indexArgs = new(nameof(Index));
         private int _selectIndex;
         private List<IObserver<int>>? _list;
-
-        private IDisposable? _BindDispose;
-        private IBindable<int>? _Bindable;
-        private string? _BindHint;
+        private IDisposable? _bindDispose;
+        private IBindable<int>? _bindable;
+        private string? _bindHint;
         #endregion
 
 
@@ -82,8 +81,8 @@ namespace BEditor.Data.Property
         [DataMember]
         public string? BindHint
         {
-            get => _Bindable?.GetString();
-            private set => _BindHint = value;
+            get => _bindable?.GetString();
+            private set => _bindHint = value;
         }
 
 
@@ -92,7 +91,7 @@ namespace BEditor.Data.Property
         /// <inheritdoc/>
         protected override void OnLoad()
         {
-            this.AutoLoad(ref _BindHint);
+            this.AutoLoad(ref _bindHint);
         }
         
         /// <summary>
@@ -106,14 +105,7 @@ namespace BEditor.Data.Property
         /// <inheritdoc/>
         public IDisposable Subscribe(IObserver<int> observer)
         {
-            if (observer is null) throw new ArgumentNullException(nameof(observer));
-
-            Collection.Add(observer);
-            return Disposable.Create((observer, this), state =>
-            {
-                state.observer.OnCompleted();
-                state.Item2.Collection.Remove(state.observer);
-            });
+            return BindingHelper.Subscribe(Collection, observer, Value);
         }
 
         /// <inheritdoc/>
@@ -131,16 +123,7 @@ namespace BEditor.Data.Property
         /// <inheritdoc/>
         public void Bind(IBindable<int>? bindable)
         {
-            _BindDispose?.Dispose();
-            _Bindable = bindable;
-
-            if (bindable is not null)
-            {
-                Index = bindable.Value;
-
-                // bindableが変更時にthisが変更
-                _BindDispose = bindable.Subscribe(this);
-            }
+            Index = this.Bind(bindable, out _bindable, ref _bindDispose);
         }
 
         #endregion

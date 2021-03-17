@@ -1,0 +1,1 @@
+dotnet pack BEditor.Api.sln -o ./plugin_nuget

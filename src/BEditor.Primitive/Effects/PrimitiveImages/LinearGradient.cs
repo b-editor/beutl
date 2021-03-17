@@ -183,9 +183,6 @@ namespace BEditor.Primitive.Effects
                         .Select(s => float.Parse(s))
                         .ToArray())
                 .ToReactiveProperty()!;
-
-            Colors.Value += " ";
-            Anchors.Value += " ";
         }
         /// <inheritdoc/>
         protected override void OnUnload()

@@ -1,17 +1,16 @@
-﻿using System;
-using System.Collections.Generic;
+﻿using System.Collections.Generic;
 using System.IO;
-using System.Reactive;
 using System.Reactive.Linq;
 using System.Runtime.Serialization;
 
-using BEditor.Command;
 using BEditor.Data;
 using BEditor.Data.Primitive;
 using BEditor.Data.Property;
-using BEditor.Properties;
 using BEditor.Drawing;
 using BEditor.Drawing.Pixel;
+using BEditor.Properties;
+
+using Reactive.Bindings;
 
 namespace BEditor.Primitive.Objects
 {
@@ -32,8 +31,6 @@ namespace BEditor.Primitive.Objects
             new("jpg"),
             new("bmp"),
         }));
-        private Image<BGRA32>? _Source;
-        private IDisposable? _Disposable;
 
         /// <summary>
         /// Initializes a new instance of the <see cref="ImageFile"/> class.
@@ -60,29 +57,12 @@ namespace BEditor.Primitive.Objects
         /// </summary>
         [DataMember(Order = 0)]
         public FileProperty File { get; private set; }
-        private Image<BGRA32>? Source
-        {
-            get
-            {
-                if (_Source == null && System.IO.File.Exists(File.Value))
-                {
-                    using var stream = new FileStream(File.Value, FileMode.Open);
-                    _Source = Image.Decode(stream);
-                }
-
-                return _Source;
-            }
-            set
-            {
-                _Source?.Dispose();
-                _Source = value;
-            }
-        }
+        private ReactiveProperty<Image<BGRA32>?>? Source { get; set; }
 
         /// <inheritdoc/>
         protected override Image<BGRA32>? OnRender(EffectRenderArgs args)
         {
-            return Source?.Clone();
+            return Source?.Value?.Clone();
         }
 
         /// <inheritdoc/>
@@ -91,14 +71,16 @@ namespace BEditor.Primitive.Objects
             base.OnLoad();
             File.Load(FileMetadata);
 
-            _Disposable = File.Subscribe(file =>
-            {
-                if (System.IO.File.Exists(file))
+            Source = File.Where(file => System.IO.File.Exists(file))
+                .Select(f =>
                 {
-                    using var stream = new FileStream(file, FileMode.Open);
-                    Source = Image.Decode(stream);
-                }
-            });
+                    Source?.Value?.Dispose();
+
+                    using var stream = new FileStream(f, FileMode.Open);
+                    return Image.Decode(stream);
+                })
+                .ToReactiveProperty();
+
         }
         /// <inheritdoc/>
         protected override void OnUnload()
@@ -106,8 +88,8 @@ namespace BEditor.Primitive.Objects
             base.OnUnload();
             File.Unload();
 
-            _Disposable?.Dispose();
-            Source = null;
+            Source?.Value?.Dispose();
+            Source?.Dispose();
         }
     }
 }

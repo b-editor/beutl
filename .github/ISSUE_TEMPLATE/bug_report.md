@@ -1,5 +1,5 @@
 ---
-name: Bug report
+name: バグの報告
 about: Create a report to help us improve
 title: ''
 labels: bug
@@ -7,32 +7,25 @@ assignees: ''
 
 ---
 
-**Describe the bug**
-A clear and concise description of what the bug is.
+**バグの説明**
+バグを簡潔に説明する。
 
-**To Reproduce**
-Steps to reproduce the behavior:
-1. Go to '...'
-2. Click on '....'
-3. Scroll down to '....'
-4. See error
+**再現**
+再現するための手順:
+1. '...' に行く
+2. '....' をクリック
+3. '....' 下にスクロール
+4. エラー発生
 
-**Expected behavior**
-A clear and concise description of what you expected to happen.
+**予想される動作**
+予想される動作を明確かつ簡潔に説明する。
 
-**Screenshots**
-If applicable, add screenshots to help explain your problem.
+**スクリーンショット**
+必要に応じて、問題を説明するためのスクリーンショットを追加してください。
 
-**Desktop (please complete the following information):**
- - OS: [e.g. iOS]
- - Browser [e.g. chrome, safari]
- - Version [e.g. 22]
+**環境:**
+ - OS: [例: Windows10]
+ - Version: [例: 20H2]
+ - Build: [例: 19042.867]
 
-**Smartphone (please complete the following information):**
- - Device: [e.g. iPhone6]
- - OS: [e.g. iOS8.1]
- - Browser [e.g. stock browser, safari]
- - Version [e.g. 22]
-
-**Additional context**
-Add any other context about the problem here.
+**その他**

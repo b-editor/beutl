@@ -26,8 +26,7 @@ namespace BEditor.Data.Property
         private static readonly PropertyChangedEventArgs _selectItemArgs = new(nameof(SelectItem));
         private T? _selectItem;
         private List<IObserver<T?>>? _list;
-
-        private IDisposable? _BindDispose;
+        private IDisposable? _bindDispose;
         private IBindable<T?>? _bindable;
         private string? _bindHint;
         #endregion
@@ -109,14 +108,7 @@ namespace BEditor.Data.Property
         /// <inheritdoc/>
         public IDisposable Subscribe(IObserver<T?> observer)
         {
-            if (observer is null) throw new ArgumentNullException(nameof(observer));
-
-            Collection.Add(observer);
-            return Disposable.Create((observer, this), state =>
-            {
-                state.observer.OnCompleted();
-                state.Item2.Collection.Remove(state.observer);
-            });
+            return BindingHelper.Subscribe(Collection, observer, Value);
         }
 
         /// <inheritdoc/>
@@ -134,16 +126,7 @@ namespace BEditor.Data.Property
         /// <inheritdoc/>
         public void Bind(IBindable<T?>? bindable)
         {
-            _BindDispose?.Dispose();
-            _bindable = bindable;
-
-            if (bindable is not null)
-            {
-                SelectItem = bindable.Value;
-
-                // bindableが変更時にthisが変更
-                _BindDispose = bindable.Subscribe(this);
-            }
+            SelectItem = this.Bind(bindable, out _bindable, ref _bindDispose);
         }
 
         #endregion

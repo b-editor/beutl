@@ -29,11 +29,6 @@ namespace BEditor.Views.PropertyControls
 
         private void CloseButton(object sender, RoutedEventArgs e)
         {
-            if(DataContext is IDisposable disposable)
-            {
-                disposable.Dispose();
-            }
-
             Close();
         }
     }

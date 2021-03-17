@@ -23,7 +23,6 @@ namespace BEditor.Data.Property
         private static readonly PropertyChangedEventArgs _isExpandedArgs = new(nameof(IsExpanded));
         private bool _isOpen;
         private List<IObserver<bool>>? _list;
-
         private IDisposable? _bindDispose;
         private IBindable<bool>? _bindable;
         private string? _bindHint;
@@ -98,29 +97,13 @@ namespace BEditor.Data.Property
         /// <inheritdoc/>
         public IDisposable Subscribe(IObserver<bool> observer)
         {
-            if (observer is null) throw new ArgumentNullException(nameof(observer));
-
-            Collection.Add(observer);
-            return Disposable.Create((observer, this), state =>
-            {
-                state.observer.OnCompleted();
-                state.Item2.Collection.Remove(state.observer);
-            });
+            return BindingHelper.Subscribe(Collection, observer, IsExpanded);
         }
 
         /// <inheritdoc/>
         public void Bind(IBindable<bool>? bindable)
         {
-            _bindDispose?.Dispose();
-            _bindable = bindable;
-
-            if (bindable is not null)
-            {
-                IsExpanded = bindable.Value;
-
-                // bindableが変更時にthisが変更
-                _bindDispose = bindable.Subscribe(this);
-            }
+            IsExpanded = this.Bind(bindable, out _bindable, ref _bindDispose);
         }
 
         #endregion

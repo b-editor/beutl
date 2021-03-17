@@ -24,7 +24,6 @@ namespace BEditor.Data.Property
         #region Fields
         private bool _value;
         private List<IObserver<bool>>? _list;
-
         private IDisposable? _bindDispose;
         private IBindable<bool>? _bindable;
         private string? _bindHint;
@@ -92,29 +91,13 @@ namespace BEditor.Data.Property
         /// <exception cref="ArgumentNullException"><paramref name="observer"/> is <see langword="null"/>.</exception>
         public IDisposable Subscribe(IObserver<bool> observer)
         {
-            if (observer is null) throw new ArgumentNullException(nameof(observer));
-
-            Collection.Add(observer);
-            return Disposable.Create((observer, this), o =>
-            {
-                o.observer.OnCompleted();
-                o.Item2.Collection.Remove(o.observer);
-            });
+            return BindingHelper.Subscribe(Collection, observer, Value);
         }
 
         /// <inheritdoc/>
         public void Bind(IBindable<bool>? bindable)
         {
-            _bindDispose?.Dispose();
-            _bindable = bindable;
-
-            if (bindable is not null)
-            {
-                Value = bindable.Value;
-
-                // bindableが変更時にthisが変更
-                _bindDispose = bindable.Subscribe(this);
-            }
+            Value = this.Bind(bindable, out _bindable, ref _bindDispose);
         }
 
         /// <inheritdoc/>

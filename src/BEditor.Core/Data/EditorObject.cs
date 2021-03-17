@@ -61,6 +61,10 @@ namespace BEditor.Data
         /// <param name="property">The identifier of the <see cref="EditorProperty"/> to set.</param>
         /// <param name="value">The new local value.</param>
         public void SetValue(EditorProperty property, object? value);
+        /// <summary>
+        /// Removes all local values from this <see cref="EditorObject"/>.
+        /// </summary>
+        public void Clear();
     }
     /// <summary>
     /// Represents the base class of the edit data.
@@ -142,14 +146,12 @@ namespace BEditor.Data
             Values[property.Name] = value;
         }
 
-        /// <summary>
-        /// Removes all local values from this <see cref="EditorObject"/>.
-        /// </summary>
+        /// <inheritdoc/>
         public void Clear()
         {
             static void ClearChildren(EditorObject @object)
             {
-                if (@object is IParent<EditorObject> parent)
+                if (@object is IParent<IEditorObject> parent)
                 {
                     foreach (var child in parent.Children)
                     {

@@ -27,7 +27,6 @@ namespace BEditor.Data.Property
         private static readonly PropertyChangedEventArgs _modeArgs = new(nameof(Mode));
         private string _rawFolder = "";
         private List<IObserver<string>>? _list;
-
         private IDisposable? _bindDispose;
         private IBindable<string>? _bindable;
         private string? _bindHint;
@@ -175,7 +174,7 @@ namespace BEditor.Data.Property
         /// <inheritdoc/>
         public void OnNext(string value)
         {
-            if (File.Exists(value))
+            if (Directory.Exists(value))
             {
                 Value = value;
             }
@@ -184,29 +183,13 @@ namespace BEditor.Data.Property
         /// <inheritdoc/>
         public IDisposable Subscribe(IObserver<string> observer)
         {
-            if (observer is null) throw new ArgumentNullException(nameof(observer));
-
-            Collection.Add(observer);
-            return Disposable.Create((observer, this), state =>
-             {
-                 state.observer.OnCompleted();
-                 state.Item2.Collection.Remove(state.observer);
-             });
+            return BindingHelper.Subscribe(Collection, observer, Value);
         }
 
         /// <inheritdoc/>
         public void Bind(IBindable<string>? bindable)
         {
-            _bindDispose?.Dispose();
-            _bindable = bindable;
-
-            if (bindable is not null)
-            {
-                Value = bindable.Value;
-
-                // bindableが変更時にthisが変更
-                _bindDispose = bindable.Subscribe(this);
-            }
+            Value = this.Bind(bindable, out _bindable, ref _bindDispose);
         }
 
         #endregion
