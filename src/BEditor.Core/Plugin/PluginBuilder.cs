@@ -8,6 +8,8 @@ using System.Threading.Tasks;
 using BEditor.Data;
 using BEditor.Data.Property.Easing;
 
+using Microsoft.Extensions.DependencyInjection;
+
 namespace BEditor.Plugin
 {
     /// <summary>
@@ -20,9 +22,7 @@ namespace BEditor.Plugin
         private readonly List<ObjectMetadata> _objects = new();
         private readonly List<EasingMetadata> _eases = new();
         private (string?, IEnumerable<ICustomMenu>?) _menus;
-#pragma warning disable IDE0044
-        private static PluginConfig? config = null;
-#pragma warning restore IDE0044
+        internal static PluginConfig? config = null;
 
         private PluginBuilder(Func<PluginObject> create)
         {
@@ -80,6 +80,17 @@ namespace BEditor.Plugin
         public PluginBuilder SetCustomMenu(string header, IEnumerable<ICustomMenu> menus)
         {
             _menus = (header, menus);
+
+            return this;
+        }
+        /// <summary>
+        /// 
+        /// </summary>
+        /// <param name="action"></param>
+        /// <returns></returns>
+        public PluginBuilder ConfigureServices(Action<IServiceCollection> action)
+        {
+            action.Invoke(config!.Application.Services);
 
             return this;
         }

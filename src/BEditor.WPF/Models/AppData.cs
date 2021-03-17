@@ -30,6 +30,8 @@ using System.Threading;
 using System.Windows.Threading;
 using System.Windows;
 
+#nullable disable
+
 namespace BEditor.Models
 {
     public class AppData : BasePropertyChanged, IApplication
@@ -37,9 +39,10 @@ namespace BEditor.Models
         private static readonly PropertyChangedEventArgs _ProjectArgs = new(nameof(Project));
         private static readonly PropertyChangedEventArgs _StatusArgs = new(nameof(AppStatus));
         private static readonly PropertyChangedEventArgs _IsPlayingArgs = new(nameof(IsNotPlaying));
-        private Project? _Project;
+        private Project _Project;
         private Status _Status;
         private bool _Isplaying = true;
+        private IServiceProvider serviceProvider;
 
         private AppData()
         {
@@ -101,16 +104,10 @@ namespace BEditor.Models
                         .AddNLog()
                         .AddProvider(new BEditorLoggerProvider());
                 }));
-
-            ServiceProvider = Services.BuildServiceProvider();
-
-            LoggingFactory = ServiceProvider.GetService<ILoggerFactory>()!;
-            Message = ServiceProvider.GetService<IMessage>()!;
-            FileDialog = ServiceProvider.GetService<IFileDialogService>()!;
         }
 
         public static AppData Current { get; } = new();
-        public Project? Project
+        public Project Project
         {
             get => _Project;
             set => SetValue(value, ref _Project, _ProjectArgs);
@@ -126,10 +123,21 @@ namespace BEditor.Models
             set => SetValue(value, ref _Isplaying, _IsPlayingArgs);
         }
         public IServiceCollection Services { get; }
-        public IServiceProvider ServiceProvider { get; }
-        public IMessage Message { get; }
-        public IFileDialogService FileDialog { get; }
-        public ILoggerFactory LoggingFactory { get; }
+        public IServiceProvider ServiceProvider
+        {
+            get => serviceProvider ??= Services.BuildServiceProvider();
+            set
+            {
+                serviceProvider = value;
+
+                LoggingFactory = ServiceProvider.GetService<ILoggerFactory>()!;
+                Message = ServiceProvider.GetService<IMessage>()!;
+                FileDialog = ServiceProvider.GetService<IFileDialogService>()!;
+            }
+        }
+        public IMessage Message { get; set; }
+        public IFileDialogService FileDialog { get; set; }
+        public ILoggerFactory LoggingFactory { get; set; }
 
         public void SaveAppConfig(Project project, string directory)
         {
@@ -220,7 +228,7 @@ namespace BEditor.Models
             return logger;
         }
 
-        public event EventHandler? Disposed;
+        public event EventHandler Disposed;
 
         public void Dispose()
         {

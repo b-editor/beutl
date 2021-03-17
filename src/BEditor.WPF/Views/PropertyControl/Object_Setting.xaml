@@ -90,9 +90,7 @@
                 HorizontalContentAlignment="Stretch"
                 VerticalContentAlignment="Stretch"
                 AlternationCount="{Binding Items.Count, ElementName=itemsControl}"
-                ItemsSource="{Binding Effect, Mode=OneWay}"
-                VirtualizingPanel.IsVirtualizing="True"
-                VirtualizingPanel.VirtualizationMode="Recycling">
+                ItemsSource="{Binding Effect, Mode=OneWay}">
                 <ItemsControl.ItemTemplate>
                     <DataTemplate>
                         <Label

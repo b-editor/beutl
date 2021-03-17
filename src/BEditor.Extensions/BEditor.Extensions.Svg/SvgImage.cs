@@ -66,7 +66,7 @@ namespace BEditor.Extensions.Svg
             }
         }
 
-        protected override Image<BGRA32>? OnRender(EffectRenderArgs args)
+        protected override unsafe Image<BGRA32>? OnRender(EffectRenderArgs args)
         {
             if (Source?.Picture is null) return null;
 
@@ -79,11 +79,20 @@ namespace BEditor.Extensions.Svg
 
             picture.Draw(SKColor.Empty, sx, sy, canvas);
 
-            return bmp.ToImage32();
+            var result = new Image<BGRA32>(bmp.Width, bmp.Height);
+
+            fixed (byte* src = bmp.Bytes)
+            fixed (BGRA32* dst = result.Data)
+            {
+                Buffer.MemoryCopy(src, dst, result.DataSize, result.DataSize);
+            }
+
+            return result;
         }
         protected override void OnLoad()
         {
             base.OnLoad();
+            Scale.Load(ScaleMetadata);
             ScaleX.Load(ScaleXMetadata);
             ScaleY.Load(ScaleYMetadata);
             File.Load(FileMetadata);
@@ -95,6 +104,7 @@ namespace BEditor.Extensions.Svg
         protected override void OnUnload()
         {
             base.OnUnload();
+            Scale.Unload();
             ScaleX.Unload();
             ScaleY.Unload();
             File.Unload();

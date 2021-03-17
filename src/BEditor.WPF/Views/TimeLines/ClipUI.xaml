@@ -172,9 +172,7 @@
             HorizontalContentAlignment="Stretch"
             VerticalContentAlignment="Stretch"
             AlternationCount="{Binding Items.Count, ElementName=itemsControl}"
-            ItemsSource="{Binding ClipElement.Effect, Mode=OneWay}"
-            VirtualizingPanel.IsVirtualizing="True"
-            VirtualizingPanel.VirtualizationMode="Recycling">
+            ItemsSource="{Binding ClipElement.Effect, Mode=OneWay}">
             <ItemsControl.ItemTemplate>
                 <DataTemplate>
                     <Label
@@ -186,11 +184,6 @@
                         Content="{Binding Converter={StaticResource EffectElementToKeyFrame}}" />
                 </DataTemplate>
             </ItemsControl.ItemTemplate>
-            <ItemsControl.ItemsPanel>
-                <ItemsPanelTemplate>
-                    <VirtualizingStackPanel />
-                </ItemsPanelTemplate>
-            </ItemsControl.ItemsPanel>
         </ItemsControl>
     </VirtualizingStackPanel>
 </UserControl>

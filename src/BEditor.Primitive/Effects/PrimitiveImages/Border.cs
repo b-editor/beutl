@@ -8,6 +8,8 @@ using BEditor.Data.Property;
 using BEditor.Properties;
 using BEditor.Drawing;
 using BEditor.Drawing.Pixel;
+using SkiaSharp;
+using System.Linq;
 
 namespace BEditor.Primitive.Effects
 {

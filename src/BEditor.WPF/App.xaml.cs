@@ -1,21 +1,17 @@
 ﻿using System;
-using System.Collections.Generic;
 using System.Collections.ObjectModel;
+using System.ComponentModel;
 using System.Diagnostics;
 using System.Globalization;
 using System.IO;
-using System.IO.Compression;
 using System.Linq;
 using System.Net;
-using System.Reflection;
-using System.Threading;
 using System.Threading.Tasks;
 using System.Windows;
 using System.Windows.Threading;
 using System.Xml.Linq;
 
 using BEditor.Data;
-using BEditor.Data.Property;
 using BEditor.Drawing;
 using BEditor.Models;
 using BEditor.Plugin;
@@ -38,8 +34,6 @@ using Microsoft.Extensions.Logging;
 
 using OpenTK.Audio.OpenAL;
 
-using SkiaSharp;
-
 using Resource = BEditor.Properties.Resources;
 
 namespace BEditor
@@ -53,7 +47,7 @@ namespace BEditor
         private static readonly string backupDir = Path.Combine(AppContext.BaseDirectory, "user", "backup");
         private static readonly string pluginsDir = Path.Combine(AppContext.BaseDirectory, "user", "plugins");
         private static readonly string ffmpegDir = Path.Combine(AppContext.BaseDirectory, "ffmpeg");
-        private static readonly ILogger logger = AppData.Current.LoggingFactory.CreateLogger<App>();
+        public static ILogger? Logger;
 
         protected override void OnStartup(StartupEventArgs e)
         {
@@ -90,35 +84,16 @@ namespace BEditor
                 await InitialColorsAsync();
 
                 viewmodel.Status.Value = string.Format(MessageResources.IsLoading, Resource.Font);
-                _ = FontManager.Default;
+                await Task.Run(() => FontManager.Default);
 
                 viewmodel.Status.Value = string.Format(MessageResources.IsLoading, Resource.Plugins);
-                InitialPlugins();
+                await InitialPlugins();
 
                 viewmodel.Status.Value = string.Format(MessageResources.IsChecking, Resource.Library);
 
                 var msg = AppData.Current.Message;
 
-                if (!await CheckFFmpeg())
-                {
-                    if (msg!.Dialog(MessageResources.FFmpegNotFound, IMessage.IconType.Info, new IMessage.ButtonType[] { IMessage.ButtonType.Yes, IMessage.ButtonType.No }) is IMessage.ButtonType.Yes)
-                    {
-                        try
-                        {
-                            await InstallFFmpeg();
-                        }
-                        catch (Exception e)
-                        {
-                            msg.Dialog(string.Format(MessageResources.FailedToInstall, "FFmpeg"));
-
-                            logger.LogError(e, "Failed to install ffmpeg.");
-                        }
-                    }
-                    else
-                    {
-                        msg.Dialog(MessageResources.SomeFunctionsAreNotAvailable_);
-                    }
-                }
+                await InitFFmpeg();
                 if (!CheckOpenAL())
                 {
                     if (msg!.Dialog(MessageResources.OpenALNotFound, IMessage.IconType.Info, new IMessage.ButtonType[] { IMessage.ButtonType.Yes, IMessage.ButtonType.No }) is IMessage.ButtonType.Yes)
@@ -202,97 +177,71 @@ namespace BEditor
                 return false;
             }
         }
-        private static Task<bool> CheckFFmpeg()
+        private async Task InitFFmpeg()
         {
-            return Task.Run(() =>
+            var installer = new FFmpegInstaller(ffmpegDir);
+            var msg = AppData.Current.Message;
+
+            if (!await installer.IsInstalledAsync())
             {
-                var dlls = new string[]
+                if (msg!.Dialog(MessageResources.FFmpegNotFound, IMessage.IconType.Info, new IMessage.ButtonType[] { IMessage.ButtonType.Yes, IMessage.ButtonType.No }) is IMessage.ButtonType.Yes)
                 {
-                    "avcodec-58.dll",
-                    "avdevice-58.dll",
-                    "avfilter-7.dll",
-                    "avformat-58.dll",
-                    "avutil-56.dll",
-                    "postproc-55.dll",
-                    "swresample-3.dll",
-                    "swscale-5.dll",
-                };
-
-                var dir = Path.Combine(AppContext.BaseDirectory, "ffmpeg");
-
-                foreach (var dll in dlls)
-                {
-                    if (!File.Exists(Path.Combine(dir, dll)))
+                    try
                     {
-                        return false;
+                        Loading loading = null!;
+                        NoneDialog dialog = null!;
+
+                        void start(object? s, EventArgs e)
+                        {
+                            Dispatcher.Invoke(() =>
+                            {
+                                loading = new Loading()
+                                {
+                                    Maximum = { Value = 100 },
+                                    Minimum = { Value = 0 }
+                                };
+                                dialog = new NoneDialog(loading);
+
+                                dialog.Show();
+
+                                loading.Text.Value = string.Format(MessageResources.IsDownloading, "FFmpeg");
+                            });
+                        }
+                        void downloadComp(object? s, AsyncCompletedEventArgs e)
+                        {
+                            loading.Text.Value = string.Format(MessageResources.IsExtractedAndPlaced, "FFmpeg");
+                            loading.IsIndeterminate.Value = true;
+                        }
+                        void progress(object s, DownloadProgressChangedEventArgs e)
+                        {
+                            loading.NowValue.Value = e.ProgressPercentage;
+                        }
+                        void installed(object? s, EventArgs e) => Dispatcher.InvokeAsync(dialog.Close);
+
+                        installer.StartInstall += start;
+                        installer.Installed += installed;
+                        installer.DownloadCompleted += downloadComp;
+                        installer.DownloadProgressChanged += progress;
+
+                        await installer.Install();
+
+                        installer.StartInstall -= start;
+                        installer.Installed -= installed;
+                        installer.DownloadCompleted -= downloadComp;
+                        installer.DownloadProgressChanged -= progress;
+                    }
+                    catch (Exception e)
+                    {
+                        msg.Dialog(string.Format(MessageResources.FailedToInstall, "FFmpeg"));
+
+                        Logger.LogError(e, "Failed to install ffmpeg.");
                     }
                 }
-
-                return true;
-            });
-        }
-        private static async Task InstallFFmpeg()
-        {
-            const string url = "https://github.com/BtbN/FFmpeg-Builds/releases/download/autobuild-2021-03-15-12-32/ffmpeg-N-101538-g63344337f9-win64-gpl-shared.zip";
-            using var client = new WebClient();
-            Loading loading = null!;
-            NoneDialog dialog = null!;
-
-            Current.Dispatcher.Invoke(() =>
-            {
-                loading = new Loading()
+                else
                 {
-                    Maximum = { Value = 100 },
-                    Minimum = { Value = 0 }
-                };
-                dialog = new NoneDialog(loading);
-
-                dialog.Show();
-            });
-
-            var tmp = Path.GetTempFileName();
-            client.DownloadFileCompleted += (s, e) =>
-            {
-                loading.IsIndeterminate.Value = true;
-            };
-            client.DownloadProgressChanged += (s, e) =>
-            {
-                loading.NowValue.Value = e.ProgressPercentage;
-            };
-
-            loading.Text.Value = string.Format(MessageResources.IsDownloading, "FFmpeg");
-
-            await client.DownloadFileTaskAsync(url, tmp);
-
-            loading.Text.Value = string.Format(MessageResources.IsExtractedAndPlaced, "FFmpeg");
-
-            await using (var stream = new FileStream(tmp, FileMode.Open))
-            using (var zip = new ZipArchive(stream, ZipArchiveMode.Read))
-            {
-                const string ziproot = "ffmpeg-N-101538-g63344337f9-win64-gpl-shared";
-                var dir = Path.Combine(ziproot, "bin");
-                var destdir = ffmpegDir;
-
-                if (!Directory.Exists(destdir))
-                {
-                    Directory.CreateDirectory(destdir);
-                }
-
-                foreach (var entry in zip.Entries
-                    .Where(i => i.FullName.Contains("bin"))
-                    .Where(i => Path.GetExtension(i.Name) is ".dll"))
-                {
-                    var file = Path.GetFileName(entry.FullName);
-                    await using var deststream = new FileStream(Path.Combine(destdir, file), FileMode.Create);
-                    await using var srcstream = entry.Open();
-
-                    await srcstream.CopyToAsync(deststream);
+                    msg.Dialog(MessageResources.SomeFunctionsAreNotAvailable_);
                 }
             }
-
-            File.Delete(tmp);
-
-            await dialog.Dispatcher.InvokeAsync(dialog.Close);
         }
         private static void RegisterPrimitive()
         {
@@ -442,10 +391,9 @@ namespace BEditor
                 }
             }
         }
-        private static void InitialPlugins()
+        private static async ValueTask InitialPlugins()
         {
-            var configfield = typeof(PluginBuilder).GetField("config", BindingFlags.NonPublic | BindingFlags.Static | BindingFlags.SetField);
-            configfield?.SetValue(null, new PluginConfig(AppData.Current.Services.BuildServiceProvider()));
+            PluginBuilder.config = new PluginConfig(AppData.Current);
 
             // すべて
             var all = PluginManager.Default.GetNames();
@@ -457,7 +405,7 @@ namespace BEditor
             // ここで確認ダイアログを表示
             if (disable.Length != 0)
             {
-                App.Current.Dispatcher.Invoke(() =>
+                await Current.Dispatcher.InvokeAsync(() =>
                 {
                     var controlvm = new PluginCheckHostViewModel
                     {
@@ -489,6 +437,9 @@ namespace BEditor
             }
 
             PluginManager.Default.Load(Settings.Default.EnablePlugins);
+
+            AppData.Current.ServiceProvider = AppData.Current.Services.BuildServiceProvider();
+            Logger = AppData.Current.LoggingFactory.CreateLogger<App>();
         }
 
         private void Application_Exit(object sender, ExitEventArgs e)
@@ -511,7 +462,7 @@ namespace BEditor
             provider.GetService<IMessage>()!
                 .Snackbar(string.Format(Resource.ExceptionWasThrown, e.Exception.GetType().FullName));
 
-            logger.LogError(e.Exception, "UnhandledException was thrown.");
+            Logger?.LogError(e.Exception, "UnhandledException was thrown.");
 
 #if !DEBUG
             e.Handled = true;

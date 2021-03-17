@@ -30,7 +30,6 @@ namespace BEditor.Models
     public class OutputModel
     {
         public static readonly OutputModel Current = new();
-        private static readonly ILogger logger = AppData.Current.LoggingFactory.CreateLogger<OutputModel>();
 
         private OutputModel()
         {
@@ -75,10 +74,8 @@ namespace BEditor.Models
             }
             catch (Exception e)
             {
-                await using var prov = AppData.Current.Services.BuildServiceProvider();
-                var mes = prov.GetService<IMessage>();
-                mes?.Snackbar(MessageResources.FailedToSave);
-                logger.LogError(e, MessageResources.FailedToSave);
+                AppData.Current.Message?.Snackbar(MessageResources.FailedToSave);
+                App.Logger.LogError(e, MessageResources.FailedToSave);
             }
         }
         public static void OutputVideo(Scene scene)
@@ -155,10 +152,8 @@ namespace BEditor.Models
                 }
                 catch (Exception e)
                 {
-                    await using var prov = AppData.Current.Services.BuildServiceProvider();
-                    var mes = prov.GetService<IMessage>();
-                    mes?.Snackbar(MessageResources.FailedToSave);
-                    logger.LogError(e, MessageResources.FailedToSave);
+                    AppData.Current.Message?.Snackbar(MessageResources.FailedToSave);
+                    App.Logger.LogError(e, MessageResources.FailedToSave);
                 }
                 finally
                 {

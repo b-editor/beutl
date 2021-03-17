@@ -1,5 +1,7 @@
 ﻿<Project Sdk="Microsoft.NET.Sdk">
 
+  <Import Project="..\..\props\common.props" />
+
   <PropertyGroup>
     <OutputType>WinExe</OutputType>
     <TargetFramework>net5.0-windows</TargetFramework>
@@ -11,9 +13,8 @@
     <AssemblyName>BEditor</AssemblyName>
     <RuntimeIdentifiers>win-x64</RuntimeIdentifiers>
     <Platforms>x64</Platforms>
+    <Version>0.0.6</Version>
   </PropertyGroup>
-
-  <Import Project="..\..\props\common.props" />
 
   <ItemGroup>
     <EmbeddedResource Include="Resources\*.otf" />

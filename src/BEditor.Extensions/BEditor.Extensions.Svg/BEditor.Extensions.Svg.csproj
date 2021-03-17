@@ -8,12 +8,20 @@
     <OutputPath>..\..\BEditor.WPF\bin\x64\$(Configuration)\net5.0-windows\user\plugins\BEditor.Extensions.Svg</OutputPath>
   </PropertyGroup>
 
+  <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release|AnyCPU'">
+    <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
+  </PropertyGroup>
+
+  <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|AnyCPU'">
+    <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
+  </PropertyGroup>
+
   <ItemGroup>
     <ProjectReference Include="..\..\BEditor.Core\BEditor.Core.csproj" />
   </ItemGroup>
 
   <ItemGroup>
-    <PackageReference Include="Svg.Skia" Version="0.5.0"/>
+    <PackageReference Include="Svg.Skia" Version="0.5.0" />
   </ItemGroup>
 
 </Project>

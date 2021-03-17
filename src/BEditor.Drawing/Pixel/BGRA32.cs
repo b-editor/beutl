@@ -89,5 +89,12 @@ namespace BEditor.Drawing.Pixel
         {
             dst = new(R, G, B, A);
         }
+        public void Deconstruct(out byte r, out byte g, out byte b, out byte a)
+        {
+            r = R;
+            g = G;
+            b = B;
+            a = A;
+        }
     }
 }

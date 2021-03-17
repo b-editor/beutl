@@ -17,15 +17,15 @@ namespace BEditor.Plugin
         /// <summary>
         /// Iniitializes a new instance of the <see cref="PluginConfig"/> class.
         /// </summary>
-        public PluginConfig(IServiceProvider service)
+        public PluginConfig(IApplication app)
         {
-            ServiceProvider = service;
+            Application = app;
         }
 
 
         /// <summary>
         /// Gets the ServiceProvider.
         /// </summary>
-        public IServiceProvider ServiceProvider { get; }
+        public IApplication Application { get; }
     }
 }

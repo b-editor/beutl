@@ -26,7 +26,6 @@ namespace BEditor.Models
     public class EditModel
     {
         public static readonly EditModel Current = new();
-        private static readonly ILogger Logger = AppData.Current.LoggingFactory.CreateLogger<EditModel>();
 
         private EditModel()
         {
@@ -119,7 +118,7 @@ namespace BEditor.Models
                         if (!timeline.Scene.InRange(clip.Start, clip.End, clip.Layer))
                         {
                             mes?.Snackbar(MessageResources.ClipExistsInTheSpecifiedLocation);
-                            Logger.LogInformation("{0} Start: {0} End: {1} Layer: {2}", MessageResources.ClipExistsInTheSpecifiedLocation, clip.Start, clip.End, clip.Layer);
+                            App.Logger.LogInformation("{0} Start: {0} End: {1} Layer: {2}", MessageResources.ClipExistsInTheSpecifiedLocation, clip.Start, clip.End, clip.Layer);
 
                             return;
                         }
@@ -135,7 +134,7 @@ namespace BEditor.Models
                         if (!timeline.Scene.InRange(start, end, layer))
                         {
                             mes?.Snackbar(MessageResources.ClipExistsInTheSpecifiedLocation);
-                            Logger.LogInformation("{0} Start: {0} End: {1} Layer: {2}", MessageResources.ClipExistsInTheSpecifiedLocation, start, end, layer);
+                            App.Logger.LogInformation("{0} Start: {0} End: {1} Layer: {2}", MessageResources.ClipExistsInTheSpecifiedLocation, start, end, layer);
 
                             return;
                         }

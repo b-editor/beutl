@@ -26,7 +26,6 @@ namespace BEditor.Models
     public class ProjectModel
     {
         public static readonly ProjectModel Current = new();
-        private static readonly ILogger logger = AppData.Current.LoggingFactory.CreateLogger<ProjectModel>();
 
         private ProjectModel()
         {
@@ -102,7 +101,7 @@ namespace BEditor.Models
                         var msg = string.Format(Resources.FailedToLoad, "Project");
                         AppData.Current.Message.Snackbar(msg);
 
-                        logger.LogError(e, msg);
+                        App.Logger?.LogError(e, msg);
                     }
                     finally
                     {

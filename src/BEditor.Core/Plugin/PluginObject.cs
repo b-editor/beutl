@@ -19,7 +19,7 @@ namespace BEditor.Plugin
         /// <param name="config">The plugin config.</param>
         protected PluginObject(PluginConfig config)
         {
-            ServiceProvider = config.ServiceProvider;
+            App = config.Application;
         }
 
         /// <summary>
@@ -33,9 +33,9 @@ namespace BEditor.Plugin
         public abstract string Description { get; }
 
         /// <summary>
-        /// Gets the ServiceProvider.
+        /// Gets the Application.
         /// </summary>
-        public IServiceProvider ServiceProvider { get; }
+        public IApplication App { get; }
 
         /// <summary>
         /// Get the name of the assembly for this plugin.
