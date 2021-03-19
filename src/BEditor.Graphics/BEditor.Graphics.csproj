@@ -9,8 +9,8 @@
   <Import Project="..\..\props\common.props" />
 
   <ItemGroup>
-    <PackageReference Include="OpenTK.Graphics" Version="4.5.0" />
-    <PackageReference Include="OpenTK.Windowing.GraphicsLibraryFramework" Version="4.5.0" />
+    <PackageReference Include="OpenTK.Graphics" Version="4.6.1" />
+    <PackageReference Include="OpenTK.Windowing.GraphicsLibraryFramework" Version="4.6.1" />
   </ItemGroup>
 
   <ItemGroup>
