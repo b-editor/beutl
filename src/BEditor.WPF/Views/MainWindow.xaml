@@ -94,6 +94,7 @@
         <KeyBinding Command="{Binding EditModel.Undo, Mode=OneTime}" Gesture="Ctrl+z" />
         <KeyBinding Command="{Binding EditModel.Redo, Mode=OneTime}" Gesture="Ctrl+y" />
         <KeyBinding Command="{Binding ProjectModel.Open, Mode=OneTime}" Gesture="Ctrl+o" />
+        <KeyBinding Command="{Binding MoveFrame, Mode=OneTime}" Gesture="Ctrl+g" />
         <KeyBinding Key="Delete" Command="{Binding EditModel.ClipRemove, Mode=OneWay}" />
         <KeyBinding Key="Right" Command="{Binding FrameNext, Mode=OneWay}" />
         <KeyBinding Key="Left" Command="{Binding FramePrevious, Mode=OneWay}" />
@@ -193,6 +194,11 @@
                                 Header="{x:Static properties:Resources.MoveToNextFrame}"
                                 IsEnabled="{Binding ProjectIsOpened.Value, Mode=OneWay}"
                                 ToolTip="{x:Static properties:Resources.MoveToNextFrame}" />
+                            <MenuItem
+                                Command="{Binding MoveFrame, Mode=OneTime}"
+                                Header="{x:Static properties:Resources.Move_to_the_specified_frame}"
+                                IsEnabled="{Binding ProjectIsOpened.Value, Mode=OneWay}"
+                                ToolTip="{x:Static properties:Resources.Move_to_the_specified_frame}" />
                         </ContextMenu>
                     </Button.ContextMenu>
                 </Button>
@@ -544,6 +550,7 @@
                 </Button>
             </VirtualizingStackPanel>
         </Grid>
+
         <!--#endregion-->
 
         <!--#region PropertyControl-->
@@ -615,6 +622,16 @@
                 TopToolTip="{x:Static properties:Resources.MoveToTop}"
                 Value="{Binding Source={x:Static model:AppData.Current}, Path=Project.PreviewScene.PreviewFrame, Mode=TwoWay, Converter={StaticResource FrameConverter}}" />
         </Grid>
+
+        <ContentControl
+            x:Name="ToolTipControl"
+            Grid.Row="1"
+            Grid.ColumnSpan="5"
+            HorizontalAlignment="Right"
+            VerticalAlignment="Top"
+            HorizontalContentAlignment="Stretch"
+            VerticalContentAlignment="Stretch"
+            Content="{Binding ToolTipControl.Value, Mode=TwoWay}" />
 
         <GridSplitter
             Grid.Row="2"

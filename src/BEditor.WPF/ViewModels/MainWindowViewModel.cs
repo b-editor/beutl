@@ -11,6 +11,7 @@ using BEditor.Data;
 using BEditor.Models;
 using BEditor.ViewModels.SettingsControl;
 using BEditor.Views.SettingsControl;
+using BEditor.Views.ToolControl;
 
 using MaterialDesignThemes.Wpf;
 
@@ -23,6 +24,7 @@ namespace BEditor.ViewModels
     {
         public static MainWindowViewModel Current { get; } = new();
 
+        public ReactiveProperty<object?> ToolTipControl { get; } = new();
         public ReactiveProperty<WriteableBitmap?> PreviewImage { get; } = new();
         public ReactiveProperty<Brush> MainWindowColor { get; } = new();
 
@@ -48,6 +50,12 @@ namespace BEditor.ViewModels
 
         #region File(F)
         public ReactiveCommand Shutdown { get; } = new();
+        #endregion
+
+        #region Edit (E)
+
+        public ReactiveCommand MoveFrame { get; } = new();
+
         #endregion
 
         #region Tool(T)
@@ -145,7 +153,7 @@ namespace BEditor.ViewModels
             MemoryRelease.Subscribe(() =>
             {
                 var bytes = Environment.WorkingSet;
-                
+
                 GC.Collect();
                 GC.WaitForPendingFinalizers();
                 GC.Collect();
@@ -165,6 +173,12 @@ namespace BEditor.ViewModels
                 });
 
             #endregion
+
+            MoveFrame.Where(_ => AppData.Current.Project is not null)
+                .Subscribe(_ =>
+            {
+                ToolTipControl.Value = new MoveFrame();
+            });
         }
 
         #region Model

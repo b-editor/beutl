@@ -83,6 +83,10 @@ namespace BEditor.Graphics
         /// </summary>
         public int Height { get; }
         /// <summary>
+        /// Gets the handle of this <see cref="Texture"/>
+        /// </summary>
+        public GraphicsHandle Handle => _handle;
+        /// <summary>
         /// Get the ElementBuffer of this <see cref="Texture"/>.
         /// </summary>
         public GraphicsHandle ElementBufferObject { get; }

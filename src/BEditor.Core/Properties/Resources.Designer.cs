@@ -1350,6 +1350,15 @@ namespace BEditor.Properties {
         }
         
         /// <summary>
+        ///   Move to the specified frame. に類似しているローカライズされた文字列を検索します。
+        /// </summary>
+        public static string Move_to_the_specified_frame {
+            get {
+                return ResourceManager.GetString("Move to the specified frame", resourceCulture);
+            }
+        }
+        
+        /// <summary>
         ///   Move to end に類似しているローカライズされた文字列を検索します。
         /// </summary>
         public static string MoveToEnd {

@@ -31,8 +31,11 @@ namespace BEditor.Graphics
         /// <param name="fragSource">The source of the fragment shader.</param>
         public Shader(string vertSource, string fragSource)
         {
+            if (vertSource is null) throw new ArgumentNullException(nameof(vertSource));
+            if (fragSource is null) throw new ArgumentNullException(nameof(fragSource));
+
             _synchronization = AsyncOperationManager.SynchronizationContext;
-            
+
             var vertexShader = GL.CreateShader(ShaderType.VertexShader);
 
             GL.ShaderSource(vertexShader, vertSource);

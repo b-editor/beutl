@@ -10,6 +10,7 @@ using BEditor.Data.Property;
 using BEditor.Properties;
 using BEditor.Drawing;
 using BEditor.Drawing.Pixel;
+using OpenTK.Graphics.OpenGL4;
 
 namespace BEditor.Primitive.Objects
 {

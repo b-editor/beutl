@@ -46,8 +46,7 @@ namespace BEditor.Graphics
             GLFW.WindowHint(WindowHintInt.ContextVersionMajor, 3);
             GLFW.WindowHint(WindowHintInt.ContextVersionMinor, 3);
             GLFW.WindowHint(WindowHintBool.Visible, false);
-            _window = GLFW.CreateWindow(width, height, "", null, null);
-            GLFW.SetWindowSizeLimits(_window, width, height, width, height);
+            _window = GLFW.CreateWindow(1, 1, "", null, null);
             Tool.ThrowGLFWError();
             MakeCurrent();
 
@@ -74,35 +73,13 @@ namespace BEditor.Graphics
 
             Tool.ThrowGLError();
 
-            // カラーバッファ用のテクスチャを用意する
-            ColorRenderbuffer = GL.GenTexture();
-            GL.BindTexture(TextureTarget.Texture2D, ColorRenderbuffer);
-            GL.TexImage2D(TextureTarget.Texture2D, 0, PixelInternalFormat.Rgba, Width, Height, 0, PixelFormat.Bgra, PixelType.UnsignedByte, IntPtr.Zero);
-            GL.TexParameter(TextureTarget.Texture2D, TextureParameterName.TextureWrapS, (int)TextureWrapMode.ClampToEdge);
-            GL.TexParameter(TextureTarget.Texture2D, TextureParameterName.TextureWrapT, (int)TextureWrapMode.ClampToEdge);
-            GL.TexParameter(TextureTarget.Texture2D, TextureParameterName.TextureMinFilter, (int)TextureMinFilter.Linear);
-            GL.TexParameter(TextureTarget.Texture2D, TextureParameterName.TextureMagFilter, (int)TextureMinFilter.Linear);
-            GL.BindTexture(TextureTarget.Texture2D, 0);
+            var colorBuf = new ColorBuffer(width, height, PixelInternalFormat.Rgba, PixelFormat.Bgra, PixelType.UnsignedByte);
+            var depthBuf = new DepthBuffer(width, height);
+            Framebuffer = new(colorBuf, depthBuf);
 
-            // デプスバッファ用のレンダーバッファを用意する
-            DepthRenderbuffer = GL.GenRenderbuffer();
-            GL.BindRenderbuffer(RenderbufferTarget.Renderbuffer, DepthRenderbuffer);
-            GL.RenderbufferStorage(RenderbufferTarget.Renderbuffer, RenderbufferStorage.DepthComponent, Width, Height);
-            GL.BindRenderbuffer(RenderbufferTarget.Renderbuffer, 0);
+            Tool.ThrowGLError();
 
-            // フレームバッファオブジェクトを作成する
-            Framebuffer = GL.GenFramebuffer();
-            GL.BindFramebuffer(FramebufferTarget.Framebuffer, Framebuffer);
-
-            // フレームバッファオブジェクトにカラーバッファとしてテクスチャを結合する
-            GL.FramebufferTexture2D(FramebufferTarget.Framebuffer, FramebufferAttachment.ColorAttachment0, TextureTarget.Texture2D, ColorRenderbuffer, 0);
-
-            // フレームバッファオブジェクトにデプスバッファとしてレンダーバッファを結合する
-            GL.FramebufferRenderbuffer(FramebufferTarget.Framebuffer, FramebufferAttachment.DepthAttachment, RenderbufferTarget.Renderbuffer, DepthRenderbuffer);
-
-            // フレームバッファオブジェクトの結合を解除する
-            GL.BindFramebuffer(FramebufferTarget.Framebuffer, 0);
-
+            PixelBufferObject = new(width, height, 4, PixelFormat.Bgra, PixelType.UnsignedByte);
 
             Tool.ThrowGLError();
 
@@ -113,9 +90,8 @@ namespace BEditor.Graphics
             if (!IsDisposed) Dispose();
         }
 
-        public GraphicsHandle ColorRenderbuffer { get; }
-        public GraphicsHandle DepthRenderbuffer { get; }
-        public GraphicsHandle Framebuffer { get; }
+        public PixelBuffer PixelBufferObject { get; }
+        public FrameBuffer Framebuffer { get; }
         public int Width { get; }
         public int Height { get; }
         public float Aspect => ((float)Width) / ((float)Height);
@@ -130,7 +106,7 @@ namespace BEditor.Graphics
 
             GL.Viewport(0, 0, Width, Height);
 
-            GL.BindFramebuffer(FramebufferTarget.Framebuffer, Framebuffer);
+            Framebuffer.Bind();
 
             // アンチエイリアス
             GL.Enable(EnableCap.LineSmooth);
@@ -149,7 +125,7 @@ namespace BEditor.Graphics
 
             Tool.ThrowGLError();
         }
-        private void MakeCurrent()
+        public void MakeCurrent()
         {
             if (!IsCurrent)
             {
@@ -159,6 +135,8 @@ namespace BEditor.Graphics
         }
         public void DrawTexture(Texture texture)
         {
+            if (texture is null) throw new ArgumentNullException(nameof(texture));
+
             MakeCurrent();
             texture.Use(TextureUnit.Texture0);
 
@@ -193,6 +171,9 @@ namespace BEditor.Graphics
         }
         public void DrawTexture(Texture texture, Action blend)
         {
+            if (texture is null) throw new ArgumentNullException(nameof(texture));
+            if (blend is null) throw new ArgumentNullException(nameof(blend));
+
             if (Light is null)
             {
                 MakeCurrent();
@@ -234,6 +215,8 @@ namespace BEditor.Graphics
         }
         private void DrawTextureWithLight(Texture texture, Action blend)
         {
+            if (texture is null) throw new ArgumentNullException(nameof(texture));
+            if (blend is null) throw new ArgumentNullException(nameof(blend));
             MakeCurrent();
 
             texture.Use(TextureUnit.Texture0);
@@ -287,6 +270,7 @@ namespace BEditor.Graphics
         }
         public void DrawCube(Cube cube)
         {
+            if (cube is null) throw new ArgumentNullException(nameof(cube));
             MakeCurrent();
 
             if (Light is null)
@@ -320,6 +304,7 @@ namespace BEditor.Graphics
         }
         private void DrawCubeWithLight(Cube cube)
         {
+            if (cube is null) throw new ArgumentNullException(nameof(cube));
             _lightShader.Use();
 
             var vertexLocation = _lightShader.GetAttribLocation("aPos");
@@ -354,6 +339,7 @@ namespace BEditor.Graphics
         }
         public void DrawBall(Ball ball)
         {
+            if (ball is null) throw new ArgumentNullException(nameof(ball));
             MakeCurrent();
 
             if (Light is null)
@@ -383,6 +369,7 @@ namespace BEditor.Graphics
         }
         private void DrawBallWithLight(Ball ball)
         {
+            if (ball is null) throw new ArgumentNullException(nameof(ball));
             _lightShader.Use();
 
             var vertexLocation = _lightShader.GetAttribLocation("aPos");
@@ -417,6 +404,8 @@ namespace BEditor.Graphics
         }
         public void DrawLine(Vector3 start, Vector3 end, float width, Transform transform, Color color)
         {
+            MakeCurrent();
+
             using var line = new Line(start, end, width)
             {
                 Transform = transform,
@@ -427,6 +416,8 @@ namespace BEditor.Graphics
         }
         public void DrawLine(Line line)
         {
+            if (line is null) throw new ArgumentNullException(nameof(line));
+
             MakeCurrent();
 
             _lineShader.Use();
@@ -456,11 +447,12 @@ namespace BEditor.Graphics
             {
                 var g = (GraphicsContext)state!;
 
+                PixelBufferObject.Dispose();
+
                 GLFW.DestroyWindow(g._window);
                 g._textureShader.Dispose();
                 g._shader.Dispose();
                 g._lightShader.Dispose();
-
             }, this);
 
             GC.SuppressFinalize(this);
@@ -469,16 +461,13 @@ namespace BEditor.Graphics
         }
         public unsafe void ReadImage(Image<BGRA32> image)
         {
-            if (image == null) throw new ArgumentNullException(nameof(image));
+            if (image is null) throw new ArgumentNullException(nameof(image));
             image.ThrowIfDisposed();
             MakeCurrent();
 
-            //GL.ReadBuffer(ReadBufferMode.Front);
-            GL.ReadBuffer(ReadBufferMode.ColorAttachment0);
-
             fixed (BGRA32* data = image.Data)
             {
-                GL.ReadPixels(0, 0, image.Width, image.Height, PixelFormat.Bgra, PixelType.UnsignedByte, (IntPtr)data);
+                PixelBufferObject.ReadPixelsFromTexture(Framebuffer.ColorObject.Handle, (IntPtr)data);
             }
 
             image.Flip(FlipMode.X);

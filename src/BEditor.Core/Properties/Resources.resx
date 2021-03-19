@@ -870,4 +870,7 @@ Please select the plugin you want to load</value>
   <data name="BackUpInterval" xml:space="preserve">
     <value>Backup interval (min)</value>
   </data>
+  <data name="Move to the specified frame" xml:space="preserve">
+    <value>Move to the specified frame.</value>
+  </data>
 </root>
