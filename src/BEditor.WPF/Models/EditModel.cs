@@ -9,6 +9,7 @@ using System.Windows;
 
 using BEditor.Command;
 using BEditor.Data;
+using BEditor.Drawing;
 using BEditor.Models.Extension;
 using BEditor.Primitive;
 using BEditor.Primitive.Objects;
@@ -100,7 +101,7 @@ namespace BEditor.Models
                     var mes = AppData.Current.Message;
                     var text = Clipboard.GetText();
                     var files = Clipboard.GetFileDropList();
-                    var img = Clipboard.GetImage();
+                    var bmpSrc = Clipboard.GetImage();
                     await using var memory = new MemoryStream();
                     memory.Write(Encoding.Default.GetBytes(text));
 
@@ -123,7 +124,7 @@ namespace BEditor.Models
 
                         timeline.Scene.AddClip(clip).Execute();
                     }
-                    else if (files is not null)
+                    else if (files is not null && files.Count is > 0)
                     {
                         var start = timeline.Select_Frame;
                         var end = timeline.Select_Frame + 180;
@@ -137,8 +138,7 @@ namespace BEditor.Models
                             return;
                         }
 
-                        if (files.Count is > 0
-                            && File.Exists(files[0]))
+                        if (File.Exists(files[0]))
                         {
                             var file = files[0];
 
@@ -163,9 +163,29 @@ namespace BEditor.Models
                             }
                         }
                     }
-                    else if (img is not null)
+                    else if (bmpSrc is not null)
                     {
-                        //Todo: 画像のコピペ
+                        var start = timeline.Select_Frame;
+                        var end = timeline.Select_Frame + 180;
+                        var layer = timeline.Select_Layer;
+
+                        if (!timeline.Scene.InRange(start, end, layer))
+                        {
+                            mes?.Snackbar(MessageResources.ClipExistsInTheSpecifiedLocation);
+                            App.Logger.LogInformation("{0} Start: {0} End: {1} Layer: {2}", MessageResources.ClipExistsInTheSpecifiedLocation, start, end, layer);
+
+                            return;
+                        }
+
+                        timeline.Scene.AddClip(start, layer, PrimitiveTypes.ImageMetadata, out var c).Execute();
+                        var ef = (ImageFile)c.Effect[0];
+                        var filename = Path.Combine(c.Parent.Parent.DirectoryName, c.ToString("#") + ".png");
+
+                        using var img = bmpSrc.ToImage();
+                        img.Encode(filename);
+
+                        ef.File.ChangeFile(filename).Execute();
+                        ef.File.Mode = Data.Property.FilePathType.FromProject;
                     }
                 });
             #endregion
