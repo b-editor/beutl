@@ -27,11 +27,6 @@ namespace BEditor.Views.CreatePage
 
         private void CloseClick(object sender, RoutedEventArgs e)
         {
-            if (DataContext is IDisposable disposable)
-            {
-                disposable.Dispose();
-            }
-
             Window.GetWindow(this).Close();
         }
     }

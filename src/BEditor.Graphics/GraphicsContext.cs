@@ -297,13 +297,17 @@ namespace BEditor.Graphics
                 GL.EnableVertexAttribArray(vertexLocation);
                 GL.VertexAttribPointer(vertexLocation, 3, VertexAttribPointerType.Float, false, 6 * sizeof(float), 0);
 
-
-                GL.BindVertexArray(cube.VertexArrayObject);
+                // blend
+                GL.Enable(EnableCap.Blend);
+                GL.BlendEquationSeparate(BlendEquationMode.FuncAdd, BlendEquationMode.FuncAdd);
+                GL.BlendFunc(BlendingFactor.SrcAlpha, BlendingFactor.OneMinusSrcAlpha);
 
                 _shader.SetMatrix4("model", cube.Transform.Matrix);
                 _shader.SetMatrix4("view", Camera.GetViewMatrix());
                 _shader.SetMatrix4("projection", Camera.GetProjectionMatrix());
                 _shader.SetVector4("color", cube.Color.ToVector4());
+
+                _shader.Use();
 
                 cube.Draw();
 

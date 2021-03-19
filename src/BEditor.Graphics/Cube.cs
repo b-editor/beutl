@@ -146,7 +146,7 @@ namespace BEditor.Graphics
         /// <inheritdoc/>
         public override void Draw()
         {
-            GL.BindVertexArray(VertexBufferObject);
+            GL.BindVertexArray(VertexArrayObject);
 
             GL.DrawArrays(PrimitiveType.Triangles, 0, 36);
         }

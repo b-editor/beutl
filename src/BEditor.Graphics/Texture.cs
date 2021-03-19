@@ -191,7 +191,8 @@ namespace BEditor.Graphics
         /// <inheritdoc/>
         protected override void Dispose(bool disposing)
         {
-            GL.DeleteBuffer(VertexArrayObject);
+            GL.DeleteVertexArray(VertexArrayObject);
+            GL.DeleteBuffer(VertexBufferObject);
             GL.DeleteBuffer(ElementBufferObject);
             GL.DeleteTexture(_handle);
         }
