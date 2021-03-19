@@ -1,15 +1,11 @@
 ﻿using System;
-using System.Diagnostics;
 using System.IO;
-using System.IO.Compression;
 using System.Linq;
-using System.Net;
 using System.Runtime.InteropServices;
 using System.Text;
 using System.Threading;
 using System.Threading.Tasks;
 
-using BEditor;
 using BEditor.Data;
 using BEditor.Drawing;
 using BEditor.Media;
@@ -20,7 +16,6 @@ using BEditor.Primitive.Objects;
 using BEditor.Primitive;
 
 using Microsoft.Extensions.CommandLineUtils;
-using Microsoft.Extensions.DependencyInjection;
 
 namespace BEditor
 {

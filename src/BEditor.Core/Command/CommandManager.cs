@@ -4,6 +4,8 @@ using System.ComponentModel;
 using System.Diagnostics;
 using System.Threading.Tasks;
 
+using BEditor.Data;
+
 namespace BEditor.Command
 {
     /// <summary>
@@ -198,6 +200,153 @@ namespace BEditor.Command
         }
 
         #endregion
+    }
+
+    /// <summary>
+    /// 行なった操作の履歴を蓄積することでUndo,Redoの機能を表します
+    /// </summary>
+    public class NewCommandManager : BasePropertyChanged
+    {
+        private static readonly PropertyChangedEventArgs _canUndoArgs = new(nameof(CanUndo));
+        private static readonly PropertyChangedEventArgs _canRedoArgs = new(nameof(CanRedo));
+        private bool _process = true;
+        private bool _canUndo = false;
+        private bool _canRedo = false;
+
+        /// <summary>
+        /// 実行後またはRedo後に記録
+        /// </summary>
+        public Stack<IRecordCommand> UndoStack { get; } = new();
+        /// <summary>
+        /// Undo後に記録
+        /// </summary>
+        public Stack<IRecordCommand> RedoStack { get; } = new();
+        /// <summary>
+        /// Undo出来るか取得します
+        /// </summary>
+        public bool CanUndo
+        {
+            get => _canUndo;
+            set => SetValue(value, ref _canUndo, _canUndoArgs);
+        }
+        /// <summary>
+        /// Redo出来るかを取得します
+        /// </summary>
+        public bool CanRedo
+        {
+            get => _canRedo;
+            set => SetValue(value, ref _canRedo, _canRedoArgs);
+        }
+
+        /// <summary>
+        /// UnDo ReDo Do時に発生します
+        /// </summary>
+        public static event EventHandler<CommandType> Executed = delegate { };
+        /// <summary>
+        /// コマンドがキャンセルされたときに発生します
+        /// </summary>
+        public static event EventHandler CommandCancel = delegate { };
+        /// <summary>
+        /// <see cref="Clear"/> 後に発生します
+        /// </summary>
+        public static event EventHandler CommandsClear = delegate { };
+
+        /// <summary>
+        /// 操作を実行し、かつその内容をStackに追加します
+        /// </summary>
+        /// <param name="command">実行するコマンド</param>
+        public void Do(IRecordCommand command)
+        {
+            if (!_process)
+            {
+                Debug.WriteLine("if (!process) {...");
+                return;
+            }
+
+            try
+            {
+                _process = false;
+                command.Do();
+
+                UndoStack.Push(command);
+                CanUndo = UndoStack.Count > 0;
+
+                RedoStack.Clear();
+                CanRedo = RedoStack.Count > 0;
+            }
+            catch
+            {
+                Debug.Assert(false);
+                CommandCancel(null, EventArgs.Empty);
+            }
+
+            _process = true;
+            Executed(command, CommandType.Do);
+        }
+        /// <summary>
+        /// 行なったコマンドを取り消してひとつ前の状態に戻します
+        /// </summary>
+        public void Undo()
+        {
+            if (!_process) return;
+
+            if (UndoStack.Count >= 1)
+            {
+                IRecordCommand command = UndoStack.Pop();
+                CanUndo = UndoStack.Count > 0;
+
+                try
+                {
+                    _process = false;
+                    command.Undo();
+
+                    RedoStack.Push(command);
+                    CanRedo = RedoStack.Count > 0;
+                }
+                catch { }
+                _process = true;
+
+                Executed(command, CommandType.Undo);
+            }
+        }
+        /// <summary>
+        /// 取り消したコマンドをやり直します
+        /// </summary>
+        public void Redo()
+        {
+            if (!_process) return;
+
+            if (RedoStack.Count >= 1)
+            {
+                IRecordCommand command = RedoStack.Pop();
+                CanRedo = RedoStack.Count > 0;
+
+                try
+                {
+                    _process = false;
+                    command.Redo();
+
+                    UndoStack.Push(command);
+                    CanUndo = UndoStack.Count > 0;
+                }
+                catch { }
+
+                _process = true;
+                Executed(command, CommandType.Redo);
+            }
+        }
+        /// <summary>
+        /// 記録されたコマンドを初期化
+        /// </summary>
+        public void Clear()
+        {
+            UndoStack.Clear();
+            RedoStack.Clear();
+            CanUndo = false;
+            CanRedo = false;
+
+            CommandsClear(null, EventArgs.Empty);
+        }
     }
 
     /// <summary>

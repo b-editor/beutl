@@ -708,14 +708,14 @@ namespace BEditor.Drawing
             var textBounds = new SKRect();
             paint.MeasureText(text, ref textBounds);
 
-
-            using var bmp = new SKBitmap(new SKImageInfo((int)textBounds.Width, (int)textBounds.Height, SKColorType.Bgra8888));
+            var p = strokewidth * 2;
+            using var bmp = new SKBitmap(new SKImageInfo((int)(textBounds.Width + p), (int)(textBounds.Height + p), SKColorType.Bgra8888));
             using var canvas = new SKCanvas(bmp);
 
             float xText = textBounds.Width / 2 - textBounds.MidX;
             float yText = textBounds.Height / 2 - textBounds.MidY;
 
-            canvas.DrawText(text, new SKPoint(xText, yText), paint);
+            canvas.DrawText(text, new SKPoint(xText + strokewidth, yText + strokewidth), paint);
 
             canvas.Flush();
 

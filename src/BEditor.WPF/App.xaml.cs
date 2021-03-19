@@ -48,6 +48,7 @@ namespace BEditor
         private static readonly string pluginsDir = Path.Combine(AppContext.BaseDirectory, "user", "plugins");
         private static readonly string ffmpegDir = Path.Combine(AppContext.BaseDirectory, "ffmpeg");
         public static ILogger? Logger;
+        private static DispatcherTimer? backupTimer;
 
         protected override void OnStartup(StartupEventArgs e)
         {
@@ -247,12 +248,15 @@ namespace BEditor
         }
         private static void RunBackup()
         {
-            Task.Run(async () =>
+            backupTimer = new DispatcherTimer()
             {
-                while (true)
-                {
-                    await Task.Delay(TimeSpan.FromMinutes(Settings.Default.BackUpInterval));
+                Interval = TimeSpan.FromMinutes(Settings.Default.BackUpInterval)
+            };
 
+            backupTimer.Tick += (s, e) =>
+            {
+                Task.Run(() =>
+                {
                     var proj = AppData.Current.Project;
                     if (proj is not null && Settings.Default.AutoBackUp)
                     {
@@ -261,7 +265,7 @@ namespace BEditor
 
                         proj.Save(Path.Combine(dir, DateTime.Now.ToString("HH:mm:ss").Replace(':', '_')) + ".backup");
 
-                        var files = Directory.GetFiles(dir).Select(i => new FileInfo(i)).OrderBy(i => i.LastWriteTime).ToArray();
+                        var files = Directory.GetFiles(dir).Select(i => new FileInfo(i)).OrderByDescending(i => i.LastWriteTime).ToArray();
                         if (files.Length is > 10)
                         {
                             foreach (var file in files.Skip(10))
@@ -270,8 +274,44 @@ namespace BEditor
                             }
                         }
                     }
+                });
+            };
+            
+            Settings.Default.PropertyChanged += (s, e) =>
+            {
+                if(e.PropertyName is nameof(Settings.BackUpInterval))
+                {
+                    backupTimer.Interval = TimeSpan.FromMinutes(Settings.Default.BackUpInterval);
                 }
-            });
+            };
+
+            backupTimer.Start();
+
+            //Task.Run(async () =>
+            //{
+            //    while (true)
+            //    {
+            //        await Task.Delay(TimeSpan.FromMinutes(Settings.Default.BackUpInterval));
+
+            //        var proj = AppData.Current.Project;
+            //        if (proj is not null && Settings.Default.AutoBackUp)
+            //        {
+            //            var dir = Path.Combine(proj.DirectoryName, "backup");
+            //            if (!Directory.Exists(dir)) Directory.CreateDirectory(dir);
+
+            //            proj.Save(Path.Combine(dir, DateTime.Now.ToString("HH:mm:ss").Replace(':', '_')) + ".backup");
+
+            //            var files = Directory.GetFiles(dir).Select(i => new FileInfo(i)).OrderBy(i => i.LastWriteTime).ToArray();
+            //            if (files.Length is > 10)
+            //            {
+            //                foreach (var file in files.Skip(10))
+            //                {
+            //                    if (file.Exists) file.Delete();
+            //                }
+            //            }
+            //        }
+            //    }
+            //});
         }
         private static void RegisterPrimitive()
         {
@@ -479,6 +519,7 @@ namespace BEditor
 
             Serialize.SaveToFile(FontDialogViewModel.UsedFonts.Select(i => i.Font), jsonFile, SerializeMode.Json);
 
+            backupTimer?.Stop();
             DirectoryManager.Default.Stop();
 
             var app = AppData.Current;
