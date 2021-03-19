@@ -186,38 +186,15 @@ namespace BEditor.Data.Property
     }
 
     /// <summary>
-    /// Represents the metadata of a <see cref="SelectorProperty{T}"/>.
+    /// The metadata of <see cref="SelectorProperty{T}"/>.
     /// </summary>
-    public record SelectorPropertyMetadata<T> : PropertyElementMetadata, IPropertyBuilder<SelectorProperty<T>>
+    /// <param name="Name">The string displayed in the property header.</param>
+    /// <param name="ItemSource">The source of the item to be selected.</param>
+    /// <param name="DefaultItem">The default value for <see cref="SelectorProperty{T}.SelectItem"/>.</param>
+    /// <param name="MemberPath">The path to the member to display.</param>
+    public record SelectorPropertyMetadata<T>(string Name, IList<T> ItemSource, T? DefaultItem = default, string MemberPath = "")
+        : PropertyElementMetadata(Name), IPropertyBuilder<SelectorProperty<T>>
     {
-        /// <summary>
-        /// Initializes a new instance of the <see cref="SelectorPropertyMetadata"/> class.
-        /// </summary>
-        /// <param name="Name">The string displayed in the property header.</param>
-        /// <param name="ItemSource">Source of the item to be selected</param>
-        /// <param name="DefaultItem">Default value for <see cref="SelectorProperty{T}.SelectItem"/></param>
-        /// <param name="MemberPath">Path to the member to display</param>
-        public SelectorPropertyMetadata(string Name, IList<T> ItemSource, T? DefaultItem = default, string MemberPath = "") : base(Name)
-        {
-            this.DefaultItem = DefaultItem ?? ItemSource.FirstOrDefault();
-            this.ItemSource = ItemSource;
-            this.MemberPath = MemberPath;
-        }
-
-
-        /// <summary>
-        /// Get the source of the item to be selected.
-        /// </summary>
-        public IList<T> ItemSource { get; init; }
-        /// <summary>
-        /// Get the default value of <see cref="SelectorProperty{T}.SelectItem"/>.
-        /// </summary>
-        public T? DefaultItem { get; init; }
-        /// <summary>
-        /// Get the path to the member to display.
-        /// </summary>
-        public string MemberPath { get; init; }
-
         /// <inheritdoc/>
         public SelectorProperty<T> Build()
         {

@@ -153,25 +153,12 @@ namespace BEditor.Data.Property
     }
 
     /// <summary>
-    /// Represents the metadata of a <see cref="TextProperty"/>.
+    /// The metadata of <see cref="TextProperty"/>.
     /// </summary>
-    public record TextPropertyMetadata : PropertyElementMetadata, IPropertyBuilder<TextProperty>
+    /// <param name="Name">The string displayed in the property header.</param>
+    /// <param name="DefaultText">The default value for <see cref="TextProperty.Value"/>.</param>
+    public record TextPropertyMetadata(string Name, string DefaultText = "") : PropertyElementMetadata(Name), IPropertyBuilder<TextProperty>
     {
-        /// <summary>
-        /// Initializes a new instance of the <see cref="TextPropertyMetadata"/> class.
-        /// </summary>
-        /// <param name="Name">The string displayed in the property header.</param>
-        /// <param name="DefaultText">Default value for <see cref="TextProperty.Value"/>.</param>
-        public TextPropertyMetadata(string Name, string DefaultText = "") : base(Name)
-        {
-            this.DefaultText = DefaultText;
-        }
-
-        /// <summary>
-        /// Get the default value of <see cref="TextProperty.Value"/>.
-        /// </summary>
-        public string DefaultText { get; init; }
-
         /// <inheritdoc/>
         public TextProperty Build()
         {

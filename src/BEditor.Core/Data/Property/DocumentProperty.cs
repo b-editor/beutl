@@ -157,24 +157,11 @@ namespace BEditor.Data.Property
     }
 
     /// <summary>
-    /// Represents the metadata of a <see cref="DocumentProperty"/>.
+    /// The metadata of <see cref="DocumentProperty"/>.
     /// </summary>
-    public record DocumentPropertyMetadata : PropertyElementMetadata, IPropertyBuilder<DocumentProperty>
+    /// <param name="DefaultText">The default value of <see cref="DocumentProperty.Value"/>.</param>
+    public record DocumentPropertyMetadata(string DefaultText) : PropertyElementMetadata(string.Empty), IPropertyBuilder<DocumentProperty>
     {
-        /// <summary>
-        /// Initializes a new instance of the <see cref="DocumentPropertyMetadata"/> class.
-        /// </summary>
-        /// <param name="DefaultText">Default value for <see cref="DocumentProperty.Value"/>.</param>
-        public DocumentPropertyMetadata(string DefaultText) : base(string.Empty)
-        {
-            this.DefaultText = DefaultText;
-        }
-
-        /// <summary>
-        /// Get the default value of <see cref="DocumentProperty.Value"/>.
-        /// </summary>
-        public string DefaultText { get; init; }
-
         /// <inheritdoc/>
         public DocumentProperty Build()
         {

@@ -33,7 +33,7 @@ namespace BEditor.Plugin
         ///  Begin configuring an <see cref="PluginObject"/>.
         /// </summary>
         /// <typeparam name="T">Class that implements the <see cref="PluginObject"/> to be configure.</typeparam>
-        /// <returns>An <see cref="PluginBuilder"/> instance.</returns>
+        /// <returns>The same instance of the <see cref="PluginBuilder"/> for chaining.</returns>
         public static PluginBuilder Configure<T>() where T : PluginObject
         {
             return new PluginBuilder(() => (T)Activator.CreateInstance(typeof(T), config)!);
@@ -42,7 +42,7 @@ namespace BEditor.Plugin
         /// Configure the options for the services to be provided.
         /// </summary>
         /// <param name="metadata">Metadata of the effects to be provided.</param>
-        /// <returns>An <see cref="PluginBuilder"/> instance.</returns>
+        /// <returns>The same instance of the <see cref="PluginBuilder"/> for chaining.</returns>
         public PluginBuilder With(EffectMetadata metadata)
         {
             _effects.Add(metadata);
@@ -53,7 +53,7 @@ namespace BEditor.Plugin
         /// Configure the options for the services to be provided.
         /// </summary>
         /// <param name="metadata">Metadata of the objects to be provided.</param>
-        /// <returns>An <see cref="PluginBuilder"/> instance.</returns>
+        /// <returns>The same instance of the <see cref="PluginBuilder"/> for chaining.</returns>
         public PluginBuilder With(ObjectMetadata metadata)
         {
             _objects.Add(metadata);
@@ -64,7 +64,7 @@ namespace BEditor.Plugin
         /// Configure the options for the services to be provided.
         /// </summary>
         /// <param name="metadata">Metadata of the easings to be provided.</param>
-        /// <returns>An <see cref="PluginBuilder"/> instance.</returns>
+        /// <returns>The same instance of the <see cref="PluginBuilder"/> for chaining.</returns>
         public PluginBuilder With(EasingMetadata metadata)
         {
             _eases.Add(metadata);
@@ -76,7 +76,7 @@ namespace BEditor.Plugin
         /// </summary>
         /// <param name="header">The string to display in the menu header.</param>
         /// <param name="menus">Menu to be set.</param>
-        /// <returns>An <see cref="PluginBuilder"/> instance.</returns>
+        /// <returns>The same instance of the <see cref="PluginBuilder"/> for chaining.</returns>
         public PluginBuilder SetCustomMenu(string header, IEnumerable<ICustomMenu> menus)
         {
             _menus = (header, menus);
@@ -84,13 +84,13 @@ namespace BEditor.Plugin
             return this;
         }
         /// <summary>
-        /// 
+        /// Register services into the <see cref="IServiceCollection"/>.
         /// </summary>
-        /// <param name="action"></param>
-        /// <returns></returns>
-        public PluginBuilder ConfigureServices(Action<IServiceCollection> action)
+        /// <param name="configureServices">A delegate for configuring the <see cref="IServiceCollection"/>.</param>
+        /// <returns>The same instance of the <see cref="PluginBuilder"/> for chaining.</returns>
+        public PluginBuilder ConfigureServices(Action<IServiceCollection> configureServices)
         {
-            action.Invoke(config!.Application.Services);
+            configureServices.Invoke(config!.Application.Services);
 
             return this;
         }

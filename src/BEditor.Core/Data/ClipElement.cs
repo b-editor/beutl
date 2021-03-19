@@ -42,7 +42,7 @@ namespace BEditor.Data
         #region Contructor
 
         /// <summary>
-        /// <see cref="ClipElement"/> Initialize a new instance of the class.
+        /// Initializes a new instance of the <see cref="ClipElement"/> class.
         /// </summary>
         public ClipElement(int id, ObservableCollection<EffectElement> effects, Frame start, Frame end, int layer, Scene scene)
         {
@@ -60,18 +60,18 @@ namespace BEditor.Data
         #region Properties
 
         /// <summary>
-        /// Get the ID for this <see cref="ClipElement"/>
+        /// Gets the ID for this <see cref="ClipElement"/>
         /// </summary>
         [DataMember(Order = 0)]
         public int Id { get; private set; }
 
         /// <summary>
-        /// Get the name of this <see cref="ClipElement"/>.
+        /// Gets the name of this <see cref="ClipElement"/>.
         /// </summary>
         public string Name => _name ??= $"{Effect[0].GetType().Name}{Id}";
 
         /// <summary>
-        /// Get or set the start frame for this <see cref="ClipElement"/>.
+        /// Gets or sets the start frame for this <see cref="ClipElement"/>.
         /// </summary>
         [DataMember(Order = 1)]
         public Frame Start
@@ -81,7 +81,7 @@ namespace BEditor.Data
         }
 
         /// <summary>
-        /// Get or set the end frame for this <see cref="ClipElement"/>.
+        /// Gets or sets the end frame for this <see cref="ClipElement"/>.
         /// </summary>
         [DataMember(Order = 2)]
         public Frame End
@@ -91,12 +91,12 @@ namespace BEditor.Data
         }
 
         /// <summary>
-        /// Get the length of this <see cref="ClipElement"/>.
+        /// Gets the length of this <see cref="ClipElement"/>.
         /// </summary>
         public Frame Length => End - Start;
 
         /// <summary>
-        /// Get or set the layer where this <see cref="ClipElement"/> will be placed.
+        /// Gets or sets the layer where this <see cref="ClipElement"/> will be placed.
         /// </summary>
         [DataMember(Order = 3)]
         public int Layer
@@ -145,7 +145,7 @@ namespace BEditor.Data
         }
 
         /// <summary>
-        /// Get the effects included in this <see cref="ClipElement"/>.
+        /// Gets the effects included in this <see cref="ClipElement"/>.
         /// </summary>
         [DataMember(Name = "Effects", Order = 5)]
         public ObservableCollection<EffectElement> Effect { get; private set; }

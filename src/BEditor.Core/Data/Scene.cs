@@ -291,7 +291,7 @@ namespace BEditor.Data
         #endregion
 
         /// <summary>
-        /// Get the <see cref="ClipElement"/> from its <see cref="IHasName.Name"/>.
+        /// Gets the <see cref="ClipElement"/> from its <see cref="IHasName.Name"/>.
         /// </summary>
         /// <param name="name">Value of <see cref="IHasName.Name"/>.</param>
         public ClipElement? this[string? name]

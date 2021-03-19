@@ -152,25 +152,12 @@ namespace BEditor.Data.Property
     }
 
     /// <summary>
-    /// Represents the metadata of a <see cref="CheckProperty"/>.
+    /// The metadata of <see cref="CheckProperty"/>.
     /// </summary>
-    public record CheckPropertyMetadata : PropertyElementMetadata, IPropertyBuilder<CheckProperty>
+    /// <param name="Name">The string displayed in the property header.</param>
+    /// <param name="DefaultIsChecked">The default value for <see cref="CheckProperty.Value"/>.</param>
+    public record CheckPropertyMetadata(string Name, bool DefaultIsChecked = false) : PropertyElementMetadata(Name), IPropertyBuilder<CheckProperty>
     {
-        /// <summary>
-        /// Initializes a new instance of the <see cref="CheckPropertyMetadata"/> class.
-        /// </summary>
-        /// <param name="Name">The string displayed in the property header.</param>
-        /// <param name="DefaultIsChecked">Default value for <see cref="CheckProperty.Value"/>.</param>
-        public CheckPropertyMetadata(string Name, bool DefaultIsChecked = false) : base(Name)
-        {
-            this.DefaultIsChecked = DefaultIsChecked;
-        }
-
-        /// <summary>
-        /// Get the default value of <see cref="CheckProperty.Value"/>.
-        /// </summary>
-        public bool DefaultIsChecked { get; init; }
-
         /// <inheritdoc/>
         public CheckProperty Build()
         {

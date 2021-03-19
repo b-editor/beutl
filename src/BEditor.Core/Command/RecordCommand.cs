@@ -18,14 +18,14 @@ namespace BEditor.Command
         private readonly Action<T> _redo;
         private readonly Action<T> _undo;
         private readonly Func<T, string>? _getName;
-        private readonly T value;
+        private readonly T _value;
 
         /// <summary>
         /// Initializes a new instance of the <see cref="RecordCommand{T}"/> class.
         /// </summary>
         public RecordCommand(T args, Action<T> onDo, Action<T> onUndo, Func<T, string>? getName = null)
         {
-            value = args;
+            _value = args;
             _do = onDo;
             _redo = onDo;
             _undo = onUndo;
@@ -36,7 +36,7 @@ namespace BEditor.Command
         /// </summary>
         public RecordCommand(T args, Action<T> onDo, Action<T> onUndo, Action<T> onRedo, Func<T, string>? getName = null)
         {
-            value = args;
+            _value = args;
             _do = onDo;
             _redo = onRedo;
             _undo = onUndo;
@@ -44,14 +44,14 @@ namespace BEditor.Command
         }
 
         /// <inheritdoc/>
-        public string Name => _getName?.Invoke(value) ?? Resources.UnknownCommand;
+        public string Name => _getName?.Invoke(_value) ?? Resources.UnknownCommand;
 
         /// <inheritdoc/>
-        public void Do() => _do?.Invoke(value);
+        public void Do() => _do?.Invoke(_value);
         /// <inheritdoc/>
-        public void Redo() => _redo?.Invoke(value);
+        public void Redo() => _redo?.Invoke(_value);
         /// <inheritdoc/>
-        public void Undo() => _undo?.Invoke(value);
+        public void Undo() => _undo?.Invoke(_value);
     }
     /// <summary>
     /// Represents the action of executing, undoing, or redoing.

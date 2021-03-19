@@ -29,6 +29,6 @@ namespace BEditor.Data
         /// <summary>
         /// Get <see cref="Drawing.Color"/> from <see cref="Color"/>.
         /// </summary>
-        public Color GetColor => BEditor.Drawing.Color.FromARGB(Color);
+        public Color GetColor => Drawing.Color.FromARGB(Color);
     }
 }

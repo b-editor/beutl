@@ -174,12 +174,12 @@ namespace BEditor.Data.Property
     }
 
     /// <summary>
-    /// Represents the metadata of a <see cref="FontProperty"/>.
+    /// The metadata of <see cref="FontProperty"/>.
     /// </summary>
     public record FontPropertyMetadata : PropertyElementMetadata, IPropertyBuilder<FontProperty>
     {
         /// <summary>
-        /// Initializes a new instance of the <see cref="FontPropertyMetadata"/> class.
+        /// The metadata of <see cref="FontProperty"/>.
         /// </summary>
         public FontPropertyMetadata() : base(Resources.Font)
         {

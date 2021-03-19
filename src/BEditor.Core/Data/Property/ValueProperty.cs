@@ -177,37 +177,14 @@ namespace BEditor.Data.Property
     }
 
     /// <summary>
-    /// Represents the metadata of a <see cref="ValueProperty"/>.
+    /// The metadata of <see cref="ValueProperty"/>.
     /// </summary>
-    public record ValuePropertyMetadata : PropertyElementMetadata, IPropertyBuilder<ValueProperty>
+    /// <param name="Name">The string displayed in the property header.</param>
+    /// <param name="DefaultValue">The default value.</param>
+    /// <param name="Max">The maximum value.</param>
+    /// <param name="Min">The minimum value.</param>
+    public record ValuePropertyMetadata(string Name, float DefaultValue = 0, float Max = float.NaN, float Min = float.NaN) : PropertyElementMetadata(Name), IPropertyBuilder<ValueProperty>
     {
-        /// <summary>
-        /// Initializes a new instance of the <see cref="ValuePropertyMetadata"/> class.
-        /// </summary>
-        /// <param name="Name">The string displayed in the property header.</param>
-        /// <param name="DefaultValue">Default value</param>
-        /// <param name="Max">Maximum value.</param>
-        /// <param name="Min">Minimum value</param>
-        public ValuePropertyMetadata(string Name, float DefaultValue = 0, float Max = float.NaN, float Min = float.NaN) : base(Name)
-        {
-            this.DefaultValue = DefaultValue;
-            this.Max = Max;
-            this.Min = Min;
-        }
-
-        /// <summary>
-        /// Gets the default value.
-        /// </summary>
-        public float DefaultValue { get; init; }
-        /// <summary>
-        /// Gets the maximum value.
-        /// </summary>
-        public float Max { get; init; }
-        /// <summary>
-        /// Get the minimum value.
-        /// </summary>
-        public float Min { get; init; }
-
         /// <inheritdoc/>
         public ValueProperty Build()
         {

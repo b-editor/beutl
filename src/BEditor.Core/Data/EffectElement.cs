@@ -33,11 +33,11 @@ namespace BEditor.Data
         /// <inheritdoc/>
         public IEnumerable<PropertyElement> Children => _cachedList ??= Properties.ToArray();
         /// <summary>
-        /// Get the name of the <see cref="EffectElement"/>.
+        /// Gets the name of the <see cref="EffectElement"/>.
         /// </summary>
         public abstract string Name { get; }
         /// <summary>
-        /// Get or set if the <see cref="EffectElement"/> is enabled.
+        /// Gets or sets if the <see cref="EffectElement"/> is enabled.
         /// </summary>
         /// <remarks><see langword="true"/> if the <see cref="EffectElement"/> is enabled or <see langword="false"/> otherwise.</remarks>
         [DataMember]
@@ -47,7 +47,7 @@ namespace BEditor.Data
             set => SetValue(value, ref _isEnabled, _isEnabledArgs);
         }
         /// <summary>
-        /// Get or set whether the expander is open.
+        /// Gets or sets whether the expander is open.
         /// </summary>
         /// <remarks><see langword="true"/> if the expander is open, otherwise <see langword="false"/>.</remarks>
         [DataMember]
@@ -57,7 +57,7 @@ namespace BEditor.Data
             set => SetValue(value, ref _isExpanded, _isExpandedArgs);
         }
         /// <summary>
-        /// Get the <see cref="PropertyElement"/> to display on the GUI.
+        /// Gets the <see cref="PropertyElement"/> to display on the GUI.
         /// </summary>
         public abstract IEnumerable<PropertyElement> Properties { get; }
         /// <inheritdoc/>

@@ -7,12 +7,12 @@ using System.Threading.Tasks;
 namespace BEditor.Data
 {
     /// <summary>
-    /// 
+    /// Represents the object with id.
     /// </summary>
     public interface IHasId
     {
         /// <summary>
-        /// Idを取得します
+        /// Gets the Id of this object.
         /// </summary>
         public int Id { get; }
     }

@@ -50,10 +50,6 @@ namespace BEditor.Data.Property
         public int Id => (id ??= Parent?.Children?.IndexOf(this)) ?? -1;
         /// <inheritdoc/>
         public string Name => _propertyMetadata?.Name ?? Id.ToString();
-
-
-        /// <inheritdoc/>
-        public override string ToString() => $"(Name:{PropertyMetadata?.Name})";
     }
 
     /// <inheritdoc cref="PropertyElement"/>
@@ -70,22 +66,8 @@ namespace BEditor.Data.Property
     }
 
     /// <summary>
-    /// Represents the metadata of a property.
+    /// The metadata of <see cref="BEditor.Data.Property.PropertyElement"/>.
     /// </summary>
-    public record PropertyElementMetadata
-    {
-        /// <summary>
-        /// Initializes a new instance of the <see cref="PropertyElementMetadata"/> class.
-        /// </summary>
-        /// <param name="Name">The string displayed in the property header.</param>
-        public PropertyElementMetadata(string Name)
-        {
-            this.Name = Name;
-        }
-
-        /// <summary>
-        /// Gets the string to be displayed in the property header.
-        /// </summary>
-        public string Name { get; init; }
-    }
+    /// <param name="Name">The string displayed in the property header.</param>
+    public record PropertyElementMetadata(string Name);
 }

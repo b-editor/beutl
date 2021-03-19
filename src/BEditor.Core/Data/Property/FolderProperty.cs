@@ -249,25 +249,12 @@ namespace BEditor.Data.Property
     }
 
     /// <summary>
-    /// Represents the metadata of a <see cref="FolderProperty"/>.
+    /// The metadata of <see cref="FolderProperty"/>.
     /// </summary>
-    public record FolderPropertyMetadata : PropertyElementMetadata, IPropertyBuilder<FolderProperty>
+    /// <param name="Name">The string displayed in the property header.</param>
+    /// <param name="Default">The default value of <see cref="FolderProperty.Value"/>.</param>
+    public record FolderPropertyMetadata(string Name, string Default = "") : PropertyElementMetadata(Name), IPropertyBuilder<FolderProperty>
     {
-        /// <summary>
-        /// Initializes a new instance of the <see cref="FolderPropertyMetadata"/>
-        /// </summary>
-        /// <param name="Name">The string displayed in the property header.</param>
-        /// <param name="Default">Default value of <see cref="FolderProperty.Value"/>.</param>
-        public FolderPropertyMetadata(string Name, string Default = "") : base(Name)
-        {
-            this.Default = Default;
-        }
-
-        /// <summary>
-        /// Get the default value of <see cref="FolderProperty.Value"/>.
-        /// </summary>
-        public string Default { get; init; }
-
         /// <inheritdoc/>
         public FolderProperty Build()
         {

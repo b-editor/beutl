@@ -14,7 +14,7 @@ using BEditor.Media;
 namespace BEditor.Data.Property.Easing
 {
     /// <summary>
-    /// <see cref="EaseProperty"/>, <see cref="ColorAnimationProperty"/> などで利用可能なイージング関数を表します
+    /// Represents an easing function that can be used with <see cref="IKeyFrameProperty"/>.
     /// </summary>
     [DataContract]
     public abstract class EasingFunc : EditorObject, IChild<PropertyElement>, IParent<IEasingProperty>, IElementObject

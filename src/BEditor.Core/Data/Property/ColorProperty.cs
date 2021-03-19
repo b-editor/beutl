@@ -167,31 +167,13 @@ namespace BEditor.Data.Property
     }
 
     /// <summary>
-    /// Represents the metadata of a <see cref="ColorProperty"/>.
+    /// The metadata of <see cref="ColorProperty"/>.
     /// </summary>
-    public record ColorPropertyMetadata : PropertyElementMetadata, IPropertyBuilder<ColorProperty>
+    /// <param name="Name">The string displayed in the property header.</param>
+    /// <param name="DefaultColor">The default color.</param>
+    /// <param name="UseAlpha">The value of whether to use alpha components or not.</param>
+    public record ColorPropertyMetadata(string Name, Color DefaultColor, bool UseAlpha = false) : PropertyElementMetadata(Name), IPropertyBuilder<ColorProperty>
     {
-        /// <summary>
-        /// Initializes a new instance of the <see cref="ColorPropertyMetadata"/> class.
-        /// </summary>
-        /// <param name="Name">The string displayed in the property header.</param>
-        /// <param name="DefaultColor">Default color</param>
-        /// <param name="UseAlpha">Value if the alpha component should be used or not</param>
-        public ColorPropertyMetadata(string Name, Color DefaultColor, bool UseAlpha = false) : base(Name)
-        {
-            this.DefaultColor = DefaultColor;
-            this.UseAlpha = UseAlpha;
-        }
-
-        /// <summary>
-        /// Gets the default color.
-        /// </summary>
-        public Color DefaultColor { get; init; }
-        /// <summary>
-        /// Gets a <see cref="bool"/> indicating whether or not to use the alpha component.
-        /// </summary>
-        public bool UseAlpha { get; init; }
-
         /// <inheritdoc/>
         public ColorProperty Build()
         {

@@ -1,0 +1,24 @@
+{
+    "$schema": "http://json.schemastore.org/template",
+    "author": "indigo-san",
+    "classifications": [
+        "BEditor",
+        "Plugin"
+    ],
+    "identity": "BEditor.ImageEffect",
+    "name": "BEditor Image effect",
+    "shortName": "beditor-image-effect",
+    "tags": {
+        "language": "C#",
+        "type": "item"
+    },
+    "sourceName": "NewImageEffect",
+    "defaultName": "ImageEffect",
+    "symbols": {
+        "namespace": {
+            "description": "Namespace for the generated code",
+            "replaces": "BEditorPluginTemplate",
+            "type": "parameter"
+        }
+    }
+}

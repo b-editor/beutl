@@ -75,18 +75,10 @@ namespace BEditor.Data.Property
     }
 
     /// <summary>
-    /// Represents the metadata of a <see cref="LabelComponent"/>.
+    /// The metadata of <see cref="LabelComponent"/>.
     /// </summary>
-    public record LabelComponentMetadata : PropertyElementMetadata, IPropertyBuilder<LabelComponent>
+    public record LabelComponentMetadata() : PropertyElementMetadata(string.Empty), IPropertyBuilder<LabelComponent>
     {
-        /// <summary>
-        /// Initializes a new instance of the <see cref="LabelComponentMetadata"/> class.
-        /// </summary>
-        public LabelComponentMetadata() : base(string.Empty)
-        {
-
-        }
-
         /// <inheritdoc/>
         public LabelComponent Build()
         {

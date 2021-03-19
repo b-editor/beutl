@@ -12,9 +12,9 @@ using System.Text;
 namespace BEditor.Data
 {
     /// <summary>
-    /// プロパティの変更を通知するクラス
+    /// Represents a class that notifies property changes.
     /// </summary>
-    [DataContract(Namespace = "")]
+    [DataContract]
     public abstract class BasePropertyChanged : INotifyPropertyChanged
     {
         /// <inheritdoc/>

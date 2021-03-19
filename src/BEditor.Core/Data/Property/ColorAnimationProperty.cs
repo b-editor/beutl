@@ -555,25 +555,16 @@ namespace BEditor.Data.Property
     }
 
     /// <summary>
-    /// Represents the metadata of a <see cref="ColorAnimationProperty"/>.
+    /// The metadata of <see cref="ColorAnimationProperty"/>.
     /// </summary>
-    public record ColorAnimationPropertyMetadata : PropertyElementMetadata, IPropertyBuilder<ColorAnimationProperty>
+    /// <param name="Name">The string displayed in the property header.</param>
+    /// <param name="DefaultColor">The default color.</param>
+    /// <param name="DefaultEase">The default easing function.</param>
+    /// <param name="UseAlpha">The value of whether to use alpha components or not.</param>
+    public record ColorAnimationPropertyMetadata(string Name, Color DefaultColor, EasingMetadata DefaultEase, bool UseAlpha = false) : PropertyElementMetadata(Name), IPropertyBuilder<ColorAnimationProperty>
     {
         /// <summary>
-        /// Initializes a new instance of the <see cref="ColorAnimationPropertyMetadata"/> class.
-        /// </summary>
-        /// <param name="Name">The string displayed in the property header.</param>
-        /// <param name="DefaultColor">Default color</param>
-        /// <param name="DefaultEase">Default easing function</param>
-        /// <param name="UseAlpha">Value if the alpha component should be used or not</param>
-        public ColorAnimationPropertyMetadata(string Name, Color DefaultColor, EasingMetadata DefaultEase, bool UseAlpha = false) : base(Name)
-        {
-            this.DefaultColor = DefaultColor;
-            this.UseAlpha = UseAlpha;
-            this.DefaultEase = DefaultEase;
-        }
-        /// <summary>
-        /// Initializes a new instance of the <see cref="ColorAnimationPropertyMetadata"/> class.
+        /// The metadata of <see cref="ColorAnimationProperty"/>.
         /// </summary>
         /// <param name="Name">The string displayed in the property header.</param>
         public ColorAnimationPropertyMetadata(string Name) : this(Name, default, EasingMetadata.LoadedEasingFunc[0])
@@ -581,26 +572,13 @@ namespace BEditor.Data.Property
 
         }
         /// <summary>
-        /// Initializes a new instance of the <see cref="ColorAnimationPropertyMetadata"/> class.
+        /// The metadata of <see cref="ColorAnimationProperty"/>.
         /// </summary>
         /// <param name="Name">The string displayed in the property header.</param>
-        /// <param name="DefaultColor">Default color</param>
-        /// <param name="UseAlpha">Value if the alpha component should be used or not</param>
+        /// <param name="DefaultColor">The default color.</param>
+        /// <param name="UseAlpha">The value of whether to use alpha components or not.</param>
         public ColorAnimationPropertyMetadata(string Name, Color DefaultColor, bool UseAlpha = false)
             : this(Name, DefaultColor, EasingMetadata.LoadedEasingFunc[0], UseAlpha) { }
-
-        /// <summary>
-        /// Gets the default color.
-        /// </summary>
-        public Color DefaultColor { get; init; }
-        /// <summary>
-        /// Gets a <see cref="bool"/> indicating whether or not to use the alpha component.
-        /// </summary>
-        public bool UseAlpha { get; init; }
-        /// <summary>
-        /// Gets the default easing function.
-        /// </summary>
-        public EasingMetadata DefaultEase { get; init; }
 
         /// <inheritdoc/>
         public ColorAnimationProperty Build()

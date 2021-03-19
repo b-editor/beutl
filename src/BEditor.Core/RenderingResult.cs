@@ -10,7 +10,7 @@ using BEditor.Drawing.Pixel;
 namespace BEditor
 {
     /// <summary>
-    /// レンダリング結果を表します
+    /// Represents the rendering result.
     /// </summary>
     public readonly ref struct RenderingResult
     {

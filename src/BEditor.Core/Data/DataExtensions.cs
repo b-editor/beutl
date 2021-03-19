@@ -89,16 +89,7 @@ namespace BEditor.Data
         [Pure]
         public static T? Find<T>(this IParent<T> self, int id) where T : IHasId
         {
-            if (self.Children is T[] array)
-            {
-                return Array.Find(array, t => t.Id == id);
-            }
-            else if (self.Children is List<T> list)
-            {
-                list.Find(t => t.Id == id);
-            }
-
-            return self.Children.ToList().Find(item => item.Id == id);
+            return self.Children.FirstOrDefault(item => item.Id == id);
         }
         /// <summary>
         /// Searches for child elements by name.
@@ -110,16 +101,7 @@ namespace BEditor.Data
         [Pure]
         public static T? Find<T>(this IParent<T> self, string name) where T : IHasName
         {
-            if (self.Children is T[] array)
-            {
-                return Array.Find(array, t => t.Name == name);
-            }
-            else if (self.Children is List<T> list)
-            {
-                list.Find(t => t.Name == name);
-            }
-
-            return self.Children.ToList().Find(t => t.Name == name);
+            return self.Children.FirstOrDefault(t => t.Name == name);
         }
         /// <summary>
         /// Determines whether an element is in the <see cref="IParent{T}"/>.

@@ -61,19 +61,11 @@ namespace BEditor.Data.Property
     }
 
     /// <summary>
-    /// Represents the metadata of a <see cref="ButtonComponent"/>.
+    /// The metadata of <see cref="ButtonComponent"/>.
+    /// <param name="Name">The string displayed in the property header.</param>
     /// </summary>
-    public record ButtonComponentMetadata : PropertyElementMetadata, IPropertyBuilder<ButtonComponent>
+    public record ButtonComponentMetadata(string Name) : PropertyElementMetadata(Name), IPropertyBuilder<ButtonComponent>
     {
-        /// <summary>
-        /// Initializes a new instance of the <see cref="ButtonComponentMetadata"/> class.
-        /// </summary>
-        /// <param name="Name">The string displayed in the property header.</param>
-        public ButtonComponentMetadata(string Name) : base(Name)
-        {
-
-        }
-
         /// <inheritdoc/>
         public ButtonComponent Build()
         {

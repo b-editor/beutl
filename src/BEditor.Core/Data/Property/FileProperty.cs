@@ -247,31 +247,13 @@ namespace BEditor.Data.Property
     }
 
     /// <summary>
-    /// Represents the metadata of a <see cref="FileProperty"/>.
+    /// The metadata of <see cref="FileProperty"/>.
     /// </summary>
-    public record FilePropertyMetadata : PropertyElementMetadata, IPropertyBuilder<FileProperty>
+    /// <param name="Name">The string displayed in the property header.</param>
+    /// <param name="DefaultFile">The default value of <see cref="FileProperty.Value"/></param>
+    /// <param name="Filter">The filter for the file to be selected.</param>
+    public record FilePropertyMetadata(string Name, string DefaultFile = "", FileFilter? Filter = null) : PropertyElementMetadata(Name), IPropertyBuilder<FileProperty>
     {
-        /// <summary>
-        /// Initializes a new instance of the <see cref="FilePropertyMetadata"/>
-        /// </summary>
-        /// <param name="Name">The string displayed in the property header.</param>
-        /// <param name="DefaultFile">Default value of <see cref="FileProperty.Value"/></param>
-        /// <param name="Filter">Filter the files to select</param>
-        public FilePropertyMetadata(string Name, string DefaultFile = "", FileFilter? Filter = null) : base(Name)
-        {
-            this.DefaultFile = DefaultFile;
-            this.Filter = Filter;
-        }
-
-        /// <summary>
-        /// Get the default value of <see cref="FileProperty.Value"/>.
-        /// </summary>
-        public string DefaultFile { get; init; }
-        /// <summary>
-        /// Get the filter for the file to be selected.
-        /// </summary>
-        public FileFilter? Filter { get; init; }
-
         /// <inheritdoc/>
         public FileProperty Build()
         {

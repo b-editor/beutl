@@ -9,7 +9,7 @@ using BEditor.Data.Property;
 namespace BEditor.Data.Bindings
 {
     /// <summary>
-    /// 
+    /// Represents a Bindable object.
     /// </summary>
     /// <typeparam name="T">Type of object to bind</typeparam>
     public interface IBindable<T> : IBindable, IObservable<T>, IObserver<T>
@@ -20,18 +20,18 @@ namespace BEditor.Data.Bindings
         public T Value { get; }
 
         /// <summary>
-        /// このオブジェクトと <paramref name="bindable"/> をバインドします。
+        /// Bind this object to <paramref name="bindable"/>.
         /// </summary>
         /// <param name="bindable"></param>
         public void Bind(IBindable<T>? bindable);
     }
     /// <summary>
-    /// 
+    /// Represents a Bindable object.
     /// </summary>
     public interface IBindable : IPropertyElement
     {
         /// <summary>
-        /// Bindするオブジェクトを検索する時に使用するヒントを取得します。
+        /// Gets a hint to use when searching for objects to Bind.
         /// </summary>
         public string? BindHint { get; }
     }

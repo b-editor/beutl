@@ -577,58 +577,27 @@ namespace BEditor.Data.Property
     }
 
     /// <summary>
-    /// Represents the metadata of a <see cref="EaseProperty"/>.
+    /// The metadata of <see cref="EaseProperty"/>.
     /// </summary>
-    public record EasePropertyMetadata : PropertyElementMetadata, IPropertyBuilder<EaseProperty>
+    /// <param name="Name">The string displayed in the property header.</param>
+    /// <param name="DefaultEase">The default easing function.</param>
+    /// <param name="DefaultValue">The default value.</param>
+    /// <param name="Max">The maximum value.</param>
+    /// <param name="Min">The minimum value.</param>
+    /// <param name="UseOptional">The bool of whether to use the Optional value.</param>
+    public record EasePropertyMetadata(string Name, EasingMetadata DefaultEase, float DefaultValue = 0, float Max = float.NaN, float Min = float.NaN, bool UseOptional = false)
+        : PropertyElementMetadata(Name), IPropertyBuilder<EaseProperty>
     {
         /// <summary>
-        /// Initializes a new instance of the <see cref="EasePropertyMetadata"/> class.
+        /// The metadata of <see cref="EaseProperty"/>.
         /// </summary>
         /// <param name="Name">The string displayed in the property header.</param>
-        /// <param name="DefaultEase">Default easing function</param>
-        /// <param name="DefaultValue">Default value</param>
-        /// <param name="Max">Maximum value.</param>
-        /// <param name="Min">Minimum value.</param>
-        /// <param name="UseOptional">Whether to use the option value</param>
-        public EasePropertyMetadata(string Name, EasingMetadata DefaultEase, float DefaultValue = 0, float Max = float.NaN, float Min = float.NaN, bool UseOptional = false) : base(Name)
-        {
-            this.DefaultEase = DefaultEase;
-            this.DefaultValue = DefaultValue;
-            this.Max = Max;
-            this.Min = Min;
-            this.UseOptional = UseOptional;
-        }
-        /// <summary>
-        /// Initializes a new instance of the <see cref="EasePropertyMetadata"/> class.
-        /// </summary>
-        /// <param name="Name">The string displayed in the property header.</param>
-        /// <param name="DefaultValue">Default value</param>
-        /// <param name="Max">Maximum value.</param>
-        /// <param name="Min">Minimum value</param>
-        /// <param name="UseOptional">Whether to use the option value</param>
+        /// <param name="DefaultValue">The default value.</param>
+        /// <param name="Max">The maximum value.</param>
+        /// <param name="Min">The minimum value.</param>
+        /// <param name="UseOptional">The bool of whether to use the Optional value.</param>
         public EasePropertyMetadata(string Name, float DefaultValue = 0, float Max = float.NaN, float Min = float.NaN, bool UseOptional = false)
             : this(Name, EasingMetadata.LoadedEasingFunc[0], DefaultValue, Max, Min, UseOptional) { }
-
-        /// <summary>
-        /// Gets the default easing function.
-        /// </summary>
-        public EasingMetadata DefaultEase { get; init; }
-        /// <summary>
-        /// Gets the default value.
-        /// </summary>
-        public float DefaultValue { get; init; }
-        /// <summary>
-        /// Gets the maximum value.
-        /// </summary>
-        public float Max { get; init; }
-        /// <summary>
-        /// Get the minimum value.
-        /// </summary>
-        public float Min { get; init; }
-        /// <summary>
-        /// Gets the bool of whether to use the Optional value.
-        /// </summary>
-        public bool UseOptional { get; init; }
 
         /// <inheritdoc/>
         public EaseProperty Build()

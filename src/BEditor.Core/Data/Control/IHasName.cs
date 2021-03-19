@@ -7,12 +7,12 @@ using System.Threading.Tasks;
 namespace BEditor.Data
 {
     /// <summary>
-    /// 
+    /// Represents an object with the name.
     /// </summary>
     public interface IHasName
     {
         /// <summary>
-        /// 名前を取得します
+        /// Gets the name of this object.
         /// </summary>
         public string? Name { get; }
     }
