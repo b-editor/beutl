@@ -46,7 +46,7 @@ namespace BEditor.Models
 
         private AppData()
         {
-            CommandManager.Executed += (_, _) => AppStatus = Status.Edit;
+            CommandManager.Default.Executed += (_, _) => AppStatus = Status.Edit;
 
 
             // NLogの設定
@@ -84,26 +84,19 @@ namespace BEditor.Models
 
             NLog.LogManager.Configuration = config;
 
+            LoggingFactory = LoggerFactory.Create(builder =>
+            {
+                builder
+                    .AddConsole()
+                    .AddNLog()
+                    .AddProvider(new BEditorLoggerProvider());
+            });
 
             // DIの設定
             Services = new ServiceCollection()
                 .AddSingleton<IFileDialogService>(p => new FileDialogService())
                 .AddSingleton<IMessage>(p => new MessageService())
-                .AddSingleton(_ => LoggerFactory.Create(builder =>
-                {
-                    builder
-                        .AddFilter("Microsoft", LogLevel.Warning)
-                        .AddFilter("System", LogLevel.Warning)
-                        .AddFilter("BEditor.Data", LogLevel.Warning)
-                        .AddFilter("BEditor.Graphics", LogLevel.Warning)
-                        .AddFilter("BEditor.Views", LogLevel.Debug)
-                        .AddFilter("BEditor.ViewModels", LogLevel.Debug)
-                        .AddFilter("BEditor.Models", LogLevel.Debug)
-                        .AddFilter("LoggingConsoleApp.Program", LogLevel.Debug)
-                        .AddConsole()
-                        .AddNLog()
-                        .AddProvider(new BEditorLoggerProvider());
-                }));
+                .AddSingleton(_ => LoggingFactory);
         }
 
         public static AppData Current { get; } = new();
@@ -130,14 +123,13 @@ namespace BEditor.Models
             {
                 serviceProvider = value;
 
-                LoggingFactory = ServiceProvider.GetService<ILoggerFactory>()!;
                 Message = ServiceProvider.GetService<IMessage>()!;
                 FileDialog = ServiceProvider.GetService<IFileDialogService>()!;
             }
         }
         public IMessage Message { get; set; }
         public IFileDialogService FileDialog { get; set; }
-        public ILoggerFactory LoggingFactory { get; set; }
+        public ILoggerFactory LoggingFactory { get; }
 
         public void SaveAppConfig(Project project, string directory)
         {

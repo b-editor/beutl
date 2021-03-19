@@ -23,7 +23,13 @@ namespace BEditor.Data
         /// Execute IRecordCommand.
         /// </summary>
         /// <param name="command">Command to be executed</param>
-        public static void Execute(this IRecordCommand command) => CommandManager.Do(command);
+        public static void Execute(this IRecordCommand command) => CommandManager.Default.Do(command);
+        /// <summary>
+        /// Execute IRecordCommand with CommandManager specified.
+        /// </summary>
+        /// <param name="command">Command to be executed</param>
+        /// <param name="manager">The CommandManager to execute.</param>
+        public static void Execute(this IRecordCommand command, CommandManager manager) => manager.Do(command);
 
         /// <summary>
         /// Activate this <see cref="IElementObject"/> and set metadata

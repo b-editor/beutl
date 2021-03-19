@@ -3,6 +3,7 @@
     xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
     xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
     xmlns:Controls="clr-namespace:MahApps.Metro.Controls;assembly=MahApps.Metro"
+    xmlns:command="clr-namespace:BEditor.Command;assembly=BEditor.Core"
     xmlns:convert="clr-namespace:BEditor.ViewModels.Converters"
     xmlns:custom="clr-namespace:BEditor.WPF.Controls;assembly=BEditor.WPF.Controls"
     xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
@@ -147,11 +148,11 @@
                             <MenuItem
                                 Command="{Binding EditModel.Undo, Mode=OneTime}"
                                 Header="{x:Static properties:Resources.Undo}"
-                                IsEnabled="{Binding EditModel.UndoIsEnabled.Value, Mode=OneWay}" />
+                                IsEnabled="{Binding Source={x:Static command:CommandManager.Default}, Path=CanUndo, Mode=OneWay}" />
                             <MenuItem
                                 Command="{Binding EditModel.Redo, Mode=OneTime}"
                                 Header="{x:Static properties:Resources.Redo}"
-                                IsEnabled="{Binding EditModel.RedoIsEnabled.Value, Mode=OneWay}" />
+                                IsEnabled="{Binding Source={x:Static command:CommandManager.Default}, Path=CanRedo, Mode=OneWay}" />
                             <MenuItem
                                 Command="{Binding EditModel.ClipRemove, Mode=OneTime}"
                                 Header="{x:Static properties:Resources.Remove}"
@@ -320,7 +321,7 @@
                         Margin="5,0,5,0"
                         Padding="0,0,0,0"
                         Command="{Binding EditModel.Undo, Mode=OneTime}"
-                        IsEnabled="{Binding EditModel.UndoIsEnabled.Value, Mode=OneWay}"
+                        IsEnabled="{Binding Source={x:Static command:CommandManager.Default}, Path=CanUndo, Mode=OneWay}"
                         ToolTip="{x:Static properties:Resources.Undo}">
                         <md:PackIcon
                             Width="18"
@@ -356,7 +357,7 @@
                         Margin="5,0,5,0"
                         Padding="0,0,0,0"
                         Command="{Binding EditModel.Redo, Mode=OneTime}"
-                        IsEnabled="{Binding EditModel.RedoIsEnabled.Value, Mode=OneWay}"
+                        IsEnabled="{Binding Source={x:Static command:CommandManager.Default}, Path=CanRedo, Mode=OneWay}"
                         ToolTip="{x:Static properties:Resources.Redo}">
                         <md:PackIcon
                             Width="18"

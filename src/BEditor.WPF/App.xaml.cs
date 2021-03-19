@@ -47,7 +47,7 @@ namespace BEditor
         private static readonly string backupDir = Path.Combine(AppContext.BaseDirectory, "user", "backup");
         private static readonly string pluginsDir = Path.Combine(AppContext.BaseDirectory, "user", "plugins");
         private static readonly string ffmpegDir = Path.Combine(AppContext.BaseDirectory, "ffmpeg");
-        public static ILogger? Logger;
+        public static readonly ILogger? Logger = AppData.Current.LoggingFactory.CreateLogger<App>();
         private static DispatcherTimer? backupTimer;
 
         protected override void OnStartup(StartupEventArgs e)
@@ -276,10 +276,10 @@ namespace BEditor
                     }
                 });
             };
-            
+
             Settings.Default.PropertyChanged += (s, e) =>
             {
-                if(e.PropertyName is nameof(Settings.BackUpInterval))
+                if (e.PropertyName is nameof(Settings.BackUpInterval))
                 {
                     backupTimer.Interval = TimeSpan.FromMinutes(Settings.Default.BackUpInterval);
                 }
@@ -498,18 +498,12 @@ namespace BEditor
                     }
 
                     Settings.Default.Save();
-
-
-                    PluginManager.Default.Load(Settings.Default.EnablePlugins);
                 });
-
-                return;
             }
 
             PluginManager.Default.Load(Settings.Default.EnablePlugins);
 
             AppData.Current.ServiceProvider = AppData.Current.Services.BuildServiceProvider();
-            Logger = AppData.Current.LoggingFactory.CreateLogger<App>();
         }
 
         private void Application_Exit(object sender, ExitEventArgs e)

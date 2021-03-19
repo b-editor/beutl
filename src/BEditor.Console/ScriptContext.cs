@@ -318,14 +318,14 @@ namespace BEditor
         {
             for (int i = 0; i < count; i++)
             {
-                CommandManager.Undo();
+                CommandManager.Default.Undo();
             }
         }
         public static void Redo(int count = 1)
         {
             for (int i = 0; i < count; i++)
             {
-                CommandManager.Redo();
+                CommandManager.Default.Redo();
             }
         }
         public void Encode(string file)

@@ -32,7 +32,7 @@ namespace BEditor.Models
             Undo.Where(_ => AppData.Current.Project is not null)
                 .Subscribe(_ =>
             {
-                CommandManager.Undo();
+                CommandManager.Default.Undo();
 
                 AppData.Current.Project!.PreviewUpdate();
                 AppData.Current.AppStatus = Status.Edit;
@@ -40,15 +40,13 @@ namespace BEditor.Models
             Redo.Where(_ => AppData.Current.Project is not null)
                 .Subscribe(_ =>
             {
-                CommandManager.Redo();
+                CommandManager.Default.Redo();
 
                 AppData.Current.Project!.PreviewUpdate();
                 AppData.Current.AppStatus = Status.Edit;
             });
-            CommandManager.CanUndoChange += (sender, e) => UndoIsEnabled.Value = CommandManager.CanUndo;
-            CommandManager.CanRedoChange += (sender, e) => RedoIsEnabled.Value = CommandManager.CanRedo;
 
-            CommandManager.Executed += Executed;
+            CommandManager.Default.Executed += Executed;
 
             #region Add, Remove
             SceneAdd.Where(_ => AppData.Current.Project is not null)
@@ -179,8 +177,6 @@ namespace BEditor.Models
 
         public ReactiveCommand Undo { get; } = new();
         public ReactiveCommand Redo { get; } = new();
-        public ReactiveProperty<bool> UndoIsEnabled { get; } = new() { Value = CommandManager.CanUndo };
-        public ReactiveProperty<bool> RedoIsEnabled { get; } = new() { Value = CommandManager.CanRedo };
         public ReactiveCollection<string> UnDoList { get; } = new();
         public ReactiveCollection<string> ReDoList { get; } = new();
 
@@ -204,7 +200,7 @@ namespace BEditor.Models
                     //上を見てUnDoListに追加
                     ReDoList.Clear();
 
-                    var command = CommandManager.UndoStack.Peek();
+                    var command = CommandManager.Default.UndoStack.Peek();
 
                     UnDoList.Insert(0, command.Name);
 

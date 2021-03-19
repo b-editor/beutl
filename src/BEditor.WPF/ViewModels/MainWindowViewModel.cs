@@ -141,7 +141,7 @@ namespace BEditor.ViewModels
             #region Tool
 
             SettingShow.Subscribe(SettingShowCommand);
-            DeleteCommand.Subscribe(() => CommandManager.Clear());
+            DeleteCommand.Subscribe(() => CommandManager.Default.Clear());
             MemoryRelease.Subscribe(() =>
             {
                 var bytes = Environment.WorkingSet;
@@ -177,7 +177,7 @@ namespace BEditor.ViewModels
 
         private void Project_Opend()
         {
-            CommandManager.Clear();
+            CommandManager.Default.Clear();
 
             ProjectIsOpened.Value = true;
             AppData.Current.Project!.Saved += (s, _) => AppData.Current.AppStatus = Status.Saved;
@@ -185,7 +185,7 @@ namespace BEditor.ViewModels
 
         private void Project_Closed()
         {
-            CommandManager.Clear();
+            CommandManager.Default.Clear();
             PreviewImage.Value = null;
 
             ProjectIsOpened.Value = false;
