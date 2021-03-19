@@ -7,10 +7,23 @@ using System.Threading.Tasks;
 using BEditor.Data;
 using BEditor.Media;
 
+using Microsoft.Extensions.CommandLineUtils;
+
 namespace BEditor
 {
     public static class Tool
     {
+        public static int? TryParse(this CommandArgument arg)
+        {
+            if (int.TryParse(arg.Value, out var f))
+            {
+                return f;
+            }
+            else
+            {
+                return null;
+            }
+        }
         public static bool Clamp(this Scene self, ClipElement? clip_, ref Frame start, ref Frame end, int layer)
         {
             var array = self.GetLayer(layer).ToArray();

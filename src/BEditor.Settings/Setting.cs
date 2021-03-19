@@ -18,6 +18,7 @@ namespace BEditor
         private static readonly PropertyChangedEventArgs clipHeightArgs = new(nameof(ClipHeight));
         private static readonly PropertyChangedEventArgs darkModeArgs = new(nameof(UseDarkMode));
         private static readonly PropertyChangedEventArgs autoBackUpArgs = new(nameof(AutoBackUp));
+        private static readonly PropertyChangedEventArgs backUpIntervalArgs = new(nameof(BackUpInterval));
         private static readonly PropertyChangedEventArgs lastTimeFolderArgs = new(nameof(LastTimeFolder));
         private static readonly PropertyChangedEventArgs widthOf1FrameArgs = new(nameof(WidthOf1Frame));
         private static readonly PropertyChangedEventArgs enableErrorLogArgs = new(nameof(EnableErrorLog));
@@ -27,6 +28,7 @@ namespace BEditor
         private bool darkMode = true;
         private bool showStartWindow = true;
         private bool autoBackUp = true;
+        private uint? backUpInterval = 10;
         private string lastTimeFolder = "";
         private int widthOf1Frame = 5;
         private bool enableErrorLog = false;
@@ -76,6 +78,12 @@ namespace BEditor
         {
             get => autoBackUp;
             set => SetValue(value, ref autoBackUp, autoBackUpArgs);
+        }
+        [DataMember]
+        public uint BackUpInterval
+        {
+            get => backUpInterval ??= 10;
+            set => SetValue(value, ref backUpInterval, backUpIntervalArgs);
         }
         [DataMember]
         public string LastTimeFolder

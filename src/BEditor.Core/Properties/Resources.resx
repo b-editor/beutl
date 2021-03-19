@@ -867,4 +867,7 @@ Please select the plugin you want to load</value>
   <data name="ClearFramebuffer" xml:space="preserve">
     <value>Clear the frame buffer</value>
   </data>
+  <data name="BackUpInterval" xml:space="preserve">
+    <value>Backup interval (min)</value>
+  </data>
 </root>

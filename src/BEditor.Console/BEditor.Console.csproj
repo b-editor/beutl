@@ -3,7 +3,7 @@
   <PropertyGroup>
     <OutputType>Exe</OutputType>
     <TargetFramework>net5.0</TargetFramework>
-    <PackageId>BEditor.CLI</PackageId>
+    <PackageId>BEditor.Console</PackageId>
     <AssemblyName>bedit</AssemblyName>
     <RootNamespace>BEditor</RootNamespace>
   </PropertyGroup>
@@ -21,17 +21,17 @@
   </ItemGroup>
 
   <ItemGroup>
-    <Compile Update="Properties\CommandLineResources.Designer.cs">
+    <Compile Update="Properties\ConsoleResources.Designer.cs">
       <DesignTime>True</DesignTime>
       <AutoGen>True</AutoGen>
-      <DependentUpon>CommandLineResources.resx</DependentUpon>
+      <DependentUpon>ConsoleResources.resx</DependentUpon>
     </Compile>
   </ItemGroup>
 
   <ItemGroup>
-    <EmbeddedResource Update="Properties\CommandLineResources.resx">
+    <EmbeddedResource Update="Properties\ConsoleResources.resx">
       <Generator>ResXFileCodeGenerator</Generator>
-      <LastGenOutput>CommandLineResources.Designer.cs</LastGenOutput>
+      <LastGenOutput>ConsoleResources.Designer.cs</LastGenOutput>
     </EmbeddedResource>
   </ItemGroup>
 </Project>

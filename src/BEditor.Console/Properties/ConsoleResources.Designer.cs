@@ -22,14 +22,14 @@ namespace BEditor.Properties {
     [global::System.CodeDom.Compiler.GeneratedCodeAttribute("System.Resources.Tools.StronglyTypedResourceBuilder", "16.0.0.0")]
     [global::System.Diagnostics.DebuggerNonUserCodeAttribute()]
     [global::System.Runtime.CompilerServices.CompilerGeneratedAttribute()]
-    internal class CommandLineResources {
+    internal class ConsoleResources {
         
         private static global::System.Resources.ResourceManager resourceMan;
         
         private static global::System.Globalization.CultureInfo resourceCulture;
         
         [global::System.Diagnostics.CodeAnalysis.SuppressMessageAttribute("Microsoft.Performance", "CA1811:AvoidUncalledPrivateCode")]
-        internal CommandLineResources() {
+        internal ConsoleResources() {
         }
         
         /// <summary>
@@ -39,7 +39,7 @@ namespace BEditor.Properties {
         internal static global::System.Resources.ResourceManager ResourceManager {
             get {
                 if (object.ReferenceEquals(resourceMan, null)) {
-                    global::System.Resources.ResourceManager temp = new global::System.Resources.ResourceManager("BEditor.Properties.CommandLineResources", typeof(CommandLineResources).Assembly);
+                    global::System.Resources.ResourceManager temp = new global::System.Resources.ResourceManager("BEditor.Properties.ConsoleResources", typeof(ConsoleResources).Assembly);
                     resourceMan = temp;
                 }
                 return resourceMan;
@@ -57,6 +57,15 @@ namespace BEditor.Properties {
             }
             set {
                 resourceCulture = value;
+            }
+        }
+        
+        /// <summary>
+        ///   Add a clip. に類似しているローカライズされた文字列を検索します。
+        /// </summary>
+        internal static string AddClip {
+            get {
+                return ResourceManager.GetString("AddClip", resourceCulture);
             }
         }
         
@@ -88,6 +97,15 @@ namespace BEditor.Properties {
         }
         
         /// <summary>
+        ///   Clip type に類似しているローカライズされた文字列を検索します。
+        /// </summary>
+        internal static string ClipType {
+            get {
+                return ResourceManager.GetString("ClipType", resourceCulture);
+            }
+        }
+        
+        /// <summary>
         ///   Create a new project. に類似しているローカライズされた文字列を検索します。
         /// </summary>
         internal static string CreateNewProject {
@@ -102,6 +120,15 @@ namespace BEditor.Properties {
         internal static string EnumerateFonts {
             get {
                 return ResourceManager.GetString("EnumerateFonts", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Execute the following command. に類似しているローカライズされた文字列を検索します。
+        /// </summary>
+        internal static string ExecuteTheCommand {
+            get {
+                return ResourceManager.GetString("ExecuteTheCommand", resourceCulture);
             }
         }
         
@@ -133,7 +160,7 @@ namespace BEditor.Properties {
         }
         
         /// <summary>
-        ///   FFmpeg was not found. Do you want to install it? (Y/N) に類似しているローカライズされた文字列を検索します。
+        ///   FFmpeg was not found. に類似しているローカライズされた文字列を検索します。
         /// </summary>
         internal static string FFmpegNotFound {
             get {
@@ -156,6 +183,24 @@ namespace BEditor.Properties {
         internal static string IndexIsOutOfRange {
             get {
                 return ResourceManager.GetString("IndexIsOutOfRange", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Do you want to install it? (Y/N) に類似しているローカライズされた文字列を検索します。
+        /// </summary>
+        internal static string InstallIt {
+            get {
+                return ResourceManager.GetString("InstallIt", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Invalid value. に類似しているローカライズされた文字列を検索します。
+        /// </summary>
+        internal static string InvalidValue {
+            get {
+                return ResourceManager.GetString("InvalidValue", resourceCulture);
             }
         }
         
@@ -264,6 +309,15 @@ namespace BEditor.Properties {
         internal static string ProjectFile {
             get {
                 return ResourceManager.GetString("ProjectFile", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Project file not found. に類似しているローカライズされた文字列を検索します。
+        /// </summary>
+        internal static string ProjectFileNotFound {
+            get {
+                return ResourceManager.GetString("ProjectFileNotFound", resourceCulture);
             }
         }
         

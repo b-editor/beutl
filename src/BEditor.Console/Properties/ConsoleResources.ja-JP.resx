@@ -137,7 +137,7 @@
     <value>{0}を展開し配置しています。</value>
   </data>
   <data name="FFmpegNotFound" xml:space="preserve">
-    <value>FFmpegが見つかりませんでした。インストールしますか？(Y/N)</value>
+    <value>FFmpegが見つかりませんでした。</value>
   </data>
   <data name="ClipExistsInTheSpecifiedLocation" xml:space="preserve">
     <value>指定した場所にクリップが存在しているため、新しいクリップを配置できません。</value>
@@ -189,5 +189,23 @@
   </data>
   <data name="EnumerateFonts" xml:space="preserve">
     <value>フォントを列挙します。</value>
+  </data>
+  <data name="InstallIt" xml:space="preserve">
+    <value>インストールしますか？(Y/N)</value>
+  </data>
+  <data name="ExecuteTheCommand" xml:space="preserve">
+    <value>以下のコマンドを実行してください。</value>
+  </data>
+  <data name="ProjectFileNotFound" xml:space="preserve">
+    <value>プロジェクトファイルが見つかりませんでした。</value>
+  </data>
+  <data name="ClipType" xml:space="preserve">
+    <value>クリップの種類</value>
+  </data>
+  <data name="InvalidValue" xml:space="preserve">
+    <value>不正な値です。</value>
+  </data>
+  <data name="AddClip" xml:space="preserve">
+    <value>クリップを追加します。</value>
   </data>
 </root>

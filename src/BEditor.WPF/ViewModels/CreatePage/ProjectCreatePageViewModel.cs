@@ -55,7 +55,6 @@ namespace BEditor.ViewModels.CreatePage
         public ReactiveProperty<uint> Samplingrate { get; } = new(samlingrate);
         public ReactiveProperty<string> Name { get; } = new(GenFilename());
         public ReactiveProperty<string> Folder { get; } = new(Settings.Default.LastTimeFolder);
-        public ReactiveProperty<bool> SaveToFile { get; } = new(true);
 
         public ReactiveCommand OpenFolerDialog { get; } = new();
         public ReactiveCommand CreateCommand { get; } = new();
@@ -78,7 +77,14 @@ namespace BEditor.ViewModels.CreatePage
 
         private void Create()
         {
-            var project = new Project((int)Width.Value, (int)Height.Value, (int)Framerate.Value, (int)Samplingrate.Value, AppData.Current);
+            var project = new Project(
+                (int)Width.Value,
+                (int)Height.Value,
+                (int)Framerate.Value,
+                (int)Samplingrate.Value,
+                AppData.Current,
+                FormattedFilename(Path.Combine(Folder.Value, Path.GetFileNameWithoutExtension(Name.Value), Name.Value)));
+
             AppData.Current.Project = project;
 
             var loading = new Loading()
@@ -95,9 +101,8 @@ namespace BEditor.ViewModels.CreatePage
             {
                 project.Load();
 
-                if (SaveToFile.Value)
                 {
-                    project.Save(FormattedFilename(Path.Combine(Folder.Value, Path.GetFileNameWithoutExtension(Name.Value), Name.Value)));
+                    project.Save();
 
                     var fullpath = Path.Combine(project.DirectoryName!, project.Name + ".bedit");
 

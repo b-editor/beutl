@@ -137,7 +137,7 @@
     <value>{0} is extracted and placed.</value>
   </data>
   <data name="FFmpegNotFound" xml:space="preserve">
-    <value>FFmpeg was not found. Do you want to install it? (Y/N)</value>
+    <value>FFmpeg was not found.</value>
   </data>
   <data name="ClipExistsInTheSpecifiedLocation" xml:space="preserve">
     <value>Cannot place a new clip because a clip already exists in the specified location.</value>
@@ -189,5 +189,23 @@
   </data>
   <data name="EnumerateFonts" xml:space="preserve">
     <value>Enumerate fonts.</value>
+  </data>
+  <data name="InstallIt" xml:space="preserve">
+    <value>Do you want to install it? (Y/N)</value>
+  </data>
+  <data name="ExecuteTheCommand" xml:space="preserve">
+    <value>Execute the following command.</value>
+  </data>
+  <data name="ProjectFileNotFound" xml:space="preserve">
+    <value>Project file not found.</value>
+  </data>
+  <data name="ClipType" xml:space="preserve">
+    <value>Clip type</value>
+  </data>
+  <data name="InvalidValue" xml:space="preserve">
+    <value>Invalid value.</value>
+  </data>
+  <data name="AddClip" xml:space="preserve">
+    <value>Add a clip.</value>
   </data>
 </root>

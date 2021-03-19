@@ -867,4 +867,7 @@
   <data name="ClearFramebuffer" xml:space="preserve">
     <value>フレームバッファをクリア</value>
   </data>
+  <data name="BackUpInterval" xml:space="preserve">
+    <value>バックアップの間隔 (分)</value>
+  </data>
 </root>

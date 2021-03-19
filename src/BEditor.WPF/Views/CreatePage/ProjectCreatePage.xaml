@@ -131,10 +131,7 @@
                     Foreground="{DynamicResource MaterialDesignBodyLight}"
                     Text="{x:Static props:Resources.Name}" />
 
-                <TextBox
-                    Margin="0,8"
-                    IsEnabled="{Binding SaveToFile.Value, Mode=OneWay}"
-                    Text="{Binding Name.Value, Mode=TwoWay}" />
+                <TextBox Margin="0,8" Text="{Binding Name.Value, Mode=TwoWay}" />
             </VirtualizingStackPanel>
 
             <!--  Folder  -->
@@ -144,7 +141,7 @@
                     Foreground="{DynamicResource MaterialDesignBodyLight}"
                     Text="{x:Static props:Resources.SaveFolder}" />
 
-                <Grid Margin="0,8" IsEnabled="{Binding SaveToFile.Value, Mode=OneWay}">
+                <Grid Margin="0,8">
                     <TextBox Text="{Binding Folder.Value, Mode=TwoWay}" />
 
                     <Button
@@ -159,20 +156,6 @@
                 </Grid>
             </VirtualizingStackPanel>
 
-            <!--  SaveToFile  -->
-            <DockPanel Margin="8">
-                <TextBlock
-                    DockPanel.Dock="Left"
-                    FontSize="14"
-                    Foreground="{DynamicResource MaterialDesignBodyLight}"
-                    Text="{x:Static props:Resources.SaveToFile}" />
-
-                <CheckBox
-                    Padding="8"
-                    HorizontalAlignment="Right"
-                    DockPanel.Dock="Right"
-                    IsChecked="{Binding SaveToFile.Value, Mode=TwoWay}" />
-            </DockPanel>
         </VirtualizingStackPanel>
 
         <VirtualizingStackPanel

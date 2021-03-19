@@ -340,6 +340,15 @@ namespace BEditor.Properties {
         }
         
         /// <summary>
+        ///   Backup interval (min) に類似しているローカライズされた文字列を検索します。
+        /// </summary>
+        public static string BackUpInterval {
+            get {
+                return ResourceManager.GetString("BackUpInterval", resourceCulture);
+            }
+        }
+        
+        /// <summary>
         ///   Ball に類似しているローカライズされた文字列を検索します。
         /// </summary>
         public static string Ball {

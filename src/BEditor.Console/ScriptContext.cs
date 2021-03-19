@@ -46,11 +46,11 @@ namespace BEditor
         {
             if ((file is null) ? _project.Save() : _project.Save(file))
             {
-                Console.WriteLine(CommandLineResources.SavedTo, file);
+                Console.WriteLine(ConsoleResources.SavedTo, file);
             }
             else
             {
-                Console.WriteLine(CommandLineResources.FailedToSave);
+                Console.WriteLine(ConsoleResources.FailedToSave);
             }
         }
         public void List(IReadOnlyList<object> items)
@@ -71,7 +71,7 @@ namespace BEditor
             }
             void ListClip(IReadOnlyList<ClipElement> clips)
             {
-                Console.WriteLine($"{CommandLineResources.ManagementName} | {Resources.Name}");
+                Console.WriteLine($"{ConsoleResources.ManagementName} | {Resources.Name}");
                 Console.WriteLine("=============");
 
                 foreach (var clip in clips)
@@ -108,7 +108,7 @@ namespace BEditor
                     ListEffect(effect);
                     break;
                 default:
-                    Console.WriteLine(CommandLineResources.This_data_cannot_be_displayed_in_a_list_);
+                    Console.WriteLine(ConsoleResources.This_data_cannot_be_displayed_in_a_list_);
                     break;
             }
         }
@@ -142,7 +142,7 @@ namespace BEditor
                 using var memory = new MemoryStream();
                 if (!Serialize.SaveToStream(prop, memory, SerializeMode.Json))
                 {
-                    Console.WriteLine(CommandLineResources.FailedToConvertPropertiesToJson);
+                    Console.WriteLine(ConsoleResources.FailedToConvertPropertiesToJson);
 
                     return;
                 }
@@ -151,7 +151,7 @@ namespace BEditor
             }
             else
             {
-                Console.WriteLine(CommandLineResources.PropertyNotFound);
+                Console.WriteLine(ConsoleResources.PropertyNotFound);
             }
         }
         public void Add(Range range, int layer, string metadata, bool setcurrent = false)
@@ -162,23 +162,18 @@ namespace BEditor
             if (!Scene.InRange(start, end, layer))
             {
                 Console.ForegroundColor = ConsoleColor.DarkYellow;
-                Console.WriteLine(CommandLineResources.ClipExistsInTheSpecifiedLocation);
+                Console.WriteLine(ConsoleResources.ClipExistsInTheSpecifiedLocation);
 
                 Console.ResetColor();
             }
             else
             {
-                ObjectMetadata? meta = null;
-
-                foreach (var item in ObjectMetadata.LoadedObjects)
-                {
-                    if (item.Name == metadata) meta = item;
-                }
+                var meta = ObjectMetadata.LoadedObjects.FirstOrDefault(i => i.Name == metadata);
 
                 if (meta is null)
                 {
                     Console.ForegroundColor = ConsoleColor.DarkYellow;
-                    Console.WriteLine(CommandLineResources.NotFound, metadata);
+                    Console.WriteLine(ConsoleResources.NotFound, metadata);
 
                     Console.ResetColor();
 
@@ -194,7 +189,7 @@ namespace BEditor
                     Scene.SetCurrentClip(clip);
                 }
 
-                Console.WriteLine(CommandLineResources.AddedClip, start, end, layer);
+                Console.WriteLine(ConsoleResources.AddedClip, start, end, layer);
             }
         }
         public void Add(int width, int height)
@@ -212,24 +207,20 @@ namespace BEditor
         {
             if (Clip is null)
             {
-                Console.WriteLine("クリップを選択してください。");
+                Console.WriteLine(ConsoleResources.SelectClip);
 
                 return;
             }
 
-            EffectMetadata? meta = null;
-
-            foreach (var item in EffectMetadata.LoadedEffects
+            EffectMetadata? meta = EffectMetadata.LoadedEffects
                 .SelectMany(i => i.Children?
-                    .Select(i2 => new EffectItem(i2, i.Name)) ?? new EffectItem[] { new(i, null) }))
-            {
-                if (item.Name == effect) meta = item.Metadata;
-            }
+                    .Select(i2 => new EffectItem(i2, i.Name)) ?? new EffectItem[] { new(i, null) })
+                    .FirstOrDefault(i=>i.Name == effect)?.Metadata;
 
             if (meta is null)
             {
                 Console.ForegroundColor = ConsoleColor.DarkYellow;
-                Console.WriteLine(CommandLineResources.NotFound, effect);
+                Console.WriteLine(ConsoleResources.NotFound, effect);
 
                 Console.ResetColor();
 
@@ -239,39 +230,39 @@ namespace BEditor
             var effectelm = meta.CreateFunc();
             Clip.AddEffect(effectelm).Execute();
 
-            Console.WriteLine(CommandLineResources.AddedEffect);
+            Console.WriteLine(ConsoleResources.AddedEffect);
         }
         public void Remove(ClipElement clip)
         {
             clip.Parent.RemoveClip(clip).Execute();
 
             Clip = Clips.Count is not 0 ? Clips[0] : null;
-            Console.WriteLine(CommandLineResources.RemovedClip);
+            Console.WriteLine(ConsoleResources.RemovedClip);
         }
         public void Remove(int effectIndex)
         {
             if (Clip is null)
             {
-                Console.WriteLine(CommandLineResources.SelectClip);
+                Console.WriteLine(ConsoleResources.SelectClip);
 
                 return;
             }
             if (Clip.Effect.Count >= effectIndex)
             {
-                Console.WriteLine(CommandLineResources.IndexIsOutOfRange);
+                Console.WriteLine(ConsoleResources.IndexIsOutOfRange);
 
                 return;
             }
 
             Clip.RemoveEffect(Clip.Effect[effectIndex]).Execute();
 
-            Console.WriteLine(CommandLineResources.RemovedEffect);
+            Console.WriteLine(ConsoleResources.RemovedEffect);
         }
         public void Move(int layer)
         {
             if (Clip is null)
             {
-                Console.WriteLine(CommandLineResources.SelectClip);
+                Console.WriteLine(ConsoleResources.SelectClip);
 
                 return;
             }
@@ -279,7 +270,7 @@ namespace BEditor
             if (!Clip.Parent.InRange(Clip.Start, Clip.End, Clip.Layer))
             {
                 Console.ForegroundColor = ConsoleColor.DarkYellow;
-                Console.WriteLine(CommandLineResources.ClipExistsInTheSpecifiedLocation);
+                Console.WriteLine(ConsoleResources.ClipExistsInTheSpecifiedLocation);
 
                 Console.ResetColor();
 
@@ -288,13 +279,13 @@ namespace BEditor
 
             Clip.MoveFrameLayer(Clip.Start, layer).Execute();
 
-            Console.WriteLine(CommandLineResources.MovedClip);
+            Console.WriteLine(ConsoleResources.MovedClip);
         }
         public void Move(Range range)
         {
             if (Clip is null)
             {
-                Console.WriteLine(CommandLineResources.SelectClip);
+                Console.WriteLine(ConsoleResources.SelectClip);
 
                 return;
             }
@@ -305,7 +296,7 @@ namespace BEditor
             if (!Clip.Parent.InRange(start, end, Clip.Layer))
             {
                 Console.ForegroundColor = ConsoleColor.DarkYellow;
-                Console.WriteLine(CommandLineResources.ClipExistsInTheSpecifiedLocation);
+                Console.WriteLine(ConsoleResources.ClipExistsInTheSpecifiedLocation);
 
                 Console.ResetColor();
 
@@ -314,14 +305,14 @@ namespace BEditor
 
             Clip.ChangeLength(start, end).Execute();
 
-            Console.WriteLine(CommandLineResources.MovedClip);
+            Console.WriteLine(ConsoleResources.MovedClip);
         }
         public void HideLayer(int layer)
         {
             Scene.HideLayer.Remove(layer);
             Scene.HideLayer.Add(layer);
 
-            Console.WriteLine(CommandLineResources.LayerIsHidden, layer);
+            Console.WriteLine(ConsoleResources.LayerIsHidden, layer);
         }
         public static void Undo(int count = 1)
         {
@@ -354,7 +345,7 @@ namespace BEditor
                 }
             }
 
-            Console.WriteLine(CommandLineResources.SavedTo, file);
+            Console.WriteLine(ConsoleResources.SavedTo, file);
         }
         public void EncodeImg(string file, Frame frame)
         {
@@ -362,7 +353,7 @@ namespace BEditor
 
             img.Encode(file);
 
-            Console.WriteLine(string.Format(CommandLineResources.SavedTo, file));
+            Console.WriteLine(string.Format(ConsoleResources.SavedTo, file));
         }
 
         public record EffectItem(EffectMetadata Metadata, string? ParentName)

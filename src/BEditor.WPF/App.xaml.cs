@@ -140,6 +140,8 @@ namespace BEditor
 
                 Settings.Default.Save();
             });
+
+            RunBackup();
         }
 
         private static void CreateDirectory()
@@ -242,6 +244,34 @@ namespace BEditor
                     msg.Dialog(MessageResources.SomeFunctionsAreNotAvailable_);
                 }
             }
+        }
+        private static void RunBackup()
+        {
+            Task.Run(async () =>
+            {
+                while (true)
+                {
+                    await Task.Delay(TimeSpan.FromMinutes(Settings.Default.BackUpInterval));
+
+                    var proj = AppData.Current.Project;
+                    if (proj is not null && Settings.Default.AutoBackUp)
+                    {
+                        var dir = Path.Combine(proj.DirectoryName, "backup");
+                        if (!Directory.Exists(dir)) Directory.CreateDirectory(dir);
+
+                        proj.Save(Path.Combine(dir, DateTime.Now.ToString("HH:mm:ss").Replace(':', '_')) + ".backup");
+
+                        var files = Directory.GetFiles(dir).Select(i => new FileInfo(i)).OrderBy(i => i.LastWriteTime).ToArray();
+                        if (files.Length is > 10)
+                        {
+                            foreach (var file in files.Skip(10))
+                            {
+                                if (file.Exists) file.Delete();
+                            }
+                        }
+                    }
+                }
+            });
         }
         private static void RegisterPrimitive()
         {

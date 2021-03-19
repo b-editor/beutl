@@ -16,24 +16,6 @@ using Microsoft.CodeAnalysis.Scripting;
 
 namespace BEditor
 {
-    public class EditorCommand
-    {
-        private readonly Action<CommandArgument[], CommandOption[]> _action;
-
-        public EditorCommand(ConsoleEditor editor, Action<CommandArgument[], CommandOption[]> action)
-        {
-            Editor = editor;
-            _action = action;
-        }
-
-        public ConsoleEditor Editor { get; }
-
-        public void Execute(CommandArgument[] arguments, CommandOption[] options)
-        {
-            _action(arguments, options);
-        }
-    }
-
     public class ConsoleEditor
     {
         private readonly ScriptContext _context;

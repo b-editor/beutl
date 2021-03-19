@@ -28,9 +28,10 @@ namespace BEditor.Data
         private static readonly PropertyChangedEventArgs _FilenameArgs = new(nameof(Name));
         private static readonly PropertyChangedEventArgs _dirnameArgs = new(nameof(DirectoryName));
         private Scene? _previewScene;
-        private string? _filename;
-        private string? _dirname;
+        private string _filename;
+        private string _dirname;
         private WeakReference<IApplication?>? _parent;
+        private object? _lock;
 
         #endregion
 
@@ -44,11 +45,16 @@ namespace BEditor.Data
         /// <param name="framerate">The framerate of this project.</param>
         /// <param name="samplingrate">The samplingrate of this project.</param>
         /// <param name="app">The running <see cref="IApplication"/>.</param>
-        public Project(int width, int height, int framerate, int samplingrate, IApplication app)
+        /// <param name="filename">The project file name.</param>
+#pragma warning disable CS8618
+        public Project(int width, int height, int framerate, int samplingrate, IApplication app, string filename)
+#pragma warning restore CS8618
         {
             Parent = app;
             Framerate = framerate;
             Samplingrate = samplingrate;
+            Name = Path.GetFileNameWithoutExtension(filename)!;
+            DirectoryName = Path.GetDirectoryName(filename)!;
             SceneList.Add(new Scene(width, height)
             {
                 Parent = this,
@@ -135,7 +141,7 @@ namespace BEditor.Data
         }
 
         /// <inheritdoc/>
-        public string? Name
+        public string Name
         {
             get => _filename;
             set => SetValue(value, ref _filename, _FilenameArgs);
@@ -144,11 +150,13 @@ namespace BEditor.Data
         /// <summary>
         /// Get or set the directory name of this <see cref="Project"/>.
         /// </summary>
-        public string? DirectoryName
+        public string DirectoryName
         {
             get => _dirname;
             set => SetValue(value, ref _dirname, _dirnameArgs);
         }
+
+        private object Lock => _lock ??= new();
 
         #endregion
 
@@ -207,41 +215,52 @@ namespace BEditor.Data
                 }
             }
 
-            Name = Path.GetFileNameWithoutExtension(filename);
-            DirectoryName = Path.GetDirectoryName(filename)!;
-            IfNotExistCreateDir(DirectoryName);
+            var isBackup = Path.GetExtension(filename) is ".backup";
 
-            if (PreviewScene.IsLoaded)
+            lock (Lock)
             {
-                Synchronize.Send(_ =>
+                if (!isBackup)
                 {
-                    try
+                    Name = Path.GetFileNameWithoutExtension(filename);
+                    DirectoryName = Path.GetDirectoryName(filename)!;
+                    IfNotExistCreateDir(DirectoryName);
+
+                    if (PreviewScene.IsLoaded)
                     {
-                        using var img = new Image<BGRA32>(PreviewScene.Width, PreviewScene.Height);
+                        Synchronize.Send(_ =>
+                        {
+                            try
+                            {
+                                using var img = new Image<BGRA32>(PreviewScene.Width, PreviewScene.Height);
 
-                        var thumbnail = Path.Combine(DirectoryName!, "thumbnail.png");
-                        PreviewScene.Render(img, RenderType.ImageOutput);
+                                var thumbnail = Path.Combine(DirectoryName!, "thumbnail.png");
+                                PreviewScene.Render(img, RenderType.ImageOutput);
 
-                        img.Encode(thumbnail);
+                                img.Encode(thumbnail);
+                            }
+                            catch
+                            {
+
+                            }
+                        }, null);
                     }
-                    catch
+                }
+
+                if (Serialize.SaveToFile(this, filename, mode))
+                {
+                    Saved?.Invoke(this, new(SaveType.Save));
+
+                    if (!isBackup)
                     {
-
+                        var appDir = Path.Combine(DirectoryName, ".app");
+                        IfNotExistCreateDir(appDir);
+                        Parent.SaveAppConfig(this, appDir);
                     }
-                }, null);
+
+                    return true;
+                }
+                return false;
             }
-
-            if (Serialize.SaveToFile(this, filename, mode))
-            {
-                Saved?.Invoke(this, new(SaveType.Save));
-
-                var appDir = Path.Combine(DirectoryName, ".app");
-                IfNotExistCreateDir(appDir);
-                Parent.SaveAppConfig(this, appDir);
-
-                return true;
-            }
-            return false;
         }
 
         /// <summary>
@@ -302,7 +321,7 @@ namespace BEditor.Data
 
             if (proj is null) return null;
 
-            proj.DirectoryName = Path.GetDirectoryName(file);
+            proj.DirectoryName = Path.GetDirectoryName(file)!;
             proj.Name = Path.GetFileNameWithoutExtension(file);
             proj.Parent = app;
 
@@ -337,7 +356,7 @@ namespace BEditor.Data
         /// <summary>
         /// 
         /// </summary>
-        SaveAs
+        Backup
     }
 
     /// <summary>
