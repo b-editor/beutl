@@ -60,6 +60,10 @@ namespace BEditor.Primitive
         /// </summary>
         public static readonly Type Framebuffer = typeof(Framebuffer);
         /// <summary>
+        /// <see cref="Type"/> of <see cref="ListenerObject"/> class.
+        /// </summary>
+        public static readonly Type Listener = typeof(ListenerObject);
+        /// <summary>
         /// Metadata of <see cref="VideoFile"/> class.
         /// </summary>
         public static readonly ObjectMetadata VideoMetadata = ObjectMetadata.Create<VideoFile>(Resources.Video);
@@ -103,6 +107,10 @@ namespace BEditor.Primitive
         /// Metadata of <see cref="Framebuffer"/> class.
         /// </summary>
         public static readonly ObjectMetadata FramebufferMetadata = ObjectMetadata.Create<Framebuffer>(Resources.Framebuffer);
+        /// <summary>
+        /// Metadata of <see cref="ListenerObject"/> class.
+        /// </summary>
+        public static readonly ObjectMetadata ListenerMetadata = ObjectMetadata.Create<ListenerObject>("リスナー");
 
     }
 }

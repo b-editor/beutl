@@ -75,14 +75,14 @@ namespace BEditor.Media.Decoder
             var audio = media.Audio.GetFrame(time);
             var array = audio.GetSampleData();
 
-            left = new((uint)media.Audio.Info.SampleRate, (uint)audio.NumSamples);
-            right = new((uint)media.Audio.Info.SampleRate, (uint)audio.NumSamples);
+            left = new(media.Audio.Info.SampleRate, audio.NumSamples);
+            right = new(media.Audio.Info.SampleRate, audio.NumSamples);
 
-            array[0].Select(i => (PCM32)(i * int.MaxValue)).ToArray().CopyTo(left.Pcm.AsSpan());
+            array[0].Select(i => (PCM32)(i * int.MaxValue)).ToArray().CopyTo(left.Data);
 
             if (array.Length is 2)
             {
-                array[1].Select(i => (PCM32)(i * int.MaxValue)).ToArray().CopyTo(right.Pcm.AsSpan());
+                array[1].Select(i => (PCM32)(i * int.MaxValue)).ToArray().CopyTo(right.Data);
             }
         }
         public void ReadAll(out Sound<StereoPCM32> sound)
@@ -103,17 +103,35 @@ namespace BEditor.Media.Decoder
                 }
             }
 
-            sound = new((uint)media.Audio.Info.SampleRate, (uint)sampleL.Count);
+            sound = new(media.Audio.Info.SampleRate, sampleL.Count);
 
             sampleL.Zip(sampleR, (l, r) => new StereoPCM32(l, r))
                 .ToArray()
-                .CopyTo(sound.Pcm.AsSpan());
+                .CopyTo(sound.Data);
         }
         public void ReadAll(out Sound<StereoPCM16> sound)
         {
-            ReadAll(out Sound<StereoPCM32> sound32);
+            media.Audio.TryGetFrame(TimeSpan.Zero, out _);
+            var sampleL = new List<short>();
+            var sampleR = new List<short>();
 
-            sound = sound32.Convert<StereoPCM16>();
+            while (media.Audio.TryGetNextFrame(out var audio))
+            {
+                var array = audio.GetSampleData();
+
+                sampleL.AddRange(array[0].Select(i => (short)(i * short.MaxValue)));
+
+                if (array.Length is 2)
+                {
+                    sampleR.AddRange(array[1].Select(i => (short)(i * short.MaxValue)));
+                }
+            }
+
+            sound = new(media.Audio.Info.SampleRate, sampleL.Count);
+
+            sampleL.Zip(sampleR, (l, r) => new StereoPCM16(l, r))
+                .ToArray()
+                .CopyTo(sound.Data);
         }
         public void ReadAll(out Sound<PCM32> left, out Sound<PCM32> right)
         {
@@ -133,11 +151,11 @@ namespace BEditor.Media.Decoder
                 }
             }
 
-            left = new((uint)media.Audio.Info.SampleRate, (uint)sampleL.Count);
-            right = new((uint)media.Audio.Info.SampleRate, (uint)sampleR.Count);
+            left = new(media.Audio.Info.SampleRate, sampleL.Count);
+            right = new(media.Audio.Info.SampleRate, sampleR.Count);
 
-            sampleL.CopyTo(left.Pcm);
-            sampleR.CopyTo(right.Pcm);
+            sampleL.ToArray().AsSpan().CopyTo(left.Data);
+            sampleR.ToArray().AsSpan().CopyTo(right.Data);
         }
         public void ReadAll(out Sound<PCM16> left, out Sound<PCM16> right)
         {

@@ -317,17 +317,18 @@ namespace BEditor
         {
             Serialize.SerializeKnownTypes.AddRange(new Type[]
             {
-                typeof(AudioObject),
-                typeof(CameraObject),
-                typeof(GL3DObject),
-                typeof(Figure),
-                typeof(ImageFile),
-                typeof(Text),
-                typeof(VideoFile),
-                typeof(SceneObject),
-                typeof(RoundRect),
-                typeof(Polygon),
-                typeof(Framebuffer),
+                PrimitiveTypes.Audio,
+                PrimitiveTypes.Camera,
+                PrimitiveTypes.GL3DObject,
+                PrimitiveTypes.Figure,
+                PrimitiveTypes.Image,
+                PrimitiveTypes.Text,
+                PrimitiveTypes.Video,
+                PrimitiveTypes.Scene,
+                PrimitiveTypes.RoundRect,
+                PrimitiveTypes.Polygon,
+                PrimitiveTypes.Framebuffer,
+                PrimitiveTypes.Listener,
 
                 typeof(Blur),
                 typeof(Border),
@@ -360,6 +361,7 @@ namespace BEditor
             ObjectMetadata.LoadedObjects.Add(PrimitiveTypes.GL3DObjectMetadata);
             ObjectMetadata.LoadedObjects.Add(PrimitiveTypes.SceneMetadata);
             ObjectMetadata.LoadedObjects.Add(PrimitiveTypes.FramebufferMetadata);
+            ObjectMetadata.LoadedObjects.Add(PrimitiveTypes.ListenerMetadata);
 
             EffectMetadata.LoadedEffects.Add(new(Resource.Effects)
             {

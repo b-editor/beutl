@@ -25,6 +25,10 @@ namespace BEditor.Audio
         {
             device = ALC.OpenDevice(null);
             context = ALC.CreateContext(device, (int[])null!);
+
+            CheckError();
+
+            MakeCurrent();
         }
 
         /// <summary>

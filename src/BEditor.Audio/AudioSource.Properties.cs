@@ -24,15 +24,7 @@ namespace BEditor.Audio
             get
             {
                 ThrowIfDisposed();
-                AL.GetSource(Handle, ALGetSourcei.Buffer, out var v);
-
-                CheckError();
-                if (!AL.IsBuffer(v)) return null;
-                if (_buffer is null || _buffer.Handle != v)
-                {
-                    _buffer = new(v);
-                }
-
+                
                 return _buffer;
             }
             set
@@ -349,7 +341,7 @@ namespace BEditor.Audio
         {
             var error = AL.GetError();
 
-            if (error is not (ALError.NoError or ALError.InvalidName))
+            if (error is not ALError.NoError)
             {
                 throw new AudioException(AL.GetErrorString(error));
             }

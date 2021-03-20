@@ -94,7 +94,7 @@ namespace BEditor.Graphics
         public FrameBuffer Framebuffer { get; }
         public int Width { get; }
         public int Height { get; }
-        public float Aspect => ((float)Width) / ((float)Height);
+        public float Aspect => Width / ((float)Height);
         public bool IsCurrent => GLFW.GetCurrentContext() == _window;
         public bool IsDisposed { get; private set; }
         public Camera Camera { get; set; }

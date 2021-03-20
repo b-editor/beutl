@@ -40,7 +40,7 @@ namespace BEditor.Graphics
             get => MathHelper.RadiansToDegrees(_fov);
             set
             {
-                var angle = MathHelper.Clamp(value, 1f, 45f);
+                var angle = MathHelper.Clamp(value, 1f, 179f);
                 _fov = MathHelper.DegreesToRadians(angle);
             }
         }

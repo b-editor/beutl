@@ -118,6 +118,8 @@ namespace BEditor.Primitive.Objects
                     _decoder.ReadAll(out Sound<StereoPCM16> sound);
 
                     _source.Buffer = new(sound);
+
+                    sound.Dispose();
                 }
             }
         }
@@ -138,7 +140,7 @@ namespace BEditor.Primitive.Objects
             {
                 Task.Run(async () =>
                 {
-                    _source.Play();
+                    _source!.Play();
 
                     var millis = (int)Parent.Length.ToMilliseconds(Parent.Parent.Parent.Framerate);
                     await Task.Delay(millis);
@@ -156,22 +158,12 @@ namespace BEditor.Primitive.Objects
             Start.Load(StartMetadata);
             File.Load(FileMetadata);
 
-            _disposable = File.Subscribe(file =>
-            {
-                if (System.IO.File.Exists(file))
-                {
-                    Decoder = new(file);
-                }
-            });
+            _source = new();
 
-            Synchronize.Send(_ =>
+            _disposable = File.Where(file => System.IO.File.Exists(file)).Subscribe(file =>
             {
-                _source = new();
-                if (System.IO.File.Exists(File.Value))
-                {
-                    Decoder = new(File.Value);
-                }
-            }, null);
+                Decoder = new(file);
+            });
 
             var player = Parent.Parent.Player;
             player.Stopped += Player_Stopped;

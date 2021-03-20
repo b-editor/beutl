@@ -1429,6 +1429,101 @@
         <member name="M:BEditor.Primitive.Objects.GL3DObject.OnUnload">
             <inheritdoc/>
         </member>
+        <member name="T:BEditor.Primitive.Objects.ListenerObject">
+            <summary>
+            Represents an <see cref="T:BEditor.Data.ObjectElement"/> that sets the listener for OpenAL.
+            </summary>
+        </member>
+        <member name="F:BEditor.Primitive.Objects.ListenerObject.XMetadata">
+            <summary>
+            Represents <see cref="P:BEditor.Primitive.Objects.ListenerObject.X"/> metadata.
+            </summary>
+        </member>
+        <member name="F:BEditor.Primitive.Objects.ListenerObject.YMetadata">
+            <summary>
+            Represents <see cref="P:BEditor.Primitive.Objects.ListenerObject.Y"/> metadata.
+            </summary>
+        </member>
+        <member name="F:BEditor.Primitive.Objects.ListenerObject.ZMetadata">
+            <summary>
+            Represents <see cref="P:BEditor.Primitive.Objects.ListenerObject.Z"/> metadata.
+            </summary>
+        </member>
+        <member name="F:BEditor.Primitive.Objects.ListenerObject.TargetXMetadata">
+            <summary>
+            Represents <see cref="P:BEditor.Primitive.Objects.ListenerObject.TargetX"/> metadata.
+            </summary>
+        </member>
+        <member name="F:BEditor.Primitive.Objects.ListenerObject.TargetYMetadata">
+            <summary>
+            Represents <see cref="P:BEditor.Primitive.Objects.ListenerObject.TargetY"/> metadata.
+            </summary>
+        </member>
+        <member name="F:BEditor.Primitive.Objects.ListenerObject.TargetZMetadata">
+            <summary>
+            Represents <see cref="P:BEditor.Primitive.Objects.ListenerObject.TargetZ"/> metadata.
+            </summary>
+        </member>
+        <member name="F:BEditor.Primitive.Objects.ListenerObject.GainMetadata">
+            <summary>
+            Represents <see cref="P:BEditor.Primitive.Objects.ListenerObject.Gain"/> metadata.
+            </summary>
+        </member>
+        <member name="M:BEditor.Primitive.Objects.ListenerObject.#ctor">
+            <summary>
+            Initializes a new instance of the <see cref="T:BEditor.Primitive.Objects.ListenerObject"/> class.
+            </summary>
+        </member>
+        <member name="P:BEditor.Primitive.Objects.ListenerObject.Name">
+            <inheritdoc/>
+        </member>
+        <member name="P:BEditor.Primitive.Objects.ListenerObject.Properties">
+            <inheritdoc/>
+        </member>
+        <member name="P:BEditor.Primitive.Objects.ListenerObject.X">
+            <summary>
+            Gets the <see cref="T:BEditor.Data.Property.EaseProperty"/> representing the X coordinate of the listener.
+            </summary>
+        </member>
+        <member name="P:BEditor.Primitive.Objects.ListenerObject.Y">
+            <summary>
+            Gets the <see cref="T:BEditor.Data.Property.EaseProperty"/> representing the Y coordinate of the listener.
+            </summary>
+        </member>
+        <member name="P:BEditor.Primitive.Objects.ListenerObject.Z">
+            <summary>
+            Gets the <see cref="T:BEditor.Data.Property.EaseProperty"/> representing the Z coordinate of the listener.
+            </summary>
+        </member>
+        <member name="P:BEditor.Primitive.Objects.ListenerObject.TargetX">
+            <summary>
+            Get the <see cref="T:BEditor.Data.Property.EaseProperty"/> that represents the X coordinate of the listener's target position.
+            </summary>
+        </member>
+        <member name="P:BEditor.Primitive.Objects.ListenerObject.TargetY">
+            <summary>
+            Get the <see cref="T:BEditor.Data.Property.EaseProperty"/> that represents the Y coordinate of the listener's target position.
+            </summary>
+        </member>
+        <member name="P:BEditor.Primitive.Objects.ListenerObject.TargetZ">
+            <summary>
+            Get the <see cref="T:BEditor.Data.Property.EaseProperty"/> that represents the Z coordinate of the listener's target position.
+            </summary>
+        </member>
+        <member name="P:BEditor.Primitive.Objects.ListenerObject.Gain">
+            <summary>
+            
+            </summary>
+        </member>
+        <member name="M:BEditor.Primitive.Objects.ListenerObject.Render(BEditor.Data.EffectRenderArgs)">
+            <inheritdoc/>
+        </member>
+        <member name="M:BEditor.Primitive.Objects.ListenerObject.OnLoad">
+            <inheritdoc/>
+        </member>
+        <member name="M:BEditor.Primitive.Objects.ListenerObject.OnUnload">
+            <inheritdoc/>
+        </member>
         <member name="T:BEditor.Primitive.Objects.Figure">
             <summary>
             Represents an <see cref="T:BEditor.Data.Primitive.ImageObject"/> to draw a shape.
@@ -1907,6 +2002,11 @@
             <see cref="T:System.Type"/> of <see cref="F:BEditor.Primitive.PrimitiveTypes.Framebuffer"/> class.
             </summary>
         </member>
+        <member name="F:BEditor.Primitive.PrimitiveTypes.Listener">
+            <summary>
+            <see cref="T:System.Type"/> of <see cref="T:BEditor.Primitive.Objects.ListenerObject"/> class.
+            </summary>
+        </member>
         <member name="F:BEditor.Primitive.PrimitiveTypes.VideoMetadata">
             <summary>
             Metadata of <see cref="T:BEditor.Primitive.Objects.VideoFile"/> class.
@@ -1960,6 +2060,11 @@
         <member name="F:BEditor.Primitive.PrimitiveTypes.FramebufferMetadata">
             <summary>
             Metadata of <see cref="F:BEditor.Primitive.PrimitiveTypes.Framebuffer"/> class.
+            </summary>
+        </member>
+        <member name="F:BEditor.Primitive.PrimitiveTypes.ListenerMetadata">
+            <summary>
+            Metadata of <see cref="T:BEditor.Primitive.Objects.ListenerObject"/> class.
             </summary>
         </member>
     </members>

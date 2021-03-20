@@ -56,7 +56,7 @@ namespace BEditor.Primitive.Objects
         /// <summary>
         /// Represents <see cref="Fov"/> metadata.
         /// </summary>
-        public static readonly EasePropertyMetadata FovMetadata = new(Resources.Fov, 45, 45, 1, UseOptional: true);
+        public static readonly EasePropertyMetadata FovMetadata = new(Resources.Fov, 45, 179, 1, UseOptional: true);
         /// <summary>
         /// Represents <see cref="Mode"/> metadata.
         /// </summary>
