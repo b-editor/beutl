@@ -25,7 +25,6 @@ namespace BEditor.Views.TimeLines
     /// </summary>
     public sealed partial class TimeLine : UserControl
     {
-        private readonly Scene _scene;
         private readonly TimeLineViewModel _viewModel;
         private bool _isFirstLoad = true;
 
@@ -58,7 +57,7 @@ namespace BEditor.Views.TimeLines
                     var menu = (MenuItem)s;
                     var layer = (int)menu.GetValue(AttachmentProperty.IntProperty);
 
-                    _scene.RemoveLayer(layer).Execute();
+                    Scene.RemoveLayer(layer).Execute();
                 };
 
                 #endregion
@@ -66,7 +65,6 @@ namespace BEditor.Views.TimeLines
                 return contextMenu;
             }
 
-            _scene = scene;
             DataContext = _viewModel = scene.GetCreateTimeLineViewModel();
 
             InitializeComponent();
@@ -142,17 +140,17 @@ namespace BEditor.Views.TimeLines
 
                         if (!(bool)toggle.IsChecked!)
                         {
-                            _scene.HideLayer.Remove(l);
+                            Scene.HideLayer.Remove(l);
                         }
                         else
                         {
-                            _scene.HideLayer.Add(l);
+                            Scene.HideLayer.Add(l);
                         }
 
-                        _scene.Parent!.PreviewUpdate();
+                        Scene.Parent!.PreviewUpdate();
                     };
 
-                    if (_scene.HideLayer.Exists(x => x == l))
+                    if (Scene.HideLayer.Exists(x => x == l))
                     {
                         toggle.IsChecked = true;
                     }
@@ -163,10 +161,13 @@ namespace BEditor.Views.TimeLines
                 #endregion
             }
 
-            ScrollLabel.ScrollToVerticalOffset(_scene.TimeLineVerticalOffset);
-            ScrollLine.ScrollToVerticalOffset(_scene.TimeLineVerticalOffset);
-            ScrollLine.ScrollToHorizontalOffset(_scene.TimeLineHorizonOffset);
+            ScrollLabel.ScrollToVerticalOffset(Scene.TimeLineVerticalOffset);
+            ScrollLine.ScrollToVerticalOffset(Scene.TimeLineVerticalOffset);
+            ScrollLine.ScrollToHorizontalOffset(Scene.TimeLineHorizonOffset);
         }
+
+
+        private Scene Scene => _viewModel.Scene;
 
 
         private void InitializeContextMenu()
@@ -205,11 +206,11 @@ namespace BEditor.Views.TimeLines
 
             if (Keyboard.IsKeyDown(Key.LeftCtrl))
             {
-                if (!(_scene.TimeLineZoom > 200 || _scene.TimeLineZoom < 1))
+                if (!(Scene.TimeLineZoom > 200 || Scene.TimeLineZoom < 1))
                 {
                     var offset = scrollviewer.HorizontalOffset;
                     var frame = _viewModel.ToFrame(offset);
-                    _scene.TimeLineZoom += (e.Delta / 120) * 5;
+                    Scene.TimeLineZoom += (e.Delta / 120) * 5;
 
                     scrollviewer.ScrollToHorizontalOffset(_viewModel.ToPixel(frame));
                 }
@@ -391,7 +392,7 @@ namespace BEditor.Views.TimeLines
             {
                 if (e.Action == NotifyCollectionChangedAction.Add)
                 {
-                    var item = _scene.Datas[e.NewStartingIndex];
+                    var item = Scene.Datas[e.NewStartingIndex];
 
                     Grid grid = (Grid)Layer.Children[item.Layer];
 
@@ -420,8 +421,8 @@ namespace BEditor.Views.TimeLines
         {
             Task.Run(() =>
             {
-                _scene.TimeLineHorizonOffset = ScrollLine.HorizontalOffset;
-                _scene.TimeLineVerticalOffset = ScrollLine.VerticalOffset;
+                Scene.TimeLineHorizonOffset = ScrollLine.HorizontalOffset;
+                Scene.TimeLineVerticalOffset = ScrollLine.VerticalOffset;
             });
         }
 
@@ -431,7 +432,7 @@ namespace BEditor.Views.TimeLines
             _viewModel.ClipLayerMoveCommand = ClipLayerMove;
             _viewModel.GetLayerMousePosition = () => Mouse.GetPosition(Layer);
 
-            _scene.Datas.CollectionChanged += ClipsCollectionChanged;
+            Scene.Datas.CollectionChanged += ClipsCollectionChanged;
             ScrollLine.ScrollChanged += ScrollLine_ScrollChanged1;
             ScrollLabel.ScrollChanged += ScrollLabel_ScrollChanged;
 
@@ -461,7 +462,7 @@ namespace BEditor.Views.TimeLines
             _viewModel.ClipLayerMoveCommand = null;
             _viewModel.GetLayerMousePosition = null;
 
-            _scene.Datas.CollectionChanged -= ClipsCollectionChanged;
+            Scene.Datas.CollectionChanged -= ClipsCollectionChanged;
             ScrollLine.ScrollChanged -= ScrollLine_ScrollChanged1;
             ScrollLabel.ScrollChanged -= ScrollLabel_ScrollChanged;
         }

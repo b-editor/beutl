@@ -17,17 +17,15 @@ namespace BEditor.Views.TimeLines
     public sealed partial class ClipUI : UserControl, ICustomTreeViewItem, IDisposable
     {
         public static readonly DependencyProperty IsExpandedProperty = DependencyProperty.Register("IsExpanded", typeof(bool), typeof(ClipUI), new FrameworkPropertyMetadata(false, FrameworkPropertyMetadataOptions.BindsTwoWayByDefault, IsExpandedChanged));
-        private readonly Storyboard OpenStoryboard = new();
-        private readonly Storyboard CloseStoryboard = new();
-        private readonly DoubleAnimation OpenAnm = new() { Duration = TimeSpan.FromSeconds(0.25) };
-        private readonly DoubleAnimation CloseAnm = new() { Duration = TimeSpan.FromSeconds(0.25), To = Setting.ClipHeight };
+        private readonly Storyboard _openStoryboard = new();
+        private readonly Storyboard _closeStoryboard = new();
+        private readonly DoubleAnimation _openAnm = new() { Duration = TimeSpan.FromSeconds(0.25) };
 
 
         public ClipUI(ClipElement clip)
         {
             DataContext = clip.GetCreateClipViewModel();
             InitializeComponent();
-            ClipElement = clip;
 
             SetBinding(IsExpandedProperty, new Binding("IsExpanded.Value") { Mode = BindingMode.TwoWay });
 
@@ -35,14 +33,22 @@ namespace BEditor.Views.TimeLines
 
             Height = ClipUIViewModel.TrackHeight;
 
-            Storyboard.SetTarget(OpenAnm, this);
-            Storyboard.SetTargetProperty(OpenAnm, new PropertyPath("(Height)"));
+            {
+                var closeAnm = new DoubleAnimation()
+                {
+                    Duration = TimeSpan.FromSeconds(0.25),
+                    To = Setting.ClipHeight
+                };
 
-            Storyboard.SetTarget(CloseAnm, this);
-            Storyboard.SetTargetProperty(CloseAnm, new PropertyPath("(Height)"));
+                Storyboard.SetTarget(_openAnm, this);
+                Storyboard.SetTargetProperty(_openAnm, new PropertyPath("(Height)"));
 
-            OpenStoryboard.Children.Add(OpenAnm);
-            CloseStoryboard.Children.Add(CloseAnm);
+                Storyboard.SetTarget(closeAnm, this);
+                Storyboard.SetTargetProperty(closeAnm, new PropertyPath("(Height)"));
+
+                _openStoryboard.Children.Add(_openAnm);
+                _closeStoryboard.Children.Add(closeAnm);
+            }
         }
         ~ClipUI()
         {
@@ -69,7 +75,7 @@ namespace BEditor.Views.TimeLines
                 return tmp;
             }
         }
-        public ClipElement ClipElement { get; private set; }
+        public ClipElement ClipElement => ViewModel.ClipElement;
         public ClipUIViewModel ViewModel => (ClipUIViewModel)DataContext;
         public bool IsExpanded
         {
@@ -84,13 +90,13 @@ namespace BEditor.Views.TimeLines
             {
                 if (IsExpanded)
                 {
-                    OpenAnm.To = LogicHeight;
+                    _openAnm.To = LogicHeight;
 
-                    OpenStoryboard.Begin();
+                    _openStoryboard.Begin();
                 }
                 else
                 {
-                    CloseStoryboard.Begin();
+                    _closeStoryboard.Begin();
                 }
             });
         }
@@ -102,20 +108,19 @@ namespace BEditor.Views.TimeLines
             {
                 if (clip.IsExpanded)
                 {
-                    clip.OpenAnm.To = clip.LogicHeight;
+                    clip._openAnm.To = clip.LogicHeight;
 
-                    clip.OpenStoryboard.Begin();
+                    clip._openStoryboard.Begin();
                 }
                 else
                 {
-                    clip.CloseStoryboard.Begin();
+                    clip._closeStoryboard.Begin();
                 }
             }
         }
         public void Dispose()
         {
             ClipElement.Effect.CollectionChanged -= Value_SizeChange;
-            ClipElement = null!;
             DataContext = null;
 
             GC.SuppressFinalize(this);

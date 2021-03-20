@@ -12,7 +12,6 @@ using Reactive.Bindings.Extensions;
 
 namespace BEditor.ViewModels.TimeLines
 {
-
     public sealed class KeyFrameViewModel : IKeyframePropertyViewModel
     {
         private readonly CompositeDisposable _disposable = new();
