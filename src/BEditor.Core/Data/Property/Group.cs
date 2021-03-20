@@ -5,8 +5,10 @@ using System.Linq;
 using System.Runtime.Serialization;
 using System.Threading.Tasks;
 
+using BEditor.Command;
 using BEditor.Data.Property;
 using BEditor.Data.Property.Easing;
+using BEditor.Media;
 
 namespace BEditor.Data.Property
 {
@@ -37,7 +39,50 @@ namespace BEditor.Data.Property
             }
         }
 
-        /// <inheritdoc/>
-        public EasingFunc? EasingType => null;
+        #region IkeyframeProperty
+        EasingFunc? IKeyFrameProperty.EasingType => null;
+        List<Frame> IKeyFrameProperty.Frames => new(0);
+        event Action<Frame, int>? IKeyFrameProperty.Added
+        {
+            add
+            {
+            }
+            remove
+            {
+            }
+        }
+        event Action<int>? IKeyFrameProperty.Removed
+        {
+            add
+            {
+            }
+            remove
+            {
+            }
+        }
+        event Action<int, int>? IKeyFrameProperty.Moved
+        {
+            add
+            {
+
+            }
+            remove
+            {
+
+            }
+        }
+        IRecordCommand IKeyFrameProperty.AddFrame(Frame frame)
+        {
+            return RecordCommand.Empty;
+        }
+        IRecordCommand IKeyFrameProperty.MoveFrame(int fromIndex, Frame toFrame)
+        {
+            return RecordCommand.Empty;
+        }
+        IRecordCommand IKeyFrameProperty.RemoveFrame(Frame frame)
+        {
+            return RecordCommand.Empty;
+        }
+        #endregion
     }
 }

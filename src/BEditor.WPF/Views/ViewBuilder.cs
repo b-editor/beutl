@@ -305,7 +305,7 @@ namespace BEditor.Views
             // EaseProperty
             KeyFrameViewBuilders.Add(KeyFrameViewBuilder.Create<EaseProperty>(prop => new KeyFrame(prop)));
             // ColorAnimation
-            KeyFrameViewBuilders.Add(KeyFrameViewBuilder.Create<ColorAnimationProperty>(prop => new TimeLines.ColorAnimation(prop)));
+            KeyFrameViewBuilders.Add(KeyFrameViewBuilder.Create<ColorAnimationProperty>(prop => new KeyFrame(prop)));
             // ExpandGroup
             KeyFrameViewBuilders.Add(KeyFrameViewBuilder.Create<ExpandGroup>(group =>
             {

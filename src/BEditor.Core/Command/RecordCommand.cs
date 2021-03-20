@@ -86,6 +86,10 @@ namespace BEditor.Command
 
         /// <inheritdoc/>
         public string Name => _getName?.Invoke() ?? Resources.UnknownCommand;
+        /// <summary>
+        /// Gets the empty record command.
+        /// </summary>
+        public static IRecordCommand Empty { get; } = new EmptyCommand();
 
         /// <summary>
         /// Create a RecordCommand
@@ -109,5 +113,19 @@ namespace BEditor.Command
         public void Redo() => _redo?.Invoke();
         /// <inheritdoc/>
         public void Undo() => _undo?.Invoke();
+    }
+    internal class EmptyCommand : IRecordCommand
+    {
+        public void Do()
+        {
+        }
+
+        public void Redo()
+        {
+        }
+
+        public void Undo()
+        {
+        }
     }
 }

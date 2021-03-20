@@ -27,9 +27,6 @@ namespace BEditor.Data.Property
         private static readonly PropertyChangedEventArgs _easingDataArgs = new(nameof(EasingData));
         private EasingFunc? _easingTypeProperty;
         private EasingMetadata? _easingData;
-        private Subject<(Frame frame, int index)>? _addKeyFrameSubject;
-        private Subject<int>? _deleteKeyFrameSubject;
-        private Subject<(int fromindex, int toindex)>? _moveKeyFrameSubject;
         #endregion
 
 
@@ -43,7 +40,7 @@ namespace BEditor.Data.Property
             PropertyMetadata = metadata ?? throw new ArgumentNullException(nameof(metadata));
 
             Value = new ObservableCollection<float> { metadata.DefaultValue, metadata.DefaultValue };
-            Time = new();
+            Frames = new();
             EasingType = metadata.DefaultEase.CreateFunc();
         }
 
@@ -58,7 +55,7 @@ namespace BEditor.Data.Property
         /// Get the <see cref="List{Frame}"/> of the frame number corresponding to <see cref="Value"/>.
         /// </summary>
         [DataMember]
-        public List<Frame> Time { get; private set; }
+        public List<Frame> Frames { get; private set; }
 
         /// <summary>
         /// Get or set the current <see cref="EasingFunc"/>.
@@ -111,20 +108,15 @@ namespace BEditor.Data.Property
             }
         }
 
-        /// <summary>
-        /// Occurs when requesting to add a keyframe to the UI.
-        /// </summary>
-        public IObservable<(Frame frame, int index)> AddKeyFrameEvent => _addKeyFrameSubject ??= new();
 
-        /// <summary>
-        /// Occurs when requesting the UI to delete a keyframe.
-        /// </summary>
-        public IObservable<int> RemoveKeyFrameEvent => _deleteKeyFrameSubject ??= new();
+        /// <inheritdoc/>
+        public event Action<Frame, int>? Added;
 
-        /// <summary>
-        /// Occurs when the UI requires a keyframe to be moved.
-        /// </summary>
-        public IObservable<(int fromindex, int toindex)> MoveKeyFrameEvent => _moveKeyFrameSubject ??= new();
+        /// <inheritdoc/>
+        public event Action<int>? Removed;
+
+        /// <inheritdoc/>
+        public event Action<int, int>? Moved;
 
 
         /// <summary>
@@ -143,30 +135,30 @@ namespace BEditor.Data.Property
         {
             static (int, int) GetFrame(EaseProperty property, int frame)
             {
-                if (property.Time.Count == 0)
+                if (property.Frames.Count == 0)
                 {
                     return (0, property.Length);
                 }
-                else if (0 <= frame && frame <= property.Time[0])
+                else if (0 <= frame && frame <= property.Frames[0])
                 {
-                    return (0, property.Time[0]);
+                    return (0, property.Frames[0]);
                 }
-                else if (property.Time[^1] <= frame && frame <= property.Length)
+                else if (property.Frames[^1] <= frame && frame <= property.Length)
                 {
-                    return (property.Time[^1], property.Length);
+                    return (property.Frames[^1], property.Length);
                 }
                 else
                 {
                     int index = 0;
-                    for (int f = 0; f < property.Time.Count - 1; f++)
+                    for (int f = 0; f < property.Frames.Count - 1; f++)
                     {
-                        if (property.Time[f] <= frame && frame <= property.Time[f + 1])
+                        if (property.Frames[f] <= frame && frame <= property.Frames[f + 1])
                         {
                             index = f;
                         }
                     }
 
-                    return (property.Time[index], property.Time[index + 1]);
+                    return (property.Frames[index], property.Frames[index + 1]);
                 }
 
                 throw new Exception();
@@ -177,20 +169,20 @@ namespace BEditor.Data.Property
                 {
                     return (property.Value[0], property.Value[1]);
                 }
-                else if (0 <= frame && frame <= property.Time[0])
+                else if (0 <= frame && frame <= property.Frames[0])
                 {
                     return (property.Value[0], property.Value[1]);
                 }
-                else if (property.Time[^1] <= frame && frame <= property.Length)
+                else if (property.Frames[^1] <= frame && frame <= property.Length)
                 {
                     return (property.Value[^2], property.Value[^1]);
                 }
                 else
                 {
                     int index = 0;
-                    for (int f = 0; f < property.Time.Count - 1; f++)
+                    for (int f = 0; f < property.Frames.Count - 1; f++)
                     {
-                        if (property.Time[f] <= frame && frame <= property.Time[f + 1])
+                        if (property.Frames[f] <= frame && frame <= property.Frames[f + 1])
                         {
                             index = f + 1;
                         }
@@ -254,18 +246,18 @@ namespace BEditor.Data.Property
         {
             if (Frame.Zero >= frame || frame >= this.GetParent2()!.Length) throw new ArgumentOutOfRangeException(nameof(frame));
 
-            Time.Add(frame);
+            Frames.Add(frame);
 
-            var tmp = new List<Frame>(Time);
+            var tmp = new List<Frame>(Frames);
             tmp.Sort((a, b) => a - b);
 
 
-            for (int i = 0; i < Time.Count; i++)
+            for (int i = 0; i < Frames.Count; i++)
             {
-                Time[i] = tmp[i];
+                Frames[i] = tmp[i];
             }
 
-            var stindex = Time.IndexOf(frame) + 1;
+            var stindex = Frames.IndexOf(frame) + 1;
 
             Value.Insert(stindex, value);
 
@@ -284,11 +276,11 @@ namespace BEditor.Data.Property
             if (Frame.Zero >= frame || frame >= this.GetParent2()!.Length) throw new ArgumentOutOfRangeException(nameof(frame));
 
             //値基準のindex
-            var index = Time.IndexOf(frame) + 1;
+            var index = Frames.IndexOf(frame) + 1;
 
             value = Value[index];
 
-            if (Time.Remove(frame))
+            if (Frames.Remove(frame))
             {
                 Value.RemoveAt(index);
             }
@@ -462,7 +454,7 @@ namespace BEditor.Data.Property
                 {
                     int index = target.InsertKeyframe(_frame, target.GetValue(_frame + target.GetParent2()?.Start ?? 0));
 
-                    (target.AddKeyFrameEvent as Subject<(Frame, int)>)?.OnNext((_frame, index - 1));
+                    target.Added?.Invoke(_frame, index - 1);
                 }
             }
             public void Redo()
@@ -475,7 +467,7 @@ namespace BEditor.Data.Property
                 {
                     int index = target.RemoveKeyframe(_frame, out _);
 
-                    (target.RemoveKeyFrameEvent as Subject<int>)?.OnNext(index - 1);
+                    target.Removed?.Invoke(index - 1);
                 }
             }
         }
@@ -501,7 +493,7 @@ namespace BEditor.Data.Property
                 {
                     int index = target.RemoveKeyframe(_frame, out _value);
 
-                    (target.RemoveKeyFrameEvent as Subject<int>)?.OnNext(index - 1);
+                    target.Removed?.Invoke(index - 1);
                 }
             }
             public void Redo()
@@ -513,7 +505,8 @@ namespace BEditor.Data.Property
                 if (_property.TryGetTarget(out var target))
                 {
                     int index = target.InsertKeyframe(_frame, _value);
-                    (target.AddKeyFrameEvent as Subject<(Frame, int)>)?.OnNext((_frame, index - 1));
+
+                    target.Added?.Invoke(_frame, index - 1);
                 }
             }
         }
@@ -540,16 +533,16 @@ namespace BEditor.Data.Property
             {
                 if (_property.TryGetTarget(out var target))
                 {
-                    target.Time[_fromIndex] = _toFrame;
-                    target.Time.Sort((a_, b_) => a_ - b_);
+                    target.Frames[_fromIndex] = _toFrame;
+                    target.Frames.Sort((a_, b_) => a_ - b_);
 
                     // 新しいindex
-                    _toIndex = target.Time.FindIndex(x => x == _toFrame);
+                    _toIndex = target.Frames.FindIndex(x => x == _toFrame);
 
                     // 値のIndexを合わせる
                     target.Value.Move(_fromIndex + 1, _toIndex + 1);
 
-                    (target.MoveKeyFrameEvent as Subject<(int, int)>)?.OnNext((_fromIndex, _toIndex));
+                    target.Moved?.Invoke(_fromIndex, _toIndex);
                 }
             }
             public void Redo()
@@ -560,15 +553,14 @@ namespace BEditor.Data.Property
             {
                 if (_property.TryGetTarget(out var target))
                 {
-                    int frame = target.Time[_toIndex];
+                    int frame = target.Frames[_toIndex];
 
-                    target.Time.RemoveAt(_toIndex);
-                    target.Time.Insert(_fromIndex, frame);
+                    target.Frames.RemoveAt(_toIndex);
+                    target.Frames.Insert(_fromIndex, frame);
 
                     target.Value.Move(_toIndex + 1, _fromIndex + 1);
 
-
-                    (target.MoveKeyFrameEvent as Subject<(int, int)>)?.OnNext((_toIndex, _fromIndex));
+                    target.Moved?.Invoke(_toIndex, _fromIndex);
                 }
             }
         }

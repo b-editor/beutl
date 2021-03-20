@@ -12,11 +12,12 @@ using Reactive.Bindings.Extensions;
 
 namespace BEditor.ViewModels.TimeLines
 {
-    public sealed class KeyFrameViewModel : IDisposable
+
+    public sealed class KeyFrameViewModel : IKeyframePropertyViewModel
     {
         private readonly CompositeDisposable _disposable = new();
 
-        public KeyFrameViewModel(EaseProperty property)
+        public KeyFrameViewModel(IKeyFrameProperty property)
         {
             Property = property;
             Metadata = property.ObserveProperty(p => p.PropertyMetadata)
@@ -35,17 +36,9 @@ namespace BEditor.ViewModels.TimeLines
                 .Subscribe(x => Property.MoveFrame(x.Item1, x.Item2).Execute())
                 .AddTo(_disposable);
 
-            property.AddKeyFrameEvent
-                .Subscribe(value => AddKeyFrameIcon?.Invoke(value.frame, value.index))
-                .AddTo(_disposable);
-
-            property.RemoveKeyFrameEvent
-                .Subscribe(value => RemoveKeyFrameIcon?.Invoke(value))
-                .AddTo(_disposable);
-
-            property.MoveKeyFrameEvent
-                .Subscribe(value => MoveKeyFrameIcon?.Invoke(value.fromindex, value.toindex))
-                .AddTo(_disposable);
+            property.Added += Property_Added;
+            property.Removed += Property_Removed;
+            property.Moved += Property_Moved;
         }
         ~KeyFrameViewModel()
         {
@@ -62,17 +55,32 @@ namespace BEditor.ViewModels.TimeLines
         #endregion
 
         public static double TrackHeight => Setting.ClipHeight + 1;
-        public EaseProperty Property { get; }
+        public IKeyFrameProperty Property { get; }
 
-        public ReadOnlyReactiveProperty<EasePropertyMetadata?> Metadata { get; }
+        public ReadOnlyReactiveProperty<PropertyElementMetadata?> Metadata { get; }
         public ReactiveCommand<Frame> AddKeyFrameCommand { get; } = new();
         public ReactiveCommand<Frame> RemoveKeyFrameCommand { get; } = new();
         public ReactiveCommand<(int, int)> MoveKeyFrameCommand { get; } = new();
 
+        private void Property_Added(Frame arg1, int arg2)
+        {
+            AddKeyFrameIcon?.Invoke(arg1, arg2);
+        }
+        private void Property_Removed(int obj)
+        {
+            RemoveKeyFrameIcon?.Invoke(obj);
+        }
+        private void Property_Moved(int arg1, int arg2)
+        {
+            MoveKeyFrameIcon?.Invoke(arg1, arg2);
+        }
         public void Dispose()
         {
             _disposable.Dispose();
             _disposable.Clear();
+            Property.Added -= Property_Added;
+            Property.Removed -= Property_Removed;
+            Property.Moved -= Property_Moved;
             AddKeyFrameIcon = null;
             RemoveKeyFrameIcon = null;
             MoveKeyFrameIcon = null;
