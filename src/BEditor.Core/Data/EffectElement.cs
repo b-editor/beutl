@@ -6,6 +6,7 @@ using System.Diagnostics.Contracts;
 using System.Dynamic;
 using System.Linq;
 using System.Runtime.Serialization;
+using System.Text.Json;
 using System.Threading.Tasks;
 
 using BEditor.Command;
@@ -19,7 +20,7 @@ namespace BEditor.Data
     /// Represents a base class of the effect.
     /// </summary>
     [DataContract]
-    public abstract class EffectElement : EditorObject, IChild<ClipElement>, IParent<PropertyElement>, ICloneable, IHasId, IElementObject
+    public abstract class EffectElement : EditorObject, IChild<ClipElement>, IParent<PropertyElement>, ICloneable, IHasId, IElementObject, IJsonObject
     {
         #region Fields
         private static readonly PropertyChangedEventArgs _isEnabledArgs = new(nameof(IsEnabled));
@@ -123,6 +124,31 @@ namespace BEditor.Data
         /// <returns>Created <see cref="IRecordCommand"/>.</returns>
         [Pure]
         public IRecordCommand SendBackward() => new DownCommand(this);
+
+        /// <inheritdoc/>
+        public virtual void GetObjectData(Utf8JsonWriter writer)
+        {
+            writer.WriteBoolean(nameof(IsEnabled), IsEnabled);
+            writer.WriteBoolean(nameof(IsExpanded), IsExpanded);
+            foreach (var item in GetType().GetProperties()
+                .Where(i => Attribute.IsDefined(i, typeof(DataMemberAttribute)))
+                .Select(i => (Info: i, Attribute: (DataMemberAttribute)Attribute.GetCustomAttribute(i, typeof(DataMemberAttribute))!))
+                .Select(i => (Object: i.Info.GetValue(this), i)))
+            {
+                if (item.Object is IJsonObject json)
+                {
+                    writer.WriteStartObject(item.i.Attribute.Name ?? item.i.Info.Name);
+                    json.GetObjectData(writer);
+                    writer.WriteEndObject();
+                }
+            }
+        }
+
+        /// <inheritdoc/>
+        public virtual void SetObjectData(JsonElement element)
+        {
+
+        }
 
         #endregion
 

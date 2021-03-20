@@ -7,6 +7,7 @@ using System.Diagnostics.Contracts;
 using System.Linq;
 using System.Reactive.Subjects;
 using System.Runtime.Serialization;
+using System.Text.Json;
 
 using BEditor.Command;
 using BEditor.Data.Property;
@@ -301,6 +302,35 @@ namespace BEditor.Data.Property
         protected override void OnUnload()
         {
             EasingType.Unload();
+        }
+
+        /// <inheritdoc/>
+        public override void GetObjectData(Utf8JsonWriter writer)
+        {
+            base.GetObjectData(writer);
+            writer.WriteStartArray(nameof(Frames));
+            {
+                foreach (var f in Frames)
+                {
+                    writer.WriteNumberValue(f);
+                }
+            }
+            writer.WriteEndArray();
+
+            writer.WriteStartArray("Values");
+            {
+                foreach (var v in Value)
+                {
+                    writer.WriteNumberValue(v);
+                }
+            }
+            writer.WriteEndArray();
+
+            writer.WriteStartObject("Easing");
+            {
+                EasingType.GetObjectData(writer);
+            }
+            writer.WriteEndObject();
         }
 
         /// <summary>

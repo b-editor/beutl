@@ -6,6 +6,7 @@ using System.Diagnostics.Contracts;
 using System.IO;
 using System.Reactive.Disposables;
 using System.Runtime.Serialization;
+using System.Text.Json;
 using System.Threading.Tasks;
 
 using BEditor.Command;
@@ -49,7 +50,7 @@ namespace BEditor.Data.Property
         /// Gets or sets the name of the selected file.
         /// </summary>
         [DataMember(Name = "File")]
-        public string RawFile
+        public string RawValue
         {
             get => _rawFile;
             private set => _rawFile = value;
@@ -103,7 +104,7 @@ namespace BEditor.Data.Property
             get => _mode;
             set => SetValue(value, ref _mode, _modeArgs, this, state =>
             {
-                state.RawFile = state.GetPath();
+                state.RawValue = state.GetPath();
             });
         }
 
@@ -153,6 +154,15 @@ namespace BEditor.Data.Property
         protected override void OnLoad()
         {
             this.AutoLoad(ref _bindHint);
+        }
+
+        /// <inheritdoc/>
+        public override void GetObjectData(Utf8JsonWriter writer)
+        {
+            base.GetObjectData(writer);
+            writer.WriteString(nameof(Value), RawValue);
+            writer.WriteString(nameof(BindHint), BindHint);
+            writer.WriteNumber(nameof(Mode), (int)Mode);
         }
 
         /// <summary>

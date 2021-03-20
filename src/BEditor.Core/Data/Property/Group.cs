@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.ComponentModel;
 using System.Linq;
 using System.Runtime.Serialization;
+using System.Text.Json;
 using System.Threading.Tasks;
 
 using BEditor.Command;
@@ -84,5 +85,24 @@ namespace BEditor.Data.Property
             return RecordCommand.Empty;
         }
         #endregion
+
+        // Todo: 
+        /// <inheritdoc/>
+        public override void GetObjectData(Utf8JsonWriter writer)
+        {
+            base.GetObjectData(writer);
+            foreach (var item in GetType().GetProperties()
+                .Where(i => Attribute.IsDefined(i, typeof(DataMemberAttribute)))
+                .Select(i => (Info: i, Attribute: (DataMemberAttribute)Attribute.GetCustomAttribute(i, typeof(DataMemberAttribute))!))
+                .Select(i => (Object: i.Info.GetValue(this), i)))
+            {
+                if (item.Object is IJsonObject json)
+                {
+                    writer.WriteStartObject(item.i.Attribute.Name ?? item.i.Info.Name);
+                    json.GetObjectData(writer);
+                    writer.WriteEndObject();
+                }
+            }
+        }
     }
 }

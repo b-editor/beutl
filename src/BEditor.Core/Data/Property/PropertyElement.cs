@@ -2,6 +2,7 @@
 using System.ComponentModel;
 using System.Linq;
 using System.Runtime.Serialization;
+using System.Text.Json;
 using System.Threading.Tasks;
 
 using BEditor.Data.Property;
@@ -14,7 +15,7 @@ namespace BEditor.Data.Property
     /// Represents a property used by <see cref="EffectElement"/>.
     /// </summary>
     [DataContract]
-    public class PropertyElement : EditorObject, IChild<EffectElement>, IPropertyElement, IHasId, IHasName
+    public class PropertyElement : EditorObject, IChild<EffectElement>, IPropertyElement, IHasName
     {
         private static readonly PropertyChangedEventArgs _metadataArgs = new(nameof(PropertyMetadata));
         private PropertyElementMetadata? _propertyMetadata;
@@ -50,6 +51,18 @@ namespace BEditor.Data.Property
         public int Id => (id ??= Parent?.Children?.IndexOf(this)) ?? -1;
         /// <inheritdoc/>
         public string Name => _propertyMetadata?.Name ?? Id.ToString();
+
+        /// <inheritdoc/>
+        public virtual void GetObjectData(Utf8JsonWriter writer)
+        {
+            
+        }
+
+        /// <inheritdoc/>
+        public virtual void SetObjectData(JsonElement element)
+        {
+            
+        }
     }
 
     /// <inheritdoc cref="PropertyElement"/>

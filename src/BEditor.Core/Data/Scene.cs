@@ -10,6 +10,7 @@ using System.Reactive.Linq;
 using System.Reflection;
 using System.Runtime.CompilerServices;
 using System.Runtime.Serialization;
+using System.Text.Json;
 using System.Threading.Tasks;
 
 using BEditor.Audio;
@@ -27,7 +28,7 @@ namespace BEditor.Data
     /// Represents a scene to be included in the <see cref="Project"/>.
     /// </summary>
     [DataContract]
-    public class Scene : EditorObject, IParent<ClipElement>, IChild<Project>, IHasName, IHasId, IElementObject
+    public class Scene : EditorObject, IParent<ClipElement>, IChild<Project>, IHasName, IHasId, IElementObject, IJsonObject
     {
         #region Fields
 
@@ -567,6 +568,41 @@ namespace BEditor.Data
         public IRecordCommand RemoveLayer(int layer)
         {
             return new RemoveLayerCommand(this, layer);
+        }
+
+        /// <inheritdoc/>
+        public void GetObjectData(Utf8JsonWriter writer)
+        {
+            writer.WriteNumber(nameof(Width), Width);
+            writer.WriteNumber(nameof(Height), Height);
+            writer.WriteString(nameof(SceneName), SceneName);
+            writer.WriteNumber(nameof(TotalFrame), TotalFrame);
+            writer.WriteStartArray(nameof(HideLayer));
+            {
+                foreach (var layer in HideLayer)
+                {
+                    writer.WriteNumberValue(layer);
+                }
+            }
+            writer.WriteEndArray();
+            writer.WriteStartArray("Clips");
+            {
+                foreach (var clip in Datas)
+                {
+                    writer.WriteStartObject();
+                    {
+                        clip.GetObjectData(writer);
+                    }
+                    writer.WriteEndObject();
+                }
+            }
+            writer.WriteEndArray();
+        }
+
+        /// <inheritdoc/>
+        public void SetObjectData(JsonElement element)
+        {
+            throw new NotImplementedException();
         }
         #endregion
 

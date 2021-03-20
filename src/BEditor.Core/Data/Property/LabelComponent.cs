@@ -6,6 +6,7 @@ using System.Linq;
 using System.Reactive.Disposables;
 using System.Runtime.Serialization;
 using System.Text;
+using System.Text.Json;
 using System.Threading.Tasks;
 
 namespace BEditor.Data.Property
@@ -71,6 +72,13 @@ namespace BEditor.Data.Property
                 state.observer.OnCompleted();
                 state.Item2.Collection.Remove(state.observer);
             });
+        }
+
+        /// <inheritdoc/>
+        public override void GetObjectData(Utf8JsonWriter writer)
+        {
+            base.GetObjectData(writer);
+            writer.WriteString(nameof(Text), Text);
         }
     }
 

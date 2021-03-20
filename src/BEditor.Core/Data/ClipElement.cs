@@ -17,6 +17,7 @@ using BEditor.Properties;
 using BEditor.Media;
 
 using Microsoft.Extensions.DependencyInjection;
+using System.Text.Json;
 
 namespace BEditor.Data
 {
@@ -24,7 +25,7 @@ namespace BEditor.Data
     /// Represents a data of a clip to be placed in the timeline.
     /// </summary>
     [DataContract]
-    public class ClipElement : EditorObject, ICloneable, IParent<EffectElement>, IChild<Scene>, IHasName, IHasId, IFormattable, IElementObject
+    public class ClipElement : EditorObject, ICloneable, IParent<EffectElement>, IChild<Scene>, IHasName, IHasId, IFormattable, IElementObject, IJsonObject
     {
         #region Fields
         private static readonly PropertyChangedEventArgs _startArgs = new(nameof(Start));
@@ -350,6 +351,34 @@ namespace BEditor.Data
         public IRecordCommand Split(Frame frame)
         {
             return new SplitCommand(this, frame);
+        }
+
+        /// <inheritdoc/>
+        public void GetObjectData(Utf8JsonWriter writer)
+        {
+            writer.WriteNumber(nameof(Id), Id);
+            writer.WriteNumber(nameof(Start), Start);
+            writer.WriteNumber(nameof(End), End);
+            writer.WriteNumber(nameof(Layer), Layer);
+            writer.WriteString("Text", LabelText);
+            writer.WriteStartArray("Effects");
+            {
+                foreach (var effect in Effect)
+                {
+                    writer.WriteStartObject();
+                    {
+                        effect.GetObjectData(writer);
+                    }
+                    writer.WriteEndObject();
+                }
+            }
+            writer.WriteEndArray();
+        }
+
+        /// <inheritdoc/>
+        public void SetObjectData(JsonElement element)
+        {
+            throw new NotImplementedException();
         }
 
         #endregion

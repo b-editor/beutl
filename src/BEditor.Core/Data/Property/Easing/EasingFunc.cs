@@ -10,6 +10,7 @@ using System.Threading.Tasks;
 using BEditor.Data.Property;
 using BEditor.Properties;
 using BEditor.Media;
+using System.Text.Json;
 
 namespace BEditor.Data.Property.Easing
 {
@@ -17,7 +18,7 @@ namespace BEditor.Data.Property.Easing
     /// Represents an easing function that can be used with <see cref="IKeyFrameProperty"/>.
     /// </summary>
     [DataContract]
-    public abstract class EasingFunc : EditorObject, IChild<PropertyElement>, IParent<IEasingProperty>, IElementObject
+    public abstract class EasingFunc : EditorObject, IChild<PropertyElement>, IParent<IEasingProperty>, IElementObject, IJsonObject
     {
         #region Fields
         private WeakReference<PropertyElement?>? _parent;
@@ -67,5 +68,29 @@ namespace BEditor.Data.Property.Easing
         /// <param name="max">Maximum value</param>
         /// <returns>Eased value</returns>
         public abstract float EaseFunc(Frame frame, Frame totalframe, float min, float max);
+
+        // Todo: 
+        /// <inheritdoc/>
+        public virtual void GetObjectData(Utf8JsonWriter writer)
+        {
+            foreach (var item in GetType().GetProperties()
+                .Where(i => Attribute.IsDefined(i, typeof(DataMemberAttribute)))
+                .Select(i => (Info: i, Attribute: (DataMemberAttribute)Attribute.GetCustomAttribute(i, typeof(DataMemberAttribute))!))
+                .Select(i => (Object: i.Info.GetValue(this), i)))
+            {
+                if (item.Object is IJsonObject json)
+                {
+                    writer.WriteStartObject(item.i.Attribute.Name ?? item.i.Info.Name);
+                    json.GetObjectData(writer);
+                    writer.WriteEndObject();
+                }
+            }
+        }
+
+        /// <inheritdoc/>
+        public virtual void SetObjectData(JsonElement element)
+        {
+            throw new NotImplementedException();
+        }
     }
 }

@@ -4,6 +4,7 @@ using System.ComponentModel;
 using System.Diagnostics;
 using System.Reactive.Disposables;
 using System.Runtime.Serialization;
+using System.Text.Json;
 using System.Text.RegularExpressions;
 using System.Threading.Tasks;
 
@@ -80,6 +81,14 @@ namespace BEditor.Data.Property
         protected override void OnLoad()
         {
             this.AutoLoad(ref _bindHint);
+        }
+
+        /// <inheritdoc/>
+        public override void GetObjectData(Utf8JsonWriter writer)
+        {
+            writer.WriteBoolean(nameof(IsExpanded), IsExpanded);
+            writer.WriteString(nameof(BindHint), BindHint);
+            base.GetObjectData(writer);
         }
 
         /// <inheritdoc/>

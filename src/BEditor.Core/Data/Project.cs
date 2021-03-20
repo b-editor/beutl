@@ -13,6 +13,7 @@ using BEditor.Drawing.Pixel;
 using BEditor.Graphics;
 
 using Microsoft.Extensions.DependencyInjection;
+using System.Text.Json;
 
 namespace BEditor.Data
 {
@@ -20,7 +21,7 @@ namespace BEditor.Data
     /// Represents the project to be used in editing.
     /// </summary>
     [DataContract]
-    public class Project : EditorObject, IExtensibleDataObject, IParent<Scene>, IChild<IApplication>, IElementObject, IHasName
+    public class Project : EditorObject, IExtensibleDataObject, IParent<Scene>, IChild<IApplication>, IElementObject, IHasName, IJsonObject
     {
         #region Fields
 
@@ -339,6 +340,32 @@ namespace BEditor.Data
             {
                 disposable.Dispose();
             }
+        }
+
+        /// <inheritdoc/>
+        public void GetObjectData(Utf8JsonWriter writer)
+        {
+            writer.WriteNumber(nameof(Framerate), Framerate);
+            writer.WriteNumber(nameof(Samplingrate), Samplingrate);
+            writer.WriteNumber(nameof(PreviewSceneIndex), PreviewSceneIndex);
+            writer.WriteStartArray("Scenes");
+            {
+                foreach (var scene in SceneList)
+                {
+                    writer.WriteStartObject();
+                    {
+                        scene.GetObjectData(writer);
+                    }
+                    writer.WriteEndObject();
+                }
+            }
+            writer.WriteEndArray();
+        }
+
+        /// <inheritdoc/>
+        public void SetObjectData(JsonElement element)
+        {
+            throw new NotImplementedException();
         }
 
         #endregion

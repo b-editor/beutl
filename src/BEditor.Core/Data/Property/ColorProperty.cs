@@ -6,6 +6,7 @@ using System.Diagnostics;
 using System.Diagnostics.Contracts;
 using System.Reactive.Disposables;
 using System.Runtime.Serialization;
+using System.Text.Json;
 
 using BEditor.Command;
 using BEditor.Data.Bindings;
@@ -80,6 +81,14 @@ namespace BEditor.Data.Property
         protected override void OnLoad()
         {
             this.AutoLoad(ref _bindHint);
+        }
+
+        /// <inheritdoc/>
+        public override void GetObjectData(Utf8JsonWriter writer)
+        {
+            base.GetObjectData(writer);
+            writer.WriteString(nameof(Value), Value.ToString("#argb"));
+            writer.WriteString(nameof(BindHint), BindHint);
         }
 
         /// <summary>
