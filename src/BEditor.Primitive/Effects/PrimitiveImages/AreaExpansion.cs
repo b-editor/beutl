@@ -15,7 +15,6 @@ namespace BEditor.Primitive.Effects
     /// <summary>
     /// Represents an <see cref="ImageEffect"/> that expands the area of an image.
     /// </summary>
-    [DataContract]
     public class AreaExpansion : ImageEffect
     {
         /// <summary>

@@ -114,6 +114,14 @@ namespace BEditor.Data.Property
             writer.WriteString(nameof(BindHint), BindHint);
         }
 
+        /// <inheritdoc/>
+        public override void SetObjectData(JsonElement element)
+        {
+            base.SetObjectData(element);
+            Value = element.TryGetProperty(nameof(Value), out var value) ? value.GetString() ?? "" : "";
+            BindHint = element.TryGetProperty(nameof(BindHint), out var bind) ? bind.GetString() : null;
+        }
+
         /// <summary>
         /// Create a command to change the string.
         /// </summary>

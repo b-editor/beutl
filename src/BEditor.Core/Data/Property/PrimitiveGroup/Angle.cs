@@ -9,10 +9,10 @@ using BEditor.Properties;
 
 namespace BEditor.Data.Property.PrimitiveGroup
 {
+    //Todo
     /// <summary>
     /// Represents a property for setting the angle of the XYZ axis.
     /// </summary>
-    [DataContract]
     public sealed class Angle : ExpandGroup
     {
         /// <summary>
@@ -50,17 +50,14 @@ namespace BEditor.Data.Property.PrimitiveGroup
         /// <summary>
         /// Get the <see cref="EaseProperty"/> of the X-axis angle.
         /// </summary>
-        [DataMember(Order = 0)]
         public EaseProperty AngleX { get; private set; }
         /// <summary>
         /// Get the <see cref="EaseProperty"/> of the Y-axis angle.
         /// </summary>
-        [DataMember(Order = 1)]
         public EaseProperty AngleY { get; private set; }
         /// <summary>
         /// Get the <see cref="EaseProperty"/> of the Z-axis angle.
         /// </summary>
-        [DataMember(Order = 2)]
         public EaseProperty AngleZ { get; private set; }
 
         /// <inheritdoc/>

@@ -602,7 +602,18 @@ namespace BEditor.Data
         /// <inheritdoc/>
         public void SetObjectData(JsonElement element)
         {
-            throw new NotImplementedException();
+            Width = element.GetProperty(nameof(Width)).GetInt32();
+            Height = element.GetProperty(nameof(Height)).GetInt32();
+            SceneName = element.GetProperty(nameof(SceneName)).GetString() ?? "";
+            TotalFrame = element.GetProperty(nameof(TotalFrame)).GetInt32();
+            HideLayer = element.GetProperty(nameof(HideLayer)).EnumerateArray().Select(i => i.GetInt32()).ToList();
+            Datas = new(element.GetProperty("Clips").EnumerateArray().Select(i =>
+              {
+                  var clip = (ClipElement)FormatterServices.GetUninitializedObject(typeof(ClipElement));
+                  clip.SetObjectData(i);
+
+                  return clip;
+              }));
         }
         #endregion
 

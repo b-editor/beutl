@@ -74,7 +74,7 @@ namespace BEditor.Models
                 .Subscribe(async clip =>
                 {
                     await using var memory = new MemoryStream();
-                    Serialize.SaveToStream(clip, memory, SerializeMode.Json);
+                    await Serialize.SaveToStreamAsync(clip!, memory, SerializeMode.Json);
 
                     var json = Encoding.Default.GetString(memory.ToArray());
                     Clipboard.SetText(json);
@@ -88,7 +88,7 @@ namespace BEditor.Models
                     clip!.Parent.RemoveClip(clip).Execute();
 
                     await using var memory = new MemoryStream();
-                    Serialize.SaveToStream(clip, memory, SerializeMode.Json);
+                    await Serialize.SaveToStreamAsync(clip, memory, SerializeMode.Json);
 
                     var json = Encoding.Default.GetString(memory.ToArray());
                     Clipboard.SetText(json);
@@ -103,9 +103,9 @@ namespace BEditor.Models
                     var files = Clipboard.GetFileDropList();
                     var bmpSrc = Clipboard.GetImage();
                     await using var memory = new MemoryStream();
-                    memory.Write(Encoding.Default.GetBytes(text));
+                    await memory.WriteAsync(Encoding.Default.GetBytes(text));
 
-                    if (Serialize.LoadFromStream<ClipElement>(memory, SerializeMode.Json) is var clip && clip is not null)
+                    if (await Serialize.LoadFromStreamAsync<ClipElement>(memory, SerializeMode.Json) is var clip && clip is not null)
                     {
                         var length = clip.Length;
                         clip.Start = timeline.Select_Frame;
@@ -159,7 +159,7 @@ namespace BEditor.Models
                             else if (obj is Text txt)
                             {
                                 using var reader = new StreamReader(file);
-                                txt.Document.Value = reader.ReadToEnd();
+                                txt.Document.Value = await reader.ReadToEndAsync();
                             }
                         }
                     }

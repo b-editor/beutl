@@ -6,6 +6,8 @@ using System.Net.Http;
 using System.Reactive.Linq;
 using System.Runtime.Serialization;
 using System.Text;
+using System.Text.Json;
+using System.Text.Json.Serialization;
 using System.Threading.Tasks;
 using System.Windows;
 using System.Windows.Controls;
@@ -51,10 +53,10 @@ namespace BEditor.ViewModels
         private async Task<Release?> GetLatestRelease()
         {
             using var client = new HttpClient();
-            using var memory = new MemoryStream();
+            await using var memory = new MemoryStream();
             await memory.WriteAsync(Encoding.UTF8.GetBytes(await client.GetStringAsync("https://raw.githubusercontent.com/b-editor/BEditor/main/docs/releases.json")));
 
-            if (Serialize.LoadFromStream<IEnumerable<Release>>(memory, SerializeMode.Json) is var releases && releases is not null)
+            if (await JsonSerializer.DeserializeAsync<IEnumerable<Release>>(memory) is var releases && releases is not null)
             {
                 var first = releases.First();
                 var asmName = typeof(StartWindowViewModel).Assembly.GetName();
@@ -88,12 +90,11 @@ namespace BEditor.ViewModels
         }
 
 #pragma warning disable CS8618
-        [DataContract]
         public class Release
         {
-            [DataMember(Name = "version")]
+            [JsonPropertyName("version")]
             public string Version { get; set; }
-            [DataMember(Name = "url")]
+            [JsonPropertyName("url")]
             public string URL { get; set; }
         }
 #pragma warning restore CS8618

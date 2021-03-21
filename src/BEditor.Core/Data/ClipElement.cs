@@ -24,7 +24,6 @@ namespace BEditor.Data
     /// <summary>
     /// Represents a data of a clip to be placed in the timeline.
     /// </summary>
-    [DataContract]
     public class ClipElement : EditorObject, ICloneable, IParent<EffectElement>, IChild<Scene>, IHasName, IHasId, IFormattable, IElementObject, IJsonObject
     {
         #region Fields
@@ -63,7 +62,6 @@ namespace BEditor.Data
         /// <summary>
         /// Gets the ID for this <see cref="ClipElement"/>
         /// </summary>
-        [DataMember(Order = 0)]
         public int Id { get; private set; }
 
         /// <summary>
@@ -74,7 +72,6 @@ namespace BEditor.Data
         /// <summary>
         /// Gets or sets the start frame for this <see cref="ClipElement"/>.
         /// </summary>
-        [DataMember(Order = 1)]
         public Frame Start
         {
             get => _start;
@@ -84,7 +81,6 @@ namespace BEditor.Data
         /// <summary>
         /// Gets or sets the end frame for this <see cref="ClipElement"/>.
         /// </summary>
-        [DataMember(Order = 2)]
         public Frame End
         {
             get => _end;
@@ -99,7 +95,6 @@ namespace BEditor.Data
         /// <summary>
         /// Gets or sets the layer where this <see cref="ClipElement"/> will be placed.
         /// </summary>
-        [DataMember(Order = 3)]
         public int Layer
         {
             get => _layer;
@@ -113,7 +108,6 @@ namespace BEditor.Data
         /// <summary>
         /// Gets or sets the character displayed in this <see cref="ClipElement"/>.
         /// </summary>
-        [DataMember(Name = "Text", Order = 4)]
         public string LabelText
         {
             get => _labelText;
@@ -148,7 +142,6 @@ namespace BEditor.Data
         /// <summary>
         /// Gets the effects included in this <see cref="ClipElement"/>.
         /// </summary>
-        [DataMember(Name = "Effects", Order = 5)]
         public ObservableCollection<EffectElement> Effect { get; private set; }
 
         /// <inheritdoc/>
@@ -367,6 +360,7 @@ namespace BEditor.Data
                 {
                     writer.WriteStartObject();
                     {
+                        writer.WriteString("_type", effect.GetType().FullName);
                         effect.GetObjectData(writer);
                     }
                     writer.WriteEndObject();
@@ -378,7 +372,23 @@ namespace BEditor.Data
         /// <inheritdoc/>
         public void SetObjectData(JsonElement element)
         {
-            throw new NotImplementedException();
+            Id = element.GetProperty(nameof(Id)).GetInt32();
+            Start = element.GetProperty(nameof(Start)).GetInt32();
+            End = element.GetProperty(nameof(End)).GetInt32();
+            Layer = element.GetProperty(nameof(Layer)).GetInt32();
+            LabelText = element.GetProperty("Text").GetString() ?? "";
+            var effects = element.GetProperty("Effects");
+            Effect = new();
+            foreach (var effect in effects.EnumerateArray())
+            {
+                if (Type.GetType(effect.GetProperty("_type").GetString() ?? "") is var type && type is not null)
+                {
+                    var obj = (EffectElement)FormatterServices.GetUninitializedObject(type);
+                    obj.SetObjectData(effect);
+
+                    Effect.Add(obj);  
+                }
+            }
         }
 
         #endregion

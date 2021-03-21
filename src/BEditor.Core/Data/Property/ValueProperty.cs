@@ -115,6 +115,14 @@ namespace BEditor.Data.Property
             writer.WriteString(nameof(BindHint), BindHint);
         }
 
+        /// <inheritdoc/>
+        public override void SetObjectData(JsonElement element)
+        {
+            base.SetObjectData(element);
+            Value = element.TryGetProperty(nameof(Value), out var value) ? value.GetSingle() : 0;
+            BindHint = element.TryGetProperty(nameof(BindHint), out var bind) ? bind.GetString() : null;
+        }
+
         /// <summary>
         /// Returns <paramref name="value"/> clamped to the inclusive range of <see cref="ValuePropertyMetadata.Min"/> and <see cref="ValuePropertyMetadata.Max"/>.
         /// </summary>

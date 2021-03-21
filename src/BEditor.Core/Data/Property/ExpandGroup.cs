@@ -92,6 +92,14 @@ namespace BEditor.Data.Property
         }
 
         /// <inheritdoc/>
+        public override void SetObjectData(JsonElement element)
+        {
+            IsExpanded = element.TryGetProperty(nameof(IsExpanded), out var value) && value.GetBoolean();
+            BindHint = element.TryGetProperty(nameof(BindHint), out var bind) ? bind.GetString() : null;
+            base.SetObjectData(element);
+        }
+
+        /// <inheritdoc/>
         public void OnCompleted() { }
 
         /// <inheritdoc/>

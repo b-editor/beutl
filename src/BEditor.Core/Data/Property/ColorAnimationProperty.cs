@@ -306,9 +306,34 @@ namespace BEditor.Data.Property
 
             writer.WriteStartObject("Easing");
             {
+                writer.WriteString("_type", EasingType.GetType().FullName);
                 EasingType.GetObjectData(writer);
             }
             writer.WriteEndObject();
+        }
+
+        /// <inheritdoc/>
+        public override void SetObjectData(JsonElement element)
+        {
+            base.SetObjectData(element);
+
+            var frames = element.GetProperty(nameof(Frames));
+            Frames = frames.EnumerateArray().Select(i => (Frame)i.GetInt32()).ToList();
+
+            var values = element.GetProperty("Values");
+            Value = new(values.EnumerateArray().Select(i => Color.FromHTML(i.GetString())));
+
+            var easing = element.GetProperty("Easing");
+            var type = Type.GetType(easing.GetProperty("_type").GetString()!);
+            if (type is null)
+            {
+                EasingType = EasingMetadata.LoadedEasingFunc.First().CreateFunc();
+            }
+            else
+            {
+                EasingType = (EasingFunc)FormatterServices.GetUninitializedObject(type);
+                EasingType.SetObjectData(easing);
+            }
         }
 
         /// <summary>

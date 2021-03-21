@@ -102,13 +102,22 @@ namespace BEditor.Data.Property
         public override void GetObjectData(Utf8JsonWriter writer)
         {
             base.GetObjectData(writer);
-            if (Value is IJsonObject json)
-            {
-                writer.WriteStartObject();
-                json.GetObjectData(writer);
-                writer.WriteEndObject();
-            }
+
+            writer.WriteStartObject(nameof(Value));
+            SelectItem?.GetObjectData(writer);
+            writer.WriteEndObject();
+
             writer.WriteString(nameof(BindHint), BindHint);
+        }
+
+        /// <inheritdoc/>
+        public override void SetObjectData(JsonElement element)
+        {
+            base.SetObjectData(element);
+
+            SelectItem = (T)FormatterServices.GetUninitializedObject(typeof(T));
+            SelectItem.SetObjectData(element.GetProperty(nameof(Value)));
+            BindHint = element.TryGetProperty(nameof(BindHint), out var bind) ? bind.GetString() : null;
         }
 
         /// <summary>

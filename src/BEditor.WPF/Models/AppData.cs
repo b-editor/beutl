@@ -1,34 +1,27 @@
 ﻿using System;
-using System.Collections.Generic;
 using System.ComponentModel;
 using System.IO;
 using System.Linq;
-using System.Reflection;
+using System.Net.Http;
+using System.Reactive.Disposables;
 using System.Text;
-using System.Threading.Tasks;
-using System.Xml.Linq;
+using System.Text.Json;
 
-using BEditor;
 using BEditor.Command;
 using BEditor.Data;
 using BEditor.Models.Services;
-using BEditor.Plugin;
+using BEditor.ViewModels.ToolControl;
 
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
-using Microsoft.Extensions.Logging.Console;
 
 using NLog.Extensions.Logging;
-
-using NLogLevel = NLog.LogLevel;
-using LogLevel = Microsoft.Extensions.Logging.LogLevel;
 using NLog.Layouts;
-using System.Reactive.Disposables;
+
 using Reactive.Bindings;
-using BEditor.ViewModels.ToolControl;
-using System.Threading;
-using System.Windows.Threading;
-using System.Windows;
+
+using LogLevel = Microsoft.Extensions.Logging.LogLevel;
+using NLogLevel = NLog.LogLevel;
 
 #nullable disable
 
@@ -96,7 +89,8 @@ namespace BEditor.Models
             Services = new ServiceCollection()
                 .AddSingleton<IFileDialogService>(p => new FileDialogService())
                 .AddSingleton<IMessage>(p => new MessageService())
-                .AddSingleton(_ => LoggingFactory);
+                .AddSingleton(_ => LoggingFactory)
+                .AddSingleton<HttpClient>();
         }
 
         public static AppData Current { get; } = new();
@@ -131,7 +125,7 @@ namespace BEditor.Models
         public IFileDialogService FileDialog { get; set; }
         public ILoggerFactory LoggingFactory { get; }
 
-        public void SaveAppConfig(Project project, string directory)
+        public async void SaveAppConfig(Project project, string directory)
         {
             static void IfNotExistCreateDir(string dir)
             {
@@ -161,7 +155,11 @@ namespace BEditor.Models
                         TimelineVerticalOffset = scene.TimeLineVerticalOffset
                     };
 
-                    Serialize.SaveToFile(cacheObj, sceneCache, SerializeMode.Json);
+                    await using var stream = new FileStream(sceneCache, FileMode.Create);
+                    await JsonSerializer.SerializeAsync(stream, cacheObj, new JsonSerializerOptions()
+                    {
+                        WriteIndented = true
+                    });
                 }
             }
         }
@@ -189,7 +187,7 @@ namespace BEditor.Models
 
                     if (!File.Exists(sceneCache)) continue;
 
-                    var cacheObj = Serialize.LoadFromFile<SceneCache>(sceneCache, SerializeMode.Json);
+                    var cacheObj = JsonSerializer.Deserialize<SceneCache>(sceneCache);
 
                     if (cacheObj is not null)
                     {

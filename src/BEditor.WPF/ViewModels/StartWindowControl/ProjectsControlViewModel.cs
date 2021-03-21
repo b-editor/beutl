@@ -5,6 +5,7 @@ using System.Diagnostics;
 using System.IO;
 using System.Linq;
 using System.Reactive.Linq;
+using System.Runtime.Serialization;
 using System.Text;
 using System.Text.Json;
 using System.Text.RegularExpressions;
@@ -52,20 +53,6 @@ namespace BEditor.ViewModels.StartWindowControl
                 await Task.Run(async () =>
                 {
                     project.Load();
-
-                    await using (var stream = new MemoryStream())
-                    await using (var writer = new Utf8JsonWriter(stream, new() { Indented = true }))
-                    {
-                        writer.WriteStartObject();
-                        {
-                            project.GetObjectData(writer);
-                        }
-                        writer.WriteEndObject();
-
-                        await writer.FlushAsync();
-
-                        var json = Encoding.UTF8.GetString(stream.ToArray());
-                    }
 
                     app.Project = project;
                     app.AppStatus = Status.Edit;

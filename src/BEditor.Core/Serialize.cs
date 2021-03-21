@@ -14,6 +14,7 @@ using System.Xml;
 using System.Diagnostics;
 using BEditor.Data.Property.Easing;
 using BEditor.Data.Primitive;
+using System.Text.Json;
 
 namespace BEditor
 {
@@ -28,24 +29,39 @@ namespace BEditor
         /// <param name="stream">Stream to load.</param>
         /// <param name="mode">This is the mode of serialization.</param>
         /// <returns>Returns the restored object on success, <see langword="null"/> otherwise.</returns>
-        public static T? LoadFromStream<T>(Stream stream, SerializeMode mode = SerializeMode.Binary)
+        public static async Task<T?> LoadFromStreamAsync<T>(Stream stream, SerializeMode mode = SerializeMode.Binary) where T : IJsonObject
         {
             try
             {
-                T? obj;
                 stream.Position = 0;
 
-                if (mode == SerializeMode.Binary)
-                {
-                    using var reader = XmlDictionaryReader.CreateBinaryReader(stream, new XmlDictionaryReaderQuotas());
-                    var serializer = new DataContractSerializer(typeof(T), SerializeKnownTypes);
-                    obj = (T?)serializer.ReadObject(reader);
-                }
-                else
-                {
-                    var serializer = new DataContractJsonSerializer(typeof(T), SerializeKnownTypes);
-                    obj = (T?)serializer.ReadObject(stream);
-                }
+                var obj = (T)FormatterServices.GetUninitializedObject(typeof(T));
+                using var doc = await JsonDocument.ParseAsync(stream);
+                obj.SetObjectData(doc.RootElement);
+
+                return obj;
+            }
+            catch
+            {
+                Debug.Assert(false);
+                return default;
+            }
+        }
+        /// <summary>
+        /// Reads and restores the contents of an object from a stream
+        /// </summary>
+        /// <param name="stream">Stream to load.</param>
+        /// <param name="mode">This is the mode of serialization.</param>
+        /// <returns>Returns the restored object on success, <see langword="null"/> otherwise.</returns>
+        public static T? LoadFromStream<T>(Stream stream, SerializeMode mode = SerializeMode.Binary) where T : IJsonObject
+        {
+            try
+            {
+                stream.Position = 0;
+
+                var obj = (T)FormatterServices.GetUninitializedObject(typeof(T));
+                using var doc = JsonDocument.Parse(stream);
+                obj.SetObjectData(doc.RootElement);
 
                 return obj;
             }
@@ -62,26 +78,39 @@ namespace BEditor
         /// <param name="path">The name of the file to load.</param>
         /// <param name="mode">This is the mode of serialization.</param>
         /// <returns>Returns the restored object on success, <see langword="null"/> otherwise.</returns>
-        public static T? LoadFromFile<T>(string path, SerializeMode mode = SerializeMode.Binary)
+        public static async Task<T?> LoadFromFileAsync<T>(string path, SerializeMode mode = SerializeMode.Binary) where T : IJsonObject
         {
             try
             {
-                T? obj;
+                await using var stream = new FileStream(path, FileMode.Open);
 
-                using (var file = new FileStream(path, FileMode.Open))
-                {
-                    if (mode == SerializeMode.Binary)
-                    {
-                        using var reader = XmlDictionaryReader.CreateBinaryReader(file, new XmlDictionaryReaderQuotas());
-                        var serializer = new DataContractSerializer(typeof(T), SerializeKnownTypes);
-                        obj = (T?)serializer.ReadObject(reader);
-                    }
-                    else
-                    {
-                        var serializer = new DataContractJsonSerializer(typeof(T), SerializeKnownTypes);
-                        obj = (T?)serializer.ReadObject(file);
-                    }
-                }
+                var obj = (T)FormatterServices.GetUninitializedObject(typeof(T));
+                using var doc = await JsonDocument.ParseAsync(stream);
+                obj.SetObjectData(doc.RootElement);
+
+                return obj;
+            }
+            catch
+            {
+                Debug.Assert(false);
+                return default;
+            }
+        }
+        /// <summary>
+        /// Reads and restores the contents of an object from a file.
+        /// </summary>
+        /// <param name="path">The name of the file to load.</param>
+        /// <param name="mode">This is the mode of serialization.</param>
+        /// <returns>Returns the restored object on success, <see langword="null"/> otherwise.</returns>
+        public static T? LoadFromFile<T>(string path, SerializeMode mode = SerializeMode.Binary) where T : IJsonObject
+        {
+            try
+            {
+                using var stream = new FileStream(path, FileMode.Open);
+
+                var obj = (T)FormatterServices.GetUninitializedObject(typeof(T));
+                using var doc = JsonDocument.Parse(stream);
+                obj.SetObjectData(doc.RootElement);
 
                 return obj;
             }
@@ -98,26 +127,49 @@ namespace BEditor
         /// <param name="obj">The object to save.</param>
         /// <param name="stream">The stream to save to.</param>
         /// <param name="mode">This is the mode of serialization.</param>
-        public static bool SaveToStream<T>(T obj, Stream stream, SerializeMode mode = SerializeMode.Binary)
+        public static async Task<bool> SaveToStreamAsync<T>(T obj, Stream stream, SerializeMode mode = SerializeMode.Binary) where T : IJsonObject
         {
             try
             {
                 stream.Position = 0;
-             
-                if (mode == SerializeMode.Binary)
-                {
-                    using var writer = XmlDictionaryWriter.CreateBinaryWriter(stream);
+                await using var writer = new Utf8JsonWriter(stream, new() { Indented = true });
 
-                    var serializer = new DataContractSerializer(typeof(T), SerializeKnownTypes);
-                    serializer.WriteObject(writer, obj);
-                }
-                else
+                writer.WriteStartObject();
                 {
-                    using var writer = JsonReaderWriterFactory.CreateJsonWriter(stream, Encoding.UTF8, true, true, "  ");
-
-                    var serializer = new DataContractJsonSerializer(typeof(T), SerializeKnownTypes);
-                    serializer.WriteObject(writer, obj);
+                    obj.GetObjectData(writer);
                 }
+                writer.WriteEndObject();
+
+                await writer.FlushAsync();
+
+                return true;
+            }
+            catch
+            {
+                Debug.Assert(false);
+                return false;
+            }
+        }
+        /// <summary>
+        /// Save the contents of an object to a stream.
+        /// </summary>
+        /// <param name="obj">The object to save.</param>
+        /// <param name="stream">The stream to save to.</param>
+        /// <param name="mode">This is the mode of serialization.</param>
+        public static bool SaveToStream<T>(T obj, Stream stream, SerializeMode mode = SerializeMode.Binary) where T : IJsonObject
+        {
+            try
+            {
+                stream.Position = 0;
+                using var writer = new Utf8JsonWriter(stream, new() { Indented = true });
+
+                writer.WriteStartObject();
+                {
+                    obj.GetObjectData(writer);
+                }
+                writer.WriteEndObject();
+
+                writer.Flush();
 
                 return true;
             }
@@ -134,25 +186,50 @@ namespace BEditor
         /// <param name="obj">The object to save.</param>
         /// <param name="path">The name of the file to save to.</param>
         /// <param name="mode">This is the mode of serialization.</param>
-        public static bool SaveToFile<T>(T obj, string path, SerializeMode mode = SerializeMode.Binary)
+        public static async Task<bool> SaveToFileAsync<T>(T obj, string path, SerializeMode mode = SerializeMode.Binary) where T : IJsonObject
         {
             try
             {
-                using var file = new FileStream(path, FileMode.Create);
-                if (mode == SerializeMode.Binary)
-                {
-                    using var writer = XmlDictionaryWriter.CreateBinaryWriter(file);
+                await using var stream = new FileStream(path, FileMode.Create);
+                await using var writer = new Utf8JsonWriter(stream, new() { Indented = true });
 
-                    var serializer = new DataContractSerializer(typeof(T), SerializeKnownTypes);
-                    serializer.WriteObject(writer, obj);
-                }
-                else
+                writer.WriteStartObject();
                 {
-                    using var writer = JsonReaderWriterFactory.CreateJsonWriter(file, Encoding.UTF8, true, true, "  ");
-
-                    var serializer = new DataContractJsonSerializer(typeof(T), SerializeKnownTypes);
-                    serializer.WriteObject(writer, obj);
+                    obj.GetObjectData(writer);
                 }
+                writer.WriteEndObject();
+
+                await writer.FlushAsync();
+
+                return true;
+            }
+            catch
+            {
+                Debug.Assert(false);
+                return false;
+            }
+        }
+        
+        /// <summary>
+        /// Saves the contents of an object to a file.
+        /// </summary>
+        /// <param name="obj">The object to save.</param>
+        /// <param name="path">The name of the file to save to.</param>
+        /// <param name="mode">This is the mode of serialization.</param>
+        public static bool SaveToFile<T>(T obj, string path, SerializeMode mode = SerializeMode.Binary) where T : IJsonObject
+        {
+            try
+            {
+                using var stream = new FileStream(path, FileMode.Create);
+                using var writer = new Utf8JsonWriter(stream, new() { Indented = true });
+
+                writer.WriteStartObject();
+                {
+                    obj.GetObjectData(writer);
+                }
+                writer.WriteEndObject();
+
+                writer.Flush();
 
                 return true;
             }
@@ -166,66 +243,33 @@ namespace BEditor
         /// <summary>
         /// DeepClone using <see cref="DataContractSerializer"/>.
         /// </summary>
-        public static T? DeepClone<T>(this T obj)
+        public static async Task<T?> DeepCloneAsync<T>(this T obj) where T : IJsonObject
         {
-            var serializer = new DataContractJsonSerializer(obj!.GetType(), SerializeKnownTypes);
-            var ms = new MemoryStream();
-            serializer.WriteObject(ms, obj);
-            var json = Encoding.UTF8.GetString(ms.ToArray());
-
-            // テキストからデシリアライズする
-            byte[] bytes = Encoding.UTF8.GetBytes(json);
-            var ms2 = new MemoryStream();
-            ms2.Write(bytes, 0, bytes.Length);
-
-            // デシリアライズを実行する
-            ms2.Position = 0;
-            var result = (T?)serializer.ReadObject(ms2);
-
-            ms.Dispose();
-            ms2.Dispose();
-
-            return result;
+            using var ms = new MemoryStream();
+            if (await SaveToStreamAsync(obj, ms))
+            {
+                return await LoadFromStreamAsync<T>(ms);
+            }
+            else
+            {
+                return default;
+            }
         }
-
         /// <summary>
-        /// Get the KnownType used by the <see cref="DataContractJsonSerializer"/>.
+        /// DeepClone using <see cref="DataContractSerializer"/>.
         /// </summary>
-        public static readonly List<Type> SerializeKnownTypes = new()
+        public static T? DeepClone<T>(this T obj) where T : IJsonObject
         {
-            typeof(BasePropertyChanged),
-            typeof(EditorObject),
-
-            typeof(Project),
-            typeof(Scene),
-
-            typeof(ClipElement),
-            typeof(ImageObject),
-            typeof(ObjectElement),
-
-            typeof(Angle),
-            typeof(Blend),
-            typeof(Coordinate),
-            typeof(Zoom),
-            typeof(Material),
-
-            typeof(EffectElement),
-            typeof(ImageEffect),
-
-            typeof(CheckProperty),
-            typeof(ColorProperty),
-            typeof(DocumentProperty),
-            typeof(EaseProperty),
-            typeof(FileProperty),
-            typeof(FontProperty),
-            typeof(Group),
-            typeof(PropertyElement),
-            typeof(SelectorProperty),
-            typeof(ExpandGroup),
-
-            typeof(PrimitiveEasing),
-            typeof(EasingFunc)
-        };
+            using var ms = new MemoryStream();
+            if (SaveToStream(obj, ms))
+            {
+                return LoadFromStream<T>(ms);
+            }
+            else
+            {
+                return default;
+            }
+        }
     }
 
     /// <summary>

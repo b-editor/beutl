@@ -90,7 +90,15 @@ namespace BEditor.Data.Property.Easing
         /// <inheritdoc/>
         public virtual void SetObjectData(JsonElement element)
         {
-            throw new NotImplementedException();
+            foreach (var item in GetType().GetProperties()
+                .Where(i => Attribute.IsDefined(i, typeof(DataMemberAttribute)))
+                .Select(i => (Info: i, Attribute: (DataMemberAttribute)Attribute.GetCustomAttribute(i, typeof(DataMemberAttribute))!))
+                .Where(i => i.Info.PropertyType.IsAssignableTo(typeof(IJsonObject))))
+            {
+                var property = element.GetProperty(item.Attribute.Name ?? item.Info.Name);
+                var obj = (IJsonObject)FormatterServices.GetUninitializedObject(item.Info.PropertyType);
+                obj.SetObjectData(property);
+            }
         }
     }
 }

@@ -80,6 +80,13 @@ namespace BEditor.Data.Property
             base.GetObjectData(writer);
             writer.WriteString(nameof(Text), Text);
         }
+
+        /// <inheritdoc/>
+        public override void SetObjectData(JsonElement element)
+        {
+            base.SetObjectData(element);
+            Text = element.TryGetProperty(nameof(Text), out var value) ? value.GetString() ?? "" : "";
+        }
     }
 
     /// <summary>
