@@ -1,16 +1,11 @@
 ﻿using System;
 using System.Collections.Generic;
-using System.Collections.ObjectModel;
-using System.ComponentModel;
 using System.Diagnostics;
 using System.Diagnostics.Contracts;
-using System.Reactive.Disposables;
-using System.Runtime.Serialization;
 using System.Text.Json;
 
 using BEditor.Command;
 using BEditor.Data.Bindings;
-using BEditor.Data.Property;
 using BEditor.Drawing;
 
 namespace BEditor.Data.Property
@@ -18,7 +13,6 @@ namespace BEditor.Data.Property
     /// <summary>
     /// Represents a property to pick a color.
     /// </summary>
-    [DataContract]
     [DebuggerDisplay("Color = {_color:#argb}")]
     public class ColorProperty : PropertyElement<ColorPropertyMetadata>, IEasingProperty, IBindable<Color>
     {
@@ -47,7 +41,6 @@ namespace BEditor.Data.Property
         /// <summary>
         /// Gets or sets the selected color.
         /// </summary>
-        [DataMember]
         public Color Value
         {
             get => _value;
@@ -67,7 +60,6 @@ namespace BEditor.Data.Property
             });
         }
         /// <inheritdoc/>
-        [DataMember]
         public string? BindHint
         {
             get => _bindable?.GetString();
@@ -164,7 +156,7 @@ namespace BEditor.Data.Property
             {
                 if (_property.TryGetTarget(out var target))
                 {
-                    target.Value= _new;
+                    target.Value = _new;
                 }
             }
             /// <inheritdoc/>

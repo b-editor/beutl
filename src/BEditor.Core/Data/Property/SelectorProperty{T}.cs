@@ -1,25 +1,19 @@
 ﻿using System;
-using System.Collections;
 using System.Collections.Generic;
 using System.ComponentModel;
 using System.Diagnostics;
 using System.Diagnostics.Contracts;
-using System.Linq;
-using System.Reactive.Disposables;
 using System.Runtime.Serialization;
 using System.Text.Json;
-using System.Threading.Tasks;
 
 using BEditor.Command;
 using BEditor.Data.Bindings;
-using BEditor.Data.Property;
 
 namespace BEditor.Data.Property
 {
     /// <summary>
     /// Represents a property for selecting a single item from an array.
     /// </summary>
-    [DataContract]
     [DebuggerDisplay("Index = {Index}, Item = {SelectItem}")]
     public class SelectorProperty<T> : PropertyElement<SelectorPropertyMetadata<T>>, IEasingProperty, IBindable<T?> where T : IJsonObject
     {
@@ -48,7 +42,6 @@ namespace BEditor.Data.Property
         /// <summary>
         /// Get or set the selected item.
         /// </summary>
-        [DataMember]
         public T? SelectItem
         {
             get => _selectItem;
@@ -83,7 +76,6 @@ namespace BEditor.Data.Property
         /// <inheritdoc/>
         public T? Value => SelectItem;
         /// <inheritdoc/>
-        [DataMember]
         public string? BindHint
         {
             get => _bindable?.GetString();

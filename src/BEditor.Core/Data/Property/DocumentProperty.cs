@@ -3,10 +3,7 @@ using System.Collections.Generic;
 using System.ComponentModel;
 using System.Diagnostics;
 using System.Diagnostics.Contracts;
-using System.Reactive.Disposables;
-using System.Runtime.Serialization;
 using System.Text.Json;
-using System.Threading.Tasks;
 
 using BEditor.Command;
 using BEditor.Data.Bindings;
@@ -16,7 +13,6 @@ namespace BEditor.Data.Property
     /// <summary>
     /// Represents a property of a multi-line string.
     /// </summary>
-    [DataContract]
     [DebuggerDisplay("Text = {Value}")]
     public class DocumentProperty : PropertyElement<DocumentPropertyMetadata>, IBindable<string>
     {
@@ -46,7 +42,6 @@ namespace BEditor.Data.Property
         /// <summary>
         /// Gets or sets the string being entered.
         /// </summary>
-        [DataMember]
         public string Value
         {
             get => _value;
@@ -66,7 +61,6 @@ namespace BEditor.Data.Property
             });
         }
         /// <inheritdoc/>
-        [DataMember]
         public string? BindHint
         {
             get => _bindable?.GetString();

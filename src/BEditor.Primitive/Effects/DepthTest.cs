@@ -1,12 +1,7 @@
-﻿using System;
-using System.Collections.Generic;
+﻿using System.Collections.Generic;
 using System.Collections.ObjectModel;
-using System.Runtime.Serialization;
-using System.Text;
 
-using BEditor.Command;
 using BEditor.Data;
-using BEditor.Data.Primitive;
 using BEditor.Data.Property;
 using BEditor.Properties;
 
@@ -17,7 +12,6 @@ namespace BEditor.Primitive.Effects
     /// <summary>
     /// Represents an <see cref="EffectElement"/> that sets the OpenGL depth test.
     /// </summary>
-    [DataContract]
     public class DepthTest : EffectElement
     {
         /// <summary>
@@ -88,27 +82,27 @@ namespace BEditor.Primitive.Effects
         /// <summary>
         /// Gets the <see cref="CheckProperty"/> that represents the value to enable depth testing.
         /// </summary>
-        [DataMember(Order = 0)]
+        [DataMember]
         public CheckProperty Enabled { get; private set; }
         /// <summary>
         /// Get the <see cref="SelectorProperty"/> that selects the function for the depth test.
         /// </summary>
-        [DataMember(Order = 1)]
+        [DataMember]
         public SelectorProperty Function { get; private set; }
         /// <summary>
         /// Gets the <see cref="CheckProperty"/> indicating whether the depth mask is enabled.
         /// </summary>
-        [DataMember(Order = 2)]
+        [DataMember]
         public CheckProperty Mask { get; private set; }
         /// <summary>
         /// Gets the <see cref="EaseProperty"/> representing the depth range.
         /// </summary>
-        [DataMember(Order = 3)]
+        [DataMember]
         public EaseProperty Near { get; private set; }
         /// <summary>
         /// Gets the <see cref="EaseProperty"/> representing the depth range.
         /// </summary>
-        [DataMember(Order = 4)]
+        [DataMember]
         public EaseProperty Far { get; private set; }
 
         /// <inheritdoc/>

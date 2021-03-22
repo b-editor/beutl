@@ -1,22 +1,16 @@
-﻿using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Runtime.Serialization;
-using System.Text;
-using System.Threading.Tasks;
+﻿using System.Collections.Generic;
 
 using BEditor.Data;
 using BEditor.Data.Primitive;
 using BEditor.Data.Property;
 using BEditor.Data.Property.PrimitiveGroup;
-using BEditor.Properties;
 using BEditor.Drawing;
 using BEditor.Drawing.Pixel;
+using BEditor.Properties;
 
 namespace BEditor.Primitive.Effects
 {
-#pragma warning disable CS1591 // 公開されている型またはメンバーの XML コメントがありません
-    [DataContract]
+#pragma warning disable CS1591
     public class PointLightDiffuse : ImageEffect
     {
         public static readonly EasePropertyMetadata XMetadata = Coordinate.XMetadata;
@@ -46,17 +40,17 @@ namespace BEditor.Primitive.Effects
             SurfaceScale,
             LightConstant
         };
-        [DataMember(Order = 0)]
+        [DataMember]
         public EaseProperty X { get; private set; }
-        [DataMember(Order = 1)]
+        [DataMember]
         public EaseProperty Y { get; private set; }
-        [DataMember(Order = 2)]
+        [DataMember]
         public EaseProperty Z { get; private set; }
-        [DataMember(Order = 3)]
+        [DataMember]
         public ColorProperty LightColor { get; private set; }
-        [DataMember(Order = 4)]
+        [DataMember]
         public EaseProperty SurfaceScale { get; private set; }
-        [DataMember(Order = 5)]
+        [DataMember]
         public EaseProperty LightConstant { get; private set; }
 
         public override void Render(EffectRenderArgs<Image<BGRA32>> args)
@@ -85,5 +79,5 @@ namespace BEditor.Primitive.Effects
             }
         }
     }
-#pragma warning restore CS1591 // 公開されている型またはメンバーの XML コメントがありません
+#pragma warning restore CS1591
 }

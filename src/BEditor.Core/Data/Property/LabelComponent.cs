@@ -2,19 +2,14 @@
 using System.Collections.Generic;
 using System.ComponentModel;
 using System.Diagnostics;
-using System.Linq;
 using System.Reactive.Disposables;
-using System.Runtime.Serialization;
-using System.Text;
 using System.Text.Json;
-using System.Threading.Tasks;
 
 namespace BEditor.Data.Property
 {
     /// <summary>
     /// Represents a project that shows a string in the UI.
     /// </summary>
-    [DataContract]
     [DebuggerDisplay("Text = {Text}")]
     public class LabelComponent : PropertyElement<PropertyElementMetadata>, IEasingProperty, IObservable<string>, IObserver<string>
     {
@@ -26,7 +21,6 @@ namespace BEditor.Data.Property
         /// <summary>
         /// Gets or sets the string to be shown.
         /// </summary>
-        [DataMember]
         public string Text
         {
             get => _text;

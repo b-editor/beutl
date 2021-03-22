@@ -130,18 +130,16 @@ namespace BEditor.ViewModels
                 .Subscribe(_ => Process.Start("explorer.exe", AppData.Current.Project!.DirectoryName!));
 
             ConvertJson.Where(_ => AppData.Current.Project is not null)
-                .Subscribe(_ =>
+                .Subscribe(async _ =>
                 {
                     var temp = Path.GetTempFileName();
-                    using var stream = new FileStream(temp, FileMode.Create);
+                    await using var stream = new FileStream(temp, FileMode.Create);
 
-                    if (!Serialize.SaveToStream(AppData.Current.Project, stream, SerializeMode.Json)) throw new Exception();
+                    if (!await Serialize.SaveToStreamAsync(AppData.Current.Project, stream, SerializeMode.Json)) throw new Exception();
 
                     var p = Process.Start("notepad.exe", temp);
 
                     p.WaitForInputIdle();
-
-                    File.Delete(temp);
                 });
 
             #endregion

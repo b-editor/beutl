@@ -1,9 +1,6 @@
 ﻿using System;
 using System.Collections.Generic;
-using System.Runtime.Serialization;
 
-using BEditor.Command;
-using BEditor.Data.Property;
 using BEditor.Properties;
 
 namespace BEditor.Data.Property.PrimitiveGroup
@@ -11,7 +8,6 @@ namespace BEditor.Data.Property.PrimitiveGroup
     /// <summary>
     /// Represents a property that sets the scale.
     /// </summary>
-    [DataContract]
     public sealed class Zoom : ExpandGroup
     {
         /// <summary>
@@ -55,22 +51,22 @@ namespace BEditor.Data.Property.PrimitiveGroup
         /// <summary>
         /// Get the EaseProperty representing the scale.
         /// </summary>
-        [DataMember(Name = "Zoom", Order = 0)]
+        [DataMember]
         public EaseProperty Scale { get; private set; }
         /// <summary>
         /// Get the <see cref="EaseProperty"/> that represents the scale in the Z-axis direction.
         /// </summary>
-        [DataMember(Order = 1)]
+        [DataMember]
         public EaseProperty ScaleX { get; private set; }
         /// <summary>
         /// Get the <see cref="EaseProperty"/> that represents the scale in the Y-axis direction.
         /// </summary>
-        [DataMember(Order = 2)]
+        [DataMember]
         public EaseProperty ScaleY { get; private set; }
         /// <summary>
         /// Get the <see cref="EaseProperty"/> that represents the scale in the Z-axis direction.
         /// </summary>
-        [DataMember(Order = 3)]
+        [DataMember]
         public EaseProperty ScaleZ { get; private set; }
 
         /// <inheritdoc/>

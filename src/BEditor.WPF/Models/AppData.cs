@@ -4,6 +4,7 @@ using System.IO;
 using System.Linq;
 using System.Net.Http;
 using System.Reactive.Disposables;
+using System.Runtime.InteropServices;
 using System.Text;
 using System.Text.Json;
 
@@ -163,7 +164,7 @@ namespace BEditor.Models
                 }
             }
         }
-        public void RestoreAppConfig(Project project, string directory)
+        public unsafe void RestoreAppConfig(Project project, string directory)
         {
             static void IfNotExistCreateDir(string dir)
             {
@@ -186,22 +187,41 @@ namespace BEditor.Models
                     var sceneCache = Path.Combine(sceneCacheDir, scene.Name + ".cache");
 
                     if (!File.Exists(sceneCache)) continue;
+                    Stream stream = null;
+                    IntPtr bufPtr = default;
 
-                    var cacheObj = JsonSerializer.Deserialize<SceneCache>(sceneCache);
-
-                    if (cacheObj is not null)
+                    try
                     {
-                        scene.SelectItem = scene[cacheObj.Select];
-                        scene.PreviewFrame = cacheObj.PreviewFrame;
-                        scene.TimeLineZoom = cacheObj.TimelineScale;
-                        scene.TimeLineHorizonOffset = cacheObj.TimelineHorizonOffset;
-                        scene.TimeLineVerticalOffset = cacheObj.TimelineVerticalOffset;
+                        stream = File.OpenRead(sceneCache);
+                        bufPtr = Marshal.AllocCoTaskMem((int)stream.Length);
+                        var buf = new Span<byte>((void*)bufPtr, (int)stream.Length);
+                        stream.Read(buf);
 
-                        foreach (var select in cacheObj.Selects.Select(i => scene[i]).Where(i => i is not null))
+                        var cacheObj = JsonSerializer.Deserialize<SceneCache>(buf, new JsonSerializerOptions()
                         {
-                            scene.SelectItems.Add(select!);
+                            WriteIndented = true
+                        });
+
+                        if (cacheObj is not null)
+                        {
+                            scene.SelectItem = scene[cacheObj.Select];
+                            scene.PreviewFrame = cacheObj.PreviewFrame;
+                            scene.TimeLineZoom = cacheObj.TimelineScale;
+                            scene.TimeLineHorizonOffset = cacheObj.TimelineHorizonOffset;
+                            scene.TimeLineVerticalOffset = cacheObj.TimelineVerticalOffset;
+
+                            foreach (var select in cacheObj.Selects.Select(i => scene[i]).Where(i => i is not null))
+                            {
+                                scene.SelectItems.Add(select!);
+                            }
                         }
                     }
+                    finally
+                    {
+                        stream?.Dispose();
+                        if (bufPtr != IntPtr.Zero) Marshal.FreeCoTaskMem(bufPtr);
+                    }
+
                 }
             }
         }

@@ -1,16 +1,10 @@
 ﻿using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Runtime.Serialization;
-using System.Text;
-using System.Threading.Tasks;
 
 namespace BEditor.Data.Property
 {
     /// <summary>
     /// Represents a base class for showing multiple <see cref="PropertyElement"/> in a dialog.
     /// </summary>
-    [DataContract]
     public abstract class DialogProperty : Group
     {
         /// <summary>

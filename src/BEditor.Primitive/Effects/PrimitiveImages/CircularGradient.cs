@@ -1,18 +1,13 @@
-﻿using System;
-using System.Collections.Generic;
+﻿using System.Collections.Generic;
 using System.Linq;
 using System.Reactive.Linq;
-using System.Runtime.Serialization;
-using System.Text;
-using System.Threading.Tasks;
 
-using BEditor.Command;
 using BEditor.Data;
 using BEditor.Data.Primitive;
 using BEditor.Data.Property;
-using BEditor.Properties;
 using BEditor.Drawing;
 using BEditor.Drawing.Pixel;
+using BEditor.Properties;
 
 using Reactive.Bindings;
 
@@ -21,8 +16,7 @@ namespace BEditor.Primitive.Effects
     /// <summary>
     /// Represents an <see cref="ImageEffect"/> that masks an image with a circular gradient.
     /// </summary>
-    [DataContract]
-    public class CircularGradient : ImageEffect
+    public sealed class CircularGradient : ImageEffect
     {
         /// <summary>
         /// Represents <see cref="CenterX"/> metadata.
@@ -79,32 +73,32 @@ namespace BEditor.Primitive.Effects
         /// <summary>
         /// Get the <see cref="EaseProperty"/> representing the X coordinate of the center.
         /// </summary>
-        [DataMember(Order = 0)]
+        [DataMember]
         public EaseProperty CenterX { get; private set; }
         /// <summary>
         /// Get the <see cref="EaseProperty"/> representing the Y coordinate of the center.
         /// </summary>
-        [DataMember(Order = 1)]
+        [DataMember]
         public EaseProperty CenterY { get; private set; }
         /// <summary>
         /// Get the <see cref="EaseProperty"/> representing the radius.
         /// </summary>
-        [DataMember(Order = 2)]
+        [DataMember]
         public EaseProperty Radius { get; private set; }
         /// <summary>
         /// Get the <see cref="TextProperty"/> representing the colors.
         /// </summary>
-        [DataMember(Order = 3)]
+        [DataMember]
         public TextProperty Colors { get; private set; }
         /// <summary>
         /// Get the <see cref="TextProperty"/> representing the anchors.
         /// </summary>
-        [DataMember(Order = 4)]
+        [DataMember]
         public TextProperty Anchors { get; private set; }
         /// <summary>
         /// Get the <see cref="SelectorProperty"/> that selects the gradient mode.
         /// </summary>
-        [DataMember(Order = 5)]
+        [DataMember]
         public SelectorProperty Mode { get; private set; }
 
         private ReactiveProperty<Color[]> ColorsProp => _colorsProp ??= new();

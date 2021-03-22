@@ -1,15 +1,10 @@
 ﻿using System;
 using System.Collections.Generic;
-using System.Runtime.Serialization;
 
-using BEditor.Command;
-using BEditor.Data;
-using BEditor.Data.Property;
 using BEditor.Properties;
 
 namespace BEditor.Data.Property.PrimitiveGroup
 {
-    //Todo
     /// <summary>
     /// Represents a property for setting the angle of the XYZ axis.
     /// </summary>
@@ -50,14 +45,17 @@ namespace BEditor.Data.Property.PrimitiveGroup
         /// <summary>
         /// Get the <see cref="EaseProperty"/> of the X-axis angle.
         /// </summary>
+        [DataMember]
         public EaseProperty AngleX { get; private set; }
         /// <summary>
         /// Get the <see cref="EaseProperty"/> of the Y-axis angle.
         /// </summary>
+        [DataMember]
         public EaseProperty AngleY { get; private set; }
         /// <summary>
         /// Get the <see cref="EaseProperty"/> of the Z-axis angle.
         /// </summary>
+        [DataMember]
         public EaseProperty AngleZ { get; private set; }
 
         /// <inheritdoc/>

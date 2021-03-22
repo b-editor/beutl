@@ -5,12 +5,10 @@ using System.ComponentModel;
 using System.Diagnostics;
 using System.Diagnostics.Contracts;
 using System.Linq;
-using System.Reactive.Subjects;
 using System.Runtime.Serialization;
 using System.Text.Json;
 
 using BEditor.Command;
-using BEditor.Data.Property;
 using BEditor.Data.Property.Easing;
 using BEditor.Media;
 
@@ -19,7 +17,6 @@ namespace BEditor.Data.Property
     /// <summary>
     /// Represents the property that eases the value of a <see cref="float"/> type.
     /// </summary>
-    [DataContract]
     [DebuggerDisplay("Count = {Value.Count}, Easing = {EasingData.Name}")]
     public partial class EaseProperty : PropertyElement<EasePropertyMetadata>, IKeyFrameProperty
     {
@@ -49,19 +46,16 @@ namespace BEditor.Data.Property
         /// <summary>
         /// Get the <see cref="ObservableCollection{Single}"/> of the <see cref="float"/> type value corresponding to <see cref="Frame"/>.
         /// </summary>
-        [DataMember]
         public ObservableCollection<float> Value { get; private set; }
 
         /// <summary>
         /// Get the <see cref="List{Frame}"/> of the frame number corresponding to <see cref="Value"/>.
         /// </summary>
-        [DataMember]
         public List<Frame> Frames { get; private set; }
 
         /// <summary>
         /// Get or set the current <see cref="EasingFunc"/>.
         /// </summary>
-        [DataMember]
         public EasingFunc EasingType
         {
             get
@@ -328,7 +322,8 @@ namespace BEditor.Data.Property
 
             writer.WriteStartObject("Easing");
             {
-                writer.WriteString("_type", EasingType.GetType().FullName);
+                var type = EasingType.GetType();
+                writer.WriteString("_type", type.FullName + ", " + type.Assembly.GetName().Name);
                 EasingType.GetObjectData(writer);
             }
             writer.WriteEndObject();
@@ -347,7 +342,7 @@ namespace BEditor.Data.Property
 
             var easing = element.GetProperty("Easing");
             var type = Type.GetType(easing.GetProperty("_type").GetString()!);
-            if(type is null)
+            if (type is null)
             {
                 EasingType = EasingMetadata.LoadedEasingFunc.First().CreateFunc();
             }

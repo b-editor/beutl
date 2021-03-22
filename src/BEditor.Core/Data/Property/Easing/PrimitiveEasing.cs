@@ -1,11 +1,6 @@
 ﻿using System;
 using System.Collections.Generic;
-using System.Runtime.InteropServices;
-using System.Runtime.Serialization;
-using System.Text;
 
-using BEditor.Command;
-using BEditor.Data.Property;
 using BEditor.Media;
 
 namespace BEditor.Data.Property.Easing
@@ -13,7 +8,6 @@ namespace BEditor.Data.Property.Easing
     /// <summary>
     /// Represents a standard <see cref="EasingFunc"/>.
     /// </summary>
-    [DataContract]
     public sealed class PrimitiveEasing : EasingFunc
     {
         /// <summary>
@@ -76,7 +70,7 @@ namespace BEditor.Data.Property.Easing
         /// <summary>
         /// Get the <see cref="SelectorProperty"/> to select the easing function.
         /// </summary>
-        [DataMember()]
+        [DataMember]
         public SelectorProperty EasingType { get; private set; }
 
         /// <inheritdoc/>

@@ -1,8 +1,5 @@
 ﻿using System.Collections.Generic;
-using System.Runtime.Serialization;
 
-using BEditor;
-using BEditor.Command;
 using BEditor.Data;
 using BEditor.Data.Primitive;
 using BEditor.Data.Property;
@@ -15,9 +12,8 @@ namespace BEditor.Primitive.Objects
     /// <summary>
     /// Represents an <see cref="ImageObject"/> to draw a shape.
     /// </summary>
-    [DataContract]
     [CustomClipUI(Color = 0x0091ea)]
-    public class Figure : ImageObject
+    public sealed class Figure : ImageObject
     {
         /// <summary>
         /// Represents <see cref="Width"/> metadata.
@@ -75,27 +71,27 @@ namespace BEditor.Primitive.Objects
         /// <summary>
         /// Get the <see cref="EaseProperty"/> that represents the width of the shape.
         /// </summary>
-        [DataMember(Order = 0)]
+        [DataMember]
         public EaseProperty Width { get; private set; }
         /// <summary>
         /// Get the <see cref="EaseProperty"/> that represents the height of the shape.
         /// </summary>
-        [DataMember(Order = 1)]
+        [DataMember]
         public EaseProperty Height { get; private set; }
         /// <summary>
         /// Get the <see cref="EaseProperty"/> that represents the line width of the shape.
         /// </summary>
-        [DataMember(Order = 2)]
+        [DataMember]
         public EaseProperty Line { get; private set; }
         /// <summary>
         /// Get the <see cref="ColorProperty"/> that represents the color of the shape.
         /// </summary>
-        [DataMember(Order = 3)]
+        [DataMember]
         public ColorProperty Color { get; private set; }
         /// <summary>
         /// Get the <see cref="SelectorProperty"/> to select the type of the shape.
         /// </summary>
-        [DataMember(Order = 4)]
+        [DataMember]
         public SelectorProperty Type { get; private set; }
 
         /// <inheritdoc/>

@@ -4,21 +4,16 @@ using System.ComponentModel;
 using System.Diagnostics;
 using System.Diagnostics.Contracts;
 using System.IO;
-using System.Reactive.Disposables;
-using System.Runtime.Serialization;
 using System.Text.Json;
-using System.Threading.Tasks;
 
 using BEditor.Command;
 using BEditor.Data.Bindings;
-using BEditor.Data.Property;
 
 namespace BEditor.Data.Property
 {
     /// <summary>
     /// Represents a property to select a file.
     /// </summary>
-    [DataContract]
     [DebuggerDisplay("File = {Value}")]
     public class FileProperty : PropertyElement<FilePropertyMetadata>, IEasingProperty, IBindable<string>
     {
@@ -49,7 +44,6 @@ namespace BEditor.Data.Property
         /// <summary>
         /// Gets or sets the name of the selected file.
         /// </summary>
-        [DataMember(Name = "File")]
         public string RawValue
         {
             get => _rawFile;
@@ -89,7 +83,6 @@ namespace BEditor.Data.Property
             }
         }
         /// <inheritdoc/>
-        [DataMember]
         public string? BindHint
         {
             get => _bindable?.GetString();
@@ -98,7 +91,6 @@ namespace BEditor.Data.Property
         /// <summary>
         /// Gets or sets the mode of the file path.
         /// </summary>
-        [DataMember]
         public FilePathType Mode
         {
             get => _mode;

@@ -4,23 +4,17 @@ using System.ComponentModel;
 using System.Diagnostics;
 using System.Diagnostics.Contracts;
 using System.IO;
-using System.Linq;
-using System.Reactive.Disposables;
-using System.Runtime.Serialization;
 using System.Text;
 using System.Text.Json;
-using System.Threading.Tasks;
 
 using BEditor.Command;
 using BEditor.Data.Bindings;
-using BEditor.Data.Property;
 
 namespace BEditor.Data.Property
 {
     /// <summary>
     /// Represents a property to select a folder.
     /// </summary>
-    [DataContract]
     [DebuggerDisplay("Folder = {Value}")]
     public class FolderProperty : PropertyElement<FolderPropertyMetadata>, IEasingProperty, IBindable<string>
     {
@@ -51,7 +45,6 @@ namespace BEditor.Data.Property
         /// <summary>
         /// Gets or sets the name of the selected folder.
         /// </summary>
-        [DataMember(Name = "Folder")]
         public string RawValue
         {
             get => _rawFolder;
@@ -91,7 +84,6 @@ namespace BEditor.Data.Property
             }
         }
         /// <inheritdoc/>
-        [DataMember]
         public string? BindHint
         {
             get => _bindable?.GetString();
@@ -100,7 +92,6 @@ namespace BEditor.Data.Property
         /// <summary>
         /// Gets or sets the mode of the file path.
         /// </summary>
-        [DataMember]
         public FilePathType Mode
         {
             get => _mode;

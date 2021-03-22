@@ -240,21 +240,21 @@ namespace BEditor.ViewModels.TimeLines
             IsExpanded.Value = !IsExpanded.Value;
         }
 
-        private void ClipCopy()
+        private async void ClipCopy()
         {
-            using var memory = new MemoryStream();
-            Serialize.SaveToStream(ClipElement, memory, SerializeMode.Json);
+            await using var memory = new MemoryStream();
+            await Serialize.SaveToStreamAsync(ClipElement, memory, SerializeMode.Json);
 
             var json = Encoding.Default.GetString(memory.ToArray());
             Clipboard.SetText(json); ;
         }
 
-        private void ClipCut()
+        private async void ClipCut()
         {
             ClipElement.Parent.RemoveClip(ClipElement).Execute();
 
-            using var memory = new MemoryStream();
-            Serialize.SaveToStream(ClipElement, memory, SerializeMode.Json);
+            await using var memory = new MemoryStream();
+            await Serialize.SaveToStreamAsync(ClipElement, memory, SerializeMode.Json);
 
             var json = Encoding.Default.GetString(memory.ToArray());
             Clipboard.SetText(json);

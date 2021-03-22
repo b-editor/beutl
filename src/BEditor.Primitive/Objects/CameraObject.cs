@@ -1,20 +1,16 @@
 ﻿using System.Collections.Generic;
 using System.Linq;
-using System.Runtime.Serialization;
 
-using BEditor.Command;
 using BEditor.Data;
-using BEditor.Data.Primitive;
 using BEditor.Data.Property;
-using BEditor.Properties;
 using BEditor.Graphics;
+using BEditor.Properties;
 
 namespace BEditor.Primitive.Objects
 {
     /// <summary>
     /// Represents an <see cref="ObjectElement"/> that sets the camera for OpenGL.
     /// </summary>
-    [DataContract]
     public class CameraObject : ObjectElement
     {
         /// <summary>
@@ -95,57 +91,57 @@ namespace BEditor.Primitive.Objects
         /// <summary>
         /// Gets the <see cref="EaseProperty"/> representing the X coordinate of the camera.
         /// </summary>
-        [DataMember(Order = 0)]
+        [DataMember]
         public EaseProperty X { get; private set; }
         /// <summary>
         /// Gets the <see cref="EaseProperty"/> representing the Y coordinate of the camera.
         /// </summary>
-        [DataMember(Order = 1)]
+        [DataMember]
         public EaseProperty Y { get; private set; }
         /// <summary>
         /// Gets the <see cref="EaseProperty"/> representing the Z coordinate of the camera.
         /// </summary>
-        [DataMember(Order = 2)]
+        [DataMember]
         public EaseProperty Z { get; private set; }
         /// <summary>
         /// Get the <see cref="EaseProperty"/> that represents the X coordinate of the camera's target position.
         /// </summary>
-        [DataMember(Order = 3)]
+        [DataMember]
         public EaseProperty TargetX { get; private set; }
         /// <summary>
         /// Get the <see cref="EaseProperty"/> that represents the Y coordinate of the camera's target position.
         /// </summary>
-        [DataMember(Order = 4)]
+        [DataMember]
         public EaseProperty TargetY { get; private set; }
         /// <summary>
         /// Get the <see cref="EaseProperty"/> that represents the Z coordinate of the camera's target position.
         /// </summary>
-        [DataMember(Order = 5)]
+        [DataMember]
         public EaseProperty TargetZ { get; private set; }
         /// <summary>
         /// Get the <see cref="EaseProperty"/> of the area to be drawn by the camera.
         /// </summary>
-        [DataMember(Order = 6)]
+        [DataMember]
         public EaseProperty ZNear { get; private set; }
         /// <summary>
         /// Get the <see cref="EaseProperty"/> of the area to be drawn by the camera.
         /// </summary>
-        [DataMember(Order = 7)]
+        [DataMember]
         public EaseProperty ZFar { get; private set; }
         /// <summary>
         /// Get the <see cref="EaseProperty"/> representing the camera angle.
         /// </summary>
-        [DataMember(Order = 8)]
+        [DataMember]
         public EaseProperty Angle { get; private set; }
         /// <summary>
         /// Get the <see cref="EaseProperty"/> representing the camera fov.
         /// </summary>
-        [DataMember(Order = 9)]
+        [DataMember]
         public EaseProperty Fov { get; private set; }
         /// <summary>
         /// Gets the <see cref="CheckProperty"/> representing whether the camera is Perspective or not.
         /// </summary>
-        [DataMember(Order = 10)]
+        [DataMember]
         public CheckProperty Mode { get; private set; }
 
         /// <inheritdoc/>

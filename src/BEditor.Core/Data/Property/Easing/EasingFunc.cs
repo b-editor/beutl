@@ -11,13 +11,13 @@ using BEditor.Data.Property;
 using BEditor.Properties;
 using BEditor.Media;
 using System.Text.Json;
+using System.Reflection;
 
 namespace BEditor.Data.Property.Easing
 {
     /// <summary>
     /// Represents an easing function that can be used with <see cref="IKeyFrameProperty"/>.
     /// </summary>
-    [DataContract]
     public abstract class EasingFunc : EditorObject, IChild<PropertyElement>, IParent<IEasingProperty>, IElementObject, IJsonObject
     {
         #region Fields
@@ -69,10 +69,10 @@ namespace BEditor.Data.Property.Easing
         /// <returns>Eased value</returns>
         public abstract float EaseFunc(Frame frame, Frame totalframe, float min, float max);
 
-        // Todo: 
         /// <inheritdoc/>
-        public virtual void GetObjectData(Utf8JsonWriter writer)
+        public override void GetObjectData(Utf8JsonWriter writer)
         {
+            base.GetObjectData(writer);
             foreach (var item in GetType().GetProperties()
                 .Where(i => Attribute.IsDefined(i, typeof(DataMemberAttribute)))
                 .Select(i => (Info: i, Attribute: (DataMemberAttribute)Attribute.GetCustomAttribute(i, typeof(DataMemberAttribute))!))
@@ -88,8 +88,9 @@ namespace BEditor.Data.Property.Easing
         }
 
         /// <inheritdoc/>
-        public virtual void SetObjectData(JsonElement element)
+        public override void SetObjectData(JsonElement element)
         {
+            base.SetObjectData(element);
             foreach (var item in GetType().GetProperties()
                 .Where(i => Attribute.IsDefined(i, typeof(DataMemberAttribute)))
                 .Select(i => (Info: i, Attribute: (DataMemberAttribute)Attribute.GetCustomAttribute(i, typeof(DataMemberAttribute))!))
@@ -98,6 +99,15 @@ namespace BEditor.Data.Property.Easing
                 var property = element.GetProperty(item.Attribute.Name ?? item.Info.Name);
                 var obj = (IJsonObject)FormatterServices.GetUninitializedObject(item.Info.PropertyType);
                 obj.SetObjectData(property);
+
+                if (item.Info.ReflectedType != item.Info.DeclaringType)
+                {
+                    item.Info.DeclaringType?.GetProperty(item.Info.Name)?.SetValue(this, obj);
+                }
+                else
+                {
+                    item.Info.SetValue(this, obj);
+                }
             }
         }
     }

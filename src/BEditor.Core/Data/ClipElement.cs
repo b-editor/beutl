@@ -2,22 +2,15 @@
 using System.Collections.Generic;
 using System.Collections.ObjectModel;
 using System.ComponentModel;
-using System.ComponentModel.DataAnnotations;
-using System.Diagnostics.CodeAnalysis;
 using System.Diagnostics.Contracts;
 using System.Globalization;
-using System.IO;
 using System.Linq;
 using System.Runtime.Serialization;
+using System.Text.Json;
 using System.Text.RegularExpressions;
-using System.Threading.Tasks;
 
 using BEditor.Command;
-using BEditor.Properties;
 using BEditor.Media;
-
-using Microsoft.Extensions.DependencyInjection;
-using System.Text.Json;
 
 namespace BEditor.Data
 {
@@ -347,8 +340,9 @@ namespace BEditor.Data
         }
 
         /// <inheritdoc/>
-        public void GetObjectData(Utf8JsonWriter writer)
+        public override void GetObjectData(Utf8JsonWriter writer)
         {
+            base.GetObjectData(writer);
             writer.WriteNumber(nameof(Id), Id);
             writer.WriteNumber(nameof(Start), Start);
             writer.WriteNumber(nameof(End), End);
@@ -360,7 +354,8 @@ namespace BEditor.Data
                 {
                     writer.WriteStartObject();
                     {
-                        writer.WriteString("_type", effect.GetType().FullName);
+                        var type = effect.GetType();
+                        writer.WriteString("_type", type.FullName + ", " + type.Assembly.GetName().Name);
                         effect.GetObjectData(writer);
                     }
                     writer.WriteEndObject();
@@ -370,8 +365,9 @@ namespace BEditor.Data
         }
 
         /// <inheritdoc/>
-        public void SetObjectData(JsonElement element)
+        public override void SetObjectData(JsonElement element)
         {
+            base.SetObjectData(element);
             Id = element.GetProperty(nameof(Id)).GetInt32();
             Start = element.GetProperty(nameof(Start)).GetInt32();
             End = element.GetProperty(nameof(End)).GetInt32();
@@ -381,12 +377,13 @@ namespace BEditor.Data
             Effect = new();
             foreach (var effect in effects.EnumerateArray())
             {
-                if (Type.GetType(effect.GetProperty("_type").GetString() ?? "") is var type && type is not null)
+                var typeName = effect.GetProperty("_type").GetString() ?? "";
+                if (Type.GetType(typeName) is var type && type is not null)
                 {
                     var obj = (EffectElement)FormatterServices.GetUninitializedObject(type);
                     obj.SetObjectData(effect);
 
-                    Effect.Add(obj);  
+                    Effect.Add(obj);
                 }
             }
         }

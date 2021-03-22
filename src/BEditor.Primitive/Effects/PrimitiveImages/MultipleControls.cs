@@ -1,26 +1,21 @@
-﻿using System;
-using System.Collections.Generic;
+﻿using System.Collections.Generic;
 using System.Linq;
-using System.Runtime.Serialization;
-using System.Text;
-using System.Threading.Tasks;
 
 using BEditor.Data;
 using BEditor.Data.Primitive;
 using BEditor.Data.Property;
 using BEditor.Data.Property.PrimitiveGroup;
-using BEditor.Properties;
 using BEditor.Drawing;
 using BEditor.Drawing.Pixel;
 using BEditor.Graphics;
+using BEditor.Properties;
 
 namespace BEditor.Primitive.Effects
 {
     /// <summary>
     /// Represents a <see cref="ImageEffect"/> that provides the ability to edit multiple objects by specifying their indices.
     /// </summary>
-    [DataContract]
-    public class MultipleControls : ImageEffect
+    public sealed class MultipleControls : ImageEffect
     {
         /// <summary>
         /// Represents <see cref="Coordinate"/> metadata.
@@ -63,22 +58,22 @@ namespace BEditor.Primitive.Effects
         /// <summary>
         /// Get the coordinates.
         /// </summary>
-        [DataMember(Order = 0)]
+        [DataMember]
         public Coordinate Coordinate { get; private set; }
         /// <summary>
         /// Get the scale.
         /// </summary>
-        [DataMember(Order = 1)]
+        [DataMember]
         public Zoom Zoom { get; private set; }
         /// <summary>
         /// Get the angle.
         /// </summary>
-        [DataMember(Order = 2)]
+        [DataMember]
         public Angle Angle { get; private set; }
         /// <summary>
         /// Gets the <see cref="ValueProperty"/> representing the index of the image to be controlled.
         /// </summary>
-        [DataMember(Order = 3)]
+        [DataMember]
         public ValueProperty Index { get; private set; }
 
         /// <inheritdoc/>

@@ -1,5 +1,4 @@
 ﻿using System.Collections.Generic;
-using System.Runtime.Serialization;
 
 using BEditor.Command;
 using BEditor.Data;
@@ -20,7 +19,6 @@ namespace BEditor.Primitive.Effects
     /// <summary>
     /// Represents an <see cref="EffectElement"/> that sets the OpenGL point light source.
     /// </summary>
-    [DataContract]
     public class PointLightSource : EffectElement
     {
         /// <summary>
@@ -51,32 +49,32 @@ namespace BEditor.Primitive.Effects
         /// <summary>
         /// Get the <see cref="EaseProperty"/> representing the X coordinate.
         /// </summary>
-        [DataMember(Order = 0)]
+        [DataMember]
         public EaseProperty X { get; private set; }
         /// <summary>
         /// Get the <see cref="EaseProperty"/> representing the Y coordinate.
         /// </summary>
-        [DataMember(Order = 1)]
+        [DataMember]
         public EaseProperty Y { get; private set; }
         /// <summary>
         /// Get the <see cref="EaseProperty"/> representing the Z coordinate.
         /// </summary>
-        [DataMember(Order = 2)]
+        [DataMember]
         public EaseProperty Z { get; private set; }
         /// <summary>
         /// Gets the <see cref="ColorAnimationProperty"/> representing ambient.
         /// </summary>
-        [DataMember(Order = 3)]
+        [DataMember]
         public ColorAnimationProperty Ambient { get; private set; }
         /// <summary>
         /// Gets the <see cref="ColorAnimationProperty"/> representing diffuse.
         /// </summary>
-        [DataMember(Order = 4)]
+        [DataMember]
         public ColorAnimationProperty Diffuse { get; private set; }
         /// <summary>
         ///Gets the <see cref="ColorAnimationProperty"/> representing specular.
         /// </summary>
-        [DataMember(Order = 5)]
+        [DataMember]
         public ColorAnimationProperty Specular { get; private set; }
 
         /// <inheritdoc/>

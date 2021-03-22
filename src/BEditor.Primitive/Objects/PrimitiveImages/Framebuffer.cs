@@ -1,9 +1,4 @@
-﻿using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Runtime.Serialization;
-using System.Text;
-using System.Threading.Tasks;
+﻿using System.Collections.Generic;
 
 using BEditor.Data;
 using BEditor.Data.Primitive;
@@ -17,8 +12,7 @@ namespace BEditor.Primitive.Objects
     /// <summary>
     /// 
     /// </summary>
-    [DataContract]
-    public class Framebuffer : ImageObject
+    public sealed class Framebuffer : ImageObject
     {
         /// <summary>
         /// Represents <see cref="BufferClear"/> metadata.
@@ -48,7 +42,7 @@ namespace BEditor.Primitive.Objects
         /// <summary>
         /// Gets the <see cref="CheckProperty"/> representing the value whether to clear the frame buffer.
         /// </summary>
-        [DataMember(Order = 0)]
+        [DataMember]
         public CheckProperty BufferClear { get; private set; }
 
         /// <inheritdoc/>

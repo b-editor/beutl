@@ -9,7 +9,6 @@ namespace BEditor.Data
     /// <summary>
     /// Represents a base class of the object.
     /// </summary>
-    [DataContract]
     public abstract class ObjectElement : EffectElement
     {
         /// <summary>

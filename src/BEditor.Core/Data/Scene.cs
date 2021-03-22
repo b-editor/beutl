@@ -27,7 +27,6 @@ namespace BEditor.Data
     /// <summary>
     /// Represents a scene to be included in the <see cref="Project"/>.
     /// </summary>
-    [DataContract]
     public class Scene : EditorObject, IParent<ClipElement>, IChild<Project>, IHasName, IHasId, IElementObject, IJsonObject
     {
         #region Fields
@@ -74,19 +73,16 @@ namespace BEditor.Data
         /// <summary>
         /// Gets the width of the frame buffer.
         /// </summary>
-        [DataMember(Order = 0)]
         public int Width { get; private set; }
 
         /// <summary>
         /// Gets the height of the frame buffer.
         /// </summary>
-        [DataMember(Order = 1)]
         public int Height { get; private set; }
 
         /// <summary>
         /// Gets or sets the name of this <see cref="Scene"/>.
         /// </summary>
-        [DataMember(Order = 2)]
         public virtual string SceneName
         {
             get => _sceneName;
@@ -96,7 +92,6 @@ namespace BEditor.Data
         /// <summary>
         /// Gets or sets the total frame.
         /// </summary>
-        [DataMember(Order = 3)]
         public Frame TotalFrame
         {
             get => _totalframe;
@@ -106,13 +101,11 @@ namespace BEditor.Data
         /// <summary>
         /// Gets the number of the hidden layer.
         /// </summary>
-        [DataMember(Order = 4)]
         public List<int> HideLayer { get; private set; } = new List<int>();
 
         /// <summary>
         /// Gets the <see cref="ClipElement"/> contained in this <see cref="Scene"/>.
         /// </summary>
-        [DataMember(Order = 5)]
         public ObservableCollection<ClipElement> Datas { get; private set; }
 
         /// <summary>
@@ -571,8 +564,9 @@ namespace BEditor.Data
         }
 
         /// <inheritdoc/>
-        public void GetObjectData(Utf8JsonWriter writer)
+        public override void GetObjectData(Utf8JsonWriter writer)
         {
+            base.GetObjectData(writer);
             writer.WriteNumber(nameof(Width), Width);
             writer.WriteNumber(nameof(Height), Height);
             writer.WriteString(nameof(SceneName), SceneName);
@@ -600,20 +594,21 @@ namespace BEditor.Data
         }
 
         /// <inheritdoc/>
-        public void SetObjectData(JsonElement element)
+        public override void SetObjectData(JsonElement element)
         {
+            base.SetObjectData(element);
             Width = element.GetProperty(nameof(Width)).GetInt32();
             Height = element.GetProperty(nameof(Height)).GetInt32();
             SceneName = element.GetProperty(nameof(SceneName)).GetString() ?? "";
             TotalFrame = element.GetProperty(nameof(TotalFrame)).GetInt32();
             HideLayer = element.GetProperty(nameof(HideLayer)).EnumerateArray().Select(i => i.GetInt32()).ToList();
             Datas = new(element.GetProperty("Clips").EnumerateArray().Select(i =>
-              {
-                  var clip = (ClipElement)FormatterServices.GetUninitializedObject(typeof(ClipElement));
-                  clip.SetObjectData(i);
+            {
+                var clip = (ClipElement)FormatterServices.GetUninitializedObject(typeof(ClipElement));
+                clip.SetObjectData(i);
 
-                  return clip;
-              }));
+                return clip;
+            }));
         }
         #endregion
 

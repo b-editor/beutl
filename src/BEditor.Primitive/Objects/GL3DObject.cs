@@ -1,16 +1,11 @@
-﻿using System;
-using System.Collections.Generic;
-using System.Runtime.Serialization;
+﻿using System.Collections.Generic;
 
-using BEditor.Command;
 using BEditor.Data;
 using BEditor.Data.Primitive;
 using BEditor.Data.Property;
 using BEditor.Data.Property.PrimitiveGroup;
-using BEditor.Properties;
 using BEditor.Graphics;
-
-using OpenTK.Graphics.OpenGL4;
+using BEditor.Properties;
 
 using GLColor = OpenTK.Mathematics.Color4;
 using Material = BEditor.Data.Property.PrimitiveGroup.Material;
@@ -20,8 +15,7 @@ namespace BEditor.Primitive.Objects
     /// <summary>
     /// Represents an <see cref="ObjectElement"/> that draws a Cube, Ball, etc.
     /// </summary>
-    [DataContract]
-    public class GL3DObject : ObjectElement
+    public sealed class GL3DObject : ObjectElement
     {
         /// <summary>
         /// Represents <see cref="Type"/> metadata.
@@ -70,47 +64,47 @@ namespace BEditor.Primitive.Objects
         /// <summary>
         /// Get the coordinates.
         /// </summary>
-        [DataMember(Order = 0)]
+        [DataMember]
         public Coordinate Coordinate { get; private set; }
         /// <summary>
         /// Get the scale.
         /// </summary>
-        [DataMember(Order = 1)]
+        [DataMember]
         public Zoom Zoom { get; private set; }
         /// <summary>
         /// Get the blend.
         /// </summary>
-        [DataMember(Order = 2)]
+        [DataMember]
         public Blend Blend { get; private set; }
         /// <summary>
         /// Get the angle.
         /// </summary>
-        [DataMember(Order = 3)]
+        [DataMember]
         public Angle Angle { get; private set; }
         /// <summary>
         /// Get the material.
         /// </summary>
-        [DataMember(Order = 4)]
+        [DataMember]
         public Material Material { get; private set; }
         /// <summary>
         /// Get the <see cref="SelectorProperty"/> to select the object type.
         /// </summary>
-        [DataMember(Order = 5)]
+        [DataMember]
         public SelectorProperty Type { get; private set; }
         /// <summary>
         /// Gets the <see cref="EaseProperty"/> representing the width of the object.
         /// </summary>
-        [DataMember(Order = 6)]
+        [DataMember]
         public EaseProperty Width { get; private set; }
         /// <summary>
         /// Gets the <see cref="EaseProperty"/> representing the height of the object.
         /// </summary>
-        [DataMember(Order = 7)]
+        [DataMember]
         public EaseProperty Height { get; private set; }
         /// <summary>
         /// Gets the <see cref="EaseProperty"/> representing the depth of the object.
         /// </summary>
-        [DataMember(Order = 8)]
+        [DataMember]
         public EaseProperty Depth { get; private set; }
 
         /// <inheritdoc/>

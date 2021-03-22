@@ -21,7 +21,7 @@ namespace BEditor.Data
     /// <summary>
     /// Represents the project to be used in editing.
     /// </summary>
-    public class Project : EditorObject, IExtensibleDataObject, IParent<Scene>, IChild<IApplication>, IElementObject, IHasName, IJsonObject
+    public class Project : EditorObject, IParent<Scene>, IChild<IApplication>, IElementObject, IHasName, IJsonObject
     {
         #region Fields
 
@@ -387,8 +387,9 @@ namespace BEditor.Data
         }
 
         /// <inheritdoc/>
-        public void GetObjectData(Utf8JsonWriter writer)
+        public override void GetObjectData(Utf8JsonWriter writer)
         {
+            base.GetObjectData(writer);
             writer.WriteNumber(nameof(Framerate), Framerate);
             writer.WriteNumber(nameof(Samplingrate), Samplingrate);
             writer.WriteNumber(nameof(PreviewSceneIndex), PreviewSceneIndex);
@@ -407,8 +408,9 @@ namespace BEditor.Data
         }
 
         /// <inheritdoc/>
-        public void SetObjectData(JsonElement element)
+        public override void SetObjectData(JsonElement element)
         {
+            base.SetObjectData(element);
             Framerate = element.GetProperty(nameof(Framerate)).GetInt32();
             Samplingrate = element.GetProperty(nameof(Samplingrate)).GetInt32();
             PreviewSceneIndex = element.GetProperty(nameof(PreviewSceneIndex)).GetInt32();

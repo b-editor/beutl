@@ -3,16 +3,13 @@ using System.Collections.Generic;
 using System.Collections.ObjectModel;
 using System.ComponentModel;
 using System.Diagnostics;
-using System.Diagnostics.CodeAnalysis;
 using System.Diagnostics.Contracts;
 using System.Linq;
 using System.Reactive.Linq;
-using System.Reactive.Subjects;
 using System.Runtime.Serialization;
 using System.Text.Json;
 
 using BEditor.Command;
-using BEditor.Data.Property;
 using BEditor.Data.Property.Easing;
 using BEditor.Drawing;
 using BEditor.Media;
@@ -22,7 +19,6 @@ namespace BEditor.Data.Property
     /// <summary>
     /// Represents a property that eases the value of a <see cref="Color"/> type.
     /// </summary>
-    [DataContract]
     [DebuggerDisplay("Count = {Value.Count}, Easing = {EasingData.Name}")]
     public class ColorAnimationProperty : PropertyElement<ColorAnimationPropertyMetadata>, IKeyFrameProperty
     {
@@ -53,19 +49,16 @@ namespace BEditor.Data.Property
         /// <summary>
         /// Get the <see cref="ObservableCollection{Color}"/> of the <see cref="Color"/> type value corresponding to <see cref="Frames"/>.
         /// </summary>
-        [DataMember]
         public ObservableCollection<Color> Value { get; set; }
 
         /// <summary>
         /// Get the <see cref="List{Frame}"/> of the frame number corresponding to <see cref="Value"/>.
         /// </summary>
-        [DataMember]
         public List<Frame> Frames { get; set; }
 
         /// <summary>
         /// Get or set the current <see cref="EasingFunc"/>.
         /// </summary>
-        [DataMember]
         public EasingFunc EasingType
         {
             get
@@ -246,6 +239,7 @@ namespace BEditor.Data.Property
 
             return stindex;
         }
+
         /// <summary>
         /// Remove a keyframe of a specific frame.
         /// </summary>
@@ -306,7 +300,8 @@ namespace BEditor.Data.Property
 
             writer.WriteStartObject("Easing");
             {
-                writer.WriteString("_type", EasingType.GetType().FullName);
+                var type = EasingType.GetType();
+                writer.WriteString("_type", type.FullName + ", " + type.Assembly.GetName().Name);
                 EasingType.GetObjectData(writer);
             }
             writer.WriteEndObject();

@@ -5,6 +5,7 @@ using System.Dynamic;
 using System.Linq;
 using System.Linq.Expressions;
 using System.Runtime.Serialization;
+using System.Text.Json;
 using System.Threading;
 
 using BEditor.Data.Property;
@@ -17,7 +18,7 @@ namespace BEditor.Data
     /// <summary>
     /// Represents the edited data.
     /// </summary>
-    public interface IEditorObject : INotifyPropertyChanged, IExtensibleDataObject, IElementObject
+    public interface IEditorObject : INotifyPropertyChanged, IElementObject
     {
         /// <summary>
         /// Gets the synchronization context for this object.
@@ -69,21 +70,13 @@ namespace BEditor.Data
     /// <summary>
     /// Represents the base class of the edit data.
     /// </summary>
-    [DataContract]
-    public class EditorObject : BasePropertyChanged, IEditorObject
+    public class EditorObject : BasePropertyChanged, IEditorObject, IJsonObject
     {
         private Dictionary<string, object?>? _values = new();
 
 
         /// <inheritdoc/>
         public SynchronizationContext Synchronize { get; private set; } = AsyncOperationManager.SynchronizationContext;
-
-        /// <inheritdoc/>
-        public virtual ExtensionDataObject? ExtensionData
-        {
-            get => null;
-            set => Synchronize = AsyncOperationManager.SynchronizationContext;
-        }
 
         /// <inheritdoc/>
         public IServiceProvider? ServiceProvider { get; internal set; }
@@ -245,6 +238,18 @@ namespace BEditor.Data
         protected virtual void OnUnload()
         {
 
+        }
+
+        /// <inheritdoc/>
+        public virtual void GetObjectData(Utf8JsonWriter writer)
+        {
+            
+        }
+
+        /// <inheritdoc/>
+        public virtual void SetObjectData(JsonElement element)
+        {
+            Synchronize = AsyncOperationManager.SynchronizationContext;
         }
     }
 

@@ -1,9 +1,6 @@
 ﻿using System;
 using System.Collections.Generic;
-using System.Runtime.Serialization;
 
-using BEditor.Command;
-using BEditor.Data.Property;
 using BEditor.Properties;
 
 namespace BEditor.Data.Property.PrimitiveGroup
@@ -11,7 +8,6 @@ namespace BEditor.Data.Property.PrimitiveGroup
     /// <summary>
     /// Represents a property for setting XYZ coordinates.
     /// </summary>
-    [DataContract]
     public sealed class Coordinate : ExpandGroup
     {
         /// <summary>
@@ -67,32 +63,32 @@ namespace BEditor.Data.Property.PrimitiveGroup
         /// <summary>
         /// Get the <see cref="EaseProperty"/> representing the X coordinate.
         /// </summary>
-        [DataMember(Order = 0)]
+        [DataMember]
         public EaseProperty X { get; private set; }
         /// <summary>
         /// Get the <see cref="EaseProperty"/> representing the Y coordinate.
         /// </summary>
-        [DataMember(Order = 1)]
+        [DataMember]
         public EaseProperty Y { get; private set; }
         /// <summary>
         /// Get the <see cref="EaseProperty"/> representing the Z coordinate.
         /// </summary>
-        [DataMember(Order = 2)]
+        [DataMember]
         public EaseProperty Z { get; private set; }
         /// <summary>
         /// Get the <see cref="EaseProperty"/> representing the X coordinate of the center.
         /// </summary>
-        [DataMember(Order = 3)]
+        [DataMember]
         public EaseProperty CenterX { get; private set; }
         /// <summary>
         /// Get the <see cref="EaseProperty"/> representing the Y coordinate of the center.
         /// </summary>
-        [DataMember(Order = 4)]
+        [DataMember]
         public EaseProperty CenterY { get; private set; }
         /// <summary>
         /// Get the <see cref="EaseProperty"/> representing the Z coordinate of the center.
         /// </summary>
-        [DataMember(Order = 5)]
+        [DataMember]
         public EaseProperty CenterZ { get; private set; }
 
         /// <inheritdoc/>

@@ -1,24 +1,17 @@
 ﻿using System;
 using System.Collections.Generic;
-using System.ComponentModel;
 using System.Diagnostics;
 using System.Diagnostics.Contracts;
-using System.Reactive.Disposables;
-using System.Runtime.Serialization;
 using System.Text.Json;
-using System.Text.RegularExpressions;
-using System.Threading.Tasks;
 
 using BEditor.Command;
 using BEditor.Data.Bindings;
-using BEditor.Data.Property;
 
 namespace BEditor.Data.Property
 {
     /// <summary>
     /// Represents a checkbox property.
     /// </summary>
-    [DataContract]
     [DebuggerDisplay("IsChecked = {Value}")]
     public class CheckProperty : PropertyElement<CheckPropertyMetadata>, IEasingProperty, IBindable<bool>
     {
@@ -44,7 +37,6 @@ namespace BEditor.Data.Property
 
         private List<IObserver<bool>> Collection => _list ??= new();
         /// <inheritdoc/>
-        [DataMember]
         public string? BindHint
         {
             get => _bindable?.GetString();
@@ -53,7 +45,6 @@ namespace BEditor.Data.Property
         /// <summary>
         /// Gets or sets the value of whether the item is checked or not.
         /// </summary>
-        [DataMember]
         public bool Value
         {
             get => _value;

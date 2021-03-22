@@ -1,19 +1,14 @@
 ﻿using System;
 using System.Collections.Generic;
-using System.Runtime.Serialization;
-using System.Text;
 
-using BEditor.Command;
-using BEditor.Data.Property;
-using BEditor.Properties;
 using BEditor.Drawing;
+using BEditor.Properties;
 
 namespace BEditor.Data.Property.PrimitiveGroup
 {
     /// <summary>
     /// Represents a property that sets the Material.
     /// </summary>
-    [DataContract]
     public sealed class Material : ExpandGroup
     {
         /// <summary>
@@ -57,22 +52,22 @@ namespace BEditor.Data.Property.PrimitiveGroup
         /// <summary>
         /// Gets the <see cref="ColorAnimationProperty"/> representing the ambient.
         /// </summary>
-        [DataMember(Order = 0)]
+        [DataMember]
         public ColorAnimationProperty Ambient { get; private set; }
         /// <summary>
         /// Gets the <see cref="ColorAnimationProperty"/> representing the diffuse.
         /// </summary>
-        [DataMember(Order = 1)]
+        [DataMember]
         public ColorAnimationProperty Diffuse { get; private set; }
         /// <summary>
         /// Gets the <see cref="ColorAnimationProperty"/> representing the shininess.
         /// </summary>
-        [DataMember(Order = 2)]
+        [DataMember]
         public ColorAnimationProperty Specular { get; private set; }
         /// <summary>
         /// Gets the <see cref="EaseProperty"/> representing the shininess.
         /// </summary>
-        [DataMember(Order = 3)]
+        [DataMember]
         public EaseProperty Shininess { get; private set; }
 
         /// <inheritdoc/>

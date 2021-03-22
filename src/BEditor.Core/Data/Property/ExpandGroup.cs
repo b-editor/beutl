@@ -2,21 +2,15 @@
 using System.Collections.Generic;
 using System.ComponentModel;
 using System.Diagnostics;
-using System.Reactive.Disposables;
-using System.Runtime.Serialization;
 using System.Text.Json;
-using System.Text.RegularExpressions;
-using System.Threading.Tasks;
 
 using BEditor.Data.Bindings;
-using BEditor.Data.Property;
 
 namespace BEditor.Data.Property
 {
     /// <summary>
     /// Represents a base class for grouping <see cref="PropertyElement"/> with expanders.
     /// </summary>
-    [DataContract]
     [DebuggerDisplay("IsExpanded = {IsExpanded}")]
     public abstract class ExpandGroup : Group, IEasingProperty, IBindable<bool>
     {
@@ -45,7 +39,6 @@ namespace BEditor.Data.Property
         /// <summary>
         /// Gets or sets whether the expander is open
         /// </summary>
-        [DataMember]
         public bool IsExpanded
         {
             get => _isOpen;
@@ -65,7 +58,6 @@ namespace BEditor.Data.Property
             });
         }
         /// <inheritdoc/>
-        [DataMember]
         public string? BindHint
         {
             get => _bindable?.GetString();

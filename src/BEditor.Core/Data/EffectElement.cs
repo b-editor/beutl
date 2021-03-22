@@ -1,25 +1,20 @@
 ﻿using System;
-using System.Collections;
 using System.Collections.Generic;
 using System.ComponentModel;
 using System.Diagnostics.Contracts;
-using System.Dynamic;
 using System.Linq;
+using System.Reflection;
 using System.Runtime.Serialization;
 using System.Text.Json;
-using System.Threading.Tasks;
 
 using BEditor.Command;
 using BEditor.Data.Property;
-
-using Microsoft.Extensions.DependencyInjection;
 
 namespace BEditor.Data
 {
     /// <summary>
     /// Represents a base class of the effect.
     /// </summary>
-    [DataContract]
     public abstract class EffectElement : EditorObject, IChild<ClipElement>, IParent<PropertyElement>, ICloneable, IHasId, IElementObject, IJsonObject
     {
         #region Fields
@@ -41,7 +36,6 @@ namespace BEditor.Data
         /// Gets or sets if the <see cref="EffectElement"/> is enabled.
         /// </summary>
         /// <remarks><see langword="true"/> if the <see cref="EffectElement"/> is enabled or <see langword="false"/> otherwise.</remarks>
-        [DataMember]
         public bool IsEnabled
         {
             get => _isEnabled;
@@ -51,7 +45,6 @@ namespace BEditor.Data
         /// Gets or sets whether the expander is open.
         /// </summary>
         /// <remarks><see langword="true"/> if the expander is open, otherwise <see langword="false"/>.</remarks>
-        [DataMember]
         public bool IsExpanded
         {
             get => _isExpanded;
@@ -126,8 +119,9 @@ namespace BEditor.Data
         public IRecordCommand SendBackward() => new DownCommand(this);
 
         /// <inheritdoc/>
-        public virtual void GetObjectData(Utf8JsonWriter writer)
+        public override void GetObjectData(Utf8JsonWriter writer)
         {
+            base.GetObjectData(writer);
             writer.WriteBoolean(nameof(IsEnabled), IsEnabled);
             writer.WriteBoolean(nameof(IsExpanded), IsExpanded);
             foreach (var item in GetType().GetProperties()
@@ -145,8 +139,9 @@ namespace BEditor.Data
         }
 
         /// <inheritdoc/>
-        public virtual void SetObjectData(JsonElement element)
+        public override void SetObjectData(JsonElement element)
         {
+            base.SetObjectData(element);
             IsEnabled = element.GetProperty(nameof(IsEnabled)).GetBoolean();
             IsExpanded = element.GetProperty(nameof(IsExpanded)).GetBoolean();
 
@@ -158,6 +153,15 @@ namespace BEditor.Data
                 var property = element.GetProperty(item.Attribute.Name ?? item.Info.Name);
                 var obj = (IJsonObject)FormatterServices.GetUninitializedObject(item.Info.PropertyType);
                 obj.SetObjectData(property);
+
+                if (item.Info.ReflectedType != item.Info.DeclaringType)
+                {
+                    item.Info.DeclaringType?.GetProperty(item.Info.Name)?.SetValue(this, obj);
+                }
+                else
+                {
+                    item.Info.SetValue(this, obj);
+                }
             }
         }
 
@@ -350,7 +354,6 @@ namespace BEditor.Data
                 }
             }
         }
-        [DataContract]
         internal class EmptyClass : ObjectElement
         {
             public override string Name => "Empty";

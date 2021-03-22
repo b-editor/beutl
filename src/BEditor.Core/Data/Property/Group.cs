@@ -1,13 +1,12 @@
 ﻿using System;
 using System.Collections.Generic;
-using System.ComponentModel;
 using System.Linq;
+using System.Reflection;
 using System.Runtime.Serialization;
 using System.Text.Json;
 using System.Threading.Tasks;
 
 using BEditor.Command;
-using BEditor.Data.Property;
 using BEditor.Data.Property.Easing;
 using BEditor.Media;
 
@@ -16,7 +15,6 @@ namespace BEditor.Data.Property
     /// <summary>
     /// Represents a base class for grouping <see cref="PropertyElement"/>.
     /// </summary>
-    [DataContract]
     public abstract class Group : PropertyElement, IKeyFrameProperty, IEasingProperty, IParent<PropertyElement>
     {
         private IEnumerable<PropertyElement>? _CachedList;
@@ -86,7 +84,6 @@ namespace BEditor.Data.Property
         }
         #endregion
 
-        // Todo: 
         /// <inheritdoc/>
         public override void GetObjectData(Utf8JsonWriter writer)
         {
@@ -118,6 +115,15 @@ namespace BEditor.Data.Property
                 var property = element.GetProperty(item.Attribute.Name ?? item.Info.Name);
                 var obj = (IJsonObject)FormatterServices.GetUninitializedObject(item.Info.PropertyType);
                 obj.SetObjectData(property);
+
+                if (item.Info.ReflectedType != item.Info.DeclaringType)
+                {
+                    item.Info.DeclaringType?.GetProperty(item.Info.Name)?.SetValue(this, obj);
+                }
+                else
+                {
+                    item.Info.SetValue(this, obj);
+                }
             }
         }
     }

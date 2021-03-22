@@ -1,11 +1,5 @@
-﻿using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Runtime.Serialization;
-using System.Text;
-using System.Threading.Tasks;
+﻿using System.Collections.Generic;
 
-using BEditor.Command;
 using BEditor.Data;
 using BEditor.Data.Primitive;
 using BEditor.Data.Property;
@@ -19,9 +13,8 @@ namespace BEditor.Primitive.Objects
     /// <summary>
     /// Get an <see cref="ImageObject"/> to draw a polygon.
     /// </summary>
-    [DataContract]
     [CustomClipUI(Color = 0x0091ea)]
-    public class Polygon : ImageObject
+    public sealed class Polygon : ImageObject
     {
         /// <summary>
         /// Represents <see cref="Number"/> metadata.
@@ -57,22 +50,22 @@ namespace BEditor.Primitive.Objects
         /// <summary>
         /// Get the <see cref="EaseProperty"/> that represents the width of the polygon.
         /// </summary>
-        [DataMember(Order = 0)]
+        [DataMember]
         public EaseProperty Width { get; private set; }
         /// <summary>
         /// Get the <see cref="EaseProperty"/> that represents the height of the polygon.
         /// </summary>
-        [DataMember(Order = 1)]
+        [DataMember]
         public EaseProperty Height { get; private set; }
         /// <summary>
         /// Gets the <see cref="ValueProperty"/> representing the number of corners of a polygon.
         /// </summary>
-        [DataMember(Order = 2)]
+        [DataMember]
         public ValueProperty Number { get; private set; }
         /// <summary>
         /// Get the <see cref="ColorProperty"/> that represents the color of the polygon.
         /// </summary>
-        [DataMember(Order = 3)]
+        [DataMember]
         public ColorProperty Color { get; private set; }
 
         /// <inheritdoc/>

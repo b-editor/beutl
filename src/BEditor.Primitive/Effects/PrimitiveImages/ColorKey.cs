@@ -1,22 +1,18 @@
 ﻿using System.Collections.Generic;
-using System.Runtime.Serialization;
 
-using BEditor;
-using BEditor.Command;
 using BEditor.Data;
 using BEditor.Data.Primitive;
 using BEditor.Data.Property;
-using BEditor.Properties;
 using BEditor.Drawing;
 using BEditor.Drawing.Pixel;
+using BEditor.Properties;
 
 namespace BEditor.Primitive.Effects
 {
     /// <summary>
     /// Represents a ColorKey effect.
     /// </summary>
-    [DataContract]
-    public class ColorKey : ImageEffect
+    public sealed class ColorKey : ImageEffect
     {
         /// <summary>
         /// Represents <see cref="Color"/> metadata.
@@ -47,12 +43,12 @@ namespace BEditor.Primitive.Effects
         /// <summary>
         /// Gets the <see cref="ColorProperty"/> representing the key color.
         /// </summary>
-        [DataMember(Order = 0)]
+        [DataMember]
         public ColorProperty Color { get; private set; }
         /// <summary>
         /// Get the <see cref="EaseProperty"/> representing the threshold.
         /// </summary>
-        [DataMember(Order = 1)]
+        [DataMember]
         public EaseProperty ThresholdValue { get; private set; }
 
         /// <inheritdoc/>

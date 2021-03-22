@@ -1,22 +1,18 @@
 ﻿using System.Collections.Generic;
-using System.Runtime.Serialization;
 
-using BEditor;
-using BEditor.Command;
 using BEditor.Data;
 using BEditor.Data.Primitive;
 using BEditor.Data.Property;
-using BEditor.Properties;
 using BEditor.Drawing;
 using BEditor.Drawing.Pixel;
+using BEditor.Properties;
 
 namespace BEditor.Primitive.Effects
 {
     /// <summary>
     /// Represents an <see cref="ImageEffect"/> that monochromatizes an image.
     /// </summary>
-    [DataContract]
-    public class Monoc : ImageEffect
+    public sealed class Monoc : ImageEffect
     {
         /// <summary>
         /// Represents <see cref="Color"/> metadata.
@@ -41,7 +37,7 @@ namespace BEditor.Primitive.Effects
         /// <summary>
         /// Get the <see cref="ColorProperty"/> that represents the color to be monochromatic.
         /// </summary>
-        [DataMember(Order = 0)]
+        [DataMember]
         public ColorProperty Color { get; private set; }
 
         /// <inheritdoc/>
