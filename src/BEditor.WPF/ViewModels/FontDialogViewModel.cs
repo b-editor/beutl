@@ -7,11 +7,14 @@ using System.Linq;
 using System.Reactive.Disposables;
 using System.Reactive.Linq;
 using System.Text;
+using System.Text.Json;
 using System.Text.RegularExpressions;
 using System.Threading.Tasks;
 using System.Windows;
 
+using BEditor.Data;
 using BEditor.Drawing;
+using BEditor.Models;
 
 using Reactive.Bindings;
 using Reactive.Bindings.Extensions;
@@ -148,11 +151,9 @@ namespace BEditor.ViewModels
                 using var writter = File.CreateText(jsonFile);
                 writter.Write("[\n    \n]");
             }
-
-            var collection = Serialize.LoadFromFile<IEnumerable<Font>>(jsonFile, SerializeMode.Json);
-            if (collection is null) return;
-
-            foreach (var item in collection)
+            var json = File.ReadAllText(jsonFile);
+            
+            foreach (var item in JsonSerializer.Deserialize<IEnumerable<string>>(json)?.Select(i=>new Font(i)) ?? Array.Empty<Font>())
             {
                 UsedFonts.Add(new(item));
             }

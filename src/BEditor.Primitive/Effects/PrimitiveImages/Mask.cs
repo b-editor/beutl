@@ -1,22 +1,14 @@
-﻿using System;
-using System.Collections.Generic;
+﻿using System.Collections.Generic;
 using System.Linq;
-using System.Linq.Expressions;
 using System.Reactive.Linq;
-using System.Reflection;
-using System.Runtime.Serialization;
-using System.Text;
-using System.Threading.Tasks;
 
-using BEditor.Command;
 using BEditor.Data;
 using BEditor.Data.Primitive;
 using BEditor.Data.Property;
 using BEditor.Data.Property.PrimitiveGroup;
-using BEditor.Properties;
 using BEditor.Drawing;
 using BEditor.Drawing.Pixel;
-using BEditor.Primitive.Objects;
+using BEditor.Properties;
 
 using Reactive.Bindings;
 
@@ -25,8 +17,7 @@ namespace BEditor.Primitive.Effects
     /// <summary>
     /// Represents an <see cref="ImageEffect"/> that masks an image with another <see cref="ImageObject"/>.
     /// </summary>
-    [DataContract]
-    public class Mask : ImageEffect
+    public sealed class Mask : ImageEffect
     {
         /// <summary>
         /// Represents <see cref="X"/> metadata.
@@ -94,42 +85,42 @@ namespace BEditor.Primitive.Effects
         /// <summary>
         /// Get the <see cref="EaseProperty"/> representing the X coordinate.
         /// </summary>
-        [DataMember(Order = 0)]
+        [DataMember]
         public EaseProperty X { get; private set; }
         /// <summary>
         /// Get the <see cref="EaseProperty"/> representing the Y coordinate.
         /// </summary>
-        [DataMember(Order = 1)]
+        [DataMember]
         public EaseProperty Y { get; private set; }
         /// <summary>
         /// Get the <see cref="EaseProperty"/> of the angle.
         /// </summary>
-        [DataMember(Order = 2)]
+        [DataMember]
         public EaseProperty Rotate { get; private set; }
         /// <summary>
         /// Get the <see cref="EaseProperty"/> that represents the width of the mask.
         /// </summary>
-        [DataMember(Order = 3)]
+        [DataMember]
         public EaseProperty Width { get; private set; }
         /// <summary>
         /// Get the <see cref="EaseProperty"/> that represents the height of the mask.
         /// </summary>
-        [DataMember(Order = 4)]
+        [DataMember]
         public EaseProperty Height { get; private set; }
         /// <summary>
         /// Gets the <see cref="TextProperty"/> that specifies the image object to be referenced.
         /// </summary>
-        [DataMember(Order = 5)]
+        [DataMember]
         public TextProperty Image { get; private set; }
         /// <summary>
         /// Get a <see cref="CheckProperty"/> indicating whether or not to invert the mask.
         /// </summary>
-        [DataMember(Order = 6)]
+        [DataMember]
         public CheckProperty InvertMask { get; private set; }
         /// <summary>
         /// Gets a <see cref="CheckProperty"/> indicating whether or not the mask should be fit to the original image size.
         /// </summary>
-        [DataMember(Order = 7)]
+        [DataMember]
         public CheckProperty FitSize { get; private set; }
         private ReactiveProperty<ClipElement?> ClipProperty => _clipProperty ??= new();
 

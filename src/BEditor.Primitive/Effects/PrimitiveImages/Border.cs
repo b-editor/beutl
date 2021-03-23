@@ -1,23 +1,18 @@
 ﻿using System.Collections.Generic;
-using System.Runtime.Serialization;
 
-using BEditor.Command;
 using BEditor.Data;
 using BEditor.Data.Primitive;
 using BEditor.Data.Property;
-using BEditor.Properties;
 using BEditor.Drawing;
 using BEditor.Drawing.Pixel;
-using SkiaSharp;
-using System.Linq;
+using BEditor.Properties;
 
 namespace BEditor.Primitive.Effects
 {
     /// <summary>
     /// Represents an <see cref="ImageEffect"/> that adds a border to the image.
     /// </summary>
-    [DataContract]
-    public class Border : ImageEffect
+    public sealed class Border : ImageEffect
     {
         /// <summary>
         /// Represents <see cref="Size"/> metadata.
@@ -48,12 +43,12 @@ namespace BEditor.Primitive.Effects
         /// <summary>
         /// Get the <see cref="EaseProperty"/> that represents the size of the edge.
         /// </summary>
-        [DataMember(Order = 0)]
+        [DataMember]
         public EaseProperty Size { get; private set; }
         /// <summary>
         /// Get the <see cref="ColorProperty"/> that represents the edge color.
         /// </summary>
-        [DataMember(Order = 1)]
+        [DataMember]
         public ColorProperty Color { get; private set; }
 
         /// <inheritdoc/>

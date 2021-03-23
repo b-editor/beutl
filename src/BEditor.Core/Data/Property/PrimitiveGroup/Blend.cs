@@ -1,13 +1,8 @@
 ﻿using System;
 using System.Collections.Generic;
-using System.Runtime.Serialization;
 
-using BEditor.Command;
-using BEditor.Data.Property;
 using BEditor.Properties;
 
-using OpenTK;
-using OpenTK.Graphics;
 using OpenTK.Graphics.OpenGL4;
 
 namespace BEditor.Data.Property.PrimitiveGroup
@@ -15,7 +10,6 @@ namespace BEditor.Data.Property.PrimitiveGroup
     /// <summary>
     /// Represents a property for setting the blend Option.
     /// </summary>
-    [DataContract]
     public sealed class Blend : ExpandGroup
     {
         /// <summary>
@@ -76,17 +70,17 @@ namespace BEditor.Data.Property.PrimitiveGroup
         /// <summary>
         /// Gets the <see cref="EaseProperty"/> that represents the transparency.
         /// </summary>
-        [DataMember(Order = 0)]
+        [DataMember]
         public EaseProperty Alpha { get; private set; }
         /// <summary>
         /// Get a <see cref="ColorAnimationProperty"/> that represents a color.
         /// </summary>
-        [DataMember(Order = 1)]
+        [DataMember]
         public ColorAnimationProperty Color { get; private set; }
         /// <summary>
         /// Get the <see cref="SelectorProperty"/> that selects the BlendFunc.
         /// </summary>
-        [DataMember(Order = 2)]
+        [DataMember]
         public SelectorProperty BlendType { get; private set; }
 
         /// <inheritdoc/>

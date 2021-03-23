@@ -3,9 +3,7 @@ using System.Collections.Generic;
 using System.ComponentModel;
 using System.Diagnostics;
 using System.Diagnostics.Contracts;
-using System.Reactive.Disposables;
-using System.Runtime.Serialization;
-using System.Threading.Tasks;
+using System.Text.Json;
 
 using BEditor.Command;
 using BEditor.Data.Bindings;
@@ -15,7 +13,6 @@ namespace BEditor.Data.Property
     /// <summary>
     /// Represents a property of a multi-line string.
     /// </summary>
-    [DataContract]
     [DebuggerDisplay("Text = {Value}")]
     public class DocumentProperty : PropertyElement<DocumentPropertyMetadata>, IBindable<string>
     {
@@ -45,7 +42,6 @@ namespace BEditor.Data.Property
         /// <summary>
         /// Gets or sets the string being entered.
         /// </summary>
-        [DataMember]
         public string Value
         {
             get => _value;
@@ -65,7 +61,6 @@ namespace BEditor.Data.Property
             });
         }
         /// <inheritdoc/>
-        [DataMember]
         public string? BindHint
         {
             get => _bindable?.GetString();
@@ -103,6 +98,22 @@ namespace BEditor.Data.Property
         protected override void OnLoad()
         {
             this.AutoLoad(ref _bindHint);
+        }
+
+        /// <inheritdoc/>
+        public override void GetObjectData(Utf8JsonWriter writer)
+        {
+            base.GetObjectData(writer);
+            writer.WriteString(nameof(Value), Value);
+            writer.WriteString(nameof(BindHint), BindHint);
+        }
+
+        /// <inheritdoc/>
+        public override void SetObjectData(JsonElement element)
+        {
+            base.SetObjectData(element);
+            Value = element.TryGetProperty(nameof(Value), out var value) ? value.GetString() ?? "" : "";
+            BindHint = element.TryGetProperty(nameof(BindHint), out var bind) ? bind.GetString() : null;
         }
 
         /// <summary>

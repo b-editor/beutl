@@ -1,7 +1,6 @@
 ﻿using System;
 using System.Collections.Generic;
 using System.Linq;
-using System.Runtime.Serialization;
 using System.Text;
 using System.Threading.Tasks;
 
@@ -19,9 +18,8 @@ namespace BEditor.Primitive.Objects
     /// <summary>
     /// Represents an <see cref="ImageObject"/> that draws a rectangle with rounded corners.
     /// </summary>
-    [DataContract]
     [CustomClipUI(Color = 0x0091ea)]
-    public class RoundRect : ImageObject
+    public sealed class RoundRect : ImageObject
     {
         /// <summary>
         /// Represents <see cref="Radius"/> metadata.
@@ -59,27 +57,27 @@ namespace BEditor.Primitive.Objects
         /// <summary>
         /// Get the <see cref="EaseProperty"/> that represents the width of the shape.
         /// </summary>
-        [DataMember(Order = 0)]
+        [DataMember]
         public EaseProperty Width { get; private set; }
         /// <summary>
         /// Get the <see cref="EaseProperty"/> that represents the width of the shape.
         /// </summary>
-        [DataMember(Order = 1)]
+        [DataMember]
         public EaseProperty Height { get; private set; }
         /// <summary>
         /// Get the <see cref="EaseProperty"/> that represents the roundness of a shape.
         /// </summary>
-        [DataMember(Order = 2)]
+        [DataMember]
         public EaseProperty Radius { get; private set; }
         /// <summary>
         /// Get the <see cref="EaseProperty"/> that represents the line width of the shape.
         /// </summary>
-        [DataMember(Order = 3)]
+        [DataMember]
         public EaseProperty Line { get; private set; }
         /// <summary>
         /// Get the <see cref="SelectorProperty"/> to select the type of the shape.
         /// </summary>
-        [DataMember(Order = 4)]
+        [DataMember]
         public ColorProperty Color { get; private set; }
 
         /// <inheritdoc/>

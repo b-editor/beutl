@@ -3,22 +3,17 @@ using System.Collections.Generic;
 using System.ComponentModel;
 using System.Diagnostics;
 using System.Diagnostics.Contracts;
-using System.Linq;
-using System.Reactive.Disposables;
-using System.Runtime.Serialization;
 using System.Text;
-using System.Threading.Tasks;
+using System.Text.Json;
 
 using BEditor.Command;
 using BEditor.Data.Bindings;
-using BEditor.Data.Property;
 
 namespace BEditor.Data.Property
 {
     /// <summary>
     /// Represents a property of <see cref="float"/> type.
     /// </summary>
-    [DataContract]
     [DebuggerDisplay("Value = {Value}")]
     public class ValueProperty : PropertyElement<ValuePropertyMetadata>, IBindable<float>, IEasingProperty
     {
@@ -46,7 +41,6 @@ namespace BEditor.Data.Property
 
         private List<IObserver<float>> Collection => _list ??= new();
         /// <inheritdoc/>
-        [DataMember]
         public float Value
         {
             get => _value;
@@ -66,7 +60,6 @@ namespace BEditor.Data.Property
             });
         }
         /// <inheritdoc/>
-        [DataMember]
         public string? BindHint
         {
             get => _bindable?.GetString();
@@ -104,6 +97,22 @@ namespace BEditor.Data.Property
         protected override void OnLoad()
         {
             this.AutoLoad(ref _bindHint);
+        }
+
+        /// <inheritdoc/>
+        public override void GetObjectData(Utf8JsonWriter writer)
+        {
+            base.GetObjectData(writer);
+            writer.WriteNumber(nameof(Value), Value);
+            writer.WriteString(nameof(BindHint), BindHint);
+        }
+
+        /// <inheritdoc/>
+        public override void SetObjectData(JsonElement element)
+        {
+            base.SetObjectData(element);
+            Value = element.TryGetProperty(nameof(Value), out var value) ? value.GetSingle() : 0;
+            BindHint = element.TryGetProperty(nameof(BindHint), out var bind) ? bind.GetString() : null;
         }
 
         /// <summary>

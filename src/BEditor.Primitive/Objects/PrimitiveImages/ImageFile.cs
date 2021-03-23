@@ -1,7 +1,6 @@
 ﻿using System.Collections.Generic;
 using System.IO;
 using System.Reactive.Linq;
-using System.Runtime.Serialization;
 
 using BEditor.Data;
 using BEditor.Data.Primitive;
@@ -17,9 +16,8 @@ namespace BEditor.Primitive.Objects
     /// <summary>
     /// Represents an <see cref="ImageObject"/> that references an image file.
     /// </summary>
-    [DataContract]
     [CustomClipUI(Color = 0x0091ea)]
-    public class ImageFile : ImageObject
+    public sealed class ImageFile : ImageObject
     {
         /// <summary>
         /// Represents <see cref="File"/> metadata.
@@ -55,7 +53,7 @@ namespace BEditor.Primitive.Objects
         /// <summary>
         /// Get the <see cref="FileProperty"/> to select the image file to reference.
         /// </summary>
-        [DataMember(Order = 0)]
+        [DataMember]
         public FileProperty File { get; private set; }
         private ReactiveProperty<Image<BGRA32>?>? Source { get; set; }
 

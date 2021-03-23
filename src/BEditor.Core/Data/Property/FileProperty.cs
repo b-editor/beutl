@@ -4,20 +4,16 @@ using System.ComponentModel;
 using System.Diagnostics;
 using System.Diagnostics.Contracts;
 using System.IO;
-using System.Reactive.Disposables;
-using System.Runtime.Serialization;
-using System.Threading.Tasks;
+using System.Text.Json;
 
 using BEditor.Command;
 using BEditor.Data.Bindings;
-using BEditor.Data.Property;
 
 namespace BEditor.Data.Property
 {
     /// <summary>
     /// Represents a property to select a file.
     /// </summary>
-    [DataContract]
     [DebuggerDisplay("File = {Value}")]
     public class FileProperty : PropertyElement<FilePropertyMetadata>, IEasingProperty, IBindable<string>
     {
@@ -48,8 +44,7 @@ namespace BEditor.Data.Property
         /// <summary>
         /// Gets or sets the name of the selected file.
         /// </summary>
-        [DataMember(Name = "File")]
-        public string RawFile
+        public string RawValue
         {
             get => _rawFile;
             private set => _rawFile = value;
@@ -88,7 +83,6 @@ namespace BEditor.Data.Property
             }
         }
         /// <inheritdoc/>
-        [DataMember]
         public string? BindHint
         {
             get => _bindable?.GetString();
@@ -97,13 +91,12 @@ namespace BEditor.Data.Property
         /// <summary>
         /// Gets or sets the mode of the file path.
         /// </summary>
-        [DataMember]
         public FilePathType Mode
         {
             get => _mode;
             set => SetValue(value, ref _mode, _modeArgs, this, state =>
             {
-                state.RawFile = state.GetPath();
+                state.RawValue = state.GetPath();
             });
         }
 
@@ -153,6 +146,23 @@ namespace BEditor.Data.Property
         protected override void OnLoad()
         {
             this.AutoLoad(ref _bindHint);
+        }
+
+        /// <inheritdoc/>
+        public override void GetObjectData(Utf8JsonWriter writer)
+        {
+            base.GetObjectData(writer);
+            writer.WriteString(nameof(Value), RawValue);
+            writer.WriteString(nameof(BindHint), BindHint);
+            writer.WriteNumber(nameof(Mode), (int)Mode);
+        }
+
+        /// <inheritdoc/>
+        public override void SetObjectData(JsonElement element)
+        {
+            base.SetObjectData(element);
+            Value = element.TryGetProperty(nameof(Value), out var value) ? value.GetString() ?? "" : "";
+            BindHint = element.TryGetProperty(nameof(BindHint), out var bind) ? bind.GetString() : null;
         }
 
         /// <summary>

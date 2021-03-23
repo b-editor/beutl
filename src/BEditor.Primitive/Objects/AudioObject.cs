@@ -1,7 +1,6 @@
 ﻿using System;
 using System.Collections.Generic;
 using System.Reactive.Linq;
-using System.Runtime.Serialization;
 using System.Threading.Tasks;
 
 using BEditor.Audio;
@@ -13,16 +12,13 @@ using BEditor.Media.Decoder;
 using BEditor.Media.PCM;
 using BEditor.Properties;
 
-using Reactive.Bindings;
-
 namespace BEditor.Primitive.Objects
 {
     /// <summary>
     /// Represents an <see cref="ObjectElement"/> that references an audio file.
     /// </summary>
-    [DataContract]
     [CustomClipUI(Color = 0xff1744)]
-    public class AudioObject : ObjectElement
+    public sealed class AudioObject : ObjectElement
     {
         /// <summary>
         /// Represents <see cref="Coordinate"/> metadata.
@@ -74,27 +70,27 @@ namespace BEditor.Primitive.Objects
         /// <summary>
         /// Get the coordinates.
         /// </summary>
-        [DataMember(Order = 0)]
+        [DataMember]
         public AudioCoordinate Coordinate { get; private set; }
         /// <summary>
         /// Get the <see cref="EaseProperty"/> representing the volume.
         /// </summary>
-        [DataMember(Order = 1)]
+        [DataMember]
         public EaseProperty Volume { get; private set; }
         /// <summary>
         /// Get the <see cref="EaseProperty"/> representing the pitch.
         /// </summary>
-        [DataMember(Order = 2)]
+        [DataMember]
         public EaseProperty Pitch { get; private set; }
         /// <summary>
         /// Get the <see cref="EaseProperty"/> that represents the start position.
         /// </summary>
-        [DataMember(Order = 3)]
+        [DataMember]
         public ValueProperty Start { get; private set; }
         /// <summary>
         /// Get the <see cref="FileProperty"/> to select the file to reference.
         /// </summary>
-        [DataMember(Order = 4)]
+        [DataMember]
         public FileProperty File { get; private set; }
         private FFmpegDecoder? Decoder
         {
@@ -223,7 +219,6 @@ namespace BEditor.Primitive.Objects
         /// <summary>
         /// Represents a property for setting XYZ coordinates.
         /// </summary>
-        [DataContract]
         public sealed class AudioCoordinate : ExpandGroup
         {
             /// <summary>
@@ -279,32 +274,32 @@ namespace BEditor.Primitive.Objects
             /// <summary>
             /// Get the <see cref="EaseProperty"/> representing the X coordinate.
             /// </summary>
-            [DataMember(Order = 0)]
+            [DataMember]
             public EaseProperty X { get; private set; }
             /// <summary>
             /// Get the <see cref="EaseProperty"/> representing the Y coordinate.
             /// </summary>
-            [DataMember(Order = 1)]
+            [DataMember]
             public EaseProperty Y { get; private set; }
             /// <summary>
             /// Get the <see cref="EaseProperty"/> representing the Z coordinate.
             /// </summary>
-            [DataMember(Order = 2)]
+            [DataMember]
             public EaseProperty Z { get; private set; }
             /// <summary>
             /// Get the <see cref="EaseProperty"/> representing the X coordinate.
             /// </summary>
-            [DataMember(Order = 3)]
+            [DataMember]
             public EaseProperty DirectionX { get; private set; }
             /// <summary>
             /// Get the <see cref="EaseProperty"/> representing the Y coordinate.
             /// </summary>
-            [DataMember(Order = 4)]
+            [DataMember]
             public EaseProperty DirectionY { get; private set; }
             /// <summary>
             /// Get the <see cref="EaseProperty"/> representing the Z coordinate.
             /// </summary>
-            [DataMember(Order = 5)]
+            [DataMember]
             public EaseProperty DirectionZ { get; private set; }
 
             /// <inheritdoc/>

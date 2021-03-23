@@ -1,22 +1,18 @@
 ﻿using System.Collections.Generic;
-using System.Runtime.Serialization;
 
-using BEditor.Command;
 using BEditor.Data;
 using BEditor.Data.Primitive;
 using BEditor.Data.Property;
-using BEditor.Properties;
 using BEditor.Drawing;
 using BEditor.Drawing.Pixel;
-using BEditor.Primitive.Objects;
+using BEditor.Properties;
 
 namespace BEditor.Primitive.Effects
 {
     /// <summary>
     /// Represents an <see cref="ImageEffect"/> that cripping the image.
     /// </summary>
-    [DataContract]
-    public class Clipping : ImageEffect
+    public sealed class Clipping : ImageEffect
     {
         /// <summary>
         /// Represents <see cref="Top"/> metadata.
@@ -65,27 +61,27 @@ namespace BEditor.Primitive.Effects
         /// <summary>
         /// Get the <see cref="EaseProperty"/> that represents the range to be clipped.
         /// </summary>
-        [DataMember(Order = 0)]
+        [DataMember]
         public EaseProperty Top { get; private set; }
         /// <summary>
         /// Get the <see cref="EaseProperty"/> that represents the range to be clipped.
         /// </summary>
-        [DataMember(Order = 1)]
+        [DataMember]
         public EaseProperty Bottom { get; private set; }
         /// <summary>
         /// Get the <see cref="EaseProperty"/> that represents the range to be clipped.
         /// </summary>
-        [DataMember(Order = 2)]
+        [DataMember]
         public EaseProperty Left { get; private set; }
         /// <summary>
         /// Get the <see cref="EaseProperty"/> that represents the range to be clipped.
         /// </summary>
-        [DataMember(Order = 3)]
+        [DataMember]
         public EaseProperty Right { get; private set; }
         /// <summary>
         /// Gets a <see cref="CheckProperty"/> that indicates whether the coordinates should be adjusted or not.
         /// </summary>
-        [DataMember(Order = 4)]
+        [DataMember]
         public CheckProperty AdjustCoordinates { get; private set; }
 
         /// <inheritdoc/>

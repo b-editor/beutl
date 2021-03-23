@@ -1,5 +1,6 @@
 ﻿using System;
 using System.Globalization;
+using System.Runtime.CompilerServices;
 using System.Runtime.InteropServices;
 using System.Runtime.Serialization;
 
@@ -93,7 +94,8 @@ namespace BEditor.Drawing
 
             return FromARGB(argb);
         }
-
+        public int AsInt() => Unsafe.As<Color, int>(ref this);
+        public int AsUInt() => Unsafe.As<Color, int>(ref this);
         public override bool Equals(object? obj)
             => obj is Color color && Equals(color);
         public bool Equals(Color other)

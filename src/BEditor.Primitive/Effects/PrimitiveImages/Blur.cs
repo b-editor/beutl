@@ -1,25 +1,18 @@
-﻿using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Runtime.Serialization;
-using System.Text;
-using System.Threading.Tasks;
+﻿using System.Collections.Generic;
 
-using BEditor.Command;
 using BEditor.Data;
 using BEditor.Data.Primitive;
 using BEditor.Data.Property;
-using BEditor.Properties;
 using BEditor.Drawing;
 using BEditor.Drawing.Pixel;
+using BEditor.Properties;
 
 namespace BEditor.Primitive.Effects
 {
     /// <summary>
     /// Represents an <see cref="ImageEffect"/> that blurs the image.
     /// </summary>
-    [DataContract]
-    public class Blur : ImageEffect
+    public sealed class Blur : ImageEffect
     {
         /// <summary>
         /// Represents <see cref="Size"/> metadata.
@@ -44,7 +37,7 @@ namespace BEditor.Primitive.Effects
         /// <summary>
         /// Gets the <see cref="EaseProperty"/> that represents the blur sigma.
         /// </summary>
-        [DataMember(Order = 0)]
+        [DataMember]
         public EaseProperty Size { get; private set; }
 
         /// <inheritdoc/>

@@ -1,24 +1,19 @@
 ﻿using System;
 using System.Collections.Generic;
-using System.Linq;
-using System.Runtime.Serialization;
 
-using BEditor.Command;
 using BEditor.Data;
 using BEditor.Data.Primitive;
 using BEditor.Data.Property;
-using BEditor.Properties;
 using BEditor.Drawing;
 using BEditor.Drawing.Pixel;
-using OpenTK.Graphics.OpenGL4;
+using BEditor.Properties;
 
 namespace BEditor.Primitive.Objects
 {
     /// <summary>
     /// Represents an <see cref="ImageObject"/> that refers to a <see cref="Scene"/>.
     /// </summary>
-    [DataContract]
-    public class SceneObject : ImageObject
+    public sealed class SceneObject : ImageObject
     {
         SelectorPropertyMetadata? SelectSceneMetadata;
 
@@ -49,12 +44,12 @@ namespace BEditor.Primitive.Objects
         /// <summary>
         /// Get the <see cref="EaseProperty"/> that represents the start position.
         /// </summary>
-        [DataMember(Order = 0)]
+        [DataMember]
         public EaseProperty Start { get; private set; }
         /// <summary>
         /// Get the <see cref="SelectorProperty"/> to select the <seealso cref="Scene"/> to reference.
         /// </summary>
-        [DataMember(Order = 1)]
+        [DataMember]
         public SelectorProperty SelectScene { get; private set; }
 
         /// <inheritdoc/>

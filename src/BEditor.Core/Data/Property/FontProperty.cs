@@ -1,26 +1,20 @@
 ﻿using System;
 using System.Collections.Generic;
-using System.Collections.ObjectModel;
-using System.ComponentModel;
+using System.Diagnostics;
 using System.Diagnostics.Contracts;
 using System.Linq;
-using System.Reactive.Disposables;
-using System.Runtime.Serialization;
-using System.Threading.Tasks;
+using System.Text.Json;
 
 using BEditor.Command;
 using BEditor.Data.Bindings;
-using BEditor.Data.Property;
-using BEditor.Properties;
 using BEditor.Drawing;
-using System.Diagnostics;
+using BEditor.Properties;
 
 namespace BEditor.Data.Property
 {
     /// <summary>
     /// Represents a property for selecting a font.
     /// </summary>
-    [DataContract]
     [DebuggerDisplay("Select = {Value}")]
     public class FontProperty : PropertyElement<FontPropertyMetadata>, IEasingProperty, IBindable<Font>
     {
@@ -49,7 +43,6 @@ namespace BEditor.Data.Property
         /// <summary>
         /// Gets or sets the selected font.
         /// </summary>
-        [DataMember]
         public Font Value
         {
             get => _selectItem;
@@ -69,7 +62,6 @@ namespace BEditor.Data.Property
             });
         }
         /// <inheritdoc/>
-        [DataMember]
         public string? BindHint
         {
             get => _bindable?.GetString();
@@ -83,6 +75,30 @@ namespace BEditor.Data.Property
         protected override void OnLoad()
         {
             this.AutoLoad(ref _bindHint);
+        }
+
+        /// <inheritdoc/>
+        public override void GetObjectData(Utf8JsonWriter writer)
+        {
+            base.GetObjectData(writer);
+            writer.WriteString(nameof(Value), Value.Filename);
+            writer.WriteString(nameof(BindHint), BindHint);
+        }
+
+        /// <inheritdoc/>
+        public override void SetObjectData(JsonElement element)
+        {
+            base.SetObjectData(element);
+            var filename = element.TryGetProperty(nameof(Value), out var value) ? value.GetString() : null;
+            if (filename is not null)
+            {
+                Value = new(filename);
+            }
+            else
+            {
+                Value = FontManager.Default.LoadedFonts.First();
+            }
+            BindHint = element.TryGetProperty(nameof(BindHint), out var bind) ? bind.GetString() : null;
         }
 
         /// <summary>

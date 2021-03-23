@@ -5,6 +5,7 @@ using System.IO;
 using System.Linq;
 using System.Net.Http;
 using System.Text;
+using System.Text.Json;
 using System.Threading.Tasks;
 using System.Windows;
 using System.Windows.Controls;
@@ -37,10 +38,10 @@ namespace BEditor.Views.StartWindowControl
         private async Task Init()
         {
             using var client = new HttpClient();
-            using var memory = new MemoryStream();
+            await using var memory = new MemoryStream();
             await memory.WriteAsync(Encoding.UTF8.GetBytes(await client.GetStringAsync("https://raw.githubusercontent.com/b-editor/BEditor/main/docs/releases.json")));
 
-            if (Serialize.LoadFromStream<IEnumerable<Release>>(memory, SerializeMode.Json) is var releases && releases is not null)
+            if (await JsonSerializer.DeserializeAsync<IEnumerable<Release>>(memory) is var releases && releases is not null)
             {
                 var first = releases.First();
                 var asmName = typeof(StartWindowViewModel).Assembly.GetName();

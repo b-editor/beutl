@@ -1,20 +1,13 @@
 ﻿using System;
 using System.ComponentModel;
-using System.Linq;
-using System.Runtime.Serialization;
-using System.Threading.Tasks;
-
-using BEditor.Data.Property;
-
-using Microsoft.Extensions.DependencyInjection;
+using System.Text.Json;
 
 namespace BEditor.Data.Property
 {
     /// <summary>
     /// Represents a property used by <see cref="EffectElement"/>.
     /// </summary>
-    [DataContract]
-    public class PropertyElement : EditorObject, IChild<EffectElement>, IPropertyElement, IHasId, IHasName
+    public class PropertyElement : EditorObject, IChild<EffectElement>, IPropertyElement, IHasName
     {
         private static readonly PropertyChangedEventArgs _metadataArgs = new(nameof(PropertyMetadata));
         private PropertyElementMetadata? _propertyMetadata;
@@ -54,7 +47,6 @@ namespace BEditor.Data.Property
 
     /// <inheritdoc cref="PropertyElement"/>
     /// <typeparam name="T">Type of <see cref="PropertyMetadata"/></typeparam>
-    [DataContract]
     public abstract class PropertyElement<T> : PropertyElement where T : PropertyElementMetadata
     {
         /// <inheritdoc cref="PropertyElement.PropertyMetadata"/>

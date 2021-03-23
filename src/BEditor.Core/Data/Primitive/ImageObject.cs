@@ -1,26 +1,21 @@
 ﻿using System.Collections.Generic;
-using System.Diagnostics;
 using System.Linq;
-using System.Runtime.Serialization;
 
-using BEditor.Command;
 using BEditor.Data.Property;
 using BEditor.Data.Property.PrimitiveGroup;
-using BEditor.Properties;
 using BEditor.Drawing;
 using BEditor.Drawing.Pixel;
 using BEditor.Graphics;
 using BEditor.Media;
+using BEditor.Properties;
 
 using OpenTK.Graphics.OpenGL4;
-using OpenTK.Mathematics;
 
 namespace BEditor.Data.Primitive
 {
     /// <summary>
     /// Represents the base class for drawing images.
     /// </summary>
-    [DataContract]
     public abstract class ImageObject : ObjectElement
     {
         /// <summary>
@@ -61,27 +56,27 @@ namespace BEditor.Data.Primitive
         /// <summary>
         /// Get the coordinates.
         /// </summary>
-        [DataMember(Order = 0)]
+        [DataMember]
         public Coordinate Coordinate { get; private set; }
         /// <summary>
         /// Get the scale.
         /// </summary>
-        [DataMember(Order = 1)]
+        [DataMember]
         public Zoom Zoom { get; private set; }
         /// <summary>
         /// Get the blend.
         /// </summary>
-        [DataMember(Order = 2)]
+        [DataMember]
         public Blend Blend { get; private set; }
         /// <summary>
         /// Get the angle.
         /// </summary>
-        [DataMember(Order = 3)]
+        [DataMember]
         public Angle Angle { get; private set; }
         /// <summary>
         /// Get the material.
         /// </summary>
-        [DataMember(Order = 4)]
+        [DataMember]
         public Property.PrimitiveGroup.Material Material { get; private set; }
 
         /// <inheritdoc/>

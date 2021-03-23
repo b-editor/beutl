@@ -1,27 +1,22 @@
 ﻿using System.Collections.Generic;
 using System.Linq;
 using System.Numerics;
-using System.Runtime.Serialization;
 
-using BEditor;
-using BEditor.Command;
 using BEditor.Data;
 using BEditor.Data.Primitive;
 using BEditor.Data.Property;
-using BEditor.Properties;
 using BEditor.Drawing;
 using BEditor.Drawing.Pixel;
 using BEditor.Graphics;
-using BEditor.Media;
+using BEditor.Properties;
 
 namespace BEditor.Primitive.Objects
 {
     /// <summary>
     /// Represents an <see cref="ImageObject"/> to draw a string.
     /// </summary>
-    [DataContract]
     [CustomClipUI(Color = 0x6200ea)]
-    public class Text : ImageObject
+    public sealed class Text : ImageObject
     {
         /// <summary>
         /// Represents <see cref="Size"/> metadata.
@@ -75,27 +70,27 @@ namespace BEditor.Primitive.Objects
         /// <summary>
         /// Get the <see cref="EaseProperty"/> that represents the size of the string to be drawn.
         /// </summary>
-        [DataMember(Order = 0)]
+        [DataMember]
         public EaseProperty Size { get; private set; }
         /// <summary>
         /// Get the <see cref="ColorProperty"/> that represents the color of the string to be drawn.
         /// </summary>
-        [DataMember(Order = 1)]
+        [DataMember]
         public ColorProperty Color { get; private set; }
         /// <summary>
         /// Get the <see cref="DocumentProperty"/> representing the string to be drawn.
         /// </summary>
-        [DataMember(Order = 2)]
+        [DataMember]
         public DocumentProperty Document { get; private set; }
         /// <summary>
         /// Get the <see cref="FontProperty"/> that represents the font of the string to be drawn.
         /// </summary>
-        [DataMember(Order = 3)]
+        [DataMember]
         public FontProperty Font { get; private set; }
         /// <summary>
         /// Get a <see cref="CheckProperty"/> that indicates whether to enable multiple objects.
         /// </summary>
-        [DataMember(Order = 4)]
+        [DataMember]
         public CheckProperty EnableMultiple { get; private set; }
 
         /// <inheritdoc/>

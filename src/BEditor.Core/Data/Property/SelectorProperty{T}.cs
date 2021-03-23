@@ -1,26 +1,21 @@
 ﻿using System;
-using System.Collections;
 using System.Collections.Generic;
 using System.ComponentModel;
 using System.Diagnostics;
 using System.Diagnostics.Contracts;
-using System.Linq;
-using System.Reactive.Disposables;
 using System.Runtime.Serialization;
-using System.Threading.Tasks;
+using System.Text.Json;
 
 using BEditor.Command;
 using BEditor.Data.Bindings;
-using BEditor.Data.Property;
 
 namespace BEditor.Data.Property
 {
     /// <summary>
     /// Represents a property for selecting a single item from an array.
     /// </summary>
-    [DataContract]
     [DebuggerDisplay("Index = {Index}, Item = {SelectItem}")]
-    public class SelectorProperty<T> : PropertyElement<SelectorPropertyMetadata<T?>>, IEasingProperty, IBindable<T?>
+    public class SelectorProperty<T> : PropertyElement<SelectorPropertyMetadata<T>>, IEasingProperty, IBindable<T?> where T : IJsonObject
     {
         #region Fields
         private static readonly PropertyChangedEventArgs _selectItemArgs = new(nameof(SelectItem));
@@ -37,7 +32,7 @@ namespace BEditor.Data.Property
         /// </summary>
         /// <param name="metadata">Metadata of this property</param>
         /// <exception cref="ArgumentNullException"><paramref name="metadata"/> is <see langword="null"/>.</exception>
-        public SelectorProperty(SelectorPropertyMetadata<T?> metadata)
+        public SelectorProperty(SelectorPropertyMetadata<T> metadata)
         {
             PropertyMetadata = metadata ?? throw new ArgumentNullException(nameof(metadata));
             _selectItem = metadata.DefaultItem;
@@ -47,7 +42,6 @@ namespace BEditor.Data.Property
         /// <summary>
         /// Get or set the selected item.
         /// </summary>
-        [DataMember]
         public T? SelectItem
         {
             get => _selectItem;
@@ -82,7 +76,6 @@ namespace BEditor.Data.Property
         /// <inheritdoc/>
         public T? Value => SelectItem;
         /// <inheritdoc/>
-        [DataMember]
         public string? BindHint
         {
             get => _bindable?.GetString();
@@ -95,6 +88,28 @@ namespace BEditor.Data.Property
         protected override void OnLoad()
         {
             this.AutoLoad(ref _bindHint);
+        }
+
+        /// <inheritdoc/>
+        public override void GetObjectData(Utf8JsonWriter writer)
+        {
+            base.GetObjectData(writer);
+
+            writer.WriteStartObject(nameof(Value));
+            SelectItem?.GetObjectData(writer);
+            writer.WriteEndObject();
+
+            writer.WriteString(nameof(BindHint), BindHint);
+        }
+
+        /// <inheritdoc/>
+        public override void SetObjectData(JsonElement element)
+        {
+            base.SetObjectData(element);
+
+            SelectItem = (T)FormatterServices.GetUninitializedObject(typeof(T));
+            SelectItem.SetObjectData(element.GetProperty(nameof(Value)));
+            BindHint = element.TryGetProperty(nameof(BindHint), out var bind) ? bind.GetString() : null;
         }
 
         /// <summary>
@@ -162,7 +177,7 @@ namespace BEditor.Data.Property
             /// <inheritdoc/>
             public void Do()
             {
-                if(_property.TryGetTarget(out var target))
+                if (_property.TryGetTarget(out var target))
                 {
                     target.SelectItem = _new;
                 }
@@ -193,7 +208,7 @@ namespace BEditor.Data.Property
     /// <param name="DefaultItem">The default value for <see cref="SelectorProperty{T}.SelectItem"/>.</param>
     /// <param name="MemberPath">The path to the member to display.</param>
     public record SelectorPropertyMetadata<T>(string Name, IList<T> ItemSource, T? DefaultItem = default, string MemberPath = "")
-        : PropertyElementMetadata(Name), IPropertyBuilder<SelectorProperty<T>>
+        : PropertyElementMetadata(Name), IPropertyBuilder<SelectorProperty<T>> where T : IJsonObject
     {
         /// <inheritdoc/>
         public SelectorProperty<T> Build()

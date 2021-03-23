@@ -5,7 +5,9 @@ using System.Diagnostics;
 using System.IO;
 using System.Linq;
 using System.Reactive.Linq;
+using System.Runtime.Serialization;
 using System.Text;
+using System.Text.Json;
 using System.Text.RegularExpressions;
 using System.Threading.Tasks;
 using System.Windows;
@@ -48,7 +50,7 @@ namespace BEditor.ViewModels.StartWindowControl
                     return;
                 }
 
-                await Task.Run(() =>
+                await Task.Run(async () =>
                 {
                     project.Load();
 
@@ -58,7 +60,7 @@ namespace BEditor.ViewModels.StartWindowControl
                     Settings.Default.MostRecentlyUsedList.Remove(ProjectItem.Path);
                     Settings.Default.MostRecentlyUsedList.Add(ProjectItem.Path);
 
-                    App.Current.Dispatcher.InvokeAsync(() =>
+                    await App.Current.Dispatcher.InvokeAsync(() =>
                     {
                         var win = new MainWindow();
                         App.Current.MainWindow = win;

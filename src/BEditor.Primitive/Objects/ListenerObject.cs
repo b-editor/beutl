@@ -1,9 +1,4 @@
-﻿using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Runtime.Serialization;
-using System.Text;
-using System.Threading.Tasks;
+﻿using System.Collections.Generic;
 
 using BEditor.Data;
 using BEditor.Data.Property;
@@ -13,8 +8,7 @@ namespace BEditor.Primitive.Objects
     /// <summary>
     /// Represents an <see cref="ObjectElement"/> that sets the listener for OpenAL.
     /// </summary>
-    [DataContract]
-    public class ListenerObject : ObjectElement
+    public sealed class ListenerObject : ObjectElement
     {
         /// <summary>
         /// Represents <see cref="X"/> metadata.
@@ -75,37 +69,37 @@ namespace BEditor.Primitive.Objects
         /// <summary>
         /// Gets the <see cref="EaseProperty"/> representing the X coordinate of the listener.
         /// </summary>
-        [DataMember(Order = 0)]
+        [DataMember]
         public EaseProperty X { get; private set; }
         /// <summary>
         /// Gets the <see cref="EaseProperty"/> representing the Y coordinate of the listener.
         /// </summary>
-        [DataMember(Order = 1)]
+        [DataMember]
         public EaseProperty Y { get; private set; }
         /// <summary>
         /// Gets the <see cref="EaseProperty"/> representing the Z coordinate of the listener.
         /// </summary>
-        [DataMember(Order = 2)]
+        [DataMember]
         public EaseProperty Z { get; private set; }
         /// <summary>
         /// Get the <see cref="EaseProperty"/> that represents the X coordinate of the listener's target position.
         /// </summary>
-        [DataMember(Order = 3)]
+        [DataMember]
         public EaseProperty TargetX { get; private set; }
         /// <summary>
         /// Get the <see cref="EaseProperty"/> that represents the Y coordinate of the listener's target position.
         /// </summary>
-        [DataMember(Order = 4)]
+        [DataMember]
         public EaseProperty TargetY { get; private set; }
         /// <summary>
         /// Get the <see cref="EaseProperty"/> that represents the Z coordinate of the listener's target position.
         /// </summary>
-        [DataMember(Order = 5)]
+        [DataMember]
         public EaseProperty TargetZ { get; private set; }
         /// <summary>
         /// 
         /// </summary>
-        [DataMember(Order = 6)]
+        [DataMember]
         public EaseProperty Gain { get; private set; }
 
         /// <inheritdoc/>

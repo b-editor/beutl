@@ -1,5 +1,4 @@
 ﻿using System.Collections.Generic;
-using System.Runtime.Serialization;
 
 using BEditor.Command;
 using BEditor.Data;
@@ -15,8 +14,7 @@ namespace BEditor.Primitive.Effects
     /// <summary>
     /// Represents an <see cref="ImageEffect"/> that erodes an image.
     /// </summary>
-    [DataContract]
-    public class Erode : ImageEffect
+    public sealed class Erode : ImageEffect
     {
         /// <summary>
         /// Initializes a new instance of the <see cref="Erode"/> class.
@@ -38,12 +36,12 @@ namespace BEditor.Primitive.Effects
         /// <summary>
         /// Get the <see cref="EaseProperty"/> representing the radius.
         /// </summary>
-        [DataMember(Order = 0)]
+        [DataMember]
         public EaseProperty Radius { get; private set; }
         /// <summary>
         /// Gets a <see cref="CheckProperty"/> representing the value to resize the image.
         /// </summary>
-        [DataMember(Order = 1)]
+        [DataMember]
         public CheckProperty Resize { get; private set; }
 
         /// <inheritdoc/>

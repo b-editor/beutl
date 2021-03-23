@@ -13,14 +13,15 @@ using BEditor.Drawing.Pixel;
 using BEditor.Graphics;
 
 using Microsoft.Extensions.DependencyInjection;
+using System.Text.Json;
+using System.Linq;
 
 namespace BEditor.Data
 {
     /// <summary>
     /// Represents the project to be used in editing.
     /// </summary>
-    [DataContract]
-    public class Project : EditorObject, IExtensibleDataObject, IParent<Scene>, IChild<IApplication>, IElementObject, IHasName
+    public class Project : EditorObject, IParent<Scene>, IChild<IApplication>, IElementObject, IHasName, IJsonObject
     {
         #region Fields
 
@@ -71,33 +72,25 @@ namespace BEditor.Data
 
         #region Properties
 
-        #region 保存用
-
         /// <summary>
         /// Get the framerate for this <see cref="Project"/>.
         /// </summary>
-        [DataMember(Order = 0)]
         public int Framerate { get; private set; }
 
         /// <summary>
         /// Get the sampling rate for this <see cref="Project"/>.
         /// </summary>
-        [DataMember(Order = 1)]
         public int Samplingrate { get; private set; }
 
         /// <summary>
         /// Get a list of Scenes in this <see cref="Project"/>.
         /// </summary>
-        [DataMember(Order = 3)]
         public ObservableCollection<Scene> SceneList { get; private set; } = new ObservableCollection<Scene>();
 
         /// <summary>
         /// Get an index of the <see cref="SceneList"/> being previewed.
         /// </summary>
-        [DataMember(Name = "PreviewScene", Order = 2)]
         public int PreviewSceneIndex { get; private set; }
-
-        #endregion
 
         /// <summary>
         /// Get or set the <see cref="Scene"/> that is being previewed
@@ -285,6 +278,58 @@ namespace BEditor.Data
         /// <param name="file">The project file.</param>
         /// <param name="app">Specify the application.</param>
         /// <returns>Returns the loaded <see cref="Project"/> on success, or <see langword="null"/> on failure.</returns>
+        public static async Task<Project?> FromFileAsync(string file, IApplication app)
+        {
+            static void IfNotExistCreateDir(string dir)
+            {
+                if (!Directory.Exists(dir))
+                {
+                    Directory.CreateDirectory(dir);
+                }
+            }
+
+            // Dirを渡された
+            if (Directory.Exists(file))
+            {
+                var dir = new DirectoryInfo(file);
+
+                file = Path.Combine(file, dir.Name + ".bedit");
+                if (!File.Exists(file))
+                {
+                    file = Path.ChangeExtension(file, "json");
+
+                    if (!File.Exists(file))
+                    {
+                        return null;
+                    }
+                }
+            }
+            var mode = SerializeMode.Binary;
+            if (Path.GetExtension(file) is ".json")
+            {
+                mode = SerializeMode.Json;
+            }
+
+            var proj = await Serialize.LoadFromFileAsync<Project>(file, mode);
+
+            if (proj is null) return null;
+
+            proj.DirectoryName = Path.GetDirectoryName(file)!;
+            proj.Name = Path.GetFileNameWithoutExtension(file);
+            proj.Parent = app;
+
+            var appConf = Path.Combine(proj.DirectoryName!, ".app");
+            IfNotExistCreateDir(appConf);
+            app.RestoreAppConfig(proj, appConf);
+
+            return proj;
+        }
+        /// <summary>
+        /// Load a <see cref="Project"/> from a file.
+        /// </summary>
+        /// <param name="file">The project file.</param>
+        /// <param name="app">Specify the application.</param>
+        /// <returns>Returns the loaded <see cref="Project"/> on success, or <see langword="null"/> on failure.</returns>
         public static Project? FromFile(string file, IApplication app)
         {
             static void IfNotExistCreateDir(string dir)
@@ -339,6 +384,42 @@ namespace BEditor.Data
             {
                 disposable.Dispose();
             }
+        }
+
+        /// <inheritdoc/>
+        public override void GetObjectData(Utf8JsonWriter writer)
+        {
+            base.GetObjectData(writer);
+            writer.WriteNumber(nameof(Framerate), Framerate);
+            writer.WriteNumber(nameof(Samplingrate), Samplingrate);
+            writer.WriteNumber(nameof(PreviewSceneIndex), PreviewSceneIndex);
+            writer.WriteStartArray("Scenes");
+            {
+                foreach (var scene in SceneList)
+                {
+                    writer.WriteStartObject();
+                    {
+                        scene.GetObjectData(writer);
+                    }
+                    writer.WriteEndObject();
+                }
+            }
+            writer.WriteEndArray();
+        }
+
+        /// <inheritdoc/>
+        public override void SetObjectData(JsonElement element)
+        {
+            base.SetObjectData(element);
+            Framerate = element.GetProperty(nameof(Framerate)).GetInt32();
+            Samplingrate = element.GetProperty(nameof(Samplingrate)).GetInt32();
+            PreviewSceneIndex = element.GetProperty(nameof(PreviewSceneIndex)).GetInt32();
+            SceneList = new(element.GetProperty("Scenes").EnumerateArray().Select(i =>
+            {
+                var scene = (Scene)FormatterServices.GetUninitializedObject(typeof(Scene));
+                scene.SetObjectData(i);
+                return scene;
+            }));
         }
 
         #endregion

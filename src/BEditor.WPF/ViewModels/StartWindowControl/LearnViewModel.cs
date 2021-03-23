@@ -7,13 +7,17 @@ using System.Net.Http;
 using System.Reactive.Linq;
 using System.Runtime.Serialization;
 using System.Text;
+using System.Text.Json;
+using System.Text.Json.Serialization;
 using System.Threading.Tasks;
 using System.Windows.Documents;
+
+using BEditor.Models;
 
 using Markdig;
 
 using Neo.Markdig.Xaml;
-
+using Microsoft.Extensions.DependencyInjection;
 using Reactive.Bindings;
 
 namespace BEditor.ViewModels.StartWindowControl
@@ -40,12 +44,13 @@ namespace BEditor.ViewModels.StartWindowControl
 
                 Base_Url += CultureInfo.CurrentCulture.Name + "/";
 
-                using var client = new HttpClient();
+                var client = AppData.Current.ServiceProvider.GetService<HttpClient>();
+                if (client is null) return;
                 await using var memory = new MemoryStream();
                 var json = await client.GetStringAsync(Base_Url + "index.json");
                 await memory.WriteAsync(Encoding.UTF8.GetBytes(json));
 
-                var items = Serialize.LoadFromStream<IEnumerable<Item>>(memory, SerializeMode.Json);
+                var items = await JsonSerializer.DeserializeAsync<IEnumerable<Item>>(memory);
 
                 if (items is not null)
                 {
@@ -74,7 +79,6 @@ namespace BEditor.ViewModels.StartWindowControl
             });
         }
 
-        [DataContract]
         public class Item
         {
             private ReactiveProperty<bool>? _isSelected;
@@ -85,14 +89,12 @@ namespace BEditor.ViewModels.StartWindowControl
                 Pages = pages;
             }
 
-            [DataMember(Order = 0)]
             public string Header { get; set; }
-            [DataMember(Order = 1)]
             public ReactiveCollection<Page> Pages { get; set; }
+            [JsonIgnore]
             public ReactiveProperty<bool> IsSelected => _isSelected ??= new();
         }
 
-        [DataContract]
         public class Page
         {
             public Page(string header, string markdown, string mdstr)
@@ -102,12 +104,12 @@ namespace BEditor.ViewModels.StartWindowControl
                 MarkdownString = mdstr;
             }
 
-            [DataMember(Order = 0)]
             public string Header { get; set; }
             // .mdへのパス
-            [DataMember(Order = 1)]
             public string Markdown { get; set; }
+            [JsonIgnore]
             public string MarkdownString { get; set; }
+            [JsonIgnore]
             public FlowDocument Document
             {
                 get

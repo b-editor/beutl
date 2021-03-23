@@ -1,10 +1,6 @@
-﻿using System;
-using System.Collections.Generic;
+﻿using System.Collections.Generic;
 using System.Linq;
 using System.Numerics;
-using System.Runtime.Serialization;
-using System.Text;
-using System.Threading.Tasks;
 
 using BEditor.Data;
 using BEditor.Data.Primitive;
@@ -20,8 +16,7 @@ namespace BEditor.Primitive.Effects
     /// <summary>
     /// Represents an <see cref="ImageEffect"/> that adds a border to the image.
     /// </summary>
-    [DataContract]
-    public class StrokeText : ImageEffect
+    public sealed class StrokeText : ImageEffect
     {
         /// <summary>
         /// Represents <see cref="Size"/> metadata.
@@ -52,12 +47,12 @@ namespace BEditor.Primitive.Effects
         /// <summary>
         /// Get the <see cref="EaseProperty"/> that represents the size of the edge.
         /// </summary>
-        [DataMember(Order = 0)]
+        [DataMember]
         public EaseProperty Size { get; private set; }
         /// <summary>
         /// Get the <see cref="ColorProperty"/> that represents the edge color.
         /// </summary>
-        [DataMember(Order = 1)]
+        [DataMember]
         public ColorProperty Color { get; private set; }
 
         /// <inheritdoc/>

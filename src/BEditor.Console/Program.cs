@@ -381,41 +381,6 @@ namespace BEditor
         }
         private static void SetKnownTypes()
         {
-            Serialize.SerializeKnownTypes.AddRange(new Type[]
-            {
-                typeof(AudioObject),
-                typeof(CameraObject),
-                typeof(GL3DObject),
-                typeof(Figure),
-                typeof(ImageFile),
-                typeof(Text),
-                typeof(VideoFile),
-                typeof(SceneObject),
-                typeof(RoundRect),
-                typeof(Polygon),
-                typeof(Framebuffer),
-
-                typeof(Blur),
-                typeof(Border),
-                typeof(StrokeText),
-                typeof(ColorKey),
-                typeof(Dilate),
-                typeof(Erode),
-                typeof(Monoc),
-                typeof(Shadow),
-                typeof(Clipping),
-                typeof(AreaExpansion),
-                typeof(LinearGradient),
-                typeof(CircularGradient),
-                typeof(Mask),
-                typeof(PointLightDiffuse),
-                typeof(ChromaKey),
-                typeof(ImageSplit),
-                typeof(MultipleControls),
-                typeof(DepthTest),
-                typeof(PointLightSource),
-            });
-
             ObjectMetadata.LoadedObjects.Add(PrimitiveTypes.VideoMetadata);
             ObjectMetadata.LoadedObjects.Add(PrimitiveTypes.ImageMetadata);
             ObjectMetadata.LoadedObjects.Add(PrimitiveTypes.FigureMetadata);

@@ -14,7 +14,7 @@ using Reactive.Bindings.Extensions;
 
 namespace BEditor.ViewModels.PropertyControl
 {
-    public sealed class SelectorPropertyViewModel<T> : IDisposable
+    public sealed class SelectorPropertyViewModel<T> : IDisposable where T : IJsonObject
     {
         private readonly CompositeDisposable disposables = new();
 
@@ -33,7 +33,7 @@ namespace BEditor.ViewModels.PropertyControl
             Dispose();
         }
 
-        public ReadOnlyReactiveProperty<SelectorPropertyMetadata<T?>?> Metadata { get; }
+        public ReadOnlyReactiveProperty<SelectorPropertyMetadata<T>?> Metadata { get; }
         public SelectorProperty<T> Property { get; }
         public ReactiveCommand<T> Command { get; } = new();
         public ReactiveCommand Reset { get; } = new();

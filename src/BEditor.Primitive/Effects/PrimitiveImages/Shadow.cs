@@ -1,5 +1,4 @@
 ﻿using System.Collections.Generic;
-using System.Runtime.Serialization;
 
 using BEditor.Command;
 using BEditor.Data;
@@ -14,8 +13,7 @@ namespace BEditor.Primitive.Effects
     /// <summary>
     /// Represents an <see cref="ImageEffect"/> that adds a shadow to an image.
     /// </summary>
-    [DataContract]
-    public class Shadow : ImageEffect
+    public sealed class Shadow : ImageEffect
     {
         /// <summary>
         /// Represents <see cref="X"/> metadata.
@@ -64,27 +62,27 @@ namespace BEditor.Primitive.Effects
         /// <summary>
         /// Get the <see cref="EaseProperty"/> representing the X coordinate.
         /// </summary>
-        [DataMember(Order = 0)]
+        [DataMember]
         public EaseProperty X { get; private set; }
         /// <summary>
         /// Get the <see cref="EaseProperty"/> representing the Y coordinate.
         /// </summary>
-        [DataMember(Order = 1)]
+        [DataMember]
         public EaseProperty Y { get; private set; }
         /// <summary>
         /// Gets the <see cref="EaseProperty"/> that represents the blur sigma.
         /// </summary>
-        [DataMember(Order = 2)]
+        [DataMember]
         public EaseProperty Blur { get; private set; }
         /// <summary>
         /// Gets the <see cref="EaseProperty"/> that represents the transparency.
         /// </summary>
-        [DataMember(Order = 3)]
+        [DataMember]
         public EaseProperty Alpha { get; private set; }
         /// <summary>
         /// Get the <see cref="ColorProperty"/> that represents the shadow color.
         /// </summary>
-        [DataMember(Order = 4)]
+        [DataMember]
         public ColorProperty Color { get; private set; }
 
         /// <inheritdoc/>

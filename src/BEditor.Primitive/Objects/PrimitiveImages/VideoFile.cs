@@ -1,17 +1,14 @@
 ﻿using System;
 using System.Collections.Generic;
-using System.Runtime.Serialization;
 
-using BEditor.Command;
 using BEditor.Data;
 using BEditor.Data.Primitive;
 using BEditor.Data.Property;
-using BEditor.Properties;
 using BEditor.Drawing;
 using BEditor.Drawing.Pixel;
 using BEditor.Media;
 using BEditor.Media.Decoder;
-using BEditor.Media.PCM;
+using BEditor.Properties;
 
 using Microsoft.Extensions.DependencyInjection;
 
@@ -20,8 +17,7 @@ namespace BEditor.Primitive.Objects
     /// <summary>
     /// Represents an <see cref="ImageObject"/> that references an video file.
     /// </summary>
-    [DataContract]
-    public class VideoFile : ImageObject
+    public sealed class VideoFile : ImageObject
     {
         /// <summary>
         /// Represents <see cref="Speed"/> metadata.
@@ -71,17 +67,17 @@ namespace BEditor.Primitive.Objects
         /// <summary>
         /// Get the <see cref="EaseProperty"/> that represents the playback speed.
         /// </summary>
-        [DataMember(Order = 0)]
+        [DataMember]
         public EaseProperty Speed { get; private set; }
         /// <summary>
         /// Get the <see cref="EaseProperty"/> that represents the start position.
         /// </summary>
-        [DataMember(Order = 1)]
+        [DataMember]
         public EaseProperty Start { get; private set; }
         /// <summary>
         /// Get the <see cref="FileProperty"/> to select the video file to reference.
         /// </summary>
-        [DataMember(Order = 2)]
+        [DataMember]
         public FileProperty File { get; private set; }
 
         /// <inheritdoc/>

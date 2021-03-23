@@ -14,7 +14,6 @@ namespace BEditor.Data
     /// <summary>
     /// Represents a class that notifies property changes.
     /// </summary>
-    [DataContract]
     public abstract class BasePropertyChanged : INotifyPropertyChanged
     {
         /// <inheritdoc/>

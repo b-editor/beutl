@@ -2,20 +2,15 @@
 using System.Collections.Generic;
 using System.ComponentModel;
 using System.Diagnostics;
-using System.Reactive.Disposables;
-using System.Runtime.Serialization;
-using System.Text.RegularExpressions;
-using System.Threading.Tasks;
+using System.Text.Json;
 
 using BEditor.Data.Bindings;
-using BEditor.Data.Property;
 
 namespace BEditor.Data.Property
 {
     /// <summary>
     /// Represents a base class for grouping <see cref="PropertyElement"/> with expanders.
     /// </summary>
-    [DataContract]
     [DebuggerDisplay("IsExpanded = {IsExpanded}")]
     public abstract class ExpandGroup : Group, IEasingProperty, IBindable<bool>
     {
@@ -44,7 +39,6 @@ namespace BEditor.Data.Property
         /// <summary>
         /// Gets or sets whether the expander is open
         /// </summary>
-        [DataMember]
         public bool IsExpanded
         {
             get => _isOpen;
@@ -64,7 +58,6 @@ namespace BEditor.Data.Property
             });
         }
         /// <inheritdoc/>
-        [DataMember]
         public string? BindHint
         {
             get => _bindable?.GetString();
@@ -80,6 +73,22 @@ namespace BEditor.Data.Property
         protected override void OnLoad()
         {
             this.AutoLoad(ref _bindHint);
+        }
+
+        /// <inheritdoc/>
+        public override void GetObjectData(Utf8JsonWriter writer)
+        {
+            writer.WriteBoolean(nameof(IsExpanded), IsExpanded);
+            writer.WriteString(nameof(BindHint), BindHint);
+            base.GetObjectData(writer);
+        }
+
+        /// <inheritdoc/>
+        public override void SetObjectData(JsonElement element)
+        {
+            IsExpanded = element.TryGetProperty(nameof(IsExpanded), out var value) && value.GetBoolean();
+            BindHint = element.TryGetProperty(nameof(BindHint), out var bind) ? bind.GetString() : null;
+            base.SetObjectData(element);
         }
 
         /// <inheritdoc/>

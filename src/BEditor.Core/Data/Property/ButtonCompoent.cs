@@ -1,17 +1,12 @@
 ﻿using System;
 using System.Collections.Generic;
-using System.Linq;
 using System.Reactive.Disposables;
-using System.Runtime.Serialization;
-using System.Text;
-using System.Threading.Tasks;
 
 namespace BEditor.Data.Property
 {
     /// <summary>
     /// Represents a button in the UI
     /// </summary>
-    [DataContract]
     public class ButtonComponent : PropertyElement<ButtonComponentMetadata>, IEasingProperty, IObservable<object>
     {
         private List<IObserver<object>>? _list;

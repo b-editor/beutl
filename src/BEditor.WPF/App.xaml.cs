@@ -6,6 +6,8 @@ using System.Globalization;
 using System.IO;
 using System.Linq;
 using System.Net;
+using System.Net.Http;
+using System.Text.Json;
 using System.Threading.Tasks;
 using System.Windows;
 using System.Windows.Threading;
@@ -315,42 +317,6 @@ namespace BEditor
         }
         private static void RegisterPrimitive()
         {
-            Serialize.SerializeKnownTypes.AddRange(new Type[]
-            {
-                PrimitiveTypes.Audio,
-                PrimitiveTypes.Camera,
-                PrimitiveTypes.GL3DObject,
-                PrimitiveTypes.Figure,
-                PrimitiveTypes.Image,
-                PrimitiveTypes.Text,
-                PrimitiveTypes.Video,
-                PrimitiveTypes.Scene,
-                PrimitiveTypes.RoundRect,
-                PrimitiveTypes.Polygon,
-                PrimitiveTypes.Framebuffer,
-                PrimitiveTypes.Listener,
-
-                typeof(Blur),
-                typeof(Border),
-                typeof(StrokeText),
-                typeof(ColorKey),
-                typeof(Dilate),
-                typeof(Erode),
-                typeof(Monoc),
-                typeof(Shadow),
-                typeof(Clipping),
-                typeof(AreaExpansion),
-                typeof(LinearGradient),
-                typeof(CircularGradient),
-                typeof(Mask),
-                typeof(PointLightDiffuse),
-                typeof(ChromaKey),
-                typeof(ImageSplit),
-                typeof(MultipleControls),
-                typeof(DepthTest),
-                typeof(PointLightSource),
-            });
-
             ObjectMetadata.LoadedObjects.Add(PrimitiveTypes.VideoMetadata);
             ObjectMetadata.LoadedObjects.Add(PrimitiveTypes.ImageMetadata);
             ObjectMetadata.LoadedObjects.Add(PrimitiveTypes.FigureMetadata);
@@ -511,14 +477,27 @@ namespace BEditor
         private void Application_Exit(object sender, ExitEventArgs e)
         {
             Settings.Default.Save();
-            var jsonFile = Path.Combine(AppContext.BaseDirectory, "user", "usedFonts.json");
 
-            Serialize.SaveToFile(FontDialogViewModel.UsedFonts.Select(i => i.Font), jsonFile, SerializeMode.Json);
+            // 最近使ったフォントの保存
+            {
+                var jsonFile = Path.Combine(AppContext.BaseDirectory, "user", "usedFonts.json");
+                var fontfiles = FontDialogViewModel.UsedFonts.Select(i => i.Font.Filename).ToArray();
+                using var stream = new FileStream(jsonFile, FileMode.Create);
+                using var writer = new StreamWriter(stream);
+
+                writer.Write(JsonSerializer.Serialize(fontfiles, new JsonSerializerOptions()
+                {
+                    WriteIndented = true
+                }));
+            }
 
             backupTimer?.Stop();
             DirectoryManager.Default.Stop();
 
             var app = AppData.Current;
+
+            app.ServiceProvider.GetService<HttpClient>()?.Dispose();
+
             app.Project?.Unload();
             app.Project = null;
         }

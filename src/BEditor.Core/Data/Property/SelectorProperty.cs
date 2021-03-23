@@ -4,20 +4,16 @@ using System.Collections.Generic;
 using System.ComponentModel;
 using System.Diagnostics;
 using System.Diagnostics.Contracts;
-using System.Reactive.Disposables;
-using System.Runtime.Serialization;
-using System.Threading.Tasks;
+using System.Text.Json;
 
 using BEditor.Command;
 using BEditor.Data.Bindings;
-using BEditor.Data.Property;
 
 namespace BEditor.Data.Property
 {
     /// <summary>
     /// Represents a property for selecting a single item from an array.
     /// </summary>
-    [DataContract]
     [DebuggerDisplay("Index = {Index}, Item = {SelectItem}")]
     public class SelectorProperty : PropertyElement<SelectorPropertyMetadata>, IEasingProperty, IBindable<int>
     {
@@ -56,7 +52,6 @@ namespace BEditor.Data.Property
         /// <summary>
         /// Gets or sets the index of the selected <see cref="SelectorPropertyMetadata.ItemSource"/>.
         /// </summary>
-        [DataMember]
         public int Index
         {
             get => _selectIndex;
@@ -78,7 +73,6 @@ namespace BEditor.Data.Property
         /// <inheritdoc/>
         public int Value => Index;
         /// <inheritdoc/>
-        [DataMember]
         public string? BindHint
         {
             get => _bindable?.GetString();
@@ -93,7 +87,23 @@ namespace BEditor.Data.Property
         {
             this.AutoLoad(ref _bindHint);
         }
-        
+
+        /// <inheritdoc/>
+        public override void GetObjectData(Utf8JsonWriter writer)
+        {
+            base.GetObjectData(writer);
+            writer.WriteNumber(nameof(Value), Value);
+            writer.WriteString(nameof(BindHint), BindHint);
+        }
+
+        /// <inheritdoc/>
+        public override void SetObjectData(JsonElement element)
+        {
+            base.SetObjectData(element);
+            Index = element.TryGetProperty(nameof(Value), out var value) ? value.GetInt32() : 0;
+            BindHint = element.TryGetProperty(nameof(BindHint), out var bind) ? bind.GetString() : null;
+        }
+
         /// <summary>
         /// Create a command to change the selected item.
         /// </summary>
@@ -149,7 +159,7 @@ namespace BEditor.Data.Property
             /// <exception cref="ArgumentNullException"><paramref name="property"/> が <see langword="null"/> です</exception>
             public ChangeSelectCommand(SelectorProperty property, int select)
             {
-                _property =new( property ?? throw new ArgumentNullException(nameof(property)));
+                _property = new(property ?? throw new ArgumentNullException(nameof(property)));
                 _new = select;
                 _old = property.Index;
             }
@@ -159,7 +169,7 @@ namespace BEditor.Data.Property
             /// <inheritdoc/>
             public void Do()
             {
-                if(_property.TryGetTarget(out var target))
+                if (_property.TryGetTarget(out var target))
                 {
                     target.Index = _new;
                 }
