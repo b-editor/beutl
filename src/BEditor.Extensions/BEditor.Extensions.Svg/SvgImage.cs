@@ -1,6 +1,5 @@
 using System;
 using System.Collections.Generic;
-using System.Runtime.Serialization;
 
 using BEditor.Data;
 using BEditor.Data.Primitive;
@@ -14,7 +13,6 @@ using Svg.Skia;
 
 namespace BEditor.Extensions.Svg
 {
-    [DataContract]
     public class SvgImage : ImageObject
     {
         public static readonly EasePropertyMetadata ScaleMetadata = new("スケール", 100, Min: 0);
@@ -48,13 +46,13 @@ namespace BEditor.Extensions.Svg
             ScaleY,
             File
         };
-        [DataMember(Order = 0)]
+        [DataMember]
         public EaseProperty Scale { get; private set; }
-        [DataMember(Order = 1)]
+        [DataMember]
         public EaseProperty ScaleX { get; private set; }
-        [DataMember(Order = 2)]
+        [DataMember]
         public EaseProperty ScaleY { get; private set; }
-        [DataMember(Order = 3)]
+        [DataMember]
         public FileProperty File { get; private set; }
         private SKSvg? Source
         {

@@ -474,19 +474,21 @@ namespace BEditor
             AppData.Current.ServiceProvider = AppData.Current.Services.BuildServiceProvider();
         }
 
-        private async void Application_Exit(object sender, ExitEventArgs e)
+        private void Application_Exit(object sender, ExitEventArgs e)
         {
             Settings.Default.Save();
 
             // 最近使ったフォントの保存
             {
                 var jsonFile = Path.Combine(AppContext.BaseDirectory, "user", "usedFonts.json");
-                await using var stream = new FileStream(jsonFile, FileMode.Create);
+                var fontfiles = FontDialogViewModel.UsedFonts.Select(i => i.Font.Filename).ToArray();
+                using var stream = new FileStream(jsonFile, FileMode.Create);
+                using var writer = new StreamWriter(stream);
 
-                await JsonSerializer.SerializeAsync(stream, FontDialogViewModel.UsedFonts.Select(i => i.Font.Filename), new JsonSerializerOptions()
+                writer.Write(JsonSerializer.Serialize(fontfiles, new JsonSerializerOptions()
                 {
                     WriteIndented = true
-                });
+                }));
             }
 
             backupTimer?.Stop();

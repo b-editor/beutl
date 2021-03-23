@@ -19,7 +19,7 @@ using System.Text.Json;
 namespace BEditor
 {
     /// <summary>
-    /// Represents a class that uses the <see cref="DataContractJsonSerializer"/> to provide methods for serialization, cloning, etc.
+    /// Represents a class that uses the <see cref="System.Text.Json"/> to provide methods for serialization, cloning, etc.
     /// </summary>
     public static class Serialize
     {
@@ -241,7 +241,7 @@ namespace BEditor
         }
 
         /// <summary>
-        /// DeepClone using <see cref="DataContractSerializer"/>.
+        /// DeepClone using <see cref="System.Text.Json"/>.
         /// </summary>
         public static async Task<T?> DeepCloneAsync<T>(this T obj) where T : IJsonObject
         {
@@ -256,7 +256,7 @@ namespace BEditor
             }
         }
         /// <summary>
-        /// DeepClone using <see cref="DataContractSerializer"/>.
+        /// DeepClone using <see cref="System.Text.Json"/>.
         /// </summary>
         public static T? DeepClone<T>(this T obj) where T : IJsonObject
         {

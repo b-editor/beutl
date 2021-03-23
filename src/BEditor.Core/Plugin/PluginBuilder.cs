@@ -101,19 +101,19 @@ namespace BEditor.Plugin
         public void Register(PluginManager manager)
         {
             // Effects
-            foreach (var meta in _effects.Where(meta => Attribute.IsDefined(meta.Type, typeof(DataContractAttribute))))
+            foreach (var meta in _effects)
             {
                 EffectMetadata.LoadedEffects.Add(meta);
             }
 
             // Objects
-            foreach (var meta in _objects.Where(meta => Attribute.IsDefined(meta.Type, typeof(DataContractAttribute))))
+            foreach (var meta in _objects)
             {
                 ObjectMetadata.LoadedObjects.Add(meta);
             }
 
             // Easing
-            foreach (var meta in _eases.Where(meta => Attribute.IsDefined(meta.Type, typeof(DataContractAttribute))))
+            foreach (var meta in _eases)
             {
                 EasingMetadata.LoadedEasingFunc.Add(meta);
             }

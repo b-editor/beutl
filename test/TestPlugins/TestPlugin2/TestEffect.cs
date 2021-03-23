@@ -1,5 +1,4 @@
 ﻿using System.Collections.Generic;
-using System.Runtime.Serialization;
 
 using BEditor.Command;
 using BEditor.Data;
@@ -10,7 +9,6 @@ using BEditor.Drawing.Pixel;
 
 namespace TestPlugin2
 {
-    [DataContract]
     public class TestEffect : ImageEffect
     {
         public static readonly CheckPropertyMetadata CheckMetadata = new("チェックボックス");
