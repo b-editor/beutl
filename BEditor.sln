@@ -24,6 +24,7 @@ Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "Solution Items", "Solution 
 		.gitignore = .gitignore
 		.gitmodules = .gitmodules
 		ARCHITECTURE.md = ARCHITECTURE.md
+		build.cake = build.cake
 		icon.png = icon.png
 		LICENSE = LICENSE
 		plugin_sdk_pack.ps1 = plugin_sdk_pack.ps1

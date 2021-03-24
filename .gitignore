@@ -349,3 +349,7 @@ MigrationBackup/
 # Ionide (cross platform F# VS Code tools) working folder
 .ionide/
 /src/BEditor.Core/BEditor.Core.xml
+
+# Cake Addins
+tools/*
+!tools/packages.config

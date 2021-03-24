@@ -6,6 +6,7 @@
     <PackageId>BEditor.Console</PackageId>
     <AssemblyName>bedit</AssemblyName>
     <RootNamespace>BEditor</RootNamespace>
+    <RuntimeIdentifiers>win-x64;linux-x64;osx-x64</RuntimeIdentifiers>
   </PropertyGroup>
 
   <Import Project="..\..\props\common.props" />
