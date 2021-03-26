@@ -166,4 +166,7 @@ so playback was stopped.</value>
     <value>An exception was thrown during rendering, so the preview was temporarily stopped,
 and will be released after 5 seconds.</value>
   </data>
+  <data name="ThisNameAlreadyExists" xml:space="preserve">
+    <value>This name already exists.</value>
+  </data>
 </root>

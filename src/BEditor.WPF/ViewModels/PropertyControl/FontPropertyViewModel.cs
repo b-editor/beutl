@@ -23,7 +23,7 @@ namespace BEditor.ViewModels.PropertyControl
         {
             Property = property;
             Metadata = property.ObserveProperty(p => p.PropertyMetadata)
-                .ToReadOnlyReactiveProperty()
+                .ToReadOnlyReactivePropertySlim()
                 .AddTo(disposables);
 
             Command.Subscribe(font => Property.ChangeFont(font).Execute()).AddTo(disposables);
@@ -34,7 +34,7 @@ namespace BEditor.ViewModels.PropertyControl
             Dispose();
         }
 
-        public ReadOnlyReactiveProperty<FontPropertyMetadata?> Metadata { get; }
+        public ReadOnlyReactivePropertySlim<FontPropertyMetadata?> Metadata { get; }
         public FontProperty Property { get; }
         public ReactiveCommand<Font> Command { get; } = new();
         public ReactiveCommand Reset { get; } = new();
@@ -42,6 +42,9 @@ namespace BEditor.ViewModels.PropertyControl
 
         public void Dispose()
         {
+            Metadata.Dispose();
+            Command.Dispose();
+            Reset.Dispose();
             disposables.Dispose();
 
             GC.SuppressFinalize(this);

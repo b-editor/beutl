@@ -28,7 +28,7 @@ namespace BEditor.Plugin
         {
             _plugin = create;
         }
-
+        
         /// <summary>
         ///  Begin configuring an <see cref="PluginObject"/>.
         /// </summary>

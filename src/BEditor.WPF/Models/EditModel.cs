@@ -215,31 +215,31 @@ namespace BEditor.Models
         {
             try
             {
-                if (type == CommandType.Do)
+                if (type is CommandType.Do)
                 {
-                    //上を見てUnDoListに追加
+                    // 上を見てUnDoListに追加
                     ReDoList.Clear();
 
                     var command = CommandManager.Default.UndoStack.Peek();
 
                     UnDoList.Insert(0, command.Name);
 
-                    AppData.Current.Project!.PreviewUpdate();
+                    AppData.Current.Project?.PreviewUpdate();
                 }
-                else if (type == CommandType.Undo)
+                else if (type is CommandType.Undo)
                 {
-                    //ReDoListに移動
-                    if (UnDoList.Count == 0) return;
+                    // ReDoListに移動
+                    if (UnDoList.Count is 0) return;
 
                     string name = UnDoList[0];
                     UnDoList.Remove(name);
                     ReDoList.Insert(0, name);
 
                 }
-                else if (type == CommandType.Redo)
+                else if (type is CommandType.Redo)
                 {
-                    //UnDoListに移動
-                    if (ReDoList.Count == 0) return;
+                    // UnDoListに移動
+                    if (ReDoList.Count is 0) return;
 
                     string name = ReDoList[0];
                     ReDoList.Remove(name);

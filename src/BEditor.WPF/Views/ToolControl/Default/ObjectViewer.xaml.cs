@@ -151,12 +151,15 @@ namespace BEditor.Views.ToolControl.Default
         }
         private void AddScene(object sender, RoutedEventArgs e)
         {
+            var view = new SceneCreatePage();
             new NoneDialog()
             {
-                Content = new SceneCreatePage(),
+                Content = view,
                 Owner = App.Current.MainWindow,
                 MaxWidth = double.PositiveInfinity,
             }.ShowDialog();
+
+            if (view.DataContext is IDisposable disposable) disposable.Dispose();
         }
         private void AddClip(object sender, RoutedEventArgs e)
         {
@@ -176,6 +179,8 @@ namespace BEditor.Views.ToolControl.Default
                     Content = dialog,
                     MaxWidth = double.PositiveInfinity
                 }.ShowDialog();
+
+                viewmodel.Dispose();
             }
         }
         private void AddEffect(object sender, RoutedEventArgs e)
@@ -211,6 +216,8 @@ namespace BEditor.Views.ToolControl.Default
                     MaxWidth = double.PositiveInfinity
                 }
                 .ShowDialog();
+
+                viewmodel.Dispose();
             }
         }
     }

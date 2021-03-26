@@ -28,9 +28,9 @@ namespace BEditor.ViewModels.SettingsControl
             });
         }
 
-        public ReactiveProperty<uint> Width { get; } = new();
-        public ReactiveProperty<uint> Height { get; } = new();
-        public ReactiveProperty<string> Name { get; } = new();
+        public ReactivePropertySlim<uint> Width { get; } = new();
+        public ReactivePropertySlim<uint> Height { get; } = new();
+        public ReactivePropertySlim<string> Name { get; } = new();
         public ReactiveCommand AdaptationCommand { get; } = new();
     }
 }

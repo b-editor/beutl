@@ -20,7 +20,7 @@ namespace BEditor.ViewModels.TimeLines
         {
             Property = property;
             Metadata = property.ObserveProperty(p => p.PropertyMetadata)
-                .ToReadOnlyReactiveProperty()
+                .ToReadOnlyReactivePropertySlim()
                 .AddTo(_disposable);
 
             AddKeyFrameCommand
@@ -56,7 +56,7 @@ namespace BEditor.ViewModels.TimeLines
         public static double TrackHeight => Setting.ClipHeight + 1;
         public IKeyFrameProperty Property { get; }
 
-        public ReadOnlyReactiveProperty<PropertyElementMetadata?> Metadata { get; }
+        public ReadOnlyReactivePropertySlim<PropertyElementMetadata?> Metadata { get; }
         public ReactiveCommand<Frame> AddKeyFrameCommand { get; } = new();
         public ReactiveCommand<Frame> RemoveKeyFrameCommand { get; } = new();
         public ReactiveCommand<(int, int)> MoveKeyFrameCommand { get; } = new();

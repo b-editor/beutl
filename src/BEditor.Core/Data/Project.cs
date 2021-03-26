@@ -21,7 +21,7 @@ namespace BEditor.Data
     /// <summary>
     /// Represents the project to be used in editing.
     /// </summary>
-    public class Project : EditorObject, IParent<Scene>, IChild<IApplication>, IElementObject, IHasName, IJsonObject
+    public class Project : EditingObject, IParent<Scene>, IChild<IApplication>, IElementObject, IHasName, IJsonObject
     {
         #region Fields
 

@@ -27,7 +27,7 @@ namespace BEditor.ViewModels.PropertyControl
             Property = property;
             oldvalue = Property.Value;
             Metadata = property.ObserveProperty(p => p.PropertyMetadata)
-                .ToReadOnlyReactiveProperty()
+                .ToReadOnlyReactivePropertySlim()
                 .AddTo(disposables);
 
             Reset.Subscribe(() => Property.ChangeText(Property.PropertyMetadata?.DefaultText ?? "").Execute()).AddTo(disposables);
@@ -55,7 +55,7 @@ namespace BEditor.ViewModels.PropertyControl
             Dispose();
         }
 
-        public ReadOnlyReactiveProperty<TextPropertyMetadata?> Metadata { get; }
+        public ReadOnlyReactivePropertySlim<TextPropertyMetadata?> Metadata { get; }
         public TextProperty Property { get; }
         public ReactiveCommand Reset { get; } = new();
         public ReactiveCommand Bind { get; } = new();
@@ -65,6 +65,12 @@ namespace BEditor.ViewModels.PropertyControl
 
         public void Dispose()
         {
+            Metadata.Dispose();
+            Reset.Dispose();
+            Bind.Dispose();
+            GotFocus.Dispose();
+            LostFocus.Dispose();
+            TextChanged.Dispose();
             disposables.Dispose();
 
             GC.SuppressFinalize(this);

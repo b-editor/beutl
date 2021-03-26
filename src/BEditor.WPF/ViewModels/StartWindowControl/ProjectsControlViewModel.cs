@@ -28,7 +28,7 @@ namespace BEditor.ViewModels.StartWindowControl
             CountIsZero = new(!Settings.Default.MostRecentlyUsedList
                 .Where(i => File.Exists(i))
                 .Any());
-            CountIsNotZero = CountIsZero.Select(i => !i).ToReadOnlyReactiveProperty();
+            CountIsNotZero = CountIsZero.Select(i => !i).ToReadOnlyReactivePropertySlim();
 
             Projects = new(Settings.Default.MostRecentlyUsedList
                 .Where(i => File.Exists(i))
@@ -159,9 +159,9 @@ namespace BEditor.ViewModels.StartWindowControl
         public ReactiveCommand Create { get; } = new();
         public ReactiveCommand Add { get; } = new();
         public ObservableCollection<ProjectItem> Projects { get; }
-        public ReactiveProperty<bool> CountIsZero { get; }
-        public ReadOnlyReactiveProperty<bool> CountIsNotZero { get; }
-        public ReactiveProperty<string> Search { get; } = new();
+        public ReactivePropertySlim<bool> CountIsZero { get; }
+        public ReadOnlyReactivePropertySlim<bool> CountIsNotZero { get; }
+        public ReactivePropertySlim<string> Search { get; } = new();
 
         public event EventHandler? Close;
 
@@ -170,9 +170,9 @@ namespace BEditor.ViewModels.StartWindowControl
             public string? ThumbnailPath
                 => System.IO.Path.Combine(System.IO.Path.GetDirectoryName(Path)!, "thumbnail.png") is var p && File.Exists(p) ? p : null;
 
-            public ReactiveProperty<bool> IsLoading { get; } = new(false);
+            public ReactivePropertySlim<bool> IsLoading { get; } = new(false);
 
-            public ReactiveProperty<Visibility> Visibility { get; } = new(System.Windows.Visibility.Visible);
+            public ReactivePropertySlim<Visibility> Visibility { get; } = new(System.Windows.Visibility.Visible);
         }
     }
 }

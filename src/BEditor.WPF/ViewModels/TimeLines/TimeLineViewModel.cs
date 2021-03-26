@@ -154,9 +154,9 @@ namespace BEditor.ViewModels.TimeLines
         }
 
         public double TrackHeight { get; } = Setting.ClipHeight;
-        public ReactiveProperty<Thickness> SeekbarMargin { get; } = new();
-        public ReactiveProperty<double> TrackWidth { get; } = new();
-        public ReactiveProperty<Cursor> LayerCursor { get; } = new();
+        public ReactivePropertySlim<Thickness> SeekbarMargin { get; } = new();
+        public ReactivePropertySlim<double> TrackWidth { get; } = new();
+        public ReactivePropertySlim<Cursor> LayerCursor { get; } = new();
 
         /// <summary>
         /// 目盛りを追加するAction

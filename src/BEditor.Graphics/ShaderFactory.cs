@@ -76,12 +76,12 @@ namespace BEditor.Graphics
             "in vec2 texCoord;\n" +
 
             "uniform vec4 color;\n" +
-            "uniform sampler2D texture;\n" +
+            "uniform sampler2D texture0;\n" +
 
             "void main()\n" +
             "{\n" +
             // texture2Dは330で非推奨
-            "   outputColor = texture2D(texture, texCoord) * color;\n" +
+            "   outputColor = texture(texture0, texCoord) * color;\n" +
             "}";
         private const string TextureVert =
             "#version 330 core\n" +

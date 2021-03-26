@@ -78,7 +78,7 @@ namespace BEditor.ViewModels.CreatePage
             Dispose();
         }
 
-        public ReactiveProperty<Scene> Scene { get; } = new(AppData.Current.Project!.PreviewScene);
+        public ReactivePropertySlim<Scene> Scene { get; } = new(AppData.Current.Project!.PreviewScene);
         public ObjectMetadata Type => TypeItems.Where(i => i.IsSelected.Value).First().Metadata;
         public ReactiveProperty<int> Start { get; }
         public ReactiveProperty<int> Length { get; }
@@ -89,12 +89,23 @@ namespace BEditor.ViewModels.CreatePage
 
         public record TypeItem(ObjectMetadata Metadata)
         {
-            public ReactiveProperty<bool> IsSelected { get; } = new();
+            public ReactivePropertySlim<bool> IsSelected { get; } = new();
             public ReactiveCommand<TypeItem> Command { get; } = new();
         }
 
         public void Dispose()
         {
+            Scene.Dispose();
+            Start.Dispose();
+            Length.Dispose();
+            Layer.Dispose();
+            Name.Dispose();
+            AddCommand.Dispose();
+            foreach (var item in TypeItems)
+            {
+                item.IsSelected.Dispose();
+                item.Command.Dispose();
+            }
             _disposable.Dispose();
 
             GC.SuppressFinalize(this);

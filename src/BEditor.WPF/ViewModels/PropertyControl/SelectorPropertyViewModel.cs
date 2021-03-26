@@ -22,7 +22,7 @@ namespace BEditor.ViewModels.PropertyControl
         {
             Property = selector;
             Metadata = selector.ObserveProperty(p => p.PropertyMetadata)
-                .ToReadOnlyReactiveProperty()
+                .ToReadOnlyReactivePropertySlim()
                 .AddTo(disposables);
 
             Command.Subscribe(index => Property.ChangeSelect(index).Execute()).AddTo(disposables);
@@ -33,7 +33,7 @@ namespace BEditor.ViewModels.PropertyControl
             Dispose();
         }
 
-        public ReadOnlyReactiveProperty<SelectorPropertyMetadata<T>?> Metadata { get; }
+        public ReadOnlyReactivePropertySlim<SelectorPropertyMetadata<T>?> Metadata { get; }
         public SelectorProperty<T> Property { get; }
         public ReactiveCommand<T> Command { get; } = new();
         public ReactiveCommand Reset { get; } = new();
@@ -41,6 +41,9 @@ namespace BEditor.ViewModels.PropertyControl
 
         public void Dispose()
         {
+            Metadata.Dispose();
+            Reset.Dispose();
+            Bind.Dispose();
             disposables.Dispose();
 
             GC.SuppressFinalize(this);
@@ -54,7 +57,7 @@ namespace BEditor.ViewModels.PropertyControl
         {
             Property = selector;
             Metadata = selector.ObserveProperty(p => p.PropertyMetadata)
-                .ToReadOnlyReactiveProperty()
+                .ToReadOnlyReactivePropertySlim()
                 .AddTo(disposables);
 
             Command.Subscribe(index => Property.ChangeSelect(index).Execute()).AddTo(disposables);
@@ -65,7 +68,7 @@ namespace BEditor.ViewModels.PropertyControl
             Dispose();
         }
 
-        public ReadOnlyReactiveProperty<SelectorPropertyMetadata?> Metadata { get; }
+        public ReadOnlyReactivePropertySlim<SelectorPropertyMetadata?> Metadata { get; }
         public SelectorProperty Property { get; }
         public ReactiveCommand<int> Command { get; } = new();
         public ReactiveCommand Reset { get; } = new();
@@ -73,6 +76,9 @@ namespace BEditor.ViewModels.PropertyControl
 
         public void Dispose()
         {
+            Metadata.Dispose();
+            Reset.Dispose();
+            Bind.Dispose();
             disposables.Dispose();
 
             GC.SuppressFinalize(this);

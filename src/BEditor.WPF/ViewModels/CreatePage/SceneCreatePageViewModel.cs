@@ -38,15 +38,20 @@ namespace BEditor.ViewModels.CreatePage
             _disposable.Dispose();
         }
 
-        public ReactiveProperty<int> Width { get; } = new();
-        public ReactiveProperty<int> Height { get; } = new();
-        public ReactiveProperty<string> Name { get; } = new();
+        public ReactivePropertySlim<int> Width { get; } = new();
+        public ReactivePropertySlim<int> Height { get; } = new();
+        public ReactivePropertySlim<string> Name { get; } = new();
 
         public ReactiveCommand CreateCommand { get; } = new();
         public ReactiveCommand ResetCommand { get; } = new();
 
         public void Dispose()
         {
+            Width.Dispose();
+            Height.Dispose();
+            Name.Dispose();
+            CreateCommand.Dispose();
+            ResetCommand.Dispose();
             _disposable.Dispose();
 
             GC.SuppressFinalize(this);

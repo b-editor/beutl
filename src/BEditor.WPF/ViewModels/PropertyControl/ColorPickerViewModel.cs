@@ -35,7 +35,7 @@ namespace BEditor.ViewModels.PropertyControl
             Brush.Value = new SolidColorBrush(Color.FromArgb(color.A, color.R, color.G, color.B));
 
             Metadata = property.ObserveProperty(p => p.PropertyMetadata)
-                .ToReadOnlyReactiveProperty()
+                .ToReadOnlyReactivePropertySlim()
                 .AddTo(disposables);
 
             Command.Subscribe(x => Property.ChangeColor(Drawing.Color.FromARGB(x.Item4, x.Item1, x.Item2, x.Item3)).Execute()).AddTo(disposables);
@@ -67,7 +67,7 @@ namespace BEditor.ViewModels.PropertyControl
             }
         }
         public static ObservableCollection<ColorList> ColorList { get; } = new();
-        public ReadOnlyReactiveProperty<ColorPropertyMetadata?> Metadata { get; }
+        public ReadOnlyReactivePropertySlim<ColorPropertyMetadata?> Metadata { get; }
         public ColorProperty Property { get; }
         public ReactiveCommand<(byte, byte, byte, byte)> Command { get; } = new();
         public ReactiveCommand Reset { get; } = new();
@@ -77,6 +77,12 @@ namespace BEditor.ViewModels.PropertyControl
 
         public void Dispose()
         {
+            Metadata.Dispose();
+            Command.Dispose();
+            Reset.Dispose();
+            Bind.Dispose();
+            OpenDialog.Dispose();
+            Brush.Dispose();
             disposables.Dispose();
 
             GC.SuppressFinalize(this);

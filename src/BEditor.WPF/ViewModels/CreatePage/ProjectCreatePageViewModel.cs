@@ -4,12 +4,14 @@ using System.IO;
 using System.Linq;
 using System.Reactive.Disposables;
 using System.Reactive.Linq;
+using System.Text.RegularExpressions;
 using System.Threading.Tasks;
 using System.Windows.Input;
 using System.Xml.Linq;
 
 using BEditor.Data;
 using BEditor.Models;
+using BEditor.Properties;
 using BEditor.Views;
 using BEditor.Views.MessageContent;
 
@@ -20,10 +22,10 @@ namespace BEditor.ViewModels.CreatePage
 {
     public sealed class ProjectCreatePageViewModel : IDisposable
     {
-        private const int width = 1920;
-        private const int height = 1080;
-        private const int framerate = 30;
-        private const int samlingrate = 44100;
+        private const int WIDTH = 1920;
+        private const int HEIGHT = 1080;
+        private const int FRAMERATE = 30;
+        private const int SAMLINGRATE = 44100;
         private readonly ReactiveCommand<TemplateItem> _select;
         private static readonly string _file = Path.Combine(AppContext.BaseDirectory, "user", "project_template.xml");
         private readonly CompositeDisposable _disposable = new();
@@ -40,6 +42,16 @@ namespace BEditor.ViewModels.CreatePage
                 Framerate.Value = i.Framerate;
                 Samplingrate.Value = i.Samplingrate;
             }).AddTo(_disposable);
+            Name = new ReactiveProperty<string>(GetNewName())
+                .SetValidateNotifyError(name =>
+                {
+                    if (Directory.Exists(Path.Combine(Folder.Value, name)))
+                    {
+                        return MessageResources.ThisNameAlreadyExists;
+                    }
+
+                    return null;
+                });
 
             LoadTemplate();
         }
@@ -49,12 +61,12 @@ namespace BEditor.ViewModels.CreatePage
         }
 
         #region Properties
-        public ReactiveProperty<uint> Width { get; } = new(width);
-        public ReactiveProperty<uint> Height { get; } = new(height);
-        public ReactiveProperty<uint> Framerate { get; } = new(framerate);
-        public ReactiveProperty<uint> Samplingrate { get; } = new(samlingrate);
-        public ReactiveProperty<string> Name { get; } = new(GenFilename());
-        public ReactiveProperty<string> Folder { get; } = new(Settings.Default.LastTimeFolder);
+        public ReactivePropertySlim<uint> Width { get; } = new(WIDTH);
+        public ReactivePropertySlim<uint> Height { get; } = new(HEIGHT);
+        public ReactivePropertySlim<uint> Framerate { get; } = new(FRAMERATE);
+        public ReactivePropertySlim<uint> Samplingrate { get; } = new(SAMLINGRATE);
+        public ReactiveProperty<string> Name { get; }
+        public ReactivePropertySlim<string> Folder { get; } = new(Settings.Default.LastTimeFolder);
 
         public ReactiveCommand OpenFolerDialog { get; } = new();
         public ReactiveCommand CreateCommand { get; } = new();
@@ -83,9 +95,8 @@ namespace BEditor.ViewModels.CreatePage
                 (int)Framerate.Value,
                 (int)Samplingrate.Value,
                 AppData.Current,
-                FormattedFilename(Path.Combine(Folder.Value, Path.GetFileNameWithoutExtension(Name.Value), Name.Value)));
+                Path.Combine(Folder.Value, Name.Value, Name.Value) + ".bedit");
 
-            AppData.Current.Project = project;
 
             var loading = new Loading()
             {
@@ -96,6 +107,8 @@ namespace BEditor.ViewModels.CreatePage
                 Owner = App.Current.MainWindow
             };
             dialog.Show();
+
+            AppData.Current.Project = project;
 
             Task.Run(() =>
             {
@@ -214,37 +227,35 @@ namespace BEditor.ViewModels.CreatePage
                 }
             });
         }
-        private static string FormattedFilename(string original)
+
+        private string GetNewName()
         {
-            string dir = Path.GetDirectoryName(original)!;
-            string name = Path.GetFileNameWithoutExtension(original);
-            string ex = ".bedit";
+            var dirs = Directory.GetDirectories(Folder.Value, "Project*");
 
-            int count = 0;
-            while (File.Exists(dir + "\\" + name + ((count is 0) ? "" : count.ToString()) + ex))
-            {
-                count++;
-            }
-            if (count is not 0) name += count.ToString();
+            var reg = new Regex(@"^Project([\d]+)\z");
 
-            name += ex;
+            var values = dirs.Select(i => new DirectoryInfo(i))
+                .Select(i => i.Name)
+                .Where(i => reg.IsMatch(i))
+                .Select(i => reg.Match(i))
+                .Select(i => int.Parse(i.Groups[1].Value))
+                .ToArray();
+            if (values.Length is 0) return "Project1";
 
-            return dir + "\\" + name;
-        }
-        private static string GenFilename()
-        {
-            var file = Settings.Default.MostRecentlyUsedList.LastOrDefault();
-            if (file is not null && Path.GetExtension(file) is ".bedit")
-            {
-                return Path.GetFileName(FormattedFilename(file));
-            }
-
-
-            return Path.GetFileName(FormattedFilename(Settings.Default.LastTimeFolder + "\\" + "Project"));
+            return "Project" + (values.Max() + 1);
         }
 
         public void Dispose()
         {
+            Width.Dispose();
+            Height.ToString();
+            Framerate.Dispose();
+            Samplingrate.Dispose();
+            Name.Dispose();
+            Folder.Dispose();
+            OpenFolerDialog.Dispose();
+            CreateCommand.Dispose();
+            TemplateItems.Dispose();
             _disposable.Dispose();
 
             GC.SuppressFinalize(this);

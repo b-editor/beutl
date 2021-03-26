@@ -34,7 +34,6 @@ using Expression = System.Linq.Expressions.Expression;
 
 namespace BEditor
 {
-
     /// <summary>
     /// MainWindow.xaml の相互作用ロジック
     /// </summary>
@@ -77,16 +76,16 @@ namespace BEditor
 
         private void EditModel_EffectAddTo(object? sender, ClipElement c)
         {
-            var context = new EffectAddPageViewModel()
+            var viewmodel = new EffectAddPageViewModel()
             {
                 Scene =
                 {
                     Value = c.Parent
                 }
             };
-            var dialog = new EffectAddPage(context);
+            var dialog = new EffectAddPage(viewmodel);
 
-            foreach (var i in context.ClipItems.Value)
+            foreach (var i in viewmodel.ClipItems.Value)
             {
                 i.IsSelected.Value = false;
                 if (i.Clip == c)
@@ -100,30 +99,38 @@ namespace BEditor
                 Content = dialog,
                 MaxWidth = double.PositiveInfinity
             }.ShowDialog();
+
+            viewmodel.Dispose();
         }
         private void EditModel_SceneCreate(object? sender, EventArgs e)
         {
+            var view = new SceneCreatePage();
             new NoneDialog()
             {
-                Content = new SceneCreatePage(),
+                Content = view,
                 MaxWidth = double.PositiveInfinity,
             }.ShowDialog();
+
+            if (view.DataContext is IDisposable disposable) disposable.Dispose();
         }
         private void EditModel_ClipCreate(object? sender, EventArgs e)
         {
-            var dialog = new ClipCreatePage(new ClipCreatePageViewModel()
+            var viewmodel = new ClipCreatePageViewModel()
             {
                 Scene =
                 {
                     Value = AppData.Current.Project!.PreviewScene
                 }
-            });
+            };
+            var dialog = new ClipCreatePage(viewmodel);
 
             new NoneDialog()
             {
                 Content = dialog,
                 MaxWidth = double.PositiveInfinity
             }.ShowDialog();
+
+            viewmodel.Dispose();
         }
 
         private void SetMostUsedFiles()

@@ -26,15 +26,15 @@ namespace BEditor.ViewModels.StartWindowControl
     {
         public LearnViewModel()
         {
-            IsNotLoaded = IsLoaded.Select(i => !i).ToReactiveProperty();
+            IsNotLoaded = IsLoaded.Select(i => !i).ToReadOnlyReactivePropertySlim();
 
             DownloadItems();
         }
 
         public ReactiveCollection<Item> Items { get; } = new();
-        public ReactiveProperty<Item> SelectedItem { get; } = new();
-        public ReactiveProperty<bool> IsLoaded { get; } = new();
-        public ReactiveProperty<bool> IsNotLoaded { get; }
+        public ReactivePropertySlim<Item> SelectedItem { get; } = new();
+        public ReactivePropertySlim<bool> IsLoaded { get; } = new();
+        public ReadOnlyReactivePropertySlim<bool> IsNotLoaded { get; }
 
         private Task DownloadItems()
         {
@@ -44,13 +44,10 @@ namespace BEditor.ViewModels.StartWindowControl
 
                 Base_Url += CultureInfo.CurrentCulture.Name + "/";
 
-                var client = AppData.Current.ServiceProvider.GetService<HttpClient>();
-                if (client is null) return;
-                await using var memory = new MemoryStream();
-                var json = await client.GetStringAsync(Base_Url + "index.json");
-                await memory.WriteAsync(Encoding.UTF8.GetBytes(json));
+                var client = AppData.Current.ServiceProvider.GetRequiredService<HttpClient>();
+                await using var stream = await client.GetStreamAsync(Base_Url + "index.json");
 
-                var items = await JsonSerializer.DeserializeAsync<IEnumerable<Item>>(memory);
+                var items = await JsonSerializer.DeserializeAsync<IEnumerable<Item>>(stream);
 
                 if (items is not null)
                 {
@@ -81,34 +78,21 @@ namespace BEditor.ViewModels.StartWindowControl
 
         public class Item
         {
-            private ReactiveProperty<bool>? _isSelected;
+            private ReactivePropertySlim<bool>? _isSelected;
 
-            public Item(string header, ReactiveCollection<Page> pages)
-            {
-                Header = header;
-                Pages = pages;
-            }
-
-            public string Header { get; set; }
-            public ReactiveCollection<Page> Pages { get; set; }
+            public string Header { get; set; } = "";
+            public ReactiveCollection<Page> Pages { get; set; } = new();
             [JsonIgnore]
-            public ReactiveProperty<bool> IsSelected => _isSelected ??= new();
+            public ReactivePropertySlim<bool> IsSelected => _isSelected ??= new();
         }
 
         public class Page
         {
-            public Page(string header, string markdown, string mdstr)
-            {
-                Header = header;
-                Markdown = markdown;
-                MarkdownString = mdstr;
-            }
-
-            public string Header { get; set; }
+            public string Header { get; set; } = "";
             // .mdへのパス
-            public string Markdown { get; set; }
+            public string Markdown { get; set; } = "";
             [JsonIgnore]
-            public string MarkdownString { get; set; }
+            public string MarkdownString { get; set; } = "";
             [JsonIgnore]
             public FlowDocument Document
             {

@@ -5,7 +5,7 @@ namespace BEditor.Data.Property
     /// <summary>
     /// Represents a property used by <see cref="EffectElement"/>.
     /// </summary>
-    public interface IPropertyElement : IHasId, IChild<EffectElement>, IElementObject, IEditorObject, IJsonObject
+    public interface IPropertyElement : IHasId, IChild<EffectElement>, IElementObject, IEditingObject, IJsonObject
     {
         /// <summary>
         /// Gets or sets the metadata for this <see cref="IPropertyElement"/>.

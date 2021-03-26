@@ -15,7 +15,7 @@ namespace BEditor.ViewModels.SettingsControl.General
     {
         public IncludeFontViewModel()
         {
-            IsSelected = SelectFont.Select(dir => dir is not null).ToReadOnlyReactiveProperty();
+            IsSelected = SelectFont.Select(dir => dir is not null).ToReadOnlyReactivePropertySlim();
 
             Add.Subscribe(() =>
             {
@@ -32,8 +32,8 @@ namespace BEditor.ViewModels.SettingsControl.General
             });
         }
 
-        public ReactiveProperty<string> SelectFont { get; } = new();
-        public ReadOnlyReactiveProperty<bool> IsSelected { get; }
+        public ReactivePropertySlim<string> SelectFont { get; } = new();
+        public ReadOnlyReactivePropertySlim<bool> IsSelected { get; }
         public ReactiveCommand Add { get; } = new();
         public ReactiveCommand Remove { get; } = new();
     }

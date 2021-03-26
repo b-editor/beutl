@@ -1,6 +1,5 @@
 using System;
 using System.Collections.Generic;
-using System.Runtime.Serialization;
 
 using BEditor.Data;
 using BEditor.Data.Primitive;
@@ -10,7 +9,6 @@ using BEditor.Drawing.Pixel;
 
 namespace BEditorPluginTemplate
 {
-    [DataContract]
     public class NewImageObject : ImageObject
     {
         public NewImageObject()

@@ -23,7 +23,7 @@ namespace BEditor.ViewModels.PropertyControl
         public BindSettingsViewModel(IBindable<T> bindable)
         {
             Bindable = bindable;
-            BindPath = bindable.ObserveProperty(b => b.BindHint).ToReactiveProperty().AddTo(disposables);
+            BindPath = bindable.ObserveProperty(b => b.BindHint).ToReadOnlyReactivePropertySlim().AddTo(disposables);
 
             OKCommand.Subscribe(() =>
             {
@@ -41,13 +41,16 @@ namespace BEditor.ViewModels.PropertyControl
         }
 
 
-        public IBindable<T> Bindable { get; }
-        public ReactiveProperty<string?> BindPath { get; }
+        public IBindable<T> Bindable { get; private set; }
+        public ReadOnlyReactivePropertySlim<string?> BindPath { get; }
         public ReactiveCommand OKCommand { get; } = new();
         public ReactiveCommand DisconnectCommand { get; } = new();
 
         public void Dispose()
         {
+            BindPath.Dispose();
+            OKCommand.Dispose();
+            DisconnectCommand.Dispose();
             disposables.Dispose();
 
             GC.SuppressFinalize(this);

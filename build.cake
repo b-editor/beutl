@@ -15,6 +15,7 @@ Task("Clean")
     CreateDirectory(publishDir);
     CleanDirectory(publishDir);
     DotNetCoreClean("./BEditor.sln");
+    DotNetCoreClean("./BEditor.Api.sln");
 });
 
 Task("Build")
@@ -71,7 +72,8 @@ Task("ConsolePublish")
         {
             Configuration = configuration,
             SelfContained = true,
-            Runtime = rid
+            Runtime = rid,
+            NoBuild = true
         });
 
         Zip(binaryPath, publishDir.CombineWithFilePath($"beditor_console_{rid}.zip"));
@@ -84,7 +86,9 @@ Task("NugetPack")
 {
     DotNetCorePack("./BEditor.Api.sln", new DotNetCorePackSettings()
     {
-        OutputDirectory = publishDir.Combine("nuget")
+        Configuration = configuration,
+        OutputDirectory = publishDir.Combine("nuget"),
+        NoBuild = true
     });
 });
 

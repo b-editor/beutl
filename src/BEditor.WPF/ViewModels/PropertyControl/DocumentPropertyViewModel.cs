@@ -59,6 +59,11 @@ namespace BEditor.ViewModels.PropertyControl
 
         public void Dispose()
         {
+            Reset.Dispose();
+            Bind.Dispose();
+            GotFocus.Dispose();
+            LostFocus.Dispose();
+            TextChanged.Dispose();
             disposables.Dispose();
 
             GC.SuppressFinalize(this);

@@ -1,11 +1,8 @@
 ﻿using System;
 using System.Collections.Generic;
-using System.IO;
 using System.Linq;
 using System.Net.Http;
 using System.Reactive.Linq;
-using System.Runtime.Serialization;
-using System.Text;
 using System.Text.Json;
 using System.Text.Json.Serialization;
 using System.Threading.Tasks;
@@ -14,10 +11,13 @@ using System.Windows.Controls;
 using System.Windows.Media;
 using System.Windows.Shapes;
 
+using BEditor.Models;
 using BEditor.Properties;
 using BEditor.Views.StartWindowControl;
 
 using MaterialDesignThemes.Wpf;
+
+using Microsoft.Extensions.DependencyInjection;
 
 using Reactive.Bindings;
 
@@ -44,24 +44,24 @@ namespace BEditor.ViewModels
 
             _ = GetLatestRelease();
         }
-
+        
         public ReactiveCollection<MenuItem> MenuItems { get; } = new();
 
-        public ReactiveProperty<MenuItem> Selected { get; } = new();
+        public ReactivePropertySlim<MenuItem> Selected { get; } = new();
 
 
         private async Task<Release?> GetLatestRelease()
         {
-            using var client = new HttpClient();
-            await using var memory = new MemoryStream();
-            await memory.WriteAsync(Encoding.UTF8.GetBytes(await client.GetStringAsync("https://raw.githubusercontent.com/b-editor/BEditor/main/docs/releases.json")));
+            var client = AppData.Current.ServiceProvider.GetRequiredService<HttpClient>();
+            await using var memory = await client.GetStreamAsync("https://raw.githubusercontent.com/b-editor/BEditor/main/docs/releases.json");
 
             if (await JsonSerializer.DeserializeAsync<IEnumerable<Release>>(memory) is var releases && releases is not null)
             {
                 var first = releases.First();
                 var asmName = typeof(StartWindowViewModel).Assembly.GetName();
+                var latest = first.GetVersion();
 
-                if (asmName.Version?.ToString(3) != first.Version)
+                if (asmName.Version != latest)
                 {
                     var stack = new VirtualizingStackPanel()
                     {
@@ -71,7 +71,7 @@ namespace BEditor.ViewModels
                             new TextBlock() { Text = Resources.Update },
                             new Ellipse()
                             {
-                                Fill = Brushes.Orange,
+                                Fill = (asmName.Version < latest) ? Brushes.Orange : Brushes.Green,
                                 Width = 8,
                                 Height = 8,
                                 HorizontalAlignment = HorizontalAlignment.Center,
@@ -89,15 +89,20 @@ namespace BEditor.ViewModels
             return null;
         }
 
-#pragma warning disable CS8618
+
         public class Release
         {
             [JsonPropertyName("version")]
-            public string Version { get; set; }
+            public string Version { get; set; } = "";
             [JsonPropertyName("url")]
-            public string URL { get; set; }
+            public string URL { get; set; } = "";
+
+            public Version? GetVersion()
+            {
+                return new Version(Version);
+            }
         }
-#pragma warning restore CS8618
+
         public class MenuItem
         {
             private object? _control;

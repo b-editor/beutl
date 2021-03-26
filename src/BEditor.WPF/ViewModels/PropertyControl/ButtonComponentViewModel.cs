@@ -21,7 +21,7 @@ namespace BEditor.ViewModels.PropertyControl
         {
             Property = button;
             Metadata = button.ObserveProperty(p => p.PropertyMetadata)
-                .ToReadOnlyReactiveProperty()
+                .ToReadOnlyReactivePropertySlim()
                 .AddTo(disposables);
 
             Command.Subscribe(() => Property.Execute()).AddTo(disposables);
@@ -31,12 +31,14 @@ namespace BEditor.ViewModels.PropertyControl
             Dispose();
         }
 
-        public ReadOnlyReactiveProperty<ButtonComponentMetadata?> Metadata { get; }
+        public ReadOnlyReactivePropertySlim<ButtonComponentMetadata?> Metadata { get; }
         public ButtonComponent Property { get; }
         public ReactiveCommand Command { get; } = new();
 
         public void Dispose()
         {
+            Metadata.Dispose();
+            Command.Dispose();
             disposables.Dispose();
 
             GC.SuppressFinalize(this);

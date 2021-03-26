@@ -24,9 +24,9 @@ namespace BEditor.ViewModels
     {
         public static MainWindowViewModel Current { get; } = new();
 
-        public ReactiveProperty<object?> ToolTipControl { get; } = new();
-        public ReactiveProperty<WriteableBitmap?> PreviewImage { get; } = new();
-        public ReactiveProperty<Brush> MainWindowColor { get; } = new();
+        public ReactivePropertySlim<object?> ToolTipControl { get; } = new();
+        public ReactivePropertySlim<WriteableBitmap?> PreviewImage { get; } = new();
+        public ReactivePropertySlim<Brush> MainWindowColor { get; } = new();
 
         #region Seekbar
         public ReactiveCommand PlayPause { get; } = new();
@@ -42,7 +42,7 @@ namespace BEditor.ViewModels
         #endregion
 
         #region Statusbar
-        public ReactiveProperty<bool> IsLoading { get; } = new(false);
+        public ReactivePropertySlim<bool> IsLoading { get; } = new(false);
 
         public ReactiveCommand OpenProjectDirectory { get; } = new();
         public ReactiveCommand ConvertJson { get; } = new();
@@ -208,7 +208,7 @@ namespace BEditor.ViewModels
 
         #region Project
 
-        public ReactiveProperty<bool> ProjectIsOpened { get; } = new() { Value = false };
+        public ReactivePropertySlim<bool> ProjectIsOpened { get; } = new() { Value = false };
 
         private void ProjectPlayPauseCommand(object _)
         {

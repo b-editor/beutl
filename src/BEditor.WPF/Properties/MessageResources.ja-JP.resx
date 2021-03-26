@@ -166,4 +166,7 @@
     <value>レンダリング中に例外がスローされたので、一時的にプレビューを停止しました。
 5秒後に解除されます。</value>
   </data>
+  <data name="ThisNameAlreadyExists" xml:space="preserve">
+    <value>この名前は既に存在しています。</value>
+  </data>
 </root>

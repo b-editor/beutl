@@ -130,6 +130,6 @@
     <value>{0} が {1} 以下です。</value>
   </data>
   <data name="MoreThan" xml:space="preserve">
-    <value>{0}が{1}以上です。</value>
+    <value>{0} が {1}以上です。</value>
   </data>
 </root>

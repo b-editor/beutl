@@ -28,7 +28,7 @@ namespace BEditor.Views.PropertyControl
     public sealed partial class DialogControl : UserControl, ICustomTreeViewItem, IDisposable
     {
         private static readonly ViewBuilder.PropertyViewBuilder builder;
-        public static readonly EditorProperty<UIElement> DialogProperty = EditorProperty.Register<UIElement, DialogProperty>("GetDialog");
+        public static readonly EditingProperty<UIElement> DialogProperty = EditingProperty.Register<UIElement, DialogProperty>("GetDialog");
         private DialogProperty property;
 
         static DialogControl()

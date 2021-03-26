@@ -62,13 +62,17 @@ namespace BEditor
             SetDarkMode();
             ProjectModel.Current.CreateEvent += (_, _) =>
             {
+                var view = new ProjectCreatePage();
+
                 var d = new NoneDialog()
                 {
-                    Content = new ProjectCreatePage(),
+                    Content = view,
                     Owner = MainWindow,
                     MaxWidth = double.PositiveInfinity,
                 };
                 d.ShowDialog();
+
+                if (view.DataContext is IDisposable disposable) disposable.Dispose();
             };
 
             var viewmodel = new SplashWindowViewModel();

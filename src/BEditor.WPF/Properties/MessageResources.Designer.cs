@@ -191,6 +191,15 @@ namespace BEditor.Properties {
         }
         
         /// <summary>
+        ///   This name already exists. に類似しているローカライズされた文字列を検索します。
+        /// </summary>
+        internal static string ThisNameAlreadyExists {
+            get {
+                return ResourceManager.GetString("ThisNameAlreadyExists", resourceCulture);
+            }
+        }
+        
+        /// <summary>
         ///   This software is latest. に類似しているローカライズされた文字列を検索します。
         /// </summary>
         internal static string ThisSoftwareIsLatest {

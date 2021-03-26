@@ -104,9 +104,9 @@ namespace BEditor.ViewModels
 
         public static List<FontItem> FontItems { get; } = FontManager.Default.LoadedFonts.Select(i => new FontItem(i)).ToList();
         public static List<FontItem> UsedFonts { get; } = new();
-        public ReactiveProperty<FontItem> SelectedItem { get; }
-        public ReactiveProperty<string> Search { get; } = new();
-        public ReactiveProperty<string> SampleText { get; } = new();
+        public ReactivePropertySlim<FontItem> SelectedItem { get; }
+        public ReactivePropertySlim<string> Search { get; } = new();
+        public ReactivePropertySlim<string> SampleText { get; } = new();
         public ReactiveCommand OKCommand { get; } = new();
         public ReactiveCommand<FontItem> SelectCommand { get; } = new();
         public ReactiveCommand WindowClose { get; } = new();

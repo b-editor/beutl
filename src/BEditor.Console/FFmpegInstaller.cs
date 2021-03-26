@@ -54,7 +54,7 @@ namespace BEditor
         }
         public async Task Install()
         {
-            const string url = "https://github.com/BtbN/FFmpeg-Builds/releases/download/autobuild-2021-03-15-12-32/ffmpeg-N-101538-g63344337f9-win64-gpl-shared.zip";
+            const string url = "https://beditor.net/repo/ffmpeg.zip";
             StartInstall?.Invoke(this, EventArgs.Empty);
 
             using var client = new WebClient();
@@ -68,8 +68,6 @@ namespace BEditor
             await using (var stream = new FileStream(tmp, FileMode.Open))
             using (var zip = new ZipArchive(stream, ZipArchiveMode.Read))
             {
-                const string ziproot = "ffmpeg-N-101538-g63344337f9-win64-gpl-shared";
-                var dir = Path.Combine(ziproot, "bin");
                 var destdir = BasePath;
 
                 if (!Directory.Exists(destdir))
@@ -77,9 +75,7 @@ namespace BEditor
                     Directory.CreateDirectory(destdir);
                 }
 
-                foreach (var entry in zip.Entries
-                    .Where(i => i.FullName.Contains("bin"))
-                    .Where(i => Path.GetExtension(i.Name) is ".dll"))
+                foreach (var entry in zip.Entries)
                 {
                     var file = Path.GetFileName(entry.FullName);
                     await using var deststream = new FileStream(Path.Combine(destdir, file), FileMode.Create);

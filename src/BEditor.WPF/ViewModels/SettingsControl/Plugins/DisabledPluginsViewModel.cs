@@ -24,7 +24,7 @@ namespace BEditor.ViewModels.SettingsControl.Plugins
             });
         }
 
-        public ReactiveProperty<string> SelectName { get; } = new();
+        public ReactivePropertySlim<string> SelectName { get; } = new();
         public ReactiveCommand Enable { get; } = new();
     }
 }

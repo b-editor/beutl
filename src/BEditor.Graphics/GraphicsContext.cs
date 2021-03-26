@@ -150,7 +150,7 @@ namespace BEditor.Graphics
             GL.EnableVertexAttribArray(texCoordLocation);
             GL.VertexAttribPointer(texCoordLocation, 2, VertexAttribPointerType.Float, false, 5 * sizeof(float), 3 * sizeof(float));
 
-            _textureShader.SetInt("texture", 0);
+            _textureShader.SetInt("texture0", 0);
 
             GL.Enable(EnableCap.Blend);
 
@@ -190,7 +190,7 @@ namespace BEditor.Graphics
                 GL.EnableVertexAttribArray(texCoordLocation);
                 GL.VertexAttribPointer(texCoordLocation, 2, VertexAttribPointerType.Float, false, 5 * sizeof(float), 3 * sizeof(float));
 
-                _textureShader.SetInt("texture", 0);
+                _textureShader.SetInt("texture0", 0);
 
                 GL.Enable(EnableCap.Blend);
 

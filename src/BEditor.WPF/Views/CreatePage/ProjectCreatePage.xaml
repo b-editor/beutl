@@ -131,7 +131,7 @@
                     Foreground="{DynamicResource MaterialDesignBodyLight}"
                     Text="{x:Static props:Resources.Name}" />
 
-                <TextBox Margin="0,8" Text="{Binding Name.Value, Mode=TwoWay}" />
+                <TextBox Margin="0,8" Text="{Binding Name.Value, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}" />
             </VirtualizingStackPanel>
 
             <!--  Folder  -->

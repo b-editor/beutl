@@ -20,7 +20,7 @@ namespace BEditor.ViewModels.PropertyControl
         {
             Property = property;
             Metadata = property.ObserveProperty(p => p.PropertyMetadata)
-                .ToReadOnlyReactiveProperty()
+                .ToReadOnlyReactivePropertySlim()
                 .AddTo(disposables);
 
             EasingChangeCommand.Subscribe(x => Property.ChangeEase(x).Execute()).AddTo(disposables);
@@ -30,12 +30,14 @@ namespace BEditor.ViewModels.PropertyControl
             Dispose();
         }
 
-        public ReadOnlyReactiveProperty<ColorAnimationPropertyMetadata?> Metadata { get; }
+        public ReadOnlyReactivePropertySlim<ColorAnimationPropertyMetadata?> Metadata { get; }
         public ColorAnimationProperty Property { get; }
         public ReactiveCommand<EasingMetadata> EasingChangeCommand { get; } = new();
 
         public void Dispose()
         {
+            Metadata.Dispose();
+            EasingChangeCommand.Dispose();
             disposables.Dispose();
 
             GC.SuppressFinalize(this);

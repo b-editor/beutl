@@ -110,15 +110,15 @@ namespace BEditor.ViewModels.TimeLines
 
         public int Row { get; set; }
 
-        public ReactiveProperty<string> ClipText { get; set; } = new();
+        public ReactivePropertySlim<string> ClipText { get; set; } = new();
 
-        public ReactiveProperty<Brush> ClipColor { get; set; } = new();
+        public ReactivePropertySlim<Brush> ClipColor { get; set; } = new();
 
         public static double TrackHeight => Setting.ClipHeight;
 
-        public ReactiveProperty<double> WidthProperty { get; } = new();
+        public ReactivePropertySlim<double> WidthProperty { get; } = new();
 
-        public ReactiveProperty<Thickness> MarginProperty { get; } = new();
+        public ReactivePropertySlim<Thickness> MarginProperty { get; } = new();
 
         public double MarginLeftProperty
         {
@@ -130,9 +130,9 @@ namespace BEditor.ViewModels.TimeLines
             }
         }
 
-        public ReactiveProperty<bool> IsExpanded { get; } = new();
+        public ReactivePropertySlim<bool> IsExpanded { get; } = new();
 
-        public ReactiveProperty<Cursor> ClipCursor { get; } = new();
+        public ReactivePropertySlim<Cursor> ClipCursor { get; } = new();
 
         public ReactiveCommand ClipMouseLeftDownCommand { get; } = new();
 
@@ -270,10 +270,10 @@ namespace BEditor.ViewModels.TimeLines
             string text =
                 $"ID : {ClipElement.Id}\n" +
                 $"Name : {ClipElement.Name}\n" +
-                $"Length : {ClipElement.Length}\n" +
+                $"Length : {ClipElement.Length.Value}\n" +
                 $"Layer : {ClipElement.Layer}\n" +
-                $"Start : {ClipElement.Start}\n" +
-                $"End : {ClipElement.End}";
+                $"Start : {ClipElement.Start.Value}\n" +
+                $"End : {ClipElement.End.Value}";
 
             ClipElement.ServiceProvider?.GetService<IMessage>()?.Dialog(text);
         }

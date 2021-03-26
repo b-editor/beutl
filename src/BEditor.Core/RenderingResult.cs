@@ -12,7 +12,7 @@ namespace BEditor
     /// <summary>
     /// Represents the rendering result.
     /// </summary>
-    public readonly ref struct RenderingResult
+    public readonly struct RenderingResult
     {
         /// <summary>
         /// 

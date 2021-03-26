@@ -15,7 +15,7 @@ namespace BEditor.Data
     /// <summary>
     /// Represents a base class of the effect.
     /// </summary>
-    public abstract class EffectElement : EditorObject, IChild<ClipElement>, IParent<PropertyElement>, ICloneable, IHasId, IElementObject, IJsonObject
+    public abstract class EffectElement : EditingObject, IChild<ClipElement>, IParent<PropertyElement>, ICloneable, IHasId, IElementObject, IJsonObject
     {
         #region Fields
         private static readonly PropertyChangedEventArgs _isEnabledArgs = new(nameof(IsEnabled));

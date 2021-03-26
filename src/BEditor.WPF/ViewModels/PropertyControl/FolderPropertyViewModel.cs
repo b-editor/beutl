@@ -25,7 +25,7 @@ namespace BEditor.ViewModels.PropertyControl
         {
             Property = property;
             Metadata = property.ObserveProperty(p => p.PropertyMetadata)
-                .ToReadOnlyReactiveProperty()
+                .ToReadOnlyReactivePropertySlim()
                 .AddTo(disposables);
 
             PathMode = property.ObserveProperty(p => p.Mode)
@@ -56,7 +56,7 @@ namespace BEditor.ViewModels.PropertyControl
             Dispose();
         }
 
-        public ReadOnlyReactiveProperty<FolderPropertyMetadata?> Metadata { get; }
+        public ReadOnlyReactivePropertySlim<FolderPropertyMetadata?> Metadata { get; }
         public FolderProperty Property { get; }
         public ReactiveCommand Command { get; } = new();
         public ReactiveCommand Reset { get; } = new();
@@ -80,6 +80,11 @@ namespace BEditor.ViewModels.PropertyControl
 
         public void Dispose()
         {
+            Metadata.Dispose();
+            Command.Dispose();
+            Reset.Dispose();
+            Bind.Dispose();
+            PathMode.Dispose();
             disposables.Dispose();
 
             GC.SuppressFinalize(this);
