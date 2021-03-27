@@ -23,11 +23,11 @@ namespace BEditor.Drawing
     {
         // 同じImage<T>型のみで共有される
         private static readonly PixelFormatAttribute formatAttribute;
-        private readonly int height;
-        private readonly int width;
-        private readonly bool usedispose = true;
-        private T* pointer;
-        private T[]? array;
+        private readonly int _width;
+        private readonly int _height;
+        private readonly bool _usedispose = true;
+        private T* _pointer;
+        private T[]? _array;
 
         #region Constructors
         static Image()
@@ -50,10 +50,10 @@ namespace BEditor.Drawing
         {
             ThrowOutOfRange(width, height);
 
-            this.width = width;
-            this.height = height;
+            this._width = width;
+            this._height = height;
 
-            pointer = (T*)Marshal.AllocHGlobal(DataSize);
+            _pointer = (T*)Marshal.AllocHGlobal(DataSize);
         }
         /// <summary>
         /// <see cref="Image{T}"/> Initialize a new instance of the class.
@@ -66,10 +66,10 @@ namespace BEditor.Drawing
             ThrowOutOfRange(width, height);
             if (data is null) throw new ArgumentNullException(nameof(data));
 
-            usedispose = false;
-            this.width = width;
-            this.height = height;
-            array = data;
+            _usedispose = false;
+            this._width = width;
+            this._height = height;
+            _array = data;
         }
         /// <summary>
         /// <see cref="Image{T}"/> Initialize a new instance of the class.
@@ -82,10 +82,10 @@ namespace BEditor.Drawing
             ThrowOutOfRange(width, height);
             if (data == null) throw new ArgumentNullException(nameof(data));
 
-            usedispose = false;
-            this.width = width;
-            this.height = height;
-            pointer = data;
+            _usedispose = false;
+            this._width = width;
+            this._height = height;
+            _pointer = data;
         }
         /// <summary>
         /// <see cref="Image{T}"/> Initialize a new instance of the class.
@@ -98,10 +98,10 @@ namespace BEditor.Drawing
             ThrowOutOfRange(width, height);
             if (data == IntPtr.Zero) throw new ArgumentNullException(nameof(data));
 
-            usedispose = false;
-            this.width = width;
-            this.height = height;
-            pointer = (T*)data;
+            _usedispose = false;
+            this._width = width;
+            this._height = height;
+            _pointer = (T*)data;
         }
         /// <summary>
         /// <see cref="Image{T}"/> Initialize a new instance of the class.
@@ -129,7 +129,7 @@ namespace BEditor.Drawing
             get
             {
                 ThrowIfDisposed();
-                return width;
+                return _width;
             }
         }
         /// <summary>
@@ -140,7 +140,7 @@ namespace BEditor.Drawing
             get
             {
                 ThrowIfDisposed();
-                return height;
+                return _height;
             }
         }
         /// <summary>
@@ -163,7 +163,7 @@ namespace BEditor.Drawing
             {
                 ThrowIfDisposed();
 
-                return (array is null) ? new Span<T>(pointer, width * height) : new Span<T>(array);
+                return (_array is null) ? new Span<T>(_pointer, _width * _height) : new Span<T>(_array);
             }
         }
         /// <summary>
@@ -399,12 +399,12 @@ namespace BEditor.Drawing
 
         public void Dispose()
         {
-            if (!IsDisposed && usedispose)
+            if (!IsDisposed && _usedispose)
             {
-                if (pointer != null) Marshal.FreeHGlobal((IntPtr)pointer);
+                if (_pointer != null) Marshal.FreeHGlobal((IntPtr)_pointer);
 
-                pointer = null;
-                array = null;
+                _pointer = null;
+                _array = null;
 
             }
             IsDisposed = true;
@@ -413,14 +413,14 @@ namespace BEditor.Drawing
 
         public ValueTask DisposeAsync()
         {
-            if (IsDisposed && !usedispose) return default;
+            if (IsDisposed && !_usedispose) return default;
 
             var task = Task.Run(() =>
             {
-                if (pointer != null) Marshal.FreeHGlobal((IntPtr)pointer);
+                if (_pointer != null) Marshal.FreeHGlobal((IntPtr)_pointer);
 
-                pointer = null;
-                array = null;
+                _pointer = null;
+                _array = null;
             });
 
             IsDisposed = true;

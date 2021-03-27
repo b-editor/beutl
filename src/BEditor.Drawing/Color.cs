@@ -16,10 +16,10 @@ namespace BEditor.Drawing
         private const int ARGBRedShift = 16;
         private const int ARGBGreenShift = 8;
         private const int ARGBBlueShift = 0;
-        private readonly byte a;
-        private readonly byte r;
-        private readonly byte g;
-        private readonly byte b;
+        private readonly byte _alpha;
+        private readonly byte _red;
+        private readonly byte _green;
+        private readonly byte _blue;
 
         #region Colors
 
@@ -49,27 +49,27 @@ namespace BEditor.Drawing
 
         private Color(byte a, byte r, byte g, byte b)
         {
-            this.a = a;
-            this.r = r;
-            this.g = g;
-            this.b = b;
+            this._alpha = a;
+            this._red = r;
+            this._green = g;
+            this._blue = b;
         }
         private Color(SerializationInfo info, StreamingContext context)
         {
-            a = info.GetByte(nameof(A));
-            r = info.GetByte(nameof(R));
-            g = info.GetByte(nameof(G));
-            b = info.GetByte(nameof(B));
+            _alpha = info.GetByte(nameof(A));
+            _red = info.GetByte(nameof(R));
+            _green = info.GetByte(nameof(G));
+            _blue = info.GetByte(nameof(B));
         }
 
         public byte A
-            => a;
+            => _alpha;
         public byte R
-            => r;
+            => _red;
         public byte G
-            => g;
+            => _green;
         public byte B
-            => b;
+            => _blue;
 
         public static Color FromARGB(int argb)
             => FromARGB(unchecked((uint)argb));
@@ -150,13 +150,13 @@ namespace BEditor.Drawing
         }
 
         public static implicit operator BGRA32(Color c)
-            => new(c.r, c.g, c.b, c.a);
+            => new(c._red, c._green, c._blue, c._alpha);
         public static implicit operator RGBA32(Color c)
-            => new(c.r, c.g, c.b, c.a);
+            => new(c._red, c._green, c._blue, c._alpha);
         public static implicit operator BGR24(Color c)
-            => new(c.r, c.g, c.b);
+            => new(c._red, c._green, c._blue);
         public static implicit operator RGB24(Color c)
-            => new(c.r, c.g, c.b);
+            => new(c._red, c._green, c._blue);
 
         public static bool operator ==(Color left, Color right)
             => left.Equals(right);

@@ -188,16 +188,16 @@ namespace BEditor.Models
 
                     if (!File.Exists(sceneCache)) continue;
                     Stream stream = null;
-                    IntPtr bufPtr = default;
+                    UnmanagedArray<byte> buffer = default;
 
                     try
                     {
                         stream = File.OpenRead(sceneCache);
-                        bufPtr = Marshal.AllocCoTaskMem((int)stream.Length);
-                        var buf = new Span<byte>((void*)bufPtr, (int)stream.Length);
-                        stream.Read(buf);
+                        buffer = new UnmanagedArray<byte>((int)stream.Length);
+                        var span = buffer.AsSpan();
+                        stream.Read(span);
 
-                        var cacheObj = JsonSerializer.Deserialize<SceneCache>(buf, new JsonSerializerOptions()
+                        var cacheObj = JsonSerializer.Deserialize<SceneCache>(span, new JsonSerializerOptions()
                         {
                             WriteIndented = true
                         });
@@ -219,9 +219,8 @@ namespace BEditor.Models
                     finally
                     {
                         stream?.Dispose();
-                        if (bufPtr != IntPtr.Zero) Marshal.FreeCoTaskMem(bufPtr);
+                        buffer.Dispose();
                     }
-
                 }
             }
         }
