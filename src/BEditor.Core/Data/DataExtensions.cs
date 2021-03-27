@@ -24,6 +24,7 @@ namespace BEditor.Data
         /// </summary>
         /// <param name="command">Command to be executed</param>
         public static void Execute(this IRecordCommand command) => CommandManager.Default.Do(command);
+
         /// <summary>
         /// Execute IRecordCommand with CommandManager specified.
         /// </summary>
@@ -39,6 +40,7 @@ namespace BEditor.Data
             property.Load();
             property.PropertyMetadata = metadata;
         }
+
         /// <summary>
         /// Activate this <see cref="IElementObject"/> and set metadata
         /// </summary>
@@ -51,27 +53,30 @@ namespace BEditor.Data
         /// <summary>
         /// Get the parent element.
         /// </summary>
-        /// <typeparam name="T">Type of the parent element to retrieve</typeparam>
-        /// <param name="self"></param>
+        /// <typeparam name="T">Type of the parent element to retrieve.</typeparam>
         [Pure] public static T? GetParent<T>(this IChild<T> self) => self.Parent;
+
         /// <summary>
         /// Get the parent element one level ahead.
         /// </summary>
         /// <typeparam name="T">Type of the parent element to retrieve</typeparam>
         /// <param name="self"></param>
         [Pure] public static T? GetParent2<T>(this IChild<IChild<T>> self) => self.Parent!.Parent;
+
         /// <summary>
         /// Get the parent element two steps ahead.
         /// </summary>
         /// <typeparam name="T">Type of the parent element to retrieve</typeparam>
         /// <param name="self"></param>
         [Pure] public static T? GetParent3<T>(this IChild<IChild<IChild<T>>> self) => self.Parent!.Parent!.Parent;
+
         /// <summary>
         /// Get the parent element three levels ahead.
         /// </summary>
         /// <typeparam name="T">Type of the parent element to retrieve</typeparam>
         /// <param name="self"></param>
         [Pure] public static T? GetParent4<T>(this IChild<IChild<IChild<IChild<T>>>> self) => self.Parent!.Parent!.Parent!.Parent;
+
         /// <summary>
         /// Get the parent element four levels ahead.
         /// </summary>

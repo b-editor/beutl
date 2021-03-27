@@ -11,6 +11,9 @@ using BEditor.Media;
 
 namespace BEditor.Data
 {
+    /// <summary>
+    /// Represents a scene to be included in the <see cref="Project"/>.
+    /// </summary>
     public partial class Scene : IParent<ClipElement>, IChild<Project>, IHasName, IHasId
     {
         /// <summary>
@@ -152,7 +155,6 @@ namespace BEditor.Data
 
         /// <inheritdoc/>
         public Project Parent
-
         {
             get
             {
@@ -199,6 +201,9 @@ namespace BEditor.Data
             }
         }
 
+        /// <summary>
+        /// Gets the new id.
+        /// </summary>
         internal int NewId
         {
             get

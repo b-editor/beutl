@@ -1,17 +1,10 @@
 ﻿using System;
 using System.Collections.Generic;
-using System.Collections.ObjectModel;
-using System.ComponentModel;
 using System.Linq;
 using System.Runtime.Serialization;
-using System.Text;
-using System.Threading.Tasks;
-
-using BEditor.Data.Property;
-using BEditor.Properties;
-using BEditor.Media;
 using System.Text.Json;
-using System.Reflection;
+
+using BEditor.Media;
 
 namespace BEditor.Data.Property.Easing
 {
@@ -25,9 +18,8 @@ namespace BEditor.Data.Property.Easing
         private IEnumerable<IEasingProperty>? _cachedList;
         #endregion
 
-
         /// <summary>
-        /// Get the <see cref="PropertyElement"/> to display on the GUI.
+        /// Gets the <see cref="PropertyElement"/> to display on the GUI.
         /// </summary>
         public abstract IEnumerable<IEasingProperty> Properties { get; }
 
@@ -60,13 +52,13 @@ namespace BEditor.Data.Property.Easing
         }
 
         /// <summary>
-        /// Easing the value
+        /// Easing the value.
         /// </summary>
-        /// <param name="frame">frame</param>
-        /// <param name="totalframe">total frame</param>
-        /// <param name="min">Minimum value</param>
-        /// <param name="max">Maximum value</param>
-        /// <returns>Eased value</returns>
+        /// <param name="frame">The frame.</param>
+        /// <param name="totalframe">The total frame.</param>
+        /// <param name="min">The minimum value.</param>
+        /// <param name="max">The maximum value.</param>
+        /// <returns>Eased value.</returns>
         public abstract float EaseFunc(Frame frame, Frame totalframe, float min, float max);
 
         /// <inheritdoc/>

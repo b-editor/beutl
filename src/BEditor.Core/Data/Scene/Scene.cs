@@ -78,7 +78,7 @@ namespace BEditor.Data
             }
         }
 
-        internal sealed class RemoveLayerCommand : IRecordCommand
+        private sealed class RemoveLayerCommand : IRecordCommand
         {
             private readonly IEnumerable<IRecordCommand> _clips;
 

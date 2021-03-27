@@ -16,14 +16,20 @@ namespace BEditor.Data.Property.PrimitiveGroup
         /// Represents <see cref="Alpha"/> metadata.
         /// </summary>
         public static readonly EasePropertyMetadata AlphaMetadata = new(Resources.Alpha, 100, 100, 0);
+
         /// <summary>
         /// Represents <see cref="Color"/> metadata.
         /// </summary>
         public static readonly ColorAnimationPropertyMetadata ColorMetadata = new(Resources.Color, Drawing.Color.Light, false);
+
         /// <summary>
         /// Represents <see cref="BlendType"/> metadata.
         /// </summary>
         public static readonly SelectorPropertyMetadata BlendTypeMetadata = new(Resources.Blend, new string[4] { "通常", "加算", "減算", "乗算" });
+
+        /// <summary>
+        /// OpenGLの合成方法を設定する <see cref="Action"/> です.
+        /// </summary>
         internal static readonly Action[] BlentFunc = new Action[]
         {
             () =>
@@ -45,7 +51,7 @@ namespace BEditor.Data.Property.PrimitiveGroup
             {
                 GL.BlendEquationSeparate(BlendEquationMode.FuncAdd, BlendEquationMode.FuncAdd);
                 GL.BlendFunc(BlendingFactor.Zero, BlendingFactor.SrcColor);
-            }
+            },
         };
 
         /// <summary>
@@ -53,7 +59,8 @@ namespace BEditor.Data.Property.PrimitiveGroup
         /// </summary>
         /// <param name="metadata">Metadata of this property.</param>
         /// <exception cref="ArgumentNullException"><paramref name="metadata"/> is <see langword="null"/>.</exception>
-        public Blend(PropertyElementMetadata metadata) : base(metadata)
+        public Blend(PropertyElementMetadata metadata)
+            : base(metadata)
         {
             Alpha = new(AlphaMetadata);
             BlendType = new(BlendTypeMetadata);
@@ -65,20 +72,23 @@ namespace BEditor.Data.Property.PrimitiveGroup
         {
             Alpha,
             Color,
-            BlendType
+            BlendType,
         };
+
         /// <summary>
         /// Gets the <see cref="EaseProperty"/> that represents the transparency.
         /// </summary>
         [DataMember]
         public EaseProperty Alpha { get; private set; }
+
         /// <summary>
-        /// Get a <see cref="ColorAnimationProperty"/> that represents a color.
+        /// Gets the <see cref="ColorAnimationProperty"/> that represents a color.
         /// </summary>
         [DataMember]
         public ColorAnimationProperty Color { get; private set; }
+
         /// <summary>
-        /// Get the <see cref="SelectorProperty"/> that selects the BlendFunc.
+        /// Gets the <see cref="SelectorProperty"/> that selects the BlendFunc.
         /// </summary>
         [DataMember]
         public SelectorProperty BlendType { get; private set; }
@@ -90,6 +100,7 @@ namespace BEditor.Data.Property.PrimitiveGroup
             BlendType.Load(BlendTypeMetadata);
             Color.Load(ColorMetadata);
         }
+
         /// <inheritdoc/>
         protected override void OnUnload()
         {

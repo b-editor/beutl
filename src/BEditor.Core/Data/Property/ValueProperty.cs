@@ -26,11 +26,10 @@ namespace BEditor.Data.Property
         private string? _bindHint;
         #endregion
 
-
         /// <summary>
         /// Initializes a new instance of the <see cref="ValueProperty"/> class.
         /// </summary>
-        /// <param name="metadata">Matadata of this property</param>
+        /// <param name="metadata">Matadata of this property.</param>
         /// <exception cref="ArgumentNullException"><paramref name="metadata"/> is <see langword="null"/>.</exception>
         public ValueProperty(ValuePropertyMetadata metadata)
         {
@@ -38,8 +37,6 @@ namespace BEditor.Data.Property
             _value = metadata.DefaultValue;
         }
 
-
-        private List<IObserver<float>> Collection => _list ??= new();
         /// <inheritdoc/>
         public float Value
         {
@@ -59,13 +56,15 @@ namespace BEditor.Data.Property
                 }
             });
         }
+
         /// <inheritdoc/>
-        public string? BindHint
+        public string? TargetHint
         {
             get => _bindable?.GetString();
             private set => _bindHint = value;
         }
 
+        private List<IObserver<float>> Collection => _list ??= new();
 
         #region Methods
 
@@ -76,10 +75,14 @@ namespace BEditor.Data.Property
         }
 
         /// <inheritdoc/>
-        public void OnCompleted() { }
+        public void OnCompleted()
+        {
+        }
 
         /// <inheritdoc/>
-        public void OnError(Exception error) { }
+        public void OnError(Exception error)
+        {
+        }
 
         /// <inheritdoc/>
         public void OnNext(float value)
@@ -94,17 +97,11 @@ namespace BEditor.Data.Property
         }
 
         /// <inheritdoc/>
-        protected override void OnLoad()
-        {
-            this.AutoLoad(ref _bindHint);
-        }
-
-        /// <inheritdoc/>
         public override void GetObjectData(Utf8JsonWriter writer)
         {
             base.GetObjectData(writer);
             writer.WriteNumber(nameof(Value), Value);
-            writer.WriteString(nameof(BindHint), BindHint);
+            writer.WriteString(nameof(TargetHint), TargetHint);
         }
 
         /// <inheritdoc/>
@@ -112,7 +109,7 @@ namespace BEditor.Data.Property
         {
             base.SetObjectData(element);
             Value = element.TryGetProperty(nameof(Value), out var value) ? value.GetSingle() : 0;
-            BindHint = element.TryGetProperty(nameof(BindHint), out var bind) ? bind.GetString() : null;
+            TargetHint = element.TryGetProperty(nameof(TargetHint), out var bind) ? bind.GetString() : null;
         }
 
         /// <summary>
@@ -141,63 +138,54 @@ namespace BEditor.Data.Property
         /// <summary>
         /// Create a command to change the <see cref="Value"/>.
         /// </summary>
-        /// <param name="value">New value for <see cref="Value"/></param>
-        /// <returns>Created <see cref="IRecordCommand"/></returns>
+        /// <param name="value">New value for <see cref="Value"/>.</param>
+        /// <returns>Created <see cref="IRecordCommand"/>.</returns>
         [Pure]
         public IRecordCommand ChangeValue(float value) => new ChangeValueCommand(this, value);
 
-        #endregion
+        /// <inheritdoc/>
+        protected override void OnLoad()
+        {
+            this.AutoLoad(ref _bindHint);
+        }
 
+        #endregion
 
         private sealed class ChangeValueCommand : IRecordCommand
         {
-            private readonly WeakReference<ValueProperty> _Property;
-            private readonly float _New;
-            private readonly float _Old;
+            private readonly WeakReference<ValueProperty> _property;
+            private readonly float _new;
+            private readonly float _old;
 
             public ChangeValueCommand(ValueProperty property, float value)
             {
-                _Property = new(property ?? throw new ArgumentNullException(nameof(property)));
-                _Old = property.Value;
-                _New = property.Clamp(value);
+                _property = new(property ?? throw new ArgumentNullException(nameof(property)));
+                _old = property.Value;
+                _new = property.Clamp(value);
             }
 
             public string Name => CommandName.ChangeValue;
 
             public void Do()
             {
-                if (_Property.TryGetTarget(out var target))
+                if (_property.TryGetTarget(out var target))
                 {
-                    target.Value = _New;
+                    target.Value = _new;
                 }
             }
+
             public void Redo()
             {
                 Do();
             }
+
             public void Undo()
             {
-                if (_Property.TryGetTarget(out var target))
+                if (_property.TryGetTarget(out var target))
                 {
-                    target.Value = _Old;
+                    target.Value = _old;
                 }
             }
-        }
-    }
-
-    /// <summary>
-    /// The metadata of <see cref="ValueProperty"/>.
-    /// </summary>
-    /// <param name="Name">The string displayed in the property header.</param>
-    /// <param name="DefaultValue">The default value.</param>
-    /// <param name="Max">The maximum value.</param>
-    /// <param name="Min">The minimum value.</param>
-    public record ValuePropertyMetadata(string Name, float DefaultValue = 0, float Max = float.NaN, float Min = float.NaN) : PropertyElementMetadata(Name), IPropertyBuilder<ValueProperty>
-    {
-        /// <inheritdoc/>
-        public ValueProperty Build()
-        {
-            return new(this);
         }
     }
 }

@@ -19,9 +19,9 @@ namespace BEditor.Data.Bindings
     public static class Bindings
     {
         /// <summary>
-        /// Get an <see cref="IBindable{T}"/> from a string that can be obtained by <see cref="GetString(IBindable)"/>.
+        /// Get an <see cref="IBindable{T}"/> from a string that can be obtained by <see cref="GetString{T}(IBindable{T})"/>.
         /// </summary>
-        /// <typeparam name="T">Type of object to bind</typeparam>
+        /// <typeparam name="T">Type of object to bind.</typeparam>
         /// <exception cref="DataException">Parent element not found.</exception>
         /// <exception cref="DataException">Child elements not found.</exception>
         /// <exception cref="DataException">Failed to convert value.</exception>
@@ -36,13 +36,14 @@ namespace BEditor.Data.Bindings
 
             // Scene.Clip[Effect][Property]の場合
             var regex1 = new Regex(@"^([\da-zA-Z亜-熙ぁ-んァ-ヶ]+)\.([\da-zA-Z]+)\[([\d]+)\]\[([\d]+)\]\z");
+
             // Scene.Clip[Effect][Group][Property]の場合
             var regex2 = new Regex(@"^([\da-zA-Z亜-熙ぁ-んァ-ヶ]+)\.([\da-zA-Z]+)\[([\d]+)\]\[([\d]+)\]\[([\d]+)\]\z");
 
             if (regex1.IsMatch(str))
             {
                 var match = regex1.Match(str);
-                
+
                 var proj = bindable.GetParent4() ?? throw new DataException(ExceptionMessage.ParentElementNotFound);
                 var scene = proj.Find(match.Groups[1].Value) ?? throw new DataException(ExceptionMessage.ChildElementsNotFound);
                 var clip = scene.Find(match.Groups[2].Value) ?? throw new DataException(ExceptionMessage.ChildElementsNotFound);
@@ -68,15 +69,17 @@ namespace BEditor.Data.Bindings
             result = null;
             return false;
         }
+
         /// <summary>
-        /// Get a <see cref="string"/> to retrieve an <see cref="IBindable"/>
+        /// Get a <see cref="string"/> to retrieve an <see cref="IBindable{T}"/>.
         /// </summary>
-        /// <param name="bindable">An object that implements <see cref="IBindable"/> to get a string.</param>
+        /// <typeparam name="T">Type of object to bind.</typeparam>
+        /// <param name="bindable">An object that implements <see cref="IBindable{T}"/> to get a string.</param>
         /// <exception cref="DataException">Parent element not found.</exception>
-        /// <returns>String that can be used to get an <see cref="IBindable"/> from <see cref="GetBindable{T}(IBindable{T}, string?, out IBindable{T}?)"/>.</returns>
-        public static string GetString(this IBindable bindable)
+        /// <returns>String that can be used to get an <see cref="IBindable{T}"/> from <see cref="GetBindable{T}(IBindable{T}, string?, out IBindable{T}?)"/>.</returns>
+        public static string GetString<T>(this IBindable<T> bindable)
         {
-            static bool IsInner(IBindable bindable, out int groupId)
+            static bool IsInner(IBindable<T> bindable, out int groupId)
             {
                 groupId = -1;
                 foreach (var item in bindable.Parent.Children)
@@ -110,58 +113,63 @@ namespace BEditor.Data.Bindings
                 var scene = bindable.GetParent3()?.Name ?? throw new DataException(ExceptionMessage.ParentElementNotFound);
                 var clip = bindable.GetParent2()?.Name ?? throw new DataException(ExceptionMessage.ParentElementNotFound);
                 var effect = bindable.GetParent()?.Id ?? throw new DataException(ExceptionMessage.ParentElementNotFound);
-                
+
                 return $"{scene}.{clip}[{effect}][{groupId}][{bindable.Id}]";
             }
 
             return $"{bindable.GetParent3()?.Name}.{bindable.GetParent2()?.Name}[{bindable.GetParent()?.Id}][{bindable.Id}]";
         }
+
         /// <summary>
         /// Create a command to bind two objects implementing <see cref="IBindable{T}"/>.
         /// </summary>
-        /// <typeparam name="T">Type of object to bind</typeparam>
-        /// <param name="src">Bind source object</param>
-        /// <param name="target">Bind destination object</param>
-        /// <returns>Created <see cref="IRecordCommand"/></returns>
+        /// <typeparam name="T">Type of object to bind.</typeparam>
+        /// <param name="src">Bind source object.</param>
+        /// <param name="target">Bind destination object.</param>
+        /// <returns>Created <see cref="IRecordCommand"/>.</returns>
         public static IRecordCommand Bind<T>(this IBindable<T>? src, IBindable<T>? target)
             => new BindCommand<T>(src, target);
+
         /// <summary>
-        /// Create a command to disconnect the binding
+        /// Create a command to disconnect the binding.
         /// </summary>
-        /// <typeparam name="T">Type of object to bind</typeparam>
+        /// <typeparam name="T">Type of object to bind.</typeparam>
         /// <param name="bindable">An object that implements <see cref="IBindable{T}"/> to disconnect.</param>
-        /// <returns>Created <see cref="IRecordCommand"/></returns>
+        /// <returns>Created <see cref="IRecordCommand"/>.</returns>
         public static IRecordCommand Disconnect<T>(this IBindable<T> bindable)
             => new DisconnectCommand<T>(bindable);
 
         private sealed class BindCommand<T> : IRecordCommand
         {
-            private readonly IBindable<T>? _Source;
-            private readonly IBindable<T>? _Target;
+            private readonly IBindable<T>? _source;
+            private readonly IBindable<T>? _target;
 
             public BindCommand(IBindable<T>? source, IBindable<T>? target)
             {
-                _Source = source;
-                _Target = target;
+                _source = source;
+                _target = target;
             }
 
             public string Name => CommandName.BindCommand;
 
-            // target変更時にsourceが変更
-            // targetを観察
-
             public void Do()
             {
-                _Source?.Bind(_Target);
-                _Target?.Bind(_Source);
+                _source?.Bind(_target);
+                _target?.Bind(_source);
             }
-            public void Redo() => Do();
+
+            public void Redo()
+            {
+                Do();
+            }
+
             public void Undo()
             {
-                _Source?.Bind(null);
-                _Target?.Bind(null);
+                _source?.Bind(null);
+                _target?.Bind(null);
             }
         }
+
         private sealed class DisconnectCommand<T> : IRecordCommand
         {
             private readonly IBindable<T> bindable;
@@ -170,7 +178,7 @@ namespace BEditor.Data.Bindings
             public DisconnectCommand(IBindable<T> bindable)
             {
                 this.bindable = bindable;
-                bindable.GetBindable(bindable.BindHint, out twoway);
+                bindable.GetBindable(bindable.TargetHint, out twoway);
             }
 
             public void Do()
@@ -178,7 +186,12 @@ namespace BEditor.Data.Bindings
                 bindable.Bind(null);
                 twoway?.Bind(null);
             }
-            public void Redo() => Do();
+
+            public void Redo()
+            {
+                Do();
+            }
+
             public void Undo()
             {
                 bindable.Bind(twoway);

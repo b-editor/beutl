@@ -9,6 +9,7 @@
         /// File path is full path.
         /// </summary>
         FullPath,
+
         /// <summary>
         /// File paths are relative to the project.
         /// </summary>

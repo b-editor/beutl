@@ -21,9 +21,8 @@ namespace BEditor.Data.Property
         private List<IObserver<Color>>? _list;
         private IDisposable? _bindDispose;
         private IBindable<Color>? _bindable;
-        private string? _bindHint;
+        private string? _targetHint;
         #endregion
-
 
         /// <summary>
         /// Initializes a new instance of the <see cref="ColorProperty"/> class.
@@ -36,8 +35,8 @@ namespace BEditor.Data.Property
             Value = metadata.DefaultColor;
         }
 
-
         private List<IObserver<Color>> Collection => _list ??= new();
+
         /// <summary>
         /// Gets or sets the selected color.
         /// </summary>
@@ -59,20 +58,20 @@ namespace BEditor.Data.Property
                 }
             });
         }
+
         /// <inheritdoc/>
-        public string? BindHint
+        public string? TargetHint
         {
             get => _bindable?.GetString();
-            private set => _bindHint = value;
+            private set => _targetHint = value;
         }
-
 
         #region Methods
 
         /// <inheritdoc/>
         protected override void OnLoad()
         {
-            this.AutoLoad(ref _bindHint);
+            this.AutoLoad(ref _targetHint);
         }
 
         /// <inheritdoc/>
@@ -80,7 +79,7 @@ namespace BEditor.Data.Property
         {
             base.GetObjectData(writer);
             writer.WriteString(nameof(Value), Value.ToString("#argb"));
-            writer.WriteString(nameof(BindHint), BindHint);
+            writer.WriteString(nameof(TargetHint), TargetHint);
         }
 
         /// <inheritdoc/>
@@ -88,7 +87,7 @@ namespace BEditor.Data.Property
         {
             base.SetObjectData(element);
             Value = element.TryGetProperty(nameof(Value), out var value) ? Color.FromHTML(value.GetString()) : Color.Light;
-            BindHint = element.TryGetProperty(nameof(BindHint), out var bind) ? bind.GetString() : null;
+            TargetHint = element.TryGetProperty(nameof(TargetHint), out var bind) ? bind.GetString() : null;
         }
 
         /// <summary>
@@ -124,7 +123,6 @@ namespace BEditor.Data.Property
         }
 
         #endregion
-
 
         /// <summary>
         /// 色を変更するコマンド
@@ -172,21 +170,6 @@ namespace BEditor.Data.Property
                     target.Value = _old;
                 }
             }
-        }
-    }
-
-    /// <summary>
-    /// The metadata of <see cref="ColorProperty"/>.
-    /// </summary>
-    /// <param name="Name">The string displayed in the property header.</param>
-    /// <param name="DefaultColor">The default color.</param>
-    /// <param name="UseAlpha">The value of whether to use alpha components or not.</param>
-    public record ColorPropertyMetadata(string Name, Color DefaultColor, bool UseAlpha = false) : PropertyElementMetadata(Name), IPropertyBuilder<ColorProperty>
-    {
-        /// <inheritdoc/>
-        public ColorProperty Build()
-        {
-            return new(this);
         }
     }
 }

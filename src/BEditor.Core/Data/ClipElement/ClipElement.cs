@@ -27,27 +27,29 @@ namespace BEditor.Data
         private Frame _start;
         private Frame _end;
         private int _layer;
-        private string _labelText = "";
+        private string _labelText = string.Empty;
         private WeakReference<Scene?>? _parent;
+        private int _id;
+        private ObservableCollection<EffectElement> _effect;
 
         /// <summary>
         /// Initializes a new instance of the <see cref="ClipElement"/> class.
         /// </summary>
         public ClipElement(int id, ObservableCollection<EffectElement> effects, Frame start, Frame end, int layer, Scene scene)
         {
-            Id = id;
+            _id = id;
             _start = start;
             _end = end;
             _layer = layer;
-            Effect = effects;
+            _effect = effects;
             Parent = scene;
             LabelText = Name;
         }
 
         /// <summary>
-        /// Gets the ID for this <see cref="ClipElement"/>
+        /// Gets the ID for this <see cref="ClipElement"/>.
         /// </summary>
-        public int Id { get; private set; }
+        public int Id => _id;
 
         /// <summary>
         /// Gets the name of this <see cref="ClipElement"/>.
@@ -127,7 +129,7 @@ namespace BEditor.Data
         /// <summary>
         /// Gets the effects included in this <see cref="ClipElement"/>.
         /// </summary>
-        public ObservableCollection<EffectElement> Effect { get; private set; }
+        public ObservableCollection<EffectElement> Effect => _effect;
 
         /// <inheritdoc/>
         public IEnumerable<EffectElement> Children => Effect;

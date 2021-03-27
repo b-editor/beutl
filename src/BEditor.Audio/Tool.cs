@@ -1,14 +1,6 @@
-﻿using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Text;
-using System.Threading.Tasks;
-
-using OpenTK;
-using OpenTK.Mathematics;
+﻿using OpenTK.Mathematics;
 
 using Color = BEditor.Drawing.Color;
-using GLColor = OpenTK.Mathematics.Color4;
 using Matrix4x4 = System.Numerics.Matrix4x4;
 
 namespace BEditor.Audio

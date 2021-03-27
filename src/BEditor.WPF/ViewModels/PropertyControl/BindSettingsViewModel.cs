@@ -23,7 +23,7 @@ namespace BEditor.ViewModels.PropertyControl
         public BindSettingsViewModel(IBindable<T> bindable)
         {
             Bindable = bindable;
-            BindPath = bindable.ObserveProperty(b => b.BindHint).ToReadOnlyReactivePropertySlim().AddTo(disposables);
+            BindPath = bindable.ObserveProperty(b => b.TargetHint).ToReadOnlyReactivePropertySlim().AddTo(disposables);
 
             OKCommand.Subscribe(() =>
             {

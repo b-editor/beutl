@@ -13,6 +13,7 @@ namespace BEditor.Data
         /// Gets the synchronization context for this object.
         /// </summary>
         public SynchronizationContext Synchronize { get; }
+
         /// <summary>
         /// Gets the ServiceProvider.
         /// </summary>
@@ -32,12 +33,14 @@ namespace BEditor.Data
         /// <param name="property">The <see cref="EditingProperty{TValue}"/> identifier of the property to retrieve the value for.</param>
         /// <returns>Returns the current effective value.</returns>
         public TValue GetValue<TValue>(EditingProperty<TValue> property);
+
         /// <summary>
         /// Gets the local value of <see cref="EditingProperty"/>.
         /// </summary>
         /// <param name="property">The <see cref="EditingProperty"/> identifier of the property to retrieve the value for.</param>
         /// <returns>Returns the current effective value.</returns>
         public object? GetValue(EditingProperty property);
+
         /// <summary>
         /// Sets the local value of <see cref="EditingProperty{TValue}"/>.
         /// </summary>
@@ -45,12 +48,14 @@ namespace BEditor.Data
         /// <param name="property">The identifier of the <see cref="EditingProperty{TValue}"/> to set.</param>
         /// <param name="value">The new local value.</param>
         public void SetValue<TValue>(EditingProperty<TValue> property, TValue value);
+
         /// <summary>
         /// Sets the local value of <see cref="EditingProperty"/>.
         /// </summary>
         /// <param name="property">The identifier of the <see cref="EditingProperty"/> to set.</param>
         /// <param name="value">The new local value.</param>
         public void SetValue(EditingProperty property, object? value);
+
         /// <summary>
         /// Removes all local values from this <see cref="EditingObject"/>.
         /// </summary>

@@ -10,20 +10,20 @@ namespace BEditor.Drawing.Process
 {
     internal unsafe readonly struct SetColorProcess
     {
-        private readonly BGRA32* data;
-        private readonly BGRA32 color;
+        private readonly BGRA32* _data;
+        private readonly BGRA32 _color;
 
         public SetColorProcess(BGRA32* data, BGRA32 color)
         {
-            this.data = data;
-            this.color = color;
+            _data = data;
+            _color = color;
         }
 
         public readonly void Invoke(int pos)
         {
-            data[pos].B = color.B;
-            data[pos].G = color.G;
-            data[pos].R = color.R;
+            _data[pos].B = _color.B;
+            _data[pos].G = _color.G;
+            _data[pos].R = _color.R;
         }
     }
 }

@@ -20,9 +20,8 @@ namespace BEditor.Data.Property
         private List<IObserver<bool>>? _list;
         private IDisposable? _bindDispose;
         private IBindable<bool>? _bindable;
-        private string? _bindHint;
+        private string? _targetHint;
         #endregion
-
 
         /// <summary>
         /// Initializes a new instance of the <see cref="ExpandGroup"/> class.
@@ -34,10 +33,8 @@ namespace BEditor.Data.Property
             PropertyMetadata = metadata ?? throw new ArgumentNullException(nameof(metadata));
         }
 
-
-        private List<IObserver<bool>> Collection => _list ??= new();
         /// <summary>
-        /// Gets or sets whether the expander is open
+        /// Gets or sets a value indicating whether the expander is open or not.
         /// </summary>
         public bool IsExpanded
         {
@@ -57,29 +54,26 @@ namespace BEditor.Data.Property
                 }
             });
         }
+
         /// <inheritdoc/>
-        public string? BindHint
+        public string? TargetHint
         {
             get => _bindable?.GetString();
-            private set => _bindHint = value;
+            private set => _targetHint = value;
         }
+
         /// <inheritdoc/>
         bool IBindable<bool>.Value => IsExpanded;
 
+        private List<IObserver<bool>> Collection => _list ??= new();
 
         #region Methods
-
-        /// <inheritdoc/>
-        protected override void OnLoad()
-        {
-            this.AutoLoad(ref _bindHint);
-        }
 
         /// <inheritdoc/>
         public override void GetObjectData(Utf8JsonWriter writer)
         {
             writer.WriteBoolean(nameof(IsExpanded), IsExpanded);
-            writer.WriteString(nameof(BindHint), BindHint);
+            writer.WriteString(nameof(TargetHint), TargetHint);
             base.GetObjectData(writer);
         }
 
@@ -87,15 +81,19 @@ namespace BEditor.Data.Property
         public override void SetObjectData(JsonElement element)
         {
             IsExpanded = element.TryGetProperty(nameof(IsExpanded), out var value) && value.GetBoolean();
-            BindHint = element.TryGetProperty(nameof(BindHint), out var bind) ? bind.GetString() : null;
+            TargetHint = element.TryGetProperty(nameof(TargetHint), out var bind) ? bind.GetString() : null;
             base.SetObjectData(element);
         }
 
         /// <inheritdoc/>
-        public void OnCompleted() { }
+        public void OnCompleted()
+        {
+        }
 
         /// <inheritdoc/>
-        public void OnError(Exception error) { }
+        public void OnError(Exception error)
+        {
+        }
 
         /// <inheritdoc/>
         public void OnNext(bool value)
@@ -113,6 +111,12 @@ namespace BEditor.Data.Property
         public void Bind(IBindable<bool>? bindable)
         {
             IsExpanded = this.Bind(bindable, out _bindable, ref _bindDispose);
+        }
+
+        /// <inheritdoc/>
+        protected override void OnLoad()
+        {
+            this.AutoLoad(ref _targetHint);
         }
 
         #endregion

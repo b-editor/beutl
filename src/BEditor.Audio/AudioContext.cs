@@ -15,16 +15,16 @@ namespace BEditor.Audio
     /// </summary>
     public class AudioContext : IDisposable
     {
-        private readonly ALDevice device;
-        private readonly ALContext context;
+        private readonly ALDevice _device;
+        private readonly ALContext _context;
 
         /// <summary>
         /// Initializes a new instance of <see cref="AudioContext"/> class.
         /// </summary>
         public unsafe AudioContext()
         {
-            device = ALC.OpenDevice(null);
-            context = ALC.CreateContext(device, (int[])null!);
+            _device = ALC.OpenDevice(null);
+            _context = ALC.CreateContext(_device, (int[])null!);
 
             CheckError();
 
@@ -38,7 +38,7 @@ namespace BEditor.Audio
         /// <summary>
         /// Get whether this context is current or not.
         /// </summary>
-        public bool IsCurrent => ALC.GetCurrentContext() == context;
+        public bool IsCurrent => ALC.GetCurrentContext() == _context;
         /// <summary>
         /// Gets or sets the current position in three-dimensional space.
         /// </summary>
@@ -157,7 +157,7 @@ namespace BEditor.Audio
                 throw new AudioException(AL.GetErrorString(error));
             }
 
-            var alcError = ALC.GetError(device);
+            var alcError = ALC.GetError(_device);
 
             if (alcError is not AlcError.NoError)
             {
@@ -182,7 +182,7 @@ namespace BEditor.Audio
 
             if (!IsCurrent)
             {
-                ALC.MakeContextCurrent(context);
+                ALC.MakeContextCurrent(_context);
 
                 CheckError();
             }
@@ -193,8 +193,8 @@ namespace BEditor.Audio
             if (IsDisposed) return;
 
             ALC.MakeContextCurrent(ALContext.Null);
-            ALC.DestroyContext(context);
-            ALC.CloseDevice(device);
+            ALC.DestroyContext(_context);
+            ALC.CloseDevice(_device);
             GC.SuppressFinalize(this);
 
             IsDisposed = true;

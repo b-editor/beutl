@@ -14,8 +14,10 @@ namespace BEditor.Data.Property
     /// <summary>
     /// Represents a property for selecting a single item from an array.
     /// </summary>
+    /// <typeparam name="T">The type of item.</typeparam>
     [DebuggerDisplay("Index = {Index}, Item = {SelectItem}")]
-    public class SelectorProperty<T> : PropertyElement<SelectorPropertyMetadata<T>>, IEasingProperty, IBindable<T?> where T : IJsonObject
+    public class SelectorProperty<T> : PropertyElement<SelectorPropertyMetadata<T>>, IEasingProperty, IBindable<T?>
+        where T : IJsonObject
     {
         #region Fields
         private static readonly PropertyChangedEventArgs _selectItemArgs = new(nameof(SelectItem));
@@ -26,11 +28,10 @@ namespace BEditor.Data.Property
         private string? _bindHint;
         #endregion
 
-
         /// <summary>
         /// Initializes a new instance of the <see cref="SelectorProperty"/> class.
         /// </summary>
-        /// <param name="metadata">Metadata of this property</param>
+        /// <param name="metadata">Metadata of this property.</param>
         /// <exception cref="ArgumentNullException"><paramref name="metadata"/> is <see langword="null"/>.</exception>
         public SelectorProperty(SelectorPropertyMetadata<T> metadata)
         {
@@ -38,9 +39,8 @@ namespace BEditor.Data.Property
             _selectItem = metadata.DefaultItem;
         }
 
-        private List<IObserver<T?>> Collection => _list ??= new();
         /// <summary>
-        /// Get or set the selected item.
+        /// Gets or sets the selected item.
         /// </summary>
         public T? SelectItem
         {
@@ -73,22 +73,20 @@ namespace BEditor.Data.Property
                 return PropertyMetadata?.ItemSource?.IndexOf(SelectItem) ?? -1;
             }
         }
+
         /// <inheritdoc/>
         public T? Value => SelectItem;
+
         /// <inheritdoc/>
-        public string? BindHint
+        public string? TargetHint
         {
             get => _bindable?.GetString();
             private set => _bindHint = value;
         }
 
+        private List<IObserver<T?>> Collection => _list ??= new();
 
         #region Methods
-        /// <inheritdoc/>
-        protected override void OnLoad()
-        {
-            this.AutoLoad(ref _bindHint);
-        }
 
         /// <inheritdoc/>
         public override void GetObjectData(Utf8JsonWriter writer)
@@ -99,7 +97,7 @@ namespace BEditor.Data.Property
             SelectItem?.GetObjectData(writer);
             writer.WriteEndObject();
 
-            writer.WriteString(nameof(BindHint), BindHint);
+            writer.WriteString(nameof(TargetHint), TargetHint);
         }
 
         /// <inheritdoc/>
@@ -109,14 +107,14 @@ namespace BEditor.Data.Property
 
             SelectItem = (T)FormatterServices.GetUninitializedObject(typeof(T));
             SelectItem.SetObjectData(element.GetProperty(nameof(Value)));
-            BindHint = element.TryGetProperty(nameof(BindHint), out var bind) ? bind.GetString() : null;
+            TargetHint = element.TryGetProperty(nameof(TargetHint), out var bind) ? bind.GetString() : null;
         }
 
         /// <summary>
         /// Create a command to change the selected item.
         /// </summary>
-        /// <param name="value">New value for <see cref="SelectItem"/></param>
-        /// <returns>Created <see cref="IRecordCommand"/></returns>
+        /// <param name="value">New value for <see cref="SelectItem"/>.</param>
+        /// <returns>Created <see cref="IRecordCommand"/>.</returns>
         [Pure]
         public IRecordCommand ChangeSelect(T? value) => new ChangeSelectCommand(this, value);
 
@@ -127,10 +125,14 @@ namespace BEditor.Data.Property
         }
 
         /// <inheritdoc/>
-        public void OnCompleted() { }
+        public void OnCompleted()
+        {
+        }
 
         /// <inheritdoc/>
-        public void OnError(Exception error) { }
+        public void OnError(Exception error)
+        {
+        }
 
         /// <inheritdoc/>
         public void OnNext(T? value)
@@ -144,15 +146,19 @@ namespace BEditor.Data.Property
             SelectItem = this.Bind(bindable, out _bindable, ref _bindDispose);
         }
 
-        #endregion
+        /// <inheritdoc/>
+        protected override void OnLoad()
+        {
+            this.AutoLoad(ref _bindHint);
+        }
 
+        #endregion
 
         #region Commands
 
         /// <summary>
-        /// 選択されているアイテムを変更するコマンド
+        /// 選択されているアイテムを変更するコマンド.
         /// </summary>
-        /// <remarks>このクラスは <see cref="CommandManager.Do(IRecordCommand)"/> と併用することでコマンドを記録できます</remarks>
         private sealed class ChangeSelectCommand : IRecordCommand
         {
             private readonly WeakReference<SelectorProperty<T>> _property;
@@ -160,11 +166,11 @@ namespace BEditor.Data.Property
             private readonly T? _old;
 
             /// <summary>
-            /// <see cref="ChangeSelectCommand"/> クラスの新しいインスタンスを初期化します
+            /// <see cref="ChangeSelectCommand"/> クラスの新しいインスタンスを初期化します.
             /// </summary>
-            /// <param name="property">対象の <see cref="SelectorProperty"/></param>
-            /// <param name="select">新しいインデックス</param>
-            /// <exception cref="ArgumentNullException"><paramref name="property"/> が <see langword="null"/> です</exception>
+            /// <param name="property">対象の <see cref="SelectorProperty"/>.</param>
+            /// <param name="select">新しいインデックス.</param>
+            /// <exception cref="ArgumentNullException"><paramref name="property"/> が <see langword="null"/> です.</exception>
             public ChangeSelectCommand(SelectorProperty<T> property, T? select)
             {
                 _property = new(property ?? throw new ArgumentNullException(nameof(property)));
@@ -182,11 +188,13 @@ namespace BEditor.Data.Property
                     target.SelectItem = _new;
                 }
             }
+
             /// <inheritdoc/>
             public void Redo()
             {
                 Do();
             }
+
             /// <inheritdoc/>
             public void Undo()
             {
@@ -198,22 +206,5 @@ namespace BEditor.Data.Property
         }
 
         #endregion
-    }
-
-    /// <summary>
-    /// The metadata of <see cref="SelectorProperty{T}"/>.
-    /// </summary>
-    /// <param name="Name">The string displayed in the property header.</param>
-    /// <param name="ItemSource">The source of the item to be selected.</param>
-    /// <param name="DefaultItem">The default value for <see cref="SelectorProperty{T}.SelectItem"/>.</param>
-    /// <param name="MemberPath">The path to the member to display.</param>
-    public record SelectorPropertyMetadata<T>(string Name, IList<T> ItemSource, T? DefaultItem = default, string MemberPath = "")
-        : PropertyElementMetadata(Name), IPropertyBuilder<SelectorProperty<T>> where T : IJsonObject
-    {
-        /// <inheritdoc/>
-        public SelectorProperty<T> Build()
-        {
-            return new(this);
-        }
     }
 }

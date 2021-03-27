@@ -14,9 +14,38 @@ using BEditor.Media;
 
 namespace BEditor.Data
 {
+    /// <summary>
+    /// Represents a data of a clip to be placed in the timeline.
+    /// </summary>
     public partial class ClipElement : ICloneable, IFormattable, IJsonObject, IElementObject
     {
+        /// <summary>
+        /// Gets the clip from its full name.
+        /// </summary>
+        /// <param name="name">The <see cref="string"/> that can be retrieved by <see cref="ToString(string?)"/> of the <see cref="ClipElement"/> to be searched.</param>
+        /// <param name="project">The <see cref="Project"/> contains the <see cref="ClipElement"/> to be retrieved.</param>
+        /// <returns>The <see cref="ClipElement"/> in the <paramref name="project"/> that match the <paramref name="name"/>.</returns>
+        public static ClipElement? FromFullName(string name, Project? project)
+        {
+            if (project is null) return null;
+
+            var reg = new Regex(@"^([\da-zA-Z亜-熙ぁ-んァ-ヶ]+)\.([\da-zA-Z]+)\z");
+
+            if (reg.IsMatch(name))
+            {
+                var match = reg.Match(name);
+
+                var scene = project.Find(match.Groups[1].Value);
+                var clip = scene?.Find(match.Groups[2].Value);
+
+                return clip;
+            }
+
+            return null;
+        }
+
         #region ICloneable
+
         /// <inheritdoc/>
         object ICloneable.Clone()
         {
@@ -26,9 +55,9 @@ namespace BEditor.Data
         /// <inheritdoc cref="ICloneable.Clone"/>
         public ClipElement Clone()
         {
-            var clip = this.DeepClone()!;
+            var clip = this.DeepClone();
 
-            clip.Parent = Parent;
+            clip!.Parent = Parent;
             clip.Load();
 
             return clip;
@@ -36,6 +65,7 @@ namespace BEditor.Data
         #endregion
 
         #region IJsonObject
+
         /// <inheritdoc/>
         public override void GetObjectData(Utf8JsonWriter writer)
         {
@@ -65,16 +95,16 @@ namespace BEditor.Data
         public override void SetObjectData(JsonElement element)
         {
             base.SetObjectData(element);
-            Id = element.GetProperty(nameof(Id)).GetInt32();
+            _id = element.GetProperty(nameof(Id)).GetInt32();
             Start = element.GetProperty(nameof(Start)).GetInt32();
             End = element.GetProperty(nameof(End)).GetInt32();
             Layer = element.GetProperty(nameof(Layer)).GetInt32();
-            LabelText = element.GetProperty("Text").GetString() ?? "";
+            LabelText = element.GetProperty("Text").GetString() ?? string.Empty;
             var effects = element.GetProperty("Effects");
-            Effect = new();
+            _effect = new();
             foreach (var effect in effects.EnumerateArray())
             {
-                var typeName = effect.GetProperty("_type").GetString() ?? "";
+                var typeName = effect.GetProperty("_type").GetString() ?? string.Empty;
                 if (Type.GetType(typeName) is var type && type is not null)
                 {
                     var obj = (EffectElement)FormatterServices.GetUninitializedObject(type);
@@ -87,6 +117,7 @@ namespace BEditor.Data
         #endregion
 
         #region IFormattable
+
         /// <inheritdoc cref="IFormattable.ToString(string?, IFormatProvider?)"/>
         public string ToString(string? format)
         {
@@ -107,8 +138,9 @@ namespace BEditor.Data
         #endregion
 
         #region Commands
+
         /// <summary>
-        /// Create a command to add an effect to this clip
+        /// Create a command to add an effect to this clip.
         /// </summary>
         /// <param name="effect"><see cref="EffectElement"/> to be added.</param>
         /// <returns>Created <see cref="IRecordCommand"/>.</returns>
@@ -118,12 +150,11 @@ namespace BEditor.Data
         {
             if (effect is null) throw new ArgumentNullException(nameof(effect));
 
-
             return new EffectElement.AddCommand(effect, this);
         }
 
         /// <summary>
-        /// Create a command to remove an effect to this clip
+        /// Create a command to remove an effect to this clip.
         /// </summary>
         /// <param name="effect"><see cref="EffectElement"/> to be removed.</param>
         /// <returns>Created <see cref="IRecordCommand"/>.</returns>
@@ -139,29 +170,29 @@ namespace BEditor.Data
         /// <summary>
         /// Create a command to move this clip frames and layers.
         /// </summary>
-        /// <param name="toFrame">Frame to be moved</param>
-        /// <param name="toLayer">Layer to be moved.</param>
+        /// <param name="newFrame">Frame to be moved.</param>
+        /// <param name="newLayer">Layer to be moved.</param>
         /// <returns>Created <see cref="IRecordCommand"/>.</returns>
-        /// <exception cref="ArgumentOutOfRangeException"><paramref name="toFrame"/> or <paramref name="toLayer"/> is less than 0.</exception>
+        /// <exception cref="ArgumentOutOfRangeException"><paramref name="newFrame"/> or <paramref name="newLayer"/> is less than 0.</exception>
         [Pure]
-        public IRecordCommand MoveFrameLayer(Frame toFrame, int toLayer)
+        public IRecordCommand MoveFrameLayer(Frame newFrame, int newLayer)
         {
-            return new MoveCommand(this, toFrame, toLayer);
+            return new MoveCommand(this, newFrame, newLayer);
         }
 
         /// <summary>
         /// Create a command to move this clip frames and layers.
         /// </summary>
-        /// <param name="to">Frame to be moved.</param>
-        /// <param name="from">Frame to be moved from.</param>
-        /// <param name="tolayer">Layer to be moved.</param>
-        /// <param name="fromlayer">Layer to be moved from.</param>
+        /// <param name="newFrame">Frame to be moved.</param>
+        /// <param name="oldFrame">Frame to be moved from.</param>
+        /// <param name="newLayer">Layer to be moved.</param>
+        /// <param name="oldLayer">Layer to be moved from.</param>
         /// <returns>Created <see cref="IRecordCommand"/>.</returns>
-        /// <exception cref="ArgumentOutOfRangeException"><paramref name="to"/>, <paramref name="from"/>, <paramref name="tolayer"/>, <paramref name="fromlayer"/> is less than 0.</exception>
+        /// <exception cref="ArgumentOutOfRangeException"><paramref name="newFrame"/>, <paramref name="oldFrame"/>, <paramref name="newLayer"/>, <paramref name="oldLayer"/> is less than 0.</exception>
         [Pure]
-        public IRecordCommand MoveFrameLayer(Frame to, Frame from, int tolayer, int fromlayer)
+        public IRecordCommand MoveFrameLayer(Frame newFrame, Frame oldFrame, int newLayer, int oldLayer)
         {
-            return new MoveCommand(this, to, from, tolayer, fromlayer);
+            return new MoveCommand(this, newFrame, oldFrame, newLayer, oldLayer);
         }
 
         /// <summary>
@@ -233,39 +264,15 @@ namespace BEditor.Data
             }
         }
 
-        internal void MoveFrame(Frame f)
-        {
-            Start += f;
-            End += f;
-        }
-
+        /// <summary>
+        /// 指定した開始フレームにクリップを移動します.
+        /// </summary>
+        /// <param name="start">開始フレームです.</param>
         internal void MoveTo(Frame start)
         {
             var length = Length;
             Start = start;
             End = length + start;
-        }
-
-        /// <summary>
-        /// Get the clip from its full name.
-        /// </summary>
-        public static ClipElement? FromFullName(string name, Project? project)
-        {
-            if (project is null) return null;
-
-            var reg = new Regex(@"^([\da-zA-Z亜-熙ぁ-んァ-ヶ]+)\.([\da-zA-Z]+)\z");
-
-            if (reg.IsMatch(name))
-            {
-                var match = reg.Match(name);
-
-                var scene = project.Find(match.Groups[1].Value);
-                var clip = scene?.Find(match.Groups[2].Value);
-
-                return clip;
-            }
-
-            return null;
         }
     }
 }

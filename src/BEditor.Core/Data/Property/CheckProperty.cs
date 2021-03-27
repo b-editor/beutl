@@ -20,9 +20,8 @@ namespace BEditor.Data.Property
         private List<IObserver<bool>>? _list;
         private IDisposable? _bindDispose;
         private IBindable<bool>? _bindable;
-        private string? _bindHint;
+        private string? _targetHint;
         #endregion
-
 
         /// <summary>
         /// Initializes new instance of the <see cref="CheckProperty"/> class.
@@ -35,13 +34,13 @@ namespace BEditor.Data.Property
             _value = metadata.DefaultIsChecked;
         }
 
-        private List<IObserver<bool>> Collection => _list ??= new();
         /// <inheritdoc/>
-        public string? BindHint
+        public string? TargetHint
         {
             get => _bindable?.GetString();
-            private set => _bindHint = value;
+            private set => _targetHint = value;
         }
+
         /// <summary>
         /// Gets or sets the value of whether the item is checked or not.
         /// </summary>
@@ -64,14 +63,19 @@ namespace BEditor.Data.Property
             });
         }
 
+        private List<IObserver<bool>> Collection => _list ??= new();
 
         #region Methods
 
         /// <inheritdoc/>
-        public void OnCompleted() { }
+        public void OnCompleted()
+        {
+        }
 
         /// <inheritdoc/>
-        public void OnError(Exception error) { }
+        public void OnError(Exception error)
+        {
+        }
 
         /// <inheritdoc/>
         public void OnNext(bool value)
@@ -93,17 +97,11 @@ namespace BEditor.Data.Property
         }
 
         /// <inheritdoc/>
-        protected override void OnLoad()
-        {
-            this.AutoLoad(ref _bindHint);
-        }
-
-        /// <inheritdoc/>
         public override void GetObjectData(Utf8JsonWriter writer)
         {
             base.GetObjectData(writer);
             writer.WriteBoolean(nameof(Value), Value);
-            writer.WriteString(nameof(BindHint), BindHint);
+            writer.WriteString(nameof(TargetHint), TargetHint);
         }
 
         /// <inheritdoc/>
@@ -111,19 +109,24 @@ namespace BEditor.Data.Property
         {
             base.SetObjectData(element);
             Value = element.TryGetProperty(nameof(Value), out var value) && value.GetBoolean();
-            BindHint = element.TryGetProperty(nameof(BindHint), out var bind) ? bind.GetString() : null;
+            TargetHint = element.TryGetProperty(nameof(TargetHint), out var bind) ? bind.GetString() : null;
         }
 
         /// <summary>
         /// Create a command to change whether it is checked or not.
         /// </summary>
-        /// <param name="value">New value for IsChecked</param>
+        /// <param name="value">New value for IsChecked.</param>
         /// <returns>Created <see cref="IRecordCommand"/>.</returns>
         [Pure]
         public IRecordCommand ChangeIsChecked(bool value) => new ChangeCheckedCommand(this, value);
 
-        #endregion
+        /// <inheritdoc/>
+        protected override void OnLoad()
+        {
+            this.AutoLoad(ref _targetHint);
+        }
 
+        #endregion
 
         private sealed class ChangeCheckedCommand : IRecordCommand
         {
@@ -145,10 +148,12 @@ namespace BEditor.Data.Property
                     target.Value = _value;
                 }
             }
+
             public void Redo()
             {
                 Do();
             }
+
             public void Undo()
             {
                 if (_property.TryGetTarget(out var target))
@@ -156,20 +161,6 @@ namespace BEditor.Data.Property
                     target.Value = !_value;
                 }
             }
-        }
-    }
-
-    /// <summary>
-    /// The metadata of <see cref="CheckProperty"/>.
-    /// </summary>
-    /// <param name="Name">The string displayed in the property header.</param>
-    /// <param name="DefaultIsChecked">The default value for <see cref="CheckProperty.Value"/>.</param>
-    public record CheckPropertyMetadata(string Name, bool DefaultIsChecked = false) : PropertyElementMetadata(Name), IPropertyBuilder<CheckProperty>
-    {
-        /// <inheritdoc/>
-        public CheckProperty Build()
-        {
-            return new(this);
         }
     }
 }

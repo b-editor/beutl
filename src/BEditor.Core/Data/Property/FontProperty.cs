@@ -8,7 +8,6 @@ using System.Text.Json;
 using BEditor.Command;
 using BEditor.Data.Bindings;
 using BEditor.Drawing;
-using BEditor.Properties;
 
 namespace BEditor.Data.Property
 {
@@ -26,11 +25,10 @@ namespace BEditor.Data.Property
         private string? _bindHint;
         #endregion
 
-
         /// <summary>
         /// Initializes a new instance of the <see cref="FontProperty"/> class.
         /// </summary>
-        /// <param name="metadata">Metadata for this property</param>
+        /// <param name="metadata">Metadata for this property.</param>
         /// <exception cref="ArgumentNullException"><paramref name="metadata"/> is <see langword="null"/>.</exception>
         public FontProperty(FontPropertyMetadata metadata)
         {
@@ -38,8 +36,6 @@ namespace BEditor.Data.Property
             _selectItem = metadata.SelectItem;
         }
 
-
-        private List<IObserver<Font>> Collection => _list ??= new();
         /// <summary>
         /// Gets or sets the selected font.
         /// </summary>
@@ -61,28 +57,24 @@ namespace BEditor.Data.Property
                 }
             });
         }
+
         /// <inheritdoc/>
-        public string? BindHint
+        public string? TargetHint
         {
             get => _bindable?.GetString();
             private set => _bindHint = value;
         }
 
+        private List<IObserver<Font>> Collection => _list ??= new();
 
         #region Methods
-
-        /// <inheritdoc/>
-        protected override void OnLoad()
-        {
-            this.AutoLoad(ref _bindHint);
-        }
 
         /// <inheritdoc/>
         public override void GetObjectData(Utf8JsonWriter writer)
         {
             base.GetObjectData(writer);
             writer.WriteString(nameof(Value), Value.Filename);
-            writer.WriteString(nameof(BindHint), BindHint);
+            writer.WriteString(nameof(TargetHint), TargetHint);
         }
 
         /// <inheritdoc/>
@@ -98,14 +90,14 @@ namespace BEditor.Data.Property
             {
                 Value = FontManager.Default.LoadedFonts.First();
             }
-            BindHint = element.TryGetProperty(nameof(BindHint), out var bind) ? bind.GetString() : null;
+            TargetHint = element.TryGetProperty(nameof(TargetHint), out var bind) ? bind.GetString() : null;
         }
 
         /// <summary>
         /// Create a command to change the font.
         /// </summary>
         /// <param name="font">New value for <see cref="Value"/>.</param>
-        /// <returns>Created <see cref="IRecordCommand"/></returns>
+        /// <returns>Created <see cref="IRecordCommand"/>.</returns>
         [Pure]
         public IRecordCommand ChangeFont(Font font) => new ChangeSelectCommand(this, font);
 
@@ -116,10 +108,14 @@ namespace BEditor.Data.Property
         }
 
         /// <inheritdoc/>
-        public void OnCompleted() { }
+        public void OnCompleted()
+        {
+        }
 
         /// <inheritdoc/>
-        public void OnError(Exception error) { }
+        public void OnError(Exception error)
+        {
+        }
 
         /// <inheritdoc/>
         public void OnNext(Font value)
@@ -133,15 +129,19 @@ namespace BEditor.Data.Property
             Value = this.Bind(bindable, out _bindable, ref _bindDispose);
         }
 
-        #endregion
+        /// <inheritdoc/>
+        protected override void OnLoad()
+        {
+            this.AutoLoad(ref _bindHint);
+        }
 
+        #endregion
 
         #region Commands
 
         /// <summary>
-        /// フォントを変更するコマンド
+        /// フォントを変更するコマンド.
         /// </summary>
-        /// <remarks>このクラスは <see cref="CommandManager.Do(IRecordCommand)"/> と併用することでコマンドを記録できます</remarks>
         private sealed class ChangeSelectCommand : IRecordCommand
         {
             private readonly WeakReference<FontProperty> _property;
@@ -149,11 +149,11 @@ namespace BEditor.Data.Property
             private readonly Font _old;
 
             /// <summary>
-            /// <see cref="ChangeSelectCommand"/> クラスの新しいインスタンスを初期化します
+            /// <see cref="ChangeSelectCommand"/> クラスの新しいインスタンスを初期化します.
             /// </summary>
-            /// <param name="property">対象の <see cref="FontProperty"/></param>
-            /// <param name="select">新しい値</param>
-            /// <exception cref="ArgumentNullException"><paramref name="property"/> が <see langword="null"/> です</exception>
+            /// <param name="property">対象の <see cref="FontProperty"/>.</param>
+            /// <param name="select">新しい値.</param>
+            /// <exception cref="ArgumentNullException"><paramref name="property"/> が <see langword="null"/> です.</exception>
             public ChangeSelectCommand(FontProperty property, Font select)
             {
                 _property = new(property ?? throw new ArgumentNullException(nameof(property)));
@@ -171,11 +171,13 @@ namespace BEditor.Data.Property
                     target.Value = _new;
                 }
             }
+
             /// <inheritdoc/>
             public void Redo()
             {
                 Do();
             }
+
             /// <inheritdoc/>
             public void Undo()
             {
@@ -187,30 +189,5 @@ namespace BEditor.Data.Property
         }
 
         #endregion
-    }
-
-    /// <summary>
-    /// The metadata of <see cref="FontProperty"/>.
-    /// </summary>
-    public record FontPropertyMetadata : PropertyElementMetadata, IPropertyBuilder<FontProperty>
-    {
-        /// <summary>
-        /// The metadata of <see cref="FontProperty"/>.
-        /// </summary>
-        public FontPropertyMetadata() : base(Resources.Font)
-        {
-            SelectItem = FontManager.Default.LoadedFonts.FirstOrDefault()!;
-        }
-
-        /// <summary>
-        /// 
-        /// </summary>
-        public Font SelectItem { get; init; }
-
-        /// <inheritdoc/>
-        public FontProperty Build()
-        {
-            return new(this);
-        }
     }
 }

@@ -26,11 +26,10 @@ namespace BEditor.Data.Property
         private string? _bindHint;
         #endregion
 
-
         /// <summary>
         /// Initializes a new instance of the <see cref="TextProperty"/> class.
         /// </summary>
-        /// <param name="metadata">Matadata of this property</param>
+        /// <param name="metadata">Matadata of this property.</param>
         /// <exception cref="ArgumentNullException"><paramref name="metadata"/> is <see langword="null"/>.</exception>
         public TextProperty(TextPropertyMetadata metadata)
         {
@@ -38,8 +37,6 @@ namespace BEditor.Data.Property
             _value = metadata.DefaultText;
         }
 
-
-        private List<IObserver<string>> Collection => _list ??= new();
         /// <inheritdoc/>
         public string Value
         {
@@ -59,13 +56,15 @@ namespace BEditor.Data.Property
                 }
             });
         }
+
         /// <inheritdoc/>
-        public string? BindHint
+        public string? TargetHint
         {
             get => _bindable?.GetString();
             private set => _bindHint = value;
         }
 
+        private List<IObserver<string>> Collection => _list ??= new();
 
         #region Methods
 
@@ -76,10 +75,14 @@ namespace BEditor.Data.Property
         }
 
         /// <inheritdoc/>
-        public void OnCompleted() { }
+        public void OnCompleted()
+        {
+        }
 
         /// <inheritdoc/>
-        public void OnError(Exception error) { }
+        public void OnError(Exception error)
+        {
+        }
 
         /// <inheritdoc/>
         public void OnNext(string value)
@@ -94,37 +97,36 @@ namespace BEditor.Data.Property
         }
 
         /// <inheritdoc/>
-        protected override void OnLoad()
-        {
-            this.AutoLoad(ref _bindHint);
-        }
-
-        /// <inheritdoc/>
         public override void GetObjectData(Utf8JsonWriter writer)
         {
             base.GetObjectData(writer);
             writer.WriteString(nameof(Value), Value);
-            writer.WriteString(nameof(BindHint), BindHint);
+            writer.WriteString(nameof(TargetHint), TargetHint);
         }
 
         /// <inheritdoc/>
         public override void SetObjectData(JsonElement element)
         {
             base.SetObjectData(element);
-            Value = element.TryGetProperty(nameof(Value), out var value) ? value.GetString() ?? "" : "";
-            BindHint = element.TryGetProperty(nameof(BindHint), out var bind) ? bind.GetString() : null;
+            Value = element.TryGetProperty(nameof(Value), out var value) ? value.GetString() ?? string.Empty : string.Empty;
+            TargetHint = element.TryGetProperty(nameof(TargetHint), out var bind) ? bind.GetString() : null;
         }
 
         /// <summary>
         /// Create a command to change the <see cref="Value"/>.
         /// </summary>
-        /// <param name="text">New value for <see cref="Value"/></param>
-        /// <returns>Created <see cref="IRecordCommand"/></returns>
+        /// <param name="text">New value for <see cref="Value"/>.</param>
+        /// <returns>Created <see cref="IRecordCommand"/>.</returns>
         [Pure]
         public IRecordCommand ChangeText(string text) => new ChangeTextCommand(this, text);
 
-        #endregion
+        /// <inheritdoc/>
+        protected override void OnLoad()
+        {
+            this.AutoLoad(ref _bindHint);
+        }
 
+        #endregion
 
         private sealed class ChangeTextCommand : IRecordCommand
         {
@@ -148,10 +150,12 @@ namespace BEditor.Data.Property
                     target.Value = _new;
                 }
             }
+
             public void Redo()
             {
                 Do();
             }
+
             public void Undo()
             {
                 if (_property.TryGetTarget(out var target))
@@ -159,20 +163,6 @@ namespace BEditor.Data.Property
                     target.Value = _old;
                 }
             }
-        }
-    }
-
-    /// <summary>
-    /// The metadata of <see cref="TextProperty"/>.
-    /// </summary>
-    /// <param name="Name">The string displayed in the property header.</param>
-    /// <param name="DefaultText">The default value for <see cref="TextProperty.Value"/>.</param>
-    public record TextPropertyMetadata(string Name, string DefaultText = "") : PropertyElementMetadata(Name), IPropertyBuilder<TextProperty>
-    {
-        /// <inheritdoc/>
-        public TextProperty Build()
-        {
-            return new(this);
         }
     }
 }

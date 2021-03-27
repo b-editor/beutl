@@ -15,17 +15,6 @@ namespace BEditor.Data.Property
     public interface IKeyFrameProperty : IPropertyElement
     {
         /// <summary>
-        /// Get or set the current <see cref="EasingFunc"/>.
-        /// </summary>
-        public EasingFunc? EasingType { get; }
-
-        /// <summary>
-        /// Get the <see cref="List{Frame}"/> of the frame number corresponding to value.
-        /// </summary>
-        public List<Frame> Frames { get; }
-
-
-        /// <summary>
         /// Occurs when a keyframe is added.
         /// <para>arg1: The added frame, arg2: The Index of the values.</para>
         /// </summary>
@@ -43,11 +32,20 @@ namespace BEditor.Data.Property
         /// </summary>
         public event Action<int, int>? Moved;
 
+        /// <summary>
+        /// Get or set the current <see cref="EasingFunc"/>.
+        /// </summary>
+        public EasingFunc? EasingType { get; }
+
+        /// <summary>
+        /// Get the <see cref="List{Frame}"/> of the frame number corresponding to value.
+        /// </summary>
+        public List<Frame> Frames { get; }
 
         /// <summary>
         /// Create a command to add a keyframe.
         /// </summary>
-        /// <param name="frame">Frame to be added</param>
+        /// <param name="frame">Frame to be added.</param>
         /// <returns>Created <see cref="IRecordCommand"/>.</returns>
         public IRecordCommand AddFrame(Frame frame);
 
@@ -59,7 +57,7 @@ namespace BEditor.Data.Property
         public IRecordCommand RemoveFrame(Frame frame);
 
         /// <summary>
-        /// Create a command to move a keyframe
+        /// Create a command to move a keyframe.
         /// </summary>
         /// <param name="fromIndex">Index of the frame to be moved from.</param>
         /// <param name="toFrame">Destination frame.</param>

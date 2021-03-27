@@ -5,7 +5,7 @@ using System.Reactive.Disposables;
 namespace BEditor.Data.Property
 {
     /// <summary>
-    /// Represents a button in the UI
+    /// Represents a button in the UI.
     /// </summary>
     public class ButtonComponent : PropertyElement<ButtonComponentMetadata>, IEasingProperty, IObservable<object>
     {
@@ -35,6 +35,7 @@ namespace BEditor.Data.Property
                 state.Item2.Collection.Remove(state.observer);
             });
         }
+
         /// <summary>
         /// Execute the command after clicking the button.
         /// </summary>
@@ -52,19 +53,6 @@ namespace BEditor.Data.Property
                     observer.OnError(ex);
                 }
             }
-        }
-    }
-
-    /// <summary>
-    /// The metadata of <see cref="ButtonComponent"/>.
-    /// <param name="Name">The string displayed in the property header.</param>
-    /// </summary>
-    public record ButtonComponentMetadata(string Name) : PropertyElementMetadata(Name), IPropertyBuilder<ButtonComponent>
-    {
-        /// <inheritdoc/>
-        public ButtonComponent Build()
-        {
-            return new ButtonComponent(this);
         }
     }
 }

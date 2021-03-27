@@ -15,14 +15,17 @@ namespace BEditor.Data.Property.PrimitiveGroup
         /// Represents <see cref="Ambient"/> metadata.
         /// </summary>
         public static readonly ColorAnimationPropertyMetadata AmbientMetadata = new(Resources.Ambient, Color.Light, true);
+
         /// <summary>
         /// Represents <see cref="Diffuse"/> metadata.
         /// </summary>
         public static readonly ColorAnimationPropertyMetadata DiffuseMetadata = new(Resources.Diffuse, Color.Light, true);
+
         /// <summary>
         /// Represents <see cref="Specular"/> metadata.
         /// </summary>
         public static readonly ColorAnimationPropertyMetadata SpecularMetadata = new(Resources.Specular, Color.Light, true);
+
         /// <summary>
         /// Represents <see cref="Shininess"/> metadata.
         /// </summary>
@@ -33,7 +36,8 @@ namespace BEditor.Data.Property.PrimitiveGroup
         /// </summary>
         /// <param name="metadata">Metadata of this property.</param>
         /// <exception cref="ArgumentNullException"><paramref name="metadata"/> is <see langword="null"/>.</exception>
-        public Material(PropertyElementMetadata metadata) : base(metadata)
+        public Material(PropertyElementMetadata metadata)
+            : base(metadata)
         {
             Ambient = new(AmbientMetadata);
             Diffuse = new(DiffuseMetadata);
@@ -47,23 +51,27 @@ namespace BEditor.Data.Property.PrimitiveGroup
             Ambient,
             Diffuse,
             Specular,
-            Shininess
+            Shininess,
         };
+
         /// <summary>
         /// Gets the <see cref="ColorAnimationProperty"/> representing the ambient.
         /// </summary>
         [DataMember]
         public ColorAnimationProperty Ambient { get; private set; }
+
         /// <summary>
         /// Gets the <see cref="ColorAnimationProperty"/> representing the diffuse.
         /// </summary>
         [DataMember]
         public ColorAnimationProperty Diffuse { get; private set; }
+
         /// <summary>
         /// Gets the <see cref="ColorAnimationProperty"/> representing the shininess.
         /// </summary>
         [DataMember]
         public ColorAnimationProperty Specular { get; private set; }
+
         /// <summary>
         /// Gets the <see cref="EaseProperty"/> representing the shininess.
         /// </summary>
@@ -78,6 +86,7 @@ namespace BEditor.Data.Property.PrimitiveGroup
             Specular.Load(SpecularMetadata);
             Shininess.Load(ShininessMetadata);
         }
+
         /// <inheritdoc/>
         protected override void OnUnload()
         {

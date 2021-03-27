@@ -22,9 +22,8 @@ namespace BEditor.Data.Property
         private List<IObserver<string>>? _list;
         private IDisposable? _bindDispose;
         private IBindable<string>? _bindable;
-        private string? _bindHint;
+        private string? _targetHint;
         #endregion
-
 
         /// <summary>
         /// Initializes a new instance of the <see cref="DocumentProperty"/> class.
@@ -37,8 +36,8 @@ namespace BEditor.Data.Property
             Value = metadata.DefaultText;
         }
 
-
         private List<IObserver<string>> Collection => _list ??= new();
+
         /// <summary>
         /// Gets or sets the string being entered.
         /// </summary>
@@ -60,13 +59,13 @@ namespace BEditor.Data.Property
                 }
             });
         }
+
         /// <inheritdoc/>
-        public string? BindHint
+        public string? TargetHint
         {
             get => _bindable?.GetString();
-            private set => _bindHint = value;
+            private set => _targetHint = value;
         }
-
 
         #region Methods
 
@@ -97,7 +96,7 @@ namespace BEditor.Data.Property
         /// <inheritdoc/>
         protected override void OnLoad()
         {
-            this.AutoLoad(ref _bindHint);
+            this.AutoLoad(ref _targetHint);
         }
 
         /// <inheritdoc/>
@@ -105,7 +104,7 @@ namespace BEditor.Data.Property
         {
             base.GetObjectData(writer);
             writer.WriteString(nameof(Value), Value);
-            writer.WriteString(nameof(BindHint), BindHint);
+            writer.WriteString(nameof(TargetHint), TargetHint);
         }
 
         /// <inheritdoc/>
@@ -113,7 +112,7 @@ namespace BEditor.Data.Property
         {
             base.SetObjectData(element);
             Value = element.TryGetProperty(nameof(Value), out var value) ? value.GetString() ?? "" : "";
-            BindHint = element.TryGetProperty(nameof(BindHint), out var bind) ? bind.GetString() : null;
+            TargetHint = element.TryGetProperty(nameof(TargetHint), out var bind) ? bind.GetString() : null;
         }
 
         /// <summary>
@@ -165,18 +164,5 @@ namespace BEditor.Data.Property
         }
 
         #endregion
-    }
-
-    /// <summary>
-    /// The metadata of <see cref="DocumentProperty"/>.
-    /// </summary>
-    /// <param name="DefaultText">The default value of <see cref="DocumentProperty.Value"/>.</param>
-    public record DocumentPropertyMetadata(string DefaultText) : PropertyElementMetadata(string.Empty), IPropertyBuilder<DocumentProperty>
-    {
-        /// <inheritdoc/>
-        public DocumentProperty Build()
-        {
-            return new(this);
-        }
     }
 }

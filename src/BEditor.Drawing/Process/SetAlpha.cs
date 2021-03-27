@@ -10,18 +10,18 @@ namespace BEditor.Drawing.Process
 {
     internal unsafe readonly struct SetAlphaProcess
     {
-        private readonly BGRA32* data;
-        private readonly float alpha;
+        private readonly BGRA32* _data;
+        private readonly float _alpha;
 
         public SetAlphaProcess(BGRA32* data, float alpha)
         {
-            this.data = data;
-            this.alpha = alpha;
+            _data = data;
+            _alpha = alpha;
         }
 
         public readonly void Invoke(int pos)
         {
-            data[pos].A = (byte)(data[pos].A * alpha);
+            _data[pos].A = (byte)(_data[pos].A * _alpha);
         }
     }
 }

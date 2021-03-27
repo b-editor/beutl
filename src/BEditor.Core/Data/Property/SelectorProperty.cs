@@ -26,11 +26,10 @@ namespace BEditor.Data.Property
         private string? _bindHint;
         #endregion
 
-
         /// <summary>
         /// Initializes a new instance of the <see cref="SelectorProperty"/> class.
         /// </summary>
-        /// <param name="metadata">Metadata of this property</param>
+        /// <param name="metadata">Metadata of this property.</param>
         /// <exception cref="ArgumentNullException"><paramref name="metadata"/> is <see langword="null"/>.</exception>
         public SelectorProperty(SelectorPropertyMetadata metadata)
         {
@@ -38,8 +37,6 @@ namespace BEditor.Data.Property
             Index = metadata.DefaultIndex;
         }
 
-
-        private List<IObserver<int>> Collection => _list ??= new();
         /// <summary>
         /// Get or set the selected item.
         /// </summary>
@@ -70,30 +67,27 @@ namespace BEditor.Data.Property
                 }
             });
         }
+
         /// <inheritdoc/>
         public int Value => Index;
+
         /// <inheritdoc/>
-        public string? BindHint
+        public string? TargetHint
         {
             get => _bindable?.GetString();
             private set => _bindHint = value;
         }
 
-
+        private List<IObserver<int>> Collection => _list ??= new();
 
         #region Methods
-        /// <inheritdoc/>
-        protected override void OnLoad()
-        {
-            this.AutoLoad(ref _bindHint);
-        }
 
         /// <inheritdoc/>
         public override void GetObjectData(Utf8JsonWriter writer)
         {
             base.GetObjectData(writer);
             writer.WriteNumber(nameof(Value), Value);
-            writer.WriteString(nameof(BindHint), BindHint);
+            writer.WriteString(nameof(TargetHint), TargetHint);
         }
 
         /// <inheritdoc/>
@@ -101,14 +95,14 @@ namespace BEditor.Data.Property
         {
             base.SetObjectData(element);
             Index = element.TryGetProperty(nameof(Value), out var value) ? value.GetInt32() : 0;
-            BindHint = element.TryGetProperty(nameof(BindHint), out var bind) ? bind.GetString() : null;
+            TargetHint = element.TryGetProperty(nameof(TargetHint), out var bind) ? bind.GetString() : null;
         }
 
         /// <summary>
         /// Create a command to change the selected item.
         /// </summary>
-        /// <param name="index">New value for <see cref="Index"/></param>
-        /// <returns>Created <see cref="IRecordCommand"/></returns>
+        /// <param name="index">New value for <see cref="Index"/>.</param>
+        /// <returns>Created <see cref="IRecordCommand"/>.</returns>
         [Pure]
         public IRecordCommand ChangeSelect(int index) => new ChangeSelectCommand(this, index);
 
@@ -119,10 +113,14 @@ namespace BEditor.Data.Property
         }
 
         /// <inheritdoc/>
-        public void OnCompleted() { }
+        public void OnCompleted()
+        {
+        }
 
         /// <inheritdoc/>
-        public void OnError(Exception error) { }
+        public void OnError(Exception error)
+        {
+        }
 
         /// <inheritdoc/>
         public void OnNext(int value)
@@ -136,15 +134,19 @@ namespace BEditor.Data.Property
             Index = this.Bind(bindable, out _bindable, ref _bindDispose);
         }
 
-        #endregion
+        /// <inheritdoc/>
+        protected override void OnLoad()
+        {
+            this.AutoLoad(ref _bindHint);
+        }
 
+        #endregion
 
         #region Commands
 
         /// <summary>
-        /// 選択されているアイテムを変更するコマンド
+        /// 選択されているアイテムを変更するコマンド.
         /// </summary>
-        /// <remarks>このクラスは <see cref="CommandManager.Do(IRecordCommand)"/> と併用することでコマンドを記録できます</remarks>
         private sealed class ChangeSelectCommand : IRecordCommand
         {
             private readonly WeakReference<SelectorProperty> _property;
@@ -152,11 +154,11 @@ namespace BEditor.Data.Property
             private readonly int _old;
 
             /// <summary>
-            /// <see cref="ChangeSelectCommand"/> クラスの新しいインスタンスを初期化します
+            /// <see cref="ChangeSelectCommand"/> クラスの新しいインスタンスを初期化します.
             /// </summary>
-            /// <param name="property">対象の <see cref="SelectorProperty"/></param>
-            /// <param name="select">新しいインデックス</param>
-            /// <exception cref="ArgumentNullException"><paramref name="property"/> が <see langword="null"/> です</exception>
+            /// <param name="property">対象の <see cref="SelectorProperty"/>.</param>
+            /// <param name="select">新しいインデックス.</param>
+            /// <exception cref="ArgumentNullException"><paramref name="property"/> が <see langword="null"/> です.</exception>
             public ChangeSelectCommand(SelectorProperty property, int select)
             {
                 _property = new(property ?? throw new ArgumentNullException(nameof(property)));
@@ -174,11 +176,13 @@ namespace BEditor.Data.Property
                     target.Index = _new;
                 }
             }
+
             /// <inheritdoc/>
             public void Redo()
             {
                 Do();
             }
+
             /// <inheritdoc/>
             public void Undo()
             {
@@ -190,21 +194,5 @@ namespace BEditor.Data.Property
         }
 
         #endregion
-    }
-
-    /// <summary>
-    /// The metadata of <see cref="SelectorProperty"/>.
-    /// </summary>
-    /// <param name="Name">The string displayed in the property header.</param>
-    /// <param name="ItemSource">The source of the item to be selected</param>
-    /// <param name="DefaultIndex">The default value for <see cref="SelectorProperty.Index"/></param>
-    /// <param name="MemberPath">The path to the member to display</param>
-    public record SelectorPropertyMetadata(string Name, IList ItemSource, int DefaultIndex = 0, string MemberPath = "") : PropertyElementMetadata(Name), IPropertyBuilder<SelectorProperty>
-    {
-        /// <inheritdoc/>
-        public SelectorProperty Build()
-        {
-            return new(this);
-        }
     }
 }

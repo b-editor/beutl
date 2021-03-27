@@ -8,9 +8,15 @@ namespace BEditor.Data
     /// <typeparam name="TValue">The type of the local value.</typeparam>
     public class EditingProperty<TValue> : EditingProperty
     {
-        internal EditingProperty(string name, Type owner, IPropertyBuilder<TValue>? builder = null) : base(name, owner, typeof(TValue), builder)
+        /// <summary>
+        /// Initializes a new instance of the <see cref="EditingProperty{TValue}"/> class.
+        /// </summary>
+        /// <param name="name">プロパティの名前です.</param>
+        /// <param name="owner">このプロパティを持つオブジェクトの <see cref="Type"/> です.</param>
+        /// <param name="builder">プロパティの値を初期化するオブジェクトです.</param>
+        internal EditingProperty(string name, Type owner, IPropertyBuilder<TValue>? builder = null)
+            : base(name, owner, typeof(TValue), builder)
         {
-
         }
 
         /// <summary>

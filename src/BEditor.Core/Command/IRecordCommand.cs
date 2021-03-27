@@ -13,13 +13,15 @@ namespace BEditor.Command
         public string Name => Resources.UnknownCommand;
 
         /// <summary>
-        /// Execute the operation
+        /// Execute the operation.
         /// </summary>
         public void Do();
+
         /// <summary>
         /// Undo the operation.
         /// </summary>
         public void Undo();
+
         /// <summary>
         /// Redo the operation.
         /// </summary>

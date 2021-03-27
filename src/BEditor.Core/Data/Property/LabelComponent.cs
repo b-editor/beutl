@@ -15,9 +15,8 @@ namespace BEditor.Data.Property
     {
         private static readonly PropertyChangedEventArgs _textArgs = new(nameof(Text));
         private List<IObserver<string>>? _list;
-        private string _text = "";
+        private string _text = string.Empty;
 
-        private List<IObserver<string>> Collection => _list ??= new();
         /// <summary>
         /// Gets or sets the string to be shown.
         /// </summary>
@@ -40,21 +39,24 @@ namespace BEditor.Data.Property
             });
         }
 
+        private List<IObserver<string>> Collection => _list ??= new();
+
         /// <inheritdoc/>
         public void OnCompleted()
         {
-
         }
+
         /// <inheritdoc/>
         public void OnError(Exception error)
         {
-
         }
+
         /// <inheritdoc/>
         public void OnNext(string value)
         {
             Text = value;
         }
+
         /// <inheritdoc/>
         public IDisposable Subscribe(IObserver<string> observer)
         {
@@ -79,19 +81,7 @@ namespace BEditor.Data.Property
         public override void SetObjectData(JsonElement element)
         {
             base.SetObjectData(element);
-            Text = element.TryGetProperty(nameof(Text), out var value) ? value.GetString() ?? "" : "";
-        }
-    }
-
-    /// <summary>
-    /// The metadata of <see cref="LabelComponent"/>.
-    /// </summary>
-    public record LabelComponentMetadata() : PropertyElementMetadata(string.Empty), IPropertyBuilder<LabelComponent>
-    {
-        /// <inheritdoc/>
-        public LabelComponent Build()
-        {
-            return new();
+            Text = element.TryGetProperty(nameof(Text), out var value) ? value.GetString() ?? string.Empty : string.Empty;
         }
     }
 }

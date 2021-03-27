@@ -17,14 +17,48 @@ namespace BEditor.Data.Property
     /// </summary>
     public abstract class Group : PropertyElement, IKeyFrameProperty, IEasingProperty, IParent<PropertyElement>
     {
-        private IEnumerable<PropertyElement>? _CachedList;
+        private IEnumerable<PropertyElement>? _cachedList;
+
+        /// <inheritdoc/>
+        event Action<Frame, int>? IKeyFrameProperty.Added
+        {
+            add
+            {
+            }
+            remove
+            {
+            }
+        }
+
+        /// <inheritdoc/>
+        event Action<int>? IKeyFrameProperty.Removed
+        {
+            add
+            {
+            }
+            remove
+            {
+            }
+        }
+
+        /// <inheritdoc/>
+        event Action<int, int>? IKeyFrameProperty.Moved
+        {
+            add
+            {
+            }
+            remove
+            {
+            }
+        }
 
         /// <summary>
         /// Get the <see cref="PropertyElement"/> to display on the GUI.
         /// </summary>
         public abstract IEnumerable<PropertyElement> Properties { get; }
+
         /// <inheritdoc/>
-        public IEnumerable<PropertyElement> Children => _CachedList ??= Properties;
+        public IEnumerable<PropertyElement> Children => _cachedList ??= Properties;
 
         /// <inheritdoc/>
         public override EffectElement Parent
@@ -39,45 +73,26 @@ namespace BEditor.Data.Property
         }
 
         #region IkeyframeProperty
+
+        /// <inheritdoc/>
         EasingFunc? IKeyFrameProperty.EasingType => null;
+
+        /// <inheritdoc/>
         List<Frame> IKeyFrameProperty.Frames => new(0);
-        event Action<Frame, int>? IKeyFrameProperty.Added
-        {
-            add
-            {
-            }
-            remove
-            {
-            }
-        }
-        event Action<int>? IKeyFrameProperty.Removed
-        {
-            add
-            {
-            }
-            remove
-            {
-            }
-        }
-        event Action<int, int>? IKeyFrameProperty.Moved
-        {
-            add
-            {
 
-            }
-            remove
-            {
-
-            }
-        }
+        /// <inheritdoc/>
         IRecordCommand IKeyFrameProperty.AddFrame(Frame frame)
         {
             return RecordCommand.Empty;
         }
+
+        /// <inheritdoc/>
         IRecordCommand IKeyFrameProperty.MoveFrame(int fromIndex, Frame toFrame)
         {
             return RecordCommand.Empty;
         }
+
+        /// <inheritdoc/>
         IRecordCommand IKeyFrameProperty.RemoveFrame(Frame frame)
         {
             return RecordCommand.Empty;

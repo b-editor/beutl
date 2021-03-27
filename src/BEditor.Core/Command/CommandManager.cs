@@ -9,57 +9,83 @@ using BEditor.Data;
 namespace BEditor.Command
 {
     /// <summary>
+    /// Indicates the type of command.
+    /// </summary>
+    public enum CommandType
+    {
+        /// <summary>
+        /// Do
+        /// </summary>
+        Do,
+
+        /// <summary>
+        /// Undo
+        /// </summary>
+        Undo,
+
+        /// <summary>
+        /// Redo
+        /// </summary>
+        Redo,
+    }
+
+    /// <summary>
     /// Indicates the Undo and Redo functions by storing the history of the operations performed.
     /// </summary>
     public class CommandManager : BasePropertyChanged
     {
+        /// <summary>
+        /// Default instance of CommandManager.
+        /// </summary>
+        public static readonly CommandManager Default = new();
         private static readonly PropertyChangedEventArgs _canUndoArgs = new(nameof(CanUndo));
         private static readonly PropertyChangedEventArgs _canRedoArgs = new(nameof(CanRedo));
         private bool _process = true;
         private bool _canUndo = false;
         private bool _canRedo = false;
+
         /// <summary>
-        /// 
+        /// Occurs at UnDo, Redo, and execution time.
         /// </summary>
-        public static readonly CommandManager Default = new();
+        public event EventHandler<CommandType>? Executed;
+
+        /// <summary>
+        /// Occurs when a command is canceled.
+        /// </summary>
+        public event EventHandler? CommandCancel;
+
+        /// <summary>
+        /// Occurs after <see cref="Clear"/>.
+        /// </summary>
+        public event EventHandler? CommandsClear;
 
         /// <summary>
         /// Gets the <see cref="Stack{T}"/> that will be recorded after execution or redo.
         /// </summary>
         public Stack<IRecordCommand> UndoStack { get; } = new();
+
         /// <summary>
         /// Gets the <see cref="Stack{T}"/> to be recorded after the Undo.
         /// </summary>
         public Stack<IRecordCommand> RedoStack { get; } = new();
+
         /// <summary>
-        /// Gets whether Undo is possible.
+        /// Gets a value indicating whether or not Undo is enabled.
         /// </summary>
         public bool CanUndo
         {
             get => _canUndo;
-            set => SetValue(value, ref _canUndo, _canUndoArgs);
+            private set => SetValue(value, ref _canUndo, _canUndoArgs);
         }
+
         /// <summary>
-        /// Gets whether Redo is possible.
+        /// Gets a value indicating whether or not Redo is enabled.
         /// </summary>
         public bool CanRedo
         {
             get => _canRedo;
-            set => SetValue(value, ref _canRedo, _canRedoArgs);
+            private set => SetValue(value, ref _canRedo, _canRedoArgs);
         }
-
-        /// <summary>
-        /// Occurs at UnDo, Redo, and execution time.
-        /// </summary>
-        public event EventHandler<CommandType> Executed = delegate { };
-        /// <summary>
-        /// Occurs when a command is canceled.
-        /// </summary>
-        public event EventHandler CommandCancel = delegate { };
-        /// <summary>
-        /// Occurs after <see cref="Clear"/>.
-        /// </summary>
-        public event EventHandler CommandsClear = delegate { };
 
         /// <summary>
         /// Execute the operation and add its contents to the stack.
@@ -86,13 +112,14 @@ namespace BEditor.Command
             }
             catch
             {
-                Debug.Assert(false);
+                Debug.Assert(false, "Commandの実行中に例外が発生。");
                 CommandCancel(null, EventArgs.Empty);
             }
 
             _process = true;
-            Executed(command, CommandType.Do);
+            Executed?.Invoke(command, CommandType.Do);
         }
+
         /// <summary>
         /// Undoes a command and returns to the previous state.
         /// </summary>
@@ -116,9 +143,10 @@ namespace BEditor.Command
                 catch { }
                 _process = true;
 
-                Executed(command, CommandType.Undo);
+                Executed?.Invoke(command, CommandType.Undo);
             }
         }
+
         /// <summary>
         /// Redo the canceled command.
         /// </summary>
@@ -142,9 +170,10 @@ namespace BEditor.Command
                 catch { }
 
                 _process = true;
-                Executed(command, CommandType.Redo);
+                Executed?.Invoke(command, CommandType.Redo);
             }
         }
+
         /// <summary>
         /// Clear the recorded commands.
         /// </summary>
@@ -155,26 +184,7 @@ namespace BEditor.Command
             CanUndo = false;
             CanRedo = false;
 
-            CommandsClear(null, EventArgs.Empty);
+            CommandsClear?.Invoke(this, EventArgs.Empty);
         }
-    }
-
-    /// <summary>
-    /// Indicates the type of command
-    /// </summary>
-    public enum CommandType
-    {
-        /// <summary>
-        /// 
-        /// </summary>
-        Do,
-        /// <summary>
-        /// 
-        /// </summary>
-        Undo,
-        /// <summary>
-        /// 
-        /// </summary>
-        Redo
     }
 }

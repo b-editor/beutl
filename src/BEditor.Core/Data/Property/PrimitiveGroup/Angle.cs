@@ -14,10 +14,12 @@ namespace BEditor.Data.Property.PrimitiveGroup
         /// Represents <see cref="AngleX"/> metadata.
         /// </summary>
         public static readonly EasePropertyMetadata AngleXMetadata = new(Resources.AngleX);
+
         /// <summary>
         /// Represents <see cref="AngleZ"/> metadata.
         /// </summary>
         public static readonly EasePropertyMetadata AngleYMetadata = new(Resources.AngleY);
+
         /// <summary>
         /// Represents <see cref="AngleZ"/> metadata.
         /// </summary>
@@ -28,7 +30,8 @@ namespace BEditor.Data.Property.PrimitiveGroup
         /// </summary>
         /// <param name="metadata">Metadata of this property.</param>
         /// <exception cref="ArgumentNullException"><paramref name="metadata"/> is <see langword="null"/>.</exception>
-        public Angle(PropertyElementMetadata metadata) : base(metadata)
+        public Angle(PropertyElementMetadata metadata)
+            : base(metadata)
         {
             AngleX = new(AngleXMetadata);
             AngleY = new(AngleYMetadata);
@@ -40,20 +43,23 @@ namespace BEditor.Data.Property.PrimitiveGroup
         {
             AngleX,
             AngleY,
-            AngleZ
+            AngleZ,
         };
+
         /// <summary>
-        /// Get the <see cref="EaseProperty"/> of the X-axis angle.
+        /// Gets the <see cref="EaseProperty"/> of the X-axis angle.
         /// </summary>
         [DataMember]
         public EaseProperty AngleX { get; private set; }
+
         /// <summary>
-        /// Get the <see cref="EaseProperty"/> of the Y-axis angle.
+        /// Gets the <see cref="EaseProperty"/> of the Y-axis angle.
         /// </summary>
         [DataMember]
         public EaseProperty AngleY { get; private set; }
+
         /// <summary>
-        /// Get the <see cref="EaseProperty"/> of the Z-axis angle.
+        /// Gets the <see cref="EaseProperty"/> of the Z-axis angle.
         /// </summary>
         [DataMember]
         public EaseProperty AngleZ { get; private set; }
@@ -65,6 +71,7 @@ namespace BEditor.Data.Property.PrimitiveGroup
             AngleY.Load(AngleYMetadata);
             AngleZ.Load(AngleZMetadata);
         }
+
         /// <inheritdoc/>
         protected override void OnUnload()
         {

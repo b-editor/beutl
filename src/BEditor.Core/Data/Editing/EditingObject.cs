@@ -22,17 +22,16 @@ namespace BEditor.Data
     {
         private Dictionary<string, object?>? _values = new();
 
-
         /// <inheritdoc/>
         public SynchronizationContext Synchronize { get; private set; } = AsyncOperationManager.SynchronizationContext;
 
         /// <inheritdoc/>
         public IServiceProvider? ServiceProvider { get; internal set; }
 
-        private Dictionary<string, object?> Values => _values ??= new();
-
         /// <inheritdoc/>
         public bool IsLoaded { get; private set; }
+
+        private Dictionary<string, object?> Values => _values ??= new();
 
         /// <inheritdoc/>
         public object? this[EditingProperty property]
@@ -40,7 +39,6 @@ namespace BEditor.Data
             get => GetValue(property);
             set => SetValue(property, value);
         }
-
 
         /// <inheritdoc/>
         public TValue GetValue<TValue>(EditingProperty<TValue> property)
@@ -176,28 +174,25 @@ namespace BEditor.Data
             IsLoaded = false;
         }
 
-        /// <inheritdoc cref="IElementObject.Load"/>
-        protected virtual void OnLoad()
-        {
-
-        }
-
-        /// <inheritdoc cref="IElementObject.Unload"/>
-        protected virtual void OnUnload()
-        {
-
-        }
-
         /// <inheritdoc/>
         public virtual void GetObjectData(Utf8JsonWriter writer)
         {
-            
         }
 
         /// <inheritdoc/>
         public virtual void SetObjectData(JsonElement element)
         {
             Synchronize = AsyncOperationManager.SynchronizationContext;
+        }
+
+        /// <inheritdoc cref="IElementObject.Load"/>
+        protected virtual void OnLoad()
+        {
+        }
+
+        /// <inheritdoc cref="IElementObject.Unload"/>
+        protected virtual void OnUnload()
+        {
         }
     }
 }

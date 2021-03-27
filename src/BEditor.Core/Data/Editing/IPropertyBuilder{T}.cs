@@ -6,10 +6,12 @@
     /// <typeparam name="T">The type of the local value.</typeparam>
     public interface IPropertyBuilder<T> : IPropertyBuilder
     {
+        /// <inheritdoc/>
         object IPropertyBuilder.Build()
         {
             return Build()!;
         }
+
         /// <summary>
         /// Create a local value instance of <see cref="EditingProperty{TValue}"/>.
         /// </summary>

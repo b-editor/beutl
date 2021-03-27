@@ -12,7 +12,7 @@ namespace BEditor.Data
     public interface IElementObject
     {
         /// <summary>
-        /// Gets a value that indicates whether this <see cref="IElementObject"/> has been loaded for presentation.
+        /// Gets a value indicating whether or not this <see cref="IElementObject"/> has been loaded.
         /// </summary>
         public bool IsLoaded { get; }
 
@@ -20,6 +20,7 @@ namespace BEditor.Data
         /// Activate this <see cref="IElementObject"/>.
         /// </summary>
         public void Load();
+
         /// <summary>
         /// Disables this <see cref="IElementObject"/>.
         /// </summary>

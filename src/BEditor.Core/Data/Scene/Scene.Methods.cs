@@ -19,31 +19,13 @@ using BEditor.Media;
 
 namespace BEditor.Data
 {
+    /// <summary>
+    /// Represents a scene to be included in the <see cref="Project"/>.
+    /// </summary>
     public partial class Scene : IElementObject, IJsonObject
     {
-        #region IElementObject
-        /// <inheritdoc/>
-        protected override void OnLoad()
-        {
-            Debug.Assert(Synchronize is not null);
-            Synchronize.Send(_ =>
-            {
-                GraphicsContext = new GraphicsContext(Width, Height);
-                AudioContext = new AudioContext();
-            }, null);
-        }
-        /// <inheritdoc/>
-        protected override void OnUnload()
-        {
-            Synchronize.Send(_ =>
-            {
-                GraphicsContext?.Dispose();
-                AudioContext?.Dispose();
-            }, null);
-        }
-        #endregion
-
         #region IJsonObject
+
         /// <inheritdoc/>
         public override void GetObjectData(Utf8JsonWriter writer)
         {
@@ -80,7 +62,7 @@ namespace BEditor.Data
             base.SetObjectData(element);
             Width = element.GetProperty(nameof(Width)).GetInt32();
             Height = element.GetProperty(nameof(Height)).GetInt32();
-            SceneName = element.GetProperty(nameof(SceneName)).GetString() ?? "";
+            SceneName = element.GetProperty(nameof(SceneName)).GetString() ?? string.Empty;
             TotalFrame = element.GetProperty(nameof(TotalFrame)).GetInt32();
             HideLayer = element.GetProperty(nameof(HideLayer)).EnumerateArray().Select(i => i.GetInt32()).ToList();
             Datas = new(element.GetProperty("Clips").EnumerateArray().Select(i =>
@@ -94,6 +76,7 @@ namespace BEditor.Data
         #endregion
 
         #region Render
+
         /// <summary>
         /// Render this <see cref="Scene"/>.
         /// </summary>
@@ -253,6 +236,7 @@ namespace BEditor.Data
         }
 
         #region Commands
+
         /// <summary>
         /// Create a command to add a <see cref="ClipElement"/> to this <see cref="Scene"/>.
         /// </summary>
@@ -315,7 +299,6 @@ namespace BEditor.Data
         /// <param name="clip"><see cref="ClipElement"/> to be removed.</param>
         /// <returns>Created <see cref="IRecordCommand"/>.</returns>
         [Pure]
-        [SuppressMessage("Performance", "CA1822")]
         public IRecordCommand RemoveClip(ClipElement clip)
         {
             return new ClipElement.RemoveCommand(clip);
@@ -330,6 +313,30 @@ namespace BEditor.Data
         public IRecordCommand RemoveLayer(int layer)
         {
             return new RemoveLayerCommand(this, layer);
+        }
+        #endregion
+
+        #region IElementObject
+
+        /// <inheritdoc/>
+        protected override void OnLoad()
+        {
+            Debug.Assert(Synchronize is not null);
+            Synchronize.Send(_ =>
+            {
+                GraphicsContext = new GraphicsContext(Width, Height);
+                AudioContext = new AudioContext();
+            }, null);
+        }
+
+        /// <inheritdoc/>
+        protected override void OnUnload()
+        {
+            Synchronize.Send(_ =>
+            {
+                GraphicsContext?.Dispose();
+                AudioContext?.Dispose();
+            }, null);
         }
         #endregion
     }

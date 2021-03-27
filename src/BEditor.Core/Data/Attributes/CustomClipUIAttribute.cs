@@ -19,15 +19,15 @@ namespace BEditor.Data
         /// </summary>
         public CustomClipUIAttribute()
         {
-
         }
 
         /// <summary>
         /// Gets or sets the rgb color of int type.
         /// </summary>
         public int Color { get; set; } = unchecked(0x304fee);
+
         /// <summary>
-        /// Get <see cref="Drawing.Color"/> from <see cref="Color"/>.
+        /// Gets <see cref="Drawing.Color"/> from <see cref="Color"/>.
         /// </summary>
         public Color GetColor => Drawing.Color.FromARGB(Color);
     }

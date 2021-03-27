@@ -29,6 +29,8 @@ namespace BEditor.Data.Primitive
         }
 
         /// <inheritdoc/>
-        public override void Render(EffectRenderArgs args) { }
+        public override void Render(EffectRenderArgs args)
+        {
+        }
     }
 }
