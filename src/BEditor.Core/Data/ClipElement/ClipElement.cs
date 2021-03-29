@@ -35,13 +35,13 @@ namespace BEditor.Data
         /// <summary>
         /// Initializes a new instance of the <see cref="ClipElement"/> class.
         /// </summary>
-        public ClipElement(int id, Frame start, Frame end, int layer, Scene scene)
+        public ClipElement(int id, Frame start, Frame end, int layer, Scene scene, ObjectMetadata metadata)
         {
             _id = id;
             _start = start;
             _end = end;
             _layer = layer;
-            _effect = new();
+            _effect = new() { metadata.CreateFunc() };
             Parent = scene;
             LabelText = Name;
         }

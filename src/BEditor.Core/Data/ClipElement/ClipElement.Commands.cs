@@ -40,9 +40,7 @@ namespace BEditor.Data
                 var idmax = scene.NewId;
 
                 // オブジェクトの情報
-                Clip = new ClipElement(idmax, startFrame, startFrame + 180, layer, scene);
-
-                Clip.Effect.Add(metadata.CreateFunc());
+                Clip = new ClipElement(idmax, startFrame, startFrame + 180, layer, scene, metadata);
             }
 
             /// <summary>
