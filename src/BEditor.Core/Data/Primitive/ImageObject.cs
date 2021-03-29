@@ -46,7 +46,7 @@ namespace BEditor.Data.Primitive
         /// <summary>
         /// Initializes a new instance of the <see cref="ImageObject"/> class.
         /// </summary>
-        public ImageObject()
+        protected ImageObject()
         {
             Coordinate = new(CoordinateMetadata);
             Zoom = new(ZoomMetadata);
@@ -158,7 +158,7 @@ namespace BEditor.Data.Primitive
             var imageArgs = new EffectRenderArgs<Image<BGRA32>>(args.Frame, base_img, args.Type);
 
             var list = Parent!.Effect.Where(x => x.IsEnabled).ToArray();
-            for (int i = 1; i < list.Length; i++)
+            for (var i = 1; i < list.Length; i++)
             {
                 var effect = list[i];
 
@@ -236,7 +236,7 @@ namespace BEditor.Data.Primitive
 
         private void LoadEffect(EffectRenderArgs<IEnumerable<ImageInfo>> args, EffectElement[] list)
         {
-            for (int i = 0; i < list.Length; i++)
+            for (var i = 0; i < list.Length; i++)
             {
                 var effect = list[i];
 
@@ -282,7 +282,7 @@ namespace BEditor.Data.Primitive
 
             var frame = args.Frame;
 
-            float alpha = (float)(Blend.Alpha.GetValue(frame) / 100);
+            var alpha = (float)(Blend.Alpha.GetValue(frame) / 100);
 
             var ambient = Material.Ambient[frame];
             var diffuse = Material.Diffuse[frame];

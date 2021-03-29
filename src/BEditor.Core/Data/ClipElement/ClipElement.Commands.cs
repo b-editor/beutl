@@ -37,16 +37,12 @@ namespace BEditor.Data
                 if (metadata is null) throw new ArgumentNullException(nameof(metadata));
 
                 // 新しいidを取得
-                int idmax = scene.NewId;
-
-                // effects
-                var list = new ObservableCollection<EffectElement>
-                {
-                    metadata.CreateFunc(),
-                };
+                var idmax = scene.NewId;
 
                 // オブジェクトの情報
-                Clip = new ClipElement(idmax, list, startFrame, startFrame + 180, layer, scene);
+                Clip = new ClipElement(idmax, startFrame, startFrame + 180, layer, scene);
+
+                Clip.Effect.Add(metadata.CreateFunc());
             }
 
             /// <summary>
@@ -199,7 +195,6 @@ namespace BEditor.Data
 
             /// <inheritdoc/>
             public string Name => CommandName.MoveClip;
-
             private Scene Scene => _clip.Parent;
 
             /// <inheritdoc/>

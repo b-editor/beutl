@@ -67,6 +67,7 @@ namespace BEditor.Data
             {
                 throw new DataException(ExceptionMessage.KeyHasAlreadyBeenRegisterd);
             }
+
             var property = new EditingProperty<TValue>(name, typeof(TOwner), builder);
 
             PropertyFromKey.Add(key, property);

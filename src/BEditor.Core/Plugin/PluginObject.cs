@@ -1,5 +1,4 @@
-﻿
-using System;
+﻿using System;
 using System.Collections.Generic;
 using System.Threading;
 
@@ -23,12 +22,12 @@ namespace BEditor.Plugin
         }
 
         /// <summary>
-        /// Get the name of the plugin.
+        /// Gets the name of the plugin.
         /// </summary>
         public abstract string PluginName { get; }
 
         /// <summary>
-        /// Get the description of the plugin.
+        /// Gets the description of the plugin.
         /// </summary>
         public abstract string Description { get; }
 
@@ -38,12 +37,12 @@ namespace BEditor.Plugin
         public IApplication App { get; }
 
         /// <summary>
-        /// Get the name of the assembly for this plugin.
+        /// Gets the name of the assembly for this plugin.
         /// </summary>
         public string AssemblyName => GetType().Assembly.GetName().Name!;
 
         /// <summary>
-        /// Get or set the settings for this plugin.
+        /// Gets or sets the settings for this plugin.
         /// </summary>
         public abstract SettingRecord Settings { get; set; }
     }

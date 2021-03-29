@@ -22,7 +22,6 @@ namespace BEditor.Plugin
             Application = app;
         }
 
-
         /// <summary>
         /// Gets the ServiceProvider.
         /// </summary>

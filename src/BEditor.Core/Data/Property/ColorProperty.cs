@@ -35,8 +35,6 @@ namespace BEditor.Data.Property
             Value = metadata.DefaultColor;
         }
 
-        private List<IObserver<Color>> Collection => _list ??= new();
-
         /// <summary>
         /// Gets or sets the selected color.
         /// </summary>
@@ -62,17 +60,13 @@ namespace BEditor.Data.Property
         /// <inheritdoc/>
         public string? TargetHint
         {
-            get => _bindable?.GetString();
+            get => _bindable?.ToString("#");
             private set => _targetHint = value;
         }
 
-        #region Methods
+        private List<IObserver<Color>> Collection => _list ??= new();
 
-        /// <inheritdoc/>
-        protected override void OnLoad()
-        {
-            this.AutoLoad(ref _targetHint);
-        }
+        #region Methods
 
         /// <inheritdoc/>
         public override void GetObjectData(Utf8JsonWriter writer)
@@ -111,10 +105,14 @@ namespace BEditor.Data.Property
         }
 
         /// <inheritdoc/>
-        public void OnCompleted() { }
+        public void OnCompleted()
+        {
+        }
 
         /// <inheritdoc/>
-        public void OnError(Exception error) { }
+        public void OnError(Exception error)
+        {
+        }
 
         /// <inheritdoc/>
         public void OnNext(Color value)
@@ -122,10 +120,16 @@ namespace BEditor.Data.Property
             Value = value;
         }
 
+        /// <inheritdoc/>
+        protected override void OnLoad()
+        {
+            this.AutoLoad(ref _targetHint);
+        }
+
         #endregion
 
         /// <summary>
-        /// 色を変更するコマンド
+        /// 色を変更するコマンド.
         /// </summary>
         private sealed class ChangeColorCommand : IRecordCommand
         {
@@ -134,11 +138,11 @@ namespace BEditor.Data.Property
             private readonly Color _old;
 
             /// <summary>
-            /// <see cref="ChangeColorCommand"/> クラスの新しいインスタンスを初期化します
+            /// <see cref="ChangeColorCommand"/> クラスの新しいインスタンスを初期化します.
             /// </summary>
-            /// <param name="property">対象の <see cref="ColorProperty"/></param>
-            /// <param name="color"></param>
-            /// <exception cref="ArgumentNullException"><paramref name="property"/> が <see langword="null"/> です</exception>
+            /// <param name="property">対象の <see cref="ColorProperty"/>.</param>
+            /// <param name="color"><see cref="ColorProperty.Value"/> の新しい値.</param>
+            /// <exception cref="ArgumentNullException"><paramref name="property"/> が <see langword="null"/> です.</exception>
             public ChangeColorCommand(ColorProperty property, Color color)
             {
                 _property = new(property ?? throw new ArgumentNullException(nameof(property)));
@@ -157,11 +161,13 @@ namespace BEditor.Data.Property
                     target.Value = _new;
                 }
             }
+
             /// <inheritdoc/>
             public void Redo()
             {
                 Do();
             }
+
             /// <inheritdoc/>
             public void Undo()
             {

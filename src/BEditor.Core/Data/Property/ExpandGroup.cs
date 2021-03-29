@@ -58,7 +58,7 @@ namespace BEditor.Data.Property
         /// <inheritdoc/>
         public string? TargetHint
         {
-            get => _bindable?.GetString();
+            get => _bindable?.ToString("#");
             private set => _targetHint = value;
         }
 

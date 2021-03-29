@@ -37,7 +37,7 @@ namespace BEditor.Data.Property
         public ColorAnimationProperty(ColorAnimationPropertyMetadata metadata)
         {
             PropertyMetadata = metadata ?? throw new ArgumentNullException(nameof(metadata));
-            Color color = metadata.DefaultColor;
+            var color = metadata.DefaultColor;
 
             Value = new() { color, color };
             Frames = new();
@@ -142,8 +142,8 @@ namespace BEditor.Data.Property
                 }
                 else
                 {
-                    int index = 0;
-                    for (int f = 0; f < property.Frames.Count - 1; f++)
+                    var index = 0;
+                    for (var f = 0; f < property.Frames.Count - 1; f++)
                     {
                         if (property.Frames[f] <= frame && frame <= property.Frames[f + 1])
                         {
@@ -172,8 +172,8 @@ namespace BEditor.Data.Property
                 }
                 else
                 {
-                    int index = 0;
-                    for (int f = 0; f < property.Frames.Count - 1; f++)
+                    var index = 0;
+                    for (var f = 0; f < property.Frames.Count - 1; f++)
                     {
                         if (property.Frames[f] <= frame && frame <= property.Frames[f + 1])
                         {
@@ -196,10 +196,10 @@ namespace BEditor.Data.Property
             // 相対的な現在フレーム
             int now = frame - start;
 
-            float red = EasingType.EaseFunc(now, end - start, stval.R, edval.R);
-            float green = EasingType.EaseFunc(now, end - start, stval.G, edval.G);
-            float blue = EasingType.EaseFunc(now, end - start, stval.B, edval.B);
-            float alpha = EasingType.EaseFunc(now, end - start, stval.A, edval.A);
+            var red = EasingType.EaseFunc(now, end - start, stval.R, edval.R);
+            var green = EasingType.EaseFunc(now, end - start, stval.G, edval.G);
+            var blue = EasingType.EaseFunc(now, end - start, stval.B, edval.B);
+            var alpha = EasingType.EaseFunc(now, end - start, stval.A, edval.A);
 
             return Color.FromARGB(
                 (byte)alpha,
@@ -224,12 +224,12 @@ namespace BEditor.Data.Property
             var tmp = new List<Frame>(Frames);
             tmp.Sort((a, b) => a - b);
 
-            for (int i = 0; i < Frames.Count; i++)
+            for (var i = 0; i < Frames.Count; i++)
             {
                 Frames[i] = tmp[i];
             }
 
-            int stindex = Frames.IndexOf(frame) + 1;
+            var stindex = Frames.IndexOf(frame) + 1;
 
             Value.Insert(stindex, value);
 
@@ -264,29 +264,29 @@ namespace BEditor.Data.Property
         {
             base.GetObjectData(writer);
             writer.WriteStartArray(nameof(Frames));
+
+            foreach (var f in Frames)
             {
-                foreach (var f in Frames)
-                {
-                    writer.WriteNumberValue(f);
-                }
+                writer.WriteNumberValue(f);
             }
+
             writer.WriteEndArray();
 
             writer.WriteStartArray("Values");
+
+            foreach (var v in Value)
             {
-                foreach (var v in Value)
-                {
-                    writer.WriteStringValue(v.ToString("#argb"));
-                }
+                writer.WriteStringValue(v.ToString("#argb"));
             }
+
             writer.WriteEndArray();
 
             writer.WriteStartObject("Easing");
-            {
-                var type = EasingType.GetType();
-                writer.WriteString("_type", type.FullName + ", " + type.Assembly.GetName().Name);
-                EasingType.GetObjectData(writer);
-            }
+
+            var type = EasingType.GetType();
+            writer.WriteString("_type", type.FullName + ", " + type.Assembly.GetName().Name);
+            EasingType.GetObjectData(writer);
+
             writer.WriteEndObject();
         }
 
@@ -480,7 +480,7 @@ namespace BEditor.Data.Property
             {
                 if (_property.TryGetTarget(out var target))
                 {
-                    int index = target.InsertKeyframe(_frame, target.GetValue(_frame + target.GetParent2()?.Start ?? 0));
+                    var index = target.InsertKeyframe(_frame, target.GetValue(_frame + target.GetParent2()?.Start ?? 0));
 
                     target.Added?.Invoke(_frame, index - 1);
                 }
@@ -495,7 +495,7 @@ namespace BEditor.Data.Property
             {
                 if (_property.TryGetTarget(out var target))
                 {
-                    int index = target.RemoveKeyframe(_frame, out _);
+                    var index = target.RemoveKeyframe(_frame, out _);
 
                     target.Removed?.Invoke(index - 1);
                 }
@@ -521,7 +521,7 @@ namespace BEditor.Data.Property
             {
                 if (_property.TryGetTarget(out var target))
                 {
-                    int index = target.RemoveKeyframe(_frame, out _value);
+                    var index = target.RemoveKeyframe(_frame, out _value);
 
                     target.Removed?.Invoke(index - 1);
                 }
@@ -536,7 +536,7 @@ namespace BEditor.Data.Property
             {
                 if (_property.TryGetTarget(out var target))
                 {
-                    int index = target.InsertKeyframe(_frame, _value);
+                    var index = target.InsertKeyframe(_frame, _value);
 
                     target.Added?.Invoke(_frame, index - 1);
                 }

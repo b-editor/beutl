@@ -13,7 +13,7 @@ namespace BEditor.Data.Property.Easing
         /// <summary>
         /// Represents <see cref="EasingType"/> metadata.
         /// </summary>
-        public static readonly SelectorPropertyMetadata EasingTypeMetadata = new("EasingType", new string[32]
+        public static readonly SelectorPropertyMetadata EasingTypeMetadata = new("EasingType", new[]
         {
             "None",
             "Linear",
@@ -28,6 +28,7 @@ namespace BEditor.Data.Property.Easing
             "ElasticIn", "ElasticOut", "ElasticInOut",
             "BounceIn",  "BounceOut",  "BounceInOut",
         });
+
         private static readonly Func<float, float, float, float, float>[] DefaultEase =
         {
             Easing.None,
@@ -54,6 +55,7 @@ namespace BEditor.Data.Property.Easing
 
             Easing.BounceIn,   Easing.BounceOut,  Easing.BounceInOut,
         };
+
         private Func<float, float, float, float, float> _currentFunc = Easing.None;
         private IDisposable? _disposable;
 
@@ -75,7 +77,8 @@ namespace BEditor.Data.Property.Easing
         public SelectorProperty EasingType { get; private set; }
 
         /// <inheritdoc/>
-        public override float EaseFunc(Frame frame, Frame totalframe, float min, float max) => _currentFunc?.Invoke(frame, totalframe, min, max) ?? 0;
+        public override float EaseFunc(Frame frame, Frame totalframe, float min, float max) =>
+            _currentFunc?.Invoke(frame, totalframe, min, max) ?? 0;
 
         /// <inheritdoc/>
         protected override void OnLoad()
@@ -93,7 +96,8 @@ namespace BEditor.Data.Property.Easing
             _disposable?.Dispose();
         }
 
-        private class Easing
+#pragma warning disable RCS1176, RCS1010, RCS0056, RCS1163, RCS1089
+        private static class Easing
         {
             public static float QuadIn(float t, float totaltime, float min, float max)
             {
@@ -426,5 +430,6 @@ namespace BEditor.Data.Property.Easing
                 return min;
             }
         }
+#pragma warning restore RCS1176, RCS1010, RCS0056, RCS1163, RCS1089
     }
 }

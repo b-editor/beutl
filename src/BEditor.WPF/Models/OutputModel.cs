@@ -63,7 +63,7 @@ namespace BEditor.Models
         {
             int nowframe = scene.PreviewFrame;
 
-            await using var img = scene.Render(nowframe, RenderType.ImageOutput).Image;
+            await using var img = scene.Render(nowframe, RenderType.ImageOutput);
             try
             {
 
@@ -136,7 +136,7 @@ namespace BEditor.Models
 
                         dialog.Dispatcher.Invoke(() =>
                         {
-                            img = scene.Render(frame, RenderType.VideoOutput).Image;
+                            img = scene.Render(frame, RenderType.VideoOutput);
                         });
 
                         if (img is not null)

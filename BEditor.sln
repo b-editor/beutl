@@ -28,8 +28,8 @@ Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "Solution Items", "Solution 
 		icon.png = icon.png
 		LICENSE = LICENSE
 		README.md = README.md
+		roslynator.ruleset = roslynator.ruleset
 		SECURITY.md = SECURITY.md
-		stylecop.ruleset = stylecop.ruleset
 	EndProjectSection
 EndProject
 Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "snippet", "snippet", "{07AD3413-7A32-466C-B70B-988EC917B8B3}"
@@ -50,6 +50,7 @@ Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "TestPlugin2", "test\TestPlu
 EndProject
 Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "props", "props", "{E5E8C675-AA90-4204-BCF4-D99A9E1F3783}"
 	ProjectSection(SolutionItems) = preProject
+		props\analyzer.props = props\analyzer.props
 		props\common.props = props\common.props
 		props\plugin.props = props\plugin.props
 	EndProjectSection

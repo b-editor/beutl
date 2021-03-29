@@ -112,7 +112,7 @@ namespace BEditor.Command
             }
             catch
             {
-                Debug.Assert(false, "Commandの実行中に例外が発生。");
+                Debug.Fail("Commandの実行中に例外が発生。");
                 CommandCancel(null, EventArgs.Empty);
             }
 
@@ -129,7 +129,7 @@ namespace BEditor.Command
 
             if (UndoStack.Count >= 1)
             {
-                IRecordCommand command = UndoStack.Pop();
+                var command = UndoStack.Pop();
                 CanUndo = UndoStack.Count > 0;
 
                 try
@@ -140,7 +140,10 @@ namespace BEditor.Command
                     RedoStack.Push(command);
                     CanRedo = RedoStack.Count > 0;
                 }
-                catch { }
+                catch
+                {
+                }
+
                 _process = true;
 
                 Executed?.Invoke(command, CommandType.Undo);
@@ -156,7 +159,7 @@ namespace BEditor.Command
 
             if (RedoStack.Count >= 1)
             {
-                IRecordCommand command = RedoStack.Pop();
+                var command = RedoStack.Pop();
                 CanRedo = RedoStack.Count > 0;
 
                 try
@@ -167,7 +170,9 @@ namespace BEditor.Command
                     UndoStack.Push(command);
                     CanUndo = UndoStack.Count > 0;
                 }
-                catch { }
+                catch
+                {
+                }
 
                 _process = true;
                 Executed?.Invoke(command, CommandType.Redo);

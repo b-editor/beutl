@@ -337,7 +337,7 @@ namespace BEditor
 
                 for (Frame frame = 0; frame < Scene.TotalFrame; frame++)
                 {
-                    using var img = Scene.Render(frame, RenderType.VideoOutput).Image;
+                    using var img = Scene.Render(frame, RenderType.VideoOutput);
 
                     encoder.Write(img);
 
@@ -349,7 +349,7 @@ namespace BEditor
         }
         public void EncodeImg(string file, Frame frame)
         {
-            using var img = Scene.Render(frame, RenderType.ImageOutput).Image;
+            using var img = Scene.Render(frame, RenderType.ImageOutput);
 
             img.Encode(file);
 

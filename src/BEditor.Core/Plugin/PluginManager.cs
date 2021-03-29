@@ -19,32 +19,40 @@ namespace BEditor.Plugin
     /// </summary>
     public class PluginManager
     {
-        internal readonly List<PluginObject> _loaded = new();
-        internal readonly List<(string, IEnumerable<ICustomMenu>)> _menus = new();
         /// <summary>
         /// Gets a default <see cref="PluginManager"/> instance.
         /// </summary>
         public static readonly PluginManager Default = new();
 
         /// <summary>
+        /// The loaded plugins.
+        /// </summary>
+        internal readonly List<PluginObject> _loaded = new();
+
+        /// <summary>
+        /// The plugin menus.
+        /// </summary>
+        internal readonly List<(string, IEnumerable<ICustomMenu>)> _menus = new();
+
+        /// <summary>
         /// Initializes a new instance of the <see cref="PluginManager"/> class.
         /// </summary>
         public PluginManager()
         {
-
         }
 
         /// <summary>
-        /// Get the loaded plugins.
+        /// Gets the loaded plugins.
         /// </summary>
         public IEnumerable<PluginObject> Plugins => _loaded;
+
         /// <summary>
-        /// Get or set the base directory from which to retrieve plugins.
+        /// Gets or sets the base directory from which to retrieve plugins.
         /// </summary>
         public string BaseDirectory { get; } = Path.Combine(AppContext.BaseDirectory, "user", "plugins");
 
         /// <summary>
-        /// Get all plugin names.
+        /// Gets all plugin names.
         /// </summary>
         /// <returns>All plugin names.</returns>
         public IEnumerable<string> GetNames()

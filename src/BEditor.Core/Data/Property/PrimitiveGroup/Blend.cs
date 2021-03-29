@@ -25,7 +25,7 @@ namespace BEditor.Data.Property.PrimitiveGroup
         /// <summary>
         /// Represents <see cref="BlendType"/> metadata.
         /// </summary>
-        public static readonly SelectorPropertyMetadata BlendTypeMetadata = new(Resources.Blend, new string[4] { "通常", "加算", "減算", "乗算" });
+        public static readonly SelectorPropertyMetadata BlendTypeMetadata = new(Resources.Blend, new[] { "通常", "加算", "減算", "乗算" });
 
         /// <summary>
         /// OpenGLの合成方法を設定する <see cref="Action"/> です.

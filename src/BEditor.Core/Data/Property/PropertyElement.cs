@@ -1,6 +1,9 @@
 ﻿using System;
 using System.ComponentModel;
+using System.Globalization;
 using System.Text.Json;
+
+using BEditor.Properties;
 
 namespace BEditor.Data.Property
 {
@@ -11,24 +14,24 @@ namespace BEditor.Data.Property
     {
         private static readonly PropertyChangedEventArgs _metadataArgs = new(nameof(PropertyMetadata));
         private PropertyElementMetadata? _propertyMetadata;
-        private int? id;
-        private WeakReference<EffectElement?>? parent;
+        private int? _id;
+        private WeakReference<EffectElement?>? _parent;
 
         /// <inheritdoc/>
         public virtual EffectElement Parent
         {
             get
             {
-                parent ??= new(null!);
+                _parent ??= new(null!);
 
-                if (parent.TryGetTarget(out var p))
+                if (_parent.TryGetTarget(out var p))
                 {
                     return p;
                 }
 
                 return null!;
             }
-            set => (parent ??= new(null!)).SetTarget(value);
+            set => (_parent ??= new(null!)).SetTarget(value);
         }
 
         /// <summary>
@@ -41,9 +44,59 @@ namespace BEditor.Data.Property
         }
 
         /// <inheritdoc/>
-        public int Id => (id ??= Parent?.Children?.IndexOf(this)) ?? -1;
+        public int Id => (_id ??= Parent?.Children?.IndexOf(this)) ?? -1;
 
         /// <inheritdoc/>
         public string Name => _propertyMetadata?.Name ?? Id.ToString();
+
+        /// <inheritdoc/>
+        public string ToString(string? format, IFormatProvider? formatProvider)
+        {
+            static bool IsInner(PropertyElement bindable, out int groupId)
+            {
+                groupId = -1;
+                foreach (var item in bindable.Parent.Children)
+                {
+                    if (item == bindable)
+                    {
+                        return false;
+                    }
+
+                    if (item is IParent<PropertyElement> inner_prop)
+                    {
+                        foreach (var inner_item in inner_prop.Children)
+                        {
+                            if (inner_prop is IHasId hasId) groupId = hasId.Id;
+
+                            if (inner_item == bindable)
+                            {
+                                return true;
+                            }
+                        }
+                    }
+                }
+
+                return false;
+            }
+
+            format ??= string.Empty;
+            if (format.ToUpperInvariant() is "#" or "fullname")
+            {
+                if (IsInner(this, out var groupId))
+                {
+                    // 親がGroup
+                    // Idは-1
+                    var scene = this.GetParent3()?.Name ?? throw new DataException(ExceptionMessage.ParentElementNotFound);
+                    var clip = this.GetParent2()?.Name ?? throw new DataException(ExceptionMessage.ParentElementNotFound);
+                    var effect = this.GetParent()?.Id ?? throw new DataException(ExceptionMessage.ParentElementNotFound);
+
+                    return $"{scene}.{clip}[{effect}][{groupId}][{Id}]";
+                }
+
+                return $"{this.GetParent3()?.Name}.{this.GetParent2()?.Name}[{this.GetParent()?.Id}][{Id}]";
+            }
+
+            return GetType().FullName!;
+        }
     }
 }

@@ -3,25 +3,39 @@ using System.Collections.Generic;
 using System.Collections.ObjectModel;
 using System.ComponentModel;
 using System.IO;
+using System.Linq;
 using System.Runtime.Serialization;
-using System.Text.RegularExpressions;
+using System.Text.Json;
 using System.Threading.Tasks;
 
-using BEditor.Properties;
 using BEditor.Drawing;
 using BEditor.Drawing.Pixel;
-using BEditor.Graphics;
+using BEditor.Properties;
 
 using Microsoft.Extensions.DependencyInjection;
-using System.Text.Json;
-using System.Linq;
 
 namespace BEditor.Data
 {
     /// <summary>
+    /// Represents the type of save used in <see cref="ProjectSavedEventArgs"/>.
+    /// </summary>
+    public enum SaveType
+    {
+        /// <summary>
+        /// Save.
+        /// </summary>
+        Save,
+
+        /// <summary>
+        /// Backup.
+        /// </summary>
+        Backup,
+    }
+
+    /// <summary>
     /// Represents the project to be used in editing.
     /// </summary>
-    public class Project : EditingObject, IParent<Scene>, IChild<IApplication>, IElementObject, IHasName, IJsonObject
+    public class Project : EditingObject, IParent<Scene>, IChild<IApplication>, IHasName
     {
         #region Fields
 
@@ -68,32 +82,32 @@ namespace BEditor.Data
         /// <summary>
         /// Occurs after saving this <see cref="Project"/>.
         /// </summary>
-        public event EventHandler<ProjectSavedEventArgs> Saved = delegate { };
+        public event EventHandler<ProjectSavedEventArgs>? Saved;
 
         #region Properties
 
         /// <summary>
-        /// Get the framerate for this <see cref="Project"/>.
+        /// Gets the framerate for this <see cref="Project"/>.
         /// </summary>
         public int Framerate { get; private set; }
 
         /// <summary>
-        /// Get the sampling rate for this <see cref="Project"/>.
+        /// Gets the sampling rate for this <see cref="Project"/>.
         /// </summary>
         public int Samplingrate { get; private set; }
 
         /// <summary>
-        /// Get a list of Scenes in this <see cref="Project"/>.
+        /// Gets a list of Scenes in this <see cref="Project"/>.
         /// </summary>
         public ObservableCollection<Scene> SceneList { get; private set; } = new ObservableCollection<Scene>();
 
         /// <summary>
-        /// Get an index of the <see cref="SceneList"/> being previewed.
+        /// Gets an index of the <see cref="SceneList"/> being previewed.
         /// </summary>
         public int PreviewSceneIndex { get; private set; }
 
         /// <summary>
-        /// Get or set the <see cref="Scene"/> that is being previewed
+        /// Gets or sets the <see cref="Scene"/> that is being previewed.
         /// </summary>
         public Scene PreviewScene
         {
@@ -141,7 +155,7 @@ namespace BEditor.Data
         }
 
         /// <summary>
-        /// Get or set the directory name of this <see cref="Project"/>.
+        /// Gets or sets the directory name of this <see cref="Project"/>.
         /// </summary>
         public string DirectoryName
         {
@@ -156,9 +170,117 @@ namespace BEditor.Data
         #region Methods
 
         /// <summary>
+        /// Load a <see cref="Project"/> from a file.
+        /// </summary>
+        /// <param name="file">The project file.</param>
+        /// <param name="app">Specify the application.</param>
+        /// <returns>Returns the loaded <see cref="Project"/> on success, or <see langword="null"/> on failure.</returns>
+        public static async Task<Project?> FromFileAsync(string file, IApplication app)
+        {
+            static void IfNotExistCreateDir(string dir)
+            {
+                if (!Directory.Exists(dir))
+                {
+                    Directory.CreateDirectory(dir);
+                }
+            }
+
+            // Dirを渡された
+            if (Directory.Exists(file))
+            {
+                var dir = new DirectoryInfo(file);
+
+                file = Path.Combine(file, dir.Name + ".bedit");
+                if (!File.Exists(file))
+                {
+                    file = Path.ChangeExtension(file, "json");
+
+                    if (!File.Exists(file))
+                    {
+                        return null;
+                    }
+                }
+            }
+
+            var mode = SerializeMode.Binary;
+            if (Path.GetExtension(file) is ".json")
+            {
+                mode = SerializeMode.Json;
+            }
+
+            var proj = await Serialize.LoadFromFileAsync<Project>(file, mode);
+
+            if (proj is null) return null;
+
+            proj.DirectoryName = Path.GetDirectoryName(file)!;
+            proj.Name = Path.GetFileNameWithoutExtension(file);
+            proj.Parent = app;
+
+            var appConf = Path.Combine(proj.DirectoryName!, ".app");
+            IfNotExistCreateDir(appConf);
+            app.RestoreAppConfig(proj, appConf);
+
+            return proj;
+        }
+
+        /// <summary>
+        /// Load a <see cref="Project"/> from a file.
+        /// </summary>
+        /// <param name="file">The project file.</param>
+        /// <param name="app">Specify the application.</param>
+        /// <returns>Returns the loaded <see cref="Project"/> on success, or <see langword="null"/> on failure.</returns>
+        public static Project? FromFile(string file, IApplication app)
+        {
+            static void IfNotExistCreateDir(string dir)
+            {
+                if (!Directory.Exists(dir))
+                {
+                    Directory.CreateDirectory(dir);
+                }
+            }
+
+            // Dirを渡された
+            if (Directory.Exists(file))
+            {
+                var dir = new DirectoryInfo(file);
+
+                file = Path.Combine(file, dir.Name + ".bedit");
+                if (!File.Exists(file))
+                {
+                    file = Path.ChangeExtension(file, "json");
+
+                    if (!File.Exists(file))
+                    {
+                        return null;
+                    }
+                }
+            }
+
+            var mode = SerializeMode.Binary;
+            if (Path.GetExtension(file) is ".json")
+            {
+                mode = SerializeMode.Json;
+            }
+
+            var proj = Serialize.LoadFromFile<Project>(file, mode);
+
+            if (proj is null) return null;
+
+            proj.DirectoryName = Path.GetDirectoryName(file)!;
+            proj.Name = Path.GetFileNameWithoutExtension(file);
+            proj.Parent = app;
+
+            var appConf = Path.Combine(proj.DirectoryName!, ".app");
+            IfNotExistCreateDir(appConf);
+            app.RestoreAppConfig(proj, appConf);
+
+            return proj;
+        }
+
+        /// <summary>
         /// Save this <see cref="Project"/>.
         /// </summary>
-        /// <remarks>If <see cref="Name"/> is <see langword="null"/>, a dialog will appear</remarks>
+        /// <remarks>If <see cref="Name"/> is <see langword="null"/>, a dialog will appear.</remarks>
         /// <returns><see langword="true"/> if the save is successful, otherwise <see langword="false"/>.</returns>
         public bool Save()
         {
@@ -172,8 +294,8 @@ namespace BEditor.Data
                     DefaultFileName = "新しいプロジェクト.bedit",
                     Filters =
                     {
-                        new(Resources.ProjectFile, new FileExtension[] { new("bedit") })
-                    }
+                        new(Resources.ProjectFile, new FileExtension[] { new("bedit") }),
+                    },
                 };
 
                 // ダイアログを表示する
@@ -193,8 +315,8 @@ namespace BEditor.Data
         /// <summary>
         /// Save this <see cref="Project"/> with a name.
         /// </summary>
-        /// <param name="filename">New File Name</param>
-        /// <param name="mode"></param>
+        /// <param name="filename">New File Name.</param>
+        /// <param name="mode">The serialize mode.</param>
         /// <returns><see langword="true"/> if the save is successful, otherwise <see langword="false"/>.</returns>
         public bool Save(string filename, SerializeMode mode = SerializeMode.Binary)
         {
@@ -233,7 +355,6 @@ namespace BEditor.Data
                             }
                             catch
                             {
-
                             }
                         }, null);
                     }
@@ -252,6 +373,7 @@ namespace BEditor.Data
 
                     return true;
                 }
+
                 return false;
             }
         }
@@ -259,8 +381,8 @@ namespace BEditor.Data
         /// <summary>
         /// Save this <see cref="Project"/> with a name.
         /// </summary>
-        /// <param name="stream">Stream to save</param>
-        /// <param name="mode"></param>
+        /// <param name="stream">Stream to save.</param>
+        /// <param name="mode">The serialize mode.</param>
         /// <returns><see langword="true"/> if the save is successful, otherwise <see langword="false"/>.</returns>
         public bool Save(Stream stream, SerializeMode mode = SerializeMode.Binary)
         {
@@ -269,121 +391,8 @@ namespace BEditor.Data
                 Saved?.Invoke(this, new(SaveType.Save));
                 return true;
             }
+
             return false;
-        }
-
-        /// <summary>
-        /// Load a <see cref="Project"/> from a file.
-        /// </summary>
-        /// <param name="file">The project file.</param>
-        /// <param name="app">Specify the application.</param>
-        /// <returns>Returns the loaded <see cref="Project"/> on success, or <see langword="null"/> on failure.</returns>
-        public static async Task<Project?> FromFileAsync(string file, IApplication app)
-        {
-            static void IfNotExistCreateDir(string dir)
-            {
-                if (!Directory.Exists(dir))
-                {
-                    Directory.CreateDirectory(dir);
-                }
-            }
-
-            // Dirを渡された
-            if (Directory.Exists(file))
-            {
-                var dir = new DirectoryInfo(file);
-
-                file = Path.Combine(file, dir.Name + ".bedit");
-                if (!File.Exists(file))
-                {
-                    file = Path.ChangeExtension(file, "json");
-
-                    if (!File.Exists(file))
-                    {
-                        return null;
-                    }
-                }
-            }
-            var mode = SerializeMode.Binary;
-            if (Path.GetExtension(file) is ".json")
-            {
-                mode = SerializeMode.Json;
-            }
-
-            var proj = await Serialize.LoadFromFileAsync<Project>(file, mode);
-
-            if (proj is null) return null;
-
-            proj.DirectoryName = Path.GetDirectoryName(file)!;
-            proj.Name = Path.GetFileNameWithoutExtension(file);
-            proj.Parent = app;
-
-            var appConf = Path.Combine(proj.DirectoryName!, ".app");
-            IfNotExistCreateDir(appConf);
-            app.RestoreAppConfig(proj, appConf);
-
-            return proj;
-        }
-        /// <summary>
-        /// Load a <see cref="Project"/> from a file.
-        /// </summary>
-        /// <param name="file">The project file.</param>
-        /// <param name="app">Specify the application.</param>
-        /// <returns>Returns the loaded <see cref="Project"/> on success, or <see langword="null"/> on failure.</returns>
-        public static Project? FromFile(string file, IApplication app)
-        {
-            static void IfNotExistCreateDir(string dir)
-            {
-                if (!Directory.Exists(dir))
-                {
-                    Directory.CreateDirectory(dir);
-                }
-            }
-
-            // Dirを渡された
-            if (Directory.Exists(file))
-            {
-                var dir = new DirectoryInfo(file);
-
-                file = Path.Combine(file, dir.Name + ".bedit");
-                if (!File.Exists(file))
-                {
-                    file = Path.ChangeExtension(file, "json");
-
-                    if (!File.Exists(file))
-                    {
-                        return null;
-                    }
-                }
-            }
-            var mode = SerializeMode.Binary;
-            if (Path.GetExtension(file) is ".json")
-            {
-                mode = SerializeMode.Json;
-            }
-
-            var proj = Serialize.LoadFromFile<Project>(file, mode);
-
-            if (proj is null) return null;
-
-            proj.DirectoryName = Path.GetDirectoryName(file)!;
-            proj.Name = Path.GetFileNameWithoutExtension(file);
-            proj.Parent = app;
-
-            var appConf = Path.Combine(proj.DirectoryName!, ".app");
-            IfNotExistCreateDir(appConf);
-            app.RestoreAppConfig(proj, appConf);
-
-            return proj;
-        }
-
-        /// <inheritdoc/>
-        protected override void OnUnload()
-        {
-            if (ServiceProvider is IDisposable disposable)
-            {
-                disposable.Dispose();
-            }
         }
 
         /// <inheritdoc/>
@@ -394,16 +403,16 @@ namespace BEditor.Data
             writer.WriteNumber(nameof(Samplingrate), Samplingrate);
             writer.WriteNumber(nameof(PreviewSceneIndex), PreviewSceneIndex);
             writer.WriteStartArray("Scenes");
+
+            foreach (var scene in SceneList)
             {
-                foreach (var scene in SceneList)
-                {
-                    writer.WriteStartObject();
-                    {
-                        scene.GetObjectData(writer);
-                    }
-                    writer.WriteEndObject();
-                }
+                writer.WriteStartObject();
+
+                scene.GetObjectData(writer);
+
+                writer.WriteEndObject();
             }
+
             writer.WriteEndArray();
         }
 
@@ -422,37 +431,15 @@ namespace BEditor.Data
             }));
         }
 
+        /// <inheritdoc/>
+        protected override void OnUnload()
+        {
+            if (ServiceProvider is IDisposable disposable)
+            {
+                disposable.Dispose();
+            }
+        }
+
         #endregion
-    }
-
-    /// <summary>
-    /// Represents the type of save used in <see cref="ProjectSavedEventArgs"/>.
-    /// </summary>
-    public enum SaveType
-    {
-        /// <summary>
-        /// 
-        /// </summary>
-        Save,
-        /// <summary>
-        /// 
-        /// </summary>
-        Backup
-    }
-
-    /// <summary>
-    /// Provides data for the <see cref="Project.Saved"/> event.
-    /// </summary>
-    public class ProjectSavedEventArgs : EventArgs
-    {
-        /// <summary>
-        /// <see cref="ProjectSavedEventArgs"/> Initialize a new instance of the class.
-        /// </summary>
-        public ProjectSavedEventArgs(SaveType type) => Type = type;
-
-        /// <summary>
-        /// 
-        /// </summary>
-        public SaveType Type { get; }
     }
 }

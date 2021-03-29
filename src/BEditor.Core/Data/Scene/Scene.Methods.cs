@@ -84,14 +84,11 @@ namespace BEditor.Data
         /// <param name="renderType">The type of rendering.</param>
         /// <returns>Returns the result of rendering.</returns>
         /// <exception cref="RenderingException">Faileds to rendering.</exception>
-        public RenderingResult Render(Frame frame, RenderType renderType = RenderType.Preview)
+        public Image<BGRA32> Render(Frame frame, RenderType renderType = RenderType.Preview)
         {
             if (!IsLoaded)
             {
-                return new()
-                {
-                    Image = new(Width, Height),
-                };
+                return new(Width, Height);
             }
 
             var layer = GetFrame(frame).ToList();
@@ -108,10 +105,10 @@ namespace BEditor.Data
 
             foreach (var clip in layer) clip.Render(args);
 
-            var buffer = new Image<BGRA32>(Width, Height);
-            GraphicsContext.ReadImage(buffer);
+            var img = new Image<BGRA32>(Width, Height);
+            GraphicsContext.ReadImage(img);
 
-            return new RenderingResult { Image = buffer };
+            return img;
         }
 
         /// <summary>
@@ -120,7 +117,7 @@ namespace BEditor.Data
         /// <param name="renderType">The type of rendering.</param>
         /// <returns>Returns the result of rendering.</returns>
         /// <exception cref="RenderingException">Faileds to rendering.</exception>
-        public RenderingResult Render(RenderType renderType = RenderType.Preview)
+        public Image<BGRA32> Render(RenderType renderType = RenderType.Preview)
         {
             return Render(PreviewFrame, renderType);
         }

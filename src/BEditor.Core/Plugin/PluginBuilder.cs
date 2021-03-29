@@ -17,27 +17,32 @@ namespace BEditor.Plugin
     /// </summary>
     public class PluginBuilder
     {
+        /// <summary>
+        /// The plugin config.
+        /// </summary>
+        internal static PluginConfig? Config = null;
         private readonly Func<PluginObject> _plugin;
         private readonly List<EffectMetadata> _effects = new();
         private readonly List<ObjectMetadata> _objects = new();
         private readonly List<EasingMetadata> _eases = new();
         private (string?, IEnumerable<ICustomMenu>?) _menus;
-        internal static PluginConfig? config = null;
 
         private PluginBuilder(Func<PluginObject> create)
         {
             _plugin = create;
         }
-        
+
         /// <summary>
         ///  Begin configuring an <see cref="PluginObject"/>.
         /// </summary>
         /// <typeparam name="T">Class that implements the <see cref="PluginObject"/> to be configure.</typeparam>
         /// <returns>The same instance of the <see cref="PluginBuilder"/> for chaining.</returns>
-        public static PluginBuilder Configure<T>() where T : PluginObject
+        public static PluginBuilder Configure<T>()
+            where T : PluginObject
         {
-            return new PluginBuilder(() => (T)Activator.CreateInstance(typeof(T), config)!);
+            return new PluginBuilder(() => (T)Activator.CreateInstance(typeof(T), Config)!);
         }
+
         /// <summary>
         /// Configure the options for the services to be provided.
         /// </summary>
@@ -49,6 +54,7 @@ namespace BEditor.Plugin
 
             return this;
         }
+
         /// <summary>
         /// Configure the options for the services to be provided.
         /// </summary>
@@ -60,6 +66,7 @@ namespace BEditor.Plugin
 
             return this;
         }
+
         /// <summary>
         /// Configure the options for the services to be provided.
         /// </summary>
@@ -71,6 +78,7 @@ namespace BEditor.Plugin
 
             return this;
         }
+
         /// <summary>
         /// Set the menu.
         /// </summary>
@@ -83,6 +91,7 @@ namespace BEditor.Plugin
 
             return this;
         }
+
         /// <summary>
         /// Register services into the <see cref="IServiceCollection"/>.
         /// </summary>
@@ -90,10 +99,11 @@ namespace BEditor.Plugin
         /// <returns>The same instance of the <see cref="PluginBuilder"/> for chaining.</returns>
         public PluginBuilder ConfigureServices(Action<IServiceCollection> configureServices)
         {
-            configureServices.Invoke(config!.Application.Services);
+            configureServices.Invoke(Config!.Application.Services);
 
             return this;
         }
+
         /// <summary>
         /// Register this setting to the specified <see cref="PluginManager"/>.
         /// </summary>
@@ -125,6 +135,7 @@ namespace BEditor.Plugin
 
             manager._loaded.Add(_plugin());
         }
+
         /// <summary>
         /// Register this setting to the <see cref="PluginManager.Default"/>.
         /// </summary>

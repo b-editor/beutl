@@ -15,18 +15,29 @@ namespace BEditor.Plugin
         /// <summary>
         /// Initializes a new instance of the <see cref="PluginException"/> class.
         /// </summary>
-        public PluginException() { }
+        public PluginException()
+        {
+        }
+
         /// <summary>
         /// Initializes a new instance of the <see cref="PluginException"/> class with a specified error message.
         /// </summary>
         /// <param name="message">The message that describes the error.</param>
-        public PluginException(string? message) : base(message) { }
+        public PluginException(string? message)
+            : base(message)
+        {
+        }
+
         /// <summary>
         /// Initializes a new instance of the <see cref="PluginException"/> class with a specified error message and a reference to the inner exception that is the cause of this exception.
         /// </summary>
         /// <param name="message">The message that describes the error.</param>
         /// <param name="inner">The exception that is the cause of the current exception, or a null reference(Nothing in Visual Basic) if no inner exception is specified.</param>
-        public PluginException(string? message, Exception? inner) : base(message, inner) { }
+        public PluginException(string? message, Exception? inner)
+            : base(message, inner)
+        {
+        }
+
         /// <summary>
         /// Initializes a new instance of the <see cref="PluginException"/> class with serialized data.
         /// </summary>
@@ -36,6 +47,9 @@ namespace BEditor.Plugin
         /// <exception cref="System.Runtime.Serialization.SerializationException">The class name is null or <see cref="Exception.HResult"/> is zero (0).</exception>
         protected PluginException(
           System.Runtime.Serialization.SerializationInfo info,
-          System.Runtime.Serialization.StreamingContext context) : base(info, context) { }
+          System.Runtime.Serialization.StreamingContext context)
+            : base(info, context)
+        {
+        }
     }
 }

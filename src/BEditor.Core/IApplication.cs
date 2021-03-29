@@ -16,13 +16,15 @@ namespace BEditor
     public interface IApplication
     {
         /// <summary>
-        /// Get or set the status of an application.
+        /// Gets or sets the status of an application.
         /// </summary>
         public Status AppStatus { get; set; }
+
         /// <summary>
         /// Gets the <see cref="IServiceCollection"/>.
         /// </summary>
         public IServiceCollection Services { get; }
+
         /// <summary>
         /// Gets the <see cref="ILoggerFactory"/>.
         /// </summary>
@@ -31,14 +33,15 @@ namespace BEditor
         /// <summary>
         /// Restore the application configuration.
         /// </summary>
-        /// <param name="project"></param>
-        /// <param name="directory"></param>
+        /// <param name="project">The project to restore the config.</param>
+        /// <param name="directory">The directory of config.</param>
         public void RestoreAppConfig(Project project, string directory);
+
         /// <summary>
         /// Save the application configuration.
         /// </summary>
-        /// <param name="project"></param>
-        /// <param name="directory"></param>
+        /// <param name="project">The project to save the config.</param>
+        /// <param name="directory">The directory of config.</param>
         public void SaveAppConfig(Project project, string directory);
     }
 }

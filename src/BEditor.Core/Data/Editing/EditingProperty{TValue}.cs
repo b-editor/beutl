@@ -14,8 +14,7 @@ namespace BEditor.Data
         /// <param name="name">プロパティの名前です.</param>
         /// <param name="owner">このプロパティを持つオブジェクトの <see cref="Type"/> です.</param>
         /// <param name="builder">プロパティの値を初期化するオブジェクトです.</param>
-        internal EditingProperty(string name, Type owner, IPropertyBuilder<TValue>? builder = null)
-            : base(name, owner, typeof(TValue), builder)
+        internal EditingProperty(string name, Type owner, IPropertyBuilder<TValue>? builder = null) : base(name, owner, typeof(TValue), builder)
         {
         }
 

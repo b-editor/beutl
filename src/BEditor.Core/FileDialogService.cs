@@ -15,6 +15,7 @@ namespace BEditor
         /// Show the Save File dialog.
         /// </summary>
         public bool ShowSaveFileDialog(SaveFileRecord record);
+
         /// <summary>
         /// Show the Open File dialog.
         /// </summary>
@@ -29,7 +30,8 @@ namespace BEditor
         /// <summary>
         /// Initializes a new instance of the <see cref="SaveFileRecord"/> class.
         /// </summary>
-        public SaveFileRecord(string filename = "") : base(new List<FileFilter>())
+        public SaveFileRecord(string filename = "")
+            : base(new List<FileFilter>())
         {
             FileName = filename;
         }
@@ -37,12 +39,14 @@ namespace BEditor
         /// <summary>
         /// Gets or sets the default file name.
         /// </summary>
-        public string DefaultFileName { get; set; } = "";
+        public string DefaultFileName { get; set; } = string.Empty;
+
         /// <summary>
         /// Gets or sets the file name.
         /// </summary>
         public string FileName { get; set; }
     }
+
     /// <summary>
     /// Represents the record to be used when showing the Open File dialog.
     /// </summary>
@@ -51,20 +55,22 @@ namespace BEditor
         /// <summary>
         /// Initializes a new instance of the <see cref="OpenFileRecord"/> class.
         /// </summary>
-        public OpenFileRecord() : base(new List<FileFilter>())
+        public OpenFileRecord()
+            : base(new List<FileFilter>())
         {
-
         }
 
         /// <summary>
         /// Gets or sets the default file name.
         /// </summary>
-        public string DefaultFileName { get; set; } = "";
+        public string DefaultFileName { get; set; } = string.Empty;
+
         /// <summary>
         /// Gets or sets the file name.
         /// </summary>
-        public string FileName { get; set; } = "";
+        public string FileName { get; set; } = string.Empty;
     }
+
     /// <summary>
     /// Represents the extension of the file.
     /// </summary>
@@ -80,10 +86,11 @@ namespace BEditor
         }
 
         /// <summary>
-        /// Get the file extension
+        /// Gets the file extension.
         /// </summary>
         public string Value { get; init; }
     }
+
     /// <summary>
     /// Represents the filter of the file dialog.
     /// </summary>
@@ -101,14 +108,16 @@ namespace BEditor
         }
 
         /// <summary>
-        /// Get the filter name.
+        /// Gets the filter name.
         /// </summary>
         public string Name { get; init; }
+
         /// <summary>
-        /// Get the filter extensions.
+        /// Gets the filter extensions.
         /// </summary>
         public IEnumerable<FileExtension> Extensions { get; init; }
     }
+
     /// <summary>
     /// Represents the base record to be used when showing the File dialog.
     /// </summary>
@@ -124,7 +133,7 @@ namespace BEditor
         }
 
         /// <summary>
-        /// Get the filter for the file dialog.
+        /// Gets the filter for the file dialog.
         /// </summary>
         public List<FileFilter> Filters { get; init; }
     }

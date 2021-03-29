@@ -35,13 +35,13 @@ namespace BEditor.Data
         /// <summary>
         /// Initializes a new instance of the <see cref="ClipElement"/> class.
         /// </summary>
-        public ClipElement(int id, ObservableCollection<EffectElement> effects, Frame start, Frame end, int layer, Scene scene)
+        public ClipElement(int id, Frame start, Frame end, int layer, Scene scene)
         {
             _id = id;
             _start = start;
             _end = end;
             _layer = layer;
-            _effect = effects;
+            _effect = new();
             Parent = scene;
             LabelText = Name;
         }
@@ -54,7 +54,7 @@ namespace BEditor.Data
         /// <summary>
         /// Gets the name of this <see cref="ClipElement"/>.
         /// </summary>
-        public string Name => _name ??= $"{Effect[0].GetType().Name}{Id}";
+        public string Name => _name ??= (Effect[0].GetType().Name + Id.ToString());
 
         /// <summary>
         /// Gets or sets the start frame for this <see cref="ClipElement"/>.

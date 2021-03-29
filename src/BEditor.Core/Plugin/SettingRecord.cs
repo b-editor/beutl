@@ -12,7 +12,7 @@ namespace BEditor.Plugin
     /// </summary>
     /// <example>
     /// public record CustomSetting(string value) : SettingRecord;
-    /// 
+    ///
     /// public SettingRecord Settings { get; set; } = new CustomSetting("Sample text");
     /// </example>
     [DataContract]

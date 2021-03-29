@@ -435,7 +435,7 @@ namespace BEditor
         }
         private static async ValueTask InitialPlugins()
         {
-            PluginBuilder.config = new PluginConfig(AppData.Current);
+            PluginBuilder.Config = new PluginConfig(AppData.Current);
 
             // すべて
             var all = PluginManager.Default.GetNames();

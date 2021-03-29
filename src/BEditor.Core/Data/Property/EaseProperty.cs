@@ -18,10 +18,9 @@ namespace BEditor.Data.Property
     /// Represents the property that eases the value of a <see cref="float"/> type.
     /// </summary>
     [DebuggerDisplay("Count = {Value.Count}, Easing = {EasingData.Name}")]
-    public partial class EaseProperty : PropertyElement<EasePropertyMetadata>, IKeyFrameProperty
+    public class EaseProperty : PropertyElement<EasePropertyMetadata>, IKeyFrameProperty
     {
         #region Fields
-        private static readonly PropertyChangedEventArgs _easingFuncArgs = new(nameof(EasingType));
         private static readonly PropertyChangedEventArgs _easingDataArgs = new(nameof(EasingData));
         private EasingFunc? _easingTypeProperty;
         private EasingMetadata? _easingData;
@@ -144,8 +143,8 @@ namespace BEditor.Data.Property
                 }
                 else
                 {
-                    int index = 0;
-                    for (int f = 0; f < property.Frames.Count - 1; f++)
+                    var index = 0;
+                    for (var f = 0; f < property.Frames.Count - 1; f++)
                     {
                         if (property.Frames[f] <= frame && frame <= property.Frames[f + 1])
                         {
@@ -174,8 +173,8 @@ namespace BEditor.Data.Property
                 }
                 else
                 {
-                    int index = 0;
-                    for (int f = 0; f < property.Frames.Count - 1; f++)
+                    var index = 0;
+                    for (var f = 0; f < property.Frames.Count - 1; f++)
                     {
                         if (property.Frames[f] <= frame && frame <= property.Frames[f + 1])
                         {
@@ -198,7 +197,7 @@ namespace BEditor.Data.Property
             // 相対的な現在フレーム
             int now = frame - start;
 
-            float out_ = EasingType.EaseFunc(now, end - start, stval, edval);
+            var out_ = EasingType.EaseFunc(now, end - start, stval, edval);
 
             if (PropertyMetadata?.UseOptional ?? false)
             {
@@ -247,7 +246,7 @@ namespace BEditor.Data.Property
             var tmp = new List<Frame>(Frames);
             tmp.Sort((a, b) => a - b);
 
-            for (int i = 0; i < Frames.Count; i++)
+            for (var i = 0; i < Frames.Count; i++)
             {
                 Frames[i] = tmp[i];
             }
@@ -288,29 +287,29 @@ namespace BEditor.Data.Property
         {
             base.GetObjectData(writer);
             writer.WriteStartArray(nameof(Frames));
+
+            foreach (var f in Frames)
             {
-                foreach (var f in Frames)
-                {
-                    writer.WriteNumberValue(f);
-                }
+                writer.WriteNumberValue(f);
             }
+
             writer.WriteEndArray();
 
             writer.WriteStartArray("Values");
+
+            foreach (var v in Value)
             {
-                foreach (var v in Value)
-                {
-                    writer.WriteNumberValue(v);
-                }
+                writer.WriteNumberValue(v);
             }
+
             writer.WriteEndArray();
 
             writer.WriteStartObject("Easing");
-            {
-                var type = EasingType.GetType();
-                writer.WriteString("_type", type.FullName + ", " + type.Assembly.GetName().Name);
-                EasingType.GetObjectData(writer);
-            }
+
+            var type = EasingType.GetType();
+            writer.WriteString("_type", type.FullName + ", " + type.Assembly.GetName().Name);
+            EasingType.GetObjectData(writer);
+
             writer.WriteEndObject();
         }
 
@@ -505,7 +504,7 @@ namespace BEditor.Data.Property
             {
                 if (_property.TryGetTarget(out var target))
                 {
-                    int index = target.InsertKeyframe(_frame, target.GetValue(_frame + target.GetParent2()?.Start ?? 0));
+                    var index = target.InsertKeyframe(_frame, target.GetValue(_frame + target.GetParent2()?.Start ?? 0));
 
                     target.Added?.Invoke(_frame, index - 1);
                 }
@@ -520,7 +519,7 @@ namespace BEditor.Data.Property
             {
                 if (_property.TryGetTarget(out var target))
                 {
-                    int index = target.RemoveKeyframe(_frame, out _);
+                    var index = target.RemoveKeyframe(_frame, out _);
 
                     target.Removed?.Invoke(index - 1);
                 }
@@ -546,7 +545,7 @@ namespace BEditor.Data.Property
             {
                 if (_property.TryGetTarget(out var target))
                 {
-                    int index = target.RemoveKeyframe(_frame, out _value);
+                    var index = target.RemoveKeyframe(_frame, out _value);
 
                     target.Removed?.Invoke(index - 1);
                 }
@@ -561,7 +560,7 @@ namespace BEditor.Data.Property
             {
                 if (_property.TryGetTarget(out var target))
                 {
-                    int index = target.InsertKeyframe(_frame, _value);
+                    var index = target.InsertKeyframe(_frame, _value);
 
                     target.Added?.Invoke(_frame, index - 1);
                 }

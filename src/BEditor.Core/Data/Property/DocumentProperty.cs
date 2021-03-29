@@ -17,8 +17,12 @@ namespace BEditor.Data.Property
     public class DocumentProperty : PropertyElement<DocumentPropertyMetadata>, IBindable<string>
     {
         #region Fields
+
+        /// <summary>
+        /// <see cref="IBindable{T}.Value"/> のプロパティの変更を通知するイベントの引数.
+        /// </summary>
         internal static readonly PropertyChangedEventArgs _valueArgs = new(nameof(Value));
-        private string _value = "";
+        private string _value = string.Empty;
         private List<IObserver<string>>? _list;
         private IDisposable? _bindDispose;
         private IBindable<string>? _bindable;
@@ -28,15 +32,13 @@ namespace BEditor.Data.Property
         /// <summary>
         /// Initializes a new instance of the <see cref="DocumentProperty"/> class.
         /// </summary>
-        /// <param name="metadata">Metadata of this property</param>
+        /// <param name="metadata">Metadata of this property.</param>
         /// <exception cref="ArgumentNullException"><paramref name="metadata"/> is <see langword="null"/>.</exception>
         public DocumentProperty(DocumentPropertyMetadata metadata)
         {
             PropertyMetadata = metadata ?? throw new ArgumentNullException(nameof(metadata));
             Value = metadata.DefaultText;
         }
-
-        private List<IObserver<string>> Collection => _list ??= new();
 
         /// <summary>
         /// Gets or sets the string being entered.
@@ -63,17 +65,23 @@ namespace BEditor.Data.Property
         /// <inheritdoc/>
         public string? TargetHint
         {
-            get => _bindable?.GetString();
+            get => _bindable?.ToString("#");
             private set => _targetHint = value;
         }
+
+        private List<IObserver<string>> Collection => _list ??= new();
 
         #region Methods
 
         /// <inheritdoc/>
-        public void OnCompleted() { }
+        public void OnCompleted()
+        {
+        }
 
         /// <inheritdoc/>
-        public void OnError(Exception error) { }
+        public void OnError(Exception error)
+        {
+        }
 
         /// <inheritdoc/>
         public void OnNext(string value)
@@ -94,12 +102,6 @@ namespace BEditor.Data.Property
         }
 
         /// <inheritdoc/>
-        protected override void OnLoad()
-        {
-            this.AutoLoad(ref _targetHint);
-        }
-
-        /// <inheritdoc/>
         public override void GetObjectData(Utf8JsonWriter writer)
         {
             base.GetObjectData(writer);
@@ -111,20 +113,25 @@ namespace BEditor.Data.Property
         public override void SetObjectData(JsonElement element)
         {
             base.SetObjectData(element);
-            Value = element.TryGetProperty(nameof(Value), out var value) ? value.GetString() ?? "" : "";
+            Value = element.TryGetProperty(nameof(Value), out var value) ? value.GetString() ?? string.Empty : string.Empty;
             TargetHint = element.TryGetProperty(nameof(TargetHint), out var bind) ? bind.GetString() : null;
         }
 
         /// <summary>
         /// Create a command to change the string.
         /// </summary>
-        /// <param name="newtext">New value for <see cref="Value"/></param>
-        /// <returns>Created <see cref="IRecordCommand"/></returns>
+        /// <param name="newtext">New value for <see cref="Value"/>.</param>
+        /// <returns>Created <see cref="IRecordCommand"/>.</returns>
         [Pure]
         public IRecordCommand ChangeText(string newtext) => new TextChangeCommand(this, newtext);
 
-        #endregion
+        /// <inheritdoc/>
+        protected override void OnLoad()
+        {
+            this.AutoLoad(ref _targetHint);
+        }
 
+        #endregion
 
         #region Commands
 

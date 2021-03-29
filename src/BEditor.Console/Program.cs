@@ -93,7 +93,7 @@ namespace BEditor
                     project.Load();
                     var scene = FindScene(sc, project);
 
-                    using var image = scene.Render(int.Parse(frame.Value)).Image;
+                    using var image = scene.Render(int.Parse(frame.Value));
                     image.Encode(output.Value);
 
                     project.Unload();
@@ -132,7 +132,7 @@ namespace BEditor
 
                     for (Frame frame = 0; frame < scene.TotalFrame; frame++)
                     {
-                        using var img = scene.Render(frame, RenderType.VideoOutput).Image;
+                        using var img = scene.Render(frame, RenderType.VideoOutput);
 
                         encoder.Write(img);
 

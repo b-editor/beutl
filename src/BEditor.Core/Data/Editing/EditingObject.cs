@@ -106,7 +106,7 @@ namespace BEditor.Data
 
             foreach (var value in Values)
             {
-                if(value.Value is IDisposable disposable)
+                if (value.Value is IDisposable disposable)
                 {
                     disposable.Dispose();
                 }

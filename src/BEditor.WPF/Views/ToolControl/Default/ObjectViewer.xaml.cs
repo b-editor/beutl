@@ -45,14 +45,16 @@ namespace BEditor.Views.ToolControl.Default
 
         private void GetPath_Click(object sender, RoutedEventArgs e)
         {
-            if (TreeView.SelectedItem is IBindable bindable)
+            var bindableType = typeof(IBindable<>);
+            if (TreeView.SelectedItem is IPropertyElement prop)
             {
-                var path = bindable.GetString();
+                
+                var path = prop.ToString("#");
                 Clipboard.SetText(path);
             }
             else
             {
-                Message.Snackbar(string.Format(Properties.Resources.ErrorObjectViewer2, nameof(IBindable)));
+                Message.Snackbar(string.Format(Properties.Resources.ErrorObjectViewer2, nameof(PropertyElement)));
             }
         }
         private void TreeView_PreviewMouseWheel(object sender, MouseWheelEventArgs e)

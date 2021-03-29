@@ -13,7 +13,7 @@ namespace BEditor.Data.Property
         public event EventHandler? Showed;
 
         /// <summary>
-        /// Show the dialog
+        /// Show the dialog.
         /// </summary>
         public void Show()
         {

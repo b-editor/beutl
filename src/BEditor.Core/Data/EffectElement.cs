@@ -28,10 +28,12 @@ namespace BEditor.Data
 
         /// <inheritdoc/>
         public IEnumerable<PropertyElement> Children => _cachedList ??= Properties.ToArray();
+
         /// <summary>
         /// Gets the name of the <see cref="EffectElement"/>.
         /// </summary>
         public abstract string Name { get; }
+
         /// <summary>
         /// Gets or sets if the <see cref="EffectElement"/> is enabled.
         /// </summary>
@@ -41,6 +43,7 @@ namespace BEditor.Data
             get => _isEnabled;
             set => SetValue(value, ref _isEnabled, _isEnabledArgs);
         }
+
         /// <summary>
         /// Gets or sets whether the expander is open.
         /// </summary>
@@ -50,10 +53,12 @@ namespace BEditor.Data
             get => _isExpanded;
             set => SetValue(value, ref _isExpanded, _isExpandedArgs);
         }
+
         /// <summary>
         /// Gets the <see cref="PropertyElement"/> to display on the GUI.
         /// </summary>
         public abstract IEnumerable<PropertyElement> Properties { get; }
+
         /// <inheritdoc/>
         public ClipElement Parent
         {
@@ -78,9 +83,9 @@ namespace BEditor.Data
                 }
             }
         }
+
         /// <inheritdoc/>
         public int Id => Parent?.Effect?.IndexOf(this) ?? -1;
-
 
         #region Methods
 
@@ -91,13 +96,16 @@ namespace BEditor.Data
         }
 
         /// <summary>
-        /// It is called at rendering time
+        /// It is called at rendering time.
         /// </summary>
         public abstract void Render(EffectRenderArgs args);
+
         /// <summary>
         /// It will be called before rendering.
         /// </summary>
-        public virtual void PreviewRender(EffectRenderArgs args) { }
+        public virtual void PreviewRender(EffectRenderArgs args)
+        {
+        }
 
         /// <summary>
         /// Create a command to change whether the <see cref="EffectElement"/> is enabled.
@@ -105,12 +113,14 @@ namespace BEditor.Data
         /// <returns>Created <see cref="IRecordCommand"/>.</returns>
         [Pure]
         public IRecordCommand ChangeIsEnabled(bool value) => new CheckCommand(this, value);
+
         /// <summary>
         /// Create a command to bring the order of this <see cref="EffectElement"/> forward.
         /// </summary>
         /// <returns>Created <see cref="IRecordCommand"/>.</returns>
         [Pure]
         public IRecordCommand BringForward() => new UpCommand(this);
+
         /// <summary>
         /// Create a command to send the order of this <see cref="EffectElement"/> backward.
         /// </summary>
@@ -167,8 +177,117 @@ namespace BEditor.Data
 
         #endregion
 
+        /// <summary>
+        /// クリップからエフェクトを削除するコマンドを表します.
+        /// </summary>
+        internal sealed class RemoveCommand : IRecordCommand
+        {
+            private readonly ClipElement _clip;
+            private readonly EffectElement _effect;
+            private readonly int _index;
 
-        internal sealed class CheckCommand : IRecordCommand
+            /// <summary>
+            /// Initializes a new instance of the <see cref="RemoveCommand"/> class.
+            /// </summary>
+            /// <param name="effect">削除するエフェクトです.</param>
+            /// <param name="clip">削除するエフェクトを含むクリップです.</param>
+            public RemoveCommand(EffectElement effect, ClipElement clip)
+            {
+                _effect = effect;
+                _clip = clip;
+                _index = _clip.Effect.IndexOf(effect);
+            }
+
+            /// <inheritdoc/>
+            public string Name => CommandName.RemoveEffect;
+
+            /// <inheritdoc/>
+            public void Do()
+            {
+                _clip.Effect.RemoveAt(_index);
+                _effect.Unload();
+            }
+
+            /// <inheritdoc/>
+            public void Redo() => Do();
+
+            /// <inheritdoc/>
+            public void Undo()
+            {
+                _effect.Load();
+                _clip.Effect.Insert(_index, _effect);
+            }
+        }
+
+        /// <summary>
+        /// クリップにエフェクトを追加するコマンドを表します.
+        /// </summary>
+        internal sealed class AddCommand : IRecordCommand
+        {
+            private readonly ClipElement _clip;
+            private readonly EffectElement? _effect;
+
+            /// <summary>
+            /// Initializes a new instance of the <see cref="AddCommand"/> class.
+            /// </summary>
+            /// <param name="effect">追加するエフェクトです.</param>
+            /// <param name="clip">エフェクトを追加するクリップです.</param>
+            public AddCommand(EffectElement effect, ClipElement clip)
+            {
+                _effect = effect;
+                _clip = clip;
+                effect.Parent = clip;
+                if (!((ObjectElement)_clip.Effect[0]).EffectFilter(effect))
+                {
+                    _effect = null;
+                }
+            }
+
+            /// <inheritdoc/>
+            public string Name => CommandName.AddEffect;
+
+            /// <inheritdoc/>
+            public void Do()
+            {
+                if (_effect is not null)
+                {
+                    _effect.Load();
+                    _clip.Effect.Add(_effect);
+                }
+            }
+
+            /// <inheritdoc/>
+            public void Redo() => Do();
+
+            /// <inheritdoc/>
+            public void Undo()
+            {
+                if (_effect is not null)
+                {
+                    _clip.Effect.Remove(_effect);
+                    _effect.Unload();
+                }
+            }
+        }
+
+        /// <summary>
+        /// 空のエフェクトを表します.
+        /// </summary>
+        internal class EmptyClass : ObjectElement
+        {
+            /// <inheritdoc/>
+            public override string Name => "Empty";
+
+            /// <inheritdoc/>
+            public override IEnumerable<PropertyElement> Properties => Array.Empty<PropertyElement>();
+
+            /// <inheritdoc/>
+            public override void Render(EffectRenderArgs args)
+            {
+            }
+        }
+
+        private sealed class CheckCommand : IRecordCommand
         {
             private readonly WeakReference<EffectElement> _effect;
             private readonly bool _value;
@@ -188,10 +307,12 @@ namespace BEditor.Data
                     target.IsEnabled = _value;
                 }
             }
+
             public void Redo()
             {
                 Do();
             }
+
             public void Undo()
             {
                 if (_effect.TryGetTarget(out var target))
@@ -200,7 +321,8 @@ namespace BEditor.Data
                 }
             }
         }
-        internal sealed class UpCommand : IRecordCommand
+
+        private sealed class UpCommand : IRecordCommand
         {
             private readonly WeakReference<ClipElement> _clip;
             private readonly WeakReference<EffectElement> _effect;
@@ -218,7 +340,7 @@ namespace BEditor.Data
                 if (_clip.TryGetTarget(out var clip) && _effect.TryGetTarget(out var effect))
                 {
                     // 変更前のインデックス
-                    int index = clip.Effect.IndexOf(effect);
+                    var index = clip.Effect.IndexOf(effect);
 
                     if (index != 1)
                     {
@@ -226,16 +348,18 @@ namespace BEditor.Data
                     }
                 }
             }
+
             public void Redo()
             {
                 Do();
             }
+
             public void Undo()
             {
                 if (_clip.TryGetTarget(out var clip) && _effect.TryGetTarget(out var effect))
                 {
                     // 変更後のインデックス
-                    int index = clip.Effect.IndexOf(effect);
+                    var index = clip.Effect.IndexOf(effect);
 
                     if (index != clip.Effect.Count - 1)
                     {
@@ -244,7 +368,8 @@ namespace BEditor.Data
                 }
             }
         }
-        internal sealed class DownCommand : IRecordCommand
+
+        private sealed class DownCommand : IRecordCommand
         {
             private readonly WeakReference<ClipElement> _clip;
             private readonly WeakReference<EffectElement> _effect;
@@ -262,7 +387,7 @@ namespace BEditor.Data
                 if (_clip.TryGetTarget(out var clip) && _effect.TryGetTarget(out var effect))
                 {
                     // 変更前のインデックス
-                    int index = clip.Effect.IndexOf(effect);
+                    var index = clip.Effect.IndexOf(effect);
 
                     if (index != clip.Effect.Count - 1)
                     {
@@ -270,98 +395,24 @@ namespace BEditor.Data
                     }
                 }
             }
+
             public void Redo()
             {
                 Do();
             }
+
             public void Undo()
             {
                 if (_clip.TryGetTarget(out var clip) && _effect.TryGetTarget(out var effect))
                 {
                     // 変更後のインデックス
-                    int index = clip.Effect.IndexOf(effect);
+                    var index = clip.Effect.IndexOf(effect);
 
                     if (index != 1)
                     {
                         clip.Effect.Move(index, index - 1);
                     }
                 }
-            }
-        }
-        internal sealed class RemoveCommand : IRecordCommand
-        {
-            private readonly ClipElement _clip;
-            private readonly EffectElement _effect;
-            private readonly int _index;
-
-            public RemoveCommand(EffectElement effect, ClipElement clip)
-            {
-                _effect = effect;
-                _clip = clip;
-                _index = _clip.Effect.IndexOf(effect);
-            }
-
-            public string Name => CommandName.RemoveEffect;
-
-            public void Do()
-            {
-                _clip.Effect.RemoveAt(_index);
-                _effect.Unload();
-            }
-            public void Redo() => Do();
-            public void Undo()
-            {
-                _effect.Load();
-                _clip.Effect.Insert(_index, _effect);
-            }
-        }
-        internal sealed class AddCommand : IRecordCommand
-        {
-            private readonly ClipElement _clip;
-            private readonly EffectElement? _effect;
-
-            public AddCommand(EffectElement effect, ClipElement clip)
-            {
-                _effect = effect;
-                _clip = clip;
-                effect.Parent = clip;
-                if (!((ObjectElement)_clip.Effect[0]).EffectFilter(effect))
-                {
-                    _effect = null;
-                }
-            }
-
-            public string Name => CommandName.AddEffect;
-
-            /// <inheritdoc/>
-            public void Do()
-            {
-                if (_effect is not null)
-                {
-                    _effect.Load();
-                    _clip.Effect.Add(_effect);
-                }
-            }
-            /// <inheritdoc/>
-            public void Redo() => Do();
-            /// <inheritdoc/>
-            public void Undo()
-            {
-                if (_effect is not null)
-                {
-                    _clip.Effect.Remove(_effect);
-                    _effect.Unload();
-                }
-            }
-        }
-        internal class EmptyClass : ObjectElement
-        {
-            public override string Name => "Empty";
-            public override IEnumerable<PropertyElement> Properties => Array.Empty<PropertyElement>();
-
-            public override void Render(EffectRenderArgs args)
-            {
-
             }
         }
     }

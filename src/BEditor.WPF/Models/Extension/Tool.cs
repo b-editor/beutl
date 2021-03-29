@@ -33,7 +33,7 @@ namespace BEditor.Models.Extension
             {
                 try
                 {
-                    using var img = project.PreviewScene.Render(type).Image;
+                    using var img = project.PreviewScene.Render(type);
                     var outimg = MainWindowViewModel.Current.PreviewImage.Value;
 
                     if (outimg is null || outimg.Width != img.Width || outimg.Height != img.Height)

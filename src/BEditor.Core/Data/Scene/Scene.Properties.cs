@@ -107,8 +107,8 @@ namespace BEditor.Data
         /// <summary>
         /// Gets a player to play this <see cref="Scene"/>.
         /// </summary>
-        public IPlayer Player
-            => _player ??= new ScenePlayer(this);
+        public IPlayer Player =>
+            _player ??= new ScenePlayer(this);
 
         /// <summary>
         /// Gets or sets the frame number during preview.
@@ -208,8 +208,7 @@ namespace BEditor.Data
         {
             get
             {
-                int count = Datas.Count;
-                int max;
+                var count = Datas.Count;
 
                 if (count > 0)
                 {
@@ -217,14 +216,12 @@ namespace BEditor.Data
 
                     Parallel.For(0, count, i => tmp.Add(Datas[i].Id));
 
-                    max = tmp.Max() + 1;
+                    return tmp.Max() + 1;
                 }
                 else
                 {
-                    max = 0;
+                    return 0;
                 }
-
-                return max;
             }
         }
     }

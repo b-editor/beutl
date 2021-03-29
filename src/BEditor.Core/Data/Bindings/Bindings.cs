@@ -19,7 +19,7 @@ namespace BEditor.Data.Bindings
     public static class Bindings
     {
         /// <summary>
-        /// Get an <see cref="IBindable{T}"/> from a string that can be obtained by <see cref="GetString{T}(IBindable{T})"/>.
+        /// Get an <see cref="IBindable{T}"/> from a string that can be obtained by <see cref="PropertyElement.ToString(string?, IFormatProvider?)"/>.
         /// </summary>
         /// <typeparam name="T">Type of object to bind.</typeparam>
         /// <exception cref="DataException">Parent element not found.</exception>
@@ -45,10 +45,20 @@ namespace BEditor.Data.Bindings
                 var match = regex1.Match(str);
 
                 var proj = bindable.GetParent4() ?? throw new DataException(ExceptionMessage.ParentElementNotFound);
-                var scene = proj.Find(match.Groups[1].Value) ?? throw new DataException(ExceptionMessage.ChildElementsNotFound);
-                var clip = scene.Find(match.Groups[2].Value) ?? throw new DataException(ExceptionMessage.ChildElementsNotFound);
-                var effect = (int.TryParse(match.Groups[3].Value, out var id) ? clip.Find(id) : throw new DataException(ExceptionMessage.FailedToConvertValue)) ?? throw new DataException(ExceptionMessage.ChildElementsNotFound);
-                result = int.TryParse(match.Groups[4].Value, out var id1) ? effect.Find(id1) as IBindable<T> : throw new DataException(ExceptionMessage.ChildElementsNotFound);
+
+                var scene = proj.Find(match.Groups[1].Value) ??
+                    throw new DataException(ExceptionMessage.ChildElementsNotFound);
+
+                var clip = scene.Find(match.Groups[2].Value) ??
+                    throw new DataException(ExceptionMessage.ChildElementsNotFound);
+
+                var effect = (int.TryParse(match.Groups[3].Value, out var id) ? clip.Find(id) :
+                    throw new DataException(ExceptionMessage.FailedToConvertValue)) ??
+                    throw new DataException(ExceptionMessage.ChildElementsNotFound);
+
+                result = int.TryParse(match.Groups[4].Value, out var id1) ?
+                    effect.Find(id1) as IBindable<T> :
+                    throw new DataException(ExceptionMessage.ChildElementsNotFound);
 
                 return true;
             }
@@ -57,11 +67,25 @@ namespace BEditor.Data.Bindings
                 var match = regex2.Match(str);
 
                 var proj = bindable.GetParent4() ?? throw new DataException(ExceptionMessage.ParentElementNotFound);
-                var scene = proj.Find(match.Groups[1].Value) ?? throw new DataException(ExceptionMessage.ChildElementsNotFound);
-                var clip = scene.Find(match.Groups[2].Value) ?? throw new DataException(ExceptionMessage.ChildElementsNotFound);
-                var effect = (int.TryParse(match.Groups[3].Value, out var id) ? clip.Find(id) : throw new DataException(ExceptionMessage.FailedToConvertValue)) ?? throw new DataException(ExceptionMessage.ChildElementsNotFound);
-                var parent = int.TryParse(match.Groups[4].Value, out var id1) ? (effect.Find(id1) as IParent<PropertyElement> ?? throw new DataException(ExceptionMessage.ChildElementsNotFound)) : throw new DataException(ExceptionMessage.FailedToConvertValue);
-                result = int.TryParse(match.Groups[5].Value, out var id2) ? parent.Find(id2) as IBindable<T> : throw new DataException(ExceptionMessage.ChildElementsNotFound);
+
+                var scene = proj.Find(match.Groups[1].Value) ??
+                    throw new DataException(ExceptionMessage.ChildElementsNotFound);
+
+                var clip = scene.Find(match.Groups[2].Value) ??
+                    throw new DataException(ExceptionMessage.ChildElementsNotFound);
+
+                var effect = (int.TryParse(match.Groups[3].Value, out var id) ? clip.Find(id) : throw new DataException(
+                    ExceptionMessage.FailedToConvertValue)) ??
+                    throw new DataException(ExceptionMessage.ChildElementsNotFound);
+
+                var parent = int.TryParse(match.Groups[4].Value, out var id1) ?
+                    (effect.Find(id1) as IParent<PropertyElement> ??
+                        throw new DataException(ExceptionMessage.ChildElementsNotFound)) :
+                    throw new DataException(ExceptionMessage.FailedToConvertValue);
+
+                result = int.TryParse(match.Groups[5].Value, out var id2) ?
+                    parent.Find(id2) as IBindable<T> :
+                    throw new DataException(ExceptionMessage.ChildElementsNotFound);
 
                 return true;
             }
@@ -71,64 +95,14 @@ namespace BEditor.Data.Bindings
         }
 
         /// <summary>
-        /// Get a <see cref="string"/> to retrieve an <see cref="IBindable{T}"/>.
-        /// </summary>
-        /// <typeparam name="T">Type of object to bind.</typeparam>
-        /// <param name="bindable">An object that implements <see cref="IBindable{T}"/> to get a string.</param>
-        /// <exception cref="DataException">Parent element not found.</exception>
-        /// <returns>String that can be used to get an <see cref="IBindable{T}"/> from <see cref="GetBindable{T}(IBindable{T}, string?, out IBindable{T}?)"/>.</returns>
-        public static string GetString<T>(this IBindable<T> bindable)
-        {
-            static bool IsInner(IBindable<T> bindable, out int groupId)
-            {
-                groupId = -1;
-                foreach (var item in bindable.Parent.Children)
-                {
-                    if (item == bindable)
-                    {
-                        return false;
-                    }
-
-                    if (item is IParent<PropertyElement> inner_prop)
-                    {
-                        foreach (var inner_item in inner_prop.Children)
-                        {
-                            if (inner_prop is IHasId hasId) groupId = hasId.Id;
-
-                            if (inner_item == bindable)
-                            {
-                                return true;
-                            }
-                        }
-                    }
-                }
-
-                return false;
-            }
-
-            if (IsInner(bindable, out var groupId))
-            {
-                // bindable の親がGroup
-                // bindable のIdは-1
-                var scene = bindable.GetParent3()?.Name ?? throw new DataException(ExceptionMessage.ParentElementNotFound);
-                var clip = bindable.GetParent2()?.Name ?? throw new DataException(ExceptionMessage.ParentElementNotFound);
-                var effect = bindable.GetParent()?.Id ?? throw new DataException(ExceptionMessage.ParentElementNotFound);
-
-                return $"{scene}.{clip}[{effect}][{groupId}][{bindable.Id}]";
-            }
-
-            return $"{bindable.GetParent3()?.Name}.{bindable.GetParent2()?.Name}[{bindable.GetParent()?.Id}][{bindable.Id}]";
-        }
-
-        /// <summary>
         /// Create a command to bind two objects implementing <see cref="IBindable{T}"/>.
         /// </summary>
         /// <typeparam name="T">Type of object to bind.</typeparam>
         /// <param name="src">Bind source object.</param>
         /// <param name="target">Bind destination object.</param>
         /// <returns>Created <see cref="IRecordCommand"/>.</returns>
-        public static IRecordCommand Bind<T>(this IBindable<T>? src, IBindable<T>? target)
-            => new BindCommand<T>(src, target);
+        public static IRecordCommand Bind<T>(this IBindable<T>? src, IBindable<T>? target) =>
+            new BindCommand<T>(src, target);
 
         /// <summary>
         /// Create a command to disconnect the binding.
@@ -136,8 +110,8 @@ namespace BEditor.Data.Bindings
         /// <typeparam name="T">Type of object to bind.</typeparam>
         /// <param name="bindable">An object that implements <see cref="IBindable{T}"/> to disconnect.</param>
         /// <returns>Created <see cref="IRecordCommand"/>.</returns>
-        public static IRecordCommand Disconnect<T>(this IBindable<T> bindable)
-            => new DisconnectCommand<T>(bindable);
+        public static IRecordCommand Disconnect<T>(this IBindable<T> bindable) =>
+            new DisconnectCommand<T>(bindable);
 
         private sealed class BindCommand<T> : IRecordCommand
         {
@@ -172,19 +146,19 @@ namespace BEditor.Data.Bindings
 
         private sealed class DisconnectCommand<T> : IRecordCommand
         {
-            private readonly IBindable<T> bindable;
-            private readonly IBindable<T>? twoway;
+            private readonly IBindable<T> _bindable;
+            private readonly IBindable<T>? _twoway;
 
             public DisconnectCommand(IBindable<T> bindable)
             {
-                this.bindable = bindable;
-                bindable.GetBindable(bindable.TargetHint, out twoway);
+                this._bindable = bindable;
+                bindable.GetBindable(bindable.TargetHint, out _twoway);
             }
 
             public void Do()
             {
-                bindable.Bind(null);
-                twoway?.Bind(null);
+                _bindable.Bind(null);
+                _twoway?.Bind(null);
             }
 
             public void Redo()
@@ -194,8 +168,8 @@ namespace BEditor.Data.Bindings
 
             public void Undo()
             {
-                bindable.Bind(twoway);
-                twoway?.Bind(bindable);
+                _bindable.Bind(_twoway);
+                _twoway?.Bind(_bindable);
             }
         }
     }
