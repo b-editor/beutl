@@ -546,4 +546,7 @@
   <data name="RecentlyUsedFiles" xml:space="preserve">
     <value>最近使ったファイル</value>
   </data>
+  <data name="SetupComplete" xml:space="preserve">
+    <value>セットアップが完了しました。</value>
+  </data>
 </root>

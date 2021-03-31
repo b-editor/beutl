@@ -187,6 +187,8 @@ namespace BEditor
             get => showStartWindow;
             set => SetValue(value, ref showStartWindow, showStartWindowArgs);
         }
+        [DataMember]
+        public bool SetupFlag { get; set; }
         public ExtensionDataObject? ExtensionData { get; set; }
 
         #endregion

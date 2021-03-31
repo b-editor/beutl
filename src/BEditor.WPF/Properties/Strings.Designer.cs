@@ -1120,6 +1120,15 @@ namespace BEditor.Properties {
         }
         
         /// <summary>
+        ///   Setup is complete. に類似しているローカライズされた文字列を検索します。
+        /// </summary>
+        public static string SetupComplete {
+            get {
+                return ResourceManager.GetString("SetupComplete", resourceCulture);
+            }
+        }
+        
+        /// <summary>
         ///   Show に類似しているローカライズされた文字列を検索します。
         /// </summary>
         public static string Show {

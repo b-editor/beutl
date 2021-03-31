@@ -28,6 +28,7 @@ using BEditor.ViewModels.PropertyControl;
 using BEditor.Views;
 using BEditor.Views.CreatePage;
 using BEditor.Views.MessageContent;
+using BEditor.Views.Setup;
 
 using MaterialDesignThemes.Wpf;
 
@@ -50,28 +51,15 @@ namespace BEditor
         public static readonly ILogger? Logger = AppData.Current.LoggingFactory.CreateLogger<App>();
         private static DispatcherTimer? backupTimer;
 
-        protected override void OnStartup(StartupEventArgs e)
+        protected override async void OnStartup(StartupEventArgs e)
         {
+            base.OnStartup(e);
+
             CultureInfo.CurrentCulture = new(Settings.Default.Language);
             CultureInfo.CurrentUICulture = CultureInfo.CurrentCulture;
             CreateDirectory();
-            base.OnStartup(e);
 
             SetDarkMode();
-            ProjectModel.Current.CreateEvent += (_, _) =>
-            {
-                var view = new ProjectCreatePage();
-
-                var d = new NoneDialog()
-                {
-                    Content = view,
-                    Owner = MainWindow,
-                    MaxWidth = double.PositiveInfinity,
-                };
-                d.ShowDialog();
-
-                if (view.DataContext is IDisposable disposable) disposable.Dispose();
-            };
 
             var viewmodel = new SplashWindowViewModel();
             var splashscreen = new SplashWindow()
@@ -81,7 +69,7 @@ namespace BEditor
             MainWindow = splashscreen;
             splashscreen.Show();
 
-            Task.Run(async () =>
+            await Task.Run(async () =>
             {
                 RegisterPrimitive();
 
@@ -98,53 +86,89 @@ namespace BEditor
 
                 var msg = AppData.Current.Message;
 
-                await InitFFmpeg();
-                if (!CheckOpenAL())
+                if (!Settings.Default.SetupFlag)
                 {
-                    if (msg!.Dialog(Strings.OpenALNotFound, IMessage.IconType.Info, new IMessage.ButtonType[] { IMessage.ButtonType.Yes, IMessage.ButtonType.No }) is IMessage.ButtonType.Yes)
-                    {
-                        Process.Start(new ProcessStartInfo("cmd", $"/c start https://www.openal.org/downloads/") { CreateNoWindow = true });
-                    }
-                    else
-                    {
-                        Shutdown();
-                    }
+                    await Setup();
                 }
-
-
-                await Dispatcher.Invoke(async () =>
+                else
                 {
-                    var file = e.Args.FirstOrDefault() is string str
-                        && File.Exists(str)
-                        && Path.GetExtension(str) is ".bedit"
-                        ? str : null;
-
-                    if (file is not null)
+                    await InitFFmpeg();
+                    if (!CheckOpenAL())
                     {
-                        await ProjectModel.DirectOpen(file);
-
-                        var win = new MainWindow();
-                        MainWindow = win;
-                        win.Show();
-                    }
-                    else if (Settings.Default.ShowStartWindow)
-                    {
-                        var startWindow = new StartWindow();
-                        MainWindow = startWindow;
-                        startWindow.Show();
-                    }
-                    else
-                    {
-                        var mainWindow = new MainWindow();
-                        MainWindow = mainWindow;
-                        mainWindow.Show();
+                        if (msg!.Dialog(Strings.OpenALNotFound, IMessage.IconType.Info, new IMessage.ButtonType[] { IMessage.ButtonType.Yes, IMessage.ButtonType.No }) is IMessage.ButtonType.Yes)
+                        {
+                            Process.Start(new ProcessStartInfo("cmd", $"/c start https://www.openal.org/downloads/") { CreateNoWindow = true });
+                        }
+                        else
+                        {
+                            Shutdown();
+                        }
                     }
 
-                    splashscreen.Close();
-                });
-
-                Settings.Default.Save();
+                    await Dispatcher.InvokeAsync(async () => await StartupCore());
+                }
             });
+
+            splashscreen.Close();
+        }
+
+        private async Task Setup()
+        {
+            await Dispatcher.InvokeAsync(() =>
+            {
+                var window = new Setup();
+
+                MainWindow = window;
+
+                window.Show();
+            });
+        }
+        public async Task StartupCore()
+        {
+            ProjectModel.Current.CreateEvent += (_, _) =>
+            {
+                var view = new ProjectCreatePage();
+
+                var d = new NoneDialog()
+                {
+                    Content = view,
+                    Owner = MainWindow,
+                    MaxWidth = double.PositiveInfinity,
+                };
+                d.ShowDialog();
+
+                if (view.DataContext is IDisposable disposable) disposable.Dispose();
+            };
+
+            RegisterPrimitive();
+
+            var file = Environment.GetCommandLineArgs().FirstOrDefault() is string str
+                && File.Exists(str)
+                && Path.GetExtension(str) is ".bedit"
+                ? str : null;
+
+            if (file is not null)
+            {
+                await ProjectModel.DirectOpen(file);
+
+                var win = new MainWindow();
+                MainWindow = win;
+                win.Show();
+            }
+            else if (Settings.Default.ShowStartWindow)
+            {
+                var startWindow = new StartWindow();
+                MainWindow = startWindow;
+                startWindow.Show();
+            }
+            else
+            {
+                var mainWindow = new MainWindow();
+                MainWindow = mainWindow;
+                mainWindow.Show();
+            }
+
+            Settings.Default.Save();
 
             RunBackup();
         }

@@ -546,4 +546,7 @@ Please select the plugin you want to load</value>
   <data name="Delete" xml:space="preserve">
     <value>Delete</value>
   </data>
+  <data name="SetupComplete" xml:space="preserve">
+    <value>Setup is complete.</value>
+  </data>
 </root>
