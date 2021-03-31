@@ -2,8 +2,8 @@
 {
     /// <summary>
     /// The metadata of <see cref="ButtonComponent"/>.
-    /// <param name="Name">The string displayed in the property header.</param>
     /// </summary>
+    /// <param name="Name">The string displayed in the property header.</param>
     public record ButtonComponentMetadata(string Name)
         : PropertyElementMetadata(Name), IPropertyBuilder<ButtonComponent>
     {

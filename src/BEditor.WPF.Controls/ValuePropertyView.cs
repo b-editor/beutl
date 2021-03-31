@@ -60,6 +60,23 @@ namespace BEditor.WPF.Controls
             text.KeyDown += Text_KeyDown;
         }
 
+        protected override void Dispose(bool disposing)
+        {
+            if (disposing)
+            {
+                var text = (TextBox)GetTemplateChild("textbox");
+
+                if (text is null) return;
+
+                text.GotFocus -= Text_GotFocus;
+                text.LostFocus -= Text_LostFocus;
+                text.PreviewMouseWheel -= Text_PreviewMouseWheel;
+                text.KeyDown -= Text_KeyDown;
+            }
+
+            base.Dispose(disposing);
+        }
+
         private void Text_KeyDown(object sender, KeyEventArgs e)
         {
             KeyDownCommand?.Execute(((TextBox)sender).Text);

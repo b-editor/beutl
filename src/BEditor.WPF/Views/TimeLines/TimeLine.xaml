@@ -134,11 +134,6 @@
                             <Trigger Property="IsMouseOver" Value="true">
                                 <Setter TargetName="HoverEllipse" Property="Stroke" Value="{Binding RelativeSource={RelativeSource TemplatedParent}, Path=Background}" />
                             </Trigger>
-                            <!-- TODO
-                        <Trigger Property="IsFocused" Value="True">
-                            <Setter Property="BorderBrush" TargetName="normal" Value="{Binding (Custom:ControlsHelper.FocusBorderBrush), RelativeSource={RelativeSource TemplatedParent}}"/>
-                        </Trigger>
-                            -->
                         </ControlTemplate.Triggers>
                     </ControlTemplate>
                 </Setter.Value>

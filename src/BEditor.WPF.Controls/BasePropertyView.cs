@@ -10,10 +10,11 @@ namespace BEditor.WPF.Controls
         public static readonly DependencyProperty HeaderProperty = DependencyProperty.Register(nameof(Header), typeof(string), typeof(BasePropertyView));
         public static readonly DependencyProperty ResetCommandProperty = DependencyProperty.Register(nameof(ResetCommand), typeof(ICommand), typeof(BasePropertyView));
         public static readonly DependencyProperty BindCommandProperty = DependencyProperty.Register(nameof(BindCommand), typeof(ICommand), typeof(BasePropertyView));
+        private bool disposedValue;
 
         ~BasePropertyView()
         {
-            Dispose();
+            Dispose(false);
         }
 
         public string Header
@@ -32,15 +33,27 @@ namespace BEditor.WPF.Controls
             set => SetValue(BindCommandProperty, value);
         }
 
+        protected virtual void Dispose(bool disposing)
+        {
+            if (!disposedValue)
+            {
+                if (disposing)
+                {
+                    if(DataContext is IDisposable disposable)
+                    {
+                        disposable.Dispose();
+                    }
+
+                    DataContext = null;
+                }
+
+                disposedValue = true;
+            }
+        }
+
         public void Dispose()
         {
-            if (DataContext is IDisposable disposable)
-            {
-                disposable.Dispose();
-            }
-
-            DataContext = null;
-
+            Dispose(disposing: true);
             GC.SuppressFinalize(this);
         }
     }

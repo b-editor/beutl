@@ -48,7 +48,26 @@ namespace BEditor.WPF.Controls
             base.OnApplyTemplate();
             var box = (ComboBox)GetTemplateChild("box");
 
-            box.SelectionChanged += (s, _) => Command.Execute(((ComboBox)s).SelectedItem);
+            box.SelectionChanged += Box_SelectionChanged;
+        }
+
+        protected override void Dispose(bool disposing)
+        {
+            if (disposing)
+            {
+                var box = (ComboBox)GetTemplateChild("box");
+
+                if (box is null) return;
+
+                box.SelectionChanged -= Box_SelectionChanged;
+            }
+
+            base.Dispose(disposing);
+        }
+
+        private void Box_SelectionChanged(object sender, SelectionChangedEventArgs e)
+        {
+            Command?.Execute(((ComboBox)sender).SelectedItem);
         }
     }
 }
