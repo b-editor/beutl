@@ -8,6 +8,7 @@ using System.Text.Json;
 
 using BEditor.Command;
 using BEditor.Data.Bindings;
+using BEditor.Resources;
 
 namespace BEditor.Data.Property
 {
@@ -178,7 +179,7 @@ namespace BEditor.Data.Property
                 _old = property.SelectItem;
             }
 
-            public string Name => CommandName.ChangeSelectItem;
+            public string Name => Strings.ChangeSelectItem;
 
             /// <inheritdoc/>
             public void Do()

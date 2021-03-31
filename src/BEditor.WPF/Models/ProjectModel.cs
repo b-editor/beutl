@@ -1,4 +1,6 @@
-﻿using System;
+﻿
+
+using System;
 using System.Collections.Generic;
 using System.Diagnostics;
 using System.IO;
@@ -38,8 +40,7 @@ namespace BEditor.Models
                         DefaultFileName = (p!.Name is not null) ? p.Name + ".bedit" : "新しいプロジェクト.bedit",
                         Filters =
                         {
-                            new(Resources.ProjectFile, new FileExtension[] { new("bedit") }),
-                            new(Resources.JsonFile, new FileExtension[] { new("json") }),
+                            new(Strings.ProjectFile, new FileExtension[] { new("bedit") }),
                         }
                     };
 
@@ -73,7 +74,7 @@ namespace BEditor.Models
             {
                 var dialog = new OpenFileDialog()
                 {
-                    Filter = $"{Resources.ProjectFile}|*.bedit|{Resources.BackupFile}|*.backup|{Resources.JsonFile}|*.json",
+                    Filter = $"{Strings.ProjectFile}|*.bedit|{Strings.BackupFile}|*.backup",
                     RestoreDirectory = true
                 };
 
@@ -98,7 +99,7 @@ namespace BEditor.Models
                     {
                         Debug.Assert(false);
 
-                        var msg = string.Format(Resources.FailedToLoad, "Project");
+                        var msg = string.Format(Strings.FailedToLoad, "Project");
                         AppData.Current.Message.Snackbar(msg);
 
                         App.Logger?.LogError(e, msg);
@@ -149,8 +150,8 @@ namespace BEditor.Models
                 app.Project = project;
                 app.AppStatus = Status.Edit;
 
-                Settings.Default.MostRecentlyUsedList.Remove(filename);
-                Settings.Default.MostRecentlyUsedList.Add(filename);
+                Settings.Default.RecentlyUsedFiles.Remove(filename);
+                Settings.Default.RecentlyUsedFiles.Add(filename);
             });
         }
     }

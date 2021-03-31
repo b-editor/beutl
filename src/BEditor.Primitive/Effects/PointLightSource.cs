@@ -1,18 +1,11 @@
 ﻿using System.Collections.Generic;
 
-using BEditor.Command;
 using BEditor.Data;
-using BEditor.Data.Primitive;
 using BEditor.Data.Property;
-using BEditor.Drawing;
-using BEditor.Properties;
-
-using OpenTK.Graphics.OpenGL4;
+using BEditor.Primitive.Resources;
 
 using static BEditor.Data.Property.PrimitiveGroup.Coordinate;
 using static BEditor.Data.Property.PrimitiveGroup.Material;
-
-using GLColor = OpenTK.Mathematics.Color4;
 
 namespace BEditor.Primitive.Effects
 {
@@ -35,7 +28,7 @@ namespace BEditor.Primitive.Effects
         }
 
         /// <inheritdoc/>
-        public override string Name => Resources.PointLightSource;
+        public override string Name => Strings.PointLightSource;
         /// <inheritdoc/>
         public override IEnumerable<PropertyElement> Properties => new PropertyElement[]
         {

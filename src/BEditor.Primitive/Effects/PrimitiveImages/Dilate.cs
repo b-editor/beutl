@@ -1,12 +1,11 @@
 ﻿using System.Collections.Generic;
 
-using BEditor.Command;
 using BEditor.Data;
 using BEditor.Data.Primitive;
 using BEditor.Data.Property;
-using BEditor.Properties;
 using BEditor.Drawing;
 using BEditor.Drawing.Pixel;
+using BEditor.Primitive.Resources;
 
 namespace BEditor.Primitive.Effects
 {
@@ -18,11 +17,11 @@ namespace BEditor.Primitive.Effects
         /// <summary>
         /// Represents <see cref="Radius"/> metadata.
         /// </summary>
-        public static readonly EasePropertyMetadata RadiusMetadata = new(Resources.Frequency, 1, float.NaN, 0);
+        public static readonly EasePropertyMetadata RadiusMetadata = new(Strings.Frequency, 1, float.NaN, 0);
         /// <summary>
         /// Represents <see cref="Resize"/> metadata.
         /// </summary>
-        public static readonly CheckPropertyMetadata ResizeMetadata = new(Resources.Resize);
+        public static readonly CheckPropertyMetadata ResizeMetadata = new(Strings.Resize);
 
         /// <summary>
         /// Initializes a new instance of the <see cref="Dilate"/> class.
@@ -34,7 +33,7 @@ namespace BEditor.Primitive.Effects
         }
 
         /// <inheritdoc/>
-        public override string Name => Resources.Dilate;
+        public override string Name => Strings.Dilate;
         /// <inheritdoc/>
         public override IEnumerable<PropertyElement> Properties => new PropertyElement[]
         {

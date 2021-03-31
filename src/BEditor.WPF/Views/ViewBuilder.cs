@@ -602,7 +602,7 @@ namespace BEditor.Views
             });
             menu.Children.Add(new TextBlock()
             {
-                Text = Resources.Remove,
+                Text = Strings.Remove,
                 Margin = new Thickness(20, 0, 5, 0)
             });
             Delete.Header = menu;
@@ -710,9 +710,20 @@ namespace BEditor.Views
             var Delete = new MenuItem();
 
             //削除項目の設定
-            var menu = new VirtualizingStackPanel() { Orientation = Orientation.Horizontal };
-            menu.Children.Add(new PackIcon() { Kind = PackIconKind.Delete, Margin = new Thickness(5, 0, 5, 0) });
-            menu.Children.Add(new TextBlock() { Text = Resources.Remove, Margin = new Thickness(20, 0, 5, 0) });
+            var menu = new VirtualizingStackPanel()
+            {
+                Orientation = Orientation.Horizontal
+            };
+            menu.Children.Add(new PackIcon()
+            {
+                Kind = PackIconKind.Delete,
+                Margin = new Thickness(5, 0, 5, 0)
+            });
+            menu.Children.Add(new TextBlock()
+            {
+                Text = Strings.Remove,
+                Margin = new Thickness(20, 0, 5, 0)
+            });
             Delete.Header = menu;
 
             menuListBox.Items.Add(Delete);

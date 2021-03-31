@@ -8,7 +8,7 @@
     xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
     xmlns:md="http://materialdesigninxaml.net/winfx/xaml/themes"
     xmlns:model="clr-namespace:BEditor.Models"
-    xmlns:props="clr-namespace:BEditor.Properties;assembly=BEditor.Core"
+    xmlns:props="clr-namespace:BEditor.Properties"
     d:DesignHeight="450"
     d:DesignWidth="800"
     Background="{DynamicResource MaterialDesignPaper}"
@@ -28,7 +28,7 @@
             <TextBlock
                 DockPanel.Dock="Left"
                 FontSize="24"
-                Text="{x:Static props:Resources.Project}" />
+                Text="{x:Static props:Strings.Project}" />
 
             <VirtualizingStackPanel
                 VerticalAlignment="Center"
@@ -38,7 +38,7 @@
                 <Button
                     Margin="8,0"
                     Command="{Binding Create, Mode=OneTime}"
-                    Content="{x:Static props:Resources.Create_new}"
+                    Content="{x:Static props:Strings.CreateNew}"
                     Cursor="Arrow"
                     FontWeight="Normal" />
                 <Button
@@ -46,7 +46,7 @@
                     BorderBrush="{StaticResource PrimaryHueMidBrush}"
                     BorderThickness="1"
                     Command="{Binding Add, Mode=OneTime}"
-                    Content="{x:Static props:Resources.AddToList}"
+                    Content="{x:Static props:Strings.AddToList}"
                     Cursor="Arrow"
                     FontWeight="Normal"
                     Style="{StaticResource MaterialDesignFlatButton}" />
@@ -54,7 +54,7 @@
                 <TextBox
                     Width="200"
                     Margin="8,0"
-                    md:HintAssist.Hint="{x:Static props:Resources.Search}"
+                    md:HintAssist.Hint="{x:Static props:Strings.Search}"
                     FlowDirection="LeftToRight"
                     Text="{Binding Search.Value, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}" />
             </VirtualizingStackPanel>
@@ -74,12 +74,12 @@
                         HorizontalAlignment="Center"
                         FontSize="24"
                         FontWeight="Bold"
-                        Text="{x:Static props:Resources.ThereIsNoProject}" />
+                        Text="{x:Static props:Strings.ThereIsNoProject}" />
                     <TextBlock
                         Margin="0,8"
                         HorizontalAlignment="Center"
                         FontSize="14"
-                        Text="{x:Static props:Resources.ToCreateProjectClickNew}" />
+                        Text="{x:Static props:Strings.ToCreateProjectClickNew}" />
                 </VirtualizingStackPanel>
             </md:Card>
 
@@ -112,7 +112,7 @@
                                                     </Grid.ColumnDefinitions>
                                                     <VirtualizingStackPanel Orientation="Horizontal">
                                                         <md:PackIcon Margin="5,0,5,0" Kind="Delete" />
-                                                        <TextBlock Margin="20,0,5,0" Text="{x:Static props:Resources.Remove}" />
+                                                        <TextBlock Margin="20,0,5,0" Text="{x:Static props:Strings.Remove}" />
                                                     </VirtualizingStackPanel>
                                                     <TextBlock Grid.Column="1" Text="Delete" />
                                                 </Grid>

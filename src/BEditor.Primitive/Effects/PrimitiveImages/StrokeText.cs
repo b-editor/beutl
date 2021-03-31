@@ -9,7 +9,7 @@ using BEditor.Drawing;
 using BEditor.Drawing.Pixel;
 using BEditor.Graphics;
 using BEditor.Primitive.Objects;
-using BEditor.Properties;
+using BEditor.Primitive.Resources;
 
 namespace BEditor.Primitive.Effects
 {
@@ -37,7 +37,7 @@ namespace BEditor.Primitive.Effects
         }
 
         /// <inheritdoc/>
-        public override string Name => $"{Resources.Border} ({Resources.Text})";
+        public override string Name => $"{Strings.Border} ({Strings.Text})";
         /// <inheritdoc/>
         public override IEnumerable<PropertyElement> Properties => new PropertyElement[]
         {

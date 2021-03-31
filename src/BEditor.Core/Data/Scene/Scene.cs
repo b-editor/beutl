@@ -19,6 +19,7 @@ using BEditor.Drawing;
 using BEditor.Drawing.Pixel;
 using BEditor.Graphics;
 using BEditor.Media;
+using BEditor.Resources;
 
 using OpenTK.Graphics.OpenGL4;
 
@@ -87,7 +88,7 @@ namespace BEditor.Data
                 _clips = scene.GetLayer(layer).Select(clip => clip.Parent.RemoveClip(clip)).ToArray();
             }
 
-            public string Name => CommandName.RemoveLayer;
+            public string Name => Strings.RemoveLayer;
 
             public void Do()
             {

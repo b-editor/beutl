@@ -1,10 +1,6 @@
 ﻿using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Text;
-using System.Threading.Tasks;
 
-using BEditor.Properties;
+using BEditor.Resources;
 
 namespace BEditor.Command
 {
@@ -46,7 +42,7 @@ namespace BEditor.Command
         public static IRecordCommand Empty { get; } = new EmptyCommand();
 
         /// <inheritdoc/>
-        public string Name => _getName?.Invoke() ?? Resources.UnknownCommand;
+        public string Name => _getName?.Invoke() ?? Strings.UnknownCommand;
 
         /// <summary>
         /// Create a RecordCommand.

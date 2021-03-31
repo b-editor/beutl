@@ -2,7 +2,7 @@
 using System.Collections.Generic;
 
 using BEditor.Drawing;
-using BEditor.Properties;
+using BEditor.Resources;
 
 namespace BEditor.Data.Property.PrimitiveGroup
 {
@@ -14,22 +14,22 @@ namespace BEditor.Data.Property.PrimitiveGroup
         /// <summary>
         /// Represents <see cref="Ambient"/> metadata.
         /// </summary>
-        public static readonly ColorAnimationPropertyMetadata AmbientMetadata = new(Resources.Ambient, Color.Light, true);
+        public static readonly ColorAnimationPropertyMetadata AmbientMetadata = new(Strings.Ambient, Color.Light, true);
 
         /// <summary>
         /// Represents <see cref="Diffuse"/> metadata.
         /// </summary>
-        public static readonly ColorAnimationPropertyMetadata DiffuseMetadata = new(Resources.Diffuse, Color.Light, true);
+        public static readonly ColorAnimationPropertyMetadata DiffuseMetadata = new(Strings.Diffuse, Color.Light, true);
 
         /// <summary>
         /// Represents <see cref="Specular"/> metadata.
         /// </summary>
-        public static readonly ColorAnimationPropertyMetadata SpecularMetadata = new(Resources.Specular, Color.Light, true);
+        public static readonly ColorAnimationPropertyMetadata SpecularMetadata = new(Strings.Specular, Color.Light, true);
 
         /// <summary>
         /// Represents <see cref="Shininess"/> metadata.
         /// </summary>
-        public static readonly EasePropertyMetadata ShininessMetadata = new(Resources.Shininess, 10, float.NaN, 1);
+        public static readonly EasePropertyMetadata ShininessMetadata = new(Strings.Shininess, 10, float.NaN, 1);
 
         /// <summary>
         /// Initializes a new instance of the <see cref="Material"/> class.

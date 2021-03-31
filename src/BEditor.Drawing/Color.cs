@@ -1,11 +1,10 @@
 ﻿using System;
 using System.Globalization;
 using System.Runtime.CompilerServices;
-using System.Runtime.InteropServices;
 using System.Runtime.Serialization;
 
 using BEditor.Drawing.Pixel;
-using BEditor.Drawing.Properties;
+using BEditor.Drawing.Resources;
 
 namespace BEditor.Drawing
 {
@@ -49,10 +48,10 @@ namespace BEditor.Drawing
 
         private Color(byte a, byte r, byte g, byte b)
         {
-            this._alpha = a;
-            this._red = r;
-            this._green = g;
-            this._blue = b;
+            _alpha = a;
+            _red = r;
+            _green = g;
+            _blue = b;
         }
         private Color(SerializationInfo info, StreamingContext context)
         {
@@ -107,7 +106,7 @@ namespace BEditor.Drawing
         public string ToString(string? format, IFormatProvider? formatProvider)
         {
             static string Throw(string format)
-                => throw new FormatException(string.Format(Resources.FormetException, format));
+                => throw new FormatException(string.Format(Strings.FormetException, format));
 
             if (string.IsNullOrEmpty(format)) format = "#argb";
             format = format.ToUpperInvariant();

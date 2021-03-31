@@ -10,7 +10,7 @@ using System.Threading.Tasks;
 
 using BEditor.Drawing;
 using BEditor.Drawing.Pixel;
-using BEditor.Properties;
+using BEditor.Resources;
 
 using Microsoft.Extensions.DependencyInjection;
 
@@ -294,7 +294,7 @@ namespace BEditor.Data
                     DefaultFileName = "新しいプロジェクト.bedit",
                     Filters =
                     {
-                        new(Resources.ProjectFile, new FileExtension[] { new("bedit") }),
+                        new(Strings.ProjectFile, new FileExtension[] { new("bedit") }),
                     },
                 };
 

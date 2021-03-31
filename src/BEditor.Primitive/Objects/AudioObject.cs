@@ -10,7 +10,7 @@ using BEditor.Data.Property;
 using BEditor.Media;
 using BEditor.Media.Decoder;
 using BEditor.Media.PCM;
-using BEditor.Properties;
+using BEditor.Primitive.Resources;
 
 namespace BEditor.Primitive.Objects
 {
@@ -27,15 +27,15 @@ namespace BEditor.Primitive.Objects
         /// <summary>
         /// Represents <see cref="Volume"/> metadata.
         /// </summary>
-        public static readonly EasePropertyMetadata VolumeMetadata = new("Volume", 50, 100, 0);
+        public static readonly EasePropertyMetadata VolumeMetadata = new(Strings.Volume, 50, 100, 0);
         /// <summary>
         /// Represents <see cref="Pitch"/> metadata.
         /// </summary>
-        public static readonly EasePropertyMetadata PitchMetadata = new("Pitch", 100, 200, 50);
+        public static readonly EasePropertyMetadata PitchMetadata = new(Strings.Pitch, 100, 200, 50);
         /// <summary>
         /// Represents <see cref="Start"/> metadata.
         /// </summary>
-        public static readonly ValuePropertyMetadata StartMetadata = new(Resources.Start + "(Milliseconds)", 0, Min: 0);
+        public static readonly ValuePropertyMetadata StartMetadata = new(Strings.Start + "(Milliseconds)", 0, Min: 0);
         /// <summary>
         /// Represens <see cref="File"/> metadata.
         /// </summary>
@@ -57,7 +57,7 @@ namespace BEditor.Primitive.Objects
         }
 
         /// <inheritdoc/>
-        public override string Name => "Audio";
+        public override string Name => Strings.Audio;
         /// <inheritdoc/>
         public override IEnumerable<PropertyElement> Properties => new PropertyElement[]
         {

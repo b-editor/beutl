@@ -1,7 +1,7 @@
 ﻿using System;
 using System.Collections.Generic;
 
-using BEditor.Properties;
+using BEditor.Resources;
 
 using OpenTK.Graphics.OpenGL4;
 
@@ -13,19 +13,19 @@ namespace BEditor.Data.Property.PrimitiveGroup
     public sealed class Blend : ExpandGroup
     {
         /// <summary>
-        /// Represents <see cref="Alpha"/> metadata.
+        /// Represents <see cref="Opacity"/> metadata.
         /// </summary>
-        public static readonly EasePropertyMetadata AlphaMetadata = new(Resources.Alpha, 100, 100, 0);
+        public static readonly EasePropertyMetadata OpacityMetadata = new(Strings.Opacity, 100, 100, 0);
 
         /// <summary>
         /// Represents <see cref="Color"/> metadata.
         /// </summary>
-        public static readonly ColorAnimationPropertyMetadata ColorMetadata = new(Resources.Color, Drawing.Color.Light, false);
+        public static readonly ColorAnimationPropertyMetadata ColorMetadata = new(Strings.Color, Drawing.Color.Light, false);
 
         /// <summary>
         /// Represents <see cref="BlendType"/> metadata.
         /// </summary>
-        public static readonly SelectorPropertyMetadata BlendTypeMetadata = new(Resources.Blend, new[] { "通常", "加算", "減算", "乗算" });
+        public static readonly SelectorPropertyMetadata BlendTypeMetadata = new(Strings.Blend, new[] { "通常", "加算", "減算", "乗算" });
 
         /// <summary>
         /// OpenGLの合成方法を設定する <see cref="Action"/> です.
@@ -62,7 +62,7 @@ namespace BEditor.Data.Property.PrimitiveGroup
         public Blend(PropertyElementMetadata metadata)
             : base(metadata)
         {
-            Alpha = new(AlphaMetadata);
+            Opacity = new(OpacityMetadata);
             BlendType = new(BlendTypeMetadata);
             Color = new(ColorMetadata);
         }
@@ -70,7 +70,7 @@ namespace BEditor.Data.Property.PrimitiveGroup
         /// <inheritdoc/>
         public override IEnumerable<PropertyElement> Properties => new PropertyElement[]
         {
-            Alpha,
+            Opacity,
             Color,
             BlendType,
         };
@@ -79,7 +79,7 @@ namespace BEditor.Data.Property.PrimitiveGroup
         /// Gets the <see cref="EaseProperty"/> that represents the transparency.
         /// </summary>
         [DataMember]
-        public EaseProperty Alpha { get; private set; }
+        public EaseProperty Opacity { get; private set; }
 
         /// <summary>
         /// Gets the <see cref="ColorAnimationProperty"/> that represents a color.
@@ -96,7 +96,7 @@ namespace BEditor.Data.Property.PrimitiveGroup
         /// <inheritdoc/>
         protected override void OnLoad()
         {
-            Alpha.Load(AlphaMetadata);
+            Opacity.Load(OpacityMetadata);
             BlendType.Load(BlendTypeMetadata);
             Color.Load(ColorMetadata);
         }
@@ -104,7 +104,7 @@ namespace BEditor.Data.Property.PrimitiveGroup
         /// <inheritdoc/>
         protected override void OnUnload()
         {
-            Alpha.Unload();
+            Opacity.Unload();
             BlendType.Unload();
             Color.Unload();
         }

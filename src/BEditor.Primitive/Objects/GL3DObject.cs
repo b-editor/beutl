@@ -5,7 +5,7 @@ using BEditor.Data.Primitive;
 using BEditor.Data.Property;
 using BEditor.Data.Property.PrimitiveGroup;
 using BEditor.Graphics;
-using BEditor.Properties;
+using BEditor.Primitive.Resources;
 
 using GLColor = OpenTK.Mathematics.Color4;
 using Material = BEditor.Data.Property.PrimitiveGroup.Material;
@@ -20,15 +20,15 @@ namespace BEditor.Primitive.Objects
         /// <summary>
         /// Represents <see cref="Type"/> metadata.
         /// </summary>
-        public static readonly SelectorPropertyMetadata TypeMetadata = new(Resources.Type, new string[2]
+        public static readonly SelectorPropertyMetadata TypeMetadata = new(Strings.Type, new string[2]
         {
-            Resources.Cube,
-            Resources.Ball
+            Strings.Cube,
+            Strings.Ball
         });
         /// <summary>
         /// Represents <see cref="Depth"/> metadata.
         /// </summary>
-        public static readonly EasePropertyMetadata DepthMetadata = new("Depth", 100, float.NaN, 0);
+        public static readonly EasePropertyMetadata DepthMetadata = new(Strings.Depth, 100, float.NaN, 0);
 
         /// <summary>
         /// Initializes a new instance of the <see cref="GL3DObject"/> class.
@@ -36,18 +36,18 @@ namespace BEditor.Primitive.Objects
         public GL3DObject()
         {
             Coordinate = new(ImageObject.CoordinateMetadata);
-            Zoom = new(ImageObject.ZoomMetadata);
+            Zoom = new(ImageObject.ScaleMetadata);
             Blend = new(ImageObject.BlendMetadata);
-            Angle = new(ImageObject.AngleMetadata);
+            Angle = new(ImageObject.RotateMetadata);
             Material = new(ImageObject.MaterialMetadata);
             Type = new(TypeMetadata);
-            Width = new(Figure.WidthMetadata);
-            Height = new(Figure.HeightMetadata);
+            Width = new(Shape.WidthMetadata);
+            Height = new(Shape.HeightMetadata);
             Depth = new(DepthMetadata);
         }
 
         /// <inheritdoc/>
-        public override string Name => Resources._3DObject;
+        public override string Name => Strings.GL3DObject;
         /// <inheritdoc/>
         public override IEnumerable<PropertyElement> Properties => new PropertyElement[]
         {
@@ -70,7 +70,7 @@ namespace BEditor.Primitive.Objects
         /// Get the scale.
         /// </summary>
         [DataMember]
-        public Zoom Zoom { get; private set; }
+        public Scale Zoom { get; private set; }
         /// <summary>
         /// Get the blend.
         /// </summary>
@@ -80,7 +80,7 @@ namespace BEditor.Primitive.Objects
         /// Get the angle.
         /// </summary>
         [DataMember]
-        public Angle Angle { get; private set; }
+        public Rotate Angle { get; private set; }
         /// <summary>
         /// Get the material.
         /// </summary>
@@ -113,10 +113,10 @@ namespace BEditor.Primitive.Objects
             int frame = args.Frame;
             var color = Blend.Color[frame];
             GLColor color4 = new(color.R, color.G, color.B, color.A);
-            color4.A *= Blend.Alpha[frame];
+            color4.A *= Blend.Opacity[frame];
 
 
-            float scale = (float)(Zoom.Scale[frame] / 100);
+            float scale = (float)(Zoom.Scale1[frame] / 100);
             float scalex = (float)(Zoom.ScaleX[frame] / 100) * scale;
             float scaley = (float)(Zoom.ScaleY[frame] / 100) * scale;
             float scalez = (float)(Zoom.ScaleZ[frame] / 100) * scale;
@@ -125,7 +125,7 @@ namespace BEditor.Primitive.Objects
             var trans = Transform.Create(
                 new(Coordinate.X[frame], Coordinate.Y[frame], Coordinate.Z[frame]),
                 new(Coordinate.CenterX[frame], Coordinate.CenterY[frame], Coordinate.CenterZ[frame]),
-                new(Angle.AngleX[frame], Angle.AngleY[frame], Angle.AngleZ[frame]),
+                new(Angle.RotateX[frame], Angle.RotateY[frame], Angle.RotateZ[frame]),
                 new(scalex, scaley, scalez));
 
             if (Type.Index == 0)
@@ -159,13 +159,13 @@ namespace BEditor.Primitive.Objects
         protected override void OnLoad()
         {
             Coordinate.Load(ImageObject.CoordinateMetadata);
-            Zoom.Load(ImageObject.ZoomMetadata);
+            Zoom.Load(ImageObject.ScaleMetadata);
             Blend.Load(ImageObject.BlendMetadata);
-            Angle.Load(ImageObject.AngleMetadata);
+            Angle.Load(ImageObject.RotateMetadata);
             Material.Load(ImageObject.MaterialMetadata);
             Type.Load(TypeMetadata);
-            Width.Load(Figure.WidthMetadata);
-            Height.Load(Figure.HeightMetadata);
+            Width.Load(Shape.WidthMetadata);
+            Height.Load(Shape.HeightMetadata);
             Depth.Load(DepthMetadata);
         }
         /// <inheritdoc/>

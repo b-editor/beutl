@@ -1,12 +1,7 @@
 ﻿using System;
-using System.Collections.Generic;
-using System.Diagnostics.Contracts;
-using System.Linq;
 using System.Runtime.Serialization;
-using System.Text;
-using System.Threading.Tasks;
 
-using BEditor.Drawing.Properties;
+using BEditor.Drawing.Resources;
 
 namespace BEditor.Drawing
 {
@@ -17,8 +12,8 @@ namespace BEditor.Drawing
 
         public Size(int width, int height)
         {
-            if (width < 0) throw new ArgumentOutOfRangeException(nameof(width), string.Format(Resources.LessThan, nameof(width), 0));
-            if (height < 0) throw new ArgumentOutOfRangeException(nameof(height), string.Format(Resources.LessThan, nameof(height), 0));
+            if (width < 0) throw new ArgumentOutOfRangeException(nameof(width), string.Format(Strings.LessThan, nameof(width), 0));
+            if (height < 0) throw new ArgumentOutOfRangeException(nameof(height), string.Format(Strings.LessThan, nameof(height), 0));
 
             Width = width;
             Height = height;

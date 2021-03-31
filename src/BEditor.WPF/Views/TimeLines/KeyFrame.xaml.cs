@@ -1,10 +1,8 @@
 ﻿using System;
 using System.Linq;
-using System.ComponentModel;
 using System.Reactive.Disposables;
 using System.Windows;
 using System.Windows.Controls;
-using System.Windows.Data;
 using System.Windows.Input;
 using System.Windows.Media;
 using System.Windows.Media.Animation;
@@ -12,15 +10,13 @@ using System.Windows.Media.Animation;
 using BEditor.Data;
 using BEditor.Data.Property;
 using BEditor.Models;
+using BEditor.Properties;
 using BEditor.ViewModels.TimeLines;
 using BEditor.WPF.Controls;
 
 using MaterialDesignThemes.Wpf;
 
 using Reactive.Bindings.Extensions;
-
-using Resource = BEditor.Properties.Resources;
-using System.Diagnostics;
 
 namespace BEditor.Views.TimeLines
 {
@@ -327,9 +323,20 @@ namespace BEditor.Views.TimeLines
             var removeMenu = new MenuItem();
 
             //削除項目の設定
-            var menu = new VirtualizingStackPanel() { Orientation = Orientation.Horizontal };
-            menu.Children.Add(new PackIcon() { Kind = PackIconKind.Delete, Margin = new Thickness(5, 0, 5, 0) });
-            menu.Children.Add(new TextBlock() { Text = Resource.Remove, Margin = new Thickness(20, 0, 5, 0) });
+            var menu = new VirtualizingStackPanel()
+            {
+                Orientation = Orientation.Horizontal
+            };
+            menu.Children.Add(new PackIcon()
+            {
+                Kind = PackIconKind.Delete,
+                Margin = new Thickness(5, 0, 5, 0)
+            });
+            menu.Children.Add(new TextBlock()
+            {
+                Text = Strings.Remove,
+                Margin = new Thickness(20, 0, 5, 0)
+            });
             removeMenu.Header = menu;
 
             removeMenu.Click += Remove_Click;

@@ -1,15 +1,12 @@
 ﻿using System;
 using System.Collections.Generic;
 using System.ComponentModel;
-using System.Dynamic;
 using System.Linq;
-using System.Linq.Expressions;
-using System.Runtime.Serialization;
 using System.Text.Json;
 using System.Threading;
 
 using BEditor.Data.Property;
-using BEditor.Properties;
+using BEditor.Resources;
 
 using Microsoft.Extensions.DependencyInjection;
 
@@ -72,7 +69,7 @@ namespace BEditor.Data
             var valueType = value?.GetType();
             if (!(property.ValueType == valueType || (valueType?.IsSubclassOf(property.ValueType) ?? false)))
             {
-                throw new DataException(string.Format(ExceptionMessage.The_value_was_not_0_type_but_1_type, property.ValueType, valueType));
+                throw new DataException(string.Format(Strings.TheValueWasNotTypeButType, property.ValueType, valueType));
             }
 
             if (!Values.ContainsKey(property.Name))

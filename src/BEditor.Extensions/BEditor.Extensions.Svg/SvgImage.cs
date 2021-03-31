@@ -15,7 +15,7 @@ namespace BEditor.Extensions.Svg
 {
     public class SvgImage : ImageObject
     {
-        public static readonly EasePropertyMetadata ScaleMetadata = new("スケール", 100, Min: 0);
+        public static new readonly EasePropertyMetadata ScaleMetadata = new("スケール", 100, Min: 0);
         public static readonly EasePropertyMetadata ScaleXMetadata = new("スケール X", 100, Min: 0);
         public static readonly EasePropertyMetadata ScaleYMetadata = new("スケール Y", 100, Min: 0);
         public static readonly FilePropertyMetadata FileMetadata = new("画像ファイル", "", new("画像ファイル", new FileExtension[]
@@ -27,7 +27,7 @@ namespace BEditor.Extensions.Svg
 
         public SvgImage()
         {
-            Scale = new(ScaleMetadata);
+            SvgScale = new(ScaleMetadata);
             ScaleX = new(ScaleXMetadata);
             ScaleY = new(ScaleYMetadata);
             File = new(FileMetadata);
@@ -37,17 +37,17 @@ namespace BEditor.Extensions.Svg
         public override IEnumerable<PropertyElement> Properties => new PropertyElement[]
         {
             Coordinate,
-            Zoom,
-            Blend,
-            Angle,
-            Material,
             Scale,
+            Blend,
+            Rotate,
+            Material,
+            SvgScale,
             ScaleX,
             ScaleY,
             File
         };
         [DataMember]
-        public EaseProperty Scale { get; private set; }
+        public EaseProperty SvgScale { get; private set; }
         [DataMember]
         public EaseProperty ScaleX { get; private set; }
         [DataMember]
@@ -69,7 +69,7 @@ namespace BEditor.Extensions.Svg
             if (Source?.Picture is null) return null;
 
             var picture = Source.Picture;
-            var s = Scale[args.Frame] / 100;
+            var s = SvgScale[args.Frame] / 100;
             var sx = ScaleX[args.Frame] / 100 * s;
             var sy = ScaleY[args.Frame] / 100 * s;
             using var bmp = new SKBitmap(new SKImageInfo((int)(picture.CullRect.Width * sx), (int)(picture.CullRect.Height * sy), SKColorType.Bgra8888));
@@ -90,7 +90,7 @@ namespace BEditor.Extensions.Svg
         protected override void OnLoad()
         {
             base.OnLoad();
-            Scale.Load(ScaleMetadata);
+            SvgScale.Load(ScaleMetadata);
             ScaleX.Load(ScaleXMetadata);
             ScaleY.Load(ScaleYMetadata);
             File.Load(FileMetadata);
@@ -102,7 +102,7 @@ namespace BEditor.Extensions.Svg
         protected override void OnUnload()
         {
             base.OnUnload();
-            Scale.Unload();
+            SvgScale.Unload();
             ScaleX.Unload();
             ScaleY.Unload();
             File.Unload();

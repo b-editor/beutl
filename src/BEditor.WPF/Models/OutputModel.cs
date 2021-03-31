@@ -74,8 +74,8 @@ namespace BEditor.Models
             }
             catch (Exception e)
             {
-                AppData.Current.Message?.Snackbar(MessageResources.FailedToSave);
-                App.Logger.LogError(e, MessageResources.FailedToSave);
+                AppData.Current.Message?.Snackbar(Strings.FailedToSave);
+                App.Logger.LogError(e, Strings.FailedToSave);
             }
         }
         public static void OutputVideo(Scene scene)
@@ -152,8 +152,8 @@ namespace BEditor.Models
                 }
                 catch (Exception e)
                 {
-                    AppData.Current.Message?.Snackbar(MessageResources.FailedToSave);
-                    App.Logger.LogError(e, MessageResources.FailedToSave);
+                    AppData.Current.Message?.Snackbar(Strings.FailedToSave);
+                    App.Logger.LogError(e, Strings.FailedToSave);
                 }
                 finally
                 {

@@ -1,11 +1,7 @@
 ﻿using System;
-using System.Collections.Generic;
-using System.Linq;
 using System.Runtime.Serialization;
-using System.Text;
-using System.Threading.Tasks;
 
-using BEditor.Drawing.Properties;
+using BEditor.Drawing.Resources;
 
 namespace BEditor.Drawing
 {
@@ -60,9 +56,9 @@ namespace BEditor.Drawing
                 height: bottom - top);
 
             if (r.Width < 0)
-                throw new ArgumentException(string.Format(Resources.LessThan, nameof(left), nameof(right)));
+                throw new ArgumentException(string.Format(Strings.LessThan, nameof(left), nameof(right)));
             if (r.Height < 0)
-                throw new ArgumentException(string.Format(Resources.LessThan, nameof(top), nameof(bottom)));
+                throw new ArgumentException(string.Format(Strings.LessThan, nameof(top), nameof(bottom)));
             return r;
         }
         public static Rectangle Inflate(Rectangle rect, int x, int y)

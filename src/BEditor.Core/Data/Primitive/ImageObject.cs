@@ -7,7 +7,7 @@ using BEditor.Drawing;
 using BEditor.Drawing.Pixel;
 using BEditor.Graphics;
 using BEditor.Media;
-using BEditor.Properties;
+using BEditor.Resources;
 
 using OpenTK.Graphics.OpenGL4;
 
@@ -21,27 +21,27 @@ namespace BEditor.Data.Primitive
         /// <summary>
         /// Represents <see cref="Coordinate"/> metadata.
         /// </summary>
-        public static readonly PropertyElementMetadata CoordinateMetadata = new(Resources.Coordinate);
+        public static readonly PropertyElementMetadata CoordinateMetadata = new(Strings.Coordinate);
 
         /// <summary>
-        /// Represents <see cref="Zoom"/> metadata.
+        /// Represents <see cref="Scale"/> metadata.
         /// </summary>
-        public static readonly PropertyElementMetadata ZoomMetadata = new(Resources.Zoom);
+        public static readonly PropertyElementMetadata ScaleMetadata = new(Strings.Scale);
 
         /// <summary>
         /// Represents <see cref="Blend"/> metadata.
         /// </summary>
-        public static readonly PropertyElementMetadata BlendMetadata = new(Resources.Blend);
+        public static readonly PropertyElementMetadata BlendMetadata = new(Strings.Blend);
 
         /// <summary>
-        /// Represents <see cref="Angle"/> metadata.
+        /// Represents <see cref="Rotate"/> metadata.
         /// </summary>
-        public static readonly PropertyElementMetadata AngleMetadata = new(Resources.Angle);
+        public static readonly PropertyElementMetadata RotateMetadata = new(Strings.Rotate);
 
         /// <summary>
         /// Represents <see cref="Material"/> metadata.
         /// </summary>
-        public static readonly PropertyElementMetadata MaterialMetadata = new(Resources.Material);
+        public static readonly PropertyElementMetadata MaterialMetadata = new(Strings.Material);
 
         /// <summary>
         /// Initializes a new instance of the <see cref="ImageObject"/> class.
@@ -49,9 +49,9 @@ namespace BEditor.Data.Primitive
         protected ImageObject()
         {
             Coordinate = new(CoordinateMetadata);
-            Zoom = new(ZoomMetadata);
+            Scale = new(ScaleMetadata);
             Blend = new(BlendMetadata);
-            Angle = new(AngleMetadata);
+            Rotate = new(RotateMetadata);
             Material = new(MaterialMetadata);
         }
 
@@ -68,7 +68,7 @@ namespace BEditor.Data.Primitive
         /// Gets the scale.
         /// </summary>
         [DataMember]
-        public Zoom Zoom { get; private set; }
+        public Scale Scale { get; private set; }
 
         /// <summary>
         /// Gets the blend.
@@ -80,7 +80,7 @@ namespace BEditor.Data.Primitive
         /// Gets the angle.
         /// </summary>
         [DataMember]
-        public Angle Angle { get; private set; }
+        public Rotate Rotate { get; private set; }
 
         /// <summary>
         /// Gets the material.
@@ -112,16 +112,16 @@ namespace BEditor.Data.Primitive
         }
 
         /// <summary>
-        /// <see cref="Coordinate"/>, <see cref="Zoom"/>, <see cref="Angle"/> から <see cref="Transform"/> を取得します.
+        /// <see cref="Coordinate"/>, <see cref="Scale"/>, <see cref="Rotate"/> から <see cref="Transform"/> を取得します.
         /// </summary>
         /// <param name="frame">取得するフレームです.</param>
-        /// <returns><see cref="Coordinate"/>, <see cref="Zoom"/>, <see cref="Angle"/> の値から作成された <see cref="Transform"/>.</returns>
+        /// <returns><see cref="Coordinate"/>, <see cref="Scale"/>, <see cref="Rotate"/> の値から作成された <see cref="Transform"/>.</returns>
         public Transform GetTransform(Frame frame)
         {
-            var scale = (float)(Zoom.Scale.GetValue(frame) / 100);
-            var scalex = (float)(Zoom.ScaleX.GetValue(frame) / 100) * scale;
-            var scaley = (float)(Zoom.ScaleY.GetValue(frame) / 100) * scale;
-            var scalez = (float)(Zoom.ScaleZ.GetValue(frame) / 100) * scale;
+            var scale = (float)(Scale.Scale1.GetValue(frame) / 100);
+            var scalex = (float)(Scale.ScaleX.GetValue(frame) / 100) * scale;
+            var scaley = (float)(Scale.ScaleY.GetValue(frame) / 100) * scale;
+            var scalez = (float)(Scale.ScaleZ.GetValue(frame) / 100) * scale;
 
             var coordinate = new System.Numerics.Vector3(
                 Coordinate.X.GetValue(frame),
@@ -133,9 +133,9 @@ namespace BEditor.Data.Primitive
                 Coordinate.CenterY.GetValue(frame),
                 Coordinate.CenterZ.GetValue(frame));
 
-            var nx = Angle.AngleX.GetValue(frame);
-            var ny = Angle.AngleY.GetValue(frame);
-            var nz = Angle.AngleZ.GetValue(frame);
+            var nx = Rotate.RotateX.GetValue(frame);
+            var ny = Rotate.RotateY.GetValue(frame);
+            var nz = Rotate.RotateZ.GetValue(frame);
 
             return Transform.Create(coordinate, center, new(nx, ny, nz), new(scalex, scaley, scalez));
         }
@@ -218,9 +218,9 @@ namespace BEditor.Data.Primitive
         protected override void OnLoad()
         {
             Coordinate.Load(CoordinateMetadata);
-            Zoom.Load(ZoomMetadata);
+            Scale.Load(ScaleMetadata);
             Blend.Load(BlendMetadata);
-            Angle.Load(AngleMetadata);
+            Rotate.Load(RotateMetadata);
             Material.Load(MaterialMetadata);
         }
 
@@ -228,9 +228,9 @@ namespace BEditor.Data.Primitive
         protected override void OnUnload()
         {
             Coordinate.Unload();
-            Zoom.Unload();
+            Scale.Unload();
             Blend.Unload();
-            Angle.Unload();
+            Rotate.Unload();
             Material.Unload();
         }
 
@@ -282,7 +282,7 @@ namespace BEditor.Data.Primitive
 
             var frame = args.Frame;
 
-            var alpha = (float)(Blend.Alpha.GetValue(frame) / 100);
+            var alpha = (float)(Blend.Opacity.GetValue(frame) / 100);
 
             var ambient = Material.Ambient[frame];
             var diffuse = Material.Diffuse[frame];

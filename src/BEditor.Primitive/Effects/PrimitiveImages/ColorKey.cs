@@ -5,7 +5,7 @@ using BEditor.Data.Primitive;
 using BEditor.Data.Property;
 using BEditor.Drawing;
 using BEditor.Drawing.Pixel;
-using BEditor.Properties;
+using BEditor.Primitive.Resources;
 
 namespace BEditor.Primitive.Effects
 {
@@ -17,11 +17,11 @@ namespace BEditor.Primitive.Effects
         /// <summary>
         /// Represents <see cref="Color"/> metadata.
         /// </summary>
-        public static readonly ColorPropertyMetadata ColorMetadata = new(Resources.Color, Drawing.Color.Light);
+        public static readonly ColorPropertyMetadata ColorMetadata = new(Strings.Color, Drawing.Color.Light);
         /// <summary>
         /// Represents <see cref="ThresholdValue"/> metadata.
         /// </summary>
-        public static readonly EasePropertyMetadata ThresholdValueMetadata = new(Resources.ThresholdValue, 60);
+        public static readonly EasePropertyMetadata ThresholdValueMetadata = new(Strings.ThresholdValue, 60);
 
         /// <summary>
         /// Initializes a new instance of the <see cref="ColorKey"/> class.
@@ -33,7 +33,7 @@ namespace BEditor.Primitive.Effects
         }
 
         /// <inheritdoc/>
-        public override string Name => Resources.ColorKey;
+        public override string Name => Strings.ColorKey;
         /// <inheritdoc/>
         public override IEnumerable<PropertyElement> Properties => new PropertyElement[]
         {

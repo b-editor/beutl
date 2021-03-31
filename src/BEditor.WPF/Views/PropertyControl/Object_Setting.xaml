@@ -6,7 +6,7 @@
     xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
     xmlns:materialDesign="http://materialdesigninxaml.net/winfx/xaml/themes"
     xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
-    xmlns:property="clr-namespace:BEditor.Properties;assembly=BEditor.Core"
+    xmlns:property="clr-namespace:BEditor.Properties"
     xmlns:vm="clr-namespace:BEditor.ViewModels"
     d:DesignHeight="504"
     d:DesignWidth="583"
@@ -49,12 +49,12 @@
                     <Label
                         HorizontalAlignment="Left"
                         VerticalAlignment="Center"
-                        Content="{x:Static property:Resources.Name}" />
+                        Content="{x:Static property:Strings.Name}" />
                     <Label
                         Grid.Row="1"
                         HorizontalAlignment="Left"
                         VerticalAlignment="Center"
-                        Content="{x:Static property:Resources.Type}" />
+                        Content="{x:Static property:Strings.Type}" />
 
                     <TextBox
                         Grid.Column="1"

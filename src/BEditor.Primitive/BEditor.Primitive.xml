@@ -1524,81 +1524,6 @@
         <member name="M:BEditor.Primitive.Objects.ListenerObject.OnUnload">
             <inheritdoc/>
         </member>
-        <member name="T:BEditor.Primitive.Objects.Figure">
-            <summary>
-            Represents an <see cref="T:BEditor.Data.Primitive.ImageObject"/> to draw a shape.
-            </summary>
-        </member>
-        <member name="F:BEditor.Primitive.Objects.Figure.WidthMetadata">
-            <summary>
-            Represents <see cref="P:BEditor.Primitive.Objects.Figure.Width"/> metadata.
-            </summary>
-        </member>
-        <member name="F:BEditor.Primitive.Objects.Figure.HeightMetadata">
-            <summary>
-            Represents <see cref="P:BEditor.Primitive.Objects.Figure.Height"/> metadata.
-            </summary>
-        </member>
-        <member name="F:BEditor.Primitive.Objects.Figure.LineMetadata">
-            <summary>
-            Represents <see cref="P:BEditor.Primitive.Objects.Figure.Line"/> metadata.
-            </summary>
-        </member>
-        <member name="F:BEditor.Primitive.Objects.Figure.ColorMetadata">
-            <summary>
-            Represents <see cref="P:BEditor.Primitive.Objects.Figure.Color"/> metadata.
-            </summary>
-        </member>
-        <member name="F:BEditor.Primitive.Objects.Figure.TypeMetadata">
-            <summary>
-            Represents <see cref="P:BEditor.Primitive.Objects.Figure.Type"/> metadata.
-            </summary>
-        </member>
-        <member name="M:BEditor.Primitive.Objects.Figure.#ctor">
-            <summary>
-            Initializes a new instance of the <see cref="T:BEditor.Primitive.Objects.Figure"/> class.
-            </summary>
-        </member>
-        <member name="P:BEditor.Primitive.Objects.Figure.Name">
-            <inheritdoc/>
-        </member>
-        <member name="P:BEditor.Primitive.Objects.Figure.Properties">
-            <inheritdoc/>
-        </member>
-        <member name="P:BEditor.Primitive.Objects.Figure.Width">
-            <summary>
-            Get the <see cref="T:BEditor.Data.Property.EaseProperty"/> that represents the width of the shape.
-            </summary>
-        </member>
-        <member name="P:BEditor.Primitive.Objects.Figure.Height">
-            <summary>
-            Get the <see cref="T:BEditor.Data.Property.EaseProperty"/> that represents the height of the shape.
-            </summary>
-        </member>
-        <member name="P:BEditor.Primitive.Objects.Figure.Line">
-            <summary>
-            Get the <see cref="T:BEditor.Data.Property.EaseProperty"/> that represents the line width of the shape.
-            </summary>
-        </member>
-        <member name="P:BEditor.Primitive.Objects.Figure.Color">
-            <summary>
-            Get the <see cref="T:BEditor.Data.Property.ColorProperty"/> that represents the color of the shape.
-            </summary>
-        </member>
-        <member name="P:BEditor.Primitive.Objects.Figure.Type">
-            <summary>
-            Get the <see cref="T:BEditor.Data.Property.SelectorProperty"/> to select the type of the shape.
-            </summary>
-        </member>
-        <member name="M:BEditor.Primitive.Objects.Figure.OnRender(BEditor.Data.EffectRenderArgs)">
-            <inheritdoc/>
-        </member>
-        <member name="M:BEditor.Primitive.Objects.Figure.OnLoad">
-            <inheritdoc/>
-        </member>
-        <member name="M:BEditor.Primitive.Objects.Figure.OnUnload">
-            <inheritdoc/>
-        </member>
         <member name="T:BEditor.Primitive.Objects.Framebuffer">
             <summary>
             
@@ -1809,6 +1734,81 @@
         <member name="M:BEditor.Primitive.Objects.SceneObject.OnUnload">
             <inheritdoc/>
         </member>
+        <member name="T:BEditor.Primitive.Objects.Shape">
+            <summary>
+            Represents an <see cref="T:BEditor.Data.Primitive.ImageObject"/> to draw a shape.
+            </summary>
+        </member>
+        <member name="F:BEditor.Primitive.Objects.Shape.WidthMetadata">
+            <summary>
+            Represents <see cref="P:BEditor.Primitive.Objects.Shape.Width"/> metadata.
+            </summary>
+        </member>
+        <member name="F:BEditor.Primitive.Objects.Shape.HeightMetadata">
+            <summary>
+            Represents <see cref="P:BEditor.Primitive.Objects.Shape.Height"/> metadata.
+            </summary>
+        </member>
+        <member name="F:BEditor.Primitive.Objects.Shape.LineMetadata">
+            <summary>
+            Represents <see cref="P:BEditor.Primitive.Objects.Shape.Line"/> metadata.
+            </summary>
+        </member>
+        <member name="F:BEditor.Primitive.Objects.Shape.ColorMetadata">
+            <summary>
+            Represents <see cref="P:BEditor.Primitive.Objects.Shape.Color"/> metadata.
+            </summary>
+        </member>
+        <member name="F:BEditor.Primitive.Objects.Shape.TypeMetadata">
+            <summary>
+            Represents <see cref="P:BEditor.Primitive.Objects.Shape.Type"/> metadata.
+            </summary>
+        </member>
+        <member name="M:BEditor.Primitive.Objects.Shape.#ctor">
+            <summary>
+            Initializes a new instance of the <see cref="T:BEditor.Primitive.Objects.Shape"/> class.
+            </summary>
+        </member>
+        <member name="P:BEditor.Primitive.Objects.Shape.Name">
+            <inheritdoc/>
+        </member>
+        <member name="P:BEditor.Primitive.Objects.Shape.Properties">
+            <inheritdoc/>
+        </member>
+        <member name="P:BEditor.Primitive.Objects.Shape.Width">
+            <summary>
+            Get the <see cref="T:BEditor.Data.Property.EaseProperty"/> that represents the width of the shape.
+            </summary>
+        </member>
+        <member name="P:BEditor.Primitive.Objects.Shape.Height">
+            <summary>
+            Get the <see cref="T:BEditor.Data.Property.EaseProperty"/> that represents the height of the shape.
+            </summary>
+        </member>
+        <member name="P:BEditor.Primitive.Objects.Shape.Line">
+            <summary>
+            Get the <see cref="T:BEditor.Data.Property.EaseProperty"/> that represents the line width of the shape.
+            </summary>
+        </member>
+        <member name="P:BEditor.Primitive.Objects.Shape.Color">
+            <summary>
+            Get the <see cref="T:BEditor.Data.Property.ColorProperty"/> that represents the color of the shape.
+            </summary>
+        </member>
+        <member name="P:BEditor.Primitive.Objects.Shape.Type">
+            <summary>
+            Get the <see cref="T:BEditor.Data.Property.SelectorProperty"/> to select the type of the shape.
+            </summary>
+        </member>
+        <member name="M:BEditor.Primitive.Objects.Shape.OnRender(BEditor.Data.EffectRenderArgs)">
+            <inheritdoc/>
+        </member>
+        <member name="M:BEditor.Primitive.Objects.Shape.OnLoad">
+            <inheritdoc/>
+        </member>
+        <member name="M:BEditor.Primitive.Objects.Shape.OnUnload">
+            <inheritdoc/>
+        </member>
         <member name="T:BEditor.Primitive.Objects.Text">
             <summary>
             Represents an <see cref="T:BEditor.Data.Primitive.ImageObject"/> to draw a string.
@@ -1967,9 +1967,9 @@
             <see cref="T:System.Type"/> of <see cref="T:BEditor.Primitive.Objects.Text"/> class.
             </summary>
         </member>
-        <member name="F:BEditor.Primitive.PrimitiveTypes.Figure">
+        <member name="F:BEditor.Primitive.PrimitiveTypes.Shape">
             <summary>
-            <see cref="T:System.Type"/> of <see cref="T:BEditor.Primitive.Objects.Figure"/> class.
+            <see cref="T:System.Type"/> of <see cref="T:BEditor.Primitive.Objects.Shape"/> class.
             </summary>
         </member>
         <member name="F:BEditor.Primitive.PrimitiveTypes.Polygon">
@@ -2027,9 +2027,9 @@
             Metadata of <see cref="T:BEditor.Primitive.Objects.Text"/> class.
             </summary>
         </member>
-        <member name="F:BEditor.Primitive.PrimitiveTypes.FigureMetadata">
+        <member name="F:BEditor.Primitive.PrimitiveTypes.ShapeMetadata">
             <summary>
-            Metadata of <see cref="T:BEditor.Primitive.Objects.Figure"/> class.
+            Metadata of <see cref="T:BEditor.Primitive.Objects.Shape"/> class.
             </summary>
         </member>
         <member name="F:BEditor.Primitive.PrimitiveTypes.PolygonMetadata">
@@ -2065,6 +2065,493 @@
         <member name="F:BEditor.Primitive.PrimitiveTypes.ListenerMetadata">
             <summary>
             Metadata of <see cref="T:BEditor.Primitive.Objects.ListenerObject"/> class.
+            </summary>
+        </member>
+        <member name="M:BEditor.Primitive.PrimitiveTypes.EnumerateAllEffectMetadata">
+            <summary>
+            Enumerate all effects.
+            </summary>
+            <returns></returns>
+        </member>
+        <member name="T:BEditor.Primitive.Resources.Strings">
+            <summary>
+              ローカライズされた文字列などを検索するための、厳密に型指定されたリソース クラスです。
+            </summary>
+        </member>
+        <member name="P:BEditor.Primitive.Resources.Strings.ResourceManager">
+            <summary>
+              このクラスで使用されているキャッシュされた ResourceManager インスタンスを返します。
+            </summary>
+        </member>
+        <member name="P:BEditor.Primitive.Resources.Strings.Culture">
+            <summary>
+              すべてについて、現在のスレッドの CurrentUICulture プロパティをオーバーライドします
+              現在のスレッドの CurrentUICulture プロパティをオーバーライドします。
+            </summary>
+        </member>
+        <member name="P:BEditor.Primitive.Resources.Strings.AdjustCoordinates">
+            <summary>
+              Adjust coordinates に類似しているローカライズされた文字列を検索します。
+            </summary>
+        </member>
+        <member name="P:BEditor.Primitive.Resources.Strings.Anchors">
+            <summary>
+              Anchors に類似しているローカライズされた文字列を検索します。
+            </summary>
+        </member>
+        <member name="P:BEditor.Primitive.Resources.Strings.Angle">
+            <summary>
+              Angle に類似しているローカライズされた文字列を検索します。
+            </summary>
+        </member>
+        <member name="P:BEditor.Primitive.Resources.Strings.AreaExpansion">
+            <summary>
+              Area expansion に類似しているローカライズされた文字列を検索します。
+            </summary>
+        </member>
+        <member name="P:BEditor.Primitive.Resources.Strings.Audio">
+            <summary>
+              Audio に類似しているローカライズされた文字列を検索します。
+            </summary>
+        </member>
+        <member name="P:BEditor.Primitive.Resources.Strings.Ball">
+            <summary>
+              Ball に類似しているローカライズされた文字列を検索します。
+            </summary>
+        </member>
+        <member name="P:BEditor.Primitive.Resources.Strings.Blur">
+            <summary>
+              Blur に類似しているローカライズされた文字列を検索します。
+            </summary>
+        </member>
+        <member name="P:BEditor.Primitive.Resources.Strings.Border">
+            <summary>
+              Border に類似しているローカライズされた文字列を検索します。
+            </summary>
+        </member>
+        <member name="P:BEditor.Primitive.Resources.Strings.Bottom">
+            <summary>
+              Bottom に類似しているローカライズされた文字列を検索します。
+            </summary>
+        </member>
+        <member name="P:BEditor.Primitive.Resources.Strings.Camera">
+            <summary>
+              Camera に類似しているローカライズされた文字列を検索します。
+            </summary>
+        </member>
+        <member name="P:BEditor.Primitive.Resources.Strings.CenterX">
+            <summary>
+              Center x に類似しているローカライズされた文字列を検索します。
+            </summary>
+        </member>
+        <member name="P:BEditor.Primitive.Resources.Strings.CenterY">
+            <summary>
+              Center y に類似しているローカライズされた文字列を検索します。
+            </summary>
+        </member>
+        <member name="P:BEditor.Primitive.Resources.Strings.ChromaKey">
+            <summary>
+              Chroma key に類似しているローカライズされた文字列を検索します。
+            </summary>
+        </member>
+        <member name="P:BEditor.Primitive.Resources.Strings.CircularGradient">
+            <summary>
+              Circular gradient に類似しているローカライズされた文字列を検索します。
+            </summary>
+        </member>
+        <member name="P:BEditor.Primitive.Resources.Strings.Clamp">
+            <summary>
+              Clamp に類似しているローカライズされた文字列を検索します。
+            </summary>
+        </member>
+        <member name="P:BEditor.Primitive.Resources.Strings.ClearFramebuffer">
+            <summary>
+              Clear the frame buffer に類似しているローカライズされた文字列を検索します。
+            </summary>
+        </member>
+        <member name="P:BEditor.Primitive.Resources.Strings.Clipping">
+            <summary>
+              Clipping に類似しているローカライズされた文字列を検索します。
+            </summary>
+        </member>
+        <member name="P:BEditor.Primitive.Resources.Strings.Color">
+            <summary>
+              Color に類似しているローカライズされた文字列を検索します。
+            </summary>
+        </member>
+        <member name="P:BEditor.Primitive.Resources.Strings.ColorKey">
+            <summary>
+              Color key に類似しているローカライズされた文字列を検索します。
+            </summary>
+        </member>
+        <member name="P:BEditor.Primitive.Resources.Strings.Colors">
+            <summary>
+              Colors に類似しているローカライズされた文字列を検索します。
+            </summary>
+        </member>
+        <member name="P:BEditor.Primitive.Resources.Strings.Cube">
+            <summary>
+              Cube に類似しているローカライズされた文字列を検索します。
+            </summary>
+        </member>
+        <member name="P:BEditor.Primitive.Resources.Strings.Decal">
+            <summary>
+              Decal に類似しているローカライズされた文字列を検索します。
+            </summary>
+        </member>
+        <member name="P:BEditor.Primitive.Resources.Strings.Depth">
+            <summary>
+              Depth に類似しているローカライズされた文字列を検索します。
+            </summary>
+        </member>
+        <member name="P:BEditor.Primitive.Resources.Strings.DepthFunction">
+            <summary>
+              Depth function に類似しているローカライズされた文字列を検索します。
+            </summary>
+        </member>
+        <member name="P:BEditor.Primitive.Resources.Strings.DepthTest">
+            <summary>
+              Depth test に類似しているローカライズされた文字列を検索します。
+            </summary>
+        </member>
+        <member name="P:BEditor.Primitive.Resources.Strings.DepthTestEnable">
+            <summary>
+              Enable Depth Testing に類似しているローカライズされた文字列を検索します。
+            </summary>
+        </member>
+        <member name="P:BEditor.Primitive.Resources.Strings.Dilate">
+            <summary>
+              Dilate に類似しているローカライズされた文字列を検索します。
+            </summary>
+        </member>
+        <member name="P:BEditor.Primitive.Resources.Strings.DropShadow">
+            <summary>
+              Drop shadow に類似しているローカライズされた文字列を検索します。
+            </summary>
+        </member>
+        <member name="P:BEditor.Primitive.Resources.Strings.Ellipse">
+            <summary>
+              Ellipse に類似しているローカライズされた文字列を検索します。
+            </summary>
+        </member>
+        <member name="P:BEditor.Primitive.Resources.Strings.EnableMultipleObjects">
+            <summary>
+              Enable multiple objects に類似しているローカライズされた文字列を検索します。
+            </summary>
+        </member>
+        <member name="P:BEditor.Primitive.Resources.Strings.EndPoint">
+            <summary>
+              End point に類似しているローカライズされた文字列を検索します。
+            </summary>
+        </member>
+        <member name="P:BEditor.Primitive.Resources.Strings.Erode">
+            <summary>
+              Erode に類似しているローカライズされた文字列を検索します。
+            </summary>
+        </member>
+        <member name="P:BEditor.Primitive.Resources.Strings.FailedToLoad">
+            <summary>
+              {0} failed to load. に類似しているローカライズされた文字列を検索します。
+            </summary>
+        </member>
+        <member name="P:BEditor.Primitive.Resources.Strings.File">
+            <summary>
+              File に類似しているローカライズされた文字列を検索します。
+            </summary>
+        </member>
+        <member name="P:BEditor.Primitive.Resources.Strings.FitToOriginalSize">
+            <summary>
+              Fit to original size に類似しているローカライズされた文字列を検索します。
+            </summary>
+        </member>
+        <member name="P:BEditor.Primitive.Resources.Strings.Fov">
+            <summary>
+              viewing angle に類似しているローカライズされた文字列を検索します。
+            </summary>
+        </member>
+        <member name="P:BEditor.Primitive.Resources.Strings.Framebuffer">
+            <summary>
+              Framebuffer に類似しているローカライズされた文字列を検索します。
+            </summary>
+        </member>
+        <member name="P:BEditor.Primitive.Resources.Strings.Frequency">
+            <summary>
+              Frequency に類似しているローカライズされた文字列を検索します。
+            </summary>
+        </member>
+        <member name="P:BEditor.Primitive.Resources.Strings.GL3DObject">
+            <summary>
+              3D object に類似しているローカライズされた文字列を検索します。
+            </summary>
+        </member>
+        <member name="P:BEditor.Primitive.Resources.Strings.Height">
+            <summary>
+              Height に類似しているローカライズされた文字列を検索します。
+            </summary>
+        </member>
+        <member name="P:BEditor.Primitive.Resources.Strings.Image">
+            <summary>
+              Image に類似しているローカライズされた文字列を検索します。
+            </summary>
+        </member>
+        <member name="P:BEditor.Primitive.Resources.Strings.ImageEffects">
+            <summary>
+              Image effects に類似しているローカライズされた文字列を検索します。
+            </summary>
+        </member>
+        <member name="P:BEditor.Primitive.Resources.Strings.ImageFile">
+            <summary>
+              Image file に類似しているローカライズされた文字列を検索します。
+            </summary>
+        </member>
+        <member name="P:BEditor.Primitive.Resources.Strings.ImageSplit">
+            <summary>
+              Image splitting に類似しているローカライズされた文字列を検索します。
+            </summary>
+        </member>
+        <member name="P:BEditor.Primitive.Resources.Strings.InvertMask">
+            <summary>
+              Invert Mask に類似しているローカライズされた文字列を検索します。
+            </summary>
+        </member>
+        <member name="P:BEditor.Primitive.Resources.Strings.Left">
+            <summary>
+              Left に類似しているローカライズされた文字列を検索します。
+            </summary>
+        </member>
+        <member name="P:BEditor.Primitive.Resources.Strings.LinearGradient">
+            <summary>
+              Liear gradient に類似しているローカライズされた文字列を検索します。
+            </summary>
+        </member>
+        <member name="P:BEditor.Primitive.Resources.Strings.LineWidth">
+            <summary>
+              line width に類似しているローカライズされた文字列を検索します。
+            </summary>
+        </member>
+        <member name="P:BEditor.Primitive.Resources.Strings.Listener">
+            <summary>
+              Listener に類似しているローカライズされた文字列を検索します。
+            </summary>
+        </member>
+        <member name="P:BEditor.Primitive.Resources.Strings.Mask">
+            <summary>
+              Mask に類似しているローカライズされた文字列を検索します。
+            </summary>
+        </member>
+        <member name="P:BEditor.Primitive.Resources.Strings.Mirror">
+            <summary>
+              Mirror に類似しているローカライズされた文字列を検索します。
+            </summary>
+        </member>
+        <member name="P:BEditor.Primitive.Resources.Strings.Mode">
+            <summary>
+              Mode に類似しているローカライズされた文字列を検索します。
+            </summary>
+        </member>
+        <member name="P:BEditor.Primitive.Resources.Strings.Monoc">
+            <summary>
+              Monochromatic に類似しているローカライズされた文字列を検索します。
+            </summary>
+        </member>
+        <member name="P:BEditor.Primitive.Resources.Strings.MultipleImageControls">
+            <summary>
+              Multiple Image Control に類似しているローカライズされた文字列を検索します。
+            </summary>
+        </member>
+        <member name="P:BEditor.Primitive.Resources.Strings.NumberOfHorizontalDivisions">
+            <summary>
+              Number of horizontal divisions に類似しているローカライズされた文字列を検索します。
+            </summary>
+        </member>
+        <member name="P:BEditor.Primitive.Resources.Strings.NumberOfVerticalDivisions">
+            <summary>
+              Number of vertical divisions に類似しているローカライズされた文字列を検索します。
+            </summary>
+        </member>
+        <member name="P:BEditor.Primitive.Resources.Strings.Opacity">
+            <summary>
+              Opacity に類似しているローカライズされた文字列を検索します。
+            </summary>
+        </member>
+        <member name="P:BEditor.Primitive.Resources.Strings.PathToImageObject">
+            <summary>
+              Path to the image object に類似しているローカライズされた文字列を検索します。
+            </summary>
+        </member>
+        <member name="P:BEditor.Primitive.Resources.Strings.Perspective">
+            <summary>
+              Perspective に類似しているローカライズされた文字列を検索します。
+            </summary>
+        </member>
+        <member name="P:BEditor.Primitive.Resources.Strings.Pitch">
+            <summary>
+              Pitch に類似しているローカライズされた文字列を検索します。
+            </summary>
+        </member>
+        <member name="P:BEditor.Primitive.Resources.Strings.PointLightDiffuse">
+            <summary>
+              Point light diffuse に類似しているローカライズされた文字列を検索します。
+            </summary>
+        </member>
+        <member name="P:BEditor.Primitive.Resources.Strings.PointLightSource">
+            <summary>
+              Point light source に類似しているローカライズされた文字列を検索します。
+            </summary>
+        </member>
+        <member name="P:BEditor.Primitive.Resources.Strings.Polygon">
+            <summary>
+              Polygon に類似しているローカライズされた文字列を検索します。
+            </summary>
+        </member>
+        <member name="P:BEditor.Primitive.Resources.Strings.Radius">
+            <summary>
+              Radius に類似しているローカライズされた文字列を検索します。
+            </summary>
+        </member>
+        <member name="P:BEditor.Primitive.Resources.Strings.Rectangle">
+            <summary>
+              Rectangle に類似しているローカライズされた文字列を検索します。
+            </summary>
+        </member>
+        <member name="P:BEditor.Primitive.Resources.Strings.Repeat">
+            <summary>
+              Repeat に類似しているローカライズされた文字列を検索します。
+            </summary>
+        </member>
+        <member name="P:BEditor.Primitive.Resources.Strings.Resize">
+            <summary>
+              Resize に類似しているローカライズされた文字列を検索します。
+            </summary>
+        </member>
+        <member name="P:BEditor.Primitive.Resources.Strings.Right">
+            <summary>
+              Right に類似しているローカライズされた文字列を検索します。
+            </summary>
+        </member>
+        <member name="P:BEditor.Primitive.Resources.Strings.Rotate">
+            <summary>
+              Rotate に類似しているローカライズされた文字列を検索します。
+            </summary>
+        </member>
+        <member name="P:BEditor.Primitive.Resources.Strings.RoundRect">
+            <summary>
+              Round rect に類似しているローカライズされた文字列を検索します。
+            </summary>
+        </member>
+        <member name="P:BEditor.Primitive.Resources.Strings.Scene">
+            <summary>
+              Scene に類似しているローカライズされた文字列を検索します。
+            </summary>
+        </member>
+        <member name="P:BEditor.Primitive.Resources.Strings.Scenes">
+            <summary>
+              Scenes に類似しているローカライズされた文字列を検索します。
+            </summary>
+        </member>
+        <member name="P:BEditor.Primitive.Resources.Strings.Shape">
+            <summary>
+              Shape に類似しているローカライズされた文字列を検索します。
+            </summary>
+        </member>
+        <member name="P:BEditor.Primitive.Resources.Strings.Size">
+            <summary>
+              Size に類似しているローカライズされた文字列を検索します。
+            </summary>
+        </member>
+        <member name="P:BEditor.Primitive.Resources.Strings.Speed">
+            <summary>
+              Speed に類似しているローカライズされた文字列を検索します。
+            </summary>
+        </member>
+        <member name="P:BEditor.Primitive.Resources.Strings.Start">
+            <summary>
+              Start に類似しているローカライズされた文字列を検索します。
+            </summary>
+        </member>
+        <member name="P:BEditor.Primitive.Resources.Strings.StartPoint">
+            <summary>
+              Start point に類似しているローカライズされた文字列を検索します。
+            </summary>
+        </member>
+        <member name="P:BEditor.Primitive.Resources.Strings.TargetX">
+            <summary>
+              Target x に類似しているローカライズされた文字列を検索します。
+            </summary>
+        </member>
+        <member name="P:BEditor.Primitive.Resources.Strings.TargetY">
+            <summary>
+              Target y に類似しているローカライズされた文字列を検索します。
+            </summary>
+        </member>
+        <member name="P:BEditor.Primitive.Resources.Strings.TargetZ">
+            <summary>
+              Target z に類似しているローカライズされた文字列を検索します。
+            </summary>
+        </member>
+        <member name="P:BEditor.Primitive.Resources.Strings.Text">
+            <summary>
+              Text に類似しているローカライズされた文字列を検索します。
+            </summary>
+        </member>
+        <member name="P:BEditor.Primitive.Resources.Strings.ThresholdValue">
+            <summary>
+              Threshold value に類似しているローカライズされた文字列を検索します。
+            </summary>
+        </member>
+        <member name="P:BEditor.Primitive.Resources.Strings.Top">
+            <summary>
+              Top に類似しているローカライズされた文字列を検索します。
+            </summary>
+        </member>
+        <member name="P:BEditor.Primitive.Resources.Strings.Type">
+            <summary>
+              Type に類似しているローカライズされた文字列を検索します。
+            </summary>
+        </member>
+        <member name="P:BEditor.Primitive.Resources.Strings.Video">
+            <summary>
+              Video に類似しているローカライズされた文字列を検索します。
+            </summary>
+        </member>
+        <member name="P:BEditor.Primitive.Resources.Strings.VideoFile">
+            <summary>
+              Video file に類似しているローカライズされた文字列を検索します。
+            </summary>
+        </member>
+        <member name="P:BEditor.Primitive.Resources.Strings.Volume">
+            <summary>
+              Volume に類似しているローカライズされた文字列を検索します。
+            </summary>
+        </member>
+        <member name="P:BEditor.Primitive.Resources.Strings.Width">
+            <summary>
+              Width に類似しているローカライズされた文字列を検索します。
+            </summary>
+        </member>
+        <member name="P:BEditor.Primitive.Resources.Strings.X">
+            <summary>
+              X に類似しているローカライズされた文字列を検索します。
+            </summary>
+        </member>
+        <member name="P:BEditor.Primitive.Resources.Strings.Y">
+            <summary>
+              Y に類似しているローカライズされた文字列を検索します。
+            </summary>
+        </member>
+        <member name="P:BEditor.Primitive.Resources.Strings.Z">
+            <summary>
+              Z に類似しているローカライズされた文字列を検索します。
+            </summary>
+        </member>
+        <member name="P:BEditor.Primitive.Resources.Strings.ZFar">
+            <summary>
+              ZFar に類似しているローカライズされた文字列を検索します。
+            </summary>
+        </member>
+        <member name="P:BEditor.Primitive.Resources.Strings.ZNear">
+            <summary>
+              ZNear に類似しているローカライズされた文字列を検索します。
             </summary>
         </member>
     </members>

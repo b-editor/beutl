@@ -7,6 +7,7 @@ using System.Threading.Tasks;
 
 using BEditor.Command;
 using BEditor.Media;
+using BEditor.Resources;
 
 namespace BEditor.Data
 {
@@ -49,7 +50,7 @@ namespace BEditor.Data
             public ClipElement Clip { get; private set; }
 
             /// <inheritdoc/>
-            public string Name => CommandName.AddClip;
+            public string Name => Strings.AddClip;
 
             /// <inheritdoc/>
             public void Do()
@@ -101,7 +102,7 @@ namespace BEditor.Data
             }
 
             /// <inheritdoc/>
-            public string Name => CommandName.RemoveClip;
+            public string Name => Strings.RemoveClip;
 
             /// <inheritdoc/>
             public void Do()
@@ -192,7 +193,7 @@ namespace BEditor.Data
             }
 
             /// <inheritdoc/>
-            public string Name => CommandName.MoveClip;
+            public string Name => Strings.MoveClip;
             private Scene Scene => _clip.Parent;
 
             /// <inheritdoc/>
@@ -250,7 +251,7 @@ namespace BEditor.Data
             }
 
             /// <inheritdoc/>
-            public string Name => CommandName.ChangeLength;
+            public string Name => Strings.ChangeLength;
 
             /// <inheritdoc/>
             public void Do()
@@ -308,7 +309,7 @@ namespace BEditor.Data
             public ClipElement After { get; }
 
             /// <inheritdoc/>
-            public string Name => CommandName.SplitClip;
+            public string Name => Strings.SplitClip;
 
             /// <inheritdoc/>
             public void Do()

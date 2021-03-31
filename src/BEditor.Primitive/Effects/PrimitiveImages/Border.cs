@@ -5,7 +5,7 @@ using BEditor.Data.Primitive;
 using BEditor.Data.Property;
 using BEditor.Drawing;
 using BEditor.Drawing.Pixel;
-using BEditor.Properties;
+using BEditor.Primitive.Resources;
 
 namespace BEditor.Primitive.Effects
 {
@@ -17,11 +17,11 @@ namespace BEditor.Primitive.Effects
         /// <summary>
         /// Represents <see cref="Size"/> metadata.
         /// </summary>
-        public static readonly EasePropertyMetadata SizeMetadata = new(Resources.Size, 10, float.NaN, 1);
+        public static readonly EasePropertyMetadata SizeMetadata = new(Strings.Size, 10, float.NaN, 1);
         /// <summary>
         /// Represents <see cref="Color"/> metadata.
         /// </summary>
-        public static readonly ColorPropertyMetadata ColorMetadata = new(Resources.Color, Drawing.Color.Light);
+        public static readonly ColorPropertyMetadata ColorMetadata = new(Strings.Color, Drawing.Color.Light);
 
         /// <summary>
         /// Initializes a new instance of the <see cref="Border"/> class.
@@ -33,7 +33,7 @@ namespace BEditor.Primitive.Effects
         }
 
         /// <inheritdoc/>
-        public override string Name => Resources.Border;
+        public override string Name => Strings.Border;
         /// <inheritdoc/>
         public override IEnumerable<PropertyElement> Properties => new PropertyElement[]
         {

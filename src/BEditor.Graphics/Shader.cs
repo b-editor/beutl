@@ -9,7 +9,7 @@ using System.Text;
 using System.Threading;
 using System.Threading.Tasks;
 
-using BEditor.Graphics.Properties;
+using BEditor.Graphics.Resources;
 
 using OpenTK.Graphics.OpenGL4;
 
@@ -102,7 +102,7 @@ namespace BEditor.Graphics
                 // We can use `GL.GetShaderInfoLog(shader)` to get information about the error.
                 var infoLog = GL.GetShaderInfoLog(shader);
                 Debug.Assert(false);
-                throw new GraphicsException(string.Format(Resources.ErrorOccurredWhilistCompilingShader, shader, infoLog));
+                throw new GraphicsException(string.Format(Strings.ErrorOccurredWhilistCompilingShader, shader, infoLog));
             }
         }
         private static void LinkProgram(int program)
@@ -113,7 +113,7 @@ namespace BEditor.Graphics
             if (code != (int)All.True)
             {
                 Debug.Assert(false);
-                throw new GraphicsException(string.Format(Resources.ErrorOccurredWhilstLinkingProgram, program));
+                throw new GraphicsException(string.Format(Strings.ErrorOccurredWhilstLinkingProgram, program));
             }
         }
         /// <summary>

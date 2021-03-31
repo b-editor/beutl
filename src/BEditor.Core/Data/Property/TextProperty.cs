@@ -8,6 +8,7 @@ using System.Text.Json;
 
 using BEditor.Command;
 using BEditor.Data.Bindings;
+using BEditor.Resources;
 
 namespace BEditor.Data.Property
 {
@@ -141,7 +142,7 @@ namespace BEditor.Data.Property
                 _new = value;
             }
 
-            public string Name => CommandName.ChangeText;
+            public string Name => Strings.ChangeText;
 
             public void Do()
             {

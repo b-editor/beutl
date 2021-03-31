@@ -1,7 +1,7 @@
 ﻿using System;
 using System.Collections.Generic;
 
-using BEditor.Properties;
+using BEditor.Resources;
 
 namespace BEditor.Data
 {
@@ -65,7 +65,7 @@ namespace BEditor.Data
 
             if (PropertyFromKey.ContainsKey(key))
             {
-                throw new DataException(ExceptionMessage.KeyHasAlreadyBeenRegisterd);
+                throw new DataException(Strings.KeyHasAlreadyBeenRegisterd);
             }
 
             var property = new EditingProperty<TValue>(name, typeof(TOwner), builder);

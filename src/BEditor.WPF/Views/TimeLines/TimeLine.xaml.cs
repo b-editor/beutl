@@ -11,12 +11,11 @@ using BEditor.Command;
 using BEditor.Data;
 using BEditor.Models;
 using BEditor.Models.Extension;
+using BEditor.Properties;
 using BEditor.ViewModels;
 using BEditor.ViewModels.TimeLines;
 
 using MaterialDesignThemes.Wpf;
-
-using Resource = BEditor.Properties.Resources;
 
 namespace BEditor.Views.TimeLines
 {
@@ -44,8 +43,16 @@ namespace BEditor.Views.TimeLines
                     Orientation = Orientation.Horizontal,
                     Children =
                     {
-                        new PackIcon() { Kind = PackIconKind.Delete, Margin = new Thickness(5, 0, 5, 0) },
-                        new TextBlock() { Text = Resource.Remove, Margin = new Thickness(20, 0, 5, 0) }
+                        new PackIcon()
+                        {
+                            Kind = PackIconKind.Delete,
+                            Margin = new Thickness(5, 0, 5, 0)
+                        },
+                        new TextBlock()
+                        {
+                            Text = Strings.Remove,
+                            Margin = new Thickness(20, 0, 5, 0)
+                        }
                     }
                 };
                 remove.Header = removeMenu;
@@ -174,7 +181,7 @@ namespace BEditor.Views.TimeLines
         {
             var clipMenu = new MenuItem()
             {
-                Header = Resource.AddClip
+                Header = Strings.AddClip
             };
             foreach (var objmetadata in ObjectMetadata.LoadedObjects)
             {

@@ -4,7 +4,7 @@ using System.Linq;
 using BEditor.Data;
 using BEditor.Data.Property;
 using BEditor.Graphics;
-using BEditor.Properties;
+using BEditor.Primitive.Resources;
 
 namespace BEditor.Primitive.Objects
 {
@@ -16,47 +16,47 @@ namespace BEditor.Primitive.Objects
         /// <summary>
         /// Represents <see cref="X"/> metadata.
         /// </summary>
-        public static readonly EasePropertyMetadata XMetadata = new(Resources.X, 0, UseOptional: true);
+        public static readonly EasePropertyMetadata XMetadata = new(Strings.X, 0, UseOptional: true);
         /// <summary>
         /// Represents <see cref="Y"/> metadata.
         /// </summary>
-        public static readonly EasePropertyMetadata YMetadata = new(Resources.Y, 0, UseOptional: true);
+        public static readonly EasePropertyMetadata YMetadata = new(Strings.Y, 0, UseOptional: true);
         /// <summary>
         /// Represents <see cref="Z"/> metadata.
         /// </summary>
-        public static readonly EasePropertyMetadata ZMetadata = new(Resources.Z, 1024, UseOptional: true);
+        public static readonly EasePropertyMetadata ZMetadata = new(Strings.Z, 1024, UseOptional: true);
         /// <summary>
         /// Represents <see cref="TargetX"/> metadata.
         /// </summary>
-        public static readonly EasePropertyMetadata TargetXMetadata = new(Resources.TargetX, 0, UseOptional: true);
+        public static readonly EasePropertyMetadata TargetXMetadata = new(Strings.TargetX, 0, UseOptional: true);
         /// <summary>
         /// Represents <see cref="TargetY"/> metadata.
         /// </summary>
-        public static readonly EasePropertyMetadata TargetYMetadata = new(Resources.TargetY, 0, UseOptional: true);
+        public static readonly EasePropertyMetadata TargetYMetadata = new(Strings.TargetY, 0, UseOptional: true);
         /// <summary>
         /// Represents <see cref="TargetZ"/> metadata.
         /// </summary>
-        public static readonly EasePropertyMetadata TargetZMetadata = new(Resources.TargetZ, 0, UseOptional: true);
+        public static readonly EasePropertyMetadata TargetZMetadata = new(Strings.TargetZ, 0, UseOptional: true);
         /// <summary>
         /// Represents <see cref="ZNear"/> metadata.
         /// </summary>
-        public static readonly EasePropertyMetadata ZNearMetadata = new(Resources.ZNear, 0.1F, Min: 0.1F, UseOptional: true);
+        public static readonly EasePropertyMetadata ZNearMetadata = new(Strings.ZNear, 0.1F, Min: 0.1F, UseOptional: true);
         /// <summary>
         /// Represents <see cref="ZFar"/> metadata.
         /// </summary>
-        public static readonly EasePropertyMetadata ZFarMetadata = new(Resources.ZFar, 20000, UseOptional: true);
+        public static readonly EasePropertyMetadata ZFarMetadata = new(Strings.ZFar, 20000, UseOptional: true);
         /// <summary>
         /// Represents <see cref="Angle"/> metadata.
         /// </summary>
-        public static readonly EasePropertyMetadata AngleMetadata = new(Resources.Angle, 0, UseOptional: true);
+        public static readonly EasePropertyMetadata AngleMetadata = new(Strings.Angle, 0, UseOptional: true);
         /// <summary>
         /// Represents <see cref="Fov"/> metadata.
         /// </summary>
-        public static readonly EasePropertyMetadata FovMetadata = new(Resources.Fov, 45, 179, 1, UseOptional: true);
+        public static readonly EasePropertyMetadata FovMetadata = new(Strings.Fov, 45, 179, 1, UseOptional: true);
         /// <summary>
         /// Represents <see cref="Mode"/> metadata.
         /// </summary>
-        public static readonly CheckPropertyMetadata ModeMetadata = new(Resources.Perspective, true);
+        public static readonly CheckPropertyMetadata ModeMetadata = new(Strings.Perspective, true);
 
         /// <summary>
         /// Initializes a new instance <see cref="CameraObject"/> class.
@@ -77,7 +77,7 @@ namespace BEditor.Primitive.Objects
         }
 
         /// <inheritdoc/>
-        public override string Name => Resources.Camera;
+        public override string Name => Strings.Camera;
         /// <inheritdoc/>
         public override IEnumerable<PropertyElement> Properties => new PropertyElement[]
         {

@@ -6,7 +6,7 @@
     xmlns:local="clr-namespace:BEditor.Views.ToolControl"
     xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
     xmlns:md="http://materialdesigninxaml.net/winfx/xaml/themes"
-    xmlns:prop="clr-namespace:BEditor.Properties;assembly=BEditor.Core"
+    xmlns:prop="clr-namespace:BEditor.Properties"
     x:Name="root"
     Width="240"
     Height="40"
@@ -51,7 +51,7 @@
                 DockPanel.Dock="Left"
                 KeyDown="Text_box_KeyDown"
                 Text="{Binding ElementName=root, Path=Frame.Value, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"
-                ToolTip="{x:Static prop:Resources.Move_to_the_specified_frame}" />
+                ToolTip="{x:Static prop:Strings.MoveToSpecifiedFrame}" />
         </DockPanel>
     </md:Card>
 </UserControl>

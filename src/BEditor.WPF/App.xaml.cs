@@ -36,8 +36,6 @@ using Microsoft.Extensions.Logging;
 
 using OpenTK.Audio.OpenAL;
 
-using Resource = BEditor.Properties.Resources;
-
 namespace BEditor
 {
     /// <summary>
@@ -87,23 +85,23 @@ namespace BEditor
             {
                 RegisterPrimitive();
 
-                viewmodel.Status.Value = string.Format(MessageResources.IsLoading, Resource.ColorPalette);
+                viewmodel.Status.Value = string.Format(Strings.IsLoading, Strings.ColorPalette);
                 await InitialColorsAsync();
 
-                viewmodel.Status.Value = string.Format(MessageResources.IsLoading, Resource.Font);
+                viewmodel.Status.Value = string.Format(Strings.IsLoading, Strings.Font);
                 await Task.Run(() => FontManager.Default);
 
-                viewmodel.Status.Value = string.Format(MessageResources.IsLoading, Resource.Plugins);
+                viewmodel.Status.Value = string.Format(Strings.IsLoading, Strings.Plugins);
                 await InitialPlugins();
 
-                viewmodel.Status.Value = string.Format(MessageResources.IsChecking, Resource.Library);
+                viewmodel.Status.Value = string.Format(Strings.IsChecking, Strings.Library);
 
                 var msg = AppData.Current.Message;
 
                 await InitFFmpeg();
                 if (!CheckOpenAL())
                 {
-                    if (msg!.Dialog(MessageResources.OpenALNotFound, IMessage.IconType.Info, new IMessage.ButtonType[] { IMessage.ButtonType.Yes, IMessage.ButtonType.No }) is IMessage.ButtonType.Yes)
+                    if (msg!.Dialog(Strings.OpenALNotFound, IMessage.IconType.Info, new IMessage.ButtonType[] { IMessage.ButtonType.Yes, IMessage.ButtonType.No }) is IMessage.ButtonType.Yes)
                     {
                         Process.Start(new ProcessStartInfo("cmd", $"/c start https://www.openal.org/downloads/") { CreateNoWindow = true });
                     }
@@ -193,7 +191,7 @@ namespace BEditor
 
             if (!await installer.IsInstalledAsync())
             {
-                if (msg!.Dialog(MessageResources.FFmpegNotFound, IMessage.IconType.Info, new IMessage.ButtonType[] { IMessage.ButtonType.Yes, IMessage.ButtonType.No }) is IMessage.ButtonType.Yes)
+                if (msg!.Dialog(Strings.FFmpegNotFound, IMessage.IconType.Info, new IMessage.ButtonType[] { IMessage.ButtonType.Yes, IMessage.ButtonType.No }) is IMessage.ButtonType.Yes)
                 {
                     try
                     {
@@ -213,12 +211,12 @@ namespace BEditor
 
                                 dialog.Show();
 
-                                loading.Text.Value = string.Format(MessageResources.IsDownloading, "FFmpeg");
+                                loading.Text.Value = string.Format(Strings.IsDownloading, "FFmpeg");
                             });
                         }
                         void downloadComp(object? s, AsyncCompletedEventArgs e)
                         {
-                            loading.Text.Value = string.Format(MessageResources.IsExtractedAndPlaced, "FFmpeg");
+                            loading.Text.Value = string.Format(Strings.IsExtractedAndPlaced, "FFmpeg");
                             loading.IsIndeterminate.Value = true;
                         }
                         void progress(object s, DownloadProgressChangedEventArgs e)
@@ -241,14 +239,14 @@ namespace BEditor
                     }
                     catch (Exception e)
                     {
-                        msg.Dialog(string.Format(MessageResources.FailedToInstall, "FFmpeg"));
+                        msg.Dialog(string.Format(Strings.FailedToInstall, "FFmpeg"));
 
                         Logger.LogError(e, "Failed to install ffmpeg.");
                     }
                 }
                 else
                 {
-                    msg.Dialog(MessageResources.SomeFunctionsAreNotAvailable_);
+                    msg.Dialog(Strings.SomeFunctionsAreNotAvailable_);
                 }
             }
         }
@@ -323,7 +321,7 @@ namespace BEditor
         {
             ObjectMetadata.LoadedObjects.Add(PrimitiveTypes.VideoMetadata);
             ObjectMetadata.LoadedObjects.Add(PrimitiveTypes.ImageMetadata);
-            ObjectMetadata.LoadedObjects.Add(PrimitiveTypes.FigureMetadata);
+            ObjectMetadata.LoadedObjects.Add(PrimitiveTypes.ShapeMetadata);
             ObjectMetadata.LoadedObjects.Add(PrimitiveTypes.PolygonMetadata);
             ObjectMetadata.LoadedObjects.Add(PrimitiveTypes.RoundRectMetadata);
             ObjectMetadata.LoadedObjects.Add(PrimitiveTypes.TextMetadata);
@@ -333,40 +331,10 @@ namespace BEditor
             ObjectMetadata.LoadedObjects.Add(PrimitiveTypes.FramebufferMetadata);
             ObjectMetadata.LoadedObjects.Add(PrimitiveTypes.ListenerMetadata);
 
-            EffectMetadata.LoadedEffects.Add(new(Resource.Effects)
+            foreach (var effect in PrimitiveTypes.EnumerateAllEffectMetadata())
             {
-                Children = new EffectMetadata[]
-                {
-                    EffectMetadata.Create<Border>(Resource.Border),
-                    EffectMetadata.Create<StrokeText>($"{Resource.Border} ({Resource.Text})"),
-                    EffectMetadata.Create<ColorKey>(Resource.ColorKey),
-                    EffectMetadata.Create<Shadow>(Resource.DropShadow),
-                    EffectMetadata.Create<Blur>(Resource.Blur),
-                    EffectMetadata.Create<Monoc>(Resource.Monoc),
-                    EffectMetadata.Create<Dilate>(Resource.Dilate),
-                    EffectMetadata.Create<Erode>(Resource.Erode),
-                    EffectMetadata.Create<Clipping>(Resource.Clipping),
-                    EffectMetadata.Create<AreaExpansion>(Resource.AreaExpansion),
-                    EffectMetadata.Create<LinearGradient>(Resource.LinearGradient),
-                    EffectMetadata.Create<CircularGradient>(Resource.CircularGradient),
-                    EffectMetadata.Create<Mask>(Resource.Mask),
-                    EffectMetadata.Create<PointLightDiffuse>(Resource.PointLightDiffuse),
-                    EffectMetadata.Create<ChromaKey>(Resource.ChromaKey),
-                    EffectMetadata.Create<ImageSplit>(Resource.ImageSplit),
-                    EffectMetadata.Create<MultipleControls>(Resource.MultipleImageControls),
-                }
-            });
-            EffectMetadata.LoadedEffects.Add(new(Resource.Camera)
-            {
-                Children = new EffectMetadata[]
-                {
-                    EffectMetadata.Create<DepthTest>(Resource.DepthTest),
-                    EffectMetadata.Create<PointLightSource>(Resource.PointLightSource),
-                }
-            });
-#if DEBUG
-            EffectMetadata.LoadedEffects.Add(new("TestEffect", () => new TestEffect()));
-#endif
+                EffectMetadata.LoadedEffects.Add(effect);
+            }
         }
         private static async Task InitialColorsAsync()
         {
@@ -510,7 +478,7 @@ namespace BEditor
         {
             await using var provider = AppData.Current.Services.BuildServiceProvider();
             provider.GetService<IMessage>()!
-                .Snackbar(string.Format(Resource.ExceptionWasThrown, e.Exception.GetType().FullName));
+                .Snackbar(string.Format(Strings.ExceptionWasThrown, e.Exception.GetType().FullName));
 
             Logger?.LogError(e.Exception, "UnhandledException was thrown.");
 

@@ -8,7 +8,7 @@ using BEditor.Drawing;
 using BEditor.Drawing.Pixel;
 using BEditor.Media;
 using BEditor.Media.Decoder;
-using BEditor.Properties;
+using BEditor.Primitive.Resources;
 
 using Microsoft.Extensions.DependencyInjection;
 
@@ -22,15 +22,15 @@ namespace BEditor.Primitive.Objects
         /// <summary>
         /// Represents <see cref="Speed"/> metadata.
         /// </summary>
-        public static readonly EasePropertyMetadata SpeedMetadata = new(Resources.Speed, 100);
+        public static readonly EasePropertyMetadata SpeedMetadata = new(Strings.Speed, 100);
         /// <summary>
         /// Represents <see cref="Start"/> metadata.
         /// </summary>
-        public static readonly EasePropertyMetadata StartMetadata = new(Resources.Start, 1, float.NaN, 0);
+        public static readonly EasePropertyMetadata StartMetadata = new(Strings.Start, 1, float.NaN, 0);
         /// <summary>
         /// Represents <see cref="File"/> metadata.
         /// </summary>
-        public static readonly FilePropertyMetadata FileMetadata = new(Resources.File, "", new(Resources.VideoFile, new FileExtension[]
+        public static readonly FilePropertyMetadata FileMetadata = new(Strings.File, "", new(Strings.VideoFile, new FileExtension[]
         {
             new("mp4"),
             new("avi"),
@@ -51,14 +51,14 @@ namespace BEditor.Primitive.Objects
         }
 
         /// <inheritdoc/>
-        public override string Name => Resources.Video;
+        public override string Name => Strings.Video;
         /// <inheritdoc/>
         public override IEnumerable<PropertyElement> Properties => new PropertyElement[]
         {
             Coordinate,
-            Zoom,
+            Scale,
             Blend,
-            Angle,
+            Rotate,
             Material,
             Speed,
             Start,
@@ -116,7 +116,7 @@ namespace BEditor.Primitive.Objects
                 catch (Exception)
                 {
                     var mes = ServiceProvider?.GetService<IMessage>();
-                    mes?.Snackbar(string.Format(Resources.FailedToLoad, filename));
+                    mes?.Snackbar(string.Format(Strings.FailedToLoad, filename));
                 }
             });
         }

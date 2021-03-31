@@ -1,12 +1,9 @@
 ﻿using System;
 using System.Collections.Generic;
-using System.Linq;
-using System.Text;
-using System.Threading.Tasks;
 
 using BEditor.Data;
-using BEditor.Properties;
 using BEditor.Primitive.Objects;
+using BEditor.Primitive.Resources;
 
 namespace BEditor.Primitive
 {
@@ -32,9 +29,9 @@ namespace BEditor.Primitive
         /// </summary>
         public static readonly Type Text = typeof(Text);
         /// <summary>
-        /// <see cref="Type"/> of <see cref="Objects.Figure"/> class.
+        /// <see cref="Type"/> of <see cref="Objects.Shape"/> class.
         /// </summary>
-        public static readonly Type Figure = typeof(Figure);
+        public static readonly Type Shape = typeof(Shape);
         /// <summary>
         /// <see cref="Type"/> of <see cref="Objects.Polygon"/> class.
         /// </summary>
@@ -66,51 +63,93 @@ namespace BEditor.Primitive
         /// <summary>
         /// Metadata of <see cref="VideoFile"/> class.
         /// </summary>
-        public static readonly ObjectMetadata VideoMetadata = ObjectMetadata.Create<VideoFile>(Resources.Video);
+        public static readonly ObjectMetadata VideoMetadata = ObjectMetadata.Create<VideoFile>(Strings.Video);
         /// <summary>
         /// Metadata of <see cref="AudioObject"/> class.
         /// </summary>
-        public static readonly ObjectMetadata AudioMetadata = ObjectMetadata.Create<AudioObject>(Resources.Audio);
+        public static readonly ObjectMetadata AudioMetadata = ObjectMetadata.Create<AudioObject>(Strings.Audio);
         /// <summary>
         /// Metadata of <see cref="ImageFile"/> class.
         /// </summary>
-        public static readonly ObjectMetadata ImageMetadata = ObjectMetadata.Create<ImageFile>(Resources.Image);
+        public static readonly ObjectMetadata ImageMetadata = ObjectMetadata.Create<ImageFile>(Strings.Image);
         /// <summary>
         /// Metadata of <see cref="Objects.Text"/> class.
         /// </summary>
-        public static readonly ObjectMetadata TextMetadata = ObjectMetadata.Create<Text>(Resources.Text);
+        public static readonly ObjectMetadata TextMetadata = ObjectMetadata.Create<Text>(Strings.Text);
         /// <summary>
-        /// Metadata of <see cref="Objects.Figure"/> class.
+        /// Metadata of <see cref="Objects.Shape"/> class.
         /// </summary>
-        public static readonly ObjectMetadata FigureMetadata = ObjectMetadata.Create<Figure>(Resources.Figure);
+        public static readonly ObjectMetadata ShapeMetadata = ObjectMetadata.Create<Shape>(Strings.Shape);
         /// <summary>
         /// Metadata of <see cref="Objects.Polygon"/> class.
         /// </summary>
-        public static readonly ObjectMetadata PolygonMetadata = ObjectMetadata.Create<Polygon>("Polygon");
+        public static readonly ObjectMetadata PolygonMetadata = ObjectMetadata.Create<Polygon>(Strings.Polygon);
         /// <summary>
         /// Metadata of <see cref="Objects.RoundRect"/> class.
         /// </summary>
-        public static readonly ObjectMetadata RoundRectMetadata = ObjectMetadata.Create<RoundRect>("RoundRect");
+        public static readonly ObjectMetadata RoundRectMetadata = ObjectMetadata.Create<RoundRect>(Strings.RoundRect);
         /// <summary>
         /// Metadata of <see cref="CameraObject"/> class.
         /// </summary>
-        public static readonly ObjectMetadata CameraMetadata = ObjectMetadata.Create<CameraObject>(Resources.Camera);
+        public static readonly ObjectMetadata CameraMetadata = ObjectMetadata.Create<CameraObject>(Strings.Camera);
         /// <summary>
         /// Metadata of <see cref="Objects.GL3DObject"/> class.
         /// </summary>
-        public static readonly ObjectMetadata GL3DObjectMetadata = ObjectMetadata.Create<GL3DObject>(Resources._3DObject);
+        public static readonly ObjectMetadata GL3DObjectMetadata = ObjectMetadata.Create<GL3DObject>(Strings.GL3DObject);
         /// <summary>
         /// Metadata of <see cref="SceneObject"/> class.
         /// </summary>
-        public static readonly ObjectMetadata SceneMetadata = ObjectMetadata.Create<SceneObject>(Resources.Scene);
+        public static readonly ObjectMetadata SceneMetadata = ObjectMetadata.Create<SceneObject>(Strings.Scene);
         /// <summary>
         /// Metadata of <see cref="Framebuffer"/> class.
         /// </summary>
-        public static readonly ObjectMetadata FramebufferMetadata = ObjectMetadata.Create<Framebuffer>(Resources.Framebuffer);
+        public static readonly ObjectMetadata FramebufferMetadata = ObjectMetadata.Create<Framebuffer>(Strings.Framebuffer);
         /// <summary>
         /// Metadata of <see cref="ListenerObject"/> class.
         /// </summary>
-        public static readonly ObjectMetadata ListenerMetadata = ObjectMetadata.Create<ListenerObject>("リスナー");
+        public static readonly ObjectMetadata ListenerMetadata = ObjectMetadata.Create<ListenerObject>(Strings.Listener);
 
+        /// <summary>
+        /// Enumerate all effects.
+        /// </summary>
+        /// <returns></returns>
+        public static IEnumerable<EffectMetadata> EnumerateAllEffectMetadata()
+        {
+            yield return new(Strings.ImageEffects)
+            {
+                Children = new[]
+                {
+                    EffectMetadata.Create<Effects.Border>(Strings.Border),
+                    EffectMetadata.Create<Effects.StrokeText>($"{Strings.Border} ({Strings.Text})"),
+                    EffectMetadata.Create<Effects.ColorKey>(Strings.ColorKey),
+                    EffectMetadata.Create<Effects.Shadow>(Strings.DropShadow),
+                    EffectMetadata.Create<Effects.Blur>(Strings.Blur),
+                    EffectMetadata.Create<Effects.Monoc>(Strings.Monoc),
+                    EffectMetadata.Create<Effects.Dilate>(Strings.Dilate),
+                    EffectMetadata.Create<Effects.Erode>(Strings.Erode),
+                    EffectMetadata.Create<Effects.Clipping>(Strings.Clipping),
+                    EffectMetadata.Create<Effects.AreaExpansion>(Strings.AreaExpansion),
+                    EffectMetadata.Create<Effects.LinearGradient>(Strings.LinearGradient),
+                    EffectMetadata.Create<Effects.CircularGradient>(Strings.CircularGradient),
+                    EffectMetadata.Create<Effects.Mask>(Strings.Mask),
+                    EffectMetadata.Create<Effects.PointLightDiffuse>(Strings.PointLightDiffuse),
+                    EffectMetadata.Create<Effects.ChromaKey>(Strings.ChromaKey),
+                    EffectMetadata.Create<Effects.ImageSplit>(Strings.ImageSplit),
+                    EffectMetadata.Create<Effects.MultipleControls>(Strings.MultipleImageControls),
+                }
+            };
+
+            yield return new(Strings.Camera)
+            {
+                Children = new[]
+                {
+                    EffectMetadata.Create<Effects.DepthTest>(Strings.DepthTest),
+                    EffectMetadata.Create<Effects.PointLightSource>(Strings.PointLightSource),
+                }
+            };
+#if DEBUG
+            yield return new("TestEffect", () => new Effects.TestEffect());
+#endif
+        }
     }
 }

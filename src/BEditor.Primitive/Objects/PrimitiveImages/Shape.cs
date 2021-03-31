@@ -3,9 +3,9 @@
 using BEditor.Data;
 using BEditor.Data.Primitive;
 using BEditor.Data.Property;
-using BEditor.Properties;
 using BEditor.Drawing;
 using BEditor.Drawing.Pixel;
+using BEditor.Primitive.Resources;
 
 namespace BEditor.Primitive.Objects
 {
@@ -13,37 +13,37 @@ namespace BEditor.Primitive.Objects
     /// Represents an <see cref="ImageObject"/> to draw a shape.
     /// </summary>
     [CustomClipUI(Color = 0x0091ea)]
-    public sealed class Figure : ImageObject
+    public sealed class Shape : ImageObject
     {
         /// <summary>
         /// Represents <see cref="Width"/> metadata.
         /// </summary>
-        public static readonly EasePropertyMetadata WidthMetadata = new(Resources.Width, 100, float.NaN, 0);
+        public static readonly EasePropertyMetadata WidthMetadata = new(Strings.Width, 100, float.NaN, 0);
         /// <summary>
         /// Represents <see cref="Height"/> metadata.
         /// </summary>
-        public static readonly EasePropertyMetadata HeightMetadata = new(Resources.Height, 100, float.NaN, 0);
+        public static readonly EasePropertyMetadata HeightMetadata = new(Strings.Height, 100, float.NaN, 0);
         /// <summary>
         /// Represents <see cref="Line"/> metadata.
         /// </summary>
-        public static readonly EasePropertyMetadata LineMetadata = new(Resources.Line, 4000, float.NaN, 0);
+        public static readonly EasePropertyMetadata LineMetadata = new(Strings.LineWidth, 4000, float.NaN, 0);
         /// <summary>
         /// Represents <see cref="Color"/> metadata.
         /// </summary>
-        public static readonly ColorPropertyMetadata ColorMetadata = new(Resources.Color, Drawing.Color.Light);
+        public static readonly ColorPropertyMetadata ColorMetadata = new(Strings.Color, Drawing.Color.Light);
         /// <summary>
         /// Represents <see cref="Type"/> metadata.
         /// </summary>
-        public static readonly SelectorPropertyMetadata TypeMetadata = new(Resources.Type, new string[]
+        public static readonly SelectorPropertyMetadata TypeMetadata = new(Strings.Type, new string[]
         {
-            Resources.Circle,
-            Resources.Square
+            Strings.Ellipse,
+            Strings.Rectangle
         });
 
         /// <summary>
-        /// Initializes a new instance of the <see cref="Figure"/> class.
+        /// Initializes a new instance of the <see cref="Shape"/> class.
         /// </summary>
-        public Figure()
+        public Shape()
         {
             Width = new(WidthMetadata);
             Height = new(HeightMetadata);
@@ -53,14 +53,14 @@ namespace BEditor.Primitive.Objects
         }
 
         /// <inheritdoc/>
-        public override string Name => Resources.Figure;
+        public override string Name => Strings.Shape;
         /// <inheritdoc/>
         public override IEnumerable<PropertyElement> Properties => new PropertyElement[]
         {
             Coordinate,
-            Zoom,
+            Scale,
             Blend,
-            Angle,
+            Rotate,
             Material,
             Width,
             Height,

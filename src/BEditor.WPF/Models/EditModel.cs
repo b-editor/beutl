@@ -116,8 +116,8 @@ namespace BEditor.Models
 
                         if (!timeline.Scene.InRange(clip.Start, clip.End, clip.Layer))
                         {
-                            mes?.Snackbar(MessageResources.ClipExistsInTheSpecifiedLocation);
-                            App.Logger.LogInformation("{0} Start: {0} End: {1} Layer: {2}", MessageResources.ClipExistsInTheSpecifiedLocation, clip.Start, clip.End, clip.Layer);
+                            mes?.Snackbar(Strings.ClipExistsInTheSpecifiedLocation);
+                            App.Logger.LogInformation("{0} Start: {0} End: {1} Layer: {2}", Strings.ClipExistsInTheSpecifiedLocation, clip.Start, clip.End, clip.Layer);
 
                             return;
                         }
@@ -132,8 +132,8 @@ namespace BEditor.Models
 
                         if (!timeline.Scene.InRange(start, end, layer))
                         {
-                            mes?.Snackbar(MessageResources.ClipExistsInTheSpecifiedLocation);
-                            App.Logger.LogInformation("{0} Start: {0} End: {1} Layer: {2}", MessageResources.ClipExistsInTheSpecifiedLocation, start, end, layer);
+                            mes?.Snackbar(Strings.ClipExistsInTheSpecifiedLocation);
+                            App.Logger.LogInformation("{0} Start: {0} End: {1} Layer: {2}", Strings.ClipExistsInTheSpecifiedLocation, start, end, layer);
 
                             return;
                         }
@@ -171,8 +171,8 @@ namespace BEditor.Models
 
                         if (!timeline.Scene.InRange(start, end, layer))
                         {
-                            mes?.Snackbar(MessageResources.ClipExistsInTheSpecifiedLocation);
-                            App.Logger.LogInformation("{0} Start: {0} End: {1} Layer: {2}", MessageResources.ClipExistsInTheSpecifiedLocation, start, end, layer);
+                            mes?.Snackbar(Strings.ClipExistsInTheSpecifiedLocation);
+                            App.Logger.LogInformation("{0} Start: {0} End: {1} Layer: {2}", Strings.ClipExistsInTheSpecifiedLocation, start, end, layer);
 
                             return;
                         }
@@ -267,7 +267,7 @@ namespace BEditor.Models
                 return PrimitiveTypes.TextMetadata;
             }
 
-            return PrimitiveTypes.FigureMetadata;
+            return PrimitiveTypes.ShapeMetadata;
         }
     }
 }

@@ -22,14 +22,14 @@ namespace BEditor.Properties {
     [global::System.CodeDom.Compiler.GeneratedCodeAttribute("System.Resources.Tools.StronglyTypedResourceBuilder", "16.0.0.0")]
     [global::System.Diagnostics.DebuggerNonUserCodeAttribute()]
     [global::System.Runtime.CompilerServices.CompilerGeneratedAttribute()]
-    internal class ConsoleResources {
+    internal class Strings {
         
         private static global::System.Resources.ResourceManager resourceMan;
         
         private static global::System.Globalization.CultureInfo resourceCulture;
         
         [global::System.Diagnostics.CodeAnalysis.SuppressMessageAttribute("Microsoft.Performance", "CA1811:AvoidUncalledPrivateCode")]
-        internal ConsoleResources() {
+        internal Strings() {
         }
         
         /// <summary>
@@ -39,7 +39,7 @@ namespace BEditor.Properties {
         internal static global::System.Resources.ResourceManager ResourceManager {
             get {
                 if (object.ReferenceEquals(resourceMan, null)) {
-                    global::System.Resources.ResourceManager temp = new global::System.Resources.ResourceManager("BEditor.Properties.ConsoleResources", typeof(ConsoleResources).Assembly);
+                    global::System.Resources.ResourceManager temp = new global::System.Resources.ResourceManager("BEditor.Properties.Strings", typeof(Strings).Assembly);
                     resourceMan = temp;
                 }
                 return resourceMan;
@@ -169,11 +169,29 @@ namespace BEditor.Properties {
         }
         
         /// <summary>
+        ///   Framerate に類似しているローカライズされた文字列を検索します。
+        /// </summary>
+        internal static string Framerate {
+            get {
+                return ResourceManager.GetString("Framerate", resourceCulture);
+            }
+        }
+        
+        /// <summary>
         ///   Frame to output に類似しているローカライズされた文字列を検索します。
         /// </summary>
         internal static string FrameToOutput {
             get {
                 return ResourceManager.GetString("FrameToOutput", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Height に類似しているローカライズされた文字列を検索します。
+        /// </summary>
+        internal static string Height {
+            get {
+                return ResourceManager.GetString("Height", resourceCulture);
             }
         }
         
@@ -232,6 +250,15 @@ namespace BEditor.Properties {
         }
         
         /// <summary>
+        ///   Layer に類似しているローカライズされた文字列を検索します。
+        /// </summary>
+        internal static string Layer {
+            get {
+                return ResourceManager.GetString("Layer", resourceCulture);
+            }
+        }
+        
+        /// <summary>
         ///   Layer:{0} is hidden. に類似しているローカライズされた文字列を検索します。
         /// </summary>
         internal static string LayerIsHidden {
@@ -255,6 +282,15 @@ namespace BEditor.Properties {
         internal static string MovedClip {
             get {
                 return ResourceManager.GetString("MovedClip", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Name に類似しているローカライズされた文字列を検索します。
+        /// </summary>
+        internal static string Name {
+            get {
+                return ResourceManager.GetString("Name", resourceCulture);
             }
         }
         
@@ -349,6 +385,15 @@ namespace BEditor.Properties {
         }
         
         /// <summary>
+        ///   Samplingrate に類似しているローカライズされた文字列を検索します。
+        /// </summary>
+        internal static string Samplingrate {
+            get {
+                return ResourceManager.GetString("Samplingrate", resourceCulture);
+            }
+        }
+        
+        /// <summary>
         ///   Saved to {0}. に類似しているローカライズされた文字列を検索します。
         /// </summary>
         internal static string SavedTo {
@@ -363,6 +408,15 @@ namespace BEditor.Properties {
         internal static string SaveFrameToImageFile {
             get {
                 return ResourceManager.GetString("SaveFrameToImageFile", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Scene に類似しているローカライズされた文字列を検索します。
+        /// </summary>
+        internal static string Scene {
+            get {
+                return ResourceManager.GetString("Scene", resourceCulture);
             }
         }
         
@@ -385,11 +439,29 @@ namespace BEditor.Properties {
         }
         
         /// <summary>
+        ///   Start frame に類似しているローカライズされた文字列を検索します。
+        /// </summary>
+        internal static string Start {
+            get {
+                return ResourceManager.GetString("Start", resourceCulture);
+            }
+        }
+        
+        /// <summary>
         ///   This data cannot be displayed in a list. に類似しているローカライズされた文字列を検索します。
         /// </summary>
         internal static string This_data_cannot_be_displayed_in_a_list_ {
             get {
                 return ResourceManager.GetString("This data cannot be displayed in a list.", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Width に類似しているローカライズされた文字列を検索します。
+        /// </summary>
+        internal static string Width {
+            get {
+                return ResourceManager.GetString("Width", resourceCulture);
             }
         }
     }

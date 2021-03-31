@@ -8,6 +8,7 @@ using System.Text.Json;
 
 using BEditor.Command;
 using BEditor.Data.Bindings;
+using BEditor.Resources;
 
 namespace BEditor.Data.Property
 {
@@ -164,7 +165,7 @@ namespace BEditor.Data.Property
                 _new = property.Clamp(value);
             }
 
-            public string Name => CommandName.ChangeValue;
+            public string Name => Strings.ChangeValue;
 
             public void Do()
             {

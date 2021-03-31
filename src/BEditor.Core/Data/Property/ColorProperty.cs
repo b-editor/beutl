@@ -7,6 +7,7 @@ using System.Text.Json;
 using BEditor.Command;
 using BEditor.Data.Bindings;
 using BEditor.Drawing;
+using BEditor.Resources;
 
 namespace BEditor.Data.Property
 {
@@ -151,7 +152,7 @@ namespace BEditor.Data.Property
             }
 
             /// <inheritdoc/>
-            public string Name => CommandName.ChangeColor;
+            public string Name => Strings.ChangeColor;
 
             /// <inheritdoc/>
             public void Do()

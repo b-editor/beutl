@@ -1,7 +1,7 @@
 ﻿using System.Linq;
 
 using BEditor.Drawing;
-using BEditor.Properties;
+using BEditor.Resources;
 
 namespace BEditor.Data.Property
 {
@@ -14,7 +14,7 @@ namespace BEditor.Data.Property
         /// The metadata of <see cref="FontProperty"/>.
         /// </summary>
         public FontPropertyMetadata()
-            : base(Resources.Font)
+            : base(Strings.Font)
         {
             SelectItem = FontManager.Default.LoadedFonts.FirstOrDefault()!;
         }

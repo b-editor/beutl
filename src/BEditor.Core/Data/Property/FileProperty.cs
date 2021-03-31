@@ -8,6 +8,7 @@ using System.Text.Json;
 
 using BEditor.Command;
 using BEditor.Data.Bindings;
+using BEditor.Resources;
 
 namespace BEditor.Data.Property
 {
@@ -19,7 +20,6 @@ namespace BEditor.Data.Property
     {
         #region Fields
         private static readonly PropertyChangedEventArgs _modeArgs = new(nameof(Mode));
-        private string _rawFile = string.Empty;
         private List<IObserver<string>>? _list;
         private IDisposable? _bindDispose;
         private IBindable<string>? _bindable;
@@ -41,11 +41,7 @@ namespace BEditor.Data.Property
         /// <summary>
         /// Gets the name of the selected file.
         /// </summary>
-        public string RawValue
-        {
-            get => _rawFile;
-            private set => _rawFile = value;
-        }
+        public string RawValue { get; private set; } = string.Empty;
 
         /// <summary>
         /// Gets or sets the name of the selected file.
@@ -54,14 +50,14 @@ namespace BEditor.Data.Property
         {
             get
             {
-                if (Parent?.Parent?.Parent?.Parent?.DirectoryName is null) return _rawFile;
-                return (_mode is FilePathType.FromProject) ? Path.GetFullPath(_rawFile, Parent.Parent.Parent.Parent.DirectoryName!) : _rawFile;
+                if (Parent?.Parent?.Parent?.Parent?.DirectoryName is null) return RawValue;
+                return (_mode is FilePathType.FromProject) ? Path.GetFullPath(RawValue, Parent.Parent.Parent.Parent.DirectoryName!) : RawValue;
             }
             set
             {
                 if (value != Value)
                 {
-                    _rawFile = GetFullPath(value);
+                    RawValue = GetFullPath(value);
 
                     RaisePropertyChanged(DocumentProperty._valueArgs);
                     var value1 = Value;
@@ -94,10 +90,7 @@ namespace BEditor.Data.Property
         public FilePathType Mode
         {
             get => _mode;
-            set => SetValue(value, ref _mode, _modeArgs, this, state =>
-            {
-                state.RawValue = state.GetPath();
-            });
+            set => SetValue(value, ref _mode, _modeArgs, this, state => state.RawValue = state.GetPath());
         }
 
         private List<IObserver<string>> Collection => _list ??= new();
@@ -172,10 +165,10 @@ namespace BEditor.Data.Property
             {
                 if (Parent?.Parent?.Parent?.Parent?.DirectoryName is not null)
                 {
-                    return Path.GetFullPath(_rawFile, Parent.Parent.Parent.Parent.DirectoryName!);
+                    return Path.GetFullPath(RawValue, Parent.Parent.Parent.Parent.DirectoryName!);
                 }
 
-                return _rawFile;
+                return RawValue;
             }
             else
             {
@@ -184,7 +177,7 @@ namespace BEditor.Data.Property
                     return Path.GetRelativePath(Parent.Parent.Parent.Parent.DirectoryName!, Value);
                 }
 
-                return _rawFile;
+                return RawValue;
             }
         }
 
@@ -201,7 +194,7 @@ namespace BEditor.Data.Property
                     return Path.GetRelativePath(Parent.Parent.Parent.Parent.DirectoryName!, fullpath);
                 }
 
-                return _rawFile;
+                return RawValue;
             }
         }
 
@@ -231,7 +224,7 @@ namespace BEditor.Data.Property
                 _old = property.Value;
             }
 
-            public string Name => CommandName.ChangeFile;
+            public string Name => Strings.ChangeFile;
 
             /// <inheritdoc/>
             public void Do()

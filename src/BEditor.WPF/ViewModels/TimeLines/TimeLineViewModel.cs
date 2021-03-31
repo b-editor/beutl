@@ -194,7 +194,7 @@ namespace BEditor.ViewModels.TimeLines
         {
             if (!Scene.InRange(Select_Frame, Select_Frame + 180, Select_Layer))
             {
-                Scene.ServiceProvider?.GetService<IMessage>()?.Snackbar(MessageResources.ClipExistsInTheSpecifiedLocation);
+                Scene.ServiceProvider?.GetService<IMessage>()?.Snackbar(Strings.ClipExistsInTheSpecifiedLocation);
 
                 return;
             }
@@ -248,7 +248,7 @@ namespace BEditor.ViewModels.TimeLines
 
                         if (!Scene.InRange(frame, frame + 180, addlayer))
                         {
-                            Scene.ServiceProvider?.GetService<IMessage>()?.Snackbar(MessageResources.ClipExistsInTheSpecifiedLocation);
+                            Scene.ServiceProvider?.GetService<IMessage>()?.Snackbar(Strings.ClipExistsInTheSpecifiedLocation);
 
                             return;
                         }

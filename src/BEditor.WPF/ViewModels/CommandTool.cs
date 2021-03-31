@@ -107,7 +107,7 @@ namespace BEditor.ViewModels
             {
                 return PackIconKind.TextBox;
             }
-            else if (clipType == ClipType.Figure)
+            else if (clipType == ClipType.Shape)
             {
                 return PackIconKind.Shape;
             }
@@ -155,7 +155,7 @@ namespace BEditor.ViewModels
                 PackIconKind.Audio => ClipType.AudioMetadata,
                 PackIconKind.Image => ClipType.ImageMetadata,
                 PackIconKind.TextBox => ClipType.TextMetadata,
-                PackIconKind.Shape => ClipType.FigureMetadata,
+                PackIconKind.Shape => ClipType.ShapeMetadata,
                 PackIconKind.RoundedCorner => ClipType.RoundRectMetadata,
                 PackIconKind.Videocam => ClipType.CameraMetadata,
                 PackIconKind.Cube => ClipType.GL3DObjectMetadata,

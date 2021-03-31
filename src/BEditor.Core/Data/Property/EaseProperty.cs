@@ -11,6 +11,7 @@ using System.Text.Json;
 using BEditor.Command;
 using BEditor.Data.Property.Easing;
 using BEditor.Media;
+using BEditor.Resources;
 
 namespace BEditor.Data.Property
 {
@@ -413,7 +414,7 @@ namespace BEditor.Data.Property
                 _old = property.Value[index];
             }
 
-            public string Name => CommandName.ChangeValue;
+            public string Name => Strings.ChangeValue;
 
             public void Do()
             {
@@ -462,7 +463,7 @@ namespace BEditor.Data.Property
                 _old = property.EasingType;
             }
 
-            public string Name => CommandName.ChangeEasing;
+            public string Name => Strings.ChangeEasing;
 
             public void Do()
             {
@@ -498,7 +499,7 @@ namespace BEditor.Data.Property
                 _frame = (frame <= Frame.Zero || frame >= property.GetParent2()!.Length) ? throw new ArgumentOutOfRangeException(nameof(frame)) : frame;
             }
 
-            public string Name => CommandName.AddKeyFrame;
+            public string Name => Strings.AddKeyframe;
 
             public void Do()
             {
@@ -539,7 +540,7 @@ namespace BEditor.Data.Property
                 _frame = (frame <= Frame.Zero || property.GetParent2()!.Length <= frame) ? throw new ArgumentOutOfRangeException(nameof(frame)) : frame;
             }
 
-            public string Name => CommandName.RemoveKeyFrame;
+            public string Name => Strings.RemoveKeyframe;
 
             public void Do()
             {
@@ -583,7 +584,7 @@ namespace BEditor.Data.Property
                 _toFrame = (to <= Frame.Zero || property.GetParent2()!.Length <= to) ? throw new ArgumentOutOfRangeException(nameof(to)) : to;
             }
 
-            public string Name => CommandName.MoveKeyFrame;
+            public string Name => Strings.MoveKeyframe;
 
             public void Do()
             {

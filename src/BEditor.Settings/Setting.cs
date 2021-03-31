@@ -116,7 +116,7 @@ namespace BEditor
             set => disablePlugins = value;
         }
         [DataMember]
-        public ObservableCollection<string> MostRecentlyUsedList
+        public ObservableCollection<string> RecentlyUsedFiles
         {
             get => mostRecentlyUsedList ??= new();
             private set => mostRecentlyUsedList = new(value.Where(file => File.Exists(file)));

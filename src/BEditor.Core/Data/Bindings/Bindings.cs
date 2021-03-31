@@ -9,7 +9,7 @@ using System.Threading.Tasks;
 using BEditor.Command;
 using BEditor.Data;
 using BEditor.Data.Property;
-using BEditor.Properties;
+using BEditor.Resources;
 
 namespace BEditor.Data.Bindings
 {
@@ -44,21 +44,21 @@ namespace BEditor.Data.Bindings
             {
                 var match = regex1.Match(str);
 
-                var proj = bindable.GetParent4() ?? throw new DataException(ExceptionMessage.ParentElementNotFound);
+                var proj = bindable.GetParent4() ?? throw new DataException(Strings.ParentElementNotFound);
 
                 var scene = proj.Find(match.Groups[1].Value) ??
-                    throw new DataException(ExceptionMessage.ChildElementsNotFound);
+                    throw new DataException(Strings.ChildElementsNotFound);
 
                 var clip = scene.Find(match.Groups[2].Value) ??
-                    throw new DataException(ExceptionMessage.ChildElementsNotFound);
+                    throw new DataException(Strings.ChildElementsNotFound);
 
                 var effect = (int.TryParse(match.Groups[3].Value, out var id) ? clip.Find(id) :
-                    throw new DataException(ExceptionMessage.FailedToConvertValue)) ??
-                    throw new DataException(ExceptionMessage.ChildElementsNotFound);
+                    throw new DataException(Strings.FailedToConvertValue)) ??
+                    throw new DataException(Strings.ChildElementsNotFound);
 
                 result = int.TryParse(match.Groups[4].Value, out var id1) ?
                     effect.Find(id1) as IBindable<T> :
-                    throw new DataException(ExceptionMessage.ChildElementsNotFound);
+                    throw new DataException(Strings.ChildElementsNotFound);
 
                 return true;
             }
@@ -66,26 +66,26 @@ namespace BEditor.Data.Bindings
             {
                 var match = regex2.Match(str);
 
-                var proj = bindable.GetParent4() ?? throw new DataException(ExceptionMessage.ParentElementNotFound);
+                var proj = bindable.GetParent4() ?? throw new DataException(Strings.ParentElementNotFound);
 
                 var scene = proj.Find(match.Groups[1].Value) ??
-                    throw new DataException(ExceptionMessage.ChildElementsNotFound);
+                    throw new DataException(Strings.ChildElementsNotFound);
 
                 var clip = scene.Find(match.Groups[2].Value) ??
-                    throw new DataException(ExceptionMessage.ChildElementsNotFound);
+                    throw new DataException(Strings.ChildElementsNotFound);
 
                 var effect = (int.TryParse(match.Groups[3].Value, out var id) ? clip.Find(id) : throw new DataException(
-                    ExceptionMessage.FailedToConvertValue)) ??
-                    throw new DataException(ExceptionMessage.ChildElementsNotFound);
+                    Strings.FailedToConvertValue)) ??
+                    throw new DataException(Strings.ChildElementsNotFound);
 
                 var parent = int.TryParse(match.Groups[4].Value, out var id1) ?
                     (effect.Find(id1) as IParent<PropertyElement> ??
-                        throw new DataException(ExceptionMessage.ChildElementsNotFound)) :
-                    throw new DataException(ExceptionMessage.FailedToConvertValue);
+                        throw new DataException(Strings.ChildElementsNotFound)) :
+                    throw new DataException(Strings.FailedToConvertValue);
 
                 result = int.TryParse(match.Groups[5].Value, out var id2) ?
                     parent.Find(id2) as IBindable<T> :
-                    throw new DataException(ExceptionMessage.ChildElementsNotFound);
+                    throw new DataException(Strings.ChildElementsNotFound);
 
                 return true;
             }
@@ -124,7 +124,7 @@ namespace BEditor.Data.Bindings
                 _target = target;
             }
 
-            public string Name => CommandName.BindCommand;
+            public string Name => Strings.BindCommand;
 
             public void Do()
             {
@@ -154,6 +154,8 @@ namespace BEditor.Data.Bindings
                 this._bindable = bindable;
                 bindable.GetBindable(bindable.TargetHint, out _twoway);
             }
+
+            public string Name => Strings.Disconnect;
 
             public void Do()
             {

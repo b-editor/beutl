@@ -2,6 +2,7 @@
 
 using BEditor.Data;
 using BEditor.Data.Property;
+using BEditor.Primitive.Resources;
 
 namespace BEditor.Primitive.Objects
 {
@@ -54,7 +55,7 @@ namespace BEditor.Primitive.Objects
         }
 
         /// <inheritdoc/>
-        public override string Name => "リスナー";
+        public override string Name => Strings.Listener;
         /// <inheritdoc/>
         public override IEnumerable<PropertyElement> Properties => new PropertyElement[]
         {

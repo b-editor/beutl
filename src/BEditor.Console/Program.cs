@@ -42,12 +42,12 @@ namespace BEditor
 
             app.Command("json", command =>
             {
-                command.Description = ConsoleResources.OutputProjectToJson;
+                command.Description = Strings.OutputProjectToJson;
 
                 command.HelpOption("-?|-h|--help");
 
-                var input = command.Option("--file|-f", ConsoleResources.ProjectFile, CommandOptionType.SingleValue);
-                var output = command.Option("-o|--out", ConsoleResources.OutputDestinationFile, CommandOptionType.SingleValue);
+                var input = command.Option("--file|-f", Strings.ProjectFile, CommandOptionType.SingleValue);
+                var output = command.Option("-o|--out", Strings.OutputDestinationFile, CommandOptionType.SingleValue);
 
                 command.OnExecute(() =>
                 {
@@ -72,14 +72,14 @@ namespace BEditor
 
             app.Command("encode_img", command =>
             {
-                command.Description = ConsoleResources.SaveFrameToImageFile;
+                command.Description = Strings.SaveFrameToImageFile;
 
                 command.HelpOption("-?|-h|--help");
 
-                var output = command.Argument("out", ConsoleResources.OutputDestinationFile);
-                var frame = command.Argument("frame", ConsoleResources.FrameToOutput);
-                var input = command.Option("--file|-f", ConsoleResources.ProjectFile, CommandOptionType.SingleValue);
-                var sc = command.Option("-s|--scene", ConsoleResources.SceneToOutput, CommandOptionType.SingleValue);
+                var output = command.Argument("out", Strings.OutputDestinationFile);
+                var frame = command.Argument("frame", Strings.FrameToOutput);
+                var input = command.Option("--file|-f", Strings.ProjectFile, CommandOptionType.SingleValue);
+                var sc = command.Option("-s|--scene", Strings.SceneToOutput, CommandOptionType.SingleValue);
 
                 command.OnExecute(() =>
                 {
@@ -98,7 +98,7 @@ namespace BEditor
 
                     project.Unload();
 
-                    Console.WriteLine(ConsoleResources.SavedTo, output.Value);
+                    Console.WriteLine(Strings.SavedTo, output.Value);
 
                     return 0;
                 });
@@ -106,13 +106,13 @@ namespace BEditor
 
             app.Command("encode", command =>
             {
-                command.Description = ConsoleResources.OutputVideo;
+                command.Description = Strings.OutputVideo;
 
                 command.HelpOption("-?|-h|--help");
 
-                var output = command.Argument("out", ConsoleResources.OutputDestinationFile);
-                var input = command.Option("--file|-f", ConsoleResources.ProjectFile, CommandOptionType.SingleValue);
-                var sc = command.Option("-s|--scene", ConsoleResources.SceneToOutput, CommandOptionType.SingleValue);
+                var output = command.Argument("out", Strings.OutputDestinationFile);
+                var input = command.Option("--file|-f", Strings.ProjectFile, CommandOptionType.SingleValue);
+                var sc = command.Option("-s|--scene", Strings.SceneToOutput, CommandOptionType.SingleValue);
 
                 command.OnExecute(() =>
                 {
@@ -142,7 +142,7 @@ namespace BEditor
 
                     project.Unload();
 
-                    Console.WriteLine(ConsoleResources.SavedTo, output.Value);
+                    Console.WriteLine(Strings.SavedTo, output.Value);
 
                     return 0;
                 });
@@ -150,15 +150,15 @@ namespace BEditor
 
             app.Command("new", command =>
             {
-                command.Description = ConsoleResources.CreateNewProject;
+                command.Description = Strings.CreateNewProject;
 
                 command.HelpOption("-?|-h|--help");
 
-                var width_Arg = command.Argument("width", Resources.Width);
-                var height_Arg = command.Argument("height", Resources.Height);
-                var framerate_Arg = command.Argument("framerate", Resources.Framerate);
-                var samplingrate_Arg = command.Argument("samplingrate", Resources.Samplingrate);
-                var name_Opt = command.Option("-n|--name", ConsoleResources.NameOfProject, CommandOptionType.SingleValue);
+                var width_Arg = command.Argument("width", Strings.Width);
+                var height_Arg = command.Argument("height", Strings.Height);
+                var framerate_Arg = command.Argument("framerate", Strings.Framerate);
+                var samplingrate_Arg = command.Argument("samplingrate", Strings.Samplingrate);
+                var name_Opt = command.Option("-n|--name", Strings.NameOfProject, CommandOptionType.SingleValue);
 
                 command.OnExecute(() =>
                 {
@@ -190,7 +190,7 @@ namespace BEditor
 
                     proj.Unload();
 
-                    Console.WriteLine(ConsoleResources.SavedTo, filename);
+                    Console.WriteLine(Strings.SavedTo, filename);
 
                     return result;
                 });
@@ -198,11 +198,11 @@ namespace BEditor
 
             app.Command("open", command =>
             {
-                command.Description = ConsoleResources.CreateNewProject;
+                command.Description = Strings.CreateNewProject;
 
                 command.HelpOption("-?|-h|--help");
 
-                var input = command.Option("--file|-f", ConsoleResources.ProjectFile, CommandOptionType.SingleValue);
+                var input = command.Option("--file|-f", Strings.ProjectFile, CommandOptionType.SingleValue);
 
                 command.OnExecute(() =>
                 {
@@ -212,7 +212,7 @@ namespace BEditor
                         var file = input.HasValue() ? input.Value() : FindProjectFile();
                         if (!File.Exists(file))
                         {
-                            Console.Error.WriteLine(ConsoleResources.ProjectFileNotFound);
+                            Console.Error.WriteLine(Strings.ProjectFileNotFound);
                             return 1;
                         }
 
@@ -235,7 +235,7 @@ namespace BEditor
 
             app.Command("fonts", command =>
             {
-                command.Description = ConsoleResources.EnumerateFonts;
+                command.Description = Strings.EnumerateFonts;
 
                 command.HelpOption("-?|-h|--help");
 
@@ -255,15 +255,15 @@ namespace BEditor
 
             app.Command("add_clip", command =>
             {
-                command.Description = ConsoleResources.AddClip;
+                command.Description = Strings.AddClip;
 
                 command.HelpOption("-?|-h|--help");
 
-                var start = command.Argument("start", Resources.Start);
-                var layer = command.Argument("layer", Resources.Layer);
-                var type = command.Argument("type", ConsoleResources.ClipType);
-                var input = command.Option("--file|-f", ConsoleResources.ProjectFile, CommandOptionType.SingleValue);
-                var sc = command.Option("-s|--scene", Resources.Scene, CommandOptionType.SingleValue);
+                var start = command.Argument("start", Strings.Start);
+                var layer = command.Argument("layer", Strings.Layer);
+                var type = command.Argument("type", Strings.ClipType);
+                var input = command.Option("--file|-f", Strings.ProjectFile, CommandOptionType.SingleValue);
+                var sc = command.Option("-s|--scene", Strings.Scene, CommandOptionType.SingleValue);
 
                 command.OnExecute(() =>
                 {
@@ -282,9 +282,9 @@ namespace BEditor
 
                     try
                     {
-                        st_frame = start.TryParse() ?? throw new Exception(ConsoleResources.InvalidValue + "\n  start:\n    " + start.Value);
-                        layer_num = layer.TryParse() ?? throw new Exception(ConsoleResources.InvalidValue + "\n  layer:\n    " + layer.Value);
-                        metadata = ObjectMetadata.LoadedObjects.FirstOrDefault(i => i.Name == type.Value) ?? throw new Exception(string.Format(ConsoleResources.NotFound, type.Value));
+                        st_frame = start.TryParse() ?? throw new Exception(Strings.InvalidValue + "\n  start:\n    " + start.Value);
+                        layer_num = layer.TryParse() ?? throw new Exception(Strings.InvalidValue + "\n  layer:\n    " + layer.Value);
+                        metadata = ObjectMetadata.LoadedObjects.FirstOrDefault(i => i.Name == type.Value) ?? throw new Exception(string.Format(Strings.NotFound, type.Value));
                     }
                     catch (Exception e)
                     {
@@ -299,7 +299,7 @@ namespace BEditor
                     if (!scene.InRange(st_frame, st_frame + 180, layer_num))
                     {
                         Console.ForegroundColor = ConsoleColor.DarkYellow;
-                        Console.WriteLine(ConsoleResources.ClipExistsInTheSpecifiedLocation);
+                        Console.WriteLine(Strings.ClipExistsInTheSpecifiedLocation);
 
                         Console.ResetColor();
 
@@ -308,7 +308,7 @@ namespace BEditor
 
 
                     scene.AddClip(st_frame, layer_num, metadata, out var clip).Execute();
-                    Console.WriteLine(ConsoleResources.AddedClip, clip.Start.Value, clip.End.Value, clip.Layer);
+                    Console.WriteLine(Strings.AddedClip, clip.Start.Value, clip.End.Value, clip.Layer);
 
                     project.Save();
 
@@ -325,7 +325,7 @@ namespace BEditor
                     var proj = new Project(1920, 1080, 30, 44100, App.Current, "./TestProject.bedit");
                     proj.Load();
                     proj.PreviewScene.PreviewFrame = 75;
-                    proj.PreviewScene.AddClip(50, 5, PrimitiveTypes.FigureMetadata, out _).Execute();
+                    proj.PreviewScene.AddClip(50, 5, PrimitiveTypes.ShapeMetadata, out _).Execute();
 
                     proj.Save();
 
@@ -345,7 +345,7 @@ namespace BEditor
             var file = input.HasValue() ? input.Value() : FindProjectFile();
             if (!File.Exists(file))
             {
-                Console.Error.WriteLine(ConsoleResources.ProjectFileNotFound);
+                Console.Error.WriteLine(Strings.ProjectFileNotFound);
                 return null;
             }
 
@@ -353,7 +353,7 @@ namespace BEditor
 
             if (proj is null)
             {
-                Console.Error.WriteLine(ConsoleResources.FailedToLoadProject);
+                Console.Error.WriteLine(Strings.FailedToLoadProject);
                 return null;
             }
 
@@ -383,7 +383,7 @@ namespace BEditor
         {
             ObjectMetadata.LoadedObjects.Add(PrimitiveTypes.VideoMetadata);
             ObjectMetadata.LoadedObjects.Add(PrimitiveTypes.ImageMetadata);
-            ObjectMetadata.LoadedObjects.Add(PrimitiveTypes.FigureMetadata);
+            ObjectMetadata.LoadedObjects.Add(PrimitiveTypes.ShapeMetadata);
             ObjectMetadata.LoadedObjects.Add(PrimitiveTypes.PolygonMetadata);
             ObjectMetadata.LoadedObjects.Add(PrimitiveTypes.RoundRectMetadata);
             ObjectMetadata.LoadedObjects.Add(PrimitiveTypes.TextMetadata);
@@ -392,40 +392,10 @@ namespace BEditor
             ObjectMetadata.LoadedObjects.Add(PrimitiveTypes.SceneMetadata);
             ObjectMetadata.LoadedObjects.Add(PrimitiveTypes.FramebufferMetadata);
 
-            EffectMetadata.LoadedEffects.Add(new(Resources.Effects)
+            foreach (var effect in PrimitiveTypes.EnumerateAllEffectMetadata())
             {
-                Children = new EffectMetadata[]
-                {
-                    EffectMetadata.Create<Border>(Resources.Border),
-                    EffectMetadata.Create<StrokeText>($"{Resources.Border} ({Resources.Text})"),
-                    EffectMetadata.Create<ColorKey>(Resources.ColorKey),
-                    EffectMetadata.Create<Shadow>(Resources.DropShadow),
-                    EffectMetadata.Create<Blur>(Resources.Blur),
-                    EffectMetadata.Create<Monoc>(Resources.Monoc),
-                    EffectMetadata.Create<Dilate>(Resources.Dilate),
-                    EffectMetadata.Create<Erode>(Resources.Erode),
-                    EffectMetadata.Create<Clipping>(Resources.Clipping),
-                    EffectMetadata.Create<AreaExpansion>(Resources.AreaExpansion),
-                    EffectMetadata.Create<LinearGradient>(Resources.LinearGradient),
-                    EffectMetadata.Create<CircularGradient>(Resources.CircularGradient),
-                    EffectMetadata.Create<Mask>(Resources.Mask),
-                    EffectMetadata.Create<PointLightDiffuse>(Resources.PointLightDiffuse),
-                    EffectMetadata.Create<ChromaKey>(Resources.ChromaKey),
-                    EffectMetadata.Create<ImageSplit>(Resources.ImageSplit),
-                    EffectMetadata.Create<MultipleControls>(Resources.MultipleImageControls),
-                }
-            });
-            EffectMetadata.LoadedEffects.Add(new(Resources.Camera)
-            {
-                Children = new EffectMetadata[]
-                {
-                    EffectMetadata.Create<DepthTest>(Resources.DepthTest),
-                    EffectMetadata.Create<PointLightSource>(Resources.PointLightSource),
-                }
-            });
-#if DEBUG
-            EffectMetadata.LoadedEffects.Add(new("TestEffect", () => new TestEffect()));
-#endif
+                EffectMetadata.LoadedEffects.Add(effect);
+            }
         }
         private static async Task CheckFFmpeg()
         {
@@ -478,8 +448,8 @@ namespace BEditor
             {
                 if (OperatingSystem.IsWindows())
                 {
-                    Console.WriteLine(ConsoleResources.FFmpegNotFound);
-                    Console.WriteLine(ConsoleResources.InstallIt);
+                    Console.WriteLine(Strings.FFmpegNotFound);
+                    Console.WriteLine(Strings.InstallIt);
 
                     if (char.ToUpperInvariant(Console.ReadKey().KeyChar) is 'Y')
                     {
@@ -489,8 +459,8 @@ namespace BEditor
                 }
                 else
                 {
-                    Console.WriteLine(ConsoleResources.FFmpegNotFound);
-                    Console.WriteLine(ConsoleResources.ExecuteTheCommand);
+                    Console.WriteLine(Strings.FFmpegNotFound);
+                    Console.WriteLine(Strings.ExecuteTheCommand);
 
                     if (OperatingSystem.IsMacOS())
                     {
@@ -514,8 +484,8 @@ namespace BEditor
             var progress = new ProgressBar();
 
             var tmp = Path.GetTempFileName();
-            installer.StartInstall += (s, e) => Console.WriteLine(string.Format(ConsoleResources.IsDownloading, "FFmpeg"));
-            installer.Installed += (s, e) => Console.WriteLine(string.Format(ConsoleResources.IsExtractedAndPlaced, "FFmpeg"));
+            installer.StartInstall += (s, e) => Console.WriteLine(string.Format(Strings.IsDownloading, "FFmpeg"));
+            installer.Installed += (s, e) => Console.WriteLine(string.Format(Strings.IsExtractedAndPlaced, "FFmpeg"));
             installer.DownloadCompleted += (s, e) => progress.Dispose();
             installer.DownloadProgressChanged += (s, e) => progress.Report(e.ProgressPercentage / 100d);
 

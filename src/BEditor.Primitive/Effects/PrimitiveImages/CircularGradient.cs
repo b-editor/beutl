@@ -7,7 +7,7 @@ using BEditor.Data.Primitive;
 using BEditor.Data.Property;
 using BEditor.Drawing;
 using BEditor.Drawing.Pixel;
-using BEditor.Properties;
+using BEditor.Primitive.Resources;
 
 using Reactive.Bindings;
 
@@ -21,23 +21,23 @@ namespace BEditor.Primitive.Effects
         /// <summary>
         /// Represents <see cref="CenterX"/> metadata.
         /// </summary>
-        public static readonly EasePropertyMetadata CenterXMetadata = new(Resources.CenterX, 0);
+        public static readonly EasePropertyMetadata CenterXMetadata = new(Strings.CenterX, 0);
         /// <summary>
         /// Represents <see cref="CenterY"/> metadata.
         /// </summary>
-        public static readonly EasePropertyMetadata CenterYMetadata = new(Resources.CenterY, 0);
+        public static readonly EasePropertyMetadata CenterYMetadata = new(Strings.CenterY, 0);
         /// <summary>
         /// Represents <see cref="Radius"/> metadata.
         /// </summary>
-        public static readonly EasePropertyMetadata RadiusMetadata = new(Resources.Radius, 100);
+        public static readonly EasePropertyMetadata RadiusMetadata = new(Strings.Radius, 100);
         /// <summary>
         /// Represents <see cref="Colors"/> metadata.
         /// </summary>
-        public static readonly TextPropertyMetadata ColorsMetadata = new(Resources.Colors, "#FFFF0000,#FF0000FF");
+        public static readonly TextPropertyMetadata ColorsMetadata = new(Strings.Colors, "#FFFF0000,#FF0000FF");
         /// <summary>
         /// Represents <see cref="Anchors"/> metadata.
         /// </summary>
-        public static readonly TextPropertyMetadata AnchorsMetadata = new(Resources.Anchors, "0,1");
+        public static readonly TextPropertyMetadata AnchorsMetadata = new(Strings.Anchors, "0,1");
         /// <summary>
         /// Represents <see cref="Mode"/> metadata.
         /// </summary>
@@ -59,7 +59,7 @@ namespace BEditor.Primitive.Effects
         }
 
         /// <inheritdoc/>
-        public override string Name => Resources.CircularGradient;
+        public override string Name => Strings.CircularGradient;
         /// <inheritdoc/>
         public override IEnumerable<PropertyElement> Properties => new PropertyElement[]
         {

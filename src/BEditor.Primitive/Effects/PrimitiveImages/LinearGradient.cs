@@ -1,18 +1,13 @@
-﻿using System;
-using System.Collections.Generic;
+﻿using System.Collections.Generic;
 using System.Linq;
-using System.Numerics;
 using System.Reactive.Linq;
-using System.Text;
-using System.Threading.Tasks;
 
-using BEditor.Command;
 using BEditor.Data;
 using BEditor.Data.Primitive;
 using BEditor.Data.Property;
-using BEditor.Properties;
 using BEditor.Drawing;
 using BEditor.Drawing.Pixel;
+using BEditor.Primitive.Resources;
 
 using Reactive.Bindings;
 
@@ -26,31 +21,31 @@ namespace BEditor.Primitive.Effects
         /// <summary>
         /// Represents <see cref="StartX"/> metadata.
         /// </summary>
-        public static readonly EasePropertyMetadata StartXMetadata = new(Resources.StartPoint + " X (%)", 0f, 100f, 0);
+        public static readonly EasePropertyMetadata StartXMetadata = new(Strings.StartPoint + " X (%)", 0f, 100f, 0);
         /// <summary>
         /// Represents <see cref="StartY"/> metadata.
         /// </summary>
-        public static readonly EasePropertyMetadata StartYMetadata = StartXMetadata with { Name = Resources.StartPoint + " Y (%)" };
+        public static readonly EasePropertyMetadata StartYMetadata = StartXMetadata with { Name = Strings.StartPoint + " Y (%)" };
         /// <summary>
         /// Represents <see cref="EndX"/> metadata.
         /// </summary>
-        public static readonly EasePropertyMetadata EndXMetadata = StartXMetadata with { Name = Resources.EndPoint + " X (%)", DefaultValue = 100f };
+        public static readonly EasePropertyMetadata EndXMetadata = StartXMetadata with { Name = Strings.EndPoint + " X (%)", DefaultValue = 100f };
         /// <summary>
         /// Represents <see cref="EndY"/> metadata.
         /// </summary>
-        public static readonly EasePropertyMetadata EndYMetadata = EndXMetadata with { Name = Resources.EndPoint + " Y (%)" };
+        public static readonly EasePropertyMetadata EndYMetadata = EndXMetadata with { Name = Strings.EndPoint + " Y (%)" };
         /// <summary>
         /// Represents <see cref="Colors"/> metadata.
         /// </summary>
-        public static readonly TextPropertyMetadata ColorsMetadata = new(Resources.Colors, "#FFFF0000,#FF0000FF");
+        public static readonly TextPropertyMetadata ColorsMetadata = new(Strings.Colors, "#FFFF0000,#FF0000FF");
         /// <summary>
         /// Represents <see cref="Anchors"/> metadata.
         /// </summary>
-        public static readonly TextPropertyMetadata AnchorsMetadata = new(Resources.Anchors, "0,1");
+        public static readonly TextPropertyMetadata AnchorsMetadata = new(Strings.Anchors, "0,1");
         /// <summary>
         /// Represents <see cref="Mode"/> metadata.
         /// </summary>
-        public static readonly SelectorPropertyMetadata ModeMetadata = new(Resources.Mode, new string[] { Resources.Clamp, Resources.Repeat, Resources.Mirror, Resources.Decal }, 1);
+        public static readonly SelectorPropertyMetadata ModeMetadata = new(Strings.Mode, new string[] { Strings.Clamp, Strings.Repeat, Strings.Mirror, Strings.Decal }, 1);
         internal static readonly ShaderTileMode[] tiles =
         {
             ShaderTileMode.Clamp,
@@ -76,7 +71,7 @@ namespace BEditor.Primitive.Effects
         }
 
         /// <inheritdoc/>
-        public override string Name => Resources.LinearGradient;
+        public override string Name => Strings.LinearGradient;
         /// <inheritdoc/>
         public override IEnumerable<PropertyElement> Properties => new PropertyElement[]
         {

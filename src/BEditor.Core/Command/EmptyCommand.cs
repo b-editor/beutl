@@ -1,12 +1,4 @@
-﻿using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Text;
-using System.Threading.Tasks;
-
-using BEditor.Properties;
-
-namespace BEditor.Command
+﻿namespace BEditor.Command
 {
     /// <summary>
     /// Represents a class that implements an empty <see cref="IRecordCommand"/>.

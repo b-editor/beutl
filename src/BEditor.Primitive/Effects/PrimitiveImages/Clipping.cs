@@ -5,7 +5,7 @@ using BEditor.Data.Primitive;
 using BEditor.Data.Property;
 using BEditor.Drawing;
 using BEditor.Drawing.Pixel;
-using BEditor.Properties;
+using BEditor.Primitive.Resources;
 
 namespace BEditor.Primitive.Effects
 {
@@ -17,23 +17,23 @@ namespace BEditor.Primitive.Effects
         /// <summary>
         /// Represents <see cref="Top"/> metadata.
         /// </summary>
-        public static readonly EasePropertyMetadata TopMetadata = new(Resources.Top, 0, float.NaN, 0);
+        public static readonly EasePropertyMetadata TopMetadata = new(Strings.Top, 0, float.NaN, 0);
         /// <summary>
         /// Represents <see cref="Bottom"/> metadata.
         /// </summary>
-        public static readonly EasePropertyMetadata BottomMetadata = new(Resources.Bottom, 0, float.NaN, 0);
+        public static readonly EasePropertyMetadata BottomMetadata = new(Strings.Bottom, 0, float.NaN, 0);
         /// <summary>
         /// Represents <see cref="Left"/> metadata.
         /// </summary>
-        public static readonly EasePropertyMetadata LeftMetadata = new(Resources.Left, 0, float.NaN, 0);
+        public static readonly EasePropertyMetadata LeftMetadata = new(Strings.Left, 0, float.NaN, 0);
         /// <summary>
         /// Represents <see cref="Right"/> metadata.
         /// </summary>
-        public static readonly EasePropertyMetadata RightMetadata = new(Resources.Right, 0, float.NaN, 0);
+        public static readonly EasePropertyMetadata RightMetadata = new(Strings.Right, 0, float.NaN, 0);
         /// <summary>
         /// Represents <see cref="AdjustCoordinates"/> metadata.
         /// </summary>
-        public static readonly CheckPropertyMetadata AdjustCoordinatesMetadata = new(Resources.Adjust_coordinates);
+        public static readonly CheckPropertyMetadata AdjustCoordinatesMetadata = new(Strings.AdjustCoordinates);
 
         /// <summary>
         /// Initializes a new instance of the <see cref="Clipping"/> class.
@@ -48,7 +48,7 @@ namespace BEditor.Primitive.Effects
         }
 
         /// <inheritdoc/>
-        public override string Name => Resources.Clipping;
+        public override string Name => Strings.Clipping;
         /// <inheritdoc/>
         public override IEnumerable<PropertyElement> Properties => new PropertyElement[]
         {

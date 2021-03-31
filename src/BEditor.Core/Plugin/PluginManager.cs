@@ -1,16 +1,11 @@
 ﻿using System;
 using System.Collections.Generic;
-using System.Diagnostics;
 using System.IO;
 using System.Linq;
 using System.Reactive.Linq;
 using System.Reflection;
-using System.Runtime.Serialization;
-using System.Text;
 
-using BEditor.Data;
-using BEditor.Data.Property.Easing;
-using BEditor.Properties;
+using BEditor.Resources;
 
 namespace BEditor.Plugin
 {
@@ -79,13 +74,12 @@ namespace BEditor.Plugin
             {
                 try
                 {
-                    asm.GetTypes().Where(t => t.Name is "Plugin")
-                        .FirstOrDefault()
+                    Array.Find(asm.GetTypes(), t => t.Name is "Plugin")
                         ?.InvokeMember("Register", BindingFlags.InvokeMethod, null, null, new object[] { args });
                 }
-                catch(Exception e)
+                catch (Exception e)
                 {
-                    throw new PluginException(string.Format(Resources.FailedToLoad, asm.GetName().Name), e);
+                    throw new PluginException(string.Format(Strings.FailedToLoad, asm.GetName().Name), e);
                 }
             }
         }

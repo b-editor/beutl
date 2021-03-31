@@ -63,10 +63,10 @@ namespace BEditor.ViewModels.Converters
                 return status switch
                 {
                     Status.Idle => "",
-                    Status.Edit => Resources.Edit,
-                    Status.Saved => Resources.FileSaved,
-                    Status.Playing => Resources.Playing,
-                    Status.Output => Resources.Outputs,
+                    Status.Edit => Strings.Edit,
+                    Status.Saved => Strings.FileSaved,
+                    Status.Playing => Strings.Playing,
+                    Status.Output => Strings.Outputs,
                     _ => throw new NotImplementedException(),
                 };
             }

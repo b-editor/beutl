@@ -5,8 +5,9 @@ using BEditor.Data.Primitive;
 using BEditor.Data.Property;
 using BEditor.Drawing;
 using BEditor.Drawing.Pixel;
+using BEditor.Primitive.Resources;
 
-using static BEditor.Primitive.Objects.Figure;
+using static BEditor.Primitive.Objects.Shape;
 
 namespace BEditor.Primitive.Objects
 {
@@ -33,14 +34,14 @@ namespace BEditor.Primitive.Objects
         }
 
         /// <inheritdoc/>
-        public override string Name => "Polygon";
+        public override string Name => Strings.Polygon;
         /// <inheritdoc/>
         public override IEnumerable<PropertyElement> Properties => new PropertyElement[]
         {
             Coordinate,
-            Zoom,
+            Scale,
             Blend,
-            Angle,
+            Rotate,
             Material,
             Width,
             Height,

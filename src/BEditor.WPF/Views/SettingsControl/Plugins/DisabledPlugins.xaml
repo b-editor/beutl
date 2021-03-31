@@ -1,34 +1,49 @@
-﻿<UserControl x:Class="BEditor.Views.SettingsControl.Plugins.DisabledPlugins"
-             xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
-             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
-             xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006" 
-             xmlns:d="http://schemas.microsoft.com/expression/blend/2008" 
-             xmlns:local="clr-namespace:BEditor.Views.SettingsControl.Plugins"
-             xmlns:properties="clr-namespace:BEditor.Properties;assembly=BEditor.Core"
-             xmlns:app="clr-namespace:BEditor"
-             xmlns:setting="clr-namespace:BEditor;assembly=BEditor.Settings"
-             xmlns:vm="clr-namespace:BEditor.ViewModels.SettingsControl.Plugins"
-             mc:Ignorable="d" 
-             d:DesignHeight="450" d:DesignWidth="800" Background="{DynamicResource MaterialDesignPaper}">
+﻿<UserControl
+    x:Class="BEditor.Views.SettingsControl.Plugins.DisabledPlugins"
+    xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+    xmlns:app="clr-namespace:BEditor"
+    xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+    xmlns:local="clr-namespace:BEditor.Views.SettingsControl.Plugins"
+    xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+    xmlns:properties="clr-namespace:BEditor.Properties"
+    xmlns:setting="clr-namespace:BEditor;assembly=BEditor.Settings"
+    xmlns:vm="clr-namespace:BEditor.ViewModels.SettingsControl.Plugins"
+    d:DesignHeight="450"
+    d:DesignWidth="800"
+    Background="{DynamicResource MaterialDesignPaper}"
+    mc:Ignorable="d">
     <UserControl.DataContext>
-        <vm:DisabledPluginsViewModel/>
+        <vm:DisabledPluginsViewModel />
     </UserControl.DataContext>
     <Grid>
         <Grid.RowDefinitions>
-            <RowDefinition/>
-            <RowDefinition Height="Auto"/>
+            <RowDefinition />
+            <RowDefinition Height="Auto" />
         </Grid.RowDefinitions>
-        <ListBox ItemsSource="{Binding DisablePlugins, Source={x:Static setting:Settings.Default}}"  HorizontalContentAlignment="Stretch" VerticalContentAlignment="Stretch" SelectedItem="{Binding SelectName.Value, Mode=TwoWay}">
+        <ListBox
+            HorizontalContentAlignment="Stretch"
+            VerticalContentAlignment="Stretch"
+            ItemsSource="{Binding DisablePlugins, Source={x:Static setting:Settings.Default}}"
+            SelectedItem="{Binding SelectName.Value, Mode=TwoWay}">
             <ListBox.ItemTemplate>
                 <DataTemplate>
                     <Grid Height="60">
-                        <Label Content="{Binding}" FontSize="14"/>
+                        <Label Content="{Binding}" FontSize="14" />
                     </Grid>
                 </DataTemplate>
             </ListBox.ItemTemplate>
         </ListBox>
-        <VirtualizingStackPanel Grid.Row="1" Orientation="Horizontal" FlowDirection="RightToLeft">
-            <Button Margin="10" Content="{x:Static properties:Resources.LoadPlugin}" Style="{StaticResource MaterialDesignFlatButton}" Foreground="{DynamicResource MaterialDesignBody}" Command="{Binding Enable, Mode=OneTime}"/>
+        <VirtualizingStackPanel
+            Grid.Row="1"
+            FlowDirection="RightToLeft"
+            Orientation="Horizontal">
+            <Button
+                Margin="10"
+                Command="{Binding Enable, Mode=OneTime}"
+                Content="{x:Static properties:Strings.LoadPlugin}"
+                Foreground="{DynamicResource MaterialDesignBody}"
+                Style="{StaticResource MaterialDesignFlatButton}" />
         </VirtualizingStackPanel>
     </Grid>
 </UserControl>

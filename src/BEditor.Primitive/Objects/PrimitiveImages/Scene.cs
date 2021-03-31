@@ -6,7 +6,7 @@ using BEditor.Data.Primitive;
 using BEditor.Data.Property;
 using BEditor.Drawing;
 using BEditor.Drawing.Pixel;
-using BEditor.Properties;
+using BEditor.Primitive.Resources;
 
 namespace BEditor.Primitive.Objects
 {
@@ -29,14 +29,14 @@ namespace BEditor.Primitive.Objects
         }
 
         /// <inheritdoc/>
-        public override string Name => Resources.Scene;
+        public override string Name => Strings.Scene;
         /// <inheritdoc/>
         public override IEnumerable<PropertyElement> Properties => new PropertyElement[]
         {
             Coordinate,
-            Zoom,
+            Scale,
             Blend,
-            Angle,
+            Rotate,
             Material,
             Start,
             SelectScene
@@ -85,7 +85,7 @@ namespace BEditor.Primitive.Objects
 
         internal record ScenesSelectorMetadata : SelectorPropertyMetadata
         {
-            internal ScenesSelectorMetadata(SceneObject scene) : base(Resources.Scenes, Array.Empty<object>())
+            internal ScenesSelectorMetadata(SceneObject scene) : base(Strings.Scenes, Array.Empty<object>())
             {
                 MemberPath = "SceneName";
                 ItemSource = scene.GetParent3()!.SceneList;

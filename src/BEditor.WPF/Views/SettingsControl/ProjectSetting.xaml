@@ -8,7 +8,7 @@
     xmlns:local="clr-namespace:BEditor.Views.SettingsControl"
     xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
     xmlns:md="http://materialdesigninxaml.net/winfx/xaml/themes"
-    xmlns:resource="clr-namespace:BEditor.Properties;assembly=BEditor.Core"
+    xmlns:resource="clr-namespace:BEditor.Properties"
     xmlns:vm="clr-namespace:BEditor.ViewModels.SettingsControl"
     d:DesignHeight="450"
     d:DesignWidth="800"
@@ -17,7 +17,7 @@
         <VirtualizingStackPanel>
             <VirtualizingStackPanel Height="45" Orientation="Horizontal">
                 <CheckBox IsChecked="{Binding AutoBackUp, Source={x:Static data:Settings.Default}, Mode=TwoWay}" Style="{StaticResource SettingsCheckBox}" />
-                <TextBlock Style="{StaticResource SettingsCheckBoxContent}" Text="{x:Static resource:Resources.UseAutoBackup}" />
+                <TextBlock Style="{StaticResource SettingsCheckBoxContent}" Text="{x:Static resource:Strings.UseAutoBackup}" />
             </VirtualizingStackPanel>
 
 
@@ -27,7 +27,7 @@
                     <ColumnDefinition />
                 </Grid.ColumnDefinitions>
                 <VirtualizingStackPanel>
-                    <Label Content="{x:Static resource:Resources.BackUpInterval}" Style="{StaticResource SettingsHeader}" />
+                    <Label Content="{x:Static resource:Strings.BackupInterval}" Style="{StaticResource SettingsHeader}" />
                 </VirtualizingStackPanel>
                 <VirtualizingStackPanel Grid.Column="1">
                     <TextBox Style="{StaticResource SettingsTextBox}" Text="{Binding BackUpInterval, Mode=TwoWay, Source={x:Static data:Settings.Default}, UpdateSourceTrigger=LostFocus}" />

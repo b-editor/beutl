@@ -98,114 +98,138 @@
     <value>System.Resources.ResXResourceWriter, System.Windows.Forms, Version=2.0.3500.0, Culture=neutral, PublicKeyToken=b77a5c561934e089</value>
   </resheader>
   <data name="OutputProjectToJson" xml:space="preserve">
-    <value>Output the project in Json format.</value>
+    <value>プロジェクトをJson形式で出力します。</value>
   </data>
   <data name="ProjectFile" xml:space="preserve">
-    <value>Project file</value>
+    <value>プロジェクトファイル</value>
   </data>
   <data name="OutputDestinationFile" xml:space="preserve">
-    <value>Output destination file</value>
+    <value>出力先のファイル</value>
   </data>
   <data name="FailedToLoadProject" xml:space="preserve">
-    <value>Failed to load the project file.</value>
+    <value>プロジェクトファイルの読み込みに失敗しました。</value>
   </data>
   <data name="SaveFrameToImageFile" xml:space="preserve">
-    <value>Save the specified frame of the scene as an image.</value>
+    <value>シーンの指定したフレームを画像に保存します。</value>
   </data>
   <data name="FrameToOutput" xml:space="preserve">
-    <value>Frame to output</value>
+    <value>出力するフレーム</value>
   </data>
   <data name="SceneToOutput" xml:space="preserve">
-    <value>Frame to scene</value>
+    <value>出力するシーン</value>
   </data>
   <data name="OutputVideo" xml:space="preserve">
-    <value>Output the scene to video.</value>
+    <value>シーンを動画に出力します。</value>
   </data>
   <data name="CreateNewProject" xml:space="preserve">
-    <value>Create a new project.</value>
+    <value>新しくプロジェクトを作成します。</value>
   </data>
   <data name="NameOfProject" xml:space="preserve">
-    <value>Name of new project</value>
+    <value>新しいプロジェクトの名前</value>
   </data>
   <data name="IsLoading" xml:space="preserve">
-    <value>{0} is loading.</value>
+    <value>{0}を読み込み中。</value>
   </data>
   <data name="IsDownloading" xml:space="preserve">
-    <value>{0} is downloading.</value>
+    <value>{0}をダウンロードしています。</value>
   </data>
   <data name="IsExtractedAndPlaced" xml:space="preserve">
-    <value>{0} is extracted and placed.</value>
+    <value>{0}を展開し配置しています。</value>
   </data>
   <data name="FFmpegNotFound" xml:space="preserve">
-    <value>FFmpeg was not found.</value>
+    <value>FFmpegが見つかりませんでした。</value>
   </data>
   <data name="ClipExistsInTheSpecifiedLocation" xml:space="preserve">
-    <value>Cannot place a new clip because a clip already exists in the specified location.</value>
+    <value>指定した場所にクリップが存在しているため、新しいクリップを配置できません。</value>
   </data>
   <data name="SavedTo" xml:space="preserve">
-    <value>Saved to {0}.</value>
+    <value>{0}に保存されました。</value>
   </data>
   <data name="FailedToSave" xml:space="preserve">
-    <value>Failed to save.</value>
+    <value>保存に失敗しました。</value>
   </data>
   <data name="ManagementName" xml:space="preserve">
-    <value>Management Name</value>
+    <value>管理名</value>
   </data>
   <data name="This data cannot be displayed in a list." xml:space="preserve">
-    <value>This data cannot be displayed in a list.</value>
+    <value>このデータはリスト表示できません。</value>
   </data>
   <data name="PropertyNotFound" xml:space="preserve">
-    <value>Property not found.</value>
+    <value>プロパティが見つかりませんでした。</value>
   </data>
   <data name="FailedToConvertPropertiesToJson" xml:space="preserve">
-    <value>Failed to convert properties to Json.</value>
+    <value>プロパティをJsonに変換できませんでした。</value>
   </data>
   <data name="NotFound" xml:space="preserve">
-    <value>{0} not found.</value>
+    <value>{0} が見つかりませんでした。</value>
   </data>
   <data name="AddedClip" xml:space="preserve">
-    <value>Added a clip to start: {0}, end: {1}, layer: {2}.</value>
+    <value>クリップを start: {0}, end: {1}, layer: {2} に追加しました。</value>
   </data>
   <data name="AddedEffect" xml:space="preserve">
-    <value>Added a effect.</value>
+    <value>エフェクトが追加されました。</value>
   </data>
   <data name="RemovedClip" xml:space="preserve">
-    <value>Removed a clip.</value>
+    <value>クリップを削除しました。</value>
   </data>
   <data name="SelectClip" xml:space="preserve">
-    <value>Select a clip.</value>
+    <value>クリップを選択してください。</value>
   </data>
   <data name="IndexIsOutOfRange" xml:space="preserve">
-    <value>Index is out of range.</value>
+    <value>インデックスが範囲外です。</value>
   </data>
   <data name="RemovedEffect" xml:space="preserve">
-    <value>Removed a effect.</value>
+    <value>エフェクトを削除しました。</value>
   </data>
   <data name="MovedClip" xml:space="preserve">
-    <value>Moved a clip.</value>
+    <value>クリップを移動しました。</value>
   </data>
   <data name="LayerIsHidden" xml:space="preserve">
-    <value>Layer:{0} is hidden.</value>
+    <value>レイヤー:{0} を非表示にしました。</value>
   </data>
   <data name="EnumerateFonts" xml:space="preserve">
-    <value>Enumerate fonts.</value>
+    <value>フォントを列挙します。</value>
   </data>
   <data name="InstallIt" xml:space="preserve">
-    <value>Do you want to install it? (Y/N)</value>
+    <value>インストールしますか？(Y/N)</value>
   </data>
   <data name="ExecuteTheCommand" xml:space="preserve">
-    <value>Execute the following command.</value>
+    <value>以下のコマンドを実行してください。</value>
   </data>
   <data name="ProjectFileNotFound" xml:space="preserve">
-    <value>Project file not found.</value>
+    <value>プロジェクトファイルが見つかりませんでした。</value>
   </data>
   <data name="ClipType" xml:space="preserve">
-    <value>Clip type</value>
+    <value>クリップの種類</value>
   </data>
   <data name="InvalidValue" xml:space="preserve">
-    <value>Invalid value.</value>
+    <value>不正な値です。</value>
   </data>
   <data name="AddClip" xml:space="preserve">
-    <value>Add a clip.</value>
+    <value>クリップを追加します。</value>
+  </data>
+  <data name="Start" xml:space="preserve">
+    <value>開始フレーム</value>
+  </data>
+  <data name="Layer" xml:space="preserve">
+    <value>レイヤー</value>
+  </data>
+  <data name="Scene" xml:space="preserve">
+    <value>シーン</value>
+  </data>
+  <data name="Width" xml:space="preserve">
+    <value>横幅</value>
+  </data>
+  <data name="Height" xml:space="preserve">
+    <value>高さ</value>
+  </data>
+  <data name="Framerate" xml:space="preserve">
+    <value>フレームレート</value>
+  </data>
+  <data name="Samplingrate" xml:space="preserve">
+    <value>サンプリングレート</value>
+  </data>
+  <data name="Name" xml:space="preserve">
+    <value>名前</value>
   </data>
 </root>

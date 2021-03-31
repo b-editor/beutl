@@ -9,7 +9,7 @@ using BEditor.Data.Property;
 using BEditor.Drawing;
 using BEditor.Drawing.Pixel;
 using BEditor.Graphics;
-using BEditor.Properties;
+using BEditor.Primitive.Resources;
 
 namespace BEditor.Primitive.Effects
 {
@@ -21,11 +21,11 @@ namespace BEditor.Primitive.Effects
         /// <summary>
         /// Represents <see cref="HSplit"/> metadata.
         /// </summary>
-        public static readonly EasePropertyMetadata HSplitMetadata = new(Resources.NumberOfHorizontalDivisions, 2, Min: 1);
+        public static readonly EasePropertyMetadata HSplitMetadata = new(Strings.NumberOfHorizontalDivisions, 2, Min: 1);
         /// <summary>
         /// Represents <see cref="VSplit"/> metadata.
         /// </summary>
-        public static readonly EasePropertyMetadata VSplitMetadata = new(Resources.NumberOfVerticalDivisions, 2, Min: 1);
+        public static readonly EasePropertyMetadata VSplitMetadata = new(Strings.NumberOfVerticalDivisions, 2, Min: 1);
 
         /// <summary>
         /// Initializes a new instance of the <see cref="ImageSplit"/> class.
@@ -37,7 +37,7 @@ namespace BEditor.Primitive.Effects
         }
 
         /// <inheritdoc/>
-        public override string Name => Resources.ImageSplit;
+        public override string Name => Strings.ImageSplit;
         /// <inheritdoc/>
         public override IEnumerable<PropertyElement> Properties => new PropertyElement[]
         {

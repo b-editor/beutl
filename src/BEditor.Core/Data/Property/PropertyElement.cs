@@ -1,9 +1,7 @@
 ﻿using System;
 using System.ComponentModel;
-using System.Globalization;
-using System.Text.Json;
 
-using BEditor.Properties;
+using BEditor.Resources;
 
 namespace BEditor.Data.Property
 {
@@ -86,9 +84,9 @@ namespace BEditor.Data.Property
                 {
                     // 親がGroup
                     // Idは-1
-                    var scene = this.GetParent3()?.Name ?? throw new DataException(ExceptionMessage.ParentElementNotFound);
-                    var clip = this.GetParent2()?.Name ?? throw new DataException(ExceptionMessage.ParentElementNotFound);
-                    var effect = this.GetParent()?.Id ?? throw new DataException(ExceptionMessage.ParentElementNotFound);
+                    var scene = this.GetParent3()?.Name ?? throw new DataException(Strings.ParentElementNotFound);
+                    var clip = this.GetParent2()?.Name ?? throw new DataException(Strings.ParentElementNotFound);
+                    var effect = this.GetParent()?.Id ?? throw new DataException(Strings.ParentElementNotFound);
 
                     return $"{scene}.{clip}[{effect}][{groupId}][{Id}]";
                 }

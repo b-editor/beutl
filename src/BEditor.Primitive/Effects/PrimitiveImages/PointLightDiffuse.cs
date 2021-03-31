@@ -6,7 +6,7 @@ using BEditor.Data.Property;
 using BEditor.Data.Property.PrimitiveGroup;
 using BEditor.Drawing;
 using BEditor.Drawing.Pixel;
-using BEditor.Properties;
+using BEditor.Primitive.Resources;
 
 namespace BEditor.Primitive.Effects
 {
@@ -30,7 +30,7 @@ namespace BEditor.Primitive.Effects
             LightConstant = new(LightConstantMetadata);
         }
 
-        public override string Name => Resources.PointLightDiffuse;
+        public override string Name => Strings.PointLightDiffuse;
         public override IEnumerable<PropertyElement> Properties => new PropertyElement[]
         {
             X,

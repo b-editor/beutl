@@ -16,6 +16,7 @@ using BEditor.Drawing;
 using BEditor.Drawing.Pixel;
 using BEditor.Graphics;
 using BEditor.Media;
+using BEditor.Resources;
 
 namespace BEditor.Data
 {
@@ -262,15 +263,12 @@ namespace BEditor.Data
                     clip.Unload();
 
                     // 存在する場合
-                    if (scene.SelectItems.Remove(clip))
+                    if (scene.SelectItems.Remove(clip) && scene.SelectItem == clip)
                     {
-                        if (scene.SelectItem == clip)
-                        {
-                            scene.SelectItem = null;
-                        }
+                        scene.SelectItem = null;
                     }
                 },
-                _ => CommandName.AddClip);
+                _ => Strings.AddClip);
         }
 
         /// <summary>

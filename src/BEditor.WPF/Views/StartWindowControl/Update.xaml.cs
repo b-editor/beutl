@@ -7,6 +7,7 @@ using System.Threading.Tasks;
 using System.Windows.Controls;
 
 using BEditor.Models;
+using BEditor.Properties;
 using BEditor.ViewModels;
 
 using Microsoft.Extensions.DependencyInjection;
@@ -40,9 +41,9 @@ namespace BEditor.Views.StartWindowControl
 
                 if (asmName.Version < latest)
                 {
-                    textBlock.Text = Properties.MessageResources.NewVersionIsAvailable;
+                    textBlock.Text = Strings.NewVersionIsAvailable;
 
-                    button.Content = Properties.MessageResources.Download;
+                    button.Content = Strings.Download;
 
                     button.Click += (s, e) =>
                     {
@@ -51,9 +52,9 @@ namespace BEditor.Views.StartWindowControl
                 }
                 else
                 {
-                    textBlock.Text = Properties.MessageResources.ThisSoftwareIsLatest;
+                    textBlock.Text = Strings.ThisSoftwareIsLatest;
 
-                    button.Content = Properties.Resources.OpenThisRepository;
+                    button.Content = Strings.OpenThisRepository;
 
                     button.Click += (s, e) =>
                     {

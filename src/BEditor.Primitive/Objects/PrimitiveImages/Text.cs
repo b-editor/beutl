@@ -8,7 +8,7 @@ using BEditor.Data.Property;
 using BEditor.Drawing;
 using BEditor.Drawing.Pixel;
 using BEditor.Graphics;
-using BEditor.Properties;
+using BEditor.Primitive.Resources;
 
 namespace BEditor.Primitive.Objects
 {
@@ -21,11 +21,11 @@ namespace BEditor.Primitive.Objects
         /// <summary>
         /// Represents <see cref="Size"/> metadata.
         /// </summary>
-        public static readonly EasePropertyMetadata SizeMetadata = new(Resources.Size, 100, float.NaN, 0);
+        public static readonly EasePropertyMetadata SizeMetadata = new(Strings.Size, 100, float.NaN, 0);
         /// <summary>
         /// Represents <see cref="Color"/> metadata.
         /// </summary>
-        public static readonly ColorPropertyMetadata ColorMetadata = new(Resources.Color, Drawing.Color.Light);
+        public static readonly ColorPropertyMetadata ColorMetadata = new(Strings.Color, Drawing.Color.Light);
         /// <summary>
         /// Represents <see cref="Font"/> metadata.
         /// </summary>
@@ -37,7 +37,7 @@ namespace BEditor.Primitive.Objects
         /// <summary>
         /// Represents <see cref="EnableMultiple"/> metadata.
         /// </summary>
-        public static readonly CheckPropertyMetadata EnableMultipleMetadata = new(Resources.EnableMultipleObjects);
+        public static readonly CheckPropertyMetadata EnableMultipleMetadata = new(Strings.EnableMultipleObjects);
 
         /// <summary>
         /// Initializes a new instance of the <see cref="Text"/> class.
@@ -52,14 +52,14 @@ namespace BEditor.Primitive.Objects
         }
 
         /// <inheritdoc/>
-        public override string Name => Resources.Text;
+        public override string Name => Strings.Text;
         /// <inheritdoc/>
         public override IEnumerable<PropertyElement> Properties => new PropertyElement[]
         {
             Coordinate,
-            Zoom,
+            Scale,
             Blend,
-            Angle,
+            Rotate,
             Material,
             Size,
             Color,

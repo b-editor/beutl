@@ -1,12 +1,9 @@
 ﻿using System;
-using System.Collections.Generic;
 using System.IO;
-using System.Linq;
 using System.Runtime.Serialization;
 using System.Text;
-using System.Threading.Tasks;
 
-using BEditor.Drawing.Properties;
+using BEditor.Drawing.Resources;
 
 using SkiaSharp;
 
@@ -18,8 +15,8 @@ namespace BEditor.Drawing
         public Font(string file)
         {
             if (Path.GetExtension(file) is not (".ttf" or ".ttc" or ".otf"))
-                throw new NotSupportedException(Resources.FontException);
-            
+                throw new NotSupportedException(Strings.FontException);
+
             using var face = SKTypeface.FromFile(file);
 
             Weight = (FontStyleWeight)face.FontStyle.Weight;

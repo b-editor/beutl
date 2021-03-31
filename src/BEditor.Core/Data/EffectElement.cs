@@ -9,6 +9,7 @@ using System.Text.Json;
 
 using BEditor.Command;
 using BEditor.Data.Property;
+using BEditor.Resources;
 
 namespace BEditor.Data
 {
@@ -199,7 +200,7 @@ namespace BEditor.Data
             }
 
             /// <inheritdoc/>
-            public string Name => CommandName.RemoveEffect;
+            public string Name => Strings.RemoveEffect;
 
             /// <inheritdoc/>
             public void Do()
@@ -244,7 +245,7 @@ namespace BEditor.Data
             }
 
             /// <inheritdoc/>
-            public string Name => CommandName.AddEffect;
+            public string Name => Strings.AddEffect;
 
             /// <inheritdoc/>
             public void Do()
@@ -298,7 +299,7 @@ namespace BEditor.Data
                 _value = value;
             }
 
-            public string Name => CommandName.EnableDisableEffect;
+            public string Name => Strings.EnableDisableEffect;
 
             public void Do()
             {
@@ -333,7 +334,7 @@ namespace BEditor.Data
                 _clip = new(effect.Parent);
             }
 
-            public string Name => CommandName.UpEffect;
+            public string Name => Strings.UpEffect;
 
             public void Do()
             {
@@ -380,7 +381,7 @@ namespace BEditor.Data
                 _clip = new(effect.Parent);
             }
 
-            public string Name => CommandName.DownEffect;
+            public string Name => Strings.DownEffect;
 
             public void Do()
             {

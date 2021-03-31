@@ -8,7 +8,7 @@ using BEditor.Data.Property.PrimitiveGroup;
 using BEditor.Drawing;
 using BEditor.Drawing.Pixel;
 using BEditor.Graphics;
-using BEditor.Properties;
+using BEditor.Primitive.Resources;
 
 namespace BEditor.Primitive.Effects
 {
@@ -24,11 +24,11 @@ namespace BEditor.Primitive.Effects
         /// <summary>
         /// Represents <see cref="Zoom"/> metadata.
         /// </summary>
-        public static readonly PropertyElementMetadata ZoomMetadata = ImageObject.ZoomMetadata;
+        public static readonly PropertyElementMetadata ZoomMetadata = ImageObject.ScaleMetadata;
         /// <summary>
         /// Represents <see cref="Angle"/> metadata.
         /// </summary>
-        public static readonly PropertyElementMetadata AngleMetadata = ImageObject.AngleMetadata;
+        public static readonly PropertyElementMetadata AngleMetadata = ImageObject.RotateMetadata;
         /// <summary>
         /// Represents <see cref="Index"/> metadata.
         /// </summary>
@@ -46,7 +46,7 @@ namespace BEditor.Primitive.Effects
         }
 
         /// <inheritdoc/>
-        public override string Name => Resources.MultipleImageControls;
+        public override string Name => Strings.MultipleImageControls;
         /// <inheritdoc/>
         public override IEnumerable<PropertyElement> Properties => new PropertyElement[]
         {
@@ -64,12 +64,12 @@ namespace BEditor.Primitive.Effects
         /// Get the scale.
         /// </summary>
         [DataMember]
-        public Zoom Zoom { get; private set; }
+        public Scale Zoom { get; private set; }
         /// <summary>
         /// Get the angle.
         /// </summary>
         [DataMember]
-        public Angle Angle { get; private set; }
+        public Rotate Angle { get; private set; }
         /// <summary>
         /// Gets the <see cref="ValueProperty"/> representing the index of the image to be controlled.
         /// </summary>
@@ -90,7 +90,7 @@ namespace BEditor.Primitive.Effects
                         _ =>
                         {
                             var f = args.Frame;
-                            var s = Zoom.Scale[f] / 100;
+                            var s = Zoom.Scale1[f] / 100;
                             var sx = Zoom.ScaleX[f] / 100 * s - 1;
                             var sy = Zoom.ScaleY[f] / 100 * s - 1;
                             var sz = Zoom.ScaleZ[f] / 100 * s - 1;
@@ -98,7 +98,7 @@ namespace BEditor.Primitive.Effects
                             return img.Transform + Transform.Create(
                                 new(Coordinate.X[f], Coordinate.Y[f], Coordinate.Z[f]),
                                 new(Coordinate.CenterX[f], Coordinate.CenterY[f], Coordinate.CenterZ[f]),
-                                new(Angle.AngleX[f], Angle.AngleY[f], Angle.AngleZ[f]),
+                                new(Angle.RotateX[f], Angle.RotateY[f], Angle.RotateZ[f]),
                                 new(sx, sy, sz));
                         });
                 }

@@ -3,11 +3,11 @@ using System.Windows;
 using System.Windows.Controls;
 using System.Windows.Media;
 
+using BEditor.Properties;
+
 using Reactive.Bindings;
 
 using static BEditor.IMessage;
-
-using Resource = BEditor.Properties.Resources;
 
 namespace BEditor.Views.MessageContent
 {
@@ -29,12 +29,12 @@ namespace BEditor.Views.MessageContent
             {
                 var text = button switch
                 {
-                    ButtonType.Ok => Resource.OK,
-                    ButtonType.Yes => Resource.Yes,
-                    ButtonType.No => Resource.No,
-                    ButtonType.Cancel => Resource.Cancel,
-                    ButtonType.Retry => Resource.Retry,
-                    ButtonType.Close => Resource.Close,
+                    ButtonType.Ok => Strings.OK,
+                    ButtonType.Yes => Strings.Yes,
+                    ButtonType.No => Strings.No,
+                    ButtonType.Cancel => Strings.Cancel,
+                    ButtonType.Retry => Strings.Retry,
+                    ButtonType.Close => Strings.Close,
                     _ => "",
                 };
 

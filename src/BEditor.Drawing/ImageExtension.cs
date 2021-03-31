@@ -1,15 +1,12 @@
 ﻿using System;
 using System.Collections.Generic;
-using System.Drawing;
-using System.Drawing.Imaging;
 using System.IO;
 using System.Linq;
-using System.Text;
 using System.Threading.Tasks;
 
 using BEditor.Drawing.Pixel;
 using BEditor.Drawing.Process;
-using BEditor.Drawing.Properties;
+using BEditor.Drawing.Resources;
 
 using SkiaSharp;
 
@@ -121,14 +118,14 @@ namespace BEditor.Drawing
             }
         }
 
-        public static void SetAlpha(this Image<BGRA32> self, float alpha)
+        public static void SetOpacity(this Image<BGRA32> self, float opacity)
         {
             if (self is null) throw new ArgumentNullException(nameof(self));
             self.ThrowIfDisposed();
 
             fixed (BGRA32* data = self.Data)
             {
-                var p = new SetAlphaProcess(data, alpha);
+                var p = new SetAlphaProcess(data, opacity);
                 Parallel.For(0, self.Data.Length, p.Invoke);
             }
         }
@@ -146,7 +143,7 @@ namespace BEditor.Drawing
         public static Image<BGRA32> Border(this Image<BGRA32> self, int size, BGRA32 color)
         {
             if (self is null) throw new ArgumentNullException(nameof(self));
-            if (size <= 0) throw new ArgumentException(string.Format(Resources.LessThan, nameof(size), 0));
+            if (size <= 0) throw new ArgumentException(string.Format(Strings.LessThan, nameof(size), 0));
             self.ThrowIfDisposed();
 
             int nwidth = self.Width + (size + 5) * 2;
@@ -872,7 +869,7 @@ namespace BEditor.Drawing
         {
             var ex = Path.GetExtension(filename);
 
-            if (string.IsNullOrEmpty(filename)) throw new IOException(Resources.FileExtension);
+            if (string.IsNullOrEmpty(filename)) throw new IOException(Strings.FileExtension);
 
             return ExtensionToFormat[ex];
         }

@@ -18,6 +18,7 @@ using BEditor.Data;
 using BEditor.Data.Bindings;
 using BEditor.Data.Property;
 using BEditor.Models;
+using BEditor.Properties;
 using BEditor.ViewModels.CreatePage;
 using BEditor.Views.CreatePage;
 
@@ -54,7 +55,7 @@ namespace BEditor.Views.ToolControl.Default
             }
             else
             {
-                Message.Snackbar(string.Format(Properties.Resources.ErrorObjectViewer2, nameof(PropertyElement)));
+                Message.Snackbar(string.Format(Strings.ErrorObjectViewer2, nameof(PropertyElement)));
             }
         }
         private void TreeView_PreviewMouseWheel(object sender, MouseWheelEventArgs e)
@@ -108,7 +109,7 @@ namespace BEditor.Views.ToolControl.Default
                 }
 
                 if (Message.Dialog(
-                    Properties.Resources.CommandQ1,
+                    Strings.CommandQ1,
                     types: new ButtonType[] { ButtonType.Yes, ButtonType.No }) == ButtonType.Yes)
                 {
                     scene.Parent!.PreviewScene = scene.Parent!.SceneList[0];
@@ -122,7 +123,7 @@ namespace BEditor.Views.ToolControl.Default
             }
             catch (IndexOutOfRangeException)
             {
-                Message.Snackbar(string.Format(Properties.Resources.ErrorObjectViewer1, nameof(Scene)));
+                Message.Snackbar(string.Format(Strings.ErrorObjectViewer1, nameof(Scene)));
             }
         }
         private void RemoveClip(object sender, RoutedEventArgs e)
@@ -135,7 +136,7 @@ namespace BEditor.Views.ToolControl.Default
             }
             catch (IndexOutOfRangeException)
             {
-                Message.Snackbar(string.Format(Properties.Resources.ErrorObjectViewer1, nameof(ClipElement)));
+                Message.Snackbar(string.Format(Strings.ErrorObjectViewer1, nameof(ClipElement)));
             }
         }
         private void RemoveEffect(object sender, RoutedEventArgs e)
@@ -148,7 +149,7 @@ namespace BEditor.Views.ToolControl.Default
             }
             catch (IndexOutOfRangeException)
             {
-                Message.Snackbar(string.Format(Properties.Resources.ErrorObjectViewer1, nameof(EffectElement)));
+                Message.Snackbar(string.Format(Strings.ErrorObjectViewer1, nameof(EffectElement)));
             }
         }
         private void AddScene(object sender, RoutedEventArgs e)

@@ -27,15 +27,15 @@ namespace BEditor.ViewModels.CreatePage
         public ClipCreatePageViewModel()
         {
             Start = new ReactiveProperty<int>(1)
-                .SetValidateNotifyError(value => (value <= 0) ? string.Format(Resources.RangeAbove, "0") : null)
+                .SetValidateNotifyError(value => (value <= 0) ? string.Format(Strings.RangeAbove, "0") : null)
                 .AddTo(_disposable);
 
             Length = new ReactiveProperty<int>(180)
-                .SetValidateNotifyError(value => (value <= 0) ? string.Format(Resources.RangeAbove, "0") : null)
+                .SetValidateNotifyError(value => (value <= 0) ? string.Format(Strings.RangeAbove, "0") : null)
                 .AddTo(_disposable);
 
             Layer = new ReactiveProperty<int>(1)
-                .SetValidateNotifyError(value => (value <= 0) ? string.Format(Resources.RangeAbove, "0") : null)
+                .SetValidateNotifyError(value => (value <= 0) ? string.Format(Strings.RangeAbove, "0") : null)
                 .AddTo(_disposable);
 
             TypeItems = new(ObjectMetadata.LoadedObjects.Select(i =>
@@ -61,7 +61,7 @@ namespace BEditor.ViewModels.CreatePage
                 if (!Scene.Value.InRange(Start.Value, Start.Value + Length.Value, Layer.Value))
                 {
                     Scene.Value.ServiceProvider?.GetService<IMessage>()?
-                        .Snackbar(MessageResources.ClipExistsInTheSpecifiedLocation);
+                        .Snackbar(Strings.ClipExistsInTheSpecifiedLocation);
 
                     return;
                 }

@@ -7,7 +7,7 @@
     xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
     xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
     xmlns:md="http://materialdesigninxaml.net/winfx/xaml/themes"
-    xmlns:props="clr-namespace:BEditor.Properties;assembly=BEditor.Core"
+    xmlns:props="clr-namespace:BEditor.Properties"
     x:Name="root"
     Width="700"
     Height="450"
@@ -54,7 +54,7 @@
 
         <ScrollViewer Grid.Column="0">
             <VirtualizingStackPanel>
-                <TextBlock Margin="8" Text="{x:Static props:Resources.RecentlyUsedFonts}" />
+                <TextBlock Margin="8" Text="{x:Static props:Strings.RecentlyUsedFonts}" />
 
                 <ItemsControl
                     ItemsSource="{Binding UsedFonts, Mode=OneTime}"
@@ -118,7 +118,7 @@
 
             <TextBox
                 Margin="8"
-                md:HintAssist.Hint="{x:Static props:Resources.Search}"
+                md:HintAssist.Hint="{x:Static props:Strings.Search}"
                 Text="{Binding Search.Value, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}" />
 
             <VirtualizingStackPanel Grid.Row="1">
@@ -161,7 +161,7 @@
                     Margin="10,0,5,0"
                     VerticalAlignment="Center"
                     Command="{Binding OKCommand, Mode=OneTime}"
-                    Content="{x:Static props:Resources.OK}"
+                    Content="{x:Static props:Strings.OK}"
                     Cursor="Arrow"
                     Foreground="{DynamicResource MaterialDesignBody}"
                     Style="{StaticResource MaterialDesignFlatButton}" />
@@ -170,7 +170,7 @@
                     Margin="5,0,10,0"
                     VerticalAlignment="Center"
                     Command="{Binding WindowClose, Mode=OneTime}"
-                    Content="{x:Static props:Resources.Cancel}"
+                    Content="{x:Static props:Strings.Cancel}"
                     Cursor="Arrow"
                     Foreground="Red"
                     Style="{StaticResource MaterialDesignFlatButton}" />

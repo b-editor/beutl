@@ -9,7 +9,7 @@
     xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
     xmlns:md="http://materialdesigninxaml.net/winfx/xaml/themes"
     xmlns:model="clr-namespace:BEditor.Models"
-    xmlns:props="clr-namespace:BEditor.Properties;assembly=BEditor.Core"
+    xmlns:props="clr-namespace:BEditor.Properties"
     xmlns:vm="clr-namespace:BEditor.ViewModels.CreatePage"
     Width="1000"
     Height="600"
@@ -56,7 +56,7 @@
                     Margin="0,0,0,16"
                     FontSize="16"
                     Foreground="{DynamicResource MaterialDesignBodyLight}"
-                    Text="{x:Static props:Resources.Clip}" />
+                    Text="{x:Static props:Strings.Clip}" />
                 <ItemsControl
                     HorizontalAlignment="Center"
                     ItemsSource="{Binding ClipItems.Value, Mode=OneWay}"
@@ -109,14 +109,14 @@
                 Margin="0,0,0,16"
                 FontSize="16"
                 Foreground="{DynamicResource MaterialDesignBodyLight}"
-                Text="{x:Static props:Resources.Settings}" />
+                Text="{x:Static props:Strings.Settings}" />
 
             <!--  Scene  -->
             <VirtualizingStackPanel Margin="8">
                 <TextBlock
                     FontSize="14"
                     Foreground="{DynamicResource MaterialDesignBodyLight}"
-                    Text="{x:Static props:Resources.Scene}" />
+                    Text="{x:Static props:Strings.Scene}" />
 
                 <ComboBox
                     Margin="0,8"
@@ -130,7 +130,7 @@
                 <TextBlock
                     FontSize="14"
                     Foreground="{DynamicResource MaterialDesignBodyLight}"
-                    Text="{x:Static props:Resources.Effect}" />
+                    Text="{x:Static props:Strings.Effect}" />
 
                 <ComboBox
                     Margin="0,8"
@@ -149,7 +149,7 @@
             <Button
                 HorizontalAlignment="Left"
                 Click="CloseClick"
-                Content="{x:Static props:Resources.Cancel}"
+                Content="{x:Static props:Strings.Cancel}"
                 Cursor="Arrow"
                 Foreground="Red"
                 IsCancel="True"
@@ -158,7 +158,7 @@
                 HorizontalAlignment="Left"
                 Click="CloseClick"
                 Command="{Binding AddCommand, Mode=OneTime}"
-                Content="{x:Static props:Resources.Add}"
+                Content="{x:Static props:Strings.Add}"
                 Cursor="Arrow"
                 Foreground="{StaticResource MaterialDesignBody}"
                 IsDefault="True"

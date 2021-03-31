@@ -1,10 +1,6 @@
 ﻿using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Text;
-using System.Threading.Tasks;
 
-using BEditor.Properties;
+using BEditor.Resources;
 
 namespace BEditor.Command
 {
@@ -45,7 +41,7 @@ namespace BEditor.Command
         }
 
         /// <inheritdoc/>
-        public string Name => _getName?.Invoke(_value) ?? Resources.UnknownCommand;
+        public string Name => _getName?.Invoke(_value) ?? Strings.UnknownCommand;
 
         /// <inheritdoc/>
         public void Do() => _do?.Invoke(_value);

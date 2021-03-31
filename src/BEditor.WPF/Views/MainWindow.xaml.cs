@@ -17,6 +17,7 @@ using System.Windows.Interop;
 using BEditor.Data;
 using BEditor.Models;
 using BEditor.Plugin;
+using BEditor.Properties;
 using BEditor.ViewModels;
 using BEditor.ViewModels.CreatePage;
 using BEditor.Views;
@@ -70,7 +71,7 @@ namespace BEditor
 
             Focus();
 
-            SetMostUsedFiles();
+            SetRecentUsedFiles();
             SetPluginMenu();
         }
 
@@ -133,7 +134,7 @@ namespace BEditor
             viewmodel.Dispose();
         }
 
-        private void SetMostUsedFiles()
+        private void SetRecentUsedFiles()
         {
             static async Task ProjectOpenCommand(string name)
             {
@@ -144,11 +145,11 @@ namespace BEditor
                 catch
                 {
                     Debug.Assert(false);
-                    AppData.Current.Message.Snackbar(string.Format(Properties.Resources.FailedToLoad, "Project"));
+                    AppData.Current.Message.Snackbar(string.Format(Strings.FailedToLoad, "Project"));
                 }
             }
 
-            foreach (var file in Settings.Default.MostRecentlyUsedList)
+            foreach (var file in Settings.Default.RecentlyUsedFiles)
             {
                 var menu = new MenuItem()
                 {
@@ -159,7 +160,7 @@ namespace BEditor
                 UsedFiles.Items.Insert(0, menu);
             }
 
-            Settings.Default.MostRecentlyUsedList.CollectionChanged += (s, e) =>
+            Settings.Default.RecentlyUsedFiles.CollectionChanged += (s, e) =>
             {
                 Dispatcher.InvokeAsync(() =>
                 {

@@ -27,12 +27,12 @@ namespace BEditor.ViewModels
     {
         public StartWindowViewModel()
         {
-            MenuItems.Add(new(Resources.Project, PackIconKind.Layers, () => new ProjectsControl())
+            MenuItems.Add(new(Strings.Project, PackIconKind.Layers, () => new ProjectsControl())
             {
                 IsChecked = { Value = true }
             });
-            MenuItems.Add(new(Resources.LearnHowToUse, PackIconKind.School, () => new Learn()));
-            MenuItems.Add(new(Resources.Update, PackIconKind.Update, () => new Update()));
+            MenuItems.Add(new(Strings.LearnHowToUse, PackIconKind.School, () => new Learn()));
+            MenuItems.Add(new(Strings.Update, PackIconKind.Update, () => new Update()));
 
             foreach (var item in MenuItems)
             {
@@ -68,7 +68,7 @@ namespace BEditor.ViewModels
                         Orientation = Orientation.Horizontal,
                         Children =
                         {
-                            new TextBlock() { Text = Resources.Update },
+                            new TextBlock() { Text = Strings.Update },
                             new Ellipse()
                             {
                                 Fill = (asmName.Version < latest) ? Brushes.Orange : Brushes.Green,

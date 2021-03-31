@@ -5,7 +5,7 @@ using BEditor.Data.Primitive;
 using BEditor.Data.Property;
 using BEditor.Drawing;
 using BEditor.Drawing.Pixel;
-using BEditor.Properties;
+using BEditor.Primitive.Resources;
 
 namespace BEditor.Primitive.Objects
 {
@@ -17,7 +17,7 @@ namespace BEditor.Primitive.Objects
         /// <summary>
         /// Represents <see cref="BufferClear"/> metadata.
         /// </summary>
-        public static readonly CheckPropertyMetadata BufferClearMetadata = new(Resources.ClearFramebuffer);
+        public static readonly CheckPropertyMetadata BufferClearMetadata = new(Strings.ClearFramebuffer);
 
         /// <summary>
         /// Initializes a new instance of the <see cref="Framebuffer"/> class.
@@ -28,14 +28,14 @@ namespace BEditor.Primitive.Objects
         }
 
         /// <inheritdoc/>
-        public override string Name => Resources.Framebuffer;
+        public override string Name => Strings.Framebuffer;
         /// <inheritdoc/>
         public override IEnumerable<PropertyElement> Properties => new PropertyElement[]
         {
             Coordinate,
-            Zoom,
+            Scale,
             Blend,
-            Angle,
+            Rotate,
             Material,
             BufferClear
         };

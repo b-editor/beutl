@@ -3,7 +3,7 @@ using System.Collections.ObjectModel;
 
 using BEditor.Data;
 using BEditor.Data.Property;
-using BEditor.Properties;
+using BEditor.Primitive.Resources;
 
 using OpenTK.Graphics.OpenGL4;
 
@@ -17,11 +17,11 @@ namespace BEditor.Primitive.Effects
         /// <summary>
         /// Represents <see cref="Enabled"/> metadata.
         /// </summary>
-        public static readonly CheckPropertyMetadata EnabledMetadata = new(Resources.DepthTestEneble, true);
+        public static readonly CheckPropertyMetadata EnabledMetadata = new(Strings.DepthTestEnable, true);
         /// <summary>
         /// Represents <see cref="Function"/> metadata.
         /// </summary>
-        public static readonly SelectorPropertyMetadata FunctionMetadata = new(Resources.DepthFunction, new string[]
+        public static readonly SelectorPropertyMetadata FunctionMetadata = new(Strings.DepthFunction, new string[]
         {
                 "Never",
                 "Less",
@@ -69,7 +69,7 @@ namespace BEditor.Primitive.Effects
         }
 
         /// <inheritdoc/>
-        public override string Name => Resources.DepthTest;
+        public override string Name => Strings.DepthTest;
         /// <inheritdoc/>
         public override IEnumerable<PropertyElement> Properties => new PropertyElement[]
         {

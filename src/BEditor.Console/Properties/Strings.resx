@@ -97,79 +97,139 @@
   <resheader name="writer">
     <value>System.Resources.ResXResourceWriter, System.Windows.Forms, Version=2.0.3500.0, Culture=neutral, PublicKeyToken=b77a5c561934e089</value>
   </resheader>
-  <data name="BindCommand" xml:space="preserve">
-    <value>Bind the value of the property</value>
+  <data name="OutputProjectToJson" xml:space="preserve">
+    <value>Output the project in Json format.</value>
   </data>
-  <data name="Disconnect" xml:space="preserve">
-    <value>Disconnect property value</value>
+  <data name="ProjectFile" xml:space="preserve">
+    <value>Project file</value>
   </data>
-  <data name="ChangeIsChecked" xml:space="preserve">
-    <value>Change the state of the checkbox</value>
+  <data name="OutputDestinationFile" xml:space="preserve">
+    <value>Output destination file</value>
   </data>
-  <data name="ChangeColor" xml:space="preserve">
-    <value>Change color</value>
+  <data name="FailedToLoadProject" xml:space="preserve">
+    <value>Failed to load the project file.</value>
   </data>
-  <data name="ChangeEasing" xml:space="preserve">
-    <value>Change easing</value>
+  <data name="SaveFrameToImageFile" xml:space="preserve">
+    <value>Save the specified frame of the scene as an image.</value>
   </data>
-  <data name="AddKeyFrame" xml:space="preserve">
-    <value>Add a keyframe</value>
+  <data name="FrameToOutput" xml:space="preserve">
+    <value>Frame to output</value>
   </data>
-  <data name="RemoveKeyFrame" xml:space="preserve">
-    <value>Remove keyframe</value>
+  <data name="SceneToOutput" xml:space="preserve">
+    <value>Frame to scene</value>
   </data>
-  <data name="MoveKeyFrame" xml:space="preserve">
-    <value>Move keyframe</value>
+  <data name="OutputVideo" xml:space="preserve">
+    <value>Output the scene to video.</value>
   </data>
-  <data name="ChangeText" xml:space="preserve">
-    <value>Change text</value>
+  <data name="CreateNewProject" xml:space="preserve">
+    <value>Create a new project.</value>
   </data>
-  <data name="ChangeValue" xml:space="preserve">
-    <value>Change value</value>
+  <data name="NameOfProject" xml:space="preserve">
+    <value>Name of new project</value>
   </data>
-  <data name="ChangeFile" xml:space="preserve">
-    <value>Change file</value>
+  <data name="IsLoading" xml:space="preserve">
+    <value>{0} is loading.</value>
   </data>
-  <data name="ChangeFolder" xml:space="preserve">
-    <value>Change folder</value>
+  <data name="IsDownloading" xml:space="preserve">
+    <value>{0} is downloading.</value>
   </data>
-  <data name="ChangeFont" xml:space="preserve">
-    <value>Change font</value>
+  <data name="IsExtractedAndPlaced" xml:space="preserve">
+    <value>{0} is extracted and placed.</value>
   </data>
-  <data name="ChangeSelectItem" xml:space="preserve">
-    <value>Change selected item</value>
+  <data name="FFmpegNotFound" xml:space="preserve">
+    <value>FFmpeg was not found.</value>
+  </data>
+  <data name="ClipExistsInTheSpecifiedLocation" xml:space="preserve">
+    <value>Cannot place a new clip because a clip already exists in the specified location.</value>
+  </data>
+  <data name="SavedTo" xml:space="preserve">
+    <value>Saved to {0}.</value>
+  </data>
+  <data name="FailedToSave" xml:space="preserve">
+    <value>Failed to save.</value>
+  </data>
+  <data name="ManagementName" xml:space="preserve">
+    <value>Management Name</value>
+  </data>
+  <data name="This data cannot be displayed in a list." xml:space="preserve">
+    <value>This data cannot be displayed in a list.</value>
+  </data>
+  <data name="PropertyNotFound" xml:space="preserve">
+    <value>Property not found.</value>
+  </data>
+  <data name="FailedToConvertPropertiesToJson" xml:space="preserve">
+    <value>Failed to convert properties to Json.</value>
+  </data>
+  <data name="NotFound" xml:space="preserve">
+    <value>{0} not found.</value>
+  </data>
+  <data name="AddedClip" xml:space="preserve">
+    <value>Added a clip to start: {0}, end: {1}, layer: {2}.</value>
+  </data>
+  <data name="AddedEffect" xml:space="preserve">
+    <value>Added a effect.</value>
+  </data>
+  <data name="RemovedClip" xml:space="preserve">
+    <value>Removed a clip.</value>
+  </data>
+  <data name="SelectClip" xml:space="preserve">
+    <value>Select a clip.</value>
+  </data>
+  <data name="IndexIsOutOfRange" xml:space="preserve">
+    <value>Index is out of range.</value>
+  </data>
+  <data name="RemovedEffect" xml:space="preserve">
+    <value>Removed a effect.</value>
+  </data>
+  <data name="MovedClip" xml:space="preserve">
+    <value>Moved a clip.</value>
+  </data>
+  <data name="LayerIsHidden" xml:space="preserve">
+    <value>Layer:{0} is hidden.</value>
+  </data>
+  <data name="EnumerateFonts" xml:space="preserve">
+    <value>Enumerate fonts.</value>
+  </data>
+  <data name="InstallIt" xml:space="preserve">
+    <value>Do you want to install it? (Y/N)</value>
+  </data>
+  <data name="ExecuteTheCommand" xml:space="preserve">
+    <value>Execute the following command.</value>
+  </data>
+  <data name="ProjectFileNotFound" xml:space="preserve">
+    <value>Project file not found.</value>
+  </data>
+  <data name="ClipType" xml:space="preserve">
+    <value>Clip type</value>
+  </data>
+  <data name="InvalidValue" xml:space="preserve">
+    <value>Invalid value.</value>
   </data>
   <data name="AddClip" xml:space="preserve">
-    <value>Add a clip</value>
+    <value>Add a clip.</value>
   </data>
-  <data name="RemoveClip" xml:space="preserve">
-    <value>Remove clip</value>
+  <data name="Start" xml:space="preserve">
+    <value>Start frame</value>
   </data>
-  <data name="MoveClip" xml:space="preserve">
-    <value>Move clip</value>
+  <data name="Layer" xml:space="preserve">
+    <value>Layer</value>
   </data>
-  <data name="ChangeLength" xml:space="preserve">
-    <value>Change length</value>
+  <data name="Scene" xml:space="preserve">
+    <value>Scene</value>
   </data>
-  <data name="SplitClip" xml:space="preserve">
-    <value>Split a clip</value>
+  <data name="Width" xml:space="preserve">
+    <value>Width</value>
   </data>
-  <data name="EnableDisableEffect" xml:space="preserve">
-    <value>Enable/Disable effects</value>
+  <data name="Height" xml:space="preserve">
+    <value>Height</value>
   </data>
-  <data name="UpEffect" xml:space="preserve">
-    <value>Change the order of the effects (top)</value>
+  <data name="Framerate" xml:space="preserve">
+    <value>Framerate</value>
   </data>
-  <data name="DownEffect" xml:space="preserve">
-    <value>Change the order of the effects (below)</value>
+  <data name="Samplingrate" xml:space="preserve">
+    <value>Samplingrate</value>
   </data>
-  <data name="RemoveEffect" xml:space="preserve">
-    <value>Remove effect</value>
-  </data>
-  <data name="AddEffect" xml:space="preserve">
-    <value>Add a effect</value>
-  </data>
-  <data name="RemoveLayer" xml:space="preserve">
-    <value>Remove layer</value>
+  <data name="Name" xml:space="preserve">
+    <value>Name</value>
   </data>
 </root>

@@ -25,12 +25,12 @@ namespace BEditor.ViewModels.StartWindowControl
     {
         public ProjectsControlViewModel()
         {
-            CountIsZero = new(!Settings.Default.MostRecentlyUsedList
+            CountIsZero = new(!Settings.Default.RecentlyUsedFiles
                 .Where(i => File.Exists(i))
                 .Any());
             CountIsNotZero = CountIsZero.Select(i => !i).ToReadOnlyReactivePropertySlim();
 
-            Projects = new(Settings.Default.MostRecentlyUsedList
+            Projects = new(Settings.Default.RecentlyUsedFiles
                 .Where(i => File.Exists(i))
                 .Select(i => new ProjectItem(Path.GetFileNameWithoutExtension(i), i, Click, Remove))
                 .Reverse());
@@ -57,8 +57,8 @@ namespace BEditor.ViewModels.StartWindowControl
                     app.Project = project;
                     app.AppStatus = Status.Edit;
 
-                    Settings.Default.MostRecentlyUsedList.Remove(ProjectItem.Path);
-                    Settings.Default.MostRecentlyUsedList.Add(ProjectItem.Path);
+                    Settings.Default.RecentlyUsedFiles.Remove(ProjectItem.Path);
+                    Settings.Default.RecentlyUsedFiles.Add(ProjectItem.Path);
 
                     await App.Current.Dispatcher.InvokeAsync(() =>
                     {
@@ -87,7 +87,7 @@ namespace BEditor.ViewModels.StartWindowControl
             Remove.Subscribe(item =>
             {
                 Projects.Remove(item);
-                Settings.Default.MostRecentlyUsedList.Remove(item.Path);
+                Settings.Default.RecentlyUsedFiles.Remove(item.Path);
 
                 if (Projects.Count is 0)
                 {
@@ -100,7 +100,7 @@ namespace BEditor.ViewModels.StartWindowControl
                 {
                     Filters =
                     {
-                        new(Resources.ProjectFile, new FileExtension[] { new("bedit") })
+                        new(Strings.ProjectFile, new FileExtension[] { new("bedit") })
                     }
                 };
 
@@ -109,7 +109,7 @@ namespace BEditor.ViewModels.StartWindowControl
                 {
                     var f = Projects.Count is 0;
                     Projects.Insert(0, new ProjectItem(Path.GetFileNameWithoutExtension(record.FileName), record.FileName, Click, Remove));
-                    Settings.Default.MostRecentlyUsedList.Add(record.FileName);
+                    Settings.Default.RecentlyUsedFiles.Add(record.FileName);
 
                     if (f)
                     {

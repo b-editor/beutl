@@ -7,7 +7,7 @@ using BEditor.Data.Primitive;
 using BEditor.Data.Property;
 using BEditor.Drawing;
 using BEditor.Drawing.Pixel;
-using BEditor.Properties;
+using BEditor.Primitive.Resources;
 
 using Reactive.Bindings;
 
@@ -22,7 +22,7 @@ namespace BEditor.Primitive.Objects
         /// <summary>
         /// Represents <see cref="File"/> metadata.
         /// </summary>
-        public static readonly FilePropertyMetadata FileMetadata = new(Resources.File, "", new(Resources.ImageFile, new FileExtension[]
+        public static readonly FilePropertyMetadata FileMetadata = new(Strings.File, "", new(Strings.ImageFile, new FileExtension[]
         {
             new("png"),
             new("jpeg"),
@@ -39,14 +39,14 @@ namespace BEditor.Primitive.Objects
         }
 
         /// <inheritdoc/>
-        public override string Name => Resources.Image;
+        public override string Name => Strings.Image;
         /// <inheritdoc/>
         public override IEnumerable<PropertyElement> Properties => new PropertyElement[]
         {
             Coordinate,
-            Zoom,
+            Scale,
             Blend,
-            Angle,
+            Rotate,
             Material,
             File
         };

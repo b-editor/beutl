@@ -8,6 +8,7 @@ using System.Text.Json;
 using BEditor.Command;
 using BEditor.Data.Bindings;
 using BEditor.Drawing;
+using BEditor.Resources;
 
 namespace BEditor.Data.Property
 {
@@ -161,7 +162,7 @@ namespace BEditor.Data.Property
                 _old = property.Value;
             }
 
-            public string Name => CommandName.ChangeFont;
+            public string Name => Strings.ChangeFont;
 
             /// <inheritdoc/>
             public void Do()

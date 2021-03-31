@@ -8,7 +8,7 @@
     xmlns:mainvm="clr-namespace:BEditor.ViewModels"
     xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
     xmlns:md="http://materialdesigninxaml.net/winfx/xaml/themes"
-    xmlns:properties="clr-namespace:BEditor.Properties;assembly=BEditor.Core"
+    xmlns:properties="clr-namespace:BEditor.Properties"
     xmlns:test="clr-namespace:BEditor.Views.CustomControl"
     xmlns:tool="clr-namespace:BEditor.Views.ToolControl.Default"
     mc:Ignorable="d">
@@ -33,7 +33,7 @@
                 <TextBlock
                     VerticalAlignment="Center"
                     FontSize="12"
-                    Text="{x:Static properties:Resources.Library}" />
+                    Text="{x:Static properties:Strings.Library}" />
             </TabItem.Header>
             <tool:Library />
         </TabItem>
@@ -42,7 +42,7 @@
                 <TextBlock
                     VerticalAlignment="Center"
                     FontSize="12"
-                    Text="{x:Static properties:Resources.ObjectViewer}" />
+                    Text="{x:Static properties:Strings.ObjectViewer}" />
             </TabItem.Header>
             <tool:ObjectViewer />
         </TabItem>
@@ -51,7 +51,7 @@
                 <TextBlock
                     VerticalAlignment="Center"
                     FontSize="12"
-                    Text="{x:Static properties:Resources.Log}" />
+                    Text="{x:Static properties:Strings.Log}" />
             </TabItem.Header>
             <tool:LogView />
         </TabItem>

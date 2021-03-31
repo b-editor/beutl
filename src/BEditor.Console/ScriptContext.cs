@@ -46,11 +46,11 @@ namespace BEditor
         {
             if ((file is null) ? _project.Save() : _project.Save(file))
             {
-                Console.WriteLine(ConsoleResources.SavedTo, file);
+                Console.WriteLine(Strings.SavedTo, file);
             }
             else
             {
-                Console.WriteLine(ConsoleResources.FailedToSave);
+                Console.WriteLine(Strings.FailedToSave);
             }
         }
         public void List(IReadOnlyList<object> items)
@@ -71,7 +71,7 @@ namespace BEditor
             }
             void ListClip(IReadOnlyList<ClipElement> clips)
             {
-                Console.WriteLine($"{ConsoleResources.ManagementName} | {Resources.Name}");
+                Console.WriteLine($"{Strings.ManagementName} | {Strings.Name}");
                 Console.WriteLine("=============");
 
                 foreach (var clip in clips)
@@ -108,7 +108,7 @@ namespace BEditor
                     ListEffect(effect);
                     break;
                 default:
-                    Console.WriteLine(ConsoleResources.This_data_cannot_be_displayed_in_a_list_);
+                    Console.WriteLine(Strings.This_data_cannot_be_displayed_in_a_list_);
                     break;
             }
         }
@@ -142,7 +142,7 @@ namespace BEditor
                 using var memory = new MemoryStream();
                 if (!Serialize.SaveToStream(prop, memory, SerializeMode.Json))
                 {
-                    Console.WriteLine(ConsoleResources.FailedToConvertPropertiesToJson);
+                    Console.WriteLine(Strings.FailedToConvertPropertiesToJson);
 
                     return;
                 }
@@ -151,7 +151,7 @@ namespace BEditor
             }
             else
             {
-                Console.WriteLine(ConsoleResources.PropertyNotFound);
+                Console.WriteLine(Strings.PropertyNotFound);
             }
         }
         public void Add(Range range, int layer, string metadata, bool setcurrent = false)
@@ -162,7 +162,7 @@ namespace BEditor
             if (!Scene.InRange(start, end, layer))
             {
                 Console.ForegroundColor = ConsoleColor.DarkYellow;
-                Console.WriteLine(ConsoleResources.ClipExistsInTheSpecifiedLocation);
+                Console.WriteLine(Strings.ClipExistsInTheSpecifiedLocation);
 
                 Console.ResetColor();
             }
@@ -173,7 +173,7 @@ namespace BEditor
                 if (meta is null)
                 {
                     Console.ForegroundColor = ConsoleColor.DarkYellow;
-                    Console.WriteLine(ConsoleResources.NotFound, metadata);
+                    Console.WriteLine(Strings.NotFound, metadata);
 
                     Console.ResetColor();
 
@@ -189,7 +189,7 @@ namespace BEditor
                     Scene.SetCurrentClip(clip);
                 }
 
-                Console.WriteLine(ConsoleResources.AddedClip, start, end, layer);
+                Console.WriteLine(Strings.AddedClip, start, end, layer);
             }
         }
         public void Add(int width, int height)
@@ -207,7 +207,7 @@ namespace BEditor
         {
             if (Clip is null)
             {
-                Console.WriteLine(ConsoleResources.SelectClip);
+                Console.WriteLine(Strings.SelectClip);
 
                 return;
             }
@@ -220,7 +220,7 @@ namespace BEditor
             if (meta is null)
             {
                 Console.ForegroundColor = ConsoleColor.DarkYellow;
-                Console.WriteLine(ConsoleResources.NotFound, effect);
+                Console.WriteLine(Strings.NotFound, effect);
 
                 Console.ResetColor();
 
@@ -230,39 +230,39 @@ namespace BEditor
             var effectelm = meta.CreateFunc();
             Clip.AddEffect(effectelm).Execute();
 
-            Console.WriteLine(ConsoleResources.AddedEffect);
+            Console.WriteLine(Strings.AddedEffect);
         }
         public void Remove(ClipElement clip)
         {
             clip.Parent.RemoveClip(clip).Execute();
 
             Clip = Clips.Count is not 0 ? Clips[0] : null;
-            Console.WriteLine(ConsoleResources.RemovedClip);
+            Console.WriteLine(Strings.RemovedClip);
         }
         public void Remove(int effectIndex)
         {
             if (Clip is null)
             {
-                Console.WriteLine(ConsoleResources.SelectClip);
+                Console.WriteLine(Strings.SelectClip);
 
                 return;
             }
             if (Clip.Effect.Count >= effectIndex)
             {
-                Console.WriteLine(ConsoleResources.IndexIsOutOfRange);
+                Console.WriteLine(Strings.IndexIsOutOfRange);
 
                 return;
             }
 
             Clip.RemoveEffect(Clip.Effect[effectIndex]).Execute();
 
-            Console.WriteLine(ConsoleResources.RemovedEffect);
+            Console.WriteLine(Strings.RemovedEffect);
         }
         public void Move(int layer)
         {
             if (Clip is null)
             {
-                Console.WriteLine(ConsoleResources.SelectClip);
+                Console.WriteLine(Strings.SelectClip);
 
                 return;
             }
@@ -270,7 +270,7 @@ namespace BEditor
             if (!Clip.Parent.InRange(Clip.Start, Clip.End, Clip.Layer))
             {
                 Console.ForegroundColor = ConsoleColor.DarkYellow;
-                Console.WriteLine(ConsoleResources.ClipExistsInTheSpecifiedLocation);
+                Console.WriteLine(Strings.ClipExistsInTheSpecifiedLocation);
 
                 Console.ResetColor();
 
@@ -279,13 +279,13 @@ namespace BEditor
 
             Clip.MoveFrameLayer(Clip.Start, layer).Execute();
 
-            Console.WriteLine(ConsoleResources.MovedClip);
+            Console.WriteLine(Strings.MovedClip);
         }
         public void Move(Range range)
         {
             if (Clip is null)
             {
-                Console.WriteLine(ConsoleResources.SelectClip);
+                Console.WriteLine(Strings.SelectClip);
 
                 return;
             }
@@ -296,7 +296,7 @@ namespace BEditor
             if (!Clip.Parent.InRange(start, end, Clip.Layer))
             {
                 Console.ForegroundColor = ConsoleColor.DarkYellow;
-                Console.WriteLine(ConsoleResources.ClipExistsInTheSpecifiedLocation);
+                Console.WriteLine(Strings.ClipExistsInTheSpecifiedLocation);
 
                 Console.ResetColor();
 
@@ -305,14 +305,14 @@ namespace BEditor
 
             Clip.ChangeLength(start, end).Execute();
 
-            Console.WriteLine(ConsoleResources.MovedClip);
+            Console.WriteLine(Strings.MovedClip);
         }
         public void HideLayer(int layer)
         {
             Scene.HideLayer.Remove(layer);
             Scene.HideLayer.Add(layer);
 
-            Console.WriteLine(ConsoleResources.LayerIsHidden, layer);
+            Console.WriteLine(Strings.LayerIsHidden, layer);
         }
         public static void Undo(int count = 1)
         {
@@ -345,7 +345,7 @@ namespace BEditor
                 }
             }
 
-            Console.WriteLine(ConsoleResources.SavedTo, file);
+            Console.WriteLine(Strings.SavedTo, file);
         }
         public void EncodeImg(string file, Frame frame)
         {
@@ -353,7 +353,7 @@ namespace BEditor
 
             img.Encode(file);
 
-            Console.WriteLine(string.Format(ConsoleResources.SavedTo, file));
+            Console.WriteLine(string.Format(Strings.SavedTo, file));
         }
 
         public record EffectItem(EffectMetadata Metadata, string? ParentName)

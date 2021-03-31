@@ -9,7 +9,7 @@
     xmlns:mah="http://metro.mahapps.com/winfx/xaml/controls"
     xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
     xmlns:md="http://materialdesigninxaml.net/winfx/xaml/themes"
-    xmlns:properties="clr-namespace:BEditor.Properties;assembly=BEditor.Core"
+    xmlns:properties="clr-namespace:BEditor.Properties"
     xmlns:vm="clr-namespace:BEditor.ViewModels"
     Width="{Binding WidthProperty.Value, Mode=OneWay}"
     Margin="{Binding MarginProperty.Value, Mode=OneWay}"
@@ -64,7 +64,7 @@
                             <MenuItem.Header>
                                 <VirtualizingStackPanel Orientation="Horizontal">
                                     <md:PackIcon Margin="5,0,5,0" Kind="InformationOutline" />
-                                    <TextBlock Margin="20,0,5,0" Text="{x:Static properties:Resources.ClipInfo}" />
+                                    <TextBlock Margin="20,0,5,0" Text="{x:Static properties:Strings.ClipInfo}" />
                                 </VirtualizingStackPanel>
                             </MenuItem.Header>
                         </MenuItem>
@@ -78,7 +78,7 @@
                                     </Grid.ColumnDefinitions>
                                     <VirtualizingStackPanel Orientation="Horizontal">
                                         <md:PackIcon Margin="5,0,5,0" Kind="PaperCutVertical" />
-                                        <TextBlock Margin="20,0,5,0" Text="{x:Static properties:Resources.Separate}" />
+                                        <TextBlock Margin="20,0,5,0" Text="{x:Static properties:Strings.Separate}" />
                                     </VirtualizingStackPanel>
                                     <TextBlock Grid.Column="1" Text="" />
                                 </Grid>
@@ -94,7 +94,7 @@
                                     </Grid.ColumnDefinitions>
                                     <VirtualizingStackPanel Orientation="Horizontal">
                                         <md:PackIcon Margin="5,0,5,0" Kind="ContentCut" />
-                                        <TextBlock Margin="20,0,5,0" Text="{x:Static properties:Resources.Cut}" />
+                                        <TextBlock Margin="20,0,5,0" Text="{x:Static properties:Strings.Cut}" />
                                     </VirtualizingStackPanel>
                                     <TextBlock Grid.Column="1" Text="Ctrl+X" />
                                 </Grid>
@@ -109,7 +109,7 @@
                                     </Grid.ColumnDefinitions>
                                     <VirtualizingStackPanel Orientation="Horizontal">
                                         <md:PackIcon Margin="5,0,5,0" Kind="ContentCopy" />
-                                        <TextBlock Margin="20,0,5,0" Text="{x:Static properties:Resources.Copy}" />
+                                        <TextBlock Margin="20,0,5,0" Text="{x:Static properties:Strings.Copy}" />
                                     </VirtualizingStackPanel>
                                     <TextBlock Grid.Column="1" Text="Ctrl+C" />
                                 </Grid>
@@ -124,7 +124,7 @@
                                     </Grid.ColumnDefinitions>
                                     <VirtualizingStackPanel Orientation="Horizontal">
                                         <md:PackIcon Margin="5,0,5,0" Kind="ContentPaste" />
-                                        <TextBlock Margin="20,0,5,0" Text="{x:Static properties:Resources.Paste}" />
+                                        <TextBlock Margin="20,0,5,0" Text="{x:Static properties:Strings.Paste}" />
                                     </VirtualizingStackPanel>
                                     <TextBlock Grid.Column="1" Text="Ctrl+V" />
                                 </Grid>
@@ -140,7 +140,7 @@
                                     </Grid.ColumnDefinitions>
                                     <VirtualizingStackPanel Orientation="Horizontal">
                                         <md:PackIcon Margin="5,0,5,0" Kind="Delete" />
-                                        <TextBlock Margin="20,0,5,0" Text="{x:Static properties:Resources.Remove}" />
+                                        <TextBlock Margin="20,0,5,0" Text="{x:Static properties:Strings.Remove}" />
                                     </VirtualizingStackPanel>
                                     <TextBlock Grid.Column="1" Text="Delete" />
                                 </Grid>

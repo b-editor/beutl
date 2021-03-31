@@ -1,21 +1,14 @@
 ﻿using System;
 using System.Buffers;
-using System.Collections.Generic;
-using System.ComponentModel.DataAnnotations;
 using System.Diagnostics;
-using System.Diagnostics.CodeAnalysis;
-using System.IO;
 using System.Linq;
 using System.Runtime.CompilerServices;
 using System.Runtime.InteropServices;
-using System.Text;
 using System.Threading.Tasks;
 
 using BEditor.Drawing.Pixel;
 using BEditor.Drawing.Process;
-using BEditor.Drawing.Properties;
-
-using SkiaSharp;
+using BEditor.Drawing.Resources;
 
 namespace BEditor.Drawing
 {
@@ -424,7 +417,6 @@ namespace BEditor.Drawing
             });
 
             IsDisposed = true;
-            GC.SuppressFinalize(this);
 
             return new(task);
         }
@@ -448,22 +440,22 @@ namespace BEditor.Drawing
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         private static void ThrowOutOfRange(int width, int height)
         {
-            if (width is < 0) throw new ArgumentOutOfRangeException(nameof(width), string.Format(Resources.LessThan, nameof(width), 0));
-            if (height is < 0) throw new ArgumentOutOfRangeException(nameof(height), string.Format(Resources.LessThan, nameof(width), 0));
+            if (width is < 0) throw new ArgumentOutOfRangeException(nameof(width), string.Format(Strings.LessThan, nameof(width), 0));
+            if (height is < 0) throw new ArgumentOutOfRangeException(nameof(height), string.Format(Strings.LessThan, nameof(width), 0));
         }
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         private void ThrowColOutOfRange(int x)
         {
-            if (x < 0) throw new ArgumentOutOfRangeException(nameof(x), string.Format(Resources.LessThan, nameof(x), 0));
+            if (x < 0) throw new ArgumentOutOfRangeException(nameof(x), string.Format(Strings.LessThan, nameof(x), 0));
 
-            else if (x > Height) throw new ArgumentOutOfRangeException(nameof(x), string.Format(Resources.MoreThan, nameof(x), Width));
+            else if (x > Height) throw new ArgumentOutOfRangeException(nameof(x), string.Format(Strings.MoreThan, nameof(x), Width));
         }
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         private void ThrowRowOutOfRange(int y)
         {
-            if (y < 0) throw new ArgumentOutOfRangeException(nameof(y), string.Format(Resources.LessThan, nameof(y), 0));
+            if (y < 0) throw new ArgumentOutOfRangeException(nameof(y), string.Format(Strings.LessThan, nameof(y), 0));
 
-            else if (y > Height) throw new ArgumentOutOfRangeException(nameof(y), string.Format(Resources.MoreThan, nameof(y), Height));
+            else if (y > Height) throw new ArgumentOutOfRangeException(nameof(y), string.Format(Strings.MoreThan, nameof(y), Height));
         }
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         private void ThrowOutOfRange(Rectangle roi)

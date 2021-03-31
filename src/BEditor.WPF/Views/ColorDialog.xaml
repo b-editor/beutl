@@ -10,7 +10,7 @@
     xmlns:local="clr-namespace:BEditor.Views"
     xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
     xmlns:md="http://materialdesigninxaml.net/winfx/xaml/themes"
-    xmlns:property="clr-namespace:BEditor.Properties;assembly=BEditor.Core"
+    xmlns:property="clr-namespace:BEditor.Properties"
     MinWidth="490"
     MinHeight="310"
     Background="{StaticResource MaterialDesignCardBackground}"
@@ -50,7 +50,7 @@
                 Margin="10,0,5,0"
                 VerticalAlignment="Center"
                 Click="Button_Click"
-                Content="{x:Static property:Resources.OK}"
+                Content="{x:Static property:Strings.OK}"
                 Foreground="{DynamicResource MaterialDesignBody}"
                 Style="{StaticResource MaterialDesignFlatButton}">
                 <Button.CommandParameter>
@@ -79,7 +79,7 @@
                 Margin="5,0,10,0"
                 VerticalAlignment="Center"
                 Click="Button_Click"
-                Content="{x:Static property:Resources.Cancel}"
+                Content="{x:Static property:Strings.Cancel}"
                 Foreground="Red"
                 Style="{StaticResource MaterialDesignFlatButton}" />
 
@@ -99,14 +99,14 @@
                 <RadioButton
                     x:Name="ColorPickerToggle"
                     Margin="4"
-                    Content="{x:Static property:Resources.ColorPicker}"
+                    Content="{x:Static property:Strings.ColorPicker}"
                     Foreground="{DynamicResource MaterialDesignBody}"
                     IsChecked="True"
                     Style="{StaticResource MaterialDesignTabRadioButton}" />
                 <RadioButton
                     x:Name="ColorPaletteToggle"
                     Margin="4"
-                    Content="{x:Static property:Resources.ColorPalette}"
+                    Content="{x:Static property:Strings.ColorPalette}"
                     Foreground="{DynamicResource MaterialDesignBody}"
                     IsChecked="False"
                     Style="{StaticResource MaterialDesignTabRadioButton}" />

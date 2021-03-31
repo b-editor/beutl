@@ -1,7 +1,7 @@
 ﻿using System;
 using System.Collections.Generic;
 
-using BEditor.Properties;
+using BEditor.Resources;
 
 namespace BEditor.Data.Property.PrimitiveGroup
 {
@@ -13,32 +13,32 @@ namespace BEditor.Data.Property.PrimitiveGroup
         /// <summary>
         /// Represents <see cref="X"/> metadata.
         /// </summary>
-        public static readonly EasePropertyMetadata XMetadata = new(Resources.X, 0);
+        public static readonly EasePropertyMetadata XMetadata = new(Strings.X, 0);
 
         /// <summary>
         /// Represents <see cref="Y"/> metadata.
         /// </summary>
-        public static readonly EasePropertyMetadata YMetadata = new(Resources.Y, 0);
+        public static readonly EasePropertyMetadata YMetadata = new(Strings.Y, 0);
 
         /// <summary>
         /// Represents <see cref="Z"/> metadata.
         /// </summary>
-        public static readonly EasePropertyMetadata ZMetadata = new(Resources.Z, 0);
+        public static readonly EasePropertyMetadata ZMetadata = new(Strings.Z, 0);
 
         /// <summary>
         /// Represents <see cref="CenterX"/> metadata.
         /// </summary>
-        public static readonly EasePropertyMetadata CenterXMetadata = new(Resources.CenterX, 0, float.NaN, float.NaN, true);
+        public static readonly EasePropertyMetadata CenterXMetadata = new(Strings.CenterX, 0, float.NaN, float.NaN, true);
 
         /// <summary>
         /// Represents <see cref="CenterY"/> metadata.
         /// </summary>
-        public static readonly EasePropertyMetadata CenterYMetadata = new(Resources.CenterY, 0, float.NaN, float.NaN, true);
+        public static readonly EasePropertyMetadata CenterYMetadata = new(Strings.CenterY, 0, float.NaN, float.NaN, true);
 
         /// <summary>
         /// Represents <see cref="CenterZ"/> metadata.
         /// </summary>
-        public static readonly EasePropertyMetadata CenterZMetadata = new(Resources.CenterZ, 0, float.NaN, float.NaN, true);
+        public static readonly EasePropertyMetadata CenterZMetadata = new(Strings.CenterZ, 0, float.NaN, float.NaN, true);
 
         /// <summary>
         /// Initializes a new instance of the <see cref="Coordinate"/> class.

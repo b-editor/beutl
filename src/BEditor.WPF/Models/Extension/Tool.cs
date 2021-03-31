@@ -59,13 +59,13 @@ namespace BEditor.Models.Extension
                         app.Project!.PreviewScene.Player.Stop();
                         app.IsNotPlaying = true;
 
-                        app.Message.Snackbar(MessageResources.An_exception_was_thrown_during_rendering);
+                        app.Message.Snackbar(Strings.An_exception_was_thrown_during_rendering);
                     }
                     else
                     {
                         _isEnabled = false;
 
-                        app.Message.Snackbar(MessageResources.An_exception_was_thrown_during_rendering_preview);
+                        app.Message.Snackbar(Strings.An_exception_was_thrown_during_rendering_preview);
 
                         Task.Run(async () =>
                         {

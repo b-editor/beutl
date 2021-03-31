@@ -8,7 +8,7 @@ using BEditor.Data.Property;
 using BEditor.Data.Property.PrimitiveGroup;
 using BEditor.Drawing;
 using BEditor.Drawing.Pixel;
-using BEditor.Properties;
+using BEditor.Primitive.Resources;
 
 using Reactive.Bindings;
 
@@ -30,27 +30,27 @@ namespace BEditor.Primitive.Effects
         /// <summary>
         /// Represents <see cref="Rotate"/> metadata.
         /// </summary>
-        public static readonly EasePropertyMetadata RotateMetadata = new(Resources.Rotate);
+        public static readonly EasePropertyMetadata RotateMetadata = new(Strings.Rotate);
         /// <summary>
         /// Represents <see cref="Width"/> metadata.
         /// </summary>
-        public static readonly EasePropertyMetadata WidthMetadata = new(Resources.Width + " (%)", 100, Min: 0);
+        public static readonly EasePropertyMetadata WidthMetadata = new(Strings.Width + " (%)", 100, Min: 0);
         /// <summary>
         /// Represents <see cref="Height"/> metadata.
         /// </summary>
-        public static readonly EasePropertyMetadata HeightMetadata = new(Resources.Height + " (%)", 100, Min: 0);
+        public static readonly EasePropertyMetadata HeightMetadata = new(Strings.Height + " (%)", 100, Min: 0);
         /// <summary>
         /// Represents <see cref="Image"/> metadata.
         /// </summary>
-        public static readonly TextPropertyMetadata ImageMetadata = new(Resources.PathToImageObject);
+        public static readonly TextPropertyMetadata ImageMetadata = new(Strings.PathToImageObject);
         /// <summary>
         /// Represents <see cref="InvertMask"/> metadata.
         /// </summary>
-        public static readonly CheckPropertyMetadata InvertMaskMetadata = new(Resources.InvertMask);
+        public static readonly CheckPropertyMetadata InvertMaskMetadata = new(Strings.InvertMask);
         /// <summary>
         /// Represents <see cref="FitSize"/> metadata.
         /// </summary>
-        public static readonly CheckPropertyMetadata FitSizeMetadata = new(Resources.FitToOriginalSize);
+        public static readonly CheckPropertyMetadata FitSizeMetadata = new(Strings.FitToOriginalSize);
         private ReactiveProperty<ClipElement?>? _clipProperty;
 
         /// <summary>
@@ -69,7 +69,7 @@ namespace BEditor.Primitive.Effects
         }
 
         /// <inheritdoc/>
-        public override string Name => Resources.Mask;
+        public override string Name => Strings.Mask;
         /// <inheritdoc/>
         public override IEnumerable<PropertyElement> Properties => new PropertyElement[]
         {

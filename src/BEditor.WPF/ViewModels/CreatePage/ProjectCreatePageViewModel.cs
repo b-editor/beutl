@@ -47,7 +47,7 @@ namespace BEditor.ViewModels.CreatePage
                 {
                     if (Directory.Exists(Path.Combine(Folder.Value, name)))
                     {
-                        return MessageResources.ThisNameAlreadyExists;
+                        return Strings.ThisNameAlreadyExists;
                     }
 
                     return null;
@@ -119,9 +119,9 @@ namespace BEditor.ViewModels.CreatePage
 
                     var fullpath = Path.Combine(project.DirectoryName!, project.Name + ".bedit");
 
-                    Settings.Default.MostRecentlyUsedList.Remove(fullpath);
+                    Settings.Default.RecentlyUsedFiles.Remove(fullpath);
 
-                    Settings.Default.MostRecentlyUsedList.Add(fullpath);
+                    Settings.Default.RecentlyUsedFiles.Add(fullpath);
                 }
 
                 AppData.Current.AppStatus = Status.Edit;

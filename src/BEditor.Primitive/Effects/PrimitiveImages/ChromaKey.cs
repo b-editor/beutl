@@ -5,7 +5,7 @@ using BEditor.Data.Primitive;
 using BEditor.Data.Property;
 using BEditor.Drawing;
 using BEditor.Drawing.Pixel;
-using BEditor.Properties;
+using BEditor.Primitive.Resources;
 
 namespace BEditor.Primitive.Effects
 {
@@ -17,7 +17,7 @@ namespace BEditor.Primitive.Effects
         /// <summary>
         /// Represents <see cref="ThresholdValue"/> metadata.
         /// </summary>
-        public static readonly EasePropertyMetadata ThresholdValueMetadata = new(Resources.ThresholdValue, 256);
+        public static readonly EasePropertyMetadata ThresholdValueMetadata = new(Strings.ThresholdValue, 256);
 
         /// <summary>
         /// Initializes a new instance of the <see cref="ChromaKey"/> class.
@@ -28,7 +28,7 @@ namespace BEditor.Primitive.Effects
         }
 
         /// <inheritdoc/>
-        public override string Name => Resources.ChromaKey;
+        public override string Name => Strings.ChromaKey;
         /// <inheritdoc/>
         public override IEnumerable<PropertyElement> Properties => new PropertyElement[]
         {

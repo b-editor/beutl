@@ -6,7 +6,7 @@
     xmlns:local="clr-namespace:BEditor.Views.TimeLines"
     xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
     xmlns:md="http://materialdesigninxaml.net/winfx/xaml/themes"
-    xmlns:properties="clr-namespace:BEditor.Properties;assembly=BEditor.Core"
+    xmlns:properties="clr-namespace:BEditor.Properties"
     Height="{Binding TrackHeight, Mode=OneTime}"
     Background="Transparent"
     mc:Ignorable="d">
@@ -25,7 +25,7 @@
                         <MenuItem.Header>
                             <VirtualizingStackPanel Orientation="Horizontal">
                                 <md:PackIcon Margin="5,0,5,0" Kind="VectorPolylinePlus" />
-                                <TextBlock Margin="20,0,5,0" Text="{x:Static properties:Resources.AddKeyframe}" />
+                                <TextBlock Margin="20,0,5,0" Text="{x:Static properties:Strings.AddKeyframe}" />
                             </VirtualizingStackPanel>
                         </MenuItem.Header>
                     </MenuItem>

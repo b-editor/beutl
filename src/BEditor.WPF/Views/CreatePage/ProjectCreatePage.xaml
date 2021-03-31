@@ -7,7 +7,7 @@
     xmlns:local="clr-namespace:BEditor"
     xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
     xmlns:md="http://materialdesigninxaml.net/winfx/xaml/themes"
-    xmlns:props="clr-namespace:BEditor.Properties;assembly=BEditor.Core"
+    xmlns:props="clr-namespace:BEditor.Properties"
     xmlns:vm="clr-namespace:BEditor.ViewModels.CreatePage"
     Width="1000"
     Height="600"
@@ -29,7 +29,7 @@
                     Margin="0,0,0,16"
                     FontSize="16"
                     Foreground="{DynamicResource MaterialDesignBodyLight}"
-                    Text="{x:Static props:Resources.Template}" />
+                    Text="{x:Static props:Strings.Template}" />
                 <ItemsControl
                     HorizontalAlignment="Center"
                     ItemsSource="{Binding TemplateItems, Mode=OneTime}"
@@ -75,14 +75,14 @@
                 Margin="0,0,0,16"
                 FontSize="16"
                 Foreground="{DynamicResource MaterialDesignBodyLight}"
-                Text="{x:Static props:Resources.Settings}" />
+                Text="{x:Static props:Strings.Settings}" />
 
             <!--  Size  -->
             <VirtualizingStackPanel Margin="8">
                 <TextBlock
                     FontSize="14"
                     Foreground="{DynamicResource MaterialDesignBodyLight}"
-                    Text="{x:Static props:Resources.Size}" />
+                    Text="{x:Static props:Strings.Size}" />
 
                 <Grid Margin="0,8">
                     <Grid.ColumnDefinitions>
@@ -90,7 +90,7 @@
                         <ColumnDefinition Width="35" />
                         <ColumnDefinition Width="1*" />
                     </Grid.ColumnDefinitions>
-                    <TextBox md:HintAssist.Hint="{x:Static props:Resources.Width}" Text="{Binding Width.Value, Mode=TwoWay}" />
+                    <TextBox md:HintAssist.Hint="{x:Static props:Strings.Width}" Text="{Binding Width.Value, Mode=TwoWay}" />
                     <md:PackIcon
                         Grid.Column="1"
                         HorizontalAlignment="Center"
@@ -98,7 +98,7 @@
                         Kind="Close" />
                     <TextBox
                         Grid.Column="2"
-                        md:HintAssist.Hint="{x:Static props:Resources.Height}"
+                        md:HintAssist.Hint="{x:Static props:Strings.Height}"
                         Text="{Binding Height.Value, Mode=TwoWay}" />
                 </Grid>
             </VirtualizingStackPanel>
@@ -108,7 +108,7 @@
                 <TextBlock
                     FontSize="14"
                     Foreground="{DynamicResource MaterialDesignBodyLight}"
-                    Text="{x:Static props:Resources.Framerate}" />
+                    Text="{x:Static props:Strings.Framerate}" />
 
                 <TextBox Margin="0,8" Text="{Binding Framerate.Value, Mode=TwoWay}" />
             </VirtualizingStackPanel>
@@ -118,7 +118,7 @@
                 <TextBlock
                     FontSize="14"
                     Foreground="{DynamicResource MaterialDesignBodyLight}"
-                    Text="{x:Static props:Resources.Samplingrate}" />
+                    Text="{x:Static props:Strings.Samplingrate}" />
 
                 <TextBox Margin="0,8" Text="{Binding Samplingrate.Value, Mode=TwoWay}" />
             </VirtualizingStackPanel>
@@ -129,7 +129,7 @@
                 <TextBlock
                     FontSize="14"
                     Foreground="{DynamicResource MaterialDesignBodyLight}"
-                    Text="{x:Static props:Resources.Name}" />
+                    Text="{x:Static props:Strings.Name}" />
 
                 <TextBox Margin="0,8" Text="{Binding Name.Value, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}" />
             </VirtualizingStackPanel>
@@ -139,7 +139,7 @@
                 <TextBlock
                     FontSize="14"
                     Foreground="{DynamicResource MaterialDesignBodyLight}"
-                    Text="{x:Static props:Resources.SaveFolder}" />
+                    Text="{x:Static props:Strings.SaveFolder}" />
 
                 <Grid Margin="0,8">
                     <TextBox Text="{Binding Folder.Value, Mode=TwoWay}" />
@@ -167,7 +167,7 @@
             <Button
                 HorizontalAlignment="Left"
                 Click="CloseClick"
-                Content="{x:Static props:Resources.Cancel}"
+                Content="{x:Static props:Strings.Cancel}"
                 Cursor="Arrow"
                 Foreground="Red"
                 IsCancel="True"
@@ -176,7 +176,7 @@
                 HorizontalAlignment="Left"
                 Click="CloseClick"
                 Command="{Binding CreateCommand, Mode=OneTime}"
-                Content="{x:Static props:Resources.Create}"
+                Content="{x:Static props:Strings.Create}"
                 Cursor="Arrow"
                 Foreground="{StaticResource MaterialDesignBody}"
                 IsDefault="True"
