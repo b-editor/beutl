@@ -12,23 +12,23 @@ namespace BEditor.Graphics
     public class ShaderFactory
     {
         /// <summary>
-        /// 
+        ///
         /// </summary>
         public static readonly ShaderFactory Texture = new TextureShaderFactory();
         /// <summary>
-        /// 
+        ///
         /// </summary>
         public static readonly ShaderFactory Lighting = new LightingShaderFactory();
         /// <summary>
-        /// 
+        ///
         /// </summary>
         public static readonly ShaderFactory TextureLighting = new LightingTextureShaderFactory();
         /// <summary>
-        /// 
+        ///
         /// </summary>
         public static readonly ShaderFactory Line = new LineShaderFactory();
         /// <summary>
-        /// 
+        ///
         /// </summary>
         public static readonly ShaderFactory Default = new();
 
@@ -56,7 +56,6 @@ namespace BEditor.Graphics
             "   gl_Position = vec4(aPos, 1.0) * model * view * projection;\n" +
             "}";
 
-
         /// <summary>
         /// Create a shader.
         /// </summary>
@@ -80,7 +79,6 @@ namespace BEditor.Graphics
 
             "void main()\n" +
             "{\n" +
-            // texture2Dは330で非推奨
             "   outputColor = texture(texture0, texCoord) * color;\n" +
             "}";
         private const string TextureVert =
@@ -263,7 +261,6 @@ namespace BEditor.Graphics
             "    vec3 reflectDir = reflect(-lightDir, norm);\n" +
             "    float spec = pow(max(dot(viewDir, reflectDir), 0.0), material.shininess);\n" +
             "    vec4 specular = light.specular * (spec * material.specular);\n" +
-
 
             "    vec4 result = ambient + diffuse + specular;\n" +
             "    FragColor = result * color;" +

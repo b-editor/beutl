@@ -3,7 +3,7 @@ using BEditor.Drawing.Pixel;
 
 namespace BEditor.Drawing.Process
 {
-    internal unsafe readonly struct SetColorProcess
+    internal readonly unsafe struct SetColorProcess
     {
         private readonly BGRA32* _data;
         private readonly BGRA32 _color;

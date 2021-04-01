@@ -7,6 +7,7 @@ using System.Threading;
 using System.Threading.Tasks;
 
 using BEditor.Drawing;
+using BEditor.Graphics.Resources;
 
 namespace BEditor.Graphics
 {
@@ -15,11 +16,11 @@ namespace BEditor.Graphics
         /// <summary>
         /// Initializes a new instance of the <see cref="GraphicsObject"/> class.
         /// </summary>
-        public GraphicsObject()
+        protected GraphicsObject()
         {
-            SynchronizeContext = AsyncOperationManager.SynchronizationContext ?? throw new InvalidOperationException("現在のスレッドのSynchronizationContextがnullでした。"); ;
-
+            SynchronizeContext = AsyncOperationManager.SynchronizationContext ?? throw new InvalidOperationException(Strings.SynchronizationContextIsNull);
         }
+
         /// <summary>
         /// Discards the reference to the target that is represented by the current <see cref="GraphicsObject"/> object.
         /// </summary>
@@ -31,24 +32,29 @@ namespace BEditor.Graphics
         }
 
         protected SynchronizationContext SynchronizeContext { get; }
+
         /// <summary>
-        /// Get the vertices of this <see cref="GraphicsObject"/>.
+        /// Gets the vertices of this <see cref="GraphicsObject"/>.
         /// </summary>
         public abstract ReadOnlyMemory<float> Vertices { get; }
+
         /// <summary>
-        /// Get whether an object has been disposed.
+        /// Gets whether an object has been disposed.
         /// </summary>
         public bool IsDisposed { get; private set; }
+
         /// <summary>
-        /// Get the color of this <see cref="GraphicsObject"/>.
+        /// Gets the color of this <see cref="GraphicsObject"/>.
         /// </summary>
         public Color Color { get; set; } = Color.Light;
+
         /// <summary>
-        /// Get the material of this <see cref="GraphicsObject"/>.
+        /// Gets the material of this <see cref="GraphicsObject"/>.
         /// </summary>
         public Material Material { get; set; } = new(Color.Light, Color.Light, Color.Light, 16);
+
         /// <summary>
-        /// Get the transform of this <see cref="GraphicsObject"/>.
+        /// Gets the transform of this <see cref="GraphicsObject"/>.
         /// </summary>
         public Transform Transform { get; set; } = Transform.Default;
 
@@ -56,11 +62,7 @@ namespace BEditor.Graphics
         /// Draw this <see cref="GraphicsObject"/>.
         /// </summary>
         public abstract void Draw();
-        /// <inheritdoc cref="IDisposable.Dispose"/>
-        protected virtual void Dispose(bool disposing)
-        {
 
-        }
         /// <inheritdoc/>
         public void Dispose()
         {
@@ -71,6 +73,11 @@ namespace BEditor.Graphics
             GC.SuppressFinalize(this);
 
             IsDisposed = true;
+        }
+
+        /// <inheritdoc cref="IDisposable.Dispose"/>
+        protected virtual void Dispose(bool disposing)
+        {
         }
     }
 }

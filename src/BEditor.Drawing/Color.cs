@@ -15,10 +15,6 @@ namespace BEditor.Drawing
         private const int ARGBRedShift = 16;
         private const int ARGBGreenShift = 8;
         private const int ARGBBlueShift = 0;
-        private readonly byte _alpha;
-        private readonly byte _red;
-        private readonly byte _green;
-        private readonly byte _blue;
 
         #region Colors
 
@@ -48,27 +44,23 @@ namespace BEditor.Drawing
 
         private Color(byte a, byte r, byte g, byte b)
         {
-            _alpha = a;
-            _red = r;
-            _green = g;
-            _blue = b;
+            A = a;
+            R = r;
+            G = g;
+            B = b;
         }
         private Color(SerializationInfo info, StreamingContext context)
         {
-            _alpha = info.GetByte(nameof(A));
-            _red = info.GetByte(nameof(R));
-            _green = info.GetByte(nameof(G));
-            _blue = info.GetByte(nameof(B));
+            A = info.GetByte(nameof(A));
+            R = info.GetByte(nameof(R));
+            G = info.GetByte(nameof(G));
+            B = info.GetByte(nameof(B));
         }
 
-        public byte A
-            => _alpha;
-        public byte R
-            => _red;
-        public byte G
-            => _green;
-        public byte B
-            => _blue;
+        public byte A { get; }
+        public byte R { get; }
+        public byte G { get; }
+        public byte B { get; }
 
         public static Color FromARGB(int argb)
             => FromARGB(unchecked((uint)argb));
@@ -87,7 +79,7 @@ namespace BEditor.Drawing
         {
             if (string.IsNullOrWhiteSpace(htmlcolor) || htmlcolor is "#") return Dark;
 
-            htmlcolor = "0x" + htmlcolor.Replace("#", "");
+            htmlcolor = "0x" + htmlcolor.Replace("#", string.Empty);
 
             var argb = Convert.ToUInt32(htmlcolor, 16);
 
@@ -111,14 +103,14 @@ namespace BEditor.Drawing
             if (string.IsNullOrEmpty(format)) format = "#argb";
             format = format.ToUpperInvariant();
 
-            string colorformat = format
-                .Replace("#", "")
-                .Replace("0X", "")
-                .Replace("-L", "")
-                .Replace("-U", "");
+            var colorformat = format
+                .Replace("#", string.Empty)
+                .Replace("0X", string.Empty)
+                .Replace("-L", string.Empty)
+                .Replace("-U", string.Empty);
 
-            bool islower = format.Contains("-L");
-            string result = "";
+            var islower = format.Contains("-L");
+            var result = string.Empty;
 
             foreach (var c in colorformat)
             {
@@ -149,13 +141,13 @@ namespace BEditor.Drawing
         }
 
         public static implicit operator BGRA32(Color c)
-            => new(c._red, c._green, c._blue, c._alpha);
+            => new(c.R, c.G, c.B, c.A);
         public static implicit operator RGBA32(Color c)
-            => new(c._red, c._green, c._blue, c._alpha);
+            => new(c.R, c.G, c.B, c.A);
         public static implicit operator BGR24(Color c)
-            => new(c._red, c._green, c._blue);
+            => new(c.R, c.G, c.B);
         public static implicit operator RGB24(Color c)
-            => new(c._red, c._green, c._blue);
+            => new(c.R, c.G, c.B);
 
         public static bool operator ==(Color left, Color right)
             => left.Equals(right);

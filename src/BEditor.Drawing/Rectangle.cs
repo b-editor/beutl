@@ -17,6 +17,7 @@ namespace BEditor.Drawing
             Width = width;
             Height = height;
         }
+
         public Rectangle(Point point, Size size)
         {
             X = point.X;
@@ -26,26 +27,28 @@ namespace BEditor.Drawing
         }
 
         public int X { get; }
+
         public int Y { get; }
+
         public int Width { get; }
+
         public int Height { get; }
 
-        public int Top
-            => Y;
-        public int Bottom
-            => Y + Height;
-        public int Left
-            => X;
-        public int Right
-            => X + Width;
-        public Point TopLeft
-            => new(X, Y);
-        public Point BottomRight
-            => new(X + Width, Y + Height);
-        public Point Point
-            => new(X, Y);
-        public Size Size
-            => new(Width, Height);
+        public int Top => Y;
+
+        public int Bottom => Y + Height;
+
+        public int Left => X;
+
+        public int Right => X + Width;
+
+        public Point TopLeft => new(X, Y);
+
+        public Point BottomRight => new(X + Width, Y + Height);
+
+        public Point Point => new(X, Y);
+
+        public Size Size => new(Width, Height);
 
         public static Rectangle FromLTRB(int left, int top, int right, int bottom)
         {
@@ -56,17 +59,26 @@ namespace BEditor.Drawing
                 height: bottom - top);
 
             if (r.Width < 0)
+            {
                 throw new ArgumentException(string.Format(Strings.LessThan, nameof(left), nameof(right)));
+            }
             if (r.Height < 0)
+            {
                 throw new ArgumentException(string.Format(Strings.LessThan, nameof(top), nameof(bottom)));
+            }
+
             return r;
         }
+
         public static Rectangle Inflate(Rectangle rect, int x, int y)
-            => new(
+        {
+            return new(
                 rect.X - x,
                 rect.Y - y,
                 rect.Width + (2 * x),
                 rect.Height + (2 * y));
+        }
+
         public static Rectangle Intersect(Rectangle a, Rectangle b)
         {
             var x1 = Math.Max(a.X, b.X);
@@ -75,9 +87,13 @@ namespace BEditor.Drawing
             var y2 = Math.Min(a.Y + a.Height, b.Y + b.Height);
 
             if (x2 >= x1 && y2 >= y1)
+            {
                 return new Rectangle(x1, y1, x2 - x1, y2 - y1);
+            }
+
             return Empty;
         }
+
         public static Rectangle Union(Rectangle a, Rectangle b)
         {
             var x1 = Math.Min(a.X, b.X);
@@ -87,12 +103,22 @@ namespace BEditor.Drawing
 
             return new Rectangle(x1, y1, x2 - x1, y2 - y1);
         }
+
         public bool Equals(Rectangle other)
-            => X == other.X && Y == other.Y && Width == other.Width && Height == other.Height;
+        {
+            return X == other.X && Y == other.Y && Width == other.Width && Height == other.Height;
+        }
+
         public override bool Equals(object? obj)
-            => obj is Rectangle other && Equals(other);
+        {
+            return obj is Rectangle other && Equals(other);
+        }
+
         public override int GetHashCode()
-            => HashCode.Combine(X, Y, Width, Height);
+        {
+            return HashCode.Combine(X, Y, Width, Height);
+        }
+
         public void GetObjectData(SerializationInfo info, StreamingContext context)
         {
             info.AddValue(nameof(X), X);
@@ -102,16 +128,33 @@ namespace BEditor.Drawing
         }
 
         public static Rectangle operator +(Rectangle rect, Point point)
-            => new(rect.X + point.X, rect.Y + point.Y, rect.Width, rect.Height);
+        {
+            return new(rect.X + point.X, rect.Y + point.Y, rect.Width, rect.Height);
+        }
+
         public static Rectangle operator -(Rectangle rect, Point point)
-            => new(rect.X - point.X, rect.Y - point.Y, rect.Width, rect.Height);
+        {
+            return new(rect.X - point.X, rect.Y - point.Y, rect.Width, rect.Height);
+        }
+
         public static Rectangle operator +(Rectangle rect, Size size)
-            => new(rect.X, rect.Y, rect.Width + size.Width, rect.Height + size.Height);
+        {
+            return new(rect.X, rect.Y, rect.Width + size.Width, rect.Height + size.Height);
+        }
+
         public static Rectangle operator -(Rectangle rect, Size size)
-            => new(rect.X, rect.Y, rect.Width - size.Width, rect.Height - size.Height);
+        {
+            return new(rect.X, rect.Y, rect.Width - size.Width, rect.Height - size.Height);
+        }
+
         public static bool operator ==(Rectangle left, Rectangle right)
-            => left.Equals(right);
+        {
+            return left.Equals(right);
+        }
+
         public static bool operator !=(Rectangle left, Rectangle right)
-            => !left.Equals(right);
+        {
+            return !left.Equals(right);
+        }
     }
 }

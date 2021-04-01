@@ -14,6 +14,7 @@ namespace BEditor.Drawing
             Y = y;
             Z = z;
         }
+
         private Point3(SerializationInfo info, StreamingContext context)
         {
             X = info.GetInt32(nameof(X));
@@ -22,19 +23,36 @@ namespace BEditor.Drawing
         }
 
         public int X { get; }
+
         public int Y { get; }
+
         public int Z { get; }
 
         public static Point3 Add(Point3 point1, Point3 point2)
-            => new(point1.X + point2.X, point1.Y + point2.Y, point1.Z + point2.Z);
+        {
+            return new(point1.X + point2.X, point1.Y + point2.Y, point1.Z + point2.Z);
+        }
+
         public static Point3 Subtract(Point3 point1, Point3 point2)
-            => new(point1.X - point2.X, point1.Y - point2.Y, point1.Z - point2.Z);
+        {
+            return new(point1.X - point2.X, point1.Y - point2.Y, point1.Z - point2.Z);
+        }
+
         public override bool Equals(object? obj)
-            => obj is Point3 point && Equals(point);
+        {
+            return obj is Point3 point && Equals(point);
+        }
+
         public bool Equals(Point3 other)
-            => X == other.X && Y == other.Y && Z == other.Z;
+        {
+            return X == other.X && Y == other.Y && Z == other.Z;
+        }
+
         public override int GetHashCode()
-            => HashCode.Combine(X, Y, Z);
+        {
+            return HashCode.Combine(X, Y, Z);
+        }
+
         public void GetObjectData(SerializationInfo info, StreamingContext context)
         {
             info.AddValue(nameof(X), X);
@@ -43,20 +61,43 @@ namespace BEditor.Drawing
         }
 
         public static Point3 operator +(Point3 point1, Point3 point2)
-            => Add(point1, point2);
+        {
+            return Add(point1, point2);
+        }
+
         public static Point3 operator -(Point3 point1, Point3 point2)
-            => Subtract(point1, point2);
+        {
+            return Subtract(point1, point2);
+        }
+
         public static Point3 operator *(Point3 left, Point3 right)
-            => new(left.X * right.X, left.Y * right.Y, left.Z * right.Z);
+        {
+            return new(left.X * right.X, left.Y * right.Y, left.Z * right.Z);
+        }
+
         public static Point3 operator /(Point3 left, Point3 right)
-            => new(left.X / right.X, left.Y / right.Y, left.Z / right.Z);
+        {
+            return new(left.X / right.X, left.Y / right.Y, left.Z / right.Z);
+        }
+
         public static Point3 operator *(Point3 left, int right)
-            => new(left.X * right, left.Y * right, left.Z * right);
+        {
+            return new(left.X * right, left.Y * right, left.Z * right);
+        }
+
         public static Point3 operator /(Point3 left, int right)
-            => new(left.X / right, left.Y / right, left.Z / right);
+        {
+            return new(left.X / right, left.Y / right, left.Z / right);
+        }
+
         public static bool operator ==(Point3 left, Point3 right)
-            => left.Equals(right);
+        {
+            return left.Equals(right);
+        }
+
         public static bool operator !=(Point3 left, Point3 right)
-            => !(left == right);
+        {
+            return !(left == right);
+        }
     }
 }

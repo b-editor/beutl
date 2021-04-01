@@ -5,6 +5,6 @@
         Clamp,
         Repeat,
         Mirror,
-        Decal
+        Decal,
     }
 }

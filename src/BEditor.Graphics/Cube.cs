@@ -25,9 +25,11 @@ namespace BEditor.Graphics
         /// <param name="depth">The depth of the cube.</param>
         /// <param name="color">The color of the cube.</param>
         /// <exception cref="GraphicsException">OpenGL error occurred.</exception>
-        public Cube(float width, float height, float depth, Color color) : this(width, height, depth, color, new(Color.Light, Color.Light, Color.Light, 16))
+        public Cube(float width, float height, float depth, Color color)
+            : this(width, height, depth, color, new(Color.Light, Color.Light, Color.Light, 16))
         {
         }
+
         /// <summary>
         /// Initializes a new instance of the <see cref="Cube"/> class.
         /// </summary>
@@ -37,10 +39,11 @@ namespace BEditor.Graphics
         /// <param name="color">The color of the cube.</param>
         /// <param name="material">The material of the cube.</param>
         /// <exception cref="GraphicsException">OpenGL error occurred.</exception>
-        public Cube(float width, float height, float depth, Color color, Material material) : this(width, height, depth, color, material, Transform.Default)
+        public Cube(float width, float height, float depth, Color color, Material material)
+            : this(width, height, depth, color, material, Transform.Default)
         {
-
         }
+
         /// <summary>
         /// Initializes a new instance of the <see cref="Cube"/> class.
         /// </summary>
@@ -121,25 +124,30 @@ namespace BEditor.Graphics
         }
 
         /// <summary>
-        /// Get the width of this <see cref="Cube"/>.
+        /// Gets the width of this <see cref="Cube"/>.
         /// </summary>
         public float Width { get; }
+
         /// <summary>
-        /// Get the height of this <see cref="Cube"/>.
+        /// Gets the height of this <see cref="Cube"/>.
         /// </summary>
         public float Height { get; }
+
         /// <summary>
-        /// Get the depth of this <see cref="Cube"/>.
+        /// Gets the depth of this <see cref="Cube"/>.
         /// </summary>
         public float Depth { get; }
+
         /// <inheritdoc/>
         public override ReadOnlyMemory<float> Vertices => _vertices;
+
         /// <summary>
-        /// Get the VertexArray of this <see cref="Cube"/>.
+        /// Gets the VertexArray of this <see cref="Cube"/>.
         /// </summary>
         public GraphicsHandle VertexArrayObject { get; }
+
         /// <summary>
-        /// Get the VertexBuffer of this <see cref="Cube"/>.
+        /// Gets the VertexBuffer of this <see cref="Cube"/>.
         /// </summary>
         public GraphicsHandle VertexBufferObject { get; }
 
@@ -150,6 +158,7 @@ namespace BEditor.Graphics
 
             GL.DrawArrays(PrimitiveType.Triangles, 0, 36);
         }
+
         /// <inheritdoc/>
         protected override void Dispose(bool disposing)
         {

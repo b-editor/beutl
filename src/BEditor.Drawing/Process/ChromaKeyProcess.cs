@@ -22,10 +22,10 @@ namespace BEditor.Drawing.Process
         {
             var camColor = _src[pos];
 
-            byte max = Math.Max(Math.Max(camColor.R, camColor.G), camColor.B);
-            byte min = Math.Min(Math.Min(camColor.R, camColor.G), camColor.B);
+            var max = Math.Max(Math.Max(camColor.R, camColor.G), camColor.B);
+            var min = Math.Min(Math.Min(camColor.R, camColor.G), camColor.B);
 
-            bool replace =
+            var replace =
                 camColor.G != min // green is not the smallest value
                 && (camColor.G == max // green is the biggest value
                 || max - camColor.G < 8) // or at least almost the biggest value
@@ -33,9 +33,10 @@ namespace BEditor.Drawing.Process
 
             //bool replace = color <= camColor && camColor <= color;//min < camColor && camColor < max;
 
-
             if (replace)
+            {
                 camColor = default;
+            }
 
             _dst[pos] = camColor;
         }

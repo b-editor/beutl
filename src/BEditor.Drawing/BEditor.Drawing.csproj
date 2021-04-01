@@ -5,6 +5,7 @@
   </PropertyGroup>
   
   <Import Project="..\..\props\common.props" />
+  <Import Project="..\..\props\analyzer.props" />
 
   <ItemGroup>
     <PackageReference Include="SkiaSharp" Version="2.80.2" />

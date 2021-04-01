@@ -10,7 +10,6 @@ using OpenTK.Graphics.OpenGL4;
 
 namespace BEditor.Graphics
 {
-
     public class PixelBuffer : IDisposable
     {
         private readonly SynchronizationContext _syncContext = AsyncOperationManager.SynchronizationContext;
@@ -25,18 +24,26 @@ namespace BEditor.Graphics
             GL.BufferData(BufferTarget.PixelUnpackBuffer, BufferSize, IntPtr.Zero, BufferUsageHint.StreamRead);
             GL.BindBuffer(BufferTarget.PixelUnpackBuffer, 0);
         }
+
         ~PixelBuffer()
         {
             Dispose();
         }
 
         public int Width { get; }
+
         public int Height { get; }
+
         public int Channel { get; }
+
         public int BufferSize { get; }
+
         public GraphicsHandle Handle { get; }
+
         public PixelFormat Format { get; }
+
         public PixelType Type { get; }
+
         /// <summary>
         /// Get whether an object has been disposed.
         /// </summary>
@@ -51,13 +58,14 @@ namespace BEditor.Graphics
                 _ => sizeof(int)
             };
         }
+
         public unsafe void ReadPixelsFromTexture(GraphicsHandle handle, IntPtr data)
         {
             GL.BindBuffer(BufferTarget.PixelPackBuffer, Handle);
             GL.BindTexture(TextureTarget.Texture2D, handle);
             GL.GetTexImage(TextureTarget.Texture2D, 0, Format, Type, IntPtr.Zero);
 
-            byte* pboPtr = (byte*)GL.MapBuffer(BufferTarget.PixelPackBuffer, BufferAccess.ReadOnly);
+            var pboPtr = (byte*)GL.MapBuffer(BufferTarget.PixelPackBuffer, BufferAccess.ReadOnly);
 
             if (pboPtr is not null)
             {
@@ -68,13 +76,14 @@ namespace BEditor.Graphics
             GL.BindTexture(TextureTarget.Texture2D, 0);
             GL.BindBuffer(BufferTarget.PixelPackBuffer, 0);
         }
+
         public unsafe void ReadPixelsFromBuffer(GraphicsHandle handle, IntPtr data)
         {
             GL.BindBuffer(BufferTarget.PixelPackBuffer, Handle);
             GL.BindFramebuffer(FramebufferTarget.ReadFramebuffer, handle);
             GL.ReadPixels(0, 0, Width, Height, Format, Type, data);
 
-            byte* pboPtr = (byte*)GL.MapBuffer(BufferTarget.PixelPackBuffer, BufferAccess.ReadOnly);
+            var pboPtr = (byte*)GL.MapBuffer(BufferTarget.PixelPackBuffer, BufferAccess.ReadOnly);
 
             if (pboPtr is not null)
             {
@@ -85,6 +94,7 @@ namespace BEditor.Graphics
             GL.BindFramebuffer(FramebufferTarget.ReadFramebuffer, 0);
             GL.BindBuffer(BufferTarget.PixelPackBuffer, 0);
         }
+
         public void Dispose()
         {
             if (IsDisposed) return;

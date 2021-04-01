@@ -55,24 +55,29 @@ namespace BEditor.Graphics
 
         /// <inheritdoc/>
         public override ReadOnlyMemory<float> Vertices => _vertices;
+
         /// <summary>
         /// Gets the start position of this <see cref="Line"/>.
         /// </summary>
         public Vector3 Start { get; }
+
         /// <summary>
         /// Gets the end position of this <see cref="Line"/>.
         /// </summary>
         public Vector3 End { get; }
+
         /// <summary>
         /// Gets the width of this <see cref="Line"/>.
         /// </summary>
         public float Width { get; }
+
         /// <summary>
-        /// Get the VertexBuffer of this <see cref="Line"/>.
+        /// Gets the VertexBuffer of this <see cref="Line"/>.
         /// </summary>
         public GraphicsHandle VertexBufferObject { get; }
+
         /// <summary>
-        /// Get the VertexArray of this <see cref="Line"/>.
+        /// Gets the VertexArray of this <see cref="Line"/>.
         /// </summary>
         public GraphicsHandle VertexArrayObject { get; }
 
@@ -84,6 +89,7 @@ namespace BEditor.Graphics
             GL.BindVertexArray(VertexArrayObject);
             GL.DrawArrays(PrimitiveType.Lines, 0, 2);
         }
+
         /// <inheritdoc/>
         protected override void Dispose(bool disposing)
         {

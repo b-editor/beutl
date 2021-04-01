@@ -26,6 +26,7 @@ namespace BEditor.Graphics
             GL.RenderbufferStorage(RenderbufferTarget.Renderbuffer, RenderbufferStorage.DepthComponent, Width, Height);
             GL.BindRenderbuffer(RenderbufferTarget.Renderbuffer, 0);
         }
+
         /// <summary>
         /// Discards the reference to the target that is represented by the current <see cref="DepthBuffer"/> object.
         /// </summary>
@@ -38,14 +39,17 @@ namespace BEditor.Graphics
         /// Gets the width of the render buffer.
         /// </summary>
         public int Width { get; }
+
         /// <summary>
         /// Gets the height of the render buffer.
         /// </summary>
         public int Height { get; }
+
         /// <summary>
         /// Gets the handle of the depth buffer.
         /// </summary>
         public GraphicsHandle Handle { get; }
+
         /// <summary>
         /// Get whether an object has been disposed.
         /// </summary>
@@ -56,10 +60,7 @@ namespace BEditor.Graphics
         {
             if (IsDisposed) return;
 
-            _syncContext.Post(_ =>
-            {
-                GL.DeleteRenderbuffer(Handle);
-            }, null);
+            _syncContext.Post(_ => GL.DeleteRenderbuffer(Handle), null);
 
             GC.SuppressFinalize(this);
 

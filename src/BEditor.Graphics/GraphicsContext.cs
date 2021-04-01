@@ -18,10 +18,9 @@ using OpenTK.Windowing.GraphicsLibraryFramework;
 
 namespace BEditor.Graphics
 {
-
     public unsafe sealed class GraphicsContext : IDisposable
     {
-        private static bool isFirst = true;
+        private static bool _isFirst = true;
         private readonly Window* _window;
         private readonly Shader _textureShader;
         private readonly Shader _shader;
@@ -36,7 +35,7 @@ namespace BEditor.Graphics
             Height = height;
             _synchronization = AsyncOperationManager.SynchronizationContext;
 
-            if (isFirst)
+            if (_isFirst)
             {
                 GLFW.Init();
                 Tool.ThrowGLFWError();
@@ -46,11 +45,11 @@ namespace BEditor.Graphics
             GLFW.WindowHint(WindowHintInt.ContextVersionMajor, 3);
             GLFW.WindowHint(WindowHintInt.ContextVersionMinor, 3);
             GLFW.WindowHint(WindowHintBool.Visible, false);
-            _window = GLFW.CreateWindow(1, 1, "", null, null);
+            _window = GLFW.CreateWindow(1, 1, string.Empty, null, null);
             Tool.ThrowGLFWError();
             MakeCurrent();
 
-            if (isFirst)
+            if (_isFirst)
             {
                 var context = new GLFWBindingsContext();
                 GL.LoadBindings(context);
@@ -59,7 +58,7 @@ namespace BEditor.Graphics
                 OpenTK.Graphics.ES20.GL.LoadBindings(context);
                 OpenTK.Graphics.ES30.GL.LoadBindings(context);
 
-                isFirst = false;
+                _isFirst = false;
             }
 
             _textureShader = ShaderFactory.Texture.Create();
@@ -67,7 +66,6 @@ namespace BEditor.Graphics
             _lightShader = ShaderFactory.Lighting.Create();
             _texLightShader = ShaderFactory.TextureLighting.Create();
             _lineShader = ShaderFactory.Line.Create();
-
 
             Camera = new OrthographicCamera(new(0, 0, 1024), width, height);
 
@@ -85,19 +83,28 @@ namespace BEditor.Graphics
 
             Clear();
         }
+
         ~GraphicsContext()
         {
             if (!IsDisposed) Dispose();
         }
 
         public PixelBuffer PixelBufferObject { get; }
+
         public FrameBuffer Framebuffer { get; }
+
         public int Width { get; }
+
         public int Height { get; }
+
         public float Aspect => Width / ((float)Height);
+
         public bool IsCurrent => GLFW.GetCurrentContext() == _window;
+
         public bool IsDisposed { get; private set; }
+
         public Camera Camera { get; set; }
+
         public Light? Light { get; set; }
 
         public void Clear()
@@ -125,6 +132,7 @@ namespace BEditor.Graphics
 
             Tool.ThrowGLError();
         }
+
         public void MakeCurrent()
         {
             if (!IsCurrent)
@@ -133,6 +141,7 @@ namespace BEditor.Graphics
                 Tool.ThrowGLFWError();
             }
         }
+
         public void DrawTexture(Texture texture)
         {
             if (texture is null) throw new ArgumentNullException(nameof(texture));
@@ -154,7 +163,6 @@ namespace BEditor.Graphics
 
             GL.Enable(EnableCap.Blend);
 
-
             GL.BlendEquationSeparate(BlendEquationMode.FuncAdd, BlendEquationMode.FuncAdd);
             GL.BlendFunc(BlendingFactor.SrcAlpha, BlendingFactor.OneMinusSrcAlpha);
 
@@ -169,6 +177,7 @@ namespace BEditor.Graphics
 
             Tool.ThrowGLError();
         }
+
         public void DrawTexture(Texture texture, Action blend)
         {
             if (texture is null) throw new ArgumentNullException(nameof(texture));
@@ -196,7 +205,6 @@ namespace BEditor.Graphics
 
                 blend();
 
-
                 _textureShader.SetVector4("color", texture.Color.ToVector4());
                 _textureShader.SetMatrix4("model", texture.Transform.Matrix);
                 _textureShader.SetMatrix4("view", Camera.GetViewMatrix());
@@ -213,6 +221,147 @@ namespace BEditor.Graphics
                 DrawTextureWithLight(texture, blend);
             }
         }
+
+        public void DrawCube(Cube cube)
+        {
+            if (cube is null) throw new ArgumentNullException(nameof(cube));
+            MakeCurrent();
+
+            if (Light is null)
+            {
+                _shader.Use();
+
+                var vertexLocation = _shader.GetAttribLocation("aPos");
+                GL.EnableVertexAttribArray(vertexLocation);
+                GL.VertexAttribPointer(vertexLocation, 3, VertexAttribPointerType.Float, false, 6 * sizeof(float), 0);
+
+                // blend
+                GL.Enable(EnableCap.Blend);
+                GL.BlendEquationSeparate(BlendEquationMode.FuncAdd, BlendEquationMode.FuncAdd);
+                GL.BlendFunc(BlendingFactor.SrcAlpha, BlendingFactor.OneMinusSrcAlpha);
+
+                _shader.SetMatrix4("model", cube.Transform.Matrix);
+                _shader.SetMatrix4("view", Camera.GetViewMatrix());
+                _shader.SetMatrix4("projection", Camera.GetProjectionMatrix());
+                _shader.SetVector4("color", cube.Color.ToVector4());
+
+                _shader.Use();
+
+                cube.Draw();
+
+                Tool.ThrowGLError();
+            }
+            else
+            {
+                DrawCubeWithLight(cube);
+            }
+        }
+
+        public void DrawBall(Ball ball)
+        {
+            if (ball is null) throw new ArgumentNullException(nameof(ball));
+            MakeCurrent();
+
+            if (Light is null)
+            {
+                _shader.Use();
+
+                var vertexLocation = _shader.GetAttribLocation("aPos");
+                GL.EnableVertexAttribArray(vertexLocation);
+                GL.VertexAttribPointer(vertexLocation, 3, VertexAttribPointerType.Float, false, 3 * sizeof(float), 0);
+
+                GL.BindVertexArray(ball.VertexArrayObject);
+
+                _shader.SetMatrix4("model", ball.Transform.Matrix);
+                _shader.SetMatrix4("view", Camera.GetViewMatrix());
+                _shader.SetMatrix4("projection", Camera.GetProjectionMatrix());
+                _shader.SetVector4("color", ball.Color.ToVector4());
+
+                ball.Draw();
+
+                Tool.ThrowGLError();
+            }
+            else
+            {
+                DrawBallWithLight(ball);
+            }
+        }
+
+        public void DrawLine(Vector3 start, Vector3 end, float width, Transform transform, Color color)
+        {
+            MakeCurrent();
+
+            using var line = new Line(start, end, width)
+            {
+                Transform = transform,
+                Color = color
+            };
+
+            DrawLine(line);
+        }
+
+        public void DrawLine(Line line)
+        {
+            if (line is null) throw new ArgumentNullException(nameof(line));
+
+            MakeCurrent();
+
+            _lineShader.Use();
+
+            GL.Enable(EnableCap.Blend);
+
+            GL.BlendEquationSeparate(BlendEquationMode.FuncAdd, BlendEquationMode.FuncAdd);
+            GL.BlendFunc(BlendingFactor.SrcAlpha, BlendingFactor.OneMinusSrcAlpha);
+
+            _lineShader.SetVector4("color", line.Color.ToVector4());
+            _lineShader.SetMatrix4("model", line.Transform.Matrix);
+            _lineShader.SetMatrix4("view", Camera.GetViewMatrix());
+            _lineShader.SetMatrix4("projection", Camera.GetProjectionMatrix());
+
+            _lineShader.Use();
+
+            line.Draw();
+
+            Tool.ThrowGLError();
+        }
+
+        public void Dispose()
+        {
+            if (IsDisposed) return;
+
+            _synchronization.Post(state =>
+            {
+                var g = (GraphicsContext)state!;
+
+                PixelBufferObject.Dispose();
+
+                GLFW.DestroyWindow(g._window);
+                g._textureShader.Dispose();
+                g._shader.Dispose();
+                g._lightShader.Dispose();
+            }, this);
+
+            GC.SuppressFinalize(this);
+
+            IsDisposed = true;
+        }
+
+        public void ReadImage(Image<BGRA32> image)
+        {
+            if (image is null) throw new ArgumentNullException(nameof(image));
+            image.ThrowIfDisposed();
+            MakeCurrent();
+
+            fixed (BGRA32* data = image.Data)
+            {
+                PixelBufferObject.ReadPixelsFromTexture(Framebuffer.ColorObject.Handle, (IntPtr)data);
+            }
+
+            image.Flip(FlipMode.X);
+
+            Tool.ThrowGLError();
+        }
+
         private void DrawTextureWithLight(Texture texture, Action blend)
         {
             if (texture is null) throw new ArgumentNullException(nameof(texture));
@@ -268,40 +417,7 @@ namespace BEditor.Graphics
 
             Tool.ThrowGLError();
         }
-        public void DrawCube(Cube cube)
-        {
-            if (cube is null) throw new ArgumentNullException(nameof(cube));
-            MakeCurrent();
 
-            if (Light is null)
-            {
-                _shader.Use();
-
-                var vertexLocation = _shader.GetAttribLocation("aPos");
-                GL.EnableVertexAttribArray(vertexLocation);
-                GL.VertexAttribPointer(vertexLocation, 3, VertexAttribPointerType.Float, false, 6 * sizeof(float), 0);
-
-                // blend
-                GL.Enable(EnableCap.Blend);
-                GL.BlendEquationSeparate(BlendEquationMode.FuncAdd, BlendEquationMode.FuncAdd);
-                GL.BlendFunc(BlendingFactor.SrcAlpha, BlendingFactor.OneMinusSrcAlpha);
-
-                _shader.SetMatrix4("model", cube.Transform.Matrix);
-                _shader.SetMatrix4("view", Camera.GetViewMatrix());
-                _shader.SetMatrix4("projection", Camera.GetProjectionMatrix());
-                _shader.SetVector4("color", cube.Color.ToVector4());
-
-                _shader.Use();
-
-                cube.Draw();
-
-                Tool.ThrowGLError();
-            }
-            else
-            {
-                DrawCubeWithLight(cube);
-            }
-        }
         private void DrawCubeWithLight(Cube cube)
         {
             if (cube is null) throw new ArgumentNullException(nameof(cube));
@@ -332,41 +448,11 @@ namespace BEditor.Graphics
             _lightShader.SetVector4("light.diffuse", Light.Diffuse.ToVector4());
             _lightShader.SetVector4("light.specular", Light.Specular.ToVector4());
 
-
             cube.Draw();
 
             Tool.ThrowGLError();
         }
-        public void DrawBall(Ball ball)
-        {
-            if (ball is null) throw new ArgumentNullException(nameof(ball));
-            MakeCurrent();
 
-            if (Light is null)
-            {
-                _shader.Use();
-
-                var vertexLocation = _shader.GetAttribLocation("aPos");
-                GL.EnableVertexAttribArray(vertexLocation);
-                GL.VertexAttribPointer(vertexLocation, 3, VertexAttribPointerType.Float, false, 3 * sizeof(float), 0);
-
-
-                GL.BindVertexArray(ball.VertexArrayObject);
-
-                _shader.SetMatrix4("model", ball.Transform.Matrix);
-                _shader.SetMatrix4("view", Camera.GetViewMatrix());
-                _shader.SetMatrix4("projection", Camera.GetProjectionMatrix());
-                _shader.SetVector4("color", ball.Color.ToVector4());
-
-                ball.Draw();
-
-                Tool.ThrowGLError();
-            }
-            else
-            {
-                DrawBallWithLight(ball);
-            }
-        }
         private void DrawBallWithLight(Ball ball)
         {
             if (ball is null) throw new ArgumentNullException(nameof(ball));
@@ -397,80 +483,7 @@ namespace BEditor.Graphics
             _lightShader.SetVector4("light.diffuse", Light.Diffuse.ToVector4());
             _lightShader.SetVector4("light.specular", Light.Specular.ToVector4());
 
-
             ball.Draw();
-
-            Tool.ThrowGLError();
-        }
-        public void DrawLine(Vector3 start, Vector3 end, float width, Transform transform, Color color)
-        {
-            MakeCurrent();
-
-            using var line = new Line(start, end, width)
-            {
-                Transform = transform,
-                Color = color
-            };
-
-            DrawLine(line);
-        }
-        public void DrawLine(Line line)
-        {
-            if (line is null) throw new ArgumentNullException(nameof(line));
-
-            MakeCurrent();
-
-            _lineShader.Use();
-
-            GL.Enable(EnableCap.Blend);
-
-
-            GL.BlendEquationSeparate(BlendEquationMode.FuncAdd, BlendEquationMode.FuncAdd);
-            GL.BlendFunc(BlendingFactor.SrcAlpha, BlendingFactor.OneMinusSrcAlpha);
-
-            _lineShader.SetVector4("color", line.Color.ToVector4());
-            _lineShader.SetMatrix4("model", line.Transform.Matrix);
-            _lineShader.SetMatrix4("view", Camera.GetViewMatrix());
-            _lineShader.SetMatrix4("projection", Camera.GetProjectionMatrix());
-
-            _lineShader.Use();
-
-            line.Draw();
-
-            Tool.ThrowGLError();
-        }
-        public void Dispose()
-        {
-            if (IsDisposed) return;
-
-            _synchronization.Post(state =>
-            {
-                var g = (GraphicsContext)state!;
-
-                PixelBufferObject.Dispose();
-
-                GLFW.DestroyWindow(g._window);
-                g._textureShader.Dispose();
-                g._shader.Dispose();
-                g._lightShader.Dispose();
-            }, this);
-
-            GC.SuppressFinalize(this);
-
-            IsDisposed = true;
-        }
-        public unsafe void ReadImage(Image<BGRA32> image)
-        {
-            if (image is null) throw new ArgumentNullException(nameof(image));
-            image.ThrowIfDisposed();
-            MakeCurrent();
-
-            fixed (BGRA32* data = image.Data)
-            {
-                PixelBufferObject.ReadPixelsFromTexture(Framebuffer.ColorObject.Handle, (IntPtr)data);
-            }
-
-            image.Flip(FlipMode.X);
 
             Tool.ThrowGLError();
         }

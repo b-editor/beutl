@@ -31,9 +31,10 @@ namespace BEditor.Drawing
             }
             else
             {
-                Debug.Assert(false);
+                Debug.Fail(string.Empty);
             }
         }
+
         /// <summary>
         /// <see cref="Image{T}"/> Initialize a new instance of the class.
         /// </summary>
@@ -48,6 +49,7 @@ namespace BEditor.Drawing
 
             _pointer = (T*)Marshal.AllocHGlobal(DataSize);
         }
+
         /// <summary>
         /// <see cref="Image{T}"/> Initialize a new instance of the class.
         /// </summary>
@@ -64,6 +66,7 @@ namespace BEditor.Drawing
             this._height = height;
             _array = data;
         }
+
         /// <summary>
         /// <see cref="Image{T}"/> Initialize a new instance of the class.
         /// </summary>
@@ -80,6 +83,7 @@ namespace BEditor.Drawing
             this._height = height;
             _pointer = data;
         }
+
         /// <summary>
         /// <see cref="Image{T}"/> Initialize a new instance of the class.
         /// </summary>
@@ -96,6 +100,7 @@ namespace BEditor.Drawing
             this._height = height;
             _pointer = (T*)data;
         }
+
         /// <summary>
         /// <see cref="Image{T}"/> Initialize a new instance of the class.
         /// </summary>
@@ -105,15 +110,14 @@ namespace BEditor.Drawing
         {
             Fill(fill);
         }
+
         ~Image()
         {
             Dispose();
         }
-
         #endregion
 
         #region Properties
-
         /// <summary>
         /// Get the width of this <see cref="Image{T}"/>.
         /// </summary>
@@ -125,6 +129,7 @@ namespace BEditor.Drawing
                 return _width;
             }
         }
+
         /// <summary>
         /// Get the height of this <see cref="Image{T}"/>.
         /// </summary>
@@ -136,6 +141,7 @@ namespace BEditor.Drawing
                 return _height;
             }
         }
+
         /// <summary>
         /// Get the data size of this <see cref="Image{T}"/>.
         /// </summary>
@@ -147,6 +153,7 @@ namespace BEditor.Drawing
                 return Width * Height * sizeof(T);
             }
         }
+
         /// <summary>
         /// Get the data of this <see cref="Image{T}"/>.
         /// </summary>
@@ -159,6 +166,7 @@ namespace BEditor.Drawing
                 return (_array is null) ? new Span<T>(_pointer, _width * _height) : new Span<T>(_array);
             }
         }
+
         /// <summary>
         /// Get the size of this <see cref="Image{T}"/>.
         /// </summary>
@@ -170,6 +178,7 @@ namespace BEditor.Drawing
                 return new(Width, Height);
             }
         }
+
         /// <summary>
         /// Get the stride width of this <see cref="Image{T}"/>.
         /// </summary>
@@ -181,11 +190,11 @@ namespace BEditor.Drawing
                 return Width * sizeof(T);
             }
         }
+
         /// <summary>
         /// Get whether an object has been disposed
         /// </summary>
         public bool IsDisposed { get; private set; }
-
         #endregion
 
         /// <summary>
@@ -282,6 +291,7 @@ namespace BEditor.Drawing
             ThrowIfDisposed();
             Data.Fill(fill);
         }
+
         public void Blend(Image<T> mask, Image<T> dst)
         {
             if (mask is null) throw new ArgumentNullException(nameof(mask));
@@ -301,6 +311,7 @@ namespace BEditor.Drawing
                 Parallel.For(0, Data.Length, proc.Invoke);
             }
         }
+
         public void Add(Image<T> mask, Image<T> dst)
         {
             if (mask is null) throw new ArgumentNullException(nameof(mask));
@@ -320,6 +331,7 @@ namespace BEditor.Drawing
                 Parallel.For(0, Data.Length, proc.Invoke);
             }
         }
+
         public void Subtract(Image<T> mask, Image<T> dst)
         {
             if (mask is null) throw new ArgumentNullException(nameof(mask));
@@ -346,17 +358,14 @@ namespace BEditor.Drawing
             ThrowIfDisposed();
             if (mode.HasFlag(FlipMode.Y))
             {
-                Parallel.For(0, Height, y =>
-                {
-                    this[y].Reverse();
-                });
+                Parallel.For(0, Height, y => this[y].Reverse());
             }
 
             if (mode.HasFlag(FlipMode.X))
             {
                 Parallel.For(0, Height / 2, top =>
                 {
-                    Span<T> tmp = stackalloc T[Width];
+                    var tmp = (Span<T>)stackalloc T[Width];
                     var bottom = Height - top - 1;
 
                     var topSpan = this[bottom];
@@ -368,6 +377,7 @@ namespace BEditor.Drawing
                 });
             }
         }
+
         public Image<T> MakeBorder(int top, int bottom, int left, int right)
         {
             ThrowIfDisposed();
@@ -380,12 +390,13 @@ namespace BEditor.Drawing
 
             return img;
         }
+
         public Image<T> MakeBorder(int width, int height)
         {
             ThrowIfDisposed();
 
-            int v = (height - Height) / 2;
-            int h = (width - Width) / 2;
+            var v = (height - Height) / 2;
+            var h = (width - Width) / 2;
 
             return MakeBorder(v, v, h, h);
         }
@@ -398,8 +409,8 @@ namespace BEditor.Drawing
 
                 _pointer = null;
                 _array = null;
-
             }
+
             IsDisposed = true;
             GC.SuppressFinalize(this);
         }
@@ -421,8 +432,6 @@ namespace BEditor.Drawing
             return new(task);
         }
 
-        object ICloneable.Clone() => this.Clone();
-
         public Image<T2> Convert<T2>() where T2 : unmanaged, IPixel<T2>, IPixelConvertable<T>
         {
             ThrowIfDisposed();
@@ -438,35 +447,51 @@ namespace BEditor.Drawing
         }
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        public void ThrowIfDisposed()
+        {
+            if (IsDisposed) throw new ObjectDisposedException(nameof(Image<T>));
+        }
+
+        object ICloneable.Clone() => Clone();
+
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
         private static void ThrowOutOfRange(int width, int height)
         {
             if (width is < 0) throw new ArgumentOutOfRangeException(nameof(width), string.Format(Strings.LessThan, nameof(width), 0));
             if (height is < 0) throw new ArgumentOutOfRangeException(nameof(height), string.Format(Strings.LessThan, nameof(width), 0));
         }
+
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         private void ThrowColOutOfRange(int x)
         {
-            if (x < 0) throw new ArgumentOutOfRangeException(nameof(x), string.Format(Strings.LessThan, nameof(x), 0));
-
-            else if (x > Height) throw new ArgumentOutOfRangeException(nameof(x), string.Format(Strings.MoreThan, nameof(x), Width));
+            if (x < 0)
+            {
+                throw new ArgumentOutOfRangeException(nameof(x), string.Format(Strings.LessThan, nameof(x), 0));
+            }
+            else if (x > Height)
+            {
+                throw new ArgumentOutOfRangeException(nameof(x), string.Format(Strings.MoreThan, nameof(x), Width));
+            }
         }
+
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         private void ThrowRowOutOfRange(int y)
         {
-            if (y < 0) throw new ArgumentOutOfRangeException(nameof(y), string.Format(Strings.LessThan, nameof(y), 0));
-
-            else if (y > Height) throw new ArgumentOutOfRangeException(nameof(y), string.Format(Strings.MoreThan, nameof(y), Height));
+            if (y < 0)
+            {
+                throw new ArgumentOutOfRangeException(nameof(y), string.Format(Strings.LessThan, nameof(y), 0));
+            }
+            else if (y > Height)
+            {
+                throw new ArgumentOutOfRangeException(nameof(y), string.Format(Strings.MoreThan, nameof(y), Height));
+            }
         }
+
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         private void ThrowOutOfRange(Rectangle roi)
         {
             if (roi.Bottom > Height) throw new ArgumentOutOfRangeException(nameof(roi));
             else if (roi.Right > Width) throw new ArgumentOutOfRangeException(nameof(roi));
-        }
-        [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        public void ThrowIfDisposed()
-        {
-            if (IsDisposed) throw new ObjectDisposedException(nameof(Image<T>));
         }
 
         #endregion

@@ -71,6 +71,7 @@ namespace BEditor.Graphics
                 _uniformLocations.Add(key, location);
             }
         }
+
         /// <inheritdoc/>
         ~Shader()
         {
@@ -92,30 +93,7 @@ namespace BEditor.Graphics
         {
             return new Shader(File.ReadAllText(vertPath), File.ReadAllText(fragPath));
         }
-        private static void CompileShader(int shader)
-        {
-            GL.CompileShader(shader);
 
-            GL.GetShader(shader, ShaderParameter.CompileStatus, out var code);
-            if (code != (int)All.True)
-            {
-                // We can use `GL.GetShaderInfoLog(shader)` to get information about the error.
-                var infoLog = GL.GetShaderInfoLog(shader);
-                Debug.Assert(false);
-                throw new GraphicsException(string.Format(Strings.ErrorOccurredWhilistCompilingShader, shader, infoLog));
-            }
-        }
-        private static void LinkProgram(int program)
-        {
-            GL.LinkProgram(program);
-
-            GL.GetProgram(program, GetProgramParameterName.LinkStatus, out var code);
-            if (code != (int)All.True)
-            {
-                Debug.Assert(false);
-                throw new GraphicsException(string.Format(Strings.ErrorOccurredWhilstLinkingProgram, program));
-            }
-        }
         /// <summary>
         /// Use this shader.
         /// </summary>
@@ -123,6 +101,7 @@ namespace BEditor.Graphics
         {
             GL.UseProgram(_handle);
         }
+
         /// <summary>
         /// Returns the location of an attribute variable.
         /// </summary>
@@ -131,6 +110,7 @@ namespace BEditor.Graphics
         {
             return GL.GetAttribLocation(_handle, attribName);
         }
+
         /// <summary>
         /// Specify the value of a uniform variable for the current program object.
         /// </summary>
@@ -139,6 +119,7 @@ namespace BEditor.Graphics
             GL.UseProgram(_handle);
             GL.Uniform1(_uniformLocations[name], data);
         }
+
         /// <summary>
         /// Specify the value of a uniform variable for the current program object.
         /// </summary>
@@ -147,6 +128,7 @@ namespace BEditor.Graphics
             GL.UseProgram(_handle);
             GL.Uniform1(_uniformLocations[name], data);
         }
+
         /// <summary>
         /// Specify the value of a uniform variable for the current program object.
         /// </summary>
@@ -156,6 +138,7 @@ namespace BEditor.Graphics
             GL.UseProgram(_handle);
             GL.UniformMatrix4(_uniformLocations[name], true, ref mat);
         }
+
         /// <summary>
         /// Specify the value of a uniform variable for the current program object.
         /// </summary>
@@ -166,6 +149,7 @@ namespace BEditor.Graphics
             GL.UseProgram(_handle);
             GL.Uniform3(_uniformLocations[name], ref vec);
         }
+
         /// <summary>
         /// Specify the value of a uniform variable for the current program object.
         /// </summary>
@@ -176,19 +160,43 @@ namespace BEditor.Graphics
             GL.UseProgram(_handle);
             GL.Uniform4(_uniformLocations[name], ref vec);
         }
+
         /// <inheritdoc/>
         public void Dispose()
         {
             if (IsDisposed) return;
 
-            _synchronization.Post(_ =>
-            {
-                GL.DeleteProgram(_handle);
-            }, null);
+            _synchronization.Post(_ => GL.DeleteProgram(_handle), null);
 
             GC.SuppressFinalize(this);
 
             IsDisposed = true;
+        }
+
+        private static void CompileShader(int shader)
+        {
+            GL.CompileShader(shader);
+
+            GL.GetShader(shader, ShaderParameter.CompileStatus, out var code);
+            if (code != (int)All.True)
+            {
+                // We can use `GL.GetShaderInfoLog(shader)` to get information about the error.
+                var infoLog = GL.GetShaderInfoLog(shader);
+                Debug.Fail(string.Empty);
+                throw new GraphicsException(string.Format(Strings.ErrorOccurredWhilistCompilingShader, shader, infoLog));
+            }
+        }
+
+        private static void LinkProgram(int program)
+        {
+            GL.LinkProgram(program);
+
+            GL.GetProgram(program, GetProgramParameterName.LinkStatus, out var code);
+            if (code != (int)All.True)
+            {
+                Debug.Fail(string.Empty);
+                throw new GraphicsException(string.Format(Strings.ErrorOccurredWhilstLinkingProgram, program));
+            }
         }
     }
 }

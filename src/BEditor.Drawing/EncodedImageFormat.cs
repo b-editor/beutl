@@ -13,6 +13,6 @@
         Ktx = 8,
         Astc = 9,
         Dng = 10,
-        Heif = 11
+        Heif = 11,
     }
 }

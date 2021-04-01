@@ -15,6 +15,7 @@ namespace BEditor
             _length = length;
             _ptr = (T*)Marshal.AllocCoTaskMem(sizeof(T) * length);
         }
+
         ~UnmanagedArray()
         {
             Dispose();
@@ -28,6 +29,7 @@ namespace BEditor
                 return _length;
             }
         }
+
         public IntPtr Pointer
         {
             get
@@ -36,6 +38,7 @@ namespace BEditor
                 return new(_ptr);
             }
         }
+
         public bool IsDisposed { get; private set; }
 
         public ref T this[int index]
@@ -54,6 +57,7 @@ namespace BEditor
             ThrowIfDisposed();
             return new((T*)Pointer, Length);
         }
+
         public void Dispose()
         {
             if (IsDisposed) return;
@@ -62,16 +66,13 @@ namespace BEditor
 
             IsDisposed = true;
         }
+
         public IEnumerator<T> GetEnumerator()
         {
             ThrowIfDisposed();
             return new ArrayEnumerator(this);
         }
-        IEnumerator IEnumerable.GetEnumerator()
-        {
-            ThrowIfDisposed();
-            return new ArrayEnumerator(this);
-        }
+
         public UnmanagedArray<T> Clone()
         {
             ThrowIfDisposed();
@@ -80,16 +81,24 @@ namespace BEditor
 
             return array;
         }
-        object ICloneable.Clone()
-        {
-            return Clone();
-        }
+
         private void ThrowIfDisposed()
         {
             if (IsDisposed) throw new ObjectDisposedException(nameof(UnmanagedArray<T>));
         }
 
-        private sealed class ArrayEnumerator : IEnumerator<T>, IDisposable, ICloneable
+        IEnumerator IEnumerable.GetEnumerator()
+        {
+            ThrowIfDisposed();
+            return new ArrayEnumerator(this);
+        }
+
+        object ICloneable.Clone()
+        {
+            return Clone();
+        }
+
+        private sealed class ArrayEnumerator : IEnumerator<T>, ICloneable
         {
             private UnmanagedArray<T>? _array;
             private int _index;
@@ -115,7 +124,10 @@ namespace BEditor
                     return true;
                 }
                 else
+                {
                     _index = _array.Length;
+                }
+
                 return false;
             }
 

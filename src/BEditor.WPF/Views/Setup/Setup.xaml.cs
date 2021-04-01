@@ -43,15 +43,18 @@ namespace BEditor.Views.Setup
             ClearInline();
             AddInline(Strings.SetupComplete);
 
-            await Task.Delay(5000);
-
-            await ((App)Application.Current).StartupCore();
+            await Task.Delay(3000);
 
             GC.Collect();
 
-            Dispatcher.Invoke(Close);
-
             Settings.Default.SetupFlag = true;
+
+            await Dispatcher.InvokeAsync(async () =>
+            {
+                await ((App)Application.Current).StartupCore();
+
+                Dispatcher.Invoke(Close);
+            });
         }
         private async Task InstallOpenAL()
         {

@@ -18,7 +18,6 @@ namespace BEditor.Graphics
     /// </summary>
     public class Texture : GraphicsObject
     {
-        private readonly GraphicsHandle _handle;
         private readonly float[] _vertices;
         private readonly uint[] _indices =
         {
@@ -36,7 +35,7 @@ namespace BEditor.Graphics
         {
             Width = width;
             Height = height;
-            _handle = glHandle;
+            Handle = glHandle;
 
             var h = width / 2f;
             var v = height / 2f;
@@ -70,32 +69,39 @@ namespace BEditor.Graphics
 
         /// <inheritdoc/>
         public override ReadOnlyMemory<float> Vertices => _vertices;
+
         /// <summary>
-        /// 
+        /// Gets the indeces of this <see cref="Texture"/>.
         /// </summary>
         public ReadOnlyMemory<uint> Indices => _indices;
+
         /// <summary>
         /// Gets the width of this <see cref="Texture"/>.
         /// </summary>
         public int Width { get; }
+
         /// <summary>
         /// Gets the height of this <see cref="Texture"/>.
         /// </summary>
         public int Height { get; }
+
         /// <summary>
         /// Gets the handle of this <see cref="Texture"/>
         /// </summary>
-        public GraphicsHandle Handle => _handle;
+        public GraphicsHandle Handle { get; }
+
         /// <summary>
-        /// Get the ElementBuffer of this <see cref="Texture"/>.
+        /// Gets the ElementBuffer of this <see cref="Texture"/>.
         /// </summary>
         public GraphicsHandle ElementBufferObject { get; }
+
         /// <summary>
-        /// Get the VertexBuffer of this <see cref="Texture"/>.
+        /// Gets the VertexBuffer of this <see cref="Texture"/>.
         /// </summary>
         public GraphicsHandle VertexBufferObject { get; }
+
         /// <summary>
-        /// Get the VertexArray of this <see cref="Texture"/>.
+        /// Gets the VertexArray of this <see cref="Texture"/>.
         /// </summary>
         public GraphicsHandle VertexArrayObject { get; }
 
@@ -108,12 +114,13 @@ namespace BEditor.Graphics
 
             return FromImage(image);
         }
+
         /// <summary>
         /// Create a texture from an <see cref="Image{BGR24}"/>.
         /// </summary>
         public unsafe static Texture FromImage(Image<BGR24> image)
         {
-            int handle = GL.GenTexture();
+            var handle = GL.GenTexture();
 
             GL.ActiveTexture(TextureUnit.Texture0);
             GL.BindTexture(TextureTarget.Texture2D, handle);
@@ -141,12 +148,13 @@ namespace BEditor.Graphics
 
             return new Texture(handle, image.Width, image.Height);
         }
+
         /// <summary>
         /// Create a texture from an <see cref="Image{BGRA32}"/>.
         /// </summary>
         public unsafe static Texture FromImage(Image<BGRA32> image)
         {
-            int handle = GL.GenTexture();
+            var handle = GL.GenTexture();
 
             GL.ActiveTexture(TextureUnit.Texture0);
             GL.BindTexture(TextureTarget.Texture2D, handle);
@@ -181,29 +189,31 @@ namespace BEditor.Graphics
         public void Use(TextureUnit unit)
         {
             GL.ActiveTexture(unit);
-            GL.BindTexture(TextureTarget.Texture2D, _handle);
+            GL.BindTexture(TextureTarget.Texture2D, Handle);
         }
+
         /// <inheritdoc cref="GraphicsObject.Draw"/>
         public void Draw(TextureUnit unit)
         {
             GL.BindVertexArray(VertexArrayObject);
             Use(unit);
 
-
             GL.DrawElements(PrimitiveType.Triangles, _indices.Length, DrawElementsType.UnsignedInt, 0);
         }
+
+        /// <inheritdoc/>
+        public override void Draw()
+        {
+            Draw(TextureUnit.Texture0);
+        }
+
         /// <inheritdoc/>
         protected override void Dispose(bool disposing)
         {
             GL.DeleteVertexArray(VertexArrayObject);
             GL.DeleteBuffer(VertexBufferObject);
             GL.DeleteBuffer(ElementBufferObject);
-            GL.DeleteTexture(_handle);
-        }
-        /// <inheritdoc/>
-        public override void Draw()
-        {
-            Draw(TextureUnit.Texture0);
+            GL.DeleteTexture(Handle);
         }
     }
 }

@@ -3,6 +3,7 @@ using System.Drawing;
 
 using BEditor.Drawing;
 using BEditor.Drawing.Pixel;
+using BEditor.Graphics.Resources;
 
 using OpenTK;
 using OpenTK.Graphics;
@@ -92,24 +93,25 @@ namespace BEditor.Graphics
                 throw new GraphicsException(description);
             }
         }
+
         internal static void ThrowGLError()
         {
             var result = GL.GetError();
-            
+
             if (result is not OpenTK.Graphics.OpenGL4.ErrorCode.NoError)
             {
                 var description = result switch
                 {
-                    OpenTK.Graphics.OpenGL4.ErrorCode.NoError => "",
-                    OpenTK.Graphics.OpenGL4.ErrorCode.InvalidEnum => result.ToString("g"),
-                    OpenTK.Graphics.OpenGL4.ErrorCode.InvalidValue => result.ToString("g"),
-                    OpenTK.Graphics.OpenGL4.ErrorCode.InvalidOperation => result.ToString("g"),
-                    OpenTK.Graphics.OpenGL4.ErrorCode.OutOfMemory => result.ToString("g"),
-                    OpenTK.Graphics.OpenGL4.ErrorCode.InvalidFramebufferOperation => result.ToString("g"),
+                    OpenTK.Graphics.OpenGL4.ErrorCode.NoError => string.Empty,
+                    OpenTK.Graphics.OpenGL4.ErrorCode.InvalidEnum => Strings.InvalidEnum,
+                    OpenTK.Graphics.OpenGL4.ErrorCode.InvalidValue => Strings.InvalidValue,
+                    OpenTK.Graphics.OpenGL4.ErrorCode.InvalidOperation => Strings.InvalidOperation,
+                    OpenTK.Graphics.OpenGL4.ErrorCode.OutOfMemory => Strings.OutOfMemory,
+                    OpenTK.Graphics.OpenGL4.ErrorCode.InvalidFramebufferOperation => Strings.InvalildFramebufferOperation,
                     OpenTK.Graphics.OpenGL4.ErrorCode.ContextLost => result.ToString("g"),
-                    OpenTK.Graphics.OpenGL4.ErrorCode.TableTooLarge => result.ToString("g"),
+                    OpenTK.Graphics.OpenGL4.ErrorCode.TableTooLarge => Strings.TableTooLarge,
                     OpenTK.Graphics.OpenGL4.ErrorCode.TextureTooLargeExt => result.ToString("g"),
-                    _ => "",
+                    _ => string.Empty,
                 };
 
                 throw new GraphicsException(description);

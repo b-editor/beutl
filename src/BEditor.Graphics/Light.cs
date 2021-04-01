@@ -33,14 +33,17 @@ namespace BEditor.Graphics
         /// Gets the ambient color of this <see cref="Light"/>.
         /// </summary>
         public Color Ambient { get; set; }
+
         /// <summary>
         /// Gets the diffuse color of this <see cref="Light"/>.
         /// </summary>
         public Color Diffuse { get; set; }
+
         /// <summary>
         /// Gets the specular color of this <see cref="Light"/>.
         /// </summary>
         public Color Specular { get; set; }
+
         /// <summary>
         /// Gets the position of this <see cref="Light"/>.
         /// </summary>

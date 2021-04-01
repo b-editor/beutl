@@ -168,7 +168,7 @@ namespace BEditor
                 mainWindow.Show();
             }
 
-            Settings.Default.Save();
+            await Settings.Default.SaveAsync();
 
             RunBackup();
         }

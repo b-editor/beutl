@@ -33,6 +33,7 @@ namespace BEditor.Graphics
             GL.TexParameter(TextureTarget.Texture2D, TextureParameterName.TextureMagFilter, (int)TextureMinFilter.Linear);
             GL.BindTexture(TextureTarget.Texture2D, 0);
         }
+
         /// <summary>
         /// Discards the reference to the target that is represented by the current <see cref="ColorBuffer"/> object.
         /// </summary>
@@ -45,26 +46,32 @@ namespace BEditor.Graphics
         /// Gets the width of the texture.
         /// </summary>
         public int Width { get; }
+
         /// <summary>
         /// Gets the height of the texture.
         /// </summary>
         public int Height { get; }
+
         /// <summary>
         /// Gets the format of the texture.
         /// </summary>
         public PixelInternalFormat InternalFormat { get; }
+
         /// <summary>
         /// Gets the format of the texture.
         /// </summary>
         public PixelFormat Format{ get; }
+
         /// <summary>
         /// Gets the type of the texture.
         /// </summary>
         public PixelType Type { get; }
+
         /// <summary>
         /// Gets the handle of the color buffer.
         /// </summary>
         public GraphicsHandle Handle { get; }
+
         /// <summary>
         /// Get whether an object has been disposed.
         /// </summary>
@@ -75,10 +82,7 @@ namespace BEditor.Graphics
         {
             if (IsDisposed) return;
 
-            _syncContext.Post(_ =>
-            {
-                GL.DeleteTexture(Handle);
-            }, null);
+            _syncContext.Post(_ => GL.DeleteTexture(Handle), null);
 
             GC.SuppressFinalize(this);
 

@@ -36,6 +36,7 @@ namespace BEditor.Graphics
             // フレームバッファオブジェクトの結合を解除する
             GL.BindFramebuffer(FramebufferTarget.Framebuffer, 0);
         }
+
         /// <summary>
         /// Discards the reference to the target that is represented by the current <see cref="FrameBuffer"/> object.
         /// </summary>
@@ -48,14 +49,17 @@ namespace BEditor.Graphics
         /// Gets the color buffer of this frame buffer.
         /// </summary>
         public ColorBuffer ColorObject { get; }
+
         /// <summary>
         /// Gets the depth buffer of this frame buffer.
         /// </summary>
         public DepthBuffer DepthObject { get; }
+
         /// <summary>
         /// Gets the handle of this frame buffer.
         /// </summary>
         public GraphicsHandle Handle { get; }
+
         /// <summary>
         /// Get whether an object has been disposed.
         /// </summary>
@@ -70,6 +74,7 @@ namespace BEditor.Graphics
 
             GL.BindFramebuffer(FramebufferTarget.Framebuffer, Handle);
         }
+
         /// <summary>
         /// Bind this framebuffer by specifying the target.
         /// </summary>
@@ -79,15 +84,13 @@ namespace BEditor.Graphics
 
             GL.BindFramebuffer(target, Handle);
         }
+
         /// <inheritdoc/>
         public void Dispose()
         {
             if (IsDisposed) return;
 
-            _syncContext.Post(_ =>
-            {
-                GL.DeleteFramebuffer(Handle);
-            }, null);
+            _syncContext.Post(_ => GL.DeleteFramebuffer(Handle), null);
 
             GC.SuppressFinalize(this);
 

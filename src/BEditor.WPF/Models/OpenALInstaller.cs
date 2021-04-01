@@ -36,8 +36,7 @@ namespace BEditor.Models
 
         public async Task Install()
         {
-            //const string url = "https://www.openal.org/downloads/oalinst.zip";
-            const string url = "file:///E:/yuuto/Downloads/oalinst.zip";
+            const string url = "https://www.openal.org/downloads/oalinst.zip";
             StartInstall?.Invoke(this, EventArgs.Empty);
 
             using var client = new WebClient();

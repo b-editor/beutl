@@ -22,17 +22,21 @@ namespace BEditor.Drawing
         }
 
         public static FontManager Default { get; set; } = new(Settings.Default.IncludeFontDir);
+
         public IEnumerable<Font> LoadedFonts => _loadedFonts;
+
         public int FontCount => _loadedFonts.Length;
 
         public Font? Find(Predicate<Font> match)
         {
             return Array.Find(_loadedFonts, match);
         }
+
         public Font?[] FindAll(Predicate<Font> match)
         {
             return Array.FindAll(_loadedFonts, match);
         }
+
         public Font? FindLast(Predicate<Font> match)
         {
             return Array.FindLast(_loadedFonts, match);

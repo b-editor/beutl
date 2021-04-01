@@ -24,6 +24,7 @@ namespace BEditor.Graphics
         /// Gets the width of the view volume.
         /// </summary>
         public float Width { get; set; }
+
         /// <summary>
         /// Gets the height of the view volume.
         /// </summary>

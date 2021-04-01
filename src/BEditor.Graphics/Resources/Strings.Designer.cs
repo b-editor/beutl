@@ -77,5 +77,68 @@ namespace BEditor.Graphics.Resources {
                 return ResourceManager.GetString("ErrorOccurredWhilstLinkingProgram", resourceCulture);
             }
         }
+        
+        /// <summary>
+        ///   An unacceptable value is specified for an enumerated argument. に類似しているローカライズされた文字列を検索します。
+        /// </summary>
+        internal static string InvalidEnum {
+            get {
+                return ResourceManager.GetString("InvalidEnum", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   The specified operation is not allowed in the current state. に類似しているローカライズされた文字列を検索します。
+        /// </summary>
+        internal static string InvalidOperation {
+            get {
+                return ResourceManager.GetString("InvalidOperation", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   A numeric argument is out of range. に類似しているローカライズされた文字列を検索します。
+        /// </summary>
+        internal static string InvalidValue {
+            get {
+                return ResourceManager.GetString("InvalidValue", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   The framebuffer object is not complete. に類似しているローカライズされた文字列を検索します。
+        /// </summary>
+        internal static string InvalildFramebufferOperation {
+            get {
+                return ResourceManager.GetString("InvalildFramebufferOperation", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   There is not enough memory left to execute the command. に類似しているローカライズされた文字列を検索します。
+        /// </summary>
+        internal static string OutOfMemory {
+            get {
+                return ResourceManager.GetString("OutOfMemory", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   The SynchronizationContext of the current thread was null. に類似しているローカライズされた文字列を検索します。
+        /// </summary>
+        internal static string SynchronizationContextIsNull {
+            get {
+                return ResourceManager.GetString("SynchronizationContextIsNull", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   The specified table exceeds the implementation&apos;s maximum supported table size. に類似しているローカライズされた文字列を検索します。
+        /// </summary>
+        internal static string TableTooLarge {
+            get {
+                return ResourceManager.GetString("TableTooLarge", resourceCulture);
+            }
+        }
     }
 }

@@ -25,9 +25,13 @@ namespace BEditor.Graphics
         }
 
         public Vector3 Coordinate { get; set; }
+
         public Vector3 Center { get; set; }
+
         public Vector3 Rotate { get; set; }
+
         public Vector3 Scale { get; set; }
+
         public Matrix4 Matrix
         {
             get
@@ -56,6 +60,7 @@ namespace BEditor.Graphics
                 left.Rotate + right.Rotate,
                 left.Scale + right.Scale);
         }
+
         public static Transform operator -(Transform left, Transform right)
         {
             return new(
@@ -64,6 +69,7 @@ namespace BEditor.Graphics
                 left.Rotate - right.Rotate,
                 left.Scale - right.Scale);
         }
+
         public static Transform operator *(Transform left, Transform right)
         {
             return new(
@@ -72,6 +78,7 @@ namespace BEditor.Graphics
                 left.Rotate * right.Rotate,
                 left.Scale * right.Scale);
         }
+
         public static Transform operator /(Transform left, Transform right)
         {
             return new(

@@ -27,9 +27,11 @@ namespace BEditor.Graphics
         /// <param name="radiusZ">The radius of the ball in the Z-axis direction.</param>
         /// <param name="color">The color of the ball.</param>
         /// <exception cref="GraphicsException">OpenGL error occurred.</exception>
-        public Ball(float radiusX, float radiusY, float radiusZ, Color color) : this(radiusX, radiusY, radiusZ, color, new(Color.Light, Color.Light, Color.Light, 16))
+        public Ball(float radiusX, float radiusY, float radiusZ, Color color)
+            : this(radiusX, radiusY, radiusZ, color, new(Color.Light, Color.Light, Color.Light, 16))
         {
         }
+
         /// <summary>
         /// Initializes a new instance of the <see cref="Ball"/> class.
         /// </summary>
@@ -39,9 +41,11 @@ namespace BEditor.Graphics
         /// <param name="color">The color of the ball.</param>
         /// <param name="material">The material of the ball.</param>
         /// <exception cref="GraphicsException">OpenGL error occurred.</exception>
-        public Ball(float radiusX, float radiusY, float radiusZ, Color color, Material material) : this(radiusX, radiusY, radiusZ, color, material, Transform.Default)
+        public Ball(float radiusX, float radiusY, float radiusZ, Color color, Material material)
+            : this(radiusX, radiusY, radiusZ, color, material, Transform.Default)
         {
         }
+
         /// <summary>
         /// Initializes a new instance of the <see cref="Ball"/> class.
         /// </summary>
@@ -61,13 +65,13 @@ namespace BEditor.Graphics
             Material = material;
             Transform = transform;
 
-            var a = (float)(Math.PI / count / 2);
-            var b = (float)(Math.PI / count / 2);
+            const float a = (float)(Math.PI / count / 2);
+            const float b = (float)(Math.PI / count / 2);
             var verticesList = new List<float>();
 
-            for (int k = -count + 1; k <= count; k++)
+            for (var k = -count + 1; k <= count; k++)
             {
-                for (int i = 0; i <= count * 4; i++)
+                for (var i = 0; i <= count * 4; i++)
                 {
                     var vec1 = new Vector3(
                         radiusX * MathF.Cos(b * k) * MathF.Cos(a * i),
@@ -95,30 +99,35 @@ namespace BEditor.Graphics
             VertexBufferObject = GL.GenBuffer();
             GL.BindBuffer(BufferTarget.ArrayBuffer, VertexBufferObject);
             GL.BufferData(BufferTarget.ArrayBuffer, _vertices.Length * sizeof(float), _vertices, BufferUsageHint.StaticDraw);
-            
+
             Tool.ThrowGLError();
         }
 
         /// <summary>
-        /// Get the radius of this <see cref="Ball"/> in the X-axis direction.
+        /// Gets the radius of this <see cref="Ball"/> in the X-axis direction.
         /// </summary>
         public float RadiusX { get; }
+
         /// <summary>
-        /// Get the radius of this <see cref="Ball"/> in the Y-axis direction.
+        /// Gets the radius of this <see cref="Ball"/> in the Y-axis direction.
         /// </summary>
         public float RadiusY { get; }
+
         /// <summary>
-        /// Get the radius of this <see cref="Ball"/> in the Z-axis direction.
+        /// Gets the radius of this <see cref="Ball"/> in the Z-axis direction.
         /// </summary>
         public float RadiusZ { get; }
+
         /// <inheritdoc/>
         public override ReadOnlyMemory<float> Vertices => _vertices;
+
         /// <summary>
-        /// Get the VertexArray of this <see cref="Ball"/>.
+        /// Gets the VertexArray of this <see cref="Ball"/>.
         /// </summary>
         public GraphicsHandle VertexArrayObject { get; }
+
         /// <summary>
-        /// Get the VertexBuffer of this <see cref="Ball"/>.
+        /// Gets the VertexBuffer of this <see cref="Ball"/>.
         /// </summary>
         public GraphicsHandle VertexBufferObject { get; }
 
@@ -129,6 +138,7 @@ namespace BEditor.Graphics
 
             GL.DrawArrays(PrimitiveType.TriangleStrip, 0, _vertices.Length / 3);
         }
+
         /// <inheritdoc/>
         protected override void Dispose(bool disposing)
         {

@@ -7,6 +7,7 @@ using System.IO;
 using System.Linq;
 using System.Runtime.InteropServices;
 using System.Runtime.Serialization;
+using System.Threading.Tasks;
 
 namespace BEditor
 {
@@ -206,5 +207,6 @@ namespace BEditor
             }
         }
         public void Save() => Serialize.SaveToFile(this, Path.Combine(AppContext.BaseDirectory, "user", "settings.json"));
+        public Task SaveAsync() => Task.Run(() => Serialize.SaveToFile(this, Path.Combine(AppContext.BaseDirectory, "user", "settings.json")));
     }
 }

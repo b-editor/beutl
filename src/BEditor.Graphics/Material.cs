@@ -32,14 +32,17 @@ namespace BEditor.Graphics
         /// Gets the ambient color.
         /// </summary>
         public Color Ambient { get; }
+
         /// <summary>
         /// Gets the diffuse color.
         /// </summary>
         public Color Diffuse { get; }
+
         /// <summary>
         /// Gets the specular color.
         /// </summary>
         public Color Specular { get; }
+
         /// <summary>
         /// Gets the shininess.
         /// </summary>

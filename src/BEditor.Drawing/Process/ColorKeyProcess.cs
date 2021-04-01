@@ -30,12 +30,6 @@ namespace BEditor.Drawing.Process
             {
                 camColor = default;
             }
-            //if (value.R == camColor.R
-            //    && value.G == camColor.G
-            //    && value.B == camColor.B)
-            //{
-            //    camColor = default;
-            //}
 
             _dst[pos] = camColor;
         }
