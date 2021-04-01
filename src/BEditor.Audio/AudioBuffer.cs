@@ -14,16 +14,15 @@ namespace BEditor.Audio
     {
         public AudioBuffer(Sound<PCM16> sound)
         {
-            Handle = AL.GenBuffer();
-            AL.BufferData(Handle, ALFormat.Mono16, sound.Data, sound.Samplingrate);
-            CheckError();
+            Handle = Tool.GenBuffer();
+
+            Tool.BufferData(Handle, ALFormat.Mono16, sound.Data, sound.Samplingrate);
         }
         public AudioBuffer(Sound<StereoPCM16> sound)
         {
-            Handle = AL.GenBuffer();
-            CheckError();
-            AL.BufferData(Handle, ALFormat.Stereo16, sound.Data, sound.Samplingrate);
-            CheckError();
+            Handle = Tool.GenBuffer();
+
+            Tool.BufferData(Handle, ALFormat.Stereo16, sound.Data, sound.Samplingrate);
         }
         public AudioBuffer(int handle)
         {
@@ -46,7 +45,7 @@ namespace BEditor.Audio
             get
             {
                 ThrowIfDisposed();
-                AL.GetBuffer(Handle, ALGetBufferi.Frequency, out var v);
+                Tool.GetBuffer(Handle, ALGetBufferi.Frequency, out var v);
                 CheckError();
 
                 return v;
@@ -62,7 +61,7 @@ namespace BEditor.Audio
             get
             {
                 ThrowIfDisposed();
-                AL.GetBuffer(Handle, ALGetBufferi.Bits, out var v);
+                Tool.GetBuffer(Handle, ALGetBufferi.Bits, out var v);
                 CheckError();
 
                 return v;
@@ -78,8 +77,7 @@ namespace BEditor.Audio
             get
             {
                 ThrowIfDisposed();
-                AL.GetBuffer(Handle, ALGetBufferi.Channels, out var v);
-                CheckError();
+                Tool.GetBuffer(Handle, ALGetBufferi.Channels, out var v);
 
                 return v;
             }
@@ -94,8 +92,7 @@ namespace BEditor.Audio
             get
             {
                 ThrowIfDisposed();
-                AL.GetBuffer(Handle, ALGetBufferi.Size, out var v);
-                CheckError();
+                Tool.GetBuffer(Handle, ALGetBufferi.Size, out var v);
 
                 return v;
             }
@@ -116,7 +113,7 @@ namespace BEditor.Audio
         }
         protected override void OnDispose()
         {
-            AL.DeleteBuffer(Handle);
+            Tool.DeleteBuffer(Handle);
         }
 
         public static bool operator ==(AudioBuffer? left, AudioBuffer? right)

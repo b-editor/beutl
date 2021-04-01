@@ -1,4 +1,9 @@
-﻿using OpenTK.Mathematics;
+﻿using System;
+
+using BEditor.Audio.Resources;
+
+using OpenTK.Audio.OpenAL;
+using OpenTK.Mathematics;
 
 using Color = BEditor.Drawing.Color;
 using Matrix4x4 = System.Numerics.Matrix4x4;
@@ -65,6 +70,152 @@ namespace BEditor.Audio
         internal static System.Numerics.Vector2 ToNumerics(this in Vector2 vector3)
         {
             return new(vector3.X, vector3.Y);
+        }
+
+        public static int GenBuffer()
+        {
+            var buf = AL.GenBuffer();
+            var error = AL.GetError();
+            if (error is ALError.InvalidValue)
+            {
+                throw new AudioException(Strings.GenBufferInvalidValue);
+            }
+            else if (error is ALError.OutOfMemory)
+            {
+                throw new AudioException(Strings.GenBufferOutOfMemory);
+            }
+
+            return buf;
+        }
+        public static int GenSource()
+        {
+            var src = AL.GenSource();
+            var error = AL.GetError();
+
+            if (error is ALError.OutOfMemory)
+            {
+                throw new AudioException(Strings.GenSourceOutOfMemory);
+            }
+            else if (error is ALError.InvalidValue)
+            {
+                throw new AudioException(Strings.GenSourceInvalidValue);
+            }
+            else if (error is ALError.InvalidOperation)
+            {
+                throw new AudioException(Strings.GenSourceInvalidOperation);
+            }
+
+            return src;
+        }
+        public static void DeleteBuffer(int handle)
+        {
+            AL.DeleteBuffer(handle);
+
+            var error = AL.GetError();
+            if (error is ALError.InvalidOperation)
+            {
+                throw new AudioException(Strings.DeleteBufferInvalidOperation);
+            }
+            else if (error is ALError.InvalidName)
+            {
+                throw new AudioException(Strings.DeleteBufferInvalidName);
+            }
+            else if (error is ALError.InvalidValue)
+            {
+                throw new AudioException(Strings.DeleteBufferInvalidValue);
+            }
+        }
+        public static void DeleteSource(int handle)
+        {
+            AL.DeleteSource(handle);
+
+            var error = AL.GetError();
+            if (error is ALError.InvalidName)
+            {
+                throw new AudioException(Strings.DeleteSourceInvalidName);
+            }
+            else if (error is ALError.InvalidOperation)
+            {
+                throw new AudioException(Strings.DeleteSourceInvalidOperation);
+            }
+        }
+        public static void BufferData<TBuffer>(int bid, ALFormat format, Span<TBuffer> buffer, int freq) where TBuffer : unmanaged
+        {
+            AL.BufferData(bid, format, buffer, freq);
+
+            var error = AL.GetError();
+            if (error is ALError.OutOfMemory)
+            {
+                throw new AudioException(Strings.BufferDataOutOfMemory);
+            }
+            else if (error is ALError.InvalidValue)
+            {
+                throw new AudioException(Strings.BufferDataInvalidValue);
+            }
+            else if (error is ALError.InvalidEnum)
+            {
+                throw new AudioException(Strings.BufferDataInvalidEnum);
+            }
+        }
+        public static void GetBuffer(int bid, ALGetBufferi param, out int value)
+        {
+            AL.GetBuffer(bid, param, out value);
+
+            var error = AL.GetError();
+            if (error is ALError.InvalidEnum)
+            {
+                throw new AudioException(Strings.GetBufferInvalidEnum);
+            }
+            else if (error is ALError.InvalidName)
+            {
+                throw new AudioException(Strings.GetBufferInvalidName);
+            }
+            else if (error is ALError.InvalidValue)
+            {
+                throw new AudioException(Strings.GetBufferInvalidValue);
+            }
+        }
+        public static void SourcePlay(int handle)
+        {
+            AL.SourcePlay(handle);
+            var error = AL.GetError();
+
+            if(error is ALError.InvalidName)
+            {
+                throw new AudioException(Strings.SourcePlayInvalidName);
+            }
+            else if(error is ALError.InvalidOperation)
+            {
+                throw new AudioException(Strings.SourcePlayInvalidOperation);
+            }
+        }
+        public static void SourceStop(int handle)
+        {
+            AL.SourceStop(handle);
+            var error = AL.GetError();
+
+            if(error is ALError.InvalidName)
+            {
+                throw new AudioException(Strings.SourceStopInvalidName);
+            }
+            else if(error is ALError.InvalidOperation)
+            {
+                throw new AudioException(Strings.SourceStopInvalidOperation);
+            }
+        }
+        public static void SourcePause(int handle)
+        {
+            AL.SourcePause(handle);
+            var error = AL.GetError();
+
+            if(error is ALError.InvalidName)
+            {
+                throw new AudioException(Strings.SourcePauseInvalidName);
+            }
+            else if(error is ALError.InvalidOperation)
+            {
+                throw new AudioException(Strings.SourcePauseInvalidOperation);
+            }
         }
     }
 }

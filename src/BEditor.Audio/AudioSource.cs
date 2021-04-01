@@ -7,36 +7,29 @@ namespace BEditor.Audio
     {
         public AudioSource()
         {
-            Handle = AL.GenSource();
-            CheckError();
+            Handle = Tool.GenSource();
         }
 
         public override int Handle { get; }
         
         protected override void OnDispose()
         {
-            AL.DeleteSource(Handle);
+            Tool.DeleteSource(Handle);
         }
         public void Play()
         {
             ThrowIfDisposed();
-            AL.SourcePlay(Handle);
-
-            CheckError();
+            Tool.SourcePlay(Handle);
         }
         public void Stop()
         {
             ThrowIfDisposed();
-            AL.SourceStop(Handle);
-
-            CheckError();
+            Tool.SourceStop(Handle);
         }
         public void Pause()
         {
             ThrowIfDisposed();
-            AL.SourcePause(Handle);
-
-            CheckError();
+            Tool.SourcePause(Handle);
         }
     }
 }

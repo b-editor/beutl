@@ -5,6 +5,8 @@ using System.Numerics;
 using System.Text;
 using System.Threading.Tasks;
 
+using BEditor.Audio.Resources;
+
 using OpenTK.Audio.OpenAL;
 
 namespace BEditor.Audio
@@ -31,9 +33,8 @@ namespace BEditor.Audio
             {
                 if (value is null) throw new ArgumentNullException(nameof(value));
                 ThrowIfDisposed();
-                AL.Source(Handle, ALSourcei.Buffer, value.Handle);
+                SetInt(ALSourcei.Buffer, value.Handle);
                 _buffer = value;
-                CheckError();
             }
         }
         /// <summary>
@@ -201,7 +202,8 @@ namespace BEditor.Audio
         {
             ThrowIfDisposed();
             AL.GetSource(Handle, type, out var v);
-            CheckError();
+
+            ThrowError();
             return v;
         }
         internal void SetFloat(ALSourcef type, float value)
@@ -209,7 +211,7 @@ namespace BEditor.Audio
             ThrowIfDisposed();
             AL.Source(Handle, type, value);
 
-            CheckError();
+            ThrowError();
         }
         #endregion
 
@@ -249,7 +251,8 @@ namespace BEditor.Audio
         {
             ThrowIfDisposed();
             AL.GetSource(Handle, type, out var v);
-            CheckError();
+
+            ThrowError();
             return v.ToNumerics();
         }
         private void Set3Float(ALSource3f type, float v1, float v2, float v3)
@@ -257,7 +260,7 @@ namespace BEditor.Audio
             ThrowIfDisposed();
             AL.Source(Handle, type, v1, v2, v3);
 
-            CheckError();
+            ThrowError();
         }
         #endregion
 
@@ -287,7 +290,9 @@ namespace BEditor.Audio
         {
             ThrowIfDisposed();
             AL.GetSource(Handle, type, out var v);
-            CheckError();
+
+            ThrowError();
+
             return v;
         }
         internal void SetBool(ALSourceb type, bool value)
@@ -295,7 +300,7 @@ namespace BEditor.Audio
             ThrowIfDisposed();
             AL.Source(Handle, type, value);
 
-            CheckError();
+            ThrowError();
         }
         #endregion
 
@@ -325,7 +330,9 @@ namespace BEditor.Audio
         {
             ThrowIfDisposed();
             AL.GetSource(Handle, type, out var v);
-            CheckError();
+
+            ThrowError();
+
             return v;
         }
         internal void SetInt(ALSourcei type, int value)
@@ -333,7 +340,7 @@ namespace BEditor.Audio
             ThrowIfDisposed();
             AL.Source(Handle, type, value);
 
-            CheckError();
+            ThrowError();
         }
         #endregion
 
@@ -344,6 +351,27 @@ namespace BEditor.Audio
             if (error is not ALError.NoError)
             {
                 throw new AudioException(AL.GetErrorString(error));
+            }
+        }
+        private static void ThrowError()
+        {
+            var error = AL.GetError();
+
+            if (error is ALError.InvalidValue)
+            {
+                throw new AudioException(Strings.ThrowErrorInvalidValue);
+            }
+            else if (error is ALError.InvalidEnum)
+            {
+                throw new AudioException(Strings.ThrowErrorInvalidEnum);
+            }
+            else if (error is ALError.InvalidName)
+            {
+                throw new AudioException(Strings.ThrowErrorInvalidName);
+            }
+            else if (error is ALError.InvalidOperation)
+            {
+                throw new AudioException(Strings.ThrowErrorInvalidOperation);
             }
         }
     }
