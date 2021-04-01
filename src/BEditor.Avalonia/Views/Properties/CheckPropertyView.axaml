@@ -1,0 +1,52 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+             xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+             xmlns:ctr="using:BEditor.Controls"
+             mc:Ignorable="d" d:DesignWidth="800" d:DesignHeight="35"
+             x:Class="BEditor.Views.Properties.CheckPropertyView">
+  <Grid>
+    <Grid.ColumnDefinitions>
+      <ColumnDefinition Width="120*" MaxWidth="100" MinWidth="50"/>
+      <ColumnDefinition Width="50"/>
+      <ColumnDefinition Width="50"/>
+      <ColumnDefinition Width="*" MinWidth="100"/>
+      <ColumnDefinition Width="20"/>
+    </Grid.ColumnDefinitions>
+
+    <Grid>
+      <TextBlock
+          Text="{Binding Header}"
+          VerticalAlignment="Center"
+          HorizontalAlignment="Left"
+          FontSize="13"
+          Margin="10,0,0,0"
+          TextTrimming="CharacterEllipsis"/>
+    </Grid>
+
+    <CheckBox
+        Grid.Column="2"
+        IsChecked="{Binding IsChecked}"
+        VerticalAlignment="Center"
+        HorizontalAlignment="Center"
+        Command="{Binding CheckCommand}"/>
+
+    <ctr:ContextButton Grid.Column="4">
+      <ctr:ContextButton.ContextMenu>
+        <ContextMenu>
+          <MenuItem Header="Reset"/>
+        </ContextMenu>
+      </ctr:ContextButton.ContextMenu>
+    </ctr:ContextButton>
+
+    <!--<md:PopupBox Width="20" Grid.Column="4" StaysOpen="False" Height="32.5" HorizontalAlignment="Stretch" VerticalContentAlignment="Center" HorizontalContentAlignment="Center" VerticalAlignment="Stretch">
+      <md:PopupBox.ToggleContent>
+        <md:PackIcon Kind="DotsVertical" Width="16" Height="16" Foreground="{DynamicResource MaterialDesignBody}" VerticalAlignment="Stretch" HorizontalAlignment="Stretch"/>
+      </md:PopupBox.ToggleContent>
+      <VirtualizingStackPanel>
+        <Button Content="Reset" Command="{TemplateBinding ResetCommand}"/>
+        <Button Content="Bind" Command="{TemplateBinding BindCommand}"/>
+      </VirtualizingStackPanel>
+    </md:PopupBox>-->
+  </Grid>
+</UserControl>

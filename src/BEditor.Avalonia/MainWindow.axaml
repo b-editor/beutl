@@ -1,0 +1,111 @@
+<Window
+  xmlns="https://github.com/avaloniaui"
+  xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+  xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+  xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+  xmlns:prop="clr-namespace:BEditor.Properties"
+  xmlns:views="using:BEditor.Views"
+  xmlns:vm="using:BEditor.ViewModels"
+  xmlns:ctr="using:BEditor.Controls"
+  mc:Ignorable="d"
+  d:DesignWidth="1440"
+  d:DesignHeight="760"
+  DataContext="{x:Static vm:MainWindowViewModel.Current}"
+  x:Class="BEditor.MainWindow">
+  <Grid RowDefinitions="Auto,*,Auto,*,Auto" ColumnDefinitions="425,Auto,*,Auto,2*">
+
+    <Menu Grid.Row="0" Grid.ColumnSpan="5">
+      <MenuItem Header="{x:Static prop:Strings.AccessFile}">
+        <!--開く-->
+        <MenuItem Header="{x:Static prop:Strings.AccessOpen}" Command="{Binding Open, Mode=OneTime}"/>
+
+        <!--新規作成-->
+        <MenuItem Header="{x:Static prop:Strings.CreateNew}">
+          <MenuItem Header="{x:Static prop:Strings.CreateProject}"/>
+          <MenuItem Header="{x:Static prop:Strings.CreateFromBackup}"/>
+        </MenuItem>
+
+        <Separator/>
+
+        <!--上書き保存-->
+        <MenuItem Header="{x:Static prop:Strings.Save}"/>
+
+        <!--名前を付けて保存-->
+        <MenuItem Header="{x:Static prop:Strings.SaveAs}"/>
+
+        <!--閉じる-->
+        <MenuItem Header="{x:Static prop:Strings.Close}"/>
+
+        <Separator/>
+
+        <!--最近使ったファイル-->
+        <MenuItem Header="{x:Static prop:Strings.RecentlyUsedFiles}"/>
+
+        <!--終了-->
+        <MenuItem Header="{x:Static prop:Strings.Shutdown}"/>
+
+      </MenuItem>
+      <MenuItem Header="{x:Static prop:Strings.AccessEdit}">
+        <!--やり直す-->
+        <MenuItem Header="{x:Static prop:Strings.Undo}"/>
+
+        <!--元に戻す-->
+        <MenuItem Header="{x:Static prop:Strings.Redo}"/>
+
+        <!--削除-->
+        <MenuItem Header="{x:Static prop:Strings.Remove}"/>
+
+        <Separator/>
+
+        <!--切り取り-->
+        <MenuItem Header="{x:Static prop:Strings.Cut}"/>
+
+        <!--コピー-->
+        <MenuItem Header="{x:Static prop:Strings.Copy}"/>
+
+        <!--貼り付け-->
+        <MenuItem Header="{x:Static prop:Strings.Paste}"/>
+
+      </MenuItem>
+      <MenuItem Header="{x:Static prop:Strings.AccessView}">
+
+      </MenuItem>
+      <MenuItem Header="{x:Static prop:Strings.AccessTool}">
+
+        <!--設定-->
+        <MenuItem Click="ShowSettings" Header="{x:Static prop:Strings.Settings}"/>
+
+      </MenuItem>
+      <MenuItem Header="{x:Static prop:Strings.AccessPlugin}">
+
+      </MenuItem>
+      <MenuItem Header="{x:Static prop:Strings.AccessOut}">
+
+      </MenuItem>
+      <MenuItem Click="Button_Click" Header="{x:Static prop:Strings.AccessHelp}">
+
+      </MenuItem>
+    </Menu>
+
+    <Label
+      Grid.Row="1"
+      Grid.RowSpan="3"
+      
+      Background="#1fffffff"/>
+
+    <GridSplitter Grid.Row="1" Grid.RowSpan="3" Grid.Column="1"/>
+
+    <Label
+      Grid.Row="3"
+      Grid.Column="2"
+      Grid.ColumnSpan="3"
+      
+      Background="#1fffffff"/>
+
+    <GridSplitter Grid.Row="2" Grid.Column="2" Grid.ColumnSpan="3"/>
+
+    <views:Previewer Grid.Row="1" Grid.Column="4"/>
+
+    <GridSplitter Grid.Row="1" Grid.Column="3"/>
+  </Grid>
+</Window>

@@ -1,0 +1,10 @@
+<Application xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             x:Class="BEditor.App">
+  <Application.Styles>
+    <FluentTheme Mode="Dark"/>
+    <StyleInclude Source="avares://BEditor.Avalonia/Controls/SeekSlider.axaml" />
+    <StyleInclude Source="avares://BEditor.Avalonia/Controls/Sidebar.axaml" />
+    <StyleInclude Source="avares://BEditor.Avalonia/Views/Settings/SettingsResources.axaml" />
+  </Application.Styles>
+</Application>

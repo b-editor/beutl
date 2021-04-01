@@ -353,4 +353,3 @@ MigrationBackup/
 # Cake Addins
 tools/*
 !tools/packages.config
-/src/BEditor.Avalonia

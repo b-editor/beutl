@@ -95,7 +95,7 @@ namespace BEditor
                     await InitFFmpeg();
                     if (!CheckOpenAL())
                     {
-                        if (msg!.Dialog(Strings.OpenALNotFound, IMessage.IconType.Info, new IMessage.ButtonType[] { IMessage.ButtonType.Yes, IMessage.ButtonType.No }) is IMessage.ButtonType.Yes)
+                        if (await msg!.DialogAsync(Strings.OpenALNotFound, IMessage.IconType.Info, new IMessage.ButtonType[] { IMessage.ButtonType.Yes, IMessage.ButtonType.No }) is IMessage.ButtonType.Yes)
                         {
                             Process.Start(new ProcessStartInfo("cmd", $"/c start https://www.openal.org/downloads/") { CreateNoWindow = true });
                         }
@@ -140,8 +140,6 @@ namespace BEditor
                 if (view.DataContext is IDisposable disposable) disposable.Dispose();
             };
 
-            RegisterPrimitive();
-
             var file = Environment.GetCommandLineArgs().FirstOrDefault() is string str
                 && File.Exists(str)
                 && Path.GetExtension(str) is ".bedit"
@@ -167,8 +165,6 @@ namespace BEditor
                 MainWindow = mainWindow;
                 mainWindow.Show();
             }
-
-            await Settings.Default.SaveAsync();
 
             RunBackup();
         }
@@ -215,7 +211,7 @@ namespace BEditor
 
             if (!await installer.IsInstalledAsync())
             {
-                if (msg!.Dialog(Strings.FFmpegNotFound, IMessage.IconType.Info, new IMessage.ButtonType[] { IMessage.ButtonType.Yes, IMessage.ButtonType.No }) is IMessage.ButtonType.Yes)
+                if (await msg!.DialogAsync(Strings.FFmpegNotFound, IMessage.IconType.Info, new IMessage.ButtonType[] { IMessage.ButtonType.Yes, IMessage.ButtonType.No }) is IMessage.ButtonType.Yes)
                 {
                     try
                     {
@@ -263,14 +259,14 @@ namespace BEditor
                     }
                     catch (Exception e)
                     {
-                        msg.Dialog(string.Format(Strings.FailedToInstall, "FFmpeg"));
+                        await msg.DialogAsync(string.Format(Strings.FailedToInstall, "FFmpeg"));
 
                         Logger.LogError(e, "Failed to install ffmpeg.");
                     }
                 }
                 else
                 {
-                    msg.Dialog(Strings.SomeFunctionsAreNotAvailable_);
+                    await msg.DialogAsync(Strings.SomeFunctionsAreNotAvailable_);
                 }
             }
         }

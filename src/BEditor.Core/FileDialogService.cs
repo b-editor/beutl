@@ -15,11 +15,27 @@ namespace BEditor
         /// Show the Save File dialog.
         /// </summary>
         public bool ShowSaveFileDialog(SaveFileRecord record);
+        
+        /// <summary>
+        /// Show the Save File dialog.
+        /// </summary>
+        public ValueTask<bool> ShowSaveFileDialogAsync(SaveFileRecord record)
+        {
+            return new(ShowSaveFileDialog(record));
+        }
 
         /// <summary>
         /// Show the Open File dialog.
         /// </summary>
         public bool ShowOpenFileDialog(OpenFileRecord record);
+
+        /// <summary>
+        /// Show the Open File dialog.
+        /// </summary>
+        public ValueTask<bool> ShowOpenFileDialogAsync(OpenFileRecord record)
+        {
+            return new(ShowOpenFileDialog(record));
+        }
     }
 
     /// <summary>

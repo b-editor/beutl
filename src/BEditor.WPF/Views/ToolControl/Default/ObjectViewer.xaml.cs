@@ -96,7 +96,7 @@ namespace BEditor.Views.ToolControl.Default
             else if (TreeView.SelectedItem is PropertyElement property) return property.GetParent();
             else throw new IndexOutOfRangeException();
         }
-        private void DeleteScene(object sender, RoutedEventArgs e)
+        private async void DeleteScene(object sender, RoutedEventArgs e)
         {
             try
             {
@@ -108,7 +108,7 @@ namespace BEditor.Views.ToolControl.Default
                     return;
                 }
 
-                if (Message.Dialog(
+                if (await Message.DialogAsync(
                     Strings.CommandQ1,
                     types: new ButtonType[] { ButtonType.Yes, ButtonType.No }) == ButtonType.Yes)
                 {

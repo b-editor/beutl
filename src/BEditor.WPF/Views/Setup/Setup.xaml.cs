@@ -94,7 +94,7 @@ namespace BEditor.Views.Setup
                 }
                 catch (Exception e)
                 {
-                    msg.Dialog(string.Format(Strings.FailedToInstall, "OpenAL"));
+                    await msg.DialogAsync(string.Format(Strings.FailedToInstall, "OpenAL"));
 
                     App.Logger?.LogError(e, "Failed to install OpenAL.");
                 }
@@ -140,7 +140,7 @@ namespace BEditor.Views.Setup
                 }
                 catch (Exception e)
                 {
-                    msg.Dialog(string.Format(Strings.FailedToInstall, "FFmpeg"));
+                    await msg.DialogAsync(string.Format(Strings.FailedToInstall, "FFmpeg"));
 
                     App.Logger?.LogError(e, "Failed to install ffmpeg.");
                 }

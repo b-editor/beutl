@@ -469,9 +469,9 @@ namespace BEditor
                     else if (OperatingSystem.IsLinux())
                     {
                         Console.WriteLine(@"
-                            $ sudo apt update
-                            $ sudo apt -y upgrade
-                            $ sudo apt install ffmpeg");
+$ sudo apt update
+$ sudo apt -y upgrade
+$ sudo apt install ffmpeg");
                     }
 
                     Environment.Exit(1);

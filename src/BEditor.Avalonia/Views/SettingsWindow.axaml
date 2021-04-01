@@ -1,0 +1,38 @@
+<Window
+  xmlns="https://github.com/avaloniaui"
+  xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+  xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+  xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+  xmlns:prop="using:BEditor.Properties"
+  xmlns:ctr="using:BEditor.Views.Settings"
+  mc:Ignorable="d"
+  Height="450" Width="800"
+  x:Class="BEditor.Views.SettingsWindow"
+  Title="SettingsWindow">
+  <TabControl Classes="sidebar">
+    <TabItem Header="{x:Static prop:Strings.Appearance}">
+      <ctr:Appearance/>
+    </TabItem>
+    <TabItem Header="{x:Static prop:Strings.Font}">
+      <ctr:Fonts/>
+    </TabItem>
+    <TabItem Header="{x:Static prop:Strings.Project}">
+      <ctr:Project/>
+    </TabItem>
+    <TabItem Header="{x:Static prop:Strings.InstalledPlugins}">
+      <ctr:InstalledPlugins/>
+    </TabItem>
+    <TabItem Header="{x:Static prop:Strings.DisabledPlugins}">
+      
+    </TabItem>
+    <TabItem Header="{x:Static prop:Strings.Infomation}">
+      
+    </TabItem>
+    <TabItem Header="{x:Static prop:Strings.License}">
+      
+    </TabItem>
+    <TabItem Header="{x:Static prop:Strings.Others}">
+      
+    </TabItem>
+  </TabControl>
+</Window>

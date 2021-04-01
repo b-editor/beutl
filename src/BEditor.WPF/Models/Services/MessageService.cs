@@ -12,9 +12,9 @@ namespace BEditor.Models.Services
 {
     public class MessageService : IMessage
     {
-        public IMessage.ButtonType? Dialog(string text, IMessage.IconType icon = IMessage.IconType.Info, IMessage.ButtonType[]? types = null)
+        public async ValueTask<IMessage.ButtonType?> DialogAsync(string text, IMessage.IconType icon = IMessage.IconType.Info, IMessage.ButtonType[]? types = null)
         {
-            return App.Current.Dispatcher.Invoke<IMessage.ButtonType?>(() =>
+            return await System.Windows.Application.Current.Dispatcher.InvokeAsync<IMessage.ButtonType?>(() =>
             {
                 var control = new MessageUI(types, text, icon);
                 var dialog = new NoneDialog(control);

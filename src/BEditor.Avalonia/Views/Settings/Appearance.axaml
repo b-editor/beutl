@@ -1,0 +1,38 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+             xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+             xmlns:vm="using:BEditor.ViewModels.Settings"
+             xmlns:resources="using:BEditor.Properties"
+             xmlns:root="clr-namespace:BEditor;assembly=BEditor.Settings"
+             mc:Ignorable="d" d:DesignWidth="800" d:DesignHeight="450"
+             x:Class="BEditor.Views.Settings.Appearance">
+  <UserControl.DataContext>
+    <vm:AppearanceViewModel/>
+  </UserControl.DataContext>
+  <VirtualizingStackPanel>
+
+    <TextBlock Text="{x:Static resources:Strings.Timeline}" Classes="SettingsHeader"/>
+
+    <Grid>
+      <Grid.ColumnDefinitions>
+        <ColumnDefinition Width="Auto"/>
+        <ColumnDefinition/>
+      </Grid.ColumnDefinitions>
+      <VirtualizingStackPanel>
+        <Label Content="{x:Static resources:Strings.ClipHeight}" Classes="SettingsItemHeader"/>
+        <Label Content="{x:Static resources:Strings.WidthOf1Frame}" Classes="SettingsItemHeader"/>
+        <Label Content="{x:Static resources:Strings.Language}" Classes="SettingsItemHeader"/>
+      </VirtualizingStackPanel>
+      <VirtualizingStackPanel Grid.Column="1">
+        <NumericUpDown Value="{Binding ClipHeight, Source={x:Static root:Settings.Default}, Mode=TwoWay}" Classes="SettingsNumericUpDown"/>
+        <NumericUpDown Value="{Binding WidthOf1Frame, Source={x:Static root:Settings.Default}, Mode=TwoWay}" Classes="SettingsNumericUpDown"/>
+        <ComboBox
+          Items="{Binding Langs, Mode=OneTime}"
+          SelectedItem="{Binding Language, Source={x:Static root:Settings.Default}, Mode=TwoWay}"
+          Classes="SettingsComboBox"/>
+      </VirtualizingStackPanel>
+    </Grid>
+  </VirtualizingStackPanel>
+
+</UserControl>

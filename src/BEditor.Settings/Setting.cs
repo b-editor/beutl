@@ -25,13 +25,13 @@ namespace BEditor
         private static readonly PropertyChangedEventArgs enableErrorLogArgs = new(nameof(EnableErrorLog));
         private static readonly PropertyChangedEventArgs langArgs = new(nameof(Language));
         private static readonly PropertyChangedEventArgs showStartWindowArgs = new(nameof(ShowStartWindow));
-        private int clipHeight = 25;
+        private uint clipHeight = 25;
         private bool darkMode = true;
         private bool showStartWindow = true;
         private bool autoBackUp = true;
         private uint? backUpInterval = 10;
         private string lastTimeFolder = "";
-        private int widthOf1Frame = 5;
+        private uint widthOf1Frame = 5;
         private bool enableErrorLog = false;
         private ObservableCollection<string>? enablePlugins;
         private ObservableCollection<string>? disablePlugins;
@@ -63,7 +63,7 @@ namespace BEditor
 
         public static Settings Default { get; }
         [DataMember]
-        public int ClipHeight
+        public uint ClipHeight
         {
             get => clipHeight;
             set => SetValue(value, ref clipHeight, clipHeightArgs);
@@ -93,7 +93,7 @@ namespace BEditor
             set => SetValue(value, ref lastTimeFolder, lastTimeFolderArgs);
         }
         [DataMember]
-        public int WidthOf1Frame
+        public uint WidthOf1Frame
         {
             get => widthOf1Frame;
             set => SetValue(value, ref widthOf1Frame, widthOf1FrameArgs);

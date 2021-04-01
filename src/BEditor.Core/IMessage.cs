@@ -71,7 +71,7 @@ namespace BEditor
         /// <summary>
         /// Show the dialog.
         /// </summary>
-        public ButtonType? Dialog(string text, IconType icon = IconType.Info, ButtonType[]? types = null);
+        public ValueTask<ButtonType?> DialogAsync(string text, IconType icon = IconType.Info, ButtonType[]? types = null);
 
         /// <summary>
         /// Show the snackbar.
