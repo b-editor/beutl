@@ -99,7 +99,7 @@ namespace BEditor.Models
                     {
                         Debug.Assert(false);
 
-                        var msg = string.Format(Strings.FailedToLoad, "Project");
+                        var msg = string.Format(Strings.FailedToLoad, Strings.Project);
                         AppData.Current.Message.Snackbar(msg);
 
                         App.Logger?.LogError(e, msg);

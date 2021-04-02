@@ -46,7 +46,6 @@ namespace BEditor.Data
         private string _filename;
         private string _dirname;
         private WeakReference<IApplication?>? _parent;
-        private object? _lock;
 
         #endregion
 
@@ -162,8 +161,6 @@ namespace BEditor.Data
             get => _dirname;
             set => SetValue(value, ref _dirname, _dirnameArgs);
         }
-
-        private object Lock => _lock ??= new();
 
         #endregion
 
@@ -313,6 +310,41 @@ namespace BEditor.Data
         }
 
         /// <summary>
+        /// Save this <see cref="Project"/>.
+        /// </summary>
+        /// <remarks>If <see cref="Name"/> is <see langword="null"/>, a dialog will appear.</remarks>
+        /// <returns><see langword="true"/> if the save is successful, otherwise <see langword="false"/>.</returns>
+        public async Task<bool> SaveAsync()
+        {
+            if (Name is null || DirectoryName is null)
+            {
+                var dialog = ServiceProvider?.GetService<IFileDialogService>();
+                if (dialog is null) return false;
+
+                var record = new SaveFileRecord
+                {
+                    DefaultFileName = "新しいプロジェクト.bedit",
+                    Filters =
+                    {
+                        new(Strings.ProjectFile, new FileExtension[] { new("bedit") }),
+                    },
+                };
+
+                // ダイアログを表示する
+                if (dialog.ShowSaveFileDialog(record))
+                {
+                    return await SaveAsync(record.FileName);
+                }
+                else
+                {
+                    return false;
+                }
+            }
+
+            return await SaveAsync(Path.Combine(DirectoryName, Name + ".bedit"));
+        }
+
+        /// <summary>
         /// Save this <see cref="Project"/> with a name.
         /// </summary>
         /// <param name="filename">New File Name.</param>
@@ -332,50 +364,110 @@ namespace BEditor.Data
 
             var isBackup = Path.GetExtension(filename) is ".backup";
 
-            lock (Lock)
+            if (!isBackup)
             {
+                Name = Path.GetFileNameWithoutExtension(filename);
+                DirectoryName = Path.GetDirectoryName(filename)!;
+                IfNotExistCreateDir(DirectoryName);
+
+                if (PreviewScene.IsLoaded)
+                {
+                    Synchronize.Send(_ =>
+                    {
+                        try
+                        {
+                            using var img = new Image<BGRA32>(PreviewScene.Width, PreviewScene.Height);
+
+                            var thumbnail = Path.Combine(DirectoryName!, "thumbnail.png");
+                            PreviewScene.Render(img, RenderType.ImageOutput);
+
+                            img.Encode(thumbnail);
+                        }
+                        catch
+                        {
+                        }
+                    }, null);
+                }
+            }
+
+            if (Serialize.SaveToFile(this, filename, mode))
+            {
+                Saved?.Invoke(this, new(SaveType.Save));
+
                 if (!isBackup)
                 {
-                    Name = Path.GetFileNameWithoutExtension(filename);
-                    DirectoryName = Path.GetDirectoryName(filename)!;
-                    IfNotExistCreateDir(DirectoryName);
-
-                    if (PreviewScene.IsLoaded)
-                    {
-                        Synchronize.Send(_ =>
-                        {
-                            try
-                            {
-                                using var img = new Image<BGRA32>(PreviewScene.Width, PreviewScene.Height);
-
-                                var thumbnail = Path.Combine(DirectoryName!, "thumbnail.png");
-                                PreviewScene.Render(img, RenderType.ImageOutput);
-
-                                img.Encode(thumbnail);
-                            }
-                            catch
-                            {
-                            }
-                        }, null);
-                    }
+                    var appDir = Path.Combine(DirectoryName, ".app");
+                    IfNotExistCreateDir(appDir);
+                    Parent.SaveAppConfig(this, appDir);
                 }
 
-                if (Serialize.SaveToFile(this, filename, mode))
-                {
-                    Saved?.Invoke(this, new(SaveType.Save));
-
-                    if (!isBackup)
-                    {
-                        var appDir = Path.Combine(DirectoryName, ".app");
-                        IfNotExistCreateDir(appDir);
-                        Parent.SaveAppConfig(this, appDir);
-                    }
-
-                    return true;
-                }
-
-                return false;
+                return true;
             }
+
+            return false;
+        }
+
+        /// <summary>
+        /// Save this <see cref="Project"/> with a name.
+        /// </summary>
+        /// <param name="filename">New File Name.</param>
+        /// <param name="mode">The serialize mode.</param>
+        /// <returns><see langword="true"/> if the save is successful, otherwise <see langword="false"/>.</returns>
+        public async Task<bool> SaveAsync(string filename, SerializeMode mode = SerializeMode.Binary)
+        {
+            if (filename is null) throw new ArgumentNullException(nameof(filename));
+
+            static void IfNotExistCreateDir(string dir)
+            {
+                if (!Directory.Exists(dir))
+                {
+                    Directory.CreateDirectory(dir);
+                }
+            }
+
+            var isBackup = Path.GetExtension(filename) is ".backup";
+
+            if (!isBackup)
+            {
+                Name = Path.GetFileNameWithoutExtension(filename);
+                DirectoryName = Path.GetDirectoryName(filename)!;
+                IfNotExistCreateDir(DirectoryName);
+
+                if (PreviewScene.IsLoaded)
+                {
+                    Synchronize.Send(_ =>
+                    {
+                        try
+                        {
+                            using var img = new Image<BGRA32>(PreviewScene.Width, PreviewScene.Height);
+
+                            var thumbnail = Path.Combine(DirectoryName!, "thumbnail.png");
+                            PreviewScene.Render(img, RenderType.ImageOutput);
+
+                            img.Encode(thumbnail);
+                        }
+                        catch
+                        {
+                        }
+                    }, null);
+                }
+            }
+
+            if (await Serialize.SaveToFileAsync(this, filename, mode))
+            {
+                Saved?.Invoke(this, new(SaveType.Save));
+
+                if (!isBackup)
+                {
+                    var appDir = Path.Combine(DirectoryName, ".app");
+                    IfNotExistCreateDir(appDir);
+                    Parent.SaveAppConfig(this, appDir);
+                }
+
+                return true;
+            }
+
+            return false;
         }
 
         /// <summary>

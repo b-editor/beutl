@@ -21,20 +21,29 @@
 
         <!--新規作成-->
         <MenuItem Header="{x:Static prop:Strings.CreateNew}">
-          <MenuItem Header="{x:Static prop:Strings.CreateProject}"/>
+          <MenuItem Header="{x:Static prop:Strings.CreateProject}" Click="CreateProjectClick"/>
           <MenuItem Header="{x:Static prop:Strings.CreateFromBackup}"/>
         </MenuItem>
 
         <Separator/>
 
         <!--上書き保存-->
-        <MenuItem Header="{x:Static prop:Strings.Save}"/>
+        <MenuItem
+          Header="{x:Static prop:Strings.Save}"
+          Command="{Binding Save, Mode=OneTime}"
+          IsEnabled="{Binding IsOpened.Value, Mode=OneWay}"/>
 
         <!--名前を付けて保存-->
-        <MenuItem Header="{x:Static prop:Strings.SaveAs}"/>
+        <MenuItem
+          Header="{x:Static prop:Strings.SaveAs}"
+          Command="{Binding SaveAs, Mode=OneTime}"
+          IsEnabled="{Binding IsOpened.Value, Mode=OneWay}"/>
 
         <!--閉じる-->
-        <MenuItem Header="{x:Static prop:Strings.Close}"/>
+        <MenuItem
+          Header="{x:Static prop:Strings.Close}"
+          Command="{Binding Close, Mode=OneTime}"
+          IsEnabled="{Binding IsOpened.Value, Mode=OneWay}"/>
 
         <Separator/>
 
@@ -47,24 +56,24 @@
       </MenuItem>
       <MenuItem Header="{x:Static prop:Strings.AccessEdit}">
         <!--やり直す-->
-        <MenuItem Header="{x:Static prop:Strings.Undo}"/>
+        <MenuItem Header="{x:Static prop:Strings.Undo}" IsEnabled="{Binding IsOpened.Value, Mode=OneWay}"/>
 
         <!--元に戻す-->
-        <MenuItem Header="{x:Static prop:Strings.Redo}"/>
+        <MenuItem Header="{x:Static prop:Strings.Redo}" IsEnabled="{Binding IsOpened.Value, Mode=OneWay}"/>
 
         <!--削除-->
-        <MenuItem Header="{x:Static prop:Strings.Remove}"/>
+        <MenuItem Header="{x:Static prop:Strings.Remove}" IsEnabled="{Binding IsOpened.Value, Mode=OneWay}"/>
 
         <Separator/>
 
         <!--切り取り-->
-        <MenuItem Header="{x:Static prop:Strings.Cut}"/>
+        <MenuItem Header="{x:Static prop:Strings.Cut}" IsEnabled="{Binding IsOpened.Value, Mode=OneWay}"/>
 
         <!--コピー-->
-        <MenuItem Header="{x:Static prop:Strings.Copy}"/>
+        <MenuItem Header="{x:Static prop:Strings.Copy}" IsEnabled="{Binding IsOpened.Value, Mode=OneWay}"/>
 
         <!--貼り付け-->
-        <MenuItem Header="{x:Static prop:Strings.Paste}"/>
+        <MenuItem Header="{x:Static prop:Strings.Paste}" IsEnabled="{Binding IsOpened.Value, Mode=OneWay}"/>
 
       </MenuItem>
       <MenuItem Header="{x:Static prop:Strings.AccessView}">
@@ -90,8 +99,7 @@
     <Label
       Grid.Row="1"
       Grid.RowSpan="3"
-      
-      Background="#1fffffff"/>
+      Background="{DynamicResource SystemControlHighlightListLowBrush}"/>
 
     <GridSplitter Grid.Row="1" Grid.RowSpan="3" Grid.Column="1"/>
 
@@ -99,12 +107,14 @@
       Grid.Row="3"
       Grid.Column="2"
       Grid.ColumnSpan="3"
-      
-      Background="#1fffffff"/>
-
+      Background="{DynamicResource SystemControlHighlightListLowBrush}"/>
+    
     <GridSplitter Grid.Row="2" Grid.Column="2" Grid.ColumnSpan="3"/>
 
-    <views:Previewer Grid.Row="1" Grid.Column="4"/>
+    <views:Previewer
+      DataContext="{Binding Previewer, Mode=OneTime}"
+      Grid.Row="1"
+      Grid.Column="4"/>
 
     <GridSplitter Grid.Row="1" Grid.Column="3"/>
   </Grid>

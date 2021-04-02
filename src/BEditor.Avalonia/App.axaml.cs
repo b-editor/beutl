@@ -42,6 +42,9 @@ namespace BEditor
 
         public override void Initialize()
         {
+            CultureInfo.CurrentCulture = new(Settings.Default.Language);
+            CultureInfo.CurrentUICulture = CultureInfo.CurrentCulture;
+
             AvaloniaXamlLoader.Load(this);
         }
 
@@ -51,8 +54,6 @@ namespace BEditor
             {
                 desktop.MainWindow = new MainWindow();
 
-                CultureInfo.CurrentCulture = new(Settings.Default.Language);
-                CultureInfo.CurrentUICulture = CultureInfo.CurrentCulture;
                 CreateDirectory();
 
                 RegisterPrimitive();
@@ -75,9 +76,9 @@ namespace BEditor
 
             Logger?.LogError(e.ExceptionObject as Exception, "UnhandledException was thrown.");
 
-//#if !DEBUG
-//            e.Handled = true;
-//#endif
+            //#if !DEBUG
+            //            e.Handled = true;
+            //#endif
         }
         private static void CreateDirectory()
         {

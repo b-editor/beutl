@@ -12,6 +12,7 @@ using Avalonia.Threading;
 
 using BEditor.Models;
 using BEditor.Properties;
+using BEditor.ViewModels.DialogContent;
 using BEditor.Views;
 using BEditor.Views.DialogContent;
 
@@ -39,6 +40,18 @@ namespace BEditor
         {
             await new SettingsWindow().ShowDialog(this);
         }
+        
+        public async void CreateProjectClick(object s, RoutedEventArgs e)
+        {
+            var viewmodel = new CreateProjectViewModel();
+            var content = new CreateProject
+            {
+                DataContext = viewmodel
+            };
+            var dialog = new EmptyDialog(content);
+
+            await dialog.ShowDialog(this);
+        }
 
         private void InitializeComponent()
         {
@@ -48,7 +61,6 @@ namespace BEditor
         protected override async void OnOpened(EventArgs e)
         {
             var installer = new FFmpegInstaller(App.FFmpegDir);
-            await AppModel.Current.Message.DialogAsync($"{Strings.RunFollowingCommandToInstallFFmpeg}\n$ brew install ffmpeg");
 
             if (!await installer.IsInstalledAsync())
             {
