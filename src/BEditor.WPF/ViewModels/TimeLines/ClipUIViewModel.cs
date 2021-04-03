@@ -275,7 +275,7 @@ namespace BEditor.ViewModels.TimeLines
                 $"Start : {ClipElement.Start.Value}\n" +
                 $"End : {ClipElement.End.Value}";
 
-            ClipElement.ServiceProvider?.GetService<IMessage>()?.DialogAsync(text);
+            ClipElement.ServiceProvider?.GetRequiredService<IMessage>().DialogAsync(text).ConfigureAwait(false);
         }
 
         private void ClipSeparate()

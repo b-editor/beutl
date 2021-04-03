@@ -107,6 +107,8 @@
       Grid.Row="3"
       Grid.Column="2"
       Grid.ColumnSpan="3"
+      IsEnabled="{Binding IsOpened.Value, Mode=OneWay}"
+      Content="{Binding App.Project.PreviewScene, Converter={StaticResource SceneToTimelineConverter}, Mode=OneWay}"
       Background="{DynamicResource SystemControlHighlightListLowBrush}"/>
     
     <GridSplitter Grid.Row="2" Grid.Column="2" Grid.ColumnSpan="3"/>

@@ -7,9 +7,6 @@ using System.Reactive.Linq;
 using System.Text;
 using System.Threading.Tasks;
 
-using Avalonia.Controls;
-using Avalonia.Media;
-
 using BEditor.Command;
 using BEditor.Data;
 using BEditor.Models;

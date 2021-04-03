@@ -1,6 +1,14 @@
-<Application xmlns="https://github.com/avaloniaui"
-             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
-             x:Class="BEditor.App">
+<Application
+  xmlns="https://github.com/avaloniaui"
+  xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+  xmlns:convert="using:BEditor.Converters"
+  x:Class="BEditor.App">
+  <Application.Resources>
+    <convert:CursorTypeToCursorConverter x:Key="CursorTypeToCursorConverter"/>
+    <convert:SceneToTimelineConverter x:Key="SceneToTimelineConverter"/>
+    <convert:PluginNameConverter x:Key="NameConvert"/>
+    <convert:PluginAuthorConverter x:Key="AuthorConvert"/>
+  </Application.Resources>
   <Application.Styles>
     <FluentTheme Mode="Dark"/>
     <StyleInclude Source="avares://BEditor.Avalonia/Controls/SeekSlider.axaml" />

@@ -1,0 +1,150 @@
+<UserControl
+  xmlns="https://github.com/avaloniaui"
+  xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+  xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+  xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+  xmlns:properties="using:BEditor.Properties"
+  mc:Ignorable="d" d:DesignWidth="800" d:DesignHeight="450"
+  HorizontalAlignment="Left"
+  Width="{Binding WidthProperty.Value, Mode=OneWay}"
+  Margin="{Binding MarginProperty.Value, Mode=OneWay}"
+  Cursor="{Binding ClipCursor.Value, Mode=OneWay, Converter={StaticResource CursorTypeToCursorConverter}}"
+  x:Class="BEditor.Views.Timelines.ClipView">
+  <UserControl.Resources>
+    <!--<convert:EffectElementToKeyFrame x:Key="EffectElementToKeyFrame" />-->
+    <!--<Style Selector="Border.BorderStyle:pointerover">
+      <Setter Property="Opacity" Value="0.85" />
+    </Style>-->
+  </UserControl.Resources>
+  <StackPanel Orientation="Vertical">
+    <ContentControl>
+      <Border CornerRadius="3" Background="{Binding ClipColor.Value}">
+        <Border.ContextMenu>
+          <ContextMenu>
+            <MenuItem Command="{Binding ClipDataLogCommand, Mode=OneTime}">
+              <MenuItem.Header>
+                <VirtualizingStackPanel Orientation="Horizontal">
+                  <!--<md:PackIcon Margin="5,0,5,0" Kind="InformationOutline" />-->
+                  <TextBlock Margin="20,0,5,0" Text="{x:Static properties:Strings.ClipInfo}" />
+                </VirtualizingStackPanel>
+              </MenuItem.Header>
+            </MenuItem>
+            <Separator />
+            <MenuItem Command="{Binding ClipSeparateCommand, Mode=OneTime}">
+              <MenuItem.Header>
+                <Grid>
+                  <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="200" />
+                    <ColumnDefinition />
+                  </Grid.ColumnDefinitions>
+                  <VirtualizingStackPanel Orientation="Horizontal">
+                    <!--<md:PackIcon Margin="5,0,5,0" Kind="PaperCutVertical" />-->
+                    <TextBlock Margin="20,0,5,0" Text="{x:Static properties:Strings.Separate}" />
+                  </VirtualizingStackPanel>
+                  <TextBlock Grid.Column="1" Text="" />
+                </Grid>
+              </MenuItem.Header>
+            </MenuItem>
+            <Separator />
+            <MenuItem Command="{Binding ClipCutCommand, Mode=OneTime}">
+              <MenuItem.Header>
+                <Grid>
+                  <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="200" />
+                    <ColumnDefinition />
+                  </Grid.ColumnDefinitions>
+                  <VirtualizingStackPanel Orientation="Horizontal">
+                    <!--<md:PackIcon Margin="5,0,5,0" Kind="ContentCut" />-->
+                    <TextBlock Margin="20,0,5,0" Text="{x:Static properties:Strings.Cut}" />
+                  </VirtualizingStackPanel>
+                  <TextBlock Grid.Column="1" Text="Ctrl+X" />
+                </Grid>
+              </MenuItem.Header>
+            </MenuItem>
+            <MenuItem Command="{Binding ClipCopyCommand, Mode=OneTime}">
+              <MenuItem.Header>
+                <Grid>
+                  <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="200" />
+                    <ColumnDefinition />
+                  </Grid.ColumnDefinitions>
+                  <VirtualizingStackPanel Orientation="Horizontal">
+                    <!--<md:PackIcon Margin="5,0,5,0" Kind="ContentCopy" />-->
+                    <TextBlock Margin="20,0,5,0" Text="{x:Static properties:Strings.Copy}" />
+                  </VirtualizingStackPanel>
+                  <TextBlock Grid.Column="1" Text="Ctrl+C" />
+                </Grid>
+              </MenuItem.Header>
+            </MenuItem>
+            <MenuItem IsEnabled="False">
+              <MenuItem.Header>
+                <Grid>
+                  <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="200" />
+                    <ColumnDefinition />
+                  </Grid.ColumnDefinitions>
+                  <VirtualizingStackPanel Orientation="Horizontal">
+                    <!--<md:PackIcon Margin="5,0,5,0" Kind="ContentPaste" />-->
+                    <TextBlock Margin="20,0,5,0" Text="{x:Static properties:Strings.Paste}" />
+                  </VirtualizingStackPanel>
+                  <TextBlock Grid.Column="1" Text="Ctrl+V" />
+                </Grid>
+              </MenuItem.Header>
+            </MenuItem>
+            <Separator />
+            <MenuItem Command="{Binding ClipDeleteCommand, Mode=OneTime}">
+              <MenuItem.Header>
+                <Grid>
+                  <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="200" />
+                    <ColumnDefinition />
+                  </Grid.ColumnDefinitions>
+                  <VirtualizingStackPanel Orientation="Horizontal">
+                    <!--<md:PackIcon Margin="5,0,5,0" Kind="Delete" />-->
+                    <TextBlock Margin="20,0,5,0" Text="{x:Static properties:Strings.Remove}" />
+                  </VirtualizingStackPanel>
+                  <TextBlock Grid.Column="1" Text="Delete" />
+                </Grid>
+              </MenuItem.Header>
+            </MenuItem>
+          </ContextMenu>
+        </Border.ContextMenu>
+        <Grid Height="{Binding TrackHeight, Mode=OneTime}">
+          <VirtualizingStackPanel Orientation="Horizontal">
+            <TextBlock
+              Margin="10,0,10,0"
+              VerticalAlignment="Center"
+              FontSize="14"
+              Foreground="White"
+              Text="{Binding ClipText.Value, Mode=OneWay}" />
+            <TextBlock
+              Margin="10,0,10,0"
+              VerticalAlignment="Center"
+              FontSize="12"
+              Foreground="White"
+              Text="{Binding ClipElement.LabelText, Mode=OneWay}" />
+          </VirtualizingStackPanel>
+        </Grid>
+      </Border>
+
+    </ContentControl>
+    <!--<ItemsControl
+      x:Name="itemsControl"
+      HorizontalContentAlignment="Stretch"
+      VerticalContentAlignment="Stretch"
+      AlternationCount="{Binding Items.Count, ElementName=itemsControl}"
+      ItemsSource="{Binding ClipElement.Effect, Mode=OneWay}">
+      <ItemsControl.ItemTemplate>
+        <DataTemplate>
+          <Label
+            Padding="0"
+            HorizontalAlignment="Stretch"
+            VerticalAlignment="Stretch"
+            HorizontalContentAlignment="Stretch"
+            VerticalContentAlignment="Stretch"
+            Content="{Binding Converter={StaticResource EffectElementToKeyFrame}}" />
+        </DataTemplate>
+      </ItemsControl.ItemTemplate>
+    </ItemsControl>-->
+  </StackPanel>
+</UserControl>

@@ -456,7 +456,6 @@ namespace BEditor.Views.TimeLines
 
                         grid.Children.Add(info.GetCreateClipView());
                     }
-                    Layer.Focus();
                 });
 
                 _viewModel.ViewLoaded = true;
