@@ -13,10 +13,14 @@ using BEditor.Data;
 using BEditor.Extensions;
 using BEditor.Media;
 using BEditor.Models;
+using BEditor.Properties;
 using BEditor.Views;
 
 using Reactive.Bindings;
 using Reactive.Bindings.Extensions;
+
+using Microsoft.Extensions.DependencyInjection;
+using System.Diagnostics;
 
 namespace BEditor.ViewModels.Timelines
 {
@@ -62,14 +66,11 @@ namespace BEditor.ViewModels.Timelines
                     ResetScale?.Invoke(Scene.TimeLineZoom, Scene.TotalFrame, Scene.Parent.Framerate);
                 });
 
-            LayerSelect.Subscribe(e =>
-            {
-                ClickedLayer = e.layer;
-                ClickedFrame = e.frame;
-            });
-
             TimelinePointerLeftPressed.Subscribe(point =>
             {
+                ClickedLayer = ToLayer(point.Y);
+                ClickedFrame = Scene.ToFrame(point.X);
+
                 if (ClipMouseDown || !KeyframeToggle)
                 {
                     return;
@@ -108,9 +109,12 @@ namespace BEditor.ViewModels.Timelines
 
             TimelinePointerMoved.Subscribe(point =>
             {
-                // マウスの現在フレーム
-                Point obj_Now;
+                // マウスの現在フレーム: point
+
                 PointerFrame = Scene.ToFrame(point.X);
+                PointerLayer = ToLayer(point.Y);
+                Debug.WriteLine($"X:{point.X} Y:{point.Y}");
+                Debug.WriteLine($"Frame:{PointerFrame} Layer:{PointerLayer}");
 
                 if (SeekbarIsMouseDown && KeyframeToggle)
                 {
@@ -122,56 +126,49 @@ namespace BEditor.ViewModels.Timelines
                     var selectviewmodel = SelectedClip.GetCreateClipViewModel();
                     if (selectviewmodel.ClipCursor.Value == StandardCursorType.Arrow && LayerCursor.Value == StandardCursorType.Arrow)
                     {
-                        //現在のマウス
-                        obj_Now = point;
-
-                        var newframe = PointerFrame - Scene.ToFrame(ClipStart.X) + Scene.ToFrame(selectviewmodel.MarginProperty.Value.Left);
+                        var newframe = PointerFrame - Scene.ToFrame(ClipStart.X) + Scene.ToFrame(selectviewmodel.MarginLeft);
                         var newlayer = PointerLayer;
-
+                        // Todo : 保存処理がおかしい
                         if (!Scene.InRange(SelectedClip, newframe, newframe + SelectedClip.Length, newlayer))
                         {
                             return;
                         }
 
+                        Thickness thickness = default;
                         // 横の移動
                         if (newframe < 0)
                         {
-                            selectviewmodel.MarginProperty.Value = new Thickness(0, 1, 0, 0);
+                            thickness = new(0, 0, 0, 0);
                         }
                         else
                         {
-                            selectviewmodel.MarginProperty.Value = new Thickness(Scene.ToPixel(newframe), 1, 0, 0);
+                            thickness = new Thickness(Scene.ToPixel(newframe), ToLayerPixel(newlayer), 0, 0);
+                            Debug.WriteLine(thickness);
                         }
 
-                        // 縦の移動
-                        if (selectviewmodel.Row != newlayer && newlayer != 0)
-                        {
-                            ClipLayerMoveCommand?.Invoke(SelectedClip, newlayer);
-                        }
+                        selectviewmodel.MarginProperty.Value = thickness;
 
-                        ClipStart = obj_Now;
+                        ClipStart = point;
 
                         ClipTimeChange = true;
                     }
                     else
                     {
-                        obj_Now = point; //現在のマウスの位置
-
-
-                        ClipMovement = Scene.ToPixel(Scene.ToFrame(obj_Now.X) - Scene.ToFrame(ClipStart.X)); //一時的な移動量
+                        ClipMovement = Scene.ToPixel(Scene.ToFrame(point.X) - Scene.ToFrame(ClipStart.X)); //一時的な移動量
 
                         if (ClipLeftRight == 2)
-                        { //左
+                        {
+                            //左
                             selectviewmodel.WidthProperty.Value += ClipMovement;
                         }
                         else if (ClipLeftRight == 1)
                         {
                             var a = ClipMovement;
                             selectviewmodel.WidthProperty.Value -= a;
-                            selectviewmodel.MarginProperty.Value = new Thickness(selectviewmodel.MarginProperty.Value.Left + a, 1, 0, 0);
+                            selectviewmodel.MarginLeft = selectviewmodel.MarginProperty.Value.Left + a;
                         }
 
-                        ClipStart = obj_Now;
+                        ClipStart = point;
                     }
                 }
             });
@@ -197,16 +194,27 @@ namespace BEditor.ViewModels.Timelines
                     ClipTimeChange = false;
                 }
             });
+
+            AddClip.Subscribe(meta =>
+            {
+                if (!Scene.InRange(ClickedFrame, ClickedFrame + 180, ClickedLayer))
+                {
+                    Scene.ServiceProvider?.GetService<IMessage>()?.Snackbar(Strings.ClipExistsInTheSpecifiedLocation);
+
+                    return;
+                }
+
+                Scene.AddClip(ClickedFrame, ClickedLayer, meta, out _).Execute();
+            });
         }
 
+        public Func<PointerEventArgs, Point>? GetLayerMousePosition { get; set; }
         public double TrackHeight { get; } = ConstantSettings.ClipHeight;
         public ReactiveCommand<Point> TimelinePointerMoved { get; } = new();
         public ReactiveCommand TimelinePointerLeftReleased { get; } = new();
         public ReactiveCommand<Point> TimelinePointerLeftPressed { get; } = new();
         public ReactiveCommand TimelinePointerLeaved { get; } = new();
-        public ReactiveCommand<(int layer, int frame)> LayerSelect { get; } = new();
-        public ReactiveCommand LayerMove { get; } = new();
-        public ReactiveCommand AddClip { get; } = new();
+        public ReactiveCommand<ObjectMetadata> AddClip { get; } = new();
         public ReactiveCommand Paste { get; } = new();
         public ReactiveCommand ShowSettings { get; } = new();
         public ReactiveProperty<StandardCursorType> LayerCursor { get; } = new();
@@ -215,5 +223,16 @@ namespace BEditor.ViewModels.Timelines
         public Scene Scene { get; }
         public Action<float, int, int>? ResetScale { get; set; }
         public Action<ClipElement, int>? ClipLayerMoveCommand { get; set; }
+        public Func<int>? GetPointerLayer { get; set; }
+
+        public static int ToLayer(double pixel)
+        {
+            pixel -= 32;
+            return (int)(pixel / (ConstantSettings.ClipHeight + 1)) + 1;
+        }
+        public static double ToLayerPixel(int layer)
+        {
+            return (layer - 1) * ConstantSettings.ClipHeight + 1 + 32;
+        }
     }
 }

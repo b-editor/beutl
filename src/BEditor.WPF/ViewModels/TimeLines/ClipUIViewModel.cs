@@ -265,7 +265,7 @@ namespace BEditor.ViewModels.TimeLines
             ClipElement.Parent.RemoveClip(ClipElement).Execute();
         }
 
-        private void ClipDataLog()
+        private async void ClipDataLog()
         {
             string text =
                 $"ID : {ClipElement.Id}\n" +
@@ -275,7 +275,7 @@ namespace BEditor.ViewModels.TimeLines
                 $"Start : {ClipElement.Start.Value}\n" +
                 $"End : {ClipElement.End.Value}";
 
-            ClipElement.ServiceProvider?.GetRequiredService<IMessage>().DialogAsync(text).ConfigureAwait(false);
+            await AppData.Current.Message.DialogAsync(text);
         }
 
         private void ClipSeparate()

@@ -41,7 +41,6 @@ namespace BEditor.Extensions
                 {
                     using var img = project.PreviewScene.Render(type);
                     var viewmodel = MainWindowViewModel.Current.Previewer;
-                    var outimg = viewmodel.PreviewImage;
 
                     viewmodel.PreviewImage.Value?.Dispose();
                     viewmodel.PreviewImage.Value = img.ToBitmapSource();

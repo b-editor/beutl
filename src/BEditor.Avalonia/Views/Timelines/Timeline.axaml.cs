@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Specialized;
+using System.Diagnostics;
 using System.Linq;
 using System.Threading.Tasks;
 
@@ -18,6 +19,7 @@ using Avalonia.VisualTree;
 
 using BEditor.Data;
 using BEditor.Extensions;
+using BEditor.Models;
 using BEditor.Properties;
 using BEditor.ViewModels.Timelines;
 
@@ -31,7 +33,6 @@ namespace BEditor.Views.Timelines
         private readonly ScrollViewer _scrollLabel;
         private readonly StackPanel _layerLabel;
         private readonly Grid _scale;
-        private readonly StackPanel _layer;
         private readonly Grid _timelineGrid;
         private readonly ContextMenu _timelineMenu;
 
@@ -43,7 +44,6 @@ namespace BEditor.Views.Timelines
             _scrollLabel = this.FindControl<ScrollViewer>("ScrollLabel");
             _layerLabel = this.FindControl<VirtualizingStackPanel>("LayerLabel");
             _scale = this.FindControl<Grid>("scale");
-            _layer = this.FindControl<VirtualizingStackPanel>("Layer");
             _timelineGrid = this.FindControl<Grid>("timelinegrid");
             _timelineMenu = this.FindControl<ContextMenu>("TimelineMenu");
 
@@ -98,109 +98,59 @@ namespace BEditor.Views.Timelines
             _scrollLabel = this.FindControl<ScrollViewer>("ScrollLabel");
             _layerLabel = this.FindControl<StackPanel>("LayerLabel");
             _scale = this.FindControl<Grid>("scale");
-            _layer = this.FindControl<StackPanel>("Layer");
             _timelineGrid = this.FindControl<Grid>("timelinegrid");
             _timelineMenu = this.FindControl<ContextMenu>("TimelineMenu");
 
             InitializeContextMenu();
 
-
             // レイヤー名追加for
             for (var l = 1; l < 100; l++)
             {
-                var trackHeight_bind = new Binding("TrackHeight");
-
-                var track = new Grid();
-
-                var grid = new Grid
+                var layer_row = new Grid
                 {
-                    Margin = new Thickness(0, 1, 0, 0),
-                    HorizontalAlignment = HorizontalAlignment.Left,
+                    ContextMenu = CreateMenu(l),
+                    HorizontalAlignment = HorizontalAlignment.Stretch,
+                    Width = 200,
+                    Height = ConstantSettings.ClipHeight + 1
+                };
+
+                var toggle = new ToggleButton
+                {
+                    HorizontalAlignment = HorizontalAlignment.Stretch,
                     VerticalAlignment = VerticalAlignment.Top,
+                    HorizontalContentAlignment = HorizontalAlignment.Center,
+                    Padding = new(0),
+                    Background = null,
+                    Content = l,
+                    Width = 200,
+                    Height = ConstantSettings.ClipHeight
                 };
+                layer_row.Children.Add(toggle);
 
-                grid.SetValue(AttachmentProperty.IntProperty, l);
-                grid.Bind(WidthProperty, new Binding("TrackWidth.Value") { Mode = BindingMode.OneWay });
-                grid.Bind(HeightProperty, trackHeight_bind);
-                //SystemControlBackgroundChromeBlackLowBrush
-                #region Eventの設定
-
-                grid.PointerPressed += (s, e) =>
+                toggle.Click += (s, _) =>
                 {
-                    var grid = (Grid)s!;
+                    var toggle = (ToggleButton)s!;
+                    var l = (int)toggle.Content;
 
-                    ViewModel.LayerSelect.Execute((grid.GetValue(AttachmentProperty.IntProperty), scene.ToFrame(e.GetPosition(grid).X)));
-                };
-                //grid.PreviewDrop += (s, e) => ViewModel.LayerDropCommand.Execute((s, e));
-                grid.PointerMoved += (s, e) => ViewModel.LayerMove.Execute(s);
-                //grid.PreviewDragOver += (s, e) => ViewModel.LayerDragOverCommand.Execute((s, e));
-
-                #endregion
-
-                track.Children.Add(grid);
-                _layer.Children.Add(track);
-
-                #region レイヤー数
-
-                {
-                    var binding = new Binding("Bounds.Height")
+                    if (!(bool)toggle.IsChecked!)
                     {
-                        Source = track
-                    };
-
-                    var layer_row = new Grid
+                        Scene.HideLayer.Remove(l);
+                    }
+                    else
                     {
-                        ContextMenu = CreateMenu(l),
-                        HorizontalAlignment = HorizontalAlignment.Stretch,
-                        Width = 200,
-                    };
-
-                    layer_row.Bind(HeightProperty, binding);
-
-                    var toggle = new ToggleButton
-                    {
-                        HorizontalAlignment = HorizontalAlignment.Stretch,
-                        VerticalAlignment = VerticalAlignment.Top,
-                        HorizontalContentAlignment = HorizontalAlignment.Center,
-                        Padding = new(0),
-                        Background = null,
-                        Content = l,
-                        Width = 200
-                    };
-                    toggle.Bind(HeightProperty, trackHeight_bind);
-                    layer_row.Children.Add(toggle);
-
-                    toggle.Click += (s, _) =>
-                    {
-                        var toggle = (ToggleButton)s!;
-                        var l = (int)toggle.Content;
-
-                        if (!(bool)toggle.IsChecked!)
-                        {
-                            Scene.HideLayer.Remove(l);
-                        }
-                        else
-                        {
-                            Scene.HideLayer.Add(l);
-                        }
-
-                        Scene.Parent!.PreviewUpdate();
-                    };
-
-                    if (Scene.HideLayer.Exists(x => x == l))
-                    {
-                        toggle.IsChecked = true;
+                        Scene.HideLayer.Add(l);
                     }
 
-                    _layerLabel.Children.Add(layer_row);
+                    Scene.Parent!.PreviewUpdate();
+                };
+
+                if (Scene.HideLayer.Exists(x => x == l))
+                {
+                    toggle.IsChecked = true;
                 }
 
-                #endregion
+                _layerLabel.Children.Add(layer_row);
             }
-
-            //viewmodel.ResetScale = AddScale;
-            //viewmodel.ClipLayerMoveCommand = ClipLayerMove;
-            //viewmodel.GetLayerMousePosition = () => Mouse.GetPosition(Layer);
 
             Scene.Datas.CollectionChanged += ClipsCollectionChanged;
             _scrollLine.ScrollChanged += ScrollLine_ScrollChanged1;
@@ -213,25 +163,15 @@ namespace BEditor.Views.Timelines
             // WPF の Preview* イベント
             _scrollLine.AddHandler(PointerWheelChangedEvent, ScrollLine_PointerWheel, RoutingStrategies.Tunnel);
 
-            // 
+            viewmodel.GetLayerMousePosition = (e) => e.GetPosition(_timelineGrid);
             viewmodel.ResetScale = (zoom, max, rate) =>
             {
             };
             viewmodel.ClipLayerMoveCommand = (clip, layer) =>
             {
                 var vm = clip.GetCreateClipViewModel();
-                var from = vm.Row;
                 vm.Row = layer;
-
-                Dispatcher.UIThread.InvokeAsync(() =>
-                {
-                    var togrid = (Grid)_layer.Children[layer];
-
-                    var ui = clip.GetCreateClipView();
-                    (ui.Parent as Grid)?.Children?.Remove(ui);
-
-                    togrid.Children.Add(ui);
-                });
+                vm.MarginTop = TimelineViewModel.ToLayer(layer);
             };
         }
 
@@ -247,9 +187,7 @@ namespace BEditor.Views.Timelines
             {
                 var clip = Scene.Datas[i];
 
-                var grid = (Grid)_layer.Children[clip.Layer];
-
-                grid.Children.Add(clip.GetCreateClipView());
+                _timelineGrid.Children.Add(clip.GetCreateClipView());
             }
 
             Scene.ObserveProperty(s => s.TimeLineZoom)
@@ -280,7 +218,7 @@ namespace BEditor.Views.Timelines
                         var length = scene.ToPixel(info.Length);
 
                         var vm = info.GetCreateClipViewModelSafe();
-                        vm.MarginProperty.Value = new Thickness(start, 1, 0, 0);
+                        vm.MarginLeft = start;
                         vm.WidthProperty.Value = length;
                     }
 
@@ -365,9 +303,7 @@ namespace BEditor.Views.Timelines
                 {
                     var item = Scene.Datas[e.NewStartingIndex];
 
-                    var grid = (Grid)_layer.Children[item.Layer];
-                    
-                    grid.Children.Add(item.GetCreateClipViewSafe());
+                    _timelineGrid.Children.Add(item.GetCreateClipViewSafe());
                 }
                 else if (e.Action == NotifyCollectionChangedAction.Remove)
                 {
