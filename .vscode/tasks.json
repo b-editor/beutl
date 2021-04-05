@@ -5,9 +5,17 @@
             "label": "build",
             "command": "dotnet",
             "type": "process",
+            "windows": {
+                "args": [
+                    "build",
+                    "${workspaceFolder}/src/BEditor.WPF/BEditor.WPF.csproj",
+                    "/property:GenerateFullPaths=true",
+                    "/consoleloggerparameters:NoSummary"
+                ]
+            },
             "args": [
                 "build",
-                "${workspaceFolder}/src/BEditor.WPF/BEditor.WPF.csproj",
+                "${workspaceFolder}/src/BEditor.Avalonia/BEditor.Avalonia.csproj",
                 "/property:GenerateFullPaths=true",
                 "/consoleloggerparameters:NoSummary"
             ],
@@ -17,9 +25,17 @@
             "label": "publish",
             "command": "dotnet",
             "type": "process",
+            "windows": {
+                "args": [
+                    "publish",
+                    "${workspaceFolder}/src/BEditor.WPF/BEditor.WPF.csproj",
+                    "/property:GenerateFullPaths=true",
+                    "/consoleloggerparameters:NoSummary"
+                ]
+            },
             "args": [
                 "publish",
-                "${workspaceFolder}/src/BEditor.WPF/BEditor.WPF.csproj",
+                "${workspaceFolder}/src/BEditor.Avalonia/BEditor.Avalonia.csproj",
                 "/property:GenerateFullPaths=true",
                 "/consoleloggerparameters:NoSummary"
             ],
@@ -29,10 +45,19 @@
             "label": "watch",
             "command": "dotnet",
             "type": "process",
+            "windows": {
+                "args": [
+                    "watch",
+                    "run",
+                    "${workspaceFolder}/src/BEditor.WPF/BEditor.WPF.csproj",
+                    "/property:GenerateFullPaths=true",
+                    "/consoleloggerparameters:NoSummary"
+                ]
+            },
             "args": [
                 "watch",
                 "run",
-                "${workspaceFolder}/src/BEditor.WPF/BEditor.WPF.csproj",
+                "${workspaceFolder}/src/BEditor.Avalonia/BEditor.Avalonia.csproj",
                 "/property:GenerateFullPaths=true",
                 "/consoleloggerparameters:NoSummary"
             ],

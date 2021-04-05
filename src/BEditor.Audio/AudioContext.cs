@@ -26,7 +26,12 @@ namespace BEditor.Audio
             _device = ALC.OpenDevice(null);
             _context = ALC.CreateContext(_device, (int[])null!);
 
-            CheckError();
+            var alcError = ALC.GetError(_device);
+
+            if (alcError is not AlcError.NoError)
+            {
+                throw new AudioException(alcError.ToString("g"));
+            }
 
             MakeCurrent();
         }
