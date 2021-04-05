@@ -29,18 +29,18 @@ namespace BEditor.Views.Timelines
             Height = ConstantSettings.ClipHeight;
         }
 
-        public ClipViewModel ViewModel => (ClipViewModel)DataContext!;
+        public ClipViewModel ViewModel => (DataContext as ClipViewModel)!;
 
         public void Pointer_Pressed(object s, PointerPressedEventArgs e)
         {
             var point = e.GetCurrentPoint((IVisual)s);
             if (point.Properties.IsLeftButtonPressed)
             {
-                ViewModel.PointerLeftPressed.Execute(e);
+                ViewModel.PointerLeftPressed(e);
             }
             else if (point.Properties.IsRightButtonPressed)
             {
-                ViewModel.PointerRightPressed.Execute(point.Position);
+                ViewModel.PointerRightPressed(point.Position);
             }
         }
 
@@ -49,14 +49,14 @@ namespace BEditor.Views.Timelines
             var point = e.GetCurrentPoint((IVisual)s);
             if (point.Properties.PointerUpdateKind is PointerUpdateKind.LeftButtonReleased)
             {
-                ViewModel.PointerLeftReleased.Execute(e);
+                ViewModel.PointerLeftReleased();
             }
         }
 
         public void Pointer_Moved(object s, PointerEventArgs e)
         {
             var point = e.GetCurrentPoint((IVisual)s);
-            ViewModel.PointerMoved.Execute(point.Position);
+            ViewModel.PointerMoved(point.Position);
         }
 
         private void InitializeComponent()

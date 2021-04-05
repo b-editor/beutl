@@ -32,15 +32,14 @@ namespace BEditor
 
         public void Button_Click(object s, RoutedEventArgs e)
         {
-            //var pop = this.FindControl<Popup>("Pop");
-            //pop.IsOpen = true;
+
         }
 
         public async void ShowSettings(object s, RoutedEventArgs e)
         {
             await new SettingsWindow().ShowDialog(this);
         }
-        
+
         public async void CreateProjectClick(object s, RoutedEventArgs e)
         {
             var viewmodel = new CreateProjectViewModel();

@@ -59,7 +59,7 @@ namespace BEditor
             {
                 Mode = Settings.Default.UseDarkMode ? FluentThemeMode.Dark : FluentThemeMode.Light
             };
-            
+
             Styles.Add(theme);
         }
 

@@ -64,84 +64,6 @@ namespace BEditor.ViewModels.Timelines
                 .Where(e => e.PropertyName is nameof(ClipElement.Layer))
                 .Subscribe(_ => TimelineViewModel.ClipLayerMoveCommand?.Invoke(ClipElement, ClipElement.Layer));
 
-            PointerLeftPressed.Subscribe(e =>
-            {
-                var scene = ClipElement.Parent;
-                TimelineViewModel.ClipMouseDown = true;
-
-                TimelineViewModel.ClipStart = TimelineViewModel.GetLayerMousePosition?.Invoke(e) ?? throw new Exception();
-
-                TimelineViewModel.SelectedClip = ClipElement;
-
-                if (TimelineViewModel.SelectedClip.GetCreateClipViewModel().ClipCursor.Value == StandardCursorType.SizeWestEast)
-                {
-                    TimelineViewModel.LayerCursor.Value = StandardCursorType.SizeWestEast;
-                }
-            });
-
-            PointerRightPressed.Subscribe(pt => _mouseRightPoint = pt);
-
-            PointerLeftReleased.Subscribe(() =>
-            {
-                TimelineViewModel.SeekbarIsMouseDown = false;
-                var selectedClip = TimelineViewModel.SelectedClip;
-
-                if (selectedClip is null) return;
-
-                TimelineViewModel.ClipMouseDown = false;
-
-                //保存
-                if (TimelineViewModel.ClipLeftRight != 0)
-                {
-                    int start = selectedClip.Parent.ToFrame(selectedClip.GetCreateClipViewModel().MarginLeft);
-                    int end = selectedClip.Parent.ToFrame(selectedClip.GetCreateClipViewModel().WidthProperty.Value) + start;
-
-                    if (0 < start && 0 < end)
-                    {
-                        selectedClip.ChangeLength(start, end).Execute();
-                    }
-                }
-
-                if (TimelineViewModel.ClipTimeChange)
-                {
-                    var frame = selectedClip.Parent.ToFrame(selectedClip.GetCreateClipViewModel().MarginLeft);
-                    var layer = selectedClip.GetCreateClipViewModel().Row;
-
-                    selectedClip.MoveFrameLayer(frame, layer).Execute();
-
-                    TimelineViewModel.ClipTimeChange = false;
-                }
-
-                //存在しない場合
-                Scene.SetCurrentClip(ClipElement);
-
-                TimelineViewModel.ClipLeftRight = 0;
-                TimelineViewModel.LayerCursor.Value = StandardCursorType.Arrow;
-            });
-
-            PointerMoved.Subscribe(point =>
-            {
-                if (TimelineViewModel.ClipMouseDown) return;
-
-                var horizon = point.X;
-
-                //左右 10px内 なら左右矢印↔
-                if (horizon < 10)
-                {
-                    ClipCursor.Value = StandardCursorType.SizeWestEast;
-                    TimelineViewModel.ClipLeftRight = 1;
-                }
-                else if (horizon > ClipElement.Parent.ToPixel(ClipElement.Length) - 10)
-                {
-                    ClipCursor.Value = StandardCursorType.SizeWestEast;
-                    TimelineViewModel.ClipLeftRight = 2;
-                }
-                else
-                {
-                    ClipCursor.Value = StandardCursorType.Arrow;
-                }
-            });
-
             Copy.Subscribe(async () =>
             {
                 await using var memory = new MemoryStream();
@@ -225,14 +147,6 @@ namespace BEditor.ViewModels.Timelines
 
         public ReactivePropertySlim<StandardCursorType> ClipCursor { get; } = new();
 
-        public ReactiveCommand<PointerEventArgs> PointerLeftPressed { get; } = new();
-
-        public ReactiveCommand<Point> PointerRightPressed { get; } = new();
-
-        public ReactiveCommand PointerLeftReleased { get; } = new();
-
-        public ReactiveCommand<Point> PointerMoved { get; } = new();
-
         public ReactiveCommand Copy { get; } = new();
 
         public ReactiveCommand Cut { get; } = new();
@@ -242,5 +156,90 @@ namespace BEditor.ViewModels.Timelines
         public ReactiveCommand MessageLog { get; } = new();
 
         public ReactiveCommand Split { get; } = new();
+
+        public void PointerLeftPressed(PointerEventArgs e)
+        {
+            var timeline = TimelineViewModel;
+            var scene = ClipElement.Parent;
+            timeline.ClipMouseDown = true;
+
+            timeline.ClipStart = timeline.GetLayerMousePosition?.Invoke(e) ?? throw new Exception();
+
+            timeline.SelectedClip = ClipElement;
+
+            if (timeline.SelectedClip.GetCreateClipViewModel().ClipCursor.Value == StandardCursorType.SizeWestEast)
+            {
+                timeline.LayerCursor.Value = StandardCursorType.SizeWestEast;
+            }
+        }
+
+        public void PointerRightPressed(Point point)
+        {
+            _mouseRightPoint = point;
+        }
+
+        public void PointerLeftReleased()
+        {
+            var timelinevm = TimelineViewModel;
+
+            timelinevm.SeekbarIsMouseDown = false;
+            var selectedClip = timelinevm.SelectedClip;
+
+            if (selectedClip is null) return;
+
+            timelinevm.ClipMouseDown = false;
+
+            // 値の保存
+            if (timelinevm.ClipLeftRight != 0)
+            {
+                int start = selectedClip.Parent.ToFrame(selectedClip.GetCreateClipViewModel().MarginLeft);
+                int end = selectedClip.Parent.ToFrame(selectedClip.GetCreateClipViewModel().WidthProperty.Value) + start;
+
+                if (0 < start && 0 < end)
+                {
+                    selectedClip.ChangeLength(start, end).Execute();
+                }
+            }
+
+            if (timelinevm.ClipTimeChange)
+            {
+                var frame = selectedClip.Parent.ToFrame(selectedClip.GetCreateClipViewModel().MarginLeft);
+                var layer = selectedClip.GetCreateClipViewModel().Row;
+
+                selectedClip.MoveFrameLayer(frame, layer).Execute();
+
+                timelinevm.ClipTimeChange = false;
+            }
+
+            // SelectItemに設定
+            Scene.SetCurrentClip(ClipElement);
+
+            timelinevm.ClipLeftRight = 0;
+            timelinevm.LayerCursor.Value = StandardCursorType.Arrow;
+        }
+
+        public void PointerMoved(Point point)
+        {
+            var timeline = TimelineViewModel;
+            if (timeline.ClipMouseDown) return;
+
+            var horizon = point.X;
+
+            // 左右 10px内 なら左右矢印↔
+            if (horizon < 10)
+            {
+                ClipCursor.Value = StandardCursorType.SizeWestEast;
+                timeline.ClipLeftRight = 1;
+            }
+            else if (horizon > ClipElement.Parent.ToPixel(ClipElement.Length) - 10)
+            {
+                ClipCursor.Value = StandardCursorType.SizeWestEast;
+                timeline.ClipLeftRight = 2;
+            }
+            else
+            {
+                ClipCursor.Value = StandardCursorType.Arrow;
+            }
+        }
     }
 }

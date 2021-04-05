@@ -6,6 +6,7 @@
   xmlns:prop="clr-namespace:BEditor.Properties"
   xmlns:views="using:BEditor.Views"
   xmlns:vm="using:BEditor.ViewModels"
+  xmlns:command="clr-namespace:BEditor.Command;assembly=BEditor.Core"
   xmlns:ctr="using:BEditor.Controls"
   mc:Ignorable="d"
   d:DesignWidth="1440"
@@ -58,16 +59,19 @@
       <MenuItem Header="{x:Static prop:Strings.AccessEdit}">
         <!--やり直す-->
         <MenuItem
+          Command="{CompiledBinding Undo, Mode=OneTime}"
           Header="{x:Static prop:Strings.Undo}"
-          IsEnabled="{CompiledBinding IsOpened.Value, Mode=OneWay}"/>
+          IsEnabled="{CompiledBinding CanUndo, Mode=OneWay, Source={x:Static command:CommandManager.Default}}"/>
 
         <!--元に戻す-->
         <MenuItem
+          Command="{CompiledBinding Redo, Mode=OneTime}"
           Header="{x:Static prop:Strings.Redo}"
-          IsEnabled="{CompiledBinding IsOpened.Value, Mode=OneWay}"/>
+          IsEnabled="{CompiledBinding CanRedo, Mode=OneWay, Source={x:Static command:CommandManager.Default}}"/>
 
         <!--削除-->
         <MenuItem
+          Command="{CompiledBinding Remove, Mode=OneTime}"
           Header="{x:Static prop:Strings.Remove}"
           IsEnabled="{CompiledBinding IsOpened.Value, Mode=OneWay}"/>
 
@@ -75,16 +79,19 @@
 
         <!--切り取り-->
         <MenuItem
+          Command="{CompiledBinding Cut, Mode=OneTime}"
           Header="{x:Static prop:Strings.Cut}"
           IsEnabled="{CompiledBinding IsOpened.Value, Mode=OneWay}"/>
 
         <!--コピー-->
         <MenuItem
+          Command="{CompiledBinding Copy, Mode=OneTime}"
           Header="{x:Static prop:Strings.Copy}"
           IsEnabled="{CompiledBinding IsOpened.Value, Mode=OneWay}"/>
 
         <!--貼り付け-->
         <MenuItem
+          Command="{CompiledBinding Paste, Mode=OneTime}"
           Header="{x:Static prop:Strings.Paste}"
           IsEnabled="{CompiledBinding IsOpened.Value, Mode=OneWay}"/>
 
@@ -112,6 +119,9 @@
     <Label
       Grid.Row="1"
       Grid.RowSpan="3"
+      Padding="0"
+      IsEnabled="{CompiledBinding IsOpened.Value, Mode=OneWay}"
+      Content="{Binding App.Project.PreviewScene.SelectItem, Converter={StaticResource ClipPropertyConverter}, Mode=OneWay}"
       Background="{DynamicResource SystemControlHighlightListLowBrush}"/>
 
     <GridSplitter Grid.Row="1" Grid.RowSpan="3" Grid.Column="1"/>
@@ -136,7 +146,6 @@
     <TabControl
       Grid.Row="1"
       Grid.Column="2"
-      FontSize="12"
       Padding="0"
       Margin="4,0" >
       <TabControl.ItemsPanel>

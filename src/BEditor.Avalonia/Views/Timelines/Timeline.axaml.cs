@@ -159,6 +159,10 @@ namespace BEditor.Views.Timelines
             _timelineGrid.PointerReleased += TimelineGrid_PointerReleased;
             _timelineGrid.PointerPressed += TimelineGrid_PointerPressed;
             _timelineGrid.PointerLeave += TimelineGrid_PointerLeave;
+            _timelineGrid.AddHandler(DragDrop.DragEnterEvent, TimelineGrid_DragEnter, RoutingStrategies.Tunnel);
+            _timelineGrid.AddHandler(DragDrop.DragOverEvent, TimelineGrid_DragOver, RoutingStrategies.Tunnel);
+            _timelineGrid.AddHandler(DragDrop.DropEvent, TimelineGrid_Drop, RoutingStrategies.Tunnel);
+            DragDrop.SetAllowDrop(_timelineGrid, true);
 
             // WPF ‚Ì Preview* ƒCƒxƒ“ƒg
             _scrollLine.AddHandler(PointerWheelChangedEvent, ScrollLine_PointerWheel, RoutingStrategies.Tunnel);
@@ -255,7 +259,7 @@ namespace BEditor.Views.Timelines
 
         private void TimelineGrid_PointerLeave(object? sender, PointerEventArgs e)
         {
-            ViewModel.TimelinePointerLeaved.Execute();
+            ViewModel.PointerLeaved();
         }
 
         private void TimelineGrid_PointerPressed(object? sender, PointerPressedEventArgs e)
@@ -270,7 +274,7 @@ namespace BEditor.Views.Timelines
 
             if (point.Properties.IsLeftButtonPressed)
             {
-                vm.TimelinePointerLeftPressed.Execute(pos);
+                vm.PointerLeftPressed();
             }
         }
 
@@ -281,13 +285,25 @@ namespace BEditor.Views.Timelines
 
             if (point.Properties.PointerUpdateKind is PointerUpdateKind.LeftButtonReleased)
             {
-                ViewModel.TimelinePointerLeftReleased.Execute();
+                ViewModel.PointerLeftReleased();
             }
         }
 
         private void TimelineGrid_PointerMoved(object? sender, PointerEventArgs e)
         {
-            ViewModel.TimelinePointerMoved.Execute(e.GetPosition((IVisual?)sender));
+            ViewModel.PointerMoved(e.GetPosition((IVisual?)sender));
+        }
+
+        private void TimelineGrid_DragEnter(object? sender, DragEventArgs e)
+        {
+        }
+
+        private void TimelineGrid_DragOver(object? sender, DragEventArgs e)
+        {
+        }
+
+        private void TimelineGrid_Drop(object? sender, DragEventArgs e)
+        {
         }
 
         private void ScrollLine_ScrollChanged1(object? sender, ScrollChangedEventArgs e)

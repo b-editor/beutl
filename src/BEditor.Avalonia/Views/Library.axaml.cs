@@ -35,6 +35,8 @@ namespace BEditor.Views
 
                 // ドラッグ開始
                 await DragDrop.DoDragDrop(e, dataObject, DragDropEffects.Copy);
+
+                _tree.SelectedItem = null;
             }
         }
 

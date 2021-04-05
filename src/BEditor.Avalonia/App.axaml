@@ -8,6 +8,8 @@
     <convert:SceneToTimelineConverter x:Key="SceneToTimelineConverter"/>
     <convert:PluginNameConverter x:Key="NameConvert"/>
     <convert:PluginAuthorConverter x:Key="AuthorConvert"/>
+    <convert:ClipPropertyConverter x:Key="ClipPropertyConverter"/>
+    <convert:EffectPropertyConverter x:Key="EffectPropertyConverter"/>
   </Application.Resources>
   <Application.Styles>
     <StyleInclude Source="avares://BEditor.Avalonia/Controls/SeekSlider.axaml" />

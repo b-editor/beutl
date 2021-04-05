@@ -9,7 +9,7 @@
   <ScrollViewer>
     <TreeView
       x:Name="TreeView"
-      SelectionMode="AlwaysSelected"
+      SelectionMode="Single"
       Items="{x:Static data:EffectMetadata.LoadedEffects}" >
       <TreeView.DataTemplates>
         <TreeDataTemplate DataType="data:EffectMetadata" ItemsSource="{Binding Children}">
