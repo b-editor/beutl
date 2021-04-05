@@ -13,6 +13,21 @@
   </UserControl.DataContext>
   <VirtualizingStackPanel>
 
+    <TextBlock Text="{x:Static resources:Strings.General}" Classes="SettingsHeader"/>
+
+    <Grid>
+      <Grid.ColumnDefinitions>
+        <ColumnDefinition Width="Auto"/>
+        <ColumnDefinition/>
+      </Grid.ColumnDefinitions>
+      <VirtualizingStackPanel>
+        <Label Content="{x:Static resources:Strings.UseDarkMode}" Classes="SettingsItemHeader"/>
+      </VirtualizingStackPanel>
+      <VirtualizingStackPanel Grid.Column="1">
+        <CheckBox IsChecked="{CompiledBinding UseDarkMode, Source={x:Static root:Settings.Default}, Mode=TwoWay}" Classes="SettingsCheckBox"/>
+      </VirtualizingStackPanel>
+    </Grid>
+
     <TextBlock Text="{x:Static resources:Strings.Timeline}" Classes="SettingsHeader"/>
 
     <Grid>

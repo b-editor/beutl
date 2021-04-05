@@ -10,7 +10,6 @@
     <convert:PluginAuthorConverter x:Key="AuthorConvert"/>
   </Application.Resources>
   <Application.Styles>
-    <FluentTheme Mode="Dark"/>
     <StyleInclude Source="avares://BEditor.Avalonia/Controls/SeekSlider.axaml" />
     <StyleInclude Source="avares://BEditor.Avalonia/Controls/Sidebar.axaml" />
     <StyleInclude Source="avares://BEditor.Avalonia/Views/Settings/SettingsResources.axaml" />

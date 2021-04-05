@@ -76,7 +76,7 @@ namespace BEditor.ViewModels.DialogContent
         private async void CreateCore()
         {
             var app = AppModel.Current;
-            var settings = BEditor.Settings.Default; ;
+            var settings = BEditor.Settings.Default;
             var project = new Project(
                 (int)Width.Value,
                 (int)Height.Value,

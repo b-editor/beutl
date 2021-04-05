@@ -123,7 +123,7 @@
       IsEnabled="{CompiledBinding IsOpened.Value, Mode=OneWay}"
       Content="{Binding App.Project.PreviewScene, Converter={StaticResource SceneToTimelineConverter}, Mode=OneWay}"
       Background="{DynamicResource SystemControlHighlightListLowBrush}"/>
-    
+
     <GridSplitter Grid.Row="2" Grid.Column="2" Grid.ColumnSpan="3"/>
 
     <views:Previewer
@@ -132,5 +132,34 @@
       Grid.Column="4"/>
 
     <GridSplitter Grid.Row="1" Grid.Column="3"/>
+
+    <TabControl
+      Grid.Row="1"
+      Grid.Column="2"
+      FontSize="12"
+      Padding="0"
+      Margin="4,0" >
+      <TabControl.ItemsPanel>
+        <ItemsPanelTemplate>
+          <StackPanel Orientation="Horizontal"/>
+        </ItemsPanelTemplate>
+      </TabControl.ItemsPanel>
+      <TabItem
+        Header="{x:Static prop:Strings.Library}"
+        FontSize="16"
+        Padding="8" >
+        <views:Library />
+      </TabItem>
+      <TabItem
+        Header="{x:Static prop:Strings.ObjectViewer}"
+        FontSize="16"
+        Padding="8" >
+      </TabItem>
+      <TabItem
+        Header="{x:Static prop:Strings.Log}"
+        FontSize="16"
+        Padding="8" >
+      </TabItem>
+    </TabControl>
   </Grid>
 </Window>
