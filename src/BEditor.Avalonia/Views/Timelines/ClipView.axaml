@@ -4,12 +4,14 @@
   xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
   xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
   xmlns:properties="using:BEditor.Properties"
+  xmlns:vm="using:BEditor.ViewModels.Timelines"
+  x:DataType="vm:ClipViewModel"
   mc:Ignorable="d" d:DesignWidth="800" d:DesignHeight="450"
   HorizontalAlignment="Left"
   VerticalAlignment="Top"
-  Width="{Binding WidthProperty.Value, Mode=OneWay}"
-  Margin="{Binding MarginProperty.Value, Mode=OneWay}"
-  Cursor="{Binding ClipCursor.Value, Mode=OneWay, Converter={StaticResource CursorTypeToCursorConverter}}"
+  Width="{CompiledBinding WidthProperty.Value, Mode=OneWay}"
+  Margin="{CompiledBinding MarginProperty.Value, Mode=OneWay}"
+  Cursor="{CompiledBinding ClipCursor.Value, Mode=OneWay, Converter={StaticResource CursorTypeToCursorConverter}}"
   x:Class="BEditor.Views.Timelines.ClipView">
   <UserControl.Resources>
     <!--<convert:EffectElementToKeyFrame x:Key="EffectElementToKeyFrame" />-->
@@ -19,13 +21,13 @@
   </UserControl.Resources>
   <Border
     CornerRadius="3"
-    Background="{Binding ClipColor.Value}"
+    Background="{CompiledBinding ClipColor.Value}"
     PointerPressed="Pointer_Pressed"
     PointerReleased="Pointer_Released"
     PointerMoved="Pointer_Moved" >
     <Border.ContextMenu>
       <ContextMenu>
-        <MenuItem Command="{Binding MessageLog, Mode=OneTime}">
+        <MenuItem Command="{CompiledBinding MessageLog, Mode=OneTime}">
           <MenuItem.Header>
             <VirtualizingStackPanel Orientation="Horizontal">
               <!--<md:PackIcon Margin="5,0,5,0" Kind="InformationOutline" />-->
@@ -34,7 +36,7 @@
           </MenuItem.Header>
         </MenuItem>
         <Separator />
-        <MenuItem Command="{Binding Split, Mode=OneTime}">
+        <MenuItem Command="{CompiledBinding Split, Mode=OneTime}">
           <MenuItem.Header>
             <Grid>
               <Grid.ColumnDefinitions>
@@ -50,7 +52,7 @@
           </MenuItem.Header>
         </MenuItem>
         <Separator />
-        <MenuItem Command="{Binding Cut, Mode=OneTime}">
+        <MenuItem Command="{CompiledBinding Cut, Mode=OneTime}">
           <MenuItem.Header>
             <Grid>
               <Grid.ColumnDefinitions>
@@ -65,7 +67,7 @@
             </Grid>
           </MenuItem.Header>
         </MenuItem>
-        <MenuItem Command="{Binding Copy, Mode=OneTime}">
+        <MenuItem Command="{CompiledBinding Copy, Mode=OneTime}">
           <MenuItem.Header>
             <Grid>
               <Grid.ColumnDefinitions>
@@ -96,7 +98,7 @@
           </MenuItem.Header>
         </MenuItem>
         <Separator />
-        <MenuItem Command="{Binding Remove, Mode=OneTime}">
+        <MenuItem Command="{CompiledBinding Remove, Mode=OneTime}">
           <MenuItem.Header>
             <Grid>
               <Grid.ColumnDefinitions>
@@ -113,20 +115,20 @@
         </MenuItem>
       </ContextMenu>
     </Border.ContextMenu>
-    <Grid Height="{Binding TrackHeight, Mode=OneTime}">
+    <Grid Height="{CompiledBinding TrackHeight, Mode=OneTime}">
       <VirtualizingStackPanel Orientation="Horizontal">
         <TextBlock
           Margin="10,0,10,0"
           VerticalAlignment="Center"
           FontSize="14"
           Foreground="White"
-          Text="{Binding ClipText.Value, Mode=OneWay}" />
+          Text="{CompiledBinding ClipText.Value, Mode=OneWay}" />
         <TextBlock
           Margin="10,0,10,0"
           VerticalAlignment="Center"
           FontSize="12"
           Foreground="White"
-          Text="{Binding ClipElement.LabelText, Mode=OneWay}" />
+          Text="{CompiledBinding ClipElement.LabelText, Mode=OneWay}" />
       </VirtualizingStackPanel>
     </Grid>
   </Border>

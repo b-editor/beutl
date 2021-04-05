@@ -6,6 +6,8 @@
   xmlns:ctr="using:BEditor.Controls"
   xmlns:props="using:BEditor.Properties"
   xmlns:convert="using:BEditor.Converters"
+  xmlns:vm="using:BEditor.ViewModels"
+  x:DataType="vm:PreviewerViewModel"
   mc:Ignorable="d" d:DesignWidth="800" d:DesignHeight="450"
   x:Class="BEditor.Views.Previewer">
   <UserControl.Resources>
@@ -13,11 +15,11 @@
   </UserControl.Resources>
   <Grid RowDefinitions="*,Auto">
     <Image
-      Source="{Binding PreviewImage.Value, Mode=OneWay}"
+      Source="{CompiledBinding PreviewImage.Value, Mode=OneWay}"
       IsHitTestVisible="False"
       Margin="0"/>
 
-    <Grid Grid.Row="1" IsEnabled="{Binding IsOpened.Value, Mode=OneWay}">
+    <Grid Grid.Row="1" IsEnabled="{CompiledBinding IsOpened.Value, Mode=OneWay}">
       <Grid.ColumnDefinitions>
         <ColumnDefinition/>
         <ColumnDefinition Width="Auto"/>
@@ -25,7 +27,7 @@
 
 
       <ctr:SeekSlider
-        IsEnabled="{Binding IsOpened.Value, Mode=OneWay}"
+        IsEnabled="{CompiledBinding IsOpened.Value, Mode=OneWay}"
         Maximum="{Binding App.Project.PreviewScene.TotalFrame.Value, Mode=OneWay}"
         Value="{Binding App.Project.PreviewScene.PreviewFrame, Mode=TwoWay, Converter={StaticResource FrameToDoubleConverter}}"
         VerticalAlignment="Center"
@@ -34,7 +36,7 @@
       
       <VirtualizingStackPanel Grid.Column="1" Orientation="Horizontal">
         <Button
-          Command="{Binding MoveToTop, Mode=OneTime}"
+          Command="{CompiledBinding MoveToTop, Mode=OneTime}"
           Background="Transparent"
           Foreground="White"
           ToolTip.Tip="{x:Static props:Strings.MoveToTop}">
@@ -50,28 +52,28 @@
           </PathIcon>
         </Button>
         <Button
-          Command="{Binding MoveToPrevious, Mode=OneTime}"
+          Command="{CompiledBinding MoveToPrevious, Mode=OneTime}"
           Background="Transparent"
           Foreground="White"
           ToolTip.Tip="{x:Static props:Strings.MoveToPreviousFrame}">
           <PathIcon Data="M896 374l-806 650l806 645v-1295zM768 641v762l-474 -379zM986 1024l806 645v-1295zM1664 641v762l-474 -379z"/>
         </Button>
         <Button
-          Command="{Binding PlayPause, Mode=OneTime}"
+          Command="{CompiledBinding PlayPause, Mode=OneTime}"
           Background="Transparent"
           Foreground="White"
           ToolTip.Tip="{x:Static props:Strings.PlayPause}">
           <PathIcon Data="M1792 1024l-1280 -896v1792zM640 374l929 650l-929 650v-1300z"/>
         </Button>
         <Button
-          Command="{Binding MoveToNext, Mode=OneTime}"
+          Command="{CompiledBinding MoveToNext, Mode=OneTime}"
           Background="Transparent"
           Foreground="White"
           ToolTip.Tip="{x:Static props:Strings.MoveToNextFrame}">
           <PathIcon Data="M1152 1669l806 -645l-806 -650v1295zM1280 1403v-762l474 383zM256 374v1295l806 -645zM384 1403v-762l474 383z"/>
         </Button>
         <Button
-          Command="{Binding MoveToEnd, Mode=OneTime}"
+          Command="{CompiledBinding MoveToEnd, Mode=OneTime}"
           Background="Transparent"
           Foreground="White"
           ToolTip.Tip="{x:Static props:Strings.MoveToEnd}">

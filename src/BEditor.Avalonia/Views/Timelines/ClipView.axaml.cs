@@ -26,9 +26,7 @@ namespace BEditor.Views.Timelines
 
             InitializeComponent();
 
-
             Height = ConstantSettings.ClipHeight;
-
         }
 
         public ClipViewModel ViewModel => (ClipViewModel)DataContext!;

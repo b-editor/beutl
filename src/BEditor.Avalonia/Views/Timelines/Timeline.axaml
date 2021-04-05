@@ -3,8 +3,10 @@
   xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
   xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
   xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+  xmlns:vm="using:BEditor.ViewModels.Timelines"
   mc:Ignorable="d" d:DesignWidth="800" d:DesignHeight="450"
   xmlns:properties="clr-namespace:BEditor.Properties"
+  x:DataType="vm:TimelineViewModel"
   x:Class="BEditor.Views.Timelines.Timeline">
   <Grid ColumnDefinitions="200,*" RowDefinitions="32,*">
     <ScrollViewer
@@ -17,15 +19,15 @@
 
       <Grid
         Background="Transparent"
-        Cursor="{Binding LayerCursor.Value, Mode=OneWay, Converter={StaticResource CursorTypeToCursorConverter}}"
+        Cursor="{CompiledBinding LayerCursor.Value, Mode=OneWay, Converter={StaticResource CursorTypeToCursorConverter}}"
         x:Name="timelinegrid"
-        Width="{Binding TrackWidth.Value, Mode=OneWay}"
-        Height="{Binding #LayerLabel.Bounds.Height, Mode=OneWay}"
+        Width="{CompiledBinding TrackWidth.Value, Mode=OneWay}"
+        Height="{CompiledBinding #LayerLabel.Bounds.Height, Mode=OneWay}"
         VerticalAlignment="Top"
         HorizontalAlignment="Left">
         <Grid.ContextMenu>
           <ContextMenu x:Name="TimelineMenu" Margin="0,0,0,0">
-            <MenuItem>
+            <MenuItem IsEnabled="False">
               <MenuItem.Header>
                 <Grid>
                   <Grid.ColumnDefinitions>
@@ -40,7 +42,7 @@
                 </Grid>
               </MenuItem.Header>
             </MenuItem>
-            <MenuItem>
+            <MenuItem IsEnabled="False">
               <MenuItem.Header>
                 <Grid>
                   <Grid.ColumnDefinitions>
@@ -55,7 +57,7 @@
                 </Grid>
               </MenuItem.Header>
             </MenuItem>
-            <MenuItem Command="{Binding Paste, Mode=OneTime}">
+            <MenuItem Command="{CompiledBinding Paste, Mode=OneTime}">
               <MenuItem.Header>
                 <Grid>
                   <Grid.ColumnDefinitions>
@@ -71,7 +73,7 @@
               </MenuItem.Header>
             </MenuItem>
             <Separator />
-            <MenuItem Command="{Binding ShowSettings, Mode=OneTime}">
+            <MenuItem Command="{CompiledBinding ShowSettings, Mode=OneTime}">
               <MenuItem.Header>
                 <VirtualizingStackPanel Orientation="Horizontal">
                   <!--<md:PackIcon Margin="5,0,5,0" Kind="Settings" />-->
@@ -84,14 +86,14 @@
 
         <Grid
           x:Name="scale"
-          Width="{Binding TrackWidth.Value, Mode=OneWay}"
+          Width="{CompiledBinding TrackWidth.Value, Mode=OneWay}"
           Height="32"
           HorizontalAlignment="Left"/>
 
         <Border
           ZIndex="2"
           Width="1.25"
-          Margin="{Binding SeekbarMargin.Value, Mode=OneWay}"
+          Margin="{CompiledBinding SeekbarMargin.Value, Mode=OneWay}"
           HorizontalAlignment="Left"
           Background="Red" />
       </Grid>

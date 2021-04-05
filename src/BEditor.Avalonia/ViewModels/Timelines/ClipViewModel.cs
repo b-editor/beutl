@@ -121,6 +121,8 @@ namespace BEditor.ViewModels.Timelines
 
             PointerMoved.Subscribe(point =>
             {
+                if (TimelineViewModel.ClipMouseDown) return;
+
                 var horizon = point.X;
 
                 //左右 10px内 なら左右矢印↔
@@ -210,7 +212,7 @@ namespace BEditor.ViewModels.Timelines
                 MarginProperty.Value = new(tmp.Left, value, tmp.Right, tmp.Bottom);
             }
         }
-        
+
         public double MarginLeft
         {
             get => MarginProperty.Value.Left;

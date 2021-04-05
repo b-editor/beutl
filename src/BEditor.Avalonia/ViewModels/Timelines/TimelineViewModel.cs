@@ -1,12 +1,7 @@
 ﻿using System;
-using System.Collections.Generic;
-using System.Linq;
 using System.Reactive.Linq;
-using System.Text;
-using System.Threading.Tasks;
 
 using Avalonia;
-using Avalonia.Controls;
 using Avalonia.Input;
 
 using BEditor.Data;
@@ -14,13 +9,11 @@ using BEditor.Extensions;
 using BEditor.Media;
 using BEditor.Models;
 using BEditor.Properties;
-using BEditor.Views;
+
+using Microsoft.Extensions.DependencyInjection;
 
 using Reactive.Bindings;
 using Reactive.Bindings.Extensions;
-
-using Microsoft.Extensions.DependencyInjection;
-using System.Diagnostics;
 
 namespace BEditor.ViewModels.Timelines
 {
@@ -66,11 +59,8 @@ namespace BEditor.ViewModels.Timelines
                     ResetScale?.Invoke(Scene.TimeLineZoom, Scene.TotalFrame, Scene.Parent.Framerate);
                 });
 
-            TimelinePointerLeftPressed.Subscribe(point =>
+            TimelinePointerLeftPressed.Subscribe(_ =>
             {
-                ClickedLayer = ToLayer(point.Y);
-                ClickedFrame = Scene.ToFrame(point.X);
-
                 if (ClipMouseDown || !KeyframeToggle)
                 {
                     return;
@@ -79,9 +69,7 @@ namespace BEditor.ViewModels.Timelines
                 // フラグを"マウス押下中"にする
                 SeekbarIsMouseDown = true;
 
-                var s = Scene.ToFrame(point.X);
-
-                Scene.PreviewFrame = s + 1;
+                Scene.PreviewFrame = ClickedFrame + 1;
             });
 
             TimelinePointerLeftReleased.Subscribe(() =>
@@ -109,12 +97,10 @@ namespace BEditor.ViewModels.Timelines
 
             TimelinePointerMoved.Subscribe(point =>
             {
-                // マウスの現在フレーム: point
+                // point: マウスの現在フレーム
 
                 PointerFrame = Scene.ToFrame(point.X);
                 PointerLayer = ToLayer(point.Y);
-                Debug.WriteLine($"X:{point.X} Y:{point.Y}");
-                Debug.WriteLine($"Frame:{PointerFrame} Layer:{PointerLayer}");
 
                 if (SeekbarIsMouseDown && KeyframeToggle)
                 {
@@ -128,14 +114,14 @@ namespace BEditor.ViewModels.Timelines
                     {
                         var newframe = PointerFrame - Scene.ToFrame(ClipStart.X) + Scene.ToFrame(selectviewmodel.MarginLeft);
                         var newlayer = PointerLayer;
-                        // Todo : 保存処理がおかしい
+
                         if (!Scene.InRange(SelectedClip, newframe, newframe + SelectedClip.Length, newlayer))
                         {
                             return;
                         }
 
                         Thickness thickness = default;
-                        // 横の移動
+
                         if (newframe < 0)
                         {
                             thickness = new(0, 0, 0, 0);
@@ -143,7 +129,7 @@ namespace BEditor.ViewModels.Timelines
                         else
                         {
                             thickness = new Thickness(Scene.ToPixel(newframe), ToLayerPixel(newlayer), 0, 0);
-                            Debug.WriteLine(thickness);
+                            selectviewmodel.Row = newlayer;
                         }
 
                         selectviewmodel.MarginProperty.Value = thickness;
@@ -158,11 +144,12 @@ namespace BEditor.ViewModels.Timelines
 
                         if (ClipLeftRight == 2)
                         {
-                            //左
+                            // 左
                             selectviewmodel.WidthProperty.Value += ClipMovement;
                         }
                         else if (ClipLeftRight == 1)
                         {
+                            // 右
                             var a = ClipMovement;
                             selectviewmodel.WidthProperty.Value -= a;
                             selectviewmodel.MarginLeft = selectviewmodel.MarginProperty.Value.Left + a;
@@ -223,7 +210,6 @@ namespace BEditor.ViewModels.Timelines
         public Scene Scene { get; }
         public Action<float, int, int>? ResetScale { get; set; }
         public Action<ClipElement, int>? ClipLayerMoveCommand { get; set; }
-        public Func<int>? GetPointerLayer { get; set; }
 
         public static int ToLayer(double pixel)
         {
@@ -232,7 +218,7 @@ namespace BEditor.ViewModels.Timelines
         }
         public static double ToLayerPixel(int layer)
         {
-            return (layer - 1) * ConstantSettings.ClipHeight + 1 + 32;
+            return ((layer - 1) * ConstantSettings.ClipHeight) + 1 + 32;
         }
     }
 }

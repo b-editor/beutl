@@ -4,6 +4,7 @@
              xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
              xmlns:vm="using:BEditor.ViewModels.Settings"
              xmlns:resources="using:BEditor.Properties"
+             x:DataType="vm:AppearanceViewModel"
              xmlns:root="clr-namespace:BEditor;assembly=BEditor.Settings"
              mc:Ignorable="d" d:DesignWidth="800" d:DesignHeight="450"
              x:Class="BEditor.Views.Settings.Appearance">
@@ -25,11 +26,11 @@
         <Label Content="{x:Static resources:Strings.Language}" Classes="SettingsItemHeader"/>
       </VirtualizingStackPanel>
       <VirtualizingStackPanel Grid.Column="1">
-        <NumericUpDown Value="{Binding ClipHeight, Source={x:Static root:Settings.Default}, Mode=TwoWay}" Classes="SettingsNumericUpDown"/>
-        <NumericUpDown Value="{Binding WidthOf1Frame, Source={x:Static root:Settings.Default}, Mode=TwoWay}" Classes="SettingsNumericUpDown"/>
+        <NumericUpDown Value="{CompiledBinding ClipHeight, Source={x:Static root:Settings.Default}, Mode=TwoWay}" Classes="SettingsNumericUpDown"/>
+        <NumericUpDown Value="{CompiledBinding WidthOf1Frame, Source={x:Static root:Settings.Default}, Mode=TwoWay}" Classes="SettingsNumericUpDown"/>
         <ComboBox
-          Items="{Binding Langs, Mode=OneTime}"
-          SelectedItem="{Binding Language, Source={x:Static root:Settings.Default}, Mode=TwoWay}"
+          Items="{CompiledBinding Langs, Mode=OneTime}"
+          SelectedItem="{CompiledBinding Language, Source={x:Static root:Settings.Default}, Mode=TwoWay}"
           Classes="SettingsComboBox"/>
       </VirtualizingStackPanel>
     </Grid>

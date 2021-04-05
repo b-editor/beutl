@@ -42,7 +42,7 @@ namespace BEditor.Views.Timelines
 
             _scrollLine = this.FindControl<ScrollViewer>("ScrollLine");
             _scrollLabel = this.FindControl<ScrollViewer>("ScrollLabel");
-            _layerLabel = this.FindControl<VirtualizingStackPanel>("LayerLabel");
+            _layerLabel = this.FindControl<StackPanel>("LayerLabel");
             _scale = this.FindControl<Grid>("scale");
             _timelineGrid = this.FindControl<Grid>("timelinegrid");
             _timelineMenu = this.FindControl<ContextMenu>("TimelineMenu");
@@ -171,7 +171,7 @@ namespace BEditor.Views.Timelines
             {
                 var vm = clip.GetCreateClipViewModel();
                 vm.Row = layer;
-                vm.MarginTop = TimelineViewModel.ToLayer(layer);
+                vm.MarginTop = TimelineViewModel.ToLayerPixel(layer);
             };
         }
 
@@ -262,10 +262,15 @@ namespace BEditor.Views.Timelines
         {
             var visual = (IVisual?)sender;
             var point = e.GetCurrentPoint(visual);
+            var pos = point.Position;
+            var vm = ViewModel;
+
+            vm.ClickedLayer = TimelineViewModel.ToLayer(pos.Y);
+            vm.ClickedFrame = Scene.ToFrame(pos.X);
 
             if (point.Properties.IsLeftButtonPressed)
             {
-                ViewModel.TimelinePointerLeftPressed.Execute(point.Position);
+                vm.TimelinePointerLeftPressed.Execute(pos);
             }
         }
 

@@ -73,7 +73,7 @@ namespace BEditor.ViewModels.DialogContent
             }
         }
 
-        private void CreateCore()
+        private async void CreateCore()
         {
             var app = AppModel.Current;
             var settings = BEditor.Settings.Default; ;
@@ -85,7 +85,6 @@ namespace BEditor.ViewModels.DialogContent
                 app,
                 Path.Combine(Folder.Value, Name.Value, Name.Value) + ".bedit");
 
-
             var loading = new Loading
             {
                 IsIndeterminate = { Value = true }
@@ -95,7 +94,7 @@ namespace BEditor.ViewModels.DialogContent
 
             app.Project = project;
 
-            Task.Run(async () =>
+            await Task.Run(async () =>
             {
                 project.Load();
 
@@ -112,9 +111,9 @@ namespace BEditor.ViewModels.DialogContent
                 app.AppStatus = Status.Edit;
 
                 await settings.SaveAsync();
-
-                await Dispatcher.UIThread.InvokeAsync(dialog.Close);
             });
+
+            dialog.Close();
         }
 
         private string GetNewName()
