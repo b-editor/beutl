@@ -4,14 +4,10 @@
              xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
              xmlns:properties="using:BEditor.Properties"
              xmlns:plugin="clr-namespace:BEditor.Plugin;assembly=BEditor.Core"
-             xmlns:convert="using:BEditor.Converters"
-             xmlns:vm="clr-namespace:BEditor.ViewModels.SettingsControl.Plugins"
+             xmlns:vm="using:BEditor.ViewModels.Settings"
+             x:DataType="vm:InstalledPluginsViewModel"
              mc:Ignorable="d" d:DesignWidth="800" d:DesignHeight="450"
              x:Class="BEditor.Views.Settings.InstalledPlugins">
-  <UserControl.Resources>
-    <convert:PluginNameConverter x:Key="NameConvert"/>
-    <convert:PluginAuthorConverter x:Key="AuthorConvert"/>
-  </UserControl.Resources>
   <Grid>
     <Grid.RowDefinitions>
       <RowDefinition/>
@@ -20,7 +16,7 @@
     <ListBox
       Background="Transparent"
       Items="{Binding Plugins, Source={x:Static plugin:PluginManager.Default}}"
-      SelectedItem="{Binding SelectPlugin.Value, Mode=TwoWay}">
+      SelectedItem="{CompiledBinding SelectPlugin.Value, Mode=TwoWay}">
       <ListBox.ItemTemplate>
         <DataTemplate>
           <Grid Height="60">
@@ -36,16 +32,16 @@
     <VirtualizingStackPanel Grid.Row="1" Orientation="Horizontal">
       <Button
         Background="Transparent"
-        IsEnabled="{Binding IsSelected.Value, Mode=OneWay}"
+        IsEnabled="{CompiledBinding IsSelected.Value, Mode=OneWay}"
         Margin="10"
         Content="{x:Static properties:Strings.Settings}"
-        Command="{Binding SettingClick, Mode=OneTime}"/>
+        Command="{CompiledBinding SettingClick, Mode=OneTime}"/>
       <Button
         Background="Transparent"
-        IsEnabled="{Binding IsSelected.Value, Mode=OneWay}"
+        IsEnabled="{CompiledBinding IsSelected.Value, Mode=OneWay}"
         Margin="10"
         Content="{x:Static properties:Strings.UnloadPlugin}"
-        Command="{Binding UnloadClick, Mode=OneTime}"/>
+        Command="{CompiledBinding UnloadClick, Mode=OneTime}"/>
     </VirtualizingStackPanel>
   </Grid>
 </UserControl>

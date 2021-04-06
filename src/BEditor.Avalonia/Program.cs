@@ -1,8 +1,11 @@
-using Avalonia;
-using Avalonia.Controls;
-using Avalonia.Controls.ApplicationLifetimes;
+using System.Globalization;
+using System.Net.Http;
 
-using System;
+using Avalonia;
+
+using BEditor.Models;
+
+using Microsoft.Extensions.DependencyInjection;
 
 namespace BEditor
 {
@@ -13,10 +16,24 @@ namespace BEditor
         // yet and stuff might break.
         public static void Main(string[] args)
         {
+            CultureInfo.CurrentCulture = CultureInfo.InvariantCulture;
+            CultureInfo.CurrentUICulture = CultureInfo.InvariantCulture;
+
             BuildAvaloniaApp()
                 .StartWithClassicDesktopLifetime(args);
 
             Settings.Default.Save();
+
+            DirectoryManager.Default.Stop();
+
+            App.BackupTimer.Stop();
+
+            var app = AppModel.Current;
+
+            app.ServiceProvider.GetService<HttpClient>()?.Dispose();
+
+            app.Project?.Unload();
+            app.Project = null;
         }
 
         // Avalonia configuration, don't remove; also used by visual designer.

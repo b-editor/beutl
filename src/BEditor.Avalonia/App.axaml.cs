@@ -7,7 +7,12 @@ using System.Threading.Tasks;
 using Avalonia;
 using Avalonia.Controls;
 using Avalonia.Controls.ApplicationLifetimes;
+using Avalonia.Controls.Presenters;
+using Avalonia.Controls.Templates;
 using Avalonia.Markup.Xaml;
+using Avalonia.Markup.Xaml.Templates;
+using Avalonia.Styling;
+using Avalonia.Themes.Fluent;
 using Avalonia.Threading;
 
 using BEditor.Data;
@@ -25,10 +30,13 @@ namespace BEditor
     {
         public static readonly string FFmpegDir = Path.Combine(AppContext.BaseDirectory, "ffmpeg");
         public static readonly ILogger? Logger = AppModel.Current.LoggingFactory.CreateLogger<App>();
+        public static readonly DispatcherTimer BackupTimer = new()
+        {
+            Interval = TimeSpan.FromMinutes(Settings.Default.BackUpInterval)
+        };
         private static readonly string colorsDir = Path.Combine(AppContext.BaseDirectory, "user", "colors");
         private static readonly string backupDir = Path.Combine(AppContext.BaseDirectory, "user", "backup");
         private static readonly string pluginsDir = Path.Combine(AppContext.BaseDirectory, "user", "plugins");
-        private static DispatcherTimer? _backupTimer;
 
         public static Window GetMainWindow()
         {
@@ -46,6 +54,13 @@ namespace BEditor
             CultureInfo.CurrentUICulture = CultureInfo.CurrentCulture;
 
             AvaloniaXamlLoader.Load(this);
+
+            var theme = new FluentTheme(new Uri("avares://BEditor.Avalonia/App.axaml"))
+            {
+                Mode = Settings.Default.UseDarkMode ? FluentThemeMode.Dark : FluentThemeMode.Light
+            };
+
+            Styles.Add(theme);
         }
 
         public override async void OnFrameworkInitializationCompleted()
@@ -91,32 +106,27 @@ namespace BEditor
         }
         private static void RunBackup()
         {
-            _backupTimer = new DispatcherTimer
-            {
-                Interval = TimeSpan.FromMinutes(Settings.Default.BackUpInterval)
-            };
-
-            _backupTimer.Tick += (s, e) =>
+            BackupTimer.Tick += (s, e) =>
             {
                 Task.Run(() =>
                 {
-                    //var proj = AppData.Current.Project;
-                    //if (proj is not null && Settings.Default.AutoBackUp)
-                    //{
-                    //    var dir = Path.Combine(proj.DirectoryName, "backup");
-                    //    if (!Directory.Exists(dir)) Directory.CreateDirectory(dir);
+                    var proj = AppModel.Current.Project;
+                    if (proj is not null && Settings.Default.AutoBackUp)
+                    {
+                        var dir = Path.Combine(proj.DirectoryName, "backup");
+                        if (!Directory.Exists(dir)) Directory.CreateDirectory(dir);
 
-                    //    proj.Save(Path.Combine(dir, DateTime.Now.ToString("HH:mm:ss").Replace(':', '_')) + ".backup");
+                        proj.Save(Path.Combine(dir, DateTime.Now.ToString("HH:mm:ss").Replace(':', '_')) + ".backup");
 
-                    //    var files = Directory.GetFiles(dir).Select(i => new FileInfo(i)).OrderByDescending(i => i.LastWriteTime).ToArray();
-                    //    if (files.Length is > 10)
-                    //    {
-                    //        foreach (var file in files.Skip(10))
-                    //        {
-                    //            if (file.Exists) file.Delete();
-                    //        }
-                    //    }
-                    //}
+                        var files = Directory.GetFiles(dir).Select(i => new FileInfo(i)).OrderByDescending(i => i.LastWriteTime).ToArray();
+                        if (files.Length is > 10)
+                        {
+                            foreach (var file in files.Skip(10))
+                            {
+                                if (file.Exists) file.Delete();
+                            }
+                        }
+                    }
                 });
             };
 
@@ -124,11 +134,11 @@ namespace BEditor
             {
                 if (e.PropertyName is nameof(Settings.BackUpInterval))
                 {
-                    _backupTimer.Interval = TimeSpan.FromMinutes(Settings.Default.BackUpInterval);
+                    BackupTimer.Interval = TimeSpan.FromMinutes(Settings.Default.BackUpInterval);
                 }
             };
 
-            _backupTimer.Start();
+            BackupTimer.Start();
         }
         private static void RegisterPrimitive()
         {

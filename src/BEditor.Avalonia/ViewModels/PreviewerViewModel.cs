@@ -6,6 +6,7 @@ using System.Text;
 using System.Threading.Tasks;
 
 using Avalonia.Media;
+using Avalonia.Media.Imaging;
 
 using BEditor.Models;
 
@@ -55,12 +56,13 @@ namespace BEditor.ViewModels
                 .Subscribe(s => s!.PreviewFrame = s.TotalFrame);
         }
 
-        public ReactiveProperty<IImage?> PreviewImage { get; } = new();
+        public ReactiveProperty<WriteableBitmap?> PreviewImage { get; } = new();
         public IReadOnlyReactiveProperty<bool> IsOpened { get; }
         public ReactiveCommand MoveToTop { get; } = new();
         public ReactiveCommand MoveToPrevious { get; } = new();
         public ReactiveCommand PlayPause { get; } = new();
         public ReactiveCommand MoveToNext { get; } = new();
         public ReactiveCommand MoveToEnd { get; } = new();
+        public AppModel App => AppModel.Current;
     }
 }

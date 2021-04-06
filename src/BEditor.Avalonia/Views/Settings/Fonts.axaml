@@ -3,6 +3,7 @@
              xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
              xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
              xmlns:vm="using:BEditor.ViewModels.Settings"
+             x:DataType="vm:FontsViewModel"
              mc:Ignorable="d" d:DesignWidth="800" d:DesignHeight="450"
              xmlns:properties="using:BEditor.Properties"
              xmlns:setting="clr-namespace:BEditor;assembly=BEditor.Settings"
@@ -18,8 +19,8 @@
 
     <ListBox
       Background="Transparent"
-      Items="{Binding IncludeFontDir, Source={x:Static setting:Settings.Default}}"
-      SelectedItem="{Binding SelectFont.Value, Mode=TwoWay}"/>
+      Items="{CompiledBinding IncludeFontDir, Source={x:Static setting:Settings.Default}}"
+      SelectedItem="{CompiledBinding SelectFont.Value, Mode=TwoWay}"/>
 
     <VirtualizingStackPanel
       Grid.Row="1"
@@ -31,10 +32,10 @@
         Click="AddClick"/>
       <Button
         Background="Transparent"
-        IsEnabled="{Binding IsSelected.Value, Mode=OneWay}"
+        IsEnabled="{CompiledBinding IsSelected.Value, Mode=OneWay}"
         Margin="10"
         Content="{x:Static properties:Strings.Remove}"
-        Command="{Binding Remove, Mode=OneTime}"/>
+        Command="{CompiledBinding Remove, Mode=OneTime}"/>
     </VirtualizingStackPanel>
   </Grid>
 </UserControl>

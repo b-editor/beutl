@@ -41,6 +41,7 @@ namespace BEditor.Graphics
                 Tool.ThrowGLFWError();
             }
 
+            GLFW.DefaultWindowHints();
             GLFW.WindowHint(WindowHintClientApi.ClientApi, ClientApi.OpenGlApi);
             GLFW.WindowHint(WindowHintInt.ContextVersionMajor, 3);
             GLFW.WindowHint(WindowHintInt.ContextVersionMinor, 3);

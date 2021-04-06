@@ -294,6 +294,7 @@ namespace BEditor.Data
         /// <param name="clip"><see cref="ClipElement"/> to be removed.</param>
         /// <returns>Created <see cref="IRecordCommand"/>.</returns>
         [Pure]
+        [SuppressMessage("Performance", "CA1822")]
         public IRecordCommand RemoveClip(ClipElement clip)
         {
             return new ClipElement.RemoveCommand(clip);

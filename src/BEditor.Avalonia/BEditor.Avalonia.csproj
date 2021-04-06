@@ -10,12 +10,13 @@
     <RootNamespace>BEditor</RootNamespace>
     <RuntimeIdentifiers>win-x64;linux-x64</RuntimeIdentifiers>
   </PropertyGroup>
-  
+
   <ItemGroup>
     <PackageReference Include="Avalonia" Version="0.10.0" />
     <PackageReference Include="Avalonia.Desktop" Version="0.10.0" />
     <PackageReference Include="Avalonia.Diagnostics" Version="0.10.0" />
     <PackageReference Include="MessageBox.Avalonia" Version="1.1.1" />
+    <PackageReference Include="NLog.Extensions.Logging" Version="1.7.2" />
     <PackageReference Include="ReactiveProperty" Version="7.8.3" />
    </ItemGroup>
   
@@ -37,10 +38,6 @@
       <Generator>PublicResXFileCodeGenerator</Generator>
       <LastGenOutput>Strings.Designer.cs</LastGenOutput>
     </EmbeddedResource>
-  </ItemGroup>
-  
-  <ItemGroup>
-    <Folder Include="Views\Timelines\" />
   </ItemGroup>
 
 </Project>

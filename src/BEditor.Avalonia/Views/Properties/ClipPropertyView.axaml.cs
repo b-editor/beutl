@@ -1,20 +1,22 @@
 using Avalonia;
 using Avalonia.Controls;
-using Avalonia.Interactivity;
 using Avalonia.Markup.Xaml;
 
-namespace BEditor.Controls
+using BEditor.Data;
+
+namespace BEditor.Views.Properties
 {
-    public class ContextButton : UserControl
+    public class ClipPropertyView : UserControl
     {
-        public ContextButton()
+        public ClipPropertyView()
         {
             InitializeComponent();
         }
-
-        public void Button_Click(object s, RoutedEventArgs e)
+        
+        public ClipPropertyView(ClipElement clip)
         {
-            ContextMenu?.Open();
+            InitializeComponent();
+            DataContext = clip;
         }
 
         private void InitializeComponent()
