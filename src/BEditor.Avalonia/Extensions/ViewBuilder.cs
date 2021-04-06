@@ -29,11 +29,12 @@ namespace BEditor.Extensions
         {
             PropertyViewBuilder.Create<CheckProperty>(p => new CheckPropertyView(p)),
             PropertyViewBuilder.Create<SelectorProperty>(p => new SelectorPropertyView(p)),
+            PropertyViewBuilder.Create<EaseProperty>(p => new EasePropertyView(p)),
             PropertyViewBuilder.Create<ExpandGroup>(p =>
             {
                 var header = new TextBlock
                 {
-                    Text = p.PropertyMetadata?.Name ?? string.Empty
+                    Text = p.PropertyMetadata?.Name ?? string.Empty,
                 };
                 var expander = new Expander
                 {

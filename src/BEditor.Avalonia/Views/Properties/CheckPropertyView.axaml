@@ -21,7 +21,6 @@
       <ColumnDefinition Width="50"/>
       <ColumnDefinition Width="50"/>
       <ColumnDefinition Width="*" MinWidth="100"/>
-      <ColumnDefinition Width="20"/>
     </Grid.ColumnDefinitions>
 
     <Grid>

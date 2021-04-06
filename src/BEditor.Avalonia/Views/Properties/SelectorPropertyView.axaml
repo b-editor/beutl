@@ -22,7 +22,6 @@
       <ColumnDefinition Width="50"/>
       <ColumnDefinition Width="50"/>
       <ColumnDefinition Width="*" MinWidth="100"/>
-      <ColumnDefinition Width="20"/>
     </Grid.ColumnDefinitions>
 
     <Grid>
@@ -42,6 +41,9 @@
       SelectedIndex="{CompiledBinding Property.Index, Mode=OneWay}"
       SelectionChanged="ComboBox_SelectionChanged"
       HorizontalAlignment="Stretch"
+      VerticalAlignment="Center"
+      Background="Transparent"
+      BorderBrush="Transparent"
       Grid.Column="3"
       Margin="5,0,5,0"/>
   </Grid>
