@@ -4,11 +4,12 @@
   xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
   xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
   xmlns:vm="using:BEditor.ViewModels.Properties"
-  x:DataType="vm:CheckPropertyViewModel"
+  x:DataType="vm:SelectorPropertyViewModel"
   Background="Transparent"
   Height="32.5"
-  mc:Ignorable="d" d:DesignWidth="800" d:DesignHeight="35"
-  x:Class="BEditor.Views.Properties.CheckPropertyView">
+  HorizontalAlignment="Stretch"
+  mc:Ignorable="d" d:DesignWidth="450" d:DesignHeight="32.5"
+  x:Class="BEditor.Views.Properties.SelectorPropertyView">
   <UserControl.ContextMenu>
     <ContextMenu>
       <MenuItem Header="Reset" Command="{CompiledBinding Reset, Mode=OneTime}"/>
@@ -26,20 +27,22 @@
 
     <Grid>
       <TextBlock
-          Text="{CompiledBinding Metadata.Value.Name, Mode=OneTime}"
-          VerticalAlignment="Center"
-          HorizontalAlignment="Left"
-          FontSize="13"
-          Margin="10,0,0,0"
-          TextTrimming="CharacterEllipsis"/>
+        Text="{CompiledBinding Metadata.Value.Name, Mode=OneTime}"
+        VerticalAlignment="Center"
+        HorizontalAlignment="Left"
+        FontSize="13"
+        Margin="10,0,0,0"
+        TextTrimming="CharacterEllipsis"/>
     </Grid>
 
-    <CheckBox
-        Grid.Column="2"
-        IsChecked="{CompiledBinding Property.Value, Mode=OneWay}"
-        VerticalAlignment="Center"
-        HorizontalAlignment="Center"
-        CommandParameter="{Binding $self.IsChecked}"
-        Command="{CompiledBinding Command, Mode=OneTime}"/>
+
+    <!--Combo box-->
+    <ComboBox
+      Items="{CompiledBinding Metadata.Value.ItemSource, Mode=OneTime}"
+      SelectedIndex="{CompiledBinding Property.Index, Mode=OneWay}"
+      SelectionChanged="ComboBox_SelectionChanged"
+      HorizontalAlignment="Stretch"
+      Grid.Column="3"
+      Margin="5,0,5,0"/>
   </Grid>
 </UserControl>

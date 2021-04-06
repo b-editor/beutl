@@ -120,6 +120,8 @@
       Grid.Row="1"
       Grid.RowSpan="3"
       Padding="0"
+      HorizontalContentAlignment="Stretch"
+      VerticalContentAlignment="Stretch"
       IsEnabled="{CompiledBinding IsOpened.Value, Mode=OneWay}"
       Content="{Binding App.Project.PreviewScene.SelectItem, Converter={StaticResource ClipPropertyConverter}, Mode=OneWay}"
       Background="{DynamicResource SystemControlHighlightListLowBrush}"/>

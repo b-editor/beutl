@@ -7,6 +7,7 @@ using System.Text.Json;
 
 using BEditor.Command;
 using BEditor.Data;
+using BEditor.Extensions;
 
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
@@ -33,7 +34,11 @@ namespace BEditor.Models
 
         private AppModel()
         {
-            CommandManager.Default.Executed += (_, _) => AppStatus = Status.Edit;
+            CommandManager.Default.Executed += (_, _) =>
+            {
+                Project?.PreviewUpdate(RenderType.Preview);
+                AppStatus = Status.Edit;
+            };
 
             // NLogの設定
             var config = new NLog.Config.LoggingConfiguration();

@@ -8,19 +8,20 @@
     x:Name="scrollview"
     HorizontalContentAlignment="Stretch"
     VerticalScrollBarVisibility="Hidden">
-    <StackPanel>
+    <StackPanel HorizontalAlignment="Stretch">
       <ItemsControl
+        HorizontalAlignment="Stretch"
         x:Name="itemsControl"
         Items="{Binding Effect, Mode=OneWay}">
         <ItemsControl.ItemTemplate>
           <DataTemplate>
             <Label
-                Padding="0"
-                HorizontalAlignment="Stretch"
-                VerticalAlignment="Stretch"
-                HorizontalContentAlignment="Stretch"
-                VerticalContentAlignment="Stretch"
-                Content="{Binding Converter={StaticResource EffectPropertyConverter}}" />
+              Padding="0"
+              HorizontalAlignment="Stretch"
+              VerticalAlignment="Stretch"
+              HorizontalContentAlignment="Stretch"
+              VerticalContentAlignment="Stretch"
+              Content="{Binding Converter={StaticResource EffectPropertyConverter}}" />
           </DataTemplate>
         </ItemsControl.ItemTemplate>
       </ItemsControl>

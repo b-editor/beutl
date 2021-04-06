@@ -16,6 +16,7 @@ namespace BEditor.Views.Properties
         public ClipPropertyView(ClipElement clip)
         {
             InitializeComponent();
+            DataContext = clip;
         }
 
         private void InitializeComponent()
