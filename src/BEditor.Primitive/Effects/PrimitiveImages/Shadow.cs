@@ -1,42 +1,39 @@
 ﻿using System.Collections.Generic;
-using System.Runtime.Serialization;
 
-using BEditor.Command;
 using BEditor.Data;
 using BEditor.Data.Primitive;
 using BEditor.Data.Property;
-using BEditor.Properties;
 using BEditor.Drawing;
 using BEditor.Drawing.Pixel;
+using BEditor.Primitive.Resources;
 
 namespace BEditor.Primitive.Effects
 {
     /// <summary>
     /// Represents an <see cref="ImageEffect"/> that adds a shadow to an image.
     /// </summary>
-    [DataContract]
-    public class Shadow : ImageEffect
+    public sealed class Shadow : ImageEffect
     {
         /// <summary>
         /// Represents <see cref="X"/> metadata.
         /// </summary>
-        public static readonly EasePropertyMetadata XMetadata = new(Resources.X, 10);
+        public static readonly EasePropertyMetadata XMetadata = new(Strings.X, 10);
         /// <summary>
         /// Represents <see cref="Y"/> metadata.
         /// </summary>
-        public static readonly EasePropertyMetadata YMetadata = new(Resources.Y, 10);
+        public static readonly EasePropertyMetadata YMetadata = new(Strings.Y, 10);
         /// <summary>
         /// Represents <see cref="Blur"/> metadata.
         /// </summary>
-        public static readonly EasePropertyMetadata BlurMetadata = new(Resources.Blur, 10, float.NaN, 0);
+        public static readonly EasePropertyMetadata BlurMetadata = new(Strings.Blur, 10, float.NaN, 0);
         /// <summary>
         /// Represents <see cref="Alpha"/> metadata.
         /// </summary>
-        public static readonly EasePropertyMetadata AlphaMetadata = new(Resources.Alpha, 75, 100, 0);
+        public static readonly EasePropertyMetadata AlphaMetadata = new(Strings.Opacity, 75, 100, 0);
         /// <summary>
         /// Represents <see cref="Color"/> metadata.
         /// </summary>
-        public static readonly ColorPropertyMetadata ColorMetadata = new(Resources.Color, Drawing.Color.Dark);
+        public static readonly ColorPropertyMetadata ColorMetadata = new(Strings.Color, Drawing.Color.Dark);
 
         /// <summary>
         /// Initializes a new instance of the <see cref="Shadow"/> class.
@@ -51,7 +48,7 @@ namespace BEditor.Primitive.Effects
         }
 
         /// <inheritdoc/>
-        public override string Name => Resources.DropShadow;
+        public override string Name => Strings.DropShadow;
         /// <inheritdoc/>
         public override IEnumerable<PropertyElement> Properties => new PropertyElement[]
         {
@@ -64,33 +61,35 @@ namespace BEditor.Primitive.Effects
         /// <summary>
         /// Get the <see cref="EaseProperty"/> representing the X coordinate.
         /// </summary>
-        [DataMember(Order = 0)]
+        [DataMember]
         public EaseProperty X { get; private set; }
         /// <summary>
         /// Get the <see cref="EaseProperty"/> representing the Y coordinate.
         /// </summary>
-        [DataMember(Order = 1)]
+        [DataMember]
         public EaseProperty Y { get; private set; }
         /// <summary>
         /// Gets the <see cref="EaseProperty"/> that represents the blur sigma.
         /// </summary>
-        [DataMember(Order = 2)]
+        [DataMember]
         public EaseProperty Blur { get; private set; }
         /// <summary>
         /// Gets the <see cref="EaseProperty"/> that represents the transparency.
         /// </summary>
-        [DataMember(Order = 3)]
+        [DataMember]
         public EaseProperty Alpha { get; private set; }
         /// <summary>
         /// Get the <see cref="ColorProperty"/> that represents the shadow color.
         /// </summary>
-        [DataMember(Order = 4)]
+        [DataMember]
         public ColorProperty Color { get; private set; }
 
         /// <inheritdoc/>
         public override void Render(EffectRenderArgs<Image<BGRA32>> args)
         {
-            var img = args.Value.Shadow(X.GetValue(args.Frame), Y.GetValue(args.Frame), Blur.GetValue(args.Frame), Alpha.GetValue(args.Frame) / 100, Color.Color);
+            var frame = args.Frame;
+            var img = args.Value.Shadow(X[frame], Y[frame], Blur[frame], Alpha[frame] / 100, Color.Value);
+
             args.Value.Dispose();
 
             args.Value = img;

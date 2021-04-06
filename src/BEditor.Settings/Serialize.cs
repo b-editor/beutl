@@ -13,13 +13,12 @@ namespace BEditor
 
             try
             {
-                T obj;
+                T? obj;
 
-                using (FileStream file = new FileStream(path, FileMode.Open))
-                {
-                    var serializer = new DataContractJsonSerializer(typeof(T));
-                    obj = (T?)serializer.ReadObject(file);
-                }
+                using var file = new FileStream(path, FileMode.Open);
+
+                var serializer = new DataContractJsonSerializer(typeof(T));
+                obj = (T?)serializer.ReadObject(file);
 
                 return obj;
             }

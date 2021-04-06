@@ -1,6 +1,5 @@
 ﻿using System.Collections.Generic;
 using System.Linq;
-using System.Runtime.Serialization;
 
 using BEditor.Drawing;
 using BEditor.Drawing.Pixel;
@@ -11,7 +10,6 @@ namespace BEditor.Data.Primitive
     /// <summary>
     /// Represents an effect that can be added to an <see cref="ImageObject"/>.
     /// </summary>
-    [DataContract]
     public abstract class ImageEffect : EffectElement
     {
         /// <inheritdoc cref="Render(EffectRenderArgs{Image{BGRA32}})"/>
@@ -31,6 +29,8 @@ namespace BEditor.Data.Primitive
         }
 
         /// <inheritdoc/>
-        public override void Render(EffectRenderArgs args) { }
+        public override void Render(EffectRenderArgs args)
+        {
+        }
     }
 }

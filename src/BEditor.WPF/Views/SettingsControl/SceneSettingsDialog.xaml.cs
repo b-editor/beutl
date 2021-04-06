@@ -14,7 +14,7 @@ using System.Windows.Shapes;
 
 using MahApps.Metro.Controls;
 
-namespace BEditor.Views.SettingsControls
+namespace BEditor.Views.SettingsControl
 {
     /// <summary>
     /// SceneSettingsDialog.xaml の相互作用ロジック

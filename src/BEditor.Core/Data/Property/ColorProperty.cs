@@ -1,36 +1,29 @@
 ﻿using System;
 using System.Collections.Generic;
-using System.Collections.ObjectModel;
-using System.ComponentModel;
 using System.Diagnostics;
 using System.Diagnostics.Contracts;
-using System.Reactive.Disposables;
-using System.Runtime.Serialization;
+using System.Text.Json;
 
 using BEditor.Command;
 using BEditor.Data.Bindings;
-using BEditor.Data.Property;
 using BEditor.Drawing;
+using BEditor.Resources;
 
 namespace BEditor.Data.Property
 {
     /// <summary>
     /// Represents a property to pick a color.
     /// </summary>
-    [DataContract]
     [DebuggerDisplay("Color = {_color:#argb}")]
     public class ColorProperty : PropertyElement<ColorPropertyMetadata>, IEasingProperty, IBindable<Color>
     {
         #region Fields
-        private static readonly PropertyChangedEventArgs _colorArgs = new(nameof(Color));
-        private Color _color;
+        private Color _value;
         private List<IObserver<Color>>? _list;
-
         private IDisposable? _bindDispose;
         private IBindable<Color>? _bindable;
-        private string? _bindHint;
+        private string? _targetHint;
         #endregion
-
 
         /// <summary>
         /// Initializes a new instance of the <see cref="ColorProperty"/> class.
@@ -40,25 +33,22 @@ namespace BEditor.Data.Property
         public ColorProperty(ColorPropertyMetadata metadata)
         {
             PropertyMetadata = metadata ?? throw new ArgumentNullException(nameof(metadata));
-            Color = metadata.DefaultColor;
+            Value = metadata.DefaultColor;
         }
 
-
-        private List<IObserver<Color>> Collection => _list ??= new();
         /// <summary>
         /// Gets or sets the selected color.
         /// </summary>
-        [DataMember]
-        public Color Color
+        public Color Value
         {
-            get => _color;
-            set => SetValue(value, ref _color, _colorArgs, this, state =>
+            get => _value;
+            set => SetValue(value, ref _value, DocumentProperty._valueArgs, this, state =>
             {
                 foreach (var observer in state.Collection)
                 {
                     try
                     {
-                        observer.OnNext(state._color);
+                        observer.OnNext(state._value);
                     }
                     catch (Exception ex)
                     {
@@ -67,27 +57,32 @@ namespace BEditor.Data.Property
                 }
             });
         }
+
         /// <inheritdoc/>
-        public Color Value => _color;
-        /// <inheritdoc/>
-        [DataMember]
-        public string? BindHint
+        public string? TargetHint
         {
-            get => _bindable?.GetString();
-            private set => _bindHint = value;
+            get => _bindable?.ToString("#");
+            private set => _targetHint = value;
         }
 
+        private List<IObserver<Color>> Collection => _list ??= new();
 
         #region Methods
 
         /// <inheritdoc/>
-        protected override void OnLoad()
+        public override void GetObjectData(Utf8JsonWriter writer)
         {
-            if (_bindHint is not null && this.GetBindable(_bindHint, out var b))
-            {
-                Bind(b);
-            }
-            _bindHint = null;
+            base.GetObjectData(writer);
+            writer.WriteString(nameof(Value), Value.ToString("#argb"));
+            writer.WriteString(nameof(TargetHint), TargetHint);
+        }
+
+        /// <inheritdoc/>
+        public override void SetObjectData(JsonElement element)
+        {
+            base.SetObjectData(element);
+            Value = element.TryGetProperty(nameof(Value), out var value) ? Color.FromHTML(value.GetString()) : Color.Light;
+            TargetHint = element.TryGetProperty(nameof(TargetHint), out var bind) ? bind.GetString() : null;
         }
 
         /// <summary>
@@ -98,123 +93,90 @@ namespace BEditor.Data.Property
         [Pure]
         public IRecordCommand ChangeColor(Color color) => new ChangeColorCommand(this, color);
 
-        #region IBindable
-
         /// <inheritdoc/>
         public void Bind(IBindable<Color>? bindable)
         {
-            _bindDispose?.Dispose();
-            _bindable = bindable;
-
-            if (bindable is not null)
-            {
-                Color = bindable.Value;
-
-                // bindableが変更時にthisが変更
-                _bindDispose = bindable.Subscribe(this);
-            }
+            Value = this.Bind(bindable, out _bindable, ref _bindDispose);
         }
 
         /// <inheritdoc/>
         public IDisposable Subscribe(IObserver<Color> observer)
         {
-            if (observer is null) throw new ArgumentNullException(nameof(observer));
-
-            Collection.Add(observer);
-            return Disposable.Create((observer, this), state =>
-             {
-                 state.observer.OnCompleted();
-                 state.Item2.Collection.Remove(state.observer);
-             });
+            return BindingHelper.Subscribe(Collection, observer, Value);
         }
 
         /// <inheritdoc/>
-        public void OnCompleted() { }
+        public void OnCompleted()
+        {
+        }
+
         /// <inheritdoc/>
-        public void OnError(Exception error) { }
+        public void OnError(Exception error)
+        {
+        }
+
         /// <inheritdoc/>
         public void OnNext(Color value)
         {
-            Color = value;
+            Value = value;
+        }
+
+        /// <inheritdoc/>
+        protected override void OnLoad()
+        {
+            this.AutoLoad(ref _targetHint);
         }
 
         #endregion
 
-        #endregion
-
-
         /// <summary>
-        /// 色を変更するコマンド
+        /// 色を変更するコマンド.
         /// </summary>
         private sealed class ChangeColorCommand : IRecordCommand
         {
-            private readonly ColorProperty _Property;
-            private readonly Color _New;
-            private readonly Color _Old;
+            private readonly WeakReference<ColorProperty> _property;
+            private readonly Color _new;
+            private readonly Color _old;
 
             /// <summary>
-            /// <see cref="ChangeColorCommand"/> クラスの新しいインスタンスを初期化します
+            /// <see cref="ChangeColorCommand"/> クラスの新しいインスタンスを初期化します.
             /// </summary>
-            /// <param name="property">対象の <see cref="ColorProperty"/></param>
-            /// <param name="color"></param>
-            /// <exception cref="ArgumentNullException"><paramref name="property"/> が <see langword="null"/> です</exception>
+            /// <param name="property">対象の <see cref="ColorProperty"/>.</param>
+            /// <param name="color"><see cref="ColorProperty.Value"/> の新しい値.</param>
+            /// <exception cref="ArgumentNullException"><paramref name="property"/> が <see langword="null"/> です.</exception>
             public ChangeColorCommand(ColorProperty property, Color color)
             {
-                _Property = property ?? throw new ArgumentNullException(nameof(property));
-                _New = color;
-                _Old = property.Value;
+                _property = new(property ?? throw new ArgumentNullException(nameof(property)));
+                _new = color;
+                _old = property.Value;
             }
 
             /// <inheritdoc/>
-            public string Name => CommandName.ChangeColor;
+            public string Name => Strings.ChangeColor;
 
             /// <inheritdoc/>
             public void Do()
             {
-                _Property.Color = _New;
+                if (_property.TryGetTarget(out var target))
+                {
+                    target.Value = _new;
+                }
             }
 
             /// <inheritdoc/>
-            public void Redo() => Do();
+            public void Redo()
+            {
+                Do();
+            }
 
             /// <inheritdoc/>
             public void Undo()
             {
-                _Property.Color = _Old;
+                if (_property.TryGetTarget(out var target))
+                {
+                    target.Value = _old;
+                }
             }
-        }
-    }
-
-    /// <summary>
-    /// Represents the metadata of a <see cref="ColorProperty"/>.
-    /// </summary>
-    public record ColorPropertyMetadata : PropertyElementMetadata, IPropertyBuilder<ColorProperty>
-    {
-        /// <summary>
-        /// Initializes a new instance of the <see cref="ColorPropertyMetadata"/> class.
-        /// </summary>
-        /// <param name="Name">The string displayed in the property header.</param>
-        /// <param name="DefaultColor">Default color</param>
-        /// <param name="UseAlpha">Value if the alpha component should be used or not</param>
-        public ColorPropertyMetadata(string Name, Color DefaultColor, bool UseAlpha = false) : base(Name)
-        {
-            this.DefaultColor = DefaultColor;
-            this.UseAlpha = UseAlpha;
-        }
-
-        /// <summary>
-        /// Gets the default color.
-        /// </summary>
-        public Color DefaultColor { get; init; }
-        /// <summary>
-        /// Gets a <see cref="bool"/> indicating whether or not to use the alpha component.
-        /// </summary>
-        public bool UseAlpha { get; init; }
-
-        /// <inheritdoc/>
-        public ColorProperty Build()
-        {
-            return new(this);
         }
     }
 }

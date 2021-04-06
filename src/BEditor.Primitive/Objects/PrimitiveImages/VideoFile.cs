@@ -1,17 +1,14 @@
 ﻿using System;
 using System.Collections.Generic;
-using System.Runtime.Serialization;
 
-using BEditor.Command;
 using BEditor.Data;
 using BEditor.Data.Primitive;
 using BEditor.Data.Property;
-using BEditor.Properties;
 using BEditor.Drawing;
 using BEditor.Drawing.Pixel;
 using BEditor.Media;
 using BEditor.Media.Decoder;
-using BEditor.Media.PCM;
+using BEditor.Primitive.Resources;
 
 using Microsoft.Extensions.DependencyInjection;
 
@@ -20,29 +17,28 @@ namespace BEditor.Primitive.Objects
     /// <summary>
     /// Represents an <see cref="ImageObject"/> that references an video file.
     /// </summary>
-    [DataContract]
-    public class VideoFile : ImageObject
+    public sealed class VideoFile : ImageObject
     {
         /// <summary>
         /// Represents <see cref="Speed"/> metadata.
         /// </summary>
-        public static readonly EasePropertyMetadata SpeedMetadata = new(Resources.Speed, 100);
+        public static readonly EasePropertyMetadata SpeedMetadata = new(Strings.Speed, 100);
         /// <summary>
         /// Represents <see cref="Start"/> metadata.
         /// </summary>
-        public static readonly EasePropertyMetadata StartMetadata = new(Resources.Start, 1, float.NaN, 0);
+        public static readonly EasePropertyMetadata StartMetadata = new(Strings.Start, 1, float.NaN, 0);
         /// <summary>
         /// Represents <see cref="File"/> metadata.
         /// </summary>
-        public static readonly FilePropertyMetadata FileMetadata = new(Resources.File, "", new(Resources.VideoFile, new FileExtension[]
+        public static readonly FilePropertyMetadata FileMetadata = new(Strings.File, "", new(Strings.VideoFile, new FileExtension[]
         {
             new("mp4"),
             new("avi"),
             new("wmv"),
             new("mov")
         }));
-        private IMediaDecoder? _VideoReader;
-        private IDisposable? _Disposable;
+        private IMediaDecoder? _videoReader;
+        private IDisposable? _disposable;
 
         /// <summary>
         /// Initializes a new instance of the <see cref="VideoFile"/> class.
@@ -55,14 +51,14 @@ namespace BEditor.Primitive.Objects
         }
 
         /// <inheritdoc/>
-        public override string Name => Resources.Video;
+        public override string Name => Strings.Video;
         /// <inheritdoc/>
         public override IEnumerable<PropertyElement> Properties => new PropertyElement[]
         {
             Coordinate,
-            Zoom,
+            Scale,
             Blend,
-            Angle,
+            Rotate,
             Material,
             Speed,
             Start,
@@ -71,17 +67,17 @@ namespace BEditor.Primitive.Objects
         /// <summary>
         /// Get the <see cref="EaseProperty"/> that represents the playback speed.
         /// </summary>
-        [DataMember(Order = 0)]
+        [DataMember]
         public EaseProperty Speed { get; private set; }
         /// <summary>
         /// Get the <see cref="EaseProperty"/> that represents the start position.
         /// </summary>
-        [DataMember(Order = 1)]
+        [DataMember]
         public EaseProperty Start { get; private set; }
         /// <summary>
         /// Get the <see cref="FileProperty"/> to select the video file to reference.
         /// </summary>
-        [DataMember(Order = 2)]
+        [DataMember]
         public FileProperty File { get; private set; }
 
         /// <inheritdoc/>
@@ -92,7 +88,7 @@ namespace BEditor.Primitive.Objects
             Image<BGRA32>? image = null;
             var time = new Frame((int)((start + args.Frame - Parent!.Start) * speed)).ToTimeSpan(Parent.Parent.Parent!.Framerate);
 
-            _VideoReader?.Read(time, out image);
+            _videoReader?.Read(time, out image);
 
             return image;
         }
@@ -104,23 +100,23 @@ namespace BEditor.Primitive.Objects
             Start.Load(StartMetadata);
             File.Load(FileMetadata);
 
-            if (System.IO.File.Exists(File.File))
+            if (System.IO.File.Exists(File.Value))
             {
-                _VideoReader = VideoDecoderFactory.Default.Create(File.File);
+                _videoReader = VideoDecoderFactory.Default.Create(File.Value);
             }
 
-            _Disposable = File.Subscribe(filename =>
+            _disposable = File.Subscribe(filename =>
             {
-                _VideoReader?.Dispose();
+                _videoReader?.Dispose();
 
                 try
                 {
-                    _VideoReader = VideoDecoderFactory.Default.Create(filename);
+                    _videoReader = VideoDecoderFactory.Default.Create(filename);
                 }
                 catch (Exception)
                 {
                     var mes = ServiceProvider?.GetService<IMessage>();
-                    mes?.Snackbar(string.Format(Resources.FailedToLoad, filename));
+                    mes?.Snackbar(string.Format(Strings.FailedToLoad, filename));
                 }
             });
         }
@@ -132,8 +128,8 @@ namespace BEditor.Primitive.Objects
             Start.Unload();
             File.Unload();
 
-            _VideoReader?.Dispose();
-            _Disposable?.Dispose();
+            _videoReader?.Dispose();
+            _disposable?.Dispose();
         }
     }
 }

@@ -1,22 +1,18 @@
 ﻿using System.Collections.Generic;
-using System.Runtime.Serialization;
 
-using BEditor.Command;
 using BEditor.Data;
 using BEditor.Data.Primitive;
 using BEditor.Data.Property;
-using BEditor.Properties;
 using BEditor.Drawing;
 using BEditor.Drawing.Pixel;
-using BEditor.Primitive.Objects;
+using BEditor.Primitive.Resources;
 
 namespace BEditor.Primitive.Effects
 {
     /// <summary>
     /// Represents an <see cref="ImageEffect"/> that expands the area of an image.
     /// </summary>
-    [DataContract]
-    public class AreaExpansion : ImageEffect
+    public sealed class AreaExpansion : ImageEffect
     {
         /// <summary>
         /// Initializes a new instance of the <see cref="AreaExpansion"/> class.
@@ -31,7 +27,7 @@ namespace BEditor.Primitive.Effects
         }
 
         /// <inheritdoc/>
-        public override string Name => Resources.AreaExpansion;
+        public override string Name => Strings.AreaExpansion;
         /// <inheritdoc/>
         public override IEnumerable<PropertyElement> Properties => new PropertyElement[]
         {
@@ -44,27 +40,27 @@ namespace BEditor.Primitive.Effects
         /// <summary>
         /// Get an <see cref="EaseProperty"/> that represents the number of pixels to add
         /// </summary>
-        [DataMember(Order = 0)]
+        [DataMember]
         public EaseProperty Top { get; private set; }
         /// <summary>
         /// Get an <see cref="EaseProperty"/> that represents the number of pixels to add
         /// </summary>
-        [DataMember(Order = 1)]
+        [DataMember]
         public EaseProperty Bottom { get; private set; }
         /// <summary>
         /// Get an <see cref="EaseProperty"/> that represents the number of pixels to add
         /// </summary>
-        [DataMember(Order = 2)]
+        [DataMember]
         public EaseProperty Left { get; private set; }
         /// <summary>
         /// Get an <see cref="EaseProperty"/> that represents the number of pixels to add
         /// </summary>
-        [DataMember(Order = 3)]
+        [DataMember]
         public EaseProperty Right { get; private set; }
         /// <summary>
         /// Get the <see cref="CheckProperty"/> to adjust the coordinates.
         /// </summary>
-        [DataMember(Order = 4)]
+        [DataMember]
         public CheckProperty AdjustCoordinates { get; private set; }
 
         /// <inheritdoc/>
@@ -75,7 +71,7 @@ namespace BEditor.Primitive.Effects
             int left = (int)Left.GetValue(args.Frame);
             int right = (int)Right.GetValue(args.Frame);
 
-            if (AdjustCoordinates.IsChecked && Parent!.Effect[0] is ImageObject image)
+            if (AdjustCoordinates.Value && Parent!.Effect[0] is ImageObject image)
             {
                 image.Coordinate.CenterX.Optional = (right / 2) - (left / 2);
                 image.Coordinate.CenterY.Optional = (top / 2) - (bottom / 2);

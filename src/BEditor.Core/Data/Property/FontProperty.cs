@@ -1,52 +1,35 @@
 ﻿using System;
 using System.Collections.Generic;
-using System.Collections.ObjectModel;
-using System.ComponentModel;
+using System.Diagnostics;
 using System.Diagnostics.Contracts;
 using System.Linq;
-using System.Reactive.Disposables;
-using System.Runtime.Serialization;
-using System.Threading.Tasks;
+using System.Text.Json;
 
 using BEditor.Command;
 using BEditor.Data.Bindings;
-using BEditor.Data.Property;
-using BEditor.Properties;
 using BEditor.Drawing;
-using System.Diagnostics;
+using BEditor.Resources;
 
 namespace BEditor.Data.Property
 {
     /// <summary>
     /// Represents a property for selecting a font.
     /// </summary>
-    [DataContract]
-    [DebuggerDisplay("Select = {Select}")]
+    [DebuggerDisplay("Select = {Value}")]
     public class FontProperty : PropertyElement<FontPropertyMetadata>, IEasingProperty, IBindable<Font>
     {
         #region Fields
-
-        /// <summary>
-        /// 読み込まれているフォントのリスト
-        /// </summary>
-        //Todo: FontManagerを作る
-        public static readonly List<Font> FontList = new();
-
-        private static readonly PropertyChangedEventArgs _selectArgs = new(nameof(Select));
         private Font _selectItem;
         private List<IObserver<Font>>? _list;
-
         private IDisposable? _bindDispose;
         private IBindable<Font>? _bindable;
         private string? _bindHint;
-
         #endregion
-
 
         /// <summary>
         /// Initializes a new instance of the <see cref="FontProperty"/> class.
         /// </summary>
-        /// <param name="metadata">Metadata for this property</param>
+        /// <param name="metadata">Metadata for this property.</param>
         /// <exception cref="ArgumentNullException"><paramref name="metadata"/> is <see langword="null"/>.</exception>
         public FontProperty(FontPropertyMetadata metadata)
         {
@@ -54,16 +37,13 @@ namespace BEditor.Data.Property
             _selectItem = metadata.SelectItem;
         }
 
-
-        private List<IObserver<Font>> Collection => _list ??= new();
         /// <summary>
         /// Gets or sets the selected font.
         /// </summary>
-        [DataMember]
-        public Font Select
+        public Font Value
         {
             get => _selectItem;
-            set => SetValue(value, ref _selectItem, _selectArgs, this, state =>
+            set => SetValue(value, ref _selectItem, DocumentProperty._valueArgs, this, state =>
             {
                 foreach (var observer in state.Collection)
                 {
@@ -78,152 +58,137 @@ namespace BEditor.Data.Property
                 }
             });
         }
+
         /// <inheritdoc/>
-        public Font Value => Select;
-        /// <inheritdoc/>
-        [DataMember]
-        public string? BindHint
+        public string? TargetHint
         {
-            get => _bindable?.GetString();
+            get => _bindable?.ToString("#");
             private set => _bindHint = value;
         }
 
+        private List<IObserver<Font>> Collection => _list ??= new();
 
         #region Methods
 
         /// <inheritdoc/>
-        protected override void OnLoad()
+        public override void GetObjectData(Utf8JsonWriter writer)
         {
-            if (_bindHint is not null && this.GetBindable(_bindHint, out var b))
+            base.GetObjectData(writer);
+            writer.WriteString(nameof(Value), Value.Filename);
+            writer.WriteString(nameof(TargetHint), TargetHint);
+        }
+
+        /// <inheritdoc/>
+        public override void SetObjectData(JsonElement element)
+        {
+            base.SetObjectData(element);
+            var filename = element.TryGetProperty(nameof(Value), out var value) ? value.GetString() : null;
+            if (filename is not null)
             {
-                Bind(b);
+                Value = new(filename);
             }
-            _bindHint = null;
+            else
+            {
+                Value = FontManager.Default.LoadedFonts.First();
+            }
+            TargetHint = element.TryGetProperty(nameof(TargetHint), out var bind) ? bind.GetString() : null;
         }
 
         /// <summary>
         /// Create a command to change the font.
         /// </summary>
-        /// <param name="font">New value for <see cref="Select"/></param>
-        /// <returns>Created <see cref="IRecordCommand"/></returns>
+        /// <param name="font">New value for <see cref="Value"/>.</param>
+        /// <returns>Created <see cref="IRecordCommand"/>.</returns>
         [Pure]
         public IRecordCommand ChangeFont(Font font) => new ChangeSelectCommand(this, font);
-
-        #region IBindable
 
         /// <inheritdoc/>
         public IDisposable Subscribe(IObserver<Font> observer)
         {
-            if (observer is null) throw new ArgumentNullException(nameof(observer));
-
-            Collection.Add(observer);
-            return Disposable.Create((observer, this), state =>
-            {
-                state.observer.OnCompleted();
-                state.Item2.Collection.Remove(state.observer);
-            });
+            return BindingHelper.Subscribe(Collection, observer, Value);
         }
 
         /// <inheritdoc/>
-        public void OnCompleted() { }
+        public void OnCompleted()
+        {
+        }
+
         /// <inheritdoc/>
-        public void OnError(Exception error) { }
+        public void OnError(Exception error)
+        {
+        }
+
         /// <inheritdoc/>
         public void OnNext(Font value)
         {
-            Select = value;
+            Value = value;
         }
 
         /// <inheritdoc/>
         public void Bind(IBindable<Font>? bindable)
         {
-            _bindDispose?.Dispose();
-            _bindable = bindable;
+            Value = this.Bind(bindable, out _bindable, ref _bindDispose);
+        }
 
-            if (bindable is not null)
-            {
-                Select = bindable.Value;
-
-                // bindableが変更時にthisが変更
-                _bindDispose = bindable.Subscribe(this);
-            }
+        /// <inheritdoc/>
+        protected override void OnLoad()
+        {
+            this.AutoLoad(ref _bindHint);
         }
 
         #endregion
-
-        #endregion
-
 
         #region Commands
 
         /// <summary>
-        /// フォントを変更するコマンド
+        /// フォントを変更するコマンド.
         /// </summary>
-        /// <remarks>このクラスは <see cref="CommandManager.Do(IRecordCommand)"/> と併用することでコマンドを記録できます</remarks>
         private sealed class ChangeSelectCommand : IRecordCommand
         {
-            private readonly FontProperty _Property;
-            private readonly Font _New;
-            private readonly Font _Old;
+            private readonly WeakReference<FontProperty> _property;
+            private readonly Font _new;
+            private readonly Font _old;
 
             /// <summary>
-            /// <see cref="ChangeSelectCommand"/> クラスの新しいインスタンスを初期化します
+            /// <see cref="ChangeSelectCommand"/> クラスの新しいインスタンスを初期化します.
             /// </summary>
-            /// <param name="property">対象の <see cref="FontProperty"/></param>
-            /// <param name="select">新しい値</param>
-            /// <exception cref="ArgumentNullException"><paramref name="property"/> が <see langword="null"/> です</exception>
+            /// <param name="property">対象の <see cref="FontProperty"/>.</param>
+            /// <param name="select">新しい値.</param>
+            /// <exception cref="ArgumentNullException"><paramref name="property"/> が <see langword="null"/> です.</exception>
             public ChangeSelectCommand(FontProperty property, Font select)
             {
-                _Property = property ?? throw new ArgumentNullException(nameof(property));
-                _New = select;
-                _Old = property.Select;
+                _property = new(property ?? throw new ArgumentNullException(nameof(property)));
+                _new = select;
+                _old = property.Value;
             }
 
-            public string Name => CommandName.ChangeFont;
+            public string Name => Strings.ChangeFont;
 
             /// <inheritdoc/>
-            public void Do() => _Property.Select = _New;
+            public void Do()
+            {
+                if (_property.TryGetTarget(out var target))
+                {
+                    target.Value = _new;
+                }
+            }
 
             /// <inheritdoc/>
-            public void Redo() => Do();
+            public void Redo()
+            {
+                Do();
+            }
 
             /// <inheritdoc/>
-            public void Undo() => _Property.Select = _Old;
+            public void Undo()
+            {
+                if (_property.TryGetTarget(out var target))
+                {
+                    target.Value = _old;
+                }
+            }
         }
 
         #endregion
-    }
-
-    /// <summary>
-    /// Represents the metadata of a <see cref="FontProperty"/>.
-    /// </summary>
-    public record FontPropertyMetadata : PropertyElementMetadata, IPropertyBuilder<FontProperty>
-    {
-        /// <summary>
-        /// Initializes a new instance of the <see cref="FontPropertyMetadata"/> class.
-        /// </summary>
-        public FontPropertyMetadata() : base(Resources.Font)
-        {
-            SelectItem = FontProperty.FontList.FirstOrDefault()!;
-        }
-
-        /// <summary>
-        /// 
-        /// </summary>
-        public IEnumerable<Font> ItemSource => FontProperty.FontList;
-        /// <summary>
-        /// 
-        /// </summary>
-        public Font SelectItem { get; init; }
-        /// <summary>
-        /// 
-        /// </summary>
-        public string MemberPath => "Name";
-
-        /// <inheritdoc/>
-        public FontProperty Build()
-        {
-            return new(this);
-        }
     }
 }

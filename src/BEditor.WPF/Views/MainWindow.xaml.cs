@@ -12,10 +12,12 @@ using System.Windows;
 using System.Windows.Controls;
 using System.Windows.Controls.Primitives;
 using System.Windows.Input;
+using System.Windows.Interop;
 
 using BEditor.Data;
 using BEditor.Models;
 using BEditor.Plugin;
+using BEditor.Properties;
 using BEditor.ViewModels;
 using BEditor.ViewModels.CreatePage;
 using BEditor.Views;
@@ -69,22 +71,22 @@ namespace BEditor
 
             Focus();
 
-            SetMostUsedFiles();
+            SetRecentUsedFiles();
             SetPluginMenu();
         }
 
         private void EditModel_EffectAddTo(object? sender, ClipElement c)
         {
-            var context = new EffectAddPageViewModel()
+            var viewmodel = new EffectAddPageViewModel()
             {
                 Scene =
                 {
                     Value = c.Parent
                 }
             };
-            var dialog = new EffectAddPage(context);
+            var dialog = new EffectAddPage(viewmodel);
 
-            foreach (var i in context.ClipItems.Value)
+            foreach (var i in viewmodel.ClipItems.Value)
             {
                 i.IsSelected.Value = false;
                 if (i.Clip == c)
@@ -98,33 +100,41 @@ namespace BEditor
                 Content = dialog,
                 MaxWidth = double.PositiveInfinity
             }.ShowDialog();
+
+            viewmodel.Dispose();
         }
         private void EditModel_SceneCreate(object? sender, EventArgs e)
         {
+            var view = new SceneCreatePage();
             new NoneDialog()
             {
-                Content = new SceneCreatePage(),
+                Content = view,
                 MaxWidth = double.PositiveInfinity,
             }.ShowDialog();
+
+            if (view.DataContext is IDisposable disposable) disposable.Dispose();
         }
         private void EditModel_ClipCreate(object? sender, EventArgs e)
         {
-            var dialog = new ClipCreatePage(new ClipCreatePageViewModel()
+            var viewmodel = new ClipCreatePageViewModel()
             {
                 Scene =
                 {
                     Value = AppData.Current.Project!.PreviewScene
                 }
-            });
+            };
+            var dialog = new ClipCreatePage(viewmodel);
 
             new NoneDialog()
             {
                 Content = dialog,
                 MaxWidth = double.PositiveInfinity
             }.ShowDialog();
+
+            viewmodel.Dispose();
         }
 
-        private void SetMostUsedFiles()
+        private void SetRecentUsedFiles()
         {
             static async Task ProjectOpenCommand(string name)
             {
@@ -135,12 +145,11 @@ namespace BEditor
                 catch
                 {
                     Debug.Assert(false);
-                    await using var prov = AppData.Current.Services.BuildServiceProvider();
-                    prov.GetService<IMessage>()?.Snackbar(string.Format(Properties.Resources.FailedToLoad, "Project"));
+                    AppData.Current.Message.Snackbar(string.Format(Strings.FailedToLoad, "Project"));
                 }
             }
 
-            foreach (var file in Settings.Default.MostRecentlyUsedList)
+            foreach (var file in Settings.Default.RecentlyUsedFiles)
             {
                 var menu = new MenuItem()
                 {
@@ -151,9 +160,9 @@ namespace BEditor
                 UsedFiles.Items.Insert(0, menu);
             }
 
-            Settings.Default.MostRecentlyUsedList.CollectionChanged += (s, e) =>
+            Settings.Default.RecentlyUsedFiles.CollectionChanged += (s, e) =>
             {
-                Dispatcher.BeginInvoke(new Action(() =>
+                Dispatcher.InvokeAsync(() =>
                 {
                     if (s is null) return;
                     if (e.Action is NotifyCollectionChangedAction.Add)
@@ -180,7 +189,7 @@ namespace BEditor
                             }
                         }
                     }
-                }));
+                });
             };
         }
         private void SetPluginMenu()
@@ -218,9 +227,9 @@ namespace BEditor
         {
             if (e.LeftButton == MouseButtonState.Pressed)
             {
-                PackIcon packIcon = (PackIcon)sender;
+                var packIcon = (PackIcon)sender;
                 Func<ObjectMetadata> s = () => ClipTypeIconConverter.ToClipMetadata(packIcon.Kind);
-                DataObject dataObject = new DataObject(typeof(Func<ObjectMetadata>), s);
+                var dataObject = new DataObject(typeof(Func<ObjectMetadata>), s);
                 // ドラッグ開始
                 DragDrop.DoDragDrop(this, dataObject, DragDropEffects.Copy);
             }
@@ -243,7 +252,7 @@ namespace BEditor
             {
                 var text = (TextBlock)sender;
                 Func<ObjectMetadata> s = () => (ObjectMetadata)text.DataContext;
-                DataObject dataObject = new DataObject(typeof(Func<ObjectMetadata>), s);
+                var dataObject = new DataObject(typeof(Func<ObjectMetadata>), s);
                 // ドラッグ開始
                 DragDrop.DoDragDrop(this, dataObject, DragDropEffects.Copy);
             }

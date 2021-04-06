@@ -1,29 +1,23 @@
-﻿using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Runtime.Serialization;
-using System.Text;
-using System.Threading.Tasks;
+﻿using System.Collections.Generic;
 
 using BEditor.Data;
 using BEditor.Data.Primitive;
 using BEditor.Data.Property;
-using BEditor.Properties;
 using BEditor.Drawing;
 using BEditor.Drawing.Pixel;
+using BEditor.Primitive.Resources;
 
 namespace BEditor.Primitive.Effects
 {
     /// <summary>
     /// Represents an <see cref="ImageEffect"/> that makes the background color of an image transparent.
     /// </summary>
-    [DataContract]
-    public class ChromaKey : ImageEffect
+    public sealed class ChromaKey : ImageEffect
     {
         /// <summary>
         /// Represents <see cref="ThresholdValue"/> metadata.
         /// </summary>
-        public static readonly EasePropertyMetadata ThresholdValueMetadata = new(Resources.ThresholdValue, 256);
+        public static readonly EasePropertyMetadata ThresholdValueMetadata = new(Strings.ThresholdValue, 256);
 
         /// <summary>
         /// Initializes a new instance of the <see cref="ChromaKey"/> class.
@@ -34,7 +28,7 @@ namespace BEditor.Primitive.Effects
         }
 
         /// <inheritdoc/>
-        public override string Name => Resources.ChromaKey;
+        public override string Name => Strings.ChromaKey;
         /// <inheritdoc/>
         public override IEnumerable<PropertyElement> Properties => new PropertyElement[]
         {
@@ -43,7 +37,7 @@ namespace BEditor.Primitive.Effects
         /// <summary>
         /// Get the <see cref="EaseProperty"/> representing the threshold.
         /// </summary>
-        [DataMember(Order = 0)]
+        [DataMember]
         public EaseProperty ThresholdValue { get; private set; }
 
         /// <inheritdoc/>

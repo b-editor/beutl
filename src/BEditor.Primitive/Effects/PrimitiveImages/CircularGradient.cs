@@ -1,18 +1,13 @@
-﻿using System;
-using System.Collections.Generic;
+﻿using System.Collections.Generic;
 using System.Linq;
 using System.Reactive.Linq;
-using System.Runtime.Serialization;
-using System.Text;
-using System.Threading.Tasks;
 
-using BEditor.Command;
 using BEditor.Data;
 using BEditor.Data.Primitive;
 using BEditor.Data.Property;
-using BEditor.Properties;
 using BEditor.Drawing;
 using BEditor.Drawing.Pixel;
+using BEditor.Primitive.Resources;
 
 using Reactive.Bindings;
 
@@ -21,29 +16,28 @@ namespace BEditor.Primitive.Effects
     /// <summary>
     /// Represents an <see cref="ImageEffect"/> that masks an image with a circular gradient.
     /// </summary>
-    [DataContract]
-    public class CircularGradient : ImageEffect
+    public sealed class CircularGradient : ImageEffect
     {
         /// <summary>
         /// Represents <see cref="CenterX"/> metadata.
         /// </summary>
-        public static readonly EasePropertyMetadata CenterXMetadata = new(Resources.CenterX, 0);
+        public static readonly EasePropertyMetadata CenterXMetadata = new(Strings.CenterX, 0);
         /// <summary>
         /// Represents <see cref="CenterY"/> metadata.
         /// </summary>
-        public static readonly EasePropertyMetadata CenterYMetadata = new(Resources.CenterY, 0);
+        public static readonly EasePropertyMetadata CenterYMetadata = new(Strings.CenterY, 0);
         /// <summary>
         /// Represents <see cref="Radius"/> metadata.
         /// </summary>
-        public static readonly EasePropertyMetadata RadiusMetadata = new(Resources.Radius, 100);
+        public static readonly EasePropertyMetadata RadiusMetadata = new(Strings.Radius, 100);
         /// <summary>
         /// Represents <see cref="Colors"/> metadata.
         /// </summary>
-        public static readonly TextPropertyMetadata ColorsMetadata = new(Resources.Colors, "#FFFF0000,#FF0000FF");
+        public static readonly TextPropertyMetadata ColorsMetadata = new(Strings.Colors, "#FFFF0000,#FF0000FF");
         /// <summary>
         /// Represents <see cref="Anchors"/> metadata.
         /// </summary>
-        public static readonly TextPropertyMetadata AnchorsMetadata = new(Resources.Anchors, "0,1");
+        public static readonly TextPropertyMetadata AnchorsMetadata = new(Strings.Anchors, "0,1");
         /// <summary>
         /// Represents <see cref="Mode"/> metadata.
         /// </summary>
@@ -65,7 +59,7 @@ namespace BEditor.Primitive.Effects
         }
 
         /// <inheritdoc/>
-        public override string Name => Resources.CircularGradient;
+        public override string Name => Strings.CircularGradient;
         /// <inheritdoc/>
         public override IEnumerable<PropertyElement> Properties => new PropertyElement[]
         {
@@ -79,32 +73,32 @@ namespace BEditor.Primitive.Effects
         /// <summary>
         /// Get the <see cref="EaseProperty"/> representing the X coordinate of the center.
         /// </summary>
-        [DataMember(Order = 0)]
+        [DataMember]
         public EaseProperty CenterX { get; private set; }
         /// <summary>
         /// Get the <see cref="EaseProperty"/> representing the Y coordinate of the center.
         /// </summary>
-        [DataMember(Order = 1)]
+        [DataMember]
         public EaseProperty CenterY { get; private set; }
         /// <summary>
         /// Get the <see cref="EaseProperty"/> representing the radius.
         /// </summary>
-        [DataMember(Order = 2)]
+        [DataMember]
         public EaseProperty Radius { get; private set; }
         /// <summary>
         /// Get the <see cref="TextProperty"/> representing the colors.
         /// </summary>
-        [DataMember(Order = 3)]
+        [DataMember]
         public TextProperty Colors { get; private set; }
         /// <summary>
         /// Get the <see cref="TextProperty"/> representing the anchors.
         /// </summary>
-        [DataMember(Order = 4)]
+        [DataMember]
         public TextProperty Anchors { get; private set; }
         /// <summary>
         /// Get the <see cref="SelectorProperty"/> that selects the gradient mode.
         /// </summary>
-        [DataMember(Order = 5)]
+        [DataMember]
         public SelectorProperty Mode { get; private set; }
 
         private ReactiveProperty<Color[]> ColorsProp => _colorsProp ??= new();
@@ -163,9 +157,6 @@ namespace BEditor.Primitive.Effects
                         .Select(s => float.Parse(s))
                         .ToArray())
                 .ToReactiveProperty()!;
-
-            Colors.Value += " ";
-            Anchors.Value += " ";
         }
         /// <inheritdoc/>
         protected override void OnUnload()

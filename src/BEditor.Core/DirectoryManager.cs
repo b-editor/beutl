@@ -13,38 +13,39 @@ namespace BEditor
     /// </summary>
     public class DirectoryManager
     {
-        private readonly Timer timer;
         /// <summary>
         /// Gets a default <see cref="DirectoryManager"/> instance.
         /// </summary>
         public static readonly DirectoryManager Default = new();
+        private readonly Timer _timer;
 
         /// <summary>
         /// Initializes a new instance of the <see cref="DirectoryManager"/> class.
         /// </summary>
         public DirectoryManager() : this(new())
         {
-
         }
+
         /// <summary>
         /// Initializes a new instance of the <see cref="DirectoryManager"/> class.
         /// </summary>
         public DirectoryManager(List<string> directories)
         {
             Directories = directories;
-            timer = new()
+            _timer = new()
             {
-                Interval = 2500
+                Interval = 2500,
             };
-            timer.Elapsed += Timer_Elapsed;
+            _timer.Elapsed += Timer_Elapsed;
         }
 
         /// <summary>
-        /// Get the directories to manage.
+        /// Gets the directories to manage.
         /// </summary>
         public List<string> Directories { get; }
+
         /// <summary>
-        /// Get the running status of <see cref="DirectoryManager"/>.
+        /// Gets the running status of <see cref="DirectoryManager"/>.
         /// </summary>
         public bool IsRunning { get; private set; }
 
@@ -63,11 +64,12 @@ namespace BEditor
                     }
                 }
 
-                timer.Start();
+                _timer.Start();
 
                 IsRunning = true;
             }
         }
+
         /// <summary>
         /// Stop the <see cref="DirectoryManager"/>.
         /// </summary>
@@ -75,11 +77,12 @@ namespace BEditor
         {
             if (IsRunning)
             {
-                timer.Stop();
+                _timer.Stop();
 
                 IsRunning = false;
             }
         }
+
         private void Timer_Elapsed(object sender, ElapsedEventArgs e)
         {
             foreach(var dir in Directories)

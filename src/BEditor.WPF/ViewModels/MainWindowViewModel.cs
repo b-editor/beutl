@@ -7,14 +7,13 @@ using System.Windows.Media.Imaging;
 
 using BEditor;
 using BEditor.Command;
+using BEditor.Data;
 using BEditor.Models;
 using BEditor.ViewModels.SettingsControl;
 using BEditor.Views.SettingsControl;
+using BEditor.Views.ToolControl;
 
 using MaterialDesignThemes.Wpf;
-
-using Microsoft.Extensions.DependencyInjection;
-using Microsoft.Extensions.Logging;
 
 using Reactive.Bindings;
 using Reactive.Bindings.Extensions;
@@ -25,8 +24,9 @@ namespace BEditor.ViewModels
     {
         public static MainWindowViewModel Current { get; } = new();
 
-        public ReactiveProperty<WriteableBitmap?> PreviewImage { get; } = new();
-        public ReactiveProperty<Brush> MainWindowColor { get; } = new();
+        public ReactivePropertySlim<object?> ToolTipControl { get; } = new();
+        public ReactivePropertySlim<WriteableBitmap?> PreviewImage { get; } = new();
+        public ReactivePropertySlim<Brush> MainWindowColor { get; } = new();
 
         #region Seekbar
         public ReactiveCommand PlayPause { get; } = new();
@@ -42,7 +42,7 @@ namespace BEditor.ViewModels
         #endregion
 
         #region Statusbar
-        public ReactiveProperty<bool> IsLoading { get; } = new(false);
+        public ReactivePropertySlim<bool> IsLoading { get; } = new(false);
 
         public ReactiveCommand OpenProjectDirectory { get; } = new();
         public ReactiveCommand ConvertJson { get; } = new();
@@ -50,6 +50,12 @@ namespace BEditor.ViewModels
 
         #region File(F)
         public ReactiveCommand Shutdown { get; } = new();
+        #endregion
+
+        #region Edit (E)
+
+        public ReactiveCommand MoveFrame { get; } = new();
+
         #endregion
 
         #region Tool(T)
@@ -124,18 +130,16 @@ namespace BEditor.ViewModels
                 .Subscribe(_ => Process.Start("explorer.exe", AppData.Current.Project!.DirectoryName!));
 
             ConvertJson.Where(_ => AppData.Current.Project is not null)
-                .Subscribe(_ =>
+                .Subscribe(async _ =>
                 {
                     var temp = Path.GetTempFileName();
-                    using var stream = new FileStream(temp, FileMode.Create);
+                    await using var stream = new FileStream(temp, FileMode.Create);
 
-                    if (!Serialize.SaveToStream(AppData.Current.Project, stream, SerializeMode.Json)) throw new Exception();
+                    if (!await Serialize.SaveToStreamAsync(AppData.Current.Project, stream, SerializeMode.Json)) throw new Exception();
 
                     var p = Process.Start("notepad.exe", temp);
 
                     p.WaitForInputIdle();
-
-                    File.Delete(temp);
                 });
 
             #endregion
@@ -143,23 +147,23 @@ namespace BEditor.ViewModels
             #region Tool
 
             SettingShow.Subscribe(SettingShowCommand);
-            DeleteCommand.Subscribe(() => CommandManager.Clear());
-            MemoryRelease.Subscribe(async () =>
+            DeleteCommand.Subscribe(() => CommandManager.Default.Clear());
+            MemoryRelease.Subscribe(() =>
             {
                 var bytes = Environment.WorkingSet;
-                await using var prov = AppData.Current.Services.BuildServiceProvider();
-                var mes = prov.GetService<IMessage>();
 
                 GC.Collect();
+                GC.WaitForPendingFinalizers();
+                GC.Collect();
 
-                mes?.Snackbar(((Environment.WorkingSet - bytes) / 10000000f).ToString() + "MB");
+                AppData.Current.Message.Snackbar(((Environment.WorkingSet - bytes) / 10000000f).ToString() + "MB");
             });
             SceneSettingsCommand.Where(_ => AppData.Current.Project is not null)
                 .Select(_ => AppData.Current.Project!.PreviewScene)
                 .Subscribe(s =>
                 {
                     var vm = new SceneSettingsViewModel(s);
-                    var v = new Views.SettingsControls.SceneSettingsDialog()
+                    var v = new SceneSettingsDialog()
                     {
                         DataContext = vm
                     };
@@ -167,6 +171,12 @@ namespace BEditor.ViewModels
                 });
 
             #endregion
+
+            MoveFrame.Where(_ => AppData.Current.Project is not null)
+                .Subscribe(_ =>
+            {
+                ToolTipControl.Value = new MoveFrame();
+            });
         }
 
         #region Model
@@ -179,15 +189,15 @@ namespace BEditor.ViewModels
 
         private void Project_Opend()
         {
-            CommandManager.Clear();
+            CommandManager.Default.Clear();
 
             ProjectIsOpened.Value = true;
-            AppData.Current.Project!.Saved += (_, _) => AppData.Current.AppStatus = Status.Saved;
+            AppData.Current.Project!.Saved += (s, _) => AppData.Current.AppStatus = Status.Saved;
         }
 
         private void Project_Closed()
         {
-            CommandManager.Clear();
+            CommandManager.Default.Clear();
             PreviewImage.Value = null;
 
             ProjectIsOpened.Value = false;
@@ -198,7 +208,7 @@ namespace BEditor.ViewModels
 
         #region Project
 
-        public ReactiveProperty<bool> ProjectIsOpened { get; } = new() { Value = false };
+        public ReactivePropertySlim<bool> ProjectIsOpened { get; } = new() { Value = false };
 
         private void ProjectPlayPauseCommand(object _)
         {

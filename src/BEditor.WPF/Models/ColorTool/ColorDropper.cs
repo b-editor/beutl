@@ -3,19 +3,15 @@ using System.Drawing;
 using System.Drawing.Imaging;
 using System.Runtime.InteropServices;
 using System.Windows;
-using System.Windows.Forms;
-using System.Windows.Interop;
-using System.Windows.Media.Imaging;
 using System.Windows.Threading;
-using BEditor.Models.Extension;
 
 namespace BEditor.Models.ColorTool
 {
-    public class ColorDropper
+    public unsafe class ColorDropper
     {
         public static void Run(Action<System.Windows.Media.Color> action) => new ColorDropper(action).Start();
 
-        private readonly DispatcherTimer timer = new DispatcherTimer(DispatcherPriority.Normal);
+        private readonly DispatcherTimer timer = new(DispatcherPriority.Normal);
         private readonly Action<System.Windows.Media.Color> Action;
 
         public ColorDropper(Action<System.Windows.Media.Color> action)
@@ -33,6 +29,8 @@ namespace BEditor.Models.ColorTool
         //クリックされているか判定用
         [DllImport("user32.dll")]
         private static extern short GetKeyState(int nVirtkey);
+        [DllImport("user32.dll")]
+        private static extern int GetCursorPos(POINT* point);
         //クリック判定
         private static bool IsClickDown => GetKeyState(0x01) < 0;
 
@@ -43,56 +41,32 @@ namespace BEditor.Models.ColorTool
                 timer.Stop();
                 timer.Tick -= Timer_Tick;
 
-                var col = ColorSet(Cursor.Position.X, Cursor.Position.Y);
+                POINT pos = default;
 
-                Action(col);
+                if (GetCursorPos(&pos) is 1)
+                {
+                    var col = ColorSet(pos.X, pos.Y);
+
+                    Action(col);
+                }
             }
         }
 
-        private static System.Windows.Media.Color ColorSet(double X, double Y)
+        private static unsafe System.Windows.Media.Color ColorSet(double X, double Y)
         {
-            Bitmap bitmap = new Bitmap((int)SystemParameters.PrimaryScreenWidth, (int)SystemParameters.PrimaryScreenHeight, System.Drawing.Imaging.PixelFormat.Format32bppArgb);
+            var bitmap = new Bitmap((int)SystemParameters.PrimaryScreenWidth, (int)SystemParameters.PrimaryScreenHeight, PixelFormat.Format32bppArgb);
 
-            using (var bmpGraphics = System.Drawing.Graphics.FromImage(bitmap))
-            {
-                bmpGraphics.CopyFromScreen(0, 0, 0, 0, bitmap.Size);
-                bitmap = Imaging.CreateBitmapSourceFromHBitmap(
-                    bitmap.GetHbitmap(),
-                    IntPtr.Zero,
-                    Int32Rect.Empty,
-                    BitmapSizeOptions.FromEmptyOptions()).ToBitmap();
-            }
+            using var bmpGraphics = System.Drawing.Graphics.FromImage(bitmap);
+            bmpGraphics.CopyFromScreen(0, 0, 0, 0, bitmap.Size);
+            var color = bitmap.GetPixel((int)X, (int)Y);
 
-            PixelFormat pixelFormat = PixelFormat.Format32bppArgb;
-            int pixelSize = 4;
-            BitmapData bmpData = bitmap.LockBits(
-              new Rectangle(0, 0, bitmap.Width, bitmap.Height),
-              ImageLockMode.ReadOnly,
-              pixelFormat
-            );
+            return System.Windows.Media.Color.FromRgb(color.R, color.G, color.B);
+        }
 
-            if (bmpData.Stride < 0)
-            {
-                bitmap.UnlockBits(bmpData);
-                return new System.Windows.Media.Color();
-            }
-
-            IntPtr ptr = bmpData.Scan0;
-            byte[] pixels = new byte[bmpData.Stride * bitmap.Height];
-            Marshal.Copy(ptr, pixels, 0, pixels.Length);
-
-
-            //X,Yのデータ位置
-            int pos = (int)Y * bmpData.Stride + (int)X * pixelSize;
-            // BGR
-            var B = pixels[pos];
-            var G = pixels[pos + 1];
-            var R = pixels[pos + 2];
-
-            bitmap.UnlockBits(bmpData);
-            bitmap.Dispose();
-
-            return System.Windows.Media.Color.FromRgb(R, G, B);
+        private struct POINT
+        {
+            public int X;
+            public int Y;
         }
     }
 }

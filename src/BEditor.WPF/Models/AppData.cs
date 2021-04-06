@@ -1,31 +1,30 @@
 ﻿using System;
-using System.Collections.Generic;
 using System.ComponentModel;
 using System.IO;
 using System.Linq;
-using System.Reflection;
+using System.Net.Http;
+using System.Reactive.Disposables;
+using System.Runtime.InteropServices;
 using System.Text;
-using System.Threading.Tasks;
-using System.Xml.Linq;
+using System.Text.Json;
 
-using BEditor;
 using BEditor.Command;
 using BEditor.Data;
 using BEditor.Models.Services;
-using BEditor.Plugin;
+using BEditor.ViewModels.ToolControl;
 
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
-using Microsoft.Extensions.Logging.Console;
 
 using NLog.Extensions.Logging;
-
-using NLogLevel = NLog.LogLevel;
-using LogLevel = Microsoft.Extensions.Logging.LogLevel;
 using NLog.Layouts;
-using System.Reactive.Disposables;
+
 using Reactive.Bindings;
-using BEditor.ViewModels.ToolControl;
+
+using LogLevel = Microsoft.Extensions.Logging.LogLevel;
+using NLogLevel = NLog.LogLevel;
+
+#nullable disable
 
 namespace BEditor.Models
 {
@@ -34,15 +33,14 @@ namespace BEditor.Models
         private static readonly PropertyChangedEventArgs _ProjectArgs = new(nameof(Project));
         private static readonly PropertyChangedEventArgs _StatusArgs = new(nameof(AppStatus));
         private static readonly PropertyChangedEventArgs _IsPlayingArgs = new(nameof(IsNotPlaying));
-        private Project? _Project;
+        private Project _Project;
         private Status _Status;
         private bool _Isplaying = true;
-
-        public static AppData Current { get; } = new();
+        private IServiceProvider serviceProvider;
 
         private AppData()
         {
-            CommandManager.Executed += (_, _) => AppStatus = Status.Edit;
+            CommandManager.Default.Executed += (_, _) => AppStatus = Status.Edit;
 
 
             // NLogの設定
@@ -80,33 +78,24 @@ namespace BEditor.Models
 
             NLog.LogManager.Configuration = config;
 
+            LoggingFactory = LoggerFactory.Create(builder =>
+            {
+                builder
+                    .AddConsole()
+                    .AddNLog()
+                    .AddProvider(new BEditorLoggerProvider());
+            });
 
             // DIの設定
             Services = new ServiceCollection()
                 .AddSingleton<IFileDialogService>(p => new FileDialogService())
                 .AddSingleton<IMessage>(p => new MessageService())
-                .AddSingleton(_ => LoggerFactory.Create(builder =>
-                {
-                    builder
-                        .AddFilter("Microsoft", LogLevel.Warning)
-                        .AddFilter("System", LogLevel.Warning)
-                        .AddFilter("BEditor.Data", LogLevel.Warning)
-                        .AddFilter("BEditor.Graphics", LogLevel.Warning)
-                        .AddFilter("BEditor.Views", LogLevel.Debug)
-                        .AddFilter("BEditor.ViewModels", LogLevel.Debug)
-                        .AddFilter("BEditor.Models", LogLevel.Debug)
-                        .AddFilter("LoggingConsoleApp.Program", LogLevel.Debug)
-                        .AddConsole()
-                        .AddNLog()
-                        .AddProvider(new BEditorLoggerProvider());
-                }));
-
-            var prov = Services.BuildServiceProvider();
-
-            LoggingFactory = prov.GetService<ILoggerFactory>()!;
+                .AddSingleton(_ => LoggingFactory)
+                .AddSingleton<HttpClient>();
         }
 
-        public Project? Project
+        public static AppData Current { get; } = new();
+        public Project Project
         {
             get => _Project;
             set => SetValue(value, ref _Project, _ProjectArgs);
@@ -122,7 +111,119 @@ namespace BEditor.Models
             set => SetValue(value, ref _Isplaying, _IsPlayingArgs);
         }
         public IServiceCollection Services { get; }
+        public IServiceProvider ServiceProvider
+        {
+            get => serviceProvider ??= Services.BuildServiceProvider();
+            set
+            {
+                serviceProvider = value;
+
+                Message = ServiceProvider.GetService<IMessage>()!;
+                FileDialog = ServiceProvider.GetService<IFileDialogService>()!;
+            }
+        }
+        public IMessage Message { get; set; }
+        public IFileDialogService FileDialog { get; set; }
         public ILoggerFactory LoggingFactory { get; }
+
+        public async void SaveAppConfig(Project project, string directory)
+        {
+            static void IfNotExistCreateDir(string dir)
+            {
+                if (!Directory.Exists(dir))
+                {
+                    Directory.CreateDirectory(dir);
+                }
+            }
+
+            var cache = Path.Combine(directory, "cache");
+
+            IfNotExistCreateDir(cache);
+
+            {
+                var sceneCacheDir = Path.Combine(cache, "scene");
+                IfNotExistCreateDir(sceneCacheDir);
+
+                foreach (var scene in project.SceneList)
+                {
+                    var sceneCache = Path.Combine(sceneCacheDir, scene.Name + ".cache");
+                    var cacheObj = new SceneCache(scene.SelectItems.Select(i => i.Name).ToArray())
+                    {
+                        Select = scene.SelectItem?.Name,
+                        PreviewFrame = scene.PreviewFrame,
+                        TimelineScale = scene.TimeLineZoom,
+                        TimelineHorizonOffset = scene.TimeLineHorizonOffset,
+                        TimelineVerticalOffset = scene.TimeLineVerticalOffset
+                    };
+
+                    await using var stream = new FileStream(sceneCache, FileMode.Create);
+                    await JsonSerializer.SerializeAsync(stream, cacheObj, new JsonSerializerOptions()
+                    {
+                        WriteIndented = true
+                    });
+                }
+            }
+        }
+        public unsafe void RestoreAppConfig(Project project, string directory)
+        {
+            static void IfNotExistCreateDir(string dir)
+            {
+                if (!Directory.Exists(dir))
+                {
+                    Directory.CreateDirectory(dir);
+                }
+            }
+
+            var cache = Path.Combine(directory, "cache");
+
+            IfNotExistCreateDir(cache);
+
+            {
+                var sceneCacheDir = Path.Combine(cache, "scene");
+                IfNotExistCreateDir(sceneCacheDir);
+
+                foreach (var scene in project.SceneList)
+                {
+                    var sceneCache = Path.Combine(sceneCacheDir, scene.Name + ".cache");
+
+                    if (!File.Exists(sceneCache)) continue;
+                    Stream stream = null;
+                    UnmanagedArray<byte> buffer = default;
+
+                    try
+                    {
+                        stream = File.OpenRead(sceneCache);
+                        buffer = new UnmanagedArray<byte>((int)stream.Length);
+                        var span = buffer.AsSpan();
+                        stream.Read(span);
+
+                        var cacheObj = JsonSerializer.Deserialize<SceneCache>(span, new JsonSerializerOptions()
+                        {
+                            WriteIndented = true
+                        });
+
+                        if (cacheObj is not null)
+                        {
+                            scene.SelectItem = scene[cacheObj.Select];
+                            scene.PreviewFrame = cacheObj.PreviewFrame;
+                            scene.TimeLineZoom = cacheObj.TimelineScale;
+                            scene.TimeLineHorizonOffset = cacheObj.TimelineHorizonOffset;
+                            scene.TimeLineVerticalOffset = cacheObj.TimelineVerticalOffset;
+
+                            foreach (var select in cacheObj.Selects.Select(i => scene[i]).Where(i => i is not null))
+                            {
+                                scene.SelectItems.Add(select!);
+                            }
+                        }
+                    }
+                    finally
+                    {
+                        stream?.Dispose();
+                        buffer.Dispose();
+                    }
+                }
+            }
+        }
     }
 
     public class BEditorLoggerProvider : ILoggerProvider
@@ -136,11 +237,13 @@ namespace BEditor.Models
             return logger;
         }
 
-        public event EventHandler? Disposed;
+        public event EventHandler Disposed;
 
         public void Dispose()
         {
             Disposed?.Invoke(this, EventArgs.Empty);
+
+            GC.SuppressFinalize(this);
         }
     }
 
@@ -177,14 +280,14 @@ namespace BEditor.Models
             var str = new StringBuilder();
 
             str.Append(_indent);
-            str.Append("[");
+            str.Append('[');
             str.Append(Enum.GetName(typeof(LogLevel), logLevel));
             str.Append("] ");
 
             str.Append(formatter?.Invoke(state, exception) ?? "");
             str.Append(exception?.Message ?? "");
             str.Append(exception?.StackTrace ?? "");
-            str.Append("\n");
+            str.Append('\n');
 
             Text.Value += str.ToString();
         }

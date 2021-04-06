@@ -7,6 +7,7 @@ using System.IO;
 using System.Linq;
 using System.Runtime.InteropServices;
 using System.Runtime.Serialization;
+using System.Threading.Tasks;
 
 namespace BEditor
 {
@@ -18,25 +19,25 @@ namespace BEditor
         private static readonly PropertyChangedEventArgs clipHeightArgs = new(nameof(ClipHeight));
         private static readonly PropertyChangedEventArgs darkModeArgs = new(nameof(UseDarkMode));
         private static readonly PropertyChangedEventArgs autoBackUpArgs = new(nameof(AutoBackUp));
+        private static readonly PropertyChangedEventArgs backUpIntervalArgs = new(nameof(BackUpInterval));
         private static readonly PropertyChangedEventArgs lastTimeFolderArgs = new(nameof(LastTimeFolder));
         private static readonly PropertyChangedEventArgs widthOf1FrameArgs = new(nameof(WidthOf1Frame));
         private static readonly PropertyChangedEventArgs enableErrorLogArgs = new(nameof(EnableErrorLog));
         private static readonly PropertyChangedEventArgs langArgs = new(nameof(Language));
-        private static readonly PropertyChangedEventArgs stackLimitArgs = new(nameof(StackLimit));
         private static readonly PropertyChangedEventArgs showStartWindowArgs = new(nameof(ShowStartWindow));
-        private int clipHeight = 25;
+        private uint clipHeight = 25;
         private bool darkMode = true;
         private bool showStartWindow = true;
         private bool autoBackUp = true;
+        private uint? backUpInterval = 10;
         private string lastTimeFolder = "";
-        private int widthOf1Frame = 5;
+        private uint widthOf1Frame = 5;
         private bool enableErrorLog = false;
         private ObservableCollection<string>? enablePlugins;
         private ObservableCollection<string>? disablePlugins;
         private ObservableCollection<string>? includeFonts;
         private ObservableCollection<string>? mostRecentlyUsedList;
         private string? language;
-        private uint stackLimit = 1048576;
 
         #endregion
 
@@ -62,7 +63,7 @@ namespace BEditor
 
         public static Settings Default { get; }
         [DataMember]
-        public int ClipHeight
+        public uint ClipHeight
         {
             get => clipHeight;
             set => SetValue(value, ref clipHeight, clipHeightArgs);
@@ -80,13 +81,19 @@ namespace BEditor
             set => SetValue(value, ref autoBackUp, autoBackUpArgs);
         }
         [DataMember]
+        public uint BackUpInterval
+        {
+            get => backUpInterval ??= 10;
+            set => SetValue(value, ref backUpInterval, backUpIntervalArgs);
+        }
+        [DataMember]
         public string LastTimeFolder
         {
             get => lastTimeFolder ??= "";
             set => SetValue(value, ref lastTimeFolder, lastTimeFolderArgs);
         }
         [DataMember]
-        public int WidthOf1Frame
+        public uint WidthOf1Frame
         {
             get => widthOf1Frame;
             set => SetValue(value, ref widthOf1Frame, widthOf1FrameArgs);
@@ -110,7 +117,7 @@ namespace BEditor
             set => disablePlugins = value;
         }
         [DataMember]
-        public ObservableCollection<string> MostRecentlyUsedList
+        public ObservableCollection<string> RecentlyUsedFiles
         {
             get => mostRecentlyUsedList ??= new();
             private set => mostRecentlyUsedList = new(value.Where(file => File.Exists(file)));
@@ -118,7 +125,55 @@ namespace BEditor
         [DataMember]
         public ObservableCollection<string> IncludeFontDir
         {
-            get => includeFonts ??= new();
+            get
+            {
+                if (includeFonts is null)
+                {
+                    includeFonts = new();
+                    string[] fontDirs;
+
+                    if (OperatingSystem.IsWindows())
+                    {
+                        var user = Environment.GetFolderPath(Environment.SpecialFolder.UserProfile);
+                        fontDirs = new string[]
+                        {
+                            $"{user}\\AppData\\Local\\Microsoft\\Windows\\Fonts",
+                            "C:\\Windows\\Fonts"
+                        };
+                    }
+                    else if (OperatingSystem.IsLinux())
+                    {
+                        var user = Environment.GetFolderPath(Environment.SpecialFolder.UserProfile);
+                        fontDirs = new string[]
+                        {
+                            "/usr/local/share/fonts",
+                            "/usr/share/fonts",
+                            $"{user}/.local/share/fonts/"
+                        };
+                    }
+                    else if (OperatingSystem.IsMacOS())
+                    {
+                        var user = Environment.GetFolderPath(Environment.SpecialFolder.UserProfile);
+                        fontDirs = new string[]
+                        {
+                            "/System/Library/Fonts",
+                            "/Library/Fonts",
+                            $"{user}/Library/Fonts"
+                        };
+                    }
+                    else
+                    {
+                        fontDirs = Array.Empty<string>();
+                    }
+
+                    foreach (var dir in fontDirs.Where(d => Directory.Exists(d)))
+                    {
+                        includeFonts.Add(dir);
+                    }
+                }
+
+                return includeFonts;
+            }
             set => includeFonts = value;
         }
         [DataMember]
@@ -128,17 +183,13 @@ namespace BEditor
             set => SetValue(value, ref language, langArgs);
         }
         [DataMember]
-        public uint StackLimit
-        {
-            get => stackLimit;
-            set => SetValue(value, ref stackLimit, stackLimitArgs);
-        }
-        [DataMember]
         public bool ShowStartWindow
         {
             get => showStartWindow;
             set => SetValue(value, ref showStartWindow, showStartWindowArgs);
         }
+        [DataMember]
+        public bool SetupFlag { get; set; }
         public ExtensionDataObject? ExtensionData { get; set; }
 
         #endregion
@@ -156,5 +207,6 @@ namespace BEditor
             }
         }
         public void Save() => Serialize.SaveToFile(this, Path.Combine(AppContext.BaseDirectory, "user", "settings.json"));
+        public Task SaveAsync() => Task.Run(() => Serialize.SaveToFile(this, Path.Combine(AppContext.BaseDirectory, "user", "settings.json")));
     }
 }

@@ -1,6 +1,7 @@
 ﻿using System;
 using System.Collections.Generic;
 using System.Linq;
+using System.Reactive.Disposables;
 using System.Reactive.Linq;
 using System.Text;
 using System.Threading.Tasks;
@@ -10,14 +11,18 @@ using BEditor.Data;
 using BEditor.Models;
 
 using Reactive.Bindings;
+using Reactive.Bindings.Extensions;
 
 namespace BEditor.ViewModels.CreatePage
 {
-    public class EffectAddPageViewModel
+    public sealed class EffectAddPageViewModel : IDisposable
     {
+        private readonly CompositeDisposable _disposable = new();
+
         public EffectAddPageViewModel()
         {
-            ClipItems = Scene.Select(i => i.Datas).Select(i => i.Select(c =>
+            ClipItems = Scene.Select(i => i.Datas)
+                .Select(i => i.Select(c =>
             {
                 var typeItem = new ClipItem(c);
 
@@ -33,7 +38,10 @@ namespace BEditor.ViewModels.CreatePage
                 });
 
                 return typeItem;
-            }).ToArray()).ToReactiveProperty()!;
+            }).ToArray())
+                .ToReadOnlyReactivePropertySlim()
+                .AddTo(_disposable)!;
+
             ClipItems.Value[0].IsSelected.Value = true;
             Effect.Value = AllEffects.First();
 
@@ -42,16 +50,20 @@ namespace BEditor.ViewModels.CreatePage
                 var effectinstance = Effect.Value.Metadata.CreateFunc();
 
                 TargetClip.AddEffect(effectinstance).Execute();
-            });
+            }).AddTo(_disposable);
+        }
+        ~EffectAddPageViewModel()
+        {
+            _disposable.Dispose();
         }
 
-        public ReactiveProperty<Scene> Scene { get; } = new(AppData.Current.Project!.SceneList[0]);
+        public ReactivePropertySlim<Scene> Scene { get; } = new(AppData.Current.Project!.SceneList[0]);
         public ReactiveProperty<EffectItem> Effect { get; } = new();
-        public IEnumerable<EffectItem> AllEffects
+        public static IEnumerable<EffectItem> AllEffects
             => EffectMetadata.LoadedEffects
                 .SelectMany(i => i.Children?
                     .Select(i2 => new EffectItem(i2, i.Name)) ?? new EffectItem[] { new(i, null) });
-        public ReactiveProperty<ClipItem[]> ClipItems { get; }
+        public ReadOnlyReactivePropertySlim<ClipItem[]> ClipItems { get; }
         public ClipElement TargetClip => ClipItems.Value.Where(i => i.IsSelected.Value).First().Clip;
         public ReactiveCommand AddCommand { get; } = new();
 
@@ -61,8 +73,24 @@ namespace BEditor.ViewModels.CreatePage
         }
         public record ClipItem(ClipElement Clip)
         {
-            public ReactiveProperty<bool> IsSelected { get; } = new();
+            public ReactivePropertySlim<bool> IsSelected { get; } = new();
             public ReactiveCommand<ClipItem> Command { get; } = new();
+        }
+
+        public void Dispose()
+        {
+            Scene.Dispose();
+            Effect.Dispose();
+            foreach (var item in ClipItems.Value)
+            {
+                item.IsSelected.Dispose();
+                item.Command.Dispose();
+            }
+            ClipItems.Dispose();
+            AddCommand.Dispose();
+            _disposable.Dispose();
+
+            GC.SuppressFinalize(this);
         }
     }
 }

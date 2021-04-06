@@ -29,21 +29,23 @@ namespace BEditor.Drawing.Pixel
                 (byte)(B + foreground.B),
                 (byte)(A + foreground.A));
         }
+
         public readonly RGBA32 Blend(RGBA32 mask)
         {
             if (mask.A is 0) return this;
 
             var dst = new RGBA32();
 
-            var blendA = (mask.A + A) - mask.A * A / 255;
+            var blendA = mask.A + A - (mask.A * A / 255);
 
-            dst.B = (byte)((mask.B * mask.A + B * (255 - mask.A) * A / 255) / blendA);
-            dst.G = (byte)((mask.G * mask.A + G * (255 - mask.A) * A / 255) / blendA);
-            dst.R = (byte)((mask.R * mask.A + R * (255 - mask.A) * A / 255) / blendA);
+            dst.B = (byte)(((mask.B * mask.A) + (B * (255 - mask.A) * A / 255)) / blendA);
+            dst.G = (byte)(((mask.G * mask.A) + (G * (255 - mask.A) * A / 255)) / blendA);
+            dst.R = (byte)(((mask.R * mask.A) + (R * (255 - mask.A) * A / 255)) / blendA);
             dst.A = A;
 
             return dst;
         }
+
         public readonly RGBA32 Subtract(RGBA32 foreground)
         {
             return new(
@@ -52,6 +54,7 @@ namespace BEditor.Drawing.Pixel
                 (byte)(B - foreground.B),
                 (byte)(A - foreground.A));
         }
+
         public void ConvertFrom(BGR24 src)
         {
             B = src.B;
@@ -59,6 +62,7 @@ namespace BEditor.Drawing.Pixel
             R = src.R;
             A = 255;
         }
+
         public void ConvertFrom(RGB24 src)
         {
             B = src.B;
@@ -66,6 +70,7 @@ namespace BEditor.Drawing.Pixel
             R = src.R;
             A = 255;
         }
+
         public void ConvertFrom(RGBA32 src)
         {
             B = src.B;
@@ -73,14 +78,17 @@ namespace BEditor.Drawing.Pixel
             R = src.R;
             A = src.A;
         }
+
         public readonly void ConvertTo(out BGR24 dst)
         {
             dst = new(R, G, B);
         }
+
         public readonly void ConvertTo(out RGB24 dst)
         {
             dst = new(R, G, B);
         }
+
         public readonly void ConvertTo(out RGBA32 dst)
         {
             dst = new(R, G, B, A);

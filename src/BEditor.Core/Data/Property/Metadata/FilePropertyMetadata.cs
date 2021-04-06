@@ -1,0 +1,18 @@
+﻿namespace BEditor.Data.Property
+{
+    /// <summary>
+    /// The metadata of <see cref="FileProperty"/>.
+    /// </summary>
+    /// <param name="Name">The string displayed in the property header.</param>
+    /// <param name="DefaultFile">The default value of <see cref="FileProperty.Value"/></param>
+    /// <param name="Filter">The filter for the file to be selected.</param>
+    public record FilePropertyMetadata(string Name, string DefaultFile = "", FileFilter? Filter = null)
+        : PropertyElementMetadata(Name), IPropertyBuilder<FileProperty>
+    {
+        /// <inheritdoc/>
+        public FileProperty Build()
+        {
+            return new(this);
+        }
+    }
+}

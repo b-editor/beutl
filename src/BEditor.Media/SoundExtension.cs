@@ -10,19 +10,16 @@ namespace BEditor.Media
 {
     public unsafe static class Sound
     {
-        public static Sound<PCM16> SinWave(uint samplingrate)
+        public static Sound<TConvert> Convert<TConvert, TSource>(this Sound<TSource> self) where TSource : unmanaged, IPCM<TSource>, IPCMConvertable<TConvert> where TConvert : unmanaged, IPCM<TConvert>
         {
-            var sound = new Sound<PCM16>(Channel.Monaural, samplingrate, 60);
+            var result = new Sound<TConvert>(self.Samplingrate, self.Length);
 
-            fixed(PCM16* pcm = sound.Pcm)
+            Parallel.For(0, self.Length, i =>
             {
-                for (int i = 0; i < samplingrate; i++)
-                {
-                    pcm[i].Value = (short)(32767 * Math.Sin(2 * Math.PI * i * 440 / samplingrate));
-                }
-            }
+                self.Data[i].ConvertTo(out result.Data[i]);
+            });
 
-            return sound;
+            return result;
         }
     }
 }

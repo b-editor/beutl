@@ -12,7 +12,7 @@ namespace BEditor.Views.SettingsControl
 {
     public class UIBuilderFromRecord
     {
-        private static (Func<string, FrameworkElement> create, Func<FrameworkElement, object> getValue, Action<FrameworkElement, object> setValue, Type type)[] TypeTo = new (Func<string, FrameworkElement> create, Func<FrameworkElement, object> getValue, Action<FrameworkElement, object> setValue, Type type)[]
+        private static readonly (Func<string, FrameworkElement> create, Func<FrameworkElement, object> getValue, Action<FrameworkElement, object> setValue, Type type)[] TypeTo =
         {
             #region Float
 

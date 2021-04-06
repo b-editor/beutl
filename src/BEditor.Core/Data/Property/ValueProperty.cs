@@ -3,22 +3,18 @@ using System.Collections.Generic;
 using System.ComponentModel;
 using System.Diagnostics;
 using System.Diagnostics.Contracts;
-using System.Linq;
-using System.Reactive.Disposables;
-using System.Runtime.Serialization;
 using System.Text;
-using System.Threading.Tasks;
+using System.Text.Json;
 
 using BEditor.Command;
 using BEditor.Data.Bindings;
-using BEditor.Data.Property;
+using BEditor.Resources;
 
 namespace BEditor.Data.Property
 {
     /// <summary>
     /// Represents a property of <see cref="float"/> type.
     /// </summary>
-    [DataContract]
     [DebuggerDisplay("Value = {Value}")]
     public class ValueProperty : PropertyElement<ValuePropertyMetadata>, IBindable<float>, IEasingProperty
     {
@@ -31,11 +27,10 @@ namespace BEditor.Data.Property
         private string? _bindHint;
         #endregion
 
-
         /// <summary>
         /// Initializes a new instance of the <see cref="ValueProperty"/> class.
         /// </summary>
-        /// <param name="metadata">Matadata of this property</param>
+        /// <param name="metadata">Matadata of this property.</param>
         /// <exception cref="ArgumentNullException"><paramref name="metadata"/> is <see langword="null"/>.</exception>
         public ValueProperty(ValuePropertyMetadata metadata)
         {
@@ -43,10 +38,7 @@ namespace BEditor.Data.Property
             _value = metadata.DefaultValue;
         }
 
-
-        private List<IObserver<float>> Collection => _list ??= new();
         /// <inheritdoc/>
-        [DataMember]
         public float Value
         {
             get => _value;
@@ -65,64 +57,62 @@ namespace BEditor.Data.Property
                 }
             });
         }
+
         /// <inheritdoc/>
-        [DataMember]
-        public string? BindHint
+        public string? TargetHint
         {
-            get => _bindable?.GetString();
+            get => _bindable?.ToString("#");
             private set => _bindHint = value;
         }
 
+        private List<IObserver<float>> Collection => _list ??= new();
 
         #region Methods
 
         /// <inheritdoc/>
         public void Bind(IBindable<float>? bindable)
         {
-            _bindDispose?.Dispose();
-            _bindable = bindable;
-
-            if (bindable is not null)
-            {
-                Value = bindable.Value;
-
-                // bindableが変更時にthisが変更
-                _bindDispose = bindable.Subscribe(this);
-            }
+            Value = this.Bind(bindable, out _bindable, ref _bindDispose);
         }
+
         /// <inheritdoc/>
-        public void OnCompleted() { }
+        public void OnCompleted()
+        {
+        }
+
         /// <inheritdoc/>
-        public void OnError(Exception error) { }
+        public void OnError(Exception error)
+        {
+        }
+
         /// <inheritdoc/>
         public void OnNext(float value)
         {
             Value = value;
         }
+
         /// <inheritdoc/>
         public IDisposable Subscribe(IObserver<float> observer)
         {
-            if (observer is null) throw new ArgumentNullException(nameof(observer));
+            return BindingHelper.Subscribe(Collection, observer, Value);
+        }
 
-            Collection.Add(observer);
-            return Disposable.Create((observer, this), state =>
-            {
-                state.observer.OnCompleted();
-                state.Item2.Collection.Remove(state.observer);
-            });
-        }
         /// <inheritdoc/>
-        protected override void OnLoad()
+        public override void GetObjectData(Utf8JsonWriter writer)
         {
-            if (_bindHint is not null)
-            {
-                if (this.GetBindable(_bindHint, out var b))
-                {
-                    Bind(b);
-                }
-            }
-            _bindHint = null;
+            base.GetObjectData(writer);
+            writer.WriteNumber(nameof(Value), Value);
+            writer.WriteString(nameof(TargetHint), TargetHint);
         }
+
+        /// <inheritdoc/>
+        public override void SetObjectData(JsonElement element)
+        {
+            base.SetObjectData(element);
+            Value = element.TryGetProperty(nameof(Value), out var value) ? value.GetSingle() : 0;
+            TargetHint = element.TryGetProperty(nameof(TargetHint), out var bind) ? bind.GetString() : null;
+        }
+
         /// <summary>
         /// Returns <paramref name="value"/> clamped to the inclusive range of <see cref="ValuePropertyMetadata.Min"/> and <see cref="ValuePropertyMetadata.Max"/>.
         /// </summary>
@@ -145,73 +135,58 @@ namespace BEditor.Data.Property
 
             return value;
         }
+
         /// <summary>
         /// Create a command to change the <see cref="Value"/>.
         /// </summary>
-        /// <param name="value">New value for <see cref="Value"/></param>
-        /// <returns>Created <see cref="IRecordCommand"/></returns>
+        /// <param name="value">New value for <see cref="Value"/>.</param>
+        /// <returns>Created <see cref="IRecordCommand"/>.</returns>
         [Pure]
         public IRecordCommand ChangeValue(float value) => new ChangeValueCommand(this, value);
-        #endregion
 
+        /// <inheritdoc/>
+        protected override void OnLoad()
+        {
+            this.AutoLoad(ref _bindHint);
+        }
+
+        #endregion
 
         private sealed class ChangeValueCommand : IRecordCommand
         {
-            private readonly ValueProperty _Property;
-            private readonly float _New;
-            private readonly float _Old;
+            private readonly WeakReference<ValueProperty> _property;
+            private readonly float _new;
+            private readonly float _old;
 
             public ChangeValueCommand(ValueProperty property, float value)
             {
-                _Property = property ?? throw new ArgumentNullException(nameof(property));
-                _Old = property.Value;
-                _New = property.Clamp(value);
+                _property = new(property ?? throw new ArgumentNullException(nameof(property)));
+                _old = property.Value;
+                _new = property.Clamp(value);
             }
 
-            public string Name => CommandName.ChangeValue;
+            public string Name => Strings.ChangeValue;
 
-            public void Do() => _Property.Value = _New;
-            public void Redo() => Do();
-            public void Undo() => _Property.Value = _Old;
-        }
-    }
+            public void Do()
+            {
+                if (_property.TryGetTarget(out var target))
+                {
+                    target.Value = _new;
+                }
+            }
 
-    /// <summary>
-    /// Represents the metadata of a <see cref="ValueProperty"/>.
-    /// </summary>
-    public record ValuePropertyMetadata : PropertyElementMetadata, IPropertyBuilder<ValueProperty>
-    {
-        /// <summary>
-        /// Initializes a new instance of the <see cref="ValuePropertyMetadata"/> class.
-        /// </summary>
-        /// <param name="Name">The string displayed in the property header.</param>
-        /// <param name="DefaultValue">Default value</param>
-        /// <param name="Max">Maximum value.</param>
-        /// <param name="Min">Minimum value</param>
-        public ValuePropertyMetadata(string Name, float DefaultValue = 0, float Max = float.NaN, float Min = float.NaN) : base(Name)
-        {
-            this.DefaultValue = DefaultValue;
-            this.Max = Max;
-            this.Min = Min;
-        }
+            public void Redo()
+            {
+                Do();
+            }
 
-        /// <summary>
-        /// Gets the default value.
-        /// </summary>
-        public float DefaultValue { get; init; }
-        /// <summary>
-        /// Gets the maximum value.
-        /// </summary>
-        public float Max { get; init; }
-        /// <summary>
-        /// Get the minimum value.
-        /// </summary>
-        public float Min { get; init; }
-
-        /// <inheritdoc/>
-        public ValueProperty Build()
-        {
-            return new(this);
+            public void Undo()
+            {
+                if (_property.TryGetTarget(out var target))
+                {
+                    target.Value = _old;
+                }
+            }
         }
     }
 }

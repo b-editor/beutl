@@ -1,39 +1,19 @@
 ﻿using System.Collections.Generic;
-using System.Runtime.Serialization;
 
-using BEditor.Command;
 using BEditor.Data;
-using BEditor.Data.Primitive;
 using BEditor.Data.Property;
-using BEditor.Properties;
-
-using OpenTK.Graphics.OpenGL4;
+using BEditor.Primitive.Resources;
 
 using static BEditor.Data.Property.PrimitiveGroup.Coordinate;
-
-using GLColor = OpenTK.Mathematics.Color4;
+using static BEditor.Data.Property.PrimitiveGroup.Material;
 
 namespace BEditor.Primitive.Effects
 {
     /// <summary>
     /// Represents an <see cref="EffectElement"/> that sets the OpenGL point light source.
     /// </summary>
-    [DataContract]
     public class PointLightSource : EffectElement
     {
-        /// <summary>
-        /// Represents <see cref="ConstantAttenuation"/> metadata.
-        /// </summary>
-        public static readonly EasePropertyMetadata ConstantAttenuationMetadata = new("ConstantAttenuation", 100, float.NaN, 1);
-        /// <summary>
-        /// Represents <see cref="LinearAttenuation"/> metadata.
-        /// </summary>
-        public static readonly EasePropertyMetadata LinearAttenuationMetadata = new("LinearAttenuation", 0, 100, 0);
-        /// <summary>
-        /// Represents <see cref="QuadraticAttenuation"/> metadata.
-        /// </summary>
-        public static readonly EasePropertyMetadata QuadraticAttenuationMetadata = new("QuadraticAttenuation", 0, 100, 0);
-
         /// <summary>
         /// Initializes a new instance of the <see cref="PointLightSource"/> class.
         /// </summary>
@@ -42,73 +22,64 @@ namespace BEditor.Primitive.Effects
             X = new(XMetadata);
             Y = new(YMetadata);
             Z = new(ZMetadata);
-            ConstantAttenuation = new(ConstantAttenuationMetadata);
-            LinearAttenuation = new(LinearAttenuationMetadata);
-            QuadraticAttenuation = new(QuadraticAttenuationMetadata);
+            Ambient = new(AmbientMetadata);
+            Diffuse = new(DiffuseMetadata);
+            Specular = new(SpecularMetadata);
         }
 
         /// <inheritdoc/>
-        public override string Name => Resources.PointLightSource;
+        public override string Name => Strings.PointLightSource;
         /// <inheritdoc/>
         public override IEnumerable<PropertyElement> Properties => new PropertyElement[]
         {
             X,
             Y,
             Z,
-            ConstantAttenuation,
-            LinearAttenuation,
-            QuadraticAttenuation
+            Ambient,
+            Diffuse,
+            Specular,
         };
         /// <summary>
         /// Get the <see cref="EaseProperty"/> representing the X coordinate.
         /// </summary>
-        [DataMember(Order = 0)]
+        [DataMember]
         public EaseProperty X { get; private set; }
         /// <summary>
         /// Get the <see cref="EaseProperty"/> representing the Y coordinate.
         /// </summary>
-        [DataMember(Order = 1)]
+        [DataMember]
         public EaseProperty Y { get; private set; }
         /// <summary>
         /// Get the <see cref="EaseProperty"/> representing the Z coordinate.
         /// </summary>
-        [DataMember(Order = 2)]
+        [DataMember]
         public EaseProperty Z { get; private set; }
         /// <summary>
-        /// Gets the <see cref="EaseProperty"/> representing the value of GL_CONSTANT_ATTENUATION.
+        /// Gets the <see cref="ColorAnimationProperty"/> representing ambient.
         /// </summary>
-        [DataMember(Order = 3)]
-        public EaseProperty ConstantAttenuation { get; private set; }
+        [DataMember]
+        public ColorAnimationProperty Ambient { get; private set; }
         /// <summary>
-        /// Gets the <see cref="EaseProperty"/> representing the value of GL_LINEAR_ATTENUATION.
+        /// Gets the <see cref="ColorAnimationProperty"/> representing diffuse.
         /// </summary>
-        [DataMember(Order = 4)]
-        public EaseProperty LinearAttenuation { get; private set; }
+        [DataMember]
+        public ColorAnimationProperty Diffuse { get; private set; }
         /// <summary>
-        /// Gets the <see cref="EaseProperty"/> representing the value of GL_QUADRATIC_ATTENUATION.
+        ///Gets the <see cref="ColorAnimationProperty"/> representing specular.
         /// </summary>
-        [DataMember(Order = 5)]
-        public EaseProperty QuadraticAttenuation { get; private set; }
+        [DataMember]
+        public ColorAnimationProperty Specular { get; private set; }
 
         /// <inheritdoc/>
         public override void Render(EffectRenderArgs args)
         {
-            //int frame = args.Frame;
-            //GL.Enable(EnableCap.Lighting);
+            var frame = args.Frame;
 
-            //float[] position = new float[] { X.GetValue(frame), Y.GetValue(frame), Z.GetValue(frame), 1f };
-            //float[] ambientColor = new float[] { 0.1f, 0.1f, 0.1f, 1.0f };
-
-            //GL.Light(LightName.Light0, LightParameter.Ambient, ambientColor);
-            //GL.Light(LightName.Light0, LightParameter.Diffuse, GLColor.White);
-            //GL.Light(LightName.Light0, LightParameter.Specular, GLColor.White);
-            //GL.Light(LightName.Light0, LightParameter.Position, position);
-
-            //GL.Light(LightName.Light0, LightParameter.ConstantAttenuation, ConstantAttenuation.GetValue(frame) / 100);
-            //GL.Light(LightName.Light0, LightParameter.LinearAttenuation, LinearAttenuation.GetValue(frame) / 10000);
-            //GL.Light(LightName.Light0, LightParameter.QuadraticAttenuation, QuadraticAttenuation.GetValue(frame) / 100000);
-
-            //GL.Enable(EnableCap.Light0);
+            Parent!.Parent!.GraphicsContext!.Light = new(
+                new(X.GetValue(frame), Y.GetValue(frame), Z.GetValue(frame)),
+                Ambient[frame],
+                Diffuse[frame],
+                Specular[frame]);
         }
         /// <inheritdoc/>
         protected override void OnLoad()
@@ -116,9 +87,9 @@ namespace BEditor.Primitive.Effects
             X.Load(XMetadata);
             Y.Load(YMetadata);
             Z.Load(ZMetadata);
-            ConstantAttenuation.Load(ConstantAttenuationMetadata);
-            LinearAttenuation.Load(LinearAttenuationMetadata);
-            QuadraticAttenuation.Load(QuadraticAttenuationMetadata);
+            Ambient.Load(AmbientMetadata);
+            Specular.Load(SpecularMetadata);
+            Diffuse.Load(DiffuseMetadata);
         }
         /// <inheritdoc/>
         protected override void OnUnload()

@@ -1,20 +1,19 @@
 ﻿<Controls:MetroWindow
-        x:Class="BEditor.Views.NoneDialog"
-        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
-        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
-        xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
-        xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
-        xmlns:Controls="clr-namespace:MahApps.Metro.Controls;assembly=MahApps.Metro"
-        xmlns:vm="clr-namespace:BEditor.ViewModels"
-        xmlns:md="http://materialdesigninxaml.net/winfx/xaml/themes"
-        mc:Ignorable="d"
-        WindowStartupLocation="CenterScreen"
-        ResizeMode="NoResize"
-        
-        Style="{StaticResource DefaultWindowStyle}"
-        BorderThickness="0"
-        MaxWidth="500"
-        SizeToContent="WidthAndHeight">
+    x:Class="BEditor.Views.NoneDialog"
+    xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+    xmlns:Controls="clr-namespace:MahApps.Metro.Controls;assembly=MahApps.Metro"
+    xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+    xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+    xmlns:md="http://materialdesigninxaml.net/winfx/xaml/themes"
+    xmlns:vm="clr-namespace:BEditor.ViewModels"
+    MaxWidth="500"
+    BorderThickness="0"
+    ResizeMode="NoResize"
+    SizeToContent="WidthAndHeight"
+    Style="{StaticResource DefaultWindowStyle}"
+    WindowStartupLocation="CenterScreen"
+    mc:Ignorable="d">
     <Controls:MetroWindow.Resources>
         <Style TargetType="{x:Type Controls:WindowButtonCommands}">
             <Style.Triggers>
@@ -26,8 +25,20 @@
     </Controls:MetroWindow.Resources>
     <Controls:MetroWindow.LeftWindowCommands>
         <Controls:WindowCommands>
-            <md:PackIcon Kind="Movie" Foreground="{StaticResource PrimaryHueMidBrush}" VerticalAlignment="Center" Margin="10,0,10,0" Width="18" Height="18" />
+            <md:PackIcon
+                Width="18"
+                Height="18"
+                Margin="10,0,10,0"
+                VerticalAlignment="Center"
+                Foreground="{StaticResource PrimaryHueMidBrush}"
+                Kind="Movie" />
         </Controls:WindowCommands>
     </Controls:MetroWindow.LeftWindowCommands>
-    <Label x:Name="label" HorizontalContentAlignment="Center" VerticalContentAlignment="Center" Padding="0,0,0,0" VerticalAlignment="Center" HorizontalAlignment="Center"/>
+    <Label
+        x:Name="label"
+        Padding="0,0,0,0"
+        HorizontalAlignment="Center"
+        VerticalAlignment="Center"
+        HorizontalContentAlignment="Center"
+        VerticalContentAlignment="Center" />
 </Controls:MetroWindow>

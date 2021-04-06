@@ -1,0 +1,47 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+             xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+             xmlns:properties="using:BEditor.Properties"
+             xmlns:plugin="clr-namespace:BEditor.Plugin;assembly=BEditor.Core"
+             xmlns:vm="using:BEditor.ViewModels.Settings"
+             x:DataType="vm:InstalledPluginsViewModel"
+             mc:Ignorable="d" d:DesignWidth="800" d:DesignHeight="450"
+             x:Class="BEditor.Views.Settings.InstalledPlugins">
+  <Grid>
+    <Grid.RowDefinitions>
+      <RowDefinition/>
+      <RowDefinition Height="Auto"/>
+    </Grid.RowDefinitions>
+    <ListBox
+      Background="Transparent"
+      Items="{Binding Plugins, Source={x:Static plugin:PluginManager.Default}}"
+      SelectedItem="{CompiledBinding SelectPlugin.Value, Mode=TwoWay}">
+      <ListBox.ItemTemplate>
+        <DataTemplate>
+          <Grid Height="60">
+            <VirtualizingStackPanel>
+              <Label Content="{Binding Converter={StaticResource NameConvert}}" FontSize="14"/>
+              <Label Content="{Binding Description}"/>
+            </VirtualizingStackPanel>
+            <Label Content="{Binding Converter={StaticResource AuthorConvert}}" HorizontalAlignment="Right"/>
+          </Grid>
+        </DataTemplate>
+      </ListBox.ItemTemplate>
+    </ListBox>
+    <VirtualizingStackPanel Grid.Row="1" Orientation="Horizontal">
+      <Button
+        Background="Transparent"
+        IsEnabled="{CompiledBinding IsSelected.Value, Mode=OneWay}"
+        Margin="10"
+        Content="{x:Static properties:Strings.Settings}"
+        Command="{CompiledBinding SettingClick, Mode=OneTime}"/>
+      <Button
+        Background="Transparent"
+        IsEnabled="{CompiledBinding IsSelected.Value, Mode=OneWay}"
+        Margin="10"
+        Content="{x:Static properties:Strings.UnloadPlugin}"
+        Command="{CompiledBinding UnloadClick, Mode=OneTime}"/>
+    </VirtualizingStackPanel>
+  </Grid>
+</UserControl>

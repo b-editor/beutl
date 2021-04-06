@@ -1,27 +1,21 @@
-﻿using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Runtime.Serialization;
-using System.Text;
-using System.Threading.Tasks;
+﻿using System.Collections.Generic;
 
-using BEditor.Command;
 using BEditor.Data;
 using BEditor.Data.Primitive;
 using BEditor.Data.Property;
 using BEditor.Drawing;
 using BEditor.Drawing.Pixel;
+using BEditor.Primitive.Resources;
 
-using static BEditor.Primitive.Objects.Figure;
+using static BEditor.Primitive.Objects.Shape;
 
 namespace BEditor.Primitive.Objects
 {
     /// <summary>
     /// Get an <see cref="ImageObject"/> to draw a polygon.
     /// </summary>
-    [DataContract]
     [CustomClipUI(Color = 0x0091ea)]
-    public class Polygon : ImageObject
+    public sealed class Polygon : ImageObject
     {
         /// <summary>
         /// Represents <see cref="Number"/> metadata.
@@ -40,14 +34,14 @@ namespace BEditor.Primitive.Objects
         }
 
         /// <inheritdoc/>
-        public override string Name => "Polygon";
+        public override string Name => Strings.Polygon;
         /// <inheritdoc/>
         public override IEnumerable<PropertyElement> Properties => new PropertyElement[]
         {
             Coordinate,
-            Zoom,
+            Scale,
             Blend,
-            Angle,
+            Rotate,
             Material,
             Width,
             Height,
@@ -57,22 +51,22 @@ namespace BEditor.Primitive.Objects
         /// <summary>
         /// Get the <see cref="EaseProperty"/> that represents the width of the polygon.
         /// </summary>
-        [DataMember(Order = 0)]
+        [DataMember]
         public EaseProperty Width { get; private set; }
         /// <summary>
         /// Get the <see cref="EaseProperty"/> that represents the height of the polygon.
         /// </summary>
-        [DataMember(Order = 1)]
+        [DataMember]
         public EaseProperty Height { get; private set; }
         /// <summary>
         /// Gets the <see cref="ValueProperty"/> representing the number of corners of a polygon.
         /// </summary>
-        [DataMember(Order = 2)]
+        [DataMember]
         public ValueProperty Number { get; private set; }
         /// <summary>
         /// Get the <see cref="ColorProperty"/> that represents the color of the polygon.
         /// </summary>
-        [DataMember(Order = 3)]
+        [DataMember]
         public ColorProperty Color { get; private set; }
 
         /// <inheritdoc/>
@@ -83,7 +77,7 @@ namespace BEditor.Primitive.Objects
 
             if (width <= 0 || height <= 0) return new(1, 1, default(BGRA32));
 
-            return Image.Polygon((int)Number.Value, width, height, Color.Color);
+            return Image.Polygon((int)Number.Value, width, height, Color.Value);
         }
         /// <inheritdoc/>
         protected override void OnLoad()

@@ -1,22 +1,16 @@
-﻿using System;
-using System.Collections.Generic;
+﻿using System.Collections.Generic;
 using System.Diagnostics;
-using System.IO;
 using System.Linq;
 using System.Net.Http;
-using System.Text;
+using System.Text.Json;
 using System.Threading.Tasks;
-using System.Windows;
 using System.Windows.Controls;
-using System.Windows.Data;
-using System.Windows.Documents;
-using System.Windows.Input;
-using System.Windows.Media;
-using System.Windows.Media.Imaging;
-using System.Windows.Navigation;
-using System.Windows.Shapes;
 
+using BEditor.Models;
+using BEditor.Properties;
 using BEditor.ViewModels;
+
+using Microsoft.Extensions.DependencyInjection;
 
 using static BEditor.ViewModels.StartWindowViewModel;
 
@@ -36,20 +30,20 @@ namespace BEditor.Views.StartWindowControl
 
         private async Task Init()
         {
-            using var client = new HttpClient();
-            using var memory = new MemoryStream();
-            await memory.WriteAsync(Encoding.UTF8.GetBytes(await client.GetStringAsync("https://raw.githubusercontent.com/b-editor/BEditor/main/docs/releases.json")));
+            var client = AppData.Current.ServiceProvider.GetRequiredService<HttpClient>();
+            await using var memory = await client.GetStreamAsync("https://raw.githubusercontent.com/b-editor/BEditor/main/docs/releases.json");
 
-            if (Serialize.LoadFromStream<IEnumerable<Release>>(memory, SerializeMode.Json) is var releases && releases is not null)
+            if (await JsonSerializer.DeserializeAsync<IEnumerable<Release>>(memory) is var releases && releases is not null)
             {
                 var first = releases.First();
                 var asmName = typeof(StartWindowViewModel).Assembly.GetName();
+                var latest = first.GetVersion();
 
-                if (asmName.Version?.ToString(3) != first.Version)
+                if (asmName.Version < latest)
                 {
-                    textBlock.Text = Properties.MessageResources.NewVersionIsAvailable;
+                    textBlock.Text = Strings.NewVersionIsAvailable;
 
-                    button.Content = Properties.MessageResources.Download;
+                    button.Content = Strings.Download;
 
                     button.Click += (s, e) =>
                     {
@@ -58,9 +52,9 @@ namespace BEditor.Views.StartWindowControl
                 }
                 else
                 {
-                    textBlock.Text = Properties.MessageResources.ThisSoftwareIsLatest;
+                    textBlock.Text = Strings.ThisSoftwareIsLatest;
 
-                    button.Content = Properties.Resources.OpenThisRepository;
+                    button.Content = Strings.OpenThisRepository;
 
                     button.Click += (s, e) =>
                     {

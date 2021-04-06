@@ -14,6 +14,7 @@ namespace BEditor.Graphics
     public struct Transform
     {
         public static readonly Transform Zero;
+        public static readonly Transform Default = new(new(0, 0, 0), new(0, 0, 0), new(0, 0, 0), new(1, 1, 1));
 
         private Transform(Vector3 coord, Vector3 center, Vector3 rotate, Vector3 scale)
         {
@@ -24,9 +25,13 @@ namespace BEditor.Graphics
         }
 
         public Vector3 Coordinate { get; set; }
+
         public Vector3 Center { get; set; }
+
         public Vector3 Rotate { get; set; }
+
         public Vector3 Scale { get; set; }
+
         public Matrix4 Matrix
         {
             get
@@ -55,6 +60,7 @@ namespace BEditor.Graphics
                 left.Rotate + right.Rotate,
                 left.Scale + right.Scale);
         }
+
         public static Transform operator -(Transform left, Transform right)
         {
             return new(
@@ -63,6 +69,7 @@ namespace BEditor.Graphics
                 left.Rotate - right.Rotate,
                 left.Scale - right.Scale);
         }
+
         public static Transform operator *(Transform left, Transform right)
         {
             return new(
@@ -71,6 +78,7 @@ namespace BEditor.Graphics
                 left.Rotate * right.Rotate,
                 left.Scale * right.Scale);
         }
+
         public static Transform operator /(Transform left, Transform right)
         {
             return new(

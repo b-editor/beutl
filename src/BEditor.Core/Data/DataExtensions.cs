@@ -22,21 +22,31 @@ namespace BEditor.Data
         /// <summary>
         /// Execute IRecordCommand.
         /// </summary>
-        /// <param name="command">Command to be executed</param>
-        public static void Execute(this IRecordCommand command) => CommandManager.Do(command);
+        /// <param name="command">Command to be executed.</param>
+        public static void Execute(this IRecordCommand command) => CommandManager.Default.Do(command);
 
         /// <summary>
-        /// Activate this <see cref="IElementObject"/> and set metadata
+        /// Execute IRecordCommand with CommandManager specified.
+        /// </summary>
+        /// <param name="command">Command to be executed.</param>
+        /// <param name="manager">The CommandManager to execute.</param>
+        public static void Execute(this IRecordCommand command, CommandManager manager) => manager.Do(command);
+
+        /// <summary>
+        /// Activate this <see cref="IElementObject"/> and set metadata.
         /// </summary>
         public static void Load(this PropertyElement property, PropertyElementMetadata metadata)
         {
             property.Load();
             property.PropertyMetadata = metadata;
         }
+
         /// <summary>
-        /// Activate this <see cref="IElementObject"/> and set metadata
+        /// Activate this <see cref="IElementObject"/> and set metadata.
         /// </summary>
-        public static void Load<T>(this PropertyElement<T> property, T metadata) where T : PropertyElementMetadata
+        /// <typeparam name="T">Type of <see cref="PropertyElement{T}.PropertyMetadata"/>.</typeparam>
+        public static void Load<T>(this PropertyElement<T> property, T metadata)
+            where T : PropertyElementMetadata
         {
             property.Load();
             property.PropertyMetadata = metadata;
@@ -45,87 +55,104 @@ namespace BEditor.Data
         /// <summary>
         /// Get the parent element.
         /// </summary>
-        /// <typeparam name="T">Type of the parent element to retrieve</typeparam>
-        /// <param name="self"></param>
-        [Pure] public static T? GetParent<T>(this IChild<T> self) => self.Parent;
+        /// <typeparam name="T">Type of the parent element to retrieve.</typeparam>
+        [Pure]
+        public static T? GetParent<T>(this IChild<T> self) => self.Parent;
+
         /// <summary>
         /// Get the parent element one level ahead.
         /// </summary>
-        /// <typeparam name="T">Type of the parent element to retrieve</typeparam>
-        /// <param name="self"></param>
-        [Pure] public static T? GetParent2<T>(this IChild<IChild<T>> self) => self.Parent!.Parent;
+        /// <typeparam name="T">Type of the parent element to retrieve.</typeparam>
+        /// <param name="self">The child element of the parent element to retrieve.</param>
+        [Pure]
+        public static T? GetParent2<T>(this IChild<IChild<T>> self) => self.Parent!.Parent;
+
         /// <summary>
         /// Get the parent element two steps ahead.
         /// </summary>
-        /// <typeparam name="T">Type of the parent element to retrieve</typeparam>
-        /// <param name="self"></param>
-        [Pure] public static T? GetParent3<T>(this IChild<IChild<IChild<T>>> self) => self.Parent!.Parent!.Parent;
+        /// <typeparam name="T">Type of the parent element to retrieve.</typeparam>
+        /// <param name="self">The child element of the parent element to retrieve.</param>
+        [Pure]
+        public static T? GetParent3<T>(this IChild<IChild<IChild<T>>> self) => self.Parent!.Parent!.Parent;
+
         /// <summary>
         /// Get the parent element three levels ahead.
         /// </summary>
-        /// <typeparam name="T">Type of the parent element to retrieve</typeparam>
-        /// <param name="self"></param>
-        [Pure] public static T? GetParent4<T>(this IChild<IChild<IChild<IChild<T>>>> self) => self.Parent!.Parent!.Parent!.Parent;
+        /// <typeparam name="T">Type of the parent element to retrieve.</typeparam>
+        /// <param name="self">The child element of the parent element to retrieve.</param>
+        [Pure]
+        public static T? GetParent4<T>(this IChild<IChild<IChild<IChild<T>>>> self) => self.Parent!.Parent!.Parent!.Parent;
+
         /// <summary>
         /// Get the parent element four levels ahead.
         /// </summary>
-        /// <typeparam name="T">Type of the parent element to retrieve</typeparam>
-        /// <param name="self"></param>
-        [Pure] public static T? GetParent5<T>(this IChild<IChild<IChild<IChild<IChild<T>>>>> self) => self.Parent!.Parent!.Parent!.Parent!.Parent;
+        /// <typeparam name="T">Type of the parent element to retrieve.</typeparam>
+        /// <param name="self">The child element of the parent element to retrieve.</param>
+        [Pure]
+        public static T? GetParent5<T>(this IChild<IChild<IChild<IChild<IChild<T>>>>> self) => self.Parent!.Parent!.Parent!.Parent!.Parent;
 
         /// <summary>
         /// Searches for child elements by id.
         /// </summary>
-        /// <typeparam name="T">Type of the child element</typeparam>
-        /// <param name="self"></param>
-        /// <param name="id">The value of <see cref="IHasId.Id"/> to search for</param>
+        /// <typeparam name="T">Type of the child element.</typeparam>
+        /// <param name="self">The parent element containing the child elements to be searched.</param>
+        /// <param name="id">The value of <see cref="IHasId.Id"/> to search for.</param>
         /// <returns>The element if found, otherwise the default value of type <typeparamref name="T"/>.</returns>
         [Pure]
-        public static T? Find<T>(this IParent<T> self, int id) where T : IHasId
+        public static T? Find<T>(this IParent<T> self, int id)
+            where T : IHasId
         {
-            if (self.Children is T[] array)
-            {
-                return Array.Find(array, t => t.Id == id);
-            }
-            else if (self.Children is List<T> list)
-            {
-                list.Find(t => t.Id == id);
-            }
-
-            return self.Children.ToList().Find(item => item.Id == id);
+            return self.Children.FirstOrDefault(item => item.Id == id);
         }
+
         /// <summary>
         /// Searches for child elements by name.
         /// </summary>
-        /// <typeparam name="T">Type of the child element</typeparam>
-        /// <param name="self"></param>
-        /// <param name="name">The value of <see cref="IHasName.Name"/> to search for</param>
+        /// <typeparam name="T">Type of the child element.</typeparam>
+        /// <param name="self">The parent element containing the child elements to be searched.</param>
+        /// <param name="name">The value of <see cref="IHasName.Name"/> to search for.</param>
         /// <returns>The element if found, otherwise the default value of type <typeparamref name="T"/>.</returns>
         [Pure]
-        public static T? Find<T>(this IParent<T> self, string name) where T : IHasName
+        public static T? Find<T>(this IParent<T> self, string name)
+            where T : IHasName
         {
-            if (self.Children is T[] array)
+            return self.Children.FirstOrDefault(t => t.Name == name);
+        }
+
+        /// <summary>
+        /// Searches for a given object and returns the index of the first object that appears in the parent element.
+        /// </summary>
+        /// <param name="self">The parent element containing the child element to be indexed.</param>
+        /// <param name="prop">The object to locate in array.</param>
+        /// <returns>The zero-based index of the first occurrence of value in the entire array, if found; otherwise, -1.</returns>
+        internal static int IndexOf(this IEnumerable<PropertyElement> self, PropertyElement prop)
+        {
+            var count = -1;
+            foreach (var item in self)
             {
-                return Array.Find(array, t => t.Name == name);
-            }
-            else if (self.Children is List<T> list)
-            {
-                list.Find(t => t.Name == name);
+                count++;
+
+                if (item == prop)
+                {
+                    return count;
+                }
+
+                if (item is IParent<PropertyElement> inner_prop)
+                {
+                    var inner_count = -1;
+                    foreach (var inner_item in inner_prop.Children)
+                    {
+                        inner_count++;
+
+                        if (inner_item == prop)
+                        {
+                            return inner_count;
+                        }
+                    }
+                }
             }
 
-            return self.Children.ToList().Find(t => t.Name == name);
-        }
-        /// <summary>
-        /// Determines whether an element is in the <see cref="IParent{T}"/>.
-        /// </summary>
-        /// <typeparam name="T">Type of the child element</typeparam>
-        /// <param name="self"></param>
-        /// <param name="item">The object to locate in the <see cref="IParent{T}"/>. The value can be null for reference types.</param>
-        /// <returns>true if item is found in the <see cref="IParent{T}"/>; otherwise, false.</returns>
-        [Pure]
-        public static bool Contains<T>(this IParent<T> self, T item)
-        {
-            return self.Children.Contains(item);
+            return -1;
         }
     }
 }

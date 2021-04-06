@@ -1,5 +1,4 @@
-﻿
-using BEditor.Media;
+﻿using BEditor.Media;
 
 namespace BEditor.Data
 {
@@ -18,15 +17,17 @@ namespace BEditor.Data
         }
 
         /// <summary>
-        /// Get the frame to render.
+        /// Gets the frame to render.
         /// </summary>
         public Frame Frame { get; }
+
         /// <summary>
         /// Gets or sets a value that indicates the current state of the process.
         /// </summary>
         public bool Handled { get; set; }
+
         /// <summary>
-        /// Get the rendering type.
+        /// Gets the rendering type.
         /// </summary>
         public RenderType Type { get; }
     }

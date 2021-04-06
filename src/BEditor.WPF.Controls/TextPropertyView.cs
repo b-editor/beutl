@@ -47,10 +47,31 @@ namespace BEditor.WPF.Controls
             base.OnApplyTemplate();
 
             var text = (TextBox)GetTemplateChild("TextBox");
-
-            text.GotFocus += (s, _) => GotFocusCommand.Execute(((TextBox)s).Text);
-            text.LostFocus += (s, _) => LostFocusCommand.Execute(((TextBox)s).Text);
-            text.TextChanged += (s, _) => TextChanged.Execute(((TextBox)s).Text);
+            text.GotFocus += Text_GotFocus;
+            text.LostFocus += Text_LostFocus;
+            text.TextChanged += Text_TextChanged;
         }
+
+        protected override void Dispose(bool disposing)
+        {
+            if (disposing)
+            {
+                var text = (TextBox)GetTemplateChild("TextBox");
+
+                if (text is null) return;
+
+                text.GotFocus -= Text_GotFocus;
+                text.LostFocus -= Text_LostFocus;
+                text.TextChanged -= Text_TextChanged;
+            }
+
+            base.Dispose(disposing);
+        }
+
+        private void Text_TextChanged(object s, TextChangedEventArgs _) => TextChanged?.Execute(((TextBox)s).Text);
+
+        private void Text_LostFocus(object s, RoutedEventArgs _) => LostFocusCommand?.Execute(((TextBox)s).Text);
+
+        private void Text_GotFocus(object s, RoutedEventArgs _) => GotFocusCommand?.Execute(((TextBox)s).Text);
     }
 }

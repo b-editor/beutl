@@ -25,11 +25,11 @@ namespace BEditor.Views.PropertyControl
     /// <summary>
     /// DialogControl.xaml の相互作用ロジック
     /// </summary>
-    public partial class DialogControl : UserControl, ICustomTreeViewItem
+    public sealed partial class DialogControl : UserControl, ICustomTreeViewItem, IDisposable
     {
         private static readonly ViewBuilder.PropertyViewBuilder builder;
-        public static readonly EditorProperty<UIElement> DialogProperty = EditorProperty.Register<UIElement, DialogProperty>("GetDialog");
-        private readonly DialogProperty property;
+        public static readonly EditingProperty<UIElement> DialogProperty = EditingProperty.Register<UIElement, DialogProperty>("GetDialog");
+        private DialogProperty property;
 
         static DialogControl()
         {
@@ -57,6 +57,14 @@ namespace BEditor.Views.PropertyControl
             }
 
             GetCreate(property).ShowDialog();
+        }
+
+        public void Dispose()
+        {
+            property = null!;
+            DataContext = null;
+
+            GC.SuppressFinalize(this);
         }
     }
 }

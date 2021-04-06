@@ -9,6 +9,7 @@ using System.Windows;
 
 using BEditor.Command;
 using BEditor.Data;
+using BEditor.Drawing;
 using BEditor.Models.Extension;
 using BEditor.Primitive;
 using BEditor.Primitive.Objects;
@@ -26,14 +27,13 @@ namespace BEditor.Models
     public class EditModel
     {
         public static readonly EditModel Current = new();
-        private static readonly ILogger Logger = AppData.Current.LoggingFactory.CreateLogger<EditModel>();
 
         private EditModel()
         {
             Undo.Where(_ => AppData.Current.Project is not null)
                 .Subscribe(_ =>
             {
-                CommandManager.Undo();
+                CommandManager.Default.Undo();
 
                 AppData.Current.Project!.PreviewUpdate();
                 AppData.Current.AppStatus = Status.Edit;
@@ -41,15 +41,13 @@ namespace BEditor.Models
             Redo.Where(_ => AppData.Current.Project is not null)
                 .Subscribe(_ =>
             {
-                CommandManager.Redo();
+                CommandManager.Default.Redo();
 
                 AppData.Current.Project!.PreviewUpdate();
                 AppData.Current.AppStatus = Status.Edit;
             });
-            CommandManager.CanUndoChange += (sender, e) => UndoIsEnabled.Value = CommandManager.CanUndo;
-            CommandManager.CanRedoChange += (sender, e) => RedoIsEnabled.Value = CommandManager.CanRedo;
 
-            CommandManager.Executed += Executed;
+            CommandManager.Default.Executed += Executed;
 
             #region Add, Remove
             SceneAdd.Where(_ => AppData.Current.Project is not null)
@@ -76,7 +74,7 @@ namespace BEditor.Models
                 .Subscribe(async clip =>
                 {
                     await using var memory = new MemoryStream();
-                    Serialize.SaveToStream(clip, memory, SerializeMode.Json);
+                    await Serialize.SaveToStreamAsync(clip!, memory, SerializeMode.Json);
 
                     var json = Encoding.Default.GetString(memory.ToArray());
                     Clipboard.SetText(json);
@@ -90,7 +88,7 @@ namespace BEditor.Models
                     clip!.Parent.RemoveClip(clip).Execute();
 
                     await using var memory = new MemoryStream();
-                    Serialize.SaveToStream(clip, memory, SerializeMode.Json);
+                    await Serialize.SaveToStreamAsync(clip, memory, SerializeMode.Json);
 
                     var json = Encoding.Default.GetString(memory.ToArray());
                     Clipboard.SetText(json);
@@ -100,15 +98,14 @@ namespace BEditor.Models
                 .Select(_ => AppData.Current.Project!.PreviewScene.GetCreateTimeLineViewModel())
                 .Subscribe(async timeline =>
                 {
-                    await using var prov = AppData.Current.Services.BuildServiceProvider();
-                    var mes = prov.GetService<IMessage>();
+                    var mes = AppData.Current.Message;
                     var text = Clipboard.GetText();
                     var files = Clipboard.GetFileDropList();
-                    var img = Clipboard.GetImage();
+                    var bmpSrc = Clipboard.GetImage();
                     await using var memory = new MemoryStream();
-                    memory.Write(Encoding.Default.GetBytes(text));
+                    await memory.WriteAsync(Encoding.Default.GetBytes(text));
 
-                    if (Serialize.LoadFromStream<ClipElement>(memory, SerializeMode.Json) is var clip && clip is not null)
+                    if (await Serialize.LoadFromStreamAsync<ClipElement>(memory, SerializeMode.Json) is var clip && clip is not null)
                     {
                         var length = clip.Length;
                         clip.Start = timeline.Select_Frame;
@@ -119,15 +116,15 @@ namespace BEditor.Models
 
                         if (!timeline.Scene.InRange(clip.Start, clip.End, clip.Layer))
                         {
-                            mes?.Snackbar(MessageResources.ClipExistsInTheSpecifiedLocation);
-                            Logger.LogInformation("{0} Start: {0} End: {1} Layer: {2}", MessageResources.ClipExistsInTheSpecifiedLocation, clip.Start, clip.End, clip.Layer);
+                            mes?.Snackbar(Strings.ClipExistsInTheSpecifiedLocation);
+                            App.Logger.LogInformation("{0} Start: {0} End: {1} Layer: {2}", Strings.ClipExistsInTheSpecifiedLocation, clip.Start, clip.End, clip.Layer);
 
                             return;
                         }
 
                         timeline.Scene.AddClip(clip).Execute();
                     }
-                    else if (files is not null)
+                    else if (files is not null && files.Count is > 0)
                     {
                         var start = timeline.Select_Frame;
                         var end = timeline.Select_Frame + 180;
@@ -135,14 +132,13 @@ namespace BEditor.Models
 
                         if (!timeline.Scene.InRange(start, end, layer))
                         {
-                            mes?.Snackbar(MessageResources.ClipExistsInTheSpecifiedLocation);
-                            Logger.LogInformation("{0} Start: {0} End: {1} Layer: {2}", MessageResources.ClipExistsInTheSpecifiedLocation, start, end, layer);
+                            mes?.Snackbar(Strings.ClipExistsInTheSpecifiedLocation);
+                            App.Logger.LogInformation("{0} Start: {0} End: {1} Layer: {2}", Strings.ClipExistsInTheSpecifiedLocation, start, end, layer);
 
                             return;
                         }
 
-                        if (files.Count is > 0
-                            && File.Exists(files[0]))
+                        if (File.Exists(files[0]))
                         {
                             var file = files[0];
 
@@ -154,22 +150,42 @@ namespace BEditor.Models
                             var obj = c.Effect[0];
                             if (obj is VideoFile video)
                             {
-                                video.File.File = file;
+                                video.File.Value = file;
                             }
                             else if (obj is ImageFile image)
                             {
-                                image.File.File = file;
+                                image.File.Value = file;
                             }
                             else if (obj is Text txt)
                             {
                                 using var reader = new StreamReader(file);
-                                txt.Document.Text = reader.ReadToEnd();
+                                txt.Document.Value = await reader.ReadToEndAsync();
                             }
                         }
                     }
-                    else if (img is not null)
+                    else if (bmpSrc is not null)
                     {
-                        //Todo: 画像のコピペ
+                        var start = timeline.Select_Frame;
+                        var end = timeline.Select_Frame + 180;
+                        var layer = timeline.Select_Layer;
+
+                        if (!timeline.Scene.InRange(start, end, layer))
+                        {
+                            mes?.Snackbar(Strings.ClipExistsInTheSpecifiedLocation);
+                            App.Logger.LogInformation("{0} Start: {0} End: {1} Layer: {2}", Strings.ClipExistsInTheSpecifiedLocation, start, end, layer);
+
+                            return;
+                        }
+
+                        timeline.Scene.AddClip(start, layer, PrimitiveTypes.ImageMetadata, out var c).Execute();
+                        var ef = (ImageFile)c.Effect[0];
+                        var filename = Path.Combine(c.Parent.Parent.DirectoryName, c.ToString("#") + ".png");
+
+                        using var img = bmpSrc.ToImage();
+                        img.Encode(filename);
+
+                        ef.File.ChangeFile(filename).Execute();
+                        ef.File.Mode = Data.Property.FilePathType.FromProject;
                     }
                 });
             #endregion
@@ -181,8 +197,6 @@ namespace BEditor.Models
 
         public ReactiveCommand Undo { get; } = new();
         public ReactiveCommand Redo { get; } = new();
-        public ReactiveProperty<bool> UndoIsEnabled { get; } = new() { Value = CommandManager.CanUndo };
-        public ReactiveProperty<bool> RedoIsEnabled { get; } = new() { Value = CommandManager.CanRedo };
         public ReactiveCollection<string> UnDoList { get; } = new();
         public ReactiveCollection<string> ReDoList { get; } = new();
 
@@ -201,31 +215,31 @@ namespace BEditor.Models
         {
             try
             {
-                if (type == CommandType.Do)
+                if (type is CommandType.Do)
                 {
-                    //上を見てUnDoListに追加
+                    // 上を見てUnDoListに追加
                     ReDoList.Clear();
 
-                    var command = CommandManager.UndoStack.Peek();
+                    var command = CommandManager.Default.UndoStack.Peek();
 
                     UnDoList.Insert(0, command.Name);
 
-                    AppData.Current.Project!.PreviewUpdate();
+                    AppData.Current.Project?.PreviewUpdate();
                 }
-                else if (type == CommandType.Undo)
+                else if (type is CommandType.Undo)
                 {
-                    //ReDoListに移動
-                    if (UnDoList.Count == 0) return;
+                    // ReDoListに移動
+                    if (UnDoList.Count is 0) return;
 
                     string name = UnDoList[0];
                     UnDoList.Remove(name);
                     ReDoList.Insert(0, name);
 
                 }
-                else if (type == CommandType.Redo)
+                else if (type is CommandType.Redo)
                 {
-                    //UnDoListに移動
-                    if (ReDoList.Count == 0) return;
+                    // UnDoListに移動
+                    if (ReDoList.Count is 0) return;
 
                     string name = ReDoList[0];
                     ReDoList.Remove(name);
@@ -253,7 +267,7 @@ namespace BEditor.Models
                 return PrimitiveTypes.TextMetadata;
             }
 
-            return PrimitiveTypes.FigureMetadata;
+            return PrimitiveTypes.ShapeMetadata;
         }
     }
 }

@@ -1,38 +1,28 @@
 ﻿using System;
 using System.Collections.Generic;
-using System.ComponentModel;
 using System.Diagnostics;
 using System.Diagnostics.Contracts;
-using System.Reactive.Disposables;
-using System.Runtime.Serialization;
-using System.Text.RegularExpressions;
-using System.Threading.Tasks;
+using System.Text.Json;
 
 using BEditor.Command;
 using BEditor.Data.Bindings;
-using BEditor.Data.Property;
+using BEditor.Resources;
 
 namespace BEditor.Data.Property
 {
     /// <summary>
     /// Represents a checkbox property.
     /// </summary>
-    [DataContract]
-    [DebuggerDisplay("IsChecked = {IsChecked}")]
+    [DebuggerDisplay("IsChecked = {Value}")]
     public class CheckProperty : PropertyElement<CheckPropertyMetadata>, IEasingProperty, IBindable<bool>
     {
         #region Fields
-
-        private static readonly PropertyChangedEventArgs _checkedArgs = new(nameof(IsChecked));
-        private bool _isChecked;
+        private bool _value;
         private List<IObserver<bool>>? _list;
-
         private IDisposable? _bindDispose;
         private IBindable<bool>? _bindable;
-        private string? _bindHint;
-
+        private string? _targetHint;
         #endregion
-
 
         /// <summary>
         /// Initializes new instance of the <see cref="CheckProperty"/> class.
@@ -42,24 +32,29 @@ namespace BEditor.Data.Property
         public CheckProperty(CheckPropertyMetadata metadata)
         {
             PropertyMetadata = metadata ?? throw new ArgumentNullException(nameof(metadata));
-            _isChecked = metadata.DefaultIsChecked;
+            _value = metadata.DefaultIsChecked;
         }
 
-        private List<IObserver<bool>> Collection => _list ??= new();
+        /// <inheritdoc/>
+        public string? TargetHint
+        {
+            get => _bindable?.ToString("#");
+            private set => _targetHint = value;
+        }
+
         /// <summary>
         /// Gets or sets the value of whether the item is checked or not.
         /// </summary>
-        [DataMember]
-        public bool IsChecked
+        public bool Value
         {
-            get => _isChecked;
-            set => SetValue(value, ref _isChecked, _checkedArgs, this, state =>
+            get => _value;
+            set => SetValue(value, ref _value, DocumentProperty._valueArgs, this, state =>
             {
                 foreach (var observer in state.Collection)
                 {
                     try
                     {
-                        observer.OnNext(state._isChecked);
+                        observer.OnNext(state._value);
                     }
                     catch (Exception ex)
                     {
@@ -68,128 +63,105 @@ namespace BEditor.Data.Property
                 }
             });
         }
-        /// <inheritdoc/>
-        [DataMember]
-        public string? BindHint
-        {
-            get => _bindable?.GetString();
-            private set => _bindHint = value;
-        }
-        /// <inheritdoc/>
-        public bool Value => IsChecked;
 
+        private List<IObserver<bool>> Collection => _list ??= new();
 
         #region Methods
 
-        #region IBindable
+        /// <inheritdoc/>
+        public void OnCompleted()
+        {
+        }
 
         /// <inheritdoc/>
-        public void OnCompleted() { }
-        /// <inheritdoc/>
-        public void OnError(Exception error) { }
+        public void OnError(Exception error)
+        {
+        }
+
         /// <inheritdoc/>
         public void OnNext(bool value)
         {
-            IsChecked = value;
+            Value = value;
         }
 
         /// <inheritdoc/>
         /// <exception cref="ArgumentNullException"><paramref name="observer"/> is <see langword="null"/>.</exception>
         public IDisposable Subscribe(IObserver<bool> observer)
         {
-            if (observer is null) throw new ArgumentNullException(nameof(observer));
-
-            Collection.Add(observer);
-            return Disposable.Create((observer, this), o =>
-            {
-                o.observer.OnCompleted();
-                o.Item2.Collection.Remove(o.observer);
-            });
+            return BindingHelper.Subscribe(Collection, observer, Value);
         }
 
         /// <inheritdoc/>
         public void Bind(IBindable<bool>? bindable)
         {
-            _bindDispose?.Dispose();
-            _bindable = bindable;
-
-            if (bindable is not null)
-            {
-                IsChecked = bindable.Value;
-
-                // bindableが変更時にthisが変更
-                _bindDispose = bindable.Subscribe(this);
-            }
+            Value = this.Bind(bindable, out _bindable, ref _bindDispose);
         }
-
-        #endregion
 
         /// <inheritdoc/>
-        protected override void OnLoad()
+        public override void GetObjectData(Utf8JsonWriter writer)
         {
-            if (_bindHint is not null)
-            {
-                if (this.GetBindable(_bindHint, out var b))
-                {
-                    Bind(b);
-                }
-            }
-            _bindHint = null;
+            base.GetObjectData(writer);
+            writer.WriteBoolean(nameof(Value), Value);
+            writer.WriteString(nameof(TargetHint), TargetHint);
         }
+
+        /// <inheritdoc/>
+        public override void SetObjectData(JsonElement element)
+        {
+            base.SetObjectData(element);
+            Value = element.TryGetProperty(nameof(Value), out var value) && value.GetBoolean();
+            TargetHint = element.TryGetProperty(nameof(TargetHint), out var bind) ? bind.GetString() : null;
+        }
+
         /// <summary>
         /// Create a command to change whether it is checked or not.
         /// </summary>
-        /// <param name="value">New value for IsChecked</param>
+        /// <param name="value">New value for IsChecked.</param>
         /// <returns>Created <see cref="IRecordCommand"/>.</returns>
         [Pure]
         public IRecordCommand ChangeIsChecked(bool value) => new ChangeCheckedCommand(this, value);
 
-        #endregion
+        /// <inheritdoc/>
+        protected override void OnLoad()
+        {
+            this.AutoLoad(ref _targetHint);
+        }
 
+        #endregion
 
         private sealed class ChangeCheckedCommand : IRecordCommand
         {
-            private readonly CheckProperty _Property;
-            private readonly bool _Value;
+            private readonly WeakReference<CheckProperty> _property;
+            private readonly bool _value;
 
             public ChangeCheckedCommand(CheckProperty property, bool value)
             {
-                _Property = property;
-                _Value = value;
+                _property = new(property);
+                _value = value;
             }
 
-            public string Name => CommandName.ChangeIsChecked;
+            public string Name => Strings.ChangeIsChecked;
 
-            public void Do() => _Property.IsChecked = _Value;
-            public void Redo() => Do();
-            public void Undo() => _Property.IsChecked = !_Value;
-        }
-    }
+            public void Do()
+            {
+                if (_property.TryGetTarget(out var target))
+                {
+                    target.Value = _value;
+                }
+            }
 
-    /// <summary>
-    /// Represents the metadata of a <see cref="CheckProperty"/>.
-    /// </summary>
-    public record CheckPropertyMetadata : PropertyElementMetadata, IPropertyBuilder<CheckProperty>
-    {
-        /// <summary>
-        /// Initializes a new instance of the <see cref="CheckPropertyMetadata"/> class.
-        /// </summary>
-        /// <param name="Name">The string displayed in the property header.</param>
-        /// <param name="DefaultIsChecked">Default value for <see cref="CheckProperty.IsChecked"/>.</param>
-        public CheckPropertyMetadata(string Name, bool DefaultIsChecked = false) : base(Name)
-        {
-            this.DefaultIsChecked = DefaultIsChecked;
-        }
+            public void Redo()
+            {
+                Do();
+            }
 
-        /// <summary>
-        /// Get the default value of <see cref="CheckProperty.IsChecked"/>.
-        /// </summary>
-        public bool DefaultIsChecked { get; init; }
-
-        /// <inheritdoc/>
-        public CheckProperty Build()
-        {
-            return new(this);
+            public void Undo()
+            {
+                if (_property.TryGetTarget(out var target))
+                {
+                    target.Value = !_value;
+                }
+            }
         }
     }
 }

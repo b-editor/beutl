@@ -1,6 +1,7 @@
 ﻿using System;
 using System.Collections.Generic;
 using System.Linq;
+using System.Reactive.Disposables;
 using System.Text;
 using System.Threading.Tasks;
 
@@ -14,21 +15,39 @@ using Reactive.Bindings.Extensions;
 
 namespace BEditor.ViewModels.PropertyControl
 {
-    public class FontPropertyViewModel
+    public sealed class FontPropertyViewModel : IDisposable
     {
+        private readonly CompositeDisposable disposables = new();
+
         public FontPropertyViewModel(FontProperty property)
         {
             Property = property;
             Metadata = property.ObserveProperty(p => p.PropertyMetadata)
-                .ToReadOnlyReactiveProperty();
+                .ToReadOnlyReactivePropertySlim()
+                .AddTo(disposables);
 
-            Command.Subscribe(font => Property.ChangeFont(font).Execute());
-            Reset.Subscribe(() => Property.ChangeFont(Property.PropertyMetadata?.SelectItem ?? FontProperty.FontList[0]).Execute());
+            Command.Subscribe(font => Property.ChangeFont(font).Execute()).AddTo(disposables);
+            Reset.Subscribe(() => Property.ChangeFont(Property.PropertyMetadata?.SelectItem ?? FontManager.Default.LoadedFonts.First()).Execute()).AddTo(disposables);
+        }
+        ~FontPropertyViewModel()
+        {
+            Dispose();
         }
 
-        public ReadOnlyReactiveProperty<FontPropertyMetadata?> Metadata { get; }
+        public ReadOnlyReactivePropertySlim<FontPropertyMetadata?> Metadata { get; }
         public FontProperty Property { get; }
         public ReactiveCommand<Font> Command { get; } = new();
         public ReactiveCommand Reset { get; } = new();
+        public static IEnumerable<Font> Fonts => FontManager.Default.LoadedFonts;
+
+        public void Dispose()
+        {
+            Metadata.Dispose();
+            Command.Dispose();
+            Reset.Dispose();
+            disposables.Dispose();
+
+            GC.SuppressFinalize(this);
+        }
     }
 }

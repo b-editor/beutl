@@ -1,4 +1,5 @@
 ﻿using System;
+using System.Reactive.Disposables;
 using System.Reactive.Linq;
 
 using BEditor.Command;
@@ -11,27 +12,45 @@ using Reactive.Bindings.Extensions;
 
 namespace BEditor.ViewModels.PropertyControl
 {
-    public class CheckPropertyViewModel
+    public sealed class CheckPropertyViewModel : IDisposable
     {
+        private readonly CompositeDisposable disposables = new();
+
         public CheckPropertyViewModel(CheckProperty property)
         {
             Property = property;
             Metadata = property.ObserveProperty(p => p.PropertyMetadata)
-                .ToReadOnlyReactiveProperty();
+                .ToReadOnlyReactivePropertySlim()
+                .AddTo(disposables);
 
-            Command.Subscribe(x => Property.ChangeIsChecked(x).Execute());
-            Reset.Subscribe(() => Property.ChangeIsChecked(Property.PropertyMetadata?.DefaultIsChecked ?? default).Execute());
+            Command.Subscribe(x => Property.ChangeIsChecked(x).Execute()).AddTo(disposables);
+            Reset.Subscribe(() => Property.ChangeIsChecked(Property.PropertyMetadata?.DefaultIsChecked ?? default).Execute()).AddTo(disposables);
             Bind.Subscribe(() =>
             {
                 var window = new BindSettings(new BindSettingsViewModel<bool>(Property));
                 window.ShowDialog();
-            });
+            }).AddTo(disposables);
+        }
+        ~CheckPropertyViewModel()
+        {
+            Dispose();
         }
 
-        public ReadOnlyReactiveProperty<CheckPropertyMetadata?> Metadata { get; }
+        public ReadOnlyReactivePropertySlim<CheckPropertyMetadata?> Metadata { get; }
         public CheckProperty Property { get; }
         public ReactiveCommand<bool> Command { get; } = new();
         public ReactiveCommand Reset { get; } = new();
         public ReactiveCommand Bind { get; } = new();
+
+        public void Dispose()
+        {
+            Metadata.Dispose();
+            Command.Dispose();
+            Reset.Dispose();
+            Bind.Dispose();
+            disposables.Dispose();
+
+            GC.SuppressFinalize(this);
+        }
     }
 }

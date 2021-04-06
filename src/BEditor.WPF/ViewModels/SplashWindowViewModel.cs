@@ -10,6 +10,6 @@ namespace BEditor.ViewModels
 {
     public class SplashWindowViewModel
     {
-        public ReactiveProperty<string> Status { get; } = new();
+        public ReactivePropertySlim<string> Status { get; } = new();
     }
 }

@@ -1,0 +1,379 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<root>
+  <!-- 
+		Microsoft ResX Schema
+
+		Version 1.3
+
+		The primary goals of this format is to allow a simple XML format 
+		that is mostly human readable. The generation and parsing of the 
+		various data types are done through the TypeConverter classes 
+		associated with the data types.
+
+		Example:
+
+		... ado.net/XML headers & schema ...
+		<resheader name="resmimetype">text/microsoft-resx</resheader>
+		<resheader name="version">1.3</resheader>
+		<resheader name="reader">System.Resources.ResXResourceReader, System.Windows.Forms, ...</resheader>
+		<resheader name="writer">System.Resources.ResXResourceWriter, System.Windows.Forms, ...</resheader>
+		<data name="Name1">this is my long string</data>
+		<data name="Color1" type="System.Drawing.Color, System.Drawing">Blue</data>
+		<data name="Bitmap1" mimetype="application/x-microsoft.net.object.binary.base64">
+			[base64 mime encoded serialized .NET Framework object]
+		</data>
+		<data name="Icon1" type="System.Drawing.Icon, System.Drawing" mimetype="application/x-microsoft.net.object.bytearray.base64">
+			[base64 mime encoded string representing a byte array form of the .NET Framework object]
+		</data>
+
+		There are any number of "resheader" rows that contain simple 
+		name/value pairs.
+
+		Each data row contains a name, and value. The row also contains a 
+		type or mimetype. Type corresponds to a .NET class that support 
+		text/value conversion through the TypeConverter architecture. 
+		Classes that don't support this are serialized and stored with the 
+		mimetype set.
+
+		The mimetype is used for serialized objects, and tells the 
+		ResXResourceReader how to depersist the object. This is currently not 
+		extensible. For a given mimetype the value must be set accordingly:
+
+		Note - application/x-microsoft.net.object.binary.base64 is the format 
+		that the ResXResourceWriter will generate, however the reader can 
+		read any of the formats listed below.
+
+		mimetype: application/x-microsoft.net.object.binary.base64
+		value   : The object must be serialized with 
+			: System.Serialization.Formatters.Binary.BinaryFormatter
+			: and then encoded with base64 encoding.
+
+		mimetype: application/x-microsoft.net.object.soap.base64
+		value   : The object must be serialized with 
+			: System.Runtime.Serialization.Formatters.Soap.SoapFormatter
+			: and then encoded with base64 encoding.
+
+		mimetype: application/x-microsoft.net.object.bytearray.base64
+		value   : The object must be serialized into a byte array 
+			: using a System.ComponentModel.TypeConverter
+			: and then encoded with base64 encoding.
+	-->
+  <xsd:schema id="root" xmlns="" xmlns:xsd="http://www.w3.org/2001/XMLSchema" xmlns:msdata="urn:schemas-microsoft-com:xml-msdata">
+    <xsd:element name="root" msdata:IsDataSet="true">
+      <xsd:complexType>
+        <xsd:choice maxOccurs="unbounded">
+          <xsd:element name="data">
+            <xsd:complexType>
+              <xsd:sequence>
+                <xsd:element name="value" type="xsd:string" minOccurs="0" msdata:Ordinal="1" />
+                <xsd:element name="comment" type="xsd:string" minOccurs="0" msdata:Ordinal="2" />
+              </xsd:sequence>
+              <xsd:attribute name="name" type="xsd:string" msdata:Ordinal="1" />
+              <xsd:attribute name="type" type="xsd:string" msdata:Ordinal="3" />
+              <xsd:attribute name="mimetype" type="xsd:string" msdata:Ordinal="4" />
+            </xsd:complexType>
+          </xsd:element>
+          <xsd:element name="resheader">
+            <xsd:complexType>
+              <xsd:sequence>
+                <xsd:element name="value" type="xsd:string" minOccurs="0" msdata:Ordinal="1" />
+              </xsd:sequence>
+              <xsd:attribute name="name" type="xsd:string" use="required" />
+            </xsd:complexType>
+          </xsd:element>
+        </xsd:choice>
+      </xsd:complexType>
+    </xsd:element>
+  </xsd:schema>
+  <resheader name="resmimetype">
+    <value>text/microsoft-resx</value>
+  </resheader>
+  <resheader name="version">
+    <value>1.3</value>
+  </resheader>
+  <resheader name="reader">
+    <value>System.Resources.ResXResourceReader, System.Windows.Forms, Version=2.0.3500.0, Culture=neutral, PublicKeyToken=b77a5c561934e089</value>
+  </resheader>
+  <resheader name="writer">
+    <value>System.Resources.ResXResourceWriter, System.Windows.Forms, Version=2.0.3500.0, Culture=neutral, PublicKeyToken=b77a5c561934e089</value>
+  </resheader>
+  <data name="Video" xml:space="preserve">
+    <value>Video</value>
+  </data>
+  <data name="Audio" xml:space="preserve">
+    <value>Audio</value>
+  </data>
+  <data name="Image" xml:space="preserve">
+    <value>Image</value>
+  </data>
+  <data name="Text" xml:space="preserve">
+    <value>Text</value>
+  </data>
+  <data name="Shape" xml:space="preserve">
+    <value>Shape</value>
+  </data>
+  <data name="Polygon" xml:space="preserve">
+    <value>Polygon</value>
+  </data>
+  <data name="RoundRect" xml:space="preserve">
+    <value>Round rect</value>
+  </data>
+  <data name="Camera" xml:space="preserve">
+    <value>Camera</value>
+  </data>
+  <data name="GL3DObject" xml:space="preserve">
+    <value>3D object</value>
+  </data>
+  <data name="Scene" xml:space="preserve">
+    <value>Scene</value>
+  </data>
+  <data name="Framebuffer" xml:space="preserve">
+    <value>Framebuffer</value>
+  </data>
+  <data name="Listener" xml:space="preserve">
+    <value>Listener</value>
+  </data>
+  <data name="Cube" xml:space="preserve">
+    <value>Cube</value>
+  </data>
+  <data name="Ball" xml:space="preserve">
+    <value>Ball</value>
+  </data>
+  <data name="Depth" xml:space="preserve">
+    <value>Depth</value>
+  </data>
+  <data name="Type" xml:space="preserve">
+    <value>Type</value>
+  </data>
+  <data name="X" xml:space="preserve">
+    <value>X</value>
+  </data>
+  <data name="Y" xml:space="preserve">
+    <value>Y</value>
+  </data>
+  <data name="Z" xml:space="preserve">
+    <value>Z</value>
+  </data>
+  <data name="TargetX" xml:space="preserve">
+    <value>Target x</value>
+  </data>
+  <data name="TargetY" xml:space="preserve">
+    <value>Target y</value>
+  </data>
+  <data name="TargetZ" xml:space="preserve">
+    <value>Target z</value>
+  </data>
+  <data name="ZNear" xml:space="preserve">
+    <value>ZNear</value>
+  </data>
+  <data name="ZFar" xml:space="preserve">
+    <value>ZFar</value>
+  </data>
+  <data name="Angle" xml:space="preserve">
+    <value>Angle</value>
+  </data>
+  <data name="Fov" xml:space="preserve">
+    <value>viewing angle</value>
+  </data>
+  <data name="Perspective" xml:space="preserve">
+    <value>Perspective</value>
+  </data>
+  <data name="Volume" xml:space="preserve">
+    <value>Volume</value>
+  </data>
+  <data name="Pitch" xml:space="preserve">
+    <value>Pitch</value>
+  </data>
+  <data name="Start" xml:space="preserve">
+    <value>Start</value>
+  </data>
+  <data name="ClearFramebuffer" xml:space="preserve">
+    <value>Clear the frame buffer</value>
+  </data>
+  <data name="File" xml:space="preserve">
+    <value>File</value>
+  </data>
+  <data name="ImageFile" xml:space="preserve">
+    <value>Image file</value>
+  </data>
+  <data name="Radius" xml:space="preserve">
+    <value>Radius</value>
+  </data>
+  <data name="Scenes" xml:space="preserve">
+    <value>Scenes</value>
+  </data>
+  <data name="Width" xml:space="preserve">
+    <value>Width</value>
+  </data>
+  <data name="Height" xml:space="preserve">
+    <value>Height</value>
+  </data>
+  <data name="LineWidth" xml:space="preserve">
+    <value>line width</value>
+  </data>
+  <data name="Color" xml:space="preserve">
+    <value>Color</value>
+  </data>
+  <data name="Ellipse" xml:space="preserve">
+    <value>Ellipse</value>
+  </data>
+  <data name="Rectangle" xml:space="preserve">
+    <value>Rectangle</value>
+  </data>
+  <data name="Size" xml:space="preserve">
+    <value>Size</value>
+  </data>
+  <data name="EnableMultipleObjects" xml:space="preserve">
+    <value>Enable multiple objects</value>
+  </data>
+  <data name="Speed" xml:space="preserve">
+    <value>Speed</value>
+  </data>
+  <data name="VideoFile" xml:space="preserve">
+    <value>Video file</value>
+  </data>
+  <data name="FailedToLoad" xml:space="preserve">
+    <value>{0} failed to load.</value>
+  </data>
+  <data name="AreaExpansion" xml:space="preserve">
+    <value>Area expansion</value>
+  </data>
+  <data name="Blur" xml:space="preserve">
+    <value>Blur</value>
+  </data>
+  <data name="Border" xml:space="preserve">
+    <value>Border</value>
+  </data>
+  <data name="ThresholdValue" xml:space="preserve">
+    <value>Threshold value</value>
+  </data>
+  <data name="ChromaKey" xml:space="preserve">
+    <value>Chroma key</value>
+  </data>
+  <data name="CenterX" xml:space="preserve">
+    <value>Center x</value>
+  </data>
+  <data name="CenterY" xml:space="preserve">
+    <value>Center y</value>
+  </data>
+  <data name="Colors" xml:space="preserve">
+    <value>Colors</value>
+  </data>
+  <data name="Anchors" xml:space="preserve">
+    <value>Anchors</value>
+  </data>
+  <data name="CircularGradient" xml:space="preserve">
+    <value>Circular gradient</value>
+  </data>
+  <data name="Top" xml:space="preserve">
+    <value>Top</value>
+  </data>
+  <data name="Bottom" xml:space="preserve">
+    <value>Bottom</value>
+  </data>
+  <data name="Left" xml:space="preserve">
+    <value>Left</value>
+  </data>
+  <data name="Right" xml:space="preserve">
+    <value>Right</value>
+  </data>
+  <data name="AdjustCoordinates" xml:space="preserve">
+    <value>Adjust coordinates</value>
+  </data>
+  <data name="Clipping" xml:space="preserve">
+    <value>Clipping</value>
+  </data>
+  <data name="ColorKey" xml:space="preserve">
+    <value>Color key</value>
+  </data>
+  <data name="Frequency" xml:space="preserve">
+    <value>Frequency</value>
+  </data>
+  <data name="Resize" xml:space="preserve">
+    <value>Resize</value>
+  </data>
+  <data name="Dilate" xml:space="preserve">
+    <value>Dilate</value>
+  </data>
+  <data name="Erode" xml:space="preserve">
+    <value>Erode</value>
+  </data>
+  <data name="ImageSplit" xml:space="preserve">
+    <value>Image splitting</value>
+  </data>
+  <data name="NumberOfHorizontalDivisions" xml:space="preserve">
+    <value>Number of horizontal divisions</value>
+  </data>
+  <data name="NumberOfVerticalDivisions" xml:space="preserve">
+    <value>Number of vertical divisions</value>
+  </data>
+  <data name="StartPoint" xml:space="preserve">
+    <value>Start point</value>
+  </data>
+  <data name="EndPoint" xml:space="preserve">
+    <value>End point</value>
+  </data>
+  <data name="Mode" xml:space="preserve">
+    <value>Mode</value>
+  </data>
+  <data name="Clamp" xml:space="preserve">
+    <value>Clamp</value>
+  </data>
+  <data name="Repeat" xml:space="preserve">
+    <value>Repeat</value>
+  </data>
+  <data name="Mirror" xml:space="preserve">
+    <value>Mirror</value>
+  </data>
+  <data name="Decal" xml:space="preserve">
+    <value>Decal</value>
+  </data>
+  <data name="LinearGradient" xml:space="preserve">
+    <value>Liear gradient</value>
+  </data>
+  <data name="Rotate" xml:space="preserve">
+    <value>Rotate</value>
+  </data>
+  <data name="PathToImageObject" xml:space="preserve">
+    <value>Path to the image object</value>
+  </data>
+  <data name="InvertMask" xml:space="preserve">
+    <value>Invert Mask</value>
+  </data>
+  <data name="FitToOriginalSize" xml:space="preserve">
+    <value>Fit to original size</value>
+  </data>
+  <data name="Mask" xml:space="preserve">
+    <value>Mask</value>
+  </data>
+  <data name="Monoc" xml:space="preserve">
+    <value>Monochromatic</value>
+  </data>
+  <data name="MultipleImageControls" xml:space="preserve">
+    <value>Multiple Image Control</value>
+  </data>
+  <data name="PointLightDiffuse" xml:space="preserve">
+    <value>Point light diffuse</value>
+  </data>
+  <data name="Opacity" xml:space="preserve">
+    <value>Opacity</value>
+  </data>
+  <data name="DropShadow" xml:space="preserve">
+    <value>Drop shadow</value>
+  </data>
+  <data name="DepthTestEnable" xml:space="preserve">
+    <value>Enable Depth Testing</value>
+  </data>
+  <data name="DepthFunction" xml:space="preserve">
+    <value>Depth function</value>
+  </data>
+  <data name="DepthTest" xml:space="preserve">
+    <value>Depth test</value>
+  </data>
+  <data name="PointLightSource" xml:space="preserve">
+    <value>Point light source</value>
+  </data>
+  <data name="ImageEffects" xml:space="preserve">
+    <value>Image effects</value>
+  </data>
+</root>

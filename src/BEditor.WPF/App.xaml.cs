@@ -1,21 +1,19 @@
 ﻿using System;
-using System.Collections.Generic;
 using System.Collections.ObjectModel;
+using System.ComponentModel;
 using System.Diagnostics;
 using System.Globalization;
 using System.IO;
-using System.IO.Compression;
 using System.Linq;
 using System.Net;
-using System.Reflection;
-using System.Threading;
+using System.Net.Http;
+using System.Text.Json;
 using System.Threading.Tasks;
 using System.Windows;
 using System.Windows.Threading;
 using System.Xml.Linq;
 
 using BEditor.Data;
-using BEditor.Data.Property;
 using BEditor.Drawing;
 using BEditor.Models;
 using BEditor.Plugin;
@@ -30,6 +28,7 @@ using BEditor.ViewModels.PropertyControl;
 using BEditor.Views;
 using BEditor.Views.CreatePage;
 using BEditor.Views.MessageContent;
+using BEditor.Views.Setup;
 
 using MaterialDesignThemes.Wpf;
 
@@ -37,10 +36,6 @@ using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
 
 using OpenTK.Audio.OpenAL;
-
-using SkiaSharp;
-
-using Resource = BEditor.Properties.Resources;
 
 namespace BEditor
 {
@@ -53,26 +48,18 @@ namespace BEditor
         private static readonly string backupDir = Path.Combine(AppContext.BaseDirectory, "user", "backup");
         private static readonly string pluginsDir = Path.Combine(AppContext.BaseDirectory, "user", "plugins");
         private static readonly string ffmpegDir = Path.Combine(AppContext.BaseDirectory, "ffmpeg");
-        private static readonly ILogger logger = AppData.Current.LoggingFactory.CreateLogger<App>();
+        public static readonly ILogger? Logger = AppData.Current.LoggingFactory.CreateLogger<App>();
+        private static DispatcherTimer? backupTimer;
 
-        protected override void OnStartup(StartupEventArgs e)
+        protected override async void OnStartup(StartupEventArgs e)
         {
+            base.OnStartup(e);
+
             CultureInfo.CurrentCulture = new(Settings.Default.Language);
             CultureInfo.CurrentUICulture = CultureInfo.CurrentCulture;
             CreateDirectory();
-            base.OnStartup(e);
 
             SetDarkMode();
-            ProjectModel.Current.CreateEvent += (_, _) =>
-            {
-                var d = new NoneDialog()
-                {
-                    Content = new ProjectCreatePage(),
-                    Owner = MainWindow,
-                    MaxWidth = double.PositiveInfinity,
-                };
-                d.ShowDialog();
-            };
 
             var viewmodel = new SplashWindowViewModel();
             var splashscreen = new SplashWindow()
@@ -82,90 +69,104 @@ namespace BEditor
             MainWindow = splashscreen;
             splashscreen.Show();
 
-            Task.Run(async () =>
+            await Task.Run(async () =>
             {
                 RegisterPrimitive();
 
-                viewmodel.Status.Value = string.Format(MessageResources.IsLoading, Resource.ColorPalette);
+                viewmodel.Status.Value = string.Format(Strings.IsLoading, Strings.ColorPalette);
                 await InitialColorsAsync();
 
-                viewmodel.Status.Value = string.Format(MessageResources.IsLoading, Resource.Font);
-                InitialFontManager();
+                viewmodel.Status.Value = string.Format(Strings.IsLoading, Strings.Font);
+                await Task.Run(() => FontManager.Default);
 
-                viewmodel.Status.Value = string.Format(MessageResources.IsLoading, Resource.Plugins);
-                InitialPlugins();
+                viewmodel.Status.Value = string.Format(Strings.IsLoading, Strings.Plugins);
+                await InitialPlugins();
 
-                viewmodel.Status.Value = string.Format(MessageResources.IsChecking, Resource.Library);
+                viewmodel.Status.Value = string.Format(Strings.IsChecking, Strings.Library);
 
-                await using var prov = AppData.Current.Services.BuildServiceProvider();
-                var msg = prov.GetService<IMessage>();
+                var msg = AppData.Current.Message;
 
-                if (!await CheckFFmpeg())
+                if (!Settings.Default.SetupFlag)
                 {
-                    if (msg!.Dialog(MessageResources.FFmpegNotFound, IMessage.IconType.Info, new IMessage.ButtonType[] { IMessage.ButtonType.Yes, IMessage.ButtonType.No }) is IMessage.ButtonType.Yes)
-                    {
-                        try
-                        {
-                            await InstallFFmpeg();
-                        }
-                        catch (Exception e)
-                        {
-                            msg.Dialog(string.Format(MessageResources.FailedToInstall, "FFmpeg"));
-
-                            logger.LogError(e, "Failed to install ffmpeg.");
-                        }
-                    }
-                    else
-                    {
-                        msg.Dialog(MessageResources.SomeFunctionsAreNotAvailable_);
-                    }
+                    await Setup();
                 }
-                if (!CheckOpenAL())
+                else
                 {
-                    if (msg!.Dialog(MessageResources.OpenALNotFound, IMessage.IconType.Info, new IMessage.ButtonType[] { IMessage.ButtonType.Yes, IMessage.ButtonType.No }) is IMessage.ButtonType.Yes)
+                    await InitFFmpeg();
+                    if (!CheckOpenAL())
                     {
-                        Process.Start(new ProcessStartInfo("cmd", $"/c start https://www.openal.org/downloads/") { CreateNoWindow = true });
+                        if (await msg!.DialogAsync(Strings.OpenALNotFound, IMessage.IconType.Info, new IMessage.ButtonType[] { IMessage.ButtonType.Yes, IMessage.ButtonType.No }) is IMessage.ButtonType.Yes)
+                        {
+                            Process.Start(new ProcessStartInfo("cmd", $"/c start https://www.openal.org/downloads/") { CreateNoWindow = true });
+                        }
+                        else
+                        {
+                            Shutdown();
+                        }
                     }
-                    else
-                    {
-                        Shutdown();
-                    }
+
+                    await Dispatcher.InvokeAsync(async () => await StartupCore());
                 }
-
-
-                await Dispatcher.Invoke(async () =>
-                {
-                    var file = e.Args.FirstOrDefault() is string str
-                        && File.Exists(str)
-                        && Path.GetExtension(str) is ".bedit"
-                        ? str : null;
-
-                    if (file is not null)
-                    {
-                        await ProjectModel.DirectOpen(file);
-
-                        var win = new MainWindow();
-                        MainWindow = win;
-                        win.Show();
-                    }
-                    else if (Settings.Default.ShowStartWindow)
-                    {
-                        var startWindow = new StartWindow();
-                        MainWindow = startWindow;
-                        startWindow.Show();
-                    }
-                    else
-                    {
-                        var mainWindow = new MainWindow();
-                        MainWindow = mainWindow;
-                        mainWindow.Show();
-                    }
-
-                    splashscreen.Close();
-                });
-
-                Settings.Default.Save();
             });
+
+            splashscreen.Close();
+        }
+
+        private async Task Setup()
+        {
+            await Dispatcher.InvokeAsync(() =>
+            {
+                var window = new Setup();
+
+                MainWindow = window;
+
+                window.Show();
+            });
+        }
+        public async Task StartupCore()
+        {
+            ProjectModel.Current.CreateEvent += (_, _) =>
+            {
+                var view = new ProjectCreatePage();
+
+                var d = new NoneDialog()
+                {
+                    Content = view,
+                    Owner = MainWindow,
+                    MaxWidth = double.PositiveInfinity,
+                };
+                d.ShowDialog();
+
+                if (view.DataContext is IDisposable disposable) disposable.Dispose();
+            };
+
+            var file = Environment.GetCommandLineArgs().FirstOrDefault() is string str
+                && File.Exists(str)
+                && Path.GetExtension(str) is ".bedit"
+                ? str : null;
+
+            if (file is not null)
+            {
+                await ProjectModel.DirectOpen(file);
+
+                var win = new MainWindow();
+                MainWindow = win;
+                win.Show();
+            }
+            else if (Settings.Default.ShowStartWindow)
+            {
+                var startWindow = new StartWindow();
+                MainWindow = startWindow;
+                startWindow.Show();
+            }
+            else
+            {
+                var mainWindow = new MainWindow();
+                MainWindow = mainWindow;
+                mainWindow.Show();
+            }
+
+            RunBackup();
         }
 
         private static void CreateDirectory()
@@ -181,7 +182,7 @@ namespace BEditor
         {
             if (Settings.Default.UseDarkMode)
             {
-                PaletteHelper paletteHelper = new PaletteHelper();
+                var paletteHelper = new PaletteHelper();
                 ITheme theme = paletteHelper.GetTheme();
 
                 theme.SetBaseTheme(Theme.Dark);
@@ -203,175 +204,157 @@ namespace BEditor
                 return false;
             }
         }
-        private static Task<bool> CheckFFmpeg()
+        private async Task InitFFmpeg()
         {
-            return Task.Run(() =>
+            var installer = new FFmpegInstaller(ffmpegDir);
+            var msg = AppData.Current.Message;
+
+            if (!await installer.IsInstalledAsync())
             {
-                var dlls = new string[]
+                if (await msg!.DialogAsync(Strings.FFmpegNotFound, IMessage.IconType.Info, new IMessage.ButtonType[] { IMessage.ButtonType.Yes, IMessage.ButtonType.No }) is IMessage.ButtonType.Yes)
                 {
-                    "avcodec-58.dll",
-                    "avdevice-58.dll",
-                    "avfilter-7.dll",
-                    "avformat-58.dll",
-                    "avutil-56.dll",
-                    "postproc-55.dll",
-                    "swresample-3.dll",
-                    "swscale-5.dll",
-                };
-
-                var dir = Path.Combine(AppContext.BaseDirectory, "ffmpeg");
-
-                foreach (var dll in dlls)
-                {
-                    if (!File.Exists(Path.Combine(dir, dll)))
+                    try
                     {
-                        return false;
+                        Loading loading = null!;
+                        NoneDialog dialog = null!;
+
+                        void start(object? s, EventArgs e)
+                        {
+                            Dispatcher.Invoke(() =>
+                            {
+                                loading = new Loading()
+                                {
+                                    Maximum = { Value = 100 },
+                                    Minimum = { Value = 0 }
+                                };
+                                dialog = new NoneDialog(loading);
+
+                                dialog.Show();
+
+                                loading.Text.Value = string.Format(Strings.IsDownloading, "FFmpeg");
+                            });
+                        }
+                        void downloadComp(object? s, AsyncCompletedEventArgs e)
+                        {
+                            loading.Text.Value = string.Format(Strings.IsExtractedAndPlaced, "FFmpeg");
+                            loading.IsIndeterminate.Value = true;
+                        }
+                        void progress(object s, DownloadProgressChangedEventArgs e)
+                        {
+                            loading.NowValue.Value = e.ProgressPercentage;
+                        }
+                        void installed(object? s, EventArgs e) => Dispatcher.InvokeAsync(dialog.Close);
+
+                        installer.StartInstall += start;
+                        installer.Installed += installed;
+                        installer.DownloadCompleted += downloadComp;
+                        installer.DownloadProgressChanged += progress;
+
+                        await installer.Install();
+
+                        installer.StartInstall -= start;
+                        installer.Installed -= installed;
+                        installer.DownloadCompleted -= downloadComp;
+                        installer.DownloadProgressChanged -= progress;
+                    }
+                    catch (Exception e)
+                    {
+                        await msg.DialogAsync(string.Format(Strings.FailedToInstall, "FFmpeg"));
+
+                        Logger.LogError(e, "Failed to install ffmpeg.");
                     }
                 }
-
-                return true;
-            });
-        }
-        private static async Task InstallFFmpeg()
-        {
-            const string url = "https://github.com/BtbN/FFmpeg-Builds/releases/download/autobuild-2021-02-20-12-31/ffmpeg-N-101185-g029e3c1c70-win64-gpl-shared.zip";
-            using var client = new WebClient();
-            Loading loading = null!;
-            NoneDialog dialog = null!;
-
-            Current.Dispatcher.Invoke(() =>
-            {
-                loading = new Loading()
+                else
                 {
-                    Maximum = { Value = 100 },
-                    Minimum = { Value = 0 }
-                };
-                dialog = new NoneDialog(loading);
-
-                dialog.Show();
-            });
-
-            var tmp = Path.GetTempFileName();
-            client.DownloadFileCompleted += (s, e) =>
-            {
-                loading.IsIndeterminate.Value = true;
-            };
-            client.DownloadProgressChanged += (s, e) =>
-            {
-                loading.NowValue.Value = e.ProgressPercentage;
-            };
-
-            loading.Text.Value = string.Format(MessageResources.IsDownloading, "FFmpeg");
-
-            await client.DownloadFileTaskAsync(url, tmp);
-
-            loading.Text.Value = string.Format(MessageResources.IsExtractedAndPlaced, "FFmpeg");
-
-            await using (var stream = new FileStream(tmp, FileMode.Open))
-            using (var zip = new ZipArchive(stream, ZipArchiveMode.Read))
-            {
-                const string ziproot = "ffmpeg-N-101185-g029e3c1c70-win64-gpl-shared";
-                var dir = Path.Combine(ziproot, "bin");
-                var destdir = ffmpegDir;
-
-                foreach (var entry in zip.Entries
-                    .Where(i => i.FullName.Contains("bin"))
-                    .Where(i => Path.GetExtension(i.Name) is ".dll"))
-                {
-                    var file = Path.GetFileName(entry.FullName);
-                    await using var deststream = new FileStream(Path.Combine(destdir, file), FileMode.Create);
-                    await using var srcstream = entry.Open();
-
-                    await srcstream.CopyToAsync(deststream);
+                    await msg.DialogAsync(Strings.SomeFunctionsAreNotAvailable_);
                 }
             }
+        }
+        private static void RunBackup()
+        {
+            backupTimer = new DispatcherTimer()
+            {
+                Interval = TimeSpan.FromMinutes(Settings.Default.BackUpInterval)
+            };
 
-            File.Delete(tmp);
+            backupTimer.Tick += (s, e) =>
+            {
+                Task.Run(() =>
+                {
+                    var proj = AppData.Current.Project;
+                    if (proj is not null && Settings.Default.AutoBackUp)
+                    {
+                        var dir = Path.Combine(proj.DirectoryName, "backup");
+                        if (!Directory.Exists(dir)) Directory.CreateDirectory(dir);
 
-            await dialog.Dispatcher.InvokeAsync(dialog.Close);
+                        proj.Save(Path.Combine(dir, DateTime.Now.ToString("HH:mm:ss").Replace(':', '_')) + ".backup");
+
+                        var files = Directory.GetFiles(dir).Select(i => new FileInfo(i)).OrderByDescending(i => i.LastWriteTime).ToArray();
+                        if (files.Length is > 10)
+                        {
+                            foreach (var file in files.Skip(10))
+                            {
+                                if (file.Exists) file.Delete();
+                            }
+                        }
+                    }
+                });
+            };
+
+            Settings.Default.PropertyChanged += (s, e) =>
+            {
+                if (e.PropertyName is nameof(Settings.BackUpInterval))
+                {
+                    backupTimer.Interval = TimeSpan.FromMinutes(Settings.Default.BackUpInterval);
+                }
+            };
+
+            backupTimer.Start();
+
+            //Task.Run(async () =>
+            //{
+            //    while (true)
+            //    {
+            //        await Task.Delay(TimeSpan.FromMinutes(Settings.Default.BackUpInterval));
+
+            //        var proj = AppData.Current.Project;
+            //        if (proj is not null && Settings.Default.AutoBackUp)
+            //        {
+            //            var dir = Path.Combine(proj.DirectoryName, "backup");
+            //            if (!Directory.Exists(dir)) Directory.CreateDirectory(dir);
+
+            //            proj.Save(Path.Combine(dir, DateTime.Now.ToString("HH:mm:ss").Replace(':', '_')) + ".backup");
+
+            //            var files = Directory.GetFiles(dir).Select(i => new FileInfo(i)).OrderBy(i => i.LastWriteTime).ToArray();
+            //            if (files.Length is > 10)
+            //            {
+            //                foreach (var file in files.Skip(10))
+            //                {
+            //                    if (file.Exists) file.Delete();
+            //                }
+            //            }
+            //        }
+            //    }
+            //});
         }
         private static void RegisterPrimitive()
         {
-            Serialize.SerializeKnownTypes.AddRange(new Type[]
-            {
-                typeof(AudioObject),
-                typeof(CameraObject),
-                typeof(GL3DObject),
-                typeof(Figure),
-                typeof(ImageFile),
-                typeof(Text),
-                typeof(VideoFile),
-                typeof(SceneObject),
-                typeof(RoundRect),
-                typeof(Polygon),
-
-                typeof(Blur),
-                typeof(Border),
-                typeof(ColorKey),
-                typeof(Dilate),
-                typeof(Erode),
-                typeof(Monoc),
-                typeof(Shadow),
-                typeof(Clipping),
-                typeof(AreaExpansion),
-                typeof(LinearGradient),
-                typeof(CircularGradient),
-                typeof(Mask),
-                typeof(PointLightDiffuse),
-                typeof(ChromaKey),
-                typeof(ImageSplit),
-                typeof(MultipleControls),
-                typeof(DepthTest),
-                typeof(DirectionalLightSource),
-                typeof(PointLightSource),
-                typeof(SpotLight),
-            });
-
             ObjectMetadata.LoadedObjects.Add(PrimitiveTypes.VideoMetadata);
             ObjectMetadata.LoadedObjects.Add(PrimitiveTypes.ImageMetadata);
-            ObjectMetadata.LoadedObjects.Add(PrimitiveTypes.FigureMetadata);
+            ObjectMetadata.LoadedObjects.Add(PrimitiveTypes.ShapeMetadata);
             ObjectMetadata.LoadedObjects.Add(PrimitiveTypes.PolygonMetadata);
             ObjectMetadata.LoadedObjects.Add(PrimitiveTypes.RoundRectMetadata);
             ObjectMetadata.LoadedObjects.Add(PrimitiveTypes.TextMetadata);
             ObjectMetadata.LoadedObjects.Add(PrimitiveTypes.CameraMetadata);
             ObjectMetadata.LoadedObjects.Add(PrimitiveTypes.GL3DObjectMetadata);
             ObjectMetadata.LoadedObjects.Add(PrimitiveTypes.SceneMetadata);
+            ObjectMetadata.LoadedObjects.Add(PrimitiveTypes.FramebufferMetadata);
+            ObjectMetadata.LoadedObjects.Add(PrimitiveTypes.ListenerMetadata);
 
-            EffectMetadata.LoadedEffects.Add(new(Resource.Effects)
+            foreach (var effect in PrimitiveTypes.EnumerateAllEffectMetadata())
             {
-                Children = new EffectMetadata[]
-                {
-                    new(Resource.Border, () => new Border()),
-                    new(Resource.ColorKey, () => new ColorKey()),
-                    new(Resource.DropShadow, () => new Shadow()),
-                    new(Resource.Blur, () => new Blur()),
-                    new(Resource.Monoc, () => new Monoc()),
-                    new(Resource.Dilate, () => new Dilate()),
-                    new(Resource.Erode, () => new Erode()),
-                    new(Resource.Clipping, () => new Clipping()),
-                    new(Resource.AreaExpansion, () => new AreaExpansion()),
-                    new(Resource.LinearGradient, () => new LinearGradient()),
-                    new(Resource.CircularGradient, () => new CircularGradient()),
-                    new(Resource.Mask, () => new Mask()),
-                    new(Resource.PointLightDiffuse, () => new PointLightDiffuse()),
-                    new(Resource.ChromaKey, () => new ChromaKey()),
-                    new(Resource.ImageSplit, () => new ImageSplit()),
-                    new(Resource.MultipleImageControls, () => new MultipleControls()),
-                }
-            });
-            EffectMetadata.LoadedEffects.Add(new(Resource.Camera)
-            {
-                Children = new EffectMetadata[]
-                {
-                    new(Resource.DepthTest, () => new DepthTest()),
-                    new(Resource.DirectionalLightSource, () => new DirectionalLightSource()),
-                    new(Resource.PointLightSource, () => new PointLightSource()),
-                    new(Resource.SpotLight, () => new SpotLight()),
-                }
-            });
-#if DEBUG
-            EffectMetadata.LoadedEffects.Add(new("TestEffect", () => new TestEffect()));
-#endif
+                EffectMetadata.LoadedEffects.Add(effect);
+            }
         }
         private static async Task InitialColorsAsync()
         {
@@ -395,7 +378,7 @@ namespace BEditor
                                 new XAttribute("Blue", color.B));
                         });
 
-                    XDocument XDoc = new XDocument(
+                    var XDoc = new XDocument(
                         new XDeclaration("1.0", "utf-8", "true"),
                         new XElement("Colors", new XAttribute("Name", "MaterialDesignColors"))
                     );
@@ -438,26 +421,9 @@ namespace BEditor
                 }
             }
         }
-        public static void InitialFontManager()
+        private static async ValueTask InitialPlugins()
         {
-            FontProperty.FontList.AddRange(
-                SKFontManager.Default.FontFamilies
-                    .Select(name => Font.FromFamilyName(name)!)
-                    .Where(f => f is not null)
-                    .OrderBy(f => f.FamilyName));
-            FontProperty.FontList.AddRange(
-                    Settings.Default.IncludeFontDir
-                        .Where(dir => Directory.Exists(dir))
-                        .Select(dir => Directory.GetFiles(dir))
-                        .SelectMany(files => files)
-                        .Where(file => Path.GetExtension(file) is ".ttf" or ".ttc" or ".otf")
-                        .Select(file => new Font(file))
-                        .OrderBy(f => f.FamilyName));
-        }
-        private static void InitialPlugins()
-        {
-            var configfield = typeof(PluginBuilder).GetField("config", BindingFlags.NonPublic | BindingFlags.Static | BindingFlags.SetField);
-            configfield?.SetValue(null, new PluginConfig(AppData.Current.Services.BuildServiceProvider()));
+            PluginBuilder.Config = new PluginConfig(AppData.Current);
 
             // すべて
             var all = PluginManager.Default.GetNames();
@@ -469,7 +435,7 @@ namespace BEditor
             // ここで確認ダイアログを表示
             if (disable.Length != 0)
             {
-                App.Current.Dispatcher.Invoke(() =>
+                await Current.Dispatcher.InvokeAsync(() =>
                 {
                     var controlvm = new PluginCheckHostViewModel
                     {
@@ -492,30 +458,49 @@ namespace BEditor
                     }
 
                     Settings.Default.Save();
-
-
-                    PluginManager.Default.Load(Settings.Default.EnablePlugins);
                 });
-
-                return;
             }
 
             PluginManager.Default.Load(Settings.Default.EnablePlugins);
+
+            AppData.Current.ServiceProvider = AppData.Current.Services.BuildServiceProvider();
         }
 
         private void Application_Exit(object sender, ExitEventArgs e)
         {
             Settings.Default.Save();
+
+            // 最近使ったフォントの保存
+            {
+                var jsonFile = Path.Combine(AppContext.BaseDirectory, "user", "usedFonts.json");
+                var fontfiles = FontDialogViewModel.UsedFonts.Select(i => i.Font.Filename).ToArray();
+                using var stream = new FileStream(jsonFile, FileMode.Create);
+                using var writer = new StreamWriter(stream);
+
+                writer.Write(JsonSerializer.Serialize(fontfiles, new JsonSerializerOptions()
+                {
+                    WriteIndented = true
+                }));
+            }
+
+            backupTimer?.Stop();
             DirectoryManager.Default.Stop();
+
+            var app = AppData.Current;
+
+            app.ServiceProvider.GetService<HttpClient>()?.Dispose();
+
+            app.Project?.Unload();
+            app.Project = null;
         }
 
         private async void Application_DispatcherUnhandledException(object sender, DispatcherUnhandledExceptionEventArgs e)
         {
             await using var provider = AppData.Current.Services.BuildServiceProvider();
             provider.GetService<IMessage>()!
-                .Snackbar(string.Format(Resource.ExceptionWasThrown, e.Exception.GetType().FullName));
+                .Snackbar(string.Format(Strings.ExceptionWasThrown, e.Exception.GetType().FullName));
 
-            logger.LogError(e.Exception, "UnhandledException was thrown.");
+            Logger?.LogError(e.Exception, "UnhandledException was thrown.");
 
 #if !DEBUG
             e.Handled = true;

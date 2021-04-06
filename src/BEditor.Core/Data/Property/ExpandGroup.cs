@@ -2,20 +2,15 @@
 using System.Collections.Generic;
 using System.ComponentModel;
 using System.Diagnostics;
-using System.Reactive.Disposables;
-using System.Runtime.Serialization;
-using System.Text.RegularExpressions;
-using System.Threading.Tasks;
+using System.Text.Json;
 
 using BEditor.Data.Bindings;
-using BEditor.Data.Property;
 
 namespace BEditor.Data.Property
 {
     /// <summary>
     /// Represents a base class for grouping <see cref="PropertyElement"/> with expanders.
     /// </summary>
-    [DataContract]
     [DebuggerDisplay("IsExpanded = {IsExpanded}")]
     public abstract class ExpandGroup : Group, IEasingProperty, IBindable<bool>
     {
@@ -23,18 +18,24 @@ namespace BEditor.Data.Property
         private static readonly PropertyChangedEventArgs _isExpandedArgs = new(nameof(IsExpanded));
         private bool _isOpen;
         private List<IObserver<bool>>? _list;
-
         private IDisposable? _bindDispose;
         private IBindable<bool>? _bindable;
-        private string? _bindHint;
+        private string? _targetHint;
         #endregion
 
-
-        private List<IObserver<bool>> Collection => _list ??= new();
         /// <summary>
-        /// Gets or sets whether the expander is open
+        /// Initializes a new instance of the <see cref="ExpandGroup"/> class.
         /// </summary>
-        [DataMember]
+        /// <param name="metadata">Metadata of this property.</param>
+        /// <exception cref="ArgumentNullException"><paramref name="metadata"/> is <see langword="null"/>.</exception>
+        public ExpandGroup(PropertyElementMetadata metadata)
+        {
+            PropertyMetadata = metadata ?? throw new ArgumentNullException(nameof(metadata));
+        }
+
+        /// <summary>
+        /// Gets or sets a value indicating whether the expander is open or not.
+        /// </summary>
         public bool IsExpanded
         {
             get => _isOpen;
@@ -53,46 +54,47 @@ namespace BEditor.Data.Property
                 }
             });
         }
+
         /// <inheritdoc/>
-        [DataMember]
-        public string? BindHint
+        public string? TargetHint
         {
-            get => _bindable?.GetString();
-            private set => _bindHint = value;
+            get => _bindable?.ToString("#");
+            private set => _targetHint = value;
         }
+
         /// <inheritdoc/>
         bool IBindable<bool>.Value => IsExpanded;
 
-
-        /// <summary>
-        /// Initializes a new instance of the <see cref="ExpandGroup"/> class.
-        /// </summary>
-        /// <param name="metadata">Metadata of this property.</param>
-        /// <exception cref="ArgumentNullException"><paramref name="metadata"/> is <see langword="null"/>.</exception>
-        public ExpandGroup(PropertyElementMetadata metadata)
-        {
-            PropertyMetadata = metadata ?? throw new ArgumentNullException(nameof(metadata));
-        }
-
+        private List<IObserver<bool>> Collection => _list ??= new();
 
         #region Methods
 
         /// <inheritdoc/>
-        protected override void OnLoad()
+        public override void GetObjectData(Utf8JsonWriter writer)
         {
-            if (_bindHint is not null && this.GetBindable(_bindHint, out var b))
-            {
-                Bind(b);
-            }
-            _bindHint = null;
+            writer.WriteBoolean(nameof(IsExpanded), IsExpanded);
+            writer.WriteString(nameof(TargetHint), TargetHint);
+            base.GetObjectData(writer);
         }
 
-        #region Ibindable
+        /// <inheritdoc/>
+        public override void SetObjectData(JsonElement element)
+        {
+            IsExpanded = element.TryGetProperty(nameof(IsExpanded), out var value) && value.GetBoolean();
+            TargetHint = element.TryGetProperty(nameof(TargetHint), out var bind) ? bind.GetString() : null;
+            base.SetObjectData(element);
+        }
 
         /// <inheritdoc/>
-        public void OnCompleted() { }
+        public void OnCompleted()
+        {
+        }
+
         /// <inheritdoc/>
-        public void OnError(Exception error) { }
+        public void OnError(Exception error)
+        {
+        }
+
         /// <inheritdoc/>
         public void OnNext(bool value)
         {
@@ -102,32 +104,20 @@ namespace BEditor.Data.Property
         /// <inheritdoc/>
         public IDisposable Subscribe(IObserver<bool> observer)
         {
-            if (observer is null) throw new ArgumentNullException(nameof(observer));
-
-            Collection.Add(observer);
-            return Disposable.Create((observer, this), state =>
-            {
-                state.observer.OnCompleted();
-                state.Item2.Collection.Remove(state.observer);
-            });
+            return BindingHelper.Subscribe(Collection, observer, IsExpanded);
         }
 
         /// <inheritdoc/>
         public void Bind(IBindable<bool>? bindable)
         {
-            _bindDispose?.Dispose();
-            _bindable = bindable;
-
-            if (bindable is not null)
-            {
-                IsExpanded = bindable.Value;
-
-                // bindableが変更時にthisが変更
-                _bindDispose = bindable.Subscribe(this);
-            }
+            IsExpanded = this.Bind(bindable, out _bindable, ref _bindDispose);
         }
 
-        #endregion
+        /// <inheritdoc/>
+        protected override void OnLoad()
+        {
+            this.AutoLoad(ref _targetHint);
+        }
 
         #endregion
     }

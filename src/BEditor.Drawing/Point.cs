@@ -1,10 +1,5 @@
 ﻿using System;
-using System.Collections.Generic;
-using System.Diagnostics.Contracts;
-using System.Linq;
 using System.Runtime.Serialization;
-using System.Text;
-using System.Threading.Tasks;
 
 namespace BEditor.Drawing
 {
@@ -18,6 +13,7 @@ namespace BEditor.Drawing
             X = x;
             Y = y;
         }
+
         private Point(SerializationInfo info, StreamingContext context)
         {
             X = info.GetInt32(nameof(X));
@@ -25,22 +21,44 @@ namespace BEditor.Drawing
         }
 
         public int X { get; }
+
         public int Y { get; }
 
         public static Point Add(Point point, Size size)
-            => new(point.X + size.Width, point.Y + size.Height);
+        {
+            return new(point.X + size.Width, point.Y + size.Height);
+        }
+
         public static Point Add(Point point1, Point point2)
-            => new(point1.X + point2.X, point1.Y + point2.Y);
+        {
+            return new(point1.X + point2.X, point1.Y + point2.Y);
+        }
+
         public static Point Subtract(Point point, Size size)
-            => new(point.X - size.Width, point.Y - size.Height);
+        {
+            return new(point.X - size.Width, point.Y - size.Height);
+        }
+
         public static Point Subtract(Point point1, Point point2)
-            => new(point1.X - point2.X, point1.Y - point2.Y);
+        {
+            return new(point1.X - point2.X, point1.Y - point2.Y);
+        }
+
         public override bool Equals(object? obj)
-            => obj is Point point && Equals(point);
+        {
+            return obj is Point point && Equals(point);
+        }
+
         public bool Equals(Point other)
-            => X == other.X && Y == other.Y;
+        {
+            return X == other.X && Y == other.Y;
+        }
+
         public override int GetHashCode()
-            => HashCode.Combine(X, Y);
+        {
+            return HashCode.Combine(X, Y);
+        }
+
         public void GetObjectData(SerializationInfo info, StreamingContext context)
         {
             info.AddValue(nameof(X), X);
@@ -48,24 +66,53 @@ namespace BEditor.Drawing
         }
 
         public static Point operator +(Point point1, Point point2)
-            => Add(point1, point2);
+        {
+            return Add(point1, point2);
+        }
+
         public static Point operator +(Point point, Size size)
-            => Add(point, size);
+        {
+            return Add(point, size);
+        }
+
         public static Point operator -(Point point1, Point point2)
-            => Subtract(point1, point2);
+        {
+            return Subtract(point1, point2);
+        }
+
         public static Point operator -(Point point, Size size)
-            => Subtract(point, size);
+        {
+            return Subtract(point, size);
+        }
+
         public static Point operator *(Point left, Point right)
-            => new(left.X * right.X, left.Y * right.Y);
+        {
+            return new(left.X * right.X, left.Y * right.Y);
+        }
+
         public static Point operator /(Point left, Point right)
-            => new(left.X / right.X, left.Y / right.Y);
+        {
+            return new(left.X / right.X, left.Y / right.Y);
+        }
+
         public static Point operator *(Point left, int right)
-            => new(left.X * right, left.Y * right);
+        {
+            return new(left.X * right, left.Y * right);
+        }
+
         public static Point operator /(Point left, int right)
-            => new(left.X / right, left.Y / right);
+        {
+            return new(left.X / right, left.Y / right);
+        }
+
         public static bool operator ==(Point left, Point right)
-            => left.Equals(right);
+        {
+            return left.Equals(right);
+        }
+
         public static bool operator !=(Point left, Point right)
-            => !(left == right);
+        {
+            return !(left == right);
+        }
     }
 }

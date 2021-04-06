@@ -35,44 +35,44 @@ namespace BEditor.ViewModels.SettingsControl
 
             #region General
 
-            var general = new TreeViewChild(Resources.General, PackIconKind.Settings, new Root());
+            var general = new TreeViewChild(Strings.General, PackIconKind.Settings, new Root());
 
             // 外観
-            general.TreeViewChildren.Add(new(Resources.Appearance, PackIconKind.WindowMaximize, new Appearance()));
+            general.TreeViewChildren.Add(new(Strings.Appearance, PackIconKind.WindowMaximize, new Appearance()));
 
             // フォント
-            general.TreeViewChildren.Add(new(Resources.Font, PackIconKind.FormatSize, new IncludeFont()));
+            general.TreeViewChildren.Add(new(Strings.Font, PackIconKind.FormatSize, new IncludeFont()));
 
             // その他
-            general.TreeViewChildren.Add(new(Resources.Others, PackIconKind.DotsVertical, new Other()));
+            general.TreeViewChildren.Add(new(Strings.Others, PackIconKind.DotsVertical, new Other()));
 
             #endregion
 
             #region Project
 
-            var project = new TreeViewChild(Resources.Project, PackIconKind.File, new ProjectSetting());
+            var project = new TreeViewChild(Strings.Project, PackIconKind.File, new ProjectSetting());
 
             #endregion
 
             #region Plugins
 
-            var plugins = new TreeViewChild(Resources.Plugins, PackIconKind.Puzzle, new Grid());
+            var plugins = new TreeViewChild(Strings.Plugins, PackIconKind.Puzzle, new Grid());
 
-            plugins.TreeViewChildren.Add(new(Resources.InstalledPlugins, PackIconKind.None, new InstalledPlugins()));
+            plugins.TreeViewChildren.Add(new(Strings.InstalledPlugins, PackIconKind.None, new InstalledPlugins()));
 
-            plugins.TreeViewChildren.Add(new(Resources.DisabledPlugins, PackIconKind.None, new DisabledPlugins()));
+            plugins.TreeViewChildren.Add(new(Strings.DisabledPlugins, PackIconKind.None, new DisabledPlugins()));
 
             #endregion
 
             #region AppInfo
 
-            var appInfo = new TreeViewChild(Resources.Infomation, PackIconKind.Information, new AppInfo());
+            var appInfo = new TreeViewChild(Strings.Infomation, PackIconKind.Information, new AppInfo());
 
             #endregion
 
             #region License
 
-            var license = new TreeViewChild(Resources.License, PackIconKind.License, new Views.SettingsControl.License());
+            var license = new TreeViewChild(Strings.License, PackIconKind.License, new Views.SettingsControl.License());
 
             #endregion
 

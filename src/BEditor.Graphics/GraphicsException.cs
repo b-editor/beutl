@@ -15,18 +15,27 @@ namespace BEditor.Graphics
         /// <summary>
         /// Initializes a new instance of the <see cref="GraphicsException"/> class.
         /// </summary>
-        public GraphicsException() { }
+        public GraphicsException()
+        {
+        }
+
         /// <summary>
         /// Initializes a new instance of the <see cref="GraphicsException"/> class with a specified error message.
         /// </summary>
         /// <param name="message">The message that describes the error.</param>
-        public GraphicsException(string message) : base(message) { }
+        public GraphicsException(string message) : base(message)
+        {
+        }
+
         /// <summary>
         /// Initializes a new instance of the <see cref="GraphicsException"/> class with a specified error message and a reference to the inner exception that is the cause of this exception.
         /// </summary>
         /// <param name="message">The error message that explains the reason for the exception.</param>
         /// <param name="inner">The exception that is the cause of the current exception, or a null reference (Nothing in Visual Basic) if no inner exception is specified.</param>
-        public GraphicsException(string message, Exception inner) : base(message, inner) { }
+        public GraphicsException(string message, Exception inner) : base(message, inner)
+        {
+        }
+
         /// <summary>
         /// Initializes a new instance of the <see cref="GraphicsException"/> class with serialized data.
         /// </summary>
@@ -35,7 +44,9 @@ namespace BEditor.Graphics
         /// <exception cref="ArgumentNullException"><paramref name="info"/> is <see langword="null"/>.</exception>
         /// <exception cref="SerializationException">The class name is <see langword="null"/> or <see cref="Exception.HResult"/> is zero (0).</exception>
         protected GraphicsException(
-          System.Runtime.Serialization.SerializationInfo info,
-          System.Runtime.Serialization.StreamingContext context) : base(info, context) { }
+            System.Runtime.Serialization.SerializationInfo info,
+            System.Runtime.Serialization.StreamingContext context) : base(info, context)
+        {
+        }
     }
 }

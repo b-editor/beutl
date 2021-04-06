@@ -1,16 +1,11 @@
-﻿using System;
-using System.Collections.Generic;
-using System.Runtime.Serialization;
+﻿using System.Collections.Generic;
 
-using BEditor.Command;
 using BEditor.Data;
 using BEditor.Data.Primitive;
 using BEditor.Data.Property;
 using BEditor.Data.Property.PrimitiveGroup;
-using BEditor.Properties;
 using BEditor.Graphics;
-
-using OpenTK.Graphics.OpenGL4;
+using BEditor.Primitive.Resources;
 
 using GLColor = OpenTK.Mathematics.Color4;
 using Material = BEditor.Data.Property.PrimitiveGroup.Material;
@@ -20,21 +15,20 @@ namespace BEditor.Primitive.Objects
     /// <summary>
     /// Represents an <see cref="ObjectElement"/> that draws a Cube, Ball, etc.
     /// </summary>
-    [DataContract]
-    public class GL3DObject : ObjectElement
+    public sealed class GL3DObject : ObjectElement
     {
         /// <summary>
         /// Represents <see cref="Type"/> metadata.
         /// </summary>
-        public static readonly SelectorPropertyMetadata TypeMetadata = new(Resources.Type, new string[2]
+        public static readonly SelectorPropertyMetadata TypeMetadata = new(Strings.Type, new string[2]
         {
-            Resources.Cube,
-            Resources.Ball
+            Strings.Cube,
+            Strings.Ball
         });
         /// <summary>
         /// Represents <see cref="Depth"/> metadata.
         /// </summary>
-        public static readonly EasePropertyMetadata DepthMetadata = new("Depth", 100, float.NaN, 0);
+        public static readonly EasePropertyMetadata DepthMetadata = new(Strings.Depth, 100, float.NaN, 0);
 
         /// <summary>
         /// Initializes a new instance of the <see cref="GL3DObject"/> class.
@@ -42,18 +36,18 @@ namespace BEditor.Primitive.Objects
         public GL3DObject()
         {
             Coordinate = new(ImageObject.CoordinateMetadata);
-            Zoom = new(ImageObject.ZoomMetadata);
+            Zoom = new(ImageObject.ScaleMetadata);
             Blend = new(ImageObject.BlendMetadata);
-            Angle = new(ImageObject.AngleMetadata);
+            Angle = new(ImageObject.RotateMetadata);
             Material = new(ImageObject.MaterialMetadata);
             Type = new(TypeMetadata);
-            Width = new(Figure.WidthMetadata);
-            Height = new(Figure.HeightMetadata);
+            Width = new(Shape.WidthMetadata);
+            Height = new(Shape.HeightMetadata);
             Depth = new(DepthMetadata);
         }
 
         /// <inheritdoc/>
-        public override string Name => Resources._3DObject;
+        public override string Name => Strings.GL3DObject;
         /// <inheritdoc/>
         public override IEnumerable<PropertyElement> Properties => new PropertyElement[]
         {
@@ -70,129 +64,94 @@ namespace BEditor.Primitive.Objects
         /// <summary>
         /// Get the coordinates.
         /// </summary>
-        [DataMember(Order = 0)]
+        [DataMember]
         public Coordinate Coordinate { get; private set; }
         /// <summary>
         /// Get the scale.
         /// </summary>
-        [DataMember(Order = 1)]
-        public Zoom Zoom { get; private set; }
+        [DataMember]
+        public Scale Zoom { get; private set; }
         /// <summary>
         /// Get the blend.
         /// </summary>
-        [DataMember(Order = 2)]
+        [DataMember]
         public Blend Blend { get; private set; }
         /// <summary>
         /// Get the angle.
         /// </summary>
-        [DataMember(Order = 3)]
-        public Angle Angle { get; private set; }
+        [DataMember]
+        public Rotate Angle { get; private set; }
         /// <summary>
         /// Get the material.
         /// </summary>
-        [DataMember(Order = 4)]
+        [DataMember]
         public Material Material { get; private set; }
         /// <summary>
         /// Get the <see cref="SelectorProperty"/> to select the object type.
         /// </summary>
-        [DataMember(Order = 5)]
+        [DataMember]
         public SelectorProperty Type { get; private set; }
         /// <summary>
         /// Gets the <see cref="EaseProperty"/> representing the width of the object.
         /// </summary>
-        [DataMember(Order = 6)]
+        [DataMember]
         public EaseProperty Width { get; private set; }
         /// <summary>
         /// Gets the <see cref="EaseProperty"/> representing the height of the object.
         /// </summary>
-        [DataMember(Order = 7)]
+        [DataMember]
         public EaseProperty Height { get; private set; }
         /// <summary>
         /// Gets the <see cref="EaseProperty"/> representing the depth of the object.
         /// </summary>
-        [DataMember(Order = 8)]
+        [DataMember]
         public EaseProperty Depth { get; private set; }
 
         /// <inheritdoc/>
         public override void Render(EffectRenderArgs args)
         {
             int frame = args.Frame;
-            Action action;
             var color = Blend.Color[frame];
             GLColor color4 = new(color.R, color.G, color.B, color.A);
-            color4.A *= Blend.Alpha[frame];
+            color4.A *= Blend.Opacity[frame];
 
 
-            float scale = (float)(Zoom.Scale[frame] / 100);
+            float scale = (float)(Zoom.Scale1[frame] / 100);
             float scalex = (float)(Zoom.ScaleX[frame] / 100) * scale;
             float scaley = (float)(Zoom.ScaleY[frame] / 100) * scale;
             float scalez = (float)(Zoom.ScaleZ[frame] / 100) * scale;
 
-
-            if (Type.Index == 0)
-            {
-                action = () =>
-                {
-                    //GL.Color4(color4);
-                    //GL.Scale(scalex, scaley, scalez);
-                    //GLTK.DrawCube(
-                    //    Width.GetValue(frame),
-                    //    Height.GetValue(frame),
-                    //    Depth.GetValue(frame),
-                    //    Material.Ambient.GetValue(frame),
-                    //    Material.Diffuse.GetValue(frame),
-                    //    Material.Specular.GetValue(frame),
-                    //    Material.Shininess.GetValue(frame));
-                };
-            }
-            else
-            {
-                action = () =>
-                {
-                    //GL.Color4(color4);
-                    //GL.Scale(scalex, scaley, scalez);
-                    //GLTK.DrawBall(
-                    //    Depth.GetValue(frame),
-                    //    Material.Ambient.GetValue(frame),
-                    //    Material.Diffuse.GetValue(frame),
-                    //    Material.Specular.GetValue(frame),
-                    //    Material.Shininess.GetValue(frame));
-                };
-            }
-
-            Parent!.Parent!.GraphicsContext!.MakeCurrent();
-            //GLTK.Paint(
-            //    new System.Numerics.Vector3(
-            //        Coordinate.X.GetValue(frame),
-            //        Coordinate.Y.GetValue(frame),
-            //        Coordinate.Z.GetValue(frame)),
-            //    Angle.AngleX.GetValue(frame),
-            //    Angle.AngleY.GetValue(frame),
-            //    Angle.AngleZ.GetValue(frame),
-            //    new System.Numerics.Vector3(
-            //        Coordinate.CenterX.GetValue(frame),
-            //        Coordinate.CenterY.GetValue(frame),
-            //        Coordinate.CenterZ.GetValue(frame)),
-            //    action,
-            //    Blend.BlentFunc[Blend.BlendType.Index]);
-            using var cube = new Cube(
-                Width[frame],
-                Height[frame],
-                Depth[frame],
-                Blend.Color[frame],
-                new(
-                    Material.Ambient[frame],
-                    Material.Diffuse[frame],
-                    Material.Specular[frame],
-                    Material.Shininess[frame]));
-
+            var material = new Graphics.Material(Material.Ambient[frame], Material.Diffuse[frame], Material.Specular[frame], Material.Shininess[frame]);
             var trans = Transform.Create(
                 new(Coordinate.X[frame], Coordinate.Y[frame], Coordinate.Z[frame]),
                 new(Coordinate.CenterX[frame], Coordinate.CenterY[frame], Coordinate.CenterZ[frame]),
-                new(Angle.AngleX[frame], Angle.AngleY[frame], Angle.AngleZ[frame]),
+                new(Angle.RotateX[frame], Angle.RotateY[frame], Angle.RotateZ[frame]),
                 new(scalex, scaley, scalez));
 
-            Parent.Parent.GraphicsContext.DrawCube(cube, trans);
+            if (Type.Index == 0)
+            {
+                using var cube = new Cube(
+                    Width[frame],
+                    Height[frame],
+                    Depth[frame],
+                    Blend.Color[frame],
+                    material,
+                    trans);
+
+                Parent.Parent.GraphicsContext!.DrawCube(cube);
+            }
+            else
+            {
+                using var ball = new Ball(
+                    Width[frame] * 0.5f,
+                    Height[frame] * 0.5f,
+                    Depth[frame] * 0.5f,
+                    Blend.Color[frame],
+                    material,
+                    trans);
+
+                Parent.Parent.GraphicsContext!.DrawBall(ball);
+            }
 
             Coordinate.ResetOptional();
         }
@@ -200,13 +159,13 @@ namespace BEditor.Primitive.Objects
         protected override void OnLoad()
         {
             Coordinate.Load(ImageObject.CoordinateMetadata);
-            Zoom.Load(ImageObject.ZoomMetadata);
+            Zoom.Load(ImageObject.ScaleMetadata);
             Blend.Load(ImageObject.BlendMetadata);
-            Angle.Load(ImageObject.AngleMetadata);
+            Angle.Load(ImageObject.RotateMetadata);
             Material.Load(ImageObject.MaterialMetadata);
             Type.Load(TypeMetadata);
-            Width.Load(Figure.WidthMetadata);
-            Height.Load(Figure.HeightMetadata);
+            Width.Load(Shape.WidthMetadata);
+            Height.Load(Shape.HeightMetadata);
             Depth.Load(DepthMetadata);
         }
         /// <inheritdoc/>

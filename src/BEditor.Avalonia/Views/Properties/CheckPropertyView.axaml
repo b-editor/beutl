@@ -1,0 +1,44 @@
+<UserControl
+  xmlns="https://github.com/avaloniaui"
+  xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+  xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+  xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+  xmlns:vm="using:BEditor.ViewModels.Properties"
+  x:DataType="vm:CheckPropertyViewModel"
+  Background="Transparent"
+  Height="32.5"
+  mc:Ignorable="d" d:DesignWidth="800" d:DesignHeight="35"
+  x:Class="BEditor.Views.Properties.CheckPropertyView">
+  <UserControl.ContextMenu>
+    <ContextMenu>
+      <MenuItem Header="Reset" Command="{CompiledBinding Reset, Mode=OneTime}"/>
+      <MenuItem Header="Bind" Command="{CompiledBinding Bind, Mode=OneTime}"/>
+    </ContextMenu>
+  </UserControl.ContextMenu>
+  <Grid>
+    <Grid.ColumnDefinitions>
+      <ColumnDefinition Width="120*" MaxWidth="100" MinWidth="50"/>
+      <ColumnDefinition Width="50"/>
+      <ColumnDefinition Width="50"/>
+      <ColumnDefinition Width="*" MinWidth="100"/>
+    </Grid.ColumnDefinitions>
+
+    <Grid>
+      <TextBlock
+          Text="{CompiledBinding Metadata.Value.Name, Mode=OneTime}"
+          VerticalAlignment="Center"
+          HorizontalAlignment="Left"
+          FontSize="13"
+          Margin="10,0,0,0"
+          TextTrimming="CharacterEllipsis"/>
+    </Grid>
+
+    <CheckBox
+        Grid.Column="2"
+        IsChecked="{CompiledBinding Property.Value, Mode=OneWay}"
+        VerticalAlignment="Center"
+        HorizontalAlignment="Center"
+        CommandParameter="{Binding $self.IsChecked}"
+        Command="{CompiledBinding Command, Mode=OneTime}"/>
+  </Grid>
+</UserControl>

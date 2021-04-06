@@ -22,14 +22,32 @@ namespace BEditor.Plugin
         public void Execute();
     }
 
-#pragma warning disable CS1591 // 公開されている型またはメンバーの XML コメントがありません
     /// <inheritdoc cref="ICustomMenu"/>
-    public record CustomMenu(string Name, Action Execute) : ICustomMenu
+    public class CustomMenu : ICustomMenu
     {
+        /// <summary>
+        /// Initializes a new instance of the <see cref="CustomMenu" /> class.
+        /// </summary>
+        /// <param name="Name">The string to be displayed in the UI.</param>
+        /// <param name="Execute">Execute when the menu is clicked.</param>
+        public CustomMenu(string Name, Action Execute)
+        {
+            this.Name = Name;
+            this.Execute = Execute;
+        }
+
+        /// <inheritdoc/>
+        public string Name { get; }
+
+        /// <summary>
+        /// Execute when the menu is clicked.
+        /// </summary>
+        public Action Execute { get; }
+
+        /// <inheritdoc/>
         void ICustomMenu.Execute()
         {
             Execute?.Invoke();
         }
     }
-#pragma warning restore CS1591 // 公開されている型またはメンバーの XML コメントがありません
 }

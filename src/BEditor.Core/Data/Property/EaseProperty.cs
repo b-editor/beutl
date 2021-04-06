@@ -6,30 +6,26 @@ using System.Diagnostics;
 using System.Diagnostics.Contracts;
 using System.Linq;
 using System.Runtime.Serialization;
+using System.Text.Json;
 
 using BEditor.Command;
-using BEditor.Data.Property;
 using BEditor.Data.Property.Easing;
 using BEditor.Media;
+using BEditor.Resources;
 
 namespace BEditor.Data.Property
 {
     /// <summary>
     /// Represents the property that eases the value of a <see cref="float"/> type.
     /// </summary>
-    [DataContract]
     [DebuggerDisplay("Count = {Value.Count}, Easing = {EasingData.Name}")]
-    public partial class EaseProperty : PropertyElement<EasePropertyMetadata>, IKeyFrameProperty
+    public class EaseProperty : PropertyElement<EasePropertyMetadata>, IKeyFrameProperty
     {
         #region Fields
-
-        private static readonly PropertyChangedEventArgs _easingFuncArgs = new(nameof(EasingType));
         private static readonly PropertyChangedEventArgs _easingDataArgs = new(nameof(EasingData));
         private EasingFunc? _easingTypeProperty;
         private EasingMetadata? _easingData;
-
         #endregion
-
 
         /// <summary>
         /// Initializes a new instance of the <see cref="EaseProperty"/> class.
@@ -41,25 +37,32 @@ namespace BEditor.Data.Property
             PropertyMetadata = metadata ?? throw new ArgumentNullException(nameof(metadata));
 
             Value = new ObservableCollection<float> { metadata.DefaultValue, metadata.DefaultValue };
-            Time = new();
+            Frames = new();
             EasingType = metadata.DefaultEase.CreateFunc();
         }
 
+        /// <inheritdoc/>
+        public event Action<Frame, int>? Added;
+
+        /// <inheritdoc/>
+        public event Action<int>? Removed;
+
+        /// <inheritdoc/>
+        public event Action<int, int>? Moved;
 
         /// <summary>
-        /// Get the <see cref="ObservableCollection{Single}"/> of the <see cref="float"/> type value corresponding to <see cref="Frame"/>.
+        /// Gets the <see cref="ObservableCollection{Single}"/> of the <see cref="float"/> type value corresponding to <see cref="Frame"/>.
         /// </summary>
-        [DataMember]
         public ObservableCollection<float> Value { get; private set; }
+
         /// <summary>
-        /// Get the <see cref="List{Frame}"/> of the frame number corresponding to <see cref="Value"/>.
+        /// Gets the <see cref="List{Frame}"/> of the frame number corresponding to <see cref="Value"/>.
         /// </summary>
-        [DataMember]
-        public List<Frame> Time { get; private set; }
+        public List<Frame> Frames { get; private set; }
+
         /// <summary>
-        /// Get or set the current <see cref="EasingFunc"/>.
+        /// Gets or sets the current <see cref="EasingFunc"/>.
         /// </summary>
-        [DataMember]
         public EasingFunc EasingType
         {
             get
@@ -79,21 +82,23 @@ namespace BEditor.Data.Property
                 EasingData = EasingMetadata.LoadedEasingFunc.Find(x => x.Type == value.GetType())!;
             }
         }
+
         /// <summary>
-        /// Get or set an optional value.
+        /// Gets or sets an optional value.
         /// </summary>
         public float Optional { get; set; }
+
         /// <summary>
-        /// Get or set the metadata for <see cref="EasingType"/>
+        /// Gets or sets the metadata for <see cref="EasingType"/>.
         /// </summary>
         public EasingMetadata EasingData
         {
             get => _easingData ?? EasingMetadata.LoadedEasingFunc[0];
             set => SetValue(value, ref _easingData, _easingDataArgs);
         }
-        internal Frame Length => this.GetParent2()?.Length ?? default;
+
         /// <inheritdoc/>
-        public override EffectElement? Parent
+        public override EffectElement Parent
         {
             get => base.Parent;
             set
@@ -103,59 +108,52 @@ namespace BEditor.Data.Property
             }
         }
 
+        /// <summary>
+        /// Gets the length of the clip.
+        /// </summary>
+        internal Frame Length => this.GetParent2()?.Length ?? default;
 
         /// <summary>
-        /// Get an eased value.
+        /// Gets an eased value.
         /// </summary>
+        /// <param name="frame">The frame of the value to get.</param>
         public float this[Frame frame] => GetValue(frame);
-
-
-        /// <summary>
-        /// Occurs when requesting to add a keyframe to the UI.
-        /// </summary>
-        public event EventHandler<(Frame frame, int index)>? AddKeyFrameEvent;
-        /// <summary>
-        /// Occurs when requesting the UI to delete a keyframe.
-        /// </summary>
-        public event EventHandler<int>? DeleteKeyFrameEvent;
-        /// <summary>
-        /// Occurs when the UI requires a keyframe to be moved.
-        /// </summary>
-        public event EventHandler<(int fromindex, int toindex)>? MoveKeyFrameEvent;
 
         #region Methods
 
         /// <summary>
-        /// Get an eased value.
+        /// Gets an eased value.
         /// </summary>
+        /// <param name="frame">The frame of the value to get.</param>
+        /// <returns>Returns an eased value.</returns>
         public float GetValue(Frame frame)
         {
             static (int, int) GetFrame(EaseProperty property, int frame)
             {
-                if (property.Time.Count == 0)
+                if (property.Frames.Count == 0)
                 {
                     return (0, property.Length);
                 }
-                else if (0 <= frame && frame <= property.Time[0])
+                else if (frame >= 0 && frame <= property.Frames[0])
                 {
-                    return (0, property.Time[0]);
+                    return (0, property.Frames[0]);
                 }
-                else if (property.Time[^1] <= frame && frame <= property.Length)
+                else if (property.Frames[^1] <= frame && frame <= property.Length)
                 {
-                    return (property.Time[^1], property.Length);
+                    return (property.Frames[^1], property.Length);
                 }
                 else
                 {
-                    int index = 0;
-                    for (int f = 0; f < property.Time.Count - 1; f++)
+                    var index = 0;
+                    for (var f = 0; f < property.Frames.Count - 1; f++)
                     {
-                        if (property.Time[f] <= frame && frame <= property.Time[f + 1])
+                        if (property.Frames[f] <= frame && frame <= property.Frames[f + 1])
                         {
                             index = f;
                         }
                     }
 
-                    return (property.Time[index], property.Time[index + 1]);
+                    return (property.Frames[index], property.Frames[index + 1]);
                 }
 
                 throw new Exception();
@@ -166,20 +164,20 @@ namespace BEditor.Data.Property
                 {
                     return (property.Value[0], property.Value[1]);
                 }
-                else if (0 <= frame && frame <= property.Time[0])
+                else if (frame >= 0 && frame <= property.Frames[0])
                 {
                     return (property.Value[0], property.Value[1]);
                 }
-                else if (property.Time[^1] <= frame && frame <= property.Length)
+                else if (property.Frames[^1] <= frame && frame <= property.Length)
                 {
                     return (property.Value[^2], property.Value[^1]);
                 }
                 else
                 {
-                    int index = 0;
-                    for (int f = 0; f < property.Time.Count - 1; f++)
+                    var index = 0;
+                    for (var f = 0; f < property.Frames.Count - 1; f++)
                     {
-                        if (property.Time[f] <= frame && frame <= property.Time[f + 1])
+                        if (property.Frames[f] <= frame && frame <= property.Frames[f + 1])
                         {
                             index = f + 1;
                         }
@@ -197,9 +195,10 @@ namespace BEditor.Data.Property
 
             var (stval, edval) = GetValues(this, frame);
 
-            int now = frame - start;//相対的な現在フレーム
+            // 相対的な現在フレーム
+            int now = frame - start;
 
-            float out_ = EasingType.EaseFunc(now, end - start, stval, edval);
+            var out_ = EasingType.EaseFunc(now, end - start, stval, edval);
 
             if (PropertyMetadata?.UseOptional ?? false)
             {
@@ -208,6 +207,7 @@ namespace BEditor.Data.Property
 
             return Clamp(out_);
         }
+
         /// <summary>
         /// Returns <paramref name="value"/> clamped to the inclusive range of <see cref="EasePropertyMetadata.Min"/> and <see cref="EasePropertyMetadata.Max"/>.
         /// </summary>
@@ -235,30 +235,30 @@ namespace BEditor.Data.Property
         /// Insert a keyframe at a specific frame.
         /// </summary>
         /// <param name="frame">Frame to be added.</param>
-        /// <param name="value">Value to be added</param>
+        /// <param name="value">Value to be added.</param>
         /// <returns>Index of the added <see cref="Value"/>.</returns>
         /// <exception cref="ArgumentOutOfRangeException"><paramref name="frame"/> is outside the scope of the parent element.</exception>
         public int InsertKeyframe(Frame frame, float value)
         {
-            if (frame <= this.GetParent2()!.Start || this.GetParent2()!.End <= frame) throw new ArgumentOutOfRangeException(nameof(frame));
+            if (frame <= Frame.Zero || frame >= this.GetParent2()!.Length) throw new ArgumentOutOfRangeException(nameof(frame));
 
-            Time.Add(frame);
+            Frames.Add(frame);
 
-            var tmp = new List<Frame>(Time);
+            var tmp = new List<Frame>(Frames);
             tmp.Sort((a, b) => a - b);
 
-
-            for (int i = 0; i < Time.Count; i++)
+            for (var i = 0; i < Frames.Count; i++)
             {
-                Time[i] = tmp[i];
+                Frames[i] = tmp[i];
             }
 
-            var stindex = Time.IndexOf(frame) + 1;
+            var stindex = Frames.IndexOf(frame) + 1;
 
             Value.Insert(stindex, value);
 
             return stindex;
         }
+
         /// <summary>
         /// Remove a keyframe of a specific frame.
         /// </summary>
@@ -268,14 +268,14 @@ namespace BEditor.Data.Property
         /// <exception cref="ArgumentOutOfRangeException"><paramref name="frame"/> is outside the scope of the parent element.</exception>
         public int RemoveKeyframe(Frame frame, out float value)
         {
-            if (frame <= this.GetParent2()!.Start || this.GetParent2()!.End <= frame) throw new ArgumentOutOfRangeException(nameof(frame));
+            if (frame <= Frame.Zero || frame >= this.GetParent2()!.Length) throw new ArgumentOutOfRangeException(nameof(frame));
 
-            //値基準のindex
-            var index = Time.IndexOf(frame) + 1;
+            // 値基準のindex
+            var index = Frames.IndexOf(frame) + 1;
 
             value = Value[index];
 
-            if (Time.Remove(frame))
+            if (Frames.Remove(frame))
             {
                 Value.RemoveAt(index);
             }
@@ -284,17 +284,58 @@ namespace BEditor.Data.Property
         }
 
         /// <inheritdoc/>
-        protected override void OnLoad()
+        public override void GetObjectData(Utf8JsonWriter writer)
         {
-            //Todo: ここに範囲外の場合の処理を書く
+            base.GetObjectData(writer);
+            writer.WriteStartArray(nameof(Frames));
 
-            EasingType.Load();
-            EasingType.Parent = this;
+            foreach (var f in Frames)
+            {
+                writer.WriteNumberValue(f);
+            }
+
+            writer.WriteEndArray();
+
+            writer.WriteStartArray("Values");
+
+            foreach (var v in Value)
+            {
+                writer.WriteNumberValue(v);
+            }
+
+            writer.WriteEndArray();
+
+            writer.WriteStartObject("Easing");
+
+            var type = EasingType.GetType();
+            writer.WriteString("_type", type.FullName + ", " + type.Assembly.GetName().Name);
+            EasingType.GetObjectData(writer);
+
+            writer.WriteEndObject();
         }
+
         /// <inheritdoc/>
-        protected override void OnUnload()
+        public override void SetObjectData(JsonElement element)
         {
-            EasingType.Unload();
+            base.SetObjectData(element);
+
+            var frames = element.GetProperty(nameof(Frames));
+            Frames = frames.EnumerateArray().Select(i => (Frame)i.GetInt32()).ToList();
+
+            var values = element.GetProperty("Values");
+            Value = new(values.EnumerateArray().Select(i => i.GetSingle()));
+
+            var easing = element.GetProperty("Easing");
+            var type = Type.GetType(easing.GetProperty("_type").GetString()!);
+            if (type is null)
+            {
+                EasingType = EasingMetadata.LoadedEasingFunc.First().CreateFunc();
+            }
+            else
+            {
+                EasingType = (EasingFunc)FormatterServices.GetUninitializedObject(type);
+                EasingType.SetObjectData(easing);
+            }
         }
 
         /// <summary>
@@ -305,6 +346,7 @@ namespace BEditor.Data.Property
         /// <returns>Created <see cref="IRecordCommand"/>.</returns>
         [Pure]
         public IRecordCommand ChangeValue(int index, float value) => new ChangeValueCommand(this, index, value);
+
         /// <summary>
         /// Create a command to change the easing function.
         /// </summary>
@@ -312,13 +354,15 @@ namespace BEditor.Data.Property
         /// <returns>Created <see cref="IRecordCommand"/>.</returns>
         [Pure]
         public IRecordCommand ChangeEase(EasingMetadata metadata) => new ChangeEaseCommand(this, metadata);
+
         /// <summary>
         /// Create a command to add a keyframe.
         /// </summary>
-        /// <param name="frame">Frame to be added</param>
+        /// <param name="frame">Frame to be added.</param>
         /// <returns>Created <see cref="IRecordCommand"/>.</returns>
         [Pure]
         public IRecordCommand AddFrame(Frame frame) => new AddCommand(this, frame);
+
         /// <summary>
         /// Create a command to remove a keyframe.
         /// </summary>
@@ -326,8 +370,9 @@ namespace BEditor.Data.Property
         /// <returns>Created <see cref="IRecordCommand"/>.</returns>
         [Pure]
         public IRecordCommand RemoveFrame(Frame frame) => new RemoveCommand(this, frame);
+
         /// <summary>
-        /// Create a command to move a keyframe
+        /// Create a command to move a keyframe.
         /// </summary>
         /// <param name="fromIndex">Index of the frame to be moved from.</param>
         /// <param name="toFrame">Destination frame.</param>
@@ -335,227 +380,250 @@ namespace BEditor.Data.Property
         [Pure]
         public IRecordCommand MoveFrame(int fromIndex, Frame toFrame) => new MoveCommand(this, fromIndex, toFrame);
 
-        #endregion
+        /// <inheritdoc/>
+        protected override void OnLoad()
+        {
+            // Todo: ここに範囲外の場合の処理を書く
+            EasingType.Load();
+            EasingType.Parent = this;
+        }
 
+        /// <inheritdoc/>
+        protected override void OnUnload()
+        {
+            EasingType.Unload();
+        }
+
+        #endregion
 
         #region Commands
 
         private sealed class ChangeValueCommand : IRecordCommand
         {
-            private readonly EaseProperty _Property;
-            private readonly int _Index;
-            private readonly float _New;
-            private readonly float _Old;
+            private readonly WeakReference<EaseProperty> _property;
+            private readonly int _index;
+            private readonly float _new;
+            private readonly float _old;
 
             public ChangeValueCommand(EaseProperty property, int index, float newvalue)
             {
-                _Property = property ?? throw new ArgumentNullException(nameof(property));
-                _Index = (index < 0 || index >= property.Value.Count) ? throw new IndexOutOfRangeException($"{nameof(index)} is out of range of {nameof(Value)}") : index;
+                _property = new(property ?? throw new ArgumentNullException(nameof(property)));
+                _index = (index < 0 || index >= property.Value.Count) ? throw new IndexOutOfRangeException($"{nameof(index)} is out of range of {nameof(Value)}") : index;
 
-                _New = property.Clamp(newvalue);
-                _Old = property.Value[index];
+                _new = property.Clamp(newvalue);
+                _old = property.Value[index];
             }
 
-            public string Name => CommandName.ChangeValue;
+            public string Name => Strings.ChangeValue;
 
-            public void Do() => _Property.Value[_Index] = _New;
-            public void Redo() => Do();
-            public void Undo() => _Property.Value[_Index] = _Old;
+            public void Do()
+            {
+                if (_property.TryGetTarget(out var target))
+                {
+                    target.Value[_index] = _new;
+                }
+            }
+
+            public void Redo()
+            {
+                Do();
+            }
+
+            public void Undo()
+            {
+                if (_property.TryGetTarget(out var target))
+                {
+                    target.Value[_index] = _old;
+                }
+            }
         }
 
         private sealed class ChangeEaseCommand : IRecordCommand
         {
-            private readonly EaseProperty _Property;
-            private readonly EasingFunc _New;
-            private readonly EasingFunc _Old;
+            private readonly WeakReference<EaseProperty> _property;
+            private readonly EasingFunc _new;
+            private readonly EasingFunc _old;
 
             public ChangeEaseCommand(EaseProperty property, EasingMetadata metadata)
             {
-                _Property = property ?? throw new ArgumentNullException(nameof(property));
+                _property = new(property ?? throw new ArgumentNullException(nameof(property)));
 
-                _New = metadata.CreateFunc();
-                _New.Parent = property;
-                _Old = _Property.EasingType;
+                _new = metadata.CreateFunc();
+                _new.Parent = property;
+                _old = property.EasingType;
             }
+
             public ChangeEaseCommand(EaseProperty property, string type)
             {
-                _Property = property ?? throw new ArgumentNullException(nameof(property));
+                _property = new(property ?? throw new ArgumentNullException(nameof(property)));
                 var easingFunc = EasingMetadata.LoadedEasingFunc.Find(x => x.Name == type) ?? throw new KeyNotFoundException($"No easing function named {type} was found");
 
-                _New = easingFunc.CreateFunc();
-                _New.Parent = property;
-                _Old = _Property.EasingType;
+                _new = easingFunc.CreateFunc();
+                _new.Parent = property;
+                _old = property.EasingType;
             }
 
-            public string Name => CommandName.ChangeEasing;
+            public string Name => Strings.ChangeEasing;
 
-            public void Do() => _Property.EasingType = _New;
-            public void Redo() => Do();
-            public void Undo() => _Property.EasingType = _Old;
+            public void Do()
+            {
+                if (_property.TryGetTarget(out var target))
+                {
+                    target.EasingType = _new;
+                }
+            }
+
+            public void Redo()
+            {
+                Do();
+            }
+
+            public void Undo()
+            {
+                if (_property.TryGetTarget(out var target))
+                {
+                    target.EasingType = _old;
+                }
+            }
         }
 
         private sealed class AddCommand : IRecordCommand
         {
-            private readonly EaseProperty _Property;
-            private readonly Frame _Frame;
+            private readonly WeakReference<EaseProperty> _property;
+            private readonly Frame _frame;
 
             public AddCommand(EaseProperty property, Frame frame)
             {
-                _Property = property ?? throw new ArgumentNullException(nameof(property));
+                _property = new(property ?? throw new ArgumentNullException(nameof(property)));
 
-                _Frame = (frame <= Frame.Zero || property.GetParent2()!.Length <= frame) ? throw new ArgumentOutOfRangeException(nameof(frame)) : frame;
+                _frame = (frame <= Frame.Zero || frame >= property.GetParent2()!.Length) ? throw new ArgumentOutOfRangeException(nameof(frame)) : frame;
             }
 
-            public string Name => CommandName.AddKeyFrame;
+            public string Name => Strings.AddKeyframe;
 
             public void Do()
             {
-                int index = _Property.InsertKeyframe(_Frame, _Property.GetValue(_Frame + _Property.GetParent2()!.Start));
-                _Property.AddKeyFrameEvent?.Invoke(_Property, (_Frame, index - 1));
+                if (_property.TryGetTarget(out var target))
+                {
+                    var index = target.InsertKeyframe(_frame, target.GetValue(_frame + target.GetParent2()?.Start ?? 0));
+
+                    target.Added?.Invoke(_frame, index - 1);
+                }
             }
-            public void Redo() => Do();
+
+            public void Redo()
+            {
+                Do();
+            }
+
             public void Undo()
             {
-                int index = _Property.RemoveKeyframe(_Frame, out _);
-                _Property.DeleteKeyFrameEvent?.Invoke(_Property, index - 1);
+                if (_property.TryGetTarget(out var target))
+                {
+                    var index = target.RemoveKeyframe(_frame, out _);
+
+                    target.Removed?.Invoke(index - 1);
+                }
             }
         }
 
         private sealed class RemoveCommand : IRecordCommand
         {
-            private readonly EaseProperty _Property;
-            private readonly Frame _Frame;
-            private float _Value;
+            private readonly WeakReference<EaseProperty> _property;
+            private readonly Frame _frame;
+            private float _value;
 
             public RemoveCommand(EaseProperty property, Frame frame)
             {
-                _Property = property ?? throw new ArgumentNullException(nameof(property));
+                _property = new(property ?? throw new ArgumentNullException(nameof(property)));
 
-                _Frame = (frame <= Frame.Zero || property.GetParent2()!.Length <= frame) ? throw new ArgumentOutOfRangeException(nameof(frame)) : frame;
+                _frame = (frame <= Frame.Zero || property.GetParent2()!.Length <= frame) ? throw new ArgumentOutOfRangeException(nameof(frame)) : frame;
             }
 
-            public string Name => CommandName.RemoveKeyFrame;
+            public string Name => Strings.RemoveKeyframe;
 
             public void Do()
             {
-                int index = _Property.RemoveKeyframe(_Frame, out _Value);
+                if (_property.TryGetTarget(out var target))
+                {
+                    var index = target.RemoveKeyframe(_frame, out _value);
 
-                _Property.DeleteKeyFrameEvent?.Invoke(_Property, index - 1);
+                    target.Removed?.Invoke(index - 1);
+                }
             }
-            public void Redo() => Do();
+
+            public void Redo()
+            {
+                Do();
+            }
+
             public void Undo()
             {
-                int index = _Property.InsertKeyframe(_Frame, _Value);
-                _Property.AddKeyFrameEvent?.Invoke(_Property, (_Frame, index - 1));
+                if (_property.TryGetTarget(out var target))
+                {
+                    var index = target.InsertKeyframe(_frame, _value);
+
+                    target.Added?.Invoke(_frame, index - 1);
+                }
             }
         }
 
         private sealed class MoveCommand : IRecordCommand
         {
-            private readonly EaseProperty _Property;
-            private readonly int _FromIndex;
-            private int _ToIndex;
-            private readonly Frame _ToFrame;
+            private readonly WeakReference<EaseProperty> _property;
+            private readonly int _fromIndex;
+            private readonly Frame _toFrame;
+            private int _toIndex;
 
             public MoveCommand(EaseProperty property, int fromIndex, Frame to)
             {
-                _Property = property ?? throw new ArgumentNullException(nameof(property));
+                _property = new(property ?? throw new ArgumentNullException(nameof(property)));
 
-                _FromIndex = (0 > fromIndex || fromIndex > property.Value.Count) ? throw new IndexOutOfRangeException() : fromIndex;
+                _fromIndex = (fromIndex < 0 || fromIndex > property.Value.Count) ? throw new IndexOutOfRangeException() : fromIndex;
 
-                _ToFrame = (to <= Frame.Zero || property.GetParent2()!.Length <= to) ? throw new ArgumentOutOfRangeException(nameof(to)) : to;
+                _toFrame = (to <= Frame.Zero || property.GetParent2()!.Length <= to) ? throw new ArgumentOutOfRangeException(nameof(to)) : to;
             }
 
-            public string Name => CommandName.MoveKeyFrame;
+            public string Name => Strings.MoveKeyframe;
 
             public void Do()
             {
-                _Property.Time[_FromIndex] = _ToFrame;
-                _Property.Time.Sort((a_, b_) => a_ - b_);
+                if (_property.TryGetTarget(out var target))
+                {
+                    target.Frames[_fromIndex] = _toFrame;
+                    target.Frames.Sort((a_, b_) => a_ - b_);
 
+                    // 新しいindex
+                    _toIndex = target.Frames.FindIndex(x => x == _toFrame);
 
-                _ToIndex = _Property.Time.FindIndex(x => x == _ToFrame);//新しいindex
+                    // 値のIndexを合わせる
+                    target.Value.Move(_fromIndex + 1, _toIndex + 1);
 
-                _Property.Value.Move(_FromIndex + 1, _ToIndex + 1);
-
-                _Property.MoveKeyFrameEvent?.Invoke(_Property, (_FromIndex, _ToIndex));//GUIのIndexの正規化
+                    target.Moved?.Invoke(_fromIndex, _toIndex);
+                }
             }
-            public void Redo() => Do();
+
+            public void Redo()
+            {
+                Do();
+            }
+
             public void Undo()
             {
-                int frame = _Property.Time[_ToIndex];
+                if (_property.TryGetTarget(out var target))
+                {
+                    int frame = target.Frames[_toIndex];
 
-                _Property.Time.RemoveAt(_ToIndex);
-                _Property.Time.Insert(_FromIndex, frame);
+                    target.Frames.RemoveAt(_toIndex);
+                    target.Frames.Insert(_fromIndex, frame);
 
+                    target.Value.Move(_toIndex + 1, _fromIndex + 1);
 
-                _Property.Value.Move(_ToIndex + 1, _FromIndex + 1);
-
-                _Property.MoveKeyFrameEvent?.Invoke(_Property, (_ToIndex, _FromIndex));
+                    target.Moved?.Invoke(_toIndex, _fromIndex);
+                }
             }
         }
 
         #endregion
-    }
-
-    /// <summary>
-    /// Represents the metadata of a <see cref="EaseProperty"/>.
-    /// </summary>
-    public record EasePropertyMetadata : PropertyElementMetadata, IPropertyBuilder<EaseProperty>
-    {
-        /// <summary>
-        /// Initializes a new instance of the <see cref="EasePropertyMetadata"/> class.
-        /// </summary>
-        /// <param name="Name">The string displayed in the property header.</param>
-        /// <param name="DefaultEase">Default easing function</param>
-        /// <param name="DefaultValue">Default value</param>
-        /// <param name="Max">Maximum value.</param>
-        /// <param name="Min">Minimum value.</param>
-        /// <param name="UseOptional">Whether to use the option value</param>
-        public EasePropertyMetadata(string Name, EasingMetadata DefaultEase, float DefaultValue = 0, float Max = float.NaN, float Min = float.NaN, bool UseOptional = false) : base(Name)
-        {
-            this.DefaultEase = DefaultEase;
-            this.DefaultValue = DefaultValue;
-            this.Max = Max;
-            this.Min = Min;
-            this.UseOptional = UseOptional;
-        }
-        /// <summary>
-        /// Initializes a new instance of the <see cref="EasePropertyMetadata"/> class.
-        /// </summary>
-        /// <param name="Name">The string displayed in the property header.</param>
-        /// <param name="DefaultValue">Default value</param>
-        /// <param name="Max">Maximum value.</param>
-        /// <param name="Min">Minimum value</param>
-        /// <param name="UseOptional">Whether to use the option value</param>
-        public EasePropertyMetadata(string Name, float DefaultValue = 0, float Max = float.NaN, float Min = float.NaN, bool UseOptional = false)
-            : this(Name, EasingMetadata.LoadedEasingFunc[0], DefaultValue, Max, Min, UseOptional) { }
-
-        /// <summary>
-        /// Gets the default easing function.
-        /// </summary>
-        public EasingMetadata DefaultEase { get; init; }
-        /// <summary>
-        /// Gets the default value.
-        /// </summary>
-        public float DefaultValue { get; init; }
-        /// <summary>
-        /// Gets the maximum value.
-        /// </summary>
-        public float Max { get; init; }
-        /// <summary>
-        /// Get the minimum value.
-        /// </summary>
-        public float Min { get; init; }
-        /// <summary>
-        /// Gets the bool of whether to use the Optional value.
-        /// </summary>
-        public bool UseOptional { get; init; }
-
-        /// <inheritdoc/>
-        public EaseProperty Build()
-        {
-            return new(this);
-        }
     }
 }

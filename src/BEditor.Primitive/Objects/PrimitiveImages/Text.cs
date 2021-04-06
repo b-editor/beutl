@@ -1,36 +1,31 @@
 ﻿using System.Collections.Generic;
 using System.Linq;
 using System.Numerics;
-using System.Runtime.Serialization;
 
-using BEditor;
-using BEditor.Command;
 using BEditor.Data;
 using BEditor.Data.Primitive;
 using BEditor.Data.Property;
-using BEditor.Properties;
 using BEditor.Drawing;
 using BEditor.Drawing.Pixel;
 using BEditor.Graphics;
-using BEditor.Media;
+using BEditor.Primitive.Resources;
 
 namespace BEditor.Primitive.Objects
 {
     /// <summary>
     /// Represents an <see cref="ImageObject"/> to draw a string.
     /// </summary>
-    [DataContract]
     [CustomClipUI(Color = 0x6200ea)]
-    public class Text : ImageObject
+    public sealed class Text : ImageObject
     {
         /// <summary>
         /// Represents <see cref="Size"/> metadata.
         /// </summary>
-        public static readonly EasePropertyMetadata SizeMetadata = new(Resources.Size, 100, float.NaN, 0);
+        public static readonly EasePropertyMetadata SizeMetadata = new(Strings.Size, 100, float.NaN, 0);
         /// <summary>
         /// Represents <see cref="Color"/> metadata.
         /// </summary>
-        public static readonly ColorPropertyMetadata ColorMetadata = new(Resources.Color, Drawing.Color.Light);
+        public static readonly ColorPropertyMetadata ColorMetadata = new(Strings.Color, Drawing.Color.Light);
         /// <summary>
         /// Represents <see cref="Font"/> metadata.
         /// </summary>
@@ -42,7 +37,7 @@ namespace BEditor.Primitive.Objects
         /// <summary>
         /// Represents <see cref="EnableMultiple"/> metadata.
         /// </summary>
-        public static readonly CheckPropertyMetadata EnableMultipleMetadata = new(Resources.EnableMultipleObjects);
+        public static readonly CheckPropertyMetadata EnableMultipleMetadata = new(Strings.EnableMultipleObjects);
 
         /// <summary>
         /// Initializes a new instance of the <see cref="Text"/> class.
@@ -57,14 +52,14 @@ namespace BEditor.Primitive.Objects
         }
 
         /// <inheritdoc/>
-        public override string Name => Resources.Text;
+        public override string Name => Strings.Text;
         /// <inheritdoc/>
         public override IEnumerable<PropertyElement> Properties => new PropertyElement[]
         {
             Coordinate,
-            Zoom,
+            Scale,
             Blend,
-            Angle,
+            Rotate,
             Material,
             Size,
             Color,
@@ -75,38 +70,38 @@ namespace BEditor.Primitive.Objects
         /// <summary>
         /// Get the <see cref="EaseProperty"/> that represents the size of the string to be drawn.
         /// </summary>
-        [DataMember(Order = 0)]
+        [DataMember]
         public EaseProperty Size { get; private set; }
         /// <summary>
         /// Get the <see cref="ColorProperty"/> that represents the color of the string to be drawn.
         /// </summary>
-        [DataMember(Order = 1)]
+        [DataMember]
         public ColorProperty Color { get; private set; }
         /// <summary>
         /// Get the <see cref="DocumentProperty"/> representing the string to be drawn.
         /// </summary>
-        [DataMember(Order = 2)]
+        [DataMember]
         public DocumentProperty Document { get; private set; }
         /// <summary>
         /// Get the <see cref="FontProperty"/> that represents the font of the string to be drawn.
         /// </summary>
-        [DataMember(Order = 3)]
+        [DataMember]
         public FontProperty Font { get; private set; }
         /// <summary>
         /// Get a <see cref="CheckProperty"/> that indicates whether to enable multiple objects.
         /// </summary>
-        [DataMember(Order = 4)]
+        [DataMember]
         public CheckProperty EnableMultiple { get; private set; }
 
         /// <inheritdoc/>
         protected override Image<BGRA32> OnRender(EffectRenderArgs args)
         {
-            return Image.Text(Document.Text, Font.Select, Size[args.Frame], Color.Color);
+            return Image.Text(Document.Value, Font.Value, Size[args.Frame], Color.Value);
         }
         /// <inheritdoc/>
         protected override void OnRender(EffectRenderArgs<IEnumerable<ImageInfo>> args)
         {
-            if (!EnableMultiple.IsChecked)
+            if (!EnableMultiple.Value)
             {
                 args.Value = new ImageInfo[]
                 {
@@ -115,8 +110,8 @@ namespace BEditor.Primitive.Objects
 
                 return;
             }
-            args.Value = Document.Text
-                .Select((c, index) => (Image.Text(c.ToString(), Font.Select, Size[args.Frame], Color.Color), index))
+            args.Value = Document.Value
+                .Select((c, index) => (Image.Text(c.ToString(), Font.Value, Size[args.Frame], Color.Value), index))
                 .Select(t =>
                 {
                     return new ImageInfo(t.Item1, img => GetTransform(img.Source.Width * t.index, 0));

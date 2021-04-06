@@ -9,17 +9,20 @@
         /// Represents the preview rendering during editing.
         /// </summary>
         Preview,
+
         /// <summary>
         /// Represents the rendering during playing.
         /// </summary>
         VideoPreview,
+
         /// <summary>
         /// Represents the rendering in the image output.
         /// </summary>
         ImageOutput,
+
         /// <summary>
         /// Represents the rendering in the video output.
         /// </summary>
-        VideoOutput
+        VideoOutput,
     }
 }

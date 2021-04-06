@@ -11,16 +11,22 @@ using OpenTK.Graphics.OpenGL4;
 
 namespace BEditor.Graphics
 {
-    public class Line : IGraphicsObject
+    /// <summary>
+    /// Represents an OpenGL line.
+    /// </summary>
+    public class Line : GraphicsObject
     {
         private readonly float[] _vertices;
-        private readonly SynchronizationContext? _synchronization;
 
+        /// <summary>
+        /// Initializes a new instance of the <see cref="Line"/> class.
+        /// </summary>
+        /// <param name="start">The start position of the line.</param>
+        /// <param name="end">The end position of the line.</param>
+        /// <param name="width">The width of the line.</param>
+        /// <exception cref="GraphicsException">OpenGL error occurred.</exception>
         public Line(Vector3 start, Vector3 end, float width)
         {
-            _synchronization = SynchronizationContext.Current;
-            Debug.Assert(_synchronization is not null);
-
             Start = start;
             End = end;
             Width = width;
@@ -43,41 +49,52 @@ namespace BEditor.Graphics
 
             GL.BindBuffer(BufferTarget.ArrayBuffer, 0);
             GL.BindVertexArray(0);
-        }
-        ~Line()
-        {
-            if (!IsDisposed) Dispose();
+
+            Tool.ThrowGLError();
         }
 
-        public ReadOnlyMemory<float> Vertices => _vertices;
+        /// <inheritdoc/>
+        public override ReadOnlyMemory<float> Vertices => _vertices;
+
+        /// <summary>
+        /// Gets the start position of this <see cref="Line"/>.
+        /// </summary>
         public Vector3 Start { get; }
-        public Vector3 End { get; }
-        public float Width { get; }
-        public int VertexBufferObject { get; }
-        public int VertexArrayObject { get; }
-        public bool IsDisposed { get; private set; }
 
-        public void Render()
+        /// <summary>
+        /// Gets the end position of this <see cref="Line"/>.
+        /// </summary>
+        public Vector3 End { get; }
+
+        /// <summary>
+        /// Gets the width of this <see cref="Line"/>.
+        /// </summary>
+        public float Width { get; }
+
+        /// <summary>
+        /// Gets the VertexBuffer of this <see cref="Line"/>.
+        /// </summary>
+        public GraphicsHandle VertexBufferObject { get; }
+
+        /// <summary>
+        /// Gets the VertexArray of this <see cref="Line"/>.
+        /// </summary>
+        public GraphicsHandle VertexArrayObject { get; }
+
+        /// <inheritdoc/>
+        public override void Draw()
         {
             GL.LineWidth(Width);
 
             GL.BindVertexArray(VertexArrayObject);
             GL.DrawArrays(PrimitiveType.Lines, 0, 2);
         }
-        public void Dispose()
+
+        /// <inheritdoc/>
+        protected override void Dispose(bool disposing)
         {
-            if (IsDisposed) return;
-
-            _synchronization?.Post(state =>
-            {
-                var t = (Line)state!;
-                GL.DeleteVertexArray(t.VertexArrayObject);
-                GL.DeleteBuffer(t.VertexBufferObject);
-            }, this);
-
-            GC.SuppressFinalize(this);
-
-            IsDisposed = true;
+            GL.DeleteVertexArray(VertexArrayObject);
+            GL.DeleteBuffer(VertexBufferObject);
         }
     }
 }

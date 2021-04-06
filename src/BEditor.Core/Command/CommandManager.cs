@@ -4,109 +4,96 @@ using System.ComponentModel;
 using System.Diagnostics;
 using System.Threading.Tasks;
 
+using BEditor.Data;
+
 namespace BEditor.Command
 {
     /// <summary>
-    /// 行なった操作の履歴を蓄積することでUndo,Redoの機能を表します
+    /// Indicates the type of command.
     /// </summary>
-    public static class CommandManager
+    public enum CommandType
     {
-        #region Fields
-
-        internal static bool process = true;
-        private static bool canUndo = false;
-        private static bool canRedo = false;
-
-        #endregion
-
-        #region Properties
+        /// <summary>
+        /// Do
+        /// </summary>
+        Do,
 
         /// <summary>
-        /// 実行後またはRedo後に記録
+        /// Undo
         /// </summary>
-        public static Stack<IRecordCommand> UndoStack { get; } = new Stack<IRecordCommand>();
+        Undo,
+
         /// <summary>
-        /// Undo後に記録
+        /// Redo
         /// </summary>
-        public static Stack<IRecordCommand> RedoStack { get; } = new Stack<IRecordCommand>();
+        Redo,
+    }
+
+    /// <summary>
+    /// Indicates the Undo and Redo functions by storing the history of the operations performed.
+    /// </summary>
+    public class CommandManager : BasePropertyChanged
+    {
         /// <summary>
-        /// Undo出来るか取得します
+        /// Default instance of CommandManager.
         /// </summary>
-        public static bool CanUndo
+        public static readonly CommandManager Default = new();
+        private static readonly PropertyChangedEventArgs _canUndoArgs = new(nameof(CanUndo));
+        private static readonly PropertyChangedEventArgs _canRedoArgs = new(nameof(CanRedo));
+        private bool _process = true;
+        private bool _canUndo = false;
+        private bool _canRedo = false;
+
+        /// <summary>
+        /// Occurs at UnDo, Redo, and execution time.
+        /// </summary>
+        public event EventHandler<CommandType>? Executed;
+
+        /// <summary>
+        /// Occurs when a command is canceled.
+        /// </summary>
+        public event EventHandler? CommandCancel;
+
+        /// <summary>
+        /// Occurs after <see cref="Clear"/>.
+        /// </summary>
+        public event EventHandler? CommandsClear;
+
+        /// <summary>
+        /// Gets the <see cref="Stack{T}"/> that will be recorded after execution or redo.
+        /// </summary>
+        public Stack<IRecordCommand> UndoStack { get; } = new();
+
+        /// <summary>
+        /// Gets the <see cref="Stack{T}"/> to be recorded after the Undo.
+        /// </summary>
+        public Stack<IRecordCommand> RedoStack { get; } = new();
+
+        /// <summary>
+        /// Gets a value indicating whether or not Undo is enabled.
+        /// </summary>
+        public bool CanUndo
         {
-            private set
-            {
-                if (canUndo != value)
-                {
-                    canUndo = value;
-
-                    CanUndoChange(null, EventArgs.Empty);
-                }
-            }
-            get
-            {
-                return canUndo;
-            }
+            get => _canUndo;
+            private set => SetValue(value, ref _canUndo, _canUndoArgs);
         }
-        /// <summary>
-        /// Redo出来るかを取得します
-        /// </summary>
-        public static bool CanRedo
-        {
-            private set
-            {
-                if (canRedo != value)
-                {
-                    canRedo = value;
 
-                    CanRedoChange(null, EventArgs.Empty);
-                }
-            }
-            get
-            {
-                return canRedo;
-            }
+        /// <summary>
+        /// Gets a value indicating whether or not Redo is enabled.
+        /// </summary>
+        public bool CanRedo
+        {
+            get => _canRedo;
+            private set => SetValue(value, ref _canRedo, _canRedoArgs);
         }
 
-        #endregion
-
-        #region Events
-
         /// <summary>
-        /// Undo出来るかどうかの状態が変化すると発生します
+        /// Execute the operation and add its contents to the stack.
         /// </summary>
-        public static event EventHandler CanUndoChange = delegate { };
-
-        /// <summary>
-        /// Redo出来るかどうかの状態が変化すると発生します
-        /// </summary>
-        public static event EventHandler CanRedoChange = delegate { };
-
-        /// <summary>
-        /// UnDo ReDo Do時に発生します
-        /// </summary>
-        public static event EventHandler<CommandType> Executed = delegate { };
-
-        /// <summary>
-        /// コマンドがキャンセルされたときに発生します
-        /// </summary>
-        public static event EventHandler CommandCancel = delegate { };
-        /// <summary>
-        /// <see cref="Clear"/> 後に発生します
-        /// </summary>
-        public static event EventHandler CommandsClear = delegate { };
-
-        #endregion
-
-        #region Methods
-
-        /// <summary>
-        /// 操作を実行し、かつその内容をStackに追加します
-        /// </summary>
-        /// <param name="command">実行するコマンド</param>
-        public static void Do(IRecordCommand command)
+        /// <param name="command">The command to execute.</param>
+        public void Do(IRecordCommand command)
         {
-            if (!process)
+            if (!_process)
             {
                 Debug.WriteLine("if (!process) {...");
                 return;
@@ -114,7 +101,7 @@ namespace BEditor.Command
 
             try
             {
-                process = false;
+                _process = false;
                 command.Do();
 
                 UndoStack.Push(command);
@@ -125,97 +112,84 @@ namespace BEditor.Command
             }
             catch
             {
-                Debug.Assert(false);
+                Debug.Fail("Commandの実行中に例外が発生。");
                 CommandCancel(null, EventArgs.Empty);
             }
 
-            process = true;
-            Executed(command, CommandType.Do);
+            _process = true;
+            Executed?.Invoke(command, CommandType.Do);
         }
+
         /// <summary>
-        /// 行なったコマンドを取り消してひとつ前の状態に戻します
+        /// Undoes a command and returns to the previous state.
         /// </summary>
-        public static void Undo()
+        public void Undo()
         {
-            if (!process) return;
+            if (!_process) return;
 
             if (UndoStack.Count >= 1)
             {
-                IRecordCommand command = UndoStack.Pop();
+                var command = UndoStack.Pop();
                 CanUndo = UndoStack.Count > 0;
 
                 try
                 {
-                    process = false;
+                    _process = false;
                     command.Undo();
 
                     RedoStack.Push(command);
                     CanRedo = RedoStack.Count > 0;
                 }
-                catch { }
-                process = true;
+                catch
+                {
+                }
 
-                Executed(command, CommandType.Undo);
+                _process = true;
+
+                Executed?.Invoke(command, CommandType.Undo);
             }
         }
+
         /// <summary>
-        /// 取り消したコマンドをやり直します
+        /// Redo the canceled command.
         /// </summary>
-        public static void Redo()
+        public void Redo()
         {
-            if (!process) return;
+            if (!_process) return;
 
             if (RedoStack.Count >= 1)
             {
-                IRecordCommand command = RedoStack.Pop();
+                var command = RedoStack.Pop();
                 CanRedo = RedoStack.Count > 0;
 
                 try
                 {
-                    process = false;
+                    _process = false;
                     command.Redo();
 
                     UndoStack.Push(command);
                     CanUndo = UndoStack.Count > 0;
                 }
-                catch { }
+                catch
+                {
+                }
 
-                process = true;
-                Executed(command, CommandType.Redo);
+                _process = true;
+                Executed?.Invoke(command, CommandType.Redo);
             }
         }
+
         /// <summary>
-        /// 記録されたコマンドを初期化
+        /// Clear the recorded commands.
         /// </summary>
-        public static void Clear()
+        public void Clear()
         {
             UndoStack.Clear();
             RedoStack.Clear();
             CanUndo = false;
             CanRedo = false;
 
-            CommandsClear(null, EventArgs.Empty);
+            CommandsClear?.Invoke(this, EventArgs.Empty);
         }
-
-        #endregion
-    }
-
-    /// <summary>
-    /// コマンドの種類を表します
-    /// </summary>
-    public enum CommandType
-    {
-        /// <summary>
-        /// 
-        /// </summary>
-        Do,
-        /// <summary>
-        /// 
-        /// </summary>
-        Undo,
-        /// <summary>
-        /// 
-        /// </summary>
-        Redo
     }
 }

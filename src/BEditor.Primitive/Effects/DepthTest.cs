@@ -1,14 +1,9 @@
-﻿using System;
-using System.Collections.Generic;
+﻿using System.Collections.Generic;
 using System.Collections.ObjectModel;
-using System.Runtime.Serialization;
-using System.Text;
 
-using BEditor.Command;
 using BEditor.Data;
-using BEditor.Data.Primitive;
 using BEditor.Data.Property;
-using BEditor.Properties;
+using BEditor.Primitive.Resources;
 
 using OpenTK.Graphics.OpenGL4;
 
@@ -17,17 +12,16 @@ namespace BEditor.Primitive.Effects
     /// <summary>
     /// Represents an <see cref="EffectElement"/> that sets the OpenGL depth test.
     /// </summary>
-    [DataContract]
     public class DepthTest : EffectElement
     {
         /// <summary>
         /// Represents <see cref="Enabled"/> metadata.
         /// </summary>
-        public static readonly CheckPropertyMetadata EnabledMetadata = new(Resources.DepthTestEneble, true);
+        public static readonly CheckPropertyMetadata EnabledMetadata = new(Strings.DepthTestEnable, true);
         /// <summary>
         /// Represents <see cref="Function"/> metadata.
         /// </summary>
-        public static readonly SelectorPropertyMetadata FunctionMetadata = new(Resources.DepthFunction, new string[]
+        public static readonly SelectorPropertyMetadata FunctionMetadata = new(Strings.DepthFunction, new string[]
         {
                 "Never",
                 "Less",
@@ -37,7 +31,7 @@ namespace BEditor.Primitive.Effects
                 "Notequal",
                 "Gequal",
                 "Always"
-        });//初期値はless
+        }, 1);//初期値はless
         /// <summary>
         /// Represents <see cref="Mask"/> metadata.
         /// </summary>
@@ -50,7 +44,7 @@ namespace BEditor.Primitive.Effects
         /// Represents <see cref="Far"/> metadata.
         /// </summary>
         public static readonly EasePropertyMetadata FarMetadata = new("Far", 100, 100, 0);
-        private static readonly ReadOnlyCollection<DepthFunction> DepthFunctions = new ReadOnlyCollection<DepthFunction>(new DepthFunction[]
+        private static readonly ReadOnlyCollection<DepthFunction> DepthFunctions = new(new DepthFunction[]
         {
             DepthFunction.Never,
             DepthFunction.Less,
@@ -75,7 +69,7 @@ namespace BEditor.Primitive.Effects
         }
 
         /// <inheritdoc/>
-        public override string Name => Resources.DepthTest;
+        public override string Name => Strings.DepthTest;
         /// <inheritdoc/>
         public override IEnumerable<PropertyElement> Properties => new PropertyElement[]
         {
@@ -88,38 +82,38 @@ namespace BEditor.Primitive.Effects
         /// <summary>
         /// Gets the <see cref="CheckProperty"/> that represents the value to enable depth testing.
         /// </summary>
-        [DataMember(Order = 0)]
+        [DataMember]
         public CheckProperty Enabled { get; private set; }
         /// <summary>
         /// Get the <see cref="SelectorProperty"/> that selects the function for the depth test.
         /// </summary>
-        [DataMember(Order = 1)]
+        [DataMember]
         public SelectorProperty Function { get; private set; }
         /// <summary>
         /// Gets the <see cref="CheckProperty"/> indicating whether the depth mask is enabled.
         /// </summary>
-        [DataMember(Order = 2)]
+        [DataMember]
         public CheckProperty Mask { get; private set; }
         /// <summary>
         /// Gets the <see cref="EaseProperty"/> representing the depth range.
         /// </summary>
-        [DataMember(Order = 3)]
+        [DataMember]
         public EaseProperty Near { get; private set; }
         /// <summary>
         /// Gets the <see cref="EaseProperty"/> representing the depth range.
         /// </summary>
-        [DataMember(Order = 4)]
+        [DataMember]
         public EaseProperty Far { get; private set; }
 
         /// <inheritdoc/>
         public override void Render(EffectRenderArgs args)
         {
-            if (Enabled.IsChecked) GL.Enable(EnableCap.DepthTest);
+            if (Enabled.Value) GL.Enable(EnableCap.DepthTest);
             else GL.Disable(EnableCap.DepthTest);
 
             GL.DepthFunc(DepthFunctions[Function.Index]);
 
-            GL.DepthMask(Mask.IsChecked);
+            GL.DepthMask(Mask.Value);
 
             GL.DepthRange(Near.GetValue(args.Frame) / 100, Far.GetValue(args.Frame) / 100);
         }

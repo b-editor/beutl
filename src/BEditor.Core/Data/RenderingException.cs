@@ -12,18 +12,29 @@ namespace BEditor.Data
         /// <summary>
         /// Initializes a new instance of the <see cref="RenderingException"/> class.
         /// </summary>
-        public RenderingException() { }
+        public RenderingException()
+        {
+        }
+
         /// <summary>
         /// Initializes a new instance of the <see cref="RenderingException"/> class with a specified error message.
         /// </summary>
         /// <param name="message">The message that describes the error.</param>
-        public RenderingException(string? message) : base(message) { }
+        public RenderingException(string? message)
+            : base(message)
+        {
+        }
+
         /// <summary>
         /// Initializes a new instance of the <see cref="RenderingException"/> class with a specified error message and a reference to the inner exception that is the cause of this exception.
         /// </summary>
         /// <param name="message">The message that describes the error.</param>
         /// <param name="inner">The exception that is the cause of the current exception, or a null reference(Nothing in Visual Basic) if no inner exception is specified.</param>
-        public RenderingException(string? message, Exception? inner) : base(message, inner) { }
+        public RenderingException(string? message, Exception? inner)
+            : base(message, inner)
+        {
+        }
+
         /// <summary>
         /// Initializes a new instance of the <see cref="RenderingException"/> class with serialized data.
         /// </summary>
@@ -33,6 +44,9 @@ namespace BEditor.Data
         /// <exception cref="System.Runtime.Serialization.SerializationException">The class name is null or <see cref="Exception.HResult"/> is zero (0).</exception>
         protected RenderingException(
             System.Runtime.Serialization.SerializationInfo info,
-            System.Runtime.Serialization.StreamingContext context) : base(info, context) { }
+            System.Runtime.Serialization.StreamingContext context)
+            : base(info, context)
+        {
+        }
     }
 }

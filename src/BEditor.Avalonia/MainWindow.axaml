@@ -1,0 +1,176 @@
+<Window
+  xmlns="https://github.com/avaloniaui"
+  xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+  xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+  xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+  xmlns:prop="clr-namespace:BEditor.Properties"
+  xmlns:views="using:BEditor.Views"
+  xmlns:vm="using:BEditor.ViewModels"
+  xmlns:command="clr-namespace:BEditor.Command;assembly=BEditor.Core"
+  xmlns:ctr="using:BEditor.Controls"
+  mc:Ignorable="d"
+  d:DesignWidth="1440"
+  d:DesignHeight="760"
+  x:DataType="vm:MainWindowViewModel"
+  DataContext="{x:Static vm:MainWindowViewModel.Current}"
+  x:Class="BEditor.MainWindow">
+  <Grid RowDefinitions="Auto,*,Auto,*,Auto" ColumnDefinitions="425,Auto,*,Auto,2*">
+
+    <Menu Grid.Row="0" Grid.ColumnSpan="5">
+      <MenuItem Header="{x:Static prop:Strings.AccessFile}">
+        <!--開く-->
+        <MenuItem Header="{x:Static prop:Strings.AccessOpen}" Command="{CompiledBinding Open, Mode=OneTime}"/>
+
+        <!--新規作成-->
+        <MenuItem Header="{x:Static prop:Strings.CreateNew}">
+          <MenuItem Header="{x:Static prop:Strings.CreateProject}" Click="CreateProjectClick"/>
+          <MenuItem Header="{x:Static prop:Strings.CreateFromBackup}"/>
+        </MenuItem>
+
+        <Separator/>
+
+        <!--上書き保存-->
+        <MenuItem
+          Header="{x:Static prop:Strings.Save}"
+          Command="{CompiledBinding Save, Mode=OneTime}"
+          IsEnabled="{CompiledBinding IsOpened.Value, Mode=OneWay}"/>
+
+        <!--名前を付けて保存-->
+        <MenuItem
+          Header="{x:Static prop:Strings.SaveAs}"
+          Command="{CompiledBinding SaveAs, Mode=OneTime}"
+          IsEnabled="{CompiledBinding IsOpened.Value, Mode=OneWay}"/>
+
+        <!--閉じる-->
+        <MenuItem
+          Header="{x:Static prop:Strings.Close}"
+          Command="{CompiledBinding Close, Mode=OneTime}"
+          IsEnabled="{CompiledBinding IsOpened.Value, Mode=OneWay}"/>
+
+        <Separator/>
+
+        <!--最近使ったファイル-->
+        <MenuItem Header="{x:Static prop:Strings.RecentlyUsedFiles}"/>
+
+        <!--終了-->
+        <MenuItem Header="{x:Static prop:Strings.Shutdown}"/>
+
+      </MenuItem>
+      <MenuItem Header="{x:Static prop:Strings.AccessEdit}">
+        <!--やり直す-->
+        <MenuItem
+          Command="{CompiledBinding Undo, Mode=OneTime}"
+          Header="{x:Static prop:Strings.Undo}"
+          IsEnabled="{CompiledBinding CanUndo, Mode=OneWay, Source={x:Static command:CommandManager.Default}}"/>
+
+        <!--元に戻す-->
+        <MenuItem
+          Command="{CompiledBinding Redo, Mode=OneTime}"
+          Header="{x:Static prop:Strings.Redo}"
+          IsEnabled="{CompiledBinding CanRedo, Mode=OneWay, Source={x:Static command:CommandManager.Default}}"/>
+
+        <!--削除-->
+        <MenuItem
+          Command="{CompiledBinding Remove, Mode=OneTime}"
+          Header="{x:Static prop:Strings.Remove}"
+          IsEnabled="{CompiledBinding IsOpened.Value, Mode=OneWay}"/>
+
+        <Separator/>
+
+        <!--切り取り-->
+        <MenuItem
+          Command="{CompiledBinding Cut, Mode=OneTime}"
+          Header="{x:Static prop:Strings.Cut}"
+          IsEnabled="{CompiledBinding IsOpened.Value, Mode=OneWay}"/>
+
+        <!--コピー-->
+        <MenuItem
+          Command="{CompiledBinding Copy, Mode=OneTime}"
+          Header="{x:Static prop:Strings.Copy}"
+          IsEnabled="{CompiledBinding IsOpened.Value, Mode=OneWay}"/>
+
+        <!--貼り付け-->
+        <MenuItem
+          Command="{CompiledBinding Paste, Mode=OneTime}"
+          Header="{x:Static prop:Strings.Paste}"
+          IsEnabled="{CompiledBinding IsOpened.Value, Mode=OneWay}"/>
+
+      </MenuItem>
+      <MenuItem Header="{x:Static prop:Strings.AccessView}">
+
+      </MenuItem>
+      <MenuItem Header="{x:Static prop:Strings.AccessTool}">
+
+        <!--設定-->
+        <MenuItem Click="ShowSettings" Header="{x:Static prop:Strings.Settings}"/>
+
+      </MenuItem>
+      <MenuItem Header="{x:Static prop:Strings.AccessPlugin}">
+
+      </MenuItem>
+      <MenuItem Header="{x:Static prop:Strings.AccessOut}">
+
+      </MenuItem>
+      <MenuItem Click="Button_Click" Header="{x:Static prop:Strings.AccessHelp}">
+
+      </MenuItem>
+    </Menu>
+
+    <Label
+      Grid.Row="1"
+      Grid.RowSpan="3"
+      Padding="0"
+      HorizontalContentAlignment="Stretch"
+      VerticalContentAlignment="Stretch"
+      IsEnabled="{CompiledBinding IsOpened.Value, Mode=OneWay}"
+      Content="{Binding App.Project.PreviewScene.SelectItem, Converter={StaticResource ClipPropertyConverter}, Mode=OneWay}"
+      Background="{DynamicResource SystemControlHighlightListLowBrush}"/>
+
+    <GridSplitter Grid.Row="1" Grid.RowSpan="3" Grid.Column="1"/>
+
+    <Label
+      Grid.Row="3"
+      Grid.Column="2"
+      Grid.ColumnSpan="3"
+      IsEnabled="{CompiledBinding IsOpened.Value, Mode=OneWay}"
+      Content="{Binding App.Project.PreviewScene, Converter={StaticResource SceneToTimelineConverter}, Mode=OneWay}"
+      Background="{DynamicResource SystemControlHighlightListLowBrush}"/>
+
+    <GridSplitter Grid.Row="2" Grid.Column="2" Grid.ColumnSpan="3"/>
+
+    <views:Previewer
+      DataContext="{CompiledBinding Previewer, Mode=OneTime}"
+      Grid.Row="1"
+      Grid.Column="4"/>
+
+    <GridSplitter Grid.Row="1" Grid.Column="3"/>
+
+    <TabControl
+      Grid.Row="1"
+      Grid.Column="2"
+      Padding="0"
+      Margin="4,0" >
+      <TabControl.ItemsPanel>
+        <ItemsPanelTemplate>
+          <StackPanel Orientation="Horizontal"/>
+        </ItemsPanelTemplate>
+      </TabControl.ItemsPanel>
+      <TabItem
+        Header="{x:Static prop:Strings.Library}"
+        FontSize="16"
+        Padding="8" >
+        <views:Library />
+      </TabItem>
+      <TabItem
+        Header="{x:Static prop:Strings.ObjectViewer}"
+        FontSize="16"
+        Padding="8" >
+      </TabItem>
+      <TabItem
+        Header="{x:Static prop:Strings.Log}"
+        FontSize="16"
+        Padding="8" >
+      </TabItem>
+    </TabControl>
+  </Grid>
+</Window>

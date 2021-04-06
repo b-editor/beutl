@@ -2,7 +2,6 @@
 
   <PropertyGroup>
     <TargetFramework>net5.0</TargetFramework>
-    <OutputPath>..\..\..\src\BEditor.WPF\bin\$(Configuration)\net5.0-windows\user\plugins\TestPlugin1</OutputPath>
     <Authors>indigo-san</Authors>
     <RepositoryUrl>https://github.com/indigo-san/BEditor</RepositoryUrl>
     <PackageProjectUrl>https://github.com/indigo-san/BEditor</PackageProjectUrl>

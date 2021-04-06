@@ -1,0 +1,49 @@
+<Styles xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+             xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006">
+  <Style Selector="ComboBox.SettingsComboBox">
+    <Setter Property="VerticalAlignment" Value="Stretch"/>
+    <Setter Property="HorizontalAlignment" Value="Right"/>
+    <Setter Property="Height" Value="32"/>
+    <Setter Property="Margin" Value="0,4,25,4"/>
+    <Setter Property="Width" Value="160"/>
+  </Style>
+
+  <Style Selector="TextBox.SettingsTextBox">
+    <Setter Property="VerticalAlignment" Value="Stretch"/>
+    <Setter Property="HorizontalAlignment" Value="Right"/>
+    <Setter Property="Height" Value="24"/>
+    <Setter Property="Margin" Value="0,4,25,4"/>
+    <Setter Property="Width" Value="160"/>
+  </Style>
+
+  <Style Selector="NumericUpDown.SettingsNumericUpDown">
+    <Setter Property="VerticalAlignment" Value="Stretch"/>
+    <Setter Property="HorizontalAlignment" Value="Right"/>
+    <Setter Property="Height" Value="24"/>
+    <Setter Property="Margin" Value="0,4,25,4"/>
+    <Setter Property="Width" Value="160"/>
+  </Style>
+
+  <Style Selector="CheckBox.SettingsCheckBox">
+    <Setter Property="VerticalAlignment" Value="Stretch"/>
+    <Setter Property="HorizontalAlignment" Value="Right" />
+    <Setter Property="Height" Value="24"/>
+    <Setter Property="Margin" Value="0,4,25,4"/>
+    <Setter Property="Width" Value="160"/>
+  </Style>
+
+  <Style Selector="Label.SettingsItemHeader">
+    <Setter Property="FontSize" Value="13"/>
+    <Setter Property="Margin" Value="25,0,25,0"/>
+    <Setter Property="Height" Value="40"/>
+    <Setter Property="Padding" Value="0"/>
+    <Setter Property="VerticalContentAlignment" Value="Center"/>
+  </Style>
+  
+  <Style Selector="TextBlock.SettingsHeader">
+    <Setter Property="FontSize" Value="24"/>
+    <Setter Property="Margin" Value="24,12"/>
+  </Style>
+</Styles>

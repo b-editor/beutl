@@ -1,0 +1,67 @@
+{
+    "version": "2.0.0",
+    "tasks": [
+        {
+            "label": "build",
+            "command": "dotnet",
+            "type": "process",
+            "windows": {
+                "args": [
+                    "build",
+                    "${workspaceFolder}/src/BEditor.WPF/BEditor.WPF.csproj",
+                    "/property:GenerateFullPaths=true",
+                    "/consoleloggerparameters:NoSummary"
+                ]
+            },
+            "args": [
+                "build",
+                "${workspaceFolder}/src/BEditor.Avalonia/BEditor.Avalonia.csproj",
+                "/property:GenerateFullPaths=true",
+                "/consoleloggerparameters:NoSummary"
+            ],
+            "problemMatcher": "$msCompile"
+        },
+        {
+            "label": "publish",
+            "command": "dotnet",
+            "type": "process",
+            "windows": {
+                "args": [
+                    "publish",
+                    "${workspaceFolder}/src/BEditor.WPF/BEditor.WPF.csproj",
+                    "/property:GenerateFullPaths=true",
+                    "/consoleloggerparameters:NoSummary"
+                ]
+            },
+            "args": [
+                "publish",
+                "${workspaceFolder}/src/BEditor.Avalonia/BEditor.Avalonia.csproj",
+                "/property:GenerateFullPaths=true",
+                "/consoleloggerparameters:NoSummary"
+            ],
+            "problemMatcher": "$msCompile"
+        },
+        {
+            "label": "watch",
+            "command": "dotnet",
+            "type": "process",
+            "windows": {
+                "args": [
+                    "watch",
+                    "run",
+                    "${workspaceFolder}/src/BEditor.WPF/BEditor.WPF.csproj",
+                    "/property:GenerateFullPaths=true",
+                    "/consoleloggerparameters:NoSummary"
+                ]
+            },
+            "args": [
+                "watch",
+                "run",
+                "${workspaceFolder}/src/BEditor.Avalonia/BEditor.Avalonia.csproj",
+                "/property:GenerateFullPaths=true",
+                "/consoleloggerparameters:NoSummary"
+            ],
+            "problemMatcher": "$msCompile"
+        }
+    ]
+}

@@ -7,76 +7,64 @@ using System.Windows.Media.Animation;
 using BEditor.Data;
 using BEditor.Models;
 using BEditor.ViewModels.TimeLines;
-using BEditor.Views.CustomControl;
 using BEditor.WPF.Controls;
-
-using CustomTreeView = BEditor.WPF.Controls.ExpandTree;
 
 namespace BEditor.Views.TimeLines
 {
-
     /// <summary>
     /// ClipUI.xaml の相互作用ロジック
     /// </summary>
-    public partial class ClipUI : UserControl, ICustomTreeViewItem
+    public sealed partial class ClipUI : UserControl, ICustomTreeViewItem, IDisposable
     {
         public static readonly DependencyProperty IsExpandedProperty = DependencyProperty.Register("IsExpanded", typeof(bool), typeof(ClipUI), new FrameworkPropertyMetadata(false, FrameworkPropertyMetadataOptions.BindsTwoWayByDefault, IsExpandedChanged));
+        private readonly Storyboard _openStoryboard = new();
+        private readonly Storyboard _closeStoryboard = new();
+        private readonly DoubleAnimation _openAnm = new() { Duration = TimeSpan.FromSeconds(0.25) };
 
 
-        private static void IsExpandedChanged(DependencyObject d, DependencyPropertyChangedEventArgs e)
+        public ClipUI(ClipElement clip)
         {
-            if (e.NewValue == e.OldValue) return;
-
-            if (d is ClipUI clip)
-            {
-                if (clip.IsExpanded)
-                {
-                    clip.OpenAnm.To = clip.LogicHeight;
-
-                    clip.OpenStoryboard.Begin();
-                }
-                else
-                {
-                    clip.CloseStoryboard.Begin();
-                }
-            }
-        }
-
-        public ClipUI(ClipElement _Data)
-        {
-            DataContext = _Data.GetCreateClipViewModel();
+            DataContext = clip.GetCreateClipViewModel();
             InitializeComponent();
-            ClipData = _Data;
 
             SetBinding(IsExpandedProperty, new Binding("IsExpanded.Value") { Mode = BindingMode.TwoWay });
 
-            _Data.Effect.CollectionChanged += (s, e) =>
+            ClipElement.Effect.CollectionChanged += Value_SizeChange;
+
+            Height = ClipUIViewModel.TrackHeight;
+
             {
-                Value_SizeChange(this, null);
-            };
+                var closeAnm = new DoubleAnimation()
+                {
+                    Duration = TimeSpan.FromSeconds(0.25),
+                    To = Setting.ClipHeight
+                };
 
-            Height = ViewModel.TrackHeight;
+                Storyboard.SetTarget(_openAnm, this);
+                Storyboard.SetTargetProperty(_openAnm, new PropertyPath("(Height)"));
 
-            Storyboard.SetTarget(OpenAnm, this);
-            Storyboard.SetTargetProperty(OpenAnm, new PropertyPath("(Height)"));
+                Storyboard.SetTarget(closeAnm, this);
+                Storyboard.SetTargetProperty(closeAnm, new PropertyPath("(Height)"));
 
-            Storyboard.SetTarget(CloseAnm, this);
-            Storyboard.SetTargetProperty(CloseAnm, new PropertyPath("(Height)"));
-
-            OpenStoryboard.Children.Add(OpenAnm);
-            CloseStoryboard.Children.Add(CloseAnm);
+                _openStoryboard.Children.Add(_openAnm);
+                _closeStoryboard.Children.Add(closeAnm);
+            }
+        }
+        ~ClipUI()
+        {
+            Dispose();
         }
 
-        #region ICustomTreeViewItem
+
         public double LogicHeight
         {
             get
             {
                 double tmp = Setting.ClipHeight;
 
-                foreach (var effect in ClipData.Effect)
+                foreach (var effect in ClipElement.Effect)
                 {
-                    var control = (CustomTreeView)effect.GetCreateKeyFrameView();
+                    var control = effect.GetCreateKeyFrameView();
                     tmp += control.LogicHeight;
 
                     control.SizeChange -= Value_SizeChange;
@@ -87,46 +75,55 @@ namespace BEditor.Views.TimeLines
                 return tmp;
             }
         }
-
-        private void Value_SizeChange(object? sender, EventArgs? e)
-        {
-            Dispatcher.Invoke(() =>
-            {
-                if (IsExpanded)
-                {
-                    OpenAnm.To = LogicHeight;
-
-                    OpenStoryboard.Begin();
-                }
-                else
-                {
-                    CloseStoryboard.Begin();
-                }
-            });
-        }
-        #endregion
-
-        public ClipElement ClipData { get; set; }
+        public ClipElement ClipElement => ViewModel.ClipElement;
         public ClipUIViewModel ViewModel => (ClipUIViewModel)DataContext;
-
-
-        #region Storyboard
-
-        internal Storyboard OpenStoryboard = new Storyboard();
-        internal Storyboard CloseStoryboard = new Storyboard();
-        internal DoubleAnimation OpenAnm = new DoubleAnimation() { Duration = TimeSpan.FromSeconds(0.25) };
-        internal DoubleAnimation CloseAnm = new DoubleAnimation() { Duration = TimeSpan.FromSeconds(0.25), To = Setting.ClipHeight };
-
-        #endregion
-
-
-        /// <summary>
-        /// 開いている場合True
-        /// </summary>
         public bool IsExpanded
         {
             get => (bool)GetValue(IsExpandedProperty);
             set => SetValue(IsExpandedProperty, value);
+        }
+
+
+        private async void Value_SizeChange(object? sender, EventArgs? e)
+        {
+            await Dispatcher.InvokeAsync(() =>
+            {
+                if (IsExpanded)
+                {
+                    _openAnm.To = LogicHeight;
+
+                    _openStoryboard.Begin();
+                }
+                else
+                {
+                    _closeStoryboard.Begin();
+                }
+            });
+        }
+        private static void IsExpandedChanged(DependencyObject d, DependencyPropertyChangedEventArgs e)
+        {
+            if (e.NewValue == e.OldValue) return;
+
+            if (d is ClipUI clip)
+            {
+                if (clip.IsExpanded)
+                {
+                    clip._openAnm.To = clip.LogicHeight;
+
+                    clip._openStoryboard.Begin();
+                }
+                else
+                {
+                    clip._closeStoryboard.Begin();
+                }
+            }
+        }
+        public void Dispose()
+        {
+            ClipElement.Effect.CollectionChanged -= Value_SizeChange;
+            DataContext = null;
+
+            GC.SuppressFinalize(this);
         }
     }
 }

@@ -1,6 +1,7 @@
 ﻿using System;
 using System.Collections.Generic;
 using System.Linq;
+using System.Reactive.Disposables;
 using System.Reactive.Linq;
 using System.Text;
 using System.Threading.Tasks;
@@ -17,19 +18,23 @@ using Reactive.Bindings.Extensions;
 
 namespace BEditor.ViewModels.PropertyControl
 {
-    public class FilePropertyViewModel
+    public sealed class FilePropertyViewModel : IDisposable
     {
+        private readonly CompositeDisposable disposables = new();
+
         public FilePropertyViewModel(FileProperty property)
         {
             Property = property;
             Metadata = property.ObserveProperty(p => p.PropertyMetadata)
-                .ToReadOnlyReactiveProperty();
+                .ToReadOnlyReactivePropertySlim()
+                .AddTo(disposables);
 
             PathMode = property.ObserveProperty(p => p.Mode)
                 .Select(i => (int)i)
-                .ToReactiveProperty();
+                .ToReactiveProperty()
+                .AddTo(disposables);
 
-            PathMode.Subscribe(i => Property.Mode = (FilePathType)i);
+            PathMode.Subscribe(i => Property.Mode = (FilePathType)i).AddTo(disposables);
 
             Command.Subscribe(x =>
             {
@@ -39,21 +44,37 @@ namespace BEditor.ViewModels.PropertyControl
                 {
                     Property.ChangeFile(file).Execute();
                 }
-            });
-            Reset.Subscribe(() => Property.ChangeFile(Property.PropertyMetadata?.DefaultFile ?? "").Execute());
+            }).AddTo(disposables);
+            Reset.Subscribe(() => Property.ChangeFile(Property.PropertyMetadata?.DefaultFile ?? "").Execute()).AddTo(disposables);
             Bind.Subscribe(() =>
             {
                 var window = new BindSettings(new BindSettingsViewModel<string>(property));
                 window.ShowDialog();
-            });
+            }).AddTo(disposables);
+        }
+        ~FilePropertyViewModel()
+        {
+            Dispose();
         }
 
-        public ReadOnlyReactiveProperty<FilePropertyMetadata?> Metadata { get; }
+        public ReadOnlyReactivePropertySlim<FilePropertyMetadata?> Metadata { get; }
         public FileProperty Property { get; }
         public ReactiveCommand<Func<string, string, string>> Command { get; } = new();
         public ReactiveCommand Reset { get; } = new();
         public ReactiveCommand Bind { get; } = new();
         public ReactiveProperty<int> PathMode { get; }
+
+        public void Dispose()
+        {
+            Metadata.Dispose();
+            Command.Dispose();
+            Reset.Dispose();
+            Bind.Dispose();
+            PathMode.Dispose();
+            disposables.Dispose();
+
+            GC.SuppressFinalize(this);
+        }
 
         private string? OpenDialog(FileFilter? filter)
         {

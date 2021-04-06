@@ -1,30 +1,27 @@
 ﻿using System.Collections.Generic;
-using System.Runtime.Serialization;
 
-using BEditor.Command;
 using BEditor.Data;
 using BEditor.Data.Primitive;
 using BEditor.Data.Property;
-using BEditor.Properties;
 using BEditor.Drawing;
 using BEditor.Drawing.Pixel;
+using BEditor.Primitive.Resources;
 
 namespace BEditor.Primitive.Effects
 {
     /// <summary>
     /// Represents an <see cref="ImageEffect"/> that dilates an image.
     /// </summary>
-    [DataContract]
-    public class Dilate : ImageEffect
+    public sealed class Dilate : ImageEffect
     {
         /// <summary>
         /// Represents <see cref="Radius"/> metadata.
         /// </summary>
-        public static readonly EasePropertyMetadata RadiusMetadata = new(Resources.Frequency, 1, float.NaN, 0);
+        public static readonly EasePropertyMetadata RadiusMetadata = new(Strings.Frequency, 1, float.NaN, 0);
         /// <summary>
         /// Represents <see cref="Resize"/> metadata.
         /// </summary>
-        public static readonly CheckPropertyMetadata ResizeMetadata = new(Resources.Resize);
+        public static readonly CheckPropertyMetadata ResizeMetadata = new(Strings.Resize);
 
         /// <summary>
         /// Initializes a new instance of the <see cref="Dilate"/> class.
@@ -36,7 +33,7 @@ namespace BEditor.Primitive.Effects
         }
 
         /// <inheritdoc/>
-        public override string Name => Resources.Dilate;
+        public override string Name => Strings.Dilate;
         /// <inheritdoc/>
         public override IEnumerable<PropertyElement> Properties => new PropertyElement[]
         {
@@ -46,12 +43,12 @@ namespace BEditor.Primitive.Effects
         /// <summary>
         /// Get the <see cref="EaseProperty"/> representing the radius.
         /// </summary>
-        [DataMember(Order = 0)]
+        [DataMember]
         public EaseProperty Radius { get; private set; }
         /// <summary>
         /// Gets a <see cref="CheckProperty"/> representing the value to resize the image.
         /// </summary>
-        [DataMember(Order = 1)]
+        [DataMember]
         public CheckProperty Resize { get; private set; }
 
         /// <inheritdoc/>
@@ -59,7 +56,7 @@ namespace BEditor.Primitive.Effects
         {
             var img = args.Value;
             var size = (int)Radius.GetValue(args.Frame);
-            if (Resize.IsChecked)
+            if (Resize.Value)
             {
                 int nwidth = img.Width + (size + 5) * 2;
                 int nheight = img.Height + (size + 5) * 2;

@@ -18,36 +18,33 @@ namespace BEditor.Views.PropertyControl
     /// <summary>
     /// ColorAnimation.xaml の相互作用ロジック
     /// </summary>
-    public partial class ColorAnimation : UserControl, ICustomTreeViewItem, ISizeChangeMarker
+    public sealed partial class ColorAnimation : UserControl, ICustomTreeViewItem, ISizeChangeMarker, IDisposable
     {
-        private readonly ColorAnimationProperty ColorProperty;
-        private double OpenHeight;
-        private readonly Storyboard OpenStoryboard = new Storyboard();
-        private readonly Storyboard CloseStoryboard = new Storyboard();
-        private readonly DoubleAnimation OpenAnm = new DoubleAnimation() { Duration = TimeSpan.FromSeconds(0.25) };
-        private readonly DoubleAnimation CloseAnm = new DoubleAnimation() { Duration = TimeSpan.FromSeconds(0.25), To = 32.5 };
+        private ColorAnimationProperty _property;
+        private double _openHeight;
+        private readonly Storyboard _openStoryboard = new();
+        private readonly Storyboard _closeStoryboard = new();
+        private readonly DoubleAnimation _openAnm = new() { Duration = TimeSpan.FromSeconds(0.25) };
+        private readonly DoubleAnimation _closeAnm = new() { Duration = TimeSpan.FromSeconds(0.25), To = 32.5 };
 
-        public ColorAnimation(ColorAnimationProperty color)
+        public ColorAnimation(ColorAnimationProperty property)
         {
-            DataContext = new ColorAnimationViewModel(color);
+            DataContext = new ColorAnimationViewModel(property);
             InitializeComponent();
-            ColorProperty = color;
-            OpenHeight = (double)(OpenAnm.To = 32.5 * color.Value.Count + 10);
+            _property = property;
+            _openHeight = (double)(_openAnm.To = 32.5 * property.Value.Count + 10);
 
-            Loaded += (_, _) =>
-            {
-                color.Value.CollectionChanged += Value_CollectionChanged;
+            property.Value.CollectionChanged += Value_CollectionChanged;
 
 
-                OpenStoryboard.Children.Add(OpenAnm);
-                CloseStoryboard.Children.Add(CloseAnm);
+            _openStoryboard.Children.Add(_openAnm);
+            _closeStoryboard.Children.Add(_closeAnm);
 
-                Storyboard.SetTarget(OpenAnm, this);
-                Storyboard.SetTargetProperty(OpenAnm, new PropertyPath("(Height)"));
+            Storyboard.SetTarget(_openAnm, this);
+            Storyboard.SetTargetProperty(_openAnm, new PropertyPath("(Height)"));
 
-                Storyboard.SetTarget(CloseAnm, this);
-                Storyboard.SetTargetProperty(CloseAnm, new PropertyPath("(Height)"));
-            };
+            Storyboard.SetTarget(_closeAnm, this);
+            Storyboard.SetTargetProperty(_closeAnm, new PropertyPath("(Height)"));
         }
 
         public double LogicHeight
@@ -57,7 +54,7 @@ namespace BEditor.Views.PropertyControl
                 double h;
                 if ((bool)togglebutton.IsChecked!)
                 {
-                    h = OpenHeight;
+                    h = _openHeight;
                 }
                 else
                 {
@@ -70,12 +67,12 @@ namespace BEditor.Views.PropertyControl
 
         public event EventHandler? SizeChange;
 
-        
+
         private void Value_CollectionChanged(object? sender, NotifyCollectionChangedEventArgs e)
         {
             if (e.Action is NotifyCollectionChangedAction.Add or NotifyCollectionChangedAction.Remove)
             {
-                OpenHeight = (double)(OpenAnm.To = 32.5 * ColorProperty.Value.Count + 10);
+                _openHeight = (double)(_openAnm.To = 32.5 * _property.Value.Count + 10);
                 ListToggleClick(null, null);
             }
         }
@@ -84,11 +81,11 @@ namespace BEditor.Views.PropertyControl
             //開く
             if ((bool)togglebutton.IsChecked!)
             {
-                OpenStoryboard.Begin();
+                _openStoryboard.Begin();
             }
             else
             {
-                CloseStoryboard.Begin();
+                _closeStoryboard.Begin();
             }
 
             SizeChange?.Invoke(this, EventArgs.Empty);
@@ -99,7 +96,7 @@ namespace BEditor.Views.PropertyControl
 
             int index = AttachmentProperty.GetInt(rect);
 
-            var color = ColorProperty;
+            var color = _property;
             var d = new ColorDialog(color);
 
             d.col.Red = color.Value[index].R;
@@ -109,10 +106,23 @@ namespace BEditor.Views.PropertyControl
 
             d.ok_button.Click += (_, _) =>
             {
-                ColorProperty.ChangeColor(index, Color.FromARGB(d.col.Alpha, d.col.Red, d.col.Green, d.col.Blue)).Execute();
+                _property.ChangeColor(index, Color.FromARGB(d.col.Alpha, d.col.Red, d.col.Green, d.col.Blue)).Execute();
             };
 
             d.ShowDialog();
+        }
+        public void Dispose()
+        {
+            if(DataContext is IDisposable disposable)
+            {
+                disposable.Dispose();
+            }
+
+            DataContext = null;
+            _property.Value.CollectionChanged -= Value_CollectionChanged;
+            _property = null!;
+
+            GC.SuppressFinalize(this);
         }
     }
 }

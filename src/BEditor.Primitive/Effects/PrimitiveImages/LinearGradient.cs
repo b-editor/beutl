@@ -1,19 +1,13 @@
-﻿using System;
-using System.Collections.Generic;
+﻿using System.Collections.Generic;
 using System.Linq;
-using System.Numerics;
 using System.Reactive.Linq;
-using System.Runtime.Serialization;
-using System.Text;
-using System.Threading.Tasks;
 
-using BEditor.Command;
 using BEditor.Data;
 using BEditor.Data.Primitive;
 using BEditor.Data.Property;
-using BEditor.Properties;
 using BEditor.Drawing;
 using BEditor.Drawing.Pixel;
+using BEditor.Primitive.Resources;
 
 using Reactive.Bindings;
 
@@ -22,37 +16,36 @@ namespace BEditor.Primitive.Effects
     /// <summary>
     /// Represents an <see cref="ImageEffect"/> that masks an image with a linear gradient.
     /// </summary>
-    [DataContract]
-    public class LinearGradient : ImageEffect
+    public sealed class LinearGradient : ImageEffect
     {
         /// <summary>
         /// Represents <see cref="StartX"/> metadata.
         /// </summary>
-        public static readonly EasePropertyMetadata StartXMetadata = new(Resources.StartPoint + " X (%)", 0f, 100f, 0);
+        public static readonly EasePropertyMetadata StartXMetadata = new(Strings.StartPoint + " X (%)", 0f, 100f, 0);
         /// <summary>
         /// Represents <see cref="StartY"/> metadata.
         /// </summary>
-        public static readonly EasePropertyMetadata StartYMetadata = StartXMetadata with { Name = Resources.StartPoint + " Y (%)" };
+        public static readonly EasePropertyMetadata StartYMetadata = StartXMetadata with { Name = Strings.StartPoint + " Y (%)" };
         /// <summary>
         /// Represents <see cref="EndX"/> metadata.
         /// </summary>
-        public static readonly EasePropertyMetadata EndXMetadata = StartXMetadata with { Name = Resources.EndPoint + " X (%)", DefaultValue = 100f };
+        public static readonly EasePropertyMetadata EndXMetadata = StartXMetadata with { Name = Strings.EndPoint + " X (%)", DefaultValue = 100f };
         /// <summary>
         /// Represents <see cref="EndY"/> metadata.
         /// </summary>
-        public static readonly EasePropertyMetadata EndYMetadata = EndXMetadata with { Name = Resources.EndPoint + " Y (%)" };
+        public static readonly EasePropertyMetadata EndYMetadata = EndXMetadata with { Name = Strings.EndPoint + " Y (%)" };
         /// <summary>
         /// Represents <see cref="Colors"/> metadata.
         /// </summary>
-        public static readonly TextPropertyMetadata ColorsMetadata = new(Resources.Colors, "#FFFF0000,#FF0000FF");
+        public static readonly TextPropertyMetadata ColorsMetadata = new(Strings.Colors, "#FFFF0000,#FF0000FF");
         /// <summary>
         /// Represents <see cref="Anchors"/> metadata.
         /// </summary>
-        public static readonly TextPropertyMetadata AnchorsMetadata = new(Resources.Anchors, "0,1");
+        public static readonly TextPropertyMetadata AnchorsMetadata = new(Strings.Anchors, "0,1");
         /// <summary>
         /// Represents <see cref="Mode"/> metadata.
         /// </summary>
-        public static readonly SelectorPropertyMetadata ModeMetadata = new(Resources.Mode, new string[] { Resources.Clamp, Resources.Repeat, Resources.Mirror, Resources.Decal }, 1);
+        public static readonly SelectorPropertyMetadata ModeMetadata = new(Strings.Mode, new string[] { Strings.Clamp, Strings.Repeat, Strings.Mirror, Strings.Decal }, 1);
         internal static readonly ShaderTileMode[] tiles =
         {
             ShaderTileMode.Clamp,
@@ -78,7 +71,7 @@ namespace BEditor.Primitive.Effects
         }
 
         /// <inheritdoc/>
-        public override string Name => Resources.LinearGradient;
+        public override string Name => Strings.LinearGradient;
         /// <inheritdoc/>
         public override IEnumerable<PropertyElement> Properties => new PropertyElement[]
         {
@@ -93,37 +86,37 @@ namespace BEditor.Primitive.Effects
         /// <summary>
         /// Get the <see cref="EaseProperty"/> that represents the start position of the X axis.
         /// </summary>
-        [DataMember(Order = 0)]
+        [DataMember]
         public EaseProperty StartX { get; private set; }
         /// <summary>
         /// Get the <see cref="EaseProperty"/> that represents the start position of the Y axis.
         /// </summary>
-        [DataMember(Order = 1)]
+        [DataMember]
         public EaseProperty StartY { get; private set; }
         /// <summary>
         /// Get the <see cref="EaseProperty"/> that represents the end position of the X axis.
         /// </summary>
-        [DataMember(Order = 2)]
+        [DataMember]
         public EaseProperty EndX { get; private set; }
         /// <summary>
         /// Get the <see cref="EaseProperty"/> that represents the end position of the Y axis.
         /// </summary>
-        [DataMember(Order = 3)]
+        [DataMember]
         public EaseProperty EndY { get; private set; }
         /// <summary>
         /// Get the <see cref="TextProperty"/> representing the colors.
         /// </summary>
-        [DataMember(Order = 4)]
+        [DataMember]
         public TextProperty Colors { get; private set; }
         /// <summary>
         /// Get the <see cref="TextProperty"/> representing the anchors.
         /// </summary>
-        [DataMember(Order = 5)]
+        [DataMember]
         public TextProperty Anchors { get; private set; }
         /// <summary>
         /// Get the <see cref="SelectorProperty"/> that selects the gradient mode.
         /// </summary>
-        [DataMember(Order = 6)]
+        [DataMember]
         public SelectorProperty Mode { get; private set; }
 
         private ReactiveProperty<Color[]> ColorsProp => _colorsProp ??= new();
@@ -183,9 +176,6 @@ namespace BEditor.Primitive.Effects
                         .Select(s => float.Parse(s))
                         .ToArray())
                 .ToReactiveProperty()!;
-
-            Colors.Value += " ";
-            Anchors.Value += " ";
         }
         /// <inheritdoc/>
         protected override void OnUnload()

@@ -1,44 +1,43 @@
 ﻿using System;
 using System.Collections.Generic;
-using System.Runtime.Serialization;
-using System.Text;
 
-using BEditor.Command;
-using BEditor.Data.Property;
-using BEditor.Properties;
 using BEditor.Drawing;
+using BEditor.Resources;
 
 namespace BEditor.Data.Property.PrimitiveGroup
 {
     /// <summary>
     /// Represents a property that sets the Material.
     /// </summary>
-    [DataContract]
     public sealed class Material : ExpandGroup
     {
         /// <summary>
         /// Represents <see cref="Ambient"/> metadata.
         /// </summary>
-        public static readonly ColorAnimationPropertyMetadata AmbientMetadata = new(Resources.Ambient, Color.Light, true);
+        public static readonly ColorAnimationPropertyMetadata AmbientMetadata = new(Strings.Ambient, Color.Light, true);
+
         /// <summary>
         /// Represents <see cref="Diffuse"/> metadata.
         /// </summary>
-        public static readonly ColorAnimationPropertyMetadata DiffuseMetadata = new(Resources.Diffuse, Color.Light, true);
+        public static readonly ColorAnimationPropertyMetadata DiffuseMetadata = new(Strings.Diffuse, Color.Light, true);
+
         /// <summary>
         /// Represents <see cref="Specular"/> metadata.
         /// </summary>
-        public static readonly ColorAnimationPropertyMetadata SpecularMetadata = new(Resources.Specular, Color.Light, true);
+        public static readonly ColorAnimationPropertyMetadata SpecularMetadata = new(Strings.Specular, Color.Light, true);
+
         /// <summary>
         /// Represents <see cref="Shininess"/> metadata.
         /// </summary>
-        public static readonly EasePropertyMetadata ShininessMetadata = new(Resources.Shininess, 10, float.NaN, 1);
+        public static readonly EasePropertyMetadata ShininessMetadata = new(Strings.Shininess, 10, float.NaN, 1);
 
         /// <summary>
         /// Initializes a new instance of the <see cref="Material"/> class.
         /// </summary>
         /// <param name="metadata">Metadata of this property.</param>
         /// <exception cref="ArgumentNullException"><paramref name="metadata"/> is <see langword="null"/>.</exception>
-        public Material(PropertyElementMetadata metadata) : base(metadata)
+        public Material(PropertyElementMetadata metadata)
+            : base(metadata)
         {
             Ambient = new(AmbientMetadata);
             Diffuse = new(DiffuseMetadata);
@@ -52,27 +51,31 @@ namespace BEditor.Data.Property.PrimitiveGroup
             Ambient,
             Diffuse,
             Specular,
-            Shininess
+            Shininess,
         };
+
         /// <summary>
         /// Gets the <see cref="ColorAnimationProperty"/> representing the ambient.
         /// </summary>
-        [DataMember(Order = 0)]
+        [DataMember]
         public ColorAnimationProperty Ambient { get; private set; }
+
         /// <summary>
         /// Gets the <see cref="ColorAnimationProperty"/> representing the diffuse.
         /// </summary>
-        [DataMember(Order = 1)]
+        [DataMember]
         public ColorAnimationProperty Diffuse { get; private set; }
+
         /// <summary>
         /// Gets the <see cref="ColorAnimationProperty"/> representing the shininess.
         /// </summary>
-        [DataMember(Order = 2)]
+        [DataMember]
         public ColorAnimationProperty Specular { get; private set; }
+
         /// <summary>
         /// Gets the <see cref="EaseProperty"/> representing the shininess.
         /// </summary>
-        [DataMember(Order = 3)]
+        [DataMember]
         public EaseProperty Shininess { get; private set; }
 
         /// <inheritdoc/>
@@ -83,6 +86,7 @@ namespace BEditor.Data.Property.PrimitiveGroup
             Specular.Load(SpecularMetadata);
             Shininess.Load(ShininessMetadata);
         }
+
         /// <inheritdoc/>
         protected override void OnUnload()
         {

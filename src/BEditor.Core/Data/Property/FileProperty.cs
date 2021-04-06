@@ -4,81 +4,69 @@ using System.ComponentModel;
 using System.Diagnostics;
 using System.Diagnostics.Contracts;
 using System.IO;
-using System.Reactive.Disposables;
-using System.Runtime.Serialization;
-using System.Threading.Tasks;
+using System.Text.Json;
 
 using BEditor.Command;
 using BEditor.Data.Bindings;
-using BEditor.Data.Property;
+using BEditor.Resources;
 
 namespace BEditor.Data.Property
 {
     /// <summary>
     /// Represents a property to select a file.
     /// </summary>
-    [DataContract]
-    [DebuggerDisplay("File = {File}")]
+    [DebuggerDisplay("File = {Value}")]
     public class FileProperty : PropertyElement<FilePropertyMetadata>, IEasingProperty, IBindable<string>
     {
         #region Fields
-        private static readonly PropertyChangedEventArgs _fileArgs = new(nameof(File));
         private static readonly PropertyChangedEventArgs _modeArgs = new(nameof(Mode));
-        private string _rawFile = "";
         private List<IObserver<string>>? _list;
-
         private IDisposable? _bindDispose;
         private IBindable<string>? _bindable;
         private string? _bindHint;
         private FilePathType _mode;
         #endregion
 
-
         /// <summary>
         /// Initializes a new instance of the <see cref="FileProperty"/> class.
         /// </summary>
-        /// <param name="metadata">Metadata of this property</param>
+        /// <param name="metadata">Metadata of this property.</param>
         /// <exception cref="ArgumentNullException"><paramref name="metadata"/> is <see langword="null"/>.</exception>
         public FileProperty(FilePropertyMetadata metadata)
         {
             PropertyMetadata = metadata ?? throw new ArgumentNullException(nameof(metadata));
-            File = metadata.DefaultFile;
+            Value = metadata.DefaultFile;
         }
 
+        /// <summary>
+        /// Gets the name of the selected file.
+        /// </summary>
+        public string RawValue { get; private set; } = string.Empty;
 
-        private List<IObserver<string>> Collection => _list ??= new();
         /// <summary>
         /// Gets or sets the name of the selected file.
         /// </summary>
-        [DataMember(Name = "File")]
-        public string RawFile
-        {
-            get => _rawFile;
-            private set => _rawFile = value;
-        }
-        /// <summary>
-        /// Gets or sets the name of the selected file.
-        /// </summary>
-        public string File
+        public string Value
         {
             get
             {
-                if (Parent?.Parent?.Parent?.Parent?.DirectoryName is null) return _rawFile;
-                return (_mode is FilePathType.FromProject) ? Path.GetFullPath(_rawFile, Parent.Parent.Parent.Parent.DirectoryName!) : _rawFile;
+                if (Parent?.Parent?.Parent?.Parent?.DirectoryName is null) return RawValue;
+                return (_mode is FilePathType.FromProject) ? Path.GetFullPath(RawValue, Parent.Parent.Parent.Parent.DirectoryName!) : RawValue;
             }
             set
             {
-                if (value != File)
+                if (value != Value)
                 {
-                    _rawFile = GetFullPath(value);
+                    RawValue = GetFullPath(value);
 
-                    RaisePropertyChanged(_fileArgs);
+                    RaisePropertyChanged(DocumentProperty._valueArgs);
+                    var value1 = Value;
 
                     foreach (var observer in Collection)
                     {
                         try
                         {
-                            observer.OnNext(File);
+                            observer.OnNext(value1);
                         }
                         catch (Exception ex)
                         {
@@ -88,30 +76,88 @@ namespace BEditor.Data.Property
                 }
             }
         }
+
         /// <inheritdoc/>
-        public string Value => File;
-        /// <inheritdoc/>
-        [DataMember]
-        public string? BindHint
+        public string? TargetHint
         {
-            get => _bindable?.GetString();
+            get => _bindable?.ToString("#");
             private set => _bindHint = value;
         }
+
         /// <summary>
         /// Gets or sets the mode of the file path.
         /// </summary>
-        [DataMember]
         public FilePathType Mode
         {
             get => _mode;
-            set => SetValue(value, ref _mode, _modeArgs, this, state =>
-            {
-                state.RawFile = state.GetPath();
-            });
+            set => SetValue(value, ref _mode, _modeArgs, this, state => state.RawValue = state.GetPath());
         }
 
+        private List<IObserver<string>> Collection => _list ??= new();
 
         #region Methods
+
+        /// <inheritdoc/>
+        public override void GetObjectData(Utf8JsonWriter writer)
+        {
+            base.GetObjectData(writer);
+            writer.WriteString(nameof(Value), RawValue);
+            writer.WriteString(nameof(TargetHint), TargetHint);
+            writer.WriteNumber(nameof(Mode), (int)Mode);
+        }
+
+        /// <inheritdoc/>
+        public override void SetObjectData(JsonElement element)
+        {
+            base.SetObjectData(element);
+            Value = element.TryGetProperty(nameof(Value), out var value) ? value.GetString() ?? string.Empty : string.Empty;
+            TargetHint = element.TryGetProperty(nameof(TargetHint), out var bind) ? bind.GetString() : null;
+        }
+
+        /// <summary>
+        /// Create a command to rename a file.
+        /// </summary>
+        /// <param name="path">New value for <see cref="File"/>.</param>
+        /// <returns>Created <see cref="IRecordCommand"/>.</returns>
+        [Pure]
+        public IRecordCommand ChangeFile(string path) => new ChangeFileCommand(this, path);
+
+        /// <inheritdoc/>
+        public void OnCompleted()
+        {
+        }
+
+        /// <inheritdoc/>
+        public void OnError(Exception error)
+        {
+        }
+
+        /// <inheritdoc/>
+        public void OnNext(string value)
+        {
+            if (File.Exists(value))
+            {
+                Value = value;
+            }
+        }
+
+        /// <inheritdoc/>
+        public IDisposable Subscribe(IObserver<string> observer)
+        {
+            return BindingHelper.Subscribe(Collection, observer, Value);
+        }
+
+        /// <inheritdoc/>
+        public void Bind(IBindable<string>? bindable)
+        {
+            Value = this.Bind(bindable, out _bindable, ref _bindDispose);
+        }
+
+        /// <inheritdoc/>
+        protected override void OnLoad()
+        {
+            this.AutoLoad(ref _bindHint);
+        }
 
         private string GetPath()
         {
@@ -119,21 +165,22 @@ namespace BEditor.Data.Property
             {
                 if (Parent?.Parent?.Parent?.Parent?.DirectoryName is not null)
                 {
-                    return Path.GetFullPath(_rawFile, Parent.Parent.Parent.Parent.DirectoryName!);
+                    return Path.GetFullPath(RawValue, Parent.Parent.Parent.Parent.DirectoryName!);
                 }
 
-                return _rawFile;
+                return RawValue;
             }
             else
             {
                 if (Parent?.Parent?.Parent?.Parent?.DirectoryName is not null)
                 {
-                    return Path.GetRelativePath(Parent.Parent.Parent.Parent.DirectoryName!, File);
+                    return Path.GetRelativePath(Parent.Parent.Parent.Parent.DirectoryName!, Value);
                 }
 
-                return _rawFile;
+                return RawValue;
             }
         }
+
         private string GetFullPath(string fullpath)
         {
             if (Mode is FilePathType.FullPath)
@@ -147,143 +194,63 @@ namespace BEditor.Data.Property
                     return Path.GetRelativePath(Parent.Parent.Parent.Parent.DirectoryName!, fullpath);
                 }
 
-                return _rawFile;
-            }
-        }
-        /// <inheritdoc/>
-        protected override void OnLoad()
-        {
-            if (_bindHint is not null && this.GetBindable(_bindHint, out var b))
-            {
-                Bind(b);
-            }
-            _bindHint = null;
-        }
-
-        /// <summary>
-        /// Create a command to rename a file.
-        /// </summary>
-        /// <param name="path">New value for <see cref="File"/></param>
-        /// <returns>Created <see cref="IRecordCommand"/></returns>
-        [Pure]
-        public IRecordCommand ChangeFile(string path) => new ChangeFileCommand(this, path);
-
-        #region Ibindable
-
-        /// <inheritdoc/>
-        public void OnCompleted() { }
-        /// <inheritdoc/>
-        public void OnError(Exception error) { }
-        /// <inheritdoc/>
-        public void OnNext(string value)
-        {
-            if (System.IO.File.Exists(value))
-                File = value;
-        }
-
-        /// <inheritdoc/>
-        public IDisposable Subscribe(IObserver<string> observer)
-        {
-            if (observer is null) throw new ArgumentNullException(nameof(observer));
-
-            Collection.Add(observer);
-            return Disposable.Create((observer, this), state =>
-            {
-                state.observer.OnCompleted();
-                state.Item2.Collection.Remove(state.observer);
-            });
-        }
-
-        /// <inheritdoc/>
-        public void Bind(IBindable<string>? bindable)
-        {
-            _bindDispose?.Dispose();
-            _bindable = bindable;
-
-            if (bindable is not null)
-            {
-                File = bindable.Value;
-
-                // bindableが変更時にthisが変更
-                _bindDispose = bindable.Subscribe(this);
+                return RawValue;
             }
         }
 
         #endregion
-
-        #endregion
-
 
         #region Commands
 
         /// <summary>
-        /// ファイルの名前を変更するコマンド
+        /// ファイルの名前を変更するコマンド.
         /// </summary>
-        /// <remarks>このクラスは <see cref="CommandManager.Do(IRecordCommand)"/> と併用することでコマンドを記録できます</remarks>
         private sealed class ChangeFileCommand : IRecordCommand
         {
-            private readonly FileProperty _Property;
-            private readonly string _New;
-            private readonly string _Old;
+            private readonly WeakReference<FileProperty> _property;
+            private readonly string _new;
+            private readonly string _old;
 
             /// <summary>
-            /// <see cref="ChangeFileCommand"/> クラスの新しいインスタンスを初期化します
+            /// <see cref="ChangeFileCommand"/> クラスの新しいインスタンスを初期化します.
             /// </summary>
-            /// <param name="property">対象の <see cref="FileProperty"/></param>
-            /// <param name="path">新しい値</param>
-            /// <exception cref="ArgumentNullException"><paramref name="property"/> が <see langword="null"/> です</exception>
+            /// <param name="property">対象の <see cref="FileProperty"/>.</param>
+            /// <param name="path">新しい値.</param>
+            /// <exception cref="ArgumentNullException"><paramref name="property"/> が <see langword="null"/> です.</exception>
             public ChangeFileCommand(FileProperty property, string path)
             {
-                _Property = property ?? throw new ArgumentNullException(nameof(property));
-                _New = path;
-                _Old = _Property.File;
+                _property = new(property ?? throw new ArgumentNullException(nameof(property)));
+                _new = path;
+                _old = property.Value;
             }
 
-            public string Name => CommandName.ChangeFile;
+            public string Name => Strings.ChangeFile;
 
             /// <inheritdoc/>
-            public void Do() => _Property.File = _New;
+            public void Do()
+            {
+                if (_property.TryGetTarget(out var target))
+                {
+                    target.Value = _new;
+                }
+            }
 
             /// <inheritdoc/>
-            public void Redo() => Do();
+            public void Redo()
+            {
+                Do();
+            }
 
             /// <inheritdoc/>
-            public void Undo() => _Property.File = _Old;
+            public void Undo()
+            {
+                if (_property.TryGetTarget(out var target))
+                {
+                    target.Value = _old;
+                }
+            }
         }
 
         #endregion
-    }
-
-    /// <summary>
-    /// Represents the metadata of a <see cref="FileProperty"/>.
-    /// </summary>
-    public record FilePropertyMetadata : PropertyElementMetadata, IPropertyBuilder<FileProperty>
-    {
-        /// <summary>
-        /// Initializes a new instance of the <see cref="FilePropertyMetadata"/>
-        /// </summary>
-        /// <param name="Name">The string displayed in the property header.</param>
-        /// <param name="DefaultFile">Default value of <see cref="FileProperty.File"/></param>
-        /// <param name="Filter">Filter the files to select</param>
-        public FilePropertyMetadata(string Name, string DefaultFile = "", FileFilter? Filter = null) : base(Name)
-        {
-            this.DefaultFile = DefaultFile;
-            this.Filter = Filter;
-        }
-
-        /// <summary>
-        /// Get the default value of <see cref="FileProperty.File"/>.
-        /// </summary>
-        public string DefaultFile { get; init; }
-        /// <summary>
-        /// Get the filter for the file to be selected.
-        /// </summary>
-        public FileFilter? Filter { get; init; }
-
-        /// <inheritdoc/>
-        public FileProperty Build()
-        {
-            return new(this);
-        }
     }
 }

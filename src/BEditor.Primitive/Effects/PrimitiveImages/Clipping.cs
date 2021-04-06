@@ -1,43 +1,39 @@
 ﻿using System.Collections.Generic;
-using System.Runtime.Serialization;
 
-using BEditor.Command;
 using BEditor.Data;
 using BEditor.Data.Primitive;
 using BEditor.Data.Property;
-using BEditor.Properties;
 using BEditor.Drawing;
 using BEditor.Drawing.Pixel;
-using BEditor.Primitive.Objects;
+using BEditor.Primitive.Resources;
 
 namespace BEditor.Primitive.Effects
 {
     /// <summary>
     /// Represents an <see cref="ImageEffect"/> that cripping the image.
     /// </summary>
-    [DataContract]
-    public class Clipping : ImageEffect
+    public sealed class Clipping : ImageEffect
     {
         /// <summary>
         /// Represents <see cref="Top"/> metadata.
         /// </summary>
-        public static readonly EasePropertyMetadata TopMetadata = new(Resources.Top, 0, float.NaN, 0);
+        public static readonly EasePropertyMetadata TopMetadata = new(Strings.Top, 0, float.NaN, 0);
         /// <summary>
         /// Represents <see cref="Bottom"/> metadata.
         /// </summary>
-        public static readonly EasePropertyMetadata BottomMetadata = new(Resources.Bottom, 0, float.NaN, 0);
+        public static readonly EasePropertyMetadata BottomMetadata = new(Strings.Bottom, 0, float.NaN, 0);
         /// <summary>
         /// Represents <see cref="Left"/> metadata.
         /// </summary>
-        public static readonly EasePropertyMetadata LeftMetadata = new(Resources.Left, 0, float.NaN, 0);
+        public static readonly EasePropertyMetadata LeftMetadata = new(Strings.Left, 0, float.NaN, 0);
         /// <summary>
         /// Represents <see cref="Right"/> metadata.
         /// </summary>
-        public static readonly EasePropertyMetadata RightMetadata = new(Resources.Right, 0, float.NaN, 0);
+        public static readonly EasePropertyMetadata RightMetadata = new(Strings.Right, 0, float.NaN, 0);
         /// <summary>
         /// Represents <see cref="AdjustCoordinates"/> metadata.
         /// </summary>
-        public static readonly CheckPropertyMetadata AdjustCoordinatesMetadata = new(Resources.Adjust_coordinates);
+        public static readonly CheckPropertyMetadata AdjustCoordinatesMetadata = new(Strings.AdjustCoordinates);
 
         /// <summary>
         /// Initializes a new instance of the <see cref="Clipping"/> class.
@@ -52,7 +48,7 @@ namespace BEditor.Primitive.Effects
         }
 
         /// <inheritdoc/>
-        public override string Name => Resources.Clipping;
+        public override string Name => Strings.Clipping;
         /// <inheritdoc/>
         public override IEnumerable<PropertyElement> Properties => new PropertyElement[]
         {
@@ -65,27 +61,27 @@ namespace BEditor.Primitive.Effects
         /// <summary>
         /// Get the <see cref="EaseProperty"/> that represents the range to be clipped.
         /// </summary>
-        [DataMember(Order = 0)]
+        [DataMember]
         public EaseProperty Top { get; private set; }
         /// <summary>
         /// Get the <see cref="EaseProperty"/> that represents the range to be clipped.
         /// </summary>
-        [DataMember(Order = 1)]
+        [DataMember]
         public EaseProperty Bottom { get; private set; }
         /// <summary>
         /// Get the <see cref="EaseProperty"/> that represents the range to be clipped.
         /// </summary>
-        [DataMember(Order = 2)]
+        [DataMember]
         public EaseProperty Left { get; private set; }
         /// <summary>
         /// Get the <see cref="EaseProperty"/> that represents the range to be clipped.
         /// </summary>
-        [DataMember(Order = 3)]
+        [DataMember]
         public EaseProperty Right { get; private set; }
         /// <summary>
         /// Gets a <see cref="CheckProperty"/> that indicates whether the coordinates should be adjusted or not.
         /// </summary>
-        [DataMember(Order = 4)]
+        [DataMember]
         public CheckProperty AdjustCoordinates { get; private set; }
 
         /// <inheritdoc/>
@@ -97,7 +93,7 @@ namespace BEditor.Primitive.Effects
             var right = (int)Right.GetValue(args.Frame);
             var img = args.Value;
 
-            if (AdjustCoordinates.IsChecked && Parent!.Effect[0] is ImageObject image)
+            if (AdjustCoordinates.Value && Parent!.Effect[0] is ImageObject image)
             {
                 image.Coordinate.CenterX.Optional += -(right / 2) + (left / 2);
                 image.Coordinate.CenterY.Optional += -(top / 2) + (bottom / 2);

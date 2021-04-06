@@ -10,7 +10,7 @@ namespace BEditor.ViewModels.MessageContent
 {
     public class PluginCheckViewModel
     {
-        public ReactiveProperty<string> Name { get; } = new();
-        public ReactiveProperty<bool> IsEnabled { get; } = new();
+        public ReactivePropertySlim<string> Name { get; } = new();
+        public ReactivePropertySlim<bool> IsEnabled { get; } = new();
     }
 }

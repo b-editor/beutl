@@ -1,28 +1,37 @@
 ﻿using System;
 using System.ComponentModel;
-using System.Linq;
-using System.Runtime.Serialization;
-using System.Threading.Tasks;
 
-using BEditor.Data.Property;
-
-using Microsoft.Extensions.DependencyInjection;
+using BEditor.Resources;
 
 namespace BEditor.Data.Property
 {
     /// <summary>
     /// Represents a property used by <see cref="EffectElement"/>.
     /// </summary>
-    [DataContract]
-    public class PropertyElement : EditorObject, IChild<EffectElement>, IPropertyElement, IHasId, IHasName
+    public class PropertyElement : EditingObject, IChild<EffectElement>, IPropertyElement, IHasName
     {
         private static readonly PropertyChangedEventArgs _metadataArgs = new(nameof(PropertyMetadata));
         private PropertyElementMetadata? _propertyMetadata;
-        private int? id;
-
+        private int? _id;
+        private WeakReference<EffectElement?>? _parent;
 
         /// <inheritdoc/>
-        public virtual EffectElement? Parent { get; set; }
+        public virtual EffectElement Parent
+        {
+            get
+            {
+                _parent ??= new(null!);
+
+                if (_parent.TryGetTarget(out var p))
+                {
+                    return p;
+                }
+
+                return null!;
+            }
+            set => (_parent ??= new(null!)).SetTarget(value);
+        }
+
         /// <summary>
         /// Gets or sets the metadata for this <see cref="PropertyElement"/>.
         /// </summary>
@@ -31,46 +40,61 @@ namespace BEditor.Data.Property
             get => _propertyMetadata;
             set => SetValue(value, ref _propertyMetadata, _metadataArgs);
         }
+
         /// <inheritdoc/>
-        public int Id => (id ??= Parent?.Children?.ToList()?.IndexOf(this)) ?? -1;
+        public int Id => (_id ??= Parent?.Children?.IndexOf(this)) ?? -1;
+
         /// <inheritdoc/>
         public string Name => _propertyMetadata?.Name ?? Id.ToString();
 
-
         /// <inheritdoc/>
-        public override string ToString() => $"(Name:{PropertyMetadata?.Name})";
-    }
-
-    /// <inheritdoc cref="PropertyElement"/>
-    /// <typeparam name="T">Type of <see cref="PropertyMetadata"/></typeparam>
-    [DataContract]
-    public abstract class PropertyElement<T> : PropertyElement where T : PropertyElementMetadata
-    {
-        /// <inheritdoc cref="PropertyElement.PropertyMetadata"/>
-        public new T? PropertyMetadata
+        public string ToString(string? format, IFormatProvider? formatProvider)
         {
-            get => base.PropertyMetadata as T;
-            set => base.PropertyMetadata = value;
-        }
-    }
+            static bool IsInner(PropertyElement bindable, out int groupId)
+            {
+                groupId = -1;
+                foreach (var item in bindable.Parent.Children)
+                {
+                    if (item == bindable)
+                    {
+                        return false;
+                    }
 
-    /// <summary>
-    /// Represents the metadata of a property.
-    /// </summary>
-    public record PropertyElementMetadata
-    {
-        /// <summary>
-        /// Initializes a new instance of the <see cref="PropertyElementMetadata"/> class.
-        /// </summary>
-        /// <param name="Name">The string displayed in the property header.</param>
-        public PropertyElementMetadata(string Name)
-        {
-            this.Name = Name;
-        }
+                    if (item is IParent<PropertyElement> inner_prop)
+                    {
+                        foreach (var inner_item in inner_prop.Children)
+                        {
+                            if (inner_prop is IHasId hasId) groupId = hasId.Id;
 
-        /// <summary>
-        /// Gets the string to be displayed in the property header.
-        /// </summary>
-        public string Name { get; init; }
+                            if (inner_item == bindable)
+                            {
+                                return true;
+                            }
+                        }
+                    }
+                }
+
+                return false;
+            }
+
+            format ??= string.Empty;
+            if (format.ToUpperInvariant() is "#" or "fullname")
+            {
+                if (IsInner(this, out var groupId))
+                {
+                    // 親がGroup
+                    // Idは-1
+                    var scene = this.GetParent3()?.Name ?? throw new DataException(Strings.ParentElementNotFound);
+                    var clip = this.GetParent2()?.Name ?? throw new DataException(Strings.ParentElementNotFound);
+                    var effect = this.GetParent()?.Id ?? throw new DataException(Strings.ParentElementNotFound);
+
+                    return $"{scene}.{clip}[{effect}][{groupId}][{Id}]";
+                }
+
+                return $"{this.GetParent3()?.Name}.{this.GetParent2()?.Name}[{this.GetParent()?.Id}][{Id}]";
+            }
+
+            return GetType().FullName!;
+        }
     }
 }

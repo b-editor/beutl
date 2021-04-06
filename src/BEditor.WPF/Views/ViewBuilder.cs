@@ -27,22 +27,14 @@ namespace BEditor.Views
 {
     public static class ViewBuilder
     {
-        private static readonly IMultiValueConverter HeaderConverter = new PropertyHeaderTextConverter();
         private static readonly Binding HeaderBinding = new("Metadata.Value.Name") { Mode = BindingMode.OneTime };
         private static readonly Binding FileModeBinding = new("PathMode.Value") { Mode = BindingMode.TwoWay };
-        private static readonly Binding ClipNameBinding = new("Property.Parent.Name") { Mode = BindingMode.OneTime };
-        private static readonly Binding ClipTextBinding = new("Property.Parent.Parent.LabelText") { Mode = BindingMode.OneWay };
-        private static readonly Binding PropertyIsCheckedBinding = new("Property.IsChecked") { Mode = BindingMode.OneWay };
-        private static readonly Binding PropertyTextBinding = new("Property.Text") { Mode = BindingMode.OneWay };
-        private static readonly Binding PropertyFileBinding = new("Property.File") { Mode = BindingMode.OneWay };
-        private static readonly Binding PropertyFolderBinding = new("Property.Folder") { Mode = BindingMode.OneWay };
         private static readonly Binding PropertyIndexBinding = new("Property.Index") { Mode = BindingMode.OneWay };
-        private static readonly Binding PropertySelectBinding = new("Property.Select") { Mode = BindingMode.OneWay };
         private static readonly Binding PropertySelectItemBinding = new("Property.SelectItem") { Mode = BindingMode.OneWay };
         private static readonly Binding PropertyValueBinding = new("Property.Value") { Mode = BindingMode.OneWay };
         private static readonly Binding ItemsSourcePropertyBinding = new("Metadata.Value.ItemSource") { Mode = BindingMode.OneWay };
         private static readonly Binding DisplayMemberPathBinding = new("Metadata.Value.MemberPath") { Mode = BindingMode.OneTime };
-        private static readonly Binding BrushBinding = new("Brush") { Mode = BindingMode.OneWay };
+        private static readonly Binding BrushBinding = new("Brush.Value") { Mode = BindingMode.OneWay };
         private static readonly Binding OpenDialogBinding = new("OpenDialog") { Mode = BindingMode.OneTime };
         private static readonly Binding CommandBinding = new("Command") { Mode = BindingMode.OneTime };
         private static readonly Binding ResetBinding = new("Reset") { Mode = BindingMode.OneTime };
@@ -51,16 +43,6 @@ namespace BEditor.Views
         private static readonly Binding LostFocusBinding = new("LostFocus") { Mode = BindingMode.OneTime };
         private static readonly Binding TextChangedBinding = new("TextChanged") { Mode = BindingMode.OneTime };
         private static readonly Binding PreviewMouseWheelBinding = new("PreviewMouseWheel") { Mode = BindingMode.OneTime };
-        private static readonly MultiBinding TooltipBinding = new()
-        {
-            Converter = HeaderConverter,
-            Bindings =
-            {
-                HeaderBinding,
-                ClipNameBinding,
-                ClipTextBinding,
-            }
-        };
 
 
         static ViewBuilder()
@@ -75,12 +57,10 @@ namespace BEditor.Views
                 };
 
                 view.SetBinding(BasePropertyView.HeaderProperty, HeaderBinding);
-                view.SetBinding(CheckPropertyView.IsCheckedProperty, PropertyIsCheckedBinding);
+                view.SetBinding(CheckPropertyView.IsCheckedProperty, PropertyValueBinding);
                 view.SetBinding(CheckPropertyView.CheckCommandProperty, CommandBinding);
                 view.SetBinding(BasePropertyView.ResetCommandProperty, ResetBinding);
                 view.SetBinding(BasePropertyView.BindCommandProperty, BindBinding);
-
-                view.SetBinding(FrameworkElement.ToolTipProperty, TooltipBinding);
 
                 return view;
             }));
@@ -100,8 +80,6 @@ namespace BEditor.Views
                 view.SetBinding(BasePropertyView.ResetCommandProperty, ResetBinding);
                 view.SetBinding(BasePropertyView.BindCommandProperty, BindBinding);
 
-                view.SetBinding(FrameworkElement.ToolTipProperty, TooltipBinding);
-
                 return view;
             }));
             // DocumentProperty
@@ -114,7 +92,7 @@ namespace BEditor.Views
 
                 view.SetBinding(BasePropertyView.ResetCommandProperty, ResetBinding);
                 view.SetBinding(BasePropertyView.BindCommandProperty, BindBinding);
-                view.SetBinding(DocumentPropertyView.TextProperty, PropertyTextBinding);
+                view.SetBinding(DocumentPropertyView.TextProperty, PropertyValueBinding);
                 view.SetBinding(DocumentPropertyView.GotFocusCommandProperty, GotFocusBinding);
                 view.SetBinding(DocumentPropertyView.LostFocusCommandProperty, LostFocusBinding);
                 view.SetBinding(DocumentPropertyView.TextChangedCommandProperty, TextChangedBinding);
@@ -172,32 +150,15 @@ namespace BEditor.Views
                 view.SetBinding(BasePropertyView.HeaderProperty, HeaderBinding);
                 view.SetBinding(BasePropertyView.ResetCommandProperty, ResetBinding);
                 view.SetBinding(BasePropertyView.BindCommandProperty, BindBinding);
-                view.SetBinding(FrameworkElement.ToolTipProperty, TooltipBinding);
-
+                
                 view.SetBinding(FilePropertyView.ModeIndexProperty, FileModeBinding);
-                view.SetBinding(FilePropertyView.FileProperty, PropertyFileBinding);
+                view.SetBinding(FilePropertyView.FileProperty, PropertyValueBinding);
                 view.SetBinding(FilePropertyView.OpenFileCommandProperty, CommandBinding);
 
                 return view;
             }));
             // FontProperty
-            PropertyViewBuilders.Add(PropertyViewBuilder.Create<FontProperty>(prop =>
-            {
-                var view = new FontPropertyView()
-                {
-                    DataContext = new FontPropertyViewModel(prop)
-                };
-
-                view.SetBinding(BasePropertyView.HeaderProperty, HeaderBinding);
-                view.SetBinding(BasePropertyView.ResetCommandProperty, ResetBinding);
-                view.SetBinding(FrameworkElement.ToolTipProperty, TooltipBinding);
-
-                view.SetBinding(FontPropertyView.ItemsSourceProperty, ItemsSourcePropertyBinding);
-                view.SetBinding(FontPropertyView.CommandProperty, CommandBinding);
-                view.SetBinding(FontPropertyView.SelectedItemProperty, PropertySelectBinding);
-
-                return view;
-            }));
+            PropertyViewBuilders.Add(PropertyViewBuilder.Create<FontProperty>(prop => new FontPropertyView(new FontPropertyViewModel(prop))));
             // Group
             PropertyViewBuilders.Add(PropertyViewBuilder.Create<Group>(group =>
             {
@@ -225,8 +186,7 @@ namespace BEditor.Views
                 view.SetBinding(BasePropertyView.HeaderProperty, HeaderBinding);
                 view.SetBinding(BasePropertyView.ResetCommandProperty, ResetBinding);
                 view.SetBinding(BasePropertyView.BindCommandProperty, BindBinding);
-                view.SetBinding(FrameworkElement.ToolTipProperty, TooltipBinding);
-
+                
                 view.SetBinding(SelectorPropertyView.ItemsSourceProperty, ItemsSourcePropertyBinding);
                 view.SetBinding(SelectorPropertyView.CommandProperty, CommandBinding);
                 view.SetBinding(SelectorPropertyView.SelectedIndexProperty, PropertyIndexBinding);
@@ -249,8 +209,7 @@ namespace BEditor.Views
                 view.SetBinding(BasePropertyView.HeaderProperty, HeaderBinding);
                 view.SetBinding(BasePropertyView.ResetCommandProperty, ResetBinding);
                 view.SetBinding(BasePropertyView.BindCommandProperty, BindBinding);
-                view.SetBinding(FrameworkElement.ToolTipProperty, TooltipBinding);
-
+                
                 view.SetBinding(SelectorPropertyViewGen.ItemsSourceProperty, ItemsSourcePropertyBinding);
                 view.SetBinding(SelectorPropertyViewGen.CommandProperty, CommandBinding);
                 view.SetBinding(SelectorPropertyViewGen.SelectedItemProperty, PropertySelectItemBinding);
@@ -269,8 +228,7 @@ namespace BEditor.Views
                 view.SetBinding(BasePropertyView.HeaderProperty, HeaderBinding);
                 view.SetBinding(BasePropertyView.ResetCommandProperty, ResetBinding);
                 view.SetBinding(BasePropertyView.BindCommandProperty, BindBinding);
-                view.SetBinding(FrameworkElement.ToolTipProperty, TooltipBinding);
-
+                
                 view.SetBinding(ValuePropertyView.ValueProperty, PropertyValueBinding);
                 view.SetBinding(ValuePropertyView.GotFocusCommandProperty, GotFocusBinding);
                 view.SetBinding(ValuePropertyView.LostFocusCommandProperty, LostFocusBinding);
@@ -290,8 +248,7 @@ namespace BEditor.Views
                 view.SetBinding(BasePropertyView.HeaderProperty, HeaderBinding);
                 view.SetBinding(BasePropertyView.ResetCommandProperty, ResetBinding);
                 view.SetBinding(BasePropertyView.BindCommandProperty, BindBinding);
-                view.SetBinding(FrameworkElement.ToolTipProperty, TooltipBinding);
-
+                
                 view.SetBinding(TextPropertyView.TextProperty, PropertyValueBinding);
                 view.SetBinding(TextPropertyView.GotFocusCommandProperty, GotFocusBinding);
                 view.SetBinding(TextPropertyView.LostFocusCommandProperty, LostFocusBinding);
@@ -323,10 +280,9 @@ namespace BEditor.Views
                 view.SetBinding(BasePropertyView.HeaderProperty, HeaderBinding);
                 view.SetBinding(BasePropertyView.ResetCommandProperty, ResetBinding);
                 view.SetBinding(BasePropertyView.BindCommandProperty, BindBinding);
-                view.SetBinding(FrameworkElement.ToolTipProperty, TooltipBinding);
-
+                
                 view.SetBinding(FolderPropertyView.ModeIndexProperty, FileModeBinding);
-                view.SetBinding(FolderPropertyView.FolderProperty, PropertyFolderBinding);
+                view.SetBinding(FolderPropertyView.FolderProperty, PropertyValueBinding);
                 view.SetBinding(FolderPropertyView.OpenFolderCommandProperty, CommandBinding);
 
                 return view;
@@ -347,9 +303,9 @@ namespace BEditor.Views
 
             #region CreateKeyFrameView
             // EaseProperty
-            KeyFrameViewBuilders.Add(KeyFrameViewBuilder.Create<EaseProperty>(prop => new KeyFrame(prop.GetParent3()!, prop)));
+            KeyFrameViewBuilders.Add(KeyFrameViewBuilder.Create<EaseProperty>(prop => new KeyFrame(prop)));
             // ColorAnimation
-            KeyFrameViewBuilders.Add(KeyFrameViewBuilder.Create<ColorAnimationProperty>(prop => new TimeLines.ColorAnimation(prop)));
+            KeyFrameViewBuilders.Add(KeyFrameViewBuilder.Create<ColorAnimationProperty>(prop => new KeyFrame(prop)));
             // ExpandGroup
             KeyFrameViewBuilders.Add(KeyFrameViewBuilder.Create<ExpandGroup>(group =>
             {
@@ -409,17 +365,17 @@ namespace BEditor.Views
 
         public static List<PropertyViewBuilder> PropertyViewBuilders { get; } = new List<PropertyViewBuilder>();
         public static List<KeyFrameViewBuilder> KeyFrameViewBuilders { get; } = new List<KeyFrameViewBuilder>();
-        public static readonly EditorProperty<UIElement> PropertyViewProperty = EditorProperty.Register<UIElement, PropertyElement>("GetPropertyView");
-        public static readonly EditorProperty<UIElement> ClipPropertyViewProperty = EditorProperty.Register<UIElement, ClipElement>("GetPropertyView");
-        public static readonly EditorProperty<UIElement> EasePropertyViewProperty = EditorProperty.Register<UIElement, EasingFunc>("GetPropertyView");
-        public static readonly EditorProperty<UIElement> KeyFrameViewProperty = EditorProperty.Register<UIElement, IKeyFrameProperty>("GetKeyFrameView");
-        public static readonly EditorProperty<ClipUI> ClipViewProperty = EditorProperty.Register<ClipUI, ClipElement>("GetClipView");
-        public static readonly EditorProperty<ClipUIViewModel> ClipViewModelProperty = EditorProperty.Register<ClipUIViewModel, ClipElement>("GetClipViewModel");
-        public static readonly EditorProperty<UIElement> EffectPropertyViewProperty = EditorProperty.Register<UIElement, EffectElement>("GetControl");
-        public static readonly EditorProperty<UIElement> KeyFrameProperty = EditorProperty.Register<UIElement, EffectElement>("GetKeyFrame");
-        public static readonly EditorProperty<TimeLine> TimeLineProperty = EditorProperty.Register<TimeLine, Scene>("GetTimeLine");
-        public static readonly EditorProperty<TimeLineViewModel> TimeLineViewModelProperty = EditorProperty.Register<TimeLineViewModel, Scene>("GetTimeLineViewModel");
-        public static readonly EditorProperty<PropertyTab> PropertyTabProperty = EditorProperty.Register<PropertyTab, Scene>("GetPropertyTab");
+        public static readonly EditingProperty<UIElement> PropertyViewProperty = EditingProperty.Register<UIElement, PropertyElement>("GetPropertyView");
+        public static readonly EditingProperty<UIElement> ClipPropertyViewProperty = EditingProperty.Register<UIElement, ClipElement>("GetPropertyView");
+        public static readonly EditingProperty<UIElement> EasePropertyViewProperty = EditingProperty.Register<UIElement, EasingFunc>("GetPropertyView");
+        public static readonly EditingProperty<UIElement> KeyFrameViewProperty = EditingProperty.Register<UIElement, IKeyFrameProperty>("GetKeyFrameView");
+        public static readonly EditingProperty<ClipUI> ClipViewProperty = EditingProperty.Register<ClipUI, ClipElement>("GetClipView");
+        public static readonly EditingProperty<ClipUIViewModel> ClipViewModelProperty = EditingProperty.Register<ClipUIViewModel, ClipElement>("GetClipViewModel");
+        public static readonly EditingProperty<UIElement> EffectPropertyViewProperty = EditingProperty.Register<UIElement, EffectElement>("GetControl");
+        public static readonly EditingProperty<ExpandTree> KeyFrameProperty = EditingProperty.Register<ExpandTree, EffectElement>("GetKeyFrame");
+        public static readonly EditingProperty<TimeLine> TimeLineProperty = EditingProperty.Register<TimeLine, Scene>("GetTimeLine");
+        public static readonly EditingProperty<TimeLineViewModel> TimeLineViewModelProperty = EditingProperty.Register<TimeLineViewModel, Scene>("GetTimeLineViewModel");
+        public static readonly EditingProperty<PropertyTab> PropertyTabProperty = EditingProperty.Register<PropertyTab, Scene>("GetPropertyTab");
 
         public static UIElement GetCreatePropertyView(this PropertyElement property)
         {
@@ -510,7 +466,7 @@ namespace BEditor.Views
             }
             return effect.GetValue(EffectPropertyViewProperty);
         }
-        public static UIElement GetCreateKeyFrameView(this EffectElement effect)
+        public static ExpandTree GetCreateKeyFrameView(this EffectElement effect)
         {
             if (effect[KeyFrameProperty] is null)
             {
@@ -646,7 +602,7 @@ namespace BEditor.Views
             });
             menu.Children.Add(new TextBlock()
             {
-                Text = Resources.Remove,
+                Text = Strings.Remove,
                 Margin = new Thickness(20, 0, 5, 0)
             });
             Delete.Header = menu;
@@ -754,9 +710,20 @@ namespace BEditor.Views
             var Delete = new MenuItem();
 
             //削除項目の設定
-            var menu = new VirtualizingStackPanel() { Orientation = Orientation.Horizontal };
-            menu.Children.Add(new PackIcon() { Kind = PackIconKind.Delete, Margin = new Thickness(5, 0, 5, 0) });
-            menu.Children.Add(new TextBlock() { Text = Resources.Remove, Margin = new Thickness(20, 0, 5, 0) });
+            var menu = new VirtualizingStackPanel()
+            {
+                Orientation = Orientation.Horizontal
+            };
+            menu.Children.Add(new PackIcon()
+            {
+                Kind = PackIconKind.Delete,
+                Margin = new Thickness(5, 0, 5, 0)
+            });
+            menu.Children.Add(new TextBlock()
+            {
+                Text = Strings.Remove,
+                Margin = new Thickness(20, 0, 5, 0)
+            });
             Delete.Header = menu;
 
             menuListBox.Items.Add(Delete);

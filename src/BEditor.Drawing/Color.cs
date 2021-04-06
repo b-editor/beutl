@@ -1,10 +1,10 @@
 ﻿using System;
 using System.Globalization;
-using System.Runtime.InteropServices;
+using System.Runtime.CompilerServices;
 using System.Runtime.Serialization;
 
 using BEditor.Drawing.Pixel;
-using BEditor.Drawing.Properties;
+using BEditor.Drawing.Resources;
 
 namespace BEditor.Drawing
 {
@@ -15,10 +15,6 @@ namespace BEditor.Drawing
         private const int ARGBRedShift = 16;
         private const int ARGBGreenShift = 8;
         private const int ARGBBlueShift = 0;
-        private readonly byte a;
-        private readonly byte r;
-        private readonly byte g;
-        private readonly byte b;
 
         #region Colors
 
@@ -48,27 +44,23 @@ namespace BEditor.Drawing
 
         private Color(byte a, byte r, byte g, byte b)
         {
-            this.a = a;
-            this.r = r;
-            this.g = g;
-            this.b = b;
+            A = a;
+            R = r;
+            G = g;
+            B = b;
         }
         private Color(SerializationInfo info, StreamingContext context)
         {
-            a = info.GetByte(nameof(A));
-            r = info.GetByte(nameof(R));
-            g = info.GetByte(nameof(G));
-            b = info.GetByte(nameof(B));
+            A = info.GetByte(nameof(A));
+            R = info.GetByte(nameof(R));
+            G = info.GetByte(nameof(G));
+            B = info.GetByte(nameof(B));
         }
 
-        public byte A
-            => a;
-        public byte R
-            => r;
-        public byte G
-            => g;
-        public byte B
-            => b;
+        public byte A { get; }
+        public byte R { get; }
+        public byte G { get; }
+        public byte B { get; }
 
         public static Color FromARGB(int argb)
             => FromARGB(unchecked((uint)argb));
@@ -87,13 +79,14 @@ namespace BEditor.Drawing
         {
             if (string.IsNullOrWhiteSpace(htmlcolor) || htmlcolor is "#") return Dark;
 
-            htmlcolor = "0x" + htmlcolor.Replace("#", "");
+            htmlcolor = "0x" + htmlcolor.Replace("#", string.Empty);
 
             var argb = Convert.ToUInt32(htmlcolor, 16);
 
             return FromARGB(argb);
         }
-
+        public int AsInt() => Unsafe.As<Color, int>(ref this);
+        public int AsUInt() => Unsafe.As<Color, int>(ref this);
         public override bool Equals(object? obj)
             => obj is Color color && Equals(color);
         public bool Equals(Color other)
@@ -105,20 +98,19 @@ namespace BEditor.Drawing
         public string ToString(string? format, IFormatProvider? formatProvider)
         {
             static string Throw(string format)
-                => throw new FormatException(string.Format(Resources.FormetException, format));
+                => throw new FormatException(string.Format(Strings.FormetException, format));
 
             if (string.IsNullOrEmpty(format)) format = "#argb";
-            if (formatProvider is null) formatProvider = CultureInfo.CurrentCulture;
             format = format.ToUpperInvariant();
 
-            string colorformat = format
-                .Replace("#", "")
-                .Replace("0X", "")
-                .Replace("-L", "")
-                .Replace("-U", "");
+            var colorformat = format
+                .Replace("#", string.Empty)
+                .Replace("0X", string.Empty)
+                .Replace("-L", string.Empty)
+                .Replace("-U", string.Empty);
 
-            bool islower = format.Contains("-L");
-            string result = "";
+            var islower = format.Contains("-L");
+            var result = string.Empty;
 
             foreach (var c in colorformat)
             {
@@ -149,13 +141,13 @@ namespace BEditor.Drawing
         }
 
         public static implicit operator BGRA32(Color c)
-            => new(c.r, c.g, c.b, c.a);
+            => new(c.R, c.G, c.B, c.A);
         public static implicit operator RGBA32(Color c)
-            => new(c.r, c.g, c.b, c.a);
+            => new(c.R, c.G, c.B, c.A);
         public static implicit operator BGR24(Color c)
-            => new(c.r, c.g, c.b);
+            => new(c.R, c.G, c.B);
         public static implicit operator RGB24(Color c)
-            => new(c.r, c.g, c.b);
+            => new(c.R, c.G, c.B);
 
         public static bool operator ==(Color left, Color right)
             => left.Equals(right);

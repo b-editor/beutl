@@ -6,12 +6,15 @@ using System.Threading.Tasks;
 
 using BEditor.Data;
 using BEditor.Media;
+using BEditor.Properties;
 using BEditor.ViewModels;
 
 namespace BEditor.Models.Extension
 {
     public static class Tool
     {
+        private static bool _isEnabled = true;
+
         public static void PreviewUpdate(this Project project, ClipElement clipData, RenderType type = RenderType.Preview)
         {
             if (project is null) return;
@@ -24,27 +27,54 @@ namespace BEditor.Models.Extension
 
         public static void PreviewUpdate(this Project project, RenderType type = RenderType.Preview)
         {
-            if (project is null) return;
+            if (project is null || project.PreviewScene.GraphicsContext is null || !_isEnabled) return;
 
-            App.Current.Dispatcher.Invoke(async () =>
+            App.Current.Dispatcher.InvokeAsync(() =>
             {
-                await using var img = project.PreviewScene.Render(type).Image;
-                var outimg = MainWindowViewModel.Current.PreviewImage.Value;
-
-                if (outimg is null || outimg.Width != img.Width || outimg.Height != img.Height)
+                try
                 {
-                    MainWindowViewModel.Current.PreviewImage.Value = new(
-                        img.Width,
-                        img.Height,
-                        96,
-                        96,
-                        System.Windows.Media.PixelFormats.Bgra32,
-                        null);
+                    using var img = project.PreviewScene.Render(type);
+                    var outimg = MainWindowViewModel.Current.PreviewImage.Value;
+
+                    if (outimg is null || outimg.Width != img.Width || outimg.Height != img.Height)
+                    {
+                        MainWindowViewModel.Current.PreviewImage.Value = new(
+                            img.Width,
+                            img.Height,
+                            96,
+                            96,
+                            System.Windows.Media.PixelFormats.Bgra32,
+                            null);
+                    }
+
+                    BitmapSourceConverter.ToWriteableBitmap(img, MainWindowViewModel.Current.PreviewImage.Value!);
                 }
+                catch
+                {
+                    var app = AppData.Current;
 
-                //96,
+                    if (app.AppStatus is Status.Playing)
+                    {
+                        app.AppStatus = Status.Edit;
+                        app.Project!.PreviewScene.Player.Stop();
+                        app.IsNotPlaying = true;
 
-                BitmapSourceConverter.ToWriteableBitmap(img, MainWindowViewModel.Current.PreviewImage.Value!);
+                        app.Message.Snackbar(Strings.An_exception_was_thrown_during_rendering);
+                    }
+                    else
+                    {
+                        _isEnabled = false;
+
+                        app.Message.Snackbar(Strings.An_exception_was_thrown_during_rendering_preview);
+
+                        Task.Run(async () =>
+                        {
+                            await Task.Delay(TimeSpan.FromSeconds(5));
+
+                            _isEnabled = true;
+                        });
+                    }
+                }
             });
         }
 
@@ -119,11 +149,6 @@ namespace BEditor.Models.Extension
         // このクリップと被る場合はtrue
         public static bool InRange(this ClipElement self, Frame start, Frame end)
         {
-            //return (self.Start <= start && end <= self.End)
-            //    || (start <= self.Start && self.End <= end)
-            //    || (self.Start <= start && start <= self.End)
-            //    ^ (self.Start <= end && end <= self.End);
-
             if (self.Start <= start && end <= self.End)
             {
                 return true;

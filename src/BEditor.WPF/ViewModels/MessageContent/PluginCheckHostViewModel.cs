@@ -21,6 +21,6 @@ namespace BEditor.ViewModels.MessageContent
             set => plugins = value;
         }
 
-        public string Message => string.Format(Resources.PluginsAddedMessage, Plugins.Count.ToString());
+        public string Message => string.Format(Strings.PluginsAddedMessage, Plugins.Count.ToString());
     }
 }

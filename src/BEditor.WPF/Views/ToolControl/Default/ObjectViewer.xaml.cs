@@ -18,6 +18,7 @@ using BEditor.Data;
 using BEditor.Data.Bindings;
 using BEditor.Data.Property;
 using BEditor.Models;
+using BEditor.Properties;
 using BEditor.ViewModels.CreatePage;
 using BEditor.Views.CreatePage;
 
@@ -34,13 +35,8 @@ namespace BEditor.Views.ToolControl.Default
     /// </summary>
     public partial class ObjectViewer : UserControl
     {
-        private static readonly IMessage Message;
+        private static readonly IMessage Message = AppData.Current.Message;
 
-        static ObjectViewer()
-        {
-            using var prov = AppData.Current.Services.BuildServiceProvider();
-            Message = prov.GetService<IMessage>()!;
-        }
         public ObjectViewer()
         {
             InitializeComponent();
@@ -50,14 +46,16 @@ namespace BEditor.Views.ToolControl.Default
 
         private void GetPath_Click(object sender, RoutedEventArgs e)
         {
-            if (TreeView.SelectedItem is IBindable bindable)
+            var bindableType = typeof(IBindable<>);
+            if (TreeView.SelectedItem is IPropertyElement prop)
             {
-                var path = bindable.GetString();
+                
+                var path = prop.ToString("#");
                 Clipboard.SetText(path);
             }
             else
             {
-                Message.Snackbar(string.Format(Properties.Resources.ErrorObjectViewer2, nameof(IBindable)));
+                Message.Snackbar(string.Format(Strings.ErrorObjectViewer2, nameof(PropertyElement)));
             }
         }
         private void TreeView_PreviewMouseWheel(object sender, MouseWheelEventArgs e)
@@ -98,7 +96,7 @@ namespace BEditor.Views.ToolControl.Default
             else if (TreeView.SelectedItem is PropertyElement property) return property.GetParent();
             else throw new IndexOutOfRangeException();
         }
-        private void DeleteScene(object sender, RoutedEventArgs e)
+        private async void DeleteScene(object sender, RoutedEventArgs e)
         {
             try
             {
@@ -110,18 +108,22 @@ namespace BEditor.Views.ToolControl.Default
                     return;
                 }
 
-                if (Message.Dialog(
-                    Properties.Resources.CommandQ1,
+                if (await Message.DialogAsync(
+                    Strings.CommandQ1,
                     types: new ButtonType[] { ButtonType.Yes, ButtonType.No }) == ButtonType.Yes)
                 {
                     scene.Parent!.PreviewScene = scene.Parent!.SceneList[0];
                     scene.Parent.SceneList.Remove(scene);
                     scene.Unload();
+
+                    scene.GetValue(ViewBuilder.TimeLineViewModelProperty)?.Dispose();
+
+                    scene.Clear();
                 }
             }
             catch (IndexOutOfRangeException)
             {
-                Message.Snackbar(string.Format(Properties.Resources.ErrorObjectViewer1, nameof(Scene)));
+                Message.Snackbar(string.Format(Strings.ErrorObjectViewer1, nameof(Scene)));
             }
         }
         private void RemoveClip(object sender, RoutedEventArgs e)
@@ -134,7 +136,7 @@ namespace BEditor.Views.ToolControl.Default
             }
             catch (IndexOutOfRangeException)
             {
-                Message.Snackbar(string.Format(Properties.Resources.ErrorObjectViewer1, nameof(ClipElement)));
+                Message.Snackbar(string.Format(Strings.ErrorObjectViewer1, nameof(ClipElement)));
             }
         }
         private void RemoveEffect(object sender, RoutedEventArgs e)
@@ -147,17 +149,20 @@ namespace BEditor.Views.ToolControl.Default
             }
             catch (IndexOutOfRangeException)
             {
-                Message.Snackbar(string.Format(Properties.Resources.ErrorObjectViewer1, nameof(EffectElement)));
+                Message.Snackbar(string.Format(Strings.ErrorObjectViewer1, nameof(EffectElement)));
             }
         }
         private void AddScene(object sender, RoutedEventArgs e)
         {
+            var view = new SceneCreatePage();
             new NoneDialog()
             {
-                Content = new SceneCreatePage(),
+                Content = view,
                 Owner = App.Current.MainWindow,
                 MaxWidth = double.PositiveInfinity,
             }.ShowDialog();
+
+            if (view.DataContext is IDisposable disposable) disposable.Dispose();
         }
         private void AddClip(object sender, RoutedEventArgs e)
         {
@@ -177,6 +182,8 @@ namespace BEditor.Views.ToolControl.Default
                     Content = dialog,
                     MaxWidth = double.PositiveInfinity
                 }.ShowDialog();
+
+                viewmodel.Dispose();
             }
         }
         private void AddEffect(object sender, RoutedEventArgs e)
@@ -212,6 +219,8 @@ namespace BEditor.Views.ToolControl.Default
                     MaxWidth = double.PositiveInfinity
                 }
                 .ShowDialog();
+
+                viewmodel.Dispose();
             }
         }
     }

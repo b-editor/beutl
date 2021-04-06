@@ -17,7 +17,7 @@ namespace BEditor.Views.CreatePage
     /// <summary>
     /// EffectAddPage.xaml の相互作用ロジック
     /// </summary>
-    public partial class EffectAddPage : UserControl
+    public sealed partial class EffectAddPage : UserControl
     {
         public EffectAddPage(object datacontext)
         {

@@ -1,4 +1,5 @@
 ﻿using System;
+using System.Reactive.Disposables;
 using System.Reactive.Linq;
 
 using BEditor.Command;
@@ -11,19 +12,35 @@ using Reactive.Bindings.Extensions;
 
 namespace BEditor.ViewModels.PropertyControl
 {
-    public class ColorAnimationViewModel
+    public sealed class ColorAnimationViewModel : IDisposable
     {
+        private readonly CompositeDisposable disposables = new();
+
         public ColorAnimationViewModel(ColorAnimationProperty property)
         {
             Property = property;
             Metadata = property.ObserveProperty(p => p.PropertyMetadata)
-                .ToReadOnlyReactiveProperty();
+                .ToReadOnlyReactivePropertySlim()
+                .AddTo(disposables);
 
-            EasingChangeCommand.Subscribe(x => Property.ChangeEase(x).Execute());
+            EasingChangeCommand.Subscribe(x => Property.ChangeEase(x).Execute()).AddTo(disposables);
+        }
+        ~ColorAnimationViewModel()
+        {
+            Dispose();
         }
 
-        public ReadOnlyReactiveProperty<ColorAnimationPropertyMetadata?> Metadata { get; }
+        public ReadOnlyReactivePropertySlim<ColorAnimationPropertyMetadata?> Metadata { get; }
         public ColorAnimationProperty Property { get; }
         public ReactiveCommand<EasingMetadata> EasingChangeCommand { get; } = new();
+
+        public void Dispose()
+        {
+            Metadata.Dispose();
+            EasingChangeCommand.Dispose();
+            disposables.Dispose();
+
+            GC.SuppressFinalize(this);
+        }
     }
 }

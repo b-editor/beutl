@@ -3,60 +3,57 @@ using System.Collections.Generic;
 using System.ComponentModel;
 using System.Diagnostics;
 using System.Diagnostics.Contracts;
-using System.Reactive.Disposables;
-using System.Runtime.Serialization;
-using System.Threading.Tasks;
+using System.Text.Json;
 
 using BEditor.Command;
 using BEditor.Data.Bindings;
+using BEditor.Resources;
 
 namespace BEditor.Data.Property
 {
     /// <summary>
     /// Represents a property of a multi-line string.
     /// </summary>
-    [DataContract]
-    [DebuggerDisplay("Text = {Text}")]
+    [DebuggerDisplay("Text = {Value}")]
     public class DocumentProperty : PropertyElement<DocumentPropertyMetadata>, IBindable<string>
     {
         #region Fields
-        private static readonly PropertyChangedEventArgs _textArgs = new(nameof(Text));
-        private string _text = "";
-        private List<IObserver<string>>? _list;
 
+        /// <summary>
+        /// <see cref="IBindable{T}.Value"/> のプロパティの変更を通知するイベントの引数.
+        /// </summary>
+        internal static readonly PropertyChangedEventArgs _valueArgs = new(nameof(Value));
+        private string _value = string.Empty;
+        private List<IObserver<string>>? _list;
         private IDisposable? _bindDispose;
         private IBindable<string>? _bindable;
-        private string? _bindHint;
+        private string? _targetHint;
         #endregion
-
 
         /// <summary>
         /// Initializes a new instance of the <see cref="DocumentProperty"/> class.
         /// </summary>
-        /// <param name="metadata">Metadata of this property</param>
+        /// <param name="metadata">Metadata of this property.</param>
         /// <exception cref="ArgumentNullException"><paramref name="metadata"/> is <see langword="null"/>.</exception>
         public DocumentProperty(DocumentPropertyMetadata metadata)
         {
             PropertyMetadata = metadata ?? throw new ArgumentNullException(nameof(metadata));
-            Text = metadata.DefaultText;
+            Value = metadata.DefaultText;
         }
 
-
-        private List<IObserver<string>> Collection => _list ??= new();
         /// <summary>
         /// Gets or sets the string being entered.
         /// </summary>
-        [DataMember]
-        public string Text
+        public string Value
         {
-            get => _text;
-            set => SetValue(value, ref _text, _textArgs, this, state =>
+            get => _value;
+            set => SetValue(value, ref _value, _valueArgs, this, state =>
             {
                 foreach (var observer in state.Collection)
                 {
                     try
                     {
-                        observer.OnNext(state._text);
+                        observer.OnNext(state._value);
                     }
                     catch (Exception ex)
                     {
@@ -65,129 +62,115 @@ namespace BEditor.Data.Property
                 }
             });
         }
+
         /// <inheritdoc/>
-        public string Value => Text;
-        /// <inheritdoc/>
-        [DataMember]
-        public string? BindHint
+        public string? TargetHint
         {
-            get => _bindable?.GetString();
-            private set => _bindHint = value;
+            get => _bindable?.ToString("#");
+            private set => _targetHint = value;
         }
 
+        private List<IObserver<string>> Collection => _list ??= new();
 
         #region Methods
 
-        #region IBindable
+        /// <inheritdoc/>
+        public void OnCompleted()
+        {
+        }
 
         /// <inheritdoc/>
-        public void OnCompleted() { }
-        /// <inheritdoc/>
-        public void OnError(Exception error) { }
+        public void OnError(Exception error)
+        {
+        }
+
         /// <inheritdoc/>
         public void OnNext(string value)
         {
-            Text = value;
+            Value = value;
         }
 
         /// <inheritdoc/>
         public IDisposable Subscribe(IObserver<string> observer)
         {
-            if (observer is null) throw new ArgumentNullException(nameof(observer));
-
-            Collection.Add(observer);
-            return Disposable.Create((observer, this), state =>
-            {
-                state.observer.OnCompleted();
-                state.Item2.Collection.Remove(state.observer);
-            });
+            return BindingHelper.Subscribe(Collection, observer, Value);
         }
+
         /// <inheritdoc/>
         public void Bind(IBindable<string>? bindable)
         {
-            _bindDispose?.Dispose();
-            _bindable = bindable;
-
-            if (bindable is not null)
-            {
-                Text = bindable.Value;
-
-                // bindableが変更時にthisが変更
-                _bindDispose = bindable.Subscribe(this);
-            }
+            Value = this.Bind(bindable, out _bindable, ref _bindDispose);
         }
 
-        #endregion
+        /// <inheritdoc/>
+        public override void GetObjectData(Utf8JsonWriter writer)
+        {
+            base.GetObjectData(writer);
+            writer.WriteString(nameof(Value), Value);
+            writer.WriteString(nameof(TargetHint), TargetHint);
+        }
 
         /// <inheritdoc/>
-        protected override void OnLoad()
+        public override void SetObjectData(JsonElement element)
         {
-            if (_bindHint is not null && this.GetBindable(_bindHint, out var b))
-            {
-                Bind(b);
-            }
-            _bindHint = null;
+            base.SetObjectData(element);
+            Value = element.TryGetProperty(nameof(Value), out var value) ? value.GetString() ?? string.Empty : string.Empty;
+            TargetHint = element.TryGetProperty(nameof(TargetHint), out var bind) ? bind.GetString() : null;
         }
 
         /// <summary>
         /// Create a command to change the string.
         /// </summary>
-        /// <param name="newtext">New value for <see cref="Text"/></param>
-        /// <returns>Created <see cref="IRecordCommand"/></returns>
+        /// <param name="newtext">New value for <see cref="Value"/>.</param>
+        /// <returns>Created <see cref="IRecordCommand"/>.</returns>
         [Pure]
         public IRecordCommand ChangeText(string newtext) => new TextChangeCommand(this, newtext);
 
-        #endregion
+        /// <inheritdoc/>
+        protected override void OnLoad()
+        {
+            this.AutoLoad(ref _targetHint);
+        }
 
+        #endregion
 
         #region Commands
 
         private sealed class TextChangeCommand : IRecordCommand
         {
-            private readonly DocumentProperty _Property;
-            private readonly string _New;
-            private readonly string _Old;
+            private readonly WeakReference<DocumentProperty> _property;
+            private readonly string _new;
+            private readonly string _old;
 
-            public TextChangeCommand(DocumentProperty property, string text)
+            public TextChangeCommand(DocumentProperty property, string value)
             {
-                _Property = property ?? throw new ArgumentNullException(nameof(property));
-                _New = text;
-                _Old = property.Text;
+                _property = new(property ?? throw new ArgumentNullException(nameof(property)));
+                _new = value;
+                _old = property.Value;
             }
 
-            public string Name => CommandName.ChangeText;
+            public string Name => Strings.ChangeText;
 
-            public void Do() => _Property.Text = _New;
-            public void Redo() => Do();
-            public void Undo() => _Property.Text = _Old;
+            public void Do()
+            {
+                if (_property.TryGetTarget(out var target))
+                {
+                    target.Value = _new;
+                }
+            }
+            public void Redo()
+            {
+                Do();
+            }
+            public void Undo()
+            {
+                if (_property.TryGetTarget(out var target))
+                {
+                    target.Value = _old;
+                }
+            }
         }
 
         #endregion
-    }
-
-    /// <summary>
-    /// Represents the metadata of a <see cref="DocumentProperty"/>.
-    /// </summary>
-    public record DocumentPropertyMetadata : PropertyElementMetadata, IPropertyBuilder<DocumentProperty>
-    {
-        /// <summary>
-        /// Initializes a new instance of the <see cref="DocumentPropertyMetadata"/> class.
-        /// </summary>
-        /// <param name="DefaultText">Default value for <see cref="DocumentProperty.Text"/>.</param>
-        public DocumentPropertyMetadata(string DefaultText) : base(string.Empty)
-        {
-            this.DefaultText = DefaultText;
-        }
-
-        /// <summary>
-        /// Get the default value of <see cref="DocumentProperty.Text"/>.
-        /// </summary>
-        public string DefaultText { get; init; }
-
-        /// <inheritdoc/>
-        public DocumentProperty Build()
-        {
-            return new(this);
-        }
     }
 }

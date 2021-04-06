@@ -1,32 +1,25 @@
 ﻿using System;
 using System.Collections.Generic;
-using System.Collections.ObjectModel;
-using System.ComponentModel;
 using System.Linq;
 using System.Runtime.Serialization;
-using System.Text;
-using System.Threading.Tasks;
+using System.Text.Json;
 
-using BEditor.Data.Property;
-using BEditor.Properties;
 using BEditor.Media;
 
 namespace BEditor.Data.Property.Easing
 {
     /// <summary>
-    /// <see cref="EaseProperty"/>, <see cref="ColorAnimationProperty"/> などで利用可能なイージング関数を表します
+    /// Represents an easing function that can be used with <see cref="IKeyFrameProperty"/>.
     /// </summary>
-    [DataContract]
-    public abstract class EasingFunc : EditorObject, IChild<PropertyElement>, IParent<IEasingProperty>, IElementObject
+    public abstract class EasingFunc : EditingObject, IChild<PropertyElement>, IParent<IEasingProperty>, IElementObject, IJsonObject
     {
         #region Fields
-        private PropertyElement? _parent;
+        private WeakReference<PropertyElement?>? _parent;
         private IEnumerable<IEasingProperty>? _cachedList;
         #endregion
 
-
         /// <summary>
-        /// Get the <see cref="PropertyElement"/> to display on the GUI.
+        /// Gets the <see cref="PropertyElement"/> to display on the GUI.
         /// </summary>
         public abstract IEnumerable<IEasingProperty> Properties { get; }
 
@@ -34,27 +27,80 @@ namespace BEditor.Data.Property.Easing
         public IEnumerable<IEasingProperty> Children => _cachedList ??= Properties;
 
         /// <inheritdoc/>
-        public PropertyElement? Parent
+        public PropertyElement Parent
         {
-            get => _parent;
+            get
+            {
+                _parent ??= new(null!);
+
+                if (_parent.TryGetTarget(out var p))
+                {
+                    return p;
+                }
+
+                return null!;
+            }
             set
             {
-                if (value is null) throw new ArgumentNullException(nameof(value));
+                (_parent ??= new(null!)).SetTarget(value);
 
-                _parent = value;
-
-                Parallel.ForEach(Children, item => item.Parent = _parent.Parent);
+                foreach (var prop in Children)
+                {
+                    prop.Parent = (Parent?.Parent)!;
+                }
             }
         }
 
         /// <summary>
-        /// Easing the value
+        /// Easing the value.
         /// </summary>
-        /// <param name="frame">frame</param>
-        /// <param name="totalframe">total frame</param>
-        /// <param name="min">Minimum value</param>
-        /// <param name="max">Maximum value</param>
-        /// <returns>Eased value</returns>
+        /// <param name="frame">The frame.</param>
+        /// <param name="totalframe">The total frame.</param>
+        /// <param name="min">The minimum value.</param>
+        /// <param name="max">The maximum value.</param>
+        /// <returns>Eased value.</returns>
         public abstract float EaseFunc(Frame frame, Frame totalframe, float min, float max);
+
+        /// <inheritdoc/>
+        public override void GetObjectData(Utf8JsonWriter writer)
+        {
+            base.GetObjectData(writer);
+            foreach (var item in GetType().GetProperties()
+                .Where(i => Attribute.IsDefined(i, typeof(DataMemberAttribute)))
+                .Select(i => (Info: i, Attribute: (DataMemberAttribute)Attribute.GetCustomAttribute(i, typeof(DataMemberAttribute))!))
+                .Select(i => (Object: i.Info.GetValue(this), i)))
+            {
+                if (item.Object is IJsonObject json)
+                {
+                    writer.WriteStartObject(item.i.Attribute.Name ?? item.i.Info.Name);
+                    json.GetObjectData(writer);
+                    writer.WriteEndObject();
+                }
+            }
+        }
+
+        /// <inheritdoc/>
+        public override void SetObjectData(JsonElement element)
+        {
+            base.SetObjectData(element);
+            foreach (var item in GetType().GetProperties()
+                .Where(i => Attribute.IsDefined(i, typeof(DataMemberAttribute)))
+                .Select(i => (Info: i, Attribute: (DataMemberAttribute)Attribute.GetCustomAttribute(i, typeof(DataMemberAttribute))!))
+                .Where(i => i.Info.PropertyType.IsAssignableTo(typeof(IJsonObject))))
+            {
+                var property = element.GetProperty(item.Attribute.Name ?? item.Info.Name);
+                var obj = (IJsonObject)FormatterServices.GetUninitializedObject(item.Info.PropertyType);
+                obj.SetObjectData(property);
+
+                if (item.Info.ReflectedType != item.Info.DeclaringType)
+                {
+                    item.Info.DeclaringType?.GetProperty(item.Info.Name)?.SetValue(this, obj);
+                }
+                else
+                {
+                    item.Info.SetValue(this, obj);
+                }
+            }
+        }
     }
 }

@@ -6,7 +6,7 @@ using System.Windows.Data;
 
 namespace BEditor.ViewModels.Converters
 {
-    public class GetColorPickerRGBConverter : IMultiValueConverter
+    public sealed class GetColorPickerRGBConverter : IMultiValueConverter
     {
         public object Convert(object[] values, Type targetType, object parameter, CultureInfo culture)
         {

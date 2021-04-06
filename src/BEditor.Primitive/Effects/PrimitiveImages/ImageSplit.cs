@@ -2,33 +2,30 @@
 using System.Collections.Generic;
 using System.Linq;
 using System.Numerics;
-using System.Runtime.Serialization;
-using System.Text;
-using System.Threading.Tasks;
 
 using BEditor.Data;
 using BEditor.Data.Primitive;
 using BEditor.Data.Property;
-using BEditor.Properties;
 using BEditor.Drawing;
 using BEditor.Drawing.Pixel;
 using BEditor.Graphics;
+using BEditor.Primitive.Resources;
 
 namespace BEditor.Primitive.Effects
 {
     /// <summary>
     /// Represents a <see cref="ImageEffect"/> that splits an image.
     /// </summary>
-    public class ImageSplit : ImageEffect
+    public sealed class ImageSplit : ImageEffect
     {
         /// <summary>
         /// Represents <see cref="HSplit"/> metadata.
         /// </summary>
-        public static readonly EasePropertyMetadata HSplitMetadata = new(Resources.NumberOfHorizontalDivisions, 2, Min: 1);
+        public static readonly EasePropertyMetadata HSplitMetadata = new(Strings.NumberOfHorizontalDivisions, 2, Min: 1);
         /// <summary>
         /// Represents <see cref="VSplit"/> metadata.
         /// </summary>
-        public static readonly EasePropertyMetadata VSplitMetadata = new(Resources.NumberOfVerticalDivisions, 2, Min: 1);
+        public static readonly EasePropertyMetadata VSplitMetadata = new(Strings.NumberOfVerticalDivisions, 2, Min: 1);
 
         /// <summary>
         /// Initializes a new instance of the <see cref="ImageSplit"/> class.
@@ -40,7 +37,7 @@ namespace BEditor.Primitive.Effects
         }
 
         /// <inheritdoc/>
-        public override string Name => Resources.ImageSplit;
+        public override string Name => Strings.ImageSplit;
         /// <inheritdoc/>
         public override IEnumerable<PropertyElement> Properties => new PropertyElement[]
         {
@@ -50,12 +47,12 @@ namespace BEditor.Primitive.Effects
         /// <summary>
         /// Get the <see cref="EaseProperty"/> that represents the number of horizontal divisions.
         /// </summary>
-        [DataMember(Order = 0)]
+        [DataMember]
         public EaseProperty HSplit { get; private set; }
         /// <summary>
         /// Get the <see cref="EaseProperty"/> that represents the number of vertical divisions.
         /// </summary>
-        [DataMember(Order = 1)]
+        [DataMember]
         public EaseProperty VSplit { get; private set; }
 
         /// <inheritdoc/>
@@ -66,9 +63,6 @@ namespace BEditor.Primitive.Effects
             {
                 return img =>
                 {
-                    //var _ = hsplit;
-                    //var __ = vsplit;
-
                     var x_ = img.Source.Width * x;
                     var y_ = -img.Source.Height * y;
 

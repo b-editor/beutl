@@ -2,6 +2,7 @@
 using System.ComponentModel;
 using System.IO;
 using System.Reactive;
+using System.Reactive.Disposables;
 using System.Reactive.Linq;
 using System.Runtime.InteropServices;
 using System.Text;
@@ -24,9 +25,10 @@ using Reactive.Bindings.Extensions;
 
 namespace BEditor.ViewModels.TimeLines
 {
-    public class ClipUIViewModel
+    public sealed class ClipUIViewModel : IDisposable
     {
         private Point MouseRightPoint;
+        private readonly CompositeDisposable _disposable = new();
 
 
         public ClipUIViewModel(ClipElement clip)
@@ -40,9 +42,9 @@ namespace BEditor.ViewModels.TimeLines
                 else return new();
             }
 
-            ClipData = clip;
-            WidthProperty.Value = TimeLineViewModel.ToPixel(ClipData.Length);
-            MarginProperty.Value = new Thickness(TimeLineViewModel.ToPixel(ClipData.Start), 1, 0, 0);
+            ClipElement = clip;
+            WidthProperty.Value = TimeLineViewModel.ToPixel(ClipElement.Length);
+            MarginProperty.Value = new Thickness(TimeLineViewModel.ToPixel(ClipElement.Start), 1, 0, 0);
             Row = clip.Layer;
 
             if (clip.Effect[0] is ObjectElement @object)
@@ -60,60 +62,63 @@ namespace BEditor.ViewModels.TimeLines
 
             #region Subscribe
 
-            ClipMouseLeftDownCommand.Subscribe(ClipMouseLeftDown);
-            ClipMouseRightDownCommand.Subscribe(p => MouseRightPoint = p);
-            ClipMouseUpCommand.Subscribe(ClipMouseUp);
-            ClipMouseMoveCommand.Subscribe(ClipMouseMove);
-            ClipMouseDoubleClickCommand.Subscribe(ClipMouseDoubleClick);
+            ClipMouseLeftDownCommand.Subscribe(ClipMouseLeftDown).AddTo(_disposable);
+            ClipMouseRightDownCommand.Subscribe(p => MouseRightPoint = p).AddTo(_disposable);
+            ClipMouseUpCommand.Subscribe(ClipMouseUp).AddTo(_disposable);
+            ClipMouseMoveCommand.Subscribe(ClipMouseMove).AddTo(_disposable);
+            ClipMouseDoubleClickCommand.Subscribe(ClipMouseDoubleClick).AddTo(_disposable);
 
-            ClipCopyCommand.Subscribe(ClipCopy);
-            ClipCutCommand.Subscribe(ClipCut);
-            ClipDeleteCommand.Subscribe(ClipDelete);
-            ClipDataLogCommand.Subscribe(ClipDataLog);
-            ClipSeparateCommand.Subscribe(ClipSeparate);
+            ClipCopyCommand.Subscribe(ClipCopy).AddTo(_disposable);
+            ClipCutCommand.Subscribe(ClipCut).AddTo(_disposable);
+            ClipDeleteCommand.Subscribe(ClipDelete).AddTo(_disposable);
+            ClipDataLogCommand.Subscribe(ClipDataLog).AddTo(_disposable);
+            ClipSeparateCommand.Subscribe(ClipSeparate).AddTo(_disposable);
 
             #endregion
 
-            var observable = Observable.FromEvent<PropertyChangedEventHandler, PropertyChangedEventArgs>(
-                h => (s, e) => h(e),
-                h => clip.PropertyChanged += h,
-                h => clip.PropertyChanged -= h);
-
-            observable.Where(e => e.PropertyName is nameof(ClipData.End))
-                .Subscribe(_ => WidthProperty.Value = TimeLineViewModel.ToPixel(ClipData.Length));
-
-            observable.Where(e => e.PropertyName is nameof(ClipData.Start))
+            ClipElement.PropertyChangedAsObservable()
+                .Where(e => e.PropertyName is nameof(ClipElement.End))
+                .Subscribe(_ => WidthProperty.Value = TimeLineViewModel.ToPixel(ClipElement.Length))
+                .AddTo(_disposable);
+            
+            ClipElement.PropertyChangedAsObservable()
+                .Where(e => e.PropertyName is nameof(ClipElement.Start))
                 .Subscribe(_ =>
                 {
-                    MarginLeftProperty = TimeLineViewModel.ToPixel(ClipData.Start);
-                    WidthProperty.Value = TimeLineViewModel.ToPixel(ClipData.Length);
-                });
+                    MarginLeftProperty = TimeLineViewModel.ToPixel(ClipElement.Start);
+                    WidthProperty.Value = TimeLineViewModel.ToPixel(ClipElement.Length);
+                })
+                .AddTo(_disposable);
 
-            observable.Where(e => e.PropertyName is nameof(ClipData.Layer))
-                .Subscribe(_ => TimeLineViewModel.ClipLayerMoveCommand?.Invoke(ClipData, ClipData.Layer));
+            ClipElement.PropertyChangedAsObservable()
+                .Where(e=>e.PropertyName is nameof(ClipElement.Layer))
+                .Subscribe(_ => TimeLineViewModel.ClipLayerMoveCommand?.Invoke(ClipElement, ClipElement.Layer))
+                .AddTo(_disposable);
+        }
+        ~ClipUIViewModel()
+        {
+            Dispose();
         }
 
+
         #region Properties
-        public Scene Scene => ClipData.Parent;
+        public Scene Scene => ClipElement.Parent;
 
         private TimeLineViewModel TimeLineViewModel => Scene.GetCreateTimeLineViewModel();
 
-        public ClipElement ClipData { get; }
+        public ClipElement ClipElement { get; }
 
-        /// <summary>
-        /// GUIのレイヤー
-        /// </summary>
         public int Row { get; set; }
 
-        public ReactiveProperty<string> ClipText { get; set; } = new();
+        public ReactivePropertySlim<string> ClipText { get; set; } = new();
 
-        public ReactiveProperty<Brush> ClipColor { get; set; } = new();
+        public ReactivePropertySlim<Brush> ClipColor { get; set; } = new();
 
-        public double TrackHeight => Setting.ClipHeight;
+        public static double TrackHeight => Setting.ClipHeight;
 
-        public ReactiveProperty<double> WidthProperty { get; } = new();
+        public ReactivePropertySlim<double> WidthProperty { get; } = new();
 
-        public ReactiveProperty<Thickness> MarginProperty { get; } = new();
+        public ReactivePropertySlim<Thickness> MarginProperty { get; } = new();
 
         public double MarginLeftProperty
         {
@@ -125,9 +130,9 @@ namespace BEditor.ViewModels.TimeLines
             }
         }
 
-        public ReactiveProperty<bool> IsExpanded { get; } = new();
+        public ReactivePropertySlim<bool> IsExpanded { get; } = new();
 
-        public ReactiveProperty<Cursor> ClipCursor { get; } = new();
+        public ReactivePropertySlim<Cursor> ClipCursor { get; } = new();
 
         public ReactiveCommand ClipMouseLeftDownCommand { get; } = new();
 
@@ -150,6 +155,7 @@ namespace BEditor.ViewModels.TimeLines
         public ReactiveCommand ClipSeparateCommand { get; } = new();
         #endregion
 
+
         private void ClipMouseLeftDown()
         {
             TimeLineViewModel.ClipMouseDown = true;
@@ -157,7 +163,7 @@ namespace BEditor.ViewModels.TimeLines
             TimeLineViewModel.ClipStart = TimeLineViewModel.GetLayerMousePosition?.Invoke() ?? TimeLineViewModel.ClipStart;
 
 
-            TimeLineViewModel.ClipSelect = ClipData;
+            TimeLineViewModel.ClipSelect = ClipElement;
 
 
             if (TimeLineViewModel.ClipSelect.GetCreateClipViewModel().ClipCursor.Value == Cursors.SizeWE)
@@ -203,7 +209,7 @@ namespace BEditor.ViewModels.TimeLines
             }
 
             //存在しない場合
-            Scene.SetCurrentClip(ClipData);
+            Scene.SetCurrentClip(ClipElement);
 
             TimeLineViewModel.ClipLeftRight = 0;
             TimeLineViewModel.LayerCursor.Value = Cursors.Arrow;
@@ -218,7 +224,7 @@ namespace BEditor.ViewModels.TimeLines
                 ClipCursor.Value = Cursors.SizeWE;//右側なら左右矢印↔
                 TimeLineViewModel.ClipLeftRight = 1;
             }
-            else if (horizon > TimeLineViewModel.ToPixel(ClipData.Length) - 10)
+            else if (horizon > TimeLineViewModel.ToPixel(ClipElement.Length) - 10)
             {
                 ClipCursor.Value = Cursors.SizeWE;
                 TimeLineViewModel.ClipLeftRight = 2;
@@ -234,21 +240,21 @@ namespace BEditor.ViewModels.TimeLines
             IsExpanded.Value = !IsExpanded.Value;
         }
 
-        private void ClipCopy()
+        private async void ClipCopy()
         {
-            using var memory = new MemoryStream();
-            Serialize.SaveToStream(ClipData, memory, SerializeMode.Json);
+            await using var memory = new MemoryStream();
+            await Serialize.SaveToStreamAsync(ClipElement, memory, SerializeMode.Json);
 
             var json = Encoding.Default.GetString(memory.ToArray());
             Clipboard.SetText(json); ;
         }
 
-        private void ClipCut()
+        private async void ClipCut()
         {
-            ClipData.Parent.RemoveClip(ClipData).Execute();
+            ClipElement.Parent.RemoveClip(ClipElement).Execute();
 
-            using var memory = new MemoryStream();
-            Serialize.SaveToStream(ClipData, memory, SerializeMode.Json);
+            await using var memory = new MemoryStream();
+            await Serialize.SaveToStreamAsync(ClipElement, memory, SerializeMode.Json);
 
             var json = Encoding.Default.GetString(memory.ToArray());
             Clipboard.SetText(json);
@@ -256,27 +262,35 @@ namespace BEditor.ViewModels.TimeLines
 
         private void ClipDelete()
         {
-            ClipData.Parent.RemoveClip(ClipData).Execute();
+            ClipElement.Parent.RemoveClip(ClipElement).Execute();
         }
 
-        private void ClipDataLog()
+        private async void ClipDataLog()
         {
             string text =
-                $"ID : {ClipData.Id}\n" +
-                $"Name : {ClipData.Name}\n" +
-                $"Length : {ClipData.Length}\n" +
-                $"Layer : {ClipData.Layer}\n" +
-                $"Start : {ClipData.Start}\n" +
-                $"End : {ClipData.End}";
+                $"ID : {ClipElement.Id}\n" +
+                $"Name : {ClipElement.Name}\n" +
+                $"Length : {ClipElement.Length.Value}\n" +
+                $"Layer : {ClipElement.Layer}\n" +
+                $"Start : {ClipElement.Start.Value}\n" +
+                $"End : {ClipElement.End.Value}";
 
-            ClipData.ServiceProvider?.GetService<IMessage>()?.Dialog(text);
+            await AppData.Current.Message.DialogAsync(text);
         }
 
         private void ClipSeparate()
         {
-            var frame = TimeLineViewModel.ToFrame(MouseRightPoint.X) + ClipData.Start;
+            var frame = TimeLineViewModel.ToFrame(MouseRightPoint.X) + ClipElement.Start;
 
-            ClipData.Split(frame).Execute();
+            ClipElement.Split(frame).Execute();
+        }
+
+        public void Dispose()
+        {
+            _disposable.Dispose();
+            _disposable.Clear();
+
+            GC.SuppressFinalize(this);
         }
     }
 }

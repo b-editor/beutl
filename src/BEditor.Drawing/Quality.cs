@@ -5,6 +5,6 @@
         None,
         Low,
         Medium,
-        High
+        High,
     }
 }

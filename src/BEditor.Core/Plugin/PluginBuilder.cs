@@ -8,6 +8,8 @@ using System.Threading.Tasks;
 using BEditor.Data;
 using BEditor.Data.Property.Easing;
 
+using Microsoft.Extensions.DependencyInjection;
+
 namespace BEditor.Plugin
 {
     /// <summary>
@@ -15,12 +17,15 @@ namespace BEditor.Plugin
     /// </summary>
     public class PluginBuilder
     {
+        /// <summary>
+        /// The plugin config.
+        /// </summary>
+        internal static PluginConfig? Config = null;
         private readonly Func<PluginObject> _plugin;
         private readonly List<EffectMetadata> _effects = new();
         private readonly List<ObjectMetadata> _objects = new();
         private readonly List<EasingMetadata> _eases = new();
         private (string?, IEnumerable<ICustomMenu>?) _menus;
-        private static PluginConfig? config = null;
 
         private PluginBuilder(Func<PluginObject> create)
         {
@@ -31,56 +36,74 @@ namespace BEditor.Plugin
         ///  Begin configuring an <see cref="PluginObject"/>.
         /// </summary>
         /// <typeparam name="T">Class that implements the <see cref="PluginObject"/> to be configure.</typeparam>
-        /// <returns>An <see cref="PluginBuilder"/> instance.</returns>
-        public static PluginBuilder Configure<T>() where T : PluginObject
+        /// <returns>The same instance of the <see cref="PluginBuilder"/> for chaining.</returns>
+        public static PluginBuilder Configure<T>()
+            where T : PluginObject
         {
-            return new PluginBuilder(() => (T)Activator.CreateInstance(typeof(T), config)!);
+            return new PluginBuilder(() => (T)Activator.CreateInstance(typeof(T), Config)!);
         }
+
         /// <summary>
         /// Configure the options for the services to be provided.
         /// </summary>
         /// <param name="metadata">Metadata of the effects to be provided.</param>
-        /// <returns>An <see cref="PluginBuilder"/> instance.</returns>
+        /// <returns>The same instance of the <see cref="PluginBuilder"/> for chaining.</returns>
         public PluginBuilder With(EffectMetadata metadata)
         {
             _effects.Add(metadata);
 
             return this;
         }
+
         /// <summary>
         /// Configure the options for the services to be provided.
         /// </summary>
         /// <param name="metadata">Metadata of the objects to be provided.</param>
-        /// <returns>An <see cref="PluginBuilder"/> instance.</returns>
+        /// <returns>The same instance of the <see cref="PluginBuilder"/> for chaining.</returns>
         public PluginBuilder With(ObjectMetadata metadata)
         {
             _objects.Add(metadata);
 
             return this;
         }
+
         /// <summary>
         /// Configure the options for the services to be provided.
         /// </summary>
         /// <param name="metadata">Metadata of the easings to be provided.</param>
-        /// <returns>An <see cref="PluginBuilder"/> instance.</returns>
+        /// <returns>The same instance of the <see cref="PluginBuilder"/> for chaining.</returns>
         public PluginBuilder With(EasingMetadata metadata)
         {
             _eases.Add(metadata);
 
             return this;
         }
+
         /// <summary>
         /// Set the menu.
         /// </summary>
         /// <param name="header">The string to display in the menu header.</param>
         /// <param name="menus">Menu to be set.</param>
-        /// <returns>An <see cref="PluginBuilder"/> instance.</returns>
+        /// <returns>The same instance of the <see cref="PluginBuilder"/> for chaining.</returns>
         public PluginBuilder SetCustomMenu(string header, IEnumerable<ICustomMenu> menus)
         {
             _menus = (header, menus);
 
             return this;
         }
+
+        /// <summary>
+        /// Register services into the <see cref="IServiceCollection"/>.
+        /// </summary>
+        /// <param name="configureServices">A delegate for configuring the <see cref="IServiceCollection"/>.</param>
+        /// <returns>The same instance of the <see cref="PluginBuilder"/> for chaining.</returns>
+        public PluginBuilder ConfigureServices(Action<IServiceCollection> configureServices)
+        {
+            configureServices.Invoke(Config!.Application.Services);
+
+            return this;
+        }
+
         /// <summary>
         /// Register this setting to the specified <see cref="PluginManager"/>.
         /// </summary>
@@ -88,30 +111,20 @@ namespace BEditor.Plugin
         public void Register(PluginManager manager)
         {
             // Effects
-            foreach (var meta in _effects.Where(meta => Attribute.IsDefined(meta.Type, typeof(DataContractAttribute))))
+            foreach (var meta in _effects)
             {
-                Serialize.SerializeKnownTypes.Add(meta.Type);
-
-                if (meta.Children is not null)
-                    Serialize.SerializeKnownTypes.AddRange(meta.Children.Select(m => m.Type));
-
-
                 EffectMetadata.LoadedEffects.Add(meta);
             }
 
             // Objects
-            foreach (var meta in _objects.Where(meta => Attribute.IsDefined(meta.Type, typeof(DataContractAttribute))))
+            foreach (var meta in _objects)
             {
-                Serialize.SerializeKnownTypes.Add(meta.Type);
-
                 ObjectMetadata.LoadedObjects.Add(meta);
             }
 
             // Easing
-            foreach (var meta in _eases.Where(meta => Attribute.IsDefined(meta.Type, typeof(DataContractAttribute))))
+            foreach (var meta in _eases)
             {
-                Serialize.SerializeKnownTypes.Add(meta.Type);
-
                 EasingMetadata.LoadedEasingFunc.Add(meta);
             }
 
@@ -122,6 +135,7 @@ namespace BEditor.Plugin
 
             manager._loaded.Add(_plugin());
         }
+
         /// <summary>
         /// Register this setting to the <see cref="PluginManager.Default"/>.
         /// </summary>

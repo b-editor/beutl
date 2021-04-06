@@ -1,9 +1,5 @@
 ﻿using System;
-using System.Collections.Generic;
-using System.Linq;
 using System.Runtime.InteropServices;
-using System.Text;
-using System.Threading.Tasks;
 
 namespace BEditor.Drawing.Pixel
 {
@@ -30,7 +26,9 @@ namespace BEditor.Drawing.Pixel
                 (byte)(G + foreground.G),
                 (byte)(B + foreground.B));
         }
+
         public readonly BGR24 Blend(BGR24 foreground) => foreground;
+
         public readonly BGR24 Subtract(BGR24 foreground)
         {
             return new(
@@ -38,32 +36,38 @@ namespace BEditor.Drawing.Pixel
                 (byte)(G - foreground.G),
                 (byte)(B - foreground.B));
         }
+
         public void ConvertFrom(BGRA32 src)
         {
             B = src.B;
             G = src.G;
             R = src.R;
         }
+
         public void ConvertFrom(RGBA32 src)
         {
             B = src.B;
             G = src.G;
             R = src.R;
         }
+
         public void ConvertFrom(RGB24 src)
         {
             B = src.B;
             G = src.G;
             R = src.R;
         }
+
         public readonly void ConvertTo(out BGRA32 dst)
         {
             dst = new(R, G, B, 255);
         }
+
         public readonly void ConvertTo(out RGBA32 dst)
         {
             dst = new(R, G, B, 255);
         }
+
         public readonly void ConvertTo(out RGB24 dst)
         {
             dst = new(R, G, B);

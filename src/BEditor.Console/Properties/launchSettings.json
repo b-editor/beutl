@@ -1,0 +1,8 @@
+{
+  "profiles": {
+    "BEditor.CLI": {
+      "commandName": "Project",
+      "commandLineArgs": "open E:\\TestProject\\testUbuntu"
+    }
+  }
+}

@@ -30,7 +30,6 @@ namespace BEditor.Models
     public class OutputModel
     {
         public static readonly OutputModel Current = new();
-        private static readonly ILogger logger = AppData.Current.LoggingFactory.CreateLogger<OutputModel>();
 
         private OutputModel()
         {
@@ -64,7 +63,7 @@ namespace BEditor.Models
         {
             int nowframe = scene.PreviewFrame;
 
-            await using var img = scene.Render(nowframe, RenderType.ImageOutput).Image;
+            await using var img = scene.Render(nowframe, RenderType.ImageOutput);
             try
             {
 
@@ -75,10 +74,8 @@ namespace BEditor.Models
             }
             catch (Exception e)
             {
-                await using var prov = AppData.Current.Services.BuildServiceProvider();
-                var mes = prov.GetService<IMessage>();
-                mes?.Snackbar(MessageResources.FailedToSave);
-                logger.LogError(e, MessageResources.FailedToSave);
+                AppData.Current.Message?.Snackbar(Strings.FailedToSave);
+                App.Logger.LogError(e, Strings.FailedToSave);
             }
         }
         public static void OutputVideo(Scene scene)
@@ -139,7 +136,7 @@ namespace BEditor.Models
 
                         dialog.Dispatcher.Invoke(() =>
                         {
-                            img = scene.Render(frame, RenderType.VideoOutput).Image;
+                            img = scene.Render(frame, RenderType.VideoOutput);
                         });
 
                         if (img is not null)
@@ -155,10 +152,8 @@ namespace BEditor.Models
                 }
                 catch (Exception e)
                 {
-                    await using var prov = AppData.Current.Services.BuildServiceProvider();
-                    var mes = prov.GetService<IMessage>();
-                    mes?.Snackbar(MessageResources.FailedToSave);
-                    logger.LogError(e, MessageResources.FailedToSave);
+                    AppData.Current.Message?.Snackbar(Strings.FailedToSave);
+                    App.Logger.LogError(e, Strings.FailedToSave);
                 }
                 finally
                 {

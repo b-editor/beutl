@@ -1,7 +1,7 @@
 ﻿using System;
 using System.Collections.Generic;
 using System.Linq;
-using System.Runtime.Serialization;
+using System.Numerics;
 using System.Text;
 using System.Threading.Tasks;
 
@@ -15,7 +15,6 @@ using BEditor.Drawing.Pixel;
 namespace BEditor.Primitive.Effects
 {
 #pragma warning disable CS1591
-    [DataContract]
     public class TestEffect : ImageEffect
     {
         public static readonly FolderPropertyMetadata FolderMetadata = new("Folder");
@@ -62,10 +61,11 @@ namespace BEditor.Primitive.Effects
 
         public override void Render(EffectRenderArgs<Image<BGRA32>> args)
         {
-            args.Value = Image.Text(Value.Value, FontProperty.FontList[0], 50, Color.Blue);
+            args.Value = Image.Text(Value.Value, FontManager.Default.LoadedFonts.First(), 50, Color.Blue);
+
+            throw new RenderingException();
         }
 
-        [DataContract]
         public class TestDialog : DialogProperty
         {
             private IDisposable? disposable;

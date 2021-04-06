@@ -2,7 +2,6 @@
 
   <PropertyGroup>
     <TargetFramework>net5.0</TargetFramework>
-    <OutputPath>..\..\..\src\BEditor.WPF\bin\$(Configuration)\net5.0-windows\user\plugins\TestPlugin2</OutputPath>
     <Authors>indigo-san</Authors>
     <OutputType>Library</OutputType>
   </PropertyGroup>

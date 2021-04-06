@@ -1,4 +1,6 @@
-﻿using System;
+﻿
+
+using System;
 using System.Collections.Generic;
 using System.Diagnostics;
 using System.IO;
@@ -26,32 +28,25 @@ namespace BEditor.Models
     public class ProjectModel
     {
         public static readonly ProjectModel Current = new();
-        private static readonly ILogger logger = AppData.Current.LoggingFactory.CreateLogger<ProjectModel>();
 
         private ProjectModel()
         {
             SaveAs.Where(_ => AppData.Current.Project is not null)
                 .Select(_ => AppData.Current.Project)
-                .Subscribe(async p =>
+                .Subscribe(p =>
                 {
-                    await using var prov = AppData.Current.Services.BuildServiceProvider();
-                    var dialog = prov.GetService<IFileDialogService>();
-
-                    if (dialog is null) throw new InvalidOperationException();
-
                     var record = new SaveFileRecord
                     {
                         DefaultFileName = (p!.Name is not null) ? p.Name + ".bedit" : "新しいプロジェクト.bedit",
                         Filters =
                         {
-                            new(Resources.ProjectFile, new FileExtension[] { new("bedit") }),
-                            new(Resources.JsonFile, new FileExtension[] { new("json") }),
+                            new(Strings.ProjectFile, new FileExtension[] { new("bedit") }),
                         }
                     };
 
                     var mode = SerializeMode.Binary;
 
-                    if (dialog.ShowSaveFileDialog(record))
+                    if (AppData.Current.FileDialog.ShowSaveFileDialog(record))
                     {
                         if (Path.GetExtension(record.FileName) is ".json")
                         {
@@ -79,7 +74,7 @@ namespace BEditor.Models
             {
                 var dialog = new OpenFileDialog()
                 {
-                    Filter = $"{Resources.ProjectFile}|*.bedit|{Resources.BackupFile}|*.backup|{Resources.JsonFile}|*.json",
+                    Filter = $"{Strings.ProjectFile}|*.bedit|{Strings.BackupFile}|*.backup",
                     RestoreDirectory = true
                 };
 
@@ -103,12 +98,11 @@ namespace BEditor.Models
                     catch(Exception e)
                     {
                         Debug.Assert(false);
-                        await using var prov = AppData.Current.Services.BuildServiceProvider();
 
-                        var msg = string.Format(Resources.FailedToLoad, "Project");
-                        prov.GetService<IMessage>()?.Snackbar(msg);
+                        var msg = string.Format(Strings.FailedToLoad, Strings.Project);
+                        AppData.Current.Message.Snackbar(msg);
 
-                        logger.LogError(e, msg);
+                        App.Logger?.LogError(e, msg);
                     }
                     finally
                     {
@@ -156,8 +150,8 @@ namespace BEditor.Models
                 app.Project = project;
                 app.AppStatus = Status.Edit;
 
-                Settings.Default.MostRecentlyUsedList.Remove(filename);
-                Settings.Default.MostRecentlyUsedList.Add(filename);
+                Settings.Default.RecentlyUsedFiles.Remove(filename);
+                Settings.Default.RecentlyUsedFiles.Add(filename);
             });
         }
     }

@@ -1,16 +1,11 @@
 ﻿using System;
 using System.Collections.Generic;
-using System.Diagnostics;
 using System.IO;
 using System.Linq;
 using System.Reactive.Linq;
 using System.Reflection;
-using System.Runtime.Serialization;
-using System.Text;
 
-using BEditor.Data;
-using BEditor.Data.Property.Easing;
-using BEditor.Properties;
+using BEditor.Resources;
 
 namespace BEditor.Plugin
 {
@@ -19,32 +14,40 @@ namespace BEditor.Plugin
     /// </summary>
     public class PluginManager
     {
-        internal readonly List<PluginObject> _loaded = new();
-        internal readonly List<(string, IEnumerable<ICustomMenu>)> _menus = new();
         /// <summary>
         /// Gets a default <see cref="PluginManager"/> instance.
         /// </summary>
         public static readonly PluginManager Default = new();
 
         /// <summary>
+        /// The loaded plugins.
+        /// </summary>
+        internal readonly List<PluginObject> _loaded = new();
+
+        /// <summary>
+        /// The plugin menus.
+        /// </summary>
+        internal readonly List<(string, IEnumerable<ICustomMenu>)> _menus = new();
+
+        /// <summary>
         /// Initializes a new instance of the <see cref="PluginManager"/> class.
         /// </summary>
         public PluginManager()
         {
-
         }
 
         /// <summary>
-        /// Get the loaded plugins.
+        /// Gets the loaded plugins.
         /// </summary>
         public IEnumerable<PluginObject> Plugins => _loaded;
+
         /// <summary>
-        /// Get or set the base directory from which to retrieve plugins.
+        /// Gets or sets the base directory from which to retrieve plugins.
         /// </summary>
         public string BaseDirectory { get; } = Path.Combine(AppContext.BaseDirectory, "user", "plugins");
 
         /// <summary>
-        /// Get all plugin names.
+        /// Gets all plugin names.
         /// </summary>
         /// <returns>All plugin names.</returns>
         public IEnumerable<string> GetNames()
@@ -71,13 +74,12 @@ namespace BEditor.Plugin
             {
                 try
                 {
-                    asm.GetTypes().Where(t => t.Name is "Plugin")
-                        .FirstOrDefault()
+                    Array.Find(asm.GetTypes(), t => t.Name is "Plugin")
                         ?.InvokeMember("Register", BindingFlags.InvokeMethod, null, null, new object[] { args });
                 }
-                catch(Exception e)
+                catch (Exception e)
                 {
-                    throw new PluginException(string.Format(Resources.FailedToLoad, asm.GetName().Name), e);
+                    throw new PluginException(string.Format(Strings.FailedToLoad, asm.GetName().Name), e);
                 }
             }
         }

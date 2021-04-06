@@ -18,8 +18,8 @@ namespace BEditor.Graphics
         /// <summary>
         /// Initializes a new instance of the <see cref="Camera"/> class.
         /// </summary>
-        /// <param name="position">Camera position</param>
-        public Camera(Vector3 position)
+        /// <param name="position">The position of the camera.</param>
+        protected Camera(Vector3 position)
         {
             Position = position;
         }
@@ -28,10 +28,12 @@ namespace BEditor.Graphics
         /// Gets or sets the position of this <see cref="Camera"/>.
         /// </summary>
         public Vector3 Position { get; set; }
+
         /// <summary>
         /// Gets or sets the target position of this <see cref="Camera"/>.
         /// </summary>
         public Vector3 Target { get; set; }
+
         /// <summary>
         /// Sets or gets the Degrees representing the Fov of this <see cref="Camera"/>.
         /// </summary>
@@ -40,14 +42,16 @@ namespace BEditor.Graphics
             get => MathHelper.RadiansToDegrees(_fov);
             set
             {
-                var angle = MathHelper.Clamp(value, 1f, 45f);
+                var angle = MathHelper.Clamp(value, 1f, 179f);
                 _fov = MathHelper.DegreesToRadians(angle);
             }
         }
+
         /// <summary>
         /// Sets or gets the range to be drawn by this <see cref="Camera"/>.
         /// </summary>
         public float Near { get; set; } = 0.1f;
+
         /// <summary>
         /// Sets or gets the range to be drawn by this <see cref="Camera"/>.
         /// </summary>
@@ -60,6 +64,7 @@ namespace BEditor.Graphics
         {
             return Matrix4.LookAt(Position.ToOpenTK(), Target.ToOpenTK(), OpenTK.Mathematics.Vector3.UnitY).ToNumerics();
         }
+
         /// <summary>
         /// Get ProjectionMatrix.
         /// </summary>

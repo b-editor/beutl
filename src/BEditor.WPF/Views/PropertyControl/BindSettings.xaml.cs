@@ -19,7 +19,7 @@ namespace BEditor.Views.PropertyControls
     /// <summary>
     /// BindSettings.xaml の相互作用ロジック
     /// </summary>
-    public partial class BindSettings : MetroWindow
+    public sealed partial class BindSettings : MetroWindow
     {
         public BindSettings(object datacontext)
         {

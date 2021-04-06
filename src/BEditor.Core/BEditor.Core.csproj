@@ -8,12 +8,13 @@
   </PropertyGroup>
 
   <Import Project="..\..\props\common.props" />
-  
+  <Import Project="..\..\props\analyzer.props" />
+
   <ItemGroup>
     <PackageReference Include="Microsoft.Extensions.DependencyInjection" Version="5.0.1" />
     <PackageReference Include="Microsoft.Extensions.Logging.Console" Version="5.0.0" />
     <PackageReference Include="Microsoft.Extensions.Logging.Filter" Version="1.1.2" />
-    <PackageReference Include="OpenTK.OpenAL" Version="4.5.0" />
+    <PackageReference Include="OpenTK.OpenAL" Version="4.6.3" />
     <PackageReference Include="System.Reactive" Version="5.0.0" />
   </ItemGroup>
 
@@ -21,42 +22,22 @@
     <ProjectReference Include="..\BEditor.Graphics\BEditor.Graphics.csproj" />
     <ProjectReference Include="..\BEditor.Drawing\BEditor.Drawing.csproj" />
     <ProjectReference Include="..\BEditor.Media\BEditor.Media.csproj" />
+    <ProjectReference Include="..\BEditor.Audio\BEditor.Audio.csproj" />
     <ProjectReference Include="..\BEditor.Settings\BEditor.Settings.csproj" />
   </ItemGroup>
 
   <ItemGroup>
-    <EmbeddedResource Update="Command\CommandName.resx">
-      <Generator>PublicResXFileCodeGenerator</Generator>
-      <LastGenOutput>CommandName.Designer.cs</LastGenOutput>
-    </EmbeddedResource>
-    <EmbeddedResource Update="Properties\ExceptionMessage.resx">
-      <Generator>ResXFileCodeGenerator</Generator>
-      <LastGenOutput>ExceptionMessage.Designer.cs</LastGenOutput>
-    </EmbeddedResource>
-    <EmbeddedResource Update="Properties\Resources.ja-JP.resx">
-      <Generator>PublicResXFileCodeGenerator</Generator>
-    </EmbeddedResource>
-    <EmbeddedResource Update="Properties\Resources.resx">
-      <Generator>PublicResXFileCodeGenerator</Generator>
-      <LastGenOutput>Resources.Designer.cs</LastGenOutput>
-    </EmbeddedResource>
+    <Compile Update="Resources\Strings.Designer.cs">
+      <DesignTime>True</DesignTime>
+      <AutoGen>True</AutoGen>
+      <DependentUpon>Strings.resx</DependentUpon>
+    </Compile>
   </ItemGroup>
-
+  
   <ItemGroup>
-    <Compile Update="Command\CommandName.Designer.cs">
-      <DesignTime>True</DesignTime>
-      <AutoGen>True</AutoGen>
-      <DependentUpon>CommandName.resx</DependentUpon>
-    </Compile>
-    <Compile Update="Properties\ExceptionMessage.Designer.cs">
-      <DesignTime>True</DesignTime>
-      <AutoGen>True</AutoGen>
-      <DependentUpon>ExceptionMessage.resx</DependentUpon>
-    </Compile>
-    <Compile Update="Properties\Resources.Designer.cs">
-      <DesignTime>True</DesignTime>
-      <AutoGen>True</AutoGen>
-      <DependentUpon>Resources.resx</DependentUpon>
-    </Compile>
+    <EmbeddedResource Update="Resources\Strings.resx">
+      <Generator>ResXFileCodeGenerator</Generator>
+      <LastGenOutput>Strings.Designer.cs</LastGenOutput>
+    </EmbeddedResource>
   </ItemGroup>
 </Project>

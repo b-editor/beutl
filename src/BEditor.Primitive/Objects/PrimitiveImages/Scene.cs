@@ -1,23 +1,19 @@
 ﻿using System;
 using System.Collections.Generic;
-using System.Linq;
-using System.Runtime.Serialization;
 
-using BEditor.Command;
 using BEditor.Data;
 using BEditor.Data.Primitive;
 using BEditor.Data.Property;
-using BEditor.Properties;
 using BEditor.Drawing;
 using BEditor.Drawing.Pixel;
+using BEditor.Primitive.Resources;
 
 namespace BEditor.Primitive.Objects
 {
     /// <summary>
     /// Represents an <see cref="ImageObject"/> that refers to a <see cref="Scene"/>.
     /// </summary>
-    [DataContract]
-    public class SceneObject : ImageObject
+    public sealed class SceneObject : ImageObject
     {
         SelectorPropertyMetadata? SelectSceneMetadata;
 
@@ -33,14 +29,14 @@ namespace BEditor.Primitive.Objects
         }
 
         /// <inheritdoc/>
-        public override string Name => Resources.Scene;
+        public override string Name => Strings.Scene;
         /// <inheritdoc/>
         public override IEnumerable<PropertyElement> Properties => new PropertyElement[]
         {
             Coordinate,
-            Zoom,
+            Scale,
             Blend,
-            Angle,
+            Rotate,
             Material,
             Start,
             SelectScene
@@ -48,12 +44,12 @@ namespace BEditor.Primitive.Objects
         /// <summary>
         /// Get the <see cref="EaseProperty"/> that represents the start position.
         /// </summary>
-        [DataMember(Order = 0)]
+        [DataMember]
         public EaseProperty Start { get; private set; }
         /// <summary>
         /// Get the <see cref="SelectorProperty"/> to select the <seealso cref="Scene"/> to reference.
         /// </summary>
-        [DataMember(Order = 1)]
+        [DataMember]
         public SelectorProperty SelectScene { get; private set; }
 
         /// <inheritdoc/>
@@ -65,7 +61,11 @@ namespace BEditor.Primitive.Objects
             // Clipの相対的なフレーム
             var frame = args.Frame - Parent!.Start;
 
-            return scene.Render(frame + (int)Start[args.Frame], RenderType.ImageOutput).Image;
+            var img = scene.Render(frame + (int)Start[args.Frame], RenderType.ImageOutput);
+            Parent.Parent.GraphicsContext!.MakeCurrent();
+            Parent.Parent.GraphicsContext.Framebuffer.Bind();
+
+            return img;
         }
         /// <inheritdoc/>
         protected override void OnLoad()
@@ -85,7 +85,7 @@ namespace BEditor.Primitive.Objects
 
         internal record ScenesSelectorMetadata : SelectorPropertyMetadata
         {
-            internal ScenesSelectorMetadata(SceneObject scene) : base(Resources.Scenes, Array.Empty<object>())
+            internal ScenesSelectorMetadata(SceneObject scene) : base(Strings.Scenes, Array.Empty<object>())
             {
                 MemberPath = "SceneName";
                 ItemSource = scene.GetParent3()!.SceneList;
