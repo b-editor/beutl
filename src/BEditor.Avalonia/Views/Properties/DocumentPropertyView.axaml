@@ -1,0 +1,27 @@
+<UserControl
+  xmlns="https://github.com/avaloniaui"
+  xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+  xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+  xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+  mc:Ignorable="d" d:DesignWidth="800" d:DesignHeight="450"
+  xmlns:vm="using:BEditor.ViewModels.Properties"
+  x:DataType="vm:DocumentPropertyViewModel"
+  Height="125"
+  Background="Transparent"
+  x:Class="BEditor.Views.Properties.DocumentPropertyView">
+  <UserControl.ContextMenu>
+    <ContextMenu>
+      <MenuItem Header="Reset" Command="{CompiledBinding Reset, Mode=OneTime}"/>
+      <MenuItem Header="Bind" Command="{CompiledBinding Bind, Mode=OneTime}"/>
+    </ContextMenu>
+  </UserControl.ContextMenu>
+  <TextBox
+    Margin="5,5,5,5"
+    AcceptsTab="True"
+    AcceptsReturn="True"
+    LostFocus="TextBox_LostFocus"
+    GotFocus="TextBox_GotFocus"
+    Text="{CompiledBinding Property.Value, Mode=OneWay}"
+    x:Name="TextBox">
+  </TextBox>
+</UserControl>

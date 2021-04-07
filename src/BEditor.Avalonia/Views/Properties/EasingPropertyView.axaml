@@ -1,0 +1,37 @@
+<UserControl
+  xmlns="https://github.com/avaloniaui"
+  xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+  xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+  xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+  xmlns:easing="clr-namespace:BEditor.Data.Property.Easing;assembly=BEditor.Core"
+  mc:Ignorable="d" d:DesignWidth="800" d:DesignHeight="450"
+  HorizontalAlignment="Stretch"
+  VerticalAlignment="Stretch"
+  x:Class="BEditor.Views.Properties.EasingPropertyView">
+  <Grid MinWidth="450" MinHeight="250">
+    <Grid.ColumnDefinitions>
+      <ColumnDefinition Width="240" />
+      <ColumnDefinition />
+    </Grid.ColumnDefinitions>
+    <ListBox
+      Grid.Column="0"
+      HorizontalAlignment="Stretch"
+      VerticalAlignment="Stretch"
+      SelectionMode="Single"
+      SelectionChanged="ListBox_SelectionChanged"
+      Items="{x:Static easing:EasingMetadata.LoadedEasingFunc}"
+      SelectedItem="{Binding Property.EasingData, Mode=OneWay}">
+      <ListBox.ItemTemplate>
+        <DataTemplate x:DataType="easing:EasingMetadata">
+          <TextBlock Text="{Binding Name, Mode=OneTime}"/>
+        </DataTemplate>
+      </ListBox.ItemTemplate>
+    </ListBox>
+    <Label
+      Grid.Column="1"
+      Padding="8"
+      HorizontalContentAlignment="Stretch"
+      VerticalContentAlignment="Stretch"
+      Content="{Binding Property.EasingType, Converter={StaticResource EasingPropertyConverter}}" />
+  </Grid>
+</UserControl>

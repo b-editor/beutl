@@ -30,6 +30,8 @@ namespace BEditor.Extensions
             PropertyViewBuilder.Create<CheckProperty>(p => new CheckPropertyView(p)),
             PropertyViewBuilder.Create<SelectorProperty>(p => new SelectorPropertyView(p)),
             PropertyViewBuilder.Create<EaseProperty>(p => new EasePropertyView(p)),
+            PropertyViewBuilder.Create<DocumentProperty>(p => new DocumentPropertyView(p)),
+            PropertyViewBuilder.Create<FontProperty>(p => new FontPropertyView(p)),
             PropertyViewBuilder.Create<ExpandGroup>(p =>
             {
                 var header = new TextBlock

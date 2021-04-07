@@ -1,25 +1,24 @@
+using System;
 using System.Collections.Specialized;
+using System.Linq;
 
 using Avalonia;
-using Avalonia.Layout;
+using Avalonia.Animation;
 using Avalonia.Controls;
+using Avalonia.Controls.Primitives;
 using Avalonia.Input;
 using Avalonia.Interactivity;
+using Avalonia.Layout;
 using Avalonia.Markup.Xaml;
+using Avalonia.Media;
+using Avalonia.Styling;
+using Avalonia.VisualTree;
 
 using BEditor.Data;
 using BEditor.Data.Property;
 using BEditor.Extensions;
 using BEditor.Models;
 using BEditor.ViewModels.Properties;
-using Avalonia.Data;
-using System.Linq;
-using Avalonia.Media;
-using System;
-using Avalonia.Animation.Animators;
-using Avalonia.Animation;
-using Avalonia.Styling;
-using Avalonia.Controls.Primitives;
 
 namespace BEditor.Views.Properties
 {
@@ -132,9 +131,14 @@ namespace BEditor.Views.Properties
             }
         }
 
-        public void ShowEasingProperty(object s, RoutedEventArgs e)
+        public async void ShowEasingProperty(object s, RoutedEventArgs e)
         {
-
+            var dialog = new Window
+            {
+                Content = new EasingPropertyView(DataContext!),
+                SizeToContent = SizeToContent.WidthAndHeight
+            };
+            await dialog.ShowDialog((Window)this.GetVisualRoot());
         }
 
         public async void ListToggleClick(object? sender, RoutedEventArgs? e)

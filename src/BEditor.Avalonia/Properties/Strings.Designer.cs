@@ -912,6 +912,15 @@ namespace BEditor.Properties {
         }
         
         /// <summary>
+        ///   Path に類似しているローカライズされた文字列を検索します。
+        /// </summary>
+        public static string Path {
+            get {
+                return ResourceManager.GetString("Path", resourceCulture);
+            }
+        }
+        
+        /// <summary>
         ///   Playing に類似しているローカライズされた文字列を検索します。
         /// </summary>
         public static string Playing {

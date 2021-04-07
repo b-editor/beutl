@@ -8,6 +8,7 @@ using System.Threading.Tasks;
 using BEditor.Command;
 using BEditor.Data;
 using BEditor.Data.Property;
+using BEditor.Views.Properties;
 
 using Reactive.Bindings;
 using Reactive.Bindings.Extensions;
@@ -27,6 +28,14 @@ namespace BEditor.ViewModels.Properties
 
             Command.Subscribe(index => Property.ChangeSelect(index).Execute()).AddTo(_disposables);
             Reset.Subscribe(() => Property.ChangeSelect(Property.PropertyMetadata!.DefaultItem).Execute()).AddTo(_disposables);
+            Bind.Subscribe(async () =>
+            {
+                var window = new SetBinding
+                {
+                    DataContext = new SetBindingViewModel<T>(Property!)
+                };
+                await window.ShowDialog(App.GetMainWindow());
+            });
         }
         ~SelectorPropertyViewModel()
         {
@@ -62,6 +71,14 @@ namespace BEditor.ViewModels.Properties
 
             Command.Subscribe(index => Property.ChangeSelect(index).Execute()).AddTo(_disposables);
             Reset.Subscribe(() => Property.ChangeSelect(Property.PropertyMetadata?.DefaultIndex ?? 0).Execute()).AddTo(_disposables);
+            Bind.Subscribe(async () =>
+            {
+                var window = new SetBinding
+                {
+                    DataContext = new SetBindingViewModel<int>(Property)
+                };
+                await window.ShowDialog(App.GetMainWindow());
+            });
         }
         ~SelectorPropertyViewModel()
         {

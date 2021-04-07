@@ -552,4 +552,7 @@
   <data name="RunFollowingCommandToInstallFFmpeg" xml:space="preserve">
     <value>以下のコマンドを実行してFFmpegをインストールしてください。</value>
   </data>
+  <data name="Path" xml:space="preserve">
+    <value>パス</value>
+  </data>
 </root>
