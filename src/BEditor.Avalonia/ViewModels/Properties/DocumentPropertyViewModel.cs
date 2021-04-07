@@ -25,7 +25,7 @@ namespace BEditor.ViewModels.Properties
             Property = property;
             _oldvalue = Property.Value;
 
-            Reset.Subscribe(() => Property.ChangeText(Property.PropertyMetadata?.DefaultText ?? "").Execute()).AddTo(_disposables);
+            Reset.Subscribe(() => Property.ChangeText(Property.PropertyMetadata?.DefaultText ?? string.Empty).Execute()).AddTo(_disposables);
             Bind.Subscribe(async () =>
             {
                 var window = new SetBinding

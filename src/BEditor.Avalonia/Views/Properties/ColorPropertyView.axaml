@@ -3,16 +3,16 @@
   xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
   xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
   xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
-  mc:Ignorable="d" d:DesignWidth="800" d:DesignHeight="450"
   xmlns:vm="using:BEditor.ViewModels.Properties"
-  x:DataType="vm:FontPropertyViewModel"
-  Height="32.5"
+  x:DataType="vm:ColorPropertyViewModel"
   Background="Transparent"
-  x:Class="BEditor.Views.Properties.FontPropertyView">
+  Height="48.5"
+  mc:Ignorable="d" d:DesignWidth="800" d:DesignHeight="450"
+  x:Class="BEditor.Views.Properties.ColorPropertyView">
   <UserControl.ContextMenu>
     <ContextMenu>
-      <MenuItem Header="Reset" Command="{CompiledBinding Reset, Mode=OneTime}"/>
-      <MenuItem Header="Bind" Command="{CompiledBinding Bind, Mode=OneTime}"/>
+      <MenuItem Header="Reset" Command="{CompiledBinding Reset, Mode=OneTime}" />
+      <MenuItem Header="Bind" Command="{CompiledBinding Bind, Mode=OneTime}" />
     </ContextMenu>
   </UserControl.ContextMenu>
   <Grid>
@@ -33,18 +33,28 @@
         TextTrimming="CharacterEllipsis" />
     </Grid>
 
-
-    <!--  Combo box  -->
-    <ComboBox
-      x:Name="box"
-      Grid.Column="3"
-      Margin="5,0,5,0"
-      HorizontalAlignment="Stretch"
-      VerticalAlignment="Center"
+    <Button
       Background="Transparent"
-      BorderBrush="Transparent"
-      SelectedItem="{CompiledBinding Property.Value.Name, Mode=OneWay}"
-      Items="{Binding Fonts, Mode=OneTime}"/>
-    
+      VerticalAlignment="Center"
+      Grid.Column="2"
+      Height="32.5"
+      Width="32.5"
+      Command="{CompiledBinding OpenDialog, Mode=OneTime}">
+      <PathIcon
+        Data="{StaticResource \\color\\svg\\ic_fluent_color_24_regular.svg_regular}"
+        Width="20"
+        Height="20"
+        HorizontalAlignment="Center"
+        VerticalAlignment="Center" />
+    </Button>
+
+    <Border
+      Margin="8,0,8,0"
+      Height="24.5"
+      CornerRadius="3"
+      Background="{CompiledBinding Brush.Value, Mode=OneWay}"
+      VerticalAlignment="Center"
+      Grid.Column="3" />
+
   </Grid>
 </UserControl>

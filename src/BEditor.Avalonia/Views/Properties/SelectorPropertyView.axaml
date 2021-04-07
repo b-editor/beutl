@@ -19,19 +19,19 @@
   <Grid>
     <Grid.ColumnDefinitions>
       <ColumnDefinition Width="120*" MaxWidth="100" MinWidth="50"/>
-      <ColumnDefinition Width="50"/>
-      <ColumnDefinition Width="50"/>
+      <ColumnDefinition Width="40"/>
+      <ColumnDefinition Width="40"/>
       <ColumnDefinition Width="*" MinWidth="100"/>
     </Grid.ColumnDefinitions>
 
-    <Grid>
+    <Grid Margin="0,0,0,1">
       <TextBlock
         Text="{CompiledBinding Metadata.Value.Name, Mode=OneTime}"
         VerticalAlignment="Center"
         HorizontalAlignment="Left"
         FontSize="13"
         Margin="10,0,0,0"
-        TextTrimming="CharacterEllipsis"/>
+        TextTrimming="CharacterEllipsis" />
     </Grid>
 
 
