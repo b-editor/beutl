@@ -22,9 +22,9 @@ using BEditor.ViewModels.Properties;
 
 namespace BEditor.Views.Properties
 {
-    public class EasePropertyView : UserControl
+    public class ColorAnimationPropertyView : UserControl
     {
-        private readonly EaseProperty _property;
+        private readonly ColorAnimationProperty _property;
         private readonly StackPanel _stackPanel;
         private readonly Setter _heightSetter = new(HeightProperty, 40d);
         private readonly Animation _opencloseAnim = new()
@@ -46,60 +46,61 @@ namespace BEditor.Views.Properties
         private float _oldvalue;
 
 #pragma warning disable CS8618
-        public EasePropertyView()
+        public ColorAnimationPropertyView()
 #pragma warning restore CS8618
         {
             InitializeComponent();
             _stackPanel = this.FindControl<StackPanel>("stackPanel");
         }
 
-        public EasePropertyView(EaseProperty property)
+        public ColorAnimationPropertyView(ColorAnimationProperty property)
         {
-            DataContext = new EasePropertyViewModel(property);
+            DataContext = new ColorAnimationPropertyViewModel(property);
             InitializeComponent();
 
             _stackPanel = this.FindControl<StackPanel>("stackPanel");
             _property = property;
             property.Value.CollectionChanged += Value_CollectionChanged;
 
-            // StackPanel‚ÉNumeric‚ð’Ç‰Á
-            _stackPanel.Children.AddRange(property.Value.Select((_, i) => CreateNumeric(i)));
+            // StackPanel‚ÉBorder‚ð’Ç‰Á
+            _stackPanel.Children.AddRange(property.Value.Select((_, i) => CreateBorder(i)));
 
             _opencloseAnim.Children[1].Setters.Add(_heightSetter);
         }
 
-        private NumericUpDown CreateNumeric(int index)
+        private Border CreateBorder(int index)
         {
-            var num = new NumericUpDown
+            var border = new Border
             {
                 [AttachmentProperty.IntProperty] = index,
-                Height = 32,
-                Margin = new Thickness(8, 4),
-                VerticalAlignment = VerticalAlignment.Center,
-                Value = _property.Value[index],
-                ShowButtonSpinner = false,
-                Background = Brushes.Transparent,
-                BorderBrush = Brushes.Transparent,
-                Increment = 10
+                Height = 24,
+                Margin = new Thickness(8),
+                Background = new SolidColorBrush(_property.Value[index].ToAvalonia()),
             };
 
-            num.GotFocus += NumericUpDown_GotFocus;
-            num.LostFocus += NumericUpDown_LostFocus;
-            num.ValueChanged += NumericUpDown_ValueChanged;
+            border.PointerPressed += Border_PointerPressed;
 
-            if (_property.PropertyMetadata is null) return num;
+            return border;
+        }
 
-            if (!float.IsNaN(_property.PropertyMetadata.Max))
+        private async void Border_PointerPressed(object? sender, PointerPressedEventArgs e)
+        {
+            if (sender is Border border)
             {
-                num.Maximum = _property.PropertyMetadata.Max;
-            }
+                var index = AttachmentProperty.GetInt(border);
 
-            if (!float.IsNaN(_property.PropertyMetadata.Min))
-            {
-                num.Minimum = _property.PropertyMetadata.Min;
-            }
+                var color = _property;
+                var dialog = new ColorDialog(color);
 
-            return num;
+                dialog.col.Red = color.Value[index].R;
+                dialog.col.Green = color.Value[index].G;
+                dialog.col.Blue = color.Value[index].B;
+                dialog.col.Alpha = color.Value[index].A;
+
+                dialog.ok_button.Click += (_, _) => _property.ChangeColor(index, Drawing.Color.FromARGB(dialog.col.Alpha, dialog.col.Red, dialog.col.Green, dialog.col.Blue)).Execute();
+
+                await dialog.ShowDialog(App.GetMainWindow());
+            }
         }
 
         private void ResetIndex()
@@ -117,7 +118,7 @@ namespace BEditor.Views.Properties
         {
             if (e.Action is NotifyCollectionChangedAction.Add)
             {
-                _stackPanel.Children.Add(CreateNumeric(e.NewStartingIndex));
+                _stackPanel.Children.Add(CreateBorder(e.NewStartingIndex));
                 ResetIndex();
             }
             else if (e.Action is NotifyCollectionChangedAction.Remove)
@@ -127,8 +128,8 @@ namespace BEditor.Views.Properties
             }
             else if (e.Action is NotifyCollectionChangedAction.Replace)
             {
-                var num = (NumericUpDown)_stackPanel.Children[e.NewStartingIndex];
-                num.Value = _property.Value[e.NewStartingIndex];
+                var num = (Border)_stackPanel.Children[e.NewStartingIndex];
+                num.Background = new SolidColorBrush(_property.Value[e.NewStartingIndex].ToAvalonia());
             }
         }
 
@@ -166,36 +167,6 @@ namespace BEditor.Views.Properties
 
                 Height = height;
             }
-        }
-
-        public void NumericUpDown_GotFocus(object? sender, GotFocusEventArgs e)
-        {
-            var num = (NumericUpDown)sender!;
-
-            var index = num.GetValue(AttachmentProperty.IntProperty);
-
-            _oldvalue = _property.Value[index];
-        }
-
-        public void NumericUpDown_LostFocus(object? sender, RoutedEventArgs e)
-        {
-            var num = (NumericUpDown)sender!;
-            var index = num.GetValue(AttachmentProperty.IntProperty);
-            var newValue = num.Value;
-
-            _property.Value[index] = _oldvalue;
-
-            _property.ChangeValue(index, (float)newValue).Execute();
-        }
-
-        public void NumericUpDown_ValueChanged(object? sender, NumericUpDownValueChangedEventArgs e)
-        {
-            var num = (NumericUpDown)sender!;
-            var index = num.GetValue(AttachmentProperty.IntProperty);
-
-            _property.Value[index] = _property.Clamp((float)e.NewValue);
-
-            AppModel.Current.Project!.PreviewUpdate(_property.GetParent2()!);
         }
 
         private void InitializeComponent()

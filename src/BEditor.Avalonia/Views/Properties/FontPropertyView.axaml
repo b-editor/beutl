@@ -6,7 +6,7 @@
   mc:Ignorable="d" d:DesignWidth="800" d:DesignHeight="450"
   xmlns:vm="using:BEditor.ViewModels.Properties"
   x:DataType="vm:FontPropertyViewModel"
-  Height="32.5"
+  Height="40"
   Background="Transparent"
   x:Class="BEditor.Views.Properties.FontPropertyView">
   <UserControl.ContextMenu>
@@ -23,22 +23,20 @@
       <ColumnDefinition Width="*" MinWidth="100"/>
     </Grid.ColumnDefinitions>
 
-    <Grid Margin="0,0,0,1">
-      <TextBlock
-        Text="{CompiledBinding Metadata.Value.Name, Mode=OneTime}"
-        VerticalAlignment="Center"
-        HorizontalAlignment="Left"
-        FontSize="13"
-        Margin="10,0,0,0"
-        TextTrimming="CharacterEllipsis" />
-    </Grid>
-
+    <Label
+      Height="40"
+      Margin="10,0,0,0"
+      HorizontalAlignment="Left"
+      VerticalAlignment="Top"
+      VerticalContentAlignment="Center"
+      FontSize="13"
+      Content="{CompiledBinding Metadata.Value.Name, Mode=OneTime}" />
 
     <!--  Combo box  -->
     <ComboBox
       x:Name="box"
       Grid.Column="3"
-      Margin="5,0,5,0"
+      Margin="8,0"
       HorizontalAlignment="Stretch"
       VerticalAlignment="Center"
       Background="Transparent"

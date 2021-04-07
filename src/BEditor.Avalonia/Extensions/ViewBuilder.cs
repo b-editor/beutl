@@ -33,11 +33,13 @@ namespace BEditor.Extensions
             PropertyViewBuilder.Create<DocumentProperty>(p => new DocumentPropertyView(p)),
             PropertyViewBuilder.Create<FontProperty>(p => new FontPropertyView(p)),
             PropertyViewBuilder.Create<ColorProperty>(p => new ColorPropertyView(p)),
+            PropertyViewBuilder.Create<ColorAnimationProperty>(p => new ColorAnimationPropertyView(p)),
             PropertyViewBuilder.Create<ExpandGroup>(p =>
             {
-                var header = new TextBlock
+                var header = new Label
                 {
-                    Text = p.PropertyMetadata?.Name ?? string.Empty,
+                    Content = p.PropertyMetadata?.Name ?? string.Empty,
+                    Height = 24
                 };
                 var expander = new Expander
                 {
@@ -148,7 +150,7 @@ namespace BEditor.Extensions
                     return x.PropertyType.IsAssignableFrom(type);
                 });
 
-                property[PropertyElementViewProperty] = func?.CreateFunc?.Invoke(property) ?? new TextBlock { Height = 32.5 };
+                property[PropertyElementViewProperty] = func?.CreateFunc?.Invoke(property) ?? new TextBlock { Height = 40 };
             }
             return property.GetValue(PropertyElementViewProperty);
         }

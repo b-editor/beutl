@@ -6,7 +6,7 @@
   xmlns:vm="using:BEditor.ViewModels.Properties"
   x:DataType="vm:CheckPropertyViewModel"
   Background="Transparent"
-  Height="32.5"
+  Height="40"
   mc:Ignorable="d" d:DesignWidth="800" d:DesignHeight="35"
   x:Class="BEditor.Views.Properties.CheckPropertyView">
   <UserControl.ContextMenu>
@@ -23,15 +23,14 @@
       <ColumnDefinition Width="*" MinWidth="100"/>
     </Grid.ColumnDefinitions>
 
-    <Grid Margin="0,0,0,1">
-      <TextBlock
-        Text="{CompiledBinding Metadata.Value.Name, Mode=OneTime}"
-        VerticalAlignment="Center"
-        HorizontalAlignment="Left"
-        FontSize="13"
-        Margin="10,0,0,0"
-        TextTrimming="CharacterEllipsis" />
-    </Grid>
+    <Label
+      Height="40"
+      Margin="10,0,0,0"
+      HorizontalAlignment="Left"
+      VerticalAlignment="Top"
+      VerticalContentAlignment="Center"
+      FontSize="13"
+      Content="{CompiledBinding Metadata.Value.Name, Mode=OneTime}" />
 
     <CheckBox
         Grid.Column="2"

@@ -13,7 +13,7 @@ namespace BEditor.Views.Properties
         {
             InitializeComponent();
         }
-        
+
         public ColorPropertyView(ColorProperty property)
         {
             DataContext = new ColorPropertyViewModel(property);
