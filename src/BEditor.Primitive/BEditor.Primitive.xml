@@ -2067,6 +2067,12 @@
             Metadata of <see cref="T:BEditor.Primitive.Objects.ListenerObject"/> class.
             </summary>
         </member>
+        <member name="M:BEditor.Primitive.PrimitiveTypes.EnumerateAllObjectMetadata">
+            <summary>
+            Enumerate all objects.
+            </summary>
+            <returns></returns>
+        </member>
         <member name="M:BEditor.Primitive.PrimitiveTypes.EnumerateAllEffectMetadata">
             <summary>
             Enumerate all effects.

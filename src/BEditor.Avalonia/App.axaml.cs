@@ -142,17 +142,10 @@ namespace BEditor
         }
         private static void RegisterPrimitive()
         {
-            ObjectMetadata.LoadedObjects.Add(PrimitiveTypes.VideoMetadata);
-            ObjectMetadata.LoadedObjects.Add(PrimitiveTypes.ImageMetadata);
-            ObjectMetadata.LoadedObjects.Add(PrimitiveTypes.ShapeMetadata);
-            ObjectMetadata.LoadedObjects.Add(PrimitiveTypes.PolygonMetadata);
-            ObjectMetadata.LoadedObjects.Add(PrimitiveTypes.RoundRectMetadata);
-            ObjectMetadata.LoadedObjects.Add(PrimitiveTypes.TextMetadata);
-            ObjectMetadata.LoadedObjects.Add(PrimitiveTypes.CameraMetadata);
-            ObjectMetadata.LoadedObjects.Add(PrimitiveTypes.GL3DObjectMetadata);
-            ObjectMetadata.LoadedObjects.Add(PrimitiveTypes.SceneMetadata);
-            ObjectMetadata.LoadedObjects.Add(PrimitiveTypes.FramebufferMetadata);
-            ObjectMetadata.LoadedObjects.Add(PrimitiveTypes.ListenerMetadata);
+            foreach (var obj in PrimitiveTypes.EnumerateAllObjectMetadata())
+            {
+                ObjectMetadata.LoadedObjects.Add(obj);
+            }
 
             foreach (var effect in PrimitiveTypes.EnumerateAllEffectMetadata())
             {

@@ -33,11 +33,13 @@
       Content="{CompiledBinding Metadata.Value.Name, Mode=OneTime}" />
 
     <CheckBox
-        Grid.Column="2"
-        IsChecked="{CompiledBinding Property.Value, Mode=OneWay}"
-        VerticalAlignment="Center"
-        HorizontalAlignment="Center"
-        CommandParameter="{Binding $self.IsChecked}"
-        Command="{CompiledBinding Command, Mode=OneTime}"/>
+      Grid.Column="2"
+      IsChecked="{CompiledBinding Property.Value, Mode=OneWay}"
+      Width="32"
+      Height="32"
+      Margin="0,4"
+      VerticalAlignment="Top"
+      CommandParameter="{Binding $self.IsChecked}"
+      Command="{CompiledBinding Command, Mode=OneTime}"/>
   </Grid>
 </UserControl>

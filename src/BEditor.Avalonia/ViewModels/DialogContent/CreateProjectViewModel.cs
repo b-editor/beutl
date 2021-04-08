@@ -27,7 +27,7 @@ namespace BEditor.ViewModels.DialogContent
 
         public CreateProjectViewModel()
         {
-            if (string.IsNullOrWhiteSpace(BEditor.Settings.Default.LastTimeFolder))
+            if (!Directory.Exists(BEditor.Settings.Default.LastTimeFolder))
             {
                 BEditor.Settings.Default.LastTimeFolder = Environment.GetFolderPath(Environment.SpecialFolder.MyDocuments);
             }

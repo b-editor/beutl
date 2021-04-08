@@ -15,7 +15,17 @@ using Reactive.Bindings.Extensions;
 
 namespace BEditor.ViewModels.Properties
 {
-    public sealed class SelectorPropertyViewModel<T> : IDisposable where T : IJsonObject
+    public interface ISelectorPropertyViewModel
+    {
+        public IEnumerable<string> DisplayStrings { get; }
+        public ReactiveCommand<int> Command { get; }
+        public ReactiveCommand Reset { get; }
+        public ReactiveCommand Bind { get; }
+    }
+
+    public sealed class SelectorPropertyViewModel<T>
+        : ISelectorPropertyViewModel, IDisposable
+        where T : IJsonObject, IEquatable<T>
     {
         private readonly CompositeDisposable _disposables = new();
 
@@ -26,7 +36,12 @@ namespace BEditor.ViewModels.Properties
                 .ToReadOnlyReactivePropertySlim()
                 .AddTo(_disposables);
 
-            Command.Subscribe(index => Property.ChangeSelect(index).Execute()).AddTo(_disposables);
+            Command.Subscribe(index =>
+            {
+                var item = Property.PropertyMetadata is null ? default : Property.PropertyMetadata.ItemSource.ElementAtOrDefault(index);
+
+                Property.ChangeSelect(item).Execute();
+            }).AddTo(_disposables);
             Reset.Subscribe(() => Property.ChangeSelect(Property.PropertyMetadata!.DefaultItem).Execute()).AddTo(_disposables);
             Bind.Subscribe(async () =>
             {
@@ -42,9 +57,11 @@ namespace BEditor.ViewModels.Properties
             Dispose();
         }
 
+        public IEnumerable<string> DisplayStrings => Metadata.Value?.DisplayStrings ?? Array.Empty<string>();
         public ReadOnlyReactivePropertySlim<SelectorPropertyMetadata<T>?> Metadata { get; }
         public SelectorProperty<T> Property { get; }
-        public ReactiveCommand<T> Command { get; } = new();
+
+        public ReactiveCommand<int> Command { get; } = new();
         public ReactiveCommand Reset { get; } = new();
         public ReactiveCommand Bind { get; } = new();
 
@@ -58,7 +75,7 @@ namespace BEditor.ViewModels.Properties
             GC.SuppressFinalize(this);
         }
     }
-    public sealed class SelectorPropertyViewModel : IDisposable
+    public sealed class SelectorPropertyViewModel : ISelectorPropertyViewModel, IDisposable
     {
         private readonly CompositeDisposable _disposables = new();
 
@@ -85,6 +102,7 @@ namespace BEditor.ViewModels.Properties
             Dispose();
         }
 
+        public IEnumerable<string> DisplayStrings => Metadata.Value?.ItemSource ?? Array.Empty<string>();
         public ReadOnlyReactivePropertySlim<SelectorPropertyMetadata?> Metadata { get; }
         public SelectorProperty Property { get; }
         public ReactiveCommand<int> Command { get; } = new();

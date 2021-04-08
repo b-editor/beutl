@@ -18,7 +18,7 @@ namespace BEditor.Data.Property
     /// <typeparam name="T">The type of item.</typeparam>
     [DebuggerDisplay("Index = {Index}, Item = {SelectItem}")]
     public class SelectorProperty<T> : PropertyElement<SelectorPropertyMetadata<T>>, IEasingProperty, IBindable<T?>
-        where T : IJsonObject
+        where T : IJsonObject, IEquatable<T>
     {
         #region Fields
         private static readonly PropertyChangedEventArgs _selectItemArgs = new(nameof(SelectItem));
@@ -48,6 +48,7 @@ namespace BEditor.Data.Property
             get => _selectItem;
             set => SetValue(value, ref _selectItem, _selectItemArgs, this, state =>
             {
+                state.RaisePropertyChanged(SelectorProperty._indexArgs);
                 foreach (var observer in state.Collection)
                 {
                     try
@@ -94,9 +95,8 @@ namespace BEditor.Data.Property
         {
             base.GetObjectData(writer);
 
-            writer.WriteStartObject(nameof(Value));
+            writer.WritePropertyName(nameof(Value));
             SelectItem?.GetObjectData(writer);
-            writer.WriteEndObject();
 
             writer.WriteString(nameof(TargetHint), TargetHint);
         }

@@ -14,7 +14,7 @@ using Reactive.Bindings.Extensions;
 
 namespace BEditor.ViewModels.PropertyControl
 {
-    public sealed class SelectorPropertyViewModel<T> : IDisposable where T : IJsonObject
+    public sealed class SelectorPropertyViewModel<T> : IDisposable where T : IJsonObject, IEquatable<T>
     {
         private readonly CompositeDisposable disposables = new();
 

@@ -43,7 +43,6 @@ namespace BEditor.Views.Properties
                 }
             }
         };
-        private float _oldvalue;
 
 #pragma warning disable CS8618
         public ColorAnimationPropertyView()

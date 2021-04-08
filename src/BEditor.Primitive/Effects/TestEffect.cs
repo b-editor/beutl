@@ -14,8 +14,7 @@ using BEditor.Drawing.Pixel;
 
 namespace BEditor.Primitive.Effects
 {
-#pragma warning disable CS1591
-    public class TestEffect : ImageEffect
+    internal class TestEffect : ImageEffect
     {
         public static readonly FolderPropertyMetadata FolderMetadata = new("Folder");
         public static readonly TextPropertyMetadata ValueMetadata = new("Value");
@@ -112,5 +111,4 @@ namespace BEditor.Primitive.Effects
             }
         }
     }
-#pragma warning restore CS1591
 }
