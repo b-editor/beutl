@@ -12,7 +12,7 @@ namespace BEditor.Data.Property
     /// <param name="Min">The minimum value.</param>
     /// <param name="UseOptional">The bool of whether to use the Optional value.</param>
     public record EasePropertyMetadata(string Name, EasingMetadata DefaultEase, float DefaultValue = 0, float Max = float.NaN, float Min = float.NaN, bool UseOptional = false)
-        : PropertyElementMetadata(Name), IPropertyBuilder<EaseProperty>
+        : PropertyElementMetadata(Name), IEditingPropertyInitializer<EaseProperty>
     {
         /// <summary>
         /// The metadata of <see cref="EaseProperty"/>.
@@ -28,7 +28,7 @@ namespace BEditor.Data.Property
         }
 
         /// <inheritdoc/>
-        public EaseProperty Build()
+        public EaseProperty Create()
         {
             return new(this);
         }

@@ -12,7 +12,7 @@ namespace BEditor.Data.Property
     /// <param name="Selector">A function to get a string from an item.</param>
     /// <param name="DefaultItem">The default value for <see cref="SelectorProperty{T}.SelectItem"/>.</param>
     public record SelectorPropertyMetadata<T>(string Name, IList<T> ItemSource, Func<T, string> Selector, T? DefaultItem = default)
-        : PropertyElementMetadata(Name), IPropertyBuilder<SelectorProperty<T>>
+        : PropertyElementMetadata(Name), IEditingPropertyInitializer<SelectorProperty<T>>
         where T : IJsonObject, IEquatable<T>
     {
         private IEnumerable<string>? _displayStrings;
@@ -23,7 +23,7 @@ namespace BEditor.Data.Property
         public IEnumerable<string> DisplayStrings => _displayStrings ??= ItemSource.Select(Selector);
 
         /// <inheritdoc/>
-        public SelectorProperty<T> Build()
+        public SelectorProperty<T> Create()
         {
             return new(this);
         }

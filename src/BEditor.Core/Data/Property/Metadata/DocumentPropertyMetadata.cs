@@ -5,10 +5,10 @@
     /// </summary>
     /// <param name="DefaultText">The default value of <see cref="DocumentProperty.Value"/>.</param>
     public record DocumentPropertyMetadata(string DefaultText)
-        : PropertyElementMetadata(string.Empty), IPropertyBuilder<DocumentProperty>
+        : PropertyElementMetadata(string.Empty), IEditingPropertyInitializer<DocumentProperty>
     {
         /// <inheritdoc/>
-        public DocumentProperty Build()
+        public DocumentProperty Create()
         {
             return new(this);
         }

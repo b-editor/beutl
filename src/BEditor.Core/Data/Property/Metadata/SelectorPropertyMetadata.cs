@@ -9,10 +9,10 @@ namespace BEditor.Data.Property
     /// <param name="ItemSource">The source of the item to be selected</param>
     /// <param name="DefaultIndex">The default value for <see cref="SelectorProperty.Index"/></param>
     public record SelectorPropertyMetadata(string Name, IList<string> ItemSource, int DefaultIndex = 0)
-        : PropertyElementMetadata(Name), IPropertyBuilder<SelectorProperty>
+        : PropertyElementMetadata(Name), IEditingPropertyInitializer<SelectorProperty>
     {
         /// <inheritdoc/>
-        public SelectorProperty Build()
+        public SelectorProperty Create()
         {
             return new(this);
         }

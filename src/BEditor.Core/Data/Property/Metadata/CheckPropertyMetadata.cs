@@ -6,10 +6,10 @@
     /// <param name="Name">The string displayed in the property header.</param>
     /// <param name="DefaultIsChecked">The default value for <see cref="CheckProperty.Value"/>.</param>
     public record CheckPropertyMetadata(string Name, bool DefaultIsChecked = false)
-        : PropertyElementMetadata(Name), IPropertyBuilder<CheckProperty>
+        : PropertyElementMetadata(Name), IEditingPropertyInitializer<CheckProperty>
     {
         /// <inheritdoc/>
-        public CheckProperty Build()
+        public CheckProperty Create()
         {
             return new(this);
         }

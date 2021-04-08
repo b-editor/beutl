@@ -8,7 +8,7 @@ namespace BEditor.Data.Property
     /// <summary>
     /// The metadata of <see cref="FontProperty"/>.
     /// </summary>
-    public record FontPropertyMetadata : PropertyElementMetadata, IPropertyBuilder<FontProperty>
+    public record FontPropertyMetadata : PropertyElementMetadata, IEditingPropertyInitializer<FontProperty>
     {
         /// <summary>
         /// The metadata of <see cref="FontProperty"/>.
@@ -25,7 +25,7 @@ namespace BEditor.Data.Property
         public Font SelectItem { get; init; }
 
         /// <inheritdoc/>
-        public FontProperty Build()
+        public FontProperty Create()
         {
             return new(this);
         }
