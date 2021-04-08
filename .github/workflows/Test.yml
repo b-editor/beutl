@@ -5,8 +5,16 @@ on: [push, pull_request]
 jobs:
   test:
     runs-on: windows-latest
+    env:
+      NUGET_PACKAGES: ${{ github.workspace }}/.nuget/packages
     steps:
     - uses: actions/checkout@v2
+    - uses: actions/cache@v1
+      with:
+        path: ${{ github.workspace }}/.nuget/packages 
+        key: nuget-${{ runner.os }}-${{ matrix.dotnet-version }}
+        restore-keys: |
+          nuget-${{ runner.os }}-
     - name: Setup .NET
       uses: actions/setup-dotnet@v1
       with:
