@@ -1,9 +1,12 @@
 ﻿using System;
 using System.Collections.Generic;
+using System.Runtime.CompilerServices;
 
 using BEditor.Data;
 using BEditor.Primitive.Objects;
 using BEditor.Primitive.Resources;
+
+[assembly: InternalsVisibleTo("NUnitTestProject1")]
 
 namespace BEditor.Primitive
 {

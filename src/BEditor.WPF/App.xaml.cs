@@ -18,8 +18,6 @@ using BEditor.Drawing;
 using BEditor.Models;
 using BEditor.Plugin;
 using BEditor.Primitive;
-using BEditor.Primitive.Effects;
-using BEditor.Primitive.Objects;
 using BEditor.Properties;
 using BEditor.ViewModels;
 using BEditor.ViewModels.CustomControl;
@@ -28,7 +26,8 @@ using BEditor.ViewModels.PropertyControl;
 using BEditor.Views;
 using BEditor.Views.CreatePage;
 using BEditor.Views.MessageContent;
-using BEditor.Views.Setup;
+
+using FFMediaToolkit;
 
 using MaterialDesignThemes.Wpf;
 
@@ -86,43 +85,25 @@ namespace BEditor
 
                 var msg = AppData.Current.Message;
 
-                if (!Settings.Default.SetupFlag)
+                await InitFFmpeg();
+                if (!CheckOpenAL())
                 {
-                    await Setup();
-                }
-                else
-                {
-                    await InitFFmpeg();
-                    if (!CheckOpenAL())
+                    if (await msg!.DialogAsync(Strings.OpenALNotFound, IMessage.IconType.Info, new IMessage.ButtonType[] { IMessage.ButtonType.Yes, IMessage.ButtonType.No }) is IMessage.ButtonType.Yes)
                     {
-                        if (await msg!.DialogAsync(Strings.OpenALNotFound, IMessage.IconType.Info, new IMessage.ButtonType[] { IMessage.ButtonType.Yes, IMessage.ButtonType.No }) is IMessage.ButtonType.Yes)
-                        {
-                            Process.Start(new ProcessStartInfo("cmd", $"/c start https://www.openal.org/downloads/") { CreateNoWindow = true });
-                        }
-                        else
-                        {
-                            Shutdown();
-                        }
+                        Process.Start(new ProcessStartInfo("cmd", $"/c start https://www.openal.org/downloads/") { CreateNoWindow = true });
                     }
-
-                    await Dispatcher.InvokeAsync(async () => await StartupCore());
+                    else
+                    {
+                        Shutdown();
+                    }
                 }
+
+                await Dispatcher.InvokeAsync(async () => await StartupCore());
             });
 
             splashscreen.Close();
         }
 
-        private async Task Setup()
-        {
-            await Dispatcher.InvokeAsync(() =>
-            {
-                var window = new Setup();
-
-                MainWindow = window;
-
-                window.Show();
-            });
-        }
         public async Task StartupCore()
         {
             ProjectModel.Current.CreateEvent += (_, _) =>
@@ -211,64 +192,66 @@ namespace BEditor
 
             if (!await installer.IsInstalledAsync())
             {
-                if (await msg!.DialogAsync(Strings.FFmpegNotFound, IMessage.IconType.Info, new IMessage.ButtonType[] { IMessage.ButtonType.Yes, IMessage.ButtonType.No }) is IMessage.ButtonType.Yes)
+                try
                 {
-                    try
-                    {
-                        Loading loading = null!;
-                        NoneDialog dialog = null!;
+                    Loading loading = null!;
+                    NoneDialog dialog = null!;
 
-                        void start(object? s, EventArgs e)
+                    void start(object? s, EventArgs e)
+                    {
+                        Dispatcher.Invoke(() =>
                         {
-                            Dispatcher.Invoke(() =>
+                            loading = new Loading()
                             {
-                                loading = new Loading()
-                                {
-                                    Maximum = { Value = 100 },
-                                    Minimum = { Value = 0 }
-                                };
-                                dialog = new NoneDialog(loading);
+                                Maximum = { Value = 100 },
+                                Minimum = { Value = 0 }
+                            };
+                            dialog = new NoneDialog(loading);
 
-                                dialog.Show();
+                            dialog.Show();
 
-                                loading.Text.Value = string.Format(Strings.IsDownloading, "FFmpeg");
-                            });
-                        }
-                        void downloadComp(object? s, AsyncCompletedEventArgs e)
-                        {
-                            loading.Text.Value = string.Format(Strings.IsExtractedAndPlaced, "FFmpeg");
-                            loading.IsIndeterminate.Value = true;
-                        }
-                        void progress(object s, DownloadProgressChangedEventArgs e)
-                        {
-                            loading.NowValue.Value = e.ProgressPercentage;
-                        }
-                        void installed(object? s, EventArgs e) => Dispatcher.InvokeAsync(dialog.Close);
-
-                        installer.StartInstall += start;
-                        installer.Installed += installed;
-                        installer.DownloadCompleted += downloadComp;
-                        installer.DownloadProgressChanged += progress;
-
-                        await installer.Install();
-
-                        installer.StartInstall -= start;
-                        installer.Installed -= installed;
-                        installer.DownloadCompleted -= downloadComp;
-                        installer.DownloadProgressChanged -= progress;
+                            loading.Text.Value = string.Format(Strings.IsDownloading, "FFmpeg");
+                        });
                     }
-                    catch (Exception e)
+                    void downloadComp(object? s, AsyncCompletedEventArgs e)
                     {
-                        await msg.DialogAsync(string.Format(Strings.FailedToInstall, "FFmpeg"));
-
-                        Logger.LogError(e, "Failed to install ffmpeg.");
+                        loading.Text.Value = string.Format(Strings.IsExtractedAndPlaced, "FFmpeg");
+                        loading.IsIndeterminate.Value = true;
                     }
+                    void progress(object s, DownloadProgressChangedEventArgs e)
+                    {
+                        loading.NowValue.Value = e.ProgressPercentage;
+                    }
+                    void installed(object? s, EventArgs e) => Dispatcher.InvokeAsync(dialog.Close);
+
+                    installer.StartInstall += start;
+                    installer.Installed += installed;
+                    installer.DownloadCompleted += downloadComp;
+                    installer.DownloadProgressChanged += progress;
+
+                    await installer.Install();
+
+                    installer.StartInstall -= start;
+                    installer.Installed -= installed;
+                    installer.DownloadCompleted -= downloadComp;
+                    installer.DownloadProgressChanged -= progress;
                 }
-                else
+                catch (Exception e)
                 {
-                    await msg.DialogAsync(Strings.SomeFunctionsAreNotAvailable_);
+                    await msg.DialogAsync(string.Format(Strings.FailedToInstall, "FFmpeg"));
+
+                    Logger.LogError(e, "Failed to install ffmpeg.");
+
+                    Shutdown();
                 }
             }
+
+            if (OperatingSystem.IsWindows())
+            {
+                FFmpegLoader.FFmpegPath = Path.Combine(AppContext.BaseDirectory, "ffmpeg");
+            }
+
+            FFmpegLoader.LoadFFmpeg();
         }
         private static void RunBackup()
         {

@@ -21,6 +21,8 @@ using BEditor.Plugin;
 using BEditor.Primitive;
 using BEditor.Properties;
 
+using FFMediaToolkit;
+
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
 
@@ -74,6 +76,14 @@ namespace BEditor
                 RegisterPrimitive();
 
                 await InitialPluginsAsync();
+
+                // FFmpegì«Ç›çûÇ›
+                if (OperatingSystem.IsWindows())
+                {
+                    FFmpegLoader.FFmpegPath = Path.Combine(AppContext.BaseDirectory, "ffmpeg");
+                }
+
+                FFmpegLoader.LoadFFmpeg();
 
                 AppDomain.CurrentDomain.UnhandledException += CurrentDomain_UnhandledException;
 

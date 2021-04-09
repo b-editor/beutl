@@ -8,42 +8,67 @@ using System.Threading.Tasks;
 using BEditor.Data;
 using BEditor.Data.Property;
 
+#nullable disable
+
 namespace BEditor.Primitive.Objects
 {
     internal class PropertyTest : ObjectElement
     {
-        public static readonly ButtonComponentMetadata ButtonMetadata = new("Button");
-        public static readonly CheckPropertyMetadata CheckMetadata = new("Check");
-        public static readonly ColorAnimationPropertyMetadata ColorAnimationMetadata = new("ColorAnimation");
-        public static readonly ColorPropertyMetadata ColorMetadata = new("Color", Drawing.Color.Light);
-        public static readonly DocumentPropertyMetadata DocumentMetadata = new(string.Empty);
-        public static readonly EasePropertyMetadata EaseMetadata = new("Ease");
-        public static readonly FilePropertyMetadata FileMetadata = new("File");
-        public static readonly FolderPropertyMetadata FolderMetadata = new("Folder");
-        //public static readonly LabelComponentMetadata LabelMetadata = new();
-        public static readonly SelectorPropertyMetadata SelectorMetadata = new("Selector", new string[] { "One", "Two", "Three" });
-        public static readonly SelectorPropertyMetadata<StringWrapper> SelectorGenMetadata = new(
-            "SelectorGen",
-            new StringWrapper[] { new("One"), new("Two"), new("Three") },
-            i => i.Value);
-        public static readonly TextPropertyMetadata TextMetadata = new("Text");
-        public static readonly ValuePropertyMetadata ValueMetadata = new("Value");
+        public static readonly EditingProperty<ButtonComponent> ButtonProperty = EditingProperty.RegisterSerializeDirect<ButtonComponent, PropertyTest>(
+            nameof(Button), owner => owner.Button, (owner, obj) => owner.Button = obj,
+            new ButtonComponentMetadata("Button"));
+
+        public static readonly EditingProperty<CheckProperty> CheckProperty = EditingProperty.RegisterSerializeDirect<CheckProperty, PropertyTest>(
+            nameof(Check), owner => owner.Check, (owner, obj) => owner.Check = obj,
+            new CheckPropertyMetadata("Check"));
+
+        public static readonly EditingProperty<ColorAnimationProperty> ColorAnimationProperty = EditingProperty.RegisterSerializeDirect<ColorAnimationProperty, PropertyTest>(
+            nameof(ColorAnimation), owner => owner.ColorAnimation, (owner, obj) => owner.ColorAnimation = obj,
+            new ColorAnimationPropertyMetadata("ColorAnimation"));
+
+        public static readonly EditingProperty<ColorProperty> ColorProperty = EditingProperty.RegisterSerializeDirect<ColorProperty, PropertyTest>(
+            nameof(Color), owner => owner.Color, (owner, obj) => owner.Color = obj,
+            new ColorPropertyMetadata("Color", Drawing.Color.Light));
+
+        public static readonly EditingProperty<DocumentProperty> DocumentProperty = EditingProperty.RegisterSerializeDirect<DocumentProperty, PropertyTest>(
+            nameof(Document), owner => owner.Document, (owner, obj) => owner.Document = obj,
+            new DocumentPropertyMetadata(string.Empty));
+
+        public static readonly EditingProperty<EaseProperty> EaseProperty = EditingProperty.RegisterSerializeDirect<EaseProperty, PropertyTest>(
+            nameof(Ease), owner => owner.Ease, (owner, obj) => owner.Ease = obj,
+            new EasePropertyMetadata("Ease"));
+
+        public static readonly EditingProperty<FileProperty> FileProperty = EditingProperty.RegisterSerializeDirect<FileProperty, PropertyTest>(
+            nameof(File), owner => owner.File, (owner, obj) => owner.File = obj,
+            new FilePropertyMetadata("File"));
+
+        public static readonly EditingProperty<FolderProperty> FolderProperty = EditingProperty.RegisterSerializeDirect<FolderProperty, PropertyTest>(
+            nameof(Folder), owner => owner.Folder, (owner, obj) => owner.Folder = obj,
+            new FolderPropertyMetadata("Folder"));
+
+        public static readonly EditingProperty<LabelComponent> LabelProperty = EditingProperty.RegisterSerializeDirect<LabelComponent, PropertyTest>(
+            nameof(Label), owner => owner.Label, (owner, obj) => owner.Label = obj,
+            new LabelComponentMetadata());
+
+        public static readonly EditingProperty<SelectorProperty> SelectorProperty = EditingProperty.RegisterSerializeDirect<SelectorProperty, PropertyTest>(
+            nameof(Selector), owner => owner.Selector, (owner, obj) => owner.Selector = obj,
+            new SelectorPropertyMetadata("Selector", new string[] { "One", "Two", "Three" }));
+
+        public static readonly EditingProperty<SelectorProperty<StringWrapper>> SelectorGenProperty = EditingProperty.RegisterSerializeDirect<SelectorProperty<StringWrapper>, PropertyTest>(
+            nameof(SelectorGen), owner => owner.SelectorGen, (owner, obj) => owner.SelectorGen = obj,
+            new SelectorPropertyMetadata<StringWrapper>(
+                "SelectorGen", new StringWrapper[] { new("One"), new("Two"), new("Three") }, i => i.Value));
+
+        public static readonly EditingProperty<TextProperty> TextProperty = EditingProperty.RegisterSerializeDirect<TextProperty, PropertyTest>(
+            nameof(Text), owner => owner.Text, (owner, obj) => owner.Text = obj,
+            new TextPropertyMetadata("Text"));
+
+        public static readonly EditingProperty<ValueProperty> ValueProperty = EditingProperty.RegisterSerializeDirect<ValueProperty, PropertyTest>(
+            nameof(Value), owner => owner.Value, (owner, obj) => owner.Value = obj,
+            new ValuePropertyMetadata("Value"));
 
         public PropertyTest()
         {
-            Button = new(ButtonMetadata);
-            Check = new(CheckMetadata);
-            ColorAnimation = new(ColorAnimationMetadata);
-            Color = new(ColorMetadata);
-            Document = new(DocumentMetadata);
-            Ease = new(EaseMetadata);
-            File = new(FileMetadata);
-            Folder = new(FolderMetadata);
-            Label = new();
-            Selector = new(SelectorMetadata);
-            SelectorGen = new(SelectorGenMetadata);
-            Text = new(TextMetadata);
-            Value = new(ValueMetadata);
         }
 
         public override string Name => nameof(PropertyTest);
@@ -63,71 +88,22 @@ namespace BEditor.Primitive.Objects
             Text,
             Value
         };
-        [DataMember]
         public ButtonComponent Button { get; set; }
-        [DataMember]
         public CheckProperty Check { get; set; }
-        [DataMember]
         public ColorAnimationProperty ColorAnimation { get; set; }
-        [DataMember]
         public ColorProperty Color { get; set; }
-        [DataMember]
         public DocumentProperty Document { get; set; }
-        [DataMember]
         public EaseProperty Ease { get; set; }
-        [DataMember]
         public FileProperty File { get; set; }
-        [DataMember]
         public FolderProperty Folder { get; set; }
-        [DataMember]
         public LabelComponent Label { get; set; }
-        [DataMember]
         public SelectorProperty Selector { get; set; }
-        [DataMember]
         public SelectorProperty<StringWrapper> SelectorGen { get; set; }
-        [DataMember]
         public TextProperty Text { get; set; }
-        [DataMember]
         public ValueProperty Value { get; set; }
 
         public override void Render(EffectRenderArgs args)
         {
-        }
-
-        protected override void OnLoad()
-        {
-            base.OnLoad();
-            Button.Load(ButtonMetadata);
-            Check.Load(CheckMetadata);
-            ColorAnimation.Load(ColorAnimationMetadata);
-            Color.Load(ColorMetadata);
-            Document.Load(DocumentMetadata);
-            Ease.Load(EaseMetadata);
-            File.Load(FileMetadata);
-            Folder.Load(FolderMetadata);
-            Label.Load();
-            Selector.Load(SelectorMetadata);
-            SelectorGen.Load(SelectorGenMetadata);
-            Text.Load(TextMetadata);
-            Value.Load(ValueMetadata);
-        }
-
-        protected override void OnUnload()
-        {
-            base.OnUnload();
-            Button.Unload();
-            Check.Unload();
-            ColorAnimation.Unload();
-            Color.Unload();
-            Document.Unload();
-            Ease.Unload();
-            File.Unload();
-            Folder.Unload();
-            Label.Unload();
-            Selector.Unload();
-            SelectorGen.Unload();
-            Text.Unload();
-            Value.Unload();
         }
     }
 

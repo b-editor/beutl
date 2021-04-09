@@ -6,7 +6,7 @@ namespace BEditor.Data
     /// Represents the properties of the edited data.
     /// </summary>
     /// <typeparam name="TValue">The type of the property.</typeparam>
-    public class EditingProperty<TValue> : EditingProperty
+    public class EditingProperty<TValue> : EditingProperty, IEditingProperty<TValue>
     {
         /// <summary>
         /// Initializes a new instance of the <see cref="EditingProperty{TValue}"/> class.

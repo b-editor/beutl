@@ -21,6 +21,26 @@ namespace BEditor.Data
         private Dictionary<string, object?>? _values = new();
         private Type? _ownerType;
 
+        /// <summary>
+        /// Initializes a new instance of the <see cref="EditingObject"/> class.
+        /// </summary>
+        protected EditingObject()
+        {
+            // static コンストラクターを呼び出す
+            OwnerType.TypeInitializer?.Invoke(null, null);
+
+            // DirectEditingPropertyかつInitializerがnullじゃない
+            foreach (var prop in EditingProperty.PropertyFromKey
+                .Where(i => i.Value is IDirectProperty && i.Value.Initializer is not null && OwnerType.IsAssignableTo(i.Key.OwnerType))
+                .Select(i => i.Value))
+            {
+                if (prop is IDirectProperty direct)
+                {
+                    direct.Set(this, direct.Initializer!.Create());
+                }
+            }
+        }
+
         /// <inheritdoc/>
         public SynchronizationContext Synchronize { get; private set; } = AsyncOperationManager.SynchronizationContext;
 
@@ -44,7 +64,37 @@ namespace BEditor.Data
         /// <inheritdoc/>
         public TValue GetValue<TValue>(EditingProperty<TValue> property)
         {
-            return (TValue)GetValue((EditingProperty)property)!;
+            if (CheckOwnerType(this, property))
+            {
+                throw new DataException(Strings.TheOwnerTypeDoesNotMatch);
+            }
+
+            if (property is IDirectProperty<TValue> directProp)
+            {
+                var value = directProp.Get(this);
+                if (value is null)
+                {
+                    value = directProp.Initializer is null ? default! : directProp.Initializer.Create();
+
+                    if (value is not null)
+                    {
+                        directProp.Set(this, value);
+                    }
+                }
+
+                return value;
+            }
+
+            if (!Values.ContainsKey(property.Name))
+            {
+                var value = property.Initializer is null ? default! : property.Initializer.Create();
+
+                Values.Add(property.Name, value);
+
+                return value;
+            }
+
+            return (TValue)Values[property.Name]!;
         }
 
         /// <inheritdoc/>
@@ -85,7 +135,24 @@ namespace BEditor.Data
         /// <inheritdoc/>
         public void SetValue<TValue>(EditingProperty<TValue> property, TValue value)
         {
-            SetValue((EditingProperty)property, value);
+            if (CheckOwnerType(this, property))
+            {
+                throw new DataException(Strings.TheOwnerTypeDoesNotMatch);
+            }
+
+            if (property is IDirectProperty<TValue> directProp)
+            {
+                directProp.Set(this, value);
+
+                return;
+            }
+
+            if (AddIfNotExist(property, value))
+            {
+                return;
+            }
+
+            Values[property.Name] = value;
         }
 
         /// <inheritdoc/>
@@ -166,7 +233,7 @@ namespace BEditor.Data
             if (this is IParent<EditingObject> obj2)
             {
                 foreach (var prop in EditingProperty.PropertyFromKey
-                    .Where(i => OwnerType.IsAssignableTo(i.Key.OwnerType))
+                    .Where(i => OwnerType.IsAssignableFrom(i.Key.OwnerType))
                     .Select(i => i.Value))
                 {
                     var value = this[prop];
@@ -253,13 +320,25 @@ namespace BEditor.Data
         // オーナーの型が一致しない場合はtrue
         private static bool CheckOwnerType(EditingObject obj, EditingProperty property)
         {
-            var ownerType = obj.GetType();
+            var ownerType = obj.OwnerType;
 
             return !ownerType.IsAssignableTo(property.OwnerType);
         }
 
         // 追加した場合はtrue
         private bool AddIfNotExist(EditingProperty property, object? value)
+        {
+            if (!Values.ContainsKey(property.Name))
+            {
+                Values.Add(property.Name, value);
+
+                return true;
+            }
+
+            return false;
+        }
+
+        private bool AddIfNotExist<TValue>(EditingProperty property, TValue value)
         {
             if (!Values.ContainsKey(property.Name))
             {

@@ -38,6 +38,27 @@ namespace BEditor.Data
     /// <summary>
     /// Represents the properties of the edited data.
     /// </summary>
+    /// <typeparam name="TValue">The type of the property.</typeparam>
+    public interface IEditingProperty<TValue> : IEditingProperty
+    {
+        IEditingPropertyInitializer? IEditingProperty.Initializer => Initializer;
+
+        IEditingPropertySerializer? IEditingProperty.Serializer
+        {
+            get => Serializer;
+            init => Serializer = (IEditingPropertySerializer<TValue>?)value;
+        }
+
+        /// <inheritdoc cref="IEditingProperty.Initializer"/>
+        public new IEditingPropertyInitializer<TValue>? Initializer { get; }
+
+        /// <inheritdoc cref="IEditingProperty.Serializer"/>
+        public new IEditingPropertySerializer<TValue>? Serializer { get; init; }
+    }
+
+    /// <summary>
+    /// Represents the properties of the edited data.
+    /// </summary>
     public abstract class EditingProperty : IEditingProperty
     {
         /// <summary>
@@ -168,6 +189,42 @@ namespace BEditor.Data
             {
                 Initializer = initializer,
                 Serializer = serializer
+            };
+
+            PropertyFromKey.Add(key, property);
+
+            return property;
+        }
+
+        /// <summary>
+        /// Registers a serializable direct <see cref="EditingProperty"/>
+        /// </summary>
+        /// <typeparam name="TValue">The type of the local value.</typeparam>
+        /// <typeparam name="TOwner">The type of the owner.</typeparam>
+        /// <param name="name">The name of the property.</param>
+        /// <param name="getter">Gets the current value of the property.</param>
+        /// <param name="setter">Sets the value of the property.</param>
+        /// <param name="initializer">The <see cref="IEditingPropertyInitializer{T}"/> that initializes the local value of a property.</param>
+        /// <returns>Returns the registered <see cref="EditingProperty{TValue}"/>.</returns>
+        public static DirectEditingProperty<TOwner, TValue> RegisterSerializeDirect<TValue, TOwner>(
+            string name,
+            Func<TOwner, TValue> getter,
+            Action<TOwner, TValue> setter,
+            IEditingPropertyInitializer<TValue>? initializer = null)
+            where TValue : IJsonObject
+            where TOwner : IEditingObject
+        {
+            var key = new PropertyKey(name, typeof(TOwner));
+
+            if (PropertyFromKey.ContainsKey(key))
+            {
+                throw new DataException(Strings.KeyHasAlreadyBeenRegisterd);
+            }
+
+            var property = new DirectEditingProperty<TOwner, TValue>(name, getter, setter)
+            {
+                Initializer = initializer,
+                Serializer = PropertyJsonSerializer<TValue>.Current
             };
 
             PropertyFromKey.Add(key, property);
