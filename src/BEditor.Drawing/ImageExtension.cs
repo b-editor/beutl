@@ -12,7 +12,7 @@ using SkiaSharp;
 
 namespace BEditor.Drawing
 {
-    public unsafe static class Image
+    public static unsafe partial class Image
     {
         public static void DrawImage<T>(this Image<T> self, Point point, Image<T> image) where T : unmanaged, IPixel<T>
         {
