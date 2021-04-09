@@ -376,4 +376,55 @@
   <data name="ImageEffects" xml:space="preserve">
     <value>Image effects</value>
   </data>
+  <data name="Grayscale" xml:space="preserve">
+    <value>Grayscale</value>
+  </data>
+  <data name="Sepia" xml:space="preserve">
+    <value>Sepia</value>
+  </data>
+  <data name="Negaposi" xml:space="preserve">
+    <value>Negaposi</value>
+  </data>
+  <data name="Xor" xml:space="preserve">
+    <value>Xor</value>
+  </data>
+  <data name="Red" xml:space="preserve">
+    <value>Red</value>
+  </data>
+  <data name="Green" xml:space="preserve">
+    <value>Green</value>
+  </data>
+  <data name="Blue" xml:space="preserve">
+    <value>Blue</value>
+  </data>
+  <data name="BrightnessCorrection" xml:space="preserve">
+    <value>Brightness correction</value>
+  </data>
+  <data name="Brightness" xml:space="preserve">
+    <value>Brightness</value>
+  </data>
+  <data name="ContrastCorrection" xml:space="preserve">
+    <value>Contrast correction</value>
+  </data>
+  <data name="Contrast" xml:space="preserve">
+    <value>Contrast</value>
+  </data>
+  <data name="GammaCorrection" xml:space="preserve">
+    <value>Gamma correction</value>
+  </data>
+  <data name="Gamma" xml:space="preserve">
+    <value>Gamma</value>
+  </data>
+  <data name="RGBColorCorrection" xml:space="preserve">
+    <value>RGB correction</value>
+  </data>
+  <data name="Binarization" xml:space="preserve">
+    <value>Binarization</value>
+  </data>
+  <data name="Noise" xml:space="preserve">
+    <value>Noise</value>
+  </data>
+  <data name="Diffusion" xml:space="preserve">
+    <value>Diffusion</value>
+  </data>
 </root>

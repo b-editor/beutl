@@ -3,7 +3,7 @@ using BEditor.Drawing.Pixel;
 
 namespace BEditor.Drawing.Process
 {
-    internal readonly unsafe struct SetOpacityProcess
+    public readonly unsafe struct SetOpacityProcess : IPixelProcess
     {
         private readonly BGRA32* _data;
         private readonly float _opacity;

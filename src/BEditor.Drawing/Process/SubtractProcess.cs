@@ -3,7 +3,8 @@ using BEditor.Drawing.Pixel;
 
 namespace BEditor.Drawing.Process
 {
-    internal readonly unsafe struct SubtractProcess<T> where T : unmanaged, IPixel<T>
+    public readonly unsafe struct SubtractProcess<T> : IPixelProcess
+        where T : unmanaged, IPixel<T>
     {
         private readonly T* _dst;
         private readonly T* _src;

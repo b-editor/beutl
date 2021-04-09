@@ -10,7 +10,7 @@ using static BEditor.Drawing.Image;
 
 namespace BEditor.Drawing.Process
 {
-    internal readonly unsafe struct GrayscaleProcess
+    public readonly unsafe struct GrayscaleProcess : IPixelProcess
     {
         private readonly BGRA32* _src;
         private readonly BGRA32* _dst;
@@ -21,16 +21,17 @@ namespace BEditor.Drawing.Process
             _dst = dst;
         }
 
-        public void Invoke(int pos)
+        public readonly void Invoke(int pos)
         {
             var ntsc = Set255Round(
-                (_src[pos].B * 0.289) +
-                (_src[pos].G * 0.586) +
-                (_src[pos].R * 0.114));
+                (_src[pos].R * 0.11448) +
+                (_src[pos].G * 0.58661) +
+                (_src[pos].B * 0.29891));
 
             _dst[pos].B = (byte)ntsc;
             _dst[pos].G = (byte)ntsc;
             _dst[pos].R = (byte)ntsc;
+            _dst[pos].A = _src[pos].A;
         }
     }
 }

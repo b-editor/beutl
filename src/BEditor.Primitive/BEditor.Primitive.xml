@@ -832,41 +832,6 @@
         <member name="M:BEditor.Primitive.Effects.Mask.OnUnload">
             <inheritdoc/>
         </member>
-        <member name="T:BEditor.Primitive.Effects.Monoc">
-            <summary>
-            Represents an <see cref="T:BEditor.Data.Primitive.ImageEffect"/> that monochromatizes an image.
-            </summary>
-        </member>
-        <member name="F:BEditor.Primitive.Effects.Monoc.ColorMetadata">
-            <summary>
-            Represents <see cref="P:BEditor.Primitive.Effects.Monoc.Color"/> metadata.
-            </summary>
-        </member>
-        <member name="M:BEditor.Primitive.Effects.Monoc.#ctor">
-            <summary>
-            Initializes a new instance of the <see cref="T:BEditor.Primitive.Effects.Monoc"/> class.
-            </summary>
-        </member>
-        <member name="P:BEditor.Primitive.Effects.Monoc.Name">
-            <inheritdoc/>
-        </member>
-        <member name="P:BEditor.Primitive.Effects.Monoc.Properties">
-            <inheritdoc/>
-        </member>
-        <member name="P:BEditor.Primitive.Effects.Monoc.Color">
-            <summary>
-            Get the <see cref="T:BEditor.Data.Property.ColorProperty"/> that represents the color to be monochromatic.
-            </summary>
-        </member>
-        <member name="M:BEditor.Primitive.Effects.Monoc.Render(BEditor.Data.EffectRenderArgs{BEditor.Drawing.Image{BEditor.Drawing.Pixel.BGRA32}})">
-            <inheritdoc/>
-        </member>
-        <member name="M:BEditor.Primitive.Effects.Monoc.OnLoad">
-            <inheritdoc/>
-        </member>
-        <member name="M:BEditor.Primitive.Effects.Monoc.OnUnload">
-            <inheritdoc/>
-        </member>
         <member name="T:BEditor.Primitive.Effects.MultipleControls">
             <summary>
             Represents a <see cref="T:BEditor.Data.Primitive.ImageEffect"/> that provides the ability to edit multiple objects by specifying their indices.
@@ -933,6 +898,41 @@
             <inheritdoc/>
         </member>
         <member name="M:BEditor.Primitive.Effects.MultipleControls.OnUnload">
+            <inheritdoc/>
+        </member>
+        <member name="T:BEditor.Primitive.Effects.SetColor">
+            <summary>
+            Represents an <see cref="T:BEditor.Data.Primitive.ImageEffect"/> that monochromatizes an image.
+            </summary>
+        </member>
+        <member name="F:BEditor.Primitive.Effects.SetColor.ColorMetadata">
+            <summary>
+            Represents <see cref="P:BEditor.Primitive.Effects.SetColor.Color"/> metadata.
+            </summary>
+        </member>
+        <member name="M:BEditor.Primitive.Effects.SetColor.#ctor">
+            <summary>
+            Initializes a new instance of the <see cref="T:BEditor.Primitive.Effects.SetColor"/> class.
+            </summary>
+        </member>
+        <member name="P:BEditor.Primitive.Effects.SetColor.Name">
+            <inheritdoc/>
+        </member>
+        <member name="P:BEditor.Primitive.Effects.SetColor.Properties">
+            <inheritdoc/>
+        </member>
+        <member name="P:BEditor.Primitive.Effects.SetColor.Color">
+            <summary>
+            Get the <see cref="T:BEditor.Data.Property.ColorProperty"/> that represents the color to be monochromatic.
+            </summary>
+        </member>
+        <member name="M:BEditor.Primitive.Effects.SetColor.Render(BEditor.Data.EffectRenderArgs{BEditor.Drawing.Image{BEditor.Drawing.Pixel.BGRA32}})">
+            <inheritdoc/>
+        </member>
+        <member name="M:BEditor.Primitive.Effects.SetColor.OnLoad">
+            <inheritdoc/>
+        </member>
+        <member name="M:BEditor.Primitive.Effects.SetColor.OnUnload">
             <inheritdoc/>
         </member>
         <member name="T:BEditor.Primitive.Effects.Shadow">
@@ -2125,6 +2125,16 @@
               Ball に類似しているローカライズされた文字列を検索します。
             </summary>
         </member>
+        <member name="P:BEditor.Primitive.Resources.Strings.Binarization">
+            <summary>
+              Binarization に類似しているローカライズされた文字列を検索します。
+            </summary>
+        </member>
+        <member name="P:BEditor.Primitive.Resources.Strings.Blue">
+            <summary>
+              Blue に類似しているローカライズされた文字列を検索します。
+            </summary>
+        </member>
         <member name="P:BEditor.Primitive.Resources.Strings.Blur">
             <summary>
               Blur に類似しているローカライズされた文字列を検索します。
@@ -2138,6 +2148,16 @@
         <member name="P:BEditor.Primitive.Resources.Strings.Bottom">
             <summary>
               Bottom に類似しているローカライズされた文字列を検索します。
+            </summary>
+        </member>
+        <member name="P:BEditor.Primitive.Resources.Strings.Brightness">
+            <summary>
+              Brightness に類似しているローカライズされた文字列を検索します。
+            </summary>
+        </member>
+        <member name="P:BEditor.Primitive.Resources.Strings.BrightnessCorrection">
+            <summary>
+              Brightness correction に類似しているローカライズされた文字列を検索します。
             </summary>
         </member>
         <member name="P:BEditor.Primitive.Resources.Strings.Camera">
@@ -2195,6 +2215,16 @@
               Colors に類似しているローカライズされた文字列を検索します。
             </summary>
         </member>
+        <member name="P:BEditor.Primitive.Resources.Strings.Contrast">
+            <summary>
+              Contrast に類似しているローカライズされた文字列を検索します。
+            </summary>
+        </member>
+        <member name="P:BEditor.Primitive.Resources.Strings.ContrastCorrection">
+            <summary>
+              Contrast correction に類似しているローカライズされた文字列を検索します。
+            </summary>
+        </member>
         <member name="P:BEditor.Primitive.Resources.Strings.Cube">
             <summary>
               Cube に類似しているローカライズされた文字列を検索します。
@@ -2223,6 +2253,11 @@
         <member name="P:BEditor.Primitive.Resources.Strings.DepthTestEnable">
             <summary>
               Enable Depth Testing に類似しているローカライズされた文字列を検索します。
+            </summary>
+        </member>
+        <member name="P:BEditor.Primitive.Resources.Strings.Diffusion">
+            <summary>
+              Diffusion に類似しているローカライズされた文字列を検索します。
             </summary>
         </member>
         <member name="P:BEditor.Primitive.Resources.Strings.Dilate">
@@ -2285,9 +2320,29 @@
               Frequency に類似しているローカライズされた文字列を検索します。
             </summary>
         </member>
+        <member name="P:BEditor.Primitive.Resources.Strings.Gamma">
+            <summary>
+              Gamma に類似しているローカライズされた文字列を検索します。
+            </summary>
+        </member>
+        <member name="P:BEditor.Primitive.Resources.Strings.GammaCorrection">
+            <summary>
+              Gamma correction に類似しているローカライズされた文字列を検索します。
+            </summary>
+        </member>
         <member name="P:BEditor.Primitive.Resources.Strings.GL3DObject">
             <summary>
               3D object に類似しているローカライズされた文字列を検索します。
+            </summary>
+        </member>
+        <member name="P:BEditor.Primitive.Resources.Strings.Grayscale">
+            <summary>
+              Grayscale に類似しているローカライズされた文字列を検索します。
+            </summary>
+        </member>
+        <member name="P:BEditor.Primitive.Resources.Strings.Green">
+            <summary>
+              Green に類似しているローカライズされた文字列を検索します。
             </summary>
         </member>
         <member name="P:BEditor.Primitive.Resources.Strings.Height">
@@ -2365,6 +2420,16 @@
               Multiple Image Control に類似しているローカライズされた文字列を検索します。
             </summary>
         </member>
+        <member name="P:BEditor.Primitive.Resources.Strings.Negaposi">
+            <summary>
+              Negaposi に類似しているローカライズされた文字列を検索します。
+            </summary>
+        </member>
+        <member name="P:BEditor.Primitive.Resources.Strings.Noise">
+            <summary>
+              Noise に類似しているローカライズされた文字列を検索します。
+            </summary>
+        </member>
         <member name="P:BEditor.Primitive.Resources.Strings.NumberOfHorizontalDivisions">
             <summary>
               Number of horizontal divisions に類似しているローカライズされた文字列を検索します。
@@ -2420,6 +2485,11 @@
               Rectangle に類似しているローカライズされた文字列を検索します。
             </summary>
         </member>
+        <member name="P:BEditor.Primitive.Resources.Strings.Red">
+            <summary>
+              Red に類似しているローカライズされた文字列を検索します。
+            </summary>
+        </member>
         <member name="P:BEditor.Primitive.Resources.Strings.Repeat">
             <summary>
               Repeat に類似しているローカライズされた文字列を検索します。
@@ -2428,6 +2498,11 @@
         <member name="P:BEditor.Primitive.Resources.Strings.Resize">
             <summary>
               Resize に類似しているローカライズされた文字列を検索します。
+            </summary>
+        </member>
+        <member name="P:BEditor.Primitive.Resources.Strings.RGBColorCorrection">
+            <summary>
+              RGB correction に類似しているローカライズされた文字列を検索します。
             </summary>
         </member>
         <member name="P:BEditor.Primitive.Resources.Strings.Right">
@@ -2453,6 +2528,11 @@
         <member name="P:BEditor.Primitive.Resources.Strings.Scenes">
             <summary>
               Scenes に類似しているローカライズされた文字列を検索します。
+            </summary>
+        </member>
+        <member name="P:BEditor.Primitive.Resources.Strings.Sepia">
+            <summary>
+              Sepia に類似しているローカライズされた文字列を検索します。
             </summary>
         </member>
         <member name="P:BEditor.Primitive.Resources.Strings.Shape">
@@ -2538,6 +2618,11 @@
         <member name="P:BEditor.Primitive.Resources.Strings.X">
             <summary>
               X に類似しているローカライズされた文字列を検索します。
+            </summary>
+        </member>
+        <member name="P:BEditor.Primitive.Resources.Strings.Xor">
+            <summary>
+              Xor に類似しているローカライズされた文字列を検索します。
             </summary>
         </member>
         <member name="P:BEditor.Primitive.Resources.Strings.Y">

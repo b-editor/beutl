@@ -32,6 +32,11 @@ namespace BEditor.ViewModels.CreatePage
 
         public ProjectCreatePageViewModel()
         {
+            if (!Directory.Exists(Settings.Default.LastTimeFolder))
+            {
+                Settings.Default.LastTimeFolder = Environment.GetFolderPath(Environment.SpecialFolder.MyDocuments);
+            }
+            Folder = new(Settings.Default.LastTimeFolder);
             OpenFolerDialog.Subscribe(OpenFolder);
             CreateCommand.Subscribe(Create);
             _select = new ReactiveCommand<TemplateItem>();
@@ -66,7 +71,7 @@ namespace BEditor.ViewModels.CreatePage
         public ReactivePropertySlim<uint> Framerate { get; } = new(FRAMERATE);
         public ReactivePropertySlim<uint> Samplingrate { get; } = new(SAMLINGRATE);
         public ReactiveProperty<string> Name { get; }
-        public ReactivePropertySlim<string> Folder { get; } = new(Settings.Default.LastTimeFolder);
+        public ReactivePropertySlim<string> Folder { get; }
 
         public ReactiveCommand OpenFolerDialog { get; } = new();
         public ReactiveCommand CreateCommand { get; } = new();

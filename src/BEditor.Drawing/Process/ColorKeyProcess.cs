@@ -5,7 +5,7 @@ using BEditor.Drawing.Pixel;
 
 namespace BEditor.Drawing.Process
 {
-    internal unsafe readonly struct ColorKeyProcess
+    public unsafe readonly struct ColorKeyProcess : IPixelProcess
     {
         private readonly BGRA32* _dst;
         private readonly BGRA32* _src;

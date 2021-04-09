@@ -148,7 +148,7 @@ namespace BEditor.Primitive
                     EffectMetadata.Create<Effects.ColorKey>(Strings.ColorKey),
                     EffectMetadata.Create<Effects.Shadow>(Strings.DropShadow),
                     EffectMetadata.Create<Effects.Blur>(Strings.Blur),
-                    EffectMetadata.Create<Effects.Monoc>(Strings.Monoc),
+                    EffectMetadata.Create<Effects.SetColor>(Strings.Monoc),
                     EffectMetadata.Create<Effects.Dilate>(Strings.Dilate),
                     EffectMetadata.Create<Effects.Erode>(Strings.Erode),
                     EffectMetadata.Create<Effects.Clipping>(Strings.Clipping),
@@ -160,6 +160,17 @@ namespace BEditor.Primitive
                     EffectMetadata.Create<Effects.ChromaKey>(Strings.ChromaKey),
                     EffectMetadata.Create<Effects.ImageSplit>(Strings.ImageSplit),
                     EffectMetadata.Create<Effects.MultipleControls>(Strings.MultipleImageControls),
+                    EffectMetadata.Create<Effects.Grayscale>(Strings.Grayscale),
+                    EffectMetadata.Create<Effects.Sepia>(Strings.Sepia),
+                    EffectMetadata.Create<Effects.Negaposi>(Strings.Negaposi),
+                    EffectMetadata.Create<Effects.Xor>(Strings.Xor),
+                    EffectMetadata.Create<Effects.BrightnessCorrection>(Strings.BrightnessCorrection),
+                    EffectMetadata.Create<Effects.ContrastCorrection>(Strings.ContrastCorrection),
+                    EffectMetadata.Create<Effects.GammaCorrection>(Strings.GammaCorrection),
+                    EffectMetadata.Create<Effects.RGBColor>(Strings.RGBColorCorrection),
+                    EffectMetadata.Create<Effects.Binarization>(Strings.Binarization),
+                    EffectMetadata.Create<Effects.Noise>(Strings.Noise),
+                    EffectMetadata.Create<Effects.Diffusion>(Strings.Diffusion),
                 }
             };
 

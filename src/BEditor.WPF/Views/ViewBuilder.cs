@@ -190,7 +190,6 @@ namespace BEditor.Views
                 view.SetBinding(SelectorPropertyView.ItemsSourceProperty, ItemsSourcePropertyBinding);
                 view.SetBinding(SelectorPropertyView.CommandProperty, CommandBinding);
                 view.SetBinding(SelectorPropertyView.SelectedIndexProperty, PropertyIndexBinding);
-                view.SetBinding(SelectorPropertyView.DisplayMemberPathProperty, DisplayMemberPathBinding);
 
                 return view;
             }));
@@ -212,8 +211,7 @@ namespace BEditor.Views
                 
                 view.SetBinding(SelectorPropertyViewGen.ItemsSourceProperty, ItemsSourcePropertyBinding);
                 view.SetBinding(SelectorPropertyViewGen.CommandProperty, CommandBinding);
-                view.SetBinding(SelectorPropertyViewGen.SelectedItemProperty, PropertySelectItemBinding);
-                view.SetBinding(SelectorPropertyViewGen.DisplayMemberPathProperty, DisplayMemberPathBinding);
+                view.SetBinding(SelectorPropertyView.SelectedIndexProperty, PropertyIndexBinding);
 
                 return view;
             }));

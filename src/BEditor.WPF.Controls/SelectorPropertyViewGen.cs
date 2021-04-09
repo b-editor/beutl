@@ -14,7 +14,7 @@ namespace BEditor.WPF.Controls
     {
         public static readonly DependencyProperty ItemsSourceProperty = DependencyProperty.Register(nameof(ItemsSource), typeof(IEnumerable), typeof(SelectorPropertyViewGen));
         public static readonly DependencyProperty DisplayMemberPathProperty = DependencyProperty.Register(nameof(DisplayMemberPath), typeof(string), typeof(SelectorPropertyViewGen));
-        public static readonly DependencyProperty SelectedItemProperty = DependencyProperty.Register(nameof(SelectedItem), typeof(object), typeof(SelectorPropertyViewGen));
+        public static readonly DependencyProperty SelectedIndexProperty = DependencyProperty.Register(nameof(SelectedIndex), typeof(int), typeof(SelectorPropertyViewGen));
         public static readonly DependencyProperty CommandProperty = DependencyProperty.Register(nameof(Command), typeof(ICommand), typeof(SelectorPropertyViewGen));
 
         static SelectorPropertyViewGen()
@@ -32,10 +32,10 @@ namespace BEditor.WPF.Controls
             get => (string)GetValue(DisplayMemberPathProperty);
             set => SetValue(DisplayMemberPathProperty, value);
         }
-        public object SelectedItem
+        public int SelectedIndex
         {
-            get => GetValue(SelectedItemProperty);
-            set => SetValue(SelectedItemProperty, value);
+            get => (int)GetValue(SelectedIndexProperty);
+            set => SetValue(SelectedIndexProperty, value);
         }
         public ICommand Command
         {
@@ -67,7 +67,7 @@ namespace BEditor.WPF.Controls
 
         private void Box_SelectionChanged(object sender, SelectionChangedEventArgs e)
         {
-            Command?.Execute(((ComboBox)sender).SelectedItem);
+            Command?.Execute(((ComboBox)sender).SelectedIndex);
         }
     }
 }

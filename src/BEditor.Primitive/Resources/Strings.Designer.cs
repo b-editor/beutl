@@ -115,6 +115,24 @@ namespace BEditor.Primitive.Resources {
         }
         
         /// <summary>
+        ///   Binarization に類似しているローカライズされた文字列を検索します。
+        /// </summary>
+        internal static string Binarization {
+            get {
+                return ResourceManager.GetString("Binarization", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Blue に類似しているローカライズされた文字列を検索します。
+        /// </summary>
+        internal static string Blue {
+            get {
+                return ResourceManager.GetString("Blue", resourceCulture);
+            }
+        }
+        
+        /// <summary>
         ///   Blur に類似しているローカライズされた文字列を検索します。
         /// </summary>
         internal static string Blur {
@@ -138,6 +156,24 @@ namespace BEditor.Primitive.Resources {
         internal static string Bottom {
             get {
                 return ResourceManager.GetString("Bottom", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Brightness に類似しているローカライズされた文字列を検索します。
+        /// </summary>
+        internal static string Brightness {
+            get {
+                return ResourceManager.GetString("Brightness", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Brightness correction に類似しているローカライズされた文字列を検索します。
+        /// </summary>
+        internal static string BrightnessCorrection {
+            get {
+                return ResourceManager.GetString("BrightnessCorrection", resourceCulture);
             }
         }
         
@@ -241,6 +277,24 @@ namespace BEditor.Primitive.Resources {
         }
         
         /// <summary>
+        ///   Contrast に類似しているローカライズされた文字列を検索します。
+        /// </summary>
+        internal static string Contrast {
+            get {
+                return ResourceManager.GetString("Contrast", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Contrast correction に類似しているローカライズされた文字列を検索します。
+        /// </summary>
+        internal static string ContrastCorrection {
+            get {
+                return ResourceManager.GetString("ContrastCorrection", resourceCulture);
+            }
+        }
+        
+        /// <summary>
         ///   Cube に類似しているローカライズされた文字列を検索します。
         /// </summary>
         internal static string Cube {
@@ -291,6 +345,15 @@ namespace BEditor.Primitive.Resources {
         internal static string DepthTestEnable {
             get {
                 return ResourceManager.GetString("DepthTestEnable", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Diffusion に類似しているローカライズされた文字列を検索します。
+        /// </summary>
+        internal static string Diffusion {
+            get {
+                return ResourceManager.GetString("Diffusion", resourceCulture);
             }
         }
         
@@ -403,11 +466,47 @@ namespace BEditor.Primitive.Resources {
         }
         
         /// <summary>
+        ///   Gamma に類似しているローカライズされた文字列を検索します。
+        /// </summary>
+        internal static string Gamma {
+            get {
+                return ResourceManager.GetString("Gamma", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Gamma correction に類似しているローカライズされた文字列を検索します。
+        /// </summary>
+        internal static string GammaCorrection {
+            get {
+                return ResourceManager.GetString("GammaCorrection", resourceCulture);
+            }
+        }
+        
+        /// <summary>
         ///   3D object に類似しているローカライズされた文字列を検索します。
         /// </summary>
         internal static string GL3DObject {
             get {
                 return ResourceManager.GetString("GL3DObject", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Grayscale に類似しているローカライズされた文字列を検索します。
+        /// </summary>
+        internal static string Grayscale {
+            get {
+                return ResourceManager.GetString("Grayscale", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Green に類似しているローカライズされた文字列を検索します。
+        /// </summary>
+        internal static string Green {
+            get {
+                return ResourceManager.GetString("Green", resourceCulture);
             }
         }
         
@@ -547,6 +646,24 @@ namespace BEditor.Primitive.Resources {
         }
         
         /// <summary>
+        ///   Negaposi に類似しているローカライズされた文字列を検索します。
+        /// </summary>
+        internal static string Negaposi {
+            get {
+                return ResourceManager.GetString("Negaposi", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Noise に類似しているローカライズされた文字列を検索します。
+        /// </summary>
+        internal static string Noise {
+            get {
+                return ResourceManager.GetString("Noise", resourceCulture);
+            }
+        }
+        
+        /// <summary>
         ///   Number of horizontal divisions に類似しているローカライズされた文字列を検索します。
         /// </summary>
         internal static string NumberOfHorizontalDivisions {
@@ -646,6 +763,15 @@ namespace BEditor.Primitive.Resources {
         }
         
         /// <summary>
+        ///   Red に類似しているローカライズされた文字列を検索します。
+        /// </summary>
+        internal static string Red {
+            get {
+                return ResourceManager.GetString("Red", resourceCulture);
+            }
+        }
+        
+        /// <summary>
         ///   Repeat に類似しているローカライズされた文字列を検索します。
         /// </summary>
         internal static string Repeat {
@@ -660,6 +786,15 @@ namespace BEditor.Primitive.Resources {
         internal static string Resize {
             get {
                 return ResourceManager.GetString("Resize", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   RGB correction に類似しているローカライズされた文字列を検索します。
+        /// </summary>
+        internal static string RGBColorCorrection {
+            get {
+                return ResourceManager.GetString("RGBColorCorrection", resourceCulture);
             }
         }
         
@@ -705,6 +840,15 @@ namespace BEditor.Primitive.Resources {
         internal static string Scenes {
             get {
                 return ResourceManager.GetString("Scenes", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Sepia に類似しているローカライズされた文字列を検索します。
+        /// </summary>
+        internal static string Sepia {
+            get {
+                return ResourceManager.GetString("Sepia", resourceCulture);
             }
         }
         
@@ -858,6 +1002,15 @@ namespace BEditor.Primitive.Resources {
         internal static string X {
             get {
                 return ResourceManager.GetString("X", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Xor に類似しているローカライズされた文字列を検索します。
+        /// </summary>
+        internal static string Xor {
+            get {
+                return ResourceManager.GetString("Xor", resourceCulture);
             }
         }
         

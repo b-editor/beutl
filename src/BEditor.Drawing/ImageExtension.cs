@@ -79,8 +79,7 @@ namespace BEditor.Drawing
 
             fixed (BGRA32* data = self.Data)
             {
-                var p = new SetOpacityProcess(data, opacity);
-                Parallel.For(0, self.Data.Length, p.Invoke);
+                PixelProcess(self.Data.Length, new SetOpacityProcess(data, opacity));
             }
         }
 
@@ -91,8 +90,7 @@ namespace BEditor.Drawing
 
             fixed (BGRA32* data = self.Data)
             {
-                var p = new SetColorProcess(data, color);
-                Parallel.For(0, self.Data.Length, p.Invoke);
+                PixelProcess(self.Data.Length, new SetColorProcess(data, color));
             }
         }
 
@@ -425,17 +423,23 @@ namespace BEditor.Drawing
 
         public static void ChromaKey(this Image<BGRA32> self, int value)
         {
+            if (self is null) throw new ArgumentNullException(nameof(self));
+            self.ThrowIfDisposed();
+
             fixed (BGRA32* s = self.Data)
             {
-                Parallel.For(0, self.Data.Length, new ChromaKeyProcess(s, s, value).Invoke);
+                PixelProcess(self.Data.Length, new ChromaKeyProcess(s, s, value));
             }
         }
 
         public static void ColorKey(this Image<BGRA32> self, BGRA32 color, int value)
         {
+            if (self is null) throw new ArgumentNullException(nameof(self));
+            self.ThrowIfDisposed();
+
             fixed (BGRA32* s = self.Data)
             {
-                Parallel.For(0, self.Data.Length, new ColorKeyProcess(s, s, color, value).Invoke);
+                PixelProcess(self.Data.Length, new ColorKeyProcess(s, s, color, value));
             }
         }
 
@@ -815,7 +819,7 @@ namespace BEditor.Drawing
             fixed (T1* srcPtr = self.Data)
             fixed (T2* dstPtr = dst.Data)
             {
-                Parallel.For(0, self.Data.Length, new ConvertToProcess<T1, T2>(srcPtr, dstPtr).Invoke);
+                PixelProcess(self.Data.Length, new ConvertToProcess<T1, T2>(srcPtr, dstPtr));
             }
 
             return dst;

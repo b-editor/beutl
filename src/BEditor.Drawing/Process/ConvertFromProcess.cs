@@ -3,7 +3,7 @@ using BEditor.Drawing.Pixel;
 
 namespace BEditor.Drawing.Process
 {
-    internal readonly unsafe struct ConvertFromProcess<T1, T2>
+    public readonly unsafe struct ConvertFromProcess<T1, T2> : IPixelProcess
         where T1 : unmanaged, IPixel<T1>
         where T2 : unmanaged, IPixel<T2>, IPixelConvertable<T1>
     {

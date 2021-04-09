@@ -12,7 +12,7 @@ namespace BEditor.Primitive.Effects
     /// <summary>
     /// Represents an <see cref="ImageEffect"/> that monochromatizes an image.
     /// </summary>
-    public sealed class Monoc : ImageEffect
+    public sealed class SetColor : ImageEffect
     {
         /// <summary>
         /// Represents <see cref="Color"/> metadata.
@@ -20,9 +20,9 @@ namespace BEditor.Primitive.Effects
         public static readonly ColorPropertyMetadata ColorMetadata = new(Strings.Color, Drawing.Color.Light);
 
         /// <summary>
-        /// Initializes a new instance of the <see cref="Monoc"/> class.
+        /// Initializes a new instance of the <see cref="SetColor"/> class.
         /// </summary>
-        public Monoc()
+        public SetColor()
         {
             Color = new(ColorMetadata);
         }

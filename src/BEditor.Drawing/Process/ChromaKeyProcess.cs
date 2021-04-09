@@ -5,7 +5,7 @@ using BEditor.Drawing.Pixel;
 
 namespace BEditor.Drawing.Process
 {
-    internal unsafe readonly struct ChromaKeyProcess
+    public unsafe readonly struct ChromaKeyProcess : IPixelProcess
     {
         private readonly BGRA32* _dst;
         private readonly BGRA32* _src;
@@ -26,12 +26,10 @@ namespace BEditor.Drawing.Process
             var min = Math.Min(Math.Min(camColor.R, camColor.G), camColor.B);
 
             var replace =
-                camColor.G != min // green is not the smallest value
-                && (camColor.G == max // green is the biggest value
-                || max - camColor.G < 8) // or at least almost the biggest value
-                && (max - min) > _value; // minimum difference between smallest/biggest value (avoid grays)
-
-            //bool replace = color <= camColor && camColor <= color;//min < camColor && camColor < max;
+                camColor.G != min
+                && (camColor.G == max
+                || max - camColor.G < 8)
+                && (max - min) > _value;
 
             if (replace)
             {

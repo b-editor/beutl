@@ -33,7 +33,6 @@
     <Rule Id="RCS1129" Action="None" />
     <Rule Id="RCS1138" Action="None" />
     <Rule Id="RCS1161" Action="None" />
-    <Rule Id="RCS1162" Action="Warning" />
     <Rule Id="RCS1170" Action="None" />
     <Rule Id="RCS1174" Action="Warning" />
     <Rule Id="RCS1176" Action="Warning" />
