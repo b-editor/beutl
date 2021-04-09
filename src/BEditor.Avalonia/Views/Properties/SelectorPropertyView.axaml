@@ -4,9 +4,9 @@
   xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
   xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
   xmlns:vm="using:BEditor.ViewModels.Properties"
-  x:DataType="vm:SelectorPropertyViewModel"
+  x:DataType="vm:ISelectorPropertyViewModel"
   Background="Transparent"
-  Height="32.5"
+  Height="40"
   HorizontalAlignment="Stretch"
   mc:Ignorable="d" d:DesignWidth="450" d:DesignHeight="32.5"
   x:Class="BEditor.Views.Properties.SelectorPropertyView">
@@ -19,32 +19,31 @@
   <Grid>
     <Grid.ColumnDefinitions>
       <ColumnDefinition Width="120*" MaxWidth="100" MinWidth="50"/>
-      <ColumnDefinition Width="50"/>
-      <ColumnDefinition Width="50"/>
+      <ColumnDefinition Width="40"/>
+      <ColumnDefinition Width="40"/>
       <ColumnDefinition Width="*" MinWidth="100"/>
     </Grid.ColumnDefinitions>
 
-    <Grid>
-      <TextBlock
-        Text="{CompiledBinding Metadata.Value.Name, Mode=OneTime}"
-        VerticalAlignment="Center"
-        HorizontalAlignment="Left"
-        FontSize="13"
-        Margin="10,0,0,0"
-        TextTrimming="CharacterEllipsis"/>
-    </Grid>
+    <Label
+      Height="40"
+      Margin="10,0,0,0"
+      HorizontalAlignment="Left"
+      VerticalAlignment="Top"
+      VerticalContentAlignment="Center"
+      FontSize="13"
+      Content="{Binding Metadata.Value.Name, Mode=OneTime}" />
 
 
     <!--Combo box-->
     <ComboBox
-      Items="{CompiledBinding Metadata.Value.ItemSource, Mode=OneTime}"
-      SelectedIndex="{CompiledBinding Property.Index, Mode=OneWay}"
+      Items="{CompiledBinding DisplayStrings, Mode=OneTime}"
+      SelectedIndex="{Binding Property.Index, Mode=OneWay}"
       SelectionChanged="ComboBox_SelectionChanged"
       HorizontalAlignment="Stretch"
       VerticalAlignment="Center"
       Background="Transparent"
       BorderBrush="Transparent"
       Grid.Column="3"
-      Margin="5,0,5,0"/>
+      Margin="8,0"/>
   </Grid>
 </UserControl>

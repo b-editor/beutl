@@ -18,7 +18,7 @@ namespace BEditor.Data.Property
     public class SelectorProperty : PropertyElement<SelectorPropertyMetadata>, IEasingProperty, IBindable<int>
     {
         #region Fields
-        private static readonly PropertyChangedEventArgs _indexArgs = new(nameof(Index));
+        internal static readonly PropertyChangedEventArgs _indexArgs = new(nameof(Index));
         private int _selectIndex;
         private List<IObserver<int>>? _list;
         private IDisposable? _bindDispose;
@@ -40,10 +40,10 @@ namespace BEditor.Data.Property
         /// <summary>
         /// Get or set the selected item.
         /// </summary>
-        public object? SelectItem
+        public string? SelectItem
         {
             get => PropertyMetadata?.ItemSource[Index];
-            set => Index = PropertyMetadata?.ItemSource?.IndexOf(value) ?? 0;
+            set => Index = value is null ? 0 : (PropertyMetadata?.ItemSource?.IndexOf(value) ?? 0);
         }
 
         /// <summary>

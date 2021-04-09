@@ -1,0 +1,54 @@
+<UserControl
+  xmlns="https://github.com/avaloniaui"
+  xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+  xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+  xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+  xmlns:views="using:BEditor.Views"
+  xmlns:vm="using:BEditor.ViewModels.Properties"
+  x:DataType="vm:ColorAnimationPropertyViewModel"
+  mc:Ignorable="d" d:DesignWidth="800" d:DesignHeight="450"
+  x:Name="root"
+  Height="40"
+  Background="Transparent"
+  x:Class="BEditor.Views.Properties.ColorAnimationPropertyView">
+  <Grid>
+    <Grid.ColumnDefinitions>
+      <ColumnDefinition Width="120*" MinWidth="50" MaxWidth="100" />
+      <ColumnDefinition Width="40" />
+      <ColumnDefinition Width="40" />
+      <ColumnDefinition Width="*" MinWidth="100" />
+    </Grid.ColumnDefinitions>
+
+    <Label
+      Height="40"
+      Margin="10,0,0,0"
+      HorizontalAlignment="Left"
+      VerticalAlignment="Top"
+      VerticalContentAlignment="Center"
+      FontSize="13"
+      Content="{CompiledBinding Metadata.Value.Name, Mode=OneTime}" />
+
+    <Button Grid.Column="1" Width="32" Height="32" Margin="0,4" VerticalAlignment="Top" Click="ShowEasingProperty" Background="Transparent">
+      <PathIcon Data="{DynamicResource \\data_line\\svg\\ic_fluent_data_line_24_regular.svg_regular}"/>
+    </Button>
+    <StackPanel x:Name="stackPanel" Grid.Column="3"/>
+
+    <ToggleButton
+      x:Name="togglebutton"
+      Grid.Column="2"
+      Width="32"
+      Height="32"
+      Margin="0,4"
+      VerticalAlignment="Top"
+      Background="Transparent"
+      Click="ListToggleClick">
+      <PathIcon
+        Width="20"
+        Height="20"
+        HorizontalAlignment="Center"
+        VerticalAlignment="Center"
+        Data="{DynamicResource \\chevron_up_down\\svg\\ic_fluent_chevron_up_down_20_regular.svg_regular}" />
+    </ToggleButton>
+
+  </Grid>
+</UserControl>

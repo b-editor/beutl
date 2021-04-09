@@ -21,6 +21,8 @@ using BEditor.Plugin;
 using BEditor.Primitive;
 using BEditor.Properties;
 
+using FFMediaToolkit;
+
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
 
@@ -74,6 +76,14 @@ namespace BEditor
                 RegisterPrimitive();
 
                 await InitialPluginsAsync();
+
+                // FFmpegì«Ç›çûÇ›
+                if (OperatingSystem.IsWindows())
+                {
+                    FFmpegLoader.FFmpegPath = Path.Combine(AppContext.BaseDirectory, "ffmpeg");
+                }
+
+                FFmpegLoader.LoadFFmpeg();
 
                 AppDomain.CurrentDomain.UnhandledException += CurrentDomain_UnhandledException;
 
@@ -142,17 +152,10 @@ namespace BEditor
         }
         private static void RegisterPrimitive()
         {
-            ObjectMetadata.LoadedObjects.Add(PrimitiveTypes.VideoMetadata);
-            ObjectMetadata.LoadedObjects.Add(PrimitiveTypes.ImageMetadata);
-            ObjectMetadata.LoadedObjects.Add(PrimitiveTypes.ShapeMetadata);
-            ObjectMetadata.LoadedObjects.Add(PrimitiveTypes.PolygonMetadata);
-            ObjectMetadata.LoadedObjects.Add(PrimitiveTypes.RoundRectMetadata);
-            ObjectMetadata.LoadedObjects.Add(PrimitiveTypes.TextMetadata);
-            ObjectMetadata.LoadedObjects.Add(PrimitiveTypes.CameraMetadata);
-            ObjectMetadata.LoadedObjects.Add(PrimitiveTypes.GL3DObjectMetadata);
-            ObjectMetadata.LoadedObjects.Add(PrimitiveTypes.SceneMetadata);
-            ObjectMetadata.LoadedObjects.Add(PrimitiveTypes.FramebufferMetadata);
-            ObjectMetadata.LoadedObjects.Add(PrimitiveTypes.ListenerMetadata);
+            foreach (var obj in PrimitiveTypes.EnumerateAllObjectMetadata())
+            {
+                ObjectMetadata.LoadedObjects.Add(obj);
+            }
 
             foreach (var effect in PrimitiveTypes.EnumerateAllEffectMetadata())
             {

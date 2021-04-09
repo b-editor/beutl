@@ -1,25 +1,24 @@
+using System;
 using System.Collections.Specialized;
+using System.Linq;
 
 using Avalonia;
-using Avalonia.Layout;
+using Avalonia.Animation;
 using Avalonia.Controls;
+using Avalonia.Controls.Primitives;
 using Avalonia.Input;
 using Avalonia.Interactivity;
+using Avalonia.Layout;
 using Avalonia.Markup.Xaml;
+using Avalonia.Media;
+using Avalonia.Styling;
+using Avalonia.VisualTree;
 
 using BEditor.Data;
 using BEditor.Data.Property;
 using BEditor.Extensions;
 using BEditor.Models;
 using BEditor.ViewModels.Properties;
-using Avalonia.Data;
-using System.Linq;
-using Avalonia.Media;
-using System;
-using Avalonia.Animation.Animators;
-using Avalonia.Animation;
-using Avalonia.Styling;
-using Avalonia.Controls.Primitives;
 
 namespace BEditor.Views.Properties
 {
@@ -27,7 +26,7 @@ namespace BEditor.Views.Properties
     {
         private readonly EaseProperty _property;
         private readonly StackPanel _stackPanel;
-        private readonly Setter _heightSetter = new(HeightProperty, 32.5);
+        private readonly Setter _heightSetter = new(HeightProperty, 40d);
         private readonly Animation _opencloseAnim = new()
         {
             Duration = TimeSpan.FromSeconds(0.25),
@@ -36,7 +35,7 @@ namespace BEditor.Views.Properties
                 new()
                 {
                     Cue = new(0),
-                    Setters = { new Setter(HeightProperty, 32.5) }
+                    Setters = { new Setter(HeightProperty, 40d) }
                 },
                 new()
                 {
@@ -75,12 +74,13 @@ namespace BEditor.Views.Properties
             {
                 [AttachmentProperty.IntProperty] = index,
                 Height = 32,
-                Margin = new Thickness(5, 0.25, 5, 0.25),
+                Margin = new Thickness(8, 4),
                 VerticalAlignment = VerticalAlignment.Center,
                 Value = _property.Value[index],
                 ShowButtonSpinner = false,
                 Background = Brushes.Transparent,
-                BorderBrush = Brushes.Transparent
+                BorderBrush = Brushes.Transparent,
+                Increment = 10
             };
 
             num.GotFocus += NumericUpDown_GotFocus;
@@ -132,9 +132,14 @@ namespace BEditor.Views.Properties
             }
         }
 
-        public void ShowEasingProperty(object s, RoutedEventArgs e)
+        public async void ShowEasingProperty(object s, RoutedEventArgs e)
         {
-
+            var dialog = new Window
+            {
+                Content = new EasingPropertyView(DataContext!),
+                SizeToContent = SizeToContent.WidthAndHeight
+            };
+            await dialog.ShowDialog((Window)this.GetVisualRoot());
         }
 
         public async void ListToggleClick(object? sender, RoutedEventArgs? e)
@@ -144,16 +149,16 @@ namespace BEditor.Views.Properties
             //ŠJ‚­
             if (!togglebutton.IsChecked ?? false)
             {
-                _heightSetter.Value = _property.Value.Count * 32.5;
+                _heightSetter.Value = _property.Value.Count * 40d;
 
                 _opencloseAnim.PlaybackDirection = PlaybackDirection.Reverse;
                 await _opencloseAnim.RunAsync(this);
 
-                Height = 32.5;
+                Height = 40f;
             }
             else
             {
-                var height = _property.Value.Count * 32.5;
+                var height = _property.Value.Count * 40d;
                 _heightSetter.Value = height;
 
                 _opencloseAnim.PlaybackDirection = PlaybackDirection.Normal;

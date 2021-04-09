@@ -1,0 +1,46 @@
+<UserControl
+  xmlns="https://github.com/avaloniaui"
+  xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+  xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+  xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+  mc:Ignorable="d" d:DesignWidth="800" d:DesignHeight="450"
+  xmlns:vm="using:BEditor.ViewModels.Properties"
+  x:DataType="vm:ValuePropertyViewModel"
+  Height="40"
+  Background="Transparent"
+  x:Class="BEditor.Views.Properties.ValuePropertyView">
+  <Grid>
+    <Grid.ColumnDefinitions>
+      <ColumnDefinition Width="120*" MinWidth="50" MaxWidth="100" />
+      <ColumnDefinition Width="40" />
+      <ColumnDefinition Width="40" />
+      <ColumnDefinition Width="*" MinWidth="100" />
+    </Grid.ColumnDefinitions>
+
+    <Label
+      Height="40"
+      Margin="10,0,0,0"
+      HorizontalAlignment="Left"
+      VerticalAlignment="Top"
+      VerticalContentAlignment="Center"
+      FontSize="13"
+      Content="{CompiledBinding Metadata.Value.Name, Mode=OneTime}" />
+
+    <NumericUpDown
+      Grid.Column="3"
+      Height="32"
+      Margin="8,4"
+      VerticalAlignment="Center"
+      ShowButtonSpinner="False"
+      Background="Transparent"
+      BorderBrush="Transparent"
+      Increment="10"
+      Value="{CompiledBinding Property.Value, Mode=OneWay}"
+      Maximum="{CompiledBinding Maximum, Mode=OneTime}"
+      Minimum="{CompiledBinding Minimum, Mode=OneTime}"
+      GotFocus="NumericUpDown_GotFocus"
+      LostFocus="NumericUpDown_LostFocus"
+      ValueChanged="NumericUpDown_ValueChanged" />
+    
+  </Grid>
+</UserControl>

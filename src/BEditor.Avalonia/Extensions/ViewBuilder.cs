@@ -17,6 +17,7 @@ using BEditor.Data;
 using BEditor.Data.Property;
 using BEditor.Data.Property.Easing;
 using BEditor.Properties;
+using BEditor.ViewModels.Properties;
 using BEditor.ViewModels.Timelines;
 using BEditor.Views.Properties;
 using BEditor.Views.Timelines;
@@ -28,13 +29,24 @@ namespace BEditor.Extensions
         public static readonly List<PropertyViewBuilder> PropertyViewBuilders = new()
         {
             PropertyViewBuilder.Create<CheckProperty>(p => new CheckPropertyView(p)),
-            PropertyViewBuilder.Create<SelectorProperty>(p => new SelectorPropertyView(p)),
+            PropertyViewBuilder.Create<SelectorProperty>(p => new SelectorPropertyView(new SelectorPropertyViewModel(p))),
+            new(typeof(SelectorProperty<>), prop =>
+            {
+                var vmtype = typeof(SelectorPropertyViewModel<>).MakeGenericType(prop.GetType().GenericTypeArguments);
+                return new SelectorPropertyView((ISelectorPropertyViewModel)Activator.CreateInstance(vmtype, prop)!);
+            }),
+            PropertyViewBuilder.Create<ValueProperty>(p => new ValuePropertyView(p)),
             PropertyViewBuilder.Create<EaseProperty>(p => new EasePropertyView(p)),
+            PropertyViewBuilder.Create<DocumentProperty>(p => new DocumentPropertyView(p)),
+            PropertyViewBuilder.Create<FontProperty>(p => new FontPropertyView(p)),
+            PropertyViewBuilder.Create<ColorProperty>(p => new ColorPropertyView(p)),
+            PropertyViewBuilder.Create<ColorAnimationProperty>(p => new ColorAnimationPropertyView(p)),
             PropertyViewBuilder.Create<ExpandGroup>(p =>
             {
-                var header = new TextBlock
+                var header = new Label
                 {
-                    Text = p.PropertyMetadata?.Name ?? string.Empty,
+                    Content = p.PropertyMetadata?.Name ?? string.Empty,
+                    Height = 24
                 };
                 var expander = new Expander
                 {
@@ -145,7 +157,7 @@ namespace BEditor.Extensions
                     return x.PropertyType.IsAssignableFrom(type);
                 });
 
-                property[PropertyElementViewProperty] = func?.CreateFunc?.Invoke(property) ?? new TextBlock { Height = 32.5 };
+                property[PropertyElementViewProperty] = func?.CreateFunc?.Invoke(property) ?? new TextBlock { Height = 40 };
             }
             return property.GetValue(PropertyElementViewProperty);
         }

@@ -5,10 +5,10 @@
     /// </summary>
     /// <param name="Name">The string displayed in the property header.</param>
     public record ButtonComponentMetadata(string Name)
-        : PropertyElementMetadata(Name), IPropertyBuilder<ButtonComponent>
+        : PropertyElementMetadata(Name), IEditingPropertyInitializer<ButtonComponent>
     {
         /// <inheritdoc/>
-        public ButtonComponent Build()
+        public ButtonComponent Create()
         {
             return new ButtonComponent(this);
         }

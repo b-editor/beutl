@@ -1,9 +1,12 @@
 ﻿using System;
 using System.Collections.Generic;
+using System.Runtime.CompilerServices;
 
 using BEditor.Data;
 using BEditor.Primitive.Objects;
 using BEditor.Primitive.Resources;
+
+[assembly: InternalsVisibleTo("NUnitTestProject1")]
 
 namespace BEditor.Primitive
 {
@@ -108,6 +111,27 @@ namespace BEditor.Primitive
         /// Metadata of <see cref="ListenerObject"/> class.
         /// </summary>
         public static readonly ObjectMetadata ListenerMetadata = ObjectMetadata.Create<ListenerObject>(Strings.Listener);
+
+        /// <summary>
+        /// Enumerate all objects.
+        /// </summary>
+        /// <returns></returns>
+        public static IEnumerable<ObjectMetadata> EnumerateAllObjectMetadata()
+        {
+            yield return VideoMetadata;
+            yield return AudioMetadata;
+            yield return ImageMetadata;
+            yield return TextMetadata;
+            yield return ShapeMetadata;
+            yield return PolygonMetadata;
+            yield return RoundRectMetadata;
+            yield return CameraMetadata;
+            yield return GL3DObjectMetadata;
+            yield return SceneMetadata;
+            yield return FramebufferMetadata;
+            yield return ListenerMetadata;
+            yield return ObjectMetadata.Create<PropertyTest>("PropertyTest");
+        }
 
         /// <summary>
         /// Enumerate all effects.

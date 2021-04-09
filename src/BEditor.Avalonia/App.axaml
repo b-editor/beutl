@@ -4,12 +4,13 @@
   xmlns:convert="using:BEditor.Converters"
   x:Class="BEditor.App">
   <Application.Resources>
-    <convert:CursorTypeToCursorConverter x:Key="CursorTypeToCursorConverter"/>
-    <convert:SceneToTimelineConverter x:Key="SceneToTimelineConverter"/>
-    <convert:PluginNameConverter x:Key="NameConvert"/>
-    <convert:PluginAuthorConverter x:Key="AuthorConvert"/>
-    <convert:ClipPropertyConverter x:Key="ClipPropertyConverter"/>
-    <convert:EffectPropertyConverter x:Key="EffectPropertyConverter"/>
+    <convert:CursorTypeToCursorConverter x:Key="CursorTypeToCursorConverter" />
+    <convert:SceneToTimelineConverter x:Key="SceneToTimelineConverter" />
+    <convert:PluginNameConverter x:Key="NameConvert" />
+    <convert:PluginAuthorConverter x:Key="AuthorConvert" />
+    <convert:ClipPropertyConverter x:Key="ClipPropertyConverter" />
+    <convert:EffectPropertyConverter x:Key="EffectPropertyConverter" />
+    <convert:EasingPropertyConverter x:Key="EasingPropertyConverter" />
   </Application.Resources>
   <Application.Styles>
     <StyleInclude Source="avares://BEditor.Avalonia/Controls/SeekSlider.axaml" />
