@@ -9,50 +9,41 @@ BEditorの設定。
 
 * 2Dの描画ライブラリです。  
 * 内部でSkiaSharpを使っていますが、一部の処理はC#で実装しています。
-* プラットフォーム - [Windows, Linux, macOS]
 
 ## BEditor.Graphics
 
 * OpenGLを使った3Dの描画ライブラリです。
-* プラットフォーム - [Windows, X11対応OS, macOS]
 
 ## BEditor.Media
 
 * メディアファイルの入出力ライブラリです。  
 * FFmpegを利用しています。
-* プラットフォーム - [Windows, Linux, macOS]
 
 ## BEditor.Core
 
 * 主にプロジェクトのデータがあるライブラリです。
-* プラットフォーム - [Windows, Linux, macOS]
 
 ## BEditor.Primitive
 
 * デフォルトであるオブジェクトやエフェクトがあるライブラリです。
-* プラットフォーム - [Windows, Linux, macOS]
 
-## BEditor.CLI
+## BEditor.Console
 
 * コンソールでプロジェクトを編集する実行ファイルのプロジェクトです。
-* プラットフォーム - [Windows, Linux, macOS]
 
 ## BEditor.WPF.Controls
 
 * BEditor.WPF用のカスタムコントロールライブラリです。
-* プラットフォーム - [Windows]
 
 ## BEditor.WPF
 
 * BEditorの実行ファイルのプロジェクトです。  
 * WPFをつかっています。
-* プラットフォーム - [Windows]
 
-## BEditor.Package
+## BEditor.Avalonia
 
-* デスクトップブリッジのプロジェクトです。
-* ストア配布するには証明書が必要なので使わないと思う
-* プラットフォーム - [Windows10]
+* BEditorの実行ファイルのプロジェクトです。  
+* AvaloniaUIをつかっています。
 
 # プロジェクトデータの構造
 
@@ -69,9 +60,8 @@ BEditorの設定。
 * Projectの親要素はIApplicationです。
 * 各要素はIParent, IChild, IElementObjectを実装します。
 * 各要素はEditorObjectを継承します。
-* EditorObjectとは
-    * WPFのUIElementなどをキャッシュするために作ったクラス
-    * このクラスを継承するとプロパティを拡張できる。
+* EditingObjectとは
+    * このクラスを継承してEditingPropertyの設定をするとPropertyElementの初期化が楽になる。
     * さらに子要素のLoad, Unloadも自動でやってくれる。
 * Bindableとは
     * プロパティの値を同期する機能
@@ -93,8 +83,9 @@ BEditorの設定。
 
 動画オブジェクト, 画像オブジェクト, テキストオブジェクトなどがこのクラスを継承しています。  
   
-本当はClipElementを継承する方が理にかなってが子要素が二種類存在することになるからやめました。  
+本当はClipElementを継承する方が理にかなっていますが子要素が二種類存在することになるからやめました。  
 このオブジェクトはClipElement.Effect[0]にあります。  
+プラグインで追加することができます。
 
 ## EffectElement
 
