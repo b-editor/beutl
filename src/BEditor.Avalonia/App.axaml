@@ -20,5 +20,15 @@
     <StyleInclude Source="avares://BEditor.Avalonia/Controls/FluentUiIcons_Regular1.axaml" />
     <StyleInclude Source="avares://BEditor.Avalonia/Controls/FluentUiIcons_Regular2.axaml" />
     <StyleInclude Source="avares://BEditor.Avalonia/Views/Settings/SettingsResources.axaml" />
+
+    <Style Selector="Button">
+      <Setter Property="Background" Value="Transparent" />
+    </Style>
+
+    <Style Selector="Button:disabled /template/ ContentPresenter#PART_ContentPresenter">
+      <Setter Property="Opacity" Value="0.5" />
+      <Setter Property="BorderBrush" Value="Transparent" />
+      <Setter Property="Background" Value="Transparent" />
+    </Style>
   </Application.Styles>
 </Application>

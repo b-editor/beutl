@@ -1,5 +1,9 @@
+using System;
+
 using Avalonia;
 using Avalonia.Controls;
+using Avalonia.Input;
+using Avalonia.Interactivity;
 using Avalonia.Markup.Xaml;
 
 using BEditor.Data;
@@ -12,11 +16,27 @@ namespace BEditor.Views.Properties
         {
             InitializeComponent();
         }
-        
+
         public ClipPropertyView(ClipElement clip)
         {
-            InitializeComponent();
+            DragDrop.SetAllowDrop(this, true);
+            AddHandler(DragDrop.DragOverEvent, UserControl_DragOver);
+            AddHandler(DragDrop.DropEvent, UserControl_Drop);
             DataContext = clip;
+            InitializeComponent();
+        }
+
+        private void UserControl_DragOver(object? sender, DragEventArgs e)
+        {
+            e.DragEffects = e.Data.Contains("EffectMetadata") ? DragDropEffects.Copy : DragDropEffects.None;
+        }
+
+        private void UserControl_Drop(object? sender, DragEventArgs e)
+        {
+            if (e.Data.Get("EffectMetadata") is EffectMetadata metadata && DataContext is ClipElement clip)
+            {
+                clip.AddEffect(metadata.CreateFunc()).Execute();
+            }
         }
 
         private void InitializeComponent()

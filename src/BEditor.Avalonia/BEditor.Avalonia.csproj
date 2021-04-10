@@ -12,6 +12,10 @@
   </PropertyGroup>
 
   <ItemGroup>
+    <AvaloniaResource Include="Assets\**" />
+  </ItemGroup>
+  
+  <ItemGroup>
     <PackageReference Include="Avalonia" Version="0.10.0" />
     <PackageReference Include="Avalonia.Desktop" Version="0.10.0" />
     <PackageReference Include="Avalonia.Diagnostics" Version="0.10.0" />
@@ -38,6 +42,10 @@
       <Generator>PublicResXFileCodeGenerator</Generator>
       <LastGenOutput>Strings.Designer.cs</LastGenOutput>
     </EmbeddedResource>
+  </ItemGroup>
+  
+  <ItemGroup>
+    <Folder Include="Assets\Images\" />
   </ItemGroup>
 
 </Project>

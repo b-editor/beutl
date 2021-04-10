@@ -62,7 +62,7 @@ namespace BEditor
                 Mode = Settings.Default.UseDarkMode ? FluentThemeMode.Dark : FluentThemeMode.Light
             };
 
-            Styles.Add(theme);
+            Styles.Insert(0, theme);
         }
 
         public override async void OnFrameworkInitializationCompleted()

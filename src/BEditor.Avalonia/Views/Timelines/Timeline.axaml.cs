@@ -159,9 +159,8 @@ namespace BEditor.Views.Timelines
             _timelineGrid.PointerReleased += TimelineGrid_PointerReleased;
             _timelineGrid.PointerPressed += TimelineGrid_PointerPressed;
             _timelineGrid.PointerLeave += TimelineGrid_PointerLeave;
-            _timelineGrid.AddHandler(DragDrop.DragEnterEvent, TimelineGrid_DragEnter, RoutingStrategies.Tunnel);
-            _timelineGrid.AddHandler(DragDrop.DragOverEvent, TimelineGrid_DragOver, RoutingStrategies.Tunnel);
-            _timelineGrid.AddHandler(DragDrop.DropEvent, TimelineGrid_Drop, RoutingStrategies.Tunnel);
+            _timelineGrid.AddHandler(DragDrop.DragOverEvent, TimelineGrid_DragOver);
+            _timelineGrid.AddHandler(DragDrop.DropEvent, TimelineGrid_Drop);
             DragDrop.SetAllowDrop(_timelineGrid, true);
 
             // WPF ÇÃ Preview* ÉCÉxÉìÉg
@@ -294,14 +293,12 @@ namespace BEditor.Views.Timelines
             ViewModel.PointerMoved(e.GetPosition((IVisual?)sender));
         }
 
-        private void TimelineGrid_DragEnter(object? sender, DragEventArgs e)
-        {
-        }
-
         private void TimelineGrid_DragOver(object? sender, DragEventArgs e)
         {
+            e.DragEffects = e.Data.Contains("ObjectMetadata") ? DragDropEffects.Copy : DragDropEffects.None;
         }
 
+        // Todo : DragDropÇÃèàóù
         private void TimelineGrid_Drop(object? sender, DragEventArgs e)
         {
         }
