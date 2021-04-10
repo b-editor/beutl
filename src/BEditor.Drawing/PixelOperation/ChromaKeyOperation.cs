@@ -3,15 +3,15 @@ using System;
 
 using BEditor.Drawing.Pixel;
 
-namespace BEditor.Drawing.Process
+namespace BEditor.Drawing.PixelOperation
 {
-    public unsafe readonly struct ChromaKeyProcess : IPixelProcess
+    public unsafe readonly struct ChromaKeyOperation : IPixelOperation
     {
         private readonly BGRA32* _dst;
         private readonly BGRA32* _src;
         private readonly int _value;
 
-        public ChromaKeyProcess(BGRA32* src, BGRA32* dst, int value)
+        public ChromaKeyOperation(BGRA32* src, BGRA32* dst, int value)
         {
             _dst = dst;
             _src = src;

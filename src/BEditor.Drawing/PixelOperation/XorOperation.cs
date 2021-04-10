@@ -1,14 +1,14 @@
 ﻿
 using BEditor.Drawing.Pixel;
 
-namespace BEditor.Drawing.Process
+namespace BEditor.Drawing.PixelOperation
 {
-    public readonly unsafe struct XorProcess : IPixelProcess
+    public readonly unsafe struct XorOperation : IPixelOperation
     {
         private readonly BGRA32* _src;
         private readonly BGRA32* _dst;
 
-        public XorProcess(BGRA32* src, BGRA32* dst)
+        public XorOperation(BGRA32* src, BGRA32* dst)
         {
             _src = src;
             _dst = dst;

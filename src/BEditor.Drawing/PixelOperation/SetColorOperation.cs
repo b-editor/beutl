@@ -1,14 +1,14 @@
 ﻿
 using BEditor.Drawing.Pixel;
 
-namespace BEditor.Drawing.Process
+namespace BEditor.Drawing.PixelOperation
 {
-    public readonly unsafe struct SetColorProcess : IPixelProcess
+    public readonly unsafe struct SetColorOperation : IPixelOperation
     {
         private readonly BGRA32* _data;
         private readonly BGRA32 _color;
 
-        public SetColorProcess(BGRA32* data, BGRA32 color)
+        public SetColorOperation(BGRA32* data, BGRA32 color)
         {
             _data = data;
             _color = color;

@@ -1,15 +1,15 @@
 ﻿
 using BEditor.Drawing.Pixel;
 
-namespace BEditor.Drawing.Process
+namespace BEditor.Drawing.PixelOperation
 {
-    public readonly unsafe struct BinarizationProcess : IPixelProcess
+    public readonly unsafe struct BinarizationOperation : IPixelOperation
     {
         private readonly BGRA32* _src;
         private readonly BGRA32* _dst;
         private readonly byte _value;
 
-        public BinarizationProcess(BGRA32* src, BGRA32* dst, byte value)
+        public BinarizationOperation(BGRA32* src, BGRA32* dst, byte value)
         {
             _src = src;
             _dst = dst;

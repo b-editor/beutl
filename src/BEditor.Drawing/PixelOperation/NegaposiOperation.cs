@@ -1,9 +1,9 @@
 ﻿
 using BEditor.Drawing.Pixel;
 
-namespace BEditor.Drawing.Process
+namespace BEditor.Drawing.PixelOperation
 {
-    public readonly unsafe struct NegaposiProcess : IPixelProcess
+    public readonly unsafe struct NegaposiOperation : IPixelOperation
     {
         private readonly BGRA32* _src;
         private readonly BGRA32* _dst;
@@ -11,7 +11,7 @@ namespace BEditor.Drawing.Process
         private readonly byte _green;
         private readonly byte _blue;
 
-        public NegaposiProcess(BGRA32* src, BGRA32* dst, byte red, byte green, byte blue)
+        public NegaposiOperation(BGRA32* src, BGRA32* dst, byte red, byte green, byte blue)
         {
             _src = src;
             _dst = dst;

@@ -1,14 +1,14 @@
 ﻿
 using BEditor.Drawing.Pixel;
 
-namespace BEditor.Drawing.Process
+namespace BEditor.Drawing.PixelOperation
 {
-    public readonly unsafe struct SetOpacityProcess : IPixelProcess
+    public readonly unsafe struct SetOpacityOperation : IPixelOperation
     {
         private readonly BGRA32* _data;
         private readonly float _opacity;
 
-        public SetOpacityProcess(BGRA32* data, float opacity)
+        public SetOpacityOperation(BGRA32* data, float opacity)
         {
             _data = data;
             _opacity = opacity;

@@ -4,10 +4,10 @@ using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
 
-namespace BEditor.Drawing.Process
+namespace BEditor.Drawing.RowOperation
 {
-    public interface IPixelProcess
+    public interface IRowOperation
     {
-        public void Invoke(int pos);
+        public void Invoke(int y);
     }
 }

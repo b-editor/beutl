@@ -3,9 +3,9 @@ using BEditor.Drawing.Pixel;
 
 using static BEditor.Drawing.Image;
 
-namespace BEditor.Drawing.Process
+namespace BEditor.Drawing.PixelOperation
 {
-    public readonly unsafe struct RGBColorProcess : IPixelProcess
+    public readonly unsafe struct RGBColorOperation : IPixelOperation
     {
         private readonly BGRA32* _src;
         private readonly BGRA32* _dst;
@@ -13,7 +13,7 @@ namespace BEditor.Drawing.Process
         private readonly short _g;
         private readonly short _b;
 
-        public RGBColorProcess(BGRA32* src, BGRA32* dst, short r,short g,short b)
+        public RGBColorOperation(BGRA32* src, BGRA32* dst, short r,short g,short b)
         {
             _src = src;
             _dst = dst;

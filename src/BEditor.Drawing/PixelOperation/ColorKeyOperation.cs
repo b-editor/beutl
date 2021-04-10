@@ -3,16 +3,16 @@ using System;
 
 using BEditor.Drawing.Pixel;
 
-namespace BEditor.Drawing.Process
+namespace BEditor.Drawing.PixelOperation
 {
-    public unsafe readonly struct ColorKeyProcess : IPixelProcess
+    public unsafe readonly struct ColorKeyOperation : IPixelOperation
     {
         private readonly BGRA32* _dst;
         private readonly BGRA32* _src;
         private readonly BGRA32 _color;
         private readonly int _value;
 
-        public ColorKeyProcess(BGRA32* src, BGRA32* dst, BGRA32 color, int value)
+        public ColorKeyOperation(BGRA32* src, BGRA32* dst, BGRA32 color, int value)
         {
             _dst = dst;
             _src = src;

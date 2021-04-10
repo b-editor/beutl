@@ -5,7 +5,8 @@ using System.Text;
 using System.Threading.Tasks;
 
 using BEditor.Drawing.Pixel;
-using BEditor.Drawing.Process;
+using BEditor.Drawing.PixelOperation;
+using BEditor.Drawing.RowOperation;
 
 using SkiaSharp;
 
@@ -45,14 +46,14 @@ namespace BEditor.Drawing
             return MathF.Round(value);
         }
 
-        public static void PixelProcess<IProcess>(int size, in IProcess process) where IProcess : IPixelProcess
+        public static void PixelOperate<IOperation>(int size, in IOperation process) where IOperation : IPixelOperation
         {
             Parallel.For(0, size, process.Invoke);
         }
 
-        public static void PixelProcess<IProcess1, IProcess2>(int size, IProcess1 process1, IProcess2 process2)
-            where IProcess1 : IPixelProcess
-            where IProcess2 : IPixelProcess
+        public static void PixelOperate<IOperation1, IOperation2>(int size, IOperation1 process1, IOperation2 process2)
+            where IOperation1 : IPixelOperation
+            where IOperation2 : IPixelOperation
         {
             Parallel.For(0, size, i =>
             {
@@ -61,10 +62,10 @@ namespace BEditor.Drawing
             });
         }
 
-        public static void PixelProcess<IProcess1, IProcess2, IProcess3>(int size, IProcess1 process1, IProcess2 process2, IProcess3 process3)
-            where IProcess1 : IPixelProcess
-            where IProcess2 : IPixelProcess
-            where IProcess3 : IPixelProcess
+        public static void PixelOperate<IOperation1, IOperation2, IOperation3>(int size, IOperation1 process1, IOperation2 process2, IOperation3 process3)
+            where IOperation1 : IPixelOperation
+            where IOperation2 : IPixelOperation
+            where IOperation3 : IPixelOperation
         {
             Parallel.For(0, size, i =>
             {
@@ -74,11 +75,11 @@ namespace BEditor.Drawing
             });
         }
 
-        public static void PixelProcess<IProcess1, IProcess2, IProcess3, IProcess4>(int size, IProcess1 process1, IProcess2 process2, IProcess3 process3, IProcess4 process4)
-            where IProcess1 : IPixelProcess
-            where IProcess2 : IPixelProcess
-            where IProcess3 : IPixelProcess
-            where IProcess4 : IPixelProcess
+        public static void PixelOperate<IOperation1, IOperation2, IOperation3, IOperation4>(int size, IOperation1 process1, IOperation2 process2, IOperation3 process3, IOperation4 process4)
+            where IOperation1 : IPixelOperation
+            where IOperation2 : IPixelOperation
+            where IOperation3 : IPixelOperation
+            where IOperation4 : IPixelOperation
         {
             Parallel.For(0, size, i =>
             {
@@ -89,6 +90,67 @@ namespace BEditor.Drawing
             });
         }
 
+        public static void SetOpacity(this Image<BGRA32> image, float opacity)
+        {
+            if (image is null) throw new ArgumentNullException(nameof(image));
+            image.ThrowIfDisposed();
+
+            fixed (BGRA32* data = image.Data)
+            {
+                PixelOperate(image.Data.Length, new SetOpacityOperation(data, opacity));
+            }
+        }
+
+        public static void SetColor(this Image<BGRA32> image, BGRA32 color)
+        {
+            if (image is null) throw new ArgumentNullException(nameof(image));
+            image.ThrowIfDisposed();
+
+            fixed (BGRA32* data = image.Data)
+            {
+                PixelOperate(image.Data.Length, new SetColorOperation(data, color));
+            }
+        }
+
+        public static void ChromaKey(this Image<BGRA32> image, int value)
+        {
+            if (image is null) throw new ArgumentNullException(nameof(image));
+            image.ThrowIfDisposed();
+
+            fixed (BGRA32* s = image.Data)
+            {
+                PixelOperate(image.Data.Length, new ChromaKeyOperation(s, s, value));
+            }
+        }
+
+        public static void ColorKey(this Image<BGRA32> image, BGRA32 color, int value)
+        {
+            if (image is null) throw new ArgumentNullException(nameof(image));
+            image.ThrowIfDisposed();
+
+            fixed (BGRA32* s = image.Data)
+            {
+                PixelOperate(image.Data.Length, new ColorKeyOperation(s, s, color, value));
+            }
+        }
+
+        public static Image<T2> Convert<T1, T2>(this Image<T1> image)
+            where T1 : unmanaged, IPixel<T1>, IPixelConvertable<T2>
+            where T2 : unmanaged, IPixel<T2>
+        {
+            if (image is null) throw new ArgumentNullException(nameof(image));
+            image.ThrowIfDisposed();
+            var dst = new Image<T2>(image.Width, image.Height, default(T2));
+
+            fixed (T1* srcPtr = image.Data)
+            fixed (T2* dstPtr = dst.Data)
+            {
+                PixelOperate(image.Data.Length, new ConvertToOperation<T1, T2>(srcPtr, dstPtr));
+            }
+
+            return dst;
+        }
+
         public static void Grayscale(this Image<BGRA32> image)
         {
             if (image is null) throw new ArgumentNullException(nameof(image));
@@ -96,7 +158,7 @@ namespace BEditor.Drawing
 
             fixed (BGRA32* data = image.Data)
             {
-                PixelProcess(image.Data.Length, new GrayscaleProcess(data, data));
+                PixelOperate(image.Data.Length, new GrayscaleOperation(data, data));
             }
         }
 
@@ -107,7 +169,7 @@ namespace BEditor.Drawing
 
             fixed (BGRA32* data = image.Data)
             {
-                PixelProcess(image.Data.Length, new SepiaProcess(data, data));
+                PixelOperate(image.Data.Length, new SepiaOperation(data, data));
             }
         }
 
@@ -118,7 +180,7 @@ namespace BEditor.Drawing
 
             fixed (BGRA32* data = image.Data)
             {
-                PixelProcess(image.Data.Length, new NegaposiProcess(data, data, red, green, blue));
+                PixelOperate(image.Data.Length, new NegaposiOperation(data, data, red, green, blue));
             }
         }
 
@@ -129,7 +191,7 @@ namespace BEditor.Drawing
 
             fixed (BGRA32* data = image.Data)
             {
-                PixelProcess(image.Data.Length, new XorProcess(data, data));
+                PixelOperate(image.Data.Length, new XorOperation(data, data));
             }
         }
 
@@ -141,7 +203,7 @@ namespace BEditor.Drawing
 
             fixed (BGRA32* data = image.Data)
             {
-                PixelProcess(image.Data.Length, new BrightnessProcess(data, data, brightness));
+                PixelOperate(image.Data.Length, new BrightnessOperation(data, data, brightness));
             }
         }
 
@@ -159,7 +221,7 @@ namespace BEditor.Drawing
 
             fixed (BGRA32* data = image.Data)
             {
-                PixelProcess(image.Data.Length, new ContrastProcess(data, data, (byte*)lut.Pointer));
+                PixelOperate(image.Data.Length, new ContrastOperation(data, data, (byte*)lut.Pointer));
             }
         }
 
@@ -177,7 +239,7 @@ namespace BEditor.Drawing
 
             fixed (BGRA32* data = image.Data)
             {
-                PixelProcess(image.Data.Length, new GammaProcess(data, data, (byte*)lut.Pointer));
+                PixelOperate(image.Data.Length, new GammaOperation(data, data, (byte*)lut.Pointer));
             }
         }
 
@@ -191,7 +253,7 @@ namespace BEditor.Drawing
 
             fixed (BGRA32* data = image.Data)
             {
-                PixelProcess(image.Data.Length, new RGBColorProcess(data, data, red, green, blue));
+                PixelOperate(image.Data.Length, new RGBColorOperation(data, data, red, green, blue));
             }
         }
 
@@ -246,7 +308,7 @@ namespace BEditor.Drawing
 
             fixed (BGRA32* data = image.Data)
             {
-                PixelProcess(image.Data.Length, new BinarizationProcess(data, data, value));
+                PixelOperate(image.Data.Length, new BinarizationOperation(data, data, value));
             }
         }
 
@@ -257,9 +319,20 @@ namespace BEditor.Drawing
 
             fixed (BGRA32* data = image.Data)
             {
-                // Randomを
                 var rand = new Random();
-                PixelProcess(image.Data.Length, new NoiseProcess(data, data, value, rand));
+                PixelOperate(image.Data.Length, new NoiseOperation(data, data, value, rand));
+            }
+        }
+
+        public static void Noise(this Image<BGRA32> image, byte value, int seed)
+        {
+            if (image is null) throw new ArgumentNullException(nameof(image));
+            image.ThrowIfDisposed();
+
+            fixed (BGRA32* data = image.Data)
+            {
+                var rand = new Random(seed);
+                PixelOperate(image.Data.Length, new NoiseOperation(data, data, value, rand));
             }
         }
 
@@ -287,7 +360,7 @@ namespace BEditor.Drawing
                         var dPos = (y * image.Width) + x;
 
                         // 範囲外はデフォルトの値を使用する
-                        if ((dy > image.Height) || (dx > image.Width))
+                        if ((dy >= image.Height - 1) || (dx >= image.Width - 1))
                         {
                             sPos = dPos;
                         }

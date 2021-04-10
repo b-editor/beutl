@@ -1,16 +1,16 @@
 ﻿
 using BEditor.Drawing.Pixel;
 
-namespace BEditor.Drawing.Process
+namespace BEditor.Drawing.PixelOperation
 {
-    public readonly unsafe struct SubtractProcess<T> : IPixelProcess
+    public readonly unsafe struct SubtractOperation<T> : IPixelOperation
         where T : unmanaged, IPixel<T>
     {
         private readonly T* _dst;
         private readonly T* _src;
         private readonly T* _mask;
 
-        public SubtractProcess(T* src, T* dst, T* mask)
+        public SubtractOperation(T* src, T* dst, T* mask)
         {
             _dst = dst;
             _src = src;

@@ -5,7 +5,7 @@ using System.Linq;
 using System.Threading.Tasks;
 
 using BEditor.Drawing.Pixel;
-using BEditor.Drawing.Process;
+using BEditor.Drawing.PixelOperation;
 using BEditor.Drawing.Resources;
 
 using SkiaSharp;
@@ -70,28 +70,6 @@ namespace BEditor.Drawing
             canvas.DrawPath(path, paint);
 
             CopyTo(bmp.Bytes, self.Data, self.DataSize);
-        }
-
-        public static void SetOpacity(this Image<BGRA32> self, float opacity)
-        {
-            if (self is null) throw new ArgumentNullException(nameof(self));
-            self.ThrowIfDisposed();
-
-            fixed (BGRA32* data = self.Data)
-            {
-                PixelProcess(self.Data.Length, new SetOpacityProcess(data, opacity));
-            }
-        }
-
-        public static void SetColor(this Image<BGRA32> self, BGRA32 color)
-        {
-            if (self is null) throw new ArgumentNullException(nameof(self));
-            self.ThrowIfDisposed();
-
-            fixed (BGRA32* data = self.Data)
-            {
-                PixelProcess(self.Data.Length, new SetColorProcess(data, color));
-            }
         }
 
         public static Image<BGRA32> Border(this Image<BGRA32> self, int size, BGRA32 color)
@@ -420,28 +398,6 @@ namespace BEditor.Drawing
         }
 
         #endregion
-
-        public static void ChromaKey(this Image<BGRA32> self, int value)
-        {
-            if (self is null) throw new ArgumentNullException(nameof(self));
-            self.ThrowIfDisposed();
-
-            fixed (BGRA32* s = self.Data)
-            {
-                PixelProcess(self.Data.Length, new ChromaKeyProcess(s, s, value));
-            }
-        }
-
-        public static void ColorKey(this Image<BGRA32> self, BGRA32 color, int value)
-        {
-            if (self is null) throw new ArgumentNullException(nameof(self));
-            self.ThrowIfDisposed();
-
-            fixed (BGRA32* s = self.Data)
-            {
-                PixelProcess(self.Data.Length, new ColorKeyProcess(s, s, color, value));
-            }
-        }
 
         public static Image<BGRA32> Ellipse(int width, int height, int line, Color color)
         {
@@ -807,23 +763,6 @@ namespace BEditor.Drawing
             return bmp.ToImage32();
         }
         #endregion
-
-        public static Image<T2> Convert<T1, T2>(this Image<T1> self)
-            where T1 : unmanaged, IPixel<T1>, IPixelConvertable<T2>
-            where T2 : unmanaged, IPixel<T2>
-        {
-            if (self is null) throw new ArgumentNullException(nameof(self));
-            self.ThrowIfDisposed();
-            var dst = new Image<T2>(self.Width, self.Height, default(T2));
-
-            fixed (T1* srcPtr = self.Data)
-            fixed (T2* dstPtr = dst.Data)
-            {
-                PixelProcess(self.Data.Length, new ConvertToProcess<T1, T2>(srcPtr, dstPtr));
-            }
-
-            return dst;
-        }
 
         internal static Image<BGR24> ToImage24(this SKBitmap self)
         {

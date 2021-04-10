@@ -1,15 +1,15 @@
 ﻿
 using BEditor.Drawing.Pixel;
 
-namespace BEditor.Drawing.Process
+namespace BEditor.Drawing.PixelOperation
 {
-    public readonly unsafe struct GammaProcess : IPixelProcess
+    public readonly unsafe struct GammaOperation : IPixelOperation
     {
         private readonly BGRA32* _src;
         private readonly BGRA32* _dst;
         private readonly byte* _lut;
 
-        public GammaProcess(BGRA32* src, BGRA32* dst, byte* lut)
+        public GammaOperation(BGRA32* src, BGRA32* dst, byte* lut)
         {
             _src = src;
             _dst = dst;

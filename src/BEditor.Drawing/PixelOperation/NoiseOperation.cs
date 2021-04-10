@@ -5,16 +5,16 @@ using BEditor.Drawing.Pixel;
 
 using static BEditor.Drawing.Image;
 
-namespace BEditor.Drawing.Process
+namespace BEditor.Drawing.PixelOperation
 {
-    public readonly unsafe struct NoiseProcess : IPixelProcess
+    public readonly unsafe struct NoiseOperation : IPixelOperation
     {
         private readonly BGRA32* _src;
         private readonly BGRA32* _dst;
         private readonly byte _value;
         private readonly Random _rand;
 
-        public NoiseProcess(BGRA32* src, BGRA32* dst, byte value, Random random)
+        public NoiseOperation(BGRA32* src, BGRA32* dst, byte value, Random random)
         {
             _src = src;
             _dst = dst;
