@@ -30,10 +30,9 @@ namespace BEditor.Views
         private static readonly Binding HeaderBinding = new("Metadata.Value.Name") { Mode = BindingMode.OneTime };
         private static readonly Binding FileModeBinding = new("PathMode.Value") { Mode = BindingMode.TwoWay };
         private static readonly Binding PropertyIndexBinding = new("Property.Index") { Mode = BindingMode.OneWay };
-        private static readonly Binding PropertySelectItemBinding = new("Property.SelectItem") { Mode = BindingMode.OneWay };
         private static readonly Binding PropertyValueBinding = new("Property.Value") { Mode = BindingMode.OneWay };
         private static readonly Binding ItemsSourcePropertyBinding = new("Metadata.Value.ItemSource") { Mode = BindingMode.OneWay };
-        private static readonly Binding DisplayMemberPathBinding = new("Metadata.Value.MemberPath") { Mode = BindingMode.OneTime };
+        private static readonly Binding DisplayStringsPropertyBinding = new("Metadata.Value.DisplayStrings") { Mode = BindingMode.OneWay };
         private static readonly Binding BrushBinding = new("Brush.Value") { Mode = BindingMode.OneWay };
         private static readonly Binding OpenDialogBinding = new("OpenDialog") { Mode = BindingMode.OneTime };
         private static readonly Binding CommandBinding = new("Command") { Mode = BindingMode.OneTime };
@@ -209,9 +208,9 @@ namespace BEditor.Views
                 view.SetBinding(BasePropertyView.ResetCommandProperty, ResetBinding);
                 view.SetBinding(BasePropertyView.BindCommandProperty, BindBinding);
                 
-                view.SetBinding(SelectorPropertyViewGen.ItemsSourceProperty, ItemsSourcePropertyBinding);
+                view.SetBinding(SelectorPropertyViewGen.ItemsSourceProperty, DisplayStringsPropertyBinding);
                 view.SetBinding(SelectorPropertyViewGen.CommandProperty, CommandBinding);
-                view.SetBinding(SelectorPropertyView.SelectedIndexProperty, PropertyIndexBinding);
+                view.SetBinding(SelectorPropertyViewGen.SelectedIndexProperty, PropertyIndexBinding);
 
                 return view;
             }));

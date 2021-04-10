@@ -26,7 +26,7 @@ namespace BEditor.ViewModels.PropertyControl
                 .AddTo(disposables);
 
             Command.Subscribe(index => Property.ChangeSelect(index).Execute()).AddTo(disposables);
-            Reset.Subscribe(() => Property.ChangeSelect(Property.PropertyMetadata!.DefaultItem).Execute()).AddTo(disposables);
+            Reset.Subscribe(() => Property.ChangeSelect(Property.PropertyMetadata!.DefaultIndex).Execute()).AddTo(disposables);
         }
         ~SelectorPropertyViewModel()
         {
