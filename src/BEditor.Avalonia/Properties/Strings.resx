@@ -555,4 +555,10 @@ Please select the plugin you want to load</value>
   <data name="Path" xml:space="preserve">
     <value>Path</value>
   </data>
+  <data name="SaveFullPath" xml:space="preserve">
+    <value>Save full path</value>
+  </data>
+  <data name="SavePathRelativeToSelectedPathFromProject" xml:space="preserve">
+    <value>Save the path relative to the selected path from the project</value>
+  </data>
 </root>

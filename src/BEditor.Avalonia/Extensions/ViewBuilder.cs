@@ -40,6 +40,7 @@ namespace BEditor.Extensions
             PropertyViewBuilder.Create<DocumentProperty>(p => new DocumentPropertyView(p)),
             PropertyViewBuilder.Create<FontProperty>(p => new FontPropertyView(p)),
             PropertyViewBuilder.Create<ColorProperty>(p => new ColorPropertyView(p)),
+            PropertyViewBuilder.Create<FileProperty>(p => new FilePropertyView(p)),
             PropertyViewBuilder.Create<ColorAnimationProperty>(p => new ColorAnimationPropertyView(p)),
             PropertyViewBuilder.Create<ExpandGroup>(p =>
             {

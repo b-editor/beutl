@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.ComponentModel;
 using System.Diagnostics;
 using System.Diagnostics.Contracts;
+using System.Linq;
 using System.Runtime.Serialization;
 using System.Text.Json;
 
@@ -37,7 +38,9 @@ namespace BEditor.Data.Property
         public SelectorProperty(SelectorPropertyMetadata<T> metadata)
         {
             PropertyMetadata = metadata ?? throw new ArgumentNullException(nameof(metadata));
-            _selectItem = metadata.DefaultItem;
+
+            // 内部で indexer 呼び出し
+            _selectItem = metadata.ItemSource.ElementAtOrDefault(metadata.DefaultIndex);
         }
 
         /// <summary>
@@ -110,6 +113,15 @@ namespace BEditor.Data.Property
             SelectItem.SetObjectData(element.GetProperty(nameof(Value)));
             TargetHint = element.TryGetProperty(nameof(TargetHint), out var bind) ? bind.GetString() : null;
         }
+
+        /// <summary>
+        /// Create a command to change the selected item.
+        /// </summary>
+        /// <param name="index">New value for <see cref="Index"/>.</param>
+        /// <returns>Created <see cref="IRecordCommand"/>.</returns>
+        [Pure]
+        public IRecordCommand ChangeSelect(int index) => new ChangeSelectCommand(
+            this, PropertyMetadata is null ? default : PropertyMetadata.ItemSource.ElementAtOrDefault(index));
 
         /// <summary>
         /// Create a command to change the selected item.

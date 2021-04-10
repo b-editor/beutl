@@ -6,6 +6,7 @@ using Avalonia;
 using Avalonia.Animation;
 using Avalonia.Controls;
 using Avalonia.Controls.Primitives;
+using Avalonia.Data;
 using Avalonia.Input;
 using Avalonia.Interactivity;
 using Avalonia.Layout;
@@ -24,6 +25,7 @@ namespace BEditor.Views.Properties
 {
     public class EasePropertyView : UserControl
     {
+        private static readonly Binding _widthBind = new("$parent.Bounds.Width") { Mode = BindingMode.OneWay };
         private readonly EaseProperty _property;
         private readonly StackPanel _stackPanel;
         private readonly Setter _heightSetter = new(HeightProperty, 40d);
@@ -63,18 +65,24 @@ namespace BEditor.Views.Properties
             property.Value.CollectionChanged += Value_CollectionChanged;
 
             // StackPanel‚ÉNumeric‚ð’Ç‰Á
-            _stackPanel.Children.AddRange(property.Value.Select((_, i) => CreateNumeric(i)));
+            _stackPanel.Children.AddRange(property.Value.Select((_, i) => CreateNumeric(i).content));
 
             _opencloseAnim.Children[1].Setters.Add(_heightSetter);
         }
 
-        private NumericUpDown CreateNumeric(int index)
+        private (NumericUpDown numeric, ContentControl content) CreateNumeric(int index)
         {
+            var content = new ContentControl
+            {
+                Margin = new Thickness(8, 4),
+                Padding = default,
+                HorizontalAlignment = HorizontalAlignment.Stretch,
+                VerticalAlignment = VerticalAlignment.Stretch
+            };
             var num = new NumericUpDown
             {
                 [AttachmentProperty.IntProperty] = index,
                 Height = 32,
-                Margin = new Thickness(8, 4),
                 VerticalAlignment = VerticalAlignment.Center,
                 Value = _property.Value[index],
                 ShowButtonSpinner = false,
@@ -83,11 +91,13 @@ namespace BEditor.Views.Properties
                 Increment = 10
             };
 
+            content.Content = num;
+            num.Bind(WidthProperty, _widthBind);
             num.GotFocus += NumericUpDown_GotFocus;
             num.LostFocus += NumericUpDown_LostFocus;
             num.ValueChanged += NumericUpDown_ValueChanged;
 
-            if (_property.PropertyMetadata is null) return num;
+            if (_property.PropertyMetadata is null) return (num, content);
 
             if (!float.IsNaN(_property.PropertyMetadata.Max))
             {
@@ -99,7 +109,7 @@ namespace BEditor.Views.Properties
                 num.Minimum = _property.PropertyMetadata.Min;
             }
 
-            return num;
+            return (num, content);
         }
 
         private void ResetIndex()
@@ -117,7 +127,7 @@ namespace BEditor.Views.Properties
         {
             if (e.Action is NotifyCollectionChangedAction.Add)
             {
-                _stackPanel.Children.Add(CreateNumeric(e.NewStartingIndex));
+                _stackPanel.Children.Add(CreateNumeric(e.NewStartingIndex).content);
                 ResetIndex();
             }
             else if (e.Action is NotifyCollectionChangedAction.Remove)
@@ -127,7 +137,7 @@ namespace BEditor.Views.Properties
             }
             else if (e.Action is NotifyCollectionChangedAction.Replace)
             {
-                var num = (NumericUpDown)_stackPanel.Children[e.NewStartingIndex];
+                var num = (NumericUpDown)((ContentControl)_stackPanel.Children[e.NewStartingIndex]).Content;
                 num.Value = _property.Value[e.NewStartingIndex];
             }
         }
