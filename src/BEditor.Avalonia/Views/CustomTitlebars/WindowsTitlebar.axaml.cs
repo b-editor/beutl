@@ -14,12 +14,13 @@ namespace BEditor.Views.CustomTitlebars
 {
     public class WindowsTitlebar : UserControl
     {
-        //public static readonly StyledProperty<bool> IsSeamlessProperty = AvaloniaProperty.Register<MacosTitleBar, bool>(nameof(IsSeamless));
         private readonly Button _minimizeButton;
         private readonly Button _maximizeButton;
         private readonly Path _maximizeIcon;
         private readonly ToolTip _maximizeToolTip;
         private readonly Button _closeButton;
+        private readonly Menu _menu;
+        private readonly StackPanel _titlebarbuttons;
 
         public WindowsTitlebar()
         {
@@ -29,18 +30,30 @@ namespace BEditor.Views.CustomTitlebars
             _maximizeIcon = this.FindControl<Path>("MaximizeIcon");
             _maximizeToolTip = this.FindControl<ToolTip>("MaximizeToolTip");
             _closeButton = this.FindControl<Button>("CloseButton");
+            _menu = this.FindControl<Menu>("menu");
+            _titlebarbuttons = this.FindControl<StackPanel>("titlebarbuttons");
 
-            _minimizeButton.Click += MinimizeWindow;
-            _maximizeButton.Click += MaximizeWindow;
-            _closeButton.Click += CloseWindow;
-            PointerPressed += WindowsTitlebar_PointerPressed;
+            if (OperatingSystem.IsWindows())
+            {
+                _minimizeButton.Click += MinimizeWindow;
+                _maximizeButton.Click += MaximizeWindow;
+                _closeButton.Click += CloseWindow;
 
-            SubscribeToWindowState();
-        }
+                PointerPressed += WindowsTitlebar_PointerPressed;
 
-        public void Button_Click(object s, RoutedEventArgs e)
-        {
+                _menu.MenuOpened += (s, e) => PointerPressed -= WindowsTitlebar_PointerPressed;
+                _menu.MenuClosed += (s, e) => PointerPressed += WindowsTitlebar_PointerPressed;
 
+                SubscribeToWindowState();
+            }
+            else if (OperatingSystem.IsLinux())
+            {
+                _titlebarbuttons.IsVisible = false;
+            }
+            else if (OperatingSystem.IsMacOS())
+            {
+                IsVisible = false;
+            }
         }
 
         public async void ShowSettings(object s, RoutedEventArgs e)
@@ -60,7 +73,7 @@ namespace BEditor.Views.CustomTitlebars
             await dialog.ShowDialog((Window)VisualRoot);
         }
 
-        private void WindowsTitlebar_PointerPressed(object? sender, Avalonia.Input.PointerPressedEventArgs e)
+        public void WindowsTitlebar_PointerPressed(object? sender, Avalonia.Input.PointerPressedEventArgs e)
         {
             var hostWindow = (Window)VisualRoot;
             hostWindow.BeginMoveDrag(e);
@@ -76,7 +89,7 @@ namespace BEditor.Views.CustomTitlebars
         {
             var hostWindow = (Window)VisualRoot;
 
-            if (hostWindow.WindowState == WindowState.Normal)
+            if (hostWindow.WindowState is WindowState.Normal)
             {
                 hostWindow.WindowState = WindowState.Maximized;
             }

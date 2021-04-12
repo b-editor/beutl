@@ -22,7 +22,7 @@
             <Thumb Name="thumb" Margin="-4.4 0 0 0">
               <Thumb.Template>
                 <ControlTemplate>
-                  <Ellipse  Width="9" Height="9" Fill="#C0C0C0" />
+                  <Ellipse  Width="9" Height="9" Fill="{DynamicResource ButtonForeground}" />
                 </ControlTemplate>
               </Thumb.Template>
             </Thumb>
@@ -44,7 +44,7 @@
     <Setter Property="Foreground" Value="Transparent" />
     <Setter Property="Template">
       <ControlTemplate>
-        <Border Background="#3f3f3f" CornerRadius="0 4 4 0" />
+        <Border Background="{DynamicResource ButtonForegroundDisabled}" CornerRadius="0 4 4 0" />
       </ControlTemplate>
     </Setter>
   </Style>
@@ -53,7 +53,7 @@
     <Setter Property="Foreground" Value="Transparent" />
     <Setter Property="Template">
       <ControlTemplate>
-        <Border Name="InternalBorder" Background="#C8C8C8" CornerRadius="4 0 0 4" />
+        <Border Name="InternalBorder" Background="{DynamicResource ButtonForegroundDisabled}" CornerRadius="4 0 0 4" />
       </ControlTemplate>
     </Setter>
   </Style>

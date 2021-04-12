@@ -47,7 +47,8 @@ namespace BEditor.Extensions
                 var header = new Label
                 {
                     Content = p.PropertyMetadata?.Name ?? string.Empty,
-                    Height = 24
+                    Height = 24,
+                    Foreground = (IBrush)App.Current.FindResource("SystemControlForegroundBaseHighBrush")!
                 };
                 var expander = new Expander
                 {
@@ -283,7 +284,8 @@ namespace BEditor.Extensions
                 {
                     Margin = new(5, 0, 0, 0),
                     VerticalAlignment = VerticalAlignment.Center,
-                    Text = obj.Name
+                    Text = obj.Name,
+                    Foreground = (IBrush)App.Current.FindResource("SystemControlForegroundBaseHighBrush")!
                 };
 
                 var header = new StackPanel
@@ -377,7 +379,8 @@ namespace BEditor.Extensions
                 {
                     Margin = new(5, 0, 0, 0),
                     VerticalAlignment = VerticalAlignment.Center,
-                    Text = effect.Name
+                    Text = effect.Name,
+                    Foreground = (IBrush)App.Current.FindResource("SystemControlForegroundBaseHighBrush")!
                 };
 
                 var header = new StackPanel

@@ -7,6 +7,7 @@
   xmlns:views="using:BEditor.Views"
   xmlns:vm="using:BEditor.ViewModels"
   xmlns:command="clr-namespace:BEditor.Command;assembly=BEditor.Core"
+  xmlns:primitive="clr-namespace:BEditor.Primitive;assembly=BEditor.Primitive"
   xmlns:titlebar="using:BEditor.Views.CustomTitlebars"
   xmlns:ctr="using:BEditor.Controls"
   mc:Ignorable="d"
@@ -16,23 +17,124 @@
   ExtendClientAreaToDecorationsHint="True"
   ExtendClientAreaChromeHints="NoChrome"
   ExtendClientAreaTitleBarHeightHint="-1"
+  TransparencyLevelHint="AcrylicBlur"
+  Background="Transparent"
   DataContext="{x:Static vm:MainWindowViewModel.Current}"
   x:Class="BEditor.MainWindow">
   <Grid RowDefinitions="Auto,Auto,*,Auto,*,Auto" ColumnDefinitions="425,Auto,*,Auto,2*">
 
-    <titlebar:WindowsTitlebar  Grid.Row="0" Grid.ColumnSpan="5" />
+    <ExperimentalAcrylicBorder Grid.ColumnSpan="5" Grid.RowSpan="6" IsHitTestVisible="False">
+      <ExperimentalAcrylicBorder.Material>
+        <ExperimentalAcrylicMaterial
+          TintColor="#222222"
+          TintOpacity="{CompiledBinding AcrylicTintOpacity1, Mode=OneTime}"
+          MaterialOpacity="{CompiledBinding AcrylicMaterialOpacity1, Mode=OneTime}" />
+      </ExperimentalAcrylicBorder.Material>
+    </ExperimentalAcrylicBorder>
 
-    <StackPanel Grid.Row="1" Orientation="Horizontal">
-      <Button>
+    <titlebar:WindowsTitlebar Grid.Row="0" Grid.ColumnSpan="5" />
+    
+    <StackPanel Margin="4" Spacing="4" Grid.Row="1" Orientation="Horizontal">
+      <StackPanel.Styles>
+        <Style Selector="Separator">
+          <Setter Property="Width" Value="1" />
+          <Setter Property="Height" Value="16" />
+          <Setter Property="Background" Value="{DynamicResource SystemControlForegroundBaseMediumLowBrush}" />
+        </Style>
+        <Style Selector="Button">
+          <Setter Property="Padding" Value="8,4" />
+        </Style>
+
+        <Style Selector="PathIcon.objectmetadata">
+          <Setter Property="Background" Value="Transparent" />
+          <Setter Property="Width" Value="20" />
+          <Setter Property="Height" Value="20" />
+          <Setter Property="Margin" Value="5,0,5,0" />
+          <Setter Property="VerticalAlignment" Value="Center" />
+        </Style>
+        <Style Selector="PathIcon.objectmetadata:pressed">
+          <Setter Property="RenderTransform" Value="scale(0.98)" />
+        </Style>
+        <Style Selector="PathIcon.objectmetadata:pointerover">
+          <Setter Property="Background" Value="#25FFFFFF" />
+        </Style>
+      </StackPanel.Styles>
+
+      <Button Click="CreateProjectClick" ToolTip.Tip="{x:Static prop:Strings.CreateNew}">
         <PathIcon Data="{StaticResource \\document_add\\svg\\ic_fluent_document_add_48_regular.svg_regular}"/>
       </Button>
-      <Button>
+
+      <Button Command="{CompiledBinding Open, Mode=OneTime}" ToolTip.Tip="{x:Static prop:Strings.Open}">
         <PathIcon Data="{StaticResource \\folder_open\\svg\\ic_fluent_folder_open_24_regular.svg_regular}"/>
       </Button>
-      <Button IsEnabled="False">
+
+      <Button
+        IsEnabled="{CompiledBinding IsOpened.Value, Mode=OneWay}"
+        Command="{CompiledBinding Save, Mode=OneTime}"
+        ToolTip.Tip="{x:Static prop:Strings.SaveAs}">
         <PathIcon Data="{StaticResource \\save\\svg\\ic_fluent_save_24_regular.svg_regular}"/>
       </Button>
+
+      <Separator/>
+
+      <Button
+        IsEnabled="{CompiledBinding Source={x:Static command:CommandManager.Default}, Path=CanUndo, Mode=OneWay}"
+        Command="{CompiledBinding Undo, Mode=OneTime}"
+        ToolTip.Tip="{x:Static prop:Strings.Undo}">
+        <PathIcon Data="{StaticResource \\arrow_undo\\svg\\ic_fluent_arrow_undo_24_regular.svg_regular}"/>
+      </Button>
+
+      <Button
+        IsEnabled="{CompiledBinding Source={x:Static command:CommandManager.Default}, Path=CanRedo, Mode=OneWay}"
+        Command="{CompiledBinding Redo, Mode=OneTime}"
+        ToolTip.Tip="{x:Static prop:Strings.Redo}">
+        <PathIcon Data="{StaticResource \\arrow_redo\\svg\\ic_fluent_arrow_redo_24_regular.svg_regular}"/>
+      </Button>
+
+      <Separator/>
+
+      <Button
+        IsEnabled="{CompiledBinding IsOpened.Value, Mode=OneWay}"
+        Command="{CompiledBinding Cut, Mode=OneTime}"
+        ToolTip.Tip="{x:Static prop:Strings.Cut}">
+        <PathIcon Data="{StaticResource \\cut\\svg\\ic_fluent_cut_24_regular.svg_regular}"/>
+      </Button>
+
+      <Button
+        IsEnabled="{CompiledBinding IsOpened.Value, Mode=OneWay}"
+        Command="{CompiledBinding Copy, Mode=OneTime}"
+        ToolTip.Tip="{x:Static prop:Strings.Copy}">
+        <PathIcon Data="{StaticResource \\copy\\svg\\ic_fluent_copy_24_regular.svg_regular}"/>
+      </Button>
+
+      <Button
+        IsEnabled="{CompiledBinding IsOpened.Value, Mode=OneWay}"
+        Command="{CompiledBinding Paste, Mode=OneTime}"
+        ToolTip.Tip="{x:Static prop:Strings.Paste}">
+        <PathIcon Data="{StaticResource \\clipboard_paste\\svg\\ic_fluent_clipboard_paste_24_regular.svg_regular}"/>
+      </Button>
+
+      <Separator/>
+
+      <PathIcon
+        Classes="objectmetadata"
+        Data="{StaticResource \\movies_and_tv\\svg\\ic_fluent_movies_and_tv_24_regular.svg_regular}"
+        DataContext="{x:Static primitive:PrimitiveTypes.VideoMetadata}"/>
     </StackPanel>
+
+
+    
+    <ExperimentalAcrylicBorder
+      Grid.Row="2"
+      Grid.RowSpan="3"
+      IsHitTestVisible="False">
+      <ExperimentalAcrylicBorder.Material>
+        <ExperimentalAcrylicMaterial
+          TintColor="Black"
+          TintOpacity="{CompiledBinding AcrylicTintOpacity2, Mode=OneTime}"
+          MaterialOpacity="{CompiledBinding AcrylicMaterialOpacity2, Mode=OneTime}" />
+      </ExperimentalAcrylicBorder.Material>
+    </ExperimentalAcrylicBorder>
 
     <Label
       Grid.Row="2"
@@ -41,27 +143,38 @@
       HorizontalContentAlignment="Stretch"
       VerticalContentAlignment="Stretch"
       IsEnabled="{CompiledBinding IsOpened.Value, Mode=OneWay}"
-      Content="{Binding App.Project.PreviewScene.SelectItem, Converter={StaticResource ClipPropertyConverter}, Mode=OneWay}"
-      Background="{DynamicResource SystemControlHighlightListLowBrush}"/>
+      Content="{Binding App.Project.PreviewScene.SelectItem, Converter={StaticResource ClipPropertyConverter}, Mode=OneWay}" />
+    
+    <GridSplitter Background="Transparent" Grid.Row="2" Grid.RowSpan="3" Grid.Column="1"/>
 
-    <GridSplitter Grid.Row="2" Grid.RowSpan="3" Grid.Column="1"/>
+    <ExperimentalAcrylicBorder
+      Grid.Row="4"
+      Grid.Column="2"
+      Grid.ColumnSpan="3"
+      IsHitTestVisible="False">
+      <ExperimentalAcrylicBorder.Material>
+        <ExperimentalAcrylicMaterial
+          TintColor="Black"
+          TintOpacity="{CompiledBinding AcrylicTintOpacity2, Mode=OneTime}"
+          MaterialOpacity="{CompiledBinding AcrylicMaterialOpacity2, Mode=OneTime}" />
+      </ExperimentalAcrylicBorder.Material>
+    </ExperimentalAcrylicBorder>
 
     <Label
       Grid.Row="4"
       Grid.Column="2"
       Grid.ColumnSpan="3"
       IsEnabled="{CompiledBinding IsOpened.Value, Mode=OneWay}"
-      Content="{Binding App.Project.PreviewScene, Converter={StaticResource SceneToTimelineConverter}, Mode=OneWay}"
-      Background="{DynamicResource SystemControlHighlightListLowBrush}"/>
+      Content="{Binding App.Project.PreviewScene, Converter={StaticResource SceneToTimelineConverter}, Mode=OneWay}" />
 
-    <GridSplitter Grid.Row="3" Grid.Column="2" Grid.ColumnSpan="3"/>
+    <GridSplitter Background="Transparent" Grid.Row="3" Grid.Column="2" Grid.ColumnSpan="3"/>
 
     <views:Previewer
       DataContext="{CompiledBinding Previewer, Mode=OneTime}"
       Grid.Row="2"
       Grid.Column="4"/>
 
-    <GridSplitter Grid.Row="2" Grid.Column="3"/>
+    <GridSplitter Background="Transparent" Grid.Row="2" Grid.Column="3"/>
 
     <TabControl
       Grid.Row="2"

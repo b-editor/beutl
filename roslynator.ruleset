@@ -4,9 +4,6 @@
     <Rule Id="RCS1001" Action="None" />
     <Rule Id="RCS1010" Action="Warning" />
     <Rule Id="RCS1013" Action="Warning" />
-    <Rule Id="RCS1014" Action="Warning" />
-    <Rule Id="RCS1014a" Action="Warning" />
-    <Rule Id="RCS1014i" Action="Warning" />
     <Rule Id="RCS1016a" Action="Warning" />
     <Rule Id="RCS1016b" Action="Warning" />
     <Rule Id="RCS1018" Action="None" />

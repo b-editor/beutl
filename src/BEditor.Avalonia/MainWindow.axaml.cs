@@ -6,6 +6,7 @@ using System.Threading.Tasks;
 using Avalonia;
 using Avalonia.Controls;
 using Avalonia.Controls.Primitives;
+using Avalonia.Controls.Shapes;
 using Avalonia.Interactivity;
 using Avalonia.Markup.Xaml;
 using Avalonia.Media;
@@ -13,6 +14,7 @@ using Avalonia.Threading;
 
 using BEditor.Models;
 using BEditor.Properties;
+using BEditor.ViewModels;
 using BEditor.ViewModels.DialogContent;
 using BEditor.Views;
 using BEditor.Views.DialogContent;
@@ -29,6 +31,18 @@ namespace BEditor
 #if DEBUG
             this.AttachDevTools();
 #endif
+        }
+
+        public async void CreateProjectClick(object s, RoutedEventArgs e)
+        {
+            var viewmodel = new CreateProjectViewModel();
+            var content = new CreateProject
+            {
+                DataContext = viewmodel
+            };
+            var dialog = new EmptyDialog(content);
+
+            await dialog.ShowDialog((Window)VisualRoot);
         }
 
         private void InitializeComponent()

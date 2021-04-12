@@ -6,12 +6,12 @@
   xmlns:vm="using:BEditor.ViewModels"
   xmlns:prop="clr-namespace:BEditor.Properties"
   xmlns:command="clr-namespace:BEditor.Command;assembly=BEditor.Core"
-  mc:Ignorable="d" d:DesignWidth="800" d:DesignHeight="450"
+  mc:Ignorable="d" d:DesignWidth="800"
   DataContext="{x:Static vm:MainWindowViewModel.Current}"
   x:DataType="vm:MainWindowViewModel"
   x:Class="BEditor.Views.CustomTitlebars.WindowsTitlebar">
   <Grid ColumnDefinitions="*,Auto">
-    <Menu>
+    <Menu Name="menu">
       <MenuItem Header="{x:Static prop:Strings.AccessFile}">
         <!--開く-->
         <MenuItem Header="{x:Static prop:Strings.AccessOpen}" Command="{CompiledBinding Open, Mode=OneTime}"/>
@@ -106,14 +106,14 @@
       <MenuItem Header="{x:Static prop:Strings.AccessOut}">
 
       </MenuItem>
-      <MenuItem Click="Button_Click" Header="{x:Static prop:Strings.AccessHelp}">
+      <MenuItem Header="{x:Static prop:Strings.AccessHelp}">
 
-      </MenuItem>
+      </MenuItem>    
     </Menu>
 
     <StackPanel
+      x:Name="titlebarbuttons"
       Grid.Column="1"
-      HorizontalAlignment="Right"
       Orientation="Horizontal"
       Spacing="0">
       <Button
