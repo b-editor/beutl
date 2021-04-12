@@ -1,4 +1,9 @@
 using System;
+using System.Collections.Generic;
+using System.Collections.ObjectModel;
+using System.Collections.Specialized;
+using System.Diagnostics;
+using System.Linq;
 using System.Threading.Tasks;
 
 using Avalonia;
@@ -6,7 +11,11 @@ using Avalonia.Controls;
 using Avalonia.Controls.Shapes;
 using Avalonia.Interactivity;
 using Avalonia.Markup.Xaml;
+using Avalonia.Threading;
 
+using BEditor.Models;
+using BEditor.Properties;
+using BEditor.ViewModels;
 using BEditor.ViewModels.DialogContent;
 using BEditor.Views.DialogContent;
 
@@ -20,6 +29,7 @@ namespace BEditor.Views.CustomTitlebars
         private readonly ToolTip _maximizeToolTip;
         private readonly Button _closeButton;
         private readonly Menu _menu;
+        private readonly MenuItem _recentlyUsedFiles;
         private readonly StackPanel _titlebarbuttons;
 
         public WindowsTitlebar()
@@ -31,10 +41,12 @@ namespace BEditor.Views.CustomTitlebars
             _maximizeToolTip = this.FindControl<ToolTip>("MaximizeToolTip");
             _closeButton = this.FindControl<Button>("CloseButton");
             _menu = this.FindControl<Menu>("menu");
+            _recentlyUsedFiles = this.FindControl<MenuItem>("RecentlyUsedFiles");
             _titlebarbuttons = this.FindControl<StackPanel>("titlebarbuttons");
 
             if (OperatingSystem.IsWindows())
             {
+                SetRecentUsedFiles();
                 _minimizeButton.Click += MinimizeWindow;
                 _maximizeButton.Click += MaximizeWindow;
                 _closeButton.Click += CloseWindow;
@@ -54,6 +66,64 @@ namespace BEditor.Views.CustomTitlebars
             {
                 IsVisible = false;
             }
+        }
+        private void SetRecentUsedFiles()
+        {
+            static async Task ProjectOpenCommand(string name)
+            {
+                try
+                {
+                    await MainWindowViewModel.DirectOpenAsync(name);
+                }
+                catch
+                {
+                    Debug.Fail(string.Empty);
+                    AppModel.Current.Message.Snackbar(string.Format(Strings.FailedToLoad, "Project"));
+                }
+            }
+
+            var items = new ObservableCollection<MenuItem>(BEditor.Settings.Default.RecentlyUsedFiles.Reverse().Select(i => new MenuItem
+            {
+                Header = i
+            }));
+
+            _recentlyUsedFiles.Items = items;
+            foreach (var item in items)
+            {
+                item.Click += async (s, e) => await ProjectOpenCommand(((s as MenuItem)!.Header as string)!);
+            }
+
+            BEditor.Settings.Default.RecentlyUsedFiles.CollectionChanged += async (s, e) =>
+            {
+                await Dispatcher.UIThread.InvokeAsync(() =>
+                {
+                    if (s is null) return;
+                    if (e.Action is NotifyCollectionChangedAction.Add)
+                    {
+                        var menu = new MenuItem
+                        {
+                            Header = (s as ObservableCollection<string>)![e.NewStartingIndex]
+                        };
+                        menu.Click += async (s, e) => await ProjectOpenCommand(((s as MenuItem)!.Header as string)!);
+
+                        ((ObservableCollection<MenuItem>)_recentlyUsedFiles.Items).Insert(0, menu);
+                    }
+                    else if (e.Action is NotifyCollectionChangedAction.Remove)
+                    {
+                        var file = e.OldItems![0] as string;
+
+                        foreach (var item in _recentlyUsedFiles.Items)
+                        {
+                            if (item is MenuItem menuItem && menuItem.Header is string header && header == file)
+                            {
+                                ((ObservableCollection<MenuItem>)_recentlyUsedFiles.Items).Remove(menuItem);
+
+                                return;
+                            }
+                        }
+                    }
+                });
+            };
         }
 
         public async void ShowSettings(object s, RoutedEventArgs e)
@@ -130,11 +200,11 @@ namespace BEditor.Views.CustomTitlebars
                     _maximizeToolTip.Content = "Restore Down";
 
                     // This should be a more universal approach in both cases, but I found it to be less reliable, when for example double-clicking the title bar.
-                    /*hostWindow.Padding = new Thickness(
+                    hostWindow.Padding = new Thickness(
                             hostWindow.OffScreenMargin.Left,
                             hostWindow.OffScreenMargin.Top,
                             hostWindow.OffScreenMargin.Right,
-                            hostWindow.OffScreenMargin.Bottom);*/
+                            hostWindow.OffScreenMargin.Bottom);
                 }
             });
         }

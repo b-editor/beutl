@@ -1,22 +1,22 @@
 using System;
 using System.ComponentModel;
 using System.Net;
+using System.Reactive.Linq;
 using System.Threading.Tasks;
 
 using Avalonia;
 using Avalonia.Controls;
 using Avalonia.Controls.Primitives;
-using Avalonia.Controls.Shapes;
+using Avalonia.Input;
 using Avalonia.Interactivity;
 using Avalonia.Markup.Xaml;
-using Avalonia.Media;
 using Avalonia.Threading;
 
+using BEditor.Data;
 using BEditor.Models;
 using BEditor.Properties;
 using BEditor.ViewModels;
 using BEditor.ViewModels.DialogContent;
-using BEditor.Views;
 using BEditor.Views.DialogContent;
 
 using Microsoft.Extensions.Logging;
@@ -28,9 +28,39 @@ namespace BEditor
         public MainWindow()
         {
             InitializeComponent();
+
+            MainWindowViewModel.Current.IsOpened
+                .ObserveOn(AvaloniaScheduler.Instance)
+                .Subscribe(isopened =>
+            {
+                var content = (Grid)Content!;
+                if (isopened)
+                {
+                    content.Margin = new(0, 0, 8, 0);
+                }
+                else
+                {
+                    content.Margin = default;
+                }
+            });
 #if DEBUG
             this.AttachDevTools();
 #endif
+        }
+
+        public void ObjectsPopupOpen(object s, RoutedEventArgs e)
+        {
+            this.FindControl<Popup>("ObjectsPopup").Open();
+        }
+
+        public void ObjectStartDrag(object s, PointerPressedEventArgs e)
+        {
+            if (s is Control ctr && ctr.DataContext is ObjectMetadata metadata)
+            {
+                var data = new DataObject();
+                data.Set("ObjectMetadata", metadata);
+                DragDrop.DoDragDrop(e, data, DragDropEffects.Copy);
+            }
         }
 
         public async void CreateProjectClick(object s, RoutedEventArgs e)

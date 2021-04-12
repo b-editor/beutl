@@ -45,7 +45,7 @@
         <Separator/>
 
         <!--最近使ったファイル-->
-        <MenuItem Header="{x:Static prop:Strings.RecentlyUsedFiles}"/>
+        <MenuItem Header="{x:Static prop:Strings.RecentlyUsedFiles}" x:Name="RecentlyUsedFiles" />
 
         <!--終了-->
         <MenuItem Header="{x:Static prop:Strings.Shutdown}"/>

@@ -12,6 +12,8 @@
     <convert:EffectPropertyConverter x:Key="EffectPropertyConverter" />
     <convert:EasingPropertyConverter x:Key="EasingPropertyConverter" />
     <convert:ColorToSolidColorBrushConverter x:Key="ColorToSolidColorBrushConverter" />
+    <convert:StringToGeometoryConverter x:Key="StringToGeometoryConverter" />
+    <convert:EnumerableTakeConverter x:Key="EnumerableTakeConverter" />
   </Application.Resources>
   <Application.Styles>
     <StyleInclude Source="avares://BEditor.Avalonia/Controls/SeekSlider.axaml" />

@@ -26,7 +26,7 @@
         VerticalAlignment="Top"
         HorizontalAlignment="Left">
         <Grid.ContextMenu>
-          <ContextMenu x:Name="TimelineMenu" Margin="0,0,0,0">
+          <ContextMenu x:Name="TimelineMenu">
             <MenuItem IsEnabled="False">
               <MenuItem.Header>
                 <Grid>

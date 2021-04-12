@@ -69,11 +69,11 @@ namespace BEditor
         {
             if (ApplicationLifetime is IClassicDesktopStyleApplicationLifetime desktop)
             {
+                RegisterPrimitive();
+
                 desktop.MainWindow = new MainWindow();
 
                 CreateDirectory();
-
-                RegisterPrimitive();
 
                 await InitialPluginsAsync();
 

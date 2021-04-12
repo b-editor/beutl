@@ -7,6 +7,7 @@
   xmlns:views="using:BEditor.Views"
   xmlns:vm="using:BEditor.ViewModels"
   xmlns:command="clr-namespace:BEditor.Command;assembly=BEditor.Core"
+  xmlns:data="clr-namespace:BEditor.Data;assembly=BEditor.Core"
   xmlns:primitive="clr-namespace:BEditor.Primitive;assembly=BEditor.Primitive"
   xmlns:titlebar="using:BEditor.Views.CustomTitlebars"
   xmlns:ctr="using:BEditor.Controls"
@@ -70,6 +71,29 @@
           <Setter Property="Background" Value="{DynamicResource ButtonBackgroundPointerOver}" />
           <Setter Property="RenderTransform" Value="scale(0.98)" />
         </Style>
+
+        <Style Selector="ComboBox">
+          <Setter Property="BorderBrush" Value="Transparent" />
+          <Setter Property="Background" Value="Transparent" />
+          <Setter Property="MinWidth" Value="100" />
+        </Style>
+        <Style Selector="ComboBox /template/ Border#Background">
+          <Setter Property="RenderTransform" Value="none" />
+          <Setter Property="Transitions">
+            <Transitions>
+              <TransformOperationsTransition Property="RenderTransform" Duration="0:0:.075" />
+            </Transitions>
+          </Setter>
+        </Style>
+        <Style Selector="ComboBox:disabled /template/ Border#Background">
+          <Setter Property="Background" Value="Transparent" />
+          <Setter Property="BorderBrush" Value="Transparent" />
+        </Style>
+        <Style Selector="ComboBox:pointerover /template/ Border#Background">
+          <Setter Property="Background" Value="{DynamicResource ButtonBackgroundPointerOver}" />
+          <Setter Property="BorderBrush" Value="Transparent" />
+          <Setter Property="RenderTransform" Value="scale(0.98)" />
+        </Style>
       </StackPanel.Styles>
 
       <Button Click="CreateProjectClick" ToolTip.Tip="{x:Static prop:Strings.CreateNew}">
@@ -128,32 +152,97 @@
 
       <Separator/>
 
-      <PathIcon
-        Foreground="{Binding AccentColor, Converter={StaticResource ColorToSolidColorBrushConverter}, Mode=OneTime}"
-        Classes="objectmetadata"
-        Data="{StaticResource \\movies_and_tv\\svg\\ic_fluent_movies_and_tv_24_regular.svg_regular}"
-        DataContext="{x:Static primitive:PrimitiveTypes.VideoMetadata}"/>
-      
-      <PathIcon
-        Foreground="{Binding AccentColor, Converter={StaticResource ColorToSolidColorBrushConverter}, Mode=OneTime}"
-        Classes="objectmetadata"
-        Data="{StaticResource \\image\\svg\\ic_fluent_image_24_regular.svg_regular}"
-        DataContext="{x:Static primitive:PrimitiveTypes.ImageMetadata}"/>
-      
-      <PathIcon
-        Foreground="{Binding AccentColor, Converter={StaticResource ColorToSolidColorBrushConverter}, Mode=OneTime}"
-        Classes="objectmetadata"
-        Data="{StaticResource \\music_note_2\\svg\\ic_fluent_music_note_2_24_regular.svg_regular}"
-        DataContext="{x:Static primitive:PrimitiveTypes.AudioMetadata}"/>
-      
-      <PathIcon
-        Foreground="{Binding AccentColor, Converter={StaticResource ColorToSolidColorBrushConverter}, Mode=OneTime}"
-        Classes="objectmetadata"
-        Data="{StaticResource \\text_bullet_list_square\\svg\\ic_fluent_text_bullet_list_square_24_regular.svg_regular}"
-        DataContext="{x:Static primitive:PrimitiveTypes.TextMetadata}"/>
+      <ComboBox
+        IsEnabled="{CompiledBinding IsOpened.Value, Mode=OneWay}"
+        Items="{CompiledBinding App.Project.SceneList, Mode=OneWay}"
+        SelectedItem="{CompiledBinding App.Project.PreviewScene, Mode=TwoWay}">
+        <ComboBox.ItemTemplate>
+          <DataTemplate>
+            <TextBlock Margin="8,0" Text="{Binding SceneName, Mode=OneWay}"/>
+          </DataTemplate>
+        </ComboBox.ItemTemplate>
+      </ComboBox>
+
+      <Separator/>
+
+      <ItemsControl Items="{Binding Source={x:Static data:ObjectMetadata.LoadedObjects}, Converter={StaticResource EnumerableTakeConverter}, ConverterParameter=8}">
+        <ItemsControl.ItemTemplate>
+          <DataTemplate>
+            <PathIcon
+              PointerPressed="ObjectStartDrag"
+              Foreground="{Binding AccentColor, Converter={StaticResource ColorToSolidColorBrushConverter}, Mode=OneTime}"
+              Classes="objectmetadata"
+              Data="{Binding PathIcon, Mode=OneTime, Converter={StaticResource StringToGeometoryConverter}}" />
+          </DataTemplate>
+        </ItemsControl.ItemTemplate>
+        <ItemsControl.ItemsPanel>
+          <ItemsPanelTemplate>
+            <StackPanel Orientation="Horizontal" Spacing="4"/>
+          </ItemsPanelTemplate>
+        </ItemsControl.ItemsPanel>
+      </ItemsControl>
+
+      <Button Click="ObjectsPopupOpen" Width="32" Height="32">
+        <Button.Styles>
+          <Style Selector="Button">
+            <Setter Property="Background" Value="Transparent" />
+          </Style>
+        </Button.Styles>
+
+        <PathIcon Data="{StaticResource \\more_vertical\\svg\\ic_fluent_more_vertical_24_regular.svg_regular}" />
+      </Button>
+
+      <Popup WindowManagerAddShadowHint="False" x:Name="ObjectsPopup" StaysOpen="False" PlacementMode="Pointer">
+        <ExperimentalAcrylicBorder>
+          <ExperimentalAcrylicBorder.Material>
+            <ExperimentalAcrylicMaterial
+              TintColor="Black"
+              TintOpacity="{CompiledBinding AcrylicTintOpacity1, Mode=OneTime}"
+              MaterialOpacity="{CompiledBinding AcrylicMaterialOpacity1, Mode=OneTime}" />
+          </ExperimentalAcrylicBorder.Material>
+
+          <ItemsControl Items="{Binding Source={x:Static data:ObjectMetadata.LoadedObjects}}">
+            <ItemsControl.ItemTemplate>
+              <DataTemplate>
+                <Grid
+                  ColumnDefinitions="Auto,Auto"
+                  Height="32"
+                  PointerPressed="ObjectStartDrag">
+                  <Grid.Styles>
+                    <Style Selector="Grid">
+                      <Setter Property="RenderTransform" Value="none" />
+                      <Setter Property="Background" Value="Transparent" />
+                      <Setter Property="Transitions">
+                        <Transitions>
+                          <TransformOperationsTransition Property="RenderTransform" Duration="0:0:.075" />
+                        </Transitions>
+                      </Setter>
+                    </Style>
+                    <Style Selector="Grid:pointerover">
+                      <Setter Property="Background" Value="{DynamicResource ButtonBackgroundPointerOver}" />
+                      <Setter Property="RenderTransform" Value="scale(0.98)" />
+                    </Style>
+                  </Grid.Styles>
+
+                  <PathIcon
+                    Margin="8"
+                    Foreground="{Binding AccentColor, Converter={StaticResource ColorToSolidColorBrushConverter}, Mode=OneTime}"
+                    Data="{Binding PathIcon, Mode=OneTime, Converter={StaticResource StringToGeometoryConverter}}" />
+
+                  <TextBlock Margin="8" Grid.Column="1" Text="{Binding Name, Mode=OneTime}"/>
+                </Grid>
+              </DataTemplate>
+            </ItemsControl.ItemTemplate>
+            <ItemsControl.ItemsPanel>
+              <ItemsPanelTemplate>
+                <StackPanel/>
+              </ItemsPanelTemplate>
+            </ItemsControl.ItemsPanel>
+          </ItemsControl>
+        </ExperimentalAcrylicBorder>
+      </Popup>
+
     </StackPanel>
-
-
 
     <ExperimentalAcrylicBorder
       Grid.Row="2"
@@ -181,8 +270,10 @@
     <ExperimentalAcrylicBorder
       Grid.Row="4"
       Grid.Column="2"
-      Grid.ColumnSpan="3"
-      IsHitTestVisible="False">
+      Grid.ColumnSpan="4"
+      Padding="0"
+      Child="{Binding App.Project.PreviewScene, Converter={StaticResource SceneToTimelineConverter}, Mode=OneWay}"
+      IsEnabled="{CompiledBinding IsOpened.Value, Mode=OneWay}">
       <ExperimentalAcrylicBorder.Material>
         <ExperimentalAcrylicMaterial
           TintColor="Black"
@@ -190,13 +281,6 @@
           MaterialOpacity="{CompiledBinding AcrylicMaterialOpacity2, Mode=OneTime}" />
       </ExperimentalAcrylicBorder.Material>
     </ExperimentalAcrylicBorder>
-
-    <Label
-      Grid.Row="4"
-      Grid.Column="2"
-      Grid.ColumnSpan="3"
-      IsEnabled="{CompiledBinding IsOpened.Value, Mode=OneWay}"
-      Content="{Binding App.Project.PreviewScene, Converter={StaticResource SceneToTimelineConverter}, Mode=OneWay}" />
 
     <GridSplitter Background="Transparent" Grid.Row="3" Grid.Column="2" Grid.ColumnSpan="3"/>
 
@@ -211,7 +295,7 @@
       Grid.Row="2"
       Grid.Column="2"
       Padding="0"
-      Margin="4,0" >
+      Margin="0,-4">
       <TabControl.ItemsPanel>
         <ItemsPanelTemplate>
           <StackPanel Orientation="Horizontal"/>

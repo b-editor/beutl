@@ -42,6 +42,7 @@ namespace BEditor.Extensions
             PropertyViewBuilder.Create<ColorProperty>(p => new ColorPropertyView(p)),
             PropertyViewBuilder.Create<FileProperty>(p => new FilePropertyView(p)),
             PropertyViewBuilder.Create<ColorAnimationProperty>(p => new ColorAnimationPropertyView(p)),
+            PropertyViewBuilder.Create<ButtonComponent>(p => new ButtonCompornentView(p)),
             PropertyViewBuilder.Create<ExpandGroup>(p =>
             {
                 var header = new Label

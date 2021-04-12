@@ -30,6 +30,11 @@ namespace BEditor.Data
         public Color AccentColor { get; set; } = Color.FromARGB(0xff304fee);
 
         /// <summary>
+        /// Gets or sets the path data of an icon.
+        /// </summary>
+        public string PathIcon { get; set; } = string.Empty;
+
+        /// <summary>
         /// Gets the loaded <see cref="ObjectMetadata"/>.
         /// </summary>
         public static ObservableCollection<ObjectMetadata> LoadedObjects { get; } = new();

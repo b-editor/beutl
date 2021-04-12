@@ -295,12 +295,23 @@ namespace BEditor.Views.Timelines
 
         private void TimelineGrid_DragOver(object? sender, DragEventArgs e)
         {
+            ViewModel.LayerCursor.Value = StandardCursorType.DragCopy;
             e.DragEffects = e.Data.Contains("ObjectMetadata") ? DragDropEffects.Copy : DragDropEffects.None;
         }
 
-        // Todo : DragDropÇÃèàóù
         private void TimelineGrid_Drop(object? sender, DragEventArgs e)
         {
+            ViewModel.LayerCursor.Value = StandardCursorType.Arrow;
+            if (e.Data.Get("ObjectMetadata") is ObjectMetadata metadata)
+            {
+                var vm = ViewModel;
+                var pt = e.GetPosition((IVisual)sender!);
+
+                vm.ClickedFrame = Scene.ToFrame(pt.X);
+                vm.ClickedLayer = TimelineViewModel.ToLayer(pt.Y);
+
+                vm.AddClip.Execute(metadata);
+            }
         }
 
         private void ScrollLine_ScrollChanged1(object? sender, ScrollChangedEventArgs e)
