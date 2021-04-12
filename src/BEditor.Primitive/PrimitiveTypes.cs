@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.Runtime.CompilerServices;
 
 using BEditor.Data;
+using BEditor.Drawing;
 using BEditor.Primitive.Objects;
 using BEditor.Primitive.Resources;
 
@@ -111,6 +112,16 @@ namespace BEditor.Primitive
         /// Metadata of <see cref="ListenerObject"/> class.
         /// </summary>
         public static readonly ObjectMetadata ListenerMetadata = ObjectMetadata.Create<ListenerObject>(Strings.Listener);
+
+        static PrimitiveTypes()
+        {
+            ImageMetadata.AccentColor = Color.FromARGB(0xff0091ea);
+            PolygonMetadata.AccentColor = Color.FromARGB(0xff0091ea);
+            RoundRectMetadata.AccentColor = Color.FromARGB(0xff0091ea);
+            ShapeMetadata.AccentColor = Color.FromARGB(0xff0091ea);
+            TextMetadata.AccentColor = Color.FromARGB(0xff6200ea);
+            AudioMetadata.AccentColor = Color.FromARGB(0xffff1744);
+        }
 
         /// <summary>
         /// Enumerate all objects.

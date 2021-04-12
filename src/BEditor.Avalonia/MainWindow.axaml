@@ -33,7 +33,7 @@
     </ExperimentalAcrylicBorder>
 
     <titlebar:WindowsTitlebar Grid.Row="0" Grid.ColumnSpan="5" />
-    
+
     <StackPanel Margin="4" Spacing="4" Grid.Row="1" Orientation="Horizontal">
       <StackPanel.Styles>
         <Style Selector="Separator">
@@ -46,17 +46,29 @@
         </Style>
 
         <Style Selector="PathIcon.objectmetadata">
-          <Setter Property="Background" Value="Transparent" />
-          <Setter Property="Width" Value="20" />
-          <Setter Property="Height" Value="20" />
-          <Setter Property="Margin" Value="5,0,5,0" />
-          <Setter Property="VerticalAlignment" Value="Center" />
-        </Style>
-        <Style Selector="PathIcon.objectmetadata:pressed">
-          <Setter Property="RenderTransform" Value="scale(0.98)" />
+          <Setter Property="RenderTransform" Value="none" />
+          <Setter Property="Width" Value="32" />
+          <Setter Property="Height" Value="32" />
+          <Setter Property="Transitions">
+            <Transitions>
+              <TransformOperationsTransition Property="RenderTransform" Duration="0:0:.075" />
+            </Transitions>
+          </Setter>
+          <Setter Property="Template">
+            <ControlTemplate>
+              <Border
+                Background="{TemplateBinding Background}"
+                CornerRadius="{DynamicResource ControlCornerRadius}">
+                <PathIcon
+                  Data="{TemplateBinding Data}"
+                  Foreground="{TemplateBinding Foreground}" />
+              </Border>
+            </ControlTemplate>
+          </Setter>
         </Style>
         <Style Selector="PathIcon.objectmetadata:pointerover">
-          <Setter Property="Background" Value="#25FFFFFF" />
+          <Setter Property="Background" Value="{DynamicResource ButtonBackgroundPointerOver}" />
+          <Setter Property="RenderTransform" Value="scale(0.98)" />
         </Style>
       </StackPanel.Styles>
 
@@ -117,13 +129,32 @@
       <Separator/>
 
       <PathIcon
+        Foreground="{Binding AccentColor, Converter={StaticResource ColorToSolidColorBrushConverter}, Mode=OneTime}"
         Classes="objectmetadata"
         Data="{StaticResource \\movies_and_tv\\svg\\ic_fluent_movies_and_tv_24_regular.svg_regular}"
         DataContext="{x:Static primitive:PrimitiveTypes.VideoMetadata}"/>
+      
+      <PathIcon
+        Foreground="{Binding AccentColor, Converter={StaticResource ColorToSolidColorBrushConverter}, Mode=OneTime}"
+        Classes="objectmetadata"
+        Data="{StaticResource \\image\\svg\\ic_fluent_image_24_regular.svg_regular}"
+        DataContext="{x:Static primitive:PrimitiveTypes.ImageMetadata}"/>
+      
+      <PathIcon
+        Foreground="{Binding AccentColor, Converter={StaticResource ColorToSolidColorBrushConverter}, Mode=OneTime}"
+        Classes="objectmetadata"
+        Data="{StaticResource \\music_note_2\\svg\\ic_fluent_music_note_2_24_regular.svg_regular}"
+        DataContext="{x:Static primitive:PrimitiveTypes.AudioMetadata}"/>
+      
+      <PathIcon
+        Foreground="{Binding AccentColor, Converter={StaticResource ColorToSolidColorBrushConverter}, Mode=OneTime}"
+        Classes="objectmetadata"
+        Data="{StaticResource \\text_bullet_list_square\\svg\\ic_fluent_text_bullet_list_square_24_regular.svg_regular}"
+        DataContext="{x:Static primitive:PrimitiveTypes.TextMetadata}"/>
     </StackPanel>
 
 
-    
+
     <ExperimentalAcrylicBorder
       Grid.Row="2"
       Grid.RowSpan="3"
@@ -144,7 +175,7 @@
       VerticalContentAlignment="Stretch"
       IsEnabled="{CompiledBinding IsOpened.Value, Mode=OneWay}"
       Content="{Binding App.Project.PreviewScene.SelectItem, Converter={StaticResource ClipPropertyConverter}, Mode=OneWay}" />
-    
+
     <GridSplitter Background="Transparent" Grid.Row="2" Grid.RowSpan="3" Grid.Column="1"/>
 
     <ExperimentalAcrylicBorder

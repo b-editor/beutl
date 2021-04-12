@@ -42,6 +42,7 @@ namespace BEditor.Data
             _end = end;
             _layer = layer;
             _effect = new() { metadata.CreateFunc() };
+            Metadata = metadata;
             Parent = scene;
             LabelText = Name;
         }
@@ -125,6 +126,11 @@ namespace BEditor.Data
                 }
             }
         }
+
+        /// <summary>
+        /// Gets the metadata of an object.
+        /// </summary>
+        public ObjectMetadata Metadata { get; private set; }
 
         /// <summary>
         /// Gets the effects included in this <see cref="ClipElement"/>.

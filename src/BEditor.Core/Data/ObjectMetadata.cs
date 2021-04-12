@@ -2,6 +2,8 @@
 using System.Collections.ObjectModel;
 using System.Linq.Expressions;
 
+using BEditor.Drawing;
+
 namespace BEditor.Data
 {
     /// <summary>
@@ -21,6 +23,11 @@ namespace BEditor.Data
             : this(Name, Create.Compile(), ((NewExpression)Create.Body).Type)
         {
         }
+
+        /// <summary>
+        /// Gets or sets the accent color.
+        /// </summary>
+        public Color AccentColor { get; set; } = Color.FromARGB(0xff304fee);
 
         /// <summary>
         /// Gets the loaded <see cref="ObjectMetadata"/>.

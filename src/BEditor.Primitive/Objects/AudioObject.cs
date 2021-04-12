@@ -17,7 +17,6 @@ namespace BEditor.Primitive.Objects
     /// <summary>
     /// Represents an <see cref="ObjectElement"/> that references an audio file.
     /// </summary>
-    [CustomClipUI(Color = 0xff1744)]
     public sealed class AudioObject : ObjectElement
     {
         /// <summary>

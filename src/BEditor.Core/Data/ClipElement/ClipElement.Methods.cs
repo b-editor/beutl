@@ -113,6 +113,8 @@ namespace BEditor.Data
                     Effect.Add(obj);
                 }
             }
+
+            Metadata = ObjectMetadata.LoadedObjects.First(i => i.Name == Effect[0].Name);
         }
         #endregion
 

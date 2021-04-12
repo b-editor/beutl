@@ -14,7 +14,6 @@ namespace BEditor.Primitive.Objects
     /// <summary>
     /// Get an <see cref="ImageObject"/> to draw a polygon.
     /// </summary>
-    [CustomClipUI(Color = 0x0091ea)]
     public sealed class Polygon : ImageObject
     {
         /// <summary>

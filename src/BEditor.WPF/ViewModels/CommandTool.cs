@@ -6,6 +6,7 @@ using System.Windows.Input;
 using System.Windows.Media;
 
 using BEditor.Data;
+using BEditor.Models.Extension;
 
 using MaterialDesignThemes.Wpf;
 
@@ -57,10 +58,12 @@ namespace BEditor.ViewModels
         {
             if (value is Type clipType)
             {
-                if (Attribute.GetCustomAttribute(clipType, typeof(CustomClipUIAttribute)) is CustomClipUIAttribute att)
+                foreach (var item in ObjectMetadata.LoadedObjects)
                 {
-                    var c = att.GetColor;
-                    return new SolidColorBrush(Color.FromRgb(c.R, c.G, c.B));
+                    if (item.Type == clipType)
+                    {
+                        return item.AccentColor.ToBrush();
+                    }
                 }
 
                 return new SolidColorBrush(Color.FromRgb(48, 79, 238));

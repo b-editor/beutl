@@ -14,7 +14,6 @@ namespace BEditor.Primitive.Objects
     /// <summary>
     /// Represents an <see cref="ImageObject"/> that draws a rectangle with rounded corners.
     /// </summary>
-    [CustomClipUI(Color = 0x0091ea)]
     public sealed class RoundRect : ImageObject
     {
         /// <summary>

@@ -15,7 +15,6 @@ namespace BEditor.Primitive.Objects
     /// <summary>
     /// Represents an <see cref="ImageObject"/> to draw a string.
     /// </summary>
-    [CustomClipUI(Color = 0x6200ea)]
     public sealed class Text : ImageObject
     {
         /// <summary>

@@ -16,7 +16,6 @@ namespace BEditor.Primitive.Objects
     /// <summary>
     /// Represents an <see cref="ImageObject"/> that references an image file.
     /// </summary>
-    [CustomClipUI(Color = 0x0091ea)]
     public sealed class ImageFile : ImageObject
     {
         /// <summary>
