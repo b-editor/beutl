@@ -1,0 +1,19 @@
+﻿<Styles
+    xmlns="https://github.com/avaloniaui"
+    xmlns:c="clr-namespace:BEditor.Controls;assembly=BEditor.Avalonia">
+    <Style Selector="Button">
+        <Setter Property="Background" Value="Transparent" />
+    </Style>
+    <Style Selector="Button:disabled /template/ ContentPresenter#PART_ContentPresenter">
+        <Setter Property="Opacity" Value="0.5" />
+        <Setter Property="BorderBrush" Value="Transparent" />
+        <Setter Property="Background" Value="Transparent" />
+    </Style>
+
+    <Style Selector="ToggleButton">
+        <Setter Property="Background" Value="Transparent" />
+    </Style>
+    <Style Selector="ToggleButton:checked /template/ ContentPresenter#PART_ContentPresenter">
+        <Setter Property="Background" Value="{DynamicResource ButtonBackgroundPressed}" />
+    </Style>
+</Styles>

@@ -46,8 +46,8 @@ namespace BEditor.Drawing
             var weight = Weight;
             var width = Width;
 
-            str.Append($" {weight:g}");
-            str.Append($" {width:g}");
+            str.Append(weight.ToString("g"));
+            str.Append(width.ToString("g"));
 
             return str.ToString();
         }

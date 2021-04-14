@@ -15,7 +15,7 @@ namespace BEditor.Plugin
     /// <summary>
     /// Represents a class that initializes the services provided by the <see cref="PluginObject"/>.
     /// </summary>
-    public class PluginBuilder
+    public sealed class PluginBuilder
     {
         /// <summary>
         /// The plugin config.

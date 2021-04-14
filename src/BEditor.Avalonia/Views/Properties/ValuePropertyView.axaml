@@ -42,9 +42,7 @@
       VerticalAlignment="Center">
       <NumericUpDown
         Width="{Binding $parent.Bounds.Width, Mode=OneWay}"
-        ShowButtonSpinner="False"
-        Background="Transparent"
-        BorderBrush="Transparent"
+        Classes="custom"
         Increment="10"
         Value="{CompiledBinding Property.Value, Mode=OneWay}"
         Maximum="{CompiledBinding Maximum, Mode=OneTime}"

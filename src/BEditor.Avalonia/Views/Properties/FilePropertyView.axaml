@@ -17,8 +17,7 @@
       <MenuItem Padding="0" HorizontalAlignment="Stretch" VerticalAlignment="Stretch">
         <MenuItem.Header>
           <ComboBox
-            Background="Transparent"
-            BorderBrush="Transparent"
+            Classes="custom"
             HorizontalAlignment="Stretch"
             HorizontalContentAlignment="Stretch"
             SelectedIndex="{CompiledBinding PathMode.Value, Mode=TwoWay}">
@@ -54,7 +53,7 @@
       VerticalAlignment="Top"
       Command="{CompiledBinding Command, Mode=OneTime}"
       Background="Transparent">
-      <PathIcon Data="{DynamicResource \\folder_open\\svg\\ic_fluent_folder_open_16_regular.svg_regular}"/>
+      <PathIcon Data="{StaticResource FolderOpen16Regular}"/>
     </Button>
 
     <ContentControl
@@ -65,11 +64,10 @@
       HorizontalAlignment="Stretch"
       VerticalAlignment="Center">
       <TextBox
+        Classes="custom"
         Width="{Binding $parent.Bounds.Width, Mode=OneWay}"
         IsReadOnly="True"
-        Text="{CompiledBinding Property.Value, Mode=OneWay}"
-        Background="Transparent"
-        BorderBrush="Transparent"/>
+        Text="{CompiledBinding Property.Value, Mode=OneWay}" />
     </ContentControl>
 
 

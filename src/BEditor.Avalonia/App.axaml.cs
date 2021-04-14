@@ -57,12 +57,10 @@ namespace BEditor
 
             AvaloniaXamlLoader.Load(this);
 
-            var theme = new FluentTheme(new Uri("avares://BEditor.Avalonia/App.axaml"))
+            Styles.Insert(0, new FluentTheme(new Uri("avares://BEditor.Avalonia/App.axaml"))
             {
                 Mode = Settings.Default.UseDarkMode ? FluentThemeMode.Dark : FluentThemeMode.Light
-            };
-
-            Styles.Insert(0, theme);
+            });
         }
 
         public override async void OnFrameworkInitializationCompleted()

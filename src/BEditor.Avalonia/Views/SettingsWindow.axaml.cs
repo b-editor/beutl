@@ -1,8 +1,11 @@
-﻿using Avalonia;
+﻿using System;
+
+using Avalonia;
 using Avalonia.Controls;
 using Avalonia.Controls.Primitives;
 using Avalonia.Interactivity;
 using Avalonia.Markup.Xaml;
+using Avalonia.Markup.Xaml.Templates;
 
 namespace BEditor.Views
 {
@@ -14,6 +17,12 @@ namespace BEditor.Views
 #if DEBUG
             this.AttachDevTools();
 #endif
+        }
+
+        protected override void OnOpened(EventArgs e)
+        {
+            base.OnOpened(e);
+            (Width, Height) = (800, 450);
         }
 
         private void InitializeComponent()

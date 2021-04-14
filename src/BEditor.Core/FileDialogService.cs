@@ -15,7 +15,7 @@ namespace BEditor
         /// Show the Save File dialog.
         /// </summary>
         public bool ShowSaveFileDialog(SaveFileRecord record);
-        
+
         /// <summary>
         /// Show the Save File dialog.
         /// </summary>

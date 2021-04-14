@@ -5,6 +5,7 @@ using System.Windows;
 
 using Avalonia;
 using Avalonia.Controls;
+using Avalonia.Media;
 
 namespace BEditor.Views
 {

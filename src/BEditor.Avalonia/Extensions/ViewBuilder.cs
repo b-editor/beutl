@@ -358,7 +358,7 @@ namespace BEditor.Extensions
                 {
                     Content = new PathIcon
                     {
-                        Data = (Geometry)Application.Current.FindResource(@"\arrow_up\svg\ic_fluent_arrow_up_28_regular.svg_regular")!
+                        Data = (Geometry)Application.Current.FindResource("ArrowUp28Regular")!
                     },
                     Margin = new Thickness(5, 0, 0, 0),
                     Background = null,
@@ -369,7 +369,7 @@ namespace BEditor.Extensions
                 {
                     Content = new PathIcon
                     {
-                        Data = (Geometry)Application.Current.FindResource(@"\arrow_down\svg\ic_fluent_arrow_down_28_regular.svg_regular")!
+                        Data = (Geometry)Application.Current.FindResource("ArrowDown28Regular")!
                     },
                     Margin = new Thickness(0, 0, 5, 0),
                     Background = null,
@@ -431,7 +431,7 @@ namespace BEditor.Extensions
                 };
                 menu.Children.Add(new PathIcon
                 {
-                    Data = (Geometry)Application.Current.FindResource(@"\delete\svg\ic_fluent_delete_24_regular.svg_regular")!,
+                    Data = (Geometry)Application.Current.FindResource("Delete24Regular")!,
                     Margin = new Thickness(5, 0, 5, 0)
                 });
                 menu.Children.Add(new TextBlock

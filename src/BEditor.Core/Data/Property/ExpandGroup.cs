@@ -28,7 +28,7 @@ namespace BEditor.Data.Property
         /// </summary>
         /// <param name="metadata">Metadata of this property.</param>
         /// <exception cref="ArgumentNullException"><paramref name="metadata"/> is <see langword="null"/>.</exception>
-        public ExpandGroup(PropertyElementMetadata metadata)
+        protected ExpandGroup(PropertyElementMetadata metadata)
         {
             PropertyMetadata = metadata ?? throw new ArgumentNullException(nameof(metadata));
         }

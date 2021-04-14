@@ -418,6 +418,7 @@ namespace BEditor.Drawing
 
             IsDisposed = true;
 
+            GC.SuppressFinalize(this);
             return new(task);
         }
 

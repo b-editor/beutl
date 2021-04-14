@@ -98,7 +98,7 @@
               BorderThickness="0"
               Command="{Binding OpenFolerDialog}"
               Cursor="Arrow">
-            <PathIcon Data="{DynamicResource \\folder_open\\svg\\ic_fluent_folder_open_16_regular.svg_regular}" />
+            <PathIcon Data="{StaticResource FolderOpen16Regular}" />
           </Button>
         </Grid>
       </VirtualizingStackPanel>

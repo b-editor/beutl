@@ -81,13 +81,11 @@ namespace BEditor.Views.Properties
             };
             var num = new NumericUpDown
             {
+                Classes = { "custom" },
                 [AttachmentProperty.IntProperty] = index,
                 Height = 32,
                 VerticalAlignment = VerticalAlignment.Center,
                 Value = _property.Value[index],
-                ShowButtonSpinner = false,
-                Background = Brushes.Transparent,
-                BorderBrush = Brushes.Transparent,
                 Increment = 10
             };
 

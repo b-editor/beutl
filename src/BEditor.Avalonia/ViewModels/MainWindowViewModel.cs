@@ -251,9 +251,9 @@ namespace BEditor.ViewModels
         }
 
         public double AcrylicTintOpacity1 { get; } = BEditor.Settings.Default.UseDarkMode ? 1 : 0;
-        public double AcrylicMaterialOpacity1 { get; } = BEditor.Settings.Default.UseDarkMode ? 1 : 0;
+        public double AcrylicMaterialOpacity1 { get; } = BEditor.Settings.Default.UseDarkMode ? 0.95 : 0;
         public double AcrylicTintOpacity2 { get; } = BEditor.Settings.Default.UseDarkMode ? 1 : 0;
-        public double AcrylicMaterialOpacity2 { get; } = BEditor.Settings.Default.UseDarkMode ? 0.95 : 0;
+        public double AcrylicMaterialOpacity2 { get; } = BEditor.Settings.Default.UseDarkMode ? 0.8 : 0;
         public ReactiveCommand Open { get; } = new();
         public ReactiveCommand Save { get; } = new();
         public ReactiveCommand SaveAs { get; } = new();

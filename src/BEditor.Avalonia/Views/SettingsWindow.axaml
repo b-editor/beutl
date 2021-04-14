@@ -1,38 +1,132 @@
 <Window
-  xmlns="https://github.com/avaloniaui"
-  xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
-  xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
-  xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
-  xmlns:prop="using:BEditor.Properties"
-  xmlns:ctr="using:BEditor.Views.Settings"
-  mc:Ignorable="d"
-  Height="450" Width="800"
-  x:Class="BEditor.Views.SettingsWindow"
-  Title="SettingsWindow">
-  <TabControl Classes="sidebar">
-    <TabItem Header="{x:Static prop:Strings.Appearance}">
-      <ctr:Appearance/>
-    </TabItem>
-    <TabItem Header="{x:Static prop:Strings.Font}">
-      <ctr:Fonts/>
-    </TabItem>
-    <TabItem Header="{x:Static prop:Strings.Project}">
-      <ctr:Project/>
-    </TabItem>
-    <TabItem Header="{x:Static prop:Strings.InstalledPlugins}">
-      <ctr:InstalledPlugins/>
-    </TabItem>
-    <TabItem Header="{x:Static prop:Strings.DisabledPlugins}">
-      
-    </TabItem>
-    <TabItem Header="{x:Static prop:Strings.Infomation}">
-      
-    </TabItem>
-    <TabItem Header="{x:Static prop:Strings.License}">
-      
-    </TabItem>
-    <TabItem Header="{x:Static prop:Strings.Others}">
-      
-    </TabItem>
-  </TabControl>
+    xmlns="https://github.com/avaloniaui"
+    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+    xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+    xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+    xmlns:prop="using:BEditor.Properties"
+    xmlns:ctr="using:BEditor.Views.Settings"
+    xmlns:vm="using:BEditor.ViewModels"
+    xmlns:titlebar="using:BEditor.Views.CustomTitlebars"
+    x:DataType="vm:MainWindowViewModel"
+    DataContext="{x:Static vm:MainWindowViewModel.Current}"
+    mc:Ignorable="d"
+    Height="450" Width="800"
+    ExtendClientAreaToDecorationsHint="True"
+    ExtendClientAreaChromeHints="NoChrome"
+    ExtendClientAreaTitleBarHeightHint="-1"
+    TransparencyLevelHint="AcrylicBlur"
+    Background="Transparent"
+    WindowStartupLocation="CenterScreen"
+    x:Class="BEditor.Views.SettingsWindow"
+    Title="SettingsWindow">
+    <Panel>
+        <DockPanel HorizontalAlignment="Stretch">
+            <ExperimentalAcrylicBorder IsHitTestVisible="False" DockPanel.Dock="Left" Width="240">
+                <ExperimentalAcrylicBorder.Material>
+                    <ExperimentalAcrylicMaterial
+                      TintColor="#222222"
+                      TintOpacity="{CompiledBinding AcrylicTintOpacity1, Mode=OneTime}"
+                      MaterialOpacity="{CompiledBinding AcrylicMaterialOpacity1, Mode=OneTime}" />
+                </ExperimentalAcrylicBorder.Material>
+            </ExperimentalAcrylicBorder>
+            <ExperimentalAcrylicBorder IsHitTestVisible="False">
+                <ExperimentalAcrylicBorder.Material>
+                    <ExperimentalAcrylicMaterial
+                      TintColor="Black"
+                      TintOpacity="{CompiledBinding AcrylicTintOpacity2, Mode=OneTime}"
+                      MaterialOpacity="{CompiledBinding AcrylicMaterialOpacity2, Mode=OneTime}" />
+                </ExperimentalAcrylicBorder.Material>
+            </ExperimentalAcrylicBorder>
+        </DockPanel>
+
+        <titlebar:WindowsTitlebarButtons VerticalAlignment="Top"/>
+
+        <TabControl Classes="sidebar" Margin="0,16,0,0">
+            <TabControl.Styles>
+                <Style Selector="StackPanel">
+                    <Setter Property="Spacing" Value="16" />
+                    <Setter Property="Orientation" Value="Horizontal" />
+                </Style>
+
+                <Style Selector="PathIcon">
+                    <Setter Property="Width" Value="16" />
+                    <Setter Property="Height" Value="16" />
+                </Style>
+            </TabControl.Styles>
+            <TabItem>
+                <TabItem.Header>
+                    <StackPanel>
+                        <PathIcon Data="{StaticResource Window20Regular}"/>
+                        <TextBlock Text="{x:Static prop:Strings.Appearance}" />
+                    </StackPanel>
+                </TabItem.Header>
+                <ctr:Appearance/>
+            </TabItem>
+            <TabItem>
+                <TabItem.Header>
+                    <StackPanel>
+                        <PathIcon Data="{StaticResource TextFontSize20Regular}"/>
+                        <TextBlock Text="{x:Static prop:Strings.Font}" />
+                    </StackPanel>
+                </TabItem.Header>
+                <ctr:Fonts/>
+            </TabItem>
+            <TabItem>
+                <TabItem.Header>
+                    <StackPanel>
+                        <PathIcon Data="{StaticResource Document20Regular}"/>
+                        <TextBlock Text="{x:Static prop:Strings.Project}" />
+                    </StackPanel>
+                </TabItem.Header>
+                <ctr:Project/>
+            </TabItem>
+            <TabItem>
+                <TabItem.Header>
+                    <StackPanel>
+                        <PathIcon Data="{StaticResource Extension20Regular}"/>
+                        <TextBlock Text="{x:Static prop:Strings.InstalledPlugins}" />
+                    </StackPanel>
+                </TabItem.Header>
+                <ctr:InstalledPlugins/>
+            </TabItem>
+            <TabItem>
+                <TabItem.Header>
+                    <StackPanel>
+                        <PathIcon Data="{StaticResource PlugDisconnected20Regular}"/>
+                        <TextBlock Text="{x:Static prop:Strings.DisabledPlugins}" />
+                    </StackPanel>
+                </TabItem.Header>
+
+            </TabItem>
+            <TabItem>
+                <TabItem.Header>
+                    <StackPanel>
+                        <PathIcon Data="{StaticResource Info20Regular}"/>
+                        <TextBlock Text="{x:Static prop:Strings.Infomation}" />
+                    </StackPanel>
+                </TabItem.Header>
+
+            </TabItem>
+            <TabItem>
+                <TabItem.Header>
+                    <StackPanel>
+                        <PathIcon Data="{StaticResource RibbonStar20Regular}"/>
+                        <TextBlock Text="{x:Static prop:Strings.License}" />
+                    </StackPanel>
+                </TabItem.Header>
+
+            </TabItem>
+            <TabItem>
+                <TabItem.Header>
+                    <StackPanel>
+                        <PathIcon Data="{StaticResource MoreVertical20Regular}"/>
+                        <TextBlock Text="{x:Static prop:Strings.Others}" />
+                    </StackPanel>
+                </TabItem.Header>
+
+            </TabItem>
+        </TabControl>
+    </Panel>
+
+
 </Window>

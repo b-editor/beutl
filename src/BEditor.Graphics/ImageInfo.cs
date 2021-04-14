@@ -64,6 +64,7 @@ namespace BEditor.Graphics
             if (IsDisposed) return;
 
             await Source.DisposeAsync();
+            GC.SuppressFinalize(this);
 
             IsDisposed = true;
         }

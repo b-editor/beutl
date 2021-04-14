@@ -33,15 +33,15 @@ namespace BEditor
                 .ObserveOn(AvaloniaScheduler.Instance)
                 .Subscribe(isopened =>
             {
-                var content = (Grid)Content!;
-                if (isopened)
-                {
-                    content.Margin = new(0, 0, 8, 0);
-                }
-                else
-                {
-                    content.Margin = default;
-                }
+                //var content = (Grid)Content!;
+                //if (isopened)
+                //{
+                //    content.Margin = new(0, 0, 8, 0);
+                //}
+                //else
+                //{
+                //    content.Margin = default;
+                //}
             });
 #if DEBUG
             this.AttachDevTools();
