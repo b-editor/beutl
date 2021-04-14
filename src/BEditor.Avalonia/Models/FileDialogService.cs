@@ -60,9 +60,9 @@ namespace BEditor.Models
 
                 var file = await dialog.ShowAsync(desktop.MainWindow);
 
-                if (File.Exists(file.FirstOrDefault()))
+                if (File.Exists(file?.FirstOrDefault()))
                 {
-                    record.FileName = file[0];
+                    record.FileName = file![0];
 
                     return true;
                 }

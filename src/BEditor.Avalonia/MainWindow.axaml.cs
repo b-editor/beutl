@@ -1,5 +1,6 @@
 using System;
 using System.ComponentModel;
+using System.IO;
 using System.Net;
 using System.Reactive.Linq;
 using System.Threading.Tasks;
@@ -18,6 +19,8 @@ using BEditor.Properties;
 using BEditor.ViewModels;
 using BEditor.ViewModels.DialogContent;
 using BEditor.Views.DialogContent;
+
+using FFMediaToolkit;
 
 using Microsoft.Extensions.Logging;
 
@@ -82,7 +85,13 @@ namespace BEditor
 
         protected override async void OnOpened(EventArgs e)
         {
+            base.OnOpened(e);
             var installer = new FFmpegInstaller(App.FFmpegDir);
+
+            if (OperatingSystem.IsWindows())
+            {
+                FFmpegLoader.FFmpegPath = Path.Combine(AppContext.BaseDirectory, "ffmpeg");
+            }
 
             if (!await installer.IsInstalledAsync())
             {
@@ -95,15 +104,19 @@ namespace BEditor
                     await AppModel.Current.Message.DialogAsync($"{Strings.RunFollowingCommandToInstallFFmpeg}\n$ brew install ffmpeg");
 
                     Close();
+                    return;
                 }
                 else if (OperatingSystem.IsMacOS())
                 {
                     await AppModel.Current.Message.DialogAsync($"{Strings.RunFollowingCommandToInstallFFmpeg}\n$ sudo apt update\n$ sudo apt -y upgrade\n$ sudo apt install ffmpeg");
 
                     Close();
+                    return;
                 }
             }
-            base.OnOpened(e);
+
+            // FFmpegì«Ç›çûÇ›
+            FFmpegLoader.LoadFFmpeg();
         }
 
         private async Task InstallFFmpegWindowsAsync(FFmpegInstaller installer)

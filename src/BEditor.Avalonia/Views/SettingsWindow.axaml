@@ -114,7 +114,7 @@
                         <TextBlock Text="{x:Static prop:Strings.License}" />
                     </StackPanel>
                 </TabItem.Header>
-
+                <ctr:License />
             </TabItem>
             <TabItem>
                 <TabItem.Header>
