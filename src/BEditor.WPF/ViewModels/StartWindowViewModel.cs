@@ -44,7 +44,7 @@ namespace BEditor.ViewModels
 
             _ = GetLatestRelease();
         }
-        
+
         public ReactiveCollection<MenuItem> MenuItems { get; } = new();
 
         public ReactivePropertySlim<MenuItem> Selected { get; } = new();

@@ -7,10 +7,7 @@ using System.Threading.Tasks;
 using Avalonia;
 using Avalonia.Controls;
 using Avalonia.Controls.ApplicationLifetimes;
-using Avalonia.Controls.Presenters;
-using Avalonia.Controls.Templates;
 using Avalonia.Markup.Xaml;
-using Avalonia.Markup.Xaml.Templates;
 using Avalonia.Styling;
 using Avalonia.Themes.Fluent;
 using Avalonia.Threading;
@@ -20,8 +17,6 @@ using BEditor.Models;
 using BEditor.Plugin;
 using BEditor.Primitive;
 using BEditor.Properties;
-
-using FFMediaToolkit;
 
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;

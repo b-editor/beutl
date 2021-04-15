@@ -95,7 +95,7 @@ namespace BEditor.Models
 
                         await DirectOpen(dialog.FileName);
                     }
-                    catch(Exception e)
+                    catch (Exception e)
                     {
                         Debug.Assert(false);
 

@@ -47,7 +47,7 @@ namespace BEditor.ViewModels.Properties
                 }
             }).AddTo(_disposables);
             Reset.Subscribe(() => Property.ChangeFile(Property.PropertyMetadata?.DefaultFile ?? string.Empty).Execute()).AddTo(_disposables);
-            Bind.Subscribe(async() =>
+            Bind.Subscribe(async () =>
             {
                 var window = new SetBinding
                 {

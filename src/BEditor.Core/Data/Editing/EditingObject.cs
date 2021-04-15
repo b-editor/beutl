@@ -306,7 +306,7 @@ namespace BEditor.Data
                 {
                     SetValue(prop, prop.Serializer!.Read(propElement));
                 }
-                else if(prop.Initializer is not null)
+                else if (prop.Initializer is not null)
                 {
                     SetValue(prop, prop.Initializer.Create());
                 }

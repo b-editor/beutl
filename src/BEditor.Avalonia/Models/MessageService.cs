@@ -13,7 +13,7 @@ namespace BEditor.Models
     {
         public async ValueTask<IMessage.ButtonType?> DialogAsync(string text, IMessage.IconType icon = IMessage.IconType.Info, IMessage.ButtonType[]? types = null)
         {
-            var task = Dispatcher.UIThread.InvokeAsync<IMessage.ButtonType?>(async() =>
+            var task = Dispatcher.UIThread.InvokeAsync<IMessage.ButtonType?>(async () =>
             {
                 var control = new MessageContent(types, text, icon);
                 var dialog = new EmptyDialog(control);

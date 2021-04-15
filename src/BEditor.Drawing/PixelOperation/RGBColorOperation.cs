@@ -13,7 +13,7 @@ namespace BEditor.Drawing.PixelOperation
         private readonly short _g;
         private readonly short _b;
 
-        public RGBColorOperation(BGRA32* src, BGRA32* dst, short r,short g,short b)
+        public RGBColorOperation(BGRA32* src, BGRA32* dst, short r, short g, short b)
         {
             _src = src;
             _dst = dst;

@@ -11,7 +11,7 @@ namespace BEditor.Audio
         }
 
         public override int Handle { get; }
-        
+
         protected override void OnDispose()
         {
             Tool.DeleteSource(Handle);

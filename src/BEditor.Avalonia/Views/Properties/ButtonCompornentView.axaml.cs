@@ -13,7 +13,7 @@ namespace BEditor.Views.Properties
         {
             InitializeComponent();
         }
-        
+
         public ButtonCompornentView(ButtonComponent property)
         {
             DataContext = new ButtonComponentViewModel(property);

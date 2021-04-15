@@ -25,7 +25,7 @@ namespace BEditor.Media.PCM
         }
 
         public void ConvertTo(out StereoPCM16 dst)
-        {   
+        {
             dst = new((short)(Left >> 16), (short)(Right >> 16));
         }
     }

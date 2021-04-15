@@ -13,7 +13,7 @@ namespace BEditor.Views.Properties
         {
             InitializeComponent();
         }
-        
+
         public FilePropertyView(FileProperty property)
         {
             DataContext = new FilePropertyViewModel(property);
