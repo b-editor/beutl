@@ -1,0 +1,53 @@
+<UserControl
+    xmlns="https://github.com/avaloniaui"
+    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+    xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+    xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+    mc:Ignorable="d" d:DesignWidth="800" d:DesignHeight="450"
+    xmlns:vm="using:BEditor.ViewModels.Properties"
+    x:DataType="vm:TextPropertyViewModel"
+    Height="40"
+    Background="Transparent"
+    x:Class="BEditor.Views.Properties.TextPropertyView">
+    <UserControl.ContextMenu>
+        <ContextMenu>
+            <MenuItem Header="Reset" Command="{CompiledBinding Reset, Mode=OneTime}"/>
+            <MenuItem Header="Bind" Command="{CompiledBinding Bind, Mode=OneTime}"/>
+        </ContextMenu>
+    </UserControl.ContextMenu>
+    <Grid>
+        <Grid.ColumnDefinitions>
+            <ColumnDefinition Width="120*" MinWidth="50" MaxWidth="100" />
+            <ColumnDefinition Width="40" />
+            <ColumnDefinition Width="40" />
+            <ColumnDefinition Width="*" MinWidth="100" />
+        </Grid.ColumnDefinitions>
+
+        <Label
+            Height="40"
+            Margin="10,0,0,0"
+            HorizontalAlignment="Left"
+            VerticalAlignment="Top"
+            VerticalContentAlignment="Center"
+            FontSize="13"
+            Content="{CompiledBinding Metadata.Value.Name, Mode=OneTime}" />
+
+
+        <ContentControl
+            Grid.Column="3"
+            Height="32"
+            Margin="8,4"
+            Padding="0"
+            HorizontalAlignment="Stretch"
+            VerticalAlignment="Center">
+            <TextBox
+                x:Name="TextBox"
+                Width="{Binding $parent.Bounds.Width, Mode=OneWay}"
+                Classes="custom"
+                Text="{CompiledBinding Property.Value, Mode=OneWay}"
+                GotFocus="TextBox_GotFocus"
+                LostFocus="TextBox_LostFocus" />
+        </ContentControl>
+
+    </Grid>
+</UserControl>

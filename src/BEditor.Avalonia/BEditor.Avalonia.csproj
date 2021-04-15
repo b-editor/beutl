@@ -35,6 +35,15 @@
       <AutoGen>True</AutoGen>
       <DependentUpon>Strings.resx</DependentUpon>
     </Compile>
+    <Compile Update="Views\Properties\DialogPropertyView.axaml.cs">
+      <DependentUpon>DialogPropertyView.axaml</DependentUpon>
+    </Compile>
+    <Compile Update="Views\Properties\FolderPropertyView.axaml.cs">
+      <DependentUpon>FolderPropertyView.axaml</DependentUpon>
+    </Compile>
+    <Compile Update="Views\Properties\TextPropertyView.axaml.cs">
+      <DependentUpon>TextPropertyView.axaml</DependentUpon>
+    </Compile>
   </ItemGroup>
   
   <ItemGroup>

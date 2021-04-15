@@ -36,13 +36,28 @@ namespace BEditor.Extensions
                 return new SelectorPropertyView((ISelectorPropertyViewModel)Activator.CreateInstance(vmtype, prop)!);
             }),
             PropertyViewBuilder.Create<ValueProperty>(p => new ValuePropertyView(p)),
+            PropertyViewBuilder.Create<TextProperty>(p => new TextPropertyView(p)),
             PropertyViewBuilder.Create<EaseProperty>(p => new EasePropertyView(p)),
             PropertyViewBuilder.Create<DocumentProperty>(p => new DocumentPropertyView(p)),
             PropertyViewBuilder.Create<FontProperty>(p => new FontPropertyView(p)),
             PropertyViewBuilder.Create<ColorProperty>(p => new ColorPropertyView(p)),
             PropertyViewBuilder.Create<FileProperty>(p => new FilePropertyView(p)),
+            PropertyViewBuilder.Create<FolderProperty>(p => new FolderPropertyView(p)),
             PropertyViewBuilder.Create<ColorAnimationProperty>(p => new ColorAnimationPropertyView(p)),
             PropertyViewBuilder.Create<ButtonComponent>(p => new ButtonCompornentView(p)),
+            PropertyViewBuilder.Create<LabelComponent>(p =>
+            {
+                var label = new Label
+                {
+                    Height = 40,
+                    Background = Brushes.Transparent,
+                    DataContext = p
+                };
+                label.Bind(ContentControl.ContentProperty, new Binding("Text"));
+
+                return label;
+            }),
+            PropertyViewBuilder.Create<DialogProperty>(p => new DialogPropertyView(p)),
             PropertyViewBuilder.Create<ExpandGroup>(p =>
             {
                 var header = new Label
@@ -82,6 +97,19 @@ namespace BEditor.Extensions
                 expander.Bind(Expander.IsExpandedProperty, isExpandedbind);
 
                 return expander;
+            }),
+            PropertyViewBuilder.Create<Group>(p =>
+            {
+                var stack = new StackPanel();
+
+                foreach (var item in p.Children)
+                {
+                    var content = item.GetCreatePropertyElementView();
+
+                    stack.Children.Add(content);
+                }
+
+                return stack;
             }),
         };
         public static readonly EditingProperty<Timeline> TimelineProperty = EditingProperty.Register<Timeline, Scene>("GetTimeline");
