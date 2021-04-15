@@ -35,6 +35,7 @@ namespace BEditor.Views.Timelines
         private readonly Grid _scale;
         private readonly Grid _timelineGrid;
         private readonly ContextMenu _timelineMenu;
+        private bool _isFirst = true;
 
         public Timeline()
         {
@@ -104,54 +105,48 @@ namespace BEditor.Views.Timelines
             InitializeContextMenu();
 
             // ÉåÉCÉÑÅ[ñºí«â¡for
-            for (var l = 1; l < 100; l++)
+            for (var l = 1; l <= 100; l++)
             {
-                var layer_row = new Grid
+                var toggle = new ToggleButton
                 {
                     ContextMenu = CreateMenu(l),
                     HorizontalAlignment = HorizontalAlignment.Stretch,
-                    Width = 200,
-                    Height = ConstantSettings.ClipHeight + 1
-                };
-
-                var toggle = new ToggleButton
-                {
-                    HorizontalAlignment = HorizontalAlignment.Stretch,
                     VerticalAlignment = VerticalAlignment.Top,
                     HorizontalContentAlignment = HorizontalAlignment.Center,
+                    VerticalContentAlignment = VerticalAlignment.Center,
                     Padding = new(0),
                     Background = null,
+                    BorderThickness = default,
                     Content = l,
                     Width = 200,
                     Height = ConstantSettings.ClipHeight
                 };
-                layer_row.Children.Add(toggle);
 
                 toggle.Click += (s, _) =>
                 {
-                    var toggle = (ToggleButton)s!;
-                    var l = (int)toggle.Content;
+                    if (s is not ToggleButton toggle || toggle.Content is not int layer) return;
 
-                    if (!(bool)toggle.IsChecked!)
+                    if (!toggle.IsChecked ?? false)
                     {
-                        Scene.HideLayer.Remove(l);
+                        Scene.HideLayer.Remove(layer);
                     }
                     else
                     {
-                        Scene.HideLayer.Add(l);
+                        Scene.HideLayer.Add(layer);
                     }
 
                     Scene.Parent!.PreviewUpdate();
                 };
 
-                if (Scene.HideLayer.Exists(x => x == l))
-                {
-                    toggle.IsChecked = true;
-                }
-
-                _layerLabel.Children.Add(layer_row);
+                _layerLabel.Children.Add(toggle);
             }
 
+            foreach (var l in scene.HideLayer)
+            {
+                ((ToggleButton)_layerLabel.Children[l - 1]).IsChecked = true;
+            }
+
+            // AddHandler
             Scene.Datas.CollectionChanged += ClipsCollectionChanged;
             _scrollLine.ScrollChanged += ScrollLine_ScrollChanged1;
             _scrollLabel.ScrollChanged += ScrollLabel_ScrollChanged;
@@ -386,6 +381,13 @@ namespace BEditor.Views.Timelines
 
         public void ScrollLine_ScrollChanged(object sender, ScrollChangedEventArgs e)
         {
+            if (_isFirst)
+            {
+                _scrollLine.Offset = new(Scene.TimeLineHorizonOffset, Scene.TimeLineVerticalOffset);
+                _scrollLabel.Offset = new(0, Scene.TimeLineVerticalOffset);
+
+                _isFirst = false;
+            }
             Scene.TimeLineHorizonOffset = _scrollLine.Offset.X;
             Scene.TimeLineVerticalOffset = _scrollLine.Offset.Y;
         }

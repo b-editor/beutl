@@ -1,113 +1,111 @@
 <UserControl
-  xmlns="https://github.com/avaloniaui"
-  xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
-  xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
-  xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
-  xmlns:vm="using:BEditor.ViewModels.Timelines"
-  mc:Ignorable="d" d:DesignWidth="800" d:DesignHeight="450"
-  xmlns:properties="clr-namespace:BEditor.Properties"
-  x:DataType="vm:TimelineViewModel"
-  x:Class="BEditor.Views.Timelines.Timeline">
-  <Grid ColumnDefinitions="200,*" RowDefinitions="32,*">
-    <ScrollViewer
-      x:Name="ScrollLine"
-      Grid.Row="0"
-      Grid.RowSpan="2"
-      Grid.Column="1"
-      HorizontalScrollBarVisibility="Visible"
-      ScrollChanged="ScrollLine_ScrollChanged">
+    xmlns="https://github.com/avaloniaui"
+    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+    xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+    xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+    xmlns:vm="using:BEditor.ViewModels.Timelines"
+    mc:Ignorable="d" d:DesignWidth="800" d:DesignHeight="450"
+    xmlns:properties="clr-namespace:BEditor.Properties"
+    x:DataType="vm:TimelineViewModel"
+    x:Class="BEditor.Views.Timelines.Timeline">
+    <Grid ColumnDefinitions="200,*">
+        <ScrollViewer
+            x:Name="ScrollLine"
+            Grid.Column="1"
+            HorizontalScrollBarVisibility="Visible"
+            ScrollChanged="ScrollLine_ScrollChanged">
 
-      <Grid
-        Background="Transparent"
-        Cursor="{CompiledBinding LayerCursor.Value, Mode=OneWay, Converter={StaticResource CursorTypeToCursorConverter}}"
-        x:Name="timelinegrid"
-        Width="{CompiledBinding TrackWidth.Value, Mode=OneWay}"
-        Height="{CompiledBinding #LayerLabel.Bounds.Height, Mode=OneWay}"
-        VerticalAlignment="Top"
-        HorizontalAlignment="Left">
-        <Grid.ContextMenu>
-          <ContextMenu x:Name="TimelineMenu">
-            <MenuItem IsEnabled="False">
-              <MenuItem.Header>
-                <Grid>
-                  <Grid.ColumnDefinitions>
-                    <ColumnDefinition Width="200" />
-                    <ColumnDefinition />
-                  </Grid.ColumnDefinitions>
-                  <VirtualizingStackPanel Orientation="Horizontal">
-                    <!--<md:PackIcon Margin="5,0,5,0" Kind="ContentCut" />-->
-                    <TextBlock Margin="20,0,5,0" Text="{x:Static properties:Strings.Cut}" />
-                  </VirtualizingStackPanel>
-                  <TextBlock Grid.Column="1" Text="Ctrl+X" />
-                </Grid>
-              </MenuItem.Header>
-            </MenuItem>
-            <MenuItem IsEnabled="False">
-              <MenuItem.Header>
-                <Grid>
-                  <Grid.ColumnDefinitions>
-                    <ColumnDefinition Width="200" />
-                    <ColumnDefinition />
-                  </Grid.ColumnDefinitions>
-                  <VirtualizingStackPanel Orientation="Horizontal">
-                    <!--<md:PackIcon Margin="5,0,5,0" Kind="ContentCopy" />-->
-                    <TextBlock Margin="20,0,5,0" Text="{x:Static properties:Strings.Copy}" />
-                  </VirtualizingStackPanel>
-                  <TextBlock Grid.Column="1" Text="Ctrl+C" />
-                </Grid>
-              </MenuItem.Header>
-            </MenuItem>
-            <MenuItem Command="{CompiledBinding Paste, Mode=OneTime}">
-              <MenuItem.Header>
-                <Grid>
-                  <Grid.ColumnDefinitions>
-                    <ColumnDefinition Width="200" />
-                    <ColumnDefinition />
-                  </Grid.ColumnDefinitions>
-                  <VirtualizingStackPanel Orientation="Horizontal">
-                    <!--<md:PackIcon Margin="5,0,5,0" Kind="ContentPaste" />-->
-                    <TextBlock Margin="20,0,5,0" Text="{x:Static properties:Strings.Paste}" />
-                  </VirtualizingStackPanel>
-                  <TextBlock Grid.Column="1" Text="Ctrl+V" />
-                </Grid>
-              </MenuItem.Header>
-            </MenuItem>
-            <Separator />
-            <MenuItem Command="{CompiledBinding ShowSettings, Mode=OneTime}">
-              <MenuItem.Header>
-                <VirtualizingStackPanel Orientation="Horizontal">
-                  <!--<md:PackIcon Margin="5,0,5,0" Kind="Settings" />-->
-                  <TextBlock Margin="20,0,5,0" Text="{x:Static properties:Strings.Settings}" />
-                </VirtualizingStackPanel>
-              </MenuItem.Header>
-            </MenuItem>
-          </ContextMenu>
-        </Grid.ContextMenu>
+            <Grid
+                Background="Transparent"
+                Cursor="{CompiledBinding LayerCursor.Value, Mode=OneWay, Converter={StaticResource CursorTypeToCursorConverter}}"
+                x:Name="timelinegrid"
+                Width="{CompiledBinding TrackWidth.Value, Mode=OneWay}"
+                Height="{CompiledBinding #LayerLabel.Bounds.Height, Mode=OneWay}"
+                VerticalAlignment="Top"
+                HorizontalAlignment="Left">
+                <Grid.ContextMenu>
+                    <ContextMenu x:Name="TimelineMenu">
+                        <MenuItem IsEnabled="False">
+                            <MenuItem.Header>
+                                <Grid>
+                                    <Grid.ColumnDefinitions>
+                                        <ColumnDefinition Width="200" />
+                                        <ColumnDefinition />
+                                    </Grid.ColumnDefinitions>
+                                    <VirtualizingStackPanel Orientation="Horizontal">
+                                        <!--<md:PackIcon Margin="5,0,5,0" Kind="ContentCut" />-->
+                                        <TextBlock Margin="20,0,5,0" Text="{x:Static properties:Strings.Cut}" />
+                                    </VirtualizingStackPanel>
+                                    <TextBlock Grid.Column="1" Text="Ctrl+X" />
+                                </Grid>
+                            </MenuItem.Header>
+                        </MenuItem>
+                        <MenuItem IsEnabled="False">
+                            <MenuItem.Header>
+                                <Grid>
+                                    <Grid.ColumnDefinitions>
+                                        <ColumnDefinition Width="200" />
+                                        <ColumnDefinition />
+                                    </Grid.ColumnDefinitions>
+                                    <VirtualizingStackPanel Orientation="Horizontal">
+                                        <!--<md:PackIcon Margin="5,0,5,0" Kind="ContentCopy" />-->
+                                        <TextBlock Margin="20,0,5,0" Text="{x:Static properties:Strings.Copy}" />
+                                    </VirtualizingStackPanel>
+                                    <TextBlock Grid.Column="1" Text="Ctrl+C" />
+                                </Grid>
+                            </MenuItem.Header>
+                        </MenuItem>
+                        <MenuItem Command="{CompiledBinding Paste, Mode=OneTime}">
+                            <MenuItem.Header>
+                                <Grid>
+                                    <Grid.ColumnDefinitions>
+                                        <ColumnDefinition Width="200" />
+                                        <ColumnDefinition />
+                                    </Grid.ColumnDefinitions>
+                                    <VirtualizingStackPanel Orientation="Horizontal">
+                                        <!--<md:PackIcon Margin="5,0,5,0" Kind="ContentPaste" />-->
+                                        <TextBlock Margin="20,0,5,0" Text="{x:Static properties:Strings.Paste}" />
+                                    </VirtualizingStackPanel>
+                                    <TextBlock Grid.Column="1" Text="Ctrl+V" />
+                                </Grid>
+                            </MenuItem.Header>
+                        </MenuItem>
+                        <Separator />
+                        <MenuItem Command="{CompiledBinding ShowSettings, Mode=OneTime}">
+                            <MenuItem.Header>
+                                <VirtualizingStackPanel Orientation="Horizontal">
+                                    <!--<md:PackIcon Margin="5,0,5,0" Kind="Settings" />-->
+                                    <TextBlock Margin="20,0,5,0" Text="{x:Static properties:Strings.Settings}" />
+                                </VirtualizingStackPanel>
+                            </MenuItem.Header>
+                        </MenuItem>
+                    </ContextMenu>
+                </Grid.ContextMenu>
 
-        <Grid
-          x:Name="scale"
-          Width="{CompiledBinding TrackWidth.Value, Mode=OneWay}"
-          Height="32"
-          HorizontalAlignment="Left"/>
+                <Grid
+                    x:Name="scale"
+                    Width="{CompiledBinding TrackWidth.Value, Mode=OneWay}"
+                    Height="32"
+                    HorizontalAlignment="Left"/>
 
-        <Border
-          ZIndex="2"
-          Width="1.25"
-          Margin="{CompiledBinding SeekbarMargin.Value, Mode=OneWay}"
-          HorizontalAlignment="Left"
-          Background="Red" />
-      </Grid>
-    </ScrollViewer>
-    <ScrollViewer
-      x:Name="ScrollLabel"
-      Grid.Row="1"
-      HorizontalContentAlignment="Stretch"
-      VerticalContentAlignment="Stretch"
-      VerticalScrollBarVisibility="Hidden">
-      <StackPanel
-        x:Name="LayerLabel"
-        HorizontalAlignment="Stretch"
-        VerticalAlignment="Stretch"/>
-    </ScrollViewer>
-  </Grid>
+                <Border
+                    ZIndex="2"
+                    Width="1.25"
+                    Margin="{CompiledBinding SeekbarMargin.Value, Mode=OneWay}"
+                    HorizontalAlignment="Left"
+                    Background="Red" />
+            </Grid>
+        </ScrollViewer>
+        <ScrollViewer
+            x:Name="ScrollLabel"
+            Grid.Row="1"
+            Width="200"
+            VerticalScrollBarVisibility="Hidden">
+            <StackPanel
+                Margin="0,32,0,0"
+                x:Name="LayerLabel"
+                HorizontalAlignment="Stretch"
+                VerticalAlignment="Stretch"/>
+        </ScrollViewer>
+    </Grid>
 </UserControl>
