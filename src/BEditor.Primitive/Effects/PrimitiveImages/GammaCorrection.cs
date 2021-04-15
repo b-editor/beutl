@@ -9,20 +9,23 @@ using BEditor.Drawing;
 using BEditor.Drawing.Pixel;
 using BEditor.Primitive.Resources;
 
-#nullable disable
-
 namespace BEditor.Primitive.Effects
 {
 #pragma warning disable CS1591
     public sealed class GammaCorrection : ImageEffect
     {
-        public static readonly EditingProperty<EaseProperty> GammaProperty = EditingProperty.RegisterSerializeDirect<EaseProperty, GammaCorrection>(
+        /// <summary>
+        /// Defines the <see cref="Gamma"/> property.
+        /// </summary>
+        public static readonly DirectEditingProperty<GammaCorrection, EaseProperty> GammaProperty = EditingProperty.RegisterSerializeDirect<EaseProperty, GammaCorrection>(
             nameof(Gamma),
             owner => owner.Gamma,
             (owner, obj) => owner.Gamma = obj,
             new EasePropertyMetadata(Strings.Gamma, 100, 300, 1));
 
+#pragma warning disable CS8618
         public GammaCorrection()
+#pragma warning restore CS8618
         {
         }
 

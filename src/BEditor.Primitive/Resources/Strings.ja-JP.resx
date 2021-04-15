@@ -427,4 +427,16 @@
   <data name="Diffusion" xml:space="preserve">
     <value>拡散</value>
   </data>
+  <data name="HorizontalAlignment" xml:space="preserve">
+    <value>水平方向のアライメント</value>
+  </data>
+  <data name="VerticalAlignment" xml:space="preserve">
+    <value>垂直方向のアライメント</value>
+  </data>
+  <data name="Center" xml:space="preserve">
+    <value>中心</value>
+  </data>
+  <data name="LineSpacing" xml:space="preserve">
+    <value>行間</value>
+  </data>
 </root>

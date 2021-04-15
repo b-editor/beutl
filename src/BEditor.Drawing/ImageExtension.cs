@@ -563,13 +563,26 @@ namespace BEditor.Drawing
             return RoundRect(size.Width, size.Height, radiusX, radiusY, brush);
         }
 
-        //Todo: 改行に対応する
-        public static Image<BGRA32> Text(string text, Font font, float size, Color color)
+        public static Image<BGRA32> Text(
+            string text,
+            Font font,
+            float size,
+            Color color,
+            HorizontalAlign hAlign,
+            VerticalAlign vAlign,
+            float linespace = 0,
+            bool vertical = true)
         {
             if (string.IsNullOrEmpty(text)) return new Image<BGRA32>(1, 1, default(BGRA32));
             if (font is null) throw new ArgumentNullException(nameof(font));
 
-            using var face = SKTypeface.FromFile(font.Filename);
+            return TextHorizontal(text, font, size, color, hAlign, linespace);
+        }
+        private static Image<BGRA32> TextHorizontal(string text, Font font, float size, Color color, HorizontalAlign hAlign, float linespace = 0)
+        {
+            var lines = text.Replace("\r\n", "\n").Split('\n');
+
+            var face = font.GetTypeface();
             using var fontObj = new SKFont(face, size)
             {
                 Edging = SKFontEdging.Antialias,
@@ -578,31 +591,65 @@ namespace BEditor.Drawing
             using var paint = new SKPaint(fontObj)
             {
                 Color = new SKColor(color.R, color.G, color.B, color.A),
-                IsAntialias = true,
+                IsAntialias = true
             };
 
-            var textBounds = new SKRect();
-            paint.MeasureText(text, ref textBounds);
+            var linesBounds = new List<SKRect>();
 
-            using var bmp = new SKBitmap(new SKImageInfo((int)textBounds.Width, (int)textBounds.Height, SKColorType.Bgra8888));
+            for (var i = 0; i < lines.Length; i++)
+            {
+                var item = lines[i];
+                var textBounds = new SKRect();
+
+                paint.MeasureText(item, ref textBounds);
+                linesBounds.Add(textBounds);
+            }
+
+            using var bmp = new SKBitmap(new SKImageInfo((int)linesBounds.Max(i => i.Width), (int)(linesBounds.Sum(i => i.Height) + (linespace * (lines.Length - 1))), SKColorType.Bgra8888));
             using var canvas = new SKCanvas(bmp);
 
-            var xText = (textBounds.Width / 2) - textBounds.MidX;
-            var yText = (textBounds.Height / 2) - textBounds.MidY;
+            for (var i = 0; i < lines.Length; i++)
+            {
+                var txt = lines[i];
+                var bounds = linesBounds[i];
+                using var path = paint.GetTextPath(txt, (bounds.Width / 2) - bounds.MidX, (bounds.Height / 2) - bounds.MidY);
 
-            canvas.DrawText(text, new SKPoint(xText, yText), paint);
+                if (hAlign is HorizontalAlign.Right)
+                {
+                    var x = bmp.Width - bounds.Width;
+                    canvas.Translate(x, 0);
+                    canvas.DrawPath(path, paint);
+
+                    canvas.Translate(-x, bounds.Height + linespace);
+                }
+                else if (hAlign is HorizontalAlign.Left)
+                {
+                    canvas.DrawPath(path, paint);
+
+                    canvas.Translate(0, bounds.Height + linespace);
+                }
+                else
+                {
+                    var x = (bmp.Width - bounds.Width) / 2;
+                    canvas.Translate(x, 0);
+                    canvas.DrawPath(path, paint);
+
+                    canvas.Translate(-x, bounds.Height + linespace);
+                }
+            }
 
             canvas.Flush();
 
             return bmp.ToImage32();
         }
 
-        public static Image<BGRA32> StrokeText(string text, Font font, float size, float strokewidth, Color color)
+        public static Image<BGRA32> StrokeText(string text, Font font, float size, float strokewidth, Color color, HorizontalAlign hAlign, float linespace = 0)
         {
             if (string.IsNullOrEmpty(text)) return new Image<BGRA32>(1, 1, default(BGRA32));
             if (font is null) throw new ArgumentNullException(nameof(font));
+            var lines = text.Replace("\r\n", "\n").Split('\n');
 
-            using var face = SKTypeface.FromFile(font.Filename);
+            var face = font.GetTypeface();
             using var fontObj = new SKFont(face, size)
             {
                 Edging = SKFontEdging.Antialias,
@@ -616,17 +663,49 @@ namespace BEditor.Drawing
                 StrokeWidth = strokewidth,
             };
 
-            var textBounds = new SKRect();
-            paint.MeasureText(text, ref textBounds);
+            var linesBounds = new List<SKRect>();
 
-            var p = strokewidth * 1.5;
-            using var bmp = new SKBitmap(new SKImageInfo((int)(textBounds.Width + p), (int)(textBounds.Height + p), SKColorType.Bgra8888));
+            for (var i = 0; i < lines.Length; i++)
+            {
+                var item = lines[i];
+                var textBounds = new SKRect();
+
+                paint.MeasureText(item, ref textBounds);
+                linesBounds.Add(textBounds);
+            }
+
+            using var bmp = new SKBitmap(new SKImageInfo((int)linesBounds.Max(i => i.Width), (int)(linesBounds.Sum(i => i.Height) + (linespace * (lines.Length - 1))), SKColorType.Bgra8888));
             using var canvas = new SKCanvas(bmp);
 
-            var xText = (textBounds.Width / 2) - textBounds.MidX;
-            var yText = (textBounds.Height / 2) - textBounds.MidY;
+            for (var i = 0; i < lines.Length; i++)
+            {
+                var txt = lines[i];
+                var bounds = linesBounds[i];
+                using var path = paint.GetTextPath(txt, (bounds.Width / 2) - bounds.MidX, (bounds.Height / 2) - bounds.MidY);
 
-            canvas.DrawText(text, new SKPoint((float)(xText + (p / 2)), (float)(yText + (p / 2))), paint);
+                if (hAlign is HorizontalAlign.Right)
+                {
+                    var x = bmp.Width - bounds.Width;
+                    canvas.Translate(x, 0);
+                    canvas.DrawPath(path, paint);
+
+                    canvas.Translate(-x, bounds.Height + linespace);
+                }
+                else if (hAlign is HorizontalAlign.Left)
+                {
+                    canvas.DrawPath(path, paint);
+
+                    canvas.Translate(0, bounds.Height + linespace);
+                }
+                else
+                {
+                    var x = (bmp.Width - bounds.Width) / 2;
+                    canvas.Translate(x, 0);
+                    canvas.DrawPath(path, paint);
+
+                    canvas.Translate(-x, bounds.Height + linespace);
+                }
+            }
 
             canvas.Flush();
 

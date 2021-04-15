@@ -1,4 +1,7 @@
 ﻿using System;
+using System.Linq;
+
+using BEditor.Resources;
 
 namespace BEditor.Data
 {
@@ -63,6 +66,42 @@ namespace BEditor.Data
         void IDirectProperty<TValue>.Set(IEditingObject owner, TValue value)
         {
             Setter((TOwner)owner, value);
+        }
+
+        /// <summary>
+        /// Registers the direct property on another type.
+        /// </summary>
+        /// <typeparam name="TNewOwner">The type of the owner.</typeparam>
+        /// <param name="getter">Gets the current value of the property.</param>
+        /// <param name="setter">Sets the value of the property.</param>
+        /// <param name="initializer">The <see cref="IEditingPropertyInitializer{T}"/> that initializes the local value of a property.</param>
+        /// <param name="serializer">To serialize this property, specify the serializer.</param>
+        public DirectEditingProperty<TNewOwner, TValue> WithOwner<TNewOwner>(
+            Func<TNewOwner, TValue> getter,
+            Action<TNewOwner, TValue> setter,
+            IEditingPropertyInitializer<TValue>? initializer = null,
+            IEditingPropertySerializer<TValue>? serializer = null)
+            where TNewOwner : IEditingObject
+        {
+            if (PropertyFromKey.AsParallel().FirstOrDefault(i => i.Key.OwnerType.IsAssignableFrom(typeof(TNewOwner)) && i.Key.Name == Name).Key is not null)
+            {
+                throw new DataException(Strings.KeyHasAlreadyBeenRegisterd);
+            }
+
+            var key = new PropertyKey(Name, typeof(TNewOwner));
+
+            initializer ??= Initializer;
+            serializer ??= Serializer;
+
+            var property = new DirectEditingProperty<TNewOwner, TValue>(Name, getter, setter)
+            {
+                Initializer = initializer,
+                Serializer = serializer
+            };
+
+            PropertyFromKey.Add(key, property);
+
+            return property;
         }
     }
 }

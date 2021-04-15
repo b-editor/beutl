@@ -15,63 +15,53 @@ namespace BEditor.Primitive.Effects
     public sealed class Border : ImageEffect
     {
         /// <summary>
-        /// Represents <see cref="Size"/> metadata.
+        /// Defines the <see cref="Size"/> property.
         /// </summary>
-        public static readonly EasePropertyMetadata SizeMetadata = new(Strings.Size, 10, float.NaN, 1);
+        public static readonly DirectEditingProperty<Border, EaseProperty> SizeProperty = EditingProperty.RegisterSerializeDirect<EaseProperty, Border>(
+            nameof(Size), owner => owner.Size, (owner, obj) => owner.Size = obj, new EasePropertyMetadata(Strings.Size, 10, float.NaN, 1));
+
         /// <summary>
-        /// Represents <see cref="Color"/> metadata.
+        /// Defines the <see cref="Color"/> property.
         /// </summary>
-        public static readonly ColorPropertyMetadata ColorMetadata = new(Strings.Color, Drawing.Color.Light);
+        public static readonly DirectEditingProperty<Border, ColorProperty> ColorProperty = EditingProperty.RegisterSerializeDirect<ColorProperty, Border>(
+            nameof(Color), owner => owner.Color, (owner, obj) => owner.Color = obj, new ColorPropertyMetadata(Strings.Color, Drawing.Color.Light));
 
         /// <summary>
         /// Initializes a new instance of the <see cref="Border"/> class.
         /// </summary>
+#pragma warning disable CS8618
         public Border()
+#pragma warning restore CS8618
         {
-            Size = new(SizeMetadata);
-            Color = new(ColorMetadata);
         }
 
         /// <inheritdoc/>
         public override string Name => Strings.Border;
+
         /// <inheritdoc/>
         public override IEnumerable<PropertyElement> Properties => new PropertyElement[]
         {
             Size,
             Color
         };
+
         /// <summary>
-        /// Get the <see cref="EaseProperty"/> that represents the size of the edge.
+        /// Gets the size of the edge.
         /// </summary>
-        [DataMember]
         public EaseProperty Size { get; private set; }
+
         /// <summary>
-        /// Get the <see cref="ColorProperty"/> that represents the edge color.
+        /// Gets the edge color.
         /// </summary>
-        [DataMember]
         public ColorProperty Color { get; private set; }
 
         /// <inheritdoc/>
         public override void Render(EffectRenderArgs<Image<BGRA32>> args)
         {
-            var img = args.Value.Border((int)Size.GetValue(args.Frame), Color.Value);
+            var img = args.Value.Border((int)Size!.GetValue(args.Frame), Color!.Value);
             args.Value.Dispose();
 
             args.Value = img;
-        }
-        /// <inheritdoc/>
-        protected override void OnLoad()
-        {
-            Size.Load(SizeMetadata);
-            Color.Load(ColorMetadata);
-        }
-        /// <inheritdoc/>
-        protected override void OnUnload()
-        {
-            foreach (var pr in Children)
-            {
-                pr.Unload();
-            }
         }
     }
 }

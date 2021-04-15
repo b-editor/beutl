@@ -31,6 +31,7 @@ namespace BEditor.Data
 
             // DirectEditingPropertyかつInitializerがnullじゃない
             foreach (var prop in EditingProperty.PropertyFromKey
+                .AsParallel()
                 .Where(i => i.Value is IDirectProperty && i.Value.Initializer is not null && OwnerType.IsAssignableTo(i.Key.OwnerType))
                 .Select(i => i.Value))
             {
@@ -233,6 +234,7 @@ namespace BEditor.Data
             if (this is IParent<EditingObject> obj2)
             {
                 foreach (var prop in EditingProperty.PropertyFromKey
+                    .AsParallel()
                     .Where(i => OwnerType.IsAssignableFrom(i.Key.OwnerType))
                     .Select(i => i.Value))
                 {
@@ -274,6 +276,8 @@ namespace BEditor.Data
         public virtual void GetObjectData(Utf8JsonWriter writer)
         {
             foreach (var prop in EditingProperty.PropertyFromKey
+                .AsParallel()
+                .AsOrdered()
                 .Where(i => i.Value.Serializer is not null && OwnerType.IsAssignableTo(i.Key.OwnerType))
                 .Select(i => i.Value))
             {
@@ -299,6 +303,7 @@ namespace BEditor.Data
             Synchronize = AsyncOperationManager.SynchronizationContext;
 
             foreach (var prop in EditingProperty.PropertyFromKey
+                .AsParallel()
                 .Where(i => i.Value.Serializer is not null && OwnerType.IsAssignableTo(i.Key.OwnerType))
                 .Select(i => i.Value))
             {
