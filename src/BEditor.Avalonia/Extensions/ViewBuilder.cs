@@ -16,6 +16,7 @@ using Avalonia.Media;
 using BEditor.Data;
 using BEditor.Data.Property;
 using BEditor.Data.Property.Easing;
+using BEditor.Models;
 using BEditor.Properties;
 using BEditor.ViewModels.Properties;
 using BEditor.ViewModels.Timelines;
@@ -69,6 +70,7 @@ namespace BEditor.Extensions
                 var expander = new Expander
                 {
                     Header = header,
+                    Classes = { "property" }
                 };
                 var stack = new StackPanel();
                 var margin = new Thickness(32.5, 0, 0, 0);
@@ -112,6 +114,58 @@ namespace BEditor.Extensions
                 return stack;
             }),
         };
+        public static readonly List<KeyFrameViewBuilder> KeyframeViewBuilders = new()
+        {
+            // EaseProperty
+            KeyFrameViewBuilder.Create<EaseProperty>(prop => new Border { Height = ConstantSettings.ClipHeight, Background = Brushes.AliceBlue }),
+            // ColorAnimation
+            KeyFrameViewBuilder.Create<ColorAnimationProperty>(prop => new Border { Height = ConstantSettings.ClipHeight, Background = Brushes.AliceBlue }),
+            KeyFrameViewBuilder.Create<ExpandGroup>(p =>
+            {
+                var header = new Label
+                {
+                    Content = p.PropertyMetadata?.Name ?? string.Empty,
+                    Height = 24,
+                    Foreground = (IBrush)App.Current.FindResource("SystemControlForegroundBaseHighBrush")!
+                };
+                var expander = new Expander
+                {
+                    Header = header,
+                    Classes =
+                    {
+                        "expandkeyframe",
+                        "keyframe"
+                    }
+                };
+                var stack = new StackPanel();
+
+                foreach (var item in p.Children)
+                {
+                    if (item is IKeyFrameProperty property)
+                    {
+                        var content = property.GetCreateKeyframeView();
+
+                        stack.Children.Add(content);
+                    }
+                }
+
+                expander.Content = stack;
+
+                // binding
+                var widthbind = new Binding("Parent.Bounds.Width")
+                {
+                    Mode = BindingMode.OneWay,
+                    Source = expander,
+                    Converter = ExpanderWidthConverter
+                };
+                var isExpandedbind = new Binding("IsExpanded") { Mode = BindingMode.TwoWay, Source = p };
+
+                header.Bind(Layoutable.WidthProperty, widthbind);
+                expander.Bind(Expander.IsExpandedProperty, isExpandedbind);
+
+                return expander;
+            })
+        };
         public static readonly EditingProperty<Timeline> TimelineProperty = EditingProperty.Register<Timeline, Scene>("GetTimeline");
         public static readonly EditingProperty<TimelineViewModel> TimelineViewModelProperty = EditingProperty.Register<TimelineViewModel, Scene>("GetTimelineViewModel");
         public static readonly EditingProperty<ClipView> ClipViewProperty = EditingProperty.Register<ClipView, ClipElement>("GetClipView");
@@ -120,6 +174,8 @@ namespace BEditor.Extensions
         public static readonly EditingProperty<Control> EffectElementViewProperty = EditingProperty.Register<Control, EffectElement>("GetPropertyView");
         public static readonly EditingProperty<Control> PropertyElementViewProperty = EditingProperty.Register<Control, PropertyElement>("GetPropertyView");
         public static readonly EditingProperty<Control> EasePropertyViewProperty = EditingProperty.Register<Control, EasingFunc>("GetPropertyView");
+        public static readonly EditingProperty<Control> KeyframeProperty = EditingProperty.Register<Control, EffectElement>("GetKeyframe");
+        public static readonly EditingProperty<Control> KeyframeViewProperty = EditingProperty.Register<Control, IKeyFrameProperty>("GetKeyframeView");
 
         public static Timeline GetCreateTimeline(this Scene scene)
         {
@@ -161,18 +217,6 @@ namespace BEditor.Extensions
             }
             return clip.GetValue(ClipViewModelProperty);
         }
-        public static Control GetCreateEffectPropertyView(this EffectElement effect)
-        {
-            if (effect[EffectElementViewProperty] is null)
-            {
-                var (ex, stack) = (effect is ObjectElement obj) ? CreateObjectExpander(obj) : CreateEffectExpander(effect);
-
-                stack.Children.AddRange(effect.Children.Select(p => p.GetCreatePropertyElementView()));
-
-                effect[EffectElementViewProperty] = ex;
-            }
-            return effect.GetValue(EffectElementViewProperty);
-        }
         public static Control GetCreatePropertyElementView(this PropertyElement property)
         {
             if (property[PropertyElementViewProperty] is null)
@@ -211,6 +255,17 @@ namespace BEditor.Extensions
                 easing[EasePropertyViewProperty] = stack;
             }
             return easing.GetValue(EasePropertyViewProperty);
+        }
+        public static Control GetCreateKeyframeView(this IKeyFrameProperty property)
+        {
+            if (property[KeyframeViewProperty] is null)
+            {
+                var type = property.GetType();
+                var func = KeyframeViewBuilders.Find(x => x.PropertyType.IsAssignableFrom(type));
+
+                property[KeyframeViewProperty] = func?.CreateFunc?.Invoke(property) ?? new TextBlock { Height = 40 };
+            }
+            return property.GetValue(KeyframeViewProperty);
         }
 
         public static Timeline GetCreateTimelineSafe(this Scene scene)
@@ -290,6 +345,46 @@ namespace BEditor.Extensions
             }
             return effect.GetValue(EffectElementViewProperty);
         }
+        public static Control GetCreateKeyFrameViewSafe(this EffectElement effect)
+        {
+            if (effect[KeyframeProperty] is null)
+            {
+                effect.Synchronize.Send(static c =>
+                {
+                    var effect = (EffectElement)c!;
+                    var keyFrame = new Expander
+                    {
+                        Classes = { "keyframe" }
+                    };
+                    var header = new Label();
+                    var stack = new StackPanel();
+
+                    keyFrame.Content = stack;
+                    keyFrame.Header = header;
+
+                    foreach (var item in effect.Children)
+                    {
+                        if (item is IKeyFrameProperty e)
+                        {
+                            var tmp = e.GetCreateKeyframeView();
+                            stack.Children.Add(tmp);
+                        }
+                    }
+
+                    header.Bind(Layoutable.WidthProperty, new Binding("Parent.Bounds.Width")
+                    {
+                        Mode = BindingMode.OneWay,
+                        Source = header,
+                        Converter = ExpanderWidthConverter
+                    });
+                    header.Bind(ContentControl.ContentProperty, new Binding("Name") { Mode = BindingMode.OneTime, Source = effect });
+                    keyFrame.Bind(Expander.IsExpandedProperty, new Binding("IsExpanded") { Mode = BindingMode.TwoWay, Source = effect });
+
+                    effect[KeyframeProperty] = keyFrame;
+                }, effect);
+            }
+            return effect.GetValue(KeyframeProperty);
+        }
 
         private static readonly IValueConverter ExpanderWidthConverter = new FuncValueConverter<double, double>(i => i - 38);
         public static (Expander, StackPanel) CreateObjectExpander(ObjectElement obj)
@@ -299,6 +394,7 @@ namespace BEditor.Extensions
             var expander = new Expander
             {
                 HorizontalAlignment = HorizontalAlignment.Stretch,
+                Classes = { "property" }
             };
 
             #region Header
@@ -371,6 +467,7 @@ namespace BEditor.Extensions
             var expander = new Expander
             {
                 HorizontalAlignment = HorizontalAlignment.Stretch,
+                Classes = { "property" }
             };
 
             #region Header

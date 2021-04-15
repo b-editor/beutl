@@ -1,8 +1,12 @@
+using System.Diagnostics;
+
 using Avalonia;
 using Avalonia.Controls;
+using Avalonia.Controls.Primitives;
 using Avalonia.Input;
 using Avalonia.Interactivity;
 using Avalonia.Markup.Xaml;
+using Avalonia.Media;
 using Avalonia.VisualTree;
 
 using BEditor.Data;
@@ -26,10 +30,30 @@ namespace BEditor.Views.Timelines
 
             InitializeComponent();
 
+            this.FindControl<Border>("border").Height = ConstantSettings.ClipHeight;
             Height = ConstantSettings.ClipHeight;
         }
 
         public ClipViewModel ViewModel => (DataContext as ClipViewModel)!;
+
+        public void Double_Tapped(object s, RoutedEventArgs e)
+        {
+            var panel = Parent as Panel;
+
+            panel?.Children.Remove(this);
+            if (double.IsNaN(Height))
+            {
+                Height = ConstantSettings.ClipHeight;
+                panel?.Children.Insert(0, this);
+            }
+            else
+            {
+                Height = double.NaN;
+                panel?.Children.Add(this);
+            }
+
+            ViewModel.PointerLeftReleased();
+        }
 
         public void Pointer_Pressed(object s, PointerPressedEventArgs e)
         {

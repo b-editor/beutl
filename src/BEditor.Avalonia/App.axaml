@@ -3,6 +3,7 @@
   xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
   xmlns:convert="using:BEditor.Converters"
   xmlns:views="using:BEditor.Views"
+  xmlns:models="using:BEditor.Models"
   x:Class="BEditor.App">
     <Application.Resources>
         <convert:CursorTypeToCursorConverter x:Key="CursorTypeToCursorConverter" />
@@ -15,6 +16,7 @@
         <convert:ColorToSolidColorBrushConverter x:Key="ColorToSolidColorBrushConverter" />
         <convert:StringToGeometoryConverter x:Key="StringToGeometoryConverter" />
         <convert:EnumerableTakeConverter x:Key="EnumerableTakeConverter" />
+        <convert:EffectToKeyframeConverter x:Key="EffectToKeyframeConverter" />
     </Application.Resources>
     <Application.Styles>
         <StyleInclude Source="avares://BEditor.Avalonia/Controls/SeekSlider.axaml" />
@@ -26,5 +28,17 @@
         <StyleInclude Source="avares://BEditor.Avalonia/Controls/FluentUiIcons_Filled.axaml" />
         <StyleInclude Source="avares://BEditor.Avalonia/Controls/FluentUiIcons_Regular.axaml" />
         <StyleInclude Source="avares://BEditor.Avalonia/Views/Settings/SettingsResources.axaml" />
+
+        <Style Selector="Expander.expandkeyframe /template/ ToggleButton#PART_toggle">
+            <Setter Property="Margin" Value="32.5,0,0,0" />
+        </Style>
+        <Style Selector="Expander.keyframe /template/ ToggleButton#PART_toggle">
+            <Setter Property="Height" Value="{x:Static models:ConstantSettings.ClipHeight}" />
+            <Setter Property="Padding" Value="0" />
+            <Setter Property="VerticalContentAlignment" Value="Center" />
+        </Style>
+        <Style Selector="Expander.property /template/ ToggleButton#PART_toggle">
+            <Setter Property="Height" Value="40" />
+        </Style>
     </Application.Styles>
 </Application>

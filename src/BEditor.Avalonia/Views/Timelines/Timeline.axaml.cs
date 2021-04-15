@@ -33,7 +33,7 @@ namespace BEditor.Views.Timelines
         private readonly ScrollViewer _scrollLabel;
         private readonly StackPanel _layerLabel;
         private readonly Grid _scale;
-        private readonly Grid _timelineGrid;
+        internal readonly Grid _timelineGrid;
         private readonly ContextMenu _timelineMenu;
         private bool _isFirst = true;
 

@@ -97,7 +97,7 @@ namespace BEditor.ViewModels.Timelines
 
         public Scene Scene => ClipElement.Parent;
 
-        private TimelineViewModel TimelineViewModel => Scene.GetCreateTimelineViewModel();
+        public TimelineViewModel TimelineViewModel => Scene.GetCreateTimelineViewModel();
 
         public ClipElement ClipElement { get; }
 

@@ -8,11 +8,11 @@ using BEditor.Extensions;
 
 namespace BEditor.Converters
 {
-    public class ClipPropertyConverter : IValueConverter
+    public class EffectToKeyframeConverter : IValueConverter
     {
         public object? Convert(object value, Type targetType, object parameter, CultureInfo culture)
         {
-            if (value is ClipElement f) return f.GetCreateClipPropertyViewSafe();
+            if (value is EffectElement f) return f.GetCreateKeyFrameViewSafe();
 
             return null;
         }

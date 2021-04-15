@@ -30,7 +30,7 @@ namespace BEditor.Data
     /// </summary>
     public partial class Scene : EditingObject
     {
-        private static readonly PropertyInfo _ClipDataID = typeof(ClipElement).GetProperty(nameof(ClipElement.Id))!;
+        private static readonly FieldInfo _ClipDataID = typeof(ClipElement).GetField("_id", BindingFlags.NonPublic | BindingFlags.Instance | BindingFlags.SetField)!;
         private static readonly PropertyChangedEventArgs _SelectItemArgs = new(nameof(SelectItem));
         private static readonly PropertyChangedEventArgs _PrevireFrameArgs = new(nameof(PreviewFrame));
         private static readonly PropertyChangedEventArgs _TotalFrameArgs = new(nameof(TotalFrame));
