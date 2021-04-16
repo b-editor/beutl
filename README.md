@@ -1,6 +1,6 @@
 # BEditor
 
-![](https://raw.githubusercontent.com/b-editor/BEditor/develop/docs/imgs/header.png)
+![](https://raw.githubusercontent.com/b-editor/BEditor/main/docs/imgs/header.png)
 
 ![](https://img.shields.io/github/issues/b-editor/BEditor)
 ![](https://img.shields.io/github/forks/b-editor/BEditor)
