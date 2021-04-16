@@ -11,6 +11,11 @@
         <Setter Property="TabStripPlacement" Value="Left" />
         <Setter Property="Padding" Value="0 0 0 0" />
         <Setter Property="Background" Value="{x:Null}" />
+        <Setter Property="ItemsPanel">
+            <ItemsPanelTemplate>
+                <StackPanel Spacing="0" Orientation="Vertical" />
+            </ItemsPanelTemplate>
+        </Setter>
         <Setter Property="Template">
             <ControlTemplate>
                 <Border
@@ -53,24 +58,74 @@
         </Setter>
     </Style>
 
-    <Style Selector="TabControl.sidebar &gt; TabItem">
-        <Setter Property="BorderThickness" Value="0" />
+    <Style Selector="TabControl.sidebar > TabItem">
         <Setter Property="FontSize" Value="14" />
         <Setter Property="Margin" Value="0" />
-        <Setter Property="Padding" Value="8" />
+        <Setter Property="Padding" Value="0" />
         <Setter Property="Width" Value="240" />
+        <Setter Property="Height" Value="40" />
+        <Setter Property="Foreground" Value="{DynamicResource TabItemHeaderForegroundSelected}" />
         <Setter Property="HorizontalContentAlignment" Value="Stretch" />
         <Setter Property="(ScrollViewer.HorizontalScrollBarVisibility)" Value="Auto" />
         <Setter Property="(ScrollViewer.VerticalScrollBarVisibility)" Value="Auto" />
-    </Style>
-    <Style Selector="TabControl.sidebar &gt; TabItem:selected /template/ Border#PART_SelectedPipe">
-        <Setter Property="IsVisible" Value="False" />
-    </Style>
-    <Style Selector="TabControl.sidebar &gt; TabItem:selected">
-        <Setter Property="Background" Value="#1fffffff" />
+        <Setter Property="Template">
+            <ControlTemplate>
+                <Border
+                    Height="40"
+                    Name="PART_LayoutRoot"
+                    BorderBrush="{TemplateBinding BorderBrush}"
+                    BorderThickness="0">
+                    <Grid ColumnDefinitions="16,*">
+                        
+                        <ContentPresenter
+                            Grid.Column="1"
+                            Name="PART_ContentPresenter"
+                            ContentTemplate="{TemplateBinding HeaderTemplate}"
+                            Content="{TemplateBinding Header}"
+                            HorizontalAlignment="{TemplateBinding HorizontalContentAlignment}"
+                            VerticalAlignment="{TemplateBinding VerticalContentAlignment}"
+                            TextBlock.FontFamily="{TemplateBinding FontFamily}"
+                            TextBlock.FontSize="{TemplateBinding FontSize}"
+                            TextBlock.FontWeight="{TemplateBinding FontWeight}" />
+                    </Grid>
+                </Border>
+            </ControlTemplate>
+        </Setter>
     </Style>
 
-    <Style Selector="TabControl.sidebar &gt; TabItem:pointerover /template/ Border#PART_LayoutRoot">
-        <Setter Property="Background" Value="#3fffffff" />
+    <Style Selector="TabControl.sidebar > TabItem:selected">
+        <Setter Property="Template">
+            <ControlTemplate>
+                <Border
+                    Height="40"
+                    Name="PART_LayoutRoot"
+                    BorderBrush="{TemplateBinding BorderBrush}"
+                    BorderThickness="0">
+                    <Grid ColumnDefinitions="16,*">
+                        <Border
+                            Name="PART_BORDER"
+                            HorizontalAlignment="Center"
+                            Width="2"
+                            Height="24"
+                            Background="{DynamicResource SliderTrackValueFill}"/>
+
+                        <ContentPresenter
+                            Grid.Column="1"
+                            Name="PART_ContentPresenter"
+                            ContentTemplate="{TemplateBinding HeaderTemplate}"
+                            Content="{TemplateBinding Header}"
+                            HorizontalAlignment="{TemplateBinding HorizontalContentAlignment}"
+                            VerticalAlignment="{TemplateBinding VerticalContentAlignment}"
+                            TextBlock.FontFamily="{TemplateBinding FontFamily}"
+                            TextBlock.FontSize="{TemplateBinding FontSize}"
+                            TextBlock.FontWeight="{TemplateBinding FontWeight}" />
+                    </Grid>
+                </Border>
+            </ControlTemplate>
+        </Setter>
+    </Style>
+
+    <Style Selector="TabControl.sidebar > TabItem:pointerover /template/ Border#PART_LayoutRoot">
+        <Setter Property="Background" Value="#1fffffff" />
     </Style>
 </Styles>

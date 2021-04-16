@@ -11,6 +11,13 @@ namespace BEditor.Views.CustomTitlebars
 {
     public class WindowsTitlebarButtons : UserControl
     {
+        public static readonly StyledProperty<bool> CanResizeProperty = AvaloniaProperty.Register<WindowsTitlebarButtons, bool>(nameof(CanResize), true, notifying: (obj, value) =>
+        {
+            if(obj is WindowsTitlebarButtons titlebar)
+            {
+                titlebar._maximizeButton.IsVisible = value;
+            }
+        });
         private readonly Button _minimizeButton;
         private readonly Button _maximizeButton;
         private readonly Path _maximizeIcon;
@@ -43,6 +50,12 @@ namespace BEditor.Views.CustomTitlebars
             {
                 IsVisible = false;
             }
+        }
+
+        public bool CanResize
+        {
+            get => GetValue(CanResizeProperty);
+            set => SetValue(CanResizeProperty, value);
         }
 
         private void Titlebar_PointerPressed(object? sender, Avalonia.Input.PointerPressedEventArgs e)

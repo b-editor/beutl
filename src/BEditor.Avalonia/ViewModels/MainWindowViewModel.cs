@@ -47,14 +47,13 @@ namespace BEditor.ViewModels
 
                 if (await service.ShowOpenFileDialogAsync(dialog))
                 {
-                    EmptyDialog? ndialog = null;
+                    ProgressDialog? ndialog = null;
                     try
                     {
-                        var loading = new Loading
+                        ndialog = new ProgressDialog
                         {
                             IsIndeterminate = { Value = true }
                         };
-                        ndialog = new EmptyDialog(loading);
                         ndialog.Show(BEditor.App.GetMainWindow());
 
                         await DirectOpenAsync(dialog.FileName);

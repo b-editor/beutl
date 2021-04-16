@@ -56,7 +56,7 @@
             <TabItem>
                 <TabItem.Header>
                     <StackPanel>
-                        <PathIcon Data="{StaticResource Window20Regular}"/>
+                        <PathIcon Data="{StaticResource Laptop20Regular}"/>
                         <TextBlock Text="{x:Static prop:Strings.Appearance}" />
                     </StackPanel>
                 </TabItem.Header>

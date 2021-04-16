@@ -127,33 +127,31 @@ namespace BEditor
 
             try
             {
-                Loading loading = null!;
-                EmptyDialog dialog = null!;
+                ProgressDialog dialog = null!;
 
                 void start(object? s, EventArgs e)
                 {
                     Dispatcher.UIThread.InvokeAsync(() =>
                     {
-                        loading = new Loading
+                        dialog = new ProgressDialog
                         {
                             Maximum = { Value = 100 },
                             Minimum = { Value = 0 }
                         };
-                        dialog = new EmptyDialog(loading);
 
                         dialog.Show();
 
-                        loading.Text.Value = string.Format(Strings.IsDownloading, "FFmpeg");
+                        dialog.Text.Value = string.Format(Strings.IsDownloading, "FFmpeg");
                     });
                 }
                 void downloadComp(object? s, AsyncCompletedEventArgs e)
                 {
-                    loading.Text.Value = string.Format(Strings.IsExtractedAndPlaced, "FFmpeg");
-                    loading.IsIndeterminate.Value = true;
+                    dialog.Text.Value = string.Format(Strings.IsExtractedAndPlaced, "FFmpeg");
+                    dialog.IsIndeterminate.Value = true;
                 }
                 void progress(object s, DownloadProgressChangedEventArgs e)
                 {
-                    loading.NowValue.Value = e.ProgressPercentage;
+                    dialog.NowValue.Value = e.ProgressPercentage;
                 }
                 void installed(object? s, EventArgs e) => Dispatcher.UIThread.InvokeAsync(dialog.Close);
 

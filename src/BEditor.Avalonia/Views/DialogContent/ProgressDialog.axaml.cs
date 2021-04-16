@@ -13,16 +13,25 @@ using static BEditor.IMessage;
 
 namespace BEditor.Views.DialogContent
 {
-    public class Loading : UserControl, IDialogContent
+    public class ProgressDialog : Window
     {
-        public Loading(ButtonType[] buttons)
+        public ProgressDialog()
+        {
+            DataContext = this;
+
+            InitializeComponent();
+#if DEBUG
+            this.AttachDevTools();
+#endif
+        }
+
+        public ProgressDialog(ButtonType[] buttons)
         {
             DataContext = this;
 
             InitializeComponent();
 
             var stack = this.FindControl<VirtualizingStackPanel>("stack");
-            #region ƒ{ƒ^ƒ“‚Ì’Ç‰Á
 
             foreach (var button in buttons)
             {
@@ -41,31 +50,20 @@ namespace BEditor.Views.DialogContent
                 {
                     Background = Brushes.Transparent,
                     Content = text,
-                    CommandParameter = button,
-                    Margin = new Thickness(5, 0, 5, 0),
+                    CommandParameter = button
                 };
 
                 stack.Children.Add(button_);
             }
-
-            #endregion
 
             for (var i = 0; i < stack.Children.Count; i++)
             {
                 var b = (Button)stack.Children[i];
                 b.Click += (sender, e) =>
                 {
-                    DialogResult = (ButtonType)b.CommandParameter;
-                    ButtonClicked?.Invoke(sender, e);
+                    Close(b.CommandParameter);
                 };
             }
-        }
-
-        public Loading()
-        {
-            DataContext = this;
-
-            InitializeComponent();
         }
 
         public ReactiveProperty<string> Text { get; } = new();
@@ -77,8 +75,20 @@ namespace BEditor.Views.DialogContent
 
         public ButtonType DialogResult { get; private set; }
 
-        public event EventHandler? ButtonClicked;
+        protected override void OnInitialized()
+        {
+            base.OnInitialized();
+           (Width, Height) = (480, 128);
+        }
+        protected override void OnOpened(EventArgs e)
+        {
+            base.OnOpened(e);
+            var screen = Screens.ScreenFromVisual(this).Bounds;
+            var x = (screen.Width - Width) / 2;
+            var y = (screen.Height - Height) / 2;
 
+            Position = new((int)x, (int)y);
+        }
         private void InitializeComponent()
         {
             AvaloniaXamlLoader.Load(this);

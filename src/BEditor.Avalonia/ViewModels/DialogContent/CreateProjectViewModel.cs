@@ -85,11 +85,10 @@ namespace BEditor.ViewModels.DialogContent
                 app,
                 Path.Combine(Folder.Value, Name.Value, Name.Value) + ".bedit");
 
-            var loading = new Loading
+            var dialog = new ProgressDialog
             {
                 IsIndeterminate = { Value = true }
             };
-            var dialog = new EmptyDialog(loading);
             dialog.Show(App.GetMainWindow());
 
             app.Project = project;
