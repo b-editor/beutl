@@ -224,14 +224,14 @@
             Represents an <see cref="T:BEditor.Data.Primitive.ImageEffect"/> that adds a border to the image.
             </summary>
         </member>
-        <member name="F:BEditor.Primitive.Effects.Border.SizeMetadata">
+        <member name="F:BEditor.Primitive.Effects.Border.SizeProperty">
             <summary>
-            Represents <see cref="P:BEditor.Primitive.Effects.Border.Size"/> metadata.
+            Defines the <see cref="P:BEditor.Primitive.Effects.Border.Size"/> property.
             </summary>
         </member>
-        <member name="F:BEditor.Primitive.Effects.Border.ColorMetadata">
+        <member name="F:BEditor.Primitive.Effects.Border.ColorProperty">
             <summary>
-            Represents <see cref="P:BEditor.Primitive.Effects.Border.Color"/> metadata.
+            Defines the <see cref="P:BEditor.Primitive.Effects.Border.Color"/> property.
             </summary>
         </member>
         <member name="M:BEditor.Primitive.Effects.Border.#ctor">
@@ -247,21 +247,15 @@
         </member>
         <member name="P:BEditor.Primitive.Effects.Border.Size">
             <summary>
-            Get the <see cref="T:BEditor.Data.Property.EaseProperty"/> that represents the size of the edge.
+            Gets the size of the edge.
             </summary>
         </member>
         <member name="P:BEditor.Primitive.Effects.Border.Color">
             <summary>
-            Get the <see cref="T:BEditor.Data.Property.ColorProperty"/> that represents the edge color.
+            Gets the edge color.
             </summary>
         </member>
         <member name="M:BEditor.Primitive.Effects.Border.Render(BEditor.Data.EffectRenderArgs{BEditor.Drawing.Image{BEditor.Drawing.Pixel.BGRA32}})">
-            <inheritdoc/>
-        </member>
-        <member name="M:BEditor.Primitive.Effects.Border.OnLoad">
-            <inheritdoc/>
-        </member>
-        <member name="M:BEditor.Primitive.Effects.Border.OnUnload">
             <inheritdoc/>
         </member>
         <member name="T:BEditor.Primitive.Effects.ChromaKey">
@@ -504,6 +498,11 @@
         <member name="M:BEditor.Primitive.Effects.ColorKey.OnUnload">
             <inheritdoc/>
         </member>
+        <member name="F:BEditor.Primitive.Effects.Diffusion.ValueProperty">
+            <summary>
+            Defines the <see cref="P:BEditor.Primitive.Effects.Diffusion.Value"/> property.
+            </summary>
+        </member>
         <member name="T:BEditor.Primitive.Effects.Dilate">
             <summary>
             Represents an <see cref="T:BEditor.Data.Primitive.ImageEffect"/> that dilates an image.
@@ -583,6 +582,11 @@
         </member>
         <member name="M:BEditor.Primitive.Effects.Erode.OnUnload">
             <inheritdoc/>
+        </member>
+        <member name="F:BEditor.Primitive.Effects.GammaCorrection.GammaProperty">
+            <summary>
+            Defines the <see cref="P:BEditor.Primitive.Effects.GammaCorrection.Gamma"/> property.
+            </summary>
         </member>
         <member name="T:BEditor.Primitive.Effects.ImageSplit">
             <summary>
@@ -900,6 +904,41 @@
         <member name="M:BEditor.Primitive.Effects.MultipleControls.OnUnload">
             <inheritdoc/>
         </member>
+        <member name="F:BEditor.Primitive.Effects.Negaposi.RedProperty">
+            <summary>
+            Defines the <see cref="P:BEditor.Primitive.Effects.Negaposi.Red"/> property.
+            </summary>
+        </member>
+        <member name="F:BEditor.Primitive.Effects.Negaposi.GreenProperty">
+            <summary>
+            Defines the <see cref="P:BEditor.Primitive.Effects.Negaposi.Green"/> property.
+            </summary>
+        </member>
+        <member name="F:BEditor.Primitive.Effects.Negaposi.BlueProperty">
+            <summary>
+            Defines the <see cref="P:BEditor.Primitive.Effects.Negaposi.Blue"/> property.
+            </summary>
+        </member>
+        <member name="F:BEditor.Primitive.Effects.Noise.ValueProperty">
+            <summary>
+            Defines the <see cref="P:BEditor.Primitive.Effects.Noise.Value"/> property.
+            </summary>
+        </member>
+        <member name="F:BEditor.Primitive.Effects.RGBColor.RedProperty">
+            <summary>
+            Defines the <see cref="P:BEditor.Primitive.Effects.RGBColor.Red"/> property.
+            </summary>
+        </member>
+        <member name="F:BEditor.Primitive.Effects.RGBColor.GreenProperty">
+            <summary>
+            Defines the <see cref="P:BEditor.Primitive.Effects.RGBColor.Green"/> property.
+            </summary>
+        </member>
+        <member name="F:BEditor.Primitive.Effects.RGBColor.BlueProperty">
+            <summary>
+            Defines the <see cref="P:BEditor.Primitive.Effects.RGBColor.Blue"/> property.
+            </summary>
+        </member>
         <member name="T:BEditor.Primitive.Effects.SetColor">
             <summary>
             Represents an <see cref="T:BEditor.Data.Primitive.ImageEffect"/> that monochromatizes an image.
@@ -1015,14 +1054,29 @@
             Represents an <see cref="T:BEditor.Data.Primitive.ImageEffect"/> that adds a border to the image.
             </summary>
         </member>
-        <member name="F:BEditor.Primitive.Effects.StrokeText.SizeMetadata">
+        <member name="F:BEditor.Primitive.Effects.StrokeText.CenterXProperty">
             <summary>
-            Represents <see cref="P:BEditor.Primitive.Effects.StrokeText.Size"/> metadata.
+            Defines the <see cref="P:BEditor.Primitive.Effects.StrokeText.CenterX"/> property.
             </summary>
         </member>
-        <member name="F:BEditor.Primitive.Effects.StrokeText.ColorMetadata">
+        <member name="F:BEditor.Primitive.Effects.StrokeText.CenterYProperty">
             <summary>
-            Represents <see cref="P:BEditor.Primitive.Effects.StrokeText.Color"/> metadata.
+            Defines the <see cref="P:BEditor.Primitive.Effects.StrokeText.CenterY"/> property.
+            </summary>
+        </member>
+        <member name="F:BEditor.Primitive.Effects.StrokeText.LineSpacingProperty">
+            <summary>
+            Defines the <see cref="P:BEditor.Primitive.Effects.StrokeText.LineSpacing"/> property.
+            </summary>
+        </member>
+        <member name="F:BEditor.Primitive.Effects.StrokeText.SizeProperty">
+            <summary>
+            Defines the <see cref="P:BEditor.Primitive.Effects.StrokeText.Size"/> property.
+            </summary>
+        </member>
+        <member name="F:BEditor.Primitive.Effects.StrokeText.ColorProperty">
+            <summary>
+            Defines the <see cref="P:BEditor.Primitive.Effects.StrokeText.Color"/> property.
             </summary>
         </member>
         <member name="M:BEditor.Primitive.Effects.StrokeText.#ctor">
@@ -1036,26 +1090,35 @@
         <member name="P:BEditor.Primitive.Effects.StrokeText.Properties">
             <inheritdoc/>
         </member>
+        <member name="P:BEditor.Primitive.Effects.StrokeText.CenterX">
+            <summary>
+            Gets the X coordinate.
+            </summary>
+        </member>
+        <member name="P:BEditor.Primitive.Effects.StrokeText.CenterY">
+            <summary>
+            Gets the Y coordinate.
+            </summary>
+        </member>
+        <member name="P:BEditor.Primitive.Effects.StrokeText.LineSpacing">
+            <summary>
+            Gets the line spacing of the string to be drawn.
+            </summary>
+        </member>
         <member name="P:BEditor.Primitive.Effects.StrokeText.Size">
             <summary>
-            Get the <see cref="T:BEditor.Data.Property.EaseProperty"/> that represents the size of the edge.
+            Gets the size of the edge.
             </summary>
         </member>
         <member name="P:BEditor.Primitive.Effects.StrokeText.Color">
             <summary>
-            Get the <see cref="T:BEditor.Data.Property.ColorProperty"/> that represents the edge color.
+            Gets the edge color.
             </summary>
         </member>
         <member name="M:BEditor.Primitive.Effects.StrokeText.Render(BEditor.Data.EffectRenderArgs{BEditor.Drawing.Image{BEditor.Drawing.Pixel.BGRA32}})">
             <inheritdoc/>
         </member>
         <member name="M:BEditor.Primitive.Effects.StrokeText.Render(BEditor.Data.EffectRenderArgs{System.Collections.Generic.IEnumerable{BEditor.Graphics.ImageInfo}})">
-            <inheritdoc/>
-        </member>
-        <member name="M:BEditor.Primitive.Effects.StrokeText.OnLoad">
-            <inheritdoc/>
-        </member>
-        <member name="M:BEditor.Primitive.Effects.StrokeText.OnUnload">
             <inheritdoc/>
         </member>
         <member name="T:BEditor.Primitive.Objects.AudioObject">
@@ -1814,29 +1877,44 @@
             Represents an <see cref="T:BEditor.Data.Primitive.ImageObject"/> to draw a string.
             </summary>
         </member>
-        <member name="F:BEditor.Primitive.Objects.Text.SizeMetadata">
+        <member name="F:BEditor.Primitive.Objects.Text.SizeProperty">
             <summary>
-            Represents <see cref="P:BEditor.Primitive.Objects.Text.Size"/> metadata.
+            Defines the <see cref="P:BEditor.Primitive.Objects.Text.Size"/> property.
             </summary>
         </member>
-        <member name="F:BEditor.Primitive.Objects.Text.ColorMetadata">
+        <member name="F:BEditor.Primitive.Objects.Text.LineSpacingProperty">
             <summary>
-            Represents <see cref="P:BEditor.Primitive.Objects.Text.Color"/> metadata.
+            Defines the <see cref="P:BEditor.Primitive.Objects.Text.LineSpacing"/> property.
             </summary>
         </member>
-        <member name="F:BEditor.Primitive.Objects.Text.FontMetadata">
+        <member name="F:BEditor.Primitive.Objects.Text.ColorProperty">
             <summary>
-            Represents <see cref="P:BEditor.Primitive.Objects.Text.Font"/> metadata.
+            Defines the <see cref="P:BEditor.Primitive.Objects.Text.Color"/> property.
             </summary>
         </member>
-        <member name="F:BEditor.Primitive.Objects.Text.DocumentMetadata">
+        <member name="F:BEditor.Primitive.Objects.Text.FontProperty">
             <summary>
-            Represents <see cref="P:BEditor.Primitive.Objects.Text.Document"/> metadata.
+            Defines the <see cref="P:BEditor.Primitive.Objects.Text.Color"/> property.
             </summary>
         </member>
-        <member name="F:BEditor.Primitive.Objects.Text.EnableMultipleMetadata">
+        <member name="F:BEditor.Primitive.Objects.Text.HorizontalAlignProperty">
             <summary>
-            Represents <see cref="P:BEditor.Primitive.Objects.Text.EnableMultiple"/> metadata.
+            Defines the <see cref="P:BEditor.Primitive.Objects.Text.HorizontalAlign"/> property.
+            </summary>
+        </member>
+        <member name="F:BEditor.Primitive.Objects.Text.VerticalAlignProperty">
+            <summary>
+            Defines the <see cref="P:BEditor.Primitive.Objects.Text.VerticalAlign"/> property.
+            </summary>
+        </member>
+        <member name="F:BEditor.Primitive.Objects.Text.DocumentProperty">
+            <summary>
+            Defines the <see cref="P:BEditor.Primitive.Objects.Text.Document"/> property.
+            </summary>
+        </member>
+        <member name="F:BEditor.Primitive.Objects.Text.EnableMultipleProperty">
+            <summary>
+            Defines the <see cref="P:BEditor.Primitive.Objects.Text.EnableMultiple"/> property.
             </summary>
         </member>
         <member name="M:BEditor.Primitive.Objects.Text.#ctor">
@@ -1852,39 +1930,48 @@
         </member>
         <member name="P:BEditor.Primitive.Objects.Text.Size">
             <summary>
-            Get the <see cref="T:BEditor.Data.Property.EaseProperty"/> that represents the size of the string to be drawn.
+            Gets the size of the string to be drawn.
+            </summary>
+        </member>
+        <member name="P:BEditor.Primitive.Objects.Text.LineSpacing">
+            <summary>
+            Gets the line spacing of the string to be drawn.
             </summary>
         </member>
         <member name="P:BEditor.Primitive.Objects.Text.Color">
             <summary>
-            Get the <see cref="T:BEditor.Data.Property.ColorProperty"/> that represents the color of the string to be drawn.
-            </summary>
-        </member>
-        <member name="P:BEditor.Primitive.Objects.Text.Document">
-            <summary>
-            Get the <see cref="T:BEditor.Data.Property.DocumentProperty"/> representing the string to be drawn.
+            Gets the color of string to be drawn.
             </summary>
         </member>
         <member name="P:BEditor.Primitive.Objects.Text.Font">
             <summary>
-            Get the <see cref="T:BEditor.Data.Property.FontProperty"/> that represents the font of the string to be drawn.
+            Gets the font of the string to be drawn.
+            </summary>
+        </member>
+        <member name="P:BEditor.Primitive.Objects.Text.HorizontalAlign">
+            <summary>
+            Gets the horizontal alignment of the string to be drawn.
+            </summary>
+        </member>
+        <member name="P:BEditor.Primitive.Objects.Text.VerticalAlign">
+            <summary>
+            Gets the vertical alignment of the string to be drawn.
             </summary>
         </member>
         <member name="P:BEditor.Primitive.Objects.Text.EnableMultiple">
             <summary>
-            Get a <see cref="T:BEditor.Data.Property.CheckProperty"/> that indicates whether to enable multiple objects.
+            Gets whether or not to enable multiple objects.
+            </summary>
+        </member>
+        <member name="P:BEditor.Primitive.Objects.Text.Document">
+            <summary>
+            Gets the string to be drawn.
             </summary>
         </member>
         <member name="M:BEditor.Primitive.Objects.Text.OnRender(BEditor.Data.EffectRenderArgs)">
             <inheritdoc/>
         </member>
         <member name="M:BEditor.Primitive.Objects.Text.OnRender(BEditor.Data.EffectRenderArgs{System.Collections.Generic.IEnumerable{BEditor.Graphics.ImageInfo}})">
-            <inheritdoc/>
-        </member>
-        <member name="M:BEditor.Primitive.Objects.Text.OnLoad">
-            <inheritdoc/>
-        </member>
-        <member name="M:BEditor.Primitive.Objects.Text.OnUnload">
             <inheritdoc/>
         </member>
         <member name="T:BEditor.Primitive.Objects.VideoFile">
@@ -2165,6 +2252,11 @@
               Camera に類似しているローカライズされた文字列を検索します。
             </summary>
         </member>
+        <member name="P:BEditor.Primitive.Resources.Strings.Center">
+            <summary>
+              Center に類似しているローカライズされた文字列を検索します。
+            </summary>
+        </member>
         <member name="P:BEditor.Primitive.Resources.Strings.CenterX">
             <summary>
               Center x に類似しているローカライズされた文字列を検索します。
@@ -2350,6 +2442,11 @@
               Height に類似しているローカライズされた文字列を検索します。
             </summary>
         </member>
+        <member name="P:BEditor.Primitive.Resources.Strings.HorizontalAlignment">
+            <summary>
+              Horizontal alignment に類似しているローカライズされた文字列を検索します。
+            </summary>
+        </member>
         <member name="P:BEditor.Primitive.Resources.Strings.Image">
             <summary>
               Image に類似しているローカライズされた文字列を検索します。
@@ -2383,6 +2480,11 @@
         <member name="P:BEditor.Primitive.Resources.Strings.LinearGradient">
             <summary>
               Liear gradient に類似しているローカライズされた文字列を検索します。
+            </summary>
+        </member>
+        <member name="P:BEditor.Primitive.Resources.Strings.LineSpacing">
+            <summary>
+              Line spacing に類似しているローカライズされた文字列を検索します。
             </summary>
         </member>
         <member name="P:BEditor.Primitive.Resources.Strings.LineWidth">
@@ -2593,6 +2695,11 @@
         <member name="P:BEditor.Primitive.Resources.Strings.Type">
             <summary>
               Type に類似しているローカライズされた文字列を検索します。
+            </summary>
+        </member>
+        <member name="P:BEditor.Primitive.Resources.Strings.VerticalAlignment">
+            <summary>
+              Vertical alignment に類似しているローカライズされた文字列を検索します。
             </summary>
         </member>
         <member name="P:BEditor.Primitive.Resources.Strings.Video">

@@ -28,7 +28,7 @@ namespace BEditor.Controls
         private bool _isSeeking;
 
         private double _seekValue;
-        
+
         // Slider required parts
         private Track? _track;
 

@@ -42,7 +42,7 @@ namespace BEditor.ViewModels.Properties
 
                 Property.ChangeSelect(item).Execute();
             }).AddTo(_disposables);
-            Reset.Subscribe(() => Property.ChangeSelect(Property.PropertyMetadata!.DefaultItem).Execute()).AddTo(_disposables);
+            Reset.Subscribe(() => Property.ChangeSelect(Property.PropertyMetadata!.DefaultIndex).Execute()).AddTo(_disposables);
             Bind.Subscribe(async () =>
             {
                 var window = new SetBinding

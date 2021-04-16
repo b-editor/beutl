@@ -15,13 +15,19 @@
       <MenuItem Header="Bind" Command="{CompiledBinding Bind, Mode=OneTime}"/>
     </ContextMenu>
   </UserControl.ContextMenu>
-  <TextBox
+  <ContentControl
     Margin="5,5,5,5"
-    AcceptsTab="True"
-    AcceptsReturn="True"
-    LostFocus="TextBox_LostFocus"
-    GotFocus="TextBox_GotFocus"
-    Text="{CompiledBinding Property.Value, Mode=OneWay}"
-    x:Name="TextBox">
-  </TextBox>
+    Padding="0"
+    HorizontalAlignment="Stretch"
+    VerticalAlignment="Stretch">
+    <TextBox
+      Width="{Binding $parent.Bounds.Width, Mode=OneWay}"
+      AcceptsTab="True"
+      AcceptsReturn="True"
+      LostFocus="TextBox_LostFocus"
+      GotFocus="TextBox_GotFocus"
+      Text="{CompiledBinding Property.Value, Mode=OneWay}"
+      x:Name="TextBox">
+    </TextBox>
+  </ContentControl>
 </UserControl>

@@ -7,10 +7,7 @@ using System.Threading.Tasks;
 using Avalonia;
 using Avalonia.Controls;
 using Avalonia.Controls.ApplicationLifetimes;
-using Avalonia.Controls.Presenters;
-using Avalonia.Controls.Templates;
 using Avalonia.Markup.Xaml;
-using Avalonia.Markup.Xaml.Templates;
 using Avalonia.Styling;
 using Avalonia.Themes.Fluent;
 using Avalonia.Threading;
@@ -20,8 +17,6 @@ using BEditor.Models;
 using BEditor.Plugin;
 using BEditor.Primitive;
 using BEditor.Properties;
-
-using FFMediaToolkit;
 
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
@@ -57,33 +52,23 @@ namespace BEditor
 
             AvaloniaXamlLoader.Load(this);
 
-            var theme = new FluentTheme(new Uri("avares://BEditor.Avalonia/App.axaml"))
+            Styles.Insert(0, new FluentTheme(new Uri("avares://BEditor.Avalonia/App.axaml"))
             {
                 Mode = Settings.Default.UseDarkMode ? FluentThemeMode.Dark : FluentThemeMode.Light
-            };
-
-            Styles.Add(theme);
+            });
         }
 
         public override async void OnFrameworkInitializationCompleted()
         {
             if (ApplicationLifetime is IClassicDesktopStyleApplicationLifetime desktop)
             {
+                RegisterPrimitive();
+
                 desktop.MainWindow = new MainWindow();
 
                 CreateDirectory();
 
-                RegisterPrimitive();
-
                 await InitialPluginsAsync();
-
-                // FFmpegì«Ç›çûÇ›
-                if (OperatingSystem.IsWindows())
-                {
-                    FFmpegLoader.FFmpegPath = Path.Combine(AppContext.BaseDirectory, "ffmpeg");
-                }
-
-                FFmpegLoader.LoadFFmpeg();
 
                 AppDomain.CurrentDomain.UnhandledException += CurrentDomain_UnhandledException;
 

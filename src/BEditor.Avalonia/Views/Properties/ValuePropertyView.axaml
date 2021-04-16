@@ -9,6 +9,12 @@
   Height="40"
   Background="Transparent"
   x:Class="BEditor.Views.Properties.ValuePropertyView">
+  <UserControl.ContextMenu>
+    <ContextMenu>
+      <MenuItem Header="Reset" Command="{CompiledBinding Reset, Mode=OneTime}"/>
+      <MenuItem Header="Bind" Command="{CompiledBinding Bind, Mode=OneTime}"/>
+    </ContextMenu>
+  </UserControl.ContextMenu>
   <Grid>
     <Grid.ColumnDefinitions>
       <ColumnDefinition Width="120*" MinWidth="50" MaxWidth="100" />
@@ -26,21 +32,25 @@
       FontSize="13"
       Content="{CompiledBinding Metadata.Value.Name, Mode=OneTime}" />
 
-    <NumericUpDown
+
+    <ContentControl
       Grid.Column="3"
       Height="32"
       Margin="8,4"
-      VerticalAlignment="Center"
-      ShowButtonSpinner="False"
-      Background="Transparent"
-      BorderBrush="Transparent"
-      Increment="10"
-      Value="{CompiledBinding Property.Value, Mode=OneWay}"
-      Maximum="{CompiledBinding Maximum, Mode=OneTime}"
-      Minimum="{CompiledBinding Minimum, Mode=OneTime}"
-      GotFocus="NumericUpDown_GotFocus"
-      LostFocus="NumericUpDown_LostFocus"
-      ValueChanged="NumericUpDown_ValueChanged" />
-    
+      Padding="0"
+      HorizontalAlignment="Stretch"
+      VerticalAlignment="Center">
+      <NumericUpDown
+        Width="{Binding $parent.Bounds.Width, Mode=OneWay}"
+        Classes="custom"
+        Increment="10"
+        Value="{CompiledBinding Property.Value, Mode=OneWay}"
+        Maximum="{CompiledBinding Maximum, Mode=OneTime}"
+        Minimum="{CompiledBinding Minimum, Mode=OneTime}"
+        GotFocus="NumericUpDown_GotFocus"
+        LostFocus="NumericUpDown_LostFocus"
+        ValueChanged="NumericUpDown_ValueChanged" />
+    </ContentControl>
+
   </Grid>
 </UserControl>

@@ -14,26 +14,6 @@
 ## Requirements
 * [OpenAL](https://www.openal.org/)
 
-<details>
-<summary>使用ライブラリ</summary>
-
-* [.NET runtime](https://github.com/dotnet/runtime)
-* [OpenAL](https://www.openal.org/)
-* [FFmpeg(自動でダウンロードします)](https://ffmpeg.org)
-* [FFMediaToolkit](https://github.com/radek-k/FFMediaToolkit)
-* [OpenTK](https://github.com/opentk/opentk)
-* [System.Reactive](https://github.com/dotnet/reactive)
-* [SkiaSharp](https://github.com/mono/SkiaSharp)
-* [Material Design Icons](https://github.com/google/material-design-icons)
-* [ReactiveProperty](https://github.com/runceel/ReactiveProperty)
-* [Dragablz](https://dragablz.net/)
-* [MaterialDesignTheme](https://github.com/MaterialDesignInXAML/MaterialDesignInXamlToolkit)
-* [Markdig](https://github.com/xoofx/markdig)
-* [Neo.Markdig.Xaml](https://github.com/neolithos/NeoMarkdigXaml)
-* [NLog](https://github.com/NLog/NLog)
-
-</details>
-
 ## License
 
 * [MIT License](https://github.com/b-editor/BEditor/blob/main/LICENSE)
@@ -93,3 +73,73 @@
 ## BEditor 0.0.1
 
 * [ダウンロード](https://drive.google.com/file/d/19w8gj_la7JAaCQjlEVldbbpos9xyMjrL/view?usp=sharing)
+
+## 使用ライブラリ
+
+### .NET Runtime
+* ライセンス - MIT License
+* [GitHub](https://github.com/dotnet/runtime)
+* [Homepage](https://dotnet.microsoft.com)
+
+### OpenAL
+* ライセンス - プロプライエタリ
+* [Homepage](https://www.openal.org/)
+
+### FFmpeg
+* ライセンス - LGPL
+* [Homepage](https://ffmpeg.org)
+
+### FFMediaToolkit
+* ライセンス - MIT License
+* [GitHub](https://github.com/radek-k/FFMediaToolkit)
+
+### OpenTK
+* ライセンス - MIT License
+* [GitHub](https://github.com/opentk/opentk)
+* [Homepage](https://opentk.net)
+
+### System.Reactive
+* ライセンス - MIT License
+* [GitHub](https://github.com/dotnet/reactive)
+
+### SkiaSharp
+* ライセンス - MIT License
+* [GitHub](https://github.com/mono/SkiaSharp)
+
+### Material Design Icons
+* ライセンス - Apache-2.0 License
+* [GitHub](https://github.com/google/material-design-icons)
+
+### ReactiveProperty
+* ライセンス - MIT License
+* [GitHub](https://github.com/runceel/ReactiveProperty)
+
+### Dragablz
+* ライセンス - MIT License
+* [GitHub](https://github.com/ButchersBoy/Dragablz)
+* [Homepage](https://dragablz.net/)
+
+### MaterialDesignTheme
+* ライセンス - MIT License
+* [GitHub](https://github.com/MaterialDesignInXAML/MaterialDesignInXamlToolkit)
+
+### Markdig
+* ライセンス - BSD-2-Clause License
+* [GitHub](https://github.com/xoofx/markdig)
+
+### Neo.Markdig.Xaml
+* ライセンス - Apache-2.0 License
+* [GitHub](https://github.com/neolithos/NeoMarkdigXaml)
+
+### NLog
+* ライセンス - BSD-3-Clause License
+* [GitHub](https://github.com/NLog/NLog)
+
+### AvaloniaUI
+* ライセンス - MIT License
+* [GitHub](https://github.com/AvaloniaUI/Avalonia)
+* [Homepage](http://avaloniaui.net/)
+
+### FluentUI Icons
+* ライセンス - MIT License
+* [GitHub](https://github.com/microsoft/fluentui-system-icons)

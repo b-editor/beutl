@@ -1,9 +1,11 @@
-﻿using BEditor.Data;
-using BEditor.Models;
+﻿using System;
 using System.ComponentModel;
-using Reactive.Bindings;
-using System;
 using System.Reactive.Disposables;
+
+using BEditor.Data;
+using BEditor.Models;
+
+using Reactive.Bindings;
 using Reactive.Bindings.Extensions;
 
 namespace BEditor.ViewModels.CreatePage

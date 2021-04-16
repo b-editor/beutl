@@ -152,7 +152,7 @@ namespace BEditor.ViewModels
             }
             var json = File.ReadAllText(jsonFile);
 
-            foreach (var item in JsonSerializer.Deserialize<IEnumerable<string>>(json)?.Select(i=>new Font(i)) ?? Array.Empty<Font>())
+            foreach (var item in JsonSerializer.Deserialize<IEnumerable<string>>(json)?.Select(i => new Font(i)) ?? Array.Empty<Font>())
             {
                 UsedFonts.Add(new(item));
             }

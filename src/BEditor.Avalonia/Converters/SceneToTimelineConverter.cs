@@ -5,8 +5,8 @@ using Avalonia.Data;
 using Avalonia.Data.Converters;
 
 using BEditor.Data;
-using BEditor.Media;
 using BEditor.Extensions;
+using BEditor.Media;
 
 namespace BEditor.Converters
 {

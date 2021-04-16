@@ -427,4 +427,16 @@
   <data name="Diffusion" xml:space="preserve">
     <value>Diffusion</value>
   </data>
+  <data name="HorizontalAlignment" xml:space="preserve">
+    <value>Horizontal alignment</value>
+  </data>
+  <data name="VerticalAlignment" xml:space="preserve">
+    <value>Vertical alignment</value>
+  </data>
+  <data name="Center" xml:space="preserve">
+    <value>Center</value>
+  </data>
+  <data name="LineSpacing" xml:space="preserve">
+    <value>Line spacing</value>
+  </data>
 </root>

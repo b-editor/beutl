@@ -10,10 +10,10 @@ using BEditor.Data;
 using BEditor.Drawing;
 using BEditor.Media;
 using BEditor.Media.Encoder;
-using BEditor.Properties;
+using BEditor.Primitive;
 using BEditor.Primitive.Effects;
 using BEditor.Primitive.Objects;
-using BEditor.Primitive;
+using BEditor.Properties;
 
 using Microsoft.Extensions.CommandLineUtils;
 
@@ -171,10 +171,10 @@ namespace BEditor
                     // ファイルに保存
                     if (name_Opt.HasValue() || Path.HasExtension(name_Opt.Value()))
                     {
-                        filename= Path.Combine(Environment.CurrentDirectory, name_Opt.Value());
+                        filename = Path.Combine(Environment.CurrentDirectory, name_Opt.Value());
                     }
                     // ディレクトリーを作成する
-                    else if(name_Opt.HasValue())
+                    else if (name_Opt.HasValue())
                     {
                         var dir = new DirectoryInfo(name_Opt.Value());
                         filename = Path.Combine(dir.FullName, dir.Name + ".bedit");

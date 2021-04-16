@@ -5,7 +5,6 @@ using Avalonia.Data.Converters;
 
 using BEditor.Data;
 using BEditor.Extensions;
-using BEditor.Views.Properties;
 
 namespace BEditor.Converters
 {

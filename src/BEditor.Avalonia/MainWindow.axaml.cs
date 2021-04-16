@@ -1,21 +1,26 @@
 using System;
 using System.ComponentModel;
+using System.IO;
 using System.Net;
+using System.Reactive.Linq;
 using System.Threading.Tasks;
 
 using Avalonia;
 using Avalonia.Controls;
 using Avalonia.Controls.Primitives;
+using Avalonia.Input;
 using Avalonia.Interactivity;
 using Avalonia.Markup.Xaml;
-using Avalonia.Media;
 using Avalonia.Threading;
 
+using BEditor.Data;
 using BEditor.Models;
 using BEditor.Properties;
+using BEditor.ViewModels;
 using BEditor.ViewModels.DialogContent;
-using BEditor.Views;
 using BEditor.Views.DialogContent;
+
+using FFMediaToolkit;
 
 using Microsoft.Extensions.Logging;
 
@@ -26,19 +31,41 @@ namespace BEditor
         public MainWindow()
         {
             InitializeComponent();
+
+            // WindowsŠÂ‹«‚¾‚Æ•\Ž¦‚ªƒoƒO‚é‚Ì‚Å‘Îô
+            MainWindowViewModel.Current.IsOpened
+                .ObserveOn(AvaloniaScheduler.Instance)
+                .Where(_ => OperatingSystem.IsWindows())
+                .Subscribe(isopened =>
+            {
+                var content = (Grid)Content!;
+                if (isopened)
+                {
+                    content.Margin = new(0, 0, 8, 0);
+                }
+                else
+                {
+                    content.Margin = default;
+                }
+            });
 #if DEBUG
             this.AttachDevTools();
 #endif
         }
 
-        public void Button_Click(object s, RoutedEventArgs e)
+        public void ObjectsPopupOpen(object s, RoutedEventArgs e)
         {
-            
+            this.FindControl<Popup>("ObjectsPopup").Open();
         }
 
-        public async void ShowSettings(object s, RoutedEventArgs e)
+        public void ObjectStartDrag(object s, PointerPressedEventArgs e)
         {
-            await new SettingsWindow().ShowDialog(this);
+            if (s is Control ctr && ctr.DataContext is ObjectMetadata metadata)
+            {
+                var data = new DataObject();
+                data.Set("ObjectMetadata", metadata);
+                DragDrop.DoDragDrop(e, data, DragDropEffects.Copy);
+            }
         }
 
         public async void CreateProjectClick(object s, RoutedEventArgs e)
@@ -50,7 +77,7 @@ namespace BEditor
             };
             var dialog = new EmptyDialog(content);
 
-            await dialog.ShowDialog(this);
+            await dialog.ShowDialog((Window)VisualRoot);
         }
 
         private void InitializeComponent()
@@ -60,7 +87,13 @@ namespace BEditor
 
         protected override async void OnOpened(EventArgs e)
         {
+            base.OnOpened(e);
             var installer = new FFmpegInstaller(App.FFmpegDir);
+
+            if (OperatingSystem.IsWindows())
+            {
+                FFmpegLoader.FFmpegPath = Path.Combine(AppContext.BaseDirectory, "ffmpeg");
+            }
 
             if (!await installer.IsInstalledAsync())
             {
@@ -73,15 +106,19 @@ namespace BEditor
                     await AppModel.Current.Message.DialogAsync($"{Strings.RunFollowingCommandToInstallFFmpeg}\n$ brew install ffmpeg");
 
                     Close();
+                    return;
                 }
                 else if (OperatingSystem.IsMacOS())
                 {
                     await AppModel.Current.Message.DialogAsync($"{Strings.RunFollowingCommandToInstallFFmpeg}\n$ sudo apt update\n$ sudo apt -y upgrade\n$ sudo apt install ffmpeg");
 
                     Close();
+                    return;
                 }
             }
-            base.OnOpened(e);
+
+            // FFmpeg“Ç‚Ýž‚Ý
+            FFmpegLoader.LoadFFmpeg();
         }
 
         private async Task InstallFFmpegWindowsAsync(FFmpegInstaller installer)
@@ -90,33 +127,31 @@ namespace BEditor
 
             try
             {
-                Loading loading = null!;
-                EmptyDialog dialog = null!;
+                ProgressDialog dialog = null!;
 
                 void start(object? s, EventArgs e)
                 {
                     Dispatcher.UIThread.InvokeAsync(() =>
                     {
-                        loading = new Loading
+                        dialog = new ProgressDialog
                         {
                             Maximum = { Value = 100 },
                             Minimum = { Value = 0 }
                         };
-                        dialog = new EmptyDialog(loading);
 
                         dialog.Show();
 
-                        loading.Text.Value = string.Format(Strings.IsDownloading, "FFmpeg");
+                        dialog.Text.Value = string.Format(Strings.IsDownloading, "FFmpeg");
                     });
                 }
                 void downloadComp(object? s, AsyncCompletedEventArgs e)
                 {
-                    loading.Text.Value = string.Format(Strings.IsExtractedAndPlaced, "FFmpeg");
-                    loading.IsIndeterminate.Value = true;
+                    dialog.Text.Value = string.Format(Strings.IsExtractedAndPlaced, "FFmpeg");
+                    dialog.IsIndeterminate.Value = true;
                 }
                 void progress(object s, DownloadProgressChangedEventArgs e)
                 {
-                    loading.NowValue.Value = e.ProgressPercentage;
+                    dialog.NowValue.Value = e.ProgressPercentage;
                 }
                 void installed(object? s, EventArgs e) => Dispatcher.UIThread.InvokeAsync(dialog.Close);
 

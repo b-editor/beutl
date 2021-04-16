@@ -45,7 +45,7 @@ namespace BEditor.Views.DialogContent
 
                 var button_ = new Button
                 {
-                    Background=Brushes.Transparent,
+                    Background = Brushes.Transparent,
                     Content = text,
                     CommandParameter = button,
                     Margin = new Thickness(5, 0, 5, 0),

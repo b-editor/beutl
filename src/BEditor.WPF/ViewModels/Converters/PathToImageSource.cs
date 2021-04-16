@@ -16,10 +16,10 @@ namespace BEditor.ViewModels.Converters
     {
         public object Convert(object value, Type targetType, object parameter, CultureInfo culture)
         {
-            if(value is string path)
+            if (value is string path)
             {
                 using var img = Drawing.Image.Decode(path);
-                
+
                 return img.ToBitmapSource();
             }
 

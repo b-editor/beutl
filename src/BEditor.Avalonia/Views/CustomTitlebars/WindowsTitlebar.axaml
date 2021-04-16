@@ -1,0 +1,259 @@
+<UserControl
+  xmlns="https://github.com/avaloniaui"
+  xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+  xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+  xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+  xmlns:vm="using:BEditor.ViewModels"
+  xmlns:views="using:BEditor.Views"
+  xmlns:prop="clr-namespace:BEditor.Properties"
+  xmlns:command="clr-namespace:BEditor.Command;assembly=BEditor.Core"
+  mc:Ignorable="d" d:DesignWidth="800"
+  DataContext="{x:Static vm:MainWindowViewModel.Current}"
+  x:DataType="vm:MainWindowViewModel"
+  x:Class="BEditor.Views.CustomTitlebars.WindowsTitlebar">
+    <Grid ColumnDefinitions="*,Auto">
+        <Menu Name="menu">
+            <Menu.Styles>
+                <Style Selector="PathIcon">
+                    <Setter Property="Width" Value="16" />
+                    <Setter Property="Height" Value="16" />
+                </Style>
+            </Menu.Styles>
+            <MenuItem Header="{x:Static prop:Strings.AccessFile}">
+                <!--開く-->
+                <MenuItem Header="{x:Static prop:Strings.AccessOpen}" Command="{CompiledBinding Open, Mode=OneTime}">
+                    <MenuItem.Icon>
+                        <PathIcon Data="{StaticResource FolderOpen24Regular}" />
+                    </MenuItem.Icon>
+                </MenuItem>
+
+                <!--新規作成-->
+                <MenuItem Header="{x:Static prop:Strings.CreateNew}">
+                    <MenuItem
+                        Classes="iconheader"
+                        Header="{x:Static prop:Strings.CreateProject}"
+                        Click="CreateProjectClick">
+                        <MenuItem.Icon>
+                            <PathIcon Data="{StaticResource DocumentAdd24Regular}" />
+                        </MenuItem.Icon>
+                    </MenuItem>
+                    <MenuItem Header="{x:Static prop:Strings.CreateFromBackup}"/>
+                </MenuItem>
+
+                <Separator/>
+
+                <!--上書き保存-->
+                <MenuItem
+                    Header="{x:Static prop:Strings.Save}"
+                    Command="{CompiledBinding Save, Mode=OneTime}"
+                    IsEnabled="{CompiledBinding IsOpened.Value, Mode=OneWay}">
+                    <MenuItem.Icon>
+                        <PathIcon Data="{StaticResource Save24Regular}" />
+                    </MenuItem.Icon>
+                </MenuItem>
+
+                <!--名前を付けて保存-->
+                <MenuItem
+                    Header="{x:Static prop:Strings.SaveAs}"
+                    Command="{CompiledBinding SaveAs, Mode=OneTime}"
+                    IsEnabled="{CompiledBinding IsOpened.Value, Mode=OneWay}">
+                    <MenuItem.Icon>
+                        <PathIcon Data="{StaticResource SaveEdit24Regular}" />
+                    </MenuItem.Icon>
+                </MenuItem>
+
+                <!--閉じる-->
+                <MenuItem
+                    Header="{x:Static prop:Strings.Close}"
+                    Command="{CompiledBinding Close, Mode=OneTime}"
+                    IsEnabled="{CompiledBinding IsOpened.Value, Mode=OneWay}"/>
+
+                <Separator/>
+
+                <!--最近使ったファイル-->
+                <MenuItem Header="{x:Static prop:Strings.RecentlyUsedFiles}" x:Name="RecentlyUsedFiles" />
+
+                <!--終了-->
+                <MenuItem Header="{x:Static prop:Strings.Shutdown}"/>
+
+            </MenuItem>
+            <MenuItem Header="{x:Static prop:Strings.AccessEdit}">
+                <!--やり直す-->
+                <MenuItem
+                    Command="{CompiledBinding Undo, Mode=OneTime}"
+                    Header="{x:Static prop:Strings.Undo}"
+                    IsEnabled="{CompiledBinding CanUndo, Mode=OneWay, Source={x:Static command:CommandManager.Default}}">
+                    <MenuItem.Icon>
+                        <PathIcon Data="{StaticResource ArrowUndo24Regular}" />
+                    </MenuItem.Icon>
+                </MenuItem>
+
+                <!--元に戻す-->
+                <MenuItem
+                    Command="{CompiledBinding Redo, Mode=OneTime}"
+                    Header="{x:Static prop:Strings.Redo}"
+                    IsEnabled="{CompiledBinding CanRedo, Mode=OneWay, Source={x:Static command:CommandManager.Default}}">
+                    <MenuItem.Icon>
+                        <PathIcon Data="{StaticResource ArrowRedo24Regular}" />
+                    </MenuItem.Icon>
+                </MenuItem>
+
+                <!--削除-->
+                <MenuItem
+                  Command="{CompiledBinding Remove, Mode=OneTime}"
+                  Header="{x:Static prop:Strings.Remove}"
+                  IsEnabled="{CompiledBinding IsOpened.Value, Mode=OneWay}">
+                    <MenuItem.Icon>
+                        <PathIcon Data="{StaticResource Delete24Regular}" />
+                    </MenuItem.Icon>
+                </MenuItem>
+
+                <Separator/>
+
+                <!--切り取り-->
+                <MenuItem
+                  Command="{CompiledBinding Cut, Mode=OneTime}"
+                  Header="{x:Static prop:Strings.Cut}"
+                  IsEnabled="{CompiledBinding IsOpened.Value, Mode=OneWay}">
+                    <MenuItem.Icon>
+                        <PathIcon Data="{StaticResource Cut24Regular}" />
+                    </MenuItem.Icon>
+                </MenuItem>
+
+                <!--コピー-->
+                <MenuItem
+                  Command="{CompiledBinding Copy, Mode=OneTime}"
+                  Header="{x:Static prop:Strings.Copy}"
+                  IsEnabled="{CompiledBinding IsOpened.Value, Mode=OneWay}">
+                    <MenuItem.Icon>
+                        <PathIcon Data="{StaticResource Copy24Regular}" />
+                    </MenuItem.Icon>
+                </MenuItem>
+
+                <!--貼り付け-->
+                <MenuItem
+                  Command="{CompiledBinding Paste, Mode=OneTime}"
+                  Header="{x:Static prop:Strings.Paste}"
+                  IsEnabled="{CompiledBinding IsOpened.Value, Mode=OneWay}">
+                    <MenuItem.Icon>
+                        <PathIcon Data="{StaticResource ClipboardPaste24Regular}" />
+                    </MenuItem.Icon>
+                </MenuItem>
+
+            </MenuItem>
+            <MenuItem Header="{x:Static prop:Strings.AccessView}">
+
+            </MenuItem>
+            <MenuItem Header="{x:Static prop:Strings.AccessTool}">
+
+                <!--設定-->
+                <MenuItem Click="ShowSettings" Header="{x:Static prop:Strings.Settings}">
+                    <MenuItem.Icon>
+                        <PathIcon Data="{StaticResource Settings24Regular}" />
+                    </MenuItem.Icon>
+                </MenuItem>
+
+            </MenuItem>
+            <MenuItem Header="{x:Static prop:Strings.AccessPlugin}">
+
+            </MenuItem>
+            <MenuItem Header="{x:Static prop:Strings.AccessOut}">
+
+            </MenuItem>
+            <MenuItem Header="{x:Static prop:Strings.AccessHelp}">
+
+            </MenuItem>
+        </Menu>
+
+        <StackPanel
+          x:Name="titlebarbuttons"
+          Grid.Column="1"
+          Orientation="Horizontal"
+          Spacing="0">
+            <Button
+              Width="46"
+              VerticalAlignment="Stretch"
+              VerticalContentAlignment="Center"
+              BorderThickness="0"
+              Name="MinimizeButton"
+              ToolTip.Tip="Minimize">
+                <Button.Resources>
+                    <CornerRadius x:Key="ControlCornerRadius">0</CornerRadius>
+                </Button.Resources>
+                <Button.Styles>
+                    <Style Selector="Button:pointerover /template/ ContentPresenter#PART_ContentPresenter">
+                        <Setter Property="Background" Value="#44AAAAAA"/>
+                    </Style>
+                    <Style Selector="Button:not(:pointerover) /template/ ContentPresenter#PART_ContentPresenter">
+                        <Setter Property="Background" Value="Transparent"/>
+                    </Style>
+                </Button.Styles>
+                <Path Margin="10,0,10,0"
+                      Stretch="Uniform"
+                      Fill="{DynamicResource SystemControlForegroundBaseHighBrush}"
+                      Data="M2048 1229v-205h-2048v205h2048z"></Path>
+            </Button>
+
+            <Button
+              Width="46"
+              VerticalAlignment="Stretch"
+              VerticalContentAlignment="Center"
+              BorderThickness="0"
+              Name="MaximizeButton">
+                <ToolTip.Tip>
+                    <ToolTip Content="Maximize" Name="MaximizeToolTip"></ToolTip>
+                </ToolTip.Tip>
+
+                <Button.Resources>
+                    <CornerRadius x:Key="ControlCornerRadius">0</CornerRadius>
+                </Button.Resources>
+                <Button.Styles>
+                    <Style Selector="Button:pointerover /template/ ContentPresenter#PART_ContentPresenter">
+                        <Setter Property="Background" Value="#44AAAAAA"/>
+                    </Style>
+                    <Style Selector="Button:not(:pointerover) /template/ ContentPresenter#PART_ContentPresenter">
+                        <Setter Property="Background" Value="Transparent"/>
+                    </Style>
+                </Button.Styles>
+                <Path
+                  Margin="10,0,10,0"
+                  Stretch="Uniform"
+                  Fill="{DynamicResource SystemControlForegroundBaseHighBrush}"
+                  Name="MaximizeIcon"
+                  Data="M2048 2048v-2048h-2048v2048h2048zM1843 1843h-1638v-1638h1638v1638z"></Path>
+            </Button>
+
+            <Button
+              Width="46"
+              VerticalAlignment="Stretch"
+              VerticalContentAlignment="Center"
+              BorderThickness="0"
+              Name="CloseButton"
+              ToolTip.Tip="Close">
+                <Button.Resources>
+                    <CornerRadius x:Key="ControlCornerRadius">0</CornerRadius>
+                </Button.Resources>
+                <Button.Styles>
+                    <Style Selector="Button:pointerover /template/ ContentPresenter#PART_ContentPresenter">
+                        <Setter Property="Background" Value="Red"/>
+                    </Style>
+                    <Style Selector="Button:not(:pointerover) /template/ ContentPresenter#PART_ContentPresenter">
+                        <Setter Property="Background" Value="Transparent"/>
+                    </Style>
+                    <Style Selector="Button:pointerover > Path">
+                        <Setter Property="Fill" Value="White"/>
+                    </Style>
+                    <Style Selector="Button:not(:pointerover) > Path">
+                        <Setter Property="Fill" Value="{DynamicResource SystemControlForegroundBaseHighBrush}"/>
+                    </Style>
+                </Button.Styles>
+                <Path
+                  Margin="10,0,10,0"
+                  Stretch="Uniform"
+                  Data="M1169 1024l879 -879l-145 -145l-879 879l-879 -879l-145 145l879 879l-879 879l145 145l879 -879l879 879l145 -145z"></Path>
+            </Button>
+
+        </StackPanel>
+    </Grid>
+
+</UserControl>

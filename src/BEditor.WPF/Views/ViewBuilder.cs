@@ -10,8 +10,8 @@ using BEditor.Command;
 using BEditor.Data;
 using BEditor.Data.Property;
 using BEditor.Data.Property.Easing;
-using BEditor.Properties;
 using BEditor.Models;
+using BEditor.Properties;
 using BEditor.ViewModels.Converters;
 using BEditor.ViewModels.PropertyControl;
 using BEditor.ViewModels.TimeLines;
@@ -30,10 +30,9 @@ namespace BEditor.Views
         private static readonly Binding HeaderBinding = new("Metadata.Value.Name") { Mode = BindingMode.OneTime };
         private static readonly Binding FileModeBinding = new("PathMode.Value") { Mode = BindingMode.TwoWay };
         private static readonly Binding PropertyIndexBinding = new("Property.Index") { Mode = BindingMode.OneWay };
-        private static readonly Binding PropertySelectItemBinding = new("Property.SelectItem") { Mode = BindingMode.OneWay };
         private static readonly Binding PropertyValueBinding = new("Property.Value") { Mode = BindingMode.OneWay };
         private static readonly Binding ItemsSourcePropertyBinding = new("Metadata.Value.ItemSource") { Mode = BindingMode.OneWay };
-        private static readonly Binding DisplayMemberPathBinding = new("Metadata.Value.MemberPath") { Mode = BindingMode.OneTime };
+        private static readonly Binding DisplayStringsPropertyBinding = new("Metadata.Value.DisplayStrings") { Mode = BindingMode.OneWay };
         private static readonly Binding BrushBinding = new("Brush.Value") { Mode = BindingMode.OneWay };
         private static readonly Binding OpenDialogBinding = new("OpenDialog") { Mode = BindingMode.OneTime };
         private static readonly Binding CommandBinding = new("Command") { Mode = BindingMode.OneTime };
@@ -150,7 +149,7 @@ namespace BEditor.Views
                 view.SetBinding(BasePropertyView.HeaderProperty, HeaderBinding);
                 view.SetBinding(BasePropertyView.ResetCommandProperty, ResetBinding);
                 view.SetBinding(BasePropertyView.BindCommandProperty, BindBinding);
-                
+
                 view.SetBinding(FilePropertyView.ModeIndexProperty, FileModeBinding);
                 view.SetBinding(FilePropertyView.FileProperty, PropertyValueBinding);
                 view.SetBinding(FilePropertyView.OpenFileCommandProperty, CommandBinding);
@@ -186,7 +185,7 @@ namespace BEditor.Views
                 view.SetBinding(BasePropertyView.HeaderProperty, HeaderBinding);
                 view.SetBinding(BasePropertyView.ResetCommandProperty, ResetBinding);
                 view.SetBinding(BasePropertyView.BindCommandProperty, BindBinding);
-                
+
                 view.SetBinding(SelectorPropertyView.ItemsSourceProperty, ItemsSourcePropertyBinding);
                 view.SetBinding(SelectorPropertyView.CommandProperty, CommandBinding);
                 view.SetBinding(SelectorPropertyView.SelectedIndexProperty, PropertyIndexBinding);
@@ -208,10 +207,10 @@ namespace BEditor.Views
                 view.SetBinding(BasePropertyView.HeaderProperty, HeaderBinding);
                 view.SetBinding(BasePropertyView.ResetCommandProperty, ResetBinding);
                 view.SetBinding(BasePropertyView.BindCommandProperty, BindBinding);
-                
-                view.SetBinding(SelectorPropertyViewGen.ItemsSourceProperty, ItemsSourcePropertyBinding);
+
+                view.SetBinding(SelectorPropertyViewGen.ItemsSourceProperty, DisplayStringsPropertyBinding);
                 view.SetBinding(SelectorPropertyViewGen.CommandProperty, CommandBinding);
-                view.SetBinding(SelectorPropertyView.SelectedIndexProperty, PropertyIndexBinding);
+                view.SetBinding(SelectorPropertyViewGen.SelectedIndexProperty, PropertyIndexBinding);
 
                 return view;
             }));
@@ -226,7 +225,7 @@ namespace BEditor.Views
                 view.SetBinding(BasePropertyView.HeaderProperty, HeaderBinding);
                 view.SetBinding(BasePropertyView.ResetCommandProperty, ResetBinding);
                 view.SetBinding(BasePropertyView.BindCommandProperty, BindBinding);
-                
+
                 view.SetBinding(ValuePropertyView.ValueProperty, PropertyValueBinding);
                 view.SetBinding(ValuePropertyView.GotFocusCommandProperty, GotFocusBinding);
                 view.SetBinding(ValuePropertyView.LostFocusCommandProperty, LostFocusBinding);
@@ -246,7 +245,7 @@ namespace BEditor.Views
                 view.SetBinding(BasePropertyView.HeaderProperty, HeaderBinding);
                 view.SetBinding(BasePropertyView.ResetCommandProperty, ResetBinding);
                 view.SetBinding(BasePropertyView.BindCommandProperty, BindBinding);
-                
+
                 view.SetBinding(TextPropertyView.TextProperty, PropertyValueBinding);
                 view.SetBinding(TextPropertyView.GotFocusCommandProperty, GotFocusBinding);
                 view.SetBinding(TextPropertyView.LostFocusCommandProperty, LostFocusBinding);
@@ -278,7 +277,7 @@ namespace BEditor.Views
                 view.SetBinding(BasePropertyView.HeaderProperty, HeaderBinding);
                 view.SetBinding(BasePropertyView.ResetCommandProperty, ResetBinding);
                 view.SetBinding(BasePropertyView.BindCommandProperty, BindBinding);
-                
+
                 view.SetBinding(FolderPropertyView.ModeIndexProperty, FileModeBinding);
                 view.SetBinding(FolderPropertyView.FolderProperty, PropertyValueBinding);
                 view.SetBinding(FolderPropertyView.OpenFolderCommandProperty, CommandBinding);

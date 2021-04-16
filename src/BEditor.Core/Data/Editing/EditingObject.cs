@@ -31,6 +31,7 @@ namespace BEditor.Data
 
             // DirectEditingPropertyかつInitializerがnullじゃない
             foreach (var prop in EditingProperty.PropertyFromKey
+                .AsParallel()
                 .Where(i => i.Value is IDirectProperty && i.Value.Initializer is not null && OwnerType.IsAssignableTo(i.Key.OwnerType))
                 .Select(i => i.Value))
             {
@@ -233,6 +234,7 @@ namespace BEditor.Data
             if (this is IParent<EditingObject> obj2)
             {
                 foreach (var prop in EditingProperty.PropertyFromKey
+                    .AsParallel()
                     .Where(i => OwnerType.IsAssignableFrom(i.Key.OwnerType))
                     .Select(i => i.Value))
                 {
@@ -274,6 +276,8 @@ namespace BEditor.Data
         public virtual void GetObjectData(Utf8JsonWriter writer)
         {
             foreach (var prop in EditingProperty.PropertyFromKey
+                .AsParallel()
+                .AsOrdered()
                 .Where(i => i.Value.Serializer is not null && OwnerType.IsAssignableTo(i.Key.OwnerType))
                 .Select(i => i.Value))
             {
@@ -281,7 +285,11 @@ namespace BEditor.Data
 
                 if (value is not null)
                 {
+                    writer.WriteStartObject(prop.Name);
+
                     prop.Serializer!.Write(writer, value);
+
+                    writer.WriteEndObject();
                 }
             }
         }
@@ -289,13 +297,24 @@ namespace BEditor.Data
         /// <inheritdoc/>
         public virtual void SetObjectData(JsonElement element)
         {
+            // static コンストラクターを呼び出す
+            OwnerType.TypeInitializer?.Invoke(null, null);
+
             Synchronize = AsyncOperationManager.SynchronizationContext;
 
             foreach (var prop in EditingProperty.PropertyFromKey
+                .AsParallel()
                 .Where(i => i.Value.Serializer is not null && OwnerType.IsAssignableTo(i.Key.OwnerType))
                 .Select(i => i.Value))
             {
-                SetValue(prop, prop.Serializer!.Read(element));
+                if (element.TryGetProperty(prop.Name, out var propElement))
+                {
+                    SetValue(prop, prop.Serializer!.Read(propElement));
+                }
+                else if (prop.Initializer is not null)
+                {
+                    SetValue(prop, prop.Initializer.Create());
+                }
             }
         }
 

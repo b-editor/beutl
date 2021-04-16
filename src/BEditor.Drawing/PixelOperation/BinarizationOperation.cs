@@ -20,15 +20,16 @@ namespace BEditor.Drawing.PixelOperation
         {
             if (_src[pos].R <= _value &&
                 _src[pos].G <= _value &&
-                _src[pos].B <= _value)
+                _src[pos].B <= _value &&
+                _src[pos].A <= _value)
             {
-                _dst[pos].R = _dst[pos].G = _dst[pos].B = 0;
+                _dst[pos].R = _dst[pos].G = _dst[pos].B = _dst[pos].A = 0;
             }
             else
             {
-                _dst[pos].R = _dst[pos].G = _dst[pos].B = 255;
+                _dst[pos].R = _dst[pos].G = _dst[pos].B = _dst[pos].A = 255;
             }
-            _dst[pos].A = _src[pos].A;
+            //_dst[pos].A = _src[pos].A;
         }
     }
 }

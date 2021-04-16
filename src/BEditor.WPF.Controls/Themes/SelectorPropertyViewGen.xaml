@@ -39,7 +39,7 @@
                             Grid.Column="3"
                             Margin="5,0,5,0"
                             ItemsSource="{TemplateBinding ItemsSource}"
-                            SelectedIndex="" />
+                            SelectedIndex="{TemplateBinding SelectedIndex}" />
 
                         <md:PopupBox
                             Grid.Column="4"

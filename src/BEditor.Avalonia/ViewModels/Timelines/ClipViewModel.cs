@@ -27,26 +27,14 @@ namespace BEditor.ViewModels.Timelines
 
         public ClipViewModel(ClipElement clip)
         {
-            static CustomClipUIAttribute GetAtt(ObjectElement self)
-            {
-                var type = self.GetType();
-                var attribute = Attribute.GetCustomAttribute(type, typeof(CustomClipUIAttribute));
-
-                if (attribute is CustomClipUIAttribute uIAttribute) return uIAttribute;
-                else return new();
-            }
-
             ClipElement = clip;
             WidthProperty.Value = Scene.ToPixel(ClipElement.Length);
             MarginProperty.Value = new Thickness(Scene.ToPixel(ClipElement.Start), TimelineViewModel.ToLayerPixel(clip.Layer), 0, 0);
             Row = clip.Layer;
 
-            if (clip.Effect[0] is ObjectElement @object)
-            {
-                var color = GetAtt(@object).GetColor;
-                ClipColor.Value = new SolidColorBrush(new Color(255, color.R, color.G, color.B));
-                ClipText.Value = @object.Name;
-            }
+            var color = clip.Metadata.AccentColor;
+            ClipColor.Value = new SolidColorBrush(new Color(255, color.R, color.G, color.B));
+            ClipText.Value = clip.Effect[0].Name;
 
             clip.PropertyChangedAsObservable()
                 .Where(e => e.PropertyName is nameof(ClipElement.End))
@@ -109,7 +97,7 @@ namespace BEditor.ViewModels.Timelines
 
         public Scene Scene => ClipElement.Parent;
 
-        private TimelineViewModel TimelineViewModel => Scene.GetCreateTimelineViewModel();
+        public TimelineViewModel TimelineViewModel => Scene.GetCreateTimelineViewModel();
 
         public ClipElement ClipElement { get; }
 

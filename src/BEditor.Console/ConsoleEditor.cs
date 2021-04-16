@@ -1,18 +1,18 @@
 ﻿using System;
 using System.Collections.Generic;
+using System.IO;
 using System.Linq;
 using System.Text;
+using System.Text.RegularExpressions;
 using System.Threading.Tasks;
 
-using Microsoft.Extensions.CommandLineUtils;
-using Microsoft.CodeAnalysis.CSharp.Scripting;
-
 using BEditor.Data;
-using BEditor.Properties;
-using System.Text.RegularExpressions;
-using System.IO;
 using BEditor.Data.Property;
+using BEditor.Properties;
+
+using Microsoft.CodeAnalysis.CSharp.Scripting;
 using Microsoft.CodeAnalysis.Scripting;
+using Microsoft.Extensions.CommandLineUtils;
 
 namespace BEditor
 {

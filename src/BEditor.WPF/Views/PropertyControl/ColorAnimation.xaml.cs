@@ -6,12 +6,11 @@ using System.Windows.Input;
 using System.Windows.Media.Animation;
 using System.Windows.Shapes;
 
-using BEditor.ViewModels.PropertyControl;
-
+using BEditor.Data;
 using BEditor.Data.Property;
 using BEditor.Drawing;
+using BEditor.ViewModels.PropertyControl;
 using BEditor.WPF.Controls;
-using BEditor.Data;
 
 namespace BEditor.Views.PropertyControl
 {
@@ -113,7 +112,7 @@ namespace BEditor.Views.PropertyControl
         }
         public void Dispose()
         {
-            if(DataContext is IDisposable disposable)
+            if (DataContext is IDisposable disposable)
             {
                 disposable.Dispose();
             }

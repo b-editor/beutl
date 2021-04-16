@@ -58,7 +58,7 @@ namespace BEditor
             StartInstall?.Invoke(this, EventArgs.Empty);
 
             using var client = new WebClient();
-            
+
             var tmp = Path.GetTempFileName();
             client.DownloadFileCompleted += Client_DownloadFileCompleted;
             client.DownloadProgressChanged += Client_DownloadProgressChanged;

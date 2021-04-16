@@ -17,7 +17,7 @@ namespace BEditor.Views.Properties
         {
             InitializeComponent();
         }
-        
+
         public EasingPropertyView(object datacontext)
         {
             DataContext = datacontext;

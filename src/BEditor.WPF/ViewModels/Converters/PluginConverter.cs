@@ -15,7 +15,7 @@ namespace BEditor.ViewModels.Converters
     {
         public object? Convert(object value, Type targetType, object parameter, CultureInfo culture)
         {
-            if(value is PluginObject plugin)
+            if (value is PluginObject plugin)
             {
                 var assembly = plugin.GetType().Assembly;
                 var name = assembly.GetName();
@@ -34,7 +34,7 @@ namespace BEditor.ViewModels.Converters
     {
         public object? Convert(object value, Type targetType, object parameter, CultureInfo culture)
         {
-            if(value is PluginObject plugin)
+            if (value is PluginObject plugin)
             {
                 var assembly = plugin.GetType().Assembly;
 

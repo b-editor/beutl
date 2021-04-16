@@ -114,7 +114,7 @@ freely, subject to the following restrictions:
    distribution.";
 
         const string FFMPEG = "FFmpeg";
-        const string FFMPEG_LICENSE = " GNU General Public License (GPL) version 2";
+        const string FFMPEG_LICENSE = "GNU Lesser General Public License (LGPL) version 2.1";
 
         const string MATERIALDESIGNINXAMLTOOLKIT = "MaterialDesignInXamlToolkit";
         const string MATERIALDESIGNINXAMLTOOLKIT_LICENSE = @"

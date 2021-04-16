@@ -44,7 +44,7 @@ namespace BEditor.Views
             this.AttachDevTools();
 #endif
         }
-        
+
         public ColorDialog(ColorAnimationProperty viewModel)
         {
             DataContext = viewModel;

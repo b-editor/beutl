@@ -58,7 +58,7 @@ namespace BEditor.Models
             StartInstall?.Invoke(this, EventArgs.Empty);
 
             using var client = new WebClient();
-            
+
             var tmp = Path.GetTempFileName();
             client.DownloadFileCompleted += Client_DownloadFileCompleted;
             client.DownloadProgressChanged += Client_DownloadProgressChanged;
@@ -74,7 +74,7 @@ namespace BEditor.Models
                 {
                     Directory.CreateDirectory(destdir);
                 }
-                
+
                 foreach (var entry in zip.Entries)
                 {
                     var file = Path.GetFileName(entry.FullName);

@@ -40,7 +40,7 @@
       Width="32"
       Command="{CompiledBinding OpenDialog, Mode=OneTime}">
       <PathIcon
-        Data="{StaticResource \\color\\svg\\ic_fluent_color_24_regular.svg_regular}"
+        Data="{StaticResource Color24Regular}"
         Width="20"
         Height="20"
         HorizontalAlignment="Center"

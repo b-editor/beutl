@@ -106,7 +106,7 @@ namespace BEditor.Data
         public static EditingProperty<TValue> Register<TValue, TOwner>(
             string name,
             IEditingPropertyInitializer<TValue>? initializer = null,
-            EditingPropertySerializer<TValue>? serializer = null)
+            IEditingPropertySerializer<TValue>? serializer = null)
             where TOwner : IEditingObject
         {
             var key = new PropertyKey(name, typeof(TOwner));
@@ -175,7 +175,7 @@ namespace BEditor.Data
             Func<TOwner, TValue> getter,
             Action<TOwner, TValue> setter,
             IEditingPropertyInitializer<TValue>? initializer = null,
-            EditingPropertySerializer<TValue>? serializer = null)
+            IEditingPropertySerializer<TValue>? serializer = null)
             where TOwner : IEditingObject
         {
             var key = new PropertyKey(name, typeof(TOwner));

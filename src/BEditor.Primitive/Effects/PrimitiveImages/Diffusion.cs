@@ -7,20 +7,23 @@ using BEditor.Drawing;
 using BEditor.Drawing.Pixel;
 using BEditor.Primitive.Resources;
 
-#nullable disable
-
 namespace BEditor.Primitive.Effects
 {
 #pragma warning disable CS1591
     public sealed class Diffusion : ImageEffect
     {
-        public static readonly EditingProperty<EaseProperty> ValueProperty = EditingProperty.RegisterSerializeDirect<EaseProperty, Diffusion>(
+        /// <summary>
+        /// Defines the <see cref="Value"/> property.
+        /// </summary>
+        public static readonly DirectEditingProperty<Diffusion, EaseProperty> ValueProperty = EditingProperty.RegisterSerializeDirect<EaseProperty, Diffusion>(
             nameof(Value),
             owner => owner.Value,
             (owner, obj) => owner.Value = obj,
             new EasePropertyMetadata(Strings.ThresholdValue, 7, 30, 0));
 
+#pragma warning disable CS8618
         public Diffusion()
+#pragma warning restore CS8618
         {
         }
 

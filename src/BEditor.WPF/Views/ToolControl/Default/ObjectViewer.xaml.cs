@@ -49,7 +49,7 @@ namespace BEditor.Views.ToolControl.Default
             var bindableType = typeof(IBindable<>);
             if (TreeView.SelectedItem is IPropertyElement prop)
             {
-                
+
                 var path = prop.ToString("#");
                 Clipboard.SetText(path);
             }

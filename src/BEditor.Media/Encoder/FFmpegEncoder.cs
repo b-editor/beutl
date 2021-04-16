@@ -45,7 +45,7 @@ namespace BEditor.Media.Encoder
         }
         public unsafe void Write(Image<BGRA32> image)
         {
-            fixed(void* data = image.Data)
+            fixed (void* data = image.Data)
             {
                 var img = ImageData.FromPointer(new IntPtr(data), ImagePixelFormat.Bgra32, new(Width, Height));
 

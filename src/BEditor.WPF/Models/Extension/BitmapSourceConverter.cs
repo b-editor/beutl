@@ -67,7 +67,7 @@ namespace BEditor.Models.Extension
 
                 result = bgrImg.Convert<BGRA32>();
             }
-            else if(bitmap.Format == PixelFormats.Bgr32)
+            else if (bitmap.Format == PixelFormats.Bgr32)
             {
                 var bgrImg = new Image<BGRA32>(bitmap.PixelWidth, bitmap.PixelHeight);
 

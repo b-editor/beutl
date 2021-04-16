@@ -187,6 +187,15 @@ namespace BEditor.Primitive.Resources {
         }
         
         /// <summary>
+        ///   Center に類似しているローカライズされた文字列を検索します。
+        /// </summary>
+        internal static string Center {
+            get {
+                return ResourceManager.GetString("Center", resourceCulture);
+            }
+        }
+        
+        /// <summary>
         ///   Center x に類似しているローカライズされた文字列を検索します。
         /// </summary>
         internal static string CenterX {
@@ -520,6 +529,15 @@ namespace BEditor.Primitive.Resources {
         }
         
         /// <summary>
+        ///   Horizontal alignment に類似しているローカライズされた文字列を検索します。
+        /// </summary>
+        internal static string HorizontalAlignment {
+            get {
+                return ResourceManager.GetString("HorizontalAlignment", resourceCulture);
+            }
+        }
+        
+        /// <summary>
         ///   Image に類似しているローカライズされた文字列を検索します。
         /// </summary>
         internal static string Image {
@@ -579,6 +597,15 @@ namespace BEditor.Primitive.Resources {
         internal static string LinearGradient {
             get {
                 return ResourceManager.GetString("LinearGradient", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Line spacing に類似しているローカライズされた文字列を検索します。
+        /// </summary>
+        internal static string LineSpacing {
+            get {
+                return ResourceManager.GetString("LineSpacing", resourceCulture);
             }
         }
         
@@ -957,6 +984,15 @@ namespace BEditor.Primitive.Resources {
         internal static string Type {
             get {
                 return ResourceManager.GetString("Type", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Vertical alignment に類似しているローカライズされた文字列を検索します。
+        /// </summary>
+        internal static string VerticalAlignment {
+            get {
+                return ResourceManager.GetString("VerticalAlignment", resourceCulture);
             }
         }
         

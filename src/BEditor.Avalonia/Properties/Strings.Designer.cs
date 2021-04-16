@@ -1084,6 +1084,24 @@ namespace BEditor.Properties {
         }
         
         /// <summary>
+        ///   Save full path に類似しているローカライズされた文字列を検索します。
+        /// </summary>
+        public static string SaveFullPath {
+            get {
+                return ResourceManager.GetString("SaveFullPath", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Save the path relative to the selected path from the project に類似しているローカライズされた文字列を検索します。
+        /// </summary>
+        public static string SavePathRelativeToSelectedPathFromProject {
+            get {
+                return ResourceManager.GetString("SavePathRelativeToSelectedPathFromProject", resourceCulture);
+            }
+        }
+        
+        /// <summary>
         ///   Scene に類似しているローカライズされた文字列を検索します。
         /// </summary>
         public static string Scene {

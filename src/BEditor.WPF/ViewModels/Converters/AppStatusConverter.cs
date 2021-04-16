@@ -42,7 +42,7 @@ namespace BEditor.ViewModels.Converters
         {
             if (value is Status status)
             {
-                
+
                 if (status is Status.Playing) return PackIconKind.Pause;
                 else return PackIconKind.PlayArrow;
             }

@@ -10,8 +10,8 @@ namespace BEditor.Data.Property
     /// <param name="Name">The string displayed in the property header.</param>
     /// <param name="ItemSource">The source of the item to be selected.</param>
     /// <param name="Selector">A function to get a string from an item.</param>
-    /// <param name="DefaultItem">The default value for <see cref="SelectorProperty{T}.SelectItem"/>.</param>
-    public record SelectorPropertyMetadata<T>(string Name, IList<T> ItemSource, Func<T, string> Selector, T? DefaultItem = default)
+    /// <param name="DefaultIndex">The default value for <see cref="SelectorProperty{T}.Index"/></param>
+    public record SelectorPropertyMetadata<T>(string Name, IList<T> ItemSource, Func<T, string> Selector, int DefaultIndex = 0)
         : PropertyElementMetadata(Name), IEditingPropertyInitializer<SelectorProperty<T>>
         where T : IJsonObject, IEquatable<T>
     {
