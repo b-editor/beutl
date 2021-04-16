@@ -1,18 +1,25 @@
 <Project>
 
-  <PropertyGroup>
-    <LangVersion>latest</LangVersion>
-    <Authors>indigo-san</Authors>
-    <!-- APIのバージョンです。 実行ファイルと違う理由はプラグイン開発時にDllの参照関係のエラーが出るからです。-->
-    <Version>0.1.0</Version>
-    <Nullable>enable</Nullable>
-    <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
-    <Deterministic>true</Deterministic>
-    <NeutralLanguage>en-US</NeutralLanguage>
-  </PropertyGroup>
+    <PropertyGroup>
+        <LangVersion>latest</LangVersion>
+        <Authors>indigo-san</Authors>
+        <Version>0.1.0</Version>
+        <Nullable>enable</Nullable>
+        <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
+        <Deterministic>true</Deterministic>
+        <NeutralLanguage>en-US</NeutralLanguage>
+        <PackageIcon>icon.png</PackageIcon>
+    </PropertyGroup>
 
-  <PropertyGroup Condition="'$(Configuration)'=='Debug'">
-    <Optimize>false</Optimize>
-  </PropertyGroup>
+    <PropertyGroup Condition="'$(Configuration)'=='Debug'">
+        <Optimize>false</Optimize>
+    </PropertyGroup>
+
+    <ItemGroup>
+        <None Include="..\..\icon.png">
+            <Pack>True</Pack>
+            <PackagePath></PackagePath>
+        </None>
+    </ItemGroup>
 
 </Project>

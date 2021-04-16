@@ -63,6 +63,8 @@ Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "BEditor.Extensions.Svg", "s
 EndProject
 Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "BEditor.Console", "src\BEditor.Console\BEditor.Console.csproj", "{A775A576-29E7-4F11-A269-5C17944ED5CD}"
 EndProject
+Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "BEditor.Avalonia", "src\BEditor.Avalonia\BEditor.Avalonia.csproj", "{259028FE-2CFF-4A3A-91E9-8467B8DF7FFB}"
+EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
 		Debug|Any CPU = Debug|Any CPU
@@ -357,6 +359,26 @@ Global
 		{A775A576-29E7-4F11-A269-5C17944ED5CD}.Release|x64.Build.0 = Release|Any CPU
 		{A775A576-29E7-4F11-A269-5C17944ED5CD}.Release|x86.ActiveCfg = Release|Any CPU
 		{A775A576-29E7-4F11-A269-5C17944ED5CD}.Release|x86.Build.0 = Release|Any CPU
+		{259028FE-2CFF-4A3A-91E9-8467B8DF7FFB}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{259028FE-2CFF-4A3A-91E9-8467B8DF7FFB}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{259028FE-2CFF-4A3A-91E9-8467B8DF7FFB}.Debug|ARM.ActiveCfg = Debug|Any CPU
+		{259028FE-2CFF-4A3A-91E9-8467B8DF7FFB}.Debug|ARM.Build.0 = Debug|Any CPU
+		{259028FE-2CFF-4A3A-91E9-8467B8DF7FFB}.Debug|ARM64.ActiveCfg = Debug|Any CPU
+		{259028FE-2CFF-4A3A-91E9-8467B8DF7FFB}.Debug|ARM64.Build.0 = Debug|Any CPU
+		{259028FE-2CFF-4A3A-91E9-8467B8DF7FFB}.Debug|x64.ActiveCfg = Debug|Any CPU
+		{259028FE-2CFF-4A3A-91E9-8467B8DF7FFB}.Debug|x64.Build.0 = Debug|Any CPU
+		{259028FE-2CFF-4A3A-91E9-8467B8DF7FFB}.Debug|x86.ActiveCfg = Debug|Any CPU
+		{259028FE-2CFF-4A3A-91E9-8467B8DF7FFB}.Debug|x86.Build.0 = Debug|Any CPU
+		{259028FE-2CFF-4A3A-91E9-8467B8DF7FFB}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{259028FE-2CFF-4A3A-91E9-8467B8DF7FFB}.Release|Any CPU.Build.0 = Release|Any CPU
+		{259028FE-2CFF-4A3A-91E9-8467B8DF7FFB}.Release|ARM.ActiveCfg = Release|Any CPU
+		{259028FE-2CFF-4A3A-91E9-8467B8DF7FFB}.Release|ARM.Build.0 = Release|Any CPU
+		{259028FE-2CFF-4A3A-91E9-8467B8DF7FFB}.Release|ARM64.ActiveCfg = Release|Any CPU
+		{259028FE-2CFF-4A3A-91E9-8467B8DF7FFB}.Release|ARM64.Build.0 = Release|Any CPU
+		{259028FE-2CFF-4A3A-91E9-8467B8DF7FFB}.Release|x64.ActiveCfg = Release|Any CPU
+		{259028FE-2CFF-4A3A-91E9-8467B8DF7FFB}.Release|x64.Build.0 = Release|Any CPU
+		{259028FE-2CFF-4A3A-91E9-8467B8DF7FFB}.Release|x86.ActiveCfg = Release|Any CPU
+		{259028FE-2CFF-4A3A-91E9-8467B8DF7FFB}.Release|x86.Build.0 = Release|Any CPU
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE

@@ -123,10 +123,6 @@
   <data name="FailedToSave" xml:space="preserve">
     <value>保存できませんでした。</value>
   </data>
-  <data name="FFmpegNotFound" xml:space="preserve">
-    <value>FFmpegが見つかりませんでした。
-インストールしますか？</value>
-  </data>
   <data name="SomeFunctionsAreNotAvailable." xml:space="preserve">
     <value>一部の機能が使えません。</value>
   </data>
@@ -142,12 +138,6 @@
   </data>
   <data name="IsChecking" xml:space="preserve">
     <value>{0}を確認中。</value>
-  </data>
-  <data name="IsDownloading" xml:space="preserve">
-    <value>{0}をダウンロードしています。</value>
-  </data>
-  <data name="IsExtractedAndPlaced" xml:space="preserve">
-    <value>{0}を展開し配置しています。</value>
   </data>
   <data name="ThisSoftwareIsLatest" xml:space="preserve">
     <value>このソフトは最新のものです。</value>
@@ -560,5 +550,11 @@
   </data>
   <data name="SavePathRelativeToSelectedPathFromProject" xml:space="preserve">
     <value>プロジェクトから選択されたパスの相対パスを保存</value>
+  </data>
+  <data name="DownloadingRequiredComponents" xml:space="preserve">
+    <value>必要なコンポーネントをダウンロードしています。</value>
+  </data>
+  <data name="ComponentIsExtractedAndPlaced" xml:space="preserve">
+    <value>コンポーネントを展開し配置しています。</value>
   </data>
 </root>

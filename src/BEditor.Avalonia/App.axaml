@@ -19,15 +19,15 @@
         <convert:EffectToKeyframeConverter x:Key="EffectToKeyframeConverter" />
     </Application.Resources>
     <Application.Styles>
-        <StyleInclude Source="avares://BEditor.Avalonia/Controls/SeekSlider.axaml" />
-        <StyleInclude Source="avares://BEditor.Avalonia/Controls/Sidebar.axaml" />
-        <StyleInclude Source="avares://BEditor.Avalonia/Controls/TextBox.axaml" />
-        <StyleInclude Source="avares://BEditor.Avalonia/Controls/NumericUpDown.axaml" />
-        <StyleInclude Source="avares://BEditor.Avalonia/Controls/ComboBox.axaml" />
-        <StyleInclude Source="avares://BEditor.Avalonia/Controls/Buttons.axaml" />
-        <StyleInclude Source="avares://BEditor.Avalonia/Controls/FluentUiIcons_Filled.axaml" />
-        <StyleInclude Source="avares://BEditor.Avalonia/Controls/FluentUiIcons_Regular.axaml" />
-        <StyleInclude Source="avares://BEditor.Avalonia/Views/Settings/SettingsResources.axaml" />
+        <StyleInclude Source="avares://beditor/Controls/SeekSlider.axaml" />
+        <StyleInclude Source="avares://beditor/Controls/Sidebar.axaml" />
+        <StyleInclude Source="avares://beditor/Controls/TextBox.axaml" />
+        <StyleInclude Source="avares://beditor/Controls/NumericUpDown.axaml" />
+        <StyleInclude Source="avares://beditor/Controls/ComboBox.axaml" />
+        <StyleInclude Source="avares://beditor/Controls/Buttons.axaml" />
+        <StyleInclude Source="avares://beditor/Controls/FluentUiIcons_Filled.axaml" />
+        <StyleInclude Source="avares://beditor/Controls/FluentUiIcons_Regular.axaml" />
+        <StyleInclude Source="avares://beditor/Views/Settings/SettingsResources.axaml" />
 
         <Style Selector="Expander.expandkeyframe /template/ ToggleButton#PART_toggle">
             <Setter Property="Margin" Value="32.5,0,0,0" />

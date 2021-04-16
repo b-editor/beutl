@@ -141,12 +141,12 @@ namespace BEditor
 
                         dialog.Show();
 
-                        dialog.Text.Value = string.Format(Strings.IsDownloading, "FFmpeg");
+                        dialog.Text.Value = Strings.DownloadingRequiredComponents;
                     });
                 }
                 void downloadComp(object? s, AsyncCompletedEventArgs e)
                 {
-                    dialog.Text.Value = string.Format(Strings.IsExtractedAndPlaced, "FFmpeg");
+                    dialog.Text.Value = Strings.ComponentIsExtractedAndPlaced;
                     dialog.IsIndeterminate.Value = true;
                 }
                 void progress(object s, DownloadProgressChangedEventArgs e)

@@ -1,6 +1,6 @@
 ﻿<Styles
     xmlns="https://github.com/avaloniaui"
-    xmlns:c="clr-namespace:BEditor.Controls;assembly=BEditor.Avalonia">
+    xmlns:c="using:BEditor.Controls">
     <Style Selector="TextBox.custom">
         <Setter Property="BorderBrush" Value="Transparent" />
         <Setter Property="Background" Value="Transparent" />

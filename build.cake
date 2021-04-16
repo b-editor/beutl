@@ -14,25 +14,7 @@ Task("Clean")
 {
     CreateDirectory(publishDir);
     CleanDirectory(publishDir);
-    DotNetCoreClean("./BEditor.Avalonia.sln");
-});
-
-Task("WPFPublish")
-    .IsDependentOn("Clean")
-    .Does(() =>
-{
-    var binaryPath = DirectoryPath.FromString($"./src/BEditor.WPF/bin/{configuration}/net5.0-windows/win-x64/publish");
-    CreateDirectory(binaryPath);
-    CleanDirectory(binaryPath);
-
-    DotNetCorePublish("./src/BEditor.WPF/BEditor.WPF.csproj", new DotNetCorePublishSettings
-    {
-        Configuration = configuration,
-        SelfContained = true,
-        Runtime = "win-x64"
-    });
-
-    Zip(binaryPath, publishDir.CombineWithFilePath("beditor_wpf.zip"));
+    DotNetCoreClean("./BEditor.sln");
 });
 
 Task("ConsolePublish")
@@ -114,8 +96,7 @@ Task("Default")
     .IsDependentOn("Clean")
     .IsDependentOn("NugetPack")
     .IsDependentOn("AvaloniaExePublish")
-    .IsDependentOn("ConsolePublish")
-    .IsDependentOn("WPFPublish");
+    .IsDependentOn("ConsolePublish");
 
 //////////////////////////////////////////////////////////////////////
 // EXECUTION

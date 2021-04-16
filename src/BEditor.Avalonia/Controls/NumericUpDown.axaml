@@ -1,6 +1,6 @@
 ﻿<Styles
     xmlns="https://github.com/avaloniaui"
-    xmlns:c="clr-namespace:BEditor.Controls;assembly=BEditor.Avalonia">
+    xmlns:c="using:BEditor.Controls">
     <Style Selector="NumericUpDown.custom">
         <Setter Property="Foreground" Value="{DynamicResource TextControlForeground}" />
         <Setter Property="Background" Value="Transparent" />

@@ -18,6 +18,7 @@ using BEditor.Properties;
 using BEditor.ViewModels;
 using BEditor.ViewModels.DialogContent;
 using BEditor.Views.DialogContent;
+using BEditor.Views.Settings;
 
 namespace BEditor.Views.CustomTitlebars
 {
@@ -126,6 +127,11 @@ namespace BEditor.Views.CustomTitlebars
             };
         }
 
+        public async void ShowInfomation(object s, RoutedEventArgs e)
+        {
+            await new Infomation().ShowDialog((Window)VisualRoot);
+        }
+        
         public async void ShowSettings(object s, RoutedEventArgs e)
         {
             await new SettingsWindow().ShowDialog((Window)VisualRoot);

@@ -9,6 +9,8 @@
         <Nullable>enable</Nullable>
         <RootNamespace>BEditor</RootNamespace>
         <RuntimeIdentifiers>win-x64;linux-x64;osx-x64</RuntimeIdentifiers>
+        <ApplicationIcon>Assets\Images\icon.ico</ApplicationIcon>
+        <AssemblyName>beditor</AssemblyName>
     </PropertyGroup>
 
     <ItemGroup>
@@ -35,15 +37,6 @@
             <AutoGen>True</AutoGen>
             <DependentUpon>Strings.resx</DependentUpon>
         </Compile>
-        <Compile Update="Views\Properties\DialogPropertyView.axaml.cs">
-            <DependentUpon>DialogPropertyView.axaml</DependentUpon>
-        </Compile>
-        <Compile Update="Views\Properties\FolderPropertyView.axaml.cs">
-            <DependentUpon>FolderPropertyView.axaml</DependentUpon>
-        </Compile>
-        <Compile Update="Views\Properties\TextPropertyView.axaml.cs">
-            <DependentUpon>TextPropertyView.axaml</DependentUpon>
-        </Compile>
     </ItemGroup>
 
     <ItemGroup>
@@ -51,10 +44,6 @@
             <Generator>PublicResXFileCodeGenerator</Generator>
             <LastGenOutput>Strings.Designer.cs</LastGenOutput>
         </EmbeddedResource>
-    </ItemGroup>
-
-    <ItemGroup>
-        <Folder Include="Assets\Images\" />
     </ItemGroup>
 
 </Project>

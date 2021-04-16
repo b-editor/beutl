@@ -52,7 +52,7 @@ namespace BEditor
 
             AvaloniaXamlLoader.Load(this);
 
-            Styles.Insert(0, new FluentTheme(new Uri("avares://BEditor.Avalonia/App.axaml"))
+            Styles.Insert(0, new FluentTheme(new Uri("avares://beditor/App.axaml"))
             {
                 Mode = Settings.Default.UseDarkMode ? FluentThemeMode.Dark : FluentThemeMode.Light
             });

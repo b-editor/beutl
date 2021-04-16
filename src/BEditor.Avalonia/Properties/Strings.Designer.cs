@@ -361,6 +361,15 @@ namespace BEditor.Properties {
         }
         
         /// <summary>
+        ///   Component is extracted and placed. に類似しているローカライズされた文字列を検索します。
+        /// </summary>
+        public static string ComponentIsExtractedAndPlaced {
+            get {
+                return ResourceManager.GetString("ComponentIsExtractedAndPlaced", resourceCulture);
+            }
+        }
+        
+        /// <summary>
         ///   Convert to json format に類似しているローカライズされた文字列を検索します。
         /// </summary>
         public static string ConvertJson {
@@ -469,6 +478,15 @@ namespace BEditor.Properties {
         }
         
         /// <summary>
+        ///   Downloading the required components. に類似しているローカライズされた文字列を検索します。
+        /// </summary>
+        public static string DownloadingRequiredComponents {
+            get {
+                return ResourceManager.GetString("DownloadingRequiredComponents", resourceCulture);
+            }
+        }
+        
+        /// <summary>
         ///   Edit に類似しているローカライズされた文字列を検索します。
         /// </summary>
         public static string Edit {
@@ -537,16 +555,6 @@ namespace BEditor.Properties {
         public static string FailedToSave {
             get {
                 return ResourceManager.GetString("FailedToSave", resourceCulture);
-            }
-        }
-        
-        /// <summary>
-        ///   FFmpeg was not found.
-        ///Do you want to install it? に類似しているローカライズされた文字列を検索します。
-        /// </summary>
-        public static string FFmpegNotFound {
-            get {
-                return ResourceManager.GetString("FFmpegNotFound", resourceCulture);
             }
         }
         
@@ -637,24 +645,6 @@ namespace BEditor.Properties {
         public static string IsChecking {
             get {
                 return ResourceManager.GetString("IsChecking", resourceCulture);
-            }
-        }
-        
-        /// <summary>
-        ///   {0} is downloading. に類似しているローカライズされた文字列を検索します。
-        /// </summary>
-        public static string IsDownloading {
-            get {
-                return ResourceManager.GetString("IsDownloading", resourceCulture);
-            }
-        }
-        
-        /// <summary>
-        ///   {0} is extracted and placed. に類似しているローカライズされた文字列を検索します。
-        /// </summary>
-        public static string IsExtractedAndPlaced {
-            get {
-                return ResourceManager.GetString("IsExtractedAndPlaced", resourceCulture);
             }
         }
         

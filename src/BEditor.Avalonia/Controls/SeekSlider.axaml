@@ -1,6 +1,6 @@
 ﻿<Styles
   xmlns="https://github.com/avaloniaui"
-  xmlns:c="clr-namespace:BEditor.Controls;assembly=BEditor.Avalonia">
+  xmlns:c="using:BEditor.Controls">
   <Design.PreviewWith>
     <Border Background="Black" Padding="20" Width="100">
       <c:SeekSlider Value="0" Maximum="1" />

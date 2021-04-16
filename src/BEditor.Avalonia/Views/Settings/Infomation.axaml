@@ -1,0 +1,44 @@
+<Window
+    xmlns="https://github.com/avaloniaui"
+    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+    xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+    xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+    xmlns:vm="using:BEditor.ViewModels.Settings"
+    x:DataType="vm:InfomationViewModel"
+    mc:Ignorable="d"
+    SizeToContent="WidthAndHeight"
+    Background="White"
+    Foreground="Black"
+    CanResize="False"
+    x:Class="BEditor.Views.Settings.Infomation">
+    <Window.DataContext>
+        <vm:InfomationViewModel />
+    </Window.DataContext>
+    <Grid ColumnDefinitions="*,Auto">
+        
+        <Viewbox Grid.Column="1" Stretch="Fill" Width="240" Height="240">
+            <Panel>
+                <Path Fill="#7c4dff" Data="M 362.50,223.00
+           C 362.50,223.00 500.50,223.50 500.50,223.50
+             500.50,223.50 776.00,499.25 776.00,499.25
+             776.00,499.25 503.75,773.50 503.75,773.50
+             503.75,773.50 504.00,635.00 504.00,635.00
+             504.00,635.00 638.25,499.50 638.25,499.50
+             638.25,499.50 362.50,223.00 362.50,223.00 Z" />
+
+                <Path Fill="#651fff" Data="M 183.75,222.50
+           C 183.75,222.50 332.50,222.25 332.50,222.25
+             332.50,222.25 608.50,500.00 608.50,500.00
+             608.50,500.00 534.50,574.50 534.50,574.50
+             534.50,574.50 183.75,222.50 183.75,222.50 Z" />
+            </Panel>
+        </Viewbox>
+
+        <StackPanel Margin="64" Spacing="16">
+            <TextBlock FontSize="32" Text="BEditor" />
+            <TextBlock FontSize="16" Text="{CompiledBinding Version, Mode=OneTime, StringFormat=Version : {0}}" />
+            <TextBlock FontSize="16" Text="{CompiledBinding OperatingSystem, Mode=OneTime, StringFormat=OS : {0}}" />
+            <TextBlock FontSize="16" Text="{CompiledBinding Framework, Mode=OneTime, StringFormat=Framework : {0}}" />
+        </StackPanel>
+    </Grid>
+</Window>

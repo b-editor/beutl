@@ -20,6 +20,7 @@
     ExtendClientAreaTitleBarHeightHint="-1"
     TransparencyLevelHint="AcrylicBlur"
     Background="Transparent"
+    Icon="/Assets/Images/icon.ico"
     DataContext="{x:Static vm:MainWindowViewModel.Current}"
     x:Class="BEditor.MainWindow">
     <Grid RowDefinitions="Auto,Auto,*,Auto,*,Auto" ColumnDefinitions="425,Auto,*,Auto,2*">

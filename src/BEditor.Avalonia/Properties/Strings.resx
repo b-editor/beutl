@@ -123,10 +123,6 @@
   <data name="FailedToSave" xml:space="preserve">
     <value>Failed to save.</value>
   </data>
-  <data name="FFmpegNotFound" xml:space="preserve">
-    <value>FFmpeg was not found.
-Do you want to install it?</value>
-  </data>
   <data name="SomeFunctionsAreNotAvailable." xml:space="preserve">
     <value>Some functions are not available.</value>
   </data>
@@ -142,12 +138,6 @@ Please install it.</value>
   </data>
   <data name="IsChecking" xml:space="preserve">
     <value>{0} is checking.</value>
-  </data>
-  <data name="IsDownloading" xml:space="preserve">
-    <value>{0} is downloading.</value>
-  </data>
-  <data name="IsExtractedAndPlaced" xml:space="preserve">
-    <value>{0} is extracted and placed.</value>
   </data>
   <data name="ThisSoftwareIsLatest" xml:space="preserve">
     <value>This software is latest.</value>
@@ -560,5 +550,11 @@ Please select the plugin you want to load</value>
   </data>
   <data name="SavePathRelativeToSelectedPathFromProject" xml:space="preserve">
     <value>Save the path relative to the selected path from the project</value>
+  </data>
+  <data name="DownloadingRequiredComponents" xml:space="preserve">
+    <value>Downloading the required components.</value>
+  </data>
+  <data name="ComponentIsExtractedAndPlaced" xml:space="preserve">
+    <value>Component is extracted and placed.</value>
   </data>
 </root>
