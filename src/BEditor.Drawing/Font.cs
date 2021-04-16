@@ -1,4 +1,5 @@
 ﻿using System;
+using System.Collections.Generic;
 using System.IO;
 using System.Runtime.Serialization;
 using System.Text;
@@ -10,19 +11,21 @@ using SkiaSharp;
 namespace BEditor.Drawing
 {
     [Serializable]
-    public record Font : ISerializable
+    public class Font : ISerializable, IEquatable<Font?>
     {
+        private SKTypeface? _typeface;
+
         public Font(string file)
         {
             if (Path.GetExtension(file) is not (".ttf" or ".ttc" or ".otf"))
                 throw new NotSupportedException(Strings.FontException);
 
-            using var face = SKTypeface.FromFile(file);
+            Filename = file;
+            var face = GetTypeface();
 
             Weight = (FontStyleWeight)face.FontStyle.Weight;
             Width = (FontStyleWidth)face.FontStyle.Width;
             FamilyName = face.FamilyName;
-            Filename = file;
             Name = FormatFamilyName();
         }
         private Font(SerializationInfo info, StreamingContext context)
@@ -40,14 +43,18 @@ namespace BEditor.Drawing
         public FontStyleWeight Weight { get; }
         public FontStyleWidth Width { get; }
 
+        internal SKTypeface GetTypeface()
+        {
+            return _typeface ??= SKTypeface.FromFile(Filename);
+        }
         private string FormatFamilyName()
         {
             var str = new StringBuilder(FamilyName);
             var weight = Weight;
             var width = Width;
 
-            str.Append($" {weight:g}");
-            str.Append($" {width:g}");
+            str.Append(weight.ToString("g"));
+            str.Append(width.ToString("g"));
 
             return str.ToString();
         }
@@ -59,6 +66,68 @@ namespace BEditor.Drawing
             info.AddValue(nameof(Weight), (int)Weight);
             info.AddValue(nameof(Width), (int)Width);
         }
+
+        public override bool Equals(object? obj)
+        {
+            return Equals(obj as Font);
+        }
+
+        public bool Equals(Font? other)
+        {
+            return other != null &&
+                   Filename == other.Filename;
+        }
+
+        public override int GetHashCode()
+        {
+            return HashCode.Combine(Filename);
+        }
+
+        public static bool operator ==(Font? left, Font? right)
+        {
+            return EqualityComparer<Font>.Default.Equals(left, right);
+        }
+
+        public static bool operator !=(Font? left, Font? right)
+        {
+            return !(left == right);
+        }
+    }
+
+    public enum VerticalAlign
+    {
+        /// <summary>
+        /// The font aligns itself to the top of the image.
+        /// </summary>
+        Top = 0,
+
+        /// <summary>
+        /// The font centers itself within the image.
+        /// </summary>
+        Center = 1,
+
+        /// <summary>
+        /// The font aligns itself to the bottom of the image.
+        /// </summary>
+        Bottom = 2
+    }
+
+    public enum HorizontalAlign
+    {
+        /// <summary>
+        /// The font aligns itself to the left of the image.
+        /// </summary>
+        Left = 0,
+
+        /// <summary>
+        /// The font centers itself in the image.
+        /// </summary>
+        Center = 1,
+
+        /// <summary>
+        /// The font aligns itself to the right of the image.
+        /// </summary>
+        Right = 2
     }
 
     public enum FontStyleWeight
@@ -86,11 +155,5 @@ namespace BEditor.Drawing
         Expanded = 7,
         ExtraExpanded = 8,
         UltraExpanded = 9
-    }
-    public enum FontStyleSlant
-    {
-        Upright = 0,
-        Italic = 1,
-        Oblique = 2
     }
 }

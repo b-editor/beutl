@@ -6,10 +6,10 @@
     /// <param name="Name">The string displayed in the property header.</param>
     /// <param name="Default">The default value of <see cref="FolderProperty.Value"/>.</param>
     public record FolderPropertyMetadata(string Name, string Default = "")
-        : PropertyElementMetadata(Name), IPropertyBuilder<FolderProperty>
+        : PropertyElementMetadata(Name), IEditingPropertyInitializer<FolderProperty>
     {
         /// <inheritdoc/>
-        public FolderProperty Build()
+        public FolderProperty Create()
         {
             return new(this);
         }

@@ -24,7 +24,7 @@ namespace BEditor.Views.StartWindowControl
     {
         public ProjectsControl()
         {
-            var d= new ProjectsControlViewModel();
+            var d = new ProjectsControlViewModel();
             DataContext = d;
 
             d.Close += (_, _) =>

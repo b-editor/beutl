@@ -1,4 +1,6 @@
-﻿using System.Collections.Generic;
+﻿using System;
+using System.Collections.Generic;
+using System.Linq;
 
 namespace BEditor.Data.Property
 {
@@ -7,14 +9,21 @@ namespace BEditor.Data.Property
     /// </summary>
     /// <param name="Name">The string displayed in the property header.</param>
     /// <param name="ItemSource">The source of the item to be selected.</param>
-    /// <param name="DefaultItem">The default value for <see cref="SelectorProperty{T}.SelectItem"/>.</param>
-    /// <param name="MemberPath">The path to the member to display.</param>
-    public record SelectorPropertyMetadata<T>(string Name, IList<T> ItemSource, T? DefaultItem = default, string MemberPath = "")
-        : PropertyElementMetadata(Name), IPropertyBuilder<SelectorProperty<T>>
-        where T : IJsonObject
+    /// <param name="Selector">A function to get a string from an item.</param>
+    /// <param name="DefaultIndex">The default value for <see cref="SelectorProperty{T}.Index"/></param>
+    public record SelectorPropertyMetadata<T>(string Name, IList<T> ItemSource, Func<T, string> Selector, int DefaultIndex = 0)
+        : PropertyElementMetadata(Name), IEditingPropertyInitializer<SelectorProperty<T>>
+        where T : IJsonObject, IEquatable<T>
     {
+        private IEnumerable<string>? _displayStrings;
+
+        /// <summary>
+        /// Gets the strings to display in the UI.
+        /// </summary>
+        public IEnumerable<string> DisplayStrings => _displayStrings ??= ItemSource.Select(Selector);
+
         /// <inheritdoc/>
-        public SelectorProperty<T> Build()
+        public SelectorProperty<T> Create()
         {
             return new(this);
         }

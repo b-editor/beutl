@@ -5,14 +5,14 @@ using System.Linq;
 using System.Threading.Tasks;
 
 using BEditor.Drawing.Pixel;
-using BEditor.Drawing.Process;
+using BEditor.Drawing.PixelOperation;
 using BEditor.Drawing.Resources;
 
 using SkiaSharp;
 
 namespace BEditor.Drawing
 {
-    public unsafe static class Image
+    public static unsafe partial class Image
     {
         public static void DrawImage<T>(this Image<T> self, Point point, Image<T> image) where T : unmanaged, IPixel<T>
         {
@@ -70,30 +70,6 @@ namespace BEditor.Drawing
             canvas.DrawPath(path, paint);
 
             CopyTo(bmp.Bytes, self.Data, self.DataSize);
-        }
-
-        public static void SetOpacity(this Image<BGRA32> self, float opacity)
-        {
-            if (self is null) throw new ArgumentNullException(nameof(self));
-            self.ThrowIfDisposed();
-
-            fixed (BGRA32* data = self.Data)
-            {
-                var p = new SetOpacityProcess(data, opacity);
-                Parallel.For(0, self.Data.Length, p.Invoke);
-            }
-        }
-
-        public static void SetColor(this Image<BGRA32> self, BGRA32 color)
-        {
-            if (self is null) throw new ArgumentNullException(nameof(self));
-            self.ThrowIfDisposed();
-
-            fixed (BGRA32* data = self.Data)
-            {
-                var p = new SetColorProcess(data, color);
-                Parallel.For(0, self.Data.Length, p.Invoke);
-            }
         }
 
         public static Image<BGRA32> Border(this Image<BGRA32> self, int size, BGRA32 color)
@@ -423,22 +399,6 @@ namespace BEditor.Drawing
 
         #endregion
 
-        public static void ChromaKey(this Image<BGRA32> self, int value)
-        {
-            fixed (BGRA32* s = self.Data)
-            {
-                Parallel.For(0, self.Data.Length, new ChromaKeyProcess(s, s, value).Invoke);
-            }
-        }
-
-        public static void ColorKey(this Image<BGRA32> self, BGRA32 color, int value)
-        {
-            fixed (BGRA32* s = self.Data)
-            {
-                Parallel.For(0, self.Data.Length, new ColorKeyProcess(s, s, color, value).Invoke);
-            }
-        }
-
         public static Image<BGRA32> Ellipse(int width, int height, int line, Color color)
         {
             return Ellipse(width, height, new()
@@ -603,13 +563,26 @@ namespace BEditor.Drawing
             return RoundRect(size.Width, size.Height, radiusX, radiusY, brush);
         }
 
-        //Todo: 改行に対応する
-        public static Image<BGRA32> Text(string text, Font font, float size, Color color)
+        public static Image<BGRA32> Text(
+            string text,
+            Font font,
+            float size,
+            Color color,
+            HorizontalAlign hAlign,
+            VerticalAlign vAlign,
+            float linespace = 0,
+            bool vertical = true)
         {
             if (string.IsNullOrEmpty(text)) return new Image<BGRA32>(1, 1, default(BGRA32));
             if (font is null) throw new ArgumentNullException(nameof(font));
 
-            using var face = SKTypeface.FromFile(font.Filename);
+            return TextHorizontal(text, font, size, color, hAlign, linespace);
+        }
+        private static Image<BGRA32> TextHorizontal(string text, Font font, float size, Color color, HorizontalAlign hAlign, float linespace = 0)
+        {
+            var lines = text.Replace("\r\n", "\n").Split('\n');
+
+            var face = font.GetTypeface();
             using var fontObj = new SKFont(face, size)
             {
                 Edging = SKFontEdging.Antialias,
@@ -618,31 +591,65 @@ namespace BEditor.Drawing
             using var paint = new SKPaint(fontObj)
             {
                 Color = new SKColor(color.R, color.G, color.B, color.A),
-                IsAntialias = true,
+                IsAntialias = true
             };
 
-            var textBounds = new SKRect();
-            paint.MeasureText(text, ref textBounds);
+            var linesBounds = new List<SKRect>();
 
-            using var bmp = new SKBitmap(new SKImageInfo((int)textBounds.Width, (int)textBounds.Height, SKColorType.Bgra8888));
+            for (var i = 0; i < lines.Length; i++)
+            {
+                var item = lines[i];
+                var textBounds = new SKRect();
+
+                paint.MeasureText(item, ref textBounds);
+                linesBounds.Add(textBounds);
+            }
+
+            using var bmp = new SKBitmap(new SKImageInfo((int)linesBounds.Max(i => i.Width), (int)(linesBounds.Sum(i => i.Height) + (linespace * (lines.Length - 1))), SKColorType.Bgra8888));
             using var canvas = new SKCanvas(bmp);
 
-            var xText = (textBounds.Width / 2) - textBounds.MidX;
-            var yText = (textBounds.Height / 2) - textBounds.MidY;
+            for (var i = 0; i < lines.Length; i++)
+            {
+                var txt = lines[i];
+                var bounds = linesBounds[i];
+                using var path = paint.GetTextPath(txt, (bounds.Width / 2) - bounds.MidX, (bounds.Height / 2) - bounds.MidY);
 
-            canvas.DrawText(text, new SKPoint(xText, yText), paint);
+                if (hAlign is HorizontalAlign.Right)
+                {
+                    var x = bmp.Width - bounds.Width;
+                    canvas.Translate(x, 0);
+                    canvas.DrawPath(path, paint);
+
+                    canvas.Translate(-x, bounds.Height + linespace);
+                }
+                else if (hAlign is HorizontalAlign.Left)
+                {
+                    canvas.DrawPath(path, paint);
+
+                    canvas.Translate(0, bounds.Height + linespace);
+                }
+                else
+                {
+                    var x = (bmp.Width - bounds.Width) / 2;
+                    canvas.Translate(x, 0);
+                    canvas.DrawPath(path, paint);
+
+                    canvas.Translate(-x, bounds.Height + linespace);
+                }
+            }
 
             canvas.Flush();
 
             return bmp.ToImage32();
         }
 
-        public static Image<BGRA32> StrokeText(string text, Font font, float size, float strokewidth, Color color)
+        public static Image<BGRA32> StrokeText(string text, Font font, float size, float strokewidth, Color color, HorizontalAlign hAlign, float linespace = 0)
         {
             if (string.IsNullOrEmpty(text)) return new Image<BGRA32>(1, 1, default(BGRA32));
             if (font is null) throw new ArgumentNullException(nameof(font));
+            var lines = text.Replace("\r\n", "\n").Split('\n');
 
-            using var face = SKTypeface.FromFile(font.Filename);
+            var face = font.GetTypeface();
             using var fontObj = new SKFont(face, size)
             {
                 Edging = SKFontEdging.Antialias,
@@ -656,17 +663,49 @@ namespace BEditor.Drawing
                 StrokeWidth = strokewidth,
             };
 
-            var textBounds = new SKRect();
-            paint.MeasureText(text, ref textBounds);
+            var linesBounds = new List<SKRect>();
 
-            var p = strokewidth * 1.5;
-            using var bmp = new SKBitmap(new SKImageInfo((int)(textBounds.Width + p), (int)(textBounds.Height + p), SKColorType.Bgra8888));
+            for (var i = 0; i < lines.Length; i++)
+            {
+                var item = lines[i];
+                var textBounds = new SKRect();
+
+                paint.MeasureText(item, ref textBounds);
+                linesBounds.Add(textBounds);
+            }
+
+            using var bmp = new SKBitmap(new SKImageInfo((int)linesBounds.Max(i => i.Width), (int)(linesBounds.Sum(i => i.Height) + (linespace * (lines.Length - 1))), SKColorType.Bgra8888));
             using var canvas = new SKCanvas(bmp);
 
-            var xText = (textBounds.Width / 2) - textBounds.MidX;
-            var yText = (textBounds.Height / 2) - textBounds.MidY;
+            for (var i = 0; i < lines.Length; i++)
+            {
+                var txt = lines[i];
+                var bounds = linesBounds[i];
+                using var path = paint.GetTextPath(txt, (bounds.Width / 2) - bounds.MidX, (bounds.Height / 2) - bounds.MidY);
 
-            canvas.DrawText(text, new SKPoint((float)(xText + (p / 2)), (float)(yText + (p / 2))), paint);
+                if (hAlign is HorizontalAlign.Right)
+                {
+                    var x = bmp.Width - bounds.Width;
+                    canvas.Translate(x, 0);
+                    canvas.DrawPath(path, paint);
+
+                    canvas.Translate(-x, bounds.Height + linespace);
+                }
+                else if (hAlign is HorizontalAlign.Left)
+                {
+                    canvas.DrawPath(path, paint);
+
+                    canvas.Translate(0, bounds.Height + linespace);
+                }
+                else
+                {
+                    var x = (bmp.Width - bounds.Width) / 2;
+                    canvas.Translate(x, 0);
+                    canvas.DrawPath(path, paint);
+
+                    canvas.Translate(-x, bounds.Height + linespace);
+                }
+            }
 
             canvas.Flush();
 
@@ -803,23 +842,6 @@ namespace BEditor.Drawing
             return bmp.ToImage32();
         }
         #endregion
-
-        public static Image<T2> Convert<T1, T2>(this Image<T1> self)
-            where T1 : unmanaged, IPixel<T1>, IPixelConvertable<T2>
-            where T2 : unmanaged, IPixel<T2>
-        {
-            if (self is null) throw new ArgumentNullException(nameof(self));
-            self.ThrowIfDisposed();
-            var dst = new Image<T2>(self.Width, self.Height, default(T2));
-
-            fixed (T1* srcPtr = self.Data)
-            fixed (T2* dstPtr = dst.Data)
-            {
-                Parallel.For(0, self.Data.Length, new ConvertToProcess<T1, T2>(srcPtr, dstPtr).Invoke);
-            }
-
-            return dst;
-        }
 
         internal static Image<BGR24> ToImage24(this SKBitmap self)
         {

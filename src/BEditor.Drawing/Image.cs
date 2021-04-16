@@ -7,8 +7,9 @@ using System.Runtime.InteropServices;
 using System.Threading.Tasks;
 
 using BEditor.Drawing.Pixel;
-using BEditor.Drawing.Process;
+using BEditor.Drawing.PixelOperation;
 using BEditor.Drawing.Resources;
+using BEditor.Drawing.RowOperation;
 
 namespace BEditor.Drawing
 {
@@ -241,13 +242,7 @@ namespace BEditor.Drawing
                 ThrowIfDisposed();
                 ThrowOutOfRange(roi);
 
-                Parallel.For(0, roi.Height, y =>
-                {
-                    var sourceRow = value[y];
-                    var targetRow = this[y + roi.Y].Slice(roi.X, roi.Width);
-
-                    sourceRow.CopyTo(targetRow);
-                });
+                Parallel.For(0, roi.Height, new ReplaceOperation<T>(value, this, roi).Invoke);
             }
             get
             {
@@ -255,13 +250,7 @@ namespace BEditor.Drawing
                 ThrowOutOfRange(roi);
                 var value = new Image<T>(roi.Width, roi.Height);
 
-                Parallel.For(0, roi.Height, y =>
-                {
-                    var sourceRow = this[y + roi.Y].Slice(roi.X, roi.Width);
-                    var targetRow = value[y];
-
-                    sourceRow.Slice(0, roi.Width).CopyTo(targetRow);
-                });
+                Parallel.For(0, roi.Height, new CropOperation<T>(this, value, roi).Invoke);
 
                 return value;
             }
@@ -307,7 +296,7 @@ namespace BEditor.Drawing
             fixed (T* dstPtr = dst.Data)
             fixed (T* maskPtr = mask.Data)
             {
-                var proc = new AlphaBlendProcess<T>(srcPtr, dstPtr, maskPtr);
+                var proc = new AlphaBlendOperation<T>(srcPtr, dstPtr, maskPtr);
                 Parallel.For(0, Data.Length, proc.Invoke);
             }
         }
@@ -327,7 +316,7 @@ namespace BEditor.Drawing
             fixed (T* dstPtr = dst.Data)
             fixed (T* maskPtr = mask.Data)
             {
-                var proc = new AddProcess<T>(srcPtr, dstPtr, maskPtr);
+                var proc = new AddOperation<T>(srcPtr, dstPtr, maskPtr);
                 Parallel.For(0, Data.Length, proc.Invoke);
             }
         }
@@ -347,7 +336,7 @@ namespace BEditor.Drawing
             fixed (T* dstPtr = dst.Data)
             fixed (T* maskPtr = mask.Data)
             {
-                var proc = new SubtractProcess<T>(srcPtr, dstPtr, maskPtr);
+                var proc = new SubtractOperation<T>(srcPtr, dstPtr, maskPtr);
                 Parallel.For(0, Data.Length, proc.Invoke);
             }
         }
@@ -429,6 +418,7 @@ namespace BEditor.Drawing
 
             IsDisposed = true;
 
+            GC.SuppressFinalize(this);
             return new(task);
         }
 
@@ -440,7 +430,7 @@ namespace BEditor.Drawing
             fixed (T* srcPtr = Data)
             fixed (T2* dstPtr = dst.Data)
             {
-                Parallel.For(0, Data.Length, new ConvertFromProcess<T, T2>(srcPtr, dstPtr).Invoke);
+                Parallel.For(0, Data.Length, new ConvertFromOperation<T, T2>(srcPtr, dstPtr).Invoke);
             }
 
             return dst;

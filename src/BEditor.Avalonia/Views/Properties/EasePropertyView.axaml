@@ -8,7 +8,7 @@
   x:DataType="vm:EasePropertyViewModel"
   mc:Ignorable="d" d:DesignWidth="800" d:DesignHeight="450"
   x:Name="root"
-  Height="32.5"
+  Height="40"
   Background="Transparent"
   x:Class="BEditor.Views.Properties.EasePropertyView">
   <Grid>
@@ -19,72 +19,26 @@
       <ColumnDefinition Width="*" MinWidth="100" />
     </Grid.ColumnDefinitions>
 
-    <Grid Margin="0,0,0,1">
-      <TextBlock
-          Margin="10,7,0,0"
-          HorizontalAlignment="Left"
-          VerticalAlignment="Top"
-          FontSize="13"
-          Text="{CompiledBinding Metadata.Value.Name, Mode=OneTime}"
-          TextTrimming="CharacterEllipsis" />
-    </Grid>
+    <Label
+      Height="40"
+      Margin="10,0,0,0"
+      HorizontalAlignment="Left"
+      VerticalAlignment="Top"
+      VerticalContentAlignment="Center"
+      FontSize="13"
+      Content="{CompiledBinding Metadata.Value.Name, Mode=OneTime}" />
 
-    <Button Grid.Column="1" Width="32.5" Height="32.5" VerticalAlignment="Top" Click="ShowEasingProperty" Background="Transparent">
-      <PathIcon Data="{DynamicResource \\data_line\\svg\\ic_fluent_data_line_24_regular.svg_regular}"/>
+    <Button Grid.Column="1" Width="32" Height="32" Margin="0,4" VerticalAlignment="Top" Click="ShowEasingProperty" Background="Transparent">
+      <PathIcon Data="{StaticResource DataLine24Regular}"/>
     </Button>
-    <!--<md:PopupBox
-        Grid.Column="1"
-        Width="32"
-        Height="32"
-        HorizontalAlignment="Center"
-        VerticalAlignment="Top"
-        HorizontalContentAlignment="Center"
-        VerticalContentAlignment="Center"
-        StaysOpen="True">
-      <md:PopupBox.ToggleContent>
-        <md:PackIcon
-            HorizontalAlignment="Center"
-            VerticalAlignment="Center"
-            Foreground="{DynamicResource MaterialDesignBody}"
-            Kind="VectorLine" />
-      </md:PopupBox.ToggleContent>
-      <Grid Width="450" MinHeight="250">
-        <Grid.ColumnDefinitions>
-          <ColumnDefinition Width="125" />
-          <ColumnDefinition />
-        </Grid.ColumnDefinitions>
-        <ListView
-            x:Name="Easelist"
-            Grid.Column="0"
-            Margin="7,7,0,7"
-            HorizontalAlignment="Left"
-            VerticalAlignment="Stretch"
-            DisplayMemberPath="Name"
-            ItemsSource="{x:Static easefunc:EasingMetadata.LoadedEasingFunc}"
-            SelectedItem="{Binding Property.EasingData, Mode=OneWay}">
-          <i:Interaction.Triggers>
-            <i:EventTrigger EventName="SelectionChanged">
-              <i:InvokeCommandAction Command="{Binding EasingChangeCommand, Mode=OneTime}" CommandParameter="{Binding SelectedItem, ElementName=Easelist}" />
-            </i:EventTrigger>
-          </i:Interaction.Triggers>
-        </ListView>
-        <Label
-            x:Name="easingsetting"
-            Grid.Column="1"
-            Padding="0,0,0,0"
-            HorizontalContentAlignment="Stretch"
-            VerticalContentAlignment="Stretch"
-            Content="{Binding Property.EasingType, Converter={StaticResource EasingFuncToProperty}}" />
-      </Grid>
-    </md:PopupBox>-->
-
     <StackPanel x:Name="stackPanel" Grid.Column="3"/>
 
     <ToggleButton
       x:Name="togglebutton"
       Grid.Column="2"
-      Width="32.5"
-      Height="32.5"
+      Width="32"
+      Height="32"
+      Margin="0,4"
       VerticalAlignment="Top"
       Background="Transparent"
       Click="ListToggleClick">
@@ -93,8 +47,8 @@
         Height="20"
         HorizontalAlignment="Center"
         VerticalAlignment="Center"
-        Data="{DynamicResource \\chevron_up_down\\svg\\ic_fluent_chevron_up_down_20_regular.svg_regular}" />
+        Data="{StaticResource ChevronUpDown20Regular}" />
     </ToggleButton>
-    
+
   </Grid>
 </UserControl>

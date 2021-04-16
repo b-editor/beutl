@@ -376,4 +376,67 @@
   <data name="ZNear" xml:space="preserve">
     <value>ZNear</value>
   </data>
+  <data name="Grayscale" xml:space="preserve">
+    <value>グレースケール</value>
+  </data>
+  <data name="Sepia" xml:space="preserve">
+    <value>セピア</value>
+  </data>
+  <data name="Negaposi" xml:space="preserve">
+    <value>ネガポジ</value>
+  </data>
+  <data name="Xor" xml:space="preserve">
+    <value>Xor</value>
+  </data>
+  <data name="Red" xml:space="preserve">
+    <value>赤</value>
+  </data>
+  <data name="Green" xml:space="preserve">
+    <value>緑</value>
+  </data>
+  <data name="Blue" xml:space="preserve">
+    <value>青</value>
+  </data>
+  <data name="BrightnessCorrection" xml:space="preserve">
+    <value>明るさ補正</value>
+  </data>
+  <data name="Brightness" xml:space="preserve">
+    <value>明るさ</value>
+  </data>
+  <data name="ContrastCorrection" xml:space="preserve">
+    <value>コントラスト補正</value>
+  </data>
+  <data name="Contrast" xml:space="preserve">
+    <value>コントラスト</value>
+  </data>
+  <data name="GammaCorrection" xml:space="preserve">
+    <value>ガンマ補正</value>
+  </data>
+  <data name="Gamma" xml:space="preserve">
+    <value>ガンマ</value>
+  </data>
+  <data name="RGBColorCorrection" xml:space="preserve">
+    <value>RGB調整</value>
+  </data>
+  <data name="Binarization" xml:space="preserve">
+    <value>二階調化</value>
+  </data>
+  <data name="Noise" xml:space="preserve">
+    <value>ノイズ</value>
+  </data>
+  <data name="Diffusion" xml:space="preserve">
+    <value>拡散</value>
+  </data>
+  <data name="HorizontalAlignment" xml:space="preserve">
+    <value>水平方向のアライメント</value>
+  </data>
+  <data name="VerticalAlignment" xml:space="preserve">
+    <value>垂直方向のアライメント</value>
+  </data>
+  <data name="Center" xml:space="preserve">
+    <value>中心</value>
+  </data>
+  <data name="LineSpacing" xml:space="preserve">
+    <value>行間</value>
+  </data>
 </root>

@@ -1,33 +1,34 @@
+using System;
 using System.Collections.Specialized;
+using System.Linq;
 
 using Avalonia;
-using Avalonia.Layout;
+using Avalonia.Animation;
 using Avalonia.Controls;
+using Avalonia.Controls.Primitives;
+using Avalonia.Data;
 using Avalonia.Input;
 using Avalonia.Interactivity;
+using Avalonia.Layout;
 using Avalonia.Markup.Xaml;
+using Avalonia.Media;
+using Avalonia.Styling;
+using Avalonia.VisualTree;
 
 using BEditor.Data;
 using BEditor.Data.Property;
 using BEditor.Extensions;
 using BEditor.Models;
 using BEditor.ViewModels.Properties;
-using Avalonia.Data;
-using System.Linq;
-using Avalonia.Media;
-using System;
-using Avalonia.Animation.Animators;
-using Avalonia.Animation;
-using Avalonia.Styling;
-using Avalonia.Controls.Primitives;
 
 namespace BEditor.Views.Properties
 {
     public class EasePropertyView : UserControl
     {
+        private static readonly Binding _widthBind = new("$parent.Bounds.Width") { Mode = BindingMode.OneWay };
         private readonly EaseProperty _property;
         private readonly StackPanel _stackPanel;
-        private readonly Setter _heightSetter = new(HeightProperty, 32.5);
+        private readonly Setter _heightSetter = new(HeightProperty, 40d);
         private readonly Animation _opencloseAnim = new()
         {
             Duration = TimeSpan.FromSeconds(0.25),
@@ -36,7 +37,7 @@ namespace BEditor.Views.Properties
                 new()
                 {
                     Cue = new(0),
-                    Setters = { new Setter(HeightProperty, 32.5) }
+                    Setters = { new Setter(HeightProperty, 40d) }
                 },
                 new()
                 {
@@ -64,30 +65,37 @@ namespace BEditor.Views.Properties
             property.Value.CollectionChanged += Value_CollectionChanged;
 
             // StackPanel‚ÉNumeric‚ð’Ç‰Á
-            _stackPanel.Children.AddRange(property.Value.Select((_, i) => CreateNumeric(i)));
+            _stackPanel.Children.AddRange(property.Value.Select((_, i) => CreateNumeric(i).content));
 
             _opencloseAnim.Children[1].Setters.Add(_heightSetter);
         }
 
-        private NumericUpDown CreateNumeric(int index)
+        private (NumericUpDown numeric, ContentControl content) CreateNumeric(int index)
         {
+            var content = new ContentControl
+            {
+                Margin = new Thickness(8, 4),
+                Padding = default,
+                HorizontalAlignment = HorizontalAlignment.Stretch,
+                VerticalAlignment = VerticalAlignment.Stretch
+            };
             var num = new NumericUpDown
             {
+                Classes = { "custom" },
                 [AttachmentProperty.IntProperty] = index,
                 Height = 32,
-                Margin = new Thickness(5, 0.25, 5, 0.25),
                 VerticalAlignment = VerticalAlignment.Center,
                 Value = _property.Value[index],
-                ShowButtonSpinner = false,
-                Background = Brushes.Transparent,
-                BorderBrush = Brushes.Transparent
+                Increment = 10
             };
 
+            content.Content = num;
+            num.Bind(WidthProperty, _widthBind);
             num.GotFocus += NumericUpDown_GotFocus;
             num.LostFocus += NumericUpDown_LostFocus;
             num.ValueChanged += NumericUpDown_ValueChanged;
 
-            if (_property.PropertyMetadata is null) return num;
+            if (_property.PropertyMetadata is null) return (num, content);
 
             if (!float.IsNaN(_property.PropertyMetadata.Max))
             {
@@ -99,7 +107,7 @@ namespace BEditor.Views.Properties
                 num.Minimum = _property.PropertyMetadata.Min;
             }
 
-            return num;
+            return (num, content);
         }
 
         private void ResetIndex()
@@ -117,7 +125,7 @@ namespace BEditor.Views.Properties
         {
             if (e.Action is NotifyCollectionChangedAction.Add)
             {
-                _stackPanel.Children.Add(CreateNumeric(e.NewStartingIndex));
+                _stackPanel.Children.Add(CreateNumeric(e.NewStartingIndex).content);
                 ResetIndex();
             }
             else if (e.Action is NotifyCollectionChangedAction.Remove)
@@ -127,14 +135,19 @@ namespace BEditor.Views.Properties
             }
             else if (e.Action is NotifyCollectionChangedAction.Replace)
             {
-                var num = (NumericUpDown)_stackPanel.Children[e.NewStartingIndex];
+                var num = (NumericUpDown)((ContentControl)_stackPanel.Children[e.NewStartingIndex]).Content;
                 num.Value = _property.Value[e.NewStartingIndex];
             }
         }
 
-        public void ShowEasingProperty(object s, RoutedEventArgs e)
+        public async void ShowEasingProperty(object s, RoutedEventArgs e)
         {
-
+            var dialog = new Window
+            {
+                Content = new EasingPropertyView(DataContext!),
+                SizeToContent = SizeToContent.WidthAndHeight
+            };
+            await dialog.ShowDialog((Window)this.GetVisualRoot());
         }
 
         public async void ListToggleClick(object? sender, RoutedEventArgs? e)
@@ -144,16 +157,16 @@ namespace BEditor.Views.Properties
             //ŠJ‚­
             if (!togglebutton.IsChecked ?? false)
             {
-                _heightSetter.Value = _property.Value.Count * 32.5;
+                _heightSetter.Value = _property.Value.Count * 40d;
 
                 _opencloseAnim.PlaybackDirection = PlaybackDirection.Reverse;
                 await _opencloseAnim.RunAsync(this);
 
-                Height = 32.5;
+                Height = 40f;
             }
             else
             {
-                var height = _property.Value.Count * 32.5;
+                var height = _property.Value.Count * 40d;
                 _heightSetter.Value = height;
 
                 _opencloseAnim.PlaybackDirection = PlaybackDirection.Normal;

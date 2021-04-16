@@ -8,6 +8,7 @@ using System.Text;
 using System.Threading.Tasks;
 
 using Avalonia;
+using Avalonia.Media;
 
 using BEditor.Command;
 using BEditor.Data;
@@ -46,14 +47,13 @@ namespace BEditor.ViewModels
 
                 if (await service.ShowOpenFileDialogAsync(dialog))
                 {
-                    EmptyDialog? ndialog = null;
+                    ProgressDialog? ndialog = null;
                     try
                     {
-                        var loading = new Loading
+                        ndialog = new ProgressDialog
                         {
                             IsIndeterminate = { Value = true }
                         };
-                        ndialog = new EmptyDialog(loading);
                         ndialog.Show(BEditor.App.GetMainWindow());
 
                         await DirectOpenAsync(dialog.FileName);
@@ -249,6 +249,10 @@ namespace BEditor.ViewModels
             Previewer = new(IsOpened);
         }
 
+        public double AcrylicTintOpacity1 { get; } = BEditor.Settings.Default.UseDarkMode ? 1 : 0;
+        public double AcrylicMaterialOpacity1 { get; } = BEditor.Settings.Default.UseDarkMode ? 0.95 : 0;
+        public double AcrylicTintOpacity2 { get; } = BEditor.Settings.Default.UseDarkMode ? 1 : 0;
+        public double AcrylicMaterialOpacity2 { get; } = BEditor.Settings.Default.UseDarkMode ? 0.8 : 0;
         public ReactiveCommand Open { get; } = new();
         public ReactiveCommand Save { get; } = new();
         public ReactiveCommand SaveAs { get; } = new();

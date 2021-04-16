@@ -8,10 +8,10 @@
     /// <param name="Max">The maximum value.</param>
     /// <param name="Min">The minimum value.</param>
     public record ValuePropertyMetadata(string Name, float DefaultValue = 0, float Max = float.NaN, float Min = float.NaN)
-        : PropertyElementMetadata(Name), IPropertyBuilder<ValueProperty>
+        : PropertyElementMetadata(Name), IEditingPropertyInitializer<ValueProperty>
     {
         /// <inheritdoc/>
-        public ValueProperty Build()
+        public ValueProperty Create()
         {
             return new(this);
         }

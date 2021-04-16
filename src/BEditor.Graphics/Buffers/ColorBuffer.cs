@@ -60,7 +60,7 @@ namespace BEditor.Graphics
         /// <summary>
         /// Gets the format of the texture.
         /// </summary>
-        public PixelFormat Format{ get; }
+        public PixelFormat Format { get; }
 
         /// <summary>
         /// Gets the type of the texture.

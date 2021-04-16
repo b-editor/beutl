@@ -7,10 +7,7 @@ using System.Threading.Tasks;
 using Avalonia;
 using Avalonia.Controls;
 using Avalonia.Controls.ApplicationLifetimes;
-using Avalonia.Controls.Presenters;
-using Avalonia.Controls.Templates;
 using Avalonia.Markup.Xaml;
-using Avalonia.Markup.Xaml.Templates;
 using Avalonia.Styling;
 using Avalonia.Themes.Fluent;
 using Avalonia.Threading;
@@ -55,23 +52,21 @@ namespace BEditor
 
             AvaloniaXamlLoader.Load(this);
 
-            var theme = new FluentTheme(new Uri("avares://BEditor.Avalonia/App.axaml"))
+            Styles.Insert(0, new FluentTheme(new Uri("avares://BEditor.Avalonia/App.axaml"))
             {
                 Mode = Settings.Default.UseDarkMode ? FluentThemeMode.Dark : FluentThemeMode.Light
-            };
-
-            Styles.Add(theme);
+            });
         }
 
         public override async void OnFrameworkInitializationCompleted()
         {
             if (ApplicationLifetime is IClassicDesktopStyleApplicationLifetime desktop)
             {
+                RegisterPrimitive();
+
                 desktop.MainWindow = new MainWindow();
 
                 CreateDirectory();
-
-                RegisterPrimitive();
 
                 await InitialPluginsAsync();
 
@@ -142,17 +137,10 @@ namespace BEditor
         }
         private static void RegisterPrimitive()
         {
-            ObjectMetadata.LoadedObjects.Add(PrimitiveTypes.VideoMetadata);
-            ObjectMetadata.LoadedObjects.Add(PrimitiveTypes.ImageMetadata);
-            ObjectMetadata.LoadedObjects.Add(PrimitiveTypes.ShapeMetadata);
-            ObjectMetadata.LoadedObjects.Add(PrimitiveTypes.PolygonMetadata);
-            ObjectMetadata.LoadedObjects.Add(PrimitiveTypes.RoundRectMetadata);
-            ObjectMetadata.LoadedObjects.Add(PrimitiveTypes.TextMetadata);
-            ObjectMetadata.LoadedObjects.Add(PrimitiveTypes.CameraMetadata);
-            ObjectMetadata.LoadedObjects.Add(PrimitiveTypes.GL3DObjectMetadata);
-            ObjectMetadata.LoadedObjects.Add(PrimitiveTypes.SceneMetadata);
-            ObjectMetadata.LoadedObjects.Add(PrimitiveTypes.FramebufferMetadata);
-            ObjectMetadata.LoadedObjects.Add(PrimitiveTypes.ListenerMetadata);
+            foreach (var obj in PrimitiveTypes.EnumerateAllObjectMetadata())
+            {
+                ObjectMetadata.LoadedObjects.Add(obj);
+            }
 
             foreach (var effect in PrimitiveTypes.EnumerateAllEffectMetadata())
             {

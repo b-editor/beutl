@@ -9,10 +9,10 @@ namespace BEditor.Data.Property
     /// <param name="DefaultColor">The default color.</param>
     /// <param name="UseAlpha">The value of whether to use alpha components or not.</param>
     public record ColorPropertyMetadata(string Name, Color DefaultColor, bool UseAlpha = false)
-        : PropertyElementMetadata(Name), IPropertyBuilder<ColorProperty>
+        : PropertyElementMetadata(Name), IEditingPropertyInitializer<ColorProperty>
     {
         /// <inheritdoc/>
-        public ColorProperty Build()
+        public ColorProperty Create()
         {
             return new(this);
         }

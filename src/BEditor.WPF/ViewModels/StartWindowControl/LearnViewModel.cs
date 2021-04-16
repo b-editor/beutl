@@ -16,8 +16,10 @@ using BEditor.Models;
 
 using Markdig;
 
-using Neo.Markdig.Xaml;
 using Microsoft.Extensions.DependencyInjection;
+
+using Neo.Markdig.Xaml;
+
 using Reactive.Bindings;
 
 namespace BEditor.ViewModels.StartWindowControl

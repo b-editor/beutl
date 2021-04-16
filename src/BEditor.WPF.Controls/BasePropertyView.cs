@@ -39,7 +39,7 @@ namespace BEditor.WPF.Controls
             {
                 if (disposing)
                 {
-                    if(DataContext is IDisposable disposable)
+                    if (DataContext is IDisposable disposable)
                     {
                         disposable.Dispose();
                     }

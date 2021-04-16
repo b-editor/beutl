@@ -1,7 +1,6 @@
-﻿//#define IsEnabled
-
-using System;
+﻿using System;
 using System.Collections.Generic;
+using System.Diagnostics;
 using System.IO;
 using System.Linq;
 using System.Text;
@@ -12,12 +11,13 @@ using BEditor.Data;
 using BEditor.Data.Property;
 using BEditor.Drawing;
 using BEditor.Primitive;
+using BEditor.Primitive.Objects;
 
 using NUnit.Framework;
 
 namespace NUnitTestProject1
 {
-    public class EditTest
+    public class EditingPropertyTest
     {
         [SetUp]
         public void Setup()
@@ -28,18 +28,17 @@ namespace NUnitTestProject1
         [Test]
         public void Test()
         {
-#if IsEnabled
-            using var project = new Project(1920, 1080, 60);
-            using var stream = new MemoryStream();
-            project.Load();
-            var scene = project.PreviewScene;
+            var obj = new PropertyTest();
 
-            scene.AddClip(1, 1, PrimitiveTypes.FigureMetadata, out _).Execute();
+            Debug.Assert(obj.Children.FirstOrDefault(i => i is null) is null, "全てのEditingPropertyに値がsetされていない。");
 
-            var result = scene.Render(1);
+            obj.Load();
 
-            result.Image.Encode(stream, EncodedImageFormat.Png);
-#endif
+            Debug.Assert(obj.Children.FirstOrDefault(i => !i.IsLoaded) is null, "EditingPropertyがすべてLoadされていない。");
+
+            obj.Unload();
+
+            Debug.Assert(obj.Children.FirstOrDefault(i => i.IsLoaded) is null, "EditingPropertyがすべてUnloadされていない。");
         }
     }
 }

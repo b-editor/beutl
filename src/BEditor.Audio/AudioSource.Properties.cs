@@ -26,7 +26,7 @@ namespace BEditor.Audio
             get
             {
                 ThrowIfDisposed();
-                
+
                 return _buffer;
             }
             set

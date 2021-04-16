@@ -1,13 +1,14 @@
 ﻿using System;
 using System.Collections.Generic;
+using System.Diagnostics.Contracts;
 using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
 
-using Vector3 = System.Numerics.Vector3;
-using Matrix4 = System.Numerics.Matrix4x4;
 using OpenTK.Mathematics;
-using System.Diagnostics.Contracts;
+
+using Matrix4 = System.Numerics.Matrix4x4;
+using Vector3 = System.Numerics.Vector3;
 
 namespace BEditor.Graphics
 {

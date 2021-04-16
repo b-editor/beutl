@@ -14,8 +14,7 @@ using BEditor.Drawing.Pixel;
 
 namespace BEditor.Primitive.Effects
 {
-#pragma warning disable CS1591
-    public class TestEffect : ImageEffect
+    internal class TestEffect : ImageEffect
     {
         public static readonly FolderPropertyMetadata FolderMetadata = new("Folder");
         public static readonly TextPropertyMetadata ValueMetadata = new("Value");
@@ -61,7 +60,7 @@ namespace BEditor.Primitive.Effects
 
         public override void Render(EffectRenderArgs<Image<BGRA32>> args)
         {
-            args.Value = Image.Text(Value.Value, FontManager.Default.LoadedFonts.First(), 50, Color.Blue);
+            args.Value = Image.Text(Value.Value, FontManager.Default.LoadedFonts.First(), 50, Color.Blue, HorizontalAlign.Left, VerticalAlign.Top);
 
             throw new RenderingException();
         }
@@ -112,5 +111,4 @@ namespace BEditor.Primitive.Effects
             }
         }
     }
-#pragma warning restore CS1591
 }

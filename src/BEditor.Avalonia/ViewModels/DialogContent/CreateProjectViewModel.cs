@@ -27,7 +27,7 @@ namespace BEditor.ViewModels.DialogContent
 
         public CreateProjectViewModel()
         {
-            if (string.IsNullOrWhiteSpace(BEditor.Settings.Default.LastTimeFolder))
+            if (!Directory.Exists(BEditor.Settings.Default.LastTimeFolder))
             {
                 BEditor.Settings.Default.LastTimeFolder = Environment.GetFolderPath(Environment.SpecialFolder.MyDocuments);
             }
@@ -85,11 +85,10 @@ namespace BEditor.ViewModels.DialogContent
                 app,
                 Path.Combine(Folder.Value, Name.Value, Name.Value) + ".bedit");
 
-            var loading = new Loading
+            var dialog = new ProgressDialog
             {
                 IsIndeterminate = { Value = true }
             };
-            var dialog = new EmptyDialog(loading);
             dialog.Show(App.GetMainWindow());
 
             app.Project = project;

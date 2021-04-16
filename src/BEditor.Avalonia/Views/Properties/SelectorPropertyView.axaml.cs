@@ -13,16 +13,16 @@ namespace BEditor.Views.Properties
         {
             InitializeComponent();
         }
-        
-        public SelectorPropertyView(SelectorProperty property)
+
+        public SelectorPropertyView(ISelectorPropertyViewModel viewmodel)
         {
-            DataContext = new SelectorPropertyViewModel(property);
+            DataContext = viewmodel;
             InitializeComponent();
         }
 
         public void ComboBox_SelectionChanged(object s, SelectionChangedEventArgs e)
         {
-            if(DataContext is SelectorPropertyViewModel vm)
+            if (DataContext is ISelectorPropertyViewModel vm)
             {
                 vm.Command.Execute(((ComboBox)s).SelectedIndex);
             }

@@ -6,7 +6,7 @@
   xmlns:vm="using:BEditor.ViewModels.Properties"
   x:DataType="vm:CheckPropertyViewModel"
   Background="Transparent"
-  Height="32.5"
+  Height="40"
   mc:Ignorable="d" d:DesignWidth="800" d:DesignHeight="35"
   x:Class="BEditor.Views.Properties.CheckPropertyView">
   <UserControl.ContextMenu>
@@ -18,27 +18,29 @@
   <Grid>
     <Grid.ColumnDefinitions>
       <ColumnDefinition Width="120*" MaxWidth="100" MinWidth="50"/>
-      <ColumnDefinition Width="50"/>
-      <ColumnDefinition Width="50"/>
+      <ColumnDefinition Width="40"/>
+      <ColumnDefinition Width="40"/>
       <ColumnDefinition Width="*" MinWidth="100"/>
     </Grid.ColumnDefinitions>
 
-    <Grid>
-      <TextBlock
-          Text="{CompiledBinding Metadata.Value.Name, Mode=OneTime}"
-          VerticalAlignment="Center"
-          HorizontalAlignment="Left"
-          FontSize="13"
-          Margin="10,0,0,0"
-          TextTrimming="CharacterEllipsis"/>
-    </Grid>
+    <Label
+      Height="40"
+      Margin="10,0,0,0"
+      HorizontalAlignment="Left"
+      VerticalAlignment="Top"
+      VerticalContentAlignment="Center"
+      FontSize="13"
+      Content="{CompiledBinding Metadata.Value.Name, Mode=OneTime}" />
 
-    <CheckBox
-        Grid.Column="2"
-        IsChecked="{CompiledBinding Property.Value, Mode=OneWay}"
-        VerticalAlignment="Center"
-        HorizontalAlignment="Center"
-        CommandParameter="{Binding $self.IsChecked}"
-        Command="{CompiledBinding Command, Mode=OneTime}"/>
+    <ToggleSwitch
+      Grid.Column="3"
+      IsChecked="{CompiledBinding Property.Value, Mode=OneWay}"
+      OnContent=""
+      OffContent=""
+      Margin="8,0"
+      HorizontalAlignment="Right"
+      VerticalAlignment="Center"
+      CommandParameter="{Binding $self.IsChecked}"
+      Command="{CompiledBinding Command, Mode=OneTime}" />
   </Grid>
 </UserControl>

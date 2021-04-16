@@ -259,4 +259,7 @@
   <data name="UpEffect" xml:space="preserve">
     <value>エフェクトの順番を変更 (上)</value>
   </data>
+  <data name="TheOwnerTypeDoesNotMatch" xml:space="preserve">
+    <value>プロパティのオーナーの型とこのオブジェクトの型が一致しません。</value>
+  </data>
 </root>

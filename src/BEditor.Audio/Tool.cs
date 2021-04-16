@@ -180,11 +180,11 @@ namespace BEditor.Audio
             AL.SourcePlay(handle);
             var error = AL.GetError();
 
-            if(error is ALError.InvalidName)
+            if (error is ALError.InvalidName)
             {
                 throw new AudioException(Strings.SourcePlayInvalidName);
             }
-            else if(error is ALError.InvalidOperation)
+            else if (error is ALError.InvalidOperation)
             {
                 throw new AudioException(Strings.SourcePlayInvalidOperation);
             }
@@ -194,11 +194,11 @@ namespace BEditor.Audio
             AL.SourceStop(handle);
             var error = AL.GetError();
 
-            if(error is ALError.InvalidName)
+            if (error is ALError.InvalidName)
             {
                 throw new AudioException(Strings.SourceStopInvalidName);
             }
-            else if(error is ALError.InvalidOperation)
+            else if (error is ALError.InvalidOperation)
             {
                 throw new AudioException(Strings.SourceStopInvalidOperation);
             }
@@ -208,11 +208,11 @@ namespace BEditor.Audio
             AL.SourcePause(handle);
             var error = AL.GetError();
 
-            if(error is ALError.InvalidName)
+            if (error is ALError.InvalidName)
             {
                 throw new AudioException(Strings.SourcePauseInvalidName);
             }
-            else if(error is ALError.InvalidOperation)
+            else if (error is ALError.InvalidOperation)
             {
                 throw new AudioException(Strings.SourcePauseInvalidOperation);
             }

@@ -259,4 +259,7 @@
   <data name="UpEffect" xml:space="preserve">
     <value>Change the order of the effects (top)</value>
   </data>
+  <data name="TheOwnerTypeDoesNotMatch" xml:space="preserve">
+    <value>The type of the owner of the property does not match the type of this object.</value>
+  </data>
 </root>

@@ -11,7 +11,7 @@ namespace BEditor.Data.Property
     /// <param name="DefaultEase">The default easing function.</param>
     /// <param name="UseAlpha">The value of whether to use alpha components or not.</param>
     public record ColorAnimationPropertyMetadata(string Name, Color DefaultColor, EasingMetadata DefaultEase, bool UseAlpha = false)
-        : PropertyElementMetadata(Name), IPropertyBuilder<ColorAnimationProperty>
+        : PropertyElementMetadata(Name), IEditingPropertyInitializer<ColorAnimationProperty>
     {
         /// <summary>
         /// The metadata of <see cref="ColorAnimationProperty"/>.
@@ -34,7 +34,7 @@ namespace BEditor.Data.Property
         }
 
         /// <inheritdoc/>
-        public ColorAnimationProperty Build()
+        public ColorAnimationProperty Create()
         {
             return new(this);
         }

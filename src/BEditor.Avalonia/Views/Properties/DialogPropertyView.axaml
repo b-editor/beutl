@@ -1,0 +1,17 @@
+<UserControl
+    xmlns="https://github.com/avaloniaui"
+    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+    xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+    xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+    mc:Ignorable="d" d:DesignWidth="800" d:DesignHeight="450"
+    xmlns:vm="using:BEditor.ViewModels.Properties"
+    x:DataType="vm:DialogPropertyViewModel"
+    Background="Transparent"
+    Height="40"
+    x:Class="BEditor.Views.Properties.DialogPropertyView">
+    <Button
+      HorizontalAlignment="Stretch"
+      VerticalAlignment="Stretch"
+      Content="{CompiledBinding Property.PropertyMetadata.Name, Mode=OneTime}"
+      Command="{CompiledBinding ClickCommand, Mode=OneTime}" />
+</UserControl>

@@ -12,7 +12,6 @@ namespace BEditor.Primitive.Objects
     /// <summary>
     /// Represents an <see cref="ImageObject"/> to draw a shape.
     /// </summary>
-    [CustomClipUI(Color = 0x0091ea)]
     public sealed class Shape : ImageObject
     {
         /// <summary>

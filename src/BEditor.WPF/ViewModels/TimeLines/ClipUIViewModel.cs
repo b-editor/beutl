@@ -33,32 +33,13 @@ namespace BEditor.ViewModels.TimeLines
 
         public ClipUIViewModel(ClipElement clip)
         {
-            static CustomClipUIAttribute GetAtt(ObjectElement self)
-            {
-                var type = self.GetType();
-                var attribute = Attribute.GetCustomAttribute(type, typeof(CustomClipUIAttribute));
-
-                if (attribute is CustomClipUIAttribute uIAttribute) return uIAttribute;
-                else return new();
-            }
-
             ClipElement = clip;
             WidthProperty.Value = TimeLineViewModel.ToPixel(ClipElement.Length);
             MarginProperty.Value = new Thickness(TimeLineViewModel.ToPixel(ClipElement.Start), 1, 0, 0);
             Row = clip.Layer;
 
-            if (clip.Effect[0] is ObjectElement @object)
-            {
-                var color = GetAtt(@object).GetColor;
-                ClipColor.Value = new SolidColorBrush(new Color()
-                {
-                    R = color.R,
-                    G = color.G,
-                    B = color.B,
-                    A = 255
-                });
-                ClipText.Value = @object.Name;
-            }
+            ClipColor.Value = clip.Metadata.AccentColor.ToBrush();
+            ClipText.Value = clip.Effect[0].Name;
 
             #region Subscribe
 
@@ -80,7 +61,7 @@ namespace BEditor.ViewModels.TimeLines
                 .Where(e => e.PropertyName is nameof(ClipElement.End))
                 .Subscribe(_ => WidthProperty.Value = TimeLineViewModel.ToPixel(ClipElement.Length))
                 .AddTo(_disposable);
-            
+
             ClipElement.PropertyChangedAsObservable()
                 .Where(e => e.PropertyName is nameof(ClipElement.Start))
                 .Subscribe(_ =>
@@ -91,7 +72,7 @@ namespace BEditor.ViewModels.TimeLines
                 .AddTo(_disposable);
 
             ClipElement.PropertyChangedAsObservable()
-                .Where(e=>e.PropertyName is nameof(ClipElement.Layer))
+                .Where(e => e.PropertyName is nameof(ClipElement.Layer))
                 .Subscribe(_ => TimeLineViewModel.ClipLayerMoveCommand?.Invoke(ClipElement, ClipElement.Layer))
                 .AddTo(_disposable);
         }

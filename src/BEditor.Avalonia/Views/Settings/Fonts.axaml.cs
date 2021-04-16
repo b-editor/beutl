@@ -14,20 +14,20 @@ namespace BEditor.Views.Settings
             InitializeComponent();
         }
 
-        private void InitializeComponent()
-        {
-            AvaloniaXamlLoader.Load(this);
-        }
-
-        private async void AddClick(object sender, RoutedEventArgs e)
+        public async void AddClick(object sender, RoutedEventArgs e)
         {
             var dialog = new OpenFolderDialog();
-            var dir = await dialog.ShowAsync((Window)Parent.Parent.Parent);
+            var dir = await dialog.ShowAsync((Window)VisualRoot);
 
             if (Directory.Exists(dir))
             {
                 BEditor.Settings.Default.IncludeFontDir.Add(dir);
             }
+        }
+
+        private void InitializeComponent()
+        {
+            AvaloniaXamlLoader.Load(this);
         }
     }
 }

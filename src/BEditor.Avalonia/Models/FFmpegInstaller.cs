@@ -70,7 +70,7 @@ namespace BEditor.Models
                 {
                     Directory.CreateDirectory(destdir);
                 }
-                
+
                 foreach (var entry in zip.Entries)
                 {
                     var file = Path.GetFileName(entry.FullName);

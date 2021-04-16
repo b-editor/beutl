@@ -493,6 +493,15 @@ namespace BEditor.Resources {
         }
         
         /// <summary>
+        ///   The type of the owner of the property does not match the type of this object. に類似しているローカライズされた文字列を検索します。
+        /// </summary>
+        internal static string TheOwnerTypeDoesNotMatch {
+            get {
+                return ResourceManager.GetString("TheOwnerTypeDoesNotMatch", resourceCulture);
+            }
+        }
+        
+        /// <summary>
         ///   The value was not {0} type, but {1} type. に類似しているローカライズされた文字列を検索します。
         /// </summary>
         internal static string TheValueWasNotTypeButType {

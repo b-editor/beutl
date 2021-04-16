@@ -87,12 +87,12 @@ namespace BEditor.ViewModels.Timelines
         public static int ToLayer(double pixel)
         {
             pixel -= 32;
-            return (int)(pixel / (ConstantSettings.ClipHeight + 1)) + 1;
+            return (int)(pixel / ConstantSettings.ClipHeight) + 1;
         }
 
         public static double ToLayerPixel(int layer)
         {
-            return ((layer - 1) * ConstantSettings.ClipHeight) + 1 + 32;
+            return ((layer - 1) * ConstantSettings.ClipHeight) + 32;
         }
 
         public void PointerMoved(Point point)

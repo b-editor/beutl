@@ -4,10 +4,10 @@
     /// The metadata of <see cref="LabelComponent"/>.
     /// </summary>
     public record LabelComponentMetadata()
-        : PropertyElementMetadata(string.Empty), IPropertyBuilder<LabelComponent>
+        : PropertyElementMetadata(string.Empty), IEditingPropertyInitializer<LabelComponent>
     {
         /// <inheritdoc/>
-        public LabelComponent Build()
+        public LabelComponent Create()
         {
             return new();
         }

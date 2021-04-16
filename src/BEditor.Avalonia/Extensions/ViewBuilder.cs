@@ -16,7 +16,9 @@ using Avalonia.Media;
 using BEditor.Data;
 using BEditor.Data.Property;
 using BEditor.Data.Property.Easing;
+using BEditor.Models;
 using BEditor.Properties;
+using BEditor.ViewModels.Properties;
 using BEditor.ViewModels.Timelines;
 using BEditor.Views.Properties;
 using BEditor.Views.Timelines;
@@ -28,17 +30,47 @@ namespace BEditor.Extensions
         public static readonly List<PropertyViewBuilder> PropertyViewBuilders = new()
         {
             PropertyViewBuilder.Create<CheckProperty>(p => new CheckPropertyView(p)),
-            PropertyViewBuilder.Create<SelectorProperty>(p => new SelectorPropertyView(p)),
+            PropertyViewBuilder.Create<SelectorProperty>(p => new SelectorPropertyView(new SelectorPropertyViewModel(p))),
+            new(typeof(SelectorProperty<>), prop =>
+            {
+                var vmtype = typeof(SelectorPropertyViewModel<>).MakeGenericType(prop.GetType().GenericTypeArguments);
+                return new SelectorPropertyView((ISelectorPropertyViewModel)Activator.CreateInstance(vmtype, prop)!);
+            }),
+            PropertyViewBuilder.Create<ValueProperty>(p => new ValuePropertyView(p)),
+            PropertyViewBuilder.Create<TextProperty>(p => new TextPropertyView(p)),
             PropertyViewBuilder.Create<EaseProperty>(p => new EasePropertyView(p)),
+            PropertyViewBuilder.Create<DocumentProperty>(p => new DocumentPropertyView(p)),
+            PropertyViewBuilder.Create<FontProperty>(p => new FontPropertyView(p)),
+            PropertyViewBuilder.Create<ColorProperty>(p => new ColorPropertyView(p)),
+            PropertyViewBuilder.Create<FileProperty>(p => new FilePropertyView(p)),
+            PropertyViewBuilder.Create<FolderProperty>(p => new FolderPropertyView(p)),
+            PropertyViewBuilder.Create<ColorAnimationProperty>(p => new ColorAnimationPropertyView(p)),
+            PropertyViewBuilder.Create<ButtonComponent>(p => new ButtonCompornentView(p)),
+            PropertyViewBuilder.Create<LabelComponent>(p =>
+            {
+                var label = new Label
+                {
+                    Height = 40,
+                    Background = Brushes.Transparent,
+                    DataContext = p
+                };
+                label.Bind(ContentControl.ContentProperty, new Binding("Text"));
+
+                return label;
+            }),
+            PropertyViewBuilder.Create<DialogProperty>(p => new DialogPropertyView(p)),
             PropertyViewBuilder.Create<ExpandGroup>(p =>
             {
-                var header = new TextBlock
+                var header = new Label
                 {
-                    Text = p.PropertyMetadata?.Name ?? string.Empty,
+                    Content = p.PropertyMetadata?.Name ?? string.Empty,
+                    Height = 24,
+                    Foreground = (IBrush)App.Current.FindResource("SystemControlForegroundBaseHighBrush")!
                 };
                 var expander = new Expander
                 {
                     Header = header,
+                    Classes = { "property" }
                 };
                 var stack = new StackPanel();
                 var margin = new Thickness(32.5, 0, 0, 0);
@@ -68,6 +100,71 @@ namespace BEditor.Extensions
 
                 return expander;
             }),
+            PropertyViewBuilder.Create<Group>(p =>
+            {
+                var stack = new StackPanel();
+
+                foreach (var item in p.Children)
+                {
+                    var content = item.GetCreatePropertyElementView();
+
+                    stack.Children.Add(content);
+                }
+
+                return stack;
+            }),
+        };
+        public static readonly List<KeyFrameViewBuilder> KeyframeViewBuilders = new()
+        {
+            // EaseProperty
+            KeyFrameViewBuilder.Create<EaseProperty>(prop => new Border { Height = ConstantSettings.ClipHeight, Background = Brushes.AliceBlue }),
+            // ColorAnimation
+            KeyFrameViewBuilder.Create<ColorAnimationProperty>(prop => new Border { Height = ConstantSettings.ClipHeight, Background = Brushes.AliceBlue }),
+            KeyFrameViewBuilder.Create<ExpandGroup>(p =>
+            {
+                var header = new Label
+                {
+                    Content = p.PropertyMetadata?.Name ?? string.Empty,
+                    Height = 24,
+                    Foreground = (IBrush)App.Current.FindResource("SystemControlForegroundBaseHighBrush")!
+                };
+                var expander = new Expander
+                {
+                    Header = header,
+                    Classes =
+                    {
+                        "expandkeyframe",
+                        "keyframe"
+                    }
+                };
+                var stack = new StackPanel();
+
+                foreach (var item in p.Children)
+                {
+                    if (item is IKeyFrameProperty property)
+                    {
+                        var content = property.GetCreateKeyframeView();
+
+                        stack.Children.Add(content);
+                    }
+                }
+
+                expander.Content = stack;
+
+                // binding
+                var widthbind = new Binding("Parent.Bounds.Width")
+                {
+                    Mode = BindingMode.OneWay,
+                    Source = expander,
+                    Converter = ExpanderWidthConverter
+                };
+                var isExpandedbind = new Binding("IsExpanded") { Mode = BindingMode.TwoWay, Source = p };
+
+                header.Bind(Layoutable.WidthProperty, widthbind);
+                expander.Bind(Expander.IsExpandedProperty, isExpandedbind);
+
+                return expander;
+            })
         };
         public static readonly EditingProperty<Timeline> TimelineProperty = EditingProperty.Register<Timeline, Scene>("GetTimeline");
         public static readonly EditingProperty<TimelineViewModel> TimelineViewModelProperty = EditingProperty.Register<TimelineViewModel, Scene>("GetTimelineViewModel");
@@ -77,6 +174,8 @@ namespace BEditor.Extensions
         public static readonly EditingProperty<Control> EffectElementViewProperty = EditingProperty.Register<Control, EffectElement>("GetPropertyView");
         public static readonly EditingProperty<Control> PropertyElementViewProperty = EditingProperty.Register<Control, PropertyElement>("GetPropertyView");
         public static readonly EditingProperty<Control> EasePropertyViewProperty = EditingProperty.Register<Control, EasingFunc>("GetPropertyView");
+        public static readonly EditingProperty<Control> KeyframeProperty = EditingProperty.Register<Control, EffectElement>("GetKeyframe");
+        public static readonly EditingProperty<Control> KeyframeViewProperty = EditingProperty.Register<Control, IKeyFrameProperty>("GetKeyframeView");
 
         public static Timeline GetCreateTimeline(this Scene scene)
         {
@@ -118,18 +217,6 @@ namespace BEditor.Extensions
             }
             return clip.GetValue(ClipViewModelProperty);
         }
-        public static Control GetCreateEffectPropertyView(this EffectElement effect)
-        {
-            if (effect[EffectElementViewProperty] is null)
-            {
-                var (ex, stack) = (effect is ObjectElement obj) ? CreateObjectExpander(obj) : CreateEffectExpander(effect);
-
-                stack.Children.AddRange(effect.Children.Select(p => p.GetCreatePropertyElementView()));
-
-                effect[EffectElementViewProperty] = ex;
-            }
-            return effect.GetValue(EffectElementViewProperty);
-        }
         public static Control GetCreatePropertyElementView(this PropertyElement property)
         {
             if (property[PropertyElementViewProperty] is null)
@@ -145,7 +232,7 @@ namespace BEditor.Extensions
                     return x.PropertyType.IsAssignableFrom(type);
                 });
 
-                property[PropertyElementViewProperty] = func?.CreateFunc?.Invoke(property) ?? new TextBlock { Height = 32.5 };
+                property[PropertyElementViewProperty] = func?.CreateFunc?.Invoke(property) ?? new TextBlock { Height = 40 };
             }
             return property.GetValue(PropertyElementViewProperty);
         }
@@ -168,6 +255,17 @@ namespace BEditor.Extensions
                 easing[EasePropertyViewProperty] = stack;
             }
             return easing.GetValue(EasePropertyViewProperty);
+        }
+        public static Control GetCreateKeyframeView(this IKeyFrameProperty property)
+        {
+            if (property[KeyframeViewProperty] is null)
+            {
+                var type = property.GetType();
+                var func = KeyframeViewBuilders.Find(x => x.PropertyType.IsAssignableFrom(type));
+
+                property[KeyframeViewProperty] = func?.CreateFunc?.Invoke(property) ?? new TextBlock { Height = 40 };
+            }
+            return property.GetValue(KeyframeViewProperty);
         }
 
         public static Timeline GetCreateTimelineSafe(this Scene scene)
@@ -247,6 +345,46 @@ namespace BEditor.Extensions
             }
             return effect.GetValue(EffectElementViewProperty);
         }
+        public static Control GetCreateKeyFrameViewSafe(this EffectElement effect)
+        {
+            if (effect[KeyframeProperty] is null)
+            {
+                effect.Synchronize.Send(static c =>
+                {
+                    var effect = (EffectElement)c!;
+                    var keyFrame = new Expander
+                    {
+                        Classes = { "keyframe" }
+                    };
+                    var header = new Label();
+                    var stack = new StackPanel();
+
+                    keyFrame.Content = stack;
+                    keyFrame.Header = header;
+
+                    foreach (var item in effect.Children)
+                    {
+                        if (item is IKeyFrameProperty e)
+                        {
+                            var tmp = e.GetCreateKeyframeView();
+                            stack.Children.Add(tmp);
+                        }
+                    }
+
+                    header.Bind(Layoutable.WidthProperty, new Binding("Parent.Bounds.Width")
+                    {
+                        Mode = BindingMode.OneWay,
+                        Source = header,
+                        Converter = ExpanderWidthConverter
+                    });
+                    header.Bind(ContentControl.ContentProperty, new Binding("Name") { Mode = BindingMode.OneTime, Source = effect });
+                    keyFrame.Bind(Expander.IsExpandedProperty, new Binding("IsExpanded") { Mode = BindingMode.TwoWay, Source = effect });
+
+                    effect[KeyframeProperty] = keyFrame;
+                }, effect);
+            }
+            return effect.GetValue(KeyframeProperty);
+        }
 
         private static readonly IValueConverter ExpanderWidthConverter = new FuncValueConverter<double, double>(i => i - 38);
         public static (Expander, StackPanel) CreateObjectExpander(ObjectElement obj)
@@ -256,6 +394,7 @@ namespace BEditor.Extensions
             var expander = new Expander
             {
                 HorizontalAlignment = HorizontalAlignment.Stretch,
+                Classes = { "property" }
             };
 
             #region Header
@@ -270,7 +409,8 @@ namespace BEditor.Extensions
                 {
                     Margin = new(5, 0, 0, 0),
                     VerticalAlignment = VerticalAlignment.Center,
-                    Text = obj.Name
+                    Text = obj.Name,
+                    Foreground = (IBrush)App.Current.FindResource("SystemControlForegroundBaseHighBrush")!
                 };
 
                 var header = new StackPanel
@@ -327,6 +467,7 @@ namespace BEditor.Extensions
             var expander = new Expander
             {
                 HorizontalAlignment = HorizontalAlignment.Stretch,
+                Classes = { "property" }
             };
 
             #region Header
@@ -342,7 +483,7 @@ namespace BEditor.Extensions
                 {
                     Content = new PathIcon
                     {
-                        Data = (Geometry)Application.Current.FindResource(@"\arrow_up\svg\ic_fluent_arrow_up_28_regular.svg_regular")!
+                        Data = (Geometry)Application.Current.FindResource("ArrowUp28Regular")!
                     },
                     Margin = new Thickness(5, 0, 0, 0),
                     Background = null,
@@ -353,7 +494,7 @@ namespace BEditor.Extensions
                 {
                     Content = new PathIcon
                     {
-                        Data = (Geometry)Application.Current.FindResource(@"\arrow_down\svg\ic_fluent_arrow_down_28_regular.svg_regular")!
+                        Data = (Geometry)Application.Current.FindResource("ArrowDown28Regular")!
                     },
                     Margin = new Thickness(0, 0, 5, 0),
                     Background = null,
@@ -364,7 +505,8 @@ namespace BEditor.Extensions
                 {
                     Margin = new(5, 0, 0, 0),
                     VerticalAlignment = VerticalAlignment.Center,
-                    Text = effect.Name
+                    Text = effect.Name,
+                    Foreground = (IBrush)App.Current.FindResource("SystemControlForegroundBaseHighBrush")!
                 };
 
                 var header = new StackPanel
@@ -414,7 +556,7 @@ namespace BEditor.Extensions
                 };
                 menu.Children.Add(new PathIcon
                 {
-                    Data = (Geometry)Application.Current.FindResource(@"\delete\svg\ic_fluent_delete_24_regular.svg_regular")!,
+                    Data = (Geometry)Application.Current.FindResource("Delete24Regular")!,
                     Margin = new Thickness(5, 0, 5, 0)
                 });
                 menu.Children.Add(new TextBlock

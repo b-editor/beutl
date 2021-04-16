@@ -7,10 +7,10 @@
     /// <param name="DefaultFile">The default value of <see cref="FileProperty.Value"/></param>
     /// <param name="Filter">The filter for the file to be selected.</param>
     public record FilePropertyMetadata(string Name, string DefaultFile = "", FileFilter? Filter = null)
-        : PropertyElementMetadata(Name), IPropertyBuilder<FileProperty>
+        : PropertyElementMetadata(Name), IEditingPropertyInitializer<FileProperty>
     {
         /// <inheritdoc/>
-        public FileProperty Build()
+        public FileProperty Create()
         {
             return new(this);
         }

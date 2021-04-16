@@ -5,6 +5,7 @@ using System.Reactive.Linq;
 using BEditor.Command;
 using BEditor.Data;
 using BEditor.Data.Property;
+using BEditor.Views.Properties;
 
 using Reactive.Bindings;
 using Reactive.Bindings.Extensions;
@@ -24,6 +25,14 @@ namespace BEditor.ViewModels.Properties
 
             Command.Subscribe(x => Property.ChangeIsChecked(x).Execute()).AddTo(_disposables);
             Reset.Subscribe(() => Property.ChangeIsChecked(Property.PropertyMetadata?.DefaultIsChecked ?? default).Execute()).AddTo(_disposables);
+            Bind.Subscribe(async () =>
+            {
+                var window = new SetBinding
+                {
+                    DataContext = new SetBindingViewModel<bool>(Property)
+                };
+                await window.ShowDialog(App.GetMainWindow());
+            }).AddTo(_disposables);
         }
         ~CheckPropertyViewModel()
         {

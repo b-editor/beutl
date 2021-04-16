@@ -215,7 +215,7 @@ namespace BEditor
             EffectMetadata? meta = EffectMetadata.LoadedEffects
                 .SelectMany(i => i.Children?
                     .Select(i2 => new EffectItem(i2, i.Name)) ?? new EffectItem[] { new(i, null) })
-                    .FirstOrDefault(i=>i.Name == effect)?.Metadata;
+                    .FirstOrDefault(i => i.Name == effect)?.Metadata;
 
             if (meta is null)
             {

@@ -912,6 +912,15 @@ namespace BEditor.Properties {
         }
         
         /// <summary>
+        ///   Path に類似しているローカライズされた文字列を検索します。
+        /// </summary>
+        public static string Path {
+            get {
+                return ResourceManager.GetString("Path", resourceCulture);
+            }
+        }
+        
+        /// <summary>
         ///   Playing に類似しているローカライズされた文字列を検索します。
         /// </summary>
         public static string Playing {
@@ -1071,6 +1080,24 @@ namespace BEditor.Properties {
         public static string SaveFolder {
             get {
                 return ResourceManager.GetString("SaveFolder", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Save full path に類似しているローカライズされた文字列を検索します。
+        /// </summary>
+        public static string SaveFullPath {
+            get {
+                return ResourceManager.GetString("SaveFullPath", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Save the path relative to the selected path from the project に類似しているローカライズされた文字列を検索します。
+        /// </summary>
+        public static string SavePathRelativeToSelectedPathFromProject {
+            get {
+                return ResourceManager.GetString("SavePathRelativeToSelectedPathFromProject", resourceCulture);
             }
         }
         

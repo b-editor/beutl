@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.ComponentModel;
 using System.Diagnostics;
 using System.Diagnostics.Contracts;
+using System.Linq;
 using System.Runtime.Serialization;
 using System.Text.Json;
 
@@ -18,7 +19,7 @@ namespace BEditor.Data.Property
     /// <typeparam name="T">The type of item.</typeparam>
     [DebuggerDisplay("Index = {Index}, Item = {SelectItem}")]
     public class SelectorProperty<T> : PropertyElement<SelectorPropertyMetadata<T>>, IEasingProperty, IBindable<T?>
-        where T : IJsonObject
+        where T : IJsonObject, IEquatable<T>
     {
         #region Fields
         private static readonly PropertyChangedEventArgs _selectItemArgs = new(nameof(SelectItem));
@@ -37,7 +38,9 @@ namespace BEditor.Data.Property
         public SelectorProperty(SelectorPropertyMetadata<T> metadata)
         {
             PropertyMetadata = metadata ?? throw new ArgumentNullException(nameof(metadata));
-            _selectItem = metadata.DefaultItem;
+
+            // 内部で indexer 呼び出し
+            _selectItem = metadata.ItemSource.ElementAtOrDefault(metadata.DefaultIndex);
         }
 
         /// <summary>
@@ -48,6 +51,7 @@ namespace BEditor.Data.Property
             get => _selectItem;
             set => SetValue(value, ref _selectItem, _selectItemArgs, this, state =>
             {
+                state.RaisePropertyChanged(SelectorProperty._indexArgs);
                 foreach (var observer in state.Collection)
                 {
                     try
@@ -94,9 +98,8 @@ namespace BEditor.Data.Property
         {
             base.GetObjectData(writer);
 
-            writer.WriteStartObject(nameof(Value));
+            writer.WritePropertyName(nameof(Value));
             SelectItem?.GetObjectData(writer);
-            writer.WriteEndObject();
 
             writer.WriteString(nameof(TargetHint), TargetHint);
         }
@@ -110,6 +113,15 @@ namespace BEditor.Data.Property
             SelectItem.SetObjectData(element.GetProperty(nameof(Value)));
             TargetHint = element.TryGetProperty(nameof(TargetHint), out var bind) ? bind.GetString() : null;
         }
+
+        /// <summary>
+        /// Create a command to change the selected item.
+        /// </summary>
+        /// <param name="index">New value for <see cref="Index"/>.</param>
+        /// <returns>Created <see cref="IRecordCommand"/>.</returns>
+        [Pure]
+        public IRecordCommand ChangeSelect(int index) => new ChangeSelectCommand(
+            this, PropertyMetadata is null ? default : PropertyMetadata.ItemSource.ElementAtOrDefault(index));
 
         /// <summary>
         /// Create a command to change the selected item.

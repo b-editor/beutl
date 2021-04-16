@@ -85,7 +85,7 @@ namespace BEditor
 
         private void Timer_Elapsed(object sender, ElapsedEventArgs e)
         {
-            foreach(var dir in Directories)
+            foreach (var dir in Directories)
             {
                 if (!Directory.Exists(dir))
                 {

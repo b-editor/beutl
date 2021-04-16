@@ -37,17 +37,13 @@
       <VirtualizingStackPanel Grid.Column="1" Orientation="Horizontal">
         <Button
           Command="{CompiledBinding MoveToTop, Mode=OneTime}"
-          Background="Transparent"
-          Foreground="White"
           ToolTip.Tip="{x:Static props:Strings.MoveToTop}">
-          <PathIcon Data="{DynamicResource \\previous\\svg\\ic_fluent_previous_24_regular.svg_regular}" Width="16"/>
+          <PathIcon Data="{StaticResource Previous24Regular}" Width="16"/>
         </Button>
         <Button
           Command="{CompiledBinding MoveToPrevious, Mode=OneTime}"
-          Background="Transparent"
-          Foreground="White"
           ToolTip.Tip="{x:Static props:Strings.MoveToPreviousFrame}">
-          <PathIcon Data="{DynamicResource \\fast_forward\\svg\\ic_fluent_fast_forward_24_regular.svg_regular}">
+          <PathIcon Data="{StaticResource FastForward24Regular}">
             <PathIcon.RenderTransform>
               <TransformGroup>
                 <ScaleTransform />
@@ -60,24 +56,18 @@
         </Button>
         <Button
           Command="{CompiledBinding PlayPause, Mode=OneTime}"
-          Background="Transparent"
-          Foreground="White"
           ToolTip.Tip="{x:Static props:Strings.PlayPause}">
-          <PathIcon Data="{DynamicResource \\play\\svg\\ic_fluent_play_48_regular.svg_regular}"/>
+          <PathIcon Data="{StaticResource Play48Regular}"/>
         </Button>
         <Button
           Command="{CompiledBinding MoveToNext, Mode=OneTime}"
-          Background="Transparent"
-          Foreground="White"
           ToolTip.Tip="{x:Static props:Strings.MoveToNextFrame}">
-          <PathIcon Data="{DynamicResource \\fast_forward\\svg\\ic_fluent_fast_forward_24_regular.svg_regular}"/>
+          <PathIcon Data="{StaticResource FastForward24Regular}"/>
         </Button>
         <Button
           Command="{CompiledBinding MoveToEnd, Mode=OneTime}"
-          Background="Transparent"
-          Foreground="White"
           ToolTip.Tip="{x:Static props:Strings.MoveToEnd}">
-          <PathIcon Data="{DynamicResource \\next\\svg\\ic_fluent_next_24_regular.svg_regular}" Width="16"/>
+          <PathIcon Data="{StaticResource Next24Regular}" Width="16"/>
         </Button>
       </VirtualizingStackPanel>
     </Grid>
