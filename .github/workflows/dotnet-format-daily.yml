@@ -20,7 +20,7 @@ jobs:
         with:
           repo-token: ${{ secrets.GITHUB_TOKEN }}
           action: "fix"
-          workspace: "BEditor.Avalonia.sln"
+          workspace: "BEditor.sln"
     
       - name: Commit files
         if: steps.format.outputs.has-changes == 'true'
