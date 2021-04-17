@@ -28,6 +28,7 @@ namespace BEditor
                 Name = "bedit",
             };
             SynchronizationContext.SetSynchronizationContext(new CustomSynchronizationContext());
+            App.Current.UIThread = SynchronizationContext.Current;
 
             SetKnownTypes();
             Task.Run(async () => await CheckFFmpeg()).Wait();
