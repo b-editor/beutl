@@ -21,7 +21,7 @@ namespace NUnitTestProject1
 
         }
 
-        private Image<BGRA32> GradentImage()
+        private static Image<BGRA32> GradentImage()
         {
             var img = new Image<BGRA32>(500, 500, new BGRA32(255, 255, 255, 255));
             img.LinerGradient(
