@@ -323,7 +323,7 @@ namespace BEditor.Views
 
                 foreach (var item in group.Children)
                 {
-                    if (item is IKeyFrameProperty easing)
+                    if (item is IKeyframeProperty easing)
                     {
                         var tmp = easing.GetCreateKeyFrameView();
 
@@ -348,7 +348,7 @@ namespace BEditor.Views
                 var binding = new Binding("ActualWidth") { Mode = BindingMode.OneWay, Source = stack };
                 foreach (var item in group.Children)
                 {
-                    if (item is IKeyFrameProperty easing)
+                    if (item is IKeyframeProperty easing)
                     {
                         var tmp = easing.GetCreateKeyFrameView();
                         (tmp as FrameworkElement)?.SetBinding(FrameworkElement.WidthProperty, binding);
@@ -365,7 +365,7 @@ namespace BEditor.Views
         public static readonly EditingProperty<UIElement> PropertyViewProperty = EditingProperty.Register<UIElement, PropertyElement>("GetPropertyView", isDisposable: true);
         public static readonly EditingProperty<UIElement> ClipPropertyViewProperty = EditingProperty.Register<UIElement, ClipElement>("GetPropertyView", isDisposable: true);
         public static readonly EditingProperty<UIElement> EasePropertyViewProperty = EditingProperty.Register<UIElement, EasingFunc>("GetPropertyView", isDisposable: true);
-        public static readonly EditingProperty<UIElement> KeyFrameViewProperty = EditingProperty.Register<UIElement, IKeyFrameProperty>("GetKeyFrameView", isDisposable: true);
+        public static readonly EditingProperty<UIElement> KeyFrameViewProperty = EditingProperty.Register<UIElement, IKeyframeProperty>("GetKeyFrameView", isDisposable: true);
         public static readonly EditingProperty<ClipUI> ClipViewProperty = EditingProperty.Register<ClipUI, ClipElement>("GetClipView", isDisposable: true);
         public static readonly EditingProperty<ClipUIViewModel> ClipViewModelProperty = EditingProperty.Register<ClipUIViewModel, ClipElement>("GetClipViewModel", isDisposable: true);
         public static readonly EditingProperty<UIElement> EffectPropertyViewProperty = EditingProperty.Register<UIElement, EffectElement>("GetControl", isDisposable: true);
@@ -393,7 +393,7 @@ namespace BEditor.Views
             }
             return property.GetValue(PropertyViewProperty);
         }
-        public static UIElement GetCreateKeyFrameView(this IKeyFrameProperty property)
+        public static UIElement GetCreateKeyFrameView(this IKeyframeProperty property)
         {
             if (property[KeyFrameViewProperty] is null)
             {
@@ -479,7 +479,7 @@ namespace BEditor.Views
 
                 foreach (var item in effect.Children)
                 {
-                    if (item is IKeyFrameProperty e)
+                    if (item is IKeyframeProperty e)
                     {
 
                         var tmp = e.GetCreateKeyFrameView();
@@ -781,9 +781,9 @@ namespace BEditor.Views
             }
         }
 
-        public record KeyFrameViewBuilder(Type PropertyType, Func<IKeyFrameProperty, UIElement> CreateFunc)
+        public record KeyFrameViewBuilder(Type PropertyType, Func<IKeyframeProperty, UIElement> CreateFunc)
         {
-            public static KeyFrameViewBuilder Create<T>(Func<T, UIElement> CreateFunc) where T : IKeyFrameProperty
+            public static KeyFrameViewBuilder Create<T>(Func<T, UIElement> CreateFunc) where T : IKeyframeProperty
             {
                 return new(typeof(T), (p) => CreateFunc((T)p));
             }

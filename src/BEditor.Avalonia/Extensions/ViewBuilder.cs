@@ -117,9 +117,9 @@ namespace BEditor.Extensions
         public static readonly List<KeyFrameViewBuilder> KeyframeViewBuilders = new()
         {
             // EaseProperty
-            KeyFrameViewBuilder.Create<EaseProperty>(prop => new Border { Height = ConstantSettings.ClipHeight, Background = Brushes.AliceBlue }),
+            KeyFrameViewBuilder.Create<EaseProperty>(prop => new KeyframeView(prop)),
             // ColorAnimation
-            KeyFrameViewBuilder.Create<ColorAnimationProperty>(prop => new Border { Height = ConstantSettings.ClipHeight, Background = Brushes.AliceBlue }),
+            KeyFrameViewBuilder.Create<ColorAnimationProperty>(prop => new KeyframeView(prop)),
             KeyFrameViewBuilder.Create<ExpandGroup>(p =>
             {
                 var header = new Label
@@ -141,7 +141,7 @@ namespace BEditor.Extensions
 
                 foreach (var item in p.Children)
                 {
-                    if (item is IKeyFrameProperty property)
+                    if (item is IKeyframeProperty property)
                     {
                         var content = property.GetCreateKeyframeView();
 
@@ -175,7 +175,7 @@ namespace BEditor.Extensions
         public static readonly EditingProperty<Control> PropertyElementViewProperty = EditingProperty.Register<Control, PropertyElement>("GetPropertyView", isDisposable: true);
         public static readonly EditingProperty<Control> EasePropertyViewProperty = EditingProperty.Register<Control, EasingFunc>("GetPropertyView", isDisposable: true);
         public static readonly EditingProperty<Control> KeyframeProperty = EditingProperty.Register<Control, EffectElement>("GetKeyframe", isDisposable: true);
-        public static readonly EditingProperty<Control> KeyframeViewProperty = EditingProperty.Register<Control, IKeyFrameProperty>("GetKeyframeView", isDisposable: true);
+        public static readonly EditingProperty<Control> KeyframeViewProperty = EditingProperty.Register<Control, IKeyframeProperty>("GetKeyframeView", isDisposable: true);
 
         public static Timeline GetCreateTimeline(this Scene scene)
         {
@@ -256,7 +256,7 @@ namespace BEditor.Extensions
             }
             return easing.GetValue(EasePropertyViewProperty);
         }
-        public static Control GetCreateKeyframeView(this IKeyFrameProperty property)
+        public static Control GetCreateKeyframeView(this IKeyframeProperty property)
         {
             if (property[KeyframeViewProperty] is null)
             {
@@ -364,7 +364,7 @@ namespace BEditor.Extensions
 
                     foreach (var item in effect.Children)
                     {
-                        if (item is IKeyFrameProperty e)
+                        if (item is IKeyframeProperty e)
                         {
                             var tmp = e.GetCreateKeyframeView();
                             stack.Children.Add(tmp);
@@ -600,9 +600,9 @@ namespace BEditor.Extensions
             }
         }
 
-        public record KeyFrameViewBuilder(Type PropertyType, Func<IKeyFrameProperty, Control> CreateFunc)
+        public record KeyFrameViewBuilder(Type PropertyType, Func<IKeyframeProperty, Control> CreateFunc)
         {
-            public static KeyFrameViewBuilder Create<T>(Func<T, Control> CreateFunc) where T : IKeyFrameProperty
+            public static KeyFrameViewBuilder Create<T>(Func<T, Control> CreateFunc) where T : IKeyframeProperty
             {
                 return new(typeof(T), (p) => CreateFunc((T)p));
             }

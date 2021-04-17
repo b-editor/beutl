@@ -5,7 +5,7 @@ using BEditor.Media;
 
 using Reactive.Bindings;
 
-namespace BEditor.ViewModels.TimeLines
+namespace BEditor.ViewModels.Timelines
 {
     public interface IKeyframePropertyViewModel : IDisposable
     {

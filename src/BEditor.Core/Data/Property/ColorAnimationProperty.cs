@@ -21,7 +21,7 @@ namespace BEditor.Data.Property
     /// Represents a property that eases the value of a <see cref="Color"/> type.
     /// </summary>
     [DebuggerDisplay("Count = {Value.Count}, Easing = {EasingData.Name}")]
-    public class ColorAnimationProperty : PropertyElement<ColorAnimationPropertyMetadata>, IKeyFrameProperty
+    public class ColorAnimationProperty : PropertyElement<ColorAnimationPropertyMetadata>, IKeyframeProperty
     {
         #region Fields
         private static readonly PropertyChangedEventArgs _easingFuncArgs = new(nameof(EasingType));

@@ -194,7 +194,7 @@ namespace BEditor.Data
                     }
                 }
 
-                if (@object is IKeyFrameProperty property)
+                if (@object is IKeyframeProperty property)
                 {
                     property.EasingType?.ClearDisposable();
                 }

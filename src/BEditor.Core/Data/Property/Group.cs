@@ -15,12 +15,12 @@ namespace BEditor.Data.Property
     /// <summary>
     /// Represents a base class for grouping <see cref="PropertyElement"/>.
     /// </summary>
-    public abstract class Group : PropertyElement, IKeyFrameProperty, IEasingProperty, IParent<PropertyElement>
+    public abstract class Group : PropertyElement, IKeyframeProperty, IEasingProperty, IParent<PropertyElement>
     {
         private IEnumerable<PropertyElement>? _cachedList;
 
         /// <inheritdoc/>
-        event Action<Frame, int>? IKeyFrameProperty.Added
+        event Action<Frame, int>? IKeyframeProperty.Added
         {
             add
             {
@@ -31,7 +31,7 @@ namespace BEditor.Data.Property
         }
 
         /// <inheritdoc/>
-        event Action<int>? IKeyFrameProperty.Removed
+        event Action<int>? IKeyframeProperty.Removed
         {
             add
             {
@@ -42,7 +42,7 @@ namespace BEditor.Data.Property
         }
 
         /// <inheritdoc/>
-        event Action<int, int>? IKeyFrameProperty.Moved
+        event Action<int, int>? IKeyframeProperty.Moved
         {
             add
             {
@@ -75,25 +75,25 @@ namespace BEditor.Data.Property
         #region IkeyframeProperty
 
         /// <inheritdoc/>
-        EasingFunc? IKeyFrameProperty.EasingType => null;
+        EasingFunc? IKeyframeProperty.EasingType => null;
 
         /// <inheritdoc/>
-        List<Frame> IKeyFrameProperty.Frames => new(0);
+        List<Frame> IKeyframeProperty.Frames => new(0);
 
         /// <inheritdoc/>
-        IRecordCommand IKeyFrameProperty.AddFrame(Frame frame)
+        IRecordCommand IKeyframeProperty.AddFrame(Frame frame)
         {
             return RecordCommand.Empty;
         }
 
         /// <inheritdoc/>
-        IRecordCommand IKeyFrameProperty.MoveFrame(int fromIndex, Frame toFrame)
+        IRecordCommand IKeyframeProperty.MoveFrame(int fromIndex, Frame toFrame)
         {
             return RecordCommand.Empty;
         }
 
         /// <inheritdoc/>
-        IRecordCommand IKeyFrameProperty.RemoveFrame(Frame frame)
+        IRecordCommand IKeyframeProperty.RemoveFrame(Frame frame)
         {
             return RecordCommand.Empty;
         }

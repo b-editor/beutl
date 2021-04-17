@@ -32,7 +32,7 @@ namespace BEditor.Views.TimeLines
         private readonly CompositeDisposable _disposable = new();
 
 
-        public KeyFrame(IKeyFrameProperty property)
+        public KeyFrame(IKeyframeProperty property)
         {
             IKeyframePropertyViewModel? viewmodel = new KeyFrameViewModel(property);
 
@@ -117,7 +117,7 @@ namespace BEditor.Views.TimeLines
 
         private Scene Scene => Property.GetParent3()!;
         private IKeyframePropertyViewModel ViewModel => (IKeyframePropertyViewModel)DataContext;
-        private IKeyFrameProperty Property => ViewModel.Property;
+        private IKeyframeProperty Property => ViewModel.Property;
         public double LogicHeight => Setting.ClipHeight + 1;
 
         // iconのイベントを追加

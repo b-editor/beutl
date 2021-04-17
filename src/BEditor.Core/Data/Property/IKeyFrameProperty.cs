@@ -12,7 +12,7 @@ namespace BEditor.Data.Property
     /// <summary>
     /// Represents a property that has an editing window on the timeline.
     /// </summary>
-    public interface IKeyFrameProperty : IPropertyElement
+    public interface IKeyframeProperty : IPropertyElement
     {
         /// <summary>
         /// Occurs when a keyframe is added.

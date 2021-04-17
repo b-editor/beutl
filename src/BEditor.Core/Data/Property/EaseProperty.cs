@@ -19,7 +19,7 @@ namespace BEditor.Data.Property
     /// Represents the property that eases the value of a <see cref="float"/> type.
     /// </summary>
     [DebuggerDisplay("Count = {Value.Count}, Easing = {EasingData.Name}")]
-    public class EaseProperty : PropertyElement<EasePropertyMetadata>, IKeyFrameProperty
+    public class EaseProperty : PropertyElement<EasePropertyMetadata>, IKeyframeProperty
     {
         #region Fields
         private static readonly PropertyChangedEventArgs _easingDataArgs = new(nameof(EasingData));

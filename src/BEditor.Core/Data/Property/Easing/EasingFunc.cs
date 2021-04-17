@@ -9,7 +9,7 @@ using BEditor.Media;
 namespace BEditor.Data.Property.Easing
 {
     /// <summary>
-    /// Represents an easing function that can be used with <see cref="IKeyFrameProperty"/>.
+    /// Represents an easing function that can be used with <see cref="IKeyframeProperty"/>.
     /// </summary>
     public abstract class EasingFunc : EditingObject, IChild<PropertyElement>, IParent<IEasingProperty>, IElementObject, IJsonObject
     {

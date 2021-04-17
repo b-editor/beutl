@@ -1,0 +1,32 @@
+<UserControl
+    xmlns="https://github.com/avaloniaui"
+    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+    xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+    xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+    xmlns:vm="using:BEditor.ViewModels.Timelines"
+    xmlns:model="using:BEditor.Models"
+    xmlns:prop="using:BEditor.Properties"
+    x:DataType="vm:KeyframeViewModel"
+    Height="{x:Static model:ConstantSettings.ClipHeight}"
+    Background="Transparent"
+    mc:Ignorable="d" d:DesignWidth="800" d:DesignHeight="450"
+    x:Class="BEditor.Views.Timelines.KeyframeView">
+    <Grid>
+        <Grid
+            x:Name="grid"
+            Background="Transparent"
+            PointerLeave="Grid_PointerLeave">
+            <Grid.ContextMenu>
+                <ContextMenu>
+                    <MenuItem Click="Add_Frame" Header="{x:Static prop:Strings.AddKeyframe}" />
+                </ContextMenu>
+            </Grid.ContextMenu>
+        </Grid>
+        <TextBlock
+            x:Name="text"
+            Margin="20,0,0,0"
+            HorizontalAlignment="Left"
+            VerticalAlignment="Center"
+            Text="{CompiledBinding Property.PropertyMetadata.Name, Mode=OneTime}" />
+    </Grid>
+</UserControl>
