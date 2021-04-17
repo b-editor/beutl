@@ -27,9 +27,6 @@ namespace BEditor.ViewModels.Properties
         public FolderPropertyViewModel(FolderProperty property)
         {
             Property = property;
-            Metadata = property.ObserveProperty(p => p.PropertyMetadata)
-                .ToReadOnlyReactivePropertySlim()
-                .AddTo(_disposables);
 
             PathMode = property.ObserveProperty(p => p.Mode)
                 .Select(i => (int)i)
@@ -47,7 +44,11 @@ namespace BEditor.ViewModels.Properties
                     Property.ChangeFolder(file).Execute();
                 }
             }).AddTo(_disposables);
-            Reset.Subscribe(() => Property.ChangeFolder(Property.PropertyMetadata?.Default ?? string.Empty).Execute()).AddTo(_disposables);
+
+            Reset.Where(_ => Property.Value != (Property.PropertyMetadata?.Default ?? string.Empty))
+                .Subscribe(_ => Property.ChangeFolder(Property.PropertyMetadata?.Default ?? string.Empty).Execute())
+                .AddTo(_disposables);
+
             Bind.Subscribe(async () =>
             {
                 var window = new SetBinding
@@ -57,16 +58,20 @@ namespace BEditor.ViewModels.Properties
                 await window.ShowDialog(App.GetMainWindow());
             }).AddTo(_disposables);
         }
+
         ~FolderPropertyViewModel()
         {
             Dispose();
         }
 
-        public ReadOnlyReactivePropertySlim<FolderPropertyMetadata?> Metadata { get; }
         public FolderProperty Property { get; }
+
         public ReactiveCommand Command { get; } = new();
+
         public ReactiveCommand Reset { get; } = new();
+
         public ReactiveCommand Bind { get; } = new();
+
         public ReactiveProperty<int> PathMode { get; }
 
         private static async Task<string?> OpenDialogAsync()
@@ -85,7 +90,6 @@ namespace BEditor.ViewModels.Properties
 
         public void Dispose()
         {
-            Metadata.Dispose();
             Command.Dispose();
             Reset.Dispose();
             Bind.Dispose();

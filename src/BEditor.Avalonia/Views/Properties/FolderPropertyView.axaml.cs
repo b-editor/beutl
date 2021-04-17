@@ -1,3 +1,5 @@
+using System;
+
 using Avalonia;
 using Avalonia.Controls;
 using Avalonia.Markup.Xaml;
@@ -7,7 +9,7 @@ using BEditor.ViewModels.Properties;
 
 namespace BEditor.Views.Properties
 {
-    public class FolderPropertyView : UserControl
+    public class FolderPropertyView : UserControl, IDisposable
     {
         public FolderPropertyView()
         {
@@ -18,6 +20,22 @@ namespace BEditor.Views.Properties
         {
             DataContext = new FolderPropertyViewModel(property);
             InitializeComponent();
+        }
+
+        ~FolderPropertyView()
+        {
+            Dispose();
+        }
+
+        public void Dispose()
+        {
+            if (DataContext is IDisposable disposable)
+            {
+                disposable.Dispose();
+            }
+
+            DataContext = null;
+            GC.SuppressFinalize(this);
         }
 
         private void InitializeComponent()

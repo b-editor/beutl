@@ -1,3 +1,5 @@
+using System;
+
 using Avalonia;
 using Avalonia.Controls;
 using Avalonia.Markup.Xaml;
@@ -7,7 +9,7 @@ using BEditor.ViewModels.Properties;
 
 namespace BEditor.Views.Properties
 {
-    public class SelectorPropertyView : UserControl
+    public class SelectorPropertyView : UserControl, IDisposable
     {
         public SelectorPropertyView()
         {
@@ -20,12 +22,28 @@ namespace BEditor.Views.Properties
             InitializeComponent();
         }
 
+        ~SelectorPropertyView()
+        {
+            Dispose();
+        }
+
         public void ComboBox_SelectionChanged(object s, SelectionChangedEventArgs e)
         {
             if (DataContext is ISelectorPropertyViewModel vm)
             {
                 vm.Command.Execute(((ComboBox)s).SelectedIndex);
             }
+        }
+
+        public void Dispose()
+        {
+            if (DataContext is IDisposable disposable)
+            {
+                disposable.Dispose();
+            }
+
+            DataContext = null;
+            GC.SuppressFinalize(this);
         }
 
         private void InitializeComponent()

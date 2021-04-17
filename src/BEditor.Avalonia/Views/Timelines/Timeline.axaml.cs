@@ -338,7 +338,7 @@ namespace BEditor.Views.Timelines
                         var view = clip.GetCreateClipViewSafe();
                         (view.Parent as Grid)?.Children?.Remove(view);
 
-                        clip.Clear();
+                        clip.ClearDisposable();
 
                         GC.Collect();
                         GC.WaitForPendingFinalizers();

@@ -12,6 +12,11 @@ namespace BEditor.Data
     public interface IEditingProperty
     {
         /// <summary>
+        /// Get the value of whether to delete with <see cref="EditingObject.ClearDisposable"/>.
+        /// </summary>
+        public bool IsDisposable { get; }
+
+        /// <summary>
         /// Gets the name of the property.
         /// </summary>
         public string Name { get; }
@@ -72,12 +77,17 @@ namespace BEditor.Data
         /// <param name="name">The name of the property.</param>
         /// <param name="owner">The type of the owner.</param>
         /// <param name="value">The type of the local value.</param>
-        protected EditingProperty(string name, Type owner, Type value)
+        /// <param name="isDisposable">the value of whether to delete with <see cref="EditingObject.ClearDisposable"/>.</param>
+        protected EditingProperty(string name, Type owner, Type value, bool isDisposable)
         {
             Name = name;
             OwnerType = owner;
             ValueType = value;
+            IsDisposable = isDisposable;
         }
+
+        /// <inheritdoc/>
+        public bool IsDisposable { get; }
 
         /// <inheritdoc/>
         public string Name { get; }
@@ -93,6 +103,9 @@ namespace BEditor.Data
 
         /// <inheritdoc/>
         public IEditingPropertySerializer? Serializer { get; init; }
+#nullable disable
+        internal PropertyKey Key { get; set; }
+#nullable enable
 
         /// <summary>
         /// Registers a <see cref="EditingProperty"/>.
@@ -102,24 +115,27 @@ namespace BEditor.Data
         /// <param name="name">The name of the property.</param>
         /// <param name="initializer">The <see cref="IEditingPropertyInitializer{T}"/> that initializes the local value of a property.</param>
         /// <param name="serializer">To serialize this property, specify the serializer.</param>
+        /// <param name="isDisposable">the value of whether to delete with <see cref="EditingObject.ClearDisposable"/>.</param>
         /// <returns>Returns the registered <see cref="EditingProperty{TValue}"/>.</returns>
         public static EditingProperty<TValue> Register<TValue, TOwner>(
             string name,
             IEditingPropertyInitializer<TValue>? initializer = null,
-            IEditingPropertySerializer<TValue>? serializer = null)
+            IEditingPropertySerializer<TValue>? serializer = null,
+            bool isDisposable = false)
             where TOwner : IEditingObject
         {
-            var key = new PropertyKey(name, typeof(TOwner));
+            var key = new PropertyKey(name, typeof(TOwner), isDisposable);
 
             if (PropertyFromKey.ContainsKey(key))
             {
                 throw new DataException(Strings.KeyHasAlreadyBeenRegisterd);
             }
 
-            var property = new EditingProperty<TValue>(name, typeof(TOwner))
+            var property = new EditingProperty<TValue>(name, typeof(TOwner), isDisposable)
             {
                 Initializer = initializer,
-                Serializer = serializer
+                Serializer = serializer,
+                Key = key
             };
 
             PropertyFromKey.Add(key, property);
@@ -134,24 +150,27 @@ namespace BEditor.Data
         /// <typeparam name="TOwner">The type of the owner.</typeparam>
         /// <param name="name">The name of the property.</param>
         /// <param name="initializer">The <see cref="IEditingPropertyInitializer{T}"/> that initializes the local value of a property.</param>
+        /// <param name="isDisposable">the value of whether to delete with <see cref="EditingObject.ClearDisposable"/>.</param>
         /// <returns>Returns the registered <see cref="EditingProperty{TValue}"/>.</returns>
         public static EditingProperty<TValue> RegisterSerialize<TValue, TOwner>(
             string name,
-            IEditingPropertyInitializer<TValue>? initializer = null)
+            IEditingPropertyInitializer<TValue>? initializer = null,
+            bool isDisposable = false)
             where TValue : IJsonObject
             where TOwner : IEditingObject
         {
-            var key = new PropertyKey(name, typeof(TOwner));
+            var key = new PropertyKey(name, typeof(TOwner), isDisposable);
 
             if (PropertyFromKey.ContainsKey(key))
             {
                 throw new DataException(Strings.KeyHasAlreadyBeenRegisterd);
             }
 
-            var property = new EditingProperty<TValue>(name, typeof(TOwner))
+            var property = new EditingProperty<TValue>(name, typeof(TOwner), isDisposable)
             {
                 Initializer = initializer,
-                Serializer = PropertyJsonSerializer<TValue>.Current
+                Serializer = PropertyJsonSerializer<TValue>.Current,
+                Key = key
             };
 
             PropertyFromKey.Add(key, property);
@@ -178,7 +197,7 @@ namespace BEditor.Data
             IEditingPropertySerializer<TValue>? serializer = null)
             where TOwner : IEditingObject
         {
-            var key = new PropertyKey(name, typeof(TOwner));
+            var key = new PropertyKey(name, typeof(TOwner), false);
 
             if (PropertyFromKey.ContainsKey(key))
             {
@@ -188,7 +207,8 @@ namespace BEditor.Data
             var property = new DirectEditingProperty<TOwner, TValue>(name, getter, setter)
             {
                 Initializer = initializer,
-                Serializer = serializer
+                Serializer = serializer,
+                Key = key
             };
 
             PropertyFromKey.Add(key, property);
@@ -214,7 +234,7 @@ namespace BEditor.Data
             where TValue : IJsonObject
             where TOwner : IEditingObject
         {
-            var key = new PropertyKey(name, typeof(TOwner));
+            var key = new PropertyKey(name, typeof(TOwner), false);
 
             if (PropertyFromKey.ContainsKey(key))
             {
@@ -224,7 +244,8 @@ namespace BEditor.Data
             var property = new DirectEditingProperty<TOwner, TValue>(name, getter, setter)
             {
                 Initializer = initializer,
-                Serializer = PropertyJsonSerializer<TValue>.Current
+                Serializer = PropertyJsonSerializer<TValue>.Current,
+                Key = key
             };
 
             PropertyFromKey.Add(key, property);
@@ -237,6 +258,7 @@ namespace BEditor.Data
         /// </summary>
         /// <param name="Name">The name of the property.</param>
         /// <param name="OwnerType">The owner type of the property.</param>
-        internal record PropertyKey(string Name, Type OwnerType);
+        /// <param name="IsDisposable">the value of whether to delete with <see cref="BEditor.Data.EditingObject.ClearDisposable"/>.</param>
+        internal record PropertyKey(string Name, Type OwnerType, bool IsDisposable);
     }
 }

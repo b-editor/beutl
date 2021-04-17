@@ -13,7 +13,8 @@ namespace BEditor.Data
         /// </summary>
         /// <param name="name">The name of the property.</param>
         /// <param name="owner">The type of the owner.</param>
-        public EditingProperty(string name, Type owner) : base(name, owner, typeof(TValue))
+        /// <param name="isDisposable">the value of whether to delete with <see cref="EditingObject.ClearDisposable"/>.</param>
+        public EditingProperty(string name, Type owner, bool isDisposable = false) : base(name, owner, typeof(TValue), isDisposable)
         {
         }
 

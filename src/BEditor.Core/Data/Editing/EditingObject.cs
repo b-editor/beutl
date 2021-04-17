@@ -18,7 +18,7 @@ namespace BEditor.Data
     /// </summary>
     public class EditingObject : BasePropertyChanged, IEditingObject, IJsonObject
     {
-        private Dictionary<string, object?>? _values = new();
+        private Dictionary<EditingProperty.PropertyKey, object?>? _values = new();
         private Type? _ownerType;
 
         /// <summary>
@@ -49,7 +49,7 @@ namespace BEditor.Data
         /// <inheritdoc/>
         public bool IsLoaded { get; private set; }
 
-        private Dictionary<string, object?> Values => _values ??= new();
+        private Dictionary<EditingProperty.PropertyKey, object?> Values => _values ??= new();
 
         private Type OwnerType => _ownerType ??= GetType();
 
@@ -84,16 +84,16 @@ namespace BEditor.Data
                 return value;
             }
 
-            if (!Values.ContainsKey(property.Name))
+            if (!Values.ContainsKey(property.Key))
             {
                 var value = property.Initializer is null ? default! : property.Initializer.Create();
 
-                Values.Add(property.Name, value);
+                Values.Add(property.Key, value);
 
                 return value;
             }
 
-            return (TValue)Values[property.Name]!;
+            return (TValue)Values[property.Key]!;
         }
 
         /// <inheritdoc/>
@@ -120,15 +120,15 @@ namespace BEditor.Data
                 return value;
             }
 
-            if (!Values.ContainsKey(property.Name))
+            if (!Values.ContainsKey(property.Key))
             {
                 var value = property.Initializer?.Create();
-                Values.Add(property.Name, value);
+                Values.Add(property.Key, value);
 
                 return value;
             }
 
-            return Values[property.Name];
+            return Values[property.Key];
         }
 
         /// <inheritdoc/>
@@ -151,7 +151,7 @@ namespace BEditor.Data
                 return;
             }
 
-            Values[property.Name] = value;
+            Values[property.Key] = value;
         }
 
         /// <inheritdoc/>
@@ -178,11 +178,11 @@ namespace BEditor.Data
                 return;
             }
 
-            Values[property.Name] = value;
+            Values[property.Key] = value;
         }
 
         /// <inheritdoc/>
-        public void Clear()
+        public void ClearDisposable()
         {
             static void ClearChildren(EditingObject @object)
             {
@@ -190,25 +190,22 @@ namespace BEditor.Data
                 {
                     foreach (var child in parent.Children)
                     {
-                        child.Clear();
+                        child.ClearDisposable();
                     }
                 }
 
                 if (@object is IKeyFrameProperty property)
                 {
-                    property.EasingType?.Clear();
+                    property.EasingType?.ClearDisposable();
                 }
             }
 
-            foreach (var value in Values)
+            foreach (var value in Values.Where(i => i.Key.IsDisposable).ToArray())
             {
-                if (value.Value is IDisposable disposable)
-                {
-                    disposable.Dispose();
-                }
+                (value.Value as IDisposable)?.Dispose();
+                Values.Remove(value.Key);
             }
 
-            Values.Clear();
             ClearChildren(this);
         }
 
@@ -344,9 +341,9 @@ namespace BEditor.Data
         // 追加した場合はtrue
         private bool AddIfNotExist(EditingProperty property, object? value)
         {
-            if (!Values.ContainsKey(property.Name))
+            if (!Values.ContainsKey(property.Key))
             {
-                Values.Add(property.Name, value);
+                Values.Add(property.Key, value);
 
                 return true;
             }
@@ -356,9 +353,9 @@ namespace BEditor.Data
 
         private bool AddIfNotExist<TValue>(EditingProperty property, TValue value)
         {
-            if (!Values.ContainsKey(property.Name))
+            if (!Values.ContainsKey(property.Key))
             {
-                Values.Add(property.Name, value);
+                Values.Add(property.Key, value);
 
                 return true;
             }

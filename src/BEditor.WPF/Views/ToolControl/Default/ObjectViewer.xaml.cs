@@ -118,7 +118,7 @@ namespace BEditor.Views.ToolControl.Default
 
                     scene.GetValue(ViewBuilder.TimeLineViewModelProperty)?.Dispose();
 
-                    scene.Clear();
+                    scene.ClearDisposable();
                 }
             }
             catch (IndexOutOfRangeException)

@@ -1,3 +1,5 @@
+using System;
+
 using Avalonia;
 using Avalonia.Controls;
 using Avalonia.Markup.Xaml;
@@ -7,7 +9,7 @@ using BEditor.ViewModels.Properties;
 
 namespace BEditor.Views.Properties
 {
-    public class CheckPropertyView : UserControl
+    public class CheckPropertyView : UserControl, IDisposable
     {
         public CheckPropertyView()
         {
@@ -18,6 +20,22 @@ namespace BEditor.Views.Properties
         {
             DataContext = new CheckPropertyViewModel(property);
             InitializeComponent();
+        }
+
+        ~CheckPropertyView()
+        {
+            Dispose();
+        }
+
+        public void Dispose()
+        {
+            if (DataContext is IDisposable disposable)
+            {
+                disposable.Dispose();
+            }
+
+            DataContext = null;
+            GC.SuppressFinalize(this);
         }
 
         private void InitializeComponent()

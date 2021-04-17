@@ -2,6 +2,7 @@
 using System.Collections.Generic;
 using System.Linq;
 using System.Reactive.Disposables;
+using System.Reactive.Linq;
 using System.Text;
 using System.Threading.Tasks;
 
@@ -22,23 +23,24 @@ namespace BEditor.ViewModels.Properties
         public EasePropertyViewModel(EaseProperty property)
         {
             Property = property;
-            Metadata = property.ObserveProperty(p => p.PropertyMetadata)
-                .ToReadOnlyReactivePropertySlim()
+
+            EasingChangeCommand
+                .Where(x => Property.EasingData != x)
+                .Subscribe(x => Property.ChangeEase(x).Execute())
                 .AddTo(_disposables);
-            EasingChangeCommand.Subscribe(x => Property.ChangeEase(x).Execute()).AddTo(_disposables);
         }
+
         ~EasePropertyViewModel()
         {
             Dispose();
         }
 
-        public ReadOnlyReactivePropertySlim<EasePropertyMetadata?> Metadata { get; }
         public EaseProperty Property { get; }
+
         public ReactiveCommand<EasingMetadata> EasingChangeCommand { get; } = new();
 
         public void Dispose()
         {
-            Metadata.Dispose();
             EasingChangeCommand.Dispose();
             _disposables.Dispose();
 

@@ -1,3 +1,5 @@
+using System;
+
 using Avalonia;
 using Avalonia.Controls;
 using Avalonia.Input;
@@ -12,7 +14,7 @@ using BEditor.ViewModels.Properties;
 
 namespace BEditor.Views.Properties
 {
-    public class TextPropertyView : UserControl
+    public class TextPropertyView : UserControl,IDisposable
     {
         public TextPropertyView()
         {
@@ -24,6 +26,22 @@ namespace BEditor.Views.Properties
             DataContext = new TextPropertyViewModel(property);
             InitializeComponent();
             this.FindControl<TextBox>("TextBox").AddHandler(KeyDownEvent, TextBox_KeyDown, RoutingStrategies.Tunnel);
+        }
+
+        ~TextPropertyView()
+        {
+            Dispose();
+        }
+
+        public void Dispose()
+        {
+            if (DataContext is IDisposable disposable)
+            {
+                disposable.Dispose();
+            }
+
+            DataContext = null;
+            GC.SuppressFinalize(this);
         }
 
         public void TextBox_KeyDown(object? sender, KeyEventArgs e)

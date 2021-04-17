@@ -166,16 +166,16 @@ namespace BEditor.Extensions
                 return expander;
             })
         };
-        public static readonly EditingProperty<Timeline> TimelineProperty = EditingProperty.Register<Timeline, Scene>("GetTimeline");
-        public static readonly EditingProperty<TimelineViewModel> TimelineViewModelProperty = EditingProperty.Register<TimelineViewModel, Scene>("GetTimelineViewModel");
-        public static readonly EditingProperty<ClipView> ClipViewProperty = EditingProperty.Register<ClipView, ClipElement>("GetClipView");
-        public static readonly EditingProperty<ClipPropertyView> ClipPropertyViewProperty = EditingProperty.Register<ClipPropertyView, ClipElement>("GetClipPropertyView");
-        public static readonly EditingProperty<ClipViewModel> ClipViewModelProperty = EditingProperty.Register<ClipViewModel, ClipElement>("GetClipViewModel");
-        public static readonly EditingProperty<Control> EffectElementViewProperty = EditingProperty.Register<Control, EffectElement>("GetPropertyView");
-        public static readonly EditingProperty<Control> PropertyElementViewProperty = EditingProperty.Register<Control, PropertyElement>("GetPropertyView");
-        public static readonly EditingProperty<Control> EasePropertyViewProperty = EditingProperty.Register<Control, EasingFunc>("GetPropertyView");
-        public static readonly EditingProperty<Control> KeyframeProperty = EditingProperty.Register<Control, EffectElement>("GetKeyframe");
-        public static readonly EditingProperty<Control> KeyframeViewProperty = EditingProperty.Register<Control, IKeyFrameProperty>("GetKeyframeView");
+        public static readonly EditingProperty<Timeline> TimelineProperty = EditingProperty.Register<Timeline, Scene>("GetTimeline", isDisposable: true);
+        public static readonly EditingProperty<TimelineViewModel> TimelineViewModelProperty = EditingProperty.Register<TimelineViewModel, Scene>("GetTimelineViewModel", isDisposable: true);
+        public static readonly EditingProperty<ClipView> ClipViewProperty = EditingProperty.Register<ClipView, ClipElement>("GetClipView", isDisposable: true);
+        public static readonly EditingProperty<ClipPropertyView> ClipPropertyViewProperty = EditingProperty.Register<ClipPropertyView, ClipElement>("GetClipPropertyView", isDisposable: true);
+        public static readonly EditingProperty<ClipViewModel> ClipViewModelProperty = EditingProperty.Register<ClipViewModel, ClipElement>("GetClipViewModel", isDisposable: true);
+        public static readonly EditingProperty<Control> EffectElementViewProperty = EditingProperty.Register<Control, EffectElement>("GetPropertyView", isDisposable: true);
+        public static readonly EditingProperty<Control> PropertyElementViewProperty = EditingProperty.Register<Control, PropertyElement>("GetPropertyView", isDisposable: true);
+        public static readonly EditingProperty<Control> EasePropertyViewProperty = EditingProperty.Register<Control, EasingFunc>("GetPropertyView", isDisposable: true);
+        public static readonly EditingProperty<Control> KeyframeProperty = EditingProperty.Register<Control, EffectElement>("GetKeyframe", isDisposable: true);
+        public static readonly EditingProperty<Control> KeyframeViewProperty = EditingProperty.Register<Control, IKeyFrameProperty>("GetKeyframeView", isDisposable: true);
 
         public static Timeline GetCreateTimeline(this Scene scene)
         {

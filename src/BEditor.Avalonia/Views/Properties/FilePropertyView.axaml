@@ -12,8 +12,8 @@
   x:Class="BEditor.Views.Properties.FilePropertyView">
   <UserControl.ContextMenu>
     <ContextMenu>
-      <MenuItem Header="Reset" Command="{CompiledBinding Reset, Mode=OneTime}"/>
-      <MenuItem Header="Bind" Command="{CompiledBinding Bind, Mode=OneTime}"/>
+        <MenuItem Header="{x:Static props:Strings.Reset}" Command="{CompiledBinding Reset, Mode=OneTime}"/>
+        <MenuItem Header="{x:Static props:Strings.Bind}" Command="{CompiledBinding Bind, Mode=OneTime}"/>
       <MenuItem Padding="0" HorizontalAlignment="Stretch" VerticalAlignment="Stretch">
         <MenuItem.Header>
           <ComboBox
@@ -43,7 +43,7 @@
       VerticalAlignment="Top"
       VerticalContentAlignment="Center"
       FontSize="13"
-      Content="{CompiledBinding Metadata.Value.Name, Mode=OneTime}" />
+      Content="{CompiledBinding Property.PropertyMetadata.Name, Mode=OneTime}" />
 
     <Button
       Grid.Column="2"

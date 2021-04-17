@@ -1,47 +1,48 @@
 <UserControl
-  xmlns="https://github.com/avaloniaui"
-  xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
-  xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
-  xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
-  mc:Ignorable="d" d:DesignWidth="800" d:DesignHeight="450"
-  xmlns:vm="using:BEditor.ViewModels.Properties"
-  x:DataType="vm:FontPropertyViewModel"
-  Height="40"
-  Background="Transparent"
-  x:Class="BEditor.Views.Properties.FontPropertyView">
-  <UserControl.ContextMenu>
-    <ContextMenu>
-      <MenuItem Header="Reset" Command="{CompiledBinding Reset, Mode=OneTime}"/>
-      <MenuItem Header="Bind" Command="{CompiledBinding Bind, Mode=OneTime}"/>
-    </ContextMenu>
-  </UserControl.ContextMenu>
-  <Grid>
-    <Grid.ColumnDefinitions>
-      <ColumnDefinition Width="120*" MaxWidth="100" MinWidth="50"/>
-      <ColumnDefinition Width="40"/>
-      <ColumnDefinition Width="40"/>
-      <ColumnDefinition Width="*" MinWidth="100"/>
-    </Grid.ColumnDefinitions>
+    xmlns="https://github.com/avaloniaui"
+    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+    xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+    xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+    mc:Ignorable="d" d:DesignWidth="800" d:DesignHeight="450"
+    xmlns:vm="using:BEditor.ViewModels.Properties"
+    xmlns:prop="using:BEditor.Properties"
+    x:DataType="vm:FontPropertyViewModel"
+    Height="40"
+    Background="Transparent"
+    x:Class="BEditor.Views.Properties.FontPropertyView">
+    <UserControl.ContextMenu>
+        <ContextMenu>
+            <MenuItem Header="{x:Static prop:Strings.Reset}" Command="{CompiledBinding Reset, Mode=OneTime}"/>
+            <MenuItem Header="{x:Static prop:Strings.Bind}" Command="{CompiledBinding Bind, Mode=OneTime}"/>
+        </ContextMenu>
+    </UserControl.ContextMenu>
+    <Grid>
+        <Grid.ColumnDefinitions>
+            <ColumnDefinition Width="120*" MaxWidth="100" MinWidth="50"/>
+            <ColumnDefinition Width="40"/>
+            <ColumnDefinition Width="40"/>
+            <ColumnDefinition Width="*" MinWidth="100"/>
+        </Grid.ColumnDefinitions>
 
-    <Label
-      Height="40"
-      Margin="10,0,0,0"
-      HorizontalAlignment="Left"
-      VerticalAlignment="Top"
-      VerticalContentAlignment="Center"
-      FontSize="13"
-      Content="{CompiledBinding Metadata.Value.Name, Mode=OneTime}" />
+        <Label
+            Height="40"
+            Margin="10,0,0,0"
+            HorizontalAlignment="Left"
+            VerticalAlignment="Top"
+            VerticalContentAlignment="Center"
+            FontSize="13"
+            Content="{CompiledBinding Property.PropertyMetadata.Name, Mode=OneTime}" />
 
-    <!--  Combo box  -->
-    <ComboBox
-      Classes="custom"
-      x:Name="box"
-      Grid.Column="3"
-      Margin="8,0"
-      HorizontalAlignment="Stretch"
-      VerticalAlignment="Center"
-      SelectedItem="{CompiledBinding Property.Value.Name, Mode=OneWay}"
-      Items="{Binding Fonts, Mode=OneTime}"/>
-    
-  </Grid>
+        <!--  Combo box  -->
+        <ComboBox
+            Classes="custom"
+            x:Name="box"
+            Grid.Column="3"
+            Margin="8,0"
+            HorizontalAlignment="Stretch"
+            VerticalAlignment="Center"
+            SelectedItem="{CompiledBinding Property.Value.Name, Mode=OneWay}"
+            Items="{Binding Fonts, Mode=OneTime}"/>
+
+    </Grid>
 </UserControl>

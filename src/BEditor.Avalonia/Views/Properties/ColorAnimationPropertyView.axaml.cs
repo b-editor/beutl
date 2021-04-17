@@ -22,7 +22,7 @@ using BEditor.ViewModels.Properties;
 
 namespace BEditor.Views.Properties
 {
-    public class ColorAnimationPropertyView : UserControl
+    public class ColorAnimationPropertyView : UserControl, IDisposable
     {
         private readonly ColorAnimationProperty _property;
         private readonly StackPanel _stackPanel;
@@ -65,6 +65,11 @@ namespace BEditor.Views.Properties
             _stackPanel.Children.AddRange(property.Value.Select((_, i) => CreateBorder(i)));
 
             _opencloseAnim.Children[1].Setters.Add(_heightSetter);
+        }
+
+        ~ColorAnimationPropertyView()
+        {
+            Dispose();
         }
 
         private Border CreateBorder(int index)
@@ -166,6 +171,17 @@ namespace BEditor.Views.Properties
 
                 Height = height;
             }
+        }
+
+        public void Dispose()
+        {
+            if (DataContext is IDisposable disposable)
+            {
+                disposable.Dispose();
+            }
+
+            DataContext = null;
+            GC.SuppressFinalize(this);
         }
 
         private void InitializeComponent()

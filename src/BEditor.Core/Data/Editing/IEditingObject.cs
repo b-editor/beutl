@@ -54,6 +54,6 @@ namespace BEditor.Data
         /// <summary>
         /// Removes all local values from this <see cref="EditingObject"/>.
         /// </summary>
-        public void Clear();
+        public void ClearDisposable();
     }
 }

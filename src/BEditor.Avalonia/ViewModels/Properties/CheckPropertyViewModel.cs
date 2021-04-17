@@ -2,7 +2,6 @@
 using System.Reactive.Disposables;
 using System.Reactive.Linq;
 
-using BEditor.Command;
 using BEditor.Data;
 using BEditor.Data.Property;
 using BEditor.Views.Properties;
@@ -19,12 +18,17 @@ namespace BEditor.ViewModels.Properties
         public CheckPropertyViewModel(CheckProperty property)
         {
             Property = property;
-            Metadata = property.ObserveProperty(p => p.PropertyMetadata)
-                .ToReadOnlyReactivePropertySlim()
+
+            Command
+                .Where(i => i != Property.Value)
+                .Subscribe(x => Property.ChangeIsChecked(x).Execute())
                 .AddTo(_disposables);
 
-            Command.Subscribe(x => Property.ChangeIsChecked(x).Execute()).AddTo(_disposables);
-            Reset.Subscribe(() => Property.ChangeIsChecked(Property.PropertyMetadata?.DefaultIsChecked ?? default).Execute()).AddTo(_disposables);
+            Reset
+                .Where(_ => Property.Value != (Property.PropertyMetadata?.DefaultIsChecked ?? default))
+                .Subscribe(_ => Property.ChangeIsChecked(Property.PropertyMetadata?.DefaultIsChecked ?? default).Execute())
+                .AddTo(_disposables);
+
             Bind.Subscribe(async () =>
             {
                 var window = new SetBinding
@@ -34,20 +38,22 @@ namespace BEditor.ViewModels.Properties
                 await window.ShowDialog(App.GetMainWindow());
             }).AddTo(_disposables);
         }
+
         ~CheckPropertyViewModel()
         {
             Dispose();
         }
 
-        public ReadOnlyReactivePropertySlim<CheckPropertyMetadata?> Metadata { get; }
         public CheckProperty Property { get; }
+
         public ReactiveCommand<bool> Command { get; } = new();
+
         public ReactiveCommand Reset { get; } = new();
+
         public ReactiveCommand Bind { get; } = new();
 
         public void Dispose()
         {
-            Metadata.Dispose();
             Command.Dispose();
             Reset.Dispose();
             Bind.Dispose();

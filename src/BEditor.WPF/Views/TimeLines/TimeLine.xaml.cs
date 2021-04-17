@@ -414,7 +414,7 @@ namespace BEditor.Views.TimeLines
                         var ui = clip.GetCreateClipView();
                         (ui.Parent as Grid)?.Children?.Remove(ui);
 
-                        clip.Clear();
+                        clip.ClearDisposable();
 
                         GC.Collect();
                         GC.WaitForPendingFinalizers();

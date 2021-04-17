@@ -1,5 +1,6 @@
 ﻿using System;
 using System.Reactive.Disposables;
+using System.Reactive.Linq;
 
 using BEditor.Data;
 using BEditor.Data.Property;
@@ -17,11 +18,11 @@ namespace BEditor.ViewModels.Properties
         public ValuePropertyViewModel(ValueProperty property)
         {
             Property = property;
-            Metadata = property.ObserveProperty(p => p.PropertyMetadata)
-                .ToReadOnlyReactivePropertySlim()
-                .AddTo(_disposables);
 
-            Reset.Subscribe(() => Property.ChangeValue(Property.PropertyMetadata?.DefaultValue ?? 0).Execute()).AddTo(_disposables);
+            Reset.Where(_ => Property.Value != (Property.PropertyMetadata?.DefaultValue ?? 0))
+            .Subscribe(_ => Property.ChangeValue(Property.PropertyMetadata?.DefaultValue ?? 0).Execute())
+            .AddTo(_disposables);
+
             Bind.Subscribe(async () =>
             {
                 var window = new SetBinding
@@ -42,23 +43,25 @@ namespace BEditor.ViewModels.Properties
             {
                 Minimum = property.PropertyMetadata.Min;
             }
-
         }
+
         ~ValuePropertyViewModel()
         {
             Dispose();
         }
 
-        public ReadOnlyReactivePropertySlim<ValuePropertyMetadata?> Metadata { get; }
         public ValueProperty Property { get; }
+
         public ReactiveCommand Reset { get; } = new();
+
         public ReactiveCommand Bind { get; } = new();
+
         public float Maximum { get; } = float.MaxValue;
+
         public float Minimum { get; } = float.MinValue;
 
         public void Dispose()
         {
-            Metadata.Dispose();
             Reset.Dispose();
             Bind.Dispose();
             _disposables.Dispose();

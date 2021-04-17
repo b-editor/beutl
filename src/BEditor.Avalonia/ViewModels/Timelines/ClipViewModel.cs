@@ -21,7 +21,7 @@ using Reactive.Bindings.Extensions;
 
 namespace BEditor.ViewModels.Timelines
 {
-    public class ClipViewModel
+    public class ClipViewModel : IDisposable
     {
         private Point _mouseRightPoint;
 
@@ -93,6 +93,11 @@ namespace BEditor.ViewModels.Timelines
 
                 ClipElement.Split(frame).Execute();
             });
+        }
+
+        ~ClipViewModel()
+        {
+            Dispose();
         }
 
         public Scene Scene => ClipElement.Parent;
@@ -228,6 +233,21 @@ namespace BEditor.ViewModels.Timelines
             {
                 ClipCursor.Value = StandardCursorType.Arrow;
             }
+        }
+
+        public void Dispose()
+        {
+            ClipText.Dispose();
+            ClipColor.Dispose();
+            WidthProperty.Dispose();
+            MarginProperty.Dispose();
+            ClipCursor.Dispose();
+            Cut.Dispose();
+            Remove.Dispose();
+            MessageLog.Dispose();
+            Split.Dispose();
+
+            GC.SuppressFinalize(this);
         }
     }
 }

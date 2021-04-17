@@ -2,6 +2,7 @@
 using System.Collections.Generic;
 using System.Linq;
 using System.Reactive.Disposables;
+using System.Reactive.Linq;
 using System.Text;
 using System.Threading.Tasks;
 
@@ -29,20 +30,22 @@ namespace BEditor.ViewModels.Properties
     {
         private readonly CompositeDisposable _disposables = new();
 
-        public SelectorPropertyViewModel(SelectorProperty<T> selector)
+        public SelectorPropertyViewModel(SelectorProperty<T> property)
         {
-            Property = selector;
-            Metadata = selector.ObserveProperty(p => p.PropertyMetadata)
-                .ToReadOnlyReactivePropertySlim()
-                .AddTo(_disposables);
+            Property = property;
 
-            Command.Subscribe(index =>
+            Command.Where(i => i != Property.Index)
+                .Subscribe(index =>
             {
                 var item = Property.PropertyMetadata is null ? default : Property.PropertyMetadata.ItemSource.ElementAtOrDefault(index);
 
                 Property.ChangeSelect(item).Execute();
             }).AddTo(_disposables);
-            Reset.Subscribe(() => Property.ChangeSelect(Property.PropertyMetadata!.DefaultIndex).Execute()).AddTo(_disposables);
+
+            Reset.Where(_ => Property.Index != (Property.PropertyMetadata?.DefaultIndex ?? 0))
+                .Subscribe(_ => Property.ChangeSelect(Property.PropertyMetadata!.DefaultIndex).Execute())
+                .AddTo(_disposables);
+
             Bind.Subscribe(async () =>
             {
                 var window = new SetBinding
@@ -57,8 +60,7 @@ namespace BEditor.ViewModels.Properties
             Dispose();
         }
 
-        public IEnumerable<string> DisplayStrings => Metadata.Value?.DisplayStrings ?? Array.Empty<string>();
-        public ReadOnlyReactivePropertySlim<SelectorPropertyMetadata<T>?> Metadata { get; }
+        public IEnumerable<string> DisplayStrings => Property.PropertyMetadata?.DisplayStrings ?? Array.Empty<string>();
         public SelectorProperty<T> Property { get; }
 
         public ReactiveCommand<int> Command { get; } = new();
@@ -67,7 +69,7 @@ namespace BEditor.ViewModels.Properties
 
         public void Dispose()
         {
-            Metadata.Dispose();
+            Command.Dispose();
             Reset.Dispose();
             Bind.Dispose();
             _disposables.Dispose();
@@ -82,12 +84,15 @@ namespace BEditor.ViewModels.Properties
         public SelectorPropertyViewModel(SelectorProperty selector)
         {
             Property = selector;
-            Metadata = selector.ObserveProperty(p => p.PropertyMetadata)
-                .ToReadOnlyReactivePropertySlim()
+
+            Command.Where(i => i != Property.Index)
+                .Subscribe(index => Property.ChangeSelect(index).Execute())
                 .AddTo(_disposables);
 
-            Command.Subscribe(index => Property.ChangeSelect(index).Execute()).AddTo(_disposables);
-            Reset.Subscribe(() => Property.ChangeSelect(Property.PropertyMetadata?.DefaultIndex ?? 0).Execute()).AddTo(_disposables);
+            Reset.Where(_ => Property.Index != (Property.PropertyMetadata?.DefaultIndex ?? 0))
+                .Subscribe(_ => Property.ChangeSelect(Property.PropertyMetadata?.DefaultIndex ?? 0).Execute())
+                .AddTo(_disposables);
+
             Bind.Subscribe(async () =>
             {
                 var window = new SetBinding
@@ -102,8 +107,7 @@ namespace BEditor.ViewModels.Properties
             Dispose();
         }
 
-        public IEnumerable<string> DisplayStrings => Metadata.Value?.ItemSource ?? Array.Empty<string>();
-        public ReadOnlyReactivePropertySlim<SelectorPropertyMetadata?> Metadata { get; }
+        public IEnumerable<string> DisplayStrings => Property.PropertyMetadata?.ItemSource ?? Array.Empty<string>();
         public SelectorProperty Property { get; }
         public ReactiveCommand<int> Command { get; } = new();
         public ReactiveCommand Reset { get; } = new();
@@ -111,7 +115,7 @@ namespace BEditor.ViewModels.Properties
 
         public void Dispose()
         {
-            Metadata.Dispose();
+            Command.Dispose();
             Reset.Dispose();
             Bind.Dispose();
             _disposables.Dispose();

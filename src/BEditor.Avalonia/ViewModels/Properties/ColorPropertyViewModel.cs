@@ -1,14 +1,10 @@
 ﻿using System;
-using System.Collections.ObjectModel;
-using System.ComponentModel;
 using System.Reactive.Disposables;
 using System.Reactive.Linq;
 
 using Avalonia.Media;
 
-using BEditor.Command;
 using BEditor.Data;
-using BEditor.Data.Bindings;
 using BEditor.Data.Property;
 using BEditor.Views;
 using BEditor.Views.Properties;
@@ -34,12 +30,17 @@ namespace BEditor.ViewModels.Properties
 
             Brush.Value = new SolidColorBrush(Color.FromArgb(color.A, color.R, color.G, color.B));
 
-            Metadata = property.ObserveProperty(p => p.PropertyMetadata)
-                .ToReadOnlyReactivePropertySlim()
+            Command
+                .Select(x => Drawing.Color.FromARGB(x.Item4, x.Item1, x.Item2, x.Item3))
+                .Where(x => x != Property.Value)
+                .Subscribe(x => Property.ChangeColor(x).Execute())
                 .AddTo(_disposables);
 
-            Command.Subscribe(x => Property.ChangeColor(Drawing.Color.FromARGB(x.Item4, x.Item1, x.Item2, x.Item3)).Execute()).AddTo(_disposables);
-            Reset.Subscribe(() => Property.ChangeColor(Property.PropertyMetadata?.DefaultColor ?? default).Execute()).AddTo(_disposables);
+            Reset
+                .Where(_ => Property.Value != (Property.PropertyMetadata?.DefaultColor ?? default))
+                .Subscribe(_ => Property.ChangeColor(Property.PropertyMetadata?.DefaultColor ?? default).Execute())
+                .AddTo(_disposables);
+
             Bind.Subscribe(async () =>
             {
                 var window = new SetBinding
@@ -48,8 +49,10 @@ namespace BEditor.ViewModels.Properties
                 };
                 await window.ShowDialog(App.GetMainWindow());
             }).AddTo(_disposables);
+
             OpenDialog.Subscribe(async () => await Dialog.ShowDialog(App.GetMainWindow())).AddTo(_disposables);
         }
+
         ~ColorPropertyViewModel()
         {
             Dispose();
@@ -69,18 +72,21 @@ namespace BEditor.ViewModels.Properties
                 return d;
             }
         }
-        //public static ObservableCollection<ColorList> ColorList { get; } = new();
-        public ReadOnlyReactivePropertySlim<ColorPropertyMetadata?> Metadata { get; }
+
         public ColorProperty Property { get; }
+
         public ReactiveCommand<(byte, byte, byte, byte)> Command { get; } = new();
+
         public ReactiveCommand Reset { get; } = new();
+
         public ReactiveCommand Bind { get; } = new();
+
         public ReactiveCommand OpenDialog { get; } = new();
+
         public ReactiveProperty<SolidColorBrush> Brush { get; }
 
         public void Dispose()
         {
-            Metadata.Dispose();
             Command.Dispose();
             Reset.Dispose();
             Bind.Dispose();

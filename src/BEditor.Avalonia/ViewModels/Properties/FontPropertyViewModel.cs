@@ -2,6 +2,7 @@
 using System.Collections.Generic;
 using System.Linq;
 using System.Reactive.Disposables;
+using System.Reactive.Linq;
 using System.Text;
 using System.Threading.Tasks;
 
@@ -23,12 +24,15 @@ namespace BEditor.ViewModels.Properties
         public FontPropertyViewModel(FontProperty property)
         {
             Property = property;
-            Metadata = property.ObserveProperty(p => p.PropertyMetadata)
-                .ToReadOnlyReactivePropertySlim()
+
+            Command.Where(i => Property.Value != i)
+                .Subscribe(font => Property.ChangeFont(font).Execute())
                 .AddTo(_disposables);
 
-            Command.Subscribe(font => Property.ChangeFont(font).Execute()).AddTo(_disposables);
-            Reset.Subscribe(() => Property.ChangeFont(Property.PropertyMetadata?.SelectItem ?? FontManager.Default.LoadedFonts.First()).Execute()).AddTo(_disposables);
+            Reset.Where(_ => Property.Value != (Property.PropertyMetadata?.SelectItem ?? FontManager.Default.LoadedFonts.First()))
+                .Subscribe(_ => Property.ChangeFont(Property.PropertyMetadata?.SelectItem ?? FontManager.Default.LoadedFonts.First()).Execute())
+                .AddTo(_disposables);
+
             Bind.Subscribe(async () =>
             {
                 var window = new SetBinding
@@ -38,21 +42,24 @@ namespace BEditor.ViewModels.Properties
                 await window.ShowDialog(App.GetMainWindow());
             }).AddTo(_disposables);
         }
+
         ~FontPropertyViewModel()
         {
             Dispose();
         }
 
-        public ReadOnlyReactivePropertySlim<FontPropertyMetadata?> Metadata { get; }
         public FontProperty Property { get; }
+
         public ReactiveCommand<Font> Command { get; } = new();
+
         public ReactiveCommand Reset { get; } = new();
+
         public ReactiveCommand Bind { get; } = new();
+
         public static IEnumerable<string> Fonts { get; } = FontManager.Default.LoadedFonts.Select(f => f.Name).ToArray();
 
         public void Dispose()
         {
-            Metadata.Dispose();
             Command.Dispose();
             Reset.Dispose();
             Bind.Dispose();

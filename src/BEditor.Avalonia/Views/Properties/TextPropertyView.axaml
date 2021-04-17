@@ -5,14 +5,15 @@
     xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
     mc:Ignorable="d" d:DesignWidth="800" d:DesignHeight="450"
     xmlns:vm="using:BEditor.ViewModels.Properties"
+    xmlns:prop="using:BEditor.Properties"
     x:DataType="vm:TextPropertyViewModel"
     Height="40"
     Background="Transparent"
     x:Class="BEditor.Views.Properties.TextPropertyView">
     <UserControl.ContextMenu>
         <ContextMenu>
-            <MenuItem Header="Reset" Command="{CompiledBinding Reset, Mode=OneTime}"/>
-            <MenuItem Header="Bind" Command="{CompiledBinding Bind, Mode=OneTime}"/>
+            <MenuItem Header="{x:Static prop:Strings.Reset}" Command="{CompiledBinding Reset, Mode=OneTime}"/>
+            <MenuItem Header="{x:Static prop:Strings.Bind}" Command="{CompiledBinding Bind, Mode=OneTime}"/>
         </ContextMenu>
     </UserControl.ContextMenu>
     <Grid>
@@ -30,7 +31,7 @@
             VerticalAlignment="Top"
             VerticalContentAlignment="Center"
             FontSize="13"
-            Content="{CompiledBinding Metadata.Value.Name, Mode=OneTime}" />
+            Content="{CompiledBinding Property.PropertyMetadata.Name, Mode=OneTime}" />
 
 
         <ContentControl

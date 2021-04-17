@@ -20,24 +20,21 @@ namespace BEditor.ViewModels.Properties
         public ButtonComponentViewModel(ButtonComponent button)
         {
             Property = button;
-            Metadata = button.ObserveProperty(p => p.PropertyMetadata)
-                .ToReadOnlyReactivePropertySlim()
-                .AddTo(_disposables);
 
             Command.Subscribe(Property.Execute).AddTo(_disposables);
         }
+
         ~ButtonComponentViewModel()
         {
             Dispose();
         }
 
-        public ReadOnlyReactivePropertySlim<ButtonComponentMetadata?> Metadata { get; }
         public ButtonComponent Property { get; }
+
         public ReactiveCommand Command { get; } = new();
 
         public void Dispose()
         {
-            Metadata.Dispose();
             Command.Dispose();
             _disposables.Dispose();
 

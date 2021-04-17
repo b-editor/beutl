@@ -23,7 +23,7 @@ using BEditor.ViewModels.Properties;
 
 namespace BEditor.Views.Properties
 {
-    public class EasePropertyView : UserControl
+    public class EasePropertyView : UserControl, IDisposable
     {
         private static readonly Binding _widthBind = new("$parent.Bounds.Width") { Mode = BindingMode.OneWay };
         private readonly EaseProperty _property;
@@ -68,6 +68,11 @@ namespace BEditor.Views.Properties
             _stackPanel.Children.AddRange(property.Value.Select((_, i) => CreateNumeric(i).content));
 
             _opencloseAnim.Children[1].Setters.Add(_heightSetter);
+        }
+
+        ~EasePropertyView()
+        {
+            Dispose();
         }
 
         private (NumericUpDown numeric, ContentControl content) CreateNumeric(int index)
@@ -204,6 +209,17 @@ namespace BEditor.Views.Properties
             _property.Value[index] = _property.Clamp((float)e.NewValue);
 
             AppModel.Current.Project!.PreviewUpdate(_property.GetParent2()!);
+        }
+
+        public void Dispose()
+        {
+            if (DataContext is IDisposable disposable)
+            {
+                disposable.Dispose();
+            }
+
+            DataContext = null;
+            GC.SuppressFinalize(this);
         }
 
         private void InitializeComponent()

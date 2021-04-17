@@ -362,17 +362,17 @@ namespace BEditor.Views
 
         public static List<PropertyViewBuilder> PropertyViewBuilders { get; } = new List<PropertyViewBuilder>();
         public static List<KeyFrameViewBuilder> KeyFrameViewBuilders { get; } = new List<KeyFrameViewBuilder>();
-        public static readonly EditingProperty<UIElement> PropertyViewProperty = EditingProperty.Register<UIElement, PropertyElement>("GetPropertyView");
-        public static readonly EditingProperty<UIElement> ClipPropertyViewProperty = EditingProperty.Register<UIElement, ClipElement>("GetPropertyView");
-        public static readonly EditingProperty<UIElement> EasePropertyViewProperty = EditingProperty.Register<UIElement, EasingFunc>("GetPropertyView");
-        public static readonly EditingProperty<UIElement> KeyFrameViewProperty = EditingProperty.Register<UIElement, IKeyFrameProperty>("GetKeyFrameView");
-        public static readonly EditingProperty<ClipUI> ClipViewProperty = EditingProperty.Register<ClipUI, ClipElement>("GetClipView");
-        public static readonly EditingProperty<ClipUIViewModel> ClipViewModelProperty = EditingProperty.Register<ClipUIViewModel, ClipElement>("GetClipViewModel");
-        public static readonly EditingProperty<UIElement> EffectPropertyViewProperty = EditingProperty.Register<UIElement, EffectElement>("GetControl");
-        public static readonly EditingProperty<ExpandTree> KeyFrameProperty = EditingProperty.Register<ExpandTree, EffectElement>("GetKeyFrame");
-        public static readonly EditingProperty<TimeLine> TimeLineProperty = EditingProperty.Register<TimeLine, Scene>("GetTimeLine");
-        public static readonly EditingProperty<TimeLineViewModel> TimeLineViewModelProperty = EditingProperty.Register<TimeLineViewModel, Scene>("GetTimeLineViewModel");
-        public static readonly EditingProperty<PropertyTab> PropertyTabProperty = EditingProperty.Register<PropertyTab, Scene>("GetPropertyTab");
+        public static readonly EditingProperty<UIElement> PropertyViewProperty = EditingProperty.Register<UIElement, PropertyElement>("GetPropertyView", isDisposable: true);
+        public static readonly EditingProperty<UIElement> ClipPropertyViewProperty = EditingProperty.Register<UIElement, ClipElement>("GetPropertyView", isDisposable: true);
+        public static readonly EditingProperty<UIElement> EasePropertyViewProperty = EditingProperty.Register<UIElement, EasingFunc>("GetPropertyView", isDisposable: true);
+        public static readonly EditingProperty<UIElement> KeyFrameViewProperty = EditingProperty.Register<UIElement, IKeyFrameProperty>("GetKeyFrameView", isDisposable: true);
+        public static readonly EditingProperty<ClipUI> ClipViewProperty = EditingProperty.Register<ClipUI, ClipElement>("GetClipView", isDisposable: true);
+        public static readonly EditingProperty<ClipUIViewModel> ClipViewModelProperty = EditingProperty.Register<ClipUIViewModel, ClipElement>("GetClipViewModel", isDisposable: true);
+        public static readonly EditingProperty<UIElement> EffectPropertyViewProperty = EditingProperty.Register<UIElement, EffectElement>("GetControl", isDisposable: true);
+        public static readonly EditingProperty<ExpandTree> KeyFrameProperty = EditingProperty.Register<ExpandTree, EffectElement>("GetKeyFrame", isDisposable: true);
+        public static readonly EditingProperty<TimeLine> TimeLineProperty = EditingProperty.Register<TimeLine, Scene>("GetTimeLine", isDisposable: true);
+        public static readonly EditingProperty<TimeLineViewModel> TimeLineViewModelProperty = EditingProperty.Register<TimeLineViewModel, Scene>("GetTimeLineViewModel", isDisposable: true);
+        public static readonly EditingProperty<PropertyTab> PropertyTabProperty = EditingProperty.Register<PropertyTab, Scene>("GetPropertyTab", isDisposable: true);
 
         public static UIElement GetCreatePropertyView(this PropertyElement property)
         {

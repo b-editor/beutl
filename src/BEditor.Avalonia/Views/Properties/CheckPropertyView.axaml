@@ -4,6 +4,7 @@
   xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
   xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
   xmlns:vm="using:BEditor.ViewModels.Properties"
+  xmlns:prop="using:BEditor.Properties"
   x:DataType="vm:CheckPropertyViewModel"
   Background="Transparent"
   Height="40"
@@ -11,8 +12,8 @@
   x:Class="BEditor.Views.Properties.CheckPropertyView">
   <UserControl.ContextMenu>
     <ContextMenu>
-      <MenuItem Header="Reset" Command="{CompiledBinding Reset, Mode=OneTime}"/>
-      <MenuItem Header="Bind" Command="{CompiledBinding Bind, Mode=OneTime}"/>
+      <MenuItem Header="{x:Static prop:Strings.Reset}" Command="{CompiledBinding Reset, Mode=OneTime}"/>
+      <MenuItem Header="{x:Static prop:Strings.Bind}" Command="{CompiledBinding Bind, Mode=OneTime}"/>
     </ContextMenu>
   </UserControl.ContextMenu>
   <Grid>
@@ -30,7 +31,7 @@
       VerticalAlignment="Top"
       VerticalContentAlignment="Center"
       FontSize="13"
-      Content="{CompiledBinding Metadata.Value.Name, Mode=OneTime}" />
+      Content="{CompiledBinding Property.PropertyMetadata.Name, Mode=OneTime}" />
 
     <ToggleSwitch
       Grid.Column="3"

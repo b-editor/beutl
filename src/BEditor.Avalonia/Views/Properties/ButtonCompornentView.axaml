@@ -12,6 +12,6 @@
   <Button
     HorizontalAlignment="Stretch"
     VerticalAlignment="Stretch"
-    Content="{CompiledBinding Metadata.Value.Name, Mode=OneTime}"
+    Content="{CompiledBinding Property.PropertyMetadata.Name, Mode=OneTime}"
     Command="{CompiledBinding Command, Mode=OneTime}" />
 </UserControl>

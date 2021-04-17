@@ -557,4 +557,10 @@ Please select the plugin you want to load</value>
   <data name="ComponentIsExtractedAndPlaced" xml:space="preserve">
     <value>Component is extracted and placed.</value>
   </data>
+  <data name="Bind" xml:space="preserve">
+    <value>Bind</value>
+  </data>
+  <data name="Reset" xml:space="preserve">
+    <value>Reset</value>
+  </data>
 </root>

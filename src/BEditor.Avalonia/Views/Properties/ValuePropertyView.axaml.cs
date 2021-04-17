@@ -1,3 +1,5 @@
+using System;
+
 using Avalonia;
 using Avalonia.Controls;
 using Avalonia.Input;
@@ -12,7 +14,7 @@ using BEditor.ViewModels.Properties;
 
 namespace BEditor.Views.Properties
 {
-    public class ValuePropertyView : UserControl
+    public class ValuePropertyView : UserControl,IDisposable
     {
         private readonly ValueProperty _property;
         private float _oldvalue;
@@ -29,6 +31,22 @@ namespace BEditor.Views.Properties
             _property = property;
             DataContext = new ValuePropertyViewModel(property);
             InitializeComponent();
+        }
+
+        ~ValuePropertyView()
+        {
+            Dispose();
+        }
+
+        public void Dispose()
+        {
+            if (DataContext is IDisposable disposable)
+            {
+                disposable.Dispose();
+            }
+
+            DataContext = null;
+            GC.SuppressFinalize(this);
         }
 
         public void NumericUpDown_GotFocus(object? sender, GotFocusEventArgs e)

@@ -88,7 +88,7 @@ namespace BEditor.Data
                 throw new DataException(Strings.KeyHasAlreadyBeenRegisterd);
             }
 
-            var key = new PropertyKey(Name, typeof(TNewOwner));
+            var key = new PropertyKey(Name, typeof(TNewOwner), Key.IsDisposable);
 
             initializer ??= Initializer;
             serializer ??= Serializer;

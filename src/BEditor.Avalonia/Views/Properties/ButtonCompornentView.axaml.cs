@@ -1,3 +1,5 @@
+using System;
+
 using Avalonia;
 using Avalonia.Controls;
 using Avalonia.Markup.Xaml;
@@ -7,7 +9,7 @@ using BEditor.ViewModels.Properties;
 
 namespace BEditor.Views.Properties
 {
-    public class ButtonCompornentView : UserControl
+    public class ButtonCompornentView : UserControl, IDisposable
     {
         public ButtonCompornentView()
         {
@@ -18,6 +20,22 @@ namespace BEditor.Views.Properties
         {
             DataContext = new ButtonComponentViewModel(property);
             InitializeComponent();
+        }
+
+        ~ButtonCompornentView()
+        {
+            Dispose();
+        }
+
+        public void Dispose()
+        {
+            if (DataContext is IDisposable disposable)
+            {
+                disposable.Dispose();
+            }
+
+            DataContext = null;
+            GC.SuppressFinalize(this);
         }
 
         private void InitializeComponent()

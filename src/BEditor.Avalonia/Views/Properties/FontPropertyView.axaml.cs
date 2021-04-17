@@ -1,3 +1,4 @@
+using System;
 using System.Globalization;
 using System.Threading.Tasks;
 
@@ -16,7 +17,7 @@ using BEditor.ViewModels.Properties;
 
 namespace BEditor.Views.Properties
 {
-    public class FontPropertyView : UserControl
+    public class FontPropertyView : UserControl, IDisposable
     {
         private bool _mouseDown = false;
 
@@ -40,6 +41,22 @@ namespace BEditor.Views.Properties
                     box.IsDropDownOpen = false;
                 }
             };
+        }
+
+        ~FontPropertyView()
+        {
+            Dispose();
+        }
+
+        public void Dispose()
+        {
+            if (DataContext is IDisposable disposable)
+            {
+                disposable.Dispose();
+            }
+
+            DataContext = null;
+            GC.SuppressFinalize(this);
         }
 
         private void InitializeComponent()

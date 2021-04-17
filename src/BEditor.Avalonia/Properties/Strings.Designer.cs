@@ -261,6 +261,15 @@ namespace BEditor.Properties {
         }
         
         /// <summary>
+        ///   Bind に類似しているローカライズされた文字列を検索します。
+        /// </summary>
+        public static string Bind {
+            get {
+                return ResourceManager.GetString("Bind", resourceCulture);
+            }
+        }
+        
+        /// <summary>
         ///   Cancel に類似しているローカライズされた文字列を検索します。
         /// </summary>
         public static string Cancel {
@@ -1016,6 +1025,15 @@ namespace BEditor.Properties {
         public static string Remove {
             get {
                 return ResourceManager.GetString("Remove", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Reset に類似しているローカライズされた文字列を検索します。
+        /// </summary>
+        public static string Reset {
+            get {
+                return ResourceManager.GetString("Reset", resourceCulture);
             }
         }
         

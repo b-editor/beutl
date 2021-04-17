@@ -1,3 +1,4 @@
+using System;
 using System.Diagnostics;
 
 using Avalonia;
@@ -16,7 +17,7 @@ using BEditor.ViewModels.Timelines;
 
 namespace BEditor.Views.Timelines
 {
-    public class ClipView : UserControl
+    public class ClipView : UserControl, IDisposable
     {
         public ClipView()
         {
@@ -32,6 +33,11 @@ namespace BEditor.Views.Timelines
 
             this.FindControl<Border>("border").Height = ConstantSettings.ClipHeight;
             Height = ConstantSettings.ClipHeight;
+        }
+
+        ~ClipView()
+        {
+            Dispose();
         }
 
         public ClipViewModel ViewModel => (DataContext as ClipViewModel)!;
@@ -86,6 +92,17 @@ namespace BEditor.Views.Timelines
         private void InitializeComponent()
         {
             AvaloniaXamlLoader.Load(this);
+        }
+
+        public void Dispose()
+        {
+            if (DataContext is IDisposable disposable)
+            {
+                disposable.Dispose();
+            }
+
+            DataContext = null;
+            GC.SuppressFinalize(this);
         }
     }
 }

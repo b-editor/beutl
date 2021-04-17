@@ -2,6 +2,7 @@
 using System.Collections.Generic;
 using System.Linq;
 using System.Reactive.Disposables;
+using System.Reactive.Linq;
 using System.Text;
 using System.Threading.Tasks;
 
@@ -26,11 +27,11 @@ namespace BEditor.ViewModels.Properties
         {
             Property = property;
             _oldvalue = Property.Value;
-            Metadata = property.ObserveProperty(p => p.PropertyMetadata)
-                .ToReadOnlyReactivePropertySlim()
+
+            Reset.Where(_ => Property.Value != (Property.PropertyMetadata?.DefaultText ?? string.Empty))
+                .Subscribe(_ => Property.ChangeText(Property.PropertyMetadata?.DefaultText ?? string.Empty).Execute())
                 .AddTo(_disposables);
 
-            Reset.Subscribe(() => Property.ChangeText(Property.PropertyMetadata?.DefaultText ?? string.Empty).Execute()).AddTo(_disposables);
             Bind.Subscribe(async () =>
             {
                 var window = new SetBinding
@@ -39,13 +40,17 @@ namespace BEditor.ViewModels.Properties
                 };
                 await window.ShowDialog(App.GetMainWindow());
             }).AddTo(_disposables);
+
             GotFocus.Subscribe(_ => _oldvalue = Property.Value).AddTo(_disposables);
-            LostFocus.Subscribe(text =>
+
+            LostFocus.Where(i => i != Property.Value)
+                .Subscribe(text =>
             {
                 Property.Value = _oldvalue;
 
                 Property.ChangeText(text).Execute();
             }).AddTo(_disposables);
+
             TextChanged.Subscribe(text =>
             {
                 Property.Value = text;
@@ -53,22 +58,26 @@ namespace BEditor.ViewModels.Properties
                 AppModel.Current.Project!.PreviewUpdate(Property.GetParent2()!);
             }).AddTo(_disposables);
         }
+
         ~TextPropertyViewModel()
         {
             Dispose();
         }
 
-        public ReadOnlyReactivePropertySlim<TextPropertyMetadata?> Metadata { get; }
         public TextProperty Property { get; }
+
         public ReactiveCommand Reset { get; } = new();
+
         public ReactiveCommand Bind { get; } = new();
+
         public ReactiveCommand<string> GotFocus { get; } = new();
+
         public ReactiveCommand<string> LostFocus { get; } = new();
+
         public ReactiveCommand<string> TextChanged { get; } = new();
 
         public void Dispose()
         {
-            Metadata.Dispose();
             Reset.Dispose();
             Bind.Dispose();
             GotFocus.Dispose();
