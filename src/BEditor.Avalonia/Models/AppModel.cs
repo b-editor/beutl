@@ -4,6 +4,9 @@ using System.IO;
 using System.Linq;
 using System.Net.Http;
 using System.Text.Json;
+using System.Threading;
+
+using Avalonia.Threading;
 
 using BEditor.Command;
 using BEditor.Data;
@@ -121,6 +124,7 @@ namespace BEditor.Models
         public IMessage Message { get; set; }
         public IFileDialogService FileDialog { get; set; }
         public ILoggerFactory LoggingFactory { get; }
+        public SynchronizationContext UIThread { get; set; }
 
         public async void SaveAppConfig(Project project, string directory)
         {

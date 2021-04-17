@@ -8,6 +8,7 @@ using System.Linq;
 using System.Net;
 using System.Net.Http;
 using System.Text.Json;
+using System.Threading;
 using System.Threading.Tasks;
 using System.Windows;
 using System.Windows.Threading;
@@ -57,7 +58,7 @@ namespace BEditor
             CultureInfo.CurrentCulture = new(Settings.Default.Language);
             CultureInfo.CurrentUICulture = CultureInfo.CurrentCulture;
             CreateDirectory();
-
+            AppData.Current.UIThread = SynchronizationContext.Current;
             SetDarkMode();
 
             var viewmodel = new SplashWindowViewModel();
@@ -272,7 +273,8 @@ namespace BEditor
 
                         proj.Save(Path.Combine(dir, DateTime.Now.ToString("HH:mm:ss").Replace(':', '_')) + ".backup");
 
-                        var files = Directory.GetFiles(dir).Select(i => new FileInfo(i)).OrderByDescending(i => i.LastWriteTime).ToArray();
+                        var files = Directory.GetFiles(dir).Select(i => new FileInfo(i)).ToArray();
+                        Array.Sort(files, (x, y) => y.LastWriteTime.CompareTo(x.LastWriteTime));
                         if (files.Length is > 10)
                         {
                             foreach (var file in files.Skip(10))
@@ -293,32 +295,6 @@ namespace BEditor
             };
 
             backupTimer.Start();
-
-            //Task.Run(async () =>
-            //{
-            //    while (true)
-            //    {
-            //        await Task.Delay(TimeSpan.FromMinutes(Settings.Default.BackUpInterval));
-
-            //        var proj = AppData.Current.Project;
-            //        if (proj is not null && Settings.Default.AutoBackUp)
-            //        {
-            //            var dir = Path.Combine(proj.DirectoryName, "backup");
-            //            if (!Directory.Exists(dir)) Directory.CreateDirectory(dir);
-
-            //            proj.Save(Path.Combine(dir, DateTime.Now.ToString("HH:mm:ss").Replace(':', '_')) + ".backup");
-
-            //            var files = Directory.GetFiles(dir).Select(i => new FileInfo(i)).OrderBy(i => i.LastWriteTime).ToArray();
-            //            if (files.Length is > 10)
-            //            {
-            //                foreach (var file in files.Skip(10))
-            //                {
-            //                    if (file.Exists) file.Delete();
-            //                }
-            //            }
-            //        }
-            //    }
-            //});
         }
         private static void RegisterPrimitive()
         {

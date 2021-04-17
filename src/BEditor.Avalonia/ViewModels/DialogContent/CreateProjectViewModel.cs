@@ -90,8 +90,7 @@ namespace BEditor.ViewModels.DialogContent
                 IsIndeterminate = { Value = true }
             };
             dialog.Show(App.GetMainWindow());
-
-            app.Project = project;
+            await TypeEarlyInitializer.AllInitializeAsync();
 
             await Task.Run(async () =>
             {
@@ -111,6 +110,8 @@ namespace BEditor.ViewModels.DialogContent
 
                 await settings.SaveAsync();
             });
+
+            app.Project = project;
 
             dialog.Close();
         }

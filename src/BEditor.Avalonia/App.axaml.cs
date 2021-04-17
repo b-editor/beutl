@@ -2,6 +2,7 @@ using System;
 using System.Globalization;
 using System.IO;
 using System.Linq;
+using System.Threading;
 using System.Threading.Tasks;
 
 using Avalonia;
@@ -65,6 +66,7 @@ namespace BEditor
                 RegisterPrimitive();
 
                 desktop.MainWindow = new MainWindow();
+                AppModel.Current.UIThread = SynchronizationContext.Current;
 
                 CreateDirectory();
 
@@ -113,7 +115,8 @@ namespace BEditor
 
                         proj.Save(Path.Combine(dir, DateTime.Now.ToString("HH:mm:ss").Replace(':', '_')) + ".backup");
 
-                        var files = Directory.GetFiles(dir).Select(i => new FileInfo(i)).OrderByDescending(i => i.LastWriteTime).ToArray();
+                        var files = Directory.GetFiles(dir).Select(i => new FileInfo(i)).ToArray();
+                        Array.Sort(files, (x, y) => y.LastWriteTime.CompareTo(x.LastWriteTime));
                         if (files.Length is > 10)
                         {
                             foreach (var file in files.Skip(10))

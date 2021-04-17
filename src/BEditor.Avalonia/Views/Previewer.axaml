@@ -1,75 +1,75 @@
 <UserControl
-  xmlns="https://github.com/avaloniaui"
-  xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
-  xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
-  xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
-  xmlns:ctr="using:BEditor.Controls"
-  xmlns:props="using:BEditor.Properties"
-  xmlns:convert="using:BEditor.Converters"
-  xmlns:vm="using:BEditor.ViewModels"
-  x:DataType="vm:PreviewerViewModel"
-  mc:Ignorable="d" d:DesignWidth="800" d:DesignHeight="450"
-  x:Class="BEditor.Views.Previewer">
-  <UserControl.Resources>
-    <convert:FrameToDoubleConverter x:Key="FrameToDoubleConverter"/>
-  </UserControl.Resources>
-  <Grid RowDefinitions="*,Auto">
-    <Image
-      Source="{CompiledBinding PreviewImage.Value, Mode=OneWay}"
-      IsHitTestVisible="False"
-      Margin="0"/>
+    xmlns="https://github.com/avaloniaui"
+    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+    xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+    xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+    xmlns:ctr="using:BEditor.Controls"
+    xmlns:props="using:BEditor.Properties"
+    xmlns:convert="using:BEditor.Converters"
+    xmlns:vm="using:BEditor.ViewModels"
+    x:DataType="vm:PreviewerViewModel"
+    mc:Ignorable="d" d:DesignWidth="800" d:DesignHeight="450"
+    x:Class="BEditor.Views.Previewer">
+    <UserControl.Resources>
+        <convert:FrameToDoubleConverter x:Key="FrameToDoubleConverter"/>
+    </UserControl.Resources>
+    <Grid RowDefinitions="*,Auto">
+        <Image
+            Source="{CompiledBinding PreviewImage.Value, Mode=OneWay}"
+            IsHitTestVisible="False"
+            Margin="0"/>
 
-    <Grid Grid.Row="1" IsEnabled="{CompiledBinding IsOpened.Value, Mode=OneWay}">
-      <Grid.ColumnDefinitions>
-        <ColumnDefinition/>
-        <ColumnDefinition Width="Auto"/>
-      </Grid.ColumnDefinitions>
+        <Grid Grid.Row="1" IsEnabled="{CompiledBinding IsOpened.Value, Mode=OneWay}">
+            <Grid.ColumnDefinitions>
+                <ColumnDefinition/>
+                <ColumnDefinition Width="Auto"/>
+            </Grid.ColumnDefinitions>
 
 
-      <ctr:SeekSlider
-        IsEnabled="{CompiledBinding IsOpened.Value, Mode=OneWay}"
-        Maximum="{Binding App.Project.PreviewScene.TotalFrame.Value, Mode=OneWay}"
-        Value="{Binding App.Project.PreviewScene.PreviewFrame, Mode=TwoWay, Converter={StaticResource FrameToDoubleConverter}}"
-        VerticalAlignment="Center"
-        Margin="10,0"
-        x:Name="slider"/>
-      
-      <VirtualizingStackPanel Grid.Column="1" Orientation="Horizontal">
-        <Button
-          Command="{CompiledBinding MoveToTop, Mode=OneTime}"
-          ToolTip.Tip="{x:Static props:Strings.MoveToTop}">
-          <PathIcon Data="{StaticResource Previous24Regular}" Width="16"/>
-        </Button>
-        <Button
-          Command="{CompiledBinding MoveToPrevious, Mode=OneTime}"
-          ToolTip.Tip="{x:Static props:Strings.MoveToPreviousFrame}">
-          <PathIcon Data="{StaticResource FastForward24Regular}">
-            <PathIcon.RenderTransform>
-              <TransformGroup>
-                <ScaleTransform />
-                <SkewTransform />
-                <RotateTransform Angle="180" />
-                <TranslateTransform />
-              </TransformGroup>
-            </PathIcon.RenderTransform>
-          </PathIcon>
-        </Button>
-        <Button
-          Command="{CompiledBinding PlayPause, Mode=OneTime}"
-          ToolTip.Tip="{x:Static props:Strings.PlayPause}">
-          <PathIcon Data="{StaticResource Play48Regular}"/>
-        </Button>
-        <Button
-          Command="{CompiledBinding MoveToNext, Mode=OneTime}"
-          ToolTip.Tip="{x:Static props:Strings.MoveToNextFrame}">
-          <PathIcon Data="{StaticResource FastForward24Regular}"/>
-        </Button>
-        <Button
-          Command="{CompiledBinding MoveToEnd, Mode=OneTime}"
-          ToolTip.Tip="{x:Static props:Strings.MoveToEnd}">
-          <PathIcon Data="{StaticResource Next24Regular}" Width="16"/>
-        </Button>
-      </VirtualizingStackPanel>
+            <ctr:SeekSlider
+                IsEnabled="{CompiledBinding IsOpened.Value, Mode=OneWay}"
+                Maximum="{CompiledBinding App.Project.PreviewScene.TotalFrame, Mode=OneWay, Converter={StaticResource FrameToDoubleConverter}}"
+                Value="{CompiledBinding App.Project.PreviewScene.PreviewFrame, Mode=TwoWay, Converter={StaticResource FrameToDoubleConverter}}"
+                VerticalAlignment="Center"
+                Margin="10,0"
+                x:Name="slider"/>
+
+            <StackPanel Grid.Column="1" Orientation="Horizontal">
+                <Button
+                    Command="{CompiledBinding MoveToTop, Mode=OneTime}"
+                    ToolTip.Tip="{x:Static props:Strings.MoveToTop}">
+                    <PathIcon Data="{StaticResource Previous24Regular}" Width="16"/>
+                </Button>
+                <Button
+                    Command="{CompiledBinding MoveToPrevious, Mode=OneTime}"
+                    ToolTip.Tip="{x:Static props:Strings.MoveToPreviousFrame}">
+                    <PathIcon Data="{StaticResource FastForward24Regular}">
+                        <PathIcon.RenderTransform>
+                            <TransformGroup>
+                                <ScaleTransform />
+                                <SkewTransform />
+                                <RotateTransform Angle="180" />
+                                <TranslateTransform />
+                            </TransformGroup>
+                        </PathIcon.RenderTransform>
+                    </PathIcon>
+                </Button>
+                <Button
+                    Command="{CompiledBinding PlayPause, Mode=OneTime}"
+                    ToolTip.Tip="{x:Static props:Strings.PlayPause}">
+                    <PathIcon Data="{StaticResource Play48Regular}"/>
+                </Button>
+                <Button
+                    Command="{CompiledBinding MoveToNext, Mode=OneTime}"
+                    ToolTip.Tip="{x:Static props:Strings.MoveToNextFrame}">
+                    <PathIcon Data="{StaticResource FastForward24Regular}"/>
+                </Button>
+                <Button
+                    Command="{CompiledBinding MoveToEnd, Mode=OneTime}"
+                    ToolTip.Tip="{x:Static props:Strings.MoveToEnd}">
+                    <PathIcon Data="{StaticResource Next24Regular}" Width="16"/>
+                </Button>
+            </StackPanel>
+        </Grid>
     </Grid>
-  </Grid>
 </UserControl>

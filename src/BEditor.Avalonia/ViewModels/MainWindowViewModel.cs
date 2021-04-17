@@ -199,7 +199,6 @@ namespace BEditor.ViewModels
 
                         clip.Layer = timeline.ClickedLayer;
 
-
                         if (!timeline.Scene.InRange(clip.Start, clip.End, clip.Layer))
                         {
                             mes?.Snackbar(Strings.ClipExistsInTheSpecifiedLocation);
@@ -269,13 +268,14 @@ namespace BEditor.ViewModels
             .Select(p => p is not null)
             .ToReadOnlyReactivePropertySlim();
         public PreviewerViewModel Previewer { get; }
-        public AppModel App => AppModel.Current;
+        public static AppModel App => AppModel.Current;
 
         public static async ValueTask DirectOpenAsync(string filename)
         {
             var app = AppModel.Current;
             app.Project?.Unload();
             var project = Project.FromFile(filename, app);
+            await TypeEarlyInitializer.AllInitializeAsync();
 
             if (project is null) return;
 

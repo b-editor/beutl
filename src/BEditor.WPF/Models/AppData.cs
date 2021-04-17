@@ -7,6 +7,7 @@ using System.Reactive.Disposables;
 using System.Runtime.InteropServices;
 using System.Text;
 using System.Text.Json;
+using System.Threading;
 
 using BEditor.Command;
 using BEditor.Data;
@@ -125,6 +126,7 @@ namespace BEditor.Models
         public IMessage Message { get; set; }
         public IFileDialogService FileDialog { get; set; }
         public ILoggerFactory LoggingFactory { get; }
+        public SynchronizationContext UIThread { get; set; }
 
         public async void SaveAppConfig(Project project, string directory)
         {

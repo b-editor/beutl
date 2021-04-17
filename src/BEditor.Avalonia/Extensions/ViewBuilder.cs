@@ -272,7 +272,7 @@ namespace BEditor.Extensions
         {
             if (scene[TimelineProperty] is null)
             {
-                scene.Synchronize.Send(static s =>
+                AppModel.Current.UIThread.Send(static s =>
                 {
                     var scene = (Scene)s!;
                     scene[TimelineProperty] = new Timeline(scene);
@@ -284,7 +284,7 @@ namespace BEditor.Extensions
         {
             if (scene[TimelineViewModelProperty] is null)
             {
-                scene.Synchronize.Send(static s =>
+                AppModel.Current.UIThread.Send(static s =>
                 {
                     var scene = (Scene)s!;
                     scene[TimelineViewModelProperty] = new TimelineViewModel(scene);
@@ -296,7 +296,7 @@ namespace BEditor.Extensions
         {
             if (clip[ClipViewProperty] is null)
             {
-                clip.Synchronize.Send(static c =>
+                AppModel.Current.UIThread.Send(static c =>
                 {
                     var clip = (ClipElement)c!;
                     clip[ClipViewProperty] = new ClipView(clip);
@@ -308,7 +308,7 @@ namespace BEditor.Extensions
         {
             if (clip[ClipPropertyViewProperty] is null)
             {
-                clip.Synchronize.Send(static c =>
+                AppModel.Current.UIThread.Send(static c =>
                 {
                     var clip = (ClipElement)c!;
                     clip[ClipPropertyViewProperty] = new ClipPropertyView(clip);
@@ -320,7 +320,7 @@ namespace BEditor.Extensions
         {
             if (clip[ClipViewModelProperty] is null)
             {
-                clip.Synchronize.Send(static c =>
+                AppModel.Current.UIThread.Send(static c =>
                 {
                     var clip = (ClipElement)c!;
                     clip[ClipViewModelProperty] = new ClipViewModel(clip);
@@ -332,7 +332,7 @@ namespace BEditor.Extensions
         {
             if (effect[EffectElementViewProperty] is null)
             {
-                effect.Synchronize.Send(static c =>
+                AppModel.Current.UIThread.Send(static c =>
                 {
                     var effect = (EffectElement)c!;
 
@@ -349,7 +349,7 @@ namespace BEditor.Extensions
         {
             if (effect[KeyframeProperty] is null)
             {
-                effect.Synchronize.Send(static c =>
+                AppModel.Current.UIThread.Send(static c =>
                 {
                     var effect = (EffectElement)c!;
                     var keyFrame = new Expander

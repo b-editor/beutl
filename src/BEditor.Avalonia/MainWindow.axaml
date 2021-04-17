@@ -23,6 +23,9 @@
     Icon="/Assets/Images/icon.ico"
     DataContext="{x:Static vm:MainWindowViewModel.Current}"
     x:Class="BEditor.MainWindow">
+    <Window.KeyBindings>
+        <KeyBinding Gesture="Ctrl+Z" Command="{CompiledBinding Undo, Mode=OneTime}" />
+    </Window.KeyBindings>
     <Grid RowDefinitions="Auto,Auto,*,Auto,*,Auto" ColumnDefinitions="425,Auto,*,Auto,2*">
 
         <ExperimentalAcrylicBorder Grid.ColumnSpan="5" Grid.RowSpan="6" IsHitTestVisible="False">

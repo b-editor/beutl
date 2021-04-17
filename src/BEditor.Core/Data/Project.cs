@@ -372,21 +372,22 @@ namespace BEditor.Data
 
                 if (PreviewScene.IsLoaded)
                 {
-                    Synchronize.Send(_ =>
+                    Parent.UIThread.Send(s =>
                     {
+                        var p = (Project)s!;
                         try
                         {
-                            using var img = new Image<BGRA32>(PreviewScene.Width, PreviewScene.Height);
+                            using var img = new Image<BGRA32>(p.PreviewScene.Width, p.PreviewScene.Height);
 
-                            var thumbnail = Path.Combine(DirectoryName!, "thumbnail.png");
-                            PreviewScene.Render(img, RenderType.ImageOutput);
+                            var thumbnail = Path.Combine(p.DirectoryName, "thumbnail.png");
+                            p.PreviewScene.Render(img, RenderType.ImageOutput);
 
                             img.Encode(thumbnail);
                         }
                         catch
                         {
                         }
-                    }, null);
+                    }, this);
                 }
             }
 
@@ -435,21 +436,22 @@ namespace BEditor.Data
 
                 if (PreviewScene.IsLoaded)
                 {
-                    Synchronize.Send(_ =>
+                    Parent.UIThread.Send(s =>
                     {
+                        var p = (Project)s!;
                         try
                         {
-                            using var img = new Image<BGRA32>(PreviewScene.Width, PreviewScene.Height);
+                            using var img = new Image<BGRA32>(p.PreviewScene.Width, p.PreviewScene.Height);
 
-                            var thumbnail = Path.Combine(DirectoryName!, "thumbnail.png");
-                            PreviewScene.Render(img, RenderType.ImageOutput);
+                            var thumbnail = Path.Combine(p.DirectoryName, "thumbnail.png");
+                            p.PreviewScene.Render(img, RenderType.ImageOutput);
 
                             img.Encode(thumbnail);
                         }
                         catch
                         {
                         }
-                    }, null);
+                    }, this);
                 }
             }
 

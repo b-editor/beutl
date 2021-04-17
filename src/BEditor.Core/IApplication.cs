@@ -31,6 +31,11 @@ namespace BEditor
         public ILoggerFactory LoggingFactory { get; }
 
         /// <summary>
+        /// Gets the <see cref="SynchronizationContext"/>.
+        /// </summary>
+        public SynchronizationContext UIThread { get; }
+
+        /// <summary>
         /// Restore the application configuration.
         /// </summary>
         /// <param name="project">The project to restore the config.</param>

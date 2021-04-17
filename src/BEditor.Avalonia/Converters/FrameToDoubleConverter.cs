@@ -15,16 +15,16 @@ namespace BEditor.Converters
     {
         public object? Convert(object value, Type targetType, object parameter, CultureInfo culture)
         {
-            if (value is Frame f) return f.Value;
+            if (value is Frame f) return (double)f.Value;
 
-            return null;
+            return 0.0;
         }
 
         public object? ConvertBack(object value, Type targetType, object parameter, CultureInfo culture)
         {
             if (value is double f) return new Frame((int)f);
 
-            return null;
+            return Frame.Zero;
         }
     }
 }

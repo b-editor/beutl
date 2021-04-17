@@ -26,8 +26,9 @@ namespace BEditor.Data
         /// </summary>
         protected EditingObject()
         {
+            // Todo
             // static コンストラクターを呼び出す
-            OwnerType.TypeInitializer?.Invoke(null, null);
+            //OwnerType.TypeInitializer?.Invoke(null, null);
 
             // DirectEditingPropertyかつInitializerがnullじゃない
             foreach (var prop in EditingProperty.PropertyFromKey
@@ -41,9 +42,6 @@ namespace BEditor.Data
                 }
             }
         }
-
-        /// <inheritdoc/>
-        public SynchronizationContext Synchronize { get; private set; } = AsyncOperationManager.SynchronizationContext;
 
         /// <inheritdoc/>
         public IServiceProvider? ServiceProvider { get; internal set; }
@@ -297,10 +295,9 @@ namespace BEditor.Data
         /// <inheritdoc/>
         public virtual void SetObjectData(JsonElement element)
         {
+            // Todo
             // static コンストラクターを呼び出す
-            OwnerType.TypeInitializer?.Invoke(null, null);
-
-            Synchronize = AsyncOperationManager.SynchronizationContext;
+            //OwnerType.TypeInitializer?.Invoke(null, null);
 
             foreach (var prop in EditingProperty.PropertyFromKey
                 .AsParallel()

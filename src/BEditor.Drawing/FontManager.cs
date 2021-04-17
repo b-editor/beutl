@@ -17,8 +17,9 @@ namespace BEditor.Drawing
                 .SelectMany(files => files)
                 .Where(file => Path.GetExtension(file) is ".ttf" or ".ttc" or ".otf")
                 .Select(file => new Font(file))
-                .OrderBy(f => f.FamilyName)
                 .ToArray();
+
+            Array.Sort(_loadedFonts, (x, y) => x.FamilyName.CompareTo(y.FamilyName));
         }
 
         public static FontManager Default { get; set; } = new(Settings.Default.IncludeFontDir);

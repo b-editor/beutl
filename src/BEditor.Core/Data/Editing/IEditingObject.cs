@@ -10,11 +10,6 @@ namespace BEditor.Data
     public interface IEditingObject : INotifyPropertyChanged, IElementObject
     {
         /// <summary>
-        /// Gets the synchronization context for this object.
-        /// </summary>
-        public SynchronizationContext Synchronize { get; }
-
-        /// <summary>
         /// Gets the ServiceProvider.
         /// </summary>
         public IServiceProvider? ServiceProvider { get; }

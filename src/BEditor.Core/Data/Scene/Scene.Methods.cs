@@ -92,7 +92,7 @@ namespace BEditor.Data
                 return new(Width, Height);
             }
 
-            var layer = GetFrame(frame).ToList();
+            var layer = GetFrame(frame);
 
             GraphicsContext!.Camera = new OrthographicCamera(new(0, 0, 1024), Width, Height);
             GraphicsContext!.Light = null;
@@ -102,9 +102,9 @@ namespace BEditor.Data
             var args = new ClipRenderArgs(frame, renderType);
 
             // Preview
-            foreach (var clip in layer) clip.PreviewRender(args);
+            for (var i = 0; i < layer.Length; i++) layer[i].PreviewRender(args);
 
-            foreach (var clip in layer) clip.Render(args);
+            for (var i = 0; i < layer.Length; i++) layer[i].Render(args);
 
             var img = new Image<BGRA32>(Width, Height);
             GraphicsContext.ReadImage(img);
@@ -138,7 +138,7 @@ namespace BEditor.Data
             if (image.Width != Width) throw new ArgumentException(null, nameof(image));
             if (image.Height != Height) throw new ArgumentException(null, nameof(image));
 
-            var layer = GetFrame(frame).ToList();
+            var layer = GetFrame(frame);
 
             GraphicsContext!.Camera = new OrthographicCamera(new(0, 0, 1024), Width, Height);
             GraphicsContext!.Light = null;
@@ -148,9 +148,9 @@ namespace BEditor.Data
             var args = new ClipRenderArgs(frame, renderType);
 
             // Preview
-            foreach (var clip in layer) clip.PreviewRender(args);
+            for (var i = 0; i < layer.Length; i++) layer[i].PreviewRender(args);
 
-            foreach (var clip in layer) clip.Render(args);
+            for (var i = 0; i < layer.Length; i++) layer[i].Render(args);
 
             GraphicsContext!.ReadImage(image);
         }
@@ -172,13 +172,16 @@ namespace BEditor.Data
         /// </summary>
         /// <param name="frame">Target frame number.</param>
         /// <returns>Returns a clips that contains the specified frame.</returns>
-        public IEnumerable<ClipElement> GetFrame(Frame frame)
+        public ClipElement[] GetFrame(Frame frame)
         {
-            return Datas
+            var array = Datas
                 .AsParallel()
                 .Where(item => item.Start <= frame && frame < item.End)
                 .Where(item => !HideLayer.Exists(x => x == item.Layer))
-                .OrderBy(item => item.Layer);
+                .ToArray();
+
+            Array.Sort(array, (x, y) => x.Layer - y.Layer);
+            return array;
         }
 
         /// <summary>
@@ -186,12 +189,16 @@ namespace BEditor.Data
         /// </summary>
         /// <param name="layer">Target layer number.</param>
         /// <returns>Returns a clips that contains the specified layer.</returns>
-        public IEnumerable<ClipElement> GetLayer(int layer)
+        public ClipElement[] GetLayer(int layer)
         {
-            return Datas
+            var array = Datas
                 .AsParallel()
                 .Where(item => item.Layer == layer)
-                .OrderBy(item => item.Start.Value);
+                .ToArray();
+
+            Array.Sort(array, (x, y) => x.Start - y.Start);
+
+            return array;
         }
 
         /// <summary>
@@ -317,22 +324,23 @@ namespace BEditor.Data
         /// <inheritdoc/>
         protected override void OnLoad()
         {
-            Debug.Assert(Synchronize is not null);
-            Synchronize.Send(_ =>
+            Parent.Parent.UIThread.Send(s =>
             {
-                GraphicsContext = new GraphicsContext(Width, Height);
-                AudioContext = new AudioContext();
-            }, null);
+                var scene = (Scene)s!;
+                scene.GraphicsContext = new GraphicsContext(scene.Width, scene.Height);
+                scene.AudioContext = new AudioContext();
+            }, this);
         }
 
         /// <inheritdoc/>
         protected override void OnUnload()
         {
-            Synchronize.Send(_ =>
+            Parent.Parent.UIThread.Send(s =>
             {
-                GraphicsContext?.Dispose();
-                AudioContext?.Dispose();
-            }, null);
+                var scene = (Scene)s!;
+                scene.GraphicsContext?.Dispose();
+                scene.AudioContext?.Dispose();
+            }, this);
         }
         #endregion
     }
