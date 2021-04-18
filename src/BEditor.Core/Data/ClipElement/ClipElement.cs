@@ -17,7 +17,7 @@ namespace BEditor.Data
     /// <summary>
     /// Represents a data of a clip to be placed in the timeline.
     /// </summary>
-    public partial class ClipElement : EditingObject, IParent<EffectElement>, IChild<Scene>, IHasName, IHasId
+    public partial class ClipElement : EditingObject, IParent<EffectElement>, IChild<Scene>
     {
         private static readonly PropertyChangedEventArgs _startArgs = new(nameof(Start));
         private static readonly PropertyChangedEventArgs _endArgs = new(nameof(End));
@@ -29,15 +29,13 @@ namespace BEditor.Data
         private int _layer;
         private string _labelText = string.Empty;
         private WeakReference<Scene?>? _parent;
-        private int _id;
         private ObservableCollection<EffectElement> _effect;
 
         /// <summary>
         /// Initializes a new instance of the <see cref="ClipElement"/> class.
         /// </summary>
-        public ClipElement(int id, Frame start, Frame end, int layer, Scene scene, ObjectMetadata metadata)
+        public ClipElement(Frame start, Frame end, int layer, Scene scene, ObjectMetadata metadata)
         {
-            _id = id;
             _start = start;
             _end = end;
             _layer = layer;
@@ -48,14 +46,9 @@ namespace BEditor.Data
         }
 
         /// <summary>
-        /// Gets the ID for this <see cref="ClipElement"/>.
-        /// </summary>
-        public int Id => _id;
-
-        /// <summary>
         /// Gets the name of this <see cref="ClipElement"/>.
         /// </summary>
-        public string Name => _name ??= (Effect[0].GetType().Name + Id.ToString());
+        public string Name => _name ??= Effect[0].GetType().Name;
 
         /// <summary>
         /// Gets or sets the start frame for this <see cref="ClipElement"/>.

@@ -12,7 +12,7 @@ namespace BEditor.Data.Property
     /// Represents a base class for grouping <see cref="PropertyElement"/> with expanders.
     /// </summary>
     [DebuggerDisplay("IsExpanded = {IsExpanded}")]
-    public abstract class ExpandGroup : Group, IEasingProperty, IBindable<bool>
+    public abstract class ExpandGroup : Group, IBindable<bool>
     {
         #region Fields
         private static readonly PropertyChangedEventArgs _isExpandedArgs = new(nameof(IsExpanded));
@@ -20,7 +20,7 @@ namespace BEditor.Data.Property
         private List<IObserver<bool>>? _list;
         private IDisposable? _bindDispose;
         private IBindable<bool>? _bindable;
-        private string? _targetHint;
+        private Guid? _targetID;
         #endregion
 
         /// <summary>
@@ -56,10 +56,10 @@ namespace BEditor.Data.Property
         }
 
         /// <inheritdoc/>
-        public string? TargetHint
+        public Guid? TargetID
         {
-            get => _bindable?.ToString("#");
-            private set => _targetHint = value;
+            get => _bindable?.ID;
+            private set => _targetID = value;
         }
 
         /// <inheritdoc/>
@@ -73,7 +73,12 @@ namespace BEditor.Data.Property
         public override void GetObjectData(Utf8JsonWriter writer)
         {
             writer.WriteBoolean(nameof(IsExpanded), IsExpanded);
-            writer.WriteString(nameof(TargetHint), TargetHint);
+
+            if (TargetID is not null)
+            {
+                writer.WriteString(nameof(TargetID), (Guid)TargetID);
+            }
+
             base.GetObjectData(writer);
         }
 
@@ -81,7 +86,7 @@ namespace BEditor.Data.Property
         public override void SetObjectData(JsonElement element)
         {
             IsExpanded = element.TryGetProperty(nameof(IsExpanded), out var value) && value.GetBoolean();
-            TargetHint = element.TryGetProperty(nameof(TargetHint), out var bind) ? bind.GetString() : null;
+            TargetID = element.TryGetProperty(nameof(TargetID), out var bind) && bind.TryGetGuid(out var guid) ? guid : null;
             base.SetObjectData(element);
         }
 
@@ -116,7 +121,7 @@ namespace BEditor.Data.Property
         /// <inheritdoc/>
         protected override void OnLoad()
         {
-            this.AutoLoad(ref _targetHint);
+            this.AutoLoad(ref _targetID);
         }
 
         #endregion

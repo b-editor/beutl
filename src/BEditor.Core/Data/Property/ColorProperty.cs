@@ -22,7 +22,7 @@ namespace BEditor.Data.Property
         private List<IObserver<Color>>? _list;
         private IDisposable? _bindDispose;
         private IBindable<Color>? _bindable;
-        private string? _targetHint;
+        private Guid? _targetID;
         #endregion
 
         /// <summary>
@@ -59,10 +59,10 @@ namespace BEditor.Data.Property
         }
 
         /// <inheritdoc/>
-        public string? TargetHint
+        public Guid? TargetID
         {
-            get => _bindable?.ToString("#");
-            private set => _targetHint = value;
+            get => _bindable?.ID;
+            private set => _targetID = value;
         }
 
         private List<IObserver<Color>> Collection => _list ??= new();
@@ -74,7 +74,11 @@ namespace BEditor.Data.Property
         {
             base.GetObjectData(writer);
             writer.WriteString(nameof(Value), Value.ToString("#argb"));
-            writer.WriteString(nameof(TargetHint), TargetHint);
+
+            if (TargetID is not null)
+            {
+                writer.WriteString(nameof(TargetID), (Guid)TargetID);
+            }
         }
 
         /// <inheritdoc/>
@@ -82,7 +86,7 @@ namespace BEditor.Data.Property
         {
             base.SetObjectData(element);
             Value = element.TryGetProperty(nameof(Value), out var value) ? Color.FromHTML(value.GetString()) : Color.Light;
-            TargetHint = element.TryGetProperty(nameof(TargetHint), out var bind) ? bind.GetString() : null;
+            TargetID = element.TryGetProperty(nameof(TargetID), out var bind) && bind.TryGetGuid(out var guid) ? guid : null;
         }
 
         /// <summary>
@@ -124,7 +128,7 @@ namespace BEditor.Data.Property
         /// <inheritdoc/>
         protected override void OnLoad()
         {
-            this.AutoLoad(ref _targetHint);
+            this.AutoLoad(ref _targetID);
         }
 
         #endregion

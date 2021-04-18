@@ -17,15 +17,15 @@ namespace BEditor.Data.Bindings
         /// </summary>
         /// <typeparam name="T">バインドするオブジェクト.</typeparam>
         /// <param name="bindable">バインドソースのインスタンス.</param>
-        /// <param name="hint">バインドターゲットのヒント.</param>
-        public static void AutoLoad<T>(this IBindable<T> bindable, ref string? hint)
+        /// <param name="id">バインドターゲットのID.</param>
+        public static void AutoLoad<T>(this IBindable<T> bindable, ref Guid? id)
         {
-            if (hint is not null && bindable.GetBindable(hint, out var b))
+            if (id is not null && bindable.GetBindable(id, out var b))
             {
                 bindable.Bind(b);
             }
 
-            hint = null;
+            id = null;
         }
 
         /// <summary>
