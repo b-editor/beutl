@@ -14,7 +14,7 @@ using BEditor.ViewModels.Properties;
 
 namespace BEditor.Views.Properties
 {
-    public class ValuePropertyView : UserControl,IDisposable
+    public class ValuePropertyView : UserControl, IDisposable
     {
         private readonly ValueProperty _property;
         private float _oldvalue;

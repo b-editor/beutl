@@ -78,7 +78,7 @@ namespace BEditor.Views.DialogContent
         protected override void OnInitialized()
         {
             base.OnInitialized();
-           (Width, Height) = (480, 128);
+            (Width, Height) = (480, 128);
         }
         protected override void OnOpened(EventArgs e)
         {
