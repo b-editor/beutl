@@ -13,7 +13,7 @@ namespace BEditor.Views.CustomTitlebars
     {
         public static readonly StyledProperty<bool> CanResizeProperty = AvaloniaProperty.Register<WindowsTitlebarButtons, bool>(nameof(CanResize), true, notifying: (obj, value) =>
         {
-            if(obj is WindowsTitlebarButtons titlebar)
+            if (obj is WindowsTitlebarButtons titlebar)
             {
                 titlebar._maximizeButton.IsVisible = value;
             }

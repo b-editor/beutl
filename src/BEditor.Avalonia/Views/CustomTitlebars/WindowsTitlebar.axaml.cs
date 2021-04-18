@@ -131,7 +131,7 @@ namespace BEditor.Views.CustomTitlebars
         {
             await new Infomation().ShowDialog((Window)VisualRoot);
         }
-        
+
         public async void ShowSettings(object s, RoutedEventArgs e)
         {
             await new SettingsWindow().ShowDialog((Window)VisualRoot);

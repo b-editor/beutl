@@ -14,7 +14,7 @@ using BEditor.ViewModels.Properties;
 
 namespace BEditor.Views.Properties
 {
-    public class TextPropertyView : UserControl,IDisposable
+    public class TextPropertyView : UserControl, IDisposable
     {
         public TextPropertyView()
         {
