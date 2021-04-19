@@ -6,6 +6,8 @@ using System.Reactive.Linq;
 using System.Text;
 using System.Threading.Tasks;
 
+using Avalonia;
+
 using BEditor.Command;
 using BEditor.Data;
 using BEditor.Data.Property;
@@ -41,6 +43,8 @@ namespace BEditor.ViewModels.Properties
                 };
                 await window.ShowDialog(App.GetMainWindow());
             }).AddTo(_disposables);
+
+            CopyID.Subscribe(async () => await Application.Current.Clipboard.SetTextAsync(Property.ID.ToString())).AddTo(_disposables);
         }
 
         ~FontPropertyViewModel()
@@ -56,6 +60,8 @@ namespace BEditor.ViewModels.Properties
 
         public ReactiveCommand Bind { get; } = new();
 
+        public ReactiveCommand CopyID { get; } = new();
+
         public static IEnumerable<string> Fonts { get; } = FontManager.Default.LoadedFonts.Select(f => f.Name).ToArray();
 
         public void Dispose()
@@ -63,6 +69,7 @@ namespace BEditor.ViewModels.Properties
             Command.Dispose();
             Reset.Dispose();
             Bind.Dispose();
+            CopyID.Dispose();
             _disposables.Dispose();
 
             GC.SuppressFinalize(this);

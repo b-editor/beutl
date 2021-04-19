@@ -2,6 +2,8 @@
 using System.Reactive.Disposables;
 using System.Reactive.Linq;
 
+using Avalonia;
+
 using BEditor.Data;
 using BEditor.Data.Property;
 using BEditor.Extensions;
@@ -37,6 +39,8 @@ namespace BEditor.ViewModels.Properties
                 await window.ShowDialog(App.GetMainWindow());
             }).AddTo(_disposables);
 
+            CopyID.Subscribe(async () => await Application.Current.Clipboard.SetTextAsync(Property.ID.ToString())).AddTo(_disposables);
+
             GotFocus.Subscribe(_ => _oldvalue = Property.Value).AddTo(_disposables);
 
             LostFocus
@@ -67,6 +71,8 @@ namespace BEditor.ViewModels.Properties
 
         public ReactiveCommand Bind { get; } = new();
 
+        public ReactiveCommand CopyID { get; } = new();
+
         public ReactiveCommand<string> GotFocus { get; } = new();
 
         public ReactiveCommand<string> LostFocus { get; } = new();
@@ -77,6 +83,7 @@ namespace BEditor.ViewModels.Properties
         {
             Reset.Dispose();
             Bind.Dispose();
+            CopyID.Dispose();
             GotFocus.Dispose();
             LostFocus.Dispose();
             TextChanged.Dispose();

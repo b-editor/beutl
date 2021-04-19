@@ -2,6 +2,7 @@
 using System.Reactive.Disposables;
 using System.Reactive.Linq;
 
+using Avalonia;
 using Avalonia.Media;
 
 using BEditor.Data;
@@ -51,6 +52,8 @@ namespace BEditor.ViewModels.Properties
             }).AddTo(_disposables);
 
             OpenDialog.Subscribe(async () => await Dialog.ShowDialog(App.GetMainWindow())).AddTo(_disposables);
+
+            CopyID.Subscribe(async () => await Application.Current.Clipboard.SetTextAsync(Property.ID.ToString())).AddTo(_disposables);
         }
 
         ~ColorPropertyViewModel()
@@ -81,6 +84,8 @@ namespace BEditor.ViewModels.Properties
 
         public ReactiveCommand Bind { get; } = new();
 
+        public ReactiveCommand CopyID { get; } = new();
+
         public ReactiveCommand OpenDialog { get; } = new();
 
         public ReactiveProperty<SolidColorBrush> Brush { get; }
@@ -90,6 +95,7 @@ namespace BEditor.ViewModels.Properties
             Command.Dispose();
             Reset.Dispose();
             Bind.Dispose();
+            CopyID.Dispose();
             OpenDialog.Dispose();
             Brush.Dispose();
             _disposables.Dispose();

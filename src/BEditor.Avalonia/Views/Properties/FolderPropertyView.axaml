@@ -14,6 +14,7 @@
         <ContextMenu>
             <MenuItem Header="{x:Static props:Strings.Reset}" Command="{CompiledBinding Reset, Mode=OneTime}"/>
             <MenuItem Header="{x:Static props:Strings.Bind}" Command="{CompiledBinding Bind, Mode=OneTime}"/>
+            <MenuItem Header="{x:Static props:Strings.CopyID}" Command="{CompiledBinding CopyID, Mode=OneTime}"/>
             <MenuItem Padding="0" HorizontalAlignment="Stretch" VerticalAlignment="Stretch">
                 <MenuItem.Header>
                     <ComboBox

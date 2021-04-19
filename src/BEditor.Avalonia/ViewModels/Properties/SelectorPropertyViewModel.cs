@@ -6,6 +6,8 @@ using System.Reactive.Linq;
 using System.Text;
 using System.Threading.Tasks;
 
+using Avalonia;
+
 using BEditor.Command;
 using BEditor.Data;
 using BEditor.Data.Property;
@@ -22,6 +24,7 @@ namespace BEditor.ViewModels.Properties
         public ReactiveCommand<int> Command { get; }
         public ReactiveCommand Reset { get; }
         public ReactiveCommand Bind { get; }
+        public ReactiveCommand CopyID { get; }
     }
 
     public sealed class SelectorPropertyViewModel<T>
@@ -54,24 +57,33 @@ namespace BEditor.ViewModels.Properties
                 };
                 await window.ShowDialog(App.GetMainWindow());
             });
+
+            CopyID.Subscribe(async () => await Application.Current.Clipboard.SetTextAsync(Property.ID.ToString())).AddTo(_disposables);
         }
+
         ~SelectorPropertyViewModel()
         {
             Dispose();
         }
 
         public IEnumerable<string> DisplayStrings => Property.PropertyMetadata?.DisplayStrings ?? Array.Empty<string>();
+
         public SelectorProperty<T> Property { get; }
 
         public ReactiveCommand<int> Command { get; } = new();
+
         public ReactiveCommand Reset { get; } = new();
+
         public ReactiveCommand Bind { get; } = new();
+
+        public ReactiveCommand CopyID { get; } = new();
 
         public void Dispose()
         {
             Command.Dispose();
             Reset.Dispose();
             Bind.Dispose();
+            CopyID.Dispose();
             _disposables.Dispose();
 
             GC.SuppressFinalize(this);
@@ -101,23 +113,33 @@ namespace BEditor.ViewModels.Properties
                 };
                 await window.ShowDialog(App.GetMainWindow());
             });
+
+            CopyID.Subscribe(async () => await Application.Current.Clipboard.SetTextAsync(Property.ID.ToString())).AddTo(_disposables);
         }
+
         ~SelectorPropertyViewModel()
         {
             Dispose();
         }
 
         public IEnumerable<string> DisplayStrings => Property.PropertyMetadata?.ItemSource ?? Array.Empty<string>();
+
         public SelectorProperty Property { get; }
+
         public ReactiveCommand<int> Command { get; } = new();
+
         public ReactiveCommand Reset { get; } = new();
+
         public ReactiveCommand Bind { get; } = new();
+
+        public ReactiveCommand CopyID { get; } = new();
 
         public void Dispose()
         {
             Command.Dispose();
             Reset.Dispose();
             Bind.Dispose();
+            CopyID.Dispose();
             _disposables.Dispose();
 
             GC.SuppressFinalize(this);

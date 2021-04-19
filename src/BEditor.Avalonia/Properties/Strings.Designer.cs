@@ -397,6 +397,15 @@ namespace BEditor.Properties {
         }
         
         /// <summary>
+        ///   Copy the ID に類似しているローカライズされた文字列を検索します。
+        /// </summary>
+        public static string CopyID {
+            get {
+                return ResourceManager.GetString("CopyID", resourceCulture);
+            }
+        }
+        
+        /// <summary>
         ///   Create に類似しているローカライズされた文字列を検索します。
         /// </summary>
         public static string Create {

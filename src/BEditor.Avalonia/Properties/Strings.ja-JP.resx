@@ -563,4 +563,7 @@
   <data name="Reset" xml:space="preserve">
     <value>リセット</value>
   </data>
+  <data name="CopyID" xml:space="preserve">
+    <value>IDをコピー</value>
+  </data>
 </root>
