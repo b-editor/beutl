@@ -12,17 +12,26 @@ namespace BEditor.Primitive.Effects
     /// <summary>
     /// Represents an <see cref="EffectElement"/> that sets the OpenGL depth test.
     /// </summary>
-    public class DepthTest : EffectElement
+    public sealed class DepthTest : EffectElement
     {
         /// <summary>
-        /// Represents <see cref="Enabled"/> metadata.
+        /// Defines the <see cref="Enabled"/> property.
         /// </summary>
-        public static readonly CheckPropertyMetadata EnabledMetadata = new(Strings.DepthTestEnable, true);
+        public static readonly DirectEditingProperty<DepthTest, CheckProperty> EnabledProperty = EditingProperty.RegisterSerializeDirect<CheckProperty, DepthTest>(
+            nameof(Enabled),
+            owner => owner.Enabled,
+            (owner, obj) => owner.Enabled = obj,
+            new CheckPropertyMetadata(Strings.DepthTestEnable, true));
+
         /// <summary>
-        /// Represents <see cref="Function"/> metadata.
+        /// Defines the <see cref="Function"/> property.
         /// </summary>
-        public static readonly SelectorPropertyMetadata FunctionMetadata = new(Strings.DepthFunction, new string[]
-        {
+        public static readonly DirectEditingProperty<DepthTest, SelectorProperty> FunctionProperty = EditingProperty.RegisterSerializeDirect<SelectorProperty, DepthTest>(
+            nameof(Function),
+            owner => owner.Function,
+            (owner, obj) => owner.Function = obj,
+            new SelectorPropertyMetadata(Strings.DepthFunction, new[]
+            {
                 "Never",
                 "Less",
                 "Equal",
@@ -31,19 +40,35 @@ namespace BEditor.Primitive.Effects
                 "Notequal",
                 "Gequal",
                 "Always"
-        }, 1);//初期値はless
+            }, 1));
+
         /// <summary>
-        /// Represents <see cref="Mask"/> metadata.
+        /// Defines the <see cref="Mask"/> property.
         /// </summary>
-        public static readonly CheckPropertyMetadata MaskMetadata = new("Mask", true);
+        public static readonly DirectEditingProperty<DepthTest, CheckProperty> MaskProperty = EditingProperty.RegisterSerializeDirect<CheckProperty, DepthTest>(
+            nameof(Mask),
+            owner => owner.Mask,
+            (owner, obj) => owner.Mask = obj,
+            new CheckPropertyMetadata("Mask", true));
+
         /// <summary>
-        /// Represents <see cref="Near"/> metadata.
+        /// Defines the <see cref="Near"/> property.
         /// </summary>
-        public static readonly EasePropertyMetadata NearMetadata = new("Near", 0, 100, 0);
+        public static readonly DirectEditingProperty<DepthTest, EaseProperty> NearProperty = EditingProperty.RegisterSerializeDirect<EaseProperty, DepthTest>(
+            nameof(Near),
+            owner => owner.Near,
+            (owner, obj) => owner.Near = obj,
+            new EasePropertyMetadata("Near", 0, 100, 0));
+
         /// <summary>
-        /// Represents <see cref="Far"/> metadata.
+        /// Defines the <see cref="Far"/> property.
         /// </summary>
-        public static readonly EasePropertyMetadata FarMetadata = new("Far", 100, 100, 0);
+        public static readonly DirectEditingProperty<DepthTest, EaseProperty> FarProperty = EditingProperty.RegisterSerializeDirect<EaseProperty, DepthTest>(
+            nameof(Far),
+            owner => owner.Far,
+            (owner, obj) => owner.Far = obj,
+            new EasePropertyMetadata("Far", 100, 100, 0));
+
         private static readonly ReadOnlyCollection<DepthFunction> DepthFunctions = new(new DepthFunction[]
         {
             DepthFunction.Never,
@@ -59,50 +84,51 @@ namespace BEditor.Primitive.Effects
         /// <summary>
         /// Initializes a new instance of the <see cref="DepthTest"/> class.
         /// </summary>
+#pragma warning disable CS8618
         public DepthTest()
+#pragma warning restore CS8618
         {
-            Enabled = new(EnabledMetadata);
-            Function = new(FunctionMetadata);
-            Mask = new(MaskMetadata);
-            Near = new(NearMetadata);
-            Far = new(FarMetadata);
         }
 
         /// <inheritdoc/>
         public override string Name => Strings.DepthTest;
+
         /// <inheritdoc/>
-        public override IEnumerable<PropertyElement> Properties => new PropertyElement[]
+        public override IEnumerable<PropertyElement> Properties
         {
-            Enabled,
-            Function,
-            Mask,
-            Near,
-            Far
-        };
+            get
+            {
+                yield return Enabled;
+                yield return Function;
+                yield return Mask;
+                yield return Near;
+                yield return Far;
+            }
+        }
+
         /// <summary>
-        /// Gets the <see cref="CheckProperty"/> that represents the value to enable depth testing.
+        /// Gets the value to enable depth testing.
         /// </summary>
-        [DataMember]
         public CheckProperty Enabled { get; private set; }
+
         /// <summary>
         /// Get the <see cref="SelectorProperty"/> that selects the function for the depth test.
         /// </summary>
-        [DataMember]
         public SelectorProperty Function { get; private set; }
+
         /// <summary>
-        /// Gets the <see cref="CheckProperty"/> indicating whether the depth mask is enabled.
+        /// Gets whether the depth mask is enabled.
         /// </summary>
-        [DataMember]
         public CheckProperty Mask { get; private set; }
+
         /// <summary>
-        /// Gets the <see cref="EaseProperty"/> representing the depth range.
+        /// Gets the depth range.
         /// </summary>
-        [DataMember]
         public EaseProperty Near { get; private set; }
+
         /// <summary>
-        /// Gets the <see cref="EaseProperty"/> representing the depth range.
+        /// Gets the depth range.
         /// </summary>
-        [DataMember]
         public EaseProperty Far { get; private set; }
 
         /// <inheritdoc/>
@@ -116,23 +142,6 @@ namespace BEditor.Primitive.Effects
             GL.DepthMask(Mask.Value);
 
             GL.DepthRange(Near.GetValue(args.Frame) / 100, Far.GetValue(args.Frame) / 100);
-        }
-        /// <inheritdoc/>
-        protected override void OnLoad()
-        {
-            Enabled.Load(EnabledMetadata);
-            Function.Load(FunctionMetadata);
-            Mask.Load(MaskMetadata);
-            Near.Load(NearMetadata);
-            Far.Load(FarMetadata);
-        }
-        /// <inheritdoc/>
-        protected override void OnUnload()
-        {
-            foreach (var pr in Children)
-            {
-                pr.Unload();
-            }
         }
     }
 }

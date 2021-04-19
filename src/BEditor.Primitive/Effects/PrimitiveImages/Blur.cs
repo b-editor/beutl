@@ -15,29 +15,38 @@ namespace BEditor.Primitive.Effects
     public sealed class Blur : ImageEffect
     {
         /// <summary>
-        /// Represents <see cref="Size"/> metadata.
+        /// Defines the <see cref="Size"/> property.
         /// </summary>
-        public static readonly EasePropertyMetadata SizeMetadata = new(Strings.Size, 25, float.NaN, 0);
+        public static readonly DirectEditingProperty<Blur, EaseProperty> TopProperty = EditingProperty.RegisterSerializeDirect<EaseProperty, Blur>(
+            nameof(Size),
+            owner => owner.Size,
+            (owner, obj) => owner.Size = obj,
+            new EasePropertyMetadata(Strings.Size, 25, float.NaN, 0));
 
         /// <summary>
         /// Initializes a new instance of the <see cref="Blur"/> class.
         /// </summary>
+#pragma warning disable CS8618
         public Blur()
+#pragma warning restore CS8618
         {
-            Size = new(SizeMetadata);
         }
 
         /// <inheritdoc/>
         public override string Name => Strings.Blur;
+
         /// <inheritdoc/>
-        public override IEnumerable<PropertyElement> Properties => new PropertyElement[]
+        public override IEnumerable<PropertyElement> Properties
         {
-            Size
-        };
+            get
+            {
+                yield return Size;
+            }
+        }
+
         /// <summary>
         /// Gets the <see cref="EaseProperty"/> that represents the blur sigma.
         /// </summary>
-        [DataMember]
         public EaseProperty Size { get; private set; }
 
         /// <inheritdoc/>
@@ -47,16 +56,6 @@ namespace BEditor.Primitive.Effects
             if (size is 0) return;
 
             args.Value.Blur(size);
-        }
-        /// <inheritdoc/>
-        protected override void OnLoad()
-        {
-            Size.Load(SizeMetadata);
-        }
-        /// <inheritdoc/>
-        protected override void OnUnload()
-        {
-            Size.Unload();
         }
     }
 }
