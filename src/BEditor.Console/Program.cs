@@ -363,7 +363,7 @@ namespace BEditor
         private static Scene FindScene(CommandOption sc, Project project)
         {
             return !sc.HasValue() ? project.PreviewScene
-                : int.TryParse(sc.Value(), out var index) ? project.SceneList[index] : project.SceneList.FirstOrDefault(s => s.Name == sc.Value()) ?? project.PreviewScene;
+                : int.TryParse(sc.Value(), out var index) ? project.SceneList[index] : project.SceneList.FirstOrDefault(s => s.SceneName == sc.Value()) ?? project.PreviewScene;
         }
         private static string? FindProjectFile()
         {

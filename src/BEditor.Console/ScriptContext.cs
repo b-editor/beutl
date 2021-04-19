@@ -112,48 +112,6 @@ namespace BEditor
                     break;
             }
         }
-        public void Prop(string path)
-        {
-            // [Effect][Property]の場合
-            var regex1 = new Regex(@"^\[([\d]+)\]\[([\d]+)\]\z");
-            // [Effect][Group][Property]の場合
-            var regex2 = new Regex(@"^\[([\d]+)\]\[([\d]+)\]\[([\d]+)\]\z");
-            PropertyElement? prop = null;
-
-            if (regex1.IsMatch(path))
-            {
-                var match = regex1.Match(path);
-
-                var effect = int.TryParse(match.Groups[1].Value, out var id) ? Clip?.Find(id) : null;
-                prop = int.TryParse(match.Groups[2].Value, out var id1) ? effect?.Find(id1) : null;
-            }
-            else if (regex2.IsMatch(path))
-            {
-                var match = regex2.Match(path);
-
-                var effect = int.TryParse(match.Groups[1].Value, out var id) ? Clip?.Find(id) : null;
-                var parent = int.TryParse(match.Groups[2].Value, out var id1) ? effect?.Find(id1) as IParent<PropertyElement> : null;
-                prop = int.TryParse(match.Groups[3].Value, out var id2) ? parent?.Find(id2) : null;
-            }
-
-            // Convert to json.
-            if (prop is not null)
-            {
-                using var memory = new MemoryStream();
-                if (!Serialize.SaveToStream(prop, memory, SerializeMode.Json))
-                {
-                    Console.WriteLine(Strings.FailedToConvertPropertiesToJson);
-
-                    return;
-                }
-
-                Console.WriteLine(Encoding.UTF8.GetString(memory.ToArray()));
-            }
-            else
-            {
-                Console.WriteLine(Strings.PropertyNotFound);
-            }
-        }
         public void Add(Range range, int layer, string metadata, bool setcurrent = false)
         {
             var start = range.Start.Value;

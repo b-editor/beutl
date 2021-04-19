@@ -74,7 +74,7 @@ namespace BEditor.ViewModels.Properties
         public ReactiveCommand Reset { get; } = new();
 
         public ReactiveCommand Bind { get; } = new();
-        
+
         public ReactiveCommand CopyID { get; } = new();
 
         public ReactiveProperty<int> PathMode { get; }

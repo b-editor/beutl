@@ -46,16 +46,13 @@ namespace BEditor.Views.ToolControl.Default
 
         private void GetPath_Click(object sender, RoutedEventArgs e)
         {
-            var bindableType = typeof(IBindable<>);
-            if (TreeView.SelectedItem is IPropertyElement prop)
+            if (TreeView.SelectedItem is IEditingObject obj)
             {
-
-                var path = prop.ToString("#");
-                Clipboard.SetText(path);
+                Clipboard.SetText(obj.ID.ToString());
             }
             else
             {
-                Message.Snackbar(string.Format(Strings.ErrorObjectViewer2, nameof(PropertyElement)));
+                Message.Snackbar(string.Format(Strings.ErrorObjectViewer2, nameof(IEditingObject)));
             }
         }
         private void TreeView_PreviewMouseWheel(object sender, MouseWheelEventArgs e)

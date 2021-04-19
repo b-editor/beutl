@@ -179,7 +179,7 @@ namespace BEditor.Models
 
                         timeline.Scene.AddClip(start, layer, PrimitiveTypes.ImageMetadata, out var c).Execute();
                         var ef = (ImageFile)c.Effect[0];
-                        var filename = Path.Combine(c.Parent.Parent.DirectoryName, c.ToString("#") + ".png");
+                        var filename = Path.Combine(c.Parent.Parent.DirectoryName, c.Name + c.ID.ToString() + ".png");
 
                         using var img = bmpSrc.ToImage();
                         img.Encode(filename);

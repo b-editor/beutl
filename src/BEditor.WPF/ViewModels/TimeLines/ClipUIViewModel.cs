@@ -249,7 +249,7 @@ namespace BEditor.ViewModels.TimeLines
         private async void ClipDataLog()
         {
             string text =
-                $"ID : {ClipElement.Id}\n" +
+                $"ID : {ClipElement.ID}\n" +
                 $"Name : {ClipElement.Name}\n" +
                 $"Length : {ClipElement.Length.Value}\n" +
                 $"Layer : {ClipElement.Layer}\n" +
