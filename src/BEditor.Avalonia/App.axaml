@@ -17,7 +17,6 @@
         <convert:StringToGeometoryConverter x:Key="StringToGeometoryConverter" />
         <convert:EnumerableTakeConverter x:Key="EnumerableTakeConverter" />
         <convert:EffectToKeyframeConverter x:Key="EffectToKeyframeConverter" />
-        <convert:GuidConverter x:Key="GuidConverter" />
     </Application.Resources>
     <Application.Styles>
         <StyleInclude Source="avares://beditor/Controls/SeekSlider.axaml" />

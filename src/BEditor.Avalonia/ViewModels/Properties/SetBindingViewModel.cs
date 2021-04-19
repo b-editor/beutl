@@ -24,9 +24,9 @@ namespace BEditor.ViewModels.Properties
             Bindable = bindable;
             TargetID = bindable.ObserveProperty(b => b.TargetID).ToReadOnlyReactivePropertySlim().AddTo(_disposables);
 
-            OKCommand.Subscribe(() =>
+            OKCommand.Subscribe(str =>
             {
-                if (Bindable.GetBindable(TargetID.Value, out var ret))
+                if (Guid.TryParse(str, out var id) && Bindable.GetBindable(id, out var ret))
                 {
                     bindable.Bind<T>(ret).Execute();
                 }
@@ -41,7 +41,7 @@ namespace BEditor.ViewModels.Properties
 
         public IBindable<T> Bindable { get; private set; }
         public ReadOnlyReactivePropertySlim<Guid?> TargetID { get; }
-        public ReactiveCommand OKCommand { get; } = new();
+        public ReactiveCommand<string> OKCommand { get; } = new();
         public ReactiveCommand DisconnectCommand { get; } = new();
 
         public void Dispose()
