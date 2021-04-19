@@ -9,6 +9,7 @@ using System.Threading.Tasks;
 using BEditor.Command;
 using BEditor.Data;
 using BEditor.Data.Property;
+using BEditor.Drawing.PixelOperation;
 using BEditor.Resources;
 
 namespace BEditor.Data.Bindings
@@ -18,10 +19,22 @@ namespace BEditor.Data.Bindings
     /// </summary>
     public static class Bindings
     {
-        // Todo
+        /// <summary>
+        /// Get <see cref="IBindable{T}"/> from <see cref="IEditingObject.ID"/>.
+        /// </summary>
+        /// <typeparam name="T">Type of object to bind.</typeparam>
+        /// <returns>Returns a <see cref="bool"/> indicating whether it was retrieved or not, <see langword="true"/> on success, <see langword="false"/> on failure.</returns>
         public static bool GetBindable<T>(this IBindable<T> bindable, Guid? id, out IBindable<T>? result)
         {
+            if (id is null)
+            {
+                result = null;
+                return false;
+            }
 
+            result = bindable.GetParent<Project>()?.FindAllChildren<IBindable<T>>((Guid)id);
+
+            return result is not null;
         }
 
         /// <summary>

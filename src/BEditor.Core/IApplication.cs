@@ -13,7 +13,7 @@ namespace BEditor
     /// <summary>
     /// Represents an application.
     /// </summary>
-    public interface IApplication
+    public interface IApplication : IParentSingle<Project?>
     {
         /// <summary>
         /// Gets or sets the status of an application.

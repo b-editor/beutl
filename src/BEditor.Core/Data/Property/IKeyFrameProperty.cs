@@ -12,8 +12,10 @@ namespace BEditor.Data.Property
     /// <summary>
     /// Represents a property that has an editing window on the timeline.
     /// </summary>
-    public interface IKeyframeProperty : IPropertyElement
+    public interface IKeyframeProperty : IPropertyElement, IParentSingle<EasingFunc?>
     {
+        EasingFunc? IParentSingle<EasingFunc?>.Child => EasingType;
+
         /// <summary>
         /// Occurs when a keyframe is added.
         /// <para>arg1: The added frame, arg2: The Index of the values.</para>
@@ -33,12 +35,12 @@ namespace BEditor.Data.Property
         public event Action<int, int>? Moved;
 
         /// <summary>
-        /// Get or set the current <see cref="EasingFunc"/>.
+        /// Gets the current <see cref="EasingFunc"/>.
         /// </summary>
         public EasingFunc? EasingType { get; }
 
         /// <summary>
-        /// Get the <see cref="List{Frame}"/> of the frame number corresponding to value.
+        /// Gets the <see cref="List{Frame}"/> of the frame number corresponding to value.
         /// </summary>
         public List<Frame> Frames { get; }
 

@@ -208,7 +208,7 @@ namespace BEditor.Views.Properties
 
             _property.Value[index] = _property.Clamp((float)e.NewValue);
 
-            AppModel.Current.Project!.PreviewUpdate(_property.GetParent2()!);
+            (AppModel.Current.Project!).PreviewUpdate(_property.GetParent<ClipElement>()!);
         }
 
         public void Dispose()

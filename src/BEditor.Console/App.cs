@@ -16,6 +16,7 @@ namespace BEditor
         public ILoggerFactory LoggingFactory { get; } = new LoggerFactory();
 #nullable disable
         public SynchronizationContext UIThread { get; set; }
+        public Project Child { get; }
 #nullable enable
 
         public void RestoreAppConfig(Project project, string directory)

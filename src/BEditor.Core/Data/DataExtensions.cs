@@ -66,7 +66,7 @@ namespace BEditor.Data
         /// <typeparam name="T">Type of the parent element to retrieve.</typeparam>
         /// <param name="self">The child element of the parent element to retrieve.</param>
         [Pure]
-        public static T? GetParent2<T>(this IChild<IChild<T>> self) => self.Parent!.Parent;
+        public static T? GetParent<T>(this IChild<IChild<T>> self) => self.Parent!.Parent;
 
         /// <summary>
         /// Get the parent element two steps ahead.
@@ -74,7 +74,7 @@ namespace BEditor.Data
         /// <typeparam name="T">Type of the parent element to retrieve.</typeparam>
         /// <param name="self">The child element of the parent element to retrieve.</param>
         [Pure]
-        public static T? GetParent3<T>(this IChild<IChild<IChild<T>>> self) => self.Parent!.Parent!.Parent;
+        public static T? GetParent<T>(this IChild<IChild<IChild<T>>> self) => self.Parent!.Parent!.Parent;
 
         /// <summary>
         /// Get the parent element three levels ahead.
@@ -82,7 +82,7 @@ namespace BEditor.Data
         /// <typeparam name="T">Type of the parent element to retrieve.</typeparam>
         /// <param name="self">The child element of the parent element to retrieve.</param>
         [Pure]
-        public static T? GetParent4<T>(this IChild<IChild<IChild<IChild<T>>>> self) => self.Parent!.Parent!.Parent!.Parent;
+        public static T? GetParent<T>(this IChild<IChild<IChild<IChild<T>>>> self) => self.Parent!.Parent!.Parent!.Parent;
 
         /// <summary>
         /// Get the parent element four levels ahead.
@@ -90,7 +90,7 @@ namespace BEditor.Data
         /// <typeparam name="T">Type of the parent element to retrieve.</typeparam>
         /// <param name="self">The child element of the parent element to retrieve.</param>
         [Pure]
-        public static T? GetParent5<T>(this IChild<IChild<IChild<IChild<IChild<T>>>>> self) => self.Parent!.Parent!.Parent!.Parent!.Parent;
+        public static T? GetParent<T>(this IChild<IChild<IChild<IChild<IChild<T>>>>> self) => self.Parent!.Parent!.Parent!.Parent!.Parent;
 
         /// <summary>
         /// Searches for child elements by id.
@@ -112,6 +112,51 @@ namespace BEditor.Data
             }
 
             return default;
+        }
+
+        /// <summary>
+        /// Searches for child elements by id.
+        /// </summary>
+        /// <typeparam name="T">Type of the child element.</typeparam>
+        /// <param name="self">The parent element containing the child elements to be searched.</param>
+        /// <param name="id">The value of <see cref="IEditingObject.ID"/> to search for.</param>
+        /// <returns>The element if found, otherwise the default value of type <typeparamref name="T"/>.</returns>
+        [Pure]
+        public static T? FindAllChildren<T>(this IParent<object> self, Guid id)
+            where T : IEditingObject
+        {
+            foreach (var item in self.GetAllChildren<T>())
+            {
+                if (item.ID == id)
+                {
+                    return item;
+                }
+            }
+
+            return default;
+        }
+
+        /// <summary>
+        ///
+        /// </summary>
+        /// <typeparam name="TResult"></typeparam>
+        /// <param name="self"></param>
+        /// <returns></returns>
+        [Pure]
+        public static IEnumerable<TResult> GetAllChildren<TResult>(this IParent<object> self)
+        {
+            foreach (var item in self.Children)
+            {
+                if (item is IParent<object> innerParent)
+                {
+                    foreach (var innerItem in GetAllChildren<TResult>(innerParent))
+                    {
+                        yield return innerItem;
+                    }
+                }
+
+                if (item is TResult t) yield return t;
+            }
         }
     }
 }

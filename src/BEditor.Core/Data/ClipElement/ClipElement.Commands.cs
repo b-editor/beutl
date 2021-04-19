@@ -37,11 +37,8 @@ namespace BEditor.Data
                 if (layer < 0) throw new ArgumentOutOfRangeException(nameof(layer));
                 if (metadata is null) throw new ArgumentNullException(nameof(metadata));
 
-                // 新しいidを取得
-                var idmax = scene.NewId;
-
                 // オブジェクトの情報
-                Clip = new ClipElement(idmax, startFrame, startFrame + 180, layer, scene, metadata);
+                Clip = new ClipElement(startFrame, startFrame + 180, layer, scene, metadata);
             }
 
             /// <summary>
@@ -318,9 +315,9 @@ namespace BEditor.Data
                 Before.Load();
 
                 new RemoveCommand(_source).Do();
-                After._id = _scene.NewId;
+                After.SetID(Guid.NewGuid());
                 _scene.Add(After);
-                Before._id = _scene.NewId;
+                Before.SetID(Guid.NewGuid());
                 _scene.Add(Before);
             }
 

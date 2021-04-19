@@ -120,7 +120,7 @@ namespace BEditor.Views.Timelines
                 viewmodel.AddKeyFrameIcon(Property.Frames[index], index);
             }
 
-            var tmp = Scene.ToPixel(Property.GetParent2()!.Length);
+            var tmp = Scene.ToPixel(Property.GetParent<ClipElement>()!.Length);
             if (tmp > 0)
             {
                 Width = tmp;
@@ -149,7 +149,7 @@ namespace BEditor.Views.Timelines
             }
         }
 
-        private Scene Scene => Property.GetParent3()!;
+        private Scene Scene => Property.GetParent<Scene>()!;
         private IKeyframePropertyViewModel ViewModel => (IKeyframePropertyViewModel)DataContext!;
         private IKeyframeProperty Property => ViewModel.Property;
 
@@ -182,7 +182,7 @@ namespace BEditor.Views.Timelines
                 }
             }
 
-            Width = Scene.ToPixel(Property.GetParent2()!.Length);
+            Width = Scene.ToPixel(Property.GetParent<ClipElement>()!.Length);
         }
 
         // キーフレームを追加

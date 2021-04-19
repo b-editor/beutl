@@ -19,15 +19,14 @@ namespace BEditor.ViewModels.Properties
     {
         private readonly CompositeDisposable _disposables = new();
 
-
         public SetBindingViewModel(IBindable<T> bindable)
         {
             Bindable = bindable;
-            BindPath = bindable.ObserveProperty(b => b.TargetHint).ToReadOnlyReactivePropertySlim().AddTo(_disposables);
+            TargetID = bindable.ObserveProperty(b => b.TargetID).ToReadOnlyReactivePropertySlim().AddTo(_disposables);
 
             OKCommand.Subscribe(() =>
             {
-                if (Bindable.GetBindable(BindPath.Value, out var ret))
+                if (Bindable.GetBindable(TargetID.Value, out var ret))
                 {
                     bindable.Bind<T>(ret).Execute();
                 }
@@ -40,15 +39,14 @@ namespace BEditor.ViewModels.Properties
             Dispose();
         }
 
-
         public IBindable<T> Bindable { get; private set; }
-        public ReadOnlyReactivePropertySlim<string?> BindPath { get; }
+        public ReadOnlyReactivePropertySlim<Guid?> TargetID { get; }
         public ReactiveCommand OKCommand { get; } = new();
         public ReactiveCommand DisconnectCommand { get; } = new();
 
         public void Dispose()
         {
-            BindPath.Dispose();
+            TargetID.Dispose();
             OKCommand.Dispose();
             DisconnectCommand.Dispose();
             _disposables.Dispose();

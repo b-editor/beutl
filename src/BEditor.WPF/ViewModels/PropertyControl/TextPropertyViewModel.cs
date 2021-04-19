@@ -47,7 +47,7 @@ namespace BEditor.ViewModels.PropertyControl
             {
                 Property.Value = text;
 
-                AppData.Current.Project!.PreviewUpdate(Property.GetParent2()!);
+                (AppData.Current.Project!).PreviewUpdate(Property.GetParent<ClipElement>()!);
             }).AddTo(disposables);
         }
         ~TextPropertyViewModel()
