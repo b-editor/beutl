@@ -13,18 +13,33 @@ namespace BEditor.Primitive.Effects
 #pragma warning disable CS1591
     public class PointLightDiffuse : ImageEffect
     {
-        public static readonly EasePropertyMetadata XMetadata = Coordinate.XMetadata;
-        public static readonly EasePropertyMetadata YMetadata = Coordinate.YMetadata;
-        public static readonly EasePropertyMetadata ZMetadata = Coordinate.ZMetadata;
+        /// <summary>
+        /// Defines the <see cref="X"/> property.
+        /// </summary>
+        public static readonly DirectEditingProperty<PointLightDiffuse, EaseProperty> XProperty = Coordinate.XProperty.WithOwner<PointLightDiffuse>(
+            owner => owner.X,
+            (owner, obj) => owner.X = obj);
+        
+        /// <summary>
+        /// Defines the <see cref="Y"/> property.
+        /// </summary>
+        public static readonly DirectEditingProperty<PointLightDiffuse, EaseProperty> YProperty = Coordinate.YProperty.WithOwner<PointLightDiffuse>(
+            owner => owner.Y,
+            (owner, obj) => owner.Y = obj);
+        
+        /// <summary>
+        /// Defines the <see cref="Z"/> property.
+        /// </summary>
+        public static readonly DirectEditingProperty<PointLightDiffuse, EaseProperty> ZProperty = Coordinate.ZProperty.WithOwner<PointLightDiffuse>(
+            owner => owner.Z,
+            (owner, obj) => owner.Z = obj);
+
         public static readonly ColorPropertyMetadata LightColorMetadata = new("Light color", Color.Light, true);
         public static readonly EasePropertyMetadata SurfaceScaleMetadata = new("Surface scale", 100, 100, -100);
         public static readonly EasePropertyMetadata LightConstantMetadata = new("Light constant", 100, 100, 0);
 
         public PointLightDiffuse()
         {
-            X = new(XMetadata);
-            Y = new(YMetadata);
-            Z = new(ZMetadata);
             LightColor = new(LightColorMetadata);
             SurfaceScale = new(SurfaceScaleMetadata);
             LightConstant = new(LightConstantMetadata);
@@ -40,11 +55,8 @@ namespace BEditor.Primitive.Effects
             SurfaceScale,
             LightConstant
         };
-        [DataMember]
         public EaseProperty X { get; private set; }
-        [DataMember]
         public EaseProperty Y { get; private set; }
-        [DataMember]
         public EaseProperty Z { get; private set; }
         [DataMember]
         public ColorProperty LightColor { get; private set; }
@@ -64,9 +76,6 @@ namespace BEditor.Primitive.Effects
         }
         protected override void OnLoad()
         {
-            X.Load(XMetadata);
-            Y.Load(YMetadata);
-            Z.Load(ZMetadata);
             LightColor.Load(LightColorMetadata);
             SurfaceScale.Load(SurfaceScaleMetadata);
             LightConstant.Load(LightConstantMetadata);

@@ -27,7 +27,7 @@ namespace BEditor.Data
         protected EditingObject()
         {
             // static コンストラクターを呼び出す
-            OwnerType.TypeInitializer?.Invoke(null, null);
+            InvokeStaticInititlizer();
 
             // DirectEditingPropertyかつInitializerがnullじゃない
             foreach (var prop in EditingProperty.PropertyFromKey
@@ -35,7 +35,7 @@ namespace BEditor.Data
                 .Where(i => i.Value is IDirectProperty && i.Value.Initializer is not null && OwnerType.IsAssignableTo(i.Key.OwnerType))
                 .Select(i => i.Value))
             {
-                if (prop is IDirectProperty direct)
+                if (prop is IDirectProperty direct && direct.Get(this) is null)
                 {
                     direct.Set(this, direct.Initializer!.Create());
                 }
@@ -229,7 +229,7 @@ namespace BEditor.Data
             {
                 foreach (var prop in EditingProperty.PropertyFromKey
                     .AsParallel()
-                    .Where(i => OwnerType.IsAssignableFrom(i.Key.OwnerType))
+                    .Where(i => OwnerType.IsAssignableTo(i.Key.OwnerType))
                     .Select(i => i.Value))
                 {
                     var value = this[prop];
@@ -292,7 +292,7 @@ namespace BEditor.Data
         public virtual void SetObjectData(JsonElement element)
         {
             // static コンストラクターを呼び出す
-            OwnerType.TypeInitializer?.Invoke(null, null);
+            InvokeStaticInititlizer();
 
             foreach (var prop in EditingProperty.PropertyFromKey
                 .AsParallel()
@@ -359,6 +359,12 @@ namespace BEditor.Data
             }
 
             return false;
+        }
+
+        private void InvokeStaticInititlizer()
+        {
+            OwnerType.TypeInitializer?.Invoke(null, null);
+            OwnerType.BaseType?.TypeInitializer?.Invoke(null, null);
         }
     }
 }

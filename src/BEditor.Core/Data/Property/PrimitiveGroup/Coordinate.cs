@@ -1,5 +1,6 @@
 ﻿using System;
 using System.Collections.Generic;
+using System.Diagnostics.CodeAnalysis;
 
 using BEditor.Resources;
 
@@ -11,96 +12,112 @@ namespace BEditor.Data.Property.PrimitiveGroup
     public sealed class Coordinate : ExpandGroup
     {
         /// <summary>
-        /// Represents <see cref="X"/> metadata.
+        /// Defines the <see cref="X"/> property.
         /// </summary>
-        public static readonly EasePropertyMetadata XMetadata = new(Strings.X, 0);
+        public static readonly DirectEditingProperty<Coordinate, EaseProperty> XProperty = EditingProperty.RegisterSerializeDirect<EaseProperty, Coordinate>(
+            nameof(X),
+            owner => owner.X,
+            (owner, obj) => owner.X = obj,
+            new EasePropertyMetadata(Strings.X, 0));
 
         /// <summary>
-        /// Represents <see cref="Y"/> metadata.
+        /// Defines the <see cref="Y"/> property.
         /// </summary>
-        public static readonly EasePropertyMetadata YMetadata = new(Strings.Y, 0);
+        public static readonly DirectEditingProperty<Coordinate, EaseProperty> YProperty = EditingProperty.RegisterSerializeDirect<EaseProperty, Coordinate>(
+            nameof(Y),
+            owner => owner.Y,
+            (owner, obj) => owner.Y = obj,
+            new EasePropertyMetadata(Strings.Y, 0));
 
         /// <summary>
-        /// Represents <see cref="Z"/> metadata.
+        /// Defines the <see cref="Z"/> property.
         /// </summary>
-        public static readonly EasePropertyMetadata ZMetadata = new(Strings.Z, 0);
+        public static readonly DirectEditingProperty<Coordinate, EaseProperty> ZProperty = EditingProperty.RegisterSerializeDirect<EaseProperty, Coordinate>(
+            nameof(Z),
+            owner => owner.Z,
+            (owner, obj) => owner.Z = obj,
+            new EasePropertyMetadata(Strings.Z, 0));
 
         /// <summary>
-        /// Represents <see cref="CenterX"/> metadata.
+        /// Defines the <see cref="CenterX"/> property.
         /// </summary>
-        public static readonly EasePropertyMetadata CenterXMetadata = new(Strings.CenterX, 0, float.NaN, float.NaN, true);
+        public static readonly DirectEditingProperty<Coordinate, EaseProperty> CenterXProperty = EditingProperty.RegisterSerializeDirect<EaseProperty, Coordinate>(
+            nameof(CenterX),
+            owner => owner.CenterX,
+            (owner, obj) => owner.CenterX = obj,
+            new EasePropertyMetadata(Strings.CenterX, 0, float.NaN, float.NaN, true));
 
         /// <summary>
-        /// Represents <see cref="CenterY"/> metadata.
+        /// Defines the <see cref="CenterY"/> property.
         /// </summary>
-        public static readonly EasePropertyMetadata CenterYMetadata = new(Strings.CenterY, 0, float.NaN, float.NaN, true);
+        public static readonly DirectEditingProperty<Coordinate, EaseProperty> CenterYProperty = EditingProperty.RegisterSerializeDirect<EaseProperty, Coordinate>(
+            nameof(CenterY),
+            owner => owner.CenterY,
+            (owner, obj) => owner.CenterY = obj,
+            new EasePropertyMetadata(Strings.CenterY, 0, float.NaN, float.NaN, true));
 
         /// <summary>
-        /// Represents <see cref="CenterZ"/> metadata.
+        /// Defines the <see cref="CenterZ"/> property.
         /// </summary>
-        public static readonly EasePropertyMetadata CenterZMetadata = new(Strings.CenterZ, 0, float.NaN, float.NaN, true);
+        public static readonly DirectEditingProperty<Coordinate, EaseProperty> CenterZProperty = EditingProperty.RegisterSerializeDirect<EaseProperty, Coordinate>(
+            nameof(CenterZ),
+            owner => owner.CenterZ,
+            (owner, obj) => owner.CenterZ = obj,
+            new EasePropertyMetadata(Strings.CenterZ, 0, float.NaN, float.NaN, true));
 
         /// <summary>
         /// Initializes a new instance of the <see cref="Coordinate"/> class.
         /// </summary>
         /// <param name="metadata">Metadata of this property.</param>
         /// <exception cref="ArgumentNullException"><paramref name="metadata"/> is <see langword="null"/>.</exception>
-        public Coordinate(PropertyElementMetadata metadata)
-            : base(metadata)
+#pragma warning disable CS8618
+        public Coordinate(CoordinateMetadata metadata) : base(metadata)
+#pragma warning restore CS8618
         {
-            X = new(XMetadata);
-            Y = new(YMetadata);
-            Z = new(ZMetadata);
-            CenterX = new(CenterXMetadata);
-            CenterY = new(CenterYMetadata);
-            CenterZ = new(CenterZMetadata);
         }
 
         /// <inheritdoc/>
-        public override IEnumerable<PropertyElement> Properties => new PropertyElement[]
+        public override IEnumerable<PropertyElement> Properties
         {
-            X,
-            Y,
-            Z,
-            CenterX,
-            CenterY,
-            CenterZ,
-        };
+            get
+            {
+                yield return X;
+                yield return Y;
+                yield return Z;
+                yield return CenterX;
+                yield return CenterY;
+                yield return CenterZ;
+            }
+        }
 
         /// <summary>
-        /// Gets the <see cref="EaseProperty"/> representing the X coordinate.
+        /// Gets the X coordinate.
         /// </summary>
-        [DataMember]
         public EaseProperty X { get; private set; }
 
         /// <summary>
-        /// Gets the <see cref="EaseProperty"/> representing the Y coordinate.
+        /// Gets the Y coordinate.
         /// </summary>
-        [DataMember]
         public EaseProperty Y { get; private set; }
 
         /// <summary>
-        /// Gets the <see cref="EaseProperty"/> representing the Z coordinate.
+        /// Gets the Z coordinate.
         /// </summary>
-        [DataMember]
         public EaseProperty Z { get; private set; }
 
         /// <summary>
-        /// Gets the <see cref="EaseProperty"/> representing the X coordinate of the center.
+        /// Gets the X coordinate of the center.
         /// </summary>
-        [DataMember]
         public EaseProperty CenterX { get; private set; }
 
         /// <summary>
-        /// Gets the <see cref="EaseProperty"/> representing the Y coordinate of the center.
+        /// Gets the Y coordinate of the center.
         /// </summary>
-        [DataMember]
         public EaseProperty CenterY { get; private set; }
 
         /// <summary>
-        /// Gets the <see cref="EaseProperty"/> representing the Z coordinate of the center.
+        /// Gets the Z coordinate of the center.
         /// </summary>
-        [DataMember]
         public EaseProperty CenterZ { get; private set; }
 
         /// <summary>
@@ -112,27 +129,18 @@ namespace BEditor.Data.Property.PrimitiveGroup
             CenterY.Optional = 0;
             CenterZ.Optional = 0;
         }
+    }
 
+    /// <summary>
+    /// The metadata of <see cref="Coordinate"/>.
+    /// </summary>
+    /// <param name="Name">The string displayed in the property header.</param>
+    public record CoordinateMetadata(string Name) : PropertyElementMetadata(Name), IEditingPropertyInitializer<Coordinate>
+    {
         /// <inheritdoc/>
-        protected override void OnLoad()
+        public Coordinate Create()
         {
-            X.Load(XMetadata);
-            Y.Load(YMetadata);
-            Z.Load(ZMetadata);
-            CenterX.Load(CenterXMetadata);
-            CenterY.Load(CenterYMetadata);
-            CenterZ.Load(CenterZMetadata);
-        }
-
-        /// <inheritdoc/>
-        protected override void OnUnload()
-        {
-            X.Unload();
-            Y.Unload();
-            Z.Unload();
-            CenterX.Unload();
-            CenterY.Unload();
-            CenterZ.Unload();
+            return new(this);
         }
     }
 }

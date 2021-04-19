@@ -18,6 +18,41 @@ namespace BEditor.Primitive.Objects
     public sealed class GL3DObject : ObjectElement
     {
         /// <summary>
+        /// Defines the <see cref="Coordinate"/> property.
+        /// </summary>
+        public static readonly DirectEditingProperty<GL3DObject, Coordinate> CoordinateProperty = ImageObject.CoordinateProperty.WithOwner<GL3DObject>(
+            owner => owner.Coordinate,
+            (owner, obj) => owner.Coordinate = obj);
+
+        /// <summary>
+        /// Defines the <see cref="Data.Property.PrimitiveGroup.Scale"/> property.
+        /// </summary>
+        public static readonly DirectEditingProperty<GL3DObject, Scale> ScaleProperty = ImageObject.ScaleProperty.WithOwner<GL3DObject>(
+            owner => owner.Scale,
+            (owner, obj) => owner.Scale = obj);
+
+        /// <summary>
+        /// Defines the <see cref="Blend"/> property.
+        /// </summary>
+        public static readonly DirectEditingProperty<GL3DObject, Blend> BlendProperty = ImageObject.BlendProperty.WithOwner<GL3DObject>(
+            owner => owner.Blend,
+            (owner, obj) => owner.Blend = obj);
+
+        /// <summary>
+        /// Defines the <see cref="Data.Property.PrimitiveGroup.Rotate"/> property.
+        /// </summary>
+        public static readonly DirectEditingProperty<GL3DObject, Rotate> RotateProperty = ImageObject.RotateProperty.WithOwner<GL3DObject>(
+            owner => owner.Rotate,
+            (owner, obj) => owner.Rotate = obj);
+
+        /// <summary>
+        /// Defines the <see cref="Data.Property.PrimitiveGroup.Rotate"/> property.
+        /// </summary>
+        public static readonly DirectEditingProperty<GL3DObject, Material> MaterialProperty = ImageObject.MaterialProperty.WithOwner<GL3DObject>(
+            owner => owner.Material,
+            (owner, obj) => owner.Material = obj);
+
+        /// <summary>
         /// Represents <see cref="Type"/> metadata.
         /// </summary>
         public static readonly SelectorPropertyMetadata TypeMetadata = new(Strings.Type, new string[2]
@@ -33,13 +68,10 @@ namespace BEditor.Primitive.Objects
         /// <summary>
         /// Initializes a new instance of the <see cref="GL3DObject"/> class.
         /// </summary>
+#pragma warning disable CS8618
         public GL3DObject()
+#pragma warning restore CS8618
         {
-            Coordinate = new(ImageObject.CoordinateMetadata);
-            Zoom = new(ImageObject.ScaleMetadata);
-            Blend = new(ImageObject.BlendMetadata);
-            Angle = new(ImageObject.RotateMetadata);
-            Material = new(ImageObject.MaterialMetadata);
             Type = new(TypeMetadata);
             Width = new(Shape.WidthMetadata);
             Height = new(Shape.HeightMetadata);
@@ -52,9 +84,9 @@ namespace BEditor.Primitive.Objects
         public override IEnumerable<PropertyElement> Properties => new PropertyElement[]
         {
             Coordinate,
-            Zoom,
+            Scale,
             Blend,
-            Angle,
+            Rotate,
             Material,
             Type,
             Width,
@@ -64,27 +96,22 @@ namespace BEditor.Primitive.Objects
         /// <summary>
         /// Get the coordinates.
         /// </summary>
-        [DataMember]
         public Coordinate Coordinate { get; private set; }
         /// <summary>
         /// Get the scale.
         /// </summary>
-        [DataMember]
-        public Scale Zoom { get; private set; }
+        public Scale Scale { get; private set; }
         /// <summary>
         /// Get the blend.
         /// </summary>
-        [DataMember]
         public Blend Blend { get; private set; }
         /// <summary>
         /// Get the angle.
         /// </summary>
-        [DataMember]
-        public Rotate Angle { get; private set; }
+        public Rotate Rotate { get; private set; }
         /// <summary>
         /// Get the material.
         /// </summary>
-        [DataMember]
         public Material Material { get; private set; }
         /// <summary>
         /// Get the <see cref="SelectorProperty"/> to select the object type.
@@ -116,16 +143,16 @@ namespace BEditor.Primitive.Objects
             color4.A *= Blend.Opacity[frame];
 
 
-            float scale = (float)(Zoom.Scale1[frame] / 100);
-            float scalex = (float)(Zoom.ScaleX[frame] / 100) * scale;
-            float scaley = (float)(Zoom.ScaleY[frame] / 100) * scale;
-            float scalez = (float)(Zoom.ScaleZ[frame] / 100) * scale;
+            float scale = (float)(Scale.Scale1[frame] / 100);
+            float scalex = (float)(Scale.ScaleX[frame] / 100) * scale;
+            float scaley = (float)(Scale.ScaleY[frame] / 100) * scale;
+            float scalez = (float)(Scale.ScaleZ[frame] / 100) * scale;
 
             var material = new Graphics.Material(Material.Ambient[frame], Material.Diffuse[frame], Material.Specular[frame], Material.Shininess[frame]);
             var trans = Transform.Create(
                 new(Coordinate.X[frame], Coordinate.Y[frame], Coordinate.Z[frame]),
                 new(Coordinate.CenterX[frame], Coordinate.CenterY[frame], Coordinate.CenterZ[frame]),
-                new(Angle.RotateX[frame], Angle.RotateY[frame], Angle.RotateZ[frame]),
+                new(Rotate.RotateX[frame], Rotate.RotateY[frame], Rotate.RotateZ[frame]),
                 new(scalex, scaley, scalez));
 
             if (Type.Index == 0)
@@ -158,11 +185,6 @@ namespace BEditor.Primitive.Objects
         /// <inheritdoc/>
         protected override void OnLoad()
         {
-            Coordinate.Load(ImageObject.CoordinateMetadata);
-            Zoom.Load(ImageObject.ScaleMetadata);
-            Blend.Load(ImageObject.BlendMetadata);
-            Angle.Load(ImageObject.RotateMetadata);
-            Material.Load(ImageObject.MaterialMetadata);
             Type.Load(TypeMetadata);
             Width.Load(Shape.WidthMetadata);
             Height.Load(Shape.HeightMetadata);
@@ -172,9 +194,9 @@ namespace BEditor.Primitive.Objects
         protected override void OnUnload()
         {
             Coordinate.Unload();
-            Zoom.Unload();
+            Scale.Unload();
             Blend.Unload();
-            Angle.Unload();
+            Rotate.Unload();
             Material.Unload();
             Type.Unload();
             Width.Unload();

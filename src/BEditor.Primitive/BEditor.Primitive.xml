@@ -84,6 +84,36 @@
             Represents an <see cref="T:BEditor.Data.EffectElement"/> that sets the OpenGL point light source.
             </summary>
         </member>
+        <member name="F:BEditor.Primitive.Effects.PointLightSource.XProperty">
+            <summary>
+            Defines the <see cref="P:BEditor.Primitive.Effects.PointLightSource.X"/> property.
+            </summary>
+        </member>
+        <member name="F:BEditor.Primitive.Effects.PointLightSource.YProperty">
+            <summary>
+            Defines the <see cref="P:BEditor.Primitive.Effects.PointLightSource.Y"/> property.
+            </summary>
+        </member>
+        <member name="F:BEditor.Primitive.Effects.PointLightSource.ZProperty">
+            <summary>
+            Defines the <see cref="P:BEditor.Primitive.Effects.PointLightSource.Z"/> property.
+            </summary>
+        </member>
+        <member name="F:BEditor.Primitive.Effects.PointLightSource.AmbientProperty">
+            <summary>
+            Defines the <see cref="P:BEditor.Primitive.Effects.PointLightSource.Ambient"/> property.
+            </summary>
+        </member>
+        <member name="F:BEditor.Primitive.Effects.PointLightSource.DiffuseProperty">
+            <summary>
+            Defines the <see cref="P:BEditor.Primitive.Effects.PointLightSource.Diffuse"/> property.
+            </summary>
+        </member>
+        <member name="F:BEditor.Primitive.Effects.PointLightSource.SpecularProperty">
+            <summary>
+            Defines the <see cref="P:BEditor.Primitive.Effects.PointLightSource.Specular"/> property.
+            </summary>
+        </member>
         <member name="M:BEditor.Primitive.Effects.PointLightSource.#ctor">
             <summary>
             Initializes a new instance of the <see cref="T:BEditor.Primitive.Effects.PointLightSource"/> class.
@@ -126,12 +156,6 @@
              </summary>
         </member>
         <member name="M:BEditor.Primitive.Effects.PointLightSource.Render(BEditor.Data.EffectRenderArgs)">
-            <inheritdoc/>
-        </member>
-        <member name="M:BEditor.Primitive.Effects.PointLightSource.OnLoad">
-            <inheritdoc/>
-        </member>
-        <member name="M:BEditor.Primitive.Effects.PointLightSource.OnUnload">
             <inheritdoc/>
         </member>
         <member name="T:BEditor.Primitive.Effects.AreaExpansion">
@@ -736,14 +760,14 @@
             Represents an <see cref="T:BEditor.Data.Primitive.ImageEffect"/> that masks an image with another <see cref="T:BEditor.Data.Primitive.ImageObject"/>.
             </summary>
         </member>
-        <member name="F:BEditor.Primitive.Effects.Mask.XMetadata">
+        <member name="F:BEditor.Primitive.Effects.Mask.XProperty">
             <summary>
-            Represents <see cref="P:BEditor.Primitive.Effects.Mask.X"/> metadata.
+            Defines the <see cref="P:BEditor.Primitive.Effects.Mask.X"/> property.
             </summary>
         </member>
-        <member name="F:BEditor.Primitive.Effects.Mask.YMetadata">
+        <member name="F:BEditor.Primitive.Effects.Mask.YProperty">
             <summary>
-            Represents <see cref="P:BEditor.Primitive.Effects.Mask.Y"/> metadata.
+            Defines the <see cref="P:BEditor.Primitive.Effects.Mask.Y"/> property.
             </summary>
         </member>
         <member name="F:BEditor.Primitive.Effects.Mask.RotateMetadata">
@@ -841,19 +865,19 @@
             Represents a <see cref="T:BEditor.Data.Primitive.ImageEffect"/> that provides the ability to edit multiple objects by specifying their indices.
             </summary>
         </member>
-        <member name="F:BEditor.Primitive.Effects.MultipleControls.CoordinateMetadata">
+        <member name="F:BEditor.Primitive.Effects.MultipleControls.CoordinateProperty">
             <summary>
-            Represents <see cref="P:BEditor.Primitive.Effects.MultipleControls.Coordinate"/> metadata.
+            Defines the <see cref="P:BEditor.Primitive.Effects.MultipleControls.Coordinate"/> property.
             </summary>
         </member>
-        <member name="F:BEditor.Primitive.Effects.MultipleControls.ZoomMetadata">
+        <member name="F:BEditor.Primitive.Effects.MultipleControls.ScaleProperty">
             <summary>
-            Represents <see cref="P:BEditor.Primitive.Effects.MultipleControls.Zoom"/> metadata.
+            Defines the <see cref="P:BEditor.Primitive.Effects.MultipleControls.Scale"/> property.
             </summary>
         </member>
-        <member name="F:BEditor.Primitive.Effects.MultipleControls.AngleMetadata">
+        <member name="F:BEditor.Primitive.Effects.MultipleControls.RotateProperty">
             <summary>
-            Represents <see cref="P:BEditor.Primitive.Effects.MultipleControls.Angle"/> metadata.
+            Defines the <see cref="P:BEditor.Primitive.Effects.MultipleControls.Rotate"/> property.
             </summary>
         </member>
         <member name="F:BEditor.Primitive.Effects.MultipleControls.IndexMetadata">
@@ -877,12 +901,12 @@
             Get the coordinates.
             </summary>
         </member>
-        <member name="P:BEditor.Primitive.Effects.MultipleControls.Zoom">
+        <member name="P:BEditor.Primitive.Effects.MultipleControls.Scale">
             <summary>
             Get the scale.
             </summary>
         </member>
-        <member name="P:BEditor.Primitive.Effects.MultipleControls.Angle">
+        <member name="P:BEditor.Primitive.Effects.MultipleControls.Rotate">
             <summary>
             Get the angle.
             </summary>
@@ -922,6 +946,21 @@
         <member name="F:BEditor.Primitive.Effects.Noise.ValueProperty">
             <summary>
             Defines the <see cref="P:BEditor.Primitive.Effects.Noise.Value"/> property.
+            </summary>
+        </member>
+        <member name="F:BEditor.Primitive.Effects.PointLightDiffuse.XProperty">
+            <summary>
+            Defines the <see cref="P:BEditor.Primitive.Effects.PointLightDiffuse.X"/> property.
+            </summary>
+        </member>
+        <member name="F:BEditor.Primitive.Effects.PointLightDiffuse.YProperty">
+            <summary>
+            Defines the <see cref="P:BEditor.Primitive.Effects.PointLightDiffuse.Y"/> property.
+            </summary>
+        </member>
+        <member name="F:BEditor.Primitive.Effects.PointLightDiffuse.ZProperty">
+            <summary>
+            Defines the <see cref="P:BEditor.Primitive.Effects.PointLightDiffuse.Z"/> property.
             </summary>
         </member>
         <member name="F:BEditor.Primitive.Effects.RGBColor.RedProperty">
@@ -1126,9 +1165,9 @@
             Represents an <see cref="T:BEditor.Data.ObjectElement"/> that references an audio file.
             </summary>
         </member>
-        <member name="F:BEditor.Primitive.Objects.AudioObject.CoordinateMetadata">
+        <member name="F:BEditor.Primitive.Objects.AudioObject.CoordinateProperty">
             <summary>
-            Represents <see cref="P:BEditor.Primitive.Objects.AudioObject.Coordinate"/> metadata.
+            Defines the <see cref="P:BEditor.Primitive.Objects.AudioObject.Coordinate"/> property.
             </summary>
         </member>
         <member name="F:BEditor.Primitive.Objects.AudioObject.VolumeMetadata">
@@ -1201,37 +1240,37 @@
             Represents a property for setting XYZ coordinates.
             </summary>
         </member>
-        <member name="F:BEditor.Primitive.Objects.AudioObject.AudioCoordinate.XMetadata">
+        <member name="F:BEditor.Primitive.Objects.AudioObject.AudioCoordinate.XProperty">
             <summary>
-            Represents <see cref="P:BEditor.Primitive.Objects.AudioObject.AudioCoordinate.X"/> metadata.
+            Defines the <see cref="P:BEditor.Primitive.Objects.AudioObject.AudioCoordinate.X"/> property.
             </summary>
         </member>
-        <member name="F:BEditor.Primitive.Objects.AudioObject.AudioCoordinate.YMetadata">
+        <member name="F:BEditor.Primitive.Objects.AudioObject.AudioCoordinate.YProperty">
             <summary>
-            Represents <see cref="P:BEditor.Primitive.Objects.AudioObject.AudioCoordinate.Y"/> metadata.
+            Defines the <see cref="P:BEditor.Primitive.Objects.AudioObject.AudioCoordinate.Y"/> property.
             </summary>
         </member>
-        <member name="F:BEditor.Primitive.Objects.AudioObject.AudioCoordinate.ZMetadata">
+        <member name="F:BEditor.Primitive.Objects.AudioObject.AudioCoordinate.ZProperty">
             <summary>
-            Represents <see cref="P:BEditor.Primitive.Objects.AudioObject.AudioCoordinate.Z"/> metadata.
+            Defines the <see cref="P:BEditor.Primitive.Objects.AudioObject.AudioCoordinate.Z"/> property.
             </summary>
         </member>
-        <member name="F:BEditor.Primitive.Objects.AudioObject.AudioCoordinate.DirectionXMetadata">
+        <member name="F:BEditor.Primitive.Objects.AudioObject.AudioCoordinate.CenterXProperty">
             <summary>
-            Represents <see cref="P:BEditor.Primitive.Objects.AudioObject.AudioCoordinate.DirectionX"/> metadata.
+            Defines the <see cref="P:BEditor.Primitive.Objects.AudioObject.AudioCoordinate.DirectionX"/> property.
             </summary>
         </member>
-        <member name="F:BEditor.Primitive.Objects.AudioObject.AudioCoordinate.DirectionYMetadata">
+        <member name="F:BEditor.Primitive.Objects.AudioObject.AudioCoordinate.CenterYProperty">
             <summary>
-            Represents <see cref="P:BEditor.Primitive.Objects.AudioObject.AudioCoordinate.DirectionY"/> metadata.
+            Defines the <see cref="P:BEditor.Primitive.Objects.AudioObject.AudioCoordinate.DirectionY"/> property.
             </summary>
         </member>
-        <member name="F:BEditor.Primitive.Objects.AudioObject.AudioCoordinate.DirectionZMetadata">
+        <member name="F:BEditor.Primitive.Objects.AudioObject.AudioCoordinate.CenterZProperty">
             <summary>
-            Represents <see cref="P:BEditor.Primitive.Objects.AudioObject.AudioCoordinate.DirectionZ"/> metadata.
+            Defines the <see cref="P:BEditor.Primitive.Objects.AudioObject.AudioCoordinate.DirectionZ"/> property.
             </summary>
         </member>
-        <member name="M:BEditor.Primitive.Objects.AudioObject.AudioCoordinate.#ctor(BEditor.Data.Property.PropertyElementMetadata)">
+        <member name="M:BEditor.Primitive.Objects.AudioObject.AudioCoordinate.#ctor(BEditor.Primitive.Objects.AudioObject.AudioCoordinateMetadata)">
             <summary>
             Initializes a new instance of the <see cref="T:BEditor.Primitive.Objects.AudioObject.AudioCoordinate"/> class.
             </summary>
@@ -1271,10 +1310,19 @@
             Get the <see cref="T:BEditor.Data.Property.EaseProperty"/> representing the Z coordinate.
             </summary>
         </member>
-        <member name="M:BEditor.Primitive.Objects.AudioObject.AudioCoordinate.OnLoad">
-            <inheritdoc/>
+        <member name="T:BEditor.Primitive.Objects.AudioObject.AudioCoordinateMetadata">
+            <summary>
+            The metadata of <see cref="T:BEditor.Primitive.Objects.AudioObject.AudioCoordinate"/>.
+            </summary>
+            <param name="Name">The string displayed in the property header.</param>
         </member>
-        <member name="M:BEditor.Primitive.Objects.AudioObject.AudioCoordinate.OnUnload">
+        <member name="M:BEditor.Primitive.Objects.AudioObject.AudioCoordinateMetadata.#ctor(System.String)">
+            <summary>
+            The metadata of <see cref="T:BEditor.Primitive.Objects.AudioObject.AudioCoordinate"/>.
+            </summary>
+            <param name="Name">The string displayed in the property header.</param>
+        </member>
+        <member name="M:BEditor.Primitive.Objects.AudioObject.AudioCoordinateMetadata.Create">
             <inheritdoc/>
         </member>
         <member name="T:BEditor.Primitive.Objects.CameraObject">
@@ -1417,6 +1465,31 @@
             Represents an <see cref="T:BEditor.Data.ObjectElement"/> that draws a Cube, Ball, etc.
             </summary>
         </member>
+        <member name="F:BEditor.Primitive.Objects.GL3DObject.CoordinateProperty">
+            <summary>
+            Defines the <see cref="P:BEditor.Primitive.Objects.GL3DObject.Coordinate"/> property.
+            </summary>
+        </member>
+        <member name="F:BEditor.Primitive.Objects.GL3DObject.ScaleProperty">
+            <summary>
+            Defines the <see cref="T:BEditor.Data.Property.PrimitiveGroup.Scale"/> property.
+            </summary>
+        </member>
+        <member name="F:BEditor.Primitive.Objects.GL3DObject.BlendProperty">
+            <summary>
+            Defines the <see cref="P:BEditor.Primitive.Objects.GL3DObject.Blend"/> property.
+            </summary>
+        </member>
+        <member name="F:BEditor.Primitive.Objects.GL3DObject.RotateProperty">
+            <summary>
+            Defines the <see cref="T:BEditor.Data.Property.PrimitiveGroup.Rotate"/> property.
+            </summary>
+        </member>
+        <member name="F:BEditor.Primitive.Objects.GL3DObject.MaterialProperty">
+            <summary>
+            Defines the <see cref="T:BEditor.Data.Property.PrimitiveGroup.Rotate"/> property.
+            </summary>
+        </member>
         <member name="F:BEditor.Primitive.Objects.GL3DObject.TypeMetadata">
             <summary>
             Represents <see cref="P:BEditor.Primitive.Objects.GL3DObject.Type"/> metadata.
@@ -1443,7 +1516,7 @@
             Get the coordinates.
             </summary>
         </member>
-        <member name="P:BEditor.Primitive.Objects.GL3DObject.Zoom">
+        <member name="P:BEditor.Primitive.Objects.GL3DObject.Scale">
             <summary>
             Get the scale.
             </summary>
@@ -1453,7 +1526,7 @@
             Get the blend.
             </summary>
         </member>
-        <member name="P:BEditor.Primitive.Objects.GL3DObject.Angle">
+        <member name="P:BEditor.Primitive.Objects.GL3DObject.Rotate">
             <summary>
             Get the angle.
             </summary>
@@ -2315,6 +2388,11 @@
         <member name="P:BEditor.Primitive.Resources.Strings.ContrastCorrection">
             <summary>
               Contrast correction に類似しているローカライズされた文字列を検索します。
+            </summary>
+        </member>
+        <member name="P:BEditor.Primitive.Resources.Strings.Coordinate">
+            <summary>
+              Coordinate に類似しているローカライズされた文字列を検索します。
             </summary>
         </member>
         <member name="P:BEditor.Primitive.Resources.Strings.Cube">

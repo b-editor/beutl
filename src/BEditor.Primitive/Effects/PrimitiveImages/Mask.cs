@@ -20,13 +20,19 @@ namespace BEditor.Primitive.Effects
     public sealed class Mask : ImageEffect
     {
         /// <summary>
-        /// Represents <see cref="X"/> metadata.
+        /// Defines the <see cref="X"/> property.
         /// </summary>
-        public static readonly EasePropertyMetadata XMetadata = Coordinate.XMetadata;
+        public static readonly DirectEditingProperty<Mask, EaseProperty> XProperty = Coordinate.XProperty.WithOwner<Mask>(
+            owner => owner.X,
+            (owner, obj) => owner.X = obj);
+        
         /// <summary>
-        /// Represents <see cref="Y"/> metadata.
+        /// Defines the <see cref="Y"/> property.
         /// </summary>
-        public static readonly EasePropertyMetadata YMetadata = Coordinate.YMetadata;
+        public static readonly DirectEditingProperty<Mask, EaseProperty> YProperty = Coordinate.XProperty.WithOwner<Mask>(
+            owner => owner.Y,
+            (owner, obj) => owner.Y = obj);
+
         /// <summary>
         /// Represents <see cref="Rotate"/> metadata.
         /// </summary>
@@ -56,10 +62,10 @@ namespace BEditor.Primitive.Effects
         /// <summary>
         /// Initializes a new instance of the <see cref="Mask"/> class.
         /// </summary>
+#pragma warning disable CS8618
         public Mask()
+#pragma warning restore CS8618
         {
-            X = new(XMetadata);
-            Y = new(YMetadata);
             Rotate = new(RotateMetadata);
             Width = new(WidthMetadata);
             Height = new(HeightMetadata);
@@ -85,12 +91,10 @@ namespace BEditor.Primitive.Effects
         /// <summary>
         /// Get the <see cref="EaseProperty"/> representing the X coordinate.
         /// </summary>
-        [DataMember]
         public EaseProperty X { get; private set; }
         /// <summary>
         /// Get the <see cref="EaseProperty"/> representing the Y coordinate.
         /// </summary>
-        [DataMember]
         public EaseProperty Y { get; private set; }
         /// <summary>
         /// Get the <see cref="EaseProperty"/> of the angle.
@@ -158,8 +162,6 @@ namespace BEditor.Primitive.Effects
         /// <inheritdoc/>
         protected override void OnLoad()
         {
-            X.Load(XMetadata);
-            Y.Load(YMetadata);
             Rotate.Load(RotateMetadata);
             Width.Load(WidthMetadata);
             Height.Load(HeightMetadata);

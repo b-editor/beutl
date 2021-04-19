@@ -20,9 +20,14 @@ namespace BEditor.Primitive.Objects
     public sealed class AudioObject : ObjectElement
     {
         /// <summary>
-        /// Represents <see cref="Coordinate"/> metadata.
+        /// Defines the <see cref="Coordinate"/> property.
         /// </summary>
-        public static readonly PropertyElementMetadata CoordinateMetadata = ImageObject.CoordinateMetadata;
+        public static readonly DirectEditingProperty<AudioObject, AudioCoordinate> CoordinateProperty = EditingProperty.RegisterSerializeDirect<AudioCoordinate, AudioObject>(
+            nameof(Coordinate),
+            owner => owner.Coordinate,
+            (owner, obj) => owner.Coordinate = obj,
+            new AudioCoordinateMetadata(Strings.Coordinate));
+
         /// <summary>
         /// Represents <see cref="Volume"/> metadata.
         /// </summary>
@@ -46,9 +51,10 @@ namespace BEditor.Primitive.Objects
         /// <summary>
         /// Initializes a new instance of <see cref="AudioObject"/> class.
         /// </summary>
+#pragma warning disable CS8618
         public AudioObject()
+#pragma warning restore CS8618
         {
-            Coordinate = new(CoordinateMetadata);
             Volume = new(VolumeMetadata);
             Pitch = new(PitchMetadata);
             Start = new(StartMetadata);
@@ -69,7 +75,6 @@ namespace BEditor.Primitive.Objects
         /// <summary>
         /// Get the coordinates.
         /// </summary>
-        [DataMember]
         public AudioCoordinate Coordinate { get; private set; }
         /// <summary>
         /// Get the <see cref="EaseProperty"/> representing the volume.
@@ -147,7 +152,6 @@ namespace BEditor.Primitive.Objects
         /// <inheritdoc/>
         protected override void OnLoad()
         {
-            Coordinate.Load(CoordinateMetadata);
             Volume.Load(VolumeMetadata);
             Pitch.Load(PitchMetadata);
             Start.Load(StartMetadata);
@@ -221,43 +225,68 @@ namespace BEditor.Primitive.Objects
         public sealed class AudioCoordinate : ExpandGroup
         {
             /// <summary>
-            /// Represents <see cref="X"/> metadata.
+            /// Defines the <see cref="X"/> property.
             /// </summary>
-            public static readonly EasePropertyMetadata XMetadata = Data.Property.PrimitiveGroup.Coordinate.XMetadata;
+            public static readonly DirectEditingProperty<AudioCoordinate, EaseProperty> XProperty = EditingProperty.RegisterSerializeDirect<EaseProperty, AudioCoordinate>(
+                nameof(X),
+                owner => owner.X,
+                (owner, obj) => owner.X = obj,
+                new EasePropertyMetadata(Strings.X, 0));
+
             /// <summary>
-            /// Represents <see cref="Y"/> metadata.
+            /// Defines the <see cref="Y"/> property.
             /// </summary>
-            public static readonly EasePropertyMetadata YMetadata = Data.Property.PrimitiveGroup.Coordinate.YMetadata;
+            public static readonly DirectEditingProperty<AudioCoordinate, EaseProperty> YProperty = EditingProperty.RegisterSerializeDirect<EaseProperty, AudioCoordinate>(
+                nameof(Y),
+                owner => owner.Y,
+                (owner, obj) => owner.Y = obj,
+                new EasePropertyMetadata(Strings.Y, 0));
+
             /// <summary>
-            /// Represents <see cref="Z"/> metadata.
+            /// Defines the <see cref="Z"/> property.
             /// </summary>
-            public static readonly EasePropertyMetadata ZMetadata = Data.Property.PrimitiveGroup.Coordinate.ZMetadata;
+            public static readonly DirectEditingProperty<AudioCoordinate, EaseProperty> ZProperty = EditingProperty.RegisterSerializeDirect<EaseProperty, AudioCoordinate>(
+                nameof(Z),
+                owner => owner.Z,
+                (owner, obj) => owner.Z = obj,
+                new EasePropertyMetadata(Strings.Z, 0));
+
             /// <summary>
-            /// Represents <see cref="DirectionX"/> metadata.
+            /// Defines the <see cref="DirectionX"/> property.
             /// </summary>
-            public static readonly EasePropertyMetadata DirectionXMetadata = Data.Property.PrimitiveGroup.Coordinate.XMetadata with { Name = "Direction x" };
+            public static readonly DirectEditingProperty<AudioCoordinate, EaseProperty> CenterXProperty = EditingProperty.RegisterSerializeDirect<EaseProperty, AudioCoordinate>(
+                nameof(DirectionX),
+                owner => owner.DirectionX,
+                (owner, obj) => owner.DirectionX = obj,
+                new EasePropertyMetadata("Direction x", 0, float.NaN, float.NaN, true));
+
             /// <summary>
-            /// Represents <see cref="DirectionY"/> metadata.
+            /// Defines the <see cref="DirectionY"/> property.
             /// </summary>
-            public static readonly EasePropertyMetadata DirectionYMetadata = Data.Property.PrimitiveGroup.Coordinate.YMetadata with { Name = "Direction y" };
+            public static readonly DirectEditingProperty<AudioCoordinate, EaseProperty> CenterYProperty = EditingProperty.RegisterSerializeDirect<EaseProperty, AudioCoordinate>(
+                nameof(DirectionY),
+                owner => owner.DirectionY,
+                (owner, obj) => owner.DirectionY = obj,
+                new EasePropertyMetadata("Direction y", 0, float.NaN, float.NaN, true));
+
             /// <summary>
-            /// Represents <see cref="DirectionZ"/> metadata.
+            /// Defines the <see cref="DirectionZ"/> property.
             /// </summary>
-            public static readonly EasePropertyMetadata DirectionZMetadata = Data.Property.PrimitiveGroup.Coordinate.ZMetadata with { Name = "Direction z" };
+            public static readonly DirectEditingProperty<AudioCoordinate, EaseProperty> CenterZProperty = EditingProperty.RegisterSerializeDirect<EaseProperty, AudioCoordinate>(
+                nameof(DirectionZ),
+                owner => owner.DirectionZ,
+                (owner, obj) => owner.DirectionZ = obj,
+                new EasePropertyMetadata("Direction z", 0, float.NaN, float.NaN, true));
 
             /// <summary>
             /// Initializes a new instance of the <see cref="AudioCoordinate"/> class.
             /// </summary>
             /// <param name="metadata">Metadata of this property.</param>
             /// <exception cref="ArgumentNullException"><paramref name="metadata"/> is <see langword="null"/>.</exception>
-            public AudioCoordinate(PropertyElementMetadata metadata) : base(metadata)
+#pragma warning disable CS8618
+            public AudioCoordinate(AudioCoordinateMetadata metadata) : base(metadata)
+#pragma warning restore CS8618
             {
-                X = new(XMetadata);
-                Y = new(YMetadata);
-                Z = new(ZMetadata);
-                DirectionX = new(DirectionXMetadata);
-                DirectionY = new(DirectionYMetadata);
-                DirectionZ = new(DirectionZMetadata);
             }
 
             /// <inheritdoc/>
@@ -273,53 +302,39 @@ namespace BEditor.Primitive.Objects
             /// <summary>
             /// Get the <see cref="EaseProperty"/> representing the X coordinate.
             /// </summary>
-            [DataMember]
             public EaseProperty X { get; private set; }
             /// <summary>
             /// Get the <see cref="EaseProperty"/> representing the Y coordinate.
             /// </summary>
-            [DataMember]
             public EaseProperty Y { get; private set; }
             /// <summary>
             /// Get the <see cref="EaseProperty"/> representing the Z coordinate.
             /// </summary>
-            [DataMember]
             public EaseProperty Z { get; private set; }
             /// <summary>
             /// Get the <see cref="EaseProperty"/> representing the X coordinate.
             /// </summary>
-            [DataMember]
             public EaseProperty DirectionX { get; private set; }
             /// <summary>
             /// Get the <see cref="EaseProperty"/> representing the Y coordinate.
             /// </summary>
-            [DataMember]
             public EaseProperty DirectionY { get; private set; }
             /// <summary>
             /// Get the <see cref="EaseProperty"/> representing the Z coordinate.
             /// </summary>
-            [DataMember]
             public EaseProperty DirectionZ { get; private set; }
+        }
 
+        /// <summary>
+        /// The metadata of <see cref="AudioCoordinate"/>.
+        /// </summary>
+        /// <param name="Name">The string displayed in the property header.</param>
+        public record AudioCoordinateMetadata(string Name) : PropertyElementMetadata(Name), IEditingPropertyInitializer<AudioCoordinate>
+        {
             /// <inheritdoc/>
-            protected override void OnLoad()
+            public AudioCoordinate Create()
             {
-                X.Load(XMetadata);
-                Y.Load(YMetadata);
-                Z.Load(ZMetadata);
-                DirectionX.Load(DirectionXMetadata);
-                DirectionY.Load(DirectionYMetadata);
-                DirectionZ.Load(DirectionZMetadata);
-            }
-            /// <inheritdoc/>
-            protected override void OnUnload()
-            {
-                X.Unload();
-                Y.Unload();
-                Z.Unload();
-                DirectionX.Unload();
-                DirectionY.Unload();
-                DirectionZ.Unload();
+                return new(this);
             }
         }
     }

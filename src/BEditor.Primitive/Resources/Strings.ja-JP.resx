@@ -439,4 +439,7 @@
   <data name="LineSpacing" xml:space="preserve">
     <value>行間</value>
   </data>
+  <data name="Coordinate" xml:space="preserve">
+    <value>座標</value>
+  </data>
 </root>

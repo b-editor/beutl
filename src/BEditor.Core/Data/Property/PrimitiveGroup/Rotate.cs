@@ -11,73 +11,80 @@ namespace BEditor.Data.Property.PrimitiveGroup
     public sealed class Rotate : ExpandGroup
     {
         /// <summary>
-        /// Represents <see cref="RotateX"/> metadata.
+        /// Defines the <see cref="RotateX"/> property.
         /// </summary>
-        public static readonly EasePropertyMetadata RotateXMetadata = new(Strings.RotateX);
+        public static readonly DirectEditingProperty<Rotate, EaseProperty> RotateXProperty = EditingProperty.RegisterSerializeDirect<EaseProperty, Rotate>(
+            nameof(RotateX),
+            owner => owner.RotateX,
+            (owner, obj) => owner.RotateX = obj,
+            new EasePropertyMetadata(Strings.RotateX));
 
         /// <summary>
-        /// Represents <see cref="RotateY"/> metadata.
+        /// Defines the <see cref="RotateY"/> property.
         /// </summary>
-        public static readonly EasePropertyMetadata RotateYMetadata = new(Strings.RotateY);
+        public static readonly DirectEditingProperty<Rotate, EaseProperty> RotateYProperty = EditingProperty.RegisterSerializeDirect<EaseProperty, Rotate>(
+            nameof(RotateY),
+            owner => owner.RotateY,
+            (owner, obj) => owner.RotateY = obj,
+            new EasePropertyMetadata(Strings.RotateY));
 
         /// <summary>
-        /// Represents <see cref="RotateZ"/> metadata.
+        /// Defines the <see cref="RotateZ"/> property.
         /// </summary>
-        public static readonly EasePropertyMetadata RotateZMetadata = new(Strings.RotateZ);
+        public static readonly DirectEditingProperty<Rotate, EaseProperty> RotateZProperty = EditingProperty.RegisterSerializeDirect<EaseProperty, Rotate>(
+            nameof(RotateZ),
+            owner => owner.RotateZ,
+            (owner, obj) => owner.RotateZ = obj,
+            new EasePropertyMetadata(Strings.RotateZ));
 
         /// <summary>
         /// Initializes a new instance of the <see cref="Rotate"/> class.
         /// </summary>
         /// <param name="metadata">Metadata of this property.</param>
         /// <exception cref="ArgumentNullException"><paramref name="metadata"/> is <see langword="null"/>.</exception>
-        public Rotate(PropertyElementMetadata metadata)
-            : base(metadata)
+#pragma warning disable CS8618
+        public Rotate(RotateMetadata metadata): base(metadata)
+#pragma warning restore CS8618
         {
-            RotateX = new(RotateXMetadata);
-            RotateY = new(RotateYMetadata);
-            RotateZ = new(RotateZMetadata);
         }
 
         /// <inheritdoc/>
-        public override IEnumerable<PropertyElement> Properties => new PropertyElement[]
+        public override IEnumerable<PropertyElement> Properties
         {
-            RotateX,
-            RotateY,
-            RotateZ,
-        };
+            get
+            {
+                yield return RotateX;
+                yield return RotateY;
+                yield return RotateZ;
+            }
+        }
 
         /// <summary>
         /// Gets the <see cref="EaseProperty"/> of the X-axis angle.
         /// </summary>
-        [DataMember]
         public EaseProperty RotateX { get; private set; }
 
         /// <summary>
         /// Gets the <see cref="EaseProperty"/> of the Y-axis angle.
         /// </summary>
-        [DataMember]
         public EaseProperty RotateY { get; private set; }
 
         /// <summary>
         /// Gets the <see cref="EaseProperty"/> of the Z-axis angle.
         /// </summary>
-        [DataMember]
         public EaseProperty RotateZ { get; private set; }
+    }
 
+    /// <summary>
+    /// The metadata of <see cref="Rotate"/>.
+    /// </summary>
+    /// <param name="Name">The string displayed in the property header.</param>
+    public record RotateMetadata(string Name) : PropertyElementMetadata(Name), IEditingPropertyInitializer<Rotate>
+    {
         /// <inheritdoc/>
-        protected override void OnLoad()
+        public Rotate Create()
         {
-            RotateX.Load(RotateXMetadata);
-            RotateY.Load(RotateYMetadata);
-            RotateZ.Load(RotateZMetadata);
-        }
-
-        /// <inheritdoc/>
-        protected override void OnUnload()
-        {
-            RotateX.Unload();
-            RotateY.Unload();
-            RotateZ.Unload();
+            return new(this);
         }
     }
 }

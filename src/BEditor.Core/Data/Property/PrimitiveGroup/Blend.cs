@@ -13,19 +13,31 @@ namespace BEditor.Data.Property.PrimitiveGroup
     public sealed class Blend : ExpandGroup
     {
         /// <summary>
-        /// Represents <see cref="Opacity"/> metadata.
+        /// Defines the <see cref="Opacity"/> property.
         /// </summary>
-        public static readonly EasePropertyMetadata OpacityMetadata = new(Strings.Opacity, 100, 100, 0);
+        public static readonly DirectEditingProperty<Blend, EaseProperty> OpecityProperty = EditingProperty.RegisterSerializeDirect<EaseProperty, Blend>(
+            nameof(Opacity),
+            owner => owner.Opacity,
+            (owner, obj) => owner.Opacity = obj,
+            new EasePropertyMetadata(Strings.Opacity, 100, 100, 0));
 
         /// <summary>
-        /// Represents <see cref="Color"/> metadata.
+        /// Defines the <see cref="Color"/> property.
         /// </summary>
-        public static readonly ColorAnimationPropertyMetadata ColorMetadata = new(Strings.Color, Drawing.Color.Light, false);
+        public static readonly DirectEditingProperty<Blend, ColorAnimationProperty> ColorProperty = EditingProperty.RegisterSerializeDirect<ColorAnimationProperty, Blend>(
+            nameof(Color),
+            owner => owner.Color,
+            (owner, obj) => owner.Color = obj,
+            new ColorAnimationPropertyMetadata(Strings.Color, Drawing.Color.Light, false));
 
         /// <summary>
-        /// Represents <see cref="BlendType"/> metadata.
+        /// Defines the <see cref="BlendType"/> property.
         /// </summary>
-        public static readonly SelectorPropertyMetadata BlendTypeMetadata = new(Strings.Blend, new[] { "通常", "加算", "減算", "乗算" });
+        public static readonly DirectEditingProperty<Blend, SelectorProperty> BlendTypeProperty = EditingProperty.RegisterSerializeDirect<SelectorProperty, Blend>(
+            nameof(BlendType),
+            owner => owner.BlendType,
+            (owner, obj) => owner.BlendType = obj,
+            new SelectorPropertyMetadata(Strings.Blend, new[] { "通常", "加算", "減算", "乗算" }));
 
         /// <summary>
         /// OpenGLの合成方法を設定する <see cref="Action"/> です.
@@ -59,54 +71,49 @@ namespace BEditor.Data.Property.PrimitiveGroup
         /// </summary>
         /// <param name="metadata">Metadata of this property.</param>
         /// <exception cref="ArgumentNullException"><paramref name="metadata"/> is <see langword="null"/>.</exception>
-        public Blend(PropertyElementMetadata metadata)
-            : base(metadata)
+#pragma warning disable CS8618
+        public Blend(BlendMetadata metadata) : base(metadata)
+#pragma warning restore CS8618
         {
-            Opacity = new(OpacityMetadata);
-            BlendType = new(BlendTypeMetadata);
-            Color = new(ColorMetadata);
         }
 
         /// <inheritdoc/>
-        public override IEnumerable<PropertyElement> Properties => new PropertyElement[]
+        public override IEnumerable<PropertyElement> Properties
         {
-            Opacity,
-            Color,
-            BlendType,
-        };
+            get
+            {
+                yield return Opacity;
+                yield return Color;
+                yield return BlendType;
+            }
+        }
 
         /// <summary>
         /// Gets the <see cref="EaseProperty"/> that represents the transparency.
         /// </summary>
-        [DataMember]
         public EaseProperty Opacity { get; private set; }
 
         /// <summary>
         /// Gets the <see cref="ColorAnimationProperty"/> that represents a color.
         /// </summary>
-        [DataMember]
         public ColorAnimationProperty Color { get; private set; }
 
         /// <summary>
         /// Gets the <see cref="SelectorProperty"/> that selects the BlendFunc.
         /// </summary>
-        [DataMember]
         public SelectorProperty BlendType { get; private set; }
+    }
 
+    /// <summary>
+    /// The metadata of <see cref="Blend"/>.
+    /// </summary>
+    /// <param name="Name">The string displayed in the property header.</param>
+    public record BlendMetadata(string Name) : PropertyElementMetadata(Name), IEditingPropertyInitializer<Blend>
+    {
         /// <inheritdoc/>
-        protected override void OnLoad()
+        public Blend Create()
         {
-            Opacity.Load(OpacityMetadata);
-            BlendType.Load(BlendTypeMetadata);
-            Color.Load(ColorMetadata);
-        }
-
-        /// <inheritdoc/>
-        protected override void OnUnload()
-        {
-            Opacity.Unload();
-            BlendType.Unload();
-            Color.Unload();
+            return new(this);
         }
     }
 }
