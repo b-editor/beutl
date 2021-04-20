@@ -1,4 +1,5 @@
 ﻿using System.Collections.Generic;
+using System.Diagnostics.CodeAnalysis;
 using System.Linq;
 
 using BEditor.Data.Property;
@@ -19,40 +20,57 @@ namespace BEditor.Data.Primitive
     public abstract class ImageObject : ObjectElement
     {
         /// <summary>
-        /// Represents <see cref="Coordinate"/> metadata.
+        /// Defines the <see cref="Coordinate"/> property.
         /// </summary>
-        public static readonly PropertyElementMetadata CoordinateMetadata = new(Strings.Coordinate);
+        public static readonly DirectEditingProperty<ImageObject, Coordinate> CoordinateProperty = EditingProperty.RegisterSerializeDirect<Coordinate, ImageObject>(
+            nameof(Coordinate),
+            owner => owner.Coordinate,
+            (owner, obj) => owner.Coordinate = obj,
+            new CoordinateMetadata(Strings.Coordinate));
 
         /// <summary>
-        /// Represents <see cref="Scale"/> metadata.
+        /// Defines the <see cref="Scale"/> property.
         /// </summary>
-        public static readonly PropertyElementMetadata ScaleMetadata = new(Strings.Scale);
+        public static readonly DirectEditingProperty<ImageObject, Scale> ScaleProperty = EditingProperty.RegisterSerializeDirect<Scale, ImageObject>(
+            nameof(Scale),
+            owner => owner.Scale,
+            (owner, obj) => owner.Scale = obj,
+            new ScaleMetadata(Strings.Scale));
 
         /// <summary>
-        /// Represents <see cref="Blend"/> metadata.
+        /// Defines the <see cref="Blend"/> property.
         /// </summary>
-        public static readonly PropertyElementMetadata BlendMetadata = new(Strings.Blend);
+        public static readonly DirectEditingProperty<ImageObject, Blend> BlendProperty = EditingProperty.RegisterSerializeDirect<Blend, ImageObject>(
+            nameof(Blend),
+            owner => owner.Blend,
+            (owner, obj) => owner.Blend = obj,
+            new BlendMetadata(Strings.Blend));
 
         /// <summary>
-        /// Represents <see cref="Rotate"/> metadata.
+        /// Defines the <see cref="Rotate"/> property.
         /// </summary>
-        public static readonly PropertyElementMetadata RotateMetadata = new(Strings.Rotate);
+        public static readonly DirectEditingProperty<ImageObject, Rotate> RotateProperty = EditingProperty.RegisterSerializeDirect<Rotate, ImageObject>(
+            nameof(Rotate),
+            owner => owner.Rotate,
+            (owner, obj) => owner.Rotate = obj,
+            new RotateMetadata(Strings.Rotate));
 
         /// <summary>
-        /// Represents <see cref="Material"/> metadata.
+        /// Defines the <see cref="Rotate"/> property.
         /// </summary>
-        public static readonly PropertyElementMetadata MaterialMetadata = new(Strings.Material);
+        public static readonly DirectEditingProperty<ImageObject, Property.PrimitiveGroup.Material> MaterialProperty = EditingProperty.RegisterSerializeDirect<Property.PrimitiveGroup.Material, ImageObject>(
+            nameof(Material),
+            owner => owner.Material,
+            (owner, obj) => owner.Material = obj,
+            new MaterialMetadata(Strings.Material));
 
         /// <summary>
         /// Initializes a new instance of the <see cref="ImageObject"/> class.
         /// </summary>
+#pragma warning disable CS8618
         protected ImageObject()
+#pragma warning restore CS8618
         {
-            Coordinate = new(CoordinateMetadata);
-            Scale = new(ScaleMetadata);
-            Blend = new(BlendMetadata);
-            Rotate = new(RotateMetadata);
-            Material = new(MaterialMetadata);
         }
 
         /// <inheritdoc/>
@@ -61,31 +79,26 @@ namespace BEditor.Data.Primitive
         /// <summary>
         /// Gets the coordinates.
         /// </summary>
-        [DataMember]
         public Coordinate Coordinate { get; private set; }
 
         /// <summary>
         /// Gets the scale.
         /// </summary>
-        [DataMember]
         public Scale Scale { get; private set; }
 
         /// <summary>
         /// Gets the blend.
         /// </summary>
-        [DataMember]
         public Blend Blend { get; private set; }
 
         /// <summary>
         /// Gets the angle.
         /// </summary>
-        [DataMember]
         public Rotate Rotate { get; private set; }
 
         /// <summary>
         /// Gets the material.
         /// </summary>
-        [DataMember]
         public Property.PrimitiveGroup.Material Material { get; private set; }
 
         /// <inheritdoc/>
@@ -212,26 +225,6 @@ namespace BEditor.Data.Primitive
                     new(img, _ => default),
                 };
             }
-        }
-
-        /// <inheritdoc/>
-        protected override void OnLoad()
-        {
-            Coordinate.Load(CoordinateMetadata);
-            Scale.Load(ScaleMetadata);
-            Blend.Load(BlendMetadata);
-            Rotate.Load(RotateMetadata);
-            Material.Load(MaterialMetadata);
-        }
-
-        /// <inheritdoc/>
-        protected override void OnUnload()
-        {
-            Coordinate.Unload();
-            Scale.Unload();
-            Blend.Unload();
-            Rotate.Unload();
-            Material.Unload();
         }
 
         private void LoadEffect(EffectRenderArgs<IEnumerable<ImageInfo>> args, EffectElement[] list)

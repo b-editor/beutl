@@ -18,93 +18,152 @@ namespace BEditor.Primitive.Objects
     public sealed class GL3DObject : ObjectElement
     {
         /// <summary>
-        /// Represents <see cref="Type"/> metadata.
+        /// Defines the <see cref="Coordinate"/> property.
         /// </summary>
-        public static readonly SelectorPropertyMetadata TypeMetadata = new(Strings.Type, new string[2]
-        {
-            Strings.Cube,
-            Strings.Ball
-        });
+        public static readonly DirectEditingProperty<GL3DObject, Coordinate> CoordinateProperty = ImageObject.CoordinateProperty.WithOwner<GL3DObject>(
+            owner => owner.Coordinate,
+            (owner, obj) => owner.Coordinate = obj);
+
         /// <summary>
-        /// Represents <see cref="Depth"/> metadata.
+        /// Defines the <see cref="Data.Property.PrimitiveGroup.Scale"/> property.
         /// </summary>
-        public static readonly EasePropertyMetadata DepthMetadata = new(Strings.Depth, 100, float.NaN, 0);
+        public static readonly DirectEditingProperty<GL3DObject, Scale> ScaleProperty = ImageObject.ScaleProperty.WithOwner<GL3DObject>(
+            owner => owner.Scale,
+            (owner, obj) => owner.Scale = obj);
+
+        /// <summary>
+        /// Defines the <see cref="Blend"/> property.
+        /// </summary>
+        public static readonly DirectEditingProperty<GL3DObject, Blend> BlendProperty = ImageObject.BlendProperty.WithOwner<GL3DObject>(
+            owner => owner.Blend,
+            (owner, obj) => owner.Blend = obj);
+
+        /// <summary>
+        /// Defines the <see cref="Data.Property.PrimitiveGroup.Rotate"/> property.
+        /// </summary>
+        public static readonly DirectEditingProperty<GL3DObject, Rotate> RotateProperty = ImageObject.RotateProperty.WithOwner<GL3DObject>(
+            owner => owner.Rotate,
+            (owner, obj) => owner.Rotate = obj);
+
+        /// <summary>
+        /// Defines the <see cref="Data.Property.PrimitiveGroup.Rotate"/> property.
+        /// </summary>
+        public static readonly DirectEditingProperty<GL3DObject, Material> MaterialProperty = ImageObject.MaterialProperty.WithOwner<GL3DObject>(
+            owner => owner.Material,
+            (owner, obj) => owner.Material = obj);
+
+        /// <summary>
+        /// Defines the <see cref="Type"/> property.
+        /// </summary>
+        public static readonly DirectEditingProperty<GL3DObject, SelectorProperty> TypeProperty = EditingProperty.RegisterSerializeDirect<SelectorProperty, GL3DObject>(
+            nameof(Type),
+            owner => owner.Type,
+            (owner, obj) => owner.Type = obj,
+            new SelectorPropertyMetadata(Strings.Type, new[]
+            {
+                Strings.Cube,
+                Strings.Ball
+            }));
+        
+        /// <summary>
+        /// Defines the <see cref="Width"/> property.
+        /// </summary>
+        public static readonly DirectEditingProperty<GL3DObject, EaseProperty> WidthProperty = EditingProperty.RegisterSerializeDirect<EaseProperty, GL3DObject>(
+            nameof(Width),
+            owner => owner.Width,
+            (owner, obj) => owner.Width = obj,
+            new EasePropertyMetadata(Strings.Width, 100, Min: 0));
+        
+        /// <summary>
+        /// Defines the <see cref="Height"/> property.
+        /// </summary>
+        public static readonly DirectEditingProperty<GL3DObject, EaseProperty> HeightProperty = EditingProperty.RegisterSerializeDirect<EaseProperty, GL3DObject>(
+            nameof(Height),
+            owner => owner.Height,
+            (owner, obj) => owner.Height = obj,
+            new EasePropertyMetadata(Strings.Height, 100, Min: 0));
+        
+        /// <summary>
+        /// Defines the <see cref="Depth"/> property.
+        /// </summary>
+        public static readonly DirectEditingProperty<GL3DObject, EaseProperty> DepthProperty = EditingProperty.RegisterSerializeDirect<EaseProperty, GL3DObject>(
+            nameof(Depth),
+            owner => owner.Depth,
+            (owner, obj) => owner.Depth = obj,
+            new EasePropertyMetadata(Strings.Depth, 100, Min: 0));
 
         /// <summary>
         /// Initializes a new instance of the <see cref="GL3DObject"/> class.
         /// </summary>
+#pragma warning disable CS8618
         public GL3DObject()
+#pragma warning restore CS8618
         {
-            Coordinate = new(ImageObject.CoordinateMetadata);
-            Zoom = new(ImageObject.ScaleMetadata);
-            Blend = new(ImageObject.BlendMetadata);
-            Angle = new(ImageObject.RotateMetadata);
-            Material = new(ImageObject.MaterialMetadata);
-            Type = new(TypeMetadata);
-            Width = new(Shape.WidthMetadata);
-            Height = new(Shape.HeightMetadata);
-            Depth = new(DepthMetadata);
         }
 
         /// <inheritdoc/>
         public override string Name => Strings.GL3DObject;
+
         /// <inheritdoc/>
-        public override IEnumerable<PropertyElement> Properties => new PropertyElement[]
+        public override IEnumerable<PropertyElement> Properties
         {
-            Coordinate,
-            Zoom,
-            Blend,
-            Angle,
-            Material,
-            Type,
-            Width,
-            Height,
-            Depth
-        };
+            get
+            {
+                yield return Coordinate;
+                yield return Scale;
+                yield return Blend;
+                yield return Rotate;
+                yield return Material;
+                yield return Type;
+                yield return Width;
+                yield return Height;
+                yield return Depth;
+            }
+        }
+
         /// <summary>
         /// Get the coordinates.
         /// </summary>
-        [DataMember]
         public Coordinate Coordinate { get; private set; }
+
         /// <summary>
         /// Get the scale.
         /// </summary>
-        [DataMember]
-        public Scale Zoom { get; private set; }
+        public Scale Scale { get; private set; }
+
         /// <summary>
         /// Get the blend.
         /// </summary>
-        [DataMember]
         public Blend Blend { get; private set; }
+
         /// <summary>
         /// Get the angle.
         /// </summary>
-        [DataMember]
-        public Rotate Angle { get; private set; }
+        public Rotate Rotate { get; private set; }
+
         /// <summary>
         /// Get the material.
         /// </summary>
-        [DataMember]
         public Material Material { get; private set; }
+
         /// <summary>
         /// Get the <see cref="SelectorProperty"/> to select the object type.
         /// </summary>
-        [DataMember]
         public SelectorProperty Type { get; private set; }
+
         /// <summary>
         /// Gets the <see cref="EaseProperty"/> representing the width of the object.
         /// </summary>
-        [DataMember]
         public EaseProperty Width { get; private set; }
+
         /// <summary>
         /// Gets the <see cref="EaseProperty"/> representing the height of the object.
         /// </summary>
-        [DataMember]
         public EaseProperty Height { get; private set; }
+
         /// <summary>
         /// Gets the <see cref="EaseProperty"/> representing the depth of the object.
         /// </summary>
-        [DataMember]
         public EaseProperty Depth { get; private set; }
 
         /// <inheritdoc/>
@@ -116,16 +175,16 @@ namespace BEditor.Primitive.Objects
             color4.A *= Blend.Opacity[frame];
 
 
-            float scale = (float)(Zoom.Scale1[frame] / 100);
-            float scalex = (float)(Zoom.ScaleX[frame] / 100) * scale;
-            float scaley = (float)(Zoom.ScaleY[frame] / 100) * scale;
-            float scalez = (float)(Zoom.ScaleZ[frame] / 100) * scale;
+            float scale = (float)(Scale.Scale1[frame] / 100);
+            float scalex = (float)(Scale.ScaleX[frame] / 100) * scale;
+            float scaley = (float)(Scale.ScaleY[frame] / 100) * scale;
+            float scalez = (float)(Scale.ScaleZ[frame] / 100) * scale;
 
             var material = new Graphics.Material(Material.Ambient[frame], Material.Diffuse[frame], Material.Specular[frame], Material.Shininess[frame]);
             var trans = Transform.Create(
                 new(Coordinate.X[frame], Coordinate.Y[frame], Coordinate.Z[frame]),
                 new(Coordinate.CenterX[frame], Coordinate.CenterY[frame], Coordinate.CenterZ[frame]),
-                new(Angle.RotateX[frame], Angle.RotateY[frame], Angle.RotateZ[frame]),
+                new(Rotate.RotateX[frame], Rotate.RotateY[frame], Rotate.RotateZ[frame]),
                 new(scalex, scaley, scalez));
 
             if (Type.Index == 0)
@@ -154,32 +213,6 @@ namespace BEditor.Primitive.Objects
             }
 
             Coordinate.ResetOptional();
-        }
-        /// <inheritdoc/>
-        protected override void OnLoad()
-        {
-            Coordinate.Load(ImageObject.CoordinateMetadata);
-            Zoom.Load(ImageObject.ScaleMetadata);
-            Blend.Load(ImageObject.BlendMetadata);
-            Angle.Load(ImageObject.RotateMetadata);
-            Material.Load(ImageObject.MaterialMetadata);
-            Type.Load(TypeMetadata);
-            Width.Load(Shape.WidthMetadata);
-            Height.Load(Shape.HeightMetadata);
-            Depth.Load(DepthMetadata);
-        }
-        /// <inheritdoc/>
-        protected override void OnUnload()
-        {
-            Coordinate.Unload();
-            Zoom.Unload();
-            Blend.Unload();
-            Angle.Unload();
-            Material.Unload();
-            Type.Unload();
-            Width.Unload();
-            Height.Unload();
-            Depth.Unload();
         }
     }
 }

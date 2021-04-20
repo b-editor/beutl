@@ -15,52 +15,88 @@ namespace BEditor.Primitive.Effects
     public sealed class AreaExpansion : ImageEffect
     {
         /// <summary>
+        /// Defines the <see cref="Top"/> property.
+        /// </summary>
+        public static readonly DirectEditingProperty<AreaExpansion, EaseProperty> TopProperty = Clipping.TopProperty.WithOwner<AreaExpansion>(
+            owner => owner.Top,
+            (owner, obj) => owner.Top = obj);
+
+        /// <summary>
+        /// Defines the <see cref="Bottom"/> property.
+        /// </summary>
+        public static readonly DirectEditingProperty<AreaExpansion, EaseProperty> BottomProperty = Clipping.BottomProperty.WithOwner<AreaExpansion>(
+            owner => owner.Bottom,
+            (owner, obj) => owner.Bottom = obj);
+
+        /// <summary>
+        /// Defines the <see cref="Left"/> property.
+        /// </summary>
+        public static readonly DirectEditingProperty<AreaExpansion, EaseProperty> LeftProperty = Clipping.LeftProperty.WithOwner<AreaExpansion>(
+            owner => owner.Left,
+            (owner, obj) => owner.Left = obj);
+
+        /// <summary>
+        /// Defines the <see cref="Right"/> property.
+        /// </summary>
+        public static readonly DirectEditingProperty<AreaExpansion, EaseProperty> RightProperty = Clipping.RightProperty.WithOwner<AreaExpansion>(
+            owner => owner.Right,
+            (owner, obj) => owner.Right = obj);
+
+        /// <summary>
+        /// Defines the <see cref="AdjustCoordinates"/> property.
+        /// </summary>
+        public static readonly DirectEditingProperty<AreaExpansion, CheckProperty> AdjustCoordinatesProperty = Clipping.AdjustCoordinatesProperty.WithOwner<AreaExpansion>(
+            owner => owner.AdjustCoordinates,
+            (owner, obj) => owner.AdjustCoordinates = obj);
+
+        /// <summary>
         /// Initializes a new instance of the <see cref="AreaExpansion"/> class.
         /// </summary>
+#pragma warning disable CS8618
         public AreaExpansion()
+#pragma warning restore CS8618
         {
-            Top = new(Clipping.TopMetadata);
-            Bottom = new(Clipping.BottomMetadata);
-            Left = new(Clipping.LeftMetadata);
-            Right = new(Clipping.RightMetadata);
-            AdjustCoordinates = new(Clipping.AdjustCoordinatesMetadata);
         }
 
         /// <inheritdoc/>
         public override string Name => Strings.AreaExpansion;
+
         /// <inheritdoc/>
-        public override IEnumerable<PropertyElement> Properties => new PropertyElement[]
+        public override IEnumerable<PropertyElement> Properties
         {
-            Top,
-            Bottom,
-            Left,
-            Right,
-            AdjustCoordinates
-        };
+            get
+            {
+                yield return Top;
+                yield return Bottom;
+                yield return Left;
+                yield return Right;
+                yield return AdjustCoordinates;
+            }
+        }
+
         /// <summary>
         /// Get an <see cref="EaseProperty"/> that represents the number of pixels to add
         /// </summary>
-        [DataMember]
         public EaseProperty Top { get; private set; }
+
         /// <summary>
         /// Get an <see cref="EaseProperty"/> that represents the number of pixels to add
         /// </summary>
-        [DataMember]
         public EaseProperty Bottom { get; private set; }
+
         /// <summary>
         /// Get an <see cref="EaseProperty"/> that represents the number of pixels to add
         /// </summary>
-        [DataMember]
         public EaseProperty Left { get; private set; }
+
         /// <summary>
         /// Get an <see cref="EaseProperty"/> that represents the number of pixels to add
         /// </summary>
-        [DataMember]
         public EaseProperty Right { get; private set; }
+
         /// <summary>
         /// Get the <see cref="CheckProperty"/> to adjust the coordinates.
         /// </summary>
-        [DataMember]
         public CheckProperty AdjustCoordinates { get; private set; }
 
         /// <inheritdoc/>
@@ -82,23 +118,6 @@ namespace BEditor.Primitive.Effects
             args.Value.Dispose();
 
             args.Value = img;
-        }
-        /// <inheritdoc/>
-        protected override void OnLoad()
-        {
-            Top.Load(Clipping.TopMetadata);
-            Bottom.Load(Clipping.BottomMetadata);
-            Left.Load(Clipping.LeftMetadata);
-            Right.Load(Clipping.RightMetadata);
-            AdjustCoordinates.Load(Clipping.AdjustCoordinatesMetadata);
-        }
-        /// <inheritdoc/>
-        protected override void OnUnload()
-        {
-            foreach (var prop in Children)
-            {
-                prop.Unload();
-            }
         }
     }
 }

@@ -15,73 +15,98 @@ namespace BEditor.Primitive.Effects
     public sealed class Clipping : ImageEffect
     {
         /// <summary>
-        /// Represents <see cref="Top"/> metadata.
+        /// Defines the <see cref="Top"/> property.
         /// </summary>
-        public static readonly EasePropertyMetadata TopMetadata = new(Strings.Top, 0, float.NaN, 0);
+        public static readonly DirectEditingProperty<Clipping, EaseProperty> TopProperty = EditingProperty.RegisterSerializeDirect<EaseProperty, Clipping>(
+            nameof(Top),
+            owner => owner.Top,
+            (owner, obj) => owner.Top = obj,
+            new EasePropertyMetadata(Strings.Top, 0, float.NaN, 0));
+
         /// <summary>
-        /// Represents <see cref="Bottom"/> metadata.
+        /// Defines the <see cref="Bottom"/> property.
         /// </summary>
-        public static readonly EasePropertyMetadata BottomMetadata = new(Strings.Bottom, 0, float.NaN, 0);
+        public static readonly DirectEditingProperty<Clipping, EaseProperty> BottomProperty = EditingProperty.RegisterSerializeDirect<EaseProperty, Clipping>(
+            nameof(Bottom),
+            owner => owner.Bottom,
+            (owner, obj) => owner.Bottom = obj,
+            new EasePropertyMetadata(Strings.Bottom, 0, float.NaN, 0));
+
         /// <summary>
-        /// Represents <see cref="Left"/> metadata.
+        /// Defines the <see cref="Left"/> property.
         /// </summary>
-        public static readonly EasePropertyMetadata LeftMetadata = new(Strings.Left, 0, float.NaN, 0);
+        public static readonly DirectEditingProperty<Clipping, EaseProperty> LeftProperty = EditingProperty.RegisterSerializeDirect<EaseProperty, Clipping>(
+            nameof(Left),
+            owner => owner.Left,
+            (owner, obj) => owner.Left = obj,
+            new EasePropertyMetadata(Strings.Left, 0, float.NaN, 0));
+
         /// <summary>
-        /// Represents <see cref="Right"/> metadata.
+        /// Defines the <see cref="Right"/> property.
         /// </summary>
-        public static readonly EasePropertyMetadata RightMetadata = new(Strings.Right, 0, float.NaN, 0);
+        public static readonly DirectEditingProperty<Clipping, EaseProperty> RightProperty = EditingProperty.RegisterSerializeDirect<EaseProperty, Clipping>(
+            nameof(Right),
+            owner => owner.Right,
+            (owner, obj) => owner.Right = obj,
+            new EasePropertyMetadata(Strings.Right, 0, float.NaN, 0));
+
         /// <summary>
-        /// Represents <see cref="AdjustCoordinates"/> metadata.
+        /// Defines the <see cref="AdjustCoordinates"/> property.
         /// </summary>
-        public static readonly CheckPropertyMetadata AdjustCoordinatesMetadata = new(Strings.AdjustCoordinates);
+        public static readonly DirectEditingProperty<Clipping, CheckProperty> AdjustCoordinatesProperty = EditingProperty.RegisterSerializeDirect<CheckProperty, Clipping>(
+            nameof(AdjustCoordinates),
+            owner => owner.AdjustCoordinates,
+            (owner, obj) => owner.AdjustCoordinates = obj,
+            new CheckPropertyMetadata(Strings.AdjustCoordinates));
 
         /// <summary>
         /// Initializes a new instance of the <see cref="Clipping"/> class.
         /// </summary>
+#pragma warning disable CS8618
         public Clipping()
+#pragma warning restore CS8618
         {
-            Top = new(TopMetadata);
-            Bottom = new(BottomMetadata);
-            Left = new(LeftMetadata);
-            Right = new(RightMetadata);
-            AdjustCoordinates = new(AdjustCoordinatesMetadata);
         }
 
         /// <inheritdoc/>
         public override string Name => Strings.Clipping;
+
         /// <inheritdoc/>
-        public override IEnumerable<PropertyElement> Properties => new PropertyElement[]
+        public override IEnumerable<PropertyElement> Properties
         {
-            Top,
-            Bottom,
-            Left,
-            Right,
-            AdjustCoordinates
-        };
+            get
+            {
+                yield return Top;
+                yield return Bottom;
+                yield return Left;
+                yield return Right;
+                yield return AdjustCoordinates;
+            }
+        }
+
         /// <summary>
         /// Get the <see cref="EaseProperty"/> that represents the range to be clipped.
         /// </summary>
-        [DataMember]
         public EaseProperty Top { get; private set; }
+
         /// <summary>
         /// Get the <see cref="EaseProperty"/> that represents the range to be clipped.
         /// </summary>
-        [DataMember]
         public EaseProperty Bottom { get; private set; }
+
         /// <summary>
         /// Get the <see cref="EaseProperty"/> that represents the range to be clipped.
         /// </summary>
-        [DataMember]
         public EaseProperty Left { get; private set; }
+
         /// <summary>
         /// Get the <see cref="EaseProperty"/> that represents the range to be clipped.
         /// </summary>
-        [DataMember]
         public EaseProperty Right { get; private set; }
+
         /// <summary>
         /// Gets a <see cref="CheckProperty"/> that indicates whether the coordinates should be adjusted or not.
         /// </summary>
-        [DataMember]
         public CheckProperty AdjustCoordinates { get; private set; }
 
         /// <inheritdoc/>
@@ -115,23 +140,6 @@ namespace BEditor.Primitive.Effects
             img.Dispose();
 
             args.Value = img1;
-        }
-        /// <inheritdoc/>
-        protected override void OnLoad()
-        {
-            Top.Load(TopMetadata);
-            Bottom.Load(BottomMetadata);
-            Left.Load(LeftMetadata);
-            Right.Load(RightMetadata);
-            AdjustCoordinates.Load(AdjustCoordinatesMetadata);
-        }
-        /// <inheritdoc/>
-        protected override void OnUnload()
-        {
-            foreach (var pr in Children)
-            {
-                pr.Unload();
-            }
         }
     }
 }

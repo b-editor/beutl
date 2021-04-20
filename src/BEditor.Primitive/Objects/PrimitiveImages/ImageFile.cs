@@ -19,41 +19,51 @@ namespace BEditor.Primitive.Objects
     public sealed class ImageFile : ImageObject
     {
         /// <summary>
-        /// Represents <see cref="File"/> metadata.
+        /// Defines the <see cref="File"/> property.
         /// </summary>
-        public static readonly FilePropertyMetadata FileMetadata = new(Strings.File, "", new(Strings.ImageFile, new FileExtension[]
-        {
-            new("png"),
-            new("jpeg"),
-            new("jpg"),
-            new("bmp"),
-        }));
+        public static readonly DirectEditingProperty<ImageFile, FileProperty> FileProperty = EditingProperty.RegisterSerializeDirect<FileProperty, ImageFile>(
+            nameof(File),
+            owner => owner.File,
+            (owner, obj) => owner.File = obj,
+            new FilePropertyMetadata(Strings.File, "", new(Strings.ImageFile, new FileExtension[]
+            {
+                new("png"),
+                new("jpeg"),
+                new("jpg"),
+                new("bmp"),
+            })));
 
         /// <summary>
         /// Initializes a new instance of the <see cref="ImageFile"/> class.
         /// </summary>
+#pragma warning disable CS8618
         public ImageFile()
+#pragma warning restore CS8618
         {
-            File = new(FileMetadata);
         }
 
         /// <inheritdoc/>
         public override string Name => Strings.Image;
+
         /// <inheritdoc/>
-        public override IEnumerable<PropertyElement> Properties => new PropertyElement[]
+        public override IEnumerable<PropertyElement> Properties
         {
-            Coordinate,
-            Scale,
-            Blend,
-            Rotate,
-            Material,
-            File
-        };
+            get
+            {
+                yield return Coordinate;
+                yield return Scale;
+                yield return Blend;
+                yield return Rotate;
+                yield return Material;
+                yield return File;
+            }
+        }
+
         /// <summary>
         /// Get the <see cref="FileProperty"/> to select the image file to reference.
         /// </summary>
-        [DataMember]
         public FileProperty File { get; private set; }
+
         private ReactiveProperty<Image<BGRA32>?>? Source { get; set; }
 
         /// <inheritdoc/>
@@ -66,7 +76,6 @@ namespace BEditor.Primitive.Objects
         protected override void OnLoad()
         {
             base.OnLoad();
-            File.Load(FileMetadata);
 
             Source = File.Where(file => System.IO.File.Exists(file))
                 .Select(f =>
@@ -79,11 +88,11 @@ namespace BEditor.Primitive.Objects
                 .ToReactiveProperty();
 
         }
+
         /// <inheritdoc/>
         protected override void OnUnload()
         {
             base.OnUnload();
-            File.Unload();
 
             Source?.Value?.Dispose();
             Source?.Dispose();

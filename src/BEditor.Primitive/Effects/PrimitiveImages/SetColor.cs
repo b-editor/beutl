@@ -15,48 +15,42 @@ namespace BEditor.Primitive.Effects
     public sealed class SetColor : ImageEffect
     {
         /// <summary>
-        /// Represents <see cref="Color"/> metadata.
+        /// Defines the <see cref="Color"/> property.
         /// </summary>
-        public static readonly ColorPropertyMetadata ColorMetadata = new(Strings.Color, Drawing.Color.Light);
+        public static readonly DirectEditingProperty<SetColor, ColorProperty> ColorProperty = ColorKey.ColorProperty.WithOwner<SetColor>(
+            owner => owner.Color,
+            (owner, obj) => owner.Color = obj);
 
         /// <summary>
         /// Initializes a new instance of the <see cref="SetColor"/> class.
         /// </summary>
+#pragma warning disable CS8618
         public SetColor()
+#pragma warning restore CS8618
         {
-            Color = new(ColorMetadata);
         }
 
         /// <inheritdoc/>
         public override string Name => Strings.Monoc;
+
         /// <inheritdoc/>
-        public override IEnumerable<PropertyElement> Properties => new PropertyElement[]
+        public override IEnumerable<PropertyElement> Properties
         {
-            Color
-        };
+            get
+            {
+                yield return Color;
+            }
+        }
+
         /// <summary>
         /// Get the <see cref="ColorProperty"/> that represents the color to be monochromatic.
         /// </summary>
-        [DataMember]
         public ColorProperty Color { get; private set; }
 
         /// <inheritdoc/>
         public override void Render(EffectRenderArgs<Image<BGRA32>> args)
         {
             args.Value.SetColor(Color.Value);
-        }
-        /// <inheritdoc/>
-        protected override void OnLoad()
-        {
-            Color.Load(ColorMetadata);
-        }
-        /// <inheritdoc/>
-        protected override void OnUnload()
-        {
-            foreach (var pr in Children)
-            {
-                pr.Unload();
-            }
         }
     }
 }

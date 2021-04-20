@@ -96,7 +96,8 @@ namespace BEditor.Data
             var property = new DirectEditingProperty<TNewOwner, TValue>(Name, getter, setter)
             {
                 Initializer = initializer,
-                Serializer = serializer
+                Serializer = serializer,
+                Key = key
             };
 
             PropertyFromKey.Add(key, property);

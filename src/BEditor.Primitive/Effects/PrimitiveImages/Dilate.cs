@@ -15,40 +15,53 @@ namespace BEditor.Primitive.Effects
     public sealed class Dilate : ImageEffect
     {
         /// <summary>
-        /// Represents <see cref="Radius"/> metadata.
+        /// Defines the <see cref="Radius"/> property.
         /// </summary>
-        public static readonly EasePropertyMetadata RadiusMetadata = new(Strings.Frequency, 1, float.NaN, 0);
+        public static readonly DirectEditingProperty<Dilate, EaseProperty> RadiusProperty = EditingProperty.RegisterSerializeDirect<EaseProperty, Dilate>(
+            nameof(Radius),
+            owner => owner.Radius,
+            (owner, obj) => owner.Radius = obj,
+            new EasePropertyMetadata(Strings.Radius, 1, float.NaN, 0));
+
         /// <summary>
-        /// Represents <see cref="Resize"/> metadata.
+        /// Defines the <see cref="Resize"/> property.
         /// </summary>
-        public static readonly CheckPropertyMetadata ResizeMetadata = new(Strings.Resize);
+        public static readonly DirectEditingProperty<Dilate, CheckProperty> ResizeProperty = EditingProperty.RegisterSerializeDirect<CheckProperty, Dilate>(
+            nameof(Resize),
+            owner => owner.Resize,
+            (owner, obj) => owner.Resize = obj,
+            new CheckPropertyMetadata(Strings.Resize));
 
         /// <summary>
         /// Initializes a new instance of the <see cref="Dilate"/> class.
         /// </summary>
+#pragma warning disable CS8618
         public Dilate()
+#pragma warning restore CS8618
         {
-            Radius = new(RadiusMetadata);
-            Resize = new(ResizeMetadata);
         }
 
         /// <inheritdoc/>
         public override string Name => Strings.Dilate;
+
         /// <inheritdoc/>
-        public override IEnumerable<PropertyElement> Properties => new PropertyElement[]
+        public override IEnumerable<PropertyElement> Properties
         {
-            Radius,
-            Resize
-        };
+            get
+            {
+                yield return Radius;
+                yield return Resize;
+            }
+        }
+
         /// <summary>
         /// Get the <see cref="EaseProperty"/> representing the radius.
         /// </summary>
-        [DataMember]
         public EaseProperty Radius { get; private set; }
+
         /// <summary>
         /// Gets a <see cref="CheckProperty"/> representing the value to resize the image.
         /// </summary>
-        [DataMember]
         public CheckProperty Resize { get; private set; }
 
         /// <inheritdoc/>
@@ -69,20 +82,6 @@ namespace BEditor.Primitive.Effects
             else
             {
                 img.Dilate(size);
-            }
-        }
-        /// <inheritdoc/>
-        protected override void OnLoad()
-        {
-            Radius.Load(RadiusMetadata);
-            Resize.Load(ResizeMetadata);
-        }
-        /// <inheritdoc/>
-        protected override void OnUnload()
-        {
-            foreach (var pr in Children)
-            {
-                pr.Unload();
             }
         }
     }

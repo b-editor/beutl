@@ -21,108 +21,144 @@ namespace BEditor.Primitive.Effects
     public sealed class Mask : ImageEffect
     {
         /// <summary>
-        /// Represents <see cref="X"/> metadata.
+        /// Defines the <see cref="X"/> property.
         /// </summary>
-        public static readonly EasePropertyMetadata XMetadata = Coordinate.XMetadata;
+        public static readonly DirectEditingProperty<Mask, EaseProperty> XProperty = Coordinate.XProperty.WithOwner<Mask>(
+            owner => owner.X,
+            (owner, obj) => owner.X = obj);
+
         /// <summary>
-        /// Represents <see cref="Y"/> metadata.
+        /// Defines the <see cref="Y"/> property.
         /// </summary>
-        public static readonly EasePropertyMetadata YMetadata = Coordinate.YMetadata;
+        public static readonly DirectEditingProperty<Mask, EaseProperty> YProperty = Coordinate.XProperty.WithOwner<Mask>(
+            owner => owner.Y,
+            (owner, obj) => owner.Y = obj);
+
         /// <summary>
-        /// Represents <see cref="Rotate"/> metadata.
+        /// Defines the <see cref="Rotate"/> property.
         /// </summary>
-        public static readonly EasePropertyMetadata RotateMetadata = new(Strings.Rotate);
+        public static readonly DirectEditingProperty<Mask, EaseProperty> RotateProperty = EditingProperty.RegisterSerializeDirect<EaseProperty, Mask>(
+            nameof(Rotate),
+            owner => owner.Rotate,
+            (owner, obj) => owner.Rotate = obj,
+            new EasePropertyMetadata(Strings.Rotate));
+
         /// <summary>
-        /// Represents <see cref="Width"/> metadata.
+        /// Defines the <see cref="Width"/> property.
         /// </summary>
-        public static readonly EasePropertyMetadata WidthMetadata = new(Strings.Width + " (%)", 100, Min: 0);
+        public static readonly DirectEditingProperty<Mask, EaseProperty> WidthProperty = EditingProperty.RegisterSerializeDirect<EaseProperty, Mask>(
+            nameof(Width),
+            owner => owner.Width,
+            (owner, obj) => owner.Width = obj,
+            new EasePropertyMetadata(Strings.Width + " (%)", 100, Min: 0));
+
         /// <summary>
-        /// Represents <see cref="Height"/> metadata.
+        /// Defines the <see cref="Height"/> property.
         /// </summary>
-        public static readonly EasePropertyMetadata HeightMetadata = new(Strings.Height + " (%)", 100, Min: 0);
+        public static readonly DirectEditingProperty<Mask, EaseProperty> HeightProperty = EditingProperty.RegisterSerializeDirect<EaseProperty, Mask>(
+            nameof(Height),
+            owner => owner.Height,
+            (owner, obj) => owner.Height = obj,
+            new EasePropertyMetadata(Strings.Height + " (%)", 100, Min: 0));
+
         /// <summary>
-        /// Represents <see cref="Image"/> metadata.
+        /// Defines the <see cref="Image"/> property.
         /// </summary>
-        public static readonly TextPropertyMetadata ImageMetadata = new(Strings.PathToImageObject);
+        public static readonly DirectEditingProperty<Mask, TextProperty> ImageProperty = EditingProperty.RegisterSerializeDirect<TextProperty, Mask>(
+            nameof(Image),
+            owner => owner.Image,
+            (owner, obj) => owner.Image = obj,
+            new TextPropertyMetadata(Strings.PathToImageObject));
+
         /// <summary>
-        /// Represents <see cref="InvertMask"/> metadata.
+        /// Defines the <see cref="InvertMask"/> property.
         /// </summary>
-        public static readonly CheckPropertyMetadata InvertMaskMetadata = new(Strings.InvertMask);
+        public static readonly DirectEditingProperty<Mask, CheckProperty> InvertMaskProperty = EditingProperty.RegisterSerializeDirect<CheckProperty, Mask>(
+            nameof(InvertMask),
+            owner => owner.InvertMask,
+            (owner, obj) => owner.InvertMask = obj,
+            new CheckPropertyMetadata(Strings.InvertMask));
+
         /// <summary>
-        /// Represents <see cref="FitSize"/> metadata.
+        /// Defines the <see cref="FitSize"/> property.
         /// </summary>
-        public static readonly CheckPropertyMetadata FitSizeMetadata = new(Strings.FitToOriginalSize);
+        public static readonly DirectEditingProperty<Mask, CheckProperty> FitSizeProperty = EditingProperty.RegisterSerializeDirect<CheckProperty, Mask>(
+            nameof(FitSize),
+            owner => owner.FitSize,
+            (owner, obj) => owner.FitSize = obj,
+            new CheckPropertyMetadata(Strings.FitToOriginalSize));
+
         private ReactiveProperty<ClipElement?>? _clipProperty;
 
         /// <summary>
         /// Initializes a new instance of the <see cref="Mask"/> class.
         /// </summary>
+#pragma warning disable CS8618
         public Mask()
+#pragma warning restore CS8618
         {
-            X = new(XMetadata);
-            Y = new(YMetadata);
-            Rotate = new(RotateMetadata);
-            Width = new(WidthMetadata);
-            Height = new(HeightMetadata);
-            Image = new(ImageMetadata);
-            InvertMask = new(InvertMaskMetadata);
-            FitSize = new(FitSizeMetadata);
         }
 
         /// <inheritdoc/>
         public override string Name => Strings.Mask;
+
         /// <inheritdoc/>
-        public override IEnumerable<PropertyElement> Properties => new PropertyElement[]
+        public override IEnumerable<PropertyElement> Properties
         {
-            X,
-            Y,
-            Rotate,
-            Width,
-            Height,
-            Image,
-            InvertMask,
-            FitSize
-        };
+            get
+            {
+                yield return X;
+                yield return Y;
+                yield return Rotate;
+                yield return Width;
+                yield return Height;
+                yield return Height;
+                yield return Image;
+                yield return InvertMask;
+                yield return FitSize;
+            }
+        }
+
         /// <summary>
         /// Get the <see cref="EaseProperty"/> representing the X coordinate.
         /// </summary>
-        [DataMember]
         public EaseProperty X { get; private set; }
+
         /// <summary>
         /// Get the <see cref="EaseProperty"/> representing the Y coordinate.
         /// </summary>
-        [DataMember]
         public EaseProperty Y { get; private set; }
+
         /// <summary>
         /// Get the <see cref="EaseProperty"/> of the angle.
         /// </summary>
-        [DataMember]
         public EaseProperty Rotate { get; private set; }
+
         /// <summary>
         /// Get the <see cref="EaseProperty"/> that represents the width of the mask.
         /// </summary>
-        [DataMember]
         public EaseProperty Width { get; private set; }
+
         /// <summary>
         /// Get the <see cref="EaseProperty"/> that represents the height of the mask.
         /// </summary>
-        [DataMember]
         public EaseProperty Height { get; private set; }
+
         /// <summary>
         /// Gets the <see cref="TextProperty"/> that specifies the image object to be referenced.
         /// </summary>
-        [DataMember]
         public TextProperty Image { get; private set; }
+
         /// <summary>
         /// Get a <see cref="CheckProperty"/> indicating whether or not to invert the mask.
         /// </summary>
-        [DataMember]
         public CheckProperty InvertMask { get; private set; }
+
         /// <summary>
         /// Gets a <see cref="CheckProperty"/> indicating whether or not the mask should be fit to the original image size.
         /// </summary>
-        [DataMember]
         public CheckProperty FitSize { get; private set; }
+
         private ReactiveProperty<ClipElement?> ClipProperty => _clipProperty ??= new();
 
         /// <inheritdoc/>
@@ -156,31 +192,15 @@ namespace BEditor.Primitive.Effects
             args.Value.Mask(resizedimg, new PointF(X[f], Y[f]), Rotate[f], InvertMask.Value);
             img.Dispose();
         }
+
         /// <inheritdoc/>
         protected override void OnLoad()
         {
-            X.Load(XMetadata);
-            Y.Load(YMetadata);
-            Rotate.Load(RotateMetadata);
-            Width.Load(WidthMetadata);
-            Height.Load(HeightMetadata);
-            Image.Load(ImageMetadata);
-            InvertMask.Load(InvertMaskMetadata);
-            FitSize.Load(FitSizeMetadata);
-
             _clipProperty = Image
                 .Select(str => Guid.TryParse(str, out var id) ? (Guid?)id : null)
                 .Where(id=>id is not null)
                 .Select(id => Parent.Parent.Parent.FindAllChildren<ClipElement>((Guid)id!))
                 .ToReactiveProperty();
-        }
-        /// <inheritdoc/>
-        protected override void OnUnload()
-        {
-            foreach (var p in Children)
-            {
-                p.Unload();
-            }
         }
     }
 }

@@ -19,33 +19,68 @@ namespace BEditor.Primitive.Effects
     public sealed class LinearGradient : ImageEffect
     {
         /// <summary>
-        /// Represents <see cref="StartX"/> metadata.
+        /// Defines the <see cref="StartX"/> property.
         /// </summary>
-        public static readonly EasePropertyMetadata StartXMetadata = new(Strings.StartPoint + " X (%)", 0f, 100f, 0);
+        public static readonly DirectEditingProperty<LinearGradient, EaseProperty> StartXProperty = EditingProperty.RegisterSerializeDirect<EaseProperty, LinearGradient>(
+            nameof(StartX),
+            owner => owner.StartX,
+            (owner, obj) => owner.StartX = obj,
+            new EasePropertyMetadata(Strings.StartPoint + " X (%)", 0f, 100f, 0));
+        
         /// <summary>
-        /// Represents <see cref="StartY"/> metadata.
+        /// Defines the <see cref="StartY"/> property.
         /// </summary>
-        public static readonly EasePropertyMetadata StartYMetadata = StartXMetadata with { Name = Strings.StartPoint + " Y (%)" };
+        public static readonly DirectEditingProperty<LinearGradient, EaseProperty> StartYProperty = EditingProperty.RegisterSerializeDirect<EaseProperty, LinearGradient>(
+            nameof(StartY),
+            owner => owner.StartY,
+            (owner, obj) => owner.StartY = obj,
+            new EasePropertyMetadata(Strings.StartPoint + " Y (%)", 0f, 100f, 0));
+        
         /// <summary>
-        /// Represents <see cref="EndX"/> metadata.
+        /// Defines the <see cref="EndX"/> property.
         /// </summary>
-        public static readonly EasePropertyMetadata EndXMetadata = StartXMetadata with { Name = Strings.EndPoint + " X (%)", DefaultValue = 100f };
+        public static readonly DirectEditingProperty<LinearGradient, EaseProperty> EndXProperty = EditingProperty.RegisterSerializeDirect<EaseProperty, LinearGradient>(
+            nameof(EndX),
+            owner => owner.EndX,
+            (owner, obj) => owner.EndX = obj,
+            new EasePropertyMetadata(Strings.EndPoint + " X (%)", 100f, 100f, 0));
+        
         /// <summary>
-        /// Represents <see cref="EndY"/> metadata.
+        /// Defines the <see cref="EndY"/> property.
         /// </summary>
-        public static readonly EasePropertyMetadata EndYMetadata = EndXMetadata with { Name = Strings.EndPoint + " Y (%)" };
+        public static readonly DirectEditingProperty<LinearGradient, EaseProperty> EndYProperty = EditingProperty.RegisterSerializeDirect<EaseProperty, LinearGradient>(
+            nameof(EndY),
+            owner => owner.EndY,
+            (owner, obj) => owner.EndY = obj,
+            new EasePropertyMetadata(Strings.EndPoint + " Y (%)", 100f, 100f, 0));
+
         /// <summary>
-        /// Represents <see cref="Colors"/> metadata.
+        /// Defines the <see cref="Colors"/> property.
         /// </summary>
-        public static readonly TextPropertyMetadata ColorsMetadata = new(Strings.Colors, "#FFFF0000,#FF0000FF");
+        public static readonly DirectEditingProperty<LinearGradient, TextProperty> ColorsProperty = EditingProperty.RegisterSerializeDirect<TextProperty, LinearGradient>(
+            nameof(Colors),
+            owner => owner.Colors,
+            (owner, obj) => owner.Colors = obj,
+            new TextPropertyMetadata(Strings.Colors, "#FFFF0000,#FF0000FF"));
+
         /// <summary>
-        /// Represents <see cref="Anchors"/> metadata.
+        /// Defines the <see cref="Anchors"/> property.
         /// </summary>
-        public static readonly TextPropertyMetadata AnchorsMetadata = new(Strings.Anchors, "0,1");
+        public static readonly DirectEditingProperty<LinearGradient, TextProperty> AnchorsProperty = EditingProperty.RegisterSerializeDirect<TextProperty, LinearGradient>(
+            nameof(Anchors),
+            owner => owner.Anchors,
+            (owner, obj) => owner.Anchors = obj,
+            new TextPropertyMetadata(Strings.Anchors, "0,1"));
+        
         /// <summary>
-        /// Represents <see cref="Mode"/> metadata.
+        /// Defines the <see cref="Mode"/> property.
         /// </summary>
-        public static readonly SelectorPropertyMetadata ModeMetadata = new(Strings.Mode, new string[] { Strings.Clamp, Strings.Repeat, Strings.Mirror, Strings.Decal }, 1);
+        public static readonly DirectEditingProperty<LinearGradient, SelectorProperty> ModeProperty = EditingProperty.RegisterSerializeDirect<SelectorProperty, LinearGradient>(
+            nameof(Mode),
+            owner => owner.Mode,
+            (owner, obj) => owner.Mode = obj,
+            new SelectorPropertyMetadata(Strings.Mode, new string[] { Strings.Clamp, Strings.Repeat, Strings.Mirror, Strings.Decal }, 1));
+
         internal static readonly ShaderTileMode[] tiles =
         {
             ShaderTileMode.Clamp,
@@ -53,73 +88,75 @@ namespace BEditor.Primitive.Effects
             ShaderTileMode.Mirror,
             ShaderTileMode.Decal,
         };
+
         private ReactiveProperty<Color[]>? _colorsProp;
+
         private ReactiveProperty<float[]>? _pointsProp;
 
         /// <summary>
         /// Initializes a new instance of the <see cref="LinearGradient"/> class.
         /// </summary>
+#pragma warning disable CS8618
         public LinearGradient()
+#pragma warning restore CS8618
         {
-            StartX = new(StartXMetadata);
-            StartY = new(StartYMetadata);
-            EndX = new(EndXMetadata);
-            EndY = new(EndYMetadata);
-            Colors = new(ColorsMetadata);
-            Anchors = new(AnchorsMetadata);
-            Mode = new(ModeMetadata);
         }
 
         /// <inheritdoc/>
         public override string Name => Strings.LinearGradient;
+
         /// <inheritdoc/>
-        public override IEnumerable<PropertyElement> Properties => new PropertyElement[]
+        public override IEnumerable<PropertyElement> Properties
         {
-            StartX,
-            StartY,
-            EndX,
-            EndY,
-            Colors,
-            Anchors,
-            Mode
-        };
+            get
+            {
+                yield return StartX;
+                yield return StartY;
+                yield return EndX;
+                yield return EndY;
+                yield return Colors;
+                yield return Anchors;
+                yield return Mode;
+            }
+        }
+
         /// <summary>
         /// Get the <see cref="EaseProperty"/> that represents the start position of the X axis.
         /// </summary>
-        [DataMember]
         public EaseProperty StartX { get; private set; }
+
         /// <summary>
         /// Get the <see cref="EaseProperty"/> that represents the start position of the Y axis.
         /// </summary>
-        [DataMember]
         public EaseProperty StartY { get; private set; }
+
         /// <summary>
         /// Get the <see cref="EaseProperty"/> that represents the end position of the X axis.
         /// </summary>
-        [DataMember]
         public EaseProperty EndX { get; private set; }
+
         /// <summary>
         /// Get the <see cref="EaseProperty"/> that represents the end position of the Y axis.
         /// </summary>
-        [DataMember]
         public EaseProperty EndY { get; private set; }
+
         /// <summary>
         /// Get the <see cref="TextProperty"/> representing the colors.
         /// </summary>
-        [DataMember]
         public TextProperty Colors { get; private set; }
+
         /// <summary>
         /// Get the <see cref="TextProperty"/> representing the anchors.
         /// </summary>
-        [DataMember]
         public TextProperty Anchors { get; private set; }
+
         /// <summary>
         /// Get the <see cref="SelectorProperty"/> that selects the gradient mode.
         /// </summary>
-        [DataMember]
         public SelectorProperty Mode { get; private set; }
 
         private ReactiveProperty<Color[]> ColorsProp => _colorsProp ??= new();
+
         private ReactiveProperty<float[]> PointsProp => _pointsProp ??= new();
 
         /// <inheritdoc/>
@@ -149,17 +186,10 @@ namespace BEditor.Primitive.Effects
                 points,
                 tiles[Mode.Index]);
         }
+
         /// <inheritdoc/>
         protected override void OnLoad()
         {
-            StartX.Load(StartXMetadata);
-            StartY.Load(StartYMetadata);
-            EndX.Load(EndXMetadata);
-            EndY.Load(EndYMetadata);
-            Colors.Load(ColorsMetadata);
-            Anchors.Load(AnchorsMetadata);
-            Mode.Load(ModeMetadata);
-
             _colorsProp = Colors
                 .Select(str =>
                     str.Replace(" ", "")
@@ -177,14 +207,10 @@ namespace BEditor.Primitive.Effects
                         .ToArray())
                 .ToReactiveProperty()!;
         }
+
         /// <inheritdoc/>
         protected override void OnUnload()
         {
-            foreach (var p in Children)
-            {
-                p.Unload();
-            }
-
             _colorsProp?.Dispose();
             _pointsProp?.Dispose();
         }

@@ -11,9 +11,15 @@ namespace BEditor.Data.Property.Easing
     public sealed class PrimitiveEasing : EasingFunc
     {
         /// <summary>
-        /// Represents <see cref="EasingType"/> metadata.
+        /// Defines the <see cref="EasingType"/> property.
         /// </summary>
-        public static readonly SelectorPropertyMetadata EasingTypeMetadata = new("EasingType", new[]
+        public static readonly DirectEditingProperty<PrimitiveEasing, SelectorProperty> EasingTypeProperty = EditingProperty.RegisterSerializeDirect<SelectorProperty, PrimitiveEasing>(
+            nameof(EasingType),
+            owner => owner.EasingType,
+            (owner, obj) => owner.EasingType = obj,
+            EasingTypeMetadata);
+
+        private static readonly SelectorPropertyMetadata EasingTypeMetadata = new("EasingType", new[]
         {
             "None",
             "Linear",
@@ -62,9 +68,10 @@ namespace BEditor.Data.Property.Easing
         /// <summary>
         /// Initializes a new instance of the <see cref="PrimitiveEasing"/> class.
         /// </summary>
+#pragma warning disable CS8618
         public PrimitiveEasing()
+#pragma warning restore CS8618
         {
-            EasingType = new SelectorProperty(EasingTypeMetadata);
         }
 
         /// <inheritdoc/>
@@ -73,7 +80,6 @@ namespace BEditor.Data.Property.Easing
         /// <summary>
         /// Gets the <see cref="SelectorProperty"/> to select the easing function.
         /// </summary>
-        [DataMember]
         public SelectorProperty EasingType { get; private set; }
 
         /// <inheritdoc/>
@@ -83,8 +89,6 @@ namespace BEditor.Data.Property.Easing
         /// <inheritdoc/>
         protected override void OnLoad()
         {
-            EasingType.Load(EasingTypeMetadata);
-
             _currentFunc = DefaultEase[EasingType.Index];
 
             _disposable = EasingType.Subscribe(index => _currentFunc = DefaultEase[index]);
@@ -423,9 +427,8 @@ namespace BEditor.Data.Property.Easing
             {
                 return ((max - min) * t / totaltime) + min;
             }
-#pragma warning disable IDE0060
+
             public static float None(float t, float totaltime, float min, float max)
-#pragma warning restore IDE0060
             {
                 return min;
             }

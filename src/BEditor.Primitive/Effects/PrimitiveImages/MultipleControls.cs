@@ -18,62 +18,76 @@ namespace BEditor.Primitive.Effects
     public sealed class MultipleControls : ImageEffect
     {
         /// <summary>
-        /// Represents <see cref="Coordinate"/> metadata.
+        /// Defines the <see cref="Coordinate"/> property.
         /// </summary>
-        public static readonly PropertyElementMetadata CoordinateMetadata = ImageObject.CoordinateMetadata;
+        public static readonly DirectEditingProperty<MultipleControls, Coordinate> CoordinateProperty = ImageObject.CoordinateProperty.WithOwner<MultipleControls>(
+            owner => owner.Coordinate,
+            (owner, obj) => owner.Coordinate = obj);
+
         /// <summary>
-        /// Represents <see cref="Zoom"/> metadata.
+        /// Defines the <see cref="Scale"/> property.
         /// </summary>
-        public static readonly PropertyElementMetadata ZoomMetadata = ImageObject.ScaleMetadata;
+        public static readonly DirectEditingProperty<MultipleControls, Scale> ScaleProperty = ImageObject.ScaleProperty.WithOwner<MultipleControls>(
+            owner => owner.Scale,
+            (owner, obj) => owner.Scale = obj);
+        
         /// <summary>
-        /// Represents <see cref="Angle"/> metadata.
+        /// Defines the <see cref="Rotate"/> property.
         /// </summary>
-        public static readonly PropertyElementMetadata AngleMetadata = ImageObject.RotateMetadata;
+        public static readonly DirectEditingProperty<MultipleControls, Rotate> RotateProperty = ImageObject.RotateProperty.WithOwner<MultipleControls>(
+            owner => owner.Rotate,
+            (owner, obj) => owner.Rotate = obj);
+
         /// <summary>
-        /// Represents <see cref="Index"/> metadata.
+        /// Defines the <see cref="Index"/> property.
         /// </summary>
-        public static readonly ValuePropertyMetadata IndexMetadata = new("index", 0, Min: 0);
+        public static readonly DirectEditingProperty<MultipleControls, ValueProperty> IndexProperty = EditingProperty.RegisterSerializeDirect<ValueProperty, MultipleControls>(
+            nameof(Index),
+            owner => owner.Index,
+            (owner, obj) => owner.Index = obj,
+            new ValuePropertyMetadata("index", 0, Min: 0));
 
         /// <summary>
         /// INitializes a new instance of the <see cref="MultipleControls"/> class.
         /// </summary>
+#pragma warning disable CS8618
         public MultipleControls()
+#pragma warning restore CS8618
         {
-            Coordinate = new(CoordinateMetadata);
-            Zoom = new(ZoomMetadata);
-            Angle = new(AngleMetadata);
-            Index = new(IndexMetadata);
         }
 
         /// <inheritdoc/>
         public override string Name => Strings.MultipleImageControls;
         /// <inheritdoc/>
-        public override IEnumerable<PropertyElement> Properties => new PropertyElement[]
+        public override IEnumerable<PropertyElement> Properties
         {
-            Coordinate,
-            Zoom,
-            Angle,
-            Index
-        };
+            get
+            {
+                yield return Coordinate;
+                yield return Scale;
+                yield return Rotate;
+                yield return Index;
+            }
+        }
+
         /// <summary>
         /// Get the coordinates.
         /// </summary>
-        [DataMember]
         public Coordinate Coordinate { get; private set; }
+
         /// <summary>
         /// Get the scale.
         /// </summary>
-        [DataMember]
-        public Scale Zoom { get; private set; }
+        public Scale Scale { get; private set; }
+
         /// <summary>
         /// Get the angle.
         /// </summary>
-        [DataMember]
-        public Rotate Angle { get; private set; }
+        public Rotate Rotate { get; private set; }
+
         /// <summary>
         /// Gets the <see cref="ValueProperty"/> representing the index of the image to be controlled.
         /// </summary>
-        [DataMember]
         public ValueProperty Index { get; private set; }
 
         /// <inheritdoc/>
@@ -90,15 +104,15 @@ namespace BEditor.Primitive.Effects
                         _ =>
                         {
                             var f = args.Frame;
-                            var s = Zoom.Scale1[f] / 100;
-                            var sx = Zoom.ScaleX[f] / 100 * s - 1;
-                            var sy = Zoom.ScaleY[f] / 100 * s - 1;
-                            var sz = Zoom.ScaleZ[f] / 100 * s - 1;
+                            var s = Scale.Scale1[f] / 100;
+                            var sx = Scale.ScaleX[f] / 100 * s - 1;
+                            var sy = Scale.ScaleY[f] / 100 * s - 1;
+                            var sz = Scale.ScaleZ[f] / 100 * s - 1;
 
                             return img.Transform + Transform.Create(
                                 new(Coordinate.X[f], Coordinate.Y[f], Coordinate.Z[f]),
                                 new(Coordinate.CenterX[f], Coordinate.CenterY[f], Coordinate.CenterZ[f]),
-                                new(Angle.RotateX[f], Angle.RotateY[f], Angle.RotateZ[f]),
+                                new(Rotate.RotateX[f], Rotate.RotateY[f], Rotate.RotateZ[f]),
                                 new(sx, sy, sz));
                         });
                 }
@@ -106,26 +120,11 @@ namespace BEditor.Primitive.Effects
                 return img;
             });
         }
+
         /// <inheritdoc/>
         public override void Render(EffectRenderArgs<Image<BGRA32>> args)
         {
 
-        }
-        /// <inheritdoc/>
-        protected override void OnLoad()
-        {
-            Coordinate.Load(CoordinateMetadata);
-            Zoom.Load(ZoomMetadata);
-            Angle.Load(AngleMetadata);
-            Index.Load(IndexMetadata);
-        }
-        /// <inheritdoc/>
-        protected override void OnUnload()
-        {
-            Coordinate.Unload();
-            Zoom.Unload();
-            Angle.Unload();
-            Index.Unload();
         }
     }
 }

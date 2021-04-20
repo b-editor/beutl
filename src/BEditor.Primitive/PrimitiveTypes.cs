@@ -202,9 +202,6 @@ namespace BEditor.Primitive
                     EffectMetadata.Create<Effects.PointLightSource>(Strings.PointLightSource),
                 }
             };
-#if DEBUG
-            yield return new("TestEffect", () => new Effects.TestEffect());
-#endif
         }
     }
 }

@@ -15,82 +15,101 @@ namespace BEditor.Primitive.Objects
     public sealed class Shape : ImageObject
     {
         /// <summary>
-        /// Represents <see cref="Width"/> metadata.
+        /// Defines the <see cref="Width"/> property.
         /// </summary>
-        public static readonly EasePropertyMetadata WidthMetadata = new(Strings.Width, 100, float.NaN, 0);
+        public static readonly DirectEditingProperty<Shape, EaseProperty> WidthProperty = Polygon.WidthProperty.WithOwner<Shape>(
+            owner => owner.Width,
+            (owner, obj) => owner.Width = obj);
+
         /// <summary>
-        /// Represents <see cref="Height"/> metadata.
+        /// Defines the <see cref="Height"/> property.
         /// </summary>
-        public static readonly EasePropertyMetadata HeightMetadata = new(Strings.Height, 100, float.NaN, 0);
+        public static readonly DirectEditingProperty<Shape, EaseProperty> HeightProperty = Polygon.HeightProperty.WithOwner<Shape>(
+            owner => owner.Height,
+            (owner, obj) => owner.Height = obj);
+
         /// <summary>
-        /// Represents <see cref="Line"/> metadata.
+        /// Defines the <see cref="Line"/> property.
         /// </summary>
-        public static readonly EasePropertyMetadata LineMetadata = new(Strings.LineWidth, 4000, float.NaN, 0);
+        public static readonly DirectEditingProperty<Shape, EaseProperty> LineProperty = EditingProperty.RegisterSerializeDirect<EaseProperty, Shape>(
+            nameof(Line),
+            owner => owner.Line,
+            (owner, obj) => owner.Line= obj,
+            new EasePropertyMetadata(Strings.LineWidth, 4000, float.NaN, 0));
+
         /// <summary>
-        /// Represents <see cref="Color"/> metadata.
+        /// Defines the <see cref="Color"/> property.
         /// </summary>
-        public static readonly ColorPropertyMetadata ColorMetadata = new(Strings.Color, Drawing.Color.Light);
+        public static readonly DirectEditingProperty<Shape, ColorProperty> ColorProperty = Polygon.ColorProperty.WithOwner<Shape>(
+            owner => owner.Color,
+            (owner, obj) => owner.Color = obj);
+
         /// <summary>
-        /// Represents <see cref="Type"/> metadata.
+        /// Defines the <see cref="Type"/> property.
         /// </summary>
-        public static readonly SelectorPropertyMetadata TypeMetadata = new(Strings.Type, new string[]
-        {
-            Strings.Ellipse,
-            Strings.Rectangle
-        });
+        public static readonly DirectEditingProperty<Shape, SelectorProperty> TypeProperty = EditingProperty.RegisterSerializeDirect<SelectorProperty, Shape>(
+            nameof(Type),
+            owner => owner.Type,
+            (owner, obj) => owner.Type = obj,
+            new SelectorPropertyMetadata(Strings.Type, new string[]
+            {
+                Strings.Ellipse,
+                Strings.Rectangle
+            }));
 
         /// <summary>
         /// Initializes a new instance of the <see cref="Shape"/> class.
         /// </summary>
+#pragma warning disable CS8618
         public Shape()
+#pragma warning restore CS8618
         {
-            Width = new(WidthMetadata);
-            Height = new(HeightMetadata);
-            Line = new(LineMetadata);
-            Color = new(ColorMetadata);
-            Type = new(TypeMetadata);
         }
 
         /// <inheritdoc/>
         public override string Name => Strings.Shape;
+
         /// <inheritdoc/>
-        public override IEnumerable<PropertyElement> Properties => new PropertyElement[]
+        public override IEnumerable<PropertyElement> Properties
         {
-            Coordinate,
-            Scale,
-            Blend,
-            Rotate,
-            Material,
-            Width,
-            Height,
-            Line,
-            Color,
-            Type
-        };
+            get
+            {
+                yield return Coordinate;
+                yield return Scale;
+                yield return Blend;
+                yield return Rotate;
+                yield return Material;
+                yield return Width;
+                yield return Height;
+                yield return Line;
+                yield return Color;
+                yield return Type;
+            }
+        }
+
         /// <summary>
         /// Get the <see cref="EaseProperty"/> that represents the width of the shape.
         /// </summary>
-        [DataMember]
         public EaseProperty Width { get; private set; }
+
         /// <summary>
         /// Get the <see cref="EaseProperty"/> that represents the height of the shape.
         /// </summary>
-        [DataMember]
         public EaseProperty Height { get; private set; }
+
         /// <summary>
         /// Get the <see cref="EaseProperty"/> that represents the line width of the shape.
         /// </summary>
-        [DataMember]
         public EaseProperty Line { get; private set; }
+
         /// <summary>
         /// Get the <see cref="ColorProperty"/> that represents the color of the shape.
         /// </summary>
-        [DataMember]
         public ColorProperty Color { get; private set; }
+
         /// <summary>
         /// Get the <see cref="SelectorProperty"/> to select the type of the shape.
         /// </summary>
-        [DataMember]
         public SelectorProperty Type { get; private set; }
 
         /// <inheritdoc/>
@@ -109,26 +128,6 @@ namespace BEditor.Primitive.Objects
             {
                 return Image.Rect(width, height, (int)Line[args.Frame], Color.Value);
             }
-        }
-        /// <inheritdoc/>
-        protected override void OnLoad()
-        {
-            base.OnLoad();
-            Width.Load(WidthMetadata);
-            Height.Load(HeightMetadata);
-            Line.Load(LineMetadata);
-            Color.Load(ColorMetadata);
-            Type.Load(TypeMetadata);
-        }
-        /// <inheritdoc/>
-        protected override void OnUnload()
-        {
-            base.OnUnload();
-            Width.Unload();
-            Height.Unload();
-            Line.Unload();
-            Color.Unload();
-            Type.Unload();
         }
     }
 }

@@ -304,6 +304,15 @@ namespace BEditor.Primitive.Resources {
         }
         
         /// <summary>
+        ///   Coordinate に類似しているローカライズされた文字列を検索します。
+        /// </summary>
+        internal static string Coordinate {
+            get {
+                return ResourceManager.GetString("Coordinate", resourceCulture);
+            }
+        }
+        
+        /// <summary>
         ///   Cube に類似しているローカライズされた文字列を検索します。
         /// </summary>
         internal static string Cube {
