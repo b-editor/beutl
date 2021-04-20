@@ -117,6 +117,7 @@ namespace BEditor.Data.Property
             base.SetObjectData(element);
             Value = element.TryGetProperty(nameof(Value), out var value) ? value.GetString() ?? string.Empty : string.Empty;
             TargetID = element.TryGetProperty(nameof(TargetID), out var bind) && bind.TryGetGuid(out var guid) ? guid : null;
+            Mode = element.TryGetProperty(nameof(Mode), out var mode) && mode.TryGetInt32(out var modei) ? (FilePathType)modei : FilePathType.FullPath;
         }
 
         /// <summary>
