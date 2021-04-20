@@ -1,72 +1,74 @@
 <Window
-  xmlns="https://github.com/avaloniaui"
-  xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
-  xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
-  xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
-  xmlns:prop="using:BEditor.Properties"
-  mc:Ignorable="d" d:DesignWidth="800" d:DesignHeight="450"
-  MinWidth="500"
-  MinHeight="300"
-  SizeToContent="WidthAndHeight"
-  WindowStartupLocation="CenterOwner"
-  x:Class="BEditor.Views.Properties.SetBinding">
-  <Grid>
-    <Grid.RowDefinitions>
-      <RowDefinition />
-      <RowDefinition Height="Auto" />
-    </Grid.RowDefinitions>
-    <StackPanel
-      Grid.Row="1"
-      Grid.Column="0"
-      Margin="10"
-      HorizontalAlignment="Left"
-      VerticalAlignment="Bottom"
-      Orientation="Horizontal">
-      <Button
-        Margin="0,0,10,0"
-        Background="Transparent"
-        Click="CloseButton"
-        Command="{Binding OKCommand, Mode=OneTime}"
-        Content="{x:Static prop:Strings.OK}" />
-      <Button
-        Background="Transparent"
-        Click="CloseButton"
-        Content="{x:Static prop:Strings.Cancel}" />
-      <Button
-        Margin="30,0,0,0"
-        Click="CloseButton"
-        Background="Transparent"
-        Command="{Binding DisconnectCommand, Mode=OneTime}"
-        Content="{x:Static prop:Strings.Disconnect}" />
-    </StackPanel>
-
+    xmlns="https://github.com/avaloniaui"
+    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+    xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+    xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+    xmlns:prop="using:BEditor.Properties"
+    mc:Ignorable="d" d:DesignWidth="800" d:DesignHeight="450"
+    MinWidth="500"
+    MinHeight="300"
+    SizeToContent="WidthAndHeight"
+    WindowStartupLocation="CenterOwner"
+    x:Class="BEditor.Views.Properties.SetBinding">
     <Grid>
-      <Grid.ColumnDefinitions>
-        <ColumnDefinition />
-        <ColumnDefinition />
-      </Grid.ColumnDefinitions>
-      <StackPanel>
-        <Label
-          Height="45"
-          Padding="10,0,0,0"
-          VerticalAlignment="Stretch"
-          VerticalContentAlignment="Center"
-          Content="{x:Static prop:Strings.Path}" />
-      </StackPanel>
+        <Grid.RowDefinitions>
+            <RowDefinition />
+            <RowDefinition Height="Auto" />
+        </Grid.RowDefinitions>
+        <StackPanel
+            Grid.Row="1"
+            Grid.Column="0"
+            Margin="10"
+            HorizontalAlignment="Left"
+            VerticalAlignment="Bottom"
+            Orientation="Horizontal">
+            <Button
+                Margin="0,0,10,0"
+                Background="Transparent"
+                Click="CloseButton"
+                Command="{Binding OKCommand, Mode=OneTime}"
+                CommandParameter="{Binding #Text_Box.Text}"
+                Content="{x:Static prop:Strings.OK}" />
+            <Button
+                Background="Transparent"
+                Click="CloseButton"
+                Content="{x:Static prop:Strings.Cancel}" />
+            <Button
+                Margin="30,0,0,0"
+                Click="CloseButton"
+                Background="Transparent"
+                Command="{Binding DisconnectCommand, Mode=OneTime}"
+                Content="{x:Static prop:Strings.Disconnect}" />
+        </StackPanel>
 
-      <StackPanel Grid.Column="1">
-        <Label
-          Height="45"
-          Padding="0,0,0,0"
-          HorizontalContentAlignment="Stretch"
-          VerticalContentAlignment="Center">
-          <TextBox
-            Margin="10,0,10,0"
-            VerticalAlignment="Center"
-            VerticalContentAlignment="Center"
-            Text="{Binding BindPath.Value, Mode=TwoWay}" />
-        </Label>
-      </StackPanel>
+        <Grid>
+            <Grid.ColumnDefinitions>
+                <ColumnDefinition />
+                <ColumnDefinition />
+            </Grid.ColumnDefinitions>
+            <StackPanel>
+                <Label
+                    Height="45"
+                    Padding="10,0,0,0"
+                    VerticalAlignment="Stretch"
+                    VerticalContentAlignment="Center"
+                    Content="ID" />
+            </StackPanel>
+
+            <StackPanel Grid.Column="1">
+                <Label
+                    Height="45"
+                    Padding="0,0,0,0"
+                    HorizontalContentAlignment="Stretch"
+                    VerticalContentAlignment="Center">
+                    <TextBox
+                        x:Name="Text_Box"
+                        Margin="10,0,10,0"
+                        VerticalAlignment="Center"
+                        VerticalContentAlignment="Center"
+                        Text="{Binding TargetID.Value, Mode=OneWay}" />
+                </Label>
+            </StackPanel>
+        </Grid>
     </Grid>
-  </Grid>
 </Window>

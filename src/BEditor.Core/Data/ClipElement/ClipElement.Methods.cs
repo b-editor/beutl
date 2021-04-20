@@ -17,33 +17,8 @@ namespace BEditor.Data
     /// <summary>
     /// Represents a data of a clip to be placed in the timeline.
     /// </summary>
-    public partial class ClipElement : ICloneable, IFormattable, IJsonObject, IElementObject
+    public partial class ClipElement : ICloneable, IJsonObject, IElementObject
     {
-        /// <summary>
-        /// Gets the clip from its full name.
-        /// </summary>
-        /// <param name="name">The <see cref="string"/> that can be retrieved by <see cref="ToString(string?)"/> of the <see cref="ClipElement"/> to be searched.</param>
-        /// <param name="project">The <see cref="Project"/> contains the <see cref="ClipElement"/> to be retrieved.</param>
-        /// <returns>The <see cref="ClipElement"/> in the <paramref name="project"/> that match the <paramref name="name"/>.</returns>
-        public static ClipElement? FromFullName(string name, Project? project)
-        {
-            if (project is null) return null;
-
-            var reg = new Regex(@"^([\da-zA-Z亜-熙ぁ-んァ-ヶ]+)\.([\da-zA-Z]+)\z");
-
-            if (reg.IsMatch(name))
-            {
-                var match = reg.Match(name);
-
-                var scene = project.Find(match.Groups[1].Value);
-                var clip = scene?.Find(match.Groups[2].Value);
-
-                return clip;
-            }
-
-            return null;
-        }
-
         #region ICloneable
 
         /// <inheritdoc/>
@@ -70,7 +45,6 @@ namespace BEditor.Data
         public override void GetObjectData(Utf8JsonWriter writer)
         {
             base.GetObjectData(writer);
-            writer.WriteNumber(nameof(Id), Id);
             writer.WriteNumber(nameof(Start), Start);
             writer.WriteNumber(nameof(End), End);
             writer.WriteNumber(nameof(Layer), Layer);
@@ -95,7 +69,6 @@ namespace BEditor.Data
         public override void SetObjectData(JsonElement element)
         {
             base.SetObjectData(element);
-            _id = element.GetProperty(nameof(Id)).GetInt32();
             Start = element.GetProperty(nameof(Start)).GetInt32();
             End = element.GetProperty(nameof(End)).GetInt32();
             Layer = element.GetProperty(nameof(Layer)).GetInt32();
@@ -115,27 +88,6 @@ namespace BEditor.Data
             }
 
             Metadata = ObjectMetadata.LoadedObjects.First(i => i.Name == Effect[0].Name);
-        }
-        #endregion
-
-        #region IFormattable
-
-        /// <inheritdoc cref="IFormattable.ToString(string?, IFormatProvider?)"/>
-        public string ToString(string? format)
-        {
-            return ToString(format, CultureInfo.CurrentCulture);
-        }
-
-        /// <inheritdoc/>
-        public string ToString(string? format, IFormatProvider? formatProvider)
-        {
-            if (string.IsNullOrEmpty(format)) format = "#";
-
-            return format switch
-            {
-                "#" => $"{Parent.Name}.{Name}",
-                _ => throw new FormatException(string.Format("The {0} format string is not supported.", format))
-            };
         }
         #endregion
 
@@ -220,6 +172,11 @@ namespace BEditor.Data
             return new SplitCommand(this, frame);
         }
         #endregion
+
+        internal void SetID(Guid id)
+        {
+            ID = id;
+        }
 
         /// <summary>
         /// Render this clip.

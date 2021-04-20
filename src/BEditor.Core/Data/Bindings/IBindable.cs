@@ -22,7 +22,7 @@ namespace BEditor.Data.Bindings
         /// <summary>
         /// Gets a hint to use when searching for objects to Bind.
         /// </summary>
-        public string? TargetHint { get; }
+        public Guid? TargetID { get; }
 
         /// <summary>
         /// Bind this object to <paramref name="bindable"/>.

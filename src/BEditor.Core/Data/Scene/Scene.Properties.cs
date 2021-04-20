@@ -14,7 +14,7 @@ namespace BEditor.Data
     /// <summary>
     /// Represents a scene to be included in the <see cref="Project"/>.
     /// </summary>
-    public partial class Scene : IParent<ClipElement>, IChild<Project>, IHasName, IHasId
+    public partial class Scene : IParent<ClipElement>, IChild<Project>
     {
         /// <summary>
         /// Gets the width of the frame buffer.
@@ -178,18 +178,12 @@ namespace BEditor.Data
             }
         }
 
-        /// <inheritdoc/>
-        public string Name => (SceneName ?? string.Empty).Replace('.', '_');
-
-        /// <inheritdoc/>
-        public int Id => Parent?.SceneList?.IndexOf(this) ?? -1;
-
         /// <summary>
         /// Gets or sets the settings for this scene.
         /// </summary>
         public SceneSettings Settings
         {
-            get => new(Width, Height, Name);
+            get => new(Width, Height, SceneName);
             set
             {
                 Width = value.Width;
@@ -198,30 +192,6 @@ namespace BEditor.Data
 
                 GraphicsContext?.Dispose();
                 GraphicsContext = new(Width, Height);
-            }
-        }
-
-        /// <summary>
-        /// Gets the new id.
-        /// </summary>
-        internal int NewId
-        {
-            get
-            {
-                var count = Datas.Count;
-
-                if (count > 0)
-                {
-                    var tmp = new List<int>();
-
-                    Parallel.For(0, count, i => tmp.Add(Datas[i].Id));
-
-                    return tmp.Max() + 1;
-                }
-                else
-                {
-                    return 0;
-                }
             }
         }
     }

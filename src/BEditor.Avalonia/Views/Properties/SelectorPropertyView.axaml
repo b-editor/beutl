@@ -1,49 +1,50 @@
 <UserControl
-  xmlns="https://github.com/avaloniaui"
-  xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
-  xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
-  xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
-  xmlns:vm="using:BEditor.ViewModels.Properties"
-  xmlns:prop="using:BEditor.Properties"
-  x:DataType="vm:ISelectorPropertyViewModel"
-  Background="Transparent"
-  Height="40"
-  HorizontalAlignment="Stretch"
-  mc:Ignorable="d" d:DesignWidth="450" d:DesignHeight="32.5"
-  x:Class="BEditor.Views.Properties.SelectorPropertyView">
-  <UserControl.ContextMenu>
-    <ContextMenu>
-      <MenuItem Header="{x:Static prop:Strings.Reset}" Command="{CompiledBinding Reset, Mode=OneTime}"/>
-      <MenuItem Header="{x:Static prop:Strings.Bind}" Command="{CompiledBinding Bind, Mode=OneTime}"/>
-    </ContextMenu>
-  </UserControl.ContextMenu>
-  <Grid>
-    <Grid.ColumnDefinitions>
-      <ColumnDefinition Width="120*" MaxWidth="100" MinWidth="50"/>
-      <ColumnDefinition Width="40"/>
-      <ColumnDefinition Width="40"/>
-      <ColumnDefinition Width="*" MinWidth="100"/>
-    </Grid.ColumnDefinitions>
+    xmlns="https://github.com/avaloniaui"
+    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+    xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+    xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+    xmlns:vm="using:BEditor.ViewModels.Properties"
+    xmlns:prop="using:BEditor.Properties"
+    x:DataType="vm:ISelectorPropertyViewModel"
+    Background="Transparent"
+    Height="40"
+    HorizontalAlignment="Stretch"
+    mc:Ignorable="d" d:DesignWidth="450" d:DesignHeight="32.5"
+    x:Class="BEditor.Views.Properties.SelectorPropertyView">
+    <UserControl.ContextMenu>
+        <ContextMenu>
+            <MenuItem Header="{x:Static prop:Strings.Reset}" Command="{CompiledBinding Reset, Mode=OneTime}"/>
+            <MenuItem Header="{x:Static prop:Strings.Bind}" Command="{CompiledBinding Bind, Mode=OneTime}"/>
+            <MenuItem Header="{x:Static prop:Strings.CopyID}" Command="{CompiledBinding CopyID, Mode=OneTime}"/>
+        </ContextMenu>
+    </UserControl.ContextMenu>
+    <Grid>
+        <Grid.ColumnDefinitions>
+            <ColumnDefinition Width="120*" MaxWidth="100" MinWidth="50"/>
+            <ColumnDefinition Width="40"/>
+            <ColumnDefinition Width="40"/>
+            <ColumnDefinition Width="*" MinWidth="100"/>
+        </Grid.ColumnDefinitions>
 
-    <Label
-      Height="40"
-      Margin="10,0,0,0"
-      HorizontalAlignment="Left"
-      VerticalAlignment="Top"
-      VerticalContentAlignment="Center"
-      FontSize="13"
-      Content="{Binding Property.PropertyMetadata.Name, Mode=OneTime}" />
+        <Label
+            Height="40"
+            Margin="10,0,0,0"
+            HorizontalAlignment="Left"
+            VerticalAlignment="Top"
+            VerticalContentAlignment="Center"
+            FontSize="13"
+            Content="{Binding Property.PropertyMetadata.Name, Mode=OneTime}" />
 
 
-    <!--Combo box-->
-    <ComboBox
-      Classes="custom"
-      Items="{CompiledBinding DisplayStrings, Mode=OneTime}"
-      SelectedIndex="{Binding Property.Index, Mode=OneWay}"
-      SelectionChanged="ComboBox_SelectionChanged"
-      HorizontalAlignment="Stretch"
-      VerticalAlignment="Center"
-      Grid.Column="3"
-      Margin="8,0" />
-  </Grid>
+        <!--Combo box-->
+        <ComboBox
+            Classes="custom"
+            Items="{CompiledBinding DisplayStrings, Mode=OneTime}"
+            SelectedIndex="{Binding Property.Index, Mode=OneWay}"
+            SelectionChanged="ComboBox_SelectionChanged"
+            HorizontalAlignment="Stretch"
+            VerticalAlignment="Center"
+            Grid.Column="3"
+            Margin="8,0" />
+    </Grid>
 </UserControl>

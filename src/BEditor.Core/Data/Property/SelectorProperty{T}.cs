@@ -27,7 +27,7 @@ namespace BEditor.Data.Property
         private List<IObserver<T?>>? _list;
         private IDisposable? _bindDispose;
         private IBindable<T?>? _bindable;
-        private string? _bindHint;
+        private Guid? _targetID;
         #endregion
 
         /// <summary>
@@ -83,10 +83,10 @@ namespace BEditor.Data.Property
         public T? Value => SelectItem;
 
         /// <inheritdoc/>
-        public string? TargetHint
+        public Guid? TargetID
         {
-            get => _bindable?.ToString("#");
-            private set => _bindHint = value;
+            get => _bindable?.ID;
+            private set => _targetID = value;
         }
 
         private List<IObserver<T?>> Collection => _list ??= new();
@@ -101,7 +101,10 @@ namespace BEditor.Data.Property
             writer.WritePropertyName(nameof(Value));
             SelectItem?.GetObjectData(writer);
 
-            writer.WriteString(nameof(TargetHint), TargetHint);
+            if (TargetID is not null)
+            {
+                writer.WriteString(nameof(TargetID), (Guid)TargetID);
+            }
         }
 
         /// <inheritdoc/>
@@ -111,7 +114,7 @@ namespace BEditor.Data.Property
 
             SelectItem = (T)FormatterServices.GetUninitializedObject(typeof(T));
             SelectItem.SetObjectData(element.GetProperty(nameof(Value)));
-            TargetHint = element.TryGetProperty(nameof(TargetHint), out var bind) ? bind.GetString() : null;
+            TargetID = element.TryGetProperty(nameof(TargetID), out var bind) && bind.TryGetGuid(out var guid) ? guid : null;
         }
 
         /// <summary>
@@ -162,7 +165,7 @@ namespace BEditor.Data.Property
         /// <inheritdoc/>
         protected override void OnLoad()
         {
-            this.AutoLoad(ref _bindHint);
+            this.AutoLoad(ref _targetID);
         }
 
         #endregion

@@ -127,6 +127,7 @@ namespace BEditor.Models
         public IFileDialogService FileDialog { get; set; }
         public ILoggerFactory LoggingFactory { get; }
         public SynchronizationContext UIThread { get; set; }
+        Project IParentSingle<Project>.Child => Project;
 
         public async void SaveAppConfig(Project project, string directory)
         {
@@ -148,7 +149,7 @@ namespace BEditor.Models
 
                 foreach (var scene in project.SceneList)
                 {
-                    var sceneCache = Path.Combine(sceneCacheDir, scene.Name + ".cache");
+                    var sceneCache = Path.Combine(sceneCacheDir, scene.SceneName + ".cache");
                     var cacheObj = new SceneCache(scene.SelectItems.Select(i => i.Name).ToArray())
                     {
                         Select = scene.SelectItem?.Name,
@@ -166,7 +167,7 @@ namespace BEditor.Models
                 }
             }
         }
-        public unsafe void RestoreAppConfig(Project project, string directory)
+        public void RestoreAppConfig(Project project, string directory)
         {
             static void IfNotExistCreateDir(string dir)
             {
@@ -186,7 +187,7 @@ namespace BEditor.Models
 
                 foreach (var scene in project.SceneList)
                 {
-                    var sceneCache = Path.Combine(sceneCacheDir, scene.Name + ".cache");
+                    var sceneCache = Path.Combine(sceneCacheDir, scene.SceneName + ".cache");
 
                     if (!File.Exists(sceneCache)) continue;
                     Stream stream = null;

@@ -48,6 +48,9 @@ namespace BEditor.Data
         /// <inheritdoc/>
         public bool IsLoaded { get; private set; }
 
+        /// <inheritdoc/>
+        public Guid ID { get; protected set; } = Guid.NewGuid();
+
         private Dictionary<EditingProperty.PropertyKey, object?> Values => _values ??= new();
 
         private Type OwnerType => _ownerType ??= GetType();
@@ -269,6 +272,8 @@ namespace BEditor.Data
         /// <inheritdoc/>
         public virtual void GetObjectData(Utf8JsonWriter writer)
         {
+            writer.WriteString(nameof(ID), ID);
+
             foreach (var prop in EditingProperty.PropertyFromKey
                 .AsParallel()
                 .AsOrdered()
@@ -293,6 +298,8 @@ namespace BEditor.Data
         {
             // static コンストラクターを呼び出す
             OwnerType.TypeInitializer?.Invoke(null, null);
+
+            ID = (element.TryGetProperty(nameof(ID), out var id) && id.TryGetGuid(out var guid)) ? guid : Guid.NewGuid();
 
             foreach (var prop in EditingProperty.PropertyFromKey
                 .AsParallel()

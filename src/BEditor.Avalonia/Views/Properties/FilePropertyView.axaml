@@ -1,75 +1,76 @@
 <UserControl
-  xmlns="https://github.com/avaloniaui"
-  xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
-  xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
-  xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
-  mc:Ignorable="d" d:DesignWidth="800" d:DesignHeight="450"
-  xmlns:vm="using:BEditor.ViewModels.Properties"
-  xmlns:props="using:BEditor.Properties"
-  x:DataType="vm:FilePropertyViewModel"
-  Height="40"
-  Background="Transparent"
-  x:Class="BEditor.Views.Properties.FilePropertyView">
-  <UserControl.ContextMenu>
-    <ContextMenu>
-        <MenuItem Header="{x:Static props:Strings.Reset}" Command="{CompiledBinding Reset, Mode=OneTime}"/>
-        <MenuItem Header="{x:Static props:Strings.Bind}" Command="{CompiledBinding Bind, Mode=OneTime}"/>
-      <MenuItem Padding="0" HorizontalAlignment="Stretch" VerticalAlignment="Stretch">
-        <MenuItem.Header>
-          <ComboBox
-            Classes="custom"
+    xmlns="https://github.com/avaloniaui"
+    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+    xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+    xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+    mc:Ignorable="d" d:DesignWidth="800" d:DesignHeight="450"
+    xmlns:vm="using:BEditor.ViewModels.Properties"
+    xmlns:props="using:BEditor.Properties"
+    x:DataType="vm:FilePropertyViewModel"
+    Height="40"
+    Background="Transparent"
+    x:Class="BEditor.Views.Properties.FilePropertyView">
+    <UserControl.ContextMenu>
+        <ContextMenu>
+            <MenuItem Header="{x:Static props:Strings.Reset}" Command="{CompiledBinding Reset, Mode=OneTime}"/>
+            <MenuItem Header="{x:Static props:Strings.Bind}" Command="{CompiledBinding Bind, Mode=OneTime}"/>
+            <MenuItem Header="{x:Static props:Strings.CopyID}" Command="{CompiledBinding CopyID, Mode=OneTime}"/>
+            <MenuItem Padding="0" HorizontalAlignment="Stretch" VerticalAlignment="Stretch">
+                <MenuItem.Header>
+                    <ComboBox
+                        Classes="custom"
+                        HorizontalAlignment="Stretch"
+                        HorizontalContentAlignment="Stretch"
+                        SelectedIndex="{CompiledBinding PathMode.Value, Mode=TwoWay}">
+                        <ComboBoxItem Content="{x:Static props:Strings.SaveFullPath}"/>
+                        <ComboBoxItem Content="{x:Static props:Strings.SavePathRelativeToSelectedPathFromProject}"/>
+                    </ComboBox>
+                </MenuItem.Header>
+            </MenuItem>
+        </ContextMenu>
+    </UserControl.ContextMenu>
+    <Grid>
+        <Grid.ColumnDefinitions>
+            <ColumnDefinition Width="120*" MinWidth="50" MaxWidth="100" />
+            <ColumnDefinition Width="40" />
+            <ColumnDefinition Width="40" />
+            <ColumnDefinition Width="*" MinWidth="100" />
+        </Grid.ColumnDefinitions>
+
+        <Label
+            Height="40"
+            Margin="10,0,0,0"
+            HorizontalAlignment="Left"
+            VerticalAlignment="Top"
+            VerticalContentAlignment="Center"
+            FontSize="13"
+            Content="{CompiledBinding Property.PropertyMetadata.Name, Mode=OneTime}" />
+
+        <Button
+            Grid.Column="2"
+            Width="32"
+            Height="32"
+            Margin="0,4"
+            VerticalAlignment="Top"
+            Command="{CompiledBinding Command, Mode=OneTime}"
+            Background="Transparent">
+            <PathIcon Data="{StaticResource FolderOpen16Regular}"/>
+        </Button>
+
+        <ContentControl
+            Grid.Column="3"
+            Height="32"
+            Margin="8,4"
+            Padding="0"
             HorizontalAlignment="Stretch"
-            HorizontalContentAlignment="Stretch"
-            SelectedIndex="{CompiledBinding PathMode.Value, Mode=TwoWay}">
-            <ComboBoxItem Content="{x:Static props:Strings.SaveFullPath}"/>
-            <ComboBoxItem Content="{x:Static props:Strings.SavePathRelativeToSelectedPathFromProject}"/>
-          </ComboBox>
-        </MenuItem.Header>
-      </MenuItem>
-    </ContextMenu>
-  </UserControl.ContextMenu>
-  <Grid>
-    <Grid.ColumnDefinitions>
-      <ColumnDefinition Width="120*" MinWidth="50" MaxWidth="100" />
-      <ColumnDefinition Width="40" />
-      <ColumnDefinition Width="40" />
-      <ColumnDefinition Width="*" MinWidth="100" />
-    </Grid.ColumnDefinitions>
-
-    <Label
-      Height="40"
-      Margin="10,0,0,0"
-      HorizontalAlignment="Left"
-      VerticalAlignment="Top"
-      VerticalContentAlignment="Center"
-      FontSize="13"
-      Content="{CompiledBinding Property.PropertyMetadata.Name, Mode=OneTime}" />
-
-    <Button
-      Grid.Column="2"
-      Width="32"
-      Height="32"
-      Margin="0,4"
-      VerticalAlignment="Top"
-      Command="{CompiledBinding Command, Mode=OneTime}"
-      Background="Transparent">
-      <PathIcon Data="{StaticResource FolderOpen16Regular}"/>
-    </Button>
-
-    <ContentControl
-      Grid.Column="3"
-      Height="32"
-      Margin="8,4"
-      Padding="0"
-      HorizontalAlignment="Stretch"
-      VerticalAlignment="Center">
-      <TextBox
-        Classes="custom"
-        Width="{Binding $parent.Bounds.Width, Mode=OneWay}"
-        IsReadOnly="True"
-        Text="{CompiledBinding Property.Value, Mode=OneWay}" />
-    </ContentControl>
+            VerticalAlignment="Center">
+            <TextBox
+                Classes="custom"
+                Width="{Binding $parent.Bounds.Width, Mode=OneWay}"
+                IsReadOnly="True"
+                Text="{CompiledBinding Property.Value, Mode=OneWay}" />
+        </ContentControl>
 
 
-  </Grid>
+    </Grid>
 </UserControl>

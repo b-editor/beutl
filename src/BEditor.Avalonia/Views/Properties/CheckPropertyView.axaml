@@ -10,38 +10,39 @@
   Height="40"
   mc:Ignorable="d" d:DesignWidth="800" d:DesignHeight="35"
   x:Class="BEditor.Views.Properties.CheckPropertyView">
-  <UserControl.ContextMenu>
-    <ContextMenu>
-      <MenuItem Header="{x:Static prop:Strings.Reset}" Command="{CompiledBinding Reset, Mode=OneTime}"/>
-      <MenuItem Header="{x:Static prop:Strings.Bind}" Command="{CompiledBinding Bind, Mode=OneTime}"/>
-    </ContextMenu>
-  </UserControl.ContextMenu>
-  <Grid>
-    <Grid.ColumnDefinitions>
-      <ColumnDefinition Width="120*" MaxWidth="100" MinWidth="50"/>
-      <ColumnDefinition Width="40"/>
-      <ColumnDefinition Width="40"/>
-      <ColumnDefinition Width="*" MinWidth="100"/>
-    </Grid.ColumnDefinitions>
+    <UserControl.ContextMenu>
+        <ContextMenu>
+            <MenuItem Header="{x:Static prop:Strings.Reset}" Command="{CompiledBinding Reset, Mode=OneTime}"/>
+            <MenuItem Header="{x:Static prop:Strings.Bind}" Command="{CompiledBinding Bind, Mode=OneTime}"/>
+            <MenuItem Header="{x:Static prop:Strings.CopyID}" Command="{CompiledBinding CopyID, Mode=OneTime}"/>
+        </ContextMenu>
+    </UserControl.ContextMenu>
+    <Grid>
+        <Grid.ColumnDefinitions>
+            <ColumnDefinition Width="120*" MaxWidth="100" MinWidth="50"/>
+            <ColumnDefinition Width="40"/>
+            <ColumnDefinition Width="40"/>
+            <ColumnDefinition Width="*" MinWidth="100"/>
+        </Grid.ColumnDefinitions>
 
-    <Label
-      Height="40"
-      Margin="10,0,0,0"
-      HorizontalAlignment="Left"
-      VerticalAlignment="Top"
-      VerticalContentAlignment="Center"
-      FontSize="13"
-      Content="{CompiledBinding Property.PropertyMetadata.Name, Mode=OneTime}" />
+        <Label
+          Height="40"
+          Margin="10,0,0,0"
+          HorizontalAlignment="Left"
+          VerticalAlignment="Top"
+          VerticalContentAlignment="Center"
+          FontSize="13"
+          Content="{CompiledBinding Property.PropertyMetadata.Name, Mode=OneTime}" />
 
-    <ToggleSwitch
-      Grid.Column="3"
-      IsChecked="{CompiledBinding Property.Value, Mode=OneWay}"
-      OnContent=""
-      OffContent=""
-      Margin="8,0"
-      HorizontalAlignment="Right"
-      VerticalAlignment="Center"
-      CommandParameter="{Binding $self.IsChecked}"
-      Command="{CompiledBinding Command, Mode=OneTime}" />
-  </Grid>
+        <ToggleSwitch
+          Grid.Column="3"
+          IsChecked="{CompiledBinding Property.Value, Mode=OneWay}"
+          OnContent=""
+          OffContent=""
+          Margin="8,0"
+          HorizontalAlignment="Right"
+          VerticalAlignment="Center"
+          CommandParameter="{Binding $self.IsChecked}"
+          Command="{CompiledBinding Command, Mode=OneTime}" />
+    </Grid>
 </UserControl>

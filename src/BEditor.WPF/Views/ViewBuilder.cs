@@ -410,7 +410,6 @@ namespace BEditor.Views
             {
                 clip[ClipViewProperty] = new ClipUI(clip)
                 {
-                    Name = clip.Name,
                     HorizontalAlignment = HorizontalAlignment.Left,
                     VerticalAlignment = VerticalAlignment.Top
                 };

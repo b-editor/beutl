@@ -30,7 +30,6 @@ namespace BEditor.Data
     /// </summary>
     public partial class Scene : EditingObject
     {
-        private static readonly FieldInfo _ClipDataID = typeof(ClipElement).GetField("_id", BindingFlags.NonPublic | BindingFlags.Instance | BindingFlags.SetField)!;
         private static readonly PropertyChangedEventArgs _SelectItemArgs = new(nameof(SelectItem));
         private static readonly PropertyChangedEventArgs _PrevireFrameArgs = new(nameof(PreviewFrame));
         private static readonly PropertyChangedEventArgs _TotalFrameArgs = new(nameof(TotalFrame));
@@ -62,9 +61,9 @@ namespace BEditor.Data
         }
 
         /// <summary>
-        /// Gets the <see cref="ClipElement"/> from its <see cref="IHasName.Name"/>.
+        /// Gets the <see cref="ClipElement"/> from its <see cref="ClipElement.Name"/>.
         /// </summary>
-        /// <param name="name">Value of <see cref="IHasName.Name"/>.</param>
+        /// <param name="name">Value of <see cref="ClipElement.Name"/>.</param>
         public ClipElement? this[string? name]
         {
             [return: NotNullIfNotNull("name")]
@@ -75,7 +74,16 @@ namespace BEditor.Data
                     return null;
                 }
 
-                return this.Find(name);
+                for (var i = 0; i < Datas.Count; i++)
+                {
+                    var item = Datas[i];
+                    if (item.Name == name)
+                    {
+                        return item;
+                    }
+                }
+
+                return null;
             }
         }
 

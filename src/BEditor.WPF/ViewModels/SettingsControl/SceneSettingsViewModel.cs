@@ -20,7 +20,7 @@ namespace BEditor.ViewModels.SettingsControl
             this.scene = scene;
             Width.Value = (uint)scene.Width;
             Height.Value = (uint)scene.Height;
-            Name.Value = scene.Name;
+            Name.Value = scene.SceneName;
 
             AdaptationCommand.Subscribe(_ =>
             {

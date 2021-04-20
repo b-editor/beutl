@@ -145,7 +145,7 @@ namespace BEditor.Views.PropertyControls
 
                 _property.Value[index] = _property.Clamp(val);
 
-                AppData.Current.Project!.PreviewUpdate(_property.GetParent2()!);
+                (AppData.Current.Project!).PreviewUpdate(_property.GetParent<ClipElement>()!);
 
                 e.Handled = true;
             }
@@ -160,7 +160,7 @@ namespace BEditor.Views.PropertyControls
             {
                 _property.Value[index] = _property.Clamp(_out);
 
-                AppData.Current.Project!.PreviewUpdate(_property.GetParent2()!);
+                (AppData.Current.Project!).PreviewUpdate(_property.GetParent<ClipElement>()!);
             }
         }
 

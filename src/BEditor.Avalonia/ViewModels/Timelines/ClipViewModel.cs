@@ -77,7 +77,7 @@ namespace BEditor.ViewModels.Timelines
             MessageLog.Subscribe(async () =>
             {
                 var text =
-                    $"ID : {ClipElement.Id}\n" +
+                    $"ID : {ClipElement.ID}\n" +
                     $"Name : {ClipElement.Name}\n" +
                     $"Length : {ClipElement.Length.Value}\n" +
                     $"Layer : {ClipElement.Layer}\n" +

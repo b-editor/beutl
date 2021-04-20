@@ -111,7 +111,7 @@ namespace BEditor.Data.Property
         /// <summary>
         /// Gets the length of the clip.
         /// </summary>
-        internal Frame Length => this.GetParent2()?.Length ?? default;
+        internal Frame Length => this.GetParent<ClipElement>()?.Length ?? default;
 
         /// <summary>
         /// Gets an eased value.
@@ -189,7 +189,7 @@ namespace BEditor.Data.Property
                 throw new Exception();
             }
 
-            frame -= this.GetParent2()?.Start ?? default;
+            frame -= this.GetParent<ClipElement>()?.Start ?? default;
 
             var (start, end) = GetFrame(this, frame);
 
@@ -240,7 +240,7 @@ namespace BEditor.Data.Property
         /// <exception cref="ArgumentOutOfRangeException"><paramref name="frame"/> is outside the scope of the parent element.</exception>
         public int InsertKeyframe(Frame frame, float value)
         {
-            if (frame <= Frame.Zero || frame >= this.GetParent2()!.Length) throw new ArgumentOutOfRangeException(nameof(frame));
+            if (frame <= Frame.Zero || frame >= this.GetParent<ClipElement>()!.Length) throw new ArgumentOutOfRangeException(nameof(frame));
 
             Frames.Add(frame);
 
@@ -268,7 +268,7 @@ namespace BEditor.Data.Property
         /// <exception cref="ArgumentOutOfRangeException"><paramref name="frame"/> is outside the scope of the parent element.</exception>
         public int RemoveKeyframe(Frame frame, out float value)
         {
-            if (frame <= Frame.Zero || frame >= this.GetParent2()!.Length) throw new ArgumentOutOfRangeException(nameof(frame));
+            if (frame <= Frame.Zero || frame >= this.GetParent<ClipElement>()!.Length) throw new ArgumentOutOfRangeException(nameof(frame));
 
             // 値基準のindex
             var index = Frames.IndexOf(frame) + 1;
@@ -496,7 +496,7 @@ namespace BEditor.Data.Property
             {
                 _property = new(property ?? throw new ArgumentNullException(nameof(property)));
 
-                _frame = (frame <= Frame.Zero || frame >= property.GetParent2()!.Length) ? throw new ArgumentOutOfRangeException(nameof(frame)) : frame;
+                _frame = (frame <= Frame.Zero || frame >= property.GetParent<ClipElement>()!.Length) ? throw new ArgumentOutOfRangeException(nameof(frame)) : frame;
             }
 
             public string Name => Strings.AddKeyframe;
@@ -505,7 +505,7 @@ namespace BEditor.Data.Property
             {
                 if (_property.TryGetTarget(out var target))
                 {
-                    var index = target.InsertKeyframe(_frame, target.GetValue(_frame + target.GetParent2()?.Start ?? 0));
+                    var index = target.InsertKeyframe(_frame, target.GetValue(_frame + target.GetParent<ClipElement>()?.Start ?? 0));
 
                     target.Added?.Invoke(_frame, index - 1);
                 }
@@ -537,7 +537,7 @@ namespace BEditor.Data.Property
             {
                 _property = new(property ?? throw new ArgumentNullException(nameof(property)));
 
-                _frame = (frame <= Frame.Zero || property.GetParent2()!.Length <= frame) ? throw new ArgumentOutOfRangeException(nameof(frame)) : frame;
+                _frame = (frame <= Frame.Zero || property.GetParent<ClipElement>()!.Length <= frame) ? throw new ArgumentOutOfRangeException(nameof(frame)) : frame;
             }
 
             public string Name => Strings.RemoveKeyframe;
@@ -581,7 +581,7 @@ namespace BEditor.Data.Property
 
                 _fromIndex = (fromIndex < 0 || fromIndex > property.Value.Count) ? throw new IndexOutOfRangeException() : fromIndex;
 
-                _toFrame = (to <= Frame.Zero || property.GetParent2()!.Length <= to) ? throw new ArgumentOutOfRangeException(nameof(to)) : to;
+                _toFrame = (to <= Frame.Zero || property.GetParent<ClipElement>()!.Length <= to) ? throw new ArgumentOutOfRangeException(nameof(to)) : to;
             }
 
             public string Name => Strings.MoveKeyframe;

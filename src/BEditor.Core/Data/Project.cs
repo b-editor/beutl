@@ -35,7 +35,7 @@ namespace BEditor.Data
     /// <summary>
     /// Represents the project to be used in editing.
     /// </summary>
-    public class Project : EditingObject, IParent<Scene>, IChild<IApplication>, IHasName
+    public class Project : EditingObject, IParent<Scene>, IChild<IApplication>
     {
         #region Fields
 

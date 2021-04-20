@@ -7,6 +7,7 @@ using System.Reactive.Linq;
 using System.Text;
 using System.Threading.Tasks;
 
+using Avalonia;
 using Avalonia.Controls;
 
 using BEditor.Command;
@@ -57,6 +58,8 @@ namespace BEditor.ViewModels.Properties
                 };
                 await window.ShowDialog(App.GetMainWindow());
             }).AddTo(_disposables);
+
+            CopyID.Subscribe(async () => await Application.Current.Clipboard.SetTextAsync(Property.ID.ToString())).AddTo(_disposables);
         }
 
         ~FolderPropertyViewModel()
@@ -71,6 +74,8 @@ namespace BEditor.ViewModels.Properties
         public ReactiveCommand Reset { get; } = new();
 
         public ReactiveCommand Bind { get; } = new();
+
+        public ReactiveCommand CopyID { get; } = new();
 
         public ReactiveProperty<int> PathMode { get; }
 
@@ -93,6 +98,7 @@ namespace BEditor.ViewModels.Properties
             Command.Dispose();
             Reset.Dispose();
             Bind.Dispose();
+            CopyID.Dispose();
             PathMode.Dispose();
             _disposables.Dispose();
 

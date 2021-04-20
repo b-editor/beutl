@@ -56,7 +56,7 @@ namespace BEditor.ViewModels.PropertyControl
 
                     Property.Value = Property.Clamp(val);
 
-                    AppData.Current.Project!.PreviewUpdate(Property.GetParent2()!);
+                    (AppData.Current.Project!).PreviewUpdate(Property.GetParent<ClipElement>()!);
 
                     e.e.Handled = true;
                 }
@@ -67,7 +67,7 @@ namespace BEditor.ViewModels.PropertyControl
                 {
                     Property.Value = Property.Clamp(val);
 
-                    AppData.Current.Project!.PreviewUpdate(Property.GetParent2()!);
+                    (AppData.Current.Project!).PreviewUpdate(Property.GetParent<ClipElement>()!);
                 }
             }).AddTo(disposables);
         }

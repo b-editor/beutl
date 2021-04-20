@@ -56,8 +56,8 @@ namespace BEditor.Primitive.Objects
         /// <inheritdoc/>
         protected override Image<BGRA32>? OnRender(EffectRenderArgs args)
         {
-            var scene = this.GetParent3()?.Find(SelectScene.SelectItem!) ?? Parent!.Parent;
-            if (scene.Equals(this.GetParent2())) return null;
+            var scene = this.GetParent<Project>()?.Children.First(i => i.SceneName == SelectScene.SelectItem!) ?? Parent!.Parent;
+            if (scene.Equals(this.GetParent<Scene>())) return null;
 
             // Clipの相対的なフレーム
             var frame = args.Frame - Parent!.Start;
@@ -86,7 +86,7 @@ namespace BEditor.Primitive.Objects
 
         internal record ScenesSelectorMetadata : SelectorPropertyMetadata
         {
-            internal ScenesSelectorMetadata(SceneObject scene) : base(Strings.Scenes, scene.GetParent3()!.SceneList.Select(i => i.SceneName).ToArray())
+            internal ScenesSelectorMetadata(SceneObject scene) : base(Strings.Scenes, scene.GetParent<Project>()!.SceneList.Select(i => i.SceneName).ToArray())
             {
             }
         }
