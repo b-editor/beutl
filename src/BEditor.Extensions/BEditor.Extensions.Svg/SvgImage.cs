@@ -15,25 +15,45 @@ namespace BEditor.Extensions.Svg
 {
     public class SvgImage : ImageObject
     {
-        public static new readonly EasePropertyMetadata ScaleMetadata = new("スケール", 100, Min: 0);
-        public static readonly EasePropertyMetadata ScaleXMetadata = new("スケール X", 100, Min: 0);
-        public static readonly EasePropertyMetadata ScaleYMetadata = new("スケール Y", 100, Min: 0);
-        public static readonly FilePropertyMetadata FileMetadata = new("画像ファイル", "", new("画像ファイル", new FileExtension[]
-        {
-            new("svg")
-        }));
+        public static new readonly DirectEditingProperty<SvgImage, EaseProperty> ScaleProperty = EditingProperty.RegisterSerializeDirect<EaseProperty, SvgImage>(
+            nameof(SvgScale),
+            owner => owner.SvgScale,
+            (owner, obj) => owner.SvgScale = obj,
+            new EasePropertyMetadata("スケール", 100, Min: 0));
+        
+        public static readonly DirectEditingProperty<SvgImage, EaseProperty> ScaleXProperty = EditingProperty.RegisterSerializeDirect<EaseProperty, SvgImage>(
+            nameof(ScaleX),
+            owner => owner.ScaleX,
+            (owner, obj) => owner.ScaleY= obj,
+            new EasePropertyMetadata("スケール X", 100, Min: 0));
+        
+        public static readonly DirectEditingProperty<SvgImage, EaseProperty> ScaleYProperty = EditingProperty.RegisterSerializeDirect<EaseProperty, SvgImage>(
+            nameof(ScaleY),
+            owner => owner.ScaleY,
+            (owner, obj) => owner.ScaleY= obj,
+            new EasePropertyMetadata("スケール Y", 100, Min: 0));
+        
+        public static readonly DirectEditingProperty<SvgImage, FileProperty> FileProperty = EditingProperty.RegisterSerializeDirect<FileProperty, SvgImage>(
+            nameof(File),
+            owner => owner.File,
+            (owner, obj) => owner.File= obj,
+            new FilePropertyMetadata("画像ファイル", "", new("画像ファイル", new FileExtension[]
+            {
+                new("svg")
+            })));
+
         private SKSvg? _source;
+
         private IDisposable? disposable;
 
+#pragma warning disable CS8618
         public SvgImage()
+#pragma warning restore CS8618
         {
-            SvgScale = new(ScaleMetadata);
-            ScaleX = new(ScaleXMetadata);
-            ScaleY = new(ScaleYMetadata);
-            File = new(FileMetadata);
         }
 
         public override string Name => "Svg画像";
+
         public override IEnumerable<PropertyElement> Properties => new PropertyElement[]
         {
             Coordinate,
@@ -46,14 +66,15 @@ namespace BEditor.Extensions.Svg
             ScaleY,
             File
         };
-        [DataMember]
+
         public EaseProperty SvgScale { get; private set; }
-        [DataMember]
+
         public EaseProperty ScaleX { get; private set; }
-        [DataMember]
+
         public EaseProperty ScaleY { get; private set; }
-        [DataMember]
+
         public FileProperty File { get; private set; }
+
         private SKSvg? Source
         {
             get => _source ??= Open(File.Value);
@@ -87,28 +108,23 @@ namespace BEditor.Extensions.Svg
 
             return result;
         }
+
         protected override void OnLoad()
         {
             base.OnLoad();
-            SvgScale.Load(ScaleMetadata);
-            ScaleX.Load(ScaleXMetadata);
-            ScaleY.Load(ScaleYMetadata);
-            File.Load(FileMetadata);
             disposable = File.Subscribe(file =>
             {
                 Source = Open(file);
             });
         }
+
         protected override void OnUnload()
         {
             base.OnUnload();
-            SvgScale.Unload();
-            ScaleX.Unload();
-            ScaleY.Unload();
-            File.Unload();
             disposable?.Dispose();
             _source?.Dispose();
         }
+
         private static SKSvg? Open(string file)
         {
             if (System.IO.File.Exists(file))

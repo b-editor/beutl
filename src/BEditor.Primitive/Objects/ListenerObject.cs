@@ -12,95 +12,116 @@ namespace BEditor.Primitive.Objects
     public sealed class ListenerObject : ObjectElement
     {
         /// <summary>
-        /// Represents <see cref="X"/> metadata.
+        /// Defines the <see cref="X"/> property.
         /// </summary>
-        public static readonly EasePropertyMetadata XMetadata = CameraObject.XMetadata;
+        public static readonly DirectEditingProperty<ListenerObject, EaseProperty> XProperty = CameraObject.XProperty.WithOwner<ListenerObject>(
+            owner => owner.X,
+            (owner, obj) => owner.X = obj);
+        
         /// <summary>
-        /// Represents <see cref="Y"/> metadata.
+        /// Defines the <see cref="Y"/> property.
         /// </summary>
-        public static readonly EasePropertyMetadata YMetadata = CameraObject.YMetadata;
+        public static readonly DirectEditingProperty<ListenerObject, EaseProperty> YProperty = CameraObject.YProperty.WithOwner<ListenerObject>(
+            owner => owner.Y,
+            (owner, obj) => owner.Y = obj);
+        
         /// <summary>
-        /// Represents <see cref="Z"/> metadata.
+        /// Defines the <see cref="Z"/> property.
         /// </summary>
-        public static readonly EasePropertyMetadata ZMetadata = CameraObject.ZMetadata;
+        public static readonly DirectEditingProperty<ListenerObject, EaseProperty> ZProperty = CameraObject.ZProperty.WithOwner<ListenerObject>(
+            owner => owner.Z,
+            (owner, obj) => owner.Z = obj);
+
         /// <summary>
-        /// Represents <see cref="TargetX"/> metadata.
+        /// Defines the <see cref="TargetX"/> property.
         /// </summary>
-        public static readonly EasePropertyMetadata TargetXMetadata = CameraObject.TargetXMetadata;
+        public static readonly DirectEditingProperty<ListenerObject, EaseProperty> TargetXProperty = CameraObject.TargetXProperty.WithOwner<ListenerObject>(
+            owner => owner.TargetX,
+            (owner, obj) => owner.TargetX = obj);
+
         /// <summary>
-        /// Represents <see cref="TargetY"/> metadata.
+        /// Defines the <see cref="TargetY"/> property.
         /// </summary>
-        public static readonly EasePropertyMetadata TargetYMetadata = CameraObject.TargetYMetadata;
+        public static readonly DirectEditingProperty<ListenerObject, EaseProperty> TargetYProperty = CameraObject.TargetYProperty.WithOwner<ListenerObject>(
+            owner => owner.TargetY,
+            (owner, obj) => owner.TargetY = obj);
+
         /// <summary>
-        /// Represents <see cref="TargetZ"/> metadata.
+        /// Defines the <see cref="TargetZ"/> property.
         /// </summary>
-        public static readonly EasePropertyMetadata TargetZMetadata = CameraObject.TargetZMetadata;
+        public static readonly DirectEditingProperty<ListenerObject, EaseProperty> TargetZProperty = CameraObject.TargetZProperty.WithOwner<ListenerObject>(
+            owner => owner.TargetZ,
+            (owner, obj) => owner.TargetZ = obj);
+
         /// <summary>
-        /// Represents <see cref="Gain"/> metadata.
+        /// Defines the <see cref="Gain"/> property.
         /// </summary>
-        public static readonly EasePropertyMetadata GainMetadata = new("Gain", 100, float.NaN, 0);
+        public static readonly DirectEditingProperty<ListenerObject, EaseProperty> GainProperty = EditingProperty.RegisterSerializeDirect<EaseProperty, ListenerObject>(
+            nameof(Gain),
+            owner => owner.Gain,
+            (owner, obj) => owner.Gain = obj,
+            new EasePropertyMetadata("Gain", 100, Min: 0));
 
         /// <summary>
         /// Initializes a new instance of the <see cref="ListenerObject"/> class.
         /// </summary>
+#pragma warning disable CS8618
         public ListenerObject()
+#pragma warning restore CS8618
         {
-            X = new(XMetadata);
-            Y = new(YMetadata);
-            Z = new(ZMetadata);
-            TargetX = new(TargetXMetadata);
-            TargetY = new(TargetYMetadata);
-            TargetZ = new(TargetZMetadata);
-            Gain = new(GainMetadata);
         }
 
         /// <inheritdoc/>
         public override string Name => Strings.Listener;
+
         /// <inheritdoc/>
-        public override IEnumerable<PropertyElement> Properties => new PropertyElement[]
+        public override IEnumerable<PropertyElement> Properties
         {
-            X,
-            Y,
-            Z,
-            TargetX,
-            TargetY,
-            TargetZ,
-            Gain
-        };
+            get
+            {
+                yield return X;
+                yield return Y;
+                yield return Z;
+                yield return TargetX;
+                yield return TargetY;
+                yield return TargetZ;
+                yield return Gain;
+            }
+        }
+
         /// <summary>
         /// Gets the <see cref="EaseProperty"/> representing the X coordinate of the listener.
         /// </summary>
-        [DataMember]
         public EaseProperty X { get; private set; }
+
         /// <summary>
         /// Gets the <see cref="EaseProperty"/> representing the Y coordinate of the listener.
         /// </summary>
-        [DataMember]
         public EaseProperty Y { get; private set; }
+
         /// <summary>
         /// Gets the <see cref="EaseProperty"/> representing the Z coordinate of the listener.
         /// </summary>
-        [DataMember]
         public EaseProperty Z { get; private set; }
+
         /// <summary>
         /// Get the <see cref="EaseProperty"/> that represents the X coordinate of the listener's target position.
         /// </summary>
-        [DataMember]
         public EaseProperty TargetX { get; private set; }
+
         /// <summary>
         /// Get the <see cref="EaseProperty"/> that represents the Y coordinate of the listener's target position.
         /// </summary>
-        [DataMember]
         public EaseProperty TargetY { get; private set; }
+
         /// <summary>
         /// Get the <see cref="EaseProperty"/> that represents the Z coordinate of the listener's target position.
         /// </summary>
-        [DataMember]
         public EaseProperty TargetZ { get; private set; }
+
         /// <summary>
         /// 
         /// </summary>
-        [DataMember]
         public EaseProperty Gain { get; private set; }
 
         /// <inheritdoc/>
@@ -112,28 +133,6 @@ namespace BEditor.Primitive.Objects
             context!.Position = new(X[f], Y[f], Z[f]);
             context.Target = new(TargetX[f], TargetY[f], TargetZ[f]);
             context.Gain = Gain[f] / 100f;
-        }
-        /// <inheritdoc/>
-        protected override void OnLoad()
-        {
-            X.Load(XMetadata);
-            Y.Load(YMetadata);
-            Z.Load(ZMetadata);
-            TargetX.Load(TargetXMetadata);
-            TargetY.Load(TargetYMetadata);
-            TargetZ.Load(TargetZMetadata);
-            Gain.Load(GainMetadata);
-        }
-        /// <inheritdoc/>
-        protected override void OnUnload()
-        {
-            X.Unload();
-            Y.Unload();
-            Z.Unload();
-            TargetX.Unload();
-            TargetY.Unload();
-            TargetZ.Unload();
-            Gain.Unload();
         }
     }
 }

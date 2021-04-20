@@ -29,23 +29,45 @@ namespace BEditor.Primitive.Objects
             new AudioCoordinateMetadata(Strings.Coordinate));
 
         /// <summary>
-        /// Represents <see cref="Volume"/> metadata.
+        /// Defines the <see cref="Volume"/> property.
         /// </summary>
-        public static readonly EasePropertyMetadata VolumeMetadata = new(Strings.Volume, 50, 100, 0);
+        public static readonly DirectEditingProperty<AudioObject, EaseProperty> VolumeProperty = EditingProperty.RegisterSerializeDirect<EaseProperty, AudioObject>(
+            nameof(Volume),
+            owner => owner.Volume,
+            (owner, obj) => owner.Volume = obj,
+            new EasePropertyMetadata(Strings.Volume, 50, 100, 0));
+
         /// <summary>
-        /// Represents <see cref="Pitch"/> metadata.
+        /// Defines the <see cref="Pitch"/> property.
         /// </summary>
-        public static readonly EasePropertyMetadata PitchMetadata = new(Strings.Pitch, 100, 200, 50);
+        public static readonly DirectEditingProperty<AudioObject, EaseProperty> PitchProperty = EditingProperty.RegisterSerializeDirect<EaseProperty, AudioObject>(
+            nameof(Pitch),
+            owner => owner.Pitch,
+            (owner, obj) => owner.Pitch = obj,
+            new EasePropertyMetadata(Strings.Pitch, 100, 200, 50));
+
         /// <summary>
-        /// Represents <see cref="Start"/> metadata.
+        /// Defines the <see cref="Start"/> property.
         /// </summary>
-        public static readonly ValuePropertyMetadata StartMetadata = new(Strings.Start + "(Milliseconds)", 0, Min: 0);
+        public static readonly DirectEditingProperty<AudioObject, ValueProperty> StartProperty = EditingProperty.RegisterSerializeDirect<ValueProperty, AudioObject>(
+            nameof(Start),
+            owner => owner.Start,
+            (owner, obj) => owner.Start = obj,
+            new ValuePropertyMetadata(Strings.Start + "(Milliseconds)", 0, Min: 0));
+
         /// <summary>
-        /// Represens <see cref="File"/> metadata.
+        /// Defines the <see cref="File"/> property.
         /// </summary>
-        public static readonly FilePropertyMetadata FileMetadata = VideoFile.FileMetadata with { Filter = new("", new FileExtension[] { new("mp3"), new("wav") }) };
+        public static readonly DirectEditingProperty<AudioObject, FileProperty> FileProperty = EditingProperty.RegisterSerializeDirect<FileProperty, AudioObject>(
+            nameof(File),
+            owner => owner.File,
+            (owner, obj) => owner.File = obj,
+            new FilePropertyMetadata(Strings.File, Filter: new("", new FileExtension[] { new("mp3"), new("wav") })));
+
         private FFmpegDecoder? _decoder;
+
         private AudioSource? _source;
+
         private IDisposable? _disposable;
 
         /// <summary>
@@ -55,14 +77,11 @@ namespace BEditor.Primitive.Objects
         public AudioObject()
 #pragma warning restore CS8618
         {
-            Volume = new(VolumeMetadata);
-            Pitch = new(PitchMetadata);
-            Start = new(StartMetadata);
-            File = new(FileMetadata);
         }
 
         /// <inheritdoc/>
         public override string Name => Strings.Audio;
+
         /// <inheritdoc/>
         public override IEnumerable<PropertyElement> Properties => new PropertyElement[]
         {
@@ -72,30 +91,32 @@ namespace BEditor.Primitive.Objects
             Start,
             File
         };
+
         /// <summary>
         /// Get the coordinates.
         /// </summary>
         public AudioCoordinate Coordinate { get; private set; }
+
         /// <summary>
         /// Get the <see cref="EaseProperty"/> representing the volume.
         /// </summary>
-        [DataMember]
         public EaseProperty Volume { get; private set; }
+
         /// <summary>
         /// Get the <see cref="EaseProperty"/> representing the pitch.
         /// </summary>
-        [DataMember]
         public EaseProperty Pitch { get; private set; }
+
         /// <summary>
         /// Get the <see cref="EaseProperty"/> that represents the start position.
         /// </summary>
-        [DataMember]
         public ValueProperty Start { get; private set; }
+
         /// <summary>
         /// Get the <see cref="FileProperty"/> to select the file to reference.
         /// </summary>
-        [DataMember]
         public FileProperty File { get; private set; }
+
         private FFmpegDecoder? Decoder
         {
             get
@@ -149,14 +170,10 @@ namespace BEditor.Primitive.Objects
                 });
             }
         }
+
         /// <inheritdoc/>
         protected override void OnLoad()
         {
-            Volume.Load(VolumeMetadata);
-            Pitch.Load(PitchMetadata);
-            Start.Load(StartMetadata);
-            File.Load(FileMetadata);
-
             _source = new();
 
             _disposable = File.Where(file => System.IO.File.Exists(file)).Subscribe(file =>
@@ -299,26 +316,32 @@ namespace BEditor.Primitive.Objects
                 DirectionY,
                 DirectionZ,
             };
+            
             /// <summary>
             /// Get the <see cref="EaseProperty"/> representing the X coordinate.
             /// </summary>
             public EaseProperty X { get; private set; }
+            
             /// <summary>
             /// Get the <see cref="EaseProperty"/> representing the Y coordinate.
             /// </summary>
             public EaseProperty Y { get; private set; }
+
             /// <summary>
             /// Get the <see cref="EaseProperty"/> representing the Z coordinate.
             /// </summary>
             public EaseProperty Z { get; private set; }
+            
             /// <summary>
             /// Get the <see cref="EaseProperty"/> representing the X coordinate.
             /// </summary>
             public EaseProperty DirectionX { get; private set; }
+
             /// <summary>
             /// Get the <see cref="EaseProperty"/> representing the Y coordinate.
             /// </summary>
             public EaseProperty DirectionY { get; private set; }
+
             /// <summary>
             /// Get the <see cref="EaseProperty"/> representing the Z coordinate.
             /// </summary>

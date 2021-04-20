@@ -15,34 +15,43 @@ namespace BEditor.Primitive.Objects
     public sealed class Framebuffer : ImageObject
     {
         /// <summary>
-        /// Represents <see cref="BufferClear"/> metadata.
+        /// Defines the <see cref="BufferClear"/> property.
         /// </summary>
-        public static readonly CheckPropertyMetadata BufferClearMetadata = new(Strings.ClearFramebuffer);
+        public static readonly DirectEditingProperty<Framebuffer, CheckProperty> BufferClearProperty = EditingProperty.RegisterSerializeDirect<CheckProperty, Framebuffer>(
+            nameof(BufferClear),
+            owner => owner.BufferClear,
+            (owner, obj) => owner.BufferClear = obj,
+            new CheckPropertyMetadata(Strings.ClearFramebuffer));
 
         /// <summary>
         /// Initializes a new instance of the <see cref="Framebuffer"/> class.
         /// </summary>
+#pragma warning disable CS8618
         public Framebuffer()
+#pragma warning restore CS8618
         {
-            BufferClear = new(BufferClearMetadata);
         }
 
         /// <inheritdoc/>
         public override string Name => Strings.Framebuffer;
+
         /// <inheritdoc/>
-        public override IEnumerable<PropertyElement> Properties => new PropertyElement[]
+        public override IEnumerable<PropertyElement> Properties
         {
-            Coordinate,
-            Scale,
-            Blend,
-            Rotate,
-            Material,
-            BufferClear
-        };
+            get
+            {
+                yield return Coordinate;
+                yield return Scale;
+                yield return Blend;
+                yield return Rotate;
+                yield return Material;
+                yield return BufferClear;
+            }
+        }
+
         /// <summary>
         /// Gets the <see cref="CheckProperty"/> representing the value whether to clear the frame buffer.
         /// </summary>
-        [DataMember]
         public CheckProperty BufferClear { get; private set; }
 
         /// <inheritdoc/>
@@ -59,18 +68,6 @@ namespace BEditor.Primitive.Objects
             }
 
             return image;
-        }
-        /// <inheritdoc/>
-        protected override void OnLoad()
-        {
-            base.OnLoad();
-            BufferClear.Load(BufferClearMetadata);
-        }
-        /// <inheritdoc/>
-        protected override void OnUnload()
-        {
-            base.OnUnload();
-            BufferClear.Unload();
         }
     }
 }

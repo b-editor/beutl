@@ -5,9 +5,8 @@ using BEditor.Data.Primitive;
 using BEditor.Data.Property;
 using BEditor.Drawing;
 using BEditor.Drawing.Pixel;
+using BEditor.Primitive.Effects;
 using BEditor.Primitive.Resources;
-
-using static BEditor.Primitive.Objects.Shape;
 
 namespace BEditor.Primitive.Objects
 {
@@ -17,55 +16,82 @@ namespace BEditor.Primitive.Objects
     public sealed class Polygon : ImageObject
     {
         /// <summary>
-        /// Represents <see cref="Number"/> metadata.
+        /// Defines the <see cref="Width"/> property.
         /// </summary>
-        public static readonly ValuePropertyMetadata NumberMetadata = new("角", 3, Min: 3);
+        public static readonly DirectEditingProperty<Polygon, EaseProperty> WidthProperty = GL3DObject.WidthProperty.WithOwner<Polygon>(
+            owner => owner.Width,
+            (owner, obj) => owner.Width = obj);
+
+        /// <summary>
+        /// Defines the <see cref="Height"/> property.
+        /// </summary>
+        public static readonly DirectEditingProperty<Polygon, EaseProperty> HeightProperty = GL3DObject.HeightProperty.WithOwner<Polygon>(
+            owner => owner.Height,
+            (owner, obj) => owner.Height = obj);
+
+        /// <summary>
+        /// Defines the <see cref="Number"/> property.
+        /// </summary>
+        public static readonly DirectEditingProperty<Polygon, ValueProperty> NumberProperty = EditingProperty.RegisterSerializeDirect<ValueProperty, Polygon>(
+            nameof(Number),
+            owner => owner.Number,
+            (owner, obj) => owner.Number = obj,
+            new ValuePropertyMetadata("角", 3, Min: 3));
+
+        /// <summary>
+        /// Defines the <see cref="Color"/> property.
+        /// </summary>
+        public static readonly DirectEditingProperty<Polygon, ColorProperty> ColorProperty = ColorKey.ColorProperty.WithOwner<Polygon>(
+            owner => owner.Color,
+            (owner, obj) => owner.Color = obj);
 
         /// <summary>
         /// Iniitializes a new instance of the <see cref="Polygon"/> class.
         /// </summary>
+#pragma warning disable CS8618
         public Polygon()
+#pragma warning restore CS8618
         {
-            Width = new(WidthMetadata);
-            Height = new(HeightMetadata);
-            Number = new(NumberMetadata);
-            Color = new(ColorMetadata);
         }
 
         /// <inheritdoc/>
         public override string Name => Strings.Polygon;
+
         /// <inheritdoc/>
-        public override IEnumerable<PropertyElement> Properties => new PropertyElement[]
+        public override IEnumerable<PropertyElement> Properties
         {
-            Coordinate,
-            Scale,
-            Blend,
-            Rotate,
-            Material,
-            Width,
-            Height,
-            Number,
-            Color
-        };
+            get
+            {
+                yield return Coordinate;
+                yield return Scale;
+                yield return Blend;
+                yield return Rotate;
+                yield return Material;
+                yield return Width;
+                yield return Height;
+                yield return Number;
+                yield return Color;
+            }
+        }
+
         /// <summary>
         /// Get the <see cref="EaseProperty"/> that represents the width of the polygon.
         /// </summary>
-        [DataMember]
         public EaseProperty Width { get; private set; }
+
         /// <summary>
         /// Get the <see cref="EaseProperty"/> that represents the height of the polygon.
         /// </summary>
-        [DataMember]
         public EaseProperty Height { get; private set; }
+
         /// <summary>
         /// Gets the <see cref="ValueProperty"/> representing the number of corners of a polygon.
         /// </summary>
-        [DataMember]
         public ValueProperty Number { get; private set; }
+
         /// <summary>
         /// Get the <see cref="ColorProperty"/> that represents the color of the polygon.
         /// </summary>
-        [DataMember]
         public ColorProperty Color { get; private set; }
 
         /// <inheritdoc/>
@@ -77,24 +103,6 @@ namespace BEditor.Primitive.Objects
             if (width <= 0 || height <= 0) return new(1, 1, default(BGRA32));
 
             return Image.Polygon((int)Number.Value, width, height, Color.Value);
-        }
-        /// <inheritdoc/>
-        protected override void OnLoad()
-        {
-            base.OnLoad();
-            Width.Load(WidthMetadata);
-            Height.Load(HeightMetadata);
-            Number.Load(NumberMetadata);
-            Color.Load(ColorMetadata);
-        }
-        /// <inheritdoc/>
-        protected override void OnUnload()
-        {
-            base.OnUnload();
-            Width.Unload();
-            Height.Unload();
-            Number.Unload();
-            Color.Unload();
         }
     }
 }

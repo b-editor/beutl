@@ -7,8 +7,6 @@ using BEditor.Drawing;
 using BEditor.Drawing.Pixel;
 using BEditor.Primitive.Resources;
 
-using static BEditor.Primitive.Effects.Dilate;
-
 namespace BEditor.Primitive.Effects
 {
     /// <summary>
@@ -17,31 +15,46 @@ namespace BEditor.Primitive.Effects
     public sealed class Erode : ImageEffect
     {
         /// <summary>
+        /// Defines the <see cref="Radius"/> property.
+        /// </summary>
+        public static readonly DirectEditingProperty<Erode, EaseProperty> RadiusProperty = Dilate.RadiusProperty.WithOwner<Erode>(
+            owner => owner.Radius,
+            (owner, obj) => owner.Radius = obj);
+
+        /// <summary>
+        /// Defines the <see cref="Resize"/> property.
+        /// </summary>
+        public static readonly DirectEditingProperty<Erode, CheckProperty> ResizeProperty = Dilate.ResizeProperty.WithOwner<Erode>(
+            owner => owner.Resize,
+            (owner, obj) => owner.Resize = obj);
+
+        /// <summary>
         /// Initializes a new instance of the <see cref="Erode"/> class.
         /// </summary>
+#pragma warning disable CS8618
         public Erode()
+#pragma warning restore CS8618
         {
-            Radius = new(RadiusMetadata);
-            Resize = new(ResizeMetadata);
         }
 
         /// <inheritdoc/>
         public override string Name => Strings.Erode;
+
         /// <inheritdoc/>
         public override IEnumerable<PropertyElement> Properties => new PropertyElement[]
         {
             Radius,
             Resize
         };
+
         /// <summary>
-        /// Get the <see cref="EaseProperty"/> representing the radius.
+        /// Gets the <see cref="EaseProperty"/> representing the radius.
         /// </summary>
-        [DataMember]
         public EaseProperty Radius { get; private set; }
+
         /// <summary>
         /// Gets a <see cref="CheckProperty"/> representing the value to resize the image.
         /// </summary>
-        [DataMember]
         public CheckProperty Resize { get; private set; }
 
         /// <inheritdoc/>
@@ -64,20 +77,6 @@ namespace BEditor.Primitive.Effects
             else
             {
                 img.Erode(size);
-            }
-        }
-        /// <inheritdoc/>
-        protected override void OnLoad()
-        {
-            Radius.Load(RadiusMetadata);
-            Resize.Load(ResizeMetadata);
-        }
-        /// <inheritdoc/>
-        protected override void OnUnload()
-        {
-            foreach (var pr in Children)
-            {
-                pr.Unload();
             }
         }
     }

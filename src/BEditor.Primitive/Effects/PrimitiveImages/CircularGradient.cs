@@ -45,77 +45,86 @@ namespace BEditor.Primitive.Effects
         /// <summary>
         /// Defines the <see cref="Colors"/> property.
         /// </summary>
-        public static readonly DirectEditingProperty<CircularGradient, TextProperty> ColorsProperty = EditingProperty.RegisterSerializeDirect<TextProperty, CircularGradient>(
-            nameof(Colors),
+        public static readonly DirectEditingProperty<CircularGradient, TextProperty> ColorsProperty = LinearGradient.ColorsProperty.WithOwner<CircularGradient>(
             owner => owner.Colors,
-            (owner, obj) => owner.Colors = obj,
-            new TextPropertyMetadata(Strings.Colors, "#FFFF0000,#FF0000FF"));
+            (owner, obj) => owner.Colors = obj);
 
         /// <summary>
         /// Defines the <see cref="Anchors"/> property.
         /// </summary>
-        public static readonly DirectEditingProperty<CircularGradient, TextProperty> AnchorsProperty = EditingProperty.RegisterSerializeDirect<TextProperty, CircularGradient>(
-            nameof(Anchors),
+        public static readonly DirectEditingProperty<CircularGradient, TextProperty> AnchorsProperty = LinearGradient.AnchorsProperty.WithOwner<CircularGradient>(
             owner => owner.Anchors,
-            (owner, obj) => owner.Anchors = obj,
-            new TextPropertyMetadata(Strings.Anchors, "0,1"));
+            (owner, obj) => owner.Anchors = obj);
 
         /// <summary>
-        /// Represents <see cref="Mode"/> metadata.
+        /// Defines the <see cref="Mode"/> property.
         /// </summary>
-        public static readonly SelectorPropertyMetadata ModeMetadata = LinearGradient.ModeMetadata;
+        public static readonly DirectEditingProperty<CircularGradient, SelectorProperty> ModeProperty = LinearGradient.ModeProperty.WithOwner<CircularGradient>(
+            owner => owner.Mode,
+            (owner, obj) => owner.Mode = obj);
+
         private ReactiveProperty<Color[]>? _colorsProp;
+
         private ReactiveProperty<float[]>? _pointsProp;
 
         /// <summary>
         /// Initializes a new instance of the <see cref="CircularGradient"/> class.
         /// </summary>
+#pragma warning disable CS8618
         public CircularGradient()
+#pragma warning restore CS8618
         {
-            Radius = new(RadiusMetadata);
-            Colors = new(ColorsMetadata);
-            Anchors = new(AnchorsMetadata);
-            Mode = new(ModeMetadata);
         }
 
         /// <inheritdoc/>
         public override string Name => Strings.CircularGradient;
+
         /// <inheritdoc/>
-        public override IEnumerable<PropertyElement> Properties => new PropertyElement[]
+        public override IEnumerable<PropertyElement> Properties
         {
-            CenterX,
-            CenterY,
-            Radius,
-            Colors,
-            Anchors,
-            Mode
-        };
+            get
+            {
+                yield return CenterX;
+                yield return CenterY;
+                yield return Radius;
+                yield return Colors;
+                yield return Anchors;
+                yield return Mode;
+            }
+        }
+
         /// <summary>
         /// Get the <see cref="EaseProperty"/> representing the X coordinate of the center.
         /// </summary>
         public EaseProperty CenterX { get; private set; }
+
         /// <summary>
         /// Get the <see cref="EaseProperty"/> representing the Y coordinate of the center.
         /// </summary>
         public EaseProperty CenterY { get; private set; }
+
         /// <summary>
         /// Get the <see cref="EaseProperty"/> representing the radius.
         /// </summary>
         public EaseProperty Radius { get; private set; }
+
         /// <summary>
         /// Get the <see cref="TextProperty"/> representing the colors.
         /// </summary>
         public TextProperty Colors { get; private set; }
+
         /// <summary>
         /// Get the <see cref="TextProperty"/> representing the anchors.
         /// </summary>
         public TextProperty Anchors { get; private set; }
+
         /// <summary>
         /// Get the <see cref="SelectorProperty"/> that selects the gradient mode.
         /// </summary>
         public SelectorProperty Mode { get; private set; }
 
         private ReactiveProperty<Color[]> ColorsProp => _colorsProp ??= new();
+
         private ReactiveProperty<float[]> PointsProp => _pointsProp ??= new();
 
         /// <inheritdoc/>
@@ -145,14 +154,10 @@ namespace BEditor.Primitive.Effects
                 points,
                 LinearGradient.tiles[Mode.Index]);
         }
+
         /// <inheritdoc/>
         protected override void OnLoad()
         {
-            Radius.Load(RadiusMetadata);
-            Colors.Load(ColorsMetadata);
-            Anchors.Load(AnchorsMetadata);
-            Mode.Load(ModeMetadata);
-
             _colorsProp = Colors
                 .Select(str =>
                     str.Replace(" ", "")
@@ -170,6 +175,7 @@ namespace BEditor.Primitive.Effects
                         .ToArray())
                 .ToReactiveProperty()!;
         }
+
         /// <inheritdoc/>
         protected override void OnUnload()
         {

@@ -19,40 +19,53 @@ namespace BEditor.Primitive.Effects
     public sealed class ImageSplit : ImageEffect
     {
         /// <summary>
-        /// Represents <see cref="HSplit"/> metadata.
+        /// Defines the <see cref="HSplit"/> property.
         /// </summary>
-        public static readonly EasePropertyMetadata HSplitMetadata = new(Strings.NumberOfHorizontalDivisions, 2, Min: 1);
+        public static readonly DirectEditingProperty<ImageSplit, EaseProperty> HSplitProperty = EditingProperty.RegisterSerializeDirect<EaseProperty, ImageSplit>(
+            nameof(HSplit),
+            owner => owner.HSplit,
+            (owner, obj) => owner.HSplit = obj,
+            new EasePropertyMetadata(Strings.NumberOfHorizontalDivisions, 2, Min: 1));
+
         /// <summary>
-        /// Represents <see cref="VSplit"/> metadata.
+        /// Defines the <see cref="VSplit"/> property.
         /// </summary>
-        public static readonly EasePropertyMetadata VSplitMetadata = new(Strings.NumberOfVerticalDivisions, 2, Min: 1);
+        public static readonly DirectEditingProperty<ImageSplit, EaseProperty> VSplitProperty = EditingProperty.RegisterSerializeDirect<EaseProperty, ImageSplit>(
+            nameof(VSplit),
+            owner => owner.VSplit,
+            (owner, obj) => owner.VSplit = obj,
+            new EasePropertyMetadata(Strings.NumberOfVerticalDivisions, 2, Min: 1));
 
         /// <summary>
         /// Initializes a new instance of the <see cref="ImageSplit"/> class.
         /// </summary>
+#pragma warning disable CS8618
         public ImageSplit()
+#pragma warning restore CS8618
         {
-            HSplit = new(HSplitMetadata);
-            VSplit = new(VSplitMetadata);
         }
 
         /// <inheritdoc/>
         public override string Name => Strings.ImageSplit;
+
         /// <inheritdoc/>
-        public override IEnumerable<PropertyElement> Properties => new PropertyElement[]
+        public override IEnumerable<PropertyElement> Properties
         {
-            HSplit,
-            VSplit,
-        };
+            get
+            {
+                yield return HSplit;
+                yield return VSplit;
+            }
+        }
+
         /// <summary>
         /// Get the <see cref="EaseProperty"/> that represents the number of horizontal divisions.
         /// </summary>
-        [DataMember]
         public EaseProperty HSplit { get; private set; }
+
         /// <summary>
         /// Get the <see cref="EaseProperty"/> that represents the number of vertical divisions.
         /// </summary>
-        [DataMember]
         public EaseProperty VSplit { get; private set; }
 
         /// <inheritdoc/>
@@ -101,21 +114,10 @@ namespace BEditor.Primitive.Effects
                 return result;
             });
         }
+
         /// <inheritdoc/>
         public override void Render(EffectRenderArgs<Image<BGRA32>> args)
         {
-        }
-        /// <inheritdoc/>
-        protected override void OnLoad()
-        {
-            HSplit.Load(HSplitMetadata);
-            VSplit.Load(VSplitMetadata);
-        }
-        /// <inheritdoc/>
-        protected override void OnUnload()
-        {
-            HSplit.Unload();
-            VSplit.Unload();
         }
     }
 }

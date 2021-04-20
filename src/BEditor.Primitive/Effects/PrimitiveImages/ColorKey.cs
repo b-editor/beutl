@@ -15,60 +15,59 @@ namespace BEditor.Primitive.Effects
     public sealed class ColorKey : ImageEffect
     {
         /// <summary>
-        /// Represents <see cref="Color"/> metadata.
+        /// Defines the <see cref="Color"/> property.
         /// </summary>
-        public static readonly ColorPropertyMetadata ColorMetadata = new(Strings.Color, Drawing.Color.Light);
+        public static readonly DirectEditingProperty<ColorKey, ColorProperty> ColorProperty = EditingProperty.RegisterSerializeDirect<ColorProperty, ColorKey>(
+            nameof(Color),
+            owner => owner.Color,
+            (owner, obj) => owner.Color = obj,
+            new ColorPropertyMetadata(Strings.Color, Drawing.Color.Light));
+
         /// <summary>
-        /// Represents <see cref="ThresholdValue"/> metadata.
+        /// Defines the <see cref="ThresholdValue"/> property.
         /// </summary>
-        public static readonly EasePropertyMetadata ThresholdValueMetadata = new(Strings.ThresholdValue, 60);
+        public static readonly DirectEditingProperty<ColorKey, EaseProperty> ThresholdValueProperty = EditingProperty.RegisterSerializeDirect<EaseProperty, ColorKey>(
+            nameof(ThresholdValue),
+            owner => owner.ThresholdValue,
+            (owner, obj) => owner.ThresholdValue = obj,
+            new EasePropertyMetadata(Strings.ThresholdValue, 60));
 
         /// <summary>
         /// Initializes a new instance of the <see cref="ColorKey"/> class.
         /// </summary>
+#pragma warning disable CS8618
         public ColorKey()
+#pragma warning restore CS8618
         {
-            Color = new(ColorMetadata);
-            ThresholdValue = new(ThresholdValueMetadata);
         }
 
         /// <inheritdoc/>
         public override string Name => Strings.ColorKey;
+
         /// <inheritdoc/>
-        public override IEnumerable<PropertyElement> Properties => new PropertyElement[]
+        public override IEnumerable<PropertyElement> Properties
         {
-            Color,
-            ThresholdValue
-        };
+            get
+            {
+                yield return Color;
+                yield return ThresholdValue;
+            }
+        }
+
         /// <summary>
         /// Gets the <see cref="ColorProperty"/> representing the key color.
         /// </summary>
-        [DataMember]
         public ColorProperty Color { get; private set; }
+
         /// <summary>
         /// Get the <see cref="EaseProperty"/> representing the threshold.
         /// </summary>
-        [DataMember]
         public EaseProperty ThresholdValue { get; private set; }
 
         /// <inheritdoc/>
         public override void Render(EffectRenderArgs<Image<BGRA32>> args)
         {
             args.Value.ColorKey(Color.Value, (int)ThresholdValue[args.Frame]);
-        }
-        /// <inheritdoc/>
-        protected override void OnLoad()
-        {
-            Color.Load(ColorMetadata);
-            ThresholdValue.Load(ThresholdValueMetadata);
-        }
-        /// <inheritdoc/>
-        protected override void OnUnload()
-        {
-            foreach (var pr in Children)
-            {
-                pr.Unload();
-            }
         }
     }
 }

@@ -20,64 +20,83 @@ namespace BEditor.Primitive.Objects
     public sealed class VideoFile : ImageObject
     {
         /// <summary>
-        /// Represents <see cref="Speed"/> metadata.
+        /// Defines the <see cref="Speed"/> property.
         /// </summary>
-        public static readonly EasePropertyMetadata SpeedMetadata = new(Strings.Speed, 100);
+        public static readonly DirectEditingProperty<VideoFile, EaseProperty> SpeedProperty = EditingProperty.RegisterSerializeDirect<EaseProperty, VideoFile>(
+            nameof(Speed),
+            owner => owner.Speed,
+            (owner, obj) => owner.Speed = obj,
+            new EasePropertyMetadata(Strings.Speed, 100));
+
         /// <summary>
-        /// Represents <see cref="Start"/> metadata.
+        /// Defines the <see cref="Start"/> property.
         /// </summary>
-        public static readonly EasePropertyMetadata StartMetadata = new(Strings.Start, 1, float.NaN, 0);
+        public static readonly DirectEditingProperty<VideoFile, EaseProperty> StartProperty = EditingProperty.RegisterSerializeDirect<EaseProperty, VideoFile>(
+            nameof(Start),
+            owner => owner.Start,
+            (owner, obj) => owner.Start = obj,
+            new EasePropertyMetadata(Strings.Start, 1, float.NaN, 0));
+
         /// <summary>
-        /// Represents <see cref="File"/> metadata.
+        /// Defines the <see cref="File"/> property.
         /// </summary>
-        public static readonly FilePropertyMetadata FileMetadata = new(Strings.File, "", new(Strings.VideoFile, new FileExtension[]
-        {
-            new("mp4"),
-            new("avi"),
-            new("wmv"),
-            new("mov")
-        }));
+        public static readonly DirectEditingProperty<VideoFile, FileProperty> FileProperty = EditingProperty.RegisterSerializeDirect<FileProperty, VideoFile>(
+            nameof(File),
+            owner => owner.File,
+            (owner, obj) => owner.File = obj,
+            new FilePropertyMetadata(Strings.File, "", new(Strings.VideoFile, new FileExtension[]
+            {
+                new("mp4"),
+                new("avi"),
+                new("wmv"),
+                new("mov")
+            })));
+
         private IMediaDecoder? _videoReader;
+
         private IDisposable? _disposable;
 
         /// <summary>
         /// Initializes a new instance of the <see cref="VideoFile"/> class.
         /// </summary>
+#pragma warning disable CS8618
         public VideoFile()
+#pragma warning restore CS8618
         {
-            Speed = new(SpeedMetadata);
-            Start = new(StartMetadata);
-            File = new(FileMetadata);
         }
 
         /// <inheritdoc/>
         public override string Name => Strings.Video;
+
         /// <inheritdoc/>
-        public override IEnumerable<PropertyElement> Properties => new PropertyElement[]
+        public override IEnumerable<PropertyElement> Properties
         {
-            Coordinate,
-            Scale,
-            Blend,
-            Rotate,
-            Material,
-            Speed,
-            Start,
-            File
-        };
+            get
+            {
+                yield return Coordinate;
+                yield return Scale;
+                yield return Blend;
+                yield return Rotate;
+                yield return Material;
+                yield return Speed;
+                yield return Start;
+                yield return File;
+            }
+        }
+
         /// <summary>
         /// Get the <see cref="EaseProperty"/> that represents the playback speed.
         /// </summary>
-        [DataMember]
         public EaseProperty Speed { get; private set; }
+
         /// <summary>
         /// Get the <see cref="EaseProperty"/> that represents the start position.
         /// </summary>
-        [DataMember]
         public EaseProperty Start { get; private set; }
+
         /// <summary>
         /// Get the <see cref="FileProperty"/> to select the video file to reference.
         /// </summary>
-        [DataMember]
         public FileProperty File { get; private set; }
 
         /// <inheritdoc/>
@@ -92,13 +111,11 @@ namespace BEditor.Primitive.Objects
 
             return image;
         }
+
         /// <inheritdoc/>
         protected override void OnLoad()
         {
             base.OnLoad();
-            Speed.Load(SpeedMetadata);
-            Start.Load(StartMetadata);
-            File.Load(FileMetadata);
 
             if (System.IO.File.Exists(File.Value))
             {
@@ -120,13 +137,11 @@ namespace BEditor.Primitive.Objects
                 }
             });
         }
+
         /// <inheritdoc/>
         protected override void OnUnload()
         {
             base.OnUnload();
-            Speed.Unload();
-            Start.Unload();
-            File.Unload();
 
             _videoReader?.Dispose();
             _disposable?.Dispose();

@@ -14,134 +14,188 @@ namespace BEditor.Primitive.Objects
     public class CameraObject : ObjectElement
     {
         /// <summary>
-        /// Represents <see cref="X"/> metadata.
+        /// Defines the <see cref="X"/> property.
         /// </summary>
-        public static readonly EasePropertyMetadata XMetadata = new(Strings.X, 0, UseOptional: true);
+        public static readonly DirectEditingProperty<CameraObject, EaseProperty> XProperty = EditingProperty.RegisterSerializeDirect<EaseProperty, CameraObject>(
+            nameof(X),
+            owner => owner.X,
+            (owner, obj) => owner.X = obj,
+            new EasePropertyMetadata(Strings.X, 0, UseOptional: true));
+
         /// <summary>
-        /// Represents <see cref="Y"/> metadata.
+        /// Defines the <see cref="Y"/> property.
         /// </summary>
-        public static readonly EasePropertyMetadata YMetadata = new(Strings.Y, 0, UseOptional: true);
+        public static readonly DirectEditingProperty<CameraObject, EaseProperty> YProperty = EditingProperty.RegisterSerializeDirect<EaseProperty, CameraObject>(
+            nameof(Y),
+            owner => owner.Y,
+            (owner, obj) => owner.Y = obj,
+            new EasePropertyMetadata(Strings.Y, 0, UseOptional: true));
+
+        /// <summarZ>
+        /// Defines the <see cref="Z"/> property.
+        /// </summarZ>
+        public static readonly DirectEditingProperty<CameraObject, EaseProperty> ZProperty = EditingProperty.RegisterSerializeDirect<EaseProperty, CameraObject>(
+            nameof(Z),
+            owner => owner.Z,
+            (owner, obj) => owner.Z = obj,
+            new EasePropertyMetadata(Strings.Z, 1024, UseOptional: true));
+
         /// <summary>
-        /// Represents <see cref="Z"/> metadata.
+        /// Defines the <see cref="TargetX"/> property.
         /// </summary>
-        public static readonly EasePropertyMetadata ZMetadata = new(Strings.Z, 1024, UseOptional: true);
+        public static readonly DirectEditingProperty<CameraObject, EaseProperty> TargetXProperty = EditingProperty.RegisterSerializeDirect<EaseProperty, CameraObject>(
+            nameof(TargetX),
+            owner => owner.TargetX,
+            (owner, obj) => owner.TargetX = obj,
+            new EasePropertyMetadata(Strings.TargetX, 0, UseOptional: true));
+
         /// <summary>
-        /// Represents <see cref="TargetX"/> metadata.
+        /// Defines the <see cref="TargetY"/> property.
         /// </summary>
-        public static readonly EasePropertyMetadata TargetXMetadata = new(Strings.TargetX, 0, UseOptional: true);
+        public static readonly DirectEditingProperty<CameraObject, EaseProperty> TargetYProperty = EditingProperty.RegisterSerializeDirect<EaseProperty, CameraObject>(
+            nameof(TargetY),
+            owner => owner.TargetY,
+            (owner, obj) => owner.TargetY = obj,
+            new EasePropertyMetadata(Strings.TargetY, 0, UseOptional: true));
+
+        /// <summarZ>
+        /// Defines the <see cref="TargetZ"/> property.
+        /// </summarZ>
+        public static readonly DirectEditingProperty<CameraObject, EaseProperty> TargetZProperty = EditingProperty.RegisterSerializeDirect<EaseProperty, CameraObject>(
+            nameof(TargetZ),
+            owner => owner.TargetZ,
+            (owner, obj) => owner.TargetZ = obj,
+            new EasePropertyMetadata(Strings.TargetZ, 0, UseOptional: true));
+
         /// <summary>
-        /// Represents <see cref="TargetY"/> metadata.
+        /// Defines the <see cref="ZNear"/> property.
         /// </summary>
-        public static readonly EasePropertyMetadata TargetYMetadata = new(Strings.TargetY, 0, UseOptional: true);
-        /// <summary>
-        /// Represents <see cref="TargetZ"/> metadata.
-        /// </summary>
-        public static readonly EasePropertyMetadata TargetZMetadata = new(Strings.TargetZ, 0, UseOptional: true);
-        /// <summary>
-        /// Represents <see cref="ZNear"/> metadata.
-        /// </summary>
-        public static readonly EasePropertyMetadata ZNearMetadata = new(Strings.ZNear, 0.1F, Min: 0.1F, UseOptional: true);
-        /// <summary>
-        /// Represents <see cref="ZFar"/> metadata.
-        /// </summary>
-        public static readonly EasePropertyMetadata ZFarMetadata = new(Strings.ZFar, 20000, UseOptional: true);
-        /// <summary>
-        /// Represents <see cref="Angle"/> metadata.
-        /// </summary>
-        public static readonly EasePropertyMetadata AngleMetadata = new(Strings.Angle, 0, UseOptional: true);
-        /// <summary>
-        /// Represents <see cref="Fov"/> metadata.
-        /// </summary>
-        public static readonly EasePropertyMetadata FovMetadata = new(Strings.Fov, 45, 179, 1, UseOptional: true);
-        /// <summary>
-        /// Represents <see cref="Mode"/> metadata.
-        /// </summary>
-        public static readonly CheckPropertyMetadata ModeMetadata = new(Strings.Perspective, true);
+        public static readonly DirectEditingProperty<CameraObject, EaseProperty> ZNearProperty = EditingProperty.RegisterSerializeDirect<EaseProperty, CameraObject>(
+            nameof(ZNear),
+            owner => owner.ZNear,
+            (owner, obj) => owner.ZNear = obj,
+            new EasePropertyMetadata(Strings.ZNear, 0.1F, Min: 0.1F, UseOptional: true));
+
+        /// <summarZ>
+        /// Defines the <see cref="ZFar"/> property.
+        /// </summarZ>
+        public static readonly DirectEditingProperty<CameraObject, EaseProperty> ZFarProperty = EditingProperty.RegisterSerializeDirect<EaseProperty, CameraObject>(
+            nameof(ZFar),
+            owner => owner.ZFar,
+            (owner, obj) => owner.ZFar = obj,
+            new EasePropertyMetadata(Strings.ZFar, 20000, UseOptional: true));
+
+        /// <summarZ>
+        /// Defines the <see cref="Angle"/> property.
+        /// </summarZ>
+        public static readonly DirectEditingProperty<CameraObject, EaseProperty> AngleProperty = EditingProperty.RegisterSerializeDirect<EaseProperty, CameraObject>(
+            nameof(Angle),
+            owner => owner.Angle,
+            (owner, obj) => owner.Angle = obj,
+            new EasePropertyMetadata(Strings.Angle, 0, UseOptional: true));
+
+        /// <summarZ>
+        /// Defines the <see cref="Fov"/> property.
+        /// </summarZ>
+        public static readonly DirectEditingProperty<CameraObject, EaseProperty> FovProperty = EditingProperty.RegisterSerializeDirect<EaseProperty, CameraObject>(
+            nameof(Fov),
+            owner => owner.Fov,
+            (owner, obj) => owner.Fov = obj,
+            new EasePropertyMetadata(Strings.Fov, 45, 179, 1, UseOptional: true));
+        
+        /// <summarZ>
+        /// Defines the <see cref="Mode"/> property.
+        /// </summarZ>
+        public static readonly DirectEditingProperty<CameraObject, CheckProperty> ModeProperty = EditingProperty.RegisterSerializeDirect<CheckProperty, CameraObject>(
+            nameof(Mode),
+            owner => owner.Mode,
+            (owner, obj) => owner.Mode = obj,
+            new CheckPropertyMetadata(Strings.Perspective, true));
 
         /// <summary>
         /// Initializes a new instance <see cref="CameraObject"/> class.
         /// </summary>
+#pragma warning disable CS8618
         public CameraObject()
+#pragma warning restore CS8618
         {
-            X = new(XMetadata);
-            Y = new(YMetadata);
-            Z = new(ZMetadata);
-            TargetX = new(TargetXMetadata);
-            TargetY = new(TargetYMetadata);
-            TargetZ = new(TargetZMetadata);
-            ZNear = new(ZNearMetadata);
-            ZFar = new(ZFarMetadata);
-            Angle = new(AngleMetadata);
-            Fov = new(FovMetadata);
-            Mode = new(ModeMetadata);
         }
 
         /// <inheritdoc/>
         public override string Name => Strings.Camera;
+
         /// <inheritdoc/>
-        public override IEnumerable<PropertyElement> Properties => new PropertyElement[]
+        public override IEnumerable<PropertyElement> Properties
         {
-            X, Y, Z,
-            TargetX, TargetY, TargetZ,
-            ZNear, ZFar,
-            Angle,
-            Fov,
-            Mode
-        };
+            get
+            {
+                yield return X;
+                yield return Y;
+                yield return Z;
+                yield return TargetX;
+                yield return TargetY;
+                yield return TargetZ;
+                yield return ZNear;
+                yield return ZFar;
+                yield return Angle;
+                yield return Fov;
+                yield return Mode;
+            }
+        }
+
         /// <summary>
         /// Gets the <see cref="EaseProperty"/> representing the X coordinate of the camera.
         /// </summary>
-        [DataMember]
         public EaseProperty X { get; private set; }
+
         /// <summary>
         /// Gets the <see cref="EaseProperty"/> representing the Y coordinate of the camera.
         /// </summary>
-        [DataMember]
         public EaseProperty Y { get; private set; }
+
         /// <summary>
         /// Gets the <see cref="EaseProperty"/> representing the Z coordinate of the camera.
         /// </summary>
-        [DataMember]
         public EaseProperty Z { get; private set; }
+
         /// <summary>
         /// Get the <see cref="EaseProperty"/> that represents the X coordinate of the camera's target position.
         /// </summary>
-        [DataMember]
         public EaseProperty TargetX { get; private set; }
+
         /// <summary>
         /// Get the <see cref="EaseProperty"/> that represents the Y coordinate of the camera's target position.
         /// </summary>
-        [DataMember]
         public EaseProperty TargetY { get; private set; }
+
         /// <summary>
         /// Get the <see cref="EaseProperty"/> that represents the Z coordinate of the camera's target position.
         /// </summary>
-        [DataMember]
         public EaseProperty TargetZ { get; private set; }
+
         /// <summary>
         /// Get the <see cref="EaseProperty"/> of the area to be drawn by the camera.
         /// </summary>
-        [DataMember]
         public EaseProperty ZNear { get; private set; }
+
         /// <summary>
         /// Get the <see cref="EaseProperty"/> of the area to be drawn by the camera.
         /// </summary>
-        [DataMember]
         public EaseProperty ZFar { get; private set; }
+
         /// <summary>
         /// Get the <see cref="EaseProperty"/> representing the camera angle.
         /// </summary>
-        [DataMember]
         public EaseProperty Angle { get; private set; }
+
         /// <summary>
         /// Get the <see cref="EaseProperty"/> representing the camera fov.
         /// </summary>
-        [DataMember]
         public EaseProperty Fov { get; private set; }
+
         /// <summary>
         /// Gets the <see cref="CheckProperty"/> representing whether the camera is Perspective or not.
         /// </summary>
-        [DataMember]
         public CheckProperty Mode { get; private set; }
 
         /// <inheritdoc/>
@@ -180,36 +234,6 @@ namespace BEditor.Primitive.Objects
 
                 effect.Render(args);
             }
-        }
-        /// <inheritdoc/>
-        protected override void OnLoad()
-        {
-            X.Load(XMetadata);
-            Y.Load(YMetadata);
-            Z.Load(ZMetadata);
-            TargetX.Load(TargetXMetadata);
-            TargetY.Load(TargetYMetadata);
-            TargetZ.Load(TargetZMetadata);
-            ZNear.Load(ZNearMetadata);
-            ZFar.Load(ZFarMetadata);
-            Angle.Load(AngleMetadata);
-            Fov.Load(FovMetadata);
-            Mode.Load(ModeMetadata);
-        }
-        /// <inheritdoc/>
-        protected override void OnUnload()
-        {
-            X.Unload();
-            Y.Unload();
-            Z.Unload();
-            TargetX.Unload();
-            TargetY.Unload();
-            TargetZ.Unload();
-            ZNear.Unload();
-            ZFar.Unload();
-            Angle.Unload();
-            Fov.Unload();
-            Mode.Unload();
         }
     }
 }

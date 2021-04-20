@@ -39,9 +39,13 @@ namespace BEditor.Primitive.Effects
             (owner, obj) => owner.Rotate = obj);
 
         /// <summary>
-        /// Represents <see cref="Index"/> metadata.
+        /// Defines the <see cref="Index"/> property.
         /// </summary>
-        public static readonly ValuePropertyMetadata IndexMetadata = new("index", 0, Min: 0);
+        public static readonly DirectEditingProperty<MultipleControls, ValueProperty> IndexProperty = EditingProperty.RegisterSerializeDirect<ValueProperty, MultipleControls>(
+            nameof(Index),
+            owner => owner.Index,
+            (owner, obj) => owner.Index = obj,
+            new ValuePropertyMetadata("index", 0, Min: 0));
 
         /// <summary>
         /// INitializes a new instance of the <see cref="MultipleControls"/> class.
@@ -50,35 +54,40 @@ namespace BEditor.Primitive.Effects
         public MultipleControls()
 #pragma warning restore CS8618
         {
-            Index = new(IndexMetadata);
         }
 
         /// <inheritdoc/>
         public override string Name => Strings.MultipleImageControls;
         /// <inheritdoc/>
-        public override IEnumerable<PropertyElement> Properties => new PropertyElement[]
+        public override IEnumerable<PropertyElement> Properties
         {
-            Coordinate,
-            Scale,
-            Rotate,
-            Index
-        };
+            get
+            {
+                yield return Coordinate;
+                yield return Scale;
+                yield return Rotate;
+                yield return Index;
+            }
+        }
+
         /// <summary>
         /// Get the coordinates.
         /// </summary>
         public Coordinate Coordinate { get; private set; }
+
         /// <summary>
         /// Get the scale.
         /// </summary>
         public Scale Scale { get; private set; }
+
         /// <summary>
         /// Get the angle.
         /// </summary>
         public Rotate Rotate { get; private set; }
+
         /// <summary>
         /// Gets the <see cref="ValueProperty"/> representing the index of the image to be controlled.
         /// </summary>
-        [DataMember]
         public ValueProperty Index { get; private set; }
 
         /// <inheritdoc/>
@@ -111,20 +120,11 @@ namespace BEditor.Primitive.Effects
                 return img;
             });
         }
+
         /// <inheritdoc/>
         public override void Render(EffectRenderArgs<Image<BGRA32>> args)
         {
 
-        }
-        /// <inheritdoc/>
-        protected override void OnLoad()
-        {
-            Index.Load(IndexMetadata);
-        }
-        /// <inheritdoc/>
-        protected override void OnUnload()
-        {
-            Index.Unload();
         }
     }
 }

@@ -1,5 +1,4 @@
-﻿using System;
-using System.Collections.Generic;
+﻿using System.Collections.Generic;
 using System.Linq;
 
 using BEditor.Data;
@@ -16,41 +15,52 @@ namespace BEditor.Primitive.Objects
     /// </summary>
     public sealed class SceneObject : ImageObject
     {
+        /// <summary>
+        /// Defines the <see cref="Start"/> property.
+        /// </summary>
+        public static readonly DirectEditingProperty<SceneObject, EaseProperty> StartProperty = VideoFile.StartProperty.WithOwner<SceneObject>(
+            owner => owner.Start,
+            (owner, obj) => owner.Start = obj);
+
         SelectorPropertyMetadata? SelectSceneMetadata;
 
         /// <summary>
         /// Initializes a new instance of the <see cref="SceneObject"/> class.
         /// </summary>
+#pragma warning disable CS8618
         public SceneObject()
+#pragma warning restore CS8618
         {
-            Start = new(VideoFile.StartMetadata);
-
             // この時点で親要素を取得できないので適当なデータを渡す
             SelectScene = new(new SelectorPropertyMetadata("", new string[1]));
         }
 
         /// <inheritdoc/>
         public override string Name => Strings.Scene;
+
         /// <inheritdoc/>
-        public override IEnumerable<PropertyElement> Properties => new PropertyElement[]
+        public override IEnumerable<PropertyElement> Properties
         {
-            Coordinate,
-            Scale,
-            Blend,
-            Rotate,
-            Material,
-            Start,
-            SelectScene
-        };
+            get
+            {
+                yield return Coordinate;
+                yield return Scale;
+                yield return Blend;
+                yield return Rotate;
+                yield return Material;
+                yield return Start;
+                yield return SelectScene;
+            }
+        }
+
         /// <summary>
         /// Get the <see cref="EaseProperty"/> that represents the start position.
         /// </summary>
-        [DataMember]
         public EaseProperty Start { get; private set; }
+
         /// <summary>
         /// Get the <see cref="SelectorProperty"/> to select the <seealso cref="Scene"/> to reference.
         /// </summary>
-        [DataMember]
         public SelectorProperty SelectScene { get; private set; }
 
         /// <inheritdoc/>
@@ -68,19 +78,19 @@ namespace BEditor.Primitive.Objects
 
             return img;
         }
+
         /// <inheritdoc/>
         protected override void OnLoad()
         {
             base.OnLoad();
             SelectSceneMetadata = new ScenesSelectorMetadata(this);
-            Start.Load(VideoFile.StartMetadata);
             SelectScene.Load(SelectSceneMetadata);
         }
+
         /// <inheritdoc/>
         protected override void OnUnload()
         {
             base.OnUnload();
-            Start.Unload();
             SelectScene.Unload();
         }
 
