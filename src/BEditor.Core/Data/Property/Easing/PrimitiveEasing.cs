@@ -37,32 +37,32 @@ namespace BEditor.Data.Property.Easing
 
         private static readonly Func<float, float, float, float, float>[] DefaultEase =
         {
-            Easing.None,
+            Easing.Instance.None,
 
-            Easing.Linear,
+            Easing.Instance.Linear,
 
-            Easing.SineIn,     Easing.SineOut,    Easing.SineInOut,
+            Easing.Instance.SineIn,     Easing.Instance.SineOut,    Easing.Instance.SineInOut,
 
-            Easing.QuadIn,     Easing.QuadOut,    Easing.QuadInOut,
+            Easing.Instance.QuadIn,     Easing.Instance.QuadOut,    Easing.Instance.QuadInOut,
 
-            Easing.CubicIn,    Easing.CubicOut,   Easing.CubicInOut,
+            Easing.Instance.CubicIn,    Easing.Instance.CubicOut,   Easing.Instance.CubicInOut,
 
-            Easing.QuartIn,    Easing.QuartOut,   Easing.QuartInOut,
+            Easing.Instance.QuartIn,    Easing.Instance.QuartOut,   Easing.Instance.QuartInOut,
 
-            Easing.QuintIn,    Easing.QuintOut,   Easing.QuintInOut,
+            Easing.Instance.QuintIn,    Easing.Instance.QuintOut,   Easing.Instance.QuintInOut,
 
-            Easing.ExpIn,      Easing.ExpOut,     Easing.ExpInOut,
+            Easing.Instance.ExpIn,      Easing.Instance.ExpOut,     Easing.Instance.ExpInOut,
 
-            Easing.CircIn,     Easing.CircOut,    Easing.CircInOut,
+            Easing.Instance.CircIn,     Easing.Instance.CircOut,    Easing.Instance.CircInOut,
 
-            Easing.BackIn,     Easing.BackOut,    Easing.BackInOut,
+            Easing.Instance.BackIn,     Easing.Instance.BackOut,    Easing.Instance.BackInOut,
 
-            Easing.ElasticIn,  Easing.ElasticOut, Easing.ElasticInOut,
+            Easing.Instance.ElasticIn,  Easing.Instance.ElasticOut, Easing.Instance.ElasticInOut,
 
-            Easing.BounceIn,   Easing.BounceOut,  Easing.BounceInOut,
+            Easing.Instance.BounceIn,   Easing.Instance.BounceOut,  Easing.Instance.BounceInOut,
         };
 
-        private Func<float, float, float, float, float> _currentFunc = Easing.None;
+        private Func<float, float, float, float, float> _currentFunc = Easing.Instance.None;
         private IDisposable? _disposable;
 
         /// <summary>
@@ -75,7 +75,13 @@ namespace BEditor.Data.Property.Easing
         }
 
         /// <inheritdoc/>
-        public override IEnumerable<IEasingProperty> Properties => new IEasingProperty[] { EasingType };
+        public override IEnumerable<IEasingProperty> Properties
+        {
+            get
+            {
+                yield return EasingType;
+            }
+        }
 
         /// <summary>
         /// Gets the <see cref="SelectorProperty"/> to select the easing function.
@@ -100,24 +106,26 @@ namespace BEditor.Data.Property.Easing
             _disposable?.Dispose();
         }
 
-#pragma warning disable RCS1176, RCS1010, RCS0056, RCS1163, RCS1089
-        private static class Easing
+#pragma warning disable RCS1176, RCS1010, RCS0056, RCS1163, RCS1089, CA1822, IDE0060
+        private class Easing
         {
-            public static float QuadIn(float t, float totaltime, float min, float max)
+            public static Easing Instance = new();
+
+            public float QuadIn(float t, float totaltime, float min, float max)
             {
                 max -= min;
                 t /= totaltime;
                 return (max * t * t) + min;
             }
 
-            public static float QuadOut(float t, float totaltime, float min, float max)
+            public float QuadOut(float t, float totaltime, float min, float max)
             {
                 max -= min;
                 t /= totaltime;
                 return (-max * t * (t - 2)) + min;
             }
 
-            public static float QuadInOut(float t, float totaltime, float min, float max)
+            public float QuadInOut(float t, float totaltime, float min, float max)
             {
                 max -= min;
                 t /= totaltime / 2;
@@ -127,21 +135,21 @@ namespace BEditor.Data.Property.Easing
                 return (-max / 2 * ((t * (t - 2)) - 1)) + min;
             }
 
-            public static float CubicIn(float t, float totaltime, float min, float max)
+            public float CubicIn(float t, float totaltime, float min, float max)
             {
                 max -= min;
                 t /= totaltime;
                 return (max * t * t * t) + min;
             }
 
-            public static float CubicOut(float t, float totaltime, float min, float max)
+            public float CubicOut(float t, float totaltime, float min, float max)
             {
                 max -= min;
                 t = (t / totaltime) - 1;
                 return (max * ((t * t * t) + 1)) + min;
             }
 
-            public static float CubicInOut(float t, float totaltime, float min, float max)
+            public float CubicInOut(float t, float totaltime, float min, float max)
             {
                 max -= min;
                 t /= totaltime / 2;
@@ -151,21 +159,21 @@ namespace BEditor.Data.Property.Easing
                 return (max / 2 * ((t * t * t) + 2)) + min;
             }
 
-            public static float QuartIn(float t, float totaltime, float min, float max)
+            public float QuartIn(float t, float totaltime, float min, float max)
             {
                 max -= min;
                 t /= totaltime;
                 return (max * t * t * t * t) + min;
             }
 
-            public static float QuartOut(float t, float totaltime, float min, float max)
+            public float QuartOut(float t, float totaltime, float min, float max)
             {
                 max -= min;
                 t = (t / totaltime) - 1;
                 return (-max * ((t * t * t * t) - 1)) + min;
             }
 
-            public static float QuartInOut(float t, float totaltime, float min, float max)
+            public float QuartInOut(float t, float totaltime, float min, float max)
             {
                 max -= min;
                 t /= totaltime / 2;
@@ -175,21 +183,21 @@ namespace BEditor.Data.Property.Easing
                 return (-max / 2 * ((t * t * t * t) - 2)) + min;
             }
 
-            public static float QuintIn(float t, float totaltime, float min, float max)
+            public float QuintIn(float t, float totaltime, float min, float max)
             {
                 max -= min;
                 t /= totaltime;
                 return (max * t * t * t * t * t) + min;
             }
 
-            public static float QuintOut(float t, float totaltime, float min, float max)
+            public float QuintOut(float t, float totaltime, float min, float max)
             {
                 max -= min;
                 t = (t / totaltime) - 1;
                 return (max * ((t * t * t * t * t) + 1)) + min;
             }
 
-            public static float QuintInOut(float t, float totaltime, float min, float max)
+            public float QuintInOut(float t, float totaltime, float min, float max)
             {
                 max -= min;
                 t /= totaltime / 2;
@@ -199,37 +207,37 @@ namespace BEditor.Data.Property.Easing
                 return (max / 2 * ((t * t * t * t * t) + 2)) + min;
             }
 
-            public static float SineIn(float t, float totaltime, float min, float max)
+            public float SineIn(float t, float totaltime, float min, float max)
             {
                 max -= min;
                 return (-max * MathF.Cos(t * (MathF.PI * 90 / 180) / totaltime)) + max + min;
             }
 
-            public static float SineOut(float t, float totaltime, float min, float max)
+            public float SineOut(float t, float totaltime, float min, float max)
             {
                 max -= min;
                 return (max * MathF.Sin(t * (MathF.PI * 90 / 180) / totaltime)) + min;
             }
 
-            public static float SineInOut(float t, float totaltime, float min, float max)
+            public float SineInOut(float t, float totaltime, float min, float max)
             {
                 max -= min;
                 return (-max / 2 * (MathF.Cos(t * MathF.PI / totaltime) - 1)) + min;
             }
 
-            public static float ExpIn(float t, float totaltime, float min, float max)
+            public float ExpIn(float t, float totaltime, float min, float max)
             {
                 max -= min;
                 return t == 0.0 ? min : (max * MathF.Pow(2, 10 * ((t / totaltime) - 1))) + min;
             }
 
-            public static float ExpOut(float t, float totaltime, float min, float max)
+            public float ExpOut(float t, float totaltime, float min, float max)
             {
                 max -= min;
                 return t == totaltime ? max + min : (max * (-MathF.Pow(2, -10 * t / totaltime) + 1)) + min;
             }
 
-            public static float ExpInOut(float t, float totaltime, float min, float max)
+            public float ExpInOut(float t, float totaltime, float min, float max)
             {
                 if (t == 0.0f) return min;
                 if (t == totaltime) return max;
@@ -242,21 +250,21 @@ namespace BEditor.Data.Property.Easing
                 return (max / 2 * (-MathF.Pow(2, -10 * t) + 2)) + min;
             }
 
-            public static float CircIn(float t, float totaltime, float min, float max)
+            public float CircIn(float t, float totaltime, float min, float max)
             {
                 max -= min;
                 t /= totaltime;
                 return (-max * (MathF.Sqrt(1 - (t * t)) - 1)) + min;
             }
 
-            public static float CircOut(float t, float totaltime, float min, float max)
+            public float CircOut(float t, float totaltime, float min, float max)
             {
                 max -= min;
                 t = (t / totaltime) - 1;
                 return (max * MathF.Sqrt(1 - (t * t))) + min;
             }
 
-            public static float CircInOut(float t, float totaltime, float min, float max)
+            public float CircInOut(float t, float totaltime, float min, float max)
             {
                 max -= min;
                 t /= totaltime / 2;
@@ -266,7 +274,7 @@ namespace BEditor.Data.Property.Easing
                 return (max / 2 * (MathF.Sqrt(1 - (t * t)) + 1)) + min;
             }
 
-            public static float ElasticIn(float t, float totaltime, float min, float max)
+            public float ElasticIn(float t, float totaltime, float min, float max)
             {
                 max -= min;
                 t /= totaltime;
@@ -291,7 +299,7 @@ namespace BEditor.Data.Property.Easing
                 return -(a * MathF.Pow(2, 10 * t) * MathF.Sin(((t * totaltime) - s) * (2 * MathF.PI) / p)) + min;
             }
 
-            public static float ElasticOut(float t, float totaltime, float min, float max)
+            public float ElasticOut(float t, float totaltime, float min, float max)
             {
                 max -= min;
                 t /= totaltime;
@@ -315,7 +323,7 @@ namespace BEditor.Data.Property.Easing
                 return (a * MathF.Pow(2, -10 * t) * MathF.Sin(((t * totaltime) - s) * (2 * MathF.PI) / p)) + max + min;
             }
 
-            public static float ElasticInOut(float t, float totaltime, float min, float max)
+            public float ElasticInOut(float t, float totaltime, float min, float max)
             {
                 max -= min;
                 t /= totaltime / 2;
@@ -345,7 +353,7 @@ namespace BEditor.Data.Property.Easing
                 return (a * MathF.Pow(2, -10 * t) * MathF.Sin(((t * totaltime) - s) * (2 * MathF.PI) / p) * 0.5f) + max + min;
             }
 
-            public static float BackIn(float t, float totaltime, float min, float max)
+            public float BackIn(float t, float totaltime, float min, float max)
             {
                 float val = max - min;
                 float s = (float)(val * 0.01);
@@ -355,7 +363,7 @@ namespace BEditor.Data.Property.Easing
                 return (max * t * t * (((s + 1) * t) - s)) + min;
             }
 
-            public static float BackOut(float t, float totaltime, float min, float max)
+            public float BackOut(float t, float totaltime, float min, float max)
             {
                 float val = max - min;
                 float s = (float)(val * 0.001);
@@ -365,7 +373,7 @@ namespace BEditor.Data.Property.Easing
                 return (max * ((t * t * (((s + 1) * t) + s)) + 1)) + min;
             }
 
-            public static float BackInOut(float t, float totaltime, float min, float max)
+            public float BackInOut(float t, float totaltime, float min, float max)
             {
                 float val = max - min;
                 float s = (float)(val * 0.01);
@@ -379,13 +387,13 @@ namespace BEditor.Data.Property.Easing
                 return (max / 2 * ((t * t * (((s + 1) * t) + s)) + 2)) + min;
             }
 
-            public static float BounceIn(float t, float totaltime, float min, float max)
+            public float BounceIn(float t, float totaltime, float min, float max)
             {
                 max -= min;
                 return max - BounceOut(totaltime - t, totaltime, 0, max) + min;
             }
 
-            public static float BounceOut(float t, float totaltime, float min, float max)
+            public float BounceOut(float t, float totaltime, float min, float max)
             {
                 max -= min;
                 t /= totaltime;
@@ -411,7 +419,7 @@ namespace BEditor.Data.Property.Easing
                 }
             }
 
-            public static float BounceInOut(float t, float totaltime, float min, float max)
+            public float BounceInOut(float t, float totaltime, float min, float max)
             {
                 if (t < totaltime / 2)
                 {
@@ -423,16 +431,16 @@ namespace BEditor.Data.Property.Easing
                 }
             }
 
-            public static float Linear(float t, float totaltime, float min, float max)
+            public float Linear(float t, float totaltime, float min, float max)
             {
                 return ((max - min) * t / totaltime) + min;
             }
 
-            public static float None(float t, float totaltime, float min, float max)
+            public float None(float t, float totaltime, float min, float max)
             {
                 return min;
             }
         }
-#pragma warning restore RCS1176, RCS1010, RCS0056, RCS1163, RCS1089
+#pragma warning restore RCS1176, RCS1010, RCS0056, RCS1163, RCS1089, CA1822, IDE0060
     }
 }
