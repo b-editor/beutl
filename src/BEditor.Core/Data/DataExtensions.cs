@@ -41,7 +41,7 @@ namespace BEditor.Data
         [Pure]
         public static T? GetParent<T>(this IChild<object> self)
         {
-            var obj = self.Parent;
+            object obj = self;
 
             while (obj is not T)
             {
@@ -65,7 +65,7 @@ namespace BEditor.Data
         [Pure]
         public static object? GetRoot(this IChild<object> self)
         {
-            var obj = self.Parent;
+            object obj = self;
 
             while (obj is not null)
             {

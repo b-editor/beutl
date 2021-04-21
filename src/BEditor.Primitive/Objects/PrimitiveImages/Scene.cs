@@ -22,8 +22,6 @@ namespace BEditor.Primitive.Objects
             owner => owner.Start,
             (owner, obj) => owner.Start = obj);
 
-        SelectorPropertyMetadata? SelectSceneMetadata;
-
         /// <summary>
         /// Initializes a new instance of the <see cref="SceneObject"/> class.
         /// </summary>
@@ -83,7 +81,7 @@ namespace BEditor.Primitive.Objects
         protected override void OnLoad()
         {
             base.OnLoad();
-            SelectScene.PropertyMetadata = SelectSceneMetadata;
+            SelectScene.PropertyMetadata = new ScenesSelectorMetadata(this);
             SelectScene.Load();
         }
 

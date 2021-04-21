@@ -74,23 +74,17 @@ namespace BEditor.Views.ToolControl.Default
         }
         private Scene? GetScene()
         {
-            if (TreeView.SelectedItem is Scene scene) return scene;
-            else if (TreeView.SelectedItem is ClipElement clip) return clip.GetParent();
-            else if (TreeView.SelectedItem is EffectElement effect) return effect.GetParent<Scene>();
-            else if (TreeView.SelectedItem is PropertyElement property) return property.GetParent<Scene>();
+            if (TreeView.SelectedItem is IChild<object> obj) return obj.GetParent<Scene>();
             else throw new IndexOutOfRangeException();
         }
         private ClipElement? GetClip()
         {
-            if (TreeView.SelectedItem is ClipElement clip) return clip;
-            else if (TreeView.SelectedItem is EffectElement effect) return effect.GetParent();
-            else if (TreeView.SelectedItem is PropertyElement property) return property.GetParent<ClipElement>();
+            if (TreeView.SelectedItem is IChild<object> obj) return obj.GetParent<ClipElement>();
             else throw new IndexOutOfRangeException();
         }
         private EffectElement? GetEffect()
         {
-            if (TreeView.SelectedItem is EffectElement effect) return effect;
-            else if (TreeView.SelectedItem is PropertyElement property) return property.GetParent();
+            if (TreeView.SelectedItem is IChild<object> obj) return obj.GetParent<EffectElement>();
             else throw new IndexOutOfRangeException();
         }
         private async void DeleteScene(object sender, RoutedEventArgs e)
