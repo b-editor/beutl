@@ -26,7 +26,7 @@ namespace BEditor.Primitive.Effects
             owner => owner.StartX,
             (owner, obj) => owner.StartX = obj,
             new EasePropertyMetadata(Strings.StartPoint + " X (%)", 0f, 100f, 0));
-        
+
         /// <summary>
         /// Defines the <see cref="StartY"/> property.
         /// </summary>
@@ -35,7 +35,7 @@ namespace BEditor.Primitive.Effects
             owner => owner.StartY,
             (owner, obj) => owner.StartY = obj,
             new EasePropertyMetadata(Strings.StartPoint + " Y (%)", 0f, 100f, 0));
-        
+
         /// <summary>
         /// Defines the <see cref="EndX"/> property.
         /// </summary>
@@ -44,7 +44,7 @@ namespace BEditor.Primitive.Effects
             owner => owner.EndX,
             (owner, obj) => owner.EndX = obj,
             new EasePropertyMetadata(Strings.EndPoint + " X (%)", 100f, 100f, 0));
-        
+
         /// <summary>
         /// Defines the <see cref="EndY"/> property.
         /// </summary>
@@ -71,7 +71,7 @@ namespace BEditor.Primitive.Effects
             owner => owner.Anchors,
             (owner, obj) => owner.Anchors = obj,
             new TextPropertyMetadata(Strings.Anchors, "0,1"));
-        
+
         /// <summary>
         /// Defines the <see cref="Mode"/> property.
         /// </summary>

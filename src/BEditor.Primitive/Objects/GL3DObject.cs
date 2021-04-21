@@ -64,7 +64,7 @@ namespace BEditor.Primitive.Objects
                 Strings.Cube,
                 Strings.Ball
             }));
-        
+
         /// <summary>
         /// Defines the <see cref="Width"/> property.
         /// </summary>
@@ -73,7 +73,7 @@ namespace BEditor.Primitive.Objects
             owner => owner.Width,
             (owner, obj) => owner.Width = obj,
             new EasePropertyMetadata(Strings.Width, 100, Min: 0));
-        
+
         /// <summary>
         /// Defines the <see cref="Height"/> property.
         /// </summary>
@@ -82,7 +82,7 @@ namespace BEditor.Primitive.Objects
             owner => owner.Height,
             (owner, obj) => owner.Height = obj,
             new EasePropertyMetadata(Strings.Height, 100, Min: 0));
-        
+
         /// <summary>
         /// Defines the <see cref="Depth"/> property.
         /// </summary>

@@ -316,12 +316,12 @@ namespace BEditor.Primitive.Objects
                 DirectionY,
                 DirectionZ,
             };
-            
+
             /// <summary>
             /// Get the <see cref="EaseProperty"/> representing the X coordinate.
             /// </summary>
             public EaseProperty X { get; private set; }
-            
+
             /// <summary>
             /// Get the <see cref="EaseProperty"/> representing the Y coordinate.
             /// </summary>
@@ -331,7 +331,7 @@ namespace BEditor.Primitive.Objects
             /// Get the <see cref="EaseProperty"/> representing the Z coordinate.
             /// </summary>
             public EaseProperty Z { get; private set; }
-            
+
             /// <summary>
             /// Get the <see cref="EaseProperty"/> representing the X coordinate.
             /// </summary>
