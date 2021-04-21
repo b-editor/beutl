@@ -8,28 +8,15 @@ namespace BEditor.Data.Property
     /// <summary>
     /// Represents a property used by <see cref="EffectElement"/>.
     /// </summary>
-    public class PropertyElement : EditingObject, IChild<EffectElement>, IPropertyElement
+    public class PropertyElement : EditingObject, IPropertyElement
     {
         private static readonly PropertyChangedEventArgs _metadataArgs = new(nameof(PropertyMetadata));
         private PropertyElementMetadata? _propertyMetadata;
-        private WeakReference<EffectElement?>? _parent;
 
         /// <inheritdoc/>
-        public virtual EffectElement Parent
-        {
-            get
-            {
-                _parent ??= new(null!);
-
-                if (_parent.TryGetTarget(out var p))
-                {
-                    return p;
-                }
-
-                return null!;
-            }
-            set => (_parent ??= new(null!)).SetTarget(value);
-        }
+#pragma warning disable CS8618
+        public virtual EffectElement Parent { get; set; }
+#pragma warning restore CS8618
 
         /// <summary>
         /// Gets or sets the metadata for this <see cref="PropertyElement"/>.

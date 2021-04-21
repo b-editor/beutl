@@ -46,7 +46,7 @@ namespace BEditor.Data
         private double _timeLineVerticalOffset;
         private string _sceneName = string.Empty;
         private IPlayer? _player;
-        private WeakReference<Project?>? _parent;
+        private Project? _parent;
 
         /// <summary>
         /// Initializes a new instance of the <see cref="Scene"/> class.

@@ -156,20 +156,10 @@ namespace BEditor.Data
         /// <inheritdoc/>
         public Project Parent
         {
-            get
-            {
-                _parent ??= new(null!);
-
-                if (_parent.TryGetTarget(out var p))
-                {
-                    return p;
-                }
-
-                return null!;
-            }
+            get => _parent!;
             set
             {
-                (_parent ??= new(null!)).SetTarget(value);
+                _parent = value;
 
                 foreach (var prop in Children)
                 {

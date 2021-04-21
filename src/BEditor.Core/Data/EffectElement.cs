@@ -23,7 +23,7 @@ namespace BEditor.Data
         private static readonly PropertyChangedEventArgs _isExpandedArgs = new(nameof(IsExpanded));
         private bool _isEnabled = true;
         private bool _isExpanded = true;
-        private WeakReference<ClipElement?>? _parent;
+        private ClipElement? _parent;
         private IEnumerable<PropertyElement>? _cachedList;
         #endregion
 
@@ -63,20 +63,10 @@ namespace BEditor.Data
         /// <inheritdoc/>
         public ClipElement Parent
         {
-            get
-            {
-                _parent ??= new(null!);
-
-                if (_parent.TryGetTarget(out var p))
-                {
-                    return p;
-                }
-
-                return null!;
-            }
+            get => _parent!;
             set
             {
-                (_parent ??= new(null!)).SetTarget(value);
+                _parent = value;
 
                 foreach (var prop in Children)
                 {
@@ -327,6 +317,8 @@ namespace BEditor.Data
 
             public UpCommand(EffectElement effect)
             {
+                if (effect.Parent is null) throw new ArgumentException("effect.Parent is null");
+
                 _effect = new(effect);
                 _clip = new(effect.Parent);
             }
@@ -374,6 +366,8 @@ namespace BEditor.Data
 
             public DownCommand(EffectElement effect)
             {
+                if (effect.Parent is null) throw new ArgumentException("effect.Parent is null");
+
                 _effect = new(effect);
                 _clip = new(effect.Parent);
             }
