@@ -39,11 +39,10 @@ namespace BEditor.Data
         /// <summary>
         /// Initializes a new instance of the <see cref="DirectEditingProperty{TOwner, TValue}"/> class.
         /// </summary>
-        /// <param name="name">The name of the property.</param>
         /// <param name="getter">Gets the current value of the property.</param>
         /// <param name="setter">Sets the value of the property.</param>
-        public DirectEditingProperty(string name, Func<TOwner, TValue> getter, Action<TOwner, TValue> setter)
-            : base(name, typeof(TOwner))
+        /// <param name="key">The registry key.</param>
+        public DirectEditingProperty(Func<TOwner, TValue> getter, Action<TOwner, TValue> setter, EditingPropertyRegistryKey key) : base(key)
         {
             (Getter, Setter) = (getter, setter);
         }
@@ -83,24 +82,23 @@ namespace BEditor.Data
             IEditingPropertySerializer<TValue>? serializer = null)
             where TNewOwner : IEditingObject
         {
-            if (PropertyFromKey.AsParallel().FirstOrDefault(i => i.Key.OwnerType.IsAssignableFrom(typeof(TNewOwner)) && i.Key.Name == Name).Key is not null)
+            if (EditingPropertyRegistry._registered.AsParallel().FirstOrDefault(i => i.Key.OwnerType.IsAssignableFrom(typeof(TNewOwner)) && i.Key.Name == Name).Key is not null)
             {
                 throw new DataException(Strings.KeyHasAlreadyBeenRegisterd);
             }
 
-            var key = new PropertyKey(Name, typeof(TNewOwner), Key.IsDisposable);
+            var key = new EditingPropertyRegistryKey(Name, typeof(TNewOwner), Key.IsDisposable);
 
             initializer ??= Initializer;
             serializer ??= Serializer;
 
-            var property = new DirectEditingProperty<TNewOwner, TValue>(Name, getter, setter)
+            var property = new DirectEditingProperty<TNewOwner, TValue>(getter, setter, key)
             {
                 Initializer = initializer,
                 Serializer = serializer,
-                Key = key
             };
 
-            PropertyFromKey.Add(key, property);
+            EditingPropertyRegistry.RegisterUnChecked(key, property);
 
             return property;
         }

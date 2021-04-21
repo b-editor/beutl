@@ -1,5 +1,6 @@
 ﻿using System;
 using System.Collections.Generic;
+using System.ComponentModel.Design;
 using System.Reactive.Concurrency;
 
 using BEditor.Resources;
@@ -20,10 +21,12 @@ namespace BEditor.Data
         /// Gets the name of the property.
         /// </summary>
         public string Name { get; }
+
         /// <summary>
         /// Gets the owner type of the property.
         /// </summary>
         public Type OwnerType { get; }
+
         /// <summary>
         /// Gets the value type of the property.
         /// </summary>
@@ -38,6 +41,11 @@ namespace BEditor.Data
         /// Gets the <see cref="IEditingPropertySerializer"/> that serializes the local value of a property.
         /// </summary>
         public IEditingPropertySerializer? Serializer { get; init; }
+
+        /// <summary>
+        /// Gets the registry key;
+        /// </summary>
+        public EditingPropertyRegistryKey Key { get; }
     }
 
     /// <summary>
@@ -67,33 +75,24 @@ namespace BEditor.Data
     public abstract class EditingProperty : IEditingProperty
     {
         /// <summary>
-        /// 登録された全ての <see cref="EditingProperty"/> です.
-        /// </summary>
-        internal static readonly Dictionary<PropertyKey, EditingProperty> PropertyFromKey = new();
-
-        /// <summary>
         /// Initializes a new instance of the <see cref="EditingProperty"/> class.
         /// </summary>
-        /// <param name="name">The name of the property.</param>
-        /// <param name="owner">The type of the owner.</param>
         /// <param name="value">The type of the local value.</param>
-        /// <param name="isDisposable">the value of whether to delete with <see cref="EditingObject.ClearDisposable"/>.</param>
-        protected EditingProperty(string name, Type owner, Type value, bool isDisposable)
+        /// <param name="key">The registry key</param>
+        protected EditingProperty(Type value, EditingPropertyRegistryKey key)
         {
-            Name = name;
-            OwnerType = owner;
             ValueType = value;
-            IsDisposable = isDisposable;
+            Key = key;
         }
 
         /// <inheritdoc/>
-        public bool IsDisposable { get; }
+        public bool IsDisposable => Key.IsDisposable;
 
         /// <inheritdoc/>
-        public string Name { get; }
+        public string Name => Key.Name;
 
         /// <inheritdoc/>
-        public Type OwnerType { get; }
+        public Type OwnerType => Key.OwnerType;
 
         /// <inheritdoc/>
         public Type ValueType { get; }
@@ -103,9 +102,9 @@ namespace BEditor.Data
 
         /// <inheritdoc/>
         public IEditingPropertySerializer? Serializer { get; init; }
-#nullable disable
-        internal PropertyKey Key { get; set; }
-#nullable enable
+
+        /// <inheritdoc/>
+        public EditingPropertyRegistryKey Key { get; }
 
         /// <summary>
         /// Registers a <see cref="EditingProperty"/>.
@@ -124,21 +123,20 @@ namespace BEditor.Data
             bool isDisposable = false)
             where TOwner : IEditingObject
         {
-            var key = new PropertyKey(name, typeof(TOwner), isDisposable);
+            var key = new EditingPropertyRegistryKey(name, typeof(TOwner), isDisposable);
 
-            if (PropertyFromKey.ContainsKey(key))
+            if (EditingPropertyRegistry.IsRegistered(key))
             {
                 throw new DataException(Strings.KeyHasAlreadyBeenRegisterd);
             }
 
-            var property = new EditingProperty<TValue>(name, typeof(TOwner), isDisposable)
+            var property = new EditingProperty<TValue>(key)
             {
                 Initializer = initializer,
                 Serializer = serializer,
-                Key = key
             };
 
-            PropertyFromKey.Add(key, property);
+            EditingPropertyRegistry.RegisterUnChecked(key, property);
 
             return property;
         }
@@ -159,21 +157,20 @@ namespace BEditor.Data
             where TValue : IJsonObject
             where TOwner : IEditingObject
         {
-            var key = new PropertyKey(name, typeof(TOwner), isDisposable);
+            var key = new EditingPropertyRegistryKey(name, typeof(TOwner), isDisposable);
 
-            if (PropertyFromKey.ContainsKey(key))
+            if (EditingPropertyRegistry.IsRegistered(key))
             {
                 throw new DataException(Strings.KeyHasAlreadyBeenRegisterd);
             }
 
-            var property = new EditingProperty<TValue>(name, typeof(TOwner), isDisposable)
+            var property = new EditingProperty<TValue>(key)
             {
                 Initializer = initializer,
                 Serializer = PropertyJsonSerializer<TValue>.Current,
-                Key = key
             };
 
-            PropertyFromKey.Add(key, property);
+            EditingPropertyRegistry.RegisterUnChecked(key, property);
 
             return property;
         }
@@ -197,21 +194,20 @@ namespace BEditor.Data
             IEditingPropertySerializer<TValue>? serializer = null)
             where TOwner : IEditingObject
         {
-            var key = new PropertyKey(name, typeof(TOwner), false);
+            var key = new EditingPropertyRegistryKey(name, typeof(TOwner), false);
 
-            if (PropertyFromKey.ContainsKey(key))
+            if (EditingPropertyRegistry.IsRegistered(key))
             {
                 throw new DataException(Strings.KeyHasAlreadyBeenRegisterd);
             }
 
-            var property = new DirectEditingProperty<TOwner, TValue>(name, getter, setter)
+            var property = new DirectEditingProperty<TOwner, TValue>(getter, setter, key)
             {
                 Initializer = initializer,
                 Serializer = serializer,
-                Key = key
             };
 
-            PropertyFromKey.Add(key, property);
+            EditingPropertyRegistry.RegisterUnChecked(key, property);
 
             return property;
         }
@@ -234,31 +230,22 @@ namespace BEditor.Data
             where TValue : IJsonObject
             where TOwner : IEditingObject
         {
-            var key = new PropertyKey(name, typeof(TOwner), false);
+            var key = new EditingPropertyRegistryKey(name, typeof(TOwner), false);
 
-            if (PropertyFromKey.ContainsKey(key))
+            if (EditingPropertyRegistry.IsRegistered(key))
             {
                 throw new DataException(Strings.KeyHasAlreadyBeenRegisterd);
             }
 
-            var property = new DirectEditingProperty<TOwner, TValue>(name, getter, setter)
+            var property = new DirectEditingProperty<TOwner, TValue>(getter, setter, key)
             {
                 Initializer = initializer,
                 Serializer = PropertyJsonSerializer<TValue>.Current,
-                Key = key
             };
 
-            PropertyFromKey.Add(key, property);
+            EditingPropertyRegistry.RegisterUnChecked(key, property);
 
             return property;
         }
-
-        /// <summary>
-        /// <see cref="BEditor.Data.EditingProperty.PropertyFromKey"/> のキーです.
-        /// </summary>
-        /// <param name="Name">The name of the property.</param>
-        /// <param name="OwnerType">The owner type of the property.</param>
-        /// <param name="IsDisposable">the value of whether to delete with <see cref="BEditor.Data.EditingObject.ClearDisposable"/>.</param>
-        internal record PropertyKey(string Name, Type OwnerType, bool IsDisposable);
     }
 }

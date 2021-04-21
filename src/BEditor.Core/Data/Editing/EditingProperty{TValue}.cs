@@ -11,10 +11,8 @@ namespace BEditor.Data
         /// <summary>
         /// Initializes a new instance of the <see cref="EditingProperty{TValue}"/> class.
         /// </summary>
-        /// <param name="name">The name of the property.</param>
-        /// <param name="owner">The type of the owner.</param>
-        /// <param name="isDisposable">the value of whether to delete with <see cref="EditingObject.ClearDisposable"/>.</param>
-        public EditingProperty(string name, Type owner, bool isDisposable = false) : base(name, owner, typeof(TValue), isDisposable)
+        /// <param name="key">The registry key..</param>
+        public EditingProperty(EditingPropertyRegistryKey key) : base(typeof(TValue), key)
         {
         }
 

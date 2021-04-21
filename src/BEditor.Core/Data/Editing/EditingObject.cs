@@ -18,7 +18,7 @@ namespace BEditor.Data
     /// </summary>
     public class EditingObject : BasePropertyChanged, IEditingObject, IJsonObject
     {
-        private Dictionary<EditingProperty.PropertyKey, object?>? _values = new();
+        private Dictionary<EditingPropertyRegistryKey, object?>? _values = new();
         private Type? _ownerType;
 
         /// <summary>
@@ -30,10 +30,7 @@ namespace BEditor.Data
             InvokeStaticInititlizer();
 
             // DirectEditingPropertyかつInitializerがnullじゃない
-            foreach (var prop in EditingProperty.PropertyFromKey
-                .AsParallel()
-                .Where(i => i.Value is IDirectProperty && i.Value.Initializer is not null && OwnerType.IsAssignableTo(i.Key.OwnerType))
-                .Select(i => i.Value))
+            foreach (var prop in EditingPropertyRegistry.GetInitializableProperties(OwnerType))
             {
                 if (prop is IDirectProperty direct && direct.Get(this) is null)
                 {
@@ -51,7 +48,7 @@ namespace BEditor.Data
         /// <inheritdoc/>
         public Guid ID { get; protected set; } = Guid.NewGuid();
 
-        private Dictionary<EditingProperty.PropertyKey, object?> Values => _values ??= new();
+        private Dictionary<EditingPropertyRegistryKey, object?> Values => _values ??= new();
 
         private Type OwnerType => _ownerType ??= GetType();
 
@@ -230,10 +227,7 @@ namespace BEditor.Data
 
             if (this is IParent<EditingObject> obj2)
             {
-                foreach (var prop in EditingProperty.PropertyFromKey
-                    .AsParallel()
-                    .Where(i => OwnerType.IsAssignableTo(i.Key.OwnerType))
-                    .Select(i => i.Value))
+                foreach (var prop in EditingPropertyRegistry.GetProperties(OwnerType))
                 {
                     var value = this[prop];
                     if (value is PropertyElement p && prop.Initializer is PropertyElementMetadata pmeta)
@@ -274,11 +268,7 @@ namespace BEditor.Data
         {
             writer.WriteString(nameof(ID), ID);
 
-            foreach (var prop in EditingProperty.PropertyFromKey
-                .AsParallel()
-                .AsOrdered()
-                .Where(i => i.Value.Serializer is not null && OwnerType.IsAssignableTo(i.Key.OwnerType))
-                .Select(i => i.Value))
+            foreach (var prop in EditingPropertyRegistry.GetSerializableProperties(OwnerType))
             {
                 var value = GetValue(prop);
 
@@ -301,10 +291,7 @@ namespace BEditor.Data
 
             ID = (element.TryGetProperty(nameof(ID), out var id) && id.TryGetGuid(out var guid)) ? guid : Guid.NewGuid();
 
-            foreach (var prop in EditingProperty.PropertyFromKey
-                .AsParallel()
-                .Where(i => i.Value.Serializer is not null && OwnerType.IsAssignableTo(i.Key.OwnerType))
-                .Select(i => i.Value))
+            foreach (var prop in EditingPropertyRegistry.GetSerializableProperties(OwnerType))
             {
                 if (element.TryGetProperty(prop.Name, out var propElement))
                 {
