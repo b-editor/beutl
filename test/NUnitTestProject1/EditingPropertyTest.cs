@@ -49,7 +49,10 @@ namespace NUnitTestProject1
         [Test]
         public void SetGetTest()
         {
-            var obj = new TestObject();
+            var obj = new TestObject
+            {
+                Parent = null
+            };
 
             var @new = new ButtonComponent(new("New"));
 
@@ -57,6 +60,19 @@ namespace NUnitTestProject1
 
 
             Debug.Assert(obj.GetValue(TestObject.ButtonProperty) == @new, "プロパティに値が設定されていない");
+        }
+
+        [Test]
+        public void GetRootTest()
+        {
+            var obj = new TestObject
+            {
+                Parent = null
+            };
+
+            var root = obj.Ease.EasingType.GetRoot();
+
+            Debug.Assert(root == obj);
         }
     }
 }

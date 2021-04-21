@@ -34,63 +34,54 @@ namespace BEditor.Data
         public static void Execute(this IRecordCommand command, CommandManager manager) => manager.Do(command);
 
         /// <summary>
-        /// Activate this <see cref="IElementObject"/> and set metadata.
+        /// Gets the parent element.
         /// </summary>
-        public static void Load(this PropertyElement property, PropertyElementMetadata metadata)
+        /// <typeparam name="T">Type of the parent element to retrieve.</typeparam>
+        /// <param name="self">The child element of the parent element to retrieve.</param>
+        [Pure]
+        public static T? GetParent<T>(this IChild<object> self)
         {
-            property.Load();
-            property.PropertyMetadata = metadata;
+            var obj = self.Parent;
+
+            while (obj is not T)
+            {
+                if (obj is IChild<object> c)
+                {
+                    obj = c.Parent;
+                }
+                else if (obj is null)
+                {
+                    return default;
+                }
+            }
+
+            return (T)obj;
         }
 
         /// <summary>
-        /// Activate this <see cref="IElementObject"/> and set metadata.
+        /// Gets the root element.
         /// </summary>
-        /// <typeparam name="T">Type of <see cref="PropertyElement{T}.PropertyMetadata"/>.</typeparam>
-        public static void Load<T>(this PropertyElement<T> property, T metadata)
-            where T : PropertyElementMetadata
+        /// <param name="self">The child element of the parent element to retrieve.</param>
+        [Pure]
+        public static object? GetRoot(this IChild<object> self)
         {
-            property.Load();
-            property.PropertyMetadata = metadata;
+            var obj = self.Parent;
+
+            while (obj is not null)
+            {
+                if (obj is IChild<object> c)
+                {
+                    obj = c.Parent;
+
+                    if (obj is null)
+                    {
+                        return c;
+                    }
+                }
+            }
+
+            return obj;
         }
-
-        /// <summary>
-        /// Get the parent element.
-        /// </summary>
-        /// <typeparam name="T">Type of the parent element to retrieve.</typeparam>
-        [Pure]
-        public static T? GetParent<T>(this IChild<T> self) => self.Parent;
-
-        /// <summary>
-        /// Get the parent element one level ahead.
-        /// </summary>
-        /// <typeparam name="T">Type of the parent element to retrieve.</typeparam>
-        /// <param name="self">The child element of the parent element to retrieve.</param>
-        [Pure]
-        public static T? GetParent<T>(this IChild<IChild<T>> self) => self.Parent!.Parent;
-
-        /// <summary>
-        /// Get the parent element two steps ahead.
-        /// </summary>
-        /// <typeparam name="T">Type of the parent element to retrieve.</typeparam>
-        /// <param name="self">The child element of the parent element to retrieve.</param>
-        [Pure]
-        public static T? GetParent<T>(this IChild<IChild<IChild<T>>> self) => self.Parent!.Parent!.Parent;
-
-        /// <summary>
-        /// Get the parent element three levels ahead.
-        /// </summary>
-        /// <typeparam name="T">Type of the parent element to retrieve.</typeparam>
-        /// <param name="self">The child element of the parent element to retrieve.</param>
-        [Pure]
-        public static T? GetParent<T>(this IChild<IChild<IChild<IChild<T>>>> self) => self.Parent!.Parent!.Parent!.Parent;
-
-        /// <summary>
-        /// Get the parent element four levels ahead.
-        /// </summary>
-        /// <typeparam name="T">Type of the parent element to retrieve.</typeparam>
-        /// <param name="self">The child element of the parent element to retrieve.</param>
-        [Pure]
-        public static T? GetParent<T>(this IChild<IChild<IChild<IChild<IChild<T>>>>> self) => self.Parent!.Parent!.Parent!.Parent!.Parent;
 
         /// <summary>
         /// Searches for child elements by id.

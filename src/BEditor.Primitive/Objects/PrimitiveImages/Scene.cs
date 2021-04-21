@@ -83,8 +83,8 @@ namespace BEditor.Primitive.Objects
         protected override void OnLoad()
         {
             base.OnLoad();
-            SelectSceneMetadata = new ScenesSelectorMetadata(this);
-            SelectScene.Load(SelectSceneMetadata);
+            SelectScene.PropertyMetadata = SelectSceneMetadata;
+            SelectScene.Load();
         }
 
         /// <inheritdoc/>
