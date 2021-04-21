@@ -30,7 +30,10 @@ namespace NUnitTestProject1
         [Test]
         public void PropertyTest()
         {
-            var obj = new TestObject();
+            var obj = new TestObject
+            {
+                Parent = null
+            };
 
             Debug.Assert(obj.Children.FirstOrDefault(i => i is null) is null, "全てのEditingPropertyに値がsetされていない。");
 

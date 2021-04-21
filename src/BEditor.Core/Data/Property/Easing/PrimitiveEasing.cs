@@ -10,15 +10,6 @@ namespace BEditor.Data.Property.Easing
     /// </summary>
     public sealed class PrimitiveEasing : EasingFunc
     {
-        /// <summary>
-        /// Defines the <see cref="EasingType"/> property.
-        /// </summary>
-        public static readonly DirectEditingProperty<PrimitiveEasing, SelectorProperty> EasingTypeProperty = EditingProperty.RegisterSerializeDirect<SelectorProperty, PrimitiveEasing>(
-            nameof(EasingType),
-            owner => owner.EasingType,
-            (owner, obj) => owner.EasingType = obj,
-            EasingTypeMetadata);
-
         private static readonly SelectorPropertyMetadata EasingTypeMetadata = new("EasingType", new[]
         {
             "None",
@@ -34,6 +25,15 @@ namespace BEditor.Data.Property.Easing
             "ElasticIn", "ElasticOut", "ElasticInOut",
             "BounceIn",  "BounceOut",  "BounceInOut",
         });
+
+        /// <summary>
+        /// Defines the <see cref="EasingType"/> property.
+        /// </summary>
+        public static readonly DirectEditingProperty<PrimitiveEasing, SelectorProperty> EasingTypeProperty = EditingProperty.RegisterSerializeDirect<SelectorProperty, PrimitiveEasing>(
+            nameof(EasingType),
+            owner => owner.EasingType,
+            (owner, obj) => owner.EasingType = obj,
+            EasingTypeMetadata);
 
         private static readonly Func<float, float, float, float, float>[] DefaultEase =
         {

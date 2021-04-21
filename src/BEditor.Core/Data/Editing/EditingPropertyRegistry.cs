@@ -15,7 +15,7 @@ namespace BEditor.Data
     /// </summary>
     public static class EditingPropertyRegistry
     {
-        private static readonly Dictionary<EditingPropertyRegistryKey, EditingProperty> _registered = new();
+        internal static readonly Dictionary<EditingPropertyRegistryKey, EditingProperty> _registered = new();
         private static readonly object _lock = new();
 
         /// <summary>
