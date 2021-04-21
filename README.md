@@ -1,15 +1,15 @@
 # BEditor
 
-![](https://raw.githubusercontent.com/b-editor/BEditor/main/docs/imgs/header.png)
-
 ![](https://img.shields.io/github/issues/b-editor/BEditor)
 ![](https://img.shields.io/github/forks/b-editor/BEditor)
 ![](https://img.shields.io/github/stars/b-editor/BEditor)
 ![](https://img.shields.io/github/license/b-editor/BEditor)
 ![](https://github.com/b-editor/BEditor/workflows/Debug%20Build%20&%20Test/badge.svg)
+![](https://github.com/b-editor/BEditor/workflows/CodeQL/badge.svg)
 
-## Description
-現在開発中の動画編集ソフトウェアです。
+Windows, Linux, macOSで動作する動画編集ソフトウェアです。
+
+![](https://raw.githubusercontent.com/b-editor/BEditor/main/docs/imgs/header.png)
 
 ## Requirements
 * [OpenAL](https://www.openal.org/)

@@ -30,7 +30,7 @@ namespace BEditor.Primitive.Effects
         public static readonly DirectEditingProperty<MultipleControls, Scale> ScaleProperty = ImageObject.ScaleProperty.WithOwner<MultipleControls>(
             owner => owner.Scale,
             (owner, obj) => owner.Scale = obj);
-        
+
         /// <summary>
         /// Defines the <see cref="Rotate"/> property.
         /// </summary>

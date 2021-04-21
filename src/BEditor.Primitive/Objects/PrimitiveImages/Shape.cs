@@ -34,7 +34,7 @@ namespace BEditor.Primitive.Objects
         public static readonly DirectEditingProperty<Shape, EaseProperty> LineProperty = EditingProperty.RegisterSerializeDirect<EaseProperty, Shape>(
             nameof(Line),
             owner => owner.Line,
-            (owner, obj) => owner.Line= obj,
+            (owner, obj) => owner.Line = obj,
             new EasePropertyMetadata(Strings.LineWidth, 4000, float.NaN, 0));
 
         /// <summary>

@@ -43,7 +43,7 @@ namespace BEditor.Data.Property.PrimitiveGroup
         /// <param name="metadata">Metadata of this property.</param>
         /// <exception cref="ArgumentNullException"><paramref name="metadata"/> is <see langword="null"/>.</exception>
 #pragma warning disable CS8618
-        public Rotate(RotateMetadata metadata): base(metadata)
+        public Rotate(RotateMetadata metadata) : base(metadata)
 #pragma warning restore CS8618
         {
         }

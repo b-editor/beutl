@@ -19,14 +19,14 @@ namespace BEditor.Primitive.Effects
         public static readonly DirectEditingProperty<PointLightDiffuse, EaseProperty> XProperty = Coordinate.XProperty.WithOwner<PointLightDiffuse>(
             owner => owner.X,
             (owner, obj) => owner.X = obj);
-        
+
         /// <summary>
         /// Defines the <see cref="Y"/> property.
         /// </summary>
         public static readonly DirectEditingProperty<PointLightDiffuse, EaseProperty> YProperty = Coordinate.YProperty.WithOwner<PointLightDiffuse>(
             owner => owner.Y,
             (owner, obj) => owner.Y = obj);
-        
+
         /// <summary>
         /// Defines the <see cref="Z"/> property.
         /// </summary>

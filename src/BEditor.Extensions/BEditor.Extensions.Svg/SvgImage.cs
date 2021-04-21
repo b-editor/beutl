@@ -20,23 +20,23 @@ namespace BEditor.Extensions.Svg
             owner => owner.SvgScale,
             (owner, obj) => owner.SvgScale = obj,
             new EasePropertyMetadata("スケール", 100, Min: 0));
-        
+
         public static readonly DirectEditingProperty<SvgImage, EaseProperty> ScaleXProperty = EditingProperty.RegisterSerializeDirect<EaseProperty, SvgImage>(
             nameof(ScaleX),
             owner => owner.ScaleX,
-            (owner, obj) => owner.ScaleY= obj,
+            (owner, obj) => owner.ScaleY = obj,
             new EasePropertyMetadata("スケール X", 100, Min: 0));
-        
+
         public static readonly DirectEditingProperty<SvgImage, EaseProperty> ScaleYProperty = EditingProperty.RegisterSerializeDirect<EaseProperty, SvgImage>(
             nameof(ScaleY),
             owner => owner.ScaleY,
-            (owner, obj) => owner.ScaleY= obj,
+            (owner, obj) => owner.ScaleY = obj,
             new EasePropertyMetadata("スケール Y", 100, Min: 0));
-        
+
         public static readonly DirectEditingProperty<SvgImage, FileProperty> FileProperty = EditingProperty.RegisterSerializeDirect<FileProperty, SvgImage>(
             nameof(File),
             owner => owner.File,
-            (owner, obj) => owner.File= obj,
+            (owner, obj) => owner.File = obj,
             new FilePropertyMetadata("画像ファイル", "", new("画像ファイル", new FileExtension[]
             {
                 new("svg")

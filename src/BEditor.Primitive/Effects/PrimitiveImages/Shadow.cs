@@ -20,18 +20,18 @@ namespace BEditor.Primitive.Effects
         public static readonly DirectEditingProperty<Shadow, EaseProperty> XProperty = EditingProperty.RegisterSerializeDirect<EaseProperty, Shadow>(
             nameof(X),
             owner => owner.X,
-            (owner, obj) => owner.X= obj,
+            (owner, obj) => owner.X = obj,
             new EasePropertyMetadata(Strings.X, 10));
-        
+
         /// <summary>
         /// Defines the <see cref="Y"/> property.
         /// </summary>
         public static readonly DirectEditingProperty<Shadow, EaseProperty> YProperty = EditingProperty.RegisterSerializeDirect<EaseProperty, Shadow>(
             nameof(Y),
             owner => owner.Y,
-            (owner, obj) => owner.Y= obj,
+            (owner, obj) => owner.Y = obj,
             new EasePropertyMetadata(Strings.Y, 10));
-        
+
         /// <summary>
         /// Defines the <see cref="Blur"/> property.
         /// </summary>
@@ -48,7 +48,7 @@ namespace BEditor.Primitive.Effects
             nameof(Opacity),
             owner => owner.Opacity,
             (owner, obj) => owner.Opacity = obj,
-            new EasePropertyMetadata(Strings.Opacity, 75,100, 0));
+            new EasePropertyMetadata(Strings.Opacity, 75, 100, 0));
 
         /// <summary>
         /// Defines the <see cref="Color"/> property.
