@@ -17,14 +17,14 @@ namespace BEditor.Primitive.Objects
         public static readonly DirectEditingProperty<ListenerObject, EaseProperty> XProperty = CameraObject.XProperty.WithOwner<ListenerObject>(
             owner => owner.X,
             (owner, obj) => owner.X = obj);
-        
+
         /// <summary>
         /// Defines the <see cref="Y"/> property.
         /// </summary>
         public static readonly DirectEditingProperty<ListenerObject, EaseProperty> YProperty = CameraObject.YProperty.WithOwner<ListenerObject>(
             owner => owner.Y,
             (owner, obj) => owner.Y = obj);
-        
+
         /// <summary>
         /// Defines the <see cref="Z"/> property.
         /// </summary>

@@ -102,7 +102,7 @@ namespace BEditor.Primitive.Objects
             owner => owner.Fov,
             (owner, obj) => owner.Fov = obj,
             new EasePropertyMetadata(Strings.Fov, 45, 179, 1, UseOptional: true));
-        
+
         /// <summarZ>
         /// Defines the <see cref="Mode"/> property.
         /// </summarZ>

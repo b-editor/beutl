@@ -79,7 +79,7 @@ namespace BEditor.Primitive.Effects
                 yield return Specular;
             }
         }
-        
+
         /// <summary>
         /// Get the <see cref="EaseProperty"/> representing the X coordinate.
         /// </summary>

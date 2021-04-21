@@ -198,7 +198,7 @@ namespace BEditor.Primitive.Effects
         {
             _clipProperty = Image
                 .Select(str => Guid.TryParse(str, out var id) ? (Guid?)id : null)
-                .Where(id=>id is not null)
+                .Where(id => id is not null)
                 .Select(id => Parent.Parent.Parent.FindAllChildren<ClipElement>((Guid)id!))
                 .ToReactiveProperty();
         }
