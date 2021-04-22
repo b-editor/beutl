@@ -25,7 +25,12 @@ namespace BEditor.Views
         {
             if (DataContext is FontDialogViewModel viewModel)
             {
-                viewModel.WindowClose.Subscribe(Close).AddTo(viewModel._disposables);
+                viewModel.WindowClose.Subscribe(() =>
+                {
+                    Content = null;
+                    DataContext = null;
+                    Close();
+                }).AddTo(viewModel._disposables);
             }
         }
 
