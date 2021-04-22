@@ -1,9 +1,52 @@
 ﻿
+using System;
+
+using BEditor.Compute.Memory;
 using BEditor.Drawing.Pixel;
+using BEditor.Drawing.PixelOperation;
+
+namespace BEditor.Drawing
+{
+    public static unsafe partial class Image
+    {
+        public static void Gamma(this Image<BGRA32> image, float gamma)
+        {
+            if (image is null) throw new ArgumentNullException(nameof(image));
+            image.ThrowIfDisposed();
+            gamma = Math.Clamp(gamma, 0.01f, 3f);
+
+            using var lut = new UnmanagedArray<byte>(256);
+            for (var i = 0; i < 256; i++)
+            {
+                lut[i] = (byte)Set255Round(Math.Pow(i / 255.0, 1.0 / gamma) * 255);
+            }
+
+            fixed (BGRA32* data = image.Data)
+            {
+                PixelOperate(image.Data.Length, new GammaOperation(data, data, (byte*)lut.Pointer));
+            }
+        }
+
+        public static void Gamma(this Image<BGRA32> image, DrawingContext context, float gamma)
+        {
+            gamma = Math.Clamp(gamma, 0.01f, 3f);
+
+            using var lut = new UnmanagedArray<byte>(256);
+            for (var i = 0; i < 256; i++)
+            {
+                lut[i] = (byte)Set255Round(Math.Pow(i / 255.0, 1.0 / gamma) * 255);
+            }
+
+            using var lutMap = context.Context.CreateMappingMemory(lut.AsSpan(), lut.Length * sizeof(byte));
+
+            image.PixelOperate<GammaOperation, AbstractMemory>(context, lutMap);
+        }
+    }
+}
 
 namespace BEditor.Drawing.PixelOperation
 {
-    public readonly unsafe struct GammaOperation : IPixelOperation
+    public readonly unsafe struct GammaOperation : IPixelOperation, IGpuPixelOperation<AbstractMemory>
     {
         private readonly BGRA32* _src;
         private readonly BGRA32* _dst;
@@ -14,6 +57,27 @@ namespace BEditor.Drawing.PixelOperation
             _src = src;
             _dst = dst;
             _lut = lut;
+        }
+
+        public string GetKernel()
+        {
+            return "gamma";
+        }
+
+        public string GetSource()
+        {
+            return @"
+__kernel void gamma(__global unsigned char* src, __global unsigned char* lut)
+{
+    int x = get_global_id(0);
+    int y = get_global_id(1);
+    int stride = get_global_size(0) * 4;
+    int pos = stride * y + x * 4;
+
+    src[pos] = lut[src[pos]];
+    src[pos + 1] = lut[src[pos + 1]];
+    src[pos + 2] = lut[src[pos + 2]];
+}";
         }
 
         public readonly void Invoke(int pos)

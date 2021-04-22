@@ -1,9 +1,33 @@
-﻿
+﻿using System;
+
 using BEditor.Drawing.Pixel;
+using BEditor.Drawing.PixelOperation;
+
+namespace BEditor.Drawing
+{
+    public static unsafe partial class Image
+    {
+        public static void Binarization(this Image<BGRA32> image, byte value)
+        {
+            if (image is null) throw new ArgumentNullException(nameof(image));
+            image.ThrowIfDisposed();
+
+            fixed (BGRA32* data = image.Data)
+            {
+                PixelOperate(image.Data.Length, new BinarizationOperation(data, data, value));
+            }
+        }
+
+        public static void Binarization(this Image<BGRA32> image, DrawingContext context, byte value)
+        {
+            image.PixelOperate<BinarizationOperation, byte>(context, value);
+        }
+    }
+}
 
 namespace BEditor.Drawing.PixelOperation
 {
-    public readonly unsafe struct BinarizationOperation : IPixelOperation
+    public readonly unsafe struct BinarizationOperation : IPixelOperation, IGpuPixelOperation<byte>
     {
         private readonly BGRA32* _src;
         private readonly BGRA32* _dst;
@@ -16,12 +40,39 @@ namespace BEditor.Drawing.PixelOperation
             _value = value;
         }
 
+        public string GetKernel()
+        {
+            return "binarization";
+        }
+
+        public string GetSource()
+        {
+            return @"
+__kernel void binarization(__global unsigned char* src, unsigned char value)
+{
+    int x = get_global_id(0);
+    int y = get_global_id(1);
+    int stride = get_global_size(0) * 4;
+    int pos = stride * y + x * 4;
+
+    if (src[pos] <= value &&
+        src[pos + 1] <= value &&
+        src[pos + 2] <= value)
+    {
+        src[pos] = src[pos + 1] = src[pos + 2] = src[pos + 3] = 0;
+    }
+    else
+    {
+        src[pos] = src[pos + 1] = src[pos + 2] = src[pos + 3] = 255;
+    }
+}";
+        }
+
         public readonly void Invoke(int pos)
         {
             if (_src[pos].R <= _value &&
                 _src[pos].G <= _value &&
-                _src[pos].B <= _value &&
-                _src[pos].A <= _value)
+                _src[pos].B <= _value)
             {
                 _dst[pos].R = _dst[pos].G = _dst[pos].B = _dst[pos].A = 0;
             }
@@ -29,7 +80,6 @@ namespace BEditor.Drawing.PixelOperation
             {
                 _dst[pos].R = _dst[pos].G = _dst[pos].B = _dst[pos].A = 255;
             }
-            //_dst[pos].A = _src[pos].A;
         }
     }
 }

@@ -566,4 +566,7 @@ Please select the plugin you want to load</value>
   <data name="CopyID" xml:space="preserve">
     <value>Copy the ID</value>
   </data>
+  <data name="UsingGPUForImageProcessing" xml:space="preserve">
+    <value>Using the GPU for image processing</value>
+  </data>
 </root>

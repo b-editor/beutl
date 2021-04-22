@@ -6,6 +6,7 @@ using System.Text;
 using System.Threading.Tasks;
 
 using BEditor.Audio;
+using BEditor.Drawing;
 using BEditor.Graphics;
 using BEditor.Media;
 
@@ -98,6 +99,11 @@ namespace BEditor.Data
         /// Gets graphic context.
         /// </summary>
         public GraphicsContext? GraphicsContext { get; private set; }
+
+        /// <summary>
+        /// Gets drawing context.
+        /// </summary>
+        public DrawingContext? DrawingContext { get; private set; }
 
         /// <summary>
         /// Gets audio context.

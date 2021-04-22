@@ -328,6 +328,7 @@ namespace BEditor.Data
             {
                 var scene = (Scene)s!;
                 scene.GraphicsContext = new GraphicsContext(scene.Width, scene.Height);
+                scene.DrawingContext = DrawingContext.Create(0);
                 scene.AudioContext = new AudioContext();
             }, this);
         }
@@ -339,6 +340,7 @@ namespace BEditor.Data
             {
                 var scene = (Scene)s!;
                 scene.GraphicsContext?.Dispose();
+                scene.DrawingContext?.Dispose();
                 scene.AudioContext?.Dispose();
             }, this);
         }

@@ -25,7 +25,16 @@ namespace BEditor.Primitive.Effects
 
         public override void Render(EffectRenderArgs<Image<BGRA32>> args)
         {
-            args.Value.Grayscale();
+            var context = Parent.Parent.DrawingContext;
+
+            if (context is not null && Settings.Default.PrioritizeGPU)
+            {
+                args.Value.Grayscale(context);
+            }
+            else
+            {
+                args.Value.Grayscale();
+            }
         }
     }
 #pragma warning restore CS1591

@@ -25,6 +25,7 @@ namespace BEditor
         private static readonly PropertyChangedEventArgs enableErrorLogArgs = new(nameof(EnableErrorLog));
         private static readonly PropertyChangedEventArgs langArgs = new(nameof(Language));
         private static readonly PropertyChangedEventArgs showStartWindowArgs = new(nameof(ShowStartWindow));
+        private static readonly PropertyChangedEventArgs prioritizeGPUArgs = new(nameof(PrioritizeGPU));
         private uint clipHeight = 25;
         private bool darkMode = true;
         private bool showStartWindow = true;
@@ -38,6 +39,7 @@ namespace BEditor
         private ObservableCollection<string>? includeFonts;
         private ObservableCollection<string>? mostRecentlyUsedList;
         private string? language;
+        private bool prioritizeGPU = true;
 
         #endregion
 
@@ -190,6 +192,12 @@ namespace BEditor
         }
         [DataMember]
         public bool SetupFlag { get; set; }
+        [DataMember]
+        public bool PrioritizeGPU
+        {
+            get => prioritizeGPU;
+            set => SetValue(value, ref prioritizeGPU, prioritizeGPUArgs);
+        }
         public ExtensionDataObject? ExtensionData { get; set; }
 
         #endregion

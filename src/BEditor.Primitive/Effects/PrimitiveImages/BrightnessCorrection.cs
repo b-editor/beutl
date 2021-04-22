@@ -35,7 +35,16 @@ namespace BEditor.Primitive.Effects
 
         public override void Render(EffectRenderArgs<Image<BGRA32>> args)
         {
-            args.Value.Brightness((short)Brightness[args.Frame]);
+            var context = Parent.Parent.DrawingContext;
+
+            if (context is not null && Settings.Default.PrioritizeGPU)
+            {
+                args.Value.Brightness(context, (short)Brightness[args.Frame]);
+            }
+            else
+            {
+                args.Value.Brightness((short)Brightness[args.Frame]);
+            }
         }
     }
 #pragma warning restore CS1591

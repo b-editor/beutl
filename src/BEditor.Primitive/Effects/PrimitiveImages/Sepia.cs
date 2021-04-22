@@ -22,7 +22,16 @@ namespace BEditor.Primitive.Effects
 
         public override void Render(EffectRenderArgs<Image<BGRA32>> args)
         {
-            args.Value.Sepia();
+            var context = Parent.Parent.DrawingContext;
+
+            if (context is not null && Settings.Default.PrioritizeGPU)
+            {
+                args.Value.Sepia(context);
+            }
+            else
+            {
+                args.Value.Sepia();
+            }
         }
     }
 #pragma warning restore CS1591

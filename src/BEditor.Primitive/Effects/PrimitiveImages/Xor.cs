@@ -25,7 +25,16 @@ namespace BEditor.Primitive.Effects
 
         public override void Render(EffectRenderArgs<Image<BGRA32>> args)
         {
-            args.Value.Xor();
+            var context = Parent.Parent.DrawingContext;
+
+            if (context is not null && Settings.Default.PrioritizeGPU)
+            {
+                args.Value.Xor(context);
+            }
+            else
+            {
+                args.Value.Xor();
+            }
         }
     }
 #pragma warning restore CS1591
