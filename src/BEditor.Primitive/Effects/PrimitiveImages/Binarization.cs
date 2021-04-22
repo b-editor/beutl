@@ -33,7 +33,16 @@ namespace BEditor.Primitive.Effects
 
         public override void Render(EffectRenderArgs<Image<BGRA32>> args)
         {
-            args.Value.Binarization((byte)Value[args.Frame]);
+            var context = Parent.Parent.DrawingContext;
+
+            if (context is not null && Settings.Default.PrioritizeGPU)
+            {
+                args.Value.Binarization(context, (byte)Value[args.Frame]);
+            }
+            else
+            {
+                args.Value.Binarization((byte)Value[args.Frame]);
+            }
         }
     }
 #pragma warning restore CS1591

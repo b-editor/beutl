@@ -566,4 +566,7 @@
   <data name="CopyID" xml:space="preserve">
     <value>IDをコピー</value>
   </data>
+  <data name="UsingGPUForImageProcessing" xml:space="preserve">
+    <value>画像処理にGPUを使う</value>
+  </data>
 </root>
