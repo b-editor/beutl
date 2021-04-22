@@ -213,7 +213,7 @@ namespace BEditor.Data
         {
             if (IsLoaded) return;
 
-            if (this is IChild<EditingObject> obj1)
+            if (this is IChild<IEditingObject> obj1)
             {
                 ServiceProvider = obj1.Parent?.ServiceProvider;
             }
@@ -225,7 +225,7 @@ namespace BEditor.Data
 
             OnLoad();
 
-            if (this is IParent<EditingObject> obj2)
+            if (this is IParent<IEditingObject> obj2)
             {
                 foreach (var prop in EditingPropertyRegistry.GetProperties(OwnerType))
                 {
@@ -252,7 +252,7 @@ namespace BEditor.Data
 
             OnUnload();
 
-            if (this is IParent<EditingObject> obj)
+            if (this is IParent<IEditingObject> obj)
             {
                 foreach (var item in obj.Children)
                 {

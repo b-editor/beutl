@@ -11,7 +11,7 @@ namespace BEditor.Data.Property.Easing
     /// <summary>
     /// Represents an easing function that can be used with <see cref="IKeyframeProperty"/>.
     /// </summary>
-    public abstract class EasingFunc : EditingObject, IChild<PropertyElement>, IParent<IEasingProperty>, IElementObject, IJsonObject
+    public abstract class EasingFunc : EditingObject, IChild<PropertyElement>, IParent<IEasingProperty>
     {
         #region Fields
         private PropertyElement? _parent;

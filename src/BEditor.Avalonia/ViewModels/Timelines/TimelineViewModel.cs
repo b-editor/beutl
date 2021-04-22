@@ -39,13 +39,12 @@ namespace BEditor.ViewModels.Timelines
             TrackWidth.Value = scene.ToPixel(scene.TotalFrame);
 
             scene.ObserveProperty(s => s.PreviewFrame)
-                .Subscribe(_ =>
+                .Where(_ => Tool.PreviewIsEnabled)
+                .Subscribe(f =>
                 {
-                    SeekbarMargin.Value = new Thickness(Scene.ToPixel(Scene.PreviewFrame), 0, 0, 0);
+                    SeekbarMargin.Value = new Thickness(Scene.ToPixel(f), 0, 0, 0);
 
-                    var type = RenderType.Preview;
-
-                    if (AppModel.Current.AppStatus is Status.Playing) type = RenderType.VideoPreview;
+                    var type = AppModel.Current.AppStatus is Status.Playing ? RenderType.VideoPreview : RenderType.Preview;
 
                     Scene.Parent.PreviewUpdate(type);
                 });

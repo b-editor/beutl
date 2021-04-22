@@ -19,7 +19,7 @@ namespace BEditor.Extensions
 {
     public static class Tool
     {
-        private static bool _isEnabled = true;
+        public static bool PreviewIsEnabled { get; set; } = true;
 
         public static void PreviewUpdate(this Project project, ClipElement clipData, RenderType type = RenderType.Preview)
         {
@@ -33,10 +33,12 @@ namespace BEditor.Extensions
 
         public static void PreviewUpdate(this Project project, RenderType type = RenderType.Preview)
         {
-            if (project is null || project.PreviewScene.GraphicsContext is null || !_isEnabled) return;
+            if (project is null || project.PreviewScene.GraphicsContext is null || !PreviewIsEnabled) return;
 
             Dispatcher.UIThread.InvokeAsync(() =>
             {
+                PreviewIsEnabled = false;
+
                 try
                 {
                     using var img = project.PreviewScene.Render(type);
@@ -44,6 +46,8 @@ namespace BEditor.Extensions
 
                     viewmodel.PreviewImage.Value?.Dispose();
                     viewmodel.PreviewImage.Value = img.ToBitmapSource();
+
+                    PreviewIsEnabled = true;
                 }
                 catch
                 {
@@ -56,10 +60,12 @@ namespace BEditor.Extensions
                         app.IsNotPlaying = true;
 
                         app.Message.Snackbar(Strings.An_exception_was_thrown_during_rendering);
+
+                        PreviewIsEnabled = true;
                     }
                     else
                     {
-                        _isEnabled = false;
+                        PreviewIsEnabled = false;
 
                         app.Message.Snackbar(Strings.An_exception_was_thrown_during_rendering_preview);
 
@@ -67,7 +73,7 @@ namespace BEditor.Extensions
                         {
                             await Task.Delay(TimeSpan.FromSeconds(5));
 
-                            _isEnabled = true;
+                            PreviewIsEnabled = true;
                         });
                     }
                 }
