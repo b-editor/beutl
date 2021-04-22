@@ -35,7 +35,7 @@ namespace BEditor.Compute.PlatformLayer
                     fixed (byte* valuePointer = value)
                     {
                         CL.GetDeviceInfo(devices[index], info, size, valuePointer, null).CheckError();
-                        _infos.Add(Enum.GetName(typeof(CLDeviceInfo), info), value);
+                        _infos.Add(Enum.GetName(typeof(CLDeviceInfo), info)!, value);
                     }
                 }
             }

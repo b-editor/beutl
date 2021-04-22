@@ -23,7 +23,7 @@
       <VirtualizingStackPanel Grid.Column="1">
         <CheckBox IsChecked="{Binding AutoBackUp, Source={x:Static data:Settings.Default}, Mode=TwoWay}" Classes="SettingsCheckBox"/>
         <CheckBox IsChecked="{Binding PrioritizeGPU, Source={x:Static data:Settings.Default}, Mode=TwoWay}" Classes="SettingsCheckBox"/>
-        <NumericUpDown Value="{Binding BackupInterval, Mode=TwoWay, Source={x:Static data:Settings.Default}}" Classes="SettingsNumericUpDown"/>
+        <NumericUpDown Value="{Binding BackUpInterval, Mode=TwoWay, Source={x:Static data:Settings.Default}}" Classes="SettingsNumericUpDown"/>
       </VirtualizingStackPanel>
     </Grid>
   </VirtualizingStackPanel>

@@ -15,6 +15,7 @@
     </UserControl.Resources>
     <Grid RowDefinitions="*,Auto">
         <Image
+            x:Name="image"
             Source="{CompiledBinding PreviewImage.Value, Mode=OneWay}"
             IsHitTestVisible="False"
             Margin="0"/>

@@ -296,6 +296,7 @@
         <GridSplitter Background="Transparent" Grid.Row="3" Grid.Column="2" Grid.ColumnSpan="3"/>
 
         <views:Previewer
+            x:Name="previewer"
             DataContext="{CompiledBinding Previewer, Mode=OneTime}"
             Grid.Row="2"
             Grid.Column="4"/>

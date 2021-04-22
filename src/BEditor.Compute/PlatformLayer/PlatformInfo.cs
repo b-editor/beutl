@@ -41,7 +41,7 @@ namespace BEditor.Compute.PlatformLayer
                 fixed (byte* valuePointer = value)
                 {
                     CL.GetPlatformInfo(platform, info, size, valuePointer, null).CheckError();
-                    _infos.Add(Enum.GetName(typeof(CLPlatformInfo), info), value);
+                    _infos.Add(Enum.GetName(typeof(CLPlatformInfo), info)!, value);
                 }
             }
 

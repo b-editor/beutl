@@ -5,6 +5,7 @@ using System.Text;
 using System.Threading.Tasks;
 
 using Avalonia;
+using Avalonia.Controls;
 using Avalonia.Media.Imaging;
 using Avalonia.Platform;
 using Avalonia.Threading;
@@ -14,11 +15,14 @@ using BEditor.Media;
 using BEditor.Models;
 using BEditor.Properties;
 using BEditor.ViewModels;
+using BEditor.Views;
 
 namespace BEditor.Extensions
 {
     public static class Tool
     {
+        private static Image? _image;
+
         public static bool PreviewIsEnabled { get; set; } = true;
 
         public static void PreviewUpdate(this Project project, ClipElement clipData, RenderType type = RenderType.Preview)
@@ -37,6 +41,7 @@ namespace BEditor.Extensions
 
             Dispatcher.UIThread.InvokeAsync(() =>
             {
+                _image ??= App.GetMainWindow().FindControl<Previewer>("previewer").FindControl<Image>("image");
                 PreviewIsEnabled = false;
 
                 try
@@ -44,8 +49,31 @@ namespace BEditor.Extensions
                     using var img = project.PreviewScene.Render(type);
                     var viewmodel = MainWindowViewModel.Current.Previewer;
 
-                    viewmodel.PreviewImage.Value?.Dispose();
-                    viewmodel.PreviewImage.Value = img.ToBitmapSource();
+                    if (viewmodel.PreviewImage.Value is null
+                        || viewmodel.PreviewImage.Value.PixelSize.Width != img.Width
+                        || viewmodel.PreviewImage.Value.PixelSize.Height != img.Height)
+                    {
+                        viewmodel.PreviewImage.Value = new(
+                            new(img.Width, img.Height),
+                            new(96, 96),
+                            PixelFormat.Bgra8888, AlphaFormat.Unpremul);
+                    }
+
+                    var buf = viewmodel.PreviewImage.Value.Lock();
+
+                    unsafe
+                    {
+                        fixed (void* src = img.Data)
+                        {
+                            var size = img.DataSize;
+                            Buffer.MemoryCopy(src, (void*)buf.Address, size, size);
+                        }
+                    }
+
+                    buf.Dispose();
+
+                    // 再描画
+                    _image.InvalidateVisual();
 
                     PreviewIsEnabled = true;
                 }

@@ -56,6 +56,7 @@ namespace BEditor.Data
         {
             if (State is PlayerState.Playing) return;
 
+            GC.Collect();
             State = PlayerState.Playing;
             _startTime = DateTime.Now;
             _startframe = Scene.PreviewFrame;
@@ -72,6 +73,7 @@ namespace BEditor.Data
 
             _timer.Stop();
 
+            GC.Collect();
             Stopped?.Invoke(this, EventArgs.Empty);
         }
 
