@@ -24,4 +24,4 @@ jobs:
     - name: Build
       run: dotnet build BEditor.sln --no-restore
     - name: Test
-      run: dotnet test BEditor.sln --no-build --verbosity normal
+      run: dotnet test BEditor.sln --no-build --verbosity normal --filter Name!=Gpu
