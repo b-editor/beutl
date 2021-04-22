@@ -4,6 +4,7 @@ using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
 
+using BEditor.Compute.Runtime;
 using BEditor.Drawing.Pixel;
 using BEditor.Drawing.PixelOperation;
 using BEditor.Drawing.RowOperation;
@@ -90,6 +91,124 @@ namespace BEditor.Drawing
             });
         }
 
+        public static void PixelOperate<IOperation>(this Image<BGRA32> image, DrawingContext context)
+            where IOperation : struct, IGpuPixelOperation
+        {
+            if (image is null) throw new ArgumentNullException(nameof(image));
+            image.ThrowIfDisposed();
+
+            CLProgram program;
+            var operation = (IOperation)default;
+            var key = operation.GetType().Name;
+            if (!context.Programs.ContainsKey(key))
+            {
+                program = context.Context.CreateProgram(operation.GetSource());
+                context.Programs.Add(key, program);
+            }
+            else
+            {
+                program = context.Programs[key];
+            }
+
+            using var kernel = program.CreateKernel(operation.GetKernel());
+
+            var dataSize = image.DataSize;
+            using var buf = context.Context.CreateMappingMemory(image.Data, dataSize);
+            kernel.NDRange(context.CommandQueue, new long[] { image.Width, image.Height }, buf);
+            context.CommandQueue.WaitFinish();
+            buf.Read(context.CommandQueue, true, image.Data, 0, dataSize).Wait();
+        }
+
+        public static void PixelOperate<IOperation, T>(this Image<BGRA32> image, DrawingContext context, T arg)
+            where IOperation : struct, IGpuPixelOperation<T>
+            where T : notnull
+        {
+            if (image is null) throw new ArgumentNullException(nameof(image));
+            image.ThrowIfDisposed();
+
+            CLProgram program;
+            var operation = (IOperation)default;
+            var key = operation.GetType().Name;
+            if (!context.Programs.ContainsKey(key))
+            {
+                program = context.Context.CreateProgram(operation.GetSource());
+                context.Programs.Add(key, program);
+            }
+            else
+            {
+                program = context.Programs[key];
+            }
+
+            using var kernel = program.CreateKernel(operation.GetKernel());
+
+            var dataSize = image.DataSize;
+            using var buf = context.Context.CreateMappingMemory(image.Data, dataSize);
+            kernel.NDRange(context.CommandQueue, new long[] { image.Width, image.Height }, buf, arg);
+            context.CommandQueue.WaitFinish();
+            buf.Read(context.CommandQueue, true, image.Data, 0, dataSize).Wait();
+        }
+
+        public static void PixelOperate<IOperation, T1, T2>(this Image<BGRA32> image, DrawingContext context, T1 arg1, T2 arg2)
+            where IOperation : struct, IGpuPixelOperation<T1, T2>
+            where T1 : notnull
+            where T2 : notnull
+        {
+            if (image is null) throw new ArgumentNullException(nameof(image));
+            image.ThrowIfDisposed();
+
+            CLProgram program;
+            var operation = (IOperation)default;
+            var key = operation.GetType().Name;
+            if (!context.Programs.ContainsKey(key))
+            {
+                program = context.Context.CreateProgram(operation.GetSource());
+                context.Programs.Add(key, program);
+            }
+            else
+            {
+                program = context.Programs[key];
+            }
+
+            using var kernel = program.CreateKernel(operation.GetKernel());
+
+            var dataSize = image.DataSize;
+            using var buf = context.Context.CreateMappingMemory(image.Data, dataSize);
+            kernel.NDRange(context.CommandQueue, new long[] { image.Width, image.Height }, buf, arg1, arg2);
+            context.CommandQueue.WaitFinish();
+            buf.Read(context.CommandQueue, true, image.Data, 0, dataSize).Wait();
+        }
+
+        public static void PixelOperate<IOperation, T1, T2, T3>(this Image<BGRA32> image, DrawingContext context, T1 arg1, T2 arg2, T3 arg3)
+            where IOperation : struct, IGpuPixelOperation<T1, T2, T3>
+            where T1 : notnull
+            where T2 : notnull
+            where T3 : notnull
+        {
+            if (image is null) throw new ArgumentNullException(nameof(image));
+            image.ThrowIfDisposed();
+
+            CLProgram program;
+            var operation = (IOperation)default;
+            var key = operation.GetType().Name;
+            if (!context.Programs.ContainsKey(key))
+            {
+                program = context.Context.CreateProgram(operation.GetSource());
+                context.Programs.Add(key, program);
+            }
+            else
+            {
+                program = context.Programs[key];
+            }
+
+            using var kernel = program.CreateKernel(operation.GetKernel());
+
+            var dataSize = image.DataSize;
+            using var buf = context.Context.CreateMappingMemory(image.Data, dataSize);
+            kernel.NDRange(context.CommandQueue, new long[] { image.Width, image.Height }, buf, arg1, arg2, arg3);
+            context.CommandQueue.WaitFinish();
+            buf.Read(context.CommandQueue, true, image.Data, 0, dataSize).Wait();
+        }
+
         public static void SetOpacity(this Image<BGRA32> image, float opacity)
         {
             if (image is null) throw new ArgumentNullException(nameof(image));
@@ -109,17 +228,6 @@ namespace BEditor.Drawing
             fixed (BGRA32* data = image.Data)
             {
                 PixelOperate(image.Data.Length, new SetColorOperation(data, color));
-            }
-        }
-
-        public static void ChromaKey(this Image<BGRA32> image, int value)
-        {
-            if (image is null) throw new ArgumentNullException(nameof(image));
-            image.ThrowIfDisposed();
-
-            fixed (BGRA32* s = image.Data)
-            {
-                PixelOperate(image.Data.Length, new ChromaKeyOperation(s, s, value));
             }
         }
 
@@ -151,62 +259,6 @@ namespace BEditor.Drawing
             return dst;
         }
 
-        public static void Grayscale(this Image<BGRA32> image)
-        {
-            if (image is null) throw new ArgumentNullException(nameof(image));
-            image.ThrowIfDisposed();
-
-            fixed (BGRA32* data = image.Data)
-            {
-                PixelOperate(image.Data.Length, new GrayscaleOperation(data, data));
-            }
-        }
-
-        public static void Sepia(this Image<BGRA32> image)
-        {
-            if (image is null) throw new ArgumentNullException(nameof(image));
-            image.ThrowIfDisposed();
-
-            fixed (BGRA32* data = image.Data)
-            {
-                PixelOperate(image.Data.Length, new SepiaOperation(data, data));
-            }
-        }
-
-        public static void Negaposi(this Image<BGRA32> image, byte red, byte green, byte blue)
-        {
-            if (image is null) throw new ArgumentNullException(nameof(image));
-            image.ThrowIfDisposed();
-
-            fixed (BGRA32* data = image.Data)
-            {
-                PixelOperate(image.Data.Length, new NegaposiOperation(data, data, red, green, blue));
-            }
-        }
-
-        public static void Xor(this Image<BGRA32> image)
-        {
-            if (image is null) throw new ArgumentNullException(nameof(image));
-            image.ThrowIfDisposed();
-
-            fixed (BGRA32* data = image.Data)
-            {
-                PixelOperate(image.Data.Length, new XorOperation(data, data));
-            }
-        }
-
-        public static void Brightness(this Image<BGRA32> image, short brightness)
-        {
-            if (image is null) throw new ArgumentNullException(nameof(image));
-            image.ThrowIfDisposed();
-            brightness = Math.Clamp(brightness, (short)-255, (short)255);
-
-            fixed (BGRA32* data = image.Data)
-            {
-                PixelOperate(image.Data.Length, new BrightnessOperation(data, data, brightness));
-            }
-        }
-
         public static void Contrast(this Image<BGRA32> image, short contrast)
         {
             if (image is null) throw new ArgumentNullException(nameof(image));
@@ -222,38 +274,6 @@ namespace BEditor.Drawing
             fixed (BGRA32* data = image.Data)
             {
                 PixelOperate(image.Data.Length, new ContrastOperation(data, data, (byte*)lut.Pointer));
-            }
-        }
-
-        public static void Gamma(this Image<BGRA32> image, float gamma)
-        {
-            if (image is null) throw new ArgumentNullException(nameof(image));
-            image.ThrowIfDisposed();
-            gamma = Math.Clamp(gamma, 0.01f, 3f);
-
-            using var lut = new UnmanagedArray<byte>(256);
-            for (var i = 0; i < 256; i++)
-            {
-                lut[i] = (byte)Set255Round(Math.Pow(i / 255.0, 1.0 / gamma) * 255);
-            }
-
-            fixed (BGRA32* data = image.Data)
-            {
-                PixelOperate(image.Data.Length, new GammaOperation(data, data, (byte*)lut.Pointer));
-            }
-        }
-
-        public static void RGBColor(this Image<BGRA32> image, short red, short green, short blue)
-        {
-            if (image is null) throw new ArgumentNullException(nameof(image));
-            image.ThrowIfDisposed();
-            red = Math.Clamp(red, (short)-255, (short)255);
-            green = Math.Clamp(green, (short)-255, (short)255);
-            blue = Math.Clamp(blue, (short)-255, (short)255);
-
-            fixed (BGRA32* data = image.Data)
-            {
-                PixelOperate(image.Data.Length, new RGBColorOperation(data, data, red, green, blue));
             }
         }
 
@@ -298,17 +318,6 @@ namespace BEditor.Drawing
                     raw[i].G = (byte)Set255Round(g_ratio * Math.Max(raw[i].G - g_min, 0));
                     raw[i].B = (byte)Set255Round(b_ratio * Math.Max(raw[i].B - b_min, 0));
                 });
-            }
-        }
-
-        public static void Binarization(this Image<BGRA32> image, byte value)
-        {
-            if (image is null) throw new ArgumentNullException(nameof(image));
-            image.ThrowIfDisposed();
-
-            fixed (BGRA32* data = image.Data)
-            {
-                PixelOperate(image.Data.Length, new BinarizationOperation(data, data, value));
             }
         }
 

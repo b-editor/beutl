@@ -1,9 +1,34 @@
 ﻿
+using System;
+
 using BEditor.Drawing.Pixel;
+using BEditor.Drawing.PixelOperation;
+
+namespace BEditor.Drawing
+{
+    public static unsafe partial class Image
+    {
+        public static void Xor(this Image<BGRA32> image)
+        {
+            if (image is null) throw new ArgumentNullException(nameof(image));
+            image.ThrowIfDisposed();
+
+            fixed (BGRA32* data = image.Data)
+            {
+                PixelOperate(image.Data.Length, new XorOperation(data, data));
+            }
+        }
+
+        public static void Xor(this Image<BGRA32> image, DrawingContext context)
+        {
+            image.PixelOperate<XorOperation>(context);
+        }
+    }
+}
 
 namespace BEditor.Drawing.PixelOperation
 {
-    public readonly unsafe struct XorOperation : IPixelOperation
+    public readonly unsafe struct XorOperation : IPixelOperation, IGpuPixelOperation
     {
         private readonly BGRA32* _src;
         private readonly BGRA32* _dst;
@@ -12,6 +37,27 @@ namespace BEditor.Drawing.PixelOperation
         {
             _src = src;
             _dst = dst;
+        }
+
+        public string GetKernel()
+        {
+            return "xor";
+        }
+
+        public string GetSource()
+        {
+            return @"
+__kernel void xor(__global unsigned char* src)
+{
+    int x = get_global_id(0);
+    int y = get_global_id(1);
+    int stride = get_global_size(0) * 4;
+    int pos = stride * y + x * 4;
+
+    src[pos] = src[pos] ^ 128;
+    src[pos + 1] = src[pos + 1] ^ 128;
+    src[pos + 2] = src[pos + 2] ^ 128;
+}";
         }
 
         public readonly void Invoke(int pos)
