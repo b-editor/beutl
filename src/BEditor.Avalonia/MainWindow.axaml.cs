@@ -60,6 +60,7 @@ namespace BEditor
 
         public void ObjectStartDrag(object s, PointerPressedEventArgs e)
         {
+            this.FindControl<Popup>("ObjectsPopup").Close();
             if (s is Control ctr && ctr.DataContext is ObjectMetadata metadata)
             {
                 var data = new DataObject();
