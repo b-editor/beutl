@@ -11,8 +11,20 @@ using NUnit.Framework;
 
 namespace OpenCLTest
 {
-    public class BrightnessTest : IDisposable
+    public class BrightnessTest
+#if !GITHUB_ACTIONS
+        : IDisposable
+#endif
     {
+        [Test]
+        public void Cpu()
+        {
+            using var img = Image.Decode(BinarizationTest.FilePath);
+
+            img.Brightness(128);
+        }
+
+#if !GITHUB_ACTIONS
         private readonly DrawingContext context;
 
         public BrightnessTest()
@@ -24,14 +36,6 @@ namespace OpenCLTest
             var key = op.GetType().Name;
 
             context.Programs.Add(key, prog);
-        }
-
-        [Test]
-        public void Cpu()
-        {
-            using var img = Image.Decode(BinarizationTest.FilePath);
-
-            img.Brightness(128);
         }
 
         [Test]
@@ -48,5 +52,6 @@ namespace OpenCLTest
 
             GC.SuppressFinalize(this);
         }
+#endif
     }
 }

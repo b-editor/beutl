@@ -7,8 +7,20 @@ using NUnit.Framework;
 
 namespace OpenCLTest
 {
-    public class GammaTest : IDisposable
+    public class GammaTest
+#if !GITHUB_ACTIONS
+        : IDisposable
+#endif
     {
+        [Test]
+        public void Cpu()
+        {
+            using var img = Image.Decode(BinarizationTest.FilePath);
+
+            img.Gamma(100);
+        }
+
+#if !GITHUB_ACTIONS
         private readonly DrawingContext context;
 
         public GammaTest()
@@ -20,14 +32,6 @@ namespace OpenCLTest
             var key = op.GetType().Name;
 
             context.Programs.Add(key, prog);
-        }
-
-        [Test]
-        public void Cpu()
-        {
-            using var img = Image.Decode(BinarizationTest.FilePath);
-
-            img.Gamma(100);
         }
 
         [Test]
@@ -44,5 +48,6 @@ namespace OpenCLTest
 
             GC.SuppressFinalize(this);
         }
+#endif
     }
 }

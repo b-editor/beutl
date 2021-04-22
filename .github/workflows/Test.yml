@@ -22,6 +22,6 @@ jobs:
     - name: Restore dependencies
       run: dotnet restore BEditor.sln
     - name: Build
-      run: dotnet build BEditor.sln --no-restore
+      run: dotnet msbuild BEditor.sln -property:DefineConstants=GITHUB_ACTIONS
     - name: Test
-      run: dotnet test BEditor.sln --no-build --verbosity normal --filter Name!=Gpu
+      run: dotnet test BEditor.sln --no-build --verbosity normal

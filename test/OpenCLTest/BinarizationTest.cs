@@ -1,4 +1,5 @@
 using System;
+using System.Diagnostics;
 
 using BEditor.Drawing;
 using BEditor.Drawing.PixelOperation;
@@ -7,9 +8,22 @@ using NUnit.Framework;
 
 namespace OpenCLTest
 {
-    public class BinarizationTest : IDisposable
+    public class BinarizationTest
+#if !GITHUB_ACTIONS
+        : IDisposable
+#endif
     {
         public const string FilePath = "../../../../../docs/example/original.png";
+
+        [Test]
+        public void Cpu()
+        {
+            using var img = Image.Decode(FilePath);
+
+            img.Binarization(127);
+        }
+
+#if !GITHUB_ACTIONS
         private readonly DrawingContext context;
 
         public BinarizationTest()
@@ -21,14 +35,6 @@ namespace OpenCLTest
             var key = op.GetType().Name;
 
             context.Programs.Add(key, prog);
-        }
-
-        [Test]
-        public void Cpu()
-        {
-            using var img = Image.Decode(FilePath);
-
-            img.Binarization(127);
         }
 
         [Test]
@@ -45,5 +51,6 @@ namespace OpenCLTest
 
             GC.SuppressFinalize(this);
         }
+#endif
     }
 }

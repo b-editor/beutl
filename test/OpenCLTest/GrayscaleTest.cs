@@ -7,8 +7,19 @@ using NUnit.Framework;
 
 namespace OpenCLTest
 {
-    public class GrayscaleTest : IDisposable
+    public class GrayscaleTest
+#if !GITHUB_ACTIONS
+        : IDisposable
+#endif
     {
+        [Test]
+        public void Cpu()
+        {
+            using var img = Image.Decode(BinarizationTest.FilePath);
+
+            img.Grayscale();
+        }
+#if !GITHUB_ACTIONS
         private readonly DrawingContext context;
 
         public GrayscaleTest()
@@ -22,13 +33,6 @@ namespace OpenCLTest
             context.Programs.Add(key, prog);
         }
 
-        [Test]
-        public void Cpu()
-        {
-            using var img = Image.Decode(BinarizationTest.FilePath);
-
-            img.Grayscale();
-        }
 
         [Test]
         public void Gpu()
@@ -44,5 +48,6 @@ namespace OpenCLTest
 
             GC.SuppressFinalize(this);
         }
+#endif
     }
 }

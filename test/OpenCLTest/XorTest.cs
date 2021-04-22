@@ -7,8 +7,20 @@ using NUnit.Framework;
 
 namespace OpenCLTest
 {
-    public class XorTest : IDisposable
+    public class XorTest
+#if !GITHUB_ACTIONS
+        : IDisposable
+#endif
     {
+        [Test]
+        public void Cpu()
+        {
+            using var img = Image.Decode(BinarizationTest.FilePath);
+
+            img.Xor();
+        }
+
+#if !GITHUB_ACTIONS
         private readonly DrawingContext context;
 
         public XorTest()
@@ -20,14 +32,6 @@ namespace OpenCLTest
             var key = op.GetType().Name;
 
             context.Programs.Add(key, prog);
-        }
-
-        [Test]
-        public void Cpu()
-        {
-            using var img = Image.Decode(BinarizationTest.FilePath);
-
-            img.Xor();
         }
 
         [Test]
@@ -44,5 +48,6 @@ namespace OpenCLTest
 
             GC.SuppressFinalize(this);
         }
+#endif
     }
 }

@@ -7,8 +7,20 @@ using NUnit.Framework;
 
 namespace OpenCLTest
 {
-    public class SepiaTest : IDisposable
+    public class SepiaTest
+#if !GITHUB_ACTIONS
+        : IDisposable
+#endif
     {
+        [Test]
+        public void Cpu()
+        {
+            using var img = Image.Decode(BinarizationTest.FilePath);
+
+            img.Sepia();
+        }
+
+#if !GITHUB_ACTIONS
         private readonly DrawingContext context;
 
         public SepiaTest()
@@ -20,14 +32,6 @@ namespace OpenCLTest
             var key = op.GetType().Name;
 
             context.Programs.Add(key, prog);
-        }
-
-        [Test]
-        public void Cpu()
-        {
-            using var img = Image.Decode(BinarizationTest.FilePath);
-
-            img.Sepia();
         }
 
         [Test]
@@ -44,5 +48,6 @@ namespace OpenCLTest
 
             GC.SuppressFinalize(this);
         }
+#endif
     }
 }
