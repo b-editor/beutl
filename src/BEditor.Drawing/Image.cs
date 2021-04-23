@@ -458,7 +458,7 @@ namespace BEditor.Drawing
             {
                 throw new ArgumentOutOfRangeException(nameof(x), string.Format(Strings.LessThan, nameof(x), 0));
             }
-            else if (x > Height)
+            else if (x > Width)
             {
                 throw new ArgumentOutOfRangeException(nameof(x), string.Format(Strings.MoreThan, nameof(x), Width));
             }
