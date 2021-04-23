@@ -8,7 +8,7 @@ namespace Benchmark
     {
         static void Main(string[] args)
         {
-            var summary = BenchmarkRunner.Run<SceneGetFrameBench>();
+            BenchmarkRunner.Run<SceneGetFrameBench>();
         }
     }
 }
