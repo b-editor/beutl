@@ -5,8 +5,8 @@ using System.Runtime.InteropServices;
 using System.Text;
 using System.Threading.Tasks;
 
-using BEditor.Compute.OpenCL;
 using BEditor.Compute.Memory;
+using BEditor.Compute.OpenCL;
 
 namespace BEditor.Compute.Runtime
 {

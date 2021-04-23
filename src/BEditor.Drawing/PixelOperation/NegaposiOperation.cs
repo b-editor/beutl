@@ -27,7 +27,7 @@ namespace BEditor.Drawing
 
 namespace BEditor.Drawing.PixelOperation
 {
-    public readonly unsafe struct NegaposiOperation : IPixelOperation, IGpuPixelOperation<byte, byte,byte>
+    public readonly unsafe struct NegaposiOperation : IPixelOperation, IGpuPixelOperation<byte, byte, byte>
     {
         private readonly BGRA32* _src;
         private readonly BGRA32* _dst;
