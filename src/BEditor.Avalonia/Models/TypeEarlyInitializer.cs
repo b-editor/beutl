@@ -48,7 +48,16 @@ namespace BEditor.Models
             {
                 for (var i = 0; i < EffectMetadata.LoadedEffects.Count; i++)
                 {
-                    EffectMetadata.LoadedEffects[i].Type.TypeInitializer?.Invoke(null, null);
+                    var item = EffectMetadata.LoadedEffects[i];
+                    item.Type.TypeInitializer?.Invoke(null, null);
+
+                    if(item.Children is not null)
+                    {
+                        foreach (var ef in item.Children)
+                        {
+                            ef.Type.TypeInitializer?.Invoke(null, null);
+                        }
+                    }
                 }
             });
         }

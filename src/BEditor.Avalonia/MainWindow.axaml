@@ -253,6 +253,22 @@
                 </ExperimentalAcrylicBorder>
             </Popup>
 
+            <Separator/>
+
+            <Button
+                IsEnabled="{CompiledBinding IsOpened.Value, Mode=OneWay}"
+                Command="{CompiledBinding ImageOutput, Mode=OneTime}"
+                ToolTip.Tip="{x:Static prop:Strings.ImageOutput}">
+                <PathIcon Data="{StaticResource Screenshot20Regular}" />
+            </Button>
+
+            <Button
+                IsEnabled="{CompiledBinding IsOpened.Value, Mode=OneWay}"
+                Command="{CompiledBinding VideoOutput, Mode=OneTime}"
+                ToolTip.Tip="{x:Static prop:Strings.VideoOutput}">
+                <PathIcon Data="{StaticResource VideoClip20Regular}" />
+            </Button>
+            
         </StackPanel>
 
         <ExperimentalAcrylicBorder

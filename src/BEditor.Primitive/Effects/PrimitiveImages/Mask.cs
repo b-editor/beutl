@@ -30,17 +30,17 @@ namespace BEditor.Primitive.Effects
         /// <summary>
         /// Defines the <see cref="Y"/> property.
         /// </summary>
-        public static readonly DirectEditingProperty<Mask, EaseProperty> YProperty = Coordinate.XProperty.WithOwner<Mask>(
+        public static readonly DirectEditingProperty<Mask, EaseProperty> YProperty = Coordinate.YProperty.WithOwner<Mask>(
             owner => owner.Y,
             (owner, obj) => owner.Y = obj);
 
         /// <summary>
-        /// Defines the <see cref="Rotate"/> property.
+        /// Defines the <see cref="MaskRotate"/> property.
         /// </summary>
-        public static readonly DirectEditingProperty<Mask, EaseProperty> RotateProperty = EditingProperty.RegisterSerializeDirect<EaseProperty, Mask>(
-            nameof(Rotate),
-            owner => owner.Rotate,
-            (owner, obj) => owner.Rotate = obj,
+        public static readonly DirectEditingProperty<Mask, EaseProperty> MaskRotateProperty = EditingProperty.RegisterSerializeDirect<EaseProperty, Mask>(
+            nameof(MaskRotate),
+            owner => owner.MaskRotate,
+            (owner, obj) => owner.MaskRotate = obj,
             new EasePropertyMetadata(Strings.Rotate));
 
         /// <summary>
@@ -109,9 +109,8 @@ namespace BEditor.Primitive.Effects
             {
                 yield return X;
                 yield return Y;
-                yield return Rotate;
+                yield return MaskRotate;
                 yield return Width;
-                yield return Height;
                 yield return Height;
                 yield return Image;
                 yield return InvertMask;
@@ -132,7 +131,7 @@ namespace BEditor.Primitive.Effects
         /// <summary>
         /// Get the <see cref="EaseProperty"/> of the angle.
         /// </summary>
-        public EaseProperty Rotate { get; private set; }
+        public EaseProperty MaskRotate { get; private set; }
 
         /// <summary>
         /// Get the <see cref="EaseProperty"/> that represents the width of the mask.
@@ -189,7 +188,7 @@ namespace BEditor.Primitive.Effects
             if (w is 0 || h is 0) return;
             using var resizedimg = img.Resize(w, h, Quality.Medium);
 
-            args.Value.Mask(resizedimg, new PointF(X[f], Y[f]), Rotate[f], InvertMask.Value);
+            args.Value.Mask(resizedimg, new PointF(X[f], Y[f]), MaskRotate[f], InvertMask.Value);
             img.Dispose();
         }
 

@@ -245,6 +245,31 @@ namespace BEditor.ViewModels
 
             IsOpened.Subscribe(_ => CommandManager.Default.Clear());
 
+            ImageOutput.Subscribe(async () =>
+            {
+                var scene = AppModel.Current.Project.PreviewScene!;
+
+                var record = new SaveFileRecord
+                {
+                    Filters =
+                    {
+                        new(Strings.ImageFile, new FileExtension[]
+                        {
+                            new("png"),
+                            new("jpg"),
+                            new("jpeg")
+                        })
+                    }
+                };
+
+                if (await AppModel.Current.FileDialog.ShowSaveFileDialogAsync(record))
+                {
+                    using var img = scene.Render(RenderType.ImageOutput);
+
+                    img.Encode(record.FileName);
+                }
+            });
+
             Previewer = new(IsOpened);
         }
 
@@ -263,6 +288,8 @@ namespace BEditor.ViewModels
         public ReactiveCommand Cut { get; } = new();
         public ReactiveCommand Copy { get; } = new();
         public ReactiveCommand Paste { get; } = new();
+        public ReactiveCommand ImageOutput { get; } = new();
+        public ReactiveCommand VideoOutput { get; } = new();
         public ReadOnlyReactivePropertySlim<bool> IsOpened { get; } = AppModel.Current
             .ObserveProperty(p => p.Project)
             .Select(p => p is not null)

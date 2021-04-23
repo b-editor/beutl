@@ -45,7 +45,7 @@ namespace BEditor.Data
         {
             return other != null &&
                 Name == other.Name &&
-                EqualityComparer<Type>.Default.Equals(OwnerType, other.OwnerType) &&
+                OwnerType == other.OwnerType &&
                 IsDisposable == other.IsDisposable;
         }
 

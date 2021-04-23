@@ -751,9 +751,9 @@
             Defines the <see cref="P:BEditor.Primitive.Effects.Mask.Y"/> property.
             </summary>
         </member>
-        <member name="F:BEditor.Primitive.Effects.Mask.RotateProperty">
+        <member name="F:BEditor.Primitive.Effects.Mask.MaskRotateProperty">
             <summary>
-            Defines the <see cref="P:BEditor.Primitive.Effects.Mask.Rotate"/> property.
+            Defines the <see cref="P:BEditor.Primitive.Effects.Mask.MaskRotate"/> property.
             </summary>
         </member>
         <member name="F:BEditor.Primitive.Effects.Mask.WidthProperty">
@@ -802,7 +802,7 @@
             Get the <see cref="T:BEditor.Data.Property.EaseProperty"/> representing the Y coordinate.
             </summary>
         </member>
-        <member name="P:BEditor.Primitive.Effects.Mask.Rotate">
+        <member name="P:BEditor.Primitive.Effects.Mask.MaskRotate">
             <summary>
             Get the <see cref="T:BEditor.Data.Property.EaseProperty"/> of the angle.
             </summary>

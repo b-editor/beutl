@@ -569,4 +569,7 @@ Please select the plugin you want to load</value>
   <data name="UsingGPUForImageProcessing" xml:space="preserve">
     <value>Using the GPU for image processing</value>
   </data>
+  <data name="ImageFile" xml:space="preserve">
+    <value>Image file</value>
+  </data>
 </root>

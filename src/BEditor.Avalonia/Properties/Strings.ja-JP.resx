@@ -569,4 +569,7 @@
   <data name="UsingGPUForImageProcessing" xml:space="preserve">
     <value>画像処理にGPUを使う</value>
   </data>
+  <data name="ImageFile" xml:space="preserve">
+    <value>画像ファイル</value>
+  </data>
 </root>

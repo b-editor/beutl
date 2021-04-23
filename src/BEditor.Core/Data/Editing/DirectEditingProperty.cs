@@ -82,12 +82,12 @@ namespace BEditor.Data
             IEditingPropertySerializer<TValue>? serializer = null)
             where TNewOwner : IEditingObject
         {
-            if (EditingPropertyRegistry._registered.AsParallel().FirstOrDefault(i => i.Key.OwnerType.IsAssignableFrom(typeof(TNewOwner)) && i.Key.Name == Name).Key is not null)
+            var key = new EditingPropertyRegistryKey(Name, typeof(TNewOwner), Key.IsDisposable);
+
+            if (EditingPropertyRegistry.IsRegistered(key))
             {
                 throw new DataException(Strings.KeyHasAlreadyBeenRegisterd);
             }
-
-            var key = new EditingPropertyRegistryKey(Name, typeof(TNewOwner), Key.IsDisposable);
 
             initializer ??= Initializer;
             serializer ??= Serializer;
