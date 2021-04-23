@@ -4,6 +4,7 @@ using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
 
+using BEditor.Compute.OpenCL;
 using BEditor.Compute.PlatformLayer;
 using BEditor.Compute.Runtime;
 
@@ -33,8 +34,11 @@ namespace BEditor.Drawing
 
         public Dictionary<string, CLProgram> Programs { get; } = new();
 
-        public static DrawingContext Create(int platformindex)
+        public static unsafe DrawingContext? Create(int platformindex)
         {
+            uint c;
+            if ((CLStatusCode)CL.GetPlatformIDs(1, null, &c) is not CLStatusCode.CL_SUCCESS) return null;
+
             var platform = new Platform(platformindex);
             var device = platform.CreateDevices(1)[0];
             var context = device.CreateContext();
