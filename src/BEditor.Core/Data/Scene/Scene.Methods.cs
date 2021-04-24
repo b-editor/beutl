@@ -20,8 +20,8 @@ using BEditor.Graphics;
 using BEditor.Media;
 using BEditor.Resources;
 
-using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.Logging;
 
 namespace BEditor.Data
 {
