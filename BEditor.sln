@@ -69,7 +69,7 @@ Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "BEditor.Compute", "src\BEdi
 EndProject
 Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "OpenCLTest", "test\OpenCLTest\OpenCLTest.csproj", "{914E2689-9B6C-4C2B-A6D5-C036C792FC53}"
 EndProject
-Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Benchmark", "test\Benchmark\Benchmark.csproj", "{7FB4CA4E-79A3-47AD-801A-75BB4F205CA7}"
+Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "Benchmark", "test\Benchmark\Benchmark.csproj", "{7FB4CA4E-79A3-47AD-801A-75BB4F205CA7}"
 EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
