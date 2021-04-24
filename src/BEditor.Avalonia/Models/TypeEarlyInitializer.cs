@@ -51,7 +51,7 @@ namespace BEditor.Models
                     var item = EffectMetadata.LoadedEffects[i];
                     item.Type.TypeInitializer?.Invoke(null, null);
 
-                    if(item.Children is not null)
+                    if (item.Children is not null)
                     {
                         foreach (var ef in item.Children)
                         {
