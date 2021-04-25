@@ -13,6 +13,7 @@ using Avalonia.Layout;
 using Avalonia.Markup.Xaml;
 using Avalonia.Media;
 using Avalonia.Styling;
+using Avalonia.Threading;
 using Avalonia.VisualTree;
 
 using BEditor.Data;
@@ -72,7 +73,7 @@ namespace BEditor.Views.Properties
 
         ~EasePropertyView()
         {
-            Dispose();
+            Dispatcher.UIThread.InvokeAsync(Dispose);
         }
 
         private (NumericUpDown numeric, ContentControl content) CreateNumeric(int index)

@@ -4,6 +4,7 @@
     xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
     xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
     xmlns:vm="using:BEditor.ViewModels.Timelines"
+    xmlns:view="using:BEditor.Views.Timelines"
     mc:Ignorable="d" d:DesignWidth="800" d:DesignHeight="450"
     xmlns:properties="clr-namespace:BEditor.Properties"
     x:DataType="vm:TimelineViewModel"
@@ -82,10 +83,14 @@
                     </ContextMenu>
                 </Grid.ContextMenu>
 
-                <Grid
+                <view:TimelineScale
                     x:Name="scale"
+                    Scale="{CompiledBinding Scene.TimeLineZoom, Mode=OneWay}"
+                    Max="{CompiledBinding Scene.TotalFrame.Value, Mode=OneWay}"
+                    Rate="{CompiledBinding Scene.Parent.Framerate, Mode=OneWay}"
                     Width="{CompiledBinding TrackWidth.Value, Mode=OneWay}"
                     Height="32"
+                    VerticalAlignment="Top"
                     HorizontalAlignment="Left"/>
 
                 <Border
