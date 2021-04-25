@@ -11,7 +11,6 @@ using Avalonia.Input;
 using Avalonia.Interactivity;
 using Avalonia.Layout;
 using Avalonia.Markup.Xaml;
-using Avalonia.Media;
 using Avalonia.Styling;
 using Avalonia.Threading;
 using Avalonia.VisualTree;
@@ -24,9 +23,8 @@ using BEditor.ViewModels.Properties;
 
 namespace BEditor.Views.Properties
 {
-    public class EasePropertyView : UserControl, IDisposable
+    public sealed class EasePropertyView : UserControl, IDisposable
     {
-        private static readonly Binding _widthBind = new("$parent.Bounds.Width") { Mode = BindingMode.OneWay };
         private readonly EaseProperty _property;
         private readonly StackPanel _stackPanel;
         private readonly Setter _heightSetter = new(HeightProperty, 40d);
@@ -66,7 +64,7 @@ namespace BEditor.Views.Properties
             property.Value.CollectionChanged += Value_CollectionChanged;
 
             // StackPanel‚ÉNumeric‚ð’Ç‰Á
-            _stackPanel.Children.AddRange(property.Value.Select((_, i) => CreateNumeric(i).content));
+            _stackPanel.Children.AddRange(property.Value.Select((_, i) => CreateNumeric(i)));
 
             _opencloseAnim.Children[1].Setters.Add(_heightSetter);
         }
@@ -76,32 +74,25 @@ namespace BEditor.Views.Properties
             Dispatcher.UIThread.InvokeAsync(Dispose);
         }
 
-        private (NumericUpDown numeric, ContentControl content) CreateNumeric(int index)
+        private NumericUpDown CreateNumeric(int index)
         {
-            var content = new ContentControl
-            {
-                Margin = new Thickness(8, 4),
-                Padding = default,
-                HorizontalAlignment = HorizontalAlignment.Stretch,
-                VerticalAlignment = VerticalAlignment.Stretch
-            };
             var num = new NumericUpDown
             {
                 Classes = { "custom" },
                 [AttachmentProperty.IntProperty] = index,
                 Height = 32,
-                VerticalAlignment = VerticalAlignment.Center,
+                Margin = new Thickness(8, 4),
+                HorizontalAlignment = HorizontalAlignment.Stretch,
+                VerticalAlignment = VerticalAlignment.Stretch,
                 Value = _property.Value[index],
                 Increment = 10
             };
 
-            content.Content = num;
-            num.Bind(WidthProperty, _widthBind);
             num.GotFocus += NumericUpDown_GotFocus;
             num.LostFocus += NumericUpDown_LostFocus;
             num.ValueChanged += NumericUpDown_ValueChanged;
 
-            if (_property.PropertyMetadata is null) return (num, content);
+            if (_property.PropertyMetadata is null) return num;
 
             if (!float.IsNaN(_property.PropertyMetadata.Max))
             {
@@ -113,7 +104,7 @@ namespace BEditor.Views.Properties
                 num.Minimum = _property.PropertyMetadata.Min;
             }
 
-            return (num, content);
+            return num;
         }
 
         private void ResetIndex()
@@ -131,7 +122,7 @@ namespace BEditor.Views.Properties
         {
             if (e.Action is NotifyCollectionChangedAction.Add)
             {
-                _stackPanel.Children.Add(CreateNumeric(e.NewStartingIndex).content);
+                _stackPanel.Children.Add(CreateNumeric(e.NewStartingIndex));
                 ResetIndex();
             }
             else if (e.Action is NotifyCollectionChangedAction.Remove)
@@ -141,7 +132,7 @@ namespace BEditor.Views.Properties
             }
             else if (e.Action is NotifyCollectionChangedAction.Replace)
             {
-                var num = (NumericUpDown)((ContentControl)_stackPanel.Children[e.NewStartingIndex]).Content;
+                var num = (NumericUpDown)_stackPanel.Children[e.NewStartingIndex];
                 num.Value = _property.Value[e.NewStartingIndex];
             }
         }

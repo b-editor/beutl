@@ -49,12 +49,19 @@ namespace BEditor.ViewModels.DialogContent
         }
 
         public ReactiveProperty<uint> Width { get; } = new(WIDTH);
+
         public ReactiveProperty<uint> Height { get; } = new(HEIGHT);
+
         public ReactiveProperty<uint> Framerate { get; } = new(FRAMERATE);
+
         public ReactiveProperty<uint> Samplingrate { get; } = new(SAMLINGRATE);
+
         public ReactiveProperty<string> Name { get; } = new();
+
         public ReactiveProperty<string> Folder { get; }
+
         public ReactiveCommand OpenFolerDialog { get; } = new();
+
         public ReactiveCommand Create { get; } = new();
 
         private async void OpenFolder()

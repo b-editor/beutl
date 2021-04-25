@@ -1,13 +1,11 @@
 using System;
 using System.Globalization;
-using System.Threading.Tasks;
 
-using Avalonia;
 using Avalonia.Controls;
-using Avalonia.Data;
 using Avalonia.Input;
 using Avalonia.Interactivity;
 using Avalonia.Markup.Xaml;
+using Avalonia.Threading;
 
 using BEditor.Data;
 using BEditor.Data.Property;
@@ -17,7 +15,7 @@ using BEditor.ViewModels.Properties;
 
 namespace BEditor.Views.Properties
 {
-    public class FontPropertyView : UserControl, IDisposable
+    public sealed class FontPropertyView : UserControl, IDisposable
     {
         private bool _mouseDown = false;
 
@@ -45,7 +43,7 @@ namespace BEditor.Views.Properties
 
         ~FontPropertyView()
         {
-            Dispose();
+            Dispatcher.UIThread.InvokeAsync(Dispose);
         }
 
         public void Dispose()

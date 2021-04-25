@@ -22,7 +22,7 @@ using BEditor.Views.Settings;
 
 namespace BEditor.Views.CustomTitlebars
 {
-    public class WindowsTitlebar : UserControl
+    public sealed class WindowsTitlebar : UserControl
     {
         private readonly Button _minimizeButton;
         private readonly Button _maximizeButton;
@@ -68,6 +68,7 @@ namespace BEditor.Views.CustomTitlebars
                 IsVisible = false;
             }
         }
+
         private void SetRecentUsedFiles()
         {
             static async Task ProjectOpenCommand(string name)

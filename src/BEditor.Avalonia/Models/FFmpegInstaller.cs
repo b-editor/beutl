@@ -1,17 +1,14 @@
 ﻿using System;
-using System.Collections.Generic;
 using System.ComponentModel;
 using System.IO;
 using System.IO.Compression;
-using System.Linq;
 using System.Net;
 using System.Runtime.InteropServices;
-using System.Text;
 using System.Threading.Tasks;
 
 namespace BEditor.Models
 {
-    public class FFmpegInstaller
+    public sealed class FFmpegInstaller
     {
         public FFmpegInstaller(string path)
         {
@@ -22,8 +19,8 @@ namespace BEditor.Models
 
         public event EventHandler? StartInstall;
         public event EventHandler? Installed;
-        public event AsyncCompletedEventHandler? DownloadCompleted;
-        public event DownloadProgressChangedEventHandler? DownloadProgressChanged;
+        public event EventHandler<AsyncCompletedEventArgs>? DownloadCompleted;
+        public event EventHandler<DownloadProgressChangedEventArgs>? DownloadProgressChanged;
 
         public bool IsInstalled()
         {

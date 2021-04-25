@@ -21,7 +21,7 @@ using Reactive.Bindings.Extensions;
 
 namespace BEditor.ViewModels.Timelines
 {
-    public class ClipViewModel : IDisposable
+    public sealed class ClipViewModel : IDisposable
     {
         private Point _mouseRightPoint;
 

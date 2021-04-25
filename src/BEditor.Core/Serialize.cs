@@ -1,10 +1,12 @@
-﻿using System.Diagnostics;
+﻿using System;
 using System.IO;
 using System.Runtime.Serialization;
 using System.Text.Json;
 using System.Threading.Tasks;
 
 using BEditor.Data;
+
+using Microsoft.Extensions.Logging;
 
 namespace BEditor
 {
@@ -50,9 +52,9 @@ namespace BEditor
 
                 return obj;
             }
-            catch
+            catch (Exception e)
             {
-                Debug.Fail(string.Empty);
+                Log(e);
                 return default;
             }
         }
@@ -76,9 +78,9 @@ namespace BEditor
 
                 return obj;
             }
-            catch
+            catch (Exception e)
             {
-                Debug.Fail(string.Empty);
+                Log(e);
                 return default;
             }
         }
@@ -103,9 +105,9 @@ namespace BEditor
 
                 return obj;
             }
-            catch
+            catch (Exception e)
             {
-                Debug.Fail(string.Empty);
+                Log(e);
                 return default;
             }
         }
@@ -129,9 +131,9 @@ namespace BEditor
 
                 return obj;
             }
-            catch
+            catch (Exception e)
             {
-                Debug.Fail(string.Empty);
+                Log(e);
                 return default;
             }
         }
@@ -161,9 +163,9 @@ namespace BEditor
 
                 return true;
             }
-            catch
+            catch (Exception e)
             {
-                Debug.Fail(string.Empty);
+                Log(e);
                 return false;
             }
         }
@@ -193,9 +195,9 @@ namespace BEditor
 
                 return true;
             }
-            catch
+            catch (Exception e)
             {
-                Debug.Fail(string.Empty);
+                Log(e);
                 return false;
             }
         }
@@ -225,9 +227,9 @@ namespace BEditor
 
                 return true;
             }
-            catch
+            catch (Exception e)
             {
-                Debug.Fail(string.Empty);
+                Log(e);
                 return false;
             }
         }
@@ -256,9 +258,9 @@ namespace BEditor
 
                 return true;
             }
-            catch
+            catch (Exception e)
             {
-                Debug.Fail(string.Empty);
+                Log(e);
                 return false;
             }
         }
@@ -296,6 +298,14 @@ namespace BEditor
             else
             {
                 return default;
+            }
+        }
+
+        private static void Log(Exception e)
+        {
+            if (LogManager.Logger is not null)
+            {
+                LogManager.Logger.LogWarning(e, "Failed to serialize or deserialize.");
             }
         }
 

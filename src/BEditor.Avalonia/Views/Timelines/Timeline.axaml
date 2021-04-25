@@ -26,59 +26,37 @@
                 HorizontalAlignment="Left">
                 <Grid.ContextMenu>
                     <ContextMenu x:Name="TimelineMenu">
-                        <MenuItem IsEnabled="False">
-                            <MenuItem.Header>
-                                <Grid>
-                                    <Grid.ColumnDefinitions>
-                                        <ColumnDefinition Width="200" />
-                                        <ColumnDefinition />
-                                    </Grid.ColumnDefinitions>
-                                    <VirtualizingStackPanel Orientation="Horizontal">
-                                        <!--<md:PackIcon Margin="5,0,5,0" Kind="ContentCut" />-->
-                                        <TextBlock Margin="20,0,5,0" Text="{x:Static properties:Strings.Cut}" />
-                                    </VirtualizingStackPanel>
-                                    <TextBlock Grid.Column="1" Text="Ctrl+X" />
-                                </Grid>
-                            </MenuItem.Header>
+                        <MenuItem
+                            IsEnabled="False"
+                            Header="{x:Static properties:Strings.Cut}"
+                            InputGesture="Ctrl+X">
+                            <MenuItem.Icon>
+                                <PathIcon Data="{StaticResource Cut20Regular}" />
+                            </MenuItem.Icon>
                         </MenuItem>
-                        <MenuItem IsEnabled="False">
-                            <MenuItem.Header>
-                                <Grid>
-                                    <Grid.ColumnDefinitions>
-                                        <ColumnDefinition Width="200" />
-                                        <ColumnDefinition />
-                                    </Grid.ColumnDefinitions>
-                                    <VirtualizingStackPanel Orientation="Horizontal">
-                                        <!--<md:PackIcon Margin="5,0,5,0" Kind="ContentCopy" />-->
-                                        <TextBlock Margin="20,0,5,0" Text="{x:Static properties:Strings.Copy}" />
-                                    </VirtualizingStackPanel>
-                                    <TextBlock Grid.Column="1" Text="Ctrl+C" />
-                                </Grid>
-                            </MenuItem.Header>
+                        <MenuItem
+                            IsEnabled="False"
+                            Header="{x:Static properties:Strings.Copy}"
+                            InputGesture="Ctrl+C">
+                            <MenuItem.Icon>
+                                <PathIcon Data="{StaticResource Copy20Regular}" />
+                            </MenuItem.Icon>
                         </MenuItem>
-                        <MenuItem Command="{CompiledBinding Paste, Mode=OneTime}">
-                            <MenuItem.Header>
-                                <Grid>
-                                    <Grid.ColumnDefinitions>
-                                        <ColumnDefinition Width="200" />
-                                        <ColumnDefinition />
-                                    </Grid.ColumnDefinitions>
-                                    <VirtualizingStackPanel Orientation="Horizontal">
-                                        <!--<md:PackIcon Margin="5,0,5,0" Kind="ContentPaste" />-->
-                                        <TextBlock Margin="20,0,5,0" Text="{x:Static properties:Strings.Paste}" />
-                                    </VirtualizingStackPanel>
-                                    <TextBlock Grid.Column="1" Text="Ctrl+V" />
-                                </Grid>
-                            </MenuItem.Header>
+                        <MenuItem
+                            Command="{CompiledBinding Paste, Mode=OneTime}"
+                            Header="{x:Static properties:Strings.Paste}"
+                            InputGesture="Ctrl+V">
+                            <MenuItem.Icon>
+                                <PathIcon Data="{StaticResource ClipboardPaste20Regular}" />
+                            </MenuItem.Icon>
                         </MenuItem>
                         <Separator />
-                        <MenuItem Command="{CompiledBinding ShowSettings, Mode=OneTime}">
-                            <MenuItem.Header>
-                                <VirtualizingStackPanel Orientation="Horizontal">
-                                    <!--<md:PackIcon Margin="5,0,5,0" Kind="Settings" />-->
-                                    <TextBlock Margin="20,0,5,0" Text="{x:Static properties:Strings.Settings}" />
-                                </VirtualizingStackPanel>
-                            </MenuItem.Header>
+                        <MenuItem
+                            Command="{CompiledBinding ShowSettings, Mode=OneTime}"
+                            Header="{x:Static properties:Strings.Settings}">
+                            <MenuItem.Icon>
+                                <PathIcon Data="{StaticResource Settings20Regular}" />
+                            </MenuItem.Icon>
                         </MenuItem>
                     </ContextMenu>
                 </Grid.ContextMenu>

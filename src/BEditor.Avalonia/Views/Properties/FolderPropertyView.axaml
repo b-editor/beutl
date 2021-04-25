@@ -57,20 +57,14 @@
             <PathIcon Data="{StaticResource FolderOpen16Regular}"/>
         </Button>
 
-        <ContentControl
+        <TextBox
+            Classes="custom"
             Grid.Column="3"
-            Height="32"
             Margin="8,4"
-            Padding="0"
             HorizontalAlignment="Stretch"
-            VerticalAlignment="Center">
-            <TextBox
-                Classes="custom"
-                Width="{Binding $parent.Bounds.Width, Mode=OneWay}"
-                IsReadOnly="True"
-                Text="{CompiledBinding Property.Value, Mode=OneWay}" />
-        </ContentControl>
-
+            VerticalAlignment="Stretch"
+            IsReadOnly="True"
+            Text="{CompiledBinding Property.Value, Mode=OneWay}" />
 
     </Grid>
 </UserControl>

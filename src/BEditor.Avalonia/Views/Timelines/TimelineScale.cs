@@ -79,13 +79,8 @@ namespace BEditor.Views.Timelines
                 return ToFrame(pixel) / Rate;
             }
 
-            float PixelToMin(double pixel)
-            {
-                return PixelToSec(pixel) / 60;
-            }
-
             var height = Bounds.Height;
-            var scroll = (ScrollViewer)Parent.Parent;
+            var scroll = (ScrollViewer)Parent!.Parent!;
             var viewport = new Rect(new Point(scroll.Offset.X, scroll.Offset.Y), scroll.Viewport);
             var totalSec = (int)PixelToSec(viewport.Width) + 2;
             var startSec = (int)PixelToSec(viewport.X);

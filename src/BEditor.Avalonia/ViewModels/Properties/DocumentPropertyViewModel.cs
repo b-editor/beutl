@@ -3,6 +3,7 @@ using System.Reactive.Disposables;
 using System.Reactive.Linq;
 
 using Avalonia;
+using Avalonia.Controls;
 
 using BEditor.Data;
 using BEditor.Data.Property;
@@ -58,6 +59,10 @@ namespace BEditor.ViewModels.Properties
 
                 (AppModel.Current.Project!).PreviewUpdate(Property.GetParent<ClipElement>()!);
             }).AddTo(_disposables);
+
+            Cut.Subscribe(t => t.Cut()).AddTo(_disposables);
+            Copy.Subscribe(t => t.Copy()).AddTo(_disposables);
+            Paste.Subscribe(t => t.Paste()).AddTo(_disposables);
         }
 
         ~DocumentPropertyViewModel()
@@ -79,6 +84,12 @@ namespace BEditor.ViewModels.Properties
 
         public ReactiveCommand<string> TextChanged { get; } = new();
 
+        public ReactiveCommand<TextBox> Cut { get; } = new();
+        
+        public ReactiveCommand<TextBox> Copy { get; } = new();
+
+        public ReactiveCommand<TextBox> Paste { get; } = new();
+
         public void Dispose()
         {
             Reset.Dispose();
@@ -87,6 +98,9 @@ namespace BEditor.ViewModels.Properties
             GotFocus.Dispose();
             LostFocus.Dispose();
             TextChanged.Dispose();
+            Cut.Dispose();
+            Copy.Dispose();
+            Paste.Dispose();
             _disposables.Dispose();
 
             GC.SuppressFinalize(this);

@@ -13,7 +13,7 @@ using static BEditor.IMessage;
 
 namespace BEditor.Views.DialogContent
 {
-    public class ProgressDialog : Window
+    public sealed class ProgressDialog : Window
     {
         public ProgressDialog()
         {
@@ -59,18 +59,18 @@ namespace BEditor.Views.DialogContent
             for (var i = 0; i < stack.Children.Count; i++)
             {
                 var b = (Button)stack.Children[i];
-                b.Click += (sender, e) =>
-                {
-                    Close(b.CommandParameter);
-                };
+                b.Click += (sender, e) => Close(b.CommandParameter);
             }
         }
 
         public ReactiveProperty<string> Text { get; } = new();
+
         public ReactiveProperty<bool> IsIndeterminate { get; } = new() { Value = false };
 
         public ReactiveProperty<int> Maximum { get; } = new() { Value = 0 };
+
         public ReactiveProperty<int> Minimum { get; } = new() { Value = 0 };
+
         public ReactiveProperty<int> NowValue { get; } = new() { Value = 0 };
 
         public ButtonType DialogResult { get; private set; }
@@ -80,6 +80,7 @@ namespace BEditor.Views.DialogContent
             base.OnInitialized();
             (Width, Height) = (480, 128);
         }
+
         protected override void OnOpened(EventArgs e)
         {
             base.OnOpened(e);
@@ -89,6 +90,7 @@ namespace BEditor.Views.DialogContent
 
             Position = new((int)x, (int)y);
         }
+
         private void InitializeComponent()
         {
             AvaloniaXamlLoader.Load(this);

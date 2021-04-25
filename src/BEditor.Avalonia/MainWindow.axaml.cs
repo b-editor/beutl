@@ -150,7 +150,7 @@ namespace BEditor
                     dialog.Text.Value = Strings.ComponentIsExtractedAndPlaced;
                     dialog.IsIndeterminate.Value = true;
                 }
-                void progress(object s, DownloadProgressChangedEventArgs e)
+                void progress(object? s, DownloadProgressChangedEventArgs e)
                 {
                     dialog.NowValue.Value = e.ProgressPercentage;
                 }

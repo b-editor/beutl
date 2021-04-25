@@ -8,7 +8,7 @@ using Reactive.Bindings;
 
 namespace BEditor.ViewModels.Settings
 {
-    public class AppearanceViewModel
+    public sealed class AppearanceViewModel
     {
         public ReactiveCollection<string> Langs { get; } = new()
         {

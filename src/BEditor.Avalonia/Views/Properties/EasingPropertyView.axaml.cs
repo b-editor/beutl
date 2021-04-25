@@ -1,17 +1,12 @@
-using System;
-using System.Linq;
-
-using Avalonia;
 using Avalonia.Controls;
 using Avalonia.Markup.Xaml;
-using Avalonia.Markup.Xaml.Templates;
 
 using BEditor.Data.Property.Easing;
 using BEditor.ViewModels.Properties;
 
 namespace BEditor.Views.Properties
 {
-    public class EasingPropertyView : UserControl
+    public sealed class EasingPropertyView : UserControl
     {
         public EasingPropertyView()
         {

@@ -18,7 +18,9 @@ namespace BEditor.ViewModels.Settings
         }
 
         public string Version { get; }
+
         public string OperatingSystem { get; }
+
         public string Framework { get; }
     }
 }

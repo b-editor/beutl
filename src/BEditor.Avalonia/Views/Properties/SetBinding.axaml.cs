@@ -5,7 +5,7 @@ using Avalonia.Markup.Xaml;
 
 namespace BEditor.Views.Properties
 {
-    public class SetBinding : Window
+    public sealed class SetBinding : Window
     {
         public SetBinding()
         {

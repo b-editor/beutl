@@ -1,12 +1,8 @@
 ﻿using System;
-using System.Collections.Generic;
 using System.Linq;
-using System.Text;
 using System.Threading.Tasks;
 
-using Avalonia;
 using Avalonia.Controls;
-using Avalonia.Media.Imaging;
 using Avalonia.Platform;
 using Avalonia.Threading;
 
@@ -112,10 +108,12 @@ namespace BEditor.Extensions
         {
             return ConstantSettings.WidthOf1Frame * (scene.TimeLineZoom / 200) * frame;
         }
+
         public static Frame ToFrame(this Scene scene, double pixel)
         {
             return (int)(pixel / (ConstantSettings.WidthOf1Frame * (scene.TimeLineZoom / 200)));
         }
+
         public static bool Clamp(this Scene self, ClipElement? clip_, ref Frame start, ref Frame end, int layer)
         {
             var array = self.GetLayer(layer).ToArray();
@@ -149,6 +147,7 @@ namespace BEditor.Extensions
 
             return true;
         }
+
         public static bool InRange(this Scene self, Frame start, Frame end, int layer)
         {
             foreach (var clip in self.GetLayer(layer))
@@ -161,6 +160,7 @@ namespace BEditor.Extensions
 
             return true;
         }
+
         public static bool InRange(this Scene self, ClipElement clip_, Frame start, Frame end, int layer)
         {
             var array = self.GetLayer(layer).ToArray();
@@ -177,6 +177,7 @@ namespace BEditor.Extensions
 
             return true;
         }
+
         // このクリップと被る場合はtrue
         public static bool InRange(this ClipElement self, Frame start, Frame end)
         {
@@ -199,6 +200,7 @@ namespace BEditor.Extensions
 
             return false;
         }
+
         public static bool InRange(this ClipElement self, Frame start, Frame end, out RangeType type)
         {
             if (self.Start <= start && end <= self.End)

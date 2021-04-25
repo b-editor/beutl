@@ -1,14 +1,11 @@
 using System;
 using System.Collections.Specialized;
-using System.Diagnostics;
 using System.Linq;
-using System.Threading.Tasks;
 
 using Avalonia;
 using Avalonia.Collections;
 using Avalonia.Controls;
 using Avalonia.Controls.Primitives;
-using Avalonia.Data;
 using Avalonia.Input;
 using Avalonia.Interactivity;
 using Avalonia.Layout;
@@ -32,7 +29,6 @@ namespace BEditor.Views.Timelines
         private readonly ScrollViewer _scrollLine;
         private readonly ScrollViewer _scrollLabel;
         private readonly StackPanel _layerLabel;
-        //private readonly Grid _scale;
         internal readonly Grid _timelineGrid;
         private readonly ContextMenu _timelineMenu;
         private bool _isFirst = true;
@@ -44,7 +40,6 @@ namespace BEditor.Views.Timelines
             _scrollLine = this.FindControl<ScrollViewer>("ScrollLine");
             _scrollLabel = this.FindControl<ScrollViewer>("ScrollLabel");
             _layerLabel = this.FindControl<StackPanel>("LayerLabel");
-            //_scale = this.FindControl<Grid>("scale");
             _timelineGrid = this.FindControl<Grid>("timelinegrid");
             _timelineMenu = this.FindControl<ContextMenu>("TimelineMenu");
 
@@ -60,22 +55,10 @@ namespace BEditor.Views.Timelines
                 var remove = new MenuItem();
 
                 remove.SetValue(AttachmentProperty.IntProperty, layer);
-                remove.Header = new VirtualizingStackPanel
+                remove.Header = Strings.Remove;
+                remove.Icon = new PathIcon
                 {
-                    Orientation = Orientation.Horizontal,
-                    Children =
-                    {
-                        new PathIcon
-                        {
-                            Data= Geometry.Parse("M24 6.75C27.3751 6.75 30.1253 9.42524 30.2459 12.7709L30.25 13.001L37 13C37.9665 13 38.75 13.7835 38.75 14.75C38.75 15.6682 38.0429 16.4212 37.1435 16.4942L37 16.5H35.833L34.2058 38.0698C34.0385 40.2867 32.191 42 29.9679 42H18.0321C15.809 42 13.9615 40.2867 13.7942 38.0698L12.166 16.5H11C10.0818 16.5 9.32881 15.7929 9.2558 14.8935L9.25 14.75C9.25 13.8318 9.95711 13.0788 10.8565 13.0058L11 13H17.75C17.75 9.70163 20.305 7.00002 23.5438 6.76639L23.7709 6.75412L24 6.75ZM27.75 19.75C27.1028 19.75 26.5705 20.2419 26.5065 20.8722L26.5 21V33L26.5065 33.1278C26.5705 33.7581 27.1028 34.25 27.75 34.25C28.3972 34.25 28.9295 33.7581 28.9935 33.1278L29 33V21L28.9935 20.8722C28.9295 20.2419 28.3972 19.75 27.75 19.75ZM20.25 19.75C19.6028 19.75 19.0705 20.2419 19.0065 20.8722L19 21V33L19.0065 33.1278C19.0705 33.7581 19.6028 34.25 20.25 34.25C20.8972 34.25 21.4295 33.7581 21.4935 33.1278L21.5 33V21L21.4935 20.8722C21.4295 20.2419 20.8972 19.75 20.25 19.75ZM24.1675 10.255L24 10.25C22.5375 10.25 21.3416 11.3917 21.255 12.8325L21.25 13.001L26.75 13C26.75 11.5375 25.6083 10.3416 24.1675 10.255Z"),
-                            Margin = new Thickness(5, 0, 5, 0)
-                        },
-                        new TextBlock
-                        {
-                            Text = Strings.Remove,
-                            Margin = new Thickness(20, 0, 5, 0)
-                        }
-                    }
+                    Data = (Geometry)Application.Current.FindResource("Delete20Regular")!
                 };
 
                 contextMenu.Items = new MenuItem[] { remove };
@@ -98,7 +81,6 @@ namespace BEditor.Views.Timelines
             _scrollLine = this.FindControl<ScrollViewer>("ScrollLine");
             _scrollLabel = this.FindControl<ScrollViewer>("ScrollLabel");
             _layerLabel = this.FindControl<StackPanel>("LayerLabel");
-            //_scale = this.FindControl<Grid>("scale");
             _timelineGrid = this.FindControl<Grid>("timelinegrid");
             _timelineMenu = this.FindControl<ContextMenu>("TimelineMenu");
 
@@ -172,6 +154,7 @@ namespace BEditor.Views.Timelines
         }
 
         private TimelineViewModel ViewModel => (TimelineViewModel)DataContext!;
+
         private Scene Scene => ViewModel.Scene;
 
         protected override void OnInitialized()
@@ -219,141 +202,8 @@ namespace BEditor.Views.Timelines
                     }
 
                     viewmodel.SeekbarMargin.Value = new Thickness(scene.ToPixel(scene.PreviewFrame), 0, 0, 0);
-
-                    viewmodel.ResetScale?.Invoke(scene.TimeLineZoom, scene.TotalFrame, scene.Parent.Framerate);
                 });
         }
-
-        //private void ResetScale(float zoom, int max, int rate)
-        //{
-        //    Dispatcher.UIThread.InvokeAsync(() =>
-        //    {
-        //        const int top = 16;//15
-        //        double ToPixel(int frame)
-        //        {
-        //            return ConstantSettings.WidthOf1Frame * (zoom / 200) * frame;
-        //        }
-
-        //        double SecToPixel(float sec)
-        //        {
-        //            return ToPixel((int)(sec * rate));
-        //        }
-
-        //        double MinToPixel(float min)
-        //        {
-        //            return SecToPixel(min * 60);
-        //        }
-
-        //        _scale.Children.Clear();
-
-        //        if (zoom is >= 100f and <= 200f)
-        //        {
-        //            //s‚Í•b”
-        //            for (var s = 0; s < (max / rate); s++)
-        //            {
-        //                //ˆê•b–ˆ
-        //                var border = new Border
-        //                {
-        //                    Width = 1,
-        //                    HorizontalAlignment = HorizontalAlignment.Left,
-        //                    VerticalAlignment = VerticalAlignment.Stretch,
-        //                    Background = Brushes.White,
-        //                    Margin = new Thickness(ToPixel((s * rate) - 1), 5, 0, 0)
-        //                };
-
-        //                _scale.Children.Add(border);
-        //                if (s is not 0)
-        //                {
-        //                    _scale.Children.Add(new TextBlock
-        //                    {
-        //                        Margin = new Thickness(ToPixel((s * rate) + 1), 0, 0, 0),
-        //                        HorizontalAlignment = HorizontalAlignment.Left,
-        //                        VerticalAlignment = VerticalAlignment.Top,
-        //                        Text = s.ToString() + " sec"
-        //                    });
-        //                }
-
-        //                //ˆÈ‰º‚ÍƒtƒŒ[ƒ€
-        //                if (zoom <= 200 && zoom >= 166.7)
-        //                {
-        //                    for (var m = 1; m < rate; m++)
-        //                    {
-        //                        var border2 = new Border
-        //                        {
-        //                            Width = 1,
-        //                            HorizontalAlignment = HorizontalAlignment.Left,
-        //                            Background = Brushes.White,
-        //                            Margin = new Thickness(ToPixel(s * rate - 1 + m), top, 0, 0)
-        //                        };
-
-        //                        _scale.Children.Add(border2);
-        //                    }
-        //                }
-        //                else if (zoom < 166.7 && zoom >= 133.4)
-        //                {
-        //                    for (var m = 1; m < rate / 2; m++)
-        //                    {
-        //                        var border2 = new Border
-        //                        {
-        //                            Width = 1,
-        //                            HorizontalAlignment = HorizontalAlignment.Left,
-        //                            Background = Brushes.White,
-        //                            Margin = new Thickness(ToPixel((s * rate) - 1 + (m * 2)), top, 0, 0)
-        //                        };
-
-        //                        _scale.Children.Add(border2);
-        //                    }
-        //                }
-        //                else if (zoom < 133.4 && zoom >= 100)
-        //                {
-        //                    for (var m = 1; m < rate / 4; m++)
-        //                    {
-        //                        var border2 = new Border
-        //                        {
-        //                            Width = 1,
-        //                            HorizontalAlignment = HorizontalAlignment.Left,
-        //                            Background = Brushes.White,
-        //                            Margin = new Thickness(ToPixel((s * rate) - 1 + (m * 4)), top, 0, 0)
-        //                        };
-
-        //                        _scale.Children.Add(border2);
-        //                    }
-        //                }
-        //            }
-        //        }
-        //        else
-        //        {
-        //            //m ‚Í•ª”
-        //            //Å‘å‚Ì•ª
-        //            for (var m = 1; m < max / rate / 60; m++)
-        //            {
-        //                var border = new Border
-        //                {
-        //                    Width = 1,
-        //                    HorizontalAlignment = HorizontalAlignment.Left,
-        //                    VerticalAlignment = VerticalAlignment.Stretch,
-        //                    Background = Brushes.White,
-        //                    Margin = new Thickness(MinToPixel(m), 5, 0, 0)
-        //                };
-
-        //                _scale.Children.Add(border);
-
-        //                for (var s = 1; s < 60; s++)
-        //                {
-        //                    var border2 = new Border
-        //                    {
-        //                        Width = 1,
-        //                        HorizontalAlignment = HorizontalAlignment.Left,
-        //                        Background = Brushes.White,
-        //                        Margin = new Thickness(SecToPixel(s + m / 60), 15, 0, 0)
-        //                    };
-
-        //                    _scale.Children.Add(border2);
-        //                }
-        //            }
-        //        }
-        //    });
-        //}
 
         private void InitializeComponent()
         {

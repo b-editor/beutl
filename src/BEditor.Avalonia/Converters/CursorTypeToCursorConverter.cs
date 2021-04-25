@@ -4,11 +4,9 @@ using System.Globalization;
 using Avalonia.Data.Converters;
 using Avalonia.Input;
 
-using BEditor.Media;
-
 namespace BEditor.Converters
 {
-    public class CursorTypeToCursorConverter : IValueConverter
+    public sealed class CursorTypeToCursorConverter : IValueConverter
     {
         public object? Convert(object value, Type targetType, object parameter, CultureInfo culture)
         {

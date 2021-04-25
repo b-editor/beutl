@@ -8,7 +8,7 @@ using Reactive.Bindings;
 
 namespace BEditor.ViewModels.Settings
 {
-    public class LicenseViewModel
+    public sealed class LicenseViewModel
     {
         #region Licenses
 
@@ -642,8 +642,8 @@ freely, subject to the following restrictions:
         }
 
         public ReactiveCollection<License> Licenses { get; }
-        public ReactivePropertySlim<License> SelectedItem { get; } = new();
 
+        public ReactivePropertySlim<License> SelectedItem { get; } = new();
 
         public record License(string Library, string Text);
     }

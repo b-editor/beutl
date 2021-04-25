@@ -1,17 +1,17 @@
 using System;
 
-using Avalonia;
 using Avalonia.Controls;
 using Avalonia.Input;
 using Avalonia.Interactivity;
 using Avalonia.Markup.Xaml;
+using Avalonia.Threading;
 
 using BEditor.Data.Property;
 using BEditor.ViewModels.Properties;
 
 namespace BEditor.Views.Properties
 {
-    public class DocumentPropertyView : UserControl, IDisposable
+    public sealed class DocumentPropertyView : UserControl, IDisposable
     {
         public DocumentPropertyView()
         {
@@ -22,12 +22,15 @@ namespace BEditor.Views.Properties
         {
             DataContext = new DocumentPropertyViewModel(property);
             InitializeComponent();
-            this.FindControl<TextBox>("TextBox").AddHandler(KeyDownEvent, TextBox_KeyDown, RoutingStrategies.Tunnel);
+            var text = this.FindControl<TextBox>("TextBox");
+            text.AddHandler(KeyDownEvent, TextBox_KeyDown, RoutingStrategies.Tunnel);
+
+            text.ContextFlyout = null;
         }
 
         ~DocumentPropertyView()
         {
-            Dispose();
+            Dispatcher.UIThread.InvokeAsync(Dispose);
         }
 
         public void TextBox_KeyDown(object? sender, KeyEventArgs e)

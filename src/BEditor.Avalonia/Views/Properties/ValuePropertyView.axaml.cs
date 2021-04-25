@@ -1,10 +1,10 @@
 using System;
 
-using Avalonia;
 using Avalonia.Controls;
 using Avalonia.Input;
 using Avalonia.Interactivity;
 using Avalonia.Markup.Xaml;
+using Avalonia.Threading;
 
 using BEditor.Data;
 using BEditor.Data.Property;
@@ -14,7 +14,7 @@ using BEditor.ViewModels.Properties;
 
 namespace BEditor.Views.Properties
 {
-    public class ValuePropertyView : UserControl, IDisposable
+    public sealed class ValuePropertyView : UserControl, IDisposable
     {
         private readonly ValueProperty _property;
         private float _oldvalue;
@@ -35,7 +35,7 @@ namespace BEditor.Views.Properties
 
         ~ValuePropertyView()
         {
-            Dispose();
+            Dispatcher.UIThread.InvokeAsync(Dispose);
         }
 
         public void Dispose()
@@ -66,8 +66,6 @@ namespace BEditor.Views.Properties
 
         public void NumericUpDown_ValueChanged(object? sender, NumericUpDownValueChangedEventArgs e)
         {
-            var num = (NumericUpDown)sender!;
-
             _property.Value = _property.Clamp((float)e.NewValue);
 
             (AppModel.Current.Project!).PreviewUpdate(_property.GetParent<ClipElement>()!);

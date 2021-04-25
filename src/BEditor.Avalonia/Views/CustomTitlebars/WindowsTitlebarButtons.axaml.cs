@@ -9,7 +9,7 @@ using Avalonia.Markup.Xaml;
 
 namespace BEditor.Views.CustomTitlebars
 {
-    public class WindowsTitlebarButtons : UserControl
+    public sealed class WindowsTitlebarButtons : UserControl
     {
         public static readonly StyledProperty<bool> CanResizeProperty = AvaloniaProperty.Register<WindowsTitlebarButtons, bool>(nameof(CanResize), true, notifying: (obj, value) =>
         {
@@ -23,7 +23,6 @@ namespace BEditor.Views.CustomTitlebars
         private readonly Path _maximizeIcon;
         private readonly ToolTip _maximizeToolTip;
         private readonly Button _closeButton;
-        private readonly StackPanel _titlebarbuttons;
 
         public WindowsTitlebarButtons()
         {
@@ -34,7 +33,6 @@ namespace BEditor.Views.CustomTitlebars
             _maximizeIcon = this.FindControl<Path>("MaximizeIcon");
             _maximizeToolTip = this.FindControl<ToolTip>("MaximizeToolTip");
             _closeButton = this.FindControl<Button>("CloseButton");
-            _titlebarbuttons = this.FindControl<StackPanel>("titlebarbuttons");
 
             if (OperatingSystem.IsWindows())
             {

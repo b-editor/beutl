@@ -17,7 +17,7 @@ using Reactive.Bindings.Extensions;
 
 namespace BEditor.ViewModels.Timelines
 {
-    public class TimelineViewModel
+    public sealed class TimelineViewModel
     {
         public int ClickedLayer;
         public Frame ClickedFrame;
@@ -38,29 +38,6 @@ namespace BEditor.ViewModels.Timelines
 
             TrackWidth.Value = scene.ToPixel(scene.TotalFrame);
 
-            scene.ObserveProperty(s => s.TimeLineZoom, false)
-                .Subscribe(_ =>
-                {
-                    int l = Scene.TotalFrame;
-
-                    TrackWidth.Value = Scene.ToPixel(l);
-
-                    for (var index = 0; index < Scene.Datas.Count; index++)
-                    {
-                        var info = Scene.Datas[index];
-                        var start = Scene.ToPixel(info.Start);
-                        var length = Scene.ToPixel(info.Length);
-
-                        var vm = info.GetCreateClipViewModel();
-                        vm.MarginLeft = start;
-                        vm.WidthProperty.Value = length;
-                    }
-
-                    SeekbarMargin.Value = new Thickness(Scene.ToPixel(Scene.PreviewFrame), 0, 0, 0);
-
-                    ResetScale?.Invoke(Scene.TimeLineZoom, Scene.TotalFrame, Scene.Parent.Framerate);
-                });
-
             scene.ObserveProperty(s => s.PreviewFrame)
                 .Where(_ => Tool.PreviewIsEnabled)
                 .Subscribe(f =>
@@ -73,13 +50,7 @@ namespace BEditor.ViewModels.Timelines
                 });
 
             scene.ObserveProperty(s => s.TotalFrame)
-                .Subscribe(_ =>
-                {
-                    TrackWidth.Value = Scene.ToPixel(Scene.TotalFrame);
-
-                    // Todo: 目盛り追加
-                    ResetScale?.Invoke(Scene.TimeLineZoom, Scene.TotalFrame, Scene.Parent.Framerate);
-                });
+                .Subscribe(_ => TrackWidth.Value = Scene.ToPixel(Scene.TotalFrame));
 
             AddClip.Subscribe(meta =>
             {
@@ -95,15 +66,23 @@ namespace BEditor.ViewModels.Timelines
         }
 
         public Func<PointerEventArgs, Point>? GetLayerMousePosition { get; set; }
+
         public double TrackHeight { get; } = ConstantSettings.ClipHeight;
+
         public ReactiveCommand<ObjectMetadata> AddClip { get; } = new();
+
         public ReactiveCommand Paste { get; } = new();
+
         public ReactiveCommand ShowSettings { get; } = new();
+
         public ReactiveProperty<StandardCursorType> LayerCursor { get; } = new();
+
         public ReactiveProperty<double> TrackWidth { get; } = new();
+
         public ReactivePropertySlim<Thickness> SeekbarMargin { get; } = new();
+
         public Scene Scene { get; }
-        public Action<float, int, int>? ResetScale { get; set; }
+
         public Action<ClipElement, int>? ClipLayerMoveCommand { get; set; }
 
         public static int ToLayer(double pixel)

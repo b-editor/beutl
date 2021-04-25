@@ -57,12 +57,19 @@ namespace BEditor.ViewModels
         }
 
         public ReactiveProperty<WriteableBitmap?> PreviewImage { get; } = new();
+
         public IReadOnlyReactiveProperty<bool> IsOpened { get; }
+
         public ReactiveCommand MoveToTop { get; } = new();
+
         public ReactiveCommand MoveToPrevious { get; } = new();
+
         public ReactiveCommand PlayPause { get; } = new();
+
         public ReactiveCommand MoveToNext { get; } = new();
+
         public ReactiveCommand MoveToEnd { get; } = new();
-        public AppModel App => AppModel.Current;
+
+        public static AppModel App => AppModel.Current;
     }
 }

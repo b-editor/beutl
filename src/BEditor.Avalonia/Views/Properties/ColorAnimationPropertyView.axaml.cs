@@ -8,21 +8,20 @@ using Avalonia.Controls;
 using Avalonia.Controls.Primitives;
 using Avalonia.Input;
 using Avalonia.Interactivity;
-using Avalonia.Layout;
 using Avalonia.Markup.Xaml;
 using Avalonia.Media;
 using Avalonia.Styling;
+using Avalonia.Threading;
 using Avalonia.VisualTree;
 
 using BEditor.Data;
 using BEditor.Data.Property;
 using BEditor.Extensions;
-using BEditor.Models;
 using BEditor.ViewModels.Properties;
 
 namespace BEditor.Views.Properties
 {
-    public class ColorAnimationPropertyView : UserControl, IDisposable
+    public sealed class ColorAnimationPropertyView : UserControl, IDisposable
     {
         private readonly ColorAnimationProperty _property;
         private readonly StackPanel _stackPanel;
@@ -69,7 +68,7 @@ namespace BEditor.Views.Properties
 
         ~ColorAnimationPropertyView()
         {
-            Dispose();
+            Dispatcher.UIThread.InvokeAsync(Dispose);
         }
 
         private Border CreateBorder(int index)

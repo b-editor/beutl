@@ -8,7 +8,7 @@ using BEditor.Extensions;
 
 namespace BEditor.Converters
 {
-    public class EffectToKeyframeConverter : IValueConverter
+    public sealed class EffectToKeyframeConverter : IValueConverter
     {
         public object? Convert(object value, Type targetType, object parameter, CultureInfo culture)
         {

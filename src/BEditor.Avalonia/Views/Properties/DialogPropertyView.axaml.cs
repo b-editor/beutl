@@ -1,6 +1,5 @@
 using System;
 
-using Avalonia;
 using Avalonia.Controls;
 using Avalonia.Markup.Xaml;
 
@@ -12,16 +11,17 @@ using BEditor.Views.DialogContent;
 
 namespace BEditor.Views.Properties
 {
-    public class DialogPropertyView : UserControl
+    public sealed class DialogPropertyView : UserControl
     {
         private static readonly ViewBuilder.PropertyViewBuilder builder;
         public static readonly EditingProperty<Control> DialogProperty = EditingProperty.Register<Control, DialogProperty>("GetDialog");
-        private DialogProperty _property;
+        private readonly DialogProperty _property;
 
         static DialogPropertyView()
         {
             builder = ViewBuilder.PropertyViewBuilders.Find(builder => builder.PropertyType == typeof(Group))!;
         }
+
 #pragma warning disable CS8618
         public DialogPropertyView()
 #pragma warning restore CS8618

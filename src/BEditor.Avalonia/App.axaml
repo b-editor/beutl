@@ -40,5 +40,9 @@
         <Style Selector="Expander.property /template/ ToggleButton#PART_toggle">
             <Setter Property="Height" Value="40" />
         </Style>
+
+        <Style Selector="TemplatedControl">
+            <Setter Property="FontFamily" Value="Meiryo UI, Osaka, Ubuntu" />
+        </Style>
     </Application.Styles>
 </Application>

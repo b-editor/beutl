@@ -1,20 +1,17 @@
 using System;
 
-using Avalonia;
 using Avalonia.Controls;
 using Avalonia.Input;
 using Avalonia.Interactivity;
 using Avalonia.Markup.Xaml;
+using Avalonia.Threading;
 
-using BEditor.Data;
 using BEditor.Data.Property;
-using BEditor.Extensions;
-using BEditor.Models;
 using BEditor.ViewModels.Properties;
 
 namespace BEditor.Views.Properties
 {
-    public class TextPropertyView : UserControl, IDisposable
+    public sealed class TextPropertyView : UserControl, IDisposable
     {
         public TextPropertyView()
         {
@@ -30,7 +27,7 @@ namespace BEditor.Views.Properties
 
         ~TextPropertyView()
         {
-            Dispose();
+            Dispatcher.UIThread.InvokeAsync(Dispose);
         }
 
         public void Dispose()

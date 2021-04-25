@@ -12,12 +12,13 @@ using Reactive.Bindings;
 
 namespace BEditor.ViewModels.Settings
 {
-    public class InstalledPluginsViewModel
+    public sealed class InstalledPluginsViewModel
     {
         public InstalledPluginsViewModel()
         {
             SettingClick.Where(_ => SelectPlugin is not null).Subscribe(_ =>
             {
+                // Todo
                 if (Avalonia.Application.Current.ApplicationLifetime is IClassicDesktopStyleApplicationLifetime desktop)
                 {
                     MessageBox.Avalonia.MessageBoxManager.GetMessageBoxStandardWindow(new MessageBoxStandardParams
@@ -44,7 +45,9 @@ namespace BEditor.ViewModels.Settings
         public ReactiveProperty<PluginObject> SelectPlugin { get; } = new();
 
         public ReadOnlyReactiveProperty<bool> IsSelected { get; }
+
         public ReactiveCommand<object> SettingClick { get; } = new();
+
         public ReactiveCommand UnloadClick { get; } = new();
     }
 }

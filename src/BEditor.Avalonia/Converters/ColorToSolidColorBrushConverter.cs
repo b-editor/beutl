@@ -9,7 +9,7 @@ using BEditor.Extensions;
 
 namespace BEditor.Converters
 {
-    public class ColorToSolidColorBrushConverter : IValueConverter
+    public sealed class ColorToSolidColorBrushConverter : IValueConverter
     {
         public object? Convert(object value, Type targetType, object parameter, CultureInfo culture)
         {

@@ -12,8 +12,11 @@ namespace BEditor.Models
     public static class TypeEarlyInitializer
     {
         public static bool IsInitialized => ObjectsIsInitialized && EffectsIsInitialized && EasingsIsInitialized;
+
         public static bool ObjectsIsInitialized { get; private set; }
+
         public static bool EffectsIsInitialized { get; private set; }
+
         public static bool EasingsIsInitialized { get; private set; }
 
         public static async ValueTask AllInitializeAsync()
@@ -26,6 +29,7 @@ namespace BEditor.Models
             await ef;
             await ease;
         }
+
         public static async ValueTask ObjectsInitializeAsync()
         {
             if (ObjectsIsInitialized) return;
@@ -39,6 +43,7 @@ namespace BEditor.Models
                 }
             });
         }
+
         public static async ValueTask EffectsInitializeAsync()
         {
             if (EffectsIsInitialized) return;
@@ -61,6 +66,7 @@ namespace BEditor.Models
                 }
             });
         }
+
         public static async ValueTask EasingsInitializeAsync()
         {
             if (EasingsIsInitialized) return;

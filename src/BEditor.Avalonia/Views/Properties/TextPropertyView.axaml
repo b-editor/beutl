@@ -34,22 +34,15 @@
             FontSize="13"
             Content="{CompiledBinding Property.PropertyMetadata.Name, Mode=OneTime}" />
 
-
-        <ContentControl
-            Grid.Column="3"
-            Height="32"
+        <TextBox
+            x:Name="TextBox"
             Margin="8,4"
-            Padding="0"
+            Grid.Column="3"
             HorizontalAlignment="Stretch"
-            VerticalAlignment="Center">
-            <TextBox
-                x:Name="TextBox"
-                Width="{Binding $parent.Bounds.Width, Mode=OneWay}"
-                Classes="custom"
-                Text="{CompiledBinding Property.Value, Mode=OneWay}"
-                GotFocus="TextBox_GotFocus"
-                LostFocus="TextBox_LostFocus" />
-        </ContentControl>
-
+            VerticalAlignment="Stretch"
+            Classes="custom"
+            Text="{CompiledBinding Property.Value, Mode=OneWay}"
+            GotFocus="TextBox_GotFocus"
+            LostFocus="TextBox_LostFocus" />
     </Grid>
 </UserControl>

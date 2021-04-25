@@ -10,31 +10,26 @@ namespace BEditor.Controls
 {
     public class SeekSlider : RangeBase
     {
-        public static readonly DirectProperty<SeekSlider, double> SeekValueProperty =
-            AvaloniaProperty.RegisterDirect<SeekSlider, double>(
-                nameof(SeekValue),
-                o => o.SeekValue,
-                (o, v) => o.SeekValue = v);
+        public static readonly DirectProperty<SeekSlider, double> SeekValueProperty = AvaloniaProperty.RegisterDirect<SeekSlider, double>(
+            nameof(SeekValue),
+            o => o.SeekValue,
+            (o, v) => o.SeekValue = v);
 
-        public static readonly DirectProperty<SeekSlider, bool> IsSeekingProperty =
-            AvaloniaProperty.RegisterDirect<SeekSlider, bool>(
-                nameof(IsSeeking),
-                o => o.IsSeeking,
-                (o, v) => o.IsSeeking = v);
+        public static readonly DirectProperty<SeekSlider, bool> IsSeekingProperty = AvaloniaProperty.RegisterDirect<SeekSlider, bool>(
+            nameof(IsSeeking),
+            o => o.IsSeeking,
+            (o, v) => o.IsSeeking = v);
 
         private SeekTrackButton? _decreaseButton;
+
         private SeekTrackButton? _increaseButton;
 
         private bool _isSeeking;
 
         private double _seekValue;
 
-        // Slider required parts
         private Track? _track;
 
-        /// <summary>
-        ///     Initializes static members of the <see cref="SeekSlider" /> class.
-        /// </summary>
         static SeekSlider()
         {
             Thumb.DragStartedEvent.AddClassHandler<SeekSlider>((x, e) => x.OnThumbDragStarted(e),
@@ -67,6 +62,22 @@ namespace BEditor.Controls
             if (_increaseButton != null) _increaseButton.PointerPressed += IC_PP;
         }
 
+        protected virtual void OnThumbDragStarted(VectorEventArgs e)
+        {
+            IsSeeking = true;
+        }
+
+        protected virtual void OnThumbDragDelta(VectorEventArgs e)
+        {
+            if (e.Source is Thumb thumb && _track?.Thumb == thumb) MoveToNextTick(_track.Value);
+        }
+
+        protected virtual void OnThumbDragCompleted(VectorEventArgs e)
+        {
+            SeekValue = Value;
+            IsSeeking = false;
+        }
+
         private void IC_PP(object? sender, PointerPressedEventArgs e)
         {
             if (!e.GetCurrentPoint(this).Properties.IsLeftButtonPressed) return;
@@ -81,38 +92,6 @@ namespace BEditor.Controls
             SeekValue = x.Position.X / _track!.Bounds.Width;
         }
 
-        /// <summary>
-        ///     Called when user start dragging the <see cref="Thumb" />.
-        /// </summary>
-        /// <param name="e"></param>
-        protected virtual void OnThumbDragStarted(VectorEventArgs e)
-        {
-            IsSeeking = true;
-        }
-
-        /// <summary>
-        ///     Called when user dragging the <see cref="Thumb" />.
-        /// </summary>
-        /// <param name="e"></param>
-        protected virtual void OnThumbDragDelta(VectorEventArgs e)
-        {
-            if (e.Source is Thumb thumb && _track?.Thumb == thumb) MoveToNextTick(_track.Value);
-        }
-
-        /// <summary>
-        ///     Called when user stop dragging the <see cref="Thumb" />.
-        /// </summary>
-        /// <param name="e"></param>
-        protected virtual void OnThumbDragCompleted(VectorEventArgs e)
-        {
-            SeekValue = Value;
-            IsSeeking = false;
-        }
-
-        /// <summary>
-        ///     Searches for the closest tick and sets Value to that tick.
-        /// </summary>
-        /// <param name="value">Value that want to snap to closest Tick.</param>
         private void MoveToNextTick(double value)
         {
             Value = Math.Max(Minimum, Math.Min(Maximum, value));

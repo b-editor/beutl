@@ -1,16 +1,12 @@
-using System;
-
-using Avalonia;
 using Avalonia.Controls;
 using Avalonia.Input;
-using Avalonia.Interactivity;
 using Avalonia.Markup.Xaml;
 
 using BEditor.Data;
 
 namespace BEditor.Views.Properties
 {
-    public class ClipPropertyView : UserControl
+    public sealed class ClipPropertyView : UserControl
     {
         public ClipPropertyView()
         {

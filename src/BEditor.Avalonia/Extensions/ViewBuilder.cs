@@ -185,6 +185,7 @@ namespace BEditor.Extensions
             }
             return scene.GetValue(TimelineProperty);
         }
+
         public static TimelineViewModel GetCreateTimelineViewModel(this Scene scene)
         {
             if (scene[TimelineViewModelProperty] is null)
@@ -193,6 +194,7 @@ namespace BEditor.Extensions
             }
             return scene.GetValue(TimelineViewModelProperty);
         }
+
         public static ClipView GetCreateClipView(this ClipElement clip)
         {
             if (clip[ClipViewProperty] is null)
@@ -201,6 +203,7 @@ namespace BEditor.Extensions
             }
             return clip.GetValue(ClipViewProperty);
         }
+
         public static ClipPropertyView GetCreateClipPropertyView(this ClipElement clip)
         {
             if (clip[ClipPropertyViewProperty] is null)
@@ -209,6 +212,7 @@ namespace BEditor.Extensions
             }
             return clip.GetValue(ClipPropertyViewProperty);
         }
+
         public static ClipViewModel GetCreateClipViewModel(this ClipElement clip)
         {
             if (clip[ClipViewModelProperty] is null)
@@ -217,6 +221,7 @@ namespace BEditor.Extensions
             }
             return clip.GetValue(ClipViewModelProperty);
         }
+
         public static Control GetCreatePropertyElementView(this PropertyElement property)
         {
             if (property[PropertyElementViewProperty] is null)
@@ -236,6 +241,7 @@ namespace BEditor.Extensions
             }
             return property.GetValue(PropertyElementViewProperty);
         }
+
         public static Control GetCreateEasingFuncView(this EasingFunc easing)
         {
             if (easing[EasePropertyViewProperty] is null)
@@ -256,6 +262,7 @@ namespace BEditor.Extensions
             }
             return easing.GetValue(EasePropertyViewProperty);
         }
+
         public static Control GetCreateKeyframeView(this IKeyframeProperty property)
         {
             if (property[KeyframeViewProperty] is null)
@@ -280,6 +287,7 @@ namespace BEditor.Extensions
             }
             return scene.GetValue(TimelineProperty);
         }
+
         public static TimelineViewModel GetCreateTimelineViewModelSafe(this Scene scene)
         {
             if (scene[TimelineViewModelProperty] is null)
@@ -292,6 +300,7 @@ namespace BEditor.Extensions
             }
             return scene.GetValue(TimelineViewModelProperty);
         }
+
         public static ClipView GetCreateClipViewSafe(this ClipElement clip)
         {
             if (clip[ClipViewProperty] is null)
@@ -304,6 +313,7 @@ namespace BEditor.Extensions
             }
             return clip.GetValue(ClipViewProperty);
         }
+
         public static ClipPropertyView GetCreateClipPropertyViewSafe(this ClipElement clip)
         {
             if (clip[ClipPropertyViewProperty] is null)
@@ -316,6 +326,7 @@ namespace BEditor.Extensions
             }
             return clip.GetValue(ClipPropertyViewProperty);
         }
+
         public static ClipViewModel GetCreateClipViewModelSafe(this ClipElement clip)
         {
             if (clip[ClipViewModelProperty] is null)
@@ -328,6 +339,7 @@ namespace BEditor.Extensions
             }
             return clip.GetValue(ClipViewModelProperty);
         }
+
         public static Control GetCreateEffectPropertyViewSafe(this EffectElement effect)
         {
             if (effect[EffectElementViewProperty] is null)
@@ -345,6 +357,7 @@ namespace BEditor.Extensions
             }
             return effect.GetValue(EffectElementViewProperty);
         }
+
         public static Control GetCreateKeyFrameViewSafe(this EffectElement effect)
         {
             if (effect[KeyframeProperty] is null)
@@ -387,6 +400,7 @@ namespace BEditor.Extensions
         }
 
         private static readonly IValueConverter ExpanderWidthConverter = new FuncValueConverter<double, double>(i => i - 38);
+
         public static (Expander, StackPanel) CreateObjectExpander(ObjectElement obj)
         {
             var clip = obj.Parent;
@@ -460,6 +474,7 @@ namespace BEditor.Extensions
 
             return (expander, stack);
         }
+
         public static (Expander, StackPanel) CreateEffectExpander(EffectElement effect)
         {
             var clip = effect.Parent;

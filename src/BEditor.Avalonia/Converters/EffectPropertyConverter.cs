@@ -9,7 +9,7 @@ using BEditor.Extensions;
 
 namespace BEditor.Converters
 {
-    public class EffectPropertyConverter : IValueConverter
+    public sealed class EffectPropertyConverter : IValueConverter
     {
         public object? Convert(object value, Type targetType, object parameter, CultureInfo culture)
         {

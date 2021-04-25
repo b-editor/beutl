@@ -1,12 +1,11 @@
 ﻿using System;
+using System.Collections.Generic;
 using System.ComponentModel;
 using System.IO;
 using System.Linq;
 using System.Net.Http;
 using System.Text.Json;
 using System.Threading;
-
-using Avalonia.Threading;
 
 using BEditor.Command;
 using BEditor.Data;
@@ -15,11 +14,8 @@ using BEditor.Extensions;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
 
-using NLog.Extensions.Logging;
-using NLog.Layouts;
-
-using LogLevel = Microsoft.Extensions.Logging.LogLevel;
-using NLogLevel = NLog.LogLevel;
+using Serilog;
+using Serilog.Formatting.Json;
 
 #nullable disable
 
@@ -43,46 +39,16 @@ namespace BEditor.Models
                 AppStatus = Status.Edit;
             };
 
-            // NLogの設定
-            var config = new NLog.Config.LoggingConfiguration();
-
-            var logfile = new NLog.Targets.FileTarget("logfile")
-            {
-                FileName = Path.Combine(AppContext.BaseDirectory, "user", "log.json"),
-                Layout = new JsonLayout
-                {
-                    Attributes =
-                    {
-                        new JsonAttribute("time", "${longdate}"),
-                        new JsonAttribute("level", "${level:upperCase=true}"),
-                        new JsonAttribute("type", "${exception:format=Type}"),
-                        new JsonAttribute("exception", "${exception:format=Message, ToString:separator=*}"),
-                        new JsonAttribute("message", "${message}"),
-                        new JsonAttribute("innerException", new JsonLayout
-                        {
-                            Attributes =
-                            {
-                                new JsonAttribute("time", "${longdate}"),
-                                new JsonAttribute("level", "${level:upperCase=true}"),
-                                new JsonAttribute("type", "${exception:format=:innerFormat=Type:MaxInnerExceptionLevel=1:InnerExceptionSeparator=}"),
-                                new JsonAttribute("message", "${exception:format=:innerFormat=Message:MaxInnerExceptionLevel=1:InnerExceptionSeparator=}"),
-                            }
-                        }, false)
-                    }
-                }
-            };
-            var logconsole = new NLog.Targets.ConsoleTarget("logconsole");
-
-            config.AddRule(NLogLevel.Info, NLogLevel.Fatal, logconsole);
-            config.AddRule(NLogLevel.Debug, NLogLevel.Fatal, logfile);
-
-            NLog.LogManager.Configuration = config;
+            Log.Logger = new LoggerConfiguration()
+                .Enrich.FromLogContext()
+                .WriteTo.File(new JsonFormatter(), Path.Combine(AppContext.BaseDirectory, "user", "log.json"))
+                .CreateLogger();
 
             LoggingFactory = LoggerFactory.Create(builder =>
             {
                 builder
-                    .AddConsole()
-                    .AddNLog();
+                    .AddDebug()
+                    .AddSerilog(Log.Logger);
             });
 
             // DIの設定
@@ -91,25 +57,32 @@ namespace BEditor.Models
                 .AddSingleton<IMessage>(_ => new MessageService())
                 .AddSingleton(_ => LoggingFactory)
                 .AddSingleton<HttpClient>();
+
+            LogManager.Logger= LoggingFactory.CreateLogger<LogManager>();
         }
 
         public static AppModel Current { get; } = new();
+
         public Project Project
         {
             get => _project;
             set => SetValue(value, ref _project, _ProjectArgs);
         }
+
         public Status AppStatus
         {
             get => _status;
             set => SetValue(value, ref _status, _StatusArgs);
         }
+
         public bool IsNotPlaying
         {
             get => _isplaying;
             set => SetValue(value, ref _isplaying, _IsPlayingArgs);
         }
+
         public IServiceCollection Services { get; }
+
         public IServiceProvider ServiceProvider
         {
             get => _serviceProvider ??= Services.BuildServiceProvider();
@@ -121,10 +94,15 @@ namespace BEditor.Models
                 FileDialog = ServiceProvider.GetService<IFileDialogService>()!;
             }
         }
+
         public IMessage Message { get; set; }
+
         public IFileDialogService FileDialog { get; set; }
+
         public ILoggerFactory LoggingFactory { get; }
+
         public SynchronizationContext UIThread { get; set; }
+
         Project IParentSingle<Project>.Child => Project;
 
         public async void SaveAppConfig(Project project, string directory)
@@ -165,6 +143,7 @@ namespace BEditor.Models
                 }
             }
         }
+
         public unsafe void RestoreAppConfig(Project project, string directory)
         {
             static void IfNotExistCreateDir(string dir)

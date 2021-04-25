@@ -8,7 +8,7 @@ using BEditor.Drawing;
 
 namespace BEditor.Converters
 {
-    public class FontToFontWeight : IValueConverter
+    public sealed class FontToFontWeight : IValueConverter
     {
         public object Convert(object value, Type targetType, object parameter, CultureInfo culture)
         {

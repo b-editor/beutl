@@ -1,15 +1,15 @@
 using System;
 
-using Avalonia;
 using Avalonia.Controls;
 using Avalonia.Markup.Xaml;
+using Avalonia.Threading;
 
 using BEditor.Data.Property;
 using BEditor.ViewModels.Properties;
 
 namespace BEditor.Views.Properties
 {
-    public class FilePropertyView : UserControl, IDisposable
+    public sealed class FilePropertyView : UserControl, IDisposable
     {
         public FilePropertyView()
         {
@@ -24,7 +24,7 @@ namespace BEditor.Views.Properties
 
         ~FilePropertyView()
         {
-            Dispose();
+            Dispatcher.UIThread.InvokeAsync(Dispose);
         }
 
         public void Dispose()

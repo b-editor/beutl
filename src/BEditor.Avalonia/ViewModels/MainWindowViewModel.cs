@@ -274,27 +274,46 @@ namespace BEditor.ViewModels
         }
 
         public double AcrylicTintOpacity1 { get; } = BEditor.Settings.Default.UseDarkMode ? 1 : 0;
+
         public double AcrylicMaterialOpacity1 { get; } = BEditor.Settings.Default.UseDarkMode ? 0.95 : 0;
+
         public double AcrylicTintOpacity2 { get; } = BEditor.Settings.Default.UseDarkMode ? 1 : 0;
+
         public double AcrylicMaterialOpacity2 { get; } = BEditor.Settings.Default.UseDarkMode ? 0.8 : 0;
+
         public ReactiveCommand Open { get; } = new();
+
         public ReactiveCommand Save { get; } = new();
+
         public ReactiveCommand SaveAs { get; } = new();
+
         public ReactiveCommand Close { get; } = new();
+
         public ReactiveCommand Shutdown { get; } = new();
+
         public ReactiveCommand Undo { get; } = new();
+
         public ReactiveCommand Redo { get; } = new();
+
         public ReactiveCommand Remove { get; } = new();
+
         public ReactiveCommand Cut { get; } = new();
+
         public ReactiveCommand Copy { get; } = new();
+
         public ReactiveCommand Paste { get; } = new();
+
         public ReactiveCommand ImageOutput { get; } = new();
+
         public ReactiveCommand VideoOutput { get; } = new();
+
         public ReadOnlyReactivePropertySlim<bool> IsOpened { get; } = AppModel.Current
             .ObserveProperty(p => p.Project)
             .Select(p => p is not null)
             .ToReadOnlyReactivePropertySlim();
+
         public PreviewerViewModel Previewer { get; }
+
         public static AppModel App => AppModel.Current;
 
         public static async ValueTask DirectOpenAsync(string filename)

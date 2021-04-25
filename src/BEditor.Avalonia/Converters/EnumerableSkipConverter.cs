@@ -7,7 +7,7 @@ using Avalonia.Data.Converters;
 
 namespace BEditor.Converters
 {
-    public class EnumerableSkipConverter : IValueConverter
+    public sealed class EnumerableSkipConverter : IValueConverter
     {
         public object? Convert(object value, Type targetType, object parameter, CultureInfo culture)
         {

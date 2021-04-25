@@ -1,15 +1,14 @@
 using System;
 
-using Avalonia;
 using Avalonia.Controls;
 using Avalonia.Markup.Xaml;
+using Avalonia.Threading;
 
-using BEditor.Data.Property;
 using BEditor.ViewModels.Properties;
 
 namespace BEditor.Views.Properties
 {
-    public class SelectorPropertyView : UserControl, IDisposable
+    public sealed class SelectorPropertyView : UserControl, IDisposable
     {
         public SelectorPropertyView()
         {
@@ -24,7 +23,7 @@ namespace BEditor.Views.Properties
 
         ~SelectorPropertyView()
         {
-            Dispose();
+            Dispatcher.UIThread.InvokeAsync(Dispose);
         }
 
         public void ComboBox_SelectionChanged(object s, SelectionChangedEventArgs e)

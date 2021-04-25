@@ -1,10 +1,9 @@
-using Avalonia;
 using Avalonia.Controls;
 using Avalonia.Markup.Xaml;
 
 namespace BEditor.Views.Settings
 {
-    public class License : UserControl
+    public sealed class License : UserControl
     {
         public License()
         {

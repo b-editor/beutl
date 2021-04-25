@@ -4,7 +4,6 @@ using System.IO;
 using System.Linq;
 using System.Net.Http;
 using System.Reactive.Disposables;
-using System.Runtime.InteropServices;
 using System.Text;
 using System.Text.Json;
 using System.Threading;
@@ -17,13 +16,13 @@ using BEditor.ViewModels.ToolControl;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
 
-using NLog.Extensions.Logging;
-using NLog.Layouts;
-
 using Reactive.Bindings;
 
+using Serilog;
+using Serilog.Formatting.Json;
+
+using ILogger = Microsoft.Extensions.Logging.ILogger;
 using LogLevel = Microsoft.Extensions.Logging.LogLevel;
-using NLogLevel = NLog.LogLevel;
 
 #nullable disable
 
@@ -43,48 +42,16 @@ namespace BEditor.Models
         {
             CommandManager.Default.Executed += (_, _) => AppStatus = Status.Edit;
 
-
-            // NLogの設定
-            var config = new NLog.Config.LoggingConfiguration();
-
-            var logfile = new NLog.Targets.FileTarget("logfile")
-            {
-                FileName = Path.Combine(AppContext.BaseDirectory, "user", "log.json"),
-                Layout = new JsonLayout()
-                {
-                    Attributes =
-                    {
-                        new JsonAttribute("time", "${longdate}"),
-                        new JsonAttribute("level", "${level:upperCase=true}"),
-                        new JsonAttribute("type", "${exception:format=Type}"),
-                        new JsonAttribute("exception", "${exception:format=Message, ToString:separator=*}"),
-                        new JsonAttribute("message", "${message}"),
-                        new JsonAttribute("innerException", new JsonLayout
-                        {
-                            Attributes =
-                            {
-                                new JsonAttribute("time", "${longdate}"),
-                                new JsonAttribute("level", "${level:upperCase=true}"),
-                                new JsonAttribute("type", "${exception:format=:innerFormat=Type:MaxInnerExceptionLevel=1:InnerExceptionSeparator=}"),
-                                new JsonAttribute("message", "${exception:format=:innerFormat=Message:MaxInnerExceptionLevel=1:InnerExceptionSeparator=}"),
-                            }
-                        }, false)
-                    }
-                }
-            };
-            var logconsole = new NLog.Targets.ConsoleTarget("logconsole");
-
-            config.AddRule(NLogLevel.Info, NLogLevel.Fatal, logconsole);
-            config.AddRule(NLogLevel.Debug, NLogLevel.Fatal, logfile);
-
-            NLog.LogManager.Configuration = config;
+            Log.Logger = new LoggerConfiguration()
+                .Enrich.FromLogContext()
+                .WriteTo.File(new JsonFormatter(), Path.Combine(AppContext.BaseDirectory, "user", "log.json"))
+                .CreateLogger();
 
             LoggingFactory = LoggerFactory.Create(builder =>
             {
                 builder
-                    .AddConsole()
-                    .AddNLog()
-                    .AddProvider(new BEditorLoggerProvider());
+                    .AddDebug()
+                    .AddSerilog(Log.Logger);
             });
 
             // DIの設定
@@ -93,6 +60,8 @@ namespace BEditor.Models
                 .AddSingleton<IMessage>(p => new MessageService())
                 .AddSingleton(_ => LoggingFactory)
                 .AddSingleton<HttpClient>();
+
+            LogManager.Logger = LoggingFactory.CreateLogger<LogManager>();
         }
 
         public static AppData Current { get; } = new();

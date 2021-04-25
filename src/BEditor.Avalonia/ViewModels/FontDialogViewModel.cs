@@ -29,6 +29,7 @@ namespace BEditor.ViewModels
         {
             LoadUsedFonts();
         }
+
         public FontDialogViewModel(Font selected)
         {
             SelectedItem = new(new FontItem(selected));
@@ -96,19 +97,28 @@ namespace BEditor.ViewModels
                 SelectedItem.Value = font;
             }).AddTo(_disposables);
         }
+
         ~FontDialogViewModel()
         {
             Dispose();
         }
 
         public static List<FontItem> FontItems { get; } = FontManager.Default.LoadedFonts.Select(i => new FontItem(i)).ToList();
+
         public static List<FontItem> UsedFonts { get; } = new();
+
         public ReactivePropertySlim<FontItem> SelectedItem { get; }
+
         public ReactivePropertySlim<string> Search { get; } = new();
+
         public ReactivePropertySlim<string> SampleText { get; } = new();
+
         public ReactiveCommand OKCommand { get; } = new();
+
         public ReactiveCommand<FontItem> SelectCommand { get; } = new();
+
         public ReactiveCommand WindowClose { get; } = new();
+
         public bool OKIsClicked { get; private set; }
 
         private static void SetVisibility()
@@ -123,6 +133,7 @@ namespace BEditor.ViewModels
                 item.IsVisible.Value = true;
             }
         }
+
         private static void SetIsChecked(bool value)
         {
             foreach (var item in FontItems)
@@ -135,12 +146,14 @@ namespace BEditor.ViewModels
                 item.IsChecked.Value = value;
             }
         }
+
         public void Dispose()
         {
             _disposables.Dispose();
 
             GC.SuppressFinalize(this);
         }
+
         private static void LoadUsedFonts()
         {
             var jsonFile = Path.Combine(AppContext.BaseDirectory, "user", "usedFonts.json");

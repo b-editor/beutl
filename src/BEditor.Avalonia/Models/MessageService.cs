@@ -1,15 +1,12 @@
-﻿using System.Linq;
-using System.Threading;
-using System.Threading.Tasks;
+﻿using System.Threading.Tasks;
 
 using Avalonia.Threading;
 
-using BEditor.Properties;
 using BEditor.Views.DialogContent;
 
 namespace BEditor.Models
 {
-    public class MessageService : IMessage
+    public sealed class MessageService : IMessage
     {
         public async ValueTask<IMessage.ButtonType?> DialogAsync(string text, IMessage.IconType icon = IMessage.IconType.Info, IMessage.ButtonType[]? types = null)
         {

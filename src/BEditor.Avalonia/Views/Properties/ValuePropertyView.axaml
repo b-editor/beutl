@@ -34,25 +34,18 @@
             FontSize="13"
             Content="{CompiledBinding Property.PropertyMetadata.Name, Mode=OneTime}" />
 
-
-        <ContentControl
+        <NumericUpDown
             Grid.Column="3"
-            Height="32"
             Margin="8,4"
-            Padding="0"
             HorizontalAlignment="Stretch"
-            VerticalAlignment="Center">
-            <NumericUpDown
-                Width="{Binding $parent.Bounds.Width, Mode=OneWay}"
-                Classes="custom"
-                Increment="10"
-                Value="{CompiledBinding Property.Value, Mode=OneWay}"
-                Maximum="{CompiledBinding Maximum, Mode=OneTime}"
-                Minimum="{CompiledBinding Minimum, Mode=OneTime}"
-                GotFocus="NumericUpDown_GotFocus"
-                LostFocus="NumericUpDown_LostFocus"
-                ValueChanged="NumericUpDown_ValueChanged" />
-        </ContentControl>
-
+            VerticalAlignment="Stretch"
+            Classes="custom"
+            Increment="10"
+            Value="{CompiledBinding Property.Value, Mode=OneWay}"
+            Maximum="{CompiledBinding Maximum, Mode=OneTime}"
+            Minimum="{CompiledBinding Minimum, Mode=OneTime}"
+            GotFocus="NumericUpDown_GotFocus"
+            LostFocus="NumericUpDown_LostFocus"
+            ValueChanged="NumericUpDown_ValueChanged" />
     </Grid>
 </UserControl>

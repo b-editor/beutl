@@ -1,16 +1,14 @@
 ﻿using System;
 using System.Globalization;
 
-using Avalonia.Data;
 using Avalonia.Data.Converters;
 
 using BEditor.Data;
 using BEditor.Extensions;
-using BEditor.Media;
 
 namespace BEditor.Converters
 {
-    public class SceneToTimelineConverter : IValueConverter
+    public sealed class SceneToTimelineConverter : IValueConverter
     {
         public object? Convert(object value, Type targetType, object parameter, CultureInfo culture)
         {

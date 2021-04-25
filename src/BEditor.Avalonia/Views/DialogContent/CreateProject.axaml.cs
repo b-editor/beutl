@@ -1,13 +1,12 @@
 using System;
 
-using Avalonia;
 using Avalonia.Controls;
 using Avalonia.Interactivity;
 using Avalonia.Markup.Xaml;
 
 namespace BEditor.Views.DialogContent
 {
-    public class CreateProject : UserControl, IDialogContent
+    public sealed class CreateProject : UserControl, IDialogContent
     {
         public CreateProject()
         {
@@ -22,6 +21,7 @@ namespace BEditor.Views.DialogContent
         {
             ButtonClicked?.Invoke(this, EventArgs.Empty);
         }
+
         private void InitializeComponent()
         {
             AvaloniaXamlLoader.Load(this);

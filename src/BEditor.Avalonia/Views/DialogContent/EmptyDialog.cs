@@ -11,7 +11,7 @@ using BEditor.ViewModels;
 
 namespace BEditor.Views.DialogContent
 {
-    public class EmptyDialog : Window
+    public sealed class EmptyDialog : Window
     {
         private readonly ExperimentalAcrylicBorder _border;
 
@@ -21,10 +21,12 @@ namespace BEditor.Views.DialogContent
 
             content.ButtonClicked += (_, _) => Close();
         }
+
         public EmptyDialog(IControl content) : this()
         {
             _border.Child = content;
         }
+
         private EmptyDialog()
         {
             ExtendClientAreaToDecorationsHint = true;

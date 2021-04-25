@@ -1,13 +1,12 @@
 using System.IO;
 
-using Avalonia;
 using Avalonia.Controls;
 using Avalonia.Interactivity;
 using Avalonia.Markup.Xaml;
 
 namespace BEditor.Views.Settings
 {
-    public class Fonts : UserControl
+    public sealed class Fonts : UserControl
     {
         public Fonts()
         {

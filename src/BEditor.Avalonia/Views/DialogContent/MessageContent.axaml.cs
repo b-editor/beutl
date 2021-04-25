@@ -11,12 +11,13 @@ using static BEditor.IMessage;
 
 namespace BEditor.Views.DialogContent
 {
-    public class MessageContent : UserControl, IDialogContent
+    public sealed class MessageContent : UserControl, IDialogContent
     {
         public MessageContent()
         {
             InitializeComponent();
         }
+
         public MessageContent(ButtonType[]? buttons, object content, IconType iconKind)
         {
             InitializeComponent();
@@ -78,7 +79,7 @@ namespace BEditor.Views.DialogContent
             label.Content = content;
         }
 
-        public ButtonType DialogResult { get; protected set; }
+        public ButtonType DialogResult { get; private set; }
 
         public event EventHandler? ButtonClicked;
 

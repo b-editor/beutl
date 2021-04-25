@@ -10,12 +10,12 @@ using Reactive.Bindings;
 
 namespace BEditor.ViewModels.Properties
 {
-    public class DialogPropertyViewModel
+    public sealed class DialogPropertyViewModel
     {
         public DialogPropertyViewModel(DialogProperty property)
         {
             Property = property;
-            ClickCommand.Subscribe(() => Property.Show());
+            ClickCommand.Subscribe(Property.Show);
         }
 
         public DialogProperty Property { get; }

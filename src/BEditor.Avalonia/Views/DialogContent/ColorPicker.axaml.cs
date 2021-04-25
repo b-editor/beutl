@@ -12,7 +12,7 @@ using Reactive.Bindings;
 
 namespace BEditor.Views.DialogContent
 {
-    public class ColorPicker : UserControl
+    public sealed class ColorPicker : UserControl
     {
         public static readonly StyledProperty<byte> RedProperty = AvaloniaProperty.Register<ColorPicker, byte>(nameof(Red), 255, defaultBindingMode: BindingMode.TwoWay);
         public static readonly StyledProperty<byte> GreenProperty = AvaloniaProperty.Register<ColorPicker, byte>(nameof(Green), 255, defaultBindingMode: BindingMode.TwoWay);
@@ -42,26 +42,31 @@ namespace BEditor.Views.DialogContent
             get => GetValue(RedProperty);
             set => SetValue(RedProperty, value);
         }
+
         public byte Green
         {
             get => GetValue(GreenProperty);
             set => SetValue(GreenProperty, value);
         }
+
         public byte Blue
         {
             get => GetValue(BlueProperty);
             set => SetValue(BlueProperty, value);
         }
+
         public byte Alpha
         {
             get => GetValue(AlphaProperty);
             set => SetValue(AlphaProperty, value);
         }
+
         public bool UseAlpha
         {
             get => GetValue(UseAlphaProperty);
             set => SetValue(UseAlphaProperty, value);
         }
+
         public ReactiveProperty<SolidColorBrush> SelectedColor { get; }
 
         private void InitializeComponent()
