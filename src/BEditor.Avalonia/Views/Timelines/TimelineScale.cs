@@ -1,5 +1,6 @@
 ﻿using System;
 using System.Collections.Generic;
+using System.Diagnostics;
 using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
@@ -7,7 +8,9 @@ using System.Threading.Tasks;
 using Avalonia;
 using Avalonia.Controls;
 using Avalonia.Layout;
+using Avalonia.LogicalTree;
 using Avalonia.Media;
+using Avalonia.VisualTree;
 
 using BEditor.Models;
 
@@ -66,49 +69,62 @@ namespace BEditor.Views.Timelines
                 return SecToPixel(min * 60);
             }
 
-            var length = Max / Rate;
+            int ToFrame(double pixel)
+            {
+                return (int)(pixel / (ConstantSettings.WidthOf1Frame * (Scale / 200)));
+            }
+
+            float PixelToSec(double pixel)
+            {
+                return ToFrame(pixel) / Rate;
+            }
+
+            float PixelToMin(double pixel)
+            {
+                return PixelToSec(pixel) / 60;
+            }
+
+            var height = Bounds.Height;
+            var scroll = (ScrollViewer)Parent.Parent;
+            var viewport = new Rect(new Point(scroll.Offset.X, scroll.Offset.Y), scroll.Viewport);
+            var totalSec = (int)PixelToSec(viewport.Width) + 2;
+            var startSec = (int)PixelToSec(viewport.X);
+            //var totalSec = Max / Rate;
+
             var rate = Rate;
             var scale = Scale;
-            var height = Bounds.Height;
 
             if (scale is >= 50 and <= 200f)
             {
                 //sは秒数
-                for (var s = 0; s < length; s++)
+                for (var s = startSec; s < totalSec + startSec; s++)
                 {
                     //一秒毎
                     var x = ToPixel((s * rate) - 1);
-                    context.DrawLine(_pen, new(x, 5), new(x, height));
-
-                    if (s is not 0)
+                    if (viewport.Contains(new Point(x, Bounds.Height)))
                     {
-                        _text.Text = s.ToString() + " sec";
-                        context.DrawText(_pen.Brush, new(x + 8, 0), _text);
+                        context.DrawLine(_pen, new(x, 5), new(x, height));
+
+                        if (s is not 0)
+                        {
+                            _text.Text = s.ToString() + " s";
+                            context.DrawText(_pen.Brush, new(x + 8, 0), _text);
+                        }
                     }
 
                     int value;
 
-                    if (scale is <= 200 and >= 150)
-                    {
-                        value = 1;
-                    }
-                    else if (scale is < 150 and >= 100)
-                    {
-                        value = 2;
-                    }
-                    else if (scale is < 100 and >= 50)
-                    {
-                        value = 4;
-                    }
-                    else
-                    {
-                        return;
-                    }
+                    if (scale is <= 200f and >= 150f) value = 1;
+                    else if (scale is <= 150f and >= 100f) value = 2;
+                    else if (scale is <= 100f and >= 50f) value = 6;
+                    else return;
 
                     //以下はフレーム
                     for (var frame = 1; frame < rate / value; frame++)
                     {
                         var xx = ToPixel(frame * value) + x;
+                        if (!viewport.Contains(new Point(xx, Bounds.Height))) continue;
+
                         context.DrawLine(_pen, new(xx, top), new(xx, height));
                     }
                 }
@@ -117,48 +133,41 @@ namespace BEditor.Views.Timelines
             {
                 //min は分数
                 //最大の分
-                for (var min = 0; min < length; min++)
+                for (var min = startSec / 60; min < ((totalSec + startSec) / 60) + 1; min++)
                 {
                     var x = MinToPixel(min);
-                    context.DrawLine(_pen, new(x, 5), new(x, height));
-
-                    if (min is not 0)
+                    if (viewport.Contains(new Point(x, Bounds.Height)))
                     {
-                        _text.Text = min.ToString() + " min";
-                        context.DrawText(_pen.Brush, new(x + 8, 0), _text);
+                        context.DrawLine(_pen, new(x, 5), new(x, height));
+
+                        if (min is not 0)
+                        {
+                            _text.Text = min.ToString() + " m";
+                            context.DrawText(_pen.Brush, new(x + 8, 0), _text);
+                        }
                     }
 
                     int value;
 
-                    if (scale is <= 50 and >= 40)
-                    {
-                        value = 1;
-                    }
-                    else if (scale is < 40 and >= 30)
-                    {
-                        value = 2;
-                    }
-                    else if (scale is < 30 and >= 20)
-                    {
-                        value = 3;
-                    }
-                    else if (scale is < 20 and >= 10)
-                    {
-                        value = 4;
-                    }
-                    else if (scale is < 10 and >= 0)
-                    {
-                        value = 5;
-                    }
-                    else
-                    {
-                        return;
-                    }
+                    if (scale is <= 50f and >= 40f) value = 1;
+                    else if (scale is <= 40f and >= 30f) value = 2;
+                    else if (scale is <= 30f and >= 20f) value = 4;
+                    else if (scale is <= 20f and >= 10f) value = 6;
+                    else if (scale is <= 10f and >= 0f) value = 15;
+                    else return;
 
                     for (var s = 1; s < 60 / value; s++)
                     {
                         var xx = SecToPixel(s * value) + x;
+                        if (!viewport.Contains(new Point(xx, Bounds.Height))) continue;
+
                         context.DrawLine(_pen, new(xx, top), new(xx, height));
+
+                        if (value is 2 or 4 or 6)
+                        {
+                            _text.Text = s.ToString() + " s";
+                            context.DrawText(_pen.Brush, new(xx + 8, 0), _text);
+                        }
                     }
                 }
             }
