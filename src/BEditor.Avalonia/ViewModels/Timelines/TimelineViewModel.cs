@@ -38,6 +38,29 @@ namespace BEditor.ViewModels.Timelines
 
             TrackWidth.Value = scene.ToPixel(scene.TotalFrame);
 
+            scene.ObserveProperty(s => s.TimeLineZoom, false)
+                .Subscribe(_ =>
+                {
+                    int l = Scene.TotalFrame;
+
+                    TrackWidth.Value = Scene.ToPixel(l);
+
+                    for (var index = 0; index < Scene.Datas.Count; index++)
+                    {
+                        var info = Scene.Datas[index];
+                        var start = Scene.ToPixel(info.Start);
+                        var length = Scene.ToPixel(info.Length);
+
+                        var vm = info.GetCreateClipViewModel();
+                        vm.MarginLeft = start;
+                        vm.WidthProperty.Value = length;
+                    }
+
+                    SeekbarMargin.Value = new Thickness(Scene.ToPixel(Scene.PreviewFrame), 0, 0, 0);
+
+                    ResetScale?.Invoke(Scene.TimeLineZoom, Scene.TotalFrame, Scene.Parent.Framerate);
+                });
+
             scene.ObserveProperty(s => s.PreviewFrame)
                 .Where(_ => Tool.PreviewIsEnabled)
                 .Subscribe(f =>
@@ -119,8 +142,7 @@ namespace BEditor.ViewModels.Timelines
                         return;
                     }
 
-                    Thickness thickness = default;
-
+                    Thickness thickness;
                     if (newframe < 0)
                     {
                         thickness = new(0, 0, 0, 0);

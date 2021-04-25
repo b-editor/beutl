@@ -133,7 +133,7 @@ namespace BEditor.Data
         public float TimeLineZoom
         {
             get => _timeLineZoom;
-            set => SetValue(value, ref _timeLineZoom, _ZoomArgs);
+            set => SetValue(Math.Clamp(value, 1, 200), ref _timeLineZoom, _ZoomArgs);
         }
 
         /// <summary>

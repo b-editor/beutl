@@ -73,7 +73,7 @@ namespace BEditor.Views.Properties
 
         ~EasePropertyView()
         {
-            Dispose();
+            Dispatcher.UIThread.InvokeAsync(Dispose);
         }
 
         private (NumericUpDown numeric, ContentControl content) CreateNumeric(int index)

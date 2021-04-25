@@ -32,7 +32,7 @@ namespace BEditor.Views.Timelines
         private readonly ScrollViewer _scrollLine;
         private readonly ScrollViewer _scrollLabel;
         private readonly StackPanel _layerLabel;
-        private readonly Grid _scale;
+        //private readonly Grid _scale;
         internal readonly Grid _timelineGrid;
         private readonly ContextMenu _timelineMenu;
         private bool _isFirst = true;
@@ -44,7 +44,7 @@ namespace BEditor.Views.Timelines
             _scrollLine = this.FindControl<ScrollViewer>("ScrollLine");
             _scrollLabel = this.FindControl<ScrollViewer>("ScrollLabel");
             _layerLabel = this.FindControl<StackPanel>("LayerLabel");
-            _scale = this.FindControl<Grid>("scale");
+            //_scale = this.FindControl<Grid>("scale");
             _timelineGrid = this.FindControl<Grid>("timelinegrid");
             _timelineMenu = this.FindControl<ContextMenu>("TimelineMenu");
 
@@ -98,7 +98,7 @@ namespace BEditor.Views.Timelines
             _scrollLine = this.FindControl<ScrollViewer>("ScrollLine");
             _scrollLabel = this.FindControl<ScrollViewer>("ScrollLabel");
             _layerLabel = this.FindControl<StackPanel>("LayerLabel");
-            _scale = this.FindControl<Grid>("scale");
+            //_scale = this.FindControl<Grid>("scale");
             _timelineGrid = this.FindControl<Grid>("timelinegrid");
             _timelineMenu = this.FindControl<ContextMenu>("TimelineMenu");
 
@@ -162,9 +162,7 @@ namespace BEditor.Views.Timelines
             _scrollLine.AddHandler(PointerWheelChangedEvent, ScrollLine_PointerWheel, RoutingStrategies.Tunnel);
 
             viewmodel.GetLayerMousePosition = (e) => e.GetPosition(_timelineGrid);
-            viewmodel.ResetScale = (zoom, max, rate) =>
-            {
-            };
+            //viewmodel.ResetScale = ResetScale;
             viewmodel.ClipLayerMoveCommand = (clip, layer) =>
             {
                 var vm = clip.GetCreateClipViewModel();
@@ -225,6 +223,137 @@ namespace BEditor.Views.Timelines
                     viewmodel.ResetScale?.Invoke(scene.TimeLineZoom, scene.TotalFrame, scene.Parent.Framerate);
                 });
         }
+
+        //private void ResetScale(float zoom, int max, int rate)
+        //{
+        //    Dispatcher.UIThread.InvokeAsync(() =>
+        //    {
+        //        const int top = 16;//15
+        //        double ToPixel(int frame)
+        //        {
+        //            return ConstantSettings.WidthOf1Frame * (zoom / 200) * frame;
+        //        }
+
+        //        double SecToPixel(float sec)
+        //        {
+        //            return ToPixel((int)(sec * rate));
+        //        }
+
+        //        double MinToPixel(float min)
+        //        {
+        //            return SecToPixel(min * 60);
+        //        }
+
+        //        _scale.Children.Clear();
+
+        //        if (zoom is >= 100f and <= 200f)
+        //        {
+        //            //s‚Í•b”
+        //            for (var s = 0; s < (max / rate); s++)
+        //            {
+        //                //ˆê•b–ˆ
+        //                var border = new Border
+        //                {
+        //                    Width = 1,
+        //                    HorizontalAlignment = HorizontalAlignment.Left,
+        //                    VerticalAlignment = VerticalAlignment.Stretch,
+        //                    Background = Brushes.White,
+        //                    Margin = new Thickness(ToPixel((s * rate) - 1), 5, 0, 0)
+        //                };
+
+        //                _scale.Children.Add(border);
+        //                if (s is not 0)
+        //                {
+        //                    _scale.Children.Add(new TextBlock
+        //                    {
+        //                        Margin = new Thickness(ToPixel((s * rate) + 1), 0, 0, 0),
+        //                        HorizontalAlignment = HorizontalAlignment.Left,
+        //                        VerticalAlignment = VerticalAlignment.Top,
+        //                        Text = s.ToString() + " sec"
+        //                    });
+        //                }
+
+        //                //ˆÈ‰º‚ÍƒtƒŒ[ƒ€
+        //                if (zoom <= 200 && zoom >= 166.7)
+        //                {
+        //                    for (var m = 1; m < rate; m++)
+        //                    {
+        //                        var border2 = new Border
+        //                        {
+        //                            Width = 1,
+        //                            HorizontalAlignment = HorizontalAlignment.Left,
+        //                            Background = Brushes.White,
+        //                            Margin = new Thickness(ToPixel(s * rate - 1 + m), top, 0, 0)
+        //                        };
+
+        //                        _scale.Children.Add(border2);
+        //                    }
+        //                }
+        //                else if (zoom < 166.7 && zoom >= 133.4)
+        //                {
+        //                    for (var m = 1; m < rate / 2; m++)
+        //                    {
+        //                        var border2 = new Border
+        //                        {
+        //                            Width = 1,
+        //                            HorizontalAlignment = HorizontalAlignment.Left,
+        //                            Background = Brushes.White,
+        //                            Margin = new Thickness(ToPixel((s * rate) - 1 + (m * 2)), top, 0, 0)
+        //                        };
+
+        //                        _scale.Children.Add(border2);
+        //                    }
+        //                }
+        //                else if (zoom < 133.4 && zoom >= 100)
+        //                {
+        //                    for (var m = 1; m < rate / 4; m++)
+        //                    {
+        //                        var border2 = new Border
+        //                        {
+        //                            Width = 1,
+        //                            HorizontalAlignment = HorizontalAlignment.Left,
+        //                            Background = Brushes.White,
+        //                            Margin = new Thickness(ToPixel((s * rate) - 1 + (m * 4)), top, 0, 0)
+        //                        };
+
+        //                        _scale.Children.Add(border2);
+        //                    }
+        //                }
+        //            }
+        //        }
+        //        else
+        //        {
+        //            //m ‚Í•ª”
+        //            //Å‘å‚Ì•ª
+        //            for (var m = 1; m < max / rate / 60; m++)
+        //            {
+        //                var border = new Border
+        //                {
+        //                    Width = 1,
+        //                    HorizontalAlignment = HorizontalAlignment.Left,
+        //                    VerticalAlignment = VerticalAlignment.Stretch,
+        //                    Background = Brushes.White,
+        //                    Margin = new Thickness(MinToPixel(m), 5, 0, 0)
+        //                };
+
+        //                _scale.Children.Add(border);
+
+        //                for (var s = 1; s < 60; s++)
+        //                {
+        //                    var border2 = new Border
+        //                    {
+        //                        Width = 1,
+        //                        HorizontalAlignment = HorizontalAlignment.Left,
+        //                        Background = Brushes.White,
+        //                        Margin = new Thickness(SecToPixel(s + m / 60), 15, 0, 0)
+        //                    };
+
+        //                    _scale.Children.Add(border2);
+        //                }
+        //            }
+        //        }
+        //    });
+        //}
 
         private void InitializeComponent()
         {
@@ -352,14 +481,11 @@ namespace BEditor.Views.Timelines
         {
             if (e.KeyModifiers is KeyModifiers.Control)
             {
-                if (!(Scene.TimeLineZoom > 200 || Scene.TimeLineZoom < 1))
-                {
-                    var offset = _scrollLine.Offset.X;
-                    var frame = Scene.ToFrame(offset);
-                    Scene.TimeLineZoom += (float)(e.Delta.Y / 120) * 5;
+                var offset = _scrollLine.Offset.X;
+                var frame = Scene.ToFrame(offset);
+                Scene.TimeLineZoom += (float)(e.Delta.Y / 120) * 5 * Scene.TimeLineZoom;
 
-                    _scrollLine.Offset = _scrollLine.Offset.WithX(Scene.ToPixel(frame));
-                }
+                _scrollLine.Offset = _scrollLine.Offset.WithX(Scene.ToPixel(frame));
             }
             else if (e.Delta.Y > 0)
             {
