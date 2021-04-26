@@ -49,7 +49,10 @@ namespace BEditor
 
         public override void RegisterServices()
         {
-            AvaloniaLocator.CurrentMutable.Bind<IFontManagerImpl>().ToConstant(new CustomFontManagerImpl());
+            if (OperatingSystem.IsLinux())
+            {
+                AvaloniaLocator.CurrentMutable.Bind<IFontManagerImpl>().ToConstant(new CustomFontManagerImpl());
+            }
             base.RegisterServices();
         }
 
