@@ -77,7 +77,7 @@ Task("AvaloniaExePublish")
             Runtime = rid
         });
 
-        Zip(binaryPath, publishDir.CombineWithFilePath($"beditor_avalonia_{rid}.zip"));
+        Zip(binaryPath, publishDir.CombineWithFilePath($"beditor_{rid}.zip"));
     }
 });
 
