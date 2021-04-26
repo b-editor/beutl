@@ -5,14 +5,6 @@
             "label": "build",
             "command": "dotnet",
             "type": "process",
-            "windows": {
-                "args": [
-                    "build",
-                    "${workspaceFolder}/src/BEditor.WPF/BEditor.WPF.csproj",
-                    "/property:GenerateFullPaths=true",
-                    "/consoleloggerparameters:NoSummary"
-                ]
-            },
             "args": [
                 "build",
                 "${workspaceFolder}/src/BEditor.Avalonia/BEditor.Avalonia.csproj",
@@ -25,14 +17,6 @@
             "label": "publish",
             "command": "dotnet",
             "type": "process",
-            "windows": {
-                "args": [
-                    "publish",
-                    "${workspaceFolder}/src/BEditor.WPF/BEditor.WPF.csproj",
-                    "/property:GenerateFullPaths=true",
-                    "/consoleloggerparameters:NoSummary"
-                ]
-            },
             "args": [
                 "publish",
                 "${workspaceFolder}/src/BEditor.Avalonia/BEditor.Avalonia.csproj",
@@ -45,15 +29,6 @@
             "label": "watch",
             "command": "dotnet",
             "type": "process",
-            "windows": {
-                "args": [
-                    "watch",
-                    "run",
-                    "${workspaceFolder}/src/BEditor.WPF/BEditor.WPF.csproj",
-                    "/property:GenerateFullPaths=true",
-                    "/consoleloggerparameters:NoSummary"
-                ]
-            },
             "args": [
                 "watch",
                 "run",

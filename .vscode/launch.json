@@ -15,11 +15,7 @@
             "cwd": "${workspaceFolder}/src/BEditor.Avalonia",
             // For more information about the 'console' field, see https://aka.ms/VSCode-CS-LaunchJson-Console
             "console": "internalConsole",
-            "stopAtEntry": false,
-            "windows": {
-                "program": "${workspaceFolder}/src/BEditor.WPF/bin/Debug/net5.0-windows/BEditor.dll",
-                "cwd": "${workspaceFolder}/src/BEditor.WPF",
-            }
+            "stopAtEntry": false
         },
         {
             "name": ".NET Core Attach",
