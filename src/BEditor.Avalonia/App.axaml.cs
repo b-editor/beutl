@@ -9,6 +9,7 @@ using Avalonia;
 using Avalonia.Controls;
 using Avalonia.Controls.ApplicationLifetimes;
 using Avalonia.Markup.Xaml;
+using Avalonia.Platform;
 using Avalonia.Styling;
 using Avalonia.Themes.Fluent;
 using Avalonia.Threading;
@@ -44,6 +45,12 @@ namespace BEditor
             }
 
             throw new Exception();
+        }
+
+        public override void RegisterServices()
+        {
+            AvaloniaLocator.CurrentMutable.Bind<IFontManagerImpl>().ToConstant(new CustomFontManagerImpl());
+            base.RegisterServices();
         }
 
         public override void Initialize()
