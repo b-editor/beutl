@@ -58,7 +58,7 @@ namespace BEditor.Models
                 .AddSingleton(_ => LoggingFactory)
                 .AddSingleton<HttpClient>();
 
-            LogManager.Logger= LoggingFactory.CreateLogger<LogManager>();
+            LogManager.Logger = LoggingFactory.CreateLogger<LogManager>();
         }
 
         public static AppModel Current { get; } = new();
