@@ -85,7 +85,7 @@ namespace BEditor.ViewModels.Properties
         public ReactiveCommand<string> TextChanged { get; } = new();
 
         public ReactiveCommand<TextBox> Cut { get; } = new();
-        
+
         public ReactiveCommand<TextBox> Copy { get; } = new();
 
         public ReactiveCommand<TextBox> Paste { get; } = new();
