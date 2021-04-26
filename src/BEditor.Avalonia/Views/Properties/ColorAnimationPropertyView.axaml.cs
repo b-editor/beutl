@@ -100,7 +100,7 @@ namespace BEditor.Views.Properties
                 dialog.col.Blue = color.Value[index].B;
                 dialog.col.Alpha = color.Value[index].A;
 
-                dialog.ok_button.Click += (_, _) => _property.ChangeColor(index, Drawing.Color.FromARGB(dialog.col.Alpha, dialog.col.Red, dialog.col.Green, dialog.col.Blue)).Execute();
+                dialog.Command = (d) => _property.ChangeColor(index, Drawing.Color.FromARGB(d.col.Alpha, d.col.Red, d.col.Green, d.col.Blue)).Execute();
 
                 await dialog.ShowDialog(App.GetMainWindow());
             }

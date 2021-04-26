@@ -1,3 +1,5 @@
+using System;
+
 using Avalonia;
 using Avalonia.Controls;
 using Avalonia.Data;
@@ -32,7 +34,7 @@ namespace BEditor.Views
             col = this.FindControl<ColorPicker>("col");
             ok_button = this.FindControl<Button>("ok_button");
 
-            ok_button.Click += (s, e) =>
+            Command = _ =>
             {
                 if (DataContext is ColorPropertyViewModel vm)
                 {
@@ -58,8 +60,17 @@ namespace BEditor.Views
 #endif
         }
 
+        public Action<ColorDialog>? Command { get; set; }
+
         public void Button_Click(object sender, RoutedEventArgs e)
         {
+            if (sender == ok_button)
+            {
+                Command?.Invoke(this);
+            }
+
+            Content = null;
+            DataContext = null;
             Close();
         }
 

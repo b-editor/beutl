@@ -21,64 +21,57 @@ namespace BEditor.Models
 
         public static async ValueTask AllInitializeAsync()
         {
-            var obj = ObjectsInitializeAsync();
-            var ef = EffectsInitializeAsync();
-            var ease = EasingsInitializeAsync();
-
-            await obj;
-            await ef;
-            await ease;
+            await Task.Run(() =>
+            {
+                ObjectsInitialize();
+                EffectsInitialize();
+                EasingsInitialize();
+            });
         }
 
-        public static async ValueTask ObjectsInitializeAsync()
+        public static void ObjectsInitialize()
         {
             if (ObjectsIsInitialized) return;
 
-            ObjectsIsInitialized = true;
-            await Task.Run(() =>
+            for (var i = 0; i < ObjectMetadata.LoadedObjects.Count; i++)
             {
-                for (var i = 0; i < ObjectMetadata.LoadedObjects.Count; i++)
-                {
-                    ObjectMetadata.LoadedObjects[i].Type.TypeInitializer?.Invoke(null, null);
-                }
-            });
+                ObjectMetadata.LoadedObjects[i].Type.TypeInitializer?.Invoke(null, null);
+            }
+
+            ObjectsIsInitialized = true;
         }
 
-        public static async ValueTask EffectsInitializeAsync()
+        public static void EffectsInitialize()
         {
             if (EffectsIsInitialized) return;
 
-            EffectsIsInitialized = true;
-            await Task.Run(() =>
+            for (var i = 0; i < EffectMetadata.LoadedEffects.Count; i++)
             {
-                for (var i = 0; i < EffectMetadata.LoadedEffects.Count; i++)
-                {
-                    var item = EffectMetadata.LoadedEffects[i];
-                    item.Type.TypeInitializer?.Invoke(null, null);
+                var item = EffectMetadata.LoadedEffects[i];
+                item.Type.TypeInitializer?.Invoke(null, null);
 
-                    if (item.Children is not null)
+                if (item.Children is not null)
+                {
+                    foreach (var ef in item.Children)
                     {
-                        foreach (var ef in item.Children)
-                        {
-                            ef.Type.TypeInitializer?.Invoke(null, null);
-                        }
+                        ef.Type.TypeInitializer?.Invoke(null, null);
                     }
                 }
-            });
+            }
+
+            EffectsIsInitialized = true;
         }
 
-        public static async ValueTask EasingsInitializeAsync()
+        public static void EasingsInitialize()
         {
             if (EasingsIsInitialized) return;
 
-            EasingsIsInitialized = true;
-            await Task.Run(() =>
+            for (var i = 0; i < EasingMetadata.LoadedEasingFunc.Count; i++)
             {
-                for (var i = 0; i < EasingMetadata.LoadedEasingFunc.Count; i++)
-                {
-                    EasingMetadata.LoadedEasingFunc[i].Type.TypeInitializer?.Invoke(null, null);
-                }
-            });
+                EasingMetadata.LoadedEasingFunc[i].Type.TypeInitializer?.Invoke(null, null);
+            }
+
+            EasingsIsInitialized = true;
         }
     }
 }
