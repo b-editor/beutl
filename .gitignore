@@ -354,4 +354,6 @@ MigrationBackup/
 tools/*
 !tools/packages.config
 
-/package/Debian/usr/lib
+!/packages/*
+!/packages/Debian/usr/bin
+/packages/Debian/usr/lib/beditor/*
