@@ -1,3 +1,18 @@
+## BEditor 0.1.1 Preview 2
+
+* [ダウンロード](https://github.com/b-editor/BEditor/releases/tag/v0.1.1-preview.2)
+
+### 変更
+* 日本語環境のLinux系OSで起動できない不具合を修正
+* Gpuでの画像処理に対応
+* プロジェクトの要素をGuidで管理するように変更
+* FilePropertyのModeがプロジェクトファイルから復元されない不具合を修正
+* タイムラインの目盛りを追加
+* ColorDialogが強制終了するのを修正
+* プレビュー中にUIが固まるのを軽減
+* ツールバーに表示されないオブジェクトを追加できない不具合を修正
+* キーフレームの編集UI追加
+
 ## BEditor 0.1.0 Preview 1
 
 * [ダウンロード](https://github.com/b-editor/BEditor/releases/tag/0.1.0-preview.1.0)

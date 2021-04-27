@@ -17,38 +17,6 @@ Task("Clean")
     DotNetCoreClean("./BEditor.sln");
 });
 
-Task("ConsolePublish")
-    .IsDependentOn("Clean")
-    .Does(() =>
-{
-    var rids = new string[]
-    {
-        "win-x64",
-        "linux-x64",
-        "osx-x64"
-    };
-
-    foreach (var rid in rids)
-    {
-        Console.WriteLine("========================================");
-        Console.WriteLine($"beditor_console_{rid}");
-        Console.WriteLine("========================================");
-
-        var binaryPath = DirectoryPath.FromString($"./src/BEditor.Console/bin/{configuration}/net5.0/{rid}/publish");
-        CreateDirectory(binaryPath);
-        CleanDirectory(binaryPath);
-
-        DotNetCorePublish("./src/BEditor.Console/BEditor.Console.csproj", new DotNetCorePublishSettings
-        {
-            Configuration = configuration,
-            SelfContained = true,
-            Runtime = rid
-        });
-
-        Zip(binaryPath, publishDir.CombineWithFilePath($"beditor_console_{rid}.zip"));
-    }
-});
-
 Task("AvaloniaExePublish")
     .IsDependentOn("Clean")
     .Does(() =>
@@ -63,7 +31,7 @@ Task("AvaloniaExePublish")
     foreach (var rid in rids)
     {
         Console.WriteLine("========================================");
-        Console.WriteLine($"beditor_avalonia_{rid}");
+        Console.WriteLine($"beditor_{rid}");
         Console.WriteLine("========================================");
 
         var binaryPath = DirectoryPath.FromString($"./src/BEditor.Avalonia/bin/{configuration}/net5.0/{rid}/publish");
@@ -81,22 +49,9 @@ Task("AvaloniaExePublish")
     }
 });
 
-Task("NugetPack")
-    .IsDependentOn("Clean")
-    .Does(() =>
-{
-    DotNetCorePack("./BEditor.Api.sln", new DotNetCorePackSettings()
-    {
-        Configuration = configuration,
-        OutputDirectory = publishDir.Combine("nuget"),
-    });
-});
-
 Task("Default")
     .IsDependentOn("Clean")
-    .IsDependentOn("NugetPack")
-    .IsDependentOn("AvaloniaExePublish")
-    .IsDependentOn("ConsolePublish");
+    .IsDependentOn("AvaloniaExePublish");
 
 //////////////////////////////////////////////////////////////////////
 // EXECUTION
