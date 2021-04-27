@@ -353,3 +353,5 @@ MigrationBackup/
 # Cake Addins
 tools/*
 !tools/packages.config
+
+/package/Debian/usr/lib

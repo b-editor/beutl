@@ -1,0 +1,6 @@
+Package: beditor
+Maintainer: indigo-san <lugongdao07@gmail.com>
+Architecture: amd64
+Version: 0.1.1-1
+Description: Video editing software
+ Can run on Windows, Linux, and macOS.

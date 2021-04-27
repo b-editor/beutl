@@ -1,0 +1,15 @@
+[Desktop Entry]
+
+Name=BEditor
+
+Comment=video editor
+
+Exec=/usr/bin/beditor
+
+Icon=/usr/share/pixmaps/icon.png
+
+Terminal=false
+
+Type=Application
+
+Categories=GNOME;Utility
