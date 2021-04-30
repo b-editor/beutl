@@ -21,7 +21,7 @@
         <PackageReference Include="Avalonia" Version="0.10.2" />
         <PackageReference Include="Avalonia.Desktop" Version="0.10.2" />
         <PackageReference Include="Avalonia.Diagnostics" Version="0.10.2" />
-        <PackageReference Include="MessageBox.Avalonia" Version="1.1.1" />
+        <PackageReference Include="MessageBox.Avalonia" Version="1.2.0" />
         <PackageReference Include="Microsoft.Extensions.Logging.Debug" Version="5.0.0" />
         <PackageReference Include="ReactiveProperty" Version="7.9.0" />
         <PackageReference Include="Serilog.Extensions.Logging" Version="3.0.1" />
