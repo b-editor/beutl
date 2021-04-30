@@ -25,7 +25,7 @@
         <PackageReference Include="MaterialDesignThemes" Version="4.0.0" />
         <PackageReference Include="MaterialDesignThemes.MahApps" Version="0.1.6" />
         <PackageReference Include="Neo.Markdig.Xaml" Version="1.0.9" />
-        <PackageReference Include="ReactiveProperty.WPF" Version="7.9.0" />
+        <PackageReference Include="ReactiveProperty.WPF" Version="7.10.0" />
         <PackageReference Include="System.Drawing.Common" Version="5.0.2" />
         <PackageReference Include="Serilog.Extensions.Logging" Version="3.0.1" />
         <PackageReference Include="Microsoft.Extensions.Logging.Debug" Version="5.0.0" />
