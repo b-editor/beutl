@@ -572,4 +572,10 @@ Please select the plugin you want to load</value>
   <data name="ImageFile" xml:space="preserve">
     <value>Image file</value>
   </data>
+  <data name="Output" xml:space="preserve">
+    <value>Output</value>
+  </data>
+  <data name="Codec" xml:space="preserve">
+    <value>Codec</value>
+  </data>
 </root>

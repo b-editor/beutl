@@ -18,6 +18,7 @@ using BEditor.Models;
 using BEditor.Primitive;
 using BEditor.Primitive.Objects;
 using BEditor.Properties;
+using BEditor.Views;
 using BEditor.Views.DialogContent;
 
 using Microsoft.Extensions.Logging;
@@ -268,6 +269,12 @@ namespace BEditor.ViewModels
 
                     img.Encode(record.FileName);
                 }
+            });
+
+            VideoOutput.Subscribe(async () =>
+            {
+                var dialog = new VideoOutput();
+                await dialog.ShowDialog(BEditor.App.GetMainWindow());
             });
 
             Previewer = new(IsOpened);

@@ -572,4 +572,10 @@
   <data name="ImageFile" xml:space="preserve">
     <value>画像ファイル</value>
   </data>
+  <data name="Output" xml:space="preserve">
+    <value>出力</value>
+  </data>
+  <data name="Codec" xml:space="preserve">
+    <value>コーデック</value>
+  </data>
 </root>

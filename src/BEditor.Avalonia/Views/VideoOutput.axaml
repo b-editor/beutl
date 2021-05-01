@@ -1,0 +1,147 @@
+<Window
+    xmlns="https://github.com/avaloniaui"
+    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+    xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+    xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+    xmlns:titlebar="using:BEditor.Views.CustomTitlebars"
+    xmlns:prop="using:BEditor.Properties"
+    xmlns:vm="using:BEditor.ViewModels"
+    mc:Ignorable="d"
+    x:DataType="vm:VideoOutputViewModel"
+    Height="450" Width="800"
+    ExtendClientAreaToDecorationsHint="True"
+    ExtendClientAreaChromeHints="NoChrome"
+    ExtendClientAreaTitleBarHeightHint="-1"
+    TransparencyLevelHint="AcrylicBlur"
+    Background="Transparent"
+    WindowStartupLocation="CenterScreen"
+    x:Class="BEditor.Views.VideoOutput">
+    <Window.DataContext>
+        <vm:VideoOutputViewModel />
+    </Window.DataContext>
+    <Panel>
+        <DockPanel HorizontalAlignment="Stretch">
+            <ExperimentalAcrylicBorder IsHitTestVisible="False" DockPanel.Dock="Left" Width="240">
+                <ExperimentalAcrylicBorder.Material>
+                    <ExperimentalAcrylicMaterial
+                      TintColor="#222222"
+                      TintOpacity="{CompiledBinding MainWindow.AcrylicTintOpacity1, Mode=OneTime}"
+                      MaterialOpacity="{CompiledBinding MainWindow.AcrylicMaterialOpacity1, Mode=OneTime}" />
+                </ExperimentalAcrylicBorder.Material>
+            </ExperimentalAcrylicBorder>
+            <ExperimentalAcrylicBorder IsHitTestVisible="False">
+                <ExperimentalAcrylicBorder.Material>
+                    <ExperimentalAcrylicMaterial
+                      TintColor="Black"
+                      TintOpacity="{CompiledBinding MainWindow.AcrylicTintOpacity2, Mode=OneTime}"
+                      MaterialOpacity="{CompiledBinding MainWindow.AcrylicMaterialOpacity2, Mode=OneTime}" />
+                </ExperimentalAcrylicBorder.Material>
+            </ExperimentalAcrylicBorder>
+        </DockPanel>
+
+        <titlebar:WindowsTitlebarButtons VerticalAlignment="Top"/>
+
+        <TabControl Classes="sidebar" Margin="0,16,0,0">
+            <TabControl.Styles>
+                <Style Selector="StackPanel">
+                    <Setter Property="Spacing" Value="16" />
+                    <Setter Property="Orientation" Value="Horizontal" />
+                </Style>
+
+                <Style Selector="PathIcon">
+                    <Setter Property="Width" Value="16" />
+                    <Setter Property="Height" Value="16" />
+                </Style>
+            </TabControl.Styles>
+            <TabItem>
+                <TabItem.Header>
+                    <StackPanel>
+                        <PathIcon Data="{StaticResource Info20Regular}"/>
+                        <TextBlock Text="{x:Static prop:Strings.Infomation}" />
+                    </StackPanel>
+                </TabItem.Header>
+
+                <VirtualizingStackPanel>
+                    <TextBlock Text="{x:Static prop:Strings.Infomation}" Classes="SettingsHeader"/>
+
+                    <Label Content="{x:Static prop:Strings.Scene}" Classes="SettingsItemHeader"/>
+
+                    <ComboBox
+                        Items="{CompiledBinding Project.SceneList, Mode=OneTime}"
+                        SelectedItem="{CompiledBinding SelectedScene.Value, Mode=TwoWay}"
+                        Classes="SettingsComboBox">
+                        <ComboBox.ItemTemplate>
+                            <DataTemplate>
+                                <TextBlock Text="{Binding SceneName}" />
+                            </DataTemplate>
+                        </ComboBox.ItemTemplate>
+                    </ComboBox>
+
+                    <Separator Height="16" />
+
+                    <Label Content="{x:Static prop:Strings.Width}" Classes="SettingsItemHeader"/>
+
+                    <TextBox
+                        IsReadOnly="True"
+                        Text="{CompiledBinding SelectedScene.Value.Width, Mode=OneWay}"
+                        Classes="SettingsTextBox"/>
+
+                    <Separator Height="16" />
+
+                    <Label Content="{x:Static prop:Strings.Height}" Classes="SettingsItemHeader"/>
+
+                    <TextBox
+                        IsReadOnly="True"
+                        Text="{CompiledBinding SelectedScene.Value.Height, Mode=OneWay}"
+                        Classes="SettingsTextBox"/>
+
+                    <Separator Height="16" />
+
+                    <Label Content="{x:Static prop:Strings.Framerate}" Classes="SettingsItemHeader"/>
+
+                    <TextBox
+                        IsReadOnly="True"
+                        Text="{CompiledBinding Project.Framerate, Mode=OneWay}"
+                        Classes="SettingsTextBox"/>
+
+                    <Separator Height="16" />
+
+                    <Label Content="{x:Static prop:Strings.Samplingrate}" Classes="SettingsItemHeader"/>
+
+                    <TextBox
+                        IsReadOnly="True"
+                        Text="{CompiledBinding Project.Samplingrate, Mode=OneWay}"
+                        Classes="SettingsTextBox"/>
+
+                </VirtualizingStackPanel>
+            </TabItem>
+            <TabItem>
+                <TabItem.Header>
+                    <StackPanel>
+                        <PathIcon Data="{StaticResource ArrowExportLtr20Regular}"/>
+                        <TextBlock Text="{x:Static prop:Strings.Output}" />
+                    </StackPanel>
+                </TabItem.Header>
+
+                <VirtualizingStackPanel>
+
+                    <TextBlock Text="{x:Static prop:Strings.Output}" Classes="SettingsHeader"/>
+
+                    <Label Content="{x:Static prop:Strings.Codec}" Classes="SettingsItemHeader"/>
+
+                    <ComboBox
+                        Items="{CompiledBinding Codecs, Mode=OneTime}"
+                        SelectedItem="{CompiledBinding SelectedCodec.Value, Mode=TwoWay}"
+                        Classes="SettingsComboBox">
+                        <ComboBox.ItemTemplate>
+                            <DataTemplate>
+                                <TextBlock Text="{Binding Name}" />
+                            </DataTemplate>
+                        </ComboBox.ItemTemplate>
+                    </ComboBox>
+                    
+                </VirtualizingStackPanel>
+            </TabItem>
+        </TabControl>
+    </Panel>
+</Window>

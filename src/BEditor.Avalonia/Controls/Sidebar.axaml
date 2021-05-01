@@ -41,7 +41,7 @@
                             Content="{TemplateBinding Tag}"
                             DockPanel.Dock="Bottom" />
                         <ScrollViewer
-                            Background="{x:Null}"
+                            Background="Transparent"
                             HorizontalScrollBarVisibility="{Binding RelativeSource={RelativeSource TemplatedParent}, Path=SelectedItem.(ScrollViewer.HorizontalScrollBarVisibility)}"
                             VerticalScrollBarVisibility="{Binding RelativeSource={RelativeSource TemplatedParent}, Path=SelectedItem.(ScrollViewer.VerticalScrollBarVisibility)}">
                             <ContentPresenter
