@@ -148,8 +148,8 @@ namespace BEditor.ViewModels
             });
         }
 
-        public MainWindowViewModel MainWindow => MainWindowViewModel.Current;
-        public Project Project => AppModel.Current.Project;
+        public MainWindowViewModel MainWindow { get; } = MainWindowViewModel.Current;
+        public Project Project { get; } = AppModel.Current.Project;
         public ReactivePropertySlim<Scene> SelectedScene { get; } = new();
 
         #region Video

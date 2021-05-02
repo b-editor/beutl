@@ -10,7 +10,7 @@ using BEditor.Data;
 using BEditor.Drawing;
 using BEditor.Drawing.Pixel;
 using BEditor.Media;
-using BEditor.Media.Encoder;
+using BEditor.Media.Encoding;
 using BEditor.Properties;
 using BEditor.Views;
 using BEditor.Views.MessageContent;
