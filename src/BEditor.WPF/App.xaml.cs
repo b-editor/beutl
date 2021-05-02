@@ -16,6 +16,7 @@ using System.Xml.Linq;
 
 using BEditor.Data;
 using BEditor.Drawing;
+using BEditor.Media;
 using BEditor.Models;
 using BEditor.Plugin;
 using BEditor.Primitive;
@@ -27,8 +28,6 @@ using BEditor.ViewModels.PropertyControl;
 using BEditor.Views;
 using BEditor.Views.CreatePage;
 using BEditor.Views.MessageContent;
-
-using FFMediaToolkit;
 
 using MaterialDesignThemes.Wpf;
 
