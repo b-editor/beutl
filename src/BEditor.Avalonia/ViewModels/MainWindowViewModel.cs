@@ -18,6 +18,7 @@ using BEditor.Models;
 using BEditor.Primitive;
 using BEditor.Primitive.Objects;
 using BEditor.Properties;
+using BEditor.Views;
 using BEditor.Views.DialogContent;
 
 using Microsoft.Extensions.Logging;
@@ -270,6 +271,12 @@ namespace BEditor.ViewModels
                 }
             });
 
+            VideoOutput.Subscribe(async () =>
+            {
+                var dialog = new VideoOutput();
+                await dialog.ShowDialog(BEditor.App.GetMainWindow());
+            });
+
             Previewer = new(IsOpened);
         }
 
@@ -314,7 +321,7 @@ namespace BEditor.ViewModels
 
         public PreviewerViewModel Previewer { get; }
 
-        public static AppModel App => AppModel.Current;
+        public AppModel App { get; } = AppModel.Current;
 
         public static async ValueTask DirectOpenAsync(string filename)
         {

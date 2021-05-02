@@ -3,10 +3,9 @@ using System.Runtime.InteropServices;
 
 namespace BEditor.Media.PCM
 {
-
     [Serializable]
     [StructLayout(LayoutKind.Sequential)]
-    public struct PCM16 : IPCM<PCM16>, IPCMConvertable<PCM32>
+    public struct PCM16 : IPCM<PCM16>, IPCMConvertable<PCM32>, IPCMConvertable<PCMFloat>
     {
         public short Value;
 
@@ -16,12 +15,22 @@ namespace BEditor.Media.PCM
 
         public void ConvertFrom(PCM32 src)
         {
-            Value = (short)(src.Value >> 16);
+            src.ConvertTo(out this);
+        }
+
+        public void ConvertFrom(PCMFloat src)
+        {
+            src.ConvertTo(out this);
         }
 
         public void ConvertTo(out PCM32 dst)
         {
             dst = new(Value << 16);
+        }
+
+        public void ConvertTo(out PCMFloat dst)
+        {
+            dst = new((float)Value / short.MaxValue);
         }
 
         public override string ToString()

@@ -12,33 +12,33 @@ namespace BEditor.Media
 {
     public unsafe class Sound<T> : IDisposable, IAsyncDisposable, ICloneable where T : unmanaged, IPCM<T>
     {
-        private readonly bool usedispose = true;
-        private T* pointer;
-        private T[]? array;
+        private readonly bool _requireDispose = true;
+        private T* _pointer;
+        private T[]? _array;
 
         public Sound(int rate, int length)
         {
             Samplingrate = rate;
             Length = length;
 
-            pointer = (T*)Marshal.AllocHGlobal(DataSize);
+            _pointer = (T*)Marshal.AllocHGlobal(DataSize);
             Data.Fill(default);
         }
         public Sound(int rate, int length, T[] data)
         {
-            usedispose = false;
+            _requireDispose = false;
             Samplingrate = rate;
             Length = length;
 
-            array = data;
+            _array = data;
         }
         public Sound(int rate, int length, T* data)
         {
-            usedispose = false;
+            _requireDispose = false;
             Samplingrate = rate;
             Length = length;
 
-            pointer = data;
+            _pointer = data;
         }
         ~Sound()
         {
@@ -51,7 +51,7 @@ namespace BEditor.Media
             {
                 ThrowIfDisposed();
 
-                return (array is null) ? new Span<T>(pointer, Length) : new Span<T>(array);
+                return (_array is null) ? new Span<T>(_pointer, Length) : new Span<T>(_array);
             }
         }
         public int Samplingrate { get; }
@@ -78,26 +78,26 @@ namespace BEditor.Media
         }
         public void Dispose()
         {
-            if (!IsDisposed && usedispose)
+            if (!IsDisposed && _requireDispose)
             {
-                if (pointer != null) Marshal.FreeHGlobal((IntPtr)pointer);
+                if (_pointer != null) Marshal.FreeHGlobal((IntPtr)_pointer);
 
-                pointer = null;
-                array = null;
+                _pointer = null;
+                _array = null;
             }
             IsDisposed = true;
             GC.SuppressFinalize(this);
         }
         public ValueTask DisposeAsync()
         {
-            if (IsDisposed && !usedispose) return default;
+            if (IsDisposed && !_requireDispose) return default;
 
             var task = Task.Run(() =>
             {
-                if (pointer != null) Marshal.FreeHGlobal((IntPtr)pointer);
+                if (_pointer != null) Marshal.FreeHGlobal((IntPtr)_pointer);
 
-                pointer = null;
-                array = null;
+                _pointer = null;
+                _array = null;
             });
 
             IsDisposed = true;

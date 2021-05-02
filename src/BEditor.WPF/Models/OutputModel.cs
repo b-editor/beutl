@@ -1,4 +1,5 @@
 ﻿using System;
+using System.Drawing;
 using System.Reactive.Linq;
 using System.Threading;
 using System.Threading.Tasks;
@@ -10,7 +11,8 @@ using BEditor.Data;
 using BEditor.Drawing;
 using BEditor.Drawing.Pixel;
 using BEditor.Media;
-using BEditor.Media.Encoder;
+using BEditor.Media.Encoding;
+using BEditor.Media.Graphics;
 using BEditor.Properties;
 using BEditor.Views;
 using BEditor.Views.MessageContent;
@@ -125,7 +127,9 @@ namespace BEditor.Models
             {
                 try
                 {
-                    var encoder = new FFmpegEncoder(scene.Width, scene.Height, scene.Parent!.Framerate, codec, file);
+                    var output = MediaBuilder.CreateContainer(file)
+                        .WithVideo(new(scene.Width, scene.Height, scene.Parent.Framerate, codec))
+                        .Create();
 
                     for (Frame frame = 0; frame < scene.TotalFrame; frame++)
                     {
@@ -141,12 +145,12 @@ namespace BEditor.Models
 
                         if (img is not null)
                         {
-                            encoder.Write(img);
+                            output.Video?.AddFrame(ImageData.FromDrawing(img));
                             await img.DisposeAsync();
                         }
                     }
 
-                    encoder?.Dispose();
+                    output?.Dispose();
 
                     dialog.Dispatcher.Invoke(dialog.Close);
                 }

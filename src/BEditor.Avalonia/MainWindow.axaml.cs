@@ -14,13 +14,12 @@ using Avalonia.Markup.Xaml;
 using Avalonia.Threading;
 
 using BEditor.Data;
+using BEditor.Media;
 using BEditor.Models;
 using BEditor.Properties;
 using BEditor.ViewModels;
 using BEditor.ViewModels.DialogContent;
 using BEditor.Views.DialogContent;
-
-using FFMediaToolkit;
 
 using Microsoft.Extensions.Logging;
 

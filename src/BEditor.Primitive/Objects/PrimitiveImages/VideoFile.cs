@@ -7,7 +7,7 @@ using BEditor.Data.Property;
 using BEditor.Drawing;
 using BEditor.Drawing.Pixel;
 using BEditor.Media;
-using BEditor.Media.Decoder;
+using BEditor.Media.Decoding;
 using BEditor.Primitive.Resources;
 
 using Microsoft.Extensions.DependencyInjection;
@@ -52,7 +52,7 @@ namespace BEditor.Primitive.Objects
                 new("mov")
             })));
 
-        private IMediaDecoder? _videoReader;
+        private MediaFile? _mediaFile;
 
         private IDisposable? _disposable;
 
@@ -102,14 +102,13 @@ namespace BEditor.Primitive.Objects
         /// <inheritdoc/>
         protected override Image<BGRA32>? OnRender(EffectRenderArgs args)
         {
+            if (_mediaFile?.Video is null) return null;
+
             float speed = Speed[args.Frame] / 100;
-            int start = (int)Start[args.Frame];
-            Image<BGRA32>? image = null;
+            var start = (int)Start[args.Frame];
             var time = new Frame((int)((start + args.Frame - Parent!.Start) * speed)).ToTimeSpan(Parent.Parent.Parent!.Framerate);
 
-            _videoReader?.Read(time, out image);
-
-            return image;
+            return _mediaFile.Video.GetFrame(time).ToDrawing();
         }
 
         /// <inheritdoc/>
@@ -119,16 +118,16 @@ namespace BEditor.Primitive.Objects
 
             if (System.IO.File.Exists(File.Value))
             {
-                _videoReader = VideoDecoderFactory.Default.Create(File.Value);
+                _mediaFile = MediaFile.Open(File.Value);
             }
 
             _disposable = File.Subscribe(filename =>
             {
-                _videoReader?.Dispose();
+                _mediaFile?.Dispose();
 
                 try
                 {
-                    _videoReader = VideoDecoderFactory.Default.Create(filename);
+                    _mediaFile = MediaFile.Open(filename);
                 }
                 catch (Exception)
                 {
@@ -143,7 +142,7 @@ namespace BEditor.Primitive.Objects
         {
             base.OnUnload();
 
-            _videoReader?.Dispose();
+            _mediaFile?.Dispose();
             _disposable?.Dispose();
         }
     }

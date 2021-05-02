@@ -1,5 +1,6 @@
 ﻿using System;
 using System.Collections.Generic;
+using System.Linq;
 using System.Reactive.Linq;
 using System.Threading.Tasks;
 
@@ -8,9 +9,11 @@ using BEditor.Data;
 using BEditor.Data.Primitive;
 using BEditor.Data.Property;
 using BEditor.Media;
-using BEditor.Media.Decoder;
+using BEditor.Media.Decoding;
 using BEditor.Media.PCM;
 using BEditor.Primitive.Resources;
+
+using FFmpeg.AutoGen;
 
 namespace BEditor.Primitive.Objects
 {
@@ -64,7 +67,7 @@ namespace BEditor.Primitive.Objects
             (owner, obj) => owner.File = obj,
             new FilePropertyMetadata(Strings.File, Filter: new("", new FileExtension[] { new("mp3"), new("wav") })));
 
-        private FFmpegDecoder? _decoder;
+        private MediaFile? _mediaFile;
 
         private AudioSource? _source;
 
@@ -117,26 +120,26 @@ namespace BEditor.Primitive.Objects
         /// </summary>
         public FileProperty File { get; private set; }
 
-        private FFmpegDecoder? Decoder
+        private MediaFile? Decoder
         {
             get
             {
-                if (_decoder is null && System.IO.File.Exists(File.Value))
+                if (_mediaFile is null && System.IO.File.Exists(File.Value))
                 {
-                    Decoder = new(File.Value);
+                    Decoder = MediaFile.Open(File.Value);
                 }
 
-                return _decoder;
+                return _mediaFile;
             }
             set
             {
-                _decoder?.Dispose();
-                _decoder = value;
+                _mediaFile?.Dispose();
+                _mediaFile = value;
 
-                if (_decoder is not null && _source is not null)
+                if (_mediaFile is not null && _source is not null)
                 {
                     _source.Buffer?.Dispose();
-                    _decoder.ReadAll(out Sound<StereoPCM16> sound);
+                    var sound = GetAllFrame(_mediaFile.Audio!);
 
                     _source.Buffer = new(sound);
 
@@ -178,13 +181,40 @@ namespace BEditor.Primitive.Objects
 
             _disposable = File.Where(file => System.IO.File.Exists(file)).Subscribe(file =>
             {
-                Decoder = new(file);
+                Decoder = MediaFile.Open(file);
             });
 
             var player = Parent.Parent.Player;
             player.Stopped += Player_Stopped;
 
             player.Playing += Player_PlayingAsync;
+        }
+
+        private static Sound<StereoPCM16> GetAllFrame(AudioStream stream)
+        {
+            stream.TryGetFrame(TimeSpan.Zero, out _);
+            var sampleL = new List<short>();
+            var sampleR = new List<short>();
+
+            while (stream.TryGetNextFrame(out var audio))
+            {
+                var array = audio.GetSampleData();
+
+                sampleL.AddRange(array[0].Select(i => (short)(i * short.MaxValue)));
+
+                if (array.Length is 2)
+                {
+                    sampleR.AddRange(array[1].Select(i => (short)(i * short.MaxValue)));
+                }
+            }
+
+            var sound = new Sound<StereoPCM16>(stream.Info.SampleRate, sampleL.Count);
+
+            sampleL.Zip(sampleR, (l, r) => new StereoPCM16(l, r))
+                .ToArray()
+                .CopyTo(sound.Data);
+
+            return sound;
         }
 
         private async void Player_PlayingAsync(object? sender, PlayingEventArgs e)
@@ -227,8 +257,8 @@ namespace BEditor.Primitive.Objects
             _disposable?.Dispose();
             _source?.Dispose();
             _source = null;
-            _decoder?.Dispose();
-            _decoder = null;
+            _mediaFile?.Dispose();
+            _mediaFile = null;
 
             var player = Parent.Parent.Player;
             player.Stopped -= Player_Stopped;

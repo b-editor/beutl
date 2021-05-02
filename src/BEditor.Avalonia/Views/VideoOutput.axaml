@@ -1,0 +1,399 @@
+<Window
+    xmlns="https://github.com/avaloniaui"
+    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+    xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+    xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+    xmlns:titlebar="using:BEditor.Views.CustomTitlebars"
+    xmlns:prop="using:BEditor.Properties"
+    xmlns:vm="using:BEditor.ViewModels"
+    mc:Ignorable="d"
+    x:DataType="vm:VideoOutputViewModel"
+    Height="450" Width="800"
+    ExtendClientAreaToDecorationsHint="True"
+    ExtendClientAreaChromeHints="NoChrome"
+    ExtendClientAreaTitleBarHeightHint="-1"
+    TransparencyLevelHint="AcrylicBlur"
+    Background="Transparent"
+    WindowStartupLocation="CenterScreen"
+    x:Class="BEditor.Views.VideoOutput">
+    <Panel>
+        <DockPanel HorizontalAlignment="Stretch">
+            <ExperimentalAcrylicBorder IsHitTestVisible="False" DockPanel.Dock="Left" Width="240">
+                <ExperimentalAcrylicBorder.Material>
+                    <ExperimentalAcrylicMaterial
+                      TintColor="#222222"
+                      TintOpacity="{CompiledBinding MainWindow.AcrylicTintOpacity1, Mode=OneTime}"
+                      MaterialOpacity="{CompiledBinding MainWindow.AcrylicMaterialOpacity1, Mode=OneTime}" />
+                </ExperimentalAcrylicBorder.Material>
+            </ExperimentalAcrylicBorder>
+            <ExperimentalAcrylicBorder IsHitTestVisible="False">
+                <ExperimentalAcrylicBorder.Material>
+                    <ExperimentalAcrylicMaterial
+                      TintColor="Black"
+                      TintOpacity="{CompiledBinding MainWindow.AcrylicTintOpacity2, Mode=OneTime}"
+                      MaterialOpacity="{CompiledBinding MainWindow.AcrylicMaterialOpacity2, Mode=OneTime}" />
+                </ExperimentalAcrylicBorder.Material>
+            </ExperimentalAcrylicBorder>
+        </DockPanel>
+
+        <titlebar:WindowsTitlebarButtons VerticalAlignment="Top"/>
+
+        <TabControl Classes="sidebar" Margin="0,16,0,0">
+            <TabControl.Styles>
+                <Style Selector="StackPanel">
+                    <Setter Property="Spacing" Value="16" />
+                    <Setter Property="Orientation" Value="Horizontal" />
+                </Style>
+
+                <Style Selector="PathIcon">
+                    <Setter Property="Width" Value="16" />
+                    <Setter Property="Height" Value="16" />
+                </Style>
+            </TabControl.Styles>
+            <TabItem>
+                <TabItem.Header>
+                    <StackPanel>
+                        <PathIcon Data="{StaticResource Info20Regular}"/>
+                        <TextBlock Text="{x:Static prop:Strings.Infomation}" />
+                    </StackPanel>
+                </TabItem.Header>
+
+                <VirtualizingStackPanel>
+                    <!--情報-->
+                    <TextBlock Text="{x:Static prop:Strings.Infomation}" Classes="SettingsHeader"/>
+
+                    <!--シーン-->
+                    <Label Content="{x:Static prop:Strings.Scene}" Classes="SettingsItemHeader"/>
+
+                    <ComboBox
+                        Items="{CompiledBinding Project.SceneList, Mode=OneTime}"
+                        SelectedItem="{CompiledBinding SelectedScene.Value, Mode=TwoWay}"
+                        Classes="SettingsComboBox">
+                        <ComboBox.ItemTemplate>
+                            <DataTemplate>
+                                <TextBlock Text="{Binding SceneName}" />
+                            </DataTemplate>
+                        </ComboBox.ItemTemplate>
+                    </ComboBox>
+
+                    <Separator Height="16" />
+
+                    <!--横幅-->
+                    <Label Content="{x:Static prop:Strings.Width}" Classes="SettingsItemHeader"/>
+
+                    <TextBox
+                        IsReadOnly="True"
+                        Text="{CompiledBinding SelectedScene.Value.Width, Mode=OneWay}"
+                        Classes="SettingsTextBox"/>
+
+                    <Separator Height="16" />
+
+                    <!--高さ-->
+                    <Label Content="{x:Static prop:Strings.Height}" Classes="SettingsItemHeader"/>
+
+                    <TextBox
+                        IsReadOnly="True"
+                        Text="{CompiledBinding SelectedScene.Value.Height, Mode=OneWay}"
+                        Classes="SettingsTextBox"/>
+
+                    <Separator Height="16" />
+
+                    <!--フレームレート-->
+                    <Label Content="{x:Static prop:Strings.Framerate}" Classes="SettingsItemHeader"/>
+
+                    <TextBox
+                        IsReadOnly="True"
+                        Text="{CompiledBinding Project.Framerate, Mode=OneWay}"
+                        Classes="SettingsTextBox"/>
+
+                    <Separator Height="16" />
+
+                    <!--サンプリングレート-->
+                    <Label Content="{x:Static prop:Strings.Samplingrate}" Classes="SettingsItemHeader"/>
+
+                    <TextBox
+                        IsReadOnly="True"
+                        Text="{CompiledBinding Project.Samplingrate, Mode=OneWay}"
+                        Classes="SettingsTextBox"/>
+
+                </VirtualizingStackPanel>
+            </TabItem>
+            <TabItem>
+                <TabItem.Header>
+                    <StackPanel>
+                        <PathIcon Data="{StaticResource MoviesAndTv20Regular}"/>
+                        <TextBlock Text="{x:Static prop:Strings.Video}" />
+                    </StackPanel>
+                </TabItem.Header>
+
+                <VirtualizingStackPanel>
+
+                    <TextBlock Text="{x:Static prop:Strings.Video}" Classes="SettingsHeader"/>
+
+                    <!--コーデック-->
+                    <Label Content="{x:Static prop:Strings.Codec}" Classes="SettingsItemHeader"/>
+
+                    <ComboBox
+                        Items="{CompiledBinding VideoCodecs, Mode=OneTime}"
+                        SelectedItem="{CompiledBinding SelectedVideoCodec.Value, Mode=TwoWay}"
+                        Classes="SettingsComboBox">
+                        <ComboBox.ItemTemplate>
+                            <DataTemplate>
+                                <TextBlock Text="{Binding Name}" />
+                            </DataTemplate>
+                        </ComboBox.ItemTemplate>
+                    </ComboBox>
+
+                    <Separator Height="16" />
+
+                    <!--フォーマット-->
+                    <Label Content="{x:Static prop:Strings.Format}" Classes="SettingsItemHeader"/>
+
+                    <ComboBox
+                        Items="{CompiledBinding PixelFormats, Mode=OneTime}"
+                        SelectedItem="{CompiledBinding SelectedPixelFormat.Value, Mode=TwoWay}"
+                        Classes="SettingsComboBox">
+                        <ComboBox.ItemTemplate>
+                            <DataTemplate>
+                                <TextBlock Text="{Binding Name}" />
+                            </DataTemplate>
+                        </ComboBox.ItemTemplate>
+                    </ComboBox>
+
+                    <!--プリセット-->
+                    <Label Content="{x:Static prop:Strings.Preset}" Classes="SettingsItemHeader"/>
+
+                    <ComboBox
+                        Items="{CompiledBinding Presets, Mode=OneTime}"
+                        SelectedItem="{CompiledBinding SelectedPreset.Value, Mode=TwoWay}"
+                        Classes="SettingsComboBox">
+                        <ComboBox.ItemTemplate>
+                            <DataTemplate>
+                                <TextBlock Text="{Binding Name}" />
+                            </DataTemplate>
+                        </ComboBox.ItemTemplate>
+                    </ComboBox>
+
+                    <Separator Height="16" />
+
+                    <!--ビットレート-->
+                    <Label Content="Bitrate" Classes="SettingsItemHeader"/>
+
+                    <NumericUpDown
+                        Value="{CompiledBinding VideoBitrate.Value, Mode=TwoWay}"
+                        ShowButtonSpinner="True"
+                        Classes="SettingsNumericUpDown"/>
+
+                    <Separator Height="16" />
+
+                    <!--キーフレームレート-->
+                    <Label Content="KeyframeRate" Classes="SettingsItemHeader"/>
+
+                    <NumericUpDown
+                        Value="{CompiledBinding KeyframeRate.Value, Mode=TwoWay}"
+                        ShowButtonSpinner="True"
+                        Classes="SettingsNumericUpDown"/>
+
+                </VirtualizingStackPanel>
+            </TabItem>
+            <TabItem>
+                <TabItem.Header>
+                    <StackPanel>
+                        <PathIcon Data="{StaticResource Speaker220Regular}"/>
+                        <TextBlock Text="{x:Static prop:Strings.Audio}" />
+                    </StackPanel>
+                </TabItem.Header>
+
+                <VirtualizingStackPanel>
+
+                    <TextBlock Text="{x:Static prop:Strings.Audio}" Classes="SettingsHeader"/>
+
+                    <!--コーデック-->
+                    <Label Content="{x:Static prop:Strings.Codec}" Classes="SettingsItemHeader"/>
+
+                    <ComboBox
+                        Items="{CompiledBinding AudioCodecs, Mode=OneTime}"
+                        SelectedItem="{CompiledBinding SelectedAudioCodec.Value, Mode=TwoWay}"
+                        Classes="SettingsComboBox">
+                        <ComboBox.ItemTemplate>
+                            <DataTemplate>
+                                <TextBlock Text="{Binding Name}" />
+                            </DataTemplate>
+                        </ComboBox.ItemTemplate>
+                    </ComboBox>
+
+                    <Separator Height="16" />
+
+                    <!--フォーマット-->
+                    <Label Content="{x:Static prop:Strings.Format}" Classes="SettingsItemHeader"/>
+
+                    <ComboBox
+                        Items="{CompiledBinding SampleFormats, Mode=OneTime}"
+                        SelectedItem="{CompiledBinding SelectedSampleFormat.Value, Mode=TwoWay}"
+                        Classes="SettingsComboBox">
+                        <ComboBox.ItemTemplate>
+                            <DataTemplate>
+                                <TextBlock Text="{Binding Name}" />
+                            </DataTemplate>
+                        </ComboBox.ItemTemplate>
+                    </ComboBox>
+
+                    <Separator Height="16" />
+
+                    <!--ビットレート-->
+                    <Label Content="Bitrate" Classes="SettingsItemHeader"/>
+
+                    <NumericUpDown
+                        Value="{CompiledBinding AudioBitrate.Value, Mode=TwoWay}"
+                        ShowButtonSpinner="True"
+                        Classes="SettingsNumericUpDown"/>
+
+                </VirtualizingStackPanel>
+            </TabItem>
+            <TabItem>
+                <TabItem.Header>
+                    <StackPanel>
+                        <PathIcon Data="{StaticResource BookDatabase24Regular}"/>
+                        <TextBlock Text="{x:Static prop:Strings.Metadata}" />
+                    </StackPanel>
+                </TabItem.Header>
+
+                <VirtualizingStackPanel>
+
+                    <TextBlock Text="{x:Static prop:Strings.Metadata}" Classes="SettingsHeader"/>
+
+                    <CheckBox
+                        IsChecked="{CompiledBinding Validation.Value, Mode=TwoWay}"
+                        Content="{x:Static prop:Strings.Validation}"
+                        Classes="SettingsCheckBox"/>
+
+                    <!--Title-->
+                    <Label Content="Title" Classes="SettingsItemHeader"/>
+
+                    <TextBox
+                        IsEnabled="{CompiledBinding Validation.Value, Mode=OneWay}"
+                        Text="{CompiledBinding Title.Value, Mode=TwoWay}"
+                        Classes="SettingsTextBox" />
+
+                    <!--Author-->
+                    <Label Content="Author" Classes="SettingsItemHeader"/>
+
+                    <TextBox
+                        IsEnabled="{CompiledBinding Validation.Value, Mode=OneWay}"
+                        Text="{CompiledBinding Author.Value, Mode=TwoWay}"
+                        Classes="SettingsTextBox" />
+
+                    <!--Album-->
+                    <Label Content="Album" Classes="SettingsItemHeader"/>
+
+                    <TextBox
+                        IsEnabled="{CompiledBinding Validation.Value, Mode=OneWay}"
+                        Text="{CompiledBinding Album.Value, Mode=TwoWay}"
+                        Classes="SettingsTextBox" />
+
+                    <!--Year-->
+                    <Label Content="Year" Classes="SettingsItemHeader"/>
+
+                    <TextBox
+                        IsEnabled="{CompiledBinding Validation.Value, Mode=OneWay}" 
+                        Text="{CompiledBinding Year.Value, Mode=TwoWay}"
+                        Classes="SettingsTextBox" />
+
+                    <!--Genre-->
+                    <Label Content="Genre" Classes="SettingsItemHeader"/>
+
+                    <TextBox
+                        IsEnabled="{CompiledBinding Validation.Value, Mode=OneWay}" 
+                        Text="{CompiledBinding Genre.Value, Mode=TwoWay}"
+                        Classes="SettingsTextBox" />
+
+                    <!--Description-->
+                    <Label Content="Description" Classes="SettingsItemHeader"/>
+
+                    <TextBox
+                        IsEnabled="{CompiledBinding Validation.Value, Mode=OneWay}"
+                        Text="{CompiledBinding Description.Value, Mode=TwoWay}"
+                        Classes="SettingsTextBox" />
+
+                    <!--Language-->
+                    <Label Content="Language" Classes="SettingsItemHeader"/>
+
+                    <TextBox
+                        IsEnabled="{CompiledBinding Validation.Value, Mode=OneWay}"
+                        Text="{CompiledBinding Language.Value, Mode=TwoWay}"
+                        Classes="SettingsTextBox" />
+
+                    <!--Copyright-->
+                    <Label Content="Copyright" Classes="SettingsItemHeader"/>
+
+                    <TextBox
+                        IsEnabled="{CompiledBinding Validation.Value, Mode=OneWay}"
+                        Text="{CompiledBinding Copyright.Value, Mode=TwoWay}"
+                        Classes="SettingsTextBox" />
+
+                    <!--Rating-->
+                    <Label Content="Rating" Classes="SettingsItemHeader"/>
+
+                    <TextBox
+                        IsEnabled="{CompiledBinding Validation.Value, Mode=OneWay}"
+                        Text="{CompiledBinding Rating.Value, Mode=TwoWay}"
+                        Classes="SettingsTextBox" />
+
+                    <!--TrackNumber-->
+                    <Label Content="TrackNumber" Classes="SettingsItemHeader"/>
+
+                    <TextBox
+                        IsEnabled="{CompiledBinding Validation.Value, Mode=OneWay}"
+                        Text="{CompiledBinding TrackNumber.Value, Mode=TwoWay}"
+                        Classes="SettingsTextBox" />
+
+                </VirtualizingStackPanel>
+            </TabItem>
+            <TabItem>
+                <TabItem.Header>
+                    <StackPanel>
+                        <PathIcon Data="{StaticResource ArrowExportLtr20Regular}"/>
+                        <TextBlock Text="{x:Static prop:Strings.Output}" />
+                    </StackPanel>
+                </TabItem.Header>
+
+                <VirtualizingStackPanel>
+
+                    <TextBlock Text="{x:Static prop:Strings.Output}" Classes="SettingsHeader"/>
+
+                    <!--ファイル-->
+                    <Label Content="{x:Static prop:Strings.File}" Classes="SettingsItemHeader"/>
+
+                    <VirtualizingStackPanel Orientation="Horizontal">
+                        <TextBox Text="{CompiledBinding File.Value, Mode=TwoWay}" Classes="SettingsTextBox" />
+
+                        <Button Command="{CompiledBinding SaveFileDialog, Mode=OneTime}">
+                            <PathIcon Data="{StaticResource FolderOpen16Regular}" />
+                        </Button>
+                    </VirtualizingStackPanel>
+
+                    <Separator Height="16" />
+
+                    <!--フォーマット-->
+                    <Label Content="{x:Static prop:Strings.ContainerFormat}" Classes="SettingsItemHeader"/>
+
+                    <ComboBox
+                        Items="{CompiledBinding ContainerFormats, Mode=OneTime}"
+                        SelectedItem="{CompiledBinding SelectedContainerFormat.Value, Mode=TwoWay}"
+                        Classes="SettingsComboBox">
+                        <ComboBox.ItemTemplate>
+                            <DataTemplate>
+                                <TextBlock Text="{Binding Name}" />
+                            </DataTemplate>
+                        </ComboBox.ItemTemplate>
+                    </ComboBox>
+
+                    <Separator Height="16" />
+
+                    <!--出力-->
+                    <Button Content="{x:Static prop:Strings.Output}" Command="{CompiledBinding Output, Mode=OneTime}" Margin="16" />
+                </VirtualizingStackPanel>
+            </TabItem>
+        </TabControl>
+    </Panel>
+</Window>
