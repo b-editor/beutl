@@ -7,7 +7,6 @@ using BEditor.Data.Property;
 using BEditor.Drawing;
 using BEditor.Drawing.Pixel;
 using BEditor.Media;
-using BEditor.Media.Decoder;
 using BEditor.Primitive.Resources;
 
 using Microsoft.Extensions.DependencyInjection;
@@ -52,7 +51,7 @@ namespace BEditor.Primitive.Objects
                 new("mov")
             })));
 
-        private IMediaDecoder? _videoReader;
+        private FFmpegDecoder? _videoReader;
 
         private IDisposable? _disposable;
 
@@ -119,7 +118,7 @@ namespace BEditor.Primitive.Objects
 
             if (System.IO.File.Exists(File.Value))
             {
-                _videoReader = VideoDecoderFactory.Default.Create(File.Value);
+                _videoReader = new FFmpegDecoder(File.Value);
             }
 
             _disposable = File.Subscribe(filename =>
@@ -128,7 +127,7 @@ namespace BEditor.Primitive.Objects
 
                 try
                 {
-                    _videoReader = VideoDecoderFactory.Default.Create(filename);
+                    _videoReader = new FFmpegDecoder(filename);
                 }
                 catch (Exception)
                 {

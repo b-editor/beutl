@@ -35,7 +35,6 @@ namespace BEditor.Media
         public static Frame FromHours(double hours, double framerate) => FromMinutes(hours * 60, framerate);
         public static Frame FromTimeSpan(TimeSpan timeSpan, double framerate) => FromMilliseconds(timeSpan.TotalMilliseconds, framerate);
 
-
         public override readonly bool Equals(object? obj)
             => obj is Frame frame && Equals(frame);
         public readonly bool Equals(Frame other)

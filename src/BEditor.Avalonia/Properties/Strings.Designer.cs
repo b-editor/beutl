@@ -243,6 +243,15 @@ namespace BEditor.Properties {
         }
         
         /// <summary>
+        ///   Audio に類似しているローカライズされた文字列を検索します。
+        /// </summary>
+        public static string Audio {
+            get {
+                return ResourceManager.GetString("Audio", resourceCulture);
+            }
+        }
+        
+        /// <summary>
         ///   Backup file に類似しているローカライズされた文字列を検索します。
         /// </summary>
         public static string BackupFile {
@@ -384,6 +393,15 @@ namespace BEditor.Properties {
         public static string ComponentIsExtractedAndPlaced {
             get {
                 return ResourceManager.GetString("ComponentIsExtractedAndPlaced", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Container format に類似しているローカライズされた文字列を検索します。
+        /// </summary>
+        public static string ContainerFormat {
+            get {
+                return ResourceManager.GetString("ContainerFormat", resourceCulture);
             }
         }
         
@@ -586,6 +604,15 @@ namespace BEditor.Properties {
         }
         
         /// <summary>
+        ///   File に類似しているローカライズされた文字列を検索します。
+        /// </summary>
+        public static string File {
+            get {
+                return ResourceManager.GetString("File", resourceCulture);
+            }
+        }
+        
+        /// <summary>
         ///   The file has been saved に類似しているローカライズされた文字列を検索します。
         /// </summary>
         public static string FileSaved {
@@ -600,6 +627,15 @@ namespace BEditor.Properties {
         public static string Font {
             get {
                 return ResourceManager.GetString("Font", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Format に類似しているローカライズされた文字列を検索します。
+        /// </summary>
+        public static string Format {
+            get {
+                return ResourceManager.GetString("Format", resourceCulture);
             }
         }
         
@@ -771,6 +807,15 @@ namespace BEditor.Properties {
         public static string MemoryRelease {
             get {
                 return ResourceManager.GetString("MemoryRelease", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Metadata に類似しているローカライズされた文字列を検索します。
+        /// </summary>
+        public static string Metadata {
+            get {
+                return ResourceManager.GetString("Metadata", resourceCulture);
             }
         }
         
@@ -989,6 +1034,15 @@ namespace BEditor.Properties {
         public static string PluginsAddedMessage {
             get {
                 return ResourceManager.GetString("PluginsAddedMessage", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Preset に類似しているローカライズされた文字列を検索します。
+        /// </summary>
+        public static string Preset {
+            get {
+                return ResourceManager.GetString("Preset", resourceCulture);
             }
         }
         
@@ -1389,11 +1443,38 @@ namespace BEditor.Properties {
         }
         
         /// <summary>
+        ///   Validation に類似しているローカライズされた文字列を検索します。
+        /// </summary>
+        public static string Validation {
+            get {
+                return ResourceManager.GetString("Validation", resourceCulture);
+            }
+        }
+        
+        /// <summary>
         ///   Version に類似しているローカライズされた文字列を検索します。
         /// </summary>
         public static string Version {
             get {
                 return ResourceManager.GetString("Version", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Video に類似しているローカライズされた文字列を検索します。
+        /// </summary>
+        public static string Video {
+            get {
+                return ResourceManager.GetString("Video", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Video File に類似しているローカライズされた文字列を検索します。
+        /// </summary>
+        public static string VideoFile {
+            get {
+                return ResourceManager.GetString("VideoFile", resourceCulture);
             }
         }
         

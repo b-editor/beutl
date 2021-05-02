@@ -125,7 +125,7 @@ namespace BEditor.Models
             {
                 try
                 {
-                    var encoder = new FFmpegEncoder(scene.Width, scene.Height, scene.Parent!.Framerate, codec, file);
+                    var encoder = new FFmpegEncoder(scene.Width, scene.Height, scene.Parent!.Framerate, scene.Parent.Samplingrate, codec, AudioCodec.Default, file);
 
                     for (Frame frame = 0; frame < scene.TotalFrame; frame++)
                     {

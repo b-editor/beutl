@@ -17,7 +17,6 @@
     <Rule Id="RCS1051a" Action="Warning" />
     <Rule Id="RCS1052" Action="Warning" />
     <Rule Id="RCS1064" Action="Warning" />
-    <Rule Id="RCS1065" Action="Warning" />
     <Rule Id="RCS1078" Action="Warning" />
     <Rule Id="RCS1078i" Action="Warning" />
     <Rule Id="RCS1081" Action="Warning" />

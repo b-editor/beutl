@@ -321,7 +321,7 @@ namespace BEditor.ViewModels
 
         public PreviewerViewModel Previewer { get; }
 
-        public static AppModel App => AppModel.Current;
+        public AppModel App => AppModel.Current;
 
         public static async ValueTask DirectOpenAsync(string filename)
         {

@@ -578,4 +578,31 @@
   <data name="Codec" xml:space="preserve">
     <value>コーデック</value>
   </data>
+  <data name="Audio" xml:space="preserve">
+    <value>音声</value>
+  </data>
+  <data name="VideoFile" xml:space="preserve">
+    <value>動画ファイル</value>
+  </data>
+  <data name="Video" xml:space="preserve">
+    <value>動画</value>
+  </data>
+  <data name="File" xml:space="preserve">
+    <value>ファイル</value>
+  </data>
+  <data name="Preset" xml:space="preserve">
+    <value>プリセット</value>
+  </data>
+  <data name="Format" xml:space="preserve">
+    <value>フォーマット</value>
+  </data>
+  <data name="Metadata" xml:space="preserve">
+    <value>メタデータ</value>
+  </data>
+  <data name="ContainerFormat" xml:space="preserve">
+    <value>コンテナーフォーマット</value>
+  </data>
+  <data name="Validation" xml:space="preserve">
+    <value>有効化</value>
+  </data>
 </root>

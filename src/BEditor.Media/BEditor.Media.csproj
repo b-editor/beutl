@@ -1,17 +1,33 @@
 ﻿<Project Sdk="Microsoft.NET.Sdk">
 
-  <PropertyGroup>
-    <TargetFramework>net5.0</TargetFramework>
-  </PropertyGroup>
-  
-  <Import Project="..\..\props\common.props" />
+    <PropertyGroup>
+        <TargetFramework>net5.0</TargetFramework>
+    </PropertyGroup>
 
-  <ItemGroup>
-    <PackageReference Include="FFMediaToolkit" Version="4.1.0" />
-  </ItemGroup>
+    <Import Project="..\..\props\common.props" />
+    <Import Project="..\..\props\analyzer.props" />
+    
+    <ItemGroup>
+        <PackageReference Include="FFmpeg.AutoGen" Version="4.3.0.1" />
+    </ItemGroup>
 
-  <ItemGroup>
-    <ProjectReference Include="..\BEditor.Drawing\BEditor.Drawing.csproj" />
-  </ItemGroup>
+    <ItemGroup>
+        <ProjectReference Include="..\BEditor.Drawing\BEditor.Drawing.csproj" />
+    </ItemGroup>
+
+    <ItemGroup>
+      <Compile Update="Resources\Strings.Designer.cs">
+        <DesignTime>True</DesignTime>
+        <AutoGen>True</AutoGen>
+        <DependentUpon>Strings.resx</DependentUpon>
+      </Compile>
+    </ItemGroup>
+
+    <ItemGroup>
+      <EmbeddedResource Update="Resources\Strings.resx">
+        <Generator>ResXFileCodeGenerator</Generator>
+        <LastGenOutput>Strings.Designer.cs</LastGenOutput>
+      </EmbeddedResource>
+    </ItemGroup>
 
 </Project>

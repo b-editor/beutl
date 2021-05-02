@@ -8,7 +8,6 @@ using BEditor.Data;
 using BEditor.Data.Primitive;
 using BEditor.Data.Property;
 using BEditor.Media;
-using BEditor.Media.Decoder;
 using BEditor.Media.PCM;
 using BEditor.Primitive.Resources;
 

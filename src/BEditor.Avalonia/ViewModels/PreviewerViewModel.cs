@@ -70,6 +70,6 @@ namespace BEditor.ViewModels
 
         public ReactiveCommand MoveToEnd { get; } = new();
 
-        public static AppModel App => AppModel.Current;
+        public AppModel App => AppModel.Current;
     }
 }

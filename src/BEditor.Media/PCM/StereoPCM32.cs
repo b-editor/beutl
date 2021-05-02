@@ -5,7 +5,7 @@ namespace BEditor.Media.PCM
 {
     [Serializable]
     [StructLayout(LayoutKind.Sequential)]
-    public struct StereoPCM32 : IPCM<StereoPCM32>, IPCMConvertable<StereoPCM16>
+    public struct StereoPCM32 : IPCM<StereoPCM32>, IPCMConvertable<StereoPCM16>, IPCMConvertable<StereoPCMFloat>
     {
         public int Left;
         public int Right;
@@ -20,13 +20,22 @@ namespace BEditor.Media.PCM
 
         public void ConvertFrom(StereoPCM16 src)
         {
-            Left = src.Left << 16;
-            Right = src.Right << 16;
+            src.ConvertTo(out this);
+        }
+
+        public void ConvertFrom(StereoPCMFloat src)
+        {
+            src.ConvertTo(out this);
         }
 
         public void ConvertTo(out StereoPCM16 dst)
         {
             dst = new((short)(Left >> 16), (short)(Right >> 16));
+        }
+
+        public void ConvertTo(out StereoPCMFloat dst)
+        {
+            dst = new((float)Left / int.MaxValue, (float)Right / int.MaxValue);
         }
     }
 }

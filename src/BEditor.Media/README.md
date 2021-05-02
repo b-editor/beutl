@@ -5,7 +5,7 @@
 
 ## Dependent libraries
 * [.NET runtime](https://github.com/dotnet/runtime)
-* [FFMediaToolkit](https://github.com/radek-k/FFMediaToolkit)
+* [BEditor.Media](https://github.com/radek-k/BEditor.Media)
 * [NAudio](https://github.com/naudio/NAudio)
 
 ## License
