@@ -1,17 +1,13 @@
 ﻿using System;
 using System.Collections.Generic;
-using System.IO;
 using System.Linq;
-using System.Text;
-using System.Text.RegularExpressions;
-using System.Threading.Tasks;
 
 using BEditor.Command;
 using BEditor.Data;
-using BEditor.Data.Property;
 using BEditor.Drawing;
 using BEditor.Media;
-using BEditor.Media.Encoder;
+using BEditor.Media.Encoding;
+using BEditor.Media.Graphics;
 using BEditor.Properties;
 
 namespace BEditor
@@ -288,7 +284,9 @@ namespace BEditor
         }
         public void Encode(string file)
         {
-            using var encoder = new FFmpegEncoder(Scene.Width, Scene.Height, _project.Framerate, VideoCodec.Default, file);
+            using var encoder = MediaBuilder.CreateContainer(file)
+                .WithVideo(new(Scene.Width, Scene.Height, _project.Framerate, VideoCodec.Default))
+                .Create();
             using (var progress = new ProgressBar())
             {
                 var total = Scene.TotalFrame + 1;
@@ -297,7 +295,7 @@ namespace BEditor
                 {
                     using var img = Scene.Render(frame, RenderType.VideoOutput);
 
-                    encoder.Write(img);
+                    encoder.Video?.AddFrame(ImageData.FromDrawing(img));
 
                     progress.Report((double)frame / total);
                 }

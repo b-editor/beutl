@@ -9,10 +9,9 @@ using System.Threading.Tasks;
 using BEditor.Data;
 using BEditor.Drawing;
 using BEditor.Media;
-using BEditor.Media.Encoder;
+using BEditor.Media.Encoding;
+using BEditor.Media.Graphics;
 using BEditor.Primitive;
-using BEditor.Primitive.Effects;
-using BEditor.Primitive.Objects;
 using BEditor.Properties;
 
 using Microsoft.Extensions.CommandLineUtils;
@@ -127,7 +126,9 @@ namespace BEditor
                     project.Load();
                     var scene = FindScene(sc, project);
 
-                    using var encoder = new FFmpegEncoder(scene.Width, scene.Height, project.Framerate, VideoCodec.Default, output.Value);
+                    using var encoder = MediaBuilder.CreateContainer(output.Value)
+                        .WithVideo(new(scene.Width, scene.Height, project.Framerate, VideoCodec.Default))
+                        .Create();
                     var progress = new ProgressBar();
                     var total = scene.TotalFrame + 1;
 
@@ -135,7 +136,7 @@ namespace BEditor
                     {
                         using var img = scene.Render(frame, RenderType.VideoOutput);
 
-                        encoder.Write(img);
+                        encoder.Video?.AddFrame(ImageData.FromDrawing(img));
 
                         progress.Report((double)frame / total);
                     }
