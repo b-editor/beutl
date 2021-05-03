@@ -8,7 +8,7 @@
     <Import Project="..\..\props\analyzer.props" />
     
     <ItemGroup>
-        <PackageReference Include="FFmpeg.AutoGen" Version="4.3.0.1" />
+        <PackageReference Include="FFmpeg.AutoGen" Version="4.4.0" />
     </ItemGroup>
 
     <ItemGroup>
