@@ -23,7 +23,7 @@ namespace BEditor.Media.Decoding
         /// </summary>
         /// <param name="stream">The video stream.</param>
         /// <param name="options">The decoder settings.</param>
-        internal VideoStream(Decoder stream, MediaOptions options): base(stream, options)
+        internal VideoStream(Decoder stream, MediaOptions options) : base(stream, options)
         {
             OutputFrameSize = options.TargetVideoSize ?? Info.FrameSize;
             Converter = new Lazy<ImageConverter>(() => new ImageConverter(Info.FrameSize, Info.AVPixelFormat, OutputFrameSize, (AVPixelFormat)options.VideoPixelFormat));

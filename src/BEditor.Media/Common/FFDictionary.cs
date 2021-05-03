@@ -18,7 +18,7 @@ namespace BEditor.Media.Common
         /// Initializes a new instance of the <see cref="FFDictionary"/> class.
         /// </summary>
         /// <param name="dispose">Should the dictionary be disposed automatically?.</param>
-        public FFDictionary(bool dispose = true): base(null)
+        public FFDictionary(bool dispose = true) : base(null)
         {
             _requireDisposing = dispose;
         }
@@ -28,7 +28,7 @@ namespace BEditor.Media.Common
         /// </summary>
         /// <param name="dictionary">The dictionary to copy.</param>
         /// <param name="dispose">Should the dictionary be disposed automatically?.</param>
-        public FFDictionary(Dictionary<string, string> dictionary, bool dispose = true): base(null)
+        public FFDictionary(Dictionary<string, string> dictionary, bool dispose = true) : base(null)
         {
             Copy(dictionary);
             _requireDisposing = dispose;
