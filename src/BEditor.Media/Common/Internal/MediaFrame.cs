@@ -11,7 +11,7 @@ namespace BEditor.Media.Common.Internal
         /// Initializes a new instance of the <see cref="MediaFrame"/> class.
         /// </summary>
         /// <param name="frame">The <see cref="AVFrame"/> object.</param>
-        protected MediaFrame(AVFrame* frame): base(frame)
+        protected MediaFrame(AVFrame* frame) : base(frame)
         {
         }
 

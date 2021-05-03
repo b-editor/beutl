@@ -93,52 +93,8 @@ namespace BEditor.Media.Decoding
         /// <returns>The decoded video frame.</returns>
         public new AudioData GetFrame(TimeSpan time)
         {
-            var frame = (AudioFrame)base.GetFrame(time);
-
-            var converted = AudioFrame.Create(
-                frame.SampleRate,
-                frame.NumChannels,
-                frame.NumSamples,
-                frame.ChannelLayout,
-                SampleFormat.SingleP,
-                frame.DecodingTimestamp,
-                frame.PresentationTimestamp);
-
-            ffmpeg.swr_convert_frame(_swrContext, converted.Pointer, frame.Pointer);
-
-            return new AudioData(converted);
-        }
-
-        /// <summary>
-        /// Reads the video frames found with the specified length from the specified timestamp.
-        /// </summary>
-        /// <param name="time">The frame timestamp.</param>
-        /// <param name="length">The frame length.</param>
-        /// <returns>The decoded video frame.</returns>
-        public Sound<StereoPCMFloat> GetFrame(TimeSpan time, int length)
-        {
-            var sound = new Sound<StereoPCMFloat>(Info.SampleRate, length);
-            var first = GetFrame(time);
-            // デコードしたサンプル数
-            var decoded = first.NumSamples;
-            for (uint c = 0; c < Info.NumChannels; c++)
-            {
-                sound.SetChannelData((int)c, first.GetChannelData(c));
-            }
-
-            while (decoded <= length)
-            {
-                var data = GetNextFrame();
-
-                for (uint c = 0; c < Info.NumChannels; c++)
-                {
-                    sound.SetChannelData(decoded, (int)c, data.GetChannelData(c));
-                }
-
-                decoded += data.NumSamples;
-            }
-
-            return sound;
+            var frame = (AudioFrame)base.GetFrame(time) ;
+            return new AudioData(frame);
         }
 
         /// <summary>

@@ -14,7 +14,7 @@ namespace BEditor.Media.Encoding.Internal
     /// </summary>
     internal sealed unsafe class OutputContainer : Wrapper<AVFormatContext>
     {
-        private OutputContainer(AVFormatContext* formatContext ): base(formatContext)
+        private OutputContainer(AVFormatContext* formatContext) : base(formatContext)
         {
             Video = new List<(OutputStream<VideoFrame>, VideoEncoderSettings)>();
             Audio = new List<(OutputStream<AudioFrame>, AudioEncoderSettings)>();
