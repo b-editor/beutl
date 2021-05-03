@@ -44,7 +44,7 @@ namespace BEditor.Media.Encoding
             ffmpeg.swr_init(_swrContext);
 
             Configuration = config;
-            _frame = AudioFrame.Create(config.SampleRate, config.Channels, config.SamplesPerFrame, channelLayout, SampleFormat.SingleP);
+            _frame = AudioFrame.Create(config.SampleRate, config.Channels, config.SamplesPerFrame, channelLayout, SampleFormat.SingleP, 0, 0);
         }
 
         /// <summary>
@@ -76,7 +76,9 @@ namespace BEditor.Media.Encoding
                 _frame.NumChannels,
                 _frame.NumSamples,
                 _frame.ChannelLayout,
-                Configuration.SampleFormat);
+                Configuration.SampleFormat,
+                _frame.DecodingTimestamp,
+                _frame.PresentationTimestamp);
             converted.PresentationTimestamp = customPtsValue;
 
             ffmpeg.swr_convert_frame(_swrContext, converted.Pointer, _frame.Pointer);

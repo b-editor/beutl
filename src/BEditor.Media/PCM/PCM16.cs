@@ -11,7 +11,10 @@ namespace BEditor.Media.PCM
 
         public PCM16(short value) => Value = value;
 
-        public PCM16 Add(PCM16 s) => throw new NotImplementedException();
+        public PCM16 Add(PCM16 s)
+        {
+            return new((short)(Value + s.Value));
+        }
 
         public void ConvertFrom(PCM32 src)
         {

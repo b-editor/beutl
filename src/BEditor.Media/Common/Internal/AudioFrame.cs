@@ -64,8 +64,10 @@ namespace BEditor.Media.Common.Internal
         /// <param name="num_samples">The number of samples in the audio frame.</param>
         /// <param name="channel_layout">The channel layout to be used by the audio frame.</param>
         /// <param name="sampleFormat">The audio sample format.</param>
+        /// <param name="decodingTimestamp">The timestamp when the frame has to be decoded.</param>
+        /// <param name="presentationTimestamp">The timestamp when the frame has to be presented.</param>
         /// <returns>The new audio frame.</returns>
-        public static AudioFrame Create(int sample_rate, int num_channels, int num_samples, long channel_layout, SampleFormat sampleFormat)
+        public static AudioFrame Create(int sample_rate, int num_channels, int num_samples, long channel_layout, SampleFormat sampleFormat, long decodingTimestamp, long presentationTimestamp)
         {
             var frame = ffmpeg.av_frame_alloc();
 
@@ -75,6 +77,9 @@ namespace BEditor.Media.Common.Internal
             frame->nb_samples = num_samples;
             frame->channel_layout = (ulong)channel_layout;
             frame->format = (int)sampleFormat;
+
+            frame->pts = presentationTimestamp;
+            frame->pkt_dts = decodingTimestamp;
 
             ffmpeg.av_frame_get_buffer(frame, 32);
 

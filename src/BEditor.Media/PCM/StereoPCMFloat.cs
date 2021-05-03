@@ -18,7 +18,7 @@ namespace BEditor.Media.PCM
 
         public StereoPCMFloat Add(StereoPCMFloat s)
         {
-            throw new NotImplementedException();
+            return new(Left + s.Left, Right + s.Right);
         }
 
         public void ConvertFrom(StereoPCM32 src)

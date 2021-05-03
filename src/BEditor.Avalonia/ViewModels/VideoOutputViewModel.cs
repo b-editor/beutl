@@ -10,9 +10,13 @@ using BEditor.Drawing;
 using BEditor.Drawing.Pixel;
 using BEditor.Media;
 using BEditor.Media.Audio;
+using BEditor.Media.Common.Internal;
+using BEditor.Media.Decoding;
 using BEditor.Media.Encoding;
 using BEditor.Media.Graphics;
+using BEditor.Media.PCM;
 using BEditor.Models;
+using BEditor.Primitive.Objects;
 using BEditor.Properties;
 using BEditor.Views.DialogContent;
 
@@ -47,7 +51,12 @@ namespace BEditor.ViewModels
                         {
                             new("mp4"),
                             new("avi"),
-                        })
+                        }),
+                        new(Strings.AudioFile, new FileExtension[]
+                        {
+                            new("mp3"),
+                            new("wav"),
+                        }),
                     }
                 };
 
@@ -73,21 +82,30 @@ namespace BEditor.ViewModels
                     {
                         var scene = SelectedScene.Value;
                         var proj = Project;
+                        // 1フレームあたりのサンプル数
+                        var samples = proj.Samplingrate / proj.Framerate;
 
-                        var builder = (SelectedContainerFormat.Value.Value is null ?
+                        var builder = SelectedContainerFormat.Value.Value is null ?
                             MediaBuilder.CreateContainer(File.Value) :
-                            MediaBuilder.CreateContainer(File.Value, (ContainerFormat)SelectedContainerFormat.Value.Value))
-                            .WithVideo(new(scene.Width, scene.Height, proj.Framerate, SelectedVideoCodec.Value.Value, SelectedPixelFormat.Value.Value)
+                            MediaBuilder.CreateContainer(File.Value, (ContainerFormat)SelectedContainerFormat.Value.Value);
+
+                        if (VideoIsEnabled.Value)
+                        {
+                            builder = builder.WithVideo(new(scene.Width, scene.Height, proj.Framerate, SelectedVideoCodec.Value.Value, SelectedPixelFormat.Value.Value)
                             {
                                 EncoderPreset = SelectedPreset.Value.Value,
                                 Bitrate = VideoBitrate.Value,
                                 KeyframeRate = KeyframeRate.Value,
-                            })
-                            .WithAudio(new(proj.Samplingrate, 2, SelectedAudioCodec.Value.Value, SelectedSampleFormat.Value.Value)
-                            {
-                                Bitrate = AudioBitrate.Value
                             });
-
+                        }
+                        if (AudioIsEnabled.Value)
+                        {
+                            builder = builder.WithAudio(new(proj.Samplingrate, 2, SelectedAudioCodec.Value.Value, SelectedSampleFormat.Value.Value)
+                            {
+                                Bitrate = AudioBitrate.Value,
+                                SamplesPerFrame = samples
+                            });
+                        }
                         if (Validation.Value)
                         {
                             builder = builder.UseMetadata(new()
@@ -107,23 +125,46 @@ namespace BEditor.ViewModels
 
                         var output = builder.Create();
 
-                        for (Frame frame = 0; frame < scene.TotalFrame; frame++)
+                        // 音声
+                        if (AudioIsEnabled.Value)
                         {
-                            if (t)
+                            for (Frame frame = 0; frame < scene.TotalFrame; frame++)
                             {
-                                output.Dispose();
-                                return;
+                                using var sound = new Sound<StereoPCMFloat>(proj.Samplingrate, samples);
+
+                                dialog.NowValue.Value = frame;
+
+                                foreach (var obj in scene.GetFrame(frame).Where(i => i.Effect[0] is AudioObject)
+                                    .Select(i => (AudioObject)i.Effect[0])
+                                    .Where(i => i.IsEnabled && i.Decoder is not null))
+                                {
+                                    using var data = GetFrame(
+                                        obj.Decoder!.Audio!,
+                                        TimeSpan.FromMilliseconds(obj.Start.Value) + (frame - obj.Parent.Start).ToTimeSpan(proj.Framerate),
+                                        samples);
+
+                                    sound.Add(data);
+                                }
+
+                                output.Audio!.AddFrame(sound.Extract());
                             }
+                        }
 
-                            dialog.NowValue.Value = frame;
-
-                            Image<BGRA32>? img = null;
-
-                            // UIスレッドだけでレンダリングできる
-                            await Dispatcher.UIThread.InvokeAsync(() => img = scene.Render(frame, RenderType.VideoOutput));
-
-                            if (img is not null)
+                        // 動画
+                        if (VideoIsEnabled.Value)
+                        {
+                            for (Frame frame = 0; frame < scene.TotalFrame; frame++)
                             {
+                                if (t)
+                                {
+                                    output.Dispose();
+                                    return;
+                                }
+
+                                dialog.NowValue.Value = frame;
+
+                                // UIスレッドだけでレンダリングできる
+                                var img = await Dispatcher.UIThread.InvokeAsync(() => scene.Render(frame, RenderType.VideoOutput));
                                 output.Video?.AddFrame(ImageData.FromDrawing(img));
                                 await img.DisposeAsync();
                             }
@@ -137,6 +178,8 @@ namespace BEditor.ViewModels
                     {
                         AppModel.Current.Message?.Snackbar(Strings.FailedToSave);
                         App.Logger.LogError(e, Strings.FailedToSave);
+
+                        await Dispatcher.UIThread.InvokeAsync(dialog.Close);
                     }
                     finally
                     {
@@ -153,6 +196,7 @@ namespace BEditor.ViewModels
         public ReactivePropertySlim<Scene> SelectedScene { get; } = new();
 
         #region Video
+        public ReactivePropertySlim<bool> VideoIsEnabled { get; } = new(true);
         public EnumTupple<VideoCodec>[] VideoCodecs { get; }
         public ReactivePropertySlim<EnumTupple<VideoCodec>> SelectedVideoCodec { get; } = new(new("Default", VideoCodec.Default));
         public EnumTupple<EncoderPreset>[] Presets { get; }
@@ -164,10 +208,11 @@ namespace BEditor.ViewModels
         #endregion
 
         #region Audio
+        public ReactivePropertySlim<bool> AudioIsEnabled { get; } = new(true);
         public EnumTupple<AudioCodec>[] AudioCodecs { get; }
-        public ReactivePropertySlim<EnumTupple<AudioCodec>> SelectedAudioCodec { get; } = new(new("Default", AudioCodec.Default));
+        public ReactivePropertySlim<EnumTupple<AudioCodec>> SelectedAudioCodec { get; } = new(new("MP3", AudioCodec.MP3));
         public EnumTupple<SampleFormat>[] SampleFormats { get; }
-        public ReactivePropertySlim<EnumTupple<SampleFormat>> SelectedSampleFormat { get; } = new(new("SignedWord", SampleFormat.SignedWord));
+        public ReactivePropertySlim<EnumTupple<SampleFormat>> SelectedSampleFormat { get; } = new(new("SingleP", SampleFormat.SingleP));
         public ReactivePropertySlim<int> AudioBitrate { get; } = new(128_000);
         #endregion
 
@@ -192,5 +237,10 @@ namespace BEditor.ViewModels
         public ReactiveCommand Output { get; } = new();
 
         public record EnumTupple<T>(string Name, T Value);
+
+        private static Sound<StereoPCMFloat> GetFrame(AudioStream stream, TimeSpan time, int length)
+        {
+            return stream.GetFrame(time, length);
+        }
     }
 }

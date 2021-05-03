@@ -605,4 +605,7 @@
   <data name="Validation" xml:space="preserve">
     <value>有効化</value>
   </data>
+  <data name="AudioFile" xml:space="preserve">
+    <value>音声ファイル</value>
+  </data>
 </root>

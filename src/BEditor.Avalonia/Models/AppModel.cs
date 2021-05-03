@@ -10,6 +10,7 @@ using System.Threading;
 using BEditor.Command;
 using BEditor.Data;
 using BEditor.Extensions;
+using BEditor.Media;
 
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;

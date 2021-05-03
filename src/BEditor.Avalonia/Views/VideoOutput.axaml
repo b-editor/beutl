@@ -130,10 +130,16 @@
 
                     <TextBlock Text="{x:Static prop:Strings.Video}" Classes="SettingsHeader"/>
 
+                    <CheckBox
+                        IsChecked="{CompiledBinding VideoIsEnabled.Value, Mode=TwoWay}"
+                        Content="{x:Static prop:Strings.Validation}"
+                        Classes="SettingsCheckBox"/>
+
                     <!--コーデック-->
                     <Label Content="{x:Static prop:Strings.Codec}" Classes="SettingsItemHeader"/>
 
                     <ComboBox
+                        IsEnabled="{CompiledBinding VideoIsEnabled.Value, Mode=TwoWay}"
                         Items="{CompiledBinding VideoCodecs, Mode=OneTime}"
                         SelectedItem="{CompiledBinding SelectedVideoCodec.Value, Mode=TwoWay}"
                         Classes="SettingsComboBox">
@@ -150,6 +156,7 @@
                     <Label Content="{x:Static prop:Strings.Format}" Classes="SettingsItemHeader"/>
 
                     <ComboBox
+                        IsEnabled="{CompiledBinding VideoIsEnabled.Value, Mode=TwoWay}"
                         Items="{CompiledBinding PixelFormats, Mode=OneTime}"
                         SelectedItem="{CompiledBinding SelectedPixelFormat.Value, Mode=TwoWay}"
                         Classes="SettingsComboBox">
@@ -164,6 +171,7 @@
                     <Label Content="{x:Static prop:Strings.Preset}" Classes="SettingsItemHeader"/>
 
                     <ComboBox
+                        IsEnabled="{CompiledBinding VideoIsEnabled.Value, Mode=TwoWay}"
                         Items="{CompiledBinding Presets, Mode=OneTime}"
                         SelectedItem="{CompiledBinding SelectedPreset.Value, Mode=TwoWay}"
                         Classes="SettingsComboBox">
@@ -180,6 +188,7 @@
                     <Label Content="Bitrate" Classes="SettingsItemHeader"/>
 
                     <NumericUpDown
+                        IsEnabled="{CompiledBinding VideoIsEnabled.Value, Mode=TwoWay}"
                         Value="{CompiledBinding VideoBitrate.Value, Mode=TwoWay}"
                         ShowButtonSpinner="True"
                         Classes="SettingsNumericUpDown"/>
@@ -190,6 +199,7 @@
                     <Label Content="KeyframeRate" Classes="SettingsItemHeader"/>
 
                     <NumericUpDown
+                        IsEnabled="{CompiledBinding VideoIsEnabled.Value, Mode=TwoWay}"
                         Value="{CompiledBinding KeyframeRate.Value, Mode=TwoWay}"
                         ShowButtonSpinner="True"
                         Classes="SettingsNumericUpDown"/>
@@ -208,10 +218,16 @@
 
                     <TextBlock Text="{x:Static prop:Strings.Audio}" Classes="SettingsHeader"/>
 
+                    <CheckBox
+                        IsChecked="{CompiledBinding AudioIsEnabled.Value, Mode=TwoWay}"
+                        Content="{x:Static prop:Strings.Validation}"
+                        Classes="SettingsCheckBox"/>
+
                     <!--コーデック-->
                     <Label Content="{x:Static prop:Strings.Codec}" Classes="SettingsItemHeader"/>
 
                     <ComboBox
+                        IsEnabled="{CompiledBinding AudioIsEnabled.Value, Mode=TwoWay}"
                         Items="{CompiledBinding AudioCodecs, Mode=OneTime}"
                         SelectedItem="{CompiledBinding SelectedAudioCodec.Value, Mode=TwoWay}"
                         Classes="SettingsComboBox">
@@ -228,6 +244,7 @@
                     <Label Content="{x:Static prop:Strings.Format}" Classes="SettingsItemHeader"/>
 
                     <ComboBox
+                        IsEnabled="{CompiledBinding AudioIsEnabled.Value, Mode=TwoWay}"
                         Items="{CompiledBinding SampleFormats, Mode=OneTime}"
                         SelectedItem="{CompiledBinding SelectedSampleFormat.Value, Mode=TwoWay}"
                         Classes="SettingsComboBox">
@@ -244,6 +261,7 @@
                     <Label Content="Bitrate" Classes="SettingsItemHeader"/>
 
                     <NumericUpDown
+                        IsEnabled="{CompiledBinding AudioIsEnabled.Value, Mode=TwoWay}"
                         Value="{CompiledBinding AudioBitrate.Value, Mode=TwoWay}"
                         ShowButtonSpinner="True"
                         Classes="SettingsNumericUpDown"/>

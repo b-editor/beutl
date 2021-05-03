@@ -18,7 +18,7 @@ namespace BEditor.Media.Audio
         /// <param name="frame">frame object containing raw audio data.</param>
         internal AudioData(AudioFrame frame)
         {
-            this._frame = frame;
+            _frame = frame;
         }
 
         /// <summary>

@@ -605,4 +605,7 @@ Please select the plugin you want to load</value>
   <data name="Validation" xml:space="preserve">
     <value>Validation</value>
   </data>
+  <data name="AudioFile" xml:space="preserve">
+    <value>Audio File</value>
+  </data>
 </root>

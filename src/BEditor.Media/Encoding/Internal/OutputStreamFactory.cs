@@ -79,7 +79,7 @@ namespace BEditor.Media.Encoding.Internal
 
             var ptr = dict.Pointer;
 
-            ffmpeg.avcodec_open2(codecContext, codec, &ptr);
+            ffmpeg.avcodec_open2(codecContext, codec, &ptr).ThrowIfError(string.Empty);
 
             dict.Update(ptr);
 
@@ -136,10 +136,12 @@ namespace BEditor.Media.Encoding.Internal
             var dict = new FFDictionary(config.CodecOptions);
             var ptr = dict.Pointer;
 
-            ffmpeg.avcodec_open2(codecContext, codec, &ptr);
+            ffmpeg.avcodec_open2(codecContext, codec, &ptr).ThrowIfError(string.Empty);
 
             dict.Update(ptr);
 
+            //
+            codecContext->frame_size = config.SamplesPerFrame;
             return new OutputStream<AudioFrame>(audioStream, container);
         }
     }

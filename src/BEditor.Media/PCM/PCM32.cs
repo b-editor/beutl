@@ -15,7 +15,11 @@ namespace BEditor.Media.PCM
 
         public PCM32(int value) => Value = value;
 
-        public PCM32 Add(PCM32 s) => throw new NotImplementedException();
+        public PCM32 Add(PCM32 s)
+        {
+            return new(Value + s.Value);
+        }
+
         public void ConvertFrom(PCM16 src)
         {
             src.ConvertTo(out this);

@@ -21,7 +21,8 @@ namespace BEditor.Media.Decoding
             var codec = stream->codec;
             NumChannels = codec->channels;
             SampleRate = codec->sample_rate;
-            SamplesPerFrame = codec->frame_size > 0 ? codec->frame_size : codec->sample_rate / 20;
+            // Todo
+            //SamplesPerFrame = codec->frame_size > 0 ? codec->frame_size : codec->sample_rate / 20;
             SampleFormat = (SampleFormat)codec->sample_fmt;
             ChannelLayout = ffmpeg.av_get_default_channel_layout(codec->channels);
         }
@@ -40,7 +41,7 @@ namespace BEditor.Media.Decoding
         /// Gets the average number of samples per frame (chunk of samples) calculated from metadata.
         /// It is used to calculate timestamps in the internal decoder methods.
         /// </summary>
-        public int SamplesPerFrame { get; }
+        //public int SamplesPerFrame { get; }
 
         /// <summary>
         /// Gets the audio sample format.

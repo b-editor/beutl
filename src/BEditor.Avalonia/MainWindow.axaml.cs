@@ -27,8 +27,11 @@ namespace BEditor
 {
     public class MainWindow : Window
     {
+        private readonly ILogger _ffmpegLogger;
+
         public MainWindow()
         {
+            _ffmpegLogger = AppModel.Current.LoggingFactory.CreateLogger(typeof(FFmpegLoader));
             InitializeComponent();
 
             // WindowsŠÂ‹«‚¾‚Æ•\Ž¦‚ªƒoƒO‚é‚Ì‚Å‘Îô
@@ -119,6 +122,9 @@ namespace BEditor
 
             // FFmpeg“Ç‚Ýž‚Ý
             FFmpegLoader.LoadFFmpeg();
+
+            FFmpegLoader.SetupLogging();
+            FFmpegLoader.LogCallback += (e) => _ffmpegLogger.LogInformation(e);
         }
 
         private async Task InstallFFmpegWindowsAsync(FFmpegInstaller installer)

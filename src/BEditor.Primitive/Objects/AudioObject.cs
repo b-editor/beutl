@@ -15,6 +15,8 @@ using BEditor.Primitive.Resources;
 
 using FFmpeg.AutoGen;
 
+using OpenTK.Audio.OpenAL;
+
 namespace BEditor.Primitive.Objects
 {
     /// <summary>
@@ -120,13 +122,21 @@ namespace BEditor.Primitive.Objects
         /// </summary>
         public FileProperty File { get; private set; }
 
-        private MediaFile? Decoder
+        /// <summary>
+        /// 
+        /// </summary>
+        public MediaFile? Decoder
         {
             get
             {
                 if (_mediaFile is null && System.IO.File.Exists(File.Value))
                 {
-                    Decoder = MediaFile.Open(File.Value);
+                    var proj = this.GetParent<Project>()!;
+                    Decoder = MediaFile.Open(File.Value, new()
+                    {
+                        StreamsToLoad = MediaMode.Audio,
+                        SamplesPerFrame = proj.Samplingrate / proj.Framerate
+                    });
                 }
 
                 return _mediaFile;
@@ -181,7 +191,12 @@ namespace BEditor.Primitive.Objects
 
             _disposable = File.Where(file => System.IO.File.Exists(file)).Subscribe(file =>
             {
-                Decoder = MediaFile.Open(file);
+                var proj = this.GetParent<Project>()!;
+                Decoder = MediaFile.Open(file, new()
+                {
+                    StreamsToLoad = MediaMode.Audio,
+                    SamplesPerFrame = proj.Samplingrate / proj.Framerate
+                });
             });
 
             var player = Parent.Parent.Player;

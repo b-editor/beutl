@@ -16,7 +16,10 @@ namespace BEditor.Media.PCM
             Right = right;
         }
 
-        public StereoPCM32 Add(StereoPCM32 s) => throw new NotImplementedException();
+        public StereoPCM32 Add(StereoPCM32 s)
+        {
+            return new(Left + s.Left, Right + s.Right);
+        }
 
         public void ConvertFrom(StereoPCM16 src)
         {

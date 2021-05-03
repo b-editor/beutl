@@ -14,6 +14,11 @@ namespace BEditor.Media.Encoding
         Default = AVCodecID.AV_CODEC_ID_NONE,
 
         /// <summary>
+        /// MP2 (MPEG audio layer 2) audio codec
+        /// </summary>
+        MP2 = AVCodecID.AV_CODEC_ID_MP2,
+        
+        /// <summary>
         /// MP3 (MPEG audio layer 3) audio codec
         /// </summary>
         MP3 = AVCodecID.AV_CODEC_ID_MP3,

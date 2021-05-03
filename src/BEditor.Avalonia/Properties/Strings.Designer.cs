@@ -252,6 +252,15 @@ namespace BEditor.Properties {
         }
         
         /// <summary>
+        ///   Audio File に類似しているローカライズされた文字列を検索します。
+        /// </summary>
+        public static string AudioFile {
+            get {
+                return ResourceManager.GetString("AudioFile", resourceCulture);
+            }
+        }
+        
+        /// <summary>
         ///   Backup file に類似しているローカライズされた文字列を検索します。
         /// </summary>
         public static string BackupFile {

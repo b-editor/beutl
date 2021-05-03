@@ -1,5 +1,6 @@
 ﻿using System;
 using System.Collections.Generic;
+using System.Diagnostics;
 using System.Linq;
 using System.Runtime.CompilerServices;
 using System.Runtime.InteropServices;
@@ -56,7 +57,8 @@ namespace BEditor.Media
         }
         public int Samplingrate { get; }
         public int Length { get; }
-        public int DataSize => (int)(Length * sizeof(T));
+        public TimeSpan Time => TimeSpan.FromSeconds(Length / (double)Samplingrate);
+        public int DataSize => Length * sizeof(T);
         public bool IsDisposed { get; private set; }
 
         public Sound<TConvert> Convert<TConvert>() where TConvert : unmanaged, IPCM<TConvert>, IPCMConvertable<T>
@@ -113,6 +115,28 @@ namespace BEditor.Media
             Data.CopyTo(img.Data);
 
             return img;
+        }
+        public Sound<T> Slice(TimeSpan start)
+        {
+            var data = Data[(int)(start.TotalSeconds * Samplingrate)..];
+
+            fixed (T* dataPtr = data)
+            {
+                return new(Samplingrate, data.Length, dataPtr);
+            }
+        }
+        public Sound<T> Slice(TimeSpan start, TimeSpan length)
+        {
+            var data = Data.Slice((int)(start.TotalSeconds * Samplingrate), (int)(length.TotalSeconds * Samplingrate));
+
+            fixed (T* dataPtr = data)
+            {
+                return new(Samplingrate, data.Length, dataPtr);
+            }
+        }
+        public void Add(Sound<T> sound)
+        {
+            Parallel.For(0, Math.Min(sound.Length, Length), i => Data[i] = Data[i].Add(sound.Data[i]));
         }
         object ICloneable.Clone()
         {

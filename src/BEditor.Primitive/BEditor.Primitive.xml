@@ -1201,6 +1201,11 @@
             Get the <see cref="F:BEditor.Primitive.Objects.AudioObject.FileProperty"/> to select the file to reference.
             </summary>
         </member>
+        <member name="P:BEditor.Primitive.Objects.AudioObject.Decoder">
+            <summary>
+            
+            </summary>
+        </member>
         <member name="M:BEditor.Primitive.Objects.AudioObject.Render(BEditor.Data.EffectRenderArgs)">
             <inheritdoc/>
         </member>

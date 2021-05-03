@@ -11,7 +11,11 @@ namespace BEditor.Media.PCM
 
         public PCMFloat(float value) => Value = value;
 
-        public PCMFloat Add(PCMFloat s) => throw new NotImplementedException();
+        public PCMFloat Add(PCMFloat s)
+        {
+            return new(Value + s.Value);
+        }
+
         public void ConvertFrom(PCM16 src)
         {
             src.ConvertTo(out this);
