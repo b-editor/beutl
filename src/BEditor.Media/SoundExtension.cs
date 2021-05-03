@@ -14,7 +14,7 @@ namespace BEditor.Media
             where TConvert : unmanaged, IPCM<TConvert>
             where TSource : unmanaged, IPCM<TSource>, IPCMConvertable<TConvert>
         {
-            var result = new Sound<TConvert>(self.Samplingrate, self.Length);
+            var result = new Sound<TConvert>(self.SampleRate, self.Length);
 
             Parallel.For(0, self.Length, i =>
             {

@@ -1,36 +1,36 @@
 ﻿<Project Sdk="Microsoft.NET.Sdk">
 
-  <PropertyGroup>
-    <TargetFramework>net5.0</TargetFramework>
-    <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
-    <!--<DocumentationFile>BEditor.Graphics.xml</DocumentationFile>-->
-  </PropertyGroup>
+    <PropertyGroup>
+        <TargetFramework>net5.0</TargetFramework>
+        <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
+        <DocumentationFile>BEditor.Graphics.xml</DocumentationFile>
+    </PropertyGroup>
 
-  <Import Project="..\..\props\common.props" />
-  <Import Project="..\..\props\analyzer.props" />
+    <Import Project="..\..\props\common.props" />
+    <Import Project="..\..\props\analyzer.props" />
 
-  <ItemGroup>
-    <PackageReference Include="OpenTK.Graphics" Version="4.6.3" />
-    <PackageReference Include="OpenTK.Windowing.GraphicsLibraryFramework" Version="4.6.3" />
-  </ItemGroup>
+    <ItemGroup>
+        <PackageReference Include="OpenTK.Graphics" Version="4.6.3" />
+        <PackageReference Include="OpenTK.Windowing.GraphicsLibraryFramework" Version="4.6.3" />
+    </ItemGroup>
 
-  <ItemGroup>
-    <ProjectReference Include="..\BEditor.Drawing\BEditor.Drawing.csproj" />
-  </ItemGroup>
+    <ItemGroup>
+        <ProjectReference Include="..\BEditor.Drawing\BEditor.Drawing.csproj" />
+    </ItemGroup>
 
-  <ItemGroup>
-    <Compile Update="Resources\Strings.Designer.cs">
-      <DesignTime>True</DesignTime>
-      <AutoGen>True</AutoGen>
-      <DependentUpon>Strings.resx</DependentUpon>
-    </Compile>
-  </ItemGroup>
+    <ItemGroup>
+        <Compile Update="Resources\Strings.Designer.cs">
+            <DesignTime>True</DesignTime>
+            <AutoGen>True</AutoGen>
+            <DependentUpon>Strings.resx</DependentUpon>
+        </Compile>
+    </ItemGroup>
 
-  <ItemGroup>
-    <EmbeddedResource Update="Resources\Strings.resx">
-      <Generator>ResXFileCodeGenerator</Generator>
-      <LastGenOutput>Strings.Designer.cs</LastGenOutput>
-    </EmbeddedResource>
-  </ItemGroup>
+    <ItemGroup>
+        <EmbeddedResource Update="Resources\Strings.resx">
+            <Generator>ResXFileCodeGenerator</Generator>
+            <LastGenOutput>Strings.Designer.cs</LastGenOutput>
+        </EmbeddedResource>
+    </ItemGroup>
 
 </Project>

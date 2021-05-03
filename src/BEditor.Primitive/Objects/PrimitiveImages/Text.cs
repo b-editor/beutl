@@ -186,7 +186,7 @@ namespace BEditor.Primitive.Objects
 
         private static Transform GetTransform(int x, int y)
         {
-            return Transform.Create(new(x, y, 0), Vector3.Zero, Vector3.Zero, Vector3.Zero);
+            return new Transform(new(x, y, 0), Vector3.Zero, Vector3.Zero, Vector3.Zero);
         }
     }
 }

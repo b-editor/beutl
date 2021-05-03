@@ -18,6 +18,7 @@ namespace BEditor.Media.Encoding
         /// <param name="height">The video frame height.</param>
         /// <param name="framerate">The video frames per seconds (fps) value.</param>
         /// <param name="codec">The video encoder.</param>
+        /// <param name="format">The pixel format.</param>
         public VideoEncoderSettings(int width, int height, int framerate = 30, VideoCodec codec = VideoCodec.Default, ImagePixelFormat format = ImagePixelFormat.Yuv420)
         {
             VideoWidth = width;

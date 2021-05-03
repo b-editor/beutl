@@ -211,6 +211,29 @@ namespace BEditor.Media.Graphics
             return 4 * (((GetBitsPerPixel(format) * width) + 31) / 32);
         }
 
+        /// <summary>
+        /// Convert this <see cref="ImageData"/> to <see cref="Image{T}"/>.
+        /// </summary>
+        /// <exception cref="Exception">Cannot convert ImageData to Image&lt;BGRA32&gt; from ImageData with PixelFormat other than ImagePixelFormat.Bgra32.</exception>
+        /// <returns>A new <see cref="Image{T}"/> instance.</returns>
+        public unsafe Image<BGRA32> ToDrawing()
+        {
+            if (PixelFormat != ImagePixelFormat.Bgra32)
+            {
+                throw new Exception("Cannot convert ImageData to Image<BGRA32> from ImageData with PixelFormat other than ImagePixelFormat.Bgra32.");
+            }
+
+            var image = new Image<BGRA32>(ImageSize.Width, ImageSize.Height);
+            fixed (byte* src = Data)
+            fixed (BGRA32* dst = image.Data)
+            {
+                var size = image.DataSize;
+                Buffer.MemoryCopy(src, dst, size, size);
+            }
+
+            return image;
+        }
+
         private static unsafe Span<byte> CreateSpan(IntPtr pointer, Size imageSize, ImagePixelFormat pixelFormat)
         {
             var size = EstimateStride(imageSize.Width, pixelFormat) * imageSize.Height;
@@ -232,29 +255,6 @@ namespace BEditor.Media.Graphics
                 ImagePixelFormat.Yuv444 => 24,
                 _ => 0,
             };
-        }
-
-        /// <summary>
-        /// Convert this <see cref="ImageData"/> to <see cref="Image{T}"/>.
-        /// </summary>
-        /// <exception cref="Exception">Cannot convert ImageData to Image<BGRA32> from ImageData with PixelFormat other than ImagePixelFormat.Bgra32.</exception>
-        /// <returns>A new <see cref="Image{T}"/> instance.</returns>
-        public unsafe Image<BGRA32> ToDrawing()
-        {
-            if (PixelFormat != ImagePixelFormat.Bgra32)
-            {
-                throw new Exception("Cannot convert ImageData to Image<BGRA32> from ImageData with PixelFormat other than ImagePixelFormat.Bgra32.");
-            }
-
-            var image = new Image<BGRA32>(ImageSize.Width, ImageSize.Height);
-            fixed (byte* src = Data)
-            fixed (BGRA32* dst = image.Data)
-            {
-                var size = image.DataSize;
-                Buffer.MemoryCopy(src, dst, size, size);
-            }
-
-            return image;
         }
     }
 }

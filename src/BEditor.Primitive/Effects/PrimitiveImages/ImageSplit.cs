@@ -82,7 +82,7 @@ namespace BEditor.Primitive.Effects
                     x_ -= ((hsplit / 2) * img.Source.Width) - img.Source.Width / 2;
                     y_ += ((vsplit / 2) * img.Source.Height) - img.Source.Height / 2;
 
-                    var trans = Transform.Create(
+                    var trans = new Transform(
                         new Vector3(x_, y_, 0),
                         Vector3.Zero,
                         Vector3.Zero,

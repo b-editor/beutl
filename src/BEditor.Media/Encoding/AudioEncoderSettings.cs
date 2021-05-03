@@ -17,6 +17,7 @@ namespace BEditor.Media.Encoding
         /// <param name="sampleRate">The sample rate of the stream.</param>
         /// <param name="channels">The number of channels in the stream.</param>
         /// <param name="codec">The audio encoder.</param>
+        /// <param name="format">The sample format.</param>
         public AudioEncoderSettings(int sampleRate, int channels, AudioCodec codec = AudioCodec.Default, SampleFormat format = SampleFormat.SignedWord)
         {
             SampleRate = sampleRate;

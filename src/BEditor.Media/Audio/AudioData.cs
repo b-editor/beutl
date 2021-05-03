@@ -83,6 +83,9 @@ namespace BEditor.Media.Audio
             _frame.Dispose();
         }
 
+        /// <summary>
+        /// Convert this <see cref="AudioData"/> to <see cref="Sound{T}"/>.
+        /// </summary>
         public Sound<StereoPCMFloat> ToSound()
         {
             var sound = new Sound<StereoPCMFloat>(_frame.SampleRate, NumSamples);

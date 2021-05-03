@@ -1,16 +1,15 @@
 ﻿using System;
-using System.Collections.Generic;
 using System.ComponentModel;
-using System.Linq;
-using System.Text;
 using System.Threading;
-using System.Threading.Tasks;
 
 using BEditor.Drawing;
 using BEditor.Graphics.Resources;
 
 namespace BEditor.Graphics
 {
+    /// <summary>
+    /// Represents the OpenGL object.
+    /// </summary>
     public abstract class GraphicsObject : IDisposable
     {
         /// <summary>
@@ -31,6 +30,9 @@ namespace BEditor.Graphics
             SynchronizeContext.Post(_ => Dispose(false), null);
         }
 
+        /// <summary>
+        /// Gets the synchronization context associated with this object.
+        /// </summary>
         protected SynchronizationContext SynchronizeContext { get; }
 
         /// <summary>

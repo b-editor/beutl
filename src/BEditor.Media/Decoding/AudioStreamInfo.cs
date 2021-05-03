@@ -18,11 +18,16 @@ namespace BEditor.Media.Decoding
         /// <param name="container">The input container.</param>
         internal unsafe AudioStreamInfo(AVStream* stream, InputContainer container) : base(stream, MediaType.Audio, container)
         {
+            //var codec = stream->codecpar;
+            //NumChannels = codec->channels;
+            //SampleRate = codec->sample_rate;
+
+            //SampleFormat = (SampleFormat)codec->format;
+            //ChannelLayout = ffmpeg.av_get_default_channel_layout(codec->channels);
             var codec = stream->codec;
             NumChannels = codec->channels;
             SampleRate = codec->sample_rate;
-            // Todo
-            //SamplesPerFrame = codec->frame_size > 0 ? codec->frame_size : codec->sample_rate / 20;
+
             SampleFormat = (SampleFormat)codec->sample_fmt;
             ChannelLayout = ffmpeg.av_get_default_channel_layout(codec->channels);
         }
@@ -36,12 +41,6 @@ namespace BEditor.Media.Decoding
         /// Gets the number of samples per second of the audio stream.
         /// </summary>
         public int SampleRate { get; }
-
-        /// <summary>
-        /// Gets the average number of samples per frame (chunk of samples) calculated from metadata.
-        /// It is used to calculate timestamps in the internal decoder methods.
-        /// </summary>
-        //public int SamplesPerFrame { get; }
 
         /// <summary>
         /// Gets the audio sample format.

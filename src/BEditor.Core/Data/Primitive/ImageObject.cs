@@ -150,7 +150,7 @@ namespace BEditor.Data.Primitive
             var ny = Rotate.RotateY.GetValue(frame);
             var nz = Rotate.RotateZ.GetValue(frame);
 
-            return Transform.Create(coordinate, center, new(nx, ny, nz), new(scalex, scaley, scalez));
+            return new Transform(coordinate, center, new(nx, ny, nz), new(scalex, scaley, scalez));
         }
 
         /// <summary>

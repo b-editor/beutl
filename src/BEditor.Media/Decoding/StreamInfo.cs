@@ -87,7 +87,7 @@ namespace BEditor.Media.Decoding
         public MediaType Type { get; }
 
         /// <summary>
-        /// Gets a value indicating whether the <see cref="FrameCount"/> value is know from the multimedia container metadata.
+        /// Gets a value indicating whether the <see cref="NumberOfFrames"/> value is know from the multimedia container metadata.
         /// </summary>
         public bool IsFrameCountProvidedByContainer { get; }
 

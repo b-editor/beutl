@@ -142,7 +142,7 @@ namespace BEditor.Primitive.Effects
 
                     imageInfo.Dispose();
 
-                    return new ImageInfo(stroke, img => Transform.Create(new(img.Source.Width * index, 0, 0), Vector3.Zero, Vector3.Zero, Vector3.Zero));
+                    return new ImageInfo(stroke, img => new Transform(new(img.Source.Width * index, 0, 0), Vector3.Zero, Vector3.Zero, Vector3.Zero));
                 });
             }
 

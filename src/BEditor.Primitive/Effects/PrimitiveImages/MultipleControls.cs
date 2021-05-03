@@ -109,7 +109,7 @@ namespace BEditor.Primitive.Effects
                             var sy = Scale.ScaleY[f] / 100 * s - 1;
                             var sz = Scale.ScaleZ[f] / 100 * s - 1;
 
-                            return img.Transform + Transform.Create(
+                            return img.Transform + new Transform(
                                 new(Coordinate.X[f], Coordinate.Y[f], Coordinate.Z[f]),
                                 new(Coordinate.CenterX[f], Coordinate.CenterY[f], Coordinate.CenterZ[f]),
                                 new(Rotate.RotateX[f], Rotate.RotateY[f], Rotate.RotateZ[f]),

@@ -17,35 +17,61 @@ namespace BEditor.Media
         private T* _pointer;
         private T[]? _array;
 
+        /// <summary>
+        /// Initializes a new instance of the <see cref="Sound{T}"/> class.
+        /// </summary>
+        /// <param name="rate">The sample rate.</param>
+        /// <param name="length">The length of data.</param>
         public Sound(int rate, int length)
         {
-            Samplingrate = rate;
+            SampleRate = rate;
             Length = length;
 
             _pointer = (T*)Marshal.AllocHGlobal(DataSize);
             Data.Fill(default);
         }
+
+        /// <summary>
+        /// Initializes a new instance of the <see cref="Sound{T}"/> class with a specified data.
+        /// </summary>
+        /// <param name="rate">The sample rate.</param>
+        /// <param name="length">The length of data.</param>
+        /// <param name="data">The audio data.</param>
         public Sound(int rate, int length, T[] data)
         {
             _requireDispose = false;
-            Samplingrate = rate;
+            SampleRate = rate;
             Length = length;
 
             _array = data;
         }
+
+        /// <summary>
+        /// Initializes a new instance of the <see cref="Sound{T}"/> class with a specified data.
+        /// </summary>
+        /// <param name="rate">The sample rate.</param>
+        /// <param name="length">The length of data.</param>
+        /// <param name="data">The audio data.</param>
         public Sound(int rate, int length, T* data)
         {
             _requireDispose = false;
-            Samplingrate = rate;
+            SampleRate = rate;
             Length = length;
 
             _pointer = data;
         }
+
+        /// <summary>
+        /// Discards the reference to the target that is represented by the current <see cref="Sound{T}"/> object.
+        /// </summary>
         ~Sound()
         {
             Dispose();
         }
 
+        /// <summary>
+        /// Gets the audio data.
+        /// </summary>
         public Span<T> Data
         {
             get
@@ -55,15 +81,36 @@ namespace BEditor.Media
                 return (_array is null) ? new Span<T>(_pointer, Length) : new Span<T>(_array);
             }
         }
-        public int Samplingrate { get; }
+
+        /// <summary>
+        /// Gets the sample rate of <see cref="Sound{T}"/>.
+        /// </summary>
+        public int SampleRate { get; }
+
+        /// <summary>
+        /// Gets the length of data.
+        /// </summary>
         public int Length { get; }
-        public TimeSpan Time => TimeSpan.FromSeconds(Length / (double)Samplingrate);
+
+        //public TimeSpan Time => TimeSpan.FromSeconds(Length / (double)SampleRate);
+
+        /// <summary>
+        /// Get the data size of <see cref="Sound{T}"/>.
+        /// </summary>
         public int DataSize => Length * sizeof(T);
+
+        /// <summary>
+        /// Get whether an object has been disposed
+        /// </summary>
         public bool IsDisposed { get; private set; }
 
+        /// <summary>
+        /// Converts the data in this <see cref="Sound{T}"/> to the specified type.
+        /// </summary>
+        /// <typeparam name="TConvert">Type of audio data to be converted.</typeparam>
         public Sound<TConvert> Convert<TConvert>() where TConvert : unmanaged, IPCM<TConvert>, IPCMConvertable<T>
         {
-            var result = new Sound<TConvert>(Samplingrate, Length);
+            var result = new Sound<TConvert>(SampleRate, Length);
 
             Parallel.For(0, Length, i =>
             {
@@ -73,11 +120,16 @@ namespace BEditor.Media
             return result;
         }
 
+        /// <summary>
+        /// If this object has already been discarded, throw an exception.
+        /// </summary>
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public void ThrowIfDisposed()
         {
             if (IsDisposed) throw new ObjectDisposedException(nameof(Sound<T>));
         }
+
+        /// <inheritdoc/>
         public void Dispose()
         {
             if (!IsDisposed && _requireDispose)
@@ -90,6 +142,8 @@ namespace BEditor.Media
             IsDisposed = true;
             GC.SuppressFinalize(this);
         }
+
+        /// <inheritdoc/>
         public ValueTask DisposeAsync()
         {
             if (IsDisposed && !_requireDispose) return default;
@@ -107,37 +161,48 @@ namespace BEditor.Media
 
             return new(task);
         }
+
+        /// <inheritdoc cref="ICloneable.Clone"/>
         public Sound<T> Clone()
         {
             ThrowIfDisposed();
 
-            var img = new Sound<T>(Samplingrate, Length);
+            var img = new Sound<T>(SampleRate, Length);
             Data.CopyTo(img.Data);
 
             return img;
         }
+        
         public Sound<T> Slice(TimeSpan start)
         {
-            var data = Data[(int)(start.TotalSeconds * Samplingrate)..];
+            var data = Data[(int)(start.TotalSeconds * SampleRate)..];
 
             fixed (T* dataPtr = data)
             {
-                return new(Samplingrate, data.Length, dataPtr);
+                return new(SampleRate, data.Length, dataPtr);
             }
         }
+
         public Sound<T> Slice(TimeSpan start, TimeSpan length)
         {
-            var data = Data.Slice((int)(start.TotalSeconds * Samplingrate), (int)(length.TotalSeconds * Samplingrate));
+            var data = Data.Slice((int)(start.TotalSeconds * SampleRate), (int)(length.TotalSeconds * SampleRate));
 
             fixed (T* dataPtr = data)
             {
-                return new(Samplingrate, data.Length, dataPtr);
+                return new(SampleRate, data.Length, dataPtr);
             }
         }
+
+        /// <summary>
+        /// Add the specified <see cref="Sound{T}"/> to this <see cref="Sound{T}"/>.
+        /// </summary>
+        /// <param name="sound">The sound to add.</param>
         public void Add(Sound<T> sound)
         {
             Parallel.For(0, Math.Min(sound.Length, Length), i => Data[i] = Data[i].Add(sound.Data[i]));
         }
+
+        /// <inheritdoc/>
         object ICloneable.Clone()
         {
             return Clone();

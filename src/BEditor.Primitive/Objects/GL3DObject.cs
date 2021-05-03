@@ -181,7 +181,7 @@ namespace BEditor.Primitive.Objects
             float scalez = (float)(Scale.ScaleZ[frame] / 100) * scale;
 
             var material = new Graphics.Material(Material.Ambient[frame], Material.Diffuse[frame], Material.Specular[frame], Material.Shininess[frame]);
-            var trans = Transform.Create(
+            var trans = new Transform(
                 new(Coordinate.X[frame], Coordinate.Y[frame], Coordinate.Z[frame]),
                 new(Coordinate.CenterX[frame], Coordinate.CenterY[frame], Coordinate.CenterZ[frame]),
                 new(Rotate.RotateX[frame], Rotate.RotateY[frame], Rotate.RotateZ[frame]),
