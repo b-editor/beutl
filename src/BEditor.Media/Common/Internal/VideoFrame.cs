@@ -1,4 +1,5 @@
 ﻿using System;
+
 using BEditor.Drawing;
 
 using BEditor.Media.Graphics;
@@ -16,7 +17,7 @@ namespace BEditor.Media.Common.Internal
         /// <summary>
         /// Initializes a new instance of the <see cref="VideoFrame"/> class with empty frame data.
         /// </summary>
-        public VideoFrame(): base(ffmpeg.av_frame_alloc())
+        public VideoFrame() : base(ffmpeg.av_frame_alloc())
         {
         }
 
@@ -24,7 +25,7 @@ namespace BEditor.Media.Common.Internal
         /// Initializes a new instance of the <see cref="VideoFrame"/> class using existing <see cref="AVFrame"/>.
         /// </summary>
         /// <param name="frame">The video <see cref="AVFrame"/>.</param>
-        public VideoFrame(AVFrame* frame): base(frame)
+        public VideoFrame(AVFrame* frame) : base(frame)
         {
             if (frame->GetMediaType() == MediaType.Audio)
             {

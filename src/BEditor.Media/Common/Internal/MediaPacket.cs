@@ -11,7 +11,7 @@ namespace BEditor.Media.Common.Internal
         /// Initializes a new instance of the <see cref="MediaPacket"/> class.
         /// </summary>
         /// <param name="packet">The <see cref="AVPacket"/> object.</param>
-        private MediaPacket(AVPacket* packet): base(packet)
+        private MediaPacket(AVPacket* packet) : base(packet)
         {
         }
 

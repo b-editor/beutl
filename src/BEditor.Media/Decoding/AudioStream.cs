@@ -90,7 +90,7 @@ namespace BEditor.Media.Decoding
         /// <returns>The decoded video frame.</returns>
         public new AudioData GetFrame(TimeSpan time)
         {
-            var frame = (AudioFrame)base.GetFrame(time) ;
+            var frame = (AudioFrame)base.GetFrame(time);
             return new AudioData(frame);
         }
 
