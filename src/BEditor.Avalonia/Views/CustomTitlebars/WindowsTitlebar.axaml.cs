@@ -30,7 +30,7 @@ namespace BEditor.Views.CustomTitlebars
         private readonly ToolTip _maximizeToolTip;
         private readonly Button _closeButton;
         private readonly Menu _menu;
-        private readonly MenuItem _recentlyUsedFiles;
+        private readonly MenuItem _recentFiles;
         private readonly StackPanel _titlebarbuttons;
 
         public WindowsTitlebar()
@@ -42,7 +42,7 @@ namespace BEditor.Views.CustomTitlebars
             _maximizeToolTip = this.FindControl<ToolTip>("MaximizeToolTip");
             _closeButton = this.FindControl<Button>("CloseButton");
             _menu = this.FindControl<Menu>("menu");
-            _recentlyUsedFiles = this.FindControl<MenuItem>("RecentlyUsedFiles");
+            _recentFiles = this.FindControl<MenuItem>("RecentFiles");
             _titlebarbuttons = this.FindControl<StackPanel>("titlebarbuttons");
 
             if (OperatingSystem.IsWindows())
@@ -84,18 +84,18 @@ namespace BEditor.Views.CustomTitlebars
                 }
             }
 
-            var items = new ObservableCollection<MenuItem>(BEditor.Settings.Default.RecentlyUsedFiles.Reverse().Select(i => new MenuItem
+            var items = new ObservableCollection<MenuItem>(BEditor.Settings.Default.RecentFiles.Reverse().Select(i => new MenuItem
             {
                 Header = i
             }));
 
-            _recentlyUsedFiles.Items = items;
+            _recentFiles.Items = items;
             foreach (var item in items)
             {
                 item.Click += async (s, e) => await ProjectOpenCommand(((s as MenuItem)!.Header as string)!);
             }
 
-            BEditor.Settings.Default.RecentlyUsedFiles.CollectionChanged += async (s, e) =>
+            BEditor.Settings.Default.RecentFiles.CollectionChanged += async (s, e) =>
             {
                 await Dispatcher.UIThread.InvokeAsync(() =>
                 {
@@ -108,17 +108,17 @@ namespace BEditor.Views.CustomTitlebars
                         };
                         menu.Click += async (s, e) => await ProjectOpenCommand(((s as MenuItem)!.Header as string)!);
 
-                        ((ObservableCollection<MenuItem>)_recentlyUsedFiles.Items).Insert(0, menu);
+                        ((ObservableCollection<MenuItem>)_recentFiles.Items).Insert(0, menu);
                     }
                     else if (e.Action is NotifyCollectionChangedAction.Remove)
                     {
                         var file = e.OldItems![0] as string;
 
-                        foreach (var item in _recentlyUsedFiles.Items)
+                        foreach (var item in _recentFiles.Items)
                         {
                             if (item is MenuItem menuItem && menuItem.Header is string header && header == file)
                             {
-                                ((ObservableCollection<MenuItem>)_recentlyUsedFiles.Items).Remove(menuItem);
+                                ((ObservableCollection<MenuItem>)_recentFiles.Items).Remove(menuItem);
 
                                 return;
                             }

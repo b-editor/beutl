@@ -107,7 +107,7 @@
                 </Style>
             </StackPanel.Styles>
 
-            <Button Click="CreateProjectClick" ToolTip.Tip="{x:Static prop:Strings.CreateNew}">
+            <Button Click="CreateProjectClick" ToolTip.Tip="{x:Static prop:Strings.New}">
                 <PathIcon Data="{StaticResource DocumentAdd48Regular}"/>
             </Button>
 

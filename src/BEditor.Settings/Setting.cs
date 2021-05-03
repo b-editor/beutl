@@ -37,7 +37,7 @@ namespace BEditor
         private ObservableCollection<string>? enablePlugins;
         private ObservableCollection<string>? disablePlugins;
         private ObservableCollection<string>? includeFonts;
-        private ObservableCollection<string>? mostRecentlyUsedList;
+        private ObservableCollection<string>? recentFiles;
         private string? language;
         private bool prioritizeGPU = true;
 
@@ -119,10 +119,10 @@ namespace BEditor
             set => disablePlugins = value;
         }
         [DataMember]
-        public ObservableCollection<string> RecentlyUsedFiles
+        public ObservableCollection<string> RecentFiles
         {
-            get => mostRecentlyUsedList ??= new();
-            private set => mostRecentlyUsedList = new(value.Where(file => File.Exists(file)));
+            get => recentFiles ??= new();
+            private set => recentFiles = new(value.Where(file => File.Exists(file)));
         }
         [DataMember]
         public ObservableCollection<string> IncludeFontDir

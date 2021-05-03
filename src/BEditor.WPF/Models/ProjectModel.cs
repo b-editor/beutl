@@ -150,8 +150,8 @@ namespace BEditor.Models
                 app.Project = project;
                 app.AppStatus = Status.Edit;
 
-                Settings.Default.RecentlyUsedFiles.Remove(filename);
-                Settings.Default.RecentlyUsedFiles.Add(filename);
+                Settings.Default.RecentFiles.Remove(filename);
+                Settings.Default.RecentFiles.Add(filename);
             });
         }
     }

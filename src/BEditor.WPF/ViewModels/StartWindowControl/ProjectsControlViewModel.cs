@@ -25,12 +25,12 @@ namespace BEditor.ViewModels.StartWindowControl
     {
         public ProjectsControlViewModel()
         {
-            CountIsZero = new(!Settings.Default.RecentlyUsedFiles
+            CountIsZero = new(!Settings.Default.RecentFiles
                 .Where(i => File.Exists(i))
                 .Any());
             CountIsNotZero = CountIsZero.Select(i => !i).ToReadOnlyReactivePropertySlim();
 
-            Projects = new(Settings.Default.RecentlyUsedFiles
+            Projects = new(Settings.Default.RecentFiles
                 .Where(i => File.Exists(i))
                 .Select(i => new ProjectItem(Path.GetFileNameWithoutExtension(i), i, Click, Remove))
                 .Reverse());
@@ -57,8 +57,8 @@ namespace BEditor.ViewModels.StartWindowControl
                     app.Project = project;
                     app.AppStatus = Status.Edit;
 
-                    Settings.Default.RecentlyUsedFiles.Remove(ProjectItem.Path);
-                    Settings.Default.RecentlyUsedFiles.Add(ProjectItem.Path);
+                    Settings.Default.RecentFiles.Remove(ProjectItem.Path);
+                    Settings.Default.RecentFiles.Add(ProjectItem.Path);
 
                     await App.Current.Dispatcher.InvokeAsync(() =>
                     {
@@ -87,7 +87,7 @@ namespace BEditor.ViewModels.StartWindowControl
             Remove.Subscribe(item =>
             {
                 Projects.Remove(item);
-                Settings.Default.RecentlyUsedFiles.Remove(item.Path);
+                Settings.Default.RecentFiles.Remove(item.Path);
 
                 if (Projects.Count is 0)
                 {
@@ -109,7 +109,7 @@ namespace BEditor.ViewModels.StartWindowControl
                 {
                     var f = Projects.Count is 0;
                     Projects.Insert(0, new ProjectItem(Path.GetFileNameWithoutExtension(record.FileName), record.FileName, Click, Remove));
-                    Settings.Default.RecentlyUsedFiles.Add(record.FileName);
+                    Settings.Default.RecentFiles.Add(record.FileName);
 
                     if (f)
                     {

@@ -137,7 +137,7 @@
                                 Header="{x:Static properties:Strings.Close}"
                                 IsEnabled="{Binding ProjectIsOpened.Value, Mode=OneWay}" />
                             <Separator Height="10" />
-                            <MenuItem x:Name="UsedFiles" Header="{x:Static properties:Strings.RecentlyUsedFiles}" />
+                            <MenuItem x:Name="UsedFiles" Header="{x:Static properties:Strings.RecentFiles}" />
                             <Separator Height="10" />
                             <MenuItem Command="{Binding Shutdown, Mode=OneTime}" Header="{x:Static properties:Strings.Shutdown}" />
                         </ContextMenu>

@@ -108,9 +108,9 @@ namespace BEditor.ViewModels.DialogContent
 
                     var fullpath = Path.Combine(project.DirectoryName!, project.Name + ".bedit");
 
-                    settings.RecentlyUsedFiles.Remove(fullpath);
+                    settings.RecentFiles.Remove(fullpath);
 
-                    settings.RecentlyUsedFiles.Add(fullpath);
+                    settings.RecentFiles.Add(fullpath);
                 }
 
                 app.AppStatus = Status.Edit;

@@ -54,7 +54,7 @@
 
         <ScrollViewer Grid.Column="0">
             <VirtualizingStackPanel>
-                <TextBlock Margin="8" Text="{x:Static props:Strings.RecentlyUsedFonts}" />
+                <TextBlock Margin="8" Text="{x:Static props:Strings.RecentFonts}" />
 
                 <ItemsControl
                     ItemsSource="{Binding UsedFonts, Mode=OneTime}"

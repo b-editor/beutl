@@ -159,38 +159,23 @@
   <data name="ThisNameAlreadyExists" xml:space="preserve">
     <value>この名前は既に存在しています。</value>
   </data>
-  <data name="AccessCreateNew" xml:space="preserve">
-    <value>新規作成(_N)</value>
+  <data name="New" xml:space="preserve">
+    <value>新規作成</value>
   </data>
-  <data name="AccessEdit" xml:space="preserve">
-    <value>編集(_E)</value>
+  <data name="Help" xml:space="preserve">
+    <value>ヘルプ</value>
   </data>
-  <data name="AccessFile" xml:space="preserve">
-    <value>ファイル(_F)</value>
+  <data name="Out" xml:space="preserve">
+    <value>出力</value>
   </data>
-  <data name="AccessHelp" xml:space="preserve">
-    <value>ヘルプ(_H)</value>
+  <data name="Plugin" xml:space="preserve">
+    <value>プラグイン</value>
   </data>
-  <data name="AccessOpen" xml:space="preserve">
-    <value>開く(_O)</value>
+  <data name="Tool" xml:space="preserve">
+    <value>ツール</value>
   </data>
-  <data name="AccessOut" xml:space="preserve">
-    <value>出力(_O)</value>
-  </data>
-  <data name="AccessPlugin" xml:space="preserve">
-    <value>プラグイン(_X)</value>
-  </data>
-  <data name="AccessProject" xml:space="preserve">
-    <value>プロジェクト(_P)</value>
-  </data>
-  <data name="AccessSave" xml:space="preserve">
-    <value>保存(_S)</value>
-  </data>
-  <data name="AccessTool" xml:space="preserve">
-    <value>ツール(_T)</value>
-  </data>
-  <data name="AccessView" xml:space="preserve">
-    <value>表示(_V)</value>
+  <data name="View" xml:space="preserve">
+    <value>表示</value>
   </data>
   <data name="Add" xml:space="preserve">
     <value>追加</value>
@@ -206,9 +191,6 @@
   </data>
   <data name="AddScene" xml:space="preserve">
     <value>シーンを追加</value>
-  </data>
-  <data name="AddToList" xml:space="preserve">
-    <value>リストに追加</value>
   </data>
   <data name="Appearance" xml:space="preserve">
     <value>外観</value>
@@ -261,9 +243,6 @@
   </data>
   <data name="CreateFromBackup" xml:space="preserve">
     <value>バックアップから作成</value>
-  </data>
-  <data name="CreateNew" xml:space="preserve">
-    <value>新規作成</value>
   </data>
   <data name="CreateProject" xml:space="preserve">
     <value>プロジェクトを作成</value>
@@ -428,7 +407,7 @@
   <data name="RangeAbove" xml:space="preserve">
     <value>{0} 以上の値を入力してください。</value>
   </data>
-  <data name="RecentlyUsedFonts" xml:space="preserve">
+  <data name="RecentFonts" xml:space="preserve">
     <value>最近使ったフォント</value>
   </data>
   <data name="Redo" xml:space="preserve">
@@ -533,9 +512,6 @@
   <data name="WidthOf1Frame" xml:space="preserve">
     <value>1フレームあたりの横幅</value>
   </data>
-  <data name="RecentlyUsedFiles" xml:space="preserve">
-    <value>最近使ったファイル</value>
-  </data>
   <data name="SetupComplete" xml:space="preserve">
     <value>セットアップが完了しました。</value>
   </data>
@@ -606,6 +582,12 @@
     <value>有効化</value>
   </data>
   <data name="AudioFile" xml:space="preserve">
+    <value>音声ファイル</value>
+  </data>
+  <data name="RecentFiles" xml:space="preserve">
+    <value>最近使ったファイル</value>
+  </data>
+  <data name="AudioFiles" xml:space="preserve">
     <value>音声ファイル</value>
   </data>
 </root>

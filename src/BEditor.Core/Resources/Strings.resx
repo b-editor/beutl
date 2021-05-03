@@ -185,10 +185,10 @@
     <value>The value was not {0} type, but {1} type.</value>
   </data>
   <data name="AddClip" xml:space="preserve">
-    <value>Add a clip</value>
+    <value>Add a new clip</value>
   </data>
   <data name="AddEffect" xml:space="preserve">
-    <value>Add a effect</value>
+    <value>Add a new effect</value>
   </data>
   <data name="AddKeyframe" xml:space="preserve">
     <value>Add a keyframe</value>

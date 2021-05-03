@@ -205,7 +205,7 @@ and will be released after 5 seconds.</value>
     <value>Remove</value>
   </data>
   <data name="AddClip" xml:space="preserve">
-    <value>Add a clip</value>
+    <value>Add a new clip</value>
   </data>
   <data name="Edit" xml:space="preserve">
     <value>Edit</value>
@@ -324,22 +324,16 @@ Please select the plugin you want to load</value>
     <value>Save folder</value>
   </data>
   <data name="AddScene" xml:space="preserve">
-    <value>Add a scene</value>
+    <value>Add a new scene</value>
   </data>
-  <data name="RecentlyUsedFonts" xml:space="preserve">
-    <value>Recently used fonts</value>
+  <data name="RecentFonts" xml:space="preserve">
+    <value>Recent fonts</value>
   </data>
   <data name="Search" xml:space="preserve">
     <value>Seach</value>
   </data>
-  <data name="AccessFile" xml:space="preserve">
-    <value>File(_F)</value>
-  </data>
-  <data name="AccessOpen" xml:space="preserve">
-    <value>Open(_O)</value>
-  </data>
-  <data name="AccessCreateNew" xml:space="preserve">
-    <value>Create New(_N)</value>
+  <data name="New" xml:space="preserve">
+    <value>New</value>
   </data>
   <data name="CreateProject" xml:space="preserve">
     <value>Create a project</value>
@@ -347,20 +341,11 @@ Please select the plugin you want to load</value>
   <data name="CreateFromBackup" xml:space="preserve">
     <value>Create from backup file</value>
   </data>
-  <data name="AccessSave" xml:space="preserve">
-    <value>Save(_S)</value>
-  </data>
   <data name="SaveAs" xml:space="preserve">
     <value>Save as</value>
   </data>
-  <data name="RecentlyUsedFiles" xml:space="preserve">
-    <value>Recently used files</value>
-  </data>
   <data name="Shutdown" xml:space="preserve">
     <value>Shutdown</value>
-  </data>
-  <data name="AccessEdit" xml:space="preserve">
-    <value>Edit(_E)</value>
   </data>
   <data name="Undo" xml:space="preserve">
     <value>Undo</value>
@@ -395,8 +380,8 @@ Please select the plugin you want to load</value>
   <data name="MoveToSpecifiedFrame" xml:space="preserve">
     <value>Move to the specified frame.</value>
   </data>
-  <data name="AccessView" xml:space="preserve">
-    <value>View(_V)</value>
+  <data name="View" xml:space="preserve">
+    <value>View</value>
   </data>
   <data name="TimelineShowHide" xml:space="preserve">
     <value>Show/hide timeline</value>
@@ -404,14 +389,11 @@ Please select the plugin you want to load</value>
   <data name="PropertyShowHide" xml:space="preserve">
     <value>Show/hide property</value>
   </data>
-  <data name="AccessProject" xml:space="preserve">
-    <value>Project(_P)</value>
-  </data>
   <data name="AddEffect" xml:space="preserve">
-    <value>Add a effect</value>
+    <value>Add a new effect</value>
   </data>
-  <data name="AccessTool" xml:space="preserve">
-    <value>Tool(_T)</value>
+  <data name="Tool" xml:space="preserve">
+    <value>Tool</value>
   </data>
   <data name="Optimization" xml:space="preserve">
     <value>Optimization</value>
@@ -422,11 +404,11 @@ Please select the plugin you want to load</value>
   <data name="DeleteCommand" xml:space="preserve">
     <value>Delet recorded commands</value>
   </data>
-  <data name="AccessPlugin" xml:space="preserve">
-    <value>Plugin(_X)</value>
+  <data name="Plugin" xml:space="preserve">
+    <value>Plugin</value>
   </data>
-  <data name="AccessOut" xml:space="preserve">
-    <value>Output(_O)</value>
+  <data name="Out" xml:space="preserve">
+    <value>Output</value>
   </data>
   <data name="VideoOutput" xml:space="preserve">
     <value>Video output</value>
@@ -434,8 +416,8 @@ Please select the plugin you want to load</value>
   <data name="ImageOutput" xml:space="preserve">
     <value>Image output</value>
   </data>
-  <data name="AccessHelp" xml:space="preserve">
-    <value>Help(_H)</value>
+  <data name="Help" xml:space="preserve">
+    <value>Help</value>
   </data>
   <data name="SendFeedback" xml:space="preserve">
     <value>Send feedback(Open an Issue on GitHub)</value>
@@ -505,12 +487,6 @@ Please select the plugin you want to load</value>
   </data>
   <data name="Separate" xml:space="preserve">
     <value>Separate</value>
-  </data>
-  <data name="CreateNew" xml:space="preserve">
-    <value>Create new</value>
-  </data>
-  <data name="AddToList" xml:space="preserve">
-    <value>Add to list</value>
   </data>
   <data name="ThereIsNoProject" xml:space="preserve">
     <value>There is no project.</value>
@@ -582,7 +558,7 @@ Please select the plugin you want to load</value>
     <value>Audio</value>
   </data>
   <data name="VideoFile" xml:space="preserve">
-    <value>Video File</value>
+    <value>Video file</value>
   </data>
   <data name="Video" xml:space="preserve">
     <value>Video</value>
@@ -606,6 +582,12 @@ Please select the plugin you want to load</value>
     <value>Validation</value>
   </data>
   <data name="AudioFile" xml:space="preserve">
-    <value>Audio File</value>
+    <value>Audio file</value>
+  </data>
+  <data name="RecentFiles" xml:space="preserve">
+    <value>Recent files</value>
+  </data>
+  <data name="AudioFiles" xml:space="preserve">
+    <value>Audio files</value>
   </data>
 </root>

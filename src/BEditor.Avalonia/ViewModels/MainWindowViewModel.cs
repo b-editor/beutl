@@ -339,8 +339,8 @@ namespace BEditor.ViewModels
                 app.Project = project;
                 app.AppStatus = Status.Edit;
 
-                BEditor.Settings.Default.RecentlyUsedFiles.Remove(filename);
-                BEditor.Settings.Default.RecentlyUsedFiles.Add(filename);
+                BEditor.Settings.Default.RecentFiles.Remove(filename);
+                BEditor.Settings.Default.RecentFiles.Add(filename);
             });
         }
     }

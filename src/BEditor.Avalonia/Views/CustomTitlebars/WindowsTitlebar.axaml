@@ -19,16 +19,16 @@
                     <Setter Property="Height" Value="16" />
                 </Style>
             </Menu.Styles>
-            <MenuItem Header="{x:Static prop:Strings.AccessFile}">
+            <MenuItem Header="{x:Static prop:Strings.File}">
                 <!--開く-->
-                <MenuItem Header="{x:Static prop:Strings.AccessOpen}" Command="{CompiledBinding Open, Mode=OneTime}">
+                <MenuItem Header="{x:Static prop:Strings.Open}" Command="{CompiledBinding Open, Mode=OneTime}">
                     <MenuItem.Icon>
                         <PathIcon Data="{StaticResource FolderOpen24Regular}" />
                     </MenuItem.Icon>
                 </MenuItem>
 
                 <!--新規作成-->
-                <MenuItem Header="{x:Static prop:Strings.CreateNew}">
+                <MenuItem Header="{x:Static prop:Strings.New}">
                     <MenuItem
                         Classes="iconheader"
                         Header="{x:Static prop:Strings.CreateProject}"
@@ -71,13 +71,13 @@
                 <Separator/>
 
                 <!--最近使ったファイル-->
-                <MenuItem Header="{x:Static prop:Strings.RecentlyUsedFiles}" x:Name="RecentlyUsedFiles" />
+                <MenuItem Header="{x:Static prop:Strings.RecentFiles}" x:Name="RecentFiles" />
 
                 <!--終了-->
                 <MenuItem Header="{x:Static prop:Strings.Shutdown}"/>
 
             </MenuItem>
-            <MenuItem Header="{x:Static prop:Strings.AccessEdit}">
+            <MenuItem Header="{x:Static prop:Strings.Edit}">
                 <!--やり直す-->
                 <MenuItem
                     Command="{CompiledBinding Undo, Mode=OneTime}"
@@ -141,10 +141,10 @@
                 </MenuItem>
 
             </MenuItem>
-            <MenuItem Header="{x:Static prop:Strings.AccessView}">
+            <MenuItem Header="{x:Static prop:Strings.View}">
 
             </MenuItem>
-            <MenuItem Header="{x:Static prop:Strings.AccessTool}">
+            <MenuItem Header="{x:Static prop:Strings.Tool}">
 
                 <!--設定-->
                 <MenuItem Click="ShowSettings" Header="{x:Static prop:Strings.Settings}">
@@ -154,10 +154,10 @@
                 </MenuItem>
 
             </MenuItem>
-            <MenuItem Header="{x:Static prop:Strings.AccessPlugin}">
+            <MenuItem Header="{x:Static prop:Strings.Plugin}">
 
             </MenuItem>
-            <MenuItem Header="{x:Static prop:Strings.AccessOut}">
+            <MenuItem Header="{x:Static prop:Strings.Out}">
 
                 <!--動画-->
                 <MenuItem
@@ -180,7 +180,7 @@
                 </MenuItem>
                 
             </MenuItem>
-            <MenuItem Header="{x:Static prop:Strings.AccessHelp}">
+            <MenuItem Header="{x:Static prop:Strings.Help}">
 
                 <!--情報-->
                 <MenuItem Click="ShowInfomation" Header="{x:Static prop:Strings.Infomation}">

@@ -438,7 +438,7 @@
   <data name="RangeAbove" xml:space="preserve">
     <value>{0} 以上の値を入力してください。</value>
   </data>
-  <data name="RecentlyUsedFonts" xml:space="preserve">
+  <data name="RecentFonts" xml:space="preserve">
     <value>最近使ったフォント</value>
   </data>
   <data name="Redo" xml:space="preserve">
@@ -543,7 +543,7 @@
   <data name="WidthOf1Frame" xml:space="preserve">
     <value>1フレームあたりの横幅</value>
   </data>
-  <data name="RecentlyUsedFiles" xml:space="preserve">
+  <data name="RecentFiles" xml:space="preserve">
     <value>最近使ったファイル</value>
   </data>
   <data name="SetupComplete" xml:space="preserve">

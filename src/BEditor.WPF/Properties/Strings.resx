@@ -336,8 +336,8 @@ Please select the plugin you want to load</value>
   <data name="AddScene" xml:space="preserve">
     <value>Add a scene</value>
   </data>
-  <data name="RecentlyUsedFonts" xml:space="preserve">
-    <value>Recently used fonts</value>
+  <data name="RecentFonts" xml:space="preserve">
+    <value>Recent fonts</value>
   </data>
   <data name="Search" xml:space="preserve">
     <value>Seach</value>
@@ -363,8 +363,8 @@ Please select the plugin you want to load</value>
   <data name="SaveAs" xml:space="preserve">
     <value>Save as</value>
   </data>
-  <data name="RecentlyUsedFiles" xml:space="preserve">
-    <value>Recently used files</value>
+  <data name="RecentFiles" xml:space="preserve">
+    <value>Recent files</value>
   </data>
   <data name="Shutdown" xml:space="preserve">
     <value>Shutdown</value>

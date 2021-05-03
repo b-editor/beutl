@@ -149,7 +149,7 @@ namespace BEditor
                 }
             }
 
-            foreach (var file in Settings.Default.RecentlyUsedFiles)
+            foreach (var file in Settings.Default.RecentFiles)
             {
                 var menu = new MenuItem()
                 {
@@ -160,7 +160,7 @@ namespace BEditor
                 UsedFiles.Items.Insert(0, menu);
             }
 
-            Settings.Default.RecentlyUsedFiles.CollectionChanged += (s, e) =>
+            Settings.Default.RecentFiles.CollectionChanged += (s, e) =>
             {
                 Dispatcher.InvokeAsync(() =>
                 {

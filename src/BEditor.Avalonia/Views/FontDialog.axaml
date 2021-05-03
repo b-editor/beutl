@@ -1,138 +1,138 @@
 <Window
-  xmlns="https://github.com/avaloniaui"
-  xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
-  xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
-  xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
-  xmlns:convert="using:BEditor.Converters"
-  xmlns:props="using:BEditor.Properties"
-  xmlns:vm="using:BEditor.ViewModels"
-  mc:Ignorable="d" d:DesignWidth="800" d:DesignHeight="450"
-  x:Class="BEditor.Views.FontDialog"
-  x:Name="root"
-  x:DataType="vm:FontDialogViewModel"
-  Width="700"
-  Height="450"
-  MinWidth="490"
-  MinHeight="310"
-  WindowStartupLocation="CenterScreen" >
-  <Window.Resources>
-    <convert:FontToFontWeight x:Key="FontToFontWeight" />
-    <convert:FontToFontFamily x:Key="FontToFontFamily" />
-  </Window.Resources>
-  <Window.Styles>
-    <Style Selector="Button.bottomButton">
-      <Setter Property="VerticalAlignment" Value="Center" />
-      <Setter Property="Cursor" Value="Arrow" />
-      <Setter Property="Background" Value="Transparent" />
-    </Style>
-    <Style Selector="ToggleButton.itemsToggle">
-      <Setter Property="HorizontalAlignment" Value="Stretch" />
-      <Setter Property="HorizontalContentAlignment" Value="Left" />
-      <Setter Property="Cursor" Value="Arrow" />
-      <Setter Property="Background" Value="Transparent" />
-    </Style>
-  </Window.Styles>
-  <Grid>
-    <Grid.ColumnDefinitions>
-      <ColumnDefinition />
-      <ColumnDefinition Width="10" />
-      <ColumnDefinition />
-    </Grid.ColumnDefinitions>
+    xmlns="https://github.com/avaloniaui"
+    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+    xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+    xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+    xmlns:convert="using:BEditor.Converters"
+    xmlns:props="using:BEditor.Properties"
+    xmlns:vm="using:BEditor.ViewModels"
+    mc:Ignorable="d" d:DesignWidth="800" d:DesignHeight="450"
+    x:Class="BEditor.Views.FontDialog"
+    x:Name="root"
+    x:DataType="vm:FontDialogViewModel"
+    Width="700"
+    Height="450"
+    MinWidth="490"
+    MinHeight="310"
+    WindowStartupLocation="CenterScreen" >
+    <Window.Resources>
+        <convert:FontToFontWeight x:Key="FontToFontWeight" />
+        <convert:FontToFontFamily x:Key="FontToFontFamily" />
+    </Window.Resources>
+    <Window.Styles>
+        <Style Selector="Button.bottomButton">
+            <Setter Property="VerticalAlignment" Value="Center" />
+            <Setter Property="Cursor" Value="Arrow" />
+            <Setter Property="Background" Value="Transparent" />
+        </Style>
+        <Style Selector="ToggleButton.itemsToggle">
+            <Setter Property="HorizontalAlignment" Value="Stretch" />
+            <Setter Property="HorizontalContentAlignment" Value="Left" />
+            <Setter Property="Cursor" Value="Arrow" />
+            <Setter Property="Background" Value="Transparent" />
+        </Style>
+    </Window.Styles>
+    <Grid>
+        <Grid.ColumnDefinitions>
+            <ColumnDefinition />
+            <ColumnDefinition Width="10" />
+            <ColumnDefinition />
+        </Grid.ColumnDefinitions>
 
-    <ScrollViewer Grid.Column="0">
-      <VirtualizingStackPanel>
-        <TextBlock Margin="8" Text="{x:Static props:Strings.RecentlyUsedFonts}" />
+        <ScrollViewer Grid.Column="0">
+            <VirtualizingStackPanel>
+                <TextBlock Margin="8" Text="{x:Static props:Strings.RecentFonts}" />
 
-        <ItemsControl Items="{Binding UsedFonts, Mode=OneTime}" HorizontalAlignment="Stretch">
-          <ItemsControl.ItemTemplate>
-            <DataTemplate>
-              <ToggleButton
-                Classes="itemsToggle"
-                Command="{Binding ElementName=root, Path=DataContext.SelectCommand, Mode=OneTime}"
-                CommandParameter="{Binding}"
-                Content="{Binding Font.Name, Mode=OneTime}"
-                IsChecked="{Binding IsChecked.Value, Mode=TwoWay}"
-                IsVisible="{Binding IsVisible.Value, Mode=OneWay}" />
-            </DataTemplate>
-          </ItemsControl.ItemTemplate>
-        </ItemsControl>
+                <ItemsControl Items="{Binding UsedFonts, Mode=OneTime}" HorizontalAlignment="Stretch">
+                    <ItemsControl.ItemTemplate>
+                        <DataTemplate>
+                            <ToggleButton
+                                Classes="itemsToggle"
+                                Command="{Binding ElementName=root, Path=DataContext.SelectCommand, Mode=OneTime}"
+                                CommandParameter="{Binding}"
+                                Content="{Binding Font.Name, Mode=OneTime}"
+                                IsChecked="{Binding IsChecked.Value, Mode=TwoWay}"
+                                IsVisible="{Binding IsVisible.Value, Mode=OneWay}" />
+                        </DataTemplate>
+                    </ItemsControl.ItemTemplate>
+                </ItemsControl>
 
-        <Separator Margin="8" />
+                <Separator Margin="8" />
 
-        <ItemsControl Items="{Binding FontItems, Mode=OneTime}" HorizontalAlignment="Stretch">
-          <ItemsControl.ItemTemplate>
-            <DataTemplate>
-              <ToggleButton
-                Classes="itemsToggle"
-                Command="{Binding ElementName=root, Path=DataContext.SelectCommand, Mode=OneTime}"
-                CommandParameter="{Binding}"
-                Content="{Binding Font.Name, Mode=OneTime}"
-                IsChecked="{Binding IsChecked.Value, Mode=TwoWay}"
-                IsVisible="{Binding IsVisible.Value, Mode=OneWay}" />
-            </DataTemplate>
-          </ItemsControl.ItemTemplate>
-        </ItemsControl>
-      </VirtualizingStackPanel>
-    </ScrollViewer>
+                <ItemsControl Items="{Binding FontItems, Mode=OneTime}" HorizontalAlignment="Stretch">
+                    <ItemsControl.ItemTemplate>
+                        <DataTemplate>
+                            <ToggleButton
+                                Classes="itemsToggle"
+                                Command="{Binding ElementName=root, Path=DataContext.SelectCommand, Mode=OneTime}"
+                                CommandParameter="{Binding}"
+                                Content="{Binding Font.Name, Mode=OneTime}"
+                                IsChecked="{Binding IsChecked.Value, Mode=TwoWay}"
+                                IsVisible="{Binding IsVisible.Value, Mode=OneWay}" />
+                        </DataTemplate>
+                    </ItemsControl.ItemTemplate>
+                </ItemsControl>
+            </VirtualizingStackPanel>
+        </ScrollViewer>
 
-    <GridSplitter
-        Grid.Column="1"
-        Width="10"
-        HorizontalAlignment="Center"
-        VerticalAlignment="Stretch"
-        Background="Transparent" />
+        <GridSplitter
+            Grid.Column="1"
+            Width="10"
+            HorizontalAlignment="Center"
+            VerticalAlignment="Stretch"
+            Background="Transparent" />
 
-    <Grid Grid.Column="2">
-      <Grid.RowDefinitions>
-        <RowDefinition Height="Auto" />
-        <RowDefinition />
-      </Grid.RowDefinitions>
+        <Grid Grid.Column="2">
+            <Grid.RowDefinitions>
+                <RowDefinition Height="Auto" />
+                <RowDefinition />
+            </Grid.RowDefinitions>
 
-      <TextBox Margin="8" Text="{CompiledBinding Search.Value, Mode=TwoWay}" />
+            <TextBox Margin="8" Text="{CompiledBinding Search.Value, Mode=TwoWay}" />
 
-      <StackPanel Grid.Row="1">
-        <TextBox
-          Margin="8"
-          VerticalContentAlignment="Center"
-          Text="{CompiledBinding SampleText.Value}" />
+            <StackPanel Grid.Row="1">
+                <TextBox
+                    Margin="8"
+                    VerticalContentAlignment="Center"
+                    Text="{CompiledBinding SampleText.Value}" />
 
-        <TextBlock Margin="8,0" Text="FontSize" />
+                <TextBlock Margin="8,0" Text="FontSize" />
 
-        <Slider
-          x:Name="FontSizeSlider"
-          Margin="8"
-          Padding="0"
-          Maximum="200"
-          Minimum="20"
-          Value="60" />
+                <Slider
+                    x:Name="FontSizeSlider"
+                    Margin="8"
+                    Padding="0"
+                    Maximum="200"
+                    Minimum="20"
+                    Value="60" />
 
-        <TextBox
-          Margin="8"
-          FontFamily="{CompiledBinding SelectedItem.Value.Font, Converter={StaticResource FontToFontFamily}}"
-          FontSize="{CompiledBinding ElementName=FontSizeSlider, Path=Value}"
-          FontWeight="{CompiledBinding SelectedItem.Value.Font, Converter={StaticResource FontToFontWeight}}"
-          IsReadOnly="True"
-          Text="{CompiledBinding SampleText.Value}" />
-      </StackPanel>
+                <TextBox
+                    Margin="8"
+                    FontFamily="{CompiledBinding SelectedItem.Value.Font, Converter={StaticResource FontToFontFamily}}"
+                    FontSize="{CompiledBinding ElementName=FontSizeSlider, Path=Value}"
+                    FontWeight="{CompiledBinding SelectedItem.Value.Font, Converter={StaticResource FontToFontWeight}}"
+                    IsReadOnly="True"
+                    Text="{CompiledBinding SampleText.Value}" />
+            </StackPanel>
 
-      <StackPanel
-        Grid.Row="1"
-        Margin="0,8"
-        HorizontalAlignment="Right"
-        VerticalAlignment="Bottom"
-        Orientation="Horizontal">
-        <Button
-          Classes="bottomButton"
-          Margin="10,0,5,0"
-          Command="{CompiledBinding OKCommand, Mode=OneTime}"
-          Content="{x:Static props:Strings.OK}" />
-        <Button
-          Classes="bottomButton"
-          x:Name="cancel"
-          Margin="5,0,10,0"
-          Command="{CompiledBinding WindowClose, Mode=OneTime}"
-          Content="{x:Static props:Strings.Cancel}" />
-      </StackPanel>
+            <StackPanel
+                Grid.Row="1"
+                Margin="0,8"
+                HorizontalAlignment="Right"
+                VerticalAlignment="Bottom"
+                Orientation="Horizontal">
+                <Button
+                    Classes="bottomButton"
+                    Margin="10,0,5,0"
+                    Command="{CompiledBinding OKCommand, Mode=OneTime}"
+                    Content="{x:Static props:Strings.OK}" />
+                <Button
+                    Classes="bottomButton"
+                    x:Name="cancel"
+                    Margin="5,0,10,0"
+                    Command="{CompiledBinding WindowClose, Mode=OneTime}"
+                    Content="{x:Static props:Strings.Cancel}" />
+            </StackPanel>
+        </Grid>
     </Grid>
-  </Grid>
 </Window>
