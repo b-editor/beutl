@@ -7,40 +7,73 @@ using System.Threading.Tasks;
 
 namespace BEditor.Media.PCM
 {
+    /// <summary>
+    /// Represents the audio data in 32-bit float format.
+    /// </summary>
     [Serializable]
     [StructLayout(LayoutKind.Sequential)]
     public struct PCM32 : IPCM<PCM32>, IPCMConvertable<PCM16>, IPCMConvertable<PCMFloat>
     {
+        /// <summary>
+        /// Represents the audio data.
+        /// </summary>
         public int Value;
 
-        public PCM32(int value) => Value = value;
+        /// <summary>
+        /// Initializes a new instance of the <see cref="PCM32"/> class.
+        /// </summary>
+        /// <param name="value">The audio data.</param>
+        public PCM32(int value)
+        {
+            Value = value;
+        }
 
+        /// <inheritdoc/>
         public PCM32 Add(PCM32 s)
         {
             return new(Value + s.Value);
         }
 
+        /// <inheritdoc/>
         public void ConvertFrom(PCM16 src)
         {
             src.ConvertTo(out this);
         }
 
+        /// <inheritdoc/>
         public void ConvertFrom(PCMFloat src)
         {
             src.ConvertTo(out this);
         }
 
+        /// <inheritdoc/>
         public void ConvertTo(out PCM16 dst)
         {
             dst = new((short)(Value >> 16));
         }
 
+        /// <inheritdoc/>
         public void ConvertTo(out PCMFloat dst)
         {
             dst = new((float)Value / int.MaxValue);
         }
 
-        public static implicit operator int(PCM32 value) => value.Value;
-        public static implicit operator PCM32(int value) => new(value);
+        /// <summary>
+        /// Converts the <see cref="PCM32"/> to a 32-bit signed integer.
+        /// </summary>
+        /// <param name="value">The Pcm data.</param>
+        public static implicit operator int(PCM32 value)
+        {
+            return value.Value;
+        }
+
+        /// <summary>
+        /// Converts the 32-bit signed integer to a <see cref="PCM32"/>.
+        /// </summary>
+        /// <param name="value">The 32-bit signed integer.</param>
+        public static implicit operator PCM32(int value)
+        {
+            return new(value);
+        }
     }
 }

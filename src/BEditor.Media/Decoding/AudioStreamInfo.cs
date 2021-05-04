@@ -18,12 +18,6 @@ namespace BEditor.Media.Decoding
         /// <param name="container">The input container.</param>
         internal unsafe AudioStreamInfo(AVStream* stream, InputContainer container) : base(stream, MediaType.Audio, container)
         {
-            //var codec = stream->codecpar;
-            //NumChannels = codec->channels;
-            //SampleRate = codec->sample_rate;
-
-            //SampleFormat = (SampleFormat)codec->format;
-            //ChannelLayout = ffmpeg.av_get_default_channel_layout(codec->channels);
             var codec = stream->codec;
             NumChannels = codec->channels;
             SampleRate = codec->sample_rate;

@@ -4,7 +4,7 @@ using System.Runtime.InteropServices;
 namespace BEditor.Media.PCM
 {
     /// <summary>
-    /// Represents 32-bit integer audio data.
+    /// Represents the stereo audio data in 32-bit integer format.
     /// </summary>
     [Serializable]
     [StructLayout(LayoutKind.Sequential)]

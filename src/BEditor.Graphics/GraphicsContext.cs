@@ -18,6 +18,9 @@ using OpenTK.Windowing.GraphicsLibraryFramework;
 
 namespace BEditor.Graphics
 {
+    /// <summary>
+    /// Represents the graphics context.
+    /// </summary>
     public unsafe sealed class GraphicsContext : IDisposable
     {
         private static bool _isFirst = true;
@@ -29,6 +32,11 @@ namespace BEditor.Graphics
         private readonly Shader _lineShader;
         private readonly SynchronizationContext _synchronization;
 
+        /// <summary>
+        /// Initializes a new instance of the <see cref="GraphicsContext"/> class.
+        /// </summary>
+        /// <param name="width">The width of the framebuffer.</param>
+        /// <param name="height">The height of the framebuffer.</param>
         public GraphicsContext(int width, int height)
         {
             Width = width;
@@ -86,29 +94,62 @@ namespace BEditor.Graphics
             Clear();
         }
 
+        /// <summary>
+        /// Discards the reference to the target that is represented by the current <see cref="GraphicsContext"/> object.
+        /// </summary>
         ~GraphicsContext()
         {
             if (!IsDisposed) Dispose();
         }
 
+        /// <summary>
+        /// Gets the pixel buffer.
+        /// </summary>
         public PixelBuffer PixelBufferObject { get; }
 
+        /// <summary>
+        /// Gets the frame buffer.
+        /// </summary>
         public FrameBuffer Framebuffer { get; }
 
+        /// <summary>
+        /// Gets the width of the frame buffer.
+        /// </summary>
         public int Width { get; }
 
+        /// <summary>
+        /// Gets the height of the frame buffer.
+        /// </summary>
         public int Height { get; }
 
+        /// <summary>
+        /// Gets the aspect ratio.
+        /// </summary>
         public float Aspect => Width / ((float)Height);
 
+        /// <summary>
+        /// Gets whether or not this graphics context is set to current.
+        /// </summary>
         public bool IsCurrent => GLFW.GetCurrentContext() == _window;
 
+        /// <summary>
+        /// Get whether an object has been disposed
+        /// </summary>
         public bool IsDisposed { get; private set; }
 
+        /// <summary>
+        /// Gets the camera.
+        /// </summary>
         public Camera Camera { get; set; }
 
+        /// <summary>
+        /// Gets the light.
+        /// </summary>
         public Light? Light { get; set; }
 
+        /// <summary>
+        /// Clear the framebuffer.
+        /// </summary>
         public void Clear()
         {
             MakeCurrent();
@@ -135,6 +176,9 @@ namespace BEditor.Graphics
             Tool.ThrowGLError();
         }
 
+        /// <summary>
+        /// Set this graphics context to current
+        /// </summary>
         public void MakeCurrent()
         {
             if (!IsCurrent)
@@ -144,6 +188,10 @@ namespace BEditor.Graphics
             }
         }
 
+        /// <summary>
+        /// Draws the texture into the frame buffer.
+        /// </summary>
+        /// <param name="texture">The texture to be drawn.</param>
         public void DrawTexture(Texture texture)
         {
             if (texture is null) throw new ArgumentNullException(nameof(texture));
@@ -180,6 +228,11 @@ namespace BEditor.Graphics
             Tool.ThrowGLError();
         }
 
+        /// <summary>
+        /// Draws the texture into the frame buffer.
+        /// </summary>
+        /// <param name="texture">The texture to be drawn.</param>
+        /// <param name="blend">The function sets the blend mode.</param>
         public void DrawTexture(Texture texture, Action blend)
         {
             if (texture is null) throw new ArgumentNullException(nameof(texture));
@@ -224,6 +277,10 @@ namespace BEditor.Graphics
             }
         }
 
+        /// <summary>
+        /// Draws the cube into the frame buffer.
+        /// </summary>
+        /// <param name="cube">The cube to be drawn.</param>
         public void DrawCube(Cube cube)
         {
             if (cube is null) throw new ArgumentNullException(nameof(cube));
@@ -259,6 +316,10 @@ namespace BEditor.Graphics
             }
         }
 
+        /// <summary>
+        /// Draws the ball into the frame buffer.
+        /// </summary>
+        /// <param name="ball">The ball to be drawn.</param>
         public void DrawBall(Ball ball)
         {
             if (ball is null) throw new ArgumentNullException(nameof(ball));
@@ -289,6 +350,14 @@ namespace BEditor.Graphics
             }
         }
 
+        /// <summary>
+        /// Draws the line into the frame buffer.
+        /// </summary>
+        /// <param name="start">The starting coordinates of the line.</param>
+        /// <param name="end">The ending coordinates of the line.</param>
+        /// <param name="width">The width of the line.</param>
+        /// <param name="transform">The transformation matrix for drawing the line.</param>
+        /// <param name="color">The color of the line.</param>
         public void DrawLine(Vector3 start, Vector3 end, float width, Transform transform, Color color)
         {
             MakeCurrent();
@@ -302,6 +371,10 @@ namespace BEditor.Graphics
             DrawLine(line);
         }
 
+        /// <summary>
+        /// Draws the line into the frame buffer.
+        /// </summary>
+        /// <param name="line">The line to be drawn.</param>
         public void DrawLine(Line line)
         {
             if (line is null) throw new ArgumentNullException(nameof(line));
@@ -327,6 +400,7 @@ namespace BEditor.Graphics
             Tool.ThrowGLError();
         }
 
+        /// <inheritdoc/>
         public void Dispose()
         {
             if (IsDisposed) return;
@@ -348,6 +422,10 @@ namespace BEditor.Graphics
             IsDisposed = true;
         }
 
+        /// <summary>
+        /// Reads an image from the frame buffer.
+        /// </summary>
+        /// <param name="image">The image to write the frame buffer pixels.</param>
         public void ReadImage(Image<BGRA32> image)
         {
             if (image is null) throw new ArgumentNullException(nameof(image));
