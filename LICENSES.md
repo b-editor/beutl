@@ -12,9 +12,9 @@
 * ライセンス - LGPL
 * [Homepage](https://ffmpeg.org)
 
-### FFMediaToolkit
-* ライセンス - MIT License
-* [GitHub](https://github.com/radek-k/FFMediaToolkit)
+### FFmpeg.Autogen
+* ライセンス - LGPL
+* [GitHub](https://github.com/Ruslan-B/FFmpeg.AutoGen)
 
 ### OpenTK
 * ライセンス - MIT License
@@ -54,9 +54,9 @@
 * ライセンス - Apache-2.0 License
 * [GitHub](https://github.com/neolithos/NeoMarkdigXaml)
 
-### NLog
-* ライセンス - BSD-3-Clause License
-* [GitHub](https://github.com/NLog/NLog)
+### Serilog
+* ライセンス - Apache-2.0 License
+* [GitHub](https://github.com/serilog)
 
 ### AvaloniaUI
 * ライセンス - MIT License

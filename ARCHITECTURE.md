@@ -2,8 +2,12 @@
 
 ## BEditor.Settings
 
-BEditorの設定。  
-シリアライズのクラスと設定クラスのみ
+* BEditorの設定。  
+* シリアライズのクラスと設定クラスのみ
+
+## BEditor.Compute
+
+* OpenCLのラッパーです。
 
 ## BEditor.Drawing
 
