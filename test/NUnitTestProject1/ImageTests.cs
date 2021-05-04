@@ -122,7 +122,7 @@ namespace NUnitTestProject1
         public void TestRoundRect()
         {
             using var img = GradentImage();
-            using var rect = Image.RoundRect(250, 250, 25, 25, 25, Color.Light);
+            using var rect = Image.RoundRect(250, 250, 25, Color.Light, 25, 25, 25, 25);
 #if UseMemoryStream
             using var stream = new MemoryStream();
 #else
