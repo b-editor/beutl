@@ -1,6 +1,7 @@
 ﻿using System;
 using System.Collections.Generic;
 using System.Linq;
+using System.Reactive.Linq;
 using System.Threading.Tasks;
 
 using Avalonia.Threading;
@@ -40,6 +41,13 @@ namespace BEditor.ViewModels
             SampleFormats = Enum.GetValues<SampleFormat>().Select(i => new EnumTupple<SampleFormat>(i.ToString("g"), i)).ToArray();
             ContainerFormats = Enum.GetValues<ContainerFormat>().Select(i => new EnumTupple<ContainerFormat?>(i.ToString("g"), i)).ToList();
             ContainerFormats.Insert(0, SelectedContainerFormat.Value);
+            LengthFrame.Value = Project.PreviewScene.TotalFrame;
+            SelectedScene.Where(s => s.TotalFrame < LengthFrame.Value)
+                .Subscribe(s => LengthFrame.Value = s.TotalFrame);
+            StartTime = StartFrame.Select(i => ((Frame)i).ToTimeSpan(Project.Framerate))
+                .ToReadOnlyReactivePropertySlim();
+            LengthTime = LengthFrame.Select(i => ((Frame)i).ToTimeSpan(Project.Framerate))
+                .ToReadOnlyReactivePropertySlim();
 
             SaveFileDialog.Subscribe(async () =>
             {
@@ -128,7 +136,7 @@ namespace BEditor.ViewModels
                         // 音声
                         if (AudioIsEnabled.Value)
                         {
-                            for (Frame frame = 0; frame < scene.TotalFrame; frame++)
+                            for (Frame frame = StartFrame.Value; frame < LengthFrame.Value; frame++)
                             {
                                 using var sound = new Sound<StereoPCMFloat>(proj.Samplingrate, samples);
 
@@ -153,7 +161,7 @@ namespace BEditor.ViewModels
                         // 動画
                         if (VideoIsEnabled.Value)
                         {
-                            for (Frame frame = 0; frame < scene.TotalFrame; frame++)
+                            for (Frame frame = StartFrame.Value; frame < LengthFrame.Value; frame++)
                             {
                                 if (t)
                                 {
@@ -233,6 +241,10 @@ namespace BEditor.ViewModels
         public List<EnumTupple<ContainerFormat?>> ContainerFormats { get; }
         public ReactivePropertySlim<EnumTupple<ContainerFormat?>> SelectedContainerFormat { get; } = new(new("Default", null));
         public ReactivePropertySlim<string> File { get; } = new();
+        public ReactivePropertySlim<int> StartFrame { get; } = new();
+        public ReactivePropertySlim<int> LengthFrame { get; } = new();
+        public ReadOnlyReactivePropertySlim<TimeSpan> StartTime { get; }
+        public ReadOnlyReactivePropertySlim<TimeSpan> LengthTime { get; }
         public ReactiveCommand SaveFileDialog { get; } = new();
         public ReactiveCommand Output { get; } = new();
 

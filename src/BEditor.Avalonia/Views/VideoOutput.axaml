@@ -285,6 +285,8 @@
                         Content="{x:Static prop:Strings.Validation}"
                         Classes="SettingsCheckBox"/>
 
+                    <Separator Height="16" />
+
                     <!--Title-->
                     <Label Content="Title" Classes="SettingsItemHeader"/>
 
@@ -292,6 +294,8 @@
                         IsEnabled="{CompiledBinding Validation.Value, Mode=OneWay}"
                         Text="{CompiledBinding Title.Value, Mode=TwoWay}"
                         Classes="SettingsTextBox" />
+
+                    <Separator Height="16" />
 
                     <!--Author-->
                     <Label Content="Author" Classes="SettingsItemHeader"/>
@@ -301,6 +305,8 @@
                         Text="{CompiledBinding Author.Value, Mode=TwoWay}"
                         Classes="SettingsTextBox" />
 
+                    <Separator Height="16" />
+
                     <!--Album-->
                     <Label Content="Album" Classes="SettingsItemHeader"/>
 
@@ -309,21 +315,27 @@
                         Text="{CompiledBinding Album.Value, Mode=TwoWay}"
                         Classes="SettingsTextBox" />
 
+                    <Separator Height="16" />
+
                     <!--Year-->
                     <Label Content="Year" Classes="SettingsItemHeader"/>
 
                     <TextBox
-                        IsEnabled="{CompiledBinding Validation.Value, Mode=OneWay}" 
+                        IsEnabled="{CompiledBinding Validation.Value, Mode=OneWay}"
                         Text="{CompiledBinding Year.Value, Mode=TwoWay}"
                         Classes="SettingsTextBox" />
+
+                    <Separator Height="16" />
 
                     <!--Genre-->
                     <Label Content="Genre" Classes="SettingsItemHeader"/>
 
                     <TextBox
-                        IsEnabled="{CompiledBinding Validation.Value, Mode=OneWay}" 
+                        IsEnabled="{CompiledBinding Validation.Value, Mode=OneWay}"
                         Text="{CompiledBinding Genre.Value, Mode=TwoWay}"
                         Classes="SettingsTextBox" />
+
+                    <Separator Height="16" />
 
                     <!--Description-->
                     <Label Content="Description" Classes="SettingsItemHeader"/>
@@ -333,6 +345,8 @@
                         Text="{CompiledBinding Description.Value, Mode=TwoWay}"
                         Classes="SettingsTextBox" />
 
+                    <Separator Height="16" />
+
                     <!--Language-->
                     <Label Content="Language" Classes="SettingsItemHeader"/>
 
@@ -340,6 +354,8 @@
                         IsEnabled="{CompiledBinding Validation.Value, Mode=OneWay}"
                         Text="{CompiledBinding Language.Value, Mode=TwoWay}"
                         Classes="SettingsTextBox" />
+
+                    <Separator Height="16" />
 
                     <!--Copyright-->
                     <Label Content="Copyright" Classes="SettingsItemHeader"/>
@@ -349,6 +365,8 @@
                         Text="{CompiledBinding Copyright.Value, Mode=TwoWay}"
                         Classes="SettingsTextBox" />
 
+                    <Separator Height="16" />
+
                     <!--Rating-->
                     <Label Content="Rating" Classes="SettingsItemHeader"/>
 
@@ -356,6 +374,8 @@
                         IsEnabled="{CompiledBinding Validation.Value, Mode=OneWay}"
                         Text="{CompiledBinding Rating.Value, Mode=TwoWay}"
                         Classes="SettingsTextBox" />
+
+                    <Separator Height="16" />
 
                     <!--TrackNumber-->
                     <Label Content="TrackNumber" Classes="SettingsItemHeader"/>
@@ -405,6 +425,38 @@
                             </DataTemplate>
                         </ComboBox.ItemTemplate>
                     </ComboBox>
+
+                    <Separator Height="16" />
+
+                    <!--開始フレーム-->
+                    <Label Content="{x:Static prop:Strings.Start}" Classes="SettingsItemHeader"/>
+
+                    <VirtualizingStackPanel Orientation="Horizontal">
+                        <NumericUpDown
+                            Value="{CompiledBinding StartFrame.Value, Mode=TwoWay}"
+                            Minimum="0"
+                            Maximum="{CompiledBinding SelectedScene.Value.TotalFrame.Value, Mode=OneWay}"
+                            ShowButtonSpinner="True"
+                            Classes="SettingsNumericUpDown"/>
+
+                        <TextBlock VerticalAlignment="Center" Text="{CompiledBinding StartTime.Value, Mode=OneWay}" />
+                    </VirtualizingStackPanel>
+
+                    <Separator Height="16" />
+
+                    <!--長さ-->
+                    <Label Content="{x:Static prop:Strings.Length}" Classes="SettingsItemHeader"/>
+
+                    <VirtualizingStackPanel Orientation="Horizontal">
+                        <NumericUpDown
+                            Value="{CompiledBinding LengthFrame.Value, Mode=TwoWay}"
+                            Minimum="0"
+                            Maximum="{CompiledBinding SelectedScene.Value.TotalFrame.Value, Mode=OneWay}"
+                            ShowButtonSpinner="True"
+                            Classes="SettingsNumericUpDown"/>
+
+                        <TextBlock VerticalAlignment="Center" Text="{CompiledBinding LengthTime.Value, Mode=OneWay}" />
+                    </VirtualizingStackPanel>
 
                     <Separator Height="16" />
 
