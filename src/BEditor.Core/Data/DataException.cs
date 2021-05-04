@@ -20,8 +20,7 @@ namespace BEditor.Data
         /// Initializes a new instance of the <see cref="DataException"/> class with a specified error message.
         /// </summary>
         /// <param name="message">The message that describes the error.</param>
-        public DataException(string message)
-            : base(message)
+        public DataException(string message) : base(message)
         {
         }
 
@@ -30,8 +29,7 @@ namespace BEditor.Data
         /// </summary>
         /// <param name="message">The error message that explains the reason for the exception.</param>
         /// <param name="inner">The exception that is the cause of the current exception, or a null reference (Nothing in Visual Basic) if no inner exception is specified.</param>
-        public DataException(string message, Exception inner)
-            : base(message, inner)
+        public DataException(string message, Exception inner) : base(message, inner)
         {
         }
 
@@ -42,8 +40,7 @@ namespace BEditor.Data
         /// <param name="context">The <see cref="StreamingContext"/> that contains contextual information about the source or destination.</param>
         /// <exception cref="ArgumentNullException"><paramref name="info"/> is <see langword="null"/>.</exception>
         /// <exception cref="SerializationException">The class name is <see langword="null"/> or <see cref="Exception.HResult"/> is zero (0).</exception>
-        protected DataException(SerializationInfo info, StreamingContext context)
-            : base(info, context)
+        protected DataException(SerializationInfo info, StreamingContext context) : base(info, context)
         {
         }
     }

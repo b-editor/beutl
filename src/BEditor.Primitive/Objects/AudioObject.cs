@@ -135,7 +135,6 @@ namespace BEditor.Primitive.Objects
                     Decoder = MediaFile.Open(File.Value, new()
                     {
                         StreamsToLoad = MediaMode.Audio,
-                        SamplesPerFrame = proj.Samplingrate / proj.Framerate
                     });
                 }
 
@@ -195,7 +194,6 @@ namespace BEditor.Primitive.Objects
                 Decoder = MediaFile.Open(file, new()
                 {
                     StreamsToLoad = MediaMode.Audio,
-                    SamplesPerFrame = proj.Samplingrate / proj.Framerate
                 });
             });
 

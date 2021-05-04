@@ -161,32 +161,15 @@ namespace BEditor.Data
             /// Initializes a new instance of the <see cref="MoveCommand"/> class.
             /// </summary>
             /// <param name="clip">移動するクリップです.</param>
-            /// <param name="newFrame">新しい開始フレームです.</param>
-            /// <param name="newLayer">新しい配置レイヤーです.</param>
-            public MoveCommand(ClipElement clip, Frame newFrame, int newLayer)
+            /// <param name="newframe">新しい開始フレームです.</param>
+            /// <param name="newlayer">新しい配置レイヤーです.</param>
+            public MoveCommand(ClipElement clip, Frame newframe, int newlayer)
             {
                 _clip = clip ?? throw new ArgumentNullException(nameof(clip));
-                _newFrame = (newFrame < Frame.Zero) ? throw new ArgumentOutOfRangeException(nameof(newFrame)) : newFrame;
+                _newFrame = (newframe < Frame.Zero) ? throw new ArgumentOutOfRangeException(nameof(newframe)) : newframe;
                 _oldFrame = clip.Start;
-                _newLayer = (newLayer < 0) ? throw new ArgumentOutOfRangeException(nameof(newLayer)) : newLayer;
+                _newLayer = (newlayer < 0) ? throw new ArgumentOutOfRangeException(nameof(newlayer)) : newlayer;
                 _oldLayer = clip.Layer;
-            }
-
-            /// <summary>
-            /// Initializes a new instance of the <see cref="MoveCommand"/> class.
-            /// </summary>
-            /// <param name="clip">移動するクリップです.</param>
-            /// <param name="newFrame">新しい開始フレームです.</param>
-            /// <param name="oldFrame">古い開始フレームです.</param>
-            /// <param name="newLayer">新しい配置レイヤーです.</param>
-            /// <param name="oldLayer">古い配置レイヤーです.</param>
-            public MoveCommand(ClipElement clip, Frame newFrame, Frame oldFrame, int newLayer, int oldLayer)
-            {
-                _clip = clip ?? throw new ArgumentNullException(nameof(clip));
-                _newFrame = (newFrame < Frame.Zero) ? throw new ArgumentOutOfRangeException(nameof(newFrame)) : newFrame;
-                _oldFrame = (oldFrame < Frame.Zero) ? throw new ArgumentOutOfRangeException(nameof(oldFrame)) : oldFrame;
-                _newLayer = (newLayer < 0) ? throw new ArgumentOutOfRangeException(nameof(newLayer)) : newLayer;
-                _oldLayer = (oldLayer < 0) ? throw new ArgumentOutOfRangeException(nameof(oldLayer)) : oldLayer;
             }
 
             /// <inheritdoc/>

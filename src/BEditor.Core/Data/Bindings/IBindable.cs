@@ -9,7 +9,7 @@ using BEditor.Data.Property;
 namespace BEditor.Data.Bindings
 {
     /// <summary>
-    /// Represents a Bindable object.
+    /// Represents the Bindable object.
     /// </summary>
     /// <typeparam name="T">Type of object to bind.</typeparam>
     public interface IBindable<T> : IPropertyElement, IObservable<T>, IObserver<T>

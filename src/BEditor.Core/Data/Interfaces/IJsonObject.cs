@@ -9,20 +9,20 @@ using System.Threading.Tasks;
 namespace BEditor.Data
 {
     /// <summary>
-    /// Jsonに保存可能なオブジェクトを表します.
+    /// Represents the object that can be stored in Json.
     /// </summary>
     public interface IJsonObject
     {
         /// <summary>
-        /// このオブジェクトのデータをJsonに書き込みます.
+        /// 
         /// </summary>
-        /// <param name="writer">このオブジェクトのデータを書き込む <see cref="Utf8JsonWriter"/> です.</param>
+        /// <param name="writer">Write the data of this object <see cref="Utf8JsonWriter"/>.</param>
         public void GetObjectData(Utf8JsonWriter writer);
 
         /// <summary>
-        /// Jsonのデータをこのオブジェクトにセットします.
+        /// Set the Json data to this object.
         /// </summary>
-        /// <param name="element">設定するJsonのこのオブジェクトのデータ.</param>
+        /// <param name="element">Data for this object in Json to be set.</param>
         public void SetObjectData(JsonElement element);
     }
 }

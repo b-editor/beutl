@@ -140,8 +140,6 @@ namespace BEditor.Media.Encoding.Internal
 
             dict.Update(ptr);
 
-            //
-            codecContext->frame_size = config.SamplesPerFrame;
             return new OutputStream<AudioFrame>(audioStream, container);
         }
     }

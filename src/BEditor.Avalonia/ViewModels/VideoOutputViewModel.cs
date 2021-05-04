@@ -103,7 +103,7 @@ namespace BEditor.ViewModels
                             builder = builder.WithAudio(new(proj.Samplingrate, 2, SelectedAudioCodec.Value.Value, SelectedSampleFormat.Value.Value)
                             {
                                 Bitrate = AudioBitrate.Value,
-                                SamplesPerFrame = samples
+                                SamplesPerFrame = 1024//samples
                             });
                         }
                         if (Validation.Value)
@@ -210,7 +210,7 @@ namespace BEditor.ViewModels
         #region Audio
         public ReactivePropertySlim<bool> AudioIsEnabled { get; } = new(true);
         public EnumTupple<AudioCodec>[] AudioCodecs { get; }
-        public ReactivePropertySlim<EnumTupple<AudioCodec>> SelectedAudioCodec { get; } = new(new("MP3", AudioCodec.MP3));
+        public ReactivePropertySlim<EnumTupple<AudioCodec>> SelectedAudioCodec { get; } = new(new("Default", AudioCodec.Default));
         public EnumTupple<SampleFormat>[] SampleFormats { get; }
         public ReactivePropertySlim<EnumTupple<SampleFormat>> SelectedSampleFormat { get; } = new(new("SingleP", SampleFormat.SingleP));
         public ReactivePropertySlim<int> AudioBitrate { get; } = new(128_000);

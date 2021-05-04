@@ -9,7 +9,6 @@ using BEditor.Resources;
 
 namespace BEditor.Data
 {
-
     /// <summary>
     ///  Tracks registered <see cref="EditingProperty"/> instances.
     /// </summary>
@@ -19,7 +18,7 @@ namespace BEditor.Data
         private static readonly object _lock = new();
 
         /// <summary>
-        /// Register the editing property.
+        /// Register the <see cref="EditingProperty"/>.
         /// </summary>
         /// <param name="key">The key of the property to register.</param>
         /// <param name="property">The property to register.</param>

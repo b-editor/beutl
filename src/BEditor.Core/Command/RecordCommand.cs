@@ -17,6 +17,9 @@ namespace BEditor.Command
         /// <summary>
         /// Initializes a new instance of the <see cref="RecordCommand"/> class.
         /// </summary>
+        /// <param name="onDo">Execute the operation.</param>
+        /// <param name="onUndo">Undo the operation.</param>
+        /// <param name="getName">Gets the name of the command.</param>
         public RecordCommand(Action onDo, Action onUndo, Func<string>? getName = null)
         {
             _do = onDo;
@@ -28,6 +31,10 @@ namespace BEditor.Command
         /// <summary>
         /// Initializes a new instance of the <see cref="RecordCommand"/> class.
         /// </summary>
+        /// <param name="onDo">Execute the operation.</param>
+        /// <param name="onUndo">Undo the operation.</param>
+        /// <param name="onRedo">Redo the operation.</param>
+        /// <param name="getName">Gets the name of the command.</param>
         public RecordCommand(Action onDo, Action onUndo, Action onRedo, Func<string>? getName = null)
         {
             _do = onDo;
@@ -47,21 +54,30 @@ namespace BEditor.Command
         /// <summary>
         /// Create a RecordCommand.
         /// </summary>
-        /// <typeparam name="T">Argument type.</typeparam>
+        /// <typeparam name="TState">The type of state.</typeparam>
+        /// <param name="state">The state.</param>
+        /// <param name="onDo">Execute the operation.</param>
+        /// <param name="onUndo">Undo the operation.</param>
+        /// <param name="getName">Gets the name of the command.</param>
         /// <returns>An instance of <see cref="RecordCommand{T}"/> created.</returns>
-        public static RecordCommand<T> Create<T>(T args, Action<T> onDo, Action<T> onUndo, Func<T, string>? getName = null)
+        public static RecordCommand<TState> Create<TState>(TState state, Action<TState> onDo, Action<TState> onUndo, Func<TState, string>? getName = null)
         {
-            return new RecordCommand<T>(args, onDo, onUndo, getName);
+            return new RecordCommand<TState>(state, onDo, onUndo, getName);
         }
 
         /// <summary>
         /// Create a RecordCommand.
         /// </summary>
-        /// <typeparam name="T">Argument type.</typeparam>
+        /// <typeparam name="TState">The type of state.</typeparam>
+        /// <param name="state">The state.</param>
+        /// <param name="onDo">Execute the operation.</param>
+        /// <param name="onUndo">Undo the operation.</param>
+        /// <param name="onRedo">Redo the operation.</param>
+        /// <param name="getName">Gets the name of the command.</param>
         /// <returns>An instance of <see cref="RecordCommand{T}"/> created.</returns>
-        public static RecordCommand<T> Create<T>(T args, Action<T> onDo, Action<T> onUndo, Action<T> onRedo, Func<T, string>? getName = null)
+        public static RecordCommand<TState> Create<TState>(TState state, Action<TState> onDo, Action<TState> onUndo, Action<TState> onRedo, Func<TState, string>? getName = null)
         {
-            return new RecordCommand<T>(args, onDo, onUndo, onRedo, getName);
+            return new RecordCommand<TState>(state, onDo, onUndo, onRedo, getName);
         }
 
         /// <inheritdoc/>

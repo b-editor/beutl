@@ -34,6 +34,11 @@ namespace BEditor.Data
         /// <summary>
         /// Initializes a new instance of the <see cref="ClipElement"/> class.
         /// </summary>
+        /// <param name="start">The starting frame of the clip.</param>
+        /// <param name="end">The ending frame of the clip.</param>
+        /// <param name="layer">The layer number of the clip.</param>
+        /// <param name="scene">The scene where this clip will be placed.</param>
+        /// <param name="metadata">The metadata for the <see cref="ObjectElement"/> contained in this clip.</param>
         public ClipElement(Frame start, Frame end, int layer, Scene scene, ObjectMetadata metadata)
         {
             _start = start;
@@ -51,7 +56,7 @@ namespace BEditor.Data
         public string Name => _name ??= Effect[0].GetType().Name;
 
         /// <summary>
-        /// Gets or sets the start frame for this <see cref="ClipElement"/>.
+        /// Gets or sets the starting frame of this <see cref="ClipElement"/>.
         /// </summary>
         public Frame Start
         {
@@ -60,7 +65,7 @@ namespace BEditor.Data
         }
 
         /// <summary>
-        /// Gets or sets the end frame for this <see cref="ClipElement"/>.
+        /// Gets or sets the ending frame of this <see cref="ClipElement"/>.
         /// </summary>
         public Frame End
         {
@@ -111,7 +116,7 @@ namespace BEditor.Data
         }
 
         /// <summary>
-        /// Gets the metadata of an object.
+        /// Gets the metadata for the <see cref="ObjectElement"/> contained in this <see cref="ClipElement"/>.
         /// </summary>
         public ObjectMetadata Metadata { get; private set; }
 

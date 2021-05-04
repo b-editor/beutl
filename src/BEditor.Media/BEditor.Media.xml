@@ -1158,11 +1158,6 @@
             Gets or sets the threshold value used to choose the best seek method.
             </summary>
         </member>
-        <member name="P:BEditor.Media.Decoding.MediaOptions.SamplesPerFrame">
-            <summary>
-            Gets or sets the number of samples per audio frame. Default is 2205 (1/20th of a second at 44.1kHz).
-            </summary>
-        </member>
         <member name="P:BEditor.Media.Decoding.MediaOptions.DecoderThreads">
             <summary>
             Gets or sets the number of decoder threads (by the 'threads' flag). The default value is <see langword="null"/> - 'auto'.

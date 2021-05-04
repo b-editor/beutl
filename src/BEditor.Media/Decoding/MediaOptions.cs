@@ -54,12 +54,6 @@ namespace BEditor.Media.Decoding
         /// </summary>
         public int AudioSeekThreshold { get; set; } = 12;
 
-        // Todo
-        /// <summary>
-        /// Gets or sets the number of samples per audio frame. Default is 2205 (1/20th of a second at 44.1kHz).
-        /// </summary>
-        public int SamplesPerFrame { get; set; } = 2205;
-
         /// <summary>
         /// Gets or sets the number of decoder threads (by the 'threads' flag). The default value is <see langword="null"/> - 'auto'.
         /// </summary>

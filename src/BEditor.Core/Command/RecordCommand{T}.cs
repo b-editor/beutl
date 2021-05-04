@@ -7,21 +7,25 @@ namespace BEditor.Command
     /// <summary>
     /// Represents the action of executing, undoing, or redoing.
     /// </summary>
-    /// <typeparam name="T">Argument type.</typeparam>
-    public sealed class RecordCommand<T> : IRecordCommand
+    /// <typeparam name="TState">The type of state.</typeparam>
+    public sealed class RecordCommand<TState> : IRecordCommand
     {
-        private readonly Action<T> _do;
-        private readonly Action<T> _redo;
-        private readonly Action<T> _undo;
-        private readonly Func<T, string>? _getName;
-        private readonly T _value;
+        private readonly Action<TState> _do;
+        private readonly Action<TState> _redo;
+        private readonly Action<TState> _undo;
+        private readonly Func<TState, string>? _getName;
+        private readonly TState _state;
 
         /// <summary>
         /// Initializes a new instance of the <see cref="RecordCommand{T}"/> class.
         /// </summary>
-        public RecordCommand(T args, Action<T> onDo, Action<T> onUndo, Func<T, string>? getName = null)
+        /// <param name="state">The state.</param>
+        /// <param name="onDo">Execute the operation.</param>
+        /// <param name="onUndo">Undo the operation.</param>
+        /// <param name="getName">Gets the name of the command.</param>
+        public RecordCommand(TState state, Action<TState> onDo, Action<TState> onUndo, Func<TState, string>? getName = null)
         {
-            _value = args;
+            _state = state;
             _do = onDo ?? throw new ArgumentNullException(nameof(onDo));
             _redo = onDo;
             _undo = onUndo ?? throw new ArgumentNullException(nameof(onUndo));
@@ -31,9 +35,14 @@ namespace BEditor.Command
         /// <summary>
         /// Initializes a new instance of the <see cref="RecordCommand{T}"/> class.
         /// </summary>
-        public RecordCommand(T args, Action<T> onDo, Action<T> onUndo, Action<T> onRedo, Func<T, string>? getName = null)
+        /// <param name="state">The state.</param>
+        /// <param name="onDo">Execute the operation.</param>
+        /// <param name="onUndo">Undo the operation.</param>
+        /// <param name="onRedo">Redo the operation.</param>
+        /// <param name="getName">Gets the name of the command.</param>
+        public RecordCommand(TState state, Action<TState> onDo, Action<TState> onUndo, Action<TState> onRedo, Func<TState, string>? getName = null)
         {
-            _value = args;
+            _state = state;
             _do = onDo;
             _redo = onRedo;
             _undo = onUndo;
@@ -41,15 +50,15 @@ namespace BEditor.Command
         }
 
         /// <inheritdoc/>
-        public string Name => _getName?.Invoke(_value) ?? Strings.UnknownCommand;
+        public string Name => _getName?.Invoke(_state) ?? Strings.UnknownCommand;
 
         /// <inheritdoc/>
-        public void Do() => _do?.Invoke(_value);
+        public void Do() => _do?.Invoke(_state);
 
         /// <inheritdoc/>
-        public void Redo() => _redo?.Invoke(_value);
+        public void Redo() => _redo?.Invoke(_state);
 
         /// <inheritdoc/>
-        public void Undo() => _undo?.Invoke(_value);
+        public void Undo() => _undo?.Invoke(_state);
     }
 }

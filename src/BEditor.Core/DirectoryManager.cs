@@ -29,6 +29,7 @@ namespace BEditor
         /// <summary>
         /// Initializes a new instance of the <see cref="DirectoryManager"/> class.
         /// </summary>
+        /// <param name="directories">The directories to manage</param>
         public DirectoryManager(List<string> directories)
         {
             Directories = directories;

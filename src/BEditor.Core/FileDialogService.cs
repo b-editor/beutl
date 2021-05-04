@@ -46,8 +46,8 @@ namespace BEditor
         /// <summary>
         /// Initializes a new instance of the <see cref="SaveFileRecord"/> class.
         /// </summary>
-        public SaveFileRecord(string filename = "")
-            : base(new List<FileFilter>())
+        /// <param name="filename">The file name.</param>
+        public SaveFileRecord(string filename = "") : base(new List<FileFilter>())
         {
             FileName = filename;
         }
@@ -71,8 +71,7 @@ namespace BEditor
         /// <summary>
         /// Initializes a new instance of the <see cref="OpenFileRecord"/> class.
         /// </summary>
-        public OpenFileRecord()
-            : base(new List<FileFilter>())
+        public OpenFileRecord() : base(new List<FileFilter>())
         {
         }
 
@@ -135,7 +134,7 @@ namespace BEditor
     }
 
     /// <summary>
-    /// Represents the base record to be used when showing the File dialog.
+    /// Represents the base class to be used when showing the File dialog.
     /// </summary>
     public record FileDialogRecord
     {

@@ -94,9 +94,9 @@ namespace BEditor.Data
         #region Commands
 
         /// <summary>
-        /// Create a command to add an effect to this clip.
+        /// Create a command to add an <see cref="EffectElement"/> to this <see cref="ClipElement"/>.
         /// </summary>
-        /// <param name="effect"><see cref="EffectElement"/> to be added.</param>
+        /// <param name="effect">The <see cref="EffectElement"/> to add.</param>
         /// <returns>Created <see cref="IRecordCommand"/>.</returns>
         /// <exception cref="ArgumentNullException"><paramref name="effect"/> is <see langword="null"/>.</exception>
         [Pure]
@@ -108,9 +108,9 @@ namespace BEditor.Data
         }
 
         /// <summary>
-        /// Create a command to remove an effect to this clip.
+        /// Create a command to remove an <see cref="EffectElement"/> to this <see cref="ClipElement"/>.
         /// </summary>
-        /// <param name="effect"><see cref="EffectElement"/> to be removed.</param>
+        /// <param name="effect">The <see cref="EffectElement"/> to remove.</param>
         /// <returns>Created <see cref="IRecordCommand"/>.</returns>
         /// <exception cref="ArgumentNullException"><paramref name="effect"/> is <see langword="null"/>.</exception>
         [Pure]
@@ -122,38 +122,23 @@ namespace BEditor.Data
         }
 
         /// <summary>
-        /// Create a command to move this clip frames and layers.
+        /// Create a command to move this <see cref="ClipElement"/> frames and layers.
         /// </summary>
-        /// <param name="newFrame">Frame to be moved.</param>
-        /// <param name="newLayer">Layer to be moved.</param>
+        /// <param name="newframe">The new starting frame of this <see cref="ClipElement"/>.</param>
+        /// <param name="newlayer">The new layer of this <see cref="ClipElement"/>.</param>
         /// <returns>Created <see cref="IRecordCommand"/>.</returns>
-        /// <exception cref="ArgumentOutOfRangeException"><paramref name="newFrame"/> or <paramref name="newLayer"/> is less than 0.</exception>
+        /// <exception cref="ArgumentOutOfRangeException"><paramref name="newframe"/> or <paramref name="newlayer"/> is less than 0.</exception>
         [Pure]
-        public IRecordCommand MoveFrameLayer(Frame newFrame, int newLayer)
+        public IRecordCommand MoveFrameLayer(Frame newframe, int newlayer)
         {
-            return new MoveCommand(this, newFrame, newLayer);
+            return new MoveCommand(this, newframe, newlayer);
         }
 
         /// <summary>
-        /// Create a command to move this clip frames and layers.
+        /// Create a command to change the length of this <see cref="ClipElement"/>.
         /// </summary>
-        /// <param name="newFrame">Frame to be moved.</param>
-        /// <param name="oldFrame">Frame to be moved from.</param>
-        /// <param name="newLayer">Layer to be moved.</param>
-        /// <param name="oldLayer">Layer to be moved from.</param>
-        /// <returns>Created <see cref="IRecordCommand"/>.</returns>
-        /// <exception cref="ArgumentOutOfRangeException"><paramref name="newFrame"/>, <paramref name="oldFrame"/>, <paramref name="newLayer"/>, <paramref name="oldLayer"/> is less than 0.</exception>
-        [Pure]
-        public IRecordCommand MoveFrameLayer(Frame newFrame, Frame oldFrame, int newLayer, int oldLayer)
-        {
-            return new MoveCommand(this, newFrame, oldFrame, newLayer, oldLayer);
-        }
-
-        /// <summary>
-        /// Create a command to change the length of this clip.
-        /// </summary>
-        /// <param name="start">New start frame for this <see cref="ClipElement"/>.</param>
-        /// <param name="end">New end frame for this <see cref="ClipElement"/>.</param>
+        /// <param name="start">The new starting frame of this <see cref="ClipElement"/>.</param>
+        /// <param name="end">The new ending frame of this <see cref="ClipElement"/>.</param>
         /// <returns>Created <see cref="IRecordCommand"/>.</returns>
         /// <exception cref="ArgumentOutOfRangeException"><paramref name="start"/> or <paramref name="end"/> is less than 0.</exception>
         [Pure]
@@ -179,7 +164,7 @@ namespace BEditor.Data
         }
 
         /// <summary>
-        /// Render this clip.
+        /// Render this <see cref="ClipElement"/>.
         /// </summary>
         /// <exception cref="RenderingException">Faileds to rendering.</exception>
         public void Render(ClipRenderArgs args)
@@ -202,7 +187,7 @@ namespace BEditor.Data
         }
 
         /// <summary>
-        /// Prepare this clip for rendering.
+        /// Prepare this <see cref="ClipElement"/> for rendering.
         /// </summary>
         /// <exception cref="RenderingException">Faileds to rendering.</exception>
         public void PreviewRender(ClipRenderArgs args)

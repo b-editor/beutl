@@ -16,7 +16,7 @@ namespace BEditor.Data
         /// <summary>
         /// The metadata of <see cref="EffectElement"/>.
         /// </summary>
-        /// <param name="Name">The name of the effect element.</param>
+        /// <param name="Name">The name of the <see cref="EffectElement"/>.</param>
         public EffectMetadata(string Name)
             : this(Name, () => new EffectElement.EmptyClass())
         {
@@ -25,7 +25,7 @@ namespace BEditor.Data
         /// <summary>
         /// The metadata of <see cref="EffectElement"/>.
         /// </summary>
-        /// <param name="Name">The name of the effect element.</param>
+        /// <param name="Name">The name of the <see cref="EffectElement"/>.</param>
         /// <param name="Create">This <see cref="Func{TResult}"/> gets a new instance of the <see cref="EffectElement"/> object.</param>
         public EffectMetadata(string Name, Expression<Func<EffectElement>> Create)
             : this(Name, Create.Compile(), ((NewExpression)Create.Body).Type)

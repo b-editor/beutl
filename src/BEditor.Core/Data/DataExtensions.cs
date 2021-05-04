@@ -23,15 +23,21 @@ namespace BEditor.Data
         /// <summary>
         /// Execute IRecordCommand.
         /// </summary>
-        /// <param name="command">Command to be executed.</param>
-        public static void Execute(this IRecordCommand command) => CommandManager.Default.Do(command);
+        /// <param name="command">The command to execute.</param>
+        public static void Execute(this IRecordCommand command)
+        {
+            CommandManager.Default.Do(command);
+        }
 
         /// <summary>
         /// Execute IRecordCommand with CommandManager specified.
         /// </summary>
-        /// <param name="command">Command to be executed.</param>
-        /// <param name="manager">The CommandManager to execute.</param>
-        public static void Execute(this IRecordCommand command, CommandManager manager) => manager.Do(command);
+        /// <param name="command">The command to execute.</param>
+        /// <param name="manager">The command manager for executing commands.</param>
+        public static void Execute(this IRecordCommand command, CommandManager manager)
+        {
+            manager.Do(command);
+        }
 
         /// <summary>
         /// Gets the parent element.

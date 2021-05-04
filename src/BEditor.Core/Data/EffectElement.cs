@@ -31,12 +31,12 @@ namespace BEditor.Data
         public IEnumerable<PropertyElement> Children => _cachedList ??= Properties.ToArray();
 
         /// <summary>
-        /// Gets the name of the <see cref="EffectElement"/>.
+        /// Gets the name of this <see cref="EffectElement"/>.
         /// </summary>
         public abstract string Name { get; }
 
         /// <summary>
-        /// Gets or sets if the <see cref="EffectElement"/> is enabled.
+        /// Gets or sets if this <see cref="EffectElement"/> is enabled.
         /// </summary>
         /// <remarks><see langword="true"/> if the <see cref="EffectElement"/> is enabled or <see langword="false"/> otherwise.</remarks>
         public bool IsEnabled

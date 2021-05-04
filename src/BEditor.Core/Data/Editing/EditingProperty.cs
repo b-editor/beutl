@@ -18,32 +18,32 @@ namespace BEditor.Data
         public bool IsDisposable { get; }
 
         /// <summary>
-        /// Gets the name of the property.
+        /// Gets the name of this <see cref="IEditingProperty"/>.
         /// </summary>
         public string Name { get; }
 
         /// <summary>
-        /// Gets the owner type of the property.
+        /// Gets the owner type of this <see cref="IEditingProperty"/>.
         /// </summary>
         public Type OwnerType { get; }
 
         /// <summary>
-        /// Gets the value type of the property.
+        /// Gets the value type of this <see cref="IEditingProperty"/>.
         /// </summary>
         public Type ValueType { get; }
 
         /// <summary>
-        /// Gets the <see cref="IEditingPropertyInitializer"/> that initializes the local value of a property.
+        /// Gets the <see cref="IEditingPropertyInitializer"/> that initializes the local value of this <see cref="IEditingProperty"/>.
         /// </summary>
         public IEditingPropertyInitializer? Initializer { get; }
 
         /// <summary>
-        /// Gets the <see cref="IEditingPropertySerializer"/> that serializes the local value of a property.
+        /// Gets the <see cref="IEditingPropertySerializer"/> that serializes the local value of this <see cref="IEditingProperty"/>.
         /// </summary>
         public IEditingPropertySerializer? Serializer { get; init; }
 
         /// <summary>
-        /// Gets the registry key;
+        /// Gets the registry key.
         /// </summary>
         public EditingPropertyRegistryKey Key { get; }
     }
@@ -62,10 +62,14 @@ namespace BEditor.Data
             init => Serializer = (IEditingPropertySerializer<TValue>?)value;
         }
 
-        /// <inheritdoc cref="IEditingProperty.Initializer"/>
+        /// <summary>
+        /// Gets the <see cref="IEditingPropertyInitializer{TValue}"/> that initializes the local value of this <see cref="IEditingProperty{TValue}"/>.
+        /// </summary>
         public new IEditingPropertyInitializer<TValue>? Initializer { get; }
 
-        /// <inheritdoc cref="IEditingProperty.Serializer"/>
+        /// <summary>
+        /// Gets the <see cref="IEditingPropertySerializer{TValue}"/> that serializes the local value of this <see cref="IEditingProperty{TValue}"/>.
+        /// </summary>
         public new IEditingPropertySerializer<TValue>? Serializer { get; init; }
     }
 
@@ -88,19 +92,29 @@ namespace BEditor.Data
         /// <inheritdoc/>
         public bool IsDisposable => Key.IsDisposable;
 
-        /// <inheritdoc/>
+        /// <summary>
+        /// Gets the name of this <see cref="EditingProperty"/>.
+        /// </summary>
         public string Name => Key.Name;
 
-        /// <inheritdoc/>
+        /// <summary>
+        /// Gets the owner type of this <see cref="EditingProperty"/>.
+        /// </summary>
         public Type OwnerType => Key.OwnerType;
 
-        /// <inheritdoc/>
+        /// <summary>
+        /// Gets the value type of this <see cref="EditingProperty"/>.
+        /// </summary>
         public Type ValueType { get; }
 
-        /// <inheritdoc/>
+        /// <summary>
+        /// Gets the <see cref="IEditingPropertyInitializer"/> that initializes the local value of this <see cref="EditingProperty"/>.
+        /// </summary>
         public IEditingPropertyInitializer? Initializer { get; init; }
 
-        /// <inheritdoc/>
+        /// <summary>
+        /// Gets the <see cref="IEditingPropertySerializer"/> that serializes the local value of this <see cref="EditingProperty"/>.
+        /// </summary>
         public IEditingPropertySerializer? Serializer { get; init; }
 
         /// <inheritdoc/>
