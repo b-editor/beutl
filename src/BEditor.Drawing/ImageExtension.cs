@@ -459,7 +459,7 @@ namespace BEditor.Drawing
         public static Image<BGRA32> Rect(int width, int height, Brush brush)
         {
             var color = brush.Color;
-            var line = brush.StrokeWidth;
+            var line = brush.StrokeWidth * 2;
             using var bmp = new SKBitmap(new SKImageInfo(width, height, SKColorType.Bgra8888));
             using var canvas = new SKCanvas(bmp);
 
@@ -515,52 +515,64 @@ namespace BEditor.Drawing
             return bmp.ToImage32();
         }
 
-        public static Image<BGRA32> RoundRect(int width, int height, int line, int radiusX, int radiusY, Color color)
+        public static Image<BGRA32> RoundRect(int width, int height, int line, Color color, int topleft, int topright, int bottomleft, int bottomright)
         {
-            return RoundRect(width, height, radiusX, radiusY, new()
+            static void Draw(Image<BGRA32> image, int line, int radius, int type, Color color)
             {
-                StrokeWidth = line,
-                Style = BrushStyle.Stroke,
-                IsAntialias = true,
-                Color = color
-            });
-        }
+                var size = radius * 2;
+                var x = type switch
+                {
+                    0 or 2 => 0,
+                    1 or 3 => radius,
+                    _ => 0,
+                };
+                var y = type switch
+                {
+                    0 or 1 => 0,
+                    2 or 3 => radius,
+                    _ => 0,
+                };
 
-        public static Image<BGRA32> RoundRect(int width, int height, int radiusX, int radiusY, Brush brush)
-        {
-            var line = brush.StrokeWidth;
-            var color = brush.Color;
-            if (line >= Math.Min(width, height) / 2)
-                line = Math.Min(width, height) / 2;
+                using var circle = Ellipse(size, size, line, color);
+                using var round = circle[new Rectangle(x, y, radius, radius)];
 
-            var min = Math.Min(width, height);
+                var xx = type switch
+                {
+                    0 or 2 => 0,
+                    1 or 3 => image.Width - radius,
+                    _ => 0,
+                };
+                var yy = type switch
+                {
+                    0 or 1 => 0,
+                    2 or 3 => image.Height - radius,
+                    _ => 0,
+                };
 
-            if (line < min) min = line;
-            if (min < 0) min = 0;
+                image[new Rectangle(xx, yy, radius, radius)] = round;
+            }
 
-            using var bmp = new SKBitmap(new SKImageInfo(width, height, SKColorType.Bgra8888));
-            using var canvas = new SKCanvas(bmp);
+            // 最大の半径
+            var size_min = Math.Min(width, height) / 2;
+            topleft = Math.Min(size_min, topleft);
+            topright = Math.Min(size_min, topright);
+            bottomleft = Math.Min(size_min, bottomleft);
+            bottomright = Math.Min(size_min, bottomright);
+            var result = Rect(width, height, line, color);
 
-            using var paint = new SKPaint
-            {
-                Color = new SKColor(color.R, color.G, color.B, color.A),
-                IsAntialias = true,
-                Style = SKPaintStyle.Stroke,
-                StrokeWidth = min
-            };
+            // 左上
+            Draw(result, line, topleft, 0, color);
 
-            canvas.DrawRoundRect(
-                min / 2, min / 2,
-                width - min, height - min,
-                radiusX, radiusY,
-                paint);
+            // 右上
+            Draw(result, line, topright, 1, color);
 
-            return bmp.ToImage32();
-        }
+            // 左下
+            Draw(result, line, bottomleft, 2, color);
 
-        public static Image<BGRA32> RoundRect(Size size, int radiusX, int radiusY, Brush brush)
-        {
-            return RoundRect(size.Width, size.Height, radiusX, radiusY, brush);
+            // 右下
+            Draw(result, line, bottomright, 3, color);
+
+            return result;
         }
 
         public static Image<BGRA32> Text(

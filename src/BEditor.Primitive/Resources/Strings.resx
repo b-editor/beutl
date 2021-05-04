@@ -442,4 +442,16 @@
   <data name="Coordinate" xml:space="preserve">
     <value>Coordinate</value>
   </data>
+  <data name="TopLeft" xml:space="preserve">
+    <value>Upper left</value>
+  </data>
+  <data name="TopRight" xml:space="preserve">
+    <value>Upper right</value>
+  </data>
+  <data name="BottomLeft" xml:space="preserve">
+    <value>Lower left</value>
+  </data>
+  <data name="BottomRight" xml:space="preserve">
+    <value>Lower right</value>
+  </data>
 </root>
