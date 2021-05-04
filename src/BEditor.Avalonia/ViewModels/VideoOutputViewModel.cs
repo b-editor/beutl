@@ -79,7 +79,7 @@ namespace BEditor.ViewModels
                 var t = false;
                 var dialog = new ProgressDialog(new ButtonType[] { ButtonType.Cancel })
                 {
-                    Maximum = { Value = SelectedScene.Value.TotalFrame }
+                    Maximum = { Value = LengthFrame.Value }
                 };
                 var dialogTask = dialog.ShowDialog<ButtonType>(App.GetMainWindow())
                     .ContinueWith(async type => t = await type is ButtonType.Cancel);
