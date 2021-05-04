@@ -17,7 +17,7 @@ namespace BEditor.Media.Encoding
         /// MP2 (MPEG audio layer 2) audio codec
         /// </summary>
         MP2 = AVCodecID.AV_CODEC_ID_MP2,
-        
+
         /// <summary>
         /// MP3 (MPEG audio layer 3) audio codec
         /// </summary>
