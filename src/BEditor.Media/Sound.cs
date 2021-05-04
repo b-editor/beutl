@@ -172,7 +172,7 @@ namespace BEditor.Media
 
             return img;
         }
-        
+
         public Sound<T> Slice(TimeSpan start)
         {
             var data = Data[(int)(start.TotalSeconds * SampleRate)..];
