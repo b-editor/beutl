@@ -1,4 +1,5 @@
-﻿using System.Collections.Generic;
+﻿using System;
+using System.Collections.Generic;
 
 using BEditor.Data;
 using BEditor.Data.Primitive;
@@ -29,13 +30,40 @@ namespace BEditor.Primitive.Objects
             (owner, obj) => owner.Height = obj);
 
         /// <summary>
-        /// Defines the <see cref="Radius"/> property.
+        /// Defines the <see cref="TopLeftRadius"/> property.
         /// </summary>
-        public static readonly DirectEditingProperty<RoundRect, EaseProperty> RadiusProperty = EditingProperty.RegisterSerializeDirect<EaseProperty, RoundRect>(
-            nameof(Radius),
-            owner => owner.Radius,
-            (owner, obj) => owner.Radius = obj,
-            new EasePropertyMetadata(Strings.Radius, 20, Min: 0));
+        public static readonly DirectEditingProperty<RoundRect, EaseProperty> TopLeftRadiusProperty = EditingProperty.RegisterSerializeDirect<EaseProperty, RoundRect>(
+            nameof(TopLeftRadius),
+            owner => owner.TopLeftRadius,
+            (owner, obj) => owner.TopLeftRadius = obj,
+            new EasePropertyMetadata($"{Strings.TopLeft} ({Strings.Radius})", 20, Min: 0));
+
+        /// <summary>
+        /// Defines the <see cref="TopRightRadius"/> property.
+        /// </summary>
+        public static readonly DirectEditingProperty<RoundRect, EaseProperty> TopRightRadiusProperty = EditingProperty.RegisterSerializeDirect<EaseProperty, RoundRect>(
+            nameof(TopRightRadius),
+            owner => owner.TopRightRadius,
+            (owner, obj) => owner.TopRightRadius = obj,
+            new EasePropertyMetadata($"{Strings.TopRight} ({Strings.Radius})", 20, Min: 0));
+
+        /// <summary>
+        /// Defines the <see cref="BottomLeftRadius"/> property.
+        /// </summary>
+        public static readonly DirectEditingProperty<RoundRect, EaseProperty> BottomLeftRadiusProperty = EditingProperty.RegisterSerializeDirect<EaseProperty, RoundRect>(
+            nameof(BottomLeftRadius),
+            owner => owner.BottomLeftRadius,
+            (owner, obj) => owner.BottomLeftRadius = obj,
+            new EasePropertyMetadata($"{Strings.BottomLeft} ({Strings.Radius})", 20, Min: 0));
+
+        /// <summary>
+        /// Defines the <see cref="BottomRightRadius"/> property.
+        /// </summary>
+        public static readonly DirectEditingProperty<RoundRect, EaseProperty> BottomRightRadiusProperty = EditingProperty.RegisterSerializeDirect<EaseProperty, RoundRect>(
+            nameof(BottomRightRadius),
+            owner => owner.BottomRightRadius,
+            (owner, obj) => owner.BottomRightRadius = obj,
+            new EasePropertyMetadata($"{Strings.BottomRight} ({Strings.Radius})", 20, Min: 0));
 
         /// <summary>
         /// Defines the <see cref="Line"/> property.
@@ -75,34 +103,52 @@ namespace BEditor.Primitive.Objects
                 yield return Material;
                 yield return Width;
                 yield return Height;
-                yield return Radius;
+                yield return TopLeftRadius;
+                yield return TopRightRadius;
+                yield return BottomLeftRadius;
+                yield return BottomRightRadius;
                 yield return Line;
                 yield return Color;
             }
         }
 
         /// <summary>
-        /// Get the <see cref="EaseProperty"/> that represents the width of the shape.
+        /// Get the width of the shape.
         /// </summary>
         public EaseProperty Width { get; private set; }
 
         /// <summary>
-        /// Get the <see cref="EaseProperty"/> that represents the width of the shape.
+        /// Get the width of the shape.
         /// </summary>
         public EaseProperty Height { get; private set; }
 
         /// <summary>
-        /// Get the <see cref="EaseProperty"/> that represents the roundness of a shape.
+        /// Get the roundness of the shape.
         /// </summary>
-        public EaseProperty Radius { get; private set; }
+        public EaseProperty TopLeftRadius { get; private set; }
 
         /// <summary>
-        /// Get the <see cref="EaseProperty"/> that represents the line width of the shape.
+        /// Get the roundness of the shape.
+        /// </summary>
+        public EaseProperty TopRightRadius { get; private set; }
+
+        /// <summary>
+        /// Get the roundness of the shape.
+        /// </summary>
+        public EaseProperty BottomLeftRadius { get; private set; }
+
+        /// <summary>
+        /// Get the roundness of the shape.
+        /// </summary>
+        public EaseProperty BottomRightRadius { get; private set; }
+
+        /// <summary>
+        /// Get the line width of the shape.
         /// </summary>
         public EaseProperty Line { get; private set; }
 
         /// <summary>
-        /// Get the <see cref="SelectorProperty"/> to select the type of the shape.
+        /// Get the type of the shape.
         /// </summary>
         public ColorProperty Color { get; private set; }
 
@@ -110,8 +156,15 @@ namespace BEditor.Primitive.Objects
         protected override Image<BGRA32> OnRender(EffectRenderArgs args)
         {
             var f = args.Frame;
-            var r = (int)Radius[f];
-            return Image.RoundRect((int)Width[f], (int)Height[f], (int)Line[f], r, r, Color.Value);
+            return Image.RoundRect(
+                (int)Width[f],
+                (int)Height[f],
+                (int)Line[f],
+                Color.Value,
+                (int)TopLeftRadius[f],
+                (int)TopRightRadius[f],
+                (int)BottomLeftRadius[f],
+                (int)BottomRightRadius[f]);
         }
     }
 }
