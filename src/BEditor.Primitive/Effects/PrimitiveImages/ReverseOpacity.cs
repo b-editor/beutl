@@ -20,6 +20,7 @@ namespace BEditor.Primitive.Effects
     {
         /// <inheritdoc/>
         public override string Name => Strings.ReverseOpacity;
+
         /// <inheritdoc/>
         public override IEnumerable<PropertyElement> Properties => Array.Empty<PropertyElement>();
 

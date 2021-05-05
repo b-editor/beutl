@@ -14,12 +14,9 @@
         <ItemsControl Items="{CompiledBinding Licenses, Mode=OneTime}">
             <ItemsControl.ItemTemplate>
                 <DataTemplate>
-                    <VirtualizingStackPanel Orientation="Vertical">
-                        <TextBlock Margin="8" FontSize="24" Text="{Binding Library, Mode=OneTime}" FontWeight="Bold" />
+                    <Expander Header="{Binding Library, Mode=OneTime}">
                         <TextBlock Margin="8" FontSize="14" Text="{Binding Text, Mode=OneTime}" TextWrapping="WrapWithOverflow" />
-
-                        <Border HorizontalAlignment="Stretch" Height="1" Margin="8" Background="{StaticResource TextControlForeground}" />
-                    </VirtualizingStackPanel>
+                    </Expander>
                 </DataTemplate>
             </ItemsControl.ItemTemplate>
             <ItemsControl.ItemsPanel>

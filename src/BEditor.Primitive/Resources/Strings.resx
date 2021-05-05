@@ -457,4 +457,10 @@
   <data name="ReverseOpacity" xml:space="preserve">
     <value>Reverse opacity</value>
   </data>
+  <data name="GaussianBlur" xml:space="preserve">
+    <value>Gaussian blur</value>
+  </data>
+  <data name="MedianBlur" xml:space="preserve">
+    <value>Median blur</value>
+  </data>
 </root>

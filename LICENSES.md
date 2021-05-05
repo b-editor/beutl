@@ -29,6 +29,10 @@
 * ライセンス - MIT License
 * [GitHub](https://github.com/mono/SkiaSharp)
 
+### Skia
+* ライセンス - 修正BSDライセンス
+* [GitHub](https://github.com/google/Skia)
+
 ### Material Design Icons
 * ライセンス - Apache-2.0 License
 * [GitHub](https://github.com/google/material-design-icons)
@@ -66,3 +70,11 @@
 ### FluentUI Icons
 * ライセンス - MIT License
 * [GitHub](https://github.com/microsoft/fluentui-system-icons)
+
+### OpenCV
+* ライセンス - Apache-2.0 License
+* [GitHub](https://github.com/opencv/opencv)
+
+### OpenCVSharp4
+* ライセンス - Apache-2.0 License
+* [GitHub](https://github.com/shimat/opencvsharp)

@@ -457,4 +457,10 @@
   <data name="ReverseOpacity" xml:space="preserve">
     <value>不透明度を反転</value>
   </data>
+  <data name="GaussianBlur" xml:space="preserve">
+    <value>ガウスぼかし</value>
+  </data>
+  <data name="MedianBlur" xml:space="preserve">
+    <value>メディアンぼかし</value>
+  </data>
 </root>

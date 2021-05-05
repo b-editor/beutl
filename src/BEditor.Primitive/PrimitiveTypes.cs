@@ -202,6 +202,16 @@ namespace BEditor.Primitive
                 }
             };
 
+            yield return new("OpenCV")
+            {
+                Children = new[]
+                {
+                    EffectMetadata.Create<Effects.OpenCv.GaussianBlur>(Strings.GaussianBlur),
+                    EffectMetadata.Create<Effects.OpenCv.Blur>(Strings.Blur),
+                    EffectMetadata.Create<Effects.OpenCv.MedianBlur>(Strings.MedianBlur),
+                }
+            };
+
             yield return new(Strings.Camera)
             {
                 Children = new[]

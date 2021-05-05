@@ -73,6 +73,108 @@
         <member name="M:BEditor.Primitive.Effects.DepthTest.Render(BEditor.Data.EffectRenderArgs)">
             <inheritdoc/>
         </member>
+        <member name="T:BEditor.Primitive.Effects.OpenCv.Blur">
+            <summary>
+            
+            </summary>
+        </member>
+        <member name="F:BEditor.Primitive.Effects.OpenCv.Blur.SizeProperty">
+            <summary>
+            Defines the <see cref="P:BEditor.Primitive.Effects.OpenCv.Blur.Size"/> property.
+            </summary>
+        </member>
+        <member name="F:BEditor.Primitive.Effects.OpenCv.Blur.ResizeProperty">
+            <summary>
+            Defines the <see cref="P:BEditor.Primitive.Effects.OpenCv.Blur.Resize"/> property.
+            </summary>
+        </member>
+        <member name="P:BEditor.Primitive.Effects.OpenCv.Blur.Name">
+            <inheritdoc/>
+        </member>
+        <member name="P:BEditor.Primitive.Effects.OpenCv.Blur.Properties">
+            <inheritdoc/>
+        </member>
+        <member name="P:BEditor.Primitive.Effects.OpenCv.Blur.Size">
+            <summary>
+            Gets the size of the kernel.
+            </summary>
+        </member>
+        <member name="P:BEditor.Primitive.Effects.OpenCv.Blur.Resize">
+            <summary>
+            Gets the value if the image should be resized.
+            </summary>
+        </member>
+        <member name="M:BEditor.Primitive.Effects.OpenCv.Blur.Render(BEditor.Data.EffectRenderArgs{BEditor.Drawing.Image{BEditor.Drawing.Pixel.BGRA32}})">
+            <inheritdoc/>
+        </member>
+        <member name="T:BEditor.Primitive.Effects.OpenCv.GaussianBlur">
+            <summary>
+            
+            </summary>
+        </member>
+        <member name="F:BEditor.Primitive.Effects.OpenCv.GaussianBlur.SizeProperty">
+            <summary>
+            Defines the <see cref="P:BEditor.Primitive.Effects.OpenCv.GaussianBlur.Size"/> property.
+            </summary>
+        </member>
+        <member name="F:BEditor.Primitive.Effects.OpenCv.GaussianBlur.ResizeProperty">
+            <summary>
+            Defines the <see cref="P:BEditor.Primitive.Effects.OpenCv.GaussianBlur.Resize"/> property.
+            </summary>
+        </member>
+        <member name="P:BEditor.Primitive.Effects.OpenCv.GaussianBlur.Name">
+            <inheritdoc/>
+        </member>
+        <member name="P:BEditor.Primitive.Effects.OpenCv.GaussianBlur.Properties">
+            <inheritdoc/>
+        </member>
+        <member name="P:BEditor.Primitive.Effects.OpenCv.GaussianBlur.Size">
+            <summary>
+            Gets the size of the kernel.
+            </summary>
+        </member>
+        <member name="P:BEditor.Primitive.Effects.OpenCv.GaussianBlur.Resize">
+            <summary>
+            Gets the value if the image should be resized.
+            </summary>
+        </member>
+        <member name="M:BEditor.Primitive.Effects.OpenCv.GaussianBlur.Render(BEditor.Data.EffectRenderArgs{BEditor.Drawing.Image{BEditor.Drawing.Pixel.BGRA32}})">
+            <inheritdoc/>
+        </member>
+        <member name="T:BEditor.Primitive.Effects.OpenCv.MedianBlur">
+            <summary>
+            
+            </summary>
+        </member>
+        <member name="F:BEditor.Primitive.Effects.OpenCv.MedianBlur.SizeProperty">
+            <summary>
+            Defines the <see cref="P:BEditor.Primitive.Effects.OpenCv.MedianBlur.Size"/> property.
+            </summary>
+        </member>
+        <member name="F:BEditor.Primitive.Effects.OpenCv.MedianBlur.ResizeProperty">
+            <summary>
+            Defines the <see cref="P:BEditor.Primitive.Effects.OpenCv.MedianBlur.Resize"/> property.
+            </summary>
+        </member>
+        <member name="P:BEditor.Primitive.Effects.OpenCv.MedianBlur.Name">
+            <inheritdoc/>
+        </member>
+        <member name="P:BEditor.Primitive.Effects.OpenCv.MedianBlur.Properties">
+            <inheritdoc/>
+        </member>
+        <member name="P:BEditor.Primitive.Effects.OpenCv.MedianBlur.Size">
+            <summary>
+            Gets the size of the kernel.
+            </summary>
+        </member>
+        <member name="P:BEditor.Primitive.Effects.OpenCv.MedianBlur.Resize">
+            <summary>
+            Gets the value if the image should be resized.
+            </summary>
+        </member>
+        <member name="M:BEditor.Primitive.Effects.OpenCv.MedianBlur.Render(BEditor.Data.EffectRenderArgs{BEditor.Drawing.Image{BEditor.Drawing.Pixel.BGRA32}})">
+            <inheritdoc/>
+        </member>
         <member name="T:BEditor.Primitive.Effects.PointLightSource">
             <summary>
             Represents an <see cref="T:BEditor.Data.EffectElement"/> that sets the OpenGL point light source.
@@ -2542,6 +2644,11 @@
               Looks up a localized string similar to Gamma correction.
             </summary>
         </member>
+        <member name="P:BEditor.Primitive.Resources.Strings.GaussianBlur">
+            <summary>
+              Looks up a localized string similar to Gaussian blur.
+            </summary>
+        </member>
         <member name="P:BEditor.Primitive.Resources.Strings.GL3DObject">
             <summary>
               Looks up a localized string similar to 3D object.
@@ -2620,6 +2727,11 @@
         <member name="P:BEditor.Primitive.Resources.Strings.Mask">
             <summary>
               Looks up a localized string similar to Mask.
+            </summary>
+        </member>
+        <member name="P:BEditor.Primitive.Resources.Strings.MedianBlur">
+            <summary>
+              Looks up a localized string similar to Median blur.
             </summary>
         </member>
         <member name="P:BEditor.Primitive.Resources.Strings.Mirror">

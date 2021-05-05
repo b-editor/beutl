@@ -520,6 +520,15 @@ namespace BEditor.Primitive.Resources {
         }
         
         /// <summary>
+        ///   Looks up a localized string similar to Gaussian blur.
+        /// </summary>
+        internal static string GaussianBlur {
+            get {
+                return ResourceManager.GetString("GaussianBlur", resourceCulture);
+            }
+        }
+        
+        /// <summary>
         ///   Looks up a localized string similar to 3D object.
         /// </summary>
         internal static string GL3DObject {
@@ -660,6 +669,15 @@ namespace BEditor.Primitive.Resources {
         internal static string Mask {
             get {
                 return ResourceManager.GetString("Mask", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to Median blur.
+        /// </summary>
+        internal static string MedianBlur {
+            get {
+                return ResourceManager.GetString("MedianBlur", resourceCulture);
             }
         }
         
