@@ -1,0 +1,40 @@
+<UserControl
+    xmlns="https://github.com/avaloniaui"
+    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+    xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+    xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+    xmlns:setting="clr-namespace:BEditor;assembly=BEditor.Settings"
+    xmlns:vm="using:BEditor.ViewModels.Settings"
+    xmlns:properties="using:BEditor.Properties"
+    x:DataType="vm:DisabledPluginsViewModel"
+    mc:Ignorable="d" d:DesignWidth="800" d:DesignHeight="450"
+    x:Class="BEditor.Views.Settings.DisabledPlugins">
+    <UserControl.DataContext>
+        <vm:DisabledPluginsViewModel />
+    </UserControl.DataContext>
+    <Grid>
+        <Grid.RowDefinitions>
+            <RowDefinition />
+            <RowDefinition Height="Auto" />
+        </Grid.RowDefinitions>
+        <ListBox
+            Background="Transparent"
+            Items="{Binding DisablePlugins, Source={x:Static setting:Settings.Default}}"
+            SelectedItem="{CompiledBinding SelectName.Value, Mode=TwoWay}">
+            <ListBox.ItemTemplate>
+                <DataTemplate>
+                    <Grid Height="60">
+                        <Label Content="{Binding}" FontSize="14" />
+                    </Grid>
+                </DataTemplate>
+            </ListBox.ItemTemplate>
+        </ListBox>
+        <VirtualizingStackPanel Grid.Row="1" Orientation="Horizontal">
+            <Button
+                IsEnabled="{CompiledBinding IsSelected.Value, Mode=OneWay}"
+                Margin="10"
+                Command="{Binding Enable, Mode=OneTime}"
+                Content="{x:Static properties:Strings.LoadPlugin}" />
+        </VirtualizingStackPanel>
+    </Grid>
+</UserControl>

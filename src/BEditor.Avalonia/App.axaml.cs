@@ -19,6 +19,8 @@ using BEditor.Models;
 using BEditor.Plugin;
 using BEditor.Primitive;
 using BEditor.Properties;
+using BEditor.ViewModels.DialogContent;
+using BEditor.Views.DialogContent;
 
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
@@ -97,10 +99,6 @@ namespace BEditor
                 .Snackbar(string.Format(Strings.ExceptionWasThrown, e.ExceptionObject.ToString()));
 
             Logger?.LogError(e.ExceptionObject as Exception, "UnhandledException was thrown.");
-
-            //#if !DEBUG
-            //            e.Handled = true;
-            //#endif
         }
         private static void CreateDirectory()
         {
@@ -166,39 +164,43 @@ namespace BEditor
 
             // すべて
             var all = PluginManager.Default.GetNames();
-            // 無効なプラグイン
-            var disable = all.Except(Settings.Default.EnablePlugins)
+            // 未知なプラグイン
+            var unknown = all.Except(Settings.Default.EnablePlugins)
                 .Except(Settings.Default.DisablePlugins)
                 .ToArray();
 
-            // ここで確認ダイアログを表示
-            if (disable.Length != 0)
+
+            if (unknown.Length != 0)
             {
-                await Dispatcher.UIThread.InvokeAsync(() =>
+                await Dispatcher.UIThread.InvokeAsync(async () =>
                 {
-                    //var controlvm = new PluginCheckHostViewModel
-                    //{
-                    //    Plugins = new(disable.Select(name => new PluginCheckViewModel() { Name = { Value = name } }))
-                    //};
-                    //var control = new PluginCheckHost(controlvm);
+                    var viewmodel = new PluginsToLoadViewModel
+                    {
+                        Plugins = new(unknown.Select(name => new PluginToLoad { Name = { Value = name } }))
+                    };
+                    var dialog = new PluginsToLoad
+                    {
+                        DataContext = viewmodel
+                    };
 
-                    //new NoneDialog(control).ShowDialog();
+                    await dialog.ShowDialog(GetMainWindow());
 
-                    //foreach (var vm in controlvm.Plugins)
-                    //{
-                    //    if (vm.IsEnabled.Value)
-                    //    {
-                    //        Settings.Default.EnablePlugins.Add(vm.Name.Value);
-                    //    }
-                    //    else
-                    //    {
-                    //        Settings.Default.DisablePlugins.Add(vm.Name.Value);
-                    //    }
-                    //}
+                    foreach (var vm in viewmodel.Plugins)
+                    {
+                        if (vm.IsEnabled.Value)
+                        {
+                            Settings.Default.EnablePlugins.Add(vm.Name.Value);
+                        }
+                        else
+                        {
+                            Settings.Default.DisablePlugins.Add(vm.Name.Value);
+                        }
+                    }
 
-                    //Settings.Default.Save();
+                    Settings.Default.Save();
                 });
             }
+
 
             PluginManager.Default.Load(Settings.Default.EnablePlugins);
 
