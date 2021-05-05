@@ -84,10 +84,10 @@
                 <TabItem.Header>
                     <StackPanel>
                         <PathIcon Data="{StaticResource Extension20Regular}"/>
-                        <TextBlock Text="{x:Static prop:Strings.InstalledPlugins}" />
+                        <TextBlock Text="{x:Static prop:Strings.LoadedPlugins}" />
                     </StackPanel>
                 </TabItem.Header>
-                <ctr:InstalledPlugins/>
+                <ctr:LoadedPlugins/>
             </TabItem>
             <TabItem>
                 <TabItem.Header>
@@ -96,7 +96,7 @@
                         <TextBlock Text="{x:Static prop:Strings.DisabledPlugins}" />
                     </StackPanel>
                 </TabItem.Header>
-
+                <ctr:DisabledPlugins/>
             </TabItem>
             <TabItem>
                 <TabItem.Header>
