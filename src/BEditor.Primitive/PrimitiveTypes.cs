@@ -163,20 +163,10 @@ namespace BEditor.Primitive
             {
                 Children = new[]
                 {
-                    EffectMetadata.Create<Effects.Border>(Strings.Border),
-                    EffectMetadata.Create<Effects.StrokeText>($"{Strings.Border} ({Strings.Text})"),
                     EffectMetadata.Create<Effects.ColorKey>(Strings.ColorKey),
-                    EffectMetadata.Create<Effects.Shadow>(Strings.DropShadow),
-                    EffectMetadata.Create<Effects.Blur>(Strings.Blur),
                     EffectMetadata.Create<Effects.SetColor>(Strings.Monoc),
-                    EffectMetadata.Create<Effects.Dilate>(Strings.Dilate),
-                    EffectMetadata.Create<Effects.Erode>(Strings.Erode),
                     EffectMetadata.Create<Effects.Clipping>(Strings.Clipping),
                     EffectMetadata.Create<Effects.AreaExpansion>(Strings.AreaExpansion),
-                    EffectMetadata.Create<Effects.LinearGradient>(Strings.LinearGradient),
-                    EffectMetadata.Create<Effects.CircularGradient>(Strings.CircularGradient),
-                    EffectMetadata.Create<Effects.Mask>(Strings.Mask),
-                    EffectMetadata.Create<Effects.PointLightDiffuse>(Strings.PointLightDiffuse),
                     EffectMetadata.Create<Effects.ChromaKey>(Strings.ChromaKey),
                     EffectMetadata.Create<Effects.ImageSplit>(Strings.ImageSplit),
                     EffectMetadata.Create<Effects.MultipleControls>(Strings.MultipleImageControls),
@@ -191,6 +181,24 @@ namespace BEditor.Primitive
                     EffectMetadata.Create<Effects.Binarization>(Strings.Binarization),
                     EffectMetadata.Create<Effects.Noise>(Strings.Noise),
                     EffectMetadata.Create<Effects.Diffusion>(Strings.Diffusion),
+                    EffectMetadata.Create<Effects.ReverseOpacity>(Strings.ReverseOpacity),
+                }
+            };
+            
+            yield return new("Skia")
+            {
+                Children = new[]
+                {
+                    EffectMetadata.Create<Effects.Border>(Strings.Border),
+                    EffectMetadata.Create<Effects.StrokeText>($"{Strings.Border} ({Strings.Text})"),
+                    EffectMetadata.Create<Effects.Shadow>(Strings.DropShadow),
+                    EffectMetadata.Create<Effects.Blur>(Strings.Blur),
+                    EffectMetadata.Create<Effects.Dilate>(Strings.Dilate),
+                    EffectMetadata.Create<Effects.Erode>(Strings.Erode),
+                    EffectMetadata.Create<Effects.LinearGradient>(Strings.LinearGradient),
+                    EffectMetadata.Create<Effects.CircularGradient>(Strings.CircularGradient),
+                    EffectMetadata.Create<Effects.Mask>(Strings.Mask),
+                    EffectMetadata.Create<Effects.PointLightDiffuse>(Strings.PointLightDiffuse),
                 }
             };
 
