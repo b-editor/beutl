@@ -20,6 +20,7 @@ using BEditor.Properties;
 using BEditor.ViewModels;
 using BEditor.ViewModels.DialogContent;
 using BEditor.Views.DialogContent;
+using BEditor.Views.Settings;
 
 using Microsoft.Extensions.Logging;
 
@@ -54,7 +55,7 @@ namespace BEditor
             this.AttachDevTools();
 #endif
         }
-
+        public record Record(float Value);
         public void ObjectsPopupOpen(object s, RoutedEventArgs e)
         {
             this.FindControl<Popup>("ObjectsPopup").Open();

@@ -304,8 +304,8 @@
   <data name="Infomation" xml:space="preserve">
     <value>情報</value>
   </data>
-  <data name="InstalledPlugins" xml:space="preserve">
-    <value>インストールされているプラグイン</value>
+  <data name="LoadedPlugins" xml:space="preserve">
+    <value>読み込まれているプラグイン</value>
   </data>
   <data name="Language" xml:space="preserve">
     <value>言語</value>
@@ -589,5 +589,11 @@
   </data>
   <data name="AudioFiles" xml:space="preserve">
     <value>音声ファイル</value>
+  </data>
+  <data name="Back" xml:space="preserve">
+    <value>戻る</value>
+  </data>
+  <data name="Apply" xml:space="preserve">
+    <value>適用</value>
   </data>
 </root>

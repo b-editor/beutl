@@ -135,6 +135,15 @@ namespace BEditor.Properties {
         }
         
         /// <summary>
+        ///   Looks up a localized string similar to Apply.
+        /// </summary>
+        public static string Apply {
+            get {
+                return ResourceManager.GetString("Apply", resourceCulture);
+            }
+        }
+        
+        /// <summary>
         ///   Looks up a localized string similar to Audio.
         /// </summary>
         public static string Audio {
@@ -158,6 +167,15 @@ namespace BEditor.Properties {
         public static string AudioFiles {
             get {
                 return ResourceManager.GetString("AudioFiles", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to Back.
+        /// </summary>
+        public static string Back {
+            get {
+                return ResourceManager.GetString("Back", resourceCulture);
             }
         }
         
@@ -613,15 +631,6 @@ namespace BEditor.Properties {
         }
         
         /// <summary>
-        ///   Looks up a localized string similar to Installed plugins.
-        /// </summary>
-        public static string InstalledPlugins {
-            get {
-                return ResourceManager.GetString("InstalledPlugins", resourceCulture);
-            }
-        }
-        
-        /// <summary>
         ///   Looks up a localized string similar to {0} is checking..
         /// </summary>
         public static string IsChecking {
@@ -690,6 +699,15 @@ namespace BEditor.Properties {
         public static string License {
             get {
                 return ResourceManager.GetString("License", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to Loaded plugins.
+        /// </summary>
+        public static string LoadedPlugins {
+            get {
+                return ResourceManager.GetString("LoadedPlugins", resourceCulture);
             }
         }
         
