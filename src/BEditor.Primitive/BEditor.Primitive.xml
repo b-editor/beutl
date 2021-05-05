@@ -2758,6 +2758,11 @@
               Looks up a localized string similar to Image splitting.
             </summary>
         </member>
+        <member name="P:BEditor.Primitive.Resources.Strings.InnerShadow">
+            <summary>
+              Looks up a localized string similar to .
+            </summary>
+        </member>
         <member name="P:BEditor.Primitive.Resources.Strings.InvertMask">
             <summary>
               Looks up a localized string similar to Invert Mask.

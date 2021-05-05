@@ -1,11 +1,13 @@
 ﻿using System;
 using System.Collections.Generic;
+using System.Diagnostics;
 using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
 
 using Avalonia;
 using Avalonia.Controls;
+using Avalonia.Controls.Presenters;
 using Avalonia.Controls.Primitives;
 using Avalonia.Data;
 using Avalonia.Data.Converters;
@@ -355,7 +357,11 @@ namespace BEditor.Extensions
                     effect[EffectElementViewProperty] = ex;
                 }, effect);
             }
-            return effect.GetValue(EffectElementViewProperty);
+            var ctr = effect.GetValue(EffectElementViewProperty);
+
+            if (ctr.Parent is ContentControl parent) parent.Content = null;
+
+            return ctr;
         }
 
         public static Control GetCreateKeyFrameViewSafe(this EffectElement effect)
@@ -396,7 +402,11 @@ namespace BEditor.Extensions
                     effect[KeyframeProperty] = keyFrame;
                 }, effect);
             }
-            return effect.GetValue(KeyframeProperty);
+            var ctr = effect.GetValue(KeyframeProperty);
+
+            if (ctr.Parent is ContentPresenter parent) parent.Content = null;
+
+            return ctr;
         }
 
         private static readonly IValueConverter ExpanderWidthConverter = new FuncValueConverter<double, double>(i => i - 38);

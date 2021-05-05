@@ -610,7 +610,7 @@ namespace BEditor.Primitive.Resources {
         }
         
         /// <summary>
-        ///   Looks up a localized string similar to .
+        ///   Looks up a localized string similar to Inner Shadow.
         /// </summary>
         internal static string InnerShadow {
             get {
