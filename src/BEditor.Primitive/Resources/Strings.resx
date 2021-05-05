@@ -454,4 +454,7 @@
   <data name="BottomRight" xml:space="preserve">
     <value>Lower right</value>
   </data>
+  <data name="ReverseOpacity" xml:space="preserve">
+    <value>Reverse opacity</value>
+  </data>
 </root>

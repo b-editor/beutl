@@ -844,6 +844,15 @@ namespace BEditor.Primitive.Resources {
         }
         
         /// <summary>
+        ///   Looks up a localized string similar to Reverse opacity.
+        /// </summary>
+        internal static string ReverseOpacity {
+            get {
+                return ResourceManager.GetString("ReverseOpacity", resourceCulture);
+            }
+        }
+        
+        /// <summary>
         ///   Looks up a localized string similar to RGB correction.
         /// </summary>
         internal static string RGBColorCorrection {

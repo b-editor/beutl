@@ -454,4 +454,7 @@
   <data name="BottomRight" xml:space="preserve">
     <value>右下</value>
   </data>
+  <data name="ReverseOpacity" xml:space="preserve">
+    <value>不透明度を反転</value>
+  </data>
 </root>
