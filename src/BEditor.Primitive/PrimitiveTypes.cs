@@ -182,6 +182,7 @@ namespace BEditor.Primitive
                     EffectMetadata.Create<Effects.Noise>(Strings.Noise),
                     EffectMetadata.Create<Effects.Diffusion>(Strings.Diffusion),
                     EffectMetadata.Create<Effects.ReverseOpacity>(Strings.ReverseOpacity),
+                    EffectMetadata.Create<Effects.InnerShadow>(Strings.InnerShadow),
                 }
             };
             

@@ -610,6 +610,15 @@ namespace BEditor.Primitive.Resources {
         }
         
         /// <summary>
+        ///   Looks up a localized string similar to .
+        /// </summary>
+        internal static string InnerShadow {
+            get {
+                return ResourceManager.GetString("InnerShadow", resourceCulture);
+            }
+        }
+        
+        /// <summary>
         ///   Looks up a localized string similar to Invert Mask.
         /// </summary>
         internal static string InvertMask {

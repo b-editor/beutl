@@ -100,7 +100,7 @@ namespace BEditor.Drawing
             return bmp.ToImage32();
         }
 
-        public static Image<BGRA32> Shadow(this Image<BGRA32> self, float x, float y, float blur, float alpha, BGRA32 color)
+        public static Image<BGRA32> Shadow(this Image<BGRA32> self, float x, float y, float blur, float opacity, BGRA32 color)
         {
             if (self is null) throw new ArgumentNullException(nameof(self));
             self.ThrowIfDisposed();
@@ -111,7 +111,7 @@ namespace BEditor.Drawing
             var size_w = (Math.Abs(x) + (w / 2)) * 2;
             var size_h = (Math.Abs(y) + (h / 2)) * 2;
 
-            using var filter = SKImageFilter.CreateDropShadow(x, y, blur, blur, new SKColor(color.R, color.G, color.B, (byte)(color.A * alpha)));
+            using var filter = SKImageFilter.CreateDropShadow(x, y, blur, blur, new SKColor(color.R, color.G, color.B, (byte)(color.A * opacity)));
             using var paint = new SKPaint
             {
                 ImageFilter = filter,
@@ -129,6 +129,24 @@ namespace BEditor.Drawing
                 paint);
 
             return bmp.ToImage32();
+        }
+
+        public static Image<BGRA32> InnerShadow(this Image<BGRA32> self, float x, float y, float blur, float opacity, BGRA32 color)
+        {
+            if (self is null) throw new ArgumentNullException(nameof(self));
+            self.ThrowIfDisposed();
+            using var blurred = new Image<BGRA32>(self.Width, self.Height, new BGRA32(color.R, color.G, color.B, (byte)(opacity / 100 * 255)));
+            using var mask = self.Clone();
+            mask.SetColor(Color.Light);
+
+            blurred.Mask(mask, new PointF(x, y), 0, true);
+            Cv.Blur(blurred, (int)blur);
+
+            blurred.Mask(mask, default, 0, false);
+            var result = self.Clone();
+            result.DrawImage(default, blurred);
+
+            return result;
         }
 
         #region Blur

@@ -463,4 +463,7 @@
   <data name="MedianBlur" xml:space="preserve">
     <value>Median blur</value>
   </data>
+  <data name="InnerShadow" xml:space="preserve">
+    <value></value>
+  </data>
 </root>

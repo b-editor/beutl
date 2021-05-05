@@ -463,4 +463,7 @@
   <data name="MedianBlur" xml:space="preserve">
     <value>メディアンぼかし</value>
   </data>
+  <data name="InnerShadow" xml:space="preserve">
+    <value>内側シャドウ</value>
+  </data>
 </root>

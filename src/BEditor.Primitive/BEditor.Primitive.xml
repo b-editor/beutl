@@ -512,6 +512,70 @@
         <member name="M:BEditor.Primitive.Effects.ImageSplit.Render(BEditor.Data.EffectRenderArgs{BEditor.Drawing.Image{BEditor.Drawing.Pixel.BGRA32}})">
             <inheritdoc/>
         </member>
+        <member name="T:BEditor.Primitive.Effects.InnerShadow">
+            <summary>
+            
+            </summary>
+        </member>
+        <member name="F:BEditor.Primitive.Effects.InnerShadow.XProperty">
+            <summary>
+            Defines the <see cref="P:BEditor.Primitive.Effects.InnerShadow.X"/> property.
+            </summary>
+        </member>
+        <member name="F:BEditor.Primitive.Effects.InnerShadow.YProperty">
+            <summary>
+            Defines the <see cref="P:BEditor.Primitive.Effects.InnerShadow.Y"/> property.
+            </summary>
+        </member>
+        <member name="F:BEditor.Primitive.Effects.InnerShadow.BlurProperty">
+            <summary>
+            Defines the <see cref="P:BEditor.Primitive.Effects.InnerShadow.Blur"/> property.
+            </summary>
+        </member>
+        <member name="F:BEditor.Primitive.Effects.InnerShadow.OpacityProperty">
+            <summary>
+            Defines the <see cref="P:BEditor.Primitive.Effects.InnerShadow.Opacity"/> property.
+            </summary>
+        </member>
+        <member name="F:BEditor.Primitive.Effects.InnerShadow.ColorProperty">
+            <summary>
+            Defines the <see cref="P:BEditor.Primitive.Effects.InnerShadow.Color"/> property.
+            </summary>
+        </member>
+        <member name="P:BEditor.Primitive.Effects.InnerShadow.Name">
+            <inheritdoc/>
+        </member>
+        <member name="P:BEditor.Primitive.Effects.InnerShadow.Properties">
+            <inheritdoc/>
+        </member>
+        <member name="P:BEditor.Primitive.Effects.InnerShadow.X">
+            <summary>
+            Get the <see cref="T:BEditor.Data.Property.EaseProperty"/> representing the X coordinate.
+            </summary>
+        </member>
+        <member name="P:BEditor.Primitive.Effects.InnerShadow.Y">
+            <summary>
+            Get the <see cref="T:BEditor.Data.Property.EaseProperty"/> representing the Y coordinate.
+            </summary>
+        </member>
+        <member name="P:BEditor.Primitive.Effects.InnerShadow.Blur">
+            <summary>
+            Gets the <see cref="T:BEditor.Data.Property.EaseProperty"/> that represents the blur sigma.
+            </summary>
+        </member>
+        <member name="P:BEditor.Primitive.Effects.InnerShadow.Opacity">
+            <summary>
+            Gets the <see cref="T:BEditor.Data.Property.EaseProperty"/> that represents the transparency.
+            </summary>
+        </member>
+        <member name="P:BEditor.Primitive.Effects.InnerShadow.Color">
+            <summary>
+            Get the <see cref="F:BEditor.Primitive.Effects.InnerShadow.ColorProperty"/> that represents the shadow color.
+            </summary>
+        </member>
+        <member name="M:BEditor.Primitive.Effects.InnerShadow.Render(BEditor.Data.EffectRenderArgs{BEditor.Drawing.Image{BEditor.Drawing.Pixel.BGRA32}})">
+            <inheritdoc/>
+        </member>
         <member name="T:BEditor.Primitive.Effects.MultipleControls">
             <summary>
             Represents a <see cref="T:BEditor.Data.Primitive.ImageEffect"/> that provides the ability to edit multiple objects by specifying their indices.
