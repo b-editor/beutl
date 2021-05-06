@@ -2760,7 +2760,7 @@
         </member>
         <member name="P:BEditor.Primitive.Resources.Strings.InnerShadow">
             <summary>
-              Looks up a localized string similar to .
+              Looks up a localized string similar to Inner Shadow.
             </summary>
         </member>
         <member name="P:BEditor.Primitive.Resources.Strings.InvertMask">

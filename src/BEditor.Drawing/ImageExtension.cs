@@ -135,16 +135,15 @@ namespace BEditor.Drawing
         {
             if (self is null) throw new ArgumentNullException(nameof(self));
             self.ThrowIfDisposed();
-            using var blurred = new Image<BGRA32>(self.Width, self.Height, new BGRA32(color.R, color.G, color.B, (byte)(opacity / 100 * 255)));
+            using var blurred = new Image<BGRA32>(self.Width, self.Height, new BGRA32(color.R, color.G, color.B, 255));
             using var mask = self.Clone();
-            mask.SetColor(Color.Light);
 
             blurred.Mask(mask, new PointF(x, y), 0, true);
             Cv.Blur(blurred, (int)blur);
 
             blurred.Mask(mask, default, 0, false);
             var result = self.Clone();
-            result.DrawImage(default, blurred);
+            result.DrawImage<BGRA32>(default, blurred);
 
             return result;
         }
@@ -352,26 +351,47 @@ namespace BEditor.Drawing
 
         #region Mask
 
-        public static void Mask(this Image<BGRA32> self, Image<BGRA32> mask, PointF point, float rotate, bool invert)
+        public static void Mask(this Image<BGRA32> self, Image<BGRA32> mask, PointF point, float rotate, bool invert, DrawingContext? context = null)
         {
             if (self is null) throw new ArgumentNullException(nameof(self));
             if (mask is null) throw new ArgumentNullException(nameof(mask));
             self.ThrowIfDisposed();
             mask.ThrowIfDisposed();
-            mask.SetColor(default);
+            //mask.SetColor(default);
 
-            using var paint = new SKPaint
-            {
-                BlendMode = invert ? SKBlendMode.DstOut : SKBlendMode.DstIn,
-                IsAntialias = true
-            };
-            using var bmp = self.ToSKBitmap();
-            using var canvas = new SKCanvas(bmp);
+            //using var paint = new SKPaint
+            //{
+            //    IsAntialias = true
+            //};
+            //using var bmp = new SKBitmap(new SKImageInfo(self.Width, self.Height, SKColorType.Bgra8888));
+            //using var canvas = new SKCanvas(bmp);
+            // 回転した画像
             using var m = MakeMask(self.Size, mask, point, rotate);
+            using var routed = m.ToImage32();
+            if (!invert)
+            {
+                if (context is null)
+                {
+                    routed.ReverseOpacity();
+                }
+                else
+                {
+                    routed.ReverseOpacity(context);
+                }
+            }
 
-            canvas.DrawBitmap(m, new SKPoint(), paint);
+            if (context is null)
+            {
+                self.AlphaSubtract(routed);
+            }
+            else
+            {
+                self.AlphaSubtract(routed, context);
+            }
 
-            CopyTo(bmp.Bytes, self.Data!, self.DataSize);
+            //canvas.DrawBitmap(m, new SKPoint(), paint);
+
+            //CopyTo(bmp.Bytes, self.Data!, self.DataSize);
         }
 
         #endregion
@@ -983,12 +1003,13 @@ namespace BEditor.Drawing
             using var canvas = new SKCanvas(bmp);
             using var m = mask.ToSKBitmap();
 
+            canvas.Translate(size.Width / 2, size.Height / 2);
             canvas.RotateDegrees(rotate);
             canvas.DrawBitmap(
                 m,
                 new SKPoint(
-                    point.X + ((size.Width - mask.Width) / 2F),
-                    point.Y + ((size.Height - mask.Height) / 2F)),
+                    point.X - mask.Width / 2F,
+                    point.Y - mask.Height / 2F),
                 paint);
 
             return bmp;
