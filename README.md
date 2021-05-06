@@ -13,6 +13,22 @@ Windows, Linux, macOSで動作する動画編集ソフトウェアです。
 
 ![](https://raw.githubusercontent.com/b-editor/BEditor/main/docs/imgs/header.png)
 
+## Feature
+
+* OpenGLを使ったレンダリング
+* カメラ制御
+* GPUを使った画像処理
+* ダークモード
+* クロスプラットフォーム (0.1.0から)
+* キーフレーム機能
+* 100個のレイヤー
+* [多数の対応フォーマット](https://ja.wikipedia.org/wiki/FFmpeg#サポートしているファイル形式)
+* [編集データの値を同期](https://beditor.net/Document?page=how_to_use/DataBinding)
+* [シーン機能](https://beditor.net/Document?page=keywords/Scene)
+* [30種類以上のエフェクト](https://beditor.net/Document?page=effects/overview)
+* 12種類のオブジェクト
+    * フレームバッファ, 画像ファイル, 多角形, 角丸四角形, シーン, 図形, テキスト, 動画ファイル, カメラ, 3Dオブジェクト, リスナー
+
 ## Requirements
 * [OpenAL](https://www.openal.org/)
 
@@ -30,33 +46,10 @@ dotnet restore
 dotnet cake
 ```
 
+## Screenshots
+
+![](https://raw.githubusercontent.com/b-editor/BEditor/main/docs/imgs/ScreenShot_1.png)
+
 ## Author
 
 * [indigo-san](https://github.com/indigo-san)
-
-## Feature
-
-* OpenGLを使ったレンダリング
-* カメラ制御
-* GPUを使った画像処理
-* ダークモード
-* クロスプラットフォーム (0.1.0から)
-* キーフレーム機能
-* 100個のレイヤー
-* [多数の対応フォーマット](https://ja.wikipedia.org/wiki/FFmpeg#サポートしているファイル形式)
-* [編集データの値を同期](https://beditor.net/Document?page=how_to_use/DataBinding)
-* [シーン機能](https://beditor.net/Document?page=keywords/Scene)
-* [30種類のエフェクト](https://beditor.net/Document?page=effects/overview)
-* 12種類のオブジェクト
-    * フレームバッファ
-    * 画像ファイル
-    * 多角形
-    * 角丸四角形
-    * シーン
-    * 図形
-    * テキスト
-    * 動画ファイル
-    * 音声ファイル
-    * カメラ
-    * 3Dオブジェクト
-    * リスナー
