@@ -185,7 +185,7 @@ namespace BEditor.Primitive
                     EffectMetadata.Create<Effects.InnerShadow>(Strings.InnerShadow),
                 }
             };
-            
+
             yield return new("Skia")
             {
                 Children = new[]
