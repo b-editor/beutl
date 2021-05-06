@@ -4,6 +4,8 @@
 ![](https://img.shields.io/github/forks/b-editor/BEditor)
 ![](https://img.shields.io/github/stars/b-editor/BEditor)
 ![](https://img.shields.io/github/license/b-editor/BEditor)
+![](https://img.shields.io/github/downloads/b-editor/BEditor/total)
+![](https://img.shields.io/github/v/release/b-editor/BEditor)
 ![](https://github.com/b-editor/BEditor/workflows/Debug%20Build%20&%20Test/badge.svg)
 ![](https://github.com/b-editor/BEditor/workflows/CodeQL/badge.svg)
 
