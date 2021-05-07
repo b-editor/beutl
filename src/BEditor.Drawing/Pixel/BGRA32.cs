@@ -6,7 +6,7 @@ namespace BEditor.Drawing.Pixel
     [Serializable]
     [StructLayout(LayoutKind.Sequential)]
     [PixelFormat(4)]
-    public struct BGRA32 : IPixel<BGRA32>, IPixelConvertable<BGR24>, IPixelConvertable<RGB24>, IPixelConvertable<RGBA32>
+    public struct BGRA32 : IPixel<BGRA32>, IGpuPixel<BGRA32>, IPixelConvertable<BGR24>, IPixelConvertable<RGB24>, IPixelConvertable<RGBA32>
     {
         public byte B;
         public byte G;
@@ -100,6 +100,70 @@ namespace BEditor.Drawing.Pixel
             g = G;
             b = B;
             a = A;
+        }
+
+        public string GetBlend()
+        {
+            return @"
+__kernel void blend(__global unsigned char* src, __global unsigned char* mask)
+{
+    int x = get_global_id(0);
+    int y = get_global_id(1);
+    int stride = get_global_size(0) * 4;
+    int pos = stride * y + x * 4;
+
+    if (mask[pos + 3] == 0) return;
+
+    unsigned char b = src[pos];
+    unsigned char g = src[pos + 1];
+    unsigned char r = src[pos + 2];
+    unsigned char a = src[pos + 3];
+    unsigned char mask_b = mask[pos];
+    unsigned char mask_g = mask[pos + 1];
+    unsigned char mask_r = mask[pos + 2];
+    unsigned char mask_a = mask[pos + 3];
+
+    int blendA = (mask_a + a) - (mask_a * a / 255);
+
+    src[pos] = (unsigned char)(((mask_b * mask_a) + (b * (255 - mask_a) * a / 255)) / blendA);
+    src[pos + 1] = (unsigned char)(((mask_g * mask_a) + (g * (255 - mask_a) * a / 255)) / blendA);
+    src[pos + 2] = (unsigned char)(((mask_r * mask_a) + (r * (255 - mask_a) * a / 255)) / blendA);
+    src[pos + 3] = a;
+}";
+        }
+
+        public string GetAdd()
+        {
+            return @"
+__kernel void add(__global unsigned char* src, __global unsigned char* mask)
+{
+    int x = get_global_id(0);
+    int y = get_global_id(1);
+    int stride = get_global_size(0) * 4;
+    int pos = stride * y + x * 4;
+
+    src[pos] += mask[pos];
+    src[pos + 1] += mask[pos + 1];
+    src[pos + 2] += mask[pos + 2];
+    src[pos + 3] += mask[pos + 3];
+}";
+        }
+
+        public string Subtract()
+        {
+            return @"
+__kernel void subtract(__global unsigned char* src, __global unsigned char* mask)
+{
+    int x = get_global_id(0);
+    int y = get_global_id(1);
+    int stride = get_global_size(0) * 4;
+    int pos = stride * y + x * 4;
+
+    src[pos] -= mask[pos];
+    src[pos + 1] -= mask[pos + 1];
+    src[pos + 2] -= mask[pos + 2];
+    src[pos + 3] -= mask[pos + 3];
+}";
         }
     }
 }

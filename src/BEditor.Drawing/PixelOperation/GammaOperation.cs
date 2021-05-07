@@ -9,7 +9,15 @@ namespace BEditor.Drawing
 {
     public static unsafe partial class Image
     {
-        public static void Gamma(this Image<BGRA32> image, float gamma)
+        private static void GammaCpu(this Image<BGRA32> image, UnmanagedArray<byte> lut)
+        {
+            fixed (BGRA32* data = image.Data)
+            {
+                PixelOperate(image.Data.Length, new GammaOperation(data, data, (byte*)lut.Pointer));
+            }
+        }
+
+        public static void Gamma(this Image<BGRA32> image, float gamma, DrawingContext? context = null)
         {
             if (image is null) throw new ArgumentNullException(nameof(image));
             image.ThrowIfDisposed();
@@ -21,25 +29,16 @@ namespace BEditor.Drawing
                 lut[i] = (byte)Set255Round(Math.Pow(i / 255.0, 1.0 / gamma) * 255);
             }
 
-            fixed (BGRA32* data = image.Data)
+            if (context is not null)
             {
-                PixelOperate(image.Data.Length, new GammaOperation(data, data, (byte*)lut.Pointer));
+                using var lutMap = context.Context.CreateMappingMemory(lut.AsSpan(), lut.Length * sizeof(byte));
+
+                image.PixelOperate<GammaOperation, AbstractMemory>(context, lutMap);
             }
-        }
-
-        public static void Gamma(this Image<BGRA32> image, DrawingContext context, float gamma)
-        {
-            gamma = Math.Clamp(gamma, 0.01f, 3f);
-
-            using var lut = new UnmanagedArray<byte>(256);
-            for (var i = 0; i < 256; i++)
+            else
             {
-                lut[i] = (byte)Set255Round(Math.Pow(i / 255.0, 1.0 / gamma) * 255);
+                image.GammaCpu(lut);
             }
-
-            using var lutMap = context.Context.CreateMappingMemory(lut.AsSpan(), lut.Length * sizeof(byte));
-
-            image.PixelOperate<GammaOperation, AbstractMemory>(context, lutMap);
         }
     }
 }

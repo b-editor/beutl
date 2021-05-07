@@ -13,7 +13,7 @@ namespace BEditor.Graphics
     /// <summary>
     ///
     /// </summary>
-    public class ImageInfo : IDisposable, IAsyncDisposable
+    public class ImageInfo : IDisposable
     {
         private readonly Func<ImageInfo, Transform> _getTransform;
 
@@ -51,19 +51,6 @@ namespace BEditor.Graphics
             if (IsDisposed) return;
 
             Source.Dispose();
-            GC.SuppressFinalize(this);
-
-            IsDisposed = true;
-        }
-
-        /// <summary>
-        ///
-        /// </summary>
-        public async ValueTask DisposeAsync()
-        {
-            if (IsDisposed) return;
-
-            await Source.DisposeAsync();
             GC.SuppressFinalize(this);
 
             IsDisposed = true;

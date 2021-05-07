@@ -38,16 +38,7 @@ namespace BEditor.Primitive.Effects
 
         public override void Render(EffectRenderArgs<Image<BGRA32>> args)
         {
-            var context = Parent.Parent.DrawingContext;
-
-            if (context is not null && Settings.Default.PrioritizeGPU)
-            {
-                args.Value.Gamma(context, Gamma[args.Frame] / 100);
-            }
-            else
-            {
-                args.Value.Gamma(Gamma[args.Frame] / 100);
-            }
+            args.Value.Gamma(Gamma[args.Frame] / 100, Parent.Parent.DrawingContext);
         }
     }
 #pragma warning restore CS1591

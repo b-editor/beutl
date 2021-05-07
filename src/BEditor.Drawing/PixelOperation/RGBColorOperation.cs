@@ -9,7 +9,15 @@ namespace BEditor.Drawing
 {
     public static unsafe partial class Image
     {
-        public static void RGBColor(this Image<BGRA32> image, short red, short green, short blue)
+        private static void RGBColorCpu(this Image<BGRA32> image, short red, short green, short blue)
+        {
+            fixed (BGRA32* data = image.Data)
+            {
+                PixelOperate(image.Data.Length, new RGBColorOperation(data, data, red, green, blue));
+            }
+        }
+
+        public static void RGBColor(this Image<BGRA32> image, short red, short green, short blue, DrawingContext? context = null)
         {
             if (image is null) throw new ArgumentNullException(nameof(image));
             image.ThrowIfDisposed();
@@ -17,19 +25,14 @@ namespace BEditor.Drawing
             green = Math.Clamp(green, (short)-255, (short)255);
             blue = Math.Clamp(blue, (short)-255, (short)255);
 
-            fixed (BGRA32* data = image.Data)
+            if (context is not null)
             {
-                PixelOperate(image.Data.Length, new RGBColorOperation(data, data, red, green, blue));
+                image.PixelOperate<RGBColorOperation, short, short, short>(context, red, green, blue);
             }
-        }
-
-        public static void RGBColor(this Image<BGRA32> image, DrawingContext context, short red, short green, short blue)
-        {
-            red = Math.Clamp(red, (short)-255, (short)255);
-            green = Math.Clamp(green, (short)-255, (short)255);
-            blue = Math.Clamp(blue, (short)-255, (short)255);
-
-            image.PixelOperate<RGBColorOperation, short, short, short>(context, red, green, blue);
+            else
+            {
+                image.RGBColorCpu(red, green, blue);
+            }
         }
     }
 }

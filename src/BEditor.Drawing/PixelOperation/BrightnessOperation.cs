@@ -9,22 +9,28 @@ namespace BEditor.Drawing
 {
     public static unsafe partial class Image
     {
-        public static void Brightness(this Image<BGRA32> image, short brightness)
+        private static void BrightnessCpu(this Image<BGRA32> image, short brightness)
         {
-            if (image is null) throw new ArgumentNullException(nameof(image));
-            image.ThrowIfDisposed();
-            brightness = Math.Clamp(brightness, (short)-255, (short)255);
-
             fixed (BGRA32* data = image.Data)
             {
                 PixelOperate(image.Data.Length, new BrightnessOperation(data, data, brightness));
             }
         }
 
-        public static void Brightness(this Image<BGRA32> image, DrawingContext context, short brightness)
+        public static void Brightness(this Image<BGRA32> image, short brightness, DrawingContext? context = null)
         {
-            brightness = Math.Clamp(brightness, (short)-255, (short)255);
-            image.PixelOperate<BrightnessOperation, short>(context, brightness);
+            if (image is null) throw new ArgumentNullException(nameof(image));
+            image.ThrowIfDisposed();
+                brightness = Math.Clamp(brightness, (short)-255, (short)255);
+
+            if (context is not null)
+            {
+                image.PixelOperate<BrightnessOperation, short>(context, brightness);
+            }
+            else
+            {
+                image.BrightnessCpu(brightness);
+            }
         }
     }
 }

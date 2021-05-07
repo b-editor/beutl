@@ -7,20 +7,27 @@ namespace BEditor.Drawing
 {
     public static unsafe partial class Image
     {
-        public static void Binarization(this Image<BGRA32> image, byte value)
+        private static void BinarizationCpu(this Image<BGRA32> image, byte value)
         {
-            if (image is null) throw new ArgumentNullException(nameof(image));
-            image.ThrowIfDisposed();
-
             fixed (BGRA32* data = image.Data)
             {
                 PixelOperate(image.Data.Length, new BinarizationOperation(data, data, value));
             }
         }
 
-        public static void Binarization(this Image<BGRA32> image, DrawingContext context, byte value)
+        public static void Binarization(this Image<BGRA32> image, byte value, DrawingContext? context = null)
         {
-            image.PixelOperate<BinarizationOperation, byte>(context, value);
+            if (image is null) throw new ArgumentNullException(nameof(image));
+            image.ThrowIfDisposed();
+
+            if (context is not null)
+            {
+                image.PixelOperate<BinarizationOperation, byte>(context, value);
+            }
+            else
+            {
+                image.BinarizationCpu(value);
+            }
         }
     }
 }

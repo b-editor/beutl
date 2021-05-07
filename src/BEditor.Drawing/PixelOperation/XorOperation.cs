@@ -8,20 +8,27 @@ namespace BEditor.Drawing
 {
     public static unsafe partial class Image
     {
-        public static void Xor(this Image<BGRA32> image)
+        private static void XorCpu(this Image<BGRA32> image)
         {
-            if (image is null) throw new ArgumentNullException(nameof(image));
-            image.ThrowIfDisposed();
-
             fixed (BGRA32* data = image.Data)
             {
                 PixelOperate(image.Data.Length, new XorOperation(data, data));
             }
         }
 
-        public static void Xor(this Image<BGRA32> image, DrawingContext context)
+        public static void Xor(this Image<BGRA32> image, DrawingContext? context = null)
         {
-            image.PixelOperate<XorOperation>(context);
+            if (image is null) throw new ArgumentNullException(nameof(image));
+            image.ThrowIfDisposed();
+
+            if (context is not null)
+            {
+                image.PixelOperate<XorOperation>(context);
+            }
+            else
+            {
+                image.XorCpu();
+            }
         }
     }
 }

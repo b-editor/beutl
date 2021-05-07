@@ -9,11 +9,8 @@ namespace BEditor.Drawing
 {
     public static unsafe partial class Image
     {
-        public static void AlphaSubtract(this Image<BGRA32> image, Image<BGRA32> mask)
+        private static void AlphaSubtractCpu(this Image<BGRA32> image, Image<BGRA32> mask)
         {
-            if (image is null) throw new ArgumentNullException(nameof(image));
-            image.ThrowIfDisposed();
-
             fixed (BGRA32* data = image.Data)
             fixed (BGRA32* maskptr = mask.Data)
             {
@@ -21,11 +18,23 @@ namespace BEditor.Drawing
             }
         }
 
-        public static void AlphaSubtract(this Image<BGRA32> image, Image<BGRA32> mask, DrawingContext context)
+        public static void AlphaSubtract(this Image<BGRA32> image, Image<BGRA32> mask, DrawingContext? context = null)
         {
-            using var maskMem = context.Context.CreateMappingMemory(mask.Data, mask.DataSize);
+            if (image is null) throw new ArgumentNullException(nameof(image));
+            if (mask is null) throw new ArgumentNullException(nameof(mask));
+            image.ThrowIfDisposed();
+            mask.ThrowIfDisposed();
 
-            image.PixelOperate<AlphaSubtractOperation, AbstractMemory>(context, maskMem);
+            if (context is not null)
+            {
+                using var maskMem = context.Context.CreateMappingMemory(mask.Data, mask.DataSize);
+
+                image.PixelOperate<AlphaSubtractOperation, AbstractMemory>(context, maskMem);
+            }
+            else
+            {
+                image.AlphaSubtractCpu(mask);
+            }
         }
     }
 }
@@ -58,7 +67,7 @@ __kernel void alpha_sub(__global unsigned char* src, __global unsigned char* mas
     int stride = get_global_size(0) * 4;
     int pos = stride * y + x * 4;
 
-    src[pos + 3] -= mask[pos + 3];
+    src[pos + 3] = (unsigned char)((src[pos + 3] - mask[pos + 3]) + (mask[pos + 3] * src[pos + 3]));
 }";
         }
 

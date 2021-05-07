@@ -47,7 +47,7 @@ namespace BEditor.Models
         public ReactiveCommand VideoCommand { get; } = new();
         public ReactiveCommand ImageCommand { get; } = new();
 
-        public static async void OutputImage(Scene scene)
+        public static void OutputImage(Scene scene)
         {
             var saveFileDialog = new SaveFileDialog()
             {
@@ -58,17 +58,16 @@ namespace BEditor.Models
 
             if (saveFileDialog.ShowDialog() ?? false)
             {
-                await OutputImage(saveFileDialog.FileName, scene);
+                OutputImage(saveFileDialog.FileName, scene);
             }
         }
-        public static async Task OutputImage(string path, Scene scene)
+        public static void OutputImage(string path, Scene scene)
         {
             int nowframe = scene.PreviewFrame;
 
-            await using var img = scene.Render(nowframe, RenderType.ImageOutput);
+            using var img = scene.Render(nowframe, RenderType.ImageOutput);
             try
             {
-
                 if (img != null)
                 {
                     img.Encode(path);
@@ -123,7 +122,7 @@ namespace BEditor.Models
             var dialog = new NoneDialog(content);
             dialog.Show();
 
-            var thread = new Thread(async () =>
+            var thread = new Thread(() =>
             {
                 try
                 {
@@ -146,7 +145,7 @@ namespace BEditor.Models
                         if (img is not null)
                         {
                             output.Video?.AddFrame(ImageData.FromDrawing(img));
-                            await img.DisposeAsync();
+                            img.Dispose();
                         }
                     }
 

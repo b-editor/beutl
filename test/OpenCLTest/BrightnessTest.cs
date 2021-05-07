@@ -43,7 +43,7 @@ namespace OpenCLTest
         {
             using var img = Image.Decode(BinarizationTest.FilePath);
 
-            img.Brightness(context, 128);
+            img.Brightness(128, context);
         }
 
         public void Dispose()

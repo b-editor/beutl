@@ -4,6 +4,7 @@ using System.IO;
 using System.Linq;
 using System.Threading.Tasks;
 
+using BEditor.Compute.Runtime;
 using BEditor.Drawing.Pixel;
 using BEditor.Drawing.PixelOperation;
 using BEditor.Drawing.Resources;
@@ -24,6 +25,48 @@ namespace BEditor.Drawing
             var blended = self[rect];
 
             blended.Blend(image, blended);
+
+            self[rect] = blended;
+        }
+
+        public static void DrawImage<T>(this Image<T> self, Point point, Image<T> image, DrawingContext? context = null)
+            where T : unmanaged, IPixel<T>, IGpuPixel<T>
+        {
+            if (context is null)
+            {
+                DrawImage(self, point, image);
+
+                return;
+            }
+
+            if (self is null) throw new ArgumentNullException(nameof(self));
+            if (image is null) throw new ArgumentNullException(nameof(image));
+            self.ThrowIfDisposed();
+            image.ThrowIfDisposed();
+            var rect = new Rectangle(point, image.Size);
+            var blended = self[rect];
+
+            CLProgram program;
+            var operation = (T)default;
+            var key = operation.GetType().Name + "_blend";
+            if (!context.Programs.ContainsKey(key))
+            {
+                program = context.Context.CreateProgram(operation.GetBlend());
+                context.Programs.Add(key, program);
+            }
+            else
+            {
+                program = context.Programs[key];
+            }
+
+            using var kernel = program.CreateKernel("blend");
+
+            var dataSize = image.DataSize;
+            using var mask = context.Context.CreateMappingMemory(image.Data, dataSize);
+            using var blended_ = context.Context.CreateMappingMemory(blended.Data, dataSize);
+            kernel.NDRange(context.CommandQueue, new long[] { image.Width, image.Height }, blended_, mask);
+            context.CommandQueue.WaitFinish();
+            blended_.Read(context.CommandQueue, true, blended.Data, 0, dataSize).Wait();
 
             self[rect] = blended;
         }
@@ -131,19 +174,19 @@ namespace BEditor.Drawing
             return bmp.ToImage32();
         }
 
-        public static Image<BGRA32> InnerShadow(this Image<BGRA32> self, float x, float y, float blur, float opacity, BGRA32 color)
+        public static Image<BGRA32> InnerShadow(this Image<BGRA32> self, float x, float y, float blur, float opacity, BGRA32 color, DrawingContext? context = null)
         {
             if (self is null) throw new ArgumentNullException(nameof(self));
             self.ThrowIfDisposed();
-            using var blurred = new Image<BGRA32>(self.Width, self.Height, new BGRA32(color.R, color.G, color.B, 255));
+            using var blurred = new Image<BGRA32>(self.Width, self.Height, new BGRA32(color.R, color.G, color.B, (byte)(255 * (opacity / 100))));
             using var mask = self.Clone();
 
-            blurred.Mask(mask, new PointF(x, y), 0, true);
+            blurred.Mask(mask, new PointF(x, y), 0, true, context);
             Cv.Blur(blurred, (int)blur);
 
-            blurred.Mask(mask, default, 0, false);
+            blurred.Mask(mask, default, 0, false, context);
             var result = self.Clone();
-            result.DrawImage<BGRA32>(default, blurred);
+            result.DrawImage(default, blurred, context);
 
             return result;
         }
@@ -357,41 +400,16 @@ namespace BEditor.Drawing
             if (mask is null) throw new ArgumentNullException(nameof(mask));
             self.ThrowIfDisposed();
             mask.ThrowIfDisposed();
-            //mask.SetColor(default);
 
-            //using var paint = new SKPaint
-            //{
-            //    IsAntialias = true
-            //};
-            //using var bmp = new SKBitmap(new SKImageInfo(self.Width, self.Height, SKColorType.Bgra8888));
-            //using var canvas = new SKCanvas(bmp);
             // 回転した画像
             using var m = MakeMask(self.Size, mask, point, rotate);
             using var routed = m.ToImage32();
             if (!invert)
             {
-                if (context is null)
-                {
-                    routed.ReverseOpacity();
-                }
-                else
-                {
-                    routed.ReverseOpacity(context);
-                }
+                routed.ReverseOpacity(context);
             }
 
-            if (context is null)
-            {
-                self.AlphaSubtract(routed);
-            }
-            else
-            {
-                self.AlphaSubtract(routed, context);
-            }
-
-            //canvas.DrawBitmap(m, new SKPoint(), paint);
-
-            //CopyTo(bmp.Bytes, self.Data!, self.DataSize);
+            self.AlphaSubtract(routed, context);
         }
 
         #endregion
@@ -1008,8 +1026,8 @@ namespace BEditor.Drawing
             canvas.DrawBitmap(
                 m,
                 new SKPoint(
-                    point.X - mask.Width / 2F,
-                    point.Y - mask.Height / 2F),
+                    point.X - (mask.Width / 2F),
+                    point.Y - (mask.Height / 2F)),
                 paint);
 
             return bmp;

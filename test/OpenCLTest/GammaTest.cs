@@ -39,7 +39,7 @@ namespace OpenCLTest
         {
             using var img = Image.Decode(BinarizationTest.FilePath);
 
-            img.Gamma(context, 100);
+            img.Gamma(100, context);
         }
 
         public void Dispose()

@@ -39,7 +39,7 @@ namespace OpenCLTest
         {
             using var img = Image.Decode(BinarizationTest.FilePath);
 
-            img.ChromaKey(context, 256);
+            img.ChromaKey(256, context);
         }
 
         public void Dispose()

@@ -7,20 +7,27 @@ namespace BEditor.Drawing
 {
     public static unsafe partial class Image
     {
-        public static void Negaposi(this Image<BGRA32> image, byte red, byte green, byte blue)
+        private static void NegaposiCpu(this Image<BGRA32> image, byte red, byte green, byte blue)
         {
-            if (image is null) throw new ArgumentNullException(nameof(image));
-            image.ThrowIfDisposed();
-
             fixed (BGRA32* data = image.Data)
             {
                 PixelOperate(image.Data.Length, new NegaposiOperation(data, data, red, green, blue));
             }
         }
 
-        public static void Negaposi(this Image<BGRA32> image, DrawingContext context, byte red, byte green, byte blue)
+        public static void Negaposi(this Image<BGRA32> image, byte red, byte green, byte blue, DrawingContext? context = null)
         {
-            image.PixelOperate<NegaposiOperation, byte, byte, byte>(context, red, green, blue);
+            if (image is null) throw new ArgumentNullException(nameof(image));
+            image.ThrowIfDisposed();
+
+            if (context is not null)
+            {
+                image.PixelOperate<NegaposiOperation, byte, byte, byte>(context, red, green, blue);
+            }
+            else
+            {
+                image.NegaposiCpu(red, green, blue);
+            }
         }
     }
 }

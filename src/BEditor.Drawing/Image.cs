@@ -13,7 +13,7 @@ using BEditor.Drawing.RowOperation;
 
 namespace BEditor.Drawing
 {
-    public unsafe class Image<T> : IDisposable, ICloneable, IAsyncDisposable where T : unmanaged, IPixel<T>
+    public unsafe class Image<T> : IDisposable, ICloneable where T : unmanaged, IPixel<T>
     {
         // 同じImage<T>型のみで共有される
         private static readonly PixelFormatAttribute formatAttribute;
@@ -402,24 +402,6 @@ namespace BEditor.Drawing
 
             IsDisposed = true;
             GC.SuppressFinalize(this);
-        }
-
-        public ValueTask DisposeAsync()
-        {
-            if (IsDisposed && !_usedispose) return default;
-
-            var task = Task.Run(() =>
-            {
-                if (_pointer != null) Marshal.FreeHGlobal((IntPtr)_pointer);
-
-                _pointer = null;
-                _array = null;
-            });
-
-            IsDisposed = true;
-
-            GC.SuppressFinalize(this);
-            return new(task);
         }
 
         public Image<T2> Convert<T2>() where T2 : unmanaged, IPixel<T2>, IPixelConvertable<T>

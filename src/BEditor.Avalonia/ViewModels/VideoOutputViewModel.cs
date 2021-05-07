@@ -174,7 +174,7 @@ namespace BEditor.ViewModels
                                 // UIスレッドだけでレンダリングできる
                                 var img = await Dispatcher.UIThread.InvokeAsync(() => scene.Render(frame, RenderType.VideoOutput));
                                 output.Video?.AddFrame(ImageData.FromDrawing(img));
-                                await img.DisposeAsync();
+                                img.Dispose();
                             }
                         }
 

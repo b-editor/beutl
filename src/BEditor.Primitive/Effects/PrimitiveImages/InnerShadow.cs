@@ -118,7 +118,8 @@ namespace BEditor.Primitive.Effects
             var blur = Blur[args.Frame];
             var opacity = Opacity[args.Frame];
 
-            var img = args.Value.InnerShadow(x, y, blur, opacity, Color.Value);
+            var img = args.Value.InnerShadow(x, y, blur, opacity, Color.Value, Parent.Parent.DrawingContext);
+
             args.Value.Dispose();
             args.Value = img;
         }

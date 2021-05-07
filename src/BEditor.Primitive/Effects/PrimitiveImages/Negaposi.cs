@@ -59,23 +59,11 @@ namespace BEditor.Primitive.Effects
 
         public override void Render(EffectRenderArgs<Image<BGRA32>> args)
         {
-            var context = Parent.Parent.DrawingContext;
-
-            if (context is not null && Settings.Default.PrioritizeGPU)
-            {
-                args.Value.Negaposi(
-                    context,
-                    (byte)Red[args.Frame],
-                    (byte)Green[args.Frame],
-                    (byte)Blue[args.Frame]);
-            }
-            else
-            {
-                args.Value.Negaposi(
-                    (byte)Red[args.Frame],
-                    (byte)Green[args.Frame],
-                    (byte)Blue[args.Frame]);
-            }
+            args.Value.Negaposi(
+                (byte)Red[args.Frame],
+                (byte)Green[args.Frame],
+                (byte)Blue[args.Frame],
+                Parent.Parent.DrawingContext);
         }
     }
 #pragma warning restore CS1591

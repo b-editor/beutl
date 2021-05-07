@@ -58,23 +58,11 @@ namespace BEditor.Primitive.Effects
 
         public override void Render(EffectRenderArgs<Image<BGRA32>> args)
         {
-            var context = Parent.Parent.DrawingContext;
-
-            if (context is not null && Settings.Default.PrioritizeGPU)
-            {
-                args.Value.RGBColor(
-                    context,
-                    (short)Red[args.Frame],
-                    (short)Green[args.Frame],
-                    (short)Blue[args.Frame]);
-            }
-            else
-            {
-                args.Value.RGBColor(
-                    (short)Red[args.Frame],
-                    (short)Green[args.Frame],
-                    (short)Blue[args.Frame]);
-            }
+            args.Value.RGBColor(
+                (short)Red[args.Frame],
+                (short)Green[args.Frame],
+                (short)Blue[args.Frame],
+                Parent.Parent.DrawingContext);
         }
     }
 #pragma warning restore CS1591

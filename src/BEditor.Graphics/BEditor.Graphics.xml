@@ -714,11 +714,6 @@
             
              </summary>
         </member>
-        <member name="M:BEditor.Graphics.ImageInfo.DisposeAsync">
-             <summary>
-            
-             </summary>
-        </member>
         <member name="T:BEditor.Graphics.Light">
             <summary>
             Represents an OpenGL light.

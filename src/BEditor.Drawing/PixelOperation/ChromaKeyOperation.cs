@@ -8,20 +8,27 @@ namespace BEditor.Drawing
 {
     public static unsafe partial class Image
     {
-        public static void ChromaKey(this Image<BGRA32> image, int value)
+        private static void ChromaKeyCpu(this Image<BGRA32> image, int value)
         {
-            if (image is null) throw new ArgumentNullException(nameof(image));
-            image.ThrowIfDisposed();
-
             fixed (BGRA32* s = image.Data)
             {
                 PixelOperate(image.Data.Length, new ChromaKeyOperation(s, s, value));
             }
         }
 
-        public static void ChromaKey(this Image<BGRA32> image, DrawingContext context, int value)
+        public static void ChromaKey(this Image<BGRA32> image, int value, DrawingContext? context = null)
         {
-            image.PixelOperate<ChromaKeyOperation, int>(context, value);
+            if (image is null) throw new ArgumentNullException(nameof(image));
+            image.ThrowIfDisposed();
+
+            if (context is not null)
+            {
+                image.PixelOperate<ChromaKeyOperation, int>(context, value);
+            }
+            else
+            {
+                image.ChromaKeyCpu(value);
+            }
         }
     }
 }

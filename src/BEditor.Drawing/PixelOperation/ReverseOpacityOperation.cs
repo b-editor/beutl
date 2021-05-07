@@ -11,20 +11,27 @@ namespace BEditor.Drawing
 {
     public static unsafe partial class Image
     {
-        public static void ReverseOpacity(this Image<BGRA32> image)
+        private static void ReverseOpacityCpu(this Image<BGRA32> image)
         {
-            if (image is null) throw new ArgumentNullException(nameof(image));
-            image.ThrowIfDisposed();
-
             fixed (BGRA32* data = image.Data)
             {
                 PixelOperate(image.Data.Length, new ReverseOpacityOperation(data, data));
             }
         }
 
-        public static void ReverseOpacity(this Image<BGRA32> image, DrawingContext context)
+        public static void ReverseOpacity(this Image<BGRA32> image, DrawingContext? context = null)
         {
-            image.PixelOperate<ReverseOpacityOperation>(context);
+            if (image is null) throw new ArgumentNullException(nameof(image));
+            image.ThrowIfDisposed();
+
+            if (context is not null)
+            {
+                image.PixelOperate<ReverseOpacityOperation>(context);
+            }
+            else
+            {
+                image.ReverseOpacityCpu();
+            }
         }
     }
 }

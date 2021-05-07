@@ -9,20 +9,27 @@ namespace BEditor.Drawing
 {
     public static unsafe partial class Image
     {
-        public static void Sepia(this Image<BGRA32> image)
+        private static void SepiaCpu(this Image<BGRA32> image)
         {
-            if (image is null) throw new ArgumentNullException(nameof(image));
-            image.ThrowIfDisposed();
-
             fixed (BGRA32* data = image.Data)
             {
                 PixelOperate(image.Data.Length, new SepiaOperation(data, data));
             }
         }
 
-        public static void Sepia(this Image<BGRA32> image, DrawingContext context)
+        public static void Sepia(this Image<BGRA32> image, DrawingContext? context = null)
         {
-            image.PixelOperate<SepiaOperation>(context);
+            if (image is null) throw new ArgumentNullException(nameof(image));
+            image.ThrowIfDisposed();
+
+            if (context is not null)
+            {
+                image.PixelOperate<SepiaOperation>(context);
+            }
+            else
+            {
+                image.SepiaCpu();
+            }
         }
     }
 }

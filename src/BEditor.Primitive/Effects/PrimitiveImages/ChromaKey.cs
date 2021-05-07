@@ -52,16 +52,7 @@ namespace BEditor.Primitive.Effects
         /// <inheritdoc/>
         public override void Render(EffectRenderArgs<Image<BGRA32>> args)
         {
-            var context = Parent.Parent.DrawingContext;
-
-            if (context is not null && Settings.Default.PrioritizeGPU)
-            {
-                args.Value.ChromaKey(context, (int)ThresholdValue[args.Frame]);
-            }
-            else
-            {
-                args.Value.ChromaKey((int)ThresholdValue[args.Frame]);
-            }
+            args.Value.ChromaKey((int)ThresholdValue[args.Frame], Parent.Parent.DrawingContext);
         }
     }
 }
