@@ -114,7 +114,7 @@ namespace BEditor.Media.Decoding
                 sound.SetChannelData((int)c, first.GetChannelData(c));
             }
 
-            while (decoded <= length)
+            while (decoded < length)
             {
                 var data = GetNextFrame();
 

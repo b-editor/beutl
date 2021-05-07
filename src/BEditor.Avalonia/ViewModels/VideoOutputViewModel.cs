@@ -195,17 +195,18 @@ namespace BEditor.ViewModels
 
                             var process = Process.Start(new ProcessStartInfo(
                                 ffmpeg,
-                                $"-f f32le -ar {proj.Samplingrate} -ac 2 -i {pcmFile} {wavFile}"));
-
-                            if (process is null) goto Close;
+                                $"-f f32le -ar {proj.Samplingrate} -ac 2 -i {pcmFile} {wavFile}"))!;
 
                             await process.WaitForExitAsync();
 
+                            System.IO.File.Delete(File.Value);
+
                             process = Process.Start(new ProcessStartInfo(
                                 ffmpeg,
-                                $"-i {tmpVideo} -i {wavFile} -c:v copy -c:a aac -map 0:v:0 -map 1:a:0 {File.Value}"));
-
-                            if (process is null) goto Close;
+                                $"-i {tmpVideo} -i {wavFile} -c:v copy -c:a aac -map 0:v:0 -map 1:a:0 {File.Value}")
+                            {
+                                CreateNoWindow = true
+                            })!;
 
                             await process.WaitForExitAsync();
 
