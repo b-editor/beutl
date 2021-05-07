@@ -24,6 +24,8 @@ using BEditor.Views.Settings;
 
 using Microsoft.Extensions.Logging;
 
+using OpenTK.Audio.OpenAL;
+
 namespace BEditor
 {
     public class MainWindow : Window
@@ -92,6 +94,8 @@ namespace BEditor
         protected override async void OnOpened(EventArgs e)
         {
             base.OnOpened(e);
+            await CheckOpenALAsync();
+
             var installer = new FFmpegInstaller(App.FFmpegDir);
 
             if (OperatingSystem.IsWindows())
@@ -109,15 +113,13 @@ namespace BEditor
                 {
                     await AppModel.Current.Message.DialogAsync($"{Strings.RunFollowingCommandToInstallFFmpeg}\n$ sudo apt update\n$ sudo apt -y upgrade\n$ sudo apt install ffmpeg");
 
-                    Close();
-                    return;
+                    App.Shutdown(1);
                 }
                 else if (OperatingSystem.IsMacOS())
                 {
                     await AppModel.Current.Message.DialogAsync($"{Strings.RunFollowingCommandToInstallFFmpeg}\n$ brew install ffmpeg");
 
-                    Close();
-                    return;
+                    App.Shutdown(1);
                 }
             }
 
@@ -126,6 +128,19 @@ namespace BEditor
 
             FFmpegLoader.SetupLogging();
             FFmpegLoader.LogCallback += (e) => _ffmpegLogger.LogInformation(e);
+        }
+
+        private static async Task CheckOpenALAsync()
+        {
+            try
+            {
+                _ = AL.GetError();
+            }
+            catch
+            {
+                await AppModel.Current.Message.DialogAsync(Strings.OpenALNotFound);
+                App.Shutdown(1);
+            }
         }
 
         private async Task InstallFFmpegWindowsAsync(FFmpegInstaller installer)

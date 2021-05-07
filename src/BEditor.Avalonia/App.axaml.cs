@@ -2,6 +2,7 @@ using System;
 using System.Globalization;
 using System.IO;
 using System.Linq;
+using System.Net.Http;
 using System.Threading;
 using System.Threading.Tasks;
 
@@ -38,6 +39,11 @@ namespace BEditor
         private static readonly string colorsDir = Path.Combine(AppContext.BaseDirectory, "user", "colors");
         private static readonly string backupDir = Path.Combine(AppContext.BaseDirectory, "user", "backup");
         private static readonly string pluginsDir = Path.Combine(AppContext.BaseDirectory, "user", "plugins");
+
+        public static void Shutdown(int exitCode)
+        {
+            ((IClassicDesktopStyleApplicationLifetime)Current.ApplicationLifetime).Shutdown(exitCode);
+        }
 
         public static Window GetMainWindow()
         {
@@ -87,9 +93,27 @@ namespace BEditor
                 AppDomain.CurrentDomain.UnhandledException += CurrentDomain_UnhandledException;
 
                 RunBackup();
+
+                desktop.Exit += Desktop_Exit;
             }
 
             base.OnFrameworkInitializationCompleted();
+        }
+
+        private void Desktop_Exit(object? sender, ControlledApplicationLifetimeExitEventArgs e)
+        {
+            Settings.Default.Save();
+
+            DirectoryManager.Default.Stop();
+
+            App.BackupTimer.Stop();
+
+            var app = AppModel.Current;
+
+            app.ServiceProvider.GetService<HttpClient>()?.Dispose();
+
+            app.Project?.Unload();
+            app.Project = null;
         }
 
         private async void CurrentDomain_UnhandledException(object sender, UnhandledExceptionEventArgs e)
@@ -100,6 +124,7 @@ namespace BEditor
 
             Logger?.LogError(e.ExceptionObject as Exception, "UnhandledException was thrown.");
         }
+
         private static void CreateDirectory()
         {
             DirectoryManager.Default.Directories.Add(colorsDir);
@@ -109,6 +134,7 @@ namespace BEditor
 
             DirectoryManager.Default.Run();
         }
+
         private static void RunBackup()
         {
             BackupTimer.Tick += (s, e) =>
@@ -146,6 +172,7 @@ namespace BEditor
 
             BackupTimer.Start();
         }
+
         private static void RegisterPrimitive()
         {
             foreach (var obj in PrimitiveTypes.EnumerateAllObjectMetadata())
@@ -158,6 +185,7 @@ namespace BEditor
                 EffectMetadata.LoadedEffects.Add(effect);
             }
         }
+
         private static async ValueTask InitialPluginsAsync()
         {
             PluginBuilder.Config = new PluginConfig(AppModel.Current);
