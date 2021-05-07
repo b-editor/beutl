@@ -125,6 +125,7 @@ namespace BEditor.Models
                 "postproc-55.dll",
                 "swresample-3.dll",
                 "swscale-5.dll",
+                "ffmpeg.exe",
             };
 
             foreach (var dll in dlls)

@@ -1,6 +1,9 @@
 ﻿using System;
 using System.Collections.Generic;
+using System.Diagnostics;
+using System.IO;
 using System.Linq;
+using System.Net.NetworkInformation;
 using System.Reactive.Linq;
 using System.Threading.Tasks;
 
@@ -91,11 +94,11 @@ namespace BEditor.ViewModels
                         var scene = SelectedScene.Value;
                         var proj = Project;
                         // 1フレームあたりのサンプル数
-                        var samples = proj.Samplingrate / proj.Framerate;
+                        var tmpVideo = Path.ChangeExtension(File.Value, $"tmp{Path.GetExtension(File.Value)}");
 
                         var builder = SelectedContainerFormat.Value.Value is null ?
-                            MediaBuilder.CreateContainer(File.Value) :
-                            MediaBuilder.CreateContainer(File.Value, (ContainerFormat)SelectedContainerFormat.Value.Value);
+                            MediaBuilder.CreateContainer(tmpVideo) :
+                            MediaBuilder.CreateContainer(tmpVideo, (ContainerFormat)SelectedContainerFormat.Value.Value);
 
                         if (VideoIsEnabled.Value)
                         {
@@ -104,14 +107,6 @@ namespace BEditor.ViewModels
                                 EncoderPreset = SelectedPreset.Value.Value,
                                 Bitrate = VideoBitrate.Value,
                                 KeyframeRate = KeyframeRate.Value,
-                            });
-                        }
-                        if (AudioIsEnabled.Value)
-                        {
-                            builder = builder.WithAudio(new(proj.Samplingrate, 2, SelectedAudioCodec.Value.Value, SelectedSampleFormat.Value.Value)
-                            {
-                                Bitrate = AudioBitrate.Value,
-                                SamplesPerFrame = 1024//samples
                             });
                         }
                         if (Validation.Value)
@@ -133,31 +128,6 @@ namespace BEditor.ViewModels
 
                         var output = builder.Create();
 
-                        // 音声
-                        if (AudioIsEnabled.Value)
-                        {
-                            for (Frame frame = StartFrame.Value; frame < LengthFrame.Value; frame++)
-                            {
-                                using var sound = new Sound<StereoPCMFloat>(proj.Samplingrate, samples);
-
-                                dialog.NowValue.Value = frame;
-
-                                foreach (var obj in scene.GetFrame(frame).Where(i => i.Effect[0] is AudioObject)
-                                    .Select(i => (AudioObject)i.Effect[0])
-                                    .Where(i => i.IsEnabled && i.Decoder is not null))
-                                {
-                                    using var data = GetFrame(
-                                        obj.Decoder!.Audio!,
-                                        TimeSpan.FromMilliseconds(obj.Start.Value) + (frame - obj.Parent.Start).ToTimeSpan(proj.Framerate),
-                                        samples);
-
-                                    sound.Add(data);
-                                }
-
-                                output.Audio!.AddFrame(sound.Extract());
-                            }
-                        }
-
                         // 動画
                         if (VideoIsEnabled.Value)
                         {
@@ -178,13 +148,83 @@ namespace BEditor.ViewModels
                             }
                         }
 
-                        output?.Dispose();
+                        output.Dispose();
 
+                        // 音声
+                        if (AudioIsEnabled.Value)
+                        {
+                            var pcmFile = Path.ChangeExtension(File.Value, "pcm");
+                            var wavFile = Path.ChangeExtension(File.Value, "wav");
+                            await using (var stream = new FileStream(pcmFile, FileMode.Create))
+                            await using (var writer = new BinaryWriter(stream))
+                            {
+                                var samples = proj.Samplingrate / proj.Framerate;
+                                for (Frame frame = StartFrame.Value; frame < LengthFrame.Value; frame++)
+                                {
+                                    using var sound = new Sound<StereoPCMFloat>(proj.Samplingrate, samples);
+
+                                    dialog.NowValue.Value = frame;
+
+                                    foreach (var obj in scene.GetFrame(frame).Where(i => i.Effect[0] is AudioObject)
+                                        .Select(i => (AudioObject)i.Effect[0])
+                                        .Where(i => i.IsEnabled && i.Decoder is not null))
+                                    {
+                                        using var data = GetFrame(
+                                            obj.Decoder!.Audio!,
+                                            TimeSpan.FromMilliseconds(obj.Start.Value) + (frame - obj.Parent.Start).ToTimeSpan(proj.Framerate),
+                                            samples);
+
+                                        sound.Add(data);
+                                    }
+
+                                    for (var i = 0; i < sound.Data.Length; i++)
+                                    {
+                                        writer.Write(sound.Data[i].Left);
+                                        writer.Write(sound.Data[i].Right);
+                                    }
+                                }
+                            }
+
+                            dialog.IsIndeterminate.Value = true;
+                            string ffmpeg;
+
+                            if (OperatingSystem.IsWindows()) ffmpeg = Path.Combine(AppContext.BaseDirectory, "ffmpeg", "ffmpeg.exe");
+                            else if (OperatingSystem.IsLinux()) ffmpeg = "/usr/bin/ffmpeg";
+                            else if (OperatingSystem.IsMacOS()) ffmpeg = "/usr/local/opt/ffmpeg";
+                            else goto Close;
+
+                            var process = Process.Start(new ProcessStartInfo(
+                                ffmpeg,
+                                $"-f f32le -ar {proj.Samplingrate} -ac 2 -i {pcmFile} {wavFile}"));
+
+                            if (process is null) goto Close;
+
+                            await process.WaitForExitAsync();
+
+                            process = Process.Start(new ProcessStartInfo(
+                                ffmpeg,
+                                $"-i {tmpVideo} -i {wavFile} -c:v copy -c:a aac -map 0:v:0 -map 1:a:0 {File.Value}"));
+
+                            if (process is null) goto Close;
+
+                            await process.WaitForExitAsync();
+
+                        Close:
+
+                            System.IO.File.Delete(pcmFile);
+                            System.IO.File.Delete(wavFile);
+                        }
+                        else
+                        {
+                            System.IO.File.Copy(tmpVideo, File.Value);
+                        }
+
+                        System.IO.File.Delete(tmpVideo);
                         await Dispatcher.UIThread.InvokeAsync(dialog.Close);
                     }
                     catch (Exception e)
                     {
-                        AppModel.Current.Message?.Snackbar(Strings.FailedToSave);
+                        await AppModel.Current.Message.DialogAsync(Strings.FailedToSave);
                         App.Logger.LogError(e, Strings.FailedToSave);
 
                         await Dispatcher.UIThread.InvokeAsync(dialog.Close);
