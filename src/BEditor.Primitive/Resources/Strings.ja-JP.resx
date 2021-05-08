@@ -466,4 +466,10 @@
   <data name="InnerShadow" xml:space="preserve">
     <value>内側シャドウ</value>
   </data>
+  <data name="ClipLengthAsAudioLength" xml:space="preserve">
+    <value>クリップ長さを音声の長さと同じにする。</value>
+  </data>
+  <data name="ClipLengthAsVideoLength" xml:space="preserve">
+    <value>クリップ長さを動画の長さと同じにする。</value>
+  </data>
 </root>

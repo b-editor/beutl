@@ -1,5 +1,6 @@
 ﻿using System;
 using System.Collections.Generic;
+using System.Reactive.Linq;
 
 using BEditor.Data;
 using BEditor.Data.Primitive;
@@ -52,9 +53,18 @@ namespace BEditor.Primitive.Objects
                 new("mov")
             })));
 
+        /// <summary>
+        /// Defines the <see cref="SetLength"/> property.
+        /// </summary>
+        public static readonly EditingProperty<ButtonComponent> SetLengthProperty = EditingProperty.Register<ButtonComponent, AudioObject>(
+            nameof(SetLength),
+            new ButtonComponentMetadata(Strings.ClipLengthAsAudioLength));
+
         private MediaFile? _mediaFile;
 
-        private IDisposable? _disposable;
+        private IDisposable? _disposable1;
+
+        private IDisposable? _disposable2;
 
         /// <summary>
         /// Initializes a new instance of the <see cref="VideoFile"/> class.
@@ -81,6 +91,7 @@ namespace BEditor.Primitive.Objects
                 yield return Speed;
                 yield return Start;
                 yield return File;
+                yield return SetLength;
             }
         }
 
@@ -98,6 +109,11 @@ namespace BEditor.Primitive.Objects
         /// Get the <see cref="FileProperty"/> to select the video file to reference.
         /// </summary>
         public FileProperty File { get; private set; }
+
+        /// <summary>
+        /// 
+        /// </summary>
+        public ButtonComponent SetLength => GetValue(SetLengthProperty);
 
         /// <inheritdoc/>
         protected override Image<BGRA32>? OnRender(EffectRenderArgs args)
@@ -121,7 +137,7 @@ namespace BEditor.Primitive.Objects
                 _mediaFile = MediaFile.Open(File.Value);
             }
 
-            _disposable = File.Subscribe(filename =>
+            _disposable1 = File.Subscribe(filename =>
             {
                 _mediaFile?.Dispose();
 
@@ -135,6 +151,11 @@ namespace BEditor.Primitive.Objects
                     mes?.Snackbar(string.Format(Strings.FailedToLoad, filename));
                 }
             });
+
+            _disposable2 = SetLength.Where(_ => _mediaFile?.Video?.Info?.NumberOfFrames is not null).Subscribe(_ =>
+            {
+                Parent.ChangeLength(Parent.Start, Parent.Start + (int)_mediaFile!.Video!.Info.NumberOfFrames!).Execute();
+            });
         }
 
         /// <inheritdoc/>
@@ -143,7 +164,8 @@ namespace BEditor.Primitive.Objects
             base.OnUnload();
 
             _mediaFile?.Dispose();
-            _disposable?.Dispose();
+            _disposable1?.Dispose();
+            _disposable2?.Dispose();
         }
     }
 }

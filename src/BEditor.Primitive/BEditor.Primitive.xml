@@ -1345,6 +1345,11 @@
             Defines the <see cref="P:BEditor.Primitive.Objects.AudioObject.File"/> property.
             </summary>
         </member>
+        <member name="F:BEditor.Primitive.Objects.AudioObject.SetLengthProperty">
+            <summary>
+            
+            </summary>
+        </member>
         <member name="M:BEditor.Primitive.Objects.AudioObject.#ctor">
             <summary>
             Initializes a new instance of <see cref="T:BEditor.Primitive.Objects.AudioObject"/> class.
@@ -1379,6 +1384,11 @@
         <member name="P:BEditor.Primitive.Objects.AudioObject.File">
             <summary>
             Get the <see cref="F:BEditor.Primitive.Objects.AudioObject.FileProperty"/> to select the file to reference.
+            </summary>
+        </member>
+        <member name="P:BEditor.Primitive.Objects.AudioObject.SetLength">
+            <summary>
+            
             </summary>
         </member>
         <member name="P:BEditor.Primitive.Objects.AudioObject.Decoder">
@@ -2571,6 +2581,11 @@
         <member name="P:BEditor.Primitive.Resources.Strings.ClearFramebuffer">
             <summary>
               Looks up a localized string similar to Clear the frame buffer.
+            </summary>
+        </member>
+        <member name="P:BEditor.Primitive.Resources.Strings.ClipLengthAsAudioLength">
+            <summary>
+              Looks up a localized string similar to Set the clip length to the same as the audio length..
             </summary>
         </member>
         <member name="P:BEditor.Primitive.Resources.Strings.Clipping">

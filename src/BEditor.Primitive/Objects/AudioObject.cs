@@ -1,6 +1,7 @@
 ﻿using System;
 using System.Collections.Generic;
 using System.Diagnostics;
+using System.Diagnostics.CodeAnalysis;
 using System.IO;
 using System.Linq;
 using System.Reactive.Linq;
@@ -66,18 +67,25 @@ namespace BEditor.Primitive.Objects
             (owner, obj) => owner.File = obj,
             new FilePropertyMetadata(Strings.File, Filter: new("", new FileExtension[] { new("mp3"), new("wav") })));
 
+        /// <summary>
+        /// Defines the <see cref="SetLength"/> property.
+        /// </summary>
+        public static readonly EditingProperty<ButtonComponent> SetLengthProperty = EditingProperty.Register<ButtonComponent, AudioObject>(
+            nameof(SetLength),
+            new ButtonComponentMetadata(Strings.ClipLengthAsAudioLength));
+
         private MediaFile? _mediaFile;
 
         private AudioSource? _source;
 
-        private IDisposable? _disposable;
+        private IDisposable? _disposable1;
+
+        private IDisposable? _disposable2;
 
         /// <summary>
         /// Initializes a new instance of <see cref="AudioObject"/> class.
         /// </summary>
-#pragma warning disable CS8618
         public AudioObject()
-#pragma warning restore CS8618
         {
         }
 
@@ -91,33 +99,44 @@ namespace BEditor.Primitive.Objects
             Volume,
             Pitch,
             Start,
-            File
+            File,
+            SetLength,
         };
 
         /// <summary>
         /// Get the coordinates.
         /// </summary>
+        [AllowNull]
         public AudioCoordinate Coordinate { get; private set; }
 
         /// <summary>
         /// Get the <see cref="EaseProperty"/> representing the volume.
         /// </summary>
+        [AllowNull]
         public EaseProperty Volume { get; private set; }
 
         /// <summary>
         /// Get the <see cref="EaseProperty"/> representing the pitch.
         /// </summary>
+        [AllowNull]
         public EaseProperty Pitch { get; private set; }
 
         /// <summary>
         /// Get the <see cref="EaseProperty"/> that represents the start position.
         /// </summary>
+        [AllowNull]
         public ValueProperty Start { get; private set; }
 
         /// <summary>
         /// Get the <see cref="FileProperty"/> to select the file to reference.
         /// </summary>
+        [AllowNull]
         public FileProperty File { get; private set; }
+
+        /// <summary>
+        /// 
+        /// </summary>
+        public ButtonComponent SetLength => GetValue(SetLengthProperty);
 
         /// <summary>
         /// 
@@ -178,7 +197,7 @@ namespace BEditor.Primitive.Objects
         {
             _source = new();
 
-            _disposable = File.Where(file => System.IO.File.Exists(file)).Subscribe(async file =>
+            _disposable1 = File.Where(file => System.IO.File.Exists(file)).Subscribe(async file =>
             {
                 var decoder = MediaFile.Open(file, new()
                 {
@@ -209,6 +228,13 @@ namespace BEditor.Primitive.Objects
                 {
                     StreamsToLoad = MediaMode.Audio,
                 });
+            });
+
+            _disposable2 = SetLength.Where(_ => Loaded is not null).Subscribe(_ =>
+            {
+                var length = Frame.FromTimeSpan(Loaded!.Time, this.GetParentRequired<Project>().Framerate);
+
+                Parent.ChangeLength(Parent.Start, Parent.Start + length).Execute();
             });
 
             var player = Parent.Parent.Player;
@@ -288,7 +314,8 @@ namespace BEditor.Primitive.Objects
         /// <inheritdoc/>
         protected override void OnUnload()
         {
-            _disposable?.Dispose();
+            _disposable1?.Dispose();
+            _disposable2?.Dispose();
             _source?.Dispose();
             _source = null;
             _mediaFile?.Dispose();

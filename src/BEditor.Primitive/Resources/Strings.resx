@@ -466,4 +466,10 @@
   <data name="InnerShadow" xml:space="preserve">
     <value>Inner Shadow</value>
   </data>
+  <data name="ClipLengthAsAudioLength" xml:space="preserve">
+    <value>Set the clip length to the same as the audio length.</value>
+  </data>
+  <data name="ClipLengthAsVideoLength" xml:space="preserve">
+    <value>Set the clip length to the same as the video length.</value>
+  </data>
 </root>
