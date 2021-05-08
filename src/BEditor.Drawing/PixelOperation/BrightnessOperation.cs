@@ -21,7 +21,7 @@ namespace BEditor.Drawing
         {
             if (image is null) throw new ArgumentNullException(nameof(image));
             image.ThrowIfDisposed();
-                brightness = Math.Clamp(brightness, (short)-255, (short)255);
+            brightness = Math.Clamp(brightness, (short)-255, (short)255);
 
             if (context is not null)
             {
