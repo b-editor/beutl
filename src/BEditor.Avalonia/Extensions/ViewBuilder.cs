@@ -461,6 +461,28 @@ namespace BEditor.Extensions
                 };
                 header.Bind(Layoutable.WidthProperty, widthbind);
                 checkBox.Bind(ToggleButton.IsCheckedProperty, isEnablebind);
+
+                // コンテキストメニュー
+                var contextmenu = new ContextMenu();
+                var copyId = new MenuItem
+                {
+                    Icon = new PathIcon { Data = (Geometry)Application.Current.FindResource("Copy24Regular")! },
+                    Header = Strings.CopyID,
+                    DataContext = obj
+                };
+
+                contextmenu.Items = new MenuItem[] { copyId };
+
+                // 作成したコンテキストメニューをListBox1に設定
+                header.ContextMenu = contextmenu;
+
+                copyId.Click += async (s, e) =>
+                {
+                    if (s is MenuItem menu && menu.DataContext is EffectElement effect)
+                    {
+                        await Application.Current.Clipboard.SetTextAsync(effect.ID.ToString());
+                    }
+                };
             }
 
             #endregion
@@ -568,31 +590,38 @@ namespace BEditor.Extensions
 
                 // コンテキストメニュー
                 var contextmenu = new ContextMenu();
-                var remove = new MenuItem();
-
-                // 削除項目の設定
-                var menu = new StackPanel
+                var remove = new MenuItem
                 {
-                    Orientation = Orientation.Horizontal
+                    Icon = new PathIcon { Data = (Geometry)Application.Current.FindResource("Delete24Regular")! },
+                    Header = Strings.Remove,
+                    DataContext = effect
                 };
-                menu.Children.Add(new PathIcon
+                var copyId = new MenuItem
                 {
-                    Data = (Geometry)Application.Current.FindResource("Delete24Regular")!,
-                    Margin = new Thickness(5, 0, 5, 0)
-                });
-                menu.Children.Add(new TextBlock
-                {
-                    Text = Strings.Remove,
-                    Margin = new Thickness(20, 0, 5, 0)
-                });
-                remove.Header = menu;
+                    Icon = new PathIcon { Data = (Geometry)Application.Current.FindResource("Copy24Regular")! },
+                    Header = Strings.CopyID,
+                    DataContext = effect
+                };
 
-                contextmenu.Items = new MenuItem[] { remove };
+                contextmenu.Items = new MenuItem[] { remove, copyId };
 
                 // 作成したコンテキストメニューをListBox1に設定
                 header.ContextMenu = contextmenu;
 
-                remove.Click += (s, e) => effect.Parent!.RemoveEffect(effect).Execute();
+                remove.Click += (s, e) =>
+                {
+                    if (s is MenuItem menu && menu.DataContext is EffectElement effect)
+                    {
+                        effect.Parent!.RemoveEffect(effect).Execute();
+                    }
+                };
+                copyId.Click += async (s, e) =>
+                {
+                    if (s is MenuItem menu && menu.DataContext is EffectElement effect)
+                    {
+                        await Application.Current.Clipboard.SetTextAsync(effect.ID.ToString());
+                    }
+                };
             }
 
             #endregion

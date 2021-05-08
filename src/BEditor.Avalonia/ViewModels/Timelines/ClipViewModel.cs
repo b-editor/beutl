@@ -89,6 +89,8 @@ namespace BEditor.ViewModels.Timelines
 
                 ClipElement.Split(frame).Execute();
             });
+
+            CopyID.Subscribe(async () => await Application.Current.Clipboard.SetTextAsync(ClipElement.ID.ToString()));
         }
 
         ~ClipViewModel()
@@ -145,6 +147,8 @@ namespace BEditor.ViewModels.Timelines
         public ReactiveCommand MessageLog { get; } = new();
 
         public ReactiveCommand Split { get; } = new();
+
+        public ReactiveCommand CopyID { get; } = new();
 
         public void PointerLeftPressed(PointerEventArgs e)
         {

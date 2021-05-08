@@ -32,6 +32,13 @@
                             <PathIcon Data="{StaticResource Info20Regular}" />
                         </MenuItem.Icon>
                     </MenuItem>
+                    <MenuItem
+                        Command="{CompiledBinding CopyID, Mode=OneTime}"
+                        Header="{x:Static properties:Strings.CopyID}">
+                        <MenuItem.Icon>
+                            <PathIcon Data="{StaticResource Copy24Regular}" />
+                        </MenuItem.Icon>
+                    </MenuItem>
                     <Separator />
                     <MenuItem
                         Command="{CompiledBinding Split, Mode=OneTime}"
