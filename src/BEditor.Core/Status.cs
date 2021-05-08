@@ -1,7 +1,4 @@
-﻿using System;
-using System.Reflection;
-
-namespace BEditor
+﻿namespace BEditor
 {
     /// <summary>
     /// Represents the status of the application.

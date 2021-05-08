@@ -1,8 +1,4 @@
-﻿using System;
-using System.Collections.Generic;
-using System.Globalization;
-
-namespace BEditor.Data.Property
+﻿namespace BEditor.Data.Property
 {
     /// <summary>
     /// Represents a property used by <see cref="EffectElement"/>.

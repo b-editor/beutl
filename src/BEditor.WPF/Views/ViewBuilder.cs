@@ -1,18 +1,15 @@
 ﻿using System;
 using System.Collections.Generic;
-using System.Text;
 using System.Windows;
 using System.Windows.Controls;
 using System.Windows.Controls.Primitives;
 using System.Windows.Data;
 
-using BEditor.Command;
 using BEditor.Data;
 using BEditor.Data.Property;
 using BEditor.Data.Property.Easing;
 using BEditor.Models;
 using BEditor.Properties;
-using BEditor.ViewModels.Converters;
 using BEditor.ViewModels.PropertyControl;
 using BEditor.ViewModels.TimeLines;
 using BEditor.Views.CustomControl;

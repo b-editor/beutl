@@ -1,17 +1,8 @@
-﻿using System;
-using System.Collections.Generic;
-using System.Diagnostics;
-using System.IO;
+﻿using System.Diagnostics;
 using System.Linq;
-using System.Text;
-using System.Threading.Tasks;
 
-using BEditor.Command;
 using BEditor.Data;
 using BEditor.Data.Property;
-using BEditor.Drawing;
-using BEditor.Primitive;
-using BEditor.Primitive.Objects;
 
 using NUnit.Framework;
 

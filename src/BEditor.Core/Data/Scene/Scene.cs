@@ -1,27 +1,13 @@
-﻿using System;
-using System.Collections.Generic;
+﻿using System.Collections.Generic;
 using System.Collections.ObjectModel;
 using System.ComponentModel;
-using System.Diagnostics;
 using System.Diagnostics.CodeAnalysis;
-using System.Diagnostics.Contracts;
 using System.Linq;
 using System.Reactive.Linq;
-using System.Reflection;
-using System.Runtime.CompilerServices;
-using System.Runtime.Serialization;
-using System.Text.Json;
-using System.Threading.Tasks;
 
-using BEditor.Audio;
 using BEditor.Command;
-using BEditor.Drawing;
-using BEditor.Drawing.Pixel;
-using BEditor.Graphics;
 using BEditor.Media;
 using BEditor.Resources;
-
-using OpenTK.Graphics.OpenGL4;
 
 namespace BEditor.Data
 {

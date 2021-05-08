@@ -1,6 +1,4 @@
-﻿
-using BEditor.Data;
-using BEditor.Plugin;
+﻿using BEditor.Plugin;
 
 namespace TestPlugin2
 {

@@ -1,7 +1,4 @@
-﻿using System;
-using System.Collections.Generic;
-
-namespace BEditor.Media.PCM
+﻿namespace BEditor.Media.PCM
 {
     /// <summary>
     /// Provides the ability to convert this audio data to specified data.

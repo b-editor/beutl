@@ -1,10 +1,8 @@
 ﻿using System;
-using System.Collections.Generic;
 using System.IO;
 using System.Linq;
 using System.Reactive.Linq;
 using System.Text;
-using System.Threading.Tasks;
 using System.Windows;
 
 using BEditor.Command;
@@ -14,10 +12,8 @@ using BEditor.Models.Extension;
 using BEditor.Primitive;
 using BEditor.Primitive.Objects;
 using BEditor.Properties;
-using BEditor.ViewModels.CreatePage;
 using BEditor.Views;
 
-using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
 
 using Reactive.Bindings;

@@ -1,13 +1,10 @@
 #define UseMemoryStream
 
 using System;
-using System.Collections.Generic;
 using System.IO;
-using System.Runtime.InteropServices;
 
 using BEditor.Drawing;
 using BEditor.Drawing.Pixel;
-using BEditor.Media;
 
 using NUnit.Framework;
 

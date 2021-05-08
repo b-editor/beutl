@@ -3,7 +3,6 @@ using System.ComponentModel;
 using System.Windows.Media;
 
 using BEditor.Data;
-using BEditor.ViewModels.PropertyControl;
 
 namespace BEditor.ViewModels.CustomControl
 {

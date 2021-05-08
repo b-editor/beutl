@@ -1,5 +1,4 @@
 ﻿using System;
-using System.Collections.Generic;
 using System.ComponentModel;
 using System.IO;
 using System.Linq;
@@ -10,7 +9,6 @@ using System.Threading;
 using BEditor.Command;
 using BEditor.Data;
 using BEditor.Extensions;
-using BEditor.Media;
 
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;

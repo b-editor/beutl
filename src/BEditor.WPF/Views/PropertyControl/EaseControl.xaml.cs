@@ -2,9 +2,7 @@
 using System.Collections.Specialized;
 using System.Windows;
 using System.Windows.Controls;
-using System.Windows.Data;
 using System.Windows.Input;
-using System.Windows.Media;
 using System.Windows.Media.Animation;
 
 using BEditor.Data;
@@ -12,8 +10,6 @@ using BEditor.Data.Property;
 using BEditor.Models;
 using BEditor.Models.Extension;
 using BEditor.ViewModels.PropertyControl;
-using BEditor.Views.CustomControl;
-using BEditor.Views.TimeLines;
 using BEditor.WPF.Controls;
 
 namespace BEditor.Views.PropertyControls

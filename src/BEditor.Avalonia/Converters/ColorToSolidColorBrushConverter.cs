@@ -4,7 +4,6 @@ using System.Globalization;
 using Avalonia.Data.Converters;
 using Avalonia.Media;
 
-using BEditor.Data;
 using BEditor.Extensions;
 
 namespace BEditor.Converters

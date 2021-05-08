@@ -1,5 +1,4 @@
-﻿using System;
-
+﻿
 using BEditor.Plugin;
 
 namespace BEditor.Extensions.Svg

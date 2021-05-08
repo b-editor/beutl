@@ -1,10 +1,4 @@
-﻿using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Text;
-using System.Threading.Tasks;
-
-namespace BEditor.Compute.OpenCL
+﻿namespace BEditor.Compute.OpenCL
 {
     public enum CLDeviceType : long
     {

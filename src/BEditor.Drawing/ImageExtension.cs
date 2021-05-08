@@ -2,11 +2,9 @@
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
-using System.Threading.Tasks;
 
 using BEditor.Compute.Runtime;
 using BEditor.Drawing.Pixel;
-using BEditor.Drawing.PixelOperation;
 using BEditor.Drawing.Resources;
 
 using SkiaSharp;

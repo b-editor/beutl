@@ -3,20 +3,14 @@ using System.Collections.Generic;
 using System.Diagnostics;
 using System.IO;
 using System.Linq;
-using System.Net.NetworkInformation;
 using System.Reactive.Linq;
 using System.Threading.Tasks;
 
 using Avalonia.Threading;
 
 using BEditor.Data;
-using BEditor.Drawing;
-using BEditor.Drawing.Pixel;
-using BEditor.Drawing.PixelOperation;
 using BEditor.Media;
 using BEditor.Media.Audio;
-using BEditor.Media.Common.Internal;
-using BEditor.Media.Decoding;
 using BEditor.Media.Encoding;
 using BEditor.Media.Graphics;
 using BEditor.Media.PCM;

@@ -1,7 +1,6 @@
 ﻿using System;
 using System.Reactive.Disposables;
 
-using BEditor.Command;
 using BEditor.Data;
 using BEditor.Data.Property;
 using BEditor.Media;

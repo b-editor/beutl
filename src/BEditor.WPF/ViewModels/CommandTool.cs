@@ -10,12 +10,7 @@ using BEditor.Models.Extension;
 
 using MaterialDesignThemes.Wpf;
 
-using Microsoft.Xaml.Behaviors;
-
-using Reactive.Bindings;
-
 using ClipType = BEditor.Primitive.PrimitiveTypes;
-using EventTrigger = Microsoft.Xaml.Behaviors.EventTrigger;
 
 namespace BEditor.ViewModels
 {

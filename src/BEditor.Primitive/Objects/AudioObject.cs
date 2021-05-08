@@ -37,7 +37,7 @@ namespace BEditor.Primitive.Objects
             nameof(Volume),
             owner => owner.Volume,
             (owner, obj) => owner.Volume = obj,
-            new EasePropertyMetadata(Strings.Volume, 50, 100, 0));
+            new EasePropertyMetadata(Strings.Volume, 50, float.NaN, 0));
 
         /// <summary>
         /// Defines the <see cref="Pitch"/> property.
@@ -180,19 +180,21 @@ namespace BEditor.Primitive.Objects
 
             _disposable = File.Where(file => System.IO.File.Exists(file)).Subscribe(async file =>
             {
-                if (Path.GetExtension(file) is ".mp3")
+                var decoder = MediaFile.Open(file, new()
                 {
-                    Decoder = MediaFile.Open(file, new()
-                    {
-                        StreamsToLoad = MediaMode.Audio,
-                    });
+                    StreamsToLoad = MediaMode.Audio,
+                });
+                var proj = this.GetParentRequired<Project>();
 
+                if (decoder.Audio!.Info.SampleFormat is Media.Audio.SampleFormat.SingleP && decoder.Audio.Info.SampleRate == proj.Samplingrate)
+                {
+                    Decoder = decoder;
                     return;
                 }
 
+                decoder.Dispose();
                 // 強制的に44100hz SinglePに変更
                 var exe = FFmpegLoader.GetExecutable();
-                var proj = this.GetParentRequired<Project>();
                 var contentDir = Path.Combine(proj.DirectoryName, "content");
                 var dst = Path.Combine(contentDir, ID.ToString() + ".mp3");
 

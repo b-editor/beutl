@@ -1,11 +1,5 @@
-using System.Globalization;
-using System.Net.Http;
 
 using Avalonia;
-
-using BEditor.Models;
-
-using Microsoft.Extensions.DependencyInjection;
 
 namespace BEditor
 {

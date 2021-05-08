@@ -1,8 +1,4 @@
-﻿using System;
-using System.ComponentModel;
-using System.Text.Json;
-
-namespace BEditor.Data.Property
+﻿namespace BEditor.Data.Property
 {
     /// <inheritdoc cref="PropertyElement"/>
     /// <typeparam name="T">Type of <see cref="PropertyMetadata"/>.</typeparam>

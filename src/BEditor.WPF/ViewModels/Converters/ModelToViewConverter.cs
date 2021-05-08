@@ -1,11 +1,8 @@
 ﻿using System;
-using System.Collections.Generic;
 using System.Globalization;
-using System.Text;
 using System.Windows.Data;
 
 using BEditor.Data;
-using BEditor.Data.Property;
 using BEditor.Data.Property.Easing;
 using BEditor.Views;
 

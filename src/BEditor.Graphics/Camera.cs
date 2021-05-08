@@ -1,7 +1,4 @@
-﻿using System;
-using System.Collections.Generic;
-using System.Numerics;
-using System.Text;
+﻿using System.Numerics;
 
 using MathHelper = OpenTK.Mathematics.MathHelper;
 using Matrix4 = OpenTK.Mathematics.Matrix4;

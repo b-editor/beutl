@@ -20,7 +20,6 @@ using BEditor.Properties;
 using BEditor.ViewModels;
 using BEditor.ViewModels.DialogContent;
 using BEditor.Views.DialogContent;
-using BEditor.Views.Settings;
 
 using Microsoft.Extensions.Logging;
 

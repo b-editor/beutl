@@ -1,7 +1,4 @@
-﻿using System.Windows;
-using System.Windows.Controls;
-
-using BEditor.Views.ToolControl.Default;
+﻿using System.Windows.Controls;
 
 namespace BEditor.Views.ToolControl
 {

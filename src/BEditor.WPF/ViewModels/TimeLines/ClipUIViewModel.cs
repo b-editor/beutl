@@ -1,24 +1,16 @@
 ﻿using System;
-using System.ComponentModel;
 using System.IO;
-using System.Reactive;
 using System.Reactive.Disposables;
 using System.Reactive.Linq;
-using System.Runtime.InteropServices;
 using System.Text;
 using System.Windows;
 using System.Windows.Input;
 using System.Windows.Media;
 
-using BEditor;
-using BEditor.Command;
 using BEditor.Data;
 using BEditor.Models;
 using BEditor.Models.Extension;
-using BEditor.Properties;
 using BEditor.Views;
-
-using Microsoft.Extensions.DependencyInjection;
 
 using Reactive.Bindings;
 using Reactive.Bindings.Extensions;

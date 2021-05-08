@@ -1,6 +1,4 @@
-﻿using System.Runtime.Serialization;
-
-namespace BEditor.Models
+﻿namespace BEditor.Models
 {
     public sealed class SceneCache
     {

@@ -1,6 +1,4 @@
-﻿using System.Diagnostics.CodeAnalysis;
-
-namespace BEditor.Drawing.PixelOperation
+﻿namespace BEditor.Drawing.PixelOperation
 {
     public interface IGpuPixelOperation
     {

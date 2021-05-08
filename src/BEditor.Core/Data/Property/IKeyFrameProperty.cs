@@ -1,7 +1,5 @@
 ﻿using System;
 using System.Collections.Generic;
-using System.Diagnostics.Contracts;
-using System.Text;
 
 using BEditor.Command;
 using BEditor.Data.Property.Easing;

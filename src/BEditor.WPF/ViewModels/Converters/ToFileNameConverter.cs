@@ -3,8 +3,6 @@ using System.Globalization;
 using System.IO;
 using System.Windows.Data;
 
-using MaterialDesignThemes.Wpf;
-
 namespace BEditor.ViewModels.Converters
 {
     public sealed class ToFileNameConverter : IValueConverter

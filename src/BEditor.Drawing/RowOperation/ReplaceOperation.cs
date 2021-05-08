@@ -1,5 +1,4 @@
-﻿using System;
-
+﻿
 using BEditor.Drawing.Pixel;
 
 namespace BEditor.Drawing.RowOperation

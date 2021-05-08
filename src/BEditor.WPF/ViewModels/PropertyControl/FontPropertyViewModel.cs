@@ -2,10 +2,7 @@
 using System.Collections.Generic;
 using System.Linq;
 using System.Reactive.Disposables;
-using System.Text;
-using System.Threading.Tasks;
 
-using BEditor.Command;
 using BEditor.Data;
 using BEditor.Data.Property;
 using BEditor.Drawing;

@@ -1,6 +1,4 @@
-﻿using System;
-
-namespace BEditor.Data
+﻿namespace BEditor.Data
 {
     /// <summary>
     /// Represents the properties of the edited data.

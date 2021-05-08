@@ -1,10 +1,8 @@
 ﻿using System;
-using System.Diagnostics;
 using System.Reactive.Disposables;
 using System.Windows.Controls;
 using System.Windows.Input;
 
-using BEditor.Command;
 using BEditor.Data;
 using BEditor.Data.Property;
 using BEditor.Models;

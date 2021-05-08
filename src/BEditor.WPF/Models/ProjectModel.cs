@@ -1,23 +1,18 @@
 ﻿
 
 using System;
-using System.Collections.Generic;
 using System.Diagnostics;
 using System.IO;
 using System.Linq;
 using System.Reactive.Linq;
-using System.Text;
 using System.Threading.Tasks;
 
-using BEditor;
 using BEditor.Data;
-using BEditor.Data.Property;
 using BEditor.Properties;
 using BEditor.ViewModels;
 using BEditor.Views;
 using BEditor.Views.MessageContent;
 
-using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
 using Microsoft.Win32;
 

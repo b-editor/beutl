@@ -1,19 +1,15 @@
 ﻿using System;
-using System.Collections.Generic;
 using System.IO;
 using System.Linq;
 using System.Reactive.Disposables;
 using System.Reactive.Linq;
-using System.Text;
 using System.Threading.Tasks;
 
 using Avalonia;
 using Avalonia.Controls;
 
-using BEditor.Command;
 using BEditor.Data;
 using BEditor.Data.Property;
-using BEditor.Views;
 using BEditor.Views.Properties;
 
 using Reactive.Bindings;

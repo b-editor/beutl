@@ -4,15 +4,11 @@ using System.Collections.ObjectModel;
 using System.Collections.Specialized;
 using System.ComponentModel;
 using System.Diagnostics;
-using System.IO;
-using System.Linq;
-using System.Reflection;
 using System.Threading.Tasks;
 using System.Windows;
 using System.Windows.Controls;
 using System.Windows.Controls.Primitives;
 using System.Windows.Input;
-using System.Windows.Interop;
 
 using BEditor.Data;
 using BEditor.Models;
@@ -26,8 +22,6 @@ using BEditor.Views.CreatePage;
 using MahApps.Metro.Controls;
 
 using MaterialDesignThemes.Wpf;
-
-using Microsoft.Extensions.DependencyInjection;
 
 using Reactive.Bindings;
 

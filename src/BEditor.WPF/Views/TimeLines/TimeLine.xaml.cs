@@ -7,12 +7,10 @@ using System.Windows.Controls.Primitives;
 using System.Windows.Data;
 using System.Windows.Input;
 
-using BEditor.Command;
 using BEditor.Data;
 using BEditor.Models;
 using BEditor.Models.Extension;
 using BEditor.Properties;
-using BEditor.ViewModels;
 using BEditor.ViewModels.TimeLines;
 
 using MaterialDesignThemes.Wpf;

@@ -5,9 +5,7 @@ using System.Reactive.Linq;
 using System.Windows.Media;
 using System.Windows.Media.Imaging;
 
-using BEditor;
 using BEditor.Command;
-using BEditor.Data;
 using BEditor.Models;
 using BEditor.ViewModels.SettingsControl;
 using BEditor.Views.SettingsControl;

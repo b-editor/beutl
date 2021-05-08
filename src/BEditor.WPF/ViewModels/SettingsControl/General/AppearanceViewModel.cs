@@ -1,16 +1,9 @@
 ﻿using System;
-using System.Collections.Generic;
-using System.Globalization;
 using System.Reactive.Linq;
-using System.Text;
-using System.Windows;
-
-using BEditor.Data;
 
 using MaterialDesignThemes.Wpf;
 
 using Reactive.Bindings;
-using Reactive.Bindings.Extensions;
 
 namespace BEditor.ViewModels.SettingsControl.General
 {

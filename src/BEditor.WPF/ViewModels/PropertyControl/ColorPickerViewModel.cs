@@ -1,13 +1,10 @@
 ﻿using System;
 using System.Collections.ObjectModel;
-using System.ComponentModel;
 using System.Reactive.Disposables;
 using System.Reactive.Linq;
 using System.Windows.Media;
 
-using BEditor.Command;
 using BEditor.Data;
-using BEditor.Data.Bindings;
 using BEditor.Data.Property;
 using BEditor.ViewModels.CustomControl;
 using BEditor.Views;

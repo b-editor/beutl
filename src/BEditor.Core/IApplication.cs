@@ -1,9 +1,6 @@
-﻿using System;
-using System.Collections.Generic;
-using System.Threading;
+﻿using System.Threading;
 
 using BEditor.Data;
-using BEditor.Plugin;
 
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;

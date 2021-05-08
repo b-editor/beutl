@@ -1,5 +1,4 @@
-﻿using System;
-using System.Collections.Generic;
+﻿using System.Collections.Generic;
 
 using BEditor.Data;
 using BEditor.Data.Primitive;

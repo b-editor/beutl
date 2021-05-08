@@ -1,6 +1,4 @@
-﻿using System;
-using System.ComponentModel;
-
+﻿
 using BEditor.Plugin;
 
 namespace TestPlugin1

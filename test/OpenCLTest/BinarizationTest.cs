@@ -1,5 +1,4 @@
 using System;
-using System.Diagnostics;
 
 using BEditor.Drawing;
 using BEditor.Drawing.PixelOperation;

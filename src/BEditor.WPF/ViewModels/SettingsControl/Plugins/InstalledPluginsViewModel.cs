@@ -1,18 +1,8 @@
 ﻿using System;
-using System.Collections.Generic;
-using System.ComponentModel;
-using System.DirectoryServices.ActiveDirectory;
-using System.IO;
 using System.Linq;
 using System.Reactive.Linq;
-using System.Reflection;
-using System.Security.Cryptography.X509Certificates;
-using System.Text;
-using System.Threading.Tasks;
-using System.Windows.Controls;
 
 using BEditor.Data;
-using BEditor.Models;
 using BEditor.Plugin;
 using BEditor.Views;
 using BEditor.Views.SettingsControl;

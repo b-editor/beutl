@@ -1,11 +1,4 @@
-﻿using System;
-using System.Collections.Generic;
-using System.Threading;
-
-using BEditor.Data;
-using BEditor.Data.Property.Easing;
-
-namespace BEditor.Plugin
+﻿namespace BEditor.Plugin
 {
     /// <summary>
     /// Represents a plug-in that extends the functionality of the application.

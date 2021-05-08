@@ -1,22 +1,11 @@
-﻿using System;
-using System.Collections.Generic;
-using System.Text;
-using System.Windows;
+﻿using System.Windows;
 using System.Windows.Controls;
 using System.Windows.Data;
-using System.Windows.Documents;
-using System.Windows.Input;
-using System.Windows.Media;
-using System.Windows.Media.Imaging;
-using System.Windows.Shapes;
 
 using BEditor.Data.Property;
-using BEditor.Models;
 using BEditor.Models.ColorTool;
 using BEditor.ViewModels.CustomControl;
 using BEditor.ViewModels.PropertyControl;
-using BEditor.Views.CustomControl;
-using BEditor.WPF.Controls;
 
 using MahApps.Metro.Controls;
 

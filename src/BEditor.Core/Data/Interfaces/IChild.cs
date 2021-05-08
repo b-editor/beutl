@@ -1,13 +1,4 @@
-﻿using System;
-using System.Diagnostics.CodeAnalysis;
-using System.Diagnostics.Contracts;
-using System.Linq;
-using System.Text;
-using System.Threading.Tasks;
-
-using BEditor.Data.Property;
-
-namespace BEditor.Data
+﻿namespace BEditor.Data
 {
     /// <summary>
     /// Represents that this object has a parent element of type <typeparamref name="T"/>.

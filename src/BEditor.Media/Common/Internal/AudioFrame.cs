@@ -108,7 +108,7 @@ namespace BEditor.Media.Common.Internal
             {
                 return new Span<float>(Pointer->data[channel], NumSamples);
             }
-            else if(SampleFormat is SampleFormat.SignedWord or SampleFormat.SignedWordP)
+            else if (SampleFormat is SampleFormat.SignedWord or SampleFormat.SignedWordP)
             {
                 var data = new Span<PCM16>(Pointer->data[channel], NumSamples);
                 using var sound = new Sound<PCM16>(SampleRate, NumSamples);
@@ -117,7 +117,7 @@ namespace BEditor.Media.Common.Internal
 
                 return converted.Data.ToArray().Select(i => i.Value).ToArray();
             }
-            else if(SampleFormat is SampleFormat.SignedDWord or SampleFormat.SignedDWordP)
+            else if (SampleFormat is SampleFormat.SignedDWord or SampleFormat.SignedDWordP)
             {
                 var data = new Span<PCM32>(Pointer->data[channel], NumSamples);
                 using var sound = new Sound<PCM32>(SampleRate, NumSamples);

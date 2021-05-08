@@ -1,8 +1,4 @@
-﻿using System.Collections.Generic;
-using System.Linq;
-using System.Text;
-using System.Threading.Tasks;
-
+﻿
 using BEditor.Drawing.Pixel;
 
 namespace BEditor.Drawing.RowOperation

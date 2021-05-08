@@ -1,23 +1,17 @@
 ﻿using System;
-using System.Drawing;
 using System.Reactive.Linq;
 using System.Threading;
-using System.Threading.Tasks;
-using System.Windows;
 using System.Windows.Controls;
-using System.Windows.Media.Imaging;
 
 using BEditor.Data;
 using BEditor.Drawing;
 using BEditor.Drawing.Pixel;
-using BEditor.Media;
 using BEditor.Media.Encoding;
 using BEditor.Media.Graphics;
 using BEditor.Properties;
 using BEditor.Views;
 using BEditor.Views.MessageContent;
 
-using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
 using Microsoft.Win32;
 

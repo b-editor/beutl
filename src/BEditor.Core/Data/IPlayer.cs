@@ -1,16 +1,6 @@
 ﻿using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Text;
-using System.Threading;
-using System.Threading.Tasks;
-using System.Timers;
 
-using BEditor.Drawing;
-using BEditor.Drawing.Pixel;
 using BEditor.Media;
-
-using Timer = System.Timers.Timer;
 
 namespace BEditor.Data
 {

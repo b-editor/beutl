@@ -1,7 +1,4 @@
-﻿using System;
-using System.ComponentModel;
-
-using BEditor.Resources;
+﻿using System.ComponentModel;
 
 namespace BEditor.Data.Property
 {

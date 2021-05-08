@@ -1,11 +1,5 @@
-﻿using System;
-using System.Collections.Generic;
-using System.Text;
-using System.Windows;
-
+﻿
 using Avalonia;
-using Avalonia.Controls;
-using Avalonia.Media;
 
 namespace BEditor.Views
 {

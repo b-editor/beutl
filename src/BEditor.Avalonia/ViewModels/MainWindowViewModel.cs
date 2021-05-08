@@ -1,5 +1,4 @@
 ﻿using System;
-using System.Collections.Generic;
 using System.Diagnostics;
 using System.IO;
 using System.Linq;
@@ -8,7 +7,6 @@ using System.Text;
 using System.Threading.Tasks;
 
 using Avalonia;
-using Avalonia.Media;
 
 using BEditor.Command;
 using BEditor.Data;

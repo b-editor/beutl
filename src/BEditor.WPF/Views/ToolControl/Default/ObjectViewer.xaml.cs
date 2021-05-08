@@ -1,28 +1,14 @@
 ﻿using System;
 using System.Collections.Generic;
-using System.Linq;
-using System.Text;
-using System.Threading.Tasks;
 using System.Windows;
 using System.Windows.Controls;
-using System.Windows.Data;
-using System.Windows.Documents;
 using System.Windows.Input;
-using System.Windows.Media;
-using System.Windows.Media.Imaging;
-using System.Windows.Navigation;
-using System.Windows.Shapes;
 
-using BEditor.Command;
 using BEditor.Data;
-using BEditor.Data.Bindings;
-using BEditor.Data.Property;
 using BEditor.Models;
 using BEditor.Properties;
 using BEditor.ViewModels.CreatePage;
 using BEditor.Views.CreatePage;
-
-using Microsoft.Extensions.DependencyInjection;
 
 using static BEditor.IMessage;
 

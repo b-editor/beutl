@@ -1,12 +1,5 @@
-﻿using System;
-using System.Drawing;
+﻿using BEditor.Graphics.Resources;
 
-using BEditor.Drawing;
-using BEditor.Drawing.Pixel;
-using BEditor.Graphics.Resources;
-
-using OpenTK;
-using OpenTK.Graphics;
 using OpenTK.Graphics.OpenGL4;
 using OpenTK.Mathematics;
 using OpenTK.Windowing.GraphicsLibraryFramework;

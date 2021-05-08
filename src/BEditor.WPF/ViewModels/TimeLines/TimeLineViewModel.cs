@@ -1,16 +1,12 @@
 ﻿using System;
 using System.Collections.ObjectModel;
 using System.IO;
-using System.Reactive;
 using System.Reactive.Disposables;
 using System.Reactive.Linq;
-using System.Threading;
-using System.Threading.Tasks;
 using System.Windows;
 using System.Windows.Controls;
 using System.Windows.Input;
 
-using BEditor.Command;
 using BEditor.Data;
 using BEditor.Models;
 using BEditor.Models.Extension;

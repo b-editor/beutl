@@ -1,17 +1,8 @@
 ﻿using System;
 using System.Collections.Generic;
-using System.Collections.ObjectModel;
-using System.Diagnostics.CodeAnalysis;
 using System.Diagnostics.Contracts;
-using System.Linq;
-using System.Reflection;
-using System.Runtime.CompilerServices;
-using System.Text;
 
 using BEditor.Command;
-using BEditor.Data;
-using BEditor.Data.Property;
-using BEditor.Media;
 
 namespace BEditor.Data
 {

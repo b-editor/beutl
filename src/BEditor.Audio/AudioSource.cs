@@ -1,7 +1,4 @@
-﻿
-using OpenTK.Audio.OpenAL;
-
-namespace BEditor.Audio
+﻿namespace BEditor.Audio
 {
     public partial class AudioSource : AudioLibraryObject
     {

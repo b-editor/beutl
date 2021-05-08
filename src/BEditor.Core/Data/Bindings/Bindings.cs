@@ -1,15 +1,6 @@
 ﻿using System;
-using System.Collections.Generic;
-using System.Diagnostics.CodeAnalysis;
-using System.Linq;
-using System.Text;
-using System.Text.RegularExpressions;
-using System.Threading.Tasks;
 
 using BEditor.Command;
-using BEditor.Data;
-using BEditor.Data.Property;
-using BEditor.Drawing.PixelOperation;
 using BEditor.Resources;
 
 namespace BEditor.Data.Bindings
