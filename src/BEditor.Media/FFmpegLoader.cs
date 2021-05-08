@@ -166,6 +166,17 @@ For more informations please see https://github.com/radek-k/BEditor.Media#setup"
         }
 
         /// <summary>
+        /// Gets the path to the ffmpeg executable.
+        /// </summary>
+        public static string GetExecutable()
+        {
+            if (OperatingSystem.IsWindows()) return Path.Combine(AppContext.BaseDirectory, "ffmpeg", "ffmpeg.exe");
+            else if (OperatingSystem.IsLinux()) return "/usr/bin/ffmpeg";
+            else if (OperatingSystem.IsMacOS()) return "/usr/local/opt/ffmpeg";
+            else throw new PlatformNotSupportedException();
+        }
+
+        /// <summary>
         /// Throws a FFmpeg library loading exception.
         /// </summary>
         /// <param name="exception">The original exception.</param>

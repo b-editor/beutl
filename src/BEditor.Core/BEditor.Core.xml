@@ -699,6 +699,13 @@
             <param name="command">The command to execute.</param>
             <param name="manager">The command manager for executing commands.</param>
         </member>
+        <member name="M:BEditor.Data.DataExtensions.GetParentRequired``1(BEditor.Data.IChild{System.Object})">
+            <summary>
+            Gets the parent element.
+            </summary>
+            <typeparam name="T">Type of the parent element to retrieve.</typeparam>
+            <param name="self">The child element of the parent element to retrieve.</param>
+        </member>
         <member name="M:BEditor.Data.DataExtensions.GetParent``1(BEditor.Data.IChild{System.Object})">
             <summary>
             Gets the parent element.

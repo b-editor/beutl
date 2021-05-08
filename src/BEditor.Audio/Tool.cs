@@ -110,20 +110,6 @@ namespace BEditor.Audio
         public static void DeleteBuffer(int handle)
         {
             AL.DeleteBuffer(handle);
-
-            var error = AL.GetError();
-            if (error is ALError.InvalidOperation)
-            {
-                throw new AudioException(Strings.DeleteBufferInvalidOperation);
-            }
-            else if (error is ALError.InvalidName)
-            {
-                throw new AudioException(Strings.DeleteBufferInvalidName);
-            }
-            else if (error is ALError.InvalidValue)
-            {
-                throw new AudioException(Strings.DeleteBufferInvalidValue);
-            }
         }
         public static void DeleteSource(int handle)
         {

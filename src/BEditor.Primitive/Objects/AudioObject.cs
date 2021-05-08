@@ -1,21 +1,18 @@
 ﻿using System;
 using System.Collections.Generic;
+using System.Diagnostics;
+using System.IO;
 using System.Linq;
 using System.Reactive.Linq;
 using System.Threading.Tasks;
 
 using BEditor.Audio;
 using BEditor.Data;
-using BEditor.Data.Primitive;
 using BEditor.Data.Property;
 using BEditor.Media;
 using BEditor.Media.Decoding;
 using BEditor.Media.PCM;
 using BEditor.Primitive.Resources;
-
-using FFmpeg.AutoGen;
-
-using OpenTK.Audio.OpenAL;
 
 namespace BEditor.Primitive.Objects
 {
@@ -127,19 +124,7 @@ namespace BEditor.Primitive.Objects
         /// </summary>
         public MediaFile? Decoder
         {
-            get
-            {
-                if (_mediaFile is null && System.IO.File.Exists(File.Value))
-                {
-                    var proj = this.GetParent<Project>()!;
-                    Decoder = MediaFile.Open(File.Value, new()
-                    {
-                        StreamsToLoad = MediaMode.Audio,
-                    });
-                }
-
-                return _mediaFile;
-            }
+            get => _mediaFile;
             set
             {
                 _mediaFile?.Dispose();
@@ -147,15 +132,20 @@ namespace BEditor.Primitive.Objects
 
                 if (_mediaFile is not null && _source is not null)
                 {
+                    _source.Buffer = new(0);
                     _source.Buffer?.Dispose();
-                    var sound = GetAllFrame(_mediaFile.Audio!);
+                    Loaded?.Dispose();
+                    Loaded = GetAllFrame(_mediaFile.Audio!);
 
-                    _source.Buffer = new(sound);
-
-                    sound.Dispose();
+                    _source.Buffer = new(Loaded);
                 }
             }
         }
+
+        /// <summary>
+        ///
+        /// </summary>
+        public Sound<StereoPCMFloat>? Loaded { get; private set; }
 
         /// <inheritdoc/>
         public override void Render(EffectRenderArgs args)
@@ -188,10 +178,32 @@ namespace BEditor.Primitive.Objects
         {
             _source = new();
 
-            _disposable = File.Where(file => System.IO.File.Exists(file)).Subscribe(file =>
+            _disposable = File.Where(file => System.IO.File.Exists(file)).Subscribe(async file =>
             {
-                var proj = this.GetParent<Project>()!;
-                Decoder = MediaFile.Open(file, new()
+                if (Path.GetExtension(file) is ".mp3")
+                {
+                    Decoder = MediaFile.Open(file, new()
+                    {
+                        StreamsToLoad = MediaMode.Audio,
+                    });
+
+                    return;
+                }
+
+                // 強制的に44100hz SinglePに変更
+                var exe = FFmpegLoader.GetExecutable();
+                var proj = this.GetParentRequired<Project>();
+                var contentDir = Path.Combine(proj.DirectoryName, "content");
+                var dst = Path.Combine(contentDir, ID.ToString() + ".mp3");
+
+                if (!Directory.Exists(contentDir)) Directory.CreateDirectory(contentDir);
+                if (System.IO.File.Exists(dst)) System.IO.File.Delete(dst);
+
+                var process = Process.Start(exe, $"-i {file} -vcodec copy -ar {proj.Samplingrate} {dst}");
+                await process.WaitForExitAsync();
+                process.Dispose();
+
+                Decoder = MediaFile.Open(dst, new()
                 {
                     StreamsToLoad = MediaMode.Audio,
                 });
@@ -203,29 +215,36 @@ namespace BEditor.Primitive.Objects
             player.Playing += Player_PlayingAsync;
         }
 
-        private static Sound<StereoPCM16> GetAllFrame(AudioStream stream)
+        private static Sound<StereoPCMFloat> GetAllFrame(AudioStream stream)
         {
             stream.TryGetFrame(TimeSpan.Zero, out _);
-            var sampleL = new List<short>();
-            var sampleR = new List<short>();
+            var sampleL = new List<float>();
+            var sampleR = new List<float>();
 
             while (stream.TryGetNextFrame(out var audio))
             {
                 var array = audio.GetSampleData();
 
-                sampleL.AddRange(array[0].Select(i => (short)(i * short.MaxValue)));
+                sampleL.AddRange(array[0]);
 
                 if (array.Length is 2)
                 {
-                    sampleR.AddRange(array[1].Select(i => (short)(i * short.MaxValue)));
+                    sampleR.AddRange(array[1]);
                 }
             }
 
-            var sound = new Sound<StereoPCM16>(stream.Info.SampleRate, sampleL.Count);
+            var sound = new Sound<StereoPCMFloat>(stream.Info.SampleRate, sampleL.Count);
 
-            sampleL.Zip(sampleR, (l, r) => new StereoPCM16(l, r))
-                .ToArray()
-                .CopyTo(sound.Data);
+            if (sampleR.Count is 0)
+            {
+                sampleL.Select(i => new StereoPCMFloat(i, i)).ToArray().CopyTo(sound.Data);
+            }
+            else
+            {
+                sampleL.Zip(sampleR, (l, r) => new StereoPCMFloat(l, r))
+                    .ToArray()
+                    .CopyTo(sound.Data);
+            }
 
             return sound;
         }

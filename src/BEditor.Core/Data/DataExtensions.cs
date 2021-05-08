@@ -45,6 +45,20 @@ namespace BEditor.Data
         /// <typeparam name="T">Type of the parent element to retrieve.</typeparam>
         /// <param name="self">The child element of the parent element to retrieve.</param>
         [Pure]
+        public static T GetParentRequired<T>(this IChild<object> self)
+        {
+            var parent = GetParent<T>(self);
+            if (parent is null) throw new DataException();
+
+            return parent;
+        }
+
+        /// <summary>
+        /// Gets the parent element.
+        /// </summary>
+        /// <typeparam name="T">Type of the parent element to retrieve.</typeparam>
+        /// <param name="self">The child element of the parent element to retrieve.</param>
+        [Pure]
         public static T? GetParent<T>(this IChild<object> self)
         {
             object obj = self;

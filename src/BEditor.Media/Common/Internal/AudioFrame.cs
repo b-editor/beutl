@@ -1,7 +1,9 @@
 ﻿using System;
+using System.Linq;
 
 using BEditor.Media.Audio;
 using BEditor.Media.Helpers;
+using BEditor.Media.PCM;
 
 using FFmpeg.AutoGen;
 
@@ -102,12 +104,30 @@ namespace BEditor.Media.Common.Internal
         /// <returns>The span with samples in range of [-1.0, ..., 1.0].</returns>
         public Span<float> GetChannelData(uint channel)
         {
-            if (SampleFormat != SampleFormat.SingleP)
+            if (SampleFormat is SampleFormat.SingleP or SampleFormat.Single)
             {
-                throw new Exception("Cannot extract channel data from an AudioFrame with a SampleFormat not equal to SampleFormat.SingleP");
+                return new Span<float>(Pointer->data[channel], NumSamples);
+            }
+            else if(SampleFormat is SampleFormat.SignedWord or SampleFormat.SignedWordP)
+            {
+                var data = new Span<PCM16>(Pointer->data[channel], NumSamples);
+                using var sound = new Sound<PCM16>(SampleRate, NumSamples);
+                data.CopyTo(sound.Data);
+                using var converted = sound.Convert<PCMFloat>();
+
+                return converted.Data.ToArray().Select(i => i.Value).ToArray();
+            }
+            else if(SampleFormat is SampleFormat.SignedDWord or SampleFormat.SignedDWordP)
+            {
+                var data = new Span<PCM32>(Pointer->data[channel], NumSamples);
+                using var sound = new Sound<PCM32>(SampleRate, NumSamples);
+                data.CopyTo(sound.Data);
+                using var converted = sound.Convert<PCMFloat>();
+
+                return converted.Data.ToArray().Select(i => i.Value).ToArray();
             }
 
-            return new Span<float>(Pointer->data[channel], NumSamples);
+            throw new Exception("Cannot extract channel data from an AudioFrame with a SampleFormat not equal to SampleFormat.SingleP");
         }
 
         /// <summary>
@@ -119,11 +139,6 @@ namespace BEditor.Media.Common.Internal
         /// </returns>
         public float[][] GetSampleData()
         {
-            if (SampleFormat != SampleFormat.SingleP)
-            {
-                throw new Exception("Cannot extract sample data from an AudioFrame with a SampleFormat not equal to SampleFormat.SingleP");
-            }
-
             var samples = new float[NumChannels][];
 
             for (uint ch = 0; ch < NumChannels; ch++)
@@ -144,7 +159,7 @@ namespace BEditor.Media.Common.Internal
         /// </summary>
         /// <param name="samples">An array of samples with length <see cref="NumSamples"/>.</param>
         /// <param name="channel">The index of audio channel that should be updated, allowed range: [0..<see cref="NumChannels"/>).</param>
-        public void UpdateChannelData(float[] samples, uint channel)
+        public void UpdateChannelData(Span<float> samples, uint channel)
         {
             if (SampleFormat != SampleFormat.SingleP)
             {
@@ -152,7 +167,7 @@ namespace BEditor.Media.Common.Internal
             }
 
             var frameData = GetChannelData(channel);
-            var sampleData = new Span<float>(samples, 0, NumSamples);
+            var sampleData = samples.Slice(0, NumSamples);
 
             sampleData.CopyTo(frameData);
         }

@@ -24,6 +24,22 @@ namespace BEditor.Audio
 
             Tool.BufferData(Handle, ALFormat.Stereo16, sound.Data, sound.SampleRate);
         }
+        public AudioBuffer(Sound<PCMFloat> sound)
+        {
+            Handle = Tool.GenBuffer();
+
+            using var converted = sound.Convert<PCM16>();
+
+            Tool.BufferData(Handle, ALFormat.Mono16, converted.Data, converted.SampleRate);
+        }
+        public AudioBuffer(Sound<StereoPCMFloat> sound)
+        {
+            Handle = Tool.GenBuffer();
+
+            using var converted = sound.Convert<StereoPCM16>();
+
+            Tool.BufferData(Handle, ALFormat.Stereo16, converted.Data, converted.SampleRate);
+        }
         public AudioBuffer(int handle)
         {
             if (!AL.IsBuffer(handle))

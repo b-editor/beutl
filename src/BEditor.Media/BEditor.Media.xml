@@ -337,7 +337,7 @@
             samples in range of [-1.0, ..., 1.0].
             </returns>
         </member>
-        <member name="M:BEditor.Media.Common.Internal.AudioFrame.UpdateChannelData(System.Single[],System.UInt32)">
+        <member name="M:BEditor.Media.Common.Internal.AudioFrame.UpdateChannelData(System.Span{System.Single},System.UInt32)">
             <summary>
             Updates the specified channel of this audio frame with the given sample data.
             </summary>
@@ -2291,6 +2291,11 @@
             Start logging ffmpeg output.
             </summary>
         </member>
+        <member name="M:BEditor.Media.FFmpegLoader.GetExecutable">
+            <summary>
+            Gets the path to the ffmpeg executable.
+            </summary>
+        </member>
         <member name="M:BEditor.Media.FFmpegLoader.HandleLibraryLoadError(System.Exception)">
             <summary>
             Throws a FFmpeg library loading exception.
@@ -3204,6 +3209,14 @@
             <param name="length">The length of data.</param>
             <param name="data">The audio data.</param>
         </member>
+        <member name="M:BEditor.Media.Sound`1.#ctor(System.Int32,System.Int32,System.IntPtr)">
+            <summary>
+            Initializes a new instance of the <see cref="T:BEditor.Media.Sound`1"/> class with a specified data.
+            </summary>
+            <param name="rate">The sample rate.</param>
+            <param name="length">The length of data.</param>
+            <param name="data">The audio data.</param>
+        </member>
         <member name="M:BEditor.Media.Sound`1.Finalize">
             <summary>
             Discards the reference to the target that is represented by the current <see cref="T:BEditor.Media.Sound`1"/> object.
@@ -3222,6 +3235,11 @@
         <member name="P:BEditor.Media.Sound`1.Length">
             <summary>
             Gets the length of data.
+            </summary>
+        </member>
+        <member name="P:BEditor.Media.Sound`1.Time">
+            <summary>
+            Gets the length of this sound.
             </summary>
         </member>
         <member name="P:BEditor.Media.Sound`1.DataSize">
@@ -3270,6 +3288,12 @@
             </summary>
             <param name="sound">The sound to add.</param>
         </member>
+        <member name="M:BEditor.Media.Sound`1.Resamples(System.Int32)">
+            <summary>
+            Resamples the <see cref="T:BEditor.Media.Sound`1"/>.
+            </summary>
+            <param name="frequency">The new sampling frequency.</param>
+        </member>
         <member name="M:BEditor.Media.Sound`1.System#ICloneable#Clone">
             <inheritdoc/>
         </member>
@@ -3308,6 +3332,20 @@
             Extracts the channel data into multiple arrays.
             </summary>
             <param name="sound">The <see cref="T:BEditor.Media.Sound`1"/> that expands the channel data.</param>
+        </member>
+        <member name="M:BEditor.Media.Sound.Resamples(BEditor.Media.Sound{BEditor.Media.PCM.StereoPCMFloat},System.Int32)">
+            <summary>
+            Resamples the <see cref="T:BEditor.Media.Sound`1"/>.
+            </summary>
+            <param name="sound">The sound to resamples.</param>
+            <param name="frequency">The new sampling frequency.</param>
+        </member>
+        <member name="M:BEditor.Media.Sound.Gain(BEditor.Media.Sound{BEditor.Media.PCM.StereoPCMFloat},System.Single)">
+             <summary>
+            
+             </summary>
+             <param name="sound"></param>
+             <param name="gain"></param>
         </member>
     </members>
 </doc>

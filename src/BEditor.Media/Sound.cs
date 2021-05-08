@@ -15,7 +15,7 @@ namespace BEditor.Media
     /// Represents the audio.
     /// </summary>
     /// <typeparam name="T">The type of audio data.</typeparam>
-    public unsafe class Sound<T> : IDisposable, ICloneable where T : unmanaged, IPCM<T>
+    public unsafe partial class Sound<T> : IDisposable, ICloneable where T : unmanaged, IPCM<T>
     {
         private readonly bool _requireDispose = true;
         private T* _pointer;
@@ -31,7 +31,7 @@ namespace BEditor.Media
             SampleRate = rate;
             Length = length;
 
-            _pointer = (T*)Marshal.AllocHGlobal(DataSize);
+            _pointer = (T*)Marshal.AllocCoTaskMem(DataSize);
             Data.Fill(default);
         }
 
@@ -66,6 +66,21 @@ namespace BEditor.Media
         }
 
         /// <summary>
+        /// Initializes a new instance of the <see cref="Sound{T}"/> class with a specified data.
+        /// </summary>
+        /// <param name="rate">The sample rate.</param>
+        /// <param name="length">The length of data.</param>
+        /// <param name="data">The audio data.</param>
+        public Sound(int rate, int length, IntPtr data)
+        {
+            _requireDispose = false;
+            SampleRate = rate;
+            Length = length;
+
+            _pointer = (T*)data;
+        }
+
+        /// <summary>
         /// Discards the reference to the target that is represented by the current <see cref="Sound{T}"/> object.
         /// </summary>
         ~Sound()
@@ -96,7 +111,10 @@ namespace BEditor.Media
         /// </summary>
         public int Length { get; }
 
-        //public TimeSpan Time => TimeSpan.FromSeconds(Length / (double)SampleRate);
+        /// <summary>
+        /// Gets the length of this sound.
+        /// </summary>
+        public TimeSpan Time => TimeSpan.FromSeconds(Length / (double)SampleRate);
 
         /// <summary>
         /// Get the data size of <see cref="Sound{T}"/>.
@@ -138,7 +156,7 @@ namespace BEditor.Media
         {
             if (!IsDisposed && _requireDispose)
             {
-                if (_pointer != null) Marshal.FreeHGlobal((IntPtr)_pointer);
+                if (_pointer != null) Marshal.FreeCoTaskMem((IntPtr)_pointer);
 
                 _pointer = null;
                 _array = null;
@@ -193,7 +211,37 @@ namespace BEditor.Media
         /// <param name="sound">The sound to add.</param>
         public void Add(Sound<T> sound)
         {
+            // Todo : Add message
+            if (sound.SampleRate != SampleRate) throw new Exception();
+
             Parallel.For(0, Math.Min(sound.Length, Length), i => Data[i] = Data[i].Add(sound.Data[i]));
+        }
+
+        /// <summary>
+        /// Resamples the <see cref="Sound{T}"/>.
+        /// </summary>
+        /// <param name="frequency">The new sampling frequency.</param>
+        public Sound<T> Resamples(int frequency)
+        {
+            if (SampleRate == frequency) return Clone();
+
+            // 比率
+            var ratio = SampleRate / (float)frequency;
+            // 1チャンネルのサイズ
+            var size = frequency * Time.TotalSeconds;
+
+            using var tmp = new UnmanagedArray<T>((int)Math.Floor((double)size));
+            var index = 0f;
+            for (var i = 0; i < tmp.Length; i++)
+            {
+                index += ratio;
+                tmp[i] = Data[(int)Math.Floor(index)];
+            }
+
+            var result = new Sound<T>(frequency, tmp.Length);
+            tmp.AsSpan().CopyTo(result.Data);
+
+            return result;
         }
 
         /// <inheritdoc/>

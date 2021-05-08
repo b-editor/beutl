@@ -1386,6 +1386,11 @@
             
             </summary>
         </member>
+        <member name="P:BEditor.Primitive.Objects.AudioObject.Loaded">
+             <summary>
+            
+             </summary>
+        </member>
         <member name="M:BEditor.Primitive.Objects.AudioObject.Render(BEditor.Data.EffectRenderArgs)">
             <inheritdoc/>
         </member>

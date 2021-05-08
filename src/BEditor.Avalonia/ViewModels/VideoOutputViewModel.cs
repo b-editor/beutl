@@ -12,6 +12,7 @@ using Avalonia.Threading;
 using BEditor.Data;
 using BEditor.Drawing;
 using BEditor.Drawing.Pixel;
+using BEditor.Drawing.PixelOperation;
 using BEditor.Media;
 using BEditor.Media.Audio;
 using BEditor.Media.Common.Internal;
@@ -94,7 +95,9 @@ namespace BEditor.ViewModels
                         var scene = SelectedScene.Value;
                         var proj = Project;
                         // 1フレームあたりのサンプル数
-                        var tmpVideo = Path.ChangeExtension(File.Value, $"tmp{Path.GetExtension(File.Value)}");
+                        var tmpdir = Path.Combine(proj.DirectoryName, ".tmp");
+                        if (!Directory.Exists(tmpdir)) Directory.CreateDirectory(tmpdir);
+                        var tmpVideo = Path.Combine(tmpdir, $"{Guid.NewGuid()}{Path.GetExtension(File.Value)}");
 
                         var builder = SelectedContainerFormat.Value.Value is null ?
                             MediaBuilder.CreateContainer(tmpVideo) :
@@ -153,45 +156,33 @@ namespace BEditor.ViewModels
                         // 音声
                         if (AudioIsEnabled.Value)
                         {
-                            var pcmFile = Path.ChangeExtension(File.Value, "pcm");
-                            var wavFile = Path.ChangeExtension(File.Value, "wav");
+                            var pcmFile = Path.Combine(tmpdir, $"{Guid.NewGuid()}.pcm");
+                            var wavFile = Path.Combine(tmpdir, $"{Guid.NewGuid()}.wav");
                             await using (var stream = new FileStream(pcmFile, FileMode.Create))
                             await using (var writer = new BinaryWriter(stream))
                             {
-                                var samples = proj.Samplingrate / proj.Framerate;
-                                for (Frame frame = StartFrame.Value; frame < LengthFrame.Value; frame++)
+                                using var sound = new Sound<StereoPCMFloat>(proj.Samplingrate, (int)(proj.Samplingrate * new Frame(LengthFrame.Value - StartFrame.Value).ToSeconds(proj.Framerate)));
+
+                                foreach (var item in scene.Datas.Where(i => i.Effect[0] is AudioObject)
+                                    .Select(i => (AudioObject)i.Effect[0])
+                                    .Where(i => i.IsEnabled && i.Loaded is not null))
                                 {
-                                    using var sound = new Sound<StereoPCMFloat>(proj.Samplingrate, samples);
+                                    using var slice = sound.Slice(item.Parent.Start.ToTimeSpan(proj.Framerate), item.Parent.Length.ToTimeSpan(proj.Framerate));
+                                    using var audioobj = item.Loaded!.Slice(TimeSpan.FromMilliseconds(item.Start.Value));
+                                    audioobj.Gain(item.Volume[0] / 100);
 
-                                    dialog.NowValue.Value = frame;
+                                    slice.Add(audioobj);
+                                }
 
-                                    foreach (var obj in scene.GetFrame(frame).Where(i => i.Effect[0] is AudioObject)
-                                        .Select(i => (AudioObject)i.Effect[0])
-                                        .Where(i => i.IsEnabled && i.Decoder is not null))
-                                    {
-                                        using var data = GetFrame(
-                                            obj.Decoder!.Audio!,
-                                            TimeSpan.FromMilliseconds(obj.Start.Value) + (frame - obj.Parent.Start).ToTimeSpan(proj.Framerate),
-                                            samples);
-
-                                        sound.Add(data);
-                                    }
-
-                                    for (var i = 0; i < sound.Data.Length; i++)
-                                    {
-                                        writer.Write(sound.Data[i].Left);
-                                        writer.Write(sound.Data[i].Right);
-                                    }
+                                for (var i = 0; i < sound.Length; i++)
+                                {
+                                    writer.Write(sound.Data[i].Left);
+                                    writer.Write(sound.Data[i].Right);
                                 }
                             }
 
                             dialog.IsIndeterminate.Value = true;
-                            string ffmpeg;
-
-                            if (OperatingSystem.IsWindows()) ffmpeg = Path.Combine(AppContext.BaseDirectory, "ffmpeg", "ffmpeg.exe");
-                            else if (OperatingSystem.IsLinux()) ffmpeg = "/usr/bin/ffmpeg";
-                            else if (OperatingSystem.IsMacOS()) ffmpeg = "/usr/local/opt/ffmpeg";
-                            else goto Close;
+                            var ffmpeg = FFmpegLoader.GetExecutable();
 
                             var process = Process.Start(new ProcessStartInfo(
                                 ffmpeg,
@@ -199,7 +190,7 @@ namespace BEditor.ViewModels
 
                             await process.WaitForExitAsync();
 
-                            System.IO.File.Delete(File.Value);
+                            if (System.IO.File.Exists(File.Value)) System.IO.File.Delete(File.Value);
 
                             process = Process.Start(new ProcessStartInfo(
                                 ffmpeg,
@@ -209,8 +200,6 @@ namespace BEditor.ViewModels
                             })!;
 
                             await process.WaitForExitAsync();
-
-                        Close:
 
                             System.IO.File.Delete(pcmFile);
                             System.IO.File.Delete(wavFile);
@@ -290,10 +279,5 @@ namespace BEditor.ViewModels
         public ReactiveCommand Output { get; } = new();
 
         public record EnumTupple<T>(string Name, T Value);
-
-        private static Sound<StereoPCMFloat> GetFrame(AudioStream stream, TimeSpan time, int length)
-        {
-            return stream.GetFrame(time, length);
-        }
     }
 }

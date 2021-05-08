@@ -4,6 +4,7 @@ using Avalonia.Controls;
 using Avalonia.Input;
 using Avalonia.Interactivity;
 using Avalonia.Markup.Xaml;
+using Avalonia.Threading;
 using Avalonia.VisualTree;
 
 using BEditor.Data;
@@ -33,7 +34,7 @@ namespace BEditor.Views.Timelines
 
         ~ClipView()
         {
-            Dispose();
+            Dispatcher.UIThread.InvokeAsync(Dispose);
         }
 
         public ClipViewModel ViewModel => (DataContext as ClipViewModel)!;

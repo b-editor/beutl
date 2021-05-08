@@ -106,24 +106,24 @@ namespace BEditor.Media.Decoding
         public Sound<StereoPCMFloat> GetFrame(TimeSpan time, int length)
         {
             var sound = new Sound<StereoPCMFloat>(Info.SampleRate, length);
-            var first = GetFrame(time);
-            // デコードしたサンプル数
-            var decoded = first.NumSamples;
-            for (uint c = 0; c < Info.NumChannels; c++)
+            if (TryGetFrame(time, out var first))
             {
-                sound.SetChannelData((int)c, first.GetChannelData(c));
-            }
-
-            while (decoded < length)
-            {
-                var data = GetNextFrame();
-
+                // デコードしたサンプル数
+                var decoded = first.NumSamples;
                 for (uint c = 0; c < Info.NumChannels; c++)
                 {
-                    sound.SetChannelData(decoded, (int)c, data.GetChannelData(c));
+                    sound.SetChannelData((int)c, first.GetChannelData(c));
                 }
 
-                decoded += data.NumSamples;
+                while (decoded < length && TryGetNextFrame(out var data))
+                {
+                    for (uint c = 0; c < Info.NumChannels; c++)
+                    {
+                        sound.SetChannelData(decoded, (int)c, data.GetChannelData(c));
+                    }
+
+                    decoded += data.NumSamples;
+                }
             }
 
             return sound;
