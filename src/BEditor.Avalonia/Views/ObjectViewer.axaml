@@ -1,0 +1,39 @@
+<UserControl
+    xmlns="https://github.com/avaloniaui"
+    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+    xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+    xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+    xmlns:local="using:BEditor.Views"
+    xmlns:model="using:BEditor.Models"
+    xmlns:prop="using:BEditor.Properties"
+    xmlns:vm="using:BEditor.ViewModels"
+    mc:Ignorable="d" d:DesignWidth="800" d:DesignHeight="450"
+    IsEnabled="{Binding IsOpened.Value, Mode=OneWay, Source={x:Static vm:MainWindowViewModel.Current}}"
+    x:Class="BEditor.Views.ObjectViewer">
+    <ScrollViewer x:Name="scrollViewer">
+        <TreeView
+            x:Name="TreeView"
+            Items="{Binding Project.SceneList, Source={x:Static model:AppModel.Current}}">
+            <TreeView.DataTemplates>
+                <TreeDataTemplate ItemsSource="{Binding Children, TargetNullValue={x:Static local:ObjectViewer.Empty}}">
+                    <TextBlock Text="{Binding Converter={StaticResource GetNameConverter}}" Margin="3,2" />
+                </TreeDataTemplate>
+            </TreeView.DataTemplates>
+            <TreeView.ContextMenu>
+                <ContextMenu>
+                    <MenuItem Click="CopyID_Click" Header="{x:Static prop:Strings.CopyID}" />
+                    <Separator />
+                    <MenuItem Header="{x:Static prop:Strings.Scene}">
+                        <MenuItem Click="DeleteScene" Header="{x:Static prop:Strings.Delete}" />
+                    </MenuItem>
+                    <MenuItem Header="{x:Static prop:Strings.Clip}">
+                        <MenuItem Click="RemoveClip" Header="{x:Static prop:Strings.Remove}" />
+                    </MenuItem>
+                    <MenuItem Header="{x:Static prop:Strings.Effect}">
+                        <MenuItem Click="RemoveEffect" Header="{x:Static prop:Strings.Remove}" />
+                    </MenuItem>
+                </ContextMenu>
+            </TreeView.ContextMenu>
+        </TreeView>
+    </ScrollViewer>
+</UserControl>

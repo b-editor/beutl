@@ -270,7 +270,7 @@ namespace BEditor.Views.Timelines
         private void TimelineGrid_DragOver(object? sender, DragEventArgs e)
         {
             ViewModel.LayerCursor.Value = StandardCursorType.DragCopy;
-            e.DragEffects = e.Data.Contains("ObjectMetadata") ? DragDropEffects.Copy : DragDropEffects.None;
+            e.DragEffects = e.Data.Contains("ObjectMetadata") || (e.Data.GetFileNames()?.Any() ?? false) ? DragDropEffects.Copy : DragDropEffects.None;
         }
 
         private void TimelineGrid_Drop(object? sender, DragEventArgs e)
@@ -285,6 +285,10 @@ namespace BEditor.Views.Timelines
                 vm.ClickedLayer = TimelineViewModel.ToLayer(pt.Y);
 
                 vm.AddClip.Execute(metadata);
+            }
+            else if (e.Data.GetFileNames() is var files && (files?.Any() ?? false))
+            {
+
             }
         }
 

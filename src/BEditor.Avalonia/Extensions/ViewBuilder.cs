@@ -436,6 +436,7 @@ namespace BEditor.Extensions
                 var header = new StackPanel
                 {
                     Orientation = Orientation.Horizontal,
+                    Background = Brushes.Transparent,
                     Children =
                     {
                         checkBox,

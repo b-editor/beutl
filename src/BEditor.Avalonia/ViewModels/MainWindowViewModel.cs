@@ -176,6 +176,10 @@ namespace BEditor.ViewModels
                         {
                             return PrimitiveTypes.ImageMetadata;
                         }
+                        else if (ex is ".mp3" or ".wav")
+                        {
+                            return PrimitiveTypes.AudioMetadata;
+                        }
                         else if (ex is ".txt")
                         {
                             return PrimitiveTypes.TextMetadata;
@@ -233,6 +237,10 @@ namespace BEditor.ViewModels
                         else if (obj is ImageFile image)
                         {
                             image.File.Value = text;
+                        }
+                        else if (obj is AudioObject audio)
+                        {
+                            audio.File.Value = text;
                         }
                         else if (obj is Text txt)
                         {

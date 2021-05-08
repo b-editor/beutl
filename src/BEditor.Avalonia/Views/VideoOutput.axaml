@@ -224,7 +224,7 @@
                         Classes="SettingsCheckBox"/>
 
                     <!--コーデック-->
-                    <Label Content="{x:Static prop:Strings.Codec}" Classes="SettingsItemHeader"/>
+                    <!--<Label Content="{x:Static prop:Strings.Codec}" Classes="SettingsItemHeader"/>
 
                     <ComboBox
                         IsEnabled="{CompiledBinding AudioIsEnabled.Value, Mode=TwoWay}"
@@ -238,10 +238,10 @@
                         </ComboBox.ItemTemplate>
                     </ComboBox>
 
-                    <Separator Height="16" />
+                    <Separator Height="16" />-->
 
                     <!--フォーマット-->
-                    <Label Content="{x:Static prop:Strings.Format}" Classes="SettingsItemHeader"/>
+                    <!--<Label Content="{x:Static prop:Strings.Format}" Classes="SettingsItemHeader"/>
 
                     <ComboBox
                         IsEnabled="{CompiledBinding AudioIsEnabled.Value, Mode=TwoWay}"
@@ -255,16 +255,16 @@
                         </ComboBox.ItemTemplate>
                     </ComboBox>
 
-                    <Separator Height="16" />
+                    <Separator Height="16" />-->
 
                     <!--ビットレート-->
-                    <Label Content="Bitrate" Classes="SettingsItemHeader"/>
+                    <!--<Label Content="Bitrate" Classes="SettingsItemHeader"/>
 
                     <NumericUpDown
                         IsEnabled="{CompiledBinding AudioIsEnabled.Value, Mode=TwoWay}"
                         Value="{CompiledBinding AudioBitrate.Value, Mode=TwoWay}"
                         ShowButtonSpinner="True"
-                        Classes="SettingsNumericUpDown"/>
+                        Classes="SettingsNumericUpDown"/>-->
 
                 </VirtualizingStackPanel>
             </TabItem>
