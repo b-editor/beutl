@@ -54,21 +54,6 @@ namespace BEditor.Extensions.Svg
 
         public override string Name => "Svg画像";
 
-        public override IEnumerable<PropertyElement> Properties
-        {
-            get
-            {
-                yield return Coordinate;
-                yield return Blend;
-                yield return Rotate;
-                yield return Material;
-                yield return SvgScale;
-                yield return ScaleX;
-                yield return ScaleY;
-                yield return File;
-            }
-        }
-
         public EaseProperty SvgScale { get; private set; }
 
         public EaseProperty ScaleX { get; private set; }
@@ -138,6 +123,18 @@ namespace BEditor.Extensions.Svg
             }
 
             return default;
+        }
+
+        public override IEnumerable<PropertyElement> GetProperties()
+        {
+            yield return Coordinate;
+            yield return Blend;
+            yield return Rotate;
+            yield return Material;
+            yield return SvgScale;
+            yield return ScaleX;
+            yield return ScaleY;
+            yield return File;
         }
     }
 }

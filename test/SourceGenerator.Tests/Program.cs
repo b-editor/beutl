@@ -1,4 +1,5 @@
 ﻿using System.Collections.Generic;
+using System.Linq;
 
 using BEditor.Data;
 using BEditor.Data.Property;
@@ -14,12 +15,16 @@ namespace SourceGenerator.Tests
         public static readonly EditingProperty<ColorProperty> ValueProperty = EditingProperty.RegisterSerialize<ColorProperty, UserClass>("Value");
 
         public override string Name { get; }
-        public override IEnumerable<PropertyElement> Properties { get; }
 
         public override void Apply(EffectApplyArgs args)
         {
             _ = Color;
             _ = Value;
+        }
+
+        public override IEnumerable<PropertyElement> GetProperties()
+        {
+            return Enumerable.Empty<PropertyElement>();
         }
     }
 
