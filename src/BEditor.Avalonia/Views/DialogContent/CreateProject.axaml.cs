@@ -6,20 +6,16 @@ using Avalonia.Markup.Xaml;
 
 namespace BEditor.Views.DialogContent
 {
-    public sealed class CreateProject : UserControl, IDialogContent
+    public sealed class CreateProject : Window
     {
         public CreateProject()
         {
             InitializeComponent();
         }
 
-        public IMessage.ButtonType DialogResult { get; }
-
-        public event EventHandler? ButtonClicked;
-
         public void CloseClick(object s, RoutedEventArgs e)
         {
-            ButtonClicked?.Invoke(this, EventArgs.Empty);
+            Close();
         }
 
         private void InitializeComponent()

@@ -140,11 +140,10 @@ namespace BEditor.Views.CustomTitlebars
         public async void CreateProjectClick(object s, RoutedEventArgs e)
         {
             var viewmodel = new CreateProjectViewModel();
-            var content = new CreateProject
+            var dialog = new CreateProject
             {
                 DataContext = viewmodel
             };
-            var dialog = new EmptyDialog(content);
 
             await dialog.ShowDialog((Window)VisualRoot);
         }
