@@ -11,7 +11,7 @@ using BEditor.Primitive.Resources;
 namespace BEditor.Primitive.Effects
 {
     /// <summary>
-    /// 
+    /// Represents the <see cref="ImageEffect"/> that adds an inner shadow to an image.
     /// </summary>
     public sealed class InnerShadow : ImageEffect
     {
@@ -63,51 +63,38 @@ namespace BEditor.Primitive.Effects
         /// <inheritdoc/>
         public override string Name => Strings.InnerShadow;
 
-        /// <inheritdoc/>
-        public override IEnumerable<PropertyElement> Properties
-        {
-            get
-            {
-                yield return X;
-                yield return Y;
-                yield return Blur;
-                yield return Opacity;
-                yield return Color;
-            }
-        }
-
         /// <summary>
-        /// Get the <see cref="EaseProperty"/> representing the X coordinate.
+        /// Gets the X coordinate.
         /// </summary>
         [AllowNull]
         public EaseProperty X { get; private set; }
 
         /// <summary>
-        /// Get the <see cref="EaseProperty"/> representing the Y coordinate.
+        /// Gets the Y coordinate.
         /// </summary>
         [AllowNull]
         public EaseProperty Y { get; private set; }
 
         /// <summary>
-        /// Gets the <see cref="EaseProperty"/> that represents the blur sigma.
+        /// Gets the blur sigma.
         /// </summary>
         [AllowNull]
         public EaseProperty Blur { get; private set; }
 
         /// <summary>
-        /// Gets the <see cref="EaseProperty"/> that represents the transparency.
+        /// Gets the opacity.
         /// </summary>
         [AllowNull]
         public EaseProperty Opacity { get; private set; }
 
         /// <summary>
-        /// Get the <see cref="ColorProperty"/> that represents the shadow color.
+        /// Gets the shadow color.
         /// </summary>
         [AllowNull]
         public ColorProperty Color { get; private set; }
 
         /// <inheritdoc/>
-        public override void Render(EffectRenderArgs<Image<BGRA32>> args)
+        public override void Apply(EffectApplyArgs<Image<BGRA32>> args)
         {
             var x = (int)X[args.Frame];
             var y = (int)Y[args.Frame];
@@ -118,6 +105,16 @@ namespace BEditor.Primitive.Effects
 
             args.Value.Dispose();
             args.Value = img;
+        }
+
+        /// <inheritdoc/>
+        public override IEnumerable<PropertyElement> GetProperties()
+        {
+            yield return X;
+            yield return Y;
+            yield return Blur;
+            yield return Opacity;
+            yield return Color;
         }
     }
 }

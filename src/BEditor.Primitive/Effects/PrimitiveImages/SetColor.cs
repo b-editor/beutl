@@ -1,4 +1,5 @@
 ﻿using System.Collections.Generic;
+using System.Diagnostics.CodeAnalysis;
 
 using BEditor.Data;
 using BEditor.Data.Primitive;
@@ -24,33 +25,29 @@ namespace BEditor.Primitive.Effects
         /// <summary>
         /// Initializes a new instance of the <see cref="SetColor"/> class.
         /// </summary>
-#pragma warning disable CS8618
         public SetColor()
-#pragma warning restore CS8618
         {
         }
 
         /// <inheritdoc/>
         public override string Name => Strings.Monoc;
 
-        /// <inheritdoc/>
-        public override IEnumerable<PropertyElement> Properties
-        {
-            get
-            {
-                yield return Color;
-            }
-        }
-
         /// <summary>
-        /// Get the <see cref="ColorProperty"/> that represents the color to be monochromatic.
+        /// Gets the color to be monochromatic.
         /// </summary>
+        [AllowNull]
         public ColorProperty Color { get; private set; }
 
         /// <inheritdoc/>
-        public override void Render(EffectRenderArgs<Image<BGRA32>> args)
+        public override void Apply(EffectApplyArgs<Image<BGRA32>> args)
         {
             args.Value.SetColor(Color.Value);
+        }
+
+        /// <inheritdoc/>
+        public override IEnumerable<PropertyElement> GetProperties()
+        {
+            yield return Color;
         }
     }
 }

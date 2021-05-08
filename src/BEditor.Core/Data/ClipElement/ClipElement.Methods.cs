@@ -166,13 +166,13 @@ namespace BEditor.Data
         {
             try
             {
-                var loadargs = new EffectRenderArgs(args.Frame, args.Type);
+                var loadargs = new EffectApplyArgs(args.Frame, args.Type);
 
                 if (Effect[0] is ObjectElement obj)
                 {
                     if (!obj.IsEnabled) return;
 
-                    obj.Render(loadargs);
+                    obj.Apply(loadargs);
                 }
             }
             catch (Exception e)
@@ -190,7 +190,7 @@ namespace BEditor.Data
             try
             {
                 var enableEffects = Effect.Where(x => x.IsEnabled);
-                var loadargs = new EffectRenderArgs(args.Frame, args.Type);
+                var loadargs = new EffectApplyArgs(args.Frame, args.Type);
 
                 foreach (var item in enableEffects)
                 {

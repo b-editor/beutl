@@ -92,17 +92,6 @@ namespace BEditor.Primitive.Objects
         /// <inheritdoc/>
         public override string Name => Strings.Audio;
 
-        /// <inheritdoc/>
-        public override IEnumerable<PropertyElement> Properties => new PropertyElement[]
-        {
-            Coordinate,
-            Volume,
-            Pitch,
-            Start,
-            File,
-            SetLength,
-        };
-
         /// <summary>
         /// Get the coordinates.
         /// </summary>
@@ -167,7 +156,7 @@ namespace BEditor.Primitive.Objects
         public Sound<StereoPCMFloat>? Loaded { get; private set; }
 
         /// <inheritdoc/>
-        public override void Render(EffectRenderArgs args)
+        public override void Apply(EffectApplyArgs args)
         {
             if (args.Type is not RenderType.VideoPreview) return;
 
@@ -190,6 +179,17 @@ namespace BEditor.Primitive.Objects
                     StopIfPlaying();
                 });
             }
+        }
+
+        /// <inheritdoc/>
+        public override IEnumerable<PropertyElement> GetProperties()
+        {
+            yield return Coordinate;
+            yield return Volume;
+            yield return Pitch;
+            yield return Start;
+            yield return File;
+            yield return SetLength;
         }
 
         /// <inheritdoc/>
@@ -241,6 +241,22 @@ namespace BEditor.Primitive.Objects
             player.Stopped += Player_Stopped;
 
             player.Playing += Player_PlayingAsync;
+        }
+
+        /// <inheritdoc/>
+        protected override void OnUnload()
+        {
+            _disposable1?.Dispose();
+            _disposable2?.Dispose();
+            _source?.Dispose();
+            _source = null;
+            _mediaFile?.Dispose();
+            _mediaFile = null;
+
+            var player = Parent.Parent.Player;
+            player.Stopped -= Player_Stopped;
+
+            player.Playing -= Player_PlayingAsync;
         }
 
         private static Sound<StereoPCMFloat> GetAllFrame(AudioStream stream)
@@ -309,22 +325,6 @@ namespace BEditor.Primitive.Objects
             {
                 _source.Stop();
             }
-        }
-
-        /// <inheritdoc/>
-        protected override void OnUnload()
-        {
-            _disposable1?.Dispose();
-            _disposable2?.Dispose();
-            _source?.Dispose();
-            _source = null;
-            _mediaFile?.Dispose();
-            _mediaFile = null;
-
-            var player = Parent.Parent.Player;
-            player.Stopped -= Player_Stopped;
-
-            player.Playing -= Player_PlayingAsync;
         }
 
         /// <summary>
@@ -397,17 +397,6 @@ namespace BEditor.Primitive.Objects
             {
             }
 
-            /// <inheritdoc/>
-            public override IEnumerable<PropertyElement> Properties => new PropertyElement[]
-            {
-                X,
-                Y,
-                Z,
-                DirectionX,
-                DirectionY,
-                DirectionZ,
-            };
-
             /// <summary>
             /// Get the <see cref="EaseProperty"/> representing the X coordinate.
             /// </summary>
@@ -437,6 +426,17 @@ namespace BEditor.Primitive.Objects
             /// Get the <see cref="EaseProperty"/> representing the Z coordinate.
             /// </summary>
             public EaseProperty DirectionZ { get; private set; }
+
+            /// <inheritdoc/>
+            public override IEnumerable<PropertyElement> GetProperties()
+            {
+                yield return X;
+                yield return Y;
+                yield return Z;
+                yield return DirectionX;
+                yield return DirectionY;
+                yield return DirectionZ;
+            }
         }
 
         /// <summary>

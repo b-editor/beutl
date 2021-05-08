@@ -1,5 +1,6 @@
 ﻿using System;
 using System.Collections.Generic;
+using System.Diagnostics.CodeAnalysis;
 
 using BEditor.Resources;
 
@@ -51,43 +52,43 @@ namespace BEditor.Data.Property.PrimitiveGroup
         /// </summary>
         /// <param name="metadata">Metadata of this property.</param>
         /// <exception cref="ArgumentNullException"><paramref name="metadata"/> is <see langword="null"/>.</exception>
-#pragma warning disable CS8618
         public Scale(ScaleMetadata metadata) : base(metadata)
-#pragma warning restore CS8618
         {
         }
 
-        /// <inheritdoc/>
-        public override IEnumerable<PropertyElement> Properties
-        {
-            get
-            {
-                yield return Scale1;
-                yield return ScaleX;
-                yield return ScaleY;
-                yield return ScaleZ;
-            }
-        }
 
         /// <summary>
         /// Gets the EaseProperty representing the scale.
         /// </summary>
+        [AllowNull]
         public EaseProperty Scale1 { get; private set; }
 
         /// <summary>
-        /// Gets the <see cref="EaseProperty"/> that represents the scale in the Z-axis direction.
+        /// Gets the scale in the Z-axis direction.
         /// </summary>
+        [AllowNull]
         public EaseProperty ScaleX { get; private set; }
 
         /// <summary>
-        /// Gets the <see cref="EaseProperty"/> that represents the scale in the Y-axis direction.
+        /// Gets the scale in the Y-axis direction.
         /// </summary>
+        [AllowNull]
         public EaseProperty ScaleY { get; private set; }
 
         /// <summary>
-        /// Gets the <see cref="EaseProperty"/> that represents the scale in the Z-axis direction.
+        /// Gets the scale in the Z-axis direction.
         /// </summary>
+        [AllowNull]
         public EaseProperty ScaleZ { get; private set; }
+
+        /// <inheritdoc/>
+        public override IEnumerable<PropertyElement> GetProperties()
+        {
+            yield return Scale1;
+            yield return ScaleX;
+            yield return ScaleY;
+            yield return ScaleZ;
+        }
     }
 
     /// <summary>

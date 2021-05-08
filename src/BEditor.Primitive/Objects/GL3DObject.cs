@@ -1,4 +1,5 @@
 ﻿using System.Collections.Generic;
+using System.Diagnostics.CodeAnalysis;
 
 using BEditor.Data;
 using BEditor.Data.Primitive;
@@ -95,79 +96,69 @@ namespace BEditor.Primitive.Objects
         /// <summary>
         /// Initializes a new instance of the <see cref="GL3DObject"/> class.
         /// </summary>
-#pragma warning disable CS8618
         public GL3DObject()
-#pragma warning restore CS8618
         {
         }
 
         /// <inheritdoc/>
         public override string Name => Strings.GL3DObject;
 
-        /// <inheritdoc/>
-        public override IEnumerable<PropertyElement> Properties
-        {
-            get
-            {
-                yield return Coordinate;
-                yield return Scale;
-                yield return Blend;
-                yield return Rotate;
-                yield return Material;
-                yield return Type;
-                yield return Width;
-                yield return Height;
-                yield return Depth;
-            }
-        }
-
         /// <summary>
-        /// Get the coordinates.
+        /// Gets the coordinates.
         /// </summary>
+        [AllowNull]
         public Coordinate Coordinate { get; private set; }
 
         /// <summary>
-        /// Get the scale.
+        /// Gets the scale.
         /// </summary>
+        [AllowNull]
         public Scale Scale { get; private set; }
 
         /// <summary>
-        /// Get the blend.
+        /// Gets the blend.
         /// </summary>
+        [AllowNull]
         public Blend Blend { get; private set; }
 
         /// <summary>
-        /// Get the angle.
+        /// Gets the angle.
         /// </summary>
+        [AllowNull]
         public Rotate Rotate { get; private set; }
 
         /// <summary>
-        /// Get the material.
+        /// Gets the material.
         /// </summary>
+        [AllowNull]
         public Material Material { get; private set; }
 
         /// <summary>
-        /// Get the <see cref="SelectorProperty"/> to select the object type.
+        /// Gets the <see cref="SelectorProperty"/> to select the object type.
         /// </summary>
+        [AllowNull]
         public SelectorProperty Type { get; private set; }
 
         /// <summary>
-        /// Gets the <see cref="EaseProperty"/> representing the width of the object.
+        /// Gets the width of the object.
         /// </summary>
+        [AllowNull]
         public EaseProperty Width { get; private set; }
 
         /// <summary>
-        /// Gets the <see cref="EaseProperty"/> representing the height of the object.
+        /// Gets the height of the object.
         /// </summary>
+        [AllowNull]
         public EaseProperty Height { get; private set; }
 
         /// <summary>
-        /// Gets the <see cref="EaseProperty"/> representing the depth of the object.
+        /// Gets the depth of the object.
         /// </summary>
+        [AllowNull]
         public EaseProperty Depth { get; private set; }
 
         /// <inheritdoc/>
-        public override void Render(EffectRenderArgs args)
+        public override void Apply(EffectApplyArgs args)
         {
             int frame = args.Frame;
             var color = Blend.Color[frame];
@@ -213,6 +204,20 @@ namespace BEditor.Primitive.Objects
             }
 
             Coordinate.ResetOptional();
+        }
+
+        /// <inheritdoc/>
+        public override IEnumerable<PropertyElement> GetProperties()
+        {
+            yield return Coordinate;
+            yield return Scale;
+            yield return Blend;
+            yield return Rotate;
+            yield return Material;
+            yield return Type;
+            yield return Width;
+            yield return Height;
+            yield return Depth;
         }
     }
 }

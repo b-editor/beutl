@@ -1,4 +1,5 @@
 ﻿using System.Collections.Generic;
+using System.Diagnostics.CodeAnalysis;
 
 using BEditor.Data;
 using BEditor.Data.Primitive;
@@ -48,54 +49,53 @@ namespace BEditor.Primitive.Objects
         /// <summary>
         /// Iniitializes a new instance of the <see cref="Polygon"/> class.
         /// </summary>
-#pragma warning disable CS8618
         public Polygon()
-#pragma warning restore CS8618
         {
         }
 
         /// <inheritdoc/>
         public override string Name => Strings.Polygon;
 
-        /// <inheritdoc/>
-        public override IEnumerable<PropertyElement> Properties
-        {
-            get
-            {
-                yield return Coordinate;
-                yield return Scale;
-                yield return Blend;
-                yield return Rotate;
-                yield return Material;
-                yield return Width;
-                yield return Height;
-                yield return Number;
-                yield return Color;
-            }
-        }
-
         /// <summary>
-        /// Get the <see cref="EaseProperty"/> that represents the width of the polygon.
+        /// Gest the width of the polygon.
         /// </summary>
+        [AllowNull]
         public EaseProperty Width { get; private set; }
 
         /// <summary>
-        /// Get the <see cref="EaseProperty"/> that represents the height of the polygon.
+        /// Gets the height of the polygon.
         /// </summary>
+        [AllowNull]
         public EaseProperty Height { get; private set; }
 
         /// <summary>
-        /// Gets the <see cref="ValueProperty"/> representing the number of corners of a polygon.
+        /// Gets the number of corners of a polygon.
         /// </summary>
+        [AllowNull]
         public ValueProperty Number { get; private set; }
 
         /// <summary>
-        /// Get the <see cref="ColorProperty"/> that represents the color of the polygon.
+        /// Get the color of the polygon.
         /// </summary>
+        [AllowNull]
         public ColorProperty Color { get; private set; }
 
         /// <inheritdoc/>
-        protected override Image<BGRA32> OnRender(EffectRenderArgs args)
+        public override IEnumerable<PropertyElement> GetProperties()
+        {
+            yield return Coordinate;
+            yield return Scale;
+            yield return Blend;
+            yield return Rotate;
+            yield return Material;
+            yield return Width;
+            yield return Height;
+            yield return Number;
+            yield return Color;
+        }
+
+        /// <inheritdoc/>
+        protected override Image<BGRA32> OnRender(EffectApplyArgs args)
         {
             var width = (int)Width[args.Frame];
             var height = (int)Height[args.Frame];

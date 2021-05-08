@@ -1,5 +1,6 @@
 ﻿using System;
 using System.Collections.Generic;
+using System.Diagnostics.CodeAnalysis;
 
 using BEditor.Drawing;
 using BEditor.Resources;
@@ -52,43 +53,42 @@ namespace BEditor.Data.Property.PrimitiveGroup
         /// </summary>
         /// <param name="metadata">Metadata of this property.</param>
         /// <exception cref="ArgumentNullException"><paramref name="metadata"/> is <see langword="null"/>.</exception>
-#pragma warning disable CS8618
         public Material(MaterialMetadata metadata) : base(metadata)
-#pragma warning restore CS8618
         {
-        }
-
-        /// <inheritdoc/>
-        public override IEnumerable<PropertyElement> Properties
-        {
-            get
-            {
-                yield return Ambient;
-                yield return Diffuse;
-                yield return Specular;
-                yield return Shininess;
-            }
         }
 
         /// <summary>
-        /// Gets the <see cref="ColorAnimationProperty"/> representing the ambient.
+        /// Gets the ambient.
         /// </summary>
+        [AllowNull]
         public ColorAnimationProperty Ambient { get; private set; }
 
         /// <summary>
-        /// Gets the <see cref="ColorAnimationProperty"/> representing the diffuse.
+        /// Gets the diffuse.
         /// </summary>
+        [AllowNull]
         public ColorAnimationProperty Diffuse { get; private set; }
 
         /// <summary>
-        /// Gets the <see cref="ColorAnimationProperty"/> representing the shininess.
+        /// Gets the shininess.
         /// </summary>
+        [AllowNull]
         public ColorAnimationProperty Specular { get; private set; }
 
         /// <summary>
-        /// Gets the <see cref="EaseProperty"/> representing the shininess.
+        /// Gets the shininess.
         /// </summary>
+        [AllowNull]
         public EaseProperty Shininess { get; private set; }
+
+        /// <inheritdoc/>
+        public override IEnumerable<PropertyElement> GetProperties()
+        {
+            yield return Ambient;
+            yield return Diffuse;
+            yield return Specular;
+            yield return Shininess;
+        }
     }
 
     /// <summary>

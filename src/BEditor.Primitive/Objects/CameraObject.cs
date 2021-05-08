@@ -1,4 +1,5 @@
 ﻿using System.Collections.Generic;
+using System.Diagnostics.CodeAnalysis;
 using System.Linq;
 
 using BEditor.Data;
@@ -11,7 +12,7 @@ namespace BEditor.Primitive.Objects
     /// <summary>
     /// Represents an <see cref="ObjectElement"/> that sets the camera for OpenGL.
     /// </summary>
-    public class CameraObject : ObjectElement
+    public sealed class CameraObject : ObjectElement
     {
         /// <summary>
         /// Defines the <see cref="X"/> property.
@@ -115,91 +116,81 @@ namespace BEditor.Primitive.Objects
         /// <summary>
         /// Initializes a new instance <see cref="CameraObject"/> class.
         /// </summary>
-#pragma warning disable CS8618
         public CameraObject()
-#pragma warning restore CS8618
         {
         }
 
         /// <inheritdoc/>
         public override string Name => Strings.Camera;
 
-        /// <inheritdoc/>
-        public override IEnumerable<PropertyElement> Properties
-        {
-            get
-            {
-                yield return X;
-                yield return Y;
-                yield return Z;
-                yield return TargetX;
-                yield return TargetY;
-                yield return TargetZ;
-                yield return ZNear;
-                yield return ZFar;
-                yield return Angle;
-                yield return Fov;
-                yield return Mode;
-            }
-        }
-
         /// <summary>
-        /// Gets the <see cref="EaseProperty"/> representing the X coordinate of the camera.
+        /// Gets the X coordinate of the camera.
         /// </summary>
+        [AllowNull]
         public EaseProperty X { get; private set; }
 
         /// <summary>
-        /// Gets the <see cref="EaseProperty"/> representing the Y coordinate of the camera.
+        /// Gets the Y coordinate of the camera.
         /// </summary>
+        [AllowNull]
         public EaseProperty Y { get; private set; }
 
         /// <summary>
-        /// Gets the <see cref="EaseProperty"/> representing the Z coordinate of the camera.
+        /// Gets the Z coordinate of the camera.
         /// </summary>
+        [AllowNull]
         public EaseProperty Z { get; private set; }
 
         /// <summary>
-        /// Get the <see cref="EaseProperty"/> that represents the X coordinate of the camera's target position.
+        /// Gets the X coordinate of the camera's target position.
         /// </summary>
+        [AllowNull]
         public EaseProperty TargetX { get; private set; }
 
         /// <summary>
-        /// Get the <see cref="EaseProperty"/> that represents the Y coordinate of the camera's target position.
+        /// Gets  Y coordinate of the camera's target position.
         /// </summary>
+        [AllowNull]
         public EaseProperty TargetY { get; private set; }
 
         /// <summary>
-        /// Get the <see cref="EaseProperty"/> that represents the Z coordinate of the camera's target position.
+        /// Gets the Z coordinate of the camera's target position.
         /// </summary>
+        [AllowNull]
         public EaseProperty TargetZ { get; private set; }
 
         /// <summary>
-        /// Get the <see cref="EaseProperty"/> of the area to be drawn by the camera.
+        /// Gets the area to be drawn by the camera.
         /// </summary>
+        [AllowNull]
         public EaseProperty ZNear { get; private set; }
 
         /// <summary>
-        /// Get the <see cref="EaseProperty"/> of the area to be drawn by the camera.
+        /// Gets the area to be drawn by the camera.
         /// </summary>
+        [AllowNull]
         public EaseProperty ZFar { get; private set; }
 
         /// <summary>
-        /// Get the <see cref="EaseProperty"/> representing the camera angle.
+        /// Gets the camera angle.
         /// </summary>
+        [AllowNull]
         public EaseProperty Angle { get; private set; }
 
         /// <summary>
-        /// Get the <see cref="EaseProperty"/> representing the camera fov.
+        /// Gets the camera fov.
         /// </summary>
+        [AllowNull]
         public EaseProperty Fov { get; private set; }
 
         /// <summary>
-        /// Gets the <see cref="CheckProperty"/> representing whether the camera is Perspective or not.
+        /// Gets whether the camera is Perspective or not.
         /// </summary>
+        [AllowNull]
         public CheckProperty Mode { get; private set; }
 
         /// <inheritdoc/>
-        public override void Render(EffectRenderArgs args)
+        public override void Apply(EffectApplyArgs args)
         {
             int frame = args.Frame;
             var scene = Parent!.Parent!;
@@ -232,8 +223,24 @@ namespace BEditor.Primitive.Objects
             {
                 var effect = list[i];
 
-                effect.Render(args);
+                effect.Apply(args);
             }
+        }
+
+        /// <inheritdoc/>
+        public override IEnumerable<PropertyElement> GetProperties()
+        {
+            yield return X;
+            yield return Y;
+            yield return Z;
+            yield return TargetX;
+            yield return TargetY;
+            yield return TargetZ;
+            yield return ZNear;
+            yield return ZFar;
+            yield return Angle;
+            yield return Fov;
+            yield return Mode;
         }
     }
 }

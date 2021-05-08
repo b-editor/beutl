@@ -1,4 +1,5 @@
 ﻿using System.Collections.Generic;
+using System.Diagnostics.CodeAnalysis;
 
 using BEditor.Data;
 using BEditor.Data.Primitive;
@@ -9,7 +10,9 @@ using BEditor.Primitive.Resources;
 
 namespace BEditor.Primitive.Effects
 {
-#pragma warning disable CS1591
+    /// <summary>
+    /// 
+    /// </summary>
     public sealed class Negaposi : ImageEffect
     {
         /// <summary>
@@ -39,24 +42,36 @@ namespace BEditor.Primitive.Effects
             (owner, obj) => owner.Blue = obj,
             new EasePropertyMetadata(Strings.Blue, 255, 255, 0));
 
-#pragma warning disable CS8618
+        /// <summary>
+        /// Initializes a new instance of the <see cref="Negaposi"/> class.
+        /// </summary>
         public Negaposi()
-#pragma warning restore CS8618
         {
         }
 
+        /// <inheritdoc/>
         public override string Name => Strings.Negaposi;
-        public override IEnumerable<PropertyElement> Properties => new PropertyElement[]
-        {
-            Red,
-            Green,
-            Blue
-        };
-        public EaseProperty Red { get; set; }
-        public EaseProperty Green { get; set; }
-        public EaseProperty Blue { get; set; }
 
-        public override void Render(EffectRenderArgs<Image<BGRA32>> args)
+        /// <summary>
+        /// Gets the red.
+        /// </summary>
+        [AllowNull]
+        public EaseProperty Red { get; private set; }
+
+        /// <summary>
+        /// Gets the green.
+        /// </summary>
+        [AllowNull]
+        public EaseProperty Green { get; private set; }
+
+        /// <summary>
+        /// Gets the blue.
+        /// </summary>
+        [AllowNull]
+        public EaseProperty Blue { get; private set; }
+
+        /// <inheritdoc/>
+        public override void Apply(EffectApplyArgs<Image<BGRA32>> args)
         {
             args.Value.Negaposi(
                 (byte)Red[args.Frame],
@@ -64,6 +79,13 @@ namespace BEditor.Primitive.Effects
                 (byte)Blue[args.Frame],
                 Parent.Parent.DrawingContext);
         }
+
+        /// <inheritdoc/>
+        public override IEnumerable<PropertyElement> GetProperties()
+        {
+            yield return Red;
+            yield return Green;
+            yield return Blue;
+        }
     }
-#pragma warning restore CS1591
 }

@@ -16,7 +16,7 @@ namespace SourceGenerator.Tests
         public override string Name { get; }
         public override IEnumerable<PropertyElement> Properties { get; }
 
-        public override void Render(EffectRenderArgs args)
+        public override void Apply(EffectApplyArgs args)
         {
             _ = Color;
             _ = Value;

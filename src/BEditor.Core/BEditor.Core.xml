@@ -1239,6 +1239,47 @@
             </summary>
             <returns>Returns the created local value.</returns>
         </member>
+        <member name="T:BEditor.Data.EffectApplyArgs">
+            <summary>
+            Represents data that is passed to <see cref="T:BEditor.Data.EffectElement"/> when it is applied.
+            </summary>
+        </member>
+        <member name="M:BEditor.Data.EffectApplyArgs.#ctor(BEditor.Media.Frame,BEditor.Data.RenderType)">
+            <summary>
+            Initializes a new instance of the <see cref="T:BEditor.Data.EffectApplyArgs"/> class.
+            </summary>
+        </member>
+        <member name="P:BEditor.Data.EffectApplyArgs.Frame">
+            <summary>
+            Gets the frame to render.
+            </summary>
+        </member>
+        <member name="P:BEditor.Data.EffectApplyArgs.Handled">
+            <summary>
+            Gets or sets a value that indicates the current state of the process.
+            </summary>
+        </member>
+        <member name="P:BEditor.Data.EffectApplyArgs.Type">
+            <summary>
+            Gets the rendering type.
+            </summary>
+        </member>
+        <member name="T:BEditor.Data.EffectApplyArgs`1">
+            <summary>
+            Represents data that is passed to <see cref="T:BEditor.Data.EffectElement"/> when it is applied.
+            </summary>
+            <typeparam name="T">The type of value to pass to the <see cref="M:BEditor.Data.EffectElement.Apply(BEditor.Data.EffectApplyArgs)"/> method.</typeparam>
+        </member>
+        <member name="M:BEditor.Data.EffectApplyArgs`1.#ctor(BEditor.Media.Frame,`0,BEditor.Data.RenderType)">
+            <summary>
+            Initializes a new instance of the <see cref="T:BEditor.Data.EffectApplyArgs"/> class.
+            </summary>
+        </member>
+        <member name="P:BEditor.Data.EffectApplyArgs`1.Value">
+            <summary>
+            Gets or sets the value used to apply the effect.
+            </summary>
+        </member>
         <member name="T:BEditor.Data.EffectElement">
             <summary>
             Represents a base class of the effect.
@@ -1264,23 +1305,23 @@
             </summary>
             <remarks><see langword="true"/> if the expander is open, otherwise <see langword="false"/>.</remarks>
         </member>
-        <member name="P:BEditor.Data.EffectElement.Properties">
+        <member name="P:BEditor.Data.EffectElement.Parent">
+            <inheritdoc/>
+        </member>
+        <member name="M:BEditor.Data.EffectElement.GetProperties">
             <summary>
             Gets the <see cref="T:BEditor.Data.Property.PropertyElement"/> to display on the GUI.
             </summary>
         </member>
-        <member name="P:BEditor.Data.EffectElement.Parent">
-            <inheritdoc/>
-        </member>
         <member name="M:BEditor.Data.EffectElement.Clone">
             <inheritdoc/>
         </member>
-        <member name="M:BEditor.Data.EffectElement.Render(BEditor.Data.EffectRenderArgs)">
+        <member name="M:BEditor.Data.EffectElement.Apply(BEditor.Data.EffectApplyArgs)">
             <summary>
-            It is called at rendering time.
+            Apply the effect.
             </summary>
         </member>
-        <member name="M:BEditor.Data.EffectElement.PreviewRender(BEditor.Data.EffectRenderArgs)">
+        <member name="M:BEditor.Data.EffectElement.PreviewRender(BEditor.Data.EffectApplyArgs)">
             <summary>
             It will be called before rendering.
             </summary>
@@ -1365,10 +1406,10 @@
         <member name="P:BEditor.Data.EffectElement.EmptyClass.Name">
             <inheritdoc/>
         </member>
-        <member name="P:BEditor.Data.EffectElement.EmptyClass.Properties">
+        <member name="M:BEditor.Data.EffectElement.EmptyClass.GetProperties">
             <inheritdoc/>
         </member>
-        <member name="M:BEditor.Data.EffectElement.EmptyClass.Render(BEditor.Data.EffectRenderArgs)">
+        <member name="M:BEditor.Data.EffectElement.EmptyClass.Apply(BEditor.Data.EffectApplyArgs)">
             <inheritdoc/>
         </member>
         <member name="T:BEditor.Data.EffectMetadata">
@@ -1417,47 +1458,6 @@
             <typeparam name="T">The type of object that inherits from <see cref="T:BEditor.Data.EffectElement"/>.</typeparam>
             <param name="Name">The name of the effect element.</param>
             <returns>A new instance of <see cref="T:BEditor.Data.EffectMetadata"/>.</returns>
-        </member>
-        <member name="T:BEditor.Data.EffectRenderArgs">
-            <summary>
-            Represents a data to be passed to the <see cref="T:BEditor.Data.EffectElement"/> at rendering time.
-            </summary>
-        </member>
-        <member name="M:BEditor.Data.EffectRenderArgs.#ctor(BEditor.Media.Frame,BEditor.Data.RenderType)">
-            <summary>
-            Initializes a new instance of the <see cref="T:BEditor.Data.EffectRenderArgs"/> class.
-            </summary>
-        </member>
-        <member name="P:BEditor.Data.EffectRenderArgs.Frame">
-            <summary>
-            Gets the frame to render.
-            </summary>
-        </member>
-        <member name="P:BEditor.Data.EffectRenderArgs.Handled">
-            <summary>
-            Gets or sets a value that indicates the current state of the process.
-            </summary>
-        </member>
-        <member name="P:BEditor.Data.EffectRenderArgs.Type">
-            <summary>
-            Gets the rendering type.
-            </summary>
-        </member>
-        <member name="T:BEditor.Data.EffectRenderArgs`1">
-            <summary>
-            Represents a data to be passed to the <see cref="T:BEditor.Data.EffectElement"/> at rendering time.
-            </summary>
-            <typeparam name="T">The type of value to pass to the <see cref="M:BEditor.Data.EffectElement.Render(BEditor.Data.EffectRenderArgs)"/> method.</typeparam>
-        </member>
-        <member name="M:BEditor.Data.EffectRenderArgs`1.#ctor(BEditor.Media.Frame,`0,BEditor.Data.RenderType)">
-            <summary>
-            Initializes a new instance of the <see cref="T:BEditor.Data.EffectRenderArgs"/> class.
-            </summary>
-        </member>
-        <member name="P:BEditor.Data.EffectRenderArgs`1.Value">
-            <summary>
-            Gets or sets the value used to render the effect.
-            </summary>
         </member>
         <member name="T:BEditor.Data.IChild`1">
             <summary>
@@ -1656,13 +1656,13 @@
             Represents an effect that can be added to an <see cref="T:BEditor.Data.Primitive.ImageObject"/>.
             </summary>
         </member>
-        <member name="M:BEditor.Data.Primitive.ImageEffect.Render(BEditor.Data.EffectRenderArgs{BEditor.Drawing.Image{BEditor.Drawing.Pixel.BGRA32}})">
-            <inheritdoc cref="M:BEditor.Data.Primitive.ImageEffect.Render(BEditor.Data.EffectRenderArgs{BEditor.Drawing.Image{BEditor.Drawing.Pixel.BGRA32}})"/>
+        <member name="M:BEditor.Data.Primitive.ImageEffect.Apply(BEditor.Data.EffectApplyArgs{BEditor.Drawing.Image{BEditor.Drawing.Pixel.BGRA32}})">
+            <inheritdoc cref="M:BEditor.Data.Primitive.ImageEffect.Apply(BEditor.Data.EffectApplyArgs{BEditor.Drawing.Image{BEditor.Drawing.Pixel.BGRA32}})"/>
         </member>
-        <member name="M:BEditor.Data.Primitive.ImageEffect.Render(BEditor.Data.EffectRenderArgs{System.Collections.Generic.IEnumerable{BEditor.Graphics.ImageInfo}})">
-            <inheritdoc cref="M:BEditor.Data.Primitive.ImageEffect.Render(BEditor.Data.EffectRenderArgs{BEditor.Drawing.Image{BEditor.Drawing.Pixel.BGRA32}})"/>
+        <member name="M:BEditor.Data.Primitive.ImageEffect.Apply(BEditor.Data.EffectApplyArgs{System.Collections.Generic.IEnumerable{BEditor.Graphics.ImageInfo}})">
+            <inheritdoc cref="M:BEditor.Data.Primitive.ImageEffect.Apply(BEditor.Data.EffectApplyArgs{BEditor.Drawing.Image{BEditor.Drawing.Pixel.BGRA32}})"/>
         </member>
-        <member name="M:BEditor.Data.Primitive.ImageEffect.Render(BEditor.Data.EffectRenderArgs)">
+        <member name="M:BEditor.Data.Primitive.ImageEffect.Apply(BEditor.Data.EffectApplyArgs)">
             <inheritdoc/>
         </member>
         <member name="T:BEditor.Data.Primitive.ImageObject">
@@ -1728,7 +1728,7 @@
             Gets the material.
             </summary>
         </member>
-        <member name="M:BEditor.Data.Primitive.ImageObject.Render(BEditor.Data.EffectRenderArgs)">
+        <member name="M:BEditor.Data.Primitive.ImageObject.Apply(BEditor.Data.EffectApplyArgs)">
             <inheritdoc/>
         </member>
         <member name="M:BEditor.Data.Primitive.ImageObject.GetTransform(BEditor.Media.Frame)">
@@ -1738,7 +1738,7 @@
             <param name="frame">取得するフレームです.</param>
             <returns><see cref="P:BEditor.Data.Primitive.ImageObject.Coordinate"/>, <see cref="P:BEditor.Data.Primitive.ImageObject.Scale"/>, <see cref="P:BEditor.Data.Primitive.ImageObject.Rotate"/> の値から作成された <see cref="T:BEditor.Graphics.Transform"/>.</returns>
         </member>
-        <member name="M:BEditor.Data.Primitive.ImageObject.Render(BEditor.Data.EffectRenderArgs,BEditor.Drawing.Image{BEditor.Drawing.Pixel.BGRA32}@)">
+        <member name="M:BEditor.Data.Primitive.ImageObject.Render(BEditor.Data.EffectApplyArgs,BEditor.Drawing.Image{BEditor.Drawing.Pixel.BGRA32}@)">
             <summary>
             Render the image.
             </summary>
@@ -1746,11 +1746,11 @@
         <member name="M:BEditor.Data.Primitive.ImageObject.EffectFilter(BEditor.Data.EffectElement)">
             <inheritdoc/>
         </member>
-        <member name="M:BEditor.Data.Primitive.ImageObject.OnRender(BEditor.Data.EffectRenderArgs)">
-            <inheritdoc cref="M:BEditor.Data.Primitive.ImageObject.Render(BEditor.Data.EffectRenderArgs)"/>
+        <member name="M:BEditor.Data.Primitive.ImageObject.OnRender(BEditor.Data.EffectApplyArgs)">
+            <inheritdoc cref="M:BEditor.Data.Primitive.ImageObject.Apply(BEditor.Data.EffectApplyArgs)"/>
         </member>
-        <member name="M:BEditor.Data.Primitive.ImageObject.OnRender(BEditor.Data.EffectRenderArgs{System.Collections.Generic.IEnumerable{BEditor.Graphics.ImageInfo}})">
-            <inheritdoc cref="M:BEditor.Data.Primitive.ImageObject.Render(BEditor.Data.EffectRenderArgs)"/>
+        <member name="M:BEditor.Data.Primitive.ImageObject.OnRender(BEditor.Data.EffectApplyArgs{System.Collections.Generic.IEnumerable{BEditor.Graphics.ImageInfo}})">
+            <inheritdoc cref="M:BEditor.Data.Primitive.ImageObject.Apply(BEditor.Data.EffectApplyArgs)"/>
         </member>
         <member name="T:BEditor.Data.SaveType">
             <summary>
@@ -2399,16 +2399,16 @@
             Represents an easing function that can be used with <see cref="T:BEditor.Data.Property.IKeyframeProperty"/>.
             </summary>
         </member>
-        <member name="P:BEditor.Data.Property.Easing.EasingFunc.Properties">
-            <summary>
-            Gets the <see cref="T:BEditor.Data.Property.PropertyElement"/> to display on the GUI.
-            </summary>
-        </member>
         <member name="P:BEditor.Data.Property.Easing.EasingFunc.Children">
             <inheritdoc/>
         </member>
         <member name="P:BEditor.Data.Property.Easing.EasingFunc.Parent">
             <inheritdoc/>
+        </member>
+        <member name="M:BEditor.Data.Property.Easing.EasingFunc.GetProperties">
+            <summary>
+            Gets the <see cref="T:BEditor.Data.Property.PropertyElement"/> to display on the GUI.
+            </summary>
         </member>
         <member name="M:BEditor.Data.Property.Easing.EasingFunc.EaseFunc(BEditor.Media.Frame,BEditor.Media.Frame,System.Single,System.Single)">
             <summary>
@@ -2477,9 +2477,6 @@
             Initializes a new instance of the <see cref="T:BEditor.Data.Property.Easing.PrimitiveEasing"/> class.
             </summary>
         </member>
-        <member name="P:BEditor.Data.Property.Easing.PrimitiveEasing.Properties">
-            <inheritdoc/>
-        </member>
         <member name="P:BEditor.Data.Property.Easing.PrimitiveEasing.EasingType">
             <summary>
             Gets the <see cref="T:BEditor.Data.Property.SelectorProperty"/> to select the easing function.
@@ -2492,6 +2489,9 @@
             <inheritdoc/>
         </member>
         <member name="M:BEditor.Data.Property.Easing.PrimitiveEasing.OnUnload">
+            <inheritdoc/>
+        </member>
+        <member name="M:BEditor.Data.Property.Easing.PrimitiveEasing.GetProperties">
             <inheritdoc/>
         </member>
         <member name="T:BEditor.Data.Property.ExpandGroup">
@@ -2809,11 +2809,6 @@
         <member name="E:BEditor.Data.Property.Group.BEditor#Data#Property#IKeyframeProperty#Moved">
             <inheritdoc/>
         </member>
-        <member name="P:BEditor.Data.Property.Group.Properties">
-            <summary>
-            Get the <see cref="T:BEditor.Data.Property.PropertyElement"/> to display on the GUI.
-            </summary>
-        </member>
         <member name="P:BEditor.Data.Property.Group.Children">
             <inheritdoc/>
         </member>
@@ -2834,6 +2829,11 @@
         </member>
         <member name="M:BEditor.Data.Property.Group.BEditor#Data#Property#IKeyframeProperty#RemoveFrame(BEditor.Media.Frame)">
             <inheritdoc/>
+        </member>
+        <member name="M:BEditor.Data.Property.Group.GetProperties">
+            <summary>
+            Gets the <see cref="T:BEditor.Data.Property.PropertyElement"/> to display on the GUI.
+            </summary>
         </member>
         <member name="M:BEditor.Data.Property.Group.GetObjectData(System.Text.Json.Utf8JsonWriter)">
             <inheritdoc/>
@@ -3272,23 +3272,23 @@
             <param name="metadata">Metadata of this property.</param>
             <exception cref="T:System.ArgumentNullException"><paramref name="metadata"/> is <see langword="null"/>.</exception>
         </member>
-        <member name="P:BEditor.Data.Property.PrimitiveGroup.Blend.Properties">
-            <inheritdoc/>
-        </member>
         <member name="P:BEditor.Data.Property.PrimitiveGroup.Blend.Opacity">
             <summary>
-            Gets the <see cref="T:BEditor.Data.Property.EaseProperty"/> that represents the transparency.
+            Gets the opacity.
             </summary>
         </member>
         <member name="P:BEditor.Data.Property.PrimitiveGroup.Blend.Color">
             <summary>
-            Gets the <see cref="T:BEditor.Data.Property.ColorAnimationProperty"/> that represents a color.
+            Gets the color.
             </summary>
         </member>
         <member name="P:BEditor.Data.Property.PrimitiveGroup.Blend.BlendType">
             <summary>
-            Gets the <see cref="T:BEditor.Data.Property.SelectorProperty"/> that selects the BlendFunc.
+            Gets the BlendFunc.
             </summary>
+        </member>
+        <member name="M:BEditor.Data.Property.PrimitiveGroup.Blend.GetProperties">
+            <inheritdoc/>
         </member>
         <member name="T:BEditor.Data.Property.PrimitiveGroup.BlendMetadata">
             <summary>
@@ -3347,9 +3347,6 @@
             <param name="metadata">Metadata of this property.</param>
             <exception cref="T:System.ArgumentNullException"><paramref name="metadata"/> is <see langword="null"/>.</exception>
         </member>
-        <member name="P:BEditor.Data.Property.PrimitiveGroup.Coordinate.Properties">
-            <inheritdoc/>
-        </member>
         <member name="P:BEditor.Data.Property.PrimitiveGroup.Coordinate.X">
             <summary>
             Gets the X coordinate.
@@ -3379,6 +3376,9 @@
             <summary>
             Gets the Z coordinate of the center.
             </summary>
+        </member>
+        <member name="M:BEditor.Data.Property.PrimitiveGroup.Coordinate.GetProperties">
+            <inheritdoc/>
         </member>
         <member name="M:BEditor.Data.Property.PrimitiveGroup.Coordinate.ResetOptional">
             <summary>
@@ -3432,28 +3432,28 @@
             <param name="metadata">Metadata of this property.</param>
             <exception cref="T:System.ArgumentNullException"><paramref name="metadata"/> is <see langword="null"/>.</exception>
         </member>
-        <member name="P:BEditor.Data.Property.PrimitiveGroup.Material.Properties">
-            <inheritdoc/>
-        </member>
         <member name="P:BEditor.Data.Property.PrimitiveGroup.Material.Ambient">
             <summary>
-            Gets the <see cref="T:BEditor.Data.Property.ColorAnimationProperty"/> representing the ambient.
+            Gets the ambient.
             </summary>
         </member>
         <member name="P:BEditor.Data.Property.PrimitiveGroup.Material.Diffuse">
             <summary>
-            Gets the <see cref="T:BEditor.Data.Property.ColorAnimationProperty"/> representing the diffuse.
+            Gets the diffuse.
             </summary>
         </member>
         <member name="P:BEditor.Data.Property.PrimitiveGroup.Material.Specular">
             <summary>
-            Gets the <see cref="T:BEditor.Data.Property.ColorAnimationProperty"/> representing the shininess.
+            Gets the shininess.
             </summary>
         </member>
         <member name="P:BEditor.Data.Property.PrimitiveGroup.Material.Shininess">
             <summary>
-            Gets the <see cref="T:BEditor.Data.Property.EaseProperty"/> representing the shininess.
+            Gets the shininess.
             </summary>
+        </member>
+        <member name="M:BEditor.Data.Property.PrimitiveGroup.Material.GetProperties">
+            <inheritdoc/>
         </member>
         <member name="T:BEditor.Data.Property.PrimitiveGroup.MaterialMetadata">
             <summary>
@@ -3497,9 +3497,6 @@
             <param name="metadata">Metadata of this property.</param>
             <exception cref="T:System.ArgumentNullException"><paramref name="metadata"/> is <see langword="null"/>.</exception>
         </member>
-        <member name="P:BEditor.Data.Property.PrimitiveGroup.Rotate.Properties">
-            <inheritdoc/>
-        </member>
         <member name="P:BEditor.Data.Property.PrimitiveGroup.Rotate.RotateX">
             <summary>
             Gets the <see cref="T:BEditor.Data.Property.EaseProperty"/> of the X-axis angle.
@@ -3514,6 +3511,9 @@
             <summary>
             Gets the <see cref="T:BEditor.Data.Property.EaseProperty"/> of the Z-axis angle.
             </summary>
+        </member>
+        <member name="M:BEditor.Data.Property.PrimitiveGroup.Rotate.GetProperties">
+            <inheritdoc/>
         </member>
         <member name="T:BEditor.Data.Property.PrimitiveGroup.RotateMetadata">
             <summary>
@@ -3562,9 +3562,6 @@
             <param name="metadata">Metadata of this property.</param>
             <exception cref="T:System.ArgumentNullException"><paramref name="metadata"/> is <see langword="null"/>.</exception>
         </member>
-        <member name="P:BEditor.Data.Property.PrimitiveGroup.Scale.Properties">
-            <inheritdoc/>
-        </member>
         <member name="P:BEditor.Data.Property.PrimitiveGroup.Scale.Scale1">
             <summary>
             Gets the EaseProperty representing the scale.
@@ -3572,18 +3569,21 @@
         </member>
         <member name="P:BEditor.Data.Property.PrimitiveGroup.Scale.ScaleX">
             <summary>
-            Gets the <see cref="T:BEditor.Data.Property.EaseProperty"/> that represents the scale in the Z-axis direction.
+            Gets the scale in the Z-axis direction.
             </summary>
         </member>
         <member name="P:BEditor.Data.Property.PrimitiveGroup.Scale.ScaleY">
             <summary>
-            Gets the <see cref="T:BEditor.Data.Property.EaseProperty"/> that represents the scale in the Y-axis direction.
+            Gets the scale in the Y-axis direction.
             </summary>
         </member>
         <member name="P:BEditor.Data.Property.PrimitiveGroup.Scale.ScaleZ">
             <summary>
-            Gets the <see cref="T:BEditor.Data.Property.EaseProperty"/> that represents the scale in the Z-axis direction.
+            Gets the scale in the Z-axis direction.
             </summary>
+        </member>
+        <member name="M:BEditor.Data.Property.PrimitiveGroup.Scale.GetProperties">
+            <inheritdoc/>
         </member>
         <member name="T:BEditor.Data.Property.PrimitiveGroup.ScaleMetadata">
             <summary>

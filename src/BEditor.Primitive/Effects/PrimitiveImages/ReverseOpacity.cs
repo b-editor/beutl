@@ -1,5 +1,6 @@
 ﻿using System;
 using System.Collections.Generic;
+using System.Linq;
 
 using BEditor.Data;
 using BEditor.Data.Primitive;
@@ -13,27 +14,21 @@ namespace BEditor.Primitive.Effects
     /// <summary>
     /// Represents an effect that reverses the opacity of an image.
     /// </summary>
-    public class ReverseOpacity : ImageEffect
+    public sealed class ReverseOpacity : ImageEffect
     {
         /// <inheritdoc/>
         public override string Name => Strings.ReverseOpacity;
 
         /// <inheritdoc/>
-        public override IEnumerable<PropertyElement> Properties => Array.Empty<PropertyElement>();
+        public override void Apply(EffectApplyArgs<Image<BGRA32>> args)
+        {
+            args.Value.ReverseOpacity(Parent.Parent.DrawingContext);
+        }
 
         /// <inheritdoc/>
-        public override void Render(EffectRenderArgs<Image<BGRA32>> args)
+        public override IEnumerable<PropertyElement> GetProperties()
         {
-            var context = Parent.Parent.DrawingContext;
-
-            if (context is not null && Settings.Default.PrioritizeGPU)
-            {
-                args.Value.ReverseOpacity(context);
-            }
-            else
-            {
-                args.Value.ReverseOpacity();
-            }
+            return Enumerable.Empty<PropertyElement>();
         }
     }
 }

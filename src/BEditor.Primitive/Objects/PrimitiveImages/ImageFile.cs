@@ -1,4 +1,5 @@
 ﻿using System.Collections.Generic;
+using System.Diagnostics.CodeAnalysis;
 using System.IO;
 using System.Reactive.Linq;
 
@@ -36,38 +37,34 @@ namespace BEditor.Primitive.Objects
         /// <summary>
         /// Initializes a new instance of the <see cref="ImageFile"/> class.
         /// </summary>
-#pragma warning disable CS8618
         public ImageFile()
-#pragma warning restore CS8618
         {
         }
 
         /// <inheritdoc/>
         public override string Name => Strings.Image;
 
-        /// <inheritdoc/>
-        public override IEnumerable<PropertyElement> Properties
-        {
-            get
-            {
-                yield return Coordinate;
-                yield return Scale;
-                yield return Blend;
-                yield return Rotate;
-                yield return Material;
-                yield return File;
-            }
-        }
-
         /// <summary>
         /// Get the <see cref="FileProperty"/> to select the image file to reference.
         /// </summary>
+        [AllowNull]
         public FileProperty File { get; private set; }
 
         private ReactiveProperty<Image<BGRA32>?>? Source { get; set; }
 
         /// <inheritdoc/>
-        protected override Image<BGRA32>? OnRender(EffectRenderArgs args)
+        public override IEnumerable<PropertyElement> GetProperties()
+        {
+            yield return Coordinate;
+            yield return Scale;
+            yield return Blend;
+            yield return Rotate;
+            yield return Material;
+            yield return File;
+        }
+
+        /// <inheritdoc/>
+        protected override Image<BGRA32>? OnRender(EffectApplyArgs args)
         {
             return Source?.Value?.Clone();
         }

@@ -1,5 +1,6 @@
 ﻿using System;
 using System.Collections.Generic;
+using System.Diagnostics.CodeAnalysis;
 
 using BEditor.Resources;
 
@@ -42,37 +43,35 @@ namespace BEditor.Data.Property.PrimitiveGroup
         /// </summary>
         /// <param name="metadata">Metadata of this property.</param>
         /// <exception cref="ArgumentNullException"><paramref name="metadata"/> is <see langword="null"/>.</exception>
-#pragma warning disable CS8618
         public Rotate(RotateMetadata metadata) : base(metadata)
-#pragma warning restore CS8618
         {
-        }
-
-        /// <inheritdoc/>
-        public override IEnumerable<PropertyElement> Properties
-        {
-            get
-            {
-                yield return RotateX;
-                yield return RotateY;
-                yield return RotateZ;
-            }
         }
 
         /// <summary>
         /// Gets the <see cref="EaseProperty"/> of the X-axis angle.
         /// </summary>
+        [AllowNull]
         public EaseProperty RotateX { get; private set; }
 
         /// <summary>
         /// Gets the <see cref="EaseProperty"/> of the Y-axis angle.
         /// </summary>
+        [AllowNull]
         public EaseProperty RotateY { get; private set; }
 
         /// <summary>
         /// Gets the <see cref="EaseProperty"/> of the Z-axis angle.
         /// </summary>
+        [AllowNull]
         public EaseProperty RotateZ { get; private set; }
+
+        /// <inheritdoc/>
+        public override IEnumerable<PropertyElement> GetProperties()
+        {
+            yield return RotateX;
+            yield return RotateY;
+            yield return RotateZ;
+        }
     }
 
     /// <summary>

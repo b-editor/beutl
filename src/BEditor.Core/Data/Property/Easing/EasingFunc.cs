@@ -18,13 +18,8 @@ namespace BEditor.Data.Property.Easing
         private IEnumerable<IEasingProperty>? _cachedList;
         #endregion
 
-        /// <summary>
-        /// Gets the <see cref="PropertyElement"/> to display on the GUI.
-        /// </summary>
-        public abstract IEnumerable<IEasingProperty> Properties { get; }
-
         /// <inheritdoc/>
-        public IEnumerable<IEasingProperty> Children => _cachedList ??= Properties;
+        public IEnumerable<IEasingProperty> Children => _cachedList ??= GetProperties().ToArray();
 
         /// <inheritdoc/>
         public PropertyElement Parent
@@ -40,6 +35,11 @@ namespace BEditor.Data.Property.Easing
                 }
             }
         }
+
+        /// <summary>
+        /// Gets the <see cref="PropertyElement"/> to display on the GUI.
+        /// </summary>
+        public abstract IEnumerable<IEasingProperty> GetProperties();
 
         /// <summary>
         /// Easing the value.

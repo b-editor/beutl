@@ -138,7 +138,7 @@ namespace BEditor.Data
 
             if (EditingPropertyRegistry.IsRegistered(key))
             {
-                throw new DataException(Strings.KeyHasAlreadyBeenRegisterd);
+                throw new DataException($"{Strings.KeyHasAlreadyBeenRegisterd}:{key.Name}");
             }
 
             var property = new EditingProperty<TValue>(key)
@@ -172,7 +172,7 @@ namespace BEditor.Data
 
             if (EditingPropertyRegistry.IsRegistered(key))
             {
-                throw new DataException(Strings.KeyHasAlreadyBeenRegisterd);
+                throw new DataException($"{Strings.KeyHasAlreadyBeenRegisterd}:{key.Name}");
             }
 
             var property = new EditingProperty<TValue>(key)
@@ -209,7 +209,7 @@ namespace BEditor.Data
 
             if (EditingPropertyRegistry.IsRegistered(key))
             {
-                throw new DataException(Strings.KeyHasAlreadyBeenRegisterd);
+                throw new DataException($"{Strings.KeyHasAlreadyBeenRegisterd}:{key.Name}");
             }
 
             var property = new DirectEditingProperty<TOwner, TValue>(getter, setter, key)
@@ -245,7 +245,7 @@ namespace BEditor.Data
 
             if (EditingPropertyRegistry.IsRegistered(key))
             {
-                throw new DataException(Strings.KeyHasAlreadyBeenRegisterd);
+                throw new DataException($"{Strings.KeyHasAlreadyBeenRegisterd}:{key.Name}");
             }
 
             var property = new DirectEditingProperty<TOwner, TValue>(getter, setter, key)

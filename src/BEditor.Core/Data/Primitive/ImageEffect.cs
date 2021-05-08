@@ -12,16 +12,16 @@ namespace BEditor.Data.Primitive
     /// </summary>
     public abstract class ImageEffect : EffectElement
     {
-        /// <inheritdoc cref="Render(EffectRenderArgs{Image{BGRA32}})"/>
-        public abstract void Render(EffectRenderArgs<Image<BGRA32>> args);
+        /// <inheritdoc cref="Apply(EffectApplyArgs{Image{BGRA32}})"/>
+        public abstract void Apply(EffectApplyArgs<Image<BGRA32>> args);
 
-        /// <inheritdoc cref="Render(EffectRenderArgs{Image{BGRA32}})"/>
-        public virtual void Render(EffectRenderArgs<IEnumerable<ImageInfo>> args)
+        /// <inheritdoc cref="Apply(EffectApplyArgs{Image{BGRA32}})"/>
+        public virtual void Apply(EffectApplyArgs<IEnumerable<ImageInfo>> args)
         {
             args.Value = args.Value.Select(img =>
             {
-                var a = new EffectRenderArgs<Image<BGRA32>>(args.Frame, img.Source, args.Type);
-                Render(a);
+                var a = new EffectApplyArgs<Image<BGRA32>>(args.Frame, img.Source, args.Type);
+                Apply(a);
                 img.Source = a.Value;
 
                 return img;
@@ -29,7 +29,7 @@ namespace BEditor.Data.Primitive
         }
 
         /// <inheritdoc/>
-        public override void Render(EffectRenderArgs args)
+        public override void Apply(EffectApplyArgs args)
         {
         }
     }

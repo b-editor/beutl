@@ -1,5 +1,6 @@
 ﻿using System;
 using System.Collections.Generic;
+using System.Diagnostics.CodeAnalysis;
 using System.Reactive.Linq;
 
 using BEditor.Data;
@@ -56,9 +57,9 @@ namespace BEditor.Primitive.Objects
         /// <summary>
         /// Defines the <see cref="SetLength"/> property.
         /// </summary>
-        public static readonly EditingProperty<ButtonComponent> SetLengthProperty = EditingProperty.Register<ButtonComponent, AudioObject>(
+        public static readonly EditingProperty<ButtonComponent> SetLengthProperty = EditingProperty.Register<ButtonComponent, VideoFile>(
             nameof(SetLength),
-            new ButtonComponentMetadata(Strings.ClipLengthAsAudioLength));
+            new ButtonComponentMetadata(Strings.ClipLengthAsVideoLength));
 
         private MediaFile? _mediaFile;
 
@@ -69,54 +70,53 @@ namespace BEditor.Primitive.Objects
         /// <summary>
         /// Initializes a new instance of the <see cref="VideoFile"/> class.
         /// </summary>
-#pragma warning disable CS8618
         public VideoFile()
-#pragma warning restore CS8618
         {
         }
 
         /// <inheritdoc/>
         public override string Name => Strings.Video;
 
-        /// <inheritdoc/>
-        public override IEnumerable<PropertyElement> Properties
-        {
-            get
-            {
-                yield return Coordinate;
-                yield return Scale;
-                yield return Blend;
-                yield return Rotate;
-                yield return Material;
-                yield return Speed;
-                yield return Start;
-                yield return File;
-                yield return SetLength;
-            }
-        }
-
         /// <summary>
-        /// Get the <see cref="EaseProperty"/> that represents the playback speed.
+        /// Gets the playback speed.
         /// </summary>
+        [AllowNull]
         public EaseProperty Speed { get; private set; }
 
         /// <summary>
-        /// Get the <see cref="EaseProperty"/> that represents the start position.
+        /// Gets the start position.
         /// </summary>
+        [AllowNull]
         public EaseProperty Start { get; private set; }
 
         /// <summary>
-        /// Get the <see cref="FileProperty"/> to select the video file to reference.
+        /// Gets the video file to reference.
         /// </summary>
+        [AllowNull]
         public FileProperty File { get; private set; }
 
         /// <summary>
         /// 
         /// </summary>
+        [AllowNull]
         public ButtonComponent SetLength => GetValue(SetLengthProperty);
 
         /// <inheritdoc/>
-        protected override Image<BGRA32>? OnRender(EffectRenderArgs args)
+        public override IEnumerable<PropertyElement> GetProperties()
+        {
+            yield return Coordinate;
+            yield return Scale;
+            yield return Blend;
+            yield return Rotate;
+            yield return Material;
+            yield return Speed;
+            yield return Start;
+            yield return File;
+            yield return SetLength;
+        }
+
+        /// <inheritdoc/>
+        protected override Image<BGRA32>? OnRender(EffectApplyArgs args)
         {
             if (_mediaFile?.Video is null) return null;
 

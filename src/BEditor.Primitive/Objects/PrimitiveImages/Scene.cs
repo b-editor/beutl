@@ -1,4 +1,5 @@
 ﻿using System.Collections.Generic;
+using System.Diagnostics.CodeAnalysis;
 using System.Linq;
 
 using BEditor.Data;
@@ -25,9 +26,7 @@ namespace BEditor.Primitive.Objects
         /// <summary>
         /// Initializes a new instance of the <see cref="SceneObject"/> class.
         /// </summary>
-#pragma warning disable CS8618
         public SceneObject()
-#pragma warning restore CS8618
         {
             // この時点で親要素を取得できないので適当なデータを渡す
             SelectScene = new(new SelectorPropertyMetadata("", new string[1]));
@@ -36,33 +35,32 @@ namespace BEditor.Primitive.Objects
         /// <inheritdoc/>
         public override string Name => Strings.Scene;
 
-        /// <inheritdoc/>
-        public override IEnumerable<PropertyElement> Properties
-        {
-            get
-            {
-                yield return Coordinate;
-                yield return Scale;
-                yield return Blend;
-                yield return Rotate;
-                yield return Material;
-                yield return Start;
-                yield return SelectScene;
-            }
-        }
-
         /// <summary>
-        /// Get the <see cref="EaseProperty"/> that represents the start position.
+        /// Gets the start position.
         /// </summary>
+        [AllowNull]
         public EaseProperty Start { get; private set; }
 
         /// <summary>
-        /// Get the <see cref="SelectorProperty"/> to select the <seealso cref="Scene"/> to reference.
+        /// Gets the <see cref="SelectorProperty"/> to select the <seealso cref="Scene"/> to reference.
         /// </summary>
+        [AllowNull]
         public SelectorProperty SelectScene { get; private set; }
 
         /// <inheritdoc/>
-        protected override Image<BGRA32>? OnRender(EffectRenderArgs args)
+        public override IEnumerable<PropertyElement> GetProperties()
+        {
+            yield return Coordinate;
+            yield return Scale;
+            yield return Blend;
+            yield return Rotate;
+            yield return Material;
+            yield return Start;
+            yield return SelectScene;
+        }
+
+        /// <inheritdoc/>
+        protected override Image<BGRA32>? OnRender(EffectApplyArgs args)
         {
             var scene = this.GetParent<Project>()?.Children.First(i => i.SceneName == SelectScene.SelectItem!) ?? Parent!.Parent;
             if (scene.Equals(this.GetParent<Scene>())) return null;

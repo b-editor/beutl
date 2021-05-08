@@ -1,5 +1,6 @@
 ﻿using System;
 using System.Collections.Generic;
+using System.Linq;
 
 using BEditor.Data;
 using BEditor.Data.Primitive;
@@ -10,29 +11,31 @@ using BEditor.Primitive.Resources;
 
 namespace BEditor.Primitive.Effects
 {
-#pragma warning disable CS1591
+    /// <summary>
+    /// Represents the <see cref="ImageEffect"/> of grayscaling an image.
+    /// </summary>
     public sealed class Grayscale : ImageEffect
     {
+        /// <summary>
+        /// Initializes a new instance of the <see cref="Grayscale"/> class.
+        /// </summary>
         public Grayscale()
         {
         }
 
+        /// <inheritdoc/>
         public override string Name => Strings.Grayscale;
-        public override IEnumerable<PropertyElement> Properties => Array.Empty<PropertyElement>();
 
-        public override void Render(EffectRenderArgs<Image<BGRA32>> args)
+        /// <inheritdoc/>
+        public override void Apply(EffectApplyArgs<Image<BGRA32>> args)
         {
-            var context = Parent.Parent.DrawingContext;
+            args.Value.Grayscale(Parent.Parent.DrawingContext);
+        }
 
-            if (context is not null && Settings.Default.PrioritizeGPU)
-            {
-                args.Value.Grayscale(context);
-            }
-            else
-            {
-                args.Value.Grayscale();
-            }
+        /// <inheritdoc/>
+        public override IEnumerable<PropertyElement> GetProperties()
+        {
+            return Enumerable.Empty<PropertyElement>();
         }
     }
-#pragma warning restore CS1591
 }

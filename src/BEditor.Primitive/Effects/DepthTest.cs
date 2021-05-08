@@ -1,5 +1,6 @@
 ﻿using System.Collections.Generic;
 using System.Collections.ObjectModel;
+using System.Diagnostics.CodeAnalysis;
 
 using BEditor.Data;
 using BEditor.Data.Property;
@@ -84,55 +85,45 @@ namespace BEditor.Primitive.Effects
         /// <summary>
         /// Initializes a new instance of the <see cref="DepthTest"/> class.
         /// </summary>
-#pragma warning disable CS8618
         public DepthTest()
-#pragma warning restore CS8618
         {
         }
 
         /// <inheritdoc/>
         public override string Name => Strings.DepthTest;
 
-        /// <inheritdoc/>
-        public override IEnumerable<PropertyElement> Properties
-        {
-            get
-            {
-                yield return Enabled;
-                yield return Function;
-                yield return Mask;
-                yield return Near;
-                yield return Far;
-            }
-        }
-
         /// <summary>
         /// Gets the value to enable depth testing.
         /// </summary>
+        [AllowNull]
         public CheckProperty Enabled { get; private set; }
 
         /// <summary>
         /// Get the <see cref="SelectorProperty"/> that selects the function for the depth test.
         /// </summary>
+        [AllowNull]
         public SelectorProperty Function { get; private set; }
 
         /// <summary>
         /// Gets whether the depth mask is enabled.
         /// </summary>
+        [AllowNull]
         public CheckProperty Mask { get; private set; }
 
         /// <summary>
         /// Gets the depth range.
         /// </summary>
+        [AllowNull]
         public EaseProperty Near { get; private set; }
 
         /// <summary>
         /// Gets the depth range.
         /// </summary>
+        [AllowNull]
         public EaseProperty Far { get; private set; }
 
         /// <inheritdoc/>
-        public override void Render(EffectRenderArgs args)
+        public override void Apply(EffectApplyArgs args)
         {
             if (Enabled.Value) GL.Enable(EnableCap.DepthTest);
             else GL.Disable(EnableCap.DepthTest);
@@ -142,6 +133,16 @@ namespace BEditor.Primitive.Effects
             GL.DepthMask(Mask.Value);
 
             GL.DepthRange(Near.GetValue(args.Frame) / 100, Far.GetValue(args.Frame) / 100);
+        }
+
+        /// <inheritdoc/>
+        public override IEnumerable<PropertyElement> GetProperties()
+        {
+            yield return Enabled;
+            yield return Function;
+            yield return Mask;
+            yield return Near;
+            yield return Far;
         }
     }
 }

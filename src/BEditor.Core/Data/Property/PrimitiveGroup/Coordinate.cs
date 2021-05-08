@@ -1,5 +1,6 @@
 ﻿using System;
 using System.Collections.Generic;
+using System.Diagnostics.CodeAnalysis;
 
 using BEditor.Resources;
 
@@ -69,55 +70,56 @@ namespace BEditor.Data.Property.PrimitiveGroup
         /// </summary>
         /// <param name="metadata">Metadata of this property.</param>
         /// <exception cref="ArgumentNullException"><paramref name="metadata"/> is <see langword="null"/>.</exception>
-#pragma warning disable CS8618
         public Coordinate(CoordinateMetadata metadata) : base(metadata)
-#pragma warning restore CS8618
         {
-        }
-
-        /// <inheritdoc/>
-        public override IEnumerable<PropertyElement> Properties
-        {
-            get
-            {
-                yield return X;
-                yield return Y;
-                yield return Z;
-                yield return CenterX;
-                yield return CenterY;
-                yield return CenterZ;
-            }
         }
 
         /// <summary>
         /// Gets the X coordinate.
         /// </summary>
+        [AllowNull]
         public EaseProperty X { get; private set; }
 
         /// <summary>
         /// Gets the Y coordinate.
         /// </summary>
+        [AllowNull]
         public EaseProperty Y { get; private set; }
 
         /// <summary>
         /// Gets the Z coordinate.
         /// </summary>
+        [AllowNull]
         public EaseProperty Z { get; private set; }
 
         /// <summary>
         /// Gets the X coordinate of the center.
         /// </summary>
+        [AllowNull]
         public EaseProperty CenterX { get; private set; }
 
         /// <summary>
         /// Gets the Y coordinate of the center.
         /// </summary>
+        [AllowNull]
         public EaseProperty CenterY { get; private set; }
 
         /// <summary>
         /// Gets the Z coordinate of the center.
         /// </summary>
+        [AllowNull]
         public EaseProperty CenterZ { get; private set; }
+
+        /// <inheritdoc/>
+        public override IEnumerable<PropertyElement> GetProperties()
+        {
+            yield return X;
+            yield return Y;
+            yield return Z;
+            yield return CenterX;
+            yield return CenterY;
+            yield return CenterZ;
+        }
 
         /// <summary>
         /// Reset the <see cref="CenterX"/>, <see cref="CenterY"/>, and <see cref="CenterZ"/> Optionals.

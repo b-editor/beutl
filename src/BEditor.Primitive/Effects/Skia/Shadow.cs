@@ -1,4 +1,5 @@
 ﻿using System.Collections.Generic;
+using System.Diagnostics.CodeAnalysis;
 
 using BEditor.Data;
 using BEditor.Data.Primitive;
@@ -10,7 +11,7 @@ using BEditor.Primitive.Resources;
 namespace BEditor.Primitive.Effects
 {
     /// <summary>
-    /// Represents an <see cref="ImageEffect"/> that adds a shadow to an image.
+    /// Represents the <see cref="ImageEffect"/> that adds a shadow to an image.
     /// </summary>
     public sealed class Shadow : ImageEffect
     {
@@ -62,55 +63,45 @@ namespace BEditor.Primitive.Effects
         /// <summary>
         /// Initializes a new instance of the <see cref="Shadow"/> class.
         /// </summary>
-#pragma warning disable CS8618
         public Shadow()
-#pragma warning restore CS8618
         {
         }
 
         /// <inheritdoc/>
         public override string Name => Strings.DropShadow;
 
-        /// <inheritdoc/>
-        public override IEnumerable<PropertyElement> Properties
-        {
-            get
-            {
-                yield return X;
-                yield return Y;
-                yield return Blur;
-                yield return Opacity;
-                yield return Color;
-            }
-        }
-
         /// <summary>
-        /// Get the <see cref="EaseProperty"/> representing the X coordinate.
+        /// Gets the X coordinate.
         /// </summary>
+        [AllowNull]
         public EaseProperty X { get; private set; }
 
         /// <summary>
-        /// Get the <see cref="EaseProperty"/> representing the Y coordinate.
+        /// Gets the Y coordinate.
         /// </summary>
+        [AllowNull]
         public EaseProperty Y { get; private set; }
 
         /// <summary>
-        /// Gets the <see cref="EaseProperty"/> that represents the blur sigma.
+        /// Gets the blur sigma.
         /// </summary>
+        [AllowNull]
         public EaseProperty Blur { get; private set; }
 
         /// <summary>
-        /// Gets the <see cref="EaseProperty"/> that represents the transparency.
+        /// Gets the opacity.
         /// </summary>
+        [AllowNull]
         public EaseProperty Opacity { get; private set; }
 
         /// <summary>
-        /// Get the <see cref="ColorProperty"/> that represents the shadow color.
+        /// Gets the shadow color.
         /// </summary>
+        [AllowNull]
         public ColorProperty Color { get; private set; }
 
         /// <inheritdoc/>
-        public override void Render(EffectRenderArgs<Image<BGRA32>> args)
+        public override void Apply(EffectApplyArgs<Image<BGRA32>> args)
         {
             var frame = args.Frame;
             var img = args.Value.Shadow(X[frame], Y[frame], Blur[frame], Opacity[frame] / 100, Color.Value);
@@ -118,6 +109,16 @@ namespace BEditor.Primitive.Effects
             args.Value.Dispose();
 
             args.Value = img;
+        }
+
+        /// <inheritdoc/>
+        public override IEnumerable<PropertyElement> GetProperties()
+        {
+            yield return X;
+            yield return Y;
+            yield return Blur;
+            yield return Opacity;
+            yield return Color;
         }
     }
 }

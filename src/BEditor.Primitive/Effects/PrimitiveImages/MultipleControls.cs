@@ -1,4 +1,5 @@
 ﻿using System.Collections.Generic;
+using System.Diagnostics.CodeAnalysis;
 using System.Linq;
 
 using BEditor.Data;
@@ -50,48 +51,39 @@ namespace BEditor.Primitive.Effects
         /// <summary>
         /// INitializes a new instance of the <see cref="MultipleControls"/> class.
         /// </summary>
-#pragma warning disable CS8618
         public MultipleControls()
-#pragma warning restore CS8618
         {
         }
 
         /// <inheritdoc/>
         public override string Name => Strings.MultipleImageControls;
-        /// <inheritdoc/>
-        public override IEnumerable<PropertyElement> Properties
-        {
-            get
-            {
-                yield return Coordinate;
-                yield return Scale;
-                yield return Rotate;
-                yield return Index;
-            }
-        }
 
         /// <summary>
         /// Get the coordinates.
         /// </summary>
+        [AllowNull]
         public Coordinate Coordinate { get; private set; }
 
         /// <summary>
         /// Get the scale.
         /// </summary>
+        [AllowNull]
         public Scale Scale { get; private set; }
 
         /// <summary>
         /// Get the angle.
         /// </summary>
+        [AllowNull]
         public Rotate Rotate { get; private set; }
 
         /// <summary>
-        /// Gets the <see cref="ValueProperty"/> representing the index of the image to be controlled.
+        /// Gets the index of the image to be controlled.
         /// </summary>
+        [AllowNull]
         public ValueProperty Index { get; private set; }
 
         /// <inheritdoc/>
-        public override void Render(EffectRenderArgs<IEnumerable<ImageInfo>> args)
+        public override void Apply(EffectApplyArgs<IEnumerable<ImageInfo>> args)
         {
             args.Value = args.Value.Select((img, i) =>
             {
@@ -122,9 +114,18 @@ namespace BEditor.Primitive.Effects
         }
 
         /// <inheritdoc/>
-        public override void Render(EffectRenderArgs<Image<BGRA32>> args)
+        public override void Apply(EffectApplyArgs<Image<BGRA32>> args)
         {
 
+        }
+
+        /// <inheritdoc/>
+        public override IEnumerable<PropertyElement> GetProperties()
+        {
+            yield return Coordinate;
+            yield return Scale;
+            yield return Rotate;
+            yield return Index;
         }
     }
 }

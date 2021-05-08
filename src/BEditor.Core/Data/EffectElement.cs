@@ -27,7 +27,7 @@ namespace BEditor.Data
         #endregion
 
         /// <inheritdoc/>
-        public IEnumerable<PropertyElement> Children => _cachedList ??= Properties.ToArray();
+        public IEnumerable<PropertyElement> Children => _cachedList ??= GetProperties().ToArray();
 
         /// <summary>
         /// Gets the name of this <see cref="EffectElement"/>.
@@ -54,11 +54,6 @@ namespace BEditor.Data
             set => SetValue(value, ref _isExpanded, _isExpandedArgs);
         }
 
-        /// <summary>
-        /// Gets the <see cref="PropertyElement"/> to display on the GUI.
-        /// </summary>
-        public abstract IEnumerable<PropertyElement> Properties { get; }
-
         /// <inheritdoc/>
         public ClipElement Parent
         {
@@ -76,6 +71,11 @@ namespace BEditor.Data
 
         #region Methods
 
+        /// <summary>
+        /// Gets the <see cref="PropertyElement"/> to display on the GUI.
+        /// </summary>
+        public abstract IEnumerable<PropertyElement> GetProperties();
+
         /// <inheritdoc/>
         public object Clone()
         {
@@ -83,14 +83,14 @@ namespace BEditor.Data
         }
 
         /// <summary>
-        /// It is called at rendering time.
+        /// Apply the effect.
         /// </summary>
-        public abstract void Render(EffectRenderArgs args);
+        public abstract void Apply(EffectApplyArgs args);
 
         /// <summary>
         /// It will be called before rendering.
         /// </summary>
-        public virtual void PreviewRender(EffectRenderArgs args)
+        public virtual void PreviewRender(EffectApplyArgs args)
         {
         }
 
@@ -266,10 +266,13 @@ namespace BEditor.Data
             public override string Name => "Empty";
 
             /// <inheritdoc/>
-            public override IEnumerable<PropertyElement> Properties => Array.Empty<PropertyElement>();
+            public override IEnumerable<PropertyElement> GetProperties()
+            {
+                return Enumerable.Empty<PropertyElement>();
+            }
 
             /// <inheritdoc/>
-            public override void Render(EffectRenderArgs args)
+            public override void Apply(EffectApplyArgs args)
             {
             }
         }

@@ -1,4 +1,5 @@
 ﻿using System.Collections.Generic;
+using System.Diagnostics.CodeAnalysis;
 
 using BEditor.Data;
 using BEditor.Data.Primitive;
@@ -7,34 +8,48 @@ using BEditor.Drawing;
 using BEditor.Drawing.Pixel;
 using BEditor.Primitive.Resources;
 
-#nullable disable
-
 namespace BEditor.Primitive.Effects
 {
-#pragma warning disable CS1591
+    /// <summary>
+    /// Represents the <see cref="ImageEffect"/> that corrects the contrast of an image.
+    /// </summary>
     public sealed class ContrastCorrection : ImageEffect
     {
+        /// <summary>
+        /// Defines the <see cref="Contrast"/> property.
+        /// </summary>
         public static readonly EditingProperty<EaseProperty> ContrastProperty = EditingProperty.RegisterSerializeDirect<EaseProperty, ContrastCorrection>(
             nameof(Contrast),
             owner => owner.Contrast,
             (owner, obj) => owner.Contrast = obj,
             new EasePropertyMetadata(Strings.Contrast, 0, 255, -255));
 
+        /// <summary>
+        /// Initializes a new instance of the <see cref="ContrastCorrection"/> class.
+        /// </summary>
         public ContrastCorrection()
         {
         }
 
+        /// <inheritdoc/>
         public override string Name => Strings.ContrastCorrection;
-        public override IEnumerable<PropertyElement> Properties => new PropertyElement[]
-        {
-            Contrast
-        };
+
+        /// <summary>
+        /// Gets the contrast.
+        /// </summary>
+        [AllowNull]
         public EaseProperty Contrast { get; set; }
 
-        public override void Render(EffectRenderArgs<Image<BGRA32>> args)
+        /// <inheritdoc/>
+        public override void Apply(EffectApplyArgs<Image<BGRA32>> args)
         {
             args.Value.Contrast((short)Contrast[args.Frame]);
         }
+
+        /// <inheritdoc/>
+        public override IEnumerable<PropertyElement> GetProperties()
+        {
+            yield return Contrast;
+        }
     }
-#pragma warning restore CS1591
 }

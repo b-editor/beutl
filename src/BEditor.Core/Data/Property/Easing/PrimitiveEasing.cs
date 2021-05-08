@@ -1,5 +1,6 @@
 ﻿using System;
 using System.Collections.Generic;
+using System.Diagnostics.CodeAnalysis;
 
 using BEditor.Media;
 
@@ -68,24 +69,14 @@ namespace BEditor.Data.Property.Easing
         /// <summary>
         /// Initializes a new instance of the <see cref="PrimitiveEasing"/> class.
         /// </summary>
-#pragma warning disable CS8618
         public PrimitiveEasing()
-#pragma warning restore CS8618
         {
-        }
-
-        /// <inheritdoc/>
-        public override IEnumerable<IEasingProperty> Properties
-        {
-            get
-            {
-                yield return EasingType;
-            }
         }
 
         /// <summary>
         /// Gets the <see cref="SelectorProperty"/> to select the easing function.
         /// </summary>
+        [AllowNull]
         public SelectorProperty EasingType { get; private set; }
 
         /// <inheritdoc/>
@@ -104,6 +95,12 @@ namespace BEditor.Data.Property.Easing
         protected override void OnUnload()
         {
             _disposable?.Dispose();
+        }
+
+        /// <inheritdoc/>
+        public override IEnumerable<IEasingProperty> GetProperties()
+        {
+            yield return EasingType;
         }
 
 #pragma warning disable RCS1176, RCS1010, RCS0056, RCS1163, RCS1089, CA1822, IDE0060

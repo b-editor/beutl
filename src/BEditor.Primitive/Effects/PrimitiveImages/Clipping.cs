@@ -1,4 +1,5 @@
 ﻿using System.Collections.Generic;
+using System.Diagnostics.CodeAnalysis;
 
 using BEditor.Data;
 using BEditor.Data.Primitive;
@@ -10,7 +11,7 @@ using BEditor.Primitive.Resources;
 namespace BEditor.Primitive.Effects
 {
     /// <summary>
-    /// Represents an <see cref="ImageEffect"/> that cripping the image.
+    /// Represents the <see cref="ImageEffect"/> that cripping the image.
     /// </summary>
     public sealed class Clipping : ImageEffect
     {
@@ -62,55 +63,45 @@ namespace BEditor.Primitive.Effects
         /// <summary>
         /// Initializes a new instance of the <see cref="Clipping"/> class.
         /// </summary>
-#pragma warning disable CS8618
         public Clipping()
-#pragma warning restore CS8618
         {
         }
 
         /// <inheritdoc/>
         public override string Name => Strings.Clipping;
 
-        /// <inheritdoc/>
-        public override IEnumerable<PropertyElement> Properties
-        {
-            get
-            {
-                yield return Top;
-                yield return Bottom;
-                yield return Left;
-                yield return Right;
-                yield return AdjustCoordinates;
-            }
-        }
-
         /// <summary>
-        /// Get the <see cref="EaseProperty"/> that represents the range to be clipped.
+        /// Gets the range to be clipped.
         /// </summary>
+        [AllowNull]
         public EaseProperty Top { get; private set; }
 
         /// <summary>
-        /// Get the <see cref="EaseProperty"/> that represents the range to be clipped.
+        /// Gets the range to be clipped.
         /// </summary>
+        [AllowNull]
         public EaseProperty Bottom { get; private set; }
 
         /// <summary>
-        /// Get the <see cref="EaseProperty"/> that represents the range to be clipped.
+        /// Gets the range to be clipped.
         /// </summary>
+        [AllowNull]
         public EaseProperty Left { get; private set; }
 
         /// <summary>
-        /// Get the <see cref="EaseProperty"/> that represents the range to be clipped.
+        /// Gets the range to be clipped.
         /// </summary>
+        [AllowNull]
         public EaseProperty Right { get; private set; }
 
         /// <summary>
-        /// Gets a <see cref="CheckProperty"/> that indicates whether the coordinates should be adjusted or not.
+        /// Gets whether or not to adjust the coordinates.
         /// </summary>
+        [AllowNull]
         public CheckProperty AdjustCoordinates { get; private set; }
 
         /// <inheritdoc/>
-        public override void Render(EffectRenderArgs<Image<BGRA32>> args)
+        public override void Apply(EffectApplyArgs<Image<BGRA32>> args)
         {
             var top = (int)Top.GetValue(args.Frame);
             var bottom = (int)Bottom.GetValue(args.Frame);
@@ -140,6 +131,16 @@ namespace BEditor.Primitive.Effects
             img.Dispose();
 
             args.Value = img1;
+        }
+
+        /// <inheritdoc/>
+        public override IEnumerable<PropertyElement> GetProperties()
+        {
+            yield return Top;
+            yield return Bottom;
+            yield return Left;
+            yield return Right;
+            yield return AdjustCoordinates;
         }
     }
 }

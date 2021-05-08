@@ -1,4 +1,5 @@
 ﻿using System.Collections.Generic;
+using System.Diagnostics.CodeAnalysis;
 
 using BEditor.Data;
 using BEditor.Data.Primitive;
@@ -26,36 +27,32 @@ namespace BEditor.Primitive.Objects
         /// <summary>
         /// Initializes a new instance of the <see cref="Framebuffer"/> class.
         /// </summary>
-#pragma warning disable CS8618
         public Framebuffer()
-#pragma warning restore CS8618
         {
         }
 
         /// <inheritdoc/>
         public override string Name => Strings.Framebuffer;
 
-        /// <inheritdoc/>
-        public override IEnumerable<PropertyElement> Properties
-        {
-            get
-            {
-                yield return Coordinate;
-                yield return Scale;
-                yield return Blend;
-                yield return Rotate;
-                yield return Material;
-                yield return BufferClear;
-            }
-        }
-
         /// <summary>
         /// Gets the <see cref="CheckProperty"/> representing the value whether to clear the frame buffer.
         /// </summary>
+        [AllowNull]
         public CheckProperty BufferClear { get; private set; }
 
         /// <inheritdoc/>
-        protected override Image<BGRA32>? OnRender(EffectRenderArgs args)
+        public override IEnumerable<PropertyElement> GetProperties()
+        {
+            yield return Coordinate;
+            yield return Scale;
+            yield return Blend;
+            yield return Rotate;
+            yield return Material;
+            yield return BufferClear;
+        }
+
+        /// <inheritdoc/>
+        protected override Image<BGRA32>? OnRender(EffectApplyArgs args)
         {
             var scene = Parent.Parent;
             var image = new Image<BGRA32>(scene.Width, scene.Height);

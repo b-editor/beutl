@@ -46,23 +46,24 @@ namespace BEditor.Primitive.Effects
         }
 
         public override string Name => Strings.RGBColorCorrection;
-        public override IEnumerable<PropertyElement> Properties => new PropertyElement[]
-        {
-            Red,
-            Green,
-            Blue
-        };
         public EaseProperty Red { get; set; }
         public EaseProperty Green { get; set; }
         public EaseProperty Blue { get; set; }
 
-        public override void Render(EffectRenderArgs<Image<BGRA32>> args)
+        public override void Apply(EffectApplyArgs<Image<BGRA32>> args)
         {
             args.Value.RGBColor(
                 (short)Red[args.Frame],
                 (short)Green[args.Frame],
                 (short)Blue[args.Frame],
                 Parent.Parent.DrawingContext);
+        }
+
+        public override IEnumerable<PropertyElement> GetProperties()
+        {
+            yield return Red;
+            yield return Green;
+            yield return Blue;
         }
     }
 #pragma warning restore CS1591

@@ -1,4 +1,5 @@
 ﻿using System.Collections.Generic;
+using System.Diagnostics.CodeAnalysis;
 
 using BEditor.Data;
 using BEditor.Data.Primitive;
@@ -10,7 +11,7 @@ using BEditor.Primitive.Resources;
 namespace BEditor.Primitive.Effects
 {
     /// <summary>
-    /// Represents a ColorKey effect.
+    /// Represents the ColorKey effect.
     /// </summary>
     public sealed class ColorKey : ImageEffect
     {
@@ -35,39 +36,36 @@ namespace BEditor.Primitive.Effects
         /// <summary>
         /// Initializes a new instance of the <see cref="ColorKey"/> class.
         /// </summary>
-#pragma warning disable CS8618
         public ColorKey()
-#pragma warning restore CS8618
         {
         }
 
         /// <inheritdoc/>
         public override string Name => Strings.ColorKey;
 
-        /// <inheritdoc/>
-        public override IEnumerable<PropertyElement> Properties
-        {
-            get
-            {
-                yield return Color;
-                yield return ThresholdValue;
-            }
-        }
-
         /// <summary>
-        /// Gets the <see cref="ColorProperty"/> representing the key color.
+        /// Gets the key color.
         /// </summary>
+        [AllowNull]
         public ColorProperty Color { get; private set; }
 
         /// <summary>
-        /// Get the <see cref="EaseProperty"/> representing the threshold.
+        /// Gets the threshold value.
         /// </summary>
+        [AllowNull]
         public EaseProperty ThresholdValue { get; private set; }
 
         /// <inheritdoc/>
-        public override void Render(EffectRenderArgs<Image<BGRA32>> args)
+        public override void Apply(EffectApplyArgs<Image<BGRA32>> args)
         {
             args.Value.ColorKey(Color.Value, (int)ThresholdValue[args.Frame]);
+        }
+
+        /// <inheritdoc/>
+        public override IEnumerable<PropertyElement> GetProperties()
+        {
+            yield return Color;
+            yield return ThresholdValue;
         }
     }
 }

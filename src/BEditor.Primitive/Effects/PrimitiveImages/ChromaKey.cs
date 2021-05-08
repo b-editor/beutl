@@ -1,4 +1,5 @@
 ﻿using System.Collections.Generic;
+using System.Diagnostics.CodeAnalysis;
 
 using BEditor.Data;
 using BEditor.Data.Primitive;
@@ -10,7 +11,7 @@ using BEditor.Primitive.Resources;
 namespace BEditor.Primitive.Effects
 {
     /// <summary>
-    /// Represents an <see cref="ImageEffect"/> that makes the background color of an image transparent.
+    /// Represents the <see cref="ImageEffect"/> that makes the background color of an image transparent.
     /// </summary>
     public sealed class ChromaKey : ImageEffect
     {
@@ -26,33 +27,29 @@ namespace BEditor.Primitive.Effects
         /// <summary>
         /// Initializes a new instance of the <see cref="ChromaKey"/> class.
         /// </summary>
-#pragma warning disable CS8618
         public ChromaKey()
-#pragma warning restore CS8618
         {
         }
 
         /// <inheritdoc/>
         public override string Name => Strings.ChromaKey;
 
-        /// <inheritdoc/>
-        public override IEnumerable<PropertyElement> Properties
-        {
-            get
-            {
-                yield return ThresholdValue;
-            }
-        }
-
         /// <summary>
-        /// Get the <see cref="EaseProperty"/> representing the threshold.
+        /// Gets the threshold value.
         /// </summary>
+        [AllowNull]
         public EaseProperty ThresholdValue { get; private set; }
 
         /// <inheritdoc/>
-        public override void Render(EffectRenderArgs<Image<BGRA32>> args)
+        public override void Apply(EffectApplyArgs<Image<BGRA32>> args)
         {
             args.Value.ChromaKey((int)ThresholdValue[args.Frame], Parent.Parent.DrawingContext);
+        }
+
+        /// <inheritdoc/>
+        public override IEnumerable<PropertyElement> GetProperties()
+        {
+            yield return ThresholdValue;
         }
     }
 }

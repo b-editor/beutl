@@ -1,4 +1,5 @@
 ﻿using System.Collections.Generic;
+using System.Diagnostics.CodeAnalysis;
 
 using BEditor.Data;
 using BEditor.Data.Primitive;
@@ -10,7 +11,7 @@ using BEditor.Primitive.Resources;
 namespace BEditor.Primitive.Effects
 {
     /// <summary>
-    /// Represents an <see cref="ImageEffect"/> that expands the area of an image.
+    /// Represents the <see cref="ImageEffect"/> that expands the area of an image.
     /// </summary>
     public sealed class AreaExpansion : ImageEffect
     {
@@ -52,55 +53,55 @@ namespace BEditor.Primitive.Effects
         /// <summary>
         /// Initializes a new instance of the <see cref="AreaExpansion"/> class.
         /// </summary>
-#pragma warning disable CS8618
         public AreaExpansion()
-#pragma warning restore CS8618
         {
         }
 
         /// <inheritdoc/>
         public override string Name => Strings.AreaExpansion;
 
-        /// <inheritdoc/>
-        public override IEnumerable<PropertyElement> Properties
-        {
-            get
-            {
-                yield return Top;
-                yield return Bottom;
-                yield return Left;
-                yield return Right;
-                yield return AdjustCoordinates;
-            }
-        }
-
         /// <summary>
         /// Get an <see cref="EaseProperty"/> that represents the number of pixels to add
         /// </summary>
+        [AllowNull]
         public EaseProperty Top { get; private set; }
 
         /// <summary>
         /// Get an <see cref="EaseProperty"/> that represents the number of pixels to add
         /// </summary>
+        [AllowNull]
         public EaseProperty Bottom { get; private set; }
 
         /// <summary>
         /// Get an <see cref="EaseProperty"/> that represents the number of pixels to add
         /// </summary>
+        [AllowNull]
         public EaseProperty Left { get; private set; }
 
         /// <summary>
         /// Get an <see cref="EaseProperty"/> that represents the number of pixels to add
         /// </summary>
+        [AllowNull]
         public EaseProperty Right { get; private set; }
 
         /// <summary>
         /// Get the <see cref="CheckProperty"/> to adjust the coordinates.
         /// </summary>
+        [AllowNull]
         public CheckProperty AdjustCoordinates { get; private set; }
 
         /// <inheritdoc/>
-        public override void Render(EffectRenderArgs<Image<BGRA32>> args)
+        public override IEnumerable<PropertyElement> GetProperties()
+        {
+            yield return Top;
+            yield return Bottom;
+            yield return Left;
+            yield return Right;
+            yield return AdjustCoordinates;
+        }
+
+        /// <inheritdoc/>
+        public override void Apply(EffectApplyArgs<Image<BGRA32>> args)
         {
             int top = (int)Top.GetValue(args.Frame);
             int bottom = (int)Bottom.GetValue(args.Frame);

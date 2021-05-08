@@ -26,7 +26,7 @@ namespace BEditor.Data
             {
                 if (_registered.ContainsKey(key))
                 {
-                    throw new DataException(Strings.KeyHasAlreadyBeenRegisterd);
+                    throw new DataException($"{Strings.KeyHasAlreadyBeenRegisterd}:{key.Name}");
                 }
 
                 _registered.Add(key, property);

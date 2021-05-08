@@ -28,15 +28,17 @@ namespace BEditor.Primitive.Effects
         }
 
         public override string Name => Strings.Noise;
-        public override IEnumerable<PropertyElement> Properties => new PropertyElement[]
-        {
-            Value
-        };
+
         public EaseProperty Value { get; set; }
 
-        public override void Render(EffectRenderArgs<Image<BGRA32>> args)
+        public override void Apply(EffectApplyArgs<Image<BGRA32>> args)
         {
             args.Value.Noise((byte)Value[args.Frame]);
+        }
+
+        public override IEnumerable<PropertyElement> GetProperties()
+        {
+            yield return Value;
         }
     }
 #pragma warning restore CS1591

@@ -1,4 +1,5 @@
 ﻿using System.Collections.Generic;
+using System.Diagnostics.CodeAnalysis;
 using System.Linq;
 
 using BEditor.Data.Property.PrimitiveGroup;
@@ -65,9 +66,7 @@ namespace BEditor.Data.Primitive
         /// <summary>
         /// Initializes a new instance of the <see cref="ImageObject"/> class.
         /// </summary>
-#pragma warning disable CS8618
         protected ImageObject()
-#pragma warning restore CS8618
         {
         }
 
@@ -77,32 +76,37 @@ namespace BEditor.Data.Primitive
         /// <summary>
         /// Gets the coordinates.
         /// </summary>
+        [AllowNull]
         public Coordinate Coordinate { get; private set; }
 
         /// <summary>
         /// Gets the scale.
         /// </summary>
+        [AllowNull]
         public Scale Scale { get; private set; }
 
         /// <summary>
         /// Gets the blend.
         /// </summary>
+        [AllowNull]
         public Blend Blend { get; private set; }
 
         /// <summary>
         /// Gets the angle.
         /// </summary>
+        [AllowNull]
         public Rotate Rotate { get; private set; }
 
         /// <summary>
         /// Gets the material.
         /// </summary>
+        [AllowNull]
         public Property.PrimitiveGroup.Material Material { get; private set; }
 
         /// <inheritdoc/>
-        public override void Render(EffectRenderArgs args)
+        public override void Apply(EffectApplyArgs args)
         {
-            var imgs_args = new EffectRenderArgs<IEnumerable<ImageInfo>>(args.Frame, Enumerable.Empty<ImageInfo>(), args.Type);
+            var imgs_args = new EffectApplyArgs<IEnumerable<ImageInfo>>(args.Frame, Enumerable.Empty<ImageInfo>(), args.Type);
             OnRender(imgs_args);
 
             var list = Parent!.Effect.Where(x => x.IsEnabled).ToArray();
@@ -154,7 +158,7 @@ namespace BEditor.Data.Primitive
         /// <summary>
         /// Render the image.
         /// </summary>
-        public void Render(EffectRenderArgs args, out Image<BGRA32>? image)
+        public void Render(EffectApplyArgs args, out Image<BGRA32>? image)
         {
             // Todo: 多重オブジェクトに対応させる
             var base_img = OnRender(args);
@@ -166,7 +170,7 @@ namespace BEditor.Data.Primitive
                 return;
             }
 
-            var imageArgs = new EffectRenderArgs<Image<BGRA32>>(args.Frame, base_img, args.Type);
+            var imageArgs = new EffectApplyArgs<Image<BGRA32>>(args.Frame, base_img, args.Type);
 
             var list = Parent!.Effect.Where(x => x.IsEnabled).ToArray();
             for (var i = 1; i < list.Length; i++)
@@ -175,11 +179,11 @@ namespace BEditor.Data.Primitive
 
                 if (effect is ImageEffect imageEffect)
                 {
-                    imageEffect.Render(imageArgs);
+                    imageEffect.Apply(imageArgs);
                 }
                 else
                 {
-                    effect.Render(args);
+                    effect.Apply(args);
                 }
 
                 if (args.Handled)
@@ -204,13 +208,13 @@ namespace BEditor.Data.Primitive
             return effect is ImageEffect;
         }
 
-        /// <inheritdoc cref="Render(EffectRenderArgs)"/>
-        protected abstract Image<BGRA32>? OnRender(EffectRenderArgs args);
+        /// <inheritdoc cref="Apply(EffectApplyArgs)"/>
+        protected abstract Image<BGRA32>? OnRender(EffectApplyArgs args);
 
-        /// <inheritdoc cref="Render(EffectRenderArgs)"/>
-        protected virtual void OnRender(EffectRenderArgs<IEnumerable<ImageInfo>> args)
+        /// <inheritdoc cref="Apply(EffectApplyArgs)"/>
+        protected virtual void OnRender(EffectApplyArgs<IEnumerable<ImageInfo>> args)
         {
-            var img = OnRender(args as EffectRenderArgs);
+            var img = OnRender(args as EffectApplyArgs);
 
             if (img is null)
             {
@@ -225,7 +229,7 @@ namespace BEditor.Data.Primitive
             }
         }
 
-        private void LoadEffect(EffectRenderArgs<IEnumerable<ImageInfo>> args, EffectElement[] list)
+        private void LoadEffect(EffectApplyArgs<IEnumerable<ImageInfo>> args, EffectElement[] list)
         {
             for (var i = 0; i < list.Length; i++)
             {
@@ -237,11 +241,11 @@ namespace BEditor.Data.Primitive
                 }
                 else if (effect is ImageEffect imageEffect)
                 {
-                    imageEffect.Render(args);
+                    imageEffect.Apply(args);
                 }
                 else
                 {
-                    effect.Render(args);
+                    effect.Apply(args);
                 }
 
                 if (args.Handled)
@@ -252,7 +256,7 @@ namespace BEditor.Data.Primitive
             }
         }
 
-        private void Draw(ImageInfo image, EffectRenderArgs args)
+        private void Draw(ImageInfo image, EffectApplyArgs args)
         {
             static void DrawLine(GraphicsContext context, float width, float height, Transform trans)
             {

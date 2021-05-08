@@ -1,4 +1,5 @@
 ﻿using System.Collections.Generic;
+using System.Diagnostics.CodeAnalysis;
 
 using BEditor.Data;
 using BEditor.Data.Primitive;
@@ -7,34 +8,48 @@ using BEditor.Drawing;
 using BEditor.Drawing.Pixel;
 using BEditor.Primitive.Resources;
 
-#nullable disable
-
 namespace BEditor.Primitive.Effects
 {
-#pragma warning disable CS1591
+    /// <summary>
+    /// Represents the <see cref="ImageEffect"/> of binarizing an image.
+    /// </summary>
     public sealed class Binarization : ImageEffect
     {
+        /// <summary>
+        /// Difines the <see cref="Value"/> property.
+        /// </summary>
         public static readonly EditingProperty<EaseProperty> ValueProperty = EditingProperty.RegisterSerializeDirect<EaseProperty, Binarization>(
             nameof(Value),
             owner => owner.Value,
             (owner, obj) => owner.Value = obj,
             new EasePropertyMetadata(Strings.ThresholdValue, 127, 255, 0));
 
+        /// <summary>
+        /// Initializes a new instance of the <see cref="Binarization"/> class.
+        /// </summary>
         public Binarization()
         {
         }
 
+        /// <inheritdoc/>
         public override string Name => Strings.Binarization;
-        public override IEnumerable<PropertyElement> Properties => new PropertyElement[]
-        {
-            Value
-        };
+
+        /// <summary>
+        /// Gets the threshold value.
+        /// </summary>
+        [AllowNull]
         public EaseProperty Value { get; set; }
 
-        public override void Render(EffectRenderArgs<Image<BGRA32>> args)
+        /// <inheritdoc/>
+        public override IEnumerable<PropertyElement> GetProperties()
+        {
+            yield return Value;
+        }
+
+        /// <inheritdoc/>
+        public override void Apply(EffectApplyArgs<Image<BGRA32>> args)
         {
             args.Value.Binarization((byte)Value[args.Frame], Parent.Parent.DrawingContext);
         }
     }
-#pragma warning restore CS1591
 }

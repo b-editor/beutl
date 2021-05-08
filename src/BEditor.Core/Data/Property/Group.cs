@@ -51,13 +51,8 @@ namespace BEditor.Data.Property
             }
         }
 
-        /// <summary>
-        /// Get the <see cref="PropertyElement"/> to display on the GUI.
-        /// </summary>
-        public abstract IEnumerable<PropertyElement> Properties { get; }
-
         /// <inheritdoc/>
-        public IEnumerable<PropertyElement> Children => _cachedList ??= Properties;
+        public IEnumerable<PropertyElement> Children => _cachedList ??= GetProperties().ToArray();
 
         /// <inheritdoc/>
         public override EffectElement Parent
@@ -97,6 +92,11 @@ namespace BEditor.Data.Property
             return RecordCommand.Empty;
         }
         #endregion
+
+        /// <summary>
+        /// Gets the <see cref="PropertyElement"/> to display on the GUI.
+        /// </summary>
+        public abstract IEnumerable<PropertyElement> GetProperties();
 
         /// <inheritdoc/>
         public override void GetObjectData(Utf8JsonWriter writer)

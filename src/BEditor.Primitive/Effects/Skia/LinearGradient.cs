@@ -1,4 +1,5 @@
 ﻿using System.Collections.Generic;
+using System.Diagnostics.CodeAnalysis;
 using System.Linq;
 using System.Reactive.Linq;
 
@@ -14,7 +15,7 @@ using Reactive.Bindings;
 namespace BEditor.Primitive.Effects
 {
     /// <summary>
-    /// Represents an <see cref="ImageEffect"/> that masks an image with a linear gradient.
+    /// Represents the <see cref="ImageEffect"/> that masks an image with a linear gradient.
     /// </summary>
     public sealed class LinearGradient : ImageEffect
     {
@@ -96,63 +97,53 @@ namespace BEditor.Primitive.Effects
         /// <summary>
         /// Initializes a new instance of the <see cref="LinearGradient"/> class.
         /// </summary>
-#pragma warning disable CS8618
         public LinearGradient()
-#pragma warning restore CS8618
         {
         }
 
         /// <inheritdoc/>
         public override string Name => Strings.LinearGradient;
 
-        /// <inheritdoc/>
-        public override IEnumerable<PropertyElement> Properties
-        {
-            get
-            {
-                yield return StartX;
-                yield return StartY;
-                yield return EndX;
-                yield return EndY;
-                yield return Colors;
-                yield return Anchors;
-                yield return Mode;
-            }
-        }
-
         /// <summary>
-        /// Get the <see cref="EaseProperty"/> that represents the start position of the X axis.
+        /// Gets the start position of the X axis.
         /// </summary>
+        [AllowNull]
         public EaseProperty StartX { get; private set; }
 
         /// <summary>
-        /// Get the <see cref="EaseProperty"/> that represents the start position of the Y axis.
+        /// Gets the start position of the Y axis.
         /// </summary>
+        [AllowNull]
         public EaseProperty StartY { get; private set; }
 
         /// <summary>
-        /// Get the <see cref="EaseProperty"/> that represents the end position of the X axis.
+        /// Gets the end position of the X axis.
         /// </summary>
+        [AllowNull]
         public EaseProperty EndX { get; private set; }
 
         /// <summary>
-        /// Get the <see cref="EaseProperty"/> that represents the end position of the Y axis.
+        /// Gets the end position of the Y axis.
         /// </summary>
+        [AllowNull]
         public EaseProperty EndY { get; private set; }
 
         /// <summary>
-        /// Get the <see cref="TextProperty"/> representing the colors.
+        /// Gets the colors.
         /// </summary>
+        [AllowNull]
         public TextProperty Colors { get; private set; }
 
         /// <summary>
-        /// Get the <see cref="TextProperty"/> representing the anchors.
+        /// Gets the anchors.
         /// </summary>
+        [AllowNull]
         public TextProperty Anchors { get; private set; }
 
         /// <summary>
-        /// Get the <see cref="SelectorProperty"/> that selects the gradient mode.
+        /// Gets the <see cref="SelectorProperty"/> that selects the gradient mode.
         /// </summary>
+        [AllowNull]
         public SelectorProperty Mode { get; private set; }
 
         private ReactiveProperty<Color[]> ColorsProp => _colorsProp ??= new();
@@ -160,7 +151,7 @@ namespace BEditor.Primitive.Effects
         private ReactiveProperty<float[]> PointsProp => _pointsProp ??= new();
 
         /// <inheritdoc/>
-        public override void Render(EffectRenderArgs<Image<BGRA32>> args)
+        public override void Apply(EffectApplyArgs<Image<BGRA32>> args)
         {
             var f = args.Frame;
             var colors = ColorsProp.Value;
@@ -185,6 +176,18 @@ namespace BEditor.Primitive.Effects
                 colors,
                 points,
                 tiles[Mode.Index]);
+        }
+
+        /// <inheritdoc/>
+        public override IEnumerable<PropertyElement> GetProperties()
+        {
+            yield return StartX;
+            yield return StartY;
+            yield return EndX;
+            yield return EndY;
+            yield return Colors;
+            yield return Anchors;
+            yield return Mode;
         }
 
         /// <inheritdoc/>

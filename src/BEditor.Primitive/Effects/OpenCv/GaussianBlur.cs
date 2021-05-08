@@ -13,7 +13,7 @@ namespace BEditor.Primitive.Effects.OpenCv
     /// <summary>
     /// 
     /// </summary>
-    public class GaussianBlur : ImageEffect
+    public sealed class GaussianBlur : ImageEffect
     {
         /// <summary>
         /// Defines the <see cref="Size"/> property.
@@ -33,18 +33,15 @@ namespace BEditor.Primitive.Effects.OpenCv
             (owner, obj) => owner.Resize = obj,
             new CheckPropertyMetadata(Strings.Resize, true));
 
-        /// <inheritdoc/>
-        public override string Name => Strings.GaussianBlur;
+        /// <summary>
+        /// Initializes a new instance of the <see cref="GaussianBlur"/> class.
+        /// </summary>
+        public GaussianBlur()
+        {
+        }
 
         /// <inheritdoc/>
-        public override IEnumerable<PropertyElement> Properties
-        {
-            get
-            {
-                yield return Size;
-                yield return Resize;
-            }
-        }
+        public override string Name => Strings.GaussianBlur;
 
         /// <summary>
         /// Gets the size of the kernel.
@@ -59,7 +56,7 @@ namespace BEditor.Primitive.Effects.OpenCv
         public CheckProperty Resize { get; private set; }
 
         /// <inheritdoc/>
-        public override void Render(EffectRenderArgs<Image<BGRA32>> args)
+        public override void Apply(EffectApplyArgs<Image<BGRA32>> args)
         {
             var size = (int)Size[args.Frame];
             if (Resize.Value)
@@ -70,6 +67,13 @@ namespace BEditor.Primitive.Effects.OpenCv
             }
 
             Cv.GaussianBlur(args.Value, size);
+        }
+
+        /// <inheritdoc/>
+        public override IEnumerable<PropertyElement> GetProperties()
+        {
+            yield return Size;
+            yield return Resize;
         }
     }
 }

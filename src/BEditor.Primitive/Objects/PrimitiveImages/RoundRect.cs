@@ -1,4 +1,5 @@
 ﻿using System.Collections.Generic;
+using System.Diagnostics.CodeAnalysis;
 
 using BEditor.Data;
 using BEditor.Data.Primitive;
@@ -81,78 +82,81 @@ namespace BEditor.Primitive.Objects
         /// <summary>
         /// Initializes a new instance of the <see cref="RoundRect"/> class.
         /// </summary>
-#pragma warning disable CS8618
         public RoundRect()
-#pragma warning restore CS8618
         {
         }
 
         /// <inheritdoc/>
         public override string Name => Strings.RoundRect;
 
-        /// <inheritdoc/>
-        public override IEnumerable<PropertyElement> Properties
-        {
-            get
-            {
-                yield return Coordinate;
-                yield return Scale;
-                yield return Blend;
-                yield return Rotate;
-                yield return Material;
-                yield return Width;
-                yield return Height;
-                yield return TopLeftRadius;
-                yield return TopRightRadius;
-                yield return BottomLeftRadius;
-                yield return BottomRightRadius;
-                yield return Line;
-                yield return Color;
-            }
-        }
-
         /// <summary>
         /// Get the width of the shape.
         /// </summary>
+        [AllowNull]
         public EaseProperty Width { get; private set; }
 
         /// <summary>
         /// Get the width of the shape.
         /// </summary>
+        [AllowNull]
         public EaseProperty Height { get; private set; }
 
         /// <summary>
         /// Get the roundness of the shape.
         /// </summary>
+        [AllowNull]
         public EaseProperty TopLeftRadius { get; private set; }
 
         /// <summary>
         /// Get the roundness of the shape.
         /// </summary>
+        [AllowNull]
         public EaseProperty TopRightRadius { get; private set; }
 
         /// <summary>
         /// Get the roundness of the shape.
         /// </summary>
+        [AllowNull]
         public EaseProperty BottomLeftRadius { get; private set; }
 
         /// <summary>
         /// Get the roundness of the shape.
         /// </summary>
+        [AllowNull]
         public EaseProperty BottomRightRadius { get; private set; }
 
         /// <summary>
         /// Get the line width of the shape.
         /// </summary>
+        [AllowNull]
         public EaseProperty Line { get; private set; }
 
         /// <summary>
         /// Get the type of the shape.
         /// </summary>
+        [AllowNull]
         public ColorProperty Color { get; private set; }
 
         /// <inheritdoc/>
-        protected override Image<BGRA32> OnRender(EffectRenderArgs args)
+        public override IEnumerable<PropertyElement> GetProperties()
+        {
+            yield return Coordinate;
+            yield return Scale;
+            yield return Blend;
+            yield return Rotate;
+            yield return Material;
+            yield return Width;
+            yield return Height;
+            yield return TopLeftRadius;
+            yield return TopRightRadius;
+            yield return BottomLeftRadius;
+            yield return BottomRightRadius;
+            yield return Line;
+            yield return Color;
+        }
+
+        /// <inheritdoc/>
+        protected override Image<BGRA32> OnRender(EffectApplyArgs args)
         {
             var f = args.Frame;
             return Image.RoundRect(

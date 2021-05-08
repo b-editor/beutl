@@ -87,7 +87,7 @@ namespace BEditor.Extensions.Svg
             }
         }
 
-        protected override unsafe Image<BGRA32>? OnRender(EffectRenderArgs args)
+        protected override unsafe Image<BGRA32>? OnRender(EffectApplyArgs args)
         {
             if (Source?.Picture is null) return null;
 

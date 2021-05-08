@@ -1,4 +1,5 @@
 ﻿using System.Collections.Generic;
+using System.Diagnostics.CodeAnalysis;
 
 using BEditor.Data;
 using BEditor.Data.Primitive;
@@ -9,7 +10,9 @@ using BEditor.Primitive.Resources;
 
 namespace BEditor.Primitive.Effects
 {
-#pragma warning disable CS1591
+    /// <summary>
+    /// 
+    /// </summary>
     public sealed class Diffusion : ImageEffect
     {
         /// <summary>
@@ -21,23 +24,32 @@ namespace BEditor.Primitive.Effects
             (owner, obj) => owner.Value = obj,
             new EasePropertyMetadata(Strings.ThresholdValue, 7, 30, 0));
 
-#pragma warning disable CS8618
+        /// <summary>
+        /// Initializes a new instance of the <see cref="Diffusion"/> class.
+        /// </summary>
         public Diffusion()
-#pragma warning restore CS8618
         {
         }
 
+        /// <inheritdoc/>
         public override string Name => Strings.Diffusion;
-        public override IEnumerable<PropertyElement> Properties => new PropertyElement[]
-        {
-            Value
-        };
+
+        /// <summary>
+        /// Gets the threshold value.
+        /// </summary>
+        [AllowNull]
         public EaseProperty Value { get; set; }
 
-        public override void Render(EffectRenderArgs<Image<BGRA32>> args)
+        /// <inheritdoc/>
+        public override void Apply(EffectApplyArgs<Image<BGRA32>> args)
         {
             args.Value.Diffusion((byte)Value[args.Frame]);
         }
+
+        /// <inheritdoc/>
+        public override IEnumerable<PropertyElement> GetProperties()
+        {
+            yield return Value;
+        }
     }
-#pragma warning restore CS1591
 }

@@ -1,4 +1,5 @@
 ﻿using System.Collections.Generic;
+using System.Diagnostics.CodeAnalysis;
 
 using BEditor.Data;
 using BEditor.Data.Primitive;
@@ -9,7 +10,9 @@ using BEditor.Primitive.Resources;
 
 namespace BEditor.Primitive.Effects
 {
-#pragma warning disable CS1591
+    /// <summary>
+    /// Represents the <see cref="ImageEffect"/> that corrects the gamma of an image.
+    /// </summary>
     public sealed class GammaCorrection : ImageEffect
     {
         /// <summary>
@@ -21,23 +24,32 @@ namespace BEditor.Primitive.Effects
             (owner, obj) => owner.Gamma = obj,
             new EasePropertyMetadata(Strings.Gamma, 100, 300, 1));
 
-#pragma warning disable CS8618
+        /// <summary>
+        /// Initializes a new instance of the <see cref="GammaCorrection"/> class.
+        /// </summary>
         public GammaCorrection()
-#pragma warning restore CS8618
         {
         }
 
+        /// <inheritdoc/>
         public override string Name => Strings.GammaCorrection;
-        public override IEnumerable<PropertyElement> Properties => new PropertyElement[]
-        {
-            Gamma
-        };
+
+        /// <summary>
+        /// Gets the gamma.
+        /// </summary>
+        [AllowNull]
         public EaseProperty Gamma { get; set; }
 
-        public override void Render(EffectRenderArgs<Image<BGRA32>> args)
+        /// <inheritdoc/>
+        public override void Apply(EffectApplyArgs<Image<BGRA32>> args)
         {
             args.Value.Gamma(Gamma[args.Frame] / 100, Parent.Parent.DrawingContext);
         }
+
+        /// <inheritdoc/>
+        public override IEnumerable<PropertyElement> GetProperties()
+        {
+            yield return Gamma;
+        }
     }
-#pragma warning restore CS1591
 }

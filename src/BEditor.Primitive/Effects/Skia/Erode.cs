@@ -1,4 +1,5 @@
 ﻿using System.Collections.Generic;
+using System.Diagnostics.CodeAnalysis;
 
 using BEditor.Data;
 using BEditor.Data.Primitive;
@@ -10,7 +11,7 @@ using BEditor.Primitive.Resources;
 namespace BEditor.Primitive.Effects
 {
     /// <summary>
-    /// Represents an <see cref="ImageEffect"/> that erodes an image.
+    /// Represents the <see cref="ImageEffect"/> that erodes an image.
     /// </summary>
     public sealed class Erode : ImageEffect
     {
@@ -31,34 +32,27 @@ namespace BEditor.Primitive.Effects
         /// <summary>
         /// Initializes a new instance of the <see cref="Erode"/> class.
         /// </summary>
-#pragma warning disable CS8618
         public Erode()
-#pragma warning restore CS8618
         {
         }
 
         /// <inheritdoc/>
         public override string Name => Strings.Erode;
 
-        /// <inheritdoc/>
-        public override IEnumerable<PropertyElement> Properties => new PropertyElement[]
-        {
-            Radius,
-            Resize
-        };
-
         /// <summary>
         /// Gets the <see cref="EaseProperty"/> representing the radius.
         /// </summary>
+        [AllowNull]
         public EaseProperty Radius { get; private set; }
 
         /// <summary>
         /// Gets a <see cref="CheckProperty"/> representing the value to resize the image.
         /// </summary>
+        [AllowNull]
         public CheckProperty Resize { get; private set; }
 
         /// <inheritdoc/>
-        public override void Render(EffectRenderArgs<Image<BGRA32>> args)
+        public override void Apply(EffectApplyArgs<Image<BGRA32>> args)
         {
             var img = args.Value;
             var size = (int)Radius.GetValue(args.Frame);
@@ -78,6 +72,13 @@ namespace BEditor.Primitive.Effects
             {
                 img.Erode(size);
             }
+        }
+
+        /// <inheritdoc/>
+        public override IEnumerable<PropertyElement> GetProperties()
+        {
+            yield return Radius;
+            yield return Resize;
         }
     }
 }

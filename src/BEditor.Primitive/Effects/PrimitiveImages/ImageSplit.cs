@@ -1,5 +1,6 @@
 ﻿using System;
 using System.Collections.Generic;
+using System.Diagnostics.CodeAnalysis;
 using System.Linq;
 using System.Numerics;
 
@@ -14,7 +15,7 @@ using BEditor.Primitive.Resources;
 namespace BEditor.Primitive.Effects
 {
     /// <summary>
-    /// Represents a <see cref="ImageEffect"/> that splits an image.
+    /// Represents the <see cref="ImageEffect"/> that splits an image.
     /// </summary>
     public sealed class ImageSplit : ImageEffect
     {
@@ -39,37 +40,27 @@ namespace BEditor.Primitive.Effects
         /// <summary>
         /// Initializes a new instance of the <see cref="ImageSplit"/> class.
         /// </summary>
-#pragma warning disable CS8618
         public ImageSplit()
-#pragma warning restore CS8618
         {
         }
 
         /// <inheritdoc/>
         public override string Name => Strings.ImageSplit;
 
-        /// <inheritdoc/>
-        public override IEnumerable<PropertyElement> Properties
-        {
-            get
-            {
-                yield return HSplit;
-                yield return VSplit;
-            }
-        }
-
         /// <summary>
-        /// Get the <see cref="EaseProperty"/> that represents the number of horizontal divisions.
+        /// Gets the number of horizontal divisions.
         /// </summary>
+        [AllowNull]
         public EaseProperty HSplit { get; private set; }
 
         /// <summary>
-        /// Get the <see cref="EaseProperty"/> that represents the number of vertical divisions.
+        /// Gets the number of vertical divisions.
         /// </summary>
+        [AllowNull]
         public EaseProperty VSplit { get; private set; }
 
         /// <inheritdoc/>
-        public override void Render(EffectRenderArgs<IEnumerable<ImageInfo>> args)
+        public override void Apply(EffectApplyArgs<IEnumerable<ImageInfo>> args)
         {
             //forに使う変数はキャプチャされないのでこれで対策
             Func<ImageInfo, Transform> GetTransform(float x, float y, float hsplit, float vsplit)
@@ -116,8 +107,15 @@ namespace BEditor.Primitive.Effects
         }
 
         /// <inheritdoc/>
-        public override void Render(EffectRenderArgs<Image<BGRA32>> args)
+        public override void Apply(EffectApplyArgs<Image<BGRA32>> args)
         {
+        }
+
+        /// <inheritdoc/>
+        public override IEnumerable<PropertyElement> GetProperties()
+        {
+            yield return HSplit;
+            yield return VSplit;
         }
     }
 }

@@ -1,5 +1,6 @@
 ﻿using System;
 using System.Collections.Generic;
+using System.Linq;
 
 using BEditor.Data;
 using BEditor.Data.Primitive;
@@ -18,20 +19,15 @@ namespace BEditor.Primitive.Effects
         }
 
         public override string Name => Strings.Xor;
-        public override IEnumerable<PropertyElement> Properties => Array.Empty<PropertyElement>();
 
-        public override void Render(EffectRenderArgs<Image<BGRA32>> args)
+        public override void Apply(EffectApplyArgs<Image<BGRA32>> args)
         {
-            var context = Parent.Parent.DrawingContext;
+            args.Value.Xor(Parent.Parent.DrawingContext);
+        }
 
-            if (context is not null && Settings.Default.PrioritizeGPU)
-            {
-                args.Value.Xor(context);
-            }
-            else
-            {
-                args.Value.Xor();
-            }
+        public override IEnumerable<PropertyElement> GetProperties()
+        {
+            return Enumerable.Empty<PropertyElement>();
         }
     }
 #pragma warning restore CS1591

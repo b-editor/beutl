@@ -68,22 +68,6 @@ namespace BEditor.Primitive.Objects
         }
 
         public override string Name => nameof(PropertyTest);
-        public override IEnumerable<PropertyElement> Properties => new PropertyElement[]
-        {
-            Button,
-            Check,
-            ColorAnimation,
-            Color,
-            Document,
-            Ease,
-            File,
-            Folder,
-            Label,
-            Selector,
-            SelectorGen,
-            Text,
-            Value
-        };
         public ButtonComponent Button { get; set; }
         public CheckProperty Check { get; set; }
         public ColorAnimationProperty ColorAnimation { get; set; }
@@ -98,8 +82,28 @@ namespace BEditor.Primitive.Objects
         public TextProperty Text { get; set; }
         public ValueProperty Value { get; set; }
 
-        public override void Render(EffectRenderArgs args)
+        public override void Apply(EffectApplyArgs args)
         {
+        }
+
+        public override IEnumerable<PropertyElement> GetProperties()
+        {
+            return new PropertyElement[]
+            {
+                Button,
+                Check,
+                ColorAnimation,
+                Color,
+                Document,
+                Ease,
+                File,
+                Folder,
+                Label,
+                Selector,
+                SelectorGen,
+                Text,
+                Value
+            };
         }
     }
 

@@ -1,4 +1,5 @@
 ﻿using System.Collections.Generic;
+using System.Diagnostics.CodeAnalysis;
 
 using BEditor.Data;
 using BEditor.Data.Property;
@@ -10,7 +11,7 @@ namespace BEditor.Primitive.Effects
     /// <summary>
     /// Represents an <see cref="EffectElement"/> that sets the OpenGL point light source.
     /// </summary>
-    public class PointLightSource : EffectElement
+    public sealed class PointLightSource : EffectElement
     {
         /// <summary>
         /// Defines the <see cref="X"/> property.
@@ -57,61 +58,51 @@ namespace BEditor.Primitive.Effects
         /// <summary>
         /// Initializes a new instance of the <see cref="PointLightSource"/> class.
         /// </summary>
-#pragma warning disable CS8618
         public PointLightSource()
-#pragma warning restore CS8618
         {
         }
 
         /// <inheritdoc/>
         public override string Name => Strings.PointLightSource;
 
-        /// <inheritdoc/>
-        public override IEnumerable<PropertyElement> Properties
-        {
-            get
-            {
-                yield return X;
-                yield return Y;
-                yield return Z;
-                yield return Ambient;
-                yield return Diffuse;
-                yield return Specular;
-            }
-        }
-
         /// <summary>
-        /// Get the <see cref="EaseProperty"/> representing the X coordinate.
+        /// Gets the X coordinate.
         /// </summary>
+        [AllowNull]
         public EaseProperty X { get; private set; }
 
         /// <summary>
-        /// Get the <see cref="EaseProperty"/> representing the Y coordinate.
+        /// Gets the Y coordinate.
         /// </summary>
+        [AllowNull]
         public EaseProperty Y { get; private set; }
 
         /// <summary>
-        /// Get the <see cref="EaseProperty"/> representing the Z coordinate.
+        /// Gets the Z coordinate.
         /// </summary>
+        [AllowNull]
         public EaseProperty Z { get; private set; }
 
         /// <summary>
-        /// Gets the <see cref="ColorAnimationProperty"/> representing ambient.
+        /// Gets the ambient.
         /// </summary>
+        [AllowNull]
         public ColorAnimationProperty Ambient { get; private set; }
 
         /// <summary>
-        /// Gets the <see cref="ColorAnimationProperty"/> representing diffuse.
+        /// Gets the diffuse.
         /// </summary>
+        [AllowNull]
         public ColorAnimationProperty Diffuse { get; private set; }
 
         /// <summary>
-        ///Gets the <see cref="ColorAnimationProperty"/> representing specular.
+        /// Gets the specular.
         /// </summary>
+        [AllowNull]
         public ColorAnimationProperty Specular { get; private set; }
 
         /// <inheritdoc/>
-        public override void Render(EffectRenderArgs args)
+        public override void Apply(EffectApplyArgs args)
         {
             var frame = args.Frame;
 
@@ -120,6 +111,17 @@ namespace BEditor.Primitive.Effects
                 Ambient[frame],
                 Diffuse[frame],
                 Specular[frame]);
+        }
+
+        /// <inheritdoc/>
+        public override IEnumerable<PropertyElement> GetProperties()
+        {
+            yield return X;
+            yield return Y;
+            yield return Z;
+            yield return Ambient;
+            yield return Diffuse;
+            yield return Specular;
         }
     }
 }

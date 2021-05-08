@@ -1,4 +1,5 @@
 ﻿using System.Collections.Generic;
+using System.Diagnostics.CodeAnalysis;
 
 using BEditor.Data;
 using BEditor.Data.Primitive;
@@ -60,60 +61,60 @@ namespace BEditor.Primitive.Objects
         /// <summary>
         /// Initializes a new instance of the <see cref="Shape"/> class.
         /// </summary>
-#pragma warning disable CS8618
         public Shape()
-#pragma warning restore CS8618
         {
         }
 
         /// <inheritdoc/>
         public override string Name => Strings.Shape;
 
-        /// <inheritdoc/>
-        public override IEnumerable<PropertyElement> Properties
-        {
-            get
-            {
-                yield return Coordinate;
-                yield return Scale;
-                yield return Blend;
-                yield return Rotate;
-                yield return Material;
-                yield return Width;
-                yield return Height;
-                yield return Line;
-                yield return Color;
-                yield return Type;
-            }
-        }
-
         /// <summary>
-        /// Get the <see cref="EaseProperty"/> that represents the width of the shape.
+        /// Gets the width of the shape.
         /// </summary>
+        [AllowNull]
         public EaseProperty Width { get; private set; }
 
         /// <summary>
-        /// Get the <see cref="EaseProperty"/> that represents the height of the shape.
+        /// Gets the height of the shape.
         /// </summary>
+        [AllowNull]
         public EaseProperty Height { get; private set; }
 
         /// <summary>
-        /// Get the <see cref="EaseProperty"/> that represents the line width of the shape.
+        /// Gets the line width of the shape.
         /// </summary>
+        [AllowNull]
         public EaseProperty Line { get; private set; }
 
         /// <summary>
-        /// Get the <see cref="ColorProperty"/> that represents the color of the shape.
+        /// Gets the color of the shape.
         /// </summary>
+        [AllowNull]
         public ColorProperty Color { get; private set; }
 
         /// <summary>
-        /// Get the <see cref="SelectorProperty"/> to select the type of the shape.
+        /// Gets the <see cref="SelectorProperty"/> to select the type of the shape.
         /// </summary>
+        [AllowNull]
         public SelectorProperty Type { get; private set; }
 
         /// <inheritdoc/>
-        protected override Image<BGRA32> OnRender(EffectRenderArgs args)
+        public override IEnumerable<PropertyElement> GetProperties()
+        {
+            yield return Coordinate;
+            yield return Scale;
+            yield return Blend;
+            yield return Rotate;
+            yield return Material;
+            yield return Width;
+            yield return Height;
+            yield return Line;
+            yield return Color;
+            yield return Type;
+        }
+
+        /// <inheritdoc/>
+        protected override Image<BGRA32> OnRender(EffectApplyArgs args)
         {
             var width = (int)Width[args.Frame];
             var height = (int)Height[args.Frame];

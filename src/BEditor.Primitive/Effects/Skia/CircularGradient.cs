@@ -1,4 +1,5 @@
 ﻿using System.Collections.Generic;
+using System.Diagnostics.CodeAnalysis;
 using System.Linq;
 using System.Reactive.Linq;
 
@@ -15,7 +16,7 @@ using Reactive.Bindings;
 namespace BEditor.Primitive.Effects
 {
     /// <summary>
-    /// Represents an <see cref="ImageEffect"/> that masks an image with a circular gradient.
+    /// Represents the <see cref="ImageEffect"/> that masks an image with a circular gradient.
     /// </summary>
     public sealed class CircularGradient : ImageEffect
     {
@@ -70,57 +71,47 @@ namespace BEditor.Primitive.Effects
         /// <summary>
         /// Initializes a new instance of the <see cref="CircularGradient"/> class.
         /// </summary>
-#pragma warning disable CS8618
         public CircularGradient()
-#pragma warning restore CS8618
         {
         }
 
         /// <inheritdoc/>
         public override string Name => Strings.CircularGradient;
 
-        /// <inheritdoc/>
-        public override IEnumerable<PropertyElement> Properties
-        {
-            get
-            {
-                yield return CenterX;
-                yield return CenterY;
-                yield return Radius;
-                yield return Colors;
-                yield return Anchors;
-                yield return Mode;
-            }
-        }
-
         /// <summary>
-        /// Get the <see cref="EaseProperty"/> representing the X coordinate of the center.
+        /// Gets the X coordinate of the center.
         /// </summary>
+        [AllowNull]
         public EaseProperty CenterX { get; private set; }
 
         /// <summary>
-        /// Get the <see cref="EaseProperty"/> representing the Y coordinate of the center.
+        /// Gets the Y coordinate of the center.
         /// </summary>
+        [AllowNull]
         public EaseProperty CenterY { get; private set; }
 
         /// <summary>
-        /// Get the <see cref="EaseProperty"/> representing the radius.
+        /// Gets the radius.
         /// </summary>
+        [AllowNull]
         public EaseProperty Radius { get; private set; }
 
         /// <summary>
-        /// Get the <see cref="TextProperty"/> representing the colors.
+        /// Gets the colors.
         /// </summary>
+        [AllowNull]
         public TextProperty Colors { get; private set; }
 
         /// <summary>
-        /// Get the <see cref="TextProperty"/> representing the anchors.
+        /// Gets the anchors.
         /// </summary>
+        [AllowNull]
         public TextProperty Anchors { get; private set; }
 
         /// <summary>
         /// Get the <see cref="SelectorProperty"/> that selects the gradient mode.
         /// </summary>
+        [AllowNull]
         public SelectorProperty Mode { get; private set; }
 
         private ReactiveProperty<Color[]> ColorsProp => _colorsProp ??= new();
@@ -128,7 +119,7 @@ namespace BEditor.Primitive.Effects
         private ReactiveProperty<float[]> PointsProp => _pointsProp ??= new();
 
         /// <inheritdoc/>
-        public override void Render(EffectRenderArgs<Image<BGRA32>> args)
+        public override void Apply(EffectApplyArgs<Image<BGRA32>> args)
         {
             var f = args.Frame;
             var colors = ColorsProp.Value;
@@ -153,6 +144,17 @@ namespace BEditor.Primitive.Effects
                 colors,
                 points,
                 LinearGradient.tiles[Mode.Index]);
+        }
+
+        /// <inheritdoc/>
+        public override IEnumerable<PropertyElement> GetProperties()
+        {
+            yield return CenterX;
+            yield return CenterY;
+            yield return Radius;
+            yield return Colors;
+            yield return Anchors;
+            yield return Mode;
         }
 
         /// <inheritdoc/>

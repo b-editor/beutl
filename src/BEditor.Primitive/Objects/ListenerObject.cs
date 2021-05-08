@@ -1,4 +1,5 @@
 ﻿using System.Collections.Generic;
+using System.Diagnostics.CodeAnalysis;
 
 using BEditor.Data;
 using BEditor.Data.Property;
@@ -65,67 +66,57 @@ namespace BEditor.Primitive.Objects
         /// <summary>
         /// Initializes a new instance of the <see cref="ListenerObject"/> class.
         /// </summary>
-#pragma warning disable CS8618
         public ListenerObject()
-#pragma warning restore CS8618
         {
         }
 
         /// <inheritdoc/>
         public override string Name => Strings.Listener;
 
-        /// <inheritdoc/>
-        public override IEnumerable<PropertyElement> Properties
-        {
-            get
-            {
-                yield return X;
-                yield return Y;
-                yield return Z;
-                yield return TargetX;
-                yield return TargetY;
-                yield return TargetZ;
-                yield return Gain;
-            }
-        }
-
         /// <summary>
-        /// Gets the <see cref="EaseProperty"/> representing the X coordinate of the listener.
+        /// Gets the X coordinate of the listener.
         /// </summary>
+        [AllowNull]
         public EaseProperty X { get; private set; }
 
         /// <summary>
-        /// Gets the <see cref="EaseProperty"/> representing the Y coordinate of the listener.
+        /// Gets the Y coordinate of the listener.
         /// </summary>
+        [AllowNull]
         public EaseProperty Y { get; private set; }
 
         /// <summary>
-        /// Gets the <see cref="EaseProperty"/> representing the Z coordinate of the listener.
+        /// Gets the Z coordinate of the listener.
         /// </summary>
+        [AllowNull]
         public EaseProperty Z { get; private set; }
 
         /// <summary>
-        /// Get the <see cref="EaseProperty"/> that represents the X coordinate of the listener's target position.
+        /// Gets the X coordinate of the listener's target position.
         /// </summary>
+        [AllowNull]
         public EaseProperty TargetX { get; private set; }
 
         /// <summary>
-        /// Get the <see cref="EaseProperty"/> that represents the Y coordinate of the listener's target position.
+        /// Gets the Y coordinate of the listener's target position.
         /// </summary>
+        [AllowNull]
         public EaseProperty TargetY { get; private set; }
 
         /// <summary>
-        /// Get the <see cref="EaseProperty"/> that represents the Z coordinate of the listener's target position.
+        /// Gets the Z coordinate of the listener's target position.
         /// </summary>
+        [AllowNull]
         public EaseProperty TargetZ { get; private set; }
 
         /// <summary>
         /// 
         /// </summary>
+        [AllowNull]
         public EaseProperty Gain { get; private set; }
 
         /// <inheritdoc/>
-        public override void Render(EffectRenderArgs args)
+        public override void Apply(EffectApplyArgs args)
         {
             var context = Parent.Parent.AudioContext;
             var f = args.Frame;
@@ -133,6 +124,18 @@ namespace BEditor.Primitive.Objects
             context!.Position = new(X[f], Y[f], Z[f]);
             context.Target = new(TargetX[f], TargetY[f], TargetZ[f]);
             context.Gain = Gain[f] / 100f;
+        }
+
+        /// <inheritdoc/>
+        public override IEnumerable<PropertyElement> GetProperties()
+        {
+            yield return X;
+            yield return Y;
+            yield return Z;
+            yield return TargetX;
+            yield return TargetY;
+            yield return TargetZ;
+            yield return Gain;
         }
     }
 }

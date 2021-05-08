@@ -3,14 +3,14 @@
 namespace BEditor.Data
 {
     /// <summary>
-    /// Represents a data to be passed to the <see cref="EffectElement"/> at rendering time.
+    /// Represents data that is passed to <see cref="EffectElement"/> when it is applied.
     /// </summary>
-    public class EffectRenderArgs
+    public class EffectApplyArgs
     {
         /// <summary>
-        /// Initializes a new instance of the <see cref="EffectRenderArgs"/> class.
+        /// Initializes a new instance of the <see cref="EffectApplyArgs"/> class.
         /// </summary>
-        public EffectRenderArgs(Frame frame, RenderType type = RenderType.Preview)
+        public EffectApplyArgs(Frame frame, RenderType type = RenderType.Preview)
         {
             Frame = frame;
             Type = type;

@@ -1,5 +1,6 @@
 ﻿using System;
 using System.Collections.Generic;
+using System.Diagnostics.CodeAnalysis;
 
 using BEditor.Resources;
 
@@ -71,37 +72,35 @@ namespace BEditor.Data.Property.PrimitiveGroup
         /// </summary>
         /// <param name="metadata">Metadata of this property.</param>
         /// <exception cref="ArgumentNullException"><paramref name="metadata"/> is <see langword="null"/>.</exception>
-#pragma warning disable CS8618
         public Blend(BlendMetadata metadata) : base(metadata)
-#pragma warning restore CS8618
         {
-        }
-
-        /// <inheritdoc/>
-        public override IEnumerable<PropertyElement> Properties
-        {
-            get
-            {
-                yield return Opacity;
-                yield return Color;
-                yield return BlendType;
-            }
         }
 
         /// <summary>
-        /// Gets the <see cref="EaseProperty"/> that represents the transparency.
+        /// Gets the opacity.
         /// </summary>
+        [AllowNull]
         public EaseProperty Opacity { get; private set; }
 
         /// <summary>
-        /// Gets the <see cref="ColorAnimationProperty"/> that represents a color.
+        /// Gets the color.
         /// </summary>
+        [AllowNull]
         public ColorAnimationProperty Color { get; private set; }
 
         /// <summary>
-        /// Gets the <see cref="SelectorProperty"/> that selects the BlendFunc.
+        /// Gets the BlendFunc.
         /// </summary>
+        [AllowNull]
         public SelectorProperty BlendType { get; private set; }
+
+        /// <inheritdoc/>
+        public override IEnumerable<PropertyElement> GetProperties()
+        {
+            yield return Opacity;
+            yield return Color;
+            yield return BlendType;
+        }
     }
 
     /// <summary>

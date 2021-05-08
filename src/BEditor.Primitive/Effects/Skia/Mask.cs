@@ -1,5 +1,6 @@
 ﻿using System;
 using System.Collections.Generic;
+using System.Diagnostics.CodeAnalysis;
 using System.Linq;
 using System.Reactive.Linq;
 
@@ -16,7 +17,7 @@ using Reactive.Bindings;
 namespace BEditor.Primitive.Effects
 {
     /// <summary>
-    /// Represents an <see cref="ImageEffect"/> that masks an image with another <see cref="ImageObject"/>.
+    /// Represents the <see cref="ImageEffect"/> that masks an image with another <see cref="ImageObject"/>.
     /// </summary>
     public sealed class Mask : ImageEffect
     {
@@ -93,75 +94,65 @@ namespace BEditor.Primitive.Effects
         /// <summary>
         /// Initializes a new instance of the <see cref="Mask"/> class.
         /// </summary>
-#pragma warning disable CS8618
         public Mask()
-#pragma warning restore CS8618
         {
         }
 
         /// <inheritdoc/>
         public override string Name => Strings.Mask;
 
-        /// <inheritdoc/>
-        public override IEnumerable<PropertyElement> Properties
-        {
-            get
-            {
-                yield return X;
-                yield return Y;
-                yield return MaskRotate;
-                yield return Width;
-                yield return Height;
-                yield return Image;
-                yield return InvertMask;
-                yield return FitSize;
-            }
-        }
-
         /// <summary>
-        /// Get the <see cref="EaseProperty"/> representing the X coordinate.
+        /// Get the X coordinate.
         /// </summary>
+        [AllowNull]
         public EaseProperty X { get; private set; }
 
         /// <summary>
-        /// Get the <see cref="EaseProperty"/> representing the Y coordinate.
+        /// Gets the Y coordinate.
         /// </summary>
+        [AllowNull]
         public EaseProperty Y { get; private set; }
 
         /// <summary>
-        /// Get the <see cref="EaseProperty"/> of the angle.
+        /// Gets the angle.
         /// </summary>
+        [AllowNull]
         public EaseProperty MaskRotate { get; private set; }
 
         /// <summary>
-        /// Get the <see cref="EaseProperty"/> that represents the width of the mask.
+        /// Gets the width of the mask.
         /// </summary>
+        [AllowNull]
         public EaseProperty Width { get; private set; }
 
         /// <summary>
-        /// Get the <see cref="EaseProperty"/> that represents the height of the mask.
+        /// Gets the height of the mask.
         /// </summary>
+        [AllowNull]
         public EaseProperty Height { get; private set; }
 
         /// <summary>
-        /// Gets the <see cref="TextProperty"/> that specifies the image object to be referenced.
+        /// Gets the image object to be referenced.
         /// </summary>
+        [AllowNull]
         public TextProperty Image { get; private set; }
 
         /// <summary>
-        /// Get a <see cref="CheckProperty"/> indicating whether or not to invert the mask.
+        /// Gets whether or not to invert the mask.
         /// </summary>
+        [AllowNull]
         public CheckProperty InvertMask { get; private set; }
 
         /// <summary>
-        /// Gets a <see cref="CheckProperty"/> indicating whether or not the mask should be fit to the original image size.
+        /// Gets whether or not the mask should be fit to the original image size.
         /// </summary>
+        [AllowNull]
         public CheckProperty FitSize { get; private set; }
 
         private ReactiveProperty<ClipElement?> ClipProperty => _clipProperty ??= new();
 
         /// <inheritdoc/>
-        public override void Render(EffectRenderArgs<Image<BGRA32>> args)
+        public override void Apply(EffectApplyArgs<Image<BGRA32>> args)
         {
             if (ClipProperty.Value is null) return;
 
@@ -169,7 +160,7 @@ namespace BEditor.Primitive.Effects
 
             var imgobj = (ImageObject)ClipProperty.Value.Effect[0];
             imgobj.Render(
-                new EffectRenderArgs(f - Parent.Start + ClipProperty.Value.Start, args.Type),
+                new EffectApplyArgs(f - Parent.Start + ClipProperty.Value.Start, args.Type),
                 out var img);
             imgobj.Coordinate.ResetOptional();
 
@@ -189,6 +180,19 @@ namespace BEditor.Primitive.Effects
 
             args.Value.Mask(resizedimg, new PointF(X[f], Y[f]), MaskRotate[f], InvertMask.Value, Parent.Parent.DrawingContext);
             img.Dispose();
+        }
+
+        /// <inheritdoc/>
+        public override IEnumerable<PropertyElement> GetProperties()
+        {
+            yield return X;
+            yield return Y;
+            yield return MaskRotate;
+            yield return Width;
+            yield return Height;
+            yield return Image;
+            yield return InvertMask;
+            yield return FitSize;
         }
 
         /// <inheritdoc/>

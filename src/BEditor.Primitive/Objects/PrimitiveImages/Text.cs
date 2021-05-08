@@ -1,4 +1,5 @@
 ﻿using System.Collections.Generic;
+using System.Diagnostics.CodeAnalysis;
 using System.Linq;
 using System.Numerics;
 
@@ -21,32 +22,45 @@ namespace BEditor.Primitive.Objects
         /// Defines the <see cref="Size"/> property.
         /// </summary>
         public static readonly DirectEditingProperty<Text, EaseProperty> SizeProperty = EditingProperty.RegisterSerializeDirect<EaseProperty, Text>(
-            nameof(Size), owner => owner.Size, (owner, obj) => owner.Size = obj, new EasePropertyMetadata(Strings.Size, 100, float.NaN, 0));
+            nameof(Size),
+            owner => owner.Size,
+            (owner, obj) => owner.Size = obj,
+            new EasePropertyMetadata(Strings.Size, 100, float.NaN, 0));
 
         /// <summary>
         /// Defines the <see cref="LineSpacing"/> property.
         /// </summary>
         public static readonly DirectEditingProperty<Text, EaseProperty> LineSpacingProperty = EditingProperty.RegisterSerializeDirect<EaseProperty, Text>(
-            nameof(LineSpacing), owner => owner.LineSpacing, (owner, obj) => owner.LineSpacing = obj, new EasePropertyMetadata(Strings.LineSpacing, 0, float.NaN, 0));
+            nameof(LineSpacing),
+            owner => owner.LineSpacing,
+            (owner, obj) => owner.LineSpacing = obj,
+            new EasePropertyMetadata(Strings.LineSpacing, 0, float.NaN, 0));
 
         /// <summary>
         /// Defines the <see cref="Color"/> property.
         /// </summary>
         public static readonly DirectEditingProperty<Text, ColorProperty> ColorProperty = EditingProperty.RegisterSerializeDirect<ColorProperty, Text>(
-            nameof(Color), owner => owner.Color, (owner, obj) => owner.Color = obj, new ColorPropertyMetadata(Strings.Color, Drawing.Color.Light));
+            nameof(Color),
+            owner => owner.Color,
+            (owner, obj) => owner.Color = obj,
+            new ColorPropertyMetadata(Strings.Color, Drawing.Color.Light));
 
         /// <summary>
         /// Defines the <see cref="Color"/> property.
         /// </summary>
         public static readonly DirectEditingProperty<Text, FontProperty> FontProperty = EditingProperty.RegisterSerializeDirect<FontProperty, Text>(
-            nameof(Font), owner => owner.Font, (owner, obj) => owner.Font = obj, new FontPropertyMetadata());
+            nameof(Font),
+            owner => owner.Font,
+            (owner, obj) => owner.Font = obj,
+            new FontPropertyMetadata());
 
         /// <summary>
         /// Defines the <see cref="HorizontalAlign"/> property.
         /// </summary>
         public static readonly DirectEditingProperty<Text, SelectorProperty> HorizontalAlignProperty = EditingProperty.RegisterSerializeDirect<SelectorProperty, Text>(
             nameof(HorizontalAlign),
-            owner => owner.HorizontalAlign, (owner, obj) => owner.HorizontalAlign = obj,
+            owner => owner.HorizontalAlign,
+            (owner, obj) => owner.HorizontalAlign = obj,
             new SelectorPropertyMetadata(Strings.HorizontalAlignment, new[]
             {
                 Strings.Left,
@@ -59,7 +73,8 @@ namespace BEditor.Primitive.Objects
         /// </summary>
         public static readonly DirectEditingProperty<Text, SelectorProperty> VerticalAlignProperty = EditingProperty.RegisterSerializeDirect<SelectorProperty, Text>(
             nameof(VerticalAlign),
-            owner => owner.VerticalAlign, (owner, obj) => owner.VerticalAlign = obj,
+            owner => owner.VerticalAlign,
+            (owner, obj) => owner.VerticalAlign = obj,
             new SelectorPropertyMetadata(Strings.VerticalAlignment, new[]
             {
                 Strings.Top,
@@ -71,13 +86,19 @@ namespace BEditor.Primitive.Objects
         /// Defines the <see cref="Document"/> property.
         /// </summary>
         public static readonly DirectEditingProperty<Text, DocumentProperty> DocumentProperty = EditingProperty.RegisterSerializeDirect<DocumentProperty, Text>(
-            nameof(Document), owner => owner.Document, (owner, obj) => owner.Document = obj, new DocumentPropertyMetadata(string.Empty));
+            nameof(Document),
+            owner => owner.Document,
+            (owner, obj) => owner.Document = obj,
+            new DocumentPropertyMetadata(string.Empty));
 
         /// <summary>
         /// Defines the <see cref="EnableMultiple"/> property.
         /// </summary>
         public static readonly DirectEditingProperty<Text, CheckProperty> EnableMultipleProperty = EditingProperty.RegisterSerializeDirect<CheckProperty, Text>(
-            nameof(EnableMultiple), owner => owner.EnableMultiple, (owner, obj) => owner.EnableMultiple = obj, new CheckPropertyMetadata(Strings.EnableMultipleObjects));
+            nameof(EnableMultiple),
+            owner => owner.EnableMultiple,
+            (owner, obj) => owner.EnableMultiple = obj,
+            new CheckPropertyMetadata(Strings.EnableMultipleObjects));
 
         /// <summary>
         /// Initializes a new instance of the <see cref="Text"/> class.
@@ -86,73 +107,77 @@ namespace BEditor.Primitive.Objects
         {
         }
 
-#nullable disable
-
         /// <inheritdoc/>
         public override string Name => Strings.Text;
-
-        /// <inheritdoc/>
-        public override IEnumerable<PropertyElement> Properties => new PropertyElement[]
-        {
-            Coordinate,
-            Scale,
-            Blend,
-            Rotate,
-            Material,
-            Size,
-            LineSpacing,
-            Color,
-            Font,
-            HorizontalAlign,
-            VerticalAlign,
-            EnableMultiple,
-            Document,
-        };
 
         /// <summary>
         /// Gets the size of the string to be drawn.
         /// </summary>
+        [AllowNull]
         public EaseProperty Size { get; private set; }
 
         /// <summary>
         /// Gets the line spacing of the string to be drawn.
         /// </summary>
+        [AllowNull]
         public EaseProperty LineSpacing { get; private set; }
 
         /// <summary>
         /// Gets the color of string to be drawn.
         /// </summary>
+        [AllowNull]
         public ColorProperty Color { get; private set; }
 
         /// <summary>
         /// Gets the font of the string to be drawn.
         /// </summary>
+        [AllowNull]
         public FontProperty Font { get; private set; }
 
         /// <summary>
         /// Gets the horizontal alignment of the string to be drawn.
         /// </summary>
+        [AllowNull]
         public SelectorProperty HorizontalAlign { get; private set; }
 
         /// <summary>
         /// Gets the vertical alignment of the string to be drawn.
         /// </summary>
+        [AllowNull]
         public SelectorProperty VerticalAlign { get; private set; }
 
         /// <summary>
         /// Gets whether or not to enable multiple objects.
         /// </summary>
+        [AllowNull]
         public CheckProperty EnableMultiple { get; private set; }
 
         /// <summary>
         /// Gets the string to be drawn.
         /// </summary>
+        [AllowNull]
         public DocumentProperty Document { get; private set; }
 
-#nullable enable
+        /// <inheritdoc/>
+        public override IEnumerable<PropertyElement> GetProperties()
+        {
+            yield return Coordinate;
+            yield return Scale;
+            yield return Blend;
+            yield return Rotate;
+            yield return Material;
+            yield return Size;
+            yield return LineSpacing;
+            yield return Color;
+            yield return Font;
+            yield return HorizontalAlign;
+            yield return VerticalAlign;
+            yield return EnableMultiple;
+            yield return Document;
+        }
 
         /// <inheritdoc/>
-        protected override Image<BGRA32> OnRender(EffectRenderArgs args)
+        protected override Image<BGRA32> OnRender(EffectApplyArgs args)
         {
             return Image.Text(
                 Document.Value,
@@ -165,13 +190,13 @@ namespace BEditor.Primitive.Objects
         }
 
         /// <inheritdoc/>
-        protected override void OnRender(EffectRenderArgs<IEnumerable<ImageInfo>> args)
+        protected override void OnRender(EffectApplyArgs<IEnumerable<ImageInfo>> args)
         {
             if (!EnableMultiple.Value)
             {
                 args.Value = new ImageInfo[]
                 {
-                    new(OnRender(args as EffectRenderArgs), _ => default)
+                    new(OnRender(args as EffectApplyArgs), _ => default)
                 };
 
                 return;

@@ -85,7 +85,7 @@ namespace BEditor.Data
 
             if (EditingPropertyRegistry.IsRegistered(key))
             {
-                throw new DataException(Strings.KeyHasAlreadyBeenRegisterd);
+                throw new DataException($"{Strings.KeyHasAlreadyBeenRegisterd}:{key.Name}");
             }
 
             initializer ??= Initializer;

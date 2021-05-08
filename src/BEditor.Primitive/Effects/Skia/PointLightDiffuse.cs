@@ -1,4 +1,5 @@
 ﻿using System.Collections.Generic;
+using System.Diagnostics.CodeAnalysis;
 
 using BEditor.Data;
 using BEditor.Data.Primitive;
@@ -61,40 +62,31 @@ namespace BEditor.Primitive.Effects
             (owner, obj) => owner.LightConstant = obj,
             new EasePropertyMetadata("Light constant", 100, 100, 0));
 
-#pragma warning disable CS8618
         public PointLightDiffuse()
-#pragma warning restore CS8618
         {
         }
 
         public override string Name => Strings.PointLightDiffuse;
 
-        public override IEnumerable<PropertyElement> Properties
-        {
-            get
-            {
-                yield return X;
-                yield return Y;
-                yield return Z;
-                yield return LightColor;
-                yield return SurfaceScale;
-                yield return LightConstant;
-            }
-        }
-
+        [AllowNull]
         public EaseProperty X { get; private set; }
 
+        [AllowNull]
         public EaseProperty Y { get; private set; }
 
+        [AllowNull]
         public EaseProperty Z { get; private set; }
 
+        [AllowNull]
         public ColorProperty LightColor { get; private set; }
 
+        [AllowNull]
         public EaseProperty SurfaceScale { get; private set; }
 
+        [AllowNull]
         public EaseProperty LightConstant { get; private set; }
 
-        public override void Render(EffectRenderArgs<Image<BGRA32>> args)
+        public override void Apply(EffectApplyArgs<Image<BGRA32>> args)
         {
             var f = args.Frame;
             args.Value.PointLightDiffuse(
@@ -102,6 +94,16 @@ namespace BEditor.Primitive.Effects
                 LightColor.Value,
                 SurfaceScale[f] / 100,
                 LightConstant[f] / 100);
+        }
+
+        public override IEnumerable<PropertyElement> GetProperties()
+        {
+            yield return X;
+            yield return Y;
+            yield return Z;
+            yield return LightColor;
+            yield return SurfaceScale;
+            yield return LightConstant;
         }
     }
 #pragma warning restore CS1591
