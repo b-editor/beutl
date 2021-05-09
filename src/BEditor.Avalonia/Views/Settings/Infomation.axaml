@@ -16,7 +16,7 @@
     </Window.DataContext>
     <Grid ColumnDefinitions="*,Auto">
         
-        <Viewbox Grid.Column="1" Stretch="Fill" Width="240" Height="240">
+        <Viewbox Grid.Column="1" Stretch="Fill" Width="240" Height="240" Margin="0,-32,32,32">
             <Panel>
                 <Path Fill="#7c4dff" Data="M 362.50,223.00
            C 362.50,223.00 500.50,223.50 500.50,223.50

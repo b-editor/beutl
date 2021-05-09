@@ -3,7 +3,7 @@
     <PropertyGroup>
         <LangVersion>latest</LangVersion>
         <Authors>indigo-san</Authors>
-        <Version>0.1.1</Version>
+        <Version>0.1.2</Version>
         <Nullable>enable</Nullable>
         <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
         <Deterministic>true</Deterministic>
