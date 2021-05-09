@@ -1123,6 +1123,15 @@ namespace BEditor.Primitive.Resources {
         }
         
         /// <summary>
+        ///   Looks up a localized string similar to Warp Polar.
+        /// </summary>
+        internal static string WarpPolar {
+            get {
+                return ResourceManager.GetString("WarpPolar", resourceCulture);
+            }
+        }
+        
+        /// <summary>
         ///   Looks up a localized string similar to Width.
         /// </summary>
         internal static string Width {

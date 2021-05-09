@@ -472,4 +472,7 @@
   <data name="ClipLengthAsVideoLength" xml:space="preserve">
     <value>Set the clip length to the same as the video length.</value>
   </data>
+  <data name="WarpPolar" xml:space="preserve">
+    <value>Warp Polar</value>
+  </data>
 </root>

@@ -210,6 +210,7 @@ namespace BEditor.Primitive
                     EffectMetadata.Create<Effects.OpenCv.GaussianBlur>(Strings.GaussianBlur),
                     EffectMetadata.Create<Effects.OpenCv.Blur>(Strings.Blur),
                     EffectMetadata.Create<Effects.OpenCv.MedianBlur>(Strings.MedianBlur),
+                    EffectMetadata.Create<Effects.OpenCv.WarpPolar>(Strings.WarpPolar),
                 }
             };
 

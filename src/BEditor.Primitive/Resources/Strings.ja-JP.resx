@@ -472,4 +472,7 @@
   <data name="ClipLengthAsVideoLength" xml:space="preserve">
     <value>クリップ長さを動画の長さと同じにする。</value>
   </data>
+  <data name="WarpPolar" xml:space="preserve">
+    <value>極座標変換</value>
+  </data>
 </root>

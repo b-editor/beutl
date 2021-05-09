@@ -190,6 +190,85 @@
         <member name="M:BEditor.Primitive.Effects.OpenCv.MedianBlur.GetProperties">
             <inheritdoc/>
         </member>
+        <member name="T:BEditor.Primitive.Effects.OpenCv.WarpPolar">
+            <summary>
+            
+            </summary>
+        </member>
+        <member name="F:BEditor.Primitive.Effects.OpenCv.WarpPolar.CenterXProperty">
+            <summary>
+            Defines the <see cref="P:BEditor.Primitive.Effects.OpenCv.WarpPolar.CenterX"/> property.
+            </summary>
+        </member>
+        <member name="F:BEditor.Primitive.Effects.OpenCv.WarpPolar.CenterYProperty">
+            <summary>
+            Defines the <see cref="P:BEditor.Primitive.Effects.OpenCv.WarpPolar.CenterY"/> property.
+            </summary>
+        </member>
+        <member name="F:BEditor.Primitive.Effects.OpenCv.WarpPolar.RadiusProperty">
+            <summary>
+            Defines the <see cref="P:BEditor.Primitive.Effects.OpenCv.WarpPolar.Radius"/> property.
+            </summary>
+        </member>
+        <member name="F:BEditor.Primitive.Effects.OpenCv.WarpPolar.WidthProperty">
+            <summary>
+            Defines the <see cref="P:BEditor.Primitive.Effects.OpenCv.WarpPolar.Width"/> property.
+            </summary>
+        </member>
+        <member name="F:BEditor.Primitive.Effects.OpenCv.WarpPolar.HeightProperty">
+            <summary>
+            Defines the <see cref="P:BEditor.Primitive.Effects.OpenCv.WarpPolar.Height"/> property.
+            </summary>
+        </member>
+        <member name="F:BEditor.Primitive.Effects.OpenCv.WarpPolar.ModeProperty">
+            <summary>
+            Defines the <see cref="P:BEditor.Primitive.Effects.OpenCv.WarpPolar.Mode"/> property.
+            </summary>
+        </member>
+        <member name="M:BEditor.Primitive.Effects.OpenCv.WarpPolar.#ctor">
+            <summary>
+            Initializes a new instance of the <see cref="T:BEditor.Primitive.Effects.OpenCv.WarpPolar"/> class.
+            </summary>
+        </member>
+        <member name="P:BEditor.Primitive.Effects.OpenCv.WarpPolar.Name">
+            <inheritdoc/>
+        </member>
+        <member name="P:BEditor.Primitive.Effects.OpenCv.WarpPolar.CenterX">
+            <summary>
+            Gets the X coordinate of the center.
+            </summary>
+        </member>
+        <member name="P:BEditor.Primitive.Effects.OpenCv.WarpPolar.CenterY">
+            <summary>
+            Gets the Y coordinate of the center.
+            </summary>
+        </member>
+        <member name="P:BEditor.Primitive.Effects.OpenCv.WarpPolar.Radius">
+            <summary>
+            Gets the radius.
+            </summary>
+        </member>
+        <member name="P:BEditor.Primitive.Effects.OpenCv.WarpPolar.Width">
+            <summary>
+            Gets the width.
+            </summary>
+        </member>
+        <member name="P:BEditor.Primitive.Effects.OpenCv.WarpPolar.Height">
+            <summary>
+            Gets the height.
+            </summary>
+        </member>
+        <member name="P:BEditor.Primitive.Effects.OpenCv.WarpPolar.Mode">
+            <summary>
+            Gets the mode.
+            </summary>
+        </member>
+        <member name="M:BEditor.Primitive.Effects.OpenCv.WarpPolar.Apply(BEditor.Data.EffectApplyArgs{BEditor.Drawing.Image{BEditor.Drawing.Pixel.BGRA32}})">
+            <inheritdoc/>
+        </member>
+        <member name="M:BEditor.Primitive.Effects.OpenCv.WarpPolar.GetProperties">
+            <inheritdoc/>
+        </member>
         <member name="T:BEditor.Primitive.Effects.PointLightSource">
             <summary>
             Represents an <see cref="T:BEditor.Data.EffectElement"/> that sets the OpenGL point light source.
@@ -3269,6 +3348,11 @@
         <member name="P:BEditor.Primitive.Resources.Strings.Volume">
             <summary>
               Looks up a localized string similar to Volume.
+            </summary>
+        </member>
+        <member name="P:BEditor.Primitive.Resources.Strings.WarpPolar">
+            <summary>
+              Looks up a localized string similar to Warp Polar.
             </summary>
         </member>
         <member name="P:BEditor.Primitive.Resources.Strings.Width">
