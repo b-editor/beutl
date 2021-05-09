@@ -140,7 +140,7 @@ namespace BEditor.Primitive.Objects
 
                 if (_mediaFile is not null && _source is not null)
                 {
-                    _source.Buffer = new(0);
+                    _source.Buffer = new();
                     _source.Buffer?.Dispose();
                     Loaded?.Dispose();
                     Loaded = GetAllFrame(_mediaFile.Audio!);

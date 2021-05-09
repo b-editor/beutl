@@ -40,6 +40,11 @@ namespace BEditor.Audio
 
             Tool.BufferData(Handle, ALFormat.Stereo16, converted.Data, converted.SampleRate);
         }
+        public AudioBuffer()
+        {
+            Handle = Tool.GenBuffer();
+        }
+
         public AudioBuffer(int handle)
         {
             if (!AL.IsBuffer(handle))

@@ -130,10 +130,7 @@ namespace BEditor.Media
         {
             var result = new Sound<TConvert>(SampleRate, Length);
 
-            Parallel.For(0, Length, i =>
-            {
-                result.Data[i].ConvertFrom(Data[i]);
-            });
+            Parallel.For(0, Length, i => result.Data[i].ConvertFrom(Data[i]));
 
             return result;
         }

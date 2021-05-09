@@ -6,6 +6,7 @@ using System.Linq;
 using System.Reactive.Linq;
 using System.Threading.Tasks;
 
+using Avalonia.Markup.Xaml.Templates;
 using Avalonia.Threading;
 
 using BEditor.Data;
@@ -157,12 +158,26 @@ namespace BEditor.ViewModels
                             {
                                 using var sound = new Sound<StereoPCMFloat>(proj.Samplingrate, (int)(proj.Samplingrate * new Frame(LengthFrame.Value - StartFrame.Value).ToSeconds(proj.Framerate)));
 
-                                foreach (var item in scene.Datas.Where(i => i.Effect[0] is AudioObject)
+                                foreach (var item in scene.Datas
+                                    .Where(i => i.Effect[0] is AudioObject && (i.Start <= StartFrame.Value || i.End <= LengthFrame.Value))
                                     .Select(i => (AudioObject)i.Effect[0])
                                     .Where(i => i.IsEnabled && i.Loaded is not null))
                                 {
-                                    using var slice = sound.Slice(item.Parent.Start.ToTimeSpan(proj.Framerate), item.Parent.Length.ToTimeSpan(proj.Framerate));
-                                    using var audioobj = item.Loaded!.Slice(TimeSpan.FromMilliseconds(item.Start.Value));
+                                    var start = item.Parent.Start > StartFrame.Value ?
+                                        item.Parent.Start.ToTimeSpan(proj.Framerate) :
+                                        default;
+
+                                    var end = item.Parent.End < LengthFrame.Value ?
+                                        item.Parent.Length.ToTimeSpan(proj.Framerate) :
+                                        sound.Time;
+
+                                    var sliceStart = item.Parent.Start > StartFrame.Value ?
+                                        TimeSpan.FromMilliseconds(item.Start.Value) :
+                                        TimeSpan.FromMilliseconds(item.Start.Value) + (StartFrame.Value - item.Parent.Start).ToTimeSpan(proj.Framerate);
+
+                                    using var slice = sound.Slice(start, end);
+
+                                    using var audioobj = item.Loaded!.Slice(sliceStart);
                                     audioobj.Gain(item.Volume[0] / 100);
 
                                     slice.Add(audioobj);
