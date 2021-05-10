@@ -33,15 +33,22 @@ namespace BEditor.Drawing
 
         public static unsafe DrawingContext? Create(int platformindex)
         {
-            uint c;
-            if ((CLStatusCode)CL.GetPlatformIDs(1, null, &c) is not CLStatusCode.CL_SUCCESS) return null;
+            try
+            {
+                uint c;
+                if ((CLStatusCode)CL.GetPlatformIDs(1, null, &c) is not CLStatusCode.CL_SUCCESS) return null;
 
-            var platform = new Platform(platformindex);
-            var device = platform.CreateDevices(1)[0];
-            var context = device.CreateContext();
-            var queue = context.CreateCommandQueue(device);
+                var platform = new Platform(platformindex);
+                var device = platform.CreateDevices(1)[0];
+                var context = device.CreateContext();
+                var queue = context.CreateCommandQueue(device);
 
-            return new(queue);
+                return new(queue);
+            }
+            catch
+            {
+                return null;
+            }
         }
 
         public void Dispose()

@@ -328,12 +328,16 @@ namespace BEditor.Data
             {
                 var scene = (Scene)s!;
                 scene.GraphicsContext = new GraphicsContext(scene.Width, scene.Height);
-                scene.DrawingContext = DrawingContext.Create(0);
                 scene.AudioContext = new AudioContext();
 
-                if (scene.DrawingContext is not null && BEditor.Settings.Default.PrioritizeGPU)
+                if (BEditor.Settings.Default.PrioritizeGPU)
                 {
-                    scene.ServiceProvider?.GetService<ILogger>()?.LogInformation("{0}はGpuを使用した画像処理が有効です。", SceneName);
+                    scene.DrawingContext = DrawingContext.Create(0);
+
+                    if (scene.DrawingContext is not null)
+                    {
+                        scene.ServiceProvider?.GetService<ILogger>()?.LogInformation("{0}はGpuを使用した画像処理が有効です。", SceneName);
+                    }
                 }
             }, this);
         }
