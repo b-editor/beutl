@@ -176,6 +176,8 @@ namespace BEditor.Views.Timelines
         {
             for (var frame = 0; frame < Property.Frames.Count; frame++)
             {
+                if (_grid.Children.Count <= frame) break;
+
                 if (_grid.Children[frame] is Shape icon)
                 {
                     icon.Margin = new Thickness(Scene.ToPixel(Property.Frames[frame]), 0, 0, 0);
