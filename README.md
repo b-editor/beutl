@@ -37,7 +37,7 @@ Windows, Linux, macOSで動作する動画編集ソフトウェアです。
 * [MIT License](https://github.com/b-editor/BEditor/blob/main/LICENSE)
 * このソフトウェアは、[Apache 2.0 ライセンス](http://www.apache.org/licenses/LICENSE-2.0)で配布されている製作物が含まれています。
 
-## Builds
+## Building BEditor
 
 * .NET 5.0 が必要です
 * 以下のコマンドを実行すると `./publish` に出力されます。
@@ -49,7 +49,3 @@ dotnet cake
 ## Screenshots
 
 ![](https://raw.githubusercontent.com/b-editor/BEditor/main/docs/imgs/ScreenShot_1.png)
-
-## Author
-
-* [indigo-san](https://github.com/indigo-san)
