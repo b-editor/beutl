@@ -961,6 +961,15 @@ namespace BEditor.Primitive.Resources {
         }
         
         /// <summary>
+        ///   Looks up a localized string similar to Set alignment.
+        /// </summary>
+        internal static string SetAlignment {
+            get {
+                return ResourceManager.GetString("SetAlignment", resourceCulture);
+            }
+        }
+        
+        /// <summary>
         ///   Looks up a localized string similar to Shape.
         /// </summary>
         internal static string Shape {
