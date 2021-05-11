@@ -890,6 +890,40 @@
             Defines the <see cref="P:BEditor.Primitive.Effects.RGBColor.Blue"/> property.
             </summary>
         </member>
+        <member name="T:BEditor.Primitive.Effects.SetAlignment">
+            <summary>
+            Represents the <see cref="T:BEditor.Data.Primitive.ImageEffect"/> that sets the alignment.
+            </summary>
+        </member>
+        <member name="F:BEditor.Primitive.Effects.SetAlignment.VerticalAlignProperty">
+            <summary>
+            Defines the <see cref="P:BEditor.Primitive.Effects.SetAlignment.VerticalAlign"/> property.
+            </summary>
+        </member>
+        <member name="F:BEditor.Primitive.Effects.SetAlignment.HorizontalAlignProperty">
+            <summary>
+            Defines the <see cref="P:BEditor.Primitive.Effects.SetAlignment.HorizontalAlign"/> property.
+            </summary>
+        </member>
+        <member name="P:BEditor.Primitive.Effects.SetAlignment.Name">
+            <inheritdoc/>
+        </member>
+        <member name="P:BEditor.Primitive.Effects.SetAlignment.HorizontalAlign">
+            <summary>
+            Gets the horizontal alignment.
+            </summary>
+        </member>
+        <member name="P:BEditor.Primitive.Effects.SetAlignment.VerticalAlign">
+            <summary>
+            Gets the vertical alignment.
+            </summary>
+        </member>
+        <member name="M:BEditor.Primitive.Effects.SetAlignment.Apply(BEditor.Data.EffectApplyArgs{BEditor.Drawing.Image{BEditor.Drawing.Pixel.BGRA32}})">
+            <inheritdoc/>
+        </member>
+        <member name="M:BEditor.Primitive.Effects.SetAlignment.GetProperties">
+            <inheritdoc/>
+        </member>
         <member name="T:BEditor.Primitive.Effects.SetColor">
             <summary>
             Represents an <see cref="T:BEditor.Data.Primitive.ImageEffect"/> that monochromatizes an image.
@@ -3179,6 +3213,11 @@
         <member name="P:BEditor.Primitive.Resources.Strings.Sepia">
             <summary>
               Looks up a localized string similar to Sepia.
+            </summary>
+        </member>
+        <member name="P:BEditor.Primitive.Resources.Strings.SetAlignment">
+            <summary>
+              Looks up a localized string similar to Set alignment.
             </summary>
         </member>
         <member name="P:BEditor.Primitive.Resources.Strings.Shape">
