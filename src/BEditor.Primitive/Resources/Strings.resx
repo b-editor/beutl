@@ -621,4 +621,7 @@
     <value>Set alignment</value>
     <comment/>
   </data>
+  <data name="WarpPolar" xml:space="preserve">
+    <value>Warp Polar</value>
+  </data>
 </root>
