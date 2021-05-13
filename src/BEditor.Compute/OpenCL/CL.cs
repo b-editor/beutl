@@ -3,6 +3,7 @@ using System.Runtime.InteropServices;
 
 namespace BEditor.Compute.OpenCL
 {
+#pragma warning disable CA1401
     public unsafe static class CL
     {
         private const string Library = "opencl";
@@ -139,4 +140,5 @@ namespace BEditor.Compute.OpenCL
         [DllImport(Library, EntryPoint = "clFinish")]
         public static extern int Finish(void* command_queue);
     }
+#pragma warning restore CA1401
 }

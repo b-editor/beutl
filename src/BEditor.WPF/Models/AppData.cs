@@ -38,6 +38,8 @@ namespace BEditor.Models
         private bool _Isplaying = true;
         private IServiceProvider serviceProvider;
 
+        public event EventHandler<ProjectOpenedEventArgs> ProjectOpened;
+
         private AppData()
         {
             CommandManager.Default.Executed += (_, _) => AppStatus = Status.Edit;
@@ -98,6 +100,10 @@ namespace BEditor.Models
         public SynchronizationContext UIThread { get; set; }
         Project IParentSingle<Project>.Child => Project;
 
+        public void RaiseProjectOpened()
+        {
+            ProjectOpened?.Invoke(this, new(Project));
+        }
         public async void SaveAppConfig(Project project, string directory)
         {
             static void IfNotExistCreateDir(string dir)

@@ -104,6 +104,13 @@ namespace BEditor.Models
 
         Project IParentSingle<Project>.Child => Project;
 
+        public event EventHandler<ProjectOpenedEventArgs> ProjectOpened;
+
+        public void RaiseProjectOpened(Project project)
+        {
+            ProjectOpened?.Invoke(this, new(project));
+        }
+
         public async void SaveAppConfig(Project project, string directory)
         {
             static void IfNotExistCreateDir(string dir)

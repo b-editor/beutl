@@ -197,7 +197,6 @@ namespace BEditor
                 .Except(Settings.Default.DisablePlugins)
                 .ToArray();
 
-
             if (unknown.Length != 0)
             {
                 await Dispatcher.UIThread.InvokeAsync(async () =>
@@ -228,7 +227,6 @@ namespace BEditor
                     Settings.Default.Save();
                 });
             }
-
 
             PluginManager.Default.Load(Settings.Default.EnablePlugins);
 
