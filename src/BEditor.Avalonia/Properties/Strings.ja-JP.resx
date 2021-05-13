@@ -596,4 +596,7 @@
   <data name="Apply" xml:space="preserve">
     <value>適用</value>
   </data>
+  <data name="CreateScene" xml:space="preserve">
+    <value>シーンを作成</value>
+  </data>
 </root>

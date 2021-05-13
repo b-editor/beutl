@@ -25,6 +25,7 @@
                     <Separator />
                     <MenuItem Header="{x:Static prop:Strings.Scene}">
                         <MenuItem Click="DeleteScene" Header="{x:Static prop:Strings.Delete}" />
+                        <MenuItem Click="CreateScene" Header="{x:Static prop:Strings.Create}" />
                     </MenuItem>
                     <MenuItem Header="{x:Static prop:Strings.Clip}">
                         <MenuItem Click="RemoveClip" Header="{x:Static prop:Strings.Remove}" />

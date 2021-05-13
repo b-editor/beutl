@@ -11,6 +11,8 @@ using BEditor.Data;
 using BEditor.Extensions;
 using BEditor.Models;
 using BEditor.Properties;
+using BEditor.ViewModels.DialogContent;
+using BEditor.Views.DialogContent;
 
 using static BEditor.IMessage;
 
@@ -112,6 +114,16 @@ namespace BEditor.Views
             {
                 Message.Snackbar(string.Format(Strings.ErrorObjectViewer1, nameof(EffectElement)));
             }
+        }
+
+        public async void CreateScene(object s, RoutedEventArgs e)
+        {
+            var dialog = new CreateScene
+            {
+                DataContext = new CreateSceneViewModel()
+            };
+
+            await dialog.ShowDialog((Window)VisualRoot);
         }
 
         private void InitializeComponent()

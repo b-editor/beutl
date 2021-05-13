@@ -4,6 +4,7 @@
   xmlns:convert="using:BEditor.Converters"
   xmlns:views="using:BEditor.Views"
   xmlns:models="using:BEditor.Models"
+  xmlns:title="using:BEditor.Views.CustomTitlebars"
   x:Class="BEditor.App">
     <Application.Resources>
         <convert:CursorTypeToCursorConverter x:Key="CursorTypeToCursorConverter" />
