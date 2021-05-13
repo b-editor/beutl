@@ -32,6 +32,8 @@ namespace BEditor.Graphics
             GL.TexParameter(TextureTarget.Texture2D, TextureParameterName.TextureMinFilter, (int)TextureMinFilter.Linear);
             GL.TexParameter(TextureTarget.Texture2D, TextureParameterName.TextureMagFilter, (int)TextureMinFilter.Linear);
             GL.BindTexture(TextureTarget.Texture2D, 0);
+
+            Tool.ThrowGLError();
         }
 
         /// <summary>
@@ -77,12 +79,23 @@ namespace BEditor.Graphics
         /// </summary>
         public bool IsDisposed { get; private set; }
 
+        /// <summary>
+        /// Bind this color buffer.
+        /// </summary>
+        public void Bind()
+        {
+            if (IsDisposed) throw new ObjectDisposedException(nameof(ColorBuffer));
+
+            GL.BindTexture(TextureTarget.Texture2D, Handle);
+            Tool.ThrowGLError();
+        }
+
         /// <inheritdoc/>
         public void Dispose()
         {
             if (IsDisposed) return;
 
-            _syncContext.Post(_ => GL.DeleteTexture(Handle), null);
+            _syncContext.Send(_ => GL.DeleteTexture(Handle), null);
 
             GC.SuppressFinalize(this);
 

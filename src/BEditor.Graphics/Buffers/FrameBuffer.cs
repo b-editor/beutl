@@ -25,6 +25,8 @@ namespace BEditor.Graphics
 
             Handle = GL.GenFramebuffer();
             (ColorObject, DepthObject) = (color, depth);
+            color.Bind();
+            depth.Bind();
             GL.BindFramebuffer(FramebufferTarget.Framebuffer, Handle);
 
             // フレームバッファオブジェクトにカラーバッファとしてテクスチャを結合する
@@ -35,6 +37,10 @@ namespace BEditor.Graphics
 
             // フレームバッファオブジェクトの結合を解除する
             GL.BindFramebuffer(FramebufferTarget.Framebuffer, 0);
+            GL.BindRenderbuffer(RenderbufferTarget.Renderbuffer, 0);
+            GL.BindTexture(TextureTarget.Texture2D, 0);
+
+            Tool.ThrowGLError();
         }
 
         /// <summary>
@@ -71,8 +77,10 @@ namespace BEditor.Graphics
         public void Bind()
         {
             if (IsDisposed) throw new ObjectDisposedException(nameof(FrameBuffer));
-
+            var error = GL.CheckFramebufferStatus(FramebufferTarget.Framebuffer);
             GL.BindFramebuffer(FramebufferTarget.Framebuffer, Handle);
+            error = GL.CheckFramebufferStatus(FramebufferTarget.Framebuffer);
+            Tool.ThrowGLError();
         }
 
         /// <summary>
@@ -83,6 +91,7 @@ namespace BEditor.Graphics
             if (IsDisposed) throw new ObjectDisposedException(nameof(FrameBuffer));
 
             GL.BindFramebuffer(target, Handle);
+            Tool.ThrowGLError();
         }
 
         /// <inheritdoc/>
@@ -90,7 +99,7 @@ namespace BEditor.Graphics
         {
             if (IsDisposed) return;
 
-            _syncContext.Post(_ => GL.DeleteFramebuffer(Handle), null);
+            _syncContext.Send(_ => GL.DeleteFramebuffer(Handle), null);
 
             GC.SuppressFinalize(this);
 

@@ -18,7 +18,7 @@ namespace BEditor.Data.Property.PrimitiveGroup
             nameof(RotateX),
             owner => owner.RotateX,
             (owner, obj) => owner.RotateX = obj,
-            new EasePropertyMetadata(Strings.RotateX));
+            new EasePropertyMetadata(Strings.RotateX, UseOptional: true));
 
         /// <summary>
         /// Defines the <see cref="RotateY"/> property.
@@ -27,7 +27,7 @@ namespace BEditor.Data.Property.PrimitiveGroup
             nameof(RotateY),
             owner => owner.RotateY,
             (owner, obj) => owner.RotateY = obj,
-            new EasePropertyMetadata(Strings.RotateY));
+            new EasePropertyMetadata(Strings.RotateY, UseOptional: true));
 
         /// <summary>
         /// Defines the <see cref="RotateZ"/> property.
@@ -36,7 +36,7 @@ namespace BEditor.Data.Property.PrimitiveGroup
             nameof(RotateZ),
             owner => owner.RotateZ,
             (owner, obj) => owner.RotateZ = obj,
-            new EasePropertyMetadata(Strings.RotateZ));
+            new EasePropertyMetadata(Strings.RotateZ, UseOptional: true));
 
         /// <summary>
         /// Initializes a new instance of the <see cref="Rotate"/> class.
@@ -71,6 +71,16 @@ namespace BEditor.Data.Property.PrimitiveGroup
             yield return RotateX;
             yield return RotateY;
             yield return RotateZ;
+        }
+
+        /// <summary>
+        /// Reset the <see cref="RotateX"/>, <see cref="RotateY"/>, and <see cref="RotateZ"/> Optionals.
+        /// </summary>
+        public void ResetOptional()
+        {
+            RotateX.Optional = 0;
+            RotateY.Optional = 0;
+            RotateZ.Optional = 0;
         }
     }
 

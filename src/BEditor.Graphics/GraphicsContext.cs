@@ -1,5 +1,6 @@
 ﻿using System;
 using System.ComponentModel;
+using System.Diagnostics.CodeAnalysis;
 using System.Numerics;
 using System.Threading;
 
@@ -49,7 +50,6 @@ namespace BEditor.Graphics
             GLFW.WindowHint(WindowHintInt.ContextVersionMinor, 3);
             GLFW.WindowHint(WindowHintBool.Visible, false);
             _window = GLFW.CreateWindow(1, 1, string.Empty, null, null);
-            Tool.ThrowGLFWError();
             MakeCurrent();
 
             if (_isFirst)
@@ -64,25 +64,19 @@ namespace BEditor.Graphics
                 _isFirst = false;
             }
 
-            _textureShader = ShaderFactory.Texture.Create();
-            _shader = ShaderFactory.Default.Create();
-            _lightShader = ShaderFactory.Lighting.Create();
-            _texLightShader = ShaderFactory.TextureLighting.Create();
-            _lineShader = ShaderFactory.Line.Create();
+                _textureShader = ShaderFactory.Texture.Create();
+                _shader = ShaderFactory.Default.Create();
+                _lightShader = ShaderFactory.Lighting.Create();
+                _texLightShader = ShaderFactory.TextureLighting.Create();
+                _lineShader = ShaderFactory.Line.Create();
 
             Camera = new OrthographicCamera(new(0, 0, 1024), width, height);
 
-            Tool.ThrowGLError();
-
-            var colorBuf = new ColorBuffer(width, height, PixelInternalFormat.Rgba, PixelFormat.Bgra, PixelType.UnsignedByte);
-            var depthBuf = new DepthBuffer(width, height);
-            Framebuffer = new(colorBuf, depthBuf);
-
-            Tool.ThrowGLError();
+            Colorbuffer = new ColorBuffer(width, height, PixelInternalFormat.Rgba, PixelFormat.Bgra, PixelType.UnsignedByte);
+            Depthbuffer = new DepthBuffer(width, height);
+            Framebuffer = new(Colorbuffer, Depthbuffer);
 
             PixelBufferObject = new(width, height, 4, PixelFormat.Bgra, PixelType.UnsignedByte);
-
-            Tool.ThrowGLError();
 
             Clear();
         }
@@ -98,22 +92,32 @@ namespace BEditor.Graphics
         /// <summary>
         /// Gets the pixel buffer.
         /// </summary>
-        public PixelBuffer PixelBufferObject { get; }
+        public PixelBuffer PixelBufferObject { get; private set; }
+
+        /// <summary>
+        /// Gets the depth buffer.
+        /// </summary>
+        public DepthBuffer Depthbuffer { get; private set; }
+
+        /// <summary>
+        /// Gets the color buffer.
+        /// </summary>
+        public ColorBuffer Colorbuffer { get; private set; }
 
         /// <summary>
         /// Gets the frame buffer.
         /// </summary>
-        public FrameBuffer Framebuffer { get; }
+        public FrameBuffer Framebuffer { get; private set; }
 
         /// <summary>
         /// Gets the width of the frame buffer.
         /// </summary>
-        public int Width { get; }
+        public int Width { get; private set; }
 
         /// <summary>
         /// Gets the height of the frame buffer.
         /// </summary>
-        public int Height { get; }
+        public int Height { get; private set; }
 
         /// <summary>
         /// Gets the aspect ratio.
@@ -141,6 +145,43 @@ namespace BEditor.Graphics
         public Light? Light { get; set; }
 
         /// <summary>
+        /// Sets the framebuffer size.
+        /// </summary>
+        /// <param name="size">The framebuffer size.</param>
+        public void SetSize(Size size)
+        {
+            MakeCurrent();
+
+            Width = size.Width;
+            Height = size.Height;
+            if (Camera is OrthographicCamera ortho)
+            {
+                ortho.Width = Width;
+                ortho.Height = Height;
+            }
+            else if (Camera is PerspectiveCamera perspective)
+            {
+                perspective.AspectRatio = Aspect;
+            }
+
+            GL.BindFramebuffer(FramebufferTarget.Framebuffer, 0);
+            Colorbuffer.Dispose();
+            Depthbuffer.Dispose();
+            Framebuffer.Dispose();
+            PixelBufferObject.Dispose();
+
+            Colorbuffer = new ColorBuffer(Width, Height, PixelInternalFormat.Rgba, PixelFormat.Bgra, PixelType.UnsignedByte);
+            Depthbuffer = new DepthBuffer(Width, Height);
+            Framebuffer = new(Colorbuffer, Depthbuffer);
+
+            PixelBufferObject = new(Width, Height, 4, PixelFormat.Bgra, PixelType.UnsignedByte);
+
+            GL.Viewport(0, 0, Width, Height);
+
+            Framebuffer.Bind();
+        }
+
+        /// <summary>
         /// Clear the framebuffer.
         /// </summary>
         public void Clear()
@@ -148,15 +189,23 @@ namespace BEditor.Graphics
             MakeCurrent();
 
             GL.Viewport(0, 0, Width, Height);
+            Tool.ThrowGLError();
 
             Framebuffer.Bind();
 
             // アンチエイリアス
             GL.Enable(EnableCap.LineSmooth);
+            Tool.ThrowGLError();
+
             GL.Enable(EnableCap.PolygonSmooth);
+            Tool.ThrowGLError();
 
             GL.Hint(HintTarget.LineSmoothHint, HintMode.Nicest);
+            Tool.ThrowGLError();
+
             GL.Hint(HintTarget.PolygonSmoothHint, HintMode.Nicest);
+            Tool.ThrowGLError();
+
             GL.Hint(HintTarget.TextureCompressionHint, HintMode.Nicest);
             Tool.ThrowGLError();
 
@@ -164,8 +213,9 @@ namespace BEditor.Graphics
             Tool.ThrowGLError();
 
             GL.ClearColor(default);
-            GL.Clear(ClearBufferMask.ColorBufferBit | ClearBufferMask.DepthBufferBit);
+            Tool.ThrowGLError();
 
+            GL.Clear(ClearBufferMask.ColorBufferBit | ClearBufferMask.DepthBufferBit);
             Tool.ThrowGLError();
         }
 
@@ -217,7 +267,6 @@ namespace BEditor.Graphics
             _textureShader.Use();
 
             texture.Draw(TextureUnit.Texture0);
-
             Tool.ThrowGLError();
         }
 
@@ -241,15 +290,20 @@ namespace BEditor.Graphics
 
                 var vertexLocation = _textureShader.GetAttribLocation("aPosition");
                 GL.EnableVertexAttribArray(vertexLocation);
+                Tool.ThrowGLError();
                 GL.VertexAttribPointer(vertexLocation, 3, VertexAttribPointerType.Float, false, 5 * sizeof(float), 0);
+                Tool.ThrowGLError();
 
                 var texCoordLocation = _textureShader.GetAttribLocation("aTexCoord");
                 GL.EnableVertexAttribArray(texCoordLocation);
+                Tool.ThrowGLError();
                 GL.VertexAttribPointer(texCoordLocation, 2, VertexAttribPointerType.Float, false, 5 * sizeof(float), 3 * sizeof(float));
+                Tool.ThrowGLError();
 
                 _textureShader.SetInt("texture0", 0);
 
                 GL.Enable(EnableCap.Blend);
+                Tool.ThrowGLError();
 
                 blend();
 
@@ -398,16 +452,22 @@ namespace BEditor.Graphics
         {
             if (IsDisposed) return;
 
-            _synchronization.Post(state =>
+            _synchronization.Send(state =>
             {
                 var g = (GraphicsContext)state!;
 
-                PixelBufferObject.Dispose();
+                g.PixelBufferObject.Dispose();
+                g.Framebuffer.Dispose();
+                g.Colorbuffer.Dispose();
+                g.Depthbuffer.Dispose();
 
                 GLFW.DestroyWindow(g._window);
-                g._textureShader.Dispose();
-                g._shader.Dispose();
-                g._lightShader.Dispose();
+
+                _lightShader.Dispose();
+                _lineShader.Dispose();
+                _shader.Dispose();
+                _texLightShader.Dispose();
+                _textureShader.Dispose();
             }, this);
 
             GC.SuppressFinalize(this);

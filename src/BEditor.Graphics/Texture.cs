@@ -183,16 +183,21 @@ namespace BEditor.Graphics
         public void Use(TextureUnit unit)
         {
             GL.ActiveTexture(unit);
+            Tool.ThrowGLError();
+
             GL.BindTexture(TextureTarget.Texture2D, Handle);
+            Tool.ThrowGLError();
         }
 
         /// <inheritdoc cref="GraphicsObject.Draw"/>
         public void Draw(TextureUnit unit)
         {
             GL.BindVertexArray(VertexArrayObject);
+            Tool.ThrowGLError();
             Use(unit);
 
             GL.DrawElements(PrimitiveType.Triangles, _indices.Length, DrawElementsType.UnsignedInt, 0);
+            Tool.ThrowGLError();
         }
 
         /// <inheritdoc/>

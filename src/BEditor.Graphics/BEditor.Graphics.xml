@@ -131,6 +131,11 @@
             Get whether an object has been disposed.
             </summary>
         </member>
+        <member name="M:BEditor.Graphics.ColorBuffer.Bind">
+            <summary>
+            Bind this color buffer.
+            </summary>
+        </member>
         <member name="M:BEditor.Graphics.ColorBuffer.Dispose">
             <inheritdoc/>
         </member>
@@ -169,6 +174,11 @@
         <member name="P:BEditor.Graphics.DepthBuffer.IsDisposed">
             <summary>
             Get whether an object has been disposed.
+            </summary>
+        </member>
+        <member name="M:BEditor.Graphics.DepthBuffer.Bind">
+            <summary>
+            Bind this color buffer.
             </summary>
         </member>
         <member name="M:BEditor.Graphics.DepthBuffer.Dispose">
@@ -441,6 +451,16 @@
             Gets the pixel buffer.
             </summary>
         </member>
+        <member name="P:BEditor.Graphics.GraphicsContext.Depthbuffer">
+            <summary>
+            Gets the depth buffer.
+            </summary>
+        </member>
+        <member name="P:BEditor.Graphics.GraphicsContext.Colorbuffer">
+            <summary>
+            Gets the color buffer.
+            </summary>
+        </member>
         <member name="P:BEditor.Graphics.GraphicsContext.Framebuffer">
             <summary>
             Gets the frame buffer.
@@ -480,6 +500,12 @@
             <summary>
             Gets the light.
             </summary>
+        </member>
+        <member name="M:BEditor.Graphics.GraphicsContext.SetSize(BEditor.Drawing.Size)">
+            <summary>
+            Sets the framebuffer size.
+            </summary>
+            <param name="size">The framebuffer size.</param>
         </member>
         <member name="M:BEditor.Graphics.GraphicsContext.Clear">
             <summary>

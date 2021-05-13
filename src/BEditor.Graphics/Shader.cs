@@ -97,6 +97,7 @@ namespace BEditor.Graphics
         public void Use()
         {
             GL.UseProgram(_handle);
+            Tool.ThrowGLError();
         }
 
         /// <summary>
@@ -114,7 +115,10 @@ namespace BEditor.Graphics
         public void SetInt(string name, int data)
         {
             GL.UseProgram(_handle);
+            Tool.ThrowGLError();
+
             GL.Uniform1(_uniformLocations[name], data);
+            Tool.ThrowGLError();
         }
 
         /// <summary>
@@ -123,7 +127,10 @@ namespace BEditor.Graphics
         public void SetFloat(string name, float data)
         {
             GL.UseProgram(_handle);
+            Tool.ThrowGLError();
+
             GL.Uniform1(_uniformLocations[name], data);
+            Tool.ThrowGLError();
         }
 
         /// <summary>
@@ -133,7 +140,10 @@ namespace BEditor.Graphics
         {
             var mat = data.ToOpenTK();
             GL.UseProgram(_handle);
+            Tool.ThrowGLError();
+
             GL.UniformMatrix4(_uniformLocations[name], true, ref mat);
+            Tool.ThrowGLError();
         }
 
         /// <summary>
@@ -144,7 +154,10 @@ namespace BEditor.Graphics
             var vec = data.ToOpenTK();
 
             GL.UseProgram(_handle);
+            Tool.ThrowGLError();
+
             GL.Uniform3(_uniformLocations[name], ref vec);
+            Tool.ThrowGLError();
         }
 
         /// <summary>
@@ -155,7 +168,10 @@ namespace BEditor.Graphics
             var vec = data.ToOpenTK();
 
             GL.UseProgram(_handle);
+            Tool.ThrowGLError();
+
             GL.Uniform4(_uniformLocations[name], ref vec);
+            Tool.ThrowGLError();
         }
 
         /// <inheritdoc/>
@@ -163,7 +179,7 @@ namespace BEditor.Graphics
         {
             if (IsDisposed) return;
 
-            _synchronization.Post(_ => GL.DeleteProgram(_handle), null);
+            _synchronization.Send(_ => GL.DeleteProgram(_handle), null);
 
             GC.SuppressFinalize(this);
 
