@@ -1,6 +1,6 @@
 ﻿<Project Sdk="Microsoft.NET.Sdk">
 
-  <Import Project="..\..\..\props\plugin.props" />
+  <Import Project="..\..\props\plugin.props" />
 
   <PropertyGroup>
     <TargetFramework>net5.0</TargetFramework>
@@ -9,7 +9,7 @@
   </PropertyGroup>
 
   <ItemGroup>
-    <ProjectReference Include="..\..\BEditor.Core\BEditor.Core.csproj" />
+    <ProjectReference Include="..\..\src\BEditor.Core\BEditor.Core.csproj" />
   </ItemGroup>
 
   <ItemGroup>
