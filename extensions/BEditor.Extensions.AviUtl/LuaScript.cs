@@ -15,6 +15,11 @@ using Neo.IronLua;
 using Microsoft.Extensions.DependencyInjection;
 using SkiaSharp;
 using BEditor.Graphics;
+using BEditor.Media.Decoding;
+using BEditor.Drawing.PixelOperation;
+using System.IO;
+using System.Diagnostics;
+using System.Linq;
 
 namespace BEditor.Extensions.AviUtl
 {
@@ -47,7 +52,14 @@ namespace BEditor.Extensions.AviUtl
                 var table = new ObjectTable(args, obj);
                 LuaGlobal.SetValue("obj", table);
 
-                var result = LuaGlobal.DoChunk(Code.Value, "main");
+                try
+                {
+                    var result = LuaGlobal.DoChunk(Code.Value, "main");
+                }
+                catch
+                {
+                    Debug.Fail(string.Empty);
+                }
             }
             Parent.Parent.GraphicsContext!.MakeCurrentAndBindFbo();
         }
@@ -64,18 +76,39 @@ namespace BEditor.Extensions.AviUtl
         FrameBuffer
     }
 
+    public readonly unsafe struct SetAlphaOperation : IPixelOperation
+    {
+        private readonly BGRA32* _data;
+        private readonly byte _alpha;
+
+        public SetAlphaOperation(BGRA32* data, byte alpha)
+        {
+            _data = data;
+            _alpha = alpha;
+        }
+
+        public void Invoke(int pos)
+        {
+            _data[pos].A = _alpha;
+        }
+    }
+
     public class ObjectTable
     {
-        internal static GraphicsContext? _sharedGraphics;
+        [AllowNull]
+        internal static GraphicsContext _sharedGraphics;
         private readonly ImageObject _imageobj;
         private readonly EffectApplyArgs<Image<BGRA32>> _args;
         private readonly Frame _frame;
-        private readonly Image<BGRA32> _img;
         private readonly Project _proj;
         private readonly Scene _scene;
         // クリップからの現在のフレーム
-        private readonly Frame rframe;
+        private readonly Frame _rframe;
         private DrawTarget _drawTarget = DrawTarget.FrameBuffer;
+        private Image<BGRA32> _img;
+        private Font _font;
+        private int _fontsize = 16;
+        private Color _fontcolor = Color.Light;
 
         public ObjectTable(EffectApplyArgs<Image<BGRA32>> args, ImageObject image)
         {
@@ -85,7 +118,8 @@ namespace BEditor.Extensions.AviUtl
             _imageobj = image;
             _scene = image.Parent.Parent;
             _proj = image.Parent.Parent.Parent;
-            rframe = args.Frame - image.Parent.Start;
+            _font = FontManager.Default.LoadedFonts.First();
+            _rframe = args.Frame - image.Parent.Start;
 
             if (_sharedGraphics is null)
             {
@@ -97,7 +131,7 @@ namespace BEditor.Extensions.AviUtl
             }
         }
 
-#pragma warning disable IDE1006, CA1822
+#pragma warning disable IDE1006, CA1822, IDE0060
 
         #region Properties
         public float ox
@@ -205,9 +239,9 @@ namespace BEditor.Extensions.AviUtl
 
         public int framerate => _proj.Framerate;
 
-        public int frame => rframe;
+        public int frame => _rframe;
 
-        public double time => rframe.ToSeconds(framerate);
+        public double time => _rframe.ToSeconds(framerate);
 
         public int totalframe => _imageobj.Parent.Length;
 
@@ -229,7 +263,7 @@ namespace BEditor.Extensions.AviUtl
         // Todo
         public void effect(string name, params object[] param)
         {
-
+            throw new NotImplementedException();
         }
 
         /// <summary>
@@ -252,7 +286,7 @@ namespace BEditor.Extensions.AviUtl
                 new(new(x, y, z), new(ox, oy, oz), new(rx, ry, rz), new(zoom, zoom, zoom)) :
                 new(new(ox, oy, oz), default, new(rx, ry, rz), new(zoom, zoom, zoom));
 
-            texture.Color = Color.FromARGB((byte)(255 * alpha), 1, 1, 1);
+            texture.Color = Color.FromARGB((byte)(255 * alpha), 255, 255, 255);
 
             ctxt.DrawTexture(texture);
         }
@@ -294,9 +328,9 @@ namespace BEditor.Extensions.AviUtl
             });
             texture.Transform = _drawTarget is DrawTarget.FrameBuffer ?
                 new(new(x, y, z), default, new(rx, ry, rz), new(zoom, zoom, zoom)) :
-                new(default, default, new(rx, ry, rz), new(zoom, zoom, zoom));
+                new(default, default, new(0, 0, 0), new(1, 1, 1));
 
-            texture.Color = Color.FromARGB((byte)(255 * alpha), 1, 1, 1);
+            texture.Color = Color.FromARGB((byte)(255 * alpha), 255, 255, 255);
 
             ctxt.DrawTexture(texture);
         }
@@ -352,22 +386,159 @@ namespace BEditor.Extensions.AviUtl
                 new(new(x, y, z), default, new(rx, ry, rz), new(zoom, zoom, zoom)) :
                 new(default, default, new(rx, ry, rz), new(zoom, zoom, zoom));
 
-            texture.Color = Color.FromARGB((byte)(255 * alpha), 1, 1, 1);
+            texture.Color = Color.FromARGB((byte)(255 * alpha), 255, 255, 255);
 
             ctxt.DrawTexture(texture);
         }
 
-        public void load(string type, string file, double time = double.NaN, int flag = 0)
+        public void load(string type, params dynamic[] args)
         {
+            _img.Dispose();
+            var context = _imageobj.Parent.Parent.GraphicsContext!;
+            switch (type)
+            {
+                case "movie":
+                    _img = LoadMovie(
+                        GetArgValue(args, 0, null),
+                        GetArgValue(args, 1, time),
+                        GetArgValue(args, 2, 0));
+                    break;
+                case "image":
+                    _img = Image.Decode(GetArgValue(args, 0, null));
+                    break;
+                case "text":
+                    _img = Image.Text(
+                        GetArgValue(args, 0, ""),
+                        _font,
+                        _fontsize,
+                        _fontcolor,
+                        HorizontalAlign.Left,
+                        VerticalAlign.Top);
+                    break;
+                case "figure":
+                    var name = GetArgValue(args, 0, "円");
+                    var color = Color.FromARGB(GetArgValue(args, 1, 0xffffff));
+                    color = Color.FromARGB(255, color.R, color.G, color.B);
+                    var size = GetArgValue(args, 2, 100);
+                    var line = GetArgValue(args, 3, size);
 
+                    if (name is "円")
+                    {
+                        _img = Image.Ellipse(size, size, line, color);
+                    }
+                    else if (name is "四角形")
+                    {
+                        _img = Image.Rect(size, size, line, color);
+                    }
+                    else if (name is "三角形")
+                    {
+                        _img = Image.Polygon(3, size, size, color);
+                    }
+                    else if (name is "五角形")
+                    {
+                        _img = Image.Polygon(5, size, size, color);
+                    }
+                    else if (name is "六角形")
+                    {
+                        _img = Image.Polygon(6, size, size, color);
+                    }
+                    break;
+                case "tempbuffer":
+                    context = _sharedGraphics;
+                    goto case "framebuffer";
+                case "framebuffer":
+                    var x = GetArgValue(args, 0, 0);
+                    var y = GetArgValue(args, 1, 0);
+                    var h = GetArgValue(args, 2, context.Width);
+                    var w = GetArgValue(args, 3, context.Height);
+                    var buffer = new Image<BGRA32>(context.Width, context.Height);
+
+                    context.ReadImage(buffer);
+
+                    _img = buffer[new Rectangle(x, y, w, h)];
+                    buffer.Dispose();
+                    break;
+                default:
+                    throw new NotSupportedException($"{type} は対応していません");
+            }
+        }
+
+        public void setfont(string name, int size, int type = 0, int col1 = 0xffffff, int col2 = 0xffffff)
+        {
+            _font = FontManager.Default.Find(f => f.FamilyName == name) ?? _font;
+            _fontsize = size;
+            _fontcolor = Color.FromARGB(col1);
+
+        }
+
+        public int rand(int st_num, int ed_num, int seed = -1, int frame = -1)
+        {
+            throw new NotImplementedException();
+        }
+
+        public void setoption(string name, params dynamic[] value)
+        {
+            switch (name)
+            {
+                case "drawtarget":
+                    if (value[0] == "framebuffer")
+                    {
+                        _drawTarget = DrawTarget.FrameBuffer;
+                    }
+                    else if (value[0] == "tempbuffer")
+                    {
+                        var w = GetArgValue(value, 1, _sharedGraphics.Width);
+                        var h = GetArgValue(value, 2, _sharedGraphics.Height);
+
+                        _drawTarget = DrawTarget.TempBuffer;
+                        _sharedGraphics.SetSize(new(w, h));
+                    }
+                    break;
+                case "draw_state":
+                    _args.Handled = GetArgValue(value, 0, _args.Handled);
+                    break;
+                default:
+                    throw new NotImplementedException();
+            }
         }
         #endregion
 
-#pragma warning restore IDE1006, CA1822
+#pragma warning restore IDE1006, CA1822, IDE0060
+
+        private static dynamic? GetArgValue(dynamic[] args, int index, dynamic? @default)
+        {
+            if (index < args.Length)
+            {
+                return args[index];
+            }
+            else
+            {
+                return @default;
+            }
+        }
+
+        private static unsafe Image<BGRA32> LoadMovie(string? file, TimeSpan time, int flag)
+        {
+            if (file is null) return new(1, 1);
+
+            using var decoder = MediaFile.Open(file, new MediaOptions() { StreamsToLoad = MediaMode.Video });
+            if (decoder.Video is null) return new(1, 1);
+            var decoded = decoder.Video.GetFrame(time).ToDrawing();
+
+            if (flag is 1)
+            {
+                fixed (BGRA32* data = decoded.Data)
+                {
+                    Image.PixelOperate(decoded.Width * decoded.Height, new SetAlphaOperation(data, 255));
+                }
+            }
+
+            return decoded;
+        }
 
         private GraphicsContext GetContext()
         {
-            return _drawTarget is DrawTarget.FrameBuffer ? _imageobj.Parent.Parent.GraphicsContext! : _sharedGraphics!;
+            return _drawTarget is DrawTarget.FrameBuffer ? _imageobj.Parent.Parent.GraphicsContext! : _sharedGraphics;
         }
 
         internal static Size ToSize(float size, float aspect)

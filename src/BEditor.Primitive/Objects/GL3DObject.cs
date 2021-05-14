@@ -162,8 +162,7 @@ namespace BEditor.Primitive.Objects
         {
             int frame = args.Frame;
             var color = Blend.Color[frame];
-            GLColor color4 = new(color.R, color.G, color.B, color.A);
-            color4.A *= Blend.Opacity[frame];
+            var color4 = Drawing.Color.FromARGB((byte)(color.A * (Blend.Opacity[frame] / 100)), color.R, color.G, color.B);
 
 
             float scale = (float)(Scale.Scale1[frame] / 100);
@@ -184,7 +183,7 @@ namespace BEditor.Primitive.Objects
                     Width[frame],
                     Height[frame],
                     Depth[frame],
-                    Blend.Color[frame],
+                    color4,
                     material,
                     trans);
 
@@ -196,7 +195,7 @@ namespace BEditor.Primitive.Objects
                     Width[frame] * 0.5f,
                     Height[frame] * 0.5f,
                     Depth[frame] * 0.5f,
-                    Blend.Color[frame],
+                    color4,
                     material,
                     trans);
 

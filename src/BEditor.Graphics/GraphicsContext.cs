@@ -150,6 +150,12 @@ namespace BEditor.Graphics
         /// <param name="size">The framebuffer size.</param>
         public void SetSize(Size size)
         {
+            if (Width == size.Width && Height == size.Height)
+            {
+                Clear();
+                return;
+            }
+
             MakeCurrent();
 
             Width = size.Width;

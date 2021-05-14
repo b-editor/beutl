@@ -118,7 +118,7 @@ namespace BEditor.Data.Primitive
 
             foreach (var img in img_list)
             {
-                Draw(img, args);
+                Draw(img, imgs_args);
 
                 img.Source.Dispose();
             }
@@ -281,7 +281,7 @@ namespace BEditor.Data.Primitive
                 context.DrawLine(new(-width, height, 0), new(width, height, 0), 1.5f, trans, Color.Light);
             }
 
-            if (image.Source.IsDisposed) return;
+            if (image.Source.IsDisposed || args.Handled) return;
 
             var frame = args.Frame;
 
@@ -318,8 +318,8 @@ namespace BEditor.Data.Primitive
                 blendFunc?.Invoke();
                 if (blendFunc is null)
                 {
-                    GL.BlendEquationSeparate(BlendEquationMode.FuncAdd, BlendEquationMode.FuncAdd);
-                    GL.BlendFunc(BlendingFactor.SrcAlpha, BlendingFactor.OneMinusSrcAlpha);
+                    GL.BlendFuncSeparate(BlendingFactorSrc.SrcAlpha, BlendingFactorDest.OneMinusSrcAlpha, BlendingFactorSrc.One, BlendingFactorDest.OneMinusSrcAlpha);
+                    GL.BlendEquation(BlendEquationMode.FuncAdd);
                 }
             });
         }
