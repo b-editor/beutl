@@ -232,6 +232,15 @@ namespace BEditor.Graphics
         }
 
         /// <summary>
+        /// Make current and bind framebuffer.
+        /// </summary>
+        public void MakeCurrentAndBindFbo()
+        {
+            MakeCurrent();
+            Framebuffer.Bind();
+        }
+
+        /// <summary>
         /// Draws the texture into the frame buffer.
         /// </summary>
         /// <param name="texture">The texture to be drawn.</param>
@@ -239,7 +248,7 @@ namespace BEditor.Graphics
         {
             if (texture is null) throw new ArgumentNullException(nameof(texture));
 
-            MakeCurrent();
+            MakeCurrentAndBindFbo();
             texture.Use(TextureUnit.Texture0);
 
             _textureShader.Use();
@@ -282,7 +291,7 @@ namespace BEditor.Graphics
 
             if (Light is null)
             {
-                MakeCurrent();
+                MakeCurrentAndBindFbo();
 
                 texture.Use(TextureUnit.Texture0);
 
@@ -331,7 +340,7 @@ namespace BEditor.Graphics
         public void DrawCube(Cube cube)
         {
             if (cube is null) throw new ArgumentNullException(nameof(cube));
-            MakeCurrent();
+            MakeCurrentAndBindFbo();
 
             if (Light is null)
             {
@@ -370,7 +379,7 @@ namespace BEditor.Graphics
         public void DrawBall(Ball ball)
         {
             if (ball is null) throw new ArgumentNullException(nameof(ball));
-            MakeCurrent();
+            MakeCurrentAndBindFbo();
 
             if (Light is null)
             {
@@ -407,7 +416,7 @@ namespace BEditor.Graphics
         /// <param name="color">The color of the line.</param>
         public void DrawLine(Vector3 start, Vector3 end, float width, Transform transform, Color color)
         {
-            MakeCurrent();
+            MakeCurrentAndBindFbo();
 
             using var line = new Line(start, end, width)
             {
@@ -426,7 +435,7 @@ namespace BEditor.Graphics
         {
             if (line is null) throw new ArgumentNullException(nameof(line));
 
-            MakeCurrent();
+            MakeCurrentAndBindFbo();
 
             _lineShader.Use();
 
@@ -483,7 +492,7 @@ namespace BEditor.Graphics
         {
             if (image is null) throw new ArgumentNullException(nameof(image));
             image.ThrowIfDisposed();
-            MakeCurrent();
+            MakeCurrentAndBindFbo();
 
             fixed (BGRA32* data = image.Data)
             {
@@ -499,7 +508,7 @@ namespace BEditor.Graphics
         {
             if (texture is null) throw new ArgumentNullException(nameof(texture));
             if (blend is null) throw new ArgumentNullException(nameof(blend));
-            MakeCurrent();
+            MakeCurrentAndBindFbo();
 
             texture.Use(TextureUnit.Texture0);
 
