@@ -1,5 +1,7 @@
 using System.Collections.Generic;
+using System.Diagnostics;
 using System.Diagnostics.CodeAnalysis;
+using System.IO;
 
 using BEditor.Data;
 using BEditor.Data.Primitive;
@@ -9,9 +11,8 @@ using BEditor.Drawing.Pixel;
 using BEditor.Primitive.Objects;
 
 using Neo.IronLua;
+
 using SkiaSharp;
-using System.IO;
-using System.Diagnostics;
 
 namespace BEditor.Extensions.AviUtl
 {
