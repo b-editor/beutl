@@ -64,11 +64,11 @@ namespace BEditor.Graphics
                 _isFirst = false;
             }
 
-                _textureShader = ShaderFactory.Texture.Create();
-                _shader = ShaderFactory.Default.Create();
-                _lightShader = ShaderFactory.Lighting.Create();
-                _texLightShader = ShaderFactory.TextureLighting.Create();
-                _lineShader = ShaderFactory.Line.Create();
+            _textureShader = ShaderFactory.Texture.Create();
+            _shader = ShaderFactory.Default.Create();
+            _lightShader = ShaderFactory.Lighting.Create();
+            _texLightShader = ShaderFactory.TextureLighting.Create();
+            _lineShader = ShaderFactory.Line.Create();
 
             Camera = new OrthographicCamera(new(0, 0, 1024), width, height);
 

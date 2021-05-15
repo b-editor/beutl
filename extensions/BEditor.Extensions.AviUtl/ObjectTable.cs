@@ -1,16 +1,16 @@
 ﻿using System;
 using System.Diagnostics.CodeAnalysis;
+using System.Linq;
 
 using BEditor.Data;
 using BEditor.Data.Primitive;
 using BEditor.Drawing;
 using BEditor.Drawing.Pixel;
+using BEditor.Graphics;
 using BEditor.Media;
+using BEditor.Media.Decoding;
 
 using Microsoft.Extensions.DependencyInjection;
-using BEditor.Graphics;
-using BEditor.Media.Decoding;
-using System.Linq;
 
 namespace BEditor.Extensions.AviUtl
 {
