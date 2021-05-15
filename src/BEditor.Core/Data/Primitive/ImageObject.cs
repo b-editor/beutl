@@ -291,8 +291,8 @@ namespace BEditor.Data.Primitive
             var diffuse = Material.Diffuse[frame];
             var specular = Material.Specular[frame];
             var shininess = Material.Shininess[frame];
-            var c = Blend.Color[frame];
-            var color = Color.FromARGB((byte)(c.A * alpha), c.R, c.G, c.B);
+            var color = Blend.Color[frame];
+            color.A = (byte)(color.A * alpha);
 
             var trans = GetTransform(frame) + image.Transform;
             var context = Parent!.Parent.GraphicsContext!;

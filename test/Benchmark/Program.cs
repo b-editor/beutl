@@ -1,5 +1,4 @@
-﻿
-using BenchmarkDotNet.Running;
+﻿using BenchmarkDotNet.Running;
 
 namespace Benchmark
 {

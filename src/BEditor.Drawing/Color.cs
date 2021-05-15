@@ -57,10 +57,10 @@ namespace BEditor.Drawing
             B = info.GetByte(nameof(B));
         }
 
-        public byte A { get; }
-        public byte R { get; }
-        public byte G { get; }
-        public byte B { get; }
+        public byte A { readonly get; set; }
+        public byte R { readonly get; set; }
+        public byte G { readonly get; set; }
+        public byte B { readonly get; set; }
 
         public static Color FromARGB(int argb)
             => FromARGB(unchecked((uint)argb));
@@ -87,15 +87,15 @@ namespace BEditor.Drawing
         }
         public int AsInt() => Unsafe.As<Color, int>(ref this);
         public int AsUInt() => Unsafe.As<Color, int>(ref this);
-        public override bool Equals(object? obj)
+        public readonly override bool Equals(object? obj)
             => obj is Color color && Equals(color);
-        public bool Equals(Color other)
+        public readonly bool Equals(Color other)
             => R == other.R && G == other.G && B == other.B && A == other.A;
-        public override int GetHashCode()
+        public readonly override int GetHashCode()
             => HashCode.Combine(R, G, B, A);
-        public string ToString(string? format)
+        public readonly string ToString(string? format)
             => ToString(format, CultureInfo.CurrentCulture);
-        public string ToString(string? format, IFormatProvider? formatProvider)
+        public readonly string ToString(string? format, IFormatProvider? formatProvider)
         {
             static string Throw(string format)
                 => throw new FormatException(string.Format(Strings.FormetException, format));
@@ -132,7 +132,7 @@ namespace BEditor.Drawing
             return result;
         }
         private static string Tohex(byte value) => value.ToString("X2");
-        public void GetObjectData(SerializationInfo info, StreamingContext context)
+        public readonly void GetObjectData(SerializationInfo info, StreamingContext context)
         {
             info.AddValue(nameof(A), A);
             info.AddValue(nameof(R), R);

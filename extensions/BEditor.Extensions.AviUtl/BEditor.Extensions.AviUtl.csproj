@@ -5,14 +5,7 @@
         <Nullable>enable</Nullable>
         <OutputPath>..\..\src\BEditor.Avalonia\bin\$(Configuration)\net5.0\user\plugins\BEditor.Extensions.AviUtl</OutputPath>
         <RootNamespace>BEditor.Extensions.AviUtl</RootNamespace>
-    </PropertyGroup>
-
-    <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release|AnyCPU'">
-      <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
-    </PropertyGroup>
-
-    <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|AnyCPU'">
-      <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
+        <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
     </PropertyGroup>
 
     <Import Project="..\..\props\plugin.props" />
