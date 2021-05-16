@@ -2853,12 +2853,6 @@
             Gets the <see cref="T:BEditor.Data.Property.PropertyElement"/> to display on the GUI.
             </summary>
         </member>
-        <member name="M:BEditor.Data.Property.Group.GetObjectData(System.Text.Json.Utf8JsonWriter)">
-            <inheritdoc/>
-        </member>
-        <member name="M:BEditor.Data.Property.Group.SetObjectData(System.Text.Json.JsonElement)">
-            <inheritdoc/>
-        </member>
         <member name="T:BEditor.Data.Property.IEasingProperty">
             <summary>
             Represents a property that can be used by <see cref="T:BEditor.Data.Property.Easing.EasingFunc"/>.

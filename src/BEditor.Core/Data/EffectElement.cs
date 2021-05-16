@@ -121,18 +121,6 @@ namespace BEditor.Data
             base.GetObjectData(writer);
             writer.WriteBoolean(nameof(IsEnabled), IsEnabled);
             writer.WriteBoolean(nameof(IsExpanded), IsExpanded);
-            foreach (var item in GetType().GetProperties()
-                .Where(i => Attribute.IsDefined(i, typeof(DataMemberAttribute)))
-                .Select(i => (Info: i, Attribute: (DataMemberAttribute)Attribute.GetCustomAttribute(i, typeof(DataMemberAttribute))!))
-                .Select(i => (Object: i.Info.GetValue(this), i)))
-            {
-                if (item.Object is IJsonObject json)
-                {
-                    writer.WriteStartObject(item.i.Attribute.Name ?? item.i.Info.Name);
-                    json.GetObjectData(writer);
-                    writer.WriteEndObject();
-                }
-            }
         }
 
         /// <inheritdoc/>
@@ -141,25 +129,6 @@ namespace BEditor.Data
             base.SetObjectData(element);
             IsEnabled = element.GetProperty(nameof(IsEnabled)).GetBoolean();
             IsExpanded = element.GetProperty(nameof(IsExpanded)).GetBoolean();
-
-            foreach (var item in GetType().GetProperties()
-                .Where(i => Attribute.IsDefined(i, typeof(DataMemberAttribute)))
-                .Select(i => (Info: i, Attribute: (DataMemberAttribute)Attribute.GetCustomAttribute(i, typeof(DataMemberAttribute))!))
-                .Where(i => i.Info.PropertyType.IsAssignableTo(typeof(IJsonObject))))
-            {
-                var property = element.GetProperty(item.Attribute.Name ?? item.Info.Name);
-                var obj = (IJsonObject)FormatterServices.GetUninitializedObject(item.Info.PropertyType);
-                obj.SetObjectData(property);
-
-                if (item.Info.ReflectedType != item.Info.DeclaringType)
-                {
-                    item.Info.DeclaringType?.GetProperty(item.Info.Name)?.SetValue(this, obj);
-                }
-                else
-                {
-                    item.Info.SetValue(this, obj);
-                }
-            }
         }
 
         #endregion

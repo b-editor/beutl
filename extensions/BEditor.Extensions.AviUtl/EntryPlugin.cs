@@ -5,9 +5,11 @@ using System.Diagnostics.CodeAnalysis;
 using System.IO;
 using System.Linq;
 using System.Reflection;
+using System.Text.Json;
 using System.Text.RegularExpressions;
 
 using BEditor.Data;
+using BEditor.Data.Property;
 using BEditor.Drawing;
 using BEditor.Plugin;
 
@@ -20,12 +22,20 @@ namespace BEditor.Extensions.AviUtl
     public interface IScriptSettings
     {
         public string Name { get; }
+
+        public string Variable { get; }
+
+        public PropertyElement ToProperty();
+
+        public PropertyElement ToProperty(JsonElement json);
     }
 
     public record Track(string Name, int Number, float Max, float Min, float Default, string Unit) : IScriptSettings
     {
-        // --track0:name,default,max,min
+        // --track0:name,min,max,default
         private static readonly Regex _track = new(@"^--track(?<number>.*?):(?<name>.*?),(?<values>.*?)$");
+
+        public string Variable { get; } = "track" + Number;
 
         public static Track Parse(string line)
         {
@@ -36,9 +46,9 @@ namespace BEditor.Extensions.AviUtl
                 var num = int.Parse(match.Groups["number"].Value);
                 var name = match.Groups["name"].Value;
                 var values = match.Groups["values"].Value.Split(',');
-                var def = float.Parse(values[0]);
+                var min = float.Parse(values[0]);
                 var max = float.Parse(values[1]);
-                var min = float.Parse(values[2]);
+                var def = float.Parse(values[2]);
                 var unit = values.Length is 4 ? values[3] : "0.01";
 
                 return new(name, num, max, min, def, unit);
@@ -53,6 +63,18 @@ namespace BEditor.Extensions.AviUtl
         {
             return _track.IsMatch(line);
         }
+
+        public PropertyElement ToProperty()
+        {
+            return new EaseProperty(new(Name, Default, Max, Min));
+        }
+
+        public PropertyElement ToProperty(JsonElement json)
+        {
+            var prop = ToProperty();
+            prop.SetObjectData(json);
+            return prop;
+        }
     }
 
     public record Param(Dictionary<string, string> Variables) : IScriptSettings
@@ -60,7 +82,9 @@ namespace BEditor.Extensions.AviUtl
         // --param:dx=10;dy=20;
         private static readonly Regex _param = new(@"^--param:(?<content>.*?)$");
 
-        string IScriptSettings.Name => string.Empty;
+        public string Name => "Param";
+
+        public string Variable => Name;
 
         public static Param Parse(string line)
         {
@@ -76,6 +100,18 @@ namespace BEditor.Extensions.AviUtl
         {
             return _param.IsMatch(line);
         }
+
+        public PropertyElement ToProperty()
+        {
+            return new TextProperty(new(Name, new string(Variables.Select(i => $"{i.Key}={i.Value};").SelectMany(i => i).ToArray())));
+        }
+
+        public PropertyElement ToProperty(JsonElement json)
+        {
+            var prop = ToProperty();
+            prop.SetObjectData(json);
+            return prop;
+        }
     }
 
     public record ColorSettings(Color Color) : IScriptSettings
@@ -83,7 +119,9 @@ namespace BEditor.Extensions.AviUtl
         // --color:0xffffff
         private static readonly Regex _color = new(@"^--color:0x(?<color>.*?)$");
 
-        string IScriptSettings.Name => string.Empty;
+        public string Name => "Color";
+
+        public string Variable => "color";
 
         public static ColorSettings Parse(string line)
         {
@@ -99,6 +137,18 @@ namespace BEditor.Extensions.AviUtl
         {
             return _color.IsMatch(line);
         }
+
+        public PropertyElement ToProperty()
+        {
+            return new ColorProperty(new(Name, Color));
+        }
+
+        public PropertyElement ToProperty(JsonElement json)
+        {
+            var prop = ToProperty();
+            prop.SetObjectData(json);
+            return prop;
+        }
     }
 
     public record FileReference() : IScriptSettings
@@ -106,11 +156,25 @@ namespace BEditor.Extensions.AviUtl
         // --file:
         private static readonly Regex _file = new(@"^--file:$");
 
-        string IScriptSettings.Name => string.Empty;
+        public string Name => "File";
+
+        public string Variable => "file";
 
         public static bool IsMatch(string line)
         {
             return _file.IsMatch(line);
+        }
+
+        public PropertyElement ToProperty()
+        {
+            return new FileProperty(new(Name));
+        }
+
+        public PropertyElement ToProperty(JsonElement json)
+        {
+            var prop = ToProperty();
+            prop.SetObjectData(json);
+            return prop;
         }
     }
 
@@ -118,6 +182,8 @@ namespace BEditor.Extensions.AviUtl
     {
         // --check0:name,default
         private static readonly Regex _check = new(@"^--check(?<number>.*?):(?<name>.*?),(?<default>.*?)$");
+
+        public string Variable { get; } = $"check{Number}";
 
         public static CheckBox Parse(string line)
         {
@@ -133,6 +199,18 @@ namespace BEditor.Extensions.AviUtl
         {
             return _check.IsMatch(line);
         }
+
+        public PropertyElement ToProperty()
+        {
+            return new CheckProperty(new(Name, IsChecked));
+        }
+
+        public PropertyElement ToProperty(JsonElement json)
+        {
+            var prop = ToProperty();
+            prop.SetObjectData(json);
+            return prop;
+        }
     }
 
     public record DialogSettings(DialogSection[] Sections) : IScriptSettings
@@ -141,8 +219,9 @@ namespace BEditor.Extensions.AviUtl
         private static readonly Regex _dialog = new(@"^--dialog:(?<content>.*?)$");
         private static readonly Regex _section = new(@"^(?<name>.*?),(?<var>.*?)=(?<value>.*?)$");
 
-        string IScriptSettings.Name => string.Empty;
+        public string Name => "Dialog";
 
+        public string Variable => Name;
 
         public static DialogSettings Parse(string line)
         {
@@ -163,6 +242,18 @@ namespace BEditor.Extensions.AviUtl
         public static bool IsMatch(string line)
         {
             return _dialog.IsMatch(line);
+        }
+
+        public PropertyElement ToProperty()
+        {
+            return new DynamicDialog(this);
+        }
+
+        public PropertyElement ToProperty(JsonElement json)
+        {
+            var prop = ToProperty();
+            prop.SetObjectData(json);
+            return prop;
         }
     }
 
@@ -197,6 +288,39 @@ namespace BEditor.Extensions.AviUtl
         public string Variable { get; }
         public string Value { get; }
         public DialogSectionType Type { get; } = DialogSectionType.None;
+
+        public PropertyElement ToProperty()
+        {
+            return Type switch
+            {
+                DialogSectionType.None => new TextProperty(new(Name, Value)),
+                DialogSectionType.CheckBox => new CheckProperty(new(Name, Value is "true" or "1")),
+                DialogSectionType.Color => new ColorProperty(new(Name, GetColor())),
+                _ => throw new NotImplementedException(),
+            };
+        }
+
+        public PropertyElement ToProperty(JsonElement json)
+        {
+            var prop = ToProperty();
+            prop.SetObjectData(json);
+            return prop;
+        }
+
+        private Color GetColor()
+        {
+            // col="" 対策
+            if (Value is "\"\"")
+            {
+                return Color.Light;
+            }
+
+            // 0x000000 など
+            var color = Color.FromHTML("#" + Value.Replace("0x", ""));
+            color.A = 255;
+
+            return color;
+        }
     }
 
     public enum ScriptType
@@ -221,6 +345,16 @@ namespace BEditor.Extensions.AviUtl
             ".tra" => ScriptType.TrackBar,
             _ => ScriptType.Animation
         };
+
+        public string? Parent
+        {
+            get
+            {
+                var parent = Directory.GetParent(File)?.Name;
+
+                return parent is "script" ? null : parent;
+            }
+        }
     }
 
     public class Plugin : PluginObject
@@ -244,9 +378,11 @@ namespace BEditor.Extensions.AviUtl
             if (!Directory.Exists(dir)) Directory.CreateDirectory(dir);
             _loader = new(dir);
             var items = _loader.Load();
-            
+
             PluginBuilder.Configure<Plugin>()
-                .ConfigureServices(s => s.AddSingleton(_ => LuaScript.LuaGlobal))
+                .ConfigureServices(s => s
+                    .AddSingleton(_ => LuaScript.LuaGlobal)
+                    .AddSingleton(_ => _loader))
                 .With(CreateEffectMetadata(items.Where(i => i.Type is ScriptType.Animation)))
                 .Register();
         }
@@ -259,15 +395,30 @@ namespace BEditor.Extensions.AviUtl
                 Children = list
             };
 
-            list.AddRange(anm.Where(i => i.GroupName is not null)
-                .GroupBy(i => i.GroupName)
-                .Select(i => new EffectMetadata(i.Key!)
+            list.AddRange(anm
+                .Where(i => i.Parent is not null)
+                .GroupBy(i => i.Parent)
+                .Select(i =>
                 {
-                    Children = i.Select(e => new EffectMetadata(e.Name, () => new AnimationEffect(e), typeof(AnimationEffect))).ToArray()
+                    var list = i.Where(e => e.GroupName is not null)
+                        .GroupBy(e => e.GroupName)
+                        .Select(e => new EffectMetadata(e.Key!)
+                        {
+                            Children = e.Select(p => new EffectMetadata(p.Name, () => new AnimationEffect(p), typeof(AnimationEffect))).ToArray()
+                        })
+                        .ToList();
+
+                    list.AddRange(i.Where(e => e.GroupName is null)
+                        .Select(e => new EffectMetadata(e.Name, () => new AnimationEffect(e), typeof(AnimationEffect))));
+
+                    return new EffectMetadata(i.Key!)
+                    {
+                        Children = list
+                    };
                 }));
 
             list.AddRange(anm
-                .Where(i => i.GroupName is null)
+                .Where(i => i.Parent is null)
                 .Select(i => new EffectMetadata(i.Name, () => new AnimationEffect(i), typeof(AnimationEffect))));
 
             return metadata;

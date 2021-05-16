@@ -1,8 +1,6 @@
-﻿using System;
-using System.Collections.Generic;
+﻿using System.Collections.Generic;
 using System.Linq;
-using System.Text;
-using System.Threading.Tasks;
+using System.Text.Json;
 
 using BEditor.Data;
 using BEditor.Data.Primitive;
@@ -31,6 +29,11 @@ namespace BEditor.Extensions.AviUtl
             Entry = entry;
             ScriptName = entry.Name;
             GroupName = entry.GroupName;
+
+            foreach (var item in Entry.Settings)
+            {
+                Properties.Add(item.Variable, item.ToProperty());
+            }
         }
 
         public override string Name => ScriptName;
@@ -41,6 +44,8 @@ namespace BEditor.Extensions.AviUtl
 
         public string? GroupName { get; private set; }
 
+        public Dictionary<string, PropertyElement> Properties { get; private set; } = new();
+
         public override void Apply(EffectApplyArgs<Image<BGRA32>> args)
         {
 
@@ -48,13 +53,94 @@ namespace BEditor.Extensions.AviUtl
 
         public override IEnumerable<PropertyElement> GetProperties()
         {
-            yield break;
+            return Properties.Select(i => i.Value);
         }
 
-        protected override void OnLoad()
+        public override void SetObjectData(JsonElement element)
         {
-            base.OnLoad();
+            base.SetObjectData(element);
+            Properties = new();
             Entry = Plugin._loader.Loaded!.First(i => i.Name == ScriptName && i.GroupName == GroupName);
+
+            foreach (var item in Entry.Settings)
+            {
+                if (element.TryGetProperty(item.Variable, out var val))
+                {
+                    SetOrAddDictionary(Properties, item.Variable, item.ToProperty(val));
+                }
+                else
+                {
+                    SetOrAddDictionary(Properties, item.Variable, item.ToProperty());
+                }
+            }
+        }
+
+        internal static void SetOrAddDictionary(Dictionary<string, PropertyElement> dictionary, string key, PropertyElement value)
+        {
+            if (dictionary.ContainsKey(key))
+            {
+                dictionary[key] = value;
+            }
+            else
+            {
+                dictionary.Add(key, value);
+            }
+        }
+    }
+
+    public class DynamicDialog : DialogProperty
+    {
+        public DynamicDialog(DialogSettings dialog)
+        {
+            Dialog = dialog;
+            PropertyMetadata = new("ダイアログを表示");
+
+            foreach (var item in dialog.Sections)
+            {
+                Properties.Add(item.Variable, item.ToProperty());
+            }
+        }
+
+        public DialogSettings Dialog { get; private set; }
+
+        public Dictionary<string, PropertyElement> Properties { get; private set; } = new();
+
+        public override EffectElement Parent
+        {
+            get => base.Parent;
+            set
+            {
+                if (value is AnimationEffect anm)
+                {
+                    Dialog = (DialogSettings)anm.Entry.Settings.First(i => i is DialogSettings);
+                }
+
+                base.Parent = value;
+            }
+        }
+
+        public override IEnumerable<PropertyElement> GetProperties()
+        {
+            return Properties.Select(i => i.Value);
+        }
+
+        public override void SetObjectData(JsonElement element)
+        {
+            base.SetObjectData(element);
+            Properties = new();
+            PropertyMetadata = new("ダイアログを表示");
+
+            foreach (var item in Dialog.Sections)
+            {
+                if (element.TryGetProperty(item.Variable, out var val))
+                {
+                    AnimationEffect.SetOrAddDictionary(Properties, item.Variable, item.ToProperty(val));
+                }
+                else
+                {
+                    AnimationEffect.SetOrAddDictionary(Properties, item.Variable, item.ToProperty());
+                }
+            }
         }
     }
 }
