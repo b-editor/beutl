@@ -1,5 +1,3 @@
-using System;
-
 using Avalonia;
 using Avalonia.Controls;
 using Avalonia.Interactivity;
@@ -7,9 +5,9 @@ using Avalonia.Markup.Xaml;
 
 namespace BEditor.Views.DialogContent
 {
-    public sealed class CreateProject : Window
+    public partial class CreateClip : Window
     {
-        public CreateProject()
+        public CreateClip()
         {
             InitializeComponent();
 #if DEBUG

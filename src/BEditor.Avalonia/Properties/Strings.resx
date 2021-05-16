@@ -596,4 +596,7 @@ Please select the plugin you want to load</value>
   <data name="Apply" xml:space="preserve">
     <value>Apply</value>
   </data>
+  <data name="CreateScene" xml:space="preserve">
+    <value>Create a scene</value>
+  </data>
 </root>

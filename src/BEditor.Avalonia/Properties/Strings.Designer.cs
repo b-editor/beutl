@@ -388,6 +388,15 @@ namespace BEditor.Properties {
         }
         
         /// <summary>
+        ///   Looks up a localized string similar to Create a scene.
+        /// </summary>
+        public static string CreateScene {
+            get {
+                return ResourceManager.GetString("CreateScene", resourceCulture);
+            }
+        }
+        
+        /// <summary>
         ///   Looks up a localized string similar to Cut.
         /// </summary>
         public static string Cut {
