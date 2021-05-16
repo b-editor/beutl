@@ -125,6 +125,16 @@ namespace BEditor.Views
 
             await dialog.ShowDialog((Window)VisualRoot);
         }
+        
+        public async void CreateClip(object s, RoutedEventArgs e)
+        {
+            var dialog = new CreateClip
+            {
+                DataContext = new CreateClipViewModel()
+            };
+
+            await dialog.ShowDialog((Window)VisualRoot);
+        }
 
         private void InitializeComponent()
         {

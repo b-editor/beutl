@@ -29,6 +29,7 @@
                     </MenuItem>
                     <MenuItem Header="{x:Static prop:Strings.Clip}">
                         <MenuItem Click="RemoveClip" Header="{x:Static prop:Strings.Remove}" />
+                        <MenuItem Click="CreateClip" Header="{x:Static prop:Strings.Create}" />
                     </MenuItem>
                     <MenuItem Header="{x:Static prop:Strings.Effect}">
                         <MenuItem Click="RemoveEffect" Header="{x:Static prop:Strings.Remove}" />
