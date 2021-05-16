@@ -621,4 +621,7 @@
     <value>アライメントを設定</value>
     <comment/>
   </data>
+  <data name="WarpPolar" xml:space="preserve">
+    <value>極座標変換</value>
+  </data>
 </root>

@@ -30,6 +30,8 @@ namespace BEditor.Graphics
             GL.BindBuffer(BufferTarget.PixelUnpackBuffer, Handle);
             GL.BufferData(BufferTarget.PixelUnpackBuffer, BufferSize, IntPtr.Zero, BufferUsageHint.StreamRead);
             GL.BindBuffer(BufferTarget.PixelUnpackBuffer, 0);
+
+            Tool.ThrowGLError();
         }
 
         /// <summary>
@@ -131,7 +133,7 @@ namespace BEditor.Graphics
         {
             if (IsDisposed) return;
 
-            _syncContext.Post(_ =>
+            _syncContext.Send(_ =>
             {
                 GL.BindBuffer(BufferTarget.ArrayBuffer, Handle);
                 GL.DeleteBuffer(Handle);

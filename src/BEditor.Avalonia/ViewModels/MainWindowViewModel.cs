@@ -250,7 +250,15 @@ namespace BEditor.ViewModels
                     }
                 });
 
-            IsOpened.Subscribe(_ => CommandManager.Default.Clear());
+            IsOpened.Subscribe(v =>
+            {
+                CommandManager.Default.Clear();
+
+                if (v)
+                {
+                    App.RaiseProjectOpened(App.Project);
+                }
+            });
 
             ImageOutput.Subscribe(async () =>
             {

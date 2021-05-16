@@ -1,7 +1,9 @@
 ﻿using System.Threading.Tasks;
 
+using Avalonia.Controls;
 using Avalonia.Threading;
 
+using BEditor.Views;
 using BEditor.Views.DialogContent;
 
 namespace BEditor.Models
@@ -25,6 +27,13 @@ namespace BEditor.Models
 
         public void Snackbar(string text = "")
         {
+            Dispatcher.UIThread.InvokeAsync(() =>
+            {
+                App.GetMainWindow().FindControl<StackPanel>("NotifyStack").Children.Add(new NotifyBar
+                {
+                    Content = text
+                });
+            });
         }
     }
 }

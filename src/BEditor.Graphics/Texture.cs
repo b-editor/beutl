@@ -25,7 +25,8 @@ namespace BEditor.Graphics
         /// <param name="glHandle">The handle for the texture.</param>
         /// <param name="width">The width of the texture.</param>
         /// <param name="height">The height of the texture.</param>
-        public Texture(int glHandle, int width, int height)
+        /// <param name="vertices">The vertices.</param>
+        public Texture(int glHandle, int width, int height, float[]? vertices = null)
         {
             Width = width;
             Height = height;
@@ -34,20 +35,13 @@ namespace BEditor.Graphics
             var h = width / 2f;
             var v = height / 2f;
 
-            _vertices = new float[]
+            _vertices = vertices ?? new float[]
             {
-                 h, -v, 0.0f,  1.0f, 1.0f,
+                h, -v, 0.0f,  1.0f, 1.0f,
                  h,  v, 0.0f,  1.0f, 0.0f,
                 -h,  v, 0.0f,  0.0f, 0.0f,
                 -h, -v, 0.0f,  0.0f, 1.0f,
             };
-            //Vertices = new float[]
-            //{
-            //     h,  v, 0.0f,  1.0f, 1.0f,
-            //     h, -v, 0.0f,  1.0f, 0.0f,
-            //    -h, -v, 0.0f,  0.0f, 0.0f,
-            //    -h,  v, 0.0f,  0.0f, 1.0f,
-            //};
 
             VertexArrayObject = GL.GenVertexArray();
             GL.BindVertexArray(VertexArrayObject);
@@ -102,17 +96,17 @@ namespace BEditor.Graphics
         /// <summary>
         /// Create a texture from an image file.
         /// </summary>
-        public unsafe static Texture FromFile(string path)
+        public unsafe static Texture FromFile(string path, float[]? vertices = null)
         {
             using var image = Image.Decode(path);
 
-            return FromImage(image);
+            return FromImage(image, vertices);
         }
 
         /// <summary>
         /// Create a texture from an <see cref="Image{BGR24}"/>.
         /// </summary>
-        public unsafe static Texture FromImage(Image<BGR24> image)
+        public unsafe static Texture FromImage(Image<BGR24> image, float[]? vertices = null)
         {
             var handle = GL.GenTexture();
 
@@ -140,13 +134,13 @@ namespace BEditor.Graphics
 
             GL.GenerateMipmap(GenerateMipmapTarget.Texture2D);
 
-            return new Texture(handle, image.Width, image.Height);
+            return new Texture(handle, image.Width, image.Height, vertices);
         }
 
         /// <summary>
         /// Create a texture from an <see cref="Image{BGRA32}"/>.
         /// </summary>
-        public unsafe static Texture FromImage(Image<BGRA32> image)
+        public unsafe static Texture FromImage(Image<BGRA32> image, float[]? vertices = null)
         {
             var handle = GL.GenTexture();
 
@@ -174,7 +168,7 @@ namespace BEditor.Graphics
 
             GL.GenerateMipmap(GenerateMipmapTarget.Texture2D);
 
-            return new Texture(handle, image.Width, image.Height);
+            return new Texture(handle, image.Width, image.Height, vertices);
         }
 
         /// <summary>
@@ -183,16 +177,21 @@ namespace BEditor.Graphics
         public void Use(TextureUnit unit)
         {
             GL.ActiveTexture(unit);
+            Tool.ThrowGLError();
+
             GL.BindTexture(TextureTarget.Texture2D, Handle);
+            Tool.ThrowGLError();
         }
 
         /// <inheritdoc cref="GraphicsObject.Draw"/>
         public void Draw(TextureUnit unit)
         {
             GL.BindVertexArray(VertexArrayObject);
+            Tool.ThrowGLError();
             Use(unit);
 
             GL.DrawElements(PrimitiveType.Triangles, _indices.Length, DrawElementsType.UnsignedInt, 0);
+            Tool.ThrowGLError();
         }
 
         /// <inheritdoc/>

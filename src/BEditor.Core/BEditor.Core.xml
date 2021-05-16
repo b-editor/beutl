@@ -982,6 +982,24 @@
             <param name="initializer">The <see cref="T:BEditor.Data.IEditingPropertyInitializer`1"/> that initializes the local value of a property.</param>
             <returns>Returns the registered <see cref="T:BEditor.Data.EditingProperty`1"/>.</returns>
         </member>
+        <member name="T:BEditor.Data.EditingPropertyInitializer`1">
+            <summary>
+            Represents the ability to create an instance of a local value of <see cref="T:BEditor.Data.EditingProperty`1"/>.
+            </summary>
+            <typeparam name="T">The type of the local value.</typeparam>
+        </member>
+        <member name="M:BEditor.Data.EditingPropertyInitializer`1.#ctor(System.Func{`0})">
+            <summary>
+            Initializes a new instance of the <see cref="T:BEditor.Data.EditingPropertyInitializer`1"/> class.
+            </summary>
+            <param name="create">Create a new instance.</param>
+        </member>
+        <member name="M:BEditor.Data.EditingPropertyInitializer`1.Create">
+            <summary>
+            Create a local value instance of <see cref="T:BEditor.Data.EditingProperty`1"/>.
+            </summary>
+            <returns>Returns the created local value.</returns>
+        </member>
         <member name="T:BEditor.Data.EditingPropertyRegistry">
             <summary>
              Tracks registered <see cref="T:BEditor.Data.EditingProperty"/> instances.
@@ -2835,12 +2853,6 @@
             Gets the <see cref="T:BEditor.Data.Property.PropertyElement"/> to display on the GUI.
             </summary>
         </member>
-        <member name="M:BEditor.Data.Property.Group.GetObjectData(System.Text.Json.Utf8JsonWriter)">
-            <inheritdoc/>
-        </member>
-        <member name="M:BEditor.Data.Property.Group.SetObjectData(System.Text.Json.JsonElement)">
-            <inheritdoc/>
-        </member>
         <member name="T:BEditor.Data.Property.IEasingProperty">
             <summary>
             Represents a property that can be used by <see cref="T:BEditor.Data.Property.Easing.EasingFunc"/>.
@@ -3245,7 +3257,7 @@
             Represents a property for setting the blend Option.
             </summary>
         </member>
-        <member name="F:BEditor.Data.Property.PrimitiveGroup.Blend.OpecityProperty">
+        <member name="F:BEditor.Data.Property.PrimitiveGroup.Blend.OpacityProperty">
             <summary>
             Defines the <see cref="P:BEditor.Data.Property.PrimitiveGroup.Blend.Opacity"/> property.
             </summary>
@@ -3289,6 +3301,11 @@
         </member>
         <member name="M:BEditor.Data.Property.PrimitiveGroup.Blend.GetProperties">
             <inheritdoc/>
+        </member>
+        <member name="M:BEditor.Data.Property.PrimitiveGroup.Blend.ResetOptional">
+            <summary>
+            Reset the <see cref="P:BEditor.Data.Property.PrimitiveGroup.Blend.Opacity"/> Optionals.
+            </summary>
         </member>
         <member name="T:BEditor.Data.Property.PrimitiveGroup.BlendMetadata">
             <summary>
@@ -3515,6 +3532,11 @@
         <member name="M:BEditor.Data.Property.PrimitiveGroup.Rotate.GetProperties">
             <inheritdoc/>
         </member>
+        <member name="M:BEditor.Data.Property.PrimitiveGroup.Rotate.ResetOptional">
+            <summary>
+            Reset the <see cref="P:BEditor.Data.Property.PrimitiveGroup.Rotate.RotateX"/>, <see cref="P:BEditor.Data.Property.PrimitiveGroup.Rotate.RotateY"/>, and <see cref="P:BEditor.Data.Property.PrimitiveGroup.Rotate.RotateZ"/> Optionals.
+            </summary>
+        </member>
         <member name="T:BEditor.Data.Property.PrimitiveGroup.RotateMetadata">
             <summary>
             The metadata of <see cref="T:BEditor.Data.Property.PrimitiveGroup.Rotate"/>.
@@ -3584,6 +3606,11 @@
         </member>
         <member name="M:BEditor.Data.Property.PrimitiveGroup.Scale.GetProperties">
             <inheritdoc/>
+        </member>
+        <member name="M:BEditor.Data.Property.PrimitiveGroup.Scale.ResetOptional">
+            <summary>
+            Reset the <see cref="P:BEditor.Data.Property.PrimitiveGroup.Scale.Scale1"/>, <see cref="P:BEditor.Data.Property.PrimitiveGroup.Scale.ScaleX"/>, <see cref="P:BEditor.Data.Property.PrimitiveGroup.Scale.ScaleY"/>, and <see cref="P:BEditor.Data.Property.PrimitiveGroup.Scale.ScaleZ"/> Optionals.
+            </summary>
         </member>
         <member name="T:BEditor.Data.Property.PrimitiveGroup.ScaleMetadata">
             <summary>
@@ -4432,6 +4459,11 @@
             Gets the <see cref="T:System.Threading.SynchronizationContext"/>.
             </summary>
         </member>
+        <member name="E:BEditor.IApplication.ProjectOpened">
+            <summary>
+            Occurs when the project is opened.
+            </summary>
+        </member>
         <member name="M:BEditor.IApplication.RestoreAppConfig(BEditor.Data.Project,System.String)">
             <summary>
             Restore the application configuration.
@@ -4766,6 +4798,22 @@
             
              public SettingRecord Settings { get; set; } = new CustomSetting("Sample text");
              </example>
+        </member>
+        <member name="T:BEditor.ProjectOpenedEventArgs">
+            <summary>
+            Provides data for the <see cref="E:BEditor.IApplication.ProjectOpened"/> event.
+            </summary>
+        </member>
+        <member name="M:BEditor.ProjectOpenedEventArgs.#ctor(BEditor.Data.Project)">
+            <summary>
+            Initializes a new instance of the <see cref="T:BEditor.ProjectOpenedEventArgs"/>
+            </summary>
+            <param name="project">The opened project.</param>
+        </member>
+        <member name="P:BEditor.ProjectOpenedEventArgs.Project">
+            <summary>
+            Gets the <see cref="P:BEditor.ProjectOpenedEventArgs.Project" />
+            </summary>
         </member>
         <member name="T:BEditor.Resources.Strings">
             <summary>

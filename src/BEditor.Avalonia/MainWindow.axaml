@@ -319,6 +319,16 @@
 
         <GridSplitter Background="Transparent" Grid.Row="2" Grid.Column="3"/>
 
+        <StackPanel
+            x:Name="NotifyStack"
+            Margin="8"
+            Grid.ColumnSpan="5"
+            Grid.Row="1"
+            Grid.RowSpan="5"
+            Spacing="8"
+            HorizontalAlignment="Right"
+            VerticalAlignment="Top" />
+        
         <TabControl
             Grid.Row="2"
             Grid.Column="2"

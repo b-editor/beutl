@@ -23,6 +23,7 @@ namespace BEditor.Data.Primitive
                 var a = new EffectApplyArgs<Image<BGRA32>>(args.Frame, img.Source, args.Type);
                 Apply(a);
                 img.Source = a.Value;
+                args.Handled = a.Handled;
 
                 return img;
             });

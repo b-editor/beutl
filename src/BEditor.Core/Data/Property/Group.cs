@@ -97,48 +97,5 @@ namespace BEditor.Data.Property
         /// Gets the <see cref="PropertyElement"/> to display on the GUI.
         /// </summary>
         public abstract IEnumerable<PropertyElement> GetProperties();
-
-        /// <inheritdoc/>
-        public override void GetObjectData(Utf8JsonWriter writer)
-        {
-            base.GetObjectData(writer);
-            foreach (var item in GetType().GetProperties()
-                .Where(i => Attribute.IsDefined(i, typeof(DataMemberAttribute)))
-                .Select(i => (Info: i, Attribute: (DataMemberAttribute)Attribute.GetCustomAttribute(i, typeof(DataMemberAttribute))!))
-                .Select(i => (Object: i.Info.GetValue(this), i)))
-            {
-                if (item.Object is IJsonObject json)
-                {
-                    writer.WriteStartObject(item.i.Attribute.Name ?? item.i.Info.Name);
-                    json.GetObjectData(writer);
-                    writer.WriteEndObject();
-                }
-            }
-        }
-
-        /// <inheritdoc/>
-        public override void SetObjectData(JsonElement element)
-        {
-            base.SetObjectData(element);
-
-            foreach (var item in GetType().GetProperties()
-                .Where(i => Attribute.IsDefined(i, typeof(DataMemberAttribute)))
-                .Select(i => (Info: i, Attribute: (DataMemberAttribute)Attribute.GetCustomAttribute(i, typeof(DataMemberAttribute))!))
-                .Where(i => i.Info.PropertyType.IsAssignableTo(typeof(IJsonObject))))
-            {
-                var property = element.GetProperty(item.Attribute.Name ?? item.Info.Name);
-                var obj = (IJsonObject)FormatterServices.GetUninitializedObject(item.Info.PropertyType);
-                obj.SetObjectData(property);
-
-                if (item.Info.ReflectedType != item.Info.DeclaringType)
-                {
-                    item.Info.DeclaringType?.GetProperty(item.Info.Name)?.SetValue(this, obj);
-                }
-                else
-                {
-                    item.Info.SetValue(this, obj);
-                }
-            }
-        }
     }
 }

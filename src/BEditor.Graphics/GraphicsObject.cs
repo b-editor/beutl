@@ -27,7 +27,7 @@ namespace BEditor.Graphics
         {
             if (IsDisposed) return;
 
-            SynchronizeContext.Post(_ => Dispose(false), null);
+            SynchronizeContext.Send(_ => Dispose(false), null);
         }
 
         /// <summary>
@@ -70,7 +70,7 @@ namespace BEditor.Graphics
         {
             if (IsDisposed) return;
 
-            SynchronizeContext.Post(_ => Dispose(true), null);
+            SynchronizeContext.Send(_ => Dispose(true), null);
 
             GC.SuppressFinalize(this);
 

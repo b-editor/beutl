@@ -1,4 +1,5 @@
-﻿using System.Threading;
+﻿using System;
+using System.Threading;
 
 using BEditor.Data;
 
@@ -17,8 +18,10 @@ namespace BEditor
 #nullable disable
         public SynchronizationContext UIThread { get; set; }
         public Project Child { get; }
+
 #nullable enable
 
+        public event EventHandler<ProjectOpenedEventArgs>? ProjectOpened;
         public void RestoreAppConfig(Project project, string directory)
         {
 

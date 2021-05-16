@@ -118,12 +118,12 @@ namespace BEditor.Data.Primitive
 
             foreach (var img in img_list)
             {
-                Draw(img, args);
+                Draw(img, imgs_args);
 
                 img.Source.Dispose();
             }
 
-            Coordinate.ResetOptional();
+            ResetOptional();
         }
 
         /// <summary>
@@ -165,7 +165,7 @@ namespace BEditor.Data.Primitive
 
             if (base_img is null)
             {
-                Coordinate.ResetOptional();
+                ResetOptional();
                 image = null;
                 return;
             }
@@ -188,7 +188,7 @@ namespace BEditor.Data.Primitive
 
                 if (args.Handled)
                 {
-                    Coordinate.ResetOptional();
+                    ResetOptional();
                     image = imageArgs.Value;
                     return;
                 }
@@ -229,6 +229,14 @@ namespace BEditor.Data.Primitive
             }
         }
 
+        private void ResetOptional()
+        {
+            Coordinate.ResetOptional();
+            Rotate.ResetOptional();
+            Scale.ResetOptional();
+            Blend.ResetOptional();
+        }
+
         private void LoadEffect(EffectApplyArgs<IEnumerable<ImageInfo>> args, EffectElement[] list)
         {
             for (var i = 0; i < list.Length; i++)
@@ -250,7 +258,7 @@ namespace BEditor.Data.Primitive
 
                 if (args.Handled)
                 {
-                    Coordinate.ResetOptional();
+                    ResetOptional();
                     return;
                 }
             }
@@ -273,7 +281,7 @@ namespace BEditor.Data.Primitive
                 context.DrawLine(new(-width, height, 0), new(width, height, 0), 1.5f, trans, Color.Light);
             }
 
-            if (image.Source.IsDisposed) return;
+            if (image.Source.IsDisposed || args.Handled) return;
 
             var frame = args.Frame;
 
@@ -283,8 +291,8 @@ namespace BEditor.Data.Primitive
             var diffuse = Material.Diffuse[frame];
             var specular = Material.Specular[frame];
             var shininess = Material.Shininess[frame];
-            var c = Blend.Color[frame];
-            var color = Color.FromARGB((byte)(c.A * alpha), c.R, c.G, c.B);
+            var color = Blend.Color[frame];
+            color.A = (byte)(color.A * alpha);
 
             var trans = GetTransform(frame) + image.Transform;
             var context = Parent!.Parent.GraphicsContext!;
@@ -310,8 +318,8 @@ namespace BEditor.Data.Primitive
                 blendFunc?.Invoke();
                 if (blendFunc is null)
                 {
-                    GL.BlendEquationSeparate(BlendEquationMode.FuncAdd, BlendEquationMode.FuncAdd);
-                    GL.BlendFunc(BlendingFactor.SrcAlpha, BlendingFactor.OneMinusSrcAlpha);
+                    GL.BlendFuncSeparate(BlendingFactorSrc.SrcAlpha, BlendingFactorDest.OneMinusSrcAlpha, BlendingFactorSrc.One, BlendingFactorDest.OneMinusSrcAlpha);
+                    GL.BlendEquation(BlendEquationMode.FuncAdd);
                 }
             });
         }

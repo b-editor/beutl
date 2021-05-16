@@ -69,8 +69,7 @@ namespace BEditor.Primitive.Objects
             var frame = args.Frame - Parent!.Start;
 
             var img = scene.Render(frame + (int)Start[args.Frame], RenderType.ImageOutput);
-            Parent.Parent.GraphicsContext!.MakeCurrent();
-            Parent.Parent.GraphicsContext.Framebuffer.Bind();
+            Parent.Parent.GraphicsContext!.MakeCurrentAndBindFbo();
 
             return img;
         }

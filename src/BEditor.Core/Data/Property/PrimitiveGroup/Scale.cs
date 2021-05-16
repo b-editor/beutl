@@ -18,7 +18,7 @@ namespace BEditor.Data.Property.PrimitiveGroup
             nameof(Scale1),
             owner => owner.Scale1,
             (owner, obj) => owner.Scale1 = obj,
-            new EasePropertyMetadata(Strings.Scale, 100));
+            new EasePropertyMetadata(Strings.Scale, 100, UseOptional: true));
 
         /// <summary>
         /// Defines the <see cref="ScaleX"/> property.
@@ -27,7 +27,7 @@ namespace BEditor.Data.Property.PrimitiveGroup
             nameof(ScaleX),
             owner => owner.ScaleX,
             (owner, obj) => owner.ScaleX = obj,
-            new EasePropertyMetadata(Strings.X, 100));
+            new EasePropertyMetadata(Strings.X, 100, UseOptional: true));
 
         /// <summary>
         /// Defines the <see cref="ScaleY"/> property.
@@ -36,7 +36,7 @@ namespace BEditor.Data.Property.PrimitiveGroup
             nameof(ScaleY),
             owner => owner.ScaleY,
             (owner, obj) => owner.ScaleY = obj,
-            new EasePropertyMetadata(Strings.Y, 100));
+            new EasePropertyMetadata(Strings.Y, 100, UseOptional: true));
 
         /// <summary>
         /// Defines the <see cref="ScaleZ"/> property.
@@ -45,7 +45,7 @@ namespace BEditor.Data.Property.PrimitiveGroup
             nameof(ScaleZ),
             owner => owner.ScaleZ,
             (owner, obj) => owner.ScaleZ = obj,
-            new EasePropertyMetadata(Strings.Z, 100));
+            new EasePropertyMetadata(Strings.Z, 100, UseOptional: true));
 
         /// <summary>
         /// Initializes a new instance of the <see cref="Coordinate"/> class.
@@ -88,6 +88,17 @@ namespace BEditor.Data.Property.PrimitiveGroup
             yield return ScaleX;
             yield return ScaleY;
             yield return ScaleZ;
+        }
+
+        /// <summary>
+        /// Reset the <see cref="Scale1"/>, <see cref="ScaleX"/>, <see cref="ScaleY"/>, and <see cref="ScaleZ"/> Optionals.
+        /// </summary>
+        public void ResetOptional()
+        {
+            Scale1.Optional = 0;
+            ScaleX.Optional = 0;
+            ScaleY.Optional = 0;
+            ScaleZ.Optional = 0;
         }
     }
 

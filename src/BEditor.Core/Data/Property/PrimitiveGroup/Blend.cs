@@ -16,11 +16,11 @@ namespace BEditor.Data.Property.PrimitiveGroup
         /// <summary>
         /// Defines the <see cref="Opacity"/> property.
         /// </summary>
-        public static readonly DirectEditingProperty<Blend, EaseProperty> OpecityProperty = EditingProperty.RegisterSerializeDirect<EaseProperty, Blend>(
+        public static readonly DirectEditingProperty<Blend, EaseProperty> OpacityProperty = EditingProperty.RegisterSerializeDirect<EaseProperty, Blend>(
             nameof(Opacity),
             owner => owner.Opacity,
             (owner, obj) => owner.Opacity = obj,
-            new EasePropertyMetadata(Strings.Opacity, 100, 100, 0));
+            new EasePropertyMetadata(Strings.Opacity, 100, 100, 0, UseOptional: true));
 
         /// <summary>
         /// Defines the <see cref="Color"/> property.
@@ -47,8 +47,8 @@ namespace BEditor.Data.Property.PrimitiveGroup
         {
             () =>
             {
-                GL.BlendEquationSeparate(BlendEquationMode.FuncAdd, BlendEquationMode.FuncAdd);
-                GL.BlendFunc(BlendingFactor.SrcAlpha, BlendingFactor.OneMinusSrcAlpha);
+                GL.BlendFuncSeparate(BlendingFactorSrc.SrcAlpha, BlendingFactorDest.OneMinusSrcAlpha, BlendingFactorSrc.One, BlendingFactorDest.OneMinusSrcAlpha);
+                GL.BlendEquation(BlendEquationMode.FuncAdd);
             },
             () =>
             {
@@ -100,6 +100,14 @@ namespace BEditor.Data.Property.PrimitiveGroup
             yield return Opacity;
             yield return Color;
             yield return BlendType;
+        }
+
+        /// <summary>
+        /// Reset the <see cref="Opacity"/> Optionals.
+        /// </summary>
+        public void ResetOptional()
+        {
+            Opacity.Optional = 0;
         }
     }
 

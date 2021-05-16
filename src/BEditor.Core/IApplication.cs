@@ -1,4 +1,5 @@
-﻿using System.Threading;
+﻿using System;
+using System.Threading;
 
 using BEditor.Data;
 
@@ -7,6 +8,7 @@ using Microsoft.Extensions.Logging;
 
 namespace BEditor
 {
+
     /// <summary>
     /// Represents an application.
     /// </summary>
@@ -31,6 +33,11 @@ namespace BEditor
         /// Gets the <see cref="SynchronizationContext"/>.
         /// </summary>
         public SynchronizationContext UIThread { get; }
+
+        /// <summary>
+        /// Occurs when the project is opened.
+        /// </summary>
+        public event EventHandler<ProjectOpenedEventArgs>? ProjectOpened;
 
         /// <summary>
         /// Restore the application configuration.

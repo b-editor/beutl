@@ -191,6 +191,7 @@ namespace BEditor.ViewModels
 
             ProjectIsOpened.Value = true;
             AppData.Current.Project!.Saved += (s, _) => AppData.Current.AppStatus = Status.Saved;
+            AppData.Current.RaiseProjectOpened();
         }
 
         private void Project_Closed()

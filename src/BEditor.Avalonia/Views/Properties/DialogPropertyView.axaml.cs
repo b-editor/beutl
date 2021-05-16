@@ -7,6 +7,7 @@ using BEditor.Data;
 using BEditor.Data.Property;
 using BEditor.Extensions;
 using BEditor.ViewModels.Properties;
+using BEditor.Views.CustomTitlebars;
 using BEditor.Views.DialogContent;
 
 namespace BEditor.Views.Properties
@@ -43,9 +44,30 @@ namespace BEditor.Views.Properties
             {
                 if (property[DialogProperty] is null)
                 {
-                    property[DialogProperty] = builder.CreateFunc(property);
+                    var child = builder.CreateFunc(property);
+                    Grid.SetRow(child, 1);
+
+                    property[DialogProperty] = new Grid
+                    {
+                        RowDefinitions =
+                        {
+                            new(1, GridUnitType.Auto),
+                            new(1, GridUnitType.Star)
+                        },
+                        Children =
+                        {
+                            new WindowsTitlebarButtons { CanResize = false },
+                            child
+                        }
+                    };
                 }
-                return new EmptyDialog(property.GetValue(DialogProperty));
+                var content = property.GetValue(DialogProperty);
+                if (content.Parent is Decorator parent) parent.Child = null;
+
+                return new EmptyDialog(content)
+                {
+                    CanResize = true
+                };
             }
 
             await GetCreate(_property).ShowDialog(App.GetMainWindow());

@@ -25,6 +25,8 @@ namespace BEditor.Graphics
             GL.BindRenderbuffer(RenderbufferTarget.Renderbuffer, Handle);
             GL.RenderbufferStorage(RenderbufferTarget.Renderbuffer, RenderbufferStorage.DepthComponent, Width, Height);
             GL.BindRenderbuffer(RenderbufferTarget.Renderbuffer, 0);
+
+            Tool.ThrowGLError();
         }
 
         /// <summary>
@@ -55,12 +57,23 @@ namespace BEditor.Graphics
         /// </summary>
         public bool IsDisposed { get; private set; }
 
+        /// <summary>
+        /// Bind this color buffer.
+        /// </summary>
+        public void Bind()
+        {
+            if (IsDisposed) throw new ObjectDisposedException(nameof(ColorBuffer));
+
+            GL.BindRenderbuffer(RenderbufferTarget.Renderbuffer, Handle);
+            Tool.ThrowGLError();
+        }
+
         /// <inheritdoc/>
         public void Dispose()
         {
             if (IsDisposed) return;
 
-            _syncContext.Post(_ => GL.DeleteRenderbuffer(Handle), null);
+            _syncContext.Send(_ => GL.DeleteRenderbuffer(Handle), null);
 
             GC.SuppressFinalize(this);
 
