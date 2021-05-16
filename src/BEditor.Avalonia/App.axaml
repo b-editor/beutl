@@ -29,6 +29,7 @@
         <StyleInclude Source="avares://beditor/Controls/FluentUiIcons_Filled.axaml" />
         <StyleInclude Source="avares://beditor/Controls/FluentUiIcons_Regular.axaml" />
         <StyleInclude Source="avares://beditor/Views/Settings/SettingsResources.axaml" />
+        <StyleInclude Source="avares://beditor/Views/NotifyBar.axaml" />
 
         <Style Selector="Expander.expandkeyframe /template/ ToggleButton#PART_toggle">
             <Setter Property="Margin" Value="32.5,0,0,0" />

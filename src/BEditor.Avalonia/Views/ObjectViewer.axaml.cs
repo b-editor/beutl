@@ -18,7 +18,7 @@ namespace BEditor.Views
 {
     public partial class ObjectViewer : UserControl
     {
-        private static readonly IMessage Message = AppModel.Current.Message;
+        private static IMessage Message => AppModel.Current.Message;
 
         public ObjectViewer()
         {
