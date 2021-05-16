@@ -244,7 +244,7 @@ namespace BEditor.Extensions.AviUtl
             if (!Directory.Exists(dir)) Directory.CreateDirectory(dir);
             _loader = new(dir);
             var items = _loader.Load();
-            
+
             PluginBuilder.Configure<Plugin>()
                 .ConfigureServices(s => s.AddSingleton(_ => LuaScript.LuaGlobal))
                 .With(CreateEffectMetadata(items.Where(i => i.Type is ScriptType.Animation)))
