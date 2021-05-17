@@ -12,9 +12,14 @@ namespace BEditor.Media.Decoding
     public interface IInputContainer : IDisposable
     {
         /// <summary>
-        /// Gets all streams.
+        /// Gets the video streams.
         /// </summary>
-        public IMediaStream[] Streams { get; }
+        public IVideoStream[] Video { get; }
+
+        /// <summary>
+        /// Gets the audio streams.
+        /// </summary>
+        public IAudioStream[] Audio { get; }
 
         /// <summary>
         /// Gets informations about the media container.

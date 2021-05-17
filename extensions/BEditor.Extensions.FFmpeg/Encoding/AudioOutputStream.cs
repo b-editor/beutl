@@ -48,13 +48,13 @@ namespace BEditor.Extensions.FFmpeg.Encoding
             _stream.Dispose();
             _writer.Dispose();
 
-            var ffmpeg = GetExecutable();
+            var ffmpeg = FFmpegExecutable.GetExecutable();
             var wavfile = Path.ChangeExtension(Path.GetTempFileName(), "wav");
             var tmpvideo = Path.ChangeExtension(Path.GetTempFileName(), Path.GetExtension(_videofile));
 
             var process = Process.Start(new ProcessStartInfo(
                 ffmpeg,
-                $"-f f32le -ar {Configuration.SampleRate} -ac 2 -i {_pcmfile} {wavfile}"))!;
+                $"-f f32le -ar {Configuration.SampleRate} -ac 2 -i \"{_pcmfile}\" \"{wavfile}\""))!;
 
             process.WaitForExit();
 
@@ -63,7 +63,7 @@ namespace BEditor.Extensions.FFmpeg.Encoding
 
             process = Process.Start(new ProcessStartInfo(
                 ffmpeg,
-                $"-i {tmpvideo} -i {wavfile} -c:v copy -c:a aac -map 0:v:0 -map 1:a:0 {_videofile}")
+                $"-i \"{tmpvideo}\" -i \"{wavfile}\" -c:v copy -c:a aac -map 0:v:0 -map 1:a:0 \"{_videofile}\"")
             {
                 CreateNoWindow = true
             })!;
@@ -73,14 +73,6 @@ namespace BEditor.Extensions.FFmpeg.Encoding
             File.Delete(_pcmfile);
             File.Delete(wavfile);
             File.Delete(tmpvideo);
-        }
-
-        private static string GetExecutable()
-        {
-            if (OperatingSystem.IsWindows()) return Path.Combine(AppContext.BaseDirectory, "user", "plugins", "BEditor.Extensions.FFmpeg", "ffmpeg", "ffmpeg.exe");
-            else if (OperatingSystem.IsLinux()) return "/usr/bin/ffmpeg";
-            else if (OperatingSystem.IsMacOS()) return "/usr/local/opt/ffmpeg";
-            else throw new PlatformNotSupportedException();
         }
     }
 }

@@ -16,5 +16,10 @@
         /// Gets or sets which streams (audio/video) will be loaded.
         /// </summary>
         public MediaMode StreamsToLoad { get; set; } = MediaMode.AudioVideo;
+
+        /// <summary>
+        /// Gets or sets the sample rate.
+        /// </summary>
+        public int SampleRate { get; set; } = 44100;
     }
 }

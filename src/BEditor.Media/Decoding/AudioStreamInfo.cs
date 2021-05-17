@@ -14,14 +14,21 @@ namespace BEditor.Media.Decoding
         /// <param name="type">The media type of the stream.</param>
         /// <param name="duration">The duration of the stream.</param>
         /// <param name="samplerate">The number of samples per second of the audio stream.</param>
-        public AudioStreamInfo(string codecName, MediaType type, TimeSpan duration, int samplerate) : base(codecName, type, duration)
+        /// <param name="numchannels">The number of audio channels stored in the stream.</param>
+        public AudioStreamInfo(string codecName, MediaType type, TimeSpan duration, int samplerate, int numchannels) : base(codecName, type, duration)
         {
             SampleRate = samplerate;
+            NumChannels = numchannels;
         }
 
         /// <summary>
         /// Gets the number of samples per second of the audio stream.
         /// </summary>
         public int SampleRate { get; }
+
+        /// <summary>
+        /// Gets the number of audio channels stored in the stream.
+        /// </summary>
+        public int NumChannels { get; }
     }
 }

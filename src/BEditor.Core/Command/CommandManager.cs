@@ -112,7 +112,7 @@ namespace BEditor.Command
             catch
             {
                 Debug.Fail("Commandの実行中に例外が発生。");
-                CommandCancel(null, EventArgs.Empty);
+                CommandCancel?.Invoke(null, EventArgs.Empty);
             }
 
             _process = true;

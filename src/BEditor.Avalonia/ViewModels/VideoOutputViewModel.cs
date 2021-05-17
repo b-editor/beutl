@@ -146,12 +146,9 @@ namespace BEditor.ViewModels
                                 {
                                     using var sliced = item.Loaded.Slice(rel_start, spf_time);
                                     sliced.Gain(item.Volume[frame] / 100);
+                                    using var resampled = sliced.Resamples(proj.Samplingrate);
 
-                                    buffer.Add(sliced);
-                                }
-                                else
-                                {
-
+                                    buffer.Add(resampled);
                                 }
                             }
 

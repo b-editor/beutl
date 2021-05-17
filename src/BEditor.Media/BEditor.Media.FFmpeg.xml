@@ -69,7 +69,7 @@
             Represents informations about the audio stream.
             </summary>
         </member>
-        <member name="M:BEditor.Media.Decoding.AudioStreamInfo.#ctor(System.String,BEditor.Media.MediaType,System.TimeSpan,System.Int32)">
+        <member name="M:BEditor.Media.Decoding.AudioStreamInfo.#ctor(System.String,BEditor.Media.MediaType,System.TimeSpan,System.Int32,System.Int32)">
             <summary>
             Initializes a new instance of the <see cref="T:BEditor.Media.Decoding.AudioStreamInfo"/> class.
             </summary>
@@ -77,10 +77,16 @@
             <param name="type">The media type of the stream.</param>
             <param name="duration">The duration of the stream.</param>
             <param name="samplerate">The number of samples per second of the audio stream.</param>
+            <param name="numchannels">The number of audio channels stored in the stream.</param>
         </member>
         <member name="P:BEditor.Media.Decoding.AudioStreamInfo.SampleRate">
             <summary>
             Gets the number of samples per second of the audio stream.
+            </summary>
+        </member>
+        <member name="P:BEditor.Media.Decoding.AudioStreamInfo.NumChannels">
+            <summary>
+            Gets the number of audio channels stored in the stream.
             </summary>
         </member>
         <member name="T:BEditor.Media.Decoding.IAudioStream">
@@ -130,9 +136,14 @@
             Represents the multimedia file container.
             </summary>
         </member>
-        <member name="P:BEditor.Media.Decoding.IInputContainer.Streams">
+        <member name="P:BEditor.Media.Decoding.IInputContainer.Video">
             <summary>
-            Gets all streams.
+            Gets the video streams.
+            </summary>
+        </member>
+        <member name="P:BEditor.Media.Decoding.IInputContainer.Audio">
+            <summary>
+            Gets the audio streams.
             </summary>
         </member>
         <member name="P:BEditor.Media.Decoding.IInputContainer.Info">
@@ -342,6 +353,11 @@
         <member name="P:BEditor.Media.Decoding.MediaOptions.StreamsToLoad">
             <summary>
             Gets or sets which streams (audio/video) will be loaded.
+            </summary>
+        </member>
+        <member name="P:BEditor.Media.Decoding.MediaOptions.SampleRate">
+            <summary>
+            Gets or sets the sample rate.
             </summary>
         </member>
         <member name="T:BEditor.Media.Decoding.StreamInfo">

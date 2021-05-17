@@ -20,8 +20,8 @@ namespace BEditor.Media.Decoding
         {
             _container = container;
 
-            VideoStreams = container.Streams.OfType<IVideoStream>().ToArray();
-            AudioStreams = container.Streams.OfType<IAudioStream>().ToArray();
+            VideoStreams = container.Video.ToArray();
+            AudioStreams = container.Audio.ToArray();
 
             Info = container.Info;
         }
@@ -99,14 +99,6 @@ namespace BEditor.Media.Decoding
             if (_isDisposed)
             {
                 return;
-            }
-
-            var video = VideoStreams.Cast<IMediaStream>();
-            var audio = AudioStreams.Cast<IMediaStream>();
-
-            foreach (var stream in video.Concat(audio))
-            {
-                stream.Dispose();
             }
 
             _container.Dispose();

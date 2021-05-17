@@ -1,5 +1,7 @@
 ﻿using System;
+using System.Diagnostics;
 using System.Diagnostics.CodeAnalysis;
+using System.IO;
 
 using BEditor.Media;
 using BEditor.Media.Decoding;
@@ -11,20 +13,28 @@ namespace BEditor.Extensions.FFmpeg.Decoder
 {
     public sealed class AudioStream : IAudioStream
     {
+        internal readonly FFMediaToolkit.Decoding.MediaFile _media;
+        private readonly string _tmpfile;
         private readonly FFMediaToolkit.Decoding.AudioStream _stream;
 
-        public AudioStream(FFMediaToolkit.Decoding.AudioStream stream)
+        public AudioStream(string file, MediaOptions options)
         {
-            _stream = stream;
+            _tmpfile = Path.ChangeExtension(Path.GetTempFileName(), "mp3");
+            var process = Process.Start(FFmpegExecutable.GetExecutable(), $"-i \"{file}\" -vcodec copy -ar {options.SampleRate} \"{_tmpfile}\"");
+            process.WaitForExit();
 
-            Info = new(stream.Info.CodecName, MediaType.Audio, stream.Info.Duration, stream.Info.SampleRate);
+            _media = FFMediaToolkit.Decoding.MediaFile.Open(_tmpfile, new() { StreamsToLoad = FFMediaToolkit.Decoding.MediaMode.Audio });
+            _stream = _media.Audio;
+            Info = new(_stream.Info.CodecName, MediaType.Audio, _stream.Info.Duration, _stream.Info.SampleRate, _stream.Info.NumChannels);
         }
 
         public AudioStreamInfo Info { get; }
 
         public void Dispose()
         {
-            _stream.Dispose();
+            _media.Dispose();
+
+            if (File.Exists(_tmpfile)) File.Delete(_tmpfile);
         }
 
         public Sound<StereoPCMFloat> GetFrame(TimeSpan time)
@@ -76,11 +86,11 @@ namespace BEditor.Extensions.FFmpeg.Decoder
 
             if (array.Length is 2)
             {
-                sound.SetChannelData(0, array[0]);
+                sound.SetChannelData(1, array[1]);
             }
             else
             {
-                sound.SetChannelData(1, array[1]);
+                sound.SetChannelData(1, array[0]);
             }
 
             return sound;

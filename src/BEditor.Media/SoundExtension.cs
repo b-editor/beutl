@@ -22,10 +22,7 @@ namespace BEditor.Media
         {
             var result = new Sound<TConvert>(sound.SampleRate, sound.Length);
 
-            Parallel.For(0, sound.Length, i =>
-            {
-                sound.Data[i].ConvertTo(out result.Data[i]);
-            });
+            Parallel.For(0, sound.Length, i => sound.Data[i].ConvertTo(out result.Data[i]));
 
             return result;
         }

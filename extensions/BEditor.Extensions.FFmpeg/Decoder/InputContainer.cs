@@ -1,12 +1,7 @@
 ﻿using System;
-using System.Collections.Generic;
 using System.Linq;
-using System.Text;
-using System.Threading.Tasks;
 
 using BEditor.Media.Decoding;
-
-using FFMediaToolkit.Encoding;
 
 namespace BEditor.Extensions.FFmpeg.Decoder
 {
@@ -16,16 +11,33 @@ namespace BEditor.Extensions.FFmpeg.Decoder
 
         public InputContainer(string file, MediaOptions options)
         {
-            _media = FFMediaToolkit.Decoding.MediaFile.Open(file, new()
+            if (options.StreamsToLoad is MediaMode.Video or MediaMode.AudioVideo)
             {
-                StreamsToLoad = options.StreamsToLoad is MediaMode.Audio ?
-                    FFMediaToolkit.Decoding.MediaMode.Audio :
-                    (options.StreamsToLoad is MediaMode.Video ?
-                        FFMediaToolkit.Decoding.MediaMode.Video :
-                        FFMediaToolkit.Decoding.MediaMode.AudioVideo)
-            });
+                _media = FFMediaToolkit.Decoding.MediaFile.Open(file, new()
+                {
+                    StreamsToLoad = FFMediaToolkit.Decoding.MediaMode.Video
+                });
 
-            Info = new(file, _media.Info.ContainerFormat, _media.Info.Bitrate, _media.Info.Duration, _media.Info.StartTime, new()
+                Video = _media.VideoStreams.Select(i => new VideoStream(i)).ToArray();
+            }
+            else
+            {
+                Video = Array.Empty<IVideoStream>();
+            }
+
+            if (options.StreamsToLoad is MediaMode.Audio or MediaMode.AudioVideo)
+            {
+                var audio = new AudioStream(file, options);
+                Audio = new[] { audio };
+
+                _media ??= audio._media;
+            }
+            else
+            {
+                Audio = Array.Empty<IAudioStream>();
+            }
+
+            Info = new(file, _media!.Info.ContainerFormat, _media.Info.Bitrate, _media.Info.Duration, _media.Info.StartTime, new()
             {
                 Title = _media.Info.Metadata.Title,
                 Author = _media.Info.Metadata.Author,
@@ -38,20 +50,27 @@ namespace BEditor.Extensions.FFmpeg.Decoder
                 Rating = _media.Info.Metadata.Rating,
                 TrackNumber = _media.Info.Metadata.TrackNumber,
             });
-
-            var video = _media.VideoStreams.Select(i => new VideoStream(i)).OfType<IMediaStream>();
-            var audio = _media.AudioStreams.Select(i => new AudioStream(i)).OfType<IMediaStream>();
-
-            Streams = video.Concat(audio).ToArray();
         }
 
-        public IMediaStream[] Streams { get; }
-
         public MediaInfo Info { get; }
+
+        public IVideoStream[] Video { get; }
+
+        public IAudioStream[] Audio { get; }
 
         public void Dispose()
         {
             _media.Dispose();
+
+            foreach (var video in Video)
+            {
+                video.Dispose();
+            }
+
+            foreach (var audio in Audio)
+            {
+                audio.Dispose();
+            }
         }
     }
 }

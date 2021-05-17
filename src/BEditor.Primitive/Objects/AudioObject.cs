@@ -202,6 +202,7 @@ namespace BEditor.Primitive.Objects
                 Decoder = MediaFile.Open(file, new()
                 {
                     StreamsToLoad = MediaMode.Audio,
+                    SampleRate = this.GetParentRequired<Project>().Samplingrate
                 });
             });
 
@@ -227,6 +228,8 @@ namespace BEditor.Primitive.Objects
             _source = null;
             _mediaFile?.Dispose();
             _mediaFile = null;
+            Loaded?.Dispose();
+            Loaded = null;
 
             var player = Parent.Parent.Player;
             player.Stopped -= Player_Stopped;
@@ -250,20 +253,17 @@ namespace BEditor.Primitive.Objects
                 {
                     sampleR.AddRange(array[1]);
                 }
+                else
+                {
+                    sampleR.AddRange(array[0]);
+                }
             }
 
             var sound = new Sound<StereoPCMFloat>(stream.Info.SampleRate, sampleL.Count);
 
-            if (sampleR.Count is 0)
-            {
-                sampleL.Select(i => new StereoPCMFloat(i, i)).ToArray().CopyTo(sound.Data);
-            }
-            else
-            {
-                sampleL.Zip(sampleR, (l, r) => new StereoPCMFloat(l, r))
-                    .ToArray()
-                    .CopyTo(sound.Data);
-            }
+            sampleL.Zip(sampleR, (l, r) => new StereoPCMFloat(l, r))
+                .ToArray()
+                .CopyTo(sound.Data);
 
             return sound;
         }
