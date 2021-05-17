@@ -1,51 +1,36 @@
-﻿using BEditor.Drawing;
+﻿using System;
 
-using BEditor.Media.Common;
-using BEditor.Media.Decoding.Internal;
-using BEditor.Media.Helpers;
-
-using FFmpeg.AutoGen;
+using BEditor.Drawing;
 
 namespace BEditor.Media.Decoding
 {
     /// <summary>
     /// Represents informations about the video stream.
     /// </summary>
-    public class VideoStreamInfo : StreamInfo
+    public sealed class VideoStreamInfo : StreamInfo
     {
         /// <summary>
         /// Initializes a new instance of the <see cref="VideoStreamInfo"/> class.
         /// </summary>
-        /// <param name="stream">A generic stream.</param>
-        /// <param name="container">The input container.</param>
-        internal unsafe VideoStreamInfo(AVStream* stream, InputContainer container) : base(stream, MediaType.Video, container)
+        /// <param name="codecName">The codec name of the stream.</param>
+        /// <param name="type">The media type of the stream.</param>
+        /// <param name="duration">The duration of the stream.</param>
+        /// <param name="framesize">The video frame dimensions.</param>
+        /// <param name="framenum">The number of frames</param>
+        public VideoStreamInfo(string codecName, MediaType type, TimeSpan duration, Size framesize, int framenum) : base(codecName, type, duration)
         {
-            var codec = stream->codec;
-            IsInterlaced = codec->field_order != AVFieldOrder.AV_FIELD_PROGRESSIVE &&
-                           codec->field_order != AVFieldOrder.AV_FIELD_UNKNOWN;
-            FrameSize = new Size(codec->width, codec->height);
-            PixelFormat = codec->pix_fmt.FormatEnum(11);
-            AVPixelFormat = codec->pix_fmt;
+            NumberOfFrames = framenum;
+            FrameSize = framesize;
         }
 
         /// <summary>
-        /// Gets a value indicating whether the frames in the stream are interlaced.
+        /// Gets the number of frames value taken from the container metadata or estimated in constant frame rate videos. Returns null if not available.
         /// </summary>
-        public bool IsInterlaced { get; }
+        public int NumberOfFrames { get; }
 
         /// <summary>
         /// Gets the video frame dimensions.
         /// </summary>
         public Size FrameSize { get; }
-
-        /// <summary>
-        /// Gets a lowercase string representing the video pixel format.
-        /// </summary>
-        public string PixelFormat { get; }
-
-        /// <summary>
-        /// Gets the video pixel format.
-        /// </summary>
-        internal AVPixelFormat AVPixelFormat { get; }
     }
 }

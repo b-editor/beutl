@@ -29,11 +29,8 @@ namespace BEditor
 {
     public class MainWindow : Window
     {
-        private readonly ILogger _ffmpegLogger;
-
         public MainWindow()
         {
-            _ffmpegLogger = AppModel.Current.LoggingFactory.CreateLogger(typeof(FFmpegLoader));
             InitializeComponent();
 
             // WindowsŠÂ‹«‚¾‚Æ•\Ž¦‚ªƒoƒO‚é‚Ì‚Å‘Îô
@@ -93,39 +90,6 @@ namespace BEditor
         {
             base.OnOpened(e);
             await CheckOpenALAsync();
-
-            var installer = new FFmpegInstaller(App.FFmpegDir);
-
-            if (OperatingSystem.IsWindows())
-            {
-                FFmpegLoader.FFmpegPath = Path.Combine(AppContext.BaseDirectory, "ffmpeg");
-            }
-
-            if (!await installer.IsInstalledAsync())
-            {
-                if (OperatingSystem.IsWindows())
-                {
-                    await InstallFFmpegWindowsAsync(installer);
-                }
-                else if (OperatingSystem.IsLinux())
-                {
-                    await AppModel.Current.Message.DialogAsync($"{Strings.RunFollowingCommandToInstallFFmpeg}\n$ sudo apt update\n$ sudo apt -y upgrade\n$ sudo apt install ffmpeg");
-
-                    App.Shutdown(1);
-                }
-                else if (OperatingSystem.IsMacOS())
-                {
-                    await AppModel.Current.Message.DialogAsync($"{Strings.RunFollowingCommandToInstallFFmpeg}\n$ brew install ffmpeg");
-
-                    App.Shutdown(1);
-                }
-            }
-
-            // FFmpeg“Ç‚Ýž‚Ý
-            FFmpegLoader.LoadFFmpeg();
-
-            FFmpegLoader.SetupLogging();
-            FFmpegLoader.LogCallback += (e) => _ffmpegLogger.LogInformation(e);
         }
 
         private static async Task CheckOpenALAsync()

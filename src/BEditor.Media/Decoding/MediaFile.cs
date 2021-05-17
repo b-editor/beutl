@@ -2,9 +2,6 @@
 using System.IO;
 using System.Linq;
 
-using BEditor.Media.Common;
-using BEditor.Media.Decoding.Internal;
-
 namespace BEditor.Media.Decoding
 {
     /// <summary>
@@ -12,31 +9,32 @@ namespace BEditor.Media.Decoding
     /// </summary>
     public sealed class MediaFile : IDisposable
     {
-        private readonly InputContainer _container;
+        private readonly IInputContainer _container;
         private bool _isDisposed;
 
-        private unsafe MediaFile(InputContainer container, MediaOptions options)
+        /// <summary>
+        /// Initializes a new instance of the <see cref="MediaFile"/> class.
+        /// </summary>
+        /// <param name="container"></param>
+        public MediaFile(IInputContainer container)
         {
             _container = container;
 
-            var video = container.Decoders.Where(codec => codec?.Info.Type == MediaType.Video);
-            var audio = container.Decoders.Where(codec => codec?.Info.Type == MediaType.Audio);
+            VideoStreams = container.Streams.OfType<IVideoStream>().ToArray();
+            AudioStreams = container.Streams.OfType<IAudioStream>().ToArray();
 
-            VideoStreams = video.Select(codec => new VideoStream(codec!, options)).ToArray();
-            AudioStreams = audio.Select(codec => new AudioStream(codec!, options)).ToArray();
-
-            Info = new MediaInfo(container.Pointer);
+            Info = container.Info;
         }
 
         /// <summary>
         /// Gets all the video streams in the media file.
         /// </summary>
-        public VideoStream[] VideoStreams { get; }
+        public IVideoStream[] VideoStreams { get; }
 
         /// <summary>
         /// Gets the first video stream in the media file.
         /// </summary>
-        public VideoStream? Video => VideoStreams.FirstOrDefault();
+        public IVideoStream? Video => VideoStreams.FirstOrDefault();
 
         /// <summary>
         /// Gets a value indicating whether the file contains video streams.
@@ -46,12 +44,12 @@ namespace BEditor.Media.Decoding
         /// <summary>
         /// Gets all the audio streams in the media file.
         /// </summary>
-        public AudioStream[] AudioStreams { get; }
+        public IAudioStream[] AudioStreams { get; }
 
         /// <summary>
         /// Gets the first audio stream in the media file.
         /// </summary>
-        public AudioStream? Audio => AudioStreams.FirstOrDefault();
+        public IAudioStream? Audio => AudioStreams.FirstOrDefault();
 
         /// <summary>
         /// Gets a value indicating whether the file contains video streams.
@@ -83,8 +81,7 @@ namespace BEditor.Media.Decoding
         {
             try
             {
-                var container = InputContainer.LoadFile(path, options);
-                return new MediaFile(container, options);
+                return DecoderFactory.Open(path, options) ?? throw new NotSupportedException("Not supported format.");
             }
             catch (DirectoryNotFoundException)
             {
@@ -96,35 +93,6 @@ namespace BEditor.Media.Decoding
             }
         }
 
-        /// <summary>
-        /// Opens a media stream with default settings.
-        /// </summary>
-        /// <param name="stream">A stream of the multimedia file.</param>
-        /// <returns>The opened <see cref="MediaFile"/>.</returns>
-        public static MediaFile Open(Stream stream)
-        {
-            return Open(stream, new MediaOptions());
-        }
-
-        /// <summary>
-        /// Opens a media stream.
-        /// </summary>
-        /// <param name="stream">A stream of the multimedia file.</param>
-        /// <param name="options">The decoder settings.</param>
-        /// <returns>The opened <see cref="MediaFile"/>.</returns>
-        public static MediaFile Open(Stream stream, MediaOptions options)
-        {
-            try
-            {
-                var container = InputContainer.LoadStream(stream, options);
-                return new MediaFile(container, options);
-            }
-            catch (Exception ex)
-            {
-                throw new Exception("Failed to open the media stream", ex);
-            }
-        }
-
         /// <inheritdoc/>
         public void Dispose()
         {
@@ -133,8 +101,8 @@ namespace BEditor.Media.Decoding
                 return;
             }
 
-            var video = VideoStreams.Cast<MediaStream>();
-            var audio = AudioStreams.Cast<MediaStream>();
+            var video = VideoStreams.Cast<IMediaStream>();
+            var audio = AudioStreams.Cast<IMediaStream>();
 
             foreach (var stream in video.Concat(audio))
             {

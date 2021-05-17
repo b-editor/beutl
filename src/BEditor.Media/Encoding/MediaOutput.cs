@@ -1,33 +1,24 @@
 ﻿using System;
+using System.Collections.Generic;
 using System.Linq;
-
-using BEditor.Media.Encoding.Internal;
 
 namespace BEditor.Media.Encoding
 {
     /// <summary>
     /// Represents a multimedia output file.
     /// </summary>
-    public class MediaOutput : IDisposable
+    public sealed class MediaOutput : IDisposable
     {
-        private readonly OutputContainer _container;
+        private readonly IOutputContainer _container;
         private bool _isDisposed;
 
         /// <summary>
         /// Initializes a new instance of the <see cref="MediaOutput"/> class.
         /// </summary>
-        /// <param name="mediaContainer">The <see cref="OutputContainer"/> object.</param>
-        internal MediaOutput(OutputContainer mediaContainer)
+        /// <param name="container">The <see cref="IOutputContainer"/> object.</param>
+        public MediaOutput(IOutputContainer container)
         {
-            _container = mediaContainer;
-
-            VideoStreams = _container.Video
-                .Select(o => new VideoOutputStream(o.stream, o.config))
-                .ToArray();
-
-            AudioStreams = _container.Audio
-                .Select(o => new AudioOutputStream(o.stream, o.config))
-                .ToArray();
+            _container = container;
         }
 
         /// <summary>
@@ -41,22 +32,22 @@ namespace BEditor.Media.Encoding
         /// <summary>
         /// Gets the video streams in the media file.
         /// </summary>
-        public VideoOutputStream[] VideoStreams { get; }
+        public IEnumerable<IVideoOutputStream> VideoStreams => _container.Video;
 
         /// <summary>
         /// Gets the audio streams in the media file.
         /// </summary>
-        public AudioOutputStream[] AudioStreams { get; }
+        public IEnumerable<IAudioOutputStream> AudioStreams => _container.Audio;
 
         /// <summary>
         /// Gets the first video stream in the media file.
         /// </summary>
-        public VideoOutputStream? Video => VideoStreams.FirstOrDefault();
+        public IVideoOutputStream? Video => VideoStreams.FirstOrDefault();
 
         /// <summary>
         /// Gets the first audio stream in the media file.
         /// </summary>
-        public AudioOutputStream? Audio => AudioStreams.FirstOrDefault();
+        public IAudioOutputStream? Audio => AudioStreams.FirstOrDefault();
 
         /// <inheritdoc/>
         public void Dispose()
@@ -66,8 +57,17 @@ namespace BEditor.Media.Encoding
                 return;
             }
 
-            _container.Dispose();
+            foreach (var video in VideoStreams)
+            {
+                video.Dispose();
+            }
 
+            foreach (var audio in AudioStreams)
+            {
+                audio.Dispose();
+            }
+
+            _container.Dispose();
             GC.SuppressFinalize(this);
             _isDisposed = true;
         }

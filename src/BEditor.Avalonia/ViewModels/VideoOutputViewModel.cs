@@ -11,9 +11,7 @@ using Avalonia.Threading;
 
 using BEditor.Data;
 using BEditor.Media;
-using BEditor.Media.Audio;
 using BEditor.Media.Encoding;
-using BEditor.Media.Graphics;
 using BEditor.Media.PCM;
 using BEditor.Models;
 using BEditor.Primitive.Objects;
@@ -33,13 +31,6 @@ namespace BEditor.ViewModels
         public VideoOutputViewModel()
         {
             SelectedScene.Value = Project.PreviewScene;
-            VideoCodecs = Enum.GetValues<VideoCodec>().Select(i => new EnumTupple<VideoCodec>(i.ToString("g"), i)).ToArray();
-            PixelFormats = Enum.GetValues<ImagePixelFormat>().Select(i => new EnumTupple<ImagePixelFormat>(i.ToString("g"), i)).ToArray();
-            AudioCodecs = Enum.GetValues<AudioCodec>().Select(i => new EnumTupple<AudioCodec>(i.ToString("g"), i)).ToArray();
-            Presets = Enum.GetValues<EncoderPreset>().Select(i => new EnumTupple<EncoderPreset>(i.ToString("g"), i)).ToArray();
-            SampleFormats = Enum.GetValues<SampleFormat>().Select(i => new EnumTupple<SampleFormat>(i.ToString("g"), i)).ToArray();
-            ContainerFormats = Enum.GetValues<ContainerFormat>().Select(i => new EnumTupple<ContainerFormat?>(i.ToString("g"), i)).ToList();
-            ContainerFormats.Insert(0, SelectedContainerFormat.Value);
             LengthFrame.Value = Project.PreviewScene.TotalFrame;
             SelectedScene.Where(s => s.TotalFrame < LengthFrame.Value)
                 .Subscribe(s => LengthFrame.Value = s.TotalFrame);
@@ -89,27 +80,23 @@ namespace BEditor.ViewModels
                     {
                         var scene = SelectedScene.Value;
                         var proj = Project;
-                        // 1フレームあたりのサンプル数
-                        var tmpdir = Path.Combine(proj.DirectoryName, ".tmp");
-                        if (!Directory.Exists(tmpdir)) Directory.CreateDirectory(tmpdir);
-                        var tmpVideo = Path.Combine(tmpdir, $"{Guid.NewGuid()}{Path.GetExtension(File.Value)}");
 
-                        var builder = SelectedContainerFormat.Value.Value is null ?
-                            MediaBuilder.CreateContainer(tmpVideo) :
-                            MediaBuilder.CreateContainer(tmpVideo, (ContainerFormat)SelectedContainerFormat.Value.Value);
-
-                        if (VideoIsEnabled.Value)
-                        {
-                            builder = builder.WithVideo(new(scene.Width, scene.Height, proj.Framerate, SelectedVideoCodec.Value.Value, SelectedPixelFormat.Value.Value)
+                        var output = MediaBuilder.CreateContainer(File.Value)
+                            .WithVideo(config =>
                             {
-                                EncoderPreset = SelectedPreset.Value.Value,
-                                Bitrate = VideoBitrate.Value,
-                                KeyframeRate = KeyframeRate.Value,
-                            });
-                        }
-                        if (Validation.Value)
-                        {
-                            builder = builder.UseMetadata(new()
+                                config.VideoWidth = SelectedScene.Value.Width;
+                                config.VideoHeight = SelectedScene.Value.Height;
+                                config.Framerate = Project.Framerate;
+                                config.Bitrate = VideoBitrate.Value;
+                                config.KeyframeRate = KeyframeRate.Value;
+                            })
+                            .WithAudio(config =>
+                            {
+                                config.Bitrate = AudioBitrate.Value;
+                                config.Channels = 2;
+                                config.SampleRate = Project.Samplingrate;
+                            })
+                            .UseMetadata(new()
                             {
                                 Title = Title.Value,
                                 Author = Author.Value,
@@ -121,104 +108,55 @@ namespace BEditor.ViewModels
                                 Copyright = Copyright.Value,
                                 Rating = Rating.Value,
                                 TrackNumber = TrackNumber.Value,
-                            });
-                        }
-
-                        var output = builder.Create();
+                            })
+                            .Create();
 
                         // 動画
-                        if (VideoIsEnabled.Value)
+                        for (Frame frame = StartFrame.Value; frame < LengthFrame.Value; frame++)
                         {
-                            for (Frame frame = StartFrame.Value; frame < LengthFrame.Value; frame++)
+                            if (t)
                             {
-                                if (t)
-                                {
-                                    output.Dispose();
-                                    return;
-                                }
-
-                                dialog.NowValue.Value = frame;
-
-                                // UIスレッドだけでレンダリングできる
-                                var img = await Dispatcher.UIThread.InvokeAsync(() => scene.Render(frame, RenderType.VideoOutput));
-                                output.Video?.AddFrame(ImageData.FromDrawing(img));
-                                img.Dispose();
+                                output.Dispose();
+                                return;
                             }
+
+                            dialog.NowValue.Value = frame;
+
+                            // UIスレッドだけでレンダリングできる
+                            var img = await Dispatcher.UIThread.InvokeAsync(() => scene.Render(frame, RenderType.VideoOutput));
+                            output.Video?.AddFrame(img);
+                            img.Dispose();
+                        }
+
+                        // Audio
+                        // Sample per frame
+                        var spf = proj.Samplingrate / proj.Framerate;
+                        var spf_time = new Frame(spf).ToTimeSpan(proj.Framerate);
+                        for (Frame frame = StartFrame.Value; frame < LengthFrame.Value; frame++)
+                        {
+                            using var buffer = new Sound<StereoPCMFloat>(proj.Samplingrate, spf);
+
+                            foreach (var item in scene.GetFrame(frame).Select(i => i.Effect[0]).OfType<AudioObject>())
+                            {
+                                var rel_start = new Frame(frame - item.Parent.Start).ToTimeSpan(proj.Framerate);
+
+                                if (item.Loaded is null) continue;
+
+                                if (item.Loaded.Time >= rel_start + spf_time)
+                                {
+                                    item.Loaded.Slice(rel_start, spf_time);
+                                }
+                                else
+                                {
+
+                                }
+                            }
+
+                            output.Audio?.AddFrame(buffer);
                         }
 
                         output.Dispose();
 
-                        // 音声
-                        if (AudioIsEnabled.Value)
-                        {
-                            var pcmFile = Path.Combine(tmpdir, $"{Guid.NewGuid()}.pcm");
-                            var wavFile = Path.Combine(tmpdir, $"{Guid.NewGuid()}.wav");
-                            await using (var stream = new FileStream(pcmFile, FileMode.Create))
-                            await using (var writer = new BinaryWriter(stream))
-                            {
-                                using var sound = new Sound<StereoPCMFloat>(proj.Samplingrate, (int)(proj.Samplingrate * new Frame(LengthFrame.Value - StartFrame.Value).ToSeconds(proj.Framerate)));
-
-                                foreach (var item in scene.Datas
-                                    .Where(i => i.Effect[0] is AudioObject && (i.Start <= StartFrame.Value || i.End <= LengthFrame.Value))
-                                    .Select(i => (AudioObject)i.Effect[0])
-                                    .Where(i => i.IsEnabled && i.Loaded is not null))
-                                {
-                                    var start = item.Parent.Start > StartFrame.Value ?
-                                        item.Parent.Start.ToTimeSpan(proj.Framerate) :
-                                        default;
-
-                                    var end = item.Parent.End < LengthFrame.Value ?
-                                        item.Parent.Length.ToTimeSpan(proj.Framerate) :
-                                        sound.Time;
-
-                                    var sliceStart = item.Parent.Start > StartFrame.Value ?
-                                        TimeSpan.FromMilliseconds(item.Start.Value) :
-                                        TimeSpan.FromMilliseconds(item.Start.Value) + (StartFrame.Value - item.Parent.Start).ToTimeSpan(proj.Framerate);
-
-                                    using var slice = sound.Slice(start, end);
-
-                                    using var audioobj = item.Loaded!.Slice(sliceStart);
-                                    audioobj.Gain(item.Volume[0] / 100);
-
-                                    slice.Add(audioobj);
-                                }
-
-                                for (var i = 0; i < sound.Length; i++)
-                                {
-                                    writer.Write(sound.Data[i].Left);
-                                    writer.Write(sound.Data[i].Right);
-                                }
-                            }
-
-                            dialog.IsIndeterminate.Value = true;
-                            var ffmpeg = FFmpegLoader.GetExecutable();
-
-                            var process = Process.Start(new ProcessStartInfo(
-                                ffmpeg,
-                                $"-f f32le -ar {proj.Samplingrate} -ac 2 -i {pcmFile} {wavFile}"))!;
-
-                            await process.WaitForExitAsync();
-
-                            if (System.IO.File.Exists(File.Value)) System.IO.File.Delete(File.Value);
-
-                            process = Process.Start(new ProcessStartInfo(
-                                ffmpeg,
-                                $"-i {tmpVideo} -i {wavFile} -c:v copy -c:a aac -map 0:v:0 -map 1:a:0 {File.Value}")
-                            {
-                                CreateNoWindow = true
-                            })!;
-
-                            await process.WaitForExitAsync();
-
-                            System.IO.File.Delete(pcmFile);
-                            System.IO.File.Delete(wavFile);
-                        }
-                        else
-                        {
-                            System.IO.File.Copy(tmpVideo, File.Value);
-                        }
-
-                        System.IO.File.Delete(tmpVideo);
                         await Dispatcher.UIThread.InvokeAsync(dialog.Close);
                     }
                     catch (Exception e)
@@ -243,28 +181,15 @@ namespace BEditor.ViewModels
         public ReactivePropertySlim<Scene> SelectedScene { get; } = new();
 
         #region Video
-        public ReactivePropertySlim<bool> VideoIsEnabled { get; } = new(true);
-        public EnumTupple<VideoCodec>[] VideoCodecs { get; }
-        public ReactivePropertySlim<EnumTupple<VideoCodec>> SelectedVideoCodec { get; } = new(new("Default", VideoCodec.Default));
-        public EnumTupple<EncoderPreset>[] Presets { get; }
-        public ReactivePropertySlim<EnumTupple<EncoderPreset>> SelectedPreset { get; } = new(new("Medium", EncoderPreset.Medium));
-        public EnumTupple<ImagePixelFormat>[] PixelFormats { get; }
-        public ReactivePropertySlim<EnumTupple<ImagePixelFormat>> SelectedPixelFormat { get; } = new(new("Yuv420", ImagePixelFormat.Yuv420));
         public ReactivePropertySlim<int> VideoBitrate { get; } = new(5_000_000);
         public ReactivePropertySlim<int> KeyframeRate { get; } = new(12);
         #endregion
 
         #region Audio
-        public ReactivePropertySlim<bool> AudioIsEnabled { get; } = new(true);
-        public EnumTupple<AudioCodec>[] AudioCodecs { get; }
-        public ReactivePropertySlim<EnumTupple<AudioCodec>> SelectedAudioCodec { get; } = new(new("Default", AudioCodec.Default));
-        public EnumTupple<SampleFormat>[] SampleFormats { get; }
-        public ReactivePropertySlim<EnumTupple<SampleFormat>> SelectedSampleFormat { get; } = new(new("SingleP", SampleFormat.SingleP));
         public ReactivePropertySlim<int> AudioBitrate { get; } = new(128_000);
         #endregion
 
         #region Metadata
-        public ReactivePropertySlim<bool> Validation { get; } = new(false);
         public ReactivePropertySlim<string> Title { get; } = new(string.Empty);
         public ReactivePropertySlim<string> Author { get; } = new(string.Empty);
         public ReactivePropertySlim<string> Album { get; } = new(string.Empty);
@@ -277,8 +202,6 @@ namespace BEditor.ViewModels
         public ReactivePropertySlim<string> TrackNumber { get; } = new(string.Empty);
         #endregion
 
-        public List<EnumTupple<ContainerFormat?>> ContainerFormats { get; }
-        public ReactivePropertySlim<EnumTupple<ContainerFormat?>> SelectedContainerFormat { get; } = new(new("Default", null));
         public ReactivePropertySlim<string> File { get; } = new();
         public ReactivePropertySlim<int> StartFrame { get; } = new();
         public ReactivePropertySlim<int> LengthFrame { get; } = new();

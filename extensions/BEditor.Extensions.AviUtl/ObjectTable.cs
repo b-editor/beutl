@@ -449,7 +449,7 @@ namespace BEditor.Extensions.AviUtl
 
             using var decoder = MediaFile.Open(file, new MediaOptions() { StreamsToLoad = MediaMode.Video });
             if (decoder.Video is null) return new(1, 1);
-            var decoded = decoder.Video.GetFrame(time).ToDrawing();
+            var decoded = decoder.Video.GetFrame(time);
 
             if (flag is 1)
             {

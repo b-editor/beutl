@@ -197,34 +197,9 @@ namespace BEditor.Primitive.Objects
         {
             _source = new();
 
-            _disposable1 = File.Where(file => System.IO.File.Exists(file)).Subscribe(async file =>
+            _disposable1 = File.Where(file => System.IO.File.Exists(file)).Subscribe(file =>
             {
-                var decoder = MediaFile.Open(file, new()
-                {
-                    StreamsToLoad = MediaMode.Audio,
-                });
-                var proj = this.GetParentRequired<Project>();
-
-                if (decoder.Audio!.Info.SampleFormat is Media.Audio.SampleFormat.SingleP && decoder.Audio.Info.SampleRate == proj.Samplingrate)
-                {
-                    Decoder = decoder;
-                    return;
-                }
-
-                decoder.Dispose();
-                // 強制的に44100hz SinglePに変更
-                var exe = FFmpegLoader.GetExecutable();
-                var contentDir = Path.Combine(proj.DirectoryName, "content");
-                var dst = Path.Combine(contentDir, ID.ToString() + ".mp3");
-
-                if (!Directory.Exists(contentDir)) Directory.CreateDirectory(contentDir);
-                if (System.IO.File.Exists(dst)) System.IO.File.Delete(dst);
-
-                var process = Process.Start(exe, $"-i {file} -vcodec copy -ar {proj.Samplingrate} {dst}");
-                await process.WaitForExitAsync();
-                process.Dispose();
-
-                Decoder = MediaFile.Open(dst, new()
+                Decoder = MediaFile.Open(file, new()
                 {
                     StreamsToLoad = MediaMode.Audio,
                 });
@@ -259,7 +234,7 @@ namespace BEditor.Primitive.Objects
             player.Playing -= Player_PlayingAsync;
         }
 
-        private static Sound<StereoPCMFloat> GetAllFrame(AudioStream stream)
+        private static Sound<StereoPCMFloat> GetAllFrame(IAudioStream stream)
         {
             stream.TryGetFrame(TimeSpan.Zero, out _);
             var sampleL = new List<float>();
@@ -267,7 +242,7 @@ namespace BEditor.Primitive.Objects
 
             while (stream.TryGetNextFrame(out var audio))
             {
-                var array = audio.GetSampleData();
+                var array = audio.Extract();
 
                 sampleL.AddRange(array[0]);
 

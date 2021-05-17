@@ -124,7 +124,7 @@ namespace BEditor.Primitive.Objects
             var start = (int)Start[args.Frame];
             var time = new Frame((int)((start + args.Frame - Parent!.Start) * speed)).ToTimeSpan(Parent.Parent.Parent!.Framerate);
 
-            return _mediaFile.Video.GetFrame(time).ToDrawing();
+            return _mediaFile.Video.GetFrame(time);
         }
 
         /// <inheritdoc/>
@@ -152,9 +152,9 @@ namespace BEditor.Primitive.Objects
                 }
             });
 
-            _disposable2 = SetLength.Where(_ => _mediaFile?.Video?.Info?.NumberOfFrames is not null).Subscribe(_ =>
+            _disposable2 = SetLength.Subscribe(_ =>
             {
-                Parent.ChangeLength(Parent.Start, Parent.Start + (int)_mediaFile!.Video!.Info.NumberOfFrames!).Execute();
+                Parent.ChangeLength(Parent.Start, Parent.Start + _mediaFile!.Video!.Info.NumberOfFrames).Execute();
             });
         }
 

@@ -1,16 +1,19 @@
-<Project Sdk="Microsoft.NET.Sdk">
+﻿<Project Sdk="Microsoft.NET.Sdk">
 
     <PropertyGroup>
         <TargetFramework>net5.0</TargetFramework>
-        <DocumentationFile>BEditor.Media.FFmpeg.xml</DocumentationFile>
     </PropertyGroup>
-
-    <ItemGroup>
-        <ProjectReference Include="..\BEditor.Drawing\BEditor.Drawing.csproj" />
-    </ItemGroup>
 
     <Import Project="..\..\props\common.props" />
     <Import Project="..\..\props\analyzer.props" />
+
+    <ItemGroup>
+      <PackageReference Include="FFMediaToolkit" Version="4.1.0" />
+    </ItemGroup>
+
+    <ItemGroup>
+        <ProjectReference Include="..\..\src\BEditor.Media\BEditor.Media.csproj" />
+    </ItemGroup>
 
     <ItemGroup>
         <Compile Update="Resources\Strings.Designer.cs">

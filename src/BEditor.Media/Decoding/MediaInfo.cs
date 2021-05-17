@@ -1,11 +1,5 @@
 ﻿using System;
-using System.Collections.ObjectModel;
 using System.IO;
-
-using BEditor.Media.Common;
-using BEditor.Media.Helpers;
-
-using FFmpeg.AutoGen;
 
 namespace BEditor.Media.Decoding
 {
@@ -19,22 +13,15 @@ namespace BEditor.Media.Decoding
         /// <summary>
         /// Initializes a new instance of the <see cref="MediaInfo"/> class.
         /// </summary>
-        /// <param name="container">The input container context.</param>
-        internal unsafe MediaInfo(AVFormatContext* container)
+        /// <param name="filepath">The file path used to open the container.</param>
+        /// <param name="format">The container format name.</param>
+        /// <param name="bitrate">The container bitrate in bytes per second (B/s) units. 0 if unknown.</param>
+        /// <param name="duration">The duration of the media container.</param>
+        /// <param name="starttime">The start time of the media container.</param>
+        /// <param name="metadata">The container file metadata. Streams may contain additional metadata.</param>
+        public MediaInfo(string filepath, string format, long bitrate, TimeSpan duration, TimeSpan starttime, ContainerMetadata metadata)
         {
-            FilePath = new IntPtr(container->url).Utf8ToString();
-            ContainerFormat = new IntPtr(container->iformat->name).Utf8ToString();
-            Metadata = new ContainerMetadata(container->metadata);
-            Bitrate = container->bit_rate > 0 ? container->bit_rate : 0;
-
-            var timeBase = new AVRational { num = 1, den = ffmpeg.AV_TIME_BASE };
-            Duration = container->duration != ffmpeg.AV_NOPTS_VALUE ?
-                    container->duration.ToTimeSpan(timeBase) :
-                    TimeSpan.Zero;
-            StartTime = container->start_time != ffmpeg.AV_NOPTS_VALUE ?
-                    container->start_time.ToTimeSpan(timeBase) :
-                    TimeSpan.Zero;
-            Chapters = new ReadOnlyCollection<MediaChapter>(ParseChapters(container));
+            (FilePath, ContainerFormat, Bitrate, Duration, StartTime, Metadata) = (filepath, format, bitrate, duration, starttime, metadata);
 
             _fileInfo = new Lazy<FileInfo?>(() =>
             {
@@ -85,27 +72,5 @@ namespace BEditor.Media.Decoding
         /// Gets the container file metadata. Streams may contain additional metadata.
         /// </summary>
         public ContainerMetadata Metadata { get; }
-
-        /// <summary>
-        /// Gets a collection of chapters existing in the media file.
-        /// </summary>
-        public ReadOnlyCollection<MediaChapter> Chapters { get; }
-
-        private static unsafe MediaChapter[] ParseChapters(AVFormatContext* container)
-        {
-            var streamChapters = new MediaChapter[container->nb_chapters];
-
-            for (var i = 0; i < container->nb_chapters; i++)
-            {
-                var chapter = container->chapters[i];
-                var meta = chapter->metadata;
-                var startTimespan = chapter->start.ToTimeSpan(chapter->time_base);
-                var endTimespan = chapter->end.ToTimeSpan(chapter->time_base);
-                streamChapters[i] =
-                        new MediaChapter(startTimespan, endTimespan, FFDictionary.ToDictionary(meta, true));
-            }
-
-            return streamChapters;
-        }
     }
 }

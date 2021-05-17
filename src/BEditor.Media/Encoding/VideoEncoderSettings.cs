@@ -1,9 +1,5 @@
 ﻿using System.Collections.Generic;
 
-using BEditor.Media.Graphics;
-
-using FFmpeg.AutoGen;
-
 namespace BEditor.Media.Encoding
 {
     /// <summary>
@@ -17,16 +13,12 @@ namespace BEditor.Media.Encoding
         /// <param name="width">The video frame width.</param>
         /// <param name="height">The video frame height.</param>
         /// <param name="framerate">The video frames per seconds (fps) value.</param>
-        /// <param name="codec">The video encoder.</param>
-        /// <param name="format">The pixel format.</param>
-        public VideoEncoderSettings(int width, int height, int framerate = 30, VideoCodec codec = VideoCodec.Default, ImagePixelFormat format = ImagePixelFormat.Yuv420)
+        public VideoEncoderSettings(int width, int height, int framerate = 30)
         {
             VideoWidth = width;
             VideoHeight = height;
             Framerate = framerate;
-            Codec = codec;
-            VideoFormat = format;
-            CodecOptions = new Dictionary<string, string>();
+            CodecOptions = new();
         }
 
         /// <summary>
@@ -51,49 +43,13 @@ namespace BEditor.Media.Encoding
         public int VideoHeight { get; set; }
 
         /// <summary>
-        /// Gets or sets the output video pixel format. The default value is YUV420p.
-        /// Added frames will be automatically converted to this format.
-        /// </summary>
-        public ImagePixelFormat VideoFormat { get; set; }
-
-        /// <summary>
         /// Gets or sets video frame rate (FPS) value. The default value is 30 frames/s.
         /// </summary>
-        public int Framerate
-        {
-            get => FramerateRational.num / FramerateRational.den;
-            set => FramerateRational = new AVRational { num = value, den = 1 };
-        }
-
-        /// <summary>
-        /// Gets or sets the video frame rate as a FFmpeg <see cref="AVRational"/> value. Optional. Overwrites <see cref="Framerate"/> property.
-        /// </summary>
-        public AVRational FramerateRational { get; set; }
-
-        /// <summary>
-        /// Gets the calculated time base for the video stream. Value is always equal to reciporical of <see cref="FramerateRational"/>.
-        /// </summary>
-        public AVRational TimeBase => new() { num = FramerateRational.den, den = FramerateRational.num };
-
-        /// <summary>
-        /// Gets or sets the Constant Rate Factor. It supports only H.264 and H.265 codecs.
-        /// </summary>
-        public int? CRF { get; set; }
-
-        /// <summary>
-        /// Gets or sets the encoder preset. It supports only H.264 and H.265 codecs.
-        /// </summary>
-        public EncoderPreset EncoderPreset { get; set; }
+        public int Framerate { get; set; }
 
         /// <summary>
         /// Gets or sets the dictionary with custom codec options.
         /// </summary>
-        public Dictionary<string, string> CodecOptions { get; set; }
-
-        /// <summary>
-        /// Gets or sets the codec for this stream.
-        /// If set to <see cref="VideoCodec.Default"/>, encoder will use default video codec for current container.
-        /// </summary>
-        public VideoCodec Codec { get; set; }
+        public Dictionary<string, object> CodecOptions { get; set; }
     }
 }

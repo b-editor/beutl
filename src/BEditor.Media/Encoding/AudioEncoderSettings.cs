@@ -1,9 +1,5 @@
 ﻿using System.Collections.Generic;
 
-using BEditor.Media.Audio;
-
-using FFmpeg.AutoGen;
-
 namespace BEditor.Media.Encoding
 {
     /// <summary>
@@ -16,15 +12,11 @@ namespace BEditor.Media.Encoding
         /// </summary>
         /// <param name="sampleRate">The sample rate of the stream.</param>
         /// <param name="channels">The number of channels in the stream.</param>
-        /// <param name="codec">The audio encoder.</param>
-        /// <param name="format">The sample format.</param>
-        public AudioEncoderSettings(int sampleRate, int channels, AudioCodec codec = AudioCodec.Default, SampleFormat format = SampleFormat.SignedWord)
+        public AudioEncoderSettings(int sampleRate, int channels)
         {
             SampleRate = sampleRate;
             Channels = channels;
-            Codec = codec;
-            SampleFormat = format;
-            CodecOptions = new Dictionary<string, string>();
+            CodecOptions = new();
         }
 
         /// <summary>
@@ -43,29 +35,8 @@ namespace BEditor.Media.Encoding
         public int Channels { get; set; } = 2;
 
         /// <summary>
-        /// Gets or sets the number of samples per audio frame. Default is 2205 (1/20th of a second at 44.1kHz).
-        /// </summary>
-        public int SamplesPerFrame { get; set; } = 2205;
-
-        /// <summary>
-        /// Gets or the time base of the audio stream. Always equal to <see cref="SamplesPerFrame"/>/<see cref="SampleRate"/>.
-        /// </summary>
-        public AVRational TimeBase => new() { num = SamplesPerFrame, den = SampleRate };
-
-        /// <summary>
-        /// Gets or sets the sample format to be used by the audio codec. The default value is <see cref="SampleFormat.SignedWord"/> (16-bit integer).
-        /// </summary>
-        public SampleFormat SampleFormat { get; set; }
-
-        /// <summary>
         /// Gets or sets the dictionary with custom codec options.
         /// </summary>
-        public Dictionary<string, string> CodecOptions { get; set; }
-
-        /// <summary>
-        /// Gets or sets the codec for this stream.
-        /// If set to <see cref="AudioCodec.Default"/>, encoder will use default audio codec for current container.
-        /// </summary>
-        public AudioCodec Codec { get; set; }
+        public Dictionary<string, object> CodecOptions { get; set; }
     }
 }

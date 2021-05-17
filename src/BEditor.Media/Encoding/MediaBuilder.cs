@@ -1,10 +1,6 @@
 ﻿using System;
 using System.IO;
 
-using BEditor.Media.Common;
-using BEditor.Media.Encoding.Internal;
-using BEditor.Media.Helpers;
-
 namespace BEditor.Media.Encoding
 {
     /// <summary>
@@ -12,34 +8,11 @@ namespace BEditor.Media.Encoding
     /// </summary>
     public sealed class MediaBuilder
     {
-        private readonly OutputContainer _container;
-        private readonly string _outputPath;
+        private readonly IOutputContainer _container;
 
-        private MediaBuilder(string path, ContainerFormat? format)
+        private MediaBuilder(IOutputContainer container)
         {
-            if (!Path.IsPathRooted(path))
-            {
-                throw new ArgumentException($"The path \"{path}\" is not valid.");
-            }
-
-            if (!Path.HasExtension(path) && format == null)
-            {
-                throw new ArgumentException("The file path has no extension.");
-            }
-
-            _container = OutputContainer.Create(format?.GetDescription() ?? Path.GetExtension(path));
-            _outputPath = path;
-        }
-
-        /// <summary>
-        /// Sets up a multimedia container with the specified <paramref name="format"/>.
-        /// </summary>
-        /// <param name="path">A path to create the output file.</param>
-        /// <param name="format">A container format.</param>
-        /// <returns>The <see cref="MediaBuilder"/> instance.</returns>
-        public static MediaBuilder CreateContainer(string path, ContainerFormat format)
-        {
-            return new(path, format);
+            _container = container;
         }
 
         /// <summary>
@@ -49,19 +22,9 @@ namespace BEditor.Media.Encoding
         /// <returns>The <see cref="MediaBuilder"/> instance.</returns>
         public static MediaBuilder CreateContainer(string path)
         {
-            return new(path, null);
-        }
+            var container = EncoderFactory.Create(path) ?? throw new NotSupportedException("Not supported format.");
 
-        /// <summary>
-        /// Applies a custom container option.
-        /// </summary>
-        /// <param name="key">The option key.</param>
-        /// <param name="value">The value to set.</param>
-        /// <returns>The <see cref="MediaBuilder"/> instance.</returns>
-        public MediaBuilder UseFormatOption(string key, string value)
-        {
-            _container.ContainerOptions[key] = value;
-            return this;
+            return new(container);
         }
 
         /// <summary>
@@ -80,14 +43,12 @@ namespace BEditor.Media.Encoding
         /// </summary>
         /// <param name="settings">The video stream settings.</param>
         /// <returns>This <see cref="MediaBuilder"/> object.</returns>
-        public MediaBuilder WithVideo(VideoEncoderSettings settings)
+        public MediaBuilder WithVideo(Action<VideoEncoderSettings> settings)
         {
-            if (FFmpegLoader.IsFFmpegGplLicensed == false && (settings.Codec == VideoCodec.H264 || settings.Codec == VideoCodec.H265))
-            {
-                throw new NotSupportedException("The LGPL-licensed FFmpeg build does not contain libx264 and libx265 codecs.");
-            }
+            var config = _container.GetDefaultVideoSettings();
+            settings.Invoke(config);
 
-            _container.AddVideoStream(settings);
+            _container.AddVideoStream(config);
             return this;
         }
 
@@ -96,21 +57,22 @@ namespace BEditor.Media.Encoding
         /// </summary>
         /// <param name="settings">The video stream settings.</param>
         /// <returns>This <see cref="MediaBuilder"/> object.</returns>
-        public MediaBuilder WithAudio(AudioEncoderSettings settings)
+        public MediaBuilder WithAudio(Action<AudioEncoderSettings> settings)
         {
-            _container.AddAudioStream(settings);
+            var config = _container.GetDefaultAudioSettings();
+            settings.Invoke(config);
+
+            _container.AddAudioStream(config);
             return this;
         }
 
         /// <summary>
-        /// Creates a multimedia file for specified video stream.
+        /// Creates a multimedia file.
         /// </summary>
         /// <returns>A new <see cref="MediaOutput"/>.</returns>
         public MediaOutput Create()
         {
-            _container.CreateFile(_outputPath);
-
-            return new MediaOutput(_container);
+            return _container.Create();
         }
     }
 }

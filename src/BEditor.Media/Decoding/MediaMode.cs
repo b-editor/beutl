@@ -1,7 +1,5 @@
 ﻿using System;
 
-using FFmpeg.AutoGen;
-
 namespace BEditor.Media.Decoding
 {
     /// <summary>
@@ -13,16 +11,16 @@ namespace BEditor.Media.Decoding
         /// <summary>
         /// Enables loading only video streams.
         /// </summary>
-        Video = 1 << AVMediaType.AVMEDIA_TYPE_VIDEO,
+        Video,
 
         /// <summary>
         /// Enables loading only audio streams.
         /// </summary>
-        Audio = 1 << AVMediaType.AVMEDIA_TYPE_AUDIO,
+        Audio,
 
         /// <summary>
         /// Enables loading both audio and video streams if they exist.
         /// </summary>
-        AudioVideo = Audio | Video,
+        AudioVideo,
     }
 }

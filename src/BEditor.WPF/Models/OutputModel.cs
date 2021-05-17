@@ -7,7 +7,6 @@ using BEditor.Data;
 using BEditor.Drawing;
 using BEditor.Drawing.Pixel;
 using BEditor.Media.Encoding;
-using BEditor.Media.Graphics;
 using BEditor.Properties;
 using BEditor.Views;
 using BEditor.Views.MessageContent;
@@ -82,25 +81,14 @@ namespace BEditor.Models
                 AddExtension = true,
             };
 
-            var source = Enum.GetNames(typeof(VideoCodec));
-            var codec = new ComboBox()
-            {
-                ItemsSource = source
-            };
-
-            codec.SelectedIndex = 0;
-
             if (saveFileDialog.ShowDialog() ?? false)
             {
-                new NoneDialog(codec).ShowDialog();
-
                 OutputVideo(
                     saveFileDialog.FileName,
-                    (VideoCodec)Enum.Parse(typeof(VideoCodec), source[codec.SelectedIndex]),
                     scene);
             }
         }
-        public static void OutputVideo(string file, VideoCodec codec, Scene scene)
+        public static void OutputVideo(string file, Scene scene)
         {
             var t = false;
             AppData.Current.AppStatus = Status.Output;
@@ -121,7 +109,12 @@ namespace BEditor.Models
                 try
                 {
                     var output = MediaBuilder.CreateContainer(file)
-                        .WithVideo(new(scene.Width, scene.Height, scene.Parent.Framerate, codec))
+                        .WithVideo(config =>
+                        {
+                            config.VideoWidth = scene.Width;
+                            config.VideoHeight = scene.Height;
+                            config.Framerate = scene.Parent.Framerate;
+                        })
                         .Create();
 
                     for (Frame frame = 0; frame < scene.TotalFrame; frame++)
@@ -138,7 +131,7 @@ namespace BEditor.Models
 
                         if (img is not null)
                         {
-                            output.Video?.AddFrame(ImageData.FromDrawing(img));
+                            output.Video?.AddFrame(img);
                             img.Dispose();
                         }
                     }

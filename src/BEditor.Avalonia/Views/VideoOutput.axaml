@@ -130,65 +130,10 @@
 
                     <TextBlock Text="{x:Static prop:Strings.Video}" Classes="SettingsHeader"/>
 
-                    <CheckBox
-                        IsChecked="{CompiledBinding VideoIsEnabled.Value, Mode=TwoWay}"
-                        Content="{x:Static prop:Strings.Validation}"
-                        Classes="SettingsCheckBox"/>
-
-                    <!--コーデック-->
-                    <Label Content="{x:Static prop:Strings.Codec}" Classes="SettingsItemHeader"/>
-
-                    <ComboBox
-                        IsEnabled="{CompiledBinding VideoIsEnabled.Value, Mode=TwoWay}"
-                        Items="{CompiledBinding VideoCodecs, Mode=OneTime}"
-                        SelectedItem="{CompiledBinding SelectedVideoCodec.Value, Mode=TwoWay}"
-                        Classes="SettingsComboBox">
-                        <ComboBox.ItemTemplate>
-                            <DataTemplate>
-                                <TextBlock Text="{Binding Name}" />
-                            </DataTemplate>
-                        </ComboBox.ItemTemplate>
-                    </ComboBox>
-
-                    <Separator Height="16" />
-
-                    <!--フォーマット-->
-                    <Label Content="{x:Static prop:Strings.Format}" Classes="SettingsItemHeader"/>
-
-                    <ComboBox
-                        IsEnabled="{CompiledBinding VideoIsEnabled.Value, Mode=TwoWay}"
-                        Items="{CompiledBinding PixelFormats, Mode=OneTime}"
-                        SelectedItem="{CompiledBinding SelectedPixelFormat.Value, Mode=TwoWay}"
-                        Classes="SettingsComboBox">
-                        <ComboBox.ItemTemplate>
-                            <DataTemplate>
-                                <TextBlock Text="{Binding Name}" />
-                            </DataTemplate>
-                        </ComboBox.ItemTemplate>
-                    </ComboBox>
-
-                    <!--プリセット-->
-                    <Label Content="{x:Static prop:Strings.Preset}" Classes="SettingsItemHeader"/>
-
-                    <ComboBox
-                        IsEnabled="{CompiledBinding VideoIsEnabled.Value, Mode=TwoWay}"
-                        Items="{CompiledBinding Presets, Mode=OneTime}"
-                        SelectedItem="{CompiledBinding SelectedPreset.Value, Mode=TwoWay}"
-                        Classes="SettingsComboBox">
-                        <ComboBox.ItemTemplate>
-                            <DataTemplate>
-                                <TextBlock Text="{Binding Name}" />
-                            </DataTemplate>
-                        </ComboBox.ItemTemplate>
-                    </ComboBox>
-
-                    <Separator Height="16" />
-
                     <!--ビットレート-->
                     <Label Content="Bitrate" Classes="SettingsItemHeader"/>
 
                     <NumericUpDown
-                        IsEnabled="{CompiledBinding VideoIsEnabled.Value, Mode=TwoWay}"
                         Value="{CompiledBinding VideoBitrate.Value, Mode=TwoWay}"
                         ShowButtonSpinner="True"
                         Classes="SettingsNumericUpDown"/>
@@ -199,7 +144,6 @@
                     <Label Content="KeyframeRate" Classes="SettingsItemHeader"/>
 
                     <NumericUpDown
-                        IsEnabled="{CompiledBinding VideoIsEnabled.Value, Mode=TwoWay}"
                         Value="{CompiledBinding KeyframeRate.Value, Mode=TwoWay}"
                         ShowButtonSpinner="True"
                         Classes="SettingsNumericUpDown"/>
@@ -218,53 +162,13 @@
 
                     <TextBlock Text="{x:Static prop:Strings.Audio}" Classes="SettingsHeader"/>
 
-                    <CheckBox
-                        IsChecked="{CompiledBinding AudioIsEnabled.Value, Mode=TwoWay}"
-                        Content="{x:Static prop:Strings.Validation}"
-                        Classes="SettingsCheckBox"/>
-
-                    <!--コーデック-->
-                    <!--<Label Content="{x:Static prop:Strings.Codec}" Classes="SettingsItemHeader"/>
-
-                    <ComboBox
-                        IsEnabled="{CompiledBinding AudioIsEnabled.Value, Mode=TwoWay}"
-                        Items="{CompiledBinding AudioCodecs, Mode=OneTime}"
-                        SelectedItem="{CompiledBinding SelectedAudioCodec.Value, Mode=TwoWay}"
-                        Classes="SettingsComboBox">
-                        <ComboBox.ItemTemplate>
-                            <DataTemplate>
-                                <TextBlock Text="{Binding Name}" />
-                            </DataTemplate>
-                        </ComboBox.ItemTemplate>
-                    </ComboBox>
-
-                    <Separator Height="16" />-->
-
-                    <!--フォーマット-->
-                    <!--<Label Content="{x:Static prop:Strings.Format}" Classes="SettingsItemHeader"/>
-
-                    <ComboBox
-                        IsEnabled="{CompiledBinding AudioIsEnabled.Value, Mode=TwoWay}"
-                        Items="{CompiledBinding SampleFormats, Mode=OneTime}"
-                        SelectedItem="{CompiledBinding SelectedSampleFormat.Value, Mode=TwoWay}"
-                        Classes="SettingsComboBox">
-                        <ComboBox.ItemTemplate>
-                            <DataTemplate>
-                                <TextBlock Text="{Binding Name}" />
-                            </DataTemplate>
-                        </ComboBox.ItemTemplate>
-                    </ComboBox>
-
-                    <Separator Height="16" />-->
-
                     <!--ビットレート-->
-                    <!--<Label Content="Bitrate" Classes="SettingsItemHeader"/>
+                    <Label Content="Bitrate" Classes="SettingsItemHeader"/>
 
                     <NumericUpDown
-                        IsEnabled="{CompiledBinding AudioIsEnabled.Value, Mode=TwoWay}"
                         Value="{CompiledBinding AudioBitrate.Value, Mode=TwoWay}"
                         ShowButtonSpinner="True"
-                        Classes="SettingsNumericUpDown"/>-->
+                        Classes="SettingsNumericUpDown"/>
 
                 </VirtualizingStackPanel>
             </TabItem>
@@ -280,18 +184,11 @@
 
                     <TextBlock Text="{x:Static prop:Strings.Metadata}" Classes="SettingsHeader"/>
 
-                    <CheckBox
-                        IsChecked="{CompiledBinding Validation.Value, Mode=TwoWay}"
-                        Content="{x:Static prop:Strings.Validation}"
-                        Classes="SettingsCheckBox"/>
-
-                    <Separator Height="16" />
 
                     <!--Title-->
                     <Label Content="Title" Classes="SettingsItemHeader"/>
 
                     <TextBox
-                        IsEnabled="{CompiledBinding Validation.Value, Mode=OneWay}"
                         Text="{CompiledBinding Title.Value, Mode=TwoWay}"
                         Classes="SettingsTextBox" />
 
@@ -301,7 +198,6 @@
                     <Label Content="Author" Classes="SettingsItemHeader"/>
 
                     <TextBox
-                        IsEnabled="{CompiledBinding Validation.Value, Mode=OneWay}"
                         Text="{CompiledBinding Author.Value, Mode=TwoWay}"
                         Classes="SettingsTextBox" />
 
@@ -311,7 +207,6 @@
                     <Label Content="Album" Classes="SettingsItemHeader"/>
 
                     <TextBox
-                        IsEnabled="{CompiledBinding Validation.Value, Mode=OneWay}"
                         Text="{CompiledBinding Album.Value, Mode=TwoWay}"
                         Classes="SettingsTextBox" />
 
@@ -321,7 +216,6 @@
                     <Label Content="Year" Classes="SettingsItemHeader"/>
 
                     <TextBox
-                        IsEnabled="{CompiledBinding Validation.Value, Mode=OneWay}"
                         Text="{CompiledBinding Year.Value, Mode=TwoWay}"
                         Classes="SettingsTextBox" />
 
@@ -331,7 +225,6 @@
                     <Label Content="Genre" Classes="SettingsItemHeader"/>
 
                     <TextBox
-                        IsEnabled="{CompiledBinding Validation.Value, Mode=OneWay}"
                         Text="{CompiledBinding Genre.Value, Mode=TwoWay}"
                         Classes="SettingsTextBox" />
 
@@ -341,7 +234,6 @@
                     <Label Content="Description" Classes="SettingsItemHeader"/>
 
                     <TextBox
-                        IsEnabled="{CompiledBinding Validation.Value, Mode=OneWay}"
                         Text="{CompiledBinding Description.Value, Mode=TwoWay}"
                         Classes="SettingsTextBox" />
 
@@ -351,7 +243,6 @@
                     <Label Content="Language" Classes="SettingsItemHeader"/>
 
                     <TextBox
-                        IsEnabled="{CompiledBinding Validation.Value, Mode=OneWay}"
                         Text="{CompiledBinding Language.Value, Mode=TwoWay}"
                         Classes="SettingsTextBox" />
 
@@ -361,7 +252,6 @@
                     <Label Content="Copyright" Classes="SettingsItemHeader"/>
 
                     <TextBox
-                        IsEnabled="{CompiledBinding Validation.Value, Mode=OneWay}"
                         Text="{CompiledBinding Copyright.Value, Mode=TwoWay}"
                         Classes="SettingsTextBox" />
 
@@ -371,7 +261,6 @@
                     <Label Content="Rating" Classes="SettingsItemHeader"/>
 
                     <TextBox
-                        IsEnabled="{CompiledBinding Validation.Value, Mode=OneWay}"
                         Text="{CompiledBinding Rating.Value, Mode=TwoWay}"
                         Classes="SettingsTextBox" />
 
@@ -381,7 +270,6 @@
                     <Label Content="TrackNumber" Classes="SettingsItemHeader"/>
 
                     <TextBox
-                        IsEnabled="{CompiledBinding Validation.Value, Mode=OneWay}"
                         Text="{CompiledBinding TrackNumber.Value, Mode=TwoWay}"
                         Classes="SettingsTextBox" />
 
@@ -409,22 +297,6 @@
                             <PathIcon Data="{StaticResource FolderOpen16Regular}" />
                         </Button>
                     </VirtualizingStackPanel>
-
-                    <Separator Height="16" />
-
-                    <!--フォーマット-->
-                    <Label Content="{x:Static prop:Strings.ContainerFormat}" Classes="SettingsItemHeader"/>
-
-                    <ComboBox
-                        Items="{CompiledBinding ContainerFormats, Mode=OneTime}"
-                        SelectedItem="{CompiledBinding SelectedContainerFormat.Value, Mode=TwoWay}"
-                        Classes="SettingsComboBox">
-                        <ComboBox.ItemTemplate>
-                            <DataTemplate>
-                                <TextBlock Text="{Binding Name}" />
-                            </DataTemplate>
-                        </ComboBox.ItemTemplate>
-                    </ComboBox>
 
                     <Separator Height="16" />
 
