@@ -14,6 +14,7 @@ using BEditor.Models;
 using BEditor.Properties;
 
 using Microsoft.Extensions.DependencyInjection;
+
 using Reactive.Bindings;
 
 namespace BEditor.ViewModels.DialogContent
