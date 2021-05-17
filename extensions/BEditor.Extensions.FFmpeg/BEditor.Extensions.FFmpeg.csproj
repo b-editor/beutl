@@ -2,10 +2,12 @@
 
     <PropertyGroup>
         <TargetFramework>net5.0</TargetFramework>
+        <Nullable>enable</Nullable>
+        <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
+        <OutputPath>..\..\src\BEditor.Avalonia\bin\$(Configuration)\net5.0\user\plugins\BEditor.Extensions.FFmpeg</OutputPath>
     </PropertyGroup>
 
-    <Import Project="..\..\props\common.props" />
-    <Import Project="..\..\props\analyzer.props" />
+    <Import Project="..\..\props\plugin.props" />
 
     <ItemGroup>
       <PackageReference Include="FFMediaToolkit" Version="4.1.0" />
@@ -13,6 +15,7 @@
 
     <ItemGroup>
         <ProjectReference Include="..\..\src\BEditor.Media\BEditor.Media.csproj" />
+        <ProjectReference Include="..\..\src\BEditor.Core\BEditor.Core.csproj" />
     </ItemGroup>
 
     <ItemGroup>

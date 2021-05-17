@@ -1,5 +1,6 @@
 ﻿using System;
 using System.Collections.Generic;
+using System.Diagnostics.CodeAnalysis;
 using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
@@ -33,7 +34,7 @@ namespace BEditor.Media.Decoding
         /// </summary>
         /// <param name="sound">The decoded audio data.</param>
         /// <returns><see langword="false"/> if reached end of the stream.</returns>
-        public bool TryGetNextFrame(out Sound<StereoPCMFloat> sound);
+        public bool TryGetNextFrame([NotNullWhen(true)] out Sound<StereoPCMFloat>? sound);
 
         /// <summary>
         /// Reads the video frame found at the specified timestamp.
@@ -50,6 +51,6 @@ namespace BEditor.Media.Decoding
         /// <param name="time">The frame timestamp.</param>
         /// <param name="sound">The decoded audio data.</param>
         /// <returns><see langword="false"/> if reached end of the stream.</returns>
-        public bool TryGetFrame(TimeSpan time, out Sound<StereoPCMFloat> sound);
+        public bool TryGetFrame(TimeSpan time, [NotNullWhen(true)] out Sound<StereoPCMFloat>? sound);
     }
 }

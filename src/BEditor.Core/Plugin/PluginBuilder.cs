@@ -3,6 +3,7 @@ using System.Collections.Generic;
 
 using BEditor.Data;
 using BEditor.Data.Property.Easing;
+using BEditor.Media;
 
 using Microsoft.Extensions.DependencyInjection;
 
@@ -71,6 +72,30 @@ namespace BEditor.Plugin
         public PluginBuilder With(EasingMetadata metadata)
         {
             _eases.Add(metadata);
+
+            return this;
+        }
+
+        /// <summary>
+        /// Configure the options for the services to be provided.
+        /// </summary>
+        /// <param name="decoderBuilder"></param>
+        /// <returns>The same instance of the <see cref="PluginBuilder"/> for chaining.</returns>
+        public PluginBuilder With(IDecoderBuilder decoderBuilder)
+        {
+            DecoderFactory.Register(decoderBuilder);
+
+            return this;
+        }
+
+        /// <summary>
+        /// Configure the options for the services to be provided.
+        /// </summary>
+        /// <param name="encoderBuilder"></param>
+        /// <returns>The same instance of the <see cref="PluginBuilder"/> for chaining.</returns>
+        public PluginBuilder With(IEncoderBuilder encoderBuilder)
+        {
+            EncoderFactory.Register(encoderBuilder);
 
             return this;
         }

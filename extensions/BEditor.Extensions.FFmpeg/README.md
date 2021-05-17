@@ -1,4 +1,4 @@
-# BEditor.Media.FFmpeg
+# BEditor.Extensions.FFmpeg
 
 ## Description
 動画のデコード、エンコード機能を提供するライブラリ

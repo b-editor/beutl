@@ -57,16 +57,6 @@ namespace BEditor.Media.Encoding
                 return;
             }
 
-            foreach (var video in VideoStreams)
-            {
-                video.Dispose();
-            }
-
-            foreach (var audio in AudioStreams)
-            {
-                audio.Dispose();
-            }
-
             _container.Dispose();
             GC.SuppressFinalize(this);
             _isDisposed = true;

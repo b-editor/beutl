@@ -1,36 +1,86 @@
 ﻿using System;
 using System.Collections.Generic;
+using System.Diagnostics;
+using System.IO;
 using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
 
+using BEditor.Media;
 using BEditor.Media.Encoding;
 using BEditor.Media.PCM;
 
-namespace BEditor.Media.FFmpeg.Encoding
+namespace BEditor.Extensions.FFmpeg.Encoding
 {
     public class AudioOutputStream : IAudioOutputStream
     {
-        private readonly FFMediaToolkit.Encoding.AudioOutputStream _stream;
+        private readonly FileStream _stream;
+        private readonly BinaryWriter _writer;
+        private readonly string _videofile;
+        private readonly string _pcmfile;
 
-        public AudioOutputStream(FFMediaToolkit.Encoding.AudioOutputStream stream, AudioEncoderSettings config)
+        public AudioOutputStream(AudioEncoderSettings config, string file)
         {
-            _stream = stream;
             Configuration = config;
+            _videofile = file;
+            _pcmfile = Path.GetTempFileName();
+            _stream = new(_pcmfile, FileMode.Create);
+            _writer = new(_stream);
         }
 
         public AudioEncoderSettings Configuration { get; }
 
-        public TimeSpan CurrentDuration => _stream.CurrentDuration;
+        public TimeSpan CurrentDuration { get; private set; }
 
         public void AddFrame(Sound<StereoPCMFloat> sound)
         {
-            _stream.AddFrame(sound.Extract());
+            foreach (var item in sound.Data)
+            {
+                _writer.Write(item.Left);
+                _writer.Write(item.Right);
+            }
+
+            CurrentDuration = CurrentDuration.Add(sound.Time);
         }
 
         public void Dispose()
         {
             _stream.Dispose();
+            _writer.Dispose();
+
+            var ffmpeg = GetExecutable();
+            var wavfile = Path.ChangeExtension(Path.GetTempFileName(), "wav");
+            var tmpvideo = Path.ChangeExtension(Path.GetTempFileName(), Path.GetExtension(_videofile));
+
+            var process = Process.Start(new ProcessStartInfo(
+                ffmpeg,
+                $"-f f32le -ar {Configuration.SampleRate} -ac 2 -i {_pcmfile} {wavfile}"))!;
+
+            process.WaitForExit();
+
+            File.Copy(_videofile, tmpvideo);
+            File.Delete(_videofile);
+
+            process = Process.Start(new ProcessStartInfo(
+                ffmpeg,
+                $"-i {tmpvideo} -i {wavfile} -c:v copy -c:a aac -map 0:v:0 -map 1:a:0 {_videofile}")
+            {
+                CreateNoWindow = true
+            })!;
+
+            process.WaitForExit();
+
+            File.Delete(_pcmfile);
+            File.Delete(wavfile);
+            File.Delete(tmpvideo);
+        }
+
+        private static string GetExecutable()
+        {
+            if (OperatingSystem.IsWindows()) return Path.Combine(AppContext.BaseDirectory, "user", "plugins", "BEditor.Extensions.FFmpeg", "ffmpeg", "ffmpeg.exe");
+            else if (OperatingSystem.IsLinux()) return "/usr/bin/ffmpeg";
+            else if (OperatingSystem.IsMacOS()) return "/usr/local/opt/ffmpeg";
+            else throw new PlatformNotSupportedException();
         }
     }
 }

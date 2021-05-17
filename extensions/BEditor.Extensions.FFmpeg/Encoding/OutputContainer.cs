@@ -4,14 +4,21 @@ using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
 
+using BEditor.Media;
 using BEditor.Media.Encoding;
 
-namespace BEditor.Media.FFmpeg.Encoding
+using SampleFormat = FFMediaToolkit.Audio.SampleFormat;
+using AudioCodec = FFMediaToolkit.Encoding.AudioCodec;
+using ImagePixelFormat = FFMediaToolkit.Graphics.ImagePixelFormat;
+using EncoderPreset = FFMediaToolkit.Encoding.EncoderPreset;
+using VideoCodec = FFMediaToolkit.Encoding.VideoCodec;
+
+namespace BEditor.Extensions.FFmpeg.Encoding
 {
     public class OutputContainer : IOutputContainer
     {
-        private readonly List<VideoOutputStream> _video = new();
-        private readonly List<AudioOutputStream> _audio = new();
+        private readonly List<VideoEncoderSettings> _videoConfig = new();
+        private readonly List<AudioEncoderSettings> _audioConfig = new();
         private readonly FFMediaToolkit.Encoding.MediaBuilder _builder;
         private FFMediaToolkit.Encoding.MediaOutput? _output;
 
@@ -23,24 +30,25 @@ namespace BEditor.Media.FFmpeg.Encoding
 
         public string File { get; }
 
-        public IEnumerable<IVideoOutputStream> Video => _video;
+        public IEnumerable<IVideoOutputStream> Video { get; private set; } = Enumerable.Empty<IVideoOutputStream>();
 
-        public IEnumerable<IAudioOutputStream> Audio => _audio;
+        public IEnumerable<IAudioOutputStream> Audio { get; private set; } = Enumerable.Empty<IAudioOutputStream>();
 
         public void AddAudioStream(AudioEncoderSettings config)
         {
-            _builder.WithAudio(new(config.SampleRate, config.Channels)
-            {
-                Bitrate = config.Bitrate
-            });
+            _audioConfig.Add(config);
         }
 
         public void AddVideoStream(VideoEncoderSettings config)
         {
+            _videoConfig.Add(config);
             _builder.WithVideo(new(config.VideoWidth, config.VideoHeight, config.Framerate)
             {
                 Bitrate = config.Bitrate,
-                KeyframeRate = config.KeyframeRate
+                KeyframeRate = config.KeyframeRate,
+                VideoFormat = config.CodecOptions.TryGetValue("Format", out var fmt) ? (ImagePixelFormat)fmt : ImagePixelFormat.Bgra32,
+                EncoderPreset = config.CodecOptions.TryGetValue("Preset", out var preset) ? (EncoderPreset)preset : EncoderPreset.Medium,
+                Codec = config.CodecOptions.TryGetValue("Codec", out var codec) ? (VideoCodec)codec : VideoCodec.Default,
             });
         }
 
@@ -48,39 +56,50 @@ namespace BEditor.Media.FFmpeg.Encoding
         {
             _output = _builder.Create();
 
-            foreach (var video in _output.VideoStreams)
-            {
-                _video.Add(new(video, new(video.Configuration.VideoWidth, video.Configuration.VideoHeight, video.Configuration.Framerate)
-                {
-                    Bitrate = video.Configuration.Bitrate,
-                    KeyframeRate = video.Configuration.KeyframeRate
-                }));
-            }
-
-            foreach (var audio in _output.AudioStreams)
-            {
-                _audio.Add(new(audio, new(audio.Configuration.SampleRate, audio.Configuration.Channels)
-                {
-                    Bitrate = audio.Configuration.Bitrate
-                }));
-            }
-
+            Video = _output.VideoStreams.Zip(_videoConfig).Select(i => new VideoOutputStream(i.First, i.Second)).ToArray();
+            Audio = _audioConfig.Select(i => new AudioOutputStream(i, File)).ToArray();
+            
             return new(this);
         }
 
         public void Dispose()
         {
             _output?.Dispose();
+
+            foreach (var video in Video)
+            {
+                video.Dispose();
+            }
+
+            foreach (var audio in Audio)
+            {
+                audio.Dispose();
+            }
         }
 
         public AudioEncoderSettings GetDefaultAudioSettings()
         {
-            throw new NotImplementedException();
+            return new(44100, 2)
+            {
+                CodecOptions =
+                {
+                    { "Format", SampleFormat.SingleP },
+                    { "Codec", AudioCodec.Default },
+                }
+            };
         }
 
         public VideoEncoderSettings GetDefaultVideoSettings()
         {
-            throw new NotImplementedException();
+            return new(1920, 1080)
+            {
+                CodecOptions =
+                {
+                    { "Format", ImagePixelFormat.Yuv420 },
+                    { "Preset", EncoderPreset.Medium },
+                    { "Codec", VideoCodec.Default },
+                }
+            };
         }
 
         public void SetMetadata(ContainerMetadata metadata)

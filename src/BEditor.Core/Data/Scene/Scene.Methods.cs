@@ -13,6 +13,7 @@ using BEditor.Drawing;
 using BEditor.Drawing.Pixel;
 using BEditor.Graphics;
 using BEditor.Media;
+using BEditor.Media.PCM;
 using BEditor.Resources;
 
 using Microsoft.Extensions.DependencyInjection;

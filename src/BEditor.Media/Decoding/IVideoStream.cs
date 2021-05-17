@@ -1,5 +1,6 @@
 ﻿using System;
 using System.Collections.Generic;
+using System.Diagnostics.CodeAnalysis;
 using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
@@ -34,7 +35,7 @@ namespace BEditor.Media.Decoding
         /// </summary>
         /// <param name="image">The decoded video frame.</param>
         /// <returns><see langword="false"/> if reached end of the stream.</returns>
-        public bool TryGetNextFrame(out Image<BGRA32> image);
+        public bool TryGetNextFrame([NotNullWhen(true)] out Image<BGRA32>? image);
 
         /// <summary>
         /// Reads the video frame found at the specified timestamp.
@@ -51,6 +52,6 @@ namespace BEditor.Media.Decoding
         /// <param name="time">The frame timestamp.</param>
         /// <param name="image">The decoded video frame.</param>
         /// <returns><see langword="false"/> if reached end of the stream.</returns>
-        public bool TryGetFrame(TimeSpan time, out Image<BGRA32> image);
+        public bool TryGetFrame(TimeSpan time, [NotNullWhen(true)] out Image<BGRA32>? image);
     }
 }

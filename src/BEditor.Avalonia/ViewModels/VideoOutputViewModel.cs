@@ -131,7 +131,7 @@ namespace BEditor.ViewModels
                         // Audio
                         // Sample per frame
                         var spf = proj.Samplingrate / proj.Framerate;
-                        var spf_time = new Frame(spf).ToTimeSpan(proj.Framerate);
+                        var spf_time = TimeSpan.FromSeconds(spf / (double)proj.Samplingrate);
                         for (Frame frame = StartFrame.Value; frame < LengthFrame.Value; frame++)
                         {
                             using var buffer = new Sound<StereoPCMFloat>(proj.Samplingrate, spf);
@@ -144,7 +144,10 @@ namespace BEditor.ViewModels
 
                                 if (item.Loaded.Time >= rel_start + spf_time)
                                 {
-                                    item.Loaded.Slice(rel_start, spf_time);
+                                    using var sliced = item.Loaded.Slice(rel_start, spf_time);
+                                    sliced.Gain(item.Volume[frame] / 100);
+
+                                    buffer.Add(sliced);
                                 }
                                 else
                                 {

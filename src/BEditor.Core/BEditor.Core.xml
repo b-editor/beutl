@@ -4622,6 +4622,20 @@
             <param name="metadata">Metadata of the easings to be provided.</param>
             <returns>The same instance of the <see cref="T:BEditor.Plugin.PluginBuilder"/> for chaining.</returns>
         </member>
+        <member name="M:BEditor.Plugin.PluginBuilder.With(BEditor.Media.IDecoderBuilder)">
+            <summary>
+            Configure the options for the services to be provided.
+            </summary>
+            <param name="decoderBuilder"></param>
+            <returns>The same instance of the <see cref="T:BEditor.Plugin.PluginBuilder"/> for chaining.</returns>
+        </member>
+        <member name="M:BEditor.Plugin.PluginBuilder.With(BEditor.Media.IEncoderBuilder)">
+            <summary>
+            Configure the options for the services to be provided.
+            </summary>
+            <param name="encoderBuilder"></param>
+            <returns>The same instance of the <see cref="T:BEditor.Plugin.PluginBuilder"/> for chaining.</returns>
+        </member>
         <member name="M:BEditor.Plugin.PluginBuilder.SetCustomMenu(System.String,System.Collections.Generic.IEnumerable{BEditor.Plugin.ICustomMenu})">
             <summary>
             Set the menu.

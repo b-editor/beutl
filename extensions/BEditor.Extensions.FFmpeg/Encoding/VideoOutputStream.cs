@@ -6,7 +6,7 @@ using BEditor.Media.Encoding;
 
 using FFMediaToolkit.Graphics;
 
-namespace BEditor.Media.FFmpeg.Encoding
+namespace BEditor.Extensions.FFmpeg.Encoding
 {
     public class VideoOutputStream : IVideoOutputStream
     {

@@ -104,59 +104,5 @@ namespace BEditor
                 App.Shutdown(1);
             }
         }
-
-        private async Task InstallFFmpegWindowsAsync(FFmpegInstaller installer)
-        {
-            var msg = AppModel.Current.Message;
-
-            try
-            {
-                ProgressDialog dialog = null!;
-
-                void start(object? s, EventArgs e)
-                {
-                    Dispatcher.UIThread.InvokeAsync(() =>
-                    {
-                        dialog = new ProgressDialog
-                        {
-                            Maximum = { Value = 100 },
-                            Minimum = { Value = 0 }
-                        };
-
-                        dialog.Show();
-
-                        dialog.Text.Value = Strings.DownloadingRequiredComponents;
-                    });
-                }
-                void downloadComp(object? s, AsyncCompletedEventArgs e)
-                {
-                    dialog.Text.Value = Strings.ComponentIsExtractedAndPlaced;
-                    dialog.IsIndeterminate.Value = true;
-                }
-                void progress(object? s, DownloadProgressChangedEventArgs e)
-                {
-                    dialog.NowValue.Value = e.ProgressPercentage;
-                }
-                void installed(object? s, EventArgs e) => Dispatcher.UIThread.InvokeAsync(dialog.Close);
-
-                installer.StartInstall += start;
-                installer.Installed += installed;
-                installer.DownloadCompleted += downloadComp;
-                installer.DownloadProgressChanged += progress;
-
-                await installer.InstallAsync();
-
-                installer.StartInstall -= start;
-                installer.Installed -= installed;
-                installer.DownloadCompleted -= downloadComp;
-                installer.DownloadProgressChanged -= progress;
-            }
-            catch (Exception e)
-            {
-                await msg.DialogAsync(string.Format(Strings.FailedToInstall, "FFmpeg"));
-
-                App.Logger?.LogError(e, "Failed to install ffmpeg.");
-            }
-        }
     }
 }

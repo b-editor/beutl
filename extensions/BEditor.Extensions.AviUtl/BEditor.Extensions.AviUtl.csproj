@@ -4,7 +4,6 @@
         <TargetFramework>net5.0</TargetFramework>
         <Nullable>enable</Nullable>
         <OutputPath>..\..\src\BEditor.Avalonia\bin\$(Configuration)\net5.0\user\plugins\BEditor.Extensions.AviUtl</OutputPath>
-        <RootNamespace>BEditor.Extensions.AviUtl</RootNamespace>
         <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
     </PropertyGroup>
 

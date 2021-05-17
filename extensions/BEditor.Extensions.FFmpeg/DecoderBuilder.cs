@@ -1,17 +1,14 @@
-﻿using System;
-using System.Collections.Generic;
-using System.IO;
-using System.Linq;
-using System.Text;
-using System.Threading.Tasks;
+﻿using System.IO;
 
 using BEditor.Media.Encoding;
 using BEditor.Extensions.FFmpeg.Encoding;
 using BEditor.Media;
+using BEditor.Media.Decoding;
+using BEditor.Extensions.FFmpeg.Decoder;
 
 namespace BEditor.Extensions.FFmpeg
 {
-    public class EncoderBuilder : IEncoderBuilder
+    public class DecoderBuilder : IDecoderBuilder
     {
         public string Name => "FFmpeg";
         public string[] SupportFormats { get; } = new[]
@@ -28,15 +25,15 @@ namespace BEditor.Extensions.FFmpeg
             "WebM",
         };
 
-        public IOutputContainer? Create(string file)
-        {
-            return new OutputContainer(file);
-        }
-
         public bool IsSupported(string file)
         {
             return Path.GetExtension(file) is ".3gp" or ".3g2" or ".wmv" or ".avi" or
-                ".flv" or ".mkv" or ".mov" or ".mp4" or ".ogv" or ".webm";
+                ".flv" or ".mkv" or ".mov" or ".mp4" or ".ogv" or ".webm" or ".wav" or ".mp3";
+        }
+
+        public IInputContainer? Open(string file, MediaOptions options)
+        {
+            return new InputContainer(file, options);
         }
     }
 }
