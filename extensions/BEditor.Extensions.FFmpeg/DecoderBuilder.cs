@@ -1,10 +1,10 @@
 ﻿using System.IO;
 
-using BEditor.Media.Encoding;
+using BEditor.Extensions.FFmpeg.Decoder;
 using BEditor.Extensions.FFmpeg.Encoding;
 using BEditor.Media;
 using BEditor.Media.Decoding;
-using BEditor.Extensions.FFmpeg.Decoder;
+using BEditor.Media.Encoding;
 
 namespace BEditor.Extensions.FFmpeg
 {

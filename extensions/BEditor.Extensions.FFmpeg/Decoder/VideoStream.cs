@@ -79,8 +79,8 @@ namespace BEditor.Extensions.FFmpeg.Decoder
         {
             var img = new Image<BGRA32>(data.ImageSize.Width, data.ImageSize.Height);
 
-            fixed(byte* src= data.Data)
-            fixed(byte* dst= data.Data)
+            fixed (byte* src = data.Data)
+            fixed (byte* dst = data.Data)
             {
                 Buffer.MemoryCopy(src, dst, img.DataSize, img.DataSize);
             }
