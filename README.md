@@ -36,6 +36,7 @@ Windows, Linux, macOSで動作する動画編集ソフトウェアです。
 ## License
 
 * [MIT License](https://github.com/b-editor/BEditor/blob/main/LICENSE)
+* 一部の拡張機能は __GPL version 2__ です。
 * このソフトウェアは、[Apache 2.0 ライセンス](http://www.apache.org/licenses/LICENSE-2.0)で配布されている製作物が含まれています。
 
 ## Building BEditor

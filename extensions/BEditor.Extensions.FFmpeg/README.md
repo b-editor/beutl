@@ -4,13 +4,9 @@
 動画のデコード、エンコード機能を提供するライブラリ
 
 ## Dependent libraries
-* [.NET runtime](https://github.com/dotnet/runtime)
+* [.NET Runtime](https://github.com/dotnet/runtime)
 * [FFMediaToolkit](https://github.com/radek-k/FFMediaToolkit)
 
 ## License
 
-* [MIT License](https://github.com/indigo-san/BEditor/blob/main/LICENSE)
-
-## Author
-
-* [indigo-san](https://github.com/indigo-san)
+* [GNU General Public License (GPL) version 2](https://www.gnu.org/licenses/old-licenses/gpl-2.0.html)

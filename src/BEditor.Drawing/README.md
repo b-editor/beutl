@@ -2,16 +2,13 @@
 
 ## Description
 
-SkiaSharpを利用した画像処理ライブラリ
+SkiaSharpとOpenCVSharpを利用した画像処理ライブラリ
 
 ## Dependent libraries
-* [.NET runtime](https://github.com/dotnet/runtime)
+* [.NET Runtime](https://github.com/dotnet/runtime)
+* [OpenCVSharp](https://github.com/shimat/OpenCVSharp)
 * [SkiaSharp](https://github.com/mono/SkiaSharp)
 
 ## License
 
-* [MIT License](https://github.com/indigo-san/BEditor/blob/main/LICENSE)
-
-## Author
-
-* [indigo-san](https://github.com/indigo-san)
+* [MIT License](https://github.com/b-editor/BEditor/blob/main/LICENSE)

@@ -9,12 +9,12 @@
 * [Homepage](https://www.openal.org/)
 
 ### FFmpeg
-* ライセンス - LGPL
+* ライセンス - GPL version 2
 * [Homepage](https://ffmpeg.org)
 
-### FFmpeg.Autogen
+### FFMediaToolkit
 * ライセンス - LGPL
-* [GitHub](https://github.com/Ruslan-B/FFmpeg.AutoGen)
+* [GitHub](https://github.com/radek-k/FFMediaToolkit)
 
 ### OpenTK
 * ライセンス - MIT License

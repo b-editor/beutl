@@ -2,7 +2,7 @@
 
     <PropertyGroup>
         <TargetFramework>net5.0</TargetFramework>
-        <DocumentationFile>BEditor.Media.FFmpeg.xml</DocumentationFile>
+        <DocumentationFile>BEditor.Media.xml</DocumentationFile>
     </PropertyGroup>
 
     <ItemGroup>
