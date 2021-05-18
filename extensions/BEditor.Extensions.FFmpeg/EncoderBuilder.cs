@@ -5,9 +5,9 @@ using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
 
-using BEditor.Media.Encoding;
 using BEditor.Extensions.FFmpeg.Encoding;
 using BEditor.Media;
+using BEditor.Media.Encoding;
 
 namespace BEditor.Extensions.FFmpeg
 {
