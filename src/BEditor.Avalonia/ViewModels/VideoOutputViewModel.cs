@@ -142,7 +142,7 @@ namespace BEditor.ViewModels
 
                                 if (item.Loaded is null) continue;
 
-                                if (item.Loaded.Time >= rel_start + spf_time)
+                                if (item.Loaded.Duration >= rel_start + spf_time)
                                 {
                                     using var sliced = item.Loaded.Slice(rel_start, spf_time);
                                     sliced.Gain(item.Volume[frame] / 100);

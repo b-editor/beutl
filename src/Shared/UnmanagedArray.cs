@@ -5,7 +5,7 @@ using System.Runtime.InteropServices;
 
 namespace BEditor
 {
-    public unsafe class UnmanagedArray<T> : IDisposable, IEnumerable<T>, ICloneable where T : unmanaged
+    internal unsafe class UnmanagedArray<T> : IDisposable, IEnumerable<T>, ICloneable where T : unmanaged
     {
         private readonly T* _ptr;
         private readonly int _length;

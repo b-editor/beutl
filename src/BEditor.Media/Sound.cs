@@ -21,11 +21,25 @@ namespace BEditor.Media
         /// Initializes a new instance of the <see cref="Sound{T}"/> class.
         /// </summary>
         /// <param name="rate">The sample rate.</param>
-        /// <param name="length">The length of data.</param>
-        public Sound(int rate, int length)
+        /// <param name="duration">The audio duration.</param>
+        public Sound(int rate, TimeSpan duration)
         {
             SampleRate = rate;
-            Length = length;
+            NumSamples = (int)(duration.TotalSeconds * rate);
+
+            _pointer = (T*)Marshal.AllocCoTaskMem(DataSize);
+            Data.Fill(default);
+        }
+
+        /// <summary>
+        /// Initializes a new instance of the <see cref="Sound{T}"/> class.
+        /// </summary>
+        /// <param name="rate">The sample rate.</param>
+        /// <param name="samples">The number of samples.</param>
+        public Sound(int rate, int samples)
+        {
+            SampleRate = rate;
+            NumSamples = samples;
 
             _pointer = (T*)Marshal.AllocCoTaskMem(DataSize);
             Data.Fill(default);
@@ -35,13 +49,13 @@ namespace BEditor.Media
         /// Initializes a new instance of the <see cref="Sound{T}"/> class with a specified data.
         /// </summary>
         /// <param name="rate">The sample rate.</param>
-        /// <param name="length">The length of data.</param>
+        /// <param name="samples">The number of samples.</param>
         /// <param name="data">The audio data.</param>
-        public Sound(int rate, int length, T[] data)
+        public Sound(int rate, int samples, T[] data)
         {
             _requireDispose = false;
             SampleRate = rate;
-            Length = length;
+            NumSamples = samples;
 
             _array = data;
         }
@@ -50,13 +64,13 @@ namespace BEditor.Media
         /// Initializes a new instance of the <see cref="Sound{T}"/> class with a specified data.
         /// </summary>
         /// <param name="rate">The sample rate.</param>
-        /// <param name="length">The length of data.</param>
+        /// <param name="samples">The number of samples.</param>
         /// <param name="data">The audio data.</param>
-        public Sound(int rate, int length, T* data)
+        public Sound(int rate, int samples, T* data)
         {
             _requireDispose = false;
             SampleRate = rate;
-            Length = length;
+            NumSamples = samples;
 
             _pointer = data;
         }
@@ -71,7 +85,7 @@ namespace BEditor.Media
         {
             _requireDispose = false;
             SampleRate = rate;
-            Length = length;
+            NumSamples = length;
 
             _pointer = (T*)data;
         }
@@ -93,7 +107,7 @@ namespace BEditor.Media
             {
                 ThrowIfDisposed();
 
-                return (_array is null) ? new Span<T>(_pointer, Length) : new Span<T>(_array);
+                return (_array is null) ? new Span<T>(_pointer, NumSamples) : new Span<T>(_array);
             }
         }
 
@@ -103,19 +117,19 @@ namespace BEditor.Media
         public int SampleRate { get; }
 
         /// <summary>
-        /// Gets the length of data.
+        /// Gets the number of samples.
         /// </summary>
-        public int Length { get; }
+        public int NumSamples { get; }
 
         /// <summary>
-        /// Gets the length of this sound.
+        /// Gets the sound duration.
         /// </summary>
-        public TimeSpan Time => TimeSpan.FromSeconds(Length / (double)SampleRate);
+        public TimeSpan Duration => TimeSpan.FromSeconds(NumSamples / (double)SampleRate);
 
         /// <summary>
         /// Get the data size of <see cref="Sound{T}"/>.
         /// </summary>
-        public int DataSize => Length * sizeof(T);
+        public int DataSize => NumSamples * sizeof(T);
 
         /// <summary>
         /// Get whether an object has been disposed
@@ -128,9 +142,9 @@ namespace BEditor.Media
         /// <typeparam name="TConvert">The type of audio data to convert to.</typeparam>
         public Sound<TConvert> Convert<TConvert>() where TConvert : unmanaged, IPCM<TConvert>, IPCMConvertable<T>
         {
-            var result = new Sound<TConvert>(SampleRate, Length);
+            var result = new Sound<TConvert>(SampleRate, NumSamples);
 
-            Parallel.For(0, Length, i => result.Data[i].ConvertFrom(Data[i]));
+            Parallel.For(0, NumSamples, i => result.Data[i].ConvertFrom(Data[i]));
 
             return result;
         }
@@ -163,7 +177,7 @@ namespace BEditor.Media
         {
             ThrowIfDisposed();
 
-            var img = new Sound<T>(SampleRate, Length);
+            var img = new Sound<T>(SampleRate, NumSamples);
             Data.CopyTo(img.Data);
 
             return img;
@@ -207,7 +221,7 @@ namespace BEditor.Media
             // Todo : Add message
             if (sound.SampleRate != SampleRate) throw new Exception();
 
-            Parallel.For(0, Math.Min(sound.Length, Length), i => Data[i] = Data[i].Add(sound.Data[i]));
+            Parallel.For(0, Math.Min(sound.NumSamples, NumSamples), i => Data[i] = Data[i].Add(sound.Data[i]));
         }
 
         /// <summary>
@@ -221,7 +235,7 @@ namespace BEditor.Media
             // 比率
             var ratio = SampleRate / (float)frequency;
             // 1チャンネルのサイズ
-            var size = frequency * Time.TotalSeconds;
+            var size = frequency * Duration.TotalSeconds;
 
             using var tmp = new UnmanagedArray<T>((int)Math.Floor((double)size));
             var index = 0f;

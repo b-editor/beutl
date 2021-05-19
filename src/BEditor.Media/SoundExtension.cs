@@ -20,9 +20,9 @@ namespace BEditor.Media
             where TConvert : unmanaged, IPCM<TConvert>
             where TSource : unmanaged, IPCM<TSource>, IPCMConvertable<TConvert>
         {
-            var result = new Sound<TConvert>(sound.SampleRate, sound.Length);
+            var result = new Sound<TConvert>(sound.SampleRate, sound.NumSamples);
 
-            Parallel.For(0, sound.Length, i => sound.Data[i].ConvertTo(out result.Data[i]));
+            Parallel.For(0, sound.NumSamples, i => sound.Data[i].ConvertTo(out result.Data[i]));
 
             return result;
         }
@@ -38,7 +38,7 @@ namespace BEditor.Media
             fixed (StereoPCMFloat* dst = sound.Data)
             {
                 var dataf = (float*)dst;
-                var soundlength = sound.Length * 2;
+                var soundlength = sound.NumSamples * 2;
                 var length = data.Length;
                 var l = 0;
 
@@ -63,7 +63,7 @@ namespace BEditor.Media
 #pragma warning restore RCS1176
             {
                 var dataf = (float*)dst;
-                var soundlength = (sound.Length - start) * 2;
+                var soundlength = (sound.NumSamples - start) * 2;
                 var length = data.Length;
                 var l = 0;
 
@@ -106,7 +106,7 @@ namespace BEditor.Media
             var corre = Sinc(100, degree, ref param);
             fixed (void* ptr = sound.Data)
             {
-                var resample = Resampling(corre, ref param, new Span<float>(ptr, sound.Length * 2), sound.Length, 2);
+                var resample = Resampling(corre, ref param, new Span<float>(ptr, sound.NumSamples * 2), sound.NumSamples, 2);
 
                 fixed (float* resampled = resample)
                 {
@@ -127,7 +127,7 @@ namespace BEditor.Media
         /// <param name="gain"></param>
         public static void Gain(this Sound<StereoPCMFloat> sound, float gain)
         {
-            Parallel.For(0, sound.Length, i =>
+            Parallel.For(0, sound.NumSamples, i =>
             {
                 sound.Data[i].Left *= gain;
                 sound.Data[i].Right *= gain;

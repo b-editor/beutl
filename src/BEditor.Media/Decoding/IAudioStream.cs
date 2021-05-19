@@ -40,8 +40,66 @@ namespace BEditor.Media.Decoding
         /// Reads the video frame found at the specified timestamp.
         /// </summary>
         /// <param name="time">The frame timestamp.</param>
-        /// <returns>The decoded video frame.</returns>
+        /// <returns>The decoded audio frame.</returns>
         public Sound<StereoPCMFloat> GetFrame(TimeSpan time);
+
+        /// <summary>
+        /// Reads the video frame found at the specified timestamp.
+        /// </summary>
+        /// <param name="time">The frame timestamp.</param>
+        /// <param name="samples">The audio duration.</param>
+        /// <returns>The decoded audio frame.</returns>
+        public Sound<StereoPCMFloat> GetFrame(TimeSpan time, int samples)
+        {
+            var sound = new Sound<StereoPCMFloat>(Info.SampleRate, samples);
+            if (TryGetFrame(time, out var first))
+            {
+                // デコードしたサンプル数
+                var decoded = first.NumSamples;
+                first.Data.CopyTo(sound.Data.Slice(0, first.NumSamples));
+                first.Dispose();
+
+                while (decoded < samples && TryGetNextFrame(out var data))
+                {
+                    data.Data.CopyTo(sound.Data.Slice(decoded, data.NumSamples));
+
+                    decoded += data.NumSamples;
+
+                    data.Dispose();
+                }
+            }
+
+            return sound;
+        }
+
+        /// <summary>
+        /// Reads the video frame found at the specified timestamp.
+        /// </summary>
+        /// <param name="time">The frame timestamp.</param>
+        /// <param name="duration">The audio duration.</param>
+        /// <returns>The decoded audio frame.</returns>
+        public Sound<StereoPCMFloat> GetFrame(TimeSpan time, TimeSpan duration)
+        {
+            var sound = new Sound<StereoPCMFloat>(Info.SampleRate, duration);
+            if (TryGetFrame(time, out var first))
+            {
+                // デコードしたサンプル数
+                var decoded = first.NumSamples;
+                first.Data.CopyTo(sound.Data.Slice(0, first.NumSamples));
+                first.Dispose();
+
+                while (decoded < sound.NumSamples && TryGetNextFrame(out var data))
+                {
+                    data.Data.CopyTo(sound.Data.Slice(decoded, data.NumSamples));
+
+                    decoded += data.NumSamples;
+
+                    data.Dispose();
+                }
+            }
+
+            return sound;
+        }
 
         /// <summary>
         /// Reads the audio data found at the specified timestamp.

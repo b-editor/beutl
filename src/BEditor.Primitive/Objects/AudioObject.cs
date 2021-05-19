@@ -208,7 +208,7 @@ namespace BEditor.Primitive.Objects
 
             _disposable2 = SetLength.Where(_ => Loaded is not null).Subscribe(_ =>
             {
-                var length = Frame.FromTimeSpan(Loaded!.Time, this.GetParentRequired<Project>().Framerate);
+                var length = Frame.FromTimeSpan(Loaded!.Duration, this.GetParentRequired<Project>().Framerate);
 
                 Parent.ChangeLength(Parent.Start, Parent.Start + length).Execute();
             });
@@ -239,33 +239,7 @@ namespace BEditor.Primitive.Objects
 
         private static Sound<StereoPCMFloat> GetAllFrame(IAudioStream stream)
         {
-            stream.TryGetFrame(TimeSpan.Zero, out _);
-            var sampleL = new List<float>();
-            var sampleR = new List<float>();
-
-            while (stream.TryGetNextFrame(out var audio))
-            {
-                var array = audio.Extract();
-
-                sampleL.AddRange(array[0]);
-
-                if (array.Length is 2)
-                {
-                    sampleR.AddRange(array[1]);
-                }
-                else
-                {
-                    sampleR.AddRange(array[0]);
-                }
-            }
-
-            var sound = new Sound<StereoPCMFloat>(stream.Info.SampleRate, sampleL.Count);
-
-            sampleL.Zip(sampleR, (l, r) => new StereoPCMFloat(l, r))
-                .ToArray()
-                .CopyTo(sound.Data);
-
-            return sound;
+            return stream.GetFrame(TimeSpan.Zero, stream.Info.Duration);
         }
 
         private async void Player_PlayingAsync(object? sender, PlayingEventArgs e)

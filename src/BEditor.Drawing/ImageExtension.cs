@@ -660,7 +660,7 @@ namespace BEditor.Drawing
                 IsAntialias = true
             };
 
-            var linesBounds = new List<SKRect>();
+            using var linesBounds = new UnmanagedList<SKRect>();
 
             for (var i = 0; i < lines.Length; i++)
             {
@@ -729,7 +729,7 @@ namespace BEditor.Drawing
                 StrokeWidth = strokewidth,
             };
 
-            var linesBounds = new List<SKRect>();
+            using var linesBounds = new UnmanagedList<SKRect>();
 
             for (var i = 0; i < lines.Length; i++)
             {

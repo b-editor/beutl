@@ -73,11 +73,19 @@ Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "SourceGenerator.Tests", "te
 EndProject
 Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "BEditor.Extensions.AviUtl", "extensions\BEditor.Extensions.AviUtl\BEditor.Extensions.AviUtl.csproj", "{2A761AA7-C204-4970-AE62-3A7E3EE52C5C}"
 EndProject
-Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "BEditor.Media", "src\BEditor.Media\BEditor.Media.csproj", "{35A6D7E6-EDA1-4E56-A19D-4C4B3BDBE776}"
+Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "BEditor.Media", "src\BEditor.Media\BEditor.Media.csproj", "{35A6D7E6-EDA1-4E56-A19D-4C4B3BDBE776}"
 EndProject
 Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "BEditor.Extensions.FFmpeg", "extensions\BEditor.Extensions.FFmpeg\BEditor.Extensions.FFmpeg.csproj", "{F252D963-93CF-4923-B205-7D5F7CDF04C6}"
 EndProject
+Project("{D954291E-2A0B-460D-934E-DC6B0785DB48}") = "Shared", "src\Shared\Shared.shproj", "{865E19ED-CB17-4F80-80BD-5300D135B598}"
+EndProject
 Global
+	GlobalSection(SharedMSBuildProjectFiles) = preSolution
+		src\Shared\Shared.projitems*{35a6d7e6-eda1-4e56-a19d-4c4b3bdbe776}*SharedItemsImports = 5
+		src\Shared\Shared.projitems*{865e19ed-cb17-4f80-80bd-5300d135b598}*SharedItemsImports = 13
+		src\Shared\Shared.projitems*{aab16a69-d4d9-4da8-a4f1-4417f908b00f}*SharedItemsImports = 5
+		src\Shared\Shared.projitems*{ffa62552-ec15-4e58-89b9-e866f39ec0d7}*SharedItemsImports = 5
+	EndGlobalSection
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
 		Debug|Any CPU = Debug|Any CPU
 		Debug|ARM = Debug|ARM

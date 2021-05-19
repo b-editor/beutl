@@ -40,7 +40,7 @@ namespace BEditor.Extensions.FFmpeg.Encoding
                 _writer.Write(item.Right);
             }
 
-            CurrentDuration = CurrentDuration.Add(sound.Time);
+            CurrentDuration = CurrentDuration.Add(sound.Duration);
         }
 
         public void Dispose()
