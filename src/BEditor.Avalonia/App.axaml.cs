@@ -10,6 +10,7 @@ using Avalonia;
 using Avalonia.Controls;
 using Avalonia.Controls.ApplicationLifetimes;
 using Avalonia.Markup.Xaml;
+using Avalonia.Markup.Xaml.Styling;
 using Avalonia.Platform;
 using Avalonia.Styling;
 using Avalonia.Themes.Fluent;
@@ -67,11 +68,13 @@ namespace BEditor
         public override void Initialize()
         {
             AvaloniaXamlLoader.Load(this);
-
-            Styles.Insert(0, new FluentTheme(new Uri("avares://beditor/App.axaml"))
+            var baseuri = new Uri("avares://beditor/App.axaml");
+            var style = new StyleInclude(baseuri)
             {
-                Mode = Settings.Default.UseDarkMode ? FluentThemeMode.Dark : FluentThemeMode.Light
-            });
+                Source = Settings.Default.UseDarkMode ? new("avares://beditor/Controls/DarkTheme.axaml") : new("avares://beditor/Controls/LightTheme.axaml")
+            };
+
+            Styles.Insert(0, style);
         }
 
         public override async void OnFrameworkInitializationCompleted()

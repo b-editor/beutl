@@ -1,0 +1,64 @@
+<Window
+    xmlns="https://github.com/avaloniaui"
+    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+    xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+    xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+    xmlns:titlebar="using:BEditor.Views.CustomTitlebars"
+    xmlns:prop="using:BEditor.Properties"
+    xmlns:vm="using:BEditor.ViewModels"
+    mc:Ignorable="d" d:DesignWidth="800" d:DesignHeight="450"
+    Height="450" Width="800"
+    ExtendClientAreaToDecorationsHint="True"
+    ExtendClientAreaChromeHints="NoChrome"
+    ExtendClientAreaTitleBarHeightHint="-1"
+    TransparencyLevelHint="AcrylicBlur"
+    Background="Transparent"
+    WindowStartupLocation="CenterScreen"
+    x:Class="BEditor.Views.ManagePlugins.ManagePluginsWindow">
+    <Panel>
+        <DockPanel HorizontalAlignment="Stretch">
+            <ExperimentalAcrylicBorder IsHitTestVisible="False" DockPanel.Dock="Left" Width="240">
+                <ExperimentalAcrylicBorder.Material>
+                    <ExperimentalAcrylicMaterial
+                      TintColor="#222222"
+                      TintOpacity="{StaticResource AcrylicTintOpacity1}"
+                      MaterialOpacity="{StaticResource AcrylicMaterialOpacity1}" />
+                </ExperimentalAcrylicBorder.Material>
+            </ExperimentalAcrylicBorder>
+            <ExperimentalAcrylicBorder IsHitTestVisible="False">
+                <ExperimentalAcrylicBorder.Material>
+                    <ExperimentalAcrylicMaterial
+                      TintColor="Black"
+                      TintOpacity="{StaticResource AcrylicTintOpacity2}"
+                      MaterialOpacity="{StaticResource AcrylicMaterialOpacity2}" />
+                </ExperimentalAcrylicBorder.Material>
+            </ExperimentalAcrylicBorder>
+        </DockPanel>
+
+        <titlebar:WindowsTitlebarButtons VerticalAlignment="Top"/>
+
+        <TabControl Classes="sidebar" Margin="0,16,0,0">
+            <TabControl.Styles>
+                <Style Selector="StackPanel">
+                    <Setter Property="Spacing" Value="16" />
+                    <Setter Property="Orientation" Value="Horizontal" />
+                </Style>
+
+                <Style Selector="PathIcon">
+                    <Setter Property="Width" Value="16" />
+                    <Setter Property="Height" Value="16" />
+                </Style>
+            </TabControl.Styles>
+            <TabItem>
+                <TabItem.Header>
+                    <StackPanel>
+                        <PathIcon Data="{StaticResource Info20Regular}"/>
+                        <TextBlock Text="{x:Static prop:Strings.Infomation}" />
+                    </StackPanel>
+                </TabItem.Header>
+
+                
+            </TabItem>
+        </TabControl>
+    </Panel>
+</Window>

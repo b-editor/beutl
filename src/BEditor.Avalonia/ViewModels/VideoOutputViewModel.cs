@@ -176,7 +176,6 @@ namespace BEditor.ViewModels
             });
         }
 
-        public MainWindowViewModel MainWindow { get; } = MainWindowViewModel.Current;
         public Project Project { get; } = AppModel.Current.Project;
         public ReactivePropertySlim<Scene> SelectedScene { get; } = new();
 

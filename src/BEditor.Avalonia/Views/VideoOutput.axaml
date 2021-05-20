@@ -22,16 +22,16 @@
                 <ExperimentalAcrylicBorder.Material>
                     <ExperimentalAcrylicMaterial
                       TintColor="#222222"
-                      TintOpacity="{CompiledBinding MainWindow.AcrylicTintOpacity1, Mode=OneTime}"
-                      MaterialOpacity="{CompiledBinding MainWindow.AcrylicMaterialOpacity1, Mode=OneTime}" />
+                      TintOpacity="{StaticResource AcrylicTintOpacity1}"
+                      MaterialOpacity="{StaticResource AcrylicMaterialOpacity1}" />
                 </ExperimentalAcrylicBorder.Material>
             </ExperimentalAcrylicBorder>
             <ExperimentalAcrylicBorder IsHitTestVisible="False">
                 <ExperimentalAcrylicBorder.Material>
                     <ExperimentalAcrylicMaterial
                       TintColor="Black"
-                      TintOpacity="{CompiledBinding MainWindow.AcrylicTintOpacity2, Mode=OneTime}"
-                      MaterialOpacity="{CompiledBinding MainWindow.AcrylicMaterialOpacity2, Mode=OneTime}" />
+                      TintOpacity="{StaticResource AcrylicTintOpacity2}"
+                      MaterialOpacity="{StaticResource AcrylicMaterialOpacity2}" />
                 </ExperimentalAcrylicBorder.Material>
             </ExperimentalAcrylicBorder>
         </DockPanel>

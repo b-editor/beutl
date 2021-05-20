@@ -5,7 +5,6 @@
     xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
     xmlns:props="using:BEditor.Properties"
     xmlns:titlebar="using:BEditor.Views.CustomTitlebars"
-    xmlns:vm="using:BEditor.ViewModels"
     xmlns:dialogvm="using:BEditor.ViewModels.DialogContent"
     mc:Ignorable="d"  Width="1000" Height="595"
     ExtendClientAreaToDecorationsHint="True"
@@ -21,8 +20,8 @@
         <ExperimentalAcrylicBorder.Material>
             <ExperimentalAcrylicMaterial
                 TintColor="#222222"
-                TintOpacity="{Binding AcrylicTintOpacity1, Mode=OneTime, Source={x:Static vm:MainWindowViewModel.Current}}"
-                MaterialOpacity="{Binding AcrylicMaterialOpacity1, Mode=OneTime, Source={x:Static vm:MainWindowViewModel.Current}}" />
+                TintOpacity="{StaticResource AcrylicTintOpacity1}"
+                MaterialOpacity="{StaticResource AcrylicMaterialOpacity1}" />
         </ExperimentalAcrylicBorder.Material>
         <Grid RowDefinitions="Auto,*">
 

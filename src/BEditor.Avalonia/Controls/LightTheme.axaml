@@ -1,0 +1,13 @@
+﻿<Styles
+    xmlns="https://github.com/avaloniaui"
+    xmlns:sys="using:System"
+    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
+    <FluentTheme Mode="Light" />
+
+    <Styles.Resources>
+        <sys:Double x:Key="AcrylicTintOpacity1">0</sys:Double>
+        <sys:Double x:Key="AcrylicTintOpacity2">0</sys:Double>
+        <sys:Double x:Key="AcrylicMaterialOpacity1">0</sys:Double>
+        <sys:Double x:Key="AcrylicMaterialOpacity2">0</sys:Double>
+    </Styles.Resources>
+</Styles>

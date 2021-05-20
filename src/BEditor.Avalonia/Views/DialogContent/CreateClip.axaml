@@ -21,8 +21,8 @@
         <ExperimentalAcrylicBorder.Material>
             <ExperimentalAcrylicMaterial
                 TintColor="#222222"
-                TintOpacity="{Binding AcrylicTintOpacity1, Mode=OneTime, Source={x:Static vm:MainWindowViewModel.Current}}"
-                MaterialOpacity="{Binding AcrylicMaterialOpacity1, Mode=OneTime, Source={x:Static vm:MainWindowViewModel.Current}}" />
+                TintOpacity="{StaticResource AcrylicTintOpacity1}"
+                MaterialOpacity="{StaticResource AcrylicMaterialOpacity1}" />
         </ExperimentalAcrylicBorder.Material>
         <Grid RowDefinitions="Auto,*" ColumnDefinitions="*,2*">
 

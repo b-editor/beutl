@@ -5,10 +5,7 @@
     xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
     xmlns:prop="using:BEditor.Properties"
     xmlns:ctr="using:BEditor.Views.Settings"
-    xmlns:vm="using:BEditor.ViewModels"
     xmlns:titlebar="using:BEditor.Views.CustomTitlebars"
-    x:DataType="vm:MainWindowViewModel"
-    DataContext="{x:Static vm:MainWindowViewModel.Current}"
     mc:Ignorable="d"
     Height="450" Width="800"
     ExtendClientAreaToDecorationsHint="True"
@@ -25,16 +22,16 @@
                 <ExperimentalAcrylicBorder.Material>
                     <ExperimentalAcrylicMaterial
                       TintColor="#222222"
-                      TintOpacity="{CompiledBinding AcrylicTintOpacity1, Mode=OneTime}"
-                      MaterialOpacity="{CompiledBinding AcrylicMaterialOpacity1, Mode=OneTime}" />
+                      TintOpacity="{StaticResource AcrylicTintOpacity1}"
+                      MaterialOpacity="{StaticResource AcrylicMaterialOpacity1}" />
                 </ExperimentalAcrylicBorder.Material>
             </ExperimentalAcrylicBorder>
             <ExperimentalAcrylicBorder IsHitTestVisible="False">
                 <ExperimentalAcrylicBorder.Material>
                     <ExperimentalAcrylicMaterial
                       TintColor="Black"
-                      TintOpacity="{CompiledBinding AcrylicTintOpacity2, Mode=OneTime}"
-                      MaterialOpacity="{CompiledBinding AcrylicMaterialOpacity2, Mode=OneTime}" />
+                      TintOpacity="{StaticResource AcrylicTintOpacity2}"
+                      MaterialOpacity="{StaticResource AcrylicMaterialOpacity2}" />
                 </ExperimentalAcrylicBorder.Material>
             </ExperimentalAcrylicBorder>
         </DockPanel>

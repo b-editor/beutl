@@ -38,8 +38,8 @@ namespace BEditor.Views.DialogContent
                 Material = new ExperimentalAcrylicMaterial
                 {
                     TintColor = Color.FromUInt32(0xff222222),
-                    TintOpacity = MainWindowViewModel.Current.AcrylicTintOpacity1,
-                    MaterialOpacity = MainWindowViewModel.Current.AcrylicMaterialOpacity1
+                    TintOpacity = (double)App.Current.FindResource("AcrylicTintOpacity1")!,
+                    MaterialOpacity = (double)App.Current.FindResource("AcrylicMaterialOpacity1")!
                 }
             };
 
