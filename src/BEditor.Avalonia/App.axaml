@@ -45,10 +45,10 @@
         </Style>
 
         <Style Selector="TextBox">
-            <Setter Property="FontFamily" Value="Yu Gothic UI, Segoe UI, Hiragino Sans, Helvetica Neue, Ubuntu, Noto Sans JP" />
+            <Setter Property="FontFamily" Value="Yu Gothic UI, Segoe UI, Hiragino Sans, Helvetica Neue, Ubuntu" />
         </Style>
         <Style Selector="TemplatedControl">
-            <Setter Property="FontFamily" Value="Yu Gothic UI, Segoe UI, Hiragino Sans, Helvetica Neue, Ubuntu, Noto Sans JP" />
+            <Setter Property="FontFamily" Value="Yu Gothic UI, Segoe UI, Hiragino Sans, Helvetica Neue, Ubuntu" />
         </Style>
     </Application.Styles>
 </Application>
