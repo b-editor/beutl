@@ -44,8 +44,11 @@
             <Setter Property="Height" Value="40" />
         </Style>
 
+        <Style Selector="TextBox">
+            <Setter Property="FontFamily" Value="Yu Gothic UI, Segoe UI, Hiragino Sans, Helvetica Neue, Ubuntu, Noto Sans JP" />
+        </Style>
         <Style Selector="TemplatedControl">
-            <Setter Property="FontFamily" Value="Meiryo UI, Osaka, Ubuntu" />
+            <Setter Property="FontFamily" Value="Yu Gothic UI, Segoe UI, Hiragino Sans, Helvetica Neue, Ubuntu, Noto Sans JP" />
         </Style>
     </Application.Styles>
 </Application>
