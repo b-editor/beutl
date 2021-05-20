@@ -599,4 +599,19 @@ Please select the plugin you want to load</value>
   <data name="CreateScene" xml:space="preserve">
     <value>Create a scene</value>
   </data>
+  <data name="Repositories" xml:space="preserve">
+    <value>Repositories</value>
+  </data>
+  <data name="PleaseEnter" xml:space="preserve">
+    <value>Please enter {0}.</value>
+  </data>
+  <data name="ThisItemCannotBeChanged" xml:space="preserve">
+    <value>This item cannot be changed.</value>
+  </data>
+  <data name="FailedTo" xml:space="preserve">
+    <value>Failed to {0}.</value>
+  </data>
+  <data name="Operate" xml:space="preserve">
+    <value>Operate</value>
+  </data>
 </root>

@@ -599,4 +599,19 @@
   <data name="CreateScene" xml:space="preserve">
     <value>シーンを作成</value>
   </data>
+  <data name="Repositories" xml:space="preserve">
+    <value>リポジトリ</value>
+  </data>
+  <data name="PleaseEnter" xml:space="preserve">
+    <value>{0}を入力してください。</value>
+  </data>
+  <data name="ThisItemCannotBeChanged" xml:space="preserve">
+    <value>この項目は変更できません。</value>
+  </data>
+  <data name="FailedTo" xml:space="preserve">
+    <value>{0}に失敗しました。</value>
+  </data>
+  <data name="Operate" xml:space="preserve">
+    <value>操作</value>
+  </data>
 </root>

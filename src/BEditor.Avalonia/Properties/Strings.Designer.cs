@@ -505,6 +505,15 @@ namespace BEditor.Properties {
         }
         
         /// <summary>
+        ///   Looks up a localized string similar to Failed to {0}..
+        /// </summary>
+        public static string FailedTo {
+            get {
+                return ResourceManager.GetString("FailedTo", resourceCulture);
+            }
+        }
+        
+        /// <summary>
         ///   Looks up a localized string similar to Failed to install {0}..
         /// </summary>
         public static string FailedToInstall {
@@ -893,6 +902,15 @@ namespace BEditor.Properties {
         }
         
         /// <summary>
+        ///   Looks up a localized string similar to Operate.
+        /// </summary>
+        public static string Operate {
+            get {
+                return ResourceManager.GetString("Operate", resourceCulture);
+            }
+        }
+        
+        /// <summary>
         ///   Looks up a localized string similar to Optimization.
         /// </summary>
         public static string Optimization {
@@ -970,6 +988,15 @@ namespace BEditor.Properties {
         public static string PlayPause {
             get {
                 return ResourceManager.GetString("PlayPause", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to Please enter {0}..
+        /// </summary>
+        public static string PleaseEnter {
+            get {
+                return ResourceManager.GetString("PleaseEnter", resourceCulture);
             }
         }
         
@@ -1079,6 +1106,15 @@ namespace BEditor.Properties {
         public static string Remove {
             get {
                 return ResourceManager.GetString("Remove", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to Repositories.
+        /// </summary>
+        public static string Repositories {
+            get {
+                return ResourceManager.GetString("Repositories", resourceCulture);
             }
         }
         
@@ -1295,6 +1331,15 @@ namespace BEditor.Properties {
         public static string ThereIsNoProject {
             get {
                 return ResourceManager.GetString("ThereIsNoProject", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to This item cannot be changed..
+        /// </summary>
+        public static string ThisItemCannotBeChanged {
+            get {
+                return ResourceManager.GetString("ThisItemCannotBeChanged", resourceCulture);
             }
         }
         

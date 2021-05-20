@@ -1,0 +1,67 @@
+<UserControl
+    xmlns="https://github.com/avaloniaui"
+    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+    xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+    xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+    xmlns:setting="clr-namespace:BEditor;assembly=BEditor.Settings"
+    xmlns:package="clr-namespace:BEditor.Package;assembly=BEditor.Settings"
+    xmlns:properties="using:BEditor.Properties"
+    xmlns:vm="using:BEditor.ViewModels.Settings"
+    mc:Ignorable="d" d:DesignWidth="800" d:DesignHeight="450"
+    x:DataType="vm:PackageRepositoryViewModel"
+    x:Class="BEditor.Views.Settings.PackageRepository">
+    <UserControl.DataContext>
+        <vm:PackageRepositoryViewModel />
+    </UserControl.DataContext>
+    <Grid RowDefinitions="*,Auto">
+
+        <ListBox
+            SelectionMode="AlwaysSelected"
+            Background="Transparent"
+            Items="{CompiledBinding Repositories, Source={x:Static setting:Settings.Default}}"
+            SelectedItem="{CompiledBinding SelectedItem.Value, Mode=TwoWay}">
+            <ListBox.ItemTemplate>
+                <DataTemplate x:DataType="package:RepositoryInfo">
+                    <StackPanel Orientation="Vertical" Spacing="8">
+                        <TextBlock Text="{CompiledBinding Name}" FontSize="16" />
+                        <TextBlock Text="{CompiledBinding Url.OriginalString}" />
+                    </StackPanel>
+                </DataTemplate>
+            </ListBox.ItemTemplate>
+        </ListBox>
+
+
+        <Grid Margin="8" Grid.Row="1" ColumnDefinitions="*,Auto">
+
+            <StackPanel Spacing="8" Margin="0,0,8,0" Orientation="Vertical" HorizontalAlignment="Stretch">
+
+                <TextBox
+                    UseFloatingWatermark="True"
+                    Watermark="{x:Static properties:Strings.Name}"
+                    Text="{CompiledBinding Name.Value, Mode=TwoWay}" />
+                <TextBox
+                    UseFloatingWatermark="True"
+                    Watermark="Url"
+                    Text="{CompiledBinding Url.Value, Mode=TwoWay}" />
+
+            </StackPanel>
+
+            <StackPanel Spacing="8" Grid.Column="1" Orientation="Horizontal" VerticalAlignment="Bottom">
+                <Button
+                    Background="Transparent"
+                    Content="{x:Static properties:Strings.Add}"
+                    Command="{CompiledBinding Add, Mode=OneTime}" />
+                <Button
+                    Background="Transparent"
+                    Content="{x:Static properties:Strings.Apply}"
+                    IsEnabled="{CompiledBinding IsSelected.Value, Mode=OneWay}"
+                    Command="{CompiledBinding Apply, Mode=OneTime}" />
+                <Button
+                    Background="Transparent"
+                    IsEnabled="{CompiledBinding IsSelected.Value, Mode=OneWay}"
+                    Content="{x:Static properties:Strings.Remove}"
+                    Command="{CompiledBinding Remove, Mode=OneTime}" />
+            </StackPanel>
+        </Grid>
+    </Grid>
+</UserControl>
