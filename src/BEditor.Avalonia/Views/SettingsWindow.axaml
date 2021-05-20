@@ -101,6 +101,15 @@
             <TabItem>
                 <TabItem.Header>
                     <StackPanel>
+                        <PathIcon Data="{StaticResource BookDatabase24Regular}"/>
+                        <TextBlock Text="{x:Static prop:Strings.Repositories}" />
+                    </StackPanel>
+                </TabItem.Header>
+                <ctr:PackageRepository/>
+            </TabItem>
+            <TabItem>
+                <TabItem.Header>
+                    <StackPanel>
                         <PathIcon Data="{StaticResource RibbonStar20Regular}"/>
                         <TextBlock Text="{x:Static prop:Strings.License}" />
                     </StackPanel>

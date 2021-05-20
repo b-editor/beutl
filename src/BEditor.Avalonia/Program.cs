@@ -1,4 +1,6 @@
 
+using System.Globalization;
+
 using Avalonia;
 
 namespace BEditor
@@ -10,6 +12,9 @@ namespace BEditor
         // yet and stuff might break.
         public static void Main(string[] args)
         {
+            CultureInfo.CurrentCulture = new(Settings.Default.Language);
+            CultureInfo.CurrentUICulture = CultureInfo.CurrentCulture;
+
             BuildAvaloniaApp()
                 .StartWithClassicDesktopLifetime(args);
         }

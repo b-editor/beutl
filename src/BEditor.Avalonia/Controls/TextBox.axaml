@@ -16,10 +16,10 @@
         <Setter Property="Background" Value="{DynamicResource ButtonBackgroundPointerOver}" />
     </Style>
     <Style Selector="TextBox.custom:pointerover">
-        <Setter Property="RenderTransform" Value="scale(0.98)" />
+        <Setter Property="RenderTransform" Value="scale(0.99)" />
     </Style>
     <Style Selector="TextBox.custom:focus">
-        <Setter Property="RenderTransform" Value="scale(0.98)" />
+        <Setter Property="RenderTransform" Value="scale(0.99)" />
     </Style>
     <Style Selector="TextBox.custom:focus /template/ Border#PART_BorderElement">
         <Setter Property="Background" Value="{DynamicResource ButtonBackgroundPointerOver}"/>

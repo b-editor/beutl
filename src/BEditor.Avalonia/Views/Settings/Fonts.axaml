@@ -8,34 +8,30 @@
              xmlns:properties="using:BEditor.Properties"
              xmlns:setting="clr-namespace:BEditor;assembly=BEditor.Settings"
              x:Class="BEditor.Views.Settings.Fonts">
-  <UserControl.DataContext>
-    <vm:FontsViewModel/>
-  </UserControl.DataContext>
-  <Grid>
-    <Grid.RowDefinitions>
-      <RowDefinition/>
-      <RowDefinition Height="Auto"/>
-    </Grid.RowDefinitions>
+    <UserControl.DataContext>
+        <vm:FontsViewModel/>
+    </UserControl.DataContext>
+    <Grid RowDefinitions="*,Auto">
 
-    <ListBox
-      Background="Transparent"
-      Items="{CompiledBinding IncludeFontDir, Source={x:Static setting:Settings.Default}}"
-      SelectedItem="{CompiledBinding SelectFont.Value, Mode=TwoWay}"/>
+        <ListBox
+            Background="Transparent"
+            Items="{CompiledBinding IncludeFontDir, Source={x:Static setting:Settings.Default}}"
+            SelectedItem="{CompiledBinding SelectFont.Value, Mode=TwoWay}"/>
 
-    <VirtualizingStackPanel
-      Grid.Row="1"
-      Orientation="Horizontal">
-      <Button
-        Background="Transparent"
-        Margin="10"
-        Content="{x:Static properties:Strings.Add}"
-        Click="AddClick"/>
-      <Button
-        Background="Transparent"
-        IsEnabled="{CompiledBinding IsSelected.Value, Mode=OneWay}"
-        Margin="10"
-        Content="{x:Static properties:Strings.Remove}"
-        Command="{CompiledBinding Remove, Mode=OneTime}"/>
-    </VirtualizingStackPanel>
-  </Grid>
+        <VirtualizingStackPanel
+            Grid.Row="1"
+            Orientation="Horizontal">
+            <Button
+                Background="Transparent"
+                Margin="10"
+                Content="{x:Static properties:Strings.Add}"
+                Click="AddClick"/>
+            <Button
+                Background="Transparent"
+                IsEnabled="{CompiledBinding IsSelected.Value, Mode=OneWay}"
+                Margin="10"
+                Content="{x:Static properties:Strings.Remove}"
+                Command="{CompiledBinding Remove, Mode=OneTime}"/>
+        </VirtualizingStackPanel>
+    </Grid>
 </UserControl>

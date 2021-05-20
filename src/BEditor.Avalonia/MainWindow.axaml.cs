@@ -2,6 +2,7 @@ using System;
 using System.ComponentModel;
 using System.IO;
 using System.Net;
+using System.Net.Http;
 using System.Reactive.Linq;
 using System.Threading.Tasks;
 
@@ -21,6 +22,7 @@ using BEditor.ViewModels;
 using BEditor.ViewModels.DialogContent;
 using BEditor.Views.DialogContent;
 
+using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
 
 using OpenTK.Audio.OpenAL;
@@ -53,7 +55,7 @@ namespace BEditor
             this.AttachDevTools();
 #endif
         }
-        public record Record(float Value);
+
         public void ObjectsPopupOpen(object s, RoutedEventArgs e)
         {
             this.FindControl<Popup>("ObjectsPopup").Open();
@@ -89,6 +91,7 @@ namespace BEditor
         protected override async void OnOpened(EventArgs e)
         {
             base.OnOpened(e);
+
             await CheckOpenALAsync();
         }
 

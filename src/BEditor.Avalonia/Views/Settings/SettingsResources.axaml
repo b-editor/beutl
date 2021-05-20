@@ -9,7 +9,6 @@
         <Setter Property="Height" Value="32"/>
         <Setter Property="Margin" Value="16,0,16,0"/>
         <Setter Property="Width" Value="240"/>
-        <Setter Property="FontFamily" Value="Meiryo UI, Osaka, Ubuntu" />
     </Style>
 
     <Style Selector="TextBox.SettingsTextBox">
@@ -18,7 +17,6 @@
         <Setter Property="Height" Value="24"/>
         <Setter Property="Margin" Value="16,0,16,0"/>
         <Setter Property="Width" Value="240"/>
-        <Setter Property="FontFamily" Value="Meiryo UI, Osaka, Ubuntu" />
     </Style>
 
     <Style Selector="NumericUpDown.SettingsNumericUpDown" >

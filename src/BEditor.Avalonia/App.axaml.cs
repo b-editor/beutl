@@ -66,9 +66,6 @@ namespace BEditor
 
         public override void Initialize()
         {
-            CultureInfo.CurrentCulture = new(Settings.Default.Language);
-            CultureInfo.CurrentUICulture = CultureInfo.CurrentCulture;
-
             AvaloniaXamlLoader.Load(this);
 
             Styles.Insert(0, new FluentTheme(new Uri("avares://beditor/App.axaml"))
