@@ -37,7 +37,7 @@ namespace BEditor
         private ObservableCollection<string>? disablePlugins;
         private ObservableCollection<string>? includeFonts;
         private ObservableCollection<string>? recentFiles;
-        private ObservableCollection<RepositoryInfo>? repositories;
+        private ObservableCollection<PackageSourceInfo>? packageSources;
         private string? language;
         private bool prioritizeGPU = true;
 
@@ -173,13 +173,13 @@ namespace BEditor
             set => includeFonts = value;
         }
         [DataMember]
-        public ObservableCollection<RepositoryInfo> Repositories
+        public ObservableCollection<PackageSourceInfo> PackageSources
         {
-            get => repositories ??= new()
+            get => packageSources ??= new()
             {
                 new() { Name = "BEditor", Url = new("https://beditor.net/api/index.json") }
             };
-            private set => repositories = value;
+            private set => packageSources = value;
         }
         [DataMember]
         public string Language

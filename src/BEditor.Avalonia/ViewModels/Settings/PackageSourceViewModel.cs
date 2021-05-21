@@ -18,18 +18,18 @@ using Setting = BEditor.Settings;
 
 namespace BEditor.ViewModels.Settings
 {
-    public sealed class PackageRepositoryViewModel
+    public sealed class PackageSourceViewModel
     {
-        public PackageRepositoryViewModel()
+        public PackageSourceViewModel()
         {
-            SelectedItem.Value = Setting.Default.Repositories[0];
+            SelectedItem.Value = Setting.Default.PackageSources[0];
             IsSelected = SelectedItem.Select(dir => dir is not null).ToReadOnlyReactivePropertySlim();
 
             Remove.SelectMany(_ => CanApplyOrRemoveAsync())
                 .Where(i => i)
                 .Subscribe(_ =>
                 {
-                    Setting.Default.Repositories.Remove(SelectedItem.Value);
+                    Setting.Default.PackageSources.Remove(SelectedItem.Value);
                     Setting.Default.Save();
                 });
 
@@ -62,7 +62,7 @@ namespace BEditor.ViewModels.Settings
                 .Subscribe(
                     _ =>
                     {
-                        Setting.Default.Repositories.Add(new() { Name = Name.Value!, Url = new(Url.Value!) });
+                        Setting.Default.PackageSources.Add(new() { Name = Name.Value!, Url = new(Url.Value!) });
                         Setting.Default.Save();
                     },
                     async e =>
@@ -78,7 +78,7 @@ namespace BEditor.ViewModels.Settings
 
         public ReactiveProperty<string?> Url { get; }
 
-        public ReactiveProperty<RepositoryInfo> SelectedItem { get; } = new();
+        public ReactiveProperty<PackageSourceInfo> SelectedItem { get; } = new();
 
         public ReadOnlyReactivePropertySlim<bool> IsSelected { get; }
 
@@ -92,7 +92,7 @@ namespace BEditor.ViewModels.Settings
         {
             var mes = AppModel.Current.Message;
 
-            if (Setting.Default.Repositories.Any(i => i.Name == Name.Value))
+            if (Setting.Default.PackageSources.Any(i => i.Name == Name.Value))
             {
                 await mes.DialogAsync(Strings.ThisNameAlreadyExists);
 

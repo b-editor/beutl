@@ -6,9 +6,9 @@ using Avalonia.Markup.Xaml;
 
 namespace BEditor.Views.Settings
 {
-    public sealed class PackageRepository : UserControl
+    public sealed class PackageSource : UserControl
     {
-        public PackageRepository()
+        public PackageSource()
         {
             InitializeComponent();
         }

@@ -9,7 +9,7 @@ using System.Threading.Tasks;
 namespace BEditor.Package
 {
     [DataContract]
-    public sealed class RepositoryInfo : INotifyPropertyChanged
+    public sealed class PackageSourceInfo : INotifyPropertyChanged
     {
         private static readonly PropertyChangedEventArgs urlArgs = new(nameof(Url));
         private static readonly PropertyChangedEventArgs nameArgs = new(nameof(Name));
@@ -32,20 +32,20 @@ namespace BEditor.Package
 
         public event PropertyChangedEventHandler? PropertyChanged;
 
-        public async ValueTask<Repository?> ToRepositoryAsync(HttpClient client)
+        public async ValueTask<PackageSource?> ToRepositoryAsync(HttpClient client)
         {
             try
             {
-                Repository? repos;
+                PackageSource? repos;
 
                 if (Url is null) return null;
                 else if (Url.IsFile)
                 {
-                    repos = await JsonSerializer.DeserializeAsync<Repository>(File.OpenRead(Url.LocalPath));
+                    repos = await JsonSerializer.DeserializeAsync<PackageSource>(File.OpenRead(Url.LocalPath));
                 }
                 else
                 {
-                    repos = await JsonSerializer.DeserializeAsync<Repository>(await client.GetStreamAsync(Url));
+                    repos = await JsonSerializer.DeserializeAsync<PackageSource>(await client.GetStreamAsync(Url));
                 }
 
                 if (repos is not null) repos.Info = this;

@@ -8,20 +8,20 @@
     xmlns:properties="using:BEditor.Properties"
     xmlns:vm="using:BEditor.ViewModels.Settings"
     mc:Ignorable="d" d:DesignWidth="800" d:DesignHeight="450"
-    x:DataType="vm:PackageRepositoryViewModel"
-    x:Class="BEditor.Views.Settings.PackageRepository">
+    x:DataType="vm:PackageSourceViewModel"
+    x:Class="BEditor.Views.Settings.PackageSource">
     <UserControl.DataContext>
-        <vm:PackageRepositoryViewModel />
+        <vm:PackageSourceViewModel />
     </UserControl.DataContext>
     <Grid RowDefinitions="*,Auto">
 
         <ListBox
             SelectionMode="AlwaysSelected"
             Background="Transparent"
-            Items="{CompiledBinding Repositories, Source={x:Static setting:Settings.Default}}"
+            Items="{CompiledBinding PackageSources, Source={x:Static setting:Settings.Default}}"
             SelectedItem="{CompiledBinding SelectedItem.Value, Mode=TwoWay}">
             <ListBox.ItemTemplate>
-                <DataTemplate x:DataType="package:RepositoryInfo">
+                <DataTemplate x:DataType="package:PackageSourceInfo">
                     <StackPanel Orientation="Vertical" Spacing="8">
                         <TextBlock Text="{CompiledBinding Name}" FontSize="16" />
                         <TextBlock Text="{CompiledBinding Url.OriginalString}" />

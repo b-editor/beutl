@@ -11,30 +11,25 @@
     <UserControl.DataContext>
         <vm:LibraryViewModel />
     </UserControl.DataContext>
-    <Panel>
-        <ProgressBar
-            Margin="8"
-            IsIndeterminate="True"
-            IsVisible="{CompiledBinding IsLoaded.Value, Mode=OneWay}" />
+    <Grid ColumnDefinitions="2*,*">
 
-        <Grid ColumnDefinitions="2*,*">
-
-            <!--Right-->
-            <StackPanel Grid.Column="1" Margin="8" HorizontalAlignment="Stretch" Spacing="8" Orientation="Vertical">
+        <!--Right-->
+        <Grid Grid.Column="1" Margin="8">
+            <StackPanel Spacing="8" Orientation="Vertical">
                 <TextBox
                     Text="{CompiledBinding SearchText.Value, Mode=TwoWay}"
                     UseFloatingWatermark="True"
                     Watermark="{x:Static props:Strings.Search}">
                     <TextBox.InnerRightContent>
-                        <Button Command="{CompiledBinding Search, Mode=OneTime}">
+                        <Button IsDefault="True" Command="{CompiledBinding Search, Mode=OneTime}">
                             <PathIcon Data="{StaticResource Search16Regular}" Width="16" />
                         </Button>
                     </TextBox.InnerRightContent>
                 </TextBox>
-                
+
                 <ComboBox
-                    SelectedItem="{CompiledBinding SelectedRepos.Value, Mode=TwoWay}"
-                    Items="{CompiledBinding Repositories, Mode=OneTime}"
+                    SelectedItem="{CompiledBinding SelectedSource.Value, Mode=TwoWay}"
+                    Items="{CompiledBinding PackageSources, Mode=OneTime}"
                     Width="{Binding $parent.Bounds.Width, Mode=OneWay}">
                     <ComboBox.ItemTemplate>
                         <DataTemplate>
@@ -42,8 +37,47 @@
                         </DataTemplate>
                     </ComboBox.ItemTemplate>
                 </ComboBox>
-                
+
             </StackPanel>
-        </Grid>      
-    </Panel>
+
+            <StackPanel
+                HorizontalAlignment="Center"
+                VerticalAlignment="Bottom"
+                Orientation="Horizontal">
+                <Button Command="{CompiledBinding PrevPage, Mode=OneTime}" IsEnabled="{CompiledBinding ExistPrevPage.Value, Mode=OneWay}">
+                    <PathIcon Data="{StaticResource ArrowLeft20Regular}"/>
+                </Button>
+                <Button Content="{CompiledBinding Page.Value}"/>
+                <Button Command="{CompiledBinding NextPage, Mode=OneTime}" IsEnabled="{CompiledBinding ExistNextPage.Value, Mode=OneWay}">
+                    <PathIcon Data="{StaticResource ArrowRight20Regular}"/>
+                </Button>
+            </StackPanel>
+        </Grid>
+
+        <!--Left-->
+        <ListBox
+            Height="{Binding $parent.Bounds.Height}"
+            Items="{CompiledBinding Items}">
+            <ListBox.ItemTemplate>
+                <DataTemplate>
+                    <Grid RowDefinitions="Auto,*">
+                        <StackPanel Orientation="Horizontal">
+                            <TextBlock FontSize="16" Text="{Binding Name}" />
+
+                            <TextBlock FontSize="12" VerticalAlignment="Center" Margin="16,0,0,0" Text="{Binding Versions[0]}"/>
+                        </StackPanel>
+
+                        <TextBlock FontSize="12" Margin="0,10,0,0" Text="{Binding Description}" Grid.Row="1" />
+                    </Grid>
+                </DataTemplate>
+            </ListBox.ItemTemplate>
+        </ListBox>
+
+        <ProgressBar
+            VerticalAlignment="Bottom"
+            Margin="8"
+            IsIndeterminate="True"
+            IsVisible="{CompiledBinding IsLoaded.Value, Mode=OneWay}" />
+
+    </Grid>
 </UserControl>

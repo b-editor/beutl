@@ -84,7 +84,7 @@
                         <TextBlock Text="{x:Static prop:Strings.Repositories}" />
                     </StackPanel>
                 </TabItem.Header>
-                <ctr:PackageRepository/>
+                <ctr:PackageSource/>
             </TabItem>
             <TabItem>
                 <TabItem.Header>

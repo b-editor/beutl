@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.Text.Json.Serialization;
 
 namespace BEditor.Package
@@ -22,17 +22,8 @@ namespace BEditor.Package
 
         [JsonPropertyName("download")]
         public string Download { get; set; } = string.Empty;
-    }
 
-    public sealed class Repository
-    {
-        [JsonPropertyName("page")]
-        public int Page { get; set; }
-
-        [JsonPropertyName("packages")]
-        public Package[] Packages { get; set; } = Array.Empty<Package>();
-
-        [JsonIgnore]
-        public RepositoryInfo? Info { get; set; }
+        [JsonPropertyName("versions")]
+        public string[] Versions { get; set; } = Array.Empty<string>();
     }
 }
