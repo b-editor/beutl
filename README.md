@@ -12,7 +12,7 @@
 
 Windows, Linux, macOSで動作する動画編集ソフトウェアです。
 
-![](https://raw.githubusercontent.com/b-editor/BEditor/main/docs/imgs/header.png)
+![](https://beditor.net/api/header/?version=0.1.2)
 
 ## Feature
 
