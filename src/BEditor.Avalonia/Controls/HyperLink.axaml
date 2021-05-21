@@ -1,0 +1,31 @@
+<Styles xmlns="https://github.com/avaloniaui"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:controls="using:BEditor.Controls">
+    <Design.PreviewWith>
+        <controls:HyperLink Text="HyperLink" />
+    </Design.PreviewWith>
+
+    <Style Selector="controls|HyperLink">
+        <Setter Property="Foreground" Value="{DynamicResource TextControlForeground}" />
+        <Setter Property="Template">
+            <ControlTemplate>
+                <TextBlock
+                    x:Name="textBlock"
+                    Text="{TemplateBinding Text}"
+                    Cursor="{TemplateBinding Cursor}"
+                    Foreground="{TemplateBinding Foreground}">
+                    <TextBlock.TextDecorations>
+                        <TextDecorationCollection>
+                            <TextDecoration Location="Underline" />
+                        </TextDecorationCollection>
+                    </TextBlock.TextDecorations>
+                </TextBlock>
+            </ControlTemplate>
+        </Setter>
+    </Style>
+
+    <Style Selector="controls|HyperLink:pointerover">
+        <Setter Property="Foreground" Value="{DynamicResource TextControlForegroundDisabled}" />
+        <Setter Property="Cursor" Value="Hand" />
+    </Style>
+</Styles>

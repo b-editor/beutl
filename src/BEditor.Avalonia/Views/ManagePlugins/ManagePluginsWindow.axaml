@@ -39,6 +39,41 @@
         <titlebar:WindowsTitlebarButtons/>
 
         <TabControl Classes="sidebar" Grid.Row="1">
+            <TabControl.Template>
+                <ControlTemplate>
+                    <Border
+                        Margin="{TemplateBinding Margin}"
+                        BorderBrush="{TemplateBinding BorderBrush}"
+                        BorderThickness="{TemplateBinding BorderThickness}">
+                        <DockPanel>
+                            <ScrollViewer
+                                Name="PART_ScrollViewer"
+                                Width="240"
+                                Background="{TemplateBinding Background}"
+                                DockPanel.Dock="Left"
+                                HorizontalScrollBarVisibility="{TemplateBinding (ScrollViewer.HorizontalScrollBarVisibility)}"
+                                VerticalScrollBarVisibility="{TemplateBinding (ScrollViewer.VerticalScrollBarVisibility)}">
+                                <ItemsPresenter
+                                    Name="PART_ItemsPresenter"
+                                    ItemTemplate="{TemplateBinding ItemTemplate}"
+                                    Items="{TemplateBinding Items}"
+                                    ItemsPanel="{TemplateBinding ItemsPanel}" />
+                            </ScrollViewer>
+                            <ContentControl
+                                HorizontalContentAlignment="Right"
+                                Content="{TemplateBinding Tag}"
+                                DockPanel.Dock="Bottom" />
+                            <ContentPresenter
+                                Name="PART_SelectedContentHost"
+                                Margin="{TemplateBinding Padding}"
+                                HorizontalContentAlignment="{TemplateBinding HorizontalContentAlignment}"
+                                VerticalContentAlignment="{TemplateBinding VerticalContentAlignment}"
+                                Content="{TemplateBinding SelectedContent}"
+                                ContentTemplate="{TemplateBinding SelectedContentTemplate}" />
+                        </DockPanel>
+                    </Border>
+                </ControlTemplate>
+            </TabControl.Template>
             <TabControl.Styles>
                 <Style Selector="StackPanel">
                     <Setter Property="Spacing" Value="16" />

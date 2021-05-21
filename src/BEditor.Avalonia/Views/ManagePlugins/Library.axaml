@@ -4,6 +4,7 @@
     xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
     xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
     xmlns:props="using:BEditor.Properties"
+    xmlns:ctrs="using:BEditor.Controls"
     xmlns:vm="using:BEditor.ViewModels.ManagePlugins"
     x:DataType="vm:LibraryViewModel"
     mc:Ignorable="d" d:DesignWidth="800" d:DesignHeight="450"
@@ -38,6 +39,27 @@
                     </ComboBox.ItemTemplate>
                 </ComboBox>
 
+                <StackPanel Orientation="Horizontal" MaxWidth="{Binding $parent.Bounds.Width}">
+                    <TextBlock Text="{Binding Source={x:Static props:Strings.Name}, StringFormat='{}{0}: '}" />
+                    <TextBlock Text="{CompiledBinding SelectedItem.Value.Name}" />
+                </StackPanel>
+                
+                <StackPanel Orientation="Horizontal" MaxWidth="{Binding $parent.Bounds.Width}">
+                    <TextBlock Text="{Binding Source={x:Static props:Strings.Author}, StringFormat='{}{0}: '}" />
+                    <TextBlock Text="{CompiledBinding SelectedItem.Value.Author}" />
+                </StackPanel>
+                
+                <StackPanel Orientation="Horizontal" MaxWidth="{Binding $parent.Bounds.Width}">
+                    <TextBlock Text="{Binding Source={x:Static props:Strings.Tag}, StringFormat='{}{0}: '}" />
+                    <TextBlock Text="{CompiledBinding SelectedItem.Value.Tag}" ToolTip.Tip="{Binding $self.Text}" />
+                </StackPanel>
+                
+                <StackPanel Orientation="Horizontal">
+                    <TextBlock Text="{Binding Source={x:Static props:Strings.Version}, StringFormat='{}{0}: '}" />
+                    <TextBlock Text="{Binding SelectedItem.Value.Versions[0].Version}" />
+                </StackPanel>
+
+                <ctrs:HyperLink Text="HomePage" Command="{CompiledBinding OpenHomePage, Mode=OneTime}" />
             </StackPanel>
 
             <StackPanel
@@ -56,6 +78,7 @@
 
         <!--Left-->
         <ListBox
+            SelectedItem="{CompiledBinding SelectedItem.Value, Mode=TwoWay}"
             Height="{Binding $parent.Bounds.Height}"
             Items="{CompiledBinding Items}">
             <ListBox.ItemTemplate>
@@ -64,7 +87,7 @@
                         <StackPanel Orientation="Horizontal">
                             <TextBlock FontSize="16" Text="{Binding Name}" />
 
-                            <TextBlock FontSize="12" VerticalAlignment="Center" Margin="16,0,0,0" Text="{Binding Versions[0]}"/>
+                            <TextBlock FontSize="12" VerticalAlignment="Center" Margin="16,0,0,0" Text="{Binding Versions[0].Version}"/>
                         </StackPanel>
 
                         <TextBlock FontSize="12" Margin="0,10,0,0" Text="{Binding Description}" Grid.Row="1" />

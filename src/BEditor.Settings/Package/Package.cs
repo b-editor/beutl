@@ -11,8 +11,8 @@ namespace BEditor.Package
         [JsonPropertyName("author")]
         public string Author { get; set; } = string.Empty;
 
-        [JsonPropertyName("url")]
-        public string Url { get; set; } = string.Empty;
+        [JsonPropertyName("homepage")]
+        public string HomePage { get; set; } = string.Empty;
 
         [JsonPropertyName("description")]
         public string Description { get; set; } = string.Empty;
@@ -20,10 +20,16 @@ namespace BEditor.Package
         [JsonPropertyName("tag")]
         public string Tag { get; set; } = string.Empty;
 
+        [JsonPropertyName("versions")]
+        public PackageVersion[] Versions { get; set; } = Array.Empty<PackageVersion>();
+    }
+
+    public class PackageVersion
+    {
+        [JsonPropertyName("version")]
+        public string Version { get; set; } = string.Empty;
+
         [JsonPropertyName("download")]
         public string Download { get; set; } = string.Empty;
-
-        [JsonPropertyName("versions")]
-        public string[] Versions { get; set; } = Array.Empty<string>();
     }
 }

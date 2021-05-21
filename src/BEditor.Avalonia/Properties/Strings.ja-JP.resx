@@ -617,4 +617,10 @@
   <data name="ManagePlugins" xml:space="preserve">
     <value>プラグインを管理</value>
   </data>
+  <data name="Author" xml:space="preserve">
+    <value>著者</value>
+  </data>
+  <data name="Tag" xml:space="preserve">
+    <value>タグ</value>
+  </data>
 </root>

@@ -1,5 +1,6 @@
 ﻿using System;
 using System.Collections.ObjectModel;
+using System.Diagnostics;
 using System.Linq;
 using System.Net.Http;
 using System.Reactive.Linq;
@@ -101,6 +102,25 @@ namespace BEditor.ViewModels.ManagePlugins
                 Page.ForceNotify();
             });
 
+            IsSelected = SelectedItem.Select(i => i is not null).ToReadOnlyReactivePropertySlim();
+
+            OpenHomePage.Where(_ => IsSelected.Value)
+                .Subscribe(_ =>
+                {
+                    if (OperatingSystem.IsWindows())
+                    {
+                        Process.Start(new ProcessStartInfo("cmd", $"/c start {SelectedItem.Value!.HomePage}") { CreateNoWindow = true });
+                    }
+                    else if (OperatingSystem.IsLinux())
+                    {
+                        Process.Start(new ProcessStartInfo("xdg-open", SelectedItem.Value!.HomePage) { CreateNoWindow = true });
+                    }
+                    else if (OperatingSystem.IsMacOS())
+                    {
+                        Process.Start(new ProcessStartInfo("open", SelectedItem.Value!.HomePage) { CreateNoWindow = true });
+                    }
+                });
+
             Task.Run(async () =>
             {
                 foreach (var item in Setting.Default.PackageSources)
@@ -123,7 +143,7 @@ namespace BEditor.ViewModels.ManagePlugins
 
         public ReadOnlyReactivePropertySlim<bool> ExistPrevPage { get; }
 
-        public ReactiveProperty<int> Page { get; } = new(0);
+        public ReactivePropertySlim<int> Page { get; } = new(0);
 
         public ReactiveCommand Search { get; } = new();
 
@@ -131,11 +151,17 @@ namespace BEditor.ViewModels.ManagePlugins
 
         public ReactivePropertySlim<bool> IsLoaded { get; } = new(true);
 
-        public ReactiveProperty<PackageSource?> SelectedSource { get; } = new();
+        public ReadOnlyReactivePropertySlim<bool> IsSelected { get; }
+
+        public ReactivePropertySlim<PackageSource?> SelectedSource { get; } = new();
 
         public ObservableCollection<PackageSource> PackageSources { get; } = new();
 
+        public ReactivePropertySlim<Pack?> SelectedItem { get; } = new();
+
         public ObservableCollection<Pack> Items { get; } = new();
+
+        public ReactiveCommand OpenHomePage { get; } = new();
 
         private void ReloadItems()
         {

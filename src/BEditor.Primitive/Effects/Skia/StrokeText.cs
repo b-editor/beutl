@@ -124,37 +124,6 @@ namespace BEditor.Primitive.Effects
         }
 
         /// <inheritdoc/>
-        public override void Apply(EffectApplyArgs<IEnumerable<ImageInfo>> args)
-        {
-            if (Parent.Effect[0] is Text textObj)
-            {
-                if (!textObj.EnableMultiple.Value)
-                {
-                    var imageArgs = new EffectApplyArgs<Image<BGRA32>>(args.Frame, args.Value.First().Source, args.Type);
-                    Apply(imageArgs);
-                    args.Value = new ImageInfo[]
-                    {
-                        new(imageArgs.Value, _ => default)
-                    };
-
-                    return;
-                }
-                args.Value = args.Value.Select((imageInfo, index) =>
-                {
-                    var stroke = Image.StrokeText(textObj.Document.Value, textObj.Font.Value, textObj.Size[args.Frame], Size[args.Frame], Color.Value, (HorizontalAlign)textObj.HorizontalAlign.Index);
-
-                    stroke.DrawImage(
-                        new((stroke.Width - imageInfo.Source.Width) / 2, (stroke.Height - imageInfo.Source.Height) / 2),
-                        imageInfo.Source);
-
-                    imageInfo.Dispose();
-
-                    return new ImageInfo(stroke, img => new Transform(new(img.Source.Width * index, 0, 0), Vector3.Zero, Vector3.Zero, Vector3.Zero));
-                });
-            }
-        }
-
-        /// <inheritdoc/>
         public override IEnumerable<PropertyElement> GetProperties()
         {
             yield return CenterX;

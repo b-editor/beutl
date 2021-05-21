@@ -617,4 +617,10 @@ Please select the plugin you want to load</value>
   <data name="ManagePlugins" xml:space="preserve">
     <value>Manage Plugins</value>
   </data>
+  <data name="Author" xml:space="preserve">
+    <value>Author</value>
+  </data>
+  <data name="Tag" xml:space="preserve">
+    <value>Tag</value>
+  </data>
 </root>
