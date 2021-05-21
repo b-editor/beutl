@@ -154,7 +154,16 @@
                 </MenuItem>
 
             </MenuItem>
-            <MenuItem Header="{x:Static prop:Strings.Plugin}">
+            <MenuItem Header="{x:Static prop:Strings.Plugins}">
+
+                <!--プラグインを管理-->
+                <MenuItem
+                    Header="{x:Static prop:Strings.ManagePlugins}"
+                    Click="ManagePlugins_Click">
+                    <MenuItem.Icon>
+                        <PathIcon Data="{StaticResource Extension24Regular}" />
+                    </MenuItem.Icon>
+                </MenuItem>
 
             </MenuItem>
             <MenuItem Header="{x:Static prop:Strings.Out}">

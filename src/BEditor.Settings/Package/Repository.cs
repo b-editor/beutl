@@ -31,5 +31,8 @@ namespace BEditor.Package
 
         [JsonPropertyName("packages")]
         public Package[] Packages { get; set; } = Array.Empty<Package>();
+
+        [JsonIgnore]
+        public RepositoryInfo? Info { get; set; }
     }
 }

@@ -7,7 +7,7 @@ using System.Threading.Tasks;
 using Avalonia.Controls;
 using Avalonia.Layout;
 
-namespace BEditor.Views.Settings
+namespace BEditor.Views.ManagePlugins
 {
     public static class PluginSettingsUIBuilder
     {

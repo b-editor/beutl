@@ -17,6 +17,7 @@ using BEditor.Properties;
 using BEditor.ViewModels;
 using BEditor.ViewModels.DialogContent;
 using BEditor.Views.DialogContent;
+using BEditor.Views.ManagePlugins;
 using BEditor.Views.Settings;
 
 namespace BEditor.Views.CustomTitlebars
@@ -125,6 +126,11 @@ namespace BEditor.Views.CustomTitlebars
                     }
                 });
             };
+        }
+
+        public async void ManagePlugins_Click(object s, RoutedEventArgs e)
+        {
+            await new ManagePluginsWindow().ShowDialog((Window)VisualRoot);
         }
 
         public async void ShowInfomation(object s, RoutedEventArgs e)

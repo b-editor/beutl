@@ -34,14 +34,27 @@ namespace BEditor.Package
 
         public async ValueTask<Repository?> ToRepositoryAsync(HttpClient client)
         {
-            if (Url is null) return null;
-            else if (Url.IsFile)
+            try
             {
-                return await JsonSerializer.DeserializeAsync<Repository>(File.OpenRead(Url.LocalPath));
+                Repository? repos;
+
+                if (Url is null) return null;
+                else if (Url.IsFile)
+                {
+                    repos = await JsonSerializer.DeserializeAsync<Repository>(File.OpenRead(Url.LocalPath));
+                }
+                else
+                {
+                    repos = await JsonSerializer.DeserializeAsync<Repository>(await client.GetStreamAsync(Url));
+                }
+
+                if (repos is not null) repos.Info = this;
+
+                return repos;
             }
-            else 
+            catch
             {
-                return await JsonSerializer.DeserializeAsync<Repository>(await client.GetStreamAsync(Url));
+                return null;
             }
         }
 

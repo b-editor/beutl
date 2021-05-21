@@ -3,9 +3,9 @@ using Avalonia.Interactivity;
 using Avalonia.Markup.Xaml;
 
 using BEditor.Properties;
-using BEditor.ViewModels.Settings;
+using BEditor.ViewModels.ManagePlugins;
 
-namespace BEditor.Views.Settings
+namespace BEditor.Views.ManagePlugins
 {
     public sealed class LoadedPlugins : UserControl
     {

@@ -244,8 +244,8 @@ Do you want to perform the operation?</value>
   <data name="Infomation" xml:space="preserve">
     <value>Infomation</value>
   </data>
-  <data name="LoadedPlugins" xml:space="preserve">
-    <value>Loaded plugins</value>
+  <data name="Installed" xml:space="preserve">
+    <value>Installed</value>
   </data>
   <data name="DisabledPlugins" xml:space="preserve">
     <value>Disabled plugins</value>
@@ -613,5 +613,8 @@ Please select the plugin you want to load</value>
   </data>
   <data name="Operate" xml:space="preserve">
     <value>Operate</value>
+  </data>
+  <data name="ManagePlugins" xml:space="preserve">
+    <value>Manage Plugins</value>
   </data>
 </root>

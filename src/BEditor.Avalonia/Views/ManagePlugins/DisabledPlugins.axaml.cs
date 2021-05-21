@@ -1,7 +1,7 @@
 using Avalonia.Controls;
 using Avalonia.Markup.Xaml;
 
-namespace BEditor.Views.Settings
+namespace BEditor.Views.ManagePlugins
 {
     public class DisabledPlugins : UserControl
     {

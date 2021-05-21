@@ -1,0 +1,49 @@
+<UserControl
+    xmlns="https://github.com/avaloniaui"
+    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+    xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+    xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+    xmlns:props="using:BEditor.Properties"
+    xmlns:vm="using:BEditor.ViewModels.ManagePlugins"
+    x:DataType="vm:LibraryViewModel"
+    mc:Ignorable="d" d:DesignWidth="800" d:DesignHeight="450"
+    x:Class="BEditor.Views.ManagePlugins.Library">
+    <UserControl.DataContext>
+        <vm:LibraryViewModel />
+    </UserControl.DataContext>
+    <Panel>
+        <ProgressBar
+            Margin="8"
+            IsIndeterminate="True"
+            IsVisible="{CompiledBinding IsLoaded.Value, Mode=OneWay}" />
+
+        <Grid ColumnDefinitions="2*,*">
+
+            <!--Right-->
+            <StackPanel Grid.Column="1" Margin="8" HorizontalAlignment="Stretch" Spacing="8" Orientation="Vertical">
+                <TextBox
+                    Text="{CompiledBinding SearchText.Value, Mode=TwoWay}"
+                    UseFloatingWatermark="True"
+                    Watermark="{x:Static props:Strings.Search}">
+                    <TextBox.InnerRightContent>
+                        <Button Command="{CompiledBinding Search, Mode=OneTime}">
+                            <PathIcon Data="{StaticResource Search16Regular}" Width="16" />
+                        </Button>
+                    </TextBox.InnerRightContent>
+                </TextBox>
+                
+                <ComboBox
+                    SelectedItem="{CompiledBinding SelectedRepos.Value, Mode=TwoWay}"
+                    Items="{CompiledBinding Repositories, Mode=OneTime}"
+                    Width="{Binding $parent.Bounds.Width, Mode=OneWay}">
+                    <ComboBox.ItemTemplate>
+                        <DataTemplate>
+                            <TextBlock Text="{Binding Info.Name, Mode=OneTime}" />
+                        </DataTemplate>
+                    </ComboBox.ItemTemplate>
+                </ComboBox>
+                
+            </StackPanel>
+        </Grid>      
+    </Panel>
+</UserControl>

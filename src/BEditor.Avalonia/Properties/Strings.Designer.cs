@@ -649,6 +649,15 @@ namespace BEditor.Properties {
         }
         
         /// <summary>
+        ///   Looks up a localized string similar to Installed.
+        /// </summary>
+        public static string Installed {
+            get {
+                return ResourceManager.GetString("Installed", resourceCulture);
+            }
+        }
+        
+        /// <summary>
         ///   Looks up a localized string similar to {0} is checking..
         /// </summary>
         public static string IsChecking {
@@ -721,15 +730,6 @@ namespace BEditor.Properties {
         }
         
         /// <summary>
-        ///   Looks up a localized string similar to Loaded plugins.
-        /// </summary>
-        public static string LoadedPlugins {
-            get {
-                return ResourceManager.GetString("LoadedPlugins", resourceCulture);
-            }
-        }
-        
-        /// <summary>
         ///   Looks up a localized string similar to Load this plugin next time.
         /// </summary>
         public static string LoadPlugin {
@@ -744,6 +744,15 @@ namespace BEditor.Properties {
         public static string Log {
             get {
                 return ResourceManager.GetString("Log", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to Manage Plugins.
+        /// </summary>
+        public static string ManagePlugins {
+            get {
+                return ResourceManager.GetString("ManagePlugins", resourceCulture);
             }
         }
         

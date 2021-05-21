@@ -3,6 +3,7 @@
     xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
     xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
     xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+    xmlns:local="using:BEditor.Views.ManagePlugins"
     xmlns:titlebar="using:BEditor.Views.CustomTitlebars"
     xmlns:prop="using:BEditor.Properties"
     xmlns:vm="using:BEditor.ViewModels"
@@ -15,8 +16,8 @@
     Background="Transparent"
     WindowStartupLocation="CenterScreen"
     x:Class="BEditor.Views.ManagePlugins.ManagePluginsWindow">
-    <Panel>
-        <DockPanel HorizontalAlignment="Stretch">
+    <Grid RowDefinitions="Auto,*">
+        <DockPanel HorizontalAlignment="Stretch" Grid.RowSpan="2">
             <ExperimentalAcrylicBorder IsHitTestVisible="False" DockPanel.Dock="Left" Width="240">
                 <ExperimentalAcrylicBorder.Material>
                     <ExperimentalAcrylicMaterial
@@ -35,9 +36,9 @@
             </ExperimentalAcrylicBorder>
         </DockPanel>
 
-        <titlebar:WindowsTitlebarButtons VerticalAlignment="Top"/>
+        <titlebar:WindowsTitlebarButtons/>
 
-        <TabControl Classes="sidebar" Margin="0,16,0,0">
+        <TabControl Classes="sidebar" Grid.Row="1">
             <TabControl.Styles>
                 <Style Selector="StackPanel">
                     <Setter Property="Spacing" Value="16" />
@@ -52,13 +53,30 @@
             <TabItem>
                 <TabItem.Header>
                     <StackPanel>
-                        <PathIcon Data="{StaticResource Info20Regular}"/>
-                        <TextBlock Text="{x:Static prop:Strings.Infomation}" />
+                        <PathIcon Data="{StaticResource Extension20Regular}"/>
+                        <TextBlock Text="{x:Static prop:Strings.Installed}" />
                     </StackPanel>
                 </TabItem.Header>
-
-                
+                <local:LoadedPlugins/>
+            </TabItem>
+            <TabItem>
+                <TabItem.Header>
+                    <StackPanel>
+                        <PathIcon Data="{StaticResource PlugDisconnected20Regular}"/>
+                        <TextBlock Text="{x:Static prop:Strings.DisabledPlugins}" />
+                    </StackPanel>
+                </TabItem.Header>
+                <local:DisabledPlugins/>
+            </TabItem>
+            <TabItem>
+                <TabItem.Header>
+                    <StackPanel>
+                        <PathIcon Data="{StaticResource BookDatabase24Regular}"/>
+                        <TextBlock Text="{x:Static prop:Strings.Library}" />
+                    </StackPanel>
+                </TabItem.Header>
+                <local:Library/>
             </TabItem>
         </TabControl>
-    </Panel>
+    </Grid>
 </Window>

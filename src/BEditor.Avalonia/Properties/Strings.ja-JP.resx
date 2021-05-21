@@ -304,8 +304,8 @@
   <data name="Infomation" xml:space="preserve">
     <value>情報</value>
   </data>
-  <data name="LoadedPlugins" xml:space="preserve">
-    <value>読み込まれているプラグイン</value>
+  <data name="Installed" xml:space="preserve">
+    <value>インストール済み</value>
   </data>
   <data name="Language" xml:space="preserve">
     <value>言語</value>
@@ -613,5 +613,8 @@
   </data>
   <data name="Operate" xml:space="preserve">
     <value>操作</value>
+  </data>
+  <data name="ManagePlugins" xml:space="preserve">
+    <value>プラグインを管理</value>
   </data>
 </root>

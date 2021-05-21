@@ -6,7 +6,7 @@ using BEditor.Plugin;
 
 using Reactive.Bindings;
 
-namespace BEditor.ViewModels.Settings
+namespace BEditor.ViewModels.ManagePlugins
 {
     public sealed class LoadedPluginsViewModel
     {

@@ -5,10 +5,10 @@
     xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
     xmlns:properties="using:BEditor.Properties"
     xmlns:plugin="clr-namespace:BEditor.Plugin;assembly=BEditor.Core"
-    xmlns:vm="using:BEditor.ViewModels.Settings"
+    xmlns:vm="using:BEditor.ViewModels.ManagePlugins"
     x:DataType="vm:LoadedPluginsViewModel"
     mc:Ignorable="d" d:DesignWidth="800" d:DesignHeight="450"
-    x:Class="BEditor.Views.Settings.LoadedPlugins">
+    x:Class="BEditor.Views.ManagePlugins.LoadedPlugins">
     <UserControl.DataContext>
         <vm:LoadedPluginsViewModel/>
     </UserControl.DataContext>

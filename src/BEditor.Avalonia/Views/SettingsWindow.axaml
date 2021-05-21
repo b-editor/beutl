@@ -16,8 +16,8 @@
     WindowStartupLocation="CenterScreen"
     x:Class="BEditor.Views.SettingsWindow"
     Title="SettingsWindow">
-    <Panel>
-        <DockPanel HorizontalAlignment="Stretch">
+    <Grid RowDefinitions="Auto,*">
+        <DockPanel HorizontalAlignment="Stretch" Grid.RowSpan="2">
             <ExperimentalAcrylicBorder IsHitTestVisible="False" DockPanel.Dock="Left" Width="240">
                 <ExperimentalAcrylicBorder.Material>
                     <ExperimentalAcrylicMaterial
@@ -36,9 +36,9 @@
             </ExperimentalAcrylicBorder>
         </DockPanel>
 
-        <titlebar:WindowsTitlebarButtons VerticalAlignment="Top"/>
+        <titlebar:WindowsTitlebarButtons />
 
-        <TabControl Classes="sidebar" Margin="0,16,0,0">
+        <TabControl Classes="sidebar" Grid.Row="1">
             <TabControl.Styles>
                 <Style Selector="StackPanel">
                     <Setter Property="Spacing" Value="16" />
@@ -80,24 +80,6 @@
             <TabItem>
                 <TabItem.Header>
                     <StackPanel>
-                        <PathIcon Data="{StaticResource Extension20Regular}"/>
-                        <TextBlock Text="{x:Static prop:Strings.LoadedPlugins}" />
-                    </StackPanel>
-                </TabItem.Header>
-                <ctr:LoadedPlugins/>
-            </TabItem>
-            <TabItem>
-                <TabItem.Header>
-                    <StackPanel>
-                        <PathIcon Data="{StaticResource PlugDisconnected20Regular}"/>
-                        <TextBlock Text="{x:Static prop:Strings.DisabledPlugins}" />
-                    </StackPanel>
-                </TabItem.Header>
-                <ctr:DisabledPlugins/>
-            </TabItem>
-            <TabItem>
-                <TabItem.Header>
-                    <StackPanel>
                         <PathIcon Data="{StaticResource BookDatabase24Regular}"/>
                         <TextBlock Text="{x:Static prop:Strings.Repositories}" />
                     </StackPanel>
@@ -123,7 +105,7 @@
 
             </TabItem>
         </TabControl>
-    </Panel>
+    </Grid>
 
 
 </Window>

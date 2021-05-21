@@ -4,7 +4,7 @@ using System.Reactive.Linq;
 
 using Reactive.Bindings;
 
-namespace BEditor.ViewModels.Settings
+namespace BEditor.ViewModels.ManagePlugins
 {
     public class DisabledPluginsViewModel
     {
