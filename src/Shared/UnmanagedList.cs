@@ -14,8 +14,8 @@ namespace BEditor
     {
         private const int DefaultCapacity = 4;
 
-        internal UnmanagedArray<T> _items;
-        internal int _size;
+        private UnmanagedArray<T> _items;
+        private int _size;
         private int _version;
 
         public UnmanagedList()

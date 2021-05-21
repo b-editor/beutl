@@ -1,4 +1,5 @@
-﻿using System.Collections.Generic;
+﻿using System;
+using System.Collections.Generic;
 using System.Diagnostics.CodeAnalysis;
 using System.Linq;
 using System.Numerics;
@@ -10,6 +11,8 @@ using BEditor.Drawing;
 using BEditor.Drawing.Pixel;
 using BEditor.Graphics;
 using BEditor.Primitive.Resources;
+
+using SkiaSharp;
 
 namespace BEditor.Primitive.Objects
 {
@@ -92,15 +95,6 @@ namespace BEditor.Primitive.Objects
             new DocumentPropertyMetadata(string.Empty));
 
         /// <summary>
-        /// Defines the <see cref="EnableMultiple"/> property.
-        /// </summary>
-        public static readonly DirectEditingProperty<Text, CheckProperty> EnableMultipleProperty = EditingProperty.RegisterSerializeDirect<CheckProperty, Text>(
-            nameof(EnableMultiple),
-            owner => owner.EnableMultiple,
-            (owner, obj) => owner.EnableMultiple = obj,
-            new CheckPropertyMetadata(Strings.EnableMultipleObjects));
-
-        /// <summary>
         /// Initializes a new instance of the <see cref="Text"/> class.
         /// </summary>
         public Text()
@@ -147,12 +141,6 @@ namespace BEditor.Primitive.Objects
         public SelectorProperty VerticalAlign { get; private set; }
 
         /// <summary>
-        /// Gets whether or not to enable multiple objects.
-        /// </summary>
-        [AllowNull]
-        public CheckProperty EnableMultiple { get; private set; }
-
-        /// <summary>
         /// Gets the string to be drawn.
         /// </summary>
         [AllowNull]
@@ -172,7 +160,6 @@ namespace BEditor.Primitive.Objects
             yield return Font;
             yield return HorizontalAlign;
             yield return VerticalAlign;
-            yield return EnableMultiple;
             yield return Document;
         }
 
@@ -187,31 +174,6 @@ namespace BEditor.Primitive.Objects
                 (HorizontalAlign)HorizontalAlign.Index,
                 (VerticalAlign)VerticalAlign.Index,
                 LineSpacing[args.Frame]);
-        }
-
-        /// <inheritdoc/>
-        protected override void OnRender(EffectApplyArgs<IEnumerable<ImageInfo>> args)
-        {
-            if (!EnableMultiple.Value)
-            {
-                args.Value = new ImageInfo[]
-                {
-                    new(OnRender(args as EffectApplyArgs), _ => default)
-                };
-
-                return;
-            }
-            args.Value = Document.Value
-                .Select((c, index) => (Image.Text(c.ToString(), Font.Value, Size[args.Frame], Color.Value, (HorizontalAlign)HorizontalAlign.Index, (VerticalAlign)VerticalAlign.Index, LineSpacing[args.Frame]), index))
-                .Select(t =>
-                {
-                    return new ImageInfo(t.Item1, img => GetTransform(img.Source.Width * t.index, 0));
-                });
-        }
-
-        private static Transform GetTransform(int x, int y)
-        {
-            return new Transform(new(x, y, 0), Vector3.Zero, Vector3.Zero, Vector3.Zero);
         }
     }
 }
