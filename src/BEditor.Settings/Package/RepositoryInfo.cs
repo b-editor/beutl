@@ -39,7 +39,7 @@ namespace BEditor.Package
             {
                 return await JsonSerializer.DeserializeAsync<Repository>(File.OpenRead(Url.LocalPath));
             }
-            else 
+            else
             {
                 return await JsonSerializer.DeserializeAsync<Repository>(await client.GetStreamAsync(Url));
             }
