@@ -3,46 +3,44 @@
 ## BEditor.Settings
 
 * BEditorの設定。  
-* シリアライズのクラスと設定クラスのみ
+* シリアライズのクラスと設定クラス
+* プラグインのパッケージクラス等
 
 ## BEditor.Compute
 
-* OpenCLのラッパーです。
+* OpenCLのオブジェクト指向のApiを提供します。
 
 ## BEditor.Drawing
 
-* 2Dの描画ライブラリです。  
-* 内部でSkiaSharpを使っていますが、一部の処理はC#で実装しています。
+* 2Dの描画機能を提供します。
+* 内部でSkiaSharp, OpenCVを使っていますが、一部の処理はC#で実装しています。
 
 ## BEditor.Graphics
 
-* OpenGLを使った3Dの描画ライブラリです。
+* OpenGLのオブジェクト指向のApiを提供します。
 
 ## BEditor.Media
 
-* メディアファイルの入出力ライブラリです。  
-* FFmpegを利用しています。
+* メディアファイルの入出力を抽象化します。
 
 ## BEditor.Core
 
-* 主にプロジェクトのデータがあるライブラリです。
+* プロジェクトのデータを管理します。
 
 ## BEditor.Primitive
 
 * デフォルトであるオブジェクトやエフェクトがあるライブラリです。
 
-## BEditor.Console
-
-* コンソールでプロジェクトを編集する実行ファイルのプロジェクトです。
-
 ## BEditor.WPF.Controls
 
 * BEditor.WPF用のカスタムコントロールライブラリです。
+* このプロジェクトはBEditor.Avaloniaに移行しました
 
 ## BEditor.WPF
 
 * BEditorの実行ファイルのプロジェクトです。  
 * WPFをつかっています。
+* このプロジェクトはBEditor.Avaloniaに移行しました
 
 ## BEditor.Avalonia
 
@@ -69,7 +67,7 @@
     * さらに子要素のLoad, Unloadも自動でやってくれる。
 * Bindableとは
     * プロパティの値を同期する機能
-    * 実態はIObservableとIObserverを実装するオブジェクトなのでSystem.Reactiveを使うことが出来る
+    * 実態はIObservableとIObserverを実装するオブジェクトなのでSystem.Reactiveを使うことができる
 
 ## Project
 
@@ -105,3 +103,22 @@
 
 EaseProperty, ColorAnimationPropertyのイージング関数のベースクラスです。
 プラグインで追加することができます。
+
+# プラグインについて
+プラグインにできること
+* オブジェクト, エフェクト, イージングの追加
+* エンコーダー, デコーダーの追加
+* カスタムメニューの追加
+* DIコンテナにサービスを追加
+
+# BEditor.Extensions
+公式で提供する拡張機能 (プラグイン)です。
+
+## BEditor.Extensions.FFmpeg
+* エンコード、デコードにFFmpegを使えるようにする、拡張機能です
+
+## BEditor.Extensins.Svg
+* Svg画像オブジェクトを追加します
+
+## BEditor.Extensions.AviUtl
+* AviUtl 拡張編集プラグインのスクリプトを実行できるようにします。
