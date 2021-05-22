@@ -31,7 +31,6 @@ namespace BEditor
 {
     public class App : Application
     {
-        public static readonly string FFmpegDir = Path.Combine(AppContext.BaseDirectory, "ffmpeg");
         public static readonly ILogger? Logger = AppModel.Current.LoggingFactory.CreateLogger<App>();
         public static readonly DispatcherTimer BackupTimer = new()
         {
@@ -130,7 +129,6 @@ namespace BEditor
             DirectoryManager.Default.Directories.Add(colorsDir);
             DirectoryManager.Default.Directories.Add(backupDir);
             DirectoryManager.Default.Directories.Add(pluginsDir);
-            DirectoryManager.Default.Directories.Add(FFmpegDir);
 
             DirectoryManager.Default.Run();
         }
@@ -189,47 +187,29 @@ namespace BEditor
         private static async ValueTask InitialPluginsAsync()
         {
             PluginBuilder.Config = new PluginConfig(AppModel.Current);
-
             // すべて
             var all = PluginManager.Default.GetNames();
-            // 未知なプラグイン
-            var unknown = all.Except(Settings.Default.EnablePlugins)
-                .Except(Settings.Default.DisablePlugins)
-                .ToArray();
+            PluginManager.Default.Load(all);
 
-            if (unknown.Length != 0)
+            if (PluginManager.Default._tasks.Count is not 0)
             {
-                await Dispatcher.UIThread.InvokeAsync(async () =>
+                var dialog = new ProgressDialog();
+                dialog.Maximum.Value = 100;
+                _ = dialog.ShowDialog(GetMainWindow());
+                foreach (var (plugin, tasks) in PluginManager.Default._tasks)
                 {
-                    var viewmodel = new PluginsToLoadViewModel
+                    for (var i = 0; i < tasks.Count; i++)
                     {
-                        Plugins = new(unknown.Select(name => new PluginToLoad { Name = { Value = name } }))
-                    };
-                    var dialog = new PluginsToLoad
-                    {
-                        DataContext = viewmodel
-                    };
+                        dialog.Text.Value = string.Format(Strings.IsLoading, plugin.PluginName) + $"  :{i + 1}";
 
-                    await dialog.ShowDialog(GetMainWindow());
-
-                    foreach (var vm in viewmodel.Plugins)
-                    {
-                        if (vm.IsEnabled.Value)
-                        {
-                            Settings.Default.EnablePlugins.Add(vm.Name.Value);
-                        }
-                        else
-                        {
-                            Settings.Default.DisablePlugins.Add(vm.Name.Value);
-                        }
+                        var task = tasks[i];
+                        await task(dialog);
+                        dialog.Report(0);
                     }
+                }
 
-                    Settings.Default.Save();
-                });
+                dialog.Close();
             }
-
-            PluginManager.Default.Load(Settings.Default.EnablePlugins);
-
             AppModel.Current.ServiceProvider = AppModel.Current.Services.BuildServiceProvider();
         }
     }

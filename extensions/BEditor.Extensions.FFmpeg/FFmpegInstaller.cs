@@ -2,20 +2,16 @@
 using System.ComponentModel;
 using System.IO;
 using System.IO.Compression;
+using System.Linq;
 using System.Net;
 using System.Runtime.InteropServices;
 using System.Threading.Tasks;
 
-namespace BEditor.Models
+namespace BEditor.Extensions.FFmpeg
 {
     public sealed class FFmpegInstaller
     {
-        public FFmpegInstaller(string path)
-        {
-            BasePath = path;
-        }
-
-        public string BasePath { get; }
+        public string BasePath { get; set; } = string.Empty;
 
         public event EventHandler? StartInstall;
         public event EventHandler? Installed;

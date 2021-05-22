@@ -247,9 +247,6 @@ Do you want to perform the operation?</value>
   <data name="Installed" xml:space="preserve">
     <value>Installed</value>
   </data>
-  <data name="DisabledPlugins" xml:space="preserve">
-    <value>Disabled plugins</value>
-  </data>
   <data name="General" xml:space="preserve">
     <value>General</value>
   </data>
@@ -503,12 +500,6 @@ Please select the plugin you want to load</value>
   <data name="BackupInterval" xml:space="preserve">
     <value>Backup interval (min)</value>
   </data>
-  <data name="UnloadPlugin" xml:space="preserve">
-    <value>Don't load this plugin next time</value>
-  </data>
-  <data name="LoadPlugin" xml:space="preserve">
-    <value>Load this plugin next time</value>
-  </data>
   <data name="Delete" xml:space="preserve">
     <value>Delete</value>
   </data>
@@ -622,5 +613,17 @@ Please select the plugin you want to load</value>
   </data>
   <data name="Tag" xml:space="preserve">
     <value>Tag</value>
+  </data>
+  <data name="Install" xml:space="preserve">
+    <value>Install</value>
+  </data>
+  <data name="Uninstall" xml:space="preserve">
+    <value>Uninstall</value>
+  </data>
+  <data name="WhenYouCloseTheApplicationTheChangesWillBegin" xml:space="preserve">
+    <value>When you close the application, the changes will begin.</value>
+  </data>
+  <data name="Changes" xml:space="preserve">
+    <value>Changes</value>
   </data>
 </root>

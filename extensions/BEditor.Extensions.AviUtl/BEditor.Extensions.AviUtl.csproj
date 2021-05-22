@@ -5,6 +5,8 @@
         <Nullable>enable</Nullable>
         <OutputPath>..\..\src\BEditor.Avalonia\bin\$(Configuration)\net5.0\user\plugins\BEditor.Extensions.AviUtl</OutputPath>
         <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
+        <Company>b-editor</Company>
+        <Version>0.1.2</Version>
     </PropertyGroup>
 
     <Import Project="..\..\props\plugin.props" />

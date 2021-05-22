@@ -1,0 +1,46 @@
+<UserControl
+    xmlns="https://github.com/avaloniaui"
+    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+    xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+    xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+    xmlns:props="using:BEditor.Properties"
+    xmlns:vm="using:BEditor.ViewModels.ManagePlugins"
+    x:DataType="vm:ScheduleChangesViewModel"
+    mc:Ignorable="d" d:DesignWidth="800" d:DesignHeight="450"
+    x:Class="BEditor.Views.ManagePlugins.ScheduleChanges">
+    <UserControl.DataContext>
+        <vm:ScheduleChangesViewModel/>
+    </UserControl.DataContext>
+    <Grid>
+        <Grid.RowDefinitions>
+            <RowDefinition/>
+            <RowDefinition Height="Auto"/>
+        </Grid.RowDefinitions>
+        <ListBox
+            Background="Transparent"
+            Items="{CompiledBinding Schedules, Mode=OneTime}"
+            SelectedItem="{CompiledBinding SelectedItem.Value, Mode=TwoWay}">
+            <ListBox.ItemTemplate>
+                <DataTemplate>
+                    <Grid RowDefinitions="Auto,*">
+                        <StackPanel Orientation="Horizontal">
+                            <TextBlock FontSize="16" Text="{Binding Name}" />
+
+                            <TextBlock FontSize="12" VerticalAlignment="Center" Margin="16,0,0,0" Text="{Binding Type}"/>
+                        </StackPanel>
+
+                        <TextBlock FontSize="12" Margin="0,10,0,0" Text="{Binding Description}" Grid.Row="1" />
+                    </Grid>
+                </DataTemplate>
+            </ListBox.ItemTemplate>
+        </ListBox>
+
+        <Button
+            Grid.Row="1"
+            Background="Transparent"
+            IsVisible="{CompiledBinding IsSelected.Value, Mode=OneWay}"
+            Margin="10"
+            Content="{x:Static props:Strings.Cancel}"
+            Command="{CompiledBinding Cancel, Mode=OneTime}"/>
+    </Grid>
+</UserControl>

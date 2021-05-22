@@ -256,9 +256,6 @@
   <data name="DeleteCommand" xml:space="preserve">
     <value>記録したコマンドの消去</value>
   </data>
-  <data name="DisabledPlugins" xml:space="preserve">
-    <value>無効なプラグイン</value>
-  </data>
   <data name="Disconnect" xml:space="preserve">
     <value>切断</value>
   </data>
@@ -324,9 +321,6 @@
   </data>
   <data name="License" xml:space="preserve">
     <value>ライセンス</value>
-  </data>
-  <data name="LoadPlugin" xml:space="preserve">
-    <value>次回からこのプラグインを読み込む</value>
   </data>
   <data name="Log" xml:space="preserve">
     <value>ログ</value>
@@ -485,9 +479,6 @@
   <data name="Undo" xml:space="preserve">
     <value>やり直す</value>
   </data>
-  <data name="UnloadPlugin" xml:space="preserve">
-    <value>次回からこのプラグインを読み込まない</value>
-  </data>
   <data name="Update" xml:space="preserve">
     <value>アップデート</value>
   </data>
@@ -622,5 +613,17 @@
   </data>
   <data name="Tag" xml:space="preserve">
     <value>タグ</value>
+  </data>
+  <data name="Install" xml:space="preserve">
+    <value>インストール</value>
+  </data>
+  <data name="Uninstall" xml:space="preserve">
+    <value>アンインストール</value>
+  </data>
+  <data name="WhenYouCloseTheApplicationTheChangesWillBegin" xml:space="preserve">
+    <value>アプリケーションを終了すると、変更が開始されます。</value>
+  </data>
+  <data name="Changes" xml:space="preserve">
+    <value>変更</value>
   </data>
 </root>

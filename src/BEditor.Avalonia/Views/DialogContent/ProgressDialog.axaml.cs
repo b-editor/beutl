@@ -13,7 +13,7 @@ using static BEditor.IMessage;
 
 namespace BEditor.Views.DialogContent
 {
-    public sealed class ProgressDialog : Window
+    public sealed class ProgressDialog : Window, IProgress<int>
     {
         public ProgressDialog()
         {
@@ -74,6 +74,11 @@ namespace BEditor.Views.DialogContent
         public ReactiveProperty<int> NowValue { get; } = new() { Value = 0 };
 
         public ButtonType DialogResult { get; private set; }
+
+        public void Report(int value)
+        {
+            NowValue.Value = value;
+        }
 
         protected override void OnInitialized()
         {

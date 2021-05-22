@@ -15,8 +15,8 @@
     <Grid ColumnDefinitions="2*,*">
 
         <!--Right-->
-        <Grid Grid.Column="1" Margin="8">
-            <StackPanel Spacing="8" Orientation="Vertical">
+        <DockPanel Grid.Column="1" Margin="8">
+            <StackPanel Spacing="8" Orientation="Vertical" DockPanel.Dock="Top">
                 <TextBox
                     Text="{CompiledBinding SearchText.Value, Mode=TwoWay}"
                     UseFloatingWatermark="True"
@@ -60,11 +60,12 @@
                 </StackPanel>
 
                 <ctrs:HyperLink Text="HomePage" Command="{CompiledBinding OpenHomePage, Mode=OneTime}" />
-            </StackPanel>
 
+            </StackPanel>
+            
             <StackPanel
+                DockPanel.Dock="Bottom"
                 HorizontalAlignment="Center"
-                VerticalAlignment="Bottom"
                 Orientation="Horizontal">
                 <Button Command="{CompiledBinding PrevPage, Mode=OneTime}" IsEnabled="{CompiledBinding ExistPrevPage.Value, Mode=OneWay}">
                     <PathIcon Data="{StaticResource ArrowLeft20Regular}"/>
@@ -74,7 +75,25 @@
                     <PathIcon Data="{StaticResource ArrowRight20Regular}"/>
                 </Button>
             </StackPanel>
-        </Grid>
+
+            <Button
+                DockPanel.Dock="Bottom"
+                VerticalAlignment="Bottom"
+                Content="{x:Static props:Strings.Cancel}"
+                IsVisible="{CompiledBinding CancelIsVisible.Value, Mode=OneWay}"
+                Command="{CompiledBinding CancelChange, Mode=OneTime}"
+                HorizontalAlignment="Stretch"
+                HorizontalContentAlignment="Center" />
+            
+            <Button
+                VerticalAlignment="Bottom"
+                Content="{x:Static props:Strings.Install}"
+                IsVisible="{CompiledBinding InstallIsVisible.Value, Mode=OneWay}"
+                Command="{CompiledBinding Install, Mode=OneTime}"
+                HorizontalAlignment="Stretch"
+                HorizontalContentAlignment="Center" />
+            
+        </DockPanel>
 
         <!--Left-->
         <ListBox
@@ -95,6 +114,11 @@
                 </DataTemplate>
             </ListBox.ItemTemplate>
         </ListBox>
+        
+        <TextBlock
+            Margin="8,0,0,16"
+            Text="{x:Static props:Strings.WhenYouCloseTheApplicationTheChangesWillBegin}"
+            VerticalAlignment="Bottom" />
 
         <ProgressBar
             VerticalAlignment="Bottom"

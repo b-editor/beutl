@@ -372,7 +372,7 @@ namespace BEditor.Extensions.AviUtl
 
         public override SettingRecord Settings { get; set; } = new CustomSettings();
 
-        public static void Register(string[] args)
+        public static void Register()
         {
             var dir = Path.Combine(Directory.GetParent(Assembly.GetExecutingAssembly().Location)!.FullName, "script");
             if (!Directory.Exists(dir)) Directory.CreateDirectory(dir);

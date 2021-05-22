@@ -97,20 +97,29 @@
             <TabItem>
                 <TabItem.Header>
                     <StackPanel>
-                        <PathIcon Data="{StaticResource PlugDisconnected20Regular}"/>
-                        <TextBlock Text="{x:Static prop:Strings.DisabledPlugins}" />
-                    </StackPanel>
-                </TabItem.Header>
-                <local:DisabledPlugins/>
-            </TabItem>
-            <TabItem>
-                <TabItem.Header>
-                    <StackPanel>
                         <PathIcon Data="{StaticResource BookDatabase24Regular}"/>
                         <TextBlock Text="{x:Static prop:Strings.Library}" />
                     </StackPanel>
                 </TabItem.Header>
                 <local:Library/>
+            </TabItem>
+            <TabItem>
+                <TabItem.Header>
+                    <StackPanel>
+                        <PathIcon Data="{StaticResource CalendarLtr24Regular}"/>
+                        <TextBlock Text="{x:Static prop:Strings.Changes}" />
+                    </StackPanel>
+                </TabItem.Header>
+                <local:ScheduleChanges/>
+            </TabItem>
+            <TabItem>
+                <TabItem.Header>
+                    <StackPanel>
+                        <PathIcon Data="{StaticResource ArrowClockwise24Regular}"/>
+                        <TextBlock Text="{x:Static prop:Strings.Update}" />
+                    </StackPanel>
+                </TabItem.Header>
+                <local:Update/>
             </TabItem>
         </TabControl>
     </Grid>

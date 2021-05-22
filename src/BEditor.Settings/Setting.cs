@@ -33,8 +33,6 @@ namespace BEditor
         private uint? backUpInterval = 10;
         private string lastTimeFolder = "";
         private uint widthOf1Frame = 5;
-        private ObservableCollection<string>? enablePlugins;
-        private ObservableCollection<string>? disablePlugins;
         private ObservableCollection<string>? includeFonts;
         private ObservableCollection<string>? recentFiles;
         private ObservableCollection<PackageSourceInfo>? packageSources;
@@ -101,18 +99,6 @@ namespace BEditor
             set => SetValue(value, ref widthOf1Frame, widthOf1FrameArgs);
         }
         [DataMember]
-        public ObservableCollection<string> EnablePlugins
-        {
-            get => enablePlugins ??= new();
-            set => enablePlugins = value;
-        }
-        [DataMember]
-        public ObservableCollection<string> DisablePlugins
-        {
-            get => disablePlugins ??= new();
-            set => disablePlugins = value;
-        }
-        [DataMember]
         public ObservableCollection<string> RecentFiles
         {
             get => recentFiles ??= new();
@@ -177,7 +163,7 @@ namespace BEditor
         {
             get => packageSources ??= new()
             {
-                new() { Name = "BEditor", Url = new("https://beditor.net/api/index.json") }
+                new() { Name = "BEditor", Url = new("https://beditor.net/api/packages") }
             };
             private set => packageSources = value;
         }

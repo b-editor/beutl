@@ -4636,6 +4636,12 @@
             <param name="encoderBuilder"></param>
             <returns>The same instance of the <see cref="T:BEditor.Plugin.PluginBuilder"/> for chaining.</returns>
         </member>
+        <member name="M:BEditor.Plugin.PluginBuilder.Task(System.Func{System.IProgress{System.Int32},System.Threading.Tasks.ValueTask})">
+             <summary>
+            
+             </summary>
+             <param name="func"></param>
+        </member>
         <member name="M:BEditor.Plugin.PluginBuilder.SetCustomMenu(System.String,System.Collections.Generic.IEnumerable{BEditor.Plugin.ICustomMenu})">
             <summary>
             Set the menu.

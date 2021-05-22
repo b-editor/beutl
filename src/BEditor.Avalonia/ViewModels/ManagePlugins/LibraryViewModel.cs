@@ -8,7 +8,9 @@ using System.Text.RegularExpressions;
 using System.Threading.Tasks;
 
 using BEditor.Models;
+using BEditor.Models.ManagePlugins;
 using BEditor.Package;
+using BEditor.Plugin;
 
 using Microsoft.Extensions.DependencyInjection;
 
@@ -104,6 +106,14 @@ namespace BEditor.ViewModels.ManagePlugins
 
             IsSelected = SelectedItem.Select(i => i is not null).ToReadOnlyReactivePropertySlim();
 
+            CancelIsVisible = SelectedItem.Where(i => i is not null)
+                .Select(_ => PluginChangeSchedule.UpdateOrInstall.Any(i => i.Target == SelectedItem.Value))
+                .ToReadOnlyReactivePropertySlim();
+
+            InstallIsVisible = SelectedItem.Where(i => i is not null)
+                .Select(_ => !PluginManager.Default.Plugins.Any(i => i.PluginName == SelectedItem.Value!.Name) && !CancelIsVisible.Value)
+                .ToReadOnlyReactivePropertySlim();
+
             OpenHomePage.Where(_ => IsSelected.Value)
                 .Subscribe(_ =>
                 {
@@ -121,18 +131,36 @@ namespace BEditor.ViewModels.ManagePlugins
                     }
                 });
 
-            Task.Run(async () =>
-            {
-                foreach (var item in Setting.Default.PackageSources)
-                {
-                    var repos = await item.ToRepositoryAsync(_client);
-                    if (repos is null) continue;
-                    PackageSources.Add(repos);
-                }
+            LoadTask = Task.Run(async () =>
+              {
+                  foreach (var item in Setting.Default.PackageSources)
+                  {
+                      var repos = await item.ToRepositoryAsync(_client);
+                      if (repos is null) continue;
+                      PackageSources.Add(repos);
+                  }
 
-                SelectedSource.Value = PackageSources.FirstOrDefault();
-                IsLoaded.Value = false;
+                  SelectedSource.Value = PackageSources.FirstOrDefault();
+                  IsLoaded.Value = false;
+              });
+
+            Install.Where(_ => InstallIsVisible.Value)
+                .Subscribe(_ =>
+            {
+                PluginChangeSchedule.UpdateOrInstall.Add(new(SelectedItem.Value!, PluginChangeType.Install));
+                SelectedItem.ForceNotify();
             });
+
+            CancelChange.Where(_ => CancelIsVisible.Value)
+                .Subscribe(_ =>
+                {
+                    var item = PluginChangeSchedule.UpdateOrInstall.FirstOrDefault(i => i.Target == SelectedItem.Value);
+                    if (item is not null)
+                    {
+                        PluginChangeSchedule.UpdateOrInstall.Remove(item);
+                        SelectedItem.ForceNotify();
+                    }
+                });
         }
 
         public ReactiveCommand NextPage { get; } = new();
@@ -153,6 +181,10 @@ namespace BEditor.ViewModels.ManagePlugins
 
         public ReadOnlyReactivePropertySlim<bool> IsSelected { get; }
 
+        public ReadOnlyReactivePropertySlim<bool> CancelIsVisible { get; }
+
+        public ReadOnlyReactivePropertySlim<bool> InstallIsVisible { get; }
+
         public ReactivePropertySlim<PackageSource?> SelectedSource { get; } = new();
 
         public ObservableCollection<PackageSource> PackageSources { get; } = new();
@@ -162,6 +194,12 @@ namespace BEditor.ViewModels.ManagePlugins
         public ObservableCollection<Pack> Items { get; } = new();
 
         public ReactiveCommand OpenHomePage { get; } = new();
+
+        public ReactiveCommand Install { get; } = new();
+
+        public ReactiveCommand CancelChange { get; } = new();
+
+        public Task LoadTask { get; }
 
         private void ReloadItems()
         {

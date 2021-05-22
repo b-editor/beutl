@@ -234,6 +234,15 @@ namespace BEditor.Properties {
         }
         
         /// <summary>
+        ///   Looks up a localized string similar to Changes.
+        /// </summary>
+        public static string Changes {
+            get {
+                return ResourceManager.GetString("Changes", resourceCulture);
+            }
+        }
+        
+        /// <summary>
         ///   Looks up a localized string similar to Clip.
         /// </summary>
         public static string Clip {
@@ -429,15 +438,6 @@ namespace BEditor.Properties {
         public static string DeleteCommand {
             get {
                 return ResourceManager.GetString("DeleteCommand", resourceCulture);
-            }
-        }
-        
-        /// <summary>
-        ///   Looks up a localized string similar to Disabled plugins.
-        /// </summary>
-        public static string DisabledPlugins {
-            get {
-                return ResourceManager.GetString("DisabledPlugins", resourceCulture);
             }
         }
         
@@ -658,6 +658,15 @@ namespace BEditor.Properties {
         }
         
         /// <summary>
+        ///   Looks up a localized string similar to Install.
+        /// </summary>
+        public static string Install {
+            get {
+                return ResourceManager.GetString("Install", resourceCulture);
+            }
+        }
+        
+        /// <summary>
         ///   Looks up a localized string similar to Installed.
         /// </summary>
         public static string Installed {
@@ -735,15 +744,6 @@ namespace BEditor.Properties {
         public static string License {
             get {
                 return ResourceManager.GetString("License", resourceCulture);
-            }
-        }
-        
-        /// <summary>
-        ///   Looks up a localized string similar to Load this plugin next time.
-        /// </summary>
-        public static string LoadPlugin {
-            get {
-                return ResourceManager.GetString("LoadPlugin", resourceCulture);
             }
         }
         
@@ -1443,11 +1443,11 @@ namespace BEditor.Properties {
         }
         
         /// <summary>
-        ///   Looks up a localized string similar to Don&apos;t load this plugin next time.
+        ///   Looks up a localized string similar to Uninstall.
         /// </summary>
-        public static string UnloadPlugin {
+        public static string Uninstall {
             get {
-                return ResourceManager.GetString("UnloadPlugin", resourceCulture);
+                return ResourceManager.GetString("Uninstall", resourceCulture);
             }
         }
         
@@ -1538,6 +1538,15 @@ namespace BEditor.Properties {
         public static string View {
             get {
                 return ResourceManager.GetString("View", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to When you close the application, the changes will begin..
+        /// </summary>
+        public static string WhenYouCloseTheApplicationTheChangesWillBegin {
+            get {
+                return ResourceManager.GetString("WhenYouCloseTheApplicationTheChangesWillBegin", resourceCulture);
             }
         }
         

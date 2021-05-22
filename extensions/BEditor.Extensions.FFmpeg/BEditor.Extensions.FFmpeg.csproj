@@ -5,6 +5,8 @@
         <Nullable>enable</Nullable>
         <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
         <OutputPath>..\..\src\BEditor.Avalonia\bin\$(Configuration)\net5.0\user\plugins\BEditor.Extensions.FFmpeg</OutputPath>
+        <Company>b-editor</Company>
+        <Version>0.1.2</Version>
     </PropertyGroup>
 
     <Import Project="..\..\props\plugin.props" />

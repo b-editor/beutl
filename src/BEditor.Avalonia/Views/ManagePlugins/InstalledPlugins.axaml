@@ -63,10 +63,16 @@
                 Click="ApplySettings" />
             <Button
                 Background="Transparent"
-                IsEnabled="{CompiledBinding IsSelected.Value, Mode=OneWay}"
+                IsVisible="{CompiledBinding UninstallVisible.Value, Mode=OneWay}"
                 Margin="10"
-                Content="{x:Static properties:Strings.UnloadPlugin}"
-                Command="{CompiledBinding UnloadClick, Mode=OneTime}"/>
+                Content="{x:Static properties:Strings.Uninstall}"
+                Command="{CompiledBinding Uninstall, Mode=OneTime}"/>
+            <Button
+                Background="Transparent"
+                IsVisible="{CompiledBinding CancelVisible.Value, Mode=OneWay}"
+                Margin="10"
+                Content="{x:Static properties:Strings.Cancel}"
+                Command="{CompiledBinding Cancel, Mode=OneTime}"/>
         </VirtualizingStackPanel>
     </Grid>
 </UserControl>

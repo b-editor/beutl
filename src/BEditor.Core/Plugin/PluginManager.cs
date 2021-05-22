@@ -4,6 +4,7 @@ using System.IO;
 using System.Linq;
 using System.Reactive.Linq;
 using System.Reflection;
+using System.Threading.Tasks;
 
 using BEditor.Resources;
 
@@ -28,6 +29,8 @@ namespace BEditor.Plugin
         /// The plugin menus.
         /// </summary>
         internal readonly List<(string, IEnumerable<ICustomMenu>)> _menus = new();
+
+        internal readonly List<(PluginObject, List<Func<IProgress<int>, ValueTask>>)> _tasks = new();
 
         /// <summary>
         /// Initializes a new instance of the <see cref="PluginManager"/> class.
@@ -69,13 +72,12 @@ namespace BEditor.Plugin
                 .Where(static f => File.Exists(f))
                 .Select(static f => Assembly.LoadFrom(f));
 
-            var args = Environment.GetCommandLineArgs();
             foreach (var asm in plugins)
             {
                 try
                 {
                     Array.Find(asm.GetTypes(), t => t.Name is "Plugin")
-                        ?.InvokeMember("Register", BindingFlags.InvokeMethod, null, null, new object[] { args });
+                        ?.InvokeMember("Register", BindingFlags.InvokeMethod, null, null, Array.Empty<object>());
                 }
                 catch (Exception e)
                 {

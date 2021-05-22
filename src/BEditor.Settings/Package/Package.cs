@@ -31,5 +31,10 @@ namespace BEditor.Package
 
         [JsonPropertyName("download")]
         public string Download { get; set; } = string.Empty;
+
+        public Version ToVersion()
+        {
+            return new Version(Version);
+        }
     }
 }

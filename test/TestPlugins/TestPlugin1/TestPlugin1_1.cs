@@ -15,7 +15,7 @@ namespace TestPlugin1
 
         public override SettingRecord Settings { get; set; } = new Settings("", 0, 0, false);
 
-        public static void Register(string[] args)
+        public static void Register()
         {
             PluginBuilder.Configure<Plugin>()
                 .Register();

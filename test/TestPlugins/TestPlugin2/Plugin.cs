@@ -4,7 +4,7 @@ namespace TestPlugin2
 {
     public class Plugin
     {
-        public static void Register(string[] args)
+        public static void Register()
         {
             PluginBuilder.Configure<TestPlugin2>()
                 .SetCustomMenu("メニュー", new ICustomMenu[]

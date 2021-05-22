@@ -1,5 +1,6 @@
 ﻿using System;
 using System.Collections.Generic;
+using System.Threading.Tasks;
 
 using BEditor.Data;
 using BEditor.Data.Property.Easing;
@@ -22,6 +23,7 @@ namespace BEditor.Plugin
         private readonly List<EffectMetadata> _effects = new();
         private readonly List<ObjectMetadata> _objects = new();
         private readonly List<EasingMetadata> _eases = new();
+        private readonly List<Func<IProgress<int>, ValueTask>> _task = new();
         private (string?, IEnumerable<ICustomMenu>?) _menus;
 
         private PluginBuilder(Func<PluginObject> create)
@@ -101,6 +103,20 @@ namespace BEditor.Plugin
         }
 
         /// <summary>
+        ///
+        /// </summary>
+        /// <param name="func"></param>
+        public PluginBuilder Task(Func<IProgress<int>, ValueTask> func)
+        {
+            if (!_task.Contains(func))
+            {
+                _task.Add(func);
+            }
+
+            return this;
+        }
+
+        /// <summary>
         /// Set the menu.
         /// </summary>
         /// <param name="header">The string to display in the menu header.</param>
@@ -154,7 +170,12 @@ namespace BEditor.Plugin
                 manager._menus.Add(_menus!);
             }
 
-            manager._loaded.Add(_plugin());
+            var instance = _plugin();
+            if (_task.Count is not 0)
+            {
+                manager._tasks.Add((instance, _task));
+            }
+            manager._loaded.Add(instance);
         }
 
         /// <summary>
