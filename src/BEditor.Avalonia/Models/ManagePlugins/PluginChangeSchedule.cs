@@ -10,7 +10,7 @@ using BEditor.Plugin;
 
 namespace BEditor.Models.ManagePlugins
 {
-    public class PluginChangeSchedule
+    public static class PluginChangeSchedule
     {
         public static ObservableCollection<PluginUpdateOrInstall> UpdateOrInstall { get; } = new();
 

@@ -1,8 +1,4 @@
 using System;
-using System.ComponentModel;
-using System.IO;
-using System.Net;
-using System.Net.Http;
 using System.Reactive.Linq;
 using System.Threading.Tasks;
 
@@ -15,15 +11,11 @@ using Avalonia.Markup.Xaml;
 using Avalonia.Threading;
 
 using BEditor.Data;
-using BEditor.Media;
 using BEditor.Models;
 using BEditor.Properties;
 using BEditor.ViewModels;
 using BEditor.ViewModels.DialogContent;
 using BEditor.Views.DialogContent;
-
-using Microsoft.Extensions.DependencyInjection;
-using Microsoft.Extensions.Logging;
 
 using OpenTK.Audio.OpenAL;
 
@@ -83,16 +75,16 @@ namespace BEditor
             await dialog.ShowDialog((Window)VisualRoot);
         }
 
-        private void InitializeComponent()
-        {
-            AvaloniaXamlLoader.Load(this);
-        }
-
         protected override async void OnOpened(EventArgs e)
         {
             base.OnOpened(e);
 
             await CheckOpenALAsync();
+        }
+
+        private void InitializeComponent()
+        {
+            AvaloniaXamlLoader.Load(this);
         }
 
         private static async Task CheckOpenALAsync()

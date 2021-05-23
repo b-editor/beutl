@@ -111,7 +111,7 @@ namespace BEditor.ViewModels.ManagePlugins
                 .ToReadOnlyReactivePropertySlim();
 
             InstallIsVisible = SelectedItem.Where(i => i is not null)
-                .Select(_ => !PluginManager.Default.Plugins.Any(i => i.PluginName == SelectedItem.Value!.Name) && !CancelIsVisible.Value)
+                .Select(_ => !PluginManager.Default.Plugins.Any(i => i.Id == SelectedItem.Value!.Id) && !CancelIsVisible.Value)
                 .ToReadOnlyReactivePropertySlim();
 
             OpenHomePage.Where(_ => IsSelected.Value)

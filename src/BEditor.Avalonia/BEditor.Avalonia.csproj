@@ -14,9 +14,11 @@
     </PropertyGroup>
 
     <ItemGroup>
+        <EmbeddedResource Include="Assets\Fonts\*.otf" />
         <AvaloniaResource Include="Assets\**" />
     </ItemGroup>
 
+    <!--PackageReferences-->
     <ItemGroup>
         <PackageReference Include="Avalonia" Version="0.10.5" />
         <PackageReference Include="Avalonia.Desktop" Version="0.10.5" />
@@ -27,13 +29,10 @@
         <PackageReference Include="Serilog.Sinks.File" Version="5.0.0-dev-00909" />
     </ItemGroup>
 
+    <!--ProjectReferences-->
     <ItemGroup>
         <ProjectReference Include="..\BEditor.Core\BEditor.Core.csproj" />
         <ProjectReference Include="..\BEditor.Primitive\BEditor.Primitive.csproj" />
-    </ItemGroup>
-
-    <ItemGroup>
-        <EmbeddedResource Include="Assets\Fonts\*.otf" />
     </ItemGroup>
 
     <ItemGroup>

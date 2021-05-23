@@ -42,7 +42,8 @@ Task("AvaloniaExePublish")
         {
             Configuration = configuration,
             SelfContained = true,
-            Runtime = rid
+            Runtime = rid,
+            TargetFramework = rid == "win-x64" ? "net5.0-windows" : "net5.0"
         });
 
         Zip(binaryPath, publishDir.CombineWithFilePath($"beditor_{rid}.zip"));

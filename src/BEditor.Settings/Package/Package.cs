@@ -20,6 +20,9 @@ namespace BEditor.Package
         [JsonPropertyName("tag")]
         public string Tag { get; set; } = string.Empty;
 
+        [JsonPropertyName("id")]
+        public Guid Id { get; set; } = Guid.Empty;
+
         [JsonPropertyName("versions")]
         public PackageVersion[] Versions { get; set; } = Array.Empty<PackageVersion>();
     }

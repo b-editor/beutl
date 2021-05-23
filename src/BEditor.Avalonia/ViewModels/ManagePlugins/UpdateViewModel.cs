@@ -62,7 +62,7 @@ namespace BEditor.ViewModels.ManagePlugins
             {
                 Items.AddRangeOnScheduler(library.PackageSources
                     .SelectMany(i => i.Packages)
-                    .Select(i => (plugin: PluginManager.Default.Plugins.FirstOrDefault(p => p.PluginName == i.Name), package: i))
+                    .Select(i => (plugin: PluginManager.Default.Plugins.FirstOrDefault(p => p.Id == i.Id), package: i))
                     .Where(i => i.plugin is not null &&
                         i.package.Versions.FirstOrDefault() is PackageVersion packageVersion &&
                         GetVersion(i.plugin!) < packageVersion.ToVersion())

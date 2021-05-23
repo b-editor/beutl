@@ -1,4 +1,5 @@
 using System;
+using System.Collections.Generic;
 using System.Collections.ObjectModel;
 using System.Collections.Specialized;
 using System.Diagnostics;
@@ -6,6 +7,7 @@ using System.Linq;
 using System.Threading.Tasks;
 
 using Avalonia;
+using Avalonia.Collections;
 using Avalonia.Controls;
 using Avalonia.Controls.Shapes;
 using Avalonia.Interactivity;
@@ -80,11 +82,11 @@ namespace BEditor.Views.CustomTitlebars
                 catch
                 {
                     Debug.Fail(string.Empty);
-                    AppModel.Current.Message.Snackbar(string.Format(Strings.FailedToLoad, "Project"));
+                    AppModel.Current.Message.Snackbar(string.Format(Strings.FailedToLoad, Strings.ProjectFile));
                 }
             }
 
-            var items = new ObservableCollection<MenuItem>(BEditor.Settings.Default.RecentFiles.Reverse().Select(i => new MenuItem
+            var items = new AvaloniaList<MenuItem>(BEditor.Settings.Default.RecentFiles.Reverse().Select(i => new MenuItem
             {
                 Header = i
             }));
@@ -108,7 +110,7 @@ namespace BEditor.Views.CustomTitlebars
                         };
                         menu.Click += async (s, e) => await ProjectOpenCommand(((s as MenuItem)!.Header as string)!);
 
-                        ((ObservableCollection<MenuItem>)_recentFiles.Items).Insert(0, menu);
+                        ((AvaloniaList<MenuItem>)_recentFiles.Items).Insert(0, menu);
                     }
                     else if (e.Action is NotifyCollectionChangedAction.Remove)
                     {
@@ -118,7 +120,7 @@ namespace BEditor.Views.CustomTitlebars
                         {
                             if (item is MenuItem menuItem && menuItem.Header is string header && header == file)
                             {
-                                ((ObservableCollection<MenuItem>)_recentFiles.Items).Remove(menuItem);
+                                ((AvaloniaList<MenuItem>)_recentFiles.Items).Remove(menuItem);
 
                                 return;
                             }

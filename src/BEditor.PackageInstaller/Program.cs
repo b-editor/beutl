@@ -1,18 +1,24 @@
-using System.Globalization;
-
 using Avalonia;
+using Avalonia.Controls;
+using Avalonia.Controls.ApplicationLifetimes;
 
-namespace BEditor
+using System;
+using System.Diagnostics.CodeAnalysis;
+using System.IO;
+using System.Linq;
+using System.Text.Json;
+
+namespace BEditor.PackageInstaller
 {
-    static class Program
+    class Program
     {
         // Initialization code. Don't use any Avalonia, third-party APIs or any
         // SynchronizationContext-reliant code before AppMain is called: things aren't initialized
         // yet and stuff might break.
         public static void Main(string[] args)
         {
-            CultureInfo.CurrentCulture = new(Settings.Default.Language);
-            CultureInfo.CurrentUICulture = CultureInfo.CurrentCulture;
+            if (args.Length is 0 || Path.GetExtension(args.FirstOrDefault()) is not ".json") return;
+            if (!File.Exists(args[0])) return;
 
             BuildAvaloniaApp()
                 .StartWithClassicDesktopLifetime(args);

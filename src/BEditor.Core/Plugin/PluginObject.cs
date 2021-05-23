@@ -1,4 +1,6 @@
-﻿namespace BEditor.Plugin
+﻿using System;
+
+namespace BEditor.Plugin
 {
     /// <summary>
     /// Represents a plug-in that extends the functionality of the application.
@@ -23,6 +25,11 @@
         /// Gets the description of the plugin.
         /// </summary>
         public abstract string Description { get; }
+
+        /// <summary>
+        /// Gets the id.
+        /// </summary>
+        public abstract Guid Id { get; }
 
         /// <summary>
         /// Gets the Application.
