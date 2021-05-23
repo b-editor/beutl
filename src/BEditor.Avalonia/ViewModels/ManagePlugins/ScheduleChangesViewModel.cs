@@ -1,17 +1,17 @@
 ﻿using System;
+using System.Collections.Generic;
+using System.Collections.Specialized;
+using System.Linq;
 using System.Reactive;
 using System.Reactive.Linq;
-using System.Collections.Generic;
-using System.Linq;
 using System.Text;
-using System.Collections.Specialized;
 using System.Threading.Tasks;
 
 using BEditor.Models.ManagePlugins;
+using BEditor.Plugin;
+using BEditor.Properties;
 
 using Reactive.Bindings;
-using BEditor.Properties;
-using BEditor.Plugin;
 
 namespace BEditor.ViewModels.ManagePlugins
 {
