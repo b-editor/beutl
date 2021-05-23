@@ -18,7 +18,7 @@ namespace BEditor.Converters
                 var assembly = plugin.GetType().Assembly;
 
                 var attributes = assembly.CustomAttributes.ToArray();
-                
+
                 var a = Array.Find(attributes, a => a.AttributeType == typeof(AssemblyCompanyAttribute));
 
                 return a?.ConstructorArguments.FirstOrDefault().Value;
