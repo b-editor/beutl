@@ -372,6 +372,8 @@ namespace BEditor.Extensions.AviUtl
 
         public override SettingRecord Settings { get; set; } = new CustomSettings();
 
+        public override Guid Id { get; } = Guid.Parse("138CE66C-3E1D-4BF8-A879-F3272C8FFE05");
+
         public static void Register()
         {
             var dir = Path.Combine(Directory.GetParent(Assembly.GetExecutingAssembly().Location)!.FullName, "script");

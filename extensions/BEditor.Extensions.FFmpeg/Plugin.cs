@@ -24,6 +24,8 @@ namespace BEditor.Extensions.FFmpeg
 
         public override SettingRecord Settings { get; set; } = new();
 
+        public override Guid Id { get; } = Guid.Parse("6C7EA15C-B6C2-46A3-AD11-22EB5253C346");
+
         public static void Register()
         {
             var builder = PluginBuilder.Configure<Plugin>();

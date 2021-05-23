@@ -1,4 +1,6 @@
 ﻿
+using System;
+
 using BEditor.Plugin;
 
 namespace TestPlugin1
@@ -14,6 +16,8 @@ namespace TestPlugin1
         public override string Description => nameof(TestPlugin1);
 
         public override SettingRecord Settings { get; set; } = new Settings("", 0, 0, false);
+
+        public override Guid Id { get; } = Guid.Parse("57F205B4-964B-409C-9CE4-113D94913960");
 
         public static void Register()
         {

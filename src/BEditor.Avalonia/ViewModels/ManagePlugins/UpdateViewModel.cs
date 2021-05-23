@@ -21,7 +21,7 @@ namespace BEditor.ViewModels.ManagePlugins
     {
         public record UpdateTarget(PluginObject Plugin, Package.Package Package)
         {
-            public string OldVersion => GetVersion(Plugin)!.ToString();
+            public string OldVersion => GetVersion(Plugin)!.ToString(3);
 
             public string NewVersion => Package.Versions.First().Version;
         }

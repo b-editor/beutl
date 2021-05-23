@@ -4784,6 +4784,11 @@
             Gets the description of the plugin.
             </summary>
         </member>
+        <member name="P:BEditor.Plugin.PluginObject.Id">
+            <summary>
+            Gets the id.
+            </summary>
+        </member>
         <member name="P:BEditor.Plugin.PluginObject.App">
             <summary>
             Gets the Application.
