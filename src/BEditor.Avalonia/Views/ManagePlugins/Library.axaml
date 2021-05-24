@@ -59,7 +59,7 @@
                     <TextBlock Text="{Binding SelectedItem.Value.Versions[0].Version}" />
                 </StackPanel>
 
-                <ctrs:HyperLink Text="HomePage" Command="{CompiledBinding OpenHomePage, Mode=OneTime}" />
+                <ctrs:HyperLink Text="{x:Static props:Strings.WebSite}" Command="{CompiledBinding OpenHomePage, Mode=OneTime}" />
 
             </StackPanel>
             

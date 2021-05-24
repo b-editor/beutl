@@ -23,6 +23,9 @@ namespace BEditor.Packaging
         [JsonPropertyName("id")]
         public Guid Id { get; set; } = Guid.Empty;
 
+        [JsonPropertyName("license")]
+        public string License { get; set; } = string.Empty;
+
         [JsonPropertyName("versions")]
         public PackageVersion[] Versions { get; set; } = Array.Empty<PackageVersion>();
     }

@@ -144,6 +144,15 @@ namespace BEditor.Properties {
         }
         
         /// <summary>
+        ///   Looks up a localized string similar to Assembly File.
+        /// </summary>
+        public static string AssemblyFile {
+            get {
+                return ResourceManager.GetString("AssemblyFile", resourceCulture);
+            }
+        }
+        
+        /// <summary>
         ///   Looks up a localized string similar to Audio.
         /// </summary>
         public static string Audio {
@@ -379,6 +388,15 @@ namespace BEditor.Properties {
         }
         
         /// <summary>
+        ///   Looks up a localized string similar to Could not create the package..
+        /// </summary>
+        public static string CouldNotCreatePackage {
+            get {
+                return ResourceManager.GetString("CouldNotCreatePackage", resourceCulture);
+            }
+        }
+        
+        /// <summary>
         ///   Looks up a localized string similar to Create.
         /// </summary>
         public static string Create {
@@ -393,6 +411,15 @@ namespace BEditor.Properties {
         public static string CreateFromBackup {
             get {
                 return ResourceManager.GetString("CreateFromBackup", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to Create a plugin package.
+        /// </summary>
+        public static string CreatePluginPackage {
+            get {
+                return ResourceManager.GetString("CreatePluginPackage", resourceCulture);
             }
         }
         
@@ -438,6 +465,15 @@ namespace BEditor.Properties {
         public static string DeleteCommand {
             get {
                 return ResourceManager.GetString("DeleteCommand", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to Description.
+        /// </summary>
+        public static string Description {
+            get {
+                return ResourceManager.GetString("Description", resourceCulture);
             }
         }
         
@@ -559,6 +595,15 @@ namespace BEditor.Properties {
         }
         
         /// <summary>
+        ///   Looks up a localized string similar to File not found..
+        /// </summary>
+        public static string FileNotFound {
+            get {
+                return ResourceManager.GetString("FileNotFound", resourceCulture);
+            }
+        }
+        
+        /// <summary>
         ///   Looks up a localized string similar to The file has been saved.
         /// </summary>
         public static string FileSaved {
@@ -672,6 +717,16 @@ namespace BEditor.Properties {
         public static string Installed {
             get {
                 return ResourceManager.GetString("Installed", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to Invalid Id.
+        ///GUID and UUID can be used for Id..
+        /// </summary>
+        public static string InvalidIdCanUseGUIDAndUUID {
+            get {
+                return ResourceManager.GetString("InvalidIdCanUseGUIDAndUUID", resourceCulture);
             }
         }
         
@@ -961,6 +1016,15 @@ namespace BEditor.Properties {
         public static string Output {
             get {
                 return ResourceManager.GetString("Output", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to Output directory.
+        /// </summary>
+        public static string OutputDirectory {
+            get {
+                return ResourceManager.GetString("OutputDirectory", resourceCulture);
             }
         }
         
@@ -1538,6 +1602,15 @@ namespace BEditor.Properties {
         public static string View {
             get {
                 return ResourceManager.GetString("View", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to Web Site.
+        /// </summary>
+        public static string WebSite {
+            get {
+                return ResourceManager.GetString("WebSite", resourceCulture);
             }
         }
         

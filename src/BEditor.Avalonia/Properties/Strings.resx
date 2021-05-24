@@ -626,4 +626,29 @@ Please select the plugin you want to load</value>
   <data name="Changes" xml:space="preserve">
     <value>Changes</value>
   </data>
+  <data name="CreatePluginPackage" xml:space="preserve">
+    <value>Create a plugin package</value>
+  </data>
+  <data name="WebSite" xml:space="preserve">
+    <value>Web Site</value>
+  </data>
+  <data name="Description" xml:space="preserve">
+    <value>Description</value>
+  </data>
+  <data name="OutputDirectory" xml:space="preserve">
+    <value>Output directory</value>
+  </data>
+  <data name="AssemblyFile" xml:space="preserve">
+    <value>Assembly File</value>
+  </data>
+  <data name="FileNotFound" xml:space="preserve">
+    <value>File not found.</value>
+  </data>
+  <data name="InvalidIdCanUseGUIDAndUUID" xml:space="preserve">
+    <value>Invalid Id.
+GUID and UUID can be used for Id.</value>
+  </data>
+  <data name="CouldNotCreatePackage" xml:space="preserve">
+    <value>Could not create the package.</value>
+  </data>
 </root>

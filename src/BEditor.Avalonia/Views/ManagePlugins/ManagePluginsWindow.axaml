@@ -121,6 +121,15 @@
                 </TabItem.Header>
                 <local:Update/>
             </TabItem>
+            <TabItem>
+                <TabItem.Header>
+                    <StackPanel>
+                        <PathIcon Data="{StaticResource FolderZip24Regular}"/>
+                        <TextBlock Text="{x:Static prop:Strings.CreatePluginPackage}" />
+                    </StackPanel>
+                </TabItem.Header>
+                <local:CreatePluginPackage/>
+            </TabItem>
         </TabControl>
     </Grid>
 </Window>

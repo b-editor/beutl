@@ -1,0 +1,83 @@
+<UserControl
+    xmlns="https://github.com/avaloniaui"
+    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+    xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+    xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+    xmlns:vm="using:BEditor.ViewModels.ManagePlugins"
+    xmlns:props="using:BEditor.Properties"
+    x:DataType="vm:CreatePluginPackageViewModel"
+    mc:Ignorable="d" d:DesignWidth="800" d:DesignHeight="450"
+    x:Class="BEditor.Views.ManagePlugins.CreatePluginPackage">
+    <UserControl.DataContext>
+        <vm:CreatePluginPackageViewModel/>
+    </UserControl.DataContext>
+    <ScrollViewer>
+        <StackPanel Orientation="Vertical" Spacing="0">
+            <TextBlock Text="{x:Static props:Strings.CreatePluginPackage}" Classes="SettingsHeader" />
+
+            <Label Content="{x:Static props:Strings.Name}" Classes="SettingsItemHeader" />
+
+            <TextBox Classes="SettingsTextBox" Text="{CompiledBinding Name.Value}" />
+
+            <Separator Height="16" />
+
+            <Label Content="{x:Static props:Strings.Author}" Classes="SettingsItemHeader" />
+
+            <TextBox Classes="SettingsTextBox" Text="{CompiledBinding Author.Value}" />
+
+            <Separator Height="16" />
+
+            <Label Content="{x:Static props:Strings.WebSite}" Classes="SettingsItemHeader" />
+
+            <TextBox Classes="SettingsTextBox" Text="{CompiledBinding WebSite.Value}" />
+
+            <Separator Height="16" />
+
+            <Label Content="{x:Static props:Strings.Description}" Classes="SettingsItemHeader" />
+
+            <TextBox Classes="SettingsTextBox" Text="{CompiledBinding Description.Value}" />
+
+            <Separator Height="16" />
+
+            <Label Content="Id" Classes="SettingsItemHeader" />
+
+            <TextBox Classes="SettingsTextBox" Text="{CompiledBinding Id.Value}" />
+
+            <Separator Height="16" />
+
+            <Label Content="{x:Static props:Strings.License}" Classes="SettingsItemHeader" />
+
+            <TextBox Classes="SettingsTextBox" Text="{CompiledBinding License.Value}" />
+
+            <Separator Height="16" />
+
+            <Label Content="{x:Static props:Strings.OutputDirectory}" Classes="SettingsItemHeader" />
+
+            <StackPanel Orientation="Horizontal">
+                <TextBox Text="{CompiledBinding OutputDirectory.Value, Mode=TwoWay}" Classes="SettingsTextBox" />
+
+                <Button Command="{CompiledBinding PickDirectory, Mode=OneTime}">
+                    <PathIcon Data="{StaticResource FolderOpen16Regular}" />
+                </Button>
+            </StackPanel>
+
+            <Separator Height="16" />
+
+            <Label Content="{x:Static props:Strings.AssemblyFile}" Classes="SettingsItemHeader" />
+
+            <StackPanel Orientation="Horizontal">
+                <TextBox Text="{CompiledBinding AssemblyFile.Value, Mode=TwoWay}" Classes="SettingsTextBox" />
+
+                <Button Command="{CompiledBinding PickAssemblyFile, Mode=OneTime}">
+                    <PathIcon Data="{StaticResource FolderOpen16Regular}" />
+                </Button>
+            </StackPanel>
+
+            <Button
+                Margin="16"
+                Command="{CompiledBinding Create, Mode=OneTime}"
+                Content="{x:Static props:Strings.Create}" />
+
+        </StackPanel>
+    </ScrollViewer>
+</UserControl>
