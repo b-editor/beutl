@@ -10,4 +10,8 @@
         <PackageReference Include="Microsoft.Extensions.Logging" Version="5.0.0" />
     </ItemGroup>
 
+    <ItemGroup>
+        <ProjectReference Include="..\BEditor.Packaging\BEditor.Packaging.csproj" />
+    </ItemGroup>
+
 </Project>

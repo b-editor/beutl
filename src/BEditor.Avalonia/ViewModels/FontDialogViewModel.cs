@@ -8,6 +8,7 @@ using System.Text.Json;
 using System.Text.RegularExpressions;
 
 using BEditor.Drawing;
+using BEditor.Packaging;
 
 using Reactive.Bindings;
 using Reactive.Bindings.Extensions;
@@ -158,7 +159,7 @@ namespace BEditor.ViewModels
             }
             var json = File.ReadAllText(jsonFile);
 
-            foreach (var item in JsonSerializer.Deserialize<IEnumerable<string>>(json)?.Select(i => new Font(i)) ?? Array.Empty<Font>())
+            foreach (var item in JsonSerializer.Deserialize<IEnumerable<string>>(json, PackageFile._serializerOptions)?.Select(i => new Font(i)) ?? Array.Empty<Font>())
             {
                 UsedFonts.Add(new(item));
             }

@@ -5,7 +5,7 @@
     xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
     xmlns:vm="using:BEditor.PackageInstaller.ViewModels"
     x:DataType="vm:MainWindowViewModel"
-    mc:Ignorable="d" d:DesignWidth="800" d:DesignHeight="450"
+    mc:Ignorable="d" Width="400" Height="450"
     x:Class="BEditor.PackageInstaller.Views.MainWindow"
     Title="BEditor.PackageInstaller">
     Welcome to Avalonia!

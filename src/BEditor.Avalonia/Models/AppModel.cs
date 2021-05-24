@@ -9,6 +9,7 @@ using System.Threading;
 using BEditor.Command;
 using BEditor.Data;
 using BEditor.Extensions;
+using BEditor.Packaging;
 
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
@@ -142,10 +143,7 @@ namespace BEditor.Models
                     };
 
                     await using var stream = new FileStream(sceneCache, FileMode.Create);
-                    await JsonSerializer.SerializeAsync(stream, cacheObj, new JsonSerializerOptions
-                    {
-                        WriteIndented = true
-                    });
+                    await JsonSerializer.SerializeAsync(stream, cacheObj, PackageFile._serializerOptions);
                 }
             }
         }
@@ -183,10 +181,7 @@ namespace BEditor.Models
                         var span = buffer.AsSpan();
                         stream.Read(span);
 
-                        var cacheObj = JsonSerializer.Deserialize<SceneCache>(span, new JsonSerializerOptions
-                        {
-                            WriteIndented = true
-                        });
+                        var cacheObj = JsonSerializer.Deserialize<SceneCache>(span, PackageFile._serializerOptions);
 
                         if (cacheObj is not null)
                         {

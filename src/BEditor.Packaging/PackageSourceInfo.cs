@@ -6,28 +6,28 @@ using System.Runtime.Serialization;
 using System.Text.Json;
 using System.Threading.Tasks;
 
-namespace BEditor.Package
+namespace BEditor.Packaging
 {
     [DataContract]
     public sealed class PackageSourceInfo : INotifyPropertyChanged
     {
         private static readonly PropertyChangedEventArgs urlArgs = new(nameof(Url));
         private static readonly PropertyChangedEventArgs nameArgs = new(nameof(Name));
-        private string name = string.Empty;
-        private Uri? url = null;
+        private string _name = string.Empty;
+        private Uri? _url = null;
 
         [DataMember]
         public Uri? Url
         {
-            get => url;
-            set => SetValue(value, ref url, urlArgs);
+            get => _url;
+            set => SetValue(value, ref _url, urlArgs);
         }
 
         [DataMember]
         public string Name
         {
-            get => name;
-            set => SetValue(value, ref name, nameArgs);
+            get => _name;
+            set => SetValue(value, ref _name, nameArgs);
         }
 
         public event PropertyChangedEventHandler? PropertyChanged;
@@ -41,11 +41,11 @@ namespace BEditor.Package
                 if (Url is null) return null;
                 else if (Url.IsFile)
                 {
-                    repos = await JsonSerializer.DeserializeAsync<PackageSource>(File.OpenRead(Url.LocalPath));
+                    repos = await JsonSerializer.DeserializeAsync<PackageSource>(File.OpenRead(Url.LocalPath), PackageFile._serializerOptions);
                 }
                 else
                 {
-                    repos = await JsonSerializer.DeserializeAsync<PackageSource>(await client.GetStreamAsync(Url));
+                    repos = await JsonSerializer.DeserializeAsync<PackageSource>(await client.GetStreamAsync(Url), PackageFile._serializerOptions);
                 }
 
                 if (repos is not null) repos.Info = this;

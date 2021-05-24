@@ -6,7 +6,7 @@ using System.Text;
 using System.Threading.Tasks;
 
 using BEditor.Models;
-using BEditor.Package;
+using BEditor.Packaging;
 using BEditor.Properties;
 
 using Microsoft.Extensions.Logging;

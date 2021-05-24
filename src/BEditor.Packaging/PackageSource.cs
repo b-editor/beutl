@@ -1,7 +1,7 @@
 ﻿using System;
 using System.Text.Json.Serialization;
 
-namespace BEditor.Package
+namespace BEditor.Packaging
 {
     public sealed class PackageSource
     {

@@ -1,7 +1,9 @@
 ﻿using System;
 using System.IO;
 using System.Runtime.Serialization;
+using System.Text.Encodings.Web;
 using System.Text.Json;
+using System.Text.Unicode;
 using System.Threading.Tasks;
 
 using BEditor.Data;
@@ -31,6 +33,12 @@ namespace BEditor
     /// </summary>
     public static class Serialize
     {
+        private static readonly JsonWriterOptions _options = new()
+        {
+            Indented = true,
+            Encoder = JavaScriptEncoder.Create(UnicodeRanges.All)
+        };
+
 #pragma warning disable RCS1163, IDE0060
         /// <summary>
         /// Reads and restores the contents of an object from a stream.
@@ -151,7 +159,7 @@ namespace BEditor
             try
             {
                 stream.Position = 0;
-                await using var writer = new Utf8JsonWriter(stream, new() { Indented = true });
+                await using var writer = new Utf8JsonWriter(stream, _options);
 
                 writer.WriteStartObject();
 
@@ -183,7 +191,7 @@ namespace BEditor
             try
             {
                 stream.Position = 0;
-                using var writer = new Utf8JsonWriter(stream, new() { Indented = true });
+                using var writer = new Utf8JsonWriter(stream, _options);
 
                 writer.WriteStartObject();
 
@@ -215,7 +223,7 @@ namespace BEditor
             try
             {
                 await using var stream = new FileStream(path, FileMode.Create);
-                await using var writer = new Utf8JsonWriter(stream, new() { Indented = true });
+                await using var writer = new Utf8JsonWriter(stream, _options);
 
                 writer.WriteStartObject();
 
@@ -246,7 +254,7 @@ namespace BEditor
             try
             {
                 using var stream = new FileStream(path, FileMode.Create);
-                using var writer = new Utf8JsonWriter(stream, new() { Indented = true });
+                using var writer = new Utf8JsonWriter(stream, _options);
 
                 writer.WriteStartObject();
 

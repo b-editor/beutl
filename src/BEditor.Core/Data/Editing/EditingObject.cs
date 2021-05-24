@@ -271,11 +271,9 @@ namespace BEditor.Data
 
                 if (value is not null)
                 {
-                    writer.WriteStartObject(prop.Name);
+                    writer.WritePropertyName(prop.Name);
 
                     prop.Serializer!.Write(writer, value);
-
-                    writer.WriteEndObject();
                 }
             }
         }

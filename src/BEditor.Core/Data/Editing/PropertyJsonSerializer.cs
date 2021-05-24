@@ -17,7 +17,9 @@ namespace BEditor.Data
 
         public void Write(Utf8JsonWriter writer, TValue value)
         {
+            writer.WriteStartObject();
             value.GetObjectData(writer);
+            writer.WriteEndObject();
         }
     }
 }

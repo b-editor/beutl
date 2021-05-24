@@ -9,14 +9,13 @@ using System.Threading.Tasks;
 
 using BEditor.Models;
 using BEditor.Models.ManagePlugins;
-using BEditor.Package;
+using BEditor.Packaging;
 using BEditor.Plugin;
 
 using Microsoft.Extensions.DependencyInjection;
 
 using Reactive.Bindings;
 
-using Pack = BEditor.Package.Package;
 using Setting = BEditor.Settings;
 
 namespace BEditor.ViewModels.ManagePlugins
@@ -24,7 +23,7 @@ namespace BEditor.ViewModels.ManagePlugins
     public class LibraryViewModel
     {
         private readonly HttpClient _client;
-        private Pack[]? _loadedItems;
+        private Package[]? _loadedItems;
 
         public LibraryViewModel()
         {
@@ -189,9 +188,9 @@ namespace BEditor.ViewModels.ManagePlugins
 
         public ObservableCollection<PackageSource> PackageSources { get; } = new();
 
-        public ReactivePropertySlim<Pack?> SelectedItem { get; } = new();
+        public ReactivePropertySlim<Package?> SelectedItem { get; } = new();
 
-        public ObservableCollection<Pack> Items { get; } = new();
+        public ObservableCollection<Package> Items { get; } = new();
 
         public ReactiveCommand OpenHomePage { get; } = new();
 

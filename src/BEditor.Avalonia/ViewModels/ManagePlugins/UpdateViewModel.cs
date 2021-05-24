@@ -9,7 +9,7 @@ using System.Threading.Tasks;
 
 using BEditor.Models;
 using BEditor.Models.ManagePlugins;
-using BEditor.Package;
+using BEditor.Packaging;
 using BEditor.Plugin;
 using BEditor.Properties;
 
@@ -19,7 +19,7 @@ namespace BEditor.ViewModels.ManagePlugins
 {
     public class UpdateViewModel
     {
-        public record UpdateTarget(PluginObject Plugin, Package.Package Package)
+        public record UpdateTarget(PluginObject Plugin, Package Package)
         {
             public string OldVersion => GetVersion(Plugin)!.ToString(3);
 

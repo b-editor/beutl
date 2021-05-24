@@ -1,0 +1,18 @@
+[
+  {
+    "name": "BEditor.Extensions.Svg",
+    "author": "b-editor",
+    "version": "0.1.3",
+    "type": "install",
+    "id": "552d8868-5cc2-4bd4-925c-a5ebe6743226",
+    "url": ""
+  },
+  {
+    "name": "BEditor.Extensions.FFmpeg",
+    "author": "b-editor",
+    "version": "0.1.3",
+    "type": "update",
+    "id": "6c7ea15c-b6c2-46a3-ad11-22eb5253c346",
+    "url": ""
+  }
+]

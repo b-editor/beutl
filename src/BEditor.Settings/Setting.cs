@@ -7,7 +7,7 @@ using System.Linq;
 using System.Runtime.Serialization;
 using System.Threading.Tasks;
 
-using BEditor.Package;
+using BEditor.Packaging;
 
 namespace BEditor
 {

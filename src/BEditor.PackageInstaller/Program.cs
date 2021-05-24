@@ -1,12 +1,10 @@
-using Avalonia;
-using Avalonia.Controls;
-using Avalonia.Controls.ApplicationLifetimes;
-
 using System;
-using System.Diagnostics.CodeAnalysis;
 using System.IO;
 using System.Linq;
-using System.Text.Json;
+
+using Avalonia;
+
+using BEditor.Packaging;
 
 namespace BEditor.PackageInstaller
 {
@@ -17,6 +15,15 @@ namespace BEditor.PackageInstaller
         // yet and stuff might break.
         public static void Main(string[] args)
         {
+            var file = @"C:\github.com\BEditor.Extensions.FFmpeg.bepkg";
+            PackageFile.CreatePackage(
+                @"C:\github.com\b-editor\BEditor\src\BEditor.Avalonia\bin\Debug\net5.0\user\plugins\BEditor.Extensions.FFmpeg\BEditor.Extensions.FFmpeg.dll",
+                file,
+                new());
+            PackageFile.OpenPackage(file, @"C:\github.com\BEditor.Extensions.FFmpeg");
+#if DEBUG
+            args = new string[] { Path.Combine(Environment.CurrentDirectory, "sample.json") };
+#endif
             if (args.Length is 0 || Path.GetExtension(args.FirstOrDefault()) is not ".json") return;
             if (!File.Exists(args[0])) return;
 
