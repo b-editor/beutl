@@ -22,7 +22,7 @@
     <ItemGroup>
         <PackageReference Include="Dragablz" Version="0.0.3.223" />
         <PackageReference Include="MaterialDesignColors" Version="2.0.0" />
-        <PackageReference Include="MaterialDesignThemes" Version="4.0.0" />
+        <PackageReference Include="MaterialDesignThemes" Version="4.1.0" />
         <PackageReference Include="MaterialDesignThemes.MahApps" Version="0.1.6" />
         <PackageReference Include="Neo.Markdig.Xaml" Version="1.0.9" />
         <PackageReference Include="ReactiveProperty.WPF" Version="7.10.0" />
