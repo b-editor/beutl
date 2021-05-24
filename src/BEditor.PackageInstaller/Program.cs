@@ -6,6 +6,10 @@ using Avalonia;
 
 using BEditor.Packaging;
 
+using Avalonia;
+using Avalonia.Controls;
+using Avalonia.Controls.ApplicationLifetimes;
+
 namespace BEditor.PackageInstaller
 {
     class Program
