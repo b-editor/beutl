@@ -33,6 +33,7 @@
     <ItemGroup>
         <ProjectReference Include="..\BEditor.Core\BEditor.Core.csproj" />
         <ProjectReference Include="..\BEditor.Primitive\BEditor.Primitive.csproj" />
+        <ProjectReference Include="..\BEditor.PackageInstaller\BEditor.PackageInstaller.csproj" />
     </ItemGroup>
 
     <ItemGroup>

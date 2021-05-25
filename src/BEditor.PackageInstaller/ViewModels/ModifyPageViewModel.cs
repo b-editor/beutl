@@ -41,15 +41,20 @@ namespace BEditor.PackageInstaller.ViewModels
                 while (_packages.TryDequeue(out var package))
                 {
                     CurrentPackage.Value = package;
-                    if(package.Type is not PackageChangeType.Uninstall)
+                    if (package.Type is not PackageChangeType.Uninstall)
                     {
                         var downloadFile = Path.GetTempFileName();
 
                         try
                         {
+                            var dstDir = Path.Combine(AppContext.BaseDirectory, "user", "plugins", Path.GetFileNameWithoutExtension(package.MainAssembly));
+                            if (Directory.Exists(dstDir))
+                            {
+                                Directory.Delete(dstDir);
+                            }
+
                             Status.Value = Strings.Downloading;
                             await client.DownloadFileTaskAsync(package.Url!, downloadFile);
-                            var dstDir = Path.Combine(AppContext.BaseDirectory, "user", "plugins", Path.GetFileNameWithoutExtension(package.MainAssembly));
 
                             Status.Value = Strings.ExtractingFiles;
                             await PackageFile.OpenPackageAsync(downloadFile, dstDir, progress);
@@ -62,6 +67,23 @@ namespace BEditor.PackageInstaller.ViewModels
                         finally
                         {
                             if (File.Exists(downloadFile)) File.Delete(downloadFile);
+                        }
+                    }
+                    else if (package.Type is PackageChangeType.Uninstall)
+                    {
+                        try
+                        {
+                            var directory = Path.Combine(AppContext.BaseDirectory, "user", "plugins", Path.GetFileNameWithoutExtension(package.MainAssembly));
+                            if (Directory.Exists(directory))
+                            {
+                                Directory.Delete(directory, true);
+                            }
+                            _successfulChanges.Add(package);
+                        }
+                        catch(Exception e)
+                        {
+                            Console.WriteLine(e.Message);
+                            _failedChanges.Add(package);
                         }
                     }
                 }

@@ -1,7 +1,9 @@
 using System;
+using System.Diagnostics;
 using System.Globalization;
 using System.IO;
 using System.Linq;
+using System.Net;
 using System.Net.Http;
 using System.Threading;
 using System.Threading.Tasks;
@@ -18,6 +20,7 @@ using Avalonia.Threading;
 
 using BEditor.Data;
 using BEditor.Models;
+using BEditor.Models.ManagePlugins;
 using BEditor.Plugin;
 using BEditor.Primitive;
 using BEditor.Properties;
@@ -105,7 +108,7 @@ namespace BEditor
 
             DirectoryManager.Default.Stop();
 
-            App.BackupTimer.Stop();
+            BackupTimer.Stop();
 
             var app = AppModel.Current;
 
@@ -113,6 +116,21 @@ namespace BEditor
 
             app.Project?.Unload();
             app.Project = null;
+
+            if (PluginChangeSchedule.Uninstall.Count is not 0 || PluginChangeSchedule.UpdateOrInstall.Count is not 0)
+            {
+                var jsonfile = Path.Combine(AppContext.BaseDirectory, "package-install.json");
+                PluginChangeSchedule.CreateJsonFile(jsonfile);
+
+                if (OperatingSystem.IsWindows())
+                {
+                    Process.Start("cmd.exe", new string[] { "/c", "start", Path.Combine(AppContext.BaseDirectory, "BEditor.PackageInstaller.exe"), jsonfile });
+                }
+                else if (OperatingSystem.IsLinux())
+                {
+
+                }
+            }
         }
 
         private async void CurrentDomain_UnhandledException(object sender, UnhandledExceptionEventArgs e)
