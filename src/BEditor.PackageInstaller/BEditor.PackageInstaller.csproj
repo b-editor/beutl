@@ -14,6 +14,11 @@
     </ItemGroup>
 
     <ItemGroup>
+        <EmbeddedResource Include="..\BEditor.Avalonia\Assets\Fonts\*.otf" />
+        <Compile Include="..\BEditor.Avalonia\CustomFontManagerImpl.cs" />
+    </ItemGroup>
+
+    <ItemGroup>
         <ProjectReference Include="..\BEditor.Packaging\BEditor.Packaging.csproj" />
     </ItemGroup>
 

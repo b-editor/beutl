@@ -3979,43 +3979,6 @@
             Represents the rendering in the video output.
             </summary>
         </member>
-        <member name="T:BEditor.Data.ScenePlayer">
-            <summary>
-            Represents a <see cref="P:BEditor.Data.ScenePlayer.Scene"/> player.
-            </summary>
-        </member>
-        <member name="M:BEditor.Data.ScenePlayer.#ctor(BEditor.Data.Scene)">
-            <summary>
-            Initializes a new instance of the <see cref="T:BEditor.Data.ScenePlayer"/> class.
-            </summary>
-            <param name="scene">This is the scene to play.</param>
-        </member>
-        <member name="E:BEditor.Data.ScenePlayer.Playing">
-            <inheritdoc/>
-        </member>
-        <member name="E:BEditor.Data.ScenePlayer.Stopped">
-            <inheritdoc/>
-        </member>
-        <member name="P:BEditor.Data.ScenePlayer.Scene">
-            <summary>
-            Gets the scene to play.
-            </summary>
-        </member>
-        <member name="P:BEditor.Data.ScenePlayer.State">
-            <inheritdoc/>
-        </member>
-        <member name="P:BEditor.Data.ScenePlayer.CurrentFrame">
-            <inheritdoc/>
-        </member>
-        <member name="M:BEditor.Data.ScenePlayer.Play">
-            <inheritdoc/>
-        </member>
-        <member name="M:BEditor.Data.ScenePlayer.Stop">
-            <inheritdoc/>
-        </member>
-        <member name="M:BEditor.Data.ScenePlayer.Dispose">
-            <inheritdoc/>
-        </member>
         <member name="T:BEditor.Data.Scene">
             <summary>
             Represents a scene to be included in the <see cref="T:BEditor.Data.Project"/>.
@@ -4272,6 +4235,43 @@
             <summary>
             Gets the name.
             </summary>
+        </member>
+        <member name="T:BEditor.Data.ScenePlayer">
+            <summary>
+            Represents a <see cref="P:BEditor.Data.ScenePlayer.Scene"/> player.
+            </summary>
+        </member>
+        <member name="M:BEditor.Data.ScenePlayer.#ctor(BEditor.Data.Scene)">
+            <summary>
+            Initializes a new instance of the <see cref="T:BEditor.Data.ScenePlayer"/> class.
+            </summary>
+            <param name="scene">This is the scene to play.</param>
+        </member>
+        <member name="E:BEditor.Data.ScenePlayer.Playing">
+            <inheritdoc/>
+        </member>
+        <member name="E:BEditor.Data.ScenePlayer.Stopped">
+            <inheritdoc/>
+        </member>
+        <member name="P:BEditor.Data.ScenePlayer.Scene">
+            <summary>
+            Gets the scene to play.
+            </summary>
+        </member>
+        <member name="P:BEditor.Data.ScenePlayer.State">
+            <inheritdoc/>
+        </member>
+        <member name="P:BEditor.Data.ScenePlayer.CurrentFrame">
+            <inheritdoc/>
+        </member>
+        <member name="M:BEditor.Data.ScenePlayer.Play">
+            <inheritdoc/>
+        </member>
+        <member name="M:BEditor.Data.ScenePlayer.Stop">
+            <inheritdoc/>
+        </member>
+        <member name="M:BEditor.Data.ScenePlayer.Dispose">
+            <inheritdoc/>
         </member>
         <member name="T:BEditor.DirectoryManager">
             <summary>

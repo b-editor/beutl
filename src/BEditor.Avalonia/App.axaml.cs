@@ -128,7 +128,14 @@ namespace BEditor
                 }
                 else if (OperatingSystem.IsLinux())
                 {
+                    try
+                    {
+                        Process.Start("/bin/dotnet", new string[] { Path.Combine(AppContext.BaseDirectory, "BEditor.PackageInstaller.dll"), jsonfile });
+                    }
+                    catch
+                    {
 
+                    }
                 }
             }
         }
