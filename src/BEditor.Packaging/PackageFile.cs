@@ -1,6 +1,7 @@
 ﻿using System;
 using System.IO;
 using System.IO.Compression;
+using System.Linq;
 using System.Text.Encodings.Web;
 using System.Text.Json;
 using System.Text.Unicode;
@@ -15,6 +16,37 @@ namespace BEditor.Packaging
             // すべての言語セットをエスケープせずにシリアル化させる
             Encoder = JavaScriptEncoder.Create(UnicodeRanges.All),
             WriteIndented = true
+        };
+        private static readonly string[] _ignoreDlls =
+        {
+            "BEditor.Audio",
+            "BEditor.Compute",
+            "BEditor.Core",
+            "BEditor.Drawing",
+            "BEditor.Graphics",
+            "BEditor.Media",
+            "BEditor.Packaging",
+            "BEditor.Primitive",
+            "BEditor.Settings",
+            "Microsoft.Extensions.DependencyInjection.Abstractions",
+            "Microsoft.Extensions.DependencyInjection",
+            "Microsoft.Extensions.Logging.Abstractions",
+            "Microsoft.Extensions.Logging",
+            "Microsoft.Extensions.Options",
+            "Microsoft.Extensions.Primitive",
+            "Microsoft.Win32.SystemEvents",
+            "OpenCvSharp",
+            "OpenCvSharp.Extensions",
+            "OpenTK.Core",
+            "OpenTK.Graphics",
+            "OpenTK.Mathematics",
+            "OpenTK.OpenAL",
+            "OpenTK.Windowing.GraphicsLibraryFramework",
+            "SkiaSharp",
+            "System.Drawing.Common",
+            "System.Reactive",
+            "glfw",
+            "opencv_videoio_ffmpeg452",
         };
 
         public static void CreatePackage(string mainfile, string packagefile, Package info, IProgress<int>? progress = null)
@@ -140,6 +172,7 @@ namespace BEditor.Packaging
             for (var i = 0; i < array.Length; i++)
             {
                 var item = array[i];
+                if (_ignoreDlls.Any(i => item.Contains(i))) continue;
                 var entryName = Path.GetRelativePath(directory, item);
                 var entry = zip.CreateEntry(entryName);
 
@@ -164,6 +197,7 @@ namespace BEditor.Packaging
             for (var i = 0; i < array.Length; i++)
             {
                 var item = array[i];
+                if (_ignoreDlls.Any(i => item.Contains(i))) continue;
                 var entryName = Path.GetRelativePath(directory, item);
                 var entry = zip.CreateEntry(entryName);
 

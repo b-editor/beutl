@@ -5,6 +5,9 @@ namespace BEditor.Packaging
 {
     public sealed class Package
     {
+        [JsonPropertyName("main-assembly")]
+        public string MainAssembly { get; set; } = string.Empty;
+
         [JsonPropertyName("name")]
         public string Name { get; set; } = string.Empty;
 

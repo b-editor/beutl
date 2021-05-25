@@ -1,0 +1,47 @@
+<UserControl
+    xmlns="https://github.com/avaloniaui"
+    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+    xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+    xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+    xmlns:vm="using:BEditor.PackageInstaller.ViewModels"
+    xmlns:res="using:BEditor.PackageInstaller.Resources"
+    x:DataType="vm:ModifyPageViewModel"
+    mc:Ignorable="d" d:DesignWidth="450" d:DesignHeight="400"
+    x:Class="BEditor.PackageInstaller.Views.ModifyPage">
+    <Grid RowDefinitions="*,Auto">
+
+        <StackPanel Margin="16">
+            <StackPanel Orientation="Horizontal" Spacing="8">
+                <TextBlock Text="{CompiledBinding CurrentPackage.Value.Name, Mode=OneWay}" />
+                <TextBlock Text="{CompiledBinding CurrentPackage.Value.Version, Mode=OneWay}" />
+            </StackPanel>
+
+            <TextBlock Margin="0,8" Text="{CompiledBinding CurrentPackage.Value.Author, Mode=OneWay}" />
+        </StackPanel>
+
+        <StackPanel
+            VerticalAlignment="Center"
+            Margin="16"
+            Spacing="8">
+            <TextBlock Text="{CompiledBinding Status.Value, Mode=OneWay}" />
+
+            <ProgressBar
+                Maximum="{CompiledBinding Max.Value, Mode=OneWay}"
+                Minimum="{CompiledBinding Min.Value, Mode=OneWay}"
+                Value="{CompiledBinding Progress.Value, Mode=OneWay}"
+                IsIndeterminate="{CompiledBinding IsIndeterminate.Value, Mode=OneWay}" />
+        </StackPanel>
+
+
+        <Panel
+            Grid.Row="1"
+            Background="{StaticResource SystemControlBackgroundChromeMediumLowBrush}">
+            <Button
+                HorizontalAlignment="Right"
+                Margin="16"
+                Content="{x:Static res:Strings.Cancel}"
+                Command="{CompiledBinding Cancel, Mode=OneTime}"
+                IsCancel="True" />
+        </Panel>
+    </Grid>
+</UserControl>

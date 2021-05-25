@@ -9,6 +9,8 @@ namespace BEditor.PackageInstaller.Views
         public MainWindow()
         {
             InitializeComponent();
+
+            Content = new MainPage();
 #if DEBUG
             this.AttachDevTools();
 #endif

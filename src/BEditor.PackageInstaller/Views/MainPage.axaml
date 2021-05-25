@@ -1,0 +1,133 @@
+<UserControl
+    xmlns="https://github.com/avaloniaui"
+    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+    xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+    xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+    xmlns:vm="using:BEditor.PackageInstaller.ViewModels"
+    xmlns:res="using:BEditor.PackageInstaller.Resources"
+    x:DataType="vm:MainPageViewModel"
+    mc:Ignorable="d" d:DesignWidth="450" d:DesignHeight="400"
+    x:Class="BEditor.PackageInstaller.Views.MainPage">
+    <UserControl.DataContext>
+        <vm:MainPageViewModel/>
+    </UserControl.DataContext>
+    <Grid RowDefinitions="*,Auto">
+        <ScrollViewer Margin="32">
+            <StackPanel>
+                <TextBlock
+                    Margin="0,8,0,0"
+                    IsVisible="{CompiledBinding !InstallsIsEmpty.Value, Mode=OneWay}"
+                    Text="{x:Static res:Strings.Install}" />
+
+                <ItemsControl
+                    IsVisible="{CompiledBinding !InstallsIsEmpty.Value, Mode=OneWay}"
+                    Items="{CompiledBinding Installs, Mode=OneTime}">
+                    <ItemsControl.ItemTemplate>
+                        <DataTemplate>
+                            <Button
+                                Background="Transparent"
+                                Height="50"
+                                Width="{Binding $parent.Bounds.Width}">
+                                <Panel>
+                                    <StackPanel Orientation="Horizontal" Spacing="8">
+                                        <TextBlock Text="{Binding Name}" />
+
+                                        <TextBlock Text="{Binding Version}" />
+                                    </StackPanel>
+
+                                    <TextBlock VerticalAlignment="Bottom" Text="{Binding Author}" Margin="8,0,0,0" />
+                                    <TextBlock Text="{Binding License}" HorizontalAlignment="Right" />
+                                </Panel>
+                            </Button>
+                        </DataTemplate>
+                    </ItemsControl.ItemTemplate>
+                </ItemsControl>
+
+                <TextBlock
+                    Margin="0,8,0,0"
+                    IsVisible="{CompiledBinding !UninstallsIsEmpty.Value, Mode=OneWay}"
+                    Text="{x:Static res:Strings.Uninstall}" />
+
+                <ItemsControl
+                    IsVisible="{CompiledBinding !UninstallsIsEmpty.Value, Mode=OneWay}"
+                    Items="{CompiledBinding Uninstalls, Mode=OneTime}">
+                    <ItemsControl.ItemTemplate>
+                        <DataTemplate>
+                            <Button
+                                Background="Transparent"
+                                Height="50"
+                                Width="{Binding $parent.Bounds.Width}">
+                                <Panel>
+                                    <StackPanel Orientation="Horizontal" Spacing="8">
+                                        <TextBlock Text="{Binding Name}" />
+
+                                        <TextBlock Text="{Binding Version}" />
+                                    </StackPanel>
+
+                                    <TextBlock VerticalAlignment="Bottom" Text="{Binding Author}" Margin="8,0,0,0" />
+                                    <TextBlock Text="{Binding License}" HorizontalAlignment="Right" />
+                                </Panel>
+                            </Button>
+                        </DataTemplate>
+                    </ItemsControl.ItemTemplate>
+                </ItemsControl>
+
+                <TextBlock
+                    Margin="0,8,0,0"
+                    IsVisible="{CompiledBinding !UpdatesIsEmpty.Value, Mode=OneWay}"
+                    Text="{x:Static res:Strings.Update}" />
+
+                <ItemsControl
+                    IsVisible="{CompiledBinding !UpdatesIsEmpty.Value, Mode=OneWay}"
+                    Items="{CompiledBinding Updates, Mode=OneTime}">
+                    <ItemsControl.ItemTemplate>
+                        <DataTemplate>
+                            <Button
+                                Background="Transparent"
+                                Height="50"
+                                Width="{Binding $parent.Bounds.Width}">
+                                <Panel>
+                                    <StackPanel Orientation="Horizontal" Spacing="8">
+                                        <TextBlock Text="{Binding Name}" />
+
+                                        <TextBlock Text="{Binding Version}" />
+                                    </StackPanel>
+
+                                    <TextBlock VerticalAlignment="Bottom" Text="{Binding Author}" Margin="8,0,0,0" />
+                                    <TextBlock Text="{Binding License}" HorizontalAlignment="Right" />
+                                </Panel>
+                            </Button>
+                        </DataTemplate>
+                    </ItemsControl.ItemTemplate>
+                </ItemsControl>
+            </StackPanel>
+        </ScrollViewer>
+
+        <ProgressBar
+            IsIndeterminate="True"
+            IsVisible="{CompiledBinding IsLoading.Value, Mode=OneWay}"
+            Margin="16" />
+        
+        <Grid
+            Grid.Row="1"
+            ColumnDefinitions="*,Auto"
+            Background="{StaticResource SystemControlBackgroundChromeMediumLowBrush}">
+            <TextBlock
+                Text="{x:Static res:Strings.ByClickingModify}"
+                Margin="16"
+                TextWrapping="WrapWithOverflow" />
+
+            <StackPanel Orientation="Horizontal" Grid.Column="1" Margin="16" Spacing="8">
+                <Button
+                    Content="{x:Static res:Strings.Modify}"
+                    Click="ModifyClick"
+                    IsDefault="True" />
+                <Button
+                    Content="{x:Static res:Strings.Cancel}"
+                    Click="CancelClick"
+                    IsCancel="True" />
+            </StackPanel>
+
+        </Grid>
+    </Grid>
+</UserControl>

@@ -1,0 +1,8 @@
+{
+  "profiles": {
+    "BEditor.PackageInstaller": {
+      "commandName": "Project",
+      "commandLineArgs": "sample.json"
+    }
+  }
+}

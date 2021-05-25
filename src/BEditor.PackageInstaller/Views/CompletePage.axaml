@@ -1,0 +1,83 @@
+<UserControl
+    xmlns="https://github.com/avaloniaui"
+    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+    xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+    xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+    xmlns:vm="using:BEditor.PackageInstaller.ViewModels"
+    xmlns:res="using:BEditor.PackageInstaller.Resources"
+    x:DataType="vm:CompletePageViewModel"
+    mc:Ignorable="d" d:DesignWidth="450" d:DesignHeight="400"
+    x:Class="BEditor.PackageInstaller.Views.CompletePage">
+    <Grid RowDefinitions="*,Auto">
+
+        <ScrollViewer Margin="32">
+            <StackPanel>
+                <!--成功した変更-->
+                <TextBlock Margin="0,8,0,0" Text="{x:Static res:Strings.SuccessfulChanges}" />
+                <ItemsControl Items="{CompiledBinding SuccessfulChanges, Mode=OneTime}">
+                    <ItemsControl.ItemTemplate>
+                        <DataTemplate>
+                            <Button
+                                Background="Transparent"
+                                Height="50"
+                                Width="{Binding $parent.Bounds.Width}">
+                                <Panel>
+                                    <StackPanel Orientation="Horizontal" Spacing="8">
+                                        <TextBlock Text="{Binding Name}" />
+
+                                        <TextBlock Text="{Binding Version}" />
+                                    </StackPanel>
+
+                                    <TextBlock VerticalAlignment="Bottom" Text="{Binding Author}" Margin="8,0,0,0" />
+                                    <TextBlock Text="{Binding License}" HorizontalAlignment="Right" />
+                                </Panel>
+                            </Button>
+                        </DataTemplate>
+                    </ItemsControl.ItemTemplate>
+                </ItemsControl>
+
+                <!--失敗した変更-->
+                <TextBlock Margin="0,8,0,0" Text="{x:Static res:Strings.FailedChanges}" />
+                <ItemsControl Items="{CompiledBinding FailedChanges, Mode=OneTime}">
+                    <ItemsControl.ItemTemplate>
+                        <DataTemplate>
+                            <Button
+                                Background="Transparent"
+                                Height="50"
+                                Width="{Binding $parent.Bounds.Width}">
+                                <Panel>
+                                    <StackPanel Orientation="Horizontal" Spacing="8">
+                                        <TextBlock Text="{Binding Name}" />
+
+                                        <TextBlock Text="{Binding Version}" />
+                                    </StackPanel>
+
+                                    <TextBlock VerticalAlignment="Bottom" Text="{Binding Author}" Margin="8,0,0,0" />
+                                    <TextBlock Text="{Binding License}" HorizontalAlignment="Right" />
+                                </Panel>
+                            </Button>
+                        </DataTemplate>
+                    </ItemsControl.ItemTemplate>
+                </ItemsControl>
+            </StackPanel>
+        </ScrollViewer>
+
+        <Grid
+            Grid.Row="1"
+            ColumnDefinitions="*,Auto"
+            Background="{StaticResource SystemControlBackgroundChromeMediumLowBrush}">
+            <TextBlock
+                Text="{x:Static res:Strings.CompleteChangesClickToExit}"
+                Margin="16"
+                TextWrapping="WrapWithOverflow" />
+
+            <Button
+                HorizontalAlignment="Right"
+                Margin="16"
+                Click="CloseClick"
+                Content="{x:Static res:Strings.Close}"
+                IsDefault="True"
+                IsCancel="True" />
+        </Grid>
+    </Grid>
+</UserControl>

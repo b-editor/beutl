@@ -65,12 +65,14 @@ namespace BEditor.ViewModels.ManagePlugins
                 var progress = new ProgressDialog();
 
                 _ = progress.ShowDialog(App.GetMainWindow());
+                var mainAsm = Path.GetFileName(AssemblyFile.Value);
 
                 await PackageFile.CreatePackageAsync(
                     AssemblyFile.Value,
-                    Path.Combine(OutputDirectory.Value, Path.ChangeExtension(Path.GetFileName(AssemblyFile.Value), ".bepack")),
+                    Path.Combine(OutputDirectory.Value, Path.ChangeExtension(mainAsm, ".bepkg")),
                     new()
                     {
+                        MainAssembly = mainAsm,
                         Name = Name.Value,
                         Author = Author.Value,
                         HomePage = WebSite.Value,

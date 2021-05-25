@@ -3,10 +3,8 @@
     xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
     xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
     xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
-    xmlns:vm="using:BEditor.PackageInstaller.ViewModels"
-    x:DataType="vm:MainWindowViewModel"
-    mc:Ignorable="d" Width="400" Height="450"
+    mc:Ignorable="d" Width="450" Height="400"
+    WindowStartupLocation="CenterScreen"
     x:Class="BEditor.PackageInstaller.Views.MainWindow"
     Title="BEditor.PackageInstaller">
-    Welcome to Avalonia!
 </Window>

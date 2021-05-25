@@ -14,5 +14,5 @@ namespace BEditor.PackageInstaller.Models
         Cancel
     }
 
-    public record PackageChange(Guid Id, string Name, string Author, string Version, PackageChangeType Type, string? Url = null);
+    public record PackageChange(Guid Id, string Name, string MainAssembly, string Author, string Version, string License, PackageChangeType Type, string? Url = null);
 }
