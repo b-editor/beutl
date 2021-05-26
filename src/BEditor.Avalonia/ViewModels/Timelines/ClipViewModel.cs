@@ -73,7 +73,7 @@ namespace BEditor.ViewModels.Timelines
             MessageLog.Subscribe(async () =>
             {
                 var text =
-                    $"ID : {ClipElement.ID}\n" +
+                    $"ID : {ClipElement.Id}\n" +
                     $"Name : {ClipElement.Name}\n" +
                     $"Length : {ClipElement.Length.Value}\n" +
                     $"Layer : {ClipElement.Layer}\n" +
@@ -90,7 +90,7 @@ namespace BEditor.ViewModels.Timelines
                 ClipElement.Split(frame).Execute();
             });
 
-            CopyID.Subscribe(async () => await Application.Current.Clipboard.SetTextAsync(ClipElement.ID.ToString()));
+            CopyID.Subscribe(async () => await Application.Current.Clipboard.SetTextAsync(ClipElement.Id.ToString()));
         }
 
         ~ClipViewModel()

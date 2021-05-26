@@ -38,29 +38,29 @@ namespace BEditor.Primitive.Effects
         /// <summary>
         /// Defines the <see cref="LightColor"/> property.
         /// </summary>
-        public static readonly DirectEditingProperty<PointLightDiffuse, ColorProperty> LightColorProperty = EditingProperty.RegisterSerializeDirect<ColorProperty, PointLightDiffuse>(
+        public static readonly DirectEditingProperty<PointLightDiffuse, ColorProperty> LightColorProperty = EditingProperty.RegisterDirect<ColorProperty, PointLightDiffuse>(
             nameof(LightColor),
             owner => owner.LightColor,
             (owner, obj) => owner.LightColor = obj,
-            new ColorPropertyMetadata("Light color", Color.Light, true));
+            EditingPropertyOptions<ColorProperty>.Create(new ColorPropertyMetadata("Light color", Color.Light, true)).Serialize());
 
         /// <summary>
         /// Defines the <see cref="SurfaceScale"/> property.
         /// </summary>
-        public static readonly DirectEditingProperty<PointLightDiffuse, EaseProperty> SurfaceScaleProperty = EditingProperty.RegisterSerializeDirect<EaseProperty, PointLightDiffuse>(
+        public static readonly DirectEditingProperty<PointLightDiffuse, EaseProperty> SurfaceScaleProperty = EditingProperty.RegisterDirect<EaseProperty, PointLightDiffuse>(
             nameof(SurfaceScale),
             owner => owner.SurfaceScale,
             (owner, obj) => owner.SurfaceScale = obj,
-            new EasePropertyMetadata("Surface scale", 100, 100, -100));
+            EditingPropertyOptions<EaseProperty>.Create(new EasePropertyMetadata("Surface scale", 100, 100, -100)).Serialize());
 
         /// <summary>
         /// Defines the <see cref="LightConstant"/> property.
         /// </summary>
-        public static readonly DirectEditingProperty<PointLightDiffuse, EaseProperty> LightConstantProperty = EditingProperty.RegisterSerializeDirect<EaseProperty, PointLightDiffuse>(
+        public static readonly DirectEditingProperty<PointLightDiffuse, EaseProperty> LightConstantProperty = EditingProperty.RegisterDirect<EaseProperty, PointLightDiffuse>(
             nameof(LightConstant),
             owner => owner.LightConstant,
             (owner, obj) => owner.LightConstant = obj,
-            new EasePropertyMetadata("Light constant", 100, 100, 0));
+            EditingPropertyOptions<EaseProperty>.Create(new EasePropertyMetadata("Light constant", 100, 100, 0)).Serialize());
 
         public PointLightDiffuse()
         {

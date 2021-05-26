@@ -18,20 +18,20 @@ namespace BEditor.Primitive.Effects.OpenCv
         /// <summary>
         /// Defines the <see cref="Size"/> property.
         /// </summary>
-        public static readonly DirectEditingProperty<GaussianBlur, EaseProperty> SizeProperty = EditingProperty.RegisterSerializeDirect<EaseProperty, GaussianBlur>(
+        public static readonly DirectEditingProperty<GaussianBlur, EaseProperty> SizeProperty = EditingProperty.RegisterDirect<EaseProperty, GaussianBlur>(
             nameof(Size),
             owner => owner.Size,
             (owner, obj) => owner.Size = obj,
-            new EasePropertyMetadata(Strings.Size, 20, Min: 0));
+            EditingPropertyOptions<EaseProperty>.Create(new EasePropertyMetadata(Strings.Size, 20, Min: 0)).Serialize());
 
         /// <summary>
         /// Defines the <see cref="Resize"/> property.
         /// </summary>
-        public static readonly DirectEditingProperty<GaussianBlur, CheckProperty> ResizeProperty = EditingProperty.RegisterSerializeDirect<CheckProperty, GaussianBlur>(
+        public static readonly DirectEditingProperty<GaussianBlur, CheckProperty> ResizeProperty = EditingProperty.RegisterDirect<CheckProperty, GaussianBlur>(
             nameof(Resize),
             owner => owner.Resize,
             (owner, obj) => owner.Resize = obj,
-            new CheckPropertyMetadata(Strings.Resize, true));
+            EditingPropertyOptions<CheckProperty>.Create(new CheckPropertyMetadata(Strings.Resize, true)).Serialize());
 
         /// <summary>
         /// Initializes a new instance of the <see cref="GaussianBlur"/> class.

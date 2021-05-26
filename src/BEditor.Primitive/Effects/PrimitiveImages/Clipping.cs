@@ -18,47 +18,47 @@ namespace BEditor.Primitive.Effects
         /// <summary>
         /// Defines the <see cref="Top"/> property.
         /// </summary>
-        public static readonly DirectEditingProperty<Clipping, EaseProperty> TopProperty = EditingProperty.RegisterSerializeDirect<EaseProperty, Clipping>(
+        public static readonly DirectEditingProperty<Clipping, EaseProperty> TopProperty = EditingProperty.RegisterDirect<EaseProperty, Clipping>(
             nameof(Top),
             owner => owner.Top,
             (owner, obj) => owner.Top = obj,
-            new EasePropertyMetadata(Strings.Top, 0, float.NaN, 0));
+            EditingPropertyOptions<EaseProperty>.Create(new EasePropertyMetadata(Strings.Top, 0, float.NaN, 0)).Serialize());
 
         /// <summary>
         /// Defines the <see cref="Bottom"/> property.
         /// </summary>
-        public static readonly DirectEditingProperty<Clipping, EaseProperty> BottomProperty = EditingProperty.RegisterSerializeDirect<EaseProperty, Clipping>(
+        public static readonly DirectEditingProperty<Clipping, EaseProperty> BottomProperty = EditingProperty.RegisterDirect<EaseProperty, Clipping>(
             nameof(Bottom),
             owner => owner.Bottom,
             (owner, obj) => owner.Bottom = obj,
-            new EasePropertyMetadata(Strings.Bottom, 0, float.NaN, 0));
+            EditingPropertyOptions<EaseProperty>.Create(new EasePropertyMetadata(Strings.Bottom, 0, float.NaN, 0)).Serialize());
 
         /// <summary>
         /// Defines the <see cref="Left"/> property.
         /// </summary>
-        public static readonly DirectEditingProperty<Clipping, EaseProperty> LeftProperty = EditingProperty.RegisterSerializeDirect<EaseProperty, Clipping>(
+        public static readonly DirectEditingProperty<Clipping, EaseProperty> LeftProperty = EditingProperty.RegisterDirect<EaseProperty, Clipping>(
             nameof(Left),
             owner => owner.Left,
             (owner, obj) => owner.Left = obj,
-            new EasePropertyMetadata(Strings.Left, 0, float.NaN, 0));
+            EditingPropertyOptions<EaseProperty>.Create(new EasePropertyMetadata(Strings.Left, 0, float.NaN, 0)).Serialize());
 
         /// <summary>
         /// Defines the <see cref="Right"/> property.
         /// </summary>
-        public static readonly DirectEditingProperty<Clipping, EaseProperty> RightProperty = EditingProperty.RegisterSerializeDirect<EaseProperty, Clipping>(
+        public static readonly DirectEditingProperty<Clipping, EaseProperty> RightProperty = EditingProperty.RegisterDirect<EaseProperty, Clipping>(
             nameof(Right),
             owner => owner.Right,
             (owner, obj) => owner.Right = obj,
-            new EasePropertyMetadata(Strings.Right, 0, float.NaN, 0));
+            EditingPropertyOptions<EaseProperty>.Create(new EasePropertyMetadata(Strings.Right, 0, float.NaN, 0)).Serialize());
 
         /// <summary>
         /// Defines the <see cref="AdjustCoordinates"/> property.
         /// </summary>
-        public static readonly DirectEditingProperty<Clipping, CheckProperty> AdjustCoordinatesProperty = EditingProperty.RegisterSerializeDirect<CheckProperty, Clipping>(
+        public static readonly DirectEditingProperty<Clipping, CheckProperty> AdjustCoordinatesProperty = EditingProperty.RegisterDirect<CheckProperty, Clipping>(
             nameof(AdjustCoordinates),
             owner => owner.AdjustCoordinates,
             (owner, obj) => owner.AdjustCoordinates = obj,
-            new CheckPropertyMetadata(Strings.AdjustCoordinates));
+            EditingPropertyOptions<CheckProperty>.Create(new CheckPropertyMetadata(Strings.AdjustCoordinates)).Serialize());
 
         /// <summary>
         /// Initializes a new instance of the <see cref="Clipping"/> class.

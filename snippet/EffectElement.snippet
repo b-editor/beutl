@@ -18,7 +18,7 @@
     <Snippet>
       <Imports>
         <Import>
-          <Namespace>System.Runtime.Serialization</Namespace>
+          <Namespace>System.Collections.Generics</Namespace>
         </Import>
         <Import>
           <Namespace>BEditor</Namespace>
@@ -50,26 +50,25 @@
       </Declarations>
       <Code Language="csharp">
         <![CDATA[
-        public sealed class $ClassName$ $PropertyName$ : ImageEffect
+        public sealed class $ClassName$ : ImageEffect
         {
-            public override Name => $ClassName$;
-
-            public override IEnumerable<PropertyElement> Properties => new PropertyElement[] { };
+            public override Name => nameof($ClassName$);
 
 
-            public override void Render(EffectRenderArgs<Image<BGRA32>> args)
+            public override void Apply(EffectApplyArgs<Image<BGRA32>> args)
             {
-                
+            }
+            
+            public override IEnumerable<PropertyElement> GetProperties()
+            {
             }
 
             protected override void OnLoad()
             {
-                
             }
 
             protected override void OnUnload()
             {
-                
             }
         }
         ]]>

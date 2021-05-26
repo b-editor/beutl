@@ -22,20 +22,20 @@ namespace BEditor.Primitive.Effects
         /// <summary>
         /// Defines the <see cref="CenterX"/> property.
         /// </summary>
-        public static readonly DirectEditingProperty<StrokeText, EaseProperty> CenterXProperty = EditingProperty.RegisterSerializeDirect<EaseProperty, StrokeText>(
+        public static readonly DirectEditingProperty<StrokeText, EaseProperty> CenterXProperty = EditingProperty.RegisterDirect<EaseProperty, StrokeText>(
             nameof(CenterX),
             owner => owner.CenterX,
             (owner, obj) => owner.CenterX = obj,
-            new EasePropertyMetadata(Strings.CenterX, 0));
+            EditingPropertyOptions<EaseProperty>.Create(new EasePropertyMetadata(Strings.CenterX, 0)).Serialize());
 
         /// <summary>
         /// Defines the <see cref="CenterY"/> property.
         /// </summary>
-        public static readonly DirectEditingProperty<StrokeText, EaseProperty> CenterYProperty = EditingProperty.RegisterSerializeDirect<EaseProperty, StrokeText>(
+        public static readonly DirectEditingProperty<StrokeText, EaseProperty> CenterYProperty = EditingProperty.RegisterDirect<EaseProperty, StrokeText>(
             nameof(CenterY),
             owner => owner.CenterY,
             (owner, obj) => owner.CenterY = obj,
-            new EasePropertyMetadata(Strings.CenterY, 0));
+            EditingPropertyOptions<EaseProperty>.Create(new EasePropertyMetadata(Strings.CenterY, 0)).Serialize());
 
         /// <summary>
         /// Defines the <see cref="LineSpacing"/> property.

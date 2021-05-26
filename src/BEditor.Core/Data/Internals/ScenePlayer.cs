@@ -5,12 +5,12 @@ using BEditor.Media;
 
 using Timer = System.Timers.Timer;
 
-namespace BEditor.Data
+namespace BEditor.Data.Internals
 {
     /// <summary>
     /// Represents a <see cref="Scene"/> player.
     /// </summary>
-    public class ScenePlayer : IPlayer
+    internal class ScenePlayer : IPlayer
     {
         private readonly Timer _timer;
         private readonly double _framerate;

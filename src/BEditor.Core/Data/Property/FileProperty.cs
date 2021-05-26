@@ -80,7 +80,7 @@ namespace BEditor.Data.Property
         /// <inheritdoc/>
         public Guid? TargetID
         {
-            get => _bindable?.ID;
+            get => _bindable?.Id;
             private set => _targetID = value;
         }
 

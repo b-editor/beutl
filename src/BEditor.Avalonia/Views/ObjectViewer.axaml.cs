@@ -33,7 +33,7 @@ namespace BEditor.Views
         {
             if (this.FindControl<TreeView>("TreeView").SelectedItem is IEditingObject obj)
             {
-                await Application.Current.Clipboard.SetTextAsync(obj.ID.ToString());
+                await Application.Current.Clipboard.SetTextAsync(obj.Id.ToString());
             }
             else
             {

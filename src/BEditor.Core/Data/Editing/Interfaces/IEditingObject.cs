@@ -16,7 +16,7 @@ namespace BEditor.Data
         /// <summary>
         /// Gets the ID.
         /// </summary>
-        public Guid ID { get; }
+        public Guid Id { get; }
 
         /// <summary>
         /// Gets or sets the local value of <see cref="EditingProperty"/>.

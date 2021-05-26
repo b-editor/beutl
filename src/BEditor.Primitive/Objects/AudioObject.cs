@@ -25,54 +25,54 @@ namespace BEditor.Primitive.Objects
         /// <summary>
         /// Defines the <see cref="Coordinate"/> property.
         /// </summary>
-        public static readonly DirectEditingProperty<AudioObject, AudioCoordinate> CoordinateProperty = EditingProperty.RegisterSerializeDirect<AudioCoordinate, AudioObject>(
+        public static readonly DirectEditingProperty<AudioObject, AudioCoordinate> CoordinateProperty = EditingProperty.RegisterDirect<AudioCoordinate, AudioObject>(
             nameof(Coordinate),
             owner => owner.Coordinate,
             (owner, obj) => owner.Coordinate = obj,
-            new AudioCoordinateMetadata(Strings.Coordinate));
+            EditingPropertyOptions<AudioCoordinate>.Create(new AudioCoordinateMetadata(Strings.Coordinate)).Serialize());
 
         /// <summary>
         /// Defines the <see cref="Volume"/> property.
         /// </summary>
-        public static readonly DirectEditingProperty<AudioObject, EaseProperty> VolumeProperty = EditingProperty.RegisterSerializeDirect<EaseProperty, AudioObject>(
+        public static readonly DirectEditingProperty<AudioObject, EaseProperty> VolumeProperty = EditingProperty.RegisterDirect<EaseProperty, AudioObject>(
             nameof(Volume),
             owner => owner.Volume,
             (owner, obj) => owner.Volume = obj,
-            new EasePropertyMetadata(Strings.Volume, 50, float.NaN, 0));
+            EditingPropertyOptions<EaseProperty>.Create(new EasePropertyMetadata(Strings.Volume, 50, float.NaN, 0)).Serialize());
 
         /// <summary>
         /// Defines the <see cref="Pitch"/> property.
         /// </summary>
-        public static readonly DirectEditingProperty<AudioObject, EaseProperty> PitchProperty = EditingProperty.RegisterSerializeDirect<EaseProperty, AudioObject>(
+        public static readonly DirectEditingProperty<AudioObject, EaseProperty> PitchProperty = EditingProperty.RegisterDirect<EaseProperty, AudioObject>(
             nameof(Pitch),
             owner => owner.Pitch,
             (owner, obj) => owner.Pitch = obj,
-            new EasePropertyMetadata(Strings.Pitch, 100, 200, 50));
+            EditingPropertyOptions<EaseProperty>.Create(new EasePropertyMetadata(Strings.Pitch, 100, 200, 50)).Serialize());
 
         /// <summary>
         /// Defines the <see cref="Start"/> property.
         /// </summary>
-        public static readonly DirectEditingProperty<AudioObject, ValueProperty> StartProperty = EditingProperty.RegisterSerializeDirect<ValueProperty, AudioObject>(
+        public static readonly DirectEditingProperty<AudioObject, ValueProperty> StartProperty = EditingProperty.RegisterDirect<ValueProperty, AudioObject>(
             nameof(Start),
             owner => owner.Start,
             (owner, obj) => owner.Start = obj,
-            new ValuePropertyMetadata(Strings.Start + "(Milliseconds)", 0, Min: 0));
+            EditingPropertyOptions<ValueProperty>.Create(new ValuePropertyMetadata(Strings.Start + "(Milliseconds)", 0, Min: 0)).Serialize());
 
         /// <summary>
         /// Defines the <see cref="File"/> property.
         /// </summary>
-        public static readonly DirectEditingProperty<AudioObject, FileProperty> FileProperty = EditingProperty.RegisterSerializeDirect<FileProperty, AudioObject>(
+        public static readonly DirectEditingProperty<AudioObject, FileProperty> FileProperty = EditingProperty.RegisterDirect<FileProperty, AudioObject>(
             nameof(File),
             owner => owner.File,
             (owner, obj) => owner.File = obj,
-            new FilePropertyMetadata(Strings.File, Filter: new("", new FileExtension[] { new("mp3"), new("wav") })));
+            EditingPropertyOptions<FileProperty>.Create(new FilePropertyMetadata(Strings.File, Filter: new("", new FileExtension[] { new("mp3"), new("wav") }))).Serialize());
 
         /// <summary>
         /// Defines the <see cref="SetLength"/> property.
         /// </summary>
         public static readonly EditingProperty<ButtonComponent> SetLengthProperty = EditingProperty.Register<ButtonComponent, AudioObject>(
             nameof(SetLength),
-            new ButtonComponentMetadata(Strings.ClipLengthAsAudioLength));
+            EditingPropertyOptions<ButtonComponent>.Create(new ButtonComponentMetadata(Strings.ClipLengthAsAudioLength)));
 
         private MediaFile? _mediaFile;
 
@@ -284,56 +284,56 @@ namespace BEditor.Primitive.Objects
             /// <summary>
             /// Defines the <see cref="X"/> property.
             /// </summary>
-            public static readonly DirectEditingProperty<AudioCoordinate, EaseProperty> XProperty = EditingProperty.RegisterSerializeDirect<EaseProperty, AudioCoordinate>(
+            public static readonly DirectEditingProperty<AudioCoordinate, EaseProperty> XProperty = EditingProperty.RegisterDirect<EaseProperty, AudioCoordinate>(
                 nameof(X),
                 owner => owner.X,
                 (owner, obj) => owner.X = obj,
-                new EasePropertyMetadata(Strings.X, 0));
+                EditingPropertyOptions<EaseProperty>.Create(new EasePropertyMetadata(Strings.X, 0)).Serialize());
 
             /// <summary>
             /// Defines the <see cref="Y"/> property.
             /// </summary>
-            public static readonly DirectEditingProperty<AudioCoordinate, EaseProperty> YProperty = EditingProperty.RegisterSerializeDirect<EaseProperty, AudioCoordinate>(
+            public static readonly DirectEditingProperty<AudioCoordinate, EaseProperty> YProperty = EditingProperty.RegisterDirect<EaseProperty, AudioCoordinate>(
                 nameof(Y),
                 owner => owner.Y,
                 (owner, obj) => owner.Y = obj,
-                new EasePropertyMetadata(Strings.Y, 0));
+                EditingPropertyOptions<EaseProperty>.Create(new EasePropertyMetadata(Strings.Y, 0)).Serialize());
 
             /// <summary>
             /// Defines the <see cref="Z"/> property.
             /// </summary>
-            public static readonly DirectEditingProperty<AudioCoordinate, EaseProperty> ZProperty = EditingProperty.RegisterSerializeDirect<EaseProperty, AudioCoordinate>(
+            public static readonly DirectEditingProperty<AudioCoordinate, EaseProperty> ZProperty = EditingProperty.RegisterDirect<EaseProperty, AudioCoordinate>(
                 nameof(Z),
                 owner => owner.Z,
                 (owner, obj) => owner.Z = obj,
-                new EasePropertyMetadata(Strings.Z, 0));
+                EditingPropertyOptions<EaseProperty>.Create(new EasePropertyMetadata(Strings.Z, 0)).Serialize());
 
             /// <summary>
             /// Defines the <see cref="DirectionX"/> property.
             /// </summary>
-            public static readonly DirectEditingProperty<AudioCoordinate, EaseProperty> CenterXProperty = EditingProperty.RegisterSerializeDirect<EaseProperty, AudioCoordinate>(
+            public static readonly DirectEditingProperty<AudioCoordinate, EaseProperty> CenterXProperty = EditingProperty.RegisterDirect<EaseProperty, AudioCoordinate>(
                 nameof(DirectionX),
                 owner => owner.DirectionX,
                 (owner, obj) => owner.DirectionX = obj,
-                new EasePropertyMetadata("Direction x", 0, float.NaN, float.NaN, true));
+                EditingPropertyOptions<EaseProperty>.Create(new EasePropertyMetadata("Direction x", 0, float.NaN, float.NaN, true)).Serialize());
 
             /// <summary>
             /// Defines the <see cref="DirectionY"/> property.
             /// </summary>
-            public static readonly DirectEditingProperty<AudioCoordinate, EaseProperty> CenterYProperty = EditingProperty.RegisterSerializeDirect<EaseProperty, AudioCoordinate>(
+            public static readonly DirectEditingProperty<AudioCoordinate, EaseProperty> CenterYProperty = EditingProperty.RegisterDirect<EaseProperty, AudioCoordinate>(
                 nameof(DirectionY),
                 owner => owner.DirectionY,
                 (owner, obj) => owner.DirectionY = obj,
-                new EasePropertyMetadata("Direction y", 0, float.NaN, float.NaN, true));
+                EditingPropertyOptions<EaseProperty>.Create(new EasePropertyMetadata("Direction y", 0, float.NaN, float.NaN, true)).Serialize());
 
             /// <summary>
             /// Defines the <see cref="DirectionZ"/> property.
             /// </summary>
-            public static readonly DirectEditingProperty<AudioCoordinate, EaseProperty> CenterZProperty = EditingProperty.RegisterSerializeDirect<EaseProperty, AudioCoordinate>(
+            public static readonly DirectEditingProperty<AudioCoordinate, EaseProperty> CenterZProperty = EditingProperty.RegisterDirect<EaseProperty, AudioCoordinate>(
                 nameof(DirectionZ),
                 owner => owner.DirectionZ,
                 (owner, obj) => owner.DirectionZ = obj,
-                new EasePropertyMetadata("Direction z", 0, float.NaN, float.NaN, true));
+                EditingPropertyOptions<EaseProperty>.Create(new EasePropertyMetadata("Direction z", 0, float.NaN, float.NaN, true)).Serialize());
 
             /// <summary>
             /// Initializes a new instance of the <see cref="AudioCoordinate"/> class.

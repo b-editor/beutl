@@ -61,17 +61,17 @@ namespace BEditor.Primitive.Effects.OpenCv
         /// <summary>
         /// Defines the <see cref="Mode"/> property.
         /// </summary>
-        public static readonly DirectEditingProperty<WarpPolar, SelectorProperty> ModeProperty = EditingProperty.RegisterSerializeDirect<SelectorProperty, WarpPolar>(
+        public static readonly DirectEditingProperty<WarpPolar, SelectorProperty> ModeProperty = EditingProperty.RegisterDirect<SelectorProperty, WarpPolar>(
             nameof(Mode),
             owner => owner.Mode,
             (owner, obj) => owner.Mode = obj,
-            new SelectorPropertyMetadata("モード", new string[]
+            EditingPropertyOptions<SelectorProperty>.Create(new SelectorPropertyMetadata("モード", new string[]
             {
                 "極座標への線形変換",
                 "極座標からの逆変換",
                 "対数極座標への線形変換",
                 "極座標からの逆変換"
-            }));
+            })).Serialize());
 
         /// <summary>
         /// Initializes a new instance of the <see cref="WarpPolar"/> class.

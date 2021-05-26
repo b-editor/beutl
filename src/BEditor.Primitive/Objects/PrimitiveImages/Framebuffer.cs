@@ -18,11 +18,11 @@ namespace BEditor.Primitive.Objects
         /// <summary>
         /// Defines the <see cref="BufferClear"/> property.
         /// </summary>
-        public static readonly DirectEditingProperty<Framebuffer, CheckProperty> BufferClearProperty = EditingProperty.RegisterSerializeDirect<CheckProperty, Framebuffer>(
+        public static readonly DirectEditingProperty<Framebuffer, CheckProperty> BufferClearProperty = EditingProperty.RegisterDirect<CheckProperty, Framebuffer>(
             nameof(BufferClear),
             owner => owner.BufferClear,
             (owner, obj) => owner.BufferClear = obj,
-            new CheckPropertyMetadata(Strings.ClearFramebuffer));
+            EditingPropertyOptions<CheckProperty>.Create(new CheckPropertyMetadata(Strings.ClearFramebuffer)).Serialize());
 
         /// <summary>
         /// Initializes a new instance of the <see cref="Framebuffer"/> class.

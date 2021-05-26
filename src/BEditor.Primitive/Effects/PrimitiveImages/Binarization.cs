@@ -18,11 +18,11 @@ namespace BEditor.Primitive.Effects
         /// <summary>
         /// Difines the <see cref="Value"/> property.
         /// </summary>
-        public static readonly EditingProperty<EaseProperty> ValueProperty = EditingProperty.RegisterSerializeDirect<EaseProperty, Binarization>(
+        public static readonly DirectEditingProperty<Binarization, EaseProperty> ValueProperty = EditingProperty.RegisterDirect<EaseProperty, Binarization>(
             nameof(Value),
             owner => owner.Value,
             (owner, obj) => owner.Value = obj,
-            new EasePropertyMetadata(Strings.ThresholdValue, 127, 255, 0));
+            EditingPropertyOptions<EaseProperty>.Create(new EasePropertyMetadata(Strings.ThresholdValue, 127, 255, 0)).Serialize());
 
         /// <summary>
         /// Initializes a new instance of the <see cref="Binarization"/> class.

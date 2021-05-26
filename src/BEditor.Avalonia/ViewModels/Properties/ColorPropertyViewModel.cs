@@ -53,7 +53,7 @@ namespace BEditor.ViewModels.Properties
 
             OpenDialog.Subscribe(async () => await Dialog.ShowDialog(App.GetMainWindow())).AddTo(_disposables);
 
-            CopyID.Subscribe(async () => await Application.Current.Clipboard.SetTextAsync(Property.ID.ToString())).AddTo(_disposables);
+            CopyID.Subscribe(async () => await Application.Current.Clipboard.SetTextAsync(Property.Id.ToString())).AddTo(_disposables);
         }
 
         ~ColorPropertyViewModel()

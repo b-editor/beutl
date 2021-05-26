@@ -42,11 +42,11 @@ namespace BEditor.Primitive.Effects
         /// <summary>
         /// Defines the <see cref="Index"/> property.
         /// </summary>
-        public static readonly DirectEditingProperty<MultipleControls, ValueProperty> IndexProperty = EditingProperty.RegisterSerializeDirect<ValueProperty, MultipleControls>(
+        public static readonly DirectEditingProperty<MultipleControls, ValueProperty> IndexProperty = EditingProperty.RegisterDirect<ValueProperty, MultipleControls>(
             nameof(Index),
             owner => owner.Index,
             (owner, obj) => owner.Index = obj,
-            new ValuePropertyMetadata("index", 0, Min: 0));
+            EditingPropertyOptions<ValueProperty>.Create(new ValuePropertyMetadata("index", 0, Min: 0)).Serialize());
 
         /// <summary>
         /// INitializes a new instance of the <see cref="MultipleControls"/> class.

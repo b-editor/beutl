@@ -28,10 +28,10 @@ Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "Solution Items", "Solution 
 EndProject
 Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "snippet", "snippet", "{07AD3413-7A32-466C-B70B-988EC917B8B3}"
 	ProjectSection(SolutionItems) = preProject
-		snippet\EditorProperty.snippet = snippet\EditorProperty.snippet
+		snippet\EditingProperty.snippet = snippet\EditingProperty.snippet
+		snippet\EditingPropertyOptions.snippet = snippet\EditingPropertyOptions.snippet
 		snippet\EffectElement.snippet = snippet\EffectElement.snippet
 		snippet\PropertyElement.snippet = snippet\PropertyElement.snippet
-		snippet\PropertyElementMetadata.snippet = snippet\PropertyElementMetadata.snippet
 	EndProjectSection
 EndProject
 Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "test", "test", "{F2B6ED4E-9B6C-4228-A317-778BFDEDB18E}"
@@ -77,7 +77,7 @@ Project("{D954291E-2A0B-460D-934E-DC6B0785DB48}") = "Shared", "src\Shared\Shared
 EndProject
 Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "BEditor.PackageInstaller", "src\BEditor.PackageInstaller\BEditor.PackageInstaller.csproj", "{2B0B4AB4-F5AD-4809-AA09-A7C8BABC8669}"
 EndProject
-Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "BEditor.Packaging", "src\BEditor.Packaging\BEditor.Packaging.csproj", "{757D5E51-8725-4DD8-99B6-F511A7A40E01}"
+Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "BEditor.Packaging", "src\BEditor.Packaging\BEditor.Packaging.csproj", "{757D5E51-8725-4DD8-99B6-F511A7A40E01}"
 EndProject
 Global
 	GlobalSection(SharedMSBuildProjectFiles) = preSolution

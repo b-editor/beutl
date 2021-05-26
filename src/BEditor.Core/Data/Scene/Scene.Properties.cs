@@ -4,6 +4,7 @@ using System.Collections.ObjectModel;
 using System.Linq;
 
 using BEditor.Audio;
+using BEditor.Data.Internals;
 using BEditor.Drawing;
 using BEditor.Graphics;
 using BEditor.Media;

@@ -99,7 +99,7 @@ namespace BEditor.Data
         /// </summary>
         /// <typeparam name="T">Type of the child element.</typeparam>
         /// <param name="self">The parent element containing the child elements to be searched.</param>
-        /// <param name="id">The value of <see cref="IEditingObject.ID"/> to search for.</param>
+        /// <param name="id">The value of <see cref="IEditingObject.Id"/> to search for.</param>
         /// <returns>The element if found, otherwise the default value of type <typeparamref name="T"/>.</returns>
         [Pure]
         public static T? Find<T>(this IParent<T> self, Guid id)
@@ -107,7 +107,7 @@ namespace BEditor.Data
         {
             foreach (var item in self.Children)
             {
-                if (item.ID == id)
+                if (item.Id == id)
                 {
                     return item;
                 }
@@ -121,7 +121,7 @@ namespace BEditor.Data
         /// </summary>
         /// <typeparam name="T">Type of the child element.</typeparam>
         /// <param name="self">The parent element containing the child elements to be searched.</param>
-        /// <param name="id">The value of <see cref="IEditingObject.ID"/> to search for.</param>
+        /// <param name="id">The value of <see cref="IEditingObject.Id"/> to search for.</param>
         /// <returns>The element if found, otherwise the default value of type <typeparamref name="T"/>.</returns>
         [Pure]
         public static T? FindAllChildren<T>(this IParent<object> self, Guid id)
@@ -129,7 +129,7 @@ namespace BEditor.Data
         {
             foreach (var item in self.GetAllChildren<T>())
             {
-                if (item.ID == id)
+                if (item.Id == id)
                 {
                     return item;
                 }
@@ -159,6 +159,16 @@ namespace BEditor.Data
 
                 if (item is TResult t) yield return t;
             }
+        }
+
+        /// <summary>
+        /// Specifies the serializer for the property.
+        /// </summary>
+        /// <typeparam name="TValue">The type of the property value.</typeparam>
+        /// <param name="options">The options to be specified.</param>
+        public static EditingPropertyOptions<TValue> Serialize<TValue>(this EditingPropertyOptions<TValue> options) where TValue : IJsonObject
+        {
+            return options.Serialize(Internals.PropertyJsonSerializer<TValue>.Current);
         }
     }
 }

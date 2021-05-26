@@ -18,11 +18,11 @@ namespace BEditor.Primitive.Effects
         /// <summary>
         /// Defines the <see cref="Size"/> property.
         /// </summary>
-        public static readonly DirectEditingProperty<Blur, EaseProperty> TopProperty = EditingProperty.RegisterSerializeDirect<EaseProperty, Blur>(
+        public static readonly DirectEditingProperty<Blur, EaseProperty> TopProperty = EditingProperty.RegisterDirect<EaseProperty, Blur>(
             nameof(Size),
             owner => owner.Size,
             (owner, obj) => owner.Size = obj,
-            new EasePropertyMetadata(Strings.Size, 25, float.NaN, 0));
+            EditingPropertyOptions<EaseProperty>.Create(new EasePropertyMetadata(Strings.Size, 25, float.NaN, 0)).Serialize());
 
         /// <summary>
         /// Initializes a new instance of the <see cref="Blur"/> class.

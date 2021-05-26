@@ -32,38 +32,38 @@ namespace BEditor.Primitive.Objects
         /// <summary>
         /// Defines the <see cref="TopLeftRadius"/> property.
         /// </summary>
-        public static readonly DirectEditingProperty<RoundRect, EaseProperty> TopLeftRadiusProperty = EditingProperty.RegisterSerializeDirect<EaseProperty, RoundRect>(
+        public static readonly DirectEditingProperty<RoundRect, EaseProperty> TopLeftRadiusProperty = EditingProperty.RegisterDirect<EaseProperty, RoundRect>(
             nameof(TopLeftRadius),
             owner => owner.TopLeftRadius,
             (owner, obj) => owner.TopLeftRadius = obj,
-            new EasePropertyMetadata($"{Strings.TopLeft} ({Strings.Radius})", 20, Min: 0));
+            EditingPropertyOptions<EaseProperty>.Create(new EasePropertyMetadata($"{Strings.TopLeft} ({Strings.Radius})", 20, Min: 0)).Serialize());
 
         /// <summary>
         /// Defines the <see cref="TopRightRadius"/> property.
         /// </summary>
-        public static readonly DirectEditingProperty<RoundRect, EaseProperty> TopRightRadiusProperty = EditingProperty.RegisterSerializeDirect<EaseProperty, RoundRect>(
+        public static readonly DirectEditingProperty<RoundRect, EaseProperty> TopRightRadiusProperty = EditingProperty.RegisterDirect<EaseProperty, RoundRect>(
             nameof(TopRightRadius),
             owner => owner.TopRightRadius,
             (owner, obj) => owner.TopRightRadius = obj,
-            new EasePropertyMetadata($"{Strings.TopRight} ({Strings.Radius})", 20, Min: 0));
+            EditingPropertyOptions<EaseProperty>.Create(new EasePropertyMetadata($"{Strings.TopRight} ({Strings.Radius})", 20, Min: 0)).Serialize());
 
         /// <summary>
         /// Defines the <see cref="BottomLeftRadius"/> property.
         /// </summary>
-        public static readonly DirectEditingProperty<RoundRect, EaseProperty> BottomLeftRadiusProperty = EditingProperty.RegisterSerializeDirect<EaseProperty, RoundRect>(
+        public static readonly DirectEditingProperty<RoundRect, EaseProperty> BottomLeftRadiusProperty = EditingProperty.RegisterDirect<EaseProperty, RoundRect>(
             nameof(BottomLeftRadius),
             owner => owner.BottomLeftRadius,
             (owner, obj) => owner.BottomLeftRadius = obj,
-            new EasePropertyMetadata($"{Strings.BottomLeft} ({Strings.Radius})", 20, Min: 0));
+            EditingPropertyOptions<EaseProperty>.Create(new EasePropertyMetadata($"{Strings.BottomLeft} ({Strings.Radius})", 20, Min: 0)).Serialize());
 
         /// <summary>
         /// Defines the <see cref="BottomRightRadius"/> property.
         /// </summary>
-        public static readonly DirectEditingProperty<RoundRect, EaseProperty> BottomRightRadiusProperty = EditingProperty.RegisterSerializeDirect<EaseProperty, RoundRect>(
+        public static readonly DirectEditingProperty<RoundRect, EaseProperty> BottomRightRadiusProperty = EditingProperty.RegisterDirect<EaseProperty, RoundRect>(
             nameof(BottomRightRadius),
             owner => owner.BottomRightRadius,
             (owner, obj) => owner.BottomRightRadius = obj,
-            new EasePropertyMetadata($"{Strings.BottomRight} ({Strings.Radius})", 20, Min: 0));
+            EditingPropertyOptions<EaseProperty>.Create(new EasePropertyMetadata($"{Strings.BottomRight} ({Strings.Radius})", 20, Min: 0)).Serialize());
 
         /// <summary>
         /// Defines the <see cref="Line"/> property.

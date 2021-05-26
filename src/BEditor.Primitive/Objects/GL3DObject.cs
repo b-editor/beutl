@@ -56,42 +56,42 @@ namespace BEditor.Primitive.Objects
         /// <summary>
         /// Defines the <see cref="Type"/> property.
         /// </summary>
-        public static readonly DirectEditingProperty<GL3DObject, SelectorProperty> TypeProperty = EditingProperty.RegisterSerializeDirect<SelectorProperty, GL3DObject>(
+        public static readonly DirectEditingProperty<GL3DObject, SelectorProperty> TypeProperty = EditingProperty.RegisterDirect<SelectorProperty, GL3DObject>(
             nameof(Type),
             owner => owner.Type,
             (owner, obj) => owner.Type = obj,
-            new SelectorPropertyMetadata(Strings.Type, new[]
+            EditingPropertyOptions<SelectorProperty>.Create(new SelectorPropertyMetadata(Strings.Type, new[]
             {
                 Strings.Cube,
                 Strings.Ball
-            }));
+            })).Serialize());
 
         /// <summary>
         /// Defines the <see cref="Width"/> property.
         /// </summary>
-        public static readonly DirectEditingProperty<GL3DObject, EaseProperty> WidthProperty = EditingProperty.RegisterSerializeDirect<EaseProperty, GL3DObject>(
+        public static readonly DirectEditingProperty<GL3DObject, EaseProperty> WidthProperty = EditingProperty.RegisterDirect<EaseProperty, GL3DObject>(
             nameof(Width),
             owner => owner.Width,
             (owner, obj) => owner.Width = obj,
-            new EasePropertyMetadata(Strings.Width, 100, Min: 0));
+            EditingPropertyOptions<EaseProperty>.Create(new EasePropertyMetadata(Strings.Width, 100, Min: 0)).Serialize());
 
         /// <summary>
         /// Defines the <see cref="Height"/> property.
         /// </summary>
-        public static readonly DirectEditingProperty<GL3DObject, EaseProperty> HeightProperty = EditingProperty.RegisterSerializeDirect<EaseProperty, GL3DObject>(
+        public static readonly DirectEditingProperty<GL3DObject, EaseProperty> HeightProperty = EditingProperty.RegisterDirect<EaseProperty, GL3DObject>(
             nameof(Height),
             owner => owner.Height,
             (owner, obj) => owner.Height = obj,
-            new EasePropertyMetadata(Strings.Height, 100, Min: 0));
+            EditingPropertyOptions<EaseProperty>.Create(new EasePropertyMetadata(Strings.Height, 100, Min: 0)).Serialize());
 
         /// <summary>
         /// Defines the <see cref="Depth"/> property.
         /// </summary>
-        public static readonly DirectEditingProperty<GL3DObject, EaseProperty> DepthProperty = EditingProperty.RegisterSerializeDirect<EaseProperty, GL3DObject>(
+        public static readonly DirectEditingProperty<GL3DObject, EaseProperty> DepthProperty = EditingProperty.RegisterDirect<EaseProperty, GL3DObject>(
             nameof(Depth),
             owner => owner.Depth,
             (owner, obj) => owner.Depth = obj,
-            new EasePropertyMetadata(Strings.Depth, 100, Min: 0));
+            EditingPropertyOptions<EaseProperty>.Create(new EasePropertyMetadata(Strings.Depth, 100, Min: 0)).Serialize());
 
         /// <summary>
         /// Initializes a new instance of the <see cref="GL3DObject"/> class.

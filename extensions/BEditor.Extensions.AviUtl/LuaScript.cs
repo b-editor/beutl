@@ -18,11 +18,11 @@ namespace BEditor.Extensions.AviUtl
 {
     public sealed class LuaScript : ImageEffect
     {
-        public static readonly DirectEditingProperty<LuaScript, DocumentProperty> CodeProperty = EditingProperty.RegisterSerializeDirect<DocumentProperty, LuaScript>(
+        public static readonly DirectEditingProperty<LuaScript, DocumentProperty> CodeProperty = EditingProperty.RegisterDirect<DocumentProperty, LuaScript>(
             nameof(Code),
             owner => owner.Code,
             (owner, obj) => owner.Code = obj,
-            new DocumentPropertyMetadata(string.Empty));
+            EditingPropertyOptions<DocumentProperty>.Create(new DocumentPropertyMetadata(string.Empty)).Serialize());
 
         internal static readonly Lua LuaEngine = new();
 

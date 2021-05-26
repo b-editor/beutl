@@ -22,20 +22,20 @@ namespace BEditor.Primitive.Effects
         /// <summary>
         /// Defines the <see cref="HSplit"/> property.
         /// </summary>
-        public static readonly DirectEditingProperty<ImageSplit, EaseProperty> HSplitProperty = EditingProperty.RegisterSerializeDirect<EaseProperty, ImageSplit>(
+        public static readonly DirectEditingProperty<ImageSplit, EaseProperty> HSplitProperty = EditingProperty.RegisterDirect<EaseProperty, ImageSplit>(
             nameof(HSplit),
             owner => owner.HSplit,
             (owner, obj) => owner.HSplit = obj,
-            new EasePropertyMetadata(Strings.NumberOfHorizontalDivisions, 2, Min: 1));
+            EditingPropertyOptions<EaseProperty>.Create(new EasePropertyMetadata(Strings.NumberOfHorizontalDivisions, 2, Min: 1)).Serialize());
 
         /// <summary>
         /// Defines the <see cref="VSplit"/> property.
         /// </summary>
-        public static readonly DirectEditingProperty<ImageSplit, EaseProperty> VSplitProperty = EditingProperty.RegisterSerializeDirect<EaseProperty, ImageSplit>(
+        public static readonly DirectEditingProperty<ImageSplit, EaseProperty> VSplitProperty = EditingProperty.RegisterDirect<EaseProperty, ImageSplit>(
             nameof(VSplit),
             owner => owner.VSplit,
             (owner, obj) => owner.VSplit = obj,
-            new EasePropertyMetadata(Strings.NumberOfVerticalDivisions, 2, Min: 1));
+            EditingPropertyOptions<EaseProperty>.Create(new EasePropertyMetadata(Strings.NumberOfVerticalDivisions, 2, Min: 1)).Serialize());
 
         /// <summary>
         /// Initializes a new instance of the <see cref="ImageSplit"/> class.

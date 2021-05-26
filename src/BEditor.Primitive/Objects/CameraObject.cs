@@ -17,101 +17,101 @@ namespace BEditor.Primitive.Objects
         /// <summary>
         /// Defines the <see cref="X"/> property.
         /// </summary>
-        public static readonly DirectEditingProperty<CameraObject, EaseProperty> XProperty = EditingProperty.RegisterSerializeDirect<EaseProperty, CameraObject>(
+        public static readonly DirectEditingProperty<CameraObject, EaseProperty> XProperty = EditingProperty.RegisterDirect<EaseProperty, CameraObject>(
             nameof(X),
             owner => owner.X,
             (owner, obj) => owner.X = obj,
-            new EasePropertyMetadata(Strings.X, 0, UseOptional: true));
+            EditingPropertyOptions<EaseProperty>.Create(new EasePropertyMetadata(Strings.X, 0, UseOptional: true)).Serialize());
 
         /// <summary>
         /// Defines the <see cref="Y"/> property.
         /// </summary>
-        public static readonly DirectEditingProperty<CameraObject, EaseProperty> YProperty = EditingProperty.RegisterSerializeDirect<EaseProperty, CameraObject>(
+        public static readonly DirectEditingProperty<CameraObject, EaseProperty> YProperty = EditingProperty.RegisterDirect<EaseProperty, CameraObject>(
             nameof(Y),
             owner => owner.Y,
             (owner, obj) => owner.Y = obj,
-            new EasePropertyMetadata(Strings.Y, 0, UseOptional: true));
+            EditingPropertyOptions<EaseProperty>.Create(new EasePropertyMetadata(Strings.Y, 0, UseOptional: true)).Serialize());
 
         /// <summarZ>
         /// Defines the <see cref="Z"/> property.
         /// </summarZ>
-        public static readonly DirectEditingProperty<CameraObject, EaseProperty> ZProperty = EditingProperty.RegisterSerializeDirect<EaseProperty, CameraObject>(
+        public static readonly DirectEditingProperty<CameraObject, EaseProperty> ZProperty = EditingProperty.RegisterDirect<EaseProperty, CameraObject>(
             nameof(Z),
             owner => owner.Z,
             (owner, obj) => owner.Z = obj,
-            new EasePropertyMetadata(Strings.Z, 1024, UseOptional: true));
+            EditingPropertyOptions<EaseProperty>.Create(new EasePropertyMetadata(Strings.Z, 1024, UseOptional: true)).Serialize());
 
         /// <summary>
         /// Defines the <see cref="TargetX"/> property.
         /// </summary>
-        public static readonly DirectEditingProperty<CameraObject, EaseProperty> TargetXProperty = EditingProperty.RegisterSerializeDirect<EaseProperty, CameraObject>(
+        public static readonly DirectEditingProperty<CameraObject, EaseProperty> TargetXProperty = EditingProperty.RegisterDirect<EaseProperty, CameraObject>(
             nameof(TargetX),
             owner => owner.TargetX,
             (owner, obj) => owner.TargetX = obj,
-            new EasePropertyMetadata(Strings.TargetX, 0, UseOptional: true));
+            EditingPropertyOptions<EaseProperty>.Create(new EasePropertyMetadata(Strings.TargetX, 0, UseOptional: true)).Serialize());
 
         /// <summary>
         /// Defines the <see cref="TargetY"/> property.
         /// </summary>
-        public static readonly DirectEditingProperty<CameraObject, EaseProperty> TargetYProperty = EditingProperty.RegisterSerializeDirect<EaseProperty, CameraObject>(
+        public static readonly DirectEditingProperty<CameraObject, EaseProperty> TargetYProperty = EditingProperty.RegisterDirect<EaseProperty, CameraObject>(
             nameof(TargetY),
             owner => owner.TargetY,
             (owner, obj) => owner.TargetY = obj,
-            new EasePropertyMetadata(Strings.TargetY, 0, UseOptional: true));
+            EditingPropertyOptions<EaseProperty>.Create(new EasePropertyMetadata(Strings.TargetY, 0, UseOptional: true)).Serialize());
 
         /// <summarZ>
         /// Defines the <see cref="TargetZ"/> property.
         /// </summarZ>
-        public static readonly DirectEditingProperty<CameraObject, EaseProperty> TargetZProperty = EditingProperty.RegisterSerializeDirect<EaseProperty, CameraObject>(
+        public static readonly DirectEditingProperty<CameraObject, EaseProperty> TargetZProperty = EditingProperty.RegisterDirect<EaseProperty, CameraObject>(
             nameof(TargetZ),
             owner => owner.TargetZ,
             (owner, obj) => owner.TargetZ = obj,
-            new EasePropertyMetadata(Strings.TargetZ, 0, UseOptional: true));
+            EditingPropertyOptions<EaseProperty>.Create(new EasePropertyMetadata(Strings.TargetZ, 0, UseOptional: true)).Serialize());
 
         /// <summary>
         /// Defines the <see cref="ZNear"/> property.
         /// </summary>
-        public static readonly DirectEditingProperty<CameraObject, EaseProperty> ZNearProperty = EditingProperty.RegisterSerializeDirect<EaseProperty, CameraObject>(
+        public static readonly DirectEditingProperty<CameraObject, EaseProperty> ZNearProperty = EditingProperty.RegisterDirect<EaseProperty, CameraObject>(
             nameof(ZNear),
             owner => owner.ZNear,
             (owner, obj) => owner.ZNear = obj,
-            new EasePropertyMetadata(Strings.ZNear, 0.1F, Min: 0.1F, UseOptional: true));
+            EditingPropertyOptions<EaseProperty>.Create(new EasePropertyMetadata(Strings.ZNear, 0.1F, Min: 0.1F, UseOptional: true)).Serialize());
 
         /// <summarZ>
         /// Defines the <see cref="ZFar"/> property.
         /// </summarZ>
-        public static readonly DirectEditingProperty<CameraObject, EaseProperty> ZFarProperty = EditingProperty.RegisterSerializeDirect<EaseProperty, CameraObject>(
+        public static readonly DirectEditingProperty<CameraObject, EaseProperty> ZFarProperty = EditingProperty.RegisterDirect<EaseProperty, CameraObject>(
             nameof(ZFar),
             owner => owner.ZFar,
             (owner, obj) => owner.ZFar = obj,
-            new EasePropertyMetadata(Strings.ZFar, 20000, UseOptional: true));
+            EditingPropertyOptions<EaseProperty>.Create(new EasePropertyMetadata(Strings.ZFar, 20000, UseOptional: true)).Serialize());
 
         /// <summarZ>
         /// Defines the <see cref="Angle"/> property.
         /// </summarZ>
-        public static readonly DirectEditingProperty<CameraObject, EaseProperty> AngleProperty = EditingProperty.RegisterSerializeDirect<EaseProperty, CameraObject>(
+        public static readonly DirectEditingProperty<CameraObject, EaseProperty> AngleProperty = EditingProperty.RegisterDirect<EaseProperty, CameraObject>(
             nameof(Angle),
             owner => owner.Angle,
             (owner, obj) => owner.Angle = obj,
-            new EasePropertyMetadata(Strings.Angle, 0, UseOptional: true));
+            EditingPropertyOptions<EaseProperty>.Create(new EasePropertyMetadata(Strings.Angle, 0, UseOptional: true)).Serialize());
 
         /// <summarZ>
         /// Defines the <see cref="Fov"/> property.
         /// </summarZ>
-        public static readonly DirectEditingProperty<CameraObject, EaseProperty> FovProperty = EditingProperty.RegisterSerializeDirect<EaseProperty, CameraObject>(
+        public static readonly DirectEditingProperty<CameraObject, EaseProperty> FovProperty = EditingProperty.RegisterDirect<EaseProperty, CameraObject>(
             nameof(Fov),
             owner => owner.Fov,
             (owner, obj) => owner.Fov = obj,
-            new EasePropertyMetadata(Strings.Fov, 45, 179, 1, UseOptional: true));
+            EditingPropertyOptions<EaseProperty>.Create(new EasePropertyMetadata(Strings.Fov, 45, 179, 1, UseOptional: true)).Serialize());
 
         /// <summarZ>
         /// Defines the <see cref="Mode"/> property.
         /// </summarZ>
-        public static readonly DirectEditingProperty<CameraObject, CheckProperty> ModeProperty = EditingProperty.RegisterSerializeDirect<CheckProperty, CameraObject>(
+        public static readonly DirectEditingProperty<CameraObject, CheckProperty> ModeProperty = EditingProperty.RegisterDirect<CheckProperty, CameraObject>(
             nameof(Mode),
             owner => owner.Mode,
             (owner, obj) => owner.Mode = obj,
-            new CheckPropertyMetadata(Strings.Perspective, true));
+            EditingPropertyOptions<CheckProperty>.Create(new CheckPropertyMetadata(Strings.Perspective, true)).Serialize());
 
         /// <summary>
         /// Initializes a new instance <see cref="CameraObject"/> class.

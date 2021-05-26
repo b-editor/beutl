@@ -155,7 +155,7 @@ namespace BEditor.Data
 
         internal void SetID(Guid id)
         {
-            ID = id;
+            Id = id;
         }
 
         /// <summary>
