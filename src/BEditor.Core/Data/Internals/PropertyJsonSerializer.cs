@@ -1,7 +1,7 @@
 ﻿using System.Runtime.Serialization;
 using System.Text.Json;
 
-namespace BEditor.Data
+namespace BEditor.Data.Internals
 {
     internal class PropertyJsonSerializer<TValue> : IEditingPropertySerializer<TValue> where TValue : IJsonObject
     {

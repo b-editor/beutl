@@ -1,4 +1,5 @@
 ﻿using System.Collections.Generic;
+using System.Diagnostics.CodeAnalysis;
 
 using BEditor.Data;
 using BEditor.Data.Primitive;
@@ -15,39 +16,43 @@ namespace BEditor.Primitive.Effects
         /// <summary>
         /// Defines the <see cref="Red"/> property.
         /// </summary>
-        public static readonly DirectEditingProperty<RGBColor, EaseProperty> RedProperty = EditingProperty.RegisterSerializeDirect<EaseProperty, RGBColor>(
+        public static readonly DirectEditingProperty<RGBColor, EaseProperty> RedProperty = EditingProperty.RegisterDirect<EaseProperty, RGBColor>(
             nameof(Red),
             owner => owner.Red,
             (owner, obj) => owner.Red = obj,
-            new EasePropertyMetadata(Strings.Red, 0, 255, -255));
+            EditingPropertyOptions<EaseProperty>.Create(new EasePropertyMetadata(Strings.Red, 0, 255, -255)).Serialize());
 
         /// <summary>
         /// Defines the <see cref="Green"/> property.
         /// </summary>
-        public static readonly DirectEditingProperty<RGBColor, EaseProperty> GreenProperty = EditingProperty.RegisterSerializeDirect<EaseProperty, RGBColor>(
+        public static readonly DirectEditingProperty<RGBColor, EaseProperty> GreenProperty = EditingProperty.RegisterDirect<EaseProperty, RGBColor>(
             nameof(Green),
             owner => owner.Green,
             (owner, obj) => owner.Green = obj,
-            new EasePropertyMetadata(Strings.Green, 0, 255, -255));
+            EditingPropertyOptions<EaseProperty>.Create(new EasePropertyMetadata(Strings.Green, 0, 255, -255)).Serialize());
 
         /// <summary>
         /// Defines the <see cref="Blue"/> property.
         /// </summary>
-        public static readonly DirectEditingProperty<RGBColor, EaseProperty> BlueProperty = EditingProperty.RegisterSerializeDirect<EaseProperty, RGBColor>(
+        public static readonly DirectEditingProperty<RGBColor, EaseProperty> BlueProperty = EditingProperty.RegisterDirect<EaseProperty, RGBColor>(
             nameof(Blue),
             owner => owner.Blue,
             (owner, obj) => owner.Blue = obj,
-            new EasePropertyMetadata(Strings.Blue, 0, 255, -255));
+            EditingPropertyOptions<EaseProperty>.Create(new EasePropertyMetadata(Strings.Blue, 0, 255, -255)).Serialize());
 
-#pragma warning disable CS8618
         public RGBColor()
-#pragma warning restore CS8618
         {
         }
 
         public override string Name => Strings.RGBColorCorrection;
+
+        [AllowNull]
         public EaseProperty Red { get; set; }
+
+        [AllowNull]
         public EaseProperty Green { get; set; }
+
+        [AllowNull]
         public EaseProperty Blue { get; set; }
 
         public override void Apply(EffectApplyArgs<Image<BGRA32>> args)

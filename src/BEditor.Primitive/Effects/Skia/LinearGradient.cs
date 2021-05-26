@@ -22,65 +22,65 @@ namespace BEditor.Primitive.Effects
         /// <summary>
         /// Defines the <see cref="StartX"/> property.
         /// </summary>
-        public static readonly DirectEditingProperty<LinearGradient, EaseProperty> StartXProperty = EditingProperty.RegisterSerializeDirect<EaseProperty, LinearGradient>(
+        public static readonly DirectEditingProperty<LinearGradient, EaseProperty> StartXProperty = EditingProperty.RegisterDirect<EaseProperty, LinearGradient>(
             nameof(StartX),
             owner => owner.StartX,
             (owner, obj) => owner.StartX = obj,
-            new EasePropertyMetadata(Strings.StartPoint + " X (%)", 0f, 100f, 0));
+            EditingPropertyOptions<EaseProperty>.Create(new EasePropertyMetadata(Strings.StartPoint + " X (%)", 0f, 100f, 0)).Serialize());
 
         /// <summary>
         /// Defines the <see cref="StartY"/> property.
         /// </summary>
-        public static readonly DirectEditingProperty<LinearGradient, EaseProperty> StartYProperty = EditingProperty.RegisterSerializeDirect<EaseProperty, LinearGradient>(
+        public static readonly DirectEditingProperty<LinearGradient, EaseProperty> StartYProperty = EditingProperty.RegisterDirect<EaseProperty, LinearGradient>(
             nameof(StartY),
             owner => owner.StartY,
             (owner, obj) => owner.StartY = obj,
-            new EasePropertyMetadata(Strings.StartPoint + " Y (%)", 0f, 100f, 0));
+            EditingPropertyOptions<EaseProperty>.Create(new EasePropertyMetadata(Strings.StartPoint + " Y (%)", 0f, 100f, 0)).Serialize());
 
         /// <summary>
         /// Defines the <see cref="EndX"/> property.
         /// </summary>
-        public static readonly DirectEditingProperty<LinearGradient, EaseProperty> EndXProperty = EditingProperty.RegisterSerializeDirect<EaseProperty, LinearGradient>(
+        public static readonly DirectEditingProperty<LinearGradient, EaseProperty> EndXProperty = EditingProperty.RegisterDirect<EaseProperty, LinearGradient>(
             nameof(EndX),
             owner => owner.EndX,
             (owner, obj) => owner.EndX = obj,
-            new EasePropertyMetadata(Strings.EndPoint + " X (%)", 100f, 100f, 0));
+            EditingPropertyOptions<EaseProperty>.Create(new EasePropertyMetadata(Strings.EndPoint + " X (%)", 100f, 100f, 0)).Serialize());
 
         /// <summary>
         /// Defines the <see cref="EndY"/> property.
         /// </summary>
-        public static readonly DirectEditingProperty<LinearGradient, EaseProperty> EndYProperty = EditingProperty.RegisterSerializeDirect<EaseProperty, LinearGradient>(
+        public static readonly DirectEditingProperty<LinearGradient, EaseProperty> EndYProperty = EditingProperty.RegisterDirect<EaseProperty, LinearGradient>(
             nameof(EndY),
             owner => owner.EndY,
             (owner, obj) => owner.EndY = obj,
-            new EasePropertyMetadata(Strings.EndPoint + " Y (%)", 100f, 100f, 0));
+            EditingPropertyOptions<EaseProperty>.Create(new EasePropertyMetadata(Strings.EndPoint + " Y (%)", 100f, 100f, 0)).Serialize());
 
         /// <summary>
         /// Defines the <see cref="Colors"/> property.
         /// </summary>
-        public static readonly DirectEditingProperty<LinearGradient, TextProperty> ColorsProperty = EditingProperty.RegisterSerializeDirect<TextProperty, LinearGradient>(
+        public static readonly DirectEditingProperty<LinearGradient, TextProperty> ColorsProperty = EditingProperty.RegisterDirect<TextProperty, LinearGradient>(
             nameof(Colors),
             owner => owner.Colors,
             (owner, obj) => owner.Colors = obj,
-            new TextPropertyMetadata(Strings.Colors, "#FFFF0000,#FF0000FF"));
+            EditingPropertyOptions<TextProperty>.Create(new TextPropertyMetadata(Strings.Colors, "#FFFF0000,#FF0000FF")).Serialize());
 
         /// <summary>
         /// Defines the <see cref="Anchors"/> property.
         /// </summary>
-        public static readonly DirectEditingProperty<LinearGradient, TextProperty> AnchorsProperty = EditingProperty.RegisterSerializeDirect<TextProperty, LinearGradient>(
+        public static readonly DirectEditingProperty<LinearGradient, TextProperty> AnchorsProperty = EditingProperty.RegisterDirect<TextProperty, LinearGradient>(
             nameof(Anchors),
             owner => owner.Anchors,
             (owner, obj) => owner.Anchors = obj,
-            new TextPropertyMetadata(Strings.Anchors, "0,1"));
+            EditingPropertyOptions<TextProperty>.Create(new TextPropertyMetadata(Strings.Anchors, "0,1")).Serialize());
 
         /// <summary>
         /// Defines the <see cref="Mode"/> property.
         /// </summary>
-        public static readonly DirectEditingProperty<LinearGradient, SelectorProperty> ModeProperty = EditingProperty.RegisterSerializeDirect<SelectorProperty, LinearGradient>(
+        public static readonly DirectEditingProperty<LinearGradient, SelectorProperty> ModeProperty = EditingProperty.RegisterDirect<SelectorProperty, LinearGradient>(
             nameof(Mode),
             owner => owner.Mode,
             (owner, obj) => owner.Mode = obj,
-            new SelectorPropertyMetadata(Strings.Mode, new string[] { Strings.Clamp, Strings.Repeat, Strings.Mirror, Strings.Decal }, 1));
+            EditingPropertyOptions<SelectorProperty>.Create(new SelectorPropertyMetadata(Strings.Mode, new string[] { Strings.Clamp, Strings.Repeat, Strings.Mirror, Strings.Decal }, 1)).Serialize());
 
         internal static readonly ShaderTileMode[] tiles =
         {

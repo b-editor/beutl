@@ -3,29 +3,29 @@
   <CodeSnippet Format="1.0.0">
     <Header>
       <Keywords>
-        <Keyword>propmeta</Keyword>
+        <Keyword>editprop</Keyword>
       </Keywords>
       <SnippetTypes>
         <SnippetType>Expansion</SnippetType>
       </SnippetTypes>
-      <Title>PropertyElementMetadata</Title>
+      <Title>EditingProperty</Title>
       <Author>indigo-san</Author>
-      <Shortcut>propmeta</Shortcut>
-      <Description>PropertyElementMetadata</Description>
+      <Shortcut>editprop</Shortcut>
+      <Description>EditingPropery Generic</Description>
       <HelpUrl>
       </HelpUrl>
     </Header>
     <Snippet>
       <Imports>
         <Import>
-          <Namespace>BEditor.Data.Property</Namespace>
+          <Namespace>BEditor.Data</Namespace>
         </Import>
       </Imports>
       <Declarations>
         <Literal Editable="true">
-          <ID>PropertyElementMetadata</ID>
-          <ToolTip>PropertyElementMetadata</ToolTip>
-          <Default>PropertyElementMetadata</Default>
+          <ID>TValue</ID>
+          <ToolTip>TValue</ToolTip>
+          <Default>TValue</Default>
           <Function>
           </Function>
         </Literal>
@@ -36,9 +36,16 @@
           <Function>
           </Function>
         </Literal>
+        <Literal Editable="true">
+          <ID>TOwner</ID>
+          <ToolTip>TOwner</ToolTip>
+          <Default>TOwner</Default>
+          <Function>
+          </Function>
+        </Literal>
       </Declarations>
       <Code Language="csharp">
-        <![CDATA[public static readonly $PropertyElementMetadata$ $PropertyName$Metadata = new(nameof($PropertyName$));$end$]]>
+        <![CDATA[public static readonly EditingProperty<$TValue$> $PropertyName$Property = EditingProperty.Register<$TValue$, $TOwner$>(nameof($PropertyName$));$end$]]>
       </Code>
     </Snippet>
   </CodeSnippet>

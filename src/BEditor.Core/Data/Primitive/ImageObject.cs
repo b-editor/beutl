@@ -21,47 +21,47 @@ namespace BEditor.Data.Primitive
         /// <summary>
         /// Defines the <see cref="Coordinate"/> property.
         /// </summary>
-        public static readonly DirectEditingProperty<ImageObject, Coordinate> CoordinateProperty = EditingProperty.RegisterSerializeDirect<Coordinate, ImageObject>(
+        public static readonly DirectEditingProperty<ImageObject, Coordinate> CoordinateProperty = EditingProperty.RegisterDirect<Coordinate, ImageObject>(
             nameof(Coordinate),
             owner => owner.Coordinate,
             (owner, obj) => owner.Coordinate = obj,
-            new CoordinateMetadata(Strings.Coordinate));
+            EditingPropertyOptions<Coordinate>.Create(new CoordinateMetadata(Strings.Coordinate)).Serialize());
 
         /// <summary>
         /// Defines the <see cref="Scale"/> property.
         /// </summary>
-        public static readonly DirectEditingProperty<ImageObject, Scale> ScaleProperty = EditingProperty.RegisterSerializeDirect<Scale, ImageObject>(
+        public static readonly DirectEditingProperty<ImageObject, Scale> ScaleProperty = EditingProperty.RegisterDirect<Scale, ImageObject>(
             nameof(Scale),
             owner => owner.Scale,
             (owner, obj) => owner.Scale = obj,
-            new ScaleMetadata(Strings.Scale));
+            EditingPropertyOptions<Scale>.Create(new ScaleMetadata(Strings.Scale)).Serialize());
 
         /// <summary>
         /// Defines the <see cref="Blend"/> property.
         /// </summary>
-        public static readonly DirectEditingProperty<ImageObject, Blend> BlendProperty = EditingProperty.RegisterSerializeDirect<Blend, ImageObject>(
+        public static readonly DirectEditingProperty<ImageObject, Blend> BlendProperty = EditingProperty.RegisterDirect<Blend, ImageObject>(
             nameof(Blend),
             owner => owner.Blend,
             (owner, obj) => owner.Blend = obj,
-            new BlendMetadata(Strings.Blend));
+            EditingPropertyOptions<Blend>.Create(new BlendMetadata(Strings.Blend)).Serialize());
 
         /// <summary>
         /// Defines the <see cref="Rotate"/> property.
         /// </summary>
-        public static readonly DirectEditingProperty<ImageObject, Rotate> RotateProperty = EditingProperty.RegisterSerializeDirect<Rotate, ImageObject>(
+        public static readonly DirectEditingProperty<ImageObject, Rotate> RotateProperty = EditingProperty.RegisterDirect<Rotate, ImageObject>(
             nameof(Rotate),
             owner => owner.Rotate,
             (owner, obj) => owner.Rotate = obj,
-            new RotateMetadata(Strings.Rotate));
+            EditingPropertyOptions<Rotate>.Create(new RotateMetadata(Strings.Rotate)).Serialize());
 
         /// <summary>
         /// Defines the <see cref="Rotate"/> property.
         /// </summary>
-        public static readonly DirectEditingProperty<ImageObject, Property.PrimitiveGroup.Material> MaterialProperty = EditingProperty.RegisterSerializeDirect<Property.PrimitiveGroup.Material, ImageObject>(
+        public static readonly DirectEditingProperty<ImageObject, Property.PrimitiveGroup.Material> MaterialProperty = EditingProperty.RegisterDirect<Property.PrimitiveGroup.Material, ImageObject>(
             nameof(Material),
             owner => owner.Material,
             (owner, obj) => owner.Material = obj,
-            new MaterialMetadata(Strings.Material));
+            EditingPropertyOptions<Property.PrimitiveGroup.Material>.Create(new MaterialMetadata(Strings.Material)).Serialize());
 
         /// <summary>
         /// Initializes a new instance of the <see cref="ImageObject"/> class.

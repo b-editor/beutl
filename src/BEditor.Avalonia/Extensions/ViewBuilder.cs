@@ -164,16 +164,16 @@ namespace BEditor.Extensions
                 return expander;
             })
         };
-        public static readonly EditingProperty<Timeline> TimelineProperty = EditingProperty.Register<Timeline, Scene>("GetTimeline", isDisposable: true);
-        public static readonly EditingProperty<TimelineViewModel> TimelineViewModelProperty = EditingProperty.Register<TimelineViewModel, Scene>("GetTimelineViewModel", isDisposable: true);
-        public static readonly EditingProperty<ClipView> ClipViewProperty = EditingProperty.Register<ClipView, ClipElement>("GetClipView", isDisposable: true);
-        public static readonly EditingProperty<ClipPropertyView> ClipPropertyViewProperty = EditingProperty.Register<ClipPropertyView, ClipElement>("GetClipPropertyView", isDisposable: true);
-        public static readonly EditingProperty<ClipViewModel> ClipViewModelProperty = EditingProperty.Register<ClipViewModel, ClipElement>("GetClipViewModel", isDisposable: true);
-        public static readonly EditingProperty<Control> EffectElementViewProperty = EditingProperty.Register<Control, EffectElement>("GetPropertyView", isDisposable: true);
-        public static readonly EditingProperty<Control> PropertyElementViewProperty = EditingProperty.Register<Control, PropertyElement>("GetPropertyView", isDisposable: true);
-        public static readonly EditingProperty<Control> EasePropertyViewProperty = EditingProperty.Register<Control, EasingFunc>("GetPropertyView", isDisposable: true);
-        public static readonly EditingProperty<Control> KeyframeProperty = EditingProperty.Register<Control, EffectElement>("GetKeyframe", isDisposable: true);
-        public static readonly EditingProperty<Control> KeyframeViewProperty = EditingProperty.Register<Control, IKeyframeProperty>("GetKeyframeView", isDisposable: true);
+        public static readonly EditingProperty<Timeline> TimelineProperty = EditingProperty.Register<Timeline, Scene>("GetTimeline", EditingPropertyOptions<Timeline>.Create(isDisposable: true));
+        public static readonly EditingProperty<TimelineViewModel> TimelineViewModelProperty = EditingProperty.Register<TimelineViewModel, Scene>("GetTimelineViewModel", EditingPropertyOptions<TimelineViewModel>.Create(isDisposable: true));
+        public static readonly EditingProperty<ClipView> ClipViewProperty = EditingProperty.Register<ClipView, ClipElement>("GetClipView", EditingPropertyOptions<ClipView>.Create(isDisposable: true));
+        public static readonly EditingProperty<ClipPropertyView> ClipPropertyViewProperty = EditingProperty.Register<ClipPropertyView, ClipElement>("GetClipPropertyView", EditingPropertyOptions<ClipPropertyView>.Create(isDisposable: true));
+        public static readonly EditingProperty<ClipViewModel> ClipViewModelProperty = EditingProperty.Register<ClipViewModel, ClipElement>("GetClipViewModel", EditingPropertyOptions<ClipViewModel>.Create(isDisposable: true));
+        public static readonly EditingProperty<Control> EffectElementViewProperty = EditingProperty.Register<Control, EffectElement>("GetPropertyView", EditingPropertyOptions<Control>.Create(isDisposable: true));
+        public static readonly EditingProperty<Control> PropertyElementViewProperty = EditingProperty.Register<Control, PropertyElement>("GetPropertyView", EditingPropertyOptions<Control>.Create(isDisposable: true));
+        public static readonly EditingProperty<Control> EasePropertyViewProperty = EditingProperty.Register<Control, EasingFunc>("GetPropertyView", EditingPropertyOptions<Control>.Create(isDisposable: true));
+        public static readonly EditingProperty<Control> KeyframeProperty = EditingProperty.Register<Control, EffectElement>("GetKeyframe", EditingPropertyOptions<Control>.Create(isDisposable: true));
+        public static readonly EditingProperty<Control> KeyframeViewProperty = EditingProperty.Register<Control, IKeyframeProperty>("GetKeyframeView", EditingPropertyOptions<Control>.Create(isDisposable: true));
 
         public static Timeline GetCreateTimeline(this Scene scene)
         {
@@ -481,7 +481,7 @@ namespace BEditor.Extensions
                 {
                     if (s is MenuItem menu && menu.DataContext is EffectElement effect)
                     {
-                        await Application.Current.Clipboard.SetTextAsync(effect.ID.ToString());
+                        await Application.Current.Clipboard.SetTextAsync(effect.Id.ToString());
                     }
                 };
             }
@@ -620,7 +620,7 @@ namespace BEditor.Extensions
                 {
                     if (s is MenuItem menu && menu.DataContext is EffectElement effect)
                     {
-                        await Application.Current.Clipboard.SetTextAsync(effect.ID.ToString());
+                        await Application.Current.Clipboard.SetTextAsync(effect.Id.ToString());
                     }
                 };
             }

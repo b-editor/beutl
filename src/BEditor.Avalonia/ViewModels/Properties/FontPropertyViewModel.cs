@@ -41,7 +41,7 @@ namespace BEditor.ViewModels.Properties
                 await window.ShowDialog(App.GetMainWindow());
             }).AddTo(_disposables);
 
-            CopyID.Subscribe(async () => await Application.Current.Clipboard.SetTextAsync(Property.ID.ToString())).AddTo(_disposables);
+            CopyID.Subscribe(async () => await Application.Current.Clipboard.SetTextAsync(Property.Id.ToString())).AddTo(_disposables);
         }
 
         ~FontPropertyViewModel()

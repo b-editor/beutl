@@ -24,42 +24,42 @@ namespace BEditor.Primitive.Objects
         /// <summary>
         /// Defines the <see cref="Speed"/> property.
         /// </summary>
-        public static readonly DirectEditingProperty<VideoFile, EaseProperty> SpeedProperty = EditingProperty.RegisterSerializeDirect<EaseProperty, VideoFile>(
+        public static readonly DirectEditingProperty<VideoFile, EaseProperty> SpeedProperty = EditingProperty.RegisterDirect<EaseProperty, VideoFile>(
             nameof(Speed),
             owner => owner.Speed,
             (owner, obj) => owner.Speed = obj,
-            new EasePropertyMetadata(Strings.Speed, 100));
+            EditingPropertyOptions<EaseProperty>.Create(new EasePropertyMetadata(Strings.Speed, 100)).Serialize());
 
         /// <summary>
         /// Defines the <see cref="Start"/> property.
         /// </summary>
-        public static readonly DirectEditingProperty<VideoFile, EaseProperty> StartProperty = EditingProperty.RegisterSerializeDirect<EaseProperty, VideoFile>(
+        public static readonly DirectEditingProperty<VideoFile, EaseProperty> StartProperty = EditingProperty.RegisterDirect<EaseProperty, VideoFile>(
             nameof(Start),
             owner => owner.Start,
             (owner, obj) => owner.Start = obj,
-            new EasePropertyMetadata(Strings.Start, 1, float.NaN, 0));
+            EditingPropertyOptions<EaseProperty>.Create(new EasePropertyMetadata(Strings.Start, 1, float.NaN, 0)).Serialize());
 
         /// <summary>
         /// Defines the <see cref="File"/> property.
         /// </summary>
-        public static readonly DirectEditingProperty<VideoFile, FileProperty> FileProperty = EditingProperty.RegisterSerializeDirect<FileProperty, VideoFile>(
+        public static readonly DirectEditingProperty<VideoFile, FileProperty> FileProperty = EditingProperty.RegisterDirect<FileProperty, VideoFile>(
             nameof(File),
             owner => owner.File,
             (owner, obj) => owner.File = obj,
-            new FilePropertyMetadata(Strings.File, "", new(Strings.VideoFile, new FileExtension[]
+            EditingPropertyOptions<FileProperty>.Create(new FilePropertyMetadata(Strings.File, "", new(Strings.VideoFile, new FileExtension[]
             {
                 new("mp4"),
                 new("avi"),
                 new("wmv"),
                 new("mov")
-            })));
+            }))).Serialize());
 
         /// <summary>
         /// Defines the <see cref="SetLength"/> property.
         /// </summary>
         public static readonly EditingProperty<ButtonComponent> SetLengthProperty = EditingProperty.Register<ButtonComponent, VideoFile>(
             nameof(SetLength),
-            new ButtonComponentMetadata(Strings.ClipLengthAsVideoLength));
+            EditingPropertyOptions<ButtonComponent>.Create(new ButtonComponentMetadata(Strings.ClipLengthAsVideoLength)).Serialize());
 
         private MediaFile? _mediaFile;
 

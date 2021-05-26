@@ -57,11 +57,11 @@ namespace BEditor.Primitive.Objects
         /// <summary>
         /// Defines the <see cref="Gain"/> property.
         /// </summary>
-        public static readonly DirectEditingProperty<ListenerObject, EaseProperty> GainProperty = EditingProperty.RegisterSerializeDirect<EaseProperty, ListenerObject>(
+        public static readonly DirectEditingProperty<ListenerObject, EaseProperty> GainProperty = EditingProperty.RegisterDirect<EaseProperty, ListenerObject>(
             nameof(Gain),
             owner => owner.Gain,
             (owner, obj) => owner.Gain = obj,
-            new EasePropertyMetadata("Gain", 100, Min: 0));
+            EditingPropertyOptions<EaseProperty>.Create(new EasePropertyMetadata("Gain", 100, Min: 0)).Serialize());
 
         /// <summary>
         /// Initializes a new instance of the <see cref="ListenerObject"/> class.

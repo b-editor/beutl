@@ -11,7 +11,7 @@ namespace BEditor.Data.Bindings
     public static class Bindings
     {
         /// <summary>
-        /// Get <see cref="IBindable{T}"/> from <see cref="IEditingObject.ID"/>.
+        /// Get <see cref="IBindable{T}"/> from <see cref="IEditingObject.Id"/>.
         /// </summary>
         /// <typeparam name="T">Type of object to bind.</typeparam>
         /// <returns>Returns a <see cref="bool"/> indicating whether it was retrieved or not, <see langword="true"/> on success, <see langword="false"/> on failure.</returns>

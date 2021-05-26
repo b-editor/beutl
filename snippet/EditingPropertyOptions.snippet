@@ -3,15 +3,15 @@
   <CodeSnippet Format="1.0.0">
     <Header>
       <Keywords>
-        <Keyword>editprop</Keyword>
+        <Keyword>editoptions</Keyword>
       </Keywords>
       <SnippetTypes>
         <SnippetType>Expansion</SnippetType>
       </SnippetTypes>
-      <Title>EditorProperty</Title>
+      <Title>EditingPropertyOptions</Title>
       <Author>indigo-san</Author>
-      <Shortcut>editprop</Shortcut>
-      <Description>EditorPropery Generic</Description>
+      <Shortcut>editoptions</Shortcut>
+      <Description>EditingProperyOptions</Description>
       <HelpUrl>
       </HelpUrl>
     </Header>
@@ -29,23 +29,9 @@
           <Function>
           </Function>
         </Literal>
-        <Literal Editable="true">
-          <ID>PropertyName</ID>
-          <ToolTip>PropertyName</ToolTip>
-          <Default>PropertyName</Default>
-          <Function>
-          </Function>
-        </Literal>
-        <Literal Editable="true">
-          <ID>TOwner</ID>
-          <ToolTip>TOwner</ToolTip>
-          <Default>TOwner</Default>
-          <Function>
-          </Function>
-        </Literal>
       </Declarations>
       <Code Language="csharp">
-        <![CDATA[public static readonly EditorProperty<$TValue$> $PropertyName$Property = EditorProperty.Register<$TValue$, $TOwner$>(nameof($PropertyName$));$end$]]>
+        <![CDATA[EditingPropertyOptions<$TValue$>.Create().Serialize()$end$]]>
       </Code>
     </Snippet>
   </CodeSnippet>

@@ -18,11 +18,11 @@ namespace BEditor.Primitive.Effects
         /// <summary>
         /// Defines the <see cref="Contrast"/> property.
         /// </summary>
-        public static readonly EditingProperty<EaseProperty> ContrastProperty = EditingProperty.RegisterSerializeDirect<EaseProperty, ContrastCorrection>(
+        public static readonly EditingProperty<EaseProperty> ContrastProperty = EditingProperty.RegisterDirect<EaseProperty, ContrastCorrection>(
             nameof(Contrast),
             owner => owner.Contrast,
             (owner, obj) => owner.Contrast = obj,
-            new EasePropertyMetadata(Strings.Contrast, 0, 255, -255));
+            EditingPropertyOptions<EaseProperty>.Create(new EasePropertyMetadata(Strings.Contrast, 0, 255, -255)).Serialize());
 
         /// <summary>
         /// Initializes a new instance of the <see cref="ContrastCorrection"/> class.

@@ -18,11 +18,11 @@ namespace BEditor.Primitive.Effects
         /// <summary>
         /// Defines the <see cref="Value"/> property.
         /// </summary>
-        public static readonly DirectEditingProperty<Diffusion, EaseProperty> ValueProperty = EditingProperty.RegisterSerializeDirect<EaseProperty, Diffusion>(
+        public static readonly DirectEditingProperty<Diffusion, EaseProperty> ValueProperty = EditingProperty.RegisterDirect<EaseProperty, Diffusion>(
             nameof(Value),
             owner => owner.Value,
             (owner, obj) => owner.Value = obj,
-            new EasePropertyMetadata(Strings.ThresholdValue, 7, 30, 0));
+            EditingPropertyOptions<EaseProperty>.Create(new EasePropertyMetadata(Strings.ThresholdValue, 7, 30, 0)).Serialize());
 
         /// <summary>
         /// Initializes a new instance of the <see cref="Diffusion"/> class.

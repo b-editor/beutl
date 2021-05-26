@@ -18,11 +18,11 @@ namespace BEditor.Primitive.Effects
         /// <summary>
         /// Defines the <see cref="ThresholdValue"/> property.
         /// </summary>
-        public static readonly DirectEditingProperty<ChromaKey, EaseProperty> TopProperty = EditingProperty.RegisterSerializeDirect<EaseProperty, ChromaKey>(
+        public static readonly DirectEditingProperty<ChromaKey, EaseProperty> TopProperty = EditingProperty.RegisterDirect<EaseProperty, ChromaKey>(
             nameof(ThresholdValue),
             owner => owner.ThresholdValue,
             (owner, obj) => owner.ThresholdValue = obj,
-            new EasePropertyMetadata(Strings.ThresholdValue, 256));
+            EditingPropertyOptions<EaseProperty>.Create(new EasePropertyMetadata(Strings.ThresholdValue, 256)).Serialize());
 
         /// <summary>
         /// Initializes a new instance of the <see cref="ChromaKey"/> class.

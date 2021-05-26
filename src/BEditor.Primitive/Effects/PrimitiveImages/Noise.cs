@@ -1,4 +1,5 @@
 ﻿using System.Collections.Generic;
+using System.Diagnostics.CodeAnalysis;
 
 using BEditor.Data;
 using BEditor.Data.Primitive;
@@ -15,20 +16,19 @@ namespace BEditor.Primitive.Effects
         /// <summary>
         /// Defines the <see cref="Value"/> property.
         /// </summary>
-        public static readonly DirectEditingProperty<Noise, EaseProperty> ValueProperty = EditingProperty.RegisterSerializeDirect<EaseProperty, Noise>(
+        public static readonly DirectEditingProperty<Noise, EaseProperty> ValueProperty = EditingProperty.RegisterDirect<EaseProperty, Noise>(
             nameof(Value),
             owner => owner.Value,
             (owner, obj) => owner.Value = obj,
-            new EasePropertyMetadata(Strings.ThresholdValue, 30, 255, 0));
+            EditingPropertyOptions<EaseProperty>.Create(new EasePropertyMetadata(Strings.ThresholdValue, 30, 255, 0)).Serialize());
 
-#pragma warning disable CS8618
         public Noise()
-#pragma warning restore CS8618
         {
         }
 
         public override string Name => Strings.Noise;
 
+        [AllowNull]
         public EaseProperty Value { get; set; }
 
         public override void Apply(EffectApplyArgs<Image<BGRA32>> args)

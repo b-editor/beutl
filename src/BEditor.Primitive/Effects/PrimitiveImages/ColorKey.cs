@@ -18,20 +18,20 @@ namespace BEditor.Primitive.Effects
         /// <summary>
         /// Defines the <see cref="Color"/> property.
         /// </summary>
-        public static readonly DirectEditingProperty<ColorKey, ColorProperty> ColorProperty = EditingProperty.RegisterSerializeDirect<ColorProperty, ColorKey>(
+        public static readonly DirectEditingProperty<ColorKey, ColorProperty> ColorProperty = EditingProperty.RegisterDirect<ColorProperty, ColorKey>(
             nameof(Color),
             owner => owner.Color,
             (owner, obj) => owner.Color = obj,
-            new ColorPropertyMetadata(Strings.Color, Drawing.Color.Light));
+            EditingPropertyOptions<ColorProperty>.Create(new ColorPropertyMetadata(Strings.Color, Drawing.Color.Light)).Serialize());
 
         /// <summary>
         /// Defines the <see cref="ThresholdValue"/> property.
         /// </summary>
-        public static readonly DirectEditingProperty<ColorKey, EaseProperty> ThresholdValueProperty = EditingProperty.RegisterSerializeDirect<EaseProperty, ColorKey>(
+        public static readonly DirectEditingProperty<ColorKey, EaseProperty> ThresholdValueProperty = EditingProperty.RegisterDirect<EaseProperty, ColorKey>(
             nameof(ThresholdValue),
             owner => owner.ThresholdValue,
             (owner, obj) => owner.ThresholdValue = obj,
-            new EasePropertyMetadata(Strings.ThresholdValue, 60));
+            EditingPropertyOptions<EaseProperty>.Create(new EasePropertyMetadata(Strings.ThresholdValue, 60)).Serialize());
 
         /// <summary>
         /// Initializes a new instance of the <see cref="ColorKey"/> class.

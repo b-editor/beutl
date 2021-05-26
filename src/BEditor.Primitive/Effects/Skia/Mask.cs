@@ -38,56 +38,56 @@ namespace BEditor.Primitive.Effects
         /// <summary>
         /// Defines the <see cref="MaskRotate"/> property.
         /// </summary>
-        public static readonly DirectEditingProperty<Mask, EaseProperty> MaskRotateProperty = EditingProperty.RegisterSerializeDirect<EaseProperty, Mask>(
+        public static readonly DirectEditingProperty<Mask, EaseProperty> MaskRotateProperty = EditingProperty.RegisterDirect<EaseProperty, Mask>(
             nameof(MaskRotate),
             owner => owner.MaskRotate,
             (owner, obj) => owner.MaskRotate = obj,
-            new EasePropertyMetadata(Strings.Rotate));
+            EditingPropertyOptions<EaseProperty>.Create(new EasePropertyMetadata(Strings.Rotate)).Serialize());
 
         /// <summary>
         /// Defines the <see cref="Width"/> property.
         /// </summary>
-        public static readonly DirectEditingProperty<Mask, EaseProperty> WidthProperty = EditingProperty.RegisterSerializeDirect<EaseProperty, Mask>(
+        public static readonly DirectEditingProperty<Mask, EaseProperty> WidthProperty = EditingProperty.RegisterDirect<EaseProperty, Mask>(
             nameof(Width),
             owner => owner.Width,
             (owner, obj) => owner.Width = obj,
-            new EasePropertyMetadata(Strings.Width + " (%)", 100, Min: 0));
+            EditingPropertyOptions<EaseProperty>.Create(new EasePropertyMetadata(Strings.Width + " (%)", 100, Min: 0)).Serialize());
 
         /// <summary>
         /// Defines the <see cref="Height"/> property.
         /// </summary>
-        public static readonly DirectEditingProperty<Mask, EaseProperty> HeightProperty = EditingProperty.RegisterSerializeDirect<EaseProperty, Mask>(
+        public static readonly DirectEditingProperty<Mask, EaseProperty> HeightProperty = EditingProperty.RegisterDirect<EaseProperty, Mask>(
             nameof(Height),
             owner => owner.Height,
             (owner, obj) => owner.Height = obj,
-            new EasePropertyMetadata(Strings.Height + " (%)", 100, Min: 0));
+            EditingPropertyOptions<EaseProperty>.Create(new EasePropertyMetadata(Strings.Height + " (%)", 100, Min: 0)).Serialize());
 
         /// <summary>
         /// Defines the <see cref="Image"/> property.
         /// </summary>
-        public static readonly DirectEditingProperty<Mask, TextProperty> ImageProperty = EditingProperty.RegisterSerializeDirect<TextProperty, Mask>(
+        public static readonly DirectEditingProperty<Mask, TextProperty> ImageProperty = EditingProperty.RegisterDirect<TextProperty, Mask>(
             nameof(Image),
             owner => owner.Image,
             (owner, obj) => owner.Image = obj,
-            new TextPropertyMetadata(Strings.PathToImageObject));
+            EditingPropertyOptions<TextProperty>.Create(new TextPropertyMetadata(Strings.PathToImageObject)).Serialize());
 
         /// <summary>
         /// Defines the <see cref="InvertMask"/> property.
         /// </summary>
-        public static readonly DirectEditingProperty<Mask, CheckProperty> InvertMaskProperty = EditingProperty.RegisterSerializeDirect<CheckProperty, Mask>(
+        public static readonly DirectEditingProperty<Mask, CheckProperty> InvertMaskProperty = EditingProperty.RegisterDirect<CheckProperty, Mask>(
             nameof(InvertMask),
             owner => owner.InvertMask,
             (owner, obj) => owner.InvertMask = obj,
-            new CheckPropertyMetadata(Strings.InvertMask));
+            EditingPropertyOptions<CheckProperty>.Create(new CheckPropertyMetadata(Strings.InvertMask)).Serialize());
 
         /// <summary>
         /// Defines the <see cref="FitSize"/> property.
         /// </summary>
-        public static readonly DirectEditingProperty<Mask, CheckProperty> FitSizeProperty = EditingProperty.RegisterSerializeDirect<CheckProperty, Mask>(
+        public static readonly DirectEditingProperty<Mask, CheckProperty> FitSizeProperty = EditingProperty.RegisterDirect<CheckProperty, Mask>(
             nameof(FitSize),
             owner => owner.FitSize,
             (owner, obj) => owner.FitSize = obj,
-            new CheckPropertyMetadata(Strings.FitToOriginalSize));
+            EditingPropertyOptions<CheckProperty>.Create(new CheckPropertyMetadata(Strings.FitToOriginalSize)).Serialize());
 
         private ReactiveProperty<ClipElement?>? _clipProperty;
 

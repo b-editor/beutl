@@ -2,6 +2,8 @@
 using System.Collections.Generic;
 using System.Diagnostics.CodeAnalysis;
 
+using BEditor.Data;
+
 using BEditor.Media;
 
 namespace BEditor.Data.Property.Easing
@@ -30,11 +32,11 @@ namespace BEditor.Data.Property.Easing
         /// <summary>
         /// Defines the <see cref="EasingType"/> property.
         /// </summary>
-        public static readonly DirectEditingProperty<PrimitiveEasing, SelectorProperty> EasingTypeProperty = EditingProperty.RegisterSerializeDirect<SelectorProperty, PrimitiveEasing>(
+        public static readonly DirectEditingProperty<PrimitiveEasing, SelectorProperty> EasingTypeProperty = EditingProperty.RegisterDirect<SelectorProperty, PrimitiveEasing>(
             nameof(EasingType),
             owner => owner.EasingType,
             (owner, obj) => owner.EasingType = obj,
-            EasingTypeMetadata);
+            EditingPropertyOptions<SelectorProperty>.Create(EasingTypeMetadata).Serialize());
 
         private static readonly Func<float, float, float, float, float>[] DefaultEase =
         {

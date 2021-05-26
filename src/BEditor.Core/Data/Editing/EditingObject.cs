@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Text.Json;
 
+using BEditor.Data.Internals;
 using BEditor.Data.Property;
 using BEditor.Resources;
 
@@ -15,7 +16,19 @@ namespace BEditor.Data
     /// </summary>
     public class EditingObject : BasePropertyChanged, IEditingObject, IJsonObject
     {
+        /// <summary>
+        /// Defines the <see cref="Id"/> property.
+        /// </summary>
+        public static readonly DirectEditingProperty<EditingObject, Guid> IdProperty = EditingProperty.RegisterDirect<Guid, EditingObject>(
+            "Id,ID",
+            owner => owner.Id,
+            (owner, obj) => owner.Id = obj,
+            EditingPropertyOptions<Guid>.Create()
+                .Serialize((writer, obj) => writer.WriteStringValue(obj), element => element.GetGuid())
+                .Initialize(() => Guid.NewGuid()));
+
         private Dictionary<EditingPropertyRegistryKey, object?>? _values = new();
+
         private Type? _ownerType;
 
         /// <summary>
@@ -43,7 +56,7 @@ namespace BEditor.Data
         public bool IsLoaded { get; private set; }
 
         /// <inheritdoc/>
-        public Guid ID { get; protected set; } = Guid.NewGuid();
+        public Guid Id { get; protected set; } = Guid.NewGuid();
 
         private Dictionary<EditingPropertyRegistryKey, object?> Values => _values ??= new();
 
@@ -263,17 +276,13 @@ namespace BEditor.Data
         /// <inheritdoc/>
         public virtual void GetObjectData(Utf8JsonWriter writer)
         {
-            writer.WriteString(nameof(ID), ID);
-
             foreach (var prop in EditingPropertyRegistry.GetSerializableProperties(OwnerType))
             {
                 var value = GetValue(prop);
 
                 if (value is not null)
                 {
-                    writer.WritePropertyName(prop.Name);
-
-                    prop.Serializer!.Write(writer, value);
+                    writer.Write(prop, value);
                 }
             }
         }
@@ -284,18 +293,9 @@ namespace BEditor.Data
             // static コンストラクターを呼び出す
             InvokeStaticInititlizer();
 
-            ID = (element.TryGetProperty(nameof(ID), out var id) && id.TryGetGuid(out var guid)) ? guid : Guid.NewGuid();
-
             foreach (var prop in EditingPropertyRegistry.GetSerializableProperties(OwnerType))
             {
-                if (element.TryGetProperty(prop.Name, out var propElement))
-                {
-                    SetValue(prop, prop.Serializer!.Read(propElement));
-                }
-                else if (prop.Initializer is not null)
-                {
-                    SetValue(prop, prop.Initializer.Create());
-                }
+                SetValue(prop, element.Read(prop));
             }
         }
 

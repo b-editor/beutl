@@ -2,6 +2,8 @@
 using System.Collections.Generic;
 using System.Diagnostics.CodeAnalysis;
 
+using BEditor.Data;
+
 using BEditor.Resources;
 
 namespace BEditor.Data.Property.PrimitiveGroup
@@ -14,56 +16,56 @@ namespace BEditor.Data.Property.PrimitiveGroup
         /// <summary>
         /// Defines the <see cref="X"/> property.
         /// </summary>
-        public static readonly DirectEditingProperty<Coordinate, EaseProperty> XProperty = EditingProperty.RegisterSerializeDirect<EaseProperty, Coordinate>(
+        public static readonly DirectEditingProperty<Coordinate, EaseProperty> XProperty = EditingProperty.RegisterDirect<EaseProperty, Coordinate>(
             nameof(X),
             owner => owner.X,
             (owner, obj) => owner.X = obj,
-            new EasePropertyMetadata(Strings.X, 0));
+            EditingPropertyOptions<EaseProperty>.Create(new EasePropertyMetadata(Strings.X, 0)).Serialize());
 
         /// <summary>
         /// Defines the <see cref="Y"/> property.
         /// </summary>
-        public static readonly DirectEditingProperty<Coordinate, EaseProperty> YProperty = EditingProperty.RegisterSerializeDirect<EaseProperty, Coordinate>(
+        public static readonly DirectEditingProperty<Coordinate, EaseProperty> YProperty = EditingProperty.RegisterDirect<EaseProperty, Coordinate>(
             nameof(Y),
             owner => owner.Y,
             (owner, obj) => owner.Y = obj,
-            new EasePropertyMetadata(Strings.Y, 0));
+            EditingPropertyOptions<EaseProperty>.Create(new EasePropertyMetadata(Strings.Y, 0)).Serialize());
 
         /// <summary>
         /// Defines the <see cref="Z"/> property.
         /// </summary>
-        public static readonly DirectEditingProperty<Coordinate, EaseProperty> ZProperty = EditingProperty.RegisterSerializeDirect<EaseProperty, Coordinate>(
+        public static readonly DirectEditingProperty<Coordinate, EaseProperty> ZProperty = EditingProperty.RegisterDirect<EaseProperty, Coordinate>(
             nameof(Z),
             owner => owner.Z,
             (owner, obj) => owner.Z = obj,
-            new EasePropertyMetadata(Strings.Z, 0));
+            EditingPropertyOptions<EaseProperty>.Create(new EasePropertyMetadata(Strings.Z, 0)).Serialize());
 
         /// <summary>
         /// Defines the <see cref="CenterX"/> property.
         /// </summary>
-        public static readonly DirectEditingProperty<Coordinate, EaseProperty> CenterXProperty = EditingProperty.RegisterSerializeDirect<EaseProperty, Coordinate>(
+        public static readonly DirectEditingProperty<Coordinate, EaseProperty> CenterXProperty = EditingProperty.RegisterDirect<EaseProperty, Coordinate>(
             nameof(CenterX),
             owner => owner.CenterX,
             (owner, obj) => owner.CenterX = obj,
-            new EasePropertyMetadata(Strings.CenterX, 0, float.NaN, float.NaN, true));
+            EditingPropertyOptions<EaseProperty>.Create(new EasePropertyMetadata(Strings.CenterX, 0, float.NaN, float.NaN, true)).Serialize());
 
         /// <summary>
         /// Defines the <see cref="CenterY"/> property.
         /// </summary>
-        public static readonly DirectEditingProperty<Coordinate, EaseProperty> CenterYProperty = EditingProperty.RegisterSerializeDirect<EaseProperty, Coordinate>(
+        public static readonly DirectEditingProperty<Coordinate, EaseProperty> CenterYProperty = EditingProperty.RegisterDirect<EaseProperty, Coordinate>(
             nameof(CenterY),
             owner => owner.CenterY,
             (owner, obj) => owner.CenterY = obj,
-            new EasePropertyMetadata(Strings.CenterY, 0, float.NaN, float.NaN, true));
+            EditingPropertyOptions<EaseProperty>.Create(new EasePropertyMetadata(Strings.CenterY, 0, float.NaN, float.NaN, true)).Serialize());
 
         /// <summary>
         /// Defines the <see cref="CenterZ"/> property.
         /// </summary>
-        public static readonly DirectEditingProperty<Coordinate, EaseProperty> CenterZProperty = EditingProperty.RegisterSerializeDirect<EaseProperty, Coordinate>(
+        public static readonly DirectEditingProperty<Coordinate, EaseProperty> CenterZProperty = EditingProperty.RegisterDirect<EaseProperty, Coordinate>(
             nameof(CenterZ),
             owner => owner.CenterZ,
             (owner, obj) => owner.CenterZ = obj,
-            new EasePropertyMetadata(Strings.CenterZ, 0, float.NaN, float.NaN, true));
+            EditingPropertyOptions<EaseProperty>.Create(new EasePropertyMetadata(Strings.CenterZ, 0, float.NaN, float.NaN, true)).Serialize());
 
         /// <summary>
         /// Initializes a new instance of the <see cref="Coordinate"/> class.

@@ -24,75 +24,75 @@ namespace BEditor.Primitive.Objects
         /// <summary>
         /// Defines the <see cref="Size"/> property.
         /// </summary>
-        public static readonly DirectEditingProperty<Text, EaseProperty> SizeProperty = EditingProperty.RegisterSerializeDirect<EaseProperty, Text>(
+        public static readonly DirectEditingProperty<Text, EaseProperty> SizeProperty = EditingProperty.RegisterDirect<EaseProperty, Text>(
             nameof(Size),
             owner => owner.Size,
             (owner, obj) => owner.Size = obj,
-            new EasePropertyMetadata(Strings.Size, 100, float.NaN, 0));
+            EditingPropertyOptions<EaseProperty>.Create(new EasePropertyMetadata(Strings.Size, 100, float.NaN, 0)).Serialize());
 
         /// <summary>
         /// Defines the <see cref="LineSpacing"/> property.
         /// </summary>
-        public static readonly DirectEditingProperty<Text, EaseProperty> LineSpacingProperty = EditingProperty.RegisterSerializeDirect<EaseProperty, Text>(
+        public static readonly DirectEditingProperty<Text, EaseProperty> LineSpacingProperty = EditingProperty.RegisterDirect<EaseProperty, Text>(
             nameof(LineSpacing),
             owner => owner.LineSpacing,
             (owner, obj) => owner.LineSpacing = obj,
-            new EasePropertyMetadata(Strings.LineSpacing, 0, float.NaN, 0));
+            EditingPropertyOptions<EaseProperty>.Create(new EasePropertyMetadata(Strings.LineSpacing, 0, float.NaN, 0)).Serialize());
 
         /// <summary>
         /// Defines the <see cref="Color"/> property.
         /// </summary>
-        public static readonly DirectEditingProperty<Text, ColorProperty> ColorProperty = EditingProperty.RegisterSerializeDirect<ColorProperty, Text>(
+        public static readonly DirectEditingProperty<Text, ColorProperty> ColorProperty = EditingProperty.RegisterDirect<ColorProperty, Text>(
             nameof(Color),
             owner => owner.Color,
             (owner, obj) => owner.Color = obj,
-            new ColorPropertyMetadata(Strings.Color, Drawing.Color.Light));
+            EditingPropertyOptions<ColorProperty>.Create(new ColorPropertyMetadata(Strings.Color, Drawing.Color.Light)).Serialize());
 
         /// <summary>
         /// Defines the <see cref="Color"/> property.
         /// </summary>
-        public static readonly DirectEditingProperty<Text, FontProperty> FontProperty = EditingProperty.RegisterSerializeDirect<FontProperty, Text>(
+        public static readonly DirectEditingProperty<Text, FontProperty> FontProperty = EditingProperty.RegisterDirect<FontProperty, Text>(
             nameof(Font),
             owner => owner.Font,
             (owner, obj) => owner.Font = obj,
-            new FontPropertyMetadata());
+            EditingPropertyOptions<FontProperty>.Create(new FontPropertyMetadata()).Serialize());
 
         /// <summary>
         /// Defines the <see cref="HorizontalAlign"/> property.
         /// </summary>
-        public static readonly DirectEditingProperty<Text, SelectorProperty> HorizontalAlignProperty = EditingProperty.RegisterSerializeDirect<SelectorProperty, Text>(
+        public static readonly DirectEditingProperty<Text, SelectorProperty> HorizontalAlignProperty = EditingProperty.RegisterDirect<SelectorProperty, Text>(
             nameof(HorizontalAlign),
             owner => owner.HorizontalAlign,
             (owner, obj) => owner.HorizontalAlign = obj,
-            new SelectorPropertyMetadata(Strings.HorizontalAlignment, new[]
+            EditingPropertyOptions<SelectorProperty>.Create(new SelectorPropertyMetadata(Strings.HorizontalAlignment, new[]
             {
                 Strings.Left,
                 Strings.Center,
                 Strings.Right
-            }));
+            })).Serialize());
 
         /// <summary>
         /// Defines the <see cref="VerticalAlign"/> property.
         /// </summary>
-        public static readonly DirectEditingProperty<Text, SelectorProperty> VerticalAlignProperty = EditingProperty.RegisterSerializeDirect<SelectorProperty, Text>(
+        public static readonly DirectEditingProperty<Text, SelectorProperty> VerticalAlignProperty = EditingProperty.RegisterDirect<SelectorProperty, Text>(
             nameof(VerticalAlign),
             owner => owner.VerticalAlign,
             (owner, obj) => owner.VerticalAlign = obj,
-            new SelectorPropertyMetadata(Strings.VerticalAlignment, new[]
+            EditingPropertyOptions<SelectorProperty>.Create(new SelectorPropertyMetadata(Strings.VerticalAlignment, new[]
             {
                 Strings.Top,
                 Strings.Center,
                 Strings.Bottom
-            }));
+            })).Serialize());
 
         /// <summary>
         /// Defines the <see cref="Document"/> property.
         /// </summary>
-        public static readonly DirectEditingProperty<Text, DocumentProperty> DocumentProperty = EditingProperty.RegisterSerializeDirect<DocumentProperty, Text>(
+        public static readonly DirectEditingProperty<Text, DocumentProperty> DocumentProperty = EditingProperty.RegisterDirect<DocumentProperty, Text>(
             nameof(Document),
             owner => owner.Document,
             (owner, obj) => owner.Document = obj,
-            new DocumentPropertyMetadata(string.Empty));
+            EditingPropertyOptions<DocumentProperty>.Create(new DocumentPropertyMetadata(string.Empty)).Serialize());
 
         /// <summary>
         /// Initializes a new instance of the <see cref="Text"/> class.

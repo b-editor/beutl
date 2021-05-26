@@ -32,11 +32,11 @@ namespace BEditor.Primitive.Objects
         /// <summary>
         /// Defines the <see cref="Line"/> property.
         /// </summary>
-        public static readonly DirectEditingProperty<Shape, EaseProperty> LineProperty = EditingProperty.RegisterSerializeDirect<EaseProperty, Shape>(
+        public static readonly DirectEditingProperty<Shape, EaseProperty> LineProperty = EditingProperty.RegisterDirect<EaseProperty, Shape>(
             nameof(Line),
             owner => owner.Line,
             (owner, obj) => owner.Line = obj,
-            new EasePropertyMetadata(Strings.LineWidth, 4000, float.NaN, 0));
+            EditingPropertyOptions<EaseProperty>.Create(new EasePropertyMetadata(Strings.LineWidth, 4000, float.NaN, 0)).Serialize());
 
         /// <summary>
         /// Defines the <see cref="Color"/> property.
@@ -48,15 +48,15 @@ namespace BEditor.Primitive.Objects
         /// <summary>
         /// Defines the <see cref="Type"/> property.
         /// </summary>
-        public static readonly DirectEditingProperty<Shape, SelectorProperty> TypeProperty = EditingProperty.RegisterSerializeDirect<SelectorProperty, Shape>(
+        public static readonly DirectEditingProperty<Shape, SelectorProperty> TypeProperty = EditingProperty.RegisterDirect<SelectorProperty, Shape>(
             nameof(Type),
             owner => owner.Type,
             (owner, obj) => owner.Type = obj,
-            new SelectorPropertyMetadata(Strings.Type, new string[]
+            EditingPropertyOptions<SelectorProperty>.Create(new SelectorPropertyMetadata(Strings.Type, new string[]
             {
                 Strings.Ellipse,
                 Strings.Rectangle
-            }));
+            })).Serialize());
 
         /// <summary>
         /// Initializes a new instance of the <see cref="Shape"/> class.

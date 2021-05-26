@@ -37,11 +37,11 @@ namespace BEditor.Primitive.Effects
         /// <summary>
         /// Defines the <see cref="Radius"/> property.
         /// </summary>
-        public static readonly DirectEditingProperty<CircularGradient, EaseProperty> RadiusProperty = EditingProperty.RegisterSerializeDirect<EaseProperty, CircularGradient>(
+        public static readonly DirectEditingProperty<CircularGradient, EaseProperty> RadiusProperty = EditingProperty.RegisterDirect<EaseProperty, CircularGradient>(
             nameof(Radius),
             owner => owner.Radius,
             (owner, obj) => owner.Radius = obj,
-            new EasePropertyMetadata(Strings.Radius, 100));
+            EditingPropertyOptions<EaseProperty>.Create(new EasePropertyMetadata(Strings.Radius, 100)).Serialize());
 
         /// <summary>
         /// Defines the <see cref="Colors"/> property.

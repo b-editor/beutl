@@ -33,11 +33,11 @@ namespace BEditor.Primitive.Objects
         /// <summary>
         /// Defines the <see cref="Number"/> property.
         /// </summary>
-        public static readonly DirectEditingProperty<Polygon, ValueProperty> NumberProperty = EditingProperty.RegisterSerializeDirect<ValueProperty, Polygon>(
+        public static readonly DirectEditingProperty<Polygon, ValueProperty> NumberProperty = EditingProperty.RegisterDirect<ValueProperty, Polygon>(
             nameof(Number),
             owner => owner.Number,
             (owner, obj) => owner.Number = obj,
-            new ValuePropertyMetadata("角", 3, Min: 3));
+            EditingPropertyOptions<ValueProperty>.Create(new ValuePropertyMetadata("角", 3, Min: 3)).Serialize());
 
         /// <summary>
         /// Defines the <see cref="Color"/> property.

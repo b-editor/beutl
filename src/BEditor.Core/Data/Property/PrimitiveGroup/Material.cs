@@ -2,6 +2,8 @@
 using System.Collections.Generic;
 using System.Diagnostics.CodeAnalysis;
 
+using BEditor.Data;
+
 using BEditor.Drawing;
 using BEditor.Resources;
 
@@ -15,38 +17,38 @@ namespace BEditor.Data.Property.PrimitiveGroup
         /// <summary>
         /// Defines the <see cref="Ambient"/> property.
         /// </summary>
-        public static readonly DirectEditingProperty<Material, ColorAnimationProperty> AmbientProperty = EditingProperty.RegisterSerializeDirect<ColorAnimationProperty, Material>(
+        public static readonly DirectEditingProperty<Material, ColorAnimationProperty> AmbientProperty = EditingProperty.RegisterDirect<ColorAnimationProperty, Material>(
             nameof(Ambient),
             owner => owner.Ambient,
             (owner, obj) => owner.Ambient = obj,
-            new ColorAnimationPropertyMetadata(Strings.Ambient, Color.Light, true));
+            EditingPropertyOptions<ColorAnimationProperty>.Create(new ColorAnimationPropertyMetadata(Strings.Ambient, Color.Light, true)).Serialize());
 
         /// <summary>
         /// Defines the <see cref="Diffuse"/> property.
         /// </summary>
-        public static readonly DirectEditingProperty<Material, ColorAnimationProperty> DiffuseProperty = EditingProperty.RegisterSerializeDirect<ColorAnimationProperty, Material>(
+        public static readonly DirectEditingProperty<Material, ColorAnimationProperty> DiffuseProperty = EditingProperty.RegisterDirect<ColorAnimationProperty, Material>(
             nameof(Diffuse),
             owner => owner.Diffuse,
             (owner, obj) => owner.Diffuse = obj,
-            new ColorAnimationPropertyMetadata(Strings.Diffuse, Color.Light, true));
+            EditingPropertyOptions<ColorAnimationProperty>.Create(new ColorAnimationPropertyMetadata(Strings.Diffuse, Color.Light, true)).Serialize());
 
         /// <summary>
         /// Defines the <see cref="Specular"/> property.
         /// </summary>
-        public static readonly DirectEditingProperty<Material, ColorAnimationProperty> SpecularProperty = EditingProperty.RegisterSerializeDirect<ColorAnimationProperty, Material>(
+        public static readonly DirectEditingProperty<Material, ColorAnimationProperty> SpecularProperty = EditingProperty.RegisterDirect<ColorAnimationProperty, Material>(
             nameof(Specular),
             owner => owner.Specular,
             (owner, obj) => owner.Specular = obj,
-            new ColorAnimationPropertyMetadata(Strings.Specular, Color.Light, true));
+            EditingPropertyOptions<ColorAnimationProperty>.Create(new ColorAnimationPropertyMetadata(Strings.Specular, Color.Light, true)).Serialize());
 
         /// <summary>
         /// Defines the <see cref="Shininess"/> property.
         /// </summary>
-        public static readonly DirectEditingProperty<Material, EaseProperty> ShininessProperty = EditingProperty.RegisterSerializeDirect<EaseProperty, Material>(
+        public static readonly DirectEditingProperty<Material, EaseProperty> ShininessProperty = EditingProperty.RegisterDirect<EaseProperty, Material>(
             nameof(Shininess),
             owner => owner.Shininess,
             (owner, obj) => owner.Shininess = obj,
-            new EasePropertyMetadata(Strings.Shininess, 10, float.NaN, 1));
+            EditingPropertyOptions<EaseProperty>.Create(new EasePropertyMetadata(Strings.Shininess, 10, float.NaN, 1)).Serialize());
 
         /// <summary>
         /// Initializes a new instance of the <see cref="Material"/> class.

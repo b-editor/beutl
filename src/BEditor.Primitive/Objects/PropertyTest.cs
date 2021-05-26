@@ -10,58 +10,61 @@ namespace BEditor.Primitive.Objects
 {
     internal class PropertyTest : ObjectElement
     {
-        public static readonly EditingProperty<ButtonComponent> ButtonProperty = EditingProperty.RegisterSerializeDirect<ButtonComponent, PropertyTest>(
+        public static readonly EditingProperty<ButtonComponent> ButtonProperty = EditingProperty.RegisterDirect<ButtonComponent, PropertyTest>(
             nameof(Button), owner => owner.Button, (owner, obj) => owner.Button = obj,
-            new ButtonComponentMetadata("Button"));
+            EditingPropertyOptions<ButtonComponent>.Create(new ButtonComponentMetadata("Button")).Serialize());
 
-        public static readonly EditingProperty<CheckProperty> CheckProperty = EditingProperty.RegisterSerializeDirect<CheckProperty, PropertyTest>(
+        public static readonly EditingProperty<CheckProperty> CheckProperty = EditingProperty.RegisterDirect<CheckProperty, PropertyTest>(
             nameof(Check), owner => owner.Check, (owner, obj) => owner.Check = obj,
-            new CheckPropertyMetadata("Check"));
+            EditingPropertyOptions<CheckProperty>.Create(new CheckPropertyMetadata("Check")).Serialize());
 
-        public static readonly EditingProperty<ColorAnimationProperty> ColorAnimationProperty = EditingProperty.RegisterSerializeDirect<ColorAnimationProperty, PropertyTest>(
+        public static readonly EditingProperty<ColorAnimationProperty> ColorAnimationProperty = EditingProperty.RegisterDirect<ColorAnimationProperty, PropertyTest>(
             nameof(ColorAnimation), owner => owner.ColorAnimation, (owner, obj) => owner.ColorAnimation = obj,
-            new ColorAnimationPropertyMetadata("ColorAnimation"));
+            EditingPropertyOptions<ColorAnimationProperty>.Create(new ColorAnimationPropertyMetadata("ColorAnimation")).Serialize());
 
-        public static readonly EditingProperty<ColorProperty> ColorProperty = EditingProperty.RegisterSerializeDirect<ColorProperty, PropertyTest>(
+        public static readonly EditingProperty<ColorProperty> ColorProperty = EditingProperty.RegisterDirect<ColorProperty, PropertyTest>(
             nameof(Color), owner => owner.Color, (owner, obj) => owner.Color = obj,
-            new ColorPropertyMetadata("Color", Drawing.Color.Light));
+            EditingPropertyOptions<ColorProperty>.Create(new ColorPropertyMetadata("Color", Drawing.Color.Light)).Serialize());
 
-        public static readonly EditingProperty<DocumentProperty> DocumentProperty = EditingProperty.RegisterSerializeDirect<DocumentProperty, PropertyTest>(
+        public static readonly EditingProperty<DocumentProperty> DocumentProperty = EditingProperty.RegisterDirect<DocumentProperty, PropertyTest>(
             nameof(Document), owner => owner.Document, (owner, obj) => owner.Document = obj,
-            new DocumentPropertyMetadata(string.Empty));
+            EditingPropertyOptions<DocumentProperty>.Create(new DocumentPropertyMetadata(string.Empty)).Serialize());
 
-        public static readonly EditingProperty<EaseProperty> EaseProperty = EditingProperty.RegisterSerializeDirect<EaseProperty, PropertyTest>(
+        public static readonly EditingProperty<EaseProperty> EaseProperty = EditingProperty.RegisterDirect<EaseProperty, PropertyTest>(
             nameof(Ease), owner => owner.Ease, (owner, obj) => owner.Ease = obj,
-            new EasePropertyMetadata("Ease"));
+            EditingPropertyOptions<EaseProperty>.Create(new EasePropertyMetadata("Ease")).Serialize());
 
-        public static readonly EditingProperty<FileProperty> FileProperty = EditingProperty.RegisterSerializeDirect<FileProperty, PropertyTest>(
+        public static readonly EditingProperty<FileProperty> FileProperty = EditingProperty.RegisterDirect<FileProperty, PropertyTest>(
             nameof(File), owner => owner.File, (owner, obj) => owner.File = obj,
-            new FilePropertyMetadata("File"));
+            EditingPropertyOptions<FileProperty>.Create(new FilePropertyMetadata("File")).Serialize());
 
-        public static readonly EditingProperty<FolderProperty> FolderProperty = EditingProperty.RegisterSerializeDirect<FolderProperty, PropertyTest>(
+        public static readonly EditingProperty<FolderProperty> FolderProperty = EditingProperty.RegisterDirect<FolderProperty, PropertyTest>(
             nameof(Folder), owner => owner.Folder, (owner, obj) => owner.Folder = obj,
-            new FolderPropertyMetadata("Folder"));
+            EditingPropertyOptions<FolderProperty>.Create(new FolderPropertyMetadata("Folder")).Serialize());
 
-        public static readonly EditingProperty<LabelComponent> LabelProperty = EditingProperty.RegisterSerializeDirect<LabelComponent, PropertyTest>(
+        public static readonly EditingProperty<LabelComponent> LabelProperty = EditingProperty.RegisterDirect<LabelComponent, PropertyTest>(
             nameof(Label), owner => owner.Label, (owner, obj) => owner.Label = obj,
-            new LabelComponentMetadata());
+            EditingPropertyOptions<LabelComponent>.Create(new LabelComponentMetadata()).Serialize());
 
-        public static readonly EditingProperty<SelectorProperty> SelectorProperty = EditingProperty.RegisterSerializeDirect<SelectorProperty, PropertyTest>(
+        public static readonly EditingProperty<SelectorProperty> SelectorProperty = EditingProperty.RegisterDirect<SelectorProperty, PropertyTest>(
             nameof(Selector), owner => owner.Selector, (owner, obj) => owner.Selector = obj,
-            new SelectorPropertyMetadata("Selector", new string[] { "One", "Two", "Three" }));
+            EditingPropertyOptions<SelectorProperty>.Create(new SelectorPropertyMetadata("Selector", new string[] { "One", "Two", "Three" })).Serialize());
 
-        public static readonly EditingProperty<SelectorProperty<StringWrapper>> SelectorGenProperty = EditingProperty.RegisterSerializeDirect<SelectorProperty<StringWrapper>, PropertyTest>(
+        public static readonly EditingProperty<SelectorProperty<StringWrapper>> SelectorGenProperty = EditingProperty.RegisterDirect<SelectorProperty<StringWrapper>, PropertyTest>(
             nameof(SelectorGen), owner => owner.SelectorGen, (owner, obj) => owner.SelectorGen = obj,
-            new SelectorPropertyMetadata<StringWrapper>(
-                "SelectorGen", new StringWrapper[] { new("One"), new("Two"), new("Three") }, i => i.Value));
+            EditingPropertyOptions<SelectorProperty<StringWrapper>>
+                .Create(new SelectorPropertyMetadata<StringWrapper>(
+                    "SelectorGen",
+                    new StringWrapper[] { new("One"), new("Two"), new("Three") }, i => i.Value))
+                .Serialize());
 
-        public static readonly EditingProperty<TextProperty> TextProperty = EditingProperty.RegisterSerializeDirect<TextProperty, PropertyTest>(
+        public static readonly EditingProperty<TextProperty> TextProperty = EditingProperty.RegisterDirect<TextProperty, PropertyTest>(
             nameof(Text), owner => owner.Text, (owner, obj) => owner.Text = obj,
-            new TextPropertyMetadata("Text"));
+            EditingPropertyOptions<TextProperty>.Create(new TextPropertyMetadata("Text")).Serialize());
 
-        public static readonly EditingProperty<ValueProperty> ValueProperty = EditingProperty.RegisterSerializeDirect<ValueProperty, PropertyTest>(
+        public static readonly EditingProperty<ValueProperty> ValueProperty = EditingProperty.RegisterDirect<ValueProperty, PropertyTest>(
             nameof(Value), owner => owner.Value, (owner, obj) => owner.Value = obj,
-            new ValuePropertyMetadata("Value"));
+            EditingPropertyOptions<ValueProperty>.Create(new ValuePropertyMetadata("Value")).Serialize());
 
         public PropertyTest()
         {

@@ -18,11 +18,11 @@ namespace BEditor.Primitive.Effects
         /// <summary>
         /// Dedines the <see cref="Brightness"/> property.
         /// </summary>
-        public static readonly EditingProperty<EaseProperty> BrightnessProperty = EditingProperty.RegisterSerializeDirect<EaseProperty, BrightnessCorrection>(
+        public static readonly DirectEditingProperty<BrightnessCorrection, EaseProperty> BrightnessProperty = EditingProperty.RegisterDirect<EaseProperty, BrightnessCorrection>(
             nameof(Brightness),
             owner => owner.Brightness,
             (owner, obj) => owner.Brightness = obj,
-            new EasePropertyMetadata(Strings.Brightness, 0, 255, -255));
+            EditingPropertyOptions<EaseProperty>.Create(new EasePropertyMetadata(Strings.Brightness, 0, 255, -255)).Serialize());
 
         /// <summary>
         /// Initializes a new instance of the <see cref="BrightnessCorrection"/> class.
