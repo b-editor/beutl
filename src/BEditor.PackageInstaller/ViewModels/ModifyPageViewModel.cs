@@ -80,7 +80,7 @@ namespace BEditor.PackageInstaller.ViewModels
                             }
                             _successfulChanges.Add(package);
                         }
-                        catch(Exception e)
+                        catch (Exception e)
                         {
                             Console.WriteLine(e.Message);
                             _failedChanges.Add(package);

@@ -35,17 +35,17 @@ namespace BEditor.PackageInstaller.ViewModels
         }
 
         public ObservableCollection<PackageChange> Installs { get; } = new();
-        
+
         public ObservableCollection<PackageChange> Uninstalls { get; } = new();
-        
+
         public ObservableCollection<PackageChange> Updates { get; } = new();
 
         public ReactivePropertySlim<bool> IsLoading { get; } = new(false);
-        
+
         public ReactivePropertySlim<bool> InstallsIsEmpty { get; } = new(true);
 
         public ReactivePropertySlim<bool> UninstallsIsEmpty { get; } = new(true);
-        
+
         public ReactivePropertySlim<bool> UpdatesIsEmpty { get; } = new(true);
 
         private static void AddRange<T>(ObservableCollection<T> list, IEnumerable<T> enumerable)
