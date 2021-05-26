@@ -4,7 +4,9 @@ on: [push, pull_request]
 
 jobs:
   test:
-    runs-on: windows-latest
+    runs-on: ${{ matrix.os }}strategy:
+      matrix:
+        os: [ubuntu-latest, windows-latest, macos-latest]
     env:
       NUGET_PACKAGES: ${{ github.workspace }}/.nuget/packages
     steps:
