@@ -128,23 +128,17 @@ namespace BEditor
                 }
                 else if (OperatingSystem.IsLinux())
                 {
-                    try
+                    Process.Start(new ProcessStartInfo(Path.Combine(AppContext.BaseDirectory, "BEditor.PackageInstaller"), jsonfile)
                     {
-                        Process.Start("/bin/dotnet", new string[] { Path.Combine(AppContext.BaseDirectory, "BEditor.PackageInstaller.dll"), jsonfile });
-                    }
-                    catch
-                    {
-
-                    }
+                        UseShellExecute = true
+                    });
                 }
             }
         }
 
-        private async void CurrentDomain_UnhandledException(object sender, UnhandledExceptionEventArgs e)
+        private void CurrentDomain_UnhandledException(object sender, UnhandledExceptionEventArgs e)
         {
-            await using var provider = AppModel.Current.Services.BuildServiceProvider();
-            provider.GetService<IMessage>()!
-                .Snackbar(string.Format(Strings.ExceptionWasThrown, e.ExceptionObject.ToString()));
+            AppModel.Current.Message.Snackbar(string.Format(Strings.ExceptionWasThrown, e.ExceptionObject.ToString()));
 
             Logger?.LogError(e.ExceptionObject as Exception, "UnhandledException was thrown.");
         }
