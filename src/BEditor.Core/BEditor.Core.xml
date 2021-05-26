@@ -847,77 +847,6 @@
         <member name="M:BEditor.Data.EditingObject.OnUnload">
             <inheritdoc cref="M:BEditor.Data.IElementObject.Unload"/>
         </member>
-        <member name="T:BEditor.Data.IEditingProperty">
-            <summary>
-            Represents the properties of the edited data.
-            </summary>
-        </member>
-        <member name="P:BEditor.Data.IEditingProperty.IsDisposable">
-            <summary>
-            Get the value of whether to delete with <see cref="M:BEditor.Data.EditingObject.ClearDisposable"/>.
-            </summary>
-        </member>
-        <member name="P:BEditor.Data.IEditingProperty.Name">
-            <summary>
-            Gets the name of this <see cref="T:BEditor.Data.IEditingProperty"/>.
-            </summary>
-        </member>
-        <member name="P:BEditor.Data.IEditingProperty.OwnerType">
-            <summary>
-            Gets the owner type of this <see cref="T:BEditor.Data.IEditingProperty"/>.
-            </summary>
-        </member>
-        <member name="P:BEditor.Data.IEditingProperty.ValueType">
-            <summary>
-            Gets the value type of this <see cref="T:BEditor.Data.IEditingProperty"/>.
-            </summary>
-        </member>
-        <member name="P:BEditor.Data.IEditingProperty.Initializer">
-            <summary>
-            Gets the <see cref="T:BEditor.Data.IEditingPropertyInitializer"/> that initializes the local value of this <see cref="T:BEditor.Data.IEditingProperty"/>.
-            </summary>
-        </member>
-        <member name="P:BEditor.Data.IEditingProperty.Serializer">
-            <summary>
-            Gets the <see cref="T:BEditor.Data.IEditingPropertySerializer"/> that serializes the local value of this <see cref="T:BEditor.Data.IEditingProperty"/>.
-            </summary>
-        </member>
-        <member name="P:BEditor.Data.IEditingProperty.Key">
-            <summary>
-            Gets the registry key.
-            </summary>
-        </member>
-        <member name="T:BEditor.Data.IEditingProperty`1">
-            <summary>
-            Represents the properties of the edited data.
-            </summary>
-            <typeparam name="TValue">The type of the property.</typeparam>
-        </member>
-        <member name="P:BEditor.Data.IEditingProperty`1.Initializer">
-            <summary>
-            Gets the <see cref="T:BEditor.Data.IEditingPropertyInitializer`1"/> that initializes the local value of this <see cref="T:BEditor.Data.IEditingProperty`1"/>.
-            </summary>
-        </member>
-        <member name="P:BEditor.Data.IEditingProperty`1.Serializer">
-            <summary>
-            Gets the <see cref="T:BEditor.Data.IEditingPropertySerializer`1"/> that serializes the local value of this <see cref="T:BEditor.Data.IEditingProperty`1"/>.
-            </summary>
-        </member>
-        <member name="P:BEditor.Data.EditingPropertyOptions`1.Initializer">
-            <summary>
-            Gets or sets the <see cref="T:BEditor.Data.IEditingPropertyInitializer`1"/> that initializes the local value of a property.
-            </summary>
-        </member>
-        <member name="P:BEditor.Data.EditingPropertyOptions`1.Serializer">
-            <summary>
-            Gets or sets the <see cref="T:BEditor.Data.IEditingPropertySerializer`1"/> thats serialize this property.
-            </summary>
-        </member>
-        <member name="P:BEditor.Data.EditingPropertyOptions`1.IsDisposable">
-            <summary>
-            Gets or sets the value of whether to delete with <see cref="M:BEditor.Data.EditingObject.ClearDisposable"/>.
-            </summary>
-        </member>
         <member name="T:BEditor.Data.EditingProperty">
             <summary>
             Represents the properties of the edited data.
@@ -965,7 +894,7 @@
             <summary>
             Registers a <see cref="T:BEditor.Data.EditingProperty"/>.
             </summary>
-            <typeparam name="TValue">The type of the local value.</typeparam>
+            <typeparam name="TValue">The type of the property.</typeparam>
             <typeparam name="TOwner">The type of the owner.</typeparam>
             <param name="name">The name of the property.</param>
             <param name="options">The property options.</param>
@@ -975,7 +904,7 @@
             <summary>
             Registers a direct <see cref="T:BEditor.Data.EditingProperty"/>
             </summary>
-            <typeparam name="TValue">The type of the local value.</typeparam>
+            <typeparam name="TValue">The type of the property.</typeparam>
             <typeparam name="TOwner">The type of the owner.</typeparam>
             <param name="name">The name of the property.</param>
             <param name="getter">Gets the current value of the property.</param>
@@ -1000,6 +929,66 @@
             Create a local value instance of <see cref="T:BEditor.Data.EditingProperty`1"/>.
             </summary>
             <returns>Returns the created local value.</returns>
+        </member>
+        <member name="T:BEditor.Data.EditingPropertyOptions`1">
+            <summary>
+            Provides options for use with <see cref="M:BEditor.Data.EditingProperty.Register``2(System.String,BEditor.Data.EditingPropertyOptions{``0})"/>.
+            </summary>
+            <typeparam name="TValue">The type of the property.</typeparam>
+        </member>
+        <member name="P:BEditor.Data.EditingPropertyOptions`1.Initializer">
+            <summary>
+            Gets or sets the <see cref="T:BEditor.Data.IEditingPropertyInitializer`1"/> that initializes the value of a property.
+            </summary>
+        </member>
+        <member name="P:BEditor.Data.EditingPropertyOptions`1.Serializer">
+            <summary>
+            Gets or sets the <see cref="T:BEditor.Data.IEditingPropertySerializer`1"/> to serialize this property.
+            </summary>
+        </member>
+        <member name="P:BEditor.Data.EditingPropertyOptions`1.IsDisposable">
+            <summary>
+            Gets or sets the value of whether to delete with <see cref="M:BEditor.Data.EditingObject.ClearDisposable"/>.
+            </summary>
+        </member>
+        <member name="M:BEditor.Data.EditingPropertyOptions`1.Create(BEditor.Data.IEditingPropertyInitializer{`0},BEditor.Data.IEditingPropertySerializer{`0},System.Boolean)">
+            <summary>
+            Initialize with each option specified.
+            </summary>
+            <param name="initializer">The <see cref="T:BEditor.Data.IEditingPropertyInitializer`1"/> that initializes the local value of a property.</param>
+            <param name="serializer">The <see cref="T:BEditor.Data.IEditingPropertySerializer`1"/> to serialize this property.</param>
+            <param name="isDisposable">The value of whether to delete with <see cref="M:BEditor.Data.EditingObject.ClearDisposable"/>.</param>
+        </member>
+        <member name="M:BEditor.Data.EditingPropertyOptions`1.Initialize(BEditor.Data.IEditingPropertyInitializer{`0})">
+            <summary>
+            Sets the <see cref="T:BEditor.Data.IEditingPropertyInitializer`1"/> that initializes the value of a property.
+            </summary>
+            <param name="initializer">The value of <see cref="P:BEditor.Data.EditingPropertyOptions`1.Initializer"/></param>
+        </member>
+        <member name="M:BEditor.Data.EditingPropertyOptions`1.Serialize(BEditor.Data.IEditingPropertySerializer{`0})">
+            <summary>
+            Sets the <see cref="T:BEditor.Data.IEditingPropertySerializer`1"/> to serialize this property.
+            </summary>
+            <param name="serializer">The value of <see cref="P:BEditor.Data.EditingPropertyOptions`1.Serializer"/>.</param>
+        </member>
+        <member name="M:BEditor.Data.EditingPropertyOptions`1.Initialize(System.Func{`0})">
+            <summary>
+            Sets the <see cref="T:BEditor.Data.IEditingPropertyInitializer`1"/> that initializes the value of a property.
+            </summary>
+            <param name="initialize">Create a new instance.</param>
+        </member>
+        <member name="M:BEditor.Data.EditingPropertyOptions`1.Serialize(System.Action{System.Text.Json.Utf8JsonWriter,`0},System.Func{System.Text.Json.JsonElement,`0})">
+            <summary>
+            Sets the <see cref="T:BEditor.Data.IEditingPropertySerializer`1"/> to serialize this property.
+            </summary>
+            <param name="write">Writes the value to <see cref="T:System.Text.Json.Utf8JsonWriter"/>.</param>
+            <param name="read">Reads the value from <see cref="T:System.Text.Json.JsonElement"/>.</param>
+        </member>
+        <member name="M:BEditor.Data.EditingPropertyOptions`1.Disposable(System.Boolean)">
+            <summary>
+            Sets the value of whether to delete with <see cref="M:BEditor.Data.EditingObject.ClearDisposable"/>.
+            </summary>
+            <param name="value">The value of <see cref="P:BEditor.Data.EditingPropertyOptions`1.IsDisposable"/>.</param>
         </member>
         <member name="T:BEditor.Data.EditingPropertyRegistry">
             <summary>
@@ -1106,35 +1095,6 @@
         <member name="M:BEditor.Data.EditingPropertyRegistryKey.op_Inequality(BEditor.Data.EditingPropertyRegistryKey,BEditor.Data.EditingPropertyRegistryKey)">
             <inheritdoc/>
         </member>
-        <member name="T:BEditor.Data.IEditingPropertySerializer">
-            <summary>
-            Represents the serializer of <see cref="T:BEditor.Data.IEditingProperty"/>.
-            </summary>
-        </member>
-        <member name="M:BEditor.Data.IEditingPropertySerializer.Write(System.Text.Json.Utf8JsonWriter,System.Object)">
-            <summary>
-            Writes the value to <see cref="T:System.Text.Json.Utf8JsonWriter"/>.
-            </summary>
-            <param name="writer">The <see cref="T:System.Text.Json.Utf8JsonWriter"/> that writes the value.</param>
-            <param name="value">The value to be written.</param>
-        </member>
-        <member name="M:BEditor.Data.IEditingPropertySerializer.Read(System.Text.Json.JsonElement)">
-            <summary>
-            Reads the value from <see cref="T:System.Text.Json.JsonElement"/>.
-            </summary>
-            <param name="element">The <see cref="T:System.Text.Json.JsonElement"/> that reads the value.</param>
-        </member>
-        <member name="T:BEditor.Data.IEditingPropertySerializer`1">
-            <summary>
-            Represents the serializer of <see cref="T:BEditor.Data.IEditingProperty"/>.
-            </summary>
-        </member>
-        <member name="M:BEditor.Data.IEditingPropertySerializer`1.Write(System.Text.Json.Utf8JsonWriter,`0)">
-            <inheritdoc cref="M:BEditor.Data.IEditingPropertySerializer.Write(System.Text.Json.Utf8JsonWriter,System.Object)"/>
-        </member>
-        <member name="M:BEditor.Data.IEditingPropertySerializer`1.Read(System.Text.Json.JsonElement)">
-            <inheritdoc cref="M:BEditor.Data.IEditingPropertySerializer.Read(System.Text.Json.JsonElement)"/>
-        </member>
         <member name="T:BEditor.Data.EditingPropertySerializer`1">
             <summary>
             Represents the serializer of <see cref="T:BEditor.Data.IEditingProperty"/>.
@@ -1232,6 +1192,46 @@
             Removes all local values from this <see cref="T:BEditor.Data.EditingObject"/>.
             </summary>
         </member>
+        <member name="T:BEditor.Data.IEditingProperty">
+            <summary>
+            Represents the properties of the edited data.
+            </summary>
+        </member>
+        <member name="P:BEditor.Data.IEditingProperty.IsDisposable">
+            <summary>
+            Get the value of whether to delete with <see cref="M:BEditor.Data.EditingObject.ClearDisposable"/>.
+            </summary>
+        </member>
+        <member name="P:BEditor.Data.IEditingProperty.Name">
+            <summary>
+            Gets the name of this <see cref="T:BEditor.Data.IEditingProperty"/>.
+            </summary>
+        </member>
+        <member name="P:BEditor.Data.IEditingProperty.OwnerType">
+            <summary>
+            Gets the owner type of this <see cref="T:BEditor.Data.IEditingProperty"/>.
+            </summary>
+        </member>
+        <member name="P:BEditor.Data.IEditingProperty.ValueType">
+            <summary>
+            Gets the value type of this <see cref="T:BEditor.Data.IEditingProperty"/>.
+            </summary>
+        </member>
+        <member name="P:BEditor.Data.IEditingProperty.Initializer">
+            <summary>
+            Gets the <see cref="T:BEditor.Data.IEditingPropertyInitializer"/> that initializes the local value of this <see cref="T:BEditor.Data.IEditingProperty"/>.
+            </summary>
+        </member>
+        <member name="P:BEditor.Data.IEditingProperty.Serializer">
+            <summary>
+            Gets the <see cref="T:BEditor.Data.IEditingPropertySerializer"/> that serializes the local value of this <see cref="T:BEditor.Data.IEditingProperty"/>.
+            </summary>
+        </member>
+        <member name="P:BEditor.Data.IEditingProperty.Key">
+            <summary>
+            Gets the registry key.
+            </summary>
+        </member>
         <member name="T:BEditor.Data.IEditingPropertyInitializer">
             <summary>
             Represents the ability to create an instance of a local value of <see cref="T:BEditor.Data.EditingProperty"/>.
@@ -1257,6 +1257,51 @@
             Create a local value instance of <see cref="T:BEditor.Data.EditingProperty`1"/>.
             </summary>
             <returns>Returns the created local value.</returns>
+        </member>
+        <member name="T:BEditor.Data.IEditingPropertySerializer">
+            <summary>
+            Represents the serializer of <see cref="T:BEditor.Data.IEditingProperty"/>.
+            </summary>
+        </member>
+        <member name="M:BEditor.Data.IEditingPropertySerializer.Write(System.Text.Json.Utf8JsonWriter,System.Object)">
+            <summary>
+            Writes the value to <see cref="T:System.Text.Json.Utf8JsonWriter"/>.
+            </summary>
+            <param name="writer">The <see cref="T:System.Text.Json.Utf8JsonWriter"/> that writes the value.</param>
+            <param name="value">The value to be written.</param>
+        </member>
+        <member name="M:BEditor.Data.IEditingPropertySerializer.Read(System.Text.Json.JsonElement)">
+            <summary>
+            Reads the value from <see cref="T:System.Text.Json.JsonElement"/>.
+            </summary>
+            <param name="element">The <see cref="T:System.Text.Json.JsonElement"/> that reads the value.</param>
+        </member>
+        <member name="T:BEditor.Data.IEditingPropertySerializer`1">
+            <summary>
+            Represents the serializer of <see cref="T:BEditor.Data.IEditingProperty"/>.
+            </summary>
+        </member>
+        <member name="M:BEditor.Data.IEditingPropertySerializer`1.Write(System.Text.Json.Utf8JsonWriter,`0)">
+            <inheritdoc cref="M:BEditor.Data.IEditingPropertySerializer.Write(System.Text.Json.Utf8JsonWriter,System.Object)"/>
+        </member>
+        <member name="M:BEditor.Data.IEditingPropertySerializer`1.Read(System.Text.Json.JsonElement)">
+            <inheritdoc cref="M:BEditor.Data.IEditingPropertySerializer.Read(System.Text.Json.JsonElement)"/>
+        </member>
+        <member name="T:BEditor.Data.IEditingProperty`1">
+            <summary>
+            Represents the properties of the edited data.
+            </summary>
+            <typeparam name="TValue">The type of the property.</typeparam>
+        </member>
+        <member name="P:BEditor.Data.IEditingProperty`1.Initializer">
+            <summary>
+            Gets the <see cref="T:BEditor.Data.IEditingPropertyInitializer`1"/> that initializes the local value of this <see cref="T:BEditor.Data.IEditingProperty`1"/>.
+            </summary>
+        </member>
+        <member name="P:BEditor.Data.IEditingProperty`1.Serializer">
+            <summary>
+            Gets the <see cref="T:BEditor.Data.IEditingPropertySerializer`1"/> that serializes the local value of this <see cref="T:BEditor.Data.IEditingProperty`1"/>.
+            </summary>
         </member>
         <member name="T:BEditor.Data.EffectApplyArgs">
             <summary>
@@ -1548,43 +1593,6 @@
             Gets the child element.
             </summary>
         </member>
-        <member name="T:BEditor.Data.Internals.ScenePlayer">
-            <summary>
-            Represents a <see cref="P:BEditor.Data.Internals.ScenePlayer.Scene"/> player.
-            </summary>
-        </member>
-        <member name="M:BEditor.Data.Internals.ScenePlayer.#ctor(BEditor.Data.Scene)">
-            <summary>
-            Initializes a new instance of the <see cref="T:BEditor.Data.Internals.ScenePlayer"/> class.
-            </summary>
-            <param name="scene">This is the scene to play.</param>
-        </member>
-        <member name="E:BEditor.Data.Internals.ScenePlayer.Playing">
-            <inheritdoc/>
-        </member>
-        <member name="E:BEditor.Data.Internals.ScenePlayer.Stopped">
-            <inheritdoc/>
-        </member>
-        <member name="P:BEditor.Data.Internals.ScenePlayer.Scene">
-            <summary>
-            Gets the scene to play.
-            </summary>
-        </member>
-        <member name="P:BEditor.Data.Internals.ScenePlayer.State">
-            <inheritdoc/>
-        </member>
-        <member name="P:BEditor.Data.Internals.ScenePlayer.CurrentFrame">
-            <inheritdoc/>
-        </member>
-        <member name="M:BEditor.Data.Internals.ScenePlayer.Play">
-            <inheritdoc/>
-        </member>
-        <member name="M:BEditor.Data.Internals.ScenePlayer.Stop">
-            <inheritdoc/>
-        </member>
-        <member name="M:BEditor.Data.Internals.ScenePlayer.Dispose">
-            <inheritdoc/>
-        </member>
         <member name="T:BEditor.Data.PlayerState">
             <summary>
             Represents the status of <see cref="T:BEditor.Data.IPlayer"/>.
@@ -1650,6 +1658,43 @@
             <summary>
             Get the frame at the start of playback.
             </summary>
+        </member>
+        <member name="T:BEditor.Data.Internals.ScenePlayer">
+            <summary>
+            Represents a <see cref="P:BEditor.Data.Internals.ScenePlayer.Scene"/> player.
+            </summary>
+        </member>
+        <member name="M:BEditor.Data.Internals.ScenePlayer.#ctor(BEditor.Data.Scene)">
+            <summary>
+            Initializes a new instance of the <see cref="T:BEditor.Data.Internals.ScenePlayer"/> class.
+            </summary>
+            <param name="scene">This is the scene to play.</param>
+        </member>
+        <member name="E:BEditor.Data.Internals.ScenePlayer.Playing">
+            <inheritdoc/>
+        </member>
+        <member name="E:BEditor.Data.Internals.ScenePlayer.Stopped">
+            <inheritdoc/>
+        </member>
+        <member name="P:BEditor.Data.Internals.ScenePlayer.Scene">
+            <summary>
+            Gets the scene to play.
+            </summary>
+        </member>
+        <member name="P:BEditor.Data.Internals.ScenePlayer.State">
+            <inheritdoc/>
+        </member>
+        <member name="P:BEditor.Data.Internals.ScenePlayer.CurrentFrame">
+            <inheritdoc/>
+        </member>
+        <member name="M:BEditor.Data.Internals.ScenePlayer.Play">
+            <inheritdoc/>
+        </member>
+        <member name="M:BEditor.Data.Internals.ScenePlayer.Stop">
+            <inheritdoc/>
+        </member>
+        <member name="M:BEditor.Data.Internals.ScenePlayer.Dispose">
+            <inheritdoc/>
         </member>
         <member name="T:BEditor.Data.ObjectElement">
             <summary>

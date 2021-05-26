@@ -3,13 +3,9 @@
     <Import Project="..\..\props\plugin.props" />
 
     <PropertyGroup>
-        <TargetFramework>net5.0</TargetFramework>
-        <Nullable>enable</Nullable>
-        <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
         <OutputPath>..\..\src\BEditor.Avalonia\bin\$(Configuration)\net5.0\user\plugins\BEditor.Extensions.Svg</OutputPath>
         <Company>b-editor</Company>
         <Copyright>MIT License</Copyright>
-        <Version>0.1.2</Version>
         <CopyLocalLockFileAssemblies>true</CopyLocalLockFileAssemblies>
     </PropertyGroup>
 

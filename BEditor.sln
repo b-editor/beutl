@@ -19,6 +19,7 @@ Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "Solution Items", "Solution 
 		.gitmodules = .gitmodules
 		ARCHITECTURE.md = ARCHITECTURE.md
 		build.cake = build.cake
+		Directory.Build.props = Directory.Build.props
 		icon.png = icon.png
 		LICENSE = LICENSE
 		README.md = README.md
@@ -45,7 +46,6 @@ EndProject
 Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "props", "props", "{E5E8C675-AA90-4204-BCF4-D99A9E1F3783}"
 	ProjectSection(SolutionItems) = preProject
 		props\analyzer.props = props\analyzer.props
-		props\common.props = props\common.props
 		props\plugin.props = props\plugin.props
 	EndProjectSection
 EndProject

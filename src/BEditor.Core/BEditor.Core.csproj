@@ -1,13 +1,11 @@
 ﻿<Project Sdk="Microsoft.NET.Sdk">
 
   <PropertyGroup>
-    <TargetFramework>net5.0</TargetFramework>
     <AssemblyName>BEditor.Core</AssemblyName>
     <DocumentationFile>BEditor.Core.xml</DocumentationFile>
     <RootNamespace>BEditor</RootNamespace>
   </PropertyGroup>
 
-  <Import Project="..\..\props\common.props" />
   <Import Project="..\..\props\analyzer.props" />
 
   <ItemGroup>

@@ -1,7 +1,6 @@
-<Project Sdk="Microsoft.NET.Sdk">
+﻿<Project Sdk="Microsoft.NET.Sdk">
 
     <PropertyGroup>
-        <TargetFramework>net5.0</TargetFramework>
         <DocumentationFile>BEditor.Media.xml</DocumentationFile>
     </PropertyGroup>
 
@@ -9,7 +8,6 @@
         <ProjectReference Include="..\BEditor.Drawing\BEditor.Drawing.csproj" />
     </ItemGroup>
 
-    <Import Project="..\..\props\common.props" />
     <Import Project="..\..\props\analyzer.props" />
     <Import Project="..\Shared\Shared.projitems" Label="Shared" />
 

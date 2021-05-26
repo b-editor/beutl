@@ -1,13 +1,11 @@
 <Project Sdk="Microsoft.NET.Sdk">
 
     <PropertyGroup>
-        <TargetFramework>net5.0</TargetFramework>
         <AssemblyName>BEditor.Primitive</AssemblyName>
         <DocumentationFile>BEditor.Primitive.xml</DocumentationFile>
         <RootNamespace>BEditor.Primitive</RootNamespace>
     </PropertyGroup>
 
-    <Import Project="..\..\props\common.props" />
     <Import Project="..\Shared\Shared.projitems" Label="Shared" />
 
     <ItemGroup>
