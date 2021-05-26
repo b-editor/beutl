@@ -16,7 +16,8 @@ namespace BEditor.Extensions.AviUtl
             "Script",
             owner => (owner.ScriptName, owner.GroupName),
             (owner, obj) => (owner.ScriptName, owner.GroupName) = obj,
-            serializer: new EditingPropertySerializer<(string script, string? group)>(
+            EditingPropertyOptions<(string script, string? group)>.Create()
+            .Serialize(
                 (writer, obj) =>
                 {
                     writer.WriteString(nameof(ScriptName), obj.script);
