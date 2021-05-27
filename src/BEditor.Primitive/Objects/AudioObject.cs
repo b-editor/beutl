@@ -23,15 +23,6 @@ namespace BEditor.Primitive.Objects
     public sealed class AudioObject : ObjectElement
     {
         /// <summary>
-        /// Defines the <see cref="Coordinate"/> property.
-        /// </summary>
-        public static readonly DirectEditingProperty<AudioObject, AudioCoordinate> CoordinateProperty = EditingProperty.RegisterDirect<AudioCoordinate, AudioObject>(
-            nameof(Coordinate),
-            owner => owner.Coordinate,
-            (owner, obj) => owner.Coordinate = obj,
-            EditingPropertyOptions<AudioCoordinate>.Create(new AudioCoordinateMetadata(Strings.Coordinate)).Serialize());
-
-        /// <summary>
         /// Defines the <see cref="Volume"/> property.
         /// </summary>
         public static readonly DirectEditingProperty<AudioObject, EaseProperty> VolumeProperty = EditingProperty.RegisterDirect<EaseProperty, AudioObject>(
@@ -91,12 +82,6 @@ namespace BEditor.Primitive.Objects
 
         /// <inheritdoc/>
         public override string Name => Strings.Audio;
-
-        /// <summary>
-        /// Get the coordinates.
-        /// </summary>
-        [AllowNull]
-        public AudioCoordinate Coordinate { get; private set; }
 
         /// <summary>
         /// Get the <see cref="EaseProperty"/> representing the volume.
@@ -163,8 +148,6 @@ namespace BEditor.Primitive.Objects
             if (Decoder is null) return;
 
             _source!.Gain = Volume[args.Frame] / 100f;
-            _source.Position = new(Coordinate.X[args.Frame], Coordinate.Y[args.Frame], Coordinate.Z[args.Frame]);
-            _source.Direction = new(Coordinate.DirectionX[args.Frame], Coordinate.DirectionY[args.Frame], Coordinate.DirectionZ[args.Frame]);
             _source.Pitch = Pitch[args.Frame] / 100f;
 
             if (args.Frame == Parent.Start)
@@ -184,7 +167,6 @@ namespace BEditor.Primitive.Objects
         /// <inheritdoc/>
         public override IEnumerable<PropertyElement> GetProperties()
         {
-            yield return Coordinate;
             yield return Volume;
             yield return Pitch;
             yield return Start;
@@ -273,131 +255,6 @@ namespace BEditor.Primitive.Objects
             if (_source.State is AudioSourceState.Playing)
             {
                 _source.Stop();
-            }
-        }
-
-        /// <summary>
-        /// Represents a property for setting XYZ coordinates.
-        /// </summary>
-        public sealed class AudioCoordinate : ExpandGroup
-        {
-            /// <summary>
-            /// Defines the <see cref="X"/> property.
-            /// </summary>
-            public static readonly DirectEditingProperty<AudioCoordinate, EaseProperty> XProperty = EditingProperty.RegisterDirect<EaseProperty, AudioCoordinate>(
-                nameof(X),
-                owner => owner.X,
-                (owner, obj) => owner.X = obj,
-                EditingPropertyOptions<EaseProperty>.Create(new EasePropertyMetadata(Strings.X, 0)).Serialize());
-
-            /// <summary>
-            /// Defines the <see cref="Y"/> property.
-            /// </summary>
-            public static readonly DirectEditingProperty<AudioCoordinate, EaseProperty> YProperty = EditingProperty.RegisterDirect<EaseProperty, AudioCoordinate>(
-                nameof(Y),
-                owner => owner.Y,
-                (owner, obj) => owner.Y = obj,
-                EditingPropertyOptions<EaseProperty>.Create(new EasePropertyMetadata(Strings.Y, 0)).Serialize());
-
-            /// <summary>
-            /// Defines the <see cref="Z"/> property.
-            /// </summary>
-            public static readonly DirectEditingProperty<AudioCoordinate, EaseProperty> ZProperty = EditingProperty.RegisterDirect<EaseProperty, AudioCoordinate>(
-                nameof(Z),
-                owner => owner.Z,
-                (owner, obj) => owner.Z = obj,
-                EditingPropertyOptions<EaseProperty>.Create(new EasePropertyMetadata(Strings.Z, 0)).Serialize());
-
-            /// <summary>
-            /// Defines the <see cref="DirectionX"/> property.
-            /// </summary>
-            public static readonly DirectEditingProperty<AudioCoordinate, EaseProperty> CenterXProperty = EditingProperty.RegisterDirect<EaseProperty, AudioCoordinate>(
-                nameof(DirectionX),
-                owner => owner.DirectionX,
-                (owner, obj) => owner.DirectionX = obj,
-                EditingPropertyOptions<EaseProperty>.Create(new EasePropertyMetadata("Direction x", 0, float.NaN, float.NaN, true)).Serialize());
-
-            /// <summary>
-            /// Defines the <see cref="DirectionY"/> property.
-            /// </summary>
-            public static readonly DirectEditingProperty<AudioCoordinate, EaseProperty> CenterYProperty = EditingProperty.RegisterDirect<EaseProperty, AudioCoordinate>(
-                nameof(DirectionY),
-                owner => owner.DirectionY,
-                (owner, obj) => owner.DirectionY = obj,
-                EditingPropertyOptions<EaseProperty>.Create(new EasePropertyMetadata("Direction y", 0, float.NaN, float.NaN, true)).Serialize());
-
-            /// <summary>
-            /// Defines the <see cref="DirectionZ"/> property.
-            /// </summary>
-            public static readonly DirectEditingProperty<AudioCoordinate, EaseProperty> CenterZProperty = EditingProperty.RegisterDirect<EaseProperty, AudioCoordinate>(
-                nameof(DirectionZ),
-                owner => owner.DirectionZ,
-                (owner, obj) => owner.DirectionZ = obj,
-                EditingPropertyOptions<EaseProperty>.Create(new EasePropertyMetadata("Direction z", 0, float.NaN, float.NaN, true)).Serialize());
-
-            /// <summary>
-            /// Initializes a new instance of the <see cref="AudioCoordinate"/> class.
-            /// </summary>
-            /// <param name="metadata">Metadata of this property.</param>
-            /// <exception cref="ArgumentNullException"><paramref name="metadata"/> is <see langword="null"/>.</exception>
-#pragma warning disable CS8618
-            public AudioCoordinate(AudioCoordinateMetadata metadata) : base(metadata)
-#pragma warning restore CS8618
-            {
-            }
-
-            /// <summary>
-            /// Get the <see cref="EaseProperty"/> representing the X coordinate.
-            /// </summary>
-            public EaseProperty X { get; private set; }
-
-            /// <summary>
-            /// Get the <see cref="EaseProperty"/> representing the Y coordinate.
-            /// </summary>
-            public EaseProperty Y { get; private set; }
-
-            /// <summary>
-            /// Get the <see cref="EaseProperty"/> representing the Z coordinate.
-            /// </summary>
-            public EaseProperty Z { get; private set; }
-
-            /// <summary>
-            /// Get the <see cref="EaseProperty"/> representing the X coordinate.
-            /// </summary>
-            public EaseProperty DirectionX { get; private set; }
-
-            /// <summary>
-            /// Get the <see cref="EaseProperty"/> representing the Y coordinate.
-            /// </summary>
-            public EaseProperty DirectionY { get; private set; }
-
-            /// <summary>
-            /// Get the <see cref="EaseProperty"/> representing the Z coordinate.
-            /// </summary>
-            public EaseProperty DirectionZ { get; private set; }
-
-            /// <inheritdoc/>
-            public override IEnumerable<PropertyElement> GetProperties()
-            {
-                yield return X;
-                yield return Y;
-                yield return Z;
-                yield return DirectionX;
-                yield return DirectionY;
-                yield return DirectionZ;
-            }
-        }
-
-        /// <summary>
-        /// The metadata of <see cref="AudioCoordinate"/>.
-        /// </summary>
-        /// <param name="Name">The string displayed in the property header.</param>
-        public record AudioCoordinateMetadata(string Name) : PropertyElementMetadata(Name), IEditingPropertyInitializer<AudioCoordinate>
-        {
-            /// <inheritdoc/>
-            public AudioCoordinate Create()
-            {
-                return new(this);
             }
         }
     }

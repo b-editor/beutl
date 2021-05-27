@@ -108,10 +108,6 @@ namespace BEditor.Primitive
         /// Metadata of <see cref="Framebuffer"/> class.
         /// </summary>
         public static readonly ObjectMetadata FramebufferMetadata = ObjectMetadata.Create<Framebuffer>(Strings.Framebuffer);
-        /// <summary>
-        /// Metadata of <see cref="ListenerObject"/> class.
-        /// </summary>
-        public static readonly ObjectMetadata ListenerMetadata = ObjectMetadata.Create<ListenerObject>(Strings.Listener);
 
         static PrimitiveTypes()
         {
@@ -149,8 +145,9 @@ namespace BEditor.Primitive
             yield return SceneMetadata;
             yield return PolygonMetadata;
             yield return FramebufferMetadata;
-            yield return ListenerMetadata;
+#if DEBUG
             yield return ObjectMetadata.Create<PropertyTest>("PropertyTest");
+#endif
         }
 
         /// <summary>

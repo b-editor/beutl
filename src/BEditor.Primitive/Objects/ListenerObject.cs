@@ -1,4 +1,5 @@
-﻿using System.Collections.Generic;
+﻿using System;
+using System.Collections.Generic;
 using System.Diagnostics.CodeAnalysis;
 
 using BEditor.Data;
@@ -10,6 +11,7 @@ namespace BEditor.Primitive.Objects
     /// <summary>
     /// Represents an <see cref="ObjectElement"/> that sets the listener for OpenAL.
     /// </summary>
+    [Obsolete("Please do not use this class.")]
     public sealed class ListenerObject : ObjectElement
     {
         /// <summary>
