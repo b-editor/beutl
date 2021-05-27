@@ -81,11 +81,11 @@ namespace BEditor.Plugin
         /// <summary>
         /// Configure the options for the services to be provided.
         /// </summary>
-        /// <param name="decoderBuilder"></param>
+        /// <param name="decoding"></param>
         /// <returns>The same instance of the <see cref="PluginBuilder"/> for chaining.</returns>
-        public PluginBuilder With(IDecoderBuilder decoderBuilder)
+        public PluginBuilder With(IRegisterdDecoding decoding)
         {
-            DecoderFactory.Register(decoderBuilder);
+            DecodingRegistory.Register(decoding);
 
             return this;
         }
@@ -93,11 +93,11 @@ namespace BEditor.Plugin
         /// <summary>
         /// Configure the options for the services to be provided.
         /// </summary>
-        /// <param name="encoderBuilder"></param>
+        /// <param name="encoding"></param>
         /// <returns>The same instance of the <see cref="PluginBuilder"/> for chaining.</returns>
-        public PluginBuilder With(IEncoderBuilder encoderBuilder)
+        public PluginBuilder With(IRegisterdEncoding encoding)
         {
-            EncoderFactory.Register(encoderBuilder);
+            EncodingRegistory.Register(encoding);
 
             return this;
         }

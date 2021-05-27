@@ -63,7 +63,7 @@ namespace BEditor.Plugin
         /// Load the assembly from the name of the plugin.
         /// </summary>
         /// <param name="pluginName">The name of the plugin to load.</param>
-        /// <exception cref="PluginException">Plugin failded to load.</exception>
+        /// <exception cref="AggregateException">Plugin failded to load.</exception>
         public void Load(IEnumerable<string> pluginName)
         {
             var plugins = pluginName
@@ -71,6 +71,7 @@ namespace BEditor.Plugin
                 .Select(f => Path.Combine(BaseDirectory, f, $"{f}.dll"))
                 .Where(static f => File.Exists(f))
                 .Select(static f => Assembly.LoadFrom(f));
+            var exceptions = new List<Exception>();
 
             foreach (var asm in plugins)
             {
@@ -81,8 +82,17 @@ namespace BEditor.Plugin
                 }
                 catch (Exception e)
                 {
-                    throw new PluginException(string.Format(Strings.FailedToLoad, asm.GetName().Name), e);
+                    var name = asm.GetName().Name ?? string.Empty;
+                    exceptions.Add(new PluginException(string.Format(Strings.FailedToLoad, name), e)
+                    {
+                        PluginName = name
+                    });
                 }
+            }
+
+            if (exceptions.Count is not 0)
+            {
+                throw new AggregateException(exceptions);
             }
         }
     }

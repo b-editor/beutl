@@ -53,8 +53,8 @@ namespace BEditor.Models
 
             // DIの設定
             Services = new ServiceCollection()
-                .AddSingleton<IFileDialogService>(_ => new FileDialogService())
-                .AddSingleton<IMessage>(_ => new MessageService())
+                .AddSingleton(_ => FileDialog)
+                .AddSingleton(_ => Message)
                 .AddSingleton(_ => LoggingFactory)
                 .AddSingleton<HttpClient>();
 
@@ -86,18 +86,12 @@ namespace BEditor.Models
         public IServiceProvider ServiceProvider
         {
             get => _serviceProvider ??= Services.BuildServiceProvider();
-            set
-            {
-                _serviceProvider = value;
-
-                Message = ServiceProvider.GetService<IMessage>()!;
-                FileDialog = ServiceProvider.GetService<IFileDialogService>()!;
-            }
+            set => _serviceProvider = value;
         }
 
-        public IMessage Message { get; set; }
+        public IMessage Message { get; } = new MessageService();
 
-        public IFileDialogService FileDialog { get; set; }
+        public IFileDialogService FileDialog { get; } = new FileDialogService();
 
         public ILoggerFactory LoggingFactory { get; }
 

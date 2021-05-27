@@ -1,10 +1,12 @@
 using System;
+using System.Collections.Generic;
 using System.Diagnostics;
 using System.Globalization;
 using System.IO;
 using System.Linq;
 using System.Net;
 using System.Net.Http;
+using System.Text;
 using System.Threading;
 using System.Threading.Tasks;
 
@@ -35,7 +37,7 @@ namespace BEditor
 {
     public class App : Application
     {
-        public static readonly ILogger? Logger = AppModel.Current.LoggingFactory.CreateLogger<App>();
+        public static readonly ILogger Logger = AppModel.Current.LoggingFactory.CreateLogger<App>();
         public static readonly DispatcherTimer BackupTimer = new()
         {
             Interval = TimeSpan.FromMinutes(Settings.Default.BackUpInterval)
@@ -217,7 +219,30 @@ namespace BEditor
             PluginBuilder.Config = new PluginConfig(AppModel.Current);
             // ‚·‚×‚Ä
             var all = PluginManager.Default.GetNames();
-            PluginManager.Default.Load(all);
+            var app = AppModel.Current;
+
+            try
+            {
+                PluginManager.Default.Load(all);
+            }
+            catch (AggregateException e)
+            {
+                var msg = string.Format(Strings.FailedToLoad, Strings.Plugins);
+                Logger.LogError(e, msg);
+                var sb = new StringBuilder(msg);
+
+                foreach (var item in e.InnerExceptions)
+                {
+                    if (item is PluginException ex)
+                    {
+                        sb.Append('\n');
+                        sb.Append("* ");
+                        sb.Append(ex.PluginName);
+                    }
+                }
+
+                await app.Message.DialogAsync(sb.ToString());
+            }
 
             if (PluginManager.Default._tasks.Count is not 0)
             {
@@ -238,7 +263,7 @@ namespace BEditor
 
                 dialog.Close();
             }
-            AppModel.Current.ServiceProvider = AppModel.Current.Services.BuildServiceProvider();
+            app.ServiceProvider = app.Services.BuildServiceProvider();
         }
     }
 }

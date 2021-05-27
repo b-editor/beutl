@@ -47,5 +47,10 @@ namespace BEditor.Plugin
             : base(info, context)
         {
         }
+
+        /// <summary>
+        /// Gets the plugin name.
+        /// </summary>
+        public string PluginName { get; set; } = string.Empty;
     }
 }
