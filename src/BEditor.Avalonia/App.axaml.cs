@@ -25,6 +25,7 @@ using BEditor.Plugin;
 using BEditor.Primitive;
 using BEditor.Properties;
 using BEditor.ViewModels.DialogContent;
+using BEditor.Views;
 using BEditor.Views.DialogContent;
 
 using Microsoft.Extensions.DependencyInjection;
@@ -58,6 +59,14 @@ namespace BEditor
             throw new Exception();
         }
 
+        public static void SetMainWindow(Window window)
+        {
+            if (Current.ApplicationLifetime is IClassicDesktopStyleApplicationLifetime desktop)
+            {
+                desktop.MainWindow = window;
+            }
+        }
+
         public override void RegisterServices()
         {
             if (OperatingSystem.IsLinux())
@@ -85,7 +94,7 @@ namespace BEditor
             {
                 RegisterPrimitive();
 
-                desktop.MainWindow = new MainWindow();
+                desktop.MainWindow = Settings.Default.ShowStartWindow ? new StartWindow() : new MainWindow();
                 AppModel.Current.UIThread = SynchronizationContext.Current;
 
                 CreateDirectory();

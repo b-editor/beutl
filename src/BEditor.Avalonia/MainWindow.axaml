@@ -311,6 +311,7 @@
 
         <GridSplitter Background="Transparent" Grid.Row="3" Grid.Column="2" Grid.ColumnSpan="3"/>
 
+        <!--—áŠO‚ªƒXƒ[‚³‚ê‚é-->
         <views:Previewer
             x:Name="previewer"
             DataContext="{CompiledBinding Previewer, Mode=OneTime}"

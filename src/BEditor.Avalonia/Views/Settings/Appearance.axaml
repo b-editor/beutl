@@ -23,6 +23,13 @@
 
         <Separator Height="16" />
 
+        <CheckBox
+            Content="{x:Static resources:Strings.ShowStartWindow}"
+            IsChecked="{CompiledBinding ShowStartWindow, Source={x:Static root:Settings.Default}, Mode=TwoWay}"
+            Classes="SettingsCheckBox"/>
+
+        <Separator Height="16" />
+
         <TextBlock Text="{x:Static resources:Strings.Timeline}" Classes="SettingsHeader"/>
 
         <Label Content="{x:Static resources:Strings.ClipHeight}" Classes="SettingsItemHeader"/>

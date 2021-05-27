@@ -660,4 +660,13 @@ IdにはGUID, UUIDが使えます。</value>
   <data name="Objects" xml:space="preserve">
     <value>オブジェクト</value>
   </data>
+  <data name="Projects" xml:space="preserve">
+    <value>プロジェクト</value>
+  </data>
+  <data name="GoToMainWindow" xml:space="preserve">
+    <value>メインウィンドウへ移動</value>
+  </data>
+  <data name="AddToList" xml:space="preserve">
+    <value>リストに追加</value>
+  </data>
 </root>

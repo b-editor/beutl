@@ -1,0 +1,121 @@
+<UserControl
+    xmlns="https://github.com/avaloniaui"
+    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+    xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+    xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+    xmlns:props="using:BEditor.Properties"
+    xmlns:vm="using:BEditor.ViewModels.Start"
+    xmlns:model="using:BEditor.Models.Start"
+    x:DataType="vm:ProjectsViewModel"
+    mc:Ignorable="d" d:DesignWidth="800" d:DesignHeight="450"
+    Padding="8"
+    x:Name="root"
+    x:Class="BEditor.Views.Start.Projects">
+    <UserControl.DataContext>
+        <vm:ProjectsViewModel/>
+    </UserControl.DataContext>
+    <UserControl.Styles>
+        <Style Selector="StackPanel">
+            <Setter Property="Spacing" Value="0" />
+            <Setter Property="Orientation" Value="Vertical" />
+        </Style>
+
+        <Style Selector="StackPanel.center">
+            <Setter Property="VerticalAlignment" Value="Center" />
+            <Setter Property="HorizontalAlignment" Value="Center" />
+        </Style>
+        <Style Selector="TextBlock.center">
+            <Setter Property="VerticalAlignment" Value="Center" />
+            <Setter Property="HorizontalAlignment" Value="Center" />
+        </Style>
+    </UserControl.Styles>
+    <DockPanel>
+        <StackPanel
+            Spacing="8"
+            DockPanel.Dock="Top"
+            Orientation="Horizontal"
+            HorizontalAlignment="Right">
+            <Button
+                Command="{CompiledBinding AddToList, Mode=OneTime}"
+                Content="{x:Static props:Strings.AddToList}" />
+            <Button
+                Click="CreateNew"
+                Content="{x:Static props:Strings.New}"
+                Classes="accent" />
+        </StackPanel>
+
+        <ItemsControl
+            IsVisible="{CompiledBinding !IsEmpty.Value, Mode=OneWay}"
+            Items="{CompiledBinding Projects, Mode=OneTime}">
+            <ItemsControl.ItemTemplate>
+                <DataTemplate x:DataType="model:ProjectModel">
+                    <Button
+                        CommandParameter="{CompiledBinding}"
+                        Command="{Binding #root.DataContext.OpenItem, Mode=OneTime}"
+                        Background="{StaticResource ButtonBackgroundPointerOver}"
+                        Width="180"
+                        Height="200"
+                        Margin="8"
+                        Padding="0">
+                        <Button.ContextMenu>
+                            <ContextMenu>
+                                <MenuItem
+                                    CommandParameter="{CompiledBinding}"
+                                    Command="{Binding #root.DataContext.RemoveItem, Mode=OneTime}"
+                                    InputGesture="Delete"
+                                    Header="{x:Static props:Strings.Remove}">
+                                    <MenuItem.Icon>
+                                        <PathIcon Data="{StaticResource Delete20Regular}" />
+                                    </MenuItem.Icon>
+                                </MenuItem>
+                            </ContextMenu>
+                        </Button.ContextMenu>
+                        <Grid RowDefinitions="5,2*,Auto">
+                            <ProgressBar
+                                BorderThickness="0"
+                                IsIndeterminate="{CompiledBinding IsLoading.Value, Mode=OneWay}" />
+
+                            <Label Background="{StaticResource ButtonBackgroundDisabled}" Grid.Row="1" Padding="0">
+                                <Image
+                                    HorizontalAlignment="Center"
+                                    VerticalAlignment="Center"
+                                    Source="{CompiledBinding Thumbnail, Converter={StaticResource PathToImageSourceConverter}}"
+                                    Stretch="UniformToFill" />
+                            </Label>
+
+                            <StackPanel Grid.Row="2" Margin="8">
+                                <TextBlock FontSize="24" Text="{CompiledBinding Name, Mode=OneTime}" />
+                                <TextBlock
+                                    Margin="0,8"
+                                    Text="{CompiledBinding FileName, Mode=OneTime}"
+                                    ToolTip.Tip="{CompiledBinding FileName, Mode=OneTime}" />
+                            </StackPanel>
+                        </Grid>
+                    </Button>
+                </DataTemplate>
+            </ItemsControl.ItemTemplate>
+            <ItemsControl.ItemsPanel>
+                <ItemsPanelTemplate>
+                    <WrapPanel Orientation="Horizontal" />
+                </ItemsPanelTemplate>
+            </ItemsControl.ItemsPanel>
+        </ItemsControl>
+
+        <StackPanel IsVisible="{CompiledBinding IsEmpty.Value, Mode=OneWay}" Classes="center">
+            <TextBlock
+                Classes="center"
+                FontSize="40"
+                FontWeight="Bold"
+                Text="¯\_(ツ)_/¯" />
+            <TextBlock
+                Classes="center"
+                FontSize="24"
+                FontWeight="Bold"
+                Text="{x:Static props:Strings.ThereIsNoProject}" />
+            <TextBlock
+                Classes="center"
+                FontSize="14"
+                Text="{x:Static props:Strings.ToCreateProjectClickNew}" />
+        </StackPanel>
+    </DockPanel>
+</UserControl>

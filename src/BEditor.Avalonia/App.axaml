@@ -19,6 +19,7 @@
         <convert:EnumerableTakeConverter x:Key="EnumerableTakeConverter" />
         <convert:EffectToKeyframeConverter x:Key="EffectToKeyframeConverter" />
         <convert:GetNameConverter x:Key="GetNameConverter" />
+        <convert:PathToImageSourceConverter x:Key="PathToImageSourceConverter" />
     </Application.Resources>
     <Application.Styles>
         <StyleInclude Source="avares://beditor/Controls/SeekSlider.axaml" />

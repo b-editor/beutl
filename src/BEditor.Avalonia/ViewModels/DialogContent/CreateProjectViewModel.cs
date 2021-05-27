@@ -32,7 +32,7 @@ namespace BEditor.ViewModels.DialogContent
             Folder = new(BEditor.Settings.Default.LastTimeFolder);
 
             OpenFolerDialog.Subscribe(OpenFolder);
-            Create.Subscribe(CreateCore);
+            Create.Subscribe(CreateCoreAsync);
             Name = new ReactiveProperty<string>(GetNewName())
                 .SetValidateNotifyError(name =>
                 {
@@ -59,7 +59,7 @@ namespace BEditor.ViewModels.DialogContent
 
         public ReactiveCommand OpenFolerDialog { get; } = new();
 
-        public ReactiveCommand Create { get; } = new();
+        public AsyncReactiveCommand Create { get; } = new();
 
         private async void OpenFolder()
         {
@@ -77,7 +77,7 @@ namespace BEditor.ViewModels.DialogContent
             }
         }
 
-        private async void CreateCore()
+        private async Task CreateCoreAsync()
         {
             var app = AppModel.Current;
             var settings = BEditor.Settings.Default;

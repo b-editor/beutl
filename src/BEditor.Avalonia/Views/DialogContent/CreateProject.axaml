@@ -139,7 +139,6 @@
                     Foreground="Red"
                     IsCancel="True"/>
                 <Button
-                    Click="CloseClick"
                     HorizontalAlignment="Left"
                     Command="{Binding Create, Mode=OneTime}"
                     Content="{x:Static props:Strings.Create}"
