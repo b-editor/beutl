@@ -1,12 +1,8 @@
 ﻿using System;
-using System.Collections.Generic;
-using System.Diagnostics;
-using System.IO;
 using System.Linq;
 using System.Reactive.Linq;
 using System.Threading.Tasks;
 
-using Avalonia.Markup.Xaml.Templates;
 using Avalonia.Threading;
 
 using BEditor.Data;
@@ -48,7 +44,7 @@ namespace BEditor.ViewModels
                         new(Strings.VideoFile, EncodingRegistory.EnumerateEncodings()
                             .SelectMany(i => i.SupportExtensions())
                             .Distinct()
-                            .Select(i => new FileExtension(i.Replace('.', default)))
+                            .Select(i => new FileExtension(i.Trim('.')))
                             .ToArray())
                     }
                 };
@@ -151,6 +147,13 @@ namespace BEditor.ViewModels
                         }
 
                         output.Dispose();
+
+                        await Dispatcher.UIThread.InvokeAsync(dialog.Close);
+                    }
+                    catch (NotSupportedException notsupport)
+                    {
+                        await AppModel.Current.Message.DialogAsync(Strings.NotSupportedFormats);
+                        App.Logger.LogError(notsupport, Strings.NotSupportedFormats);
 
                         await Dispatcher.UIThread.InvokeAsync(dialog.Close);
                     }

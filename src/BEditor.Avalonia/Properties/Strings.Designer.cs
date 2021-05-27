@@ -956,6 +956,15 @@ namespace BEditor.Properties {
         }
         
         /// <summary>
+        ///   Looks up a localized string similar to Not supported formats..
+        /// </summary>
+        public static string NotSupportedFormats {
+            get {
+                return ResourceManager.GetString("NotSupportedFormats", resourceCulture);
+            }
+        }
+        
+        /// <summary>
         ///   Looks up a localized string similar to Objects.
         /// </summary>
         public static string Objects {

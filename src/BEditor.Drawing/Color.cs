@@ -79,7 +79,7 @@ namespace BEditor.Drawing
         {
             if (string.IsNullOrWhiteSpace(htmlcolor) || htmlcolor is "#") return Dark;
 
-            htmlcolor = "0x" + htmlcolor.Replace("#", string.Empty);
+            htmlcolor = "0x" + htmlcolor.Trim('#');
 
             var argb = Convert.ToUInt32(htmlcolor, 16);
 
@@ -104,7 +104,7 @@ namespace BEditor.Drawing
             format = format.ToUpperInvariant();
 
             var colorformat = format
-                .Replace("#", string.Empty)
+                .Trim('#')
                 .Replace("0X", string.Empty)
                 .Replace("-L", string.Empty)
                 .Replace("-U", string.Empty);

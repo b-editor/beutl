@@ -669,4 +669,7 @@ IdにはGUID, UUIDが使えます。</value>
   <data name="AddToList" xml:space="preserve">
     <value>リストに追加</value>
   </data>
+  <data name="NotSupportedFormats" xml:space="preserve">
+    <value>対応していないフォーマットです。</value>
+  </data>
 </root>

@@ -19,6 +19,7 @@ namespace BEditor.Media.Encoding
         /// Sets up a multimedia container with the format guessed from the file extension.
         /// </summary>
         /// <param name="path">A path to create the output file.</param>
+        /// <exception cref="NotSupportedException">Not supported format.</exception>
         /// <returns>The <see cref="MediaBuilder"/> instance.</returns>
         public static MediaBuilder CreateContainer(string path)
         {
