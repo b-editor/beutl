@@ -1,21 +1,20 @@
-﻿using BEditor.Media.Decoding;
+﻿using System.Collections.Generic;
+using System.IO;
+using System.Linq;
+
+using BEditor.Media.Decoding;
 
 namespace BEditor.Media
 {
     /// <summary>
     /// Provides the ability to create a decoder.
     /// </summary>
-    public interface IDecoderBuilder
+    public interface IRegisterdDecoding
     {
         /// <summary>
         /// Gets the decoder name.
         /// </summary>
         public string Name { get; }
-
-        /// <summary>
-        /// Gets the supported formats.
-        /// </summary>
-        public string[] SupportFormats { get; }
 
         /// <summary>
         /// Open the media file.
@@ -28,6 +27,14 @@ namespace BEditor.Media
         /// Gets the value if the specified media file is supported.
         /// </summary>
         /// <param name="file">File name of the media file.</param>
-        public bool IsSupported(string file);
+        public bool IsSupported(string file)
+        {
+            return SupportExtensions().Contains(Path.GetExtension(file));
+        }
+
+        /// <summary>
+        /// Gets the supported extensions.
+        /// </summary>
+        public IEnumerable<string> SupportExtensions();
     }
 }

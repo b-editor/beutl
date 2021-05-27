@@ -45,16 +45,11 @@ namespace BEditor.ViewModels
                 {
                     Filters =
                     {
-                        new(Strings.VideoFile, new FileExtension[]
-                        {
-                            new("mp4"),
-                            new("avi"),
-                        }),
-                        new(Strings.AudioFile, new FileExtension[]
-                        {
-                            new("mp3"),
-                            new("wav"),
-                        }),
+                        new(Strings.VideoFile, EncodingRegistory.EnumerateEncodings()
+                            .SelectMany(i => i.SupportExtensions())
+                            .Distinct()
+                            .Select(i => new FileExtension(i.Replace('.', default)))
+                            .ToArray())
                     }
                 };
 

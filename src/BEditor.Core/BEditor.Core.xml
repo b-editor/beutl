@@ -4668,18 +4668,18 @@
             <param name="metadata">Metadata of the easings to be provided.</param>
             <returns>The same instance of the <see cref="T:BEditor.Plugin.PluginBuilder"/> for chaining.</returns>
         </member>
-        <member name="M:BEditor.Plugin.PluginBuilder.With(BEditor.Media.IDecoderBuilder)">
+        <member name="M:BEditor.Plugin.PluginBuilder.With(BEditor.Media.IRegisterdDecoding)">
             <summary>
             Configure the options for the services to be provided.
             </summary>
-            <param name="decoderBuilder"></param>
+            <param name="decoding"></param>
             <returns>The same instance of the <see cref="T:BEditor.Plugin.PluginBuilder"/> for chaining.</returns>
         </member>
-        <member name="M:BEditor.Plugin.PluginBuilder.With(BEditor.Media.IEncoderBuilder)">
+        <member name="M:BEditor.Plugin.PluginBuilder.With(BEditor.Media.IRegisterdEncoding)">
             <summary>
             Configure the options for the services to be provided.
             </summary>
-            <param name="encoderBuilder"></param>
+            <param name="encoding"></param>
             <returns>The same instance of the <see cref="T:BEditor.Plugin.PluginBuilder"/> for chaining.</returns>
         </member>
         <member name="M:BEditor.Plugin.PluginBuilder.Task(System.Func{System.IProgress{System.Int32},System.Threading.Tasks.ValueTask})">
@@ -4761,6 +4761,11 @@
             <exception cref="T:System.ArgumentNullException"><paramref name="info"/> is null.</exception>
             <exception cref="T:System.Runtime.Serialization.SerializationException">The class name is null or <see cref="P:System.Exception.HResult"/> is zero (0).</exception>
         </member>
+        <member name="P:BEditor.Plugin.PluginException.PluginName">
+            <summary>
+            Gets the plugin name.
+            </summary>
+        </member>
         <member name="T:BEditor.Plugin.PluginManager">
             <summary>
             Represents the class that manages the plugin.
@@ -4807,7 +4812,7 @@
             Load the assembly from the name of the plugin.
             </summary>
             <param name="pluginName">The name of the plugin to load.</param>
-            <exception cref="T:BEditor.Plugin.PluginException">Plugin failded to load.</exception>
+            <exception cref="T:System.AggregateException">Plugin failded to load.</exception>
         </member>
         <member name="T:BEditor.Plugin.PluginObject">
             <summary>

@@ -81,7 +81,8 @@ namespace BEditor.Media.Decoding
         {
             try
             {
-                return DecoderFactory.Open(path, options) ?? throw new NotSupportedException("Not supported format.");
+                var container = DecodingRegistory.Open(path, options);
+                return container is not null ? new MediaFile(container) : throw new NotSupportedException("Not supported format.");
             }
             catch (DirectoryNotFoundException)
             {

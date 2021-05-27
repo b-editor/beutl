@@ -61,8 +61,8 @@ namespace BEditor.Extensions.FFmpeg
                 }
             }
 
-            builder.With(new EncoderBuilder())
-                .With(new DecoderBuilder())
+            builder.With(new RegisterdEncoding())
+                .With(new RegisterdDecoding())
                 .Register();
         }
 

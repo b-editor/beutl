@@ -22,7 +22,7 @@ namespace BEditor.Media.Encoding
         /// <returns>The <see cref="MediaBuilder"/> instance.</returns>
         public static MediaBuilder CreateContainer(string path)
         {
-            var container = EncoderFactory.Create(path) ?? throw new NotSupportedException("Not supported format.");
+            var container = EncodingRegistory.Create(path) ?? throw new NotSupportedException("Not supported format.");
 
             return new(container);
         }

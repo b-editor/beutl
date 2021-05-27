@@ -64,6 +64,35 @@
             Gets or sets the multimedia track number string.
             </summary>
         </member>
+        <member name="T:BEditor.Media.DecodingRegistory">
+            <summary>
+            Register and record supported decoding.
+            </summary>
+        </member>
+        <member name="M:BEditor.Media.DecodingRegistory.EnumerateDecodings">
+            <summary>
+            Enumerate the registered decodings.
+            </summary>
+        </member>
+        <member name="M:BEditor.Media.DecodingRegistory.Open(System.String,BEditor.Media.Decoding.MediaOptions)">
+            <summary>
+            Open the media file by specifying the file name and options.
+            </summary>
+            <param name="file">The media file to be opened.</param>
+            <param name="options">The option used to open the media file.</param>
+        </member>
+        <member name="M:BEditor.Media.DecodingRegistory.GuessDecodings(System.String)">
+            <summary>
+            Guess decoding from file name.
+            </summary>
+            <param name="file">The file name to guess.</param>
+        </member>
+        <member name="M:BEditor.Media.DecodingRegistory.Register(BEditor.Media.IRegisterdDecoding)">
+            <summary>
+            Register the decoding.
+            </summary>
+            <param name="decoding">The decoding to register.</param>
+        </member>
         <member name="T:BEditor.Media.Decoding.AudioStreamInfo">
             <summary>
             Represents informations about the audio stream.
@@ -429,6 +458,34 @@
             <summary>
             Gets the video frame dimensions.
             </summary>
+        </member>
+        <member name="T:BEditor.Media.EncodingRegistory">
+            <summary>
+            Register and record supported encoding.
+            </summary>
+        </member>
+        <member name="M:BEditor.Media.EncodingRegistory.EnumerateEncodings">
+            <summary>
+            Enumerate the registered encoding.
+            </summary>
+        </member>
+        <member name="M:BEditor.Media.EncodingRegistory.Create(System.String)">
+            <summary>
+            Create a container from the name of the file to be output.
+            </summary>
+            <param name="file">The file name to output.</param>
+        </member>
+        <member name="M:BEditor.Media.EncodingRegistory.GuessEncodings(System.String)">
+            <summary>
+            Guess encoding from file name.
+            </summary>
+            <param name="file">The file name to guess.</param>
+        </member>
+        <member name="M:BEditor.Media.EncodingRegistory.Register(BEditor.Media.IRegisterdEncoding)">
+            <summary>
+            Register the encoding.
+            </summary>
+            <param name="encoding">The encoding to register.</param>
         </member>
         <member name="T:BEditor.Media.Encoding.AudioEncoderSettings">
             <summary>
@@ -875,59 +932,59 @@
             </summary>
             <param name="value">A 32-bit signed integer.</param>
         </member>
-        <member name="T:BEditor.Media.IDecoderBuilder">
+        <member name="T:BEditor.Media.IRegisterdDecoding">
             <summary>
             Provides the ability to create a decoder.
             </summary>
         </member>
-        <member name="P:BEditor.Media.IDecoderBuilder.Name">
+        <member name="P:BEditor.Media.IRegisterdDecoding.Name">
             <summary>
             Gets the decoder name.
             </summary>
         </member>
-        <member name="P:BEditor.Media.IDecoderBuilder.SupportFormats">
-            <summary>
-            Gets the supported formats.
-            </summary>
-        </member>
-        <member name="M:BEditor.Media.IDecoderBuilder.Open(System.String,BEditor.Media.Decoding.MediaOptions)">
+        <member name="M:BEditor.Media.IRegisterdDecoding.Open(System.String,BEditor.Media.Decoding.MediaOptions)">
             <summary>
             Open the media file.
             </summary>
             <param name="file">File name of the media file.</param>
             <param name="options">The decoder settings.</param>
         </member>
-        <member name="M:BEditor.Media.IDecoderBuilder.IsSupported(System.String)">
+        <member name="M:BEditor.Media.IRegisterdDecoding.IsSupported(System.String)">
             <summary>
             Gets the value if the specified media file is supported.
             </summary>
             <param name="file">File name of the media file.</param>
         </member>
-        <member name="T:BEditor.Media.IEncoderBuilder">
+        <member name="M:BEditor.Media.IRegisterdDecoding.SupportExtensions">
+            <summary>
+            Gets the supported extensions.
+            </summary>
+        </member>
+        <member name="T:BEditor.Media.IRegisterdEncoding">
             <summary>
             Provides the ability to create a encoder.
             </summary>
         </member>
-        <member name="P:BEditor.Media.IEncoderBuilder.Name">
+        <member name="P:BEditor.Media.IRegisterdEncoding.Name">
             <summary>
             Gets the decoder name.
             </summary>
         </member>
-        <member name="P:BEditor.Media.IEncoderBuilder.SupportFormats">
-            <summary>
-            Gets the supported formats.
-            </summary>
-        </member>
-        <member name="M:BEditor.Media.IEncoderBuilder.Create(System.String)">
+        <member name="M:BEditor.Media.IRegisterdEncoding.Create(System.String)">
             <summary>
             Create the media file.
             </summary>
         </member>
-        <member name="M:BEditor.Media.IEncoderBuilder.IsSupported(System.String)">
+        <member name="M:BEditor.Media.IRegisterdEncoding.IsSupported(System.String)">
             <summary>
             Gets the value if the specified media file is supported.
             </summary>
             <param name="file">File name of the media file.</param>
+        </member>
+        <member name="M:BEditor.Media.IRegisterdEncoding.SupportExtensions">
+            <summary>
+            Gets the supported extensions.
+            </summary>
         </member>
         <member name="T:BEditor.Media.MediaType">
             <summary>
