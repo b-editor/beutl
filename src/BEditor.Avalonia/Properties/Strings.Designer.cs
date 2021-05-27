@@ -279,6 +279,15 @@ namespace BEditor.Properties {
         }
         
         /// <summary>
+        ///   Looks up a localized string similar to Id of the clip.
+        /// </summary>
+        public static string ClipId {
+            get {
+                return ResourceManager.GetString("ClipId", resourceCulture);
+            }
+        }
+        
+        /// <summary>
         ///   Looks up a localized string similar to Clip infomation.
         /// </summary>
         public static string ClipInfo {
@@ -920,11 +929,20 @@ namespace BEditor.Properties {
         }
         
         /// <summary>
-        ///   Looks up a localized string similar to ObjectViewer.
+        ///   Looks up a localized string similar to No clip is selected..
         /// </summary>
-        public static string ObjectViewer {
+        public static string NoClipIsSelected {
             get {
-                return ResourceManager.GetString("ObjectViewer", resourceCulture);
+                return ResourceManager.GetString("NoClipIsSelected", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to Objects.
+        /// </summary>
+        public static string Objects {
+            get {
+                return ResourceManager.GetString("Objects", resourceCulture);
             }
         }
         
@@ -1386,6 +1404,15 @@ namespace BEditor.Properties {
         public static string SomeFunctionsAreNotAvailable_ {
             get {
                 return ResourceManager.GetString("SomeFunctionsAreNotAvailable.", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to The specified clip is not found..
+        /// </summary>
+        public static string SpecifiedClipIsNotFound {
+            get {
+                return ResourceManager.GetString("SpecifiedClipIsNotFound", resourceCulture);
             }
         }
         
