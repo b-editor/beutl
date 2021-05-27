@@ -30,7 +30,9 @@ namespace BEditor.Views
                 }
                 else if(item.Tag is "MainWindow")
                 {
-                    new MainWindow().Show();
+                    var main = new MainWindow();
+                    App.SetMainWindow(main);
+                    main.Show();
                     Close();
                 }
             }

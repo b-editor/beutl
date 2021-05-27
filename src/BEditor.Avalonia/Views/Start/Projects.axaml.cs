@@ -14,7 +14,7 @@ using BEditor.Views.DialogContent;
 
 namespace BEditor.Views.Start
 {
-    public partial class Projects : UserControl
+    public sealed class Projects : UserControl
     {
         public Projects()
         {
@@ -26,7 +26,9 @@ namespace BEditor.Views.Start
                 {
                     await Dispatcher.UIThread.InvokeAsync(() =>
                     {
-                        new MainWindow().Show();
+                        var main = new MainWindow();
+                        App.SetMainWindow(main);
+                        main.Show();
                         if (VisualRoot is Window win) win.Close();
                     });
                 });
