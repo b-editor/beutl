@@ -145,6 +145,36 @@ namespace BEditor.Views.CustomTitlebars
             await new SettingsWindow().ShowDialog((Window)VisualRoot);
         }
 
+        public async void CreateScene(object s, RoutedEventArgs e)
+        {
+            var dialog = new CreateScene
+            {
+                DataContext = new CreateSceneViewModel()
+            };
+
+            await dialog.ShowDialog((Window)VisualRoot);
+        }
+        
+        public async void CreateClip(object s, RoutedEventArgs e)
+        {
+            var dialog = new CreateClip
+            {
+                DataContext = new CreateClipViewModel()
+            };
+
+            await dialog.ShowDialog((Window)VisualRoot);
+        }
+
+        public async void AddEffect(object s, RoutedEventArgs e)
+        {
+            var dialog = new AddEffect
+            {
+                DataContext = new AddEffectViewModel()
+            };
+
+            await dialog.ShowDialog((Window)VisualRoot);
+        }
+
         public async void CreateProjectClick(object s, RoutedEventArgs e)
         {
             var viewmodel = new CreateProjectViewModel();

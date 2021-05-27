@@ -467,9 +467,6 @@ Please select the plugin you want to load</value>
   <data name="Log" xml:space="preserve">
     <value>Log</value>
   </data>
-  <data name="ObjectViewer" xml:space="preserve">
-    <value>ObjectViewer</value>
-  </data>
   <data name="GetPath" xml:space="preserve">
     <value>Get the path</value>
   </data>
@@ -650,5 +647,17 @@ GUID and UUID can be used for Id.</value>
   </data>
   <data name="CouldNotCreatePackage" xml:space="preserve">
     <value>Could not create the package.</value>
+  </data>
+  <data name="ClipId" xml:space="preserve">
+    <value>Id of the clip</value>
+  </data>
+  <data name="SpecifiedClipIsNotFound" xml:space="preserve">
+    <value>The specified clip is not found.</value>
+  </data>
+  <data name="NoClipIsSelected" xml:space="preserve">
+    <value>No clip is selected.</value>
+  </data>
+  <data name="Objects" xml:space="preserve">
+    <value>Objects</value>
   </data>
 </root>

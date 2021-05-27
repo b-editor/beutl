@@ -1,0 +1,116 @@
+<Window
+    xmlns="https://github.com/avaloniaui"
+    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+    xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+    xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+    xmlns:props="using:BEditor.Properties"
+    xmlns:titlebar="using:BEditor.Views.CustomTitlebars"
+    xmlns:vm="using:BEditor.ViewModels"
+    xmlns:model="using:BEditor.Models"
+    xmlns:dialogvm="using:BEditor.ViewModels.DialogContent"
+    xmlns:data="clr-namespace:BEditor.Data;assembly=BEditor.Core"
+    mc:Ignorable="d"  Width="1000" Height="595"
+    ExtendClientAreaToDecorationsHint="True"
+    ExtendClientAreaChromeHints="NoChrome"
+    ExtendClientAreaTitleBarHeightHint="-1"
+    TransparencyLevelHint="AcrylicBlur"
+    Background="Transparent"
+    WindowStartupLocation="CenterScreen"
+    x:DataType="dialogvm:AddEffectViewModel"
+    x:Class="BEditor.Views.DialogContent.AddEffect">
+    <ExperimentalAcrylicBorder>
+        <ExperimentalAcrylicBorder.Material>
+            <ExperimentalAcrylicMaterial
+                TintColor="#222222"
+                TintOpacity="{StaticResource AcrylicTintOpacity1}"
+                MaterialOpacity="{StaticResource AcrylicMaterialOpacity1}" />
+        </ExperimentalAcrylicBorder.Material>
+        <Grid RowDefinitions="Auto,*" ColumnDefinitions="*,2*">
+            <ScrollViewer
+                Padding="0,32,0,0"
+                Grid.RowSpan="2">
+                <TreeView
+                    SelectionMode="Single"
+                    SelectedItem="{CompiledBinding Effect.Value, Mode=TwoWay}"
+                    Items="{x:Static data:EffectMetadata.LoadedEffects}" >
+                    <TreeView.DataTemplates>
+                        <TreeDataTemplate DataType="data:EffectMetadata" ItemsSource="{Binding Children}">
+                            <TextBlock Text="{Binding Name}" Margin="3,2" />
+                        </TreeDataTemplate>
+                    </TreeView.DataTemplates>
+                </TreeView>
+            </ScrollViewer>
+            
+            <titlebar:WindowsTitlebarButtons CanResize="False" Grid.ColumnSpan="2"/>
+
+            <ScrollViewer Grid.Row="1" Grid.Column="1" Padding="16">
+                <ScrollViewer.Styles>
+                    <Style Selector="TextBox">
+                        <Setter Property="Width" Value="240" />
+                        <Setter Property="HorizontalAlignment" Value="Left" />
+                    </Style>
+                </ScrollViewer.Styles>
+                <StackPanel>
+                    <TextBlock
+                        Margin="0,0,0,16"
+                        FontSize="24"
+                        Text="{x:Static props:Strings.AddEffect}" />
+
+                    <!--  Scene  -->
+                    <VirtualizingStackPanel Margin="8">
+                        <TextBlock
+                            FontSize="14"
+                            Text="{x:Static props:Strings.Scene}" />
+
+                        <ComboBox
+                            Margin="0,8"
+                            MinWidth="240"
+                            Items="{Binding Source={x:Static model:AppModel.Current}, Path=Project.SceneList}"
+                            SelectedItem="{CompiledBinding Scene.Value}">
+                            <ComboBox.ItemTemplate>
+                                <DataTemplate>
+                                    <TextBlock Text="{Binding SceneName}" />
+                                </DataTemplate>
+                            </ComboBox.ItemTemplate>
+                        </ComboBox>
+                    </VirtualizingStackPanel>
+
+                    <!--  Id  -->
+                    <StackPanel Margin="8,24,8,8">
+                        <TextBlock
+                            FontSize="14"
+                            Text="{x:Static props:Strings.ClipId}" />
+
+                        <TextBox Margin="0,8" Text="{CompiledBinding ClipId.Value, Mode=TwoWay}" />
+                    </StackPanel>
+                </StackPanel>
+            </ScrollViewer>
+
+            <VirtualizingStackPanel
+                Grid.Row="1"
+                Grid.Column="1"
+                Margin="8"
+                VerticalAlignment="Bottom"
+                HorizontalAlignment="Right"
+                Orientation="Horizontal">
+                <Button
+                    Click="CloseClick"
+                    HorizontalAlignment="Left"
+                    Content="{x:Static props:Strings.Cancel}"
+                    Background="Transparent"
+                    Cursor="Arrow"
+                    Foreground="Red"
+                    IsCancel="True"/>
+                <Button
+                    Click="CloseClick"
+                    HorizontalAlignment="Left"
+                    Command="{CompiledBinding Create, Mode=OneTime}"
+                    Content="{x:Static props:Strings.Create}"
+                    Cursor="Arrow"
+                    Background="Transparent"
+                    IsDefault="True"/>
+            </VirtualizingStackPanel>
+
+        </Grid>
+    </ExperimentalAcrylicBorder>
+</Window>

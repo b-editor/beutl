@@ -6,16 +6,16 @@
   xmlns:data="clr-namespace:BEditor.Data;assembly=BEditor.Core"
   mc:Ignorable="d" d:DesignWidth="800" d:DesignHeight="450"
   x:Class="BEditor.Views.Library">
-  <ScrollViewer>
-    <TreeView
-      x:Name="TreeView"
-      SelectionMode="Single"
-      Items="{x:Static data:EffectMetadata.LoadedEffects}" >
-      <TreeView.DataTemplates>
-        <TreeDataTemplate DataType="data:EffectMetadata" ItemsSource="{Binding Children}">
-          <TextBlock Text="{Binding Name}" Margin="3,2" />
-        </TreeDataTemplate>
-      </TreeView.DataTemplates>
-    </TreeView>
-  </ScrollViewer>
+    <ScrollViewer>
+        <TreeView
+            x:Name="TreeView"
+            SelectionMode="Single"
+            Items="{x:Static data:EffectMetadata.LoadedEffects}" >
+            <TreeView.DataTemplates>
+                <TreeDataTemplate DataType="data:EffectMetadata" ItemsSource="{Binding Children}">
+                    <TextBlock Text="{Binding Name}" Margin="3,2" />
+                </TreeDataTemplate>
+            </TreeView.DataTemplates>
+        </TreeView>
+    </ScrollViewer>
 </UserControl>

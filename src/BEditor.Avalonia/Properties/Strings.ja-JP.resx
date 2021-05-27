@@ -349,9 +349,6 @@
   <data name="No" xml:space="preserve">
     <value>いいえ</value>
   </data>
-  <data name="ObjectViewer" xml:space="preserve">
-    <value>オブジェクトビューアー</value>
-  </data>
   <data name="OK" xml:space="preserve">
     <value>OK</value>
   </data>
@@ -650,5 +647,17 @@ IdにはGUID, UUIDが使えます。</value>
   </data>
   <data name="CouldNotCreatePackage" xml:space="preserve">
     <value>パッケージを作成できませんでした。</value>
+  </data>
+  <data name="ClipId" xml:space="preserve">
+    <value>クリップのId</value>
+  </data>
+  <data name="SpecifiedClipIsNotFound" xml:space="preserve">
+    <value>指定されたクリップが見つかりません。</value>
+  </data>
+  <data name="NoClipIsSelected" xml:space="preserve">
+    <value>クリップが選択されていません。</value>
+  </data>
+  <data name="Objects" xml:space="preserve">
+    <value>オブジェクト</value>
   </data>
 </root>

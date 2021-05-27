@@ -346,7 +346,7 @@
                 <views:Library />
             </TabItem>
             <TabItem
-                Header="{x:Static prop:Strings.ObjectViewer}"
+                Header="{x:Static prop:Strings.Objects}"
                 FontSize="16"
                 Padding="8" >
                 <views:ObjectViewer />

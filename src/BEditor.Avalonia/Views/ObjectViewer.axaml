@@ -33,6 +33,7 @@
                     </MenuItem>
                     <MenuItem Header="{x:Static prop:Strings.Effect}">
                         <MenuItem Click="RemoveEffect" Header="{x:Static prop:Strings.Remove}" />
+                        <MenuItem Click="AddEffect" Header="{x:Static prop:Strings.Add}" />
                     </MenuItem>
                 </ContextMenu>
             </TreeView.ContextMenu>
