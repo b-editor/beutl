@@ -44,19 +44,19 @@ namespace BEditor.Views
         private Scene? GetScene()
         {
             if (this.FindControl<TreeView>("TreeView").SelectedItem is IChild<object> obj) return obj.GetParent<Scene>();
-            else throw new IndexOutOfRangeException();
+            else return AppModel.Current.Project.PreviewScene;
         }
 
         private ClipElement? GetClip()
         {
             if (this.FindControl<TreeView>("TreeView").SelectedItem is IChild<object> obj) return obj.GetParent<ClipElement>();
-            else throw new IndexOutOfRangeException();
+            else return AppModel.Current.Project.PreviewScene.SelectItem;
         }
 
         private EffectElement? GetEffect()
         {
             if (this.FindControl<TreeView>("TreeView").SelectedItem is IChild<object> obj) return obj.GetParent<EffectElement>();
-            else throw new IndexOutOfRangeException();
+            else return null;
         }
 
         public async void DeleteScene(object sender, RoutedEventArgs e)
@@ -128,9 +128,27 @@ namespace BEditor.Views
 
         public async void CreateClip(object s, RoutedEventArgs e)
         {
+            var vm = new CreateClipViewModel();
+            var guess = GetScene();
+            if (guess is not null) vm.Scene.Value = guess;
+
             var dialog = new CreateClip
             {
-                DataContext = new CreateClipViewModel()
+                DataContext = vm
+            };
+
+            await dialog.ShowDialog((Window)VisualRoot);
+        }
+
+        public async void AddEffect(object s, RoutedEventArgs e)
+        {
+            var vm = new AddEffectViewModel();
+            var guess = GetClip();
+            if (guess is not null) vm.ClipId.Value = guess.Id.ToString();
+
+            var dialog = new AddEffect
+            {
+                DataContext = vm
             };
 
             await dialog.ShowDialog((Window)VisualRoot);
