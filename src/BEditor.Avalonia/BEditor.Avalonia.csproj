@@ -30,6 +30,9 @@
     <ItemGroup>
         <ProjectReference Include="..\BEditor.Core\BEditor.Core.csproj" />
         <ProjectReference Include="..\BEditor.Primitive\BEditor.Primitive.csproj" />
+    </ItemGroup>
+
+    <ItemGroup Condition="'$(Configuration)'=='Debug'">
         <ProjectReference Include="..\BEditor.PackageInstaller\BEditor.PackageInstaller.csproj" />
     </ItemGroup>
 

@@ -20,35 +20,77 @@ Task("Clean")
 Task("AvaloniaExePublish")
     .IsDependentOn("Clean")
     .Does(() =>
-{
-    var rids = new string[]
     {
-        "win-x64",
-        "linux-x64",
-        "osx-x64"
+        var rids = new string[]
+        {
+            "win-x64",
+            "linux-x64",
+            "osx-x64",
+        };
+
+        foreach (var rid in rids)
+        {
+            Console.WriteLine("========================================");
+            Console.WriteLine($"beditor_{rid}");
+            Console.WriteLine("========================================");
+
+            var binaryPath = DirectoryPath.FromString($"./tmp/{rid}");
+            CreateDirectory(binaryPath);
+            CleanDirectory(binaryPath);
+
+            DotNetCorePublish("./src/BEditor.Avalonia/BEditor.Avalonia.csproj", new DotNetCorePublishSettings
+            {
+                Configuration = configuration,
+                SelfContained = true,
+                Runtime = rid,
+                Framework = "net5.0",
+                OutputDirectory = binaryPath
+            });
+
+            DotNetCorePublish("./src/BEditor.PackageInstaller/BEditor.PackageInstaller.csproj", new DotNetCorePublishSettings
+            {
+                Configuration = configuration,
+                SelfContained = true,
+                Runtime = rid,
+                Framework = "net5.0",
+                OutputDirectory = binaryPath
+            });
+
+            Zip(binaryPath, publishDir.CombineWithFilePath($"beditor_{rid}.zip"));
+        }
+        DeleteDirectory("./tmp", new DeleteDirectorySettings
+        {
+            Recursive = true,
+            Force = true
+        });
+    });
+
+Task("NugetPublish")
+    .IsDependentOn("Clean")
+    .Does(() =>
+{
+    var libraries = new string[]
+    {
+        "BEditor.Audio",
+        "BEditor.Compute",
+        "BEditor.Core",
+        "BEditor.Drawing",
+        "BEditor.Graphics",
+        "BEditor.Media",
+        "BEditor.Packaging",
+        "BEditor.Settings",
     };
 
-    foreach (var rid in rids)
+    foreach (var item in libraries)
     {
-        Console.WriteLine("========================================");
-        Console.WriteLine($"beditor_{rid}");
-        Console.WriteLine("========================================");
-
-        var binaryPath = DirectoryPath.FromString($"./src/BEditor.Avalonia/bin/{configuration}/net5.0/{rid}/publish");
-        CreateDirectory(binaryPath);
-        CleanDirectory(binaryPath);
-
-        DotNetCorePublish("./src/BEditor.Avalonia/BEditor.Avalonia.csproj", new DotNetCorePublishSettings
+        DotNetCorePack($"./src/{item}/{item}.csproj", new DotNetCorePackSettings
         {
             Configuration = configuration,
-            SelfContained = true,
-            Runtime = rid,
-            TargetFramework = "net5.0"
+            OutputDirectory = publishDir.Combine("nuget")
         });
-
-        Zip(binaryPath, publishDir.CombineWithFilePath($"beditor_{rid}.zip"));
     }
 });
+
 
 Task("Default")
     .IsDependentOn("Clean")
