@@ -1,4 +1,11 @@
-﻿using System;
+﻿// CLProgram.cs
+//
+// Copyright (C) BEditor
+//
+// This software may be modified and distributed under the terms
+// of the MIT license. See the LICENSE file for details.
+
+using System;
 using System.Runtime.InteropServices;
 using System.Text;
 
@@ -7,15 +14,23 @@ using BEditor.Compute.PlatformLayer;
 
 namespace BEditor.Compute.Runtime
 {
+    /// <summary>
+    /// Represents the OpenCL program.
+    /// </summary>
     public unsafe class CLProgram : ComputeObject
     {
+        /// <summary>
+        /// Initializes a new instance of the <see cref="CLProgram"/> class.
+        /// </summary>
+        /// <param name="source">The OpenCL C source code.</param>
+        /// <param name="context">The context.</param>
         public CLProgram(string source, Context context)
         {
             Context = context;
 
             var status = (int)CLStatusCode.CL_SUCCESS;
             var sourceArray = Encoding.UTF8.GetBytes(source);
-            var lengths = (void*)(new IntPtr(source.Length));
+            var lengths = (void*)new IntPtr(source.Length);
 
             fixed (byte* sourceArrayPointer = sourceArray)
             {
@@ -57,15 +72,27 @@ namespace BEditor.Compute.Runtime
             }
         }
 
+        /// <summary>
+        /// Gets the context.
+        /// </summary>
         public Context Context { get; }
 
+        /// <summary>
+        /// Gets the pointer.
+        /// </summary>
         public void* Pointer { get; }
 
+        /// <summary>
+        /// Creates the kernel.
+        /// </summary>
+        /// <param name="kernelName">The kernel name.</param>
+        /// <returns>Returns the created <see cref="Kernel"/>.</returns>
         public Kernel CreateKernel(string kernelName)
         {
             return new Kernel(this, kernelName);
         }
 
+        /// <inheritdoc/>
         protected override void Dispose(bool disposing)
         {
             base.Dispose(disposing);

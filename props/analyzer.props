@@ -1,14 +1,23 @@
 <Project>
 
-  <PropertyGroup>
-    <CodeAnalysisRuleSet>$(MSBuildThisFileDirectory)..\roslynator.ruleset</CodeAnalysisRuleSet>
-  </PropertyGroup>
+    <PropertyGroup>
+        <CodeAnalysisRuleSet>$(SolutionDir)\CodeAnalysis.ruleset</CodeAnalysisRuleSet>
+        <GenerateDocumentationFile>true</GenerateDocumentationFile>
+    </PropertyGroup>
 
-  <ItemGroup>
-    <PackageReference Include="Roslynator.Analyzers" Version="3.1.0">
-      <PrivateAssets>all</PrivateAssets>
-      <IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>
-    </PackageReference>
-  </ItemGroup>
+    <ItemGroup>
+        <AdditionalFiles Include="$(SolutionDir)stylecop.json">
+            <Link>stylecop.json</Link>
+            <InProject>false</InProject>
+        </AdditionalFiles>
+        <AdditionalFiles Include="$(SolutionDir)\CodeAnalysis.ruleset">
+            <Link>CodeAnalysis.ruleset</Link>
+            <InProject>false</InProject>
+        </AdditionalFiles>
+    </ItemGroup>
+
+    <ItemGroup>
+        <PackageReference Include="StyleCop.Analyzers" Version="1.2.0-beta.333" PrivateAssets="all" />
+    </ItemGroup>
 
 </Project>

@@ -193,7 +193,7 @@ namespace BEditor.Drawing
         }
 
         /// <summary>
-        /// Get whether an object has been disposed
+        /// Gets a value indicating whether this instance has been disposed.
         /// </summary>
         public bool IsDisposed { get; private set; }
         #endregion

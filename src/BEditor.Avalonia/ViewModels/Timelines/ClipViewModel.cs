@@ -51,7 +51,7 @@ namespace BEditor.ViewModels.Timelines
             Copy.Subscribe(async () =>
             {
                 await using var memory = new MemoryStream();
-                await Serialize.SaveToStreamAsync(ClipElement, memory, SerializeMode.Json);
+                await Serialize.SaveToStreamAsync(ClipElement, memory);
 
                 var json = Encoding.Default.GetString(memory.ToArray());
                 await Application.Current.Clipboard.SetTextAsync(json);
@@ -62,7 +62,7 @@ namespace BEditor.ViewModels.Timelines
                 ClipElement.Parent.RemoveClip(ClipElement).Execute();
 
                 await using var memory = new MemoryStream();
-                await Serialize.SaveToStreamAsync(ClipElement, memory, SerializeMode.Json);
+                await Serialize.SaveToStreamAsync(ClipElement, memory);
 
                 var json = Encoding.Default.GetString(memory.ToArray());
                 await Application.Current.Clipboard.SetTextAsync(json);

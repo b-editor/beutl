@@ -1,9 +1,19 @@
-﻿using System;
+﻿// Event.cs
+//
+// Copyright (C) BEditor
+//
+// This software may be modified and distributed under the terms
+// of the MIT license. See the LICENSE file for details.
+
+using System;
 
 using BEditor.Compute.OpenCL;
 
 namespace BEditor.Compute.Runtime
 {
+    /// <summary>
+    /// Represents the OpenCL event.
+    /// </summary>
     public unsafe class Event
     {
         private long? _executionTime = null;
@@ -13,6 +23,9 @@ namespace BEditor.Compute.Runtime
             Pointer = pointer;
         }
 
+        /// <summary>
+        /// Gets the execution time.
+        /// </summary>
         public long ExecutionTime
         {
             get
@@ -32,8 +45,14 @@ namespace BEditor.Compute.Runtime
             }
         }
 
+        /// <summary>
+        /// Gets the pointer.
+        /// </summary>
         public void* Pointer { get; }
 
+        /// <summary>
+        /// Waits on the host thread for commands identified by event objects to complete.
+        /// </summary>
         public void Wait()
         {
             var event_ = Pointer;

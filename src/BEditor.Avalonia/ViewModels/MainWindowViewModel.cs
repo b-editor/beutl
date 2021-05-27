@@ -90,16 +90,9 @@ namespace BEditor.ViewModels
                         }
                     };
 
-                    var mode = SerializeMode.Binary;
-
                     if (await AppModel.Current.FileDialog.ShowSaveFileDialogAsync(record))
                     {
-                        if (Path.GetExtension(record.FileName) is ".json")
-                        {
-                            mode = SerializeMode.Json;
-                        }
-
-                        await p.SaveAsync(record.FileName, mode);
+                        await p.SaveAsync(record.FileName);
                     }
                 });
 
@@ -141,7 +134,7 @@ namespace BEditor.ViewModels
                 .Subscribe(async clip =>
                 {
                     await using var memory = new MemoryStream();
-                    await Serialize.SaveToStreamAsync(clip!, memory, SerializeMode.Json);
+                    await Serialize.SaveToStreamAsync(clip!, memory);
 
                     var json = Encoding.Default.GetString(memory.ToArray());
                     await Application.Current.Clipboard.SetTextAsync(json);
@@ -155,7 +148,7 @@ namespace BEditor.ViewModels
                     clip!.Parent.RemoveClip(clip).Execute();
 
                     await using var memory = new MemoryStream();
-                    await Serialize.SaveToStreamAsync(clip, memory, SerializeMode.Json);
+                    await Serialize.SaveToStreamAsync(clip, memory);
 
                     var json = Encoding.Default.GetString(memory.ToArray());
                     await Application.Current.Clipboard.SetTextAsync(json);
@@ -194,7 +187,7 @@ namespace BEditor.ViewModels
                     await using var memory = new MemoryStream();
                     await memory.WriteAsync(Encoding.Default.GetBytes(text));
 
-                    if (await Serialize.LoadFromStreamAsync<ClipElement>(memory, SerializeMode.Json) is var clip && clip is not null)
+                    if (await Serialize.LoadFromStreamAsync<ClipElement>(memory) is var clip && clip is not null)
                     {
                         var length = clip.Length;
                         clip.Start = timeline.ClickedFrame;

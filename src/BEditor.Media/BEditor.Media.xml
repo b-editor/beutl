@@ -620,6 +620,7 @@
             Sets up a multimedia container with the format guessed from the file extension.
             </summary>
             <param name="path">A path to create the output file.</param>
+            <exception cref="T:System.NotSupportedException">Not supported format.</exception>
             <returns>The <see cref="T:BEditor.Media.Encoding.MediaBuilder"/> instance.</returns>
         </member>
         <member name="M:BEditor.Media.Encoding.MediaBuilder.UseMetadata(BEditor.Media.ContainerMetadata)">

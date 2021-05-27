@@ -1,4 +1,11 @@
-﻿using System;
+﻿// Project.cs
+//
+// Copyright (C) BEditor
+//
+// This software may be modified and distributed under the terms
+// of the MIT license. See the LICENSE file for details.
+
+using System;
 using System.Collections.Generic;
 using System.Collections.ObjectModel;
 using System.ComponentModel;
@@ -37,19 +44,13 @@ namespace BEditor.Data
     /// </summary>
     public class Project : EditingObject, IParent<Scene>, IChild<IApplication>
     {
-        #region Fields
-
-        private static readonly PropertyChangedEventArgs _PrevireSceneArgs = new(nameof(PreviewScene));
-        private static readonly PropertyChangedEventArgs _FilenameArgs = new(nameof(Name));
+        private static readonly PropertyChangedEventArgs _previewSceneArgs = new(nameof(PreviewScene));
+        private static readonly PropertyChangedEventArgs _nameArgs = new(nameof(Name));
         private static readonly PropertyChangedEventArgs _dirnameArgs = new(nameof(DirectoryName));
         private Scene? _previewScene;
         private string _filename;
         private string _dirname;
         private IApplication _parent;
-
-        #endregion
-
-        #region Contructor
 
         /// <summary>
         /// Initializes a new instance of the <see cref="Project"/> class.
@@ -74,14 +75,10 @@ namespace BEditor.Data
             });
         }
 
-        #endregion
-
         /// <summary>
         /// Occurs after saving this <see cref="Project"/>.
         /// </summary>
         public event EventHandler<ProjectSavedEventArgs>? Saved;
-
-        #region Properties
 
         /// <summary>
         /// Gets the framerate for this <see cref="Project"/>.
@@ -111,7 +108,7 @@ namespace BEditor.Data
             get => _previewScene ??= SceneList[PreviewSceneIndex];
             set
             {
-                SetValue(value, ref _previewScene, _PrevireSceneArgs);
+                SetValue(value, ref _previewScene, _previewSceneArgs);
                 PreviewSceneIndex = SceneList.IndexOf(value);
             }
         }
@@ -134,11 +131,13 @@ namespace BEditor.Data
             }
         }
 
-        /// <inheritdoc/>
+        /// <summary>
+        /// Gets or sets the name of project.
+        /// </summary>
         public string Name
         {
             get => _filename;
-            set => SetValue(value, ref _filename, _FilenameArgs);
+            set => SetValue(value, ref _filename, _nameArgs);
         }
 
         /// <summary>
@@ -149,10 +148,6 @@ namespace BEditor.Data
             get => _dirname;
             set => SetValue(value, ref _dirname, _dirnameArgs);
         }
-
-        #endregion
-
-        #region Methods
 
         /// <summary>
         /// Load a <see cref="Project"/> from a file.
@@ -187,15 +182,12 @@ namespace BEditor.Data
                 }
             }
 
-            var mode = SerializeMode.Binary;
-            if (Path.GetExtension(file) is ".json")
+            var proj = await Serialize.LoadFromFileAsync<Project>(file);
+
+            if (proj is null)
             {
-                mode = SerializeMode.Json;
+                return null;
             }
-
-            var proj = await Serialize.LoadFromFileAsync<Project>(file, mode);
-
-            if (proj is null) return null;
 
             proj.DirectoryName = Path.GetDirectoryName(file)!;
             proj.Name = Path.GetFileNameWithoutExtension(file);
@@ -241,15 +233,12 @@ namespace BEditor.Data
                 }
             }
 
-            var mode = SerializeMode.Binary;
-            if (Path.GetExtension(file) is ".json")
+            var proj = Serialize.LoadFromFile<Project>(file);
+
+            if (proj is null)
             {
-                mode = SerializeMode.Json;
+                return null;
             }
-
-            var proj = Serialize.LoadFromFile<Project>(file, mode);
-
-            if (proj is null) return null;
 
             proj.DirectoryName = Path.GetDirectoryName(file)!;
             proj.Name = Path.GetFileNameWithoutExtension(file);
@@ -272,7 +261,10 @@ namespace BEditor.Data
             if (Name is null || DirectoryName is null)
             {
                 var dialog = ServiceProvider?.GetService<IFileDialogService>();
-                if (dialog is null) return false;
+                if (dialog is null)
+                {
+                    return false;
+                }
 
                 var record = new SaveFileRecord
                 {
@@ -307,7 +299,10 @@ namespace BEditor.Data
             if (Name is null || DirectoryName is null)
             {
                 var dialog = ServiceProvider?.GetService<IFileDialogService>();
-                if (dialog is null) return false;
+                if (dialog is null)
+                {
+                    return false;
+                }
 
                 var record = new SaveFileRecord
                 {
@@ -336,11 +331,13 @@ namespace BEditor.Data
         /// Save this <see cref="Project"/> with a name.
         /// </summary>
         /// <param name="filename">New File Name.</param>
-        /// <param name="mode">The serialize mode.</param>
         /// <returns><see langword="true"/> if the save is successful, otherwise <see langword="false"/>.</returns>
-        public bool Save(string filename, SerializeMode mode = SerializeMode.Binary)
+        public bool Save(string filename)
         {
-            if (filename is null) throw new ArgumentNullException(nameof(filename));
+            if (filename is null)
+            {
+                throw new ArgumentNullException(nameof(filename));
+            }
 
             static void IfNotExistCreateDir(string dir)
             {
@@ -379,7 +376,7 @@ namespace BEditor.Data
                 }
             }
 
-            if (Serialize.SaveToFile(this, filename, mode))
+            if (Serialize.SaveToFile(this, filename))
             {
                 Saved?.Invoke(this, new(SaveType.Save));
 
@@ -400,11 +397,13 @@ namespace BEditor.Data
         /// Save this <see cref="Project"/> with a name.
         /// </summary>
         /// <param name="filename">New File Name.</param>
-        /// <param name="mode">The serialize mode.</param>
         /// <returns><see langword="true"/> if the save is successful, otherwise <see langword="false"/>.</returns>
-        public async Task<bool> SaveAsync(string filename, SerializeMode mode = SerializeMode.Binary)
+        public async Task<bool> SaveAsync(string filename)
         {
-            if (filename is null) throw new ArgumentNullException(nameof(filename));
+            if (filename is null)
+            {
+                throw new ArgumentNullException(nameof(filename));
+            }
 
             static void IfNotExistCreateDir(string dir)
             {
@@ -443,7 +442,7 @@ namespace BEditor.Data
                 }
             }
 
-            if (await Serialize.SaveToFileAsync(this, filename, mode))
+            if (await Serialize.SaveToFileAsync(this, filename))
             {
                 Saved?.Invoke(this, new(SaveType.Save));
 
@@ -464,11 +463,10 @@ namespace BEditor.Data
         /// Save this <see cref="Project"/> with a name.
         /// </summary>
         /// <param name="stream">Stream to save.</param>
-        /// <param name="mode">The serialize mode.</param>
         /// <returns><see langword="true"/> if the save is successful, otherwise <see langword="false"/>.</returns>
-        public bool Save(Stream stream, SerializeMode mode = SerializeMode.Binary)
+        public bool Save(Stream stream)
         {
-            if (Serialize.SaveToStream(this, stream, mode))
+            if (Serialize.SaveToStream(this, stream))
             {
                 Saved?.Invoke(this, new(SaveType.Save));
                 return true;
@@ -521,7 +519,5 @@ namespace BEditor.Data
                 disposable.Dispose();
             }
         }
-
-        #endregion
     }
 }

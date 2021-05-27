@@ -1,12 +1,20 @@
-﻿namespace BEditor.Compute.OpenCL
+﻿// Enums.cs
+//
+// Copyright (C) BEditor
+//
+// This software may be modified and distributed under the terms
+// of the MIT license. See the LICENSE file for details.
+
+namespace BEditor.Compute.OpenCL
 {
+#pragma warning disable CS1591, SA1600, SA1602
     public enum CLDeviceType : long
     {
         CL_DEVICE_TYPE_DEFAULT = 1 << 0,
         CL_DEVICE_TYPE_CPU = 1 << 1,
         CL_DEVICE_TYPE_GPU = 1 << 2,
         CL_DEVICE_TYPE_ACCELERATOR = 1 << 3,
-        CL_DEVICE_TYPE_ALL = 0xFFFFFFFF
+        CL_DEVICE_TYPE_ALL = 0xFFFFFFFF,
     }
 
     public enum CLPlatformInfo : long
@@ -15,7 +23,7 @@
         CL_PLATFORM_VERSION = 0x0901,
         CL_PLATFORM_NAME = 0x0902,
         CL_PLATFORM_VENDOR = 0x0903,
-        CL_PLATFORM_EXTENSIONS = 0x0904
+        CL_PLATFORM_EXTENSIONS = 0x0904,
     }
 
     public enum CLDeviceInfo : long
@@ -111,7 +119,7 @@
         CL_DEVICE_PREFERRED_LOCAL_ATOMIC_ALIGNMENT = 0x105A,
         CL_DEVICE_IL_VERSION = 0x105B,
         CL_DEVICE_MAX_NUM_SUB_GROUPS = 0x105C,
-        CL_DEVICE_SUB_GROUP_INDEPENDENT_FORWARD_PROGRESS = 0x105D
+        CL_DEVICE_SUB_GROUP_INDEPENDENT_FORWARD_PROGRESS = 0x105D,
     }
 
     public enum CLDeviceFpConfig : long
@@ -123,26 +131,26 @@
         CL_FP_ROUND_TO_INF = 1 << 4,
         CL_FP_FMA = 1 << 5,
         CL_FP_SOFT_FLOAT = 1 << 6,
-        CL_FP_CORRECTLY_ROUNDED_DIVIDE_SQRT = 1 << 7
+        CL_FP_CORRECTLY_ROUNDED_DIVIDE_SQRT = 1 << 7,
     }
 
     public enum CLDeviceMemoryCacheType : long
     {
         CL_NONE = 0x0,
         CL_READ_ONLY_CACHE = 0x1,
-        CL_READ_WRITE_CACHE = 0x2
+        CL_READ_WRITE_CACHE = 0x2,
     }
 
     public enum CLDeviceLocalMemoryType : long
     {
         CL_LOCAL = 0x1,
-        CL_GLOBAL = 0x2
+        CL_GLOBAL = 0x2,
     }
 
     public enum CLDeviceExecCapabilities : long
     {
         CL_EXEC_KERNEL = 1 << 0,
-        CL_EXEC_NATIVE_KERNEL = 1 << 1
+        CL_EXEC_NATIVE_KERNEL = 1 << 1,
     }
 
     public enum CLCommandQueueProperties : long
@@ -150,7 +158,7 @@
         CL_QUEUE_OUT_OF_ORDER_EXEC_MODE_ENABLE = 1 << 0,
         CL_QUEUE_PROFILING_ENABLE = 1 << 1,
         CL_QUEUE_ON_DEVICE = 1 << 2,
-        CL_QUEUE_ON_DEVICE_DEFAULT = 1 << 3
+        CL_QUEUE_ON_DEVICE_DEFAULT = 1 << 3,
     }
 
     public enum CLMemoryFlags : long
@@ -160,14 +168,14 @@
         CL_MEM_READ_ONLY = 1 << 2,
         CL_MEM_USE_HOST_PTR = 1 << 3,
         CL_MEM_ALLOC_HOST_PTR = 1 << 4,
-        CL_MEM_COPY_HOST_PTR = 1 << 5
+        CL_MEM_COPY_HOST_PTR = 1 << 5,
     }
 
     public enum CLMapFlags : long
     {
         CL_MAP_READ = 1 << 0,
         CL_MAP_WRITE = 1 << 1,
-        CL_MAP_WRITE_INVALIDATE_REGION = 1 << 2
+        CL_MAP_WRITE_INVALIDATE_REGION = 1 << 2,
     }
 
     public enum CLDeviceSVMCapabilities : long
@@ -175,7 +183,7 @@
         CL_DEVICE_SVM_COARSE_GRAIN_BUFFER = 1 << 0,
         CL_DEVICE_SVM_FINE_GRAIN_BUFFER = 1 << 1,
         CL_DEVICE_SVM_FINE_GRAIN_SYSTEM = 1 << 2,
-        CL_DEVICE_SVM_ATOMICS = 1 << 3
+        CL_DEVICE_SVM_ATOMICS = 1 << 3,
     }
 
     public enum CLProgramBuildInfo : long
@@ -184,7 +192,7 @@
         CL_PROGRAM_BUILD_OPTIONS = 0x1182,
         CL_PROGRAM_BUILD_LOG = 0x1183,
         CL_PROGRAM_BINARY_TYPE = 0x1184,
-        CL_PROGRAM_BUILD_GLOBAL_VARIABLE_TOTAL_SIZE = 0x1185
+        CL_PROGRAM_BUILD_GLOBAL_VARIABLE_TOTAL_SIZE = 0x1185,
     }
 
     public enum CLProfilingInfo
@@ -193,7 +201,7 @@
         CL_PROFILING_COMMAND_SUBMIT = 0x1281,
         CL_PROFILING_COMMAND_START = 0x1282,
         CL_PROFILING_COMMAND_END = 0x1283,
-        CL_PROFILING_COMMAND_COMPLETE = 0x1284
+        CL_PROFILING_COMMAND_COMPLETE = 0x1284,
     }
 
     public enum CLStatusCode
@@ -258,6 +266,7 @@
         CL_COMPILER_NOT_AVAILABLE = -3,
         CL_DEVICE_NOT_AVAILABLE = -2,
         CL_DEVICE_NOT_FOUND = -1,
-        CL_SUCCESS = 0
+        CL_SUCCESS = 0,
     }
+#pragma warning restore SA1600, CS1591, SA1602
 }

@@ -1633,11 +1633,6 @@
             Represents an <see cref="T:BEditor.Data.ObjectElement"/> that references an audio file.
             </summary>
         </member>
-        <member name="F:BEditor.Primitive.Objects.AudioObject.CoordinateProperty">
-            <summary>
-            Defines the <see cref="P:BEditor.Primitive.Objects.AudioObject.Coordinate"/> property.
-            </summary>
-        </member>
         <member name="F:BEditor.Primitive.Objects.AudioObject.VolumeProperty">
             <summary>
             Defines the <see cref="P:BEditor.Primitive.Objects.AudioObject.Volume"/> property.
@@ -1670,11 +1665,6 @@
         </member>
         <member name="P:BEditor.Primitive.Objects.AudioObject.Name">
             <inheritdoc/>
-        </member>
-        <member name="P:BEditor.Primitive.Objects.AudioObject.Coordinate">
-            <summary>
-            Get the coordinates.
-            </summary>
         </member>
         <member name="P:BEditor.Primitive.Objects.AudioObject.Volume">
             <summary>
@@ -1721,96 +1711,6 @@
             <inheritdoc/>
         </member>
         <member name="M:BEditor.Primitive.Objects.AudioObject.OnUnload">
-            <inheritdoc/>
-        </member>
-        <member name="T:BEditor.Primitive.Objects.AudioObject.AudioCoordinate">
-            <summary>
-            Represents a property for setting XYZ coordinates.
-            </summary>
-        </member>
-        <member name="F:BEditor.Primitive.Objects.AudioObject.AudioCoordinate.XProperty">
-            <summary>
-            Defines the <see cref="P:BEditor.Primitive.Objects.AudioObject.AudioCoordinate.X"/> property.
-            </summary>
-        </member>
-        <member name="F:BEditor.Primitive.Objects.AudioObject.AudioCoordinate.YProperty">
-            <summary>
-            Defines the <see cref="P:BEditor.Primitive.Objects.AudioObject.AudioCoordinate.Y"/> property.
-            </summary>
-        </member>
-        <member name="F:BEditor.Primitive.Objects.AudioObject.AudioCoordinate.ZProperty">
-            <summary>
-            Defines the <see cref="P:BEditor.Primitive.Objects.AudioObject.AudioCoordinate.Z"/> property.
-            </summary>
-        </member>
-        <member name="F:BEditor.Primitive.Objects.AudioObject.AudioCoordinate.CenterXProperty">
-            <summary>
-            Defines the <see cref="P:BEditor.Primitive.Objects.AudioObject.AudioCoordinate.DirectionX"/> property.
-            </summary>
-        </member>
-        <member name="F:BEditor.Primitive.Objects.AudioObject.AudioCoordinate.CenterYProperty">
-            <summary>
-            Defines the <see cref="P:BEditor.Primitive.Objects.AudioObject.AudioCoordinate.DirectionY"/> property.
-            </summary>
-        </member>
-        <member name="F:BEditor.Primitive.Objects.AudioObject.AudioCoordinate.CenterZProperty">
-            <summary>
-            Defines the <see cref="P:BEditor.Primitive.Objects.AudioObject.AudioCoordinate.DirectionZ"/> property.
-            </summary>
-        </member>
-        <member name="M:BEditor.Primitive.Objects.AudioObject.AudioCoordinate.#ctor(BEditor.Primitive.Objects.AudioObject.AudioCoordinateMetadata)">
-            <summary>
-            Initializes a new instance of the <see cref="T:BEditor.Primitive.Objects.AudioObject.AudioCoordinate"/> class.
-            </summary>
-            <param name="metadata">Metadata of this property.</param>
-            <exception cref="T:System.ArgumentNullException"><paramref name="metadata"/> is <see langword="null"/>.</exception>
-        </member>
-        <member name="P:BEditor.Primitive.Objects.AudioObject.AudioCoordinate.X">
-            <summary>
-            Get the <see cref="T:BEditor.Data.Property.EaseProperty"/> representing the X coordinate.
-            </summary>
-        </member>
-        <member name="P:BEditor.Primitive.Objects.AudioObject.AudioCoordinate.Y">
-            <summary>
-            Get the <see cref="T:BEditor.Data.Property.EaseProperty"/> representing the Y coordinate.
-            </summary>
-        </member>
-        <member name="P:BEditor.Primitive.Objects.AudioObject.AudioCoordinate.Z">
-            <summary>
-            Get the <see cref="T:BEditor.Data.Property.EaseProperty"/> representing the Z coordinate.
-            </summary>
-        </member>
-        <member name="P:BEditor.Primitive.Objects.AudioObject.AudioCoordinate.DirectionX">
-            <summary>
-            Get the <see cref="T:BEditor.Data.Property.EaseProperty"/> representing the X coordinate.
-            </summary>
-        </member>
-        <member name="P:BEditor.Primitive.Objects.AudioObject.AudioCoordinate.DirectionY">
-            <summary>
-            Get the <see cref="T:BEditor.Data.Property.EaseProperty"/> representing the Y coordinate.
-            </summary>
-        </member>
-        <member name="P:BEditor.Primitive.Objects.AudioObject.AudioCoordinate.DirectionZ">
-            <summary>
-            Get the <see cref="T:BEditor.Data.Property.EaseProperty"/> representing the Z coordinate.
-            </summary>
-        </member>
-        <member name="M:BEditor.Primitive.Objects.AudioObject.AudioCoordinate.GetProperties">
-            <inheritdoc/>
-        </member>
-        <member name="T:BEditor.Primitive.Objects.AudioObject.AudioCoordinateMetadata">
-            <summary>
-            The metadata of <see cref="T:BEditor.Primitive.Objects.AudioObject.AudioCoordinate"/>.
-            </summary>
-            <param name="Name">The string displayed in the property header.</param>
-        </member>
-        <member name="M:BEditor.Primitive.Objects.AudioObject.AudioCoordinateMetadata.#ctor(System.String)">
-            <summary>
-            The metadata of <see cref="T:BEditor.Primitive.Objects.AudioObject.AudioCoordinate"/>.
-            </summary>
-            <param name="Name">The string displayed in the property header.</param>
-        </member>
-        <member name="M:BEditor.Primitive.Objects.AudioObject.AudioCoordinateMetadata.Create">
             <inheritdoc/>
         </member>
         <member name="T:BEditor.Primitive.Objects.CameraObject">
@@ -2743,11 +2643,6 @@
         <member name="F:BEditor.Primitive.PrimitiveTypes.FramebufferMetadata">
             <summary>
             Metadata of <see cref="F:BEditor.Primitive.PrimitiveTypes.Framebuffer"/> class.
-            </summary>
-        </member>
-        <member name="F:BEditor.Primitive.PrimitiveTypes.ListenerMetadata">
-            <summary>
-            Metadata of <see cref="T:BEditor.Primitive.Objects.ListenerObject"/> class.
             </summary>
         </member>
         <member name="M:BEditor.Primitive.PrimitiveTypes.EnumerateAllObjectMetadata">

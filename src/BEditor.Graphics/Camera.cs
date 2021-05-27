@@ -11,6 +11,7 @@ namespace BEditor.Graphics
     public abstract class Camera
     {
         private float _fov = MathHelper.PiOver2;
+        private Vector3 position;
 
         /// <summary>
         /// Initializes a new instance of the <see cref="Camera"/> class.
@@ -24,7 +25,7 @@ namespace BEditor.Graphics
         /// <summary>
         /// Gets or sets the position of this <see cref="Camera"/>.
         /// </summary>
-        public Vector3 Position { get; set; }
+        public Vector3 Position { get => position; set => position = value; }
 
         /// <summary>
         /// Gets or sets the target position of this <see cref="Camera"/>.

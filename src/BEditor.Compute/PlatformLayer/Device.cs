@@ -1,12 +1,27 @@
-﻿using System;
+﻿// Device.cs
+//
+// Copyright (C) BEditor
+//
+// This software may be modified and distributed under the terms
+// of the MIT license. See the LICENSE file for details.
+
+using System;
 using System.Runtime.InteropServices;
 
 using BEditor.Compute.OpenCL;
 
 namespace BEditor.Compute.PlatformLayer
 {
+    /// <summary>
+    /// Represents the OpenCL device.
+    /// </summary>
     public unsafe class Device
     {
+        /// <summary>
+        /// Initializes a new instance of the <see cref="Device"/> class.
+        /// </summary>
+        /// <param name="platform">The platform.</param>
+        /// <param name="index">The index of devices in the platform.</param>
         public Device(Platform platform, int index)
         {
             Platform = platform;
@@ -30,14 +45,30 @@ namespace BEditor.Compute.PlatformLayer
             Info = Platform.PlatformInfos[platform.Index].DeviceInfos[index];
         }
 
+        /// <summary>
+        /// Gets the platform.
+        /// </summary>
         public Platform Platform { get; }
 
+        /// <summary>
+        /// Gets the index of devices in the platform.
+        /// </summary>
         public int Index { get; }
 
+        /// <summary>
+        /// Gets the pointer.
+        /// </summary>
         public void* Pointer { get; }
 
+        /// <summary>
+        /// Gets the device info.
+        /// </summary>
         public DeviceInfo Info { get; }
 
+        /// <summary>
+        /// Creates the context.
+        /// </summary>
+        /// <returns>Returns the created <see cref="Context"/>.</returns>
         public Context CreateContext()
         {
             return new Context(new Device[] { this });

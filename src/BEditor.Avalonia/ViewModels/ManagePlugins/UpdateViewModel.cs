@@ -65,7 +65,7 @@ namespace BEditor.ViewModels.ManagePlugins
                     .Select(i => (plugin: PluginManager.Default.Plugins.FirstOrDefault(p => p.Id == i.Id), package: i))
                     .Where(i => i.plugin is not null &&
                         i.package.Versions.FirstOrDefault() is PackageVersion packageVersion &&
-                        GetVersion(i.plugin!) < packageVersion.ToVersion())
+                        GetVersion(i.plugin!) < new Version(packageVersion.Version))
                      .Select(i => new UpdateTarget(i.plugin!, i.package)));
             });
         }

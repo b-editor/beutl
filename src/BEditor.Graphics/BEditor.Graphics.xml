@@ -669,12 +669,7 @@
         </member>
         <member name="M:BEditor.Graphics.GraphicsObject.Finalize">
             <summary>
-            Discards the reference to the target that is represented by the current <see cref="T:BEditor.Graphics.GraphicsObject"/> object.
-            </summary>
-        </member>
-        <member name="P:BEditor.Graphics.GraphicsObject.SynchronizeContext">
-            <summary>
-            Gets the synchronization context associated with this object.
+            Finalizes an instance of the <see cref="T:BEditor.Graphics.GraphicsObject"/> class.
             </summary>
         </member>
         <member name="P:BEditor.Graphics.GraphicsObject.Vertices">
@@ -684,22 +679,27 @@
         </member>
         <member name="P:BEditor.Graphics.GraphicsObject.IsDisposed">
             <summary>
-            Gets whether an object has been disposed.
+            Gets a value indicating whether this instance has been disposed.
             </summary>
         </member>
         <member name="P:BEditor.Graphics.GraphicsObject.Color">
             <summary>
-            Gets the color of this <see cref="T:BEditor.Graphics.GraphicsObject"/>.
+            Gets or sets the color of this <see cref="T:BEditor.Graphics.GraphicsObject"/>.
             </summary>
         </member>
         <member name="P:BEditor.Graphics.GraphicsObject.Material">
             <summary>
-            Gets the material of this <see cref="T:BEditor.Graphics.GraphicsObject"/>.
+            Gets or sets the material of this <see cref="T:BEditor.Graphics.GraphicsObject"/>.
             </summary>
         </member>
         <member name="P:BEditor.Graphics.GraphicsObject.Transform">
             <summary>
-            Gets the transform of this <see cref="T:BEditor.Graphics.GraphicsObject"/>.
+            Gets or sets the transform of this <see cref="T:BEditor.Graphics.GraphicsObject"/>.
+            </summary>
+        </member>
+        <member name="P:BEditor.Graphics.GraphicsObject.SynchronizeContext">
+            <summary>
+            Gets the synchronization context associated with this object.
             </summary>
         </member>
         <member name="M:BEditor.Graphics.GraphicsObject.Draw">

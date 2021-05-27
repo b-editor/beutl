@@ -19,12 +19,13 @@ Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "Solution Items", "Solution 
 		.gitmodules = .gitmodules
 		ARCHITECTURE.md = ARCHITECTURE.md
 		build.cake = build.cake
+		CodeAnalysis.ruleset = CodeAnalysis.ruleset
 		src\Directory.Build.props = src\Directory.Build.props
 		icon.png = icon.png
 		LICENSE = LICENSE
 		README.md = README.md
-		roslynator.ruleset = roslynator.ruleset
 		SECURITY.md = SECURITY.md
+		stylecop.json = stylecop.json
 	EndProjectSection
 EndProject
 Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "snippet", "snippet", "{07AD3413-7A32-466C-B70B-988EC917B8B3}"
