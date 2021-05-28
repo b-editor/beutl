@@ -27,7 +27,7 @@ namespace BEditor.ViewModels.DialogContent
                 {
                     _selectedClip = Scene.Value.Find(id);
 
-                    if(_selectedClip is null)
+                    if (_selectedClip is null)
                     {
                         return Strings.SpecifiedClipIsNotFound;
                     }
@@ -43,7 +43,7 @@ namespace BEditor.ViewModels.DialogContent
             Create.Subscribe(() =>
             {
                 var msg = AppModel.Current.Message;
-                if(_selectedClip is null)
+                if (_selectedClip is null)
                 {
                     msg.Snackbar(Strings.NoClipIsSelected);
                     return;

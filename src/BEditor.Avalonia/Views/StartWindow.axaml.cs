@@ -28,7 +28,7 @@ namespace BEditor.Views
 
                     _tabControl.SelectedItem = old;
                 }
-                else if(item.Tag is "MainWindow")
+                else if (item.Tag is "MainWindow")
                 {
                     var main = new MainWindow();
                     App.SetMainWindow(main);
