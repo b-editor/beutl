@@ -51,12 +51,12 @@ namespace BEditor.Graphics
         /// <summary>
         /// Gets or sets the color of this <see cref="GraphicsObject"/>.
         /// </summary>
-        public Color Color { get; set; } = Color.Light;
+        public Color Color { get; set; } = Colors.White;
 
         /// <summary>
         /// Gets or sets the material of this <see cref="GraphicsObject"/>.
         /// </summary>
-        public Material Material { get; set; } = new(Color.Light, Color.Light, Color.Light, 16);
+        public Material Material { get; set; } = new(Colors.White, Colors.White, Colors.White, 16);
 
         /// <summary>
         /// Gets or sets the transform of this <see cref="GraphicsObject"/>.

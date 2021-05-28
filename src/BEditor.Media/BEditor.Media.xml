@@ -755,7 +755,7 @@
         </member>
         <member name="M:BEditor.Media.Frame.#ctor(System.Int32)">
             <summary>
-            Initializes a new instance of the <see cref="T:BEditor.Media.Frame"/> class.
+            Initializes a new instance of the <see cref="T:BEditor.Media.Frame"/> struct.
             </summary>
             <param name="value">The value.</param>
         </member>
@@ -764,82 +764,17 @@
             Gets the number of the frame.
             </summary>
         </member>
-        <member name="M:BEditor.Media.Frame.ToTimeSpan(System.Double)">
+        <member name="M:BEditor.Media.Frame.op_Implicit(BEditor.Media.Frame)~System.Int32">
             <summary>
-            Converts this <see cref="T:BEditor.Media.Frame"/> to a <see cref="T:System.TimeSpan"/>.
+            Converts the <see cref="T:BEditor.Media.Frame"/> to a 32-bit signed integer.
             </summary>
-            <param name="framerate">The number of frames per second.</param>
+            <param name="frame">A frame.</param>
         </member>
-        <member name="M:BEditor.Media.Frame.ToMilliseconds(System.Double)">
+        <member name="M:BEditor.Media.Frame.op_Implicit(System.Int32)~BEditor.Media.Frame">
             <summary>
-            Converts this <see cref="T:BEditor.Media.Frame"/> to milliseconds.
+            Converts the 32-bit signed integer to a <see cref="T:BEditor.Media.Frame"/>.
             </summary>
-            <param name="framerate">The number of frames per second.</param>
-        </member>
-        <member name="M:BEditor.Media.Frame.ToSeconds(System.Double)">
-            <summary>
-            Converts this <see cref="T:BEditor.Media.Frame"/> to seconds.
-            </summary>
-            <param name="framerate">The number of frames per second.</param>
-        </member>
-        <member name="M:BEditor.Media.Frame.ToMinutes(System.Double)">
-            <summary>
-            Converts this <see cref="T:BEditor.Media.Frame"/> to minutes.
-            </summary>
-            <param name="framerate">The number of frames per second.</param>
-        </member>
-        <member name="M:BEditor.Media.Frame.ToHours(System.Double)">
-            <summary>
-            Converts this <see cref="T:BEditor.Media.Frame"/> to hours.
-            </summary>
-            <param name="framerate">The number of frames per second.</param>
-        </member>
-        <member name="M:BEditor.Media.Frame.FromMilliseconds(System.Double,System.Double)">
-            <summary>
-            Creates the <see cref="T:BEditor.Media.Frame"/> from milliseconds.
-            </summary>
-            <param name="milliseconds">A number of milliseconds.</param>
-            <param name="framerate">The number of frames per second.</param>
-        </member>
-        <member name="M:BEditor.Media.Frame.FromSeconds(System.Double,System.Double)">
-            <summary>
-            Creates the <see cref="T:BEditor.Media.Frame"/> from seconds.
-            </summary>
-            <param name="seconds">A number of seconds.</param>
-            <param name="framerate">The number of frames per second.</param>
-        </member>
-        <member name="M:BEditor.Media.Frame.FromMinutes(System.Double,System.Double)">
-            <summary>
-            Creates the <see cref="T:BEditor.Media.Frame"/> from minutes.
-            </summary>
-            <param name="minutes">A number of minutes.</param>
-            <param name="framerate">The number of frames per second.</param>
-        </member>
-        <member name="M:BEditor.Media.Frame.FromHours(System.Double,System.Double)">
-            <summary>
-            Creates the <see cref="T:BEditor.Media.Frame"/> from hours.
-            </summary>
-            <param name="hours">A number of hours.</param>
-            <param name="framerate">The number of frames per second.</param>
-        </member>
-        <member name="M:BEditor.Media.Frame.FromTimeSpan(System.TimeSpan,System.Double)">
-            <summary>
-            Creates the <see cref="T:BEditor.Media.Frame"/> from <see cref="T:System.TimeSpan"/>.
-            </summary>
-            <param name="timeSpan">The <see cref="T:System.TimeSpan"/> representing the frame number.</param>
-            <param name="framerate">The number of frames per second.</param>
-        </member>
-        <member name="M:BEditor.Media.Frame.Equals(System.Object)">
-            <inheritdoc/>
-        </member>
-        <member name="M:BEditor.Media.Frame.Equals(BEditor.Media.Frame)">
-            <inheritdoc/>
-        </member>
-        <member name="M:BEditor.Media.Frame.GetHashCode">
-            <inheritdoc/>
-        </member>
-        <member name="M:BEditor.Media.Frame.GetObjectData(System.Runtime.Serialization.SerializationInfo,System.Runtime.Serialization.StreamingContext)">
-            <inheritdoc/>
+            <param name="value">A 32-bit signed integer.</param>
         </member>
         <member name="M:BEditor.Media.Frame.op_Equality(BEditor.Media.Frame,BEditor.Media.Frame)">
             <summary>
@@ -921,17 +856,92 @@
             <param name="right">The value to be multiplied by.</param>
             <returns>A new object that represents the value of the specified <see cref="T:BEditor.Media.Frame"/> instance multiplied by the value of the specified factor.</returns>
         </member>
-        <member name="M:BEditor.Media.Frame.op_Implicit(BEditor.Media.Frame)~System.Int32">
+        <member name="M:BEditor.Media.Frame.FromMilliseconds(System.Double,System.Double)">
             <summary>
-            Converts the <see cref="T:BEditor.Media.Frame"/> to a 32-bit signed integer.
+            Creates the <see cref="T:BEditor.Media.Frame"/> from milliseconds.
             </summary>
-            <param name="frame">A frame.</param>
+            <param name="milliseconds">A number of milliseconds.</param>
+            <param name="framerate">The number of frames per second.</param>
+            <returns>An object that represents value.</returns>
         </member>
-        <member name="M:BEditor.Media.Frame.op_Implicit(System.Int32)~BEditor.Media.Frame">
+        <member name="M:BEditor.Media.Frame.FromSeconds(System.Double,System.Double)">
             <summary>
-            Converts the 32-bit signed integer to a <see cref="T:BEditor.Media.Frame"/>.
+            Creates the <see cref="T:BEditor.Media.Frame"/> from seconds.
             </summary>
-            <param name="value">A 32-bit signed integer.</param>
+            <param name="seconds">A number of seconds.</param>
+            <param name="framerate">The number of frames per second.</param>
+            <returns>An object that represents value.</returns>
+        </member>
+        <member name="M:BEditor.Media.Frame.FromMinutes(System.Double,System.Double)">
+            <summary>
+            Creates the <see cref="T:BEditor.Media.Frame"/> from minutes.
+            </summary>
+            <param name="minutes">A number of minutes.</param>
+            <param name="framerate">The number of frames per second.</param>
+            <returns>An object that represents value.</returns>
+        </member>
+        <member name="M:BEditor.Media.Frame.FromHours(System.Double,System.Double)">
+            <summary>
+            Creates the <see cref="T:BEditor.Media.Frame"/> from hours.
+            </summary>
+            <param name="hours">A number of hours.</param>
+            <param name="framerate">The number of frames per second.</param>
+            <returns>An object that represents value.</returns>
+        </member>
+        <member name="M:BEditor.Media.Frame.FromTimeSpan(System.TimeSpan,System.Double)">
+            <summary>
+            Creates the <see cref="T:BEditor.Media.Frame"/> from <see cref="T:System.TimeSpan"/>.
+            </summary>
+            <param name="timeSpan">The <see cref="T:System.TimeSpan"/> representing the frame number.</param>
+            <param name="framerate">The number of frames per second.</param>
+            <returns>An object that represents value.</returns>
+        </member>
+        <member name="M:BEditor.Media.Frame.ToTimeSpan(System.Double)">
+            <summary>
+            Converts this <see cref="T:BEditor.Media.Frame"/> to a <see cref="T:System.TimeSpan"/>.
+            </summary>
+            <param name="framerate">The number of frames per second.</param>
+            <returns>An object that represents value.</returns>
+        </member>
+        <member name="M:BEditor.Media.Frame.ToMilliseconds(System.Double)">
+            <summary>
+            Converts this <see cref="T:BEditor.Media.Frame"/> to milliseconds.
+            </summary>
+            <param name="framerate">The number of frames per second.</param>
+            <returns>An object that represents value.</returns>
+        </member>
+        <member name="M:BEditor.Media.Frame.ToSeconds(System.Double)">
+            <summary>
+            Converts this <see cref="T:BEditor.Media.Frame"/> to seconds.
+            </summary>
+            <param name="framerate">The number of frames per second.</param>
+            <returns>An object that represents value.</returns>
+        </member>
+        <member name="M:BEditor.Media.Frame.ToMinutes(System.Double)">
+            <summary>
+            Converts this <see cref="T:BEditor.Media.Frame"/> to minutes.
+            </summary>
+            <param name="framerate">The number of frames per second.</param>
+            <returns>An object that represents value.</returns>
+        </member>
+        <member name="M:BEditor.Media.Frame.ToHours(System.Double)">
+            <summary>
+            Converts this <see cref="T:BEditor.Media.Frame"/> to hours.
+            </summary>
+            <param name="framerate">The number of frames per second.</param>
+            <returns>An object that represents value.</returns>
+        </member>
+        <member name="M:BEditor.Media.Frame.Equals(System.Object)">
+            <inheritdoc/>
+        </member>
+        <member name="M:BEditor.Media.Frame.Equals(BEditor.Media.Frame)">
+            <inheritdoc/>
+        </member>
+        <member name="M:BEditor.Media.Frame.GetHashCode">
+            <inheritdoc/>
+        </member>
+        <member name="M:BEditor.Media.Frame.GetObjectData(System.Runtime.Serialization.SerializationInfo,System.Runtime.Serialization.StreamingContext)">
+            <inheritdoc/>
         </member>
         <member name="T:BEditor.Media.IRegisterdDecoding">
             <summary>

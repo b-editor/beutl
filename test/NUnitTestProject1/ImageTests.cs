@@ -24,7 +24,7 @@ namespace NUnitTestProject1
             img.LinerGradient(
                 new PointF(0, 0),
                 new PointF(1, 1),
-                new Color[] { Color.Red, Color.Blue },
+                new Color[] { Colors.Red, Colors.Blue },
                 new float[] { 0, 1 },
                 ShaderTileMode.Repeat);
 
@@ -35,7 +35,7 @@ namespace NUnitTestProject1
         public void DrawEllipse()
         {
             using var img = GradentImage();
-            using var ellipse = Image.Ellipse(100, 100, 50, Color.Light);
+            using var ellipse = Image.Ellipse(100, 100, 50, Colors.White);
 #if UseMemoryStream
             using var stream = new MemoryStream();
 #else
@@ -50,7 +50,7 @@ namespace NUnitTestProject1
         public void AddEllipse()
         {
             using var img = GradentImage();
-            using var ellipse = Image.Ellipse(100, 100, 50, Color.Light);
+            using var ellipse = Image.Ellipse(100, 100, 50, Colors.White);
 #if UseMemoryStream
             using var stream = new MemoryStream();
 #else
@@ -69,7 +69,7 @@ namespace NUnitTestProject1
         public void DrawTriangle()
         {
             using var img = GradentImage();
-            using var ellipse = Image.Polygon(3, 100, 100, Color.Light);
+            using var ellipse = Image.Polygon(3, 100, 100, Colors.White);
 #if UseMemoryStream
             using var stream = new MemoryStream();
 #else
@@ -119,7 +119,7 @@ namespace NUnitTestProject1
         public void TestRoundRect()
         {
             using var img = GradentImage();
-            using var rect = Image.RoundRect(250, 250, 25, Color.Light, 25, 25, 25, 25);
+            using var rect = Image.RoundRect(250, 250, 25, Colors.White, 25, 25, 25, 25);
 #if UseMemoryStream
             using var stream = new MemoryStream();
 #else
@@ -150,7 +150,7 @@ namespace NUnitTestProject1
         {
             BGRA32* data = stackalloc BGRA32[100 * 100];
             using var image = new Image<BGRA32>(100, 100, data);
-            using var circle = Image.Ellipse(100, 100, 25, Color.Light);
+            using var circle = Image.Ellipse(100, 100, 25, Colors.White);
 #if UseMemoryStream
             using var stream = new MemoryStream();
 #else
@@ -163,7 +163,7 @@ namespace NUnitTestProject1
         [Test]
         public void ColorFormat()
         {
-            var color = Color.Blue;
+            var color = Colors.Blue;
 
             Console.WriteLine("#argb  : " + color.ToString("#argb"));
             Console.WriteLine("#rgb   : " + color.ToString("#rgb"));

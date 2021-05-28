@@ -3,6 +3,7 @@ using System.Text.Json;
 
 using BEditor.Data;
 using BEditor.Data.Property;
+using BEditor.Drawing;
 
 #nullable disable
 
@@ -24,7 +25,7 @@ namespace BEditor.Primitive.Objects
 
         public static readonly EditingProperty<ColorProperty> ColorProperty = EditingProperty.RegisterDirect<ColorProperty, PropertyTest>(
             nameof(Color), owner => owner.Color, (owner, obj) => owner.Color = obj,
-            EditingPropertyOptions<ColorProperty>.Create(new ColorPropertyMetadata("Color", Drawing.Color.Light)).Serialize());
+            EditingPropertyOptions<ColorProperty>.Create(new ColorPropertyMetadata("Color", Colors.White)).Serialize());
 
         public static readonly EditingProperty<DocumentProperty> DocumentProperty = EditingProperty.RegisterDirect<DocumentProperty, PropertyTest>(
             nameof(Document), owner => owner.Document, (owner, obj) => owner.Document = obj,

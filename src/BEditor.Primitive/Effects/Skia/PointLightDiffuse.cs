@@ -42,7 +42,7 @@ namespace BEditor.Primitive.Effects
             nameof(LightColor),
             owner => owner.LightColor,
             (owner, obj) => owner.LightColor = obj,
-            EditingPropertyOptions<ColorProperty>.Create(new ColorPropertyMetadata("Light color", Color.Light, true)).Serialize());
+            EditingPropertyOptions<ColorProperty>.Create(new ColorPropertyMetadata("Light color", Colors.White, true)).Serialize());
 
         /// <summary>
         /// Defines the <see cref="SurfaceScale"/> property.

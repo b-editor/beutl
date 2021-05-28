@@ -15,7 +15,7 @@ using BEditor.Compute.Runtime;
 namespace BEditor.Drawing
 {
     /// <summary>
-    /// Represents the context that supports pixel processing on the GPU.
+    /// The context used for pixel manipulation on the GPU.
     /// </summary>
     public class DrawingContext : IDisposable
     {

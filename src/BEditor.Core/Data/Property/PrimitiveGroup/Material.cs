@@ -1,8 +1,13 @@
-﻿using System;
+﻿// Material.cs
+//
+// Copyright (C) BEditor
+//
+// This software may be modified and distributed under the terms
+// of the MIT license. See the LICENSE file for details.
+
+using System;
 using System.Collections.Generic;
 using System.Diagnostics.CodeAnalysis;
-
-using BEditor.Data;
 
 using BEditor.Drawing;
 using BEditor.Resources;
@@ -21,7 +26,7 @@ namespace BEditor.Data.Property.PrimitiveGroup
             nameof(Ambient),
             owner => owner.Ambient,
             (owner, obj) => owner.Ambient = obj,
-            EditingPropertyOptions<ColorAnimationProperty>.Create(new ColorAnimationPropertyMetadata(Strings.Ambient, Color.Light, true)).Serialize());
+            EditingPropertyOptions<ColorAnimationProperty>.Create(new ColorAnimationPropertyMetadata(Strings.Ambient, Colors.White, true)).Serialize());
 
         /// <summary>
         /// Defines the <see cref="Diffuse"/> property.
@@ -30,7 +35,7 @@ namespace BEditor.Data.Property.PrimitiveGroup
             nameof(Diffuse),
             owner => owner.Diffuse,
             (owner, obj) => owner.Diffuse = obj,
-            EditingPropertyOptions<ColorAnimationProperty>.Create(new ColorAnimationPropertyMetadata(Strings.Diffuse, Color.Light, true)).Serialize());
+            EditingPropertyOptions<ColorAnimationProperty>.Create(new ColorAnimationPropertyMetadata(Strings.Diffuse, Colors.White, true)).Serialize());
 
         /// <summary>
         /// Defines the <see cref="Specular"/> property.
@@ -39,7 +44,7 @@ namespace BEditor.Data.Property.PrimitiveGroup
             nameof(Specular),
             owner => owner.Specular,
             (owner, obj) => owner.Specular = obj,
-            EditingPropertyOptions<ColorAnimationProperty>.Create(new ColorAnimationPropertyMetadata(Strings.Specular, Color.Light, true)).Serialize());
+            EditingPropertyOptions<ColorAnimationProperty>.Create(new ColorAnimationPropertyMetadata(Strings.Specular, Colors.White, true)).Serialize());
 
         /// <summary>
         /// Defines the <see cref="Shininess"/> property.
@@ -55,7 +60,8 @@ namespace BEditor.Data.Property.PrimitiveGroup
         /// </summary>
         /// <param name="metadata">Metadata of this property.</param>
         /// <exception cref="ArgumentNullException"><paramref name="metadata"/> is <see langword="null"/>.</exception>
-        public Material(MaterialMetadata metadata) : base(metadata)
+        public Material(MaterialMetadata metadata)
+            : base(metadata)
         {
         }
 

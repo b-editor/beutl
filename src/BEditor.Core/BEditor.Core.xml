@@ -1384,11 +1384,13 @@
             <summary>
             Apply the effect.
             </summary>
+            <param name="args">The data used to apply the effect.</param>
         </member>
         <member name="M:BEditor.Data.EffectElement.PreviewRender(BEditor.Data.EffectApplyArgs)">
             <summary>
             It will be called before rendering.
             </summary>
+            <param name="args">The data used to apply the effect.</param>
         </member>
         <member name="M:BEditor.Data.EffectElement.ChangeIsEnabled(System.Boolean)">
             <summary>
@@ -1843,6 +1845,8 @@
             <summary>
             Render the image.
             </summary>
+            <param name="args">The data used to apply the effect.</param>
+            <param name="image">Returns the rendered image.</param>
         </member>
         <member name="M:BEditor.Data.Primitive.ImageObject.EffectFilter(BEditor.Data.EffectElement)">
             <inheritdoc/>

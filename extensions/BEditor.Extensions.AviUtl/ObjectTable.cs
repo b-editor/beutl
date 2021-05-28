@@ -29,7 +29,7 @@ namespace BEditor.Extensions.AviUtl
         private Image<BGRA32> _img;
         private Font _font;
         private int _fontsize = 16;
-        private Color _fontcolor = Color.Light;
+        private Color _fontcolor = Colors.White;
 
         public ObjectTable(EffectApplyArgs<Image<BGRA32>> args, ImageObject image)
         {

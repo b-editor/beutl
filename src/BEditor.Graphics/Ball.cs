@@ -1,4 +1,11 @@
-﻿using System;
+﻿// Ball.cs
+//
+// Copyright (C) BEditor
+//
+// This software may be modified and distributed under the terms
+// of the MIT license. See the LICENSE file for details.
+
+using System;
 using System.Collections.Generic;
 using System.Numerics;
 
@@ -13,8 +20,8 @@ namespace BEditor.Graphics
     /// </summary>
     public class Ball : GraphicsObject
     {
+        private const int Count = 8;
         private readonly float[] _vertices;
-        private const int count = 8;
 
         /// <summary>
         /// Initializes a new instance of the <see cref="Ball"/> class.
@@ -25,7 +32,7 @@ namespace BEditor.Graphics
         /// <param name="color">The color of the ball.</param>
         /// <exception cref="GraphicsException">OpenGL error occurred.</exception>
         public Ball(float radiusX, float radiusY, float radiusZ, Color color)
-            : this(radiusX, radiusY, radiusZ, color, new(Color.Light, Color.Light, Color.Light, 16))
+            : this(radiusX, radiusY, radiusZ, color, new(Colors.White, Colors.White, Colors.White, 16))
         {
         }
 
@@ -62,13 +69,13 @@ namespace BEditor.Graphics
             Material = material;
             Transform = transform;
 
-            const float a = (float)(Math.PI / count / 2);
-            const float b = (float)(Math.PI / count / 2);
+            const float a = (float)(Math.PI / Count / 2);
+            const float b = (float)(Math.PI / Count / 2);
             var verticesList = new List<float>();
 
-            for (var k = -count + 1; k <= count; k++)
+            for (var k = -Count + 1; k <= Count; k++)
             {
-                for (var i = 0; i <= count * 4; i++)
+                for (var i = 0; i <= Count * 4; i++)
                 {
                     var vec1 = new Vector3(
                         radiusX * MathF.Cos(b * k) * MathF.Cos(a * i),

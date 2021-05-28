@@ -1,16 +1,47 @@
-﻿using System;
+﻿// CL.cs
+//
+// Copyright (C) BEditor
+//
+// This software may be modified and distributed under the terms
+// of the MIT license. See the LICENSE file for details.
+
+using System;
 using System.Runtime.InteropServices;
 
 namespace BEditor.Compute.OpenCL
 {
-#pragma warning disable CA1401
-    public unsafe static class CL
+#pragma warning disable CA1401, CS1591, SA1600
+
+    /// <summary>
+    /// Provides OpenCL functions.
+    /// </summary>
+    public static unsafe class CL
     {
         private const string Library = "opencl";
         private static readonly bool _registeredResolver = false;
 
         static CL()
         {
+            static string GetLibraryName()
+            {
+                if (OperatingSystem.IsLinux() || OperatingSystem.IsAndroid())
+                {
+                    return "libOpenCL.so.1";
+                }
+                else if (OperatingSystem.IsWindows())
+                {
+                    return "OpenCL.dll";
+                }
+                else if (OperatingSystem.IsIOS() || OperatingSystem.IsMacOS())
+                {
+                    return "/System/Library/Frameworks/OpenCL.framework/OpenCL";
+                }
+                else
+                {
+                    throw new NotSupportedException($"The library name couldn't be resolved for the given platform ('{RuntimeInformation.OSDescription}').");
+                }
+            }
+
             if (!_registeredResolver)
             {
                 NativeLibrary.SetDllImportResolver(typeof(CL).Assembly, (_, assembly, path) =>
@@ -27,26 +58,6 @@ namespace BEditor.Compute.OpenCL
                 });
 
                 _registeredResolver = true;
-            }
-        }
-
-        private static string GetLibraryName()
-        {
-            if (OperatingSystem.IsLinux() || OperatingSystem.IsAndroid())
-            {
-                return "libOpenCL.so.1";
-            }
-            else if (OperatingSystem.IsWindows())
-            {
-                return "OpenCL.dll";
-            }
-            else if (OperatingSystem.IsIOS() || OperatingSystem.IsMacOS())
-            {
-                return "/System/Library/Frameworks/OpenCL.framework/OpenCL";
-            }
-            else
-            {
-                throw new NotSupportedException($"The library name couldn't be resolved for the given platform ('{RuntimeInformation.OSDescription}').");
             }
         }
 
@@ -140,5 +151,5 @@ namespace BEditor.Compute.OpenCL
         [DllImport(Library, EntryPoint = "clFinish")]
         public static extern int Finish(void* command_queue);
     }
-#pragma warning restore CA1401
+#pragma warning restore CA1401, CS1591, SA1600
 }

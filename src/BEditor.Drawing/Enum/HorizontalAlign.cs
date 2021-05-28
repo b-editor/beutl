@@ -1,4 +1,4 @@
-﻿// Quality.cs
+﻿// HorizontalAlign.cs
 //
 // Copyright (C) BEditor
 //
@@ -8,28 +8,23 @@
 namespace BEditor.Drawing
 {
     /// <summary>
-    /// Indicates the quality used in <see cref="Image.Resize(Image{Pixel.BGRA32}, int, int, Quality)"/>.
+    /// Defines how the text will be aligned horizontally.
     /// </summary>
-    public enum Quality
+    public enum HorizontalAlign
     {
         /// <summary>
-        /// Unspecified.
+        /// The font aligns itself to the left of the image.
         /// </summary>
-        None,
+        Left = 0,
 
         /// <summary>
-        /// Low quality.
+        /// The font centers itself in the image.
         /// </summary>
-        Low,
+        Center = 1,
 
         /// <summary>
-        /// Medium quality.
+        /// The font aligns itself to the right of the image.
         /// </summary>
-        Medium,
-
-        /// <summary>
-        /// High quality.
-        /// </summary>
-        High,
+        Right = 2,
     }
 }

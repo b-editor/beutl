@@ -85,11 +85,13 @@ namespace BEditor.Data
         /// <summary>
         /// Apply the effect.
         /// </summary>
+        /// <param name="args">The data used to apply the effect.</param>
         public abstract void Apply(EffectApplyArgs args);
 
         /// <summary>
         /// It will be called before rendering.
         /// </summary>
+        /// <param name="args">The data used to apply the effect.</param>
         public virtual void PreviewRender(EffectApplyArgs args)
         {
         }

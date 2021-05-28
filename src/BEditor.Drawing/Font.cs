@@ -1,4 +1,11 @@
-﻿using System;
+﻿// Font.cs
+//
+// Copyright (C) BEditor
+//
+// This software may be modified and distributed under the terms
+// of the MIT license. See the LICENSE file for details.
+
+using System;
 using System.Collections.Generic;
 using System.IO;
 using System.Runtime.Serialization;
@@ -10,11 +17,18 @@ using SkiaSharp;
 
 namespace BEditor.Drawing
 {
+    /// <summary>
+    /// Represents the font.
+    /// </summary>
     [Serializable]
     public class Font : ISerializable, IEquatable<Font?>
     {
         private SKTypeface? _typeface;
 
+        /// <summary>
+        /// Initializes a new instance of the <see cref="Font"/> class.
+        /// </summary>
+        /// <param name="file">The font file name.</param>
         public Font(string file)
         {
             if (Path.GetExtension(file) is not (".ttf" or ".ttc" or ".otf"))
@@ -28,6 +42,7 @@ namespace BEditor.Drawing
             FamilyName = face.FamilyName;
             Name = FormatFamilyName();
         }
+
         private Font(SerializationInfo info, StreamingContext context)
         {
             Filename = info.GetString(nameof(Filename)) ?? throw new Exception();
@@ -37,16 +52,87 @@ namespace BEditor.Drawing
             Width = (FontStyleWidth)info.GetInt32(nameof(Width));
         }
 
+        /// <summary>
+        /// Gets the filename of this font.
+        /// </summary>
         public string Filename { get; }
+
+        /// <summary>
+        /// Gets the familyname of this font.
+        /// </summary>
         public string FamilyName { get; }
+
+        /// <summary>
+        /// Gets the formatted font name. [eg: "Roboto Bold Expanded"].
+        /// </summary>
         public string Name { get; }
+
+        /// <summary>
+        /// Gets the weight of this font style.
+        /// </summary>
         public FontStyleWeight Weight { get; }
+
+        /// <summary>
+        /// Gets the width of this font style.
+        /// </summary>
         public FontStyleWidth Width { get; }
+
+        /// <summary>
+        /// Indicates whether two <see cref="Font"/> instances are equal.
+        /// </summary>
+        /// <param name="left">The first font to compare.</param>
+        /// <param name="right">The second font to compare.</param>
+        /// <returns>true if the values of <paramref name="left"/> and <paramref name="right"/> are equal; otherwise, false.</returns>
+        public static bool operator ==(Font? left, Font? right)
+        {
+            return EqualityComparer<Font>.Default.Equals(left, right);
+        }
+
+        /// <summary>
+        /// Indicates whether two <see cref="Font"/> instances are not equal.
+        /// </summary>
+        /// <param name="left">The first font to compare.</param>
+        /// <param name="right">The second font to compare.</param>
+        /// <returns>true if the values of <paramref name="left"/> and <paramref name="right"/> are not equal; otherwise, false.</returns>
+        public static bool operator !=(Font? left, Font? right)
+        {
+            return !(left == right);
+        }
+
+        /// <inheritdoc/>
+        public void GetObjectData(SerializationInfo info, StreamingContext context)
+        {
+            info.AddValue(nameof(Filename), Filename);
+            info.AddValue(nameof(FamilyName), FamilyName);
+            info.AddValue(nameof(Name), Name);
+            info.AddValue(nameof(Weight), (int)Weight);
+            info.AddValue(nameof(Width), (int)Width);
+        }
+
+        /// <inheritdoc/>
+        public override bool Equals(object? obj)
+        {
+            return Equals(obj as Font);
+        }
+
+        /// <inheritdoc/>
+        public bool Equals(Font? other)
+        {
+            return other != null &&
+                   Filename == other.Filename;
+        }
+
+        /// <inheritdoc/>
+        public override int GetHashCode()
+        {
+            return HashCode.Combine(Filename);
+        }
 
         internal SKTypeface GetTypeface()
         {
             return _typeface ??= SKTypeface.FromFile(Filename);
         }
+
         private string FormatFamilyName()
         {
             var str = new StringBuilder(FamilyName);
@@ -58,102 +144,5 @@ namespace BEditor.Drawing
 
             return str.ToString();
         }
-        public void GetObjectData(SerializationInfo info, StreamingContext context)
-        {
-            info.AddValue(nameof(Filename), Filename);
-            info.AddValue(nameof(FamilyName), FamilyName);
-            info.AddValue(nameof(Name), Name);
-            info.AddValue(nameof(Weight), (int)Weight);
-            info.AddValue(nameof(Width), (int)Width);
-        }
-
-        public override bool Equals(object? obj)
-        {
-            return Equals(obj as Font);
-        }
-
-        public bool Equals(Font? other)
-        {
-            return other != null &&
-                   Filename == other.Filename;
-        }
-
-        public override int GetHashCode()
-        {
-            return HashCode.Combine(Filename);
-        }
-
-        public static bool operator ==(Font? left, Font? right)
-        {
-            return EqualityComparer<Font>.Default.Equals(left, right);
-        }
-
-        public static bool operator !=(Font? left, Font? right)
-        {
-            return !(left == right);
-        }
-    }
-
-    public enum VerticalAlign
-    {
-        /// <summary>
-        /// The font aligns itself to the top of the image.
-        /// </summary>
-        Top = 0,
-
-        /// <summary>
-        /// The font centers itself within the image.
-        /// </summary>
-        Center = 1,
-
-        /// <summary>
-        /// The font aligns itself to the bottom of the image.
-        /// </summary>
-        Bottom = 2
-    }
-
-    public enum HorizontalAlign
-    {
-        /// <summary>
-        /// The font aligns itself to the left of the image.
-        /// </summary>
-        Left = 0,
-
-        /// <summary>
-        /// The font centers itself in the image.
-        /// </summary>
-        Center = 1,
-
-        /// <summary>
-        /// The font aligns itself to the right of the image.
-        /// </summary>
-        Right = 2
-    }
-
-    public enum FontStyleWeight
-    {
-        Invisible = 0,
-        Thin = 100,
-        ExtraLight = 200,
-        Light = 300,
-        Normal = 400,
-        Medium = 500,
-        SemiBold = 600,
-        Bold = 700,
-        ExtraBold = 800,
-        Black = 900,
-        ExtraBlack = 1000
-    }
-    public enum FontStyleWidth
-    {
-        UltraCondensed = 1,
-        ExtraCondensed = 2,
-        Condensed = 3,
-        SemiCondensed = 4,
-        Normal = 5,
-        SemiExpanded = 6,
-        Expanded = 7,
-        ExtraExpanded = 8,
-        UltraExpanded = 9
     }
 }

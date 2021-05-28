@@ -1,4 +1,11 @@
-﻿using System;
+﻿// UnmanagedList.cs
+//
+// Copyright (C) BEditor
+//
+// This software may be modified and distributed under the terms
+// of the MIT license. See the LICENSE file for details.
+
+using System;
 using System.Collections;
 using System.Collections.Generic;
 using System.Collections.ObjectModel;
@@ -42,6 +49,7 @@ namespace BEditor
                 {
                     _items[i] = c[i];
                 }
+
                 _size = count;
             }
             else
@@ -66,11 +74,7 @@ namespace BEditor
             get => _items.Length;
             set
             {
-                if (value < _size)
-                {
-                    throw new ArgumentOutOfRangeException(nameof(value));
-                }
-
+                if (value < _size) throw new ArgumentOutOfRangeException(nameof(value));
                 if (value != _items.Length)
                 {
                     var oldItems = _items;
@@ -81,6 +85,7 @@ namespace BEditor
                         {
                             _items.AsSpan().Slice(0, value).CopyTo(newItems.AsSpan());
                         }
+
                         _items = newItems;
                     }
                     else
@@ -103,18 +108,15 @@ namespace BEditor
         {
             get
             {
-                if ((uint)index >= (uint)_size)
-                {
-                    throw new IndexOutOfRangeException();
-                }
+                if ((uint)index >= (uint)_size) throw new IndexOutOfRangeException();
+
                 return _items[index];
             }
+
             set
             {
-                if ((uint)index >= (uint)_size)
-                {
-                    throw new IndexOutOfRangeException();
-                }
+                if ((uint)index >= (uint)_size) throw new IndexOutOfRangeException();
+
                 _items[index] = value;
                 _version++;
             }
@@ -135,16 +137,6 @@ namespace BEditor
             {
                 AddWithResize(item);
             }
-        }
-
-        [MethodImpl(MethodImplOptions.NoInlining)]
-        private void AddWithResize(T item)
-        {
-            Debug.Assert(_size == _items.Length);
-            var size = _size;
-            Grow(size + 1);
-            _size = size + 1;
-            _items[size] = item;
         }
 
         public ReadOnlyCollection<T> AsReadOnly()
@@ -176,18 +168,17 @@ namespace BEditor
             return _size != 0 && IndexOf(item) != -1;
         }
 
-        public UnmanagedList<TOutput> ConvertAll<TOutput>(Converter<T, TOutput> converter) where TOutput : unmanaged
+        public UnmanagedList<TOutput> ConvertAll<TOutput>(Converter<T, TOutput> converter)
+            where TOutput : unmanaged
         {
-            if (converter == null)
-            {
-                throw new ArgumentNullException(nameof(converter));
-            }
+            if (converter == null) throw new ArgumentNullException(nameof(converter));
 
             var list = new UnmanagedList<TOutput>(_size);
             for (var i = 0; i < _size; i++)
             {
                 list._items[i] = converter(_items[i]);
             }
+
             list._size = _size;
             return list;
         }
@@ -199,10 +190,8 @@ namespace BEditor
 
         public int EnsureCapacity(int capacity)
         {
-            if (capacity < 0)
-            {
-                throw new ArgumentOutOfRangeException(nameof(capacity));
-            }
+            if (capacity < 0) throw new ArgumentOutOfRangeException(nameof(capacity));
+
             if (_items.Length < capacity)
             {
                 Grow(capacity);
@@ -210,19 +199,6 @@ namespace BEditor
             }
 
             return _items.Length;
-        }
-
-        private void Grow(int capacity)
-        {
-            Debug.Assert(_items.Length < capacity);
-
-            var newcapacity = _items.Length == 0 ? DefaultCapacity : 2 * _items.Length;
-
-            if ((uint)newcapacity > 0X7FFFFFC7) newcapacity = 0X7FFFFFC7;
-
-            if (newcapacity < capacity) newcapacity = capacity;
-
-            Capacity = newcapacity;
         }
 
         public bool Exists(Predicate<T> match)
@@ -241,6 +217,7 @@ namespace BEditor
                     return _items[i];
                 }
             }
+
             return default;
         }
 
@@ -256,6 +233,7 @@ namespace BEditor
                     list.Add(_items[i]);
                 }
             }
+
             return list;
         }
 
@@ -280,6 +258,7 @@ namespace BEditor
             {
                 if (match(_items[i])) return i;
             }
+
             return -1;
         }
 
@@ -294,6 +273,7 @@ namespace BEditor
                     return _items[i];
                 }
             }
+
             return default;
         }
 
@@ -311,25 +291,16 @@ namespace BEditor
         {
             if (match is null) throw new ArgumentNullException(nameof(match));
 
-            if (_size == 0)
+            if (_size == 0 && startIndex != -1)
             {
-                if (startIndex != -1)
-                {
-                    throw new ArgumentOutOfRangeException(nameof(startIndex));
-                }
+                throw new ArgumentOutOfRangeException(nameof(startIndex));
             }
-            else
+            else if ((uint)startIndex >= (uint)_size)
             {
-                if ((uint)startIndex >= (uint)_size)
-                {
-                    throw new ArgumentOutOfRangeException(nameof(startIndex));
-                }
+                throw new ArgumentOutOfRangeException(nameof(startIndex));
             }
 
-            if (count < 0 || startIndex - count + 1 < 0)
-            {
-                throw new ArgumentOutOfRangeException(nameof(count));
-            }
+            if (count < 0 || startIndex - count + 1 < 0) throw new ArgumentOutOfRangeException(nameof(count));
 
             var endIndex = startIndex - count;
             for (var i = startIndex; i > endIndex; i--)
@@ -339,6 +310,7 @@ namespace BEditor
                     return i;
                 }
             }
+
             return -1;
         }
 
@@ -354,6 +326,7 @@ namespace BEditor
                 {
                     break;
                 }
+
                 action(_items[i]);
             }
 
@@ -380,20 +353,11 @@ namespace BEditor
 
         public UnmanagedList<T> GetRange(int index, int count)
         {
-            if (index < 0)
-            {
-                throw new ArgumentOutOfRangeException(nameof(index));
-            }
+            if (index < 0) throw new ArgumentOutOfRangeException(nameof(index));
 
-            if (count < 0)
-            {
-                throw new ArgumentOutOfRangeException(nameof(count));
-            }
+            if (count < 0) throw new ArgumentOutOfRangeException(nameof(count));
 
-            if (_size - index < count)
-            {
-                throw new ArgumentException();
-            }
+            if (_size - index < count) throw new ArgumentException();
 
             var list = new UnmanagedList<T>(count);
             AsSpan().CopyTo(list.AsSpan());
@@ -415,10 +379,8 @@ namespace BEditor
 
         public void Insert(int index, T item)
         {
-            if ((uint)index > (uint)_size)
-            {
-                throw new ArgumentOutOfRangeException(nameof(index));
-            }
+            if ((uint)index > (uint)_size) throw new ArgumentOutOfRangeException(nameof(index));
+
             if (_size == _items.Length) Grow(_size + 1);
             if (index < _size)
             {
@@ -426,6 +388,7 @@ namespace BEditor
                 var len = _size - index;
                 span.Slice(index, len).CopyTo(span.Slice(index + 1, len));
             }
+
             _items[index] = item;
             _size++;
             _version++;
@@ -445,10 +408,7 @@ namespace BEditor
 
         public void RemoveAt(int index)
         {
-            if ((uint)index >= (uint)_size)
-            {
-                throw new ArgumentOutOfRangeException(nameof(index));
-            }
+            if ((uint)index >= (uint)_size) throw new ArgumentOutOfRangeException(nameof(index));
             _size--;
             if (index < _size)
             {
@@ -456,29 +416,22 @@ namespace BEditor
                 var len = _size - index;
                 span.Slice(index + 1, len).CopyTo(span.Slice(index, len));
             }
+
             if (RuntimeHelpers.IsReferenceOrContainsReferences<T>())
             {
                 _items[_size] = default!;
             }
+
             _version++;
         }
 
         public void RemoveRange(int index, int count)
         {
-            if (index < 0)
-            {
-                throw new ArgumentOutOfRangeException(nameof(index));
-            }
+            if (index < 0) throw new ArgumentOutOfRangeException(nameof(index));
 
-            if (count < 0)
-            {
-                throw new ArgumentOutOfRangeException(nameof(count));
-            }
+            if (count < 0) throw new ArgumentOutOfRangeException(nameof(count));
 
-            if (_size - index < count)
-            {
-                throw new ArgumentException();
-            }
+            if (_size - index < count) throw new ArgumentException();
 
             if (count > 0)
             {
@@ -505,25 +458,17 @@ namespace BEditor
 
         public void Reverse(int index, int count)
         {
-            if (index < 0)
-            {
-                throw new ArgumentOutOfRangeException(nameof(index));
-            }
+            if (index < 0) throw new ArgumentOutOfRangeException(nameof(index));
 
-            if (count < 0)
-            {
-                throw new ArgumentOutOfRangeException(nameof(count));
-            }
+            if (count < 0) throw new ArgumentOutOfRangeException(nameof(count));
 
-            if (_size - index < count)
-            {
-                throw new ArgumentException();
-            }
+            if (_size - index < count) throw new ArgumentException();
 
             if (count > 1)
             {
                 AsSpan().Slice(index, count).Reverse();
             }
+
             _version++;
         }
 
@@ -551,6 +496,7 @@ namespace BEditor
                     return false;
                 }
             }
+
             return true;
         }
 
@@ -569,11 +515,31 @@ namespace BEditor
             GC.SuppressFinalize(this);
         }
 
+        [MethodImpl(MethodImplOptions.NoInlining)]
+        private void AddWithResize(T item)
+        {
+            var size = _size;
+            Grow(size + 1);
+            _size = size + 1;
+            _items[size] = item;
+        }
+
+        private void Grow(int capacity)
+        {
+            var newcapacity = _items.Length == 0 ? DefaultCapacity : 2 * _items.Length;
+
+            if ((uint)newcapacity > 0X7FFFFFC7) newcapacity = 0X7FFFFFC7;
+
+            if (newcapacity < capacity) newcapacity = capacity;
+
+            Capacity = newcapacity;
+        }
+
         public struct Enumerator : IEnumerator<T>
         {
             private readonly UnmanagedList<T> _list;
-            private int _index;
             private readonly int _version;
+            private int _index;
             private T _current;
 
             internal Enumerator(UnmanagedList<T> list)
@@ -582,6 +548,21 @@ namespace BEditor
                 _index = 0;
                 _version = list._version;
                 _current = default;
+            }
+
+            public T Current => _current!;
+
+            object? IEnumerator.Current
+            {
+                get
+                {
+                    if (_index == 0 || _index == _list._size + 1)
+                    {
+                        throw new InvalidOperationException();
+                    }
+
+                    return Current;
+                }
             }
 
             public void Dispose()
@@ -598,7 +579,19 @@ namespace BEditor
                     _index++;
                     return true;
                 }
+
                 return MoveNextRare();
+            }
+
+            void IEnumerator.Reset()
+            {
+                if (_version != _list._version)
+                {
+                    throw new InvalidOperationException();
+                }
+
+                _index = 0;
+                _current = default;
             }
 
             private bool MoveNextRare()
@@ -611,31 +604,6 @@ namespace BEditor
                 _index = _list._size + 1;
                 _current = default;
                 return false;
-            }
-
-            public T Current => _current!;
-
-            object? IEnumerator.Current
-            {
-                get
-                {
-                    if (_index == 0 || _index == _list._size + 1)
-                    {
-                        throw new InvalidOperationException();
-                    }
-                    return Current;
-                }
-            }
-
-            void IEnumerator.Reset()
-            {
-                if (_version != _list._version)
-                {
-                    throw new InvalidOperationException();
-                }
-
-                _index = 0;
-                _current = default;
             }
         }
     }

@@ -1,4 +1,11 @@
-﻿using System;
+﻿// Cube.cs
+//
+// Copyright (C) BEditor
+//
+// This software may be modified and distributed under the terms
+// of the MIT license. See the LICENSE file for details.
+
+using System;
 
 using BEditor.Drawing;
 
@@ -22,7 +29,7 @@ namespace BEditor.Graphics
         /// <param name="color">The color of the cube.</param>
         /// <exception cref="GraphicsException">OpenGL error occurred.</exception>
         public Cube(float width, float height, float depth, Color color)
-            : this(width, height, depth, color, new(Color.Light, Color.Light, Color.Light, 16))
+            : this(width, height, depth, color, new(Colors.White, Colors.White, Colors.White, 16))
         {
         }
 
@@ -63,6 +70,7 @@ namespace BEditor.Graphics
             height /= 2;
             depth /= 2;
 
+#pragma warning disable SA1137
             _vertices = new float[]
             {
                 // Position
@@ -108,6 +116,7 @@ namespace BEditor.Graphics
                 -width,  height,  depth,  0.0f,  1.0f,  0.0f,
                 -width,  height, -depth,  0.0f,  1.0f,  0.0f,
             };
+#pragma warning restore SA1137
 
             VertexArrayObject = GL.GenVertexArray();
             GL.BindVertexArray(VertexArrayObject);

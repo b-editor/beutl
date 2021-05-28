@@ -1,11 +1,19 @@
-﻿using System;
+﻿// UnmanagedArray.cs
+//
+// Copyright (C) BEditor
+//
+// This software may be modified and distributed under the terms
+// of the MIT license. See the LICENSE file for details.
+
+using System;
 using System.Collections;
 using System.Collections.Generic;
 using System.Runtime.InteropServices;
 
 namespace BEditor
 {
-    internal unsafe class UnmanagedArray<T> : IDisposable, IEnumerable<T>, ICloneable where T : unmanaged
+    internal unsafe class UnmanagedArray<T> : IDisposable, IEnumerable<T>, ICloneable
+        where T : unmanaged
     {
         private readonly T* _ptr;
         private readonly int _length;
@@ -82,11 +90,6 @@ namespace BEditor
             return array;
         }
 
-        private void ThrowIfDisposed()
-        {
-            if (IsDisposed) throw new ObjectDisposedException(nameof(UnmanagedArray<T>));
-        }
-
         IEnumerator IEnumerable.GetEnumerator()
         {
             ThrowIfDisposed();
@@ -96,6 +99,11 @@ namespace BEditor
         object ICloneable.Clone()
         {
             return Clone();
+        }
+
+        private void ThrowIfDisposed()
+        {
+            if (IsDisposed) throw new ObjectDisposedException(nameof(UnmanagedArray<T>));
         }
 
         private sealed class ArrayEnumerator : IEnumerator<T>, ICloneable
@@ -109,6 +117,20 @@ namespace BEditor
                 _array = array;
                 _index = -1;
             }
+
+            public T Current
+            {
+                get
+                {
+                    if (_index == -1)
+                        throw new InvalidOperationException();
+                    if (_index >= _array!.Length)
+                        throw new InvalidOperationException();
+                    return _currentElement;
+                }
+            }
+
+            object? IEnumerator.Current => Current;
 
             public object Clone()
             {
@@ -136,20 +158,6 @@ namespace BEditor
                 if (_array != null)
                     _index = _array.Length;
                 _array = null;
-            }
-
-            object? IEnumerator.Current => Current;
-
-            public T Current
-            {
-                get
-                {
-                    if (_index == -1)
-                        throw new InvalidOperationException();
-                    if (_index >= _array!.Length)
-                        throw new InvalidOperationException();
-                    return _currentElement;
-                }
             }
 
             public void Reset()

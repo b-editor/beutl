@@ -85,7 +85,7 @@ namespace BEditor.Data.Property
         public override void SetObjectData(JsonElement element)
         {
             base.SetObjectData(element);
-            Value = element.TryGetProperty(nameof(Value), out var value) ? Color.FromHTML(value.GetString()) : Color.Light;
+            Value = element.TryGetProperty(nameof(Value), out var value) ? Color.FromHTML(value.GetString()) : Colors.White;
             TargetID = element.TryGetProperty(nameof(TargetID), out var bind) && bind.TryGetGuid(out var guid) ? guid : null;
         }
 

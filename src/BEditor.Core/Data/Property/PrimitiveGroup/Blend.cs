@@ -3,7 +3,7 @@ using System.Collections.Generic;
 using System.Diagnostics.CodeAnalysis;
 
 using BEditor.Data;
-
+using BEditor.Drawing;
 using BEditor.Resources;
 
 using OpenTK.Graphics.OpenGL4;
@@ -31,7 +31,7 @@ namespace BEditor.Data.Property.PrimitiveGroup
             nameof(Color),
             owner => owner.Color,
             (owner, obj) => owner.Color = obj,
-            EditingPropertyOptions<ColorAnimationProperty>.Create(new ColorAnimationPropertyMetadata(Strings.Color, Drawing.Color.Light, false)).Serialize());
+            EditingPropertyOptions<ColorAnimationProperty>.Create(new ColorAnimationPropertyMetadata(Strings.Color, Colors.White, false)).Serialize());
 
         /// <summary>
         /// Defines the <see cref="BlendType"/> property.

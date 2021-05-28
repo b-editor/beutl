@@ -1,4 +1,12 @@
-﻿using System;
+﻿// Effect.cs
+//
+// Copyright (C) BEditor
+//
+// This software may be modified and distributed under the terms
+// of the MIT license. See the LICENSE file for details.
+
+using System;
+using System.Runtime.CompilerServices;
 using System.Threading.Tasks;
 
 using BEditor.Compute.Runtime;
@@ -7,48 +15,32 @@ using BEditor.Drawing.PixelOperation;
 
 namespace BEditor.Drawing
 {
+    /// <inheritdoc cref="Image"/>
     public static unsafe partial class Image
     {
-        internal static double Set255(double value)
+        /// <summary>
+        /// Starts the specified pixel operation.
+        /// </summary>
+        /// <typeparam name="TOperation">The type of operation.</typeparam>
+        /// <param name="size">The number of pixels to operate.</param>
+        /// <param name="operation">The <see cref="IPixelOperation"/> to be invoked.</param>
+        public static void PixelOperate<TOperation>(int size, in TOperation operation)
+            where TOperation : IPixelOperation
         {
-            if (value > 255) return 255;
-            else if (value < 0) return 0;
-
-            return value;
+            Parallel.For(0, size, operation.Invoke);
         }
 
-        internal static float Set255(float value)
-        {
-            if (value > 255) return 255;
-            else if (value < 0) return 0;
-
-            return value;
-        }
-
-        internal static double Set255Round(double value)
-        {
-            if (value > 255) return 255;
-            else if (value < 0) return 0;
-
-            return Math.Round(value);
-        }
-
-        internal static float Set255Round(float value)
-        {
-            if (value > 255) return 255;
-            else if (value < 0) return 0;
-
-            return MathF.Round(value);
-        }
-
-        public static void PixelOperate<IOperation>(int size, in IOperation process) where IOperation : IPixelOperation
-        {
-            Parallel.For(0, size, process.Invoke);
-        }
-
-        public static void PixelOperate<IOperation1, IOperation2>(int size, IOperation1 process1, IOperation2 process2)
-            where IOperation1 : IPixelOperation
-            where IOperation2 : IPixelOperation
+        /// <summary>
+        /// Starts the specified multiple pixel operation.
+        /// </summary>
+        /// <typeparam name="TOperation1">The type of first operation.</typeparam>
+        /// <typeparam name="TOperation2">The type of second operation.</typeparam>
+        /// <param name="size">The number of pixels to operate.</param>
+        /// <param name="process1">The first <see cref="IPixelOperation"/> to be invoked.</param>
+        /// <param name="process2">The second <see cref="IPixelOperation"/> to be invoked.</param>
+        public static void PixelOperate<TOperation1, TOperation2>(int size, TOperation1 process1, TOperation2 process2)
+            where TOperation1 : IPixelOperation
+            where TOperation2 : IPixelOperation
         {
             Parallel.For(0, size, i =>
             {
@@ -57,10 +49,20 @@ namespace BEditor.Drawing
             });
         }
 
-        public static void PixelOperate<IOperation1, IOperation2, IOperation3>(int size, IOperation1 process1, IOperation2 process2, IOperation3 process3)
-            where IOperation1 : IPixelOperation
-            where IOperation2 : IPixelOperation
-            where IOperation3 : IPixelOperation
+        /// <summary>
+        /// Starts the specified multiple pixel operation.
+        /// </summary>
+        /// <typeparam name="TOperation1">The type of first operation.</typeparam>
+        /// <typeparam name="TOperation2">The type of second operation.</typeparam>
+        /// <typeparam name="TOperation3">The type of third operation.</typeparam>
+        /// <param name="size">The number of pixels to operate.</param>
+        /// <param name="process1">The first <see cref="IPixelOperation"/> to be invoked.</param>
+        /// <param name="process2">The second <see cref="IPixelOperation"/> to be invoked.</param>
+        /// <param name="process3">The third <see cref="IPixelOperation"/> to be invoked.</param>
+        public static void PixelOperate<TOperation1, TOperation2, TOperation3>(int size, TOperation1 process1, TOperation2 process2, TOperation3 process3)
+            where TOperation1 : IPixelOperation
+            where TOperation2 : IPixelOperation
+            where TOperation3 : IPixelOperation
         {
             Parallel.For(0, size, i =>
             {
@@ -70,11 +72,23 @@ namespace BEditor.Drawing
             });
         }
 
-        public static void PixelOperate<IOperation1, IOperation2, IOperation3, IOperation4>(int size, IOperation1 process1, IOperation2 process2, IOperation3 process3, IOperation4 process4)
-            where IOperation1 : IPixelOperation
-            where IOperation2 : IPixelOperation
-            where IOperation3 : IPixelOperation
-            where IOperation4 : IPixelOperation
+        /// <summary>
+        /// Starts the specified multiple pixel operation.
+        /// </summary>
+        /// <typeparam name="TOperation1">The type of first operation.</typeparam>
+        /// <typeparam name="TOperation2">The type of second operation.</typeparam>
+        /// <typeparam name="TOperation3">The type of third operation.</typeparam>
+        /// <typeparam name="TOperation4">The type of fourth operation.</typeparam>
+        /// <param name="size">The number of pixels to operate.</param>
+        /// <param name="process1">The first <see cref="IPixelOperation"/> to be invoked.</param>
+        /// <param name="process2">The second <see cref="IPixelOperation"/> to be invoked.</param>
+        /// <param name="process3">The third <see cref="IPixelOperation"/> to be invoked.</param>
+        /// <param name="process4">The fourth <see cref="IPixelOperation"/> to be invoked.</param>
+        public static void PixelOperate<TOperation1, TOperation2, TOperation3, TOperation4>(int size, TOperation1 process1, TOperation2 process2, TOperation3 process3, TOperation4 process4)
+            where TOperation1 : IPixelOperation
+            where TOperation2 : IPixelOperation
+            where TOperation3 : IPixelOperation
+            where TOperation4 : IPixelOperation
         {
             Parallel.For(0, size, i =>
             {
@@ -85,14 +99,22 @@ namespace BEditor.Drawing
             });
         }
 
-        public static void PixelOperate<IOperation>(this Image<BGRA32> image, DrawingContext context)
-            where IOperation : struct, IGpuPixelOperation
+        /// <summary>
+        /// Start the specified pixel operation using the Gpu.
+        /// </summary>
+        /// <typeparam name="TOperation">The type of operation.</typeparam>
+        /// <param name="image">The image to be operated.</param>
+        /// <param name="context">A valid DrawingContext.</param>
+        /// <exception cref="ArgumentNullException"><paramref name="image"/> is <see langword="null"/>.</exception>
+        /// <exception cref="ObjectDisposedException">Cannot access a disposed object.</exception>
+        public static void PixelOperate<TOperation>(this Image<BGRA32> image, DrawingContext context)
+            where TOperation : struct, IGpuPixelOperation
         {
             if (image is null) throw new ArgumentNullException(nameof(image));
             image.ThrowIfDisposed();
 
             CLProgram program;
-            var operation = (IOperation)default;
+            var operation = (TOperation)default;
             var key = operation.GetType().Name;
             if (!context.Programs.ContainsKey(key))
             {
@@ -113,15 +135,25 @@ namespace BEditor.Drawing
             buf.Read(context.CommandQueue, true, image.Data, 0, dataSize).Wait();
         }
 
-        public static void PixelOperate<IOperation, T>(this Image<BGRA32> image, DrawingContext context, T arg)
-            where IOperation : struct, IGpuPixelOperation<T>
-            where T : notnull
+        /// <summary>
+        /// Start the specified pixel operation using the Gpu.
+        /// </summary>
+        /// <typeparam name="TOperation">The type of operation.</typeparam>
+        /// <typeparam name="TArg">The type of first argument.</typeparam>
+        /// <param name="image">The image to be operated.</param>
+        /// <param name="context">A valid DrawingContext.</param>
+        /// <param name="arg">The first argument passed to the kernel.</param>
+        /// <exception cref="ArgumentNullException"><paramref name="image"/> is <see langword="null"/>.</exception>
+        /// <exception cref="ObjectDisposedException">Cannot access a disposed object.</exception>
+        public static void PixelOperate<TOperation, TArg>(this Image<BGRA32> image, DrawingContext context, TArg arg)
+            where TOperation : struct, IGpuPixelOperation<TArg>
+            where TArg : notnull
         {
             if (image is null) throw new ArgumentNullException(nameof(image));
             image.ThrowIfDisposed();
 
             CLProgram program;
-            var operation = (IOperation)default;
+            var operation = (TOperation)default;
             var key = operation.GetType().Name;
             if (!context.Programs.ContainsKey(key))
             {
@@ -142,16 +174,28 @@ namespace BEditor.Drawing
             buf.Read(context.CommandQueue, true, image.Data, 0, dataSize).Wait();
         }
 
-        public static void PixelOperate<IOperation, T1, T2>(this Image<BGRA32> image, DrawingContext context, T1 arg1, T2 arg2)
-            where IOperation : struct, IGpuPixelOperation<T1, T2>
-            where T1 : notnull
-            where T2 : notnull
+        /// <summary>
+        /// Start the specified pixel operation using the Gpu.
+        /// </summary>
+        /// <typeparam name="TOperation">The type of operation.</typeparam>
+        /// <typeparam name="TArg1">The type of first argument.</typeparam>
+        /// <typeparam name="TArg2">The type of second argument.</typeparam>
+        /// <param name="image">The image to be operated.</param>
+        /// <param name="context">A valid DrawingContext.</param>
+        /// <param name="arg1">The first argument passed to the kernel.</param>
+        /// <param name="arg2">The second argument passed to the kernel.</param>
+        /// <exception cref="ArgumentNullException"><paramref name="image"/> is <see langword="null"/>.</exception>
+        /// <exception cref="ObjectDisposedException">Cannot access a disposed object.</exception>
+        public static void PixelOperate<TOperation, TArg1, TArg2>(this Image<BGRA32> image, DrawingContext context, TArg1 arg1, TArg2 arg2)
+            where TOperation : struct, IGpuPixelOperation<TArg1, TArg2>
+            where TArg1 : notnull
+            where TArg2 : notnull
         {
             if (image is null) throw new ArgumentNullException(nameof(image));
             image.ThrowIfDisposed();
 
             CLProgram program;
-            var operation = (IOperation)default;
+            var operation = (TOperation)default;
             var key = operation.GetType().Name;
             if (!context.Programs.ContainsKey(key))
             {
@@ -172,17 +216,31 @@ namespace BEditor.Drawing
             buf.Read(context.CommandQueue, true, image.Data, 0, dataSize).Wait();
         }
 
-        public static void PixelOperate<IOperation, T1, T2, T3>(this Image<BGRA32> image, DrawingContext context, T1 arg1, T2 arg2, T3 arg3)
-            where IOperation : struct, IGpuPixelOperation<T1, T2, T3>
-            where T1 : notnull
-            where T2 : notnull
-            where T3 : notnull
+        /// <summary>
+        /// Start the specified pixel operation using the Gpu.
+        /// </summary>
+        /// <typeparam name="TOperation">The type of operation.</typeparam>
+        /// <typeparam name="TArg1">The type of first argument.</typeparam>
+        /// <typeparam name="TArg2">The type of second argument.</typeparam>
+        /// <typeparam name="TArg3">The type of third argument.</typeparam>
+        /// <param name="image">The image to be operated.</param>
+        /// <param name="context">A valid DrawingContext.</param>
+        /// <param name="arg1">The first argument passed to the kernel.</param>
+        /// <param name="arg2">The second argument passed to the kernel.</param>
+        /// <param name="arg3">The third argument passed to the kernel.</param>
+        /// <exception cref="ArgumentNullException"><paramref name="image"/> is <see langword="null"/>.</exception>
+        /// <exception cref="ObjectDisposedException">Cannot access a disposed object.</exception>
+        public static void PixelOperate<TOperation, TArg1, TArg2, TArg3>(this Image<BGRA32> image, DrawingContext context, TArg1 arg1, TArg2 arg2, TArg3 arg3)
+            where TOperation : struct, IGpuPixelOperation<TArg1, TArg2, TArg3>
+            where TArg1 : notnull
+            where TArg2 : notnull
+            where TArg3 : notnull
         {
             if (image is null) throw new ArgumentNullException(nameof(image));
             image.ThrowIfDisposed();
 
             CLProgram program;
-            var operation = (IOperation)default;
+            var operation = (TOperation)default;
             var key = operation.GetType().Name;
             if (!context.Programs.ContainsKey(key))
             {
@@ -203,6 +261,13 @@ namespace BEditor.Drawing
             buf.Read(context.CommandQueue, true, image.Data, 0, dataSize).Wait();
         }
 
+        /// <summary>
+        /// Sets the opacity of the image.
+        /// </summary>
+        /// <param name="image">The image to set the opacity.</param>
+        /// <param name="opacity">The opacity of the <paramref name="image"/>. [range: 0.0-1.0].</param>
+        /// <exception cref="ArgumentNullException"><paramref name="image"/> is <see langword="null"/>.</exception>
+        /// <exception cref="ObjectDisposedException">Cannot access a disposed object.</exception>
         public static void SetOpacity(this Image<BGRA32> image, float opacity)
         {
             if (image is null) throw new ArgumentNullException(nameof(image));
@@ -214,6 +279,13 @@ namespace BEditor.Drawing
             }
         }
 
+        /// <summary>
+        /// Sets the color of the image.
+        /// </summary>
+        /// <param name="image">The image to set the color.</param>
+        /// <param name="color">The color of the <paramref name="image"/>.</param>
+        /// <exception cref="ArgumentNullException"><paramref name="image"/> is <see langword="null"/>.</exception>
+        /// <exception cref="ObjectDisposedException">Cannot access a disposed object.</exception>
         public static void SetColor(this Image<BGRA32> image, BGRA32 color)
         {
             if (image is null) throw new ArgumentNullException(nameof(image));
@@ -225,6 +297,14 @@ namespace BEditor.Drawing
             }
         }
 
+        /// <summary>
+        /// Makes a specific color component of the image transparent.
+        /// </summary>
+        /// <param name="image">The image to apply the effect to.</param>
+        /// <param name="color">The color to make transparent.</param>
+        /// <param name="value">The threshold value.</param>
+        /// <exception cref="ArgumentNullException"><paramref name="image"/> is <see langword="null"/>.</exception>
+        /// <exception cref="ObjectDisposedException">Cannot access a disposed object.</exception>
         public static void ColorKey(this Image<BGRA32> image, BGRA32 color, int value)
         {
             if (image is null) throw new ArgumentNullException(nameof(image));
@@ -236,6 +316,15 @@ namespace BEditor.Drawing
             }
         }
 
+        /// <summary>
+        /// Converts the <see cref="Image{T}"/>.
+        /// </summary>
+        /// <typeparam name="T1">The type of pixel before conversion.</typeparam>
+        /// <typeparam name="T2">The type of pixel after conversion.</typeparam>
+        /// <param name="image">The image to convert.</param>
+        /// <returns>Returns the converted image.</returns>
+        /// <exception cref="ArgumentNullException"><paramref name="image"/> is <see langword="null"/>.</exception>
+        /// <exception cref="ObjectDisposedException">Cannot access a disposed object.</exception>
         public static Image<T2> Convert<T1, T2>(this Image<T1> image)
             where T1 : unmanaged, IPixel<T1>, IPixelConvertable<T2>
             where T2 : unmanaged, IPixel<T2>
@@ -253,6 +342,13 @@ namespace BEditor.Drawing
             return dst;
         }
 
+        /// <summary>
+        /// Adjusts the contrast of the image.
+        /// </summary>
+        /// <param name="image">The image to apply the effect to.</param>
+        /// <param name="contrast">The contrast [range: -255-255].</param>
+        /// <exception cref="ArgumentNullException"><paramref name="image"/> is <see langword="null"/>.</exception>
+        /// <exception cref="ObjectDisposedException">Cannot access a disposed object.</exception>
         public static void Contrast(this Image<BGRA32> image, short contrast)
         {
             if (image is null) throw new ArgumentNullException(nameof(image));
@@ -271,6 +367,12 @@ namespace BEditor.Drawing
             }
         }
 
+        /// <summary>
+        /// Normalize the histogram.
+        /// </summary>
+        /// <param name="image">The image to normalize.</param>
+        /// <exception cref="ArgumentNullException"><paramref name="image"/> is <see langword="null"/>.</exception>
+        /// <exception cref="ObjectDisposedException">Cannot access a disposed object.</exception>
         public static void Normalize(this Image<BGRA32> image)
         {
             if (image is null) throw new ArgumentNullException(nameof(image));
@@ -315,6 +417,13 @@ namespace BEditor.Drawing
             }
         }
 
+        /// <summary>
+        /// Applies a noise effect.
+        /// </summary>
+        /// <param name="image">The image to apply the effect to.</param>
+        /// <param name="value">The threshold value.</param>
+        /// <exception cref="ArgumentNullException"><paramref name="image"/> is <see langword="null"/>.</exception>
+        /// <exception cref="ObjectDisposedException">Cannot access a disposed object.</exception>
         public static void Noise(this Image<BGRA32> image, byte value)
         {
             if (image is null) throw new ArgumentNullException(nameof(image));
@@ -327,6 +436,14 @@ namespace BEditor.Drawing
             }
         }
 
+        /// <summary>
+        /// Applies a noise effect.
+        /// </summary>
+        /// <param name="image">The image to apply the effect to.</param>
+        /// <param name="value">The threshold value.</param>
+        /// <param name="seed">The seed value.</param>
+        /// <exception cref="ArgumentNullException"><paramref name="image"/> is <see langword="null"/>.</exception>
+        /// <exception cref="ObjectDisposedException">Cannot access a disposed object.</exception>
         public static void Noise(this Image<BGRA32> image, byte value, int seed)
         {
             if (image is null) throw new ArgumentNullException(nameof(image));
@@ -339,7 +456,13 @@ namespace BEditor.Drawing
             }
         }
 
-        // ここのアロケーションどうにかする
+        /// <summary>
+        /// Applies a diffusion effect.
+        /// </summary>
+        /// <param name="image">The image to apply the effect to.</param>
+        /// <param name="value">The threshold value.</param>
+        /// <exception cref="ArgumentNullException"><paramref name="image"/> is <see langword="null"/>.</exception>
+        /// <exception cref="ObjectDisposedException">Cannot access a disposed object.</exception>
         public static void Diffusion(this Image<BGRA32> image, byte value)
         {
             if (image is null) throw new ArgumentNullException(nameof(image));
@@ -356,6 +479,7 @@ namespace BEditor.Drawing
                     Parallel.For(0, image.Width, x =>
                     {
                         var data = (BGRA32*)raw;
+
                         // 取得する座標
                         var dy = Math.Abs(y + rand.Next(-value, value));
                         var dx = Math.Abs(x + rand.Next(-value, value));
@@ -379,6 +503,50 @@ namespace BEditor.Drawing
                     });
                 });
             }
+        }
+
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        internal static double Set255(double value)
+        {
+            return value switch
+            {
+                > 255 => 255,
+                < 0 => 0,
+                _ => value,
+            };
+        }
+
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        internal static float Set255(float value)
+        {
+            return value switch
+            {
+                > 255 => 255,
+                < 0 => 0,
+                _ => value,
+            };
+        }
+
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        internal static double Set255Round(double value)
+        {
+            return value switch
+            {
+                > 255 => 255,
+                < 0 => 0,
+                _ => Math.Round(value),
+            };
+        }
+
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        internal static float Set255Round(float value)
+        {
+            return value switch
+            {
+                > 255 => 255,
+                < 0 => 0,
+                _ => MathF.Round(value),
+            };
         }
     }
 }

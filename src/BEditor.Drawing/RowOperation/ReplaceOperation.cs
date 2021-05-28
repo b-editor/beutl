@@ -1,8 +1,18 @@
-﻿
+﻿// ReplaceOperation.cs
+//
+// Copyright (C) BEditor
+//
+// This software may be modified and distributed under the terms
+// of the MIT license. See the LICENSE file for details.
+
 using BEditor.Drawing.Pixel;
 
 namespace BEditor.Drawing.RowOperation
 {
+    /// <summary>
+    /// Replaces the specified area of the image.
+    /// </summary>
+    /// <typeparam name="TPixel">The type of pixel.</typeparam>
     public readonly unsafe struct ReplaceOperation<TPixel> : IRowOperation
         where TPixel : unmanaged, IPixel<TPixel>
     {
@@ -10,6 +20,12 @@ namespace BEditor.Drawing.RowOperation
         private readonly Image<TPixel> _dst;
         private readonly Rectangle _roi;
 
+        /// <summary>
+        /// Initializes a new instance of the <see cref="ReplaceOperation{TPixel}"/> struct.
+        /// </summary>
+        /// <param name="src">The source image.</param>
+        /// <param name="dst">The destination image. Same size as <paramref name="roi"/>.</param>
+        /// <param name="roi">The area to replace the image.</param>
         public ReplaceOperation(Image<TPixel> src, Image<TPixel> dst, Rectangle roi)
         {
             _src = src;
@@ -17,6 +33,7 @@ namespace BEditor.Drawing.RowOperation
             _roi = roi;
         }
 
+        /// <inheritdoc/>
         public readonly void Invoke(int y)
         {
             var sourceRow = _src[y];

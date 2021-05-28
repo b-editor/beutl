@@ -6,6 +6,7 @@
         <RootNamespace>BEditor.Primitive</RootNamespace>
     </PropertyGroup>
 
+    <Import Project="..\..\props\analyzer.props" />
     <Import Project="..\Shared\Shared.projitems" Label="Shared" />
 
     <ItemGroup>

@@ -46,7 +46,7 @@ namespace BEditor.Primitive.Objects
             nameof(Color),
             owner => owner.Color,
             (owner, obj) => owner.Color = obj,
-            EditingPropertyOptions<ColorProperty>.Create(new ColorPropertyMetadata(Strings.Color, Drawing.Color.Light)).Serialize());
+            EditingPropertyOptions<ColorProperty>.Create(new ColorPropertyMetadata(Strings.Color, Colors.White)).Serialize());
 
         /// <summary>
         /// Defines the <see cref="Color"/> property.

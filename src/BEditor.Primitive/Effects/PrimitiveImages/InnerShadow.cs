@@ -58,7 +58,7 @@ namespace BEditor.Primitive.Effects
             nameof(Color),
             owner => owner.Color,
             (owner, obj) => owner.Color = obj,
-            EditingPropertyOptions<ColorProperty>.Create(new ColorPropertyMetadata(Strings.Color, Drawing.Color.Dark)).Serialize());
+            EditingPropertyOptions<ColorProperty>.Create(new ColorPropertyMetadata(Strings.Color, Colors.Black)).Serialize());
 
         /// <inheritdoc/>
         public override string Name => Strings.InnerShadow;

@@ -312,7 +312,7 @@ namespace BEditor.Extensions.AviUtl
             // col="" 対策
             if (Value is "\"\"")
             {
-                return Color.Light;
+                return Colors.White;
             }
 
             // 0x000000 など

@@ -1,4 +1,11 @@
-﻿using System.Collections.Generic;
+﻿// ImageObject.cs
+//
+// Copyright (C) BEditor
+//
+// This software may be modified and distributed under the terms
+// of the MIT license. See the LICENSE file for details.
+
+using System.Collections.Generic;
 using System.Diagnostics.CodeAnalysis;
 using System.Linq;
 
@@ -158,6 +165,8 @@ namespace BEditor.Data.Primitive
         /// <summary>
         /// Render the image.
         /// </summary>
+        /// <param name="args">The data used to apply the effect.</param>
+        /// <param name="image">Returns the rendered image.</param>
         public void Render(EffectApplyArgs args, out Image<BGRA32>? image)
         {
             // Todo: 多重オブジェクトに対応させる
@@ -269,19 +278,22 @@ namespace BEditor.Data.Primitive
             static void DrawLine(GraphicsContext context, float width, float height, Transform trans)
             {
                 // 右上～右下
-                context.DrawLine(new(width, height, 0), new(width, -height, 0), 1.5f, trans, Color.Light);
+                context.DrawLine(new(width, height, 0), new(width, -height, 0), 1.5f, trans, Colors.White);
 
                 // 右下～左下
-                context.DrawLine(new(width, -height, 0), new(-width, -height, 0), 1.5f, trans, Color.Light);
+                context.DrawLine(new(width, -height, 0), new(-width, -height, 0), 1.5f, trans, Colors.White);
 
                 // 左下～左上
-                context.DrawLine(new(-width, -height, 0), new(-width, height, 0), 1.5f, trans, Color.Light);
+                context.DrawLine(new(-width, -height, 0), new(-width, height, 0), 1.5f, trans, Colors.White);
 
                 // 左上～右上
-                context.DrawLine(new(-width, height, 0), new(width, height, 0), 1.5f, trans, Color.Light);
+                context.DrawLine(new(-width, height, 0), new(width, height, 0), 1.5f, trans, Colors.White);
             }
 
-            if (image.Source.IsDisposed || args.Handled) return;
+            if (image.Source.IsDisposed || args.Handled)
+            {
+                return;
+            }
 
             var frame = args.Frame;
 

@@ -1,6 +1,12 @@
-﻿using System;
+﻿// Color.cs
+//
+// Copyright (C) BEditor
+//
+// This software may be modified and distributed under the terms
+// of the MIT license. See the LICENSE file for details.
+
+using System;
 using System.Globalization;
-using System.Runtime.CompilerServices;
 using System.Runtime.Serialization;
 
 using BEditor.Drawing.Pixel;
@@ -8,6 +14,9 @@ using BEditor.Drawing.Resources;
 
 namespace BEditor.Drawing
 {
+    /// <summary>
+    /// Represents the ARGB (alpha, red, green, blue) color.
+    /// </summary>
     [Serializable]
     public struct Color : IEquatable<Color>, IFormattable, ISerializable
     {
@@ -16,32 +25,6 @@ namespace BEditor.Drawing
         private const int ARGBGreenShift = 8;
         private const int ARGBBlueShift = 0;
 
-        #region Colors
-
-        public static readonly Color Light = FromARGB(255, 255, 255, 255);
-        public static readonly Color Dark = FromARGB(255, 0, 0, 0);
-        public static readonly Color Red = FromARGB(255, 244, 67, 54);
-        public static readonly Color Pink = FromARGB(255, 233, 30, 99);
-        public static readonly Color Purple = FromARGB(255, 156, 39, 176);
-        public static readonly Color DeepPurple = FromARGB(255, 103, 58, 183);
-        public static readonly Color Indigo = FromARGB(255, 63, 81, 181);
-        public static readonly Color Blue = FromARGB(255, 33, 150, 243);
-        public static readonly Color LightBlue = FromARGB(255, 3, 169, 244);
-        public static readonly Color Cyan = FromARGB(255, 0, 188, 212);
-        public static readonly Color Teal = FromARGB(255, 0, 150, 136);
-        public static readonly Color Green = FromARGB(255, 76, 175, 80);
-        public static readonly Color LightGreen = FromARGB(255, 139, 195, 74);
-        public static readonly Color Lime = FromARGB(255, 205, 220, 57);
-        public static readonly Color Yellow = FromARGB(255, 255, 235, 59);
-        public static readonly Color Amber = FromARGB(255, 255, 193, 7);
-        public static readonly Color Orange = FromARGB(255, 255, 152, 0);
-        public static readonly Color DeepOrange = FromARGB(255, 255, 87, 34);
-        public static readonly Color Brown = FromARGB(255, 121, 85, 72);
-        public static readonly Color Grey = FromARGB(255, 158, 158, 158);
-        public static readonly Color BlueGrey = FromARGB(255, 96, 125, 139);
-
-        #endregion
-
         private Color(byte a, byte r, byte g, byte b)
         {
             A = a;
@@ -49,6 +32,7 @@ namespace BEditor.Drawing
             G = g;
             B = b;
         }
+
         private Color(SerializationInfo info, StreamingContext context)
         {
             A = info.GetByte(nameof(A));
@@ -57,13 +41,99 @@ namespace BEditor.Drawing
             B = info.GetByte(nameof(B));
         }
 
+        /// <summary>
+        /// Gets or sets the alpha component value of this <see cref="Color"/>.
+        /// </summary>
         public byte A { readonly get; set; }
+
+        /// <summary>
+        /// Gets or sets the red component value of this <see cref="Color"/>.
+        /// </summary>
         public byte R { readonly get; set; }
+
+        /// <summary>
+        /// Gets or sets the green component value of this <see cref="Color"/>.
+        /// </summary>
         public byte G { readonly get; set; }
+
+        /// <summary>
+        /// Gets or sets the blue component value of this <see cref="Color"/>.
+        /// </summary>
         public byte B { readonly get; set; }
 
+        /// <summary>
+        /// Converts the <see cref="Color"/> to a <see cref="BGRA32"/>.
+        /// </summary>
+        /// <param name="value">A color.</param>
+        public static implicit operator BGRA32(Color value)
+        {
+            return new(value.R, value.G, value.B, value.A);
+        }
+
+        /// <summary>
+        /// Converts the <see cref="Color"/> to a <see cref="RGBA32"/>.
+        /// </summary>
+        /// <param name="value">A color.</param>
+        public static implicit operator RGBA32(Color value)
+        {
+            return new(value.R, value.G, value.B, value.A);
+        }
+
+        /// <summary>
+        /// Converts the <see cref="Color"/> to a <see cref="BGR24"/>.
+        /// </summary>
+        /// <param name="value">A color.</param>
+        public static implicit operator BGR24(Color value)
+        {
+            return new(value.R, value.G, value.B);
+        }
+
+        /// <summary>
+        /// Converts the <see cref="Color"/> to a <see cref="RGB24"/>.
+        /// </summary>
+        /// <param name="value">A color.</param>
+        public static implicit operator RGB24(Color value)
+        {
+            return new(value.R, value.G, value.B);
+        }
+
+        /// <summary>
+        /// Indicates whether two <see cref="Color"/> instances are equal.
+        /// </summary>
+        /// <param name="left">The first color to compare.</param>
+        /// <param name="right">The second color to compare.</param>
+        /// <returns>true if the values of <paramref name="left"/> and <paramref name="right"/> are equal; otherwise, false.</returns>
+        public static bool operator ==(Color left, Color right)
+        {
+            return left.Equals(right);
+        }
+
+        /// <summary>
+        /// Indicates whether two <see cref="Color"/> instances are not equal.
+        /// </summary>
+        /// <param name="left">The first color to compare.</param>
+        /// <param name="right">The second color to compare.</param>
+        /// <returns>true if the values of <paramref name="left"/> and <paramref name="right"/> are not equal; otherwise, false.</returns>
+        public static bool operator !=(Color left, Color right)
+        {
+            return !(left == right);
+        }
+
+        /// <summary>
+        /// Creates a <see cref="Color"/> structure from a 32-bit ARGB value.
+        /// </summary>
+        /// <param name="argb">A value specifying the 32-bit ARGB value.</param>
+        /// <returns>The <see cref="Color"/> structure that this method creates.</returns>
         public static Color FromARGB(int argb)
-            => FromARGB(unchecked((uint)argb));
+        {
+            return FromARGB(unchecked((uint)argb));
+        }
+
+        /// <summary>
+        /// Creates a <see cref="Color"/> structure from a 32-bit ARGB value.
+        /// </summary>
+        /// <param name="argb">A value specifying the 32-bit ARGB value.</param>
+        /// <returns>The <see cref="Color"/> structure that this method creates.</returns>
         public static Color FromARGB(uint argb)
         {
             long color = argb;
@@ -73,11 +143,31 @@ namespace BEditor.Drawing
                 unchecked((byte)(color >> ARGBGreenShift)),
                 unchecked((byte)(color >> ARGBBlueShift)));
         }
+
+        /// <summary>
+        /// Creates a <see cref="Color"/> structure from the four ARGB component.
+        /// </summary>
+        /// <param name="a">The alpha component.</param>
+        /// <param name="r">The red component.</param>
+        /// <param name="g">The green component.</param>
+        /// <param name="b">The blue component.</param>
+        /// <returns>The <see cref="Color"/> that this method creates.</returns>
         public static Color FromARGB(byte a, byte r, byte g, byte b)
-            => new(a, r, g, b);
+        {
+            return new(a, r, g, b);
+        }
+
+        /// <summary>
+        /// Creates a <see cref="Color"/> structure from the html color.
+        /// </summary>
+        /// <param name="htmlcolor">The value that specifies the html color.</param>
+        /// <returns>The <see cref="Color"/> that this method creates.</returns>
         public static Color FromHTML(string? htmlcolor)
         {
-            if (string.IsNullOrWhiteSpace(htmlcolor) || htmlcolor is "#") return Dark;
+            if (string.IsNullOrWhiteSpace(htmlcolor) || htmlcolor is "#")
+            {
+                return MaterialColors.Dark;
+            }
 
             htmlcolor = "0x" + htmlcolor.Trim('#');
 
@@ -85,22 +175,44 @@ namespace BEditor.Drawing
 
             return FromARGB(argb);
         }
-        public int AsInt() => Unsafe.As<Color, int>(ref this);
-        public int AsUInt() => Unsafe.As<Color, int>(ref this);
+
+        /// <inheritdoc/>
         public readonly override bool Equals(object? obj)
-            => obj is Color color && Equals(color);
+        {
+            return obj is Color color && Equals(color);
+        }
+
+        /// <inheritdoc/>
         public readonly bool Equals(Color other)
-            => R == other.R && G == other.G && B == other.B && A == other.A;
+        {
+            return R == other.R && G == other.G && B == other.B && A == other.A;
+        }
+
+        /// <inheritdoc/>
         public readonly override int GetHashCode()
-            => HashCode.Combine(R, G, B, A);
+        {
+            return HashCode.Combine(R, G, B, A);
+        }
+
+        /// <inheritdoc cref="IFormattable.ToString(string?, IFormatProvider?)"/>
         public readonly string ToString(string? format)
-            => ToString(format, CultureInfo.CurrentCulture);
+        {
+            return ToString(format, CultureInfo.CurrentCulture);
+        }
+
+        /// <inheritdoc/>
         public readonly string ToString(string? format, IFormatProvider? formatProvider)
         {
             static string Throw(string format)
-                => throw new FormatException(string.Format(Strings.FormetException, format));
+            {
+                throw new FormatException(string.Format(Strings.FormetException, format));
+            }
 
-            if (string.IsNullOrEmpty(format)) format = "#argb";
+            if (string.IsNullOrEmpty(format))
+            {
+                format = "#argb";
+            }
+
             format = format.ToUpperInvariant();
 
             var colorformat = format
@@ -120,18 +232,28 @@ namespace BEditor.Drawing
                     'G' => Tohex(G),
                     'B' => Tohex(B),
                     'A' => Tohex(A),
-                    _ => Throw(format)
+                    _ => Throw(format),
                 };
             }
 
-            if (format.Contains("#")) result = "#" + result;
-            else if (format.Contains("0X")) result = "0x" + result;
+            if (format.Contains("#"))
+            {
+                result = "#" + result;
+            }
+            else if (format.Contains("0X"))
+            {
+                result = "0x" + result;
+            }
 
-            if (islower) result = result.ToLowerInvariant();
+            if (islower)
+            {
+                result = result.ToLowerInvariant();
+            }
 
             return result;
         }
-        private static string Tohex(byte value) => value.ToString("X2");
+
+        /// <inheritdoc/>
         public readonly void GetObjectData(SerializationInfo info, StreamingContext context)
         {
             info.AddValue(nameof(A), A);
@@ -140,18 +262,9 @@ namespace BEditor.Drawing
             info.AddValue(nameof(B), B);
         }
 
-        public static implicit operator BGRA32(Color c)
-            => new(c.R, c.G, c.B, c.A);
-        public static implicit operator RGBA32(Color c)
-            => new(c.R, c.G, c.B, c.A);
-        public static implicit operator BGR24(Color c)
-            => new(c.R, c.G, c.B);
-        public static implicit operator RGB24(Color c)
-            => new(c.R, c.G, c.B);
-
-        public static bool operator ==(Color left, Color right)
-            => left.Equals(right);
-        public static bool operator !=(Color left, Color right)
-            => !(left == right);
+        private static string Tohex(byte value)
+        {
+            return value.ToString("X2");
+        }
     }
 }

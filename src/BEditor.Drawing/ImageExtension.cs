@@ -11,6 +11,9 @@ using SkiaSharp;
 
 namespace BEditor.Drawing
 {
+    /// <summary>
+    /// Provides extension methods for processing images.
+    /// </summary>
     public static unsafe partial class Image
     {
         public static void DrawImage<T>(this Image<T> self, Point point, Image<T> image) where T : unmanaged, IPixel<T>

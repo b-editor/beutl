@@ -6,6 +6,7 @@
 // of the MIT license. See the LICENSE file for details.
 
 using System;
+using System.Threading.Tasks;
 
 using BEditor.Compute.OpenCL;
 

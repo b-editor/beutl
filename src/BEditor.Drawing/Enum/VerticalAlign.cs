@@ -1,4 +1,4 @@
-﻿// Quality.cs
+﻿// VerticalAlign.cs
 //
 // Copyright (C) BEditor
 //
@@ -8,28 +8,23 @@
 namespace BEditor.Drawing
 {
     /// <summary>
-    /// Indicates the quality used in <see cref="Image.Resize(Image{Pixel.BGRA32}, int, int, Quality)"/>.
+    /// Defines how the text will be aligned vertically.
     /// </summary>
-    public enum Quality
+    public enum VerticalAlign
     {
         /// <summary>
-        /// Unspecified.
+        /// The font aligns itself to the top of the image.
         /// </summary>
-        None,
+        Top = 0,
 
         /// <summary>
-        /// Low quality.
+        /// The font centers itself within the image.
         /// </summary>
-        Low,
+        Center = 1,
 
         /// <summary>
-        /// Medium quality.
+        /// The font aligns itself to the bottom of the image.
         /// </summary>
-        Medium,
-
-        /// <summary>
-        /// High quality.
-        /// </summary>
-        High,
+        Bottom = 2,
     }
 }

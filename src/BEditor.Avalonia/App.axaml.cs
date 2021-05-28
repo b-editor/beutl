@@ -1,10 +1,7 @@
 using System;
-using System.Collections.Generic;
 using System.Diagnostics;
-using System.Globalization;
 using System.IO;
 using System.Linq;
-using System.Net;
 using System.Net.Http;
 using System.Text;
 using System.Threading;
@@ -17,7 +14,6 @@ using Avalonia.Markup.Xaml;
 using Avalonia.Markup.Xaml.Styling;
 using Avalonia.Platform;
 using Avalonia.Styling;
-using Avalonia.Themes.Fluent;
 using Avalonia.Threading;
 
 using BEditor.Data;
@@ -26,7 +22,6 @@ using BEditor.Models.ManagePlugins;
 using BEditor.Plugin;
 using BEditor.Primitive;
 using BEditor.Properties;
-using BEditor.ViewModels.DialogContent;
 using BEditor.Views;
 using BEditor.Views.DialogContent;
 

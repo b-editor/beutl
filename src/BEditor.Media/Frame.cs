@@ -1,4 +1,11 @@
-﻿using System;
+﻿// Frame.cs
+//
+// Copyright (C) BEditor
+//
+// This software may be modified and distributed under the terms
+// of the MIT license. See the LICENSE file for details.
+
+using System;
 using System.Diagnostics;
 using System.Runtime.Serialization;
 
@@ -24,10 +31,10 @@ namespace BEditor.Media
         /// <summary>
         /// Represents the value of 0 in <see cref="Frame"/>.
         /// </summary>
-        public static readonly Frame Zero = new();
+        public static readonly Frame Zero = default;
 
         /// <summary>
-        /// Initializes a new instance of the <see cref="Frame"/> class.
+        /// Initializes a new instance of the <see cref="Frame"/> struct.
         /// </summary>
         /// <param name="value">The value.</param>
         public Frame(int value)
@@ -46,122 +53,21 @@ namespace BEditor.Media
         public int Value { get; }
 
         /// <summary>
-        /// Converts this <see cref="Frame"/> to a <see cref="TimeSpan"/>.
+        /// Converts the <see cref="Frame"/> to a 32-bit signed integer.
         /// </summary>
-        /// <param name="framerate">The number of frames per second.</param>
-        public TimeSpan ToTimeSpan(double framerate)
+        /// <param name="frame">A frame.</param>
+        public static implicit operator int(Frame frame)
         {
-            return TimeSpan.FromMilliseconds(ToMilliseconds(framerate));
+            return frame.Value;
         }
 
         /// <summary>
-        /// Converts this <see cref="Frame"/> to milliseconds.
+        /// Converts the 32-bit signed integer to a <see cref="Frame"/>.
         /// </summary>
-        /// <param name="framerate">The number of frames per second.</param>
-        public double ToMilliseconds(double framerate)
+        /// <param name="value">A 32-bit signed integer.</param>
+        public static implicit operator Frame(int value)
         {
-            return Value / framerate * 1000;
-        }
-
-        /// <summary>
-        /// Converts this <see cref="Frame"/> to seconds.
-        /// </summary>
-        /// <param name="framerate">The number of frames per second.</param>
-        public double ToSeconds(double framerate)
-        {
-            return ToMilliseconds(framerate) / 1000;
-        }
-
-        /// <summary>
-        /// Converts this <see cref="Frame"/> to minutes.
-        /// </summary>
-        /// <param name="framerate">The number of frames per second.</param>
-        public double ToMinutes(double framerate)
-        {
-            return ToSeconds(framerate) * 60;
-        }
-
-        /// <summary>
-        /// Converts this <see cref="Frame"/> to hours.
-        /// </summary>
-        /// <param name="framerate">The number of frames per second.</param>
-        public double ToHours(double framerate)
-        {
-            return ToMinutes(framerate) * 60;
-        }
-
-        /// <summary>
-        /// Creates the <see cref="Frame"/> from milliseconds.
-        /// </summary>
-        /// <param name="milliseconds">A number of milliseconds.</param>
-        /// <param name="framerate">The number of frames per second.</param>
-        public static Frame FromMilliseconds(double milliseconds, double framerate)
-        {
-            return new((int)(milliseconds * framerate / 1000));
-        }
-
-        /// <summary>
-        /// Creates the <see cref="Frame"/> from seconds.
-        /// </summary>
-        /// <param name="seconds">A number of seconds.</param>
-        /// <param name="framerate">The number of frames per second.</param>
-        public static Frame FromSeconds(double seconds, double framerate)
-        {
-            return FromMilliseconds(seconds * 1000, framerate);
-        }
-
-        /// <summary>
-        /// Creates the <see cref="Frame"/> from minutes.
-        /// </summary>
-        /// <param name="minutes">A number of minutes.</param>
-        /// <param name="framerate">The number of frames per second.</param>
-        public static Frame FromMinutes(double minutes, double framerate)
-        {
-            return FromSeconds(minutes * 60, framerate);
-        }
-
-        /// <summary>
-        /// Creates the <see cref="Frame"/> from hours.
-        /// </summary>
-        /// <param name="hours">A number of hours.</param>
-        /// <param name="framerate">The number of frames per second.</param>
-        public static Frame FromHours(double hours, double framerate)
-        {
-            return FromMinutes(hours * 60, framerate);
-        }
-
-        /// <summary>
-        /// Creates the <see cref="Frame"/> from <see cref="TimeSpan"/>.
-        /// </summary>
-        /// <param name="timeSpan">The <see cref="TimeSpan"/> representing the frame number.</param>
-        /// <param name="framerate">The number of frames per second.</param>
-        public static Frame FromTimeSpan(TimeSpan timeSpan, double framerate)
-        {
-            return FromMilliseconds(timeSpan.TotalMilliseconds, framerate);
-        }
-
-        /// <inheritdoc/>
-        public override readonly bool Equals(object? obj)
-        {
-            return obj is Frame frame && Equals(frame);
-        }
-
-        /// <inheritdoc/>
-        public readonly bool Equals(Frame other)
-        {
-            return Value == other.Value;
-        }
-
-        /// <inheritdoc/>
-        public override readonly int GetHashCode()
-        {
-            return HashCode.Combine(Value);
-        }
-
-        /// <inheritdoc/>
-        public void GetObjectData(SerializationInfo info, StreamingContext context)
-        {
-            info.AddValue(nameof(Value), Value);
+            return new(value);
         }
 
         /// <summary>
@@ -275,21 +181,132 @@ namespace BEditor.Media
         }
 
         /// <summary>
-        /// Converts the <see cref="Frame"/> to a 32-bit signed integer.
+        /// Creates the <see cref="Frame"/> from milliseconds.
         /// </summary>
-        /// <param name="frame">A frame.</param>
-        public static implicit operator int(Frame frame)
+        /// <param name="milliseconds">A number of milliseconds.</param>
+        /// <param name="framerate">The number of frames per second.</param>
+        /// <returns>An object that represents value.</returns>
+        public static Frame FromMilliseconds(double milliseconds, double framerate)
         {
-            return frame.Value;
+            return new((int)(milliseconds * framerate / 1000));
         }
 
         /// <summary>
-        /// Converts the 32-bit signed integer to a <see cref="Frame"/>.
+        /// Creates the <see cref="Frame"/> from seconds.
         /// </summary>
-        /// <param name="value">A 32-bit signed integer.</param>
-        public static implicit operator Frame(int value)
+        /// <param name="seconds">A number of seconds.</param>
+        /// <param name="framerate">The number of frames per second.</param>
+        /// <returns>An object that represents value.</returns>
+        public static Frame FromSeconds(double seconds, double framerate)
         {
-            return new(value);
+            return FromMilliseconds(seconds * 1000, framerate);
+        }
+
+        /// <summary>
+        /// Creates the <see cref="Frame"/> from minutes.
+        /// </summary>
+        /// <param name="minutes">A number of minutes.</param>
+        /// <param name="framerate">The number of frames per second.</param>
+        /// <returns>An object that represents value.</returns>
+        public static Frame FromMinutes(double minutes, double framerate)
+        {
+            return FromSeconds(minutes * 60, framerate);
+        }
+
+        /// <summary>
+        /// Creates the <see cref="Frame"/> from hours.
+        /// </summary>
+        /// <param name="hours">A number of hours.</param>
+        /// <param name="framerate">The number of frames per second.</param>
+        /// <returns>An object that represents value.</returns>
+        public static Frame FromHours(double hours, double framerate)
+        {
+            return FromMinutes(hours * 60, framerate);
+        }
+
+        /// <summary>
+        /// Creates the <see cref="Frame"/> from <see cref="TimeSpan"/>.
+        /// </summary>
+        /// <param name="timeSpan">The <see cref="TimeSpan"/> representing the frame number.</param>
+        /// <param name="framerate">The number of frames per second.</param>
+        /// <returns>An object that represents value.</returns>
+        public static Frame FromTimeSpan(TimeSpan timeSpan, double framerate)
+        {
+            return FromMilliseconds(timeSpan.TotalMilliseconds, framerate);
+        }
+
+        /// <summary>
+        /// Converts this <see cref="Frame"/> to a <see cref="TimeSpan"/>.
+        /// </summary>
+        /// <param name="framerate">The number of frames per second.</param>
+        /// <returns>An object that represents value.</returns>
+        public TimeSpan ToTimeSpan(double framerate)
+        {
+            return TimeSpan.FromMilliseconds(ToMilliseconds(framerate));
+        }
+
+        /// <summary>
+        /// Converts this <see cref="Frame"/> to milliseconds.
+        /// </summary>
+        /// <param name="framerate">The number of frames per second.</param>
+        /// <returns>An object that represents value.</returns>
+        public double ToMilliseconds(double framerate)
+        {
+            return Value / framerate * 1000;
+        }
+
+        /// <summary>
+        /// Converts this <see cref="Frame"/> to seconds.
+        /// </summary>
+        /// <param name="framerate">The number of frames per second.</param>
+        /// <returns>An object that represents value.</returns>
+        public double ToSeconds(double framerate)
+        {
+            return ToMilliseconds(framerate) / 1000;
+        }
+
+        /// <summary>
+        /// Converts this <see cref="Frame"/> to minutes.
+        /// </summary>
+        /// <param name="framerate">The number of frames per second.</param>
+        /// <returns>An object that represents value.</returns>
+        public double ToMinutes(double framerate)
+        {
+            return ToSeconds(framerate) * 60;
+        }
+
+        /// <summary>
+        /// Converts this <see cref="Frame"/> to hours.
+        /// </summary>
+        /// <param name="framerate">The number of frames per second.</param>
+        /// <returns>An object that represents value.</returns>
+        public double ToHours(double framerate)
+        {
+            return ToMinutes(framerate) * 60;
+        }
+
+        /// <inheritdoc/>
+        public override readonly bool Equals(object? obj)
+        {
+            return obj is Frame frame && Equals(frame);
+        }
+
+        /// <inheritdoc/>
+        public readonly bool Equals(Frame other)
+        {
+            return Value == other.Value;
+        }
+
+        /// <inheritdoc/>
+        public override readonly int GetHashCode()
+        {
+            return HashCode.Combine(Value);
+        }
+
+        /// <inheritdoc/>
+        public void GetObjectData(SerializationInfo info, StreamingContext context)
+        {
+            info.AddValue(nameof(Value), Value);
         }
     }
 }

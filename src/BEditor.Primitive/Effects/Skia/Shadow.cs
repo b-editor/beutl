@@ -1,4 +1,11 @@
-﻿using System.Collections.Generic;
+﻿// Shadow.cs
+//
+// Copyright (C) BEditor
+//
+// This software may be modified and distributed under the terms
+// of the MIT license. See the LICENSE file for details.
+
+using System.Collections.Generic;
 using System.Diagnostics.CodeAnalysis;
 
 using BEditor.Data;
@@ -58,7 +65,7 @@ namespace BEditor.Primitive.Effects
             nameof(Color),
             owner => owner.Color,
             (owner, obj) => owner.Color = obj,
-            EditingPropertyOptions<ColorProperty>.Create(new ColorPropertyMetadata(Strings.Color, Drawing.Color.Dark)).Serialize());
+            EditingPropertyOptions<ColorProperty>.Create(new ColorPropertyMetadata(Strings.Color, Colors.Black)).Serialize());
 
         /// <summary>
         /// Initializes a new instance of the <see cref="Shadow"/> class.
