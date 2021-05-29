@@ -9,8 +9,6 @@ using System;
 using System.Collections.Generic;
 using System.Diagnostics.Contracts;
 
-using BEditor.Command;
-
 namespace BEditor.Data
 {
     /// <summary>
@@ -18,25 +16,6 @@ namespace BEditor.Data
     /// </summary>
     public static class DataExtensions
     {
-        /// <summary>
-        /// Execute IRecordCommand.
-        /// </summary>
-        /// <param name="command">The command to execute.</param>
-        public static void Execute(this IRecordCommand command)
-        {
-            CommandManager.Default.Do(command);
-        }
-
-        /// <summary>
-        /// Execute IRecordCommand with CommandManager specified.
-        /// </summary>
-        /// <param name="command">The command to execute.</param>
-        /// <param name="manager">The command manager for executing commands.</param>
-        public static void Execute(this IRecordCommand command, CommandManager manager)
-        {
-            manager.Do(command);
-        }
-
         /// <summary>
         /// Gets the parent element.
         /// </summary>

@@ -11,7 +11,6 @@ using System.Linq;
 using System.Text.Json;
 
 using BEditor.Data.Internals;
-using BEditor.Data.Property;
 using BEditor.Resources;
 
 using Microsoft.Extensions.DependencyInjection;
@@ -205,11 +204,6 @@ namespace BEditor.Data
                         child.ClearDisposable();
                     }
                 }
-
-                if (@object is IKeyframeProperty property)
-                {
-                    property.EasingType?.ClearDisposable();
-                }
             }
 
             foreach (var value in Values.Where(i => i.Key.IsDisposable).ToArray())
@@ -231,7 +225,7 @@ namespace BEditor.Data
                 ServiceProvider = obj1.Parent?.ServiceProvider;
             }
 
-            if (this is IChild<IApplication> child_app)
+            if (this is IChild<ITopLevel> child_app)
             {
                 ServiceProvider = child_app.Parent?.Services.BuildServiceProvider();
             }
@@ -242,10 +236,9 @@ namespace BEditor.Data
             {
                 foreach (var prop in EditingPropertyRegistry.GetProperties(OwnerType))
                 {
-                    var value = this[prop];
-                    if (value is PropertyElement p && prop.Initializer is PropertyElementMetadata pmeta)
+                    if (prop.Initializer is not null && this[prop] is IHasMetadata value)
                     {
-                        p.PropertyMetadata = pmeta;
+                        value.Metadata ??= prop.Initializer;
                     }
                 }
 

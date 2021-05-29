@@ -675,4 +675,7 @@ IdにはGUID, UUIDが使えます。</value>
   <data name="AlreadyCancelled" xml:space="preserve">
     <value>すでにキャンセルされています。</value>
   </data>
+  <data name="UpdateNote" xml:space="preserve">
+    <value>更新ノート</value>
+  </data>
 </root>

@@ -10,15 +10,12 @@ using System.Threading;
 
 using BEditor.Data;
 
-using Microsoft.Extensions.DependencyInjection;
-using Microsoft.Extensions.Logging;
-
 namespace BEditor
 {
     /// <summary>
     /// Represents an application.
     /// </summary>
-    public interface IApplication : IParentSingle<Project?>
+    public interface IApplication : IParentSingle<Project?>, ITopLevel
     {
         /// <summary>
         /// Occurs when the project is opened.
@@ -29,16 +26,6 @@ namespace BEditor
         /// Gets or sets the status of an application.
         /// </summary>
         public Status AppStatus { get; set; }
-
-        /// <summary>
-        /// Gets the <see cref="IServiceCollection"/>.
-        /// </summary>
-        public IServiceCollection Services { get; }
-
-        /// <summary>
-        /// Gets the <see cref="ILoggerFactory"/>.
-        /// </summary>
-        public ILoggerFactory LoggingFactory { get; }
 
         /// <summary>
         /// Gets the <see cref="SynchronizationContext"/>.

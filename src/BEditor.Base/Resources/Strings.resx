@@ -1,0 +1,265 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<root>
+  <!-- 
+		Microsoft ResX Schema
+
+		Version 1.3
+
+		The primary goals of this format is to allow a simple XML format 
+		that is mostly human readable. The generation and parsing of the 
+		various data types are done through the TypeConverter classes 
+		associated with the data types.
+
+		Example:
+
+		... ado.net/XML headers & schema ...
+		<resheader name="resmimetype">text/microsoft-resx</resheader>
+		<resheader name="version">1.3</resheader>
+		<resheader name="reader">System.Resources.ResXResourceReader, System.Windows.Forms, ...</resheader>
+		<resheader name="writer">System.Resources.ResXResourceWriter, System.Windows.Forms, ...</resheader>
+		<data name="Name1">this is my long string</data>
+		<data name="Color1" type="System.Drawing.Color, System.Drawing">Blue</data>
+		<data name="Bitmap1" mimetype="application/x-microsoft.net.object.binary.base64">
+			[base64 mime encoded serialized .NET Framework object]
+		</data>
+		<data name="Icon1" type="System.Drawing.Icon, System.Drawing" mimetype="application/x-microsoft.net.object.bytearray.base64">
+			[base64 mime encoded string representing a byte array form of the .NET Framework object]
+		</data>
+
+		There are any number of "resheader" rows that contain simple 
+		name/value pairs.
+
+		Each data row contains a name, and value. The row also contains a 
+		type or mimetype. Type corresponds to a .NET class that support 
+		text/value conversion through the TypeConverter architecture. 
+		Classes that don't support this are serialized and stored with the 
+		mimetype set.
+
+		The mimetype is used for serialized objects, and tells the 
+		ResXResourceReader how to depersist the object. This is currently not 
+		extensible. For a given mimetype the value must be set accordingly:
+
+		Note - application/x-microsoft.net.object.binary.base64 is the format 
+		that the ResXResourceWriter will generate, however the reader can 
+		read any of the formats listed below.
+
+		mimetype: application/x-microsoft.net.object.binary.base64
+		value   : The object must be serialized with 
+			: System.Serialization.Formatters.Binary.BinaryFormatter
+			: and then encoded with base64 encoding.
+
+		mimetype: application/x-microsoft.net.object.soap.base64
+		value   : The object must be serialized with 
+			: System.Runtime.Serialization.Formatters.Soap.SoapFormatter
+			: and then encoded with base64 encoding.
+
+		mimetype: application/x-microsoft.net.object.bytearray.base64
+		value   : The object must be serialized into a byte array 
+			: using a System.ComponentModel.TypeConverter
+			: and then encoded with base64 encoding.
+	-->
+  <xsd:schema id="root" xmlns="" xmlns:xsd="http://www.w3.org/2001/XMLSchema" xmlns:msdata="urn:schemas-microsoft-com:xml-msdata">
+    <xsd:element name="root" msdata:IsDataSet="true">
+      <xsd:complexType>
+        <xsd:choice maxOccurs="unbounded">
+          <xsd:element name="data">
+            <xsd:complexType>
+              <xsd:sequence>
+                <xsd:element name="value" type="xsd:string" minOccurs="0" msdata:Ordinal="1" />
+                <xsd:element name="comment" type="xsd:string" minOccurs="0" msdata:Ordinal="2" />
+              </xsd:sequence>
+              <xsd:attribute name="name" type="xsd:string" msdata:Ordinal="1" />
+              <xsd:attribute name="type" type="xsd:string" msdata:Ordinal="3" />
+              <xsd:attribute name="mimetype" type="xsd:string" msdata:Ordinal="4" />
+            </xsd:complexType>
+          </xsd:element>
+          <xsd:element name="resheader">
+            <xsd:complexType>
+              <xsd:sequence>
+                <xsd:element name="value" type="xsd:string" minOccurs="0" msdata:Ordinal="1" />
+              </xsd:sequence>
+              <xsd:attribute name="name" type="xsd:string" use="required" />
+            </xsd:complexType>
+          </xsd:element>
+        </xsd:choice>
+      </xsd:complexType>
+    </xsd:element>
+  </xsd:schema>
+  <resheader name="resmimetype">
+    <value>text/microsoft-resx</value>
+  </resheader>
+  <resheader name="version">
+    <value>1.3</value>
+  </resheader>
+  <resheader name="reader">
+    <value>System.Resources.ResXResourceReader, System.Windows.Forms, Version=2.0.3500.0, Culture=neutral, PublicKeyToken=b77a5c561934e089</value>
+  </resheader>
+  <resheader name="writer">
+    <value>System.Resources.ResXResourceWriter, System.Windows.Forms, Version=2.0.3500.0, Culture=neutral, PublicKeyToken=b77a5c561934e089</value>
+  </resheader>
+  <data name="UnknownCommand" xml:space="preserve">
+    <value>Unknown command</value>
+  </data>
+  <data name="FailedToLoad" xml:space="preserve">
+    <value>{0} failed to load.</value>
+  </data>
+  <data name="Z" xml:space="preserve">
+    <value>Z</value>
+  </data>
+  <data name="Y" xml:space="preserve">
+    <value>Y</value>
+  </data>
+  <data name="X" xml:space="preserve">
+    <value>X</value>
+  </data>
+  <data name="Shininess" xml:space="preserve">
+    <value>Shininess</value>
+  </data>
+  <data name="Specular" xml:space="preserve">
+    <value>Specular</value>
+  </data>
+  <data name="Diffuse" xml:space="preserve">
+    <value>Diffuse</value>
+  </data>
+  <data name="Ambient" xml:space="preserve">
+    <value>Ambient</value>
+  </data>
+  <data name="CenterZ" xml:space="preserve">
+    <value>Center z</value>
+  </data>
+  <data name="CenterX" xml:space="preserve">
+    <value>Center x</value>
+  </data>
+  <data name="CenterY" xml:space="preserve">
+    <value>Center y</value>
+  </data>
+  <data name="Blend" xml:space="preserve">
+    <value>Blend</value>
+  </data>
+  <data name="Color" xml:space="preserve">
+    <value>Color</value>
+  </data>
+  <data name="Opacity" xml:space="preserve">
+    <value>Opacity</value>
+  </data>
+  <data name="Coordinate" xml:space="preserve">
+    <value>Coordinate</value>
+  </data>
+  <data name="Scale" xml:space="preserve">
+    <value>Scale</value>
+  </data>
+  <data name="Rotate" xml:space="preserve">
+    <value>Rotate</value>
+  </data>
+  <data name="Material" xml:space="preserve">
+    <value>Material</value>
+  </data>
+  <data name="RotateX" xml:space="preserve">
+    <value>Rotate x</value>
+  </data>
+  <data name="RotateY" xml:space="preserve">
+    <value>Rotate y</value>
+  </data>
+  <data name="RotateZ" xml:space="preserve">
+    <value>Rotate z</value>
+  </data>
+  <data name="Font" xml:space="preserve">
+    <value>Font</value>
+  </data>
+  <data name="ProjectFile" xml:space="preserve">
+    <value>Project file</value>
+  </data>
+  <data name="ChildElementsNotFound" xml:space="preserve">
+    <value>Child elements not found.</value>
+  </data>
+  <data name="FailedToConvertValue" xml:space="preserve">
+    <value>Failed to convert value.</value>
+  </data>
+  <data name="KeyHasAlreadyBeenRegisterd" xml:space="preserve">
+    <value>This key has already been registered.</value>
+  </data>
+  <data name="ParentElementNotFound" xml:space="preserve">
+    <value>Parent element not found.</value>
+  </data>
+  <data name="TheValueWasNotTypeButType" xml:space="preserve">
+    <value>The value was not {0} type, but {1} type.</value>
+  </data>
+  <data name="AddClip" xml:space="preserve">
+    <value>Add a new clip</value>
+  </data>
+  <data name="AddEffect" xml:space="preserve">
+    <value>Add a new effect</value>
+  </data>
+  <data name="AddKeyframe" xml:space="preserve">
+    <value>Add a keyframe</value>
+  </data>
+  <data name="BindCommand" xml:space="preserve">
+    <value>Bind the value of the property</value>
+  </data>
+  <data name="ChangeColor" xml:space="preserve">
+    <value>Change color</value>
+  </data>
+  <data name="ChangeEasing" xml:space="preserve">
+    <value>Change easing</value>
+  </data>
+  <data name="ChangeFile" xml:space="preserve">
+    <value>Change file</value>
+  </data>
+  <data name="ChangeFolder" xml:space="preserve">
+    <value>Change folder</value>
+  </data>
+  <data name="ChangeFont" xml:space="preserve">
+    <value>Change font</value>
+  </data>
+  <data name="ChangeIsChecked" xml:space="preserve">
+    <value>Change the state of the checkbox</value>
+  </data>
+  <data name="ChangeLength" xml:space="preserve">
+    <value>Change length</value>
+  </data>
+  <data name="ChangeSelectItem" xml:space="preserve">
+    <value>Change selected item</value>
+  </data>
+  <data name="ChangeText" xml:space="preserve">
+    <value>Change text</value>
+  </data>
+  <data name="ChangeValue" xml:space="preserve">
+    <value>Change value</value>
+  </data>
+  <data name="Disconnect" xml:space="preserve">
+    <value>Disconnect property value</value>
+  </data>
+  <data name="DownEffect" xml:space="preserve">
+    <value>Change the order of the effects (below)</value>
+  </data>
+  <data name="EnableDisableEffect" xml:space="preserve">
+    <value>Enable/Disable effects</value>
+  </data>
+  <data name="MoveClip" xml:space="preserve">
+    <value>Move clip</value>
+  </data>
+  <data name="MoveKeyframe" xml:space="preserve">
+    <value>Move keyframe</value>
+  </data>
+  <data name="RemoveClip" xml:space="preserve">
+    <value>Remove clip</value>
+  </data>
+  <data name="RemoveEffect" xml:space="preserve">
+    <value>Remove effect</value>
+  </data>
+  <data name="RemoveKeyframe" xml:space="preserve">
+    <value>Remove keyframe</value>
+  </data>
+  <data name="RemoveLayer" xml:space="preserve">
+    <value>Remove layer</value>
+  </data>
+  <data name="SplitClip" xml:space="preserve">
+    <value>Split a clip</value>
+  </data>
+  <data name="UpEffect" xml:space="preserve">
+    <value>Change the order of the effects (top)</value>
+  </data>
+  <data name="TheOwnerTypeDoesNotMatch" xml:space="preserve">
+    <value>The type of the owner of the property does not match the type of this object.</value>
+  </data>
+</root>

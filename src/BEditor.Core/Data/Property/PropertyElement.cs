@@ -12,7 +12,7 @@ namespace BEditor.Data.Property
     /// <summary>
     /// Represents a property used by <see cref="EffectElement"/>.
     /// </summary>
-    public class PropertyElement : EditingObject, IPropertyElement
+    public class PropertyElement : EditingObject, IPropertyElement, IHasMetadata
     {
         private static readonly PropertyChangedEventArgs _metadataArgs = new(nameof(PropertyMetadata));
         private PropertyElementMetadata? _propertyMetadata;
@@ -29,6 +29,13 @@ namespace BEditor.Data.Property
         {
             get => _propertyMetadata;
             set => SetValue(value, ref _propertyMetadata, _metadataArgs);
+        }
+
+        /// <inheritdoc/>
+        object? IHasMetadata.Metadata
+        {
+            get => PropertyMetadata;
+            set => PropertyMetadata ??= value as PropertyElementMetadata;
         }
     }
 }

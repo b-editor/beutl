@@ -9,11 +9,7 @@
   <Import Project="..\..\props\analyzer.props" />
 
   <ItemGroup>
-    <PackageReference Include="Microsoft.Extensions.DependencyInjection" Version="5.0.1" />
-    <PackageReference Include="System.Reactive" Version="5.0.0" />
-  </ItemGroup>
-
-  <ItemGroup>
+    <ProjectReference Include="..\BEditor.Base\BEditor.Base.csproj" />
     <ProjectReference Include="..\BEditor.Graphics\BEditor.Graphics.csproj" />
     <ProjectReference Include="..\BEditor.Drawing\BEditor.Drawing.csproj" />
     <ProjectReference Include="..\BEditor.Media\BEditor.Media.csproj" />
