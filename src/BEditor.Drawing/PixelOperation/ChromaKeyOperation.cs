@@ -45,7 +45,7 @@ namespace BEditor.Drawing
                 PixelOperate(image.Data.Length, new ChromaKeyOperation(s, s, value));
             }
         }
-}
+    }
 }
 
 namespace BEditor.Drawing.PixelOperation
